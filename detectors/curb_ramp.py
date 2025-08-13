@@ -1,6 +1,5 @@
 import torch
 from transformers import AutoModel
-from PIL import Image
 import numpy as np
 from torchvision import transforms
 from skimage.feature import peak_local_max
