@@ -17,7 +17,7 @@ from tqdm import tqdm
 import cv2
 from PIL import Image
 
-from panorama import Panorama
+from panorama import fetch_panorama
 from detectors.curb_ramp import CurbRampDetector
 
 # --- Configuration ---
@@ -68,8 +68,7 @@ def process_pano(pano_id, lat, lon):
     Designed to be run concurrently in a gevent pool.
     """
     try:
-        pano_obj = Panorama(pano_id)
-        equi = pano_obj.get_equi()
+        equi = fetch_panorama(pano_id)
         if equi is None:
             return {'status': 'failure', 'pano_id': pano_id, 'reason': 'Failed to download equirectangular image'}
 

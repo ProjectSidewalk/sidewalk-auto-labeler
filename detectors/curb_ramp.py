@@ -23,7 +23,7 @@ class CurbRampDetector:
         with torch.no_grad():
             heatmap = self.model(img_tensor).squeeze().cpu().numpy()
 
-        peaks = peak_local_max(np.clip(heatmap, 0, 1), min_distance=10, threshold_abs=0.5)
+        peaks = peak_local_max(np.clip(heatmap, 0, 1), min_distance=10, threshold_abs=0.55)
         scale_w = pil_image.width / heatmap.shape[1]
         scale_h = pil_image.height / heatmap.shape[0]
         # coordinates = [(int(c * scale_w), int(r * scale_h)) for r, c in peaks]

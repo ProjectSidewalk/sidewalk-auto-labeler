@@ -1,134 +1,106 @@
 import requests
+from requests.adapters import HTTPAdapter
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
 from PIL import Image
 import cv2
 
-class Panorama:
-    def __init__(self, pano_id):
-        self.pano_id = pano_id
-        self.panorama_image = None
-        self.zoom = None
-        self._fetch_panorama()
+def fetch_panorama(pano_id):
+    def _fetch_tile(x, y, zoom=3):
+        url = f"https://streetviewpixels-pa.googleapis.com/v1/tile?cb_client=maps_sv.tactile&panoid={pano_id}&x={x}&y={y}&zoom={zoom}"
+        try:
+            s = requests.Session()
+            s.mount("https://", HTTPAdapter(max_retries=1))
+            response = s.get(url, timeout=20)
+            if response.status_code == 200:
+                return x, y, Image.open(io.BytesIO(response.content))
+            return x, y, None
+        except Exception as e:
+            print(f"Error fetching tile for pano {pano_id}, x={x}, y={y}: {e}")
+            return x, y, None
 
-    def _is_black_tile(self, tile):
+    def _is_black_tile(tile):
         if tile is None:
             return True
         tile_array = np.array(tile)
         return np.all(tile_array == 0)
 
-    def _fetch_tile(self, x, y, zoom=4):
-        if self.zoom != None:
-            zoom = self.zoom
-        
-        url = (
-            f"https://streetviewpixels-pa.googleapis.com/v1/tile"
-            f"?cb_client=maps_sv.tactile&panoid={self.pano_id}"
-            f"&x={x}&y={y}&zoom={zoom}"
-        )
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                tile = Image.open(io.BytesIO(response.content))
-                if self.zoom != None or not self._is_black_tile(tile):
-                    self.zoom = zoom
-                    return x, y, tile
-        except Exception as e:
-            print(e)
-
-        if self.zoom == None:
-            # Try fallback with zoom=3
-            fallback_url = (
-                f"https://streetviewpixels-pa.googleapis.com/v1/tile"
-                f"?cb_client=maps_sv.tactile&panoid={self.pano_id}"
-                f"&x={x}&y={y}&zoom=3"
-            )
-            try:
-                response = requests.get(fallback_url)
-                if response.status_code == 200:
-                    tile = Image.open(io.BytesIO(response.content))
-                    self.zoom = 3
-                    return x, y, tile
-            except Exception as e:
-                print(e)
-
-        return x, y, None
-
-    def _find_panorama_dimensions(self):
+    def _find_panorama_dimensions():
         tiles_cache = {}
-        x, y = 5, 2
-
+        x, y = 4, 1
         is_first = True
-
         while True:
-            tile = self._fetch_tile(x, y)[2]
+            tile_info = _fetch_tile(x, y)
+            if tile_info is None:
+                return None
+            tile = tile_info[2]
             if tile is None:
-                return None  # Invalid panorama
-
+                return None
             if is_first:
                 is_first = False
-                if self._is_black_tile(tile):
-                    return None  # Invalid panorama
-
+                if _is_black_tile(tile):
+                    return None
             tiles_cache[(x, y)] = tile
-
-            if self._is_black_tile(tile):
+            if _is_black_tile(tile):
                 y = y - 1
-
                 while True:
-                    tile = self._fetch_tile(x, y)[2]
+                    tile_info = _fetch_tile(x, y)
+                    if tile_info is None:
+                        return None
+                    tile = tile_info[2]
                     tiles_cache[(x, y)] = tile
-
-                    if self._is_black_tile(tile):
+                    if _is_black_tile(tile):
                         return x - 1, y, tiles_cache
-
                     x += 1
-
             x += 1
             y += 1
 
-    def _fetch_remaining_tiles(self, max_x, max_y, existing_tiles):
+    def _fetch_remaining_tiles(max_x, max_y, existing_tiles):
         tiles_cache = existing_tiles.copy()
-
-        with ThreadPoolExecutor(max_workers=100) as executor:
+        with ThreadPoolExecutor(max_workers=50) as executor:
             futures = []
             for x in range(max_x + 1):
                 for y in range(max_y + 1):
                     if (x, y) not in tiles_cache:
-                        futures.append(executor.submit(self._fetch_tile, x, y))
-
+                        futures.append(executor.submit(_fetch_tile, x, y))
             for future in as_completed(futures):
-                x, y, tile = future.result()
-                if tile is not None:
-                    tiles_cache[(x, y)] = tile
-
+                result = future.result()
+                if result is not None:
+                    x, y, tile = result
+                    if tile is not None:
+                        tiles_cache[(x, y)] = tile
         return tiles_cache
 
-    def _assemble_panorama(self, tiles, max_x, max_y):
+    def _assemble_panorama(tiles, max_x, max_y):
+        if not tiles:
+            return None
         tile_size = list(tiles.values())[0].size[0]
         panorama = Image.new('RGB', (tile_size * (max_x + 1), tile_size * (max_y + 1)))
-
         for (x, y), tile in tiles.items():
             panorama.paste(tile, (x * tile_size, y * tile_size))
-
         return panorama
 
-    def _crop(self, image):
-        y_nonzero, x_nonzero, _ = np.nonzero(image)
-        return image[np.min(y_nonzero):np.max(y_nonzero), np.min(x_nonzero):np.max(x_nonzero)]
+    def _crop(image):
+        img_array = np.array(image)
+        y_nonzero, x_nonzero, _ = np.nonzero(img_array)
+        if y_nonzero.size > 0 and x_nonzero.size > 0:
+            return img_array[np.min(y_nonzero):np.max(y_nonzero) + 1, np.min(x_nonzero):np.max(x_nonzero) + 1]
+        return img_array
 
-    def _fetch_panorama(self):
-        dimension_result = self._find_panorama_dimensions()
-        if dimension_result is None:
-            self.panorama_image = None
-            return
+    dimension_result = _find_panorama_dimensions()
+    if dimension_result is None:
+        return None
+    max_x, max_y, initial_tiles = dimension_result
+    full_tiles = _fetch_remaining_tiles(max_x, max_y, initial_tiles)
+    assembled_panorama = _assemble_panorama(full_tiles, max_x, max_y)
+    if assembled_panorama is None:
+        return None
+    cropped_panorama = _crop(assembled_panorama)
+    height, width = cropped_panorama.shape[:2]
 
-        max_x, max_y, initial_tiles = dimension_result
-        full_tiles = self._fetch_remaining_tiles(max_x, max_y, initial_tiles)
-        result = cv2.cvtColor(np.array(self._assemble_panorama(full_tiles, max_x, max_y)), cv2.COLOR_RGB2BGR)
-        self.panorama_image = cv2.resize(self._crop(result), (8192, 4096), 
-               interpolation = cv2.INTER_LINEAR)
-
-    def get_equi(self):
-        return self.panorama_image
+    max_width = height * 2
+    cropped_panorama = cropped_panorama[:, :max_width]
+    
+    resized = cv2.resize(cropped_panorama, (4096, 2048), interpolation=cv2.INTER_LINEAR)
+    return cv2.cvtColor(resized, cv2.COLOR_RGB2BGR)
