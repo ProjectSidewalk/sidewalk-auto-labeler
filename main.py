@@ -4,12 +4,13 @@ from gevent.pool import Pool
 
 import argparse
 import math
-import geojson
 import hashlib
 import json
 import traceback
 import os
+from pathlib import Path
 
+import geojson
 from streetlevel import streetview
 from shapely.geometry import shape, Point
 from tqdm import tqdm
@@ -19,8 +20,12 @@ from PIL import Image
 from panorama import Panorama
 from detectors.curb_ramp import CurbRampDetector
 
+# --- Configuration ---
+# Concurrency for finding panorama IDs in coverage tiles. This is I/O bound.
+COVERAGE_API_CONCURRENCY = 100
+# Concurrency for downloading and processing panoramas. Set to 20 as requested.
+PROCESSING_CONCURRENCY = 50
 COVERAGE_TILE_ZOOM = 17
-CONCURRENCY_LEVEL = 100
 
 
 def latlon_to_tile(lat_deg, lon_deg, zoom):
@@ -48,55 +53,65 @@ def load_processed_ids(cache_file_path):
 def fetch_panos_for_tile(tile_x, tile_y, area_shape):
     """
     Worker function for a single tile. Fetches panos and filters them.
-    Designed to be run concurrently in a gevent pool.
+    Returns a dictionary of {pano_id: (lat, lon)} for valid panos.
     """
     try:
         panos_in_tile = streetview.get_coverage_tile(tile_x, tile_y)
-        
-        valid_panos = set()
-        for pano in panos_in_tile:
-            if Point(pano.lon, pano.lat).within(area_shape):
-                valid_panos.add(pano.id)
+        valid_panos = {p.id: (p.lat, p.lon) for p in panos_in_tile if Point(p.lon, p.lat).within(area_shape)}
         return valid_panos
     except Exception:
-        return set()
+        return {}
 
-def process_pano(pano_id):
-    print(f"  -> Processing {pano_id}...")
+def process_pano(pano_id, lat, lon):
+    """
+    Downloads, runs detection on, and returns results for a single panorama.
+    Designed to be run concurrently in a gevent pool.
+    """
     try:
-        equi = Panorama(pano_id).get_equi()
+        pano_obj = Panorama(pano_id)
+        equi = pano_obj.get_equi()
         if equi is None:
-            return False
-        equi = cv2.cvtColor(equi, cv2.COLOR_BGR2RGB)
-        equi = Image.fromarray(equi)
+            return {'status': 'failure', 'pano_id': pano_id, 'reason': 'Failed to download equirectangular image'}
 
-        print(curb_ramp_detector.detect(equi))
-        print(f"  ✅ Successfully processed {pano_id}")
-        return True
-    except:
-        traceback.print_exc()
-        return False
+        equi_rgb = cv2.cvtColor(equi, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(equi_rgb)
+
+        # The detector returns the list of center points: [[x, y], ...] or an empty list [].
+        center_points = curb_ramp_detector.detect(pil_image)
+        
+        return {
+            'status': 'success', 
+            'pano_id': pano_id, 
+            'lat': float(lat), 
+            'lon': float(lon), 
+            'detections': center_points
+        }
+    except Exception as e:
+        return {'status': 'failure', 'pano_id': pano_id, 'reason': str(e)}
 
 def run_labeler(geojson_path):
     """
     Finds and processes all GSV panoramas within a GeoJSON area,
-    using a cache to skip already processed panoramas.
+    outputting results to a .jsonl file and using a cache.
     """
     print("--- Sidewalk Auto-Labeler ---")
     
-    # 1. Load GeoJSON and set up cache
+    # 1. Load GeoJSON and set up cache and output paths
     print(f"-> Loading GeoJSON from {geojson_path}...")
     with open(geojson_path, 'r') as f:
         geojson_data = geojson.load(f)
     
     area_hash = get_geojson_hash(geojson_data)
-    cache_dir = os.path.join("cache", area_hash)
-    cache_file = os.path.join(cache_dir, "already_processed.txt")
     
-    print(f"-> Area hash: {area_hash[:12]}...")
-    print(f"-> Cache file: {cache_file}")
+    output_jsonl_file = Path(f"{os.path.split(geojson_path)[1]}.jsonl")
+    cache_dir = Path("cache") / area_hash
+    cache_file = cache_dir / "already_processed.txt"
+    
+    print(f"-> Area hash: {area_hash}")
+    print(f"-> Output file: {output_jsonl_file}")
+    print(f"-> Cache file:  {cache_file}")
 
-    os.makedirs(cache_dir, exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
     processed_ids = load_processed_ids(cache_file)
     print(f"-> Found {len(processed_ids)} already processed panoramas in cache.")
 
@@ -108,64 +123,81 @@ def run_labeler(geojson_path):
     top_left_x, top_left_y = latlon_to_tile(max_lat, min_lon, COVERAGE_TILE_ZOOM)
     bottom_right_x, bottom_right_y = latlon_to_tile(min_lat, max_lon, COVERAGE_TILE_ZOOM)
     
-    # Create a list of all tile coordinates to scan
     tiles_to_scan = [(x, y) for x in range(top_left_x, bottom_right_x + 1) for y in range(top_left_y, bottom_right_y + 1)]
     
-    print(f"-> Scanning {len(tiles_to_scan)} coverage tiles using {CONCURRENCY_LEVEL} concurrent workers...")
+    print(f"-> Scanning {len(tiles_to_scan)} coverage tiles using {COVERAGE_API_CONCURRENCY} concurrent workers...")
     
-    # Setup the gevent pool
-    pool = Pool(CONCURRENCY_LEVEL)
-    all_panos_in_area = set()
+    find_pool = Pool(COVERAGE_API_CONCURRENCY)
+    all_panos_in_area = {}
     
-    # Create argument list for the worker function
     tasks = [(x, y, area_shape) for x, y in tiles_to_scan]
 
-    # Use pool.imap_unordered for efficient processing with a progress bar
-    # It yields results as they complete, not in the original order.
-    with tqdm(total=len(tiles_to_scan), desc="Finding Panoramas (Concurrent)") as pbar:
-        # Using a wrapper function to unpack arguments for imap
-        def worker_wrapper(args):
-            return fetch_panos_for_tile(*args)
-
-        for pano_id_set in pool.imap_unordered(worker_wrapper, tasks):
-            all_panos_in_area.update(pano_id_set)
+    with tqdm(total=len(tasks), desc="Finding Panoramas") as pbar:
+        def find_worker_wrapper(args): return fetch_panos_for_tile(*args)
+        for pano_dict in find_pool.imap_unordered(find_worker_wrapper, tasks):
+            all_panos_in_area.update(pano_dict)
             pbar.update(1)
 
-    # 3. Determine which panoramas to process and run the loop
-    panos_to_process = sorted(list(all_panos_in_area - processed_ids))
+    # 3. Determine which panoramas to process
+    panos_to_process_ids = sorted(list(set(all_panos_in_area.keys()) - processed_ids))
     
     print("\n--- Processing Summary ---")
     print(f"Total panoramas found in area: {len(all_panos_in_area)}")
     print(f"Already processed (skipped):   {len(processed_ids)}")
-    print(f"New panoramas to process:      {len(panos_to_process)}")
+    print(f"New panoramas to process:      {len(panos_to_process_ids)}")
     print("--------------------------\n")
 
-    if not panos_to_process:
+    if not panos_to_process_ids:
         print("🎉 No new panoramas to process. All done!")
         return
 
-    success_count = 0
-    fail_count = 0
+    # 4. Process new panoramas (CONCURRENTLY)
+    success_count, fail_count = 0, 0
     
-    with open(cache_file, 'a') as f_cache:
-        for pano_id in tqdm(panos_to_process, desc="Processing New Panoramas"):
-            if process_pano(pano_id):
-                f_cache.write(f"{pano_id}\n")
-                f_cache.flush()
-                success_count += 1
-            else:
-                print(f"  ❌ Failed to process {pano_id}. Will retry on next run.")
-                fail_count += 1
+    process_pool = Pool(PROCESSING_CONCURRENCY)
+    processing_tasks = [
+        (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1]) 
+        for pid in panos_to_process_ids
+    ]
+    
+    with open(cache_file, 'a') as f_cache, \
+         open(output_jsonl_file, 'a') as f_jsonl:
+
+        def process_worker_wrapper(args): return process_pano(*args)
+
+        with tqdm(total=len(processing_tasks), desc="Processing New Panoramas") as pbar:
+            for result in process_pool.imap_unordered(process_worker_wrapper, processing_tasks):
+                if result['status'] == 'success':
+                    # ALWAYS write a line to the JSONL file for a successful process.
+                    # The 'detections' key will be an empty list [] if none were found.
+                    output_line = {
+                        "pano_id": result['pano_id'],
+                        "pano_lat": result['lat'],
+                        "pano_lon": result['lon'],
+                        "detections": result['detections']
+                    }
+                    f_jsonl.write(json.dumps(output_line) + '\n')
+                    f_jsonl.flush()
+                    
+                    # Mark successfully processed pano in the cache.
+                    f_cache.write(f"{result['pano_id']}\n")
+                    f_cache.flush()
+                    success_count += 1
+                else:
+                    print(f"  ❌ Failed to process {result['pano_id']}. Reason: {result.get('reason', 'Unknown')}. Will retry on next run.")
+                    fail_count += 1
+                pbar.update(1)
 
     print("\n--- Final Report ---")
     print(f"Successfully processed: {success_count}")
     print(f"Failed to process:      {fail_count}")
+    print(f"Results saved to: ./{output_jsonl_file}")
     print("----------------------")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Finds and processes all Google Street View panoramas within a GeoJSON area, skipping those already processed."
+        description="Finds and processes all GSV panoramas within a GeoJSON area, saving results to a .jsonl file."
     )
     parser.add_argument(
         "geojson_file", 
@@ -183,6 +215,7 @@ def main():
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()
