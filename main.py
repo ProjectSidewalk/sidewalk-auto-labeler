@@ -21,9 +21,7 @@ from panorama import fetch_panorama
 from detectors.curb_ramp import CurbRampDetector
 
 # --- Configuration ---
-# Concurrency for finding panorama IDs in coverage tiles. This is I/O bound.
 COVERAGE_API_CONCURRENCY = 100
-# Concurrency for downloading and processing panoramas. Set to 20 as requested.
 PROCESSING_CONCURRENCY = 50
 COVERAGE_TILE_ZOOM = 17
 
@@ -115,7 +113,7 @@ def run_labeler(geojson_path):
     processed_ids = load_processed_ids(cache_file)
     print(f"-> Found {len(processed_ids)} already processed panoramas in cache.")
 
-    # 2. Find all panorama IDs in the area (CONCURRENTLY)
+    # 2. Find all panorama IDs in the area
     # The geojson_data is the geometry object itself, which shapely can read directly.
     area_shape = shape(geojson_data)
     bounds = area_shape.bounds
@@ -152,7 +150,7 @@ def run_labeler(geojson_path):
         print("🎉 No new panoramas to process. All done!")
         return
 
-    # 4. Process new panoramas (CONCURRENTLY)
+    # 4. Process new panoramas
     success_count, fail_count = 0, 0
 
     process_pool = Pool(PROCESSING_CONCURRENCY)
