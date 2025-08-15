@@ -38,7 +38,8 @@ def latlon_to_tile(lat_deg, lon_deg, zoom):
 
 def get_geojson_hash(geojson_data):
     """Creates a stable SHA256 hash of the GeoJSON geometry."""
-    geometry = geojson_data['features'][0]['geometry']
+    # The root of the geojson is the geometry object itself.
+    geometry = geojson_data
     canonical_json = json.dumps(geometry, sort_keys=True, separators=(',', ':'))
     sha_hash = hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
     return sha_hash
@@ -77,12 +78,12 @@ def process_pano(pano_id, lat, lon):
 
         # The detector returns the list of center points: [[x, y], ...] or an empty list [].
         center_points = curb_ramp_detector.detect(pil_image)
-        
+
         return {
-            'status': 'success', 
-            'pano_id': pano_id, 
-            'lat': float(lat), 
-            'lon': float(lon), 
+            'status': 'success',
+            'pano_id': pano_id,
+            'lat': float(lat),
+            'lon': float(lon),
             'detections': center_points
         }
     except Exception as e:
@@ -94,18 +95,18 @@ def run_labeler(geojson_path):
     outputting results to a .jsonl file and using a cache.
     """
     print("--- Sidewalk Auto-Labeler ---")
-    
+
     # 1. Load GeoJSON and set up cache and output paths
     print(f"-> Loading GeoJSON from {geojson_path}...")
     with open(geojson_path, 'r') as f:
         geojson_data = geojson.load(f)
-    
+
     area_hash = get_geojson_hash(geojson_data)
-    
-    output_jsonl_file = Path(f"{os.path.split(geojson_path)[1]}.jsonl")
+
+    output_jsonl_file = Path(f"{os.path.splitext(os.path.basename(geojson_path))[0]}.jsonl")
     cache_dir = Path("cache") / area_hash
     cache_file = cache_dir / "already_processed.txt"
-    
+
     print(f"-> Area hash: {area_hash}")
     print(f"-> Output file: {output_jsonl_file}")
     print(f"-> Cache file:  {cache_file}")
@@ -115,20 +116,21 @@ def run_labeler(geojson_path):
     print(f"-> Found {len(processed_ids)} already processed panoramas in cache.")
 
     # 2. Find all panorama IDs in the area (CONCURRENTLY)
-    area_shape = shape(geojson_data['features'][0]['geometry'])
+    # The geojson_data is the geometry object itself, which shapely can read directly.
+    area_shape = shape(geojson_data)
     bounds = area_shape.bounds
     min_lon, min_lat, max_lon, max_lat = bounds
 
     top_left_x, top_left_y = latlon_to_tile(max_lat, min_lon, COVERAGE_TILE_ZOOM)
     bottom_right_x, bottom_right_y = latlon_to_tile(min_lat, max_lon, COVERAGE_TILE_ZOOM)
-    
+
     tiles_to_scan = [(x, y) for x in range(top_left_x, bottom_right_x + 1) for y in range(top_left_y, bottom_right_y + 1)]
-    
+
     print(f"-> Scanning {len(tiles_to_scan)} coverage tiles using {COVERAGE_API_CONCURRENCY} concurrent workers...")
-    
+
     find_pool = Pool(COVERAGE_API_CONCURRENCY)
     all_panos_in_area = {}
-    
+
     tasks = [(x, y, area_shape) for x, y in tiles_to_scan]
 
     with tqdm(total=len(tasks), desc="Finding Panoramas") as pbar:
@@ -139,7 +141,7 @@ def run_labeler(geojson_path):
 
     # 3. Determine which panoramas to process
     panos_to_process_ids = sorted(list(set(all_panos_in_area.keys()) - processed_ids))
-    
+
     print("\n--- Processing Summary ---")
     print(f"Total panoramas found in area: {len(all_panos_in_area)}")
     print(f"Already processed (skipped):   {len(processed_ids)}")
@@ -152,13 +154,13 @@ def run_labeler(geojson_path):
 
     # 4. Process new panoramas (CONCURRENTLY)
     success_count, fail_count = 0, 0
-    
+
     process_pool = Pool(PROCESSING_CONCURRENCY)
     processing_tasks = [
-        (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1]) 
+        (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1])
         for pid in panos_to_process_ids
     ]
-    
+
     with open(cache_file, 'a') as f_cache, \
          open(output_jsonl_file, 'a') as f_jsonl:
 
@@ -177,7 +179,7 @@ def run_labeler(geojson_path):
                     }
                     f_jsonl.write(json.dumps(output_line) + '\n')
                     f_jsonl.flush()
-                    
+
                     # Mark successfully processed pano in the cache.
                     f_cache.write(f"{result['pano_id']}\n")
                     f_cache.flush()
@@ -199,7 +201,7 @@ def main():
         description="Finds and processes all GSV panoramas within a GeoJSON area, saving results to a .jsonl file."
     )
     parser.add_argument(
-        "geojson_file", 
+        "geojson_file",
         help="Path to the GeoJSON file defining the area of interest."
     )
     args = parser.parse_args()
