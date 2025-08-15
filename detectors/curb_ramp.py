@@ -24,9 +24,6 @@ class CurbRampDetector:
             heatmap = self.model(img_tensor).squeeze().cpu().numpy()
 
         peaks = peak_local_max(np.clip(heatmap, 0, 1), min_distance=10, threshold_abs=0.55)
-        scale_w = pil_image.width / heatmap.shape[1]
-        scale_h = pil_image.height / heatmap.shape[0]
-        # coordinates = [(int(c * scale_w), int(r * scale_h)) for r, c in peaks]
-        coordinates = [(float(c), float(r)) for r, c in peaks]
+        coordinates = [(float(c / heatmap.shape[1]), float(r / heatmap.shape[0])) for r, c in peaks]
 
         return coordinates
