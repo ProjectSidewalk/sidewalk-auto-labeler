@@ -63,10 +63,16 @@ def fetch_panos_for_tile(tile_x, tile_y, area_shape):
 
 def process_pano(pano_id, lat, lon):
     """
-    Downloads, runs detection on, and returns results for a single panorama.
+    Downloads image and metadata, runs detection on, and returns results for a single panorama.
     Designed to be run concurrently in a gevent pool.
     """
     try:
+        # Get metadata. Skip if indoor panorama.
+        metadata = streetview.find_panorama_by_id(pano_id)
+        if metadata is None or metadata.source in ['innerspace', 'cultural_institute', 'photos:legacy_innerspace']:
+            return {'status': 'skipped', 'pano_id': pano_id, 'reason': 'Indoor panorama source'}
+
+        # Download the image.
         equi = fetch_panorama(pano_id)
         if equi is None:
             return {'status': 'failure', 'pano_id': pano_id, 'reason': 'Failed to download equirectangular image'}
@@ -74,15 +80,16 @@ def process_pano(pano_id, lat, lon):
         equi_rgb = cv2.cvtColor(equi, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(equi_rgb)
 
-        # The detector returns the list of center points: [[x, y], ...] or an empty list [].
-        center_points = curb_ramp_detector.detect(pil_image)
+        # The detector returns the list of center points and confidence: [[x, y, confidence], ...] or an empty list [].
+        detections = curb_ramp_detector.detect(pil_image)
 
         return {
             'status': 'success',
             'pano_id': pano_id,
             'lat': float(lat),
             'lon': float(lon),
-            'detections': center_points
+            'metadata': metadata,
+            'detections': detections
         }
     except Exception as e:
         return {'status': 'failure', 'pano_id': pano_id, 'reason': str(e)}
@@ -173,7 +180,28 @@ def run_labeler(geojson_path):
                         "pano_id": result['pano_id'],
                         "pano_lat": result['lat'],
                         "pano_lon": result['lon'],
-                        "detections": result['detections']
+                        "detections": result['detections'],
+                        "capture_date": f"{result['metadata'].date.year}-{result['metadata'].date.month:02d}",
+                        "copyright": result['metadata'].copyright_message,
+                        "camera_heading": result['metadata'].heading,
+                        "camera_pitch": result['metadata'].pitch,
+                        "tile_width": result['metadata'].tile_size.x,
+                        "tile_height": result['metadata'].tile_size.y,
+                        "width": result['metadata'].image_sizes[len(result['metadata'].image_sizes) - 1].x,
+                        "height": result['metadata'].image_sizes[len(result['metadata'].image_sizes) - 1].y,
+                        "history": [
+                            {
+                                "pano_id": old_pano.id,
+                                "date": f"{old_pano.date.year}-{old_pano.date.month:02d}"
+                            } for old_pano in result['metadata'].historical
+                        ],
+                        "links": [
+                            {
+                                "target_gsv_panorama_id": linked_pano.pano.id,
+                                "yaw_deg": math.degrees(linked_pano.direction),
+                                "description": linked_pano.pano.address[0].value if linked_pano.pano.address else ""
+                            } for linked_pano in result['metadata'].links
+                        ]
                     }
                     f_jsonl.write(json.dumps(output_line) + '\n')
                     f_jsonl.flush()
