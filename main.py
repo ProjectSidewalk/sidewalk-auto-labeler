@@ -186,10 +186,10 @@ def run_labeler(geojson_path):
                         ],
                         "label_type": "CurbRamp",
                         "model_id": "rampnet-model",
-                        "model_training_date": "2025-08-21",
+                        "model_training_date": "08-21-2025",
                         "api_version": "1.0.0",
                         "pano": {
-                            "gsv_panorama_id": result['pano_id'],
+                            "panorama_id": result['pano_id'],
                             "capture_date": f"{result['metadata'].date.year}-{result['metadata'].date.month:02d}",
                             "width": result['metadata'].image_sizes[len(result['metadata'].image_sizes) - 1].x,
                             "height": result['metadata'].image_sizes[len(result['metadata'].image_sizes) - 1].y,
@@ -197,8 +197,8 @@ def run_labeler(geojson_path):
                             "tile_height": result['metadata'].tile_size.y,
                             "lat": result['lat'],
                             "lng": result['lon'],
-                            "camera_heading": result['metadata'].heading,
-                            "camera_pitch": result['metadata'].pitch,
+                            "camera_heading": math.degrees(result['metadata'].heading),
+                            "camera_pitch": math.degrees(result['metadata'].pitch),
                             "copyright": result['metadata'].copyright_message,
                             "source": result['metadata'].source,
                             "history": [
