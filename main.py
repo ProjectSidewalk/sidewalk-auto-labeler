@@ -178,10 +178,11 @@ def run_labeler(geojson_path):
                     # The 'detections' key will be an empty list [] if none were found.
                     output_line = {
                         "pano_id": result['pano_id'],
+                        "detections": result['detections'],
                         "pano_lat": result['lat'],
                         "pano_lon": result['lon'],
-                        "detections": result['detections'],
                         "capture_date": f"{result['metadata'].date.year}-{result['metadata'].date.month:02d}",
+                        "source": result['metadata'].source,
                         "copyright": result['metadata'].copyright_message,
                         "camera_heading": result['metadata'].heading,
                         "camera_pitch": result['metadata'].pitch,
