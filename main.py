@@ -177,32 +177,44 @@ def run_labeler(geojson_path):
                     # ALWAYS write a line to the JSONL file for a successful process.
                     # The 'detections' key will be an empty list [] if none were found.
                     output_line = {
-                        "pano_id": result['pano_id'],
-                        "detections": result['detections'],
-                        "pano_lat": result['lat'],
-                        "pano_lon": result['lon'],
-                        "capture_date": f"{result['metadata'].date.year}-{result['metadata'].date.month:02d}",
-                        "source": result['metadata'].source,
-                        "copyright": result['metadata'].copyright_message,
-                        "camera_heading": result['metadata'].heading,
-                        "camera_pitch": result['metadata'].pitch,
-                        "tile_width": result['metadata'].tile_size.x,
-                        "tile_height": result['metadata'].tile_size.y,
-                        "width": result['metadata'].image_sizes[len(result['metadata'].image_sizes) - 1].x,
-                        "height": result['metadata'].image_sizes[len(result['metadata'].image_sizes) - 1].y,
-                        "history": [
+                        "detections": [
                             {
-                                "pano_id": old_pano.id,
-                                "date": f"{old_pano.date.year}-{old_pano.date.month:02d}"
-                            } for old_pano in result['metadata'].historical
+                                "x_normalized": x_normalized,
+                                "y_normalized": y_normalized,
+                                "confidence": confidence
+                            } for x_normalized, y_normalized, confidence in result['detections']
                         ],
-                        "links": [
-                            {
-                                "target_gsv_panorama_id": linked_pano.pano.id,
-                                "yaw_deg": math.degrees(linked_pano.direction),
-                                "description": linked_pano.pano.address[0].value if linked_pano.pano.address else ""
-                            } for linked_pano in result['metadata'].links
-                        ]
+                        "label_type": "CurbRamp",
+                        "model_id": "rampnet-model",
+                        "model_training_date": "2025-08-21",
+                        "api_version": "1.0.0",
+                        "pano": {
+                            "gsv_panorama_id": result['pano_id'],
+                            "capture_date": f"{result['metadata'].date.year}-{result['metadata'].date.month:02d}",
+                            "width": result['metadata'].image_sizes[len(result['metadata'].image_sizes) - 1].x,
+                            "height": result['metadata'].image_sizes[len(result['metadata'].image_sizes) - 1].y,
+                            "tile_width": result['metadata'].tile_size.x,
+                            "tile_height": result['metadata'].tile_size.y,
+                            "lat": result['lat'],
+                            "lng": result['lon'],
+                            "camera_heading": result['metadata'].heading,
+                            "camera_pitch": result['metadata'].pitch,
+                            "copyright": result['metadata'].copyright_message,
+                            "source": result['metadata'].source,
+                            "history": [
+                                {
+                                    "pano_id": old_pano.id,
+                                    "date": f"{old_pano.date.year}-{old_pano.date.month:02d}"
+                                } for old_pano in result['metadata'].historical
+                            ],
+                            "links": [
+                                {
+                                    "target_gsv_panorama_id": linked_pano.pano.id,
+                                    "yaw_deg": math.degrees(linked_pano.direction),
+                                    "description": linked_pano.pano.address[0].value if linked_pano.pano.address else ""
+                                } for linked_pano in result['metadata'].links
+                            ]
+                        },
                     }
                     f_jsonl.write(json.dumps(output_line) + '\n')
                     f_jsonl.flush()
