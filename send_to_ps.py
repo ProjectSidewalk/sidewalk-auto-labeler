@@ -40,8 +40,6 @@ def send_to_project_sidewalk(data: Dict[str, Any], endpoint_url: str) -> Optiona
     ]
     modified_data.pop('detections', None)
 
-    print(json.dumps(modified_data, indent=4))
-
     # Send the POST request.
     try:
         headers = {
@@ -72,7 +70,7 @@ def send_to_project_sidewalk(data: Dict[str, Any], endpoint_url: str) -> Optiona
         return None
 
 
-def process_jsonl_file(file_path: str, endpoint_url: str = "http://localhost:9000/ai/submitLabel") -> None:
+def process_jsonl_file(file_path: str, endpoint_url: str = "http://localhost:9000/ai/submitLabelsOnPano") -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending POST requests to PS.
 
@@ -87,7 +85,7 @@ def process_jsonl_file(file_path: str, endpoint_url: str = "http://localhost:900
         print(f"Error: File '{file_path}' does not exist.")
         return
 
-    processed_count = 0
+    success_count = 0
     error_count = 0
 
     print(f"Processing JSONL file: {file_path}")
@@ -111,7 +109,7 @@ def process_jsonl_file(file_path: str, endpoint_url: str = "http://localhost:900
                     response = send_to_project_sidewalk(json_data, endpoint_url)
 
                     if response:
-                        processed_count += 1
+                        success_count += 1
                         # print(f"Line {line_number}: Successfully processed")
                     else:
                         error_count += 1
@@ -132,12 +130,12 @@ def process_jsonl_file(file_path: str, endpoint_url: str = "http://localhost:900
     # Print summary.
     print("-" * 50)
     print(f"Processing complete!")
-    print(f"Successfully processed: {processed_count} records")
+    print(f"Successfully processed: {success_count} records")
     print(f"Errors encountered: {error_count} records")
 
 
 if __name__ == "__main__":
     JSONL_FILE_PATH = "vancouver.jsonl"
-    ENDPOINT_URL = "http://localhost:9000/ai/submitLabel" # TODO send directly to PS server from main.py after pilot
+    ENDPOINT_URL = "http://localhost:9000/ai/submitLabelsOnPano" # TODO send to PS server from main.py after pilot
 
     process_jsonl_file(JSONL_FILE_PATH, ENDPOINT_URL)
