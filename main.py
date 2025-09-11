@@ -199,6 +199,7 @@ def run_labeler(geojson_path):
                             "lng": result['lon'],
                             "camera_heading": math.degrees(result['metadata'].heading),
                             "camera_pitch": math.degrees(result['metadata'].pitch),
+                            "camera_roll": math.degrees(result['metadata'].roll),
                             "copyright": result['metadata'].copyright_message,
                             "source": result['metadata'].source,
                             "history": [
