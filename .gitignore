@@ -1,4 +1,6 @@
 cache
 __pycache__
+.venv
 *.jsonl
+*.submitted
 nohup.out

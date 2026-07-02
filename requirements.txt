@@ -1,0 +1,24 @@
+# Portable top-level dependencies for sidewalk-auto-labeler.
+# (environment.yml is a linux-64 conda export; use this file on other platforms:
+#   conda create -n sidewalk-auto-labeler python=3.12
+#   conda activate sidewalk-auto-labeler
+#   pip install -r requirements.txt
+# For GPU inference install the CUDA build of torch first, e.g.:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+
+geojson
+numpy
+opencv-python
+pillow
+requests
+scikit-image
+shapely
+# streetlevel parses undocumented GSV endpoints; pin it since behavior can change across
+# versions. NOTE: 0.12.4 is broken against Google's current metadata endpoint
+# (find_panorama_by_id always returns None; fixed upstream June 2026 — sk-zk/streetlevel#40).
+streetlevel==0.12.10
+timm
+torch
+torchvision
+tqdm
+transformers
