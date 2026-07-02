@@ -1,0 +1,304 @@
+{
+  "run_key": "ae74c849c79271fa08f89f3a1de93b2e68a87ddc58cda51385c6185ef12b6417",
+  "source": "runs\\bend-smoke\\results.jsonl",
+  "exported_at": "2026-07-02T14:18:40.159Z",
+  "panos": {
+    "Np346hI58qja5FdNb5POWA": {
+      "group": "top",
+      "dets": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true
+      ],
+      "missed": []
+    },
+    "YDxCH13tSXXvNsF1RKThHA": {
+      "group": "top",
+      "dets": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "k7opdd5MQQ0RsTEtMKPY0w": {
+      "group": "top",
+      "dets": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "ubnID11uC_dqIq_6EMS-aA": {
+      "group": "top",
+      "dets": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "CqK02UU8Ku548Slun0dIzA": {
+      "group": "top",
+      "dets": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "bF6shU7uxsMSOSoNp8dumQ": {
+      "group": "random",
+      "dets": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "missed": [
+        {
+          "x": 0.43696969696969695,
+          "y": 0.5329292898467093
+        }
+      ]
+    },
+    "LZdLKo9Nk4bxMKnbbNTZpw": {
+      "group": "random",
+      "dets": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "N3n4xWCmM6Wr9uG9fJ5RSg": {
+      "group": "random",
+      "dets": [
+        true,
+        true,
+        true
+      ],
+      "missed": [
+        {
+          "x": 0.7424242424242424,
+          "y": 0.5571717140891336
+        }
+      ]
+    },
+    "ml3hD9n2t1OR6HpAB0JMGg": {
+      "group": "random",
+      "dets": [
+        true,
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "nOlimapQwn_Ngdg_N_2MOA": {
+      "group": "random",
+      "dets": [
+        true,
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "3lsMoElAtkk4gBoYSjXQLg": {
+      "group": "random",
+      "dets": [
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "7l_dA4ruJDqAs6lasv-78A": {
+      "group": "random",
+      "dets": [
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "ADY9zAqob0j_DzX4OVSw6Q": {
+      "group": "random",
+      "dets": [
+        true,
+        false
+      ],
+      "missed": []
+    },
+    "J1nJT-XbBP4w_MN3RbpBnQ": {
+      "group": "random",
+      "dets": [
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "JEji1vDLHkYDxI_R2xczsQ": {
+      "group": "random",
+      "dets": [
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "NvBsW8_-4orGxls88T0q5Q": {
+      "group": "random",
+      "dets": [
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "hsql8gaER7EAbF00ucFdAg": {
+      "group": "random",
+      "dets": [
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "rN13lXxmO4LpeNB4NFykBw": {
+      "group": "random",
+      "dets": [
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "xzMicMsVV6o75-_bcLBOVw": {
+      "group": "random",
+      "dets": [
+        true,
+        true
+      ],
+      "missed": []
+    },
+    "-Ks3gOclzC8r2VsjIYD62w": {
+      "group": "random",
+      "dets": [
+        true
+      ],
+      "missed": []
+    },
+    "1M1qp_YcMXUSuPbX7dYDqA": {
+      "group": "random",
+      "dets": [
+        true
+      ],
+      "missed": []
+    },
+    "4BQnLcjVigfOeIyfiG3GSw": {
+      "group": "random",
+      "dets": [
+        true
+      ],
+      "missed": []
+    },
+    "71S1iO4OiseOd4oVxSBY_Q": {
+      "group": "random",
+      "dets": [
+        false
+      ],
+      "missed": []
+    },
+    "WfdLMqMWZ4LIqIgq3kFGqw": {
+      "group": "random",
+      "dets": [
+        true
+      ],
+      "missed": []
+    },
+    "km1bsuZspVnTH0WMp2R8Dg": {
+      "group": "random",
+      "dets": [
+        true
+      ],
+      "missed": []
+    },
+    "mtJtbmyVkkWqL1OO9uQhmA": {
+      "group": "random",
+      "dets": [
+        true
+      ],
+      "missed": []
+    },
+    "BI8b0v_qfNAwWoxr4FV7og": {
+      "group": "empty",
+      "dets": [],
+      "missed": []
+    },
+    "G5Am4HNLWAeXoCSReu_kog": {
+      "group": "empty",
+      "dets": [],
+      "missed": []
+    },
+    "GhcoDS8X2X7wxFQHXsDyng": {
+      "group": "empty",
+      "dets": [],
+      "missed": []
+    },
+    "PnzKs3VWjx3bsHbaWTs9sA": {
+      "group": "empty",
+      "dets": [],
+      "missed": []
+    },
+    "aQke5PmQoXMltCzAuBQkKg": {
+      "group": "empty",
+      "dets": [],
+      "missed": []
+    },
+    "d5whukbs37KSo_xAkKW3vA": {
+      "group": "empty",
+      "dets": [],
+      "missed": []
+    },
+    "qaQhbBu2UsjbLBUx6a9uKA": {
+      "group": "empty",
+      "dets": [],
+      "missed": []
+    },
+    "yJsYPZqchScqX7t-zgtlIg": {
+      "group": "empty",
+      "dets": [],
+      "missed": []
+    },
+    "yQ2s-1XszEhvlFPi9CW9ZQ": {
+      "group": "empty",
+      "dets": [],
+      "missed": []
+    },
+    "y_83KnZrwbbsBjYxvh72Hw": {
+      "group": "empty",
+      "dets": [],
+      "missed": []
+    }
+  }
+}

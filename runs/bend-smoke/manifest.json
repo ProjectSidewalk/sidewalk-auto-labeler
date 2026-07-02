@@ -1,0 +1,28 @@
+{
+  "run_name": "bend-smoke",
+  "created_at": "2026-07-02T13:27:16+00:00",
+  "source_geojson": "C:\\Users\\jonf\\AppData\\Local\\Temp\\claude\\D--Git-sidewalk-auto-labeler\\b5b37c36-4d41-4910-bc24-fc3e7044c975\\scratchpad\\bend_smoke.geojson",
+  "area_hash": "ae74c849c79271fa08f89f3a1de93b2e68a87ddc58cda51385c6185ef12b6417",
+  "model_id": "rampnet-model",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0",
+  "streetlevel_version": "0.12.10",
+  "runs": [
+    {
+      "started_at": "2026-07-02T13:27:16+00:00",
+      "finished_at": "2026-07-02T13:28:19+00:00",
+      "panos_found_in_area": 40,
+      "processed": 40,
+      "skipped": 0,
+      "failed": 0
+    },
+    {
+      "started_at": "2026-07-02T13:29:24+00:00",
+      "finished_at": "2026-07-02T13:29:24+00:00",
+      "panos_found_in_area": 40,
+      "processed": 0,
+      "skipped": 0,
+      "failed": 0
+    }
+  ]
+}

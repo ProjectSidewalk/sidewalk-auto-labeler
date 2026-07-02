@@ -277,6 +277,10 @@ Each run directory is bound to the **SHA-256 hash of its GeoJSON geometry**, rec
 - `manifest.json` also records model provenance (`model_id`, training date, `api_version`),
   the `streetlevel` version, and per-run counts (found/processed/skipped/failed) — so a
   months-old results file is self-describing.
+- **Git tracks the small, irreplaceable files** in each run directory — `manifest.json`,
+  `area.geojson`, and `*_verdicts.json` (hand-labeled ground truth) — while `results.jsonl`,
+  the resume cache, and spot-check galleries stay local. Archive full-city `results.jsonl`
+  files as release assets rather than committing them.
 
 ## Output format
 

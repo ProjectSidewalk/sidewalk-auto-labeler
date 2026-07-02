@@ -1,0 +1,11 @@
+{
+  "run_name": "bend",
+  "created_at": "2026-07-02T14:42:14+00:00",
+  "source_geojson": "example_geojson\\bend.geojson",
+  "area_hash": "81636c89cf5f9c2c5c127ec722349dac909d1de9374d4060579b40306647779f",
+  "model_id": "rampnet-model",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0",
+  "streetlevel_version": "0.12.10",
+  "runs": []
+}

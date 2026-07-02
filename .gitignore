@@ -1,7 +1,15 @@
 cache
-runs
 __pycache__
 .venv
 *.jsonl
 *.submitted
-nohup.outsmoke_check
+nohup.out
+smoke_check
+
+# Run directories: track only the small, high-value files (provenance + hand-labeled
+# verdicts); results, resume caches, and spot-check galleries stay local.
+runs/**
+!runs/*/
+!runs/*/manifest.json
+!runs/*/area.geojson
+!runs/*/*_verdicts.json
