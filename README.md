@@ -136,10 +136,22 @@ The environment pins a CUDA 12.6 build of PyTorch. On first run, the RampNet mod
 ### Step 1 — Run the labeler over an area
 
 ```bash
-python main.py example_geojson/bend.geojson
+python main.py example_geojson/bend.geojson --name bend
 ```
 
-This produces `bend.jsonl` in the current directory (named after the GeoJSON file). The run:
+This writes all per-area state to `runs/bend/` (`--name` defaults to the GeoJSON filename
+stem):
+
+```
+runs/bend/
+  results.jsonl           # one prediction record per processed panorama
+  already_processed.txt   # resume cache
+  manifest.json           # geometry hash, model provenance, per-run stats
+  area.geojson            # exact copy of the geometry used
+  spot_check/             # optional visual-QA gallery (see below)
+```
+
+The run:
 
 - Scans the map tiles covering the polygon's bounding box, keeping only panoramas whose
   location actually falls inside the polygon.
@@ -150,14 +162,26 @@ This produces `bend.jsonl` in the current directory (named after the GeoJSON fil
 
 The run is **resumable and cached** (see below), so it's safe to stop and restart.
 
-### Step 2 — Submit predictions to Project Sidewalk
+### Step 2 — Visually spot-check the detections
+
+```bash
+python scripts/spot_check_gallery.py runs/bend
+```
+
+This renders `runs/bend/spot_check/index.html`: an HTML contact sheet of sampled panoramas
+with detections circled, plus a close-up crop per detection (with confidence) and a few
+zero-detection panoramas for eyeballing false negatives. The sample always includes the
+densest panos; use `--sample` / `--empty-sample` / `--seed` to control it. Each pano links
+to its live Google Street View view.
+
+### Step 3 — Submit predictions to Project Sidewalk
 
 ```bash
 # Preview the transformed payloads without sending anything:
-python send_to_ps.py bend.jsonl --dry-run
+python send_to_ps.py runs/bend/results.jsonl --dry-run
 
 # Submit for real:
-python send_to_ps.py bend.jsonl --endpoint https://your-ps-server/ai/submitLabelsOnPano
+python send_to_ps.py runs/bend/results.jsonl --endpoint https://your-ps-server/ai/submitLabelsOnPano
 ```
 
 This reads each JSONL line and POSTs it to the Project Sidewalk endpoint. It also converts
@@ -187,9 +211,12 @@ from scratch:
    `FeatureCollection`. Compare against the existing examples; tools like
    [geojson.io](https://geojson.io) export Features, so you may need to extract just the
    `geometry` portion.
-2. Save it under `example_geojson/` (or anywhere) and run `python main.py path/to/city.geojson`.
-3. Review the resulting `<city>.jsonl`.
-4. Point `send_to_ps.py` at that file and the target Project Sidewalk server, then submit.
+2. Save it under `example_geojson/` (or anywhere) and run
+   `python main.py path/to/city.geojson --name <city>`.
+3. Review `runs/<city>/results.jsonl` and the spot-check gallery
+   (`python scripts/spot_check_gallery.py runs/<city>`).
+4. Point `send_to_ps.py` at `runs/<city>/results.jsonl` and the target Project Sidewalk
+   server, then submit.
 
 ### Tips for a large city
 
@@ -201,11 +228,8 @@ from scratch:
 
 ## Caching & resumability
 
-Each area is identified by a **SHA-256 hash of its GeoJSON geometry**. Progress is tracked in:
-
-```
-cache/<area_hash>/already_processed.txt
-```
+Each run directory is bound to the **SHA-256 hash of its GeoJSON geometry**, recorded in
+`runs/<name>/manifest.json`. Progress is tracked in `runs/<name>/already_processed.txt`.
 
 - Panoramas already listed there are skipped on re-runs.
 - The JSONL output and the cache are appended and flushed line-by-line, so an interrupted run
@@ -213,12 +237,17 @@ cache/<area_hash>/already_processed.txt
 - **Skipped** panoramas (indoor sources, missing/incomplete metadata) are deterministic, so
   they are cached too — they won't be refetched on re-runs (and produce no JSONL line).
 - **Failed** panoramas are deliberately *not* cached, so they are retried on the next run.
-- Editing the polygon changes the hash, which starts a fresh cache and output set. (To fully
-  re-run an unchanged area, delete its `cache/<area_hash>/` directory.)
+- Re-running a name with an **edited geometry is refused** (the hash no longer matches the
+  manifest) instead of silently mixing two areas' state — use a new `--name`, or restore the
+  geometry from the run's `area.geojson`. To fully re-run an unchanged area, delete its
+  `runs/<name>/` directory.
+- `manifest.json` also records model provenance (`model_id`, training date, `api_version`),
+  the `streetlevel` version, and per-run counts (found/processed/skipped/failed) — so a
+  months-old results file is self-describing.
 
 ## Output format
 
-Each line of `<area>.jsonl` is a JSON object like:
+Each line of `results.jsonl` is a JSON object like:
 
 ```json
 {
@@ -269,12 +298,15 @@ Notes:
 ```
 .
 ├── main.py                  # Stage 1–3: find panos, detect, write JSONL
-├── panorama.py              # GSV tile download + panorama reassembly
+├── panorama.py              # GSV panorama download (via streetlevel)
 ├── detectors/
 │   └── curb_ramp.py         # RampNet model wrapper
 ├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk
+├── scripts/
+│   ├── spot_check_gallery.py  # HTML contact sheet of sampled detections (visual QA)
+│   └── visual_check.py        # Single-pano coordinate spot check
 ├── example_geojson/         # Example area polygons (Bend, Chicago, Vancouver)
 ├── environment.yml          # Conda environment (linux-64 export)
 ├── requirements.txt         # Portable pip requirements (Windows/macOS or non-conda)
-└── cache/                   # Per-area processed-pano cache (git-ignored)
+└── runs/                    # Per-area results + resume state (git-ignored)
 ```

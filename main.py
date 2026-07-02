@@ -9,6 +9,8 @@ import time
 import traceback
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 
 # Concurrency is plain OS threads (not gevent): streetlevel's sync imagery API runs its
@@ -24,6 +26,8 @@ socket.setdefaulttimeout(30)
 # them raises UnicodeEncodeError and would abort the run.
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(errors='replace')
 
 import geojson
 from streetlevel import streetview
@@ -38,6 +42,11 @@ COVERAGE_API_CONCURRENCY = 100
 PROCESSING_CONCURRENCY = 50
 COVERAGE_TILE_ZOOM = 17
 METADATA_ATTEMPTS = 3
+
+# Provenance recorded in every JSONL line and in each run's manifest.json.
+MODEL_ID = "rampnet-model"
+MODEL_TRAINING_DATE = "08-21-2025"
+API_VERSION = "1.0.0"
 
 
 def fetch_metadata_with_retry(pano_id):
@@ -148,9 +157,9 @@ def build_output_line(result):
             } for x_normalized, y_normalized, confidence in result['detections']
         ],
         "label_type": "CurbRamp",
-        "model_id": "rampnet-model",
-        "model_training_date": "08-21-2025",
-        "api_version": "1.0.0",
+        "model_id": MODEL_ID,
+        "model_training_date": MODEL_TRAINING_DATE,
+        "api_version": API_VERSION,
         "pano": {
             "panorama_id": result['pano_id'],
             "capture_date": f"{metadata.date.year}-{metadata.date.month:02d}",
@@ -181,29 +190,85 @@ def build_output_line(result):
         },
     }
 
-def run_labeler(geojson_path):
+def save_manifest(manifest_path, manifest):
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest, f, indent=2)
+
+def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash):
+    """
+    Creates or validates the run directory (runs/<name>/), which holds all per-area
+    state: results.jsonl, already_processed.txt, manifest.json, and a copy of the
+    exact geometry used. A run directory is permanently bound to one geometry; reusing
+    the name with a different geometry is refused so that a renamed or edited geojson
+    can't silently fork or corrupt the run's state.
+    """
+    run_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = run_dir / "manifest.json"
+
+    if manifest_path.exists():
+        with open(manifest_path, 'r') as f:
+            manifest = json.load(f)
+        if manifest.get('area_hash') != area_hash:
+            sys.exit(
+                f"❌ Run '{run_dir.name}' was created for a different area geometry\n"
+                f"   (manifest hash {manifest.get('area_hash', '?')[:12]}…, this geojson {area_hash[:12]}…).\n"
+                f"   Use a new --name for the new geometry, or restore the original geojson\n"
+                f"   (an exact copy is kept at {run_dir / 'area.geojson'})."
+            )
+        return manifest
+
+    manifest = {
+        'run_name': run_dir.name,
+        'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+        'source_geojson': str(geojson_path),
+        'area_hash': area_hash,
+        'model_id': MODEL_ID,
+        'model_training_date': MODEL_TRAINING_DATE,
+        'api_version': API_VERSION,
+        'streetlevel_version': pkg_version('streetlevel'),
+        'runs': [],
+    }
+    with open(run_dir / "area.geojson", 'w') as f:
+        geojson.dump(geojson_data, f)
+    save_manifest(manifest_path, manifest)
+    return manifest
+
+def record_run(manifest_path, manifest, started_at, found, success, skipped, failed):
+    """Appends one entry to the manifest's run history."""
+    manifest['runs'].append({
+        'started_at': started_at,
+        'finished_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+        'panos_found_in_area': found,
+        'processed': success,
+        'skipped': skipped,
+        'failed': failed,
+    })
+    save_manifest(manifest_path, manifest)
+
+def run_labeler(geojson_path, run_name):
     """
     Finds and processes all GSV panoramas within a GeoJSON area,
-    outputting results to a .jsonl file and using a cache.
+    writing all per-area state to runs/<run_name>/.
     """
     print("--- Sidewalk Auto-Labeler ---")
 
-    # 1. Load GeoJSON and set up cache and output paths
+    # 1. Load GeoJSON and set up the run directory
     print(f"-> Loading GeoJSON from {geojson_path}...")
     with open(geojson_path, 'r') as f:
         geojson_data = geojson.load(f)
 
     area_hash = get_geojson_hash(geojson_data)
+    started_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
-    output_jsonl_file = Path(f"{os.path.splitext(os.path.basename(geojson_path))[0]}.jsonl")
-    cache_dir = Path("cache") / area_hash
-    cache_file = cache_dir / "already_processed.txt"
+    run_dir = Path("runs") / run_name
+    manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash)
+    manifest_path = run_dir / "manifest.json"
+    output_jsonl_file = run_dir / "results.jsonl"
+    cache_file = run_dir / "already_processed.txt"
 
+    print(f"-> Run directory: {run_dir}")
     print(f"-> Area hash: {area_hash}")
-    print(f"-> Output file: {output_jsonl_file}")
-    print(f"-> Cache file:  {cache_file}")
 
-    cache_dir.mkdir(parents=True, exist_ok=True)
     processed_ids = load_processed_ids(cache_file)
     print(f"-> Found {len(processed_ids)} already processed panoramas in cache.")
 
@@ -240,6 +305,7 @@ def run_labeler(geojson_path):
 
     if not panos_to_process_ids:
         print("🎉 No new panoramas to process. All done!")
+        record_run(manifest_path, manifest, started_at, len(all_panos_in_area), 0, 0, 0)
         return
 
     # 4. Process new panoramas
@@ -291,11 +357,14 @@ def run_labeler(geojson_path):
                     fail_count += 1
                 pbar.update(1)
 
+    record_run(manifest_path, manifest, started_at, len(all_panos_in_area), success_count, skip_count, fail_count)
+
     print("\n--- Final Report ---")
     print(f"Successfully processed: {success_count}")
     print(f"Skipped (cached):       {skip_count}")
     print(f"Failed to process:      {fail_count}")
-    print(f"Results saved to: ./{output_jsonl_file}")
+    print(f"Results saved to: {output_jsonl_file}")
+    print(f"Spot-check gallery: python scripts/spot_check_gallery.py {run_dir}")
     print("----------------------")
 
 
@@ -308,6 +377,11 @@ def main():
     parser.add_argument(
         "geojson_file",
         help="Path to the GeoJSON file defining the area of interest."
+    )
+    parser.add_argument(
+        "--name",
+        help="Run name; all per-area state (results, cache, manifest) lives in runs/<name>/ "
+             "(default: the geojson filename without extension)."
     )
     parser.add_argument(
         "--processing-concurrency", type=int, default=PROCESSING_CONCURRENCY,
@@ -328,7 +402,7 @@ def main():
     curb_ramp_detector = CurbRampDetector()
 
     try:
-        run_labeler(args.geojson_file)
+        run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:

@@ -187,13 +187,13 @@ Repeatable smoke-test procedure before any full city run (Bend or future cities)
    `python -c "import torch; print(torch.cuda.is_available())"` and instantiate
    `CurbRampDetector()` once to pre-cache the HF weights.
 2. **Tiny sub-polygon run:** craft a bare-geometry geojson covering a few downtown blocks
-   (keep it out of the repo); `python main.py tiny.geojson`. Expect tens of panos and JSONL
-   lines. **Re-run immediately** — it must report "No new panoramas to process" (proves the
-   cache path, including skip caching).
-3. **Coordinate spot-check:** for one JSONL line with detections, plot
-   `(x_normalized·width, y_normalized·height)` on the full-resolution pano; points must land
-   on curb ramps.
-4. **Submission dry-run:** `python send_to_ps.py tiny.jsonl --dry-run` and eyeball
+   (keep it out of the repo); `python main.py tiny.geojson --name <city>-smoke`. Expect tens
+   of panos and JSONL lines in `runs/<city>-smoke/results.jsonl`. **Re-run immediately** — it
+   must report "No new panoramas to process" (proves the cache path, including skip caching).
+3. **Coordinate spot-check:** `python scripts/spot_check_gallery.py runs/<city>-smoke` and
+   open the generated `index.html` — circled detections must land on curb ramps
+   (`scripts/visual_check.py` remains for checking a single pano at full resolution).
+4. **Submission dry-run:** `python send_to_ps.py runs/<city>-smoke/results.jsonl --dry-run` and eyeball
    `pano_x`/`pano_y` against `width`/`height`; then submit 2–3 lines to the real server and
    confirm they appear in the Validate UI.
 5. Launch the full run under `nohup`/`tmux`; re-run `main.py` after completion to catch

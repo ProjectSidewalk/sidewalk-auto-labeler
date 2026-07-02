@@ -15,12 +15,16 @@ JSONL file. A separate script then submits those predictions to a Project Sidewa
 conda env create -f environment.yml
 conda activate sidewalk-auto-labeler
 
-# Run the labeler over an area; output goes to <basename>.jsonl in the CWD
-python main.py example_geojson/vancouver.geojson
+# Run the labeler over an area; all per-area state goes to runs/<name>/
+# (--name defaults to the geojson filename stem)
+python main.py example_geojson/bend.geojson --name bend
+
+# Render an HTML contact sheet of sampled detections for visual QA
+python scripts/spot_check_gallery.py runs/bend
 
 # Submit a produced JSONL file to a Project Sidewalk endpoint
-# (edit JSONL_FILE_PATH and ENDPOINT_URL at the bottom of send_to_ps.py first)
-python send_to_ps.py
+python send_to_ps.py runs/bend/results.jsonl --dry-run
+python send_to_ps.py runs/bend/results.jsonl --endpoint https://<server>/ai/submitLabelsOnPano
 ```
 
 There are no tests, linter config, or build step. `pytest` is installed but no test files exist.
@@ -48,11 +52,15 @@ those loops collide and every download stalls for minutes. Two pools
 work) are the main tuning knobs. GPU inference is serialized by a lock inside
 `CurbRampDetector` — download threads overlap, forward passes don't (VRAM limit).
 
-**Caching / resumability:** results are keyed by a SHA-256 hash of the GeoJSON geometry.
-Per-area state lives in `cache/<area_hash>/already_processed.txt`. The JSONL output and the
-cache file are appended to and flushed line-by-line, so a run is resumable — re-running skips
-panos already in the cache, and failed panos are intentionally left out of the cache so they
-retry next run. Editing the geometry changes the hash and starts a fresh cache/output set.
+**Run directories / resumability:** all per-area state lives in `runs/<name>/` —
+`results.jsonl`, the resume cache (`already_processed.txt`), `manifest.json` (geometry hash,
+model provenance, streetlevel version, per-run stats), and `area.geojson` (exact copy of the
+geometry used). The JSONL and cache are appended to and flushed line-by-line, so a run is
+resumable — re-running skips cached panos, and failed panos are intentionally left out of the
+cache so they retry next run. A run directory is bound to one geometry: rerunning a name with
+an edited geojson is refused (hash check against the manifest) instead of silently forking
+state. `scripts/spot_check_gallery.py runs/<name>` renders a sampled HTML gallery of annotated
+detections into `runs/<name>/spot_check/`.
 
 **`panorama.py`** downloads the equirectangular image via `streetlevel.streetview.get_panorama`
 using the pano metadata that `process_pano` already fetched (tile grid + true dimensions come
