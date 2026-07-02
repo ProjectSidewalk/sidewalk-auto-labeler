@@ -7,11 +7,16 @@ import math
 import hashlib
 import json
 import random
+import socket
 import sys
 import time
 import traceback
 import os
 from pathlib import Path
+
+# streetlevel makes HTTP requests with no timeout; without this, one black-holed
+# connection (e.g. Google throttling) hangs its worker greenlet forever.
+socket.setdefaulttimeout(30)
 
 # Progress/report messages use emoji; on Windows the console may be cp1252, where printing
 # them raises UnicodeEncodeError and would abort the run.

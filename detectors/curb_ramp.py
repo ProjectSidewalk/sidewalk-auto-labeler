@@ -7,7 +7,12 @@ from skimage.feature import peak_local_max
 
 class CurbRampDetector:
     def __init__(self):
-        self.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.is_available():
+            self.DEVICE = torch.device("cuda")
+        elif torch.backends.mps.is_available():  # Apple Silicon
+            self.DEVICE = torch.device("mps")
+        else:
+            self.DEVICE = torch.device("cpu")
 
         self.model = AutoModel.from_pretrained("projectsidewalk/rampnet-model", trust_remote_code=True).to(self.DEVICE).eval()
 
