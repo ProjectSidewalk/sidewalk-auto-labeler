@@ -4,4 +4,4 @@ __pycache__
 .venv
 *.jsonl
 *.submitted
-nohup.out
+nohup.outsmoke_check
