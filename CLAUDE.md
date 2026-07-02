@@ -15,6 +15,9 @@ JSONL file. A separate script then submits those predictions to a Project Sidewa
 conda env create -f environment.yml
 conda activate sidewalk-auto-labeler
 
+# Scope an area first: pano count + runtime estimate, no model load, nothing processed
+python main.py example_geojson/bend.geojson --name bend --scan-only
+
 # Run the labeler over an area; all per-area state goes to runs/<name>/
 # (--name defaults to the geojson filename stem)
 python main.py example_geojson/bend.geojson --name bend

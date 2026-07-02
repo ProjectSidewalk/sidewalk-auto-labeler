@@ -133,6 +133,17 @@ The environment pins a CUDA 12.6 build of PyTorch. On first run, the RampNet mod
 
 ## Usage
 
+### Step 0 — Scope the area first
+
+```bash
+python main.py example_geojson/bend.geojson --name bend --scan-only
+```
+
+This scans coverage tiles only (no model load, no processing) and reports how many
+panoramas are in the polygon plus a rough runtime estimate — so you know whether you're
+committing to minutes or days before launching. On a resumed run it also tells you how
+many panos remain.
+
 ### Step 1 — Run the labeler over an area
 
 ```bash
@@ -239,6 +250,9 @@ from scratch:
 
 ### Tips for a large city
 
+- **Scope it first**: `--scan-only` gives the pano count and a runtime estimate in a
+  minute or two. Throughput is GPU-bound (~1–2 s/pano; inference is serialized), so a
+  large city is a multi-day single-GPU run regardless of concurrency settings.
 - The two concurrency settings at the top of `main.py` are the main performance knobs:
   - `COVERAGE_API_CONCURRENCY = 100` — parallel workers scanning map tiles for pano IDs.
   - `PROCESSING_CONCURRENCY = 50` — parallel workers downloading + running detection.
