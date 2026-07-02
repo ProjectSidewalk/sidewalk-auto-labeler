@@ -186,6 +186,8 @@ Repeatable smoke-test procedure before any full city run (Bend or future cities)
 1. **Env sanity** on the deploy machine: create the env, then
    `python -c "import torch; print(torch.cuda.is_available())"` and instantiate
    `CurbRampDetector()` once to pre-cache the HF weights.
+1. **Scope the city:** `python main.py <city>.geojson --name <city> --scan-only` — pano
+   count and runtime estimate before committing to a multi-day run.
 2. **Tiny sub-polygon run:** craft a bare-geometry geojson covering a few downtown blocks
    (keep it out of the repo); `python main.py tiny.geojson --name <city>-smoke`. Expect tens
    of panos and JSONL lines in `runs/<city>-smoke/results.jsonl`. **Re-run immediately** — it

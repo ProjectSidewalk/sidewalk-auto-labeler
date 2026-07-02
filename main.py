@@ -35,7 +35,8 @@ from shapely.geometry import shape, Point
 from tqdm import tqdm
 
 from panorama import fetch_panorama
-from detectors.curb_ramp import CurbRampDetector
+# CurbRampDetector is imported lazily in main(): pulling in torch/transformers takes
+# many seconds and --scan-only doesn't need them.
 
 # --- Configuration ---
 COVERAGE_API_CONCURRENCY = 100
@@ -90,14 +91,18 @@ def load_processed_ids(cache_file_path):
 def fetch_panos_for_tile(tile_x, tile_y, area_shape):
     """
     Worker function for a single tile. Fetches panos and filters them.
-    Returns a dictionary of {pano_id: (lat, lon)} for valid panos.
+    Returns a dictionary of {pano_id: (lat, lon)} for valid panos, or None if the
+    tile failed after retries (throttling loses ~10% of tiles on large scans if
+    failures are swallowed silently — the caller counts and reports these).
     """
-    try:
-        panos_in_tile = streetview.get_coverage_tile(tile_x, tile_y)
-        valid_panos = {p.id: (p.lat, p.lon) for p in panos_in_tile if Point(p.lon, p.lat).within(area_shape)}
-        return valid_panos
-    except Exception:
-        return {}
+    for attempt in range(3):
+        try:
+            panos_in_tile = streetview.get_coverage_tile(tile_x, tile_y)
+            return {p.id: (p.lat, p.lon) for p in panos_in_tile if Point(p.lon, p.lat).within(area_shape)}
+        except Exception:
+            if attempt < 2:
+                time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
+    return None
 
 def process_pano(pano_id, lat, lon):
     """
@@ -245,10 +250,13 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
     })
     save_manifest(manifest_path, manifest)
 
-def run_labeler(geojson_path, run_name):
+def run_labeler(geojson_path, run_name, scan_only=False):
     """
     Finds and processes all GSV panoramas within a GeoJSON area,
     writing all per-area state to runs/<run_name>/.
+
+    With scan_only=True, stops after the coverage scan and prints a size/runtime
+    estimate — use this to scope a city before committing to a multi-day run.
     """
     print("--- Sidewalk Auto-Labeler ---")
 
@@ -287,12 +295,21 @@ def run_labeler(geojson_path, run_name):
 
     all_panos_in_area = {}
 
+    failed_tiles = 0
     with ThreadPoolExecutor(max_workers=COVERAGE_API_CONCURRENCY) as find_pool:
         futures = [find_pool.submit(fetch_panos_for_tile, x, y, area_shape) for x, y in tiles_to_scan]
         with tqdm(total=len(futures), desc="Finding Panoramas") as pbar:
             for future in as_completed(futures):
-                all_panos_in_area.update(future.result())
+                tile_panos = future.result()
+                if tile_panos is None:
+                    failed_tiles += 1
+                else:
+                    all_panos_in_area.update(tile_panos)
                 pbar.update(1)
+
+    if failed_tiles:
+        print(f"⚠ {failed_tiles} coverage tiles failed after retries — panos there are "
+              f"missing from this run. A re-run rescans all tiles and picks them up.")
 
     # 3. Determine which panoramas to process
     panos_to_process_ids = sorted(list(set(all_panos_in_area.keys()) - processed_ids))
@@ -302,6 +319,15 @@ def run_labeler(geojson_path, run_name):
     print(f"Already processed (skipped):   {len(processed_ids)}")
     print(f"New panoramas to process:      {len(panos_to_process_ids)}")
     print("--------------------------\n")
+
+    if scan_only:
+        # ~1.5 s/pano is the measured single-GPU steady state (RTX 3070, concurrency 10+);
+        # downloads overlap but inference is serialized, so the GPU sets the rate.
+        est_hours = len(panos_to_process_ids) * 1.5 / 3600
+        print("Scan only — no panoramas processed, nothing recorded in the manifest.")
+        print(f"Estimated full-run time: ~{est_hours:.1f} h at 1.5 s/pano "
+              f"(single GPU; measure your machine's rate on a smoke run first).")
+        return
 
     if not panos_to_process_ids:
         print("🎉 No new panoramas to process. All done!")
@@ -392,17 +418,24 @@ def main():
         "--coverage-concurrency", type=int, default=COVERAGE_API_CONCURRENCY,
         help="Concurrent workers scanning coverage tiles (default: %(default)s)."
     )
+    parser.add_argument(
+        "--scan-only", action="store_true",
+        help="Only scan coverage and report the pano count and a runtime estimate; "
+             "skips model loading and processes nothing."
+    )
     args = parser.parse_args()
 
     PROCESSING_CONCURRENCY = args.processing_concurrency
     COVERAGE_API_CONCURRENCY = args.coverage_concurrency
 
-    # Initialize detectors:
-    global curb_ramp_detector
-    curb_ramp_detector = CurbRampDetector()
+    # Initialize detectors (skipped for a scan: importing torch + loading the model takes a while):
+    if not args.scan_only:
+        from detectors.curb_ramp import CurbRampDetector
+        global curb_ramp_detector
+        curb_ramp_detector = CurbRampDetector()
 
     try:
-        run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem)
+        run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, args.scan_only)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:
