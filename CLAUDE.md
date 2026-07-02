@@ -20,11 +20,13 @@ conda activate sidewalk-auto-labeler
 python main.py example_geojson/bend.geojson --name bend
 
 # Render a one-pano-at-a-time viewer of sampled detections (also a validation UI:
-# judge crops correct/incorrect, click the pano to mark missed ramps, export verdicts.json)
+# judge crops correct/incorrect, click the pano to mark missed ramps, export
+# <name>_verdicts.json and save it into the run directory)
 python scripts/spot_check_gallery.py runs/bend
 
-# Score exported verdicts: precision/recall + confidence-threshold sweep
-python scripts/score_validation.py runs/bend verdicts.json
+# Score the saved verdicts: precision/recall + confidence-threshold sweep
+# (finds runs/bend/bend_verdicts.json automatically)
+python scripts/score_validation.py runs/bend
 
 # Submit a produced JSONL file to a Project Sidewalk endpoint
 python send_to_ps.py runs/bend/results.jsonl --dry-run

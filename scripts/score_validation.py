@@ -12,7 +12,8 @@ Caveats printed with the numbers:
     want precision to penalize them.
 
 Usage:
-    python scripts/score_validation.py runs/bend verdicts.json
+    python scripts/score_validation.py runs/bend
+    python scripts/score_validation.py runs/bend path/to/bend_verdicts.json
 """
 import argparse
 import json
@@ -39,6 +40,18 @@ def load_inputs(run_arg, verdicts_arg):
     jsonl_path = run_path / "results.jsonl" if run_path.is_dir() else run_path
     if not jsonl_path.exists():
         sys.exit(f"No results file found at {jsonl_path}")
+
+    if verdicts_arg is None:
+        # The gallery exports <run name>_verdicts.json; look for it in the run directory.
+        run_dir = jsonl_path.parent
+        candidates = [run_dir / f"{run_dir.name}_verdicts.json", run_dir / "verdicts.json"]
+        verdicts_arg = next((c for c in candidates if c.exists()), None)
+        if verdicts_arg is None:
+            sys.exit("No verdicts file found — looked for:\n  " +
+                     "\n  ".join(str(c) for c in candidates) +
+                     "\nExport it from the gallery and save it into the run directory, "
+                     "or pass its path explicitly.")
+        print(f"Scoring {verdicts_arg}\n")
     with open(jsonl_path, 'r', encoding='utf-8') as f:
         confs_by_pid = {
             r['pano']['panorama_id']: [d['confidence'] for d in r['detections']]
@@ -120,7 +133,9 @@ def main():
         description="Score gallery verdicts: precision, recall, and a threshold sweep."
     )
     parser.add_argument("run", help="Run directory from main.py (or a results JSONL file).")
-    parser.add_argument("verdicts", help="verdicts.json exported from the gallery.")
+    parser.add_argument("verdicts", nargs="?",
+                        help="Verdicts file exported from the gallery (default: "
+                             "<run>/<name>_verdicts.json, then <run>/verdicts.json).")
     args = parser.parse_args()
 
     confs_by_pid, panos = load_inputs(args.run, args.verdicts)
