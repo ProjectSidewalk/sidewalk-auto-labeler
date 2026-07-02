@@ -50,10 +50,13 @@ cache file are appended to and flushed line-by-line, so a run is resumable — r
 panos already in the cache, and failed panos are intentionally left out of the cache so they
 retry next run. Editing the geometry changes the hash and starts a fresh cache/output set.
 
-**`panorama.py`** reassembles a full panorama from GSV tiles without knowing its dimensions
-up front: it probes outward (using all-black tiles as the boundary signal) to discover the
-tile grid, fetches the rest in a thread pool, crops black borders, clamps to a 2:1 aspect
-ratio, and resizes to 4096×2048 BGR. Returns `None` on any failure (caller treats as a skip).
+**`panorama.py`** downloads the equirectangular image via `streetlevel.streetview.get_panorama`
+using the pano metadata that `process_pano` already fetched (tile grid + true dimensions come
+from the metadata, so nothing is probed). It clamps to a 2:1 aspect ratio and resizes to a
+4096×2048 RGB PIL image. Returns `None` on any failure (caller treats as a retryable failure).
+Do not fetch Google's tile URL (`streetviewpixels-pa.googleapis.com/v1/tile`) directly — it
+returns 403 for anonymous callers since ~June 2026; streetlevel handles the required request
+format (and must stay ≥ 0.12.10 for the same reason).
 
 **`detectors/curb_ramp.py`** wraps the `projectsidewalk/rampnet-model` HuggingFace model
 (loaded with `trust_remote_code=True`). It outputs a heatmap; `peak_local_max` extracts peaks

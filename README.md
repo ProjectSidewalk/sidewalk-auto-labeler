@@ -118,6 +118,16 @@ conda env create -f environment.yml
 conda activate sidewalk-auto-labeler
 ```
 
+> **Note:** `environment.yml` is a **linux-64 conda export** and will not solve on Windows or
+> macOS. On those platforms use the portable requirements file instead:
+>
+> ```bash
+> conda create -n sidewalk-auto-labeler python=3.12
+> conda activate sidewalk-auto-labeler
+> pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126  # CUDA build
+> pip install -r requirements.txt
+> ```
+
 The environment pins a CUDA 12.6 build of PyTorch. On first run, the RampNet model
 (~hundreds of MB) is downloaded from HuggingFace and cached locally.
 
@@ -142,22 +152,26 @@ The run is **resumable and cached** (see below), so it's safe to stop and restar
 
 ### Step 2 — Submit predictions to Project Sidewalk
 
-Open `send_to_ps.py` and set the two values at the bottom:
-
-```python
-JSONL_FILE_PATH = "bend.jsonl"
-ENDPOINT_URL    = "http://localhost:9000/ai/submitLabelsOnPano"
-```
-
-Then run:
-
 ```bash
-python send_to_ps.py
+# Preview the transformed payloads without sending anything:
+python send_to_ps.py bend.jsonl --dry-run
+
+# Submit for real:
+python send_to_ps.py bend.jsonl --endpoint https://your-ps-server/ai/submitLabelsOnPano
 ```
 
 This reads each JSONL line and POSTs it to the Project Sidewalk endpoint. It also converts
 the **normalized** detection coordinates from step 1 into **pixel** coordinates
 (`pano_x`, `pano_y`) using the panorama dimensions stored in each record.
+
+- **Auth:** if the server requires Project Sidewalk's internal API key, export it as
+  `PS_INTERNAL_API_KEY` (or point `--api-key-env` at another variable); it is sent as an
+  `Authorization: Bearer` header. If unset, no auth header is sent.
+- **Resumable:** successfully submitted line numbers are recorded in a `<file>.submitted`
+  sidecar, so re-running skips them instead of re-POSTing. Delete the sidecar to resubmit
+  everything.
+- Transient failures (connection errors, 5xx) are retried with backoff; 4xx responses are
+  treated as permanent and logged.
 
 > The detection coordinates are stored normalized (`0–1`) in the JSONL and only converted to
 > pixels at submission time. If you change the coordinate handling on one side, update the
@@ -196,6 +210,8 @@ cache/<area_hash>/already_processed.txt
 - Panoramas already listed there are skipped on re-runs.
 - The JSONL output and the cache are appended and flushed line-by-line, so an interrupted run
   loses almost nothing.
+- **Skipped** panoramas (indoor sources, missing/incomplete metadata) are deterministic, so
+  they are cached too — they won't be refetched on re-runs (and produce no JSONL line).
 - **Failed** panoramas are deliberately *not* cached, so they are retried on the next run.
 - Editing the polygon changes the hash, which starts a fresh cache and output set. (To fully
   re-run an unchanged area, delete its `cache/<area_hash>/` directory.)
@@ -258,6 +274,7 @@ Notes:
 │   └── curb_ramp.py         # RampNet model wrapper
 ├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk
 ├── example_geojson/         # Example area polygons (Bend, Chicago, Vancouver)
-├── environment.yml          # Conda environment
+├── environment.yml          # Conda environment (linux-64 export)
+├── requirements.txt         # Portable pip requirements (Windows/macOS or non-conda)
 └── cache/                   # Per-area processed-pano cache (git-ignored)
 ```
