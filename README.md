@@ -162,17 +162,35 @@ The run:
 
 The run is **resumable and cached** (see below), so it's safe to stop and restart.
 
-### Step 2 — Visually spot-check the detections
+### Step 2 — Spot-check and validate the detections
 
 ```bash
 python scripts/spot_check_gallery.py runs/bend
 ```
 
-This renders `runs/bend/spot_check/index.html`: an HTML contact sheet of sampled panoramas
-with detections circled, plus a close-up crop per detection (with confidence) and a few
-zero-detection panoramas for eyeballing false negatives. The sample always includes the
-densest panos; use `--sample` / `--empty-sample` / `--seed` to control it. Each pano links
-to its live Google Street View view.
+This renders `runs/bend/spot_check/index.html`: a one-pano-at-a-time viewer (open directly
+or via any static server, e.g. VS Code Live Server) showing each sampled panorama with its
+detections circled and a close-up crop per detection. Navigate with ←/→; the sample always
+includes the densest panos plus a few zero-detection panos; `--sample` / `--empty-sample` /
+`--seed` control it. Each pano links to its live Google Street View view.
+
+The viewer doubles as a quick **validation tool**:
+
+- Click a crop (or press `1`–`9`) to cycle its verdict: unjudged → correct → incorrect.
+- Click the panorama to mark a curb ramp the model **missed** (click the yellow marker to
+  remove it). This gives per-pano-comprehensive ground truth — the recall signal that
+  Project Sidewalk's validation workflow can't provide.
+- Verdicts autosave in the browser (localStorage). When done, **Export verdicts** downloads
+  a `verdicts.json`, then:
+
+```bash
+python scripts/score_validation.py runs/bend verdicts.json
+```
+
+prints precision and recall with 95% CIs and a confidence-threshold sweep — both overall
+and on the unbiased random subset (the always-included densest panos are flagged and
+excluded there). Use the sweep to pick a per-city threshold that clears the city's
+`ai-validation-min-accuracy` with margin.
 
 ### Step 3 — Submit predictions to Project Sidewalk
 
@@ -303,7 +321,8 @@ Notes:
 │   └── curb_ramp.py         # RampNet model wrapper
 ├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk
 ├── scripts/
-│   ├── spot_check_gallery.py  # HTML contact sheet of sampled detections (visual QA)
+│   ├── spot_check_gallery.py  # One-pano-at-a-time viewer + validation UI (visual QA)
+│   ├── score_validation.py    # Precision/recall + threshold sweep from gallery verdicts
 │   └── visual_check.py        # Single-pano coordinate spot check
 ├── example_geojson/         # Example area polygons (Bend, Chicago, Vancouver)
 ├── environment.yml          # Conda environment (linux-64 export)

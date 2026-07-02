@@ -1,12 +1,21 @@
 """
-Render an HTML contact sheet of annotated detections for visual QA.
+Render a single-pano gallery viewer for visual QA *and* quick validation.
 
 Reads a run directory produced by main.py (or a bare results JSONL file), samples
-panoramas, re-downloads each at up to 4096x2048, draws the detections, and writes an
-index.html with a downscaled annotated panorama plus a close-up crop per detection.
+panoramas, re-downloads each at up to 4096x2048, draws the detections, and writes a
+static one-pano-at-a-time viewer (index.html). Serve it however you like (VS Code
+Live Server, `python -m http.server`, or just open the file).
 
-The sample always includes the densest panos (most detections), a random sample of
-panos with detections, and a few zero-detection panos (to eyeball false negatives).
+The viewer doubles as a validation tool:
+  - click a detection crop to cycle its verdict: unjudged -> correct -> incorrect
+  - click anywhere on the panorama to mark a curb ramp the model missed
+    (click a marker again to remove it)
+  - verdicts autosave to the browser's localStorage; "Export verdicts" downloads a
+    verdicts.json to score with scripts/score_validation.py (precision + recall)
+
+The sample always includes the densest panos (flagged so scoring can exclude them
+from unbiased estimates), a random sample of panos with detections, and a few
+zero-detection panos (for false negatives / recall).
 
 Usage:
     python scripts/spot_check_gallery.py runs/bend
@@ -18,7 +27,6 @@ import random
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from html import escape
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -29,7 +37,7 @@ socket.setdefaulttimeout(30)
 
 DISPLAY_WIDTH = 1600   # displayed full-pano width in the gallery
 CROP_SIZE = 512        # per-detection close-up, taken at download resolution
-TOP_N_BY_COUNT = 5     # the densest panos are always included
+TOP_N_BY_COUNT = 5     # the densest panos are always included (group "top")
 DOWNLOAD_WORKERS = 8
 
 
@@ -40,25 +48,36 @@ def load_records(path_arg):
         sys.exit(f"No results file found at {jsonl_path}")
     with open(jsonl_path, 'r', encoding='utf-8') as f:
         records = [json.loads(line) for line in f if line.strip()]
-    return jsonl_path, records
+
+    # Verdicts are keyed by the run's area hash when available, so different runs
+    # (and re-generated galleries) don't clobber each other's localStorage.
+    run_key = str(jsonl_path)
+    manifest_path = jsonl_path.parent / "manifest.json"
+    if manifest_path.exists():
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            run_key = json.load(f).get('area_hash', run_key)
+    return jsonl_path, records, run_key
 
 
 def choose_panos(records, sample, empty_sample, seed):
+    """Returns a list of (record, group) with group in {"top", "random", "empty"}."""
     rng = random.Random(seed)
     with_det = [r for r in records if r['detections']]
     without_det = [r for r in records if not r['detections']]
 
-    chosen = sorted(with_det, key=lambda r: len(r['detections']), reverse=True)[:TOP_N_BY_COUNT]
-    chosen_ids = {r['pano']['panorama_id'] for r in chosen}
-    rest = [r for r in with_det if r['pano']['panorama_id'] not in chosen_ids]
+    top = sorted(with_det, key=lambda r: len(r['detections']), reverse=True)[:TOP_N_BY_COUNT]
+    top_ids = {r['pano']['panorama_id'] for r in top}
+    rest = [r for r in with_det if r['pano']['panorama_id'] not in top_ids]
+
+    chosen = [(r, 'top') for r in top]
     if sample > len(chosen) and rest:
-        chosen += rng.sample(rest, min(sample - len(chosen), len(rest)))
+        chosen += [(r, 'random') for r in rng.sample(rest, min(sample - len(chosen), len(rest)))]
     if without_det and empty_sample:
-        chosen += rng.sample(without_det, min(empty_sample, len(without_det)))
+        chosen += [(r, 'empty') for r in rng.sample(without_det, min(empty_sample, len(without_det)))]
     return chosen
 
 
-def render_pano(record, images_dir):
+def render_pano(record, group, images_dir):
     """Downloads one pano, draws its detections, and saves the gallery images."""
     pano = record['pano']
     pid = pano['panorama_id']
@@ -89,51 +108,205 @@ def render_pano(record, images_dir):
                           outline=(255, 0, 0), width=6)
         crop_name = f"{pid}_det{i}.jpg"
         crop.convert('RGB').save(images_dir / crop_name, quality=85)
-        crops.append((crop_name, det['confidence']))
+        crops.append({'img': crop_name, 'conf': round(det['confidence'], 4)})
 
     full_name = f"{pid}_full.jpg"
     annotated.resize((DISPLAY_WIDTH, DISPLAY_WIDTH // 2), Image.BILINEAR) \
              .convert('RGB').save(images_dir / full_name, quality=80)
-    return {'record': record, 'full': full_name, 'crops': crops}
+    return {
+        'pid': pid,
+        'date': str(pano['capture_date']),
+        'group': group,
+        'full': full_name,
+        'crops': crops,
+    }
 
 
-def build_html(entries, jsonl_path):
-    parts = [
-        "<!doctype html><meta charset='utf-8'><title>Detection spot check</title>",
-        "<style>"
-        "body{font-family:sans-serif;margin:20px;background:#fafafa}"
-        ".pano{margin-bottom:36px;padding:12px;background:#fff;border:1px solid #ddd;border-radius:8px}"
-        ".crops{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}"
-        ".crops figure{margin:0;text-align:center;font-size:13px}"
-        ".crops img{width:256px;height:256px}"
-        "h2{font-size:16px;margin:0 0 8px}a{color:#06c}.meta{color:#666;font-size:13px}"
-        "</style>",
-        f"<h1>Detection spot check</h1><p class='meta'>Source: {escape(str(jsonl_path))}</p>",
-    ]
-    for entry in entries:
-        pano = entry['record']['pano']
-        pid = pano['panorama_id']
-        gsv_url = f"https://www.google.com/maps/@?api=1&map_action=pano&pano={pid}"
-        n = len(entry['record']['detections'])
-        parts.append(
-            f"<div class='pano'><h2><a href='{gsv_url}'>{escape(pid)}</a> "
-            f"<span class='meta'>captured {escape(str(pano['capture_date']))} — "
-            f"{n} detection{'s' if n != 1 else ''}</span></h2>"
-            f"<img src='images/{entry['full']}' width='100%'>"
-        )
-        if entry['crops']:
-            parts.append("<div class='crops'>")
-            for name, conf in entry['crops']:
-                parts.append(f"<figure><img src='images/{name}'>"
-                             f"<figcaption>conf {conf:.2f}</figcaption></figure>")
-            parts.append("</div>")
-        parts.append("</div>")
-    return "\n".join(parts)
+HTML_TEMPLATE = r"""<!doctype html>
+<meta charset="utf-8">
+<title>Detection spot check</title>
+<style>
+  body{font-family:sans-serif;margin:20px auto;max-width:1650px;background:#fafafa;color:#222}
+  a{color:#06c}
+  .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .bar button,.bar select{font-size:15px;padding:6px 14px;cursor:pointer}
+  .meta{color:#666;font-size:13px}
+  .badge{font-size:12px;padding:2px 8px;border-radius:10px;background:#eee;color:#555}
+  #panowrap{position:relative;line-height:0;cursor:crosshair}
+  #panowrap img{width:100%;height:auto}
+  .missed{position:absolute;width:36px;height:36px;margin:-18px 0 0 -18px;border:4px solid #ffd400;
+          border-radius:50%;box-shadow:0 0 4px #000;cursor:pointer}
+  .crops{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;line-height:0}
+  .crops figure{margin:0;text-align:center;font-size:13px;line-height:1.3;cursor:pointer}
+  .crops img{width:256px;height:256px;border:5px solid #bbb;border-radius:4px}
+  .crops .ok img{border-color:#1a9c3e}
+  .crops .bad img{border-color:#d23}
+  .crops .verdict{font-weight:bold}
+  .ok .verdict{color:#1a9c3e}.bad .verdict{color:#d23}
+  #help{font-size:13px;color:#666;margin-top:14px}
+  kbd{background:#eee;border:1px solid #ccc;border-radius:3px;padding:0 4px;font-size:12px}
+</style>
+<div class="bar">
+  <button id="prev">&#8592; Prev</button>
+  <button id="next">Next &#8594;</button>
+  <select id="filter">
+    <option value="all">All panos</option>
+    <option value="det">With detections</option>
+    <option value="empty">Zero detections</option>
+    <option value="todo">Unreviewed</option>
+  </select>
+  <span id="pos" class="meta"></span>
+  <span id="progress" class="meta"></span>
+  <span style="flex:1"></span>
+  <button id="export">Export verdicts</button>
+</div>
+<h2 id="title" style="margin:6px 0"></h2>
+<div id="panowrap"><img id="panoimg" alt=""></div>
+<div class="crops" id="crops"></div>
+<p id="help">
+  <kbd>&#8592;</kbd>/<kbd>&#8594;</kbd> pano &nbsp;&middot;&nbsp; <kbd>1</kbd>&#8211;<kbd>9</kbd> cycle a crop's
+  verdict (unjudged &#8594; correct &#8594; incorrect) or click the crop &nbsp;&middot;&nbsp; click the panorama
+  to mark a <b>missed</b> curb ramp (click the yellow marker to remove) &nbsp;&middot;&nbsp; verdicts autosave
+  locally; Export writes verdicts.json for scripts/score_validation.py
+</p>
+<script>
+const ENTRIES = __ENTRIES__;
+const RUN_KEY = __RUN_KEY__;
+const SOURCE = __SOURCE__;
+const STORE = 'verdicts:' + RUN_KEY;
+
+let verdicts = JSON.parse(localStorage.getItem(STORE) || '{}');
+// verdicts[pid] = {dets: [null|true|false, ...], missed: [{x, y}, ...], seen: true}
+function v(pid, n) {
+  if (!verdicts[pid]) verdicts[pid] = {dets: Array(n).fill(null), missed: [], seen: false};
+  return verdicts[pid];
+}
+function save() { localStorage.setItem(STORE, JSON.stringify(verdicts)); }
+
+let filterMode = 'all', view = ENTRIES.slice(), idx = 0;
+
+function reviewed(e) {
+  const s = verdicts[e.pid];
+  if (!s || !s.seen) return false;
+  return s.dets.every(d => d !== null);
+}
+function applyFilter() {
+  const cur = view[idx] && view[idx].pid;
+  view = ENTRIES.filter(e =>
+    filterMode === 'det' ? e.crops.length > 0 :
+    filterMode === 'empty' ? e.crops.length === 0 :
+    filterMode === 'todo' ? !reviewed(e) : true);
+  if (!view.length) { idx = 0; render(); return; }
+  const keep = view.findIndex(e => e.pid === cur);
+  idx = keep >= 0 ? keep : 0;
+  render();
+}
+
+function render() {
+  const pos = document.getElementById('pos');
+  const done = ENTRIES.filter(reviewed).length;
+  document.getElementById('progress').textContent = done + '/' + ENTRIES.length + ' reviewed';
+  if (!view.length) {
+    document.getElementById('title').textContent = 'No panos match this filter';
+    document.getElementById('panoimg').removeAttribute('src');
+    document.getElementById('crops').innerHTML = '';
+    pos.textContent = '';
+    return;
+  }
+  const e = view[idx];
+  const s = v(e.pid, e.crops.length);
+  s.seen = true; save();
+
+  pos.textContent = (idx + 1) + ' / ' + view.length;
+  document.getElementById('title').innerHTML =
+    '<a href="https://www.google.com/maps/@?api=1&map_action=pano&pano=' + e.pid + '" target="_blank">' +
+    e.pid + '</a> <span class="meta">captured ' + e.date + ' &mdash; ' + e.crops.length +
+    ' detection(s)</span> <span class="badge">' + e.group + '</span>';
+  document.getElementById('panoimg').src = 'images/' + e.full;
+
+  // Missed-ramp markers.
+  document.querySelectorAll('.missed').forEach(m => m.remove());
+  const wrap = document.getElementById('panowrap');
+  s.missed.forEach((m, i) => {
+    const d = document.createElement('div');
+    d.className = 'missed';
+    d.style.left = (m.x * 100) + '%';
+    d.style.top = (m.y * 100) + '%';
+    d.title = 'missed ramp — click to remove';
+    d.onclick = ev => { ev.stopPropagation(); s.missed.splice(i, 1); save(); render(); };
+    wrap.appendChild(d);
+  });
+
+  // Detection crops with verdict state.
+  const crops = document.getElementById('crops');
+  crops.innerHTML = '';
+  e.crops.forEach((c, i) => {
+    const fig = document.createElement('figure');
+    fig.className = s.dets[i] === true ? 'ok' : s.dets[i] === false ? 'bad' : '';
+    fig.innerHTML = '<img src="images/' + c.img + '" loading="lazy">' +
+      '<figcaption>[' + (i + 1) + '] conf ' + c.conf.toFixed(2) +
+      ' &mdash; <span class="verdict">' +
+      (s.dets[i] === true ? 'correct' : s.dets[i] === false ? 'INCORRECT' : 'unjudged') +
+      '</span></figcaption>';
+    fig.onclick = () => cycle(i);
+    crops.appendChild(fig);
+  });
+}
+
+function cycle(i) {
+  const e = view[idx];
+  if (!e || i >= e.crops.length) return;
+  const s = v(e.pid, e.crops.length);
+  s.dets[i] = s.dets[i] === null ? true : s.dets[i] === true ? false : null;
+  save(); render();
+}
+
+document.getElementById('prev').onclick = () => { if (view.length) { idx = (idx - 1 + view.length) % view.length; render(); } };
+document.getElementById('next').onclick = () => { if (view.length) { idx = (idx + 1) % view.length; render(); } };
+document.getElementById('filter').onchange = ev => { filterMode = ev.target.value; applyFilter(); };
+document.getElementById('panowrap').onclick = ev => {
+  if (!view.length || ev.target.classList.contains('missed')) return;
+  const e = view[idx];
+  const r = document.getElementById('panoimg').getBoundingClientRect();
+  const s = v(e.pid, e.crops.length);
+  s.missed.push({x: (ev.clientX - r.left) / r.width, y: (ev.clientY - r.top) / r.height});
+  save(); render();
+};
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'ArrowLeft') document.getElementById('prev').click();
+  else if (ev.key === 'ArrowRight') document.getElementById('next').click();
+  else if (ev.key >= '1' && ev.key <= '9') cycle(Number(ev.key) - 1);
+});
+document.getElementById('export').onclick = () => {
+  const out = {run_key: RUN_KEY, source: SOURCE, exported_at: new Date().toISOString(),
+               panos: {}};
+  for (const e of ENTRIES) {
+    const s = verdicts[e.pid];
+    if (!s || !s.seen) continue;
+    out.panos[e.pid] = {group: e.group, dets: s.dets, missed: s.missed};
+  }
+  const blob = new Blob([JSON.stringify(out, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'verdicts.json';
+  a.click();
+};
+
+render();
+</script>
+"""
+
+
+def build_html(entries, jsonl_path, run_key):
+    return (HTML_TEMPLATE
+            .replace('__ENTRIES__', json.dumps(entries))
+            .replace('__RUN_KEY__', json.dumps(run_key))
+            .replace('__SOURCE__', json.dumps(str(jsonl_path))))
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Render an HTML contact sheet of annotated detections for visual QA."
+        description="Render a single-pano gallery viewer for visual QA and validation."
     )
     parser.add_argument("run", help="Run directory from main.py (or a results JSONL file).")
     parser.add_argument("--sample", type=int, default=100,
@@ -146,10 +319,10 @@ def main():
                         help="Output directory (default: <run dir>/spot_check).")
     args = parser.parse_args()
 
-    jsonl_path, records = load_records(args.run)
+    jsonl_path, records, run_key = load_records(args.run)
     chosen = choose_panos(records, args.sample, args.empty_sample, args.seed)
     print(f"{len(records)} records; rendering {len(chosen)} panos "
-          f"({sum(1 for r in chosen if r['detections'])} with detections).")
+          f"({sum(1 for r, _ in chosen if r['detections'])} with detections).")
 
     out_dir = args.out or jsonl_path.parent / "spot_check"
     images_dir = out_dir / "images"
@@ -157,7 +330,7 @@ def main():
 
     entries = []
     with ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS) as pool:
-        futures = {pool.submit(render_pano, r, images_dir): r for r in chosen}
+        futures = {pool.submit(render_pano, r, g, images_dir): r for r, g in chosen}
         with tqdm(total=len(futures), desc="Rendering panoramas") as pbar:
             for future in as_completed(futures):
                 pid = futures[future]['pano']['panorama_id']
@@ -167,11 +340,12 @@ def main():
                     print(f"  skipped {pid}: {e}")
                 pbar.update(1)
 
-    entries.sort(key=lambda e: len(e['record']['detections']), reverse=True)
+    entries.sort(key=lambda e: (-len(e['crops']), e['pid']))
     index_path = out_dir / "index.html"
     with open(index_path, 'w', encoding='utf-8') as f:
-        f.write(build_html(entries, jsonl_path))
+        f.write(build_html(entries, jsonl_path, run_key))
     print(f"Gallery: {index_path}")
+    print(f"Score verdicts with: python scripts/score_validation.py {jsonl_path.parent} <verdicts.json>")
 
 
 if __name__ == "__main__":
