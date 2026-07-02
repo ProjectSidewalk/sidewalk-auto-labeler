@@ -1,7 +1,3 @@
-from gevent import monkey
-monkey.patch_all()
-from gevent.pool import Pool
-
 import argparse
 import math
 import hashlib
@@ -12,10 +8,16 @@ import sys
 import time
 import traceback
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+# Concurrency is plain OS threads (not gevent): streetlevel's sync imagery API runs its
+# own asyncio event loop internally (asyncio.run + aiohttp), which needs one thread per
+# concurrent call. Under gevent's monkey-patching all workers share one OS thread, so
+# those event loops collide and every pano download stalls for minutes.
+
 # streetlevel makes HTTP requests with no timeout; without this, one black-holed
-# connection (e.g. Google throttling) hangs its worker greenlet forever.
+# connection (e.g. Google throttling) hangs its worker thread forever.
 socket.setdefaulttimeout(30)
 
 # Progress/report messages use emoji; on Windows the console may be cp1252, where printing
@@ -218,16 +220,14 @@ def run_labeler(geojson_path):
 
     print(f"-> Scanning {len(tiles_to_scan)} coverage tiles using {COVERAGE_API_CONCURRENCY} concurrent workers...")
 
-    find_pool = Pool(COVERAGE_API_CONCURRENCY)
     all_panos_in_area = {}
 
-    tasks = [(x, y, area_shape) for x, y in tiles_to_scan]
-
-    with tqdm(total=len(tasks), desc="Finding Panoramas") as pbar:
-        def find_worker_wrapper(args): return fetch_panos_for_tile(*args)
-        for pano_dict in find_pool.imap_unordered(find_worker_wrapper, tasks):
-            all_panos_in_area.update(pano_dict)
-            pbar.update(1)
+    with ThreadPoolExecutor(max_workers=COVERAGE_API_CONCURRENCY) as find_pool:
+        futures = [find_pool.submit(fetch_panos_for_tile, x, y, area_shape) for x, y in tiles_to_scan]
+        with tqdm(total=len(futures), desc="Finding Panoramas") as pbar:
+            for future in as_completed(futures):
+                all_panos_in_area.update(future.result())
+                pbar.update(1)
 
     # 3. Determine which panoramas to process
     panos_to_process_ids = sorted(list(set(all_panos_in_area.keys()) - processed_ids))
@@ -245,19 +245,20 @@ def run_labeler(geojson_path):
     # 4. Process new panoramas
     success_count, skip_count, fail_count = 0, 0, 0
 
-    process_pool = Pool(PROCESSING_CONCURRENCY)
     processing_tasks = [
         (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1])
         for pid in panos_to_process_ids
     ]
 
     with open(cache_file, 'a') as f_cache, \
-         open(output_jsonl_file, 'a') as f_jsonl:
+         open(output_jsonl_file, 'a') as f_jsonl, \
+         ThreadPoolExecutor(max_workers=PROCESSING_CONCURRENCY) as process_pool:
 
-        def process_worker_wrapper(args): return process_pano(*args)
+        futures = [process_pool.submit(process_pano, *task) for task in processing_tasks]
 
-        with tqdm(total=len(processing_tasks), desc="Processing New Panoramas") as pbar:
-            for result in process_pool.imap_unordered(process_worker_wrapper, processing_tasks):
+        with tqdm(total=len(futures), desc="Processing New Panoramas") as pbar:
+            for future in as_completed(futures):
+                result = future.result()
                 if result['status'] == 'success':
                     # ALWAYS write a line to the JSONL file for a successful process.
                     # The 'detections' key will be an empty list [] if none were found.

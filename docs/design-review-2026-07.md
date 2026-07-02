@@ -71,6 +71,14 @@ crop model pretrained on PS labels from 12 cities). ICCV'25 workshop paper: arXi
    tile grid — which also eliminates the fragile black-tile dimension probing (the bulk of
    issue [#1](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/1)).
    `fetch_panorama(metadata)` now returns a 4096×2048 RGB PIL image directly.
+8. **gevent replaced with real threads** — found live during the Bend smoke test (2026-07-02):
+   streetlevel's sync `get_panorama` runs an internal asyncio loop (`asyncio.run` + aiohttp)
+   per call. Under gevent's `monkey.patch_all()` every worker greenlet shares one OS thread,
+   so those loops collide and the patched thread-executor shutdown hangs (~300 s per join) —
+   observed ~10 min per pano. `main.py` now uses `concurrent.futures.ThreadPoolExecutor`
+   (same two concurrency knobs); GPU inference is serialized by a lock in `CurbRampDetector`
+   since real threads — unlike greenlets — would otherwise overlap full-resolution forward
+   passes and exhaust VRAM. `gevent` is removed from `requirements.txt`.
 
 ## 4. Deferred findings — sidewalk-auto-labeler
 

@@ -17,6 +17,7 @@ import argparse
 import json
 import os
 import time
+from contextlib import nullcontext
 from typing import Dict, Any, Optional, Set
 from pathlib import Path
 
@@ -155,8 +156,9 @@ def process_jsonl_file(
     print("-" * 50)
 
     try:
+        # A dry run records nothing, so don't create (or touch) the sidecar file.
         with open(input_file, 'r', encoding='utf-8') as file, \
-             open(sidecar_path, 'a', encoding='utf-8') as f_sidecar:
+             (nullcontext() if dry_run else open(sidecar_path, 'a', encoding='utf-8')) as f_sidecar:
             for line_number, line in enumerate(file, 1):
                 line = line.strip()
 

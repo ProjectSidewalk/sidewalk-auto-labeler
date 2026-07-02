@@ -40,9 +40,13 @@ The pipeline is two stages run by two separate entry points:
    detector (`detectors/curb_ramp.py`), and appends one JSON line per **successfully
    processed** pano — even when zero detections are found (`detections: []`).
 
-Concurrency is gevent-based: `from gevent import monkey; monkey.patch_all()` must stay at
-the very top of `main.py` before other imports. Two pools (`COVERAGE_API_CONCURRENCY=100`
-for tile scanning, `PROCESSING_CONCURRENCY=50` for per-pano work) are the main tuning knobs.
+Concurrency uses plain OS threads (`concurrent.futures.ThreadPoolExecutor`) — **not gevent**.
+streetlevel's sync imagery API runs an internal asyncio event loop per call (`asyncio.run` +
+aiohttp), which requires one real thread per concurrent call; under gevent monkey-patching
+those loops collide and every download stalls for minutes. Two pools
+(`COVERAGE_API_CONCURRENCY=100` for tile scanning, `PROCESSING_CONCURRENCY=50` for per-pano
+work) are the main tuning knobs. GPU inference is serialized by a lock inside
+`CurbRampDetector` — download threads overlap, forward passes don't (VRAM limit).
 
 **Caching / resumability:** results are keyed by a SHA-256 hash of the GeoJSON geometry.
 Per-area state lives in `cache/<area_hash>/already_processed.txt`. The JSONL output and the

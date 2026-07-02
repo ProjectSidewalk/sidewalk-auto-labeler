@@ -1,3 +1,5 @@
+import threading
+
 import torch
 from transformers import AutoModel
 import numpy as np
@@ -7,6 +9,9 @@ from skimage.feature import peak_local_max
 
 class CurbRampDetector:
     def __init__(self):
+        # detect() is called from many download threads; concurrent full-resolution
+        # forward passes would exhaust GPU memory, so device work is serialized.
+        self._inference_lock = threading.Lock()
         if torch.cuda.is_available():
             self.DEVICE = torch.device("cuda")
         elif torch.backends.mps.is_available():  # Apple Silicon
@@ -23,10 +28,10 @@ class CurbRampDetector:
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-        img_tensor = preprocess(pil_image).unsqueeze(0).to(self.DEVICE)
+        img_tensor = preprocess(pil_image).unsqueeze(0)
 
-        with torch.no_grad():
-            heatmap = self.model(img_tensor).squeeze().cpu().numpy()
+        with self._inference_lock, torch.no_grad():
+            heatmap = self.model(img_tensor.to(self.DEVICE)).squeeze().cpu().numpy()
 
         peaks = peak_local_max(np.clip(heatmap, 0, 1), min_distance=10, threshold_abs=0.55)
 
