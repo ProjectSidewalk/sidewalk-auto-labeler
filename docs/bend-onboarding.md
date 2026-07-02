@@ -171,13 +171,26 @@ Bring up the dev environment, open the site with `SIDEWALK_CITY_ID=bend-or`, and
 Once the Bend instance is live and reachable:
 ```bash
 conda activate sidewalk-auto-labeler
-python main.py example_geojson/bend.geojson     # → bend.jsonl
+
+# Scope first (pano count + runtime estimate; no model load, nothing processed):
+python main.py example_geojson/bend.geojson --name bend --scan-only
+
+# Run the labeler; all per-area state lands in runs/bend/ (results.jsonl, resume cache, etc.):
+python main.py example_geojson/bend.geojson --name bend
+
+# (Optional) spot-check and score the detections before submitting:
+python scripts/spot_check_gallery.py runs/bend
+python scripts/score_validation.py runs/bend
 ```
-Then edit `send_to_ps.py` (`JSONL_FILE_PATH = "bend.jsonl"`, `ENDPOINT_URL` = your Bend
-server's `/ai/submitLabelsOnPano`) and run:
+Then submit `runs/bend/results.jsonl` to your Bend server's `/ai/submitLabelsOnPano`
+(preview with `--dry-run` first):
 ```bash
-python send_to_ps.py
+python send_to_ps.py runs/bend/results.jsonl --dry-run
+python send_to_ps.py runs/bend/results.jsonl --endpoint https://<your-bend-server>/ai/submitLabelsOnPano
 ```
+
+> Running on a lab GPU server (e.g. makelab2)? See
+> [`makeability-quickstart.md`](makeability-quickstart.md) for the tmux / long-run workflow.
 
 > Keep the `bend.geojson` search area and the PS region/street coverage describing the **same
 > Bend**, so submitted labels attach to real street edges.
