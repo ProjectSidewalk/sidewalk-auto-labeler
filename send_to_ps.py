@@ -7,18 +7,23 @@ and sends the modified data via POST requests to a localhost endpoint from Proje
 """
 
 import json
+import os
 import requests
 from typing import Dict, Any, Optional
 from pathlib import Path
 
 
-def send_to_project_sidewalk(data: Dict[str, Any], endpoint_url: str) -> Optional[requests.Response]:
+def send_to_project_sidewalk(
+    data: Dict[str, Any], endpoint_url: str, api_key: Optional[str] = None
+) -> Optional[requests.Response]:
     """
     Send a POST request with JSON data to the specified PS endpoint.
 
     Args:
         data: The JSON data to send in the POST request.
         endpoint_url: The target endpoint URL.
+        api_key: Optional Project Sidewalk internal API key. When provided, it is sent as an
+            ``Authorization: Bearer`` header so the request can authenticate to the ingest endpoint.
 
     Returns:
         The response object if successful, None if an error occurred.
@@ -46,6 +51,8 @@ def send_to_project_sidewalk(data: Dict[str, Any], endpoint_url: str) -> Optiona
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         }
+        if api_key:
+            headers['Authorization'] = f'Bearer {api_key}'
         response = requests.post(
             endpoint_url,
             json=modified_data,
@@ -70,13 +77,19 @@ def send_to_project_sidewalk(data: Dict[str, Any], endpoint_url: str) -> Optiona
         return None
 
 
-def process_jsonl_file(file_path: str, endpoint_url: str = "http://localhost:9000/ai/submitLabelsOnPano") -> None:
+def process_jsonl_file(
+    file_path: str,
+    endpoint_url: str = "http://localhost:9000/ai/submitLabelsOnPano",
+    api_key: Optional[str] = None,
+) -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending POST requests to PS.
 
     Args:
         file_path: Path to the JSONL file to process.
         endpoint_url: The endpoint URL to send POST requests to.
+        api_key: Optional Project Sidewalk internal API key, forwarded to each request (see
+            ``send_to_project_sidewalk``).
     """
     input_file = Path(file_path)
 
@@ -106,7 +119,7 @@ def process_jsonl_file(file_path: str, endpoint_url: str = "http://localhost:900
                     json_data = json.loads(line)
 
                     # Send POST request.
-                    response = send_to_project_sidewalk(json_data, endpoint_url)
+                    response = send_to_project_sidewalk(json_data, endpoint_url, api_key)
 
                     if response:
                         success_count += 1
@@ -138,4 +151,9 @@ if __name__ == "__main__":
     JSONL_FILE_PATH = "vancouver.jsonl"
     ENDPOINT_URL = "http://localhost:9000/ai/submitLabelsOnPano" # TODO send to PS server from main.py after pilot
 
-    process_jsonl_file(JSONL_FILE_PATH, ENDPOINT_URL)
+    # Project Sidewalk's ingest endpoint authenticates server-to-server callers with a shared internal key. Provide it
+    # via the PS_INTERNAL_API_KEY env var (matches Project Sidewalk's INTERNAL_API_KEY); if unset, no auth header is
+    # sent (works against a deployment that doesn't require it yet).
+    API_KEY = os.environ.get("PS_INTERNAL_API_KEY")
+
+    process_jsonl_file(JSONL_FILE_PATH, ENDPOINT_URL, API_KEY)
