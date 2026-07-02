@@ -167,11 +167,13 @@ HTML_TEMPLATE = r"""<!doctype html>
   <kbd>&#8592;</kbd>/<kbd>&#8594;</kbd> pano &nbsp;&middot;&nbsp; <kbd>1</kbd>&#8211;<kbd>9</kbd> cycle a crop's
   verdict (unjudged &#8594; correct &#8594; incorrect) or click the crop &nbsp;&middot;&nbsp; click the panorama
   to mark a <b>missed</b> curb ramp (click the yellow marker to remove) &nbsp;&middot;&nbsp; verdicts autosave
-  locally; Export writes verdicts.json for scripts/score_validation.py
+  locally; Export downloads <span id="vname"></span> &mdash; save it into the run directory, then run
+  <code>python scripts/score_validation.py runs/&lt;name&gt;</code>
 </p>
 <script>
 const ENTRIES = __ENTRIES__;
 const RUN_KEY = __RUN_KEY__;
+const RUN_NAME = __RUN_NAME__;
 const SOURCE = __SOURCE__;
 const STORE = 'verdicts:' + RUN_KEY;
 
@@ -278,8 +280,8 @@ document.addEventListener('keydown', ev => {
   else if (ev.key >= '1' && ev.key <= '9') cycle(Number(ev.key) - 1);
 });
 document.getElementById('export').onclick = () => {
-  const out = {run_key: RUN_KEY, source: SOURCE, exported_at: new Date().toISOString(),
-               panos: {}};
+  const out = {run_key: RUN_KEY, run_name: RUN_NAME, source: SOURCE,
+               exported_at: new Date().toISOString(), panos: {}};
   for (const e of ENTRIES) {
     const s = verdicts[e.pid];
     if (!s || !s.seen) continue;
@@ -288,19 +290,21 @@ document.getElementById('export').onclick = () => {
   const blob = new Blob([JSON.stringify(out, null, 2)], {type: 'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'verdicts.json';
+  a.download = RUN_NAME + '_verdicts.json';
   a.click();
 };
 
+document.getElementById('vname').textContent = RUN_NAME + '_verdicts.json';
 render();
 </script>
 """
 
 
-def build_html(entries, jsonl_path, run_key):
+def build_html(entries, jsonl_path, run_key, run_name):
     return (HTML_TEMPLATE
             .replace('__ENTRIES__', json.dumps(entries))
             .replace('__RUN_KEY__', json.dumps(run_key))
+            .replace('__RUN_NAME__', json.dumps(run_name))
             .replace('__SOURCE__', json.dumps(str(jsonl_path))))
 
 
@@ -340,12 +344,14 @@ def main():
                     print(f"  skipped {pid}: {e}")
                 pbar.update(1)
 
+    run_name = jsonl_path.parent.name if jsonl_path.parent.name else jsonl_path.stem
     entries.sort(key=lambda e: (-len(e['crops']), e['pid']))
     index_path = out_dir / "index.html"
     with open(index_path, 'w', encoding='utf-8') as f:
-        f.write(build_html(entries, jsonl_path, run_key))
+        f.write(build_html(entries, jsonl_path, run_key, run_name))
     print(f"Gallery: {index_path}")
-    print(f"Score verdicts with: python scripts/score_validation.py {jsonl_path.parent} <verdicts.json>")
+    print(f"After reviewing, save the exported {run_name}_verdicts.json into {jsonl_path.parent}")
+    print(f"and score it with: python scripts/score_validation.py {jsonl_path.parent}")
 
 
 if __name__ == "__main__":

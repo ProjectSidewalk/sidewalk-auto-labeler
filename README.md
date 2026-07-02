@@ -181,10 +181,11 @@ The viewer doubles as a quick **validation tool**:
   remove it). This gives per-pano-comprehensive ground truth — the recall signal that
   Project Sidewalk's validation workflow can't provide.
 - Verdicts autosave in the browser (localStorage). When done, **Export verdicts** downloads
-  a `verdicts.json`, then:
+  `<name>_verdicts.json` (e.g. `bend_verdicts.json`) — **save it into the run directory**
+  (`runs/bend/`), where the scorer finds it automatically:
 
 ```bash
-python scripts/score_validation.py runs/bend verdicts.json
+python scripts/score_validation.py runs/bend
 ```
 
 prints precision and recall with 95% CIs and a confidence-threshold sweep — both overall
