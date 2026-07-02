@@ -98,7 +98,7 @@ Reference wiki pages:
 - [Adding New Road Geometries to a Database](https://github.com/ProjectSidewalk/SidewalkWebpage/wiki/Adding-New-Road-Geometries-to-a-Database)
 - [Considerations when Preparing for and Deploying to New Cities](https://github.com/ProjectSidewalk/SidewalkWebpage/wiki)
 
-> The PS wiki estimates this stage takes **days to weeks**, dominated by QGIS data cleaning.
+> The PS wiki estimates this stage takes **significant effort** (but we are trying to streamline it), dominated by QGIS data cleaning.
 > If a Bend instance already exists, skip all of this and just point `ENDPOINT_URL`
 > (in `send_to_ps.py`) at it.
 
