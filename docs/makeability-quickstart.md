@@ -142,6 +142,12 @@ default keeps the GPU fed on our 48-core box — just use the default unless you
 not to. The companion `--coverage-concurrency` (default `100`) scales the initial
 tile-scanning phase.
 
+The one real reason to lower it is **Google-side politeness**: if metadata failures spike
+mid-run ("Metadata unavailable" errors piling up), Google is soft-throttling the server's IP —
+lower `--processing-concurrency` (e.g. to 10–20) and let the resumable run continue; the
+failed panos retry on the next pass. This matters more on the lab servers than a personal
+machine, since other lab projects hit Street View from the same IP.
+
 ### Is it slow because the GPU is starved, or because you're sharing it?
 
 If a run feels slow, watch the card in a second SSH session and read **GPU-Util *and* power
