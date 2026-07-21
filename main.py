@@ -178,7 +178,7 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
     })
     save_manifest(manifest_path, manifest)
 
-def run_labeler(geojson_path, run_name, source, scan_only=False):
+def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None):
     """
     Finds and processes all panoramas from the given imagery source within a GeoJSON
     area, writing all per-area state to runs/<run_name>/.
@@ -242,6 +242,9 @@ def run_labeler(geojson_path, run_name, source, scan_only=False):
 
     # 3. Determine which panoramas to process
     panos_to_process_ids = sorted(list(set(all_panos_in_area.keys()) - processed_ids))
+    if limit is not None and len(panos_to_process_ids) > limit:
+        print(f"-> --limit {limit}: processing only the first {limit} of {len(panos_to_process_ids)} new panoramas.")
+        panos_to_process_ids = panos_to_process_ids[:limit]
 
     print("\n--- Processing Summary ---")
     print(f"Total panoramas found in area: {len(all_panos_in_area)}")
@@ -349,6 +352,11 @@ def main():
         help="Concurrent workers scanning coverage tiles (default: %(default)s)."
     )
     parser.add_argument(
+        "--limit", type=int,
+        help="Process at most N new panoramas this run (for smoke tests and rate "
+             "measurement); the rest stay uncached and process on a later run."
+    )
+    parser.add_argument(
         "--scan-only", action="store_true",
         help="Only scan coverage and report the pano count and a runtime estimate; "
              "skips model loading and processes nothing."
@@ -370,7 +378,7 @@ def main():
         curb_ramp_detector = CurbRampDetector()
 
     try:
-        run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, source, args.scan_only)
+        run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, source, args.scan_only, args.limit)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:

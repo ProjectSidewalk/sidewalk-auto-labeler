@@ -37,9 +37,17 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from dotenv import load_dotenv
 from PIL import Image
 from streetlevel import streetview
 from tqdm import tqdm
+
+# Repo root on the path (for sources/) + local secrets: Mapillary-run galleries
+# re-download imagery through the Graph API, which needs MAPILLARY_ACCESS_TOKEN.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+load_dotenv(REPO_ROOT / ".env")
 
 socket.setdefaulttimeout(30)
 
@@ -85,15 +93,26 @@ def choose_panos(records, sample, empty_sample, seed):
     return chosen
 
 
+def fetch_display_image(pano):
+    """Re-downloads the pano through the provider it came from."""
+    if pano.get('source') == 'mapillary':
+        from sources import mapillary
+        img = mapillary.fetch_image(pano['panorama_id'])
+        if img is None:
+            raise RuntimeError("Mapillary metadata/image unavailable")
+        return img
+    metadata = streetview.find_panorama_by_id(pano['panorama_id'])
+    if metadata is None:
+        raise RuntimeError("metadata unavailable")
+    return streetview.get_panorama(metadata, zoom=min(3, len(metadata.image_sizes) - 1))
+
+
 def render_pano(record, group, images_dir):
     """Downloads one pano, saves the clean display image and per-detection crops,
     and returns the overlay geometry the viewer draws the detection circles from."""
     pano = record['pano']
     pid = pano['panorama_id']
-    metadata = streetview.find_panorama_by_id(pid)
-    if metadata is None:
-        raise RuntimeError("metadata unavailable")
-    img = streetview.get_panorama(metadata, zoom=min(3, len(metadata.image_sizes) - 1))
+    img = fetch_display_image(pano)
 
     # Detections are stored normalized; scale to this download's resolution.
     # Images are saved clean — detection circles are drawn as HTML overlays so the
@@ -121,6 +140,7 @@ def render_pano(record, group, images_dir):
        .convert('RGB').save(images_dir / full_name, quality=80)
     return {
         'pid': pid,
+        'source': pano.get('source', ''),
         'date': str(pano['capture_date']),
         'group': group,
         'full': full_name,
@@ -273,8 +293,11 @@ function render() {
   s.seen = true; save();
 
   pos.textContent = (idx + 1) + ' / ' + view.length;
+  const viewerUrl = e.source === 'mapillary'
+    ? 'https://www.mapillary.com/app/?pKey=' + e.pid + '&focus=photo'
+    : 'https://www.google.com/maps/@?api=1&map_action=pano&pano=' + e.pid;
   document.getElementById('title').innerHTML =
-    '<a href="https://www.google.com/maps/@?api=1&map_action=pano&pano=' + e.pid + '" target="_blank">' +
+    '<a href="' + viewerUrl + '" target="_blank">' +
     e.pid + '</a> <span class="meta">captured ' + e.date + ' &mdash; ' + e.crops.length +
     ' detection(s)</span> <span class="badge">' + e.group + '</span>';
   document.getElementById('panoimg').src = 'images/' + e.full;
