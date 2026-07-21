@@ -23,4 +23,7 @@ timm
 torch
 torchvision
 tqdm
-transformers
+# rampnet-model is loaded via trust_remote_code; transformers 5.13+ changed the
+# custom-model auto-class API and can no longer load it (KeypointModel has no
+# register_for_auto_class). 5.12.1 is the proven version.
+transformers==5.12.1
