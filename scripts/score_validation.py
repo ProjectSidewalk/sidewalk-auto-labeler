@@ -73,12 +73,27 @@ def load_inputs(run_arg, verdicts_arg):
 
 def collect(panos, confs_by_pid, exclude_top=False):
     """
-    Returns (judged, missed_total, n_reviewed, n_seen):
-      judged = list of (confidence, is_correct) for judged detections on included panos,
-      missed_total = missed-ramp marks on *fully reviewed* panos,
-      restricted to fully reviewed panos so recall's denominator is trustworthy.
+    Returns (judged, recall_judged, missed_total, n_seen, n_judged, n_unconfirmed):
+      judged        = (confidence, is_correct) for every detection on panos whose
+                      detections are all judged — the PRECISION pool. A detection
+                      verdict is valid whether or not the missed-ramp scan happened.
+      recall_judged = the subset of judged from panos whose missed-ramp check is
+                      confirmed — the RECALL pool. missed_total counts missed-ramp
+                      marks on the same panos, so recall's numerator and denominator
+                      cover the same set.
+      n_unconfirmed = fully judged panos excluded from the recall pool because the
+                      missed-ramp check was never confirmed.
+
+    The missed-ramp check is per entry: new-schema entries (exported by a gallery
+    with the confirmation feature) carry 'no_missed' and must have it set or have a
+    missed mark; legacy entries (no key) are trusted as before, with a file-level
+    warning printed by main(). Mixed old/new files therefore score correctly.
+
+    This gate mirrors reviewed()/fnChecked() in the viewer JS
+    (scripts/spot_check_gallery.py) — keep the two in sync.
     """
-    judged, missed_total, n_reviewed, n_seen = [], 0, 0, 0
+    judged, recall_judged, missed_total = [], [], 0
+    n_seen = n_judged = n_unconfirmed = 0
     for pid, entry in panos.items():
         if exclude_top and entry.get('group') == 'top':
             continue
@@ -89,19 +104,31 @@ def collect(panos, confs_by_pid, exclude_top=False):
         n_seen += 1
         if any(d is None for d in entry['dets']):
             continue  # partially judged: unusable for either metric
-        n_reviewed += 1
-        judged += list(zip(confs, entry['dets']))
-        missed_total += len(entry['missed'])
-    return judged, missed_total, n_reviewed, n_seen
+        n_judged += 1
+        pano_judged = list(zip(confs, entry['dets']))
+        judged += pano_judged
+        fn_checked = ((entry['no_missed'] or entry['missed'])
+                      if 'no_missed' in entry else True)
+        if fn_checked:
+            recall_judged += pano_judged
+            missed_total += len(entry['missed'])
+        else:
+            n_unconfirmed += 1
+    return judged, recall_judged, missed_total, n_seen, n_judged, n_unconfirmed
 
 
-def report(title, judged, missed_total, n_reviewed, n_seen):
+def report(title, judged, recall_judged, missed_total, n_seen, n_judged, n_unconfirmed):
     tp = sum(1 for _, ok in judged if ok)
     fp = len(judged) - tp
-    total_ramps = tp + missed_total  # ramps found by model or reviewer on reviewed panos
+    rtp = sum(1 for _, ok in recall_judged if ok)
+    total_ramps = rtp + missed_total  # ramps found by model or reviewer, recall pool
 
     print(f"--- {title} ---")
-    print(f"Panos fully reviewed: {n_reviewed} (of {n_seen} seen)")
+    print(f"Panos fully judged:   {n_judged} (of {n_seen} seen)")
+    if n_unconfirmed:
+        print(f"⚠ {n_unconfirmed} of those excluded from RECALL only: their missed-ramp "
+              f"check was never confirmed\n  (open the gallery and press 'm' / mark the "
+              f"missed ramps, then re-export).")
     print(f"Detections judged:    {len(judged)}  (correct {tp}, incorrect {fp})")
     print(f"Missed ramps marked:  {missed_total}")
     if not judged:
@@ -111,10 +138,10 @@ def report(title, judged, missed_total, n_reviewed, n_seen):
     lo, hi = wilson_interval(tp, len(judged))
     print(f"Precision: {p:.3f}  (95% CI {lo:.3f}–{hi:.3f})")
     if total_ramps:
-        r = tp / total_ramps
-        rlo, rhi = wilson_interval(tp, total_ramps)
+        r = rtp / total_ramps
+        rlo, rhi = wilson_interval(rtp, total_ramps)
         print(f"Recall:    {r:.3f}  (95% CI {rlo:.3f}–{rhi:.3f})  "
-              f"[vs ramps visible in reviewed panos]")
+              f"[vs ramps visible in the {n_judged - n_unconfirmed} recall-pool panos]")
     print()
     print(f"{'threshold':>9}  {'kept':>5}  {'precision':>9}  {'recall':>7}")
     for t in THRESHOLDS:
@@ -123,7 +150,8 @@ def report(title, judged, missed_total, n_reviewed, n_seen):
             break
         ktp = sum(1 for _, ok in kept if ok)
         prec = ktp / len(kept)
-        rec = ktp / total_ramps if total_ramps else float('nan')
+        rtp_t = sum(1 for c, ok in recall_judged if c >= t and ok)
+        rec = rtp_t / total_ramps if total_ramps else float('nan')
         print(f"{t:>9.2f}  {len(kept):>5}  {prec:>9.3f}  {rec:>7.3f}")
     print()
 
@@ -138,15 +166,28 @@ def main():
                              "<run>/<name>_verdicts.json, then <run>/verdicts.json).")
     args = parser.parse_args()
 
+    # Don't crash on ⚠/– when the console encoding can't represent them (Windows
+    # cp1252). Done here, not at import time, so importing this module (e.g. from
+    # tests) never mutates the process's streams.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(errors='replace')
+
     confs_by_pid, panos = load_inputs(args.run, args.verdicts)
 
-    judged, missed, n_rev, n_seen = collect(panos, confs_by_pid)
-    report("All reviewed panos", judged, missed, n_rev, n_seen)
+    # Galleries with the missed-ramp confirmation export a per-pano 'no_missed' flag;
+    # entries without it are legacy and trusted (see collect()).
+    if not any('no_missed' in e for e in panos.values()):
+        print("⚠ verdicts predate the missed-ramp confirmation: recall assumes every "
+              "reviewed pano\n  was actually scanned for missed ramps and may be "
+              "optimistic.\n")
 
-    judged_u, missed_u, n_rev_u, n_seen_u = collect(panos, confs_by_pid, exclude_top=True)
-    if n_seen_u != n_seen:
-        report("Unbiased subset (random + empty samples only)",
-               judged_u, missed_u, n_rev_u, n_seen_u)
+    all_pools = collect(panos, confs_by_pid)
+    report("All reviewed panos", *all_pools)
+
+    unbiased_pools = collect(panos, confs_by_pid, exclude_top=True)
+    if unbiased_pools[3] != all_pools[3]:  # n_seen differs -> top panos existed
+        report("Unbiased subset (random + empty samples only)", *unbiased_pools)
 
     print("Recall here = per-pano-comprehensive, as judged by the reviewer on sampled panos.")
     print("For city-scale metrics, use PS validation agree-rate (precision) and attribute-level")

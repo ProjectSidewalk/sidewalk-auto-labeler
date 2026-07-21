@@ -2,14 +2,20 @@
 Render a single-pano gallery viewer for visual QA *and* quick validation.
 
 Reads a run directory produced by main.py (or a bare results JSONL file), samples
-panoramas, re-downloads each at up to 4096x2048, draws the detections, and writes a
-static one-pano-at-a-time viewer (index.html). Serve it however you like (VS Code
+panoramas, re-downloads each at up to 4096x2048, and writes a static one-pano-at-a-time
+viewer (index.html). The saved images are deliberately clean — detections are drawn as
+HTML overlays so the viewer can recolor them live as verdicts change. Serve it however you like (VS Code
 Live Server, `python -m http.server`, or just open the file).
 
 The viewer doubles as a validation tool:
-  - click a detection crop to cycle its verdict: unjudged -> correct -> incorrect
+  - click a detection crop (or its numbered circle on the panorama) to cycle its
+    verdict: unjudged -> correct -> incorrect; circles start yellow and turn
+    green/red to match
   - click anywhere on the panorama to mark a curb ramp the model missed
-    (click a marker again to remove it)
+    (click the dashed magenta marker again to remove it), or press "m" / the
+    "No missed ramps" button to confirm there are none — a pano only counts as
+    reviewed once every crop is judged AND the missed-ramp check is confirmed,
+    so recall isn't inflated by panos nobody actually scanned
   - verdicts autosave to the browser's localStorage; "Export verdicts" downloads a
     verdicts.json to score with scripts/score_validation.py (precision + recall)
 
@@ -29,7 +35,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
 from streetlevel import streetview
 from tqdm import tqdm
 
@@ -78,7 +84,8 @@ def choose_panos(records, sample, empty_sample, seed):
 
 
 def render_pano(record, group, images_dir):
-    """Downloads one pano, draws its detections, and saves the gallery images."""
+    """Downloads one pano, saves the clean display image and per-detection crops,
+    and returns the overlay geometry the viewer draws the detection circles from."""
     pano = record['pano']
     pid = pano['panorama_id']
     metadata = streetview.find_panorama_by_id(pid)
@@ -87,32 +94,29 @@ def render_pano(record, group, images_dir):
     img = streetview.get_panorama(metadata, zoom=min(3, len(metadata.image_sizes) - 1))
 
     # Detections are stored normalized; scale to this download's resolution.
+    # Images are saved clean — detection circles are drawn as HTML overlays so the
+    # viewer can recolor them live as verdicts change.
     sx, sy = img.size[0], img.size[1]
 
-    annotated = img.copy()
-    draw = ImageDraw.Draw(annotated)
     crops = []
     for i, det in enumerate(record['detections']):
         px, py = det['x_normalized'] * sx, det['y_normalized'] * sy
-        radius = 40
-        draw.ellipse([px - radius, py - radius, px + radius, py + radius],
-                     outline=(255, 0, 0), width=8)
-
         half = CROP_SIZE // 2
         left = int(min(max(px - half, 0), img.size[0] - CROP_SIZE))
         top = int(min(max(py - half, 0), img.size[1] - CROP_SIZE))
         crop = img.crop((left, top, left + CROP_SIZE, top + CROP_SIZE))
-        crop_draw = ImageDraw.Draw(crop)
-        crop_draw.ellipse([px - left - radius, py - top - radius,
-                           px - left + radius, py - top + radius],
-                          outline=(255, 0, 0), width=6)
         crop_name = f"{pid}_det{i}.jpg"
         crop.convert('RGB').save(images_dir / crop_name, quality=85)
-        crops.append({'img': crop_name, 'conf': round(det['confidence'], 4)})
+        crops.append({'img': crop_name, 'conf': round(det['confidence'], 4),
+                      # detection center: normalized in the pano, and in the crop
+                      'x': round(det['x_normalized'], 5),
+                      'y': round(det['y_normalized'], 5),
+                      'cx': round((px - left) / CROP_SIZE, 4),
+                      'cy': round((py - top) / CROP_SIZE, 4)})
 
     full_name = f"{pid}_full.jpg"
-    annotated.resize((DISPLAY_WIDTH, DISPLAY_WIDTH // 2), Image.BILINEAR) \
-             .convert('RGB').save(images_dir / full_name, quality=80)
+    img.resize((DISPLAY_WIDTH, DISPLAY_WIDTH // 2), Image.BILINEAR) \
+       .convert('RGB').save(images_dir / full_name, quality=80)
     return {
         'pid': pid,
         'date': str(pano['capture_date']),
@@ -134,13 +138,29 @@ HTML_TEMPLATE = r"""<!doctype html>
   .badge{font-size:12px;padding:2px 8px;border-radius:10px;background:#eee;color:#555}
   #panowrap{position:relative;line-height:0;cursor:crosshair}
   #panowrap img{width:100%;height:auto}
-  .missed{position:absolute;width:36px;height:36px;margin:-18px 0 0 -18px;border:4px solid #ffd400;
-          border-radius:50%;box-shadow:0 0 4px #000;cursor:pointer}
+  .det{position:absolute;width:34px;height:34px;transform:translate(-50%,-50%);
+       border-radius:50%;border:4px solid #ffd400;
+       box-shadow:0 0 0 3px rgba(255,255,255,.85),0 0 6px #000;cursor:pointer}
+  .det.ok{border-color:#1a9c3e}
+  .det.bad{border-color:#d23}
+  .det .num{position:absolute;top:-21px;left:50%;transform:translateX(-50%);
+            font:bold 13px/1 sans-serif;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000}
+  .missed{position:absolute;width:36px;height:36px;transform:translate(-50%,-50%);
+          border:4px dashed #e534eb;border-radius:50%;box-shadow:0 0 4px #000;
+          cursor:pointer;background:rgba(229,52,235,.12)}
+  #nomiss.active{background:#1a9c3e;border:1px solid #1a9c3e;color:#fff}
   .crops{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;line-height:0}
   .crops figure{margin:0;text-align:center;font-size:13px;line-height:1.3;cursor:pointer}
-  .crops img{width:256px;height:256px;border:5px solid #bbb;border-radius:4px}
-  .crops .ok img{border-color:#1a9c3e}
-  .crops .bad img{border-color:#d23}
+  /* verdict border lives on the wrapper so the ring's %-coords map exactly onto the image */
+  .cropwrap{position:relative;display:inline-block;line-height:0;border:5px solid #bbb;border-radius:4px}
+  .crops img{width:256px;height:256px;border-radius:2px;display:block}
+  .crops .ok .cropwrap{border-color:#1a9c3e}
+  .crops .bad .cropwrap{border-color:#d23}
+  /* ring diameter mirrors the old 40px-radius circle on the 512px crop (80/512) */
+  .cropring{position:absolute;width:15.6%;height:15.6%;transform:translate(-50%,-50%);
+            border:3px solid #ffd400;border-radius:50%;
+            box-shadow:0 0 0 2px rgba(255,255,255,.85);pointer-events:none}
+  .ok .cropring{border-color:#1a9c3e}.bad .cropring{border-color:#d23}
   .crops .verdict{font-weight:bold}
   .ok .verdict{color:#1a9c3e}.bad .verdict{color:#d23}
   #help{font-size:13px;color:#666;margin-top:14px}
@@ -162,11 +182,17 @@ HTML_TEMPLATE = r"""<!doctype html>
 </div>
 <h2 id="title" style="margin:6px 0"></h2>
 <div id="panowrap"><img id="panoimg" alt=""></div>
+<div class="bar" id="fnbar" style="margin:8px 0 0">
+  <button id="nomiss">No missed ramps</button>
+  <span id="fnstate" class="meta"></span>
+</div>
 <div class="crops" id="crops"></div>
 <p id="help">
   <kbd>&#8592;</kbd>/<kbd>&#8594;</kbd> pano &nbsp;&middot;&nbsp; <kbd>1</kbd>&#8211;<kbd>9</kbd> cycle a crop's
-  verdict (unjudged &#8594; correct &#8594; incorrect) or click the crop &nbsp;&middot;&nbsp; click the panorama
-  to mark a <b>missed</b> curb ramp (click the yellow marker to remove) &nbsp;&middot;&nbsp; verdicts autosave
+  verdict (unjudged &#8594; correct &#8594; incorrect) or click the crop / its numbered circle
+  &nbsp;&middot;&nbsp; click the panorama to mark a <b>missed</b> curb ramp (click the dashed magenta marker
+  to remove), or press <kbd>m</kbd> if there are none &mdash; a pano counts as reviewed only once every crop
+  is judged <b>and</b> the missed-ramp check is done &nbsp;&middot;&nbsp; verdicts autosave
   locally; Export downloads <span id="vname"></span> &mdash; save it into the run directory, then run
   <code>python scripts/score_validation.py runs/&lt;name&gt;</code>
 </p>
@@ -178,18 +204,30 @@ const SOURCE = __SOURCE__;
 const STORE = 'verdicts:' + RUN_KEY;
 
 let verdicts = JSON.parse(localStorage.getItem(STORE) || '{}');
-// verdicts[pid] = {dets: [null|true|false, ...], missed: [{x, y}, ...], seen: true}
+// verdicts[pid] = {dets: [null|true|false, ...], missed: [{x, y}, ...],
+//                  noMissed: bool (reviewer confirmed no missed ramps), seen: true}
 function v(pid, n) {
-  if (!verdicts[pid]) verdicts[pid] = {dets: Array(n).fill(null), missed: [], seen: false};
-  return verdicts[pid];
+  if (!verdicts[pid]) verdicts[pid] = {dets: Array(n).fill(null), missed: [], noMissed: false, seen: false};
+  const s = verdicts[pid];
+  // A rerun of the same area can change a pano's detection count (new model or
+  // threshold); stored crop verdicts then no longer map to the current crops.
+  // Reset them (missed marks and the no-missed affirmation are pano-level and
+  // stay valid) rather than mis-align or over-count reviewed().
+  if (s.dets.length !== n) s.dets = Array(n).fill(null);
+  return s;
 }
 function save() { localStorage.setItem(STORE, JSON.stringify(verdicts)); }
 
 let filterMode = 'all', view = ENTRIES.slice(), idx = 0;
 
+// vcls/fnChecked/reviewed define what "reviewed" means; scripts/score_validation.py
+// collect() applies the same gate to the exported verdicts — keep the two in sync.
+function vcls(d) { return d === true ? 'ok' : d === false ? 'bad' : ''; }
+function fnChecked(s) { return s.missed.length > 0 || !!s.noMissed; }
 function reviewed(e) {
   const s = verdicts[e.pid];
-  if (!s || !s.seen) return false;
+  if (!s || !s.seen || !fnChecked(s)) return false;
+  if (s.dets.length !== e.crops.length) return false; // stale entry, see v()
   return s.dets.every(d => d !== null);
 }
 function applyFilter() {
@@ -208,13 +246,18 @@ function render() {
   const pos = document.getElementById('pos');
   const done = ENTRIES.filter(reviewed).length;
   document.getElementById('progress').textContent = done + '/' + ENTRIES.length + ' reviewed';
+  // Overlays belong to the previously rendered pano; clear them on every path
+  // (including the empty-filter one, where stale markers would still be clickable).
+  document.querySelectorAll('.missed, .det').forEach(m => m.remove());
   if (!view.length) {
     document.getElementById('title').textContent = 'No panos match this filter';
     document.getElementById('panoimg').removeAttribute('src');
     document.getElementById('crops').innerHTML = '';
+    document.getElementById('fnbar').style.display = 'none';
     pos.textContent = '';
     return;
   }
+  document.getElementById('fnbar').style.display = '';
   const e = view[idx];
   const s = v(e.pid, e.crops.length);
   s.seen = true; save();
@@ -226,9 +269,18 @@ function render() {
     ' detection(s)</span> <span class="badge">' + e.group + '</span>';
   document.getElementById('panoimg').src = 'images/' + e.full;
 
-  // Missed-ramp markers.
-  document.querySelectorAll('.missed').forEach(m => m.remove());
+  // Detection circles + missed-ramp markers, overlaid on the clean pano image.
   const wrap = document.getElementById('panowrap');
+  e.crops.forEach((c, i) => {
+    const d = document.createElement('div');
+    d.className = ('det ' + vcls(s.dets[i])).trim();
+    d.style.left = (c.x * 100) + '%';
+    d.style.top = (c.y * 100) + '%';
+    d.innerHTML = '<span class="num">' + (i + 1) + '</span>';
+    d.title = 'detection ' + (i + 1) + ' — click to cycle verdict';
+    d.onclick = ev => { ev.stopPropagation(); cycle(i); };
+    wrap.appendChild(d);
+  });
   s.missed.forEach((m, i) => {
     const d = document.createElement('div');
     d.className = 'missed';
@@ -239,13 +291,26 @@ function render() {
     wrap.appendChild(d);
   });
 
+  // Missed-ramp confirmation state. The click handlers keep noMissed and missed
+  // marks mutually exclusive; normalize once anyway so stale state can't disagree.
+  const affirmed = !!s.noMissed && !s.missed.length;
+  const nm = document.getElementById('nomiss');
+  nm.disabled = s.missed.length > 0;
+  nm.classList.toggle('active', affirmed);
+  nm.textContent = affirmed ? '✓ No missed ramps' : 'No missed ramps (m)';
+  document.getElementById('fnstate').textContent =
+    s.missed.length ? s.missed.length + ' missed ramp(s) marked' :
+    affirmed ? 'missed-ramp check done' :
+    'scan the panorama for ramps the model missed, then click a ramp or confirm none';
+
   // Detection crops with verdict state.
   const crops = document.getElementById('crops');
   crops.innerHTML = '';
   e.crops.forEach((c, i) => {
     const fig = document.createElement('figure');
-    fig.className = s.dets[i] === true ? 'ok' : s.dets[i] === false ? 'bad' : '';
-    fig.innerHTML = '<img src="images/' + c.img + '" loading="lazy">' +
+    fig.className = vcls(s.dets[i]);
+    fig.innerHTML = '<span class="cropwrap"><img src="images/' + c.img + '" loading="lazy">' +
+      '<span class="cropring" style="left:' + (c.cx * 100) + '%;top:' + (c.cy * 100) + '%"></span></span>' +
       '<figcaption>[' + (i + 1) + '] conf ' + c.conf.toFixed(2) +
       ' &mdash; <span class="verdict">' +
       (s.dets[i] === true ? 'correct' : s.dets[i] === false ? 'INCORRECT' : 'unjudged') +
@@ -267,16 +332,29 @@ document.getElementById('prev').onclick = () => { if (view.length) { idx = (idx 
 document.getElementById('next').onclick = () => { if (view.length) { idx = (idx + 1) % view.length; render(); } };
 document.getElementById('filter').onchange = ev => { filterMode = ev.target.value; applyFilter(); };
 document.getElementById('panowrap').onclick = ev => {
-  if (!view.length || ev.target.classList.contains('missed')) return;
+  if (!view.length || ev.target.closest('.missed, .det')) return;
   const e = view[idx];
   const r = document.getElementById('panoimg').getBoundingClientRect();
   const s = v(e.pid, e.crops.length);
   s.missed.push({x: (ev.clientX - r.left) / r.width, y: (ev.clientY - r.top) / r.height});
+  s.noMissed = false;
+  save(); render();
+};
+document.getElementById('nomiss').onclick = () => {
+  if (!view.length) return;
+  const e = view[idx];
+  const s = v(e.pid, e.crops.length);
+  if (s.missed.length) return;
+  s.noMissed = !s.noMissed;
   save(); render();
 };
 document.addEventListener('keydown', ev => {
+  // Never hijack browser shortcuts (Ctrl+M mutes a tab, Cmd+M minimizes, Ctrl+1..9
+  // switch tabs) — a modifier chord must not silently record a verdict.
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
   if (ev.key === 'ArrowLeft') document.getElementById('prev').click();
   else if (ev.key === 'ArrowRight') document.getElementById('next').click();
+  else if (ev.key === 'm' || ev.key === 'M') document.getElementById('nomiss').click();
   else if (ev.key >= '1' && ev.key <= '9') cycle(Number(ev.key) - 1);
 });
 document.getElementById('export').onclick = () => {
@@ -285,7 +363,8 @@ document.getElementById('export').onclick = () => {
   for (const e of ENTRIES) {
     const s = verdicts[e.pid];
     if (!s || !s.seen) continue;
-    out.panos[e.pid] = {group: e.group, dets: s.dets, missed: s.missed};
+    out.panos[e.pid] = {group: e.group, dets: s.dets, missed: s.missed,
+                        no_missed: !!s.noMissed};
   }
   const blob = new Blob([JSON.stringify(out, null, 2)], {type: 'application/json'});
   const a = document.createElement('a');
