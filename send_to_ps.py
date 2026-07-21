@@ -27,15 +27,49 @@ DEFAULT_ENDPOINT_URL = "http://localhost:9000/ai/submitLabelsOnPano"
 MAX_ATTEMPTS = 3
 RETRY_BACKOFF_SECONDS = [2, 8]
 
+# Project Sidewalk's pano_source enum (PanoSource in SidewalkWebpage). Legacy Stage-1
+# records store streetlevel's raw source string ("launch", "scout", ...) instead; any
+# value outside this set is GSV imagery.
+PS_PANO_SOURCES = {"gsv", "mapillary", "infra3d"}
+
+
+def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Map a Stage-1 pano block onto the field names and enum values the Project Sidewalk
+    reader (PanoSubmission in SidewalkWebpage) expects. Tolerates legacy records
+    produced before the field names were aligned with the server:
+
+    - 'panorama_id' -> 'pano_id'
+    - 'source' outside the pano_source enum (raw streetlevel strings) -> 'gsv'
+    - links[].'target_gsv_panorama_id' -> 'target_pano_id'
+    - 'links'/'history' are required (possibly empty) arrays server-side
+    """
+    pano = dict(pano)
+    if 'panorama_id' in pano:
+        pano['pano_id'] = pano.pop('panorama_id')
+    if pano.get('source') not in PS_PANO_SOURCES:
+        pano['source'] = 'gsv'
+    pano['links'] = [
+        {
+            "target_pano_id": link.get('target_pano_id', link.get('target_gsv_panorama_id')),
+            "yaw_deg": link['yaw_deg'],
+            "description": link.get('description'),
+        } for link in pano.get('links') or []
+    ]
+    pano['history'] = pano.get('history') or []
+    return pano
+
 
 def transform_record(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Convert a main.py JSONL record into the payload expected by Project Sidewalk.
 
     Detections are converted from normalized coordinates to pixel coordinates using the
-    pano dimensions stored in the record, renamed 'detections' -> 'labels'.
+    pano dimensions stored in the record, renamed 'detections' -> 'labels'; the pano
+    block is mapped onto the server's field names (see transform_pano).
     """
     modified_data = data.copy()
+    modified_data['pano'] = transform_pano(data['pano'])
     modified_data['labels'] = [
         {
             "pano_x": round(detection['x_normalized'] * modified_data['pano']['width']),

@@ -101,7 +101,10 @@ Reads the Stage-1 JSONL and POSTs each record to a Project Sidewalk endpoint
 (`/ai/submitLabelsOnPano`). Its key job is a coordinate transform: it converts the normalized
 `x_normalized`/`y_normalized` detections into **pixel** `pano_x`/`pano_y` using the pano
 width/height stored in the record, renames `detections` → `labels`, and drops the original
-`detections` key.
+`detections` key. It also maps the pano block onto the server's `PanoSubmission` reader
+(`transform_pano`): `panorama_id` → `pano_id`, raw streetlevel source strings → the
+`pano_source` enum (`gsv`/`mapillary`/`infra3d`), `target_gsv_panorama_id` → `target_pano_id`,
+and guarantees `links`/`history` arrays — so legacy JSONL files stay submittable unchanged.
 
 ## Output format notes
 
