@@ -4,6 +4,7 @@
 -c requirements.txt
 pytest
 geojson
+mapbox-vector-tile
 pillow
 requests
 shapely

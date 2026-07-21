@@ -173,6 +173,23 @@ The run:
 
 The run is **resumable and cached** (see below), so it's safe to stop and restart.
 
+### Alternative imagery source: Mapillary
+
+Both steps accept `--source mapillary` to run on [Mapillary](https://www.mapillary.com/)
+360° imagery (CC BY-SA) instead of GSV — e.g. for cities where Project Sidewalk deploys
+on Mapillary coverage:
+
+```bash
+export MAPILLARY_ACCESS_TOKEN="MLY|..."   # client token from mapillary.com/dashboard/developers
+python main.py example_geojson/richmond.geojson --name richmond --source mapillary --scan-only
+python main.py example_geojson/richmond.geojson --name richmond --source mapillary
+```
+
+Coverage comes from Mapillary's z14 vector tiles (only 360° panoramas are kept —
+`is_pano`), imagery from the Graph API's full-resolution `thumb_original_url`. A run
+directory is bound to one source the same way it's bound to one geometry; use a
+different `--name` per source.
+
 ### Step 2 — Spot-check and validate the detections
 
 ```bash

@@ -7,6 +7,7 @@
 #   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 
 geojson
+mapbox-vector-tile  # decodes Mapillary coverage tiles (sources/mapillary.py)
 numpy
 opencv-python
 pillow

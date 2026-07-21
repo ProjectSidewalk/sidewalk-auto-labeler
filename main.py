@@ -2,10 +2,8 @@ import argparse
 import math
 import hashlib
 import json
-import random
 import socket
 import sys
-import time
 import traceback
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -30,39 +28,21 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(errors='replace')
 
 import geojson
-from streetlevel import streetview
-from shapely.geometry import shape, Point
+from shapely.geometry import shape
 from tqdm import tqdm
 
-from panorama import fetch_panorama
+from sources import get_source, SOURCE_NAMES
 # CurbRampDetector is imported lazily in main(): pulling in torch/transformers takes
 # many seconds and --scan-only doesn't need them.
 
 # --- Configuration ---
 COVERAGE_API_CONCURRENCY = 100
 PROCESSING_CONCURRENCY = 50
-COVERAGE_TILE_ZOOM = 17
-METADATA_ATTEMPTS = 3
 
 # Provenance recorded in every JSONL line and in each run's manifest.json.
 MODEL_ID = "rampnet-model"
 MODEL_TRAINING_DATE = "08-21-2025"
 API_VERSION = "1.0.0"
-
-
-def fetch_metadata_with_retry(pano_id):
-    """
-    Fetches pano metadata, retrying with backoff: Google's metadata endpoint
-    intermittently returns empty responses (see sk-zk/streetlevel#40).
-    Returns None if all attempts fail.
-    """
-    for attempt in range(METADATA_ATTEMPTS):
-        metadata = streetview.find_panorama_by_id(pano_id)
-        if metadata is not None:
-            return metadata
-        if attempt < METADATA_ATTEMPTS - 1:
-            time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
-    return None
 
 
 def latlon_to_tile(lat_deg, lon_deg, zoom):
@@ -88,71 +68,33 @@ def load_processed_ids(cache_file_path):
     with open(cache_file_path, 'r') as f:
         return {line.strip() for line in f}
 
-def fetch_panos_for_tile(tile_x, tile_y, area_shape):
+def process_pano(source, pano_id, lat, lon):
     """
-    Worker function for a single tile. Fetches panos and filters them.
-    Returns a dictionary of {pano_id: (lat, lon)} for valid panos, or None if the
-    tile failed after retries (throttling loses ~10% of tiles on large scans if
-    failures are swallowed silently — the caller counts and reports these).
-    """
-    for attempt in range(3):
-        try:
-            panos_in_tile = streetview.get_coverage_tile(tile_x, tile_y)
-            return {p.id: (p.lat, p.lon) for p in panos_in_tile if Point(p.lon, p.lat).within(area_shape)}
-        except Exception:
-            if attempt < 2:
-                time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
-    return None
-
-def process_pano(pano_id, lat, lon):
-    """
-    Downloads image and metadata, runs detection on, and returns results for a single panorama.
-    Designed to be run concurrently in a gevent pool.
+    Fetches one pano through the imagery source, runs detection, and returns a
+    result dict. Designed to be run concurrently in a thread pool.
     """
     try:
-        # Get metadata. A None result can be transient (Google's metadata endpoint
-        # intermittently returns empty responses), so retry here and treat exhaustion
-        # as a retryable failure, not a cacheable skip.
-        metadata = fetch_metadata_with_retry(pano_id)
-        if metadata is None:
-            return {'status': 'failure', 'pano_id': pano_id, 'reason': 'Metadata unavailable (transient?)'}
-        if metadata.source in ['innerspace', 'cultural_institute', 'photos:legacy_innerspace']:
-            return {'status': 'skipped', 'pano_id': pano_id, 'reason': 'Indoor panorama source'}
-
-        # Download the image (streetlevel stitches it using the metadata's tile grid).
-        equi = fetch_panorama(metadata)
-        if equi is None:
-            return {'status': 'failure', 'pano_id': pano_id, 'reason': 'Failed to download equirectangular image'}
+        fetched = source.fetch_pano(pano_id, lat, lon)
+        if fetched['status'] != 'success':
+            return {'status': fetched['status'], 'pano_id': pano_id, 'reason': fetched.get('reason', 'Unknown')}
 
         # The detector returns the list of center points and confidence: [[x, y, confidence], ...] or an empty list [].
-        detections = curb_ramp_detector.detect(equi)
+        detections = curb_ramp_detector.detect(fetched['image'])
 
         return {
             'status': 'success',
             'pano_id': pano_id,
-            'lat': float(lat),
-            'lon': float(lon),
-            'metadata': metadata,
+            'pano': fetched['pano'],
             'detections': detections
         }
     except Exception as e:
         return {'status': 'failure', 'pano_id': pano_id, 'reason': str(e)}
 
-class IncompleteMetadataError(Exception):
-    """Raised when a pano's metadata lacks fields required by the output record."""
-
 def build_output_line(result):
     """
-    Builds one JSONL record for a successfully processed panorama.
-
-    Raises IncompleteMetadataError when the metadata is missing fields the record
-    (and the Project Sidewalk endpoint) requires; such panos are deterministic
-    skips and should be cached rather than retried.
+    Builds one JSONL record for a successfully processed panorama: the detections
+    plus model provenance around the source-built 'pano' block.
     """
-    metadata = result['metadata']
-    if metadata.date is None or not metadata.image_sizes or metadata.tile_size is None:
-        raise IncompleteMetadataError('Pano metadata missing date, image sizes, or tile size')
-
     return {
         "detections": [
             {
@@ -165,47 +107,21 @@ def build_output_line(result):
         "model_id": MODEL_ID,
         "model_training_date": MODEL_TRAINING_DATE,
         "api_version": API_VERSION,
-        "pano": {
-            "panorama_id": result['pano_id'],
-            "capture_date": f"{metadata.date.year}-{metadata.date.month:02d}",
-            "width": metadata.image_sizes[-1].x,
-            "height": metadata.image_sizes[-1].y,
-            "tile_width": metadata.tile_size.x,
-            "tile_height": metadata.tile_size.y,
-            "lat": result['lat'],
-            "lng": result['lon'],
-            "camera_heading": math.degrees(metadata.heading),
-            "camera_pitch": math.degrees(metadata.pitch),
-            "camera_roll": math.degrees(metadata.roll),
-            "copyright": metadata.copyright_message,
-            "source": metadata.source,
-            "history": [
-                {
-                    "pano_id": old_pano.id,
-                    "date": f"{old_pano.date.year}-{old_pano.date.month:02d}"
-                } for old_pano in (metadata.historical or []) if old_pano.date is not None
-            ],
-            "links": [
-                {
-                    "target_gsv_panorama_id": linked_pano.pano.id,
-                    "yaw_deg": math.degrees(linked_pano.direction),
-                    "description": linked_pano.pano.address[0].value if linked_pano.pano.address else ""
-                } for linked_pano in (metadata.links or [])
-            ]
-        },
+        "pano": result['pano'],
     }
 
 def save_manifest(manifest_path, manifest):
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
 
-def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash):
+def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_name):
     """
     Creates or validates the run directory (runs/<name>/), which holds all per-area
     state: results.jsonl, already_processed.txt, manifest.json, and a copy of the
-    exact geometry used. A run directory is permanently bound to one geometry; reusing
-    the name with a different geometry is refused so that a renamed or edited geojson
-    can't silently fork or corrupt the run's state.
+    exact geometry used. A run directory is permanently bound to one geometry and one
+    imagery source; reusing the name with a different geometry or source is refused
+    so that a renamed/edited geojson or a --source change can't silently fork or
+    corrupt the run's state.
     """
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = run_dir / "manifest.json"
@@ -220,6 +136,13 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash):
                 f"   Use a new --name for the new geometry, or restore the original geojson\n"
                 f"   (an exact copy is kept at {run_dir / 'area.geojson'})."
             )
+        # Manifests predating the --source flag are all GSV runs.
+        if manifest.get('imagery_source', 'gsv') != source_name:
+            sys.exit(
+                f"❌ Run '{run_dir.name}' was created with imagery source "
+                f"'{manifest.get('imagery_source', 'gsv')}', not '{source_name}'.\n"
+                f"   Use a new --name for a different source."
+            )
         return manifest
 
     manifest = {
@@ -227,6 +150,7 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash):
         'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
         'source_geojson': str(geojson_path),
         'area_hash': area_hash,
+        'imagery_source': source_name,
         'model_id': MODEL_ID,
         'model_training_date': MODEL_TRAINING_DATE,
         'api_version': API_VERSION,
@@ -250,10 +174,10 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
     })
     save_manifest(manifest_path, manifest)
 
-def run_labeler(geojson_path, run_name, scan_only=False):
+def run_labeler(geojson_path, run_name, source, scan_only=False):
     """
-    Finds and processes all GSV panoramas within a GeoJSON area,
-    writing all per-area state to runs/<run_name>/.
+    Finds and processes all panoramas from the given imagery source within a GeoJSON
+    area, writing all per-area state to runs/<run_name>/.
 
     With scan_only=True, stops after the coverage scan and prints a size/runtime
     estimate — use this to scope a city before committing to a multi-day run.
@@ -269,12 +193,13 @@ def run_labeler(geojson_path, run_name, scan_only=False):
     started_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
     run_dir = Path("runs") / run_name
-    manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash)
+    manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source.NAME)
     manifest_path = run_dir / "manifest.json"
     output_jsonl_file = run_dir / "results.jsonl"
     cache_file = run_dir / "already_processed.txt"
 
     print(f"-> Run directory: {run_dir}")
+    print(f"-> Imagery source: {source.NAME}")
     print(f"-> Area hash: {area_hash}")
 
     processed_ids = load_processed_ids(cache_file)
@@ -286,8 +211,8 @@ def run_labeler(geojson_path, run_name, scan_only=False):
     bounds = area_shape.bounds
     min_lon, min_lat, max_lon, max_lat = bounds
 
-    top_left_x, top_left_y = latlon_to_tile(max_lat, min_lon, COVERAGE_TILE_ZOOM)
-    bottom_right_x, bottom_right_y = latlon_to_tile(min_lat, max_lon, COVERAGE_TILE_ZOOM)
+    top_left_x, top_left_y = latlon_to_tile(max_lat, min_lon, source.COVERAGE_TILE_ZOOM)
+    bottom_right_x, bottom_right_y = latlon_to_tile(min_lat, max_lon, source.COVERAGE_TILE_ZOOM)
 
     tiles_to_scan = [(x, y) for x in range(top_left_x, bottom_right_x + 1) for y in range(top_left_y, bottom_right_y + 1)]
 
@@ -297,7 +222,7 @@ def run_labeler(geojson_path, run_name, scan_only=False):
 
     failed_tiles = 0
     with ThreadPoolExecutor(max_workers=COVERAGE_API_CONCURRENCY) as find_pool:
-        futures = [find_pool.submit(fetch_panos_for_tile, x, y, area_shape) for x, y in tiles_to_scan]
+        futures = [find_pool.submit(source.fetch_panos_for_tile, x, y, area_shape) for x, y in tiles_to_scan]
         with tqdm(total=len(futures), desc="Finding Panoramas") as pbar:
             for future in as_completed(futures):
                 tile_panos = future.result()
@@ -346,7 +271,7 @@ def run_labeler(geojson_path, run_name, scan_only=False):
          open(output_jsonl_file, 'a') as f_jsonl, \
          ThreadPoolExecutor(max_workers=PROCESSING_CONCURRENCY) as process_pool:
 
-        futures = [process_pool.submit(process_pano, *task) for task in processing_tasks]
+        futures = [process_pool.submit(process_pano, source, *task) for task in processing_tasks]
 
         with tqdm(total=len(futures), desc="Processing New Panoramas") as pbar:
             for future in as_completed(futures):
@@ -356,17 +281,12 @@ def run_labeler(geojson_path, run_name, scan_only=False):
                     # The 'detections' key will be an empty list [] if none were found.
                     # Guarded so a single malformed pano cannot abort the whole run.
                     try:
-                        output_line = build_output_line(result)
-                    except IncompleteMetadataError:
-                        # Deterministic skip: cache it so it isn't retried on every run.
-                        f_cache.write(f"{result['pano_id']}\n")
-                        f_cache.flush()
-                        skip_count += 1
+                        json_line = json.dumps(build_output_line(result))
                     except Exception as e:
                         print(f"  ❌ Failed to build output for {result['pano_id']}. Reason: {e}. Will retry on next run.")
                         fail_count += 1
                     else:
-                        f_jsonl.write(json.dumps(output_line) + '\n')
+                        f_jsonl.write(json_line + '\n')
                         f_jsonl.flush()
 
                         # Mark successfully processed pano in the cache.
@@ -374,7 +294,8 @@ def run_labeler(geojson_path, run_name, scan_only=False):
                         f_cache.flush()
                         success_count += 1
                 elif result['status'] == 'skipped':
-                    # Deterministic skips (indoor pano): cache so they aren't refetched.
+                    # Deterministic skips (indoor pano, non-360 image, incomplete
+                    # metadata): cache so they aren't refetched every run.
                     f_cache.write(f"{result['pano_id']}\n")
                     f_cache.flush()
                     skip_count += 1
@@ -398,7 +319,7 @@ def main():
     global PROCESSING_CONCURRENCY, COVERAGE_API_CONCURRENCY
 
     parser = argparse.ArgumentParser(
-        description="Finds and processes all GSV panoramas within a GeoJSON area, saving results to a .jsonl file."
+        description="Finds and processes all street-level panoramas within a GeoJSON area, saving results to a .jsonl file."
     )
     parser.add_argument(
         "geojson_file",
@@ -408,6 +329,11 @@ def main():
         "--name",
         help="Run name; all per-area state (results, cache, manifest) lives in runs/<name>/ "
              "(default: the geojson filename without extension)."
+    )
+    parser.add_argument(
+        "--source", choices=SOURCE_NAMES, default="gsv",
+        help="Imagery source to scan and fetch from (default: %(default)s). "
+             "'mapillary' needs a client token in MAPILLARY_ACCESS_TOKEN."
     )
     parser.add_argument(
         "--processing-concurrency", type=int, default=PROCESSING_CONCURRENCY,
@@ -428,6 +354,11 @@ def main():
     PROCESSING_CONCURRENCY = args.processing_concurrency
     COVERAGE_API_CONCURRENCY = args.coverage_concurrency
 
+    # Fail fast on source misconfiguration (e.g. missing Mapillary token) before the
+    # slow model load below.
+    source = get_source(args.source)
+    source.prepare()
+
     # Initialize detectors (skipped for a scan: importing torch + loading the model takes a while):
     if not args.scan_only:
         from detectors.curb_ramp import CurbRampDetector
@@ -435,7 +366,7 @@ def main():
         curb_ramp_detector = CurbRampDetector()
 
     try:
-        run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, args.scan_only)
+        run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, source, args.scan_only)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:

@@ -1,10 +1,8 @@
 """Unit tests for main.py's pure helpers (no network, no model)."""
 import json
 
-import pytest
-
 import main
-from conftest import make_metadata as _metadata, make_process_result as _result
+from conftest import make_process_result as _result
 
 
 def test_latlon_to_tile_known_values():
@@ -39,31 +37,17 @@ def test_load_processed_ids(tmp_path):
     assert main.load_processed_ids(cache) == {"abc", "def"}
 
 
-def test_build_output_line_shape_and_units():
+def test_build_output_line_shape():
     line = main.build_output_line(_result())
     assert line["detections"] == [
         {"x_normalized": 0.5, "y_normalized": 0.25, "confidence": 0.9}]
     assert line["label_type"] == "CurbRamp"
-    pano = line["pano"]
-    assert pano["capture_date"] == "2021-06"
-    # width/height come from the highest-resolution entry.
-    assert (pano["width"], pano["height"]) == (16384, 8192)
-    # Radians in the metadata, degrees on the wire.
-    assert pano["camera_heading"] == pytest.approx(90.0)
-    assert pano["camera_pitch"] == pytest.approx(1.5)
-    assert pano["camera_roll"] == pytest.approx(-0.5)
-    # Historical pano without a date is dropped.
-    assert pano["history"] == [{"pano_id": "OLD1", "date": "2019-08"}]
-    assert pano["links"] == []
+    assert line["model_id"] == main.MODEL_ID
+    # The source-built pano block passes through untouched (its shape is covered by
+    # the per-source tests).
+    assert line["pano"]["panorama_id"] == "PID"
     json.dumps(line)  # must be JSON-serializable as written
 
 
 def test_build_output_line_zero_detections():
     assert main.build_output_line(_result(detections=[]))["detections"] == []
-
-
-@pytest.mark.parametrize("broken", [
-    {"date": None}, {"image_sizes": []}, {"tile_size": None}])
-def test_build_output_line_incomplete_metadata(broken):
-    with pytest.raises(main.IncompleteMetadataError):
-        main.build_output_line(_result(metadata=_metadata(**broken)))
