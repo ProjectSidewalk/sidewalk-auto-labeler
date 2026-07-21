@@ -240,6 +240,13 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None):
         print(f"⚠ {failed_tiles} coverage tiles failed after retries — panos there are "
               f"missing from this run. A re-run rescans all tiles and picks them up.")
 
+    # Optional per-source spatial thinning (e.g. Mapillary's near-duplicate coverage).
+    if hasattr(source, 'thin_panos') and all_panos_in_area:
+        found_before_thinning = len(all_panos_in_area)
+        all_panos_in_area = source.thin_panos(all_panos_in_area)
+        print(f"-> Spatial thinning: {found_before_thinning} → {len(all_panos_in_area)} panos "
+              f"(best per ~{source.THIN_CELL_METERS} m grid cell).")
+
     # 3. Determine which panoramas to process
     panos_to_process_ids = sorted(list(set(all_panos_in_area.keys()) - processed_ids))
     if limit is not None and len(panos_to_process_ids) > limit:

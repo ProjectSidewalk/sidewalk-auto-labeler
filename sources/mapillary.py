@@ -51,6 +51,12 @@ IMAGE_FIELDS = ','.join([
 # they're a meaningful share of coverage.
 ASPECT_TOLERANCE = 0.02
 
+# Mapillary contributors re-drive the same streets, so raw 360 coverage runs ~1 pano
+# per 1.5 m of street (downtown Richmond: 35k panos in 4.5 km²). Keep one pano per
+# ~10 m grid cell — GSV-like spacing — so runs aren't dominated by near-duplicates
+# and PS isn't sent 8x redundant labels on every corner.
+THIN_CELL_METERS = 10
+
 
 def prepare():
     if not os.environ.get(TOKEN_ENV_VAR):
@@ -97,7 +103,9 @@ def _decode_tile(tile_bytes):
 
 
 def panos_from_tile(tile_bytes, tile_x, tile_y, area_shape):
-    """Decodes one coverage tile into {image_id: (lat, lon)} for 360° panos in the area."""
+    """Decodes one coverage tile into {image_id: (lat, lon, captured_at_ms,
+    quality_score)} for 360° panos in the area. main.py only relies on the first two
+    elements; captured_at/quality_score feed thin_panos."""
     image_layer = _decode_tile(tile_bytes).get('image')
     if not image_layer:
         return {}
@@ -110,8 +118,25 @@ def panos_from_tile(tile_bytes, tile_x, tile_y, area_shape):
         px, py = feature['geometry']['coordinates']
         lon, lat = tile_point_to_lonlat(px, py, tile_x, tile_y, COVERAGE_TILE_ZOOM, extent)
         if Point(lon, lat).within(area_shape):
-            panos[str(properties['id'])] = (lat, lon)
+            panos[str(properties['id'])] = (
+                lat, lon, properties.get('captured_at', 0), properties.get('quality_score', 0.0))
     return panos
+
+
+def thin_panos(panos):
+    """Keeps one pano per ~THIN_CELL_METERS grid cell: newest capture wins, higher
+    quality_score breaks ties. Called by main.py after the coverage scan (the hook is
+    optional per source; GSV coverage is already ~10 m spaced and has no hook)."""
+    cells = {}
+    for pano_id, (lat, lon, captured_at, quality) in panos.items():
+        cell_lat = THIN_CELL_METERS / 111320.0
+        cell_lon = THIN_CELL_METERS / (111320.0 * max(0.01, math.cos(math.radians(lat))))
+        cell = (int(lat // cell_lat), int(lon // cell_lon))
+        best = cells.get(cell)
+        if best is None or (captured_at, quality) > best[1]:
+            cells[cell] = (pano_id, (captured_at, quality))
+    keep = {pano_id for pano_id, _ in cells.values()}
+    return {pano_id: value for pano_id, value in panos.items() if pano_id in keep}
 
 
 def tile_point_to_lonlat(px, py, tile_x, tile_y, zoom, extent):

@@ -61,16 +61,38 @@ def test_panos_from_tile_filters_pano_flag_and_area():
     area = Point(inside_lon, inside_lat).buffer(0.0005)
 
     tile_bytes = _encode_image_layer([
-        {"geometry": "POINT(1000 1000)", "properties": {"id": 111, "is_pano": True}},
+        {"geometry": "POINT(1000 1000)",
+         "properties": {"id": 111, "is_pano": True, "captured_at": 1687000000000, "quality_score": 0.8}},
         {"geometry": "POINT(1000 1000)", "properties": {"id": 222, "is_pano": False}},
         {"geometry": "POINT(3900 3900)", "properties": {"id": 333, "is_pano": True}},  # outside area
     ])
 
     panos = mapillary.panos_from_tile(tile_bytes, tile_x, tile_y, area)
     assert list(panos) == ["111"]  # IDs are strings — PS pano IDs are strings
-    lat, lon = panos["111"]
+    lat, lon, captured_at, quality = panos["111"]
     assert lat == pytest.approx(inside_lat, abs=1e-5)
     assert lon == pytest.approx(inside_lon, abs=1e-5)
+    assert captured_at == 1687000000000
+    assert quality == pytest.approx(0.8)
+
+
+def test_thin_panos_newest_per_cell_wins():
+    panos = {
+        "old": (37.5400, -77.4360, 100, 0.9),
+        "new": (37.5400, -77.4360, 200, 0.4),   # same spot: newer wins despite lower quality
+        "far": (37.5410, -77.4360, 50, 0.5),    # ~110 m away: its own cell survives
+    }
+    assert set(mapillary.thin_panos(panos)) == {"new", "far"}
+    # Surviving values keep the (lat, lon, ...) shape main.py consumes.
+    assert mapillary.thin_panos(panos)["far"][:2] == (37.5410, -77.4360)
+
+
+def test_thin_panos_quality_breaks_capture_time_ties():
+    panos = {
+        "meh": (37.5400, -77.4360, 100, 0.4),
+        "good": (37.5400, -77.4360, 100, 0.9),
+    }
+    assert set(mapillary.thin_panos(panos)) == {"good"}
 
 
 def _patch_fetch(monkeypatch, meta, image="IMAGE"):

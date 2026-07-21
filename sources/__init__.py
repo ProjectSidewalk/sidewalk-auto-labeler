@@ -7,8 +7,11 @@ Each source module provides the same interface, consumed by main.py:
 - COVERAGE_TILE_ZOOM: Slippy-map zoom level for the coverage scan.
 - prepare(): fail fast (before the model loads) if the source can't run,
   e.g. a missing API token.
-- fetch_panos_for_tile(tile_x, tile_y, area_shape) -> {pano_id: (lat, lon)}
-  for panos inside the area, or None if the tile failed after retries.
+- fetch_panos_for_tile(tile_x, tile_y, area_shape) -> {pano_id: (lat, lon, ...)}
+  for panos inside the area, or None if the tile failed after retries. main.py
+  reads only the first two tuple elements; sources may append extra data.
+- thin_panos(panos) -> panos (OPTIONAL): spatial dedup applied to the combined
+  scan result before processing, for sources with near-duplicate coverage.
 - fetch_pano(pano_id, lat, lon) ->
   {'status': 'success', 'pano': <JSONL pano dict>, 'image': <PIL image>} or
   {'status': 'skipped'|'failure', 'reason': str}. 'skipped' is deterministic
