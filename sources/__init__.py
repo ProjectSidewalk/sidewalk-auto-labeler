@@ -24,6 +24,12 @@ for Mapillary) aren't required to run another.
 
 SOURCE_NAMES = ('gsv', 'mapillary')
 
+# Every source normalizes imagery to the detector's expected input size (see
+# detectors/curb_ramp.py). Lives here — not in panorama.py — so sources that
+# don't use streetlevel don't import it (its pyexiv2 dependency needs a newer
+# glibc than some clusters have).
+TARGET_IMAGE_SIZE = (4096, 2048)
+
 
 def get_source(name):
     if name == 'gsv':

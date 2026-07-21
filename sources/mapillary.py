@@ -30,7 +30,7 @@ import requests
 from PIL import Image
 from shapely.geometry import Point
 
-from panorama import TARGET_SIZE
+from sources import TARGET_IMAGE_SIZE as TARGET_SIZE
 
 NAME = 'mapillary'
 COVERAGE_TILE_ZOOM = 14  # the only zoom whose tiles carry individual images

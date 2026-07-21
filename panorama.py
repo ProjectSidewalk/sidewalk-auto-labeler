@@ -1,8 +1,7 @@
 from PIL import Image
 from streetlevel import streetview
 
-# The detector expects a 4096x2048 equirectangular image.
-TARGET_SIZE = (4096, 2048)
+from sources import TARGET_IMAGE_SIZE as TARGET_SIZE
 # Zoom 3 is 4096x2048 for standard GSV panos - matches the detector input, so no detail is lost.
 PREFERRED_ZOOM = 3
 
