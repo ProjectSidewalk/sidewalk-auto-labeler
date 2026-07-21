@@ -189,11 +189,15 @@ pano links to its live Google Street View view.
 The viewer doubles as a quick **validation tool**:
 
 - Click a crop, its numbered circle on the panorama, or press `1`–`9` to cycle a
-  detection's verdict: unjudged → correct → incorrect. Circles start **yellow** (with a
-  white halo) and turn **green**/**red** as you judge.
-- Click the panorama to mark a curb ramp the model **missed** (click the dashed magenta
-  marker to remove it). This gives per-pano-comprehensive ground truth — the recall signal
-  that Project Sidewalk's validation workflow can't provide.
+  detection's verdict: unjudged → correct → incorrect → **unsure**. Circles start **yellow**
+  (with a white halo) and turn **green**/**red**/**blue** as you judge. Use *unsure* when the
+  imagery is too blurry/distant/occluded to call — it **abstains** (the scorer drops it from
+  both precision and recall) instead of forcing a guess that would bias the numbers.
+- Click the panorama to mark a curb ramp the model **missed** (click the magenta marker to
+  downgrade it to **unsure** amber, then again to remove it). This gives
+  per-pano-comprehensive ground truth — the recall signal that Project Sidewalk's validation
+  workflow can't provide. An *unsure* missed mark also abstains: it confirms you scanned the
+  pano but is left out of the recall denominator.
 - If a pano has **no** missed ramps, say so explicitly: press `m` or click
   **"No missed ramps"**. A pano only counts as *reviewed* once every crop is judged **and**
   you've either marked a missed ramp or affirmed there are none — so paging past a pano
@@ -210,9 +214,11 @@ prints precision and recall with 95% CIs and a confidence-threshold sweep — bo
 and on the unbiased random subset (the always-included densest panos are flagged and
 excluded there). A pano whose detections were judged but whose missed-ramp check was never
 confirmed still counts toward **precision** (its crop verdicts are valid) but is excluded
-from **recall** — the scorer reports how many panos were excluded this way. Verdicts
-exported by older galleries (no `no_missed` flags) still score as before, with a warning
-that their recall may be optimistic. Use
+from **recall** — the scorer reports how many panos were excluded this way. Detections and
+missed marks flagged **unsure** are abstentions: excluded from both metrics and reported as
+their own counts, so the numbers stay honest about how much was too ambiguous to call.
+Verdicts exported by older galleries (no `no_missed` flags) still score as before, with a
+warning that their recall may be optimistic. Use
 the sweep to pick a per-city threshold that clears the city's
 `ai-validation-min-accuracy` with margin.
 

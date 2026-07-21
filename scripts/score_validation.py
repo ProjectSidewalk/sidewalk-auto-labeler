@@ -73,16 +73,25 @@ def load_inputs(run_arg, verdicts_arg):
 
 def collect(panos, confs_by_pid, exclude_top=False):
     """
-    Returns (judged, recall_judged, missed_total, n_seen, n_judged, n_unconfirmed):
-      judged        = (confidence, is_correct) for every detection on panos whose
-                      detections are all judged — the PRECISION pool. A detection
+    Returns (judged, recall_judged, missed_total, n_seen, n_judged, n_unconfirmed,
+             n_unsure, missed_unsure):
+      judged        = (confidence, is_correct) for every *decided* detection on panos
+                      whose detections are all judged — the PRECISION pool. A detection
                       verdict is valid whether or not the missed-ramp scan happened.
       recall_judged = the subset of judged from panos whose missed-ramp check is
-                      confirmed — the RECALL pool. missed_total counts missed-ramp
-                      marks on the same panos, so recall's numerator and denominator
-                      cover the same set.
+                      confirmed — the RECALL pool. missed_total counts *confident*
+                      missed-ramp marks on the same panos, so recall's numerator and
+                      denominator cover the same set.
       n_unconfirmed = fully judged panos excluded from the recall pool because the
                       missed-ramp check was never confirmed.
+      n_unsure      = detections marked 'unsure' (abstained: in neither pool).
+      missed_unsure = missed marks flagged unsure (abstained: not in missed_total).
+
+    'unsure' abstention: a crop verdict of 'unsure' and a missed mark with
+    {'unsure': True} are the reviewer saying "can't tell from this imagery". They
+    are dropped from both precision and recall (forcing a guess would bias either
+    metric) and reported as separate counts. A pano with unsure marks still counts
+    as fully judged — 'unsure' is a decision, unlike None (not yet looked at).
 
     The missed-ramp check is per entry: new-schema entries (exported by a gallery
     with the confirmation feature) carry 'no_missed' and must have it set or have a
@@ -92,8 +101,8 @@ def collect(panos, confs_by_pid, exclude_top=False):
     This gate mirrors reviewed()/fnChecked() in the viewer JS
     (scripts/spot_check_gallery.py) — keep the two in sync.
     """
-    judged, recall_judged, missed_total = [], [], 0
-    n_seen = n_judged = n_unconfirmed = 0
+    judged, recall_judged, missed_total, missed_unsure = [], [], 0, 0
+    n_seen = n_judged = n_unconfirmed = n_unsure = 0
     for pid, entry in panos.items():
         if exclude_top and entry.get('group') == 'top':
             continue
@@ -105,19 +114,24 @@ def collect(panos, confs_by_pid, exclude_top=False):
         if any(d is None for d in entry['dets']):
             continue  # partially judged: unusable for either metric
         n_judged += 1
-        pano_judged = list(zip(confs, entry['dets']))
+        n_unsure += sum(1 for d in entry['dets'] if d == 'unsure')
+        # Decided verdicts only (True/False); 'unsure' abstains from both metrics.
+        pano_judged = [(c, d) for c, d in zip(confs, entry['dets']) if d != 'unsure']
         judged += pano_judged
         fn_checked = ((entry['no_missed'] or entry['missed'])
                       if 'no_missed' in entry else True)
         if fn_checked:
             recall_judged += pano_judged
-            missed_total += len(entry['missed'])
+            missed_total += sum(1 for m in entry['missed'] if not m.get('unsure'))
+            missed_unsure += sum(1 for m in entry['missed'] if m.get('unsure'))
         else:
             n_unconfirmed += 1
-    return judged, recall_judged, missed_total, n_seen, n_judged, n_unconfirmed
+    return (judged, recall_judged, missed_total, n_seen, n_judged, n_unconfirmed,
+            n_unsure, missed_unsure)
 
 
-def report(title, judged, recall_judged, missed_total, n_seen, n_judged, n_unconfirmed):
+def report(title, judged, recall_judged, missed_total, n_seen, n_judged, n_unconfirmed,
+           n_unsure, missed_unsure):
     tp = sum(1 for _, ok in judged if ok)
     fp = len(judged) - tp
     rtp = sum(1 for _, ok in recall_judged if ok)
@@ -130,7 +144,10 @@ def report(title, judged, recall_judged, missed_total, n_seen, n_judged, n_uncon
               f"check was never confirmed\n  (open the gallery and press 'm' / mark the "
               f"missed ramps, then re-export).")
     print(f"Detections judged:    {len(judged)}  (correct {tp}, incorrect {fp})")
-    print(f"Missed ramps marked:  {missed_total}")
+    if n_unsure:
+        print(f"Detections unsure:    {n_unsure}  (abstained — not in precision or recall)")
+    print(f"Missed ramps marked:  {missed_total}"
+          + (f"  (+{missed_unsure} unsure, abstained)" if missed_unsure else ""))
     if not judged:
         print("Nothing judged yet.\n")
         return

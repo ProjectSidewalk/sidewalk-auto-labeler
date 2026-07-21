@@ -41,9 +41,10 @@ def _panos(no_missed_flags=True):
 
 
 def test_collect_unconfirmed_pano_counts_for_precision_not_recall():
-    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed = \
+    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed, n_unsure, missed_unsure = \
         sv.collect(_panos(), CONFS)
     assert (n_seen, n_judged, n_unconfirmed) == (3, 3, 1)
+    assert (n_unsure, missed_unsure) == (0, 0)
     # P_ONE_DET's crop verdict is valid for precision even though its missed-ramp
     # check was never confirmed...
     assert sorted(judged) == [(0.63, True), (0.7, False), (0.91, True)]
@@ -53,7 +54,7 @@ def test_collect_unconfirmed_pano_counts_for_precision_not_recall():
 
 
 def test_collect_old_schema_keeps_legacy_behavior():
-    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed = \
+    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed, _, _ = \
         sv.collect(_panos(no_missed_flags=False), CONFS)
     # Legacy entries (no no_missed key) are trusted for recall, as before.
     assert (n_seen, n_judged, n_unconfirmed) == (3, 3, 0)
@@ -65,16 +66,32 @@ def test_collect_mixed_schema_gates_per_entry():
     # new-schema unconfirmed entry must still be excluded from recall.
     panos = _panos()
     del panos["P_TWO_DETS"]["no_missed"]  # legacy entry, missed mark
-    _, recall_judged, missed, _, _, n_unconfirmed = sv.collect(panos, CONFS)
+    _, recall_judged, missed, _, _, n_unconfirmed, _, _ = sv.collect(panos, CONFS)
     assert n_unconfirmed == 1  # P_ONE_DET only
     assert sorted(recall_judged) == [(0.63, True), (0.91, True)]
     assert missed == 1
 
 
+def test_collect_unsure_abstains_from_both_metrics():
+    # A pano with one confident-correct det, one 'unsure' det, and one 'unsure'
+    # missed mark. The unsure crop leaves precision/recall; the unsure missed mark
+    # leaves the recall denominator; both are counted separately. The unsure missed
+    # mark still confirms the pano was scanned (it enters the recall pool).
+    panos = {"P_TWO_DETS": {"group": "random", "dets": [True, "unsure"],
+                            "missed": [{"x": 0.1, "y": 0.1, "unsure": True}],
+                            "no_missed": False}}
+    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed, n_unsure, missed_unsure = \
+        sv.collect(panos, {"P_TWO_DETS": [0.91, 0.63]})
+    assert (n_seen, n_judged, n_unconfirmed) == (1, 1, 0)
+    assert judged == [(0.91, True)]          # 'unsure' det dropped from precision
+    assert recall_judged == [(0.91, True)]   # ...and from recall
+    assert (n_unsure, missed, missed_unsure) == (1, 0, 1)  # unsure missed not in denominator
+
+
 def test_collect_skips_partially_judged():
     panos = {"P_TWO_DETS": {"group": "random", "dets": [True, None],
                             "missed": [], "no_missed": True}}
-    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed = \
+    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed, _, _ = \
         sv.collect(panos, CONFS)
     assert n_seen == 1 and n_judged == 0
     assert judged == [] and recall_judged == [] and missed == 0
@@ -83,7 +100,7 @@ def test_collect_skips_partially_judged():
 def test_collect_skips_mismatched_detection_counts(capsys):
     panos = {"P_TWO_DETS": {"group": "random", "dets": [True],  # results.jsonl has 2
                             "missed": [], "no_missed": True}}
-    judged, _, _, n_seen, n_judged, _ = sv.collect(panos, CONFS)
+    judged, _, _, n_seen, n_judged, _, _, _ = sv.collect(panos, CONFS)
     assert n_seen == 0 and n_judged == 0 and judged == []
     assert "don't match" in capsys.readouterr().out
 
@@ -91,7 +108,7 @@ def test_collect_skips_mismatched_detection_counts(capsys):
 def test_collect_exclude_top():
     panos = _panos()
     panos["P_TWO_DETS"]["group"] = "top"
-    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed = \
+    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed, _, _ = \
         sv.collect(panos, CONFS, exclude_top=True)
     assert n_seen == 2 and n_judged == 2
     # P_EMPTY (affirmed, no dets) and P_ONE_DET (unconfirmed) remain.

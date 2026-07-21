@@ -40,11 +40,14 @@ assert(!reviewed(e0), 'crops judged but FN check missing -> not reviewed');
 
 cycle(1);                                   // correct -> incorrect
 assert(verdicts[e0.pid].dets[1] === false, 'cycle advances correct -> incorrect');
-cycle(1); cycle(1);                         // incorrect -> unjudged -> correct
+cycle(1);                                   // incorrect -> unsure
+assert(verdicts[e0.pid].dets[1] === 'unsure', 'cycle advances incorrect -> unsure');
 
 document.getElementById('nomiss').click();  // affirm no missed ramps
 assert(verdicts[e0.pid].noMissed === true, 'noMissed set by button');
-assert(reviewed(e0), 'judged + affirmed -> reviewed');
+// 'unsure' is a decision (not null), so an all-judged pano with an unsure crop
+// still counts as reviewed once the missed-ramp check is done.
+assert(reviewed(e0), 'judged (incl. unsure) + affirmed -> reviewed');
 
 // adding a missed marker revokes the affirmation
 document.getElementById('panowrap').onclick({ clientX: 400, clientY: 200, target: { closest: () => null } });

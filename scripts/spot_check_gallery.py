@@ -9,13 +9,15 @@ Live Server, `python -m http.server`, or just open the file).
 
 The viewer doubles as a validation tool:
   - click a detection crop (or its numbered circle on the panorama) to cycle its
-    verdict: unjudged -> correct -> incorrect; circles start yellow and turn
-    green/red to match
-  - click anywhere on the panorama to mark a curb ramp the model missed
-    (click the dashed magenta marker again to remove it), or press "m" / the
-    "No missed ramps" button to confirm there are none — a pano only counts as
-    reviewed once every crop is judged AND the missed-ramp check is confirmed,
-    so recall isn't inflated by panos nobody actually scanned
+    verdict: unjudged -> correct -> incorrect -> unsure; circles start yellow and
+    turn green/red/blue to match. "unsure" abstains — the scorer drops it from
+    both precision and recall rather than forcing a guess on ambiguous imagery
+  - click anywhere on the panorama to mark a curb ramp the model missed (click the
+    magenta marker to downgrade it to "unsure" amber, again to remove it), or press
+    "m" / the "No missed ramps" button to confirm there are none — a pano only counts
+    as reviewed once every crop is judged AND the missed-ramp check is confirmed, so
+    recall isn't inflated by panos nobody actually scanned. Unsure missed marks also
+    abstain: they don't count toward the recall denominator
   - verdicts autosave to the browser's localStorage; "Export verdicts" downloads a
     verdicts.json to score with scripts/score_validation.py (precision + recall)
 
@@ -143,11 +145,13 @@ HTML_TEMPLATE = r"""<!doctype html>
        box-shadow:0 0 0 3px rgba(255,255,255,.85),0 0 6px #000;cursor:pointer}
   .det.ok{border-color:#1a9c3e}
   .det.bad{border-color:#d23}
+  .det.unsure{border-color:#3a86ff}
   .det .num{position:absolute;top:-21px;left:50%;transform:translateX(-50%);
             font:bold 13px/1 sans-serif;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000}
   .missed{position:absolute;width:36px;height:36px;transform:translate(-50%,-50%);
           border:4px dashed #e534eb;border-radius:50%;box-shadow:0 0 4px #000;
           cursor:pointer;background:rgba(229,52,235,.12)}
+  .missed.unsure{border-color:#ff9f1c;background:rgba(255,159,28,.14)}
   #nomiss.active{background:#1a9c3e;border:1px solid #1a9c3e;color:#fff}
   .crops{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;line-height:0}
   .crops figure{margin:0;text-align:center;font-size:13px;line-height:1.3;cursor:pointer}
@@ -156,13 +160,15 @@ HTML_TEMPLATE = r"""<!doctype html>
   .crops img{width:256px;height:256px;border-radius:2px;display:block}
   .crops .ok .cropwrap{border-color:#1a9c3e}
   .crops .bad .cropwrap{border-color:#d23}
+  .crops .unsure .cropwrap{border-color:#3a86ff}
   /* ring diameter mirrors the old 40px-radius circle on the 512px crop (80/512) */
   .cropring{position:absolute;width:15.6%;height:15.6%;transform:translate(-50%,-50%);
             border:3px solid #ffd400;border-radius:50%;
             box-shadow:0 0 0 2px rgba(255,255,255,.85);pointer-events:none}
   .ok .cropring{border-color:#1a9c3e}.bad .cropring{border-color:#d23}
+  .unsure .cropring{border-color:#3a86ff}
   .crops .verdict{font-weight:bold}
-  .ok .verdict{color:#1a9c3e}.bad .verdict{color:#d23}
+  .ok .verdict{color:#1a9c3e}.bad .verdict{color:#d23}.unsure .verdict{color:#3a86ff}
   #help{font-size:13px;color:#666;margin-top:14px}
   kbd{background:#eee;border:1px solid #ccc;border-radius:3px;padding:0 4px;font-size:12px}
 </style>
@@ -189,10 +195,11 @@ HTML_TEMPLATE = r"""<!doctype html>
 <div class="crops" id="crops"></div>
 <p id="help">
   <kbd>&#8592;</kbd>/<kbd>&#8594;</kbd> pano &nbsp;&middot;&nbsp; <kbd>1</kbd>&#8211;<kbd>9</kbd> cycle a crop's
-  verdict (unjudged &#8594; correct &#8594; incorrect) or click the crop / its numbered circle
-  &nbsp;&middot;&nbsp; click the panorama to mark a <b>missed</b> curb ramp (click the dashed magenta marker
-  to remove), or press <kbd>m</kbd> if there are none &mdash; a pano counts as reviewed only once every crop
-  is judged <b>and</b> the missed-ramp check is done &nbsp;&middot;&nbsp; verdicts autosave
+  verdict (unjudged &#8594; correct &#8594; incorrect &#8594; <span style="color:#3a86ff">unsure</span>) or click the
+  crop / its numbered circle &nbsp;&middot;&nbsp; click the panorama to mark a <b>missed</b> curb ramp (click the
+  marker to make it <span style="color:#ff9f1c">unsure</span>, again to remove), or press <kbd>m</kbd> if there
+  are none &mdash; a pano counts as reviewed only once every crop is judged <b>and</b> the missed-ramp check is
+  done &nbsp;&middot;&nbsp; <b>unsure</b> abstains (dropped from precision &amp; recall) &nbsp;&middot;&nbsp; verdicts autosave
   locally; Export downloads <span id="vname"></span> &mdash; save it into the run directory, then run
   <code>python scripts/score_validation.py runs/&lt;name&gt;</code>
 </p>
@@ -204,8 +211,11 @@ const SOURCE = __SOURCE__;
 const STORE = 'verdicts:' + RUN_KEY;
 
 let verdicts = JSON.parse(localStorage.getItem(STORE) || '{}');
-// verdicts[pid] = {dets: [null|true|false, ...], missed: [{x, y}, ...],
+// verdicts[pid] = {dets: [null|true|false|'unsure', ...],
+//                  missed: [{x, y, unsure?: bool}, ...],
 //                  noMissed: bool (reviewer confirmed no missed ramps), seen: true}
+// 'unsure' (crop) and unsure:true (missed) both mean "can't tell" — the scorer
+// abstains on them (dropped from precision and from the recall pool).
 function v(pid, n) {
   if (!verdicts[pid]) verdicts[pid] = {dets: Array(n).fill(null), missed: [], noMissed: false, seen: false};
   const s = verdicts[pid];
@@ -222,7 +232,7 @@ let filterMode = 'all', view = ENTRIES.slice(), idx = 0;
 
 // vcls/fnChecked/reviewed define what "reviewed" means; scripts/score_validation.py
 // collect() applies the same gate to the exported verdicts — keep the two in sync.
-function vcls(d) { return d === true ? 'ok' : d === false ? 'bad' : ''; }
+function vcls(d) { return d === true ? 'ok' : d === false ? 'bad' : d === 'unsure' ? 'unsure' : ''; }
 function fnChecked(s) { return s.missed.length > 0 || !!s.noMissed; }
 function reviewed(e) {
   const s = verdicts[e.pid];
@@ -283,23 +293,31 @@ function render() {
   });
   s.missed.forEach((m, i) => {
     const d = document.createElement('div');
-    d.className = 'missed';
+    d.className = 'missed' + (m.unsure ? ' unsure' : '');
     d.style.left = (m.x * 100) + '%';
     d.style.top = (m.y * 100) + '%';
-    d.title = 'missed ramp — click to remove';
-    d.onclick = ev => { ev.stopPropagation(); s.missed.splice(i, 1); save(); render(); };
+    d.title = m.unsure ? 'unsure missed ramp — click to remove'
+                       : 'missed ramp — click to mark unsure, again to remove';
+    // Click cycles a marker confident -> unsure -> removed, mirroring the crop cycle.
+    d.onclick = ev => { ev.stopPropagation();
+      if (!m.unsure) m.unsure = true; else s.missed.splice(i, 1);
+      save(); render();
+    };
     wrap.appendChild(d);
   });
 
   // Missed-ramp confirmation state. The click handlers keep noMissed and missed
   // marks mutually exclusive; normalize once anyway so stale state can't disagree.
   const affirmed = !!s.noMissed && !s.missed.length;
+  const nMissedSure = s.missed.filter(m => !m.unsure).length;
+  const nMissedUnsure = s.missed.filter(m => m.unsure).length;
   const nm = document.getElementById('nomiss');
   nm.disabled = s.missed.length > 0;
   nm.classList.toggle('active', affirmed);
   nm.textContent = affirmed ? '✓ No missed ramps' : 'No missed ramps (m)';
   document.getElementById('fnstate').textContent =
-    s.missed.length ? s.missed.length + ' missed ramp(s) marked' :
+    s.missed.length ? (nMissedSure + ' missed ramp(s) marked' +
+      (nMissedUnsure ? ', ' + nMissedUnsure + ' unsure' : '')) :
     affirmed ? 'missed-ramp check done' :
     'scan the panorama for ramps the model missed, then click a ramp or confirm none';
 
@@ -313,7 +331,8 @@ function render() {
       '<span class="cropring" style="left:' + (c.cx * 100) + '%;top:' + (c.cy * 100) + '%"></span></span>' +
       '<figcaption>[' + (i + 1) + '] conf ' + c.conf.toFixed(2) +
       ' &mdash; <span class="verdict">' +
-      (s.dets[i] === true ? 'correct' : s.dets[i] === false ? 'INCORRECT' : 'unjudged') +
+      (s.dets[i] === true ? 'correct' : s.dets[i] === false ? 'INCORRECT'
+        : s.dets[i] === 'unsure' ? 'unsure' : 'unjudged') +
       '</span></figcaption>';
     fig.onclick = () => cycle(i);
     crops.appendChild(fig);
@@ -324,7 +343,10 @@ function cycle(i) {
   const e = view[idx];
   if (!e || i >= e.crops.length) return;
   const s = v(e.pid, e.crops.length);
-  s.dets[i] = s.dets[i] === null ? true : s.dets[i] === true ? false : null;
+  s.dets[i] = s.dets[i] === null ? true
+            : s.dets[i] === true ? false
+            : s.dets[i] === false ? 'unsure'
+            : null;
   save(); render();
 }
 

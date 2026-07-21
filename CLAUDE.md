@@ -23,8 +23,9 @@ python main.py example_geojson/bend.geojson --name bend --scan-only
 python main.py example_geojson/bend.geojson --name bend
 
 # Render a one-pano-at-a-time viewer of sampled detections (also a validation UI:
-# judge crops correct/incorrect, click the pano to mark missed ramps or affirm
-# "no missed ramps" — required for a pano to count as reviewed — then export
+# judge crops correct/incorrect/unsure, click the pano to mark missed ramps
+# (or downgrade a mark to unsure) or affirm "no missed ramps" — required for a
+# pano to count as reviewed; "unsure" abstains from both metrics — then export
 # <name>_verdicts.json and save it into the run directory)
 python scripts/spot_check_gallery.py runs/bend
 

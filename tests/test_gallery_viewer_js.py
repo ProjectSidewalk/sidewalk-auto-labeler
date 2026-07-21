@@ -41,13 +41,14 @@ def test_gallery_review_state_machine(tmp_path):
     assert "gallery state machine OK" in result.stdout
 
     # Score the viewer's actual export with the real scorer: at the end of the
-    # harness, TWO has both crops judged correct + one missed mark, EMPTY is
-    # affirmed no-missed. Precision pool = 2 verdicts, recall pool = both panos.
+    # harness, TWO has crop0 correct + crop1 'unsure' + one missed mark, EMPTY is
+    # affirmed no-missed. The unsure crop abstains, so precision/recall keep only
+    # crop0's verdict; both panos are fully judged.
     export = json.loads(next(line for line in result.stdout.splitlines()
                              if line.startswith("EXPORT_JSON ")).removeprefix("EXPORT_JSON "))
     confs = {"TWO": [0.91, 0.63], "EMPTY": []}
-    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed = \
+    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed, n_unsure, missed_unsure = \
         sv.collect(export["panos"], confs)
     assert (n_seen, n_judged, n_unconfirmed) == (2, 2, 0)
-    assert sorted(judged) == [(0.63, True), (0.91, True)] == sorted(recall_judged)
-    assert missed == 1
+    assert sorted(judged) == [(0.91, True)] == sorted(recall_judged)
+    assert missed == 1 and n_unsure == 1 and missed_unsure == 0
