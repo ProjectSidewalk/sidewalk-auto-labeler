@@ -218,7 +218,14 @@ from **recall** — the scorer reports how many panos were excluded this way. De
 missed marks flagged **unsure** are abstentions: excluded from both metrics and reported as
 their own counts, so the numbers stay honest about how much was too ambiguous to call.
 Verdicts exported by older galleries (no `no_missed` flags) still score as before, with a
-warning that their recall may be optimistic. Use
+warning that their recall may be optimistic.
+
+If you scanned every pano for missed ramps but only *clicked* when there was one to mark
+(a common habit — you never pressed "No missed ramps" on the clean panos), the per-pano
+gate will wrongly hold those clean panos out of recall and bias it low toward the
+missed-heavy panos. Pass `--assume-scanned` to attest that every fully-judged pano was
+scanned; recall then uses all of them (the scorer prints a caveat noting the attestation).
+Use
 the sweep to pick a per-city threshold that clears the city's
 `ai-validation-min-accuracy` with margin.
 

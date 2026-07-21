@@ -53,6 +53,16 @@ def test_collect_unconfirmed_pano_counts_for_precision_not_recall():
     assert missed == 1
 
 
+def test_collect_assume_scanned_includes_unconfirmed_panos():
+    # Reviewer attests they scanned every pano: P_ONE_DET (no missed mark, not
+    # affirmed) must now enter the recall pool instead of being held out.
+    judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed, _, _ = \
+        sv.collect(_panos(), CONFS, assume_scanned=True)
+    assert (n_seen, n_judged, n_unconfirmed) == (3, 3, 0)
+    assert sorted(recall_judged) == [(0.63, True), (0.7, False), (0.91, True)]
+    assert missed == 1
+
+
 def test_collect_old_schema_keeps_legacy_behavior():
     judged, recall_judged, missed, n_seen, n_judged, n_unconfirmed, _, _ = \
         sv.collect(_panos(no_missed_flags=False), CONFS)

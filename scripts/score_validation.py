@@ -71,7 +71,7 @@ def load_inputs(run_arg, verdicts_arg):
     return confs_by_pid, verdicts['panos']
 
 
-def collect(panos, confs_by_pid, exclude_top=False):
+def collect(panos, confs_by_pid, exclude_top=False, assume_scanned=False):
     """
     Returns (judged, recall_judged, missed_total, n_seen, n_judged, n_unconfirmed,
              n_unsure, missed_unsure):
@@ -86,6 +86,14 @@ def collect(panos, confs_by_pid, exclude_top=False):
                       missed-ramp check was never confirmed.
       n_unsure      = detections marked 'unsure' (abstained: in neither pool).
       missed_unsure = missed marks flagged unsure (abstained: not in missed_total).
+
+    assume_scanned=True treats *every* fully-judged pano as having had its
+    missed-ramp check done, regardless of the per-pano flag. Use it when the
+    reviewer attests they scanned every pano for false negatives but didn't click
+    "no missed ramps" on the clean ones (a common workflow the per-pano gate
+    otherwise scores as unconfirmed, biasing recall low toward the missed-heavy
+    panos). It is an explicit override, not the default — the gate exists so panos
+    nobody actually scanned can't inflate recall.
 
     'unsure' abstention: a crop verdict of 'unsure' and a missed mark with
     {'unsure': True} are the reviewer saying "can't tell from this imagery". They
@@ -118,8 +126,8 @@ def collect(panos, confs_by_pid, exclude_top=False):
         # Decided verdicts only (True/False); 'unsure' abstains from both metrics.
         pano_judged = [(c, d) for c, d in zip(confs, entry['dets']) if d != 'unsure']
         judged += pano_judged
-        fn_checked = ((entry['no_missed'] or entry['missed'])
-                      if 'no_missed' in entry else True)
+        fn_checked = True if assume_scanned else (
+            (entry['no_missed'] or entry['missed']) if 'no_missed' in entry else True)
         if fn_checked:
             recall_judged += pano_judged
             missed_total += sum(1 for m in entry['missed'] if not m.get('unsure'))
@@ -181,6 +189,11 @@ def main():
     parser.add_argument("verdicts", nargs="?",
                         help="Verdicts file exported from the gallery (default: "
                              "<run>/<name>_verdicts.json, then <run>/verdicts.json).")
+    parser.add_argument("--assume-scanned", action="store_true",
+                        help="Count every fully-judged pano toward recall, trusting the "
+                             "reviewer scanned each for missed ramps even if they didn't "
+                             "click 'no missed ramps' on the clean ones. Reviewer "
+                             "attestation — off by default.")
     args = parser.parse_args()
 
     # Don't crash on ⚠/– when the console encoding can't represent them (Windows
@@ -194,15 +207,20 @@ def main():
 
     # Galleries with the missed-ramp confirmation export a per-pano 'no_missed' flag;
     # entries without it are legacy and trusted (see collect()).
-    if not any('no_missed' in e for e in panos.values()):
+    if args.assume_scanned:
+        print("⚠ --assume-scanned: trusting every fully-judged pano was scanned for "
+              "missed ramps\n  (reviewer attestation); recall uses all judged panos, "
+              "not only the ones flagged.\n")
+    elif not any('no_missed' in e for e in panos.values()):
         print("⚠ verdicts predate the missed-ramp confirmation: recall assumes every "
               "reviewed pano\n  was actually scanned for missed ramps and may be "
               "optimistic.\n")
 
-    all_pools = collect(panos, confs_by_pid)
+    all_pools = collect(panos, confs_by_pid, assume_scanned=args.assume_scanned)
     report("All reviewed panos", *all_pools)
 
-    unbiased_pools = collect(panos, confs_by_pid, exclude_top=True)
+    unbiased_pools = collect(panos, confs_by_pid, exclude_top=True,
+                             assume_scanned=args.assume_scanned)
     if unbiased_pools[3] != all_pools[3]:  # n_seen differs -> top panos existed
         report("Unbiased subset (random + empty samples only)", *unbiased_pools)
 
