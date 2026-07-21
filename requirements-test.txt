@@ -1,0 +1,11 @@
+# Lightweight deps for running the test suite (no torch/transformers — the
+# detector is imported lazily and never loaded by tests). Versions are
+# constrained by requirements.txt so pins (e.g. streetlevel) live in one place.
+-c requirements.txt
+pytest
+geojson
+pillow
+requests
+shapely
+streetlevel
+tqdm
