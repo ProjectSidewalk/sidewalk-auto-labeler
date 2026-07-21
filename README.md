@@ -190,7 +190,8 @@ python main.py example_geojson/richmond.geojson --name richmond --source mapilla
 Coverage comes from Mapillary's z14 vector tiles (only 360° panoramas are kept —
 `is_pano`), imagery from the Graph API's full-resolution `thumb_original_url`. Because
 contributors re-drive the same streets, coverage is spatially thinned to the best pano
-per ~10 m grid cell (newest capture, quality-score tiebreak) before processing. A run
+per grid cell (newest capture, quality-score tiebreak; `--thin-spacing N` meters,
+default 5 m, `0` disables) before processing. A run
 directory is bound to one source the same way it's bound to one geometry; use a
 different `--name` per source.
 

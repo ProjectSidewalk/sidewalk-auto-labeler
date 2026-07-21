@@ -84,8 +84,10 @@ from retryable `failure` (left uncached).
   image for the signed full-res `thumb_original_url` (expires — downloaded in the same
   worker pass) + SfM-computed position/compass. Needs `MAPILLARY_ACCESS_TOKEN`. Coverage
   is near-duplicate-heavy (~1 pano/1.5 m of street), so after the scan `thin_panos`
-  keeps the best pano per ~10 m grid cell (newest capture, quality tiebreak — downtown
-  Richmond: 35k → 5.5k). The
+  keeps the best pano per grid cell (newest capture, quality tiebreak; `--thin-spacing`,
+  default 5 m — deliberately denser than GSV since Mapillary image quality is lower,
+  proximity helps detection, and PS clustering absorbs duplicate labels. Downtown
+  Richmond: 35k → 9k). The
   center column of a Mapillary equirectangular is the camera's compass bearing (same
   convention as GSV and as PS's panoX→heading math), so images are never rotated;
   `computed_compass_angle` becomes `camera_heading`, pitch/roll stay null.

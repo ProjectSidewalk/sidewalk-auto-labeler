@@ -178,7 +178,7 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
     })
     save_manifest(manifest_path, manifest)
 
-def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None):
+def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thin_spacing=None):
     """
     Finds and processes all panoramas from the given imagery source within a GeoJSON
     area, writing all per-area state to runs/<run_name>/.
@@ -241,11 +241,12 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None):
               f"missing from this run. A re-run rescans all tiles and picks them up.")
 
     # Optional per-source spatial thinning (e.g. Mapillary's near-duplicate coverage).
-    if hasattr(source, 'thin_panos') and all_panos_in_area:
+    if hasattr(source, 'thin_panos') and all_panos_in_area and thin_spacing != 0:
+        spacing = thin_spacing or source.THIN_CELL_METERS
         found_before_thinning = len(all_panos_in_area)
-        all_panos_in_area = source.thin_panos(all_panos_in_area)
+        all_panos_in_area = source.thin_panos(all_panos_in_area, spacing)
         print(f"-> Spatial thinning: {found_before_thinning} → {len(all_panos_in_area)} panos "
-              f"(best per ~{source.THIN_CELL_METERS} m grid cell).")
+              f"(best per ~{spacing} m grid cell).")
 
     # 3. Determine which panoramas to process
     panos_to_process_ids = sorted(list(set(all_panos_in_area.keys()) - processed_ids))
@@ -359,6 +360,12 @@ def main():
         help="Concurrent workers scanning coverage tiles (default: %(default)s)."
     )
     parser.add_argument(
+        "--thin-spacing", type=int, default=None, metavar="METERS",
+        help="Spatial thinning grid size in meters for sources with near-duplicate "
+             "coverage (default: the source's own, e.g. Mapillary 5 m); 0 disables "
+             "thinning. No effect on sources without a thinning hook (GSV)."
+    )
+    parser.add_argument(
         "--limit", type=int,
         help="Process at most N new panoramas this run (for smoke tests and rate "
              "measurement); the rest stay uncached and process on a later run."
@@ -385,7 +392,8 @@ def main():
         curb_ramp_detector = CurbRampDetector()
 
     try:
-        run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, source, args.scan_only, args.limit)
+        run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, source, args.scan_only,
+                    args.limit, args.thin_spacing)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:

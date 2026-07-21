@@ -52,10 +52,13 @@ IMAGE_FIELDS = ','.join([
 ASPECT_TOLERANCE = 0.02
 
 # Mapillary contributors re-drive the same streets, so raw 360 coverage runs ~1 pano
-# per 1.5 m of street (downtown Richmond: 35k panos in 4.5 km²). Keep one pano per
-# ~10 m grid cell — GSV-like spacing — so runs aren't dominated by near-duplicates
-# and PS isn't sent 8x redundant labels on every corner.
-THIN_CELL_METERS = 10
+# per 1.5 m of street (downtown Richmond: 35k panos in 4.5 km²). Thinning keeps one
+# pano per grid cell. The default is deliberately denser than GSV's ~10 m spacing:
+# Mapillary image quality is generally lower, detection works better the closer a
+# ramp is, and Project Sidewalk's clustering consolidates proximal duplicate labels —
+# so extra redundancy mostly buys detection robustness at GPU-time cost. Override
+# per run with --thin-spacing (0 disables thinning).
+THIN_CELL_METERS = 5
 
 
 def prepare():
@@ -123,14 +126,15 @@ def panos_from_tile(tile_bytes, tile_x, tile_y, area_shape):
     return panos
 
 
-def thin_panos(panos):
-    """Keeps one pano per ~THIN_CELL_METERS grid cell: newest capture wins, higher
-    quality_score breaks ties. Called by main.py after the coverage scan (the hook is
-    optional per source; GSV coverage is already ~10 m spaced and has no hook)."""
+def thin_panos(panos, cell_meters=None):
+    """Keeps one pano per grid cell (default THIN_CELL_METERS): newest capture wins,
+    higher quality_score breaks ties. Called by main.py after the coverage scan (the
+    hook is optional per source; GSV coverage is already ~10 m spaced and has none)."""
+    cell_meters = cell_meters or THIN_CELL_METERS
     cells = {}
     for pano_id, (lat, lon, captured_at, quality) in panos.items():
-        cell_lat = THIN_CELL_METERS / 111320.0
-        cell_lon = THIN_CELL_METERS / (111320.0 * max(0.01, math.cos(math.radians(lat))))
+        cell_lat = cell_meters / 111320.0
+        cell_lon = cell_meters / (111320.0 * max(0.01, math.cos(math.radians(lat))))
         cell = (int(lat // cell_lat), int(lon // cell_lon))
         best = cells.get(cell)
         if best is None or (captured_at, quality) > best[1]:

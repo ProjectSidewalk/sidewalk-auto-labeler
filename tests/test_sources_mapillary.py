@@ -95,6 +95,17 @@ def test_thin_panos_quality_breaks_capture_time_ties():
     assert set(mapillary.thin_panos(panos)) == {"good"}
 
 
+def test_thin_panos_spacing_is_tunable():
+    panos = {
+        "a": (37.5400, -77.4360, 100, 0.5),
+        "b": (37.5410, -77.4360, 200, 0.5),  # ~110 m apart
+    }
+    assert set(mapillary.thin_panos(panos)) == {"a", "b"}      # separate 5 m cells
+    # A cell size that dwarfs the 110 m separation (so no cell-boundary luck):
+    # both collapse into one cell and the newest wins.
+    assert set(mapillary.thin_panos(panos, 100_000)) == {"b"}
+
+
 def _patch_fetch(monkeypatch, meta, image="IMAGE"):
     monkeypatch.setattr(mapillary, "_fetch_image_metadata", lambda image_id: meta)
     monkeypatch.setattr(mapillary, "_download_image", lambda url: image)
