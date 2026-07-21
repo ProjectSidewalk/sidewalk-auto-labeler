@@ -184,7 +184,7 @@ All output lands in `runs/bend/`. The QA and submission steps are the same as an
 documented in the README — briefly:
 
 ```bash
-python scripts/spot_check_gallery.py runs/bend      # visual QA + validation UI
+python scripts/spot_check_gallery.py runs/bend      # visual QA + validation UI (regenerate pre-July-2026 galleries)
 python scripts/score_validation.py runs/bend        # precision/recall + threshold sweep
 python send_to_ps.py runs/bend/results.jsonl --dry-run   # then --endpoint to submit for real
 ```

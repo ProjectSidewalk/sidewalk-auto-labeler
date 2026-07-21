@@ -193,7 +193,8 @@ Repeatable smoke-test procedure before any full city run (Bend or future cities)
    of panos and JSONL lines in `runs/<city>-smoke/results.jsonl`. **Re-run immediately** — it
    must report "No new panoramas to process" (proves the cache path, including skip caching).
 3. **Coordinate spot-check:** `python scripts/spot_check_gallery.py runs/<city>-smoke` and
-   open the generated `index.html` — circled detections must land on curb ramps
+   open the generated `index.html` — the numbered detection circles (clickable verdict
+   markers, yellow until judged) must land on curb ramps
    (`scripts/visual_check.py` remains for checking a single pano at full resolution).
 4. **Submission dry-run:** `python send_to_ps.py runs/<city>-smoke/results.jsonl --dry-run` and eyeball
    `pano_x`/`pano_y` against `width`/`height`; then submit 2–3 lines to the real server and

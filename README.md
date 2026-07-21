@@ -181,16 +181,23 @@ python scripts/spot_check_gallery.py runs/bend
 
 This renders `runs/bend/spot_check/index.html`: a one-pano-at-a-time viewer (open directly
 or via any static server, e.g. VS Code Live Server) showing each sampled panorama with its
-detections circled and a close-up crop per detection. Navigate with ←/→; the sample always
-includes the densest panos plus a few zero-detection panos; `--sample` / `--empty-sample` /
-`--seed` control it. Each pano links to its live Google Street View view.
+detections marked by **numbered circles** and a close-up crop per detection (the numbers
+match the crop captions). Navigate with ←/→; the sample always includes the densest panos
+plus a few zero-detection panos; `--sample` / `--empty-sample` / `--seed` control it. Each
+pano links to its live Google Street View view.
 
 The viewer doubles as a quick **validation tool**:
 
-- Click a crop (or press `1`–`9`) to cycle its verdict: unjudged → correct → incorrect.
-- Click the panorama to mark a curb ramp the model **missed** (click the yellow marker to
-  remove it). This gives per-pano-comprehensive ground truth — the recall signal that
-  Project Sidewalk's validation workflow can't provide.
+- Click a crop, its numbered circle on the panorama, or press `1`–`9` to cycle a
+  detection's verdict: unjudged → correct → incorrect. Circles start **yellow** (with a
+  white halo) and turn **green**/**red** as you judge.
+- Click the panorama to mark a curb ramp the model **missed** (click the dashed magenta
+  marker to remove it). This gives per-pano-comprehensive ground truth — the recall signal
+  that Project Sidewalk's validation workflow can't provide.
+- If a pano has **no** missed ramps, say so explicitly: press `m` or click
+  **"No missed ramps"**. A pano only counts as *reviewed* once every crop is judged **and**
+  you've either marked a missed ramp or affirmed there are none — so paging past a pano
+  can't silently count as "no missed ramps" and inflate recall.
 - Verdicts autosave in the browser (localStorage). When done, **Export verdicts** downloads
   `<name>_verdicts.json` (e.g. `bend_verdicts.json`) — **save it into the run directory**
   (`runs/bend/`), where the scorer finds it automatically:
@@ -201,8 +208,17 @@ python scripts/score_validation.py runs/bend
 
 prints precision and recall with 95% CIs and a confidence-threshold sweep — both overall
 and on the unbiased random subset (the always-included densest panos are flagged and
-excluded there). Use the sweep to pick a per-city threshold that clears the city's
+excluded there). A pano whose detections were judged but whose missed-ramp check was never
+confirmed still counts toward **precision** (its crop verdicts are valid) but is excluded
+from **recall** — the scorer reports how many panos were excluded this way. Verdicts
+exported by older galleries (no `no_missed` flags) still score as before, with a warning
+that their recall may be optimistic. Use
+the sweep to pick a per-city threshold that clears the city's
 `ai-validation-min-accuracy` with margin.
+
+> Galleries generated before July 2026 have the old red circles baked into the images —
+> re-run `spot_check_gallery.py` to regenerate (existing in-browser verdicts survive;
+> they're keyed by the run's area hash, not by the images).
 
 ### Step 3 — Submit predictions to Project Sidewalk
 
@@ -240,7 +256,12 @@ from scratch:
    object** (a raw `Polygon` or `MultiPolygon`) — *not* a GeoJSON `Feature` or
    `FeatureCollection`. Compare against the existing examples; tools like
    [geojson.io](https://geojson.io) export Features, so you may need to extract just the
-   `geometry` portion.
+   `geometry` portion. A quick source for city limits is
+   [OSM Nominatim](https://nominatim.openstreetmap.org/): search the city with
+   `polygon_geojson=1`, take the `boundary=administrative` result, and save its `geojson`
+   field (the bare geometry) to a file. Ideally, though, derive the boundary from the
+   target Project Sidewalk instance's own regions so the two areas match exactly (see
+   [Keep the two areas aligned](#keep-the-two-areas-aligned)).
 2. Save it under `example_geojson/` (or anywhere) and run
    `python main.py path/to/city.geojson --name <city>`.
 3. Review `runs/<city>/results.jsonl` and the spot-check gallery
@@ -258,6 +279,33 @@ from scratch:
   - `PROCESSING_CONCURRENCY = 50` — parallel workers downloading + running detection.
 - For long unattended runs, launch with `nohup` (e.g. `nohup python main.py ... &`);
   `nohup.out` is git-ignored.
+
+The per-city checklist for expanding beyond the example cities (and open questions like
+threshold policy and boundary source of truth) is tracked in
+[issue #13](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/13).
+
+## Working away from the GPU machine
+
+Only **detection** (`main.py` without `--scan-only`) needs the GPU box. Everything else
+runs on a laptop (macOS/Windows/Linux) with just internet access — install via
+`requirements.txt` (the plain CPU `pip install torch torchvision` is fine since the model
+never runs; or skip torch entirely and install `requirements-test.txt`, which covers every
+non-detection tool):
+
+| Works on a laptop | Needs |
+|---|---|
+| `main.py --scan-only` (scope a new city) | network only |
+| `scripts/spot_check_gallery.py` (build/regenerate a gallery) | network + the run's `results.jsonl` |
+| reviewing a gallery + exporting verdicts | a browser |
+| `scripts/score_validation.py` | `results.jsonl` + verdicts |
+| `send_to_ps.py` | network + `results.jsonl` |
+| `pytest` | nothing else |
+
+The catch: **`results.jsonl` is git-ignored** (it's tens of MB per city) and lives only on
+the machine that ran the detection — copy it over first (e.g.
+`scp makelab2:.../runs/bend/results.jsonl runs/bend/`). The small irreplaceable files —
+`manifest.json`, `area.geojson`, and hand-labeled `*_verdicts.json` — are tracked in git
+and sync normally.
 
 ## Caching & resumability
 
@@ -322,6 +370,21 @@ Notes:
   radians returned by the metadata source).
 - `model_training_date` and `api_version` are currently hard-coded in `main.py`.
 
+## Tests
+
+A small pytest suite covers the parts whose output Project Sidewalk consumes: the JSONL
+record format, the normalized→pixel transform in `send_to_ps.py`, the validation scoring
+(including old- vs new-schema verdicts), the gallery's sampling/rendering geometry, and
+the in-browser review state machine (run in `node`, skipped if node is absent). No test
+touches the network or loads the model.
+
+```bash
+pip install -r requirements-test.txt   # light deps only, no torch needed
+pytest
+```
+
+CI runs the same suite on every push (`.github/workflows/tests.yml`).
+
 ## Requirements
 
 - Python 3.12 (provided by the conda environment).
@@ -343,8 +406,10 @@ Notes:
 │   ├── spot_check_gallery.py  # One-pano-at-a-time viewer + validation UI (visual QA)
 │   ├── score_validation.py    # Precision/recall + threshold sweep from gallery verdicts
 │   └── visual_check.py        # Single-pano coordinate spot check
+├── tests/                   # Pytest suite (light deps only; no network, no model)
 ├── example_geojson/         # Example area polygons (Bend, Chicago, Vancouver)
 ├── environment.yml          # Conda environment (linux-64 export)
 ├── requirements.txt         # Portable pip requirements (Windows/macOS or non-conda)
+├── requirements-test.txt    # Test/laptop deps (everything except torch)
 └── runs/                    # Per-area results + resume state (git-ignored)
 ```

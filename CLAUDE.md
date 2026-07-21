@@ -23,7 +23,8 @@ python main.py example_geojson/bend.geojson --name bend --scan-only
 python main.py example_geojson/bend.geojson --name bend
 
 # Render a one-pano-at-a-time viewer of sampled detections (also a validation UI:
-# judge crops correct/incorrect, click the pano to mark missed ramps, export
+# judge crops correct/incorrect, click the pano to mark missed ramps or affirm
+# "no missed ramps" — required for a pano to count as reviewed — then export
 # <name>_verdicts.json and save it into the run directory)
 python scripts/spot_check_gallery.py runs/bend
 
@@ -31,12 +32,22 @@ python scripts/spot_check_gallery.py runs/bend
 # (finds runs/bend/bend_verdicts.json automatically)
 python scripts/score_validation.py runs/bend
 
+# Run the tests (no GPU/network/model; light deps via requirements-test.txt)
+pytest
+
 # Submit a produced JSONL file to a Project Sidewalk endpoint
 python send_to_ps.py runs/bend/results.jsonl --dry-run
 python send_to_ps.py runs/bend/results.jsonl --endpoint https://<server>/ai/submitLabelsOnPano
 ```
 
-There are no tests, linter config, or build step. `pytest` is installed but no test files exist.
+Tests live in `tests/` and cover the Project-Sidewalk-facing contracts: the JSONL record
+format (`build_output_line`), the normalized→pixel transform (`send_to_ps.transform_record`),
+validation scoring (`score_validation.collect`, both verdict schemas), gallery
+sampling/geometry, and the viewer's review state machine (driven in `node`; skipped when
+node is missing). They need only `requirements-test.txt` (no torch) and never touch the
+network — streetlevel is monkeypatched. CI runs them (`.github/workflows/tests.yml`).
+Keep the suite lean: test what PS consumes; don't add test infrastructure. There is no
+linter config or build step.
 
 ## Architecture
 
