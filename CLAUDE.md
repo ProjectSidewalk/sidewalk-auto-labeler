@@ -22,8 +22,8 @@ python main.py example_geojson/bend.geojson --name bend --scan-only
 # (--name defaults to the geojson filename stem)
 python main.py example_geojson/bend.geojson --name bend
 
-# Same pipeline on Mapillary 360 imagery (needs MAPILLARY_ACCESS_TOKEN, a client
-# token from mapillary.com/dashboard/developers)
+# Same pipeline on Mapillary 360 imagery (needs MAPILLARY_ACCESS_TOKEN — a client
+# token from mapillary.com/dashboard/developers — in the env or in gitignored ./.env)
 python main.py example_geojson/richmond.geojson --name richmond --source mapillary
 
 # Render a one-pano-at-a-time viewer of sampled detections (also a validation UI:

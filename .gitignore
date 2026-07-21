@@ -1,6 +1,8 @@
 cache
 __pycache__
 .venv
+# Local secrets (MAPILLARY_ACCESS_TOKEN, PS_INTERNAL_API_KEY) — never commit.
+.env
 *.jsonl
 *.submitted
 nohup.out

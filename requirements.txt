@@ -11,6 +11,7 @@ mapbox-vector-tile  # decodes Mapillary coverage tiles (sources/mapillary.py)
 numpy
 opencv-python
 pillow
+python-dotenv  # loads MAPILLARY_ACCESS_TOKEN / PS_INTERNAL_API_KEY from ./.env
 requests
 scikit-image
 shapely

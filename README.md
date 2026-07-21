@@ -180,7 +180,9 @@ Both steps accept `--source mapillary` to run on [Mapillary](https://www.mapilla
 on Mapillary coverage:
 
 ```bash
-export MAPILLARY_ACCESS_TOKEN="MLY|..."   # client token from mapillary.com/dashboard/developers
+# Client token from mapillary.com/dashboard/developers — export it, or put
+# MAPILLARY_ACCESS_TOKEN=MLY|... in a ./.env file (gitignored, loaded automatically).
+export MAPILLARY_ACCESS_TOKEN="MLY|..."
 python main.py example_geojson/richmond.geojson --name richmond --source mapillary --scan-only
 python main.py example_geojson/richmond.geojson --name richmond --source mapillary
 ```

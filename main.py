@@ -28,10 +28,14 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(errors='replace')
 
 import geojson
+from dotenv import load_dotenv
 from shapely.geometry import shape
 from tqdm import tqdm
 
 from sources import get_source, SOURCE_NAMES
+
+# Local secrets (e.g. MAPILLARY_ACCESS_TOKEN) from ./.env; real env vars win.
+load_dotenv()
 # CurbRampDetector is imported lazily in main(): pulling in torch/transformers takes
 # many seconds and --scan-only doesn't need them.
 

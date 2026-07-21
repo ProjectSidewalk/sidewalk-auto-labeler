@@ -6,6 +6,7 @@ pytest
 geojson
 mapbox-vector-tile
 pillow
+python-dotenv
 requests
 shapely
 streetlevel

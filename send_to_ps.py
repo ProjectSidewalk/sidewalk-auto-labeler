@@ -22,6 +22,10 @@ from typing import Dict, Any, Optional, Set
 from pathlib import Path
 
 import requests
+from dotenv import load_dotenv
+
+# Local secrets (e.g. PS_INTERNAL_API_KEY) from ./.env; real env vars win.
+load_dotenv()
 
 DEFAULT_ENDPOINT_URL = "http://localhost:9000/ai/submitLabelsOnPano"
 MAX_ATTEMPTS = 3
