@@ -24,7 +24,6 @@ from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
-from streetlevel import streetview
 from tqdm import tqdm
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +48,7 @@ def fetch_native(pano_id, source, out_path):
             resp.raise_for_status()
             out_path.write_bytes(resp.content)          # raw native bytes, no resize
         else:  # gsv
+            from streetlevel import streetview  # lazy: Mapillary-only archives don't need it
             meta = streetview.find_panorama_by_id(pano_id)
             if meta is None:
                 return "metadata unavailable"
