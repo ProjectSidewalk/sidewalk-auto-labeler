@@ -37,6 +37,14 @@ python scripts/spot_check_gallery.py runs/bend
 # (finds runs/bend/bend_verdicts.json automatically)
 python scripts/score_validation.py runs/bend
 
+# NOTE — the ground-truth tooling above (spot_check_gallery.py + score_validation.py) is
+# TRANSITIONAL. The canonical scorer now lives in RampNet as rampnet.validation, and the
+# validated benchmark in RampNet's benchmark/ (ProjectSidewalk/RampNet#22, #26). This whole
+# GT cluster — gallery, scorer, and their tests — moves to RampNet as one unit once the
+# gallery is decoupled from sources/ (#26); it stays here meanwhile because the viewer
+# fetches imagery through sources/ and its test cross-checks the scorer's gate. The labeler
+# itself is production-only: enumerate -> detect -> submit.
+
 # Run the tests (no GPU/network/model; light deps via requirements-test.txt)
 pytest
 

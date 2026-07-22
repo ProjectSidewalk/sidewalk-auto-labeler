@@ -1,4 +1,9 @@
 """
+TRANSITIONAL — this ground-truth labeling UI is moving to RampNet (see
+ProjectSidewalk/RampNet#26 for the port + UX/scoring spec), where it will consume the
+benchmark bundle instead of fetching through `sources/`. It stays here until that
+decoupling; the scorer it pairs with is already canonical as `rampnet.validation` (#22).
+
 Render a single-pano gallery viewer for visual QA *and* quick validation.
 
 Reads a run directory produced by main.py (or a bare results JSONL file), samples
