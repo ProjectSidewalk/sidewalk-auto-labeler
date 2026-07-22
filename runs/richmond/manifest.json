@@ -16,6 +16,14 @@
       "processed": 5,
       "skipped": 0,
       "failed": 0
+    },
+    {
+      "started_at": "2026-07-21T22:09:04+00:00",
+      "finished_at": "2026-07-21T23:10:20+00:00",
+      "panos_found_in_area": 9091,
+      "processed": 9091,
+      "skipped": 0,
+      "failed": 0
     }
   ]
 }
