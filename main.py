@@ -326,7 +326,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     print(f"Skipped (cached):       {skip_count}")
     print(f"Failed to process:      {fail_count}")
     print(f"Results saved to: {output_jsonl_file}")
-    print(f"Spot-check gallery: python scripts/spot_check_gallery.py {run_dir}")
+    print(f"Export benchmark bundle (imagery for RampNet GT/scoring): python scripts/export_benchmark.py {output_jsonl_file} --out <dir>")
     print("----------------------")
 
 

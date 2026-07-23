@@ -18,9 +18,6 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      # The gallery-JS contract test skips without node; fail loudly here instead
-      # of letting it skip silently in CI.
-      - run: node --version
       # Tests need only the light deps (no torch).
       - run: pip install -r requirements-test.txt
       - run: pytest

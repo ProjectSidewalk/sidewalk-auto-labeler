@@ -178,14 +178,14 @@ README's "Caching & resumability."
 
 ---
 
-## After the run: spot-check, score, submit
+## After the run: export bundle (for RampNet GT), submit
 
-All output lands in `runs/bend/`. The QA and submission steps are the same as anywhere and are
-documented in the README — briefly:
+All output lands in `runs/bend/`. Validation (GT review + precision/recall) now lives in
+[RampNet](https://github.com/ProjectSidewalk/RampNet); this repo's job is to export the
+imagery bundle it needs and to submit. Briefly:
 
 ```bash
-python scripts/spot_check_gallery.py runs/bend      # visual QA + validation UI (regenerate pre-July-2026 galleries)
-python scripts/score_validation.py runs/bend        # precision/recall + threshold sweep
+python scripts/export_benchmark.py runs/bend/results.jsonl --out <bundle>/panos  # native-res bundle → review/score in RampNet
 python send_to_ps.py runs/bend/results.jsonl --dry-run   # then --endpoint to submit for real
 ```
 
