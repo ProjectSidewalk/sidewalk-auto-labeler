@@ -178,11 +178,9 @@ python main.py example_geojson/bend.geojson --name bend --scan-only
 # Run the labeler; all per-area state lands in runs/bend/ (results.jsonl, resume cache, etc.):
 python main.py example_geojson/bend.geojson --name bend
 
-# (Optional) spot-check and score the detections before submitting.
-# (A pano only counts as reviewed once its crops are judged AND you confirm the
-# missed-ramp check; galleries generated before July 2026 must be regenerated.)
-python scripts/spot_check_gallery.py runs/bend
-python scripts/score_validation.py runs/bend
+# (Optional) validate before submitting: export a benchmark bundle, then review + score
+# it in RampNet (GT tooling lives there now, not in this repo).
+python scripts/export_benchmark.py runs/bend/results.jsonl --out <bundle>/panos
 ```
 Then submit `runs/bend/results.jsonl` to your Bend server's `/ai/submitLabelsOnPano`
 (preview with `--dry-run` first):

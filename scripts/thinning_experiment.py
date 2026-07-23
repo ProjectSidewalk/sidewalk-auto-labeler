@@ -35,7 +35,7 @@ Method:
 Caveats: the projection assumes flat ground and a fixed camera height, so
 distances are approximate (fine for binned/relative comparisons); ramp sites are
 model-derived, so results measure detection coverage, not true recall — validate
-a sample with the spot-check gallery before leaning on precision claims.
+a sample in RampNet (GT gallery + scorer) before leaning on precision claims.
 """
 import argparse
 import json

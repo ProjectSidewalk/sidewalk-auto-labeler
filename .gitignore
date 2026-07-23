@@ -9,7 +9,7 @@ nohup.out
 smoke_check
 
 # Run directories: track only the small, high-value files (provenance + hand-labeled
-# verdicts); results, resume caches, and spot-check galleries stay local.
+# verdicts); results and resume caches stay local.
 runs/**
 !runs/*/
 !runs/*/manifest.json
