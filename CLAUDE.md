@@ -26,6 +26,18 @@ python main.py example_geojson/bend.geojson --name bend
 # token from mapillary.com/dashboard/developers — in the env or in gitignored ./.env)
 python main.py example_geojson/richmond.geojson --name richmond --source mapillary
 
+# Build a benchmark bundle for RampNet from a finished run: samples a spatially
+# de-clustered set of panos into <bundle>/records.jsonl (each tagged with its stratum
+# as benchmark_group), fetches them at native resolution, then reconciles panos vs
+# records and writes index.csv. Resumable; an existing records.jsonl is never re-sampled.
+python scripts/export_benchmark.py runs/clovis/results.jsonl \
+    --bundle ../RampNet/benchmark/clovis --sample 100 --empty-sample 25
+# ...--records-only stops after records.jsonl, for when the pixels come from an existing
+# full-city archive instead (copy those ids in, then re-run without it to verify).
+
+# Archive every processed pano of a run at native resolution (same verification)
+python scripts/export_benchmark.py runs/clovis/results.jsonl --out /path/to/archive/clovis
+
 # Render a one-pano-at-a-time viewer of sampled detections (also a validation UI:
 # judge crops correct/incorrect/unsure, click the pano to mark missed ramps
 # (or downgrade a mark to unsure) or affirm "no missed ramps" — required for a

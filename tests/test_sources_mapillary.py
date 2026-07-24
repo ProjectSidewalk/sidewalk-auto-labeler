@@ -24,6 +24,8 @@ def make_meta(**overrides):
         "creator": {"username": "rva-rider", "id": "42"},
         "sequence": "seq-1",
         "quality_score": 0.8,
+        "make": "GoPro",
+        "model": "Fusion",
     }
     base.update(overrides)
     # Graph API omits absent fields entirely rather than sending nulls.
@@ -128,6 +130,14 @@ def test_fetch_pano_success_record_contract(monkeypatch):
     assert pano["camera_pitch"] is None and pano["camera_roll"] is None
     assert pano["history"] == [] and pano["links"] == []
     assert "rva-rider" in pano["copyright"]
+    # Camera hardware provenance for post-hoc image-quality analysis.
+    assert (pano["camera_make"], pano["camera_model"]) == ("GoPro", "Fusion")
+    assert pano["camera_type"] == "spherical"
+    # Full stable Graph metadata kept verbatim, minus the volatile signed thumb URL.
+    sm = pano["source_metadata"]
+    assert sm["quality_score"] == 0.8 and sm["make"] == "GoPro"
+    assert sm["creator"] == {"username": "rva-rider", "id": "42"}
+    assert "thumb_original_url" not in sm
 
 
 def test_fetch_pano_falls_back_to_exif_compass_and_tile_position(monkeypatch):
