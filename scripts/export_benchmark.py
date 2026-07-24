@@ -1,4 +1,4 @@
-"""Fetch native-resolution panos for a validation benchmark bundle.
+"""Build a validation benchmark bundle: sample panos from a run, fetch them native-res.
 
 Reads a bundle's records.jsonl (source + pano id per validated pano) and downloads
 each pano at NATIVE resolution — Mapillary `thumb_original` with no downscale, GSV at
@@ -6,6 +6,12 @@ max zoom — into <bundle>/panos/<id>.jpg. Resumable: existing files are skipped
 flaky run can just be re-run. records.jsonl + verdicts.json already hold the (image-free)
 scoring data; these native panos are the imagery half of the HF benchmark (RampNet #21)
 and the input the GT labeling tool renders (#26).
+
+With `--bundle`, it also *creates* that records.jsonl: a spatially de-clustered sample of
+a run's results.jsonl (`choose_panos`), each record tagged with its sampling stratum as
+`benchmark_group` (top / random / empty) so RampNet's scorer can exclude the always-included
+densest panos from unbiased estimates. This is the labeler's half of the repo split — it
+owns "which panos, and their pixels"; RampNet owns ground truth and scoring.
 
 After every run (including a fully-resumed one) it reconciles the archive against the
 records it was built from — so "is this the same data we processed?" is always answerable
@@ -17,7 +23,11 @@ The pano id IS the identity — same id means the same immutable source image �
 matches the run exactly, minus any explicitly-listed decayed ids. Exits non-zero only on
 contamination (a pano file with no matching record); decay is expected and not a failure.
 
-    # benchmark bundle (writes panos/ next to records.jsonl):
+    # new benchmark bundle from a finished run (samples, then fetches its panos):
+    python scripts/export_benchmark.py runs/clovis/results.jsonl \
+        --bundle D:/Git/RampNet/benchmark/clovis --sample 100 --empty-sample 25
+
+    # existing bundle (writes panos/ next to records.jsonl):
     python scripts/export_benchmark.py D:/Git/RampNet/benchmark/richmond
 
     # full archive of every processed pano (e.g. onto makelab2) — point it at a run's
@@ -30,6 +40,8 @@ import argparse
 import csv
 import hashlib
 import json
+import math
+import random
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -45,6 +57,172 @@ load_dotenv(REPO_ROOT / ".env")
 from sources import mapillary  # noqa: E402
 
 WORKERS = 6
+
+TOP_N_BY_COUNT = 5     # the densest panos are always included (group "top")
+
+# Two validation panos closer than this almost certainly show the same physical
+# curb ramps, so the sampler keeps selected panos at least this far apart: a
+# reviewer never judges the same ramps twice, and precision/recall aren't inflated
+# by correlated duplicates. Tunable per city/imagery via --min-spacing; deliberately
+# well above the Mapillary thinning spacing (~5 m) since that's coverage, not sampling.
+DEFAULT_MIN_SPACING_M = 30
+
+
+# --- Sampling: which panos become the benchmark ---------------------------------------
+
+def _haversine_m(lat1, lng1, lat2, lng2):
+    R = 6371000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = math.radians(lat2 - lat1), math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
+
+def _coords(record):
+    """(lat, lng) for a record, or None if it carries no position."""
+    p = record['pano']
+    lat, lng = p.get('lat'), p.get('lng')
+    return (lat, lng) if lat is not None and lng is not None else None
+
+
+class _SpatialIndex:
+    """Grid of accepted points for fast 'is anything within min_spacing?' checks.
+
+    Cell size == min_spacing, so any point within range lies in one of the nine
+    neighbouring cells — the acceptance test touches a handful of points, not the
+    whole accepted set, so selection stays cheap on city-sized candidate pools.
+    """
+
+    def __init__(self, min_spacing):
+        self.s = max(min_spacing, 1e-9)
+        self.cells = {}
+
+    def _key(self, lat, lng):
+        clat = self.s / 111320.0
+        clng = self.s / (111320.0 * max(0.01, math.cos(math.radians(lat))))
+        return (math.floor(lat / clat), math.floor(lng / clng))
+
+    def far_enough(self, lat, lng):
+        kx, ky = self._key(lat, lng)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for plat, plng in self.cells.get((kx + dx, ky + dy), ()):
+                    if _haversine_m(lat, lng, plat, plng) < self.s:
+                        return False
+        return True
+
+    def add(self, lat, lng):
+        self.cells.setdefault(self._key(lat, lng), []).append((lat, lng))
+
+
+def _spread(candidates, k, index, min_spacing):
+    """Greedily take up to k candidates (in the given order) that sit at least
+    min_spacing metres from every already-accepted point in the shared `index`.
+
+    Records without coordinates are accepted without constraint (graceful
+    degradation — a coordinate-less run can't be de-clustered, but must still
+    render). Returns (picked, rejected_for_spacing)."""
+    picked, rejected = [], 0
+    for rec in candidates:
+        if len(picked) >= k:
+            break
+        c = _coords(rec)
+        if c is None:
+            picked.append(rec)
+        elif min_spacing <= 0 or index.far_enough(*c):
+            picked.append(rec)
+            index.add(*c)
+        else:
+            rejected += 1
+    return picked, rejected
+
+
+def choose_panos(records, sample, empty_sample, seed, min_spacing=DEFAULT_MIN_SPACING_M):
+    """Return [(record, group)] for a spatially de-clustered validation sample.
+
+    Three strata, all held at least `min_spacing` metres apart — *across* strata as
+    well as within — so a reviewer never judges the same physical ramps twice and
+    the precision/recall estimate isn't inflated by correlated duplicates:
+      - 'top':    the densest *distinct* intersections (up to TOP_N_BY_COUNT) — a
+                  dense-scene stress test, excluded from unbiased scoring.
+      - 'random': a spatially spread sample of panos with detections.
+      - 'empty':  a spatially spread sample of zero-detection panos (for recall).
+
+    Deterministic given `seed`. `min_spacing=0` disables spacing (the original pure
+    random behaviour). Records without lat/lng are included unconstrained. The method
+    is city-agnostic by design — it's meant to seed every city's ground-truth set.
+    """
+    rng = random.Random(seed)
+    with_det = [r for r in records if r['detections']]
+    without_det = [r for r in records if not r['detections']]
+    index = _SpatialIndex(min_spacing)
+
+    # top: densest first, but only one pano per distinct location.
+    by_density = sorted(with_det, key=lambda r: len(r['detections']), reverse=True)
+    top, _ = _spread(by_density, TOP_N_BY_COUNT, index, min_spacing)
+    top_ids = {r['pano']['panorama_id'] for r in top}
+
+    # random: spread across the remaining detection panos.
+    rest = [r for r in with_det if r['pano']['panorama_id'] not in top_ids]
+    rng.shuffle(rest)
+    n_random = max(0, sample - len(top))
+    random_sel, rej_r = _spread(rest, n_random, index, min_spacing)
+
+    # empty: spread across the zero-detection panos.
+    empties = list(without_det)
+    rng.shuffle(empties)
+    empty_sel, rej_e = _spread(empties, empty_sample, index, min_spacing)
+
+    # No silent caps: if spacing (not scarcity) kept us short of a target, say so.
+    if min_spacing > 0 and rej_r and len(random_sel) < n_random:
+        print(f"  spatial sampling: kept {len(random_sel)}/{n_random} detection panos "
+              f"at >= {min_spacing} m spacing (area too dense for more).")
+    if min_spacing > 0 and rej_e and len(empty_sel) < empty_sample:
+        print(f"  spatial sampling: kept {len(empty_sel)}/{empty_sample} empty panos "
+              f"at >= {min_spacing} m spacing.")
+
+    return ([(r, 'top') for r in top]
+            + [(r, 'random') for r in random_sel]
+            + [(r, 'empty') for r in empty_sel])
+
+
+def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, min_spacing):
+    """Sample `results_path` into `bundle_dir`/records.jsonl and return that path.
+
+    Each record keeps its Stage-1 shape plus `benchmark_group` (the sampling stratum),
+    so the bundle carries its own strata — RampNet's labeler/scorer doesn't have to
+    recover them from a verdicts file that doesn't exist yet for a fresh city.
+
+    An existing records.jsonl is never re-sampled: once a reviewer has judged a bundle,
+    silently changing which panos are in it would invalidate their verdicts. Delete the
+    file to draw a new sample.
+    """
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    records_path = bundle_dir / "records.jsonl"
+    if records_path.exists():
+        n = sum(1 for line in open(records_path, encoding="utf-8") if line.strip())
+        print(f"{records_path} already exists ({n} records) — keeping that sample "
+              f"(sampling flags ignored; delete it to re-sample).")
+        return records_path
+
+    with open(results_path, encoding="utf-8") as f:
+        records = [json.loads(line) for line in f if line.strip()]
+    chosen = choose_panos(records, sample, empty_sample, seed, min_spacing)
+    chosen.sort(key=lambda rg: rg[0]['pano']['panorama_id'])
+
+    with open(records_path, "w", encoding="utf-8", newline="\n") as f:  # LF on every platform
+        for rec, group in chosen:
+            f.write(json.dumps({**rec, "benchmark_group": group}) + "\n")
+
+    groups = {g: sum(1 for _, gg in chosen if gg == g) for g in ("top", "random", "empty")}
+    meta = {"source_records": str(results_path), "source_record_count": len(records),
+            "sample": sample, "empty_sample": empty_sample, "seed": seed,
+            "min_spacing_m": min_spacing, "selected": len(chosen), "groups": groups}
+    (bundle_dir / "sample.json").write_text(json.dumps(meta, indent=2) + "\n",
+                                            encoding="utf-8", newline="\n")
+    print(f"Sampled {len(chosen)} of {len(records)} panos -> {records_path} "
+          f"(top {groups['top']} / random {groups['random']} / empty {groups['empty']})")
+    return records_path
 
 
 def fetch_native(pano_id, source, out_path):
@@ -152,10 +330,36 @@ def main():
     ap.add_argument("--out", type=Path,
                     help="Output dir for panos. Default: <bundle>/panos when SOURCE is a bundle dir; "
                          "required when SOURCE is a .jsonl file (e.g. a makelab2 path).")
+    ap.add_argument("--bundle", type=Path,
+                    help="Build a benchmark bundle here from SOURCE (a run's results.jsonl): "
+                         "samples panos into <bundle>/records.jsonl, then fetches them into "
+                         "<bundle>/panos. An existing records.jsonl is reused, never re-sampled.")
+    ap.add_argument("--sample", type=int, default=100,
+                    help="With --bundle: detection panos to sample (default: %(default)s).")
+    ap.add_argument("--empty-sample", type=int, default=25,
+                    help="With --bundle: zero-detection panos to sample (default: %(default)s).")
+    ap.add_argument("--seed", type=int, default=0,
+                    help="With --bundle: sampling seed (default: %(default)s).")
+    ap.add_argument("--min-spacing", type=float, default=DEFAULT_MIN_SPACING_M,
+                    help="With --bundle: min metres between sampled panos "
+                         "(default: %(default)s; 0 disables).")
+    ap.add_argument("--records-only", action="store_true",
+                    help="With --bundle: write records.jsonl and stop — no fetch, no "
+                         "reconcile. For sourcing the pixels elsewhere (e.g. copying the "
+                         "sampled ids out of an existing full-city archive); re-run without "
+                         "it afterwards to fetch anything missing and verify.")
     args = ap.parse_args()
 
     src = Path(args.source)
-    if src.is_dir():
+    if args.bundle:
+        if src.is_dir():
+            sys.exit("--bundle takes a run's results.jsonl as SOURCE, not a directory")
+        records_path = write_bundle_records(src, args.bundle, args.sample, args.empty_sample,
+                                            args.seed, args.min_spacing)
+        panos_dir = args.out or (args.bundle / "panos")
+        if args.records_only:
+            return
+    elif src.is_dir():
         records_path = src / "records.jsonl"
         panos_dir = args.out or (src / "panos")
     else:
@@ -180,7 +384,7 @@ def main():
             if not out.exists():
                 todo.append((pid, source, out))
 
-    label = src.name
+    label = args.bundle.name if args.bundle else src.name
     print(f"{label}: {len(todo)} panos to fetch -> {panos_dir} "
           f"({len(list(panos_dir.glob('*.jpg')))} already present)")
 

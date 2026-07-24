@@ -36,8 +36,6 @@ Usage:
 """
 import argparse
 import json
-import math
-import random
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -59,15 +57,14 @@ socket.setdefaulttimeout(30)
 
 DISPLAY_WIDTH = 1600   # displayed full-pano width in the gallery
 CROP_SIZE = 512        # per-detection close-up, taken at download resolution
-TOP_N_BY_COUNT = 5     # the densest panos are always included (group "top")
 DOWNLOAD_WORKERS = 8
 
-# Two validation panos closer than this almost certainly show the same physical
-# curb ramps, so the sampler keeps selected panos at least this far apart: a
-# reviewer never judges the same ramps twice, and precision/recall aren't inflated
-# by correlated duplicates. Tunable per city/imagery via --min-spacing; deliberately
-# well above the Mapillary thinning spacing (~5 m) since that's coverage, not sampling.
-DEFAULT_MIN_SPACING_M = 30
+# The validation sampler lives in export_benchmark.py — the permanent home, since
+# choosing a city's benchmark panos is the labeler's half of the RampNet split. Imported
+# rather than duplicated so deleting this transitional viewer takes nothing with it.
+from export_benchmark import (  # noqa: E402
+    DEFAULT_MIN_SPACING_M, TOP_N_BY_COUNT, _coords, _haversine_m, choose_panos,
+)
 
 
 def load_records(path_arg):
@@ -86,122 +83,6 @@ def load_records(path_arg):
         with open(manifest_path, 'r', encoding='utf-8') as f:
             run_key = json.load(f).get('area_hash', run_key)
     return jsonl_path, records, run_key
-
-
-def _haversine_m(lat1, lng1, lat2, lng2):
-    R = 6371000.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp, dl = math.radians(lat2 - lat1), math.radians(lng2 - lng1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * R * math.asin(math.sqrt(a))
-
-
-def _coords(record):
-    """(lat, lng) for a record, or None if it carries no position."""
-    p = record['pano']
-    lat, lng = p.get('lat'), p.get('lng')
-    return (lat, lng) if lat is not None and lng is not None else None
-
-
-class _SpatialIndex:
-    """Grid of accepted points for fast 'is anything within min_spacing?' checks.
-
-    Cell size == min_spacing, so any point within range lies in one of the nine
-    neighbouring cells — the acceptance test touches a handful of points, not the
-    whole accepted set, so selection stays cheap on city-sized candidate pools.
-    """
-
-    def __init__(self, min_spacing):
-        self.s = max(min_spacing, 1e-9)
-        self.cells = {}
-
-    def _key(self, lat, lng):
-        clat = self.s / 111320.0
-        clng = self.s / (111320.0 * max(0.01, math.cos(math.radians(lat))))
-        return (math.floor(lat / clat), math.floor(lng / clng))
-
-    def far_enough(self, lat, lng):
-        kx, ky = self._key(lat, lng)
-        for dx in (-1, 0, 1):
-            for dy in (-1, 0, 1):
-                for plat, plng in self.cells.get((kx + dx, ky + dy), ()):
-                    if _haversine_m(lat, lng, plat, plng) < self.s:
-                        return False
-        return True
-
-    def add(self, lat, lng):
-        self.cells.setdefault(self._key(lat, lng), []).append((lat, lng))
-
-
-def _spread(candidates, k, index, min_spacing):
-    """Greedily take up to k candidates (in the given order) that sit at least
-    min_spacing metres from every already-accepted point in the shared `index`.
-
-    Records without coordinates are accepted without constraint (graceful
-    degradation — a coordinate-less run can't be de-clustered, but must still
-    render). Returns (picked, rejected_for_spacing)."""
-    picked, rejected = [], 0
-    for rec in candidates:
-        if len(picked) >= k:
-            break
-        c = _coords(rec)
-        if c is None:
-            picked.append(rec)
-        elif min_spacing <= 0 or index.far_enough(*c):
-            picked.append(rec)
-            index.add(*c)
-        else:
-            rejected += 1
-    return picked, rejected
-
-
-def choose_panos(records, sample, empty_sample, seed, min_spacing=DEFAULT_MIN_SPACING_M):
-    """Return [(record, group)] for a spatially de-clustered validation sample.
-
-    Three strata, all held at least `min_spacing` metres apart — *across* strata as
-    well as within — so a reviewer never judges the same physical ramps twice and
-    the precision/recall estimate isn't inflated by correlated duplicates:
-      - 'top':    the densest *distinct* intersections (up to TOP_N_BY_COUNT) — a
-                  dense-scene stress test, excluded from unbiased scoring.
-      - 'random': a spatially spread sample of panos with detections.
-      - 'empty':  a spatially spread sample of zero-detection panos (for recall).
-
-    Deterministic given `seed`. `min_spacing=0` disables spacing (the original pure
-    random behaviour). Records without lat/lng are included unconstrained. The method
-    is city-agnostic by design — it's meant to seed every city's ground-truth set.
-    """
-    rng = random.Random(seed)
-    with_det = [r for r in records if r['detections']]
-    without_det = [r for r in records if not r['detections']]
-    index = _SpatialIndex(min_spacing)
-
-    # top: densest first, but only one pano per distinct location.
-    by_density = sorted(with_det, key=lambda r: len(r['detections']), reverse=True)
-    top, _ = _spread(by_density, TOP_N_BY_COUNT, index, min_spacing)
-    top_ids = {r['pano']['panorama_id'] for r in top}
-
-    # random: spread across the remaining detection panos.
-    rest = [r for r in with_det if r['pano']['panorama_id'] not in top_ids]
-    rng.shuffle(rest)
-    n_random = max(0, sample - len(top))
-    random_sel, rej_r = _spread(rest, n_random, index, min_spacing)
-
-    # empty: spread across the zero-detection panos.
-    empties = list(without_det)
-    rng.shuffle(empties)
-    empty_sel, rej_e = _spread(empties, empty_sample, index, min_spacing)
-
-    # No silent caps: if spacing (not scarcity) kept us short of a target, say so.
-    if min_spacing > 0 and rej_r and len(random_sel) < n_random:
-        print(f"  spatial sampling: kept {len(random_sel)}/{n_random} detection panos "
-              f"at >= {min_spacing} m spacing (area too dense for more).")
-    if min_spacing > 0 and rej_e and len(empty_sel) < empty_sample:
-        print(f"  spatial sampling: kept {len(empty_sel)}/{empty_sample} empty panos "
-              f"at >= {min_spacing} m spacing.")
-
-    return ([(r, 'top') for r in top]
-            + [(r, 'random') for r in random_sel]
-            + [(r, 'empty') for r in empty_sel])
 
 
 def fetch_display_image(pano):
