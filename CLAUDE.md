@@ -35,8 +35,10 @@ python scripts/export_benchmark.py runs/clovis/results.jsonl \
 # ...--records-only stops after records.jsonl, for when the pixels come from an existing
 # full-city archive instead (copy those ids in, then re-run without it to verify).
 
-# Archive every processed pano of a run at native resolution (same verification)
-python scripts/export_benchmark.py runs/clovis/results.jsonl --out /path/to/archive/clovis
+# Archive every processed pano of a run at native resolution (same verification).
+# index.csv/decayed.txt are written beside a `panos/` dir (else into --out itself), so
+# per-city manifests never collide when several cities share an archive root.
+python scripts/export_benchmark.py runs/clovis/results.jsonl --out /path/to/archive/clovis/panos
 
 # Render a one-pano-at-a-time viewer of sampled detections (also a validation UI:
 # judge crops correct/incorrect/unsure, click the pano to mark missed ramps

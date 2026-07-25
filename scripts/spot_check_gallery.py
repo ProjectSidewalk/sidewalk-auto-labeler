@@ -62,9 +62,7 @@ DOWNLOAD_WORKERS = 8
 # The validation sampler lives in export_benchmark.py — the permanent home, since
 # choosing a city's benchmark panos is the labeler's half of the RampNet split. Imported
 # rather than duplicated so deleting this transitional viewer takes nothing with it.
-from export_benchmark import (  # noqa: E402
-    DEFAULT_MIN_SPACING_M, TOP_N_BY_COUNT, _coords, _haversine_m, choose_panos,
-)
+from export_benchmark import DEFAULT_MIN_SPACING_M, choose_panos  # noqa: E402
 
 
 def load_records(path_arg):

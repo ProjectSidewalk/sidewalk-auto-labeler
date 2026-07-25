@@ -15,13 +15,16 @@ owns "which panos, and their pixels"; RampNet owns ground truth and scoring.
 
 After every run (including a fully-resumed one) it reconciles the archive against the
 records it was built from — so "is this the same data we processed?" is always answerable
-mechanically — and writes two files next to the panos dir:
+mechanically — and writes two files into the archive's manifest dir (the parent of a
+`panos/` directory, else the output dir itself, so per-city manifests never collide):
   - index.csv   : panorama_id,filename,bytes,sha256 for every archived pano (durable
                   integrity manifest; built incrementally, unchanged panos aren't re-hashed)
-  - decayed.txt : record ids whose imagery is gone from the source since the run (if any)
+  - decayed.txt : record ids the source says are gone since the run (if any)
 The pano id IS the identity — same id means the same immutable source image — so the archive
-matches the run exactly, minus any explicitly-listed decayed ids. Exits non-zero only on
-contamination (a pano file with no matching record); decay is expected and not a failure.
+matches the run exactly, minus any explicitly-listed decayed ids. Decay is expected and not
+a failure; it exits non-zero on anything that means the archive isn't trustworthy yet — a
+pano file with no matching record (contamination), or a pano missing because a fetch failed
+rather than because the source dropped it (re-run to finish those).
 
     # new benchmark bundle from a finished run (samples, then fetches its panos):
     python scripts/export_benchmark.py runs/clovis/results.jsonl \
@@ -31,8 +34,8 @@ contamination (a pano file with no matching record); decay is expected and not a
     python scripts/export_benchmark.py D:/Git/RampNet/benchmark/richmond
 
     # full archive of every processed pano (e.g. onto makelab2) — point it at a run's
-    # results.jsonl and an output dir (#17):
-    python scripts/export_benchmark.py runs/richmond/results.jsonl --out /data/makelab2/richmond
+    # results.jsonl and a per-city output dir (#17):
+    python scripts/export_benchmark.py runs/richmond/results.jsonl --out /data/makelab2/richmond/panos
 
 Needs MAPILLARY_ACCESS_TOKEN (from ./.env) for Mapillary panos.
 """
@@ -225,28 +228,47 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
     return records_path
 
 
+GONE = "gone"      # the source says this pano no longer exists — expected decay
+ERROR = "error"    # transient/unknown — the archive is incomplete, not decayed
+
+
 def fetch_native(pano_id, source, out_path):
     """Download one pano at native resolution to out_path. Returns None on success,
-    else an error string."""
+    else (kind, message) where kind is GONE or ERROR.
+
+    Writes through a .part file: a fetch that dies partway must never leave bytes at
+    out_path, because the resume check is "does the file exist?" and reconcile would
+    then hash a truncated image into index.csv as verified.
+    """
+    part = out_path.with_suffix(out_path.suffix + ".part")
     try:
         if source == "mapillary":
-            meta = mapillary._fetch_image_metadata(pano_id)
-            url = (meta or {}).get("thumb_original_url")
+            meta, gone = mapillary.fetch_image_metadata(pano_id)
+            if gone:
+                return GONE, "image no longer exists on Mapillary"
+            if meta is None:
+                return ERROR, "Graph API metadata unavailable"
+            url = meta.get("thumb_original_url")
             if not url:
-                return "no thumb_original_url (image gone?)"
+                return GONE, "metadata carries no thumb_original_url"
             resp = requests.get(url, timeout=180)
             resp.raise_for_status()
-            out_path.write_bytes(resp.content)          # raw native bytes, no resize
+            part.write_bytes(resp.content)              # raw native bytes, no resize
         else:  # gsv
             from streetlevel import streetview  # lazy: Mapillary-only archives don't need it
             meta = streetview.find_panorama_by_id(pano_id)
             if meta is None:
-                return "metadata unavailable"
+                return GONE, "no such panorama"
             img = streetview.get_panorama(meta, zoom=len(meta.image_sizes) - 1)  # max zoom
-            img.save(out_path, "JPEG", quality=95)
+            img.save(part, "JPEG", quality=95)
+        if part.stat().st_size == 0:
+            raise OSError("downloaded 0 bytes")
+        part.replace(out_path)
         return None
     except Exception as e:
-        return str(e)
+        return ERROR, str(e)
+    finally:
+        part.unlink(missing_ok=True)
 
 
 def _sha256(path, _bufsize=1 << 20):
@@ -257,28 +279,52 @@ def _sha256(path, _bufsize=1 << 20):
     return h.hexdigest()
 
 
-def reconcile(records_path, panos_dir, expected):
+def manifest_dir(panos_dir):
+    """Where index.csv / decayed.txt live for an archive whose images are in `panos_dir`.
+
+    Beside a `panos/` directory (so a bundle's manifest sits at its root, next to
+    records.jsonl), otherwise inside the output dir itself. The second case matters:
+    `--out /archive/<city>` must not drop its manifest in `/archive/`, where the next
+    city's run would overwrite it.
+    """
+    return panos_dir.parent if panos_dir.name == "panos" else panos_dir
+
+
+def reconcile(records_path, panos_dir, expected, failures=None):
     """Prove the archive matches the records it was built from, and write a durable
     integrity record. Runs after every fetch (even a fully-resumed one), so the question
     "is this the same data we processed?" is always answerable mechanically.
 
     `expected` is the list of panorama_ids from the records (in file order; may repeat).
-    Writes, next to the panos dir:
+    `failures` maps pano_id -> (kind, message) for this pass's failed fetches, which is
+    what separates a decayed pano (GONE — the source says it's gone) from one we simply
+    failed to fetch (ERROR — re-run and it'll appear). Writes, into manifest_dir():
       - index.csv   : panorama_id,filename,bytes,sha256 for every archived pano
-      - decayed.txt : record ids with no pano file (imagery gone since the run), if any
+      - decayed.txt : record ids the source says are gone, if any
     index.csv is built incrementally — a pano already recorded with a matching size is not
     re-hashed on a resumed run, so only newly fetched panos pay the hashing cost.
-    Returns (missing_count, extra_count); 0/0 means a clean 1:1 archive."""
+    Returns (decayed_count, incomplete_count, extra_count); 0/0/0 is a clean 1:1 archive."""
+    failures = failures or {}
     expected_ids = set(expected)
+    if len(expected) != len(expected_ids):
+        print(f"  note: records list {len(expected) - len(expected_ids)} duplicate pano id(s)")
     present = {p.stem: p for p in panos_dir.glob("*.jpg")}
+
+    # A 0-byte file is not an archived pano; it only stops the resume from re-fetching.
+    for pid in [pid for pid, p in present.items() if p.stat().st_size == 0]:
+        present.pop(pid).unlink()
+        print(f"  removed empty file {pid}.jpg — it will be re-fetched next run")
     present_ids = set(present)
 
     verified = expected_ids & present_ids          # archived and backed by a record
-    missing = expected_ids - present_ids           # decayed / never fetched
+    missing = expected_ids - present_ids           # decayed, or not fetched yet
     extra = present_ids - expected_ids             # files with no matching record
+    decayed = {pid for pid in missing if failures.get(pid, (None,))[0] == GONE}
+    incomplete = missing - decayed                 # fetch failed / never attempted
 
-    bundle_dir = panos_dir.parent
-    index_path = bundle_dir / "index.csv"
+    out_dir = manifest_dir(panos_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    index_path = out_dir / "index.csv"
 
     prior = {}
     if index_path.exists():
@@ -302,26 +348,32 @@ def reconcile(records_path, panos_dir, expected):
         w.writerow(["panorama_id", "filename", "bytes", "sha256"])
         w.writerows(rows)
 
-    decayed_path = bundle_dir / "decayed.txt"
-    if missing:
-        decayed_path.write_text("".join(pid + "\n" for pid in sorted(missing)), encoding="utf-8")
+    decayed_path = out_dir / "decayed.txt"
+    if decayed:
+        decayed_path.write_text("".join(pid + "\n" for pid in sorted(decayed)), encoding="utf-8")
     elif decayed_path.exists():
         decayed_path.unlink()                       # a resume recovered them — clear stale list
 
     print(f"--- Reconcile: {records_path.name} vs {panos_dir} ---")
     print(f"  records (unique panos): {len(expected_ids)}")
     print(f"  archived + verified:    {len(rows)}  -> {index_path.name}")
-    print(f"  missing (decayed):      {len(missing)}" + (f"  -> {decayed_path.name}" if missing else ""))
+    print(f"  missing (source gone):  {len(decayed)}" + (f"  -> {decayed_path.name}" if decayed else ""))
+    if incomplete:
+        print(f"  missing (fetch failed): {len(incomplete)}, e.g. {sorted(incomplete)[:3]}")
     if extra:
         print(f"  WARNING: {len(extra)} pano file(s) not in records, e.g. {sorted(extra)[:3]}")
     if extra:
         status = f"ANOMALY — {len(extra)} file(s) not backed by a record"
-    elif missing:
-        status = f"OK with decay — {len(missing)} pano(s) gone from Mapillary since the run (recorded in {decayed_path.name})"
+    elif incomplete:
+        status = (f"INCOMPLETE — {len(incomplete)} pano(s) missing from a failed fetch, "
+                  f"not from source decay; re-run to finish")
+    elif decayed:
+        status = (f"OK with decay — {len(decayed)} pano(s) gone from the source since the "
+                  f"run (recorded in {decayed_path.name})")
     else:
         status = "OK — archive matches records 1:1"
     print(f"  STATUS: {status}")
-    return len(missing), len(extra)
+    return len(decayed), len(incomplete), len(extra)
 
 
 def main():
@@ -371,8 +423,11 @@ def main():
         sys.exit(f"No records file at {records_path}")
     panos_dir.mkdir(parents=True, exist_ok=True)
 
+    # One listing of the (potentially 70k-file, potentially NFS) panos dir serves both the
+    # resume check and the "already present" count; reconcile takes a fresh one afterwards.
+    already = {p.stem for p in panos_dir.glob("*.jpg")}
     expected = []   # every panorama_id in the records — the set the archive must match
-    todo = []
+    todo = {}       # keyed by pano id: a duplicated record must not race itself
     with open(records_path, encoding="utf-8") as f:
         for line in f:
             if not line.strip():
@@ -380,32 +435,33 @@ def main():
             p = json.loads(line)["pano"]
             pid, source = p["panorama_id"], p.get("source", "gsv")
             expected.append(pid)
-            out = panos_dir / f"{pid}.jpg"
-            if not out.exists():
-                todo.append((pid, source, out))
+            if pid not in already:
+                todo[pid] = (pid, source, panos_dir / f"{pid}.jpg")
+    todo = list(todo.values())
 
     label = args.bundle.name if args.bundle else src.name
     print(f"{label}: {len(todo)} panos to fetch -> {panos_dir} "
-          f"({len(list(panos_dir.glob('*.jpg')))} already present)")
+          f"({len(already)} already present)")
 
+    failures = {}
     if todo:
-        failures = []
         with ThreadPoolExecutor(max_workers=WORKERS) as pool:
             futs = {pool.submit(fetch_native, pid, source, out): pid for pid, source, out in todo}
             for fut in tqdm(as_completed(futs), total=len(futs), desc=f"Fetching {label}"):
                 err = fut.result()
                 if err:
-                    failures.append((futs[fut], err))
+                    failures[futs[fut]] = err
         print(f"Done: {len(todo) - len(failures)} fetched, {len(failures)} failed.")
-        for pid, err in failures:
-            print(f"  FAILED {pid}: {err}")
+        for pid, (kind, msg) in sorted(failures.items()):
+            print(f"  {'GONE  ' if kind == GONE else 'FAILED'} {pid}: {msg}")
 
     # Always verify — reconcile the archive against the records and (re)write the integrity
     # index, even when nothing was fetched this pass (a resumed / already-complete run).
-    # Decayed panos are expected on Mapillary (recorded in decayed.txt, not a failure);
-    # only genuine contamination — files with no matching record — exits non-zero.
-    _missing, extra = reconcile(records_path, panos_dir, expected)
-    if extra:
+    # Decay is expected on Mapillary and only recorded (decayed.txt); a pano missing because
+    # a fetch failed, or a file with no matching record, means the archive isn't trustworthy
+    # yet and exits non-zero.
+    _decayed, incomplete, extra = reconcile(records_path, panos_dir, expected, failures)
+    if extra or incomplete:
         sys.exit(1)
 
 
