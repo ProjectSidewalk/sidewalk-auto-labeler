@@ -36,13 +36,6 @@ RETRY_BACKOFF_SECONDS = [2, 8]
 # value outside this set is GSV imagery.
 PS_PANO_SOURCES = {"gsv", "mapillary", "infra3d"}
 
-# Local archive provenance the server has no use for. `source_metadata` is a verbatim dump
-# of the imagery source's own metadata (see sources.mapillary.provenance_fields) — it is
-# roughly half of a Mapillary record's bytes and restates fields already mapped above, so
-# it stays in the JSONL and off the wire. Every other unrecognized key still passes
-# through, so new provenance doesn't need a change here to reach the server.
-LOCAL_ONLY_PANO_KEYS = {"source_metadata"}
-
 
 def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -54,9 +47,15 @@ def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
     - 'source' outside the pano_source enum (raw streetlevel strings) -> 'gsv'
     - links[].'target_gsv_panorama_id' -> 'target_pano_id'
     - 'links'/'history' are required (possibly empty) arrays server-side
-    - LOCAL_ONLY_PANO_KEYS are dropped (archive-only provenance)
+
+    Every other key is forwarded as-is, deliberately: we submit all the provenance we
+    have, so it's already in the payload the day PS learns to store it. Extra keys are
+    safe — PanoSubmission's reader (ExploreFormats.scala) is path-based and ignores
+    what it doesn't name — but they are also discarded server-side today: pano_data has
+    no column for source_metadata, camera_make/model/type, sequence_id or quality_score.
+    Landing them needs a SidewalkWebpage change, not a change here.
     """
-    pano = {k: v for k, v in pano.items() if k not in LOCAL_ONLY_PANO_KEYS}
+    pano = dict(pano)
     if 'panorama_id' in pano:
         pano['pano_id'] = pano.pop('panorama_id')
     if pano.get('source') not in PS_PANO_SOURCES:

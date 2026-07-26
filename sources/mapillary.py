@@ -72,9 +72,10 @@ def provenance_fields(meta):
     Clovis is 100% soft 2018-era GoPro Fusion) plus `source_metadata`: a verbatim dump of
     the stable Graph metadata (minus the volatile thumb URL). Shared by build_pano_record
     and scripts/backfill_metadata.py so a fresh run and a backfill produce identical fields.
-    `source_metadata` is local archive provenance only — it roughly doubles a record's size
-    and mostly restates fields already promoted to the top level, so send_to_ps drops it
-    before submission (see send_to_ps.LOCAL_ONLY_PANO_KEYS)."""
+    `source_metadata` roughly doubles a record's size and mostly restates fields already
+    promoted to the top level, but it is submitted to Project Sidewalk along with
+    everything else — the payload should carry all the provenance we have, ready for the
+    day PS stores it. PS's reader ignores unnamed keys, so today it lands nowhere."""
     return {
         'camera_make': meta.get('make'),
         'camera_model': meta.get('model'),

@@ -61,19 +61,19 @@ def test_transform_pano_maps_legacy_fields_to_ps_reader():
     assert pano["history"] == []
 
 
-def test_transform_pano_drops_local_only_provenance():
-    """source_metadata is a verbatim dump of the source's own metadata — roughly half a
-    Mapillary record's bytes, and nothing the server reads. It belongs in the archive,
-    not in every submission."""
+def test_transform_pano_forwards_all_provenance():
+    """We submit every field we have, so provenance is already in the payload the day PS
+    learns to store it. The server's reader ignores keys it doesn't name, so nothing here
+    can break a submission — but nothing may quietly strip them either."""
     pano = send_to_ps.transform_pano({
         "panorama_id": "123456789",
         "source": "mapillary",
         "camera_make": "GoPro",
+        "sequence_id": "seq-1",
         "source_metadata": {"make": "GoPro", "camera_parameters": [0.4, 0.0, 0.0]},
     })
-    assert "source_metadata" not in pano
-    # Unrecognized provenance still passes through — only the named keys are dropped.
-    assert pano["camera_make"] == "GoPro"
+    assert pano["source_metadata"] == {"make": "GoPro", "camera_parameters": [0.4, 0.0, 0.0]}
+    assert pano["camera_make"] == "GoPro" and pano["sequence_id"] == "seq-1"
 
 
 def test_transform_pano_passes_through_canonical_fields():
