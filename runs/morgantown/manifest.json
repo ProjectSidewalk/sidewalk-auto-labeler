@@ -1,0 +1,21 @@
+{
+  "run_name": "morgantown",
+  "created_at": "2026-07-24T20:38:54+00:00",
+  "source_geojson": "example_geojson/morgantown.geojson",
+  "area_hash": "9d7cba27721dddedcc1b419a6e2490e176f7e6fce0bba27f49b09dd2d8a7b7ac",
+  "imagery_source": "mapillary",
+  "model_id": "rampnet-model",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0",
+  "streetlevel_version": "0.12.10",
+  "runs": [
+    {
+      "started_at": "2026-07-24T20:38:54+00:00",
+      "finished_at": "2026-07-25T02:19:14+00:00",
+      "panos_found_in_area": 51695,
+      "processed": 51692,
+      "skipped": 0,
+      "failed": 3
+    }
+  ]
+}
