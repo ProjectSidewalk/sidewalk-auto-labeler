@@ -263,13 +263,6 @@ def _fetch_image_metadata(image_id):
     return fetch_image_metadata(image_id)[0]
 
 
-def fetch_image(pano_id):
-    """Just the normalized 4096x2048 equirectangular for one image ID, or None.
-    Used by the spot-check gallery to re-download display imagery; the full
-    pipeline path is fetch_pano."""
-    meta = _fetch_image_metadata(pano_id)
-    url = (meta or {}).get('thumb_original_url')
-    return _download_image(url) if url else None
 
 
 def _download_image(url):

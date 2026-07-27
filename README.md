@@ -195,65 +195,20 @@ default 5 m, `0` disables) before processing. A run
 directory is bound to one source the same way it's bound to one geometry; use a
 different `--name` per source.
 
-### Step 2 — Spot-check and validate the detections
+### Step 2 — Validate the detections (in RampNet)
+
+Ground-truth review and precision/recall scoring **live in [RampNet](https://github.com/ProjectSidewalk/RampNet)**,
+not in this repo. The GT gallery (`scripts/gt_gallery.py`) and scorer (`rampnet.validation` +
+`scripts/score_validation.py`) run there on a self-contained per-city benchmark bundle under
+RampNet's `benchmark/<city>/`. Because only this repo can fetch imagery, its one job in that
+flow is to **export the bundle** — native-resolution panos plus the detection records:
 
 ```bash
-python scripts/spot_check_gallery.py runs/bend
+python scripts/export_benchmark.py runs/bend/results.jsonl --out <bundle>/panos
 ```
 
-This renders `runs/bend/spot_check/index.html`: a one-pano-at-a-time viewer (open directly
-or via any static server, e.g. VS Code Live Server) showing each sampled panorama with its
-detections marked by **numbered circles** and a close-up crop per detection (the numbers
-match the crop captions). Navigate with ←/→; the sample always includes the densest panos
-plus a few zero-detection panos; `--sample` / `--empty-sample` / `--seed` control it. Each
-pano links to its live Google Street View view.
-
-The viewer doubles as a quick **validation tool**:
-
-- Click a crop, its numbered circle on the panorama, or press `1`–`9` to cycle a
-  detection's verdict: unjudged → correct → incorrect → **unsure**. Circles start **yellow**
-  (with a white halo) and turn **green**/**red**/**blue** as you judge. Use *unsure* when the
-  imagery is too blurry/distant/occluded to call — it **abstains** (the scorer drops it from
-  both precision and recall) instead of forcing a guess that would bias the numbers.
-- Click the panorama to mark a curb ramp the model **missed** (click the magenta marker to
-  downgrade it to **unsure** amber, then again to remove it). This gives
-  per-pano-comprehensive ground truth — the recall signal that Project Sidewalk's validation
-  workflow can't provide. An *unsure* missed mark also abstains: it confirms you scanned the
-  pano but is left out of the recall denominator.
-- If a pano has **no** missed ramps, say so explicitly: press `m` or click
-  **"No missed ramps"**. A pano only counts as *reviewed* once every crop is judged **and**
-  you've either marked a missed ramp or affirmed there are none — so paging past a pano
-  can't silently count as "no missed ramps" and inflate recall.
-- Verdicts autosave in the browser (localStorage). When done, **Export verdicts** downloads
-  `<name>_verdicts.json` (e.g. `bend_verdicts.json`) — **save it into the run directory**
-  (`runs/bend/`), where the scorer finds it automatically:
-
-```bash
-python scripts/score_validation.py runs/bend
-```
-
-prints precision and recall with 95% CIs and a confidence-threshold sweep — both overall
-and on the unbiased random subset (the always-included densest panos are flagged and
-excluded there). A pano whose detections were judged but whose missed-ramp check was never
-confirmed still counts toward **precision** (its crop verdicts are valid) but is excluded
-from **recall** — the scorer reports how many panos were excluded this way. Detections and
-missed marks flagged **unsure** are abstentions: excluded from both metrics and reported as
-their own counts, so the numbers stay honest about how much was too ambiguous to call.
-Verdicts exported by older galleries (no `no_missed` flags) still score as before, with a
-warning that their recall may be optimistic.
-
-If you scanned every pano for missed ramps but only *clicked* when there was one to mark
-(a common habit — you never pressed "No missed ramps" on the clean panos), the per-pano
-gate will wrongly hold those clean panos out of recall and bias it low toward the
-missed-heavy panos. Pass `--assume-scanned` to attest that every fully-judged pano was
-scanned; recall then uses all of them (the scorer prints a caveat noting the attestation).
-Use
-the sweep to pick a per-city threshold that clears the city's
-`ai-validation-min-accuracy` with margin.
-
-> Galleries generated before July 2026 have the old red circles baked into the images —
-> re-run `spot_check_gallery.py` to regenerate (existing in-browser verdicts survive;
-> they're keyed by the run's area hash, not by the images).
+Hand that bundle to RampNet; do the gallery review and scoring there. (This is production
+tooling only — the validation half was migrated out; see `CLAUDE.md`.)
 
 ### Step 3 — Submit predictions to Project Sidewalk
 
@@ -299,8 +254,9 @@ from scratch:
    [Keep the two areas aligned](#keep-the-two-areas-aligned)).
 2. Save it under `example_geojson/` (or anywhere) and run
    `python main.py path/to/city.geojson --name <city>`.
-3. Review `runs/<city>/results.jsonl` and the spot-check gallery
-   (`python scripts/spot_check_gallery.py runs/<city>`).
+3. To validate, export a benchmark bundle
+   (`python scripts/export_benchmark.py runs/<city>/results.jsonl --out <bundle>/panos`) and
+   review/score it in [RampNet](https://github.com/ProjectSidewalk/RampNet).
 4. Point `send_to_ps.py` at `runs/<city>/results.jsonl` and the target Project Sidewalk
    server, then submit.
 
@@ -330,9 +286,7 @@ non-detection tool):
 | Works on a laptop | Needs |
 |---|---|
 | `main.py --scan-only` (scope a new city) | network only |
-| `scripts/spot_check_gallery.py` (build/regenerate a gallery) | network + the run's `results.jsonl` |
-| reviewing a gallery + exporting verdicts | a browser |
-| `scripts/score_validation.py` | `results.jsonl` + verdicts |
+| `scripts/export_benchmark.py` (native-res bundle for RampNet GT) | network + the run's `results.jsonl` |
 | `send_to_ps.py` | network + `results.jsonl` |
 | `pytest` | nothing else |
 
@@ -361,9 +315,9 @@ Each run directory is bound to the **SHA-256 hash of its GeoJSON geometry**, rec
   the `streetlevel` version, and per-run counts (found/processed/skipped/failed) — so a
   months-old results file is self-describing.
 - **Git tracks the small, irreplaceable files** in each run directory — `manifest.json`,
-  `area.geojson`, and `*_verdicts.json` (hand-labeled ground truth) — while `results.jsonl`,
-  the resume cache, and spot-check galleries stay local. Archive full-city `results.jsonl`
-  files as release assets rather than committing them.
+  `area.geojson`, and `*_verdicts.json` (hand-labeled ground truth) — while `results.jsonl`
+  and the resume cache stay local. Archive full-city `results.jsonl` files as release assets
+  rather than committing them.
 
 ## Output format
 
@@ -408,10 +362,9 @@ Notes:
 ## Tests
 
 A small pytest suite covers the parts whose output Project Sidewalk consumes: the JSONL
-record format, the normalized→pixel transform in `send_to_ps.py`, the validation scoring
-(including old- vs new-schema verdicts), the gallery's sampling/rendering geometry, and
-the in-browser review state machine (run in `node`, skipped if node is absent). No test
-touches the network or loads the model.
+record format and the normalized→pixel transform in `send_to_ps.py`. No test touches the
+network or loads the model. (Validation-scoring and gallery tests moved to RampNet with
+their tooling.)
 
 ```bash
 pip install -r requirements-test.txt   # light deps only, no torch needed
@@ -438,8 +391,7 @@ CI runs the same suite on every push (`.github/workflows/tests.yml`).
 │   └── curb_ramp.py         # RampNet model wrapper
 ├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk
 ├── scripts/
-│   ├── spot_check_gallery.py  # One-pano-at-a-time viewer + validation UI (visual QA)
-│   ├── score_validation.py    # Precision/recall + threshold sweep from gallery verdicts
+│   ├── export_benchmark.py    # Native-res imagery bundle for RampNet GT/benchmark
 │   └── visual_check.py        # Single-pano coordinate spot check
 ├── tests/                   # Pytest suite (light deps only; no network, no model)
 ├── example_geojson/         # Example area polygons (Bend, Chicago, Vancouver)

@@ -26,6 +26,14 @@ python main.py example_geojson/bend.geojson --name bend
 # token from mapillary.com/dashboard/developers — in the env or in gitignored ./.env)
 python main.py example_geojson/richmond.geojson --name richmond --source mapillary
 
+# GROUND TRUTH / VALIDATION now lives in RampNet, not here. The GT gallery and the
+# precision/recall scorer moved to ProjectSidewalk/RampNet — decoupled from sources/ and
+# merged (RampNet#26/#31): `rampnet.validation` (verdict -> P/R) + `scripts/gt_gallery.py`
+# (reads benchmark/<city>/{panos,records.jsonl}, no network), with the validated splits under
+# RampNet's benchmark/. This repo is production-only: enumerate -> thin -> detect -> submit.
+# Its one hand-off to RampNet is the native-res imagery bundle below (only this repo can
+# fetch pixels).
+
 # Build a benchmark bundle for RampNet from a finished run: samples a spatially
 # de-clustered set of panos into <bundle>/records.jsonl (each tagged with its stratum
 # as benchmark_group), fetches them at native resolution, then reconciles panos vs
@@ -40,25 +48,6 @@ python scripts/export_benchmark.py runs/clovis/results.jsonl \
 # per-city manifests never collide when several cities share an archive root.
 python scripts/export_benchmark.py runs/clovis/results.jsonl --out /path/to/archive/clovis/panos
 
-# Render a one-pano-at-a-time viewer of sampled detections (also a validation UI:
-# judge crops correct/incorrect/unsure, click the pano to mark missed ramps
-# (or downgrade a mark to unsure) or affirm "no missed ramps" — required for a
-# pano to count as reviewed; "unsure" abstains from both metrics — then export
-# <name>_verdicts.json and save it into the run directory)
-python scripts/spot_check_gallery.py runs/bend
-
-# Score the saved verdicts: precision/recall + confidence-threshold sweep
-# (finds runs/bend/bend_verdicts.json automatically)
-python scripts/score_validation.py runs/bend
-
-# NOTE — the ground-truth tooling above (spot_check_gallery.py + score_validation.py) is
-# TRANSITIONAL. The canonical scorer now lives in RampNet as rampnet.validation, and the
-# validated benchmark in RampNet's benchmark/ (ProjectSidewalk/RampNet#22, #26). This whole
-# GT cluster — gallery, scorer, and their tests — moves to RampNet as one unit once the
-# gallery is decoupled from sources/ (#26); it stays here meanwhile because the viewer
-# fetches imagery through sources/ and its test cross-checks the scorer's gate. The labeler
-# itself is production-only: enumerate -> detect -> submit.
-
 # Run the tests (no GPU/network/model; light deps via requirements-test.txt)
 pytest
 
@@ -68,14 +57,12 @@ python send_to_ps.py runs/bend/results.jsonl --endpoint https://<server>/ai/subm
 ```
 
 Tests live in `tests/` and cover the Project-Sidewalk-facing contracts: the JSONL record
-format (`build_output_line` + the per-source pano builders in `sources/`), the
-normalized→pixel transform and PS field mapping (`send_to_ps.transform_record`),
-validation scoring (`score_validation.collect`, both verdict schemas), gallery
-sampling/geometry, and the viewer's review state machine (driven in `node`; skipped when
-node is missing). They need only `requirements-test.txt` (no torch) and never touch the
-network — streetlevel and `requests` are monkeypatched. CI runs them (`.github/workflows/tests.yml`).
-Keep the suite lean: test what PS consumes; don't add test infrastructure. There is no
-linter config or build step.
+format (`build_output_line` + the per-source pano builders in `sources/`) and the
+normalized→pixel transform and PS field mapping (`send_to_ps.transform_record`). They need
+only `requirements-test.txt` (no torch) and never touch the network — streetlevel and
+`requests` are monkeypatched. CI runs them (`.github/workflows/tests.yml`). Keep the suite
+lean: test what PS consumes; don't add test infrastructure. There is no linter config or
+build step. (Validation-scoring and gallery tests moved to RampNet with their tooling.)
 
 ## Architecture
 
@@ -129,8 +116,7 @@ geometry used). The JSONL and cache are appended to and flushed line-by-line, so
 resumable — re-running skips cached panos, and failed panos are intentionally left out of the
 cache so they retry next run. A run directory is bound to one geometry and one imagery
 source: rerunning a name with an edited geojson or a different `--source` is refused
-(checked against the manifest) instead of silently forking state. `scripts/spot_check_gallery.py runs/<name>` renders a sampled HTML gallery of annotated
-detections into `runs/<name>/spot_check/`.
+(checked against the manifest) instead of silently forking state.
 
 **`panorama.py`** downloads the equirectangular image via `streetlevel.streetview.get_panorama`
 using the pano metadata that `process_pano` already fetched (tile grid + true dimensions come
