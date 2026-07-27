@@ -7,9 +7,11 @@
 #   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 
 geojson
+mapbox-vector-tile  # decodes Mapillary coverage tiles (sources/mapillary.py)
 numpy
 opencv-python
 pillow
+python-dotenv  # loads MAPILLARY_ACCESS_TOKEN / PS_INTERNAL_API_KEY from ./.env
 requests
 scikit-image
 shapely
@@ -21,4 +23,7 @@ timm
 torch
 torchvision
 tqdm
-transformers
+# rampnet-model is loaded via trust_remote_code; transformers 5.13+ changed the
+# custom-model auto-class API and can no longer load it (KeypointModel has no
+# register_for_auto_class). 5.12.1 is the proven version.
+transformers==5.12.1

@@ -17,16 +17,20 @@ for p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
     if p not in sys.path:
         sys.path.insert(0, p)
 
+import requests  # noqa: E402
 from streetlevel import streetview  # noqa: E402  (needs the path setup above)
 
 
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
-    """Fail loudly if any test reaches for Google; tests override these explicitly."""
+    """Fail loudly if any test reaches for Google or Mapillary; tests override these
+    explicitly."""
     def blocked(*args, **kwargs):
-        raise AssertionError("network call attempted in tests — monkeypatch streetview")
+        raise AssertionError("network call attempted in tests — monkeypatch the entry point")
     for fn in ("find_panorama_by_id", "get_panorama", "get_coverage_tile"):
         monkeypatch.setattr(streetview, fn, blocked)
+    for fn in ("get", "post"):
+        monkeypatch.setattr(requests, fn, blocked)
 
 
 def make_metadata(**overrides):
@@ -51,8 +55,12 @@ def make_metadata(**overrides):
 
 
 def make_process_result(**overrides):
-    """A main.process_pano success result, ready for main.build_output_line."""
-    base = dict(pano_id="PID", lat=44.05, lon=-121.31, metadata=make_metadata(),
+    """A main.process_pano success result, ready for main.build_output_line. The pano
+    block comes from the real GSV record builder so producer→consumer contract tests
+    exercise the actual chain."""
+    from sources import gsv
+    base = dict(pano_id="PID",
+                pano=gsv.build_pano_record("PID", 44.05, -121.31, make_metadata()),
                 detections=[(0.5, 0.25, 0.9)])
     base.update(overrides)
     return base

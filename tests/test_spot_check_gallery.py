@@ -12,11 +12,14 @@ import spot_check_gallery as g
 PANO_W, PANO_H = 4096, 2048
 
 
-def _record(pid, n_dets, coords=None):
+def _record(pid, n_dets, coords=None, lat=None, lng=None):
     dets = coords or [
         {"x_normalized": 0.1 * (i + 1), "y_normalized": 0.5, "confidence": 0.9}
         for i in range(n_dets)]
-    return {"pano": {"panorama_id": pid, "capture_date": "2024-06"}, "detections": dets}
+    pano = {"panorama_id": pid, "capture_date": "2024-06"}
+    if lat is not None:
+        pano["lat"], pano["lng"] = lat, lng
+    return {"pano": pano, "detections": dets}
 
 
 # --- choose_panos ---
@@ -49,10 +52,62 @@ def test_choose_panos_seed_reproducible():
 
 def test_choose_panos_small_inputs():
     # Fewer panos than requested: everything is included, nothing crashes.
+    # (Coordinate-less records degrade gracefully to the non-spatial path.)
     records = [_record("D0", 2), _record("E0", 0)]
     chosen = g.choose_panos(records, sample=100, empty_sample=10, seed=0)
     assert {grp for _, grp in chosen} == {"top", "empty"}
     assert len(chosen) == 2
+
+
+# --- choose_panos: spatial de-clustering ---
+
+def _pairwise_min_m(chosen):
+    pts = [g._coords(r) for r, _ in chosen]
+    return min((g._haversine_m(*pts[i], *pts[j])
+                for i in range(len(pts)) for j in range(i + 1, len(pts))), default=float("inf"))
+
+
+def test_choose_panos_declusters_to_one_per_location():
+    # Four tight clusters of 5 panos (~13 m within a cluster, ~780 m between
+    # clusters). At 30 m spacing at most one pano per cluster can be selected,
+    # even though 20 are requested.
+    recs = []
+    for ci, lng0 in enumerate([-122.00, -121.99, -121.98, -121.97]):
+        for j in range(5):
+            recs.append(_record(f"D{ci}_{j}", 3, lat=45.0 + 0.00003 * j, lng=lng0))
+    chosen = g.choose_panos(recs, sample=20, empty_sample=0, seed=1, min_spacing=30)
+    assert len(chosen) == 4                       # one survivor per cluster
+    assert _pairwise_min_m(chosen) >= 30 - 1e-6   # and they respect the spacing
+
+
+def test_choose_panos_top_from_distinct_intersections():
+    # Five very dense panos at ONE corner + six moderately dense, far apart.
+    # Only one same-corner pano can be 'top'; the rest come from the far ones.
+    recs = [_record(f"C{j}", 10, lat=45.0 + 0.00002 * j, lng=-122.0) for j in range(5)]
+    recs += [_record(f"F{k}", 6, lat=45.0 + 0.01 * (k + 1), lng=-122.0) for k in range(6)]
+    chosen = g.choose_panos(recs, sample=5, empty_sample=0, seed=0, min_spacing=30)
+    top = [r for r, grp in chosen if grp == "top"]
+    assert len(top) == g.TOP_N_BY_COUNT
+    assert sum(r["pano"]["panorama_id"].startswith("C") for r in top) == 1
+    assert _pairwise_min_m(chosen) >= 30 - 1e-6
+
+
+def test_choose_panos_min_spacing_zero_keeps_clusters():
+    # Ten panos all within ~30 m; with spacing disabled, none are dropped.
+    recs = [_record(f"D{j}", 2, lat=45.0 + 0.00003 * j, lng=-122.0) for j in range(10)]
+    chosen = g.choose_panos(recs, sample=10, empty_sample=0, seed=0, min_spacing=0)
+    assert len(chosen) == 10
+
+
+def test_choose_panos_spacing_is_cross_stratum():
+    # An 'empty' pano sitting right next to a detection pano must be dropped:
+    # spacing holds across strata, not just within them.
+    recs = [_record("D0", 4, lat=45.0, lng=-122.0),
+            _record("E_near", 0, lat=45.00002, lng=-122.0),      # ~2 m from D0
+            _record("E_far", 0, lat=45.02, lng=-122.0)]          # ~2.2 km away
+    chosen = g.choose_panos(recs, sample=5, empty_sample=5, seed=0, min_spacing=30)
+    ids = {r["pano"]["panorama_id"] for r, _ in chosen}
+    assert ids == {"D0", "E_far"}                # E_near dropped for being too close to D0
 
 
 # --- render_pano ---

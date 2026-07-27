@@ -1,4 +1,9 @@
 """
+TRANSITIONAL — this ground-truth labeling UI is moving to RampNet (see
+ProjectSidewalk/RampNet#26 for the port + UX/scoring spec), where it will consume the
+benchmark bundle instead of fetching through `sources/`. It stays here until that
+decoupling; the scorer it pairs with is already canonical as `rampnet.validation` (#22).
+
 Render a single-pano gallery viewer for visual QA *and* quick validation.
 
 Reads a run directory produced by main.py (or a bare results JSONL file), samples
@@ -31,15 +36,24 @@ Usage:
 """
 import argparse
 import json
+import math
 import random
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from dotenv import load_dotenv
 from PIL import Image
 from streetlevel import streetview
 from tqdm import tqdm
+
+# Repo root on the path (for sources/) + local secrets: Mapillary-run galleries
+# re-download imagery through the Graph API, which needs MAPILLARY_ACCESS_TOKEN.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+load_dotenv(REPO_ROOT / ".env")
 
 socket.setdefaulttimeout(30)
 
@@ -47,6 +61,13 @@ DISPLAY_WIDTH = 1600   # displayed full-pano width in the gallery
 CROP_SIZE = 512        # per-detection close-up, taken at download resolution
 TOP_N_BY_COUNT = 5     # the densest panos are always included (group "top")
 DOWNLOAD_WORKERS = 8
+
+# Two validation panos closer than this almost certainly show the same physical
+# curb ramps, so the sampler keeps selected panos at least this far apart: a
+# reviewer never judges the same ramps twice, and precision/recall aren't inflated
+# by correlated duplicates. Tunable per city/imagery via --min-spacing; deliberately
+# well above the Mapillary thinning spacing (~5 m) since that's coverage, not sampling.
+DEFAULT_MIN_SPACING_M = 30
 
 
 def load_records(path_arg):
@@ -67,22 +88,134 @@ def load_records(path_arg):
     return jsonl_path, records, run_key
 
 
-def choose_panos(records, sample, empty_sample, seed):
-    """Returns a list of (record, group) with group in {"top", "random", "empty"}."""
+def _haversine_m(lat1, lng1, lat2, lng2):
+    R = 6371000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = math.radians(lat2 - lat1), math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
+
+def _coords(record):
+    """(lat, lng) for a record, or None if it carries no position."""
+    p = record['pano']
+    lat, lng = p.get('lat'), p.get('lng')
+    return (lat, lng) if lat is not None and lng is not None else None
+
+
+class _SpatialIndex:
+    """Grid of accepted points for fast 'is anything within min_spacing?' checks.
+
+    Cell size == min_spacing, so any point within range lies in one of the nine
+    neighbouring cells — the acceptance test touches a handful of points, not the
+    whole accepted set, so selection stays cheap on city-sized candidate pools.
+    """
+
+    def __init__(self, min_spacing):
+        self.s = max(min_spacing, 1e-9)
+        self.cells = {}
+
+    def _key(self, lat, lng):
+        clat = self.s / 111320.0
+        clng = self.s / (111320.0 * max(0.01, math.cos(math.radians(lat))))
+        return (math.floor(lat / clat), math.floor(lng / clng))
+
+    def far_enough(self, lat, lng):
+        kx, ky = self._key(lat, lng)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for plat, plng in self.cells.get((kx + dx, ky + dy), ()):
+                    if _haversine_m(lat, lng, plat, plng) < self.s:
+                        return False
+        return True
+
+    def add(self, lat, lng):
+        self.cells.setdefault(self._key(lat, lng), []).append((lat, lng))
+
+
+def _spread(candidates, k, index, min_spacing):
+    """Greedily take up to k candidates (in the given order) that sit at least
+    min_spacing metres from every already-accepted point in the shared `index`.
+
+    Records without coordinates are accepted without constraint (graceful
+    degradation — a coordinate-less run can't be de-clustered, but must still
+    render). Returns (picked, rejected_for_spacing)."""
+    picked, rejected = [], 0
+    for rec in candidates:
+        if len(picked) >= k:
+            break
+        c = _coords(rec)
+        if c is None:
+            picked.append(rec)
+        elif min_spacing <= 0 or index.far_enough(*c):
+            picked.append(rec)
+            index.add(*c)
+        else:
+            rejected += 1
+    return picked, rejected
+
+
+def choose_panos(records, sample, empty_sample, seed, min_spacing=DEFAULT_MIN_SPACING_M):
+    """Return [(record, group)] for a spatially de-clustered validation sample.
+
+    Three strata, all held at least `min_spacing` metres apart — *across* strata as
+    well as within — so a reviewer never judges the same physical ramps twice and
+    the precision/recall estimate isn't inflated by correlated duplicates:
+      - 'top':    the densest *distinct* intersections (up to TOP_N_BY_COUNT) — a
+                  dense-scene stress test, excluded from unbiased scoring.
+      - 'random': a spatially spread sample of panos with detections.
+      - 'empty':  a spatially spread sample of zero-detection panos (for recall).
+
+    Deterministic given `seed`. `min_spacing=0` disables spacing (the original pure
+    random behaviour). Records without lat/lng are included unconstrained. The method
+    is city-agnostic by design — it's meant to seed every city's ground-truth set.
+    """
     rng = random.Random(seed)
     with_det = [r for r in records if r['detections']]
     without_det = [r for r in records if not r['detections']]
+    index = _SpatialIndex(min_spacing)
 
-    top = sorted(with_det, key=lambda r: len(r['detections']), reverse=True)[:TOP_N_BY_COUNT]
+    # top: densest first, but only one pano per distinct location.
+    by_density = sorted(with_det, key=lambda r: len(r['detections']), reverse=True)
+    top, _ = _spread(by_density, TOP_N_BY_COUNT, index, min_spacing)
     top_ids = {r['pano']['panorama_id'] for r in top}
-    rest = [r for r in with_det if r['pano']['panorama_id'] not in top_ids]
 
-    chosen = [(r, 'top') for r in top]
-    if sample > len(chosen) and rest:
-        chosen += [(r, 'random') for r in rng.sample(rest, min(sample - len(chosen), len(rest)))]
-    if without_det and empty_sample:
-        chosen += [(r, 'empty') for r in rng.sample(without_det, min(empty_sample, len(without_det)))]
-    return chosen
+    # random: spread across the remaining detection panos.
+    rest = [r for r in with_det if r['pano']['panorama_id'] not in top_ids]
+    rng.shuffle(rest)
+    n_random = max(0, sample - len(top))
+    random_sel, rej_r = _spread(rest, n_random, index, min_spacing)
+
+    # empty: spread across the zero-detection panos.
+    empties = list(without_det)
+    rng.shuffle(empties)
+    empty_sel, rej_e = _spread(empties, empty_sample, index, min_spacing)
+
+    # No silent caps: if spacing (not scarcity) kept us short of a target, say so.
+    if min_spacing > 0 and rej_r and len(random_sel) < n_random:
+        print(f"  spatial sampling: kept {len(random_sel)}/{n_random} detection panos "
+              f"at >= {min_spacing} m spacing (area too dense for more).")
+    if min_spacing > 0 and rej_e and len(empty_sel) < empty_sample:
+        print(f"  spatial sampling: kept {len(empty_sel)}/{empty_sample} empty panos "
+              f"at >= {min_spacing} m spacing.")
+
+    return ([(r, 'top') for r in top]
+            + [(r, 'random') for r in random_sel]
+            + [(r, 'empty') for r in empty_sel])
+
+
+def fetch_display_image(pano):
+    """Re-downloads the pano through the provider it came from."""
+    if pano.get('source') == 'mapillary':
+        from sources import mapillary
+        img = mapillary.fetch_image(pano['panorama_id'])
+        if img is None:
+            raise RuntimeError("Mapillary metadata/image unavailable")
+        return img
+    metadata = streetview.find_panorama_by_id(pano['panorama_id'])
+    if metadata is None:
+        raise RuntimeError("metadata unavailable")
+    return streetview.get_panorama(metadata, zoom=min(3, len(metadata.image_sizes) - 1))
 
 
 def render_pano(record, group, images_dir):
@@ -90,10 +223,7 @@ def render_pano(record, group, images_dir):
     and returns the overlay geometry the viewer draws the detection circles from."""
     pano = record['pano']
     pid = pano['panorama_id']
-    metadata = streetview.find_panorama_by_id(pid)
-    if metadata is None:
-        raise RuntimeError("metadata unavailable")
-    img = streetview.get_panorama(metadata, zoom=min(3, len(metadata.image_sizes) - 1))
+    img = fetch_display_image(pano)
 
     # Detections are stored normalized; scale to this download's resolution.
     # Images are saved clean — detection circles are drawn as HTML overlays so the
@@ -121,6 +251,7 @@ def render_pano(record, group, images_dir):
        .convert('RGB').save(images_dir / full_name, quality=80)
     return {
         'pid': pid,
+        'source': pano.get('source', ''),
         'date': str(pano['capture_date']),
         'group': group,
         'full': full_name,
@@ -273,8 +404,11 @@ function render() {
   s.seen = true; save();
 
   pos.textContent = (idx + 1) + ' / ' + view.length;
+  const viewerUrl = e.source === 'mapillary'
+    ? 'https://www.mapillary.com/app/?pKey=' + e.pid + '&focus=photo'
+    : 'https://www.google.com/maps/@?api=1&map_action=pano&pano=' + e.pid;
   document.getElementById('title').innerHTML =
-    '<a href="https://www.google.com/maps/@?api=1&map_action=pano&pano=' + e.pid + '" target="_blank">' +
+    '<a href="' + viewerUrl + '" target="_blank">' +
     e.pid + '</a> <span class="meta">captured ' + e.date + ' &mdash; ' + e.crops.length +
     ' detection(s)</span> <span class="badge">' + e.group + '</span>';
   document.getElementById('panoimg').src = 'images/' + e.full;
@@ -420,12 +554,15 @@ def main():
                         help="Number of zero-detection panos to include (default: %(default)s).")
     parser.add_argument("--seed", type=int, default=0,
                         help="Sampling seed, for a reproducible gallery (default: %(default)s).")
+    parser.add_argument("--min-spacing", type=float, default=DEFAULT_MIN_SPACING_M,
+                        help="Minimum metres between sampled panos, so a reviewer never "
+                             "judges the same ramps twice (default: %(default)s; 0 disables).")
     parser.add_argument("--out", type=Path,
                         help="Output directory (default: <run dir>/spot_check).")
     args = parser.parse_args()
 
     jsonl_path, records, run_key = load_records(args.run)
-    chosen = choose_panos(records, args.sample, args.empty_sample, args.seed)
+    chosen = choose_panos(records, args.sample, args.empty_sample, args.seed, args.min_spacing)
     print(f"{len(records)} records; rendering {len(chosen)} panos "
           f"({sum(1 for r, _ in chosen if r['detections'])} with detections).")
 

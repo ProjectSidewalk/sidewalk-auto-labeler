@@ -1,4 +1,9 @@
 """
+TRANSITIONAL — the canonical scorer now lives in RampNet as `rampnet.validation`
+(ProjectSidewalk/RampNet#22), with the validated benchmark under RampNet `benchmark/`.
+This copy stays here only until the gallery is decoupled from `sources/` and the whole
+GT cluster moves to RampNet as a unit (#26). Do not evolve this in isolation.
+
 Score a verdicts.json exported from the spot-check gallery against a run's results.
 
 Reports precision (judged detections), recall (fully reviewed panos: correct detections
