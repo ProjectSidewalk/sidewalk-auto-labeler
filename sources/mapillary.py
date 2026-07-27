@@ -39,11 +39,50 @@ GRAPH_URL = 'https://graph.mapillary.com'
 TOKEN_ENV_VAR = 'MAPILLARY_ACCESS_TOKEN'
 ATTEMPTS = 3
 
+# Graph API answers for an image id that no longer exists (deleted by its uploader, or
+# never valid). Retrying these never helps, and telling them apart from a transient
+# failure is what lets an archive report decay separately from an incomplete fetch.
+# Verified against the live API: an unknown id answers 400 ("Object with ID ... does not
+# exist"), NOT 404. A bad token answers 500 with is_transient — so a credential problem
+# can't land here and get cached as a permanent skip; prepare() is what catches that.
+GONE_STATUSES = (400, 404)
+
+# Every stable image field the Graph API exposes, so each pano record carries the full
+# Mapillary provenance (see `source_metadata` below). Deliberately excluded: the signed
+# thumb_*_url variants and the mesh / sfm_cluster blob refs (all expiring fbcdn URLs —
+# dead weight once stored) and `detections` (Mapillary's own segmentation, ids only,
+# needs per-id expansion to mean anything). thumb_original_url IS requested but consumed
+# transiently to download the image, never stored.
 IMAGE_FIELDS = ','.join([
-    'camera_type', 'captured_at', 'computed_geometry', 'geometry',
-    'computed_compass_angle', 'compass_angle', 'thumb_original_url',
-    'width', 'height', 'creator', 'sequence', 'quality_score',
+    'altitude', 'atomic_scale', 'camera_parameters', 'camera_type', 'captured_at',
+    'compass_angle', 'computed_altitude', 'computed_compass_angle', 'computed_geometry',
+    'computed_rotation', 'creator', 'exif_orientation', 'geometry', 'height', 'make',
+    'merge_cc', 'model', 'quality_score', 'sequence', 'thumb_original_url', 'width',
 ])
+
+# Signed, short-lived URL: used to download the image in the same worker pass, never
+# stored (it 404s within hours). Everything else in the Graph response is durable
+# provenance and is kept verbatim in `source_metadata`.
+VOLATILE_META_FIELDS = {'thumb_original_url'}
+
+
+def provenance_fields(meta):
+    """Extended-provenance keys added to a pano block. Curated camera fields (top-level,
+    for easy analysis — make/model is the signal that actually explains image quality, e.g.
+    Clovis is 100% soft 2018-era GoPro Fusion) plus `source_metadata`: a verbatim dump of
+    the stable Graph metadata (minus the volatile thumb URL). Shared by build_pano_record
+    and scripts/backfill_metadata.py so a fresh run and a backfill produce identical fields.
+    `source_metadata` roughly doubles a record's size and mostly restates fields already
+    promoted to the top level, but it is submitted to Project Sidewalk along with
+    everything else — the payload should carry all the provenance we have, ready for the
+    day PS stores it. PS's reader ignores unnamed keys, so today it lands nowhere."""
+    return {
+        'camera_make': meta.get('make'),
+        'camera_model': meta.get('model'),
+        'camera_type': meta.get('camera_type'),
+        'source_metadata': {k: v for k, v in sorted(meta.items())
+                            if k not in VOLATILE_META_FIELDS},
+    }
 
 # A full 360x180 equirectangular is exactly 2:1. Narrower "spherical" uploads exist
 # (cropped vertical FOV); resizing one to 4096x2048 would stretch it and shift every
@@ -160,7 +199,11 @@ def fetch_pano(pano_id, lat, lon):
     (see the interface contract in sources/__init__.py). Metadata is validated before
     the (much more expensive) image download.
     """
-    meta = _fetch_image_metadata(pano_id)
+    meta, gone = fetch_image_metadata(pano_id)
+    if gone:
+        # The API says this id doesn't exist — deterministic, so cache it as skipped
+        # rather than retrying it on every future run of the area.
+        return {'status': 'skipped', 'reason': 'Image no longer exists on Mapillary'}
     if meta is None:
         return {'status': 'failure', 'reason': 'Graph API metadata unavailable (transient?)'}
     # Belt and suspenders: the tile scan already filtered on is_pano.
@@ -191,18 +234,33 @@ def _compass_angle(meta):
     return angle if angle is not None else meta.get('compass_angle')
 
 
-def _fetch_image_metadata(image_id):
+def fetch_image_metadata(image_id):
+    """(metadata, gone) for one image.
+
+    `gone` is True only when the API positively says this image no longer exists —
+    a deleted/invalid id, which no amount of retrying will fix, so the retry loop
+    short-circuits. A transient failure (network, 5xx, rate limit) returns
+    (None, False) after ATTEMPTS tries. Callers that archive imagery need the
+    distinction: "the source decayed" and "our fetch failed" are different answers.
+    """
     for attempt in range(ATTEMPTS):
         try:
             response = requests.get(
                 f'{GRAPH_URL}/{image_id}',
                 params={'access_token': _token(), 'fields': IMAGE_FIELDS}, timeout=30)
+            if response.status_code in GONE_STATUSES:
+                return None, True
             response.raise_for_status()
-            return response.json()
+            return response.json(), False
         except Exception:
             if attempt < ATTEMPTS - 1:
                 time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
-    return None
+    return None, False
+
+
+def _fetch_image_metadata(image_id):
+    """Metadata dict, or None when it couldn't be fetched for any reason."""
+    return fetch_image_metadata(image_id)[0]
 
 
 
@@ -251,6 +309,7 @@ def build_pano_record(pano_id, lat, lon, meta):
         "source": "mapillary",
         "sequence_id": meta.get('sequence'),
         "quality_score": meta.get('quality_score'),
+        **provenance_fields(meta),
         "history": [],
         "links": []
     }

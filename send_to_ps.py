@@ -47,6 +47,13 @@ def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
     - 'source' outside the pano_source enum (raw streetlevel strings) -> 'gsv'
     - links[].'target_gsv_panorama_id' -> 'target_pano_id'
     - 'links'/'history' are required (possibly empty) arrays server-side
+
+    Every other key is forwarded as-is, deliberately: we submit all the provenance we
+    have, so it's already in the payload the day PS learns to store it. Extra keys are
+    safe — PanoSubmission's reader (ExploreFormats.scala) is path-based and ignores
+    what it doesn't name — but they are also discarded server-side today: pano_data has
+    no column for source_metadata, camera_make/model/type, sequence_id or quality_score.
+    Landing them needs a SidewalkWebpage change, not a change here.
     """
     pano = dict(pano)
     if 'panorama_id' in pano:

@@ -1,6 +1,7 @@
 """Unit tests for the Mapillary imagery source: tile geometry, coverage decoding
 (round-tripped through a real MVT encode), and the fetch_pano record contract."""
 import math
+from types import SimpleNamespace
 
 import mapbox_vector_tile
 import pytest
@@ -24,6 +25,8 @@ def make_meta(**overrides):
         "creator": {"username": "rva-rider", "id": "42"},
         "sequence": "seq-1",
         "quality_score": 0.8,
+        "make": "GoPro",
+        "model": "Fusion",
     }
     base.update(overrides)
     # Graph API omits absent fields entirely rather than sending nulls.
@@ -106,8 +109,8 @@ def test_thin_panos_spacing_is_tunable():
     assert set(mapillary.thin_panos(panos, 100_000)) == {"b"}
 
 
-def _patch_fetch(monkeypatch, meta, image="IMAGE"):
-    monkeypatch.setattr(mapillary, "_fetch_image_metadata", lambda image_id: meta)
+def _patch_fetch(monkeypatch, meta, image="IMAGE", gone=False):
+    monkeypatch.setattr(mapillary, "fetch_image_metadata", lambda image_id: (meta, gone))
     monkeypatch.setattr(mapillary, "_download_image", lambda url: image)
 
 
@@ -128,6 +131,14 @@ def test_fetch_pano_success_record_contract(monkeypatch):
     assert pano["camera_pitch"] is None and pano["camera_roll"] is None
     assert pano["history"] == [] and pano["links"] == []
     assert "rva-rider" in pano["copyright"]
+    # Camera hardware provenance for post-hoc image-quality analysis.
+    assert (pano["camera_make"], pano["camera_model"]) == ("GoPro", "Fusion")
+    assert pano["camera_type"] == "spherical"
+    # Full stable Graph metadata kept verbatim, minus the volatile signed thumb URL.
+    sm = pano["source_metadata"]
+    assert sm["quality_score"] == 0.8 and sm["make"] == "GoPro"
+    assert sm["creator"] == {"username": "rva-rider", "id": "42"}
+    assert "thumb_original_url" not in sm
 
 
 def test_fetch_pano_falls_back_to_exif_compass_and_tile_position(monkeypatch):
@@ -150,6 +161,51 @@ def test_fetch_pano_deterministic_skips(monkeypatch, broken, reason_fragment):
     result = mapillary.fetch_pano("123456", 0.0, 0.0)
     assert result["status"] == "skipped"
     assert reason_fragment in result["reason"]
+
+
+def test_fetch_pano_deleted_image_is_skipped_not_retried(monkeypatch):
+    """The API saying "no such image" is deterministic, so it must be cached as skipped
+    rather than retried on every future run of the area."""
+    _patch_fetch(monkeypatch, None, gone=True)
+    result = mapillary.fetch_pano("123456", 0.0, 0.0)
+    assert result["status"] == "skipped" and "no longer exists" in result["reason"]
+
+
+def test_fetch_pano_transient_metadata_failure_is_retryable(monkeypatch):
+    _patch_fetch(monkeypatch, None, gone=False)
+    assert mapillary.fetch_pano("123456", 0.0, 0.0)["status"] == "failure"
+
+
+@pytest.mark.parametrize("status, expected", [
+    (404, (None, True)),        # deleted image: never retried
+    (400, (None, True)),        # invalid/withdrawn id: same
+])
+def test_fetch_image_metadata_reports_gone_without_retrying(monkeypatch, status, expected):
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append(url)
+        return SimpleNamespace(status_code=status, json=lambda: {},
+                               raise_for_status=lambda: None)
+
+    monkeypatch.setenv(mapillary.TOKEN_ENV_VAR, "tok")
+    monkeypatch.setattr(mapillary.requests, "get", fake_get)
+    assert mapillary.fetch_image_metadata("123456") == expected
+    assert len(calls) == 1                       # one call, not ATTEMPTS
+
+
+def test_fetch_image_metadata_transient_error_exhausts_retries(monkeypatch):
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append(url)
+        raise OSError("connection reset")
+
+    monkeypatch.setenv(mapillary.TOKEN_ENV_VAR, "tok")
+    monkeypatch.setattr(mapillary.requests, "get", fake_get)
+    monkeypatch.setattr(mapillary.time, "sleep", lambda s: None)
+    assert mapillary.fetch_image_metadata("123456") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
 
 
 def test_fetch_pano_metadata_unavailable_is_retryable(monkeypatch):

@@ -31,8 +31,22 @@ python main.py example_geojson/richmond.geojson --name richmond --source mapilla
 # merged (RampNet#26/#31): `rampnet.validation` (verdict -> P/R) + `scripts/gt_gallery.py`
 # (reads benchmark/<city>/{panos,records.jsonl}, no network), with the validated splits under
 # RampNet's benchmark/. This repo is production-only: enumerate -> thin -> detect -> submit.
-# Its one hand-off to RampNet is a native-res imagery bundle (only this repo can fetch pixels):
-python scripts/export_benchmark.py runs/richmond/results.jsonl --out <bundle>/panos
+# Its one hand-off to RampNet is the native-res imagery bundle below (only this repo can
+# fetch pixels).
+
+# Build a benchmark bundle for RampNet from a finished run: samples a spatially
+# de-clustered set of panos into <bundle>/records.jsonl (each tagged with its stratum
+# as benchmark_group), fetches them at native resolution, then reconciles panos vs
+# records and writes index.csv. Resumable; an existing records.jsonl is never re-sampled.
+python scripts/export_benchmark.py runs/clovis/results.jsonl \
+    --bundle ../RampNet/benchmark/clovis --sample 100 --empty-sample 25
+# ...--records-only stops after records.jsonl, for when the pixels come from an existing
+# full-city archive instead (copy those ids in, then re-run without it to verify).
+
+# Archive every processed pano of a run at native resolution (same verification).
+# index.csv/decayed.txt are written beside a `panos/` dir (else into --out itself), so
+# per-city manifests never collide when several cities share an archive root.
+python scripts/export_benchmark.py runs/clovis/results.jsonl --out /path/to/archive/clovis/panos
 
 # Run the tests (no GPU/network/model; light deps via requirements-test.txt)
 pytest
