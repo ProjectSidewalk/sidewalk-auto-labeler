@@ -1,6 +1,7 @@
 cache
 __pycache__
 .venv
+.vscode/
 # Local secrets (MAPILLARY_ACCESS_TOKEN, PS_INTERNAL_API_KEY) — never commit.
 .env
 *.jsonl
