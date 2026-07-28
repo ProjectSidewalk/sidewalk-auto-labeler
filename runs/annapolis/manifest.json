@@ -1,0 +1,29 @@
+{
+  "run_name": "annapolis",
+  "created_at": "2026-07-27T16:06:11+00:00",
+  "source_geojson": "example_geojson/annapolis.geojson",
+  "area_hash": "4124e9f235312543d16c8c0723356e6feb253a77b55f437b39ec43713c63a6dd",
+  "imagery_source": "mapillary",
+  "model_id": "rampnet-model",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0",
+  "streetlevel_version": "0.12.10",
+  "runs": [
+    {
+      "started_at": "2026-07-27T16:06:11+00:00",
+      "finished_at": "2026-07-27T21:53:57+00:00",
+      "panos_found_in_area": 53232,
+      "processed": 53226,
+      "skipped": 0,
+      "failed": 6
+    },
+    {
+      "started_at": "2026-07-28T01:45:31+00:00",
+      "finished_at": "2026-07-28T01:46:27+00:00",
+      "panos_found_in_area": 53232,
+      "processed": 6,
+      "skipped": 0,
+      "failed": 0
+    }
+  ]
+}
