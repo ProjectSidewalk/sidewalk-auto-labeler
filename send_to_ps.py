@@ -24,6 +24,8 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
+from detectors import OPERATIONAL_CONFIDENCE
+
 # Local secrets (e.g. PS_INTERNAL_API_KEY) from ./.env; real env vars win.
 load_dotenv()
 
@@ -71,13 +73,17 @@ def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
     return pano
 
 
-def transform_record(data: Dict[str, Any]) -> Dict[str, Any]:
+def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_CONFIDENCE) -> Dict[str, Any]:
     """
     Convert a main.py JSONL record into the payload expected by Project Sidewalk.
 
-    Detections are converted from normalized coordinates to pixel coordinates using the
-    pano dimensions stored in the record, renamed 'detections' -> 'labels'; the pano
-    block is mapped onto the server's field names (see transform_pano).
+    Detections at or above min_confidence are converted from normalized coordinates to
+    pixel coordinates using the pano dimensions stored in the record, renamed
+    'detections' -> 'labels'; the pano block is mapped onto the server's field names
+    (see transform_pano). results.jsonl stores candidate peaks down to a storage floor
+    below the operational threshold (see detectors/__init__.py); a record whose
+    detections all fall below min_confidence still submits with empty labels — it is a
+    processed "checked, nothing found" pano, not a droppable one.
     """
     modified_data = data.copy()
     modified_data['pano'] = transform_pano(data['pano'])
@@ -86,7 +92,7 @@ def transform_record(data: Dict[str, Any]) -> Dict[str, Any]:
             "pano_x": round(detection['x_normalized'] * modified_data['pano']['width']),
             "pano_y": round(detection['y_normalized'] * modified_data['pano']['height']),
             "confidence": detection['confidence']
-        } for detection in data['detections']
+        } for detection in data['detections'] if detection['confidence'] >= min_confidence
     ]
     modified_data.pop('detections', None)
     return modified_data
@@ -164,6 +170,7 @@ def process_jsonl_file(
     endpoint_url: str = DEFAULT_ENDPOINT_URL,
     api_key: Optional[str] = None,
     dry_run: bool = False,
+    min_confidence: float = OPERATIONAL_CONFIDENCE,
 ) -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending
@@ -176,6 +183,8 @@ def process_jsonl_file(
             ``send_to_project_sidewalk``).
         dry_run: If True, print the transformed payloads instead of POSTing them, and do not
             record submission progress.
+        min_confidence: Only detections at/above this confidence are submitted as labels
+            (see ``transform_record``).
     """
     input_file = Path(file_path)
 
@@ -191,6 +200,7 @@ def process_jsonl_file(
     success_count = 0
     error_count = 0
     skipped_count = 0
+    filtered_detections = 0
 
     print(f"Processing JSONL file: {file_path}")
     print(f"Target endpoint: {endpoint_url}")
@@ -217,7 +227,8 @@ def process_jsonl_file(
                 try:
                     # Parse a line of JSON and convert to the PS payload format.
                     json_data = json.loads(line)
-                    payload = transform_record(json_data)
+                    payload = transform_record(json_data, min_confidence)
+                    filtered_detections += len(json_data.get('detections', [])) - len(payload['labels'])
 
                     if dry_run:
                         print(json.dumps(payload, indent=2))
@@ -253,6 +264,7 @@ def process_jsonl_file(
     print(f"Successfully processed:        {success_count} records")
     print(f"Skipped (already submitted):   {skipped_count} records")
     print(f"Errors encountered:            {error_count} records")
+    print(f"Detections below --min-confidence {min_confidence} (not submitted): {filtered_detections}")
 
 
 def main() -> None:
@@ -280,10 +292,17 @@ def main() -> None:
         action="store_true",
         help="Print transformed payloads instead of POSTing them; no progress is recorded."
     )
+    parser.add_argument(
+        "--min-confidence", type=float, default=OPERATIONAL_CONFIDENCE,
+        help="Minimum detection confidence submitted as a label (default: %(default)s, the "
+             "operational threshold). results.jsonl stores candidate peaks down to a lower "
+             "storage floor for multi-view fusion; records whose detections all fall below "
+             "this still submit as 'checked, nothing found'."
+    )
     args = parser.parse_args()
 
     api_key = os.environ.get(args.api_key_env)
-    process_jsonl_file(args.jsonl_file, args.endpoint, api_key, args.dry_run)
+    process_jsonl_file(args.jsonl_file, args.endpoint, api_key, args.dry_run, args.min_confidence)
 
 
 if __name__ == "__main__":

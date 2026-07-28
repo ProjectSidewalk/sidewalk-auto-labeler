@@ -57,6 +57,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 load_dotenv(REPO_ROOT / ".env")
 
+from detectors import OPERATIONAL_CONFIDENCE  # noqa: E402
 from sources import mapillary  # noqa: E402
 
 WORKERS = 6
@@ -210,6 +211,13 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
 
     with open(results_path, encoding="utf-8") as f:
         records = [json.loads(line) for line in f if line.strip()]
+    # results.jsonl stores candidate peaks down to a storage floor below the operational
+    # threshold (detectors/__init__.py); the benchmark contract — the sampling strata
+    # ("with detections" vs "empty") and the records RampNet's GT tooling reads — is
+    # defined over operational detections only.
+    records = [{**r, 'detections': [d for d in r['detections']
+                                    if d['confidence'] >= OPERATIONAL_CONFIDENCE]}
+               for r in records]
     chosen = choose_panos(records, sample, empty_sample, seed, min_spacing)
     chosen.sort(key=lambda rg: rg[0]['pano']['panorama_id'])
 
@@ -220,7 +228,8 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
     groups = {g: sum(1 for _, gg in chosen if gg == g) for g in ("top", "random", "empty")}
     meta = {"source_records": str(results_path), "source_record_count": len(records),
             "sample": sample, "empty_sample": empty_sample, "seed": seed,
-            "min_spacing_m": min_spacing, "selected": len(chosen), "groups": groups}
+            "min_spacing_m": min_spacing, "min_confidence": OPERATIONAL_CONFIDENCE,
+            "selected": len(chosen), "groups": groups}
     (bundle_dir / "sample.json").write_text(json.dumps(meta, indent=2) + "\n",
                                             encoding="utf-8", newline="\n")
     print(f"Sampled {len(chosen)} of {len(records)} panos -> {records_path} "

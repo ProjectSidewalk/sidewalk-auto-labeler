@@ -1,4 +1,9 @@
-"""Plot detections (normalized -> pixel) on the full-res pano to verify the coordinate chain."""
+"""Plot detections (normalized -> pixel) on the full-res pano to verify the coordinate chain.
+
+Deliberately plots everything results.jsonl stores — including sub-floor candidates below
+the operational threshold (detectors/__init__.py) — with each confidence labeled, so the
+storage floor's contents are inspectable too.
+"""
 import json
 import sys
 from pathlib import Path

@@ -6,6 +6,8 @@ import numpy as np
 from torchvision import transforms
 from skimage.feature import peak_local_max
 
+from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO
+
 
 class CurbRampDetector:
     def __init__(self):
@@ -33,7 +35,13 @@ class CurbRampDetector:
         with self._inference_lock, torch.no_grad():
             heatmap = self.model(img_tensor.to(self.DEVICE)).squeeze().cpu().numpy()
 
-        peaks = peak_local_max(np.clip(heatmap, 0, 1), min_distance=10, threshold_abs=0.55)
+        # Peaks are stored down to the storage floor; the operational threshold is
+        # applied by consumers, not here (see detectors/__init__.py). num_peaks keeps
+        # the highest-intensity peaks, so the >= OPERATIONAL_CONFIDENCE set is
+        # unaffected by the lower floor.
+        peaks = peak_local_max(np.clip(heatmap, 0, 1), min_distance=10,
+                               threshold_abs=DETECTION_STORAGE_FLOOR,
+                               num_peaks=MAX_PEAKS_PER_PANO)
 
         detections = [(float(c / heatmap.shape[1]), float(r / heatmap.shape[0]), float(heatmap[r][c])) for r, c in peaks]
 

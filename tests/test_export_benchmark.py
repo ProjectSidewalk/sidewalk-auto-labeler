@@ -139,6 +139,31 @@ def test_write_bundle_records_tags_groups_and_writes_provenance(tmp_path):
     assert meta["groups"]["empty"] == 3
 
 
+def test_write_bundle_records_applies_operational_threshold(tmp_path):
+    """results.jsonl stores candidate peaks below the operational threshold (the
+    storage floor, issue #27). The benchmark contract is operational detections:
+    sub-floor candidates never reach a bundle, and a pano with only sub-floor
+    peaks has no believed detections — it belongs in the 'empty' stratum."""
+    results = tmp_path / "results.jsonl"
+    mixed = _record("MIX", 0, coords=[
+        {"x_normalized": 0.5, "y_normalized": 0.6, "confidence": 0.9},
+        {"x_normalized": 0.2, "y_normalized": 0.6, "confidence": 0.2}], lat=45.0, lng=-122.0)
+    weak = _record("WEAK", 0, coords=[
+        {"x_normalized": 0.4, "y_normalized": 0.6, "confidence": 0.3}], lat=45.5, lng=-122.0)
+    empty = _record("EMPTY", 0, lat=46.0, lng=-122.0)
+    _write_results(results, [mixed, weak, empty])
+
+    records_path = eb.write_bundle_records(results, tmp_path / "bundle", sample=5,
+                                           empty_sample=5, seed=0, min_spacing=0)
+    rows = {json.loads(l)["pano"]["panorama_id"]: json.loads(l)
+            for l in records_path.read_text(encoding="utf-8").splitlines()}
+    assert all(d["confidence"] >= eb.OPERATIONAL_CONFIDENCE
+               for r in rows.values() for d in r["detections"])
+    assert rows["WEAK"]["benchmark_group"] == "empty"
+    assert rows["MIX"]["benchmark_group"] in ("top", "random")
+    assert len(rows["MIX"]["detections"]) == 1
+
+
 def test_write_bundle_records_never_resamples_an_existing_bundle(tmp_path):
     """A reviewer's verdicts are keyed to the sample; silently redrawing it would
     invalidate them."""
