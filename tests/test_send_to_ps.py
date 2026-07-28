@@ -39,6 +39,31 @@ def test_transform_record_zero_detections():
     assert payload["labels"] == [] and "detections" not in payload
 
 
+def test_transform_record_filters_below_operational_confidence():
+    """results.jsonl stores candidate peaks below the operational threshold (the
+    storage floor, issue #27); only operational detections may become PS labels.
+    A detection exactly at the threshold is kept (>=, not >)."""
+    payload = send_to_ps.transform_record(_record([
+        {"x_normalized": 0.5, "y_normalized": 0.25, "confidence": 0.91},
+        {"x_normalized": 0.25, "y_normalized": 0.75, "confidence": 0.55},
+        {"x_normalized": 0.1, "y_normalized": 0.75, "confidence": 0.2},
+    ]))
+    assert [label["confidence"] for label in payload["labels"]] == [0.91, 0.55]
+
+
+def test_transform_record_all_subthreshold_still_submits_empty():
+    """A pano whose stored peaks are all sub-threshold is still a processed pano: it
+    must submit with empty labels ('checked, nothing found'), never be dropped."""
+    payload = send_to_ps.transform_record(
+        _record([{"x_normalized": 0.5, "y_normalized": 0.25, "confidence": 0.2}]))
+    assert payload["labels"] == [] and "detections" not in payload
+
+
+def test_transform_record_min_confidence_is_a_knob():
+    record = _record([{"x_normalized": 0.5, "y_normalized": 0.25, "confidence": 0.2}])
+    assert len(send_to_ps.transform_record(record, min_confidence=0)["labels"]) == 1
+
+
 def test_transform_record_does_not_mutate_input():
     record = _record([{"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.7}])
     send_to_ps.transform_record(record)

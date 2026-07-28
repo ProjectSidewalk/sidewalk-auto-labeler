@@ -32,6 +32,7 @@ from dotenv import load_dotenv
 from shapely.geometry import shape
 from tqdm import tqdm
 
+from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO
 from sources import get_source, SOURCE_NAMES
 
 # Local secrets (e.g. MAPILLARY_ACCESS_TOKEN) from ./.env; real env vars win.
@@ -147,6 +148,15 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
                 f"'{manifest.get('imagery_source', 'gsv')}', not '{source_name}'.\n"
                 f"   Use a new --name for a different source."
             )
+        # Manifests predating the storage floor stored only >= 0.55 peaks.
+        run_floor = manifest.get('detection_storage_floor', 0.55)
+        if run_floor != DETECTION_STORAGE_FLOOR:
+            sys.exit(
+                f"❌ Run '{run_dir.name}' stores detections down to confidence {run_floor}; "
+                f"this code stores down to {DETECTION_STORAGE_FLOOR}.\n"
+                f"   Appending would mix confidence semantics in one results.jsonl.\n"
+                f"   Use a new --name for this area (or run the code version that matches)."
+            )
         return manifest
 
     manifest = {
@@ -158,6 +168,8 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
         'model_id': MODEL_ID,
         'model_training_date': MODEL_TRAINING_DATE,
         'api_version': API_VERSION,
+        'detection_storage_floor': DETECTION_STORAGE_FLOOR,
+        'max_peaks_per_pano': MAX_PEAKS_PER_PANO,
         'streetlevel_version': pkg_version('streetlevel'),
         'runs': [],
     }

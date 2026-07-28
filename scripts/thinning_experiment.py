@@ -57,6 +57,7 @@ from dotenv import load_dotenv
 load_dotenv(REPO_ROOT / ".env")
 
 import main as labeler
+from detectors import OPERATIONAL_CONFIDENCE
 from sources import mapillary
 
 CAMERA_HEIGHT_M = 2.6      # typical roof-mounted 360 rig
@@ -72,6 +73,12 @@ def load_run(run_dir):
         sys.exit("This experiment is about Mapillary thinning; run it on a --source mapillary run.")
     with open(run_dir / "results.jsonl", 'r', encoding='utf-8') as f:
         records = [json.loads(line) for line in f if line.strip()]
+    # Ramp sites approximate PS clustering of believed labels, so build them from
+    # operational detections only; results.jsonl may also carry sub-floor candidates
+    # (detectors/__init__.py).
+    for r in records:
+        r['detections'] = [d for d in r['detections']
+                           if d['confidence'] >= OPERATIONAL_CONFIDENCE]
     area = shape(json.loads((run_dir / "area.geojson").read_text()))
     return run_dir, records, area
 

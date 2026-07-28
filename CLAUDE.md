@@ -116,7 +116,10 @@ geometry used). The JSONL and cache are appended to and flushed line-by-line, so
 resumable — re-running skips cached panos, and failed panos are intentionally left out of the
 cache so they retry next run. A run directory is bound to one geometry and one imagery
 source: rerunning a name with an edited geojson or a different `--source` is refused
-(checked against the manifest) instead of silently forking state.
+(checked against the manifest) instead of silently forking state. The manifest also records
+`detection_storage_floor`; resuming a run whose stored floor differs from the current code's
+is refused for the same reason (legacy manifests read as 0.55 — those runs stored only
+operational detections).
 
 **`panorama.py`** downloads the equirectangular image via `streetlevel.streetview.get_panorama`
 using the pano metadata that `process_pano` already fetched (tile grid + true dimensions come
@@ -128,8 +131,13 @@ format (and must stay ≥ 0.12.10 for the same reason).
 
 **`detectors/curb_ramp.py`** wraps the `projectsidewalk/rampnet-model` HuggingFace model
 (loaded with `trust_remote_code=True`). It outputs a heatmap; `peak_local_max` extracts peaks
-above `threshold_abs=0.55`. Detections are returned as **normalized** `(x, y, confidence)`
-tuples in `[0, 1]`.
+down to the **storage floor** (`DETECTION_STORAGE_FLOOR=0.1`, top-50 per pano), NOT the
+decision threshold. The two-threshold contract lives in `detectors/__init__.py` (torch-free,
+importable everywhere): results.jsonl deliberately stores sub-threshold candidates as raw
+material for multi-view fusion (#27), and everything that *acts* on detections filters at
+`OPERATIONAL_CONFIDENCE=0.55` — `send_to_ps.py --min-confidence`, `export_benchmark.py`'s
+strata + bundle records, `thinning_experiment.py`'s ramp sites. Detections are returned as
+**normalized** `(x, y, confidence)` tuples in `[0, 1]`.
 
 **Stage 2 — submission (`send_to_ps.py`)**
 Reads the Stage-1 JSONL and POSTs each record to a Project Sidewalk endpoint
@@ -146,6 +154,9 @@ and guarantees `links`/`history` arrays — so legacy JSONL files stay submittab
 - The detector emits normalized coordinates; Stage 1 stores them normalized in the JSONL.
   The normalized → pixel conversion happens only in `send_to_ps.py`. Keep these in sync if
   you change either side.
+- `detections` in results.jsonl means "stored candidates", not "believed ramps": it includes
+  peaks down to the storage floor. Any new consumer must filter at `OPERATIONAL_CONFIDENCE`
+  (import it from `detectors`) unless it deliberately wants the sub-floor candidates.
 - Each JSONL line carries model provenance (`model_id`, `model_training_date`, `api_version`)
   and rich pano metadata (capture date, dimensions, camera heading/pitch/roll, source,
   historical panos, and links). Heading/pitch/roll are converted from radians to degrees on
