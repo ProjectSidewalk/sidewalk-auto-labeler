@@ -30,9 +30,12 @@ except Exception:
                 "needs a newer glibc); EXIF writing is unavailable."
             )
 
+    # Expose ONLY what streetlevel touches at import time. No catch-all
+    # __getattr__: answering hasattr(module, '__file__') with a non-string
+    # breaks inspect.getmodule() for every stack walker in the process
+    # (torch's op registration among them).
     _stub = types.ModuleType('pyexiv2')
     _stub.ImageData = _PyExiv2Unavailable
-    _stub.__getattr__ = lambda name: _PyExiv2Unavailable
     sys.modules['pyexiv2'] = _stub
 
 from streetlevel import streetview
