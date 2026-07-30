@@ -51,3 +51,32 @@ def test_build_output_line_shape():
 
 def test_build_output_line_zero_detections():
     assert main.build_output_line(_result(detections=[]))["detections"] == []
+
+
+def _results_file(tmp_path, links_per_record):
+    path = tmp_path / "results.jsonl"
+    lines = []
+    for pid, targets in links_per_record.items():
+        links = [{"target_gsv_panorama_id": t, "yaw_deg": 0.0, "description": ""} for t in targets]
+        lines.append(json.dumps({"pano": {"panorama_id": pid, "links": links}, "detections": []}))
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def test_dangling_link_targets_subtracts_the_cache(tmp_path):
+    # A links to B (processed) and X (dangling); B links back to A (processed).
+    path = _results_file(tmp_path, {"A": ["B", "X"], "B": ["A"]})
+    assert main.dangling_link_targets(path, {"A", "B"}) == {"X"}
+    # A cached deterministic skip (e.g. gap-fill target outside the area) stays gone.
+    assert main.dangling_link_targets(path, {"A", "B", "X"}) == set()
+    # Runs pulled from a cluster have results.jsonl but no cache: the records' own
+    # ids must not count as dangling.
+    assert main.dangling_link_targets(path, set()) == {"X"}
+
+
+def test_dangling_link_targets_tolerates_linkless_records(tmp_path):
+    # Mapillary records carry links: [] — the phase must be a no-op over them.
+    path = tmp_path / "results.jsonl"
+    path.write_text(json.dumps({"pano": {"panorama_id": "M", "links": []}, "detections": []}) + "\n" +
+                    json.dumps({"pano": {"panorama_id": "N"}, "detections": []}) + "\n")
+    assert main.dangling_link_targets(path, set()) == set()

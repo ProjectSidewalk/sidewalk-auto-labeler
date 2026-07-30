@@ -73,13 +73,13 @@ def load_processed_ids(cache_file_path):
     with open(cache_file_path, 'r') as f:
         return {line.strip() for line in f}
 
-def process_pano(source, pano_id, lat, lon):
+def _process(pano_id, fetch):
     """
-    Fetches one pano through the imagery source, runs detection, and returns a
-    result dict. Designed to be run concurrently in a thread pool.
+    Fetches one pano (via the given thunk), runs detection, and returns a result
+    dict. Designed to be run concurrently in a thread pool.
     """
     try:
-        fetched = source.fetch_pano(pano_id, lat, lon)
+        fetched = fetch()
         if fetched['status'] != 'success':
             return {'status': fetched['status'], 'pano_id': pano_id, 'reason': fetched.get('reason', 'Unknown')}
 
@@ -94,6 +94,43 @@ def process_pano(source, pano_id, lat, lon):
         }
     except Exception as e:
         return {'status': 'failure', 'pano_id': pano_id, 'reason': str(e)}
+
+def process_pano(source, pano_id, lat, lon):
+    return _process(pano_id, lambda: source.fetch_pano(pano_id, lat, lon))
+
+def process_gap_pano(source, pano_id, area_shape):
+    return _process(pano_id, lambda: source.fetch_pano_by_id(pano_id, area_shape))
+
+def handle_result(result, f_cache, f_jsonl):
+    """
+    Writes one process result to the run's JSONL/cache files (both flushed
+    line-by-line so the run stays resumable) and returns its outcome:
+    'success', 'skipped', or 'failed'.
+    """
+    if result['status'] == 'success':
+        # ALWAYS write a line to the JSONL file for a successful process.
+        # The 'detections' key will be an empty list [] if none were found.
+        # Guarded so a single malformed pano cannot abort the whole run.
+        try:
+            json_line = json.dumps(build_output_line(result))
+        except Exception as e:
+            print(f"  ❌ Failed to build output for {result['pano_id']}. Reason: {e}. Will retry on next run.")
+            return 'failed'
+        f_jsonl.write(json_line + '\n')
+        f_jsonl.flush()
+
+        # Mark successfully processed pano in the cache.
+        f_cache.write(f"{result['pano_id']}\n")
+        f_cache.flush()
+        return 'success'
+    if result['status'] == 'skipped':
+        # Deterministic skips (indoor pano, non-360 image, incomplete metadata,
+        # gap-fill target outside the area): cache so they aren't refetched every run.
+        f_cache.write(f"{result['pano_id']}\n")
+        f_cache.flush()
+        return 'skipped'
+    print(f"  ❌ Failed to process {result['pano_id']}. Reason: {result.get('reason', 'Unknown')}. Will retry on next run.")
+    return 'failed'
 
 def build_output_line(result):
     """
@@ -178,25 +215,102 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     save_manifest(manifest_path, manifest)
     return manifest
 
-def record_run(manifest_path, manifest, started_at, found, success, skipped, failed):
+def record_run(manifest_path, manifest, started_at, found, success, skipped, failed, phase=None):
     """Appends one entry to the manifest's run history."""
-    manifest['runs'].append({
+    entry = {
         'started_at': started_at,
         'finished_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
         'panos_found_in_area': found,
         'processed': success,
         'skipped': skipped,
         'failed': failed,
-    })
+    }
+    if phase:
+        entry['phase'] = phase
+    manifest['runs'].append(entry)
     save_manifest(manifest_path, manifest)
 
-def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thin_spacing=None):
+def dangling_link_targets(results_path, processed_ids):
+    """
+    Link-target pano ids that results.jsonl records reference but the run never
+    processed — panos the run's own view graph points at that we don't have (mostly
+    coverage churn between the tile scan and the per-pano pass; issue #32).
+    processed_ids is the resume cache, which covers deterministic skips, so cached
+    indoor/outside-the-area targets don't reappear. The records' own ids are
+    subtracted too — a run pulled from a cluster has results.jsonl but no cache.
+    """
+    targets = set()
+    have = set(processed_ids)
+    with open(results_path, 'r') as f:
+        for line in f:
+            pano = json.loads(line)['pano']
+            have.add(pano['panorama_id'])
+            for link in pano.get('links') or []:
+                target = link.get('target_gsv_panorama_id')
+                if target:
+                    targets.add(target)
+    return targets - have
+
+def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None):
+    """
+    Post-run link-graph closure (issue #32): fetches the panos that
+    dangling_link_targets finds, keeping those whose own position falls inside the
+    area, and appends them to results.jsonl/cache exactly like main-pass panos.
+    Iterates until closed, since each new record introduces new links (round 2 is
+    normally near-empty). Returns (candidates, success, skipped, failed) totals,
+    or None if nothing ran.
+    """
+    results_path = run_dir / "results.jsonl"
+    cache_file = run_dir / "already_processed.txt"
+    if not results_path.exists():
+        print("-> Gap fill: no results.jsonl yet — nothing to close.")
+        return None
+
+    # Reload rather than track: the main pass appends to the cache file directly.
+    processed_ids = load_processed_ids(cache_file)
+    attempted = set()  # failures stay uncached (retryable next run) but must not loop now
+    totals = [0, 0, 0, 0]  # candidates, success, skipped, failed
+    while True:
+        candidates = sorted(dangling_link_targets(results_path, processed_ids | attempted))
+        if scan_only:
+            print(f"-> Gap fill scan: {len(candidates)} dangling link targets to try "
+                  f"(in-area count unknown until their metadata is fetched).")
+            return None
+        if limit is not None:
+            candidates = candidates[:max(0, limit - totals[0])]
+        if not candidates:
+            break
+        totals[0] += len(candidates)
+
+        counts = {'success': 0, 'skipped': 0, 'failed': 0}
+        with open(cache_file, 'a') as f_cache, \
+             open(results_path, 'a') as f_jsonl, \
+             ThreadPoolExecutor(max_workers=PROCESSING_CONCURRENCY) as pool:
+            futures = [pool.submit(process_gap_pano, source, pid, area_shape) for pid in candidates]
+            with tqdm(total=len(futures), desc="Gap-filling Link Targets") as pbar:
+                for future in as_completed(futures):
+                    counts[handle_result(future.result(), f_cache, f_jsonl)] += 1
+                    pbar.update(1)
+
+        attempted.update(candidates)
+        totals[1] += counts['success']
+        totals[2] += counts['skipped']
+        totals[3] += counts['failed']
+        print(f"-> Gap fill: {counts['success']} added, {counts['skipped']} skipped "
+              f"(outside area/indoor), {counts['failed']} failed.")
+    return tuple(totals)
+
+def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thin_spacing=None,
+                gap_fill=True, gap_fill_only=False):
     """
     Finds and processes all panoramas from the given imagery source within a GeoJSON
     area, writing all per-area state to runs/<run_name>/.
 
     With scan_only=True, stops after the coverage scan and prints a size/runtime
     estimate — use this to scope a city before committing to a multi-day run.
+
+    After the main pass, sources with a link graph get a gap-fill phase closing it
+    (issue #32); gap_fill_only skips straight to that phase on an existing run.
     """
     print("--- Sidewalk Auto-Labeler ---")
 
@@ -224,6 +338,23 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     # 2. Find all panorama IDs in the area
     # The geojson_data is the geometry object itself, which shapely can read directly.
     area_shape = shape(geojson_data)
+
+    if gap_fill_only:
+        if not hasattr(source, 'fetch_pano_by_id'):
+            sys.exit(f"❌ --gap-fill-only: source '{source.NAME}' has no by-id fetch "
+                     f"(its records carry no link graph, so there is nothing to close).")
+        gf = run_gap_fill(source, area_shape, run_dir, scan_only=scan_only, limit=limit)
+        if gf is not None:
+            record_run(manifest_path, manifest, started_at, gf[0], gf[1], gf[2], gf[3],
+                       phase='gap_fill')
+            print(f"\n--- Gap Fill Report ---\n"
+                  f"Dangling link targets tried: {gf[0]}\n"
+                  f"Added to the run:            {gf[1]}\n"
+                  f"Skipped (outside/indoor):    {gf[2]}\n"
+                  f"Failed (will retry):         {gf[3]}\n"
+                  f"-----------------------")
+        return
+
     bounds = area_shape.bounds
     min_lon, min_lat, max_lon, max_lat = bounds
 
@@ -281,62 +412,60 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
               f"(single GPU; measure your machine's rate on a smoke run first).")
         return
 
-    if not panos_to_process_ids:
-        print("🎉 No new panoramas to process. All done!")
-        record_run(manifest_path, manifest, started_at, len(all_panos_in_area), 0, 0, 0)
-        return
-
     # 4. Process new panoramas
     success_count, skip_count, fail_count = 0, 0, 0
 
-    processing_tasks = [
-        (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1])
-        for pid in panos_to_process_ids
-    ]
+    if not panos_to_process_ids:
+        print("🎉 No new panoramas to process.")
+        record_run(manifest_path, manifest, started_at, len(all_panos_in_area), 0, 0, 0)
+    else:
+        processing_tasks = [
+            (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1])
+            for pid in panos_to_process_ids
+        ]
 
-    with open(cache_file, 'a') as f_cache, \
-         open(output_jsonl_file, 'a') as f_jsonl, \
-         ThreadPoolExecutor(max_workers=PROCESSING_CONCURRENCY) as process_pool:
+        with open(cache_file, 'a') as f_cache, \
+             open(output_jsonl_file, 'a') as f_jsonl, \
+             ThreadPoolExecutor(max_workers=PROCESSING_CONCURRENCY) as process_pool:
 
-        futures = [process_pool.submit(process_pano, source, *task) for task in processing_tasks]
+            futures = [process_pool.submit(process_pano, source, *task) for task in processing_tasks]
 
-        with tqdm(total=len(futures), desc="Processing New Panoramas") as pbar:
-            for future in as_completed(futures):
-                result = future.result()
-                if result['status'] == 'success':
-                    # ALWAYS write a line to the JSONL file for a successful process.
-                    # The 'detections' key will be an empty list [] if none were found.
-                    # Guarded so a single malformed pano cannot abort the whole run.
-                    try:
-                        json_line = json.dumps(build_output_line(result))
-                    except Exception as e:
-                        print(f"  ❌ Failed to build output for {result['pano_id']}. Reason: {e}. Will retry on next run.")
-                        fail_count += 1
-                    else:
-                        f_jsonl.write(json_line + '\n')
-                        f_jsonl.flush()
-
-                        # Mark successfully processed pano in the cache.
-                        f_cache.write(f"{result['pano_id']}\n")
-                        f_cache.flush()
+            with tqdm(total=len(futures), desc="Processing New Panoramas") as pbar:
+                for future in as_completed(futures):
+                    outcome = handle_result(future.result(), f_cache, f_jsonl)
+                    if outcome == 'success':
                         success_count += 1
-                elif result['status'] == 'skipped':
-                    # Deterministic skips (indoor pano, non-360 image, incomplete
-                    # metadata): cache so they aren't refetched every run.
-                    f_cache.write(f"{result['pano_id']}\n")
-                    f_cache.flush()
-                    skip_count += 1
-                else:
-                    print(f"  ❌ Failed to process {result['pano_id']}. Reason: {result.get('reason', 'Unknown')}. Will retry on next run.")
-                    fail_count += 1
-                pbar.update(1)
+                    elif outcome == 'skipped':
+                        skip_count += 1
+                    else:
+                        fail_count += 1
+                    pbar.update(1)
 
-    record_run(manifest_path, manifest, started_at, len(all_panos_in_area), success_count, skip_count, fail_count)
+        record_run(manifest_path, manifest, started_at, len(all_panos_in_area), success_count, skip_count, fail_count)
+
+    # 5. Close the link graph (issue #32): fetch in-area panos the new records
+    # reference but the scan never enumerated (mostly coverage churn). Done promptly,
+    # inside the same run, so the filled panos match the run's imagery vintage.
+    # A --limit budget is shared with the main pass so smoke runs stay small.
+    gf = None
+    if gap_fill and hasattr(source, 'fetch_pano_by_id'):
+        gap_limit = None if limit is None else max(0, limit - len(panos_to_process_ids))
+        if gap_limit == 0:
+            print("-> Gap fill: skipped, --limit budget consumed by the main pass.")
+        else:
+            gap_started_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
+            gf = run_gap_fill(source, area_shape, run_dir, limit=gap_limit)
+            if gf is not None:
+                record_run(manifest_path, manifest, gap_started_at, gf[0], gf[1], gf[2], gf[3],
+                           phase='gap_fill')
 
     print("\n--- Final Report ---")
     print(f"Successfully processed: {success_count}")
     print(f"Skipped (cached):       {skip_count}")
     print(f"Failed to process:      {fail_count}")
+    if gf is not None:
+        print(f"Gap fill (link graph):  {gf[1]} added of {gf[0]} dangling targets "
+              f"({gf[2]} outside/skipped, {gf[3]} failed)")
     print(f"Results saved to: {output_jsonl_file}")
     print(f"Export benchmark bundle (imagery for RampNet GT/scoring): python scripts/export_benchmark.py {output_jsonl_file} --out <dir>")
     print("----------------------")
@@ -385,7 +514,19 @@ def main():
     parser.add_argument(
         "--scan-only", action="store_true",
         help="Only scan coverage and report the pano count and a runtime estimate; "
-             "skips model loading and processes nothing."
+             "skips model loading and processes nothing. With --gap-fill-only, "
+             "reports the dangling link-target count instead."
+    )
+    gap_group = parser.add_mutually_exclusive_group()
+    gap_group.add_argument(
+        "--no-gap-fill", action="store_true",
+        help="Skip the post-run link-graph closure phase (issue #32)."
+    )
+    gap_group.add_argument(
+        "--gap-fill-only", action="store_true",
+        help="Skip the coverage scan and main pass; only close the link graph of an "
+             "existing run (fetch in-area panos its records reference but it never "
+             "processed). For retrofits and smoke tests."
     )
     args = parser.parse_args()
 
@@ -405,7 +546,8 @@ def main():
 
     try:
         run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, source, args.scan_only,
-                    args.limit, args.thin_spacing)
+                    args.limit, args.thin_spacing,
+                    gap_fill=not args.no_gap_fill, gap_fill_only=args.gap_fill_only)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:

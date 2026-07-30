@@ -17,6 +17,11 @@ Each source module provides the same interface, consumed by main.py:
   {'status': 'skipped'|'failure', 'reason': str}. 'skipped' is deterministic
   (main.py caches it so it's never retried); 'failure' is retryable (left
   uncached so the next run retries it).
+- fetch_pano_by_id(pano_id, area_shape) (OPTIONAL): same contract as fetch_pano
+  for a pano known only by id (a dangling link target), positioned from its own
+  metadata; outside-the-area is a deterministic skip. Providing this hook enables
+  main.py's post-run gap-fill phase (link-graph closure, issue #32) — only
+  meaningful for sources whose pano records carry links (GSV).
 
 Modules are imported lazily so one source's dependencies (e.g. the MVT decoder
 for Mapillary) aren't required to run another.
