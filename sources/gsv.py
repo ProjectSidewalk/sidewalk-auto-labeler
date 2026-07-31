@@ -10,6 +10,34 @@ import random
 import time
 
 from shapely.geometry import Point
+
+# streetlevel hard-imports pyexiv2 (for EXIF writing), and every published pyexiv2
+# wheel bundles a libexiv2 built against glibc >= 2.29 — on older hosts (e.g. Hyak's
+# Rocky 8, glibc 2.28) the dlopen fails and takes the whole GSV source down with it.
+# This pipeline never writes EXIF, so when pyexiv2 can't load, register a stub that
+# satisfies streetlevel's import (including the eagerly-evaluated pyexiv2.ImageData
+# annotation in streetlevel.exif) and fails loudly if EXIF writing is ever invoked.
+try:
+    import pyexiv2  # noqa: F401
+except Exception:
+    import sys
+    import types
+
+    class _PyExiv2Unavailable:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError(
+                "pyexiv2 could not be loaded on this host (its bundled libexiv2 "
+                "needs a newer glibc); EXIF writing is unavailable."
+            )
+
+    # Expose ONLY what streetlevel touches at import time. No catch-all
+    # __getattr__: answering hasattr(module, '__file__') with a non-string
+    # breaks inspect.getmodule() for every stack walker in the process
+    # (torch's op registration among them).
+    _stub = types.ModuleType('pyexiv2')
+    _stub.ImageData = _PyExiv2Unavailable
+    sys.modules['pyexiv2'] = _stub
+
 from streetlevel import streetview
 
 from panorama import fetch_panorama
