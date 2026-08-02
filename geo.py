@@ -235,9 +235,17 @@ def _world_ray(pose, phi, theta):
     Rotation: intrinsic yaw (about up) -> pitch (about the right axis; positive
     raises the view axis) -> roll (about the forward axis; positive lifts the
     right side of the image). First-order effect on elevation:
-    elev ~= theta + pitch*cos(phi) + roll*sin(phi). The SIGNS against streetlevel's
-    convention are provisional until locked by `fuse_sites.py --pose-ablation`.
-    Vector components are (north, east, up).
+    elev ~= theta + pitch*cos(phi) + roll*sin(phi). Vector components are
+    (north, east, up).
+
+    MEASURED (fuse_sites.py --pose-ablation, 2026-08-02, paterson + bend,
+    ~123k within-site member pairs): applying GSV metadata pitch/roll under ANY
+    sign convention LOOSENS multi-view agreement — mean pairwise member distance
+    2.61 m -> 3.9-4.7 m (paterson), 2.06 m -> 2.8-3.9 m (bend) — i.e. the
+    equirectangulars streetlevel serves are already gravity-rectified and the
+    metadata angles describe the capture rig, not the stitched pano frame. So
+    production fusion runs with apply_pose=False and this rotation exists for
+    experiments (and any future source whose imagery is NOT rectified).
     """
     psi = math.radians(pose.heading_deg)
     alpha = math.radians(pose.pitch_deg)
@@ -273,9 +281,11 @@ def detection_ground_point(pose, x_norm, y_norm, *,
 
     The equirect convention (verified for both sources, see CLAUDE.md): the center
     column x=0.5 is the camera heading, y=0.5 is the pano-frame horizon, so
-    phi = (x-0.5)*2*pi and theta = (0.5-y)*pi (positive up). With pitch/roll
-    available (GSV) and apply_pose, the direction is rotated into the world frame
-    before intersecting the ground plane at camera_height below the camera.
+    phi = (x-0.5)*2*pi and theta = (0.5-y)*pi (positive up). apply_pose=True
+    additionally rotates the direction by the pano's pitch/roll — measured to
+    HURT on GSV (see _world_ray: streetlevel's equirects are already
+    gravity-rectified), so fusion passes apply_pose=False; the flat path is
+    also always used when the pose carries no pitch/roll (Mapillary).
 
     Returns None for rays at/above the horizon (within MIN_DEPRESSION_RAD) and
     for ranges beyond max_range_m — dropped, never clamped.

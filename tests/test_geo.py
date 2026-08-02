@@ -80,7 +80,9 @@ def test_raycast_horizon_guard_and_range_drop():
 
 def test_pitch_shifts_dead_ahead_elevation():
     # +2 deg pitch raises the forward axis: a pixel at pano-frame depression 5 deg
-    # sits at world depression 3 deg (provisional sign, see --pose-ablation)
+    # sits at world depression 3 deg. (Fusion runs with apply_pose=False — the
+    # ablation showed GSV equirects are pre-rectified — but the rotation itself
+    # must stay correct for experiments and unrectified sources.)
     pose = _flat_pose(pitch=2.0, roll=0.0)
     g = geo.detection_ground_point(pose, 0.5, _y_for_depression(math.radians(5.0)),
                                    max_range_m=100.0)

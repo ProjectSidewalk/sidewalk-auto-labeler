@@ -2,8 +2,10 @@
 physical curb-ramp sites.
 
 Reads a run's results.jsonl, projects every stored detection to a flat-ground
-world point (geo.detection_ground_point — pitch/roll-aware, anisotropic error),
-and greedily associates them into sites:
+world point (geo.detection_ground_point with anisotropic error; camera
+pitch/roll deliberately NOT applied — the --pose-ablation experiment showed
+streetlevel's GSV equirects are already gravity-rectified), and greedily
+associates them into sites:
 
 - processed in descending confidence, so every operational (>= --min-confidence)
   detection is placed before any sub-threshold one;
@@ -63,7 +65,9 @@ class FuseParams:
     max_match_m: float = 8.0         # above dual-ramp scatter, below corner spacing
     residual_per_dof_max: float = 3.0
     camera_height_m: float = geo.DEFAULT_CAMERA_HEIGHT_M
-    apply_pose: bool = True
+    apply_pose: bool = False         # GSV equirects are gravity-rectified; applying
+                                     # metadata pitch/roll loosens multi-view
+                                     # agreement (see geo._world_ray for the numbers)
     sigma_scale: float = 1.0         # inflate all covariances by scale^2 (model tuning)
     max_vintage_months: object = None  # eval-ablation only; None = no gate
 
@@ -382,8 +386,9 @@ def main():
     ap.add_argument('--camera-height-m', type=float,
                     default=geo.DEFAULT_CAMERA_HEIGHT_M)
     ap.add_argument('--sigma-scale', type=float, default=1.0)
-    ap.add_argument('--no-pose', action='store_true',
-                    help='ignore camera pitch/roll (flat-horizon raycast)')
+    ap.add_argument('--apply-pose', action='store_true',
+                    help='rotate rays by camera pitch/roll (measured to hurt on '
+                         'GSV — see the --pose-ablation report)')
     ap.add_argument('--pose-ablation', action='store_true',
                     help='report within-site spread under each pitch/roll sign '
                          'convention instead of writing sites')
@@ -399,7 +404,7 @@ def main():
         max_range_m=args.max_range_m, gate_chi2=args.gate_chi2,
         max_match_m=args.max_match_m,
         residual_per_dof_max=args.residual_per_dof_max,
-        camera_height_m=args.camera_height_m, apply_pose=not args.no_pose,
+        camera_height_m=args.camera_height_m, apply_pose=args.apply_pose,
         sigma_scale=args.sigma_scale)
 
     panos, skipped = load_results(jsonl)
@@ -421,7 +426,77 @@ def main():
 
 
 def pose_ablation_report(panos, params):
-    raise NotImplementedError  # implemented with the sign-lock experiment
+    """Empirically lock the pitch/roll sign convention (issue #27 stage 2).
+
+    Association is frozen from a pose-OFF fuse; each member's ground point is
+    then recomputed under every sign convention and the within-site pairwise
+    member distance is compared. The correct convention tightens the cloud
+    (a 2 deg pitch error moves a ground point ~1 m at 10 m, ~4 m at 20 m —
+    far above the noise floor over thousands of multi-view sites); a wrong
+    sign loosens it. Only operational members from panos that carry pitch/roll
+    participate, so Mapillary runs report nothing here.
+    """
+    from dataclasses import replace
+
+    sites, frame, _ = fuse(panos, replace(params, apply_pose=False))
+    by_id = {p.pano_id: p for p in panos}
+    groups = []
+    for site in sites:
+        ms = [d for d, _ in site.members
+              if d.operational and by_id[d.pano_id].camera_pitch is not None
+              and by_id[d.pano_id].camera_roll is not None]
+        if len(ms) >= 2:
+            groups.append(ms)
+    if not groups:
+        return 'no multi-view sites with pitch/roll poses — nothing to ablate'
+
+    conventions = [('off (no pose)', None), ('+pitch +roll', (1, 1)),
+                   ('+pitch -roll', (1, -1)), ('-pitch +roll', (-1, 1)),
+                   ('-pitch -roll', (-1, -1)), ('+pitch  0', (1, 0))]
+    lines = [f'{len(groups)} frozen multi-view sites '
+             f'({sum(len(g) for g in groups)} members); '
+             'within-site pairwise member distance (m):',
+             f'{"convention":>14}  {"mean":>7}  {"median":>7}  {"pairs":>7}']
+    for name, signs in conventions:
+        pose_cache = {}
+        dists = []
+        for ms in groups:
+            pts = []
+            for d in ms:
+                p = by_id[d.pano_id]
+                key = p.pano_id
+                if key not in pose_cache:
+                    if signs is None:
+                        pose_cache[key] = geo.pano_pose(
+                            {'lat': p.lat, 'lng': p.lng,
+                             'camera_heading': p.camera_heading,
+                             'camera_pitch': None, 'camera_roll': None,
+                             'source': p.source})
+                    else:
+                        sp, sr = signs
+                        pose_cache[key] = geo.pano_pose(
+                            {'lat': p.lat, 'lng': p.lng,
+                             'camera_heading': p.camera_heading,
+                             'camera_pitch': sp * p.camera_pitch,
+                             'camera_roll': sr * p.camera_roll,
+                             'source': p.source})
+                g = geo.detection_ground_point(
+                    pose_cache[key], d.x, d.y,
+                    camera_height=params.camera_height_m,
+                    max_range_m=math.inf, errors=geo.error_model_for(p.source))
+                if g is None:
+                    break
+                pts.append(frame.to_enu(g.lat, g.lng))
+            else:
+                for i in range(len(pts)):
+                    for j in range(i + 1, len(pts)):
+                        dists.append(math.hypot(pts[i][0] - pts[j][0],
+                                                pts[i][1] - pts[j][1]))
+        dists.sort()
+        mean = sum(dists) / len(dists)
+        lines.append(f'{name:>14}  {mean:7.3f}  {dists[len(dists) // 2]:7.3f}  '
+                     f'{len(dists):7d}')
+    return '\n'.join(lines)
 
 
 if __name__ == '__main__':
