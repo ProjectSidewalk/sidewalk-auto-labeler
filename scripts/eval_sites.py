@@ -29,6 +29,7 @@ Usage:
     python scripts/eval_sites.py sao_paulo --benchmark-root ../RampNet/benchmark
 """
 import argparse
+import csv
 import json
 import math
 import sys
@@ -193,10 +194,25 @@ def match_one_to_one(ramps, sites, radius_m):
     return matched
 
 
+CAL_FLOORS = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
+VINTAGE_BUCKETS = ((0, '0'), (18, '1-18'), (36, '19-36'), (10 ** 9, '>36'))
+
+
+def _vintage_bucket(delta_months):
+    if delta_months is None:
+        return 'unknown'
+    for bound, name in VINTAGE_BUCKETS:
+        if delta_months <= bound:
+            return name
+
+
 def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
-                  match_radius_m=5.0, gt_merge_m=2.5):
-    """The full stage-3 join for one city; returns a result dict (no I/O)."""
-    sites, frame, fuse_stats = fs.fuse(run_panos, params)
+                  match_radius_m=5.0, gt_merge_m=2.5, prefused=None):
+    """The full stage-3 join for one city; returns a result dict (no I/O).
+
+    prefused=(sites, frame, fuse_stats) skips re-association — used by the
+    match-radius sweep, where fusion is identical across radii."""
+    sites, frame, fuse_stats = prefused or fs.fuse(run_panos, params)
     op_sites = [s for s in sites if s.n_operational > 0]
     sub_sites = [s for s in sites if s.n_operational == 0]
     run_by_id = {p.pano_id: p for p in run_panos}
@@ -212,7 +228,8 @@ def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
     unmatched_idx = [i for i in range(len(pool)) if i not in matched_op]
     matched_sub = match_one_to_one([pool[i] for i in unmatched_idx],
                                    sub_sites, match_radius_m)
-    sub_hits = {unmatched_idx[j] for j in matched_sub}
+    sub_site_of = {unmatched_idx[j]: site for j, site in matched_sub.items()}
+    sub_hits = set(sub_site_of)
 
     buckets = {'self_detected': 0, 'recovered_other_view': 0,
                'subthreshold_only': 0, 'unmatched': 0}
@@ -231,6 +248,7 @@ def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
 
     # GT-incompleteness-safe world precision over operational sites seen by GT panos
     tp = fp = unsure_only = 0
+    tp_site_ids, fp_site_ids = set(), set()
     for site in op_sites:
         verdicts = [op_verdicts[(d.pano_id, d.det_index)]
                     for d, _ in site.members
@@ -239,13 +257,118 @@ def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
             continue
         if any(v is True or v == 'duplicate' for v in verdicts):
             tp += 1
+            tp_site_ids.add(site.id)
         elif any(v is False for v in verdicts):
             fp += 1
+            fp_site_ids.add(site.id)
         else:
             unsure_only += 1
 
     n_pool = len(pool)
     world_recalled = buckets['self_detected'] + buckets['recovered_other_view']
+
+    # (d) stage-4 promotion calibration: support profiles k(f) for GT ramps not
+    # recovered at the operational threshold, and the promotion curve.
+    has_subfloor = any(c < OPERATIONAL_CONFIDENCE
+                       for p in run_panos for _, _, _, c in p.detections)
+    calibration = None
+    if has_subfloor:
+        profiles = []
+        for i, ramp in enumerate(pool):
+            if ramp.self_detected or i in matched_op:
+                continue
+            site = sub_site_of.get(i)
+            ks = {f: (0 if site is None else
+                      len({d.pano_id for d, _ in site.members if d.conf >= f}))
+                  for f in CAL_FLOORS}
+            profiles.append({'ramp_index': i,
+                             'panos': sorted(ramp.pano_ids),
+                             'site_id': None if site is None else site.id,
+                             'k': ks})
+        promotion = []
+        for f in CAL_FLOORS:
+            for k in (1, 2, 3):
+                promoted = sum(1 for pr in profiles if pr['k'][f] >= k)
+                promotion.append({
+                    'floor': f, 'k': k, 'promoted_ramps': promoted,
+                    'recall_if_promoted':
+                        (world_recalled + promoted) / n_pool if n_pool else None})
+        # ghost check: other-pano support of judged operational detections —
+        # does consensus separate real ramps from view-consistent false positives?
+        site_of_member = {(d.pano_id, d.det_index): s
+                          for s in sites for d, _ in s.members}
+        ghost_raw = {'true': [], 'false': []}
+        for (pid, si), v in sorted(op_verdicts.items()):
+            key = 'true' if v is True else 'false' if v is False else None
+            site = site_of_member.get((pid, si))
+            if key is None or site is None:
+                continue
+            ghost_raw[key].append(
+                {f: len({d.pano_id for d, _ in site.members
+                         if d.pano_id != pid and d.conf >= f})
+                 for f in CAL_FLOORS})
+        ghost = []
+        for f in CAL_FLOORS:
+            row = {'floor': f,
+                   'n_true': len(ghost_raw['true']),
+                   'n_false': len(ghost_raw['false'])}
+            for k in (1, 2):
+                for key in ('true', 'false'):
+                    n = len(ghost_raw[key])
+                    row[f'{key}_ge{k}'] = (
+                        sum(1 for ks in ghost_raw[key] if ks[f] >= k) / n
+                        if n else None)
+            ghost.append(row)
+        calibration = {'profiles': profiles, 'promotion': promotion,
+                       'ghost': ghost}
+
+    # (e) member-pair capture-date deltas, overall and within judged TP/FP sites
+    vintage = {'all': {}, 'tp_sites': {}, 'fp_sites': {}}
+    for site in sites:
+        if len(site.members) < 2:
+            continue
+        keys = ['all']
+        if site.id in tp_site_ids:
+            keys.append('tp_sites')
+        elif site.id in fp_site_ids:
+            keys.append('fp_sites')
+        ms = [d.months for d, _ in site.members]
+        for i in range(len(ms)):
+            for j in range(i + 1, len(ms)):
+                delta = None if ms[i] is None or ms[j] is None \
+                    else abs(ms[i] - ms[j])
+                b = _vintage_bucket(delta)
+                for key in keys:
+                    vintage[key][b] = vintage[key].get(b, 0) + 1
+
+    # (f) dual-ramp separation: same-pano GT points < 5 m apart -> how often do
+    # both end up with their own operational site? (one-to-one matching means
+    # "both matched" == "kept separate")
+    ramp_of_point = {}
+    for ri, ramp in enumerate(ramps):
+        for ptx in ramp.points:
+            ramp_of_point[id(ptx)] = ri
+    pool_index = {id(ramp): i for i, ramp in enumerate(pool)}
+    dual = {'pairs': 0, 'both_matched': 0, 'one_matched': 0, 'neither': 0}
+    by_pano = {}
+    for ptx in points:
+        by_pano.setdefault(ptx.pano_id, []).append(ptx)
+    for pid in sorted(by_pano):
+        pts = by_pano[pid]
+        for i in range(len(pts)):
+            for j in range(i + 1, len(pts)):
+                if math.hypot(pts[i].e - pts[j].e, pts[i].n - pts[j].n) >= 5.0:
+                    continue
+                dual['pairs'] += 1
+                hits = 0
+                for ptx in (pts[i], pts[j]):
+                    ramp = ramps[ramp_of_point[id(ptx)]]
+                    pi = pool_index.get(id(ramp))
+                    if pi is not None and pi in matched_op:
+                        hits += 1
+                dual['both_matched' if hits == 2
+                     else 'one_matched' if hits == 1 else 'neither'] += 1
+
     return {
         'params': {'match_radius_m': match_radius_m, 'gt_merge_m': gt_merge_m,
                    'min_confidence': params.min_confidence,
@@ -264,6 +387,9 @@ def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
         'precision': {'tp': tp, 'fp': fp, 'unsure_only': unsure_only,
                       'value': tp / (tp + fp) if tp + fp else None,
                       'ci': wilson(tp, tp + fp)},
+        'calibration': calibration,
+        'vintage': vintage,
+        'dual_ramp': dual,
     }
 
 
@@ -297,6 +423,48 @@ def format_report(city, r):
         f"world precision  {pct(p['value'])} {ci(p['ci'])}  "
         f"(TP {p['tp']}, FP {p['fp']}, unsure-only {p['unsure_only']} excluded)",
     ]
+    d = r['dual_ramp']
+    if d['pairs']:
+        lines.append(f"dual ramps       {d['pairs']} same-pano GT pairs < 5 m: "
+                     f"{d['both_matched']} kept separate, {d['one_matched']} "
+                     f"half-matched, {d['neither']} unmatched")
+    v = r['vintage']['all']
+    if v:
+        order = ['0', '1-18', '19-36', '>36', 'unknown']
+        lines.append("vintage          member pairs by capture delta (months): "
+                     + ', '.join(f"{b} = {v[b]}" for b in order if b in v))
+        for key, label in (('tp_sites', 'TP-site'), ('fp_sites', 'FP-site')):
+            vv = r['vintage'][key]
+            if vv:
+                lines.append(f"                 {label} pairs: "
+                             + ', '.join(f"{b} = {vv[b]}"
+                                         for b in order if b in vv))
+    cal = r['calibration']
+    if cal is None:
+        lines.append("promotion        skipped: this run stores no "
+                     "sub-threshold detections")
+    else:
+        base = r['world_recall']
+        lines.append(f"promotion        {len(cal['profiles'])} pool ramps missed "
+                     f"at {r['params']['min_confidence']}; world recall if "
+                     "sub-threshold sites with >=k views at conf>=f were "
+                     "accepted (base "
+                     f"{'n/a' if base is None else format(base, '.3f')}):")
+        lines.append(f"{'floor':>18} " + ' '.join(f'{f:>6.2f}'
+                                                  for f in CAL_FLOORS))
+        for k in (1, 2, 3):
+            row = {p['floor']: p['recall_if_promoted']
+                   for p in cal['promotion'] if p['k'] == k}
+            lines.append(f"{'k>=' + str(k):>18} "
+                         + ' '.join('   n/a' if row[f] is None
+                                    else f'{row[f]:>6.3f}' for f in CAL_FLOORS))
+        g25 = next(g for g in cal['ghost'] if abs(g['floor'] - 0.25) < 1e-9)
+        fmt = lambda x: 'n/a' if x is None else f'{x:.3f}'  # noqa: E731
+        lines.append(
+            "ghost check      other-pano support >=1 view at conf>=0.25: "
+            f"verdict-true dets {fmt(g25['true_ge1'])} "
+            f"(n={g25['n_true']}) vs verdict-false {fmt(g25['false_ge1'])} "
+            f"(n={g25['n_false']})")
     if r['self_detected_without_site']:
         lines.append(f"note: {r['self_detected_without_site']} self-detected "
                      "ramps had no operational site within radius (projector/"
@@ -304,6 +472,60 @@ def format_report(city, r):
     for w in r['warnings']:
         lines.append(f'warning: {w}')
     return '\n'.join(lines)
+
+
+def radius_sweep_table(results_by_radius):
+    lines = ["match-radius sweep:",
+             f"{'radius_m':>9} {'world_recall':>13} {'own_view':>9} "
+             f"{'precision':>10} {'unmatched':>10}"]
+    for radius, r in results_by_radius:
+        pct = lambda x: 'n/a' if x is None else f'{x:.3f}'  # noqa: E731
+        lines.append(f"{radius:>9.1f} {pct(r['world_recall']):>13} "
+                     f"{pct(r['own_view_recall']):>9} "
+                     f"{pct(r['precision']['value']):>10} "
+                     f"{r['buckets']['unmatched']:>10}")
+    return '\n'.join(lines)
+
+
+def vintage_ablation_table(results_by_window):
+    lines = ["vintage ablation (max member capture delta enforced at fusion):",
+             f"{'window':>10} {'world_recall':>13} {'precision':>10} "
+             f"{'multi_pano':>11}"]
+    for window, r in results_by_window:
+        pct = lambda x: 'n/a' if x is None else f'{x:.3f}'  # noqa: E731
+        name = 'none' if window is None else f'{window} mo'
+        lines.append(f"{name:>10} {pct(r['world_recall']):>13} "
+                     f"{pct(r['precision']['value']):>10} "
+                     f"{r['fuse']['n_multi_pano_sites']:>11}")
+    return '\n'.join(lines)
+
+
+def write_outputs(out_dir, report_text, result):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / 'report.md').write_text(report_text + '\n', encoding='utf-8')
+    cal = result['calibration']
+    if cal is None:
+        return
+    with open(out_dir / 'calibration.csv', 'w', newline='',
+              encoding='utf-8') as f:
+        w = csv.DictWriter(f, ['floor', 'k', 'promoted_ramps',
+                               'recall_if_promoted'])
+        w.writeheader()
+        w.writerows(cal['promotion'])
+    with open(out_dir / 'ghost_check.csv', 'w', newline='',
+              encoding='utf-8') as f:
+        w = csv.DictWriter(f, list(cal['ghost'][0].keys()))
+        w.writeheader()
+        w.writerows(cal['ghost'])
+    with open(out_dir / 'support_profiles.csv', 'w', newline='',
+              encoding='utf-8') as f:
+        w = csv.writer(f)
+        w.writerow(['ramp_index', 'panos', 'site_id']
+                   + [f'k_at_{f:.2f}' for f in CAL_FLOORS])
+        for pr in cal['profiles']:
+            w.writerow([pr['ramp_index'], ';'.join(pr['panos']),
+                        '' if pr['site_id'] is None else pr['site_id']]
+                       + [pr['k'][f] for f in CAL_FLOORS])
 
 
 def load_city_files(city, benchmark_root, run_dir):
@@ -329,15 +551,54 @@ def main():
     ap.add_argument('--run-dir', type=Path, default=None)
     ap.add_argument('--match-radius-m', type=float, default=5.0)
     ap.add_argument('--gt-merge-m', type=float, default=2.5)
+    ap.add_argument('--radius-sweep', type=float, nargs='*',
+                    default=[2.5, 5.0, 7.5, 10.0])
+    ap.add_argument('--vintage-ablation', action='store_true',
+                    help='re-fuse at capture-delta windows 0/18/36/none and '
+                         'compare world P/R (the #27 open question)')
+    ap.add_argument('--out', type=Path, default=None,
+                    help='output dir (default runs/<city>/fusion_eval)')
     args = ap.parse_args()
 
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
     verdict_panos, bundle_ops, run_panos = load_city_files(
         args.city, args.benchmark_root, run_dir)
-    result = evaluate_city(verdict_panos, bundle_ops, run_panos, fs.FuseParams(),
+    params = fs.FuseParams()
+    prefused = fs.fuse(run_panos, params)
+
+    result = evaluate_city(verdict_panos, bundle_ops, run_panos, params,
                            match_radius_m=args.match_radius_m,
-                           gt_merge_m=args.gt_merge_m)
-    print(format_report(args.city, result))
+                           gt_merge_m=args.gt_merge_m, prefused=prefused)
+    sections = [format_report(args.city, result)]
+
+    sweep = [r for r in args.radius_sweep
+             if abs(r - args.match_radius_m) > 1e-9]
+    if sweep:
+        by_radius = [(args.match_radius_m, result)]
+        for radius in sweep:
+            by_radius.append((radius, evaluate_city(
+                verdict_panos, bundle_ops, run_panos, params,
+                match_radius_m=radius, gt_merge_m=args.gt_merge_m,
+                prefused=prefused)))
+        by_radius.sort(key=lambda t: t[0])
+        sections.append(radius_sweep_table(by_radius))
+
+    if args.vintage_ablation:
+        from dataclasses import replace
+        by_window = []
+        for window in (0, 18, 36, None):
+            p = replace(params, max_vintage_months=window)
+            by_window.append((window, evaluate_city(
+                verdict_panos, bundle_ops, run_panos, p,
+                match_radius_m=args.match_radius_m,
+                gt_merge_m=args.gt_merge_m)))
+        sections.append(vintage_ablation_table(by_window))
+
+    report_text = '\n\n'.join(sections)
+    print(report_text)
+    out_dir = args.out or run_dir / 'fusion_eval'
+    write_outputs(out_dir, report_text, result)
+    print(f'\nwrote {out_dir}')
 
 
 if __name__ == '__main__':

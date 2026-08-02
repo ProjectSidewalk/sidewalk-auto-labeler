@@ -38,7 +38,7 @@ def test_all_four_recall_buckets():
         # ramp C (60,0): g3 misses it, two sub-threshold views -> subthreshold_only
         make_pano('g3', 60, -10, [], heading_deg=0.0),
         make_pano('n2', 60, 10, [(60, 0, 0.30)]),
-        make_pano('n3', 68, 0, [(60, 0, 0.28)]),
+        make_pano('n3', 68, 0, [(60, 0, 0.28)], capture='2022-03'),
         # ramp D (90,0): g4 misses it, nobody else sees it -> unmatched
         make_pano('g4', 90, -10, [], heading_deg=0.0),
     ]
@@ -59,6 +59,43 @@ def test_all_four_recall_buckets():
     # precision: only g1's site has a judged member -> TP
     assert (r['precision']['tp'], r['precision']['fp']) == (1, 0)
     assert not r['warnings']
+
+    # (d) promotion calibration: ramp C's site has views at 0.30 and 0.28, ramp D
+    # has none, so k(f) drops from 2 to 1 to 0 as the floor crosses them
+    cal = r['calibration']
+    assert len(cal['profiles']) == 2   # ramps C and D
+    k_by_ramp = {tuple(p['panos']): p['k'] for p in cal['profiles']}
+    c_k = next(k for panos, k in k_by_ramp.items() if 'g3' in panos)
+    assert (c_k[0.10], c_k[0.25], c_k[0.30], c_k[0.35]) == (2, 2, 1, 0)
+    promo = {(p['floor'], p['k']): p['recall_if_promoted']
+             for p in cal['promotion']}
+    assert promo[(0.25, 2)] == 0.75    # base 0.5 + ramp C
+    assert promo[(0.30, 2)] == 0.5     # n3's 0.28 view falls below the floor
+    assert promo[(0.30, 1)] == 0.75
+    # ghost check: g1's true detection has no other-pano support in this city
+    g25 = next(g for g in cal['ghost'] if abs(g['floor'] - 0.25) < 1e-9)
+    assert g25['true_ge1'] == 0.0 and g25['n_true'] == 1
+    assert g25['n_false'] == 0 and g25['false_ge1'] is None
+
+    # (e) the only multi-member site is C's (n2 2024-06, n3 2022-03: 27 months)
+    assert r['vintage']['all'] == {'19-36': 1}
+
+
+def test_dual_ramps_keep_separate_sites():
+    # One GT pano marks two missed ramps 3 m apart; a neighbor detects both.
+    # The neighbor's two peaks are cannot-linked into two sites, and one-to-one
+    # matching must give each GT ramp its own site.
+    panos = [make_pano('g1', 0, -10, [], heading_deg=0.0),
+             make_pano('n1', 0, 10, [(-1.5, 0, 0.9), (1.5, 0, 0.85)],
+                       heading_deg=180.0)]
+    verdicts = {'g1': _entry(missed=[_xy(0, -10, 0.0, -1.5, 0),
+                                     _xy(0, -10, 0.0, 1.5, 0)],
+                             no_missed=False)}
+    r = es.evaluate_city(verdicts, _bundle_ops(panos, verdicts), panos,
+                         fs.FuseParams())
+    assert r['dual_ramp'] == {'pairs': 1, 'both_matched': 1,
+                              'one_matched': 0, 'neither': 0}
+    assert r['buckets']['recovered_other_view'] == 2
 
 
 def test_precision_duplicate_false_and_unsure_semantics():
