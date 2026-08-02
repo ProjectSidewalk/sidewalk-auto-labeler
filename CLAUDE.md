@@ -48,6 +48,20 @@ python scripts/export_benchmark.py runs/clovis/results.jsonl \
 # per-city manifests never collide when several cities share an archive root.
 python scripts/export_benchmark.py runs/clovis/results.jsonl --out /path/to/archive/clovis/panos
 
+# MULTI-VIEW FUSION (issue #27, stages 2-3). Associate a finished run's detections
+# into physical-ramp sites (world-space raycast + constrained clustering; no GPU,
+# no network); writes runs/<name>/sites.jsonl + sites_meta.json.
+python scripts/fuse_sites.py runs/paterson
+# ...--pose-ablation reports within-site spread per pitch/roll sign convention
+# instead (the experiment that showed GSV equirects are already gravity-rectified).
+
+# Score fusion against RampNet GT in world space: world P/R, the union-recall
+# decomposition, stage-4 promotion calibration, vintage + match-radius ablations.
+# Reads ../RampNet/benchmark/<city>/{verdicts.json,records.jsonl} as data (no
+# RampNet code import); writes runs/<city>/fusion_eval/{report.md,*.csv}.
+python scripts/eval_sites.py paterson
+python scripts/eval_sites.py paterson --vintage-ablation
+
 # Run the tests (no GPU/network/model; light deps via requirements-test.txt)
 pytest
 
@@ -136,8 +150,30 @@ decision threshold. The two-threshold contract lives in `detectors/__init__.py` 
 importable everywhere): results.jsonl deliberately stores sub-threshold candidates as raw
 material for multi-view fusion (#27), and everything that *acts* on detections filters at
 `OPERATIONAL_CONFIDENCE=0.55` — `send_to_ps.py --min-confidence`, `export_benchmark.py`'s
-strata + bundle records, `thinning_experiment.py`'s ramp sites. Detections are returned as
+strata + bundle records, `thinning_experiment.py`'s ramp sites, `fuse_sites.py`'s
+operational tier (which deliberately also associates the sub-floor band, flagged
+`in_refit: false` — the one sanctioned sub-floor consumer). Detections are returned as
 **normalized** `(x, y, confidence)` tuples in `[0, 1]`.
+
+**Multi-view fusion (`geo.py`, `scripts/fuse_sites.py`, `scripts/eval_sites.py`)** —
+issue #27 stages 2–3, a post-processing layer between detection and submission.
+`geo.py` (repo root, stdlib-only, torch/numpy-free like `detectors/__init__.py`) is the
+single home for geodesy: haversine + the declustering grid (imported back by
+`export_benchmark.py`), a `LocalFrame` ENU tangent plane, and the ground raycast
+`detection_ground_point` — flat-ground intersection at 2.6 m camera height with
+closed-form anisotropic error from the 1024×512 heatmap quantization, **dropping** (never
+clamping) rays beyond 25 m. Camera pitch/roll are deliberately NOT applied: the
+`--pose-ablation` experiment measured that streetlevel's GSV equirects are already
+gravity-rectified (details in `geo._world_ray`'s docstring). `fuse_sites.py` associates a
+run's stored detections into physical-ramp sites (descending-confidence greedy with a
+same-pano cannot-link, chi-square gating, inverse-covariance refit, residual rejection;
+sub-threshold detections attach as `in_refit: false` support and never move operational
+positions) and writes `runs/<name>/sites.jsonl` — cluster plus members, so the
+what-to-submit decision stays late; it reads no manifest and leaves `send_to_ps.py`
+untouched. `eval_sites.py` scores fusion against RampNet's benchmark verdicts in world
+space (semantics mirror `rampnet.validation.collect`) and produces the stage-4 promotion
+calibration. Measured 2026-08-02 (5 m match radius): world recall 0.93–0.96 vs own-view
+0.72–0.83, precision 0.89–0.98 across paterson/gainesville/sao_paulo/richmond/bend.
 
 **Stage 2 — submission (`send_to_ps.py`)**
 Reads the Stage-1 JSONL and POSTs each record to a Project Sidewalk endpoint
