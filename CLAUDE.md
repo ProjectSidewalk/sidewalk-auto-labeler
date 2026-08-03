@@ -11,9 +11,13 @@ JSONL file. A separate script then submits those predictions to a Project Sidewa
 ## Commands
 
 ```bash
-# Set up the conda environment (CUDA build of torch; GPU strongly recommended)
-conda env create -f environment.yml
-conda activate sidewalk-auto-labeler
+# Set up the environment (GPU strongly recommended). requirements.txt is the single
+# source of truth for pins; environment.yml just pins python and defers to it.
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+# ...on Windows/macOS install the CUDA torch build first (linux-64 gets it by default):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+# conda also works: conda env create -f environment.yml && conda activate sidewalk-auto-labeler
 
 # Scope an area first: pano count + runtime estimate, no model load, nothing processed
 python main.py example_geojson/bend.geojson --name bend --scan-only

@@ -114,19 +114,26 @@ detections with nowhere valid to attach.
 A CUDA-capable GPU is strongly recommended — running the detector on CPU is very slow.
 
 ```bash
-conda env create -f environment.yml
-conda activate sidewalk-auto-labeler
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-> **Note:** `environment.yml` is a **linux-64 conda export** and will not solve on Windows or
-> macOS. On those platforms use the portable requirements file instead:
->
-> ```bash
-> conda create -n sidewalk-auto-labeler python=3.12
-> conda activate sidewalk-auto-labeler
-> pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126  # CUDA build
-> pip install -r requirements.txt
-> ```
+On **linux-64** that pulls a CUDA-enabled PyTorch wheel by default, so the GPU is used with
+no extra step. On **Windows/macOS** the default wheel is CPU-only — install the CUDA build
+first:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+pip install -r requirements.txt
+```
+
+> **conda works too** (`conda env create -f environment.yml && conda activate
+> sidewalk-auto-labeler`), but it buys nothing here: no dependency comes from a conda
+> channel, and the CUDA runtime already arrives as the `nvidia-*-cu12` pip wheels torch
+> depends on. `environment.yml` pins only the interpreter and defers to
+> `requirements.txt`, which is the **single source of truth** for versions — pin things
+> there, and don't `conda env export` over it.
 
 The environment pins a CUDA 12.6 build of PyTorch. On first run, the RampNet model
 (~hundreds of MB) is downloaded from HuggingFace and cached locally.
@@ -395,8 +402,8 @@ CI runs the same suite on every push (`.github/workflows/tests.yml`).
 │   └── visual_check.py        # Single-pano coordinate spot check
 ├── tests/                   # Pytest suite (light deps only; no network, no model)
 ├── example_geojson/         # Example area polygons (Bend, Chicago, Vancouver)
-├── environment.yml          # Conda environment (linux-64 export)
-├── requirements.txt         # Portable pip requirements (Windows/macOS or non-conda)
+├── environment.yml          # Conda env: pins python only, defers to requirements.txt
+├── requirements.txt         # Pip requirements — the single source of truth for pins
 ├── requirements-test.txt    # Test/laptop deps (everything except torch)
 └── runs/                    # Per-area results + resume state (git-ignored)
 ```
