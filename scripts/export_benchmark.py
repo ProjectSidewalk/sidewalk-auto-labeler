@@ -43,7 +43,6 @@ import argparse
 import csv
 import hashlib
 import json
-import math
 import random
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -58,6 +57,7 @@ sys.path.insert(0, str(REPO_ROOT))
 load_dotenv(REPO_ROOT / ".env")
 
 from detectors import OPERATIONAL_CONFIDENCE  # noqa: E402
+from geo import haversine_m as _haversine_m, LatLngSpacingIndex as _SpatialIndex  # noqa: E402
 from sources import mapillary  # noqa: E402
 
 WORKERS = 6
@@ -74,49 +74,11 @@ DEFAULT_MIN_SPACING_M = 30
 
 # --- Sampling: which panos become the benchmark ---------------------------------------
 
-def _haversine_m(lat1, lng1, lat2, lng2):
-    R = 6371000.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp, dl = math.radians(lat2 - lat1), math.radians(lng2 - lng1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * R * math.asin(math.sqrt(a))
-
-
 def _coords(record):
     """(lat, lng) for a record, or None if it carries no position."""
     p = record['pano']
     lat, lng = p.get('lat'), p.get('lng')
     return (lat, lng) if lat is not None and lng is not None else None
-
-
-class _SpatialIndex:
-    """Grid of accepted points for fast 'is anything within min_spacing?' checks.
-
-    Cell size == min_spacing, so any point within range lies in one of the nine
-    neighbouring cells — the acceptance test touches a handful of points, not the
-    whole accepted set, so selection stays cheap on city-sized candidate pools.
-    """
-
-    def __init__(self, min_spacing):
-        self.s = max(min_spacing, 1e-9)
-        self.cells = {}
-
-    def _key(self, lat, lng):
-        clat = self.s / 111320.0
-        clng = self.s / (111320.0 * max(0.01, math.cos(math.radians(lat))))
-        return (math.floor(lat / clat), math.floor(lng / clng))
-
-    def far_enough(self, lat, lng):
-        kx, ky = self._key(lat, lng)
-        for dx in (-1, 0, 1):
-            for dy in (-1, 0, 1):
-                for plat, plng in self.cells.get((kx + dx, ky + dy), ()):
-                    if _haversine_m(lat, lng, plat, plng) < self.s:
-                        return False
-        return True
-
-    def add(self, lat, lng):
-        self.cells.setdefault(self._key(lat, lng), []).append((lat, lng))
 
 
 def _spread(candidates, k, index, min_spacing):
