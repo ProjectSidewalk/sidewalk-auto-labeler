@@ -1,7 +1,7 @@
 # Sidewalk Auto-Labeler
 
-Automatically detect **curb ramps** in Google Street View (GSV) imagery across an entire
-city and submit the predictions to [Project Sidewalk](https://projectsidewalk.org/).
+Automatically detect **curb ramps** in streetscape imagery across large geographic areas 
+and submit the predictions to [Project Sidewalk](https://projectsidewalk.org/).
 
 Give it a geographic area (a GeoJSON polygon), and it will:
 
