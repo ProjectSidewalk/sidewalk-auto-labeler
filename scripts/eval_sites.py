@@ -33,7 +33,7 @@ import csv
 import json
 import math
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -529,8 +529,8 @@ def write_outputs(out_dir, report_text, result):
 
 
 def load_city_files(city, benchmark_root, run_dir):
-    verdicts = json.load(open(benchmark_root / city / 'verdicts.json',
-                              encoding='utf-8'))
+    with open(benchmark_root / city / 'verdicts.json', encoding='utf-8') as f:
+        verdicts = json.load(f)
     bundle_ops = {}
     with open(benchmark_root / city / 'records.jsonl', encoding='utf-8') as f:
         for line in f:
@@ -584,7 +584,6 @@ def main():
         sections.append(radius_sweep_table(by_radius))
 
     if args.vintage_ablation:
-        from dataclasses import replace
         by_window = []
         for window in (0, 18, 36, None):
             p = replace(params, max_vintage_months=window)

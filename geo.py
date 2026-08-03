@@ -84,14 +84,15 @@ class GridIndex:
         self.cell = max(cell_m, 1e-9)
         self.cells = {}
 
-    def _key(self, e, n):
+    def key(self, e, n):
+        """Cell key for (e, n) — public so movers can detect cell crossings."""
         return (math.floor(e / self.cell), math.floor(n / self.cell))
 
     def add(self, e, n, item):
-        self.cells.setdefault(self._key(e, n), []).append(item)
+        self.cells.setdefault(self.key(e, n), []).append(item)
 
     def near(self, e, n):
-        kx, ky = self._key(e, n)
+        kx, ky = self.key(e, n)
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
                 yield from self.cells.get((kx + dx, ky + dy), ())

@@ -69,7 +69,7 @@ class FuseParams:
                                      # metadata pitch/roll loosens multi-view
                                      # agreement (see geo._world_ray for the numbers)
     sigma_scale: float = 1.0         # inflate all covariances by scale^2 (model tuning)
-    max_vintage_months: object = None  # eval-ablation only; None = no gate
+    max_vintage_months: int | None = None  # eval-ablation only; None = no gate
 
 
 @dataclass
@@ -79,9 +79,9 @@ class SlimPano:
     lat: float
     lng: float
     camera_heading: float
-    camera_pitch: object
-    camera_roll: object
-    capture_date: object
+    camera_pitch: float | None
+    camera_roll: float | None
+    capture_date: str | None
     source: str
     detections: list  # [(det_index, x_normalized, y_normalized, confidence)] as stored
 
@@ -99,8 +99,8 @@ class Det:
     n: float
     cov: tuple            # sym2 ENU covariance, sigma_scale applied
     ground: geo.GroundEstimate
-    months: object        # capture date as months-since-year-0, or None
-    capture_date: object
+    months: int | None    # capture date as months-since-year-0
+    capture_date: str | None
     source: str
 
 
@@ -290,10 +290,10 @@ def fuse(panos, params):
                     site.tentative_residual_per_dof(det) > params.residual_per_dof_max:
                 new_site(det)
                 continue
-            old_key = grid._key(site.e, site.n)
+            old_key = grid.key(site.e, site.n)
             site._absorb(det)
             site._add_member(det, in_refit=True)
-            if grid._key(site.e, site.n) != old_key:
+            if grid.key(site.e, site.n) != old_key:
                 grid.add(site.e, site.n, site)
         else:
             site._add_member(det, in_refit=False)   # support only; position untouched
