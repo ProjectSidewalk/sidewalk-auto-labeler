@@ -216,7 +216,11 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     return manifest
 
 def record_run(manifest_path, manifest, started_at, found, success, skipped, failed, phase=None):
-    """Appends one entry to the manifest's run history."""
+    """
+    Appends one entry to the manifest's run history. In a phase='gap_fill' entry,
+    'panos_found_in_area' holds the dangling link targets attempted (their in-area
+    status isn't known until fetched) — don't aggregate it across phases.
+    """
     entry = {
         'started_at': started_at,
         'finished_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
@@ -243,7 +247,14 @@ def dangling_link_targets(results_path, processed_ids):
     have = set(processed_ids)
     with open(results_path, 'r') as f:
         for line in f:
-            pano = json.loads(line)['pano']
+            try:
+                pano = json.loads(line)['pano']
+            except (json.JSONDecodeError, KeyError):
+                # A run killed mid-write can leave a truncated final line; its pano is
+                # uncached (cache is written after the JSONL line), so it retries on
+                # the next main pass — skipping it here loses nothing.
+                print("  ⚠️ Gap fill: skipping a malformed results.jsonl line.")
+                continue
             have.add(pano['panorama_id'])
             for link in pano.get('links') or []:
                 target = link.get('target_gsv_panorama_id')
@@ -297,7 +308,7 @@ def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None):
         totals[2] += counts['skipped']
         totals[3] += counts['failed']
         print(f"-> Gap fill: {counts['success']} added, {counts['skipped']} skipped "
-              f"(outside area/indoor), {counts['failed']} failed.")
+              f"(outside area, indoor, or unusable metadata), {counts['failed']} failed.")
     return tuple(totals)
 
 def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thin_spacing=None,
@@ -350,7 +361,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
             print(f"\n--- Gap Fill Report ---\n"
                   f"Dangling link targets tried: {gf[0]}\n"
                   f"Added to the run:            {gf[1]}\n"
-                  f"Skipped (outside/indoor):    {gf[2]}\n"
+                  f"Skipped (outside/unusable):  {gf[2]}\n"
                   f"Failed (will retry):         {gf[3]}\n"
                   f"-----------------------")
         return
@@ -465,7 +476,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     print(f"Failed to process:      {fail_count}")
     if gf is not None:
         print(f"Gap fill (link graph):  {gf[1]} added of {gf[0]} dangling targets "
-              f"({gf[2]} outside/skipped, {gf[3]} failed)")
+              f"({gf[2]} skipped, {gf[3]} failed)")
     print(f"Results saved to: {output_jsonl_file}")
     print(f"Export benchmark bundle (imagery for RampNet GT/scoring): python scripts/export_benchmark.py {output_jsonl_file} --out <dir>")
     print("----------------------")
@@ -509,7 +520,9 @@ def main():
     parser.add_argument(
         "--limit", type=int,
         help="Process at most N new panoramas this run (for smoke tests and rate "
-             "measurement); the rest stay uncached and process on a later run."
+             "measurement); the rest stay uncached and process on a later run. The "
+             "budget is shared with the gap-fill phase: whatever the main pass "
+             "doesn't use goes to dangling link targets."
     )
     parser.add_argument(
         "--scan-only", action="store_true",

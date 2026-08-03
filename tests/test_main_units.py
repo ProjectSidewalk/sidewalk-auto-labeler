@@ -80,3 +80,12 @@ def test_dangling_link_targets_tolerates_linkless_records(tmp_path):
     path.write_text(json.dumps({"pano": {"panorama_id": "M", "links": []}, "detections": []}) + "\n" +
                     json.dumps({"pano": {"panorama_id": "N"}, "detections": []}) + "\n")
     assert main.dangling_link_targets(path, set()) == set()
+
+
+def test_dangling_link_targets_skips_truncated_final_line(tmp_path):
+    # A run killed mid-write can leave a truncated last line; the intact records
+    # must still be read (its own pano is uncached, so the main pass retries it).
+    path = _results_file(tmp_path, {"A": ["X"]})
+    with open(path, 'a') as f:
+        f.write('{"pano": {"panorama_id": "TRUNC", "li')
+    assert main.dangling_link_targets(path, set()) == {"X"}
