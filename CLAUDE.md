@@ -62,6 +62,16 @@ python scripts/fuse_sites.py runs/paterson
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
 
+# Eyeball the fusion: one HTML card per site with a crop from every member view,
+# a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.
+# Crops are cut on makelab2's native-res archive and pulled back as a tarball, then
+# cached under runs/<city>/explorer/crops/ (re-renders are offline).
+python scripts/site_explorer.py richmond              # 40 GT-seen sites
+python scripts/site_explorer.py sao_paulo --select fp # only the false positives
+python scripts/site_explorer.py richmond --select fragment  # over-split suspects
+python scripts/site_explorer.py richmond --inline     # one shareable file
+# ...--local-panos <dir> cuts crops locally instead (no SSH; e.g. a RampNet bundle).
+
 # Run the tests (no GPU/network/model; light deps via requirements-test.txt)
 pytest
 
