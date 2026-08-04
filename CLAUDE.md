@@ -30,6 +30,12 @@ python main.py example_geojson/bend.geojson --name bend
 # token from mapillary.com/dashboard/developers — in the env or in gitignored ./.env)
 python main.py example_geojson/richmond.geojson --name richmond --source mapillary
 
+# GSV runs end with a gap-fill phase (issue #32): link-target panos the run's own
+# records reference but the tile scan never enumerated (coverage churn) are fetched
+# by id and kept if their metadata position is in-area. --no-gap-fill skips it;
+# --gap-fill-only retrofits an existing run (add --scan-only to just count targets).
+python main.py runs/paterson/area.geojson --name paterson --gap-fill-only
+
 # GROUND TRUTH / VALIDATION now lives in RampNet, not here. The GT gallery and the
 # precision/recall scorer moved to ProjectSidewalk/RampNet — decoupled from sources/ and
 # merged (RampNet#26/#31): `rampnet.validation` (verdict -> P/R) + `scripts/gt_gallery.py`
@@ -106,6 +112,11 @@ The pipeline is two stages run by two separate entry points:
 3. For each new pano, fetches the 4096×2048 equirectangular image through the source, runs
    the detector (`detectors/curb_ramp.py`), and appends one JSON line per **successfully
    processed** pano — even when zero detections are found (`detections: []`).
+4. **Gap fill** (sources providing `fetch_pano_by_id`, i.e. GSV): after the main pass, any
+   link-target id in results.jsonl that was never processed is fetched by id, positioned
+   from its own metadata, and kept if in-area (outside = deterministic skip, cached) —
+   closing the view graph for multi-view fusion (#27). Iterates until closed; each pass is
+   a `phase: gap_fill` entry in the manifest's run history.
 
 **Imagery sources (`sources/`)** — main.py is source-agnostic; each source module
 (`sources/gsv.py`, `sources/mapillary.py`) implements the interface documented in
