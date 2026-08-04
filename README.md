@@ -298,6 +298,18 @@ The per-city checklist for expanding beyond the example cities (and open questio
 threshold policy and boundary source of truth) is tracked in
 [issue #13](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/13).
 
+### Where we actually run this
+
+Two host-specific runbooks live in [`docs/`](docs/):
+
+- [`production-deployment.md`](docs/production-deployment.md) — the full multi-host
+  production path: the Slurm cluster setup where the city runs are detected, why the
+  native-res imagery is archived on a separate file server, measured throughput, and the
+  operational gotchas. **Note that nothing here deploys automatically** — no webhooks, no
+  CI/CD, no cron; every stage is launched by hand.
+- [`makeability-quickstart.md`](docs/makeability-quickstart.md) — the RA-facing happy path
+  for a single-box run on the lab's `makelab2` GPU server.
+
 ## Working away from the GPU machine
 
 Only **detection** (`main.py` without `--scan-only`) needs the GPU box. Everything else
