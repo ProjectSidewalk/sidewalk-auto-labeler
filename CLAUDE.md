@@ -58,6 +58,19 @@ python scripts/export_benchmark.py runs/clovis/results.jsonl \
 # per-city manifests never collide when several cities share an archive root.
 python scripts/export_benchmark.py runs/clovis/results.jsonl --out /path/to/archive/clovis/panos
 
+# Archive GSV's depth payload for every pano of a finished run (issue #41). GSV serves
+# depth alongside the metadata we already fetch, so this is a metadata-only pass (no
+# imagery) and gzips to ~5-7 KB/pano — ~1 GB for all four GSV runs. Resumable, with the
+# same reconcile/index.csv verification as export_benchmark.py. GSV only; Mapillary runs
+# are refused. Why it matters: the ground plane's distance IS the camera height, and
+# geo.py's hardcoded 2.6 m is above every observed value (issue #40).
+python scripts/harvest_depth.py runs/paterson
+python scripts/harvest_depth.py runs/bend --out /path/to/archive/bend/depth
+python scripts/harvest_depth.py runs/paterson --verify           # reconcile only, no network
+python scripts/harvest_depth.py runs/paterson --check-convention # re-verify depth.py vs
+#   streetlevel's own raster on live panos — run this after any streetlevel upgrade, since
+#   the payload layout is undocumented and positional.
+
 # MULTI-VIEW FUSION (issue #27, stages 2-3). Associate a finished run's detections
 # into physical-ramp sites (world-space raycast + constrained clustering; no GPU,
 # no network); writes runs/<name>/sites.jsonl + sites_meta.json.
@@ -199,6 +212,22 @@ untouched. `eval_sites.py` scores fusion against RampNet's benchmark verdicts in
 space (semantics mirror `rampnet.validation.collect`) and produces the stage-4 promotion
 calibration. Measured 2026-08-02 (5 m match radius): world recall 0.93–0.96 vs own-view
 0.72–0.83, precision 0.89–0.98 across paterson/gainesville/sao_paulo/richmond/bend.
+
+**GSV depth (`depth.py`, `scripts/harvest_depth.py`)** — issues #40/#41. `depth.py` (repo
+root, stdlib-only like `geo.py`) parses GSV's depth payload, which is **not a raster**: it
+is a list of `{normal, distance}` planes plus one plane index per pixel, and streetlevel
+computes a raster from it and then discards the planes. That matters because **the dominant
+ground plane's distance IS the camera height, exactly**, and its normal is the ground tilt.
+Measured across four cities, camera height is per-pano (1.11–2.50 m, tracking capture
+vintage), so `geo.DEFAULT_CAMERA_HEIGHT_M = 2.6` — above every observed value — runs
+**29–35% long at real detection points**; correcting only the height flattens the residual
+across every range bucket, i.e. the flat-ground cotangent is right and only its constant was
+wrong. Two traps live in `depth.py` rather than at call sites: the raster is **mirrored**
+relative to the raw index array (`_raw_column`), and Google returns a degenerate 2-plane
+fallback at exactly 2.500 m that must be filtered structurally (`DEGENERATE_MAX_PLANES`),
+not by testing the value. `harvest_depth.py` archives the payloads before they go away —
+Google withdrew the depth API in 2020 and anonymous tile access in ~2026. GSV only;
+Mapillary serves no depth (its tilt is available but unparsed — see #42).
 
 **Stage 2 — submission (`send_to_ps.py`)**
 Reads the Stage-1 JSONL and POSTs each record to a Project Sidewalk endpoint
