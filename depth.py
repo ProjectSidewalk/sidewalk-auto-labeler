@@ -51,6 +51,11 @@ DEGENERATE_MAX_PLANES = 2
 
 SKY = 0  # plane index 0 means "no plane" -- sky, or unreconstructed
 
+# Fixed prefix: one header-size byte followed by four uint16 fields. The index array
+# begins immediately after it -- see `parse` for why that is derived from the buffer
+# length rather than read from the header's own (unreliable) offset field.
+HEADER_BYTES = 8
+
 
 @dataclass(frozen=True)
 class Plane:
@@ -126,13 +131,26 @@ def parse(b64_string):
     b64_string += "=" * ((4 - len(b64_string) % 4) % 4)
     raw = base64.urlsafe_b64decode(b64_string)
 
-    n_planes, width, height, offset = struct.unpack_from("<HHHH", raw, 1)
-    indices = raw[offset:offset + width * height]
-    if len(indices) != width * height:
-        raise ValueError(f"depth payload truncated: {len(indices)} of {width * height} indices")
+    # `offset` is a **uint8 at byte 7**, not a uint16. This matters: streetlevel (and the
+    # GSVPanoDepth.js it derives from) reads it as a uint16, which absorbs byte 8 — the
+    # *first plane index* — as a high byte. When the top-left pixel is sky (index 0) the
+    # misread is invisible and offset comes out as 8; when it is anything else, offset
+    # comes out as 8 + 256*index, the plane list is then read past the end of the buffer,
+    # and the parse throws. That is ~0.3% of panoramas, and it is why those are
+    # unreadable upstream rather than merely unusual.
+    n_planes, width, height = struct.unpack_from("<HHH", raw, 1)
+    offset = raw[7]
 
+    body = width * height
+    expected = offset + body + 16 * n_planes
+    if offset < HEADER_BYTES or len(raw) < expected:
+        raise ValueError(
+            f"depth payload truncated: {len(raw)} bytes, need {expected} for "
+            f"{width}x{height} and {n_planes} planes at offset {offset}")
+
+    indices = raw[offset:offset + body]
     planes = []
-    base = offset + width * height
+    base = offset + body
     for i in range(n_planes):
         nx, ny, nz, d = struct.unpack_from("<ffff", raw, base + i * 16)
         planes.append(Plane(nx, ny, nz, d))

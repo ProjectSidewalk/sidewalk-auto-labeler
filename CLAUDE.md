@@ -222,10 +222,11 @@ Measured across four cities, camera height is per-pano (1.11–2.50 m, tracking 
 vintage), so `geo.DEFAULT_CAMERA_HEIGHT_M = 2.6` — above every observed value — runs
 **29–35% long at real detection points**; correcting only the height flattens the residual
 across every range bucket, i.e. the flat-ground cotangent is right and only its constant was
-wrong. Two traps live in `depth.py` rather than at call sites: the raster is **mirrored**
-relative to the raw index array (`_raw_column`), and Google returns a degenerate 2-plane
-fallback at exactly 2.500 m that must be filtered structurally (`DEGENERATE_MAX_PLANES`),
-not by testing the value. `harvest_depth.py` archives the payloads before they go away —
+wrong. Three traps live in `depth.py` rather than at call sites: the header's `offset` field
+is a **uint8** at byte 7 (reading it as a uint16 swallows the first plane index and makes
+~0.5% of panos unparseable); the raster is **mirrored** relative to the raw index array
+(`_raw_column`); and Google returns a degenerate 2-plane fallback at exactly 2.500 m that must
+be filtered structurally (`DEGENERATE_MAX_PLANES`), not by testing the value. `harvest_depth.py` archives the payloads before they go away —
 Google withdrew the depth API in 2020 and anonymous tile access in ~2026. GSV only;
 Mapillary serves no depth (its tilt is available but unparsed — see #42).
 

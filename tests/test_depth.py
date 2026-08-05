@@ -28,8 +28,8 @@ def build_payload(width, height, planes, indices):
     planes: list of (nx, ny, nz, d), index 0 being the unused sky slot.
     indices: width*height plane ids in RAW (unmirrored) column order.
     """
-    offset = 9
-    header = bytes([offset]) + struct.pack("<HHHH", len(planes), width, height, offset)
+    offset = depthlib.HEADER_BYTES
+    header = bytes([offset]) + struct.pack("<HHH", len(planes), width, height) + bytes([offset])
     body = bytes(indices)
     tail = b"".join(struct.pack("<ffff", *p) for p in planes)
     return base64.urlsafe_b64encode(header + body + tail).decode().rstrip("=")
@@ -113,6 +113,24 @@ def test_degenerate_reconstructions_are_flagged():
     indices = [depthlib.SKY] * 16 + [1] * 16
     rich = depthlib.parse(build_payload(8, 4, [GROUND] * 5, indices))
     assert rich.degenerate is False
+
+
+def test_nonzero_first_index_still_parses():
+    """The upstream bug: `offset` is a uint8 at byte 7, and streetlevel reads it as a
+    uint16 that swallows byte 8 — the first plane index. So a panorama whose top-left
+    pixel is anything but sky reports offset = 8 + 256*index, sends the plane list past
+    the end of the buffer, and throws. ~0.3% of panoramas, and entirely readable."""
+    width, height = 8, 4
+    # Plane 2 (a wall) fills the top half, so the FIRST index byte is 2 rather than sky's
+    # 0 — which is exactly what makes the upstream uint16 misread fire. Ground stays
+    # confined below the horizon so it is still recognizable as a floor.
+    indices = [2] * 16 + [1] * 16
+    payload = depthlib.parse(build_payload(width, height, [GROUND, GROUND, WALL], indices))
+
+    assert payload.indices[0] == 2
+    assert payload.n_planes == 3
+    assert payload.planes[1].d == pytest.approx(2.5)
+    assert depthlib.ground_plane(payload).camera_height_m == pytest.approx(2.5)
 
 
 def test_truncated_payload_is_rejected():
