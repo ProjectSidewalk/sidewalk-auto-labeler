@@ -14,12 +14,14 @@ where it left off instead of re-POSTing every line.
 """
 
 import argparse
+import ipaddress
 import json
 import os
 import time
 from contextlib import nullcontext
 from typing import Dict, Any, Optional, Set
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 from dotenv import load_dotenv
@@ -37,6 +39,51 @@ RETRY_BACKOFF_SECONDS = [2, 8]
 # records store streetlevel's raw source string ("launch", "scout", ...) instead; any
 # value outside this set is GSV imagery.
 PS_PANO_SOURCES = {"gsv", "mapillary", "infra3d"}
+
+
+def is_loopback(host: Optional[str]) -> bool:
+    """True if `host` means this machine (loopback, or a local server's bind address), so a
+    request to it never reaches the wire."""
+    if not host:
+        return False
+    host = host.strip('[]').lower()          # strip the brackets of an IPv6 literal
+    if host == 'localhost' or host.endswith('.localhost'):
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False                          # a real hostname; resolving it is not our job
+    # `0.0.0.0` / `::` are what a dev server binds to, and people paste the bind address
+    # into --endpoint. As a destination they mean "this machine" too (or fail outright),
+    # so like loopback they never put the key on the wire.
+    return address.is_loopback or address.is_unspecified
+
+
+def check_endpoint_security(endpoint_url: str, api_key: Optional[str]) -> None:
+    """
+    Refuse to send the internal API key in cleartext.
+
+    The key is a *shared* Project Sidewalk secret (the server's INTERNAL_API_KEY), so a
+    mistyped `--endpoint` that drops the 's' would leak it to every hop in between — and
+    a leak is silent, since the request otherwise succeeds. Fail fast instead.
+
+    Loopback is exempt (the request never leaves the machine), which keeps the default
+    `http://localhost:9000` dev endpoint working. Sending no key over plain HTTP is also
+    fine: there is nothing to protect, and deployments that don't require auth exist.
+
+    Raises:
+        ValueError: if a key would travel unencrypted to a remote host.
+    """
+    if not api_key:
+        return
+    parsed = urlparse(endpoint_url)
+    if parsed.scheme == 'https' or is_loopback(parsed.hostname):
+        return
+    raise ValueError(
+        f"Refusing to send the API key over {parsed.scheme or 'an unknown scheme'}:// to "
+        f"remote host '{parsed.hostname}' — it would travel in cleartext. Use https://, "
+        f"or unset the key's environment variable to submit without auth."
+    )
 
 
 def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
@@ -171,6 +218,7 @@ def process_jsonl_file(
     api_key: Optional[str] = None,
     dry_run: bool = False,
     min_confidence: float = OPERATIONAL_CONFIDENCE,
+    limit: Optional[int] = None,
 ) -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending
@@ -185,6 +233,8 @@ def process_jsonl_file(
             record submission progress.
         min_confidence: Only detections at/above this confidence are submitted as labels
             (see ``transform_record``).
+        limit: Stop after this many records are submitted *this run*; already-submitted
+            lines don't count against it, so successive capped runs walk the file.
     """
     input_file = Path(file_path)
 
@@ -192,6 +242,9 @@ def process_jsonl_file(
     if not input_file.exists():
         print(f"Error: File '{file_path}' does not exist.")
         return
+
+    # Fail before opening the file: a cleartext key leaks on the very first request.
+    check_endpoint_security(endpoint_url, None if dry_run else api_key)
 
     # Load resume state: line numbers that already got a 200 on a previous run.
     sidecar_path = Path(f"{file_path}.submitted")
@@ -201,11 +254,16 @@ def process_jsonl_file(
     error_count = 0
     skipped_count = 0
     filtered_detections = 0
+    attempted = 0          # records touched this run; what --limit caps
+    limit_reached = False
 
     print(f"Processing JSONL file: {file_path}")
     print(f"Target endpoint: {endpoint_url}")
+    print(f"Auth: {'Bearer key supplied' if api_key else 'none (no key set)'}")
     if dry_run:
         print("DRY RUN: payloads will be printed, not sent.")
+    if limit is not None:
+        print(f"LIMIT: stopping after {limit} record(s) this run.")
     if submitted_lines:
         print(f"Resuming: {len(submitted_lines)} lines already submitted (per {sidecar_path.name}).")
     print("-" * 50)
@@ -223,6 +281,13 @@ def process_jsonl_file(
                 if line_number in submitted_lines:
                     skipped_count += 1
                     continue
+
+                # Stop once this run has touched --limit records. Checked here, after the
+                # resume skip, so a capped run always advances into unsubmitted lines.
+                if limit is not None and attempted >= limit:
+                    limit_reached = True
+                    break
+                attempted += 1
 
                 try:
                     # Parse a line of JSON and convert to the PS payload format.
@@ -265,6 +330,11 @@ def process_jsonl_file(
     print(f"Skipped (already submitted):   {skipped_count} records")
     print(f"Errors encountered:            {error_count} records")
     print(f"Detections below --min-confidence {min_confidence} (not submitted): {filtered_detections}")
+    if limit_reached:
+        print(f"Stopped at --limit {limit}. "
+              + ("Dry run — nothing was recorded, so a re-run starts from this same line."
+                 if dry_run else
+                 f"Re-run to continue from here ({sidecar_path.name} records what already landed)."))
 
 
 def main() -> None:
@@ -284,8 +354,16 @@ def main() -> None:
         "--api-key-env",
         default="PS_INTERNAL_API_KEY",
         help="Name of the environment variable holding Project Sidewalk's internal API key "
-             "(matches Project Sidewalk's INTERNAL_API_KEY). If the variable is unset, no auth "
-             "header is sent (works against a deployment that doesn't require it yet)."
+             "(matches Project Sidewalk's INTERNAL_API_KEY), read from the environment or a "
+             "gitignored ./.env. If the variable is unset, no auth header is sent (works "
+             "against a deployment that doesn't require it yet). When a key IS set, a remote "
+             "--endpoint must be https:// or the run is refused."
+    )
+    parser.add_argument(
+        "--limit", type=int, metavar="N",
+        help="Submit at most N records this run, then stop. Already-submitted lines don't "
+             "count, so repeated capped runs walk the file — use it to send a handful and "
+             "inspect them in Project Sidewalk before committing to the whole city."
     )
     parser.add_argument(
         "--dry-run",
@@ -301,8 +379,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit must be at least 1.")
+
     api_key = os.environ.get(args.api_key_env)
-    process_jsonl_file(args.jsonl_file, args.endpoint, api_key, args.dry_run, args.min_confidence)
+    try:
+        process_jsonl_file(args.jsonl_file, args.endpoint, api_key, args.dry_run,
+                           args.min_confidence, args.limit)
+    except ValueError as e:
+        raise SystemExit(f"Error: {e}")
 
 
 if __name__ == "__main__":

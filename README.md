@@ -223,7 +223,10 @@ tooling only — the validation half was migrated out; see `CLAUDE.md`.)
 # Preview the transformed payloads without sending anything:
 python send_to_ps.py runs/bend/results.jsonl --dry-run
 
-# Submit for real:
+# Send a handful first and look at them in the Project Sidewalk interface:
+python send_to_ps.py runs/bend/results.jsonl --endpoint https://your-ps-server/ai/submitLabelsOnPano --limit 3
+
+# Then the rest (the capped run above is already recorded, so this picks up where it left off):
 python send_to_ps.py runs/bend/results.jsonl --endpoint https://your-ps-server/ai/submitLabelsOnPano
 ```
 
@@ -231,9 +234,22 @@ This reads each JSONL line and POSTs it to the Project Sidewalk endpoint. It als
 the **normalized** detection coordinates from step 1 into **pixel** coordinates
 (`pano_x`, `pano_y`) using the panorama dimensions stored in each record.
 
-- **Auth:** if the server requires Project Sidewalk's internal API key, export it as
-  `PS_INTERNAL_API_KEY` (or point `--api-key-env` at another variable); it is sent as an
-  `Authorization: Bearer` header. If unset, no auth header is sent.
+- **Auth:** Project Sidewalk's ingest endpoint requires that instance's internal API key.
+  Put it in `PS_INTERNAL_API_KEY` — either inline
+  (`PS_INTERNAL_API_KEY=… python send_to_ps.py …`) or in a gitignored `.env` (copy
+  `.env.example`) — and it is sent as an `Authorization: Bearer` header. Point
+  `--api-key-env` at a different variable to keep several instances' keys side by side.
+  If the variable is unset, no auth header is sent and the server answers `401`.
+- **Never commit the key.** It is a *shared* server secret, and it is per-instance — a key
+  for one city's server will not authenticate to another's. Ask that server's maintainers
+  for it.
+- **Remote endpoints must be `https://`.** With a key set, `send_to_ps.py` refuses a
+  cleartext remote `--endpoint` before sending anything, so a mistyped URL can't leak the
+  key to every hop in between. `http://localhost:…` stays allowed — loopback (and a local
+  server's `0.0.0.0` bind address) never reaches the wire.
+- **Staged rollout:** `--limit N` stops after N records. Already-submitted lines don't count
+  against it, so repeated capped runs walk the file. Use it to verify a new city end to end
+  — placement, pano rendering, street snapping — before committing thousands of labels.
 - **Resumable:** successfully submitted line numbers are recorded in a `<file>.submitted`
   sidecar, so re-running skips them instead of re-POSTing. Delete the sidecar to resubmit
   everything.
