@@ -1,5 +1,7 @@
-"""Unit tests for send_to_ps.py's record transform and resume sidecar."""
+"""Unit tests for send_to_ps.py's record transform, endpoint guard and resume sidecar."""
 import json
+
+import pytest
 
 import main
 import send_to_ps
@@ -136,3 +138,97 @@ def test_load_submitted_lines(tmp_path):
     sidecar = tmp_path / "r.jsonl.submitted"
     sidecar.write_text("1\n3\n\n3\n")
     assert send_to_ps.load_submitted_lines(sidecar) == {1, 3}
+
+
+# --- Endpoint security guard (issue #9) -------------------------------------------------
+#
+# PS's internal API key is a shared server secret, so a mistyped --endpoint that drops the
+# 's' must fail loudly rather than leak it to every hop in between.
+
+@pytest.mark.parametrize("url", [
+    "https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano",
+    "http://localhost:9000/ai/submitLabelsOnPano",
+    "http://127.0.0.1:9000/ai/submitLabelsOnPano",
+    "http://[::1]:9000/ai/submitLabelsOnPano",
+])
+def test_check_endpoint_security_allows_https_and_loopback(url):
+    send_to_ps.check_endpoint_security(url, "SECRET")
+
+
+@pytest.mark.parametrize("url", [
+    "http://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano",  # the typo that matters
+    "http://192.168.1.50:9000/ai/submitLabelsOnPano",                    # LAN is still the wire
+])
+def test_check_endpoint_security_refuses_cleartext_key(url):
+    with pytest.raises(ValueError, match="cleartext"):
+        send_to_ps.check_endpoint_security(url, "SECRET")
+
+
+def test_check_endpoint_security_ignores_plain_http_without_a_key():
+    """No key, nothing to protect: deployments that don't require auth stay submittable."""
+    send_to_ps.check_endpoint_security("http://example.org/ai/submitLabelsOnPano", None)
+
+
+def test_error_message_never_echoes_the_key():
+    with pytest.raises(ValueError) as excinfo:
+        send_to_ps.check_endpoint_security("http://example.org/ai/submitLabelsOnPano", "SECRET")
+    assert "SECRET" not in str(excinfo.value)
+
+
+# --- Staged submission (--limit) --------------------------------------------------------
+
+def _jsonl(tmp_path, count):
+    path = tmp_path / "results.jsonl"
+    path.write_text("".join(
+        json.dumps(_record([{"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.9}])) + "\n"
+        for _ in range(count)))
+    return path
+
+
+def _capture_posts(monkeypatch):
+    sent = []
+    monkeypatch.setattr(send_to_ps, "send_to_project_sidewalk",
+                        lambda payload, url, key=None: sent.append(payload) or object())
+    return sent
+
+
+def test_limit_caps_records_submitted_and_resumes(tmp_path, monkeypatch):
+    """The first-submission checklist is 'send 2-3, look at them in Validate, then the
+    rest'. Successive capped runs must walk the file rather than resend the same head."""
+    path = _jsonl(tmp_path, 10)
+    sent = _capture_posts(monkeypatch)
+
+    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai", limit=3)
+    assert len(sent) == 3
+    assert send_to_ps.load_submitted_lines(tmp_path / "results.jsonl.submitted") == {1, 2, 3}
+
+    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai", limit=3)
+    assert len(sent) == 6
+    assert send_to_ps.load_submitted_lines(tmp_path / "results.jsonl.submitted") == set(range(1, 7))
+
+
+def test_no_limit_submits_everything(tmp_path, monkeypatch):
+    path = _jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai")
+    assert len(sent) == 4
+
+
+def test_submission_refuses_a_cleartext_remote_endpoint(tmp_path, monkeypatch):
+    """The guard must fire before any request is made, not after the first leak."""
+    path = _jsonl(tmp_path, 2)
+    sent = _capture_posts(monkeypatch)
+    with pytest.raises(ValueError):
+        send_to_ps.process_jsonl_file(str(path), "http://ps.example/ai", api_key="SECRET")
+    assert sent == []
+
+
+def test_dry_run_is_exempt_from_the_endpoint_guard(tmp_path, capsys):
+    """A dry run sends nothing, so it must stay usable for previewing a payload against
+    whatever URL is at hand."""
+    path = _jsonl(tmp_path, 2)
+    send_to_ps.process_jsonl_file(str(path), "http://ps.example/ai", api_key="SECRET",
+                                  dry_run=True, limit=1)
+    assert "SECRET" not in capsys.readouterr().out
+    # A dry run records nothing, so it never creates the resume sidecar.
+    assert not (tmp_path / "results.jsonl.submitted").exists()
