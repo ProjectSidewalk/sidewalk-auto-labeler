@@ -1,5 +1,6 @@
 """Unit tests for send_to_ps.py's record transform, endpoint guard and resume sidecar."""
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -150,6 +151,7 @@ def test_load_submitted_lines(tmp_path):
     "http://localhost:9000/ai/submitLabelsOnPano",
     "http://127.0.0.1:9000/ai/submitLabelsOnPano",
     "http://[::1]:9000/ai/submitLabelsOnPano",
+    "http://0.0.0.0:9000/ai/submitLabelsOnPano",   # the bind address of a local dev server
 ])
 def test_check_endpoint_security_allows_https_and_loopback(url):
     send_to_ps.check_endpoint_security(url, "SECRET")
@@ -158,6 +160,7 @@ def test_check_endpoint_security_allows_https_and_loopback(url):
 @pytest.mark.parametrize("url", [
     "http://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano",  # the typo that matters
     "http://192.168.1.50:9000/ai/submitLabelsOnPano",                    # LAN is still the wire
+    "ftp://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano",   # only https is trusted
 ])
 def test_check_endpoint_security_refuses_cleartext_key(url):
     with pytest.raises(ValueError, match="cleartext"):
@@ -186,9 +189,13 @@ def _jsonl(tmp_path, count):
 
 
 def _capture_posts(monkeypatch):
+    """Record every payload that would be POSTed, and hand back a stand-in for requests'
+    Response — truthy, and carrying the attributes a caller might come to inspect, so a
+    later `response.status_code` check doesn't silently break these tests."""
     sent = []
+    ok = SimpleNamespace(status_code=200, ok=True, text="")
     monkeypatch.setattr(send_to_ps, "send_to_project_sidewalk",
-                        lambda payload, url, key=None: sent.append(payload) or object())
+                        lambda payload, url, key=None: sent.append(payload) or ok)
     return sent
 
 

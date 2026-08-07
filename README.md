@@ -245,8 +245,8 @@ the **normalized** detection coordinates from step 1 into **pixel** coordinates
   for it.
 - **Remote endpoints must be `https://`.** With a key set, `send_to_ps.py` refuses a
   cleartext remote `--endpoint` before sending anything, so a mistyped URL can't leak the
-  key to every hop in between. `http://localhost:…` stays allowed — loopback never reaches
-  the wire.
+  key to every hop in between. `http://localhost:…` stays allowed — loopback (and a local
+  server's `0.0.0.0` bind address) never reaches the wire.
 - **Staged rollout:** `--limit N` stops after N records. Already-submitted lines don't count
   against it, so repeated capped runs walk the file. Use it to verify a new city end to end
   — placement, pano rendering, street snapping — before committing thousands of labels.

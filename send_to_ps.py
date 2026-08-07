@@ -42,16 +42,21 @@ PS_PANO_SOURCES = {"gsv", "mapillary", "infra3d"}
 
 
 def is_loopback(host: Optional[str]) -> bool:
-    """True if `host` names the local machine, so a request to it never reaches the wire."""
+    """True if `host` means this machine (loopback, or a local server's bind address), so a
+    request to it never reaches the wire."""
     if not host:
         return False
     host = host.strip('[]').lower()          # strip the brackets of an IPv6 literal
     if host == 'localhost' or host.endswith('.localhost'):
         return True
     try:
-        return ipaddress.ip_address(host).is_loopback
+        address = ipaddress.ip_address(host)
     except ValueError:
         return False                          # a real hostname; resolving it is not our job
+    # `0.0.0.0` / `::` are what a dev server binds to, and people paste the bind address
+    # into --endpoint. As a destination they mean "this machine" too (or fail outright),
+    # so like loopback they never put the key on the wire.
+    return address.is_loopback or address.is_unspecified
 
 
 def check_endpoint_security(endpoint_url: str, api_key: Optional[str]) -> None:
@@ -326,8 +331,10 @@ def process_jsonl_file(
     print(f"Errors encountered:            {error_count} records")
     print(f"Detections below --min-confidence {min_confidence} (not submitted): {filtered_detections}")
     if limit_reached:
-        print(f"Stopped at --limit {limit}. Re-run to continue from here"
-              f"{'' if dry_run else f' ({sidecar_path.name} records what already landed)'}.")
+        print(f"Stopped at --limit {limit}. "
+              + ("Dry run — nothing was recorded, so a re-run starts from this same line."
+                 if dry_run else
+                 f"Re-run to continue from here ({sidecar_path.name} records what already landed)."))
 
 
 def main() -> None:
