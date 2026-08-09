@@ -8,10 +8,11 @@ the **multi-host production path** — a Slurm GPU cluster (UW Hyak, `klone`), w
 city run from Richmond onward was actually detected, and the lab file server, where all of
 their imagery is archived.
 
-> **Paths and account names below are placeholders.** `<netid>`, `<group>`, and
-> `<slurm-account>` are per-user and per-lab; substitute your own. Nothing in this
-> document is a credential, and none is needed to read it — but don't copy the paths
-> literally.
+> **Account names below are placeholders.** `<netid>`, `<group>`, and `<slurm-account>`
+> are per-user and per-lab; substitute your own. Nothing in this document is a
+> credential — but don't copy the paths literally. Hostnames are real where the rest of
+> the repo already names them (`makelab2`, the lab file server); both it and the cluster
+> sit behind institutional auth.
 
 ---
 
@@ -39,7 +40,7 @@ The practical consequences:
   default branch name appears in this repo is the `push:` trigger in `tests.yml`.
 - The flip side: **the checkouts drift.** They routinely sit on whichever
   `add-<city>-area` branch ran last, which is rarely the one you want next. Always check
-  `git -C <repo> log --oneline -1` before you launch, and see
+  `git -C $SAL_ROOT/repo log --oneline -1` before you launch, and see
   [The branch guard](#the-branch-guard-copy-it-into-every-sbatch) below.
 
 ---
@@ -51,8 +52,8 @@ The practical consequences:
 | Scope the area (`--scan-only`) | laptop | No GPU needed; it just counts panos |
 | Smoke test (25–100 panos) | laptop / lab GPU box | Catch a bad geometry before burning cluster hours |
 | **Full detection run** | **Hyak cluster, `ckpt-g2`, 1× L40S** | Free (checkpoint partition), fastest GPU we have access to |
-| Native-res imagery archive | **lab file server** | Hundreds of GB per city — far past the cluster's quota (see below) |
-| Benchmark bundle → GT review | lab server → [RampNet](https://github.com/ProjectSidewalk/RampNet) | Only this repo can fetch pixels; scoring lives in RampNet |
+| Native-res imagery archive | **lab file server (`makelab2`)** | Hundreds of GB per city — far past the cluster's quota (see below) |
+| Benchmark bundle → GT review | `makelab2` → [RampNet](https://github.com/ProjectSidewalk/RampNet) | Only this repo can fetch pixels; scoring lives in RampNet |
 | Multi-view fusion | laptop | CPU-only, no network — reads a finished `runs/<city>/` |
 | Submit to Project Sidewalk | laptop | Just HTTP POSTs to the city's server |
 
@@ -128,8 +129,12 @@ scp sal.bundle klone:$SAL_ROOT/sal.bundle
 bash $SAL_ROOT/hyak_sal_setup.sh
 ```
 
-> ⚠️ **`hyak_sal_setup.sh` ends with a hardcoded `git checkout mapillary-source`** — a
-> stale branch from the first Richmond run. A fresh setup therefore leaves you on the
+> ⚠️ **`hyak_sal_setup.sh` is not in this repo** — like the archive drivers in §5, it
+> lives only in `$SAL_ROOT` on the cluster, so a genuinely first-time setup means copying
+> it from an existing `$SAL_ROOT` (or writing the equivalent: unbundle into `repo/`,
+> install miniforge, `conda create` the `sal` env, `pip install -r requirements.txt` plus
+> the CUDA torch wheel). It also ends with a **hardcoded `git checkout mapillary-source`**
+> — a stale branch from the first Richmond run — so a fresh setup leaves you on the
 > *wrong* branch. Check out the branch you actually want before submitting, and rely on
 > the branch guard below to catch it if you forget.
 
@@ -139,6 +144,7 @@ Updating an existing checkout — an **incremental** bundle is a couple of KB ra
 ```bash
 # locally — everything on the city branch the cluster doesn't have yet
 git bundle create <city>2.bundle <last-commit-cluster-has>..add-<city>-area
+scp <city>2.bundle klone:$SAL_ROOT/
 ```
 
 ```bash
@@ -191,6 +197,21 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 python main.py example_geojson/<city>.geojson --name <city>
 ```
 
+> **Two lines change for a Mapillary city** (Clovis and Morgantown were both run this
+> way). Export the token — `sources/mapillary.py` hard-exits without it, and Slurm does
+> not inherit your login shell's environment:
+>
+> ```bash
+> export MAPILLARY_ACCESS_TOKEN=...   # or `set -a; . "$WORKDIR/repo/.env"; set +a`
+> ```
+>
+> …and point the preflight at the host the run actually talks to, since
+> `maps.googleapis.com` says nothing about Mapillary reachability:
+>
+> ```bash
+> python -c "import requests; requests.get('https://graph.mapillary.com', timeout=10); print('network OK')"
+> ```
+
 ```bash
 cd $SAL_ROOT && sbatch sal_<city>.sbatch
 ```
@@ -226,6 +247,8 @@ cache is ever incomplete.
 
 Compute nodes are not guaranteed to reach the imagery APIs. One `requests.get` costs a
 second and turns "silently zero results for two hours" into an immediate, obvious failure.
+It only buys you that if it names the host the run will actually use, so swap it for
+`graph.mapillary.com` on a Mapillary city.
 
 ### GSV runs don't end when the progress bar does
 
@@ -295,7 +318,7 @@ retires imagery, and once it is gone the pixels are unrecoverable. Bend lost 8 p
 way. The archive is also RampNet's only source of native-res imagery, since this repo is
 the only one that can fetch pixels.
 
-It runs on the lab file server, not the cluster, for the quota reasons in
+It runs on the lab file server (`makelab2`), not the cluster, for the quota reasons in
 [Compute on the cluster, storage on the lab server](#compute-on-the-cluster-storage-on-the-lab-server).
 The per-city driver scripts live **only on that host**, not in this repo. They are three
 lines around one command:
@@ -311,8 +334,12 @@ already on disk are skipped) and **self-verifying**: it writes `index.csv` and
 `decayed.txt` beside `panos/` and reconciles them 1:1 against `results.jsonl`, so
 "finished" means "provably complete", and any decayed pano is named explicitly.
 
-Archive sizes to plan for: Richmond 23 GB, Budapest 30 GB, Morgantown 38 GB, São Paulo
-369 GB, Paterson 495 GB, Gainesville 626 GB, Clovis 846 GB, Bend 1.2 TB.
+Archive sizes to plan for — every city archived so far, measured on disk: Richmond 23 GB,
+Budapest 30 GB, Morgantown 39 GB, Annapolis 143 GB, São Paulo 369 GB, Paterson 495 GB,
+Gainesville 626 GB, Clovis 847 GB, Bend 1.2 TB. Size tracks pano count × native
+resolution, not area: GSV cities land around 14–18 MB/pano (most GSV panos are natively
+16384×8192), Mapillary anywhere from 2.5 MB/pano (Richmond) to 11.6 MB (Clovis, GoPro
+Fusion). Multiply before you start, not after.
 
 ---
 
@@ -340,18 +367,46 @@ python scripts/eval_sites.py <city>               # → runs/<city>/fusion_eval/
 python scripts/site_explorer.py <city>            # visual review
 ```
 
-**Submit.** This requires a Project Sidewalk instance for the city to already exist — see
-the README's "Prerequisites" and [`bend-onboarding.md`](bend-onboarding.md).
+**Submit.** Two prerequisites, both external to this repo: a Project Sidewalk instance for
+the city must already exist (see the README's "Prerequisites" and
+[`bend-onboarding.md`](bend-onboarding.md)), and you need **that instance's**
+`INTERNAL_API_KEY` from its maintainers. The ingest endpoint answers `401` without it, and
+the key is per-instance — one city's key will not authenticate to another's. Put it in
+`PS_INTERNAL_API_KEY`, via a gitignored `.env` (copy [`.env.example`](../.env.example)) or
+inline; never commit it.
+
+Go out in stages. A capped run records what landed, so each command below picks up where
+the last one stopped:
 
 ```bash
+# 1. transform only — no network, no key needed
 python send_to_ps.py runs/<city>/results.jsonl --dry-run
-python send_to_ps.py runs/<city>/results.jsonl --endpoint https://<server>/ai/submitLabelsOnPano
+
+# 2. a handful, against the city's *test* instance if it has one
+python send_to_ps.py runs/<city>/results.jsonl --limit 3 \
+    --endpoint https://<test-server>/ai/submitLabelsOnPano
+
+# 3. the rest, for real
+python send_to_ps.py runs/<city>/results.jsonl \
+    --endpoint https://<server>/ai/submitLabelsOnPano
 ```
 
-Always `--dry-run` first. Remember that `results.jsonl` stores candidates down to the
-storage floor (0.10), not beliefs — `send_to_ps.py` filters at `OPERATIONAL_CONFIDENCE`
-(0.55) via `--min-confidence`. Submitting the raw file without that filter would push
-thousands of sub-threshold detections into a live city.
+Between 2 and 3, actually *look* at the labels in the Project Sidewalk interface —
+placement, pano rendering, street snapping. `--limit` exists so that a bad transform costs
+you three labels instead of thousands.
+
+> ⚠️ **The `.submitted` sidecar is endpoint-agnostic.** Progress is tracked in
+> `<file>.submitted` by *line number* only — it does not record where those lines went. So
+> a staging run at step 2 makes the production run at step 3 **silently skip exactly those
+> records**, and they never reach the live city. Either point step 2 at a copy of the
+> JSONL, or delete the sidecar before step 3. `--dry-run` writes nothing, so step 1 is
+> always safe.
+
+On confidence: `results.jsonl` stores candidates down to the storage floor (0.10), not
+beliefs. You do **not** need to do anything about that — `--min-confidence` already
+defaults to `OPERATIONAL_CONFIDENCE` (0.55), so the commands above submit only operational
+detections. Records whose detections all fall below it still submit, as "checked, nothing
+found". Lowering the flag is the dangerous direction, not omitting it.
 
 ---
 
@@ -367,3 +422,7 @@ thousands of sub-threshold detections into a live city.
 | Job fails writing output, or the whole lab's jobs start failing | Shared scratch quota (1 TB / 1M files) is near its ceiling | Archive to the lab file server and clean up; never archive imagery on the cluster |
 | Files vanish between cluster sessions | `/tmp` is node-local and login nodes are load-balanced | Stage to shared group scratch, never `/tmp` |
 | GPU util ~100% but power well under cap on the lab box | Time-slicing with `sidewalk-ai-api` | Nothing to do; let it run |
+| Mapillary run exits immediately on the cluster | Slurm doesn't inherit your login shell, so `MAPILLARY_ACCESS_TOKEN` is unset | Export it in the sbatch, or source `.env` there |
+| `send_to_ps.py` returns `401` | No API key sent | Set `PS_INTERNAL_API_KEY` to *that instance's* `INTERNAL_API_KEY`; keys are per-instance |
+| `send_to_ps.py` refuses to run before sending | A key is set and the remote `--endpoint` is `http://` | Use `https://`; the guard exists so a mistyped URL can't leak the key |
+| A production submit reports far fewer records than the file has | The `.submitted` sidecar is endpoint-agnostic — an earlier staging run already claimed those lines | Delete `<file>.submitted` before the production run, or stage against a copy of the JSONL |
