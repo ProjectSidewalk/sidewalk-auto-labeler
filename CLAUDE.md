@@ -58,6 +58,25 @@ python scripts/export_benchmark.py runs/clovis/results.jsonl \
 # per-city manifests never collide when several cities share an archive root.
 python scripts/export_benchmark.py runs/clovis/results.jsonl --out /path/to/archive/clovis/panos
 
+# Archive GSV's depth payload for every pano of a finished run (issue #41). GSV serves
+# depth alongside the metadata we already fetch, so this is a metadata-only pass (no
+# imagery) and gzips to ~5-7 KB/pano — ~1 GB for all four GSV runs. Resumable, with the
+# same reconcile/index.csv verification as export_benchmark.py. GSV only; Mapillary runs
+# are refused. Why it matters: the ground plane's distance IS the camera height, and
+# geo.py's hardcoded 2.6 m is above every observed value (issue #40).
+python scripts/harvest_depth.py runs/paterson
+python scripts/harvest_depth.py runs/bend --out /path/to/archive/bend/depth
+python scripts/harvest_depth.py runs/paterson --verify           # reconcile only, no network
+python scripts/harvest_depth.py runs/paterson --verify --rehash  # ...and re-hash every file
+#   rather than trusting a matching byte size — the only way to catch silent bit rot.
+python scripts/harvest_depth.py runs/paterson --check-convention # re-verify depth.py vs
+#   streetlevel's own raster on live panos — run this after any streetlevel upgrade, since
+#   the payload layout is undocumented and positional. (The same check runs offline against
+#   a synthetic payload in tests/test_depth.py, so CI catches a convention regression too.)
+# no_depth.txt and gone.txt are skip caches for the two deterministic outcomes — delete one
+# to force a re-check. Both are append-only: a pass that doesn't re-encounter an id
+# (--verify, --limit) must never be able to erase it.
+
 # MULTI-VIEW FUSION (issue #27, stages 2-3). Associate a finished run's detections
 # into physical-ramp sites (world-space raycast + constrained clustering; no GPU,
 # no network); writes runs/<name>/sites.jsonl + sites_meta.json.
@@ -199,6 +218,35 @@ untouched. `eval_sites.py` scores fusion against RampNet's benchmark verdicts in
 space (semantics mirror `rampnet.validation.collect`) and produces the stage-4 promotion
 calibration. Measured 2026-08-02 (5 m match radius): world recall 0.93–0.96 vs own-view
 0.72–0.83, precision 0.89–0.98 across paterson/gainesville/sao_paulo/richmond/bend.
+
+**GSV depth (`depth.py`, `scripts/harvest_depth.py`)** — issues #40/#41. `depth.py` (repo
+root, stdlib-only like `geo.py`) parses GSV's depth payload, which is **not a raster**: it
+is a list of `{normal, distance}` planes plus one plane index per pixel, and streetlevel
+computes a raster from it and then discards the planes. That matters because **the dominant
+ground plane's distance IS the camera height, exactly**, and its normal is the ground tilt.
+Measured across four cities, camera height is per-pano (1.11–2.50 m, tracking capture
+vintage), so `geo.DEFAULT_CAMERA_HEIGHT_M = 2.6` — above every observed value — runs
+**29–35% long at real detection points**; correcting only the height flattens the residual
+across every range bucket, i.e. the flat-ground cotangent is right and only its constant was
+wrong. Four traps live in `depth.py` rather than at call sites: the header's `offset` field
+is a **uint8** at byte 7 (reading it as a uint16 swallows the first plane index and makes
+~0.5% of panos unparseable); the raster is **mirrored** relative to the raw index array
+(`_raw_column`); Google returns a degenerate 2-plane fallback at exactly 2.500 m that must
+be filtered structurally (`DEGENERATE_MAX_PLANES`), not by testing the value; and **a range
+query must not snap to a pixel**. On that last one: `depth_at` snaps, because it has to
+reproduce streetlevel's raster, but a detection lands at an arbitrary coordinate, and
+snapping it to one of 256 rows costs up to **6.6% of the horizontal range (±1.2 m at
+20–25 m)** once the near-horizon `1/(sin·cos)` amplification is applied — an alternating
+sign that reads as noise. So `ray_depth_at`/`ground_range_at` snap only the *plane lookup*
+(the segmentation genuinely is per-pixel) and intersect the true ray. Watch the azimuth
+there: the mirror cancels in the continuous form, and because mirroring phi flips only the
+ray's x component, any plane with `nx == 0` — every level ground plane — cannot tell a
+correct convention from a backwards one.
+`harvest_depth.py` archives the payloads before they go away: the *JavaScript* API that
+exposed depth was withdrawn in 2020 and anonymous tile access in ~2026, but the metadata
+endpoint used here still serves it. `no_depth.txt`/`gone.txt` are append-only skip caches
+(see the command block above). GSV only; Mapillary serves no depth (its tilt is available
+but unparsed — see #42).
 
 **Stage 2 — submission (`send_to_ps.py`)**
 Reads the Stage-1 JSONL and POSTs each record to a Project Sidewalk endpoint
