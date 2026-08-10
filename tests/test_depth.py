@@ -9,12 +9,18 @@ corrupt every derived number silently rather than loudly:
     downstream could catch that.
   - the **ground plane read**, since the camera height it returns replaces a hardcoded
     constant in the raycast (labeler #40).
+  - the **snapped/continuous split**: a range query must intersect the true ray, not a
+    pixel-quantized one, which is worth up to 6.6% of the range near the horizon.
 
-Live agreement with streetlevel's own raster is checked separately and needs the network:
-`python scripts/harvest_depth.py <run> --check-convention`.
+Agreement with streetlevel's own raster is checked here too, offline against a synthetic
+payload — `streetlevel` is already a test dependency, so the check that actually matters
+runs on every `pytest` rather than only when someone remembers
+`python scripts/harvest_depth.py <run> --check-convention` (which stays, for re-checking
+against live panoramas after a streetlevel upgrade).
 """
 import math
 import base64
+import random
 import struct
 
 import pytest
@@ -139,3 +145,123 @@ def test_truncated_payload_is_rejected():
     short = base64.urlsafe_b64encode(raw[:20]).decode().rstrip("=")
     with pytest.raises(ValueError, match="truncated"):
         depthlib.parse(short)
+
+
+def test_unexpected_header_size_is_rejected():
+    """The tripwire: 3,000 archived payloads all have raw[0] == 8. If that ever changes,
+    every derived number is suspect, so it must fail loudly rather than misparse."""
+    blob = build_payload(8, 4, [GROUND, GROUND], [1] * 32)
+    raw = bytearray(base64.urlsafe_b64decode(blob + "=" * ((4 - len(blob) % 4) % 4)))
+    raw[0] = 9
+    with pytest.raises(ValueError, match="header size"):
+        depthlib.parse(base64.urlsafe_b64encode(bytes(raw)).decode().rstrip("="))
+
+
+# --- the snapped / continuous split ---------------------------------------------------
+
+
+def tilted_ground(deg, bearing=35.0, height=2.5):
+    """A ground plane tilted `deg` from level, leaning towards `bearing`.
+
+    The bearing is not decoration: mirroring phi flips the sign of the ray's **x**
+    component and nothing else, so a normal with nx == 0 gives the same answer either way.
+    A plane tilted purely north-south would let a mirrored convention pass unnoticed.
+    """
+    t, b = math.radians(deg), math.radians(bearing)
+    return (math.sin(t) * math.cos(b), math.sin(t) * math.sin(b), -math.cos(t), height)
+
+
+def test_ray_depth_matches_depth_at_on_pixel_centres():
+    """The continuous ray must reduce to the quantized one exactly at a pixel centre --
+    otherwise it would be a different convention rather than a refinement.
+
+    Planes with a nonzero normal-x are what pin the azimuth down; see tilted_ground.
+    """
+    W, H = 16, 8
+    planes = [GROUND, tilted_ground(12), WALL, tilted_ground(-7, 200.0, 3.1)]
+    indices = [1 + (i * 7 + i // W) % 3 for i in range(W * H)]
+    payload = depthlib.parse(build_payload(W, H, planes, indices))
+    for row in range(H):
+        for col in range(W):
+            x, y = (col + 0.5) / W, (row + 0.5) / H
+            assert depthlib.ray_depth_at(payload, x, y) == pytest.approx(
+                depthlib.depth_at(payload, x, y), rel=1e-12)
+
+
+def test_ground_range_is_exact_between_pixel_centres():
+    """A detection lands at an arbitrary y, and snapping it to one of 256 rows costs up to
+    6.6% of the range near the horizon. On flat ground the answer is h/tan(depression) for
+    every y, not just at row centres."""
+    W, H, h = 512, 256, 2.2                       # the real payload grid
+    payload = depthlib.parse(build_payload(
+        W, H, [(0, 0, -1, h), (0, 0, -1, h)], [0] * (W * H // 2) + [1] * (W * H // 2)))
+    for target in (3, 5, 8, 12, 16, 20, 25):
+        y = 0.5 + math.atan(h / target) / math.pi
+        # rel=1e-6 is float32: plane distances are stored as f32 in the payload, so h comes
+        # back as 2.20000004. Snapping the row instead would miss by up to 6.6e-2.
+        assert depthlib.ground_range_at(payload, 0.5, y) == pytest.approx(target, rel=1e-6)
+
+
+def test_ground_range_uses_the_plane_under_the_detection():
+    """Sanity that the (quantized) plane lookup still drives the answer: a nearer plane
+    patch under the query point must shorten the range."""
+    W, H, h = 64, 32, 2.5
+    indices = [0] * (W * H)
+    for row in range(H // 2, H):
+        for col in range(W):
+            indices[row * W + col] = 1
+    indices[(H - 1) * W + 0] = 2                  # RAW column 0 -> stored column W-1
+    payload = depthlib.parse(build_payload(W, H, [GROUND, GROUND, (0, 0, -1, 1.0)], indices))
+    y = (H - 0.5) / H
+    assert (depthlib.ground_range_at(payload, (W - 0.5) / W, y)
+            < depthlib.ground_range_at(payload, 0.5, y))
+
+
+def test_agrees_with_streetlevel_raster_offline():
+    """The check `--check-convention` makes against live panoramas, run offline on a
+    synthetic payload so it guards every commit. streetlevel is already a test dependency.
+
+    The first plane index is forced to sky: streetlevel misreads `offset` as a uint16 and
+    cannot parse a payload whose first index is nonzero — the bug depth.py fixes and
+    test_nonzero_first_index_still_parses covers.
+    """
+    from streetlevel.streetview.depth import parse as sl_parse
+
+    rng = random.Random(7)
+    W, H = 32, 16
+    planes = [GROUND]
+    for _ in range(6):
+        a, b = rng.uniform(0, 2 * math.pi), rng.uniform(-1.2, 1.2)
+        planes.append((math.cos(a) * math.cos(b), math.sin(a) * math.cos(b), math.sin(b),
+                       rng.uniform(1.0, 25.0)))
+    indices = [rng.randrange(0, len(planes)) for _ in range(W * H)]
+    indices[0] = depthlib.SKY
+
+    blob = build_payload(W, H, planes, indices)
+    ref = sl_parse(blob).data
+    payload = depthlib.parse(blob)
+    for row in range(H):
+        for col in range(W):
+            mine = depthlib.depth_at(payload, (col + 0.5) / W, (row + 0.5) / H)
+            theirs = ref[row][col]
+            if theirs < 0:                        # streetlevel's INFINITELY_FAR sentinel
+                assert mine is None
+            else:
+                assert mine == pytest.approx(theirs, rel=1e-12)
+
+
+def test_height_spread_matches_the_pixel_weighted_percentiles():
+    """height_spread_m takes a weighted percentile over (height, count) pairs instead of
+    materializing one float per pixel; it must agree with the naive form exactly."""
+    W, H = 32, 16
+    planes = [GROUND] + [(0.0, 0.0, -1.0, d) for d in (2.0, 2.4, 2.6, 3.0, 2.2)]
+    rng = random.Random(3)
+    indices = [0] * (W * H // 2) + [rng.randrange(1, len(planes)) for _ in range(W * H // 2)]
+    payload = depthlib.parse(build_payload(W, H, planes, indices))
+
+    heights = []
+    for idx in range(1, len(planes)):
+        heights.extend([planes[idx][3]] * indices.count(idx))
+    heights.sort()
+    naive = (heights[int(0.9 * (len(heights) - 1))] - heights[int(0.1 * (len(heights) - 1))])
+    assert depthlib.ground_plane(payload).height_spread_m == pytest.approx(naive)

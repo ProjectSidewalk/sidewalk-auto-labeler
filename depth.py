@@ -30,6 +30,17 @@ Note also that `compute_depth_map` writes the value computed at column `col` int
 column `width - col - 1`: the raster is mirrored relative to the raw index array. That
 flip is the easiest thing to get wrong here, so it lives in exactly one place
 (`_raw_column`) rather than being open-coded at each call site.
+
+Two ways to sample, and the distinction matters:
+
+  - `depth_at` snaps to a payload pixel and so reproduces streetlevel's raster exactly.
+    Use it to reason about the payload itself.
+  - `ray_depth_at` / `ground_range_at` keep the exact coordinate and intersect the true
+    ray. Use these for a *measurement* -- a detection does not land on a pixel centre,
+    and at 256 rows the snap is worth up to 6.6% of the horizontal range near the
+    horizon. See `_direction_continuous`.
+
+Only the plane lookup is quantized either way: the segmentation really is per-pixel.
 """
 import base64
 import math
@@ -51,9 +62,12 @@ DEGENERATE_MAX_PLANES = 2
 
 SKY = 0  # plane index 0 means "no plane" -- sky, or unreconstructed
 
-# Fixed prefix: one header-size byte followed by four uint16 fields. The index array
-# begins immediately after it -- see `parse` for why that is derived from the buffer
-# length rather than read from the header's own (unreliable) offset field.
+# Fixed prefix: a header-size byte, three uint16 fields (plane count, width, height), and
+# the offset byte. That fourth field is a **uint8**, not a uint16 -- reading it wider is
+# the upstream bug `parse` documents -- so the prefix is eight bytes, not nine. Verified
+# on 3,000 archived payloads across four cities: raw[0] == raw[7] == 8 and
+# len(raw) == 8 + width*height + 16*n_planes, without exception. `parse` checks byte 0
+# against this so a future layout change fails loudly instead of misparsing silently.
 HEADER_BYTES = 8
 
 
@@ -131,6 +145,18 @@ def parse(b64_string):
     b64_string += "=" * ((4 - len(b64_string) % 4) % 4)
     raw = base64.urlsafe_b64decode(b64_string)
 
+    if len(raw) < HEADER_BYTES:
+        raise ValueError(f"depth payload truncated: {len(raw)} bytes, need at least "
+                         f"{HEADER_BYTES} for the header")
+    # Byte 0 states the header size and is 8 in every payload observed (3,000 sampled
+    # across four cities). Nothing below would notice if it changed -- the fields would
+    # simply be read from the wrong offsets and yield plausible garbage -- so check it.
+    if raw[0] != HEADER_BYTES:
+        raise ValueError(
+            f"unexpected depth header size {raw[0]}, expected {HEADER_BYTES} -- the payload "
+            f"layout has changed and every derived number is suspect. Re-run "
+            f"scripts/harvest_depth.py --check-convention before trusting this module.")
+
     # `offset` is a **uint8 at byte 7**, not a uint16. This matters: streetlevel (and the
     # GSVPanoDepth.js it derives from) reads it as a uint16, which absorbs byte 8 — the
     # *first plane index* — as a high byte. When the top-left pixel is sky (index 0) the
@@ -167,11 +193,65 @@ def _raw_column(payload, col):
 
 
 def _direction(payload, row, col):
-    """Unit ray for a RAW (unmirrored) row/column, per the module docstring."""
+    """Unit ray for a RAW (unmirrored) row/column, per the module docstring.
+
+    This is the *quantized* ray: the direction through the centre of one payload pixel.
+    It is what reproduces streetlevel's raster, so `depth_at` uses it -- but it is the
+    wrong ray for a coordinate that did not come from a pixel centre. See
+    `_direction_continuous`.
+    """
     theta = (payload.height - row - 0.5) / payload.height * math.pi
     phi = (payload.width - col - 0.5) / payload.width * 2.0 * math.pi + math.pi / 2.0
     st = math.sin(theta)
     return st * math.cos(phi), st * math.sin(phi), math.cos(theta)
+
+
+def _direction_continuous(x_norm, y_norm):
+    """Unit ray for an exact normalized STORED coordinate -- no pixel snapping.
+
+    A detection lands at an arbitrary (x, y), not at a payload pixel centre. Snapping the
+    ray to the nearest of 256 rows costs up to half a row of elevation (0.30 deg), and
+    near the horizon that error is amplified by 1/(sin d * cos d): measured against a flat
+    plane at the real 512x256 payload size it reaches **6.6% -- +/-1.2 m at 20-25 m**,
+    with an alternating sign that reads as noise rather than bias. Since the whole point
+    of harvesting depth is to remove a range bias (#40), spending a chunk of it back on
+    quantization would be self-defeating, so range queries intersect the true ray.
+
+    Only the *plane lookup* is legitimately quantized (the segmentation really is
+    per-pixel); once the plane is known it is a continuous surface and the intersection
+    should be exact.
+
+    Note there is **no width-col-1 flip here**: the mirror cancels. `_direction` takes a
+    RAW column and counts azimuth down from `width`, whereas a stored column already counts
+    up, so the two compose to `phi = x_norm * 2pi + pi/2`. That is easy to get backwards,
+    and hard to catch: mirroring phi flips the sign of vx and nothing else, so any plane
+    whose normal has nx == 0 -- which includes every level ground plane, the case one
+    naturally reaches for -- returns the identical answer either way. Only a plane with a
+    nonzero normal-x pins the convention down; tests/test_depth.py uses several. At a pixel
+    centre this agrees with `_direction` bit-for-bit.
+    """
+    theta = (1.0 - y_norm) * math.pi
+    phi = x_norm * 2.0 * math.pi + math.pi / 2.0
+    st = math.sin(theta)
+    return st * math.cos(phi), st * math.sin(phi), math.cos(theta)
+
+
+def _plane_at(payload, x_norm, y_norm):
+    """(plane, row, raw_col) under a normalized coordinate; plane is None for sky.
+
+    The row needs no un-mirroring -- only columns are flipped -- but the column does, so
+    both are returned ready for `_direction`.
+
+    The lookup snaps to a pixel because the plane segmentation is genuinely per-pixel --
+    this is the one place quantization is correct rather than merely convenient.
+    """
+    col = min(payload.width - 1, max(0, int(x_norm * payload.width)))
+    row = min(payload.height - 1, max(0, int(y_norm * payload.height)))
+    raw_col = _raw_column(payload, col)
+    idx = payload.indices[row * payload.width + raw_col]
+    if idx == SKY or idx >= len(payload.planes):
+        return None, row, raw_col
+    return payload.planes[idx], row, raw_col
 
 
 def ground_plane(payload):
@@ -205,46 +285,79 @@ def ground_plane(payload):
     # Spread across every ground plane, pixel-weighted: the roadway is segmented into
     # several planes, and how much they disagree about the camera height is a genuine
     # per-pano uncertainty -- better than the flat sigma_height_m the error model uses.
-    heights = []
-    for c, _, p, _ in candidates:
-        heights.extend([p.d] * c)
-    heights.sort()
-    spread = (heights[int(0.9 * (len(heights) - 1))]
-              - heights[int(0.1 * (len(heights) - 1))])
+    # Taken as a weighted percentile over (height, pixel count) pairs rather than by
+    # materializing one float per pixel: identical result, but it does not build a
+    # 131k-element list per panorama across a 170k-panorama archive.
+    weighted = sorted((p.d, c) for c, _, p, _ in candidates)
+    total_px = sum(c for _, c in weighted)
+
+    def wpct(q):
+        rank, seen = int(q * (total_px - 1)), 0
+        for value, c in weighted:
+            seen += c
+            if seen > rank:
+                return value
+        return weighted[-1][0]
+
+    spread = wpct(0.9) - wpct(0.1)
 
     return GroundPlane(camera_height_m=best.d, tilt_deg=tilt, pixel_share=count / total,
                        n_ground_planes=len(candidates), height_spread_m=spread)
 
 
-def depth_at(payload, x_norm, y_norm):
-    """Euclidean ray distance at a normalized equirect coordinate, or None for sky.
-
-    (x_norm, y_norm) use the pipeline's convention -- x from the left of the rastered
-    image, y from the top -- the same one detections are stored in, so this can be
-    called directly with a detection's coordinates.
-    """
-    col = min(payload.width - 1, max(0, int(x_norm * payload.width)))
-    row = min(payload.height - 1, max(0, int(y_norm * payload.height)))
-    raw_col = _raw_column(payload, col)
-
-    idx = payload.indices[row * payload.width + raw_col]
-    if idx == SKY or idx >= len(payload.planes):
-        return None
-    p = payload.planes[idx]
-    vx, vy, vz = _direction(payload, row, raw_col)
-    denom = vx * p.nx + vy * p.ny + vz * p.nz
+def _intersect(plane, direction):
+    """Ray-plane intersection distance, or None if the ray runs parallel to the plane."""
+    vx, vy, vz = direction
+    denom = vx * plane.nx + vy * plane.ny + vz * plane.nz
     if denom == 0:
         return None
-    return abs(p.d / denom)
+    return abs(plane.d / denom)
+
+
+def depth_at(payload, x_norm, y_norm):
+    """Euclidean ray distance at the payload PIXEL containing a normalized coordinate.
+
+    Raster-faithful: this snaps to a pixel centre and so reproduces streetlevel's own
+    depth map exactly, which is what `--check-convention` and the offline cross-check in
+    tests/test_depth.py compare against. Use it to reason about the payload.
+
+    For a measurement at an arbitrary coordinate -- a detection, say -- use
+    `ray_depth_at` / `ground_range_at`, which intersect the true ray instead of a
+    quantized one.
+
+    (x_norm, y_norm) use the pipeline's convention -- x from the left of the rastered
+    image, y from the top -- the same one detections are stored in.
+    """
+    p, row, raw_col = _plane_at(payload, x_norm, y_norm)
+    if p is None:
+        return None
+    return _intersect(p, _direction(payload, row, raw_col))
+
+
+def ray_depth_at(payload, x_norm, y_norm):
+    """Euclidean distance along the exact ray at a normalized coordinate, or None for sky.
+
+    Same plane lookup as `depth_at`, but intersected at the un-snapped ray direction, so
+    the result is continuous in (x_norm, y_norm) rather than piecewise-constant across a
+    pixel. Identical to `depth_at` at pixel centres. See `_direction_continuous` for why
+    the difference is worth up to 6.6% of the range.
+    """
+    p, _, _ = _plane_at(payload, x_norm, y_norm)
+    if p is None:
+        return None
+    return _intersect(p, _direction_continuous(x_norm, y_norm))
 
 
 def ground_range_at(payload, x_norm, y_norm):
     """Horizontal distance from the camera at a normalized coordinate, or None.
 
-    The horizontal component of `depth_at` -- directly comparable to what
-    `geo.detection_ground_point` computes as `camera_height / tan(depression)`.
+    The horizontal component of `ray_depth_at` -- directly comparable to what
+    `geo.detection_ground_point` computes as `camera_height / tan(depression)`, and the
+    intended consumer of this whole archive (#40). Both factors come from the same
+    un-snapped coordinate; mixing a snapped depth with an un-snapped cosine is what the
+    6.6% error in `_direction_continuous` refers to.
     """
-    d = depth_at(payload, x_norm, y_norm)
+    d = ray_depth_at(payload, x_norm, y_norm)
     if d is None:
         return None
     theta = (0.5 - y_norm) * math.pi        # elevation, positive up
