@@ -1,0 +1,31 @@
+{
+  "run_name": "sao_paulo",
+  "created_at": "2026-07-31T20:16:18+00:00",
+  "source_geojson": "example_geojson/sao_paulo_bras_centro.geojson",
+  "area_hash": "6ace56a2522ebd54408861e08077ea4e9e3dfb4b3715c401d91b04758acd9ba7",
+  "imagery_source": "gsv",
+  "model_id": "rampnet-model",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0",
+  "detection_storage_floor": 0.1,
+  "max_peaks_per_pano": 50,
+  "streetlevel_version": "0.12.10",
+  "runs": [
+    {
+      "started_at": "2026-07-31T20:16:18+00:00",
+      "finished_at": "2026-07-31T22:52:30+00:00",
+      "panos_found_in_area": 22549,
+      "processed": 22540,
+      "skipped": 0,
+      "failed": 9
+    },
+    {
+      "started_at": "2026-07-31T23:07:03+00:00",
+      "finished_at": "2026-07-31T23:09:04+00:00",
+      "panos_found_in_area": 22616,
+      "processed": 201,
+      "skipped": 0,
+      "failed": 2
+    }
+  ]
+}
