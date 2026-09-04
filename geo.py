@@ -197,15 +197,18 @@ class ErrorModel:
 
 GSV_ERRORS = ErrorModel()
 # Mapillary: no pitch/roll (rig tilt lands in sigma_pitch), consumer rigs, SfM
-# positions with meters of scatter between sequences.
+# positions with meters of scatter between sequences. Panoramax shares every one of
+# those traits and adds raw GPS positions (no SfM; the catalog's own accuracy figure
+# is a 4 m 95% interval), so it gets the same model until measured otherwise.
 MAPILLARY_ERRORS = ErrorModel(sigma_pitch_rad=math.radians(1.5),
                               sigma_heading_rad=math.radians(1.0),
                               sigma_height_m=0.30,
                               sigma_gps_m=3.0)
+CROWDSOURCED_SOURCES = ('mapillary', 'panoramax')
 
 
 def error_model_for(source):
-    return MAPILLARY_ERRORS if source == 'mapillary' else GSV_ERRORS
+    return MAPILLARY_ERRORS if source in CROWDSOURCED_SOURCES else GSV_ERRORS
 
 
 @dataclass(frozen=True)
