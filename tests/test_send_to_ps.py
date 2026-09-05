@@ -239,3 +239,64 @@ def test_dry_run_is_exempt_from_the_endpoint_guard(tmp_path, capsys):
     assert "SECRET" not in capsys.readouterr().out
     # A dry run records nothing, so it never creates the resume sidecar.
     assert not (tmp_path / "results.jsonl.submitted").exists()
+
+
+def test_submission_record_tracks_the_campaign(tmp_path, monkeypatch):
+    """The record is the campaign's only git-committable memory of what went where: it must
+    agree with the sidecar line-for-line, and accumulate labels across resumed runs."""
+    path = _jsonl(tmp_path, 5)
+    _capture_posts(monkeypatch)
+    record_path = tmp_path / "results.jsonl.submission.json"
+
+    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai", limit=2)
+    record = json.loads(record_path.read_text())
+    assert (record["submitted_lines"], record["total_lines"]) == (2, 5)
+    assert record["labels_submitted"] == 2          # one operational detection per record
+    assert record["endpoints"] == ["https://ps.example/ai"]
+
+    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai")
+    record = json.loads(record_path.read_text())
+    assert record["submitted_lines"] == 5 == len(
+        send_to_ps.load_submitted_lines(tmp_path / "results.jsonl.submitted"))
+    assert record["labels_submitted"] == 5
+    assert record["first_submission_utc"] <= record["last_submission_utc"]
+
+
+def test_guard_refuses_a_changed_input_file(tmp_path, monkeypatch):
+    """Line numbers against an edited file point at the wrong records, so a resume must stop
+    rather than skip some and re-send others."""
+    path = _jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai", limit=2)
+
+    path.write_text(path.read_text().replace("PID", "OTHER", 1))
+    del sent[:]
+    with pytest.raises(ValueError, match="has changed"):
+        send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai")
+    assert sent == []
+
+
+def test_guard_refuses_when_the_sidecar_is_gone(tmp_path, monkeypatch):
+    """The failure that doubles a city's labels: the sidecar is lost (or the run moves to a
+    second machine) and every already-live record is POSTed again."""
+    path = _jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai")
+    assert len(sent) == 4
+
+    (tmp_path / "results.jsonl.submitted").unlink()
+    del sent[:]
+    with pytest.raises(ValueError, match="already"):
+        send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai")
+    assert sent == []
+
+    # ...and the override is what lets a checked-by-hand case through.
+    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai", ignore_guard=True)
+    assert len(sent) == 4
+
+
+def test_dry_run_writes_no_submission_record(tmp_path):
+    """A dry run POSTs nothing, so it must leave no trace and stay usable on a stale file."""
+    path = _jsonl(tmp_path, 2)
+    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai", dry_run=True)
+    assert not (tmp_path / "results.jsonl.submission.json").exists()

@@ -258,6 +258,19 @@ width/height stored in the record, renames `detections` → `labels`, and drops 
 `pano_source` enum (`gsv`/`mapillary`/`infra3d`), `target_gsv_panorama_id` → `target_pano_id`,
 and guarantees `links`/`history` arrays — so legacy JSONL files stay submittable unchanged.
 
+Resume state is a `<file>.submitted` sidecar of **line numbers**, which silently stops
+describing the campaign if the JSONL is edited or the sidecar is lost (deleted, or a run
+moved to a second machine) — and a re-run then re-POSTs records that are already live,
+duplicating a whole city's labels without raising anything. So each campaign also writes
+`<file>.submission.json` (sha256 of the JSONL, line/label counts, endpoints, timestamps),
+the one submission artifact small and stable enough to commit; `runs/*/*.submission.json`
+is git-tracked like `manifest.json`. Before POSTing anything, `check_resume_state` refuses
+to run when the file's hash has changed or when the record accounts for more submitted
+lines than the sidecar does (`--ignore-submission-guard` overrides, for a case checked by
+hand). Submitting a file to a *second* endpoint warns instead: the sidecar is
+endpoint-agnostic, so already-sent lines are skipped there too. Dry runs are exempt and
+write nothing.
+
 ## Output format notes
 
 - The detector emits normalized coordinates; Stage 1 stores them normalized in the JSONL.

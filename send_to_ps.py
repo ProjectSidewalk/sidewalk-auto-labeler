@@ -14,11 +14,14 @@ where it left off instead of re-POSTing every line.
 """
 
 import argparse
+import hashlib
 import ipaddress
 import json
 import os
+import socket
 import time
 from contextlib import nullcontext
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, Set
 from pathlib import Path
 from urllib.parse import urlparse
@@ -212,6 +215,122 @@ def load_submitted_lines(sidecar_path: Path) -> Set[int]:
         return {int(line) for line in f if line.strip()}
 
 
+SUBMISSION_RECORD_SUFFIX = ".submission.json"
+
+
+def submission_record_path(file_path: str) -> Path:
+    """Path of a campaign's submission record, beside the JSONL and its `.submitted` sidecar."""
+    return Path(f"{file_path}{SUBMISSION_RECORD_SUFFIX}")
+
+
+def hash_and_count(input_file: Path) -> tuple:
+    """(sha256, line count) of the JSONL, in one pass.
+
+    The hash is what ties the line-numbered sidecar to the file it was written against; the
+    count is recorded so the campaign's own record says how far there is still to go.
+    """
+    digest = hashlib.sha256()
+    lines = 0
+    ends_with_newline = True
+    with open(input_file, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            digest.update(chunk)
+            lines += chunk.count(b'\n')
+            ends_with_newline = chunk.endswith(b'\n')
+    if not ends_with_newline:
+        lines += 1                            # a final line with no trailing newline
+    return digest.hexdigest(), lines
+
+
+def load_submission_record(record_path: Path) -> Dict[str, Any]:
+    """The campaign's record, or {} when there isn't a readable one (i.e. a first submission)."""
+    if not record_path.exists():
+        return {}
+    try:
+        with open(record_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"Warning: {record_path.name} is unreadable ({e}); treating this as a first submission.")
+        return {}
+
+
+def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set[int],
+                       endpoint_url: str, input_file: Path, record_path: Path,
+                       sidecar_path: Path) -> None:
+    """
+    Refuse to submit when the resume sidecar no longer describes this file.
+
+    The sidecar is a set of LINE NUMBERS and nothing else, so two things silently turn it into
+    a lie: editing or reordering the JSONL under it, and losing it (deleted, or a second
+    machine that never had it). Either way the next run walks lines that are already live on
+    the server and duplicates their labels - a 9,000-record city doubles itself without a
+    single error being raised. The record written beside it is what makes both cases visible.
+
+    Raises:
+        ValueError: if the input file changed, or if fewer lines are accounted for locally
+            than the record says were already submitted.
+    """
+    if not record:
+        return
+
+    recorded_digest = record.get('sha256')
+    if recorded_digest and recorded_digest != digest:
+        raise ValueError(
+            f"{input_file.name} has changed since the submission recorded in {record_path.name} "
+            f"(sha256 {digest[:12]}... != {recorded_digest[:12]}...). {sidecar_path.name} holds "
+            f"line numbers against the old file, so resuming would skip and re-send the wrong "
+            f"records. Restore the file that was submitted, or start a new campaign under a new "
+            f"name. --ignore-submission-guard overrides."
+        )
+
+    already = record.get('submitted_lines', 0)
+    if already > len(submitted_lines):
+        raise ValueError(
+            f"{record_path.name} says {already} line(s) of {input_file.name} were already "
+            f"submitted to {', '.join(record.get('endpoints') or ['an unrecorded endpoint'])}, "
+            f"but {sidecar_path.name} accounts for only {len(submitted_lines)}. The resume "
+            f"sidecar is missing, truncated, or from a different machine - submitting now would "
+            f"re-POST records that are already live and duplicate their labels. Restore the "
+            f"sidecar first (a backup copy, or `seq 1 {already}` if that campaign ran to "
+            f"completion). --ignore-submission-guard overrides."
+        )
+
+    endpoints = record.get('endpoints') or []
+    if submitted_lines and endpoints and endpoint_url not in endpoints:
+        print(f"WARNING: {len(submitted_lines)} line(s) already went to {', '.join(endpoints)}. "
+              f"The sidecar is endpoint-agnostic, so those lines will NOT be sent to "
+              f"{endpoint_url} - only the remainder will.")
+
+
+def write_submission_record(record_path: Path, input_file: Path, digest: str, total_lines: int,
+                            submitted_count: int, endpoint_url: str, min_confidence: float,
+                            labels_sent: int, previous: Dict[str, Any]) -> None:
+    """Record what went where, so a campaign survives the loss of its sidecar.
+
+    Small and stable enough to commit - unlike the sidecar and the JSONL, which are gitignored
+    run state - so it also answers "what did we submit to that server, and when?" long after
+    the run directory is gone.
+    """
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    record = {
+        "input_file": input_file.name,
+        "sha256": digest,
+        "total_lines": total_lines,
+        "submitted_lines": submitted_count,
+        "labels_submitted": previous.get('labels_submitted', 0) + labels_sent,
+        "min_confidence": min_confidence,
+        # dict.fromkeys: de-duplicated, first-seen order. A campaign legitimately hits a test
+        # instance before prod, and the order records which came first.
+        "endpoints": list(dict.fromkeys((previous.get('endpoints') or []) + [endpoint_url])),
+        "first_submission_utc": previous.get('first_submission_utc', now),
+        "last_submission_utc": now,
+        "last_run_host": socket.gethostname(),
+    }
+    with open(record_path, 'w', encoding='utf-8') as f:
+        json.dump(record, f, indent=2)
+        f.write("\n")
+
+
 def process_jsonl_file(
     file_path: str,
     endpoint_url: str = DEFAULT_ENDPOINT_URL,
@@ -219,6 +338,7 @@ def process_jsonl_file(
     dry_run: bool = False,
     min_confidence: float = OPERATIONAL_CONFIDENCE,
     limit: Optional[int] = None,
+    ignore_guard: bool = False,
 ) -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending
@@ -235,6 +355,8 @@ def process_jsonl_file(
             (see ``transform_record``).
         limit: Stop after this many records are submitted *this run*; already-submitted
             lines don't count against it, so successive capped runs walk the file.
+        ignore_guard: Submit even when the submission record disagrees with the resume
+            sidecar (see ``check_resume_state``).
     """
     input_file = Path(file_path)
 
@@ -250,10 +372,19 @@ def process_jsonl_file(
     sidecar_path = Path(f"{file_path}.submitted")
     submitted_lines = load_submitted_lines(sidecar_path)
 
+    # ...and check it still describes this file. A dry run POSTs nothing, so it is exempt.
+    record_path = submission_record_path(file_path)
+    previous_record = load_submission_record(record_path)
+    digest, total_lines = hash_and_count(input_file)
+    if not dry_run and not ignore_guard:
+        check_resume_state(previous_record, digest, submitted_lines, endpoint_url,
+                           input_file, record_path, sidecar_path)
+
     success_count = 0
     error_count = 0
     skipped_count = 0
     filtered_detections = 0
+    labels_sent = 0
     attempted = 0          # records touched this run; what --limit caps
     limit_reached = False
 
@@ -305,6 +436,7 @@ def process_jsonl_file(
 
                     if response:
                         success_count += 1
+                        labels_sent += len(payload['labels'])
                         f_sidecar.write(f"{line_number}\n")
                         f_sidecar.flush()
                     else:
@@ -323,6 +455,13 @@ def process_jsonl_file(
         print(f"Error reading file: {e}")
         return
 
+    # Take the campaign's state from the sidecar itself, so the two can never disagree. When
+    # nothing new was sent and a record already exists, leave it alone rather than restamp it.
+    if not dry_run and (success_count or not previous_record):
+        write_submission_record(record_path, input_file, digest, total_lines,
+                                len(load_submitted_lines(sidecar_path)), endpoint_url,
+                                min_confidence, labels_sent, previous_record)
+
     # Print summary.
     print("-" * 50)
     print(f"Processing complete!")
@@ -330,6 +469,8 @@ def process_jsonl_file(
     print(f"Skipped (already submitted):   {skipped_count} records")
     print(f"Errors encountered:            {error_count} records")
     print(f"Detections below --min-confidence {min_confidence} (not submitted): {filtered_detections}")
+    if not dry_run:
+        print(f"Submission record:             {record_path.name}")
     if limit_reached:
         print(f"Stopped at --limit {limit}. "
               + ("Dry run — nothing was recorded, so a re-run starts from this same line."
@@ -366,6 +507,14 @@ def main() -> None:
              "inspect them in Project Sidewalk before committing to the whole city."
     )
     parser.add_argument(
+        "--ignore-submission-guard",
+        action="store_true",
+        help="Submit even when the submission record disagrees with the resume sidecar - a "
+             "changed input file, or a sidecar accounting for fewer lines than were already "
+             "sent. Only for a case you have checked by hand: the guard is what stops a lost "
+             "sidecar from re-POSTing a whole city and duplicating its labels."
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print transformed payloads instead of POSTing them; no progress is recorded."
@@ -385,7 +534,7 @@ def main() -> None:
     api_key = os.environ.get(args.api_key_env)
     try:
         process_jsonl_file(args.jsonl_file, args.endpoint, api_key, args.dry_run,
-                           args.min_confidence, args.limit)
+                           args.min_confidence, args.limit, args.ignore_submission_guard)
     except ValueError as e:
         raise SystemExit(f"Error: {e}")
 

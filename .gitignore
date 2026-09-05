@@ -16,3 +16,4 @@ runs/**
 !runs/*/manifest.json
 !runs/*/area.geojson
 !runs/*/*_verdicts.json
+!runs/*/*.submission.json
