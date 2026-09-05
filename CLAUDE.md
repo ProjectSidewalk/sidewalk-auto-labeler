@@ -101,6 +101,16 @@ python scripts/site_explorer.py richmond --select fragment  # over-split suspect
 python scripts/site_explorer.py richmond --inline     # one shareable file
 # ...--local-panos <dir> cuts crops locally instead (no SSH; e.g. a RampNet bundle).
 
+# MAPILLARY RIG TILT (issue #42). OpenSfM's `computed_rotation` sits in every Mapillary
+# record's source_metadata; scripts/mapillary_tilt.py parses it (convention locked four
+# ways -- see docs/mapillary-tilt-study.md) and re-runs the pose ablation, the GT eval and a
+# pixel-level rectification check per sign convention. No network, no GPU; stdlib except
+# `rectify`/`examples` (numpy, Pillow, SciPy) and `figures` (matplotlib).
+python scripts/mapillary_tilt.py stats                 # tilt distributions + compass identity
+python scripts/mapillary_tilt.py ablation              # multi-view sign lock, by tilt/grade bucket
+python scripts/mapillary_tilt.py eval                  # world P/R vs RampNet GT per convention
+python scripts/mapillary_tilt.py pose <mapillary_id> --run richmond
+
 # Run the tests (no GPU/network/model; light deps via requirements-test.txt)
 pytest
 
@@ -218,6 +228,19 @@ untouched. `eval_sites.py` scores fusion against RampNet's benchmark verdicts in
 space (semantics mirror `rampnet.validation.collect`) and produces the stage-4 promotion
 calibration. Measured 2026-08-02 (5 m match radius): world recall 0.93–0.96 vs own-view
 0.72–0.83, precision 0.89–0.98 across paterson/gainesville/sao_paulo/richmond/bend.
+
+**Mapillary rig tilt (`scripts/mapillary_tilt.py`)** — issue #42. Mapillary blocks store
+`camera_pitch`/`camera_roll` as null, but `source_metadata.computed_rotation` is OpenSfM's full
+world→camera rotation (axis-angle; world = east/north/up, camera = right/down/forward). Its yaw equals
+Mapillary's `computed_compass_angle` to 1e-11° on every record, PS's own `MapillaryViewer.extractPitchRoll`
+decomposes it the same way (pitch identical; **PS's roll sign is the negative of `geo._world_ray`'s**), and
+re-rendering panos with it levels them. Median tilt is ~3° (81–85% above the 1.5° sigma the error model
+assumes). Measured 2026-09-04: applying the tilt relative to *gravity* tightens multi-view agreement where
+the rig itself is tilted (Clovis −40%, Laurens −28%, Richmond −13%) but loosens it where the camera rides
+level on a car in hilly terrain (Morgantown +28%: camera pitch tracks the road grade with slope 0.97) —
+the raycast wants tilt relative to the local road, which the sequence's SfM altitude profile provides
+(`road-relative` convention: never worse than flat by >1%). Full study, figures and the recommended
+production change in `docs/mapillary-tilt-study.md`. Not yet wired into `sources/mapillary.py`/`geo.py`.
 
 **GSV depth (`depth.py`, `scripts/harvest_depth.py`)** — issues #40/#41. `depth.py` (repo
 root, stdlib-only like `geo.py`) parses GSV's depth payload, which is **not a raster**: it
