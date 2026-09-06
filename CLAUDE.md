@@ -91,6 +91,16 @@ python scripts/fuse_sites.py runs/paterson
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
 
+# Score Project Sidewalk's SERVER-SIDE label clustering against RampNet GT (SW#4706 step 1;
+# protocol + findings in docs/ps-clustering-eval.md). Pulls the city's CurbRamp labels and
+# the server's clusters from the v3 API, maps every AI label back to its stored detection,
+# and scores the deployed partition, the PS algorithm re-run at a threshold sweep (on the
+# server's positions and on the labeler's raycast), and fuse_sites.py, all with one scorer.
+# Needs pandas/scipy/haversine (not in requirements.txt). --ps-script points at
+# SidewalkWebpage/scripts/label_clustering.py for the verbatim-reproduction check.
+# --camera-height-m sets the scoring frame (the server's own is 2.341219672825709).
+python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond.cs.washington.edu
+
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.
 # Crops are cut on makelab2's native-res archive and pulled back as a tarball, then
