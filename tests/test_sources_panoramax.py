@@ -115,9 +115,10 @@ def test_thin_panos_newest_capture_wins_then_pixel_density():
     assert set(panoramax.thin_panos(panos, 100_000)) == {"sharp"}
 
 
-def _patch_fetch(monkeypatch, item, image=("IMAGE", (5760, 2880)), gone=False):
+def _patch_fetch(monkeypatch, item, image=("IMAGE", (5760, 2880)), gone=False,
+                 undecodable=False):
     monkeypatch.setattr(panoramax, "fetch_item", lambda picture_id: (item, gone))
-    monkeypatch.setattr(panoramax, "_download_image", lambda url: image)
+    monkeypatch.setattr(panoramax, "_download_image", lambda url: (image, undecodable))
 
 
 def test_fetch_pano_success_record_contract(monkeypatch):
@@ -168,7 +169,7 @@ def test_fetch_pano_uses_geovisio_image_when_the_hd_asset_is_missing(monkeypatch
     seen = []
     monkeypatch.setattr(panoramax, "fetch_item", lambda pid: (make_item(**{"assets.hd": None}), False))
     monkeypatch.setattr(panoramax, "_download_image",
-                        lambda url: seen.append(url) or ("IMAGE", (5760, 2880)))
+                        lambda url: seen.append(url) or (("IMAGE", (5760, 2880)), False))
     assert panoramax.fetch_pano("x", 0.0, 0.0)["status"] == "success"
     assert seen == ["https://panoramax.openstreetmap.fr/images/4a/c3/b7f9.jpg"]
 
@@ -217,6 +218,52 @@ def test_fetch_pano_transient_metadata_failure_is_retryable(monkeypatch):
 def test_fetch_pano_download_failure_is_retryable(monkeypatch):
     _patch_fetch(monkeypatch, make_item(), image=None)
     assert panoramax.fetch_pano("x", 0.0, 0.0)["status"] == "failure"
+
+
+def test_fetch_pano_undecodable_asset_is_skipped_not_retried(monkeypatch):
+    # Bytes that arrived and are not a readable image (or a 404 on the unsigned hd URL)
+    # will not become one on a later run — caching the skip is what stops the area
+    # re-downloading the same dead megabytes forever.
+    _patch_fetch(monkeypatch, make_item(), image=None, undecodable=True)
+    result = panoramax.fetch_pano("x", 0.0, 0.0)
+    assert result["status"] == "skipped" and "decodable" in result["reason"]
+
+
+def test_download_image_separates_decode_failure_from_network_failure(monkeypatch):
+    calls = []
+
+    def answer(status, body):
+        def raise_for_status():
+            if status >= 400:
+                raise RuntimeError(f"HTTP {status}")
+        return SimpleNamespace(status_code=status, content=body,
+                               raise_for_status=raise_for_status)
+
+    monkeypatch.setattr(panoramax.time, "sleep", lambda s: None)
+
+    # Not an image: one request, permanent.
+    monkeypatch.setattr(panoramax.requests, "get",
+                        lambda url, **kw: calls.append(url) or answer(200, b"not a jpeg"))
+    assert panoramax._download_image("u") == (None, True)
+    assert len(calls) == 1
+
+    # A 404 on the plain, unsigned asset URL is equally permanent.
+    calls.clear()
+    monkeypatch.setattr(panoramax.requests, "get",
+                        lambda url, **kw: calls.append(url) or answer(404, b""))
+    assert panoramax._download_image("u") == (None, True)
+    assert len(calls) == 1
+
+    # A network error is not: retried, then reported as retryable.
+    calls.clear()
+
+    def boom(url, **kw):
+        calls.append(url)
+        raise OSError("connection reset")
+
+    monkeypatch.setattr(panoramax.requests, "get", boom)
+    assert panoramax._download_image("u") == (None, False)
+    assert len(calls) == panoramax.ATTEMPTS
 
 
 def test_fetch_item_404_is_gone_without_retrying(monkeypatch):

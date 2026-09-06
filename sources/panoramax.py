@@ -76,6 +76,10 @@ THIN_CELL_METERS = 5
 # Bulky per-picture tiling descriptors the viewer needs and nobody else does.
 VOLATILE_PROPERTY_KEYS = {'tiles:tile_matrix_sets'}
 
+# Written into source_metadata from the item itself, so a property of the same (unprefixed,
+# therefore non-STAC) name never silently shadows them — see provenance_fields.
+ITEM_LEVEL_KEYS = {'collection', 'providers', 'hd_url'}
+
 
 def api_url():
     return os.environ.get(API_URL_ENV_VAR, DEFAULT_API_URL).rstrip('/')
@@ -205,7 +209,10 @@ def fetch_pano(pano_id, lat, lon):
         return {'status': 'skipped',
                 'reason': f'Not a full 360x180 equirectangular ({declared[0]}x{declared[1]})'}
 
-    downloaded = _download_image(url)
+    downloaded, undecodable = _download_image(url)
+    if undecodable:
+        return {'status': 'skipped',
+                'reason': 'Image asset is gone or not a decodable image'}
     if downloaded is None:
         return {'status': 'failure', 'reason': 'Failed to download equirectangular image'}
     image, (width, height) = downloaded
@@ -251,22 +258,42 @@ def fetch_item(picture_id):
 
 
 def _download_image(url):
-    """Downloads the original upload and normalizes it to the detector's 4096x2048.
-    Returns (image, (original_width, original_height)), or None on failure (caller
-    treats as retryable)."""
+    """((image, (original_width, original_height)), permanent) for one picture's asset.
+
+    Splits the two failure kinds the retry loop used to conflate, for the same reason
+    fetch_item does: main.py caches a deterministic skip and retries a failure forever.
+
+    - Network/HTTP failures are retryable and return (None, False) after ATTEMPTS tries.
+    - A 404 on the asset is not: the `hd` URL is plain and unsigned (unlike Mapillary's
+      signed, expiring thumbnail), so a 404 means the instance no longer serves those
+      pixels. Retrying cannot fix it.
+    - Neither can a decode failure. Bytes that arrived intact and are not a readable
+      image — a truncated upload, a decompression bomb past PIL's ceiling — will not
+      become one on the fourth try, and the old bare `except Exception` around the whole
+      body sent them back around the loop and then left them uncached, so every future
+      run of the area re-downloaded the same unreadable megabytes.
+    """
     for attempt in range(ATTEMPTS):
         try:
             response = requests.get(url, headers=_headers(), timeout=180)
+            if response.status_code in GONE_STATUSES:
+                return None, True
             response.raise_for_status()
-            image = Image.open(BytesIO(response.content)).convert('RGB')
-            original_size = image.size
-            if image.size != TARGET_SIZE:
-                image = image.resize(TARGET_SIZE, Image.BILINEAR)
-            return image, original_size
+            payload = response.content
         except Exception:
             if attempt < ATTEMPTS - 1:
                 time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
-    return None
+            continue
+        # Past this point the bytes are in hand, so a failure is about the bytes.
+        try:
+            image = Image.open(BytesIO(payload)).convert('RGB')
+        except Exception:
+            return None, True
+        original_size = image.size
+        if image.size != TARGET_SIZE:
+            image = image.resize(TARGET_SIZE, Image.BILINEAR)
+        return (image, original_size), False
+    return None, False
 
 
 def provenance_fields(item):
@@ -283,8 +310,13 @@ def provenance_fields(item):
         'camera_model': orientation.get('camera_model'),
         'camera_type': 'equirectangular',
         'panoramax_instance': urlsplit(url).netloc if url else None,
+        # Item-level fields folded in beside the properties. STAC namespaces its property
+        # keys (`geovisio:`, `pers:`, `view:`) so these three cannot realistically collide,
+        # but state the precedence rather than leaving it to dict-literal ordering: the
+        # item's own collection/providers are authoritative, and hd_url is ours.
         'source_metadata': {
-            **{k: v for k, v in sorted(props.items()) if k not in VOLATILE_PROPERTY_KEYS},
+            **{k: v for k, v in sorted(props.items())
+               if k not in VOLATILE_PROPERTY_KEYS and k not in ITEM_LEVEL_KEYS},
             'collection': item.get('collection'),
             'providers': item.get('providers'),
             'hd_url': url,

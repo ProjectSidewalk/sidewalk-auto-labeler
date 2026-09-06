@@ -435,6 +435,13 @@ def pose_ablation_report(panos, params):
     far above the noise floor over thousands of multi-view sites); a wrong
     sign loosens it. Only operational members from panos that carry pitch/roll
     participate, so Mapillary runs report nothing here.
+
+    That participation filter is why the report leads with pose coverage. On GSV every
+    pano carries pitch/roll and the ablation covers the whole run; Panoramax is mixed
+    (pers:pitch/pers:roll are optional — measured 28% of panos carry them, see
+    geo.pano_pose), so the numbers below would otherwise describe a self-selected subset
+    while reading like a statement about the run. A subset drawn by "which rig wrote a
+    pose" is not a random one, so the header says so out loud.
     """
     from dataclasses import replace
 
@@ -450,10 +457,19 @@ def pose_ablation_report(panos, params):
     if not groups:
         return 'no multi-view sites with pitch/roll poses — nothing to ablate'
 
+    posed = sum(1 for p in panos
+                if p.camera_pitch is not None and p.camera_roll is not None)
+    coverage = [f'pose coverage: {posed}/{len(panos)} panos carry pitch+roll '
+                f'({100.0 * posed / len(panos):.0f}%)']
+    if posed < len(panos):
+        coverage.append(
+            '  ⚠ mixed population — the table below describes only the posed panos, '
+            'which are\n    self-selected by capture rig, not a random sample of the run.')
+
     conventions = [('off (no pose)', None), ('+pitch +roll', (1, 1)),
                    ('+pitch -roll', (1, -1)), ('-pitch +roll', (-1, 1)),
                    ('-pitch -roll', (-1, -1)), ('+pitch  0', (1, 0))]
-    lines = [f'{len(groups)} frozen multi-view sites '
+    lines = coverage + [f'{len(groups)} frozen multi-view sites '
              f'({sum(len(g) for g in groups)} members); '
              'within-site pairwise member distance (m):',
              f'{"convention":>14}  {"mean":>7}  {"median":>7}  {"pairs":>7}']
@@ -493,6 +509,9 @@ def pose_ablation_report(panos, params):
                         dists.append(math.hypot(pts[i][0] - pts[j][0],
                                                 pts[i][1] - pts[j][1]))
         dists.sort()
+        if not dists:  # every ray in every group missed the ground under this convention
+            lines.append(f'{name:>14}  {"—":>7}  {"—":>7}  {0:7d}')
+            continue
         mean = sum(dists) / len(dists)
         lines.append(f'{name:>14}  {mean:7.3f}  {dists[len(dists) // 2]:7.3f}  '
                      f'{len(dists):7d}')
