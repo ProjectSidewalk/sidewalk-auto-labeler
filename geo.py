@@ -201,8 +201,8 @@ GSV_ERRORS = ErrorModel()
 # those traits and adds raw GPS positions (no SfM; the catalog's own accuracy figure
 # is a 4 m 95% interval), so it gets the same model until measured otherwise. Note
 # sigma_pitch_rad=1.5 deg is the unknown-tilt budget, and the Panoramax panos that do
-# report tilt reach far past it (see pano_pose) — worth re-measuring on a Panoramax run
-# rather than assuming Mapillary's number carries over.
+# report tilt reach far past it (see pano_pose) — so this is a guess with a known-suspect
+# constant, not a measured model. Issue #57 tracks measuring it on a real Panoramax run.
 MAPILLARY_ERRORS = ErrorModel(sigma_pitch_rad=math.radians(1.5),
                               sigma_heading_rad=math.radians(1.0),
                               sigma_height_m=0.30,
