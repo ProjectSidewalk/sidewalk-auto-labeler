@@ -202,6 +202,27 @@ default 5 m, `0` disables) before processing. A run
 directory is bound to one source the same way it's bound to one geometry; use a
 different `--name` per source.
 
+### Alternative imagery source: Panoramax
+
+`--source panoramax` runs on [Panoramax](https://panoramax.fr/), the federated open
+street-level imagery commons started by IGN and OpenStreetMap France (CC BY-SA 4.0 on most
+instances, Etalab 2.0 on IGN's). No token is needed:
+
+```bash
+python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --scan-only
+python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
+```
+
+Coverage comes from the federation catalog's z15 vector tiles (only `equirectangular`
+pictures are kept), imagery from each picture's `hd` asset on its home instance — the
+original upload, unsigned. Thinning works as for Mapillary (newest capture per cell,
+pixel-density tiebreak). `PANORAMAX_API_URL` points a run at a single instance (e.g. a
+self-hosted one) instead of the federation; it's checked against the instance's STAC
+landing page at startup, so a mistyped root fails before the model loads rather than
+producing a run that scans every tile and finds nothing. Coverage is overwhelmingly French today; the
+Bayonne and Lyon boundaries in `example_geojson/` are two communes with dense, recent 360°
+coverage.
+
 ### Step 2 — Validate the detections (in RampNet)
 
 Ground-truth review and precision/recall scoring **live in [RampNet](https://github.com/ProjectSidewalk/RampNet)**,
@@ -412,7 +433,7 @@ CI runs the same suite on every push (`.github/workflows/tests.yml`).
 
 - Python 3.12 (provided by the conda environment).
 - A CUDA GPU (recommended) or CPU.
-- Internet access to Google Street View and HuggingFace.
+- Internet access to the imagery source (Google Street View, Mapillary or Panoramax) and HuggingFace.
 - A running Project Sidewalk server **with the target city already set up** (only for the
   submission step) — see [Prerequisites](#prerequisites-a-project-sidewalk-city-instance-must-exist-first).
 

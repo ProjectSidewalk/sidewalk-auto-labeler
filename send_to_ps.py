@@ -37,8 +37,10 @@ RETRY_BACKOFF_SECONDS = [2, 8]
 
 # Project Sidewalk's pano_source enum (PanoSource in SidewalkWebpage). Legacy Stage-1
 # records store streetlevel's raw source string ("launch", "scout", ...) instead; any
-# value outside this set is GSV imagery.
-PS_PANO_SOURCES = {"gsv", "mapillary", "infra3d"}
+# value outside this set is GSV imagery. `panoramax` is listed ahead of the server: its
+# enum value lands with SidewalkWebpage's Panoramax support, and until it does the server
+# rejects such records — better than this script silently relabeling them as GSV.
+PS_PANO_SOURCES = {"gsv", "mapillary", "infra3d", "panoramax"}
 
 
 def is_loopback(host: Optional[str]) -> bool:

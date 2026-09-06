@@ -59,6 +59,7 @@ load_dotenv(REPO_ROOT / ".env")
 from detectors import OPERATIONAL_CONFIDENCE  # noqa: E402
 from geo import haversine_m as _haversine_m, LatLngSpacingIndex as _SpatialIndex  # noqa: E402
 from sources import mapillary  # noqa: E402
+from sources import panoramax  # noqa: E402
 
 WORKERS = 6
 
@@ -225,6 +226,18 @@ def fetch_native(pano_id, source, out_path):
             resp = requests.get(url, timeout=180)
             resp.raise_for_status()
             part.write_bytes(resp.content)              # raw native bytes, no resize
+        elif source == "panoramax":
+            item, gone = panoramax.fetch_item(pano_id)
+            if gone:
+                return GONE, "picture no longer exists on Panoramax"
+            if item is None:
+                return ERROR, "STAC item unavailable"
+            url = panoramax.image_url(item)
+            if not url:
+                return GONE, "item carries no hd asset"
+            resp = requests.get(url, headers={"User-Agent": panoramax.USER_AGENT}, timeout=180)
+            resp.raise_for_status()
+            part.write_bytes(resp.content)              # the original upload, no resize
         else:  # gsv
             from streetlevel import streetview  # lazy: Mapillary-only archives don't need it
             meta = streetview.find_panorama_by_id(pano_id)

@@ -267,7 +267,13 @@ def _fetch_image_metadata(image_id):
 
 def _download_image(url):
     """Downloads the signed thumbnail and normalizes it to the detector's 4096x2048.
-    Returns None on failure (caller treats as retryable)."""
+    Returns None on failure (caller treats as retryable).
+
+    Note this treats an undecodable image as retryable, so such a pano is re-downloaded
+    on every future run of the area and never cached. sources/panoramax.py splits the two
+    (see its _download_image); issue #57 tracks porting the decode half here. The 404 half
+    deliberately does not port: this URL is signed and short-lived, so a 404 really is
+    transient."""
     for attempt in range(ATTEMPTS):
         try:
             response = requests.get(url, timeout=120)

@@ -447,8 +447,11 @@ def main():
         sys.exit(f"Not a directory: {run_dir}")
     check_gsv(run_dir)
     pano_ids, source = run_pano_ids(run_dir)
-    if source and source == "mapillary":
-        sys.exit("This run's records are Mapillary; only GSV serves depth (see #42).")
+    # Belt to check_gsv's braces: that reads the manifest, this the records, so a run dir
+    # without a manifest is still refused. Allowlist rather than denylist — a new source
+    # must not default into "GSV serves depth for this".
+    if source and source != "gsv":
+        sys.exit(f"This run's records are {source}; only GSV serves depth (see #42).")
 
     # `is not None`, not truthiness: 0 is a meaningful value for both of these and reading
     # it as "unset" turns `--limit 0` into a full 170k-panorama harvest.

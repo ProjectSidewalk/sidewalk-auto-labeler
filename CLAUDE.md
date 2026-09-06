@@ -30,6 +30,9 @@ python main.py example_geojson/bend.geojson --name bend
 # token from mapillary.com/dashboard/developers — in the env or in gitignored ./.env)
 python main.py example_geojson/richmond.geojson --name richmond --source mapillary
 
+# ...or on Panoramax (federated open imagery, no token; coverage is mostly France today)
+python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
+
 # GSV runs end with a gap-fill phase (issue #32): link-target panos the run's own
 # records reference but the tile scan never enumerated (coverage churn) are fetched
 # by id and kept if their metadata position is in-area. --no-gap-fill skips it;
@@ -158,6 +161,17 @@ from retryable `failure` (left uncached).
   center column of a Mapillary equirectangular is the camera's compass bearing (same
   convention as GSV and as PS's panoX→heading math), so images are never rotated;
   `computed_compass_angle` becomes `camera_heading`, pitch/roll stay null.
+- **panoramax**: the federated open imagery commons (IGN + OSM France; CC BY-SA / Etalab),
+  no token. z15 vector tiles from the federation catalog (`pictures` layer carries `type`,
+  so 360-filtering happens during enumeration), then one STAC item request per picture
+  (`/api/pictures/{id}`) for position, `view:azimuth` → `camera_heading`, pitch/roll,
+  camera make/model, producer + license, and the `hd` asset — the original upload on the
+  picture's home instance, unsigned. Same thinning as Mapillary (newest per cell,
+  pixel-density tiebreak). `PANORAMAX_API_URL` targets one instance instead of the
+  federation, and `prepare()` probes that root's STAC landing page so a mistyped one fails
+  fast (the tile endpoint answers 204 for an empty tile and 404 for a bad path, so a wrong
+  root would otherwise read as a legitimate zero-coverage scan). Records carry `license` and `panoramax_instance`; `source_metadata` is the
+  STAC properties (EXIF included) minus the viewer's tile descriptors.
 
 Concurrency uses plain OS threads (`concurrent.futures.ThreadPoolExecutor`) — **not gevent**.
 streetlevel's sync imagery API runs an internal asyncio event loop per call (`asyncio.run` +

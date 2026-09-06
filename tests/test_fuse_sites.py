@@ -133,9 +133,10 @@ def test_parallel_rays_interpolate_never_extrapolate():
     assert var_n > var_e  # along-ray (north) stays the uncertain axis
 
 
-def test_mapillary_records_get_the_wider_error_model():
+@pytest.mark.parametrize('crowd_source', ['mapillary', 'panoramax'])
+def test_crowdsourced_records_get_the_wider_error_model(crowd_source):
     gsv = make_pano('g', 0, -10, [(0, 0, 0.9)], source='launch')
-    mly = make_pano('m', 0, 10, [(0, 0, 0.9)], source='mapillary')
+    mly = make_pano('m', 0, 10, [(0, 0, 0.9)], source=crowd_source)
     dets, _, _ = fs.project([gsv, mly], fs.FuseParams())
     cov = {d.pano_id: d.cov for d in dets}
     assert cov['m'][0] + cov['m'][2] > cov['g'][0] + cov['g'][2]

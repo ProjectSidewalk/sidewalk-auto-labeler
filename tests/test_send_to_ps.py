@@ -104,6 +104,15 @@ def test_transform_pano_forwards_all_provenance():
     assert pano["camera_make"] == "GoPro" and pano["sequence_id"] == "seq-1"
 
 
+@pytest.mark.parametrize("source, expected", [
+    ("mapillary", "mapillary"),
+    ("panoramax", "panoramax"),   # ahead of the server's enum: rejected there, never relabeled here
+    ("launch", "gsv"),            # legacy raw streetlevel string
+])
+def test_transform_pano_source_enum(source, expected):
+    assert send_to_ps.transform_pano({"pano_id": "x", "source": source})["source"] == expected
+
+
 def test_transform_pano_passes_through_canonical_fields():
     pano = send_to_ps.transform_pano({
         "pano_id": "123456789",
