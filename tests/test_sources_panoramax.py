@@ -173,6 +173,16 @@ def test_fetch_pano_uses_geovisio_image_when_the_hd_asset_is_missing(monkeypatch
     assert seen == ["https://panoramax.openstreetmap.fr/images/4a/c3/b7f9.jpg"]
 
 
+def test_fetch_pano_accepts_a_picture_whose_item_omits_field_of_view(monkeypatch):
+    # The tile scan already certified `type == equirectangular`, and a skip here is cached
+    # forever — so an absent field_of_view must not permanently drop a valid picture.
+    # (`pers:interior_orientation` is optional in STAC, and so is field_of_view within it.)
+    for broken in ({"properties.pers:interior_orientation.field_of_view": None},
+                   {"properties.pers:interior_orientation": None}):
+        _patch_fetch(monkeypatch, make_item(**broken))
+        assert panoramax.fetch_pano("x", 0.0, 0.0)["status"] == "success"
+
+
 @pytest.mark.parametrize("broken, reason_fragment", [
     ({"properties.pers:interior_orientation.field_of_view": 100}, "field_of_view"),
     ({"properties.datetime": None}, "timestamp"),
@@ -240,6 +250,58 @@ def test_fetch_panos_for_tile_treats_204_as_no_coverage(monkeypatch):
     monkeypatch.setattr(panoramax.requests, "get", lambda url, **kw: SimpleNamespace(
         status_code=204, content=b"", raise_for_status=lambda: None))
     assert panoramax.fetch_panos_for_tile(1, 2, Point(0, 0)) == {}
+
+
+def _tile_response(status, content=b"\x1a\x00"):
+    def raise_for_status():
+        if status >= 400:
+            raise RuntimeError(f"HTTP {status}")
+    return SimpleNamespace(status_code=status, content=content,
+                           raise_for_status=raise_for_status)
+
+
+def test_fetch_panos_for_tile_reports_a_404_as_a_failed_tile(monkeypatch):
+    # Measured live: an empty tile answers 204, and a 404 means the API root is wrong.
+    # Reading 404 as "no coverage" would turn a mistyped PANORAMAX_API_URL into a
+    # silent zero-pano run instead of a scan that says every tile failed.
+    calls = []
+    monkeypatch.setattr(panoramax.requests, "get",
+                        lambda url, **kw: calls.append(url) or _tile_response(404, b""))
+    monkeypatch.setattr(panoramax.time, "sleep", lambda s: None)
+    assert panoramax.fetch_panos_for_tile(1, 2, Point(0, 0)) is None
+    assert len(calls) == panoramax.ATTEMPTS
+
+
+def test_fetch_panos_for_tile_reports_an_empty_bodied_5xx_as_a_failed_tile(monkeypatch):
+    # A 502 with no body is a failure to retry, not a tile without pictures — so the
+    # empty-body shortcut must not run before raise_for_status().
+    monkeypatch.setattr(panoramax.requests, "get", lambda url, **kw: _tile_response(502, b""))
+    monkeypatch.setattr(panoramax.time, "sleep", lambda s: None)
+    assert panoramax.fetch_panos_for_tile(1, 2, Point(0, 0)) is None
+
+
+def test_prepare_accepts_a_stac_catalog_and_rejects_a_bad_root(monkeypatch):
+    def answer(payload, status=200):
+        def raise_for_status():
+            if status >= 400:
+                raise RuntimeError(f"HTTP {status}")
+        return SimpleNamespace(status_code=status, raise_for_status=raise_for_status,
+                               json=lambda: payload)
+
+    seen = []
+    monkeypatch.setattr(panoramax.requests, "get",
+                        lambda url, **kw: seen.append(url) or answer({"stac_version": "1.1.0"}))
+    panoramax.prepare()                                  # no raise
+    assert seen == [panoramax.DEFAULT_API_URL]
+
+    # A mistyped root 404s; prepare must fail before the model loads, not at scan time.
+    monkeypatch.setattr(panoramax.requests, "get", lambda url, **kw: answer({}, status=404))
+    with pytest.raises(SystemExit):
+        panoramax.prepare()
+    # ...and so must a root that answers but isn't a STAC catalog.
+    monkeypatch.setattr(panoramax.requests, "get", lambda url, **kw: answer({"hello": "world"}))
+    with pytest.raises(SystemExit):
+        panoramax.prepare()
 
 
 def test_api_url_env_override_points_at_a_single_instance(monkeypatch):

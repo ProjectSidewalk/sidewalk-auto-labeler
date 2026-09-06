@@ -24,7 +24,11 @@ Orientation: GeoVisio defines a picture's heading as the bearing of the picture'
 center, which for an equirectangular is the center column — the same convention as GSV
 and Mapillary and exactly what Project Sidewalk's panoX -> heading math assumes — so
 images are never rotated and `view:azimuth` is recorded as `camera_heading`.
-`pers:pitch`/`pers:roll` are recorded as given (consumer 360 cameras upload 0.0).
+`pers:pitch`/`pers:roll` are recorded as given, and unlike GSV (always present) or
+Mapillary (always absent) Panoramax is *mixed*: measured over 757 live panos across six
+French cities, 72% carry neither key and 28% carry both — of those only a fifth are
+0.0/0.0, the rest real tilt reaching -24.6 deg pitch and +-17 deg roll. See geo.pano_pose
+for what that mixture means for --pose-ablation.
 
 `PANORAMAX_API_URL` overrides the catalog root, e.g. to run against a single instance
 (including a self-hosted one) instead of the federation.
@@ -78,8 +82,31 @@ def api_url():
 
 
 def prepare():
-    """Nothing to check: the catalog is anonymous. A wrong PANORAMAX_API_URL surfaces on
-    the first tile request, which main.py reports as a failed tile."""
+    """Probe the STAC landing page so a wrong API root fails here, before the model loads.
+
+    No credentials to check — the catalog is anonymous — but the root is configurable, and
+    a mistyped one is otherwise invisible: the tile endpoint answers 404 for a bad path
+    and the scan would just report zero panos. One request settles it, and it works for a
+    single instance as well as the federation (panoramax.ign.fr and .openstreetmap.fr both
+    answer a STAC Catalog here).
+    """
+    root = api_url()
+    try:
+        response = requests.get(root, headers=_headers(), timeout=30)
+        response.raise_for_status()
+        catalog = response.json()
+    except Exception as e:
+        raise SystemExit(
+            f"\u274c Panoramax API root {root} is not reachable ({e}).\n"
+            f"   Check {API_URL_ENV_VAR}, or unset it to use the federation catalog\n"
+            f"   ({DEFAULT_API_URL})."
+        )
+    if not catalog.get('stac_version'):
+        raise SystemExit(
+            f"\u274c {root} answered, but it is not a STAC catalog (no stac_version).\n"
+            f"   {API_URL_ENV_VAR} should point at an instance's /api root, e.g.\n"
+            f"   https://panoramax.openstreetmap.fr/api."
+        )
 
 
 def _headers():
@@ -95,9 +122,16 @@ def fetch_panos_for_tile(tile_x, tile_y, area_shape):
     for attempt in range(ATTEMPTS):
         try:
             response = requests.get(url, headers=_headers(), timeout=60)
-            if response.status_code in (204, 404) or not response.content:  # no coverage here
+            # 204 is the catalog's documented — and measured — answer for a tile with no
+            # coverage. A 404 is NOT: it means the path is wrong (a mistyped
+            # PANORAMAX_API_URL), so it must surface as a failed tile rather than as an
+            # empty one. Same reason raise_for_status() comes before the empty-body check:
+            # a 502 with no body is a failure to retry, not a tile without pictures.
+            if response.status_code == 204:
                 return {}
             response.raise_for_status()
+            if not response.content:
+                return {}
             return panos_from_tile(response.content, tile_x, tile_y, area_shape)
         except Exception:
             if attempt < ATTEMPTS - 1:
@@ -148,10 +182,16 @@ def fetch_pano(pano_id, lat, lon):
         return {'status': 'failure', 'reason': 'STAC item unavailable (transient?)'}
     props = item.get('properties') or {}
     orientation = props.get('pers:interior_orientation') or {}
-    # Belt and suspenders: the tile scan already filtered on type == equirectangular.
-    if orientation.get('field_of_view') != 360:
+    # Belt and suspenders over the tile scan's type == equirectangular filter — so it only
+    # fires when the item positively contradicts it. `pers:interior_orientation` is
+    # optional and `field_of_view` within it more so, and a skip here is cached forever:
+    # treating "absent" as "not 360" would permanently drop a picture the scan already
+    # certified, with no way to retry it. The downloaded image's own 2:1 check below is
+    # the real backstop.
+    field_of_view = orientation.get('field_of_view')
+    if field_of_view is not None and field_of_view != 360:
         return {'status': 'skipped',
-                'reason': f"Not a 360 picture (field_of_view={orientation.get('field_of_view')})"}
+                'reason': f"Not a 360 picture (field_of_view={field_of_view})"}
     if not props.get('datetime'):
         return {'status': 'skipped', 'reason': 'No capture timestamp'}
     # PS's pano_x -> heading math requires camera_heading.

@@ -217,7 +217,9 @@ Coverage comes from the federation catalog's z15 vector tiles (only `equirectang
 pictures are kept), imagery from each picture's `hd` asset on its home instance — the
 original upload, unsigned. Thinning works as for Mapillary (newest capture per cell,
 pixel-density tiebreak). `PANORAMAX_API_URL` points a run at a single instance (e.g. a
-self-hosted one) instead of the federation. Coverage is overwhelmingly French today; the
+self-hosted one) instead of the federation; it's checked against the instance's STAC
+landing page at startup, so a mistyped root fails before the model loads rather than
+producing a run that scans every tile and finds nothing. Coverage is overwhelmingly French today; the
 Bayonne and Lyon boundaries in `example_geojson/` are two communes with dense, recent 360°
 coverage.
 

@@ -500,7 +500,9 @@ def main():
     parser.add_argument(
         "--source", choices=SOURCE_NAMES, default="gsv",
         help="Imagery source to scan and fetch from (default: %(default)s). "
-             "'mapillary' needs a client token in MAPILLARY_ACCESS_TOKEN."
+             "'mapillary' needs a client token in MAPILLARY_ACCESS_TOKEN; "
+             "'panoramax' needs no credentials, and PANORAMAX_API_URL points it at a "
+             "single instance instead of the federation catalog."
     )
     parser.add_argument(
         "--processing-concurrency", type=int, default=PROCESSING_CONCURRENCY,

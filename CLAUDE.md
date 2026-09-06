@@ -168,7 +168,9 @@ from retryable `failure` (left uncached).
   camera make/model, producer + license, and the `hd` asset — the original upload on the
   picture's home instance, unsigned. Same thinning as Mapillary (newest per cell,
   pixel-density tiebreak). `PANORAMAX_API_URL` targets one instance instead of the
-  federation. Records carry `license` and `panoramax_instance`; `source_metadata` is the
+  federation, and `prepare()` probes that root's STAC landing page so a mistyped one fails
+  fast (the tile endpoint answers 204 for an empty tile and 404 for a bad path, so a wrong
+  root would otherwise read as a legitimate zero-coverage scan). Records carry `license` and `panoramax_instance`; `source_metadata` is the
   STAC properties (EXIF included) minus the viewer's tile descriptors.
 
 Concurrency uses plain OS threads (`concurrent.futures.ThreadPoolExecutor`) — **not gevent**.
