@@ -50,6 +50,34 @@ def _y_for_depression(depression_rad):
     return 0.5 + depression_rad / math.pi
 
 
+def test_ground_point_to_pano_inverts_the_flat_raycast():
+    # exact inverse of detection_ground_point's flat path, including across the
+    # seam (x near 0 and near 1) and at both ends of the usable range
+    for heading in (0.0, 10.0, 187.5, 359.0):
+        pose = _flat_pose(heading=heading)
+        for x, y in ((0.02, 0.6), (0.98, 0.55), (0.5, 0.75), (0.25, 0.54)):
+            g = geo.detection_ground_point(pose, x, y, apply_pose=False)
+            assert g is not None
+            p = geo.ground_point_to_pano(pose, g.lat, g.lng)
+            assert p.x_norm == pytest.approx(x, abs=1e-9)
+            assert p.y_norm == pytest.approx(y, abs=1e-9)
+            assert p.range_m == pytest.approx(g.range_m, abs=1e-6)
+            assert p.bearing_deg == pytest.approx(g.bearing_deg, abs=1e-6)
+
+
+def test_ground_point_to_pano_drops_what_the_forward_path_drops():
+    pose = _flat_pose(heading=90.0)
+    near = geo.detection_ground_point(pose, 0.5, 0.75, apply_pose=False)  # ~2.6 m
+    assert geo.ground_point_to_pano(pose, near.lat, near.lng) is not None
+    # beyond max range: 40 m due east of the camera
+    far_lat, far_lng = geo.LocalFrame(pose.lat, pose.lng).to_latlng(40.0, 0.0)
+    assert geo.ground_point_to_pano(pose, far_lat, far_lng) is None
+    assert geo.ground_point_to_pano(pose, far_lat, far_lng, max_range_m=50.0) \
+        .range_m == pytest.approx(40.0, abs=1e-6)
+    # the camera's own footprint has no bearing
+    assert geo.ground_point_to_pano(pose, pose.lat, pose.lng) is None
+
+
 def test_raycast_hand_computed_flat_case():
     pose = _flat_pose(heading=90.0)
     y = _y_for_depression(math.atan(2.6 / 10.0))

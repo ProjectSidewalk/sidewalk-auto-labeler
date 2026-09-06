@@ -323,3 +323,48 @@ def detection_ground_point(pose, x_norm, y_norm, *,
         METERS_PER_DEG_LAT * max(0.01, math.cos(math.radians(pose.lat))))
     return GroundEstimate(lat, lng, d, math.degrees(bearing) % 360.0,
                           sigma_along, sigma_cross)
+
+
+@dataclass(frozen=True)
+class PanoProjection:
+    x_norm: float
+    y_norm: float
+    range_m: float
+    bearing_deg: float       # world bearing from the camera to the point, [0, 360)
+
+
+def ground_point_to_pano(pose, lat, lng, *,
+                         camera_height=DEFAULT_CAMERA_HEIGHT_M,
+                         max_range_m=DEFAULT_MAX_RANGE_M):
+    """Where a known ground point lands in a pano: the exact inverse of the flat
+    path of detection_ground_point (apply_pose=False, which is what production
+    fusion uses), or None where the forward function would have dropped it.
+
+    This is the projection a hard-positive miner needs (RampNet#102): a fused site
+    at a known world position becomes a normalized (x, y) training target in a pano
+    that produced no detection for it. It inverts the forward function's own
+    linearized lat/lng step (a LocalFrame at the camera, longitude scale frozen at
+    the camera latitude) rather than the great-circle distance, so
+    detection_ground_point -> ground_point_to_pano round-trips to floating-point
+    precision; the two agree to ~1e-6 relative at 25 m anyway.
+
+    Example:
+        >>> pose = pano_pose({'lat': 40.0, 'lng': -74.0, 'camera_heading': 90.0,
+        ...                   'camera_pitch': None, 'camera_roll': None,
+        ...                   'source': 'mapillary'})
+        >>> g = detection_ground_point(pose, 0.4, 0.6)
+        >>> p = ground_point_to_pano(pose, g.lat, g.lng)
+        >>> round(p.x_norm, 9), round(p.y_norm, 9)
+        (0.4, 0.6)
+    """
+    e, n = LocalFrame(pose.lat, pose.lng).to_enu(lat, lng)
+    d = math.hypot(e, n)
+    if d > max_range_m or d < 1e-6:
+        return None
+    depression = math.atan2(camera_height, d)
+    if depression <= MIN_DEPRESSION_RAD:
+        return None
+    bearing = math.degrees(math.atan2(e, n))
+    x_norm = 0.5 + norm_deg(bearing - pose.heading_deg) / 360.0
+    y_norm = 0.5 + depression / math.pi
+    return PanoProjection(x_norm, y_norm, d, bearing % 360.0)

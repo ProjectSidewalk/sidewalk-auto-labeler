@@ -91,6 +91,15 @@ python scripts/fuse_sites.py runs/paterson
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
 
+# Precision of hard positives mined from multi-view consensus (RampNet#158 step 1 /
+# RampNet#102): for each site with >=3 operational panos and each judged benchmark pano
+# nearby that produced no detection for it, project the site into the pano
+# (geo.ground_point_to_pano) and ask the reviewer's GT what is there. No GPU, no network;
+# writes runs/<city>/mined_precision/{report.md,candidates.csv}. --camera-height is the
+# #101 range-anchoring sensitivity knob (measured medians ~2.2 m GSV, ~1.7 m richmond).
+python scripts/mined_precision.py richmond
+python scripts/mined_precision.py paterson --camera-height 2.2 --radius 10 15 25
+
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.
 # Crops are cut on makelab2's native-res archive and pulled back as a tarball, then
