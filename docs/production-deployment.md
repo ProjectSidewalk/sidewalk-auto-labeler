@@ -386,9 +386,13 @@ python send_to_ps.py runs/<city>/results.jsonl --dry-run
 python send_to_ps.py runs/<city>/results.jsonl --limit 3 \
     --endpoint https://<test-server>/ai/submitLabelsOnPano
 
-# 3. the rest, for real. If step 2 went to a different server, move the sidecar
-#    aside first (see the warning below); the guard refuses otherwise.
+# 3a. ONLY if step 2 went to a different server (a -test instance): move its sidecar
+#     aside so production starts from line 1. The guard refuses step 3b otherwise.
+#     Skip this when step 2 already went to production - moving a live campaign's
+#     sidecar makes the guard refuse with "missing, truncated".
 mv runs/<city>/results.jsonl.submitted runs/<city>/results.jsonl.submitted.staging
+
+# 3b. the rest, for real
 python send_to_ps.py runs/<city>/results.jsonl \
     --endpoint https://<server>/ai/submitLabelsOnPano
 ```
@@ -406,8 +410,12 @@ you three labels instead of thousands.
 > the sidecar aside (as above) so production starts from line 1; the record keeps the
 > staging count. Don't delete the sidecar of an endpoint that is still in progress — with
 > the record saying more lines went there than the sidecar holds, the guard refuses that
-> too, because a lost sidecar is how a city's labels get duplicated. `--dry-run` writes
-> nothing, so step 1 is always safe.
+> too, because a lost sidecar is how a city's labels get duplicated. The record also pins
+> each endpoint's `--min-confidence`: a resume at a different threshold refuses, since one
+> server should hold one threshold's labels. `--dry-run` reads and writes none of this, so
+> step 1 is always safe. **A sidecar with no record beside it is unprotected** — a campaign
+> begun before the record existed is attributed to whichever endpoint runs first, so know
+> where its lines went and backfill the record (Laurens: 26 lines to `-test`) before that run.
 
 On confidence: `results.jsonl` stores candidates down to the storage floor (0.10), not
 beliefs. You do **not** need to do anything about that — `--min-confidence` already

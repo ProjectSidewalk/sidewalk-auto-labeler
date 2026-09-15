@@ -228,21 +228,19 @@ def submission_record_path(file_path: str) -> Path:
 
 
 def hash_and_count(input_file: Path) -> tuple:
-    """(sha256, line count) of the JSONL, in one pass.
+    """(sha256 of the bytes, number of non-blank lines) of the JSONL.
 
     The hash is what ties the line-numbered sidecar to the file it was written against; the
-    count is recorded so the campaign's own record says how far there is still to go.
+    count is what a complete campaign's sidecar reaches, so the record can say how far there
+    is still to go. Lines are counted the way the submit loop reads them (text mode, blank
+    lines skipped), so the two can't disagree over a trailing newline or a stray blank.
     """
     digest = hashlib.sha256()
-    lines = 0
-    ends_with_newline = True
     with open(input_file, 'rb') as f:
         for chunk in iter(lambda: f.read(1 << 20), b''):
             digest.update(chunk)
-            lines += chunk.count(b'\n')
-            ends_with_newline = chunk.endswith(b'\n')
-    if not ends_with_newline:
-        lines += 1                            # a final line with no trailing newline
+    with open(input_file, 'r', encoding='utf-8') as f:
+        lines = sum(1 for line in f if line.strip())
     return digest.hexdigest(), lines
 
 
@@ -289,8 +287,8 @@ def load_submission_record(record_path: Path) -> Dict[str, Any]:
 
 
 def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set[int],
-                       endpoint_url: str, input_file: Path, record_path: Path,
-                       sidecar_path: Path) -> None:
+                       endpoint_url: str, min_confidence: float, input_file: Path,
+                       record_path: Path, sidecar_path: Path) -> None:
     """
     Refuse to submit when the resume sidecar no longer describes this file and this endpoint.
 
@@ -305,8 +303,9 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
 
     Raises:
         ValueError: if the input file changed; if the sidecar accounts for fewer lines than
-            the record says already went to this endpoint; or if the sidecar's lines went
-            to a different endpoint than the one being submitted to.
+            the record says already went to this endpoint; if the sidecar holds lines that
+            went to a different endpoint than the one being submitted to; or if this run's
+            --min-confidence differs from the one this endpoint was submitted at.
     """
     if not record:
         return
@@ -338,16 +337,31 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
             + "--ignore-submission-guard overrides."
         )
 
+    # More sidecar lines than this endpoint is recorded to have, while another endpoint has
+    # a count: those extra lines went there, not here. (`already` is 0 for an endpoint the
+    # record has never seen.) The one innocent way to reach this state is a crash between
+    # the sidecar flush and the record write, which the message names for the override.
     elsewhere = sorted(url for url, state in states.items()
                        if url != endpoint and state.get('submitted_lines'))
-    if submitted_lines and endpoint not in states and elsewhere:
+    if len(submitted_lines) > already and elsewhere:
         raise ValueError(
-            f"{sidecar_path.name} holds {len(submitted_lines)} line(s) that went to "
-            f"{', '.join(elsewhere)}, not to {endpoint}. The sidecar is endpoint-agnostic, so "
-            f"submitting now would skip exactly those records here and they would never reach "
-            f"this server. Move the sidecar aside (e.g. rename it {sidecar_path.name}.staging) "
-            f"so this endpoint starts from line 1; the record keeps the other endpoint's "
-            f"count. --ignore-submission-guard sends only the remainder."
+            f"{sidecar_path.name} holds {len(submitted_lines)} line(s) but {record_path.name} "
+            f"says only {already} went to {endpoint}; the rest went to {', '.join(elsewhere)}. "
+            f"The sidecar is endpoint-agnostic, so submitting now would skip exactly those "
+            f"records here and they would never reach this server. Move the sidecar aside "
+            f"(e.g. rename it {sidecar_path.name}.staging) so this endpoint starts from line 1; "
+            f"the record keeps the other endpoint's count. --ignore-submission-guard sends only "
+            f"the remainder - right only if the extra lines DID go to {endpoint} and a crash "
+            f"kept the record from catching up."
+        )
+
+    recorded_confidence = states.get(endpoint, {}).get('min_confidence')
+    if recorded_confidence is not None and recorded_confidence != min_confidence:
+        raise ValueError(
+            f"{record_path.name} says {endpoint} was submitted at --min-confidence "
+            f"{recorded_confidence}, but this run uses {min_confidence}. One server should hold "
+            f"one threshold's labels, and the record can only count at one. Use "
+            f"--min-confidence {recorded_confidence}. --ignore-submission-guard overrides."
         )
 
 
@@ -449,17 +463,18 @@ def process_jsonl_file(
     sidecar_path = Path(f"{file_path}.submitted")
     submitted_lines = load_submitted_lines(sidecar_path)
 
-    # ...and check it still describes this file and this endpoint. A dry run POSTs nothing,
-    # so it is exempt; the override downgrades every refusal to a warning (and an unreadable
-    # record to a fresh one).
+    # ...and check it still describes this file and this endpoint. A dry run POSTs nothing
+    # and writes nothing, so it is exempt from all of it (it must stay usable on a stale
+    # file or beside a broken record); the override downgrades every refusal to a warning
+    # (and an unreadable record to a fresh one).
     record_path = submission_record_path(file_path)
     digest, total_lines = hash_and_count(input_file)
     previous_record: Dict[str, Any] = {}
     try:
-        previous_record = load_submission_record(record_path)
         if not dry_run:
+            previous_record = load_submission_record(record_path)
             check_resume_state(previous_record, digest, submitted_lines, endpoint_url,
-                               input_file, record_path, sidecar_path)
+                               min_confidence, input_file, record_path, sidecar_path)
     except ValueError as e:
         if not ignore_guard:
             raise

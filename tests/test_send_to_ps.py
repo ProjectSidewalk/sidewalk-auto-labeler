@@ -306,8 +306,9 @@ def test_record_written_on_interrupt(tmp_path, monkeypatch):
         return ok
     monkeypatch.setattr(send_to_ps, "send_to_project_sidewalk", post)
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         send_to_ps.process_jsonl_file(str(path), PROD)
+    assert excinfo.value.code == 130
     assert _sidecar(tmp_path) == {1, 2}
     assert _read_record(tmp_path)["endpoints"][PROD]["submitted_lines"] == 2
 
@@ -348,9 +349,20 @@ def test_guard_refuses_when_the_sidecar_is_gone(tmp_path, monkeypatch):
 
     (tmp_path / "results.jsonl.submitted").unlink()
     del sent[:]
-    with pytest.raises(ValueError, match="already"):
+    with pytest.raises(ValueError, match="ran to completion"):
         send_to_ps.process_jsonl_file(str(path), PROD)
     assert sent == []
+
+    # A campaign still in progress gets the lost-sidecar diagnosis instead.
+    (tmp_path / "results.jsonl.submission.json").unlink()
+    (tmp_path / "results.jsonl.submitted").write_text("1\n2\n")
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=1)   # record: 3 of 4
+    (tmp_path / "results.jsonl.submitted").write_text("1\n")
+    del sent[:]
+    with pytest.raises(ValueError, match="missing, truncated"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+    (tmp_path / "results.jsonl.submitted").unlink()
 
     # ...and the override is what lets a checked-by-hand case through.
     send_to_ps.process_jsonl_file(str(path), PROD, ignore_guard=True)
@@ -379,8 +391,9 @@ def test_guard_refuses_an_unreadable_record(tmp_path, monkeypatch):
     assert _read_record(tmp_path)["endpoints"][PROD]["submitted_lines"] == 3
 
 
-def test_record_is_written_atomically(tmp_path, monkeypatch):
-    """No half-written record can be left behind, and no temp file either."""
+def test_record_is_written_lf_with_no_temp_file_left(tmp_path, monkeypatch):
+    """The record is committed, so it must be LF on every platform, and the temp file the
+    atomic write goes through must not be left behind."""
     path = _jsonl(tmp_path, 2)
     _capture_posts(monkeypatch)
     send_to_ps.process_jsonl_file(str(path), PROD)
@@ -530,3 +543,63 @@ def test_post_gives_up_after_max_attempts(monkeypatch):
     assert send_to_ps.send_to_project_sidewalk({}, PROD) is None
     assert len(calls) == send_to_ps.MAX_ATTEMPTS
     assert len(sleeps) == send_to_ps.MAX_ATTEMPTS - 1     # no sleep after the last attempt
+
+
+def test_guard_refuses_a_sidecar_that_outgrew_this_endpoint(tmp_path, monkeypatch):
+    """The gap a plain 'endpoint unknown' check leaves: prod took a pilot, the full run went
+    to test on a fresh sidecar, and 'prod for the rest' would then skip everything. The
+    sidecar holding MORE than prod's recorded count while test has a count is the tell."""
+    path = _jsonl(tmp_path, 5)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=2)                 # prod pilot
+    (tmp_path / "results.jsonl.submitted").rename(tmp_path / "results.jsonl.submitted.prod")
+    send_to_ps.process_jsonl_file(str(path), TEST)                          # full test run
+    assert len(sent) == 7
+
+    del sent[:]
+    with pytest.raises(ValueError, match="says only 2 went to"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+    # The override sends only the remainder (nothing here) and the message says so.
+    send_to_ps.process_jsonl_file(str(path), PROD, ignore_guard=True)
+    assert sent == []
+
+    # Restoring prod's own sidecar is an ordinary resume.
+    (tmp_path / "results.jsonl.submitted.prod").replace(tmp_path / "results.jsonl.submitted")
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 3
+    assert _read_record(tmp_path)["endpoints"][PROD]["submitted_lines"] == 5
+
+
+def test_guard_refuses_a_changed_min_confidence(tmp_path, monkeypatch):
+    """One server, one threshold: the record counts labels at a single --min-confidence,
+    and a campaign that switched mid-way would certify a number the server never got."""
+    path = _jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=2, min_confidence=0.55)
+    del sent[:]
+    with pytest.raises(ValueError, match="--min-confidence 0.55"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3)
+    assert sent == []
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    assert len(sent) == 2
+
+
+def test_dry_run_is_exempt_from_the_record_guard(tmp_path, capsys):
+    """Step 1 of the runbook must always be safe: a dry run beside a broken record, or on
+    a file that has changed since submission, still previews and touches nothing."""
+    path = _jsonl(tmp_path, 2)
+    record_path = tmp_path / "results.jsonl.submission.json"
+    record_path.write_text("<<<<<<< HEAD\n")
+    send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True)
+    assert "Successfully processed:        2" in capsys.readouterr().out
+    assert record_path.read_text() == "<<<<<<< HEAD\n"
+
+
+def test_hash_and_count_counts_only_non_blank_lines(tmp_path):
+    """total_lines is what a complete sidecar reaches, so blank lines - which the submit
+    loop skips - must not count, or a finished campaign reads as an unfinished one."""
+    path = tmp_path / "results.jsonl"
+    path.write_bytes(b'{"a":1}\r\n\r\n{"b":2}\n\n')
+    assert send_to_ps.hash_and_count(path)[1] == 2

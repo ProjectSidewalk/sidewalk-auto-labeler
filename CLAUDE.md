@@ -271,9 +271,13 @@ the run's own tallies, so record and sidecar cannot drift; the write is atomic, 
 existing-but-unreadable record (merge conflict, truncated write) **refuses** rather than
 reading as "nothing sent". Before POSTing anything, `check_resume_state` refuses when the
 file's hash changed, when the record says more lines went to this endpoint than the
-sidecar holds, or when the sidecar's lines went to a *different* endpoint — the test→prod
-move is "rename the sidecar aside", never delete. `--ignore-submission-guard` overrides
-all of it, for a case checked by hand. Dry runs are exempt and write nothing.
+sidecar holds, when the sidecar holds *more* lines than this endpoint is recorded to have
+while another endpoint has a count (they went there), or when `--min-confidence` differs
+from the one this endpoint was submitted at — the test→prod move is "rename the sidecar
+aside", never delete. `--ignore-submission-guard` overrides all of it, for a case checked
+by hand. Dry runs read none of it and write nothing. A sidecar with no record beside it
+(a campaign begun before the record existed) is unprotected: its lines are attributed to
+whichever endpoint runs next, so backfill the record by hand first.
 
 ## Output format notes
 
