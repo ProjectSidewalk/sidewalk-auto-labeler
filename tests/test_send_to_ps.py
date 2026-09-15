@@ -241,39 +241,101 @@ def test_dry_run_is_exempt_from_the_endpoint_guard(tmp_path, capsys):
     assert not (tmp_path / "results.jsonl.submitted").exists()
 
 
+TEST = "https://ps-test.example/ai/submitLabelsOnPano"
+PROD = "https://ps.example/ai/submitLabelsOnPano"
+
+
+def _read_record(tmp_path):
+    return json.loads((tmp_path / "results.jsonl.submission.json").read_text())
+
+
+def _sidecar(tmp_path):
+    return send_to_ps.load_submitted_lines(tmp_path / "results.jsonl.submitted")
+
+
+# --- Submission record + resume guard ---------------------------------------------------
+
 def test_submission_record_tracks_the_campaign(tmp_path, monkeypatch):
     """The record is the campaign's only git-committable memory of what went where: it must
-    agree with the sidecar line-for-line, and accumulate labels across resumed runs."""
+    agree with the sidecar line-for-line, per endpoint, across resumed runs."""
     path = _jsonl(tmp_path, 5)
     _capture_posts(monkeypatch)
-    record_path = tmp_path / "results.jsonl.submission.json"
 
-    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai", limit=2)
-    record = json.loads(record_path.read_text())
-    assert (record["submitted_lines"], record["total_lines"]) == (2, 5)
-    assert record["labels_submitted"] == 2          # one operational detection per record
-    assert record["endpoints"] == ["https://ps.example/ai"]
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=2)
+    record = _read_record(tmp_path)
+    assert record["total_lines"] == 5
+    assert list(record["endpoints"]) == [PROD]
+    state = record["endpoints"][PROD]
+    assert (state["submitted_lines"], state["labels_submitted"]) == (2, 2)   # one label/record
 
-    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai")
-    record = json.loads(record_path.read_text())
-    assert record["submitted_lines"] == 5 == len(
-        send_to_ps.load_submitted_lines(tmp_path / "results.jsonl.submitted"))
-    assert record["labels_submitted"] == 5
-    assert record["first_submission_utc"] <= record["last_submission_utc"]
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    state = _read_record(tmp_path)["endpoints"][PROD]
+    assert state["submitted_lines"] == 5 == len(_sidecar(tmp_path))
+    assert state["labels_submitted"] == 5
+    assert state["first_submission_utc"] <= state["last_submission_utc"]
+
+
+def test_record_counts_come_from_the_sidecar_not_the_run(tmp_path, monkeypatch):
+    """A sidecar that predates the record (a campaign started under older code) must be
+    counted in full, and a run that lands nothing new must not restamp the record."""
+    path = _jsonl(tmp_path, 4)
+    _capture_posts(monkeypatch)
+    (tmp_path / "results.jsonl.submitted").write_text("1\n2\n")
+
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=1)
+    state = _read_record(tmp_path)["endpoints"][PROD]
+    assert (state["submitted_lines"], state["labels_submitted"]) == (3, 3)
+
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    before = (tmp_path / "results.jsonl.submission.json").read_text()
+    send_to_ps.process_jsonl_file(str(path), PROD)          # everything already submitted
+    assert (tmp_path / "results.jsonl.submission.json").read_text() == before
+
+
+def test_record_written_on_interrupt(tmp_path, monkeypatch):
+    """Ctrl-C mid-run: the lines that landed are in the sidecar, so the record must catch up
+    with them rather than lose them until the next clean finish."""
+    path = _jsonl(tmp_path, 5)
+    sent = []
+    ok = SimpleNamespace(status_code=200, ok=True, text="")
+
+    def post(payload, url, key=None):
+        if len(sent) == 2:
+            raise KeyboardInterrupt
+        sent.append(payload)
+        return ok
+    monkeypatch.setattr(send_to_ps, "send_to_project_sidewalk", post)
+
+    with pytest.raises(SystemExit):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert _sidecar(tmp_path) == {1, 2}
+    assert _read_record(tmp_path)["endpoints"][PROD]["submitted_lines"] == 2
+
+
+def test_no_record_when_nothing_landed(tmp_path, monkeypatch):
+    """A first run where every POST fails must not create a record claiming an endpoint
+    that took nothing - editing the file afterwards would then trip the hash guard."""
+    path = _jsonl(tmp_path, 2)
+    monkeypatch.setattr(send_to_ps, "send_to_project_sidewalk", lambda *a, **k: None)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert not (tmp_path / "results.jsonl.submission.json").exists()
 
 
 def test_guard_refuses_a_changed_input_file(tmp_path, monkeypatch):
     """Line numbers against an edited file point at the wrong records, so a resume must stop
-    rather than skip some and re-send others."""
+    rather than skip some and re-send others - unless overridden by hand."""
     path = _jsonl(tmp_path, 4)
     sent = _capture_posts(monkeypatch)
-    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai", limit=2)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=2)
 
     path.write_text(path.read_text().replace("PID", "OTHER", 1))
     del sent[:]
     with pytest.raises(ValueError, match="has changed"):
-        send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai")
+        send_to_ps.process_jsonl_file(str(path), PROD)
     assert sent == []
+
+    send_to_ps.process_jsonl_file(str(path), PROD, ignore_guard=True)
+    assert len(sent) == 2
 
 
 def test_guard_refuses_when_the_sidecar_is_gone(tmp_path, monkeypatch):
@@ -281,22 +343,104 @@ def test_guard_refuses_when_the_sidecar_is_gone(tmp_path, monkeypatch):
     second machine) and every already-live record is POSTed again."""
     path = _jsonl(tmp_path, 4)
     sent = _capture_posts(monkeypatch)
-    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai")
+    send_to_ps.process_jsonl_file(str(path), PROD)
     assert len(sent) == 4
 
     (tmp_path / "results.jsonl.submitted").unlink()
     del sent[:]
     with pytest.raises(ValueError, match="already"):
-        send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai")
+        send_to_ps.process_jsonl_file(str(path), PROD)
     assert sent == []
 
     # ...and the override is what lets a checked-by-hand case through.
-    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai", ignore_guard=True)
+    send_to_ps.process_jsonl_file(str(path), PROD, ignore_guard=True)
     assert len(sent) == 4
+
+
+def test_guard_refuses_an_unreadable_record(tmp_path, monkeypatch):
+    """A conflict-markered or truncated record must not decay into 'nothing was sent': with
+    the sidecar gone too, that would re-POST the whole city with only a warning printed."""
+    path = _jsonl(tmp_path, 3)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    record_path = tmp_path / "results.jsonl.submission.json"
+    (tmp_path / "results.jsonl.submitted").unlink()
+    del sent[:]
+
+    for broken in ["<<<<<<< HEAD\n{}\n=======\n", record_path.read_text()[:40]]:
+        record_path.write_text(broken)
+        with pytest.raises(ValueError, match="not a readable submission record"):
+            send_to_ps.process_jsonl_file(str(path), PROD)
+        assert sent == []
+
+    # The override starts a fresh record rather than crashing.
+    send_to_ps.process_jsonl_file(str(path), PROD, ignore_guard=True)
+    assert len(sent) == 3
+    assert _read_record(tmp_path)["endpoints"][PROD]["submitted_lines"] == 3
+
+
+def test_record_is_written_atomically(tmp_path, monkeypatch):
+    """No half-written record can be left behind, and no temp file either."""
+    path = _jsonl(tmp_path, 2)
+    _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert not list(tmp_path.glob("*.tmp"))
+    raw = (tmp_path / "results.jsonl.submission.json").read_bytes()
+    assert raw.endswith(b"}\n") and b"\r\n" not in raw
+
+
+def test_test_then_prod_is_the_documented_path(tmp_path, monkeypatch):
+    """The runbook's sequence: stage everything on a test instance, then submit to prod.
+    The sidecar is endpoint-agnostic, so the guard must refuse to silently send prod only
+    the remainder, and moving the sidecar aside must be enough - no override."""
+    path = _jsonl(tmp_path, 3)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), TEST)
+    assert len(sent) == 3
+
+    del sent[:]
+    with pytest.raises(ValueError, match="went to"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+    (tmp_path / "results.jsonl.submitted").rename(tmp_path / "results.jsonl.submitted.staging")
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=2)
+    assert len(sent) == 2
+    endpoints = _read_record(tmp_path)["endpoints"]
+    assert endpoints[TEST]["submitted_lines"] == 3          # test's count survives
+    assert endpoints[PROD]["submitted_lines"] == 2
+
+    # Resuming prod is an ordinary resume, and going back to test sends nothing: test is
+    # complete, and a half-done prod sidecar can't be mistaken for it.
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 3
+    send_to_ps.process_jsonl_file(str(path), TEST)
+    assert len(sent) == 3
+    (tmp_path / "results.jsonl.submitted").write_text("1\n")
+    with pytest.raises(ValueError, match="ran to completion"):
+        send_to_ps.process_jsonl_file(str(path), TEST)
+
+
+def test_endpoint_spelling_does_not_split_a_campaign(tmp_path, monkeypatch):
+    path = _jsonl(tmp_path, 2)
+    _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=1)
+    send_to_ps.process_jsonl_file(str(path), "HTTPS://PS.EXAMPLE/ai/submitLabelsOnPano/")
+    endpoints = _read_record(tmp_path)["endpoints"]
+    assert list(endpoints) == [PROD] and endpoints[PROD]["submitted_lines"] == 2
+
+
+def test_hash_and_count_handles_a_missing_trailing_newline(tmp_path):
+    path = tmp_path / "results.jsonl"
+    path.write_bytes(b'{"a":1}\n{"b":2}')
+    digest, lines = send_to_ps.hash_and_count(path)
+    assert lines == 2 and len(digest) == 64
+    path.write_bytes(b'{"a":1}\n{"b":2}\n')
+    assert send_to_ps.hash_and_count(path)[1] == 2
 
 
 def test_dry_run_writes_no_submission_record(tmp_path):
     """A dry run POSTs nothing, so it must leave no trace and stay usable on a stale file."""
     path = _jsonl(tmp_path, 2)
-    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai", dry_run=True)
+    send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True)
     assert not (tmp_path / "results.jsonl.submission.json").exists()

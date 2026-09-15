@@ -251,8 +251,12 @@ the **normalized** detection coordinates from step 1 into **pixel** coordinates
   against it, so repeated capped runs walk the file. Use it to verify a new city end to end
   — placement, pano rendering, street snapping — before committing thousands of labels.
 - **Resumable:** successfully submitted line numbers are recorded in a `<file>.submitted`
-  sidecar, so re-running skips them instead of re-POSTing. Delete the sidecar to resubmit
-  everything.
+  sidecar, so re-running skips them instead of re-POSTing. A git-tracked
+  `<file>.submission.json` records, per endpoint, what those lines were (sha256 of the
+  JSONL) and how many labels went where; the script refuses to run when the two disagree —
+  an edited file, a lost sidecar, or a sidecar whose lines went to a different server — so
+  a whole city can't be duplicated, or skipped, silently. Moving from a test instance to
+  production means moving the sidecar aside, not deleting it.
 - Transient failures (connection errors, 5xx) are retried with backoff; 4xx responses are
   treated as permanent and logged.
 

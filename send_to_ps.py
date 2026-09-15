@@ -10,7 +10,11 @@ Usage:
     python send_to_ps.py bend.jsonl --endpoint http://localhost:9000/ai/submitLabelsOnPano
 
 Submission progress is tracked in a sidecar file (<file>.submitted) so a re-run resumes
-where it left off instead of re-POSTing every line.
+where it left off instead of re-POSTing every line. The sidecar is line numbers only, so a
+git-tracked <file>.submission.json records, per endpoint, what those lines were (sha256 of
+the file) and how many went where; before POSTing anything the two are checked against
+each other (see check_resume_state), and a campaign that moves from a test instance to
+production starts the sidecar afresh rather than skipping the lines test already took.
 """
 
 import argparse
@@ -242,33 +246,67 @@ def hash_and_count(input_file: Path) -> tuple:
     return digest.hexdigest(), lines
 
 
+def canonical_endpoint(endpoint_url: str) -> str:
+    """The form an endpoint is recorded under: scheme and host lower-cased, no trailing slash.
+
+    The record is keyed by endpoint, so `https://HOST/ai/submitLabelsOnPano/` and the same URL
+    without the slash must not read as two different servers.
+    """
+    parts = urlparse(endpoint_url)
+    return parts._replace(scheme=parts.scheme.lower(), netloc=parts.netloc.lower(),
+                          path=parts.path.rstrip('/')).geturl()
+
+
 def load_submission_record(record_path: Path) -> Dict[str, Any]:
-    """The campaign's record, or {} when there isn't a readable one (i.e. a first submission)."""
+    """The campaign's record, or {} when there has never been one (a first submission).
+
+    Raises:
+        ValueError: if a record EXISTS but cannot be read as one. That file is the memory of
+            what is already live on a server, so "unreadable" must not decay into "nothing
+            was sent": a merge conflict (the record is git-tracked, and two machines are
+            exactly the case it guards) or a truncated write are the usual causes.
+    """
     if not record_path.exists():
         return {}
     try:
         with open(record_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError) as e:
-        print(f"Warning: {record_path.name} is unreadable ({e}); treating this as a first submission.")
-        return {}
+            record = json.load(f)
+        endpoints = record['endpoints']
+        if not isinstance(endpoints, dict):
+            raise ValueError("'endpoints' is not a per-endpoint mapping")
+        for state in endpoints.values():
+            int(state['submitted_lines'])
+    except (json.JSONDecodeError, OSError, KeyError, TypeError, ValueError) as e:
+        raise ValueError(
+            f"{record_path.name} exists but is not a readable submission record ({e}). It says "
+            f"what is already live on a server, so it can't be treated as 'nothing was sent'. "
+            f"Repair it (a merge conflict, a truncated write, or a record from before the "
+            f"per-endpoint format - `git show HEAD:{record_path.as_posix()}` recovers the "
+            f"committed copy) or, for a case checked by hand, --ignore-submission-guard, "
+            f"which starts a fresh record."
+        )
+    return record
 
 
 def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set[int],
                        endpoint_url: str, input_file: Path, record_path: Path,
                        sidecar_path: Path) -> None:
     """
-    Refuse to submit when the resume sidecar no longer describes this file.
+    Refuse to submit when the resume sidecar no longer describes this file and this endpoint.
 
-    The sidecar is a set of LINE NUMBERS and nothing else, so two things silently turn it into
-    a lie: editing or reordering the JSONL under it, and losing it (deleted, or a second
-    machine that never had it). Either way the next run walks lines that are already live on
-    the server and duplicates their labels - a 9,000-record city doubles itself without a
-    single error being raised. The record written beside it is what makes both cases visible.
+    The sidecar is a set of LINE NUMBERS and nothing else - it doesn't know which file they
+    index or which server they went to - so three things silently turn it into a lie:
+    editing or reordering the JSONL under it, losing it (deleted, or a second machine that
+    never had it), and pointing the same file at a second server. The first two re-POST
+    records that are already live and duplicate their labels - a 9,000-record city doubles
+    itself without a single error being raised. The third does the opposite: the lines a
+    staging run claimed are skipped on the production run and never reach the live city.
+    The per-endpoint record written beside the sidecar is what makes all three visible.
 
     Raises:
-        ValueError: if the input file changed, or if fewer lines are accounted for locally
-            than the record says were already submitted.
+        ValueError: if the input file changed; if the sidecar accounts for fewer lines than
+            the record says already went to this endpoint; or if the sidecar's lines went
+            to a different endpoint than the one being submitted to.
     """
     if not record:
         return
@@ -283,52 +321,91 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
             f"name. --ignore-submission-guard overrides."
         )
 
-    already = record.get('submitted_lines', 0)
+    endpoint = canonical_endpoint(endpoint_url)
+    states = record['endpoints']
+    already = states.get(endpoint, {}).get('submitted_lines', 0)
     if already > len(submitted_lines):
+        complete = already >= record.get('total_lines', already + 1)
         raise ValueError(
             f"{record_path.name} says {already} line(s) of {input_file.name} were already "
-            f"submitted to {', '.join(record.get('endpoints') or ['an unrecorded endpoint'])}, "
-            f"but {sidecar_path.name} accounts for only {len(submitted_lines)}. The resume "
-            f"sidecar is missing, truncated, or from a different machine - submitting now would "
-            f"re-POST records that are already live and duplicate their labels. Restore the "
-            f"sidecar first (a backup copy, or `seq 1 {already}` if that campaign ran to "
-            f"completion). --ignore-submission-guard overrides."
+            f"submitted to {endpoint}, but {sidecar_path.name} accounts for only "
+            f"{len(submitted_lines)}. "
+            + ("That campaign ran to completion, so there is nothing left to send there. "
+               if complete else
+               "The resume sidecar is missing, truncated, or from a different machine - "
+               "submitting now would re-POST records that are already live and duplicate "
+               "their labels. Restore the sidecar first (a backup copy). ")
+            + "--ignore-submission-guard overrides."
         )
 
-    endpoints = record.get('endpoints') or []
-    if submitted_lines and endpoints and endpoint_url not in endpoints:
-        print(f"WARNING: {len(submitted_lines)} line(s) already went to {', '.join(endpoints)}. "
-              f"The sidecar is endpoint-agnostic, so those lines will NOT be sent to "
-              f"{endpoint_url} - only the remainder will.")
+    elsewhere = sorted(url for url, state in states.items()
+                       if url != endpoint and state.get('submitted_lines'))
+    if submitted_lines and endpoint not in states and elsewhere:
+        raise ValueError(
+            f"{sidecar_path.name} holds {len(submitted_lines)} line(s) that went to "
+            f"{', '.join(elsewhere)}, not to {endpoint}. The sidecar is endpoint-agnostic, so "
+            f"submitting now would skip exactly those records here and they would never reach "
+            f"this server. Move the sidecar aside (e.g. rename it {sidecar_path.name}.staging) "
+            f"so this endpoint starts from line 1; the record keeps the other endpoint's "
+            f"count. --ignore-submission-guard sends only the remainder."
+        )
+
+
+def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float) -> int:
+    """How many labels the given lines of the JSONL submit at `min_confidence`.
+
+    Recounted from the file and the sidecar rather than accumulated in memory, so the record
+    stays right across interrupted runs, resumed runs, and lines sent before the record existed.
+    """
+    if not line_numbers:
+        return 0
+    labels = 0
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line_number, line in enumerate(f, 1):
+            if line_number in line_numbers and line.strip():
+                labels += len(transform_record(json.loads(line), min_confidence)['labels'])
+    return labels
 
 
 def write_submission_record(record_path: Path, input_file: Path, digest: str, total_lines: int,
-                            submitted_count: int, endpoint_url: str, min_confidence: float,
-                            labels_sent: int, previous: Dict[str, Any]) -> None:
+                            submitted_lines: Set[int], endpoint_url: str, min_confidence: float,
+                            previous: Dict[str, Any]) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
-    Small and stable enough to commit - unlike the sidecar and the JSONL, which are gitignored
-    run state - so it also answers "what did we submit to that server, and when?" long after
-    the run directory is gone.
+    One entry per endpoint - a campaign legitimately hits a test instance before prod, and
+    each server's count is its own. Both counts come from the sidecar and the file, never
+    from this run's tallies, so the record and the sidecar cannot disagree. Small and stable
+    enough to commit, unlike the sidecar and the JSONL, which are gitignored run state - so
+    it also answers "what did we submit to that server, and when?" long after the run
+    directory is gone.
     """
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    endpoint = canonical_endpoint(endpoint_url)
+    states = dict(previous.get('endpoints') or {})
+    state = dict(states.get(endpoint) or {})
+    state.update({
+        "submitted_lines": len(submitted_lines),
+        "labels_submitted": count_labels(input_file, submitted_lines, min_confidence),
+        "min_confidence": min_confidence,
+        "first_submission_utc": state.get('first_submission_utc', now),
+        "last_submission_utc": now,
+        "last_run_host": socket.gethostname(),
+    })
+    states[endpoint] = state
     record = {
         "input_file": input_file.name,
         "sha256": digest,
         "total_lines": total_lines,
-        "submitted_lines": submitted_count,
-        "labels_submitted": previous.get('labels_submitted', 0) + labels_sent,
-        "min_confidence": min_confidence,
-        # dict.fromkeys: de-duplicated, first-seen order. A campaign legitimately hits a test
-        # instance before prod, and the order records which came first.
-        "endpoints": list(dict.fromkeys((previous.get('endpoints') or []) + [endpoint_url])),
-        "first_submission_utc": previous.get('first_submission_utc', now),
-        "last_submission_utc": now,
-        "last_run_host": socket.gethostname(),
+        "endpoints": states,
     }
-    with open(record_path, 'w', encoding='utf-8') as f:
+    # Written whole-or-not-at-all: a crash mid-write would leave a truncated file, and an
+    # unreadable record refuses the next run (load_submission_record). LF regardless of
+    # platform, since the file is committed.
+    tmp_path = record_path.with_name(record_path.name + ".tmp")
+    with open(tmp_path, 'w', encoding='utf-8', newline='\n') as f:
         json.dump(record, f, indent=2)
         f.write("\n")
+    os.replace(tmp_path, record_path)
 
 
 def process_jsonl_file(
@@ -372,21 +449,29 @@ def process_jsonl_file(
     sidecar_path = Path(f"{file_path}.submitted")
     submitted_lines = load_submitted_lines(sidecar_path)
 
-    # ...and check it still describes this file. A dry run POSTs nothing, so it is exempt.
+    # ...and check it still describes this file and this endpoint. A dry run POSTs nothing,
+    # so it is exempt; the override downgrades every refusal to a warning (and an unreadable
+    # record to a fresh one).
     record_path = submission_record_path(file_path)
-    previous_record = load_submission_record(record_path)
     digest, total_lines = hash_and_count(input_file)
-    if not dry_run and not ignore_guard:
-        check_resume_state(previous_record, digest, submitted_lines, endpoint_url,
-                           input_file, record_path, sidecar_path)
+    previous_record: Dict[str, Any] = {}
+    try:
+        previous_record = load_submission_record(record_path)
+        if not dry_run:
+            check_resume_state(previous_record, digest, submitted_lines, endpoint_url,
+                               input_file, record_path, sidecar_path)
+    except ValueError as e:
+        if not ignore_guard:
+            raise
+        print(f"WARNING (--ignore-submission-guard): {e}")
 
     success_count = 0
     error_count = 0
     skipped_count = 0
     filtered_detections = 0
-    labels_sent = 0
     attempted = 0          # records touched this run; what --limit caps
     limit_reached = False
+    interrupted = False
 
     print(f"Processing JSONL file: {file_path}")
     print(f"Target endpoint: {endpoint_url}")
@@ -436,7 +521,6 @@ def process_jsonl_file(
 
                     if response:
                         success_count += 1
-                        labels_sent += len(payload['labels'])
                         f_sidecar.write(f"{line_number}\n")
                         f_sidecar.flush()
                     else:
@@ -454,28 +538,38 @@ def process_jsonl_file(
     except IOError as e:
         print(f"Error reading file: {e}")
         return
+    except KeyboardInterrupt:
+        # Every line that got a 200 is already in the sidecar (flushed per POST), so the
+        # record can still be brought up to date below before the interrupt is reported.
+        interrupted = True
 
-    # Take the campaign's state from the sidecar itself, so the two can never disagree. When
-    # nothing new was sent and a record already exists, leave it alone rather than restamp it.
-    if not dry_run and (success_count or not previous_record):
+    # The record is derived from the sidecar and the file, not from this run's tallies, so
+    # it is written after any run that landed something - complete, capped, or interrupted -
+    # and never after one that didn't: a run where every POST failed must not create a
+    # record claiming an endpoint that took nothing.
+    record_written = False
+    if not dry_run and success_count:
         write_submission_record(record_path, input_file, digest, total_lines,
-                                len(load_submitted_lines(sidecar_path)), endpoint_url,
-                                min_confidence, labels_sent, previous_record)
+                                load_submitted_lines(sidecar_path), endpoint_url,
+                                min_confidence, previous_record)
+        record_written = True
 
     # Print summary.
     print("-" * 50)
-    print(f"Processing complete!")
+    print("Interrupted." if interrupted else "Processing complete!")
     print(f"Successfully processed:        {success_count} records")
     print(f"Skipped (already submitted):   {skipped_count} records")
     print(f"Errors encountered:            {error_count} records")
     print(f"Detections below --min-confidence {min_confidence} (not submitted): {filtered_detections}")
-    if not dry_run:
+    if record_written:
         print(f"Submission record:             {record_path.name}")
     if limit_reached:
         print(f"Stopped at --limit {limit}. "
               + ("Dry run — nothing was recorded, so a re-run starts from this same line."
                  if dry_run else
                  f"Re-run to continue from here ({sidecar_path.name} records what already landed)."))
+    if interrupted:
+        raise SystemExit(130)
 
 
 def main() -> None:
@@ -510,9 +604,11 @@ def main() -> None:
         "--ignore-submission-guard",
         action="store_true",
         help="Submit even when the submission record disagrees with the resume sidecar - a "
-             "changed input file, or a sidecar accounting for fewer lines than were already "
-             "sent. Only for a case you have checked by hand: the guard is what stops a lost "
-             "sidecar from re-POSTing a whole city and duplicating its labels."
+             "changed input file, a sidecar accounting for fewer lines than were already "
+             "sent to this endpoint, a sidecar whose lines went to a different endpoint, or "
+             "an unreadable record (which is then replaced). Only for a case you have checked "
+             "by hand: the guard is what stops a lost sidecar from re-POSTing a whole city "
+             "and duplicating its labels."
     )
     parser.add_argument(
         "--dry-run",
