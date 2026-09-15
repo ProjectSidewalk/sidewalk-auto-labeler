@@ -444,3 +444,89 @@ def test_dry_run_writes_no_submission_record(tmp_path):
     path = _jsonl(tmp_path, 2)
     send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True)
     assert not (tmp_path / "results.jsonl.submission.json").exists()
+
+
+def test_guard_refuses_a_record_in_the_old_flat_shape(tmp_path, monkeypatch):
+    """A record from before the per-endpoint format is a real record of a real campaign, so
+    it must be migrated by hand, not read as 'nothing sent'."""
+    path = _jsonl(tmp_path, 2)
+    sent = _capture_posts(monkeypatch)
+    (tmp_path / "results.jsonl.submission.json").write_text(json.dumps({
+        "input_file": "results.jsonl", "sha256": "0" * 64, "total_lines": 2,
+        "submitted_lines": 2, "labels_submitted": 2, "endpoints": [PROD]}))
+    with pytest.raises(ValueError, match="not a readable submission record"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+
+def test_failed_and_malformed_lines_stay_out_of_the_sidecar(tmp_path, monkeypatch):
+    """Only lines that got a 200 are recorded, so a failed POST or a corrupt line is retried
+    next run rather than silently counted as submitted; blank lines are ignored."""
+    path = tmp_path / "results.jsonl"
+    good = json.dumps(_record([{"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.9}]))
+    path.write_text(f"{good}\n\nnot json\n{good}\n{good}\n")
+    ok = SimpleNamespace(status_code=200, ok=True, text="")
+    calls = []
+    monkeypatch.setattr(send_to_ps, "send_to_project_sidewalk",
+                        lambda p, u, k=None: calls.append(p) or (ok if len(calls) != 2 else None))
+
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(calls) == 3                                  # the 3 parseable records
+    assert _sidecar(tmp_path) == {1, 5}                     # line 4's POST failed
+    assert _read_record(tmp_path)["endpoints"][PROD]["submitted_lines"] == 2
+
+    send_to_ps.process_jsonl_file(str(path), PROD)          # the failed one is retried
+    assert len(calls) == 4 and _sidecar(tmp_path) == {1, 4, 5}
+
+
+def test_missing_input_file_is_reported_not_raised(tmp_path, capsys):
+    send_to_ps.process_jsonl_file(str(tmp_path / "nope.jsonl"), PROD)
+    assert "does not exist" in capsys.readouterr().out
+
+
+# --- HTTP client: what gets retried ------------------------------------------------------
+
+def _fake_post(monkeypatch, outcomes):
+    """requests.post stand-in that yields each outcome in turn: an int status code, or an
+    exception instance to raise. Backoff sleeps are recorded, not slept."""
+    calls, sleeps = [], []
+    outcomes = list(outcomes)
+
+    def post(url, json=None, headers=None, timeout=None):
+        calls.append(headers)
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return SimpleNamespace(status_code=outcome, json=lambda: {"status": outcome}, text="")
+    monkeypatch.setattr(send_to_ps.requests, "post", post)
+    monkeypatch.setattr(send_to_ps.time, "sleep", sleeps.append)
+    return calls, sleeps
+
+
+def test_post_sends_the_key_as_a_bearer_token(monkeypatch):
+    calls, _ = _fake_post(monkeypatch, [200])
+    assert send_to_ps.send_to_project_sidewalk({}, PROD, api_key="SECRET").status_code == 200
+    assert calls[0]["Authorization"] == "Bearer SECRET"
+    calls, _ = _fake_post(monkeypatch, [200])
+    send_to_ps.send_to_project_sidewalk({}, PROD)
+    assert "Authorization" not in calls[0]
+
+
+def test_post_does_not_retry_a_4xx(monkeypatch):
+    """401/400 mean the key or payload is wrong; hammering the server won't change that."""
+    calls, sleeps = _fake_post(monkeypatch, [401, 200])
+    assert send_to_ps.send_to_project_sidewalk({}, PROD) is None
+    assert len(calls) == 1 and sleeps == []
+
+
+def test_post_retries_5xx_and_connection_errors_with_backoff(monkeypatch):
+    calls, sleeps = _fake_post(monkeypatch, [503, send_to_ps.requests.exceptions.ConnectionError("down"), 200])
+    assert send_to_ps.send_to_project_sidewalk({}, PROD).status_code == 200
+    assert len(calls) == 3 and sleeps == send_to_ps.RETRY_BACKOFF_SECONDS
+
+
+def test_post_gives_up_after_max_attempts(monkeypatch):
+    calls, sleeps = _fake_post(monkeypatch, [500] * send_to_ps.MAX_ATTEMPTS + [200])
+    assert send_to_ps.send_to_project_sidewalk({}, PROD) is None
+    assert len(calls) == send_to_ps.MAX_ATTEMPTS
+    assert len(sleeps) == send_to_ps.MAX_ATTEMPTS - 1     # no sleep after the last attempt
