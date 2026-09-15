@@ -272,6 +272,27 @@ width/height stored in the record, renames `detections` → `labels`, and drops 
 `pano_source` enum (`gsv`/`mapillary`/`infra3d`), `target_gsv_panorama_id` → `target_pano_id`,
 and guarantees `links`/`history` arrays — so legacy JSONL files stay submittable unchanged.
 
+Resume state is a `<file>.submitted` sidecar of **line numbers**, which silently stops
+describing the campaign if the JSONL is edited, if the sidecar is lost (deleted, or a run
+moved to a second machine), or if the same file is pointed at a second server — the first
+two re-POST records that are already live and duplicate a whole city's labels; the third
+skips the staged lines on production so they never reach it. So each campaign also writes
+`<file>.submission.json`: the JSONL's sha256 and, **per endpoint**, line/label counts and
+timestamps — the one submission artifact small and stable enough to commit
+(`runs/*/*.submission.json` is git-tracked like `manifest.json`). Both counts are recounted
+from the sidecar and the file when the record is written (also after Ctrl-C), never from
+the run's own tallies, so record and sidecar cannot drift; the write is atomic, and an
+existing-but-unreadable record (merge conflict, truncated write) **refuses** rather than
+reading as "nothing sent". Before POSTing anything, `check_resume_state` refuses when the
+file's hash changed, when the record says more lines went to this endpoint than the
+sidecar holds, when the sidecar holds *more* lines than this endpoint is recorded to have
+while another endpoint has a count (they went there), or when `--min-confidence` differs
+from the one this endpoint was submitted at — the test→prod move is "rename the sidecar
+aside", never delete. `--ignore-submission-guard` overrides all of it, for a case checked
+by hand. Dry runs read none of it and write nothing. A sidecar with no record beside it
+(a campaign begun before the record existed) is unprotected: its lines are attributed to
+whichever endpoint runs next, so backfill the record by hand first.
+
 ## Output format notes
 
 - The detector emits normalized coordinates; Stage 1 stores them normalized in the JSONL.
