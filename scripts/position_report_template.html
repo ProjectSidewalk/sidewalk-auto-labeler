@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Position check</title>
+<!-- Self-contained: the run's data is inlined below by scripts/position_check.py --report.
+     The only external reference is the font link, which falls back to system fonts offline. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #fbfaf7; --surface: #ffffff; --line: #e2dfd6; --street: #e6e3da; --street-ink: #8a877f;
+  --ink: #17170f; --ink-2: #5a5851; --ink-3: #8f8c83;
+  --f-raw: #2a78d6;        /* raw GPS geometry */
+  --f-sfm: #eb6834;        /* SfM computed_geometry */
+  --f-submitted: #4a3aa7;  /* single-field runs (GSV, Panoramax) */
+  --ref: #1baf7a;          /* reference run */
+  --shift: #b9b5aa; --focus: #17170f;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #1a1a19; --surface: #212120; --line: #37362f; --street: #2e2d29; --street-ink: #8f8c83;
+    --ink: #f3f1ea; --ink-2: #c3c2b7; --ink-3: #8f8c83;
+    --f-raw: #3987e5; --f-sfm: #d95926; --f-submitted: #9085e9; --ref: #199e70; --shift: #55534b; --focus: #f3f1ea;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1a1a19; --surface: #212120; --line: #37362f; --street: #2e2d29; --street-ink: #8f8c83;
+  --ink: #f3f1ea; --ink-2: #c3c2b7; --ink-3: #8f8c83;
+  --f-raw: #3987e5; --f-sfm: #d95926; --f-submitted: #9085e9; --ref: #199e70; --shift: #55534b; --focus: #f3f1ea;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 24px 56px; }
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-size: 20px; font-weight: 600; }
+h3 { font-size: 15px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.lede { font-size: 17px; color: var(--ink-2); max-width: 62ch; }
+a { color: inherit; text-decoration-color: var(--ink-3); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+header { display: grid; gap: 12px; }
+code, .mono { font-family: var(--mono); font-size: 0.92em; }
+.verdict { border-left: 3px solid var(--verdict, var(--ink-3)); padding: 8px 14px; font-size: 15px; max-width: 74ch; background: var(--surface); border-radius: 0 6px 6px 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.tile { border-top: 2px solid var(--tile, var(--line)); padding-block: 12px 4px; display: grid; gap: 2px; }
+.tile .k { font-size: 13px; color: var(--ink-2); }
+.tile .v { font-family: var(--mono); font-size: 30px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tile .s { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 6px; }
+section { display: grid; gap: 14px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; }
+.controls label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: inherit; font-size: 14px; background: var(--surface); color: var(--ink-2); border: 0; padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.mapbox { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px; overflow: hidden; position: relative; }
+.mapbox svg { display: block; width: 100%; height: auto; }
+.street { stroke: var(--street); stroke-linecap: round; fill: none; }
+.streetname { font-family: var(--mono); font-size: 7px; fill: var(--street-ink); }
+.shift { stroke: var(--shift); stroke-width: 0.6; }
+.refpano { fill: var(--ref); opacity: 0.35; }
+.site { fill: none; stroke: var(--ref); stroke-width: 1.2; }
+.pt { stroke: var(--surface); stroke-width: 0.8; transition: transform 700ms cubic-bezier(.2,.7,.2,1), fill 400ms; }
+@media (prefers-reduced-motion: reduce) { .pt { transition: none; } }
+.scalebar { stroke: var(--ink-2); stroke-width: 1; }
+.scaletext { font-family: var(--mono); font-size: 7px; fill: var(--ink-2); }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-family: var(--mono); font-size: 12px; line-height: 1.4; padding: 6px 8px; border-radius: 4px; max-width: 280px; z-index: 2; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: var(--ink-2); }
+.hist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px 24px; }
+.hist { display: grid; gap: 4px; }
+.hist h3 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; font-weight: 500; }
+.hist h3 small { font-family: var(--mono); font-weight: 400; color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+.hist svg { width: 100%; height: auto; display: block; }
+.axis { stroke: var(--line); stroke-width: 1; }
+.zero { stroke: var(--ink-2); stroke-width: 1; }
+.medline { stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 3 2; }
+.axtext { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); }
+.stat { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; display: flex; gap: 14px; flex-wrap: wrap; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 500; color: var(--ink-2); font-size: 13px; }
+td.num, th.num { text-align: right; font-family: var(--mono); }
+tr.flag td { font-weight: 500; }
+.bad { color: var(--f-sfm); }
+details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
+.notes { display: grid; gap: 10px; color: var(--ink-2); font-size: 14.5px; }
+.notes p { max-width: 74ch; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="eyebrow"></div>
+    <h1 id="title"></h1>
+    <p class="lede" id="lede"></p>
+    <div class="verdict" id="verdict"></div>
+  </header>
+
+  <section>
+    <h2>Where the panos sit relative to the street</h2>
+    <p id="tilesintro"></p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section>
+    <h2 id="maptitle">The densest window</h2>
+    <p id="mapintro"></p>
+    <div class="controls" id="controls"></div>
+    <div class="mapbox" id="mapbox"></div>
+    <div class="legend" id="legend"></div>
+    <div class="tablewrap">
+      <table id="streets" aria-label="Per-street east offset of points in the window"><thead></thead><tbody></tbody></table>
+    </div>
+    <p class="stat" id="streetnote"></p>
+  </section>
+
+  <section>
+    <h2 id="histtitle">Offset across the street, whole run</h2>
+    <p id="histintro">Share of points per 1 m bin, same axes in every panel. Dashed line marks the median.</p>
+    <div class="hist-grid" id="hists"></div>
+  </section>
+
+  <section id="seqsection">
+    <h2>Drift by sequence</h2>
+    <p>Median (SfM − raw GPS) displacement per sequence, metres, the 90th percentile of its magnitude, and each field's bias: the largest median signed offset from the street over the grid's two street families. Flagged rows exceed the threshold on the submitted field; the recommendation is the field with the smaller bias.</p>
+    <div class="tablewrap">
+      <table id="seqs" aria-label="Per-sequence drift">
+        <thead><tr><th>Sequence</th><th class="num">Panos</th><th class="num">SfM − raw E (m)</th><th class="num">N (m)</th><th class="num">p90 |shift|</th><th class="num">Bias SfM (m)</th><th class="num">Bias raw (m)</th><th>Recommend</th><th>Flag</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <details>
+      <summary id="tabsummary"></summary>
+      <div class="tablewrap" style="margin-top:10px">
+        <table id="pointtab" aria-label="Every point in the window with each position"><thead></thead><tbody></tbody></table>
+      </div>
+    </details>
+  </section>
+
+  <section class="notes">
+    <h2>Method</h2>
+    <p><strong>Reference geometry.</strong> Streets are OpenStreetMap drivable ways (motorway through residential, plus links) fetched once from Overpass and cached beside the run. Offsets are perpendicular distances to the nearest segment within 30 m. Signed offsets are measured across the two families of the street grid, whose bearing is estimated from the segments themselves (<span id="axesnote"></span>); segments diagonal to the grid contribute only to the unsigned cross-track distance.</p>
+    <p><strong>Counterfactuals.</strong> Each point is translated by its own pano's (field − submitted) vector. Heading is unchanged, so this isolates the position field. When a server label feed is supplied the points are the server's placements; otherwise they are the run's operational detections raycast to flat ground with the repository's own geometry.</p>
+    <p id="methodref"></p>
+    <p>Generated by <code>scripts/position_check.py --report</code> in the sidewalk-auto-labeler repository.</p>
+  </section>
+</div>
+
+<script id="data" type="application/json">/*__DATA__*/</script>
+<script>
+(function () {
+  const D = JSON.parse(document.getElementById('data').textContent);
+  const C = D.check;
+  const AX = D.axes;
+  const fmt = (v, d = 1) => v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(d);
+  const pct = v => v == null ? '—' : Math.round(v * 100) + '%';
+  const color = f => `var(--f-${f})`;
+  const FIELDS = Object.keys(D.field_labels);                       // submitted [, sfm, raw]
+  const ALT = FIELDS.filter(f => f !== 'submitted');                  // the re-readable fields
+  const SUB = C.submitted_field;                                      // which alt equals submitted, if any
+  const label = f => f === 'submitted' ? (SUB ? `as submitted (${SUB === 'sfm' ? 'SfM' : 'raw GPS'})` : 'submitted position')
+                                       : D.field_labels[f];
+  const colorOf = f => color(f === 'submitted' && SUB ? SUB : f);
+  const mapFields = SUB ? ['submitted', ...ALT.filter(f => f !== SUB)] : ['submitted'];
+  const run = C.run_name, src = C.imagery_source;
+  const flagged = C.flagged_sequences.length;
+  const bothOff = (C.both_off_sequences || []).length;
+  const hasDrift = !!C.sfm_vs_raw_drift;
+
+  document.title = `${run} position check`;
+  document.getElementById('eyebrow').textContent = `${run} · ${src} · ${C.panos.toLocaleString()} panos · checked ${C.checked_at.slice(0, 10)}`;
+  document.getElementById('title').textContent = flagged
+    ? `${flagged} sequence${flagged > 1 ? 's' : ''} in ${run} sit off the street`
+    : `${run} pano positions sit on the street`;
+  document.getElementById('lede').textContent = hasDrift
+    ? `Mapillary serves two positions per image: the raw GPS fix (geometry) and an SfM-corrected one (computed_geometry). This run submitted ${SUB === 'raw' ? 'raw GPS' : 'SfM'}. Both are scored below against OpenStreetMap centerlines, and every label placed from a pano inherits that pano's error one-to-one.`
+    : `Each pano's submitted position is scored against OpenStreetMap centerlines. Every label placed from a pano inherits that pano's position error one-to-one.`;
+  const v = document.getElementById('verdict');
+  const subF = C.fields.submitted;
+  if (flagged) {
+    v.style.setProperty('--verdict', 'var(--f-sfm)');
+    v.innerHTML = `<strong>Flagged.</strong> ${flagged} sequence${flagged > 1 ? 's' : ''} with at least ${C.min_sequence} panos sit more than ${C.threshold_m} m off the street as a block on the submitted field, and the other field puts them back on it. Fix without re-detecting: <code>python scripts/reposition.py runs/${run}/results.jsonl --from-check</code>, then resubmit.` +
+      (bothOff ? ` A further ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street in both fields, which a field switch cannot fix.` : '');
+  } else {
+    v.style.setProperty('--verdict', 'var(--ref)');
+    v.innerHTML = `<strong>Clear.</strong> No sequence with at least ${C.min_sequence} panos sits more than ${C.threshold_m} m off the street on the submitted field where the other field would fix it (run-wide median offset across ${AX.a.streets} ${fmt(subF.across_a.median)} m, cross-track ${subF.cross_track.median} m).` +
+      (bothOff ? ` ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street in both fields, so the cause is not the field choice: wide one-way streets driven once, or the OSM geometry.` : '');
+  }
+
+  document.getElementById('tilesintro').textContent = `Signed offset of each pano across the nearest OpenStreetMap centerline among ${AX.a.streets} (positive = ${AX.a.pos}), whole run. A car drives on the centerline give or take a lane, so a good position source reads near zero with a ${AX.a.neg} share near one half.`;
+  document.getElementById('streetnote').textContent = `Corner ramps straddle the street, so an unbiased set reads a median near 0 m and a ${AX.a.neg} share near 0.5.`;
+  document.getElementById('axesnote').textContent = `grid bearing ${AX.theta0_deg}°: family a = ${AX.a.streets}, positive ${AX.a.pos}; family b = ${AX.b.streets}, positive ${AX.b.pos}`;
+  // ---- tiles
+  const tiles = document.getElementById('tiles');
+  const tile = (name, col, val, sub) => {
+    const d = document.createElement('div'); d.className = 'tile'; d.style.setProperty('--tile', col || 'var(--line)');
+    d.innerHTML = `<div class="k">${col ? `<span class="sw" style="background:${col}"></span>` : ''}${name}</div><div class="v">${val}</div><div class="s">${sub}</div>`;
+    tiles.appendChild(d);
+  };
+  const shown = SUB ? ALT : ['submitted'];
+  if (D.reference) {
+    const r = D.reference.pano_offsets.across_a;
+    tile(`${D.reference.run_name} panos (${D.reference.source}, reference)`, 'var(--ref)', fmt(r.median) + ' m', `median across ${AX.a.streets} (+${AX.a.pos}) · IQR ${fmt(r.q25)} … ${fmt(r.q75)} · n = ${r.n.toLocaleString()}`);
+  }
+  for (const f of shown) {
+    const e = C.fields[f].across_a;
+    tile(label(f) + (f === SUB ? ' · submitted' : ''), colorOf(f), fmt(e.median) + ' m', `median across ${AX.a.streets} (+${AX.a.pos}) · IQR ${fmt(e.q25)} … ${fmt(e.q75)} · cross-track ${C.fields[f].cross_track.median} m · n = ${e.n.toLocaleString()}`);
+  }
+  if (hasDrift) {
+    const d = C.sfm_vs_raw_drift;
+    tile('How far SfM moves a pano from its GPS fix', null, d.median_m.toFixed(1) + ' m', `median · ${pct(d.share_over_5m)} moved > 5 m · ${pct(d.share_over_10m)} moved > 10 m · n = ${d.n.toLocaleString()}`);
+  }
+
+  // ---- map
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a, parent) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); if (parent) parent.appendChild(e); return e; };
+  const W = D.window, pad = 8;
+  const Y = n => -n;
+  const vb = [W.e0 - pad, Y(W.n1) - pad, W.e1 - W.e0 + 2 * pad, W.n1 - W.n0 + 2 * pad];
+  document.getElementById('maptitle').textContent = D.points_kind === 'ps_labels' ? 'The labels, in the densest window' : 'The detections, in the densest window';
+  document.getElementById('mapintro').textContent = `An ${Math.round(W.e1 - W.e0)} × ${Math.round(W.n1 - W.n0)} m window (SW corner ${W.sw[0].toFixed(5)}, ${W.sw[1].toFixed(5)}), drawn in metres. ` +
+    (mapFields.length > 1 ? 'Switch the position field and each point moves by its own pano\'s displacement, which is exactly what the map would show had that field been submitted. ' : '') +
+    (D.reference ? `${D.reference.kind[0].toUpperCase() + D.reference.kind.slice(1)} from the ${D.reference.run_name} run (${D.reference.source}) are drawn as an independent reference.` : '');
+  const box = document.getElementById('mapbox');
+  const svg = el('svg', { viewBox: vb.join(' '), role: 'img', 'aria-label': 'Map of the window with points, panos and streets in metres' }, box);
+  const gStreets = el('g', {}, svg), gNames = el('g', {}, svg), gRefP = el('g', {}, svg), gPanos = el('g', {}, svg), gSites = el('g', {}, svg), gPts = el('g', {}, svg), gUI = el('g', {}, svg);
+  for (const s of D.segments) el('line', { x1: s.a[0], y1: Y(s.a[1]), x2: s.b[0], y2: Y(s.b[1]), class: 'street', 'stroke-width': 9 }, gStreets);
+  const short = n => n.replace(/^North /, 'N ').replace(/^South /, 'S ').replace(/^West /, 'W ').replace(/^East /, 'E ').replace(/ Street$/, ' St').replace(/ Avenue$/, ' Ave').replace(/ Road$/, ' Rd').replace(/ Drive$/, ' Dr');
+  const nsNames = new Map(), ewNames = new Map();
+  for (const s of D.segments) {
+    if (!s.name) continue;
+    if (s.axis === 'a') {
+      const y = Math.max(s.a[1], s.b[1]); if (y > W.n1 - 5 || y < W.n0 + 5) continue;
+      const cur = nsNames.get(s.name); if (!cur || y > cur.y) nsNames.set(s.name, { x: (s.a[0] + s.b[0]) / 2, y });
+    } else if (s.axis === 'b') {
+      const x = Math.min(s.a[0], s.b[0]); if (x < W.e0 + 5 || x > W.e1 - 5) continue;
+      const cur = ewNames.get(s.name); if (!cur || x < cur.x) ewNames.set(s.name, { x, y: (s.a[1] + s.b[1]) / 2 });
+    }
+  }
+  for (const [name, p] of nsNames) { const t = el('text', { x: p.x + 6, y: Y(W.n1 - 12), class: 'streetname', transform: `rotate(-90 ${p.x + 6} ${Y(W.n1 - 12)})`, 'text-anchor': 'end' }, gNames); t.textContent = short(name); }
+  for (const [name, p] of ewNames) { const t = el('text', { x: Math.max(p.x + 4, W.e0 + 10), y: Y(p.y) - 6, class: 'streetname' }, gNames); t.textContent = short(name); }
+  const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; box.appendChild(tip);
+  const showTip = (evt, html) => { tip.innerHTML = html; tip.hidden = false; const b = box.getBoundingClientRect(); tip.style.left = Math.min(evt.clientX - b.left + 14, b.width - 290) + 'px'; tip.style.top = (evt.clientY - b.top + 14) + 'px'; };
+  const hideTip = () => { tip.hidden = true; };
+  if (D.reference) {
+    for (const p of D.reference.panos) el('circle', { cx: p[0], cy: Y(p[1]), r: 1.4, class: 'refpano' }, gRefP);
+    for (const p of D.reference.sites) {
+      const c = el('circle', { cx: p[0], cy: Y(p[1]), r: 3.2, class: 'site' }, gSites);
+      c.addEventListener('mousemove', e => showTip(e, `${D.reference.run_name} reference<br>E ${fmt(p[0])} m, N ${fmt(p[1])} m`));
+      c.addEventListener('mouseleave', hideTip);
+    }
+  }
+  const drawFields = SUB ? ALT : ['submitted'];
+  for (const p of D.panos) {
+    const g = el('g', {}, gPanos);
+    if (p.pos.sfm && p.pos.raw) el('line', { x1: p.pos.sfm[0], y1: Y(p.pos.sfm[1]), x2: p.pos.raw[0], y2: Y(p.pos.raw[1]), class: 'shift' }, g);
+    for (const f of drawFields) if (p.pos[f]) el('circle', { cx: p.pos[f][0], cy: Y(p.pos[f][1]), r: 1.3, fill: colorOf(f) }, g);
+    const a = p.pos.submitted;
+    const hit = el('circle', { cx: a[0], cy: Y(a[1]), r: 4, fill: 'transparent' }, g);
+    hit.addEventListener('mousemove', e => showTip(e, `pano ${p.id}${p.seq ? '<br>seq ' + p.seq : ''}<br>heading ${p.hd}°` + (p.pos.sfm && p.pos.raw ? `<br>SfM − raw: E ${fmt(p.pos.sfm[0] - p.pos.raw[0])} m, N ${fmt(p.pos.sfm[1] - p.pos.raw[1])} m` : '')));
+    hit.addEventListener('mouseleave', hideTip);
+  }
+  const ptEls = [];
+  for (const p of D.points) {
+    const c = el('circle', { cx: 0, cy: 0, r: 2.6, class: 'pt' }, gPts);
+    const a = p.pos.submitted; c.style.transform = `translate(${a[0]}px, ${Y(a[1])}px)`; c.style.fill = colorOf('submitted');
+    c.addEventListener('mousemove', e => showTip(e, `${D.points_kind === 'ps_labels' ? 'label' : 'detection'} ${p.id}<br>pano ${p.pano}${p.seq ? '<br>seq ' + p.seq : ''}` +
+      mapFields.map(f => `<br>${label(f)}: E ${fmt(p.pos[f][0])}, N ${fmt(p.pos[f][1])}`).join('')));
+    c.addEventListener('mouseleave', hideTip);
+    ptEls.push([c, p]);
+  }
+  const sbx = W.e1 - 70, sby = W.n0 + 14;
+  el('line', { x1: sbx, y1: Y(sby), x2: sbx + 50, y2: Y(sby), class: 'scalebar' }, gUI);
+  el('line', { x1: sbx, y1: Y(sby) - 3, x2: sbx, y2: Y(sby) + 3, class: 'scalebar' }, gUI);
+  el('line', { x1: sbx + 50, y1: Y(sby) - 3, x2: sbx + 50, y2: Y(sby) + 3, class: 'scalebar' }, gUI);
+  const st = el('text', { x: sbx + 25, y: Y(sby) + 9, class: 'scaletext', 'text-anchor': 'middle' }, gUI); st.textContent = '50 m';
+  const nt = el('text', { x: W.e0 + 6, y: Y(W.n0) - 6, class: 'scaletext' }, gUI); nt.textContent = 'north is up · east is right';
+
+  // controls
+  const controls = document.getElementById('controls');
+  if (mapFields.length > 1) {
+    const seg = document.createElement('div'); seg.className = 'seg'; seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Pano position field used for placement');
+    const btns = [];
+    const setMode = m => {
+      for (const [b, f] of btns) b.setAttribute('aria-pressed', String(f === m));
+      for (const [c, p] of ptEls) { const q = p.pos[m]; if (q) { c.style.transform = `translate(${q[0]}px, ${Y(q[1])}px)`; c.style.fill = colorOf(m); } }
+    };
+    for (const f of mapFields) {
+      const b = document.createElement('button'); b.type = 'button'; b.id = 'btn-' + f; b.textContent = (D.points_kind === 'ps_labels' ? 'Labels ' : 'Detections ') + (f === 'submitted' ? label(f) : 'with ' + label(f));
+      b.setAttribute('aria-pressed', String(f === 'submitted')); b.addEventListener('click', () => setMode(f)); seg.appendChild(b); btns.push([b, f]);
+    }
+    controls.appendChild(seg);
+  }
+  const cb = (id, text, g, on) => { const l = document.createElement('label'); const i = document.createElement('input'); i.type = 'checkbox'; i.id = id; i.checked = on; l.appendChild(i); l.appendChild(document.createTextNode(' ' + text)); controls.appendChild(l); const apply = () => { g.style.display = i.checked ? '' : 'none'; }; i.addEventListener('change', apply); apply(); };
+  cb('cb-points', D.points_kind === 'ps_labels' ? 'Server labels' : 'Operational detections', gPts, true);
+  if (D.reference) cb('cb-sites', `${D.reference.run_name} ${D.reference.kind}`, gSites, true);
+  cb('cb-panos', hasDrift ? 'Panos, SfM → raw' : 'Panos', gPanos, !hasDrift);
+  if (D.reference) cb('cb-refpanos', `${D.reference.run_name} panos`, gRefP, false);
+  const legend = document.getElementById('legend');
+  const li = (html) => { const s = document.createElement('span'); s.innerHTML = html; legend.appendChild(s); };
+  for (const f of shown) li(`<span class="sw" style="background:${colorOf(f)}"></span>point / pano at ${label(f)}`);
+  if (D.reference) li(`<span class="sw" style="border:1.5px solid var(--ref); background:transparent"></span>${D.reference.run_name} ${D.reference.kind}`);
+  if (hasDrift) li(`<span class="sw" style="background:var(--shift)"></span>SfM → raw displacement`);
+
+  // ---- per-street table
+  const cell = (v, cls) => { const td = document.createElement('td'); if (cls) td.className = cls; td.textContent = v; return td; };
+  const th = (v, cls) => { const t = document.createElement('th'); if (cls) t.className = cls; t.textContent = v; return t; };
+  const stHead = document.querySelector('#streets thead'); const hr = document.createElement('tr');
+  hr.appendChild(th(AX.a.streets[0].toUpperCase() + AX.a.streets.slice(1))); hr.appendChild(th('Points', 'num'));
+  for (const f of mapFields) { hr.appendChild(th(`${f === 'submitted' ? 'As submitted' : 'With ' + label(f)}: median`, 'num')); hr.appendChild(th(`${AX.a.neg} share`, 'num')); }
+  if (D.reference) { hr.appendChild(th(`${D.reference.run_name}: median`, 'num')); hr.appendChild(th(`${AX.a.neg} share`, 'num')); }
+  stHead.appendChild(hr);
+  const stBody = document.querySelector('#streets tbody');
+  for (const r of D.streets) {
+    if (!r.submitted || r.submitted.n < 10) continue;
+    const tr = document.createElement('tr'); tr.appendChild(cell(r.name)); tr.appendChild(cell(r.submitted.n, 'num'));
+    for (const f of mapFields) { const s = r[f]; tr.appendChild(cell(s ? fmt(s.median) + ' m' : '—', 'num' + (s && Math.abs(s.median) > 5 ? ' bad' : ''))); tr.appendChild(cell(s ? s.neg_share.toFixed(2) : '—', 'num')); }
+    if (D.reference) { const s = r.reference; tr.appendChild(cell(s ? fmt(s.median) + ' m' : '—', 'num')); tr.appendChild(cell(s ? s.neg_share.toFixed(2) : '—', 'num')); }
+    stBody.appendChild(tr);
+  }
+
+  // ---- histograms
+  const panels = [];
+  if (D.reference) panels.push([`${D.reference.run_name} panos (reference)`, D.reference.pano_offsets.across_a, 'var(--ref)']);
+  for (const f of shown) panels.push([`Panos, ${label(f)}`, C.fields[f].across_a, colorOf(f)]);
+  if (D.reference) panels.push([`${D.reference.run_name} ${D.reference.kind} (reference)`, D.reference.site_offsets.across_a, 'var(--ref)']);
+  const ptName = D.points_kind === 'ps_labels' ? 'Server labels' : 'Detections';
+  for (const f of mapFields) if (D.point_offsets[f]) panels.push([`${ptName}, ${f === 'submitted' ? label(f) : 'with ' + label(f)}`, D.point_offsets[f].across_a, colorOf(f)]);
+  const hg = document.getElementById('hists');
+  const live = panels.filter(p => p[1] && p[1].n);
+  const ymax = Math.max(...live.map(([, h]) => Math.max(...h.bins) / h.n));
+  const w = 320, h = 120, ml = 6, mr = 6, mt = 8, mb = 22, pw = w - ml - mr, ph = h - mt - mb, half = 25;
+  const X = v => ml + (v + half) / (2 * half) * pw;
+  for (const [title, hd, col] of live) {
+    const div = document.createElement('div'); div.className = 'hist';
+    const hh = document.createElement('h3'); hh.innerHTML = `<span><span class="sw" style="background:${col}"></span>${title}</span><small>n = ${hd.n.toLocaleString()}</small>`; div.appendChild(hh);
+    const s = el('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': `${title}: signed offset across ${AX.a.streets}, median ${fmt(hd.median)} m` });
+    el('line', { x1: ml, y1: mt + ph, x2: w - mr, y2: mt + ph, class: 'axis' }, s);
+    hd.bins.forEach((c, i) => { if (!c) return; const bh = c / hd.n / ymax * ph; const b = el('rect', { x: X(i - half) + 0.5, y: mt + ph - bh, width: pw / (2 * half) - 1, height: bh, fill: col, rx: 1 }, s); const t = el('title', {}, b); t.textContent = `${i - half} to ${i - half + 1} m: ${c} (${(c / hd.n * 100).toFixed(1)}%)`; });
+    el('line', { x1: X(0), y1: mt - 2, x2: X(0), y2: mt + ph, class: 'zero' }, s);
+    el('line', { x1: X(hd.median), y1: mt - 2, x2: X(hd.median), y2: mt + ph, class: 'medline' }, s);
+    for (const v of [-20, -10, 0, 10, 20]) { const t = el('text', { x: X(v), y: h - 6, class: 'axtext', 'text-anchor': 'middle' }, s); t.textContent = (v > 0 ? '+' : '') + v; }
+    const tw = el('text', { x: ml, y: h - 6, class: 'axtext' }, s); tw.textContent = AX.a.neg;
+    const te = el('text', { x: w - mr, y: h - 6, class: 'axtext', 'text-anchor': 'end' }, s); te.textContent = AX.a.pos;
+    div.appendChild(s);
+    const st2 = document.createElement('div'); st2.className = 'stat';
+    st2.innerHTML = `<span>median <b>${fmt(hd.median)} m</b></span><span>IQR ${fmt(hd.q25)} … ${fmt(hd.q75)}</span><span>${AX.a.neg} share <b>${hd.neg_share.toFixed(2)}</b></span>`;
+    div.appendChild(st2); hg.appendChild(div);
+  }
+
+  // ---- sequence table
+  const seqSection = document.getElementById('seqsection');
+  if (!hasDrift) seqSection.hidden = true;
+  else {
+    const sb = document.querySelector('#seqs tbody');
+    for (const r of C.sequences) {
+      if (r.n < C.min_sequence) continue;
+      const tr = document.createElement('tr'); if (r.flagged) tr.className = 'flag';
+      tr.appendChild(cell(r.sequence_id, 'mono')); tr.appendChild(cell(r.n, 'num'));
+      tr.appendChild(cell(fmt(r.sfm_minus_raw_east_m), 'num' + (Math.abs(r.sfm_minus_raw_east_m) >= 3 ? ' bad' : ''))); tr.appendChild(cell(fmt(r.sfm_minus_raw_north_m), 'num' + (Math.abs(r.sfm_minus_raw_north_m) >= 3 ? ' bad' : '')));
+      tr.appendChild(cell(r.shift_p90_m == null ? '—' : r.shift_p90_m.toFixed(1), 'num'));
+      const bs = r.bias_m.sfm.max_abs, br = r.bias_m.raw.max_abs;
+      tr.appendChild(cell(bs == null ? '—' : bs.toFixed(1), 'num' + (bs > C.threshold_m ? ' bad' : ''))); tr.appendChild(cell(br == null ? '—' : br.toFixed(1), 'num' + (br > C.threshold_m ? ' bad' : '')));
+      tr.appendChild(cell(r.recommended === 'raw' ? 'raw GPS' : r.recommended === 'sfm' ? 'SfM' : '—')); tr.appendChild(cell(r.flagged ? 'FLAG' : (r.both_off ? 'both off' : '')));
+      sb.appendChild(tr);
+    }
+  }
+
+  // ---- point table
+  document.getElementById('tabsummary').textContent = `Table view of every ${D.points_kind === 'ps_labels' ? 'label' : 'detection'} in the window (${D.points.length} rows)`;
+  const ptHead = document.querySelector('#pointtab thead'); const pr = document.createElement('tr');
+  pr.appendChild(th('Point')); pr.appendChild(th('Pano')); pr.appendChild(th('Sequence'));
+  for (const f of mapFields) pr.appendChild(th(`${label(f)} E, N (m)`, 'num'));
+  ptHead.appendChild(pr);
+  const pb = document.querySelector('#pointtab tbody');
+  for (const p of D.points) {
+    const tr = document.createElement('tr'); tr.appendChild(cell(p.id, 'mono')); tr.appendChild(cell(p.pano, 'mono')); tr.appendChild(cell(p.seq || '', 'mono'));
+    for (const f of mapFields) tr.appendChild(cell(`${fmt(p.pos[f][0])}, ${fmt(p.pos[f][1])}`, 'num'));
+    pb.appendChild(tr);
+  }
+  document.getElementById('methodref').innerHTML = D.reference
+    ? `<strong>Reference run.</strong> ${D.reference.run_name} (${D.reference.source}) covers the same area independently; its panos sit ${fmt(D.reference.pano_offsets.across_a.median)} m from the centerlines (median), which bounds the centerline error. Its ${D.reference.kind} mark where ramps actually are.`
+    : `<strong>No reference run.</strong> The centerlines alone carry the check: a pano set that reads a median near zero and a west share near one half sits on the street.`;
+})();
+</script>
+</body>
+</html>

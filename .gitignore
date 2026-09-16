@@ -17,3 +17,7 @@ runs/**
 !runs/*/area.geojson
 !runs/*/*_verdicts.json
 !runs/*/*.submission.json
+# Position check (scripts/position_check.py): the verdict and its self-contained report
+# stay with the run's provenance; the Overpass cache beside them does not.
+!runs/*/position_check.json
+!runs/*/position_report.html

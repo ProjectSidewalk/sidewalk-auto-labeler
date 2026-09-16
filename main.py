@@ -156,14 +156,16 @@ def save_manifest(manifest_path, manifest):
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
 
-def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_name):
+def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_name,
+                         position_field=None):
     """
     Creates or validates the run directory (runs/<name>/), which holds all per-area
     state: results.jsonl, already_processed.txt, manifest.json, and a copy of the
     exact geometry used. A run directory is permanently bound to one geometry and one
     imagery source; reusing the name with a different geometry or source is refused
     so that a renamed/edited geojson or a --source change can't silently fork or
-    corrupt the run's state.
+    corrupt the run's state. A Mapillary run is likewise bound to one position field
+    (`position_field`, recorded as `mapillary_position`; manifests predating it are 'sfm').
     """
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = run_dir / "manifest.json"
@@ -184,6 +186,13 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
                 f"❌ Run '{run_dir.name}' was created with imagery source "
                 f"'{manifest.get('imagery_source', 'gsv')}', not '{source_name}'.\n"
                 f"   Use a new --name for a different source."
+            )
+        if source_name == 'mapillary' and manifest.get('mapillary_position', 'sfm') != position_field:
+            sys.exit(
+                f"❌ Run '{run_dir.name}' positions panos from Mapillary's "
+                f"'{manifest.get('mapillary_position', 'sfm')}' field, not '{position_field}'.\n"
+                f"   Mixing position fields in one results.jsonl would shift only part of the run.\n"
+                f"   Use a new --name, or scripts/reposition.py to convert the finished run."
             )
         # Manifests predating the storage floor stored only >= 0.55 peaks.
         run_floor = manifest.get('detection_storage_floor', 0.55)
@@ -210,6 +219,8 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
         'streetlevel_version': pkg_version('streetlevel'),
         'runs': [],
     }
+    if source_name == 'mapillary':
+        manifest['mapillary_position'] = position_field
     with open(run_dir / "area.geojson", 'w') as f:
         geojson.dump(geojson_data, f)
     save_manifest(manifest_path, manifest)
@@ -312,7 +323,7 @@ def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None):
     return tuple(totals)
 
 def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thin_spacing=None,
-                gap_fill=True, gap_fill_only=False):
+                gap_fill=True, gap_fill_only=False, position_field=None):
     """
     Finds and processes all panoramas from the given imagery source within a GeoJSON
     area, writing all per-area state to runs/<run_name>/.
@@ -334,7 +345,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     started_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
     run_dir = Path("runs") / run_name
-    manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source.NAME)
+    manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source.NAME,
+                                    position_field=position_field)
     manifest_path = run_dir / "manifest.json"
     output_jsonl_file = run_dir / "results.jsonl"
     cache_file = run_dir / "already_processed.txt"
@@ -520,6 +532,14 @@ def main():
              "thinning. No effect on sources without a thinning hook (GSV)."
     )
     parser.add_argument(
+        "--mapillary-position", choices=("sfm", "raw"), default="sfm",
+        help="Which Mapillary position becomes the pano lat/lng: 'sfm' (computed_geometry, "
+             "default) or 'raw' (the GPS fix, geometry). SfM sequences can drift metres off "
+             "the street as a block (SidewalkWebpage#5361); measure with "
+             "scripts/position_check.py before choosing. Recorded in the manifest; a run "
+             "is bound to one field. Ignored for other sources."
+    )
+    parser.add_argument(
         "--limit", type=int,
         help="Process at most N new panoramas this run (for smoke tests and rate "
              "measurement); the rest stay uncached and process on a later run. The "
@@ -552,6 +572,10 @@ def main():
     # slow model load below.
     source = get_source(args.source)
     source.prepare()
+    position_field = None
+    if args.source == "mapillary":
+        position_field = args.mapillary_position
+        source.POSITION_FIELD = position_field
 
     # Initialize detectors (skipped for a scan: importing torch + loading the model takes a while):
     if not args.scan_only:
@@ -562,7 +586,8 @@ def main():
     try:
         run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, source, args.scan_only,
                     args.limit, args.thin_spacing,
-                    gap_fill=not args.no_gap_fill, gap_fill_only=args.gap_fill_only)
+                    gap_fill=not args.no_gap_fill, gap_fill_only=args.gap_fill_only,
+                    position_field=position_field)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:

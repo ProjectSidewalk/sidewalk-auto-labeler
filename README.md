@@ -202,6 +202,38 @@ default 5 m, `0` disables) before processing. A run
 directory is bound to one source the same way it's bound to one geometry; use a
 different `--name` per source.
 
+**Check the pano positions before you submit.** Mapillary serves two positions per
+image: the camera's GPS fix (`geometry`) and an SfM-corrected one (`computed_geometry`).
+The run submits one of them (`--mapillary-position sfm|raw`, default `sfm`, recorded in
+the manifest). SfM is usually the better position, but its alignment to GPS is one
+transform per reconstruction, so a whole sequence can sit several metres off the street as
+a block — in Laurens, IA every intersection's labels landed 8–10 m west
+([SidewalkWebpage#5361](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/5361)) —
+and every label placed from a pano inherits that pano's error one-to-one. Which field is
+right is a per-city, per-sequence question, so measure it:
+
+```bash
+python scripts/position_check.py runs/richmond --report
+```
+
+This scores every pano against OpenStreetMap street centerlines (one Overpass query,
+cached beside the run; no imagery, no GPU, no second source needed), reports each
+field's offset distribution and per-sequence bias, writes `position_check.json` and a
+self-contained `position_report.html` (interactive map, offset histograms, per-sequence
+table — both are git-tracked beside `manifest.json`), and exits non-zero when a sequence
+is off the street on the submitted field *and the other field would fix it*. A flagged run
+is repaired without re-detecting:
+
+```bash
+python scripts/reposition.py runs/richmond/results.jsonl --from-check   # flagged sequences only
+python scripts/reposition.py runs/richmond/results.jsonl --field raw    # whole file
+```
+
+which writes a new results file with the pano positions rewritten from the other field
+(the detections are stored relative to the pano, so nothing else changes). The new file
+has a new hash, so `send_to_ps.py` treats it as a fresh campaign — the labels already on
+the server from the old positions have to be retired there first.
+
 ### Alternative imagery source: Panoramax
 
 `--source panoramax` runs on [Panoramax](https://panoramax.fr/), the federated open
@@ -452,6 +484,9 @@ CI runs the same suite on every push (`.github/workflows/tests.yml`).
 ├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk
 ├── scripts/
 │   ├── export_benchmark.py    # Native-res imagery bundle for RampNet GT/benchmark
+│   ├── position_check.py      # Pano positions vs OSM centerlines; --report writes a self-contained HTML
+│   ├── position_report_template.html
+│   ├── reposition.py          # Switch a Mapillary run's pano positions between GPS and SfM, no re-detect
 │   └── visual_check.py        # Single-pano coordinate spot check
 ├── tests/                   # Pytest suite (light deps only; no network, no model)
 ├── example_geojson/         # Example area polygons (Bend, Chicago, Vancouver)

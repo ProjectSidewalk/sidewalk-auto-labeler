@@ -104,6 +104,23 @@ python scripts/site_explorer.py richmond --select fragment  # over-split suspect
 python scripts/site_explorer.py richmond --inline     # one shareable file
 # ...--local-panos <dir> cuts crops locally instead (no SSH; e.g. a RampNet bundle).
 
+# POSITION CHECK (SidewalkWebpage#5361) — run before submitting any Mapillary run. Scores
+# every pano's position against OSM street centerlines (one cached Overpass query, no GPU,
+# no imagery, no second source needed). Mapillary serves two positions per image and the
+# run submits one of them (--mapillary-position, default sfm = computed_geometry); SfM
+# sequences can sit 8-10 m off the street as a block while raw GPS (geometry) does not, and
+# every label inherits its pano's error 1:1. Exit 1 = some sequence is off the street on the
+# submitted field AND the other field fixes it. Writes position_check.json + (--report) a
+# self-contained position_report.html, both git-tracked beside manifest.json.
+python scripts/position_check.py runs/laurens --report
+python scripts/position_check.py runs/laurens --report --labels <ps_v3_rawLabels.geojson> \
+    --reference runs/laurens_gsv     # optional: the server's own placements; a second run over
+                                     # the same area as an independent layer (Laurens only)
+# ...then fix a flagged run WITHOUT re-detecting: rewrite the flagged sequences' pano lat/lng
+# from the recommended field into a new file (new hash -> fresh submission campaign).
+python scripts/reposition.py runs/laurens/results.jsonl --from-check
+python scripts/reposition.py runs/laurens/results.jsonl --field raw   # whole file, one field
+
 # Run the tests (no GPU/network/model; light deps via requirements-test.txt)
 pytest
 
