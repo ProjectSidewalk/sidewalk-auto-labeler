@@ -167,6 +167,8 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     corrupt the run's state. A Mapillary run is likewise bound to one position field
     (`position_field`, recorded as `mapillary_position`; manifests predating it are 'sfm').
     """
+    if source_name == 'mapillary' and position_field is None:
+        position_field = 'sfm'  # the source's default; never let None reach the manifest
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = run_dir / "manifest.json"
 

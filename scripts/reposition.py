@@ -23,6 +23,18 @@ never modified, and the output is a new file with a new hash, so send_to_ps.py's
 submission guard treats it as a fresh campaign — which it is: the labels already on the
 server from the old positions have to be retired server-side before the new ones land.
 Each rewritten pano block gains `position_field` naming the field it now carries.
+
+The output is a SUBMISSION ARTIFACT, not a run. Never swap it into results.jsonl:
+main.py binds a run dir to one position field through the manifest, but it cannot see
+inside results.jsonl, so a resume after a swap would append panos on the manifest's
+field to a file that is now mixed — exactly what the binding exists to prevent. Confirm
+the output with `position_check.py runs/<name> --results <output>` and submit it from
+where it is.
+
+Only lat/lng move. `camera_heading` (Mapillary's `computed_compass_angle`) is SfM-derived
+too, but the measured SfM-vs-GPS discrepancies are translations — one near-constant
+vector per sequence (position_check.json `sfm_minus_raw_*`) — not rotations, so the
+heading stays consistent with either position and is deliberately left alone.
 """
 import argparse
 import json
@@ -120,7 +132,8 @@ def main(argv=None):
           + ', '.join(f'{k} {v}' for k, v in sorted(counts.items())))
     if counts['no_field']:
         print(f"!! {counts['no_field']} record(s) had no {FIELD_KEYS.get(args.field, 'requested')} position and were left as-is")
-    print('   next: python scripts/position_check.py on a run dir holding this file, then send_to_ps.py')
+    print(f'   next: python scripts/position_check.py {src.parent.as_posix()} --results {out.as_posix()} '
+          f'(do NOT swap it into results.jsonl), then send_to_ps.py {out.as_posix()}')
     return 0
 
 

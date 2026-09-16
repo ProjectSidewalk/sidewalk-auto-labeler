@@ -27,11 +27,17 @@ Usage:
 Exit status 1 when any sequence with >= --min-sequence panos is flagged: its median
 *signed* offset from the street on the submitted field (across either family of the
 street grid: east of north-south streets, north of east-west ones, or the rotated
-equivalents when the grid is not cardinal — see StreetIndex) exceeds --threshold. That
-is a bias test, not a spread test — a
-lane offset cancels over a sequence that drives both ways, a block shift does not — so a
-deploy script can gate on it. Streets come from Overpass once and are cached beside the
-run (osm_streets.json). Stdlib only, like geo.py.
+equivalents when the grid is not cardinal — see StreetIndex) exceeds --threshold, or
+the submitted field leaves most of the sequence beyond MAX_SNAP_M of any street while
+the other field does not — AND switching to the other field buys at least
+MIN_IMPROVEMENT_M. That is a bias test, not a spread test — a lane offset cancels over
+a sequence that drives both ways, a block shift does not — so a deploy script can gate
+on it. Streets come from Overpass once and are cached beside the run (osm_streets.json;
+a partial or errored answer is never cached). Stdlib only, like geo.py.
+
+`--results FILE` checks another results file against the run's area and streets — the
+way to confirm a scripts/reposition.py output before it is submitted, without swapping
+it into results.jsonl (a repositioned file is a submission artifact, not a resumable run).
 """
 import argparse
 import json
@@ -64,7 +70,9 @@ GRID_M = 40.0
 DEFAULT_THRESHOLD_M = 3.0    # a sequence whose median signed offset from the street exceeds this is off it
 DEFAULT_MIN_SEQUENCE = 20
 MIN_AXIS_SAMPLES = 10        # panos on N-S (E-W) streets a sequence needs before its east (north) bias counts
-MIN_IMPROVEMENT_M = 2.0      # ...and switching fields must buy at least this when both fields are off
+MIN_IMPROVEMENT_M = 2.0      # switching fields must move the sequence at least this much closer to the
+                             # street: a swap moves every label and forces a new submission campaign, so
+                             # a 3.4 -> 2.9 m "fix" is not worth it even though 2.9 is under the threshold
 HIST_HALF_WIDTH_M = 25   # signed-offset histograms cover [-25, 25) in 1 m bins
 
 # Position fields per source. 'submitted' is always pano.lat/lng — whatever the run
@@ -76,20 +84,6 @@ MAPILLARY_FIELDS = {
 
 
 # --------------------------------------------------------------------------- geometry
-class Frame:
-    """Local east/north metres around (lat0, lng0). Tiny areas, so equirectangular is fine."""
-
-    def __init__(self, lat0, lng0):
-        self.lat0, self.lng0 = lat0, lng0
-        self.k_lng = geo.METERS_PER_DEG_LAT * math.cos(math.radians(lat0))
-
-    def enu(self, lat, lng):
-        return ((lng - self.lng0) * self.k_lng, (lat - self.lat0) * geo.METERS_PER_DEG_LAT)
-
-    def latlng(self, e, n):
-        return (self.lat0 + n / geo.METERS_PER_DEG_LAT, self.lng0 + e / self.k_lng)
-
-
 class StreetIndex:
     """Nearest-segment queries over OSM street centerlines, in frame metres.
 
@@ -199,8 +193,28 @@ def area_bbox(area_geojson):
     return min(lngs), min(lats), max(lngs), max(lats)
 
 
+def count_ways(payload):
+    return sum(1 for e in payload.get('elements', []) if e.get('type') == 'way')
+
+
+def validate_osm_payload(payload):
+    """Reason a payload is unusable, or None. Overpass answers a query timeout or memory
+    exhaustion with HTTP 200, a top-level `remark` and whatever elements it had produced
+    so far — possibly none, possibly half the streets — so a payload has to be checked
+    for that before it is trusted, and above all before it is cached."""
+    if not isinstance(payload, dict) or 'elements' not in payload:
+        return 'no elements key in the response'
+    if payload.get('remark'):
+        return f"Overpass remark: {payload['remark']}"
+    if not count_ways(payload):
+        return 'zero streets returned'
+    return None
+
+
 def fetch_osm_streets(bbox, pad_deg=0.003):
-    """Overpass query for drivable streets in bbox (padded so edge panos still snap)."""
+    """Overpass query for drivable streets in bbox (padded so edge panos still snap).
+    Only a complete answer with at least one way is returned; anything else falls
+    through to the next mirror."""
     min_lng, min_lat, max_lng, max_lat = bbox
     query = (f'[out:json][timeout:90];'
              f'way["highway"~"{STREET_HIGHWAY_RE}"]'
@@ -214,22 +228,36 @@ def fetch_osm_streets(bbox, pad_deg=0.003):
                                          headers={'User-Agent': 'sidewalk-auto-labeler position_check'})
             with urllib.request.urlopen(req, timeout=120) as resp:
                 payload = json.loads(resp.read().decode('utf-8'))
-            if 'elements' in payload:
+            problem = validate_osm_payload(payload)
+            if problem is None:
                 return payload
+            last_error = f'{endpoint}: {problem}'
         except Exception as exc:  # try the next mirror
-            last_error = exc
-            time.sleep(2)
-    raise SystemExit(f'Overpass query failed on every endpoint: {last_error}')
+            last_error = f'{endpoint}: {exc}'
+        time.sleep(2)
+    raise SystemExit(f'Overpass query failed on every endpoint: {last_error}\n'
+                     f'   (zero streets for a real area means the bbox is wrong — check area.geojson)')
 
 
 def load_or_fetch_streets(run_dir, area_geojson, osm_path=None):
+    """(payload, path, cached). A cached file is re-validated and its query metadata
+    compared with the current highway filter, so a bad or stale cache is refetched
+    rather than silently reused; the cache is written only after the payload validates."""
     path = Path(osm_path) if osm_path else run_dir / 'osm_streets.json'
+    bbox = area_bbox(area_geojson)
     if path.exists():
         with open(path, encoding='utf-8') as f:
-            return json.load(f), path, True
-    payload = fetch_osm_streets(area_bbox(area_geojson))
+            payload = json.load(f)
+        problem = validate_osm_payload(payload)
+        stale = (payload.get('_query') or {}).get('highway') not in (None, STREET_HIGHWAY_RE)
+        if problem is None and not stale:
+            return payload, path, True
+        if osm_path:  # an explicit --osm file is the user's; refuse rather than overwrite it
+            raise SystemExit(f'{path}: {problem or "built with a different highway filter"}')
+        print(f"-> {path}: {problem or 'built with a different highway filter'}; refetching")
+    payload = fetch_osm_streets(bbox)
     payload['_query'] = {'fetched_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-                         'bbox': area_bbox(area_geojson), 'highway': STREET_HIGHWAY_RE}
+                         'bbox': bbox, 'highway': STREET_HIGHWAY_RE}
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(payload, f, separators=(',', ':'))
     return payload, path, False
@@ -241,21 +269,23 @@ def street_segments(osm_payload, frame):
         if way.get('type') != 'way' or not way.get('geometry'):
             continue
         name = (way.get('tags') or {}).get('name') or ''
-        pts = [frame.enu(p['lat'], p['lon']) for p in way['geometry']]
+        pts = [frame.to_enu(p['lat'], p['lon']) for p in way['geometry']]
         for (ax, ay), (bx, by) in zip(pts, pts[1:]):
             segments.append((ax, ay, bx, by, name))
     return segments
 
 
 # --------------------------------------------------------------------------- run loading
-def load_run(run_dir):
+def load_run(run_dir, results_path=None):
+    """(manifest, area, records). `results_path` swaps in another results file — e.g. a
+    scripts/reposition.py output — while the area and streets stay the run's own."""
     run_dir = Path(run_dir)
     with open(run_dir / 'manifest.json', encoding='utf-8') as f:
         manifest = json.load(f)
     with open(run_dir / 'area.geojson', encoding='utf-8') as f:
         area = json.load(f)
     records = []
-    with open(run_dir / 'results.jsonl', encoding='utf-8') as f:
+    with open(Path(results_path) if results_path else run_dir / 'results.jsonl', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             if line:
@@ -329,18 +359,20 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
     """The whole measurement, as one JSON-serializable dict (see position_check.json)."""
     source = manifest.get('imagery_source', 'gsv')
     min_lng, min_lat, max_lng, max_lat = area_bbox(area)
-    frame = Frame((min_lat + max_lat) / 2, (min_lng + max_lng) / 2)
+    frame = geo.LocalFrame((min_lat + max_lat) / 2, (min_lng + max_lng) / 2)
     index = StreetIndex(street_segments(osm_payload, frame))
     labels = field_labels(source)
 
     per_field_rows = defaultdict(list)   # field -> [measure_point(...)]
     per_seq = defaultdict(lambda: {'n': 0, 'shift': [], 'cross': defaultdict(list),
-                                   'a': defaultdict(list), 'b': defaultdict(list)})
+                                   'a': defaultdict(list), 'b': defaultdict(list),
+                                   'votes': defaultdict(int)})
     unsnapped = 0
+    votes = defaultdict(int)   # run-wide: which re-readable field equals the submitted one
     for rec in records:
         pano = rec['pano']
         positions = pano_positions(pano)
-        enu = {f: frame.enu(*ll) for f, ll in positions.items()}
+        enu = {f: frame.to_enu(*ll) for f, ll in positions.items()}
         measured = {f: measure_point(index, *enu[f]) for f in enu}
         if measured['submitted'] is None:
             unsnapped += 1
@@ -351,6 +383,10 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
             s = per_seq[seq]
             s['n'] += 1
             s['shift'].append((enu['sfm'][0] - enu['raw'][0], enu['sfm'][1] - enu['raw'][1]))
+            for f in MAPILLARY_FIELDS:
+                if positions[f] == positions['submitted']:
+                    votes[f] += 1
+                    s['votes'][f] += 1
             for f, m in measured.items():
                 if m is not None:
                     s['cross'][f].append(m['cross'])
@@ -360,17 +396,11 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
 
     fields = {f: {'label': labels.get(f, f), **summarize_offsets(rows)} for f, rows in per_field_rows.items()}
 
-    # Which field did the run submit? Compare coordinates, not the manifest, so old runs work.
-    submitted_field = None
-    if source == 'mapillary':
-        votes = defaultdict(int)
-        for rec in records:
-            p = pano_positions(rec['pano'])
-            for f in MAPILLARY_FIELDS:
-                if f in p and p[f] == p['submitted']:
-                    votes[f] += 1
-        if votes:
-            submitted_field = max(votes, key=votes.get)
+    # Which field did the run submit? Compared coordinate by coordinate, not read from the
+    # manifest, so old runs work — and PER SEQUENCE, because a reposition.py output is mixed
+    # by design (flagged sequences on one field, the rest on the other) and the check has
+    # to be able to confirm its own fix. The run-wide majority is kept for the report.
+    submitted_field = max(votes, key=votes.get) if votes else None
 
     sequences = []
     flagged = []
@@ -389,25 +419,41 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
             across_b = _median(s['b'][f]) if len(s['b'][f]) >= MIN_AXIS_SAMPLES else None
             worst = max((abs(v) for v in (across_a, across_b) if v is not None), default=None)
             bias[f] = {'a': across_a, 'b': across_b, 'max_abs': worst}
-        # Actionable only when switching fields would fix it. A wide one-way street driven
+        # Panos beyond MAX_SNAP_M of any street measure nothing, so a sequence that
+        # drifted 40 m would otherwise have no bias at all and read as clean — the worst
+        # failure passing while an 8 m one flags. Count them per field instead.
+        unsnapped_by_field = {f: s['n'] - len(s['cross'][f]) for f in ('submitted', *MAPILLARY_FIELDS)}
+        chosen = (max(s['votes'], key=s['votes'].get) if s['votes'] else None) or submitted_field or 'sfm'
+        alt = next(f for f in MAPILLARY_FIELDS if f != chosen)
+        # The verdict is on what was actually submitted (pano.lat/lng), never on the field
+        # the sequence is believed to carry.
+        sub_bias, alt_bias = bias['submitted']['max_abs'], bias[alt]['max_abs']
+        enough = s['n'] >= min_sequence
+        off_bias = enough and sub_bias is not None and sub_bias > threshold_m
+        beyond_snap = enough and (unsnapped_by_field['submitted'] - unsnapped_by_field[alt]
+                                  >= max(MIN_AXIS_SAMPLES, s['n'] // 2))
+        off = off_bias or beyond_snap
+        # Actionable only when switching fields would fix it, and fix it by enough to be
+        # worth a new submission campaign (MIN_IMPROVEMENT_M). A wide one-way street driven
         # once puts the car metres from the OSM centerline in BOTH fields (downtown
         # Richmond: 4-lane one-ways), and no field choice changes that — so a sequence
-        # whose alternative field is just as far off is reported as 'both_off', not flagged.
-        chosen = submitted_field or 'sfm'
-        alt = next(f for f in MAPILLARY_FIELDS if f != chosen)
-        sub_bias, alt_bias = bias[chosen]['max_abs'], bias[alt]['max_abs']
-        off = s['n'] >= min_sequence and sub_bias is not None and sub_bias > threshold_m
-        fixable = off and alt_bias is not None and (alt_bias <= threshold_m
-                                                    or alt_bias <= sub_bias - MIN_IMPROVEMENT_M)
+        # whose alternative field is about as far off is reported as 'both_off', not flagged.
+        if beyond_snap:
+            fixable = alt_bias is not None and alt_bias <= threshold_m
+        else:
+            fixable = off_bias and alt_bias is not None and alt_bias <= sub_bias - MIN_IMPROVEMENT_M
         row = {
             'sequence_id': seq, 'n': s['n'],
+            'submitted_field': chosen if s['votes'] else None,
             'sfm_minus_raw_east_m': de, 'sfm_minus_raw_north_m': dn,
             'shift_p90_m': round(mags[int(len(mags) * 0.9)], 2) if mags else None,
             'bias_m': bias,
             'cross_track_median_m': {f: cross_med.get(f) for f in ('submitted', *MAPILLARY_FIELDS)},
+            'not_near_a_street': unsnapped_by_field,
             'recommended': alt if fixable else (chosen if sub_bias is not None else None),
             'flagged': bool(fixable),
             'both_off': bool(off and not fixable),
+            'beyond_snap': bool(beyond_snap),
         }
         sequences.append(row)
         if fixable:
@@ -429,6 +475,8 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
         'checked_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'threshold_m': threshold_m,
         'min_sequence': min_sequence,
+        'min_improvement_m': MIN_IMPROVEMENT_M,
+        'max_snap_m': MAX_SNAP_M,
         'panos': len(records),
         'panos_not_near_a_street': unsnapped,
         'submitted_field': submitted_field,
@@ -454,15 +502,15 @@ def operational_points(records, frame):
         except (KeyError, TypeError, ValueError):
             continue
         positions = pano_positions(pano)
-        base = frame.enu(pano['lat'], pano['lng'])
-        vectors = {f: (frame.enu(*ll)[0] - base[0], frame.enu(*ll)[1] - base[1]) for f, ll in positions.items()}
+        base = frame.to_enu(pano['lat'], pano['lng'])
+        vectors = {f: (frame.to_enu(*ll)[0] - base[0], frame.to_enu(*ll)[1] - base[1]) for f, ll in positions.items()}
         for i, det in enumerate(rec.get('detections') or []):
             if det.get('confidence', 0) < OPERATIONAL_CONFIDENCE:
                 continue
             est = geo.detection_ground_point(pose, det['x_normalized'], det['y_normalized'], apply_pose=False)
             if est is None:
                 continue
-            e, n = frame.enu(est.lat, est.lng)
+            e, n = frame.to_enu(est.lat, est.lng)
             out.append({'id': f"{pano['panorama_id']}#{i}", 'pano': pano['panorama_id'],
                         'seq': pano.get('sequence_id'), 'pos': (e, n), 'vectors': vectors})
     return out
@@ -482,10 +530,10 @@ def ps_label_points(feed_path, records, frame):
             continue
         lng, lat = feat['geometry']['coordinates']
         positions = pano_positions(pano)
-        base = frame.enu(pano['lat'], pano['lng'])
-        vectors = {f: (frame.enu(*ll)[0] - base[0], frame.enu(*ll)[1] - base[1]) for f, ll in positions.items()}
+        base = frame.to_enu(pano['lat'], pano['lng'])
+        vectors = {f: (frame.to_enu(*ll)[0] - base[0], frame.to_enu(*ll)[1] - base[1]) for f, ll in positions.items()}
         out.append({'id': str(props.get('label_id')), 'pano': pano['panorama_id'],
-                    'seq': pano.get('sequence_id'), 'pos': frame.enu(lat, lng), 'vectors': vectors})
+                    'seq': pano.get('sequence_id'), 'pos': frame.to_enu(lat, lng), 'vectors': vectors})
     if missing:
         print(f'   {missing} labels in the feed belong to panos not in this run (ignored)')
     return out
@@ -499,8 +547,12 @@ def densest_window(points, width_m=800.0, height_m=400.0, cell_m=100.0):
     for e, n in points:
         counts[(int(e // cell_m), int(n // cell_m))] += 1
     cw, ch = int(width_m // cell_m), int(height_m // cell_m)
+    # Every window that contains a populated cell is anchored within (cw, ch) cells
+    # south-west of it, so those anchors are the whole candidate set — including ones
+    # whose own cell is empty, which anchoring on populated cells alone would miss.
+    anchors = {(cx - i, cy - j) for (cx, cy) in counts for i in range(cw) for j in range(ch)}
     best, best_cell = -1, (0, 0)
-    for (cx, cy) in counts:
+    for (cx, cy) in sorted(anchors):
         total = sum(counts.get((cx + i, cy + j), 0) for i in range(cw) for j in range(ch))
         if total > best:
             best, best_cell = total, (cx, cy)
@@ -512,9 +564,30 @@ def _in_window(p, w, pad=20.0):
     return w[0] - pad <= p[0] <= w[2] + pad and w[1] - pad <= p[1] <= w[3] + pad
 
 
+def _segment_hits_window(a, b, w, pad=20.0):
+    """Does segment a-b intersect the padded window? Liang-Barsky clip, so a long straight
+    that crosses the map with both endpoints outside it is still drawn."""
+    x0, y0, x1, y1 = w[0] - pad, w[1] - pad, w[2] + pad, w[3] + pad
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    t0, t1 = 0.0, 1.0
+    for p, q in ((-dx, a[0] - x0), (dx, x1 - a[0]), (-dy, a[1] - y0), (dy, y1 - a[1])):
+        if p == 0:
+            if q < 0:
+                return False
+            continue
+        t = q / p
+        if p < 0:
+            t0 = max(t0, t)
+        else:
+            t1 = min(t1, t)
+        if t0 > t1:
+            return False
+    return True
+
+
 def build_report_data(result, manifest, area, records, osm_payload, labels_path=None,
                       reference_dir=None, window=None):
-    frame = Frame(result['frame']['lat0'], result['frame']['lng0'])
+    frame = geo.LocalFrame(result['frame']['lat0'], result['frame']['lng0'])
     source = result['imagery_source']
     r = lambda v: round(v, 1)  # noqa: E731
 
@@ -528,20 +601,20 @@ def build_report_data(result, manifest, area, records, osm_payload, labels_path=
     pano_pts = []
     for rec in records:
         pano = rec['pano']
-        pos = {f: frame.enu(*ll) for f, ll in pano_positions(pano).items()}
+        pos = {f: frame.to_enu(*ll) for f, ll in pano_positions(pano).items()}
         pano_pts.append({'id': pano['panorama_id'], 'seq': pano.get('sequence_id'),
                          'hd': round(float(pano.get('camera_heading') or 0), 1), 'pos': pos})
 
     if window:
         lng0, lat0, lng1, lat1 = window
-        w = (*frame.enu(lat0, lng0), *frame.enu(lat1, lng1))
+        w = (*frame.to_enu(lat0, lng0), *frame.to_enu(lat1, lng1))
     else:
         w = densest_window([p['pos'] for p in points] or [p['pos']['submitted'] for p in pano_pts])
 
     seg_rows = []
     index = StreetIndex(street_segments(osm_payload, frame))
     for i, (ax, ay, bx, by, name) in enumerate(index.segments):
-        if _in_window((ax, ay), w, 60) or _in_window((bx, by), w, 60):
+        if _segment_hits_window((ax, ay), (bx, by), w, 60):
             seg_rows.append({'a': [r(ax), r(ay)], 'b': [r(bx), r(by)], 'axis': index.axis_of(i), 'name': name})
 
     fields_in_points = list(field_labels(source).keys())
@@ -571,7 +644,7 @@ def build_report_data(result, manifest, area, records, osm_payload, labels_path=
     reference = None
     if reference_dir:
         ref_manifest, _ref_area, ref_records = load_run(reference_dir)
-        ref_panos = [frame.enu(rec['pano']['lat'], rec['pano']['lng']) for rec in ref_records]
+        ref_panos = [frame.to_enu(rec['pano']['lat'], rec['pano']['lng']) for rec in ref_records]
         sites_path = Path(reference_dir) / 'sites.jsonl'
         if sites_path.exists():
             ref_sites = []
@@ -579,7 +652,7 @@ def build_report_data(result, manifest, area, records, osm_payload, labels_path=
                 for line in f:
                     s = json.loads(line)
                     if s.get('n_operational', 0) > 0:
-                        ref_sites.append(frame.enu(s['lat'], s['lng']))
+                        ref_sites.append(frame.to_enu(s['lat'], s['lng']))
             ref_kind = 'fused sites'
         else:
             ref_sites = [p['pos'] for p in operational_points(ref_records, frame)]
@@ -618,7 +691,7 @@ def build_report_data(result, manifest, area, records, osm_payload, labels_path=
         'points_total': len(points),
         'point_offsets': point_offsets,
         'window': {'e0': r(w[0]), 'n0': r(w[1]), 'e1': r(w[2]), 'n1': r(w[3]),
-                   'sw': frame.latlng(w[0], w[1]), 'ne': frame.latlng(w[2], w[3])},
+                   'sw': frame.to_latlng(w[0], w[1]), 'ne': frame.to_latlng(w[2], w[3])},
         'segments': seg_rows,
         'points': points_rows,
         'panos': pano_rows,
@@ -670,17 +743,20 @@ def print_summary(result):
             b = s['bias_m']
             print(f"{s['sequence_id']:26s} {s['n']:5d} {_s(s['sfm_minus_raw_east_m']):>10s} "
                   f"{_s(s['sfm_minus_raw_north_m']):>6s} {_s(b['sfm']['max_abs']):>9s} {_s(b['raw']['max_abs']):>9s} "
-                  f"{_s(s['recommended']):>4s}  {'FLAG' if s['flagged'] else ('both off' if s['both_off'] else '')}")
-        print("(bias = largest |median signed offset| over the grid's two street families, metres)")
+                  f"{_s(s['recommended']):>4s}  {'FLAG' if s['flagged'] else ('both off' if s['both_off'] else '')}"
+                  f"{' (beyond snap)' if s.get('beyond_snap') else ''}")
+        print(f"(bias = largest |median signed offset| over the grid's two street families, metres; "
+              f"'beyond snap' = most of the sequence is > {MAX_SNAP_M:.0f} m from any street on the submitted field)")
     n_flag, n_both = len(result['flagged_sequences']), len(result['both_off_sequences'])
     if n_both:
         print(f"\n{n_both} sequence(s) sit more than {result['threshold_m']} m off the street in BOTH fields; "
               f"a field switch would not help (wide one-way streets driven once, or OSM geometry) - "
               f"eyeball them in the report")
     if n_flag:
+        results = result.get('results_path') or f"runs/{result['run_name']}/results.jsonl"
         print(f"\n!! {n_flag} sequence(s) sit more than {result['threshold_m']} m off the street on the "
-              f"submitted field and the other field fixes it. Run: python scripts/reposition.py "
-              f"runs/{result['run_name']}/results.jsonl --from-check")
+              f"submitted field and the other field moves them at least {result['min_improvement_m']} m "
+              f"closer. Run: python scripts/reposition.py {results} --from-check")
     else:
         print('\nOK: no sequence is off the street on the submitted field where the other field would fix it')
 
@@ -692,7 +768,13 @@ def main(argv=None):
                     help='flag a sequence whose median signed offset from the street (submitted field) '
                          'exceeds this on either axis (default %(default)s)')
     ap.add_argument('--min-sequence', type=int, default=DEFAULT_MIN_SEQUENCE, metavar='N',
-                    help='only sequences with at least N panos can be flagged (default %(default)s)')
+                    help=f'only sequences with at least N panos can be flagged (default %(default)s; '
+                         f'a bias needs {MIN_AXIS_SAMPLES} panos on one street family, so values below '
+                         f'{MIN_AXIS_SAMPLES} are raised to it)')
+    ap.add_argument('--results', metavar='FILE',
+                    help='check this results file instead of runs/<name>/results.jsonl (e.g. a '
+                         'scripts/reposition.py output) against the same area and streets; '
+                         'position_check.json / the report are written beside it')
     ap.add_argument('--osm', metavar='FILE', help='use this Overpass JSON instead of runs/<name>/osm_streets.json')
     ap.add_argument('--report', action='store_true', help='also write runs/<name>/position_report.html')
     ap.add_argument('--labels', metavar='GEOJSON',
@@ -706,15 +788,22 @@ def main(argv=None):
         sys.stdout.reconfigure(errors='replace')
 
     run_dir = Path(args.run_dir)
-    manifest, area, records = load_run(run_dir)
+    results_path = Path(args.results) if args.results else run_dir / 'results.jsonl'
+    if args.min_sequence < MIN_AXIS_SAMPLES:
+        print(f"-> --min-sequence {args.min_sequence} raised to {MIN_AXIS_SAMPLES}: a bias needs that many "
+              f"panos on one street family, so nothing smaller can be flagged")
+        args.min_sequence = MIN_AXIS_SAMPLES
+    manifest, area, records = load_run(run_dir, results_path)
     osm_payload, osm_path, cached = load_or_fetch_streets(run_dir, area, args.osm)
-    n_ways = sum(1 for e in osm_payload.get('elements', []) if e.get('type') == 'way')
-    print(f"-> streets: {n_ways} OSM ways from {osm_path}{' (cached)' if cached else ' (fetched)'}")
-    if not n_ways:
-        sys.exit('❌ no streets returned for the area; check the area.geojson bounds')
+    print(f"-> streets: {count_ways(osm_payload)} OSM ways from {osm_path}{' (cached)' if cached else ' (fetched)'}")
+    print(f"-> panos: {len(records)} from {results_path}")
 
     result = check_run(manifest, area, records, osm_payload, args.threshold, args.min_sequence)
-    out_json = run_dir / 'position_check.json'
+    result['results_path'] = results_path.as_posix()
+    # Outputs sit beside the results file they describe: a --results check of a
+    # reposition.py output must not overwrite the run's own verdict.
+    prefix = '' if results_path.name == 'results.jsonl' else results_path.stem + '.'
+    out_json = results_path.parent / f'{prefix}position_check.json'
     with open(out_json, 'w', encoding='utf-8') as f:
         json.dump(result, f, indent=1)
     print_summary(result)
@@ -724,7 +813,7 @@ def main(argv=None):
         window = tuple(float(v) for v in args.window.split(',')) if args.window else None
         data = build_report_data(result, manifest, area, records, osm_payload,
                                  labels_path=args.labels, reference_dir=args.reference, window=window)
-        out_html = run_dir / 'position_report.html'
+        out_html = results_path.parent / f'{prefix}position_report.html'
         write_report(data, out_html)
         print(f"-> wrote {out_html} ({out_html.stat().st_size // 1024} KB, self-contained)")
 

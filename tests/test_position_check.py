@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+import geo
 import main
 import position_check
 import reposition
@@ -16,7 +17,7 @@ LAT0, LNG0 = 42.85, -94.85
 
 
 def _frame():
-    return position_check.Frame(LAT0, LNG0)
+    return geo.LocalFrame(LAT0, LNG0)
 
 
 def _grid_osm(frame, spacing_m=100.0, count=3):
@@ -25,10 +26,10 @@ def _grid_osm(frame, spacing_m=100.0, count=3):
     lo, hi = -spacing_m * (count - 1) / 2, spacing_m * (count - 1) / 2
     for i in range(count):
         c = lo + i * spacing_m
-        (lat_a, lng_a), (lat_b, lng_b) = frame.latlng(c, lo), frame.latlng(c, hi)
+        (lat_a, lng_a), (lat_b, lng_b) = frame.to_latlng(c, lo), frame.to_latlng(c, hi)
         elements.append({"type": "way", "tags": {"name": f"NS{i}"},
                          "geometry": [{"lat": lat_a, "lon": lng_a}, {"lat": lat_b, "lon": lng_b}]})
-        (lat_a, lng_a), (lat_b, lng_b) = frame.latlng(lo, c), frame.latlng(hi, c)
+        (lat_a, lng_a), (lat_b, lng_b) = frame.to_latlng(lo, c), frame.to_latlng(hi, c)
         elements.append({"type": "way", "tags": {"name": f"EW{i}"},
                          "geometry": [{"lat": lat_a, "lon": lng_a}, {"lat": lat_b, "lon": lng_b}]})
     return {"elements": elements}
@@ -53,30 +54,40 @@ def test_measure_point_signs_and_axes():
 
 
 def _mapillary_record(pano_id, seq, raw_en, sfm_en, frame):
-    raw_lat, raw_lng = frame.latlng(*raw_en)
-    sfm_lat, sfm_lng = frame.latlng(*sfm_en)
+    raw_lat, raw_lng = frame.to_latlng(*raw_en)
+    sfm_lat, sfm_lng = frame.to_latlng(*sfm_en)
     meta = make_meta(sequence=seq,
                      geometry={"type": "Point", "coordinates": [raw_lng, raw_lat]},
                      computed_geometry={"type": "Point", "coordinates": [sfm_lng, sfm_lat]})
     return {"detections": [], "pano": mapillary.build_pano_record(pano_id, 0.0, 0.0, meta)}
 
 
+MANIFEST = {"run_name": "synthetic", "imagery_source": "mapillary"}
+AREA = {"type": "Polygon", "coordinates": [[[LNG0 - 0.01, LAT0 - 0.01], [LNG0 + 0.01, LAT0 - 0.01],
+                                             [LNG0 + 0.01, LAT0 + 0.01], [LNG0 - 0.01, LAT0 + 0.01],
+                                             [LNG0 - 0.01, LAT0 - 0.01]]]}
+
+
+def _northbound(seq, raw_x, sfm_x, frame, n=25):
+    """A sequence driving north along NS1 (x=0) with each field at a fixed east offset."""
+    return [_mapillary_record(f"{seq}{k}", seq, (raw_x, -80 + k * 6), (sfm_x, -80 + k * 6), frame)
+            for k in range(n)]
+
+
+def _check(records, frame, **kw):
+    kw = {"threshold_m": 3.0, "min_sequence": 20, **kw}
+    return position_check.check_run(MANIFEST, AREA, records, _grid_osm(frame), **kw)
+
+
 def test_check_run_flags_the_drifted_sequence_and_recommends_raw():
     frame = _frame()
-    records = []
     # Sequence A drives north on NS1: raw GPS on the line, SfM 8 m west of it.
-    for k in range(25):
-        y = -80 + k * 6
-        records.append(_mapillary_record(f"a{k}", "A", (0.5, y), (-7.5, y), frame))
+    records = _northbound("A", 0.5, -7.5, frame)
     # Sequence B drives east on EW1: both fields within a lane of the line.
-    for k in range(25):
-        x = -80 + k * 6
+    for k in range(30):
+        x = -90 + k * 6
         records.append(_mapillary_record(f"b{k}", "B", (x, 1.0), (x, -1.0), frame))
-    manifest = {"run_name": "synthetic", "imagery_source": "mapillary"}
-    area = {"type": "Polygon", "coordinates": [[[LNG0 - 0.01, LAT0 - 0.01], [LNG0 + 0.01, LAT0 - 0.01],
-                                                 [LNG0 + 0.01, LAT0 + 0.01], [LNG0 - 0.01, LAT0 + 0.01],
-                                                 [LNG0 - 0.01, LAT0 - 0.01]]]}
-    result = position_check.check_run(manifest, area, records, _grid_osm(frame), threshold_m=3.0, min_sequence=20)
+    result = _check(records, frame)
 
     assert result["submitted_field"] == "sfm"  # build_pano_record wrote computed_geometry
     assert result["flagged_sequences"] == ["A"]
@@ -89,6 +100,86 @@ def test_check_run_flags_the_drifted_sequence_and_recommends_raw():
     assert result["fields"]["sfm"]["across_a"]["median"] == pytest.approx(-7.5, abs=0.05)
     assert result["fields"]["raw"]["across_a"]["median"] == pytest.approx(0.5, abs=0.05)
     assert result["fields"]["raw"]["across_a"]["neg_share"] == 0.0
+    assert by_id["A"]["submitted_field"] == "sfm" and not by_id["A"]["beyond_snap"]
+
+    # The check must be able to confirm its own fix: after reposition.py moves A to raw
+    # the file is mixed by design (A on raw, B still on SfM), and the verdict has to be
+    # on what each sequence actually submitted — not on the run-wide majority field.
+    fixed = [{**rec, "pano": reposition.reposition_pano(rec["pano"], "raw")} if rec["pano"]["sequence_id"] == "A"
+             else rec for rec in records]
+    again = _check(fixed, frame)
+    assert again["flagged_sequences"] == [] and again["both_off_sequences"] == []
+    again_by_id = {s["sequence_id"]: s for s in again["sequences"]}
+    assert again_by_id["A"]["submitted_field"] == "raw" and again_by_id["A"]["recommended"] == "raw"
+    assert again_by_id["B"]["submitted_field"] == "sfm"
+    assert again["submitted_field"] == "sfm"  # the run-wide majority, kept for the report
+
+
+def test_a_switch_that_buys_under_the_minimum_improvement_is_not_a_flag():
+    frame = _frame()
+    # SfM 3.5 m off (over the 3 m threshold), raw 2.8 m off (under it) — a 0.7 m gain.
+    result = _check(_northbound("A", 2.8, -3.5, frame), frame)
+    row = result["sequences"][0]
+    assert result["flagged_sequences"] == [] and result["both_off_sequences"] == ["A"]
+    assert row["both_off"] and not row["flagged"] and row["recommended"] == "sfm"
+    # ...while a gain of at least MIN_IMPROVEMENT_M flags even if raw stays over the threshold.
+    result = _check(_northbound("A", 3.2, -6.0, frame), frame)
+    assert result["flagged_sequences"] == ["A"] and result["sequences"][0]["recommended"] == "raw"
+
+
+def test_a_sequence_beyond_the_snap_cap_is_flagged_not_passed():
+    frame = _frame()
+    # SfM 45 m east of NS1 (and 55 m from NS2): nothing within MAX_SNAP_M, so it has no
+    # bias at all — the worst drift must not read as clean. Raw sits on the line.
+    result = _check(_northbound("A", 0.5, 45.0, frame), frame)
+    row = result["sequences"][0]
+    assert row["beyond_snap"] and row["flagged"] and row["recommended"] == "raw"
+    # The 12 panos passing the E-W cross streets still snap (to them), so the sequence does
+    # have a bias; it is the 13 that snap to nothing that carry the signal.
+    assert row["not_near_a_street"] == {"submitted": 13, "sfm": 13, "raw": 0}
+    assert result["flagged_sequences"] == ["A"]
+    # Both fields beyond the cap: reported as both_off, no recommendation to act on.
+    result = _check(_northbound("A", 45.0, 45.0, frame), frame)
+    assert result["flagged_sequences"] == [] and result["both_off_sequences"] == ["A"]
+
+
+def test_partial_overpass_answers_are_refused_and_never_cached(tmp_path, monkeypatch):
+    good = {"elements": [{"type": "way", "geometry": [{"lat": LAT0, "lon": LNG0}], "tags": {}}]}
+    assert position_check.validate_osm_payload(good) is None
+    # Overpass reports a timeout or memory exhaustion as HTTP 200 + `remark`, with whatever
+    # elements it had produced so far.
+    assert "remark" in position_check.validate_osm_payload({**good, "remark": "runtime error: Query timed out"})
+    assert position_check.validate_osm_payload({"elements": []}) == "zero streets returned"
+    assert position_check.validate_osm_payload({"version": 0.6}) is not None
+
+    # A cached bad answer is refetched and replaced, not reused.
+    cache = tmp_path / "osm_streets.json"
+    cache.write_text(json.dumps({"elements": [], "remark": "runtime error"}), encoding="utf-8")
+    monkeypatch.setattr(position_check, "fetch_osm_streets", lambda bbox: dict(good))
+    payload, path, cached = position_check.load_or_fetch_streets(tmp_path, AREA)
+    assert not cached and path == cache
+    assert position_check.validate_osm_payload(json.load(open(cache, encoding="utf-8"))) is None
+    # A good cache built with the current highway filter is reused as-is.
+    payload, path, cached = position_check.load_or_fetch_streets(tmp_path, AREA)
+    assert cached and payload["_query"]["highway"] == position_check.STREET_HIGHWAY_RE
+    # An explicit --osm file the user supplied is refused rather than overwritten.
+    theirs = tmp_path / "theirs.json"
+    theirs.write_text(json.dumps({"elements": []}), encoding="utf-8")
+    with pytest.raises(SystemExit):
+        position_check.load_or_fetch_streets(tmp_path, AREA, theirs)
+
+
+def test_report_geometry_helpers():
+    w = (0.0, 0.0, 800.0, 400.0)
+    # A long straight crossing the window with both endpoints far outside is still drawn.
+    assert position_check._segment_hits_window((-500.0, 200.0), (1300.0, 200.0), w, 60)
+    assert not position_check._segment_hits_window((-500.0, 600.0), (1300.0, 600.0), w, 60)
+    assert position_check._segment_hits_window((100.0, 100.0), (100.0, 100.0), w, 60)  # degenerate, inside
+    # The densest 800 x 400 box may be anchored on an empty cell: two clusters 700 m apart
+    # fit in one window only when its SW corner sits in the empty ground before them.
+    pts = [(50.0, 350.0)] * 5 + [(750.0, 50.0)] * 5
+    x0, y0, x1, y1 = position_check.densest_window(pts)
+    assert x0 <= 50 and x1 >= 750 and y0 <= 50 and y1 >= 350
 
 
 def test_reposition_pano_switches_field_and_stays_submittable():

@@ -110,8 +110,12 @@ python scripts/site_explorer.py richmond --inline     # one shareable file
 # run submits one of them (--mapillary-position, default sfm = computed_geometry); SfM
 # sequences can sit 8-10 m off the street as a block while raw GPS (geometry) does not, and
 # every label inherits its pano's error 1:1. Exit 1 = some sequence is off the street on the
-# submitted field AND the other field fixes it. Writes position_check.json + (--report) a
-# self-contained position_report.html, both git-tracked beside manifest.json.
+# submitted field (>3 m median signed offset, or most of it beyond 30 m of any street) AND
+# the other field moves it >= 2 m closer — a swap forces a new submission campaign, so it has
+# to buy something. The submitted field is judged per sequence from the coordinates, so a
+# mixed (repositioned) file is checked correctly. Writes position_check.json + (--report) a
+# self-contained position_report.html, both git-tracked beside manifest.json. A partial
+# Overpass answer (HTTP 200 + `remark`) is refused and never cached.
 python scripts/position_check.py runs/laurens --report
 python scripts/position_check.py runs/laurens --report --labels <ps_v3_rawLabels.geojson> \
     --reference runs/laurens_gsv     # optional: the server's own placements; a second run over
@@ -120,6 +124,10 @@ python scripts/position_check.py runs/laurens --report --labels <ps_v3_rawLabels
 # from the recommended field into a new file (new hash -> fresh submission campaign).
 python scripts/reposition.py runs/laurens/results.jsonl --from-check
 python scripts/reposition.py runs/laurens/results.jsonl --field raw   # whole file, one field
+# ...and confirm the output IN PLACE — never swap it into results.jsonl (main.py's field
+# binding cannot see inside the file, so a resume would append the manifest's field to a
+# mixed file). Outputs land beside it as results.check.position_check.json / _report.html.
+python scripts/position_check.py runs/laurens --results runs/laurens/results.check.jsonl
 
 # Run the tests (no GPU/network/model; light deps via requirements-test.txt)
 pytest

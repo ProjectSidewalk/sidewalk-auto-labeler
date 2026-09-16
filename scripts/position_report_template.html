@@ -168,6 +168,9 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
   const AX = D.axes;
   const fmt = (v, d = 1) => v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(d);
   const pct = v => v == null ? '—' : Math.round(v * 100) + '%';
+  // Every string that came from outside this file (pano/sequence ids, run names, street
+  // names) goes through esc() before it is interpolated into innerHTML.
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const color = f => `var(--f-${f})`;
   const FIELDS = Object.keys(D.field_labels);                       // submitted [, sfm, raw]
   const ALT = FIELDS.filter(f => f !== 'submitted');                  // the re-readable fields
@@ -193,7 +196,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
   const subF = C.fields.submitted;
   if (flagged) {
     v.style.setProperty('--verdict', 'var(--f-sfm)');
-    v.innerHTML = `<strong>Flagged.</strong> ${flagged} sequence${flagged > 1 ? 's' : ''} with at least ${C.min_sequence} panos sit more than ${C.threshold_m} m off the street as a block on the submitted field, and the other field puts them back on it. Fix without re-detecting: <code>python scripts/reposition.py runs/${run}/results.jsonl --from-check</code>, then resubmit.` +
+    v.innerHTML = `<strong>Flagged.</strong> ${flagged} sequence${flagged > 1 ? 's' : ''} with at least ${C.min_sequence} panos sit more than ${C.threshold_m} m off the street as a block on the submitted field, and the other field moves them at least ${C.min_improvement_m} m closer to it. Fix without re-detecting: <code>python scripts/reposition.py ${esc(C.results_path || `runs/${run}/results.jsonl`)} --from-check</code>, then resubmit.` +
       (bothOff ? ` A further ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street in both fields, which a field switch cannot fix.` : '');
   } else {
     v.style.setProperty('--verdict', 'var(--ref)');
@@ -208,7 +211,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
   const tiles = document.getElementById('tiles');
   const tile = (name, col, val, sub) => {
     const d = document.createElement('div'); d.className = 'tile'; d.style.setProperty('--tile', col || 'var(--line)');
-    d.innerHTML = `<div class="k">${col ? `<span class="sw" style="background:${col}"></span>` : ''}${name}</div><div class="v">${val}</div><div class="s">${sub}</div>`;
+    d.innerHTML = `<div class="k">${col ? `<span class="sw" style="background:${col}"></span>` : ''}${esc(name)}</div><div class="v">${val}</div><div class="s">${sub}</div>`;
     tiles.appendChild(d);
   };
   const shown = SUB ? ALT : ['submitted'];
@@ -260,7 +263,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
     for (const p of D.reference.panos) el('circle', { cx: p[0], cy: Y(p[1]), r: 1.4, class: 'refpano' }, gRefP);
     for (const p of D.reference.sites) {
       const c = el('circle', { cx: p[0], cy: Y(p[1]), r: 3.2, class: 'site' }, gSites);
-      c.addEventListener('mousemove', e => showTip(e, `${D.reference.run_name} reference<br>E ${fmt(p[0])} m, N ${fmt(p[1])} m`));
+      c.addEventListener('mousemove', e => showTip(e, `${esc(D.reference.run_name)} reference<br>E ${fmt(p[0])} m, N ${fmt(p[1])} m`));
       c.addEventListener('mouseleave', hideTip);
     }
   }
@@ -271,14 +274,14 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
     for (const f of drawFields) if (p.pos[f]) el('circle', { cx: p.pos[f][0], cy: Y(p.pos[f][1]), r: 1.3, fill: colorOf(f) }, g);
     const a = p.pos.submitted;
     const hit = el('circle', { cx: a[0], cy: Y(a[1]), r: 4, fill: 'transparent' }, g);
-    hit.addEventListener('mousemove', e => showTip(e, `pano ${p.id}${p.seq ? '<br>seq ' + p.seq : ''}<br>heading ${p.hd}°` + (p.pos.sfm && p.pos.raw ? `<br>SfM − raw: E ${fmt(p.pos.sfm[0] - p.pos.raw[0])} m, N ${fmt(p.pos.sfm[1] - p.pos.raw[1])} m` : '')));
+    hit.addEventListener('mousemove', e => showTip(e, `pano ${esc(p.id)}${p.seq ? '<br>seq ' + esc(p.seq) : ''}<br>heading ${p.hd}°` + (p.pos.sfm && p.pos.raw ? `<br>SfM − raw: E ${fmt(p.pos.sfm[0] - p.pos.raw[0])} m, N ${fmt(p.pos.sfm[1] - p.pos.raw[1])} m` : '')));
     hit.addEventListener('mouseleave', hideTip);
   }
   const ptEls = [];
   for (const p of D.points) {
     const c = el('circle', { cx: 0, cy: 0, r: 2.6, class: 'pt' }, gPts);
     const a = p.pos.submitted; c.style.transform = `translate(${a[0]}px, ${Y(a[1])}px)`; c.style.fill = colorOf('submitted');
-    c.addEventListener('mousemove', e => showTip(e, `${D.points_kind === 'ps_labels' ? 'label' : 'detection'} ${p.id}<br>pano ${p.pano}${p.seq ? '<br>seq ' + p.seq : ''}` +
+    c.addEventListener('mousemove', e => showTip(e, `${D.points_kind === 'ps_labels' ? 'label' : 'detection'} ${esc(p.id)}<br>pano ${esc(p.pano)}${p.seq ? '<br>seq ' + esc(p.seq) : ''}` +
       mapFields.map(f => `<br>${label(f)}: E ${fmt(p.pos[f][0])}, N ${fmt(p.pos[f][1])}`).join('')));
     c.addEventListener('mouseleave', hideTip);
     ptEls.push([c, p]);
@@ -313,7 +316,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
   const legend = document.getElementById('legend');
   const li = (html) => { const s = document.createElement('span'); s.innerHTML = html; legend.appendChild(s); };
   for (const f of shown) li(`<span class="sw" style="background:${colorOf(f)}"></span>point / pano at ${label(f)}`);
-  if (D.reference) li(`<span class="sw" style="border:1.5px solid var(--ref); background:transparent"></span>${D.reference.run_name} ${D.reference.kind}`);
+  if (D.reference) li(`<span class="sw" style="border:1.5px solid var(--ref); background:transparent"></span>${esc(D.reference.run_name)} ${esc(D.reference.kind)}`);
   if (hasDrift) li(`<span class="sw" style="background:var(--shift)"></span>SfM → raw displacement`);
 
   // ---- per-street table
@@ -347,7 +350,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
   const X = v => ml + (v + half) / (2 * half) * pw;
   for (const [title, hd, col] of live) {
     const div = document.createElement('div'); div.className = 'hist';
-    const hh = document.createElement('h3'); hh.innerHTML = `<span><span class="sw" style="background:${col}"></span>${title}</span><small>n = ${hd.n.toLocaleString()}</small>`; div.appendChild(hh);
+    const hh = document.createElement('h3'); hh.innerHTML = `<span><span class="sw" style="background:${col}"></span>${esc(title)}</span><small>n = ${hd.n.toLocaleString()}</small>`; div.appendChild(hh);
     const s = el('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': `${title}: signed offset across ${AX.a.streets}, median ${fmt(hd.median)} m` });
     el('line', { x1: ml, y1: mt + ph, x2: w - mr, y2: mt + ph, class: 'axis' }, s);
     hd.bins.forEach((c, i) => { if (!c) return; const bh = c / hd.n / ymax * ph; const b = el('rect', { x: X(i - half) + 0.5, y: mt + ph - bh, width: pw / (2 * half) - 1, height: bh, fill: col, rx: 1 }, s); const t = el('title', {}, b); t.textContent = `${i - half} to ${i - half + 1} m: ${c} (${(c / hd.n * 100).toFixed(1)}%)`; });
@@ -393,7 +396,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
     pb.appendChild(tr);
   }
   document.getElementById('methodref').innerHTML = D.reference
-    ? `<strong>Reference run.</strong> ${D.reference.run_name} (${D.reference.source}) covers the same area independently; its panos sit ${fmt(D.reference.pano_offsets.across_a.median)} m from the centerlines (median), which bounds the centerline error. Its ${D.reference.kind} mark where ramps actually are.`
+    ? `<strong>Reference run.</strong> ${esc(D.reference.run_name)} (${esc(D.reference.source)}) covers the same area independently; its panos sit ${fmt(D.reference.pano_offsets.across_a.median)} m from the centerlines (median), which bounds the centerline error. Its ${esc(D.reference.kind)} mark where ramps actually are.`
     : `<strong>No reference run.</strong> The centerlines alone carry the check: a pano set that reads a median near zero and a west share near one half sits on the street.`;
 })();
 </script>

@@ -221,18 +221,24 @@ cached beside the run; no imagery, no GPU, no second source needed), reports eac
 field's offset distribution and per-sequence bias, writes `position_check.json` and a
 self-contained `position_report.html` (interactive map, offset histograms, per-sequence
 table — both are git-tracked beside `manifest.json`), and exits non-zero when a sequence
-is off the street on the submitted field *and the other field would fix it*. A flagged run
-is repaired without re-detecting:
+is off the street on the submitted field *and switching to the other field would move it
+at least 2 m closer* (a swap forces a new submission campaign, so it has to buy
+something; sequences that sit off the street in both fields — wide one-way streets
+driven once — are reported separately). A flagged run is repaired without re-detecting:
 
 ```bash
 python scripts/reposition.py runs/richmond/results.jsonl --from-check   # flagged sequences only
 python scripts/reposition.py runs/richmond/results.jsonl --field raw    # whole file
+python scripts/position_check.py runs/richmond --results runs/richmond/results.check.jsonl  # confirm
 ```
 
 which writes a new results file with the pano positions rewritten from the other field
-(the detections are stored relative to the pano, so nothing else changes). The new file
-has a new hash, so `send_to_ps.py` treats it as a fresh campaign — the labels already on
-the server from the old positions have to be retired there first.
+(the detections are stored relative to the pano, so nothing else changes; the heading is
+SfM-derived too, but the measured discrepancies are translations, so it stays). The new
+file has a new hash, so `send_to_ps.py` treats it as a fresh campaign — the labels already
+on the server from the old positions have to be retired there first. Check and submit it
+where it is: it is a submission artifact, not a run, and swapping it into `results.jsonl`
+would let a later resume append panos on the manifest's field to a mixed file.
 
 ### Alternative imagery source: Panoramax
 

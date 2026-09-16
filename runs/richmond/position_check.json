@@ -1,9 +1,11 @@
 {
  "run_name": "richmond",
  "imagery_source": "mapillary",
- "checked_at": "2026-09-16T03:50:43Z",
+ "checked_at": "2026-09-16T13:25:22Z",
  "threshold_m": 3.0,
  "min_sequence": 20,
+ "min_improvement_m": 2.0,
+ "max_snap_m": 30.0,
  "panos": 9091,
  "panos_not_near_a_street": 468,
  "submitted_field": "sfm",
@@ -434,6 +436,7 @@
   {
    "sequence_id": "ZKgN1oIYcrSmeAsBzTH40U",
    "n": 731,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.07,
    "sfm_minus_raw_north_m": 1.23,
    "shift_p90_m": 6.36,
@@ -459,13 +462,20 @@
     "sfm": 3.46,
     "raw": 3.8
    },
+   "not_near_a_street": {
+    "submitted": 126,
+    "sfm": 126,
+    "raw": 123
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "jKtaJMek7wQl5AOH28qdcm",
    "n": 509,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -6.57,
    "sfm_minus_raw_north_m": 0.29,
    "shift_p90_m": 99.82,
@@ -491,13 +501,20 @@
     "sfm": 5.12,
     "raw": 8.38
    },
+   "not_near_a_street": {
+    "submitted": 91,
+    "sfm": 91,
+    "raw": 98
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "neXd4zYCGbcF6kQ2ZvEimS",
    "n": 440,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.01,
    "sfm_minus_raw_north_m": 0.23,
    "shift_p90_m": 4.72,
@@ -523,13 +540,20 @@
     "sfm": 2.91,
     "raw": 3.26
    },
+   "not_near_a_street": {
+    "submitted": 76,
+    "sfm": 76,
+    "raw": 74
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "fP2wSATCUL7BEiah1jqdyJ",
    "n": 378,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.35,
    "sfm_minus_raw_north_m": 1.39,
    "shift_p90_m": 13.92,
@@ -555,13 +579,20 @@
     "sfm": 5.46,
     "raw": 5.82
    },
+   "not_near_a_street": {
+    "submitted": 92,
+    "sfm": 92,
+    "raw": 95
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "KF1p8noEahtr4liB5SUbkT",
    "n": 369,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.27,
    "sfm_minus_raw_north_m": 2.87,
    "shift_p90_m": 14.89,
@@ -587,13 +618,20 @@
     "sfm": 3.7,
     "raw": 2.31
    },
+   "not_near_a_street": {
+    "submitted": 48,
+    "sfm": 48,
+    "raw": 52
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "qhyHOpCSt8IArkbaeiKJ1N",
    "n": 242,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.05,
    "sfm_minus_raw_north_m": 0.17,
    "shift_p90_m": 11.68,
@@ -619,13 +657,20 @@
     "sfm": 2.22,
     "raw": 1.55
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "gfoIi7BvEYLVlNRyUasnCu",
    "n": 174,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.0,
    "sfm_minus_raw_north_m": 3.38,
    "shift_p90_m": 8.25,
@@ -651,13 +696,20 @@
     "sfm": 1.9,
     "raw": 3.17
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "aFO1tlKSnCyuzYDspvUb26",
    "n": 127,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.56,
    "sfm_minus_raw_north_m": -0.0,
    "shift_p90_m": 12.61,
@@ -683,13 +735,20 @@
     "sfm": 1.1,
     "raw": 1.54
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "uLfPk59sqn6KlyUbMW1NpI",
    "n": 108,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.94,
    "sfm_minus_raw_north_m": -0.07,
    "shift_p90_m": 9.33,
@@ -715,13 +774,20 @@
     "sfm": 2.06,
     "raw": 2.66
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "yt0M4SslP7ZWnAFeuQjKvJ",
    "n": 83,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 15.33,
    "sfm_minus_raw_north_m": -6.3,
    "shift_p90_m": 26.83,
@@ -747,13 +813,20 @@
     "sfm": 2.16,
     "raw": 2.51
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "FtH18DS50WcM32knT47NmA",
    "n": 79,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.91,
    "sfm_minus_raw_north_m": 5.14,
    "shift_p90_m": 6.33,
@@ -779,13 +852,20 @@
     "sfm": 2.04,
     "raw": 0.88
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "SxYBZr4QKfn7pIX3t90eow",
    "n": 79,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 5.84,
    "sfm_minus_raw_north_m": 1.46,
    "shift_p90_m": 7.44,
@@ -811,13 +891,20 @@
     "sfm": 3.49,
     "raw": 5.39
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "231btfBMyURmXvT5P6qFcO",
    "n": 78,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.95,
    "sfm_minus_raw_north_m": 2.73,
    "shift_p90_m": 3.66,
@@ -843,13 +930,20 @@
     "sfm": 0.51,
     "raw": 1.29
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "j6YnwrTFufN5HRck4IJp7b",
    "n": 75,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.73,
    "sfm_minus_raw_north_m": 3.94,
    "shift_p90_m": 5.63,
@@ -875,13 +969,20 @@
     "sfm": 3.88,
     "raw": 5.85
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "EowrXcadVPk5Bhe8GmRS6K",
    "n": 74,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.89,
    "sfm_minus_raw_north_m": 4.24,
    "shift_p90_m": 11.27,
@@ -907,13 +1008,20 @@
     "sfm": 4.07,
     "raw": 2.42
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "R2A3kG8bwOszFLqfQTdnHV",
    "n": 71,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.95,
    "sfm_minus_raw_north_m": 1.02,
    "shift_p90_m": 8.28,
@@ -939,13 +1047,20 @@
     "sfm": 2.07,
     "raw": 2.9
    },
+   "not_near_a_street": {
+    "submitted": 8,
+    "sfm": 8,
+    "raw": 8
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "HJvld4fLsrzCj1PWpISwQD",
    "n": 69,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.27,
    "sfm_minus_raw_north_m": 4.63,
    "shift_p90_m": 7.41,
@@ -971,13 +1086,20 @@
     "sfm": 1.28,
     "raw": 1.5
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Pxgcv7SwekLhbRAF96m1Jl",
    "n": 67,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.54,
    "sfm_minus_raw_north_m": 3.92,
    "shift_p90_m": 5.98,
@@ -1003,13 +1125,20 @@
     "sfm": 2.58,
     "raw": 3.74
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "NrdhSW0EuTjlBsxAktVUO9",
    "n": 64,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.01,
    "sfm_minus_raw_north_m": 6.83,
    "shift_p90_m": 10.22,
@@ -1035,13 +1164,20 @@
     "sfm": 3.93,
     "raw": 1.58
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "RfwMrVX3Q1eizvIHubJaOl",
    "n": 64,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.81,
    "sfm_minus_raw_north_m": 0.33,
    "shift_p90_m": 5.43,
@@ -1067,13 +1203,20 @@
     "sfm": 3.87,
     "raw": 1.54
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "8TahjbXIzxUYD1P9nQpFRq",
    "n": 63,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.17,
    "sfm_minus_raw_north_m": 1.91,
    "shift_p90_m": 4.36,
@@ -1099,13 +1242,20 @@
     "sfm": 3.23,
     "raw": 4.14
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "0tDUHua5rIyeh8lEk9MXjS",
    "n": 62,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.53,
    "sfm_minus_raw_north_m": 0.69,
    "shift_p90_m": 4.11,
@@ -1131,13 +1281,20 @@
     "sfm": 3.45,
     "raw": 0.71
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "TRfFo75XcLyDU2OJvmQadP",
    "n": 61,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.31,
    "sfm_minus_raw_north_m": 0.51,
    "shift_p90_m": 4.16,
@@ -1163,13 +1320,20 @@
     "sfm": 3.73,
     "raw": 1.15
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "1JDiQH5ycROwzTqAtSKbNa",
    "n": 56,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.51,
    "sfm_minus_raw_north_m": 4.57,
    "shift_p90_m": 6.81,
@@ -1195,13 +1359,20 @@
     "sfm": 3.25,
     "raw": 0.68
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "jPda9D0IS4pAi7ZvEywUFO",
    "n": 50,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -5.08,
    "sfm_minus_raw_north_m": -0.12,
    "shift_p90_m": 16.92,
@@ -1227,13 +1398,20 @@
     "sfm": 3.54,
     "raw": 5.33
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "7q9eKcDpSxXyonQOIfhvwj",
    "n": 49,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.19,
    "sfm_minus_raw_north_m": 0.5,
    "shift_p90_m": 8.53,
@@ -1259,13 +1437,20 @@
     "sfm": 2.84,
     "raw": 2.81
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "HI0O4hLtr9wylnvs7oJkYu",
    "n": 48,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.97,
    "sfm_minus_raw_north_m": 5.17,
    "shift_p90_m": 6.21,
@@ -1291,13 +1476,20 @@
     "sfm": 6.41,
     "raw": 6.54
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "oHxLZapKqwhiybvJdSC2TF",
    "n": 45,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.12,
    "sfm_minus_raw_north_m": -1.66,
    "shift_p90_m": 2.83,
@@ -1323,13 +1515,20 @@
     "sfm": 3.11,
     "raw": 3.73
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "2NpWF7cTyr6E5fKlZA1hng",
    "n": 45,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.48,
    "sfm_minus_raw_north_m": 2.11,
    "shift_p90_m": 4.52,
@@ -1355,13 +1554,20 @@
     "sfm": 1.88,
     "raw": 1.08
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "uAPLnOVgUTCMqtdEIxYwK5",
    "n": 44,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.8,
    "sfm_minus_raw_north_m": 2.17,
    "shift_p90_m": 4.52,
@@ -1387,13 +1593,20 @@
     "sfm": 1.94,
     "raw": 1.02
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "QPw2eEmbV3lqh6pvcWUoO0",
    "n": 41,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 5.59,
    "sfm_minus_raw_north_m": 1.15,
    "shift_p90_m": 10.25,
@@ -1419,13 +1632,20 @@
     "sfm": 4.9,
     "raw": 2.81
    },
+   "not_near_a_street": {
+    "submitted": 12,
+    "sfm": 12,
+    "raw": 11
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "HVdrY74pwQSFjOLmN0915o",
    "n": 41,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.09,
    "sfm_minus_raw_north_m": 0.02,
    "shift_p90_m": 1.12,
@@ -1451,13 +1671,20 @@
     "sfm": 1.09,
     "raw": 0.76
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "f7kKqIxeSyoEOp4UPXMYH3",
    "n": 40,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.0,
    "sfm_minus_raw_north_m": 0.0,
    "shift_p90_m": 3.28,
@@ -1483,13 +1710,20 @@
     "sfm": 2.27,
     "raw": 2.35
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "DHSzjckYPUTmXq5B4driL0",
    "n": 39,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.45,
    "sfm_minus_raw_north_m": -0.87,
    "shift_p90_m": 4.5,
@@ -1515,13 +1749,20 @@
     "sfm": 2.39,
     "raw": 2.3
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "cBml6zhXN1iFRrkq24spHM",
    "n": 39,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.77,
    "sfm_minus_raw_north_m": -0.15,
    "shift_p90_m": 5.46,
@@ -1547,13 +1788,20 @@
     "sfm": 2.87,
     "raw": 2.58
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "e6UapX4VBS3vIfkLxdObms",
    "n": 38,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.08,
    "sfm_minus_raw_north_m": -0.85,
    "shift_p90_m": 2.17,
@@ -1579,13 +1827,20 @@
     "sfm": 2.05,
     "raw": 1.29
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "6adFufAJGvqweLWsKkB2xY",
    "n": 37,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.11,
    "sfm_minus_raw_north_m": -1.74,
    "shift_p90_m": 2.86,
@@ -1611,13 +1866,20 @@
     "sfm": 3.53,
     "raw": 4.6
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "oHIxRXV8dFOlShgnu61zAD",
    "n": 37,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.28,
    "sfm_minus_raw_north_m": -0.45,
    "shift_p90_m": 2.35,
@@ -1643,13 +1905,20 @@
     "sfm": 2.96,
     "raw": 3.43
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "HGfn3SbaPoOuiI4ZyqRwzB",
    "n": 37,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.05,
    "sfm_minus_raw_north_m": -1.15,
    "shift_p90_m": 3.13,
@@ -1675,13 +1944,20 @@
     "sfm": 1.51,
     "raw": 1.92
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "mAi8GdLHau6qc1JxNXUwO4",
    "n": 36,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.22,
    "sfm_minus_raw_north_m": 0.27,
    "shift_p90_m": 1.94,
@@ -1707,13 +1983,20 @@
     "sfm": 3.86,
     "raw": 3.57
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "bwYS4dZKOUWg0GtloPy7vE",
    "n": 36,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.18,
    "sfm_minus_raw_north_m": -1.69,
    "shift_p90_m": 4.93,
@@ -1739,13 +2022,20 @@
     "sfm": 0.56,
     "raw": 1.96
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "08vaxXJTZ5I9eArfRPhtWd",
    "n": 34,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.43,
    "sfm_minus_raw_north_m": -1.59,
    "shift_p90_m": 4.86,
@@ -1771,13 +2061,20 @@
     "sfm": 2.07,
     "raw": 2.15
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "NRJz2tb3pFIacZovKjMnAL",
    "n": 33,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.12,
    "sfm_minus_raw_north_m": 0.14,
    "shift_p90_m": 1.43,
@@ -1803,13 +2100,20 @@
     "sfm": 0.94,
     "raw": 0.88
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "tSQYwhz0i2AHGZoClVucJj",
    "n": 33,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.45,
    "sfm_minus_raw_north_m": -1.47,
    "shift_p90_m": 2.85,
@@ -1835,13 +2139,20 @@
     "sfm": 2.16,
     "raw": 1.36
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "5mBkK27uDSphCJ6dEXL8RY",
    "n": 33,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.51,
    "sfm_minus_raw_north_m": 0.8,
    "shift_p90_m": 4.29,
@@ -1867,13 +2178,20 @@
     "sfm": 2.69,
     "raw": 2.48
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Q0ykE7v9O6PjxXLg4AFb8B",
    "n": 33,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.42,
    "sfm_minus_raw_north_m": 0.77,
    "shift_p90_m": 2.75,
@@ -1899,13 +2217,20 @@
     "sfm": 1.45,
     "raw": 2.66
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "0IgGoZMtylA1RYhDwrkBdL",
    "n": 33,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.55,
    "sfm_minus_raw_north_m": -1.62,
    "shift_p90_m": 2.98,
@@ -1931,13 +2256,20 @@
     "sfm": 2.23,
     "raw": 1.27
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "drsjvX3k4KiBTH7Pb5LV8h",
    "n": 32,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.39,
    "sfm_minus_raw_north_m": 0.76,
    "shift_p90_m": 5.71,
@@ -1963,13 +2295,20 @@
     "sfm": 3.38,
     "raw": 2.98
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "kvdw7ZStsGBNhYxQnJIrR9",
    "n": 32,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.97,
    "sfm_minus_raw_north_m": -3.68,
    "shift_p90_m": 15.93,
@@ -1995,13 +2334,20 @@
     "sfm": 1.72,
     "raw": 6.81
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "TWCP3rZ0dGw562xg8Qu9ny",
    "n": 32,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -5.1,
    "sfm_minus_raw_north_m": -0.32,
    "shift_p90_m": 9.6,
@@ -2027,13 +2373,20 @@
     "sfm": 2.85,
     "raw": 5.13
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "e2b6NFaG8DQiASmwO9k0Rt",
    "n": 32,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.55,
    "sfm_minus_raw_north_m": -0.66,
    "shift_p90_m": 4.31,
@@ -2059,13 +2412,20 @@
     "sfm": 1.61,
     "raw": 2.43
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "yGOeAwjVc2raN9BXH8LMJE",
    "n": 31,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.01,
    "sfm_minus_raw_north_m": -0.41,
    "shift_p90_m": 1.1,
@@ -2091,13 +2451,20 @@
     "sfm": 1.21,
     "raw": 1.29
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "eraulHSWBcCmbtvJQ70LF1",
    "n": 31,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.68,
    "sfm_minus_raw_north_m": 5.86,
    "shift_p90_m": 9.64,
@@ -2123,13 +2490,20 @@
     "sfm": 1.18,
     "raw": 2.13
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "6TBuQbZ8IEmWqAS4eGUgPs",
    "n": 31,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.4,
    "sfm_minus_raw_north_m": 1.01,
    "shift_p90_m": 4.58,
@@ -2155,13 +2529,20 @@
     "sfm": 2.15,
     "raw": 2.73
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "7xBa0FEUj13gPc4tiXRVl2",
    "n": 31,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.29,
    "sfm_minus_raw_north_m": 0.77,
    "shift_p90_m": 3.84,
@@ -2187,13 +2568,20 @@
     "sfm": 2.74,
     "raw": 2.85
    },
-   "recommended": "raw",
-   "flagged": true,
-   "both_off": false
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
+   "recommended": "sfm",
+   "flagged": false,
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "wmZJDGRABla5j2qogHNIFv",
    "n": 31,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.49,
    "sfm_minus_raw_north_m": -1.27,
    "shift_p90_m": 3.36,
@@ -2219,13 +2607,20 @@
     "sfm": 1.41,
     "raw": 1.81
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "epDoCQ9zvVPh2HaOkmxlb3",
    "n": 30,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.52,
    "sfm_minus_raw_north_m": 2.49,
    "shift_p90_m": 7.43,
@@ -2251,13 +2646,20 @@
     "sfm": 3.61,
     "raw": 2.83
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "lnw8f4xhDAzUSYIuL9P3pa",
    "n": 30,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.64,
    "sfm_minus_raw_north_m": 3.63,
    "shift_p90_m": 6.77,
@@ -2283,13 +2685,20 @@
     "sfm": 2.64,
     "raw": 2.26
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "43Dkb0BVTUI8pYuvE2aMNC",
    "n": 30,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.01,
    "sfm_minus_raw_north_m": -1.66,
    "shift_p90_m": 2.63,
@@ -2315,13 +2724,20 @@
     "sfm": 1.79,
     "raw": 1.04
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "r0swHqPtmvWjM47bEY31fQ",
    "n": 30,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.17,
    "sfm_minus_raw_north_m": 0.32,
    "shift_p90_m": 2.2,
@@ -2347,13 +2763,20 @@
     "sfm": 4.18,
     "raw": 4.37
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "hjP59iev0UbQWlTrCOLG8k",
    "n": 30,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.27,
    "sfm_minus_raw_north_m": -0.03,
    "shift_p90_m": 1.54,
@@ -2379,13 +2802,20 @@
     "sfm": 3.09,
     "raw": 3.23
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "zjEfGYM3buVWAkv2FSONgC",
    "n": 29,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.14,
    "sfm_minus_raw_north_m": -1.95,
    "shift_p90_m": 5.83,
@@ -2411,13 +2841,20 @@
     "sfm": 3.94,
     "raw": 3.7
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "fy7V2zXY61m8OCIhkvRjxZ",
    "n": 29,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.87,
    "sfm_minus_raw_north_m": 1.04,
    "shift_p90_m": 9.31,
@@ -2443,13 +2880,20 @@
     "sfm": 7.0,
     "raw": 4.5
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "MWeIEo4mB5SjndxyQgibtq",
    "n": 29,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.71,
    "sfm_minus_raw_north_m": -7.13,
    "shift_p90_m": 13.52,
@@ -2475,13 +2919,20 @@
     "sfm": 2.33,
     "raw": 7.82
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "VoRX3GaFB8OuIAlqLwZrH9",
    "n": 29,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.29,
    "sfm_minus_raw_north_m": 0.49,
    "shift_p90_m": 2.35,
@@ -2507,13 +2958,20 @@
     "sfm": 0.59,
     "raw": 2.19
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "jO4PRDLGqHsZeJWEg3AYBN",
    "n": 29,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.96,
    "sfm_minus_raw_north_m": 0.87,
    "shift_p90_m": 2.74,
@@ -2539,13 +2997,20 @@
     "sfm": 2.06,
     "raw": 1.55
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "03vDTp9NwbSRuYXkcaCUO2",
    "n": 29,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 6.2,
    "sfm_minus_raw_north_m": 0.7,
    "shift_p90_m": 10.34,
@@ -2571,13 +3036,20 @@
     "sfm": 4.31,
     "raw": 1.63
    },
+   "not_near_a_street": {
+    "submitted": 14,
+    "sfm": 14,
+    "raw": 13
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "GEcVTJKzMUAw18QNSC5XIR",
    "n": 29,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.14,
    "sfm_minus_raw_north_m": -2.08,
    "shift_p90_m": 4.38,
@@ -2603,13 +3075,20 @@
     "sfm": 0.82,
     "raw": 3.16
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "MRAXzkh6Zx7PKY9UV3yEcD",
    "n": 28,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.27,
    "sfm_minus_raw_north_m": -0.02,
    "shift_p90_m": 4.92,
@@ -2635,13 +3114,20 @@
     "sfm": 2.16,
     "raw": 2.7
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "c39NCEYbZKX8udRDWkByhf",
    "n": 28,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.16,
    "sfm_minus_raw_north_m": -0.52,
    "shift_p90_m": 1.91,
@@ -2667,13 +3153,20 @@
     "sfm": 0.93,
     "raw": 1.93
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ZJe5MhtzcxGsrWubo2p6fK",
    "n": 28,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.07,
    "sfm_minus_raw_north_m": 0.31,
    "shift_p90_m": 0.79,
@@ -2699,13 +3192,20 @@
     "sfm": 0.63,
     "raw": 0.94
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "v7LX8yga4fpD6Sr3lHtjUA",
    "n": 28,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.97,
    "sfm_minus_raw_north_m": -0.33,
    "shift_p90_m": 5.7,
@@ -2731,13 +3231,20 @@
     "sfm": 3.72,
     "raw": 2.13
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "CWFGwlfenILZ7JmzypsYjr",
    "n": 28,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.42,
    "sfm_minus_raw_north_m": 1.95,
    "shift_p90_m": 4.15,
@@ -2763,13 +3270,20 @@
     "sfm": 2.89,
     "raw": 2.3
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "3EVn6berw42yYiMOl0kqAm",
    "n": 28,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.7,
    "sfm_minus_raw_north_m": -2.21,
    "shift_p90_m": 5.83,
@@ -2795,13 +3309,20 @@
     "sfm": 0.86,
     "raw": 2.8
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "3bniX79WTexPd2r5gH6MIl",
    "n": 27,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.32,
    "sfm_minus_raw_north_m": 0.64,
    "shift_p90_m": 3.55,
@@ -2827,13 +3348,20 @@
     "sfm": 1.15,
     "raw": 1.72
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "GJy72V0fdrxMFus3WC6w1t",
    "n": 27,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.38,
    "sfm_minus_raw_north_m": -1.62,
    "shift_p90_m": 2.41,
@@ -2859,13 +3387,20 @@
     "sfm": 1.69,
     "raw": 0.97
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "s7WkNRh9jtMG2wpL4HqIBl",
    "n": 27,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.15,
    "sfm_minus_raw_north_m": -0.56,
    "shift_p90_m": 2.29,
@@ -2891,13 +3426,20 @@
     "sfm": 1.7,
     "raw": 1.11
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "IhOuUZXHYjAdbtE9vaWoMR",
    "n": 27,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -5.2,
    "sfm_minus_raw_north_m": -0.86,
    "shift_p90_m": 9.29,
@@ -2923,13 +3465,20 @@
     "sfm": 6.26,
     "raw": 5.74
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "bESXlFv3MPDUHTjsrpki60",
    "n": 27,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.1,
    "sfm_minus_raw_north_m": -0.47,
    "shift_p90_m": 2.0,
@@ -2955,13 +3504,20 @@
     "sfm": 3.59,
     "raw": 3.14
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "3fvIcyGTR0QqazCZVuLnx8",
    "n": 26,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.86,
    "sfm_minus_raw_north_m": -0.2,
    "shift_p90_m": 2.68,
@@ -2987,13 +3543,20 @@
     "sfm": 2.05,
     "raw": 1.78
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "8IFfOSD7qZ5nzh1ve9VaLG",
    "n": 26,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.81,
    "sfm_minus_raw_north_m": 2.26,
    "shift_p90_m": 11.1,
@@ -3019,13 +3582,20 @@
     "sfm": 1.6,
     "raw": 0.99
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "aO7nwHiyz6bYt1oeRclMfd",
    "n": 26,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.43,
    "sfm_minus_raw_north_m": 0.54,
    "shift_p90_m": 2.31,
@@ -3051,13 +3621,20 @@
     "sfm": 1.48,
     "raw": 2.71
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Kxk1EiaAD0QG47Lj3XPTvJ",
    "n": 26,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.01,
    "sfm_minus_raw_north_m": 0.83,
    "shift_p90_m": 2.48,
@@ -3083,13 +3660,20 @@
     "sfm": 2.72,
     "raw": 3.84
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "M5RgON2cSIojtivrXpm83U",
    "n": 26,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.43,
    "sfm_minus_raw_north_m": -2.44,
    "shift_p90_m": 6.28,
@@ -3115,13 +3699,20 @@
     "sfm": 1.34,
     "raw": 2.95
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "eBmRAW0TaZ4HvFx2qlpcit",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.83,
    "sfm_minus_raw_north_m": 0.47,
    "shift_p90_m": 5.99,
@@ -3147,13 +3738,20 @@
     "sfm": 3.81,
     "raw": 1.82
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "vYifbuL7SD964mKATO2sQt",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.26,
    "sfm_minus_raw_north_m": -1.36,
    "shift_p90_m": 3.73,
@@ -3179,13 +3777,20 @@
     "sfm": 4.21,
     "raw": 5.92
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "85uMdUO6JNok4mQDszXvcB",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.02,
    "sfm_minus_raw_north_m": 1.88,
    "shift_p90_m": 4.78,
@@ -3211,13 +3816,20 @@
     "sfm": 6.32,
     "raw": 3.02
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "0K4kRFUSN3DrsVAzpftyTO",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.53,
    "sfm_minus_raw_north_m": -3.53,
    "shift_p90_m": 16.13,
@@ -3243,13 +3855,20 @@
     "sfm": 1.51,
     "raw": 5.59
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "cuDX3YvV2OMCwigylKNrep",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.63,
    "sfm_minus_raw_north_m": 2.8,
    "shift_p90_m": 4.11,
@@ -3275,13 +3894,20 @@
     "sfm": 5.31,
     "raw": 5.21
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "js7k94gPNhpIyu6oO8XnD1",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.48,
    "sfm_minus_raw_north_m": -0.27,
    "shift_p90_m": 1.58,
@@ -3307,13 +3933,20 @@
     "sfm": 0.65,
     "raw": 1.31
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "n4dbCVFf2klcsRG9Xu0o5E",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.05,
    "sfm_minus_raw_north_m": 0.2,
    "shift_p90_m": 5.85,
@@ -3339,13 +3972,20 @@
     "sfm": 2.29,
     "raw": 1.08
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "YyQ8XUiOJqZ2wHEhxvlc6N",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.73,
    "sfm_minus_raw_north_m": 1.39,
    "shift_p90_m": 10.37,
@@ -3371,13 +4011,20 @@
     "sfm": 5.69,
     "raw": 4.78
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "zdANmarGs4jHlFC6Q0EU9S",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.31,
    "sfm_minus_raw_north_m": 1.07,
    "shift_p90_m": 2.63,
@@ -3403,13 +4050,20 @@
     "sfm": 0.48,
     "raw": 2.2
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "oYqky7hRdx6ZmnTrWAzFvs",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.73,
    "sfm_minus_raw_north_m": 6.59,
    "shift_p90_m": 12.96,
@@ -3435,13 +4089,20 @@
     "sfm": 4.5,
     "raw": 4.41
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "AORPSZIlzUYJtdXupwoQ1D",
    "n": 25,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.14,
    "sfm_minus_raw_north_m": 3.34,
    "shift_p90_m": 4.46,
@@ -3467,13 +4128,20 @@
     "sfm": 1.86,
     "raw": 0.8
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "R78KGPq6utiaLpOCycASIU",
    "n": 24,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.86,
    "sfm_minus_raw_north_m": 0.81,
    "shift_p90_m": 4.22,
@@ -3499,13 +4167,20 @@
     "sfm": 2.33,
     "raw": 1.61
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "KVjFBH3asgc59pEUeY41L7",
    "n": 24,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.51,
    "sfm_minus_raw_north_m": -1.73,
    "shift_p90_m": 4.53,
@@ -3531,13 +4206,20 @@
     "sfm": 1.67,
     "raw": 0.55
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "7RoJ1fsMCGicdpAwe08Bgh",
    "n": 23,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.36,
    "sfm_minus_raw_north_m": -0.73,
    "shift_p90_m": 4.86,
@@ -3563,13 +4245,20 @@
     "sfm": 1.55,
     "raw": 2.45
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "NZiJ2Pqcs0bB8xkQmOSXr4",
    "n": 23,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -5.34,
    "sfm_minus_raw_north_m": 1.04,
    "shift_p90_m": 6.32,
@@ -3595,13 +4284,20 @@
     "sfm": 1.82,
     "raw": 1.05
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "1vslq5zJCw4Wkf3A9rEodF",
    "n": 23,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.77,
    "sfm_minus_raw_north_m": 0.32,
    "shift_p90_m": 3.25,
@@ -3627,13 +4323,20 @@
     "sfm": 2.15,
     "raw": 1.34
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Sje4mi6guHWUF9LvGBNXYP",
    "n": 23,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.2,
    "sfm_minus_raw_north_m": -1.51,
    "shift_p90_m": 2.33,
@@ -3659,13 +4362,20 @@
     "sfm": 3.73,
     "raw": 3.63
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "XrEo23tcK1SHzDyCwNOPMq",
    "n": 23,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.69,
    "sfm_minus_raw_north_m": 1.01,
    "shift_p90_m": 23.95,
@@ -3691,13 +4401,20 @@
     "sfm": 1.58,
     "raw": 2.72
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "J7IAMxeHE3a2Q5dpYV6SuT",
    "n": 23,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.01,
    "sfm_minus_raw_north_m": 0.78,
    "shift_p90_m": 5.55,
@@ -3723,13 +4440,20 @@
     "sfm": 1.36,
     "raw": 2.66
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "lbrUYDZFMzKOjeuhNqP3HC",
    "n": 23,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.11,
    "sfm_minus_raw_north_m": -0.0,
    "shift_p90_m": 6.36,
@@ -3755,13 +4479,20 @@
     "sfm": 3.74,
     "raw": 4.21
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "WIzs7tifngOTybCmxhqQeX",
    "n": 23,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.33,
    "sfm_minus_raw_north_m": 1.77,
    "shift_p90_m": 12.21,
@@ -3787,13 +4518,20 @@
     "sfm": 1.22,
     "raw": 1.05
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "rcFVL3AldN0hoHsxiEJ6OM",
    "n": 22,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.24,
    "sfm_minus_raw_north_m": 0.67,
    "shift_p90_m": 2.57,
@@ -3819,13 +4557,20 @@
     "sfm": 1.94,
     "raw": 1.91
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "SNqQGwltMPfeuiRa7xLjX9",
    "n": 22,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.54,
    "sfm_minus_raw_north_m": -0.06,
    "shift_p90_m": 9.81,
@@ -3851,13 +4596,20 @@
     "sfm": 5.3,
     "raw": 5.01
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "bJSpFz7EU04cvliTnBGHAX",
    "n": 22,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -4.24,
    "sfm_minus_raw_north_m": -9.87,
    "shift_p90_m": 95.19,
@@ -3883,13 +4635,20 @@
     "sfm": 5.05,
     "raw": 4.21
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "FikNdPgXBoJsDtfnQWwhu6",
    "n": 22,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.18,
    "sfm_minus_raw_north_m": -3.26,
    "shift_p90_m": 7.23,
@@ -3915,13 +4674,20 @@
     "sfm": 5.49,
     "raw": 9.1
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "92chHUjF35ZsNXydIEf6r4",
    "n": 22,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -9.2,
    "sfm_minus_raw_north_m": 4.18,
    "shift_p90_m": 11.05,
@@ -3947,13 +4713,20 @@
     "sfm": 3.41,
     "raw": 6.23
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "8nJmwzk2qTe6vFrXPfsLY9",
    "n": 22,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.29,
    "sfm_minus_raw_north_m": 1.66,
    "shift_p90_m": 4.27,
@@ -3979,13 +4752,20 @@
     "sfm": 2.39,
     "raw": 1.73
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "n57VkKslrDmajtFBETNqzJ",
    "n": 22,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -4.2,
    "sfm_minus_raw_north_m": 4.85,
    "shift_p90_m": 8.0,
@@ -4011,13 +4791,20 @@
     "sfm": 4.59,
     "raw": 5.48
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "xTpcAEVaCLlrg1IKUvowDY",
    "n": 22,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.06,
    "sfm_minus_raw_north_m": 1.35,
    "shift_p90_m": 2.43,
@@ -4043,13 +4830,20 @@
     "sfm": 1.94,
     "raw": 1.74
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "dc7pyeCB5ltAGkPRDjX4gH",
    "n": 21,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.65,
    "sfm_minus_raw_north_m": -0.21,
    "shift_p90_m": 5.31,
@@ -4075,13 +4869,20 @@
     "sfm": 2.52,
     "raw": 0.66
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Ls9Jm3yvCuijbZRO7P2K1W",
    "n": 21,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.21,
    "sfm_minus_raw_north_m": 0.06,
    "shift_p90_m": 1.73,
@@ -4107,13 +4908,20 @@
     "sfm": 1.01,
     "raw": 0.84
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "4nKQCg7vIX3wuHGPOYJkDo",
    "n": 21,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.88,
    "sfm_minus_raw_north_m": -0.1,
    "shift_p90_m": 1.84,
@@ -4139,13 +4947,20 @@
     "sfm": 1.72,
     "raw": 2.67
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "KlYqAMF1k78j0rmJOWcTQa",
    "n": 21,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.28,
    "sfm_minus_raw_north_m": 0.34,
    "shift_p90_m": 1.71,
@@ -4171,13 +4986,20 @@
     "sfm": 2.77,
     "raw": 2.73
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "A1p326CI7NPBWraLgHbx5j",
    "n": 21,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.1,
    "sfm_minus_raw_north_m": 0.19,
    "shift_p90_m": 3.38,
@@ -4203,13 +5025,20 @@
     "sfm": 2.97,
     "raw": 0.86
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Smz1db2AuCyNLDf9UiHhjW",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.36,
    "sfm_minus_raw_north_m": 1.31,
    "shift_p90_m": 5.45,
@@ -4235,13 +5064,20 @@
     "sfm": 2.58,
     "raw": 1.09
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "wGojXkNRdvyJBKn6ra7xZf",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.06,
    "sfm_minus_raw_north_m": 0.32,
    "shift_p90_m": 2.57,
@@ -4267,13 +5103,20 @@
     "sfm": 3.43,
     "raw": 2.81
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "wxghBIWdRM3L41CTZUVGYr",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.18,
    "sfm_minus_raw_north_m": -0.51,
    "shift_p90_m": 1.71,
@@ -4299,13 +5142,20 @@
     "sfm": 3.83,
     "raw": 3.54
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "LIJBehAVj7q5y2i3RmnrS9",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.19,
    "sfm_minus_raw_north_m": -0.35,
    "shift_p90_m": 1.1,
@@ -4331,13 +5181,20 @@
     "sfm": 5.32,
     "raw": 5.26
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "WCdFK4kmByfI9L8rjXt02J",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.07,
    "sfm_minus_raw_north_m": 1.45,
    "shift_p90_m": 2.5,
@@ -4363,13 +5220,20 @@
     "sfm": 2.04,
     "raw": 1.8
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "I85XFyG0lKgrDBQ2skcqh6",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 5.13,
    "sfm_minus_raw_north_m": -5.13,
    "shift_p90_m": 10.4,
@@ -4395,13 +5259,20 @@
     "sfm": 0.86,
     "raw": 3.45
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "bPlZw6Mp5Lzac941Xev2Kd",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.7,
    "sfm_minus_raw_north_m": 0.73,
    "shift_p90_m": 2.18,
@@ -4427,13 +5298,20 @@
     "sfm": 3.32,
     "raw": 2.16
    },
-   "recommended": "raw",
-   "flagged": true,
-   "both_off": false
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
+   "recommended": "sfm",
+   "flagged": false,
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "hNSXaMWORxpeyZw647PDk0",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.73,
    "sfm_minus_raw_north_m": 3.42,
    "shift_p90_m": 10.81,
@@ -4459,13 +5337,20 @@
     "sfm": 7.35,
     "raw": 4.59
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Cj38dYsJnmzgZcE7XeaPUV",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.79,
    "sfm_minus_raw_north_m": 1.74,
    "shift_p90_m": 2.38,
@@ -4491,13 +5376,20 @@
     "sfm": 4.07,
     "raw": 2.3
    },
-   "recommended": "raw",
-   "flagged": true,
-   "both_off": false
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
+   "recommended": "sfm",
+   "flagged": false,
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "U4eWPoxCEMYT8R0wLzd97b",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.64,
    "sfm_minus_raw_north_m": 0.21,
    "shift_p90_m": 7.75,
@@ -4523,13 +5415,20 @@
     "sfm": 7.45,
     "raw": 7.85
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": true
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "nFwaolCg73AzEZIDjMrNLx",
    "n": 20,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.91,
    "sfm_minus_raw_north_m": 2.21,
    "shift_p90_m": 5.11,
@@ -4555,13 +5454,20 @@
     "sfm": 1.81,
     "raw": 1.57
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "e3ZzRAKgPO17iJ0uxtIEvG",
    "n": 19,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.04,
    "sfm_minus_raw_north_m": 0.19,
    "shift_p90_m": 0.78,
@@ -4587,13 +5493,20 @@
     "sfm": 0.63,
     "raw": 0.94
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "DnoArq4OGibg2yaMY1JNpd",
    "n": 19,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.07,
    "sfm_minus_raw_north_m": 0.24,
    "shift_p90_m": 2.24,
@@ -4619,13 +5532,20 @@
     "sfm": 1.86,
     "raw": 2.35
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "QGRMkrDiC86by7gSNthjXw",
    "n": 19,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.06,
    "sfm_minus_raw_north_m": -0.13,
    "shift_p90_m": 5.69,
@@ -4651,13 +5571,20 @@
     "sfm": 1.16,
     "raw": 1.71
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "LWpqYFM6NQdHKsi2XOZSJ7",
    "n": 19,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.38,
    "sfm_minus_raw_north_m": -1.77,
    "shift_p90_m": 3.24,
@@ -4683,13 +5610,20 @@
     "sfm": 2.1,
     "raw": 1.16
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "tSVCTna1xQfi5K49PHBI6m",
    "n": 19,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.5,
    "sfm_minus_raw_north_m": -3.25,
    "shift_p90_m": 8.0,
@@ -4715,13 +5649,20 @@
     "sfm": 0.92,
     "raw": 3.28
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "umTxWqyoV3lbfE84MUkJpR",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.09,
    "sfm_minus_raw_north_m": 1.45,
    "shift_p90_m": 3.98,
@@ -4747,13 +5688,20 @@
     "sfm": 1.98,
     "raw": 1.04
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ClLyJHw0TRvI61S85ZBnDQ",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.7,
    "sfm_minus_raw_north_m": 3.89,
    "shift_p90_m": 5.76,
@@ -4779,13 +5727,20 @@
     "sfm": 1.28,
     "raw": 3.16
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "QfgMDrjtsCBm89lw5xXnZY",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.73,
    "sfm_minus_raw_north_m": 0.35,
    "shift_p90_m": 1.2,
@@ -4811,13 +5766,20 @@
     "sfm": 0.35,
     "raw": 0.7
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "aKnfIghSW439vyriwLPc1V",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.22,
    "sfm_minus_raw_north_m": 0.49,
    "shift_p90_m": 6.13,
@@ -4843,13 +5805,20 @@
     "sfm": 2.39,
     "raw": 2.38
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "RjlqtiwXN3BPE6bfDzaOYg",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.25,
    "sfm_minus_raw_north_m": 0.88,
    "shift_p90_m": 2.7,
@@ -4875,13 +5844,20 @@
     "sfm": 2.98,
     "raw": 2.32
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "rcmVDaLIdBUZzf3WXT81M2",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.37,
    "sfm_minus_raw_north_m": 1.04,
    "shift_p90_m": 3.92,
@@ -4907,13 +5883,20 @@
     "sfm": 2.96,
     "raw": 1.95
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "5lD3MhA0i91pywWGSC4FYE",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.52,
    "sfm_minus_raw_north_m": -1.07,
    "shift_p90_m": 3.02,
@@ -4939,13 +5922,20 @@
     "sfm": 1.7,
     "raw": 1.13
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "MCcPGkJ4zhotBKXQxuA6Le",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.94,
    "sfm_minus_raw_north_m": -1.67,
    "shift_p90_m": 4.4,
@@ -4971,13 +5961,20 @@
     "sfm": 1.48,
     "raw": 0.64
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "8vgiXujKWfOIm5RrTeFHbE",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.34,
    "sfm_minus_raw_north_m": -0.01,
    "shift_p90_m": 4.85,
@@ -5003,13 +6000,20 @@
     "sfm": 1.66,
     "raw": 1.82
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "3hOqvFGpokbn4V7zu1gIRY",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.65,
    "sfm_minus_raw_north_m": -1.67,
    "shift_p90_m": 3.86,
@@ -5035,13 +6039,20 @@
     "sfm": 3.26,
     "raw": 5.73
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "6BdghwUEtm04PVusyOQvS1",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.23,
    "sfm_minus_raw_north_m": -0.09,
    "shift_p90_m": 2.66,
@@ -5067,13 +6078,20 @@
     "sfm": 0.74,
     "raw": 1.53
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "fBuYozLm37psWkvHG2dniU",
    "n": 18,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.6,
    "sfm_minus_raw_north_m": -0.17,
    "shift_p90_m": 2.14,
@@ -5099,13 +6117,20 @@
     "sfm": 1.51,
     "raw": 2.59
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "4D9pVhLzaRWbvB1EyQd2wJ",
    "n": 17,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.76,
    "sfm_minus_raw_north_m": 0.12,
    "shift_p90_m": 1.2,
@@ -5131,13 +6156,20 @@
     "sfm": 0.38,
     "raw": 0.89
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "gcqW9eY3GiJjQESyMvpUTN",
    "n": 17,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.06,
    "sfm_minus_raw_north_m": 4.41,
    "shift_p90_m": 11.54,
@@ -5163,13 +6195,20 @@
     "sfm": 4.3,
     "raw": 3.59
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "vD1nTjfWz2HVeQwNymgoxE",
    "n": 17,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.05,
    "sfm_minus_raw_north_m": 0.24,
    "shift_p90_m": 7.75,
@@ -5195,13 +6234,20 @@
     "sfm": 4.62,
     "raw": 4.47
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "2ovsjZaN7OUeG6RtgE9Bpf",
    "n": 17,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.23,
    "sfm_minus_raw_north_m": 0.63,
    "shift_p90_m": 2.19,
@@ -5227,13 +6273,20 @@
     "sfm": 4.1,
     "raw": 3.45
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "2lDbt157Y0pncVz6MTmiCK",
    "n": 17,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.9,
    "sfm_minus_raw_north_m": -5.65,
    "shift_p90_m": 6.52,
@@ -5259,13 +6312,20 @@
     "sfm": 3.02,
     "raw": 1.81
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "y26tarkHsVAlU9SXiufj8d",
    "n": 17,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.73,
    "sfm_minus_raw_north_m": -0.19,
    "shift_p90_m": 4.45,
@@ -5291,13 +6351,20 @@
     "sfm": 1.82,
     "raw": 1.93
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "cgo1dMpelL27HaVjB9Nfwk",
    "n": 17,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.15,
    "sfm_minus_raw_north_m": 0.66,
    "shift_p90_m": 3.79,
@@ -5323,13 +6390,20 @@
     "sfm": 1.92,
     "raw": 0.11
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "n8hbI6kQpTwdWY9OBRveVC",
    "n": 16,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.86,
    "sfm_minus_raw_north_m": -0.12,
    "shift_p90_m": 1.72,
@@ -5355,13 +6429,20 @@
     "sfm": 2.78,
     "raw": 2.72
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "N70xbh3a4eLK8vrpYZzfTj",
    "n": 16,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.28,
    "sfm_minus_raw_north_m": -0.81,
    "shift_p90_m": 1.13,
@@ -5387,13 +6468,20 @@
     "sfm": 5.56,
     "raw": 5.52
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "S7Wvd1tmMhurbTCyXJpaYx",
    "n": 16,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.18,
    "sfm_minus_raw_north_m": 0.61,
    "shift_p90_m": 4.64,
@@ -5419,13 +6507,20 @@
     "sfm": 1.51,
     "raw": 1.77
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "rX6ERyoS8zgTjmNU4Y2Zc7",
    "n": 16,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.21,
    "sfm_minus_raw_north_m": -0.37,
    "shift_p90_m": 2.33,
@@ -5451,13 +6546,20 @@
     "sfm": 1.36,
     "raw": 1.62
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "5qKNbxiFoHB7OdgcY86lEe",
    "n": 16,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.49,
    "sfm_minus_raw_north_m": 1.39,
    "shift_p90_m": 4.91,
@@ -5483,13 +6585,20 @@
     "sfm": 2.66,
     "raw": 2.56
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Pvnl7kxYC5LUKVBi9EeJbd",
    "n": 16,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.57,
    "sfm_minus_raw_north_m": -0.6,
    "shift_p90_m": 2.27,
@@ -5515,13 +6624,20 @@
     "sfm": 1.55,
     "raw": 3.09
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "bHhav7td24mRyPTSNKMl8F",
    "n": 16,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.0,
    "sfm_minus_raw_north_m": 4.22,
    "shift_p90_m": 6.26,
@@ -5547,13 +6663,20 @@
     "sfm": 7.98,
     "raw": 6.01
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "QRXNFA8HnIua0GzLfiKgyT",
    "n": 15,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.4,
    "sfm_minus_raw_north_m": -1.0,
    "shift_p90_m": 3.31,
@@ -5579,13 +6702,20 @@
     "sfm": 1.69,
     "raw": 1.74
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "dfsCvjN4gGatYTbXUFo7kW",
    "n": 15,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.85,
    "sfm_minus_raw_north_m": 0.37,
    "shift_p90_m": 5.61,
@@ -5611,13 +6741,20 @@
     "sfm": 1.85,
     "raw": 1.63
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "qKF1eiYGcDzruM0h4AJyE6",
    "n": 15,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.68,
    "sfm_minus_raw_north_m": -3.65,
    "shift_p90_m": 5.89,
@@ -5643,13 +6780,20 @@
     "sfm": 3.02,
     "raw": 1.13
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "hxvynOSubUg3I5XN1aKtWq",
    "n": 15,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.11,
    "sfm_minus_raw_north_m": 3.17,
    "shift_p90_m": 4.88,
@@ -5675,13 +6819,20 @@
     "sfm": 2.01,
     "raw": 0.82
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "gDVpflYaBe8CovR1UsxH49",
    "n": 15,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.64,
    "sfm_minus_raw_north_m": 1.17,
    "shift_p90_m": 1.72,
@@ -5707,13 +6858,20 @@
     "sfm": 2.45,
     "raw": 2.43
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "f6vkpcmR1G9SsbiLZjFYHC",
    "n": 15,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.92,
    "sfm_minus_raw_north_m": 0.82,
    "shift_p90_m": 5.69,
@@ -5739,13 +6897,20 @@
     "sfm": 1.78,
     "raw": 2.34
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "xWC1csKeG3jFQrdY0VDSUi",
    "n": 15,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.63,
    "sfm_minus_raw_north_m": 1.69,
    "shift_p90_m": 2.95,
@@ -5771,13 +6936,20 @@
     "sfm": 2.99,
     "raw": 1.4
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "TYytGMB3nHWFJozXsD7EaO",
    "n": 15,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.08,
    "sfm_minus_raw_north_m": 1.33,
    "shift_p90_m": 2.15,
@@ -5803,13 +6975,20 @@
     "sfm": 2.15,
     "raw": 1.44
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "un8bcrpLUi3t0SFGxTvodO",
    "n": 15,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.11,
    "sfm_minus_raw_north_m": -0.43,
    "shift_p90_m": 0.72,
@@ -5835,13 +7014,20 @@
     "sfm": 5.37,
     "raw": 5.4
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "OUBhnjSDJLpKoGxN8Yd1iy",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.21,
    "sfm_minus_raw_north_m": 1.17,
    "shift_p90_m": 3.38,
@@ -5867,13 +7053,20 @@
     "sfm": 1.68,
     "raw": 1.72
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "NhqetuvxPjB06kM3ybJpZX",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 7.06,
    "sfm_minus_raw_north_m": 19.85,
    "shift_p90_m": 24.05,
@@ -5899,13 +7092,20 @@
     "sfm": 1.91,
     "raw": 1.73
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "RoEIipz4rkleCHL0xFc2BM",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.14,
    "sfm_minus_raw_north_m": 0.83,
    "shift_p90_m": 2.5,
@@ -5931,13 +7131,20 @@
     "sfm": 2.04,
     "raw": 1.55
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ArIR4KgLYJeEcWNwB6FQbM",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.66,
    "sfm_minus_raw_north_m": -4.02,
    "shift_p90_m": 8.08,
@@ -5963,13 +7170,20 @@
     "sfm": 6.68,
     "raw": 6.34
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "hizWXra4FTQu6tqmsKGb91",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.74,
    "sfm_minus_raw_north_m": 1.27,
    "shift_p90_m": 6.43,
@@ -5995,13 +7209,20 @@
     "sfm": 1.22,
     "raw": 1.19
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "pVOnXhkWbv9HugEBrcTCi7",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.58,
    "sfm_minus_raw_north_m": -1.22,
    "shift_p90_m": 1.47,
@@ -6027,13 +7248,20 @@
     "sfm": 5.62,
     "raw": 5.23
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "nsRVkNyL4153Klq6XPBxIi",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.58,
    "sfm_minus_raw_north_m": 2.11,
    "shift_p90_m": 5.28,
@@ -6059,13 +7287,20 @@
     "sfm": 4.92,
     "raw": 0.85
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "42vTkEUINds5HFtzqoV8Rw",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.92,
    "sfm_minus_raw_north_m": -0.47,
    "shift_p90_m": 2.38,
@@ -6091,13 +7326,20 @@
     "sfm": 1.82,
     "raw": 1.61
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "aULnv3lj2geNJrCB1K8AD0",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.07,
    "sfm_minus_raw_north_m": -5.73,
    "shift_p90_m": 10.47,
@@ -6123,13 +7365,20 @@
     "sfm": 1.16,
     "raw": 5.5
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "3pwcDU4tOjzuhLBovYi2Cn",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.79,
    "sfm_minus_raw_north_m": -0.63,
    "shift_p90_m": 3.06,
@@ -6155,13 +7404,20 @@
     "sfm": 0.56,
     "raw": 1.54
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "21NOCkVxKzH3TRapgAqjlt",
    "n": 14,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.33,
    "sfm_minus_raw_north_m": -1.98,
    "shift_p90_m": 6.06,
@@ -6187,13 +7443,20 @@
     "sfm": 1.79,
     "raw": 2.73
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "auk9R83LB5QJ41CrNOfDW6",
    "n": 13,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -4.67,
    "sfm_minus_raw_north_m": 3.27,
    "shift_p90_m": 6.96,
@@ -6219,13 +7482,20 @@
     "sfm": 5.68,
     "raw": 10.93
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "4Od93WbB15iftcGnI2JwKm",
    "n": 13,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.29,
    "sfm_minus_raw_north_m": -0.1,
    "shift_p90_m": 1.64,
@@ -6251,13 +7521,20 @@
     "sfm": 1.14,
     "raw": 1.8
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "s02XvCcdfokgBZpMq74ul9",
    "n": 13,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.22,
    "sfm_minus_raw_north_m": -4.52,
    "shift_p90_m": 5.34,
@@ -6283,13 +7560,20 @@
     "sfm": 1.71,
     "raw": 4.6
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "8IvbieGDUmJQVfWSszZoAO",
    "n": 13,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.31,
    "sfm_minus_raw_north_m": -0.71,
    "shift_p90_m": 2.13,
@@ -6315,13 +7599,20 @@
     "sfm": 0.53,
     "raw": 1.39
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "RJUK0ZAqWmSGcsewXBLVau",
    "n": 13,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.51,
    "sfm_minus_raw_north_m": -1.69,
    "shift_p90_m": 5.99,
@@ -6347,13 +7638,20 @@
     "sfm": 1.83,
     "raw": 2.97
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "3vbsVBpat8iLEHfF5NMDPX",
    "n": 13,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.38,
    "sfm_minus_raw_north_m": -0.64,
    "shift_p90_m": 2.75,
@@ -6379,13 +7677,20 @@
     "sfm": 0.73,
     "raw": 0.61
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "PRjmQyXrv1EAGTenhD2l9U",
    "n": 13,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.38,
    "sfm_minus_raw_north_m": 1.23,
    "shift_p90_m": 5.31,
@@ -6411,13 +7716,20 @@
     "sfm": 2.73,
     "raw": 2.24
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "B7mOTvZWjRolPsV93FNgMn",
    "n": 13,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.01,
    "sfm_minus_raw_north_m": 0.19,
    "shift_p90_m": 1.44,
@@ -6443,13 +7755,20 @@
     "sfm": 4.85,
     "raw": 3.95
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "VnD3Y5BZQGNMFUxgweTSEK",
    "n": 13,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.52,
    "sfm_minus_raw_north_m": 0.14,
    "shift_p90_m": 1.19,
@@ -6475,13 +7794,20 @@
     "sfm": 1.63,
     "raw": 2.23
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "2xfXeicMIvUJGyKOSW3kNn",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.5,
    "sfm_minus_raw_north_m": -0.45,
    "shift_p90_m": 3.62,
@@ -6507,13 +7833,20 @@
     "sfm": 2.43,
     "raw": 2.85
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "vVx5JUOBfAmcyRbTeW09Ct",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.67,
    "sfm_minus_raw_north_m": -1.88,
    "shift_p90_m": 5.49,
@@ -6539,13 +7872,20 @@
     "sfm": 1.49,
     "raw": 1.9
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Mt2oEgC5mP31rwcdYnKNTb",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.32,
    "sfm_minus_raw_north_m": -1.31,
    "shift_p90_m": 3.91,
@@ -6571,13 +7911,20 @@
     "sfm": 3.42,
     "raw": 4.22
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "RnAg4ZLO2wkp9EDCYaXSWK",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.05,
    "sfm_minus_raw_north_m": 0.2,
    "shift_p90_m": 1.69,
@@ -6603,13 +7950,20 @@
     "sfm": 1.41,
     "raw": 2.13
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "nAwuyleRopPC0mTcVYHrb1",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.11,
    "sfm_minus_raw_north_m": -0.81,
    "shift_p90_m": 2.03,
@@ -6635,13 +7989,20 @@
     "sfm": 4.86,
     "raw": 5.76
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "hkvmlsE6VZTPoJBfyxIiNS",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.2,
    "sfm_minus_raw_north_m": -1.17,
    "shift_p90_m": 3.26,
@@ -6667,13 +8028,20 @@
     "sfm": 0.27,
     "raw": 0.44
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "dynosZ2piv67CkWfA1ewxu",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.05,
    "sfm_minus_raw_north_m": -0.83,
    "shift_p90_m": 8.09,
@@ -6699,13 +8067,20 @@
     "sfm": 1.7,
     "raw": 2.07
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "TGq4pSbt05QDeVmFlInPLW",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.04,
    "sfm_minus_raw_north_m": 1.08,
    "shift_p90_m": 5.3,
@@ -6731,13 +8106,20 @@
     "sfm": 2.33,
     "raw": 1.56
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "0Evh61DHZknme7LsAVQbtu",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.12,
    "sfm_minus_raw_north_m": -0.41,
    "shift_p90_m": 1.87,
@@ -6763,13 +8145,20 @@
     "sfm": 3.73,
     "raw": 3.18
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "tcLqaX5yof1CYQ6FEhVvMz",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.91,
    "sfm_minus_raw_north_m": 1.18,
    "shift_p90_m": 2.16,
@@ -6795,13 +8184,20 @@
     "sfm": 2.42,
     "raw": 1.33
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "rQ5tpECjJlzo1Rwd9LASvO",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.81,
    "sfm_minus_raw_north_m": 0.06,
    "shift_p90_m": 2.22,
@@ -6827,13 +8223,20 @@
     "sfm": 1.35,
     "raw": 0.94
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "a5ZDIuSzNXUE2KA3WmORsV",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.75,
    "sfm_minus_raw_north_m": -0.58,
    "shift_p90_m": 1.95,
@@ -6859,13 +8262,20 @@
     "sfm": 1.2,
     "raw": 1.81
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Yi0SBzTtn5QF1ORXVlvLM7",
    "n": 12,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.19,
    "sfm_minus_raw_north_m": 3.69,
    "shift_p90_m": 5.02,
@@ -6891,13 +8301,20 @@
     "sfm": 6.17,
     "raw": 6.32
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "8t4welqod7rSCbUnOiIxWh",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.72,
    "sfm_minus_raw_north_m": 0.94,
    "shift_p90_m": 1.82,
@@ -6923,13 +8340,20 @@
     "sfm": 1.59,
     "raw": 0.81
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "GtQenug3NAiRhpPCK1fxbc",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.67,
    "sfm_minus_raw_north_m": 2.48,
    "shift_p90_m": 4.5,
@@ -6955,13 +8379,20 @@
     "sfm": 2.1,
     "raw": 2.29
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "eJz14RcnLfbr7Mo5d0aVOQ",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.59,
    "sfm_minus_raw_north_m": -1.28,
    "shift_p90_m": 1.69,
@@ -6987,13 +8418,20 @@
     "sfm": 4.86,
     "raw": 4.54
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "NdhO4C2BsaXGS8plejZLKT",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.34,
    "sfm_minus_raw_north_m": -1.8,
    "shift_p90_m": 9.05,
@@ -7019,13 +8457,20 @@
     "sfm": 1.3,
     "raw": 1.8
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "i1fObR9pBWnDyTuqm0tCs6",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.83,
    "sfm_minus_raw_north_m": -1.46,
    "shift_p90_m": 4.77,
@@ -7051,13 +8496,20 @@
     "sfm": 3.19,
     "raw": 3.76
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "xZHUn0bdhN7gQ9JAr3CecM",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.52,
    "sfm_minus_raw_north_m": 0.37,
    "shift_p90_m": 5.87,
@@ -7083,13 +8535,20 @@
     "sfm": 1.77,
     "raw": 3.5
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "mtdBNa1UgOQZJeclRT8LYr",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.32,
    "sfm_minus_raw_north_m": -0.88,
    "shift_p90_m": 1.18,
@@ -7115,13 +8574,20 @@
     "sfm": 4.75,
     "raw": 4.79
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "xB7jeYgv5sdiyH2FlXNCQE",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.31,
    "sfm_minus_raw_north_m": -0.86,
    "shift_p90_m": 1.48,
@@ -7147,13 +8613,20 @@
     "sfm": 2.18,
     "raw": 1.58
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ON5iHulc29mz1sXVkUJGqQ",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.33,
    "sfm_minus_raw_north_m": -2.93,
    "shift_p90_m": 6.83,
@@ -7179,13 +8652,20 @@
     "sfm": 1.68,
     "raw": 3.37
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "XevahO1HjFdVSL9g4IyZCP",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.14,
    "sfm_minus_raw_north_m": -0.82,
    "shift_p90_m": 2.98,
@@ -7211,13 +8691,20 @@
     "sfm": 1.01,
     "raw": 2.46
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "in1GBMCSHZQaY8VfwILAON",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.4,
    "sfm_minus_raw_north_m": 0.68,
    "shift_p90_m": 2.44,
@@ -7243,13 +8730,20 @@
     "sfm": 3.35,
     "raw": 2.15
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "cWChxgzOp2kXIdvMebjsUq",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.02,
    "sfm_minus_raw_north_m": 4.21,
    "shift_p90_m": 5.95,
@@ -7275,13 +8769,20 @@
     "sfm": 8.06,
     "raw": 7.85
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "m5zLvCZxjDBn37NMlETo4q",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.5,
    "sfm_minus_raw_north_m": -0.21,
    "shift_p90_m": 2.76,
@@ -7307,13 +8808,20 @@
     "sfm": 1.05,
     "raw": 2.19
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "q485Oh7iIEmMvbzeYcTRG3",
    "n": 11,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.06,
    "sfm_minus_raw_north_m": -1.25,
    "shift_p90_m": 6.44,
@@ -7339,13 +8847,20 @@
     "sfm": 3.98,
     "raw": 4.57
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "gwKqShuGj05eARHD26QL9F",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.31,
    "sfm_minus_raw_north_m": -0.87,
    "shift_p90_m": 4.99,
@@ -7371,13 +8886,20 @@
     "sfm": 1.94,
     "raw": 1.74
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "X8vmRdpJNb2KY9TquihfDI",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.98,
    "sfm_minus_raw_north_m": 1.11,
    "shift_p90_m": 1.78,
@@ -7403,13 +8925,20 @@
     "sfm": 1.92,
     "raw": 2.25
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Ny9BGc0Wa3nT85ikPXvCS7",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.29,
    "sfm_minus_raw_north_m": -1.25,
    "shift_p90_m": 3.53,
@@ -7435,13 +8964,20 @@
     "sfm": 0.25,
     "raw": 0.41
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "OTli4ZwH5BDSd9kpWjJQfs",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.97,
    "sfm_minus_raw_north_m": 0.01,
    "shift_p90_m": 8.88,
@@ -7467,13 +9003,20 @@
     "sfm": 7.58,
     "raw": 5.31
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ofWGpV10qXR98kDBIZCjLc",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.39,
    "sfm_minus_raw_north_m": -0.14,
    "shift_p90_m": 2.0,
@@ -7499,13 +9042,20 @@
     "sfm": 1.84,
     "raw": 1.34
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "F6xdAWEPwzNeyXJGqCvuVt",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.63,
    "sfm_minus_raw_north_m": -0.11,
    "shift_p90_m": 10.05,
@@ -7531,13 +9081,20 @@
     "sfm": 4.29,
     "raw": 4.17
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Fki5pGetmxhwA9u7Ec2IHU",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.24,
    "sfm_minus_raw_north_m": 3.03,
    "shift_p90_m": 4.22,
@@ -7563,13 +9120,20 @@
     "sfm": 1.86,
     "raw": 0.75
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "9yrEKL8zpObsXZ71MRwmHC",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.6,
    "sfm_minus_raw_north_m": -0.36,
    "shift_p90_m": 1.32,
@@ -7595,13 +9159,20 @@
     "sfm": 2.37,
     "raw": 1.95
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "D3MXo7Zdit6WvCT0UjwARk",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.31,
    "sfm_minus_raw_north_m": -0.69,
    "shift_p90_m": 2.9,
@@ -7627,13 +9198,20 @@
     "sfm": 0.86,
     "raw": 0.89
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "h1MoRFXqs4dLCSKwinuBZ7",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -6.24,
    "sfm_minus_raw_north_m": 0.66,
    "shift_p90_m": 18.71,
@@ -7659,13 +9237,20 @@
     "sfm": 3.92,
     "raw": 5.57
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "aD6bnJvHsRXl91ewxBPmGV",
    "n": 10,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.03,
    "sfm_minus_raw_north_m": -2.1,
    "shift_p90_m": 8.39,
@@ -7691,13 +9276,20 @@
     "sfm": 2.4,
     "raw": 6.89
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ZVFAJkCOoLQjaUybltG6S8",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.44,
    "sfm_minus_raw_north_m": -1.01,
    "shift_p90_m": 2.72,
@@ -7723,13 +9315,20 @@
     "sfm": 1.07,
     "raw": 0.6
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "sQYG42NBfPJyFkSUucOE3e",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.95,
    "sfm_minus_raw_north_m": 0.59,
    "shift_p90_m": 2.45,
@@ -7755,13 +9354,20 @@
     "sfm": 1.48,
     "raw": 2.22
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "c7seJ8D9ZUaqykpCW6GHfY",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.04,
    "sfm_minus_raw_north_m": -1.84,
    "shift_p90_m": 4.49,
@@ -7787,13 +9393,20 @@
     "sfm": 0.88,
     "raw": 0.53
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "JYUnEFCjg1zr8lDuvTo3Ls",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.29,
    "sfm_minus_raw_north_m": -0.88,
    "shift_p90_m": 1.75,
@@ -7819,13 +9432,20 @@
     "sfm": 0.57,
     "raw": 1.4
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "H6JzgdK04rSeyPWNE2aO3j",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.81,
    "sfm_minus_raw_north_m": 3.55,
    "shift_p90_m": 12.86,
@@ -7851,13 +9471,20 @@
     "sfm": 1.97,
     "raw": 1.66
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "y54WTcS2XwfItGBax7M9pY",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.04,
    "sfm_minus_raw_north_m": 1.19,
    "shift_p90_m": 6.4,
@@ -7883,13 +9510,20 @@
     "sfm": 1.39,
     "raw": 1.61
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "mIVgNEadQvMDsPrBb3knfp",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.01,
    "sfm_minus_raw_north_m": -1.61,
    "shift_p90_m": 3.06,
@@ -7915,13 +9549,20 @@
     "sfm": 1.64,
     "raw": 2.4
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "wftve5dFbrVsKuDxio9azS",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.06,
    "sfm_minus_raw_north_m": -1.16,
    "shift_p90_m": 19.91,
@@ -7947,13 +9588,20 @@
     "sfm": 2.76,
     "raw": 3.74
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "OFYpWcNnxI5Jej6v3B8Dt4",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -4.87,
    "sfm_minus_raw_north_m": 1.18,
    "shift_p90_m": 6.86,
@@ -7979,13 +9627,20 @@
     "sfm": 4.07,
     "raw": 0.9
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "bFmUIevxgyw7MiRtucSAHW",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.3,
    "sfm_minus_raw_north_m": 0.91,
    "shift_p90_m": 2.84,
@@ -8011,13 +9666,20 @@
     "sfm": 2.77,
     "raw": 2.24
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Qc2ZwVxsYuWtFSMa6J5Pin",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.87,
    "sfm_minus_raw_north_m": 3.48,
    "shift_p90_m": 4.12,
@@ -8043,13 +9705,20 @@
     "sfm": 1.9,
     "raw": 0.94
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "GsKwpoIrJg183YZ4iExqDM",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.1,
    "sfm_minus_raw_north_m": 3.86,
    "shift_p90_m": 6.2,
@@ -8075,13 +9744,20 @@
     "sfm": 1.81,
     "raw": 3.14
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "6com1ZHWi3zTkg9YRJ0COP",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.16,
    "sfm_minus_raw_north_m": 1.56,
    "shift_p90_m": 5.72,
@@ -8107,13 +9783,20 @@
     "sfm": 1.24,
     "raw": 2.8
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "396XjPqzbVhIU84EwGvoCO",
    "n": 9,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.14,
    "sfm_minus_raw_north_m": 1.02,
    "shift_p90_m": 3.34,
@@ -8139,13 +9822,20 @@
     "sfm": 1.95,
     "raw": 1.78
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "iHUwJuQWXhVR20orDG5IZM",
    "n": 8,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.7,
    "sfm_minus_raw_north_m": -1.83,
    "shift_p90_m": 2.62,
@@ -8171,13 +9861,20 @@
     "sfm": 0.77,
     "raw": 2.21
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "bR8vzTly3wXZ5MWSOVtn0r",
    "n": 8,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.03,
    "sfm_minus_raw_north_m": -4.08,
    "shift_p90_m": 10.43,
@@ -8203,13 +9900,20 @@
     "sfm": 1.17,
     "raw": 5.51
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "6RAuNJYzCcOn2MEKxokVi4",
    "n": 8,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.95,
    "sfm_minus_raw_north_m": 1.26,
    "shift_p90_m": 6.76,
@@ -8235,13 +9939,20 @@
     "sfm": 4.68,
     "raw": 3.43
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "FIAhMHGw0Lm3gNvxRZsKlC",
    "n": 8,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.39,
    "sfm_minus_raw_north_m": 0.77,
    "shift_p90_m": 3.36,
@@ -8267,13 +9978,20 @@
     "sfm": 2.59,
     "raw": 0.66
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "lvLDUP8En2sgFJezQjSuXO",
    "n": 8,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.8,
    "sfm_minus_raw_north_m": 2.2,
    "shift_p90_m": 7.1,
@@ -8299,13 +10017,20 @@
     "sfm": 5.49,
     "raw": 7.97
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "XQFMpb2fkwmV9aRz48BE3e",
    "n": 8,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.91,
    "sfm_minus_raw_north_m": -0.92,
    "shift_p90_m": 3.57,
@@ -8331,13 +10056,20 @@
     "sfm": 3.9,
     "raw": 5.43
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "vJwsWT0cqQblGXNnCe6oZ7",
    "n": 8,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.39,
    "sfm_minus_raw_north_m": 0.74,
    "shift_p90_m": 4.42,
@@ -8363,13 +10095,20 @@
     "sfm": 1.86,
     "raw": 2.53
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "1gKWmloXBuekAtcG9ySUDr",
    "n": 8,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.65,
    "sfm_minus_raw_north_m": -0.98,
    "shift_p90_m": 2.66,
@@ -8395,13 +10134,20 @@
     "sfm": 1.17,
     "raw": 0.63
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "4RZIn2bmhVqtH5KC03lf7T",
    "n": 8,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.9,
    "sfm_minus_raw_north_m": 0.3,
    "shift_p90_m": 1.4,
@@ -8427,13 +10173,20 @@
     "sfm": 5.07,
     "raw": 4.12
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ZflVzsAgvnKP398dJeIGht",
    "n": 8,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.88,
    "sfm_minus_raw_north_m": 3.95,
    "shift_p90_m": 5.67,
@@ -8459,13 +10212,20 @@
     "sfm": 1.64,
     "raw": 3.11
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "fkhvwGp3HREQ0Tey9oinjl",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.01,
    "sfm_minus_raw_north_m": 0.55,
    "shift_p90_m": 2.63,
@@ -8491,13 +10251,20 @@
     "sfm": 2.07,
     "raw": 2.35
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "K1m8sUgrHJoGkx7dFT5t4D",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.25,
    "sfm_minus_raw_north_m": 0.48,
    "shift_p90_m": 2.05,
@@ -8523,13 +10290,20 @@
     "sfm": 2.4,
     "raw": 2.08
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "pJy1CoglxTMZzbu3VdAsvc",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.11,
    "sfm_minus_raw_north_m": -1.38,
    "shift_p90_m": 6.06,
@@ -8555,13 +10329,20 @@
     "sfm": 3.1,
     "raw": 3.89
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "1dBb6r95Me2cTvhJZti0Vo",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.93,
    "sfm_minus_raw_north_m": -1.16,
    "shift_p90_m": 2.58,
@@ -8587,13 +10368,20 @@
     "sfm": 1.34,
     "raw": 0.5
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "6J3XhwAqztdIWnj5PNkgbS",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.25,
    "sfm_minus_raw_north_m": 0.94,
    "shift_p90_m": 3.72,
@@ -8619,13 +10407,20 @@
     "sfm": 1.17,
     "raw": 1.59
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "g0woFs2Cvan7LKNSVtjmfX",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.91,
    "sfm_minus_raw_north_m": -1.18,
    "shift_p90_m": 5.69,
@@ -8651,13 +10446,20 @@
     "sfm": 0.6,
     "raw": 0.67
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "cWTusfdMj9tpxkmr2DeKnh",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.83,
    "sfm_minus_raw_north_m": 1.44,
    "shift_p90_m": 9.41,
@@ -8683,13 +10485,20 @@
     "sfm": 5.73,
     "raw": 6.83
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "nViSp1WFYgjRsdfZIuz8e6",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.47,
    "sfm_minus_raw_north_m": 1.43,
    "shift_p90_m": 6.18,
@@ -8715,13 +10524,20 @@
     "sfm": 3.25,
     "raw": 3.32
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "f5Exh3K6WOVkUR9bSoI2jQ",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.0,
    "sfm_minus_raw_north_m": 0.0,
    "shift_p90_m": 3.7,
@@ -8747,13 +10563,20 @@
     "sfm": 4.23,
     "raw": 4.23
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "eHWKGPadLpqOjFxRXbZzy3",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.36,
    "sfm_minus_raw_north_m": 1.44,
    "shift_p90_m": 3.0,
@@ -8779,13 +10602,20 @@
     "sfm": 3.27,
     "raw": 1.66
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "LcDHsndmGF3I0Rxuk9EA5p",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.44,
    "sfm_minus_raw_north_m": 4.7,
    "shift_p90_m": 5.51,
@@ -8811,13 +10641,20 @@
     "sfm": 2.22,
     "raw": 1.48
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "RL5VjEqgQGikCtec9XvHWA",
    "n": 7,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.74,
    "sfm_minus_raw_north_m": 2.88,
    "shift_p90_m": 7.83,
@@ -8843,13 +10680,20 @@
     "sfm": 1.71,
     "raw": 2.19
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "oOSLi8tpsfvex0ZTa2chgq",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.33,
    "sfm_minus_raw_north_m": 3.14,
    "shift_p90_m": 3.63,
@@ -8875,13 +10719,20 @@
     "sfm": 2.54,
     "raw": 1.75
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "WRc7ZmSK1daA3kDIFesVxX",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.43,
    "sfm_minus_raw_north_m": -0.24,
    "shift_p90_m": 3.32,
@@ -8907,13 +10758,20 @@
     "sfm": 0.99,
     "raw": 1.21
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "tco1Q2WU8e7Zx5GJsS6EAH",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.61,
    "sfm_minus_raw_north_m": -5.68,
    "shift_p90_m": 7.49,
@@ -8939,13 +10797,20 @@
     "sfm": 7.4,
     "raw": 9.5
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "KEhkYySjua0FnceWMI4NGl",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 5.74,
    "sfm_minus_raw_north_m": -5.3,
    "shift_p90_m": 7.95,
@@ -8971,13 +10836,20 @@
     "sfm": 7.46,
     "raw": 8.1
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "PArkudoQyCHxmK4vSMU0Fi",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.37,
    "sfm_minus_raw_north_m": -0.58,
    "shift_p90_m": 1.97,
@@ -9003,13 +10875,20 @@
     "sfm": 2.16,
     "raw": 1.2
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "FI8SQfgnBisVbvTyYJAj9t",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.62,
    "sfm_minus_raw_north_m": -0.91,
    "shift_p90_m": 4.56,
@@ -9035,13 +10914,20 @@
     "sfm": 2.29,
     "raw": 1.92
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "hH6a24KGe1PsZwnXIc9J5i",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.55,
    "sfm_minus_raw_north_m": 1.09,
    "shift_p90_m": 2.66,
@@ -9067,13 +10953,20 @@
     "sfm": 0.54,
     "raw": 1.58
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "hgHOUyKSPxcTRMkWmpGI5z",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.28,
    "sfm_minus_raw_north_m": 1.43,
    "shift_p90_m": 6.99,
@@ -9099,13 +10992,20 @@
     "sfm": 2.66,
     "raw": 2.14
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ULCNEcIs4ASntgVX8F9WPo",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.04,
    "sfm_minus_raw_north_m": -1.86,
    "shift_p90_m": 2.96,
@@ -9131,13 +11031,20 @@
     "sfm": 0.78,
     "raw": 1.18
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "YvLer5gCNF30o6KlfyjWUO",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.67,
    "sfm_minus_raw_north_m": -0.03,
    "shift_p90_m": 6.13,
@@ -9163,13 +11070,20 @@
     "sfm": 1.88,
     "raw": 1.65
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "bz52C7viYneMWuSNlt0r4q",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.65,
    "sfm_minus_raw_north_m": 5.44,
    "shift_p90_m": 12.09,
@@ -9195,13 +11109,20 @@
     "sfm": 1.82,
     "raw": 0.61
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "OWyxa7dY5MtifoZ0KXezRg",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.59,
    "sfm_minus_raw_north_m": 2.25,
    "shift_p90_m": 8.32,
@@ -9227,13 +11148,20 @@
     "sfm": 1.56,
     "raw": 0.88
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "0wAZqmHhI4z5p2GYQXBdjf",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.41,
    "sfm_minus_raw_north_m": -0.98,
    "shift_p90_m": 2.76,
@@ -9259,13 +11187,20 @@
     "sfm": 1.86,
     "raw": 2.54
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "XcW9eT6HRAk8E5MpUDvbPF",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.03,
    "sfm_minus_raw_north_m": 4.15,
    "shift_p90_m": 6.19,
@@ -9291,13 +11226,20 @@
     "sfm": 7.09,
     "raw": 7.53
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "kVt0og9ZFOMeJcBb7u8rDa",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.56,
    "sfm_minus_raw_north_m": 2.11,
    "shift_p90_m": 3.41,
@@ -9323,13 +11265,20 @@
     "sfm": 7.66,
     "raw": 5.51
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "04ub8IxYhGfln16NFK5aTM",
    "n": 6,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.96,
    "sfm_minus_raw_north_m": -0.5,
    "shift_p90_m": 4.2,
@@ -9355,13 +11304,20 @@
     "sfm": 1.87,
     "raw": 2.03
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "tHMPDCw6YW4poyx8ZRlXhE",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.24,
    "sfm_minus_raw_north_m": -6.61,
    "shift_p90_m": 7.61,
@@ -9387,13 +11343,20 @@
     "sfm": 7.1,
     "raw": 10.63
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Ytjg26ioVF9rChJQAUWdwq",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.2,
    "sfm_minus_raw_north_m": 1.01,
    "shift_p90_m": 6.46,
@@ -9419,13 +11382,20 @@
     "sfm": 5.81,
     "raw": 5.03
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "VXyFWreoNw4c6ip13b5TKn",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.29,
    "sfm_minus_raw_north_m": 1.53,
    "shift_p90_m": 2.56,
@@ -9451,13 +11421,20 @@
     "sfm": 6.06,
     "raw": 5.61
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "YMVtzWPma3fpohc01dCH95",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.73,
    "sfm_minus_raw_north_m": -1.82,
    "shift_p90_m": 2.81,
@@ -9483,13 +11460,20 @@
     "sfm": 0.89,
     "raw": 1.15
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "hvCFAr8uIqY2kmMXgTQnGf",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -7.61,
    "sfm_minus_raw_north_m": 3.09,
    "shift_p90_m": 12.1,
@@ -9515,13 +11499,20 @@
     "sfm": 4.26,
     "raw": 3.66
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "TkhmRtcveWxJ17XM0w3ydN",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.89,
    "sfm_minus_raw_north_m": -2.96,
    "shift_p90_m": 7.42,
@@ -9547,13 +11538,20 @@
     "sfm": 3.47,
     "raw": 7.47
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "E1G7ksPBQtCdOWgUu2nlc0",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 5.3,
    "sfm_minus_raw_north_m": -5.38,
    "shift_p90_m": 10.38,
@@ -9579,13 +11577,20 @@
     "sfm": 0.95,
     "raw": 3.3
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "BUr7CS3glwahmXMGdbiIJR",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.83,
    "sfm_minus_raw_north_m": 1.79,
    "shift_p90_m": 3.97,
@@ -9611,13 +11616,20 @@
     "sfm": 3.07,
     "raw": 3.32
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "yEfMi1mrxURNDuoj0hLAW3",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.86,
    "sfm_minus_raw_north_m": 3.89,
    "shift_p90_m": 4.66,
@@ -9643,13 +11655,20 @@
     "sfm": 8.49,
     "raw": 6.11
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "OluGPab6VTIW9CBAmkMdft",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.2,
    "sfm_minus_raw_north_m": -1.78,
    "shift_p90_m": 4.05,
@@ -9675,13 +11694,20 @@
     "sfm": 0.28,
     "raw": 0.55
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Thf1M9GuREJrnkAoVd62WQ",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.17,
    "sfm_minus_raw_north_m": 1.76,
    "shift_p90_m": 3.21,
@@ -9707,13 +11733,20 @@
     "sfm": 2.19,
     "raw": 1.7
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "cND5PWt4wQzkyZBEg06CV9",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.64,
    "sfm_minus_raw_north_m": -1.69,
    "shift_p90_m": 7.67,
@@ -9739,13 +11772,20 @@
     "sfm": 0.58,
     "raw": 2.19
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Bv1wlR2CtZTQJd4zqijPer",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.12,
    "sfm_minus_raw_north_m": -2.83,
    "shift_p90_m": 11.6,
@@ -9771,13 +11811,20 @@
     "sfm": 3.17,
     "raw": 1.93
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "aOZc3j8L16moKyNhRUW7il",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.0,
    "sfm_minus_raw_north_m": 0.0,
    "shift_p90_m": 9.93,
@@ -9803,13 +11850,20 @@
     "sfm": 1.93,
     "raw": 1.93
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "FHNhxoqi3rj0IyO76M5KSB",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.04,
    "sfm_minus_raw_north_m": 1.89,
    "shift_p90_m": 2.63,
@@ -9835,13 +11889,20 @@
     "sfm": 2.32,
     "raw": 0.24
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "J42AtZHO0prsB8TavCNLEh",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.3,
    "sfm_minus_raw_north_m": 1.11,
    "shift_p90_m": 4.45,
@@ -9867,13 +11928,20 @@
     "sfm": 3.42,
     "raw": 1.51
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "TV5LIZoyhnPkXiJlAgD8t9",
    "n": 5,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.81,
    "sfm_minus_raw_north_m": 0.89,
    "shift_p90_m": 3.46,
@@ -9899,13 +11967,20 @@
     "sfm": 1.53,
     "raw": 0.04
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "6tsQLpqji5O8b0DACRwHuU",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.48,
    "sfm_minus_raw_north_m": -1.23,
    "shift_p90_m": 2.54,
@@ -9931,13 +12006,20 @@
     "sfm": 3.49,
     "raw": 4.45
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "39Q1K6Uo4WZMy7lktfeIPX",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.11,
    "sfm_minus_raw_north_m": 2.94,
    "shift_p90_m": 4.39,
@@ -9963,13 +12045,20 @@
     "sfm": 8.56,
     "raw": 6.58
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "zJd68AvLYHbVNaUMO14Zho",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 4.47,
    "sfm_minus_raw_north_m": -5.74,
    "shift_p90_m": 7.49,
@@ -9995,13 +12084,20 @@
     "sfm": 5.58,
     "raw": 7.84
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "GgXudcbUBE7FnQSiC0AO21",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.49,
    "sfm_minus_raw_north_m": 2.05,
    "shift_p90_m": 2.83,
@@ -10027,13 +12123,20 @@
     "sfm": 3.49,
     "raw": 5.38
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "UbOtQYL0zBsnC2mpe5xZFJ",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -7.72,
    "sfm_minus_raw_north_m": 3.69,
    "shift_p90_m": 11.19,
@@ -10059,13 +12162,20 @@
     "sfm": 5.16,
     "raw": 3.68
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "qi03V2bTXuZNsWrMI96fhg",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.34,
    "sfm_minus_raw_north_m": 1.5,
    "shift_p90_m": 2.83,
@@ -10091,13 +12201,20 @@
     "sfm": 2.62,
     "raw": 0.63
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "uk3sSEzHdGmBITrfZq1xQP",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.05,
    "sfm_minus_raw_north_m": -2.21,
    "shift_p90_m": 7.29,
@@ -10123,13 +12240,20 @@
     "sfm": 2.46,
     "raw": 4.32
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Zkx1MdIYiEJvDb7egA08ro",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.43,
    "sfm_minus_raw_north_m": 2.96,
    "shift_p90_m": 3.31,
@@ -10155,13 +12279,20 @@
     "sfm": 2.02,
     "raw": 0.71
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "vyxk5rgYBA1desVKN9RMmO",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 4.26,
    "sfm_minus_raw_north_m": -0.41,
    "shift_p90_m": 5.98,
@@ -10187,13 +12318,20 @@
     "sfm": 1.61,
     "raw": 0.57
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "IG1RJW8inS7ckYEAg4NPXo",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.8,
    "sfm_minus_raw_north_m": 0.9,
    "shift_p90_m": 1.75,
@@ -10219,13 +12357,20 @@
     "sfm": 3.41,
     "raw": 2.28
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "p0HQ5KUIVxRyo1br8MX69L",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.64,
    "sfm_minus_raw_north_m": -3.44,
    "shift_p90_m": 6.7,
@@ -10251,13 +12396,20 @@
     "sfm": 2.06,
     "raw": 2.98
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "M8mAvzBL4D5ksH1aFlTxE6",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.2,
    "sfm_minus_raw_north_m": -2.27,
    "shift_p90_m": 2.95,
@@ -10283,13 +12435,20 @@
     "sfm": 3.04,
     "raw": 2.77
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "tZ9JAxlgDKN18WGHnQMiRp",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.16,
    "sfm_minus_raw_north_m": 2.85,
    "shift_p90_m": 3.12,
@@ -10315,13 +12474,20 @@
     "sfm": 1.98,
     "raw": 1.46
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "NFs1qb82h4O6wBE0kfY9Tv",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.63,
    "sfm_minus_raw_north_m": 9.03,
    "shift_p90_m": 14.32,
@@ -10347,13 +12513,20 @@
     "sfm": 3.58,
     "raw": 2.1
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Yc7ysKJwXA16pHDiWMEtSh",
    "n": 4,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -4.52,
    "sfm_minus_raw_north_m": 1.1,
    "shift_p90_m": 5.46,
@@ -10379,13 +12552,20 @@
     "sfm": 4.16,
     "raw": 1.09
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "tcl6WMZoSQ52Tz3UByrI0V",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.29,
    "sfm_minus_raw_north_m": -1.13,
    "shift_p90_m": 2.92,
@@ -10411,13 +12591,20 @@
     "sfm": 0.67,
     "raw": 1.82
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "L7Pi0worcUklKFQz84qIYJ",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -10.86,
    "sfm_minus_raw_north_m": 3.48,
    "shift_p90_m": 12.28,
@@ -10443,13 +12630,20 @@
     "sfm": 3.8,
     "raw": 4.17
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "hMEBZvLoTAil938wRadPOs",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.16,
    "sfm_minus_raw_north_m": 2.59,
    "shift_p90_m": 2.63,
@@ -10475,13 +12669,20 @@
     "sfm": 0.24,
     "raw": 1.95
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "zFGmsSew2qUchuCOpXdxaW",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.56,
    "sfm_minus_raw_north_m": -5.65,
    "shift_p90_m": 7.33,
@@ -10507,13 +12708,20 @@
     "sfm": 6.73,
     "raw": 7.31
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "14b8Z6KXpMNfHBAlkTi3nr",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.12,
    "sfm_minus_raw_north_m": -1.85,
    "shift_p90_m": 2.87,
@@ -10539,13 +12747,20 @@
     "sfm": 1.36,
     "raw": 2.86
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "mvxzZp5MOJiF4cHa6Kod9C",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.12,
    "sfm_minus_raw_north_m": 1.36,
    "shift_p90_m": 3.08,
@@ -10571,13 +12786,20 @@
     "sfm": 2.98,
     "raw": 0.54
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "bnpk0ZilWM45983aXugLwo",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.32,
    "sfm_minus_raw_north_m": 0.47,
    "shift_p90_m": 4.27,
@@ -10603,13 +12825,20 @@
     "sfm": 4.66,
     "raw": 3.03
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "y2ZsWg15TpofdKCAh4IPEn",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.7,
    "sfm_minus_raw_north_m": 1.74,
    "shift_p90_m": 2.77,
@@ -10635,13 +12864,20 @@
     "sfm": 6.41,
     "raw": 5.78
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ZcwxGbWqreOPMLlDtXBm3u",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.57,
    "sfm_minus_raw_north_m": -1.53,
    "shift_p90_m": 2.72,
@@ -10667,13 +12903,20 @@
     "sfm": 1.01,
     "raw": 0.7
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "HuTlm38be6gRE7J9ZYDBkS",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.45,
    "sfm_minus_raw_north_m": -1.01,
    "shift_p90_m": 2.72,
@@ -10699,13 +12942,20 @@
     "sfm": 7.81,
     "raw": 7.36
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "scaXi1S4quG5LZPf07DlJU",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.59,
    "sfm_minus_raw_north_m": -1.7,
    "shift_p90_m": 9.73,
@@ -10731,13 +12981,20 @@
     "sfm": 3.53,
     "raw": 4.08
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "3ziJ547HqWVL0lwhuEfbgy",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.27,
    "sfm_minus_raw_north_m": 0.95,
    "shift_p90_m": 4.18,
@@ -10763,13 +13020,20 @@
     "sfm": 2.51,
     "raw": 0.13
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "FpAO3eZaoXd68zIlwhxSRr",
    "n": 3,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.67,
    "sfm_minus_raw_north_m": 0.52,
    "shift_p90_m": 4.54,
@@ -10795,13 +13059,20 @@
     "sfm": 1.79,
     "raw": 1.19
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "6wEWIhikr79OLmR8MJNCDV",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.02,
    "sfm_minus_raw_north_m": 4.43,
    "shift_p90_m": 7.5,
@@ -10827,13 +13098,20 @@
     "sfm": 0.46,
     "raw": 0.92
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "2yz36x0N41lhZJeO5qdPKs",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 82.01,
    "sfm_minus_raw_north_m": -13.82,
    "shift_p90_m": 165.75,
@@ -10859,13 +13137,20 @@
     "sfm": 5.6,
     "raw": 4.78
    },
+   "not_near_a_street": {
+    "submitted": 1,
+    "sfm": 1,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "JtL36AKxlhzSNiTFCIy2Rm",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.5,
    "sfm_minus_raw_north_m": 0.8,
    "shift_p90_m": 2.38,
@@ -10891,13 +13176,20 @@
     "sfm": 5.84,
     "raw": 4.89
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "cZbopO9w1xWXysMzjPu8Jn",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -10.16,
    "sfm_minus_raw_north_m": 4.69,
    "shift_p90_m": 11.35,
@@ -10923,13 +13215,20 @@
     "sfm": 4.2,
     "raw": 4.45
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "CeFSQ5vutMDA4BIyi87jcw",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 2.75,
    "sfm_minus_raw_north_m": -7.49,
    "shift_p90_m": 13.52,
@@ -10955,13 +13254,20 @@
     "sfm": 2.36,
     "raw": 6.64
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "AixDPYWn9cIyNuhOo78SjM",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.42,
    "sfm_minus_raw_north_m": -1.28,
    "shift_p90_m": 2.81,
@@ -10987,13 +13293,20 @@
     "sfm": 0.88,
     "raw": 2.17
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "uBRPjAvl9xYcJCwaQ4HKSe",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.36,
    "sfm_minus_raw_north_m": 0.06,
    "shift_p90_m": 1.77,
@@ -11019,13 +13332,20 @@
     "sfm": 3.42,
     "raw": 4.19
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "cIdjwrDqVG8X0FNgklER3Y",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.13,
    "sfm_minus_raw_north_m": 1.5,
    "shift_p90_m": 2.13,
@@ -11051,13 +13371,20 @@
     "sfm": 5.67,
     "raw": 4.68
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "YfCJibTq3ph7l2SGewn6Q0",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.01,
    "sfm_minus_raw_north_m": 0.0,
    "shift_p90_m": 0.01,
@@ -11083,13 +13410,20 @@
     "sfm": 2.01,
     "raw": 2.0
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "8KDbnE6mhNzoeHgAjwraQl",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.87,
    "sfm_minus_raw_north_m": 0.16,
    "shift_p90_m": 3.93,
@@ -11115,13 +13449,20 @@
     "sfm": 5.83,
     "raw": 3.26
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "B6xR9ATU4djainWtIFcfKH",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.17,
    "sfm_minus_raw_north_m": -2.83,
    "shift_p90_m": 7.14,
@@ -11147,13 +13488,20 @@
     "sfm": 2.86,
     "raw": 2.83
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ZJvcMVFtx3nSjr9geb0yB6",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -7.43,
    "sfm_minus_raw_north_m": 4.36,
    "shift_p90_m": 8.75,
@@ -11179,13 +13527,20 @@
     "sfm": 3.48,
     "raw": 11.64
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ECpV0yPD8gKbrT7qnB2cMF",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.96,
    "sfm_minus_raw_north_m": -1.64,
    "shift_p90_m": 3.48,
@@ -11211,13 +13566,20 @@
     "sfm": 0.87,
     "raw": 1.58
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "YsQSZimGqvnFC0LDfT8dWO",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.43,
    "sfm_minus_raw_north_m": 1.61,
    "shift_p90_m": 1.74,
@@ -11243,13 +13605,20 @@
     "sfm": 0.79,
     "raw": 1.84
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "SpUwBzRltu3xbfeQmNoTrE",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.21,
    "sfm_minus_raw_north_m": -2.51,
    "shift_p90_m": 3.49,
@@ -11275,13 +13644,20 @@
     "sfm": 1.36,
     "raw": 1.08
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "fBNJKV0qZl2jmaArot7YxR",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.49,
    "sfm_minus_raw_north_m": -0.79,
    "shift_p90_m": 2.53,
@@ -11307,13 +13683,20 @@
     "sfm": 0.62,
     "raw": 0.49
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "DsQLEMKNejAXck6TaYzUZ5",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.56,
    "sfm_minus_raw_north_m": -0.81,
    "shift_p90_m": 1.36,
@@ -11339,13 +13722,20 @@
     "sfm": 1.01,
     "raw": 1.45
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Icj7qY3KnrMVL5BgiGWamF",
    "n": 2,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.84,
    "sfm_minus_raw_north_m": -2.12,
    "shift_p90_m": 3.01,
@@ -11371,13 +13761,20 @@
     "sfm": 2.5,
     "raw": 2.29
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Y9PoWnyi017tJ2SbNrOGwK",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.68,
    "sfm_minus_raw_north_m": -2.7,
    "shift_p90_m": 2.79,
@@ -11403,13 +13800,20 @@
     "sfm": 2.83,
     "raw": 5.0
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "sSpheAOMtk4obrRqG7PjWi",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -9.38,
    "sfm_minus_raw_north_m": 7.57,
    "shift_p90_m": 12.05,
@@ -11435,13 +13839,20 @@
     "sfm": 2.35,
     "raw": 13.59
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "W7gGcSHi5Ury8lbYfLukX0",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.75,
    "sfm_minus_raw_north_m": -0.67,
    "shift_p90_m": 1.01,
@@ -11467,13 +13878,20 @@
     "sfm": 0.44,
     "raw": 0.53
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "4X8HkMwZILpOUzhd7Gj1EV",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 5.53,
    "sfm_minus_raw_north_m": -8.37,
    "shift_p90_m": 10.03,
@@ -11499,13 +13917,20 @@
     "sfm": 2.65,
     "raw": 12.09
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "D1fpEue9V3hNJq5Y2AMXlQ",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.07,
    "sfm_minus_raw_north_m": 2.86,
    "shift_p90_m": 2.86,
@@ -11531,13 +13956,20 @@
     "sfm": 6.74,
     "raw": 4.48
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Pxg0Cf3sV72rWQjlqu5Y1L",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.02,
    "sfm_minus_raw_north_m": -1.2,
    "shift_p90_m": 1.2,
@@ -11563,13 +13995,20 @@
     "sfm": 1.25,
     "raw": 1.21
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "kKrqWJ7FaGj5N8c14ugtwf",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.0,
    "sfm_minus_raw_north_m": 0.0,
    "shift_p90_m": 0.0,
@@ -11595,13 +14034,20 @@
     "sfm": 12.35,
     "raw": 12.35
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "2b81Dv5UTh9yJp3cqXzL4a",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 3.92,
    "sfm_minus_raw_north_m": -0.48,
    "shift_p90_m": 3.95,
@@ -11627,13 +14073,20 @@
     "sfm": 0.96,
     "raw": 4.39
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "4Zd20czNMQRebgwqu1JOsj",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.02,
    "sfm_minus_raw_north_m": -0.04,
    "shift_p90_m": 0.04,
@@ -11659,13 +14112,20 @@
     "sfm": 18.92,
     "raw": 18.88
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "em9iITR7pwBVvd3yrHGEk2",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.74,
    "sfm_minus_raw_north_m": -7.59,
    "shift_p90_m": 7.63,
@@ -11691,13 +14151,20 @@
     "sfm": 0.98,
     "raw": 1.37
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "n6V3vbsAKr5lPMODEfLzdS",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 4.16,
    "sfm_minus_raw_north_m": 0.18,
    "shift_p90_m": 4.16,
@@ -11723,13 +14190,20 @@
     "sfm": 4.62,
     "raw": 1.88
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "eKj4MBYn953ZPulobJaL6s",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.36,
    "sfm_minus_raw_north_m": 1.51,
    "shift_p90_m": 1.56,
@@ -11755,13 +14229,20 @@
     "sfm": 0.13,
     "raw": 1.12
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "bVJRcjnMWgrKkDE43Tfesu",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.67,
    "sfm_minus_raw_north_m": 1.99,
    "shift_p90_m": 2.09,
@@ -11787,13 +14268,20 @@
     "sfm": 5.65,
     "raw": 4.47
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "O9FZtpElvLgQm0ujbf64Tq",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.5,
    "sfm_minus_raw_north_m": -0.78,
    "shift_p90_m": 0.93,
@@ -11819,13 +14307,20 @@
     "sfm": 1.13,
     "raw": 1.79
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "1GAPeVzuwqtmNZYEg9dXlv",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -8.58,
    "sfm_minus_raw_north_m": 5.94,
    "shift_p90_m": 10.44,
@@ -11851,13 +14346,20 @@
     "sfm": 7.53,
     "raw": 7.97
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "pOCTB8yq6LNofxaImRScM7",
    "n": 1,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.74,
    "sfm_minus_raw_north_m": -0.55,
    "shift_p90_m": 0.92,
@@ -11883,9 +14385,15 @@
     "sfm": 0.02,
     "raw": 0.03
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   }
  ],
  "flagged_sequences": [
@@ -11897,14 +14405,11 @@
   "TRfFo75XcLyDU2OJvmQadP",
   "85uMdUO6JNok4mQDszXvcB",
   "QPw2eEmbV3lqh6pvcWUoO0",
-  "7xBa0FEUj13gPc4tiXRVl2",
   "IhOuUZXHYjAdbtE9vaWoMR",
   "03vDTp9NwbSRuYXkcaCUO2",
   "0tDUHua5rIyeh8lEk9MXjS",
   "RfwMrVX3Q1eizvIHubJaOl",
-  "bPlZw6Mp5Lzac941Xev2Kd",
   "hNSXaMWORxpeyZw647PDk0",
-  "Cj38dYsJnmzgZcE7XeaPUV",
   "A1p326CI7NPBWraLgHbx5j"
  ],
  "both_off_sequences": [
@@ -11928,6 +14433,7 @@
   "92chHUjF35ZsNXydIEf6r4",
   "wGojXkNRdvyJBKn6ra7xZf",
   "cuDX3YvV2OMCwigylKNrep",
+  "7xBa0FEUj13gPc4tiXRVl2",
   "wxghBIWdRM3L41CTZUVGYr",
   "XrEo23tcK1SHzDyCwNOPMq",
   "0IgGoZMtylA1RYhDwrkBdL",
@@ -11941,14 +14447,17 @@
   "SxYBZr4QKfn7pIX3t90eow",
   "oYqky7hRdx6ZmnTrWAzFvs",
   "yt0M4SslP7ZWnAFeuQjKvJ",
+  "bPlZw6Mp5Lzac941Xev2Kd",
   "n57VkKslrDmajtFBETNqzJ",
   "hjP59iev0UbQWlTrCOLG8k",
   "J7IAMxeHE3a2Q5dpYV6SuT",
+  "Cj38dYsJnmzgZcE7XeaPUV",
   "U4eWPoxCEMYT8R0wLzd97b",
   "bESXlFv3MPDUHTjsrpki60"
  ],
  "frame": {
   "lat0": 37.538789,
   "lng0": -77.4431735
- }
+ },
+ "results_path": "runs/richmond/results.jsonl"
 }

@@ -1,9 +1,11 @@
 {
  "run_name": "laurens",
  "imagery_source": "mapillary",
- "checked_at": "2026-09-16T03:50:31Z",
+ "checked_at": "2026-09-16T13:24:57Z",
  "threshold_m": 3.0,
  "min_sequence": 20,
+ "min_improvement_m": 2.0,
+ "max_snap_m": 30.0,
  "panos": 4495,
  "panos_not_near_a_street": 554,
  "submitted_field": "sfm",
@@ -434,6 +436,7 @@
   {
    "sequence_id": "axZPXQLSm6hrvCoYd9f1cl",
    "n": 326,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.86,
    "sfm_minus_raw_north_m": -0.62,
    "shift_p90_m": 12.84,
@@ -459,13 +462,20 @@
     "sfm": 3.09,
     "raw": 2.9
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "sWgIuf2jYGaEJPXzVck8on",
    "n": 314,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.59,
    "sfm_minus_raw_north_m": 1.8,
    "shift_p90_m": 11.6,
@@ -491,13 +501,20 @@
     "sfm": 3.35,
     "raw": 2.03
    },
-   "recommended": "raw",
-   "flagged": true,
-   "both_off": false
+   "not_near_a_street": {
+    "submitted": 30,
+    "sfm": 30,
+    "raw": 29
+   },
+   "recommended": "sfm",
+   "flagged": false,
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "z0rwf2KqY6IS5XELmdtpyV",
    "n": 310,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -3.1,
    "sfm_minus_raw_north_m": 0.04,
    "shift_p90_m": 13.02,
@@ -523,13 +540,20 @@
     "sfm": 2.75,
     "raw": 2.06
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "SpjgxY5nETrQRPuDqzwhoN",
    "n": 304,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.81,
    "sfm_minus_raw_north_m": 0.1,
    "shift_p90_m": 12.39,
@@ -555,13 +579,20 @@
     "sfm": 3.09,
     "raw": 2.33
    },
+   "not_near_a_street": {
+    "submitted": 53,
+    "sfm": 53,
+    "raw": 53
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "1vDiqGEpeuIsYb6AXo5y0Z",
    "n": 291,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -6.41,
    "sfm_minus_raw_north_m": 4.57,
    "shift_p90_m": 17.09,
@@ -587,13 +618,20 @@
     "sfm": 6.96,
     "raw": 3.75
    },
+   "not_near_a_street": {
+    "submitted": 58,
+    "sfm": 58,
+    "raw": 62
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "fqZJNGcvt9HM3QxdhkXisB",
    "n": 287,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.86,
    "sfm_minus_raw_north_m": 0.44,
    "shift_p90_m": 13.87,
@@ -619,13 +657,20 @@
     "sfm": 3.54,
     "raw": 3.41
    },
+   "not_near_a_street": {
+    "submitted": 28,
+    "sfm": 28,
+    "raw": 26
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "ngTGPIQjmsxLf0uY8d4otC",
    "n": 283,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.35,
    "sfm_minus_raw_north_m": 1.6,
    "shift_p90_m": 10.14,
@@ -651,13 +696,20 @@
     "sfm": 3.15,
     "raw": 1.75
    },
+   "not_near_a_street": {
+    "submitted": 21,
+    "sfm": 21,
+    "raw": 21
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "Dq1MnGTap8j642PmRYXywt",
    "n": 267,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -2.03,
    "sfm_minus_raw_north_m": -0.41,
    "shift_p90_m": 22.02,
@@ -683,13 +735,20 @@
     "sfm": 4.11,
     "raw": 2.48
    },
+   "not_near_a_street": {
+    "submitted": 24,
+    "sfm": 24,
+    "raw": 25
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "vngsVZuQaY9U4lF7zJ6dro",
    "n": 261,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.67,
    "sfm_minus_raw_north_m": 1.27,
    "shift_p90_m": 15.2,
@@ -715,13 +774,20 @@
     "sfm": 4.77,
     "raw": 3.18
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "C8rnZtapvRTc59YOBjAklG",
    "n": 248,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.41,
    "sfm_minus_raw_north_m": 1.03,
    "shift_p90_m": 17.21,
@@ -747,13 +813,20 @@
     "sfm": 3.21,
     "raw": 2.99
    },
+   "not_near_a_street": {
+    "submitted": 54,
+    "sfm": 54,
+    "raw": 54
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "XyPtf86jxEsdVoC1puIBhJ",
    "n": 248,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -4.27,
    "sfm_minus_raw_north_m": 1.45,
    "shift_p90_m": 11.36,
@@ -779,13 +852,20 @@
     "sfm": 6.68,
     "raw": 3.45
    },
+   "not_near_a_street": {
+    "submitted": 85,
+    "sfm": 85,
+    "raw": 84
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "OIomhEn0VrPvSL7TxGi9NW",
    "n": 242,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -4.77,
    "sfm_minus_raw_north_m": 5.3,
    "shift_p90_m": 18.06,
@@ -811,13 +891,20 @@
     "sfm": 6.09,
     "raw": 2.01
    },
+   "not_near_a_street": {
+    "submitted": 16,
+    "sfm": 16,
+    "raw": 16
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "BkWj9PJOTmhN5KeQIsozwg",
    "n": 228,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.5,
    "sfm_minus_raw_north_m": 3.47,
    "shift_p90_m": 12.46,
@@ -843,13 +930,20 @@
     "sfm": 2.96,
     "raw": 2.19
    },
+   "not_near_a_street": {
+    "submitted": 60,
+    "sfm": 60,
+    "raw": 64
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "rF2x7s5zpZ9u1TDVHeXStC",
    "n": 221,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 1.62,
    "sfm_minus_raw_north_m": -0.22,
    "shift_p90_m": 11.83,
@@ -875,13 +969,20 @@
     "sfm": 4.76,
     "raw": 3.71
    },
-   "recommended": "raw",
-   "flagged": true,
-   "both_off": false
+   "not_near_a_street": {
+    "submitted": 63,
+    "sfm": 63,
+    "raw": 62
+   },
+   "recommended": "sfm",
+   "flagged": false,
+   "both_off": true,
+   "beyond_snap": false
   },
   {
    "sequence_id": "z2rS8wRVoXTeflg6sMIUj5",
    "n": 219,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -5.25,
    "sfm_minus_raw_north_m": -0.42,
    "shift_p90_m": 19.08,
@@ -907,13 +1008,20 @@
     "sfm": 3.66,
     "raw": 1.73
    },
+   "not_near_a_street": {
+    "submitted": 24,
+    "sfm": 24,
+    "raw": 23
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "eTW2wxXc9iFHR8hQ0BZYDL",
    "n": 189,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -0.8,
    "sfm_minus_raw_north_m": -1.09,
    "shift_p90_m": 13.02,
@@ -939,13 +1047,20 @@
     "sfm": 7.26,
     "raw": 4.2
    },
+   "not_near_a_street": {
+    "submitted": 38,
+    "sfm": 38,
+    "raw": 38
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "C6dwIBRe791hVFz8x2OWJY",
    "n": 118,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -4.43,
    "sfm_minus_raw_north_m": 0.49,
    "shift_p90_m": 15.21,
@@ -971,13 +1086,20 @@
     "sfm": 3.96,
     "raw": 2.76
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "raw",
    "flagged": true,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "RbiQWPvZCdhHTA03w1rLql",
    "n": 100,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": -1.13,
    "sfm_minus_raw_north_m": -8.67,
    "shift_p90_m": 14.13,
@@ -1003,13 +1125,20 @@
     "sfm": 3.27,
     "raw": 3.07
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": "sfm",
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   },
   {
    "sequence_id": "sfIZLd16KQWHDVMn2pwRyF",
    "n": 39,
+   "submitted_field": "sfm",
    "sfm_minus_raw_east_m": 0.35,
    "sfm_minus_raw_north_m": -0.09,
    "shift_p90_m": 32.94,
@@ -1035,23 +1164,31 @@
     "sfm": 1.7,
     "raw": 1.06
    },
+   "not_near_a_street": {
+    "submitted": 0,
+    "sfm": 0,
+    "raw": 0
+   },
    "recommended": null,
    "flagged": false,
-   "both_off": false
+   "both_off": false,
+   "beyond_snap": false
   }
  ],
  "flagged_sequences": [
   "1vDiqGEpeuIsYb6AXo5y0Z",
-  "rF2x7s5zpZ9u1TDVHeXStC",
-  "sWgIuf2jYGaEJPXzVck8on",
   "C6dwIBRe791hVFz8x2OWJY",
   "OIomhEn0VrPvSL7TxGi9NW",
   "vngsVZuQaY9U4lF7zJ6dro",
   "XyPtf86jxEsdVoC1puIBhJ"
  ],
- "both_off_sequences": [],
+ "both_off_sequences": [
+  "rF2x7s5zpZ9u1TDVHeXStC",
+  "sWgIuf2jYGaEJPXzVck8on"
+ ],
  "frame": {
   "lat0": 42.8469425,
   "lng0": -94.8488815
- }
+ },
+ "results_path": "runs/laurens/results.jsonl"
 }
