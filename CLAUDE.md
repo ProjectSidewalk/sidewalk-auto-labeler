@@ -104,7 +104,11 @@ python scripts/site_explorer.py richmond --select fragment  # over-split suspect
 python scripts/site_explorer.py richmond --inline     # one shareable file
 # ...--local-panos <dir> cuts crops locally instead (no SSH; e.g. a RampNet bundle).
 
-# POSITION CHECK (SidewalkWebpage#5361) — run before submitting any Mapillary run. Scores
+# POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
+# remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no
+# internet egress) and send_to_ps.py REFUSES a Mapillary file whose position_check.json is
+# missing, stale (results_sha256 mismatch) or flagged (--ignore-position-check overrides).
+# The manual commands below are for re-checks and for confirming a reposition output. Scores
 # every pano's position against OSM street centerlines (one cached Overpass query, no GPU,
 # no imagery, no second source needed). Mapillary serves two positions per image and the
 # run submits one of them (--mapillary-position, default sfm = computed_geometry); SfM
@@ -286,6 +290,27 @@ exposed depth was withdrawn in 2020 and anonymous tile access in ~2026, but the 
 endpoint used here still serves it. `no_depth.txt`/`gone.txt` are append-only skip caches
 (see the command block above). GSV only; Mapillary serves no depth (its tilt is available
 but unparsed — see #42).
+
+**Position check (`position_check.py`, repo root; `scripts/position_check.py` is a shim)** —
+SidewalkWebpage#5361. Stdlib-only like `geo.py`. Every pano's submitted position is scored
+against OpenStreetMap street centerlines (one Overpass query, cached beside the run in
+`osm_streets.json`; a partial answer — HTTP 200 + `remark` — is refused and never cached).
+For Mapillary runs both positions are scored and each sequence gets a verdict: **flagged**
+when the median signed offset on the submitted field exceeds 3 m (or most of the sequence
+is beyond 30 m of any street) AND the other field moves it ≥ 2 m closer; **both_off** when
+it is off but a switch would not buy that (wide one-way streets driven once). The submitted
+field is voted per sequence from the coordinates, so a mixed reposition output is judged
+correctly. It is wired into both stages: `main.py` ends every run with
+`position_check.run_check` (non-fatal; the verdict summary lands in `manifest.json` under
+`position_check`, the full `position_check.json` + `position_report.html` beside
+`results.jsonl` and are git-tracked), and `send_to_ps.py`'s `check_position_state` refuses a
+Mapillary file whose check is missing, stale (`results_sha256` ≠ the file) or flagged —
+`--ignore-position-check` overrides, dry runs are exempt. `scripts/reposition.py` rewrites
+flagged sequences' pano lat/lng from the other field into a new file (a *submission
+artifact*, never swapped into `results.jsonl`: the run-dir field binding cannot see inside
+the file), which is confirmed with `--results` and submitted from where it is. What it
+cannot catch: a bias both fields share, drift under 3 m, and anything on a source with one
+position (GSV/Panoramax are scored for the record but never gated).
 
 **Stage 2 — submission (`send_to_ps.py`)**
 Reads the Stage-1 JSONL and POSTs each record to a Project Sidewalk endpoint

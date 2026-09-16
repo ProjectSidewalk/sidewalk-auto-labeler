@@ -42,6 +42,12 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from position_check import check_path_for  # noqa: E402
+
 FIELD_KEYS = {'raw': 'geometry', 'sfm': 'computed_geometry'}
 
 
@@ -87,10 +93,7 @@ def main(argv=None):
         ap.error('--from-check decides field and sequences itself; drop --field/--sequences')
 
     if args.from_check is not None:
-        # position_check.py writes <stem>.position_check.json beside a --results file and a
-        # bare position_check.json beside results.jsonl; read the one that describes `src`.
-        prefix = '' if src.name == 'results.jsonl' else src.stem + '.'
-        check_path = Path(args.from_check) if args.from_check else src.with_name(f'{prefix}position_check.json')
+        check_path = Path(args.from_check) if args.from_check else check_path_for(src)
         plan, check = plan_from_check(check_path)
         if not plan:
             print(f'nothing to do: {check_path} flags no sequence')
@@ -139,7 +142,8 @@ def main(argv=None):
     if counts['no_field']:
         print(f"!! {counts['no_field']} record(s) had no {FIELD_KEYS.get(args.field, 'requested')} position and were left as-is")
     print(f'   next: python scripts/position_check.py {src.parent.as_posix()} --results {out.as_posix()} '
-          f'(do NOT swap it into results.jsonl), then send_to_ps.py {out.as_posix()}')
+          f'(do NOT swap it into results.jsonl), then send_to_ps.py {out.as_posix()} — the submitter '
+          f'refuses a Mapillary file whose check is missing, stale or still flagged')
     return 0
 
 

@@ -288,3 +288,19 @@ def test_cli_loop_check_reposition_recheck(tmp_path):
     with pytest.raises(SystemExit):
         position_check.main([str(run), "--results", str(other / "results.jsonl")])
     assert not (other / "position_check.json").exists()
+
+
+def test_run_check_records_the_results_hash_and_names_outputs_by_file(tmp_path):
+    import hashlib
+    frame = _frame()
+    run = tmp_path / "city"
+    _write_run(run, _northbound("A", 0.5, 0.5, frame), frame)
+    result = position_check.run_check(run, report=False)
+    assert result["results_sha256"] == hashlib.sha256((run / "results.jsonl").read_bytes()).hexdigest()
+    assert json.load(open(run / "position_check.json"))["results_sha256"] == result["results_sha256"]
+    assert not (run / "position_report.html").exists()
+    assert position_check.check_path_for(run / "results.jsonl") == run / "position_check.json"
+    assert position_check.check_path_for(run / "results.check.jsonl") == run / "results.check.position_check.json"
+    assert position_check.report_path_for(run / "results.check.jsonl") == run / "results.check.position_report.html"
+    assert position_check.load_check(run / "results.check.jsonl")[0] is None
+    assert position_check.load_check(run / "results.jsonl")[0]["results_sha256"] == result["results_sha256"]

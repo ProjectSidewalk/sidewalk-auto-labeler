@@ -13,7 +13,8 @@ from types import SimpleNamespace
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-for p in (str(REPO_ROOT), str(REPO_ROOT / "scripts")):
+# Root goes first: scripts/position_check.py is a shim sharing the root module's name.
+for p in (str(REPO_ROOT / "scripts"), str(REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 

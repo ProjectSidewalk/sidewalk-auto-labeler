@@ -33,6 +33,7 @@ from urllib.parse import urlparse
 import requests
 from dotenv import load_dotenv
 
+import position_check
 from detectors import OPERATIONAL_CONFIDENCE
 
 # Local secrets (e.g. PS_INTERNAL_API_KEY) from ./.env; real env vars win.
@@ -367,6 +368,58 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
         )
 
 
+def first_pano_source(input_file: Path) -> Optional[str]:
+    """`pano.source` of the first record - a results file is single-source, so that is the
+    file's source. None for an empty or malformed head."""
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                try:
+                    return (json.loads(line).get('pano') or {}).get('source')
+                except (ValueError, AttributeError):
+                    return None
+    return None
+
+
+def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, Any]]:
+    """Refuse (ValueError) to submit a Mapillary file whose pano-position check is missing,
+    stale or flagged; return the check otherwise (None for a non-Mapillary file).
+
+    SidewalkWebpage#5361: Mapillary SfM sequences can sit 8-10 m off the street as a block
+    and every label inherits it 1:1. main.py ends every run with the check and writes
+    position_check.json beside results.jsonl (or <stem>.position_check.json beside a
+    scripts/reposition.py output); this is the fail-closed half - the only way to ship an
+    unchecked or flagged file is --ignore-position-check. Only Mapillary carries two
+    positions to choose between, so other sources are not gated. Staleness is the
+    results file's sha256 against the one the check recorded, so a check cannot vouch for
+    a file edited after it ran.
+    """
+    if first_pano_source(input_file) != 'mapillary':
+        return None
+    check, reason = position_check.load_check(input_file)
+    run_dir = input_file.parent
+    rerun = (f"python scripts/position_check.py {run_dir.as_posix()}"
+             + ('' if input_file.name == 'results.jsonl' else f" --results {input_file.as_posix()}"))
+    if check is None:
+        raise ValueError(f"{reason}. Run: {rerun}  (--ignore-position-check overrides)")
+    recorded = check.get('results_sha256')
+    if recorded != digest:
+        raise ValueError(
+            f"{position_check.check_path_for(input_file).name} describes a different version of "
+            f"{input_file.name} (sha256 {digest[:12]}... != {str(recorded)[:12]}...): the file changed "
+            f"after the check ran, or the check predates results_sha256. Re-run: {rerun}  "
+            f"(--ignore-position-check overrides)")
+    flagged = check.get('flagged_sequences') or []
+    if flagged:
+        raise ValueError(
+            f"{len(flagged)} sequence(s) in {input_file.name} sit off the street on the submitted "
+            f"position and the other Mapillary field fixes it ({position_check.check_path_for(input_file).name}). "
+            f"Run: python scripts/reposition.py {input_file.as_posix()} --from-check, check the output "
+            f"with {rerun.split(' --results')[0]} --results <output>, and submit that file instead  "
+            f"(--ignore-position-check overrides)")
+    return check
+
+
 def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float) -> int:
     """How many labels the given lines of the JSONL submit at `min_confidence`.
 
@@ -385,7 +438,7 @@ def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float
 
 def write_submission_record(record_path: Path, input_file: Path, digest: str, total_lines: int,
                             submitted_lines: Set[int], endpoint_url: str, min_confidence: float,
-                            previous: Dict[str, Any]) -> None:
+                            previous: Dict[str, Any], check: Optional[Dict[str, Any]] = None) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
     One entry per endpoint - a campaign legitimately hits a test instance before prod, and
@@ -407,6 +460,10 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         "last_submission_utc": now,
         "last_run_host": socket.gethostname(),
     })
+    if check is not None:  # the position verdict this campaign shipped under
+        state["position_check"] = {"checked_at": check.get('checked_at'),
+                                   "results_sha256": check.get('results_sha256'),
+                                   "flagged": len(check.get('flagged_sequences') or [])}
     states[endpoint] = state
     record = {
         "input_file": input_file.name,
@@ -432,6 +489,7 @@ def process_jsonl_file(
     min_confidence: float = OPERATIONAL_CONFIDENCE,
     limit: Optional[int] = None,
     ignore_guard: bool = False,
+    ignore_position_check: bool = False,
 ) -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending
@@ -450,6 +508,8 @@ def process_jsonl_file(
             lines don't count against it, so successive capped runs walk the file.
         ignore_guard: Submit even when the submission record disagrees with the resume
             sidecar (see ``check_resume_state``).
+        ignore_position_check: Submit a Mapillary file whose pano-position check is missing,
+            stale or flagged (see ``check_position_state``).
     """
     input_file = Path(file_path)
 
@@ -481,6 +541,17 @@ def process_jsonl_file(
         if not ignore_guard:
             raise
         print(f"WARNING (--ignore-submission-guard): {e}")
+
+    # ...and that its pano positions were checked and passed (SidewalkWebpage#5361). Same
+    # shape: a dry run is exempt, the override downgrades the refusal to a warning.
+    position_state: Optional[Dict[str, Any]] = None
+    try:
+        if not dry_run:
+            position_state = check_position_state(input_file, digest)
+    except ValueError as e:
+        if not ignore_position_check:
+            raise
+        print(f"WARNING (--ignore-position-check): {e}")
 
     success_count = 0
     error_count = 0
@@ -568,7 +639,7 @@ def process_jsonl_file(
     if not dry_run and success_count:
         write_submission_record(record_path, input_file, digest, total_lines,
                                 load_submitted_lines(sidecar_path), endpoint_url,
-                                min_confidence, previous_record)
+                                min_confidence, previous_record, position_state)
         record_written = True
 
     # Print summary.
@@ -628,6 +699,14 @@ def main() -> None:
              "and duplicating its labels."
     )
     parser.add_argument(
+        "--ignore-position-check",
+        action="store_true",
+        help="Submit a Mapillary file whose pano-position check (position_check.json beside "
+             "it) is missing, stale or flagged. Only for a case you have checked by hand: the "
+             "check is what stops a run whose SfM positions drifted off the street "
+             "(SidewalkWebpage#5361) from placing every label metres off."
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print transformed payloads instead of POSTing them; no progress is recorded."
@@ -647,7 +726,8 @@ def main() -> None:
     api_key = os.environ.get(args.api_key_env)
     try:
         process_jsonl_file(args.jsonl_file, args.endpoint, api_key, args.dry_run,
-                           args.min_confidence, args.limit, args.ignore_submission_guard)
+                           args.min_confidence, args.limit, args.ignore_submission_guard,
+                           args.ignore_position_check)
     except ValueError as e:
         raise SystemExit(f"Error: {e}")
 

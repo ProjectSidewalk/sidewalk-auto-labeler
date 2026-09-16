@@ -1,7 +1,7 @@
 {
  "run_name": "richmond",
  "imagery_source": "mapillary",
- "checked_at": "2026-09-16T18:16:58Z",
+ "checked_at": "2026-09-16T19:16:40Z",
  "threshold_m": 3.0,
  "min_sequence": 20,
  "min_improvement_m": 2.0,
@@ -14459,5 +14459,6 @@
   "lat0": 37.538789,
   "lng0": -77.4431735
  },
- "results_path": "runs/richmond/results.jsonl"
+ "results_path": "runs/richmond/results.jsonl",
+ "results_sha256": "109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c"
 }

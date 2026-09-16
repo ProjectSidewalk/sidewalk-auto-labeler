@@ -202,7 +202,8 @@ default 5 m, `0` disables) before processing. A run
 directory is bound to one source the same way it's bound to one geometry; use a
 different `--name` per source.
 
-**Check the pano positions before you submit.** Mapillary serves two positions per
+**Pano positions are checked on every run, and the submitter refuses a failed check.**
+Mapillary serves two positions per
 image: the camera's GPS fix (`geometry`) and an SfM-corrected one (`computed_geometry`).
 The run submits one of them (`--mapillary-position sfm|raw`, default `sfm`, recorded in
 the manifest). SfM is usually the better position, but its alignment to GPS is one
@@ -210,7 +211,11 @@ transform per reconstruction, so a whole sequence can sit several metres off the
 a block — in Laurens, IA every intersection's labels landed 8–10 m west
 ([SidewalkWebpage#5361](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/5361)) —
 and every label placed from a pano inherits that pano's error one-to-one. Which field is
-right is a per-city, per-sequence question, so measure it:
+right is a per-city, per-sequence question, so it is measured rather than assumed: `main.py`
+runs the check at the end of every run (`--no-position-check` skips it on a host without
+internet egress), and `send_to_ps.py` refuses a Mapillary file whose check is missing, was
+made before the file last changed, or is flagged (`--ignore-position-check` overrides, for a
+case you have looked at by hand). To re-run it, or to confirm a repositioned file:
 
 ```bash
 python scripts/position_check.py runs/richmond --report
@@ -487,11 +492,12 @@ CI runs the same suite on every push (`.github/workflows/tests.yml`).
 ├── panorama.py              # GSV panorama download (via streetlevel)
 ├── detectors/
 │   └── curb_ramp.py         # RampNet model wrapper
-├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk
+├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk (refuses a failed position check)
+├── position_check.py        # Pano positions vs OSM centerlines; run by main.py at the end of every run
+├── position_report_template.html
 ├── scripts/
 │   ├── export_benchmark.py    # Native-res imagery bundle for RampNet GT/benchmark
-│   ├── position_check.py      # Pano positions vs OSM centerlines; --report writes a self-contained HTML
-│   ├── position_report_template.html
+│   ├── position_check.py      # Shim: `python scripts/position_check.py runs/<city> --report` re-runs the check
 │   ├── reposition.py          # Switch a Mapillary run's pano positions between GPS and SfM, no re-detect
 │   └── visual_check.py        # Single-pano coordinate spot check
 ├── tests/                   # Pytest suite (light deps only; no network, no model)

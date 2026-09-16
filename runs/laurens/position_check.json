@@ -1,7 +1,7 @@
 {
  "run_name": "laurens",
  "imagery_source": "mapillary",
- "checked_at": "2026-09-16T18:16:57Z",
+ "checked_at": "2026-09-16T19:16:39Z",
  "threshold_m": 3.0,
  "min_sequence": 20,
  "min_improvement_m": 2.0,
@@ -1190,5 +1190,6 @@
   "lat0": 42.8469425,
   "lng0": -94.8488815
  },
- "results_path": "runs/laurens/results.jsonl"
+ "results_path": "runs/laurens/results.jsonl",
+ "results_sha256": "16c5a348b739274bf8e7623b63551da5245547d0ca4e5a52956fd2413b4fe213"
 }
