@@ -1,7 +1,7 @@
 {
  "run_name": "richmond",
  "imagery_source": "mapillary",
- "checked_at": "2026-09-16T13:25:22Z",
+ "checked_at": "2026-09-16T18:16:58Z",
  "threshold_m": 3.0,
  "min_sequence": 20,
  "min_improvement_m": 2.0,

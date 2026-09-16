@@ -42,6 +42,7 @@ it into results.jsonl (a repositioned file is a submission artifact, not a resum
 import argparse
 import json
 import math
+import os
 import statistics
 import sys
 import time
@@ -246,9 +247,12 @@ def load_or_fetch_streets(run_dir, area_geojson, osm_path=None):
     path = Path(osm_path) if osm_path else run_dir / 'osm_streets.json'
     bbox = area_bbox(area_geojson)
     if path.exists():
-        with open(path, encoding='utf-8') as f:
-            payload = json.load(f)
-        problem = validate_osm_payload(payload)
+        try:
+            with open(path, encoding='utf-8') as f:
+                payload = json.load(f)
+            problem = validate_osm_payload(payload)
+        except ValueError as exc:  # truncated or otherwise unparseable: same as a bad answer
+            payload, problem = {}, f'unreadable JSON ({exc})'
         stale = (payload.get('_query') or {}).get('highway') not in (None, STREET_HIGHWAY_RE)
         if problem is None and not stale:
             return payload, path, True
@@ -258,8 +262,10 @@ def load_or_fetch_streets(run_dir, area_geojson, osm_path=None):
     payload = fetch_osm_streets(bbox)
     payload['_query'] = {'fetched_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
                          'bbox': bbox, 'highway': STREET_HIGHWAY_RE}
-    with open(path, 'w', encoding='utf-8') as f:
+    tmp = path.with_suffix('.json.tmp')   # atomic: a Ctrl-C mid-write must not leave a half file
+    with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(payload, f, separators=(',', ':'))
+    os.replace(tmp, path)
     return payload, path, False
 
 
@@ -291,6 +297,15 @@ def load_run(run_dir, results_path=None):
             if line:
                 records.append(json.loads(line))
     return manifest, area, records
+
+
+def repo_relative(path):
+    """`path` relative to the repo root when it lies inside it (what the tracked JSON and
+    report record — never an absolute local path), else as given."""
+    try:
+        return Path(path).resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return Path(path).as_posix()
 
 
 def pano_positions(pano):
@@ -439,7 +454,10 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
         # Richmond: 4-lane one-ways), and no field choice changes that — so a sequence
         # whose alternative field is about as far off is reported as 'both_off', not flagged.
         if beyond_snap:
-            fixable = alt_bias is not None and alt_bias <= threshold_m
+            # Most of the submitted positions are beyond MAX_SNAP_M, so an alternative
+            # that snaps at all is already closer; require the same MIN_IMPROVEMENT_M
+            # against the cap rather than a bias the submitted field cannot supply.
+            fixable = alt_bias is not None and alt_bias <= MAX_SNAP_M - MIN_IMPROVEMENT_M
         else:
             fixable = off_bias and alt_bias is not None and alt_bias <= sub_bias - MIN_IMPROVEMENT_M
         row = {
@@ -749,8 +767,9 @@ def print_summary(result):
               f"'beyond snap' = most of the sequence is > {MAX_SNAP_M:.0f} m from any street on the submitted field)")
     n_flag, n_both = len(result['flagged_sequences']), len(result['both_off_sequences'])
     if n_both:
-        print(f"\n{n_both} sequence(s) sit more than {result['threshold_m']} m off the street in BOTH fields; "
-              f"a field switch would not help (wide one-way streets driven once, or OSM geometry) - "
+        print(f"\n{n_both} sequence(s) sit more than {result['threshold_m']} m off the street on the submitted "
+              f"field where switching would buy under {result['min_improvement_m']} m: off in both fields "
+              f"(wide one-way streets driven once, or OSM geometry) or only marginally better in the other - "
               f"eyeball them in the report")
     if n_flag:
         results = result.get('results_path') or f"runs/{result['run_name']}/results.jsonl"
@@ -776,7 +795,8 @@ def main(argv=None):
                          'scripts/reposition.py output) against the same area and streets; '
                          'position_check.json / the report are written beside it')
     ap.add_argument('--osm', metavar='FILE', help='use this Overpass JSON instead of runs/<name>/osm_streets.json')
-    ap.add_argument('--report', action='store_true', help='also write runs/<name>/position_report.html')
+    ap.add_argument('--report', action='store_true',
+                    help='also write position_report.html beside position_check.json (i.e. beside the results file)')
     ap.add_argument('--labels', metavar='GEOJSON',
                     help="report: place the server's own labels (v3 rawLabels feed) instead of raycast detections")
     ap.add_argument('--reference', metavar='RUN_DIR',
@@ -789,6 +809,10 @@ def main(argv=None):
 
     run_dir = Path(args.run_dir)
     results_path = Path(args.results) if args.results else run_dir / 'results.jsonl'
+    if args.results and results_path.name == 'results.jsonl' and results_path.resolve() != (run_dir / 'results.jsonl').resolve():
+        sys.exit(f'{results_path} is another run\'s results.jsonl: check that run directly '
+                 f'(python scripts/position_check.py {results_path.parent.as_posix()}), or it would be scored '
+                 f'against {run_dir}\'s area and streets and overwrite that run\'s position_check.json')
     if args.min_sequence < MIN_AXIS_SAMPLES:
         print(f"-> --min-sequence {args.min_sequence} raised to {MIN_AXIS_SAMPLES}: a bias needs that many "
               f"panos on one street family, so nothing smaller can be flagged")
@@ -799,7 +823,7 @@ def main(argv=None):
     print(f"-> panos: {len(records)} from {results_path}")
 
     result = check_run(manifest, area, records, osm_payload, args.threshold, args.min_sequence)
-    result['results_path'] = results_path.as_posix()
+    result['results_path'] = repo_relative(results_path)
     # Outputs sit beside the results file they describe: a --results check of a
     # reposition.py output must not overwrite the run's own verdict.
     prefix = '' if results_path.name == 'results.jsonl' else results_path.stem + '.'

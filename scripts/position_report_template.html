@@ -133,10 +133,10 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
 
   <section id="seqsection">
     <h2>Drift by sequence</h2>
-    <p>Median (SfM − raw GPS) displacement per sequence, metres, the 90th percentile of its magnitude, and each field's bias: the largest median signed offset from the street over the grid's two street families. Flagged rows exceed the threshold on the submitted field; the recommendation is the field with the smaller bias.</p>
+    <p>Median (SfM − raw GPS) displacement per sequence, metres, the 90th percentile of its magnitude, and each field's bias: the largest median signed offset from the street over the grid's two street families. Submitted names the field each sequence's pano lat/lng actually equals (a repositioned file is mixed by design); Beyond 30 m counts its panos with no street within the snap cap on that field. Flagged rows exceed the threshold on the submitted field; the recommendation is the field with the smaller bias.</p>
     <div class="tablewrap">
       <table id="seqs" aria-label="Per-sequence drift">
-        <thead><tr><th>Sequence</th><th class="num">Panos</th><th class="num">SfM − raw E (m)</th><th class="num">N (m)</th><th class="num">p90 |shift|</th><th class="num">Bias SfM (m)</th><th class="num">Bias raw (m)</th><th>Recommend</th><th>Flag</th></tr></thead>
+        <thead><tr><th>Sequence</th><th class="num">Panos</th><th class="num">SfM − raw E (m)</th><th class="num">N (m)</th><th class="num">p90 |shift|</th><th>Submitted</th><th class="num">Bias SfM (m)</th><th class="num">Bias raw (m)</th><th class="num">Beyond 30 m</th><th>Recommend</th><th>Flag</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -197,11 +197,11 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
   if (flagged) {
     v.style.setProperty('--verdict', 'var(--f-sfm)');
     v.innerHTML = `<strong>Flagged.</strong> ${flagged} sequence${flagged > 1 ? 's' : ''} with at least ${C.min_sequence} panos sit more than ${C.threshold_m} m off the street as a block on the submitted field, and the other field moves them at least ${C.min_improvement_m} m closer to it. Fix without re-detecting: <code>python scripts/reposition.py ${esc(C.results_path || `runs/${run}/results.jsonl`)} --from-check</code>, then resubmit.` +
-      (bothOff ? ` A further ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street in both fields, which a field switch cannot fix.` : '');
+      (bothOff ? ` A further ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street where a switch would buy under ${C.min_improvement_m} m: off in both fields, or only marginally better in the other.` : '');
   } else {
     v.style.setProperty('--verdict', 'var(--ref)');
     v.innerHTML = `<strong>Clear.</strong> No sequence with at least ${C.min_sequence} panos sits more than ${C.threshold_m} m off the street on the submitted field where the other field would fix it (run-wide median offset across ${AX.a.streets} ${fmt(subF.across_a.median)} m, cross-track ${subF.cross_track.median} m).` +
-      (bothOff ? ` ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street in both fields, so the cause is not the field choice: wide one-way streets driven once, or the OSM geometry.` : '');
+      (bothOff ? ` ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street where a switch would buy under ${C.min_improvement_m} m — off in both fields (wide one-way streets driven once, or the OSM geometry) or only marginally better in the other — so the field choice is not the fix.` : '');
   }
 
   document.getElementById('tilesintro').textContent = `Signed offset of each pano across the nearest OpenStreetMap centerline among ${AX.a.streets} (positive = ${AX.a.pos}), whole run. A car drives on the centerline give or take a lane, so a good position source reads near zero with a ${AX.a.neg} share near one half.`;
@@ -376,8 +376,11 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
       tr.appendChild(cell(r.sequence_id, 'mono')); tr.appendChild(cell(r.n, 'num'));
       tr.appendChild(cell(fmt(r.sfm_minus_raw_east_m), 'num' + (Math.abs(r.sfm_minus_raw_east_m) >= 3 ? ' bad' : ''))); tr.appendChild(cell(fmt(r.sfm_minus_raw_north_m), 'num' + (Math.abs(r.sfm_minus_raw_north_m) >= 3 ? ' bad' : '')));
       tr.appendChild(cell(r.shift_p90_m == null ? '—' : r.shift_p90_m.toFixed(1), 'num'));
+      tr.appendChild(cell(r.submitted_field === 'raw' ? 'raw GPS' : r.submitted_field === 'sfm' ? 'SfM' : '—'));
       const bs = r.bias_m.sfm.max_abs, br = r.bias_m.raw.max_abs;
       tr.appendChild(cell(bs == null ? '—' : bs.toFixed(1), 'num' + (bs > C.threshold_m ? ' bad' : ''))); tr.appendChild(cell(br == null ? '—' : br.toFixed(1), 'num' + (br > C.threshold_m ? ' bad' : '')));
+      const ns = r.not_near_a_street ? r.not_near_a_street.submitted : null;
+      tr.appendChild(cell(ns == null ? '—' : `${ns} / ${r.n}`, 'num' + (r.beyond_snap ? ' bad' : '')));
       tr.appendChild(cell(r.recommended === 'raw' ? 'raw GPS' : r.recommended === 'sfm' ? 'SfM' : '—')); tr.appendChild(cell(r.flagged ? 'FLAG' : (r.both_off ? 'both off' : '')));
       sb.appendChild(tr);
     }

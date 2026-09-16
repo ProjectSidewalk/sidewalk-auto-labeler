@@ -227,3 +227,64 @@ def test_run_dir_is_bound_to_one_position_field(tmp_path):
     del manifest["mapillary_position"]
     main.save_manifest(run_dir / "manifest.json", manifest)
     main.load_or_init_run_dir(run_dir, "city.geojson", geom, "hash", "mapillary", position_field="sfm")
+
+
+def test_beyond_snap_with_an_off_street_alternative_still_flags():
+    frame = _frame()
+    # SfM beyond the cap for most of the sequence, raw 3.5 m off (over the threshold but
+    # tens of metres better): that is a fix, not "both off".
+    result = _check(_northbound("A", 3.5, 45.0, frame), frame)
+    row = result["sequences"][0]
+    assert row["beyond_snap"] and row["flagged"] and row["recommended"] == "raw"
+
+
+def test_truncated_street_cache_is_refetched(tmp_path, monkeypatch):
+    good = {"elements": [{"type": "way", "geometry": [{"lat": LAT0, "lon": LNG0}], "tags": {}}]}
+    cache = tmp_path / "osm_streets.json"
+    cache.write_text('{"elements": [{"type": "way", "geo', encoding="utf-8")  # Ctrl-C mid-write
+    monkeypatch.setattr(position_check, "fetch_osm_streets", lambda bbox: dict(good))
+    _payload, _path, cached = position_check.load_or_fetch_streets(tmp_path, AREA)
+    assert not cached and json.load(open(cache, encoding="utf-8"))["_query"]["highway"]
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def _write_run(run_dir, records, frame):
+    run_dir.mkdir()
+    (run_dir / "manifest.json").write_text(json.dumps({**MANIFEST, "run_name": run_dir.name}), encoding="utf-8")
+    (run_dir / "area.geojson").write_text(json.dumps(AREA), encoding="utf-8")
+    (run_dir / "osm_streets.json").write_text(json.dumps({**_grid_osm(frame), "_query": {
+        "highway": position_check.STREET_HIGHWAY_RE}}), encoding="utf-8")
+    with open(run_dir / "results.jsonl", "w", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec) + "\n")
+
+
+def test_cli_loop_check_reposition_recheck(tmp_path):
+    """The whole offline loop: flag -> reposition -> confirm the output in place, with the
+    outputs of the confirmation written beside the .check file, never over the run's own."""
+    frame = _frame()
+    run = tmp_path / "city"
+    _write_run(run, _northbound("A", 0.5, -7.5, frame), frame)
+    assert position_check.main([str(run)]) == 1
+    verdict = (run / "position_check.json").read_bytes()
+
+    assert reposition.main([str(run / "results.jsonl"), "--from-check"]) == 0
+    check = run / "results.check.jsonl"
+    assert check.exists()
+    assert position_check.main([str(run), "--results", str(check)]) == 0
+    assert (run / "results.check.position_check.json").exists()
+    assert (run / "position_check.json").read_bytes() == verdict  # the run's own verdict is untouched
+
+    # A bare --from-check on the .check file reads the verdict written beside it.
+    assert reposition.main([str(check), "--from-check"]) == 0  # "nothing to do": nothing flagged there
+
+    # reposition.py never writes a results.jsonl, whatever the source...
+    with pytest.raises(SystemExit):
+        reposition.main([str(check), "--field", "sfm", "--out", str(run / "results.jsonl")])
+    # ...and another run's results.jsonl is refused rather than scored against this area
+    # and written over that run's tracked verdict.
+    other = tmp_path / "other"
+    _write_run(other, _northbound("B", 0.5, 0.5, frame), frame)
+    with pytest.raises(SystemExit):
+        position_check.main([str(run), "--results", str(other / "results.jsonl")])
+    assert not (other / "position_check.json").exists()

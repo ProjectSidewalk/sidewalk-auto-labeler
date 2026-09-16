@@ -87,7 +87,10 @@ def main(argv=None):
         ap.error('--from-check decides field and sequences itself; drop --field/--sequences')
 
     if args.from_check is not None:
-        check_path = Path(args.from_check) if args.from_check else src.with_name('position_check.json')
+        # position_check.py writes <stem>.position_check.json beside a --results file and a
+        # bare position_check.json beside results.jsonl; read the one that describes `src`.
+        prefix = '' if src.name == 'results.jsonl' else src.stem + '.'
+        check_path = Path(args.from_check) if args.from_check else src.with_name(f'{prefix}position_check.json')
         plan, check = plan_from_check(check_path)
         if not plan:
             print(f'nothing to do: {check_path} flags no sequence')
@@ -103,6 +106,9 @@ def main(argv=None):
     out = Path(args.out) if args.out else src.with_name(f'{src.stem}.{suffix}.jsonl')
     if out.resolve() == src.resolve():
         sys.exit('refusing to overwrite the input; use --out')
+    if out.name == 'results.jsonl':
+        sys.exit(f'refusing to write {out}: results.jsonl is a run file that main.py resumes into, and this '
+                 f'output is a submission artifact (see the docstring); keep it under another name')
 
     counts = Counter()
     with open(src, encoding='utf-8') as fin, open(out, 'w', encoding='utf-8') as fout:
