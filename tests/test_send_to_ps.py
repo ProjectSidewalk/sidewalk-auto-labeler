@@ -652,6 +652,10 @@ def test_position_gate_refuses_unchecked_stale_and_flagged_mapillary_files(tmp_p
     assert sent == []
     send_to_ps.process_jsonl_file(str(path), PROD, ignore_position_check=True)
     assert len(sent) == 3
+    # ...and the record says the gate was bypassed, and why.
+    state = json.loads(send_to_ps.submission_record_path(str(path)).read_text())["endpoints"][
+        send_to_ps.canonical_endpoint(PROD)]
+    assert state["position_check"]["overridden"] and "different version" in state["position_check"]["reason"]
 
 
 def test_position_gate_passes_a_clean_matching_check_and_records_it(tmp_path, monkeypatch):

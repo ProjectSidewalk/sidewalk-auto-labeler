@@ -333,7 +333,7 @@ def load_check(results_path):
     missing or unreadable. Staleness is the caller's call (compare results_sha256)."""
     path = check_path_for(results_path)
     if not path.exists():
-        return None, f'no position check beside {results_path} ({path.name} missing)'
+        return None, f'no position check beside {results_path.as_posix()} ({path.name} missing)'
     try:
         with open(path, encoding='utf-8') as f:
             return json.load(f), None

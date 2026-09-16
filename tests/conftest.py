@@ -14,9 +14,12 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 # Root goes first: scripts/position_check.py is a shim sharing the root module's name.
+# Forced, not gap-filled: `python -m pytest` already has the cwd (the root) on sys.path,
+# and a "not in" guard would then leave scripts/ in front and the shim shadowing the module.
 for p in (str(REPO_ROOT / "scripts"), str(REPO_ROOT)):
-    if p not in sys.path:
-        sys.path.insert(0, p)
+    if p in sys.path:
+        sys.path.remove(p)
+    sys.path.insert(0, p)
 
 import requests  # noqa: E402
 from streetlevel import streetview  # noqa: E402  (needs the path setup above)

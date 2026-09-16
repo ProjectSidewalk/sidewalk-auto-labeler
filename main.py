@@ -260,11 +260,21 @@ def run_position_check(run_dir, manifest_path, manifest):
     print("\n--- Position check (panos vs. OSM street centerlines) ---")
     checked_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
     try:
-        result = position_check.run_check(run_dir)
+        # Idempotent: a resume that added nothing must not rewrite the two git-tracked
+        # outputs with a new timestamp. The check is pinned to the file by its hash.
+        results_path = run_dir / "results.jsonl"
+        existing, _reason = position_check.load_check(results_path)
+        if existing and existing.get('results_sha256') == position_check.file_sha256(results_path) \
+                and position_check.report_path_for(results_path).exists():
+            print(f"-> unchanged since the last check ({existing['checked_at']}): "
+                  f"{len(existing['flagged_sequences'])} flagged; not re-run")
+            result = existing
+        else:
+            result = position_check.run_check(run_dir)
     except Exception as e:  # network, Overpass, a malformed line — never fail the run here
         print(f"⚠ Position check did not run ({e}). The detections are safe; run it by hand: "
               f"python scripts/position_check.py {run_dir.as_posix()} --report")
-        manifest['position_check'] = {'at': checked_at, 'error': str(e)}
+        manifest['position_check'] = {'checked_at': checked_at, 'error': str(e)}
         save_manifest(manifest_path, manifest)
         return None
     manifest['position_check'] = {

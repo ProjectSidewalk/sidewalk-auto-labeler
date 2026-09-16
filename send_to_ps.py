@@ -398,8 +398,8 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
         return None
     check, reason = position_check.load_check(input_file)
     run_dir = input_file.parent
-    rerun = (f"python scripts/position_check.py {run_dir.as_posix()}"
-             + ('' if input_file.name == 'results.jsonl' else f" --results {input_file.as_posix()}"))
+    base = f"python scripts/position_check.py {run_dir.as_posix()}"
+    rerun = base if input_file.name == 'results.jsonl' else f"{base} --results {input_file.as_posix()}"
     if check is None:
         raise ValueError(f"{reason}. Run: {rerun}  (--ignore-position-check overrides)")
     recorded = check.get('results_sha256')
@@ -415,7 +415,7 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
             f"{len(flagged)} sequence(s) in {input_file.name} sit off the street on the submitted "
             f"position and the other Mapillary field fixes it ({position_check.check_path_for(input_file).name}). "
             f"Run: python scripts/reposition.py {input_file.as_posix()} --from-check, check the output "
-            f"with {rerun.split(' --results')[0]} --results <output>, and submit that file instead  "
+            f"with {base} --results <output>, and submit that file instead  "
             f"(--ignore-position-check overrides)")
     return check
 
@@ -461,9 +461,12 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         "last_run_host": socket.gethostname(),
     })
     if check is not None:  # the position verdict this campaign shipped under
-        state["position_check"] = {"checked_at": check.get('checked_at'),
-                                   "results_sha256": check.get('results_sha256'),
-                                   "flagged": len(check.get('flagged_sequences') or [])}
+        if check.get('overridden'):
+            state["position_check"] = {"overridden": True, "reason": check.get('reason')}
+        else:
+            state["position_check"] = {"checked_at": check.get('checked_at'),
+                                       "results_sha256": check.get('results_sha256'),
+                                       "flagged": len(check.get('flagged_sequences') or [])}
     states[endpoint] = state
     record = {
         "input_file": input_file.name,
@@ -552,6 +555,9 @@ def process_jsonl_file(
         if not ignore_position_check:
             raise
         print(f"WARNING (--ignore-position-check): {e}")
+        # The record must say the gate was bypassed, and why — otherwise an overridden
+        # Mapillary campaign is indistinguishable from an ungated GSV one.
+        position_state = {'overridden': True, 'reason': str(e)}
 
     success_count = 0
     error_count = 0
