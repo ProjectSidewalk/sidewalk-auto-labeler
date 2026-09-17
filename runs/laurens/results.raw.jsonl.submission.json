@@ -15,6 +15,19 @@
         "results_sha256": "a7da290de5b0576cf5f54ab5bc1615a52fba766c47da3acb97e57c272860340a",
         "flagged": 0
       }
+    },
+    "https://sidewalk-laurens.cs.washington.edu/ai/submitLabelsOnPano": {
+      "submitted_lines": 4495,
+      "labels_submitted": 708,
+      "min_confidence": 0.55,
+      "first_submission_utc": "2026-09-17T01:40:24Z",
+      "last_submission_utc": "2026-09-17T01:47:49Z",
+      "last_run_host": "jonfhome",
+      "position_check": {
+        "checked_at": "2026-09-16T23:28:29Z",
+        "results_sha256": "a7da290de5b0576cf5f54ab5bc1615a52fba766c47da3acb97e57c272860340a",
+        "flagged": 0
+      }
     }
   }
 }
