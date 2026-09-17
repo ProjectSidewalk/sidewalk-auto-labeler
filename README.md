@@ -202,6 +202,49 @@ default 5 m, `0` disables) before processing. A run
 directory is bound to one source the same way it's bound to one geometry; use a
 different `--name` per source.
 
+**Pano positions are checked on every run, and the submitter refuses a failed check.**
+Mapillary serves two positions per
+image: the camera's GPS fix (`geometry`) and an SfM-corrected one (`computed_geometry`).
+The run submits one of them (`--mapillary-position sfm|raw`, default `sfm`, recorded in
+the manifest). SfM is usually the better position, but its alignment to GPS is one
+transform per reconstruction, so a whole sequence can sit several metres off the street as
+a block — in Laurens, IA every intersection's labels landed 8–10 m west
+([SidewalkWebpage#5361](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/5361)) —
+and every label placed from a pano inherits that pano's error one-to-one. Which field is
+right is a per-city, per-sequence question, so it is measured rather than assumed: `main.py`
+runs the check at the end of every run (`--no-position-check` skips it on a host without
+internet egress), and `send_to_ps.py` refuses a Mapillary file whose check is missing, was
+made before the file last changed, or is flagged (`--ignore-position-check` overrides, for a
+case you have looked at by hand). To re-run it, or to confirm a repositioned file:
+
+```bash
+python scripts/position_check.py runs/richmond --report
+```
+
+This scores every pano against OpenStreetMap street centerlines (one Overpass query,
+cached beside the run; no imagery, no GPU, no second source needed), reports each
+field's offset distribution and per-sequence bias, writes `position_check.json` and a
+self-contained `position_report.html` (interactive map, offset histograms, per-sequence
+table — both are git-tracked beside `manifest.json`), and exits non-zero when a sequence
+is off the street on the submitted field *and switching to the other field would move it
+at least 2 m closer* (a swap forces a new submission campaign, so it has to buy
+something; sequences that sit off the street in both fields — wide one-way streets
+driven once — are reported separately). A flagged run is repaired without re-detecting:
+
+```bash
+python scripts/reposition.py runs/richmond/results.jsonl --from-check   # flagged sequences only
+python scripts/reposition.py runs/richmond/results.jsonl --field raw    # whole file
+python scripts/position_check.py runs/richmond --results runs/richmond/results.check.jsonl  # confirm
+```
+
+which writes a new results file with the pano positions rewritten from the other field
+(the detections are stored relative to the pano, so nothing else changes; the heading is
+SfM-derived too, but the measured discrepancies are translations, so it stays). The new
+file has a new hash, so `send_to_ps.py` treats it as a fresh campaign — the labels already
+on the server from the old positions have to be retired there first. Check and submit it
+where it is: it is a submission artifact, not a run, and swapping it into `results.jsonl`
+would let a later resume append panos on the manifest's field to a mixed file.
+
 ### Alternative imagery source: Panoramax
 
 `--source panoramax` runs on [Panoramax](https://panoramax.fr/), the federated open
@@ -449,9 +492,13 @@ CI runs the same suite on every push (`.github/workflows/tests.yml`).
 ├── panorama.py              # GSV panorama download (via streetlevel)
 ├── detectors/
 │   └── curb_ramp.py         # RampNet model wrapper
-├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk
+├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk (refuses a failed position check)
+├── position_check.py        # Pano positions vs OSM centerlines; run by main.py at the end of every run
+├── position_report_template.html
 ├── scripts/
 │   ├── export_benchmark.py    # Native-res imagery bundle for RampNet GT/benchmark
+│   ├── position_check.py      # Shim: `python scripts/position_check.py runs/<city> --report` re-runs the check
+│   ├── reposition.py          # Switch a Mapillary run's pano positions between GPS and SfM, no re-detect
 │   └── visual_check.py        # Single-pano coordinate spot check
 ├── tests/                   # Pytest suite (light deps only; no network, no model)
 ├── example_geojson/         # Example area polygons (Bend, Chicago, Vancouver)
