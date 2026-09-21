@@ -17,3 +17,12 @@ runs/**
 !runs/*/area.geojson
 !runs/*/*_verdicts.json
 !runs/*/*.submission.json
+# Position check (position_check.py, run by main.py at the end of every run): the verdict
+# and its self-contained report stay with the run's provenance — including the
+# <stem>.position_check.json written beside a repositioned submission, since its
+# *.submission.json is tracked and the verdict it shipped under must be too. The
+# reposition output itself and the Overpass cache beside them are not.
+!runs/*/position_check.json
+!runs/*/position_report.html
+!runs/*/*.position_check.json
+!runs/*/*.position_report.html

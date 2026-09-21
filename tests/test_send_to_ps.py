@@ -612,3 +612,75 @@ def test_hash_and_count_counts_only_non_blank_lines(tmp_path):
     path = tmp_path / "results.jsonl"
     path.write_bytes(b'{"a":1}\r\n\r\n{"b":2}\n\n')
     assert send_to_ps.hash_and_count(path)[1] == 2
+
+
+# --- Position gate (SidewalkWebpage#5361) -----------------------------------------------
+
+def _mapillary_jsonl(tmp_path, count, name="results.jsonl"):
+    path = tmp_path / name
+    path.write_text("".join(json.dumps({**_record([]), "pano": {**_record([])["pano"], "source": "mapillary",
+                                                                "sequence_id": "A"}}) + "\n"
+                            for _ in range(count)))
+    return path
+
+
+def _write_check(path, flagged=(), digest=None):
+    import position_check
+    check = {"checked_at": "2026-09-16T00:00:00Z", "flagged_sequences": list(flagged),
+             "results_sha256": digest or position_check.file_sha256(path)}
+    position_check.check_path_for(path).write_text(json.dumps(check), encoding="utf-8")
+
+
+def test_position_gate_refuses_unchecked_stale_and_flagged_mapillary_files(tmp_path, monkeypatch):
+    """The only way to submit a Mapillary file whose pano positions were not checked, were
+    checked before it changed, or are flagged is to type --ignore-position-check."""
+    path = _mapillary_jsonl(tmp_path, 3)
+    sent = _capture_posts(monkeypatch)
+
+    with pytest.raises(ValueError, match="no position check"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    _write_check(path, flagged=["A"])
+    with pytest.raises(ValueError, match="reposition.py"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    _write_check(path, digest="0" * 64)
+    with pytest.raises(ValueError, match="different version"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+    # Dry runs are exempt (they POST nothing); the override warns and sends.
+    send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True)
+    assert sent == []
+    send_to_ps.process_jsonl_file(str(path), PROD, ignore_position_check=True)
+    assert len(sent) == 3
+    # ...and the record says the gate was bypassed, and why.
+    state = json.loads(send_to_ps.submission_record_path(str(path)).read_text())["endpoints"][
+        send_to_ps.canonical_endpoint(PROD)]
+    assert state["position_check"]["overridden"] and "different version" in state["position_check"]["reason"]
+
+
+def test_position_gate_passes_a_clean_matching_check_and_records_it(tmp_path, monkeypatch):
+    path = _mapillary_jsonl(tmp_path, 2)
+    sent = _capture_posts(monkeypatch)
+    _write_check(path)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 2
+    record = json.loads(send_to_ps.submission_record_path(str(path)).read_text())
+    state = record["endpoints"][send_to_ps.canonical_endpoint(PROD)]
+    assert state["position_check"]["flagged"] == 0
+    assert state["position_check"]["results_sha256"] == record["sha256"]
+
+    # A reposition.py output is gated on the check written beside IT.
+    out = _mapillary_jsonl(tmp_path, 2, name="results.check.jsonl")
+    with pytest.raises(ValueError, match="results.check.position_check.json missing"):
+        send_to_ps.process_jsonl_file(str(out), PROD)
+    _write_check(out)
+    send_to_ps.process_jsonl_file(str(out), PROD)
+    assert len(sent) == 4
+
+
+def test_position_gate_ignores_non_mapillary_files(tmp_path, monkeypatch):
+    """GSV/Panoramax carry one position; there is nothing to switch, so nothing to gate."""
+    path = _jsonl(tmp_path, 2)   # the GSV fixture, no check beside it
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 2

@@ -1,0 +1,20 @@
+{
+  "input_file": "results.check.jsonl",
+  "sha256": "df32c3381bdb49e2c32516b74d2de8b82e715a6048f43c95d8df9b450df2bf49",
+  "total_lines": 4495,
+  "endpoints": {
+    "https://sidewalk-laurens-test.cs.washington.edu/ai/submitLabelsOnPano": {
+      "submitted_lines": 4495,
+      "labels_submitted": 708,
+      "min_confidence": 0.55,
+      "first_submission_utc": "2026-09-16T22:28:45Z",
+      "last_submission_utc": "2026-09-16T22:36:00Z",
+      "last_run_host": "jonfhome",
+      "position_check": {
+        "checked_at": "2026-09-16T20:38:40Z",
+        "results_sha256": "df32c3381bdb49e2c32516b74d2de8b82e715a6048f43c95d8df9b450df2bf49",
+        "flagged": 0
+      }
+    }
+  }
+}
