@@ -136,7 +136,9 @@ def test_fetch_pano_success_record_contract(monkeypatch):
     assert pano["camera_heading"] == pytest.approx(112.0)
     assert pano["camera_pitch"] == 0.0 and pano["camera_roll"] == 0.0
     assert pano["history"] == [] and pano["links"] == []
-    assert pano["copyright"] == "© Arretche / Panoramax (CC-BY-SA-4.0)"
+    # PS's pano_data.copyright holds the producer's BARE name for this source — it
+    # composes the ©, the provider and the licence itself (SidewalkWebpage#5360).
+    assert pano["copyright"] == "Arretche"
     assert pano["license"] == "CC-BY-SA-4.0"
     assert pano["sequence_id"] == "seq-1"
     # Camera hardware provenance + which federation member holds the picture.
@@ -162,7 +164,29 @@ def test_fetch_pano_falls_back_to_tile_position_and_provider_name(monkeypatch):
     _patch_fetch(monkeypatch, make_item(**{"geometry": None, "properties.geovisio:producer": None}))
     pano = panoramax.fetch_pano("x", 43.5, -1.47)["pano"]
     assert (pano["lat"], pano["lng"]) == (43.5, -1.47)
-    assert pano["copyright"].startswith("© Arretche / Panoramax")
+    # geovisio:producer gone, so the name comes from the item's providers list.
+    assert pano["copyright"] == "Arretche"
+
+
+def test_fetch_pano_credits_the_producer_not_the_hosting_instance(monkeypatch):
+    # Instances routinely list themselves as the `host` provider, often first. The bare
+    # name IS the credit now, so the entry declaring the producer role has to win.
+    _patch_fetch(monkeypatch, make_item(**{
+        "properties.geovisio:producer": None,
+        "providers": [{"name": "Panoramax France", "roles": ["host", "licensor"]},
+                      {"name": "Arretche", "roles": ["producer"]}]}))
+    assert panoramax.fetch_pano("x", 0.0, 0.0)["pano"]["copyright"] == "Arretche"
+
+
+def test_fetch_pano_copyright_is_none_without_a_producer(monkeypatch):
+    # Nobody named to credit: leave it null rather than inventing a provider string.
+    # The licence keeps its own field and the provider follows from `source`.
+    _patch_fetch(monkeypatch, make_item(**{"properties.geovisio:producer": None,
+                                           "providers": []}))
+    pano = panoramax.fetch_pano("x", 0.0, 0.0)["pano"]
+    assert pano["copyright"] is None
+    assert pano["license"] == "CC-BY-SA-4.0"
+    assert pano["source"] == "panoramax"
 
 
 def test_fetch_pano_uses_geovisio_image_when_the_hd_asset_is_missing(monkeypatch):

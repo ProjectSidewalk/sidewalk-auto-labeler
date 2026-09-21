@@ -65,6 +65,15 @@ IMAGE_FIELDS = ','.join([
 # provenance and is kept verbatim in `source_metadata`.
 VOLATILE_META_FIELDS = {'thumb_original_url'}
 
+# Every Mapillary image is CC BY-SA 4.0 and the Graph API carries no per-image licence
+# field, so it is a constant here. It gets its own record key (as on the Panoramax
+# source) because `copyright` holds the contributor's bare name and nothing else, and
+# the licence would otherwise be stated nowhere in the record. It is provenance rather
+# than something the server reads back: Project Sidewalk composes the © and the credit
+# itself and, for Mapillary, knows the licence from `source` — only Panoramax's varies
+# per picture, so only there does PS render the submitted `license`.
+LICENSE = 'CC-BY-SA-4.0'
+
 # Which of Mapillary's two positions becomes the pano's lat/lng (main.py sets this from
 # --mapillary-position and records it in the manifest). 'sfm' is computed_geometry, the
 # SfM-corrected position; 'raw' is geometry, the camera's GPS fix. SfM is the better
@@ -323,7 +332,9 @@ def build_pano_record(pano_id, lat, lon, meta):
     if coordinates:  # POSITION_FIELD (SfM by default) when available; tile position otherwise
         lon, lat = coordinates
     captured = datetime.fromtimestamp(meta['captured_at'] / 1000.0, tz=timezone.utc)
-    creator = (meta.get('creator') or {}).get('username')
+    # Blank is not a name: a deleted or renamed account can leave `{"username": ""}`,
+    # which would otherwise be stored as an empty credit rather than "nobody named".
+    creator = ((meta.get('creator') or {}).get('username') or '').strip() or None
     return {
         "panorama_id": pano_id,
         "capture_date": f"{captured.year}-{captured.month:02d}",
@@ -334,9 +345,14 @@ def build_pano_record(pano_id, lat, lon, meta):
         "camera_heading": float(_compass_angle(meta)),
         "camera_pitch": None,
         "camera_roll": None,
-        "copyright": f"© {creator} / Mapillary (CC BY-SA 4.0)" if creator else "© Mapillary (CC BY-SA 4.0)",
+        # The contributor's bare name, which is what PS's pano_data.copyright holds for
+        # this source; PS composes "© <name> · Mapillary · CC BY-SA 4.0" itself wherever
+        # it shows its own copy of the imagery. None when the Graph API names nobody,
+        # so PS credits Mapillary itself.
+        "copyright": creator,
         "source": "mapillary",
         "sequence_id": meta.get('sequence'),
+        "license": LICENSE,
         "quality_score": meta.get('quality_score'),
         **provenance_fields(meta),
         "history": [],

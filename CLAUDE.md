@@ -94,6 +94,58 @@ python scripts/fuse_sites.py runs/paterson
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
 
+# Score Project Sidewalk's SERVER-SIDE label clustering against RampNet GT (SW#4706 step 1;
+# protocol + findings in docs/ps-clustering-eval.md). Pulls the city's CurbRamp labels and
+# the server's clusters from the v3 API, maps every AI label back to its stored detection,
+# and scores the deployed partition, the PS algorithm re-run at a threshold sweep (on the
+# server's positions and on the labeler's raycast), and fuse_sites.py, all with one scorer.
+# The headline metric is COVERAGE (a cluster of that arm within the match radius); the
+# `recall (union)` column is eval_sites' definition, which credits a self-detected ramp
+# whether or not any cluster landed on it, and is kept only for the tie-back — read the
+# `no cluster` column beside it. Needs THREE packages the pipeline does not
+# (`pip install pandas scipy haversine`; the script says so if they are missing) —
+# deliberately not in requirements.txt, since this is an analysis tool, not the pipeline.
+# --ps-script points at SidewalkWebpage/scripts/label_clustering.py for the
+# verbatim-reproduction check. The two API pulls are cached in the output dir and REUSED on
+# a re-run (the run prints how old they are) — pass --refresh to re-pull, since the server
+# re-clusters nightly. --camera-height-m sets the scoring frame (the server's own is
+# 2.341219672825709) and picks the default output dir, so the two frames never overwrite
+# each other. report.md/arms.csv are git-tracked like manifest.json; the two API geojson
+# are not, so the report records each pull's url, fetch time, sha256 and feature count.
+python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond.cs.washington.edu
+
+# Precision of positives mined from multi-view consensus (RampNet#158 step 1 /
+# RampNet#102): for each site with >=3 operational panos and each judged benchmark pano
+# nearby that is NOT one of its members (membership is the only test a real miner can
+# apply — it has no verdicts), project the site into the pano (geo.ground_point_to_pano)
+# and ask the reviewer's GT what is there. TWO denominators are reported side by side and
+# they read the pre-registered rule differently, so never quote one alone: `hard-only`
+# = tp/(tp+fp) is the rate at which mined targets are misses the model does not already
+# make; `all-mined` additionally counts `already_detected` (the pano did detect the ramp,
+# into a different site) as correct, because a miner cannot filter those out and the
+# labels it ships for them are right. A verdict-FALSE detection at the site counts as a
+# false positive under both (the reviewer looked there and said no). No GPU, no network;
+# writes runs/<city>/mined_precision/{report.md,candidates.csv} — one CSV row per
+# candidate, always carrying the nearest GT point and its distance (`within_match` says
+# whether it adjudicated), which is how the localization hypothesis gets tested.
+# --radius may not exceed the 25 m ground-raycast range: past it no GT mark can be
+# placed, so a candidate could only ever be counted false (refused, not silently wrong).
+# --camera-height is the #101 range-anchoring knob. GSV's 2.2 m is the median measured
+# from GSV depth payloads (#40/#41); Mapillary serves no depth, so richmond has NO
+# measured height — and no constant helps there (a sweep is flat at 0.31-0.32 over
+# 2.0-2.6 m and worse below), which is itself the finding.
+python scripts/mined_precision.py richmond
+python scripts/mined_precision.py paterson --camera-height 2.2 --radius 10 15 20
+# Name several cities to ALSO get the pooled headline (runs/_pooled/mined_precision).
+# The RampNet#158 decision numbers are pooled, so these two commands are what
+# regenerates them — the PR-body table comes from exactly these. `site_id` is a
+# per-run serial, so never pool by concatenating candidates.csv and grouping on it;
+# the city column is there because (city, site_id) is the key, as with a PS label_id.
+# --camera-height takes one value for all, or one per city in the order named.
+python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo
+python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
+    --camera-height 2.6 2.2 2.2 2.2 2.2   # richmond has no measured height; GSV does
+
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.
 # Crops are cut on makelab2's native-res archive and pulled back as a tarball, then
@@ -216,7 +268,9 @@ from retryable `failure` (left uncached).
   Richmond: 35k → 9k). The
   center column of a Mapillary equirectangular is the camera's compass bearing (same
   convention as GSV and as PS's panoX→heading math), so images are never rotated;
-  `computed_compass_angle` becomes `camera_heading`, pitch/roll stay null.
+  `computed_compass_angle` becomes `camera_heading`, pitch/roll stay null. `copyright` is
+  the contributor's bare username (see the attribution note below); the constant CC BY-SA
+  4.0 licence rides in the record's own `license` field.
 - **panoramax**: the federated open imagery commons (IGN + OSM France; CC BY-SA / Etalab),
   no token. z15 vector tiles from the federation catalog (`pictures` layer carries `type`,
   so 360-filtering happens during enumeration), then one STAC item request per picture
@@ -226,7 +280,8 @@ from retryable `failure` (left uncached).
   pixel-density tiebreak). `PANORAMAX_API_URL` targets one instance instead of the
   federation, and `prepare()` probes that root's STAC landing page so a mistyped one fails
   fast (the tile endpoint answers 204 for an empty tile and 404 for a bad path, so a wrong
-  root would otherwise read as a legitimate zero-coverage scan). Records carry `license` and `panoramax_instance`; `source_metadata` is the
+  root would otherwise read as a legitimate zero-coverage scan). Records carry `license` and `panoramax_instance`, and `copyright` is the
+  producer's bare name (see the attribution note below); `source_metadata` is the
   STAC properties (EXIF included) minus the viewer's tile descriptors.
 
 Concurrency uses plain OS threads (`concurrent.futures.ThreadPoolExecutor`) — **not gevent**.
@@ -376,8 +431,8 @@ describing the campaign if the JSONL is edited, if the sidecar is lost (deleted,
 moved to a second machine), or if the same file is pointed at a second server — the first
 two re-POST records that are already live and duplicate a whole city's labels; the third
 skips the staged lines on production so they never reach it. So each campaign also writes
-`<file>.submission.json`: the JSONL's sha256 and, **per endpoint**, line/label counts and
-timestamps — the one submission artifact small and stable enough to commit
+`<file>.submission.json`: the JSONL's sha256 and byte length and, **per endpoint**,
+line/label counts and timestamps — the one submission artifact small and stable enough to commit
 (`runs/*/*.submission.json` is git-tracked like `manifest.json`). Both counts are recounted
 from the sidecar and the file when the record is written (also after Ctrl-C), never from
 the run's own tallies, so record and sidecar cannot drift; the write is atomic, and an
@@ -391,6 +446,24 @@ aside", never delete. `--ignore-submission-guard` overrides all of it, for a cas
 by hand. Dry runs read none of it and write nothing. A sidecar with no record beside it
 (a campaign begun before the record existed) is unprotected: its lines are attributed to
 whichever endpoint runs next, so backfill the record by hand first.
+The one changed hash that **resumes** instead is a **pure append** (#59): a gap-fill (#32)
+adds panos to the end of an already-submitted `results.jsonl`, and every recorded line keeps
+the number the sidecar holds for it. `append_check` proves that byte-for-byte — the record's
+`total_bytes` prefix must still hash to the recorded `sha256`, end on a newline, and hold the
+recorded `total_lines` — **and then proves the appended lines are new panos**: their
+`panorama_id`s must be disjoint from the prefix's, since a gap-fill only fetches ids the run
+never processed. New bytes are not new panos — a doubled file, or a re-run after the
+gitignored `already_processed.txt` was lost, appends panos that are already live, and PS is
+insert-only (SidewalkWebpage#5382), so the duplicate labels cannot be retired. When it does
+pass, the run prints how many new lines it found and rewrites the record with the new hash
+and length. Everything else still refuses: a shorter or same-size file, an edited prefix, a
+prefix ending mid-line, a repeated `panorama_id`, or a record from before `total_bytes`
+existed. That last one is migrated, not overridden — `send_to_ps.py <file> --prefix-digest
+<total_lines>` prints the recorded prefix's sha256 and byte length, and if the hash matches,
+adding `"total_bytes"` to the record by hand lets the normal guard do the rest (prefer that to
+`--ignore-submission-guard`, which also silences the lost-sidecar and wrong-endpoint checks).
+In practice that path is unlikely to fire: every record committed so far is Mapillary, and
+gap-fill is GSV-only (`fetch_pano_by_id`).
 
 ## Output format notes
 
@@ -406,3 +479,13 @@ whichever endpoint runs next, so backfill the record by hand first.
   write.
 - Indoor panoramas (sources `innerspace`, `cultural_institute`, `photos:legacy_innerspace`)
   are skipped.
+- `pano.copyright` is an **attribution ingredient, not a rendered attribution** (issue #61,
+  SidewalkWebpage#5360). For Mapillary and Panoramax it is the contributor's *bare* name
+  (creator username / `geovisio:producer`), `null` when the source names nobody — PS's
+  `ImageryAttribution` composes the ©, the provider (from `source`) and the licence around
+  it wherever it shows its own copy of the imagery, so wrapping them in here rendered a
+  doubled credit on every crop. PS renders the licence from `license` for Panoramax, whose
+  instances differ, and from `source` for Mapillary, which is uniformly CC BY-SA 4.0 — the
+  Mapillary `license` key is kept as record provenance. GSV is the exception: streetlevel's
+  `copyright_message` (`© 2025 Google`) is the provider's own string, stored and shown
+  verbatim.

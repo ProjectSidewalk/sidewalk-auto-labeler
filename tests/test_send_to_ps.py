@@ -9,12 +9,12 @@ import send_to_ps
 from conftest import make_process_result
 
 
-def _record(detections):
+def _record(detections, pano_id="PID"):
     return {
         "detections": detections,
         "label_type": "CurbRamp",
         "model_id": "rampnet-model",
-        "pano": {"panorama_id": "PID", "width": 16384, "height": 8192},
+        "pano": {"panorama_id": pano_id, "width": 16384, "height": 8192},
     }
 
 
@@ -192,8 +192,9 @@ def test_error_message_never_echoes_the_key():
 def _jsonl(tmp_path, count):
     path = tmp_path / "results.jsonl"
     path.write_text("".join(
-        json.dumps(_record([{"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.9}])) + "\n"
-        for _ in range(count)))
+        json.dumps(_record([{"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.9}],
+                           pano_id=f"PID{i}")) + "\n"
+        for i in range(1, count + 1)))
     return path
 
 
@@ -348,6 +349,251 @@ def test_guard_refuses_a_changed_input_file(tmp_path, monkeypatch):
     assert len(sent) == 2
 
 
+def _append_records(path, pano_ids):
+    with open(path, 'a', encoding='utf-8', newline='\n') as f:
+        for pano_id in pano_ids:
+            f.write(json.dumps(
+                _record([{"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.9}],
+                        pano_id=pano_id)) + "\n")
+
+
+def _append(path, count):
+    """Add `count` records for panos the file does not already hold - what a gap-fill does."""
+    held = sum(1 for line in path.read_text().splitlines() if line.strip())
+    _append_records(path, [f"PID{held + i}" for i in range(1, count + 1)])
+
+
+def test_gap_fill_append_resumes_and_reports_the_new_lines(tmp_path, monkeypatch, capsys):
+    """Issue #59: `main.py --gap-fill-only` APPENDS to results.jsonl, so 'submit, gap-fill,
+    submit the rest' is the expected sequence. Every recorded line keeps its number, so the
+    sidecar still describes the campaign and the new lines must simply be sent."""
+    path = _jsonl(tmp_path, 3)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 3
+    before = _read_record(tmp_path)
+
+    _append(path, 2)
+    del sent[:]
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 2                                   # only the appended lines
+    assert _sidecar(tmp_path) == {1, 2, 3, 4, 5}
+    out = capsys.readouterr().out
+    assert "3 line(s) are byte-for-byte unchanged and 2 new line(s) were appended" in out
+    assert "none repeating a panorama_id already submitted" in out
+
+    # ...and the record now describes the grown file, so the next run needs no override.
+    record = _read_record(tmp_path)
+    assert record["sha256"] != before["sha256"]
+    assert record["sha256"] == send_to_ps.hash_and_count(path)[0]
+    assert (record["total_lines"], record["total_bytes"]) == (5, path.stat().st_size)
+    assert record["endpoints"][PROD]["submitted_lines"] == 5
+    del sent[:]
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+
+def test_a_doubled_file_refuses_even_though_the_prefix_is_intact(tmp_path, monkeypatch):
+    """New bytes are not new panos. A file appended to itself (a bad copy, or a re-run after
+    the gitignored already_processed.txt was lost) passes the prefix proof byte-for-byte, yet
+    every appended line is a pano already live on the server."""
+    path = _jsonl(tmp_path, 3)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 3
+
+    with open(path, 'ab') as f:                             # exactly the same three records
+        f.write(path.read_bytes())
+    del sent[:]
+    with pytest.raises(ValueError, match="3 of the 3 appended line"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+
+def test_append_repeating_one_submitted_pano_refuses(tmp_path, monkeypatch):
+    """One repeat is enough: it would POST that pano's labels a second time, and the server
+    has no way to retire them."""
+    path = _jsonl(tmp_path, 3)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+
+    _append_records(path, ["PID4", "PID2", "PID5"])         # PID2 is already submitted
+    del sent[:]
+    with pytest.raises(ValueError, match="first: PID2"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+    # Drop the repeated line and the same append is an ordinary resume.
+    lines = path.read_text().splitlines(keepends=True)
+    del lines[4]                                            # the PID2 repeat
+    path.write_text("".join(lines))
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 2
+    assert _sidecar(tmp_path) == {1, 2, 3, 4, 5}
+
+
+def test_guard_refuses_an_edit_that_also_grew_the_file(tmp_path, monkeypatch):
+    """A longer file is not automatically an append: the recorded prefix has to still hash
+    the same, or the already-submitted lines were edited under their line numbers."""
+    path = _jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=2)
+
+    path.write_text(path.read_text().replace("PID", "A_LONGER_PID", 1))
+    _append(path, 1)
+    del sent[:]
+    with pytest.raises(ValueError, match="no longer hash to the recorded digest"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+
+def test_guard_refuses_a_truncated_file(tmp_path, monkeypatch):
+    """Losing lines is the opposite of an append and still points the sidecar at the wrong
+    records."""
+    path = _jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+
+    path.write_text("".join(path.read_text().splitlines(keepends=True)[:3]))
+    del sent[:]
+    with pytest.raises(ValueError, match="truncated"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+
+def test_a_lost_sidecar_on_a_grown_file_reports_the_growth(tmp_path, monkeypatch):
+    """A complete campaign plus a gap-fill is NOT 'nothing left to send': saying so either
+    loses the new labels or pushes the user to an override that re-POSTs the whole file."""
+    path = _jsonl(tmp_path, 5)
+    _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+
+    _append(path, 3)
+    (tmp_path / "results.jsonl.submitted").unlink()
+    with pytest.raises(ValueError, match="covered the whole file as recorded, but .* grown by 3"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+
+
+def test_a_partial_campaign_on_a_grown_file_is_not_called_complete(tmp_path, monkeypatch):
+    """Same shape, but only part of the file ever went to the endpoint: the advice must not
+    assert the whole file was covered when two recorded lines were never sent."""
+    path = _jsonl(tmp_path, 5)
+    _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=3)
+
+    _append(path, 2)
+    (tmp_path / "results.jsonl.submitted").unlink()
+    with pytest.raises(ValueError, match="missing, truncated") as excinfo:
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert "also grown by 2 line" in str(excinfo.value)
+    assert "covered the whole file" not in str(excinfo.value)
+
+
+def test_append_to_a_record_with_no_byte_length_refuses_with_the_append_hint(tmp_path, monkeypatch):
+    """A record written before the append check cannot prove the prefix, so it must keep
+    refusing - but name the append case, since that is what the user is looking at."""
+    path = _jsonl(tmp_path, 3)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+
+    record_path = tmp_path / "results.jsonl.submission.json"
+    legacy = json.loads(record_path.read_text())
+    legacy_bytes = legacy.pop("total_bytes")
+    record_path.write_text(json.dumps(legacy))
+    _append(path, 2)
+    del sent[:]
+    with pytest.raises(ValueError, match="--prefix-digest 3"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+    # ...and that migration works: --prefix-digest over the recorded total_lines reproduces
+    # the recorded digest and hands back the total_bytes to add to the record by hand.
+    assert send_to_ps.hash_through_lines(path, 3)[:2] == (legacy["sha256"], legacy_bytes)
+    legacy["total_bytes"] = legacy_bytes
+    record_path.write_text(json.dumps(legacy))
+    send_to_ps.process_jsonl_file(str(path), PROD)           # no override needed
+    assert len(sent) == 2
+    assert json.loads(record_path.read_text())["total_bytes"] == path.stat().st_size
+
+
+def test_prefix_digest_skips_blank_lines_like_the_submit_loop(tmp_path):
+    """total_lines counts non-blank lines, so the migration helper must too - a blank line in
+    the file would otherwise make an intact prefix look edited."""
+    path = tmp_path / "results.jsonl"
+    path.write_bytes(b'{"a":1}\n\n{"b":2}\n{"c":3}\n')
+    digest, size, blank_digest, blank_size = send_to_ps.hash_through_lines(path, 2)
+    assert size == len(b'{"a":1}\n\n{"b":2}\n')
+    assert send_to_ps.hash_prefix(path, size)[0] == digest
+    assert (blank_digest, blank_size) == (None, None)       # line 3 is not blank
+    assert send_to_ps.hash_through_lines(path, 9) == (None, None, None, None)
+
+
+def test_prefix_digest_offers_the_blank_tail_a_record_would_cover(tmp_path):
+    """A record always describes a WHOLE file, so if that file ended with a blank line its
+    sha256 covers it - and a count of non-blank lines stops short. The migration helper has
+    to hand back a digest the user can actually match, so it prints that candidate too."""
+    path = tmp_path / "results.jsonl"
+    path.write_bytes(b'{"a":1}\n{"b":2}\n\n')
+    whole_digest, whole_lines, whole_bytes = send_to_ps.hash_and_count(path)
+    digest, size, blank_digest, blank_size = send_to_ps.hash_through_lines(path, whole_lines)
+    assert (digest, size) != (whole_digest, whole_bytes)    # the trap the review found
+    assert (blank_digest, blank_size) == (whole_digest, whole_bytes)
+
+
+def test_append_naming_no_pano_refuses(tmp_path, monkeypatch):
+    """A pano block with no panorama_id still POSTs (as pano_id null) but is invisible to the
+    duplicate check, so an append holding one is not provably new."""
+    path = _jsonl(tmp_path, 3)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+
+    _append_records(path, ["PID4"])
+    with open(path, 'a', encoding='utf-8', newline='\n') as f:
+        nameless = _record([], pano_id="PID5")
+        del nameless["pano"]["panorama_id"]
+        f.write(json.dumps(nameless) + "\n")
+    del sent[:]
+    with pytest.raises(ValueError, match="1 of the 2 appended line\\(s\\) name no pano"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+
+def test_a_record_with_a_byte_length_but_no_line_count_refuses(tmp_path):
+    """The line-count check is part of the proof, so a record that cannot supply it fails
+    closed rather than resuming on the prefix hash alone."""
+    path = _jsonl(tmp_path, 2)
+    digest, _, size = send_to_ps.hash_and_count(path)
+    _append(path, 1)
+    note, reason = send_to_ps.append_check({"sha256": digest, "total_bytes": size}, path, 3,
+                                           path.stat().st_size)
+    assert note is None and "no line count" in reason
+
+
+def test_a_record_without_total_lines_is_not_interpolated_as_none(tmp_path):
+    """A record with a hash but no line count has no prefix to check; the refusal must say so
+    rather than print 'the first None recorded line(s)'."""
+    path = _jsonl(tmp_path, 2)
+    note, reason = send_to_ps.append_check({"sha256": "0" * 64}, path, 2, path.stat().st_size)
+    assert note is None and "None" not in reason
+
+
+def test_append_onto_a_last_line_with_no_newline_refuses(tmp_path, monkeypatch):
+    """The ambiguous case that must stay fail-closed: the recorded bytes end mid-line, so
+    anything added ran onto the last submitted record instead of starting a new one."""
+    path = tmp_path / "results.jsonl"
+    line = json.dumps(_record([{"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.9}]))
+    path.write_text(f"{line}\n{line}")                       # no trailing newline
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 2
+
+    _append(path, 1)
+    del sent[:]
+    with pytest.raises(ValueError, match="do not end with a newline"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+
 def test_guard_refuses_when_the_sidecar_is_gone(tmp_path, monkeypatch):
     """The failure that doubles a city's labels: the sidecar is lost (or the run moves to a
     second machine) and every already-live record is POSTed again."""
@@ -455,8 +701,8 @@ def test_endpoint_spelling_does_not_split_a_campaign(tmp_path, monkeypatch):
 def test_hash_and_count_handles_a_missing_trailing_newline(tmp_path):
     path = tmp_path / "results.jsonl"
     path.write_bytes(b'{"a":1}\n{"b":2}')
-    digest, lines = send_to_ps.hash_and_count(path)
-    assert lines == 2 and len(digest) == 64
+    digest, lines, size = send_to_ps.hash_and_count(path)
+    assert lines == 2 and len(digest) == 64 and size == 15
     path.write_bytes(b'{"a":1}\n{"b":2}\n')
     assert send_to_ps.hash_and_count(path)[1] == 2
 
