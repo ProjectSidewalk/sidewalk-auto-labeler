@@ -94,14 +94,28 @@ python scripts/fuse_sites.py runs/paterson
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
 
-# Precision of hard positives mined from multi-view consensus (RampNet#158 step 1 /
+# Precision of positives mined from multi-view consensus (RampNet#158 step 1 /
 # RampNet#102): for each site with >=3 operational panos and each judged benchmark pano
-# nearby that produced no detection for it, project the site into the pano
-# (geo.ground_point_to_pano) and ask the reviewer's GT what is there. No GPU, no network;
-# writes runs/<city>/mined_precision/{report.md,candidates.csv}. --camera-height is the
-# #101 range-anchoring sensitivity knob (measured medians ~2.2 m GSV, ~1.7 m richmond).
+# nearby that is NOT one of its members (membership is the only test a real miner can
+# apply — it has no verdicts), project the site into the pano (geo.ground_point_to_pano)
+# and ask the reviewer's GT what is there. TWO denominators are reported side by side and
+# they read the pre-registered rule differently, so never quote one alone: `hard-only`
+# = tp/(tp+fp) is the rate at which mined targets are misses the model does not already
+# make; `all-mined` additionally counts `already_detected` (the pano did detect the ramp,
+# into a different site) as correct, because a miner cannot filter those out and the
+# labels it ships for them are right. A verdict-FALSE detection at the site counts as a
+# false positive under both (the reviewer looked there and said no). No GPU, no network;
+# writes runs/<city>/mined_precision/{report.md,candidates.csv} — one CSV row per
+# candidate, always carrying the nearest GT point and its distance (`within_match` says
+# whether it adjudicated), which is how the localization hypothesis gets tested.
+# --radius may not exceed the 25 m ground-raycast range: past it no GT mark can be
+# placed, so a candidate could only ever be counted false (refused, not silently wrong).
+# --camera-height is the #101 range-anchoring knob. GSV's 2.2 m is the median measured
+# from GSV depth payloads (#40/#41); Mapillary serves no depth, so richmond has NO
+# measured height — and no constant helps there (a sweep is flat at 0.31-0.33 over
+# 2.0-2.6 m and worse below), which is itself the finding.
 python scripts/mined_precision.py richmond
-python scripts/mined_precision.py paterson --camera-height 2.2 --radius 10 15 25
+python scripts/mined_precision.py paterson --camera-height 2.2 --radius 10 15 20
 
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.
