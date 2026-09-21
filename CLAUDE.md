@@ -94,6 +94,26 @@ python scripts/fuse_sites.py runs/paterson
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
 
+# Score Project Sidewalk's SERVER-SIDE label clustering against RampNet GT (SW#4706 step 1;
+# protocol + findings in docs/ps-clustering-eval.md). Pulls the city's CurbRamp labels and
+# the server's clusters from the v3 API, maps every AI label back to its stored detection,
+# and scores the deployed partition, the PS algorithm re-run at a threshold sweep (on the
+# server's positions and on the labeler's raycast), and fuse_sites.py, all with one scorer.
+# The headline metric is COVERAGE (a cluster of that arm within the match radius); the
+# `recall (union)` column is eval_sites' definition, which credits a self-detected ramp
+# whether or not any cluster landed on it, and is kept only for the tie-back — read the
+# `no cluster` column beside it. Needs THREE packages the pipeline does not
+# (`pip install pandas scipy haversine`; the script says so if they are missing) —
+# deliberately not in requirements.txt, since this is an analysis tool, not the pipeline.
+# --ps-script points at SidewalkWebpage/scripts/label_clustering.py for the
+# verbatim-reproduction check. The two API pulls are cached in the output dir and REUSED on
+# a re-run (the run prints how old they are) — pass --refresh to re-pull, since the server
+# re-clusters nightly. --camera-height-m sets the scoring frame (the server's own is
+# 2.341219672825709) and picks the default output dir, so the two frames never overwrite
+# each other. report.md/arms.csv are git-tracked like manifest.json; the two API geojson
+# are not, so the report records each pull's url, fetch time, sha256 and feature count.
+python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond.cs.washington.edu
+
 # Precision of positives mined from multi-view consensus (RampNet#158 step 1 /
 # RampNet#102): for each site with >=3 operational panos and each judged benchmark pano
 # nearby that is NOT one of its members (membership is the only test a real miner can
