@@ -1,6 +1,7 @@
 """Unit tests for the GSV imagery source: the pano record shape (what PS ultimately
 consumes) and fetch_pano's skip/failure semantics (what the resume cache depends on)."""
 import pytest
+from shapely.geometry import box
 
 from conftest import make_metadata
 from sources import gsv
@@ -55,3 +56,38 @@ def test_fetch_pano_incomplete_metadata_is_deterministic_skip(monkeypatch, broke
 def test_fetch_pano_download_failure_is_retryable(monkeypatch):
     _patch_fetch(monkeypatch, make_metadata(), image=None)
     assert gsv.fetch_pano("PID", 0, 0)["status"] == "failure"
+
+
+# --- fetch_pano_by_id (gap fill, issue #32): position comes from the metadata and
+# --- the area test happens before the image download.
+
+AREA = box(-122.0, 44.0, -121.0, 45.0)
+
+
+def test_fetch_pano_by_id_inside_area_uses_metadata_position(monkeypatch):
+    _patch_fetch(monkeypatch, make_metadata(lat=44.05, lon=-121.31))
+    result = gsv.fetch_pano_by_id("PID", AREA)
+    assert result["status"] == "success"
+    assert (result["pano"]["lat"], result["pano"]["lng"]) == (44.05, -121.31)
+
+
+def test_fetch_pano_by_id_outside_area_is_deterministic_skip(monkeypatch):
+    def no_download(md):
+        raise AssertionError("image downloaded for an outside-the-area pano")
+    monkeypatch.setattr(gsv, "fetch_metadata_with_retry",
+                        lambda pano_id: make_metadata(lat=40.0, lon=-121.31))
+    monkeypatch.setattr(gsv, "fetch_panorama", no_download)
+    result = gsv.fetch_pano_by_id("PID", AREA)
+    assert result == {"status": "skipped", "reason": "Outside the run area"}
+
+
+def test_fetch_pano_by_id_positionless_metadata_is_deterministic_skip(monkeypatch):
+    _patch_fetch(monkeypatch, make_metadata(lat=None, lon=None))
+    assert gsv.fetch_pano_by_id("PID", AREA)["status"] == "skipped"
+
+
+def test_fetch_pano_by_id_keeps_fetch_pano_semantics(monkeypatch):
+    _patch_fetch(monkeypatch, None)
+    assert gsv.fetch_pano_by_id("PID", AREA)["status"] == "failure"
+    _patch_fetch(monkeypatch, make_metadata(lat=44.05, lon=-121.31, source="innerspace"))
+    assert gsv.fetch_pano_by_id("PID", AREA)["status"] == "skipped"

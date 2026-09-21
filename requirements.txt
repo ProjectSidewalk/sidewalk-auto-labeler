@@ -1,10 +1,17 @@
-# Portable top-level dependencies for sidewalk-auto-labeler.
-# (environment.yml is a linux-64 conda export; use this file on other platforms:
-#   conda create -n sidewalk-auto-labeler python=3.12
-#   conda activate sidewalk-auto-labeler
+# Top-level dependencies for sidewalk-auto-labeler, and the SINGLE SOURCE OF TRUTH
+# for versions — environment.yml defers to this file, so pin things here only.
+#
+#   python -m venv .venv
+#   source .venv/bin/activate        # Windows: .venv\Scripts\activate
 #   pip install -r requirements.txt
-# For GPU inference install the CUDA build of torch first, e.g.:
+#
+# On linux-64 that pulls a CUDA-enabled torch wheel by default. On Windows/macOS it
+# does not, so install the CUDA build first:
 #   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+#
+# conda works too (`conda env create -f environment.yml`) but buys nothing here: no
+# project dependency comes from a conda channel, and the CUDA runtime already arrives
+# as the nvidia-*-cu12 pip wheels that torch depends on.
 
 geojson
 mapbox-vector-tile  # decodes Mapillary coverage tiles (sources/mapillary.py)

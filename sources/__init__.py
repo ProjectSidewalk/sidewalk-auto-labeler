@@ -3,7 +3,7 @@
 Each source module provides the same interface, consumed by main.py:
 
 - NAME: canonical source name (matches Project Sidewalk's pano_source enum value
-  for the provider, e.g. 'gsv', 'mapillary').
+  for the provider, e.g. 'gsv', 'mapillary', 'panoramax').
 - COVERAGE_TILE_ZOOM: Slippy-map zoom level for the coverage scan.
 - prepare(): fail fast (before the model loads) if the source can't run,
   e.g. a missing API token.
@@ -17,12 +17,17 @@ Each source module provides the same interface, consumed by main.py:
   {'status': 'skipped'|'failure', 'reason': str}. 'skipped' is deterministic
   (main.py caches it so it's never retried); 'failure' is retryable (left
   uncached so the next run retries it).
+- fetch_pano_by_id(pano_id, area_shape) (OPTIONAL): same contract as fetch_pano
+  for a pano known only by id (a dangling link target), positioned from its own
+  metadata; outside-the-area is a deterministic skip. Providing this hook enables
+  main.py's post-run gap-fill phase (link-graph closure, issue #32) — only
+  meaningful for sources whose pano records carry links (GSV).
 
 Modules are imported lazily so one source's dependencies (e.g. the MVT decoder
 for Mapillary) aren't required to run another.
 """
 
-SOURCE_NAMES = ('gsv', 'mapillary')
+SOURCE_NAMES = ('gsv', 'mapillary', 'panoramax')
 
 # Every source normalizes imagery to the detector's expected input size (see
 # detectors/curb_ramp.py). Lives here — not in panorama.py — so sources that
@@ -38,4 +43,7 @@ def get_source(name):
     if name == 'mapillary':
         from sources import mapillary
         return mapillary
+    if name == 'panoramax':
+        from sources import panoramax
+        return panoramax
     raise ValueError(f"Unknown imagery source: {name!r} (expected one of {SOURCE_NAMES})")

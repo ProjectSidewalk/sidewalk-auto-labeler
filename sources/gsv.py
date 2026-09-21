@@ -86,6 +86,22 @@ def fetch_metadata_with_retry(pano_id):
     return None
 
 
+def _metadata_problem(metadata):
+    """Deterministic-skip reason for metadata the pipeline can't use, else None."""
+    if metadata.source in INDOOR_SOURCES:
+        return 'Indoor panorama source'
+    if metadata.date is None or not metadata.image_sizes or metadata.tile_size is None:
+        return 'Pano metadata missing date, image sizes, or tile size'
+    return None
+
+
+def _download_and_build(pano_id, lat, lon, metadata):
+    image = fetch_panorama(metadata)
+    if image is None:
+        return {'status': 'failure', 'reason': 'Failed to download equirectangular image'}
+    return {'status': 'success', 'pano': build_pano_record(pano_id, lat, lon, metadata), 'image': image}
+
+
 def fetch_pano(pano_id, lat, lon):
     """
     Fetches metadata and the equirectangular image for one pano (see the interface
@@ -95,16 +111,30 @@ def fetch_pano(pano_id, lat, lon):
     metadata = fetch_metadata_with_retry(pano_id)
     if metadata is None:
         return {'status': 'failure', 'reason': 'Metadata unavailable (transient?)'}
-    if metadata.source in INDOOR_SOURCES:
-        return {'status': 'skipped', 'reason': 'Indoor panorama source'}
-    if metadata.date is None or not metadata.image_sizes or metadata.tile_size is None:
-        return {'status': 'skipped', 'reason': 'Pano metadata missing date, image sizes, or tile size'}
+    problem = _metadata_problem(metadata)
+    if problem:
+        return {'status': 'skipped', 'reason': problem}
+    return _download_and_build(pano_id, lat, lon, metadata)
 
-    image = fetch_panorama(metadata)
-    if image is None:
-        return {'status': 'failure', 'reason': 'Failed to download equirectangular image'}
 
-    return {'status': 'success', 'pano': build_pano_record(pano_id, lat, lon, metadata), 'image': image}
+def fetch_pano_by_id(pano_id, area_shape):
+    """
+    Gap-fill entry point (see sources/__init__.py): fetches a pano known only by id —
+    a link target the coverage scan never enumerated — locating it from its own
+    metadata. Outside-the-area is a deterministic skip (the run geometry is
+    immutable), decided before the expensive image download.
+    """
+    metadata = fetch_metadata_with_retry(pano_id)
+    if metadata is None:
+        return {'status': 'failure', 'reason': 'Metadata unavailable (transient?)'}
+    problem = _metadata_problem(metadata)
+    if problem:
+        return {'status': 'skipped', 'reason': problem}
+    if metadata.lat is None or metadata.lon is None:
+        return {'status': 'skipped', 'reason': 'Pano metadata carries no position'}
+    if not Point(metadata.lon, metadata.lat).within(area_shape):
+        return {'status': 'skipped', 'reason': 'Outside the run area'}
+    return _download_and_build(pano_id, metadata.lat, metadata.lon, metadata)
 
 
 def build_pano_record(pano_id, lat, lon, metadata):

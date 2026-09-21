@@ -1,7 +1,7 @@
 # Sidewalk Auto-Labeler
 
-Automatically detect **curb ramps** in Google Street View (GSV) imagery across an entire
-city and submit the predictions to [Project Sidewalk](https://projectsidewalk.org/).
+Automatically detect **curb ramps** in streetscape imagery across large geographic areas 
+and submit the predictions to [Project Sidewalk](https://projectsidewalk.org/).
 
 Give it a geographic area (a GeoJSON polygon), and it will:
 
@@ -114,19 +114,26 @@ detections with nowhere valid to attach.
 A CUDA-capable GPU is strongly recommended — running the detector on CPU is very slow.
 
 ```bash
-conda env create -f environment.yml
-conda activate sidewalk-auto-labeler
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-> **Note:** `environment.yml` is a **linux-64 conda export** and will not solve on Windows or
-> macOS. On those platforms use the portable requirements file instead:
->
-> ```bash
-> conda create -n sidewalk-auto-labeler python=3.12
-> conda activate sidewalk-auto-labeler
-> pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126  # CUDA build
-> pip install -r requirements.txt
-> ```
+On **linux-64** that pulls a CUDA-enabled PyTorch wheel by default, so the GPU is used with
+no extra step. On **Windows/macOS** the default wheel is CPU-only — install the CUDA build
+first:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+pip install -r requirements.txt
+```
+
+> **conda works too** (`conda env create -f environment.yml && conda activate
+> sidewalk-auto-labeler`), but it buys nothing here: no dependency comes from a conda
+> channel, and the CUDA runtime already arrives as the `nvidia-*-cu12` pip wheels torch
+> depends on. `environment.yml` pins only the interpreter and defers to
+> `requirements.txt`, which is the **single source of truth** for versions — pin things
+> there, and don't `conda env export` over it.
 
 The environment pins a CUDA 12.6 build of PyTorch. On first run, the RampNet model
 (~hundreds of MB) is downloaded from HuggingFace and cached locally.
@@ -195,6 +202,70 @@ default 5 m, `0` disables) before processing. A run
 directory is bound to one source the same way it's bound to one geometry; use a
 different `--name` per source.
 
+**Pano positions are checked on every run, and the submitter refuses a failed check.**
+Mapillary serves two positions per
+image: the camera's GPS fix (`geometry`) and an SfM-corrected one (`computed_geometry`).
+The run submits one of them (`--mapillary-position sfm|raw`, default `sfm`, recorded in
+the manifest). SfM is usually the better position, but its alignment to GPS is one
+transform per reconstruction, so a whole sequence can sit several metres off the street as
+a block — in Laurens, IA every intersection's labels landed 8–10 m west
+([SidewalkWebpage#5361](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/5361)) —
+and every label placed from a pano inherits that pano's error one-to-one. Which field is
+right is a per-city, per-sequence question, so it is measured rather than assumed: `main.py`
+runs the check at the end of every run (`--no-position-check` skips it on a host without
+internet egress), and `send_to_ps.py` refuses a Mapillary file whose check is missing, was
+made before the file last changed, or is flagged (`--ignore-position-check` overrides, for a
+case you have looked at by hand). To re-run it, or to confirm a repositioned file:
+
+```bash
+python scripts/position_check.py runs/richmond --report
+```
+
+This scores every pano against OpenStreetMap street centerlines (one Overpass query,
+cached beside the run; no imagery, no GPU, no second source needed), reports each
+field's offset distribution and per-sequence bias, writes `position_check.json` and a
+self-contained `position_report.html` (interactive map, offset histograms, per-sequence
+table — both are git-tracked beside `manifest.json`), and exits non-zero when a sequence
+is off the street on the submitted field *and switching to the other field would move it
+at least 2 m closer* (a swap forces a new submission campaign, so it has to buy
+something; sequences that sit off the street in both fields — wide one-way streets
+driven once — are reported separately). A flagged run is repaired without re-detecting:
+
+```bash
+python scripts/reposition.py runs/richmond/results.jsonl --from-check   # flagged sequences only
+python scripts/reposition.py runs/richmond/results.jsonl --field raw    # whole file
+python scripts/position_check.py runs/richmond --results runs/richmond/results.check.jsonl  # confirm
+```
+
+which writes a new results file with the pano positions rewritten from the other field
+(the detections are stored relative to the pano, so nothing else changes; the heading is
+SfM-derived too, but the measured discrepancies are translations, so it stays). The new
+file has a new hash, so `send_to_ps.py` treats it as a fresh campaign — the labels already
+on the server from the old positions have to be retired there first. Check and submit it
+where it is: it is a submission artifact, not a run, and swapping it into `results.jsonl`
+would let a later resume append panos on the manifest's field to a mixed file.
+
+### Alternative imagery source: Panoramax
+
+`--source panoramax` runs on [Panoramax](https://panoramax.fr/), the federated open
+street-level imagery commons started by IGN and OpenStreetMap France (CC BY-SA 4.0 on most
+instances, Etalab 2.0 on IGN's). No token is needed:
+
+```bash
+python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --scan-only
+python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
+```
+
+Coverage comes from the federation catalog's z15 vector tiles (only `equirectangular`
+pictures are kept), imagery from each picture's `hd` asset on its home instance — the
+original upload, unsigned. Thinning works as for Mapillary (newest capture per cell,
+pixel-density tiebreak). `PANORAMAX_API_URL` points a run at a single instance (e.g. a
+self-hosted one) instead of the federation; it's checked against the instance's STAC
+landing page at startup, so a mistyped root fails before the model loads rather than
+producing a run that scans every tile and finds nothing. Coverage is overwhelmingly French today; the
+Bayonne and Lyon boundaries in `example_geojson/` are two communes with dense, recent 360°
+coverage.
+
 ### Step 2 — Validate the detections (in RampNet)
 
 Ground-truth review and precision/recall scoring **live in [RampNet](https://github.com/ProjectSidewalk/RampNet)**,
@@ -216,7 +287,10 @@ tooling only — the validation half was migrated out; see `CLAUDE.md`.)
 # Preview the transformed payloads without sending anything:
 python send_to_ps.py runs/bend/results.jsonl --dry-run
 
-# Submit for real:
+# Send a handful first and look at them in the Project Sidewalk interface:
+python send_to_ps.py runs/bend/results.jsonl --endpoint https://your-ps-server/ai/submitLabelsOnPano --limit 3
+
+# Then the rest (the capped run above is already recorded, so this picks up where it left off):
 python send_to_ps.py runs/bend/results.jsonl --endpoint https://your-ps-server/ai/submitLabelsOnPano
 ```
 
@@ -224,12 +298,29 @@ This reads each JSONL line and POSTs it to the Project Sidewalk endpoint. It als
 the **normalized** detection coordinates from step 1 into **pixel** coordinates
 (`pano_x`, `pano_y`) using the panorama dimensions stored in each record.
 
-- **Auth:** if the server requires Project Sidewalk's internal API key, export it as
-  `PS_INTERNAL_API_KEY` (or point `--api-key-env` at another variable); it is sent as an
-  `Authorization: Bearer` header. If unset, no auth header is sent.
+- **Auth:** Project Sidewalk's ingest endpoint requires that instance's internal API key.
+  Put it in `PS_INTERNAL_API_KEY` — either inline
+  (`PS_INTERNAL_API_KEY=… python send_to_ps.py …`) or in a gitignored `.env` (copy
+  `.env.example`) — and it is sent as an `Authorization: Bearer` header. Point
+  `--api-key-env` at a different variable to keep several instances' keys side by side.
+  If the variable is unset, no auth header is sent and the server answers `401`.
+- **Never commit the key.** It is a *shared* server secret, and it is per-instance — a key
+  for one city's server will not authenticate to another's. Ask that server's maintainers
+  for it.
+- **Remote endpoints must be `https://`.** With a key set, `send_to_ps.py` refuses a
+  cleartext remote `--endpoint` before sending anything, so a mistyped URL can't leak the
+  key to every hop in between. `http://localhost:…` stays allowed — loopback (and a local
+  server's `0.0.0.0` bind address) never reaches the wire.
+- **Staged rollout:** `--limit N` stops after N records. Already-submitted lines don't count
+  against it, so repeated capped runs walk the file. Use it to verify a new city end to end
+  — placement, pano rendering, street snapping — before committing thousands of labels.
 - **Resumable:** successfully submitted line numbers are recorded in a `<file>.submitted`
-  sidecar, so re-running skips them instead of re-POSTing. Delete the sidecar to resubmit
-  everything.
+  sidecar, so re-running skips them instead of re-POSTing. A git-tracked
+  `<file>.submission.json` records, per endpoint, what those lines were (sha256 of the
+  JSONL) and how many labels went where; the script refuses to run when the two disagree —
+  an edited file, a lost sidecar, or a sidecar whose lines went to a different server — so
+  a whole city can't be duplicated, or skipped, silently. Moving from a test instance to
+  production means moving the sidecar aside, not deleting it.
 - Transient failures (connection errors, 5xx) are retried with backoff; 4xx responses are
   treated as permanent and logged.
 
@@ -274,6 +365,18 @@ from scratch:
 The per-city checklist for expanding beyond the example cities (and open questions like
 threshold policy and boundary source of truth) is tracked in
 [issue #13](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/13).
+
+### Where we actually run this
+
+Two host-specific runbooks live in [`docs/`](docs/):
+
+- [`production-deployment.md`](docs/production-deployment.md) — the full multi-host
+  production path: the Slurm cluster setup where the city runs are detected, why the
+  native-res imagery is archived on a separate file server, measured throughput, and the
+  operational gotchas. **Note that nothing here deploys automatically** — no webhooks, no
+  CI/CD, no cron; every stage is launched by hand.
+- [`makeability-quickstart.md`](docs/makeability-quickstart.md) — the RA-facing happy path
+  for a single-box run on the lab's `makelab2` GPU server.
 
 ## Working away from the GPU machine
 
@@ -377,7 +480,7 @@ CI runs the same suite on every push (`.github/workflows/tests.yml`).
 
 - Python 3.12 (provided by the conda environment).
 - A CUDA GPU (recommended) or CPU.
-- Internet access to Google Street View and HuggingFace.
+- Internet access to the imagery source (Google Street View, Mapillary or Panoramax) and HuggingFace.
 - A running Project Sidewalk server **with the target city already set up** (only for the
   submission step) — see [Prerequisites](#prerequisites-a-project-sidewalk-city-instance-must-exist-first).
 
@@ -389,14 +492,18 @@ CI runs the same suite on every push (`.github/workflows/tests.yml`).
 ├── panorama.py              # GSV panorama download (via streetlevel)
 ├── detectors/
 │   └── curb_ramp.py         # RampNet model wrapper
-├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk
+├── send_to_ps.py            # Stage 4: submit predictions to Project Sidewalk (refuses a failed position check)
+├── position_check.py        # Pano positions vs OSM centerlines; run by main.py at the end of every run
+├── position_report_template.html
 ├── scripts/
 │   ├── export_benchmark.py    # Native-res imagery bundle for RampNet GT/benchmark
+│   ├── position_check.py      # Shim: `python scripts/position_check.py runs/<city> --report` re-runs the check
+│   ├── reposition.py          # Switch a Mapillary run's pano positions between GPS and SfM, no re-detect
 │   └── visual_check.py        # Single-pano coordinate spot check
 ├── tests/                   # Pytest suite (light deps only; no network, no model)
 ├── example_geojson/         # Example area polygons (Bend, Chicago, Vancouver)
-├── environment.yml          # Conda environment (linux-64 export)
-├── requirements.txt         # Portable pip requirements (Windows/macOS or non-conda)
+├── environment.yml          # Conda env: pins python only, defers to requirements.txt
+├── requirements.txt         # Pip requirements — the single source of truth for pins
 ├── requirements-test.txt    # Test/laptop deps (everything except torch)
 └── runs/                    # Per-area results + resume state (git-ignored)
 ```

@@ -51,3 +51,85 @@ def test_build_output_line_shape():
 
 def test_build_output_line_zero_detections():
     assert main.build_output_line(_result(detections=[]))["detections"] == []
+
+
+def _results_file(tmp_path, links_per_record):
+    path = tmp_path / "results.jsonl"
+    lines = []
+    for pid, targets in links_per_record.items():
+        links = [{"target_gsv_panorama_id": t, "yaw_deg": 0.0, "description": ""} for t in targets]
+        lines.append(json.dumps({"pano": {"panorama_id": pid, "links": links}, "detections": []}))
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def test_dangling_link_targets_subtracts_the_cache(tmp_path):
+    # A links to B (processed) and X (dangling); B links back to A (processed).
+    path = _results_file(tmp_path, {"A": ["B", "X"], "B": ["A"]})
+    assert main.dangling_link_targets(path, {"A", "B"}) == {"X"}
+    # A cached deterministic skip (e.g. gap-fill target outside the area) stays gone.
+    assert main.dangling_link_targets(path, {"A", "B", "X"}) == set()
+    # Runs pulled from a cluster have results.jsonl but no cache: the records' own
+    # ids must not count as dangling.
+    assert main.dangling_link_targets(path, set()) == {"X"}
+
+
+def test_dangling_link_targets_tolerates_linkless_records(tmp_path):
+    # Mapillary records carry links: [] — the phase must be a no-op over them.
+    path = tmp_path / "results.jsonl"
+    path.write_text(json.dumps({"pano": {"panorama_id": "M", "links": []}, "detections": []}) + "\n" +
+                    json.dumps({"pano": {"panorama_id": "N"}, "detections": []}) + "\n")
+    assert main.dangling_link_targets(path, set()) == set()
+
+
+def test_dangling_link_targets_skips_truncated_final_line(tmp_path):
+    # A run killed mid-write can leave a truncated last line; the intact records
+    # must still be read (its own pano is uncached, so the main pass retries it).
+    path = _results_file(tmp_path, {"A": ["X"]})
+    with open(path, 'a') as f:
+        f.write('{"pano": {"panorama_id": "TRUNC", "li')
+    assert main.dangling_link_targets(path, set()) == {"X"}
+
+
+def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, monkeypatch):
+    """Every run ends with the position check (SidewalkWebpage#5361). A failure (no
+    network, Overpass down) is recorded and warned about but never fails the run: the
+    detections are on disk and send_to_ps.py refuses the file until the check passes."""
+    import position_check
+    run_dir = tmp_path / "city"
+    run_dir.mkdir()
+    manifest_path = run_dir / "manifest.json"
+    manifest = {"runs": []}
+
+    monkeypatch.setattr(position_check, "run_check", lambda rd: {
+        "checked_at": "2026-09-16T00:00:00Z", "results_sha256": "abc", "submitted_field": "sfm",
+        "flagged_sequences": ["A"], "both_off_sequences": [], "panos_not_near_a_street": 3})
+    assert main.run_position_check(run_dir, manifest_path, manifest)["flagged_sequences"] == ["A"]
+    saved = json.load(open(manifest_path))
+    assert saved["position_check"] == {"checked_at": "2026-09-16T00:00:00Z", "results_sha256": "abc",
+                                       "submitted_field": "sfm", "flagged": 1, "both_off": 0,
+                                       "panos_not_near_a_street": 3}
+
+    def boom(rd):
+        raise OSError("Overpass query failed on every endpoint")
+    monkeypatch.setattr(position_check, "run_check", boom)
+    assert main.run_position_check(run_dir, manifest_path, manifest) is None
+    failed = json.load(open(manifest_path))["position_check"]
+    assert "Overpass" in failed["error"] and "checked_at" in failed
+
+    # Idempotent: a check already pinned to the current results.jsonl (hash + report on
+    # disk) is reused, so a no-op resume never rewrites the two git-tracked outputs.
+    results = run_dir / "results.jsonl"
+    results.write_text("{}\n")
+    pinned = {"checked_at": "2026-09-16T01:00:00Z", "results_sha256": position_check.file_sha256(results),
+              "submitted_field": None, "flagged_sequences": [], "both_off_sequences": [],
+              "panos_not_near_a_street": 0}
+    position_check.check_path_for(results).write_text(json.dumps(pinned))
+    position_check.report_path_for(results).write_text("<html>")
+    calls = []
+    monkeypatch.setattr(position_check, "run_check", lambda rd: calls.append(rd) or pinned)
+    assert main.run_position_check(run_dir, manifest_path, manifest)["checked_at"] == "2026-09-16T01:00:00Z"
+    assert calls == []
+    results.write_text("{}\n{}\n")  # the file changed: the check runs again
+    main.run_position_check(run_dir, manifest_path, manifest)
+    assert calls == [run_dir]
