@@ -30,6 +30,9 @@ python main.py example_geojson/bend.geojson --name bend
 # token from mapillary.com/dashboard/developers — in the env or in gitignored ./.env)
 python main.py example_geojson/richmond.geojson --name richmond --source mapillary
 
+# ...or on Panoramax (federated open imagery, no token; coverage is mostly France today)
+python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
+
 # GSV runs end with a gap-fill phase (issue #32): link-target panos the run's own
 # records reference but the tile scan never enumerated (coverage churn) are fetched
 # by id and kept if their metadata position is in-area. --no-gap-fill skips it;
@@ -110,6 +113,34 @@ python scripts/mapillary_tilt.py stats                 # tilt distributions + co
 python scripts/mapillary_tilt.py ablation              # multi-view sign lock, by tilt/grade bucket
 python scripts/mapillary_tilt.py eval                  # world P/R vs RampNet GT per convention
 python scripts/mapillary_tilt.py pose <mapillary_id> --run richmond
+# POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
+# remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no
+# internet egress) and send_to_ps.py REFUSES a Mapillary file whose position_check.json is
+# missing, stale (results_sha256 mismatch) or flagged (--ignore-position-check overrides).
+# The manual commands below are for re-checks and for confirming a reposition output. Scores
+# every pano's position against OSM street centerlines (one cached Overpass query, no GPU,
+# no imagery, no second source needed). Mapillary serves two positions per image and the
+# run submits one of them (--mapillary-position, default sfm = computed_geometry); SfM
+# sequences can sit 8-10 m off the street as a block while raw GPS (geometry) does not, and
+# every label inherits its pano's error 1:1. Exit 1 = some sequence is off the street on the
+# submitted field (>3 m median signed offset, or most of it beyond 30 m of any street) AND
+# the other field moves it >= 2 m closer — a swap forces a new submission campaign, so it has
+# to buy something. The submitted field is judged per sequence from the coordinates, so a
+# mixed (repositioned) file is checked correctly. Writes position_check.json + (--report) a
+# self-contained position_report.html, both git-tracked beside manifest.json. A partial
+# Overpass answer (HTTP 200 + `remark`) is refused and never cached.
+python scripts/position_check.py runs/laurens --report
+python scripts/position_check.py runs/laurens --report --labels <ps_v3_rawLabels.geojson> \
+    --reference runs/laurens_gsv     # optional: the server's own placements; a second run over
+                                     # the same area as an independent layer (Laurens only)
+# ...then fix a flagged run WITHOUT re-detecting: rewrite the flagged sequences' pano lat/lng
+# from the recommended field into a new file (new hash -> fresh submission campaign).
+python scripts/reposition.py runs/laurens/results.jsonl --from-check
+python scripts/reposition.py runs/laurens/results.jsonl --field raw   # whole file, one field
+# ...and confirm the output IN PLACE — never swap it into results.jsonl (main.py's field
+# binding cannot see inside the file, so a resume would append the manifest's field to a
+# mixed file). Outputs land beside it as results.check.position_check.json / _report.html.
+python scripts/position_check.py runs/laurens --results runs/laurens/results.check.jsonl
 
 # Run the tests (no GPU/network/model; light deps via requirements-test.txt)
 pytest
@@ -168,6 +199,17 @@ from retryable `failure` (left uncached).
   center column of a Mapillary equirectangular is the camera's compass bearing (same
   convention as GSV and as PS's panoX→heading math), so images are never rotated;
   `computed_compass_angle` becomes `camera_heading`, pitch/roll stay null.
+- **panoramax**: the federated open imagery commons (IGN + OSM France; CC BY-SA / Etalab),
+  no token. z15 vector tiles from the federation catalog (`pictures` layer carries `type`,
+  so 360-filtering happens during enumeration), then one STAC item request per picture
+  (`/api/pictures/{id}`) for position, `view:azimuth` → `camera_heading`, pitch/roll,
+  camera make/model, producer + license, and the `hd` asset — the original upload on the
+  picture's home instance, unsigned. Same thinning as Mapillary (newest per cell,
+  pixel-density tiebreak). `PANORAMAX_API_URL` targets one instance instead of the
+  federation, and `prepare()` probes that root's STAC landing page so a mistyped one fails
+  fast (the tile endpoint answers 204 for an empty tile and 404 for a bad path, so a wrong
+  root would otherwise read as a legitimate zero-coverage scan). Records carry `license` and `panoramax_instance`; `source_metadata` is the
+  STAC properties (EXIF included) minus the viewer's tile descriptors.
 
 Concurrency uses plain OS threads (`concurrent.futures.ThreadPoolExecutor`) — **not gevent**.
 streetlevel's sync imagery API runs an internal asyncio event loop per call (`asyncio.run` +
@@ -271,6 +313,27 @@ endpoint used here still serves it. `no_depth.txt`/`gone.txt` are append-only sk
 (see the command block above). GSV only; Mapillary serves no depth (its tilt is available
 but unparsed — see #42).
 
+**Position check (`position_check.py`, repo root; `scripts/position_check.py` is a shim)** —
+SidewalkWebpage#5361. Stdlib-only like `geo.py`. Every pano's submitted position is scored
+against OpenStreetMap street centerlines (one Overpass query, cached beside the run in
+`osm_streets.json`; a partial answer — HTTP 200 + `remark` — is refused and never cached).
+For Mapillary runs both positions are scored and each sequence gets a verdict: **flagged**
+when the median signed offset on the submitted field exceeds 3 m (or most of the sequence
+is beyond 30 m of any street) AND the other field moves it ≥ 2 m closer; **both_off** when
+it is off but a switch would not buy that (wide one-way streets driven once). The submitted
+field is voted per sequence from the coordinates, so a mixed reposition output is judged
+correctly. It is wired into both stages: `main.py` ends every run with
+`position_check.run_check` (non-fatal; the verdict summary lands in `manifest.json` under
+`position_check`, the full `position_check.json` + `position_report.html` beside
+`results.jsonl` and are git-tracked), and `send_to_ps.py`'s `check_position_state` refuses a
+Mapillary file whose check is missing, stale (`results_sha256` ≠ the file) or flagged —
+`--ignore-position-check` overrides, dry runs are exempt. `scripts/reposition.py` rewrites
+flagged sequences' pano lat/lng from the other field into a new file (a *submission
+artifact*, never swapped into `results.jsonl`: the run-dir field binding cannot see inside
+the file), which is confirmed with `--results` and submitted from where it is. What it
+cannot catch: a bias both fields share, drift under 3 m, and anything on a source with one
+position (GSV/Panoramax are scored for the record but never gated).
+
 **Stage 2 — submission (`send_to_ps.py`)**
 Reads the Stage-1 JSONL and POSTs each record to a Project Sidewalk endpoint
 (`/ai/submitLabelsOnPano`). Its key job is a coordinate transform: it converts the normalized
@@ -280,6 +343,27 @@ width/height stored in the record, renames `detections` → `labels`, and drops 
 (`transform_pano`): `panorama_id` → `pano_id`, raw streetlevel source strings → the
 `pano_source` enum (`gsv`/`mapillary`/`infra3d`), `target_gsv_panorama_id` → `target_pano_id`,
 and guarantees `links`/`history` arrays — so legacy JSONL files stay submittable unchanged.
+
+Resume state is a `<file>.submitted` sidecar of **line numbers**, which silently stops
+describing the campaign if the JSONL is edited, if the sidecar is lost (deleted, or a run
+moved to a second machine), or if the same file is pointed at a second server — the first
+two re-POST records that are already live and duplicate a whole city's labels; the third
+skips the staged lines on production so they never reach it. So each campaign also writes
+`<file>.submission.json`: the JSONL's sha256 and, **per endpoint**, line/label counts and
+timestamps — the one submission artifact small and stable enough to commit
+(`runs/*/*.submission.json` is git-tracked like `manifest.json`). Both counts are recounted
+from the sidecar and the file when the record is written (also after Ctrl-C), never from
+the run's own tallies, so record and sidecar cannot drift; the write is atomic, and an
+existing-but-unreadable record (merge conflict, truncated write) **refuses** rather than
+reading as "nothing sent". Before POSTing anything, `check_resume_state` refuses when the
+file's hash changed, when the record says more lines went to this endpoint than the
+sidecar holds, when the sidecar holds *more* lines than this endpoint is recorded to have
+while another endpoint has a count (they went there), or when `--min-confidence` differs
+from the one this endpoint was submitted at — the test→prod move is "rename the sidecar
+aside", never delete. `--ignore-submission-guard` overrides all of it, for a case checked
+by hand. Dry runs read none of it and write nothing. A sidecar with no record beside it
+(a campaign begun before the record existed) is unprotected: its lines are attributed to
+whichever endpoint runs next, so backfill the record by hand first.
 
 ## Output format notes
 

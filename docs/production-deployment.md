@@ -386,7 +386,13 @@ python send_to_ps.py runs/<city>/results.jsonl --dry-run
 python send_to_ps.py runs/<city>/results.jsonl --limit 3 \
     --endpoint https://<test-server>/ai/submitLabelsOnPano
 
-# 3. the rest, for real
+# 3a. ONLY if step 2 went to a different server (a -test instance): move its sidecar
+#     aside so production starts from line 1. The guard refuses step 3b otherwise.
+#     Skip this when step 2 already went to production - moving a live campaign's
+#     sidecar makes the guard refuse with "missing, truncated".
+mv runs/<city>/results.jsonl.submitted runs/<city>/results.jsonl.submitted.staging
+
+# 3b. the rest, for real
 python send_to_ps.py runs/<city>/results.jsonl \
     --endpoint https://<server>/ai/submitLabelsOnPano
 ```
@@ -396,11 +402,20 @@ placement, pano rendering, street snapping. `--limit` exists so that a bad trans
 you three labels instead of thousands.
 
 > ⚠️ **The `.submitted` sidecar is endpoint-agnostic.** Progress is tracked in
-> `<file>.submitted` by *line number* only — it does not record where those lines went. So
-> a staging run at step 2 makes the production run at step 3 **silently skip exactly those
-> records**, and they never reach the live city. Either point step 2 at a copy of the
-> JSONL, or delete the sidecar before step 3. `--dry-run` writes nothing, so step 1 is
-> always safe.
+> `<file>.submitted` by *line number* only — it does not record where those lines went, so
+> left in place, a staging run at step 2 would make the production run at step 3 skip
+> exactly those records, and they would never reach the live city. The git-tracked
+> `<file>.submission.json` beside it records, per endpoint, what did go where, and
+> `send_to_ps.py` **refuses** step 3 while the sidecar still holds the staging lines. Move
+> the sidecar aside (as above) so production starts from line 1; the record keeps the
+> staging count. Don't delete the sidecar of an endpoint that is still in progress — with
+> the record saying more lines went there than the sidecar holds, the guard refuses that
+> too, because a lost sidecar is how a city's labels get duplicated. The record also pins
+> each endpoint's `--min-confidence`: a resume at a different threshold refuses, since one
+> server should hold one threshold's labels. `--dry-run` reads and writes none of this, so
+> step 1 is always safe. **A sidecar with no record beside it is unprotected** — a campaign
+> begun before the record existed is attributed to whichever endpoint runs first, so know
+> where its lines went and backfill the record (Laurens: 26 lines to `-test`) before that run.
 
 On confidence: `results.jsonl` stores candidates down to the storage floor (0.10), not
 beliefs. You do **not** need to do anything about that — `--min-confidence` already
@@ -425,4 +440,6 @@ found". Lowering the flag is the dangerous direction, not omitting it.
 | Mapillary run exits immediately on the cluster | Slurm doesn't inherit your login shell, so `MAPILLARY_ACCESS_TOKEN` is unset | Export it in the sbatch, or source `.env` there |
 | `send_to_ps.py` returns `401` | No API key sent | Set `PS_INTERNAL_API_KEY` to *that instance's* `INTERNAL_API_KEY`; keys are per-instance |
 | `send_to_ps.py` refuses to run before sending | A key is set and the remote `--endpoint` is `http://` | Use `https://`; the guard exists so a mistyped URL can't leak the key |
-| A production submit reports far fewer records than the file has | The `.submitted` sidecar is endpoint-agnostic — an earlier staging run already claimed those lines | Delete `<file>.submitted` before the production run, or stage against a copy of the JSONL |
+| `send_to_ps.py` refuses: sidecar lines "went to" another endpoint | The `.submitted` sidecar is endpoint-agnostic — an earlier staging run claimed those lines, and sending only the remainder would leave them off the live city | Move `<file>.submitted` aside (e.g. `.submitted.staging`) so production starts from line 1; the per-endpoint record keeps the staging count |
+| `send_to_ps.py` refuses: record says N lines already submitted, sidecar accounts for fewer | The sidecar was lost or truncated, or the run moved to a machine that never had it; resuming would re-POST live records | Restore the sidecar from a backup. `--ignore-submission-guard` only for a case checked by hand |
+| `send_to_ps.py` refuses: `<file>.submission.json` is not readable | A merge conflict or truncated write in the git-tracked record | Repair it (`git show HEAD:<path>` recovers the committed copy) rather than override — the record is the memory of what is live |
