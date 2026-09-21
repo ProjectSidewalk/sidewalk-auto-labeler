@@ -316,11 +316,18 @@ the **normalized** detection coordinates from step 1 into **pixel** coordinates
   — placement, pano rendering, street snapping — before committing thousands of labels.
 - **Resumable:** successfully submitted line numbers are recorded in a `<file>.submitted`
   sidecar, so re-running skips them instead of re-POSTing. A git-tracked
-  `<file>.submission.json` records, per endpoint, what those lines were (sha256 of the
-  JSONL) and how many labels went where; the script refuses to run when the two disagree —
-  an edited file, a lost sidecar, or a sidecar whose lines went to a different server — so
-  a whole city can't be duplicated, or skipped, silently. Moving from a test instance to
-  production means moving the sidecar aside, not deleting it.
+  `<file>.submission.json` records, per endpoint, what those lines were (sha256 and byte
+  length of the JSONL) and how many labels went where; the script refuses to run when the two
+  disagree — an edited file, a lost sidecar, or a sidecar whose lines went to a different
+  server — so a whole city can't be duplicated, or skipped, silently. Moving from a test
+  instance to production means moving the sidecar aside, not deleting it.
+- **A gap-fill is not an edit.** `main.py --gap-fill-only` *appends* to `results.jsonl`, so
+  "submit, gap-fill, submit the rest" is an ordinary resume: the recorded lines keep their
+  numbers. The run proves it by re-hashing the recorded byte prefix *and* checking that no
+  appended pano id was already submitted, reports how many new lines it found, and re-records
+  the new hash and length. A file that shrank, whose already-submitted lines changed, or that
+  re-appends panos already sent (a doubled file, or a re-run after `already_processed.txt` was
+  lost) still refuses.
 - Transient failures (connection errors, 5xx) are retried with backoff; 4xx responses are
   treated as permanent and logged.
 

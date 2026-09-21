@@ -362,8 +362,8 @@ describing the campaign if the JSONL is edited, if the sidecar is lost (deleted,
 moved to a second machine), or if the same file is pointed at a second server — the first
 two re-POST records that are already live and duplicate a whole city's labels; the third
 skips the staged lines on production so they never reach it. So each campaign also writes
-`<file>.submission.json`: the JSONL's sha256 and, **per endpoint**, line/label counts and
-timestamps — the one submission artifact small and stable enough to commit
+`<file>.submission.json`: the JSONL's sha256 and byte length and, **per endpoint**,
+line/label counts and timestamps — the one submission artifact small and stable enough to commit
 (`runs/*/*.submission.json` is git-tracked like `manifest.json`). Both counts are recounted
 from the sidecar and the file when the record is written (also after Ctrl-C), never from
 the run's own tallies, so record and sidecar cannot drift; the write is atomic, and an
@@ -377,6 +377,24 @@ aside", never delete. `--ignore-submission-guard` overrides all of it, for a cas
 by hand. Dry runs read none of it and write nothing. A sidecar with no record beside it
 (a campaign begun before the record existed) is unprotected: its lines are attributed to
 whichever endpoint runs next, so backfill the record by hand first.
+The one changed hash that **resumes** instead is a **pure append** (#59): a gap-fill (#32)
+adds panos to the end of an already-submitted `results.jsonl`, and every recorded line keeps
+the number the sidecar holds for it. `append_check` proves that byte-for-byte — the record's
+`total_bytes` prefix must still hash to the recorded `sha256`, end on a newline, and hold the
+recorded `total_lines` — **and then proves the appended lines are new panos**: their
+`panorama_id`s must be disjoint from the prefix's, since a gap-fill only fetches ids the run
+never processed. New bytes are not new panos — a doubled file, or a re-run after the
+gitignored `already_processed.txt` was lost, appends panos that are already live, and PS is
+insert-only (SidewalkWebpage#5382), so the duplicate labels cannot be retired. When it does
+pass, the run prints how many new lines it found and rewrites the record with the new hash
+and length. Everything else still refuses: a shorter or same-size file, an edited prefix, a
+prefix ending mid-line, a repeated `panorama_id`, or a record from before `total_bytes`
+existed. That last one is migrated, not overridden — `send_to_ps.py <file> --prefix-digest
+<total_lines>` prints the recorded prefix's sha256 and byte length, and if the hash matches,
+adding `"total_bytes"` to the record by hand lets the normal guard do the rest (prefer that to
+`--ignore-submission-guard`, which also silences the lost-sidecar and wrong-endpoint checks).
+In practice that path is unlikely to fire: every record committed so far is Mapillary, and
+gap-fill is GSV-only (`fetch_pano_by_id`).
 
 ## Output format notes
 
