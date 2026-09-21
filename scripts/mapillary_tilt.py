@@ -994,6 +994,12 @@ def cmd_figures(args):
     Figures 1, 2 and 8 need the per-panorama ``poses.csv`` / ``grade.csv`` (up to
     73k rows per city, deliberately not committed); without them they are skipped
     with a message rather than crashing. Re-run ``stats`` and ``grade`` to get them.
+
+    ``--out`` is an INPUT root here, unlike every other subcommand: it says where to read
+    the CSVs from. The PNGs always go to ``docs/figures/mapillary-tilt/``, so redrawing
+    from an experimental run tree overwrites the committed figures -- intended, since they
+    are meant to track the committed CSVs, but worth knowing before pointing it somewhere
+    odd.
     """
     import numpy as np
     import matplotlib
@@ -1248,11 +1254,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     sub = ap.add_subparsers(dest='cmd', required=True)
 
-    def common(p, cities=True):
+    OUT_WRITE = 'write the CSVs under <out>/<city>/ instead of runs/<city>/tilt/'
+    OUT_READ = ('READ the CSVs from <out>/<city>/ and <out>/_summary/ instead of the run '
+                'tree; the PNGs always go to docs/figures/mapillary-tilt/')
+    OUT_UNUSED = 'unused by this subcommand; the strips always go to docs/figures/mapillary-tilt/'
+
+    def common(p, cities=True, out_help=OUT_WRITE):
         if cities:
             p.add_argument('cities', nargs='*', default=DEFAULT_CITIES)
-        p.add_argument('--out', type=Path, default=None,
-                       help='write under <out>/<city>/ instead of runs/<city>/tilt/')
+        p.add_argument('--out', type=Path, default=None, help=out_help)
         p.add_argument('--benchmark-root', type=Path,
                        default=REPO_ROOT.parent / 'RampNet' / 'benchmark')
     for name, fn in (('stats', cmd_stats), ('displacement', cmd_displacement),
@@ -1267,13 +1277,13 @@ def main():
     p.add_argument('--limit', type=int, default=0)
     p.set_defaults(fn=cmd_rectify)
     p = sub.add_parser('examples')
-    common(p)
+    common(p, out_help=OUT_UNUSED)
     p.add_argument('--width', type=int, default=2048)
     p.add_argument('--limit', type=int, default=3)
     p.add_argument('--pano', nargs='*', default=None)
     p.set_defaults(fn=cmd_examples)
     p = sub.add_parser('figures')
-    common(p)
+    common(p, out_help=OUT_READ)
     p.set_defaults(fn=cmd_figures)
     p = sub.add_parser('pose')
     p.add_argument('pano_id', nargs='+')

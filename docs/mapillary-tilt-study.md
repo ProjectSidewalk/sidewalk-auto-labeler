@@ -44,7 +44,7 @@ flat-ground raycast that multi-view fusion (#27) and Project Sidewalk's label pl
 4. **Against RampNet ground truth**, applying the tilt raises world recall at a 2.5 m match radius in four of
    five cities (+1.6 to +11.5 points with the gravity-relative angles on a fixed denominator; the
    road-relative variant reaches +12.4 in Laurens), leaves precision within ±1 point, and tightens the
-   median GT-to-site distance in every city. The one recall loss under the gravity-relative variant
+   median GT-to-site distance in every city — as **both corrections** do, while every sign flip loosens it. The one recall loss under the gravity-relative variant
    (Richmond, −1.6 points at 2.5 m) comes with the largest placement gain (p90 3.85 → 3.51 m; 3.11 m
    road-relative); road-relative also loses Morgantown (−2.8 points).
 5. **The viewer gate needs a value, not a correct value.** Project Sidewalk's Pannellum wrapper deliberately
@@ -179,9 +179,14 @@ Three choices in this measurement do real work, and each one has a cost:
   *every* one of its operational members; one unplaceable member drops the whole site from all rows. Without
   that, a convention that pushes members above the horizon is measured on the easier remainder — it cost
   Morgantown's flipped rows 4.3% of their pairs in the first version of this study, while the table printed
-  a single pair count that read as shared. The price is 2–12% of sites dropped from every row (Richmond
-  1,183 → 1,079; Morgantown 1,359 → 1,201; Clovis, Annapolis and Laurens under 2%), and those are the
-  hardest sites.
+  a single pair count that read as shared. The price is 1.1% (Annapolis) to 11.6% (Morgantown) of sites
+  dropped from every row (Richmond 1,183 → 1,079; Morgantown 1,359 → 1,201; Clovis, Annapolis and Laurens
+  under 2%), and those are the hardest sites. The intersection is deliberately taken over **all eight**
+  conventions, including the ones being rejected, so that a single set of sites backs every cell of the
+  table; the sign flips cause about three quarters of the drop, and a three-convention intersection over
+  off / documented / road-relative alone (Richmond 1,156 sites, Morgantown 1,317) changes no conclusion —
+  Richmond median 2.76 off vs 2.27 road-relative, mean 3.27 vs 3.51, p90 6.58 vs 7.11; Morgantown median
+  2.16 vs 2.15, mean 2.75 vs 3.00, p90 5.91 vs 6.43, i.e. the same centre-versus-tail split.
 - **The raycast runs with no range cap** (`max_range_m=inf`), where production drops rays beyond 25 m. The
   cap would reintroduce exactly the survivorship problem one step further in — applying it costs 40–50% of
   the pairs, asymmetrically by convention, and flips every mean. The price is that the tail of this
@@ -352,7 +357,7 @@ sequence's SfM altitude profile. Dashed: slope 1.*
 | richmond | 8,431 | 0.57 | 0.24 | 1.05° / 3.83° | 2.19° | 1.92° / 9.91° |
 | clovis | 68,322 | 0.17 | 0.09 | 0.24° / 0.76° | 0.91° | 0.90° / 2.44° |
 | morgantown | 51,537 | **0.97** | **0.91** | 2.06° / 6.33° | 2.30° | **0.49°** / 1.51° |
-| annapolis | 52,815 | **0.96** | **0.86** | 0.85° / 2.51° | 2.39° | 2.55° / 3.12° |
+| annapolis | 52,815 | **0.96** | **0.86** | 0.85° / 2.50° | 2.39° | 2.55° / 3.12° |
 | laurens | 4,483 | 0.61 | 0.26 | 0.62° / 1.60° | 1.21° | 1.12° / 2.64° |
 
 Morgantown is a hill town, and its GoPro Max rides level on a car: the camera's gravity-relative pitch *is*
@@ -410,7 +415,7 @@ test as well, and that conclusion does not depend on which statistic you read.
 documented gravity-relative correction tightens Clovis (−40%), Laurens (−28%) and Richmond (−14%), loosens
 Morgantown (+23%) and leaves Annapolis flat (+1%); road-relative is the best of the three physically meaningful
 conventions (off / documented / road-relative) in four cities, within 3% of the best in the fifth, and
-**loosens none of them** (−1.9% Annapolis, −2.3% Morgantown, −19% Richmond, −28% Laurens,
+**loosens none of them** (−1.8% Annapolis, −2.3% Morgantown, −19.2% Richmond, −28.4% Laurens,
 −38% Clovis). On the raw mean and p90 the same road-relative rows read +4%/+6% (Richmond), +6%/+6%
 (Morgantown) and +11%/+18% (Annapolis) — i.e. *worse than doing nothing.*
 
@@ -488,7 +493,9 @@ difference. Full table in `gt_eval.csv`.
 The gravity-relative correction beats the flat raycast at 2.5 m in four cities (+1.6 Morgantown, +1.6
 Annapolis, +11.1 Laurens, +11.5 Clovis); the exception is Richmond (−1.6), which is also where placement
 improves most. Road-relative wins Clovis (+9.2), Annapolis (+1.6) and Laurens (+12.4), is level in Richmond
-(−0.4) and loses Morgantown (−2.8). Every convention tightens the median GT-to-site distance in every city.
+(−0.4) and loses Morgantown (−2.8). **Both corrections** tighten the median GT-to-site distance in every
+city; every sign flip loosens it in four of five (roll-flipped, `match_dist_p50` vs off: 1.61/1.55
+Richmond, 1.56/1.32 Clovis, 1.30/1.10 Morgantown, 1.94/1.88 Laurens).
 
 Morgantown's recall gain under the gravity variant sits beside its multi-view *loss* in §5.4 because GT marks
 are raycast with the same pose: for a ramp the reviewer marked in the very panorama that detected it, a

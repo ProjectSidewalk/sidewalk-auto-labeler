@@ -110,7 +110,9 @@ python scripts/site_explorer.py richmond --inline     # one shareable file
 # measures what applying it buys. Full write-up + recommendations in
 # docs/mapillary-tilt-study.md. No network, no GPU; stdlib on top of geo.py/fuse_sites.py/
 # eval_sites.py except `rectify`/`examples` (numpy, Pillow, SciPy) and `figures` (matplotlib).
-# Ten subcommands; all take a city list (default: all five Mapillary runs) and --out.
+# Ten subcommands. All but `pose` take a city list (default: all five Mapillary runs)
+# and --out; `pose` takes pano ids and --run. --out redirects the CSVs only: `figures`
+# and `examples` always write into docs/figures/mapillary-tilt/.
 python scripts/mapillary_tilt.py stats                 # tilt distributions + compass identity
 python scripts/mapillary_tilt.py displacement          # flat vs tilt-corrected ground point
 python scripts/mapillary_tilt.py grade                 # is the tilt the rig's or the road's?
@@ -293,12 +295,21 @@ world→camera rotation (axis-angle; world = east/north/up, camera = right/down/
 Mapillary's `computed_compass_angle` to 1e-11° on every record, PS's own `MapillaryViewer.extractPitchRoll`
 decomposes it the same way (pitch identical; **PS's roll sign is the negative of `geo._world_ray`'s**), and
 re-rendering panos with it levels them. Median tilt is ~3° (81–85% above the 1.5° sigma the error model
-assumes). Measured 2026-09-04: applying the tilt relative to *gravity* tightens multi-view agreement where
-the rig itself is tilted (Clovis −40%, Laurens −28%, Richmond −13%) but loosens it where the camera rides
-level on a car in hilly terrain (Morgantown +28%: camera pitch tracks the road grade with slope 0.97) —
-the raycast wants tilt relative to the local road, which the sequence's SfM altitude profile provides
-(`road-relative` convention: never worse than flat by >1%). Full study, figures and the recommended
-production change in `docs/mapillary-tilt-study.md`. Not yet wired into `sources/mapillary.py`/`geo.py`.
+assumes). Measured 2026-09-21 (every claim below names the statistic it is true of — they disagree, and
+that is the finding): applying the tilt relative to *gravity* tightens the MEDIAN within-site multi-view
+spread where the rig itself is tilted (Clovis −39.7%, Laurens −28.5%, Richmond −14.0%) but loosens it where
+the camera rides level on a car in hilly terrain (Morgantown +23.3%: camera pitch tracks the road grade with
+slope 0.97). The raycast wants tilt relative to the local road, which the sequence's SfM altitude profile
+provides — and the `road-relative` convention tightens the MEDIAN in all five cities (−1.8% Annapolis,
+−2.3% Morgantown, −19.2% Richmond, −28.4% Laurens, −38.1% Clovis) and the range-normalized mean in all five.
+**On the RAW MEAN and p90 the same correction is worse than doing nothing** — Richmond +3.9%/+6.1%,
+Morgantown +5.6%/+6.4%, Annapolis +11.3%/+17.5% — partly because the ablation runs uncapped and charges a
+correction for rays production drops, partly because it really does move a minority of detections a long
+way. So: **do not wire `apply_pose=True` for Mapillary on the strength of the median.** The precondition
+(study §8 rec 3) is to re-run `eval_sites.py` with the production 25 m cap and compare p90 GT-to-site
+distance under off / documented / road-relative first — p90 placement is the statistic #27 was sold on.
+Full study, figures and the recommended production change in `docs/mapillary-tilt-study.md`. Not yet wired
+into `sources/mapillary.py`/`geo.py`.
 
 **GSV depth (`depth.py`, `scripts/harvest_depth.py`)** — issues #40/#41. `depth.py` (repo
 root, stdlib-only like `geo.py`) parses GSV's depth payload, which is **not a raster**: it
