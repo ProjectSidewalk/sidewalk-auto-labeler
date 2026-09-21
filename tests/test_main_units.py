@@ -89,3 +89,47 @@ def test_dangling_link_targets_skips_truncated_final_line(tmp_path):
     with open(path, 'a') as f:
         f.write('{"pano": {"panorama_id": "TRUNC", "li')
     assert main.dangling_link_targets(path, set()) == {"X"}
+
+
+def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, monkeypatch):
+    """Every run ends with the position check (SidewalkWebpage#5361). A failure (no
+    network, Overpass down) is recorded and warned about but never fails the run: the
+    detections are on disk and send_to_ps.py refuses the file until the check passes."""
+    import position_check
+    run_dir = tmp_path / "city"
+    run_dir.mkdir()
+    manifest_path = run_dir / "manifest.json"
+    manifest = {"runs": []}
+
+    monkeypatch.setattr(position_check, "run_check", lambda rd: {
+        "checked_at": "2026-09-16T00:00:00Z", "results_sha256": "abc", "submitted_field": "sfm",
+        "flagged_sequences": ["A"], "both_off_sequences": [], "panos_not_near_a_street": 3})
+    assert main.run_position_check(run_dir, manifest_path, manifest)["flagged_sequences"] == ["A"]
+    saved = json.load(open(manifest_path))
+    assert saved["position_check"] == {"checked_at": "2026-09-16T00:00:00Z", "results_sha256": "abc",
+                                       "submitted_field": "sfm", "flagged": 1, "both_off": 0,
+                                       "panos_not_near_a_street": 3}
+
+    def boom(rd):
+        raise OSError("Overpass query failed on every endpoint")
+    monkeypatch.setattr(position_check, "run_check", boom)
+    assert main.run_position_check(run_dir, manifest_path, manifest) is None
+    failed = json.load(open(manifest_path))["position_check"]
+    assert "Overpass" in failed["error"] and "checked_at" in failed
+
+    # Idempotent: a check already pinned to the current results.jsonl (hash + report on
+    # disk) is reused, so a no-op resume never rewrites the two git-tracked outputs.
+    results = run_dir / "results.jsonl"
+    results.write_text("{}\n")
+    pinned = {"checked_at": "2026-09-16T01:00:00Z", "results_sha256": position_check.file_sha256(results),
+              "submitted_field": None, "flagged_sequences": [], "both_off_sequences": [],
+              "panos_not_near_a_street": 0}
+    position_check.check_path_for(results).write_text(json.dumps(pinned))
+    position_check.report_path_for(results).write_text("<html>")
+    calls = []
+    monkeypatch.setattr(position_check, "run_check", lambda rd: calls.append(rd) or pinned)
+    assert main.run_position_check(run_dir, manifest_path, manifest)["checked_at"] == "2026-09-16T01:00:00Z"
+    assert calls == []
+    results.write_text("{}\n{}\n")  # the file changed: the check runs again
+    main.run_position_check(run_dir, manifest_path, manifest)
+    assert calls == [run_dir]

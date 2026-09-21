@@ -1,0 +1,15 @@
+{
+  "input_file": "results.jsonl",
+  "sha256": "109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c",
+  "total_lines": 9091,
+  "endpoints": {
+    "https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano": {
+      "submitted_lines": 9091,
+      "labels_submitted": 9526,
+      "min_confidence": 0.55,
+      "first_submission_utc": "2026-09-05T01:05:03Z",
+      "last_submission_utc": "2026-09-05T01:39:04Z",
+      "last_run_host": "jonfhome"
+    }
+  }
+}

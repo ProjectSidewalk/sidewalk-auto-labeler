@@ -32,6 +32,7 @@ from dotenv import load_dotenv
 from shapely.geometry import shape
 from tqdm import tqdm
 
+import position_check
 from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO
 from sources import get_source, SOURCE_NAMES
 
@@ -156,15 +157,19 @@ def save_manifest(manifest_path, manifest):
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
 
-def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_name):
+def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_name,
+                         position_field=None):
     """
     Creates or validates the run directory (runs/<name>/), which holds all per-area
     state: results.jsonl, already_processed.txt, manifest.json, and a copy of the
     exact geometry used. A run directory is permanently bound to one geometry and one
     imagery source; reusing the name with a different geometry or source is refused
     so that a renamed/edited geojson or a --source change can't silently fork or
-    corrupt the run's state.
+    corrupt the run's state. A Mapillary run is likewise bound to one position field
+    (`position_field`, recorded as `mapillary_position`; manifests predating it are 'sfm').
     """
+    if source_name == 'mapillary' and position_field is None:
+        position_field = 'sfm'  # the source's default; never let None reach the manifest
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = run_dir / "manifest.json"
 
@@ -184,6 +189,13 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
                 f"❌ Run '{run_dir.name}' was created with imagery source "
                 f"'{manifest.get('imagery_source', 'gsv')}', not '{source_name}'.\n"
                 f"   Use a new --name for a different source."
+            )
+        if source_name == 'mapillary' and manifest.get('mapillary_position', 'sfm') != position_field:
+            sys.exit(
+                f"❌ Run '{run_dir.name}' positions panos from Mapillary's "
+                f"'{manifest.get('mapillary_position', 'sfm')}' field, not '{position_field}'.\n"
+                f"   Mixing position fields in one results.jsonl would shift only part of the run.\n"
+                f"   Use a new --name, or scripts/reposition.py to convert the finished run."
             )
         # Manifests predating the storage floor stored only >= 0.55 peaks.
         run_floor = manifest.get('detection_storage_floor', 0.55)
@@ -210,6 +222,8 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
         'streetlevel_version': pkg_version('streetlevel'),
         'runs': [],
     }
+    if source_name == 'mapillary':
+        manifest['mapillary_position'] = position_field
     with open(run_dir / "area.geojson", 'w') as f:
         geojson.dump(geojson_data, f)
     save_manifest(manifest_path, manifest)
@@ -233,6 +247,49 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
         entry['phase'] = phase
     manifest['runs'].append(entry)
     save_manifest(manifest_path, manifest)
+
+def run_position_check(run_dir, manifest_path, manifest):
+    """
+    Ends every run with the pano-position check (SidewalkWebpage#5361): every pano
+    scored against OSM street centerlines, position_check.json + position_report.html
+    written beside results.jsonl, and a summary recorded in the manifest. Non-fatal —
+    the detections are already on disk, and send_to_ps.py refuses a Mapillary file
+    whose check is missing, stale or flagged, so an Overpass outage here cannot let a
+    drifted run through; it only defers the check to a manual run.
+    """
+    print("\n--- Position check (panos vs. OSM street centerlines) ---")
+    checked_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
+    try:
+        # Idempotent: a resume that added nothing must not rewrite the two git-tracked
+        # outputs with a new timestamp. The check is pinned to the file by its hash.
+        results_path = run_dir / "results.jsonl"
+        existing, _reason = position_check.load_check(results_path)
+        if existing and existing.get('results_sha256') == position_check.file_sha256(results_path) \
+                and position_check.report_path_for(results_path).exists():
+            print(f"-> unchanged since the last check ({existing['checked_at']}): "
+                  f"{len(existing['flagged_sequences'])} flagged; not re-run")
+            result = existing
+        else:
+            result = position_check.run_check(run_dir)
+    except Exception as e:  # network, Overpass, a malformed line — never fail the run here
+        print(f"⚠ Position check did not run ({e}). The detections are safe; run it by hand: "
+              f"python scripts/position_check.py {run_dir.as_posix()} --report")
+        manifest['position_check'] = {'checked_at': checked_at, 'error': str(e)}
+        save_manifest(manifest_path, manifest)
+        return None
+    manifest['position_check'] = {
+        'checked_at': result['checked_at'],
+        'results_sha256': result['results_sha256'],
+        'submitted_field': result.get('submitted_field'),
+        'flagged': len(result['flagged_sequences']),
+        'both_off': len(result['both_off_sequences']),
+        'panos_not_near_a_street': result['panos_not_near_a_street'],
+    }
+    save_manifest(manifest_path, manifest)
+    if result['flagged_sequences']:
+        print(f"!! send_to_ps.py will refuse {run_dir.as_posix()}/results.jsonl until the flagged "
+              f"sequences are repositioned and the output re-checked (see above).")
+    return result
 
 def dangling_link_targets(results_path, processed_ids):
     """
@@ -312,7 +369,7 @@ def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None):
     return tuple(totals)
 
 def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thin_spacing=None,
-                gap_fill=True, gap_fill_only=False):
+                gap_fill=True, gap_fill_only=False, position_field=None, check_positions=True):
     """
     Finds and processes all panoramas from the given imagery source within a GeoJSON
     area, writing all per-area state to runs/<run_name>/.
@@ -321,7 +378,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     estimate — use this to scope a city before committing to a multi-day run.
 
     After the main pass, sources with a link graph get a gap-fill phase closing it
-    (issue #32); gap_fill_only skips straight to that phase on an existing run.
+    (issue #32); gap_fill_only skips straight to that phase on an existing run. Every
+    run that processed anything ends with the position check (check_positions).
     """
     print("--- Sidewalk Auto-Labeler ---")
 
@@ -334,7 +392,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     started_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
     run_dir = Path("runs") / run_name
-    manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source.NAME)
+    manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source.NAME,
+                                    position_field=position_field)
     manifest_path = run_dir / "manifest.json"
     output_jsonl_file = run_dir / "results.jsonl"
     cache_file = run_dir / "already_processed.txt"
@@ -364,6 +423,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
                   f"Skipped (outside/unusable):  {gf[2]}\n"
                   f"Failed (will retry):         {gf[3]}\n"
                   f"-----------------------")
+        if check_positions and not scan_only and gf is not None:
+            run_position_check(run_dir, manifest_path, manifest)
         return
 
     bounds = area_shape.bounds
@@ -481,6 +542,11 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     print(f"Export benchmark bundle (imagery for RampNet GT/scoring): python scripts/export_benchmark.py {output_jsonl_file} --out <dir>")
     print("----------------------")
 
+    # 6. Position check — standard, not optional: this is how a drifted city announces
+    # itself before anything is submitted (SidewalkWebpage#5361).
+    if check_positions and output_jsonl_file.exists():
+        run_position_check(run_dir, manifest_path, manifest)
+
 
 def main():
     global PROCESSING_CONCURRENCY, COVERAGE_API_CONCURRENCY
@@ -500,7 +566,9 @@ def main():
     parser.add_argument(
         "--source", choices=SOURCE_NAMES, default="gsv",
         help="Imagery source to scan and fetch from (default: %(default)s). "
-             "'mapillary' needs a client token in MAPILLARY_ACCESS_TOKEN."
+             "'mapillary' needs a client token in MAPILLARY_ACCESS_TOKEN; "
+             "'panoramax' needs no credentials, and PANORAMAX_API_URL points it at a "
+             "single instance instead of the federation catalog."
     )
     parser.add_argument(
         "--processing-concurrency", type=int, default=PROCESSING_CONCURRENCY,
@@ -518,6 +586,15 @@ def main():
              "thinning. No effect on sources without a thinning hook (GSV)."
     )
     parser.add_argument(
+        "--mapillary-position", choices=("sfm", "raw"), default="sfm",
+        help="Which Mapillary position becomes the pano lat/lng: 'sfm' (computed_geometry, "
+             "default) or 'raw' (the GPS fix, geometry). SfM sequences can drift metres off "
+             "the street as a block (SidewalkWebpage#5361); every run ends with a position "
+             "check that measures this per sequence, and scripts/reposition.py switches a "
+             "finished run's flagged sequences without re-detecting. Recorded in the "
+             "manifest; a run is bound to one field. Ignored for other sources."
+    )
+    parser.add_argument(
         "--limit", type=int,
         help="Process at most N new panoramas this run (for smoke tests and rate "
              "measurement); the rest stay uncached and process on a later run. The "
@@ -529,6 +606,13 @@ def main():
         help="Only scan coverage and report the pano count and a runtime estimate; "
              "skips model loading and processes nothing. With --gap-fill-only, "
              "reports the dangling link-target count instead."
+    )
+    parser.add_argument(
+        "--no-position-check", action="store_true",
+        help="Skip the end-of-run pano-position check against OSM street centerlines "
+             "(SidewalkWebpage#5361) — e.g. on a host without internet egress. The check "
+             "still has to run before submission: send_to_ps.py refuses a Mapillary file "
+             "whose position_check.json is missing, stale or flagged."
     )
     gap_group = parser.add_mutually_exclusive_group()
     gap_group.add_argument(
@@ -550,6 +634,10 @@ def main():
     # slow model load below.
     source = get_source(args.source)
     source.prepare()
+    position_field = None
+    if args.source == "mapillary":
+        position_field = args.mapillary_position
+        source.POSITION_FIELD = position_field
 
     # Initialize detectors (skipped for a scan: importing torch + loading the model takes a while):
     if not args.scan_only:
@@ -560,7 +648,8 @@ def main():
     try:
         run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, source, args.scan_only,
                     args.limit, args.thin_spacing,
-                    gap_fill=not args.no_gap_fill, gap_fill_only=args.gap_fill_only)
+                    gap_fill=not args.no_gap_fill, gap_fill_only=args.gap_fill_only,
+                    position_field=position_field, check_positions=not args.no_position_check)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:

@@ -65,6 +65,29 @@ IMAGE_FIELDS = ','.join([
 # provenance and is kept verbatim in `source_metadata`.
 VOLATILE_META_FIELDS = {'thumb_original_url'}
 
+# Which of Mapillary's two positions becomes the pano's lat/lng (main.py sets this from
+# --mapillary-position and records it in the manifest). 'sfm' is computed_geometry, the
+# SfM-corrected position; 'raw' is geometry, the camera's GPS fix. SfM is the better
+# position on average, but its alignment to GPS is one transform per reconstruction, so a
+# whole sequence can sit several metres off the street (Laurens, IA: 8-10 m west at every
+# intersection, SidewalkWebpage#5361) while raw GPS does not. Both positions are always
+# kept in source_metadata; scripts/position_check.py scores them against OSM centerlines
+# and scripts/reposition.py switches a finished run without re-detecting.
+POSITION_FIELDS = {'sfm': 'computed_geometry', 'raw': 'geometry'}
+POSITION_FIELD = 'sfm'
+
+
+def position_coordinates(meta, field=None):
+    """[lon, lat] for the requested position field, falling back to the other one when
+    the image lacks it (an unreconstructed image has no computed_geometry), or None."""
+    field = field or POSITION_FIELD
+    order = [field] + [f for f in POSITION_FIELDS if f != field]
+    for f in order:
+        coords = (meta.get(POSITION_FIELDS[f]) or {}).get('coordinates')
+        if coords:
+            return coords
+    return None
+
 
 def provenance_fields(meta):
     """Extended-provenance keys added to a pano block. Curated camera fields (top-level,
@@ -267,7 +290,13 @@ def _fetch_image_metadata(image_id):
 
 def _download_image(url):
     """Downloads the signed thumbnail and normalizes it to the detector's 4096x2048.
-    Returns None on failure (caller treats as retryable)."""
+    Returns None on failure (caller treats as retryable).
+
+    Note this treats an undecodable image as retryable, so such a pano is re-downloaded
+    on every future run of the area and never cached. sources/panoramax.py splits the two
+    (see its _download_image); issue #57 tracks porting the decode half here. The 404 half
+    deliberately does not port: this URL is signed and short-lived, so a 404 really is
+    transient."""
     for attempt in range(ATTEMPTS):
         try:
             response = requests.get(url, timeout=120)
@@ -290,8 +319,8 @@ def build_pano_record(pano_id, lat, lon, meta):
     PS's pano_source enum). sequence_id and quality_score are extra provenance the
     PS reader ignores.
     """
-    coordinates = (meta.get('computed_geometry') or meta.get('geometry') or {}).get('coordinates')
-    if coordinates:  # SfM-corrected position when available; tile position otherwise
+    coordinates = position_coordinates(meta)
+    if coordinates:  # POSITION_FIELD (SfM by default) when available; tile position otherwise
         lon, lat = coordinates
     captured = datetime.fromtimestamp(meta['captured_at'] / 1000.0, tz=timezone.utc)
     creator = (meta.get('creator') or {}).get('username')
