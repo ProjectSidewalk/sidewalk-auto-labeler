@@ -116,7 +116,10 @@ back to the published numbers.
   identical member set).
 - The vectorized PS distance reproduces the script's `cluster()` partition exactly.
 - `fusion_refit` reproduces `runs/richmond/fusion_eval/report.md`: precision 0.959,
-  union recall 0.941, dual ramps 23 / 4 / 3.
+  union recall 0.941, dual ramps 23 / 4 / 3. Those published figures were computed in the
+  labeler's 2.6 m frame, so only the 2.6 m run reproduces the world-space half of them;
+  in the server frame precision still matches (it is frame-free) and the rest is expected
+  to differ. The report line says which frame it ran in.
 - *(added after review)* every label that maps to a stored detection belongs to one
   account, and none of that account's labels is left unmapped — so "AI label", which is
   inferred from a pixel match, really is one submitter's label set.
@@ -150,7 +153,8 @@ rule was meant to protect. The rules themselves are unchanged.)*
   0 cross-pano merges, so the benchmark never asserts that two labels from different panos
   are the same ramp, which is exactly the assertion the statistic needs. If fusion
   over-merges anywhere, the measured scatter is inflated there. Fusion's precision (0.959)
-  and its dual-ramp separation (equal to or better than every other arm) bound how much
+  and its dual-ramp separation (26 of 32 and 24 of 30 mean-placed, the best of any arm;
+  25 and 23 at the refit position, level with `deployed`) bound how much
   over-merging is plausible, but they do not rule it out.
 - Placement uses one camera height for every arm in a given run; Richmond's rigs sit lower
   than either value scored here (about 1.7 to 2.0 m), so raycast positions run long. Again
@@ -195,12 +199,15 @@ conclusions survive unchanged; **one does not, and it is the actionable one**:
 
 All checks passed exactly: the verbatim `SidewalkWebpage/scripts/label_clustering.py`
 reproduces the server's partition (2,156 of 2,156 clusters identical), the vectorized
-distance reproduces the script (2,156 of 2,156), `fusion_refit` reproduces the published
-fusion numbers (precision 0.959, union recall 0.941, dual ramps 23 / 4 / 3), every label
-that maps to a stored detection belongs to one account with none of that account's labels
-left over, and the fusion arm and the `ps_*` arms cover the same 8,098 labels (0 placeable
-operational detections without a label on the server). No arm ever put two labels from one
-pano in one cluster.
+distance reproduces the script (2,156 of 2,156), the 2.6 m run's `fusion_refit` reproduces
+the published fusion numbers (precision 0.959, union recall 0.941, dual ramps 23 / 4 / 3 —
+those were published in the 2.6 m frame, so the server-frame run matches only on the
+frame-free precision and is not a failed check), every label that maps to a stored detection
+belongs to one account with none of that account's labels left over, and the fusion arm and
+the `ps_*` arms cover the same 8,098 labels (0 placeable operational detections without a
+label on the server). No arm ever put two labels from one pano in one cluster, no pixel key
+in `results.jsonl` is ambiguous, and no two server labels share a pixel — all three counts
+are printed unconditionally in the committed reports.
 
 ### Deviation from the protocol
 
@@ -250,9 +257,10 @@ Labeler frame (2.6 m), 253 pool ramps:
 
 ### RQ1, validity: not the problem
 
-Of 247 deployed clusters that contain a judged label, 238 are real ramps (precision 0.964).
-The 9 false clusters are the same 9 false detections every arm carries, so they are detector
-errors, not clustering errors. Precision is unchanged at every threshold from 2.5 m to 15 m.
+Of 267 deployed clusters that contain a judged label, 247 are decided (the other 20 hold
+only unsure verdicts and are excluded), and 238 of those 247 are real ramps (precision
+0.964). The 9 false clusters are the same 9 false detections every arm carries, so they are
+detector errors, not clustering errors. Precision is unchanged at every threshold from 2.5 m to 15 m.
 Note what this metric cannot see: a fragment of a real ramp is a true positive, so precision
 is insensitive to over-splitting by construction. That is what RQ2b is for.
 
@@ -260,8 +268,14 @@ is insensitive to over-splitting by construction. That is what RQ2b is for.
 
 Coverage is fine, and measured strictly it is a little better than the ray-aware reference:
 0.931 against fusion's 0.908 in the server frame, 0.917 against 0.909 in the labeler frame.
-Dual-ramp separation is level too (25 of 32 against 26; 23 of 30 against 24). What the
-deployed clustering gets wrong is splitting: 17 to 24 percent of covered ramps have a second
+Dual-ramp separation is **exactly level with `fusion_refit` and one pair short of
+mean-placed `fusion`**: 25 of 32 against 25 and 26 in the server frame, 23 of 30 against 23
+and 24 in the labeler frame. Which of the two fusion variants the pre-registered "not worse"
+clause is read against therefore decides that clause, and it is read against `fusion_refit`
+— the refit position is the one `fuse_sites.py` actually writes to `sites.jsonl`, and the
+mean-placed variant exists here only to put fusion in the same placement model as every
+other arm. Against mean-placed fusion the clause fails by one pair, for `deployed` and for
+`ps @ 15 m` alike. What the deployed clustering gets wrong is splitting: 17 to 24 percent of covered ramps have a second
 cluster within 3 m and 47 to 48 percent within 5 m, against 8 and 6 percent and 17 and 16
 percent for fusion. On the same 8,098 labels the server's rule makes 1,887 clusters where
 fusion makes 1,514 to 1,570, so roughly one deployed cluster in five is a fragment of a ramp
@@ -320,15 +334,24 @@ error), not in the grouping rule.
 
 ### Decision, per the pre-registered rules
 
+The bar has four clauses, and the dual-ramp clause depends on which fusion variant it is
+read against: `deployed` and `ps @ 15 m` are both exactly level with `fusion_refit`
+(25 of 32, 23 of 30) and both one pair short of mean-placed `fusion` (26, 24). Read against
+`fusion_refit`, as below.
+
 - **"Already good enough"** — no, and for the same reason as before: fragmentation is 2 to 4
   times the reference (worse by 9 and 31 points, against a 5-point bar). Precision and
-  coverage clear their bars easily, coverage in the deployed clustering's favour.
+  coverage clear their bars easily, coverage in the deployed clustering's favour, and dual
+  separation is level.
 - **"Threshold is the lever"** — **only in the server's own frame.** There `ps @ 15 m` is
   within 1.2 points of fusion on coverage, within 0.4 on precision, within 3 and 4 points on
-  fragmentation, and one dual pair short of mean-placed fusion (equal to the refit one). In
-  the labeler's 2.6 m frame no cut in the sweep clears the bar: the best fragmentation comes
-  with a 3.2 to 3.5 point coverage loss. The first pass read this as "no measured cost" and
-  that reading is withdrawn.
+  fragmentation, and level with `fusion_refit` on dual separation (one pair short of
+  mean-placed fusion). In the labeler's 2.6 m frame no cut in the sweep clears the bar: the
+  best fragmentation comes with a 3.2 to 3.5 point coverage loss. The first pass read this
+  as "no measured cost" and that reading is withdrawn. Note that read against mean-placed
+  fusion instead, the dual clause costs `ps @ 15 m` the server-frame verdict too — the
+  threshold conclusion is one pair away from not holding in either frame, which is another
+  reason to treat it as "measure it per city", not "set the constant".
 - Both frames still agree the grouping rule is sound and the remaining gap is positional
   scatter, which per-rig camera heights
   ([RampNet#158](https://github.com/ProjectSidewalk/RampNet/issues/158) step 2) attack

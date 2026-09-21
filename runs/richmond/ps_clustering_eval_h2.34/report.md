@@ -6,8 +6,12 @@ GT: 124 judged panos -> 260 placeable points -> 260 ramps (0 cross-pano merges),
 
 ## Data provenance
 
-- `raw_labels.geojson`: 9639 features, sha256 `17bde58ca3d678099195923781cf9846f5dc237dc1fd8e897417d4658087a058`, 2026-09-21T13:34:28+00:00, from https://sidewalk-richmond.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
-- `clusters.geojson`: 2156 features, sha256 `3f7ca04dfc67c32950f8a14150c54ff6c3cb2485b069c60b7554072e30641fd0`, 2026-09-21T13:34:28+00:00, from https://sidewalk-richmond.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
+- `raw_labels.geojson`: 9639 features, sha256 `17bde58ca3d678099195923781cf9846f5dc237dc1fd8e897417d4658087a058`, 2026-09-21T13:34:28+00:00 (0.0 days old at run time), from https://sidewalk-richmond.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
+- `clusters.geojson`: 2156 features, sha256 `3f7ca04dfc67c32950f8a14150c54ff6c3cb2485b069c60b7554072e30641fd0`, 2026-09-21T13:34:28+00:00 (0.0 days old at run time), from https://sidewalk-richmond.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
+- labels by account: 51b0b927-3c8a-45b2-93de-bd878d1e5cf4 (AI) 9526, 549187e0-82c9-4014-a48d-31f18083d575 81, 18b26a38-24ab-402d-a64e-158fc0bb8a8a 30, 61460b3e-712d-4732-9044-924c4c1fc221 2
+- 0 labels dropped before clustering (null lng or lng > 360), matching label_clustering.clean_label_data
+- 0 ambiguous pixel keys in results.jsonl (two stored detections round to one pixel; those keys are left unmapped)
+- 0 server labels share a pixel with another label and so map to the same stored detection (a re-submitted campaign does this)
 
 ## Validation checks
 
@@ -15,7 +19,7 @@ GT: 124 judged panos -> 260 placeable points -> 260 ramps (0 cross-pano merges),
 - vectorized PS distance reproduces the script: 2156/2156 clusters identical (0 labels differ)
 - every label that maps to a stored detection belongs to one account (51b0b927-3c8a-45b2-93de-bd878d1e5cf4); 0 of that account's labels did not map (should be 0)
 - fusion arm vs ps_* arms cover the same labels: 8098 fusion members vs 8098 placeable server labels; 0 of 8098 placeable operational detections have no label on the server (should be 0; they are excluded from the scatter below)
-- fusion_refit vs runs/richmond/fusion_eval/report.md: precision 0.959, recall (union) 0.942, dual 25/5/2
+- fusion_refit at 2.34122 m vs runs/richmond/fusion_eval/report.md (published in the 2.6 m frame): precision 0.959, recall (union) 0.942, dual 25/5/2 — a different frame, so the world-space figures are expected to differ; precision is the frame-free part
 - same-pano pairs inside one cluster (must be 0 under the cannot-link): 0 in every arm
 
 ## Arms (match radius 5 m, GT merge 2.5 m)
@@ -46,7 +50,7 @@ GT: 124 judged panos -> 260 placeable points -> 260 ramps (0 cross-pano merges),
 | fusion | 1514 | 1514 | 8098 | 5.35 | 0.959 (211/9) | 0.908 (236/260) | 8 | 0.938 | 210/34/16 | 0.08 (20) | 0.17 (41) | 26/3/3 | 1.71 / 4.32 / 12 |
 | fusion_refit | 1514 | 1514 | 8098 | 5.35 | 0.959 (211/9) | 0.908 (236/260) | 9 | 0.942 | 210/35/15 | 0.08 (20) | 0.17 (44) | 25/5/2 | 1.67 / 4.64 / 12 |
 
-**coverage** = pool GT ramps with a cluster of this arm within the match radius, matched one-to-one — the metric RQ2a asks for, and the only recall-shaped one that responds to the partition. **no cluster** = ramps counted as recalled by the union metric although no cluster is within the radius (`eval_sites`' `self_detected_without_site`). **recall (union)** = `eval_sites`' definition, which counts a self-detected ramp as recovered whether or not any cluster landed on it; 210 of Richmond's 253 pool ramps are self-detected, so it is nearly constant across arms and is kept only to tie back to `fusion_eval/report.md`. **frag** = share of covered GT ramps with at least one extra cluster within r that is not the one-to-one match of any GT ramp (total extras in parentheses). **coherence** = distance from a self-detected GT ramp to the centroid of the cluster holding that label.
+**coverage** = pool GT ramps with a cluster of this arm within the match radius, matched one-to-one — the metric RQ2a asks for, and the only recall-shaped one that responds to the partition. **no cluster** = ramps counted as recalled by the union metric although no cluster is within the radius (`eval_sites`' `self_detected_without_site`). **recall (union)** = `eval_sites`' definition, which counts a self-detected ramp as recovered whether or not any cluster landed on it; 210 of this run's 260 pool ramps are self-detected, so 81% of it is constant across arms and it is kept only to tie back to `fusion_eval/report.md`. **frag** = share of covered GT ramps with at least one extra cluster within r that is not the one-to-one match of any GT ramp (total extras in parentheses). **coherence** = distance from a self-detected GT ramp to the centroid of the cluster holding that label.
 
 ## Deployed clusters, descriptive
 

@@ -87,15 +87,21 @@ CITYWIDE_MAX_LABELS = 20000
 
 # ----------------------------------------------------------------------------- inputs
 
-def fetch(url, dest):
+def fetch(url, dest, refresh=False):
     """Download url to dest unless it is already there, and record its provenance.
 
     The deployed partition is regenerated whenever the server re-clusters, so a
-    cached pull has to say *when* it was taken. Written temp-then-rename, and a
-    body that is not a non-empty FeatureCollection is refused rather than cached
-    (a zero-feature 200 would otherwise score as "the city has no labels").
+    cached pull has to say *when* it was taken, and reusing one has to be visible:
+    a cache hit prints the pull's age, and --refresh re-pulls over it. Written
+    temp-then-rename, and a body that is not a non-empty FeatureCollection is
+    refused rather than cached (a zero-feature 200 would otherwise score as "the
+    city has no labels").
     """
-    if dest.exists():
+    if dest.exists() and not refresh:
+        age = pull_age_days(dest)
+        how_old = 'age unknown' if age is None else f'pulled {age:.1f} days ago'
+        print(f'reusing cached {dest.name} ({how_old}); --refresh re-pulls it',
+              file=sys.stderr)
         return
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(dest.name + '.part')
@@ -116,17 +122,38 @@ def fetch(url, dest):
                     .isoformat(timespec='seconds')}, indent=1), encoding='utf-8')
 
 
+def source_meta(path):
+    """The .source.json fetch record beside path, or {} when there is none."""
+    side = path.parent / (path.name + '.source.json')
+    if not side.exists():
+        return {}
+    try:
+        return json.loads(side.read_text(encoding='utf-8'))
+    except json.JSONDecodeError:
+        return {}
+
+
+def pull_age_days(path):
+    """How long ago this file was pulled, per its fetch record; None if unrecorded."""
+    when = source_meta(path).get('fetched_at')
+    if not when:
+        return None
+    try:
+        stamp = datetime.fromisoformat(when)
+    except ValueError:
+        return None
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - stamp).total_seconds() / 86400.0
+
+
 def provenance(path, n_features):
     """One report line per input file: where it came from, when, and its sha256."""
     h = hashlib.sha256(path.read_bytes()).hexdigest()
-    side = path.parent / (path.name + '.source.json')
-    meta = {}
-    if side.exists():
-        try:
-            meta = json.loads(side.read_text(encoding='utf-8'))
-        except json.JSONDecodeError:
-            meta = {}
-    when = meta.get('fetched_at') or (
+    meta = source_meta(path)
+    age = pull_age_days(path)
+    how_old = '' if age is None else f' ({age:.1f} days old at run time)'
+    when = (meta.get('fetched_at', '') + how_old) or (
         datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
         .isoformat(timespec='seconds') + ' (file mtime; not a recorded fetch)')
     where = meta.get('url') or '(supplied on the command line)'
@@ -172,12 +199,19 @@ def load_server_clusters(path):
 
 
 def label_to_detection(results_path, labels):
-    """({label_id: (pano_id, det_index)}, n_ambiguous_pixel_keys).
+    """({label_id: (pano_id, det_index)}, n_ambiguous_pixel_keys, n_duplicate_labels).
 
-    Keyed by pano id + the pixel rounding send_to_ps.py used. Two stored
-    detections that round to the same pixel make that key ambiguous: the key is
-    dropped (so no label is attributed to the wrong detection) and counted, rather
-    than aborting the whole evaluation.
+    Keyed by pano id + the pixel rounding send_to_ps.py used. Both directions can
+    be many-to-one and both are reported rather than collapsed silently:
+
+    - two stored *detections* that round to the same pixel make that key
+      ambiguous, so the key is dropped (no label is attributed to the wrong
+      detection) and counted;
+    - two *labels* at one pixel — a re-submitted campaign, which is what laurens
+      got on -test (SidewalkWebpage#5382) — both map to one detection. The
+      same-(user, pano) cannot-link then forces them into different clusters,
+      where they read as a fragment, so the `same_pano_pairs` tripwire cannot
+      catch them. The count is reported instead.
     """
     by_key, ambiguous = {}, set()
     with open(results_path, encoding='utf-8') as f:
@@ -200,7 +234,8 @@ def label_to_detection(results_path, labels):
         i = by_key.get((row.pano_id, row.pano_x, row.pano_y))
         if i is not None:
             mapping[row.label_id] = (row.pano_id, i)
-    return mapping, len(ambiguous)
+    n_duplicate_labels = len(mapping) - len(set(mapping.values()))
+    return mapping, len(ambiguous), n_duplicate_labels
 
 
 # --------------------------------------------------------------------------- clusters
@@ -504,19 +539,28 @@ TABLE_HEADER = (
     "| coherence med / p90 / >5 m |\n"
     "|---|---:|---:|---:|---:|---|---|---:|---|---|---|---|---|---|")
 
-TABLE_LEGEND = (
-    "**coverage** = pool GT ramps with a cluster of this arm within the match "
-    "radius, matched one-to-one — the metric RQ2a asks for, and the only "
-    "recall-shaped one that responds to the partition. **no cluster** = ramps "
-    "counted as recalled by the union metric although no cluster is within the "
-    "radius (`eval_sites`' `self_detected_without_site`). **recall (union)** = "
-    "`eval_sites`' definition, which counts a self-detected ramp as recovered "
-    "whether or not any cluster landed on it; 210 of Richmond's 253 pool ramps "
-    "are self-detected, so it is nearly constant across arms and is kept only to "
-    "tie back to `fusion_eval/report.md`. **frag** = share of covered GT ramps "
-    "with at least one extra cluster within r that is not the one-to-one match of "
-    "any GT ramp (total extras in parentheses). **coherence** = distance from a "
-    "self-detected GT ramp to the centroid of the cluster holding that label.")
+def table_legend(results):
+    """The legend under the arms table. The self-detected / pool counts are read
+    from this run (they are frame-dependent: Richmond is 210/253 at 2.6 m and
+    210/260 at 2.341 m), never hardcoded."""
+    any_arm = next(iter(results.values()))
+    n_self = any_arm['buckets']['self_detected']
+    n_pool = any_arm['n_pool']
+    share = f'{n_self / n_pool:.0%}' if n_pool else 'most'
+    return (
+        "**coverage** = pool GT ramps with a cluster of this arm within the match "
+        "radius, matched one-to-one — the metric RQ2a asks for, and the only "
+        "recall-shaped one that responds to the partition. **no cluster** = ramps "
+        "counted as recalled by the union metric although no cluster is within the "
+        "radius (`eval_sites`' `self_detected_without_site`). **recall (union)** = "
+        "`eval_sites`' definition, which counts a self-detected ramp as recovered "
+        f"whether or not any cluster landed on it; {n_self} of this run's {n_pool} "
+        f"pool ramps are self-detected, so {share} of it is constant across arms "
+        "and it is kept only to tie back to `fusion_eval/report.md`. **frag** = "
+        "share of covered GT ramps with at least one extra cluster within r that is "
+        "not the one-to-one match of any GT ramp (total extras in parentheses). "
+        "**coherence** = distance from a self-detected GT ramp to the centroid of "
+        "the cluster holding that label.")
 
 
 def csv_row(name, r):
@@ -555,11 +599,14 @@ def main():
                     help='output dir (default runs/<city>/ps_clustering_eval)')
     ap.add_argument('--server', default=None,
                     help='PS server URL; downloads the two geojson files if absent')
+    ap.add_argument('--refresh', action='store_true',
+                    help='with --server, re-pull the two geojson over the cached copies '
+                         '(the server re-clusters nightly, so a cached pull goes stale)')
     ap.add_argument('--labels', type=Path, default=None)
     ap.add_argument('--clusters', type=Path, default=None)
     ap.add_argument('--ps-script', type=Path, default=None,
                     help='SidewalkWebpage/scripts/label_clustering.py for the verbatim arm')
-    ap.add_argument('--thresholds-m', type=float, nargs='*',
+    ap.add_argument('--thresholds-m', type=float, nargs='+',
                     default=[2.5, 5.0, 7.5, 10.0, 12.5, 15.0])
     ap.add_argument('--match-radius-m', type=float, default=5.0)
     ap.add_argument('--radius-sweep', type=float, nargs='*', default=[2.5, 5.0, 7.5, 10.0])
@@ -583,13 +630,16 @@ def main():
     labels_path = args.labels or out / 'raw_labels.geojson'
     clusters_path = args.clusters or out / 'clusters.geojson'
     if args.server:
-        fetch(args.server.rstrip('/') + API_LABELS, labels_path)
-        fetch(args.server.rstrip('/') + API_CLUSTERS, clusters_path)
+        fetch(args.server.rstrip('/') + API_LABELS, labels_path, args.refresh)
+        fetch(args.server.rstrip('/') + API_CLUSTERS, clusters_path, args.refresh)
+    elif args.refresh:
+        raise SystemExit('--refresh needs --server (there is nothing to re-pull from)')
 
     labels, n_bad_lng = load_labels(labels_path)
     labels = labels[labels.label_type == 'CurbRamp'].reset_index(drop=True)
     server_clusters = load_server_clusters(clusters_path)
-    det_of, n_ambiguous = label_to_detection(run_dir / 'results.jsonl', labels)
+    det_of, n_ambiguous, n_dup_labels = label_to_detection(
+        run_dir / 'results.jsonl', labels)
     ai = labels[labels.label_id.isin(det_of)].reset_index(drop=True)
     # "AI label" is inferred from the pixel match; make sure that inference picks out
     # exactly one submitting account, otherwise a human label at the same pixel as a
@@ -601,6 +651,10 @@ def main():
                          'the pixel map cannot be read as "the AI user\'s labels"')
     ai_user = ai_users[0]
     unmapped_ai = int((labels.user_id.astype(str) == ai_user).sum()) - len(ai)
+    by_user = labels.user_id.astype(str).value_counts()
+    user_breakdown = ', '.join(
+        f'{u}{" (AI)" if u == ai_user else ""} {int(c)}'
+        for u, c in by_user.items())
     lines = [f'# {args.city}: PS label clustering vs RampNet GT',
              '',
              f'labels: {len(labels)} CurbRamp on the server, {len(ai)} map to stored '
@@ -757,33 +811,49 @@ def main():
     # ---- report
     lines += ['', '## Data provenance', '',
               provenance(labels_path, len(labels)),
-              provenance(clusters_path, len(server_clusters))]
-    if n_bad_lng:
-        lines.append(f'- {n_bad_lng} labels dropped before clustering (null lng or '
-                     'lng > 360), matching label_clustering.clean_label_data')
-    if n_ambiguous:
-        lines.append(f'- {n_ambiguous} pixel keys in results.jsonl were ambiguous (two '
-                     'stored detections round to the same pixel) and were left unmapped')
+              provenance(clusters_path, len(server_clusters)),
+              f'- labels by account: {user_breakdown}',
+              f'- {n_bad_lng} labels dropped before clustering (null lng or lng > 360), '
+              'matching label_clustering.clean_label_data',
+              f'- {n_ambiguous} ambiguous pixel keys in results.jsonl (two stored '
+              'detections round to one pixel; those keys are left unmapped)',
+              f'- {n_dup_labels} server labels share a pixel with another label and so '
+              'map to the same stored detection (a re-submitted campaign does this)']
 
     lines += ['', '## Validation checks', '']
     if not args.ps_script:
         checks.insert(0, 'ps_repro skipped (no --ps-script)')
     lines += [f'- {c}' for c in checks]
-    lines.append(f'- every label that maps to a stored detection belongs to one account '
-                 f'({ai_user}); {unmapped_ai} of that account\'s labels did not map '
-                 f'(should be 0)')
+
+    def check_line(text, ok):
+        return f'- {"" if ok else "warning: "}{text}'
+
+    lines.append(check_line(
+        'every label that maps to a stored detection belongs to one account '
+        f'({ai_user}); {unmapped_ai} of that account\'s labels did not map '
+        '(should be 0)', unmapped_ai == 0))
     ps_pl = results.get(f'ps_placeable @ {args.thresholds_m[0]:g} m')
-    lines.append(
-        '- fusion arm vs ps_* arms cover the same labels: '
+    lines.append(check_line(
+        'fusion arm vs ps_* arms cover the same labels: '
         f"{results['fusion']['n_labels']} fusion members vs "
         f"{ps_pl['n_labels'] if ps_pl else 'n/a'} placeable server labels; "
         f'{n_fusion_unsubmitted} of {n_fusion_members} placeable operational '
         'detections have no label on the server (should be 0; they are excluded '
-        'from the scatter below)')
+        'from the scatter below)',
+        n_fusion_unsubmitted == 0
+        and (ps_pl is None or ps_pl['n_labels'] == results['fusion']['n_labels'])))
     fr = results['fusion_refit']
-    lines.append(f"- fusion_refit vs runs/{args.city}/fusion_eval/report.md: precision "
-                 f"{fmt(fr['precision'])}, recall (union) {fmt(fr['recall'])}, dual "
-                 f"{fr['dual']['both']}/{fr['dual']['one']}/{fr['dual']['neither']}")
+    # The published fusion_eval numbers were produced in the labeler's default frame,
+    # so this only reproduces them when this run is scored at that height; at any other
+    # --camera-height-m the world-space columns are expected to differ.
+    same_frame = args.camera_height_m == geo.DEFAULT_CAMERA_HEIGHT_M
+    lines.append(
+        f"- fusion_refit at {args.camera_height_m:g} m vs runs/{args.city}/fusion_eval/"
+        f"report.md (published in the {geo.DEFAULT_CAMERA_HEIGHT_M:g} m frame): precision "
+        f"{fmt(fr['precision'])}, recall (union) {fmt(fr['recall'])}, dual "
+        f"{fr['dual']['both']}/{fr['dual']['one']}/{fr['dual']['neither']}"
+        + ('' if same_frame else ' — a different frame, so the world-space figures are '
+                                 'expected to differ; precision is the frame-free part'))
     bad = {k: v['same_pano_pairs'] for k, v in results.items() if v['same_pano_pairs']}
     lines.append('- same-pano pairs inside one cluster (must be 0 under the cannot-link): '
                  + (', '.join(f'{k} {v}' for k, v in bad.items()) if bad
@@ -791,7 +861,7 @@ def main():
     lines += ['', f'## Arms (match radius {args.match_radius_m:g} m, GT merge '
               f'{args.gt_merge_m:g} m)', '', TABLE_HEADER]
     lines += [row_line(k, v) for k, v in results.items()]
-    lines += ['', TABLE_LEGEND]
+    lines += ['', table_legend(results)]
     lines += ['', '## Deployed clusters, descriptive', '',
               '- cluster size histogram (labels -> clusters): '
               + ', '.join(f'{k}: {v}' for k, v in sorted(sizes.items())),

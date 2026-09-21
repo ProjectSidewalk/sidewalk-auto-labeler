@@ -106,7 +106,9 @@ python scripts/eval_sites.py paterson --vintage-ablation
 # (`pip install pandas scipy haversine`; the script says so if they are missing) —
 # deliberately not in requirements.txt, since this is an analysis tool, not the pipeline.
 # --ps-script points at SidewalkWebpage/scripts/label_clustering.py for the
-# verbatim-reproduction check. --camera-height-m sets the scoring frame (the server's own is
+# verbatim-reproduction check. The two API pulls are cached in the output dir and REUSED on
+# a re-run (the run prints how old they are) — pass --refresh to re-pull, since the server
+# re-clusters nightly. --camera-height-m sets the scoring frame (the server's own is
 # 2.341219672825709) and picks the default output dir, so the two frames never overwrite
 # each other. report.md/arms.csv are git-tracked like manifest.json; the two API geojson
 # are not, so the report records each pull's url, fetch time, sha256 and feature count.
