@@ -341,10 +341,16 @@ class PanoProjection:
 
 def ground_point_to_pano(pose, lat, lng, *,
                          camera_height=DEFAULT_CAMERA_HEIGHT_M,
-                         max_range_m=DEFAULT_MAX_RANGE_M):
+                         max_range_m=DEFAULT_MAX_RANGE_M,
+                         apply_pose=False):
     """Where a known ground point lands in a pano: the exact inverse of the flat
     path of detection_ground_point (apply_pose=False, which is what production
     fusion uses), or None where the forward function would have dropped it.
+
+    ``apply_pose`` exists only for parity with detection_ground_point, so a caller
+    that threads ``params.apply_pose`` through both cannot silently end up with a
+    forward and an inverse that disagree: the posed rotation is not inverted here,
+    and True raises. Production fusion runs apply_pose=False (see _world_ray).
 
     This is the projection a hard-positive miner needs (RampNet#102): a fused site
     at a known world position becomes a normalized (x, y) training target in a pano
@@ -363,6 +369,10 @@ def ground_point_to_pano(pose, lat, lng, *,
         >>> round(p.x_norm, 9), round(p.y_norm, 9)
         (0.4, 0.6)
     """
+    if apply_pose and pose.has_pitch_roll:
+        raise NotImplementedError(
+            'ground_point_to_pano inverts only the flat (gravity-rectified) path; '
+            'pass apply_pose=False, as production fusion does')
     e, n = LocalFrame(pose.lat, pose.lng).to_enu(lat, lng)
     d = math.hypot(e, n)
     if d > max_range_m or d < 1e-6:

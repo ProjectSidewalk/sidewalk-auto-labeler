@@ -1,4 +1,5 @@
 """geo.py: the shared geodesy the fusion pipeline builds on."""
+import doctest
 import math
 
 import pytest
@@ -76,6 +77,28 @@ def test_ground_point_to_pano_drops_what_the_forward_path_drops():
         .range_m == pytest.approx(40.0, abs=1e-6)
     # the camera's own footprint has no bearing
     assert geo.ground_point_to_pano(pose, pose.lat, pose.lng) is None
+
+
+def test_ground_point_to_pano_refuses_the_posed_path():
+    # parity with detection_ground_point's signature so a caller threading
+    # params.apply_pose through both cannot get a forward/inverse mismatch
+    posed = _flat_pose(heading=90.0, pitch=2.0, roll=-1.0)
+    assert posed.has_pitch_roll
+    g = geo.detection_ground_point(posed, 0.4, 0.6, apply_pose=False)
+    assert geo.ground_point_to_pano(posed, g.lat, g.lng, apply_pose=False) is not None
+    with pytest.raises(NotImplementedError):
+        geo.ground_point_to_pano(posed, g.lat, g.lng, apply_pose=True)
+    # a pose with no pitch/roll has nothing to apply, so it stays usable either way
+    flat = _flat_pose(heading=90.0)
+    assert geo.ground_point_to_pano(flat, g.lat, g.lng, apply_pose=True) is not None
+
+
+def test_geo_docstring_examples_run():
+    """geo.py's doctests are the only ones in the repo and pytest is not configured
+    with --doctest-modules, so run them here rather than let them rot."""
+    failures, tested = doctest.testmod(geo, verbose=False)
+    assert tested > 0
+    assert failures == 0
 
 
 def test_raycast_hand_computed_flat_case():
