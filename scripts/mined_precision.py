@@ -67,7 +67,7 @@ for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
-from detectors import OPERATIONAL_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
 
 BUCKETS = ('tp', 'fp', 'already_detected', 'unsure', 'false_det_nearby',
            'unadjudicable')
@@ -125,7 +125,7 @@ def judged_panos(verdict_panos, bundle_ops, run_by_id):
         if run_pano is None:
             continue
         ops = [(x, y, c) for _, x, y, c in run_pano.detections
-               if c >= OPERATIONAL_CONFIDENCE]
+               if c >= BENCHMARK_CONFIDENCE]
         if bundle_ops.get(pid) != ops or len(entry['dets']) != len(ops):
             continue
         if any(d is None for d in entry['dets']):
@@ -172,7 +172,7 @@ def gt_points_by_pano(verdict_panos, bundle_ops, run_by_id, params, frame):
                 by_pano[pid].append((kind, e, n))
 
         ops = [(x, y) for _, x, y, c in run_pano.detections
-               if c >= OPERATIONAL_CONFIDENCE]
+               if c >= BENCHMARK_CONFIDENCE]
         for verdict, (x, y) in zip(entry['dets'], ops):
             if verdict is False:
                 place(x, y, 'false_det')
@@ -275,7 +275,7 @@ def yield_all_panos(strong, run_panos, frame, radii_m):
                 if d <= r:
                     counts[r] += 1
     n_ops = sum(1 for p in run_panos for _, _, _, c in p.detections
-                if c >= OPERATIONAL_CONFIDENCE)
+                if c >= BENCHMARK_CONFIDENCE)
     return counts, n_ops
 
 
@@ -618,8 +618,11 @@ def main():
                      f'checkout (default {ap.get_default("benchmark_root")}); point '
                      f'--benchmark-root at it, and --runs-root at the runs, if '
                      f'either sits elsewhere (e.g. in a git worktree).')
-        params = fs.FuseParams() if heights is None else fs.FuseParams(
-            camera_height_m=heights[i] if len(heights) > 1 else heights[0])
+        # Fusion at the BENCHMARK threshold (the verdicts' tier), not the production one.
+        params = (fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE) if heights is None
+                  else fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE,
+                                     camera_height_m=heights[i] if len(heights) > 1
+                                     else heights[0]))
         try:
             result, cands = run_city(verdict_panos, bundle_ops, run_panos, params,
                                      radii_m=tuple(args.radius),

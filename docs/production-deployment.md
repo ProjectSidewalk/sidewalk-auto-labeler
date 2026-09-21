@@ -437,9 +437,30 @@ you three labels instead of thousands.
 
 On confidence: `results.jsonl` stores candidates down to the storage floor (0.10), not
 beliefs. You do **not** need to do anything about that — `--min-confidence` already
-defaults to `OPERATIONAL_CONFIDENCE` (0.55), so the commands above submit only operational
-detections. Records whose detections all fall below it still submit, as "checked, nothing
-found". Lowering the flag is the dangerous direction, not omitting it.
+defaults to `OPERATIONAL_CONFIDENCE` (0.30 since 2026-09-21, issue #20; 0.55 before), so
+the commands above submit only operational detections. Records whose detections all fall
+below it still submit, as "checked, nothing found". Lowering the flag is the dangerous
+direction, not omitting it.
+
+**A city that is already live at an older, higher threshold** does not get re-submitted:
+PS is insert-only, so that would double its labels. It gets the *band* the new threshold
+adds, on top of the campaign the record shows complete:
+
+```bash
+python send_to_ps.py runs/<city>/results.jsonl --endpoint <test>     --min-confidence 0.30 --max-confidence 0.55 --dry-run   # count what would ship
+python send_to_ps.py runs/<city>/results.jsonl --endpoint <test> --min-confidence 0.30 --max-confidence 0.55
+python send_to_ps.py runs/<city>/results.jsonl --endpoint <prod> --min-confidence 0.30 --max-confidence 0.55
+```
+
+The guard allows a band only when the record shows that endpoint complete at exactly
+`--max-confidence` on the unchanged file; progress lives in
+`<file>.band-0.3-0.55.submitted` (move it aside between test and prod exactly like the
+base sidecar), records with nothing in the band are marked done without a POST, and the
+record gains a `bands` entry per endpoint. If the run predates the storage floor (its
+manifest has no `detection_storage_floor`), there is no band stored: run
+`python scripts/reinfer.py runs/<city>` first (re-infers the run's own panos by id into
+`results.f01.jsonl`), then `--verify --band-floor 0.30`, and ship the band from that file
+only if it reports zero mismatches at 0.55.
 
 ---
 

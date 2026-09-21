@@ -57,7 +57,7 @@ from dotenv import load_dotenv
 load_dotenv(REPO_ROOT / ".env")
 
 import main as labeler
-from detectors import OPERATIONAL_CONFIDENCE
+from detectors import BENCHMARK_CONFIDENCE
 from sources import mapillary
 
 CAMERA_HEIGHT_M = 2.6      # typical roof-mounted 360 rig
@@ -78,7 +78,7 @@ def load_run(run_dir):
     # (detectors/__init__.py).
     for r in records:
         r['detections'] = [d for d in r['detections']
-                           if d['confidence'] >= OPERATIONAL_CONFIDENCE]
+                           if d['confidence'] >= BENCHMARK_CONFIDENCE]
     area = shape(json.loads((run_dir / "area.geojson").read_text()))
     return run_dir, records, area
 

@@ -42,7 +42,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
-from detectors import OPERATIONAL_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
 
 
 def wilson(k, n, z=1.96):
@@ -107,7 +107,7 @@ def judged_gt_panos(verdict_panos, bundle_ops, run_panos_by_id, counts, warnings
             counts['skipped'] += 1
             continue
         ops = [(i, x, y, c) for i, x, y, c in run_pano.detections
-               if c >= OPERATIONAL_CONFIDENCE]
+               if c >= BENCHMARK_CONFIDENCE]
         expected = bundle_ops.get(pid)
         if expected is None or [(x, y, c) for _, x, y, c in ops] != expected:
             warnings.append(f'{pid}: run detections drifted from the bundle')
@@ -288,7 +288,7 @@ def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
 
     # (d) stage-4 promotion calibration: support profiles k(f) for GT ramps not
     # recovered at the operational threshold, and the promotion curve.
-    has_subfloor = any(c < OPERATIONAL_CONFIDENCE
+    has_subfloor = any(c < BENCHMARK_CONFIDENCE
                        for p in run_panos for _, _, _, c in p.detections)
     calibration = None
     if has_subfloor:
@@ -582,7 +582,9 @@ def main():
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
     verdict_panos, bundle_ops, run_panos = load_city_files(
         args.city, args.benchmark_root, run_dir)
-    params = fs.FuseParams()
+    # Fusion at the BENCHMARK threshold, not the production operating point: the bundle's
+    # verdicts and the committed reports are keyed to it (detectors/__init__.py).
+    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE)
     prefused = fs.fuse(run_panos, params)
 
     result = evaluate_city(verdict_panos, bundle_ops, run_panos, params,

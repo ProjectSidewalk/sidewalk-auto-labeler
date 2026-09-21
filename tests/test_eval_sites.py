@@ -7,6 +7,7 @@ evaluate_city (fuse -> GT raycast -> merge -> match -> metrics).
 import geo
 import fuse_sites as fs
 import eval_sites as es
+from detectors import BENCHMARK_CONFIDENCE
 from test_fuse_sites import BASE, make_pano
 
 
@@ -24,7 +25,7 @@ def _entry(dets=(), missed=(), no_missed=True):
 
 
 def _bundle_ops(panos, gt_ids):
-    return {p.pano_id: [(x, y, c) for _, x, y, c in p.detections if c >= 0.55]
+    return {p.pano_id: [(x, y, c) for _, x, y, c in p.detections if c >= BENCHMARK_CONFIDENCE]
             for p in panos if p.pano_id in gt_ids}
 
 
@@ -49,7 +50,7 @@ def test_all_four_recall_buckets():
         'g4': _entry(missed=[_xy(90, -10, 0.0, 90, 0)], no_missed=False),
     }
     r = es.evaluate_city(verdicts, _bundle_ops(panos, verdicts), panos,
-                         fs.FuseParams())
+                         fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE))
     assert r['buckets'] == {'self_detected': 1, 'recovered_other_view': 1,
                             'subthreshold_only': 1, 'unmatched': 1}
     assert r['n_pool_ramps'] == 4
@@ -92,7 +93,7 @@ def test_dual_ramps_keep_separate_sites():
                                      _xy(0, -10, 0.0, 1.5, 0)],
                              no_missed=False)}
     r = es.evaluate_city(verdicts, _bundle_ops(panos, verdicts), panos,
-                         fs.FuseParams())
+                         fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE))
     assert r['dual_ramp'] == {'pairs': 1, 'both_matched': 1,
                               'one_matched': 0, 'neither': 0}
     assert r['buckets']['recovered_other_view'] == 2
@@ -106,7 +107,7 @@ def test_precision_duplicate_false_and_unsure_semantics():
                 'g2': _entry(dets=[False]),         # all-decided-false -> FP
                 'g3': _entry(dets=['unsure'])}      # abstains -> excluded
     r = es.evaluate_city(verdicts, _bundle_ops(panos, verdicts), panos,
-                         fs.FuseParams())
+                         fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE))
     p = r['precision']
     assert (p['tp'], p['fp'], p['unsure_only']) == (1, 1, 1)
     assert p['value'] == 0.5
@@ -127,7 +128,7 @@ def test_gt_merge_is_cross_pano_only():
                      no_missed=False),
     }
     r = es.evaluate_city(verdicts, _bundle_ops(panos, verdicts), panos,
-                         fs.FuseParams())
+                         fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE))
     assert r['counts']['gt_ramps'] == 3
     assert r['counts']['cross_pano_merges'] == 1
     assert r['buckets']['unmatched'] == 3
@@ -141,8 +142,8 @@ def test_verdicts_map_to_stored_indices_through_subfloor_interleaving():
     frame = geo.LocalFrame(*BASE)
     points, op_verdicts, counts, warnings = es.build_gt(
         {'p1': _entry(dets=[True, False])},
-        {'p1': [(x, y, c) for _, x, y, c in pano.detections if c >= 0.55]},
-        {'p1': pano}, fs.FuseParams(), frame)
+        {'p1': [(x, y, c) for _, x, y, c in pano.detections if c >= BENCHMARK_CONFIDENCE]},
+        {'p1': pano}, fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE), frame)
     assert op_verdicts == {('p1', 1): True, ('p1', 3): False}
     assert len(points) == 1 and points[0].kind == 'det'
     assert not warnings
@@ -152,7 +153,7 @@ def test_missed_check_gates_the_recall_pool_but_not_precision():
     panos = [make_pano('g1', 0, -10, [(0, 0, 0.9)])]
     verdicts = {'g1': _entry(dets=[True], missed=[], no_missed=False)}
     r = es.evaluate_city(verdicts, _bundle_ops(panos, verdicts), panos,
-                         fs.FuseParams())
+                         fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE))
     assert r['n_pool_ramps'] == 0          # unconfirmed missed-check: no recall
     assert r['precision']['tp'] == 1       # ...but the site verdict still counts
     assert r['counts']['no_pool'] == 1
@@ -162,7 +163,7 @@ def test_bundle_drift_skips_the_pano_with_a_warning():
     panos = [make_pano('g1', 0, -10, [(0, 0, 0.9)])]
     stale = {'g1': [(0.25, 0.6, 0.88)]}    # not what the run produced
     r = es.evaluate_city({'g1': _entry(dets=[True])}, stale, panos,
-                         fs.FuseParams())
+                         fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE))
     assert r['counts']['skipped'] == 1
     assert any('drifted' in w for w in r['warnings'])
     assert r['n_pool_ramps'] == 0

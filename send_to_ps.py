@@ -130,7 +130,8 @@ def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
     return pano
 
 
-def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_CONFIDENCE) -> Dict[str, Any]:
+def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_CONFIDENCE,
+                     max_confidence: Optional[float] = None) -> Dict[str, Any]:
     """
     Convert a main.py JSONL record into the payload expected by Project Sidewalk.
 
@@ -141,6 +142,11 @@ def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_C
     below the operational threshold (see detectors/__init__.py); a record whose
     detections all fall below min_confidence still submits with empty labels — it is a
     processed "checked, nothing found" pano, not a droppable one.
+
+    max_confidence (exclusive) selects a BAND instead: only detections with
+    min_confidence <= c < max_confidence. That is how a city already live at one
+    threshold receives the labels a lower one adds (issue #20): PS is insert-only, so
+    the labels the server already holds must not be sent again.
     """
     modified_data = data.copy()
     modified_data['pano'] = transform_pano(data['pano'])
@@ -149,7 +155,9 @@ def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_C
             "pano_x": round(detection['x_normalized'] * modified_data['pano']['width']),
             "pano_y": round(detection['y_normalized'] * modified_data['pano']['height']),
             "confidence": detection['confidence']
-        } for detection in data['detections'] if detection['confidence'] >= min_confidence
+        } for detection in data['detections']
+        if detection['confidence'] >= min_confidence
+        and (max_confidence is None or detection['confidence'] < max_confidence)
     ]
     modified_data.pop('detections', None)
     return modified_data
@@ -228,6 +236,21 @@ SUBMISSION_RECORD_SUFFIX = ".submission.json"
 def submission_record_path(file_path: str) -> Path:
     """Path of a campaign's submission record, beside the JSONL and its `.submitted` sidecar."""
     return Path(f"{file_path}{SUBMISSION_RECORD_SUFFIX}")
+
+
+def band_key(min_confidence: float, max_confidence: float) -> str:
+    """The name a band campaign goes by in the record and in its sidecar: '0.3-0.55'."""
+    return f"{min_confidence:g}-{max_confidence:g}"
+
+
+def sidecar_path_for(file_path: str, min_confidence: float,
+                     max_confidence: Optional[float]) -> Path:
+    """The resume sidecar: `<file>.submitted` for a whole-file campaign, or
+    `<file>.band-<min>-<max>.submitted` for a band campaign, so a band never touches the
+    line numbers the base campaign recorded."""
+    if max_confidence is None:
+        return Path(f"{file_path}.submitted")
+    return Path(f"{file_path}.band-{band_key(min_confidence, max_confidence)}.submitted")
 
 
 def hash_and_count(input_file: Path) -> tuple:
@@ -498,7 +521,7 @@ def load_submission_record(record_path: Path) -> Dict[str, Any]:
 def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set[int],
                        endpoint_url: str, min_confidence: float, input_file: Path,
                        record_path: Path, sidecar_path: Path, total_lines: int,
-                       total_bytes: int) -> Optional[str]:
+                       total_bytes: int, max_confidence: Optional[float] = None) -> Optional[str]:
     """
     Refuse to submit when the resume sidecar no longer describes this file and this endpoint.
 
@@ -516,6 +539,12 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
     case is proven byte-for-byte by append_check and returned as a note to print; every
     other difference still refuses.
 
+    A BAND campaign (max_confidence set, issue #20) is the one legitimate way to send a
+    second threshold to a server: it ships exactly the labels between the new threshold and
+    the one the server holds. So it is allowed only on top of a complete campaign at
+    exactly max_confidence, on the unchanged file, and it resumes from its own sidecar
+    (see check_band_state).
+
     Returns:
         A note to print when the file grew by a pure append, else None.
 
@@ -525,6 +554,10 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
             went to a different endpoint than the one being submitted to; or if this run's
             --min-confidence differs from the one this endpoint was submitted at.
     """
+    if max_confidence is not None:
+        check_band_state(record, digest, submitted_lines, endpoint_url, min_confidence,
+                         max_confidence, input_file, record_path, sidecar_path, total_lines)
+        return None
     if not record:
         return None
 
@@ -598,13 +631,84 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
     recorded_confidence = states.get(endpoint, {}).get('min_confidence')
     if recorded_confidence is not None and recorded_confidence != min_confidence:
         raise ValueError(
-            f"{record_path.name} says {endpoint} was submitted at --min-confidence "
+            f"{record_path.name} says {endpoint} holds labels down to --min-confidence "
             f"{recorded_confidence}, but this run uses {min_confidence}. One server should hold "
             f"one threshold's labels, and the record can only count at one. Use "
-            f"--min-confidence {recorded_confidence}. --ignore-submission-guard overrides."
+            f"--min-confidence {recorded_confidence}; to ADD the labels a lower threshold "
+            f"finds, send them as a band: --min-confidence {min_confidence} "
+            f"--max-confidence {recorded_confidence}. --ignore-submission-guard overrides."
         )
 
     return append_note
+
+
+def check_band_state(record: Dict[str, Any], digest: str, band_lines: Set[int],
+                     endpoint_url: str, min_confidence: float, max_confidence: float,
+                     input_file: Path, record_path: Path, sidecar_path: Path,
+                     total_lines: int) -> None:
+    """Refuse a band campaign that would not be exactly "the labels this server lacks".
+
+    The band [min, max) is only new to the server if the server holds everything at or above
+    max and nothing below it, and only indexes the right records if the file is the one the
+    base campaign was recorded against. The band's own sidecar is endpoint-agnostic like the
+    base one, so the same two lies apply to it (lost, or carried over from another server)
+    and are caught the same way from the per-endpoint band entry in the record.
+    """
+    if not min_confidence < max_confidence:
+        raise ValueError(f"--min-confidence {min_confidence} must be below --max-confidence "
+                         f"{max_confidence}: a band is [min, max).")
+    endpoint = canonical_endpoint(endpoint_url)
+    state = (record.get('endpoints') or {}).get(endpoint) if record else None
+    if not state:
+        raise ValueError(
+            f"{record_path.name} records no campaign to {endpoint}, so there is nothing for a "
+            f"band [{min_confidence}, {max_confidence}) to sit on top of. Submit the file "
+            f"normally (--min-confidence {min_confidence}, no --max-confidence) instead."
+        )
+    if record.get('sha256') != digest:
+        raise ValueError(
+            f"{input_file.name} is not the file {record_path.name} was recorded against "
+            f"(sha256 {digest[:12]}... != {str(record.get('sha256'))[:12]}...). A band re-reads "
+            f"the recorded lines, so it needs that exact file; if the file was gap-filled, "
+            f"submit the appended lines normally first."
+        )
+    recorded_lines = record.get('total_lines')
+    if state.get('submitted_lines', 0) < (recorded_lines if isinstance(recorded_lines, int)
+                                          else total_lines):
+        raise ValueError(
+            f"{endpoint} holds {state.get('submitted_lines', 0)} of {recorded_lines} lines of "
+            f"{input_file.name}; a band only makes sense on top of a COMPLETE campaign. Finish "
+            f"the base campaign first."
+        )
+    key = band_key(min_confidence, max_confidence)
+    bands = state.get('bands') or {}
+    held = state.get('min_confidence')
+    # A band that already completed moved the endpoint's threshold down to its floor; a
+    # re-run of that same band is an idempotent resume (nothing left to send), not a gap.
+    if held != max_confidence and not (key in bands and held == min_confidence):
+        raise ValueError(
+            f"{endpoint} holds labels down to --min-confidence {held}, so the band that adds "
+            f"the next tier is --max-confidence {held}, not {max_confidence}: anything else "
+            f"would re-send labels the server has (PS is insert-only) or leave a gap."
+        )
+    already = (bands.get(key) or {}).get('submitted_lines', 0)
+    if already > len(band_lines):
+        raise ValueError(
+            f"{record_path.name} says {already} line(s) of the {key} band already went to "
+            f"{endpoint}, but {sidecar_path.name} accounts for only {len(band_lines)}. The band "
+            f"sidecar is missing or truncated; submitting now would re-send band labels that "
+            f"are already live. Restore it first. --ignore-submission-guard overrides."
+        )
+    elsewhere = sorted(url for url, st in (record.get('endpoints') or {}).items()
+                       if url != endpoint and ((st.get('bands') or {}).get(key) or {})
+                       .get('submitted_lines'))
+    if len(band_lines) > already and elsewhere:
+        raise ValueError(
+            f"{sidecar_path.name} holds {len(band_lines)} line(s) but {record_path.name} says "
+            f"only {already} of the {key} band went to {endpoint}; the rest went to "
+            f"{', '.join(elsewhere)}. Move the band sidecar aside so this endpoint starts "
+            f"from line 1. --ignore-submission-guard overrides."
+        )
 
 
 def first_pano_source(input_file: Path) -> Optional[str]:
@@ -659,7 +763,8 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
     return check
 
 
-def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float) -> int:
+def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float,
+                 max_confidence: Optional[float] = None) -> int:
     """How many labels the given lines of the JSONL submit at `min_confidence`.
 
     Recounted from the file and the sidecar rather than accumulated in memory, so the record
@@ -671,14 +776,16 @@ def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float
     with open(input_file, 'r', encoding='utf-8') as f:
         for line_number, line in enumerate(f, 1):
             if line_number in line_numbers and line.strip():
-                labels += len(transform_record(json.loads(line), min_confidence)['labels'])
+                labels += len(transform_record(json.loads(line), min_confidence,
+                                               max_confidence)['labels'])
     return labels
 
 
 def write_submission_record(record_path: Path, input_file: Path, digest: str, total_lines: int,
                             total_bytes: int, submitted_lines: Set[int], endpoint_url: str,
                             min_confidence: float, previous: Dict[str, Any],
-                            check: Optional[Dict[str, Any]] = None) -> None:
+                            check: Optional[Dict[str, Any]] = None,
+                            max_confidence: Optional[float] = None) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
     One entry per endpoint - a campaign legitimately hits a test instance before prod, and
@@ -692,14 +799,40 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
     endpoint = canonical_endpoint(endpoint_url)
     states = dict(previous.get('endpoints') or {})
     state = dict(states.get(endpoint) or {})
-    state.update({
-        "submitted_lines": len(submitted_lines),
-        "labels_submitted": count_labels(input_file, submitted_lines, min_confidence),
-        "min_confidence": min_confidence,
-        "first_submission_utc": state.get('first_submission_utc', now),
-        "last_submission_utc": now,
-        "last_run_host": socket.gethostname(),
-    })
+    if max_confidence is not None:
+        # A band campaign (issue #20) on top of the base one: its own line count and label
+        # count under `bands`, recounted from ITS sidecar. Once it covers the whole file the
+        # server holds everything down to the band's floor, so the endpoint's threshold and
+        # label total move down with it - the base count is kept as recorded, since the base
+        # sidecar may legitimately have been moved aside since.
+        key = band_key(min_confidence, max_confidence)
+        bands = dict(state.get('bands') or {})
+        band = dict(bands.get(key) or {})
+        band_labels = count_labels(input_file, submitted_lines, min_confidence, max_confidence)
+        was_complete = band.get('submitted_lines', 0) >= total_lines
+        band.update({
+            "submitted_lines": len(submitted_lines),
+            "labels_submitted": band_labels,
+            "first_submission_utc": band.get('first_submission_utc', now),
+            "last_submission_utc": now,
+            "last_run_host": socket.gethostname(),
+        })
+        bands[key] = band
+        state["bands"] = bands
+        if len(submitted_lines) >= total_lines and not was_complete:
+            state["labels_submitted"] = state.get('labels_submitted', 0) + band_labels
+            state["min_confidence"] = min_confidence
+        state["last_submission_utc"] = now
+        state["last_run_host"] = socket.gethostname()
+    else:
+        state.update({
+            "submitted_lines": len(submitted_lines),
+            "labels_submitted": count_labels(input_file, submitted_lines, min_confidence),
+            "min_confidence": min_confidence,
+            "first_submission_utc": state.get('first_submission_utc', now),
+            "last_submission_utc": now,
+            "last_run_host": socket.gethostname(),
+        })
     if check is not None:  # the position verdict this campaign shipped under
         if check.get('overridden'):
             state["position_check"] = {"overridden": True, "reason": check.get('reason')}
@@ -736,6 +869,7 @@ def process_jsonl_file(
     limit: Optional[int] = None,
     ignore_guard: bool = False,
     ignore_position_check: bool = False,
+    max_confidence: Optional[float] = None,
 ) -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending
@@ -756,6 +890,10 @@ def process_jsonl_file(
             sidecar (see ``check_resume_state``).
         ignore_position_check: Submit a Mapillary file whose pano-position check is missing,
             stale or flagged (see ``check_position_state``).
+        max_confidence: Send a BAND, ``min_confidence <= c < max_confidence``, on top of a
+            complete campaign at exactly ``max_confidence`` (issue #20). Records with no band
+            label are not POSTed (the server already holds them as checked) but are marked
+            done in the band's own sidecar, ``<file>.band-<min>-<max>.submitted``.
     """
     input_file = Path(file_path)
 
@@ -767,8 +905,9 @@ def process_jsonl_file(
     # Fail before opening the file: a cleartext key leaks on the very first request.
     check_endpoint_security(endpoint_url, None if dry_run else api_key)
 
-    # Load resume state: line numbers that already got a 200 on a previous run.
-    sidecar_path = Path(f"{file_path}.submitted")
+    # Load resume state: line numbers that already got a 200 on a previous run (or, for a
+    # band campaign, lines already handled by that band - sent, or empty and skipped).
+    sidecar_path = sidecar_path_for(file_path, min_confidence, max_confidence)
     submitted_lines = load_submitted_lines(sidecar_path)
 
     # ...and check it still describes this file and this endpoint. A dry run POSTs nothing
@@ -784,7 +923,8 @@ def process_jsonl_file(
             previous_record = load_submission_record(record_path)
             append_note = check_resume_state(previous_record, digest, submitted_lines,
                                              endpoint_url, min_confidence, input_file,
-                                             record_path, sidecar_path, total_lines, total_bytes)
+                                             record_path, sidecar_path, total_lines, total_bytes,
+                                             max_confidence)
     except ValueError as e:
         if not ignore_guard:
             raise
@@ -805,6 +945,8 @@ def process_jsonl_file(
         position_state = {'overridden': True, 'reason': str(e)}
 
     success_count = 0
+
+    empty_band_count = 0
     error_count = 0
     skipped_count = 0
     filtered_detections = 0
@@ -849,8 +991,18 @@ def process_jsonl_file(
                 try:
                     # Parse a line of JSON and convert to the PS payload format.
                     json_data = json.loads(line)
-                    payload = transform_record(json_data, min_confidence)
+                    payload = transform_record(json_data, min_confidence, max_confidence)
                     filtered_detections += len(json_data.get('detections', [])) - len(payload['labels'])
+
+                    if max_confidence is not None and not payload['labels']:
+                        # Nothing in the band for this pano: the server already has it as
+                        # "checked", so no POST - but the band's sidecar still marks the
+                        # line handled, or the band could never be recorded as complete.
+                        empty_band_count += 1
+                        if not dry_run:
+                            f_sidecar.write(f"{line_number}\n")
+                            f_sidecar.flush()
+                        continue
 
                     if dry_run:
                         print(json.dumps(payload, indent=2))
@@ -889,10 +1041,11 @@ def process_jsonl_file(
     # and never after one that didn't: a run where every POST failed must not create a
     # record claiming an endpoint that took nothing.
     record_written = False
-    if not dry_run and success_count:
+    if not dry_run and (success_count or (max_confidence is not None and empty_band_count)):
         write_submission_record(record_path, input_file, digest, total_lines, total_bytes,
                                 load_submitted_lines(sidecar_path), endpoint_url,
-                                min_confidence, previous_record, position_state)
+                                min_confidence, previous_record, position_state,
+                                max_confidence)
         record_written = True
 
     # Print summary.
@@ -901,7 +1054,12 @@ def process_jsonl_file(
     print(f"Successfully processed:        {success_count} records")
     print(f"Skipped (already submitted):   {skipped_count} records")
     print(f"Errors encountered:            {error_count} records")
-    print(f"Detections below --min-confidence {min_confidence} (not submitted): {filtered_detections}")
+    if max_confidence is None:
+        print(f"Detections below --min-confidence {min_confidence} (not submitted): {filtered_detections}")
+    else:
+        print(f"Band [{min_confidence}, {max_confidence}): detections outside it (not submitted): "
+              f"{filtered_detections}; records with nothing in the band (not POSTed, marked "
+              f"done): {empty_band_count}")
     if record_written:
         print(f"Submission record:             {record_path.name}")
     if limit_reached:
@@ -982,10 +1140,22 @@ def main() -> None:
              "storage floor for multi-view fusion; records whose detections all fall below "
              "this still submit as 'checked, nothing found'."
     )
+    parser.add_argument(
+        "--max-confidence", type=float, default=None,
+        help="Submit only the BAND --min-confidence <= confidence < this value, on top of a "
+             "campaign already complete at exactly this threshold (issue #20: the operating "
+             "point moved from 0.55 to 0.30, and PS is insert-only, so a live city gets the "
+             "new labels as `--min-confidence 0.30 --max-confidence 0.55`). Records with "
+             "nothing in the band are not POSTed. Progress lives in "
+             "<file>.band-<min>-<max>.submitted; the record gains a `bands` entry per endpoint."
+    )
     args = parser.parse_args()
 
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be at least 1.")
+    if args.max_confidence is not None and not args.min_confidence < args.max_confidence:
+        parser.error(f"--min-confidence {args.min_confidence} must be below --max-confidence "
+                     f"{args.max_confidence}.")
 
     if args.prefix_digest is not None:
         if args.prefix_digest < 1:
@@ -1010,7 +1180,7 @@ def main() -> None:
     try:
         process_jsonl_file(args.jsonl_file, args.endpoint, api_key, args.dry_run,
                            args.min_confidence, args.limit, args.ignore_submission_guard,
-                           args.ignore_position_check)
+                           args.ignore_position_check, args.max_confidence)
     except ValueError as e:
         raise SystemExit(f"Error: {e}")
 

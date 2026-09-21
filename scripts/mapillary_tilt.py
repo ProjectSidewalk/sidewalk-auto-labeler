@@ -68,7 +68,7 @@ for p in (str(REPO_ROOT / 'scripts'), str(REPO_ROOT)):
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
-from detectors import OPERATIONAL_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
 
 # Benchmark split name -> run directory name, where they differ.
 BENCHMARK_OF = {'laurens': 'laurens_mapillary'}
@@ -217,7 +217,7 @@ def load_run(city, floor=None):
                 'computed_altitude': sm.get('computed_altitude'),
                 'lat': p['lat'], 'lng': p['lng'],
                 'n_operational': sum(1 for d in rec.get('detections', [])
-                                     if d['confidence'] >= OPERATIONAL_CONFIDENCE),
+                                     if d['confidence'] >= BENCHMARK_CONFIDENCE),
             })
             poses[p['panorama_id']] = pose
             panos.append(fs.SlimPano(
@@ -451,7 +451,7 @@ def cmd_stats(args):
 def cmd_displacement(args):
     rows_all = []
     for city in args.cities:
-        panos, poses, _ = load_run(city, floor=OPERATIONAL_CONFIDENCE)
+        panos, poses, _ = load_run(city, floor=BENCHMARK_CONFIDENCE)
         rows = []
         for p in panos:
             pose = poses[p.pano_id]

@@ -157,7 +157,7 @@ def test_write_bundle_records_applies_operational_threshold(tmp_path):
                                            empty_sample=5, seed=0, min_spacing=0)
     rows = {json.loads(l)["pano"]["panorama_id"]: json.loads(l)
             for l in records_path.read_text(encoding="utf-8").splitlines()}
-    assert all(d["confidence"] >= eb.OPERATIONAL_CONFIDENCE
+    assert all(d["confidence"] >= eb.BENCHMARK_CONFIDENCE
                for r in rows.values() for d in r["detections"])
     assert rows["WEAK"]["benchmark_group"] == "empty"
     assert rows["MIX"]["benchmark_group"] in ("top", "random")

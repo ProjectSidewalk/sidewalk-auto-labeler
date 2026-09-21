@@ -318,11 +318,27 @@ down to the **storage floor** (`DETECTION_STORAGE_FLOOR=0.1`, top-50 per pano), 
 decision threshold. The two-threshold contract lives in `detectors/__init__.py` (torch-free,
 importable everywhere): results.jsonl deliberately stores sub-threshold candidates as raw
 material for multi-view fusion (#27), and everything that *acts* on detections filters at
-`OPERATIONAL_CONFIDENCE=0.55` — `send_to_ps.py --min-confidence`, `export_benchmark.py`'s
-strata + bundle records, `thinning_experiment.py`'s ramp sites, `fuse_sites.py`'s
+`OPERATIONAL_CONFIDENCE=0.30` (issue #20, adopted 2026-09-21 from RampNet's threshold sweep:
++7.4 recall for -4.5 precision, recall-first because a false positive is cheap to validate
+and a false negative is never seen again) — `send_to_ps.py --min-confidence`, `fuse_sites.py`'s
 operational tier (which deliberately also associates the sub-floor band, flagged
-`in_refit: false` — the one sanctioned sub-floor consumer). Detections are returned as
-**normalized** `(x, y, confidence)` tuples in `[0, 1]`.
+`in_refit: false` — the one sanctioned sub-floor consumer), `position_check.py`. The
+**benchmark contract is a separate constant**, `BENCHMARK_CONFIDENCE=0.55`: every judged
+RampNet bundle was exported and reviewed at 0.55, so anything that joins a run to a bundle
+(`eval_sites.py`/`mined_precision.py`'s drift gate, `export_benchmark.py`'s strata,
+`mapillary_tilt.py`, `thinning_experiment.py`) filters there, never at the policy value —
+moving the operating point must not silently re-key nine cities of ground truth. Detections
+are returned as **normalized** `(x, y, confidence)` tuples in `[0, 1]`.
+
+A city that went live at the old threshold gets the new labels as a **band**:
+`send_to_ps.py <file> --min-confidence 0.30 --max-confidence 0.55` ships exactly
+`0.30 <= c < 0.55`, only on top of a campaign the record shows complete at 0.55 on the
+unchanged file, from its own sidecar (`<file>.band-0.3-0.55.submitted`), skipping records
+with nothing in the band (the server already holds them as checked); the record gains
+`bands` per endpoint and the endpoint's `min_confidence` drops once the band covers the
+file. Runs from before the storage floor hold no band at all — `scripts/reinfer.py
+runs/<name>` re-infers the run's own panos by id into `results.f01.jsonl`, and its
+`--verify` must report zero mismatches at 0.55 before that file's band is shipped.
 
 **Multi-view fusion (`geo.py`, `scripts/fuse_sites.py`, `scripts/eval_sites.py`)** —
 issue #27 stages 2–3, a post-processing layer between detection and submission.

@@ -82,7 +82,7 @@ def test_dual_ramp_association_is_best_match_not_first_match():
 
 def test_subthreshold_support_never_moves_an_operational_site():
     panos = [make_pano('p1', 0, -10, [(0, 0, 0.9)]),
-             make_pano('p2', 10, 0, [(0.5, 0, 0.3)])]  # sub-threshold, 0.5 m off
+             make_pano('p2', 10, 0, [(0.5, 0, 0.2)])]  # sub-threshold, 0.5 m off
     sites, frame, _ = fs.fuse(panos, fs.FuseParams())
     assert len(sites) == 1
     site = sites[0]
@@ -95,8 +95,8 @@ def test_subthreshold_support_never_moves_an_operational_site():
 
 
 def test_wholly_subthreshold_detections_form_their_own_refitting_sites():
-    panos = [make_pano('p1', 0, -10, [(0, 0, 0.3)]),
-             make_pano('p2', 0, 10, [(0, 0, 0.25)])]
+    panos = [make_pano('p1', 0, -10, [(0, 0, 0.2)]),
+             make_pano('p2', 0, 10, [(0, 0, 0.15)])]
     sites, _, _ = fs.fuse(panos, fs.FuseParams())
     assert len(sites) == 1
     site = sites[0]

@@ -29,8 +29,9 @@ into Project Sidewalk.*
 ## How it works
 
 The model takes a 2048×4096 RGB panorama and outputs a **heatmap** of curb-ramp likelihood.
-Local-maximum peak detection (threshold 0.55) turns the heatmap into a list of discrete
-`(x, y, confidence)` detections, normalized to `[0, 1]`.
+Local-maximum peak detection turns the heatmap into a list of discrete `(x, y, confidence)`
+detections, normalized to `[0, 1]`, stored down to a 0.10 floor and submitted at the 0.30
+operating point (`detectors/__init__.py`).
 
 ```
 GeoJSON area

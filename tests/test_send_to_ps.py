@@ -930,3 +930,153 @@ def test_position_gate_ignores_non_mapillary_files(tmp_path, monkeypatch):
     sent = _capture_posts(monkeypatch)
     send_to_ps.process_jsonl_file(str(path), PROD)
     assert len(sent) == 2
+
+
+# --- Band campaigns (issue #20: a live city gets the labels a lower threshold adds) --------
+
+def _banded_jsonl(tmp_path, count):
+    """Every record has one 0.9 label; odd records also carry one in [0.3, 0.55)."""
+    path = tmp_path / "results.jsonl"
+    lines = []
+    for i in range(1, count + 1):
+        dets = [{"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.9}]
+        if i % 2:
+            dets.append({"x_normalized": 0.2, "y_normalized": 0.6, "confidence": 0.4})
+        dets.append({"x_normalized": 0.1, "y_normalized": 0.1, "confidence": 0.2})  # sub-band
+        lines.append(json.dumps(_record(dets, pano_id=f"PID{i}")) + "\n")
+    path.write_text("".join(lines))
+    return path
+
+
+def test_transform_record_band_is_half_open():
+    payload = send_to_ps.transform_record(_record([
+        {"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.55},   # excluded: == max
+        {"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.549},
+        {"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.3},    # included: == min
+        {"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.29},
+    ]), min_confidence=0.3, max_confidence=0.55)
+    assert [l["confidence"] for l in payload["labels"]] == [0.549, 0.3]
+
+
+def test_band_ships_only_the_new_labels_and_skips_empty_records(tmp_path, monkeypatch):
+    """After a complete 0.55 campaign, the 0.3-0.55 band POSTs exactly the band labels,
+    for exactly the records that have one, from its own sidecar, and the record says so."""
+    path = _banded_jsonl(tmp_path, 6)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    assert len(sent) == 6
+    del sent[:]
+
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert [p["pano"]["pano_id"] for p in sent] == ["PID1", "PID3", "PID5"]
+    assert all([l["confidence"] for l in p["labels"]] == [0.4] for p in sent)
+    # The band's sidecar marks every line handled, POSTed or not; the base one is untouched.
+    band_sidecar = tmp_path / "results.jsonl.band-0.3-0.55.submitted"
+    assert send_to_ps.load_submitted_lines(band_sidecar) == set(range(1, 7))
+    assert _sidecar(tmp_path) == set(range(1, 7))
+
+    state = _read_record(tmp_path)["endpoints"][PROD]
+    assert state["bands"]["0.3-0.55"]["submitted_lines"] == 6
+    assert state["bands"]["0.3-0.55"]["labels_submitted"] == 3
+    assert state["min_confidence"] == 0.3            # the server now holds down to 0.3
+    assert state["labels_submitted"] == 6 + 3
+    assert state["submitted_lines"] == 6             # the base campaign's count is kept
+
+    # Re-running the band sends nothing more.
+    del sent[:]
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert sent == []
+
+
+def test_band_resumes_from_its_own_sidecar(tmp_path, monkeypatch):
+    path = _banded_jsonl(tmp_path, 6)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    del sent[:]
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55,
+                                  limit=3)                      # lines 1-3: PID1, PID3 POSTed
+    assert [p["pano"]["pano_id"] for p in sent] == ["PID1", "PID3"]
+    state = _read_record(tmp_path)["endpoints"][PROD]
+    assert state["bands"]["0.3-0.55"]["submitted_lines"] == 3
+    assert state["min_confidence"] == 0.55           # not complete yet: server still at 0.55
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert [p["pano"]["pano_id"] for p in sent] == ["PID1", "PID3", "PID5"]
+    assert _read_record(tmp_path)["endpoints"][PROD]["min_confidence"] == 0.3
+
+
+@pytest.mark.parametrize("setup, message", [
+    ("none", "records no campaign"),
+    ("incomplete", "COMPLETE campaign"),
+    ("wrong_max", "--max-confidence 0.55, not 0.5"),
+    ("changed_file", "is not the file"),
+])
+def test_band_refusals(tmp_path, monkeypatch, setup, message):
+    """A band is allowed only on top of a complete campaign at exactly --max-confidence,
+    on the unchanged file; anything else would double labels or leave a gap."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    max_conf = 0.55
+    if setup == "incomplete":
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55, limit=2)
+    elif setup in ("wrong_max", "changed_file"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+        if setup == "wrong_max":
+            max_conf = 0.5
+        else:
+            with open(path, "a") as f:
+                f.write(json.dumps(_record([], pano_id="PID9")) + "\n")
+    del sent[:]
+    with pytest.raises(ValueError, match=message):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3,
+                                      max_confidence=max_conf)
+    assert sent == []
+
+
+def test_band_sidecar_from_another_endpoint_is_refused(tmp_path, monkeypatch):
+    """Test then prod: the band sidecar is endpoint-agnostic like the base one, so the
+    prod band must start from its own sidecar, not skip the lines test took."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    for url in (TEST, PROD):
+        send_to_ps.process_jsonl_file(str(path), url, min_confidence=0.55)
+        (tmp_path / "results.jsonl.submitted").unlink()
+    send_to_ps.process_jsonl_file(str(path), TEST, min_confidence=0.3, max_confidence=0.55)
+    del sent[:]
+    with pytest.raises(ValueError, match="Move the band sidecar aside"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert sent == []
+    (tmp_path / "results.jsonl.band-0.3-0.55.submitted").unlink()
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert [p["pano"]["pano_id"] for p in sent] == ["PID1", "PID3"]
+    record = _read_record(tmp_path)
+    assert record["endpoints"][TEST]["min_confidence"] == 0.3
+    assert record["endpoints"][PROD]["min_confidence"] == 0.3
+
+
+def test_base_resume_after_a_band_names_the_band_route(tmp_path, monkeypatch):
+    """Once a server holds 0.3, a plain run at 0.55 is refused with the band hint, and a
+    plain run at 0.3 with the base sidecar gone is caught as a lost sidecar."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    del sent[:]
+    with pytest.raises(ValueError, match="--max-confidence 0.3"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    (tmp_path / "results.jsonl.submitted").unlink()
+    with pytest.raises(ValueError, match="accounts for only 0"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3)
+    assert sent == []
+
+
+def test_band_dry_run_prints_only_band_payloads_and_records_nothing(tmp_path, monkeypatch, capsys):
+    path = _banded_jsonl(tmp_path, 4)
+    _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    before = (tmp_path / "results.jsonl.submission.json").read_text()
+    send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True, min_confidence=0.3,
+                                  max_confidence=0.55)
+    out = capsys.readouterr().out
+    assert out.count('"pano_id"') == 2
+    assert not (tmp_path / "results.jsonl.band-0.3-0.55.submitted").exists()
+    assert (tmp_path / "results.jsonl.submission.json").read_text() == before
