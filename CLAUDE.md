@@ -189,7 +189,9 @@ from retryable `failure` (left uncached).
   Richmond: 35k → 9k). The
   center column of a Mapillary equirectangular is the camera's compass bearing (same
   convention as GSV and as PS's panoX→heading math), so images are never rotated;
-  `computed_compass_angle` becomes `camera_heading`, pitch/roll stay null.
+  `computed_compass_angle` becomes `camera_heading`, pitch/roll stay null. `copyright` is
+  the contributor's bare username (see the attribution note below); the constant CC BY-SA
+  4.0 licence rides in the record's own `license` field.
 - **panoramax**: the federated open imagery commons (IGN + OSM France; CC BY-SA / Etalab),
   no token. z15 vector tiles from the federation catalog (`pictures` layer carries `type`,
   so 360-filtering happens during enumeration), then one STAC item request per picture
@@ -199,7 +201,8 @@ from retryable `failure` (left uncached).
   pixel-density tiebreak). `PANORAMAX_API_URL` targets one instance instead of the
   federation, and `prepare()` probes that root's STAC landing page so a mistyped one fails
   fast (the tile endpoint answers 204 for an empty tile and 404 for a bad path, so a wrong
-  root would otherwise read as a legitimate zero-coverage scan). Records carry `license` and `panoramax_instance`; `source_metadata` is the
+  root would otherwise read as a legitimate zero-coverage scan). Records carry `license` and `panoramax_instance`, and `copyright` is the
+  producer's bare name (see the attribution note below); `source_metadata` is the
   STAC properties (EXIF included) minus the viewer's tile descriptors.
 
 Concurrency uses plain OS threads (`concurrent.futures.ThreadPoolExecutor`) — **not gevent**.
@@ -357,3 +360,13 @@ whichever endpoint runs next, so backfill the record by hand first.
   write.
 - Indoor panoramas (sources `innerspace`, `cultural_institute`, `photos:legacy_innerspace`)
   are skipped.
+- `pano.copyright` is an **attribution ingredient, not a rendered attribution** (issue #61,
+  SidewalkWebpage#5360). For Mapillary and Panoramax it is the contributor's *bare* name
+  (creator username / `geovisio:producer`), `null` when the source names nobody — PS's
+  `ImageryAttribution` composes the ©, the provider (from `source`) and the licence around
+  it wherever it shows its own copy of the imagery, so wrapping them in here rendered a
+  doubled credit on every crop. PS renders the licence from `license` for Panoramax, whose
+  instances differ, and from `source` for Mapillary, which is uniformly CC BY-SA 4.0 — the
+  Mapillary `license` key is kept as record provenance. GSV is the exception: streetlevel's
+  `copyright_message` (`© 2025 Google`) is the provider's own string, stored and shown
+  verbatim.
