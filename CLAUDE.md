@@ -363,8 +363,10 @@ whichever endpoint runs next, so backfill the record by hand first.
 - `pano.copyright` is an **attribution ingredient, not a rendered attribution** (issue #61,
   SidewalkWebpage#5360). For Mapillary and Panoramax it is the contributor's *bare* name
   (creator username / `geovisio:producer`), `null` when the source names nobody — PS's
-  `ImageryAttribution` composes the ©, the provider (from `source`) and the licence (from
-  `license`) around it wherever it shows its own copy of the imagery, so wrapping them in
-  here rendered a doubled credit on every crop. GSV is the exception: streetlevel's
+  `ImageryAttribution` composes the ©, the provider (from `source`) and the licence around
+  it wherever it shows its own copy of the imagery, so wrapping them in here rendered a
+  doubled credit on every crop. PS renders the licence from `license` for Panoramax, whose
+  instances differ, and from `source` for Mapillary, which is uniformly CC BY-SA 4.0 — the
+  Mapillary `license` key is kept as record provenance. GSV is the exception: streetlevel's
   `copyright_message` (`© 2025 Google`) is the provider's own string, stored and shown
   verbatim.

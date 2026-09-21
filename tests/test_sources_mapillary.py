@@ -144,10 +144,16 @@ def test_fetch_pano_success_record_contract(monkeypatch):
     assert "thumb_original_url" not in sm
 
 
-def test_fetch_pano_copyright_is_none_without_a_creator(monkeypatch):
-    # No name to credit: leave it null rather than inventing one, so PS credits
-    # Mapillary itself under the licence. The licence stays in its own field.
-    _patch_fetch(monkeypatch, make_meta(creator=None))
+@pytest.mark.parametrize("creator", [
+    None,                              # Graph API omits the field entirely
+    {"id": "42"},                      # ...or returns the object without a username
+    {"username": "", "id": "42"},      # ...or a blank one (deleted/renamed account)
+    {"username": "   ", "id": "42"},
+])
+def test_fetch_pano_copyright_is_none_without_a_creator(monkeypatch, creator):
+    # No name to credit: leave it null rather than storing a blank credit, so PS credits
+    # Mapillary itself. The licence stays in its own field either way.
+    _patch_fetch(monkeypatch, make_meta(creator=creator))
     pano = mapillary.fetch_pano("123456", 0.0, 0.0)["pano"]
     assert pano["copyright"] is None
     assert pano["license"] == "CC-BY-SA-4.0"

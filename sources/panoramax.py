@@ -340,8 +340,14 @@ def build_pano_record(pano_id, lat, lon, item, width, height):
     if coordinates:  # the item's position when available; tile position otherwise
         lon, lat = coordinates[0], coordinates[1]
     captured = props['datetime']  # RFC 3339; the year-month prefix is all PS stores
+    # STAC lets an item name several providers, and instances routinely list themselves
+    # as the `host` alongside the contributor — so when `geovisio:producer` is absent,
+    # take the entry that declares the producer role before the first merely-named one,
+    # or the credit becomes whoever happens to be listed first.
+    named = [p for p in item.get('providers') or [] if p.get('name')]
     producer = props.get('geovisio:producer') or next(
-        (p.get('name') for p in item.get('providers') or [] if p.get('name')), None)
+        (p['name'] for p in named if 'producer' in (p.get('roles') or [])),
+        next((p['name'] for p in named), None))
     license_id = props.get('license') or 'CC-BY-SA-4.0'
     return {
         "panorama_id": pano_id,

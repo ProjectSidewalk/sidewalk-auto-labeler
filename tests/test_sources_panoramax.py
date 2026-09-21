@@ -168,6 +168,16 @@ def test_fetch_pano_falls_back_to_tile_position_and_provider_name(monkeypatch):
     assert pano["copyright"] == "Arretche"
 
 
+def test_fetch_pano_credits_the_producer_not_the_hosting_instance(monkeypatch):
+    # Instances routinely list themselves as the `host` provider, often first. The bare
+    # name IS the credit now, so the entry declaring the producer role has to win.
+    _patch_fetch(monkeypatch, make_item(**{
+        "properties.geovisio:producer": None,
+        "providers": [{"name": "Panoramax France", "roles": ["host", "licensor"]},
+                      {"name": "Arretche", "roles": ["producer"]}]}))
+    assert panoramax.fetch_pano("x", 0.0, 0.0)["pano"]["copyright"] == "Arretche"
+
+
 def test_fetch_pano_copyright_is_none_without_a_producer(monkeypatch):
     # Nobody named to credit: leave it null rather than inventing a provider string.
     # The licence keeps its own field and the provider follows from `source`.
