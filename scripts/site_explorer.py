@@ -55,6 +55,9 @@ DEFAULT_REMOTE_HOME = '/homes/gws/jonf'
 PANO_URL = {
     'gsv': 'https://www.google.com/maps/@?api=1&map_action=pano&pano_id={id}',
     'mapillary': 'https://www.mapillary.com/app/?pKey={id}&focus=photo',
+    # The federation viewer resolves any member instance's picture id, so one template
+    # covers every Panoramax run regardless of which instance holds the picture.
+    'panoramax': 'https://api.panoramax.xyz/#focus=pic&pic={id}',
 }
 
 
@@ -733,7 +736,10 @@ def main():
     params = fs.FuseParams()
     sites, frame, stats = fs.fuse(run_panos, params)
     source = run_panos[0].source if run_panos else 'gsv'
-    source = 'mapillary' if 'mapillary' in source.lower() else 'gsv'
+    # Records store either a source name or, for legacy GSV runs, streetlevel's raw
+    # source string ("launch", "scout", ...) — so match the known names and let anything
+    # else fall back to GSV, the way send_to_ps.transform_pano reads the same field.
+    source = next((name for name in PANO_URL if name in source.lower()), 'gsv')
 
     op_verdicts, gt_points = {}, []
     bench = args.benchmark_root / args.city
