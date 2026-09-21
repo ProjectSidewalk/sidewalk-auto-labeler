@@ -88,17 +88,17 @@ class GTRamp:
         return any(p.in_pool for p in self.points)
 
 
-def build_gt(verdict_panos, bundle_ops, run_panos_by_id, params, frame):
-    """World GT points + the (pano_id, stored_index) -> verdict map.
+def judged_gt_panos(verdict_panos, bundle_ops, run_panos_by_id, counts, warnings):
+    """Yield (pano_id, entry, run_pano, ops, in_pool) for every GT pano whose
+    verdicts can be trusted against the run, updating counts/warnings in place.
 
-    Returns (points, op_verdicts, counts, warnings). Panos are skipped (with a
-    warning, mirroring rampnet.validation's skip-and-warn) when they are missing
-    from the run or their operational detections drifted from the frozen bundle.
+    This is the guard, split out so consumers that need the reviewer's PIXEL marks
+    rather than world points (scripts/mapillary_tilt.py's horizon test) apply the
+    same skip rules: a pano is dropped when it is missing from the run, when its
+    operational detections drifted from the frozen bundle, or when the verdict list
+    does not line up with them — the three ways a verdict can end up attached to a
+    detection the reviewer never saw.
     """
-    points, op_verdicts, warnings = [], {}, []
-    counts = {'gt_panos': len(verdict_panos), 'judged': 0, 'partial': 0,
-              'skipped': 0, 'no_pool': 0, 'unplaceable': 0, 'placeable': 0,
-              'unsure_missed': 0}
     for pid in sorted(verdict_panos):
         entry = verdict_panos[pid]
         run_pano = run_panos_by_id.get(pid)
@@ -125,7 +125,26 @@ def build_gt(verdict_panos, bundle_ops, run_panos_by_id, params, frame):
             if 'no_missed' in entry else True
         if not in_pool:
             counts['no_pool'] += 1
+        yield pid, entry, run_pano, ops, in_pool
 
+
+def gt_counts():
+    return {'gt_panos': 0, 'judged': 0, 'partial': 0, 'skipped': 0, 'no_pool': 0,
+            'unplaceable': 0, 'placeable': 0, 'unsure_missed': 0}
+
+
+def build_gt(verdict_panos, bundle_ops, run_panos_by_id, params, frame):
+    """World GT points + the (pano_id, stored_index) -> verdict map.
+
+    Returns (points, op_verdicts, counts, warnings). Panos are skipped (with a
+    warning, mirroring rampnet.validation's skip-and-warn) when they are missing
+    from the run or their operational detections drifted from the frozen bundle.
+    """
+    points, op_verdicts, warnings = [], {}, []
+    counts = gt_counts()
+    counts['gt_panos'] = len(verdict_panos)
+    for pid, entry, run_pano, ops, in_pool in judged_gt_panos(
+            verdict_panos, bundle_ops, run_panos_by_id, counts, warnings):
         pose = geo.pano_pose({'lat': run_pano.lat, 'lng': run_pano.lng,
                               'camera_heading': run_pano.camera_heading,
                               'camera_pitch': run_pano.camera_pitch,
