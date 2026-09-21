@@ -431,7 +431,9 @@ you three labels instead of thousands.
 > ```
 >
 > If the `sha256` it prints is the one in the record, the submitted region is intact: add the
-> `total_bytes` it prints to the record and re-run normally.
+> `total_bytes` it prints to the record and re-run normally. It prints a second pair when the
+> lines after the Nth are blank — a record covers a whole file, so a file that ended with a
+> blank line has it inside its digest; match whichever `sha256` the record holds.
 
 On confidence: `results.jsonl` stores candidates down to the storage floor (0.10), not
 beliefs. You do **not** need to do anything about that — `--min-confidence` already

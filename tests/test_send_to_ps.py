@@ -470,8 +470,23 @@ def test_a_lost_sidecar_on_a_grown_file_reports_the_growth(tmp_path, monkeypatch
 
     _append(path, 3)
     (tmp_path / "results.jsonl.submitted").unlink()
-    with pytest.raises(ValueError, match="has since grown by 3 line"):
+    with pytest.raises(ValueError, match="covered the whole file as recorded, but .* grown by 3"):
         send_to_ps.process_jsonl_file(str(path), PROD)
+
+
+def test_a_partial_campaign_on_a_grown_file_is_not_called_complete(tmp_path, monkeypatch):
+    """Same shape, but only part of the file ever went to the endpoint: the advice must not
+    assert the whole file was covered when two recorded lines were never sent."""
+    path = _jsonl(tmp_path, 5)
+    _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=3)
+
+    _append(path, 2)
+    (tmp_path / "results.jsonl.submitted").unlink()
+    with pytest.raises(ValueError, match="missing, truncated") as excinfo:
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert "also grown by 2 line" in str(excinfo.value)
+    assert "covered the whole file" not in str(excinfo.value)
 
 
 def test_append_to_a_record_with_no_byte_length_refuses_with_the_append_hint(tmp_path, monkeypatch):
@@ -493,7 +508,7 @@ def test_append_to_a_record_with_no_byte_length_refuses_with_the_append_hint(tmp
 
     # ...and that migration works: --prefix-digest over the recorded total_lines reproduces
     # the recorded digest and hands back the total_bytes to add to the record by hand.
-    assert send_to_ps.hash_through_lines(path, 3) == (legacy["sha256"], legacy_bytes)
+    assert send_to_ps.hash_through_lines(path, 3)[:2] == (legacy["sha256"], legacy_bytes)
     legacy["total_bytes"] = legacy_bytes
     record_path.write_text(json.dumps(legacy))
     send_to_ps.process_jsonl_file(str(path), PROD)           # no override needed
@@ -506,10 +521,52 @@ def test_prefix_digest_skips_blank_lines_like_the_submit_loop(tmp_path):
     the file would otherwise make an intact prefix look edited."""
     path = tmp_path / "results.jsonl"
     path.write_bytes(b'{"a":1}\n\n{"b":2}\n{"c":3}\n')
-    digest, size = send_to_ps.hash_through_lines(path, 2)
+    digest, size, blank_digest, blank_size = send_to_ps.hash_through_lines(path, 2)
     assert size == len(b'{"a":1}\n\n{"b":2}\n')
     assert send_to_ps.hash_prefix(path, size)[0] == digest
-    assert send_to_ps.hash_through_lines(path, 9) == (None, None)
+    assert (blank_digest, blank_size) == (None, None)       # line 3 is not blank
+    assert send_to_ps.hash_through_lines(path, 9) == (None, None, None, None)
+
+
+def test_prefix_digest_offers_the_blank_tail_a_record_would_cover(tmp_path):
+    """A record always describes a WHOLE file, so if that file ended with a blank line its
+    sha256 covers it - and a count of non-blank lines stops short. The migration helper has
+    to hand back a digest the user can actually match, so it prints that candidate too."""
+    path = tmp_path / "results.jsonl"
+    path.write_bytes(b'{"a":1}\n{"b":2}\n\n')
+    whole_digest, whole_lines, whole_bytes = send_to_ps.hash_and_count(path)
+    digest, size, blank_digest, blank_size = send_to_ps.hash_through_lines(path, whole_lines)
+    assert (digest, size) != (whole_digest, whole_bytes)    # the trap the review found
+    assert (blank_digest, blank_size) == (whole_digest, whole_bytes)
+
+
+def test_append_naming_no_pano_refuses(tmp_path, monkeypatch):
+    """A pano block with no panorama_id still POSTs (as pano_id null) but is invisible to the
+    duplicate check, so an append holding one is not provably new."""
+    path = _jsonl(tmp_path, 3)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+
+    _append_records(path, ["PID4"])
+    with open(path, 'a', encoding='utf-8', newline='\n') as f:
+        nameless = _record([], pano_id="PID5")
+        del nameless["pano"]["panorama_id"]
+        f.write(json.dumps(nameless) + "\n")
+    del sent[:]
+    with pytest.raises(ValueError, match="1 of the 2 appended line\\(s\\) name no pano"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+
+def test_a_record_with_a_byte_length_but_no_line_count_refuses(tmp_path):
+    """The line-count check is part of the proof, so a record that cannot supply it fails
+    closed rather than resuming on the prefix hash alone."""
+    path = _jsonl(tmp_path, 2)
+    digest, _, size = send_to_ps.hash_and_count(path)
+    _append(path, 1)
+    note, reason = send_to_ps.append_check({"sha256": digest, "total_bytes": size}, path, 3,
+                                           path.stat().st_size)
+    assert note is None and "no line count" in reason
 
 
 def test_a_record_without_total_lines_is_not_interpolated_as_none(tmp_path):
