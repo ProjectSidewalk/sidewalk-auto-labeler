@@ -5,6 +5,10 @@ already stored in every run (`computed_rotation`) and never parsed.*
 **Date:** 2026-09-04. **Branch:** `mapillary-tilt-study`.
 **Reproduce:** `scripts/mapillary_tilt.py` (every number and figure below; see §9). **Tests:**
 `tests/test_mapillary_tilt.py` (the convention lock).
+**Revised 2026-09-21** after review. Every number in this document was re-derived on that
+date against all five runs; §5.4 and §5.5 changed method (see the revision note at the end
+of each) and their numbers moved. What did not change: §5.1 (the convention lock), §5.2
+and §5.3 reproduce cell for cell.
 
 ## 0. Summary
 
@@ -30,15 +34,19 @@ flat-ground raycast that multi-view fusion (#27) and Project Sidewalk's label pl
    correction helps depends on what the tilt is. On a vehicle in hilly terrain (Morgantown: camera pitch
    along the direction of travel tracks the road grade with slope 0.97, r = 0.91) the camera rides level on the
    road, so the flat raycast in the camera frame was already right and a gravity correction over-corrects —
-   within-site multi-view spread grows 28%. Where the rig itself is tilted (Clovis, Laurens, Richmond's
-   GoPro sequences) the correction tightens multi-view agreement by 13–40%. Subtracting the road grade
-   (available from the sequence's own SfM altitude profile) reconciles the two: it is within 3% of the best
-   convention in every city and never worse than the flat raycast by more than 1.1%.
+   the median within-site multi-view spread grows 23%. Where the rig itself is tilted (Clovis, Laurens,
+   Richmond's GoPro sequences) the correction tightens the median by 14–40%. Subtracting the road grade
+   (available from the sequence's own SfM altitude profile) reconciles the two — **on the centre of the
+   distribution.** Road-relative beats the flat raycast on the median (−1.9% to −38%) and on the
+   range-normalized mean (−0.3% to −31%) in all five cities. **It does not beat it in the tail:** on the raw
+   mean and p90 it loses to flat in Richmond (+4%/+6%), Morgantown (+6%/+6%) and Annapolis (+11%/+18%).
+   §5.4 says why that split is expected and what it does and does not license.
 4. **Against RampNet ground truth**, applying the tilt raises world recall at a 2.5 m match radius in four of
-   five cities (+2.8 to +11.6 points with the gravity-relative angles; the road-relative variant reaches
-   +12.4 in Laurens), leaves precision within ±1 point, and tightens the median GT-to-site distance in three.
-   The one recall loss (Richmond, −1.2 points at 2.5 m) comes with the largest placement gain (p90 3.85 →
-   3.51 m; 3.11 m road-relative).
+   five cities (+1.6 to +11.5 points with the gravity-relative angles on a fixed denominator; the
+   road-relative variant reaches +12.4 in Laurens), leaves precision within ±1 point, and tightens the
+   median GT-to-site distance in every city. The one recall loss under the gravity-relative variant
+   (Richmond, −1.6 points at 2.5 m) comes with the largest placement gain (p90 3.85 → 3.51 m; 3.11 m
+   road-relative); road-relative also loses Morgantown (−2.8 points).
 5. **The viewer gate needs a value, not a correct value.** Project Sidewalk's Pannellum wrapper deliberately
    ignores `cameraPitch` when rendering (its own comment cites the marker displacement it caused, #5174);
    `/backupImage/:id/metadata` only checks that the column is non-null. The route is consulted only when the
@@ -75,7 +83,7 @@ precisely what the viewer gate needs.
 | RQ1 | What rotation does `computed_rotation` encode, and in which frames? Can that be verified from data already on disk? | compass identity; PS viewer cross-check; rectification of real imagery; horizon test (§5.1) |
 | RQ2 | How large is the tilt, how does it vary by rig and within a sequence, and how far does it move a ground point? | tilt distributions, sequence structure, displacement (§5.2) |
 | RQ3 | Is the tilt the rig's own, or the road's? | camera pitch along travel vs. road grade from the sequence altitude profile (§5.3) |
-| RQ4 | Does applying it tighten multi-view agreement? Under which sign convention? | frozen-association within-site spread, seven conventions, by tilt / grade bucket (§5.4) |
+| RQ4 | Does applying it tighten multi-view agreement? Under which sign convention? | frozen-association within-site spread on a common site set, eight conventions, four statistics, by tilt / grade bucket (§5.4) |
 | RQ5 | Does it improve world-space recall, precision and placement against RampNet ground truth? | re-fused world eval per convention (§5.5) |
 | RQ6 | Which Project Sidewalk surfaces depend on `camera_pitch`, and does the value have to be right? | SidewalkWebpage code path + live probe of `sidewalk-richmond-test` (§5.6) |
 
@@ -158,21 +166,49 @@ quantity a flat-ground raycast actually wants.
 
 The design of `fuse_sites.py --pose-ablation`, generalised: freeze the association from a pose-off fuse,
 then re-project every operational member under each convention and measure the pairwise distance between
-members of the same site (raw and range-normalised, so a convention cannot win by shrinking every range),
-overall and by the pair's larger tilt, road grade, or pitch-relative-to-road. Conventions: off; documented;
-pitch flipped; roll flipped; both flipped; pitch only; roll only; and **road-relative**
-(`pitch − γ cos φ_t`, `roll − γ sin φ_t`, falling back to documented where no grade is available). The
-freeze favours the convention the association was built with (off), so a tie with "off" here is already a
-positive result for a correction.
+members of the same site, overall and by the pair's larger tilt, road grade, or pitch-relative-to-road.
+Conventions: off; documented; pitch flipped; roll flipped; both flipped; pitch only; roll only; and
+**road-relative** (`pitch − γ cos φ_t`, `roll − γ sin φ_t`, falling back to documented where no grade is
+available — which is 0.3% of frames in Morgantown and Laurens, 0.8% in Annapolis, 6.1% in Clovis and 7.3%
+in Richmond; `grade` reports it as `frac_with_grade`). The freeze favours the convention the association
+was built with (off), so a tie with "off" here is already a positive result for a correction.
+
+Three choices in this measurement do real work, and each one has a cost:
+
+- **Every convention is scored on the same sites.** A site enters only if *every* convention places
+  *every* one of its operational members; one unplaceable member drops the whole site from all rows. Without
+  that, a convention that pushes members above the horizon is measured on the easier remainder — it cost
+  Morgantown's flipped rows 4.3% of their pairs in the first version of this study, while the table printed
+  a single pair count that read as shared. The price is 2–12% of sites dropped from every row (Richmond
+  1,183 → 1,079; Morgantown 1,359 → 1,201; Clovis, Annapolis and Laurens under 2%), and those are the
+  hardest sites.
+- **The raycast runs with no range cap** (`max_range_m=inf`), where production drops rays beyond 25 m. The
+  cap would reintroduce exactly the survivorship problem one step further in — applying it costs 40–50% of
+  the pairs, asymmetrically by convention, and flips every mean. The price is that the tail of this
+  distribution contains pairs at ranges production would never emit, so **the raw mean and p90 here are
+  pessimistic about any correction that lengthens rays**, which every gravity correction does on a
+  nose-down rig.
+- **Four statistics are reported, and they do not agree.** Median and the range-normalised mean (so a
+  convention cannot win by shrinking every range) describe the centre; the raw mean and p90 describe the
+  tail. The GSV pose ablation this generalises — quoted in `geo._world_ray`'s docstring — reported the raw
+  **mean**, and on that statistic its verdict was unambiguous (every sign convention loosened every city, by
+  50–80%). Here it is not: the sign flips lose on all four statistics, but the two *correct* conventions
+  win on the centre and lose in the tail in three of five cities. §5.4 states which statistic each claim
+  rests on, and §6 says what follows for the recommendation.
 
 ### 4.5 World-space GT evaluation (RQ5)
 
 `eval_sites.evaluate_city` re-run per convention with `apply_pose=True` and the parsed angles injected into
 each `SlimPano` — the same code path that scored #27, so re-association, GT raycasting and matching all use
 the pose under test. Reported: world recall at 5 m and 2.5 m, GT-incompleteness-safe precision, the median
-and p90 GT-to-site distance for matched ramps, and the site count. Note that GT positions are themselves
-raycasts of the reviewer's pixel marks under the same pose model, so for self-detected ramps the metric is
-partly self-consistency; the cross-view metrics (§4.4) are the sharper multi-view test.
+and p90 GT-to-site distance for matched ramps, and the site count.
+
+Two caveats travel with every row. (1) GT positions are themselves raycasts of the reviewer's pixel marks
+under the same pose model, so for self-detected ramps the metric is partly self-consistency; the cross-view
+metrics (§4.4) are the sharper multi-view test. (2) For the same reason the recall *denominator* is not
+constant: a mark that the pose under test pushes above the horizon or past the 25 m cap leaves the pool
+entirely. The pool size is reported per row, and `recall vs off pool` puts the same numerator over the flat
+raycast's pool so the rows can be compared; it can exceed 1 when a correction makes more marks placeable.
 
 ### 4.6 Viewer gate (RQ6)
 
@@ -201,8 +237,9 @@ Mikey's commented-out roll correction in `PanoDataService.calculatePovFromPanoXY
 (`rawPitch − cameraRoll·sin(offset)`) uses the same sign as the viewer, so PS is internally consistent:
 **PS roll = −geo roll.** The test file pins both numbers.
 
-**Rectification of real pixels.** Figure 1 shows three of the ten example strips committed under
-`docs/figures/mapillary-tilt/example_*.jpg`, each the original as served, the re-render under the documented
+**Rectification of real pixels.** Figure 1 shows the two example strips committed under
+`docs/figures/mapillary-tilt/example_*.jpg` (`examples` regenerates them, and any other panorama, on
+demand), each the original as served, the re-render under the documented
 convention, and the re-render under the both-flipped convention, cropped to elevation −30°…+45° with the
 world horizon drawn in red. Under the documented convention the house fronts, poles and bridge trusses become
 straight vertical columns and the visible horizon sits on the red line; under the flipped convention the
@@ -290,9 +327,9 @@ and Richmond 1.72 (frame-to-frame jitter — bumps, handling, and some SfM noise
 flat and tilt-corrected ground points differ by a median 1.2–1.5 m and a p90 of 4.4–5.6 m per city — larger
 than the p90 placement error fusion was measured to remove in #27. Within a tilt bucket the numbers are the
 same in every city (median 0.4–0.6 m below 1.5°, 1.0–1.4 m at 1.5–3°, 1.7–2.2 m at 3–5°, 2.6–3.4 m at 5–10°,
-4.3–6.7 m above 10°), because the geometry is the same. Between 3% (Laurens, Clovis) and 13% (Richmond) of operational
-detections change placeability — cross the 25 m range cap or the horizon guard — in one direction or the
-other, roughly equally split.
+4.3–6.7 m above 10°), because the geometry is the same. Between 3.4% (Laurens) and 13.1% (Richmond) of
+operational detections change placeability — cross the 25 m range cap or the horizon guard — in one
+direction or the other; both directions occur in every city, within a factor of 1.7 of each other.
 
 ![Displacement](figures/mapillary-tilt/fig4_displacement.png)
 
@@ -335,43 +372,76 @@ grade.
 
 ![Ablation](figures/mapillary-tilt/fig5_ablation.png)
 
-*Figure 7. Left: within-site pairwise member distance under each convention, relative to the flat raycast.
-Right: the same by the pair's larger tilt; solid = gravity-relative (documented), dashed = road-relative.*
+*Figure 7. Left: **median** within-site pairwise member distance under each convention, relative to the flat
+raycast. Right: the **mean**, by the pair's larger tilt; solid = gravity-relative (documented), dashed =
+road-relative. The two panels use different statistics deliberately — see the table below, where they
+disagree on the two correct conventions.*
 
-Within-site pairwise distance between operational members (association frozen from the flat fuse):
+Within-site pairwise distance between operational members (association frozen from the flat fuse; every row
+of a city is the same sites and therefore the same pair count; ×n is relative to `off`):
 
-| City | pairs | off | documented | road-relative | pitch-flip | roll-flip | both-flip | pitch-only | roll-only |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| richmond — median (m) | 32,306 | 2.78 | 2.43 | **2.27** | 3.85 | 3.52 | 4.45 | 2.66 | 2.65 |
-| — mean / range | | 0.262 | 0.251 | **0.238** | 0.386 | 0.349 | 0.442 | 0.268 | 0.260 |
-| clovis — median | 22,869 | 2.57 | **1.54** | 1.58 | 4.04 | 2.62 | 4.59 | 1.86 | 2.38 |
-| — mean / range | | 0.245 | **0.163** | 0.168 | 0.392 | 0.262 | 0.434 | 0.190 | 0.234 |
-| morgantown — median | 39,110 | **2.16** | 2.77 | 2.18 | 3.28 | 3.47 | 3.62 | 2.73 | 2.31 |
-| — mean / range | | **0.232** | 0.325 | 0.239 | 0.387 | 0.393 | 0.417 | 0.319 | 0.254 |
-| annapolis — median | 121,260 | 2.75 | 2.78 | **2.70** | 4.61 | 2.93 | 4.58 | 2.62 | 2.87 |
-| — mean / range | | 0.253 | 0.263 | **0.252** | 0.438 | 0.286 | 0.442 | 0.255 | 0.264 |
-| laurens — median | 1,603 | 3.70 | **2.65** | 2.67 | 4.20 | 4.71 | 5.06 | 3.61 | 3.13 |
-| — mean / range | | 0.369 | 0.294 | **0.289** | 0.402 | 0.490 | 0.535 | 0.368 | 0.317 |
+| City | sites | pairs | stat | off | documented | road-rel | pitch-flip | roll-flip | both-flip | pitch-only | roll-only |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| richmond | 1,079 | 29,249 | median (m) | 2.73 | 2.34 (0.86×) | **2.20 (0.81×)** | 3.77 (1.38×) | 3.42 (1.25×) | 4.37 (1.60×) | 2.59 (0.95×) | 2.58 (0.95×) |
+| | | | mean / range | 0.257 | 0.239 (0.93×) | **0.228 (0.89×)** | 0.374 (1.45×) | 0.336 (1.31×) | 0.430 (1.67×) | 0.256 (1.00×) | 0.248 (0.96×) |
+| | | | mean (m) | **3.23** | 3.58 (1.11×) | 3.36 (1.04×) | 5.44 (1.68×) | 5.05 (1.56×) | 6.08 (1.88×) | 3.64 (1.13×) | 3.26 (1.01×) |
+| | | | p90 (m) | **6.49** | 7.30 (1.12×) | 6.89 (1.06×) | 11.08 (1.71×) | 9.88 (1.52×) | 11.79 (1.82×) | 7.28 (1.12×) | 6.71 (1.03×) |
+| clovis | 1,532 | 22,468 | median (m) | 2.55 | **1.54 (0.60×)** | 1.58 (0.62×) | 4.01 (1.57×) | 2.60 (1.02×) | 4.59 (1.80×) | 1.85 (0.73×) | 2.36 (0.93×) |
+| | | | mean / range | 0.243 | **0.162 (0.66×)** | 0.167 (0.69×) | 0.389 (1.60×) | 0.259 (1.07×) | 0.434 (1.78×) | 0.187 (0.77×) | 0.232 (0.95×) |
+| | | | mean (m) | 3.03 | **2.14 (0.71×)** | 2.24 (0.74×) | 5.16 (1.70×) | 3.74 (1.23×) | 6.11 (2.01×) | 2.50 (0.83×) | 2.89 (0.95×) |
+| | | | p90 (m) | 6.14 | **4.70 (0.77×)** | 4.87 (0.79×) | 10.48 (1.71×) | 7.90 (1.29×) | 12.60 (2.05×) | 5.40 (0.88×) | 5.90 (0.96×) |
+| morgantown | 1,201 | 32,389 | median (m) | 2.11 | 2.61 (1.23×) | **2.07 (0.98×)** | 3.17 (1.50×) | 3.33 (1.57×) | 3.54 (1.67×) | 2.59 (1.23×) | 2.22 (1.05×) |
+| | | | mean / range | **0.232** | 0.305 (1.32×) | 0.231 (1.00×) | 0.371 (1.60×) | 0.375 (1.62×) | 0.405 (1.75×) | 0.299 (1.29×) | 0.248 (1.07×) |
+| | | | mean (m) | **2.68** | 4.45 (1.66×) | 2.83 (1.06×) | 5.52 (2.06×) | 5.60 (2.09×) | 5.97 (2.23×) | 4.16 (1.55×) | 3.07 (1.15×) |
+| | | | p90 (m) | **5.74** | 9.49 (1.65×) | 6.11 (1.06×) | 11.63 (2.03×) | 11.75 (2.05×) | 12.35 (2.15×) | 8.59 (1.50×) | 6.48 (1.13×) |
+| annapolis | 3,101 | 119,907 | median (m) | 2.75 | 2.78 (1.01×) | 2.70 (0.98×) | 4.61 (1.67×) | 2.93 (1.06×) | 4.58 (1.66×) | **2.62 (0.95×)** | 2.87 (1.04×) |
+| | | | mean / range | 0.253 | 0.262 (1.04×) | 0.252 (1.00×) | 0.438 (1.73×) | 0.285 (1.13×) | 0.442 (1.75×) | **0.254 (1.00×)** | 0.264 (1.04×) |
+| | | | mean (m) | **3.29** | 3.89 (1.18×) | 3.66 (1.11×) | 6.78 (2.06×) | 4.20 (1.28×) | 6.51 (1.98×) | 3.69 (1.12×) | 3.58 (1.09×) |
+| | | | p90 (m) | **6.68** | 8.35 (1.25×) | 7.85 (1.18×) | 14.85 (2.22×) | 8.92 (1.34×) | 13.68 (2.05×) | 7.86 (1.18×) | 7.39 (1.11×) |
+| laurens | 141 | 1,516 | median (m) | 3.70 | 2.65 (0.72×) | **2.65 (0.72×)** | 4.23 (1.14×) | 4.70 (1.27×) | 5.08 (1.37×) | 3.60 (0.97×) | 3.07 (0.83×) |
+| | | | mean / range | 0.366 | 0.295 (0.80×) | **0.287 (0.78×)** | 0.401 (1.09×) | 0.485 (1.33×) | 0.531 (1.45×) | 0.365 (1.00×) | 0.310 (0.85×) |
+| | | | mean (m) | 4.00 | 3.57 (0.89×) | **3.42 (0.86×)** | 5.46 (1.37×) | 5.18 (1.30×) | 6.01 (1.50×) | 4.07 (1.02×) | 3.69 (0.92×) |
+| | | | p90 (m) | **7.17** | 7.52 (1.05×) | 7.18 (1.00×) | 9.95 (1.39×) | 9.24 (1.29×) | 10.59 (1.48×) | 7.54 (1.05×) | 7.28 (1.01×) |
 
-Three things are true at once. **Every sign flip loosens agreement in every city** — the sign is locked by
-this test as well. **The documented gravity-relative correction tightens Clovis (−40%), Laurens (−28%) and
-Richmond (−13%) and loosens Morgantown (+28%)**, with Annapolis flat. **The road-relative variant is within
-3% of the best result in every city and never loosens any city by more than 1.1%.** Broken out by road grade
-(Figure 8, `ablation.csv`), the pattern is exactly the one §5.3 predicts:
+**Every sign flip loosens agreement in every city, on all four statistics** — the sign is locked by this
+test as well, and that conclusion does not depend on which statistic you read.
+
+**The choice between the two correct conventions does.** On the median and the range-normalised mean, the
+documented gravity-relative correction tightens Clovis (−40%), Laurens (−28%) and Richmond (−14%), loosens
+Morgantown (+23%) and leaves Annapolis flat (+1%); road-relative is the best of the three physically meaningful
+conventions (off / documented / road-relative) in four cities, within 3% of the best in the fifth, and
+**loosens none of them** (−1.9% Annapolis, −2.3% Morgantown, −19% Richmond, −28% Laurens,
+−38% Clovis). On the raw mean and p90 the same road-relative rows read +4%/+6% (Richmond), +6%/+6%
+(Morgantown) and +11%/+18% (Annapolis) — i.e. *worse than doing nothing.*
+
+Both readings are of the same pairs; they differ because the correction moves a minority of rays a long way.
+§4.4 explains why the tail here is inflated by the missing 25 m cap, and §6 says what we are and are not
+entitled to conclude from that. The short version: **this test supports "correct the tilt, road-relative"
+for typical placements and does not support it for the tail**, and the tail is what #27's p90 placement
+claim was made of.
+
+Broken out by road grade (Figure 8, `ablation.csv`), the pattern is exactly the one §5.3 predicts:
 
 | Morgantown, median pair distance by \|grade\| | 0–1.5° | 1.5–3° | 3–5° | 5–10° | > 10° |
 |---|---:|---:|---:|---:|---:|
-| off | 2.21 | 2.15 | 2.04 | 2.18 | 2.44 |
-| documented (gravity) | 2.09 | 2.49 | 3.20 | 4.72 | 5.36 |
-| road-relative | 2.07 | 2.09 | 2.18 | 2.46 | 2.62 |
-| pairs | 11,094 | 11,529 | 7,802 | 8,114 | 498 |
+| off | 2.19 | 2.13 | 1.99 | 2.09 | 1.79 |
+| documented (gravity) | 2.05 | 2.45 | 3.21 | 4.60 | 5.85 |
+| road-relative | 2.01 | 2.05 | 2.12 | 2.15 | 1.84 |
+| pairs | 10,280 | 10,841 | 6,745 | 4,255 | 217 |
 
 The flat raycast does not get worse with grade because the camera follows the road; the gravity correction
 gets worse in proportion to the grade; subtracting the grade restores the flat result. Richmond shows the
-same shape at 3–10° of grade (3.3 → 4.2 → 3.3 m and 3.1 → 4.7 → 3.4 m). Bucketed by pitch relative to the
-road instead (Figure 8, right), the gravity correction helps in every bucket in Richmond, Clovis and Laurens,
-helps Annapolis once the relative pitch exceeds 3° (the mount offset), and hurts Morgantown in every bucket —
-because what it adds there is the grade, which the relative-pitch bucket has already taken out.
+same shape at 3–10° of grade (3.3 → 4.2 → 3.5 m and 3.2 → 4.9 → 3.7 m). Bucketed by pitch relative to the
+road instead (Figure 8, right), the gravity correction helps in every bucket in Clovis (0.63× → 0.36× as the
+relative pitch grows) and Laurens, helps Richmond below 5° and stops helping above it, helps Annapolis once
+the relative pitch exceeds 3° (the mount offset), and hurts Morgantown in every bucket with enough pairs to
+read — because what it adds there is the grade, which the relative-pitch bucket has already taken out.
+
+*Revision note.* This section was re-measured on 2026-09-21. The first version scored each convention on
+whatever sites it could place, so the rows had different pair counts (Richmond 32,306 for `off` against
+30,607 for `pitch-flipped`) under a single printed count; and it reported only the median and the
+range-normalised mean. The common-site intersection and the mean/p90 rows are new, and every cell above
+moved. The direction of every sign-flip conclusion is unchanged.
 
 ![Regimes](figures/mapillary-tilt/fig9_regimes.png)
 
@@ -385,33 +455,52 @@ road-relative; buckets with ≥ 100 pairs.*
 
 *Figure 9. World recall at 2.5 m, p90 GT-to-site distance, and unplaceable GT marks per convention.*
 
-| City | convention | recall @5 m | recall @2.5 m | precision | GT→site p50 / p90 (m) | sites |
-|---|---|---:|---:|---:|---:|---:|
-| richmond | off | 0.941 | 0.905 | 0.959 | 1.55 / 3.85 | 1,570 |
-| | documented | 0.933 | 0.893 | 0.959 | 1.30 / 3.51 | 1,442 |
-| | road-relative | 0.932 | **0.908** | 0.959 | **1.16 / 3.11** | 1,456 |
-| clovis | off | 0.943 | 0.874 | 0.923 | 1.32 / 3.28 | 2,495 |
-| | documented | **0.978** | **0.950** | 0.913 | **0.98 / 2.70** | 2,367 |
-| | road-relative | 0.967 | 0.928 | 0.913 | 1.12 / 2.73 | 2,357 |
-| morgantown | off | 0.948 | 0.892 | 0.974 | 1.10 / 2.99 | 1,733 |
-| | documented | **0.963** | **0.927** | **0.984** | 1.08 / 3.01 | 1,757 |
-| | road-relative | 0.951 | 0.878 | 0.974 | **1.01** / 3.00 | 1,708 |
-| annapolis | off | 0.934 | 0.880 | 0.980 | 1.38 / 3.55 | 4,018 |
-| | documented | **0.971** | **0.908** | 0.975 | 1.36 / 3.67 | 3,533 |
-| | road-relative | 0.959 | 0.885 | 0.980 | 1.37 / 3.70 | 3,476 |
-| laurens | off | 0.698 | 0.536 | 0.892 | 1.88 / 3.83 | 2,298 |
-| | documented | 0.712 | 0.652 | 0.893 | 1.39 / 2.63 | 2,241 |
-| | road-relative | **0.715** | **0.660** | **0.895** | **1.36** / 2.66 | 2,236 |
+**The recall denominator moves between rows.** GT marks are raycast under the pose being tested, so a
+convention that pushes a mark above the horizon or past the 25 m cap drops the ramp out of the pool — out of
+the denominator as well as the numerator. `pool_ramps` is therefore printed for every row, and
+`recall vs off pool` re-expresses the same numerator over one fixed denominator (the flat raycast's pool),
+which is comparable across rows at the cost of being able to exceed 1 (Clovis, where the correction makes
+*more* GT marks placeable). Read the fixed-denominator column when comparing conventions.
 
-At 2.5 m the pitch-flipped and both-flipped conventions score below "off" in every city, and roll-flipped
-in four of five (Annapolis, whose roll is under 1°, is level with it) — full table in `gt_eval.csv`.
-Both corrections beat the flat raycast on recall at 2.5 m in four cities; the exception is Richmond under the
-gravity-relative variant (−1.2 points), which is also where placement improves most. Morgantown's recall
-gain under the gravity variant sits beside its multi-view *loss* in §5.4 because GT marks are raycast with
-the same pose: for a ramp the reviewer marked in the very panorama that detected it, a shared error cancels
-in the match. The cross-view test is the one that sees the grade, which is why §5.4 carries more weight for
-the choice of variant and §5.5 more weight for "does correcting at all help" — and on that question the two
-agree.
+| City | convention | pool | GT marks unplaceable | recall @5 m | recall @2.5 m | **vs off pool @2.5 m** | precision | GT→site p50 / p90 (m) | sites |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| richmond | off | 253 | 57 | 0.941 | 0.905 | **0.905** | 0.959 | 1.55 / 3.85 | 1,570 |
+| | documented | 252 | 58 | 0.933 | 0.893 | 0.889 | 0.959 | 1.30 / 3.51 | 1,442 |
+| | road-relative | 251 | 59 | 0.932 | 0.908 | 0.901 | 0.959 | **1.16 / 3.11** | 1,456 |
+| clovis | off | 174 | 21 | 0.943 | 0.874 | 0.874 | 0.923 | 1.32 / 3.28 | 2,495 |
+| | documented | 181 | 14 | **0.978** | **0.950** | **0.989** | 0.913 | **0.98 / 2.70** | 2,367 |
+| | road-relative | 181 | 14 | 0.967 | 0.928 | 0.966 | 0.913 | 1.12 / 2.73 | 2,357 |
+| morgantown | off | 250 | 17 | 0.948 | 0.892 | 0.892 | 0.974 | 1.10 / 2.99 | 1,733 |
+| | documented | 245 | 22 | **0.963** | **0.927** | **0.908** | **0.984** | 1.08 / 3.01 | 1,757 |
+| | road-relative | 246 | 21 | 0.951 | 0.878 | 0.864 | 0.974 | **1.01** / 3.00 | 1,708 |
+| annapolis | off | 241 | 53 | 0.934 | 0.880 | 0.880 | 0.980 | 1.38 / 3.55 | 4,018 |
+| | documented | 238 | 56 | **0.971** | **0.908** | **0.896** | 0.975 | **1.36** / 3.67 | 3,533 |
+| | road-relative | 244 | 50 | 0.959 | 0.885 | **0.896** | 0.980 | 1.37 / 3.70 | 3,476 |
+| laurens | off | 235 | 9 | 0.698 | 0.536 | 0.536 | 0.892 | 1.88 / 3.83 | 2,298 |
+| | documented | 233 | 13 | 0.712 | 0.652 | 0.647 | 0.893 | 1.39 / 2.63 | 2,241 |
+| | road-relative | 235 | 12 | **0.715** | **0.660** | **0.660** | **0.895** | **1.36** / 2.66 | 2,236 |
+
+On the fixed denominator at 2.5 m, the pitch-flipped and both-flipped conventions score below "off" in every
+city, and roll-flipped in four of five — the exception is Annapolis (0.917 vs 0.880), where the median roll
+is under 1° so the flip is close to a no-op and the nine-ramp gap on a pool of 241 is not a distinguishable
+difference. Full table in `gt_eval.csv`.
+
+The gravity-relative correction beats the flat raycast at 2.5 m in four cities (+1.6 Morgantown, +1.6
+Annapolis, +11.1 Laurens, +11.5 Clovis); the exception is Richmond (−1.6), which is also where placement
+improves most. Road-relative wins Clovis (+9.2), Annapolis (+1.6) and Laurens (+12.4), is level in Richmond
+(−0.4) and loses Morgantown (−2.8). Every convention tightens the median GT-to-site distance in every city.
+
+Morgantown's recall gain under the gravity variant sits beside its multi-view *loss* in §5.4 because GT marks
+are raycast with the same pose: for a ramp the reviewer marked in the very panorama that detected it, a
+shared error cancels in the match. The cross-view test is the one that sees the grade, which is why §5.4
+carries more weight for the choice of variant and §5.5 more weight for "does correcting at all help" — and on
+that question the two agree.
+
+*Revision note.* Re-measured on 2026-09-21. The `pool`, `GT marks unplaceable` and fixed-denominator columns
+are new; the first version compared `recall @2.5 m` across rows whose denominators differ by up to 11% (the
+Clovis and Annapolis pools move by 7 and 25 ramps), which overstated the gravity-relative gain in Morgantown
+and Annapolis (+3.5 and +2.8 points became +1.6 and +1.6) and understated it in Clovis (+7.6 became +11.5).
+The `recall @5 m`, `recall @2.5 m`, precision, distance and site columns are unchanged from the first version.
 
 ### 5.6 RQ6 — the viewer gate
 
@@ -448,7 +537,8 @@ of, and complementary to, writing the real value.
 **What "apply the tilt" should mean.** The issue framed the question as "does applying `computed_rotation`
 help, hurt, or do nothing", by analogy with the GSV ablation. The answer is not a single sign: the rotation
 is right (§5.1), applying it relative to gravity helps where the rig is tilted and hurts where the road is,
-and the road-relative form is the one that is never wrong by more than noise. GSV was different in kind —
+and the road-relative form is the one that is never wrong by more than noise **at the centre of the
+distribution**. GSV was different in kind —
 its imagery is pre-rectified, so its metadata angles describe a frame the pixels are no longer in. Mapillary
 images are served as captured, so the angles describe the pixels; the subtlety is only which plane the
 ray should meet.
@@ -462,9 +552,24 @@ small for the flat one it currently describes, where the real tilt has a median 
 **What the reviewer-mark test cannot see.** The horizon test only exposes marks pushed above the horizon;
 a wrong sign that pushes a mark *down* passes it. That is why it is one of four checks and not the check.
 
+**Which statistic the recommendation rests on, and what that costs.** §5.4's road-relative verdict is a
+claim about the median and the range-normalised mean. On the raw mean and p90 of the same pairs the same
+correction is *worse than doing nothing* in Richmond, Morgantown and Annapolis, by 4–18%. Two things are
+true about that. It is partly an artefact: the ablation deliberately runs uncapped (§4.4), so its tail holds
+pairs at ranges `detection_ground_point` would drop, and a correction that lengthens rays is charged for
+them. But it is not only an artefact — the corrected raycast really does move a minority of detections a
+long way (§5.2: p90 displacement 4.4–5.6 m), and #27's case for fusion was made on a p90 placement
+improvement, not a median one. So the honest scope of the recommendation is: **road-relative is the right
+default for the typical label, and its effect on the worst 10% of placements is unmeasured under production's
+range cap.** The wiring PR should measure that directly — re-run `eval_sites` end to end with the cap in
+place and compare p90 GT-to-site distance, which §5.5 already shows moving in the right direction (every
+convention tightens the median in every city, and the p90 in three of five).
+
 **Limits.** (1) The road grade comes from SfM altitude differences over 2–40 m of travel between thinned
-frames; its noise (≈ 1°) is visible in Clovis, where subtracting it costs 2 points of recall against the
-gravity variant. A smoothed profile over several frames would do better, and a cross-slope term is
+frames; its noise (≈ 1°) is visible in Clovis, where subtracting it costs 2.3 points of recall against the
+gravity variant, and it is unavailable on 0.3% (Morgantown, Laurens) to 7.3% (Richmond) of frames, which
+silently fall back to the gravity-relative angles — the convention §5.3 shows is the wrong one for a vehicle
+rig. A smoothed profile over several frames would do better, and a cross-slope term is
 unmodelled. (2) 30 of the 191,286 panoramas report tilts above 45°, up to 170° (25 of them in Clovis: upside-down or
 failed reconstructions); they need a sanity cap before the values are trusted anywhere. (3) The frozen-association
 ablation favours "off"; the re-fused GT evaluation favours whatever the GT was raycast with. Neither is
@@ -476,7 +581,7 @@ still applied to bicycle and hand-held rigs, and #42's items 3–5 remain open.
 | #42 scope item | Status |
 |---|---|
 | Parse `computed_rotation` into `pano_pose` | Convention established and tested; parser in `scripts/mapillary_tilt.py` (`opensfm_pose`, 30 stdlib lines) ready to move into `sources/mapillary.py` / `geo.py`. Production wiring is the follow-up PR (§8). |
-| Re-run the pose ablation on a Mapillary city | Done on all five; result in §5.4–5.5: sign locked; gravity-relative helps or hurts by regime; road-relative recommended. |
+| Re-run the pose ablation on a Mapillary city | Done on all five; result in §5.4–5.5: sign locked on every statistic; gravity-relative helps or hurts by regime; road-relative recommended on the median and the range-normalised mean, with its tail behaviour still to be measured under production's range cap (§6). |
 | Validate slope-zeroing height estimation against GSV depth | Not started (needs the depth harvest, a GSV question). |
 | Apply per-sequence height on richmond / clovis / morgantown / annapolis | Not started. |
 | Pilot `mesh` | Not started. |
@@ -495,6 +600,27 @@ still applied to bicycle and hand-held rigs, and #42's items 3–5 remain open.
 3. **Fusion.** `FuseParams.apply_pose=True` for Mapillary sources, with the road-relative angles where the
    run provides a sequence grade and the gravity-relative ones otherwise; keep GSV at `apply_pose=False`.
    Keep `sigma_pitch_rad = 1.5°` for the corrected raycast; it was never adequate for the flat one.
+
+   **Where the road grade comes from in production.** It is not a per-panorama field and recommendation 1
+   does not create one: `camera_pitch`/`camera_roll` in the JSONL carry the *gravity*-relative angles, which
+   is what Project Sidewalk wants. The grade is a per-*sequence* quantity and is recomputed offline from data
+   every record already carries — `source_metadata.computed_altitude`, plus `sequence_id`, `captured_at` and
+   the position — exactly as `add_sequence_grade` does here (consecutive frames of one sequence, ≤ 60 s and
+   2–40 m apart). So fusion needs a `mapillary_tilt.add_sequence_grade` equivalent moved into `geo.py` or
+   `fuse_sites.py` and run once per file, not a new column and not a re-fetch. `geo.pano_pose` reads the
+   pano block only, so the road-relative angles have to be applied by the caller that has the whole run in
+   hand (`fuse_sites.load_results`), which is where this belongs anyway.
+
+   **Name the fallback.** Where a frame has no usable sequence neighbour the angles fall back to
+   gravity-relative — 0.3% of frames in Morgantown and Laurens, 0.8% in Annapolis, 6.1% in Clovis, 7.3% in
+   Richmond. That is not a neutral default: on a vehicle rig on a grade it is the convention §5.3 shows to be
+   wrong, so those frames get the Morgantown failure mode. At these rates it is acceptable and it should be
+   counted in the run's stats rather than left silent; if a future city comes in high, `apply_pose=False`
+   for the ungraded frames is the safer fallback than gravity-relative.
+
+   **And measure the tail.** §5.4's verdict is a median result; §6 explains why the tail is unmeasured under
+   production's 25 m cap. Before this ships, re-run `eval_sites` with the cap in place and compare p90
+   GT-to-site distance under off / documented / road-relative.
 4. **Backfill.** The values need no network: extend `scripts/backfill_metadata.py` with an offline pass that
    fills `camera_pitch`/`camera_roll` from the `source_metadata` already in each line (same atomic rewrite),
    then `send_to_ps.py --min-confidence 2.0` for the submitted cities — the verified idempotent pano-only
@@ -503,9 +629,10 @@ still applied to bicycle and hand-held rigs, and #42's items 3–5 remain open.
 5. **Server side, optionally.** Propose on SidewalkWebpage that the backup gate default an absent pitch to 0,
    since the viewer ignores it; it removes the failure mode for every non-GSV submitter and costs nothing.
    Independent of items 1–4.
-6. **Next measurements.** A smoothed per-sequence grade; the camera-height routes in #42; and the same
-   rectification check re-run when Mapillary's processing changes (the `rectify` subcommand is the regression
-   test).
+6. **Next measurements.** A smoothed per-sequence grade (its ≈ 1° noise is the limiting factor, §6); a
+   capped-range version of the §5.4 ablation to settle the tail question; the camera-height routes in #42;
+   and the same rectification check re-run when Mapillary's processing changes (the `rectify` subcommand is
+   the regression test).
 
 ## 9. Reproducibility
 
@@ -523,14 +650,19 @@ python scripts/mapillary_tilt.py horizon        # GT marks above the horizon per
 python scripts/mapillary_tilt.py ablation       # frozen-association multi-view spread (§5.4)
 python scripts/mapillary_tilt.py eval           # world P/R vs RampNet GT per convention (§5.5)
 python scripts/mapillary_tilt.py rectify        # vertical-edge statistic on 593 benchmark panos
-python scripts/mapillary_tilt.py examples --limit 2   # the image strips
-python scripts/mapillary_tilt.py figures        # regenerates every figure from the CSVs
+python scripts/mapillary_tilt.py examples --limit 1   # the image strips
+python scripts/mapillary_tilt.py figures        # redraw the figures (see below)
 python scripts/mapillary_tilt.py pose 2163793620710887 --run richmond   # one pano's parsed pose
 pytest tests/test_mapillary_tilt.py             # the convention lock
 ```
 
-Aggregated outputs are committed beside this document in `docs/figures/mapillary-tilt/data/` so the tables
-above can be checked without re-running anything; the per-panorama CSVs (up to 73k rows per city) are not.
+**What is committed, and what that lets you redo.** The aggregated CSVs are committed beside this document
+in `docs/figures/mapillary-tilt/data/`, so **every table above can be checked without re-running anything**,
+and `figures` redraws figures 3–7 and 9 straight from them (it looks in `runs/_summary/tilt/` first and
+falls back to `data/`). Figures 1, 2 and 8 need the per-panorama `poses.csv` / `grade.csv` — up to 73k rows
+per city, deliberately not committed — so `figures` prints what is missing and skips them; re-run `stats`
+and `grade` first to get those back. After a full re-run, refresh the committed copies with
+`cp runs/_summary/tilt/*.csv docs/figures/mapillary-tilt/data/`.
 
 ## Appendix A — the decomposition, in full
 
