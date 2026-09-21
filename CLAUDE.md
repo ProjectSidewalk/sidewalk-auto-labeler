@@ -156,6 +156,33 @@ python scripts/site_explorer.py richmond --select fragment  # over-split suspect
 python scripts/site_explorer.py richmond --inline     # one shareable file
 # ...--local-panos <dir> cuts crops locally instead (no SSH; e.g. a RampNet bundle).
 
+# MAPILLARY RIG TILT (issue #42) -- a STUDY, not production: nothing here is wired into
+# main.py/geo.py/sources/. OpenSfM's `computed_rotation` sits in every Mapillary record's
+# source_metadata; scripts/mapillary_tilt.py parses it (convention locked four ways) and
+# measures what applying it buys. Full write-up + recommendations in
+# docs/mapillary-tilt-study.md. No network, no GPU; stdlib on top of geo.py/fuse_sites.py/
+# eval_sites.py except `rectify`/`examples` (numpy, Pillow, SciPy) and `figures` (matplotlib).
+# Ten subcommands. All but `pose` take a city list (default: all five Mapillary runs)
+# and --out; `pose` takes pano ids and --run. --out redirects the CSVs only: `figures`
+# and `examples` always write into docs/figures/mapillary-tilt/.
+python scripts/mapillary_tilt.py stats                 # tilt distributions + compass identity
+python scripts/mapillary_tilt.py displacement          # flat vs tilt-corrected ground point
+python scripts/mapillary_tilt.py grade                 # is the tilt the rig's or the road's?
+python scripts/mapillary_tilt.py horizon               # GT marks raycast above the horizon
+python scripts/mapillary_tilt.py ablation              # multi-view sign lock, by tilt/grade bucket
+python scripts/mapillary_tilt.py eval                  # world P/R vs RampNet GT per convention
+python scripts/mapillary_tilt.py rectify               # pixel-level sign lock (vertical edges)
+python scripts/mapillary_tilt.py examples              # the annotated before/after strips
+python scripts/mapillary_tilt.py figures               # redraw docs/figures/mapillary-tilt/
+python scripts/mapillary_tilt.py pose <mapillary_id> --run richmond
+# Two traps the study had to design around, both worth knowing before reusing the numbers:
+# every convention must be scored on the SAME sites (an unplaceable member silently drops a
+# whole site, so the rows are otherwise different subsets), and the GT recall DENOMINATOR
+# moves with the convention (GT marks are raycast under the pose being tested) -- hence
+# `recall_vs_off_pool_*` in gt_eval.csv. The ablation runs uncapped, so its raw mean/p90 are
+# pessimistic about any correction that lengthens rays; median and mean/range are the
+# centre. See sections 4.4/4.5/6 of the study.
+
 # POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
 # remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no
 # internet egress) and send_to_ps.py REFUSES a Mapillary file whose position_check.json is
@@ -317,6 +344,28 @@ space (semantics mirror `rampnet.validation.collect`) and produces the stage-4 p
 calibration. Measured 2026-08-02 (5 m match radius): world recall 0.93–0.96 vs own-view
 0.72–0.83, precision 0.89–0.98 across paterson/gainesville/sao_paulo/richmond/bend.
 
+**Mapillary rig tilt (`scripts/mapillary_tilt.py`)** — issue #42. Mapillary blocks store
+`camera_pitch`/`camera_roll` as null, but `source_metadata.computed_rotation` is OpenSfM's full
+world→camera rotation (axis-angle; world = east/north/up, camera = right/down/forward). Its yaw equals
+Mapillary's `computed_compass_angle` to 1e-11° on every record, PS's own `MapillaryViewer.extractPitchRoll`
+decomposes it the same way (pitch identical; **PS's roll sign is the negative of `geo._world_ray`'s**), and
+re-rendering panos with it levels them. Median tilt is ~3° (81–85% above the 1.5° sigma the error model
+assumes). Measured 2026-09-21 (every claim below names the statistic it is true of — they disagree, and
+that is the finding): applying the tilt relative to *gravity* tightens the MEDIAN within-site multi-view
+spread where the rig itself is tilted (Clovis −39.7%, Laurens −28.5%, Richmond −14.0%) but loosens it where
+the camera rides level on a car in hilly terrain (Morgantown +23.3%: camera pitch tracks the road grade with
+slope 0.97). The raycast wants tilt relative to the local road, which the sequence's SfM altitude profile
+provides — and the `road-relative` convention tightens the MEDIAN in all five cities (−1.8% Annapolis,
+−2.3% Morgantown, −19.2% Richmond, −28.4% Laurens, −38.1% Clovis) and the range-normalized mean in all five.
+**On the RAW MEAN and p90 the same correction is worse than doing nothing** — Richmond +3.9%/+6.1%,
+Morgantown +5.6%/+6.4%, Annapolis +11.3%/+17.5% — partly because the ablation runs uncapped and charges a
+correction for rays production drops, partly because it really does move a minority of detections a long
+way. So: **do not wire `apply_pose=True` for Mapillary on the strength of the median.** The precondition
+(study §8 rec 3) is to re-run `eval_sites.py` with the production 25 m cap and compare p90 GT-to-site
+distance under off / documented / road-relative first — p90 placement is the statistic #27 was sold on.
+Full study, figures and the recommended production change in `docs/mapillary-tilt-study.md`. Not yet wired
+into `sources/mapillary.py`/`geo.py`.
+
 **GSV depth (`depth.py`, `scripts/harvest_depth.py`)** — issues #40/#41. `depth.py` (repo
 root, stdlib-only like `geo.py`) parses GSV's depth payload, which is **not a raster**: it
 is a list of `{normal, distance}` planes plus one plane index per pixel, and streetlevel
@@ -343,8 +392,8 @@ correct convention from a backwards one.
 `harvest_depth.py` archives the payloads before they go away: the *JavaScript* API that
 exposed depth was withdrawn in 2020 and anonymous tile access in ~2026, but the metadata
 endpoint used here still serves it. `no_depth.txt`/`gone.txt` are append-only skip caches
-(see the command block above). GSV only; Mapillary serves no depth (its tilt is available
-but unparsed — see #42).
+(see the command block above). GSV only; Mapillary serves no depth (its tilt is parsed and
+measured by the #42 study — scripts/mapillary_tilt.py — but not yet wired into production).
 
 **Position check (`position_check.py`, repo root; `scripts/position_check.py` is a shim)** —
 SidewalkWebpage#5361. Stdlib-only like `geo.py`. Every pano's submitted position is scored
