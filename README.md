@@ -460,6 +460,12 @@ Notes:
 - `detections` is empty (`[]`) when the panorama was processed but no curb ramps were found.
 - Camera `heading` / `pitch` / `roll` are written in **degrees** (converted from the
   radians returned by the metadata source).
+- `copyright` is an attribution *ingredient*, not a finished attribution. On Mapillary and
+  Panoramax it holds the contributor's **bare name** (the creator's username, or the
+  picture's producer), `null` when the source names nobody, and the licence travels beside
+  it in `license` — Project Sidewalk composes the `©`, the provider and the licence itself
+  when it shows its own copy of the imagery. The `"© Google"` above is a GSV record, where
+  the string is Google's own and is shown verbatim.
 - `model_training_date` and `api_version` are currently hard-coded in `main.py`.
 
 ## Tests

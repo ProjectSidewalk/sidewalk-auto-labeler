@@ -343,7 +343,6 @@ def build_pano_record(pano_id, lat, lon, item, width, height):
     producer = props.get('geovisio:producer') or next(
         (p.get('name') for p in item.get('providers') or [] if p.get('name')), None)
     license_id = props.get('license') or 'CC-BY-SA-4.0'
-    credit = f"{producer} / Panoramax" if producer else "Panoramax"
     return {
         "panorama_id": pano_id,
         "capture_date": captured[:7],
@@ -354,7 +353,11 @@ def build_pano_record(pano_id, lat, lon, item, width, height):
         "camera_heading": float(props['view:azimuth']),
         "camera_pitch": _as_float(props.get('pers:pitch')),
         "camera_roll": _as_float(props.get('pers:roll')),
-        "copyright": f"© {credit} ({license_id})",
+        # The producer's bare name, which is what PS's pano_data.copyright holds for this
+        # source; PS composes "© <name> · Panoramax · <licence>" itself wherever it shows
+        # its own copy of the imagery. None when the item names no producer — the licence
+        # is in `license` below and the provider follows from `source`.
+        "copyright": producer,
         "source": "panoramax",
         "sequence_id": item.get('collection'),
         "license": license_id,

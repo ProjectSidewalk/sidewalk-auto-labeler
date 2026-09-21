@@ -130,7 +130,10 @@ def test_fetch_pano_success_record_contract(monkeypatch):
     # Pitch/roll only exist inside computed_rotation (axis-angle); left null.
     assert pano["camera_pitch"] is None and pano["camera_roll"] is None
     assert pano["history"] == [] and pano["links"] == []
-    assert "rva-rider" in pano["copyright"]
+    # PS's pano_data.copyright holds the contributor's BARE name for this source — it
+    # composes the ©, the provider and the licence itself (SidewalkWebpage#5360).
+    assert pano["copyright"] == "rva-rider"
+    assert pano["license"] == "CC-BY-SA-4.0"
     # Camera hardware provenance for post-hoc image-quality analysis.
     assert (pano["camera_make"], pano["camera_model"]) == ("GoPro", "Fusion")
     assert pano["camera_type"] == "spherical"
@@ -139,6 +142,15 @@ def test_fetch_pano_success_record_contract(monkeypatch):
     assert sm["quality_score"] == 0.8 and sm["make"] == "GoPro"
     assert sm["creator"] == {"username": "rva-rider", "id": "42"}
     assert "thumb_original_url" not in sm
+
+
+def test_fetch_pano_copyright_is_none_without_a_creator(monkeypatch):
+    # No name to credit: leave it null rather than inventing one, so PS credits
+    # Mapillary itself under the licence. The licence stays in its own field.
+    _patch_fetch(monkeypatch, make_meta(creator=None))
+    pano = mapillary.fetch_pano("123456", 0.0, 0.0)["pano"]
+    assert pano["copyright"] is None
+    assert pano["license"] == "CC-BY-SA-4.0"
 
 
 def test_fetch_pano_falls_back_to_exif_compass_and_tile_position(monkeypatch):
