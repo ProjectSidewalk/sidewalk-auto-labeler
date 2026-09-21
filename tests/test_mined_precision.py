@@ -38,9 +38,9 @@ def _scene():
     return panos, verdicts
 
 
-def _run(panos, verdicts, params=None, **kw):
+def _run(panos, verdicts, params=None, city='synthetic', **kw):
     return mp.run_city(verdicts, _bundle_ops(panos, verdicts), panos,
-                       params or fs.FuseParams(), **kw)
+                       params or fs.FuseParams(), city=city, **kw)
 
 
 # A tight association cap forces the site SPLIT that the `already_detected` and
@@ -94,9 +94,11 @@ def test_already_detected_is_a_correct_label_not_a_miss():
 def test_rejected_detection_counts_against_and_unattested_is_unadjudicable():
     panos, verdicts = _scene()
     # g6 fired 3 m off the ramp and the reviewer REJECTED it: the reviewer looked at
-    # that spot, in that pano, and said no -> evidence against the site, not neutral
+    # that spot, in that pano, and said no -> evidence against the site, not neutral.
+    # no_missed=False deliberately: the rejected detection adjudicates that spot on
+    # its own, so an unattested missed-ramp sweep must NOT downgrade it.
     panos.append(make_pano('g6', -12, 0, [(-3.0, 0.0, 0.9)], heading_deg=90.0))
-    verdicts['g6'] = _entry(dets=[False], no_missed=True)
+    verdicts['g6'] = _entry(dets=[False], no_missed=False)
     # g7 stood next to the site but its missed-ramp check was never attested
     panos.append(make_pano('g7', 0, 6, [], heading_deg=180.0))
     verdicts['g7'] = _entry(no_missed=False)
@@ -173,6 +175,29 @@ def test_rule_reading_names_the_radius_and_a_straddling_interval():
     assert mp.rule_reading(None, 0.0, 1.0, 15.0) == 'no adjudicable candidates'
 
 
+def test_pooling_keys_on_city_not_the_per_run_site_serial():
+    """fuse_sites hands every run its own site_id serial, so two cities collide on
+    it. Pooling must key on (city, site_id, pano_id) - the same composite rule a
+    Project Sidewalk label_id needs."""
+    panos, verdicts = _scene()
+    a = _run(panos, verdicts, city='alpha')
+    b = _run(panos, verdicts, city='beta')
+    # identical scenes: the site ids ARE the same integers in both cities
+    assert {c.site_id for c in a[1]} == {c.site_id for c in b[1]}
+    pooled, cands = mp.pool_cities([a, b], (10.0, 15.0), 3, 5.0)
+    assert len(cands) == len(a[1]) + len(b[1]) == 4
+    assert {c.city for c in cands} == {'alpha', 'beta'}
+    h, ha = pooled['headline'], a[0]['headline']
+    assert (h['tp'], h['fp']) == (2 * ha['tp'], 2 * ha['fp'])
+    assert h['p_hard'] == ha['p_hard']          # same ratio, tighter interval
+    assert h['hard_hi'] - h['hard_lo'] < ha['hard_hi'] - ha['hard_lo']
+    assert pooled['n_judged_panos'] == 2 * a[0]['n_judged_panos']
+    assert pooled['yield']['counts'][10.0] == 2 * a[0]['yield']['counts'][10.0]
+    # ...and pooling the SAME city twice is the mistake the key exists to catch
+    with pytest.raises(AssertionError, match='duplicate'):
+        mp.pool_cities([a, a], (10.0, 15.0), 3, 5.0)
+
+
 def test_csv_has_one_row_per_candidate(tmp_path):
     panos, verdicts = _scene()
     result, cands = _run(panos, verdicts)
@@ -180,6 +205,8 @@ def test_csv_has_one_row_per_candidate(tmp_path):
     with open(tmp_path / 'candidates.csv', newline='', encoding='utf-8') as f:
         rows = list(csv.DictReader(f))
     assert len(rows) == len(cands) == 2
+    assert list(rows[0])[0] == 'city'            # first field, part of the row key
+    assert {r['city'] for r in rows} == {'synthetic'}
     assert {r['bucket'] for r in rows} == {'tp', 'fp'}
     assert {r['within_match'] for r in rows} == {'1', '0'}
     report = (tmp_path / 'report.md').read_text(encoding='utf-8')

@@ -112,10 +112,19 @@ python scripts/eval_sites.py paterson --vintage-ablation
 # placed, so a candidate could only ever be counted false (refused, not silently wrong).
 # --camera-height is the #101 range-anchoring knob. GSV's 2.2 m is the median measured
 # from GSV depth payloads (#40/#41); Mapillary serves no depth, so richmond has NO
-# measured height — and no constant helps there (a sweep is flat at 0.31-0.33 over
+# measured height — and no constant helps there (a sweep is flat at 0.31-0.32 over
 # 2.0-2.6 m and worse below), which is itself the finding.
 python scripts/mined_precision.py richmond
 python scripts/mined_precision.py paterson --camera-height 2.2 --radius 10 15 20
+# Name several cities to ALSO get the pooled headline (runs/_pooled/mined_precision).
+# The RampNet#158 decision numbers are pooled, so these two commands are what
+# regenerates them — the PR-body table comes from exactly these. `site_id` is a
+# per-run serial, so never pool by concatenating candidates.csv and grouping on it;
+# the city column is there because (city, site_id) is the key, as with a PS label_id.
+# --camera-height takes one value for all, or one per city in the order named.
+python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo
+python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
+    --camera-height 2.6 2.2 2.2 2.2 2.2   # richmond has no measured height; GSV does
 
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.

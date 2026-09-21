@@ -20,7 +20,8 @@ truth what is there, in world space with the eval's own match radius:
     unsure            an unsure missed mark is there
     false_det_nearby  a verdict-false detection is there (the reviewer looked and
                       said no) - counted as a false positive, see FP_BUCKETS
-    unadjudicable     nothing there, but the pano's missed-ramp check was never attested
+    unadjudicable     nothing within the match radius, and the pano's missed-ramp
+                      check was never attested, so silence there means nothing
 
 TWO DENOMINATORS, both reported side by side, because the choice changes the
 reading of the pre-registered rule and the mining rule the code models (a pano is
@@ -47,6 +48,9 @@ bucket can be eyeballed and the localization hypothesis can be tested directly.
 Usage:
     python scripts/mined_precision.py richmond
     python scripts/mined_precision.py paterson --radius 10 15 20 --min-panos 3
+    # several cities also write the POOLED headline, which is what the RampNet#158
+    # decision reads; --camera-height takes one value or one per city, in order
+    python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo
 """
 import argparse
 import csv
@@ -88,6 +92,12 @@ BANDS = (('build', RULE_BUILD, 'build the miner'),
 
 @dataclass
 class Candidate:
+    # `city` is first and is part of the row key. `site_id` is fuse_sites' per-run
+    # serial (Site(len(sites), det)), so it is NOT unique across cities - the same
+    # trap as a Project Sidewalk label_id, which identifies a label only together
+    # with its city. Anything that pools cities keys on (city, site_id), and
+    # pool_cities checks (city, site_id, pano_id) for uniqueness before counting.
+    city: str
     site_id: int
     pano_id: str
     range_m: float          # camera-to-site distance == projected range (flat ground)
@@ -185,7 +195,7 @@ def strong_sites(sites, min_panos):
 
 
 def mine_candidates(strong, judged, run_by_id, gt_by_pano, frame, params,
-                    max_radius_m, match_m):
+                    max_radius_m, match_m, city):
     """Every (strong site, judged non-member pano within max_radius_m) pair,
     classified. Also returns how many pairs were excluded because the pano is a
     member through a sub-threshold detection only (the model did respond, so it
@@ -226,11 +236,17 @@ def mine_candidates(strong, judged, run_by_id, gt_by_pano, frame, params,
             elif adjudicating == 'unsure':
                 bucket = 'unsure'
             elif adjudicating == 'false_det':
-                bucket = 'false_det_nearby' if _in_pool(judged[pid]) \
-                    else 'unadjudicable'
+                # NOT gated on _in_pool: a rejected detection adjudicates that spot
+                # in that pano by itself, so whether the pano's separate missed-ramp
+                # sweep was attested has no bearing on it. Gating it here would drop
+                # exactly the rejected-detection candidates out of the denominator
+                # in any bundle where the sweep was skipped, reading precision high
+                # - the inversion counting them as fp exists to prevent.
+                bucket = 'false_det_nearby'
             else:
                 bucket = 'fp' if _in_pool(judged[pid]) else 'unadjudicable'
-            cands.append(Candidate(site.id, pid, proj.range_m, proj.bearing_deg,
+            cands.append(Candidate(city, site.id, pid,
+                                   proj.range_m, proj.bearing_deg,
                                    proj.x_norm, proj.y_norm, n_op_panos,
                                    best_conf, bucket, kind, dist, within))
     cands.sort(key=lambda c: (c.range_m, c.site_id, c.pano_id))
@@ -314,7 +330,9 @@ def strata(cands, radii_m):
     if tail:
         rows['range'].append(precision_row(f'> {lo:g} m', tail))
         covered += len(tail)
-    assert covered == len(cands), f'range buckets dropped {len(cands) - covered}'
+    if covered != len(cands):   # not an assert: python -O would strip it
+        raise AssertionError(
+            f'range buckets accounted for {covered} of {len(cands)} candidates')
     for label, test in (('3 panos', lambda c: c.n_op_panos == 3),
                         ('4 panos', lambda c: c.n_op_panos == 4),
                         ('>= 5 panos', lambda c: c.n_op_panos >= 5)):
@@ -356,7 +374,7 @@ def rule_reading(p, lo, hi, radius_m):
 
 
 def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
-             min_panos=3, match_m=5.0):
+             min_panos=3, match_m=5.0, city=''):
     """The whole check for one city; returns (result dict, candidates). No I/O."""
     # A candidate past the ground-raycast range can never be adjudicated: the GT
     # marks that would answer for it are placed through the same raycast and dropped
@@ -366,8 +384,9 @@ def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
         raise ValueError(
             f'radius {max(radii_m):g} m exceeds the {params.max_range_m:g} m ground-'
             f'raycast range, beyond which no GT mark can be placed; candidates out '
-            f'there could only ever be counted false. Lower --radius, or raise '
-            f'FuseParams.max_range_m for both.')
+            f'there could only ever be counted false. Lower --radius; raising '
+            f'the range for both is a FuseParams.max_range_m code change, not '
+            f'an option.')
     sites, frame, fuse_stats = fs.fuse(run_panos, params)
     run_by_id = {p.pano_id: p for p in run_panos}
     judged = judged_panos(verdict_panos, bundle_ops, run_by_id)
@@ -375,7 +394,8 @@ def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
         verdict_panos, bundle_ops, run_by_id, params, frame)
     strong = strong_sites(sites, min_panos)
     cands, excluded_subfloor = mine_candidates(
-        strong, judged, run_by_id, gt_by_pano, frame, params, max(radii_m), match_m)
+        strong, judged, run_by_id, gt_by_pano, frame, params, max(radii_m),
+        match_m, city)
     yields, n_ops = yield_all_panos(strong, run_panos, frame, radii_m)
     headline = precision_row('headline', cands)
     return {
@@ -397,6 +417,57 @@ def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
         'yield': {'counts': yields, 'n_operational_detections': n_ops},
         'warnings': warnings,
     }, cands
+
+
+def pool_cities(per_city, radii_m, min_panos, match_m):
+    """One result dict over several cities' (result, candidates) pairs.
+
+    The decision numbers on RampNet#158 are pooled, so pooling lives here rather
+    than in whatever ad-hoc script last needed it. Candidates are keyed on
+    (city, site_id, pano_id): `site_id` alone is a per-run serial and collides
+    across cities, so concatenating two cities' candidates.csv and grouping on it
+    would cross-count different ramps.
+    """
+    all_cands = [c for _r, cands in per_city for c in cands]
+    keys = {(c.city, c.site_id, c.pano_id) for c in all_cands}
+    if len(keys) != len(all_cands):
+        raise AssertionError(
+            f'{len(all_cands) - len(keys)} duplicate (city, site_id, pano_id) rows; '
+            f'were two runs of the same city pooled?')
+    all_cands.sort(key=lambda c: (c.range_m, c.city, c.site_id, c.pano_id))
+    results = [r for r, _c in per_city]
+    heights = sorted({r['params']['camera_height_m'] for r in results})
+    counts = {r_m: sum(res['yield']['counts'][r_m] for res in results)
+              for r_m in radii_m}
+    headline = precision_row('headline', all_cands)
+    return {
+        'params': {'radii_m': list(radii_m), 'min_panos': min_panos,
+                   'match_m': match_m,
+                   'camera_height_m': '/'.join(f'{h:g}' for h in heights)},
+        'fuse': {'n_panos': sum(r['fuse']['n_panos'] for r in results),
+                 'n_sites': sum(r['fuse']['n_sites'] for r in results)},
+        'n_strong_sites': sum(r['n_strong_sites'] for r in results),
+        'n_judged_panos': sum(r['n_judged_panos'] for r in results),
+        'n_attested_panos': sum(r['n_attested_panos'] for r in results),
+        'excluded_subfloor_members': sum(r['excluded_subfloor_members']
+                                         for r in results),
+        'headline': headline,
+        'reading': {
+            'hard': rule_reading(headline['p_hard'], headline['hard_lo'],
+                                 headline['hard_hi'], max(radii_m)),
+            'all': rule_reading(headline['p_all'], headline['all_lo'],
+                                headline['all_hi'], max(radii_m)),
+        },
+        'strata': strata(all_cands, radii_m),
+        'yield': {'counts': counts,
+                  'n_operational_detections': sum(
+                      r['yield']['n_operational_detections'] for r in results)},
+        'warnings': [w for r in results for w in r['warnings']],
+    }, all_cands
+
+
+def _num(v):
+    return v if isinstance(v, str) else f'{v:g}'
 
 
 def _pct(row, key):
@@ -429,7 +500,7 @@ def format_report(city, r):
         f"GT: {r['n_judged_panos']} fully judged panos, {r['n_attested_panos']} with "
         f"the missed-ramp check attested; match radius {r['params']['match_m']:g} m; "
         f"candidates within {max(r['params']['radii_m']):g} m; camera height "
-        f"{r['params']['camera_height_m']:g} m",
+        f"{_num(r['params']['camera_height_m'])} m",
         f"excluded: {r['excluded_subfloor_members']} (site, pano) pairs where the pano "
         f"is a member through a sub-threshold detection only",
         '',
@@ -490,10 +561,17 @@ def write_outputs(out_dir, report_text, cands):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('city', help='benchmark split name, e.g. richmond')
+    ap.add_argument('city', nargs='+',
+                    help='benchmark split name(s), e.g. richmond. Give several to '
+                         'also print and write the POOLED headline - the decision '
+                         'numbers on RampNet#158 are pooled, so they have to be '
+                         'regenerable in one command')
     ap.add_argument('--benchmark-root', type=Path,
                     default=REPO_ROOT.parent / 'RampNet' / 'benchmark')
-    ap.add_argument('--run-dir', type=Path, default=None)
+    ap.add_argument('--runs-root', type=Path, default=REPO_ROOT / 'runs',
+                    help='where runs/<city>/results.jsonl live (default runs/)')
+    ap.add_argument('--run-dir', type=Path, default=None,
+                    help='one run directory, overriding --runs-root; single city only')
     ap.add_argument('--radius', type=float, nargs='+', default=[10.0, 15.0],
                     help='camera-to-site distances to report; candidates are '
                          'collected out to the largest, which may not exceed the '
@@ -506,41 +584,67 @@ def main():
                     help='world-space radius within which a GT point adjudicates '
                          'a candidate (the eval\'s match radius; same name as '
                          'eval_sites.py, --match-m still accepted)')
-    ap.add_argument('--camera-height', type=float, default=None,
+    ap.add_argument('--camera-height', type=float, nargs='+', default=None,
                     help='override geo.DEFAULT_CAMERA_HEIGHT_M for fusion, GT '
                          'placement and the projection alike (the #101 range-'
-                         'anchoring sensitivity knob). GSV: 2.2 m, the median '
-                         'measured from GSV depth payloads (#40/#41). Mapillary '
-                         'serves no depth, so richmond has NO measured height - a '
-                         'sweep there is flat at 0.31-0.33 for 2.0-2.6 m and worse '
-                         'below, i.e. no constant fixes it')
+                         'anchoring sensitivity knob). One value for every city, '
+                         'or one per city in the order they are named. GSV: 2.2 m, '
+                         'the median measured from GSV depth payloads (#40/#41). '
+                         'Mapillary serves no depth, so richmond has NO measured '
+                         'height - a sweep there is flat at 0.31-0.32 for 2.0-2.6 m '
+                         'and worse below, i.e. no constant fixes it')
     ap.add_argument('--out', type=Path, default=None,
-                    help='output dir (default runs/<city>/mined_precision)')
+                    help='output dir (default runs/<city>/mined_precision, and '
+                         'runs/_pooled/mined_precision for the pooled report)')
     args = ap.parse_args()
 
-    run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
-    try:
-        verdict_panos, bundle_ops, run_panos = es.load_city_files(
-            args.city, args.benchmark_root, run_dir)
-    except FileNotFoundError as exc:
-        ap.error(f'{exc.filename}: not found. The benchmark lives in the RampNet '
-                 f'checkout (default {ap.get_default("benchmark_root")}); point '
-                 f'--benchmark-root at it, and --run-dir at the run, if either sits '
-                 f'elsewhere (e.g. when working in a git worktree).')
-    params = fs.FuseParams() if args.camera_height is None \
-        else fs.FuseParams(camera_height_m=args.camera_height)
-    try:
-        result, cands = run_city(verdict_panos, bundle_ops, run_panos, params,
-                                 radii_m=tuple(args.radius),
-                                 min_panos=args.min_panos,
-                                 match_m=args.match_radius_m)
-    except ValueError as exc:
-        ap.error(str(exc))
-    report_text = format_report(args.city, result)
-    print(report_text)
-    out_dir = args.out or run_dir / 'mined_precision'
-    write_outputs(out_dir, report_text, cands)
-    print(f'\nwrote {out_dir}')
+    cities = args.city
+    if args.run_dir is not None and len(cities) > 1:
+        ap.error('--run-dir names one run directory; with several cities use '
+                 '--runs-root, which resolves <runs-root>/<city> for each.')
+    heights = args.camera_height
+    if heights is not None and len(heights) not in (1, len(cities)):
+        ap.error(f'--camera-height takes one value or one per city '
+                 f'({len(cities)} named), got {len(heights)}.')
+
+    per_city, out_dirs = [], []
+    for i, city in enumerate(cities):
+        run_dir = args.run_dir or args.runs_root / city
+        try:
+            verdict_panos, bundle_ops, run_panos = es.load_city_files(
+                city, args.benchmark_root, run_dir)
+        except FileNotFoundError as exc:
+            ap.error(f'{exc.filename}: not found. The benchmark lives in the RampNet '
+                     f'checkout (default {ap.get_default("benchmark_root")}); point '
+                     f'--benchmark-root at it, and --runs-root at the runs, if '
+                     f'either sits elsewhere (e.g. in a git worktree).')
+        params = fs.FuseParams() if heights is None else fs.FuseParams(
+            camera_height_m=heights[i] if len(heights) > 1 else heights[0])
+        try:
+            result, cands = run_city(verdict_panos, bundle_ops, run_panos, params,
+                                     radii_m=tuple(args.radius),
+                                     min_panos=args.min_panos,
+                                     match_m=args.match_radius_m, city=city)
+        except ValueError as exc:
+            ap.error(str(exc))
+        report_text = format_report(city, result)
+        print(report_text)
+        out_dir = (args.out / city if args.out and len(cities) > 1
+                   else args.out or run_dir / 'mined_precision')
+        write_outputs(out_dir, report_text, cands)
+        out_dirs.append(out_dir)
+        per_city.append((result, cands))
+
+    if len(cities) > 1:
+        pooled, pooled_cands = pool_cities(
+            per_city, tuple(args.radius), args.min_panos, args.match_radius_m)
+        text = format_report('pooled over ' + ', '.join(cities), pooled)
+        print('\n\n' + text)
+        pooled_dir = (args.out / '_pooled' if args.out
+                      else args.runs_root / '_pooled' / 'mined_precision')
+        write_outputs(pooled_dir, text, pooled_cands)
+        out_dirs.append(pooled_dir)
+    print('\nwrote ' + ', '.join(str(d) for d in out_dirs))
 
 
 if __name__ == '__main__':
