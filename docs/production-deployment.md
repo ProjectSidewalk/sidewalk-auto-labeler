@@ -417,6 +417,13 @@ you three labels instead of thousands.
 > begun before the record existed is attributed to whichever endpoint runs first, so know
 > where its lines went and backfill the record (Laurens: 26 lines to `-test`) before that run.
 
+> **Gap-filling an already-submitted run is fine.** `main.py --gap-fill-only` appends to
+> `results.jsonl`; the lines already sent keep their numbers, so re-running `send_to_ps.py`
+> sends only the new ones. It says so (`APPEND: … N new line(s) were appended`) and updates
+> the record's hash and byte length. Only a record written before that check existed (no
+> `total_bytes`) refuses — check by hand that the first `total_lines` lines are unchanged,
+> then `--ignore-submission-guard` once to re-record the file.
+
 On confidence: `results.jsonl` stores candidates down to the storage floor (0.10), not
 beliefs. You do **not** need to do anything about that — `--min-confidence` already
 defaults to `OPERATIONAL_CONFIDENCE` (0.55), so the commands above submit only operational
@@ -443,3 +450,4 @@ found". Lowering the flag is the dangerous direction, not omitting it.
 | `send_to_ps.py` refuses: sidecar lines "went to" another endpoint | The `.submitted` sidecar is endpoint-agnostic — an earlier staging run claimed those lines, and sending only the remainder would leave them off the live city | Move `<file>.submitted` aside (e.g. `.submitted.staging`) so production starts from line 1; the per-endpoint record keeps the staging count |
 | `send_to_ps.py` refuses: record says N lines already submitted, sidecar accounts for fewer | The sidecar was lost or truncated, or the run moved to a machine that never had it; resuming would re-POST live records | Restore the sidecar from a backup. `--ignore-submission-guard` only for a case checked by hand |
 | `send_to_ps.py` refuses: `<file>.submission.json` is not readable | A merge conflict or truncated write in the git-tracked record | Repair it (`git show HEAD:<path>` recovers the committed copy) rather than override — the record is the memory of what is live |
+| `send_to_ps.py` refuses: the file "has changed" after a gap-fill | The record predates the append check, so it has no `total_bytes` to prove the appended-to prefix with | Confirm the first `total_lines` lines still hash to the recorded `sha256` (`head -n N`), then `--ignore-submission-guard` once; the record it writes carries the length, so later gap-fills resume on their own |
