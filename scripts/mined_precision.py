@@ -2,8 +2,8 @@
 
 RampNet#102 proposes a training-label source that needs no inventory and no human
 review: a fused site corroborated by >= 3 operational panos is almost certainly a
-ramp, so every nearby pano that produced no detection for it is a miss at a known
-world position - a training target once projected back into that pano. Before
+ramp, so every nearby pano that is not already one of its members is a training
+target at a known world position, once projected back into that pano. Before
 anyone builds that miner, #102 asks for the precision of what it would produce,
 measured against verdicts that already exist. This script is that measurement.
 
@@ -15,21 +15,38 @@ truth what is there, in world space with the eval's own match radius:
 
     tp                the reviewer marked a MISSED ramp there: a true mined target
     fp                the pano was attested clean there: occlusion, ghost, out of view
-    already_detected  a verdict-true detection is there: an association gap, not a miss
+    already_detected  a verdict-true detection is there: the label is CORRECT, but
+                      the model already produces it, so it is not a hard positive
     unsure            an unsure missed mark is there
-    false_det_nearby  a verdict-false detection is there (the reviewer looked and said no)
+    false_det_nearby  a verdict-false detection is there (the reviewer looked and
+                      said no) - counted as a false positive, see FP_BUCKETS
     unadjudicable     nothing there, but the pano's missed-ramp check was never attested
 
-Headline precision = tp / (tp + fp), Wilson intervals, stratified by range, by
-site support and by site confidence. Reads the same files as eval_sites.py
-(benchmark/<city>/{verdicts.json,records.jsonl} as data, runs/<city>/results.jsonl)
-and never touches the network. Writes runs/<city>/mined_precision/{report.md,
-candidates.csv}; the CSV has one row per (site, pano) candidate so any bucket can
-be eyeballed.
+TWO DENOMINATORS, both reported side by side, because the choice changes the
+reading of the pre-registered rule and the mining rule the code models (a pano is
+a candidate iff it is not a member of the site) cannot tell them apart:
+
+    hard-only   tp / (tp + fp)                    - of the targets the miner emits,
+                                                    how many are misses the model
+                                                    does not already make
+    all-mined   (tp + already_detected) / (... )  - of the labels the miner emits,
+                                                    how many are CORRECT
+
+A miner has no verdicts at mining time, so it cannot filter `already_detected`
+out: those labels ship. `all-mined` is therefore the precision of the training
+data; `hard-only` is the rate at which that data is *new*. Wilson intervals on
+both, stratified by range, by site support and by site confidence.
+
+Reads the same files as eval_sites.py (benchmark/<city>/{verdicts.json,
+records.jsonl} as data, runs/<city>/results.jsonl) and never touches the network.
+Writes runs/<city>/mined_precision/{report.md,candidates.csv}; the CSV has one row
+per (site, pano) candidate, with the nearest GT point and its distance always
+recorded (`within_match` says whether it was close enough to adjudicate), so any
+bucket can be eyeballed and the localization hypothesis can be tested directly.
 
 Usage:
     python scripts/mined_precision.py richmond
-    python scripts/mined_precision.py paterson --radius 10 15 25 --min-panos 3
+    python scripts/mined_precision.py paterson --radius 10 15 20 --min-panos 3
 """
 import argparse
 import csv
@@ -50,11 +67,23 @@ from detectors import OPERATIONAL_CONFIDENCE  # noqa: E402
 
 BUCKETS = ('tp', 'fp', 'already_detected', 'unsure', 'false_det_nearby',
            'unadjudicable')
-HEADLINE = ('tp', 'fp')
-RANGE_BUCKETS = ((8.0, '0-8'), (12.0, '8-12'), (18.0, '12-18'), (25.0, '18-25'))
+# What counts as a false positive under BOTH denominators. `false_det_nearby` is in
+# here deliberately: the reviewer looked at that spot, in that pano, and rejected a
+# detection of it, which is evidence AGAINST the site, not neutral. Leaving it out
+# would make the same attested-clean pano drop out of the denominator purely because
+# a rejected detection happened to sit within the match radius. It keeps its own
+# bucket (and CSV row) so the two can still be counted separately.
+FP_BUCKETS = ('fp', 'false_det_nearby')
+# Numerators: `hard-only` counts new misses, `all-mined` counts correct labels.
+TP_HARD = ('tp',)
+TP_ALL = ('tp', 'already_detected')
+RANGE_EDGES = (8.0, 12.0, 18.0, 25.0)
 CONF_SPLIT = 0.9
 # The pre-registered decision rule (RampNet#158 step 1).
 RULE_BUILD, RULE_VISIBILITY = 0.80, 0.50
+BANDS = (('build', RULE_BUILD, 'build the miner'),
+         ('visibility', RULE_VISIBILITY, 'add the visibility test before mining'),
+         ('drop', 0.0, 'drop this label source'))
 
 
 @dataclass
@@ -68,8 +97,9 @@ class Candidate:
     n_op_panos: int
     best_conf: float
     bucket: str
-    nearest_gt_kind: str    # '' when nothing within the match radius
-    nearest_gt_m: float     # inf when nothing within the match radius
+    nearest_gt_kind: str    # nearest GT point in THIS pano, at any distance ('' = none)
+    nearest_gt_m: float     # its distance to the site (inf when the pano has no GT point)
+    within_match: bool      # was it close enough to adjudicate (<= match_m)?
 
 
 def judged_panos(verdict_panos, bundle_ops, run_by_id):
@@ -176,27 +206,33 @@ def mine_candidates(strong, judged, run_by_id, gt_by_pano, frame, params,
             pose, _ = _pose_and_errors(run_by_id[pid])
             proj = geo.ground_point_to_pano(
                 pose, site_lat, site_lng, camera_height=params.camera_height_m,
-                max_range_m=max_radius_m)
+                max_range_m=max_radius_m, apply_pose=params.apply_pose)
             if proj is None:
                 continue
+            # The nearest GT point in this pano is recorded whatever its distance:
+            # for an fp, "how far away was the nearest missed mark" is the whole
+            # localization diagnostic, and blanking it past match_m threw it away.
             kind, dist = '', math.inf
             for k, e, n in gt_by_pano.get(pid, ()):
                 d = math.hypot(e - site.e, n - site.n)
-                if d <= match_m and d < dist:
+                if d < dist:
                     kind, dist = k, d
-            if kind == 'missed':
+            within = dist <= match_m
+            adjudicating = kind if within else ''
+            if adjudicating == 'missed':
                 bucket = 'tp'
-            elif kind == 'det':
+            elif adjudicating == 'det':
                 bucket = 'already_detected'
-            elif kind == 'unsure':
+            elif adjudicating == 'unsure':
                 bucket = 'unsure'
-            elif kind == 'false_det':
-                bucket = 'false_det_nearby'
+            elif adjudicating == 'false_det':
+                bucket = 'false_det_nearby' if _in_pool(judged[pid]) \
+                    else 'unadjudicable'
             else:
                 bucket = 'fp' if _in_pool(judged[pid]) else 'unadjudicable'
             cands.append(Candidate(site.id, pid, proj.range_m, proj.bearing_deg,
                                    proj.x_norm, proj.y_norm, n_op_panos,
-                                   best_conf, bucket, kind, dist))
+                                   best_conf, bucket, kind, dist, within))
     cands.sort(key=lambda c: (c.range_m, c.site_id, c.pano_id))
     return cands, excluded_subfloor
 
@@ -234,16 +270,29 @@ def tally(cands):
     return t
 
 
+def _ratio(k, n):
+    """(point estimate or None, wilson lo, wilson hi)."""
+    lo, hi = es.wilson(k, n)
+    return (k / n if n else None), lo, hi
+
+
 def precision_row(label, cands):
+    """One stratum under BOTH denominators. `fp` is the total false-positive count
+    (`fp` + `false_det_nearby`); `fp_rejected_det` breaks the second out."""
     t = tally(cands)
-    n = t['tp'] + t['fp']
-    p = t['tp'] / n if n else None
-    lo, hi = es.wilson(t['tp'], n)
-    return {'stratum': label, 'candidates': len(cands), 'tp': t['tp'], 'fp': t['fp'],
-            'precision': p, 'ci_lo': lo, 'ci_hi': hi,
+    fp = sum(t[b] for b in FP_BUCKETS)
+    hard_k = sum(t[b] for b in TP_HARD)
+    all_k = sum(t[b] for b in TP_ALL)
+    p_hard, hard_lo, hard_hi = _ratio(hard_k, hard_k + fp)
+    p_all, all_lo, all_hi = _ratio(all_k, all_k + fp)
+    return {'stratum': label, 'candidates': len(cands), 'tp': t['tp'], 'fp': fp,
+            'fp_rejected_det': t['false_det_nearby'],
             'already_detected': t['already_detected'], 'unsure': t['unsure'],
-            'false_det_nearby': t['false_det_nearby'],
-            'unadjudicable': t['unadjudicable']}
+            'unadjudicable': t['unadjudicable'],
+            'n_hard': hard_k + fp, 'p_hard': p_hard,
+            'hard_lo': hard_lo, 'hard_hi': hard_hi,
+            'n_all': all_k + fp, 'p_all': p_all,
+            'all_lo': all_lo, 'all_hi': all_hi}
 
 
 def strata(cands, radii_m):
@@ -251,13 +300,21 @@ def strata(cands, radii_m):
     for r in sorted(radii_m):
         rows['radius'].append(precision_row(f'<= {r:g} m',
                                             [c for c in cands if c.range_m <= r]))
-    lo = 0.0
-    for hi, name in RANGE_BUCKETS:
+    lo, covered = 0.0, 0
+    for hi in RANGE_EDGES:
         if lo >= max(radii_m):
             break
-        rows['range'].append(precision_row(
-            f'{name} m', [c for c in cands if lo < c.range_m <= hi]))
+        band = [c for c in cands if lo < c.range_m <= hi]
+        rows['range'].append(precision_row(f'{lo:g}-{hi:g} m', band))
+        covered += len(band)
         lo = hi
+    # ...and never silently drop the tail: an open-ended bucket catches anything past
+    # the last edge (reachable when a caller raises FuseParams.max_range_m).
+    tail = [c for c in cands if c.range_m > lo]
+    if tail:
+        rows['range'].append(precision_row(f'> {lo:g} m', tail))
+        covered += len(tail)
+    assert covered == len(cands), f'range buckets dropped {len(cands) - covered}'
     for label, test in (('3 panos', lambda c: c.n_op_panos == 3),
                         ('4 panos', lambda c: c.n_op_panos == 4),
                         ('>= 5 panos', lambda c: c.n_op_panos >= 5)):
@@ -269,19 +326,48 @@ def strata(cands, radii_m):
     return rows
 
 
-def rule_reading(p):
+def _band(p):
+    for name, floor, _text in BANDS:
+        if p >= floor:
+            return name
+    return 'drop'
+
+
+def rule_reading(p, lo, hi, radius_m):
+    """The pre-registered rule as read off a point estimate AND its interval.
+
+    Reading the point estimate alone hid that every city's 95% CI straddles at
+    least one band edge, so the bolded sentence over-stated the decision. The
+    radius is named because it is chosen (max of --radius) and moves the answer.
+    """
     if p is None:
         return 'no adjudicable candidates'
-    if p >= RULE_BUILD:
-        return f'>= {RULE_BUILD:.2f}: build the miner'
-    if p >= RULE_VISIBILITY:
-        return f'{RULE_VISIBILITY:.2f}-{RULE_BUILD:.2f}: add the visibility test before mining'
-    return f'< {RULE_VISIBILITY:.2f}: drop this label source'
+    band = _band(p)
+    text = next(t for name, _f, t in BANDS if name == band)
+    out = f'read at <= {radius_m:g} m: {text}'
+    lo_band, hi_band = _band(lo), _band(hi)
+    if lo_band != hi_band:
+        order = [n for n, _f, _t in reversed(BANDS)]   # drop -> visibility -> build
+        spanned = [n for n in order
+                   if order.index(lo_band) <= order.index(n) <= order.index(hi_band)]
+        out += (f'; the 95% CI [{lo:.2f}, {hi:.2f}] spans the '
+                + '/'.join(spanned) + ' bands, so this is not decisive')
+    return out
 
 
 def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
              min_panos=3, match_m=5.0):
     """The whole check for one city; returns (result dict, candidates). No I/O."""
+    # A candidate past the ground-raycast range can never be adjudicated: the GT
+    # marks that would answer for it are placed through the same raycast and dropped
+    # beyond params.max_range_m, so everything out there falls to `fp` by default and
+    # the precision reads far lower than it is. Refuse rather than mislead.
+    if max(radii_m) > params.max_range_m + 1e-9:
+        raise ValueError(
+            f'radius {max(radii_m):g} m exceeds the {params.max_range_m:g} m ground-'
+            f'raycast range, beyond which no GT mark can be placed; candidates out '
+            f'there could only ever be counted false. Lower --radius, or raise '
+            f'FuseParams.max_range_m for both.')
     sites, frame, fuse_stats = fs.fuse(run_panos, params)
     run_by_id = {p.pano_id: p for p in run_panos}
     judged = judged_panos(verdict_panos, bundle_ops, run_by_id)
@@ -301,31 +387,42 @@ def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
         'n_attested_panos': sum(1 for e in judged.values() if _in_pool(e)),
         'excluded_subfloor_members': excluded_subfloor,
         'headline': headline,
-        'reading': rule_reading(headline['precision']),
+        'reading': {
+            'hard': rule_reading(headline['p_hard'], headline['hard_lo'],
+                                 headline['hard_hi'], max(radii_m)),
+            'all': rule_reading(headline['p_all'], headline['all_lo'],
+                                headline['all_hi'], max(radii_m)),
+        },
         'strata': strata(cands, radii_m),
         'yield': {'counts': yields, 'n_operational_detections': n_ops},
         'warnings': warnings,
     }, cands
 
 
+def _pct(row, key):
+    p, lo, hi, n = row[f'p_{key}'], row[f'{key}_lo'], row[f'{key}_hi'], row[f'n_{key}']
+    if p is None:
+        return 'n/a'
+    return f'{p:.3f} [{lo:.2f}, {hi:.2f}] (n={n})'
+
+
 def _fmt(row):
-    p = 'n/a' if row['precision'] is None else f"{row['precision']:.3f}"
-    ci = f"[{row['ci_lo']:.2f}, {row['ci_hi']:.2f}]" if row['tp'] + row['fp'] else ''
     return (f"| {row['stratum']} | {row['candidates']} | {row['tp']} | {row['fp']} | "
-            f"{p} {ci} | {row['already_detected']} | {row['unsure']} | "
-            f"{row['false_det_nearby']} | {row['unadjudicable']} |")
+            f"{row['fp_rejected_det']} | {row['already_detected']} | "
+            f"{row['unsure']} | {row['unadjudicable']} | "
+            f"{_pct(row, 'hard')} | {_pct(row, 'all')} |")
 
 
-TABLE_HEAD = ('| stratum | cand. | tp | fp | precision [95% CI] | already det. | '
-              'unsure | false det. nearby | unadjudicable |\n'
-              '|---|--:|--:|--:|---|--:|--:|--:|--:|')
+TABLE_HEAD = ('| stratum | cand. | tp | fp | of which rej. det. | already det. | '
+              'unsure | unadj. | precision hard-only [95% CI] | '
+              'precision all-mined [95% CI] |\n'
+              '|---|--:|--:|--:|--:|--:|--:|--:|---|---|')
 
 
 def format_report(city, r):
     h = r['headline']
-    headline_p = 'n/a' if h['precision'] is None else f"{h['precision']:.3f}"
     lines = [
-        f"## {city}: precision of mined hard positives (RampNet#158 step 1)",
+        f"## {city}: precision of mined positives (RampNet#158 step 1)",
         '',
         f"run: {r['fuse']['n_panos']} panos -> {r['fuse']['n_sites']} sites, "
         f"{r['n_strong_sites']} with >= {r['params']['min_panos']} operational panos",
@@ -336,8 +433,11 @@ def format_report(city, r):
         f"excluded: {r['excluded_subfloor_members']} (site, pano) pairs where the pano "
         f"is a member through a sub-threshold detection only",
         '',
-        f"**headline precision {headline_p} [{h['ci_lo']:.3f}, {h['ci_hi']:.3f}] "
-        f"(tp {h['tp']} / fp {h['fp']}) -> {r['reading']}**",
+        'Two denominators (see the module docstring). A miner has no verdicts, so it '
+        'cannot filter `already_detected` out; those labels ship and they are correct.',
+        '',
+        f"- **hard-only** (new misses): {_pct(h, 'hard')} -> {r['reading']['hard']}",
+        f"- **all-mined** (correct labels): {_pct(h, 'all')} -> {r['reading']['all']}",
         '',
         TABLE_HEAD, _fmt(h),
     ]
@@ -347,8 +447,18 @@ def format_report(city, r):
                        ('confidence', 'by best member confidence')):
         lines += ['', f'### {title}', '', TABLE_HEAD]
         lines += [_fmt(row) for row in r['strata'][key]]
+        if key == 'confidence':
+            lines += ['', f'Read the confidence split with care: `best_conf` saturates '
+                          f'(values run above 1.0), so the >= {CONF_SPLIT} bin holds '
+                          f'most candidates, and it is confounded with support and '
+                          f'range - stronger sites are seen by more panos, hence from '
+                          f'further away, where precision falls for geometric reasons. '
+                          f'It is not evidence that confident sites mine worse.']
     y = r['yield']
     lines += ['', '### mined yield over the whole run (#102 sanity check)', '',
+              'An upper bound: these are (strong site, non-member pano) pairs, and the '
+              '`already_detected` column above shows a share of them are ramps the '
+              'model already detects from that pano rather than misses.', '',
               '| radius | (site, non-member pano) pairs | x operational detections |',
               '|---|--:|--:|']
     for radius, n in sorted(y['counts'].items()):
@@ -368,7 +478,9 @@ def write_outputs(out_dir, report_text, cands):
         w.writeheader()
         for c in cands:
             row = asdict(c)
-            row['nearest_gt_m'] = '' if math.isinf(c.nearest_gt_m) else f'{c.nearest_gt_m:.2f}'
+            row['nearest_gt_m'] = '' if math.isinf(c.nearest_gt_m) \
+                else f'{c.nearest_gt_m:.2f}'
+            row['within_match'] = '1' if c.within_match else '0'
             for k in ('range_m', 'bearing_deg'):
                 row[k] = f'{row[k]:.2f}'
             for k in ('x_norm', 'y_norm', 'best_conf'):
@@ -384,29 +496,46 @@ def main():
     ap.add_argument('--run-dir', type=Path, default=None)
     ap.add_argument('--radius', type=float, nargs='+', default=[10.0, 15.0],
                     help='camera-to-site distances to report; candidates are '
-                         'collected out to the largest')
+                         'collected out to the largest, which may not exceed the '
+                         'ground-raycast range (25 m) - past it no GT mark can be '
+                         'placed, so a candidate could only ever be counted false')
     ap.add_argument('--min-panos', type=int, default=3,
                     help='operational panos a site needs to count as a ramp')
-    ap.add_argument('--match-m', type=float, default=5.0,
+    ap.add_argument('--match-radius-m', '--match-m', type=float, default=5.0,
+                    dest='match_radius_m',
                     help='world-space radius within which a GT point adjudicates '
-                         'a candidate (the eval\'s match radius)')
+                         'a candidate (the eval\'s match radius; same name as '
+                         'eval_sites.py, --match-m still accepted)')
     ap.add_argument('--camera-height', type=float, default=None,
                     help='override geo.DEFAULT_CAMERA_HEIGHT_M for fusion, GT '
-                         'placement and the projection alike (sensitivity check '
-                         'for the #101 range anchoring; the measured medians are '
-                         '~2.2 m GSV, ~1.7 m for the richmond Mapillary rig)')
+                         'placement and the projection alike (the #101 range-'
+                         'anchoring sensitivity knob). GSV: 2.2 m, the median '
+                         'measured from GSV depth payloads (#40/#41). Mapillary '
+                         'serves no depth, so richmond has NO measured height - a '
+                         'sweep there is flat at 0.31-0.33 for 2.0-2.6 m and worse '
+                         'below, i.e. no constant fixes it')
     ap.add_argument('--out', type=Path, default=None,
                     help='output dir (default runs/<city>/mined_precision)')
     args = ap.parse_args()
 
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
-    verdict_panos, bundle_ops, run_panos = es.load_city_files(
-        args.city, args.benchmark_root, run_dir)
+    try:
+        verdict_panos, bundle_ops, run_panos = es.load_city_files(
+            args.city, args.benchmark_root, run_dir)
+    except FileNotFoundError as exc:
+        ap.error(f'{exc.filename}: not found. The benchmark lives in the RampNet '
+                 f'checkout (default {ap.get_default("benchmark_root")}); point '
+                 f'--benchmark-root at it, and --run-dir at the run, if either sits '
+                 f'elsewhere (e.g. when working in a git worktree).')
     params = fs.FuseParams() if args.camera_height is None \
         else fs.FuseParams(camera_height_m=args.camera_height)
-    result, cands = run_city(verdict_panos, bundle_ops, run_panos, params,
-                             radii_m=tuple(args.radius), min_panos=args.min_panos,
-                             match_m=args.match_m)
+    try:
+        result, cands = run_city(verdict_panos, bundle_ops, run_panos, params,
+                                 radii_m=tuple(args.radius),
+                                 min_panos=args.min_panos,
+                                 match_m=args.match_radius_m)
+    except ValueError as exc:
+        ap.error(str(exc))
     report_text = format_report(args.city, result)
     print(report_text)
     out_dir = args.out or run_dir / 'mined_precision'
