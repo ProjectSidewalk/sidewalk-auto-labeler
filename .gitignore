@@ -26,3 +26,11 @@ runs/**
 !runs/*/position_report.html
 !runs/*/*.position_check.json
 !runs/*/*.position_report.html
+# Server-side clustering evaluation (scripts/eval_ps_clustering.py, protocol and
+# findings in docs/ps-clustering-eval.md): the report and its per-arm CSV are the
+# study's evidence, small and stable, so they are tracked like manifest.json. The
+# two API pulls they are computed from are NOT — tens of MB apiece — so the report
+# carries each one's url, fetch time, sha256 and feature count instead.
+!runs/*/ps_clustering_eval*/
+!runs/*/ps_clustering_eval*/report.md
+!runs/*/ps_clustering_eval*/arms.csv
