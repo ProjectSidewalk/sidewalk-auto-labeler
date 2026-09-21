@@ -11,8 +11,8 @@ Usage:
 
 Submission progress is tracked in a sidecar file (<file>.submitted) so a re-run resumes
 where it left off instead of re-POSTing every line. The sidecar is line numbers only, so a
-git-tracked <file>.submission.json records, per endpoint, what those lines were (sha256 of
-the file) and how many went where; before POSTing anything the two are checked against
+git-tracked <file>.submission.json records, per endpoint, what those lines were (sha256 and
+byte length of the file) and how many went where; before POSTing anything the two are checked against
 each other (see check_resume_state), and a campaign that moves from a test instance to
 production starts the sidecar afresh rather than skipping the lines test already took.
 """
@@ -231,20 +231,105 @@ def submission_record_path(file_path: str) -> Path:
 
 
 def hash_and_count(input_file: Path) -> tuple:
-    """(sha256 of the bytes, number of non-blank lines) of the JSONL.
+    """(sha256 of the bytes, number of non-blank lines, byte length) of the JSONL.
 
     The hash is what ties the line-numbered sidecar to the file it was written against; the
     count is what a complete campaign's sidecar reaches, so the record can say how far there
     is still to go. Lines are counted the way the submit loop reads them (text mode, blank
-    lines skipped), so the two can't disagree over a trailing newline or a stray blank.
+    lines skipped), so the two can't disagree over a trailing newline or a stray blank. The
+    byte length is what later makes an APPEND provable rather than indistinguishable from an
+    edit (see append_check); it is counted from the same read as the hash, so the two always
+    describe the same bytes.
     """
     digest = hashlib.sha256()
+    size = 0
     with open(input_file, 'rb') as f:
         for chunk in iter(lambda: f.read(1 << 20), b''):
             digest.update(chunk)
+            size += len(chunk)
     with open(input_file, 'r', encoding='utf-8') as f:
         lines = sum(1 for line in f if line.strip())
-    return digest.hexdigest(), lines
+    return digest.hexdigest(), lines, size
+
+
+def hash_prefix(input_file: Path, length: int) -> tuple:
+    """(sha256, non-blank lines, ends-with-newline, bytes actually read) of the file's first
+    `length` bytes - the recorded prefix an append check has to re-hash.
+
+    Lines are counted as hash_and_count counts them (blank ones skipped); splitting on the
+    b'\\n' byte matches text mode here because the file is UTF-8, where that byte only ever
+    ends a line.
+    """
+    digest = hashlib.sha256()
+    lines, read, carry = 0, 0, b''
+    with open(input_file, 'rb') as f:
+        while read < length:
+            chunk = f.read(min(1 << 20, length - read))
+            if not chunk:
+                break
+            read += len(chunk)
+            digest.update(chunk)
+            parts = (carry + chunk).split(b'\n')
+            carry = parts.pop()
+            lines += sum(1 for part in parts if part.strip())
+    if carry.strip():
+        lines += 1
+    return digest.hexdigest(), lines, not carry, read
+
+
+def append_check(record: Dict[str, Any], input_file: Path, total_lines: int,
+                 total_bytes: int) -> tuple:
+    """Is this file's changed hash explained by a PURE APPEND to the recorded content?
+
+    Issue #59: `main.py --gap-fill-only` (#32) adds panos to the end of a results.jsonl that
+    may already be submitted, and "submit, then gap-fill, then submit the rest" is the
+    expected sequence for the GSV runs. An append leaves every recorded line at the line
+    number the sidecar holds for it, so resuming is exactly right - but a whole-file hash
+    cannot tell that from an edit. The recorded byte length can: re-hash exactly that many
+    bytes and compare against the recorded digest.
+
+    Fail-closed. Anything that leaves the already-submitted region in doubt is NOT an
+    append: a record with no length (written before this check existed), a file that is
+    shorter or the same size, a prefix that no longer hashes the same, a prefix whose last
+    line has no newline (so the added bytes ran onto it instead of starting a new line), or
+    a prefix whose line count disagrees with the record.
+
+    Returns:
+        (note, reason): exactly one is not None. `note` is the "N new line(s)" line to print
+        when the append is proven; `reason` says why it could not be, for the refusal.
+    """
+    recorded_bytes = record.get('total_bytes')
+    recorded_lines = record.get('total_lines')
+    recorded_digest = record.get('sha256')
+    if not isinstance(recorded_bytes, int) or isinstance(recorded_bytes, bool) or recorded_bytes <= 0:
+        return None, (
+            f"the record predates the append check, so it carries no byte length "
+            f"(`total_bytes`) and a pure append - what a gap-fill does - cannot be told from "
+            f"an edit. If this IS a gap-fill append, confirm by hand that the first "
+            f"{recorded_lines} recorded line(s) are unchanged (hash `head -n {recorded_lines}` "
+            f"of the file against the recorded sha256) and then use --ignore-submission-guard, "
+            f"which resumes and rewrites the record with the new hash and length.")
+    if total_bytes <= recorded_bytes:
+        verb = "truncated" if total_bytes < recorded_bytes else "edited in place"
+        return None, (f"the file is {total_bytes} bytes against the {recorded_bytes} recorded, "
+                      f"so it was {verb}, not appended to.")
+    prefix_digest, prefix_lines, ends_with_newline, read = hash_prefix(input_file, recorded_bytes)
+    if read != recorded_bytes or prefix_digest != recorded_digest:
+        return None, (f"its first {recorded_bytes} bytes no longer hash to the recorded digest "
+                      f"({prefix_digest[:12]}... != {str(recorded_digest)[:12]}...), so the "
+                      f"already-submitted records were edited, not merely appended to.")
+    if not ends_with_newline:
+        return None, (f"the recorded {recorded_bytes} bytes do not end with a newline, so what "
+                      f"was added ran onto the last submitted record instead of starting a new "
+                      f"line.")
+    if recorded_lines is not None and prefix_lines != recorded_lines:
+        return None, (f"the recorded {recorded_bytes} bytes hold {prefix_lines} line(s) but the "
+                      f"record says {recorded_lines}, so the record does not describe them.")
+    return (f"{input_file.name} has GROWN since the recorded submission: its first "
+            f"{prefix_lines} line(s) are byte-for-byte unchanged and {total_lines - prefix_lines} "
+            f"new line(s) were appended (a gap-fill, issue #32). The sidecar's line numbers "
+            f"still index the same records, so this is an ordinary resume: the new lines are "
+            f"submitted and the record is rewritten with the new hash and length."), None
 
 
 def canonical_endpoint(endpoint_url: str) -> str:
@@ -291,7 +376,8 @@ def load_submission_record(record_path: Path) -> Dict[str, Any]:
 
 def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set[int],
                        endpoint_url: str, min_confidence: float, input_file: Path,
-                       record_path: Path, sidecar_path: Path) -> None:
+                       record_path: Path, sidecar_path: Path, total_lines: int,
+                       total_bytes: int) -> Optional[str]:
     """
     Refuse to submit when the resume sidecar no longer describes this file and this endpoint.
 
@@ -304,6 +390,14 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
     staging run claimed are skipped on the production run and never reach the live city.
     The per-endpoint record written beside the sidecar is what makes all three visible.
 
+    The one change that is not a lie is a pure APPEND (issue #59): a gap-fill adds panos to
+    the end of the file, every recorded line keeps its number, and resuming is correct. That
+    case is proven byte-for-byte by append_check and returned as a note to print; every
+    other difference still refuses.
+
+    Returns:
+        A note to print when the file grew by a pure append, else None.
+
     Raises:
         ValueError: if the input file changed; if the sidecar accounts for fewer lines than
             the record says already went to this endpoint; if the sidecar holds lines that
@@ -311,17 +405,22 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
             --min-confidence differs from the one this endpoint was submitted at.
     """
     if not record:
-        return
+        return None
 
+    append_note = None
     recorded_digest = record.get('sha256')
     if recorded_digest and recorded_digest != digest:
-        raise ValueError(
-            f"{input_file.name} has changed since the submission recorded in {record_path.name} "
-            f"(sha256 {digest[:12]}... != {recorded_digest[:12]}...). {sidecar_path.name} holds "
-            f"line numbers against the old file, so resuming would skip and re-send the wrong "
-            f"records. Restore the file that was submitted, or start a new campaign under a new "
-            f"name. --ignore-submission-guard overrides."
-        )
+        append_note, reason = append_check(record, input_file, total_lines, total_bytes)
+        if append_note is None:
+            raise ValueError(
+                f"{input_file.name} has changed since the submission recorded in {record_path.name} "
+                f"(sha256 {digest[:12]}... != {recorded_digest[:12]}...). {sidecar_path.name} holds "
+                f"line numbers against the old file, so resuming would skip and re-send the wrong "
+                f"records. A pure append - a gap-fill (issue #32) on an already-submitted run - "
+                f"would resume instead, but this is not one: {reason} Restore the file that was "
+                f"submitted, or start a new campaign under a new name. --ignore-submission-guard "
+                f"overrides."
+            )
 
     endpoint = canonical_endpoint(endpoint_url)
     states = record['endpoints']
@@ -366,6 +465,8 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
             f"one threshold's labels, and the record can only count at one. Use "
             f"--min-confidence {recorded_confidence}. --ignore-submission-guard overrides."
         )
+
+    return append_note
 
 
 def first_pano_source(input_file: Path) -> Optional[str]:
@@ -437,8 +538,9 @@ def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float
 
 
 def write_submission_record(record_path: Path, input_file: Path, digest: str, total_lines: int,
-                            submitted_lines: Set[int], endpoint_url: str, min_confidence: float,
-                            previous: Dict[str, Any], check: Optional[Dict[str, Any]] = None) -> None:
+                            total_bytes: int, submitted_lines: Set[int], endpoint_url: str,
+                            min_confidence: float, previous: Dict[str, Any],
+                            check: Optional[Dict[str, Any]] = None) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
     One entry per endpoint - a campaign legitimately hits a test instance before prod, and
@@ -472,6 +574,9 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         "input_file": input_file.name,
         "sha256": digest,
         "total_lines": total_lines,
+        # The length the digest covers, so that a later hash mismatch can be proven to be a
+        # pure append (a gap-fill) rather than an edit - see append_check.
+        "total_bytes": total_bytes,
         "endpoints": states,
     }
     # Written whole-or-not-at-all: a crash mid-write would leave a truncated file, and an
@@ -533,13 +638,15 @@ def process_jsonl_file(
     # file or beside a broken record); the override downgrades every refusal to a warning
     # (and an unreadable record to a fresh one).
     record_path = submission_record_path(file_path)
-    digest, total_lines = hash_and_count(input_file)
+    digest, total_lines, total_bytes = hash_and_count(input_file)
     previous_record: Dict[str, Any] = {}
+    append_note: Optional[str] = None
     try:
         if not dry_run:
             previous_record = load_submission_record(record_path)
-            check_resume_state(previous_record, digest, submitted_lines, endpoint_url,
-                               min_confidence, input_file, record_path, sidecar_path)
+            append_note = check_resume_state(previous_record, digest, submitted_lines,
+                                             endpoint_url, min_confidence, input_file,
+                                             record_path, sidecar_path, total_lines, total_bytes)
     except ValueError as e:
         if not ignore_guard:
             raise
@@ -576,6 +683,8 @@ def process_jsonl_file(
         print(f"LIMIT: stopping after {limit} record(s) this run.")
     if submitted_lines:
         print(f"Resuming: {len(submitted_lines)} lines already submitted (per {sidecar_path.name}).")
+    if append_note:
+        print(f"APPEND: {append_note}")
     print("-" * 50)
 
     try:
@@ -643,7 +752,7 @@ def process_jsonl_file(
     # record claiming an endpoint that took nothing.
     record_written = False
     if not dry_run and success_count:
-        write_submission_record(record_path, input_file, digest, total_lines,
+        write_submission_record(record_path, input_file, digest, total_lines, total_bytes,
                                 load_submitted_lines(sidecar_path), endpoint_url,
                                 min_confidence, previous_record, position_state)
         record_written = True
