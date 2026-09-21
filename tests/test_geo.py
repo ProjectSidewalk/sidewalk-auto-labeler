@@ -1,4 +1,5 @@
 """geo.py: the shared geodesy the fusion pipeline builds on."""
+import doctest
 import math
 
 import pytest
@@ -48,6 +49,56 @@ def _flat_pose(lat=44.05, lng=-121.31, heading=0.0, pitch=None, roll=None):
 def _y_for_depression(depression_rad):
     """y_normalized whose pano-frame ray points depression_rad below the horizon."""
     return 0.5 + depression_rad / math.pi
+
+
+def test_ground_point_to_pano_inverts_the_flat_raycast():
+    # exact inverse of detection_ground_point's flat path, including across the
+    # seam (x near 0 and near 1) and at both ends of the usable range
+    for heading in (0.0, 10.0, 187.5, 359.0):
+        pose = _flat_pose(heading=heading)
+        for x, y in ((0.02, 0.6), (0.98, 0.55), (0.5, 0.75), (0.25, 0.54)):
+            g = geo.detection_ground_point(pose, x, y, apply_pose=False)
+            assert g is not None
+            p = geo.ground_point_to_pano(pose, g.lat, g.lng)
+            assert p.x_norm == pytest.approx(x, abs=1e-9)
+            assert p.y_norm == pytest.approx(y, abs=1e-9)
+            assert p.range_m == pytest.approx(g.range_m, abs=1e-6)
+            assert p.bearing_deg == pytest.approx(g.bearing_deg, abs=1e-6)
+
+
+def test_ground_point_to_pano_drops_what_the_forward_path_drops():
+    pose = _flat_pose(heading=90.0)
+    near = geo.detection_ground_point(pose, 0.5, 0.75, apply_pose=False)  # ~2.6 m
+    assert geo.ground_point_to_pano(pose, near.lat, near.lng) is not None
+    # beyond max range: 40 m due east of the camera
+    far_lat, far_lng = geo.LocalFrame(pose.lat, pose.lng).to_latlng(40.0, 0.0)
+    assert geo.ground_point_to_pano(pose, far_lat, far_lng) is None
+    assert geo.ground_point_to_pano(pose, far_lat, far_lng, max_range_m=50.0) \
+        .range_m == pytest.approx(40.0, abs=1e-6)
+    # the camera's own footprint has no bearing
+    assert geo.ground_point_to_pano(pose, pose.lat, pose.lng) is None
+
+
+def test_ground_point_to_pano_refuses_the_posed_path():
+    # parity with detection_ground_point's signature so a caller threading
+    # params.apply_pose through both cannot get a forward/inverse mismatch
+    posed = _flat_pose(heading=90.0, pitch=2.0, roll=-1.0)
+    assert posed.has_pitch_roll
+    g = geo.detection_ground_point(posed, 0.4, 0.6, apply_pose=False)
+    assert geo.ground_point_to_pano(posed, g.lat, g.lng, apply_pose=False) is not None
+    with pytest.raises(NotImplementedError):
+        geo.ground_point_to_pano(posed, g.lat, g.lng, apply_pose=True)
+    # a pose with no pitch/roll has nothing to apply, so it stays usable either way
+    flat = _flat_pose(heading=90.0)
+    assert geo.ground_point_to_pano(flat, g.lat, g.lng, apply_pose=True) is not None
+
+
+def test_geo_docstring_examples_run():
+    """geo.py's doctests are the only ones in the repo and pytest is not configured
+    with --doctest-modules, so run them here rather than let them rot."""
+    failures, tested = doctest.testmod(geo, verbose=False)
+    assert tested > 0
+    assert failures == 0
 
 
 def test_raycast_hand_computed_flat_case():
