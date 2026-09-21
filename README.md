@@ -323,9 +323,11 @@ the **normalized** detection coordinates from step 1 into **pixel** coordinates
   instance to production means moving the sidecar aside, not deleting it.
 - **A gap-fill is not an edit.** `main.py --gap-fill-only` *appends* to `results.jsonl`, so
   "submit, gap-fill, submit the rest" is an ordinary resume: the recorded lines keep their
-  numbers. The run proves it by re-hashing the recorded byte prefix, reports how many new
-  lines it found, and re-records the new hash and length. A file that shrank, or whose
-  already-submitted lines changed, still refuses.
+  numbers. The run proves it by re-hashing the recorded byte prefix *and* checking that no
+  appended pano id was already submitted, reports how many new lines it found, and re-records
+  the new hash and length. A file that shrank, whose already-submitted lines changed, or that
+  re-appends panos already sent (a doubled file, or a re-run after `already_processed.txt` was
+  lost) still refuses.
 - Transient failures (connection errors, 5xx) are retried with backoff; 4xx responses are
   treated as permanent and logged.
 

@@ -420,9 +420,18 @@ you three labels instead of thousands.
 > **Gap-filling an already-submitted run is fine.** `main.py --gap-fill-only` appends to
 > `results.jsonl`; the lines already sent keep their numbers, so re-running `send_to_ps.py`
 > sends only the new ones. It says so (`APPEND: … N new line(s) were appended`) and updates
-> the record's hash and byte length. Only a record written before that check existed (no
-> `total_bytes`) refuses — check by hand that the first `total_lines` lines are unchanged,
-> then `--ignore-submission-guard` once to re-record the file.
+> the record's hash and byte length. It also checks that the appended panos are *new* ones —
+> a real gap-fill only fetches ids the run never processed, so a file that re-appends panos
+> already submitted (a doubled file, or a re-run after the gitignored `already_processed.txt`
+> was lost) is refused by `panorama_id`, not by byte count. A record written before the byte
+> length existed refuses too; migrate it rather than override it:
+>
+> ```bash
+> python send_to_ps.py runs/<city>/results.jsonl --prefix-digest <the record's total_lines>
+> ```
+>
+> If the `sha256` it prints is the one in the record, the submitted region is intact: add the
+> `total_bytes` it prints to the record and re-run normally.
 
 On confidence: `results.jsonl` stores candidates down to the storage floor (0.10), not
 beliefs. You do **not** need to do anything about that — `--min-confidence` already
@@ -450,4 +459,5 @@ found". Lowering the flag is the dangerous direction, not omitting it.
 | `send_to_ps.py` refuses: sidecar lines "went to" another endpoint | The `.submitted` sidecar is endpoint-agnostic — an earlier staging run claimed those lines, and sending only the remainder would leave them off the live city | Move `<file>.submitted` aside (e.g. `.submitted.staging`) so production starts from line 1; the per-endpoint record keeps the staging count |
 | `send_to_ps.py` refuses: record says N lines already submitted, sidecar accounts for fewer | The sidecar was lost or truncated, or the run moved to a machine that never had it; resuming would re-POST live records | Restore the sidecar from a backup. `--ignore-submission-guard` only for a case checked by hand |
 | `send_to_ps.py` refuses: `<file>.submission.json` is not readable | A merge conflict or truncated write in the git-tracked record | Repair it (`git show HEAD:<path>` recovers the committed copy) rather than override — the record is the memory of what is live |
-| `send_to_ps.py` refuses: the file "has changed" after a gap-fill | The record predates the append check, so it has no `total_bytes` to prove the appended-to prefix with | Confirm the first `total_lines` lines still hash to the recorded `sha256` (`head -n N`), then `--ignore-submission-guard` once; the record it writes carries the length, so later gap-fills resume on their own |
+| `send_to_ps.py` refuses: the file "has changed" after a gap-fill | The record predates the append check, so it has no `total_bytes` to prove the appended-to prefix with | `--prefix-digest <total_lines>`; if the sha256 matches the record, add the printed `total_bytes` to it and re-run under the normal guard (not `--ignore-submission-guard`, which also silences the sidecar and endpoint checks) |
+| `send_to_ps.py` refuses: "the bytes are new but the panos are not" | The appended lines carry pano ids already submitted — a doubled file, or `main.py` re-processing the whole area after `already_processed.txt` was lost | Don't override: PS is insert-only, so those labels would be duplicated with no way to retire them. Rebuild the run's append (keep the submitted prefix, drop the repeated ids) or start a new campaign |
