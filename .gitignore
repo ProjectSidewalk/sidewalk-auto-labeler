@@ -34,3 +34,8 @@ runs/**
 !runs/*/ps_clustering_eval*/
 !runs/*/ps_clustering_eval*/report.md
 !runs/*/ps_clustering_eval*/arms.csv
+# Camera-rig labels already live on a server (detectors.on_camera_rig; see the nadir-mask
+# section of CLAUDE.md). These are the evidence base for the mask AND the exact set a
+# cleanup would retire, so they have to outlive both the database state and the API pull
+# they were derived from — the file records that pull's url and sha256 for the tie-back.
+!runs/*/rig_labels.json
