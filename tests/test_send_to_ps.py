@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import detectors
 import main
 import send_to_ps
 from conftest import make_process_result
@@ -1248,5 +1249,79 @@ def test_a_band_on_a_record_with_no_threshold_says_so(tmp_path, monkeypatch):
     record_path.write_text(json.dumps(record))
     del sent[:]
     with pytest.raises(ValueError, match="predates threshold tracking"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert sent == []
+
+
+# --- The nadir / camera-rig mask ----------------------------------------------------------
+
+def _at_dip(deg, conf=0.4):
+    """A detection `deg` degrees below the horizon: y_normalized 0.5 is the horizon."""
+    return {"x_normalized": 0.5, "y_normalized": 0.5 + deg / 180.0, "confidence": conf}
+
+
+def test_rig_mask_threshold_sits_between_the_measured_true_and_false_populations():
+    """Laurens validations, 2026-09-22: the shallowest label a validator marked correct is
+    46.1 deg below the horizon; the shallowest rig false positive is 51.7 deg. The constant
+    must separate them, or it is either dropping real ramps or keeping vehicle roofs."""
+    assert 46.1 < detectors.NADIR_MASK_DEG < 51.7
+    assert not detectors.on_camera_rig(0.5 + 46.1 / 180.0)   # a real ramp, 2.5 m out
+    assert detectors.on_camera_rig(0.5 + 51.7 / 180.0)       # the rig, 2.1 m out
+    assert not detectors.on_camera_rig(0.5)                  # the horizon
+    assert detectors.on_camera_rig(1.0)                      # straight down
+
+
+def test_transform_record_drops_detections_on_the_camera_rig():
+    payload = send_to_ps.transform_record(_record([
+        _at_dip(10), _at_dip(40), _at_dip(46), _at_dip(52), _at_dip(60),
+    ]), min_confidence=0.30)
+    dips = [round((lbl["pano_y"] / 8192 - 0.5) * 180) for lbl in payload["labels"]]
+    assert dips == [10, 40, 46]
+
+
+def test_the_rig_mask_can_be_turned_off_to_reconstruct_an_older_campaign():
+    """What is already live is already live: a record derived from a campaign that shipped
+    before the mask existed has to count what that campaign actually sent."""
+    rec = _record([_at_dip(10), _at_dip(60)])
+    assert len(send_to_ps.transform_record(rec, 0.30)["labels"]) == 1
+    assert len(send_to_ps.transform_record(rec, 0.30, mask_rig=False)["labels"]) == 2
+
+
+def test_rig_detections_are_never_posted(tmp_path, monkeypatch):
+    path = tmp_path / "results.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in [
+        _record([_at_dip(20, 0.9)], "A"),                  # a real ramp
+        _record([_at_dip(60, 0.9)], "B"),                  # a roof rack, above threshold
+        _record([_at_dip(20, 0.9), _at_dip(60, 0.9)], "C"),
+    ]), encoding="utf-8", newline="\n")
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    # B has nothing left once the rig detection is dropped, but it is still submitted as a
+    # "checked, nothing found" pano — exactly like a record whose peaks are all sub-threshold.
+    assert [(p["pano"]["pano_id"], len(p["labels"])) for p in sent] == [("A", 1), ("B", 0), ("C", 1)]
+
+
+def test_count_band_labels_in_file_honours_the_mask_both_ways(tmp_path):
+    path = tmp_path / "results.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in [
+        _record([_at_dip(20, 0.4), _at_dip(60, 0.4)], "A"),
+        _record([_at_dip(60, 0.4)], "B"),
+    ]), encoding="utf-8", newline="\n")
+    assert send_to_ps.count_band_labels_in_file(path, 0.30, 0.55) == 1
+    assert send_to_ps.count_band_labels_in_file(path, 0.30, 0.55, mask_rig=False) == 3
+
+
+def test_a_band_that_is_all_rig_detections_is_refused(tmp_path, monkeypatch):
+    """The zero-band-labels guard counts what would actually SHIP, so a file whose entire
+    band is vehicle roof is caught by it rather than completing silently."""
+    path = tmp_path / "results.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in [
+        _record([_at_dip(20, 0.9), _at_dip(60, 0.4)], "A"),
+        _record([_at_dip(20, 0.9), _at_dip(60, 0.4)], "B"),
+    ]), encoding="utf-8", newline="\n")
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    del sent[:]
+    with pytest.raises(ValueError, match="holds no labels at all in"):
         send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
     assert sent == []

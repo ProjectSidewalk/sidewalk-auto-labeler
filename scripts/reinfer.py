@@ -192,7 +192,10 @@ def write_derived_record(old_path, band_path, tier):
         if not isinstance(old_lines, int) or sent < old_lines:
             raise SystemExit(f"{url} holds {sent} of {old_lines} line(s) of {old_path.name}; a "
                              f"band only sits on a COMPLETE campaign. Finish it first.")
-        recounted = send_to_ps.count_band_labels_in_file(band_path, tier, float('inf'))
+        # mask_rig=False on purpose: this must equal what the recorded campaign ACTUALLY
+        # sent, and that campaign predates the nadir mask. Masking here would make an
+        # honest record look like a mismatch and refuse a band that is perfectly safe.
+        recounted = send_to_ps.count_band_labels_in_file(band_path, tier, None, mask_rig=False)
         if recounted != state.get('labels_submitted'):
             raise SystemExit(f"{band_path.name} holds {recounted} label(s) at {tier} but "
                              f"{url} was recorded with {state.get('labels_submitted')}. The "

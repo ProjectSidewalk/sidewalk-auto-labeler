@@ -528,7 +528,8 @@ def cmd_ablation(args):
     # published (docs/mapillary-tilt-study.md, PR #50) was produced at 0.55, and
     # FuseParams.min_confidence defaults to OPERATIONAL_CONFIDENCE, which moved to 0.30
     # with issue #20. Taking the default would silently re-key the committed CSVs.
-    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE)
+    # mask_rig=False for the same reason as the tier: these CSVs are committed.
+    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False)
     all_rows = []
     for city in args.cities:
         panos, poses, _ = load_run(city)
@@ -654,7 +655,8 @@ def cmd_eval(args):
             ps_ = with_convention(panos, poses, signs)
             # Benchmark tier, for the same reason as `ablation` above: this arm is scored
             # against GT bundles that were exported and judged at 0.55.
-            params = replace(fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE),
+            params = replace(fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE,
+                                           mask_rig=False),
                              apply_pose=signs is not None)
             prefused = fs.fuse(ps_, params)
             r5 = es.evaluate_city(verdict_panos, bundle_ops, ps_, params, match_radius_m=5.0,

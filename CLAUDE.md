@@ -330,6 +330,30 @@ RampNet bundle was exported and reviewed at 0.55, so anything that joins a run t
 moving the operating point must not silently re-key nine cities of ground truth. Detections
 are returned as **normalized** `(x, y, confidence)` tuples in `[0, 1]`.
 
+A third filter is **geometric, not confidence-based**: `NADIR_MASK_DEG = 49.0` and
+`on_camera_rig(y_normalized)` in `detectors/__init__.py`. In an equirectangular pano the
+vertical axis *is* the dip angle (`y_normalized` 0.5 = horizon, 1.0 = straight down, the
+"nadir"), and straight down is the vehicle the camera is bolted to — so a steep enough
+detection is on the rig, never on the street. Found 2026-09-22 from human validations of
+live Laurens labels: **158 false positives on 156 panos across 19 sequences at seven
+discrete `y` values, every one GoPro Max** — a roof rack, fixed in the rig's frame,
+re-detected pano after pano. No label a validator marked correct sits below 46.1° of dip;
+the shallowest rig false positive is at 51.7°, so 49° splits the gap. It is expressed as an
+angle, not a range, because range needs a camera height that is per-pano and known to be too
+high (#40), while the dip is read straight off the pixel. The mask was invisible at 0.55
+(0 of 708 Laurens labels, 2 of 9,526 Richmond) — **dropping to 0.30 is what surfaced it**;
+it costs Richmond's band 12 of 3,448. Applied in `send_to_ps.transform_record` (so nothing
+rig-borne ever ships) and in `fuse_sites`' projection (`FuseParams.mask_rig`, counted as
+`drops['on_rig']`); `mask_rig=False` / `transform_record(..., mask_rig=False)` reconstructs
+a campaign that shipped *before* the mask, which is why `reinfer.py`'s derived record and the
+tilt/clustering analyses pin it off — what is already live is already live.
+**Deliberately NOT implemented:** the same validations show these false positives also sit
+far from intersections (median 55 m vs 10 m for true ramps), but that is a *consequence* of
+the rig artifact — it lands wherever the car drove — not a second signal, and legitimate
+mid-block ramps exist (school and mid-block crossings, driveway cuts). Measured: after the
+nadir mask a ">30 m from an intersection" rule would cut 3 validated-true labels for every 1
+false.
+
 The trap that catches: **`FuseParams.min_confidence` defaults to `OPERATIONAL_CONFIDENCE`**,
 so every bare `fs.FuseParams()` silently followed the operating point down to 0.30. Any
 analysis scored against a bundle must therefore pass the tier explicitly —

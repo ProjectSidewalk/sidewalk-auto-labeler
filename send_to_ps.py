@@ -34,7 +34,7 @@ import requests
 from dotenv import load_dotenv
 
 import position_check
-from detectors import OPERATIONAL_CONFIDENCE
+from detectors import OPERATIONAL_CONFIDENCE, on_camera_rig
 
 # Local secrets (e.g. PS_INTERNAL_API_KEY) from ./.env; real env vars win.
 load_dotenv()
@@ -142,7 +142,8 @@ def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_CONFIDENCE,
-                     max_confidence: Optional[float] = None) -> Dict[str, Any]:
+                     max_confidence: Optional[float] = None,
+                     mask_rig: bool = True) -> Dict[str, Any]:
     """
     Convert a main.py JSONL record into the payload expected by Project Sidewalk.
 
@@ -158,6 +159,11 @@ def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_C
     min_confidence <= c < max_confidence. That is how a city already live at one
     threshold receives the labels a lower one adds (issue #20): PS is insert-only, so
     the labels the server already holds must not be sent again.
+
+    mask_rig drops detections that are too steeply below the horizon to be on the street
+    at all — they are on the camera vehicle (see detectors.on_camera_rig). Pass False only
+    to reconstruct what a campaign that predates the mask actually sent; for anything
+    being submitted now it stays on.
     """
     modified_data = data.copy()
     modified_data['pano'] = transform_pano(data['pano'])
@@ -169,6 +175,7 @@ def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_C
         } for detection in data['detections']
         if detection['confidence'] >= min_confidence
         and (max_confidence is None or detection['confidence'] < max_confidence)
+        and not (mask_rig and on_camera_rig(detection['y_normalized']))
     ]
     modified_data.pop('detections', None)
     return modified_data
@@ -874,19 +881,23 @@ def _storage_floor_for(input_file: Path) -> Optional[float]:
 
 
 def count_band_labels_in_file(input_file: Path, min_confidence: float,
-                              max_confidence: float) -> int:
+                              max_confidence: Optional[float],
+                              mask_rig: bool = True) -> int:
     """How many labels the WHOLE file holds in [min_confidence, max_confidence).
 
     Separate from ``count_labels`` because that one answers "what did these sidecar lines
     send?" and this one answers "is there anything here to send at all?" — the question a
     band has to settle before it marks a single line done (see ``check_band_state``).
+
+    mask_rig=False reconstructs what a campaign sent BEFORE the nadir mask existed, which
+    is what a derived record has to match; see ``transform_record``.
     """
     labels = 0
     with open(input_file, 'r', encoding='utf-8') as f:
         for line in f:
             if line.strip():
                 labels += len(transform_record(json.loads(line), min_confidence,
-                                               max_confidence)['labels'])
+                                               max_confidence, mask_rig)['labels'])
     return labels
 
 

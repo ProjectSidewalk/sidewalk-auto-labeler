@@ -670,8 +670,10 @@ def main():
              f'{sum(len(c["label_ids"]) for c in server_clusters)} labels']
 
     # world frame, raycast positions, GT — one code path with eval_sites
+    # mask_rig=False: this arm is compared against what the SERVER holds, and those
+    # labels were submitted before the nadir mask existed.
     params = fs.FuseParams(camera_height_m=args.camera_height_m,
-                           min_confidence=args.min_confidence)
+                           min_confidence=args.min_confidence, mask_rig=False)
     lines.append(f'raycast camera height {args.camera_height_m:g} m; '
                  f'fusion arm at --min-confidence {args.min_confidence:g}')
     verdict_panos, bundle_ops, run_panos = es.load_city_files(
