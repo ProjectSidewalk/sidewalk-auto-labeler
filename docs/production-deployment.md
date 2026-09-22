@@ -437,9 +437,65 @@ you three labels instead of thousands.
 
 On confidence: `results.jsonl` stores candidates down to the storage floor (0.10), not
 beliefs. You do **not** need to do anything about that — `--min-confidence` already
-defaults to `OPERATIONAL_CONFIDENCE` (0.55), so the commands above submit only operational
-detections. Records whose detections all fall below it still submit, as "checked, nothing
-found". Lowering the flag is the dangerous direction, not omitting it.
+defaults to `OPERATIONAL_CONFIDENCE` (0.30 since 2026-09-21, issue #20; 0.55 before), so
+the commands above submit only operational detections. Records whose detections all fall
+below it still submit, as "checked, nothing found". Lowering the flag is the dangerous
+direction, not omitting it.
+
+**A city that is already live at an older, higher threshold** does not get re-submitted:
+PS is insert-only, so that would double its labels. It gets the *band* the new threshold
+adds, on top of the campaign the record shows complete:
+
+```bash
+python send_to_ps.py runs/<city>/results.jsonl --endpoint <test>     --min-confidence 0.30 --max-confidence 0.55 --dry-run   # count what would ship
+python send_to_ps.py runs/<city>/results.jsonl --endpoint <test> --min-confidence 0.30 --max-confidence 0.55
+python send_to_ps.py runs/<city>/results.jsonl --endpoint <prod> --min-confidence 0.30 --max-confidence 0.55
+```
+
+The guard allows a band only when the record shows that endpoint complete at exactly
+`--max-confidence` on the unchanged file; progress lives in
+`<file>.band-0.3-0.55.submitted` (move it aside between test and prod exactly like the
+base sidecar), records with nothing in the band are marked done without a POST, and the
+record gains a `bands` entry per endpoint.
+
+### A city that predates the storage floor
+
+If the run's manifest has no `detection_storage_floor`, `results.jsonl` holds nothing below
+0.55 and there is no band in it. **Do not point a band at that file** — it would POST
+nothing, mark every line done, and then record the endpoint as holding 0.30, which it does
+not. (The guard refuses this, by counting the band over the whole file first.)
+
+Re-inference supplies the band, but it is not a drop-in: the panos are re-run through the
+model, so the confidences are *new numbers* and one that sat just above 0.55 in the original
+campaign can land just below it now — which a naive band would ship as a duplicate of a label
+already live. Richmond has exactly one such detection (0.550011 → 0.549993). So:
+
+```bash
+python scripts/reinfer.py runs/<city>                                    # GPU; writes results.f01.jsonl
+python scripts/reinfer.py runs/<city> --verify --band-floor 0.30         # no network, no GPU
+python scripts/reinfer.py runs/<city> --verify --band-floor 0.30 --write-band-file
+```
+
+`--verify` compares every pano against `results.jsonl` at **the tier the submission record
+says the server holds**, on the pixel key PS stores, and also requires width, height, lat,
+lng and heading to be unchanged. `--write-band-file` writes `results.band.jsonl` — the new
+record where the pano reproduced, the **old** record where it did not (so its band is empty
+and it is never POSTed) — asserts that the file's labels at the server's tier are exactly the
+live ones, and derives `results.band.jsonl.submission.json` from the old campaign. **Ship
+from `results.band.jsonl`**, which the ordinary band guard accepts with no override:
+
+```bash
+python scripts/position_check.py runs/<city> --results runs/<city>/results.band.jsonl   # Mapillary only
+python send_to_ps.py runs/<city>/results.band.jsonl --endpoint <prod> \
+    --min-confidence 0.30 --max-confidence 0.55 --dry-run
+```
+
+The position gate applies to the new file in its own right, so a Mapillary city needs a check
+against `results.band.jsonl` before the band will go. A band inherits the pano positions the
+base campaign already shipped, so if that check flags sequences the base campaign also shipped
+under, `--ignore-position-check` is the honest answer — repositioning is a separate decision
+covering *all* of the city's labels, and it needs the live ones retired first
+(SidewalkWebpage#5382).
 
 ---
 

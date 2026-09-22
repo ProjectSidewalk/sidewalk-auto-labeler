@@ -50,13 +50,17 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import geo  # noqa: E402
-from detectors import DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE  # noqa: E402
+from detectors import (DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE,  # noqa: E402
+                       on_camera_rig)
 
 
 @dataclass(frozen=True)
 class FuseParams:
     floor: float = DETECTION_STORAGE_FLOOR
     min_confidence: float = OPERATIONAL_CONFIDENCE
+    mask_rig: bool = True            # drop detections on the camera vehicle (see
+                                     # detectors.on_camera_rig). False reproduces analysis
+                                     # published before the mask existed.
     max_range_m: float = geo.DEFAULT_MAX_RANGE_M
     gate_chi2: float = 9.21          # chi-square(2 dof) 99th pct; loose on purpose —
                                      # the covariance model errs small and false splits
@@ -211,7 +215,7 @@ def project(panos, params):
     """Raycast every stored detection >= floor. Returns (dets, frame, drops)."""
     frame = geo.LocalFrame(sum(p.lat for p in panos) / len(panos),
                            sum(p.lng for p in panos) / len(panos))
-    drops = {'below_floor': 0, 'horizon': 0, 'out_of_range': 0}
+    drops = {'below_floor': 0, 'on_rig': 0, 'horizon': 0, 'out_of_range': 0}
     dets = []
     s2 = params.sigma_scale ** 2
     for p in panos:
@@ -224,6 +228,12 @@ def project(panos, params):
         for i, x, y, conf in p.detections:
             if conf < params.floor:
                 drops['below_floor'] += 1
+                continue
+            if params.mask_rig and on_camera_rig(y):
+                # On the camera vehicle, not the street: it would raycast to a ghost point
+                # ~1.5 m from the camera and, since the rig is fixed in the pano frame, do
+                # so on every pano of the sequence - a trail of spurious sites.
+                drops['on_rig'] += 1
                 continue
             g = geo.detection_ground_point(
                 pose, x, y, camera_height=params.camera_height_m,

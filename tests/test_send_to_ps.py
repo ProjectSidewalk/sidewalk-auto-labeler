@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import detectors
 import main
 import send_to_ps
 from conftest import make_process_result
@@ -930,3 +931,397 @@ def test_position_gate_ignores_non_mapillary_files(tmp_path, monkeypatch):
     sent = _capture_posts(monkeypatch)
     send_to_ps.process_jsonl_file(str(path), PROD)
     assert len(sent) == 2
+
+
+# --- Band campaigns (issue #20: a live city gets the labels a lower threshold adds) --------
+
+def _banded_jsonl(tmp_path, count):
+    """Every record has one 0.9 label; odd records also carry one in [0.3, 0.55)."""
+    path = tmp_path / "results.jsonl"
+    lines = []
+    for i in range(1, count + 1):
+        dets = [{"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.9}]
+        if i % 2:
+            dets.append({"x_normalized": 0.2, "y_normalized": 0.6, "confidence": 0.4})
+        dets.append({"x_normalized": 0.1, "y_normalized": 0.1, "confidence": 0.2})  # sub-band
+        lines.append(json.dumps(_record(dets, pano_id=f"PID{i}")) + "\n")
+    path.write_text("".join(lines))
+    return path
+
+
+def test_transform_record_band_is_half_open():
+    payload = send_to_ps.transform_record(_record([
+        {"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.55},   # excluded: == max
+        {"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.549},
+        {"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.3},    # included: == min
+        {"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.29},
+    ]), min_confidence=0.3, max_confidence=0.55)
+    assert [l["confidence"] for l in payload["labels"]] == [0.549, 0.3]
+
+
+def test_band_ships_only_the_new_labels_and_skips_empty_records(tmp_path, monkeypatch):
+    """After a complete 0.55 campaign, the 0.3-0.55 band POSTs exactly the band labels,
+    for exactly the records that have one, from its own sidecar, and the record says so."""
+    path = _banded_jsonl(tmp_path, 6)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    assert len(sent) == 6
+    del sent[:]
+
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert [p["pano"]["pano_id"] for p in sent] == ["PID1", "PID3", "PID5"]
+    assert all([l["confidence"] for l in p["labels"]] == [0.4] for p in sent)
+    # The band's sidecar marks every line handled, POSTed or not; the base one is untouched.
+    band_sidecar = tmp_path / "results.jsonl.band-0.3-0.55.submitted"
+    assert send_to_ps.load_submitted_lines(band_sidecar) == set(range(1, 7))
+    assert _sidecar(tmp_path) == set(range(1, 7))
+
+    state = _read_record(tmp_path)["endpoints"][PROD]
+    assert state["bands"]["0.3-0.55"]["submitted_lines"] == 6
+    assert state["bands"]["0.3-0.55"]["labels_submitted"] == 3
+    assert state["min_confidence"] == 0.3            # the server now holds down to 0.3
+    assert state["labels_submitted"] == 6 + 3
+    assert state["submitted_lines"] == 6             # the base campaign's count is kept
+
+    # Re-running the band sends nothing more.
+    del sent[:]
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert sent == []
+
+
+def test_band_resumes_from_its_own_sidecar(tmp_path, monkeypatch):
+    path = _banded_jsonl(tmp_path, 6)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    del sent[:]
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55,
+                                  limit=3)                      # lines 1-3: PID1, PID3 POSTed
+    assert [p["pano"]["pano_id"] for p in sent] == ["PID1", "PID3"]
+    state = _read_record(tmp_path)["endpoints"][PROD]
+    assert state["bands"]["0.3-0.55"]["submitted_lines"] == 3
+    assert state["min_confidence"] == 0.55           # not complete yet: server still at 0.55
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert [p["pano"]["pano_id"] for p in sent] == ["PID1", "PID3", "PID5"]
+    assert _read_record(tmp_path)["endpoints"][PROD]["min_confidence"] == 0.3
+
+
+@pytest.mark.parametrize("setup, message", [
+    ("none", "records no campaign"),
+    ("incomplete", "COMPLETE campaign"),
+    ("wrong_max", "--max-confidence 0.55, not 0.5"),
+    ("changed_file", "is not the file"),
+])
+def test_band_refusals(tmp_path, monkeypatch, setup, message):
+    """A band is allowed only on top of a complete campaign at exactly --max-confidence,
+    on the unchanged file; anything else would double labels or leave a gap."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    max_conf = 0.55
+    if setup == "incomplete":
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55, limit=2)
+    elif setup in ("wrong_max", "changed_file"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+        if setup == "wrong_max":
+            max_conf = 0.5
+        else:
+            with open(path, "a") as f:
+                f.write(json.dumps(_record([], pano_id="PID9")) + "\n")
+    del sent[:]
+    with pytest.raises(ValueError, match=message):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3,
+                                      max_confidence=max_conf)
+    assert sent == []
+
+
+def test_band_sidecar_from_another_endpoint_is_refused(tmp_path, monkeypatch):
+    """Test then prod: the band sidecar is endpoint-agnostic like the base one, so the
+    prod band must start from its own sidecar, not skip the lines test took."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    for url in (TEST, PROD):
+        send_to_ps.process_jsonl_file(str(path), url, min_confidence=0.55)
+        (tmp_path / "results.jsonl.submitted").unlink()
+    send_to_ps.process_jsonl_file(str(path), TEST, min_confidence=0.3, max_confidence=0.55)
+    del sent[:]
+    with pytest.raises(ValueError, match="Move the band sidecar aside"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert sent == []
+    (tmp_path / "results.jsonl.band-0.3-0.55.submitted").unlink()
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert [p["pano"]["pano_id"] for p in sent] == ["PID1", "PID3"]
+    record = _read_record(tmp_path)
+    assert record["endpoints"][TEST]["min_confidence"] == 0.3
+    assert record["endpoints"][PROD]["min_confidence"] == 0.3
+
+
+def test_base_resume_after_a_band_never_suggests_an_upward_band(tmp_path, monkeypatch):
+    """Once a server holds 0.3, a plain run at 0.55 is refused WITHOUT a band hint — a band
+    is [min, max) and only ever adds a lower tier, so there is no route upward. A plain run
+    at 0.3 with the base sidecar gone is still caught as a lost sidecar."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    del sent[:]
+    with pytest.raises(ValueError, match="already holds every label") as excinfo:
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    # The bug this guards: the hint used to be built unconditionally, so it printed the
+    # impossible "--min-confidence 0.55 --max-confidence 0.3" (min must be below max).
+    assert "--max-confidence 0.3" not in str(excinfo.value)
+    (tmp_path / "results.jsonl.submitted").unlink()
+    with pytest.raises(ValueError, match="accounts for only 0"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3)
+    assert sent == []
+
+
+def test_base_resume_below_the_recorded_tier_still_names_the_band(tmp_path, monkeypatch):
+    """The downward case keeps the hint: a server holding 0.55 told to run at 0.3 is sent
+    to the band route, which is the one thing that adds a tier without re-sending."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    del sent[:]
+    with pytest.raises(ValueError,
+                       match=r"--min-confidence 0\.3 --max-confidence 0\.55"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3)
+    assert sent == []
+
+
+def test_band_dry_run_prints_only_band_payloads_and_records_nothing(tmp_path, monkeypatch, capsys):
+    path = _banded_jsonl(tmp_path, 4)
+    _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    before = (tmp_path / "results.jsonl.submission.json").read_text()
+    send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True, min_confidence=0.3,
+                                  max_confidence=0.55)
+    out = capsys.readouterr().out
+    assert out.count('"pano_id"') == 2
+    assert not (tmp_path / "results.jsonl.band-0.3-0.55.submitted").exists()
+    assert (tmp_path / "results.jsonl.submission.json").read_text() == before
+
+
+# --- Band campaigns: the ways a second campaign could duplicate live labels ---------------
+
+def _append_banded(path, pano_ids):
+    """Append panos that carry a band label, i.e. what a gap-fill adds to a banded file."""
+    with open(path, 'a', encoding='utf-8', newline='\n') as f:
+        for pano_id in pano_ids:
+            f.write(json.dumps(_record([
+                {"x_normalized": 0.5, "y_normalized": 0.5, "confidence": 0.9},
+                {"x_normalized": 0.2, "y_normalized": 0.6, "confidence": 0.4},
+            ], pano_id=pano_id)) + "\n")
+
+
+def test_band_re_run_after_a_gap_fill_refuses_instead_of_resending(tmp_path, monkeypatch):
+    """The completed-band exemption must be judged against the file as it is NOW.
+
+    Sequence that used to duplicate: band completes -> gap-fill (#32) appends panos -> the
+    base campaign ships them at the band's floor via the append path -> the band command is
+    re-run by accident. The band sidecar never saw the appended line numbers, so their
+    [0.3, 0.55) labels were POSTed a second time, and PS is insert-only.
+    """
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert _read_record(tmp_path)["endpoints"][PROD]["min_confidence"] == 0.3
+
+    _append_banded(path, ["PID5", "PID6"])
+    del sent[:]
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3)   # the append path
+    assert {p["pano"]["pano_id"] for p in sent} == {"PID5", "PID6"}
+
+    del sent[:]
+    with pytest.raises(ValueError, match="belong to the BASE campaign"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert sent == []
+
+
+def test_band_over_a_file_with_nothing_in_the_band_is_refused(tmp_path, monkeypatch):
+    """A legacy file holds nothing below 0.55, so a band over it POSTs nothing, marks every
+    line done, and then records the endpoint as holding 0.3 - a record that lies about a
+    live server. That is the first command anyone would try on a pre-storage-floor city."""
+    path = _jsonl(tmp_path, 4)          # every record has one 0.9 label and nothing else
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    del sent[:]
+    with pytest.raises(ValueError, match="holds no labels at all in"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert sent == []
+    # The record must be exactly as the base campaign left it.
+    assert _read_record(tmp_path)["endpoints"][PROD]["min_confidence"] == 0.55
+    assert "bands" not in _read_record(tmp_path)["endpoints"][PROD]
+
+
+def test_band_refusal_names_the_storage_floor_when_the_run_records_one(tmp_path, monkeypatch):
+    path = _jsonl(tmp_path, 2)
+    (tmp_path / "manifest.json").write_text(json.dumps({"detection_storage_floor": 0.55}))
+    _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    with pytest.raises(ValueError, match="detection_storage_floor is 0.55"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+
+
+def test_lost_band_sidecar_on_a_complete_band_is_a_noop(tmp_path, monkeypatch, capsys):
+    """Nothing is left to send, so refusing would only push the user to the override - which
+    with an empty sidecar would re-POST the entire band."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    before = (tmp_path / "results.jsonl.submission.json").read_text()
+    (tmp_path / "results.jsonl.band-0.3-0.55.submitted").unlink()
+
+    del sent[:]
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert sent == []
+    assert "Nothing to do" in capsys.readouterr().out
+    assert (tmp_path / "results.jsonl.submission.json").read_text() == before
+
+
+def test_lost_band_sidecar_noop_is_not_downgraded_by_the_override(tmp_path, monkeypatch):
+    """--ignore-submission-guard turns refusals into warnings and carries on. Here that
+    would re-POST the whole band, so the completion stop must not be a refusal at all."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    (tmp_path / "results.jsonl.band-0.3-0.55.submitted").unlink()
+    del sent[:]
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55,
+                                  ignore_guard=True)
+    assert sent == []
+
+
+def test_a_second_band_chains_below_the_first(tmp_path, monkeypatch):
+    """Once 0.3-0.55 has landed the endpoint holds 0.3, so the next tier down is
+    --max-confidence 0.3. Every record in the fixture carries a 0.2 label."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    del sent[:]
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.2, max_confidence=0.3)
+    assert len(sent) == 4 and all(len(p["labels"]) == 1 for p in sent)
+    state = _read_record(tmp_path)["endpoints"][PROD]
+    assert state["min_confidence"] == 0.2
+    assert set(state["bands"]) == {"0.3-0.55", "0.2-0.3"}
+    # 4 base (0.9) + 2 first band (odd records only) + 4 second band (0.2 on every record).
+    assert state["labels_submitted"] == 10
+
+
+def test_band_completion_adds_its_labels_exactly_once(tmp_path, monkeypatch):
+    """`was_complete` is what stops a re-run from adding the band's labels to the endpoint
+    total a second time."""
+    path = _banded_jsonl(tmp_path, 4)
+    _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    total = _read_record(tmp_path)["endpoints"][PROD]["labels_submitted"]
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert _read_record(tmp_path)["endpoints"][PROD]["labels_submitted"] == total
+
+
+def test_a_band_forced_onto_a_file_with_no_record_still_writes_a_readable_one(tmp_path,
+                                                                             monkeypatch):
+    """Reachable only via the override, but the record it leaves must not be one the next
+    run refuses as unreadable - that would strand the campaign with no way back."""
+    path = _banded_jsonl(tmp_path, 4)
+    _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55,
+                                  ignore_guard=True)
+    record_path = tmp_path / "results.jsonl.submission.json"
+    send_to_ps.load_submission_record(record_path)          # must not raise
+    state = json.loads(record_path.read_text())["endpoints"][PROD]
+    assert state["submitted_lines"] == 0                    # honest: no base campaign ran
+    assert state["bands"]["0.3-0.55"]["submitted_lines"] == 4
+
+
+def test_a_band_on_a_record_with_no_threshold_says_so(tmp_path, monkeypatch):
+    """A record from before min_confidence was tracked cannot say what tier the server
+    holds, so it must be repaired by hand rather than guessed at."""
+    path = _banded_jsonl(tmp_path, 4)
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    record_path = tmp_path / "results.jsonl.submission.json"
+    record = json.loads(record_path.read_text())
+    del record["endpoints"][PROD]["min_confidence"]
+    record_path.write_text(json.dumps(record))
+    del sent[:]
+    with pytest.raises(ValueError, match="predates threshold tracking"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert sent == []
+
+
+# --- The nadir / camera-rig mask ----------------------------------------------------------
+
+def _at_dip(deg, conf=0.4):
+    """A detection `deg` degrees below the horizon: y_normalized 0.5 is the horizon."""
+    return {"x_normalized": 0.5, "y_normalized": 0.5 + deg / 180.0, "confidence": conf}
+
+
+def test_rig_mask_threshold_sits_between_the_measured_true_and_false_populations():
+    """Laurens validations, 2026-09-22: the shallowest label a validator marked correct is
+    46.1 deg below the horizon; the shallowest rig false positive is 51.7 deg. The constant
+    must separate them, or it is either dropping real ramps or keeping vehicle roofs."""
+    assert 46.1 < detectors.NADIR_MASK_DEG < 51.7
+    assert not detectors.on_camera_rig(0.5 + 46.1 / 180.0)   # a real ramp, 2.5 m out
+    assert detectors.on_camera_rig(0.5 + 51.7 / 180.0)       # the rig, 2.1 m out
+    assert not detectors.on_camera_rig(0.5)                  # the horizon
+    assert detectors.on_camera_rig(1.0)                      # straight down
+
+
+def test_transform_record_drops_detections_on_the_camera_rig():
+    payload = send_to_ps.transform_record(_record([
+        _at_dip(10), _at_dip(40), _at_dip(46), _at_dip(52), _at_dip(60),
+    ]), min_confidence=0.30)
+    dips = [round((lbl["pano_y"] / 8192 - 0.5) * 180) for lbl in payload["labels"]]
+    assert dips == [10, 40, 46]
+
+
+def test_the_rig_mask_can_be_turned_off_to_reconstruct_an_older_campaign():
+    """What is already live is already live: a record derived from a campaign that shipped
+    before the mask existed has to count what that campaign actually sent."""
+    rec = _record([_at_dip(10), _at_dip(60)])
+    assert len(send_to_ps.transform_record(rec, 0.30)["labels"]) == 1
+    assert len(send_to_ps.transform_record(rec, 0.30, mask_rig=False)["labels"]) == 2
+
+
+def test_rig_detections_are_never_posted(tmp_path, monkeypatch):
+    path = tmp_path / "results.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in [
+        _record([_at_dip(20, 0.9)], "A"),                  # a real ramp
+        _record([_at_dip(60, 0.9)], "B"),                  # a roof rack, above threshold
+        _record([_at_dip(20, 0.9), _at_dip(60, 0.9)], "C"),
+    ]), encoding="utf-8", newline="\n")
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    # B has nothing left once the rig detection is dropped, but it is still submitted as a
+    # "checked, nothing found" pano — exactly like a record whose peaks are all sub-threshold.
+    assert [(p["pano"]["pano_id"], len(p["labels"])) for p in sent] == [("A", 1), ("B", 0), ("C", 1)]
+
+
+def test_count_band_labels_in_file_honours_the_mask_both_ways(tmp_path):
+    path = tmp_path / "results.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in [
+        _record([_at_dip(20, 0.4), _at_dip(60, 0.4)], "A"),
+        _record([_at_dip(60, 0.4)], "B"),
+    ]), encoding="utf-8", newline="\n")
+    assert send_to_ps.count_band_labels_in_file(path, 0.30, 0.55) == 1
+    assert send_to_ps.count_band_labels_in_file(path, 0.30, 0.55, mask_rig=False) == 3
+
+
+def test_a_band_that_is_all_rig_detections_is_refused(tmp_path, monkeypatch):
+    """The zero-band-labels guard counts what would actually SHIP, so a file whose entire
+    band is vehicle roof is caught by it rather than completing silently."""
+    path = tmp_path / "results.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in [
+        _record([_at_dip(20, 0.9), _at_dip(60, 0.4)], "A"),
+        _record([_at_dip(20, 0.9), _at_dip(60, 0.4)], "B"),
+    ]), encoding="utf-8", newline="\n")
+    sent = _capture_posts(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.55)
+    del sent[:]
+    with pytest.raises(ValueError, match="holds no labels at all in"):
+        send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
+    assert sent == []

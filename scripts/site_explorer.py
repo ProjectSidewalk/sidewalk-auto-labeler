@@ -733,6 +733,11 @@ def main():
 
     print('fusing {} ...'.format(args.city))
     run_panos, _ = fs.load_results(run_dir / 'results.jsonl')
+    # Deliberately the OPERATING POINT (FuseParams' default), not the benchmark tier: this
+    # is a viewer for the sites production actually ships, so it should show what production
+    # sees. The consequence to keep in mind when reading a card: the RampNet verdict overlaid
+    # on it was judged at BENCHMARK_CONFIDENCE, so a site built only from 0.30-0.55 members
+    # is one the GT session never adjudicated - absence of a verdict there is not a "no".
     params = fs.FuseParams()
     sites, frame, stats = fs.fuse(run_panos, params)
     source = run_panos[0].source if run_panos else 'gsv'

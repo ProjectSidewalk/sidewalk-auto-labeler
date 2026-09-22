@@ -68,7 +68,7 @@ for p in (str(REPO_ROOT / 'scripts'), str(REPO_ROOT)):
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
-from detectors import OPERATIONAL_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
 
 # Benchmark split name -> run directory name, where they differ.
 BENCHMARK_OF = {'laurens': 'laurens_mapillary'}
@@ -217,7 +217,7 @@ def load_run(city, floor=None):
                 'computed_altitude': sm.get('computed_altitude'),
                 'lat': p['lat'], 'lng': p['lng'],
                 'n_operational': sum(1 for d in rec.get('detections', [])
-                                     if d['confidence'] >= OPERATIONAL_CONFIDENCE),
+                                     if d['confidence'] >= BENCHMARK_CONFIDENCE),
             })
             poses[p['panorama_id']] = pose
             panos.append(fs.SlimPano(
@@ -451,7 +451,7 @@ def cmd_stats(args):
 def cmd_displacement(args):
     rows_all = []
     for city in args.cities:
-        panos, poses, _ = load_run(city, floor=OPERATIONAL_CONFIDENCE)
+        panos, poses, _ = load_run(city, floor=BENCHMARK_CONFIDENCE)
         rows = []
         for p in panos:
             pose = poses[p.pano_id]
@@ -524,7 +524,12 @@ def cmd_ablation(args):
     that lengthens rays. Median, mean, p90 and the range-normalized mean are all
     reported; they do not always agree, and the report says which one each claim
     rests on."""
-    params = fs.FuseParams()
+    # Pinned to the benchmark tier, NOT the operating point: every number this study
+    # published (docs/mapillary-tilt-study.md, PR #50) was produced at 0.55, and
+    # FuseParams.min_confidence defaults to OPERATIONAL_CONFIDENCE, which moved to 0.30
+    # with issue #20. Taking the default would silently re-key the committed CSVs.
+    # mask_rig=False for the same reason as the tier: these CSVs are committed.
+    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False)
     all_rows = []
     for city in args.cities:
         panos, poses, _ = load_run(city)
@@ -648,7 +653,11 @@ def cmd_eval(args):
             if name in ('pitch-only', 'roll-only'):
                 continue
             ps_ = with_convention(panos, poses, signs)
-            params = replace(fs.FuseParams(), apply_pose=signs is not None)
+            # Benchmark tier, for the same reason as `ablation` above: this arm is scored
+            # against GT bundles that were exported and judged at 0.55.
+            params = replace(fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE,
+                                           mask_rig=False),
+                             apply_pose=signs is not None)
             prefused = fs.fuse(ps_, params)
             r5 = es.evaluate_city(verdict_panos, bundle_ops, ps_, params, match_radius_m=5.0,
                                   prefused=prefused)
