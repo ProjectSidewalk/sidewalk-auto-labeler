@@ -63,18 +63,23 @@ BENCHMARK_CONFIDENCE = 0.55
 # a ">30 m from an intersection" rule would have cut 3 validated-true labels for every 1
 # false, so it is deliberately NOT implemented.
 #
-# Measured on Laurens prod, 2026-09-22, from human validations of live AI labels: 18 of the
-# 19 judged false positives in the 0.30-0.55 band sit below 51.7 deg of dip, and NO label a
-# validator marked correct sits below 46.1 deg. The false positives are not scattered — 158
-# of them fall on 156 distinct panos across 19 sequences at just seven discrete y values,
-# every one of them GoPro Max: a roof rack, fixed in the rig's own frame, re-detected pano
-# after pano. At 2.6 m camera height those dips are 1.5-2.1 m of ground range, i.e. on the
-# vehicle; the shallowest validated true ramp is 2.5 m away.
+# Measured on Laurens prod, 2026-09-22, from human validations of live AI labels. Of the 158
+# labels in this region, 48 have been judged and **every one is false** (0 true; 95% CI on
+# precision [0.000, 0.074]). They are not scattered: the 158 fall on 156 distinct panos
+# across 19 sequences at just seven discrete y values, every one of them GoPro Max — a roof
+# rack, fixed in the rig's own frame, re-detected pano after pano. At 2.6 m camera height
+# those dips are 1.5-2.1 m of ground range, i.e. on the vehicle.
 #
-# 49 deg sits in the middle of that gap (46.1 true / 51.7 false). It is expressed as an
-# ANGLE, not a range, on purpose: range needs a camera height, which is per-pano and
-# currently a constant known to be too high (issue #40), whereas the dip is read straight
-# off the pixel and cannot drift.
+# The separation is exact and has held as the judged set grew from 379 to 536 labels: the
+# steepest validated TRUE label is at 46.1 deg, the shallowest validated FALSE one below the
+# horizon-ish band is at 51.7 deg, and nothing lies between. 49 deg sits mid-gap. It is
+# expressed as an ANGLE, not a range, on purpose: range needs a camera height, which is
+# per-pano and currently a constant known to be too high (issue #40), whereas the dip is read
+# straight off the pixel and cannot drift.
+#
+# This mask is NOT a general false-positive filter, and must not be sold as one. With it
+# applied, the band's remaining errors are ordinary model mistakes — driveway cuts and the
+# like — running at 0.828 precision (77/93 judged) against 0.972 for the >=0.55 tier.
 #
 # This mask was invisible at the old 0.55 operating point (0 of 708 Laurens labels, 2 of
 # 9,526 Richmond) — dropping to 0.30 is what surfaced it.

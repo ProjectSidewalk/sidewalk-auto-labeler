@@ -335,10 +335,12 @@ A third filter is **geometric, not confidence-based**: `NADIR_MASK_DEG = 49.0` a
 vertical axis *is* the dip angle (`y_normalized` 0.5 = horizon, 1.0 = straight down, the
 "nadir"), and straight down is the vehicle the camera is bolted to — so a steep enough
 detection is on the rig, never on the street. Found 2026-09-22 from human validations of
-live Laurens labels: **158 false positives on 156 panos across 19 sequences at seven
-discrete `y` values, every one GoPro Max** — a roof rack, fixed in the rig's frame,
-re-detected pano after pano. No label a validator marked correct sits below 46.1° of dip;
-the shallowest rig false positive is at 51.7°, so 49° splits the gap. It is expressed as an
+live Laurens labels: **158 labels on 156 panos across 19 sequences at seven discrete `y`
+values, every one GoPro Max** — a roof rack, fixed in the rig's frame, re-detected pano after
+pano. Of those, **48 have been judged and all 48 are false** (precision 0.000, CI to 0.074).
+No label a validator marked correct sits below 46.1° of dip and no false one above 40° sits
+shallower than 51.7°, a gap that has held as the judged set grew 379 → 536; 49° splits it.
+It is expressed as an
 angle, not a range, because range needs a camera height that is per-pano and known to be too
 high (#40), while the dip is read straight off the pixel. The mask was invisible at 0.55
 (0 of 708 Laurens labels, 2 of 9,526 Richmond) — **dropping to 0.30 is what surfaced it**;
