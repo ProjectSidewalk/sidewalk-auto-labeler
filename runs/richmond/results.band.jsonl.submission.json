@@ -3,20 +3,28 @@
   "sha256": "04e7325eb07c660e4bb540aff7afe83f9acf555bfab3c9537bb52c69d7fc0660",
   "total_lines": 9091,
   "total_bytes": 14347442,
-  "derived_from": {
-    "input_file": "results.jsonl",
-    "sha256": "109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c",
-    "total_lines": 9091,
-    "tier": 0.55
-  },
   "endpoints": {
     "https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano": {
       "submitted_lines": 9091,
-      "labels_submitted": 9526,
-      "min_confidence": 0.55,
+      "labels_submitted": 12962,
+      "min_confidence": 0.3,
       "first_submission_utc": "2026-09-05T01:05:03Z",
-      "last_submission_utc": "2026-09-05T01:39:04Z",
-      "last_run_host": "jonfhome"
+      "last_submission_utc": "2026-09-22T19:03:45Z",
+      "last_run_host": "jonfhome",
+      "bands": {
+        "0.3-0.55": {
+          "rig_masked": true,
+          "submitted_lines": 9091,
+          "labels_submitted": 3436,
+          "first_submission_utc": "2026-09-22T19:03:45Z",
+          "last_submission_utc": "2026-09-22T19:03:45Z",
+          "last_run_host": "jonfhome",
+          "position_check": {
+            "overridden": true,
+            "reason": "14 sequence(s) in results.band.jsonl sit off the street on the submitted position and the other Mapillary field fixes it (results.band.position_check.json). Run: python scripts/reposition.py runs/richmond/results.band.jsonl --from-check, check the output with python scripts/position_check.py runs/richmond --results <output>, and submit that file instead  (--ignore-position-check overrides)"
+          }
+        }
+      }
     }
   }
 }
