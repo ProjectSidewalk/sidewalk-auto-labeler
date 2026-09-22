@@ -330,15 +330,52 @@ RampNet bundle was exported and reviewed at 0.55, so anything that joins a run t
 moving the operating point must not silently re-key nine cities of ground truth. Detections
 are returned as **normalized** `(x, y, confidence)` tuples in `[0, 1]`.
 
+The trap that catches: **`FuseParams.min_confidence` defaults to `OPERATIONAL_CONFIDENCE`**,
+so every bare `fs.FuseParams()` silently followed the operating point down to 0.30. Any
+analysis scored against a bundle must therefore pass the tier explicitly —
+`mapillary_tilt.py`'s `ablation` and `eval` pin `BENCHMARK_CONFIDENCE`, and
+`eval_ps_clustering.py` takes `--min-confidence`, defaulting to the benchmark tier because
+what it scores is *what the server holds* (set it to whatever the city's submission record
+says it went live at). `site_explorer.py` deliberately keeps the default: it views the sites
+production ships, with the caveat that a site built only from 0.30–0.55 members was never
+adjudicated by the GT session its card overlays. Checked 2026-09-22: re-running `ablation`
+and `eval` pinned reproduces PR #50's committed CSVs cell-for-cell, and the Richmond
+clustering report is unaffected either way — of the cities involved only `laurens` was made
+after the storage floor, so everywhere else the stored file has no sub-0.55 band for the tier
+to select.
+
 A city that went live at the old threshold gets the new labels as a **band**:
 `send_to_ps.py <file> --min-confidence 0.30 --max-confidence 0.55` ships exactly
 `0.30 <= c < 0.55`, only on top of a campaign the record shows complete at 0.55 on the
 unchanged file, from its own sidecar (`<file>.band-0.3-0.55.submitted`), skipping records
 with nothing in the band (the server already holds them as checked); the record gains
 `bands` per endpoint and the endpoint's `min_confidence` drops once the band covers the
-file. Runs from before the storage floor hold no band at all — `scripts/reinfer.py
-runs/<name>` re-infers the run's own panos by id into `results.f01.jsonl`, and its
-`--verify` must report zero mismatches at 0.55 before that file's band is shipped.
+file. The guard refuses a band that could insert a label twice, and every refusal below is
+a real sequence, not a hypothetical: a band over a file holding **nothing** in `[min, max)`
+(a pre-storage-floor `results.jsonl` is exactly that) would POST nothing, mark every line
+done, and then record the endpoint as holding a tier it was never sent; a band **re-run
+after a gap-fill** (#32) appended panos would re-send the band labels of every line its
+sidecar predates, so it is sent to the base campaign instead; a **lost sidecar on a band the
+record shows complete** stops with "nothing to do" rather than refusing, because refusing
+pushes you to `--ignore-submission-guard`, which with an empty sidecar re-POSTs the lot.
+A band never runs *upward*, so a run above the recorded tier is told so rather than handed
+an impossible `--min-confidence 0.55 --max-confidence 0.3`.
+
+Runs from before the storage floor hold no band at all, and re-inference is not a substitute
+for one: `scripts/reinfer.py runs/<name>` re-runs the run's own panos by id into
+`results.f01.jsonl`, but those are **fresh forward passes, so the confidences are new
+numbers** — on Richmond one detection sat at 0.550011 in July (shipped, live) and re-infers
+at 0.549993, which a naive band would insert a second time. So `--verify` compares each pano
+against the old file **at the tier the submission record says the server holds** (not the
+benchmark constant) on the pixel key PS stores, *and* requires the pano block's width,
+height, lat, lng and heading to be unchanged — a band whose panos moved would arrive in a
+different frame from the labels already live. `--write-band-file` then builds the file a band
+may actually ship from (`results.band.jsonl`): the new record where the pano reproduced, the
+**old** record where it did not, so those panos have an empty band and are never POSTed. It
+asserts, against what it wrote, that the file's labels at the server's tier are exactly the
+live ones, and derives `results.band.jsonl.submission.json` from the old campaign — which is
+what lets the ordinary band guard pass with **no override**. Ship from `results.band.jsonl`,
+never from `results.f01.jsonl`.
 
 **Multi-view fusion (`geo.py`, `scripts/fuse_sites.py`, `scripts/eval_sites.py`)** —
 issue #27 stages 2–3, a post-processing layer between detection and submission.

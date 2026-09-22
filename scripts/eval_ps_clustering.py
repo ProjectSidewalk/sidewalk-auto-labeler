@@ -64,6 +64,7 @@ for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
 
 try:  # analysis-only dependencies, deliberately not in requirements.txt
     import pandas as pd
@@ -614,6 +615,12 @@ def main():
     ap.add_argument('--camera-height-m', type=float, default=geo.DEFAULT_CAMERA_HEIGHT_M,
                     help='raycast camera height for every placement (GT, clusters, '
                          'fusion); the #101/#158 sensitivity knob')
+    ap.add_argument('--min-confidence', type=float, default=BENCHMARK_CONFIDENCE,
+                    help='the tier the fusion arm runs at. Defaults to the BENCHMARK tier '
+                         f'({BENCHMARK_CONFIDENCE}), not the operating point: this script '
+                         'scores what the SERVER holds, and every city clustered so far went '
+                         'live at 0.55. Set it to whatever a city was actually submitted at '
+                         '(its submission record says) before comparing arms.')
     ap.add_argument('--citywide-max-labels', type=int, default=CITYWIDE_MAX_LABELS,
                     help='skip the ps_citywide arm above this many labels (it builds '
                          'a dense N x N distance matrix)')
@@ -663,8 +670,10 @@ def main():
              f'{sum(len(c["label_ids"]) for c in server_clusters)} labels']
 
     # world frame, raycast positions, GT — one code path with eval_sites
-    params = fs.FuseParams(camera_height_m=args.camera_height_m)
-    lines.append(f'raycast camera height {args.camera_height_m:g} m')
+    params = fs.FuseParams(camera_height_m=args.camera_height_m,
+                           min_confidence=args.min_confidence)
+    lines.append(f'raycast camera height {args.camera_height_m:g} m; '
+                 f'fusion arm at --min-confidence {args.min_confidence:g}')
     verdict_panos, bundle_ops, run_panos = es.load_city_files(
         args.city, args.benchmark_root, run_dir)
     dets, frame, drops = fs.project(run_panos, params)
