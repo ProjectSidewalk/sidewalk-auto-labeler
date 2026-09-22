@@ -41,6 +41,7 @@ band guard applies with no override.
 import argparse
 import json
 import sys
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -48,7 +49,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, on_camera_rig  # noqa: E402
 
 # The pano fields a band must not change: the first two set the pixel key PS stores, the
 # rest are what every label on that pano inherits (SidewalkWebpage#5361).
@@ -63,9 +64,17 @@ def read_records(path):
 
 
 def pixel_set(record, floor):
+    """The pixel keys PS stores for this record, as a MULTISET.
+
+    A multiset rather than a set because two detections can round to the same pixel: if
+    re-inference adds or drops one of a co-located pair, a set comparison sees no change,
+    `verify` calls the pano exact, and the disagreement only surfaces later as a label-count
+    mismatch when the derived record is written. Counting them makes `verify` the place that
+    catches it, which is the place that can carry the pano over.
+    """
     w, h = record['pano']['width'], record['pano']['height']
-    return {(round(d['x_normalized'] * w), round(d['y_normalized'] * h))
-            for d in record['detections'] if d['confidence'] >= floor}
+    return Counter((round(d['x_normalized'] * w), round(d['y_normalized'] * h))
+                   for d in record['detections'] if d['confidence'] >= floor)
 
 
 def pano_drift(old, new):
@@ -91,7 +100,7 @@ def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None):
         pid = old['pano']['panorama_id']
         summary['old_panos'] += 1
         old_set = pixel_set(old, floor)
-        summary['old_labels'] += len(old_set)
+        summary['old_labels'] += sum(old_set.values())
         new = new_by_id.get(pid)
         if new is None:
             # Not carried over: a band file cannot hold a record that does not exist. The
@@ -103,8 +112,13 @@ def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None):
         if new_set == old_set and not drift:
             summary['exact'] += 1
             if band_floor is not None:
+                # The rig mask has to be applied here too, or this number is not the one
+                # the band would actually ship — and it is the number an operator reads to
+                # decide whether to ship at all. (Richmond: 3,448 raw vs 3,436 delivered.)
                 summary['band_labels'] += sum(
-                    1 for d in new['detections'] if band_floor <= d['confidence'] < floor)
+                    1 for d in new['detections']
+                    if band_floor <= d['confidence'] < floor
+                    and not on_camera_rig(d['y_normalized']))
             continue
         carry_over.add(pid)
         if drift:
@@ -157,15 +171,22 @@ def write_band_file(old_path, new_path, band_path, carry_over, tier):
     # confirm its labels at or above the server's tier are exactly the old file's. If this
     # ever fails the file must not survive - shipping a band from it would insert labels
     # the server already holds, and PS cannot retire them (SidewalkWebpage#5382).
-    old_keys = {(r['pano']['panorama_id'], px) for r in read_records(old_path)
-                for px in pixel_set(r, tier)}
-    band_keys = {(r['pano']['panorama_id'], px) for r in read_records(band_path)
-                 for px in pixel_set(r, tier)}
+    def keys(path):
+        """Every (pano, pixel) key in the file at `tier`, with multiplicity."""
+        counts = Counter()
+        for record in read_records(path):
+            pid = record['pano']['panorama_id']
+            for px, n in pixel_set(record, tier).items():
+                counts[(pid, px)] += n
+        return counts
+
+    old_keys, band_keys = keys(old_path), keys(band_path)
     if band_keys != old_keys:
         band_path.unlink()
         raise SystemExit(
             f"{band_path.name} does not reproduce {old_path.name} at {tier} "
-            f"({len(old_keys - band_keys)} missing, {len(band_keys - old_keys)} extra); "
+            f"({sum((old_keys - band_keys).values())} missing, "
+            f"{sum((band_keys - old_keys).values())} extra); "
             f"refusing to leave it on disk.")
     return carried
 
@@ -186,16 +207,21 @@ def write_derived_record(old_path, band_path, tier):
                          f"for a band to sit on. Submit it normally first.")
     old_lines = old_record.get('total_lines')
     digest, total_lines, total_bytes = send_to_ps.hash_and_count(band_path)
+    # This has to equal what the recorded campaign ACTUALLY sent, which depends on whether
+    # that campaign ran with the nadir mask - the record says so in `rig_masked` (absent
+    # means it predates the mask). Both counts are taken once, above the loop: each is a
+    # property of the file, not of the endpoint, and the file is large enough that
+    # re-reading it per endpoint would be a second full pass for nothing.
+    counts = {masked: send_to_ps.count_band_labels_in_file(band_path, tier, None,
+                                                           mask_rig=masked)
+              for masked in (False, True)}
     endpoints = {}
     for url, state in old_record['endpoints'].items():
         sent = state.get('submitted_lines', 0)
         if not isinstance(old_lines, int) or sent < old_lines:
             raise SystemExit(f"{url} holds {sent} of {old_lines} line(s) of {old_path.name}; a "
                              f"band only sits on a COMPLETE campaign. Finish it first.")
-        # mask_rig=False on purpose: this must equal what the recorded campaign ACTUALLY
-        # sent, and that campaign predates the nadir mask. Masking here would make an
-        # honest record look like a mismatch and refuse a band that is perfectly safe.
-        recounted = send_to_ps.count_band_labels_in_file(band_path, tier, None, mask_rig=False)
+        recounted = counts[bool(state.get('rig_masked', False))]
         if recounted != state.get('labels_submitted'):
             raise SystemExit(f"{band_path.name} holds {recounted} label(s) at {tier} but "
                              f"{url} was recorded with {state.get('labels_submitted')}. The "
@@ -318,7 +344,15 @@ def main_cli():
             raise SystemExit(f"{band_path} already exists; move it aside rather than "
                              f"overwriting a file a campaign may have been recorded against.")
         carried = write_band_file(old_path, out_path, band_path, carry_over, tier)
-        record_path, endpoints = write_derived_record(old_path, band_path, tier)
+        try:
+            record_path, endpoints = write_derived_record(old_path, band_path, tier)
+        except BaseException:
+            # A band file with no record beside it is the one file that must NOT be shipped,
+            # sitting under exactly the name the docs say to ship from — and the "already
+            # exists" guard above would then block the retry that would fix it. Every exit
+            # from write_derived_record is a refusal, so take the file with it.
+            band_path.unlink(missing_ok=True)
+            raise
         band_labels = (send_to_ps.count_band_labels_in_file(band_path, args.band_floor, tier)
                        if args.band_floor is not None else None)
         print(f"-> {band_path.name}: {summary['old_panos']} record(s), {carried} carried over "

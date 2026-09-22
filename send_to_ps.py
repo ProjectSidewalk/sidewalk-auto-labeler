@@ -753,15 +753,28 @@ def check_band_state(record: Dict[str, Any], digest: str, band_lines: Set[int],
     # first command on such a city is the one that corrupts its record.
     if count_band_labels_in_file(input_file, min_confidence, max_confidence) == 0:
         floor = _storage_floor_for(input_file)
-        why = ("" if floor is None or floor < max_confidence else
-               f" {input_file.name} comes from a run whose detection_storage_floor is {floor}, "
-               f"at or above --max-confidence {max_confidence}, so it can never hold one.")
+        stored = count_band_labels_in_file(input_file, min_confidence, max_confidence,
+                                           mask_rig=False)
+        if stored:
+            # It holds a band; every label in it is on the camera rig. Re-inferring would
+            # produce the same rig detections, so that advice would send the operator in a
+            # circle - the band simply does not exist for this file.
+            why = (f" It does hold {stored} detection(s) in that range, but every one of them "
+                   f"is on the camera vehicle (see detectors.on_camera_rig) and is never "
+                   f"submitted.")
+            advice = "There is no band to ship here."
+        else:
+            why = ("" if floor is None or floor < max_confidence else
+                   f" {input_file.name} comes from a run whose detection_storage_floor is "
+                   f"{floor}, at or above --max-confidence {max_confidence}, so it can never "
+                   f"hold one.")
+            advice = ("Re-infer the run's panos at the current storage floor first "
+                      "(scripts/reinfer.py) and ship the band from the file that produces.")
         raise ValueError(
             f"{input_file.name} holds no labels at all in [{min_confidence}, {max_confidence}), "
             f"so this band would mark every line done without sending anything and then record "
             f"{endpoint} as holding labels down to {min_confidence} - which it would not.{why} "
-            f"Re-infer the run's panos at the current storage floor first "
-            f"(scripts/reinfer.py) and ship the band from the file that produces."
+            f"{advice}"
         )
     if already > len(band_lines):
         if band_complete:
@@ -848,11 +861,16 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
 
 
 def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float,
-                 max_confidence: Optional[float] = None) -> int:
+                 max_confidence: Optional[float] = None, mask_rig: bool = True) -> int:
     """How many labels the given lines of the JSONL submit at `min_confidence`.
 
     Recounted from the file and the sidecar rather than accumulated in memory, so the record
     stays right across interrupted runs, resumed runs, and lines sent before the record existed.
+
+    `mask_rig` must match how the campaign being counted actually shipped, NOT how this run
+    would ship: a campaign that predates the nadir mask put rig labels on the server, and a
+    recount that hides them understates what is live. Callers read it from the record's
+    `rig_masked` (absent = a pre-mask campaign); see ``write_submission_record``.
     """
     if not line_numbers:
         return 0
@@ -861,7 +879,7 @@ def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float
         for line_number, line in enumerate(f, 1):
             if line_number in line_numbers and line.strip():
                 labels += len(transform_record(json.loads(line), min_confidence,
-                                               max_confidence)['labels'])
+                                               max_confidence, mask_rig)['labels'])
     return labels
 
 
@@ -937,7 +955,10 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         state.setdefault("labels_submitted", 0)
         bands = dict(state.get('bands') or {})
         band = dict(bands.get(key) or {})
-        band_labels = count_labels(input_file, submitted_lines, min_confidence, max_confidence)
+        band_masked = True if not band else bool(band.get('rig_masked', False))
+        band['rig_masked'] = band_masked
+        band_labels = count_labels(input_file, submitted_lines, min_confidence,
+                                   max_confidence, mask_rig=band_masked)
         was_complete = band.get('submitted_lines', 0) >= total_lines
         band.update({
             "submitted_lines": len(submitted_lines),
@@ -954,9 +975,17 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         state["last_submission_utc"] = now
         state["last_run_host"] = socket.gethostname()
     else:
+        # A campaign that started before the nadir mask existed shipped rig labels, and they
+        # are live; recounting it with the mask on would silently understate the server's
+        # contents - and that count is load-bearing, since reinfer.write_derived_record
+        # refuses a band when it disagrees. So the record remembers how it was produced.
+        base_masked = True if 'submitted_lines' not in state else bool(state.get('rig_masked',
+                                                                                 False))
+        state["rig_masked"] = base_masked
         state.update({
             "submitted_lines": len(submitted_lines),
-            "labels_submitted": count_labels(input_file, submitted_lines, min_confidence),
+            "labels_submitted": count_labels(input_file, submitted_lines, min_confidence,
+                                             mask_rig=base_masked),
             "min_confidence": min_confidence,
             "first_submission_utc": state.get('first_submission_utc', now),
             "last_submission_utc": now,
@@ -964,11 +993,21 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         })
     if check is not None:  # the position verdict this campaign shipped under
         if check.get('overridden'):
-            state["position_check"] = {"overridden": True, "reason": check.get('reason')}
+            verdict = {"overridden": True, "reason": check.get('reason')}
         else:
-            state["position_check"] = {"checked_at": check.get('checked_at'),
-                                       "results_sha256": check.get('results_sha256'),
-                                       "flagged": len(check.get('flagged_sequences') or [])}
+            verdict = {"checked_at": check.get('checked_at'),
+                       "results_sha256": check.get('results_sha256'),
+                       "flagged": len(check.get('flagged_sequences') or [])}
+        if max_confidence is not None:
+            # A band's verdict belongs to the BAND, not to the base campaign. They differ in
+            # practice: the documented route for a band on a city whose base campaign already
+            # shipped under a clean check is --ignore-position-check (the band inherits the
+            # positions that are already live, so re-litigating them buys nothing). Writing
+            # that at endpoint level would replace the base campaign's honest verdict with
+            # {"overridden": true} and leave the record claiming it shipped ungated.
+            state["bands"][band_key(min_confidence, max_confidence)]["position_check"] = verdict
+        else:
+            state["position_check"] = verdict
     states[endpoint] = state
     record = {
         "input_file": input_file.name,

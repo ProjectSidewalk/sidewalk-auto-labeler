@@ -12,6 +12,7 @@ import json
 
 import pytest
 
+import detectors
 import reinfer
 import send_to_ps
 
@@ -251,3 +252,101 @@ def test_derived_record_refuses_a_file_with_no_campaign(tmp_path):
     reinfer.write_band_file(old, new, band, set(), 0.55)
     with pytest.raises(SystemExit, match="no submission record"):
         reinfer.write_derived_record(old, band, 0.55)
+
+
+def test_verify_band_count_is_what_would_actually_ship(tmp_path):
+    """The number --band-floor prints is the one an operator reads before deciding to ship,
+    so it has to match what send_to_ps would deliver — rig detections included in the count
+    but dropped at submission made it overstate the band (Richmond: 3,448 vs 3,436)."""
+    on_rig = {"x_normalized": 0.5,
+              "y_normalized": 0.5 + (detectors.NADIR_MASK_DEG + 5) / 180.0, "confidence": 0.4}
+    old, new = _old_and_new(
+        tmp_path,
+        [_record([_det(0.9)], "A")],
+        [_record([_det(0.9), _det(0.4, x=0.2), on_rig], "A")])
+    summary, _, carry = reinfer.verify(old, new, floor=0.55, band_floor=0.30)
+    assert carry == set()
+    band = tmp_path / "results.band.jsonl"
+    reinfer.write_band_file(old, new, band, carry, 0.55)
+    assert summary["band_labels"] == send_to_ps.count_band_labels_in_file(band, 0.30, 0.55) == 1
+
+
+def test_derived_record_counts_the_band_file_once_for_all_endpoints(tmp_path, monkeypatch):
+    """The count is a property of the file, not the endpoint; re-reading a 14 MB band file
+    per endpoint is a second full pass for nothing. A test-then-prod record (two endpoints)
+    is the normal shape, so this is the common case, not a corner."""
+    old, new = _old_and_new(tmp_path, [_record([_det(0.9)], "A")],
+                            [_record([_det(0.9)], "A")], submit=False)
+    base = {"submitted_lines": 1, "labels_submitted": 1, "min_confidence": 0.55}
+    send_to_ps.submission_record_path(old).write_text(json.dumps({
+        "input_file": "results.jsonl", "sha256": "x", "total_lines": 1,
+        "endpoints": {PROD: dict(base), "https://test.example/ai/x": dict(base),
+                      "https://third.example/ai/x": dict(base)},
+    }), encoding="utf-8")
+    band = tmp_path / "results.band.jsonl"
+    reinfer.write_band_file(old, new, band, set(), 0.55)
+
+    calls = []
+    real = send_to_ps.count_band_labels_in_file
+    monkeypatch.setattr(send_to_ps, "count_band_labels_in_file",
+                        lambda *a, **k: (calls.append(a), real(*a, **k))[1])
+    _, endpoints = reinfer.write_derived_record(old, band, 0.55)
+    assert len(endpoints) == 3
+    # Two passes — one per `rig_masked` setting a record can carry — and crucially NOT one
+    # per endpoint, which for a test-then-prod record over a 14 MB file is a wasted read.
+    assert len(calls) == 2, "the band file is re-read per endpoint"
+
+
+def test_a_co_located_peak_appearing_or_vanishing_is_caught_by_verify(tmp_path):
+    """Two detections can round to the same pixel key. With a set comparison the pano read
+    as `exact`, went into the band file, and only blew up later when the derived record's
+    label count disagreed — after the band file had already been written."""
+    twin = _det(0.9, x=0.50001)          # rounds to the same (pano_x, pano_y) as _det(0.9)
+    old, new = _old_and_new(tmp_path, [_record([_det(0.9), twin], "A")],
+                            [_record([_det(0.9)], "A")])
+    summary, _, carry = reinfer.verify(old, new, floor=0.55)
+    assert summary["mismatch"] == 1 and carry == {"A"}
+    assert summary["old_labels"] == 2      # counted with multiplicity, not deduped
+
+
+def test_a_failed_record_derivation_does_not_leave_a_band_file_behind(tmp_path):
+    """The orphan would sit under exactly the name the docs say to ship from, and the
+    `already exists` guard would then block the retry that would fix it."""
+    old, new = _old_and_new(tmp_path,
+                            [_record([_det(0.9)], "A"), _record([_det(0.9)], "B")],
+                            [_record([_det(0.9)], "A"), _record([_det(0.9)], "B")])
+    # Make the base campaign incomplete, so record derivation refuses.
+    record_path = send_to_ps.submission_record_path(old)
+    record = json.loads(record_path.read_text())
+    record["endpoints"][PROD]["submitted_lines"] = 1
+    record_path.write_text(json.dumps(record), encoding="utf-8")
+
+    band = tmp_path / "results.band.jsonl"
+    reinfer.write_band_file(old, new, band, set(), 0.55)
+    assert band.exists()
+    with pytest.raises(SystemExit, match="COMPLETE campaign"):
+        try:
+            reinfer.write_derived_record(old, band, 0.55)
+        except BaseException:
+            band.unlink(missing_ok=True)   # what main_cli's handler does
+            raise
+    assert not band.exists()
+
+
+def test_a_pre_mask_campaign_is_recounted_without_the_mask(tmp_path):
+    """A record with no `rig_masked` describes a campaign that shipped rig labels, and they
+    are live. Recounting it with the mask on would understate the server's contents — and
+    that count gates the band, so the understatement would block a safe one."""
+    on_rig = {"x_normalized": 0.5,
+              "y_normalized": 0.5 + (detectors.NADIR_MASK_DEG + 5) / 180.0, "confidence": 0.9}
+    old, new = _old_and_new(tmp_path, [_record([_det(0.9), on_rig], "A")],
+                            [_record([_det(0.9), on_rig], "A")], submit=False)
+    send_to_ps.submission_record_path(old).write_text(json.dumps({
+        "input_file": "results.jsonl", "sha256": "x", "total_lines": 1,
+        "endpoints": {PROD: {"submitted_lines": 1, "labels_submitted": 2,   # both went live
+                             "min_confidence": 0.55}},                      # no rig_masked
+    }), encoding="utf-8")
+    band = tmp_path / "results.band.jsonl"
+    reinfer.write_band_file(old, new, band, set(), 0.55)
+    _, endpoints = reinfer.write_derived_record(old, band, 0.55)   # must not raise
+    assert endpoints[PROD]["labels_submitted"] == 2

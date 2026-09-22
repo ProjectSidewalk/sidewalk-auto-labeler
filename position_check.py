@@ -62,7 +62,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import geo  # noqa: E402
-from detectors import OPERATIONAL_CONFIDENCE  # noqa: E402
+from detectors import OPERATIONAL_CONFIDENCE, on_camera_rig  # noqa: E402
 
 OVERPASS_ENDPOINTS = (
     'https://overpass-api.de/api/interpreter',
@@ -566,6 +566,11 @@ def operational_points(records, frame):
         vectors = {f: (frame.to_enu(*ll)[0] - base[0], frame.to_enu(*ll)[1] - base[1]) for f, ll in positions.items()}
         for i, det in enumerate(rec.get('detections') or []):
             if det.get('confidence', 0) < OPERATIONAL_CONFIDENCE:
+                continue
+            if on_camera_rig(det['y_normalized']):
+                # Report-only, but it is the near field that this plot exists to make
+                # legible, and a rig detection raycasts to ~1.5 m from the camera - a dense
+                # ghost cluster right where the reader is trying to judge a 3 m offset.
                 continue
             est = geo.detection_ground_point(pose, det['x_normalized'], det['y_normalized'], apply_pose=False)
             if est is None:

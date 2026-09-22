@@ -584,7 +584,9 @@ def main():
         args.city, args.benchmark_root, run_dir)
     # Fusion at the BENCHMARK threshold, not the production operating point: the bundle's
     # verdicts and the committed reports are keyed to it (detectors/__init__.py).
-    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE)
+    # mask_rig=False alongside the pinned tier: runs/<city>/fusion_eval/ is git-tracked by
+    # the same convention as the tilt CSVs, so re-running must still reproduce it.
+    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False)
     prefused = fs.fuse(run_panos, params)
 
     result = evaluate_city(verdict_panos, bundle_ops, run_panos, params,
