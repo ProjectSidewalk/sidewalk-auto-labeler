@@ -337,7 +337,7 @@ vertical axis *is* the dip angle (`y_normalized` 0.5 = horizon, 1.0 = straight d
 detection is on the rig, never on the street. Found 2026-09-22 from human validations of
 live Laurens labels: **158 labels on 156 panos across 19 sequences at seven discrete `y`
 values, every one GoPro Max** — a roof rack, fixed in the rig's frame, re-detected pano after
-pano. Of those, **48 have been judged and all 48 are false** (precision 0.000, CI to 0.074).
+pano. Of those, **50 have been judged and all 50 are false** (precision 0.000, CI to 0.071).
 No label a validator marked correct sits below 46.1° of dip and no false one above 40° sits
 shallower than 51.7°, a gap that has held as the judged set grew 379 → 536; 49° splits it.
 It is expressed as an

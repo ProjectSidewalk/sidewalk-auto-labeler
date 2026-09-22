@@ -15,8 +15,8 @@
  "n_sequences": 19,
  "judged": {
   "true": 0,
-  "false": 48,
-  "unjudged": 110
+  "false": 50,
+  "unjudged": 108
  },
  "confidence_range": [
   0.30021077394485474,
@@ -2379,11 +2379,17 @@
    "y_normalized": 0.818359375,
    "dip_deg": 57.305,
    "time_created": "2026-09-22T01:14:48.19124Z",
-   "correct": null,
+   "correct": false,
    "agree_count": 0,
-   "disagree_count": 0,
+   "disagree_count": 1,
    "unsure_count": 0,
-   "validations": []
+   "validations": [
+    {
+     "user_id": "549187e0-82c9-4014-a48d-31f18083d575",
+     "validation": "Disagree",
+     "validator_type": "Human"
+    }
+   ]
   },
   {
    "label_id": 2336,
@@ -2853,11 +2859,17 @@
    "y_normalized": 0.7890625,
    "dip_deg": 52.031,
    "time_created": "2026-09-22T01:14:58.696819Z",
-   "correct": null,
+   "correct": false,
    "agree_count": 0,
-   "disagree_count": 0,
+   "disagree_count": 1,
    "unsure_count": 0,
-   "validations": []
+   "validations": [
+    {
+     "user_id": "549187e0-82c9-4014-a48d-31f18083d575",
+     "validation": "Disagree",
+     "validator_type": "Human"
+    }
+   ]
   },
   {
    "label_id": 2464,
@@ -3159,5 +3171,16 @@
    "unsure_count": 0,
    "validations": []
   }
- ]
+ ],
+ "verified_against_db": {
+  "when": "2026-09-22",
+  "host": "makelab1 sidewalk_prod:5434, schema sidewalk_laurens_ia",
+  "all_158_present_ai_owned_not_deleted": true,
+  "identity_matched_on_pano_id_pano_x_pano_y": 158,
+  "confidence_range_on_server": [
+   0.300211,
+   0.534698
+  ],
+  "note": "Counts here were originally taken from /v3/api/rawLabels and said 48 judged. The database says 50: labels 2335 and 2457 were validated at 13:56Z but still came back unjudged in a feed pulled at 14:19Z, 23 minutes later. Not counter drift - the DB had disagree_count=1, correct=f on both, and no label city-wide had votes with zero counters. The feed lags; those two entries are filled in from the DB. All 158 were soft-deleted (label.deleted = TRUE) on 2026-09-22, after this file was captured."
+ }
 }

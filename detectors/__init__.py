@@ -64,8 +64,9 @@ BENCHMARK_CONFIDENCE = 0.55
 # false, so it is deliberately NOT implemented.
 #
 # Measured on Laurens prod, 2026-09-22, from human validations of live AI labels. Of the 158
-# labels in this region, 48 have been judged and **every one is false** (0 true; 95% CI on
-# precision [0.000, 0.074]). They are not scattered: the 158 fall on 156 distinct panos
+# labels in this region, 50 have been judged and **every one is false** (0 true; 95% CI on
+# precision [0.000, 0.071]). Counted from the database, not /v3/api/rawLabels, which lagged
+# by >20 min and reported 48. They are not scattered: the 158 fall on 156 distinct panos
 # across 19 sequences at just seven discrete y values, every one of them GoPro Max — a roof
 # rack, fixed in the rig's own frame, re-detected pano after pano. At 2.6 m camera height
 # those dips are 1.5-2.1 m of ground range, i.e. on the vehicle.
