@@ -3181,6 +3181,6 @@
    0.300211,
    0.534698
   ],
-  "note": "Counts here were originally taken from /v3/api/rawLabels and said 48 judged. The database says 50: labels 2335 and 2457 were validated at 13:56Z but still came back unjudged in a feed pulled at 14:19Z, 23 minutes later. Not counter drift - the DB had disagree_count=1, correct=f on both, and no label city-wide had votes with zero counters. The feed lags; those two entries are filled in from the DB. All 158 were soft-deleted (label.deleted = TRUE) on 2026-09-22, after this file was captured."
+  "note": "Counts here were originally taken from /v3/api/rawLabels and said 48 judged. The database says 50: labels 2335 and 2457 (both GalleryImage/StaticCrop validations, mission 23) carry Disagree rows with end_timestamp 13:56Z, earlier than this file's recorded 14:19Z capture, yet came back unjudged in it. The cause was never established: the feed was afterwards measured to be REAL-TIME, agreeing with the database row-for-row (821/810) at the same instant during live validation, with no label anywhere in the city holding validation rows and zero counters. So this is not feed staleness; most likely the recorded capture time does not match the actual fetch. Either way, read the database when a count must be exact. All 158 were soft-deleted (label.deleted = TRUE) on 2026-09-22, after this file was captured."
  }
 }
