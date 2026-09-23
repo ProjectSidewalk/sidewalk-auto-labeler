@@ -265,3 +265,35 @@ def test_height_spread_matches_the_pixel_weighted_percentiles():
     heights.sort()
     naive = (heights[int(0.9 * (len(heights) - 1))] - heights[int(0.1 * (len(heights) - 1))])
     assert depthlib.ground_plane(payload).height_spread_m == pytest.approx(naive)
+
+
+# --- camera-height classification (labeler #40)
+
+@pytest.mark.parametrize("height, tilt, degenerate, level, expected", [
+    (1.87, 1.7, False, False, depthlib.MEASURED),
+    (2.5, 0.0, False, True, depthlib.SYNTHETIC_GROUND),   # stand-in ground, full payload
+    (2.5, 0.0, False, None, depthlib.SYNTHETIC_GROUND),   # ...as read from index.csv
+    (2.5, 1.1, False, False, depthlib.MEASURED),          # 2.5 itself is not suspicious
+    (0.04, 11.9, False, False, depthlib.IMPLAUSIBLE),     # a plane from the wrong surface
+    (2.5, 0.0, True, True, depthlib.DEGENERATE),
+    (None, None, False, None, depthlib.NO_GROUND),
+])
+def test_classify_height(height, tilt, degenerate, level, expected):
+    assert depthlib.classify_height(height, tilt, degenerate=degenerate,
+                                    exactly_level=level) == expected
+
+
+def test_camera_height_fields_null_everything_but_a_measurement():
+    assert depthlib.camera_height_fields(None)["camera_height_status"] == depthlib.NO_DEPTH
+    # flat_payload is the 2-plane degenerate fallback: a status and a plane count, no height
+    fields = depthlib.camera_height_fields(flat_payload())
+    assert fields["camera_height_status"] == depthlib.DEGENERATE
+    assert fields["depth_planes"] == 2 and fields["camera_height_m"] is None
+
+    tilted = (0.03, 0.0, -0.99955, 1.87)
+    indices = [depthlib.SKY] * 16 + [1] * 16
+    payload = depthlib.parse(build_payload(8, 4, [tilted, tilted, WALL], indices))
+    assert depthlib.ground_plane(payload).exactly_level is False
+    fields = depthlib.camera_height_fields(payload)
+    assert fields["camera_height_status"] == depthlib.MEASURED
+    assert fields["camera_height_m"] == pytest.approx(1.87)

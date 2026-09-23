@@ -4,6 +4,11 @@ This is the original pipeline behavior, moved out of main.py unchanged: scan GSV
 coverage tiles at z17, fetch pano metadata (with retries — Google's metadata endpoint
 intermittently returns empty responses, sk-zk/streetlevel#40), download and stitch the
 equirectangular via panorama.py, and build the Stage-1 JSONL pano block.
+
+The metadata request also asks for GSV's depth payload (issue #40) -- a flag on the same
+URL, not a second fetch -- because its ground plane is the camera height, which the
+raycast needs per pano. Only the handful of derived fields is stored (see
+depth.camera_height_fields); scripts/harvest_depth.py archives the payload itself.
 """
 import math
 import random
@@ -39,7 +44,10 @@ except Exception:
     sys.modules['pyexiv2'] = _stub
 
 from streetlevel import streetview
+from streetlevel.streetview import api
+from streetlevel.streetview.parse import parse_panorama_id_response
 
+import depth as depthlib
 from panorama import fetch_panorama
 
 NAME = 'gsv'
@@ -71,19 +79,43 @@ def fetch_panos_for_tile(tile_x, tile_y, area_shape):
     return None
 
 
+def find_panorama_with_depth(pano_id):
+    """`streetview.find_panorama_by_id(pano_id)`, plus the camera-height fields of the
+    depth payload that rides on the same response.
+
+    Returns (metadata or None, fields). The payload is pulled out of the raw response and
+    then removed from it before streetlevel parses the rest, for two reasons: streetlevel
+    would otherwise rasterize it (a pure-Python loop over 131k pixels per pano, for a
+    raster we never use), and its parser reads the header's offset byte as a uint16 and
+    throws on ~0.3% of panoramas (see depth.parse) -- which would turn a perfectly good
+    pano into a metadata failure. depth.parse reads it correctly.
+    """
+    response = api.find_panorama_by_id(pano_id, download_depth=True)
+    blob = depthlib.blob_from_response(response)
+    if blob is not None:
+        response[1][0][5][0][5][1][2] = None  # the path blob_from_response just read
+    payload = None
+    if blob:
+        try:
+            payload = depthlib.parse(blob)
+        except ValueError:
+            pass  # recorded as camera_height_status 'no_depth'; the pano is still good
+    return parse_panorama_id_response(response), depthlib.camera_height_fields(payload)
+
+
 def fetch_metadata_with_retry(pano_id):
     """
     Fetches pano metadata, retrying with backoff: Google's metadata endpoint
     intermittently returns empty responses (see sk-zk/streetlevel#40).
-    Returns None if all attempts fail.
+    Returns (metadata, camera-height fields), or (None, None) if all attempts fail.
     """
     for attempt in range(METADATA_ATTEMPTS):
-        metadata = streetview.find_panorama_by_id(pano_id)
+        metadata, depth_fields = find_panorama_with_depth(pano_id)
         if metadata is not None:
-            return metadata
+            return metadata, depth_fields
         if attempt < METADATA_ATTEMPTS - 1:
             time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
-    return None
+    return None, None
 
 
 def _metadata_problem(metadata):
@@ -95,11 +127,13 @@ def _metadata_problem(metadata):
     return None
 
 
-def _download_and_build(pano_id, lat, lon, metadata):
+def _download_and_build(pano_id, lat, lon, metadata, depth_fields):
     image = fetch_panorama(metadata)
     if image is None:
         return {'status': 'failure', 'reason': 'Failed to download equirectangular image'}
-    return {'status': 'success', 'pano': build_pano_record(pano_id, lat, lon, metadata), 'image': image}
+    return {'status': 'success',
+            'pano': build_pano_record(pano_id, lat, lon, metadata, depth_fields),
+            'image': image}
 
 
 def fetch_pano(pano_id, lat, lon):
@@ -108,13 +142,13 @@ def fetch_pano(pano_id, lat, lon):
     contract in sources/__init__.py). Metadata is validated before the (much more
     expensive) image download.
     """
-    metadata = fetch_metadata_with_retry(pano_id)
+    metadata, depth_fields = fetch_metadata_with_retry(pano_id)
     if metadata is None:
         return {'status': 'failure', 'reason': 'Metadata unavailable (transient?)'}
     problem = _metadata_problem(metadata)
     if problem:
         return {'status': 'skipped', 'reason': problem}
-    return _download_and_build(pano_id, lat, lon, metadata)
+    return _download_and_build(pano_id, lat, lon, metadata, depth_fields)
 
 
 def fetch_pano_by_id(pano_id, area_shape):
@@ -124,7 +158,7 @@ def fetch_pano_by_id(pano_id, area_shape):
     metadata. Outside-the-area is a deterministic skip (the run geometry is
     immutable), decided before the expensive image download.
     """
-    metadata = fetch_metadata_with_retry(pano_id)
+    metadata, depth_fields = fetch_metadata_with_retry(pano_id)
     if metadata is None:
         return {'status': 'failure', 'reason': 'Metadata unavailable (transient?)'}
     problem = _metadata_problem(metadata)
@@ -134,15 +168,18 @@ def fetch_pano_by_id(pano_id, area_shape):
         return {'status': 'skipped', 'reason': 'Pano metadata carries no position'}
     if not Point(metadata.lon, metadata.lat).within(area_shape):
         return {'status': 'skipped', 'reason': 'Outside the run area'}
-    return _download_and_build(pano_id, metadata.lat, metadata.lon, metadata)
+    return _download_and_build(pano_id, metadata.lat, metadata.lon, metadata, depth_fields)
 
 
-def build_pano_record(pano_id, lat, lon, metadata):
+def build_pano_record(pano_id, lat, lon, metadata, depth_fields=None):
     """
     Builds the Stage-1 JSONL 'pano' block from streetlevel metadata. Field names are
     the pipeline's internal contract (send_to_ps.transform_pano maps them onto the
     Project Sidewalk reader). Heading/pitch/roll are radians in the metadata, degrees
     on the wire.
+
+    `depth_fields` (from depth.camera_height_fields) adds camera_height_m and its
+    provenance; None records the pano as having no depth, so the keys are always present.
     """
     return {
         "panorama_id": pano_id,
@@ -170,5 +207,6 @@ def build_pano_record(pano_id, lat, lon, metadata):
                 "yaw_deg": math.degrees(linked_pano.direction),
                 "description": linked_pano.pano.address[0].value if linked_pano.pano.address else ""
             } for linked_pano in (metadata.links or [])
-        ]
+        ],
+        **(depth_fields or depthlib.camera_height_fields(None)),
     }

@@ -29,6 +29,13 @@ No vintage gate (cross-vintage co-detection is confirmation, per #27's measured
 capture-delta data); capture dates are recorded per member and the eval's
 ablation can re-fuse with FuseParams.max_vintage_months set.
 
+Camera height (issue #40) is geo.DEFAULT_CAMERA_HEIGHT_M for every pano unless
+--camera-height-m says otherwise: another constant, or `per-pano` for GSV's measured
+height where there is one -- from the pano block on runs made since #40, else from the
+harvested depth/index.csv beside results.jsonl (scripts/harvest_depth.py). Per-pano is
+opt-in on evidence; --implied-height is the instrument that measured why, and
+docs/camera-height-study.md has the numbers.
+
 Output: sites.jsonl (one site per line, fused position + covariance + members)
 and sites_meta.json (parameters, frame origin, drop counters) beside the input.
 Deliberately reads NO manifest.json (cluster-pulled runs lack one) and leaves
@@ -37,8 +44,11 @@ send_to_ps.py untouched — what to submit per site is a late decision (#27).
 Usage:
     python scripts/fuse_sites.py runs/paterson
     python scripts/fuse_sites.py runs/paterson --pose-ablation   # lock pitch/roll signs
+    python scripts/fuse_sites.py runs/paterson --implied-height  # camera height the
+                                                                 # imagery implies (#40)
 """
 import argparse
+import csv
 import json
 import math
 import sys
@@ -49,6 +59,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+import depth as depthlib  # noqa: E402
 import geo  # noqa: E402
 from detectors import (DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE,  # noqa: E402
                        on_camera_rig)
@@ -68,7 +79,7 @@ class FuseParams:
                                      # cannot-link, the hard cap, and residual rejection
     max_match_m: float = 8.0         # above dual-ramp scatter, below corner spacing
     residual_per_dof_max: float = 3.0
-    camera_height_m: float = geo.DEFAULT_CAMERA_HEIGHT_M
+    camera_height_m: float | str = geo.DEFAULT_CAMERA_HEIGHT_M  # or geo.PER_PANO
     apply_pose: bool = False         # GSV equirects are gravity-rectified; applying
                                      # metadata pitch/roll loosens multi-view
                                      # agreement (see geo._world_ray for the numbers)
@@ -88,6 +99,15 @@ class SlimPano:
     capture_date: str | None
     source: str
     detections: list  # [(det_index, x_normalized, y_normalized, confidence)] as stored
+    camera_height_m: float | None = None         # measured (#40); None = unmeasured
+    camera_height_spread_m: float | None = None
+
+    def pose_fields(self, **overrides):
+        """The pano-block fields geo.pano_pose reads, with any of them overridden."""
+        return {'lat': self.lat, 'lng': self.lng, 'camera_heading': self.camera_heading,
+                'camera_pitch': self.camera_pitch, 'camera_roll': self.camera_roll,
+                'source': self.source, 'camera_height_m': self.camera_height_m,
+                'camera_height_spread_m': self.camera_height_spread_m, **overrides}
 
 
 @dataclass
@@ -185,10 +205,41 @@ def _months(capture_date):
         return None
 
 
-def load_results(path):
+def load_depth_index(path):
+    """{pano_id: (camera_height_m, height_spread_m)} for the MEASURED heights in a
+    harvested depth/index.csv (scripts/harvest_depth.py), or {} if there is none.
+
+    This is how a run made before #40 -- whose pano blocks carry no height -- gets its
+    measured heights: the four GSV runs were harvested in full. Rows go through the same
+    depth.classify_height as a live fetch, so a stand-in ground or an implausible plane is
+    left out here exactly as it would be nulled in a pano block.
+    """
+    path = Path(path)
+    if not path.exists():
+        return {}
+    heights = {}
+    with open(path, newline='', encoding='utf-8') as f:
+        for row in csv.DictReader(f):
+            if not row['camera_height_m']:
+                continue
+            h, tilt = float(row['camera_height_m']), float(row['ground_tilt_deg'])
+            status = depthlib.classify_height(h, tilt, degenerate=row['degenerate'] == '1')
+            if status == depthlib.MEASURED:
+                heights[row['panorama_id']] = (h, float(row['height_spread_m']))
+    return heights
+
+
+def load_results(path, depth_index=None):
     """Stream results.jsonl into SlimPanos, discarding links/history/metadata.
     Records without a position or heading can't be raycast and are dropped
-    (counted by the caller via the skipped list)."""
+    (counted by the caller via the skipped list).
+
+    Camera heights come from the pano block when it has the #40 fields (a null there is
+    final: the live fetch already decided the pano has no measurement). A block from
+    before #40 has no such key and is looked up in `depth_index` -- by default the
+    depth/index.csv beside the file, if the run's depth was harvested."""
+    path = Path(path)
+    index = load_depth_index(depth_index or path.parent / 'depth' / 'index.csv')
     panos, skipped = [], 0
     with open(path, encoding='utf-8') as f:
         for line in f:
@@ -201,13 +252,18 @@ def load_results(path):
                     or p.get('camera_heading') is None:
                 skipped += 1
                 continue
+            if 'camera_height_status' in p:
+                height, spread = p.get('camera_height_m'), p.get('camera_height_spread_m')
+            else:
+                height, spread = index.get(p['panorama_id'], (None, None))
             panos.append(SlimPano(
                 pano_id=p['panorama_id'], lat=p['lat'], lng=p['lng'],
                 camera_heading=p['camera_heading'],
                 camera_pitch=p.get('camera_pitch'), camera_roll=p.get('camera_roll'),
                 capture_date=p.get('capture_date'), source=p.get('source') or '',
                 detections=[(i, d['x_normalized'], d['y_normalized'], d['confidence'])
-                            for i, d in enumerate(rec.get('detections', []))]))
+                            for i, d in enumerate(rec.get('detections', []))],
+                camera_height_m=height, camera_height_spread_m=spread))
     return panos, skipped
 
 
@@ -219,10 +275,7 @@ def project(panos, params):
     dets = []
     s2 = params.sigma_scale ** 2
     for p in panos:
-        pose = geo.pano_pose({'lat': p.lat, 'lng': p.lng,
-                              'camera_heading': p.camera_heading,
-                              'camera_pitch': p.camera_pitch,
-                              'camera_roll': p.camera_roll, 'source': p.source})
+        pose = geo.pano_pose(p.pose_fields())
         errors = geo.error_model_for(p.source)
         months = _months(p.capture_date)
         for i, x, y, conf in p.detections:
@@ -312,8 +365,18 @@ def fuse(panos, params):
              'n_sites': len(sites),
              'n_operational_sites': sum(1 for s in sites if s.n_operational),
              'n_multi_pano_sites': sum(1 for s in sites if len(s.pano_ids) > 1),
+             'camera_heights': camera_height_counts(panos, params),
              'frame_origin': {'lat0': frame.lat0, 'lng0': frame.lng0}}
     return sites, frame, stats
+
+
+def camera_height_counts(panos, params):
+    """How the run's panos got their camera height -- the provenance a reader of
+    sites_meta.json needs to know which frame the positions are in."""
+    if params.camera_height_m != geo.PER_PANO:
+        return {'fixed_m': params.camera_height_m, 'panos': len(panos)}
+    measured = sum(1 for p in panos if p.camera_height_m is not None)
+    return {'measured': measured, 'fallback': len(panos) - measured}
 
 
 def site_to_json(site, frame):
@@ -383,6 +446,11 @@ def summarize(sites, stats):
     return '\n'.join(lines)
 
 
+def camera_height_arg(value):
+    """argparse type for --camera-height-m: meters, or geo.PER_PANO."""
+    return value if value == geo.PER_PANO else float(value)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('run', help='run directory (with results.jsonl) or a jsonl path')
@@ -393,8 +461,11 @@ def main():
     ap.add_argument('--max-match-m', type=float, default=FuseParams.max_match_m)
     ap.add_argument('--residual-per-dof-max', type=float,
                     default=FuseParams.residual_per_dof_max)
-    ap.add_argument('--camera-height-m', type=float,
-                    default=geo.DEFAULT_CAMERA_HEIGHT_M)
+    ap.add_argument('--camera-height-m', type=camera_height_arg,
+                    default=geo.DEFAULT_CAMERA_HEIGHT_M,
+                    help='camera height in meters for every pano, or "per-pano" for '
+                         "each GSV pano's depth-measured height where it has one (#40; "
+                         'opt-in -- see docs/camera-height-study.md)')
     ap.add_argument('--sigma-scale', type=float, default=1.0)
     ap.add_argument('--apply-pose', action='store_true',
                     help='rotate rays by camera pitch/roll (measured to hurt on '
@@ -402,6 +473,13 @@ def main():
     ap.add_argument('--pose-ablation', action='store_true',
                     help='report within-site spread under each pitch/roll sign '
                          'convention instead of writing sites')
+    ap.add_argument('--implied-height', action='store_true',
+                    help='report the camera height the imagery implies (bearing-only '
+                         'triangulation of multi-view sites) against the measured one, '
+                         'by capture year, instead of writing sites (#40)')
+    ap.add_argument('--depth-index', type=Path, default=None,
+                    help='harvested depth/index.csv to read heights from for a run '
+                         'made before #40 (default: <run>/depth/index.csv)')
     ap.add_argument('--out', type=Path, default=None)
     args = ap.parse_args()
 
@@ -417,7 +495,7 @@ def main():
         camera_height_m=args.camera_height_m, apply_pose=args.apply_pose,
         sigma_scale=args.sigma_scale)
 
-    panos, skipped = load_results(jsonl)
+    panos, skipped = load_results(jsonl, args.depth_index)
     if skipped:
         print(f'skipped {skipped} records without position/heading')
     if not panos:
@@ -425,6 +503,9 @@ def main():
 
     if args.pose_ablation:
         print(pose_ablation_report(panos, params))
+        return
+    if args.implied_height:
+        print(implied_height_report(panos, params))
         return
 
     sites, frame, stats = fuse(panos, params)
@@ -494,18 +575,12 @@ def pose_ablation_report(panos, params):
                 if key not in pose_cache:
                     if signs is None:
                         pose_cache[key] = geo.pano_pose(
-                            {'lat': p.lat, 'lng': p.lng,
-                             'camera_heading': p.camera_heading,
-                             'camera_pitch': None, 'camera_roll': None,
-                             'source': p.source})
+                            p.pose_fields(camera_pitch=None, camera_roll=None))
                     else:
                         sp, sr = signs
                         pose_cache[key] = geo.pano_pose(
-                            {'lat': p.lat, 'lng': p.lng,
-                             'camera_heading': p.camera_heading,
-                             'camera_pitch': sp * p.camera_pitch,
-                             'camera_roll': sr * p.camera_roll,
-                             'source': p.source})
+                            p.pose_fields(camera_pitch=sp * p.camera_pitch,
+                                          camera_roll=sr * p.camera_roll))
                 g = geo.detection_ground_point(
                     pose_cache[key], d.x, d.y,
                     camera_height=params.camera_height_m,
@@ -525,6 +600,93 @@ def pose_ablation_report(panos, params):
         mean = sum(dists) / len(dists)
         lines.append(f'{name:>14}  {mean:7.3f}  {dists[len(dists) // 2]:7.3f}  '
                      f'{len(dists):7d}')
+    return '\n'.join(lines)
+
+
+IMPLIED_MIN_ANGLE_DEG = 30.0   # below this two bearings barely constrain a range
+IMPLIED_RANGE_M = (1.0, 30.0)  # a triangulated range outside this is a bad pairing
+
+
+def implied_heights(sites, frame, by_id):
+    """{pano_id: [implied camera height]} from bearing-only triangulation (#40).
+
+    Two panos that see one ramp fix its position from their bearings alone -- the 2D
+    intersection of the two rays, which does not depend on camera height -- and a pano
+    whose ray meets the ground at that range from depression d implies a camera height of
+    range * tan(d). Only operational members, and only pairs whose rays cross at
+    IMPLIED_MIN_ANGLE_DEG or more.
+    """
+    implied = {}
+    for site in sites:
+        ms = [d for d, _ in site.members if d.operational]
+        for a in range(len(ms)):
+            for b in range(a + 1, len(ms)):
+                di, dj = ms[a], ms[b]
+                pi, pj = by_id[di.pano_id], by_id[dj.pano_id]
+                ci, cj = frame.to_enu(pi.lat, pi.lng), frame.to_enu(pj.lat, pj.lng)
+                bi = math.radians(di.ground.bearing_deg)
+                bj = math.radians(dj.ground.bearing_deg)
+                ui, uj = (math.sin(bi), math.cos(bi)), (math.sin(bj), math.cos(bj))
+                cross = ui[0] * uj[1] - ui[1] * uj[0]
+                if abs(cross) < math.sin(math.radians(IMPLIED_MIN_ANGLE_DEG)):
+                    continue
+                dx, dy = cj[0] - ci[0], cj[1] - ci[1]
+                ri = (dx * uj[1] - dy * uj[0]) / cross
+                rj = (dx * ui[1] - dy * ui[0]) / cross
+                lo, hi = IMPLIED_RANGE_M
+                if not (lo < ri < hi and lo < rj < hi):
+                    continue
+                for d, r in ((di, ri), (dj, rj)):
+                    depression = (d.y - 0.5) * math.pi
+                    implied.setdefault(d.pano_id, []).append(r * math.tan(depression))
+    return implied
+
+
+def _median(values):
+    v = sorted(values)
+    n = len(v)
+    return (v[n // 2] + v[(n - 1) // 2]) / 2.0
+
+
+def implied_height_report(panos, params):
+    """Measured vs imagery-implied camera height, by capture year (#40).
+
+    The implied height is independent of the height model only per pair; which pairs
+    exist is not, because association ran under params.camera_height_m, and implied
+    heights drift toward whatever height the association used (paterson's 2025 rig reads
+    1.93 m associated at 1.8, 2.14 m at 2.6). So read it as a fixed-point search: re-run
+    with --camera-height-m set near the implied value until the two agree. With
+    `per-pano`, iterate on a scale instead (docs/camera-height-study.md does, by
+    monkeypatching; the self-consistent scale was 1.06-1.16 by city).
+    """
+    sites, frame, _ = fuse(panos, params)
+    by_id = {p.pano_id: p for p in panos}
+    implied = {pid: _median(hs) for pid, hs in implied_heights(sites, frame, by_id).items()}
+    if not implied:
+        return 'no multi-view pairs to triangulate'
+
+    by_year = {}
+    for pid, h in implied.items():
+        p = by_id[pid]
+        by_year.setdefault((p.capture_date or '????')[:4], []).append((h, p.camera_height_m))
+    measured = [(h, m) for rows in by_year.values() for h, m in rows if m is not None]
+    lines = [f'associated at camera height {params.camera_height_m}; '
+             f'{len(implied)} panos with a triangulated implied height',
+             f'implied height: median {_median(implied.values()):.3f} m over all panos',
+             f'{"capture":>7}  {"panos":>6}  {"measured":>8}  {"med measured":>12}  '
+             f'{"med implied":>11}  {"implied/measured":>16}']
+    for year in sorted(by_year):
+        rows = by_year[year]
+        meas = [(h, m) for h, m in rows if m is not None]
+        med_m = f'{_median(m for _, m in meas):12.3f}' if meas else f'{"—":>12}'
+        ratio = f'{_median(h / m for h, m in meas):16.3f}' if meas else f'{"—":>16}'
+        lines.append(f'{year:>7}  {len(rows):6d}  {len(meas):8d}  {med_m}  '
+                     f'{_median(h for h, _ in rows):11.3f}  {ratio}')
+    if measured:
+        lines.append(f'{"all":>7}  {len(implied):6d}  {len(measured):8d}  '
+                     f'{_median(m for _, m in measured):12.3f}  '
+                     f'{_median(implied.values()):11.3f}  '
+                     f'{_median(h / m for h, m in measured):16.3f}')
     return '\n'.join(lines)
 
 
