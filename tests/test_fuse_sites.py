@@ -230,7 +230,8 @@ def _line_with_block(p, **block):
 
 
 def test_load_results_reads_heights_from_the_block_or_the_harvested_index(tmp_path):
-    a, b, c = (make_pano(n, 0, i * 20.0, [(5, i * 20.0, 0.9)]) for i, n in enumerate('abc'))
+    a, b, c, d = (make_pano(n, 0, i * 20.0, [(5, i * 20.0, 0.9)])
+                  for i, n in enumerate('abcd'))
     src = tmp_path / 'results.jsonl'
     src.write_text('\n'.join([
         _line_with_block(a, camera_height_m=1.9, camera_height_spread_m=0.1,
@@ -238,16 +239,22 @@ def test_load_results_reads_heights_from_the_block_or_the_harvested_index(tmp_pa
         # a post-#40 null is final, even though the index below measured this pano
         _line_with_block(b, camera_height_m=None, camera_height_status='synthetic_ground'),
         _record_line(c),                               # pre-#40: no keys, so the index
+        # ...and so for a fetch that got no usable payload: a later harvest may have it
+        _line_with_block(d, camera_height_m=None, camera_height_status='unparsed'),
     ]) + '\n', encoding='utf-8')
     (tmp_path / 'depth').mkdir()
     (tmp_path / 'depth' / 'index.csv').write_text(
         'panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m\n'
         'b,0,2.2,1.5,0.1\n'
-        'c,0,2.1,1.4,0.2\n', encoding='utf-8')
+        'c,0,2.1,1.4,0.2\n'
+        'd,0,2.0,1.3,0.1\n', encoding='utf-8')
     by_id = {p.pano_id: p for p in fs.load_results(src)[0]}
     assert (by_id['a'].camera_height_m, by_id['a'].camera_height_spread_m) == (1.9, 0.1)
     assert by_id['b'].camera_height_m is None
     assert (by_id['c'].camera_height_m, by_id['c'].camera_height_spread_m) == (2.1, 0.2)
+    assert by_id['d'].camera_height_m == 2.0
+    # a fixed-height caller can skip the index read entirely
+    assert fs.load_results(src, read_heights=False)[0][2].camera_height_m is None
 
 
 def test_harvested_stand_in_grounds_are_not_heights(tmp_path):

@@ -133,3 +133,15 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     results.write_text("{}\n{}\n")  # the file changed: the check runs again
     main.run_position_check(run_dir, manifest_path, manifest)
     assert calls == [run_dir]
+
+
+def test_record_camera_heights_tallies_and_alarms_on_missing_depth(tmp_path, capsys):
+    results, manifest_path = tmp_path / "results.jsonl", tmp_path / "manifest.json"
+    statuses = ["measured"] * 30 + ["unparsed"] * 25 + ["synthetic_ground"] * 5
+    results.write_text("".join(json.dumps({"pano": {"camera_height_status": s}}) + "\n"
+                               for s in statuses), encoding="utf-8")
+    manifest = {}
+    main.record_camera_heights(results, manifest_path, manifest)
+    assert manifest["camera_height"] == {"measured": 30, "synthetic_ground": 5, "unparsed": 25}
+    assert json.loads(manifest_path.read_text())["camera_height"]["unparsed"] == 25
+    assert "no usable depth payload" in capsys.readouterr().out

@@ -117,7 +117,7 @@ def _patch_api(monkeypatch, response):
     seen = {}
 
     def fake_parse(resp):
-        seen["blob_left"] = resp[1][0][5][0][5][1][2]
+        seen["blob_left"] = depthlib.blob_from_response(resp)
         return make_metadata()
     monkeypatch.setattr(gsv.api, "find_panorama_by_id",
                         lambda pano_id, download_depth: response)
@@ -146,14 +146,27 @@ def test_stand_in_ground_is_recorded_but_never_used_as_a_height(monkeypatch):
     assert fields["depth_planes"] == 3
 
 
-def test_missing_or_corrupt_depth_is_not_a_metadata_failure(monkeypatch):
+@pytest.mark.parametrize("node", [
+    "AAAA",            # decodes, but is no payload
+    123, ["x"], {"a": 1},  # the undocumented path now holds something else entirely
+])
+def test_corrupt_depth_is_never_a_metadata_failure(monkeypatch, node):
     response = _response_with_depth(TILTED_GROUND)
-    response[1][0][5][0][5][1][2] = "AAAA"            # decodes, but is no payload
-    _patch_api(monkeypatch, response)
+    response[1][0][5][0][5][1][2] = node
+    seen = _patch_api(monkeypatch, response)
     metadata, fields = gsv.fetch_metadata_with_retry("PID")
     assert metadata is not None
-    assert fields["camera_height_status"] == depthlib.NO_DEPTH
+    assert seen["blob_left"] is None        # streetlevel's parser never sees it either
+    assert fields["camera_height_status"] == depthlib.UNPARSED
     assert fields["camera_height_m"] is None
+
+
+def test_absent_depth_is_no_depth(monkeypatch):
+    response = _response_with_depth(TILTED_GROUND)
+    response[1][0][5][0][5] = [None]        # the whole depth node is missing
+    _patch_api(monkeypatch, response)
+    _, fields = gsv.fetch_metadata_with_retry("PID")
+    assert fields["camera_height_status"] == depthlib.NO_DEPTH
 
 
 def test_pano_block_always_carries_the_height_keys():

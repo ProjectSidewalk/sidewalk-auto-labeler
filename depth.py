@@ -65,7 +65,7 @@ DEGENERATE_MAX_PLANES = 2
 # ...and a second, far commoner fallback that the plane count cannot see: a full
 # reconstruction (100-200 planes of real facades) whose *ground* is a stand-in, a plane at
 # exactly 2.500 m with a normal of exactly (0, 0, -1). Measured over the four harvested GSV
-# runs (170,462 non-degenerate payloads) it is 24,529 of them -- 16% of bend -- and it
+# runs it is 24,529 of 170,462 non-degenerate payloads (14%; 16% in bend alone), and it
 # separates on the normal alone: of the payloads whose dominant ground is exactly level,
 # all but 55 sit at exactly 2.5000 m, while a measured ground plane is 1-2 deg off level
 # (median 1.2-1.4 deg in bend and gainesville). So the test is structural again -- "is
@@ -80,7 +80,9 @@ PLAUSIBLE_HEIGHT_M = (0.8, 3.5)
 # results.jsonl (`camera_height_status`), so a consumer can tell "no depth served" from
 # "depth served, ground was a stand-in" without re-fetching anything.
 MEASURED = "measured"
-NO_DEPTH = "no_depth"            # no payload in the response, or it did not parse
+NO_DEPTH = "no_depth"            # no payload in the response
+UNPARSED = "unparsed"            # a payload was there but did not parse (retryable: a
+                                 # later harvest may still supply the height)
 DEGENERATE = "degenerate"        # the whole payload is a fallback (DEGENERATE_MAX_PLANES)
 NO_GROUND = "no_ground"          # a real payload with no plane that qualifies as a floor
 SYNTHETIC_GROUND = "synthetic_ground"  # exactly-level stand-in ground (see above)
@@ -146,10 +148,10 @@ def classify_height(height_m, tilt_deg, *, degenerate=False, exactly_level=None)
     """Whether a ground plane's distance is a camera-height measurement, as a status.
 
     Returns one of the status constants above; only MEASURED means `height_m` may be used
-    as the camera height. `exactly_level` is the exact test on the plane normal; callers
-    that only have a rounded tilt (index.csv stores it to 3 decimals) pass None and the
-    tilt is compared against 0 instead -- the 55 real planes that rounding misclassifies
-    out of 170k are noise next to the 24k stand-ins it catches.
+    as the camera height. `exactly_level` is the test on the plane normal; callers that
+    only have index.csv's tilt (3 decimals) pass None and it is compared against 0 instead.
+    That is the same test: the smallest nonzero tilt a float32 unit normal can carry is
+    0.0198 deg, which rounds to 0.020, never to 0.000.
 
     Example:
         >>> classify_height(2.5, 0.0)
@@ -245,7 +247,7 @@ def parse(b64_string):
     # *first plane index* — as a high byte. When the top-left pixel is sky (index 0) the
     # misread is invisible and offset comes out as 8; when it is anything else, offset
     # comes out as 8 + 256*index, the plane list is then read past the end of the buffer,
-    # and the parse throws. That is ~0.3% of panoramas, and it is why those are
+    # and the parse throws. That is ~0.3-0.5% of panoramas, and it is why those are
     # unreadable upstream rather than merely unusual.
     n_planes, width, height = struct.unpack_from("<HHH", raw, 1)
     offset = raw[7]

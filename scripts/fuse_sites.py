@@ -229,17 +229,28 @@ def load_depth_index(path):
     return heights
 
 
-def load_results(path, depth_index=None):
+# Block statuses that are not the last word: no payload, or one that did not parse. A
+# harvested index may still have the height for these, so it is consulted as for a
+# pre-#40 block. Every other status is a decision made on a real payload.
+_UNDECIDED = (None, depthlib.NO_DEPTH, depthlib.UNPARSED)
+
+
+def load_results(path, depth_index=None, read_heights=True):
     """Stream results.jsonl into SlimPanos, discarding links/history/metadata.
     Records without a position or heading can't be raycast and are dropped
     (counted by the caller via the skipped list).
 
-    Camera heights come from the pano block when it has the #40 fields (a null there is
-    final: the live fetch already decided the pano has no measurement). A block from
-    before #40 has no such key and is looked up in `depth_index` -- by default the
-    depth/index.csv beside the file, if the run's depth was harvested."""
+    Camera heights come from the pano block when it has the #40 fields and they were
+    decided on a real payload (a null there is then final). A block from before #40, or
+    one whose fetch got no usable payload, is looked up in `depth_index` -- by default
+    the depth/index.csv beside the file, if the run's depth was harvested. Note that file
+    is a local artifact (not in git): without it, per-pano silently falls back to the
+    default for a pre-#40 run, and sites_meta.json's `camera_heights` is the tell.
+    read_heights=False skips the index (a 6-13 MB read) for callers that raycast at a
+    fixed height anyway."""
     path = Path(path)
-    index = load_depth_index(depth_index or path.parent / 'depth' / 'index.csv')
+    index = load_depth_index(depth_index or path.parent / 'depth' / 'index.csv') \
+        if read_heights else {}
     panos, skipped = [], 0
     with open(path, encoding='utf-8') as f:
         for line in f:
@@ -252,10 +263,10 @@ def load_results(path, depth_index=None):
                     or p.get('camera_heading') is None:
                 skipped += 1
                 continue
-            if 'camera_height_status' in p:
-                height, spread = p.get('camera_height_m'), p.get('camera_height_spread_m')
-            else:
+            if p.get('camera_height_status') in _UNDECIDED:
                 height, spread = index.get(p['panorama_id'], (None, None))
+            else:
+                height, spread = p.get('camera_height_m'), p.get('camera_height_spread_m')
             panos.append(SlimPano(
                 pano_id=p['panorama_id'], lat=p['lat'], lng=p['lng'],
                 camera_heading=p['camera_heading'],
@@ -495,7 +506,9 @@ def main():
         camera_height_m=args.camera_height_m, apply_pose=args.apply_pose,
         sigma_scale=args.sigma_scale)
 
-    panos, skipped = load_results(jsonl, args.depth_index)
+    panos, skipped = load_results(
+        jsonl, args.depth_index,
+        read_heights=args.camera_height_m == geo.PER_PANO or args.implied_height)
     if skipped:
         print(f'skipped {skipped} records without position/heading')
     if not panos:

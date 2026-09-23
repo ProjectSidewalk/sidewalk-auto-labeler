@@ -36,11 +36,11 @@ DEFAULT_MAX_RANGE_M = 25.0
 # PER_PANO is opt-in, not the default, on evidence (docs/camera-height-study.md). The
 # depth ground plane ranks rigs correctly -- the 2025-26 GSV rig really is lower -- but
 # measured against the imagery's own geometry (bearing-only triangulation of multi-view
-# ramps, iterated to a self-consistent height) it runs 6-16% short, city by city; used
-# as-is it loosens multi-view agreement, and world P/R against RampNet GT cannot tell any
-# of the height models apart. The 2.6 m constant is itself ~2-4% high for pre-2025 GSV
-# rigs and ~25% high for the 2025-26 one; panos with no measurement triangulate to
-# >= 2.6 m, which is why they fall back to it rather than to the measured median.
+# ramps, iterated to a self-consistent height) it runs 6-16% short, city by city, and
+# world P/R against RampNet GT cannot tell any of the height models apart. The 2.6 m
+# constant runs ranges ~2-4% long for pre-2025 GSV rigs and 31-35% long for the 2025-26
+# one (2.6/1.98, 2.6/1.92); panos with no measurement triangulate to >= 2.6 m, which is
+# why they fall back to it rather than to the measured median.
 DEFAULT_CAMERA_HEIGHT_M = 2.6
 PER_PANO = 'per-pano'
 # Under PER_PANO, a measured pano's height sigma comes from the p90-p10 spread of camera

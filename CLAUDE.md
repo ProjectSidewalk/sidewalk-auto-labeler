@@ -464,9 +464,10 @@ ground plane's distance is a **per-pano camera height** and its normal is the gr
 **But it is the depth frame's height, not the imagery's** (measured 2026-09-23,
 `docs/camera-height-study.md`): bearing-only triangulation of multi-view sites implies
 heights **6–16% above** it, city by city, so #40's original "ranges run 29–35% long at
-2.6 m" was computed against a depth map sharing that bias and does not hold. What does
-hold: the rig ranking is real — the 2025–26 GSV rig triangulates to ~1.9–2.0 m against
-~2.5 m for every earlier vintage — and GT world P/R cannot tell any height model apart
+2.6 m" was computed against a depth map sharing that bias and does not hold city-wide.
+The rig ranking is real, though: the 2025–26 GSV rig triangulates to ~1.9–2.0 m against
+~2.5 m for every earlier vintage, so on *that* rig 2.6 m does run ranges 31–35% long
+(~2–4% on older ones). GT world P/R still cannot tell any height model apart
 (all within ±3 pts). So `geo.PER_PANO` / `--camera-height-m per-pano` exists and is
 **opt-in**; the default stays 2.6 m and fused output is byte-identical to before #40.
 `sources/gsv.py` stores the height on every new GSV pano block (`camera_height_m`,
@@ -474,12 +475,12 @@ hold: the rig ranking is real — the 2025–26 GSV rig triangulates to ~1.9–2
 read from the raw response, because streetlevel's own depth parser rasterizes 131k pixels
 in pure Python and throws on the uint8-offset bug below; the height is non-null only when
 the status is `measured`. **Google's stand-in ground** is common and the plane-count test
-misses it: 16% of bend's payloads are full reconstructions whose ground is exactly 2.500 m
+misses it: 14% of harvested payloads (16% of bend's) are full reconstructions whose ground is exactly 2.500 m
 with an exactly vertical normal (`SYNTHETIC_GROUND`, detected on the normal, not the
 value); those panos triangulate to ≥2.6 m, which is why unmeasured panos fall back to
 2.6 m. Four traps live in `depth.py` rather than at call sites: the header's `offset` field
 is a **uint8** at byte 7 (reading it as a uint16 swallows the first plane index and makes
-~0.5% of panos unparseable); the raster is **mirrored** relative to the raw index array
+~0.3–0.5% of panos unparseable); the raster is **mirrored** relative to the raw index array
 (`_raw_column`); Google returns a degenerate 2-plane fallback at exactly 2.500 m that must
 be filtered structurally (`DEGENERATE_MAX_PLANES`), not by testing the value; and **a range
 query must not snap to a pixel**. On that last one: `depth_at` snaps, because it has to

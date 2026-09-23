@@ -9,18 +9,20 @@ Measured 2026-09-23 on the four GSV runs whose depth payloads are fully harveste
   Triangulating multi-view ramps from bearings alone (which does not depend on camera
   height) and backing out the height each pano's ray implies gives heights **6–16%
   above** the depth ground plane's distance, city by city. So this is not the
-  "exact camera height" #40 assumed, and the #40 headline (ranges 29–35% long at 2.6 m)
-  was computed inside the depth frame, i.e. against a depth map that shares the bias.
+  "exact camera height" #40 assumed. The #40 headline (ranges 29–35% long at 2.6 m) was
+  computed inside the depth frame, against a depth map that shares the bias, so it does
+  not hold city-wide. It does hold, roughly, for the new rig (next bullet).
 - **The rig ranking in the depth data is real.** The 2025–26 GSV rig is lower: it
   triangulates to ~1.9–2.0 m in paterson and gainesville, against ~2.5 m for every
-  earlier vintage. So the 2.6 m constant is ~2–4% high for pre-2025 imagery and ~25–30%
-  high for the new rig. That rig dominates paterson (2025) and gainesville (2026).
+  earlier vintage. So 2.6 m runs ranges ~2–4% long on pre-2025 imagery and **31–35% long
+  on the new rig** (2.6/1.979, 2.6/1.924). That rig is about half of paterson (2025) and
+  of gainesville (2026).
 - **Using depth heights as-is does not measurably help.** World P/R against RampNet GT
   cannot tell any of the height models apart: every difference is ≤3 points, inside the
   Wilson CIs. Within-site multi-view spread gets *worse* when the association is held
   at 2.6 m, although that test favours 2.6 by construction (see below).
 - **Google's stand-in ground is common:** 24,529 of 170,462 non-degenerate payloads
-  (16% of bend) have a 100–200-plane reconstruction whose ground is a plane at exactly
+  (14%; 16% in bend alone) have a 100–200-plane reconstruction whose ground is a plane at exactly
   2.500 m with an exactly vertical normal. The existing `degenerate` (≤2 planes) test
   misses all of them. These panos triangulate to ≥2.6 m (2012–2018 imagery reads
   ~2.9 m), which is why unmeasured panos fall back to 2.6 m, not to the measured median.

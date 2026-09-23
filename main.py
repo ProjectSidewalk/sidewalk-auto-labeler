@@ -6,6 +6,7 @@ import socket
 import sys
 import traceback
 import os
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from importlib.metadata import version as pkg_version
@@ -32,6 +33,7 @@ from dotenv import load_dotenv
 from shapely.geometry import shape
 from tqdm import tqdm
 
+import depth as depthlib
 import position_check
 from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO
 from sources import get_source, SOURCE_NAMES
@@ -247,6 +249,34 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
         entry['phase'] = phase
     manifest['runs'].append(entry)
     save_manifest(manifest_path, manifest)
+
+# A run where this share of GSV panos got no usable depth is an anomaly, not data: across
+# all four harvested runs (170,932 panos) no payload was ever missing, so a sudden crop is
+# far likelier to be Google moving the undocumented field than panos losing their depth.
+# The minimum keeps a --limit smoke run from alarming on one miss (as harvest_depth.py).
+DEPTH_ALARM_RATE = 0.05
+DEPTH_ALARM_MIN = 20
+
+
+def record_camera_heights(results_path, manifest_path, manifest):
+    """Tally camera_height_status over the run (issue #40) into the manifest, and say so
+    loudly if depth went missing across the board -- sources/gsv.py deliberately never
+    fails a pano over depth, so this is the only place a layout change would show."""
+    counts = Counter()
+    with open(results_path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                counts[json.loads(line)['pano'].get('camera_height_status', 'pre_#40')] += 1
+    manifest['camera_height'] = dict(sorted(counts.items()))
+    save_manifest(manifest_path, manifest)
+    fetched = sum(v for k, v in counts.items() if k != 'pre_#40')
+    missing = counts[depthlib.NO_DEPTH] + counts[depthlib.UNPARSED]
+    print(f"Camera height (depth):  {counts[depthlib.MEASURED]} measured of {fetched}")
+    if missing >= DEPTH_ALARM_MIN and missing > DEPTH_ALARM_RATE * fetched:
+        print(f"⚠ {missing} of {fetched} GSV panos got no usable depth payload. That has "
+              f"never happened before; check `scripts/harvest_depth.py <run> "
+              f"--check-convention` before trusting camera_height_* in this run.")
+
 
 def run_position_check(run_dir, manifest_path, manifest):
     """
@@ -540,6 +570,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
               f"({gf[2]} skipped, {gf[3]} failed)")
     print(f"Results saved to: {output_jsonl_file}")
     print(f"Export benchmark bundle (imagery for RampNet GT/scoring): python scripts/export_benchmark.py {output_jsonl_file} --out <dir>")
+    if source.NAME == 'gsv' and output_jsonl_file.exists():
+        record_camera_heights(output_jsonl_file, manifest_path, manifest)
     print("----------------------")
 
     # 6. Position check — standard, not optional: this is how a drifted city announces

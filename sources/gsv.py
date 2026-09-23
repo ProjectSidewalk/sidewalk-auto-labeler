@@ -87,20 +87,26 @@ def find_panorama_with_depth(pano_id):
     then removed from it before streetlevel parses the rest, for two reasons: streetlevel
     would otherwise rasterize it (a pure-Python loop over 131k pixels per pano, for a
     raster we never use), and its parser reads the header's offset byte as a uint16 and
-    throws on ~0.3% of panoramas (see depth.parse) -- which would turn a perfectly good
+    throws on ~0.3-0.5% of panoramas (see depth.parse) -- which would turn a perfectly good
     pano into a metadata failure. depth.parse reads it correctly.
+
+    Depth must never fail a pano: the path into the response is undocumented and
+    positional, so if Google reshapes it, every pano would otherwise become a retryable
+    failure that no rerun can clear. Anything unexpected there is recorded as
+    camera_height_status 'unparsed' (main.py alarms when that is widespread) and the
+    metadata is parsed as usual.
     """
     response = api.find_panorama_by_id(pano_id, download_depth=True)
     blob = depthlib.blob_from_response(response)
-    if blob is not None:
+    if blob is None:
+        return parse_panorama_id_response(response), depthlib.camera_height_fields(None)
+    try:
         response[1][0][5][0][5][1][2] = None  # the path blob_from_response just read
-    payload = None
-    if blob:
-        try:
-            payload = depthlib.parse(blob)
-        except ValueError:
-            pass  # recorded as camera_height_status 'no_depth'; the pano is still good
-    return parse_panorama_id_response(response), depthlib.camera_height_fields(payload)
+        fields = depthlib.camera_height_fields(depthlib.parse(blob))
+    except Exception:
+        fields = {**depthlib.camera_height_fields(None),
+                  'camera_height_status': depthlib.UNPARSED}
+    return parse_panorama_id_response(response), fields
 
 
 def fetch_metadata_with_retry(pano_id):

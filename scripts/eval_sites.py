@@ -545,7 +545,7 @@ def write_outputs(out_dir, report_text, result):
                        + [pr['k'][f] for f in CAL_FLOORS])
 
 
-def load_city_files(city, benchmark_root, run_dir):
+def load_city_files(city, benchmark_root, run_dir, read_heights=True):
     with open(benchmark_root / city / 'verdicts.json', encoding='utf-8') as f:
         verdicts = json.load(f)
     bundle_ops = {}
@@ -556,7 +556,8 @@ def load_city_files(city, benchmark_root, run_dir):
                 bundle_ops[rec['pano']['panorama_id']] = \
                     [(d['x_normalized'], d['y_normalized'], d['confidence'])
                      for d in rec['detections']]
-    run_panos, skipped = fs.load_results(run_dir / 'results.jsonl')
+    run_panos, skipped = fs.load_results(run_dir / 'results.jsonl',
+                                         read_heights=read_heights)
     return verdicts['panos'], bundle_ops, run_panos
 
 
@@ -587,7 +588,8 @@ def main():
                  'pass --out so the default fusion_eval/ report is not overwritten')
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
     verdict_panos, bundle_ops, run_panos = load_city_files(
-        args.city, args.benchmark_root, run_dir)
+        args.city, args.benchmark_root, run_dir,
+        read_heights=args.camera_height_m == geo.PER_PANO)
     # Fusion at the BENCHMARK threshold, not the production operating point: the bundle's
     # verdicts and the committed reports are keyed to it (detectors/__init__.py).
     # mask_rig=False alongside the pinned tier: runs/<city>/fusion_eval/ is git-tracked by
