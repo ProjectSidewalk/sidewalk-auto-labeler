@@ -115,7 +115,7 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     saved = json.load(open(manifest_path))
     assert saved["position_check"] == {"checked_at": "2026-09-16T00:00:00Z", "results_sha256": "abc",
                                        "submitted_field": "sfm", "flagged": 1, "both_off": 0,
-                                       "panos_not_near_a_street": 3}
+                                       "panos_not_near_a_street": 3, "rule": None}
 
     def boom(rd):
         raise OSError("Overpass query failed on every endpoint")
@@ -129,6 +129,7 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     results = run_dir / "results.jsonl"
     results.write_text("{}\n")
     pinned = {"checked_at": "2026-09-16T01:00:00Z", "results_sha256": position_check.file_sha256(results),
+              "rule": position_check.RULE, **{k: v for k, _, v in position_check.RULE_PARAMETERS},
               "submitted_field": None, "flagged_sequences": [], "both_off_sequences": [],
               "panos_not_near_a_street": 0}
     position_check.check_path_for(results).write_text(json.dumps(pinned))
@@ -138,6 +139,20 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     assert main.run_position_check(run_dir, manifest_path, manifest)["checked_at"] == "2026-09-16T01:00:00Z"
     assert calls == []
     results.write_text("{}\n{}\n")  # the file changed: the check runs again
+    main.run_position_check(run_dir, manifest_path, manifest)
+    assert calls == [run_dir]
+    # ...and so does one pinned to the file but written under a retired verdict rule (#62).
+    calls.clear()
+    stale = {k: v for k, v in pinned.items() if k != "rule"}
+    stale["results_sha256"] = position_check.file_sha256(results)
+    position_check.check_path_for(results).write_text(json.dumps(stale))
+    main.run_position_check(run_dir, manifest_path, manifest)
+    assert calls == [run_dir]
+    # ...and one written under the right rule with a knob moved (--threshold 100).
+    calls.clear()
+    position_check.check_path_for(results).write_text(json.dumps({**stale, "rule": position_check.RULE,
+                                                                  **{k: v for k, _, v in position_check.RULE_PARAMETERS},
+                                                                  "threshold_m": 100.0}))
     main.run_position_check(run_dir, manifest_path, manifest)
     assert calls == [run_dir]
 

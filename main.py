@@ -379,7 +379,10 @@ def run_position_check(run_dir, manifest_path, manifest):
         # outputs with a new timestamp. The check is pinned to the file by its hash.
         results_path = run_dir / "results.jsonl"
         existing, _reason = position_check.load_check(results_path)
+        # ...and to the verdict rule and its knobs: a check written under an older rule, or
+        # with --threshold/--min-sequence moved, is re-run, not reused.
         if existing and existing.get('results_sha256') == position_check.file_sha256(results_path) \
+                and not position_check.rule_mismatches(existing) \
                 and position_check.report_path_for(results_path).exists():
             print(f"-> unchanged since the last check ({existing['checked_at']}): "
                   f"{len(existing['flagged_sequences'])} flagged; not re-run")
@@ -398,6 +401,7 @@ def run_position_check(run_dir, manifest_path, manifest):
         'submitted_field': result.get('submitted_field'),
         'flagged': len(result['flagged_sequences']),
         'both_off': len(result['both_off_sequences']),
+        'rule': result.get('rule'),
         'panos_not_near_a_street': result['panos_not_near_a_street'],
     }
     save_manifest(manifest_path, manifest)

@@ -872,7 +872,10 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
     unchecked or flagged file is --ignore-position-check. Only Mapillary carries two
     positions to choose between, so other sources are not gated. Staleness is the
     results file's sha256 against the one the check recorded, so a check cannot vouch for
-    a file edited after it ran.
+    a file edited after it ran - and the check's `rule` and recorded knobs (threshold_m,
+    resolution_floor_m, max_iqr_ratio, min_sequence) against position_check.RULE and its
+    constants (position_check.rule_mismatches), so neither a verdict from a retired rule
+    (the pre-#62 signed bias) nor one written with `--threshold 100` can vouch for it.
     """
     if first_pano_source(input_file) != 'mapillary':
         return None
@@ -889,15 +892,85 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
             f"{input_file.name} (sha256 {digest[:12]}... != {str(recorded)[:12]}...): the file changed "
             f"after the check ran, or the check predates results_sha256. Re-run: {rerun}  "
             f"(--ignore-position-check overrides)")
+    mismatches = position_check.rule_mismatches(check)
+    if mismatches:
+        raise ValueError(
+            f"{position_check.check_path_for(input_file).name} is stale: it was written with "
+            f"{'; '.join(mismatches)}, so its flags do not mean what the gate needs them to "
+            f"(a moved --threshold or --min-sequence can hide a drifted sequence). Re-run with "
+            f"the defaults: {rerun}  (--ignore-position-check overrides)")
     flagged = check.get('flagged_sequences') or []
     if flagged:
         raise ValueError(
-            f"{len(flagged)} sequence(s) in {input_file.name} sit off the street on the submitted "
-            f"position and the other Mapillary field fixes it ({position_check.check_path_for(input_file).name}). "
+            f"{len(flagged)} sequence(s) in {input_file.name} sit grossly off the street on the "
+            f"submitted position and the other Mapillary field fixes it ({position_check.check_path_for(input_file).name}). "
             f"Run: python scripts/reposition.py {input_file.as_posix()} --from-check, check the output "
             f"with {base} --results <output>, and submit that file instead  "
             f"(--ignore-position-check overrides)")
     return check
+
+
+def check_live_positions(input_file: Path, endpoint_url: str, trust_own_record: bool = True) -> None:
+    """Refuse (ValueError) to submit a file that would MOVE panos already carrying live
+    labels on this endpoint - the frame-consistency guard of issue #62.
+
+    PS computes a label's lat/lng ONCE, at insert, from the pano position in the payload
+    (ExploreService.submitAiLabelData -> PanoDataService.toLatLng); resubmitting a pano
+    upserts its pano row but never recomputes a label already stored. So resubmitting a
+    pano at a new position leaves every label already live on it where it was - including
+    labels a validator has already judged - and inserts a second copy of each at the new
+    position (PS is insert-only for AI labels). Doing it right means retiring (soft-deleting)
+    the live labels in the database first. A repositioned file (scripts/reposition.py) is a
+    new file with a new hash, so the resume guard sees a fresh campaign and says nothing;
+    this is what notices that its panos are the same panos a campaign already put on this
+    server, at other coordinates. Moving them is a decision about the whole city, never
+    about the file being submitted, so it is refused here and made on purpose with
+    --reposition-live-city.
+
+    Where a pano is live is decided by NEWEST CAMPAIGN WINS, PER PANO
+    (position_check.live_positions): of every campaign recorded in this directory for this
+    endpoint - sibling `*.submission.json` records and this file's own alike, bands
+    included, each over the lines its sidecar says it sent - the one with the latest
+    `last_submission_utc` that sent the pano holds its live position. That is what makes a
+    partial reposition expressible: after Richmond's three drifted sequences were
+    soft-deleted and resent at raw GPS (results.posfix3seq.raw.jsonl), the older
+    results.jsonl / results.band.jsonl records still list those panos at SfM, and without
+    the rule no file could pass. It also means this file's own campaign earns no exemption:
+    a newer campaign that moved some of its panos refuses it (e.g. a later band sent from
+    results.band.jsonl would put those 72 panos back at SfM), and so does resuming this
+    file after a newer campaign moved panos it has not sent yet.
+
+    A record whose file is missing, a partial campaign without its sidecar, or two
+    campaigns recorded at the same instant that disagree on a pano refuse too: "cannot
+    compare" must not read as "nothing moves". Campaigns submitted from another directory,
+    or whose records were never committed, are invisible to this check.
+
+    `trust_own_record=False` (process_jsonl_file passes it once --ignore-submission-guard
+    has overridden the resume guard) leaves this file's own record out: it is then
+    unreadable, or out of step with a lost sidecar, and that is the resume guard's to
+    judge. Leaving a campaign out can only turn a pass into a refusal - the file itself
+    always matches its own campaign - never the reverse.
+    """
+    endpoint = canonical_endpoint(endpoint_url)
+    exclude = () if trust_own_record else (submission_record_path(str(input_file)).name,)
+    live, problems = position_check.live_positions(input_file.parent, endpoint, exclude)
+    if live:
+        moved = position_check.moved_against_live(
+            position_check.pano_positions_by_id(input_file), live)
+        for campaign, pids in sorted(moved.items()):
+            entry = live[pids[0]]
+            problems.append(
+                f"{len(pids)} pano(s) sit at other coordinates than in {campaign}, the newest "
+                f"campaign here to send them (last sent {entry['at'] or 'at an unrecorded time'}; "
+                f"{entry['lines']} line(s), {entry['labels']} label(s))")
+    if problems:
+        raise ValueError(
+            f"{input_file.name} would move panos that already carry live labels on {endpoint}: "
+            + "; ".join(problems) + ". PS places a label once, at insert, so resending those "
+            f"panos at other coordinates duplicates the live labels on them unless they are "
+            f"retired (soft-deleted) in the database first. Repositioning a city that has "
+            f"shipped is a whole-city decision (issue #62), not a property of this file. "
+            f"--reposition-live-city overrides, once that decision is made.")
 
 
 def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float,
@@ -963,7 +1036,8 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
                             total_bytes: int, submitted_lines: Set[int], endpoint_url: str,
                             min_confidence: float, previous: Dict[str, Any],
                             check: Optional[Dict[str, Any]] = None,
-                            max_confidence: Optional[float] = None) -> None:
+                            max_confidence: Optional[float] = None,
+                            live_override: Optional[str] = None) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
     One entry per endpoint - a campaign legitimately hits a test instance before prod, and
@@ -1048,6 +1122,12 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
             state["bands"][band_key(min_confidence, max_confidence)]["position_check"] = verdict
         else:
             state["position_check"] = verdict
+    if live_override is not None:
+        # --reposition-live-city: this campaign moved panos that already carried live labels
+        # here (check_live_positions). The record keeps the reason, so "why did every label
+        # in this city move on that date?" is answerable from git.
+        state["reposition_live_city"] = {"overridden": True, "reason": live_override,
+                                         "at_utc": now}
     states[endpoint] = state
     record = {
         "input_file": input_file.name,
@@ -1078,6 +1158,7 @@ def process_jsonl_file(
     ignore_guard: bool = False,
     ignore_position_check: bool = False,
     max_confidence: Optional[float] = None,
+    reposition_live_city: bool = False,
 ) -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending
@@ -1105,6 +1186,10 @@ def process_jsonl_file(
             complete campaign at exactly ``max_confidence`` (issue #20). Records with no band
             label are not POSTed (the server already holds them as checked) but are marked
             done in the band's own sidecar, ``<file>.band-<min>-<max>.submitted``.
+        reposition_live_city: Submit a file whose panos sit at other coordinates than
+            where the newest campaign on this endpoint put the same panos - which duplicates
+            live labels unless they are retired (soft-deleted) in the database first (see
+            ``check_live_positions``). A whole-city decision.
     """
     input_file = Path(file_path)
 
@@ -1133,6 +1218,7 @@ def process_jsonl_file(
     digest, total_lines, total_bytes = hash_and_count(input_file)
     previous_record: Dict[str, Any] = {}
     append_note: Optional[str] = None
+    own_record_trusted = True   # False once --ignore-submission-guard overrode a refusal
     try:
         if not dry_run:
             previous_record = load_submission_record(record_path)
@@ -1149,6 +1235,7 @@ def process_jsonl_file(
         if not ignore_guard:
             raise
         print(f"WARNING (--ignore-submission-guard): {e}")
+        own_record_trusted = False
 
     # ...and that its pano positions were checked and passed (SidewalkWebpage#5361). Same
     # shape: a dry run is exempt, the override downgrades the refusal to a warning.
@@ -1163,6 +1250,18 @@ def process_jsonl_file(
         # The record must say the gate was bypassed, and why — otherwise an overridden
         # Mapillary campaign is indistinguishable from an ungated GSV one.
         position_state = {'overridden': True, 'reason': str(e)}
+
+    # ...and that it does not silently move panos that already carry live labels here
+    # (issue #62). Same shape again; the override is recorded in the submission record.
+    live_override: Optional[str] = None
+    try:
+        if not dry_run:
+            check_live_positions(input_file, endpoint_url, own_record_trusted)
+    except ValueError as e:
+        if not reposition_live_city:
+            raise
+        print(f"WARNING (--reposition-live-city): {e}")
+        live_override = str(e)
 
     success_count = 0
 
@@ -1265,7 +1364,7 @@ def process_jsonl_file(
         write_submission_record(record_path, input_file, digest, total_lines, total_bytes,
                                 load_submitted_lines(sidecar_path), endpoint_url,
                                 min_confidence, previous_record, position_state,
-                                max_confidence)
+                                max_confidence, live_override)
         record_written = True
 
     # Print summary.
@@ -1340,6 +1439,17 @@ def main() -> None:
              "(SidewalkWebpage#5361) from placing every label metres off."
     )
     parser.add_argument(
+        "--reposition-live-city",
+        action="store_true",
+        help="Submit a file whose panos sit at other coordinates than where the newest "
+             "campaign on this endpoint (any <file>.submission.json in this directory, this "
+             "file's own included) put the same panos. PS places a label once, at insert, so "
+             "this duplicates live labels unless they are retired (soft-deleted) in the "
+             "database first; PS has no API route for that, so it is a database step. Use it "
+             "only for a whole-city repositioning decided on purpose (issue #62), never to get "
+             "a file through; the reason is written into the submission record."
+    )
+    parser.add_argument(
         "--prefix-digest", type=int, metavar="N",
         help="Print the sha256 and byte length of the file's first N non-blank lines, then "
              "exit without submitting anything. Use it to migrate a submission record written "
@@ -1402,7 +1512,8 @@ def main() -> None:
     try:
         process_jsonl_file(args.jsonl_file, args.endpoint, api_key, args.dry_run,
                            args.min_confidence, args.limit, args.ignore_submission_guard,
-                           args.ignore_position_check, args.max_confidence)
+                           args.ignore_position_check, args.max_confidence,
+                           args.reposition_live_city)
     except ValueError as e:
         raise SystemExit(f"Error: {e}")
 

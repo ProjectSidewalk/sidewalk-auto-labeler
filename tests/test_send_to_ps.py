@@ -1,5 +1,6 @@
 """Unit tests for send_to_ps.py's record transform, endpoint guard and resume sidecar."""
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -914,11 +915,38 @@ def _mapillary_jsonl(tmp_path, count, name="results.jsonl"):
     return path
 
 
-def _write_check(path, flagged=(), digest=None):
+def _write_check(path, flagged=(), digest=None, **overrides):
     import position_check
     check = {"checked_at": "2026-09-16T00:00:00Z", "flagged_sequences": list(flagged),
-             "results_sha256": digest or position_check.file_sha256(path)}
+             "results_sha256": digest or position_check.file_sha256(path), "rule": position_check.RULE,
+             **{k: v for k, _, v in position_check.RULE_PARAMETERS}, **overrides}
     position_check.check_path_for(path).write_text(json.dumps(check), encoding="utf-8")
+
+
+def test_position_gate_treats_another_rule_or_moved_knobs_as_stale(tmp_path, monkeypatch):
+    """A zero-flag check proves nothing unless it was written under the rule the gate
+    applies, with the knobs at their constants: `--threshold 100` or a huge --min-sequence
+    would otherwise wave a drifted file through under the right RULE name."""
+    path = _mapillary_jsonl(tmp_path, 2)
+    sent = _capture_posts(monkeypatch)
+    for overrides, why in (({"rule": None}, "pre-#62 signed-bias rule"),
+                           ({"rule": "paired-unsigned-v0"}, "paired-unsigned-v0"),
+                           ({"threshold_m": 100.0}, r"threshold_m = 100, not GROSS_OFF_STREET_M = 5"),
+                           ({"min_sequence": 500}, "min_sequence = 500"),
+                           ({"resolution_floor_m": 0.5}, "resolution_floor_m = 0.5"),
+                           ({"max_iqr_ratio": 99}, "max_iqr_ratio = 99")):
+        _write_check(path, **overrides)
+        with pytest.raises(ValueError, match=f"is stale.*{why}.*--ignore-position-check"):
+            send_to_ps.process_jsonl_file(str(path), PROD)
+    check = json.loads(send_to_ps.position_check.check_path_for(path).read_text())
+    del check["max_iqr_ratio"]                         # a knob not recorded at all
+    send_to_ps.position_check.check_path_for(path).write_text(json.dumps(check))
+    with pytest.raises(ValueError, match="max_iqr_ratio not recorded"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+    _write_check(path)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 2
 
 
 def test_position_gate_refuses_unchecked_stale_and_flagged_mapillary_files(tmp_path, monkeypatch):
@@ -1368,3 +1396,125 @@ def test_a_band_that_is_all_rig_detections_is_refused(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="holds no labels at all in"):
         send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
     assert sent == []
+
+
+# --- Live-city guard (issue #62: repositioning a shipped city duplicates its live labels) --
+
+def _positioned(tmp_path, name, lats, lng=-77.43):
+    """A results file with one pano per latitude: PID1..PIDn."""
+    path = tmp_path / name
+    path.write_text("".join(json.dumps({**_record([{"x_normalized": 0.5, "y_normalized": 0.5,
+                                                     "confidence": 0.9}], pano_id=f"PID{i}"),
+                                        "pano": {**_record([], pano_id=f"PID{i}")["pano"],
+                                                 "lat": lat, "lng": lng}}) + "\n"
+                            for i, lat in enumerate(lats, 1)))
+    return path
+
+
+def _live_record(path, at, endpoint=PROD, lines=None, total=None, bands=None):
+    """Hand-write the submission record a campaign of `path` leaves on `endpoint`."""
+    total = total if total is not None else len(path.read_text().splitlines())
+    state = {"submitted_lines": lines if lines is not None else total, "labels_submitted": 7,
+             "min_confidence": 0.3, "last_submission_utc": at}
+    if bands:
+        state["bands"] = bands
+    send_to_ps.submission_record_path(str(path)).write_text(json.dumps(
+        {"input_file": path.name, "total_lines": total,
+         "endpoints": {send_to_ps.canonical_endpoint(endpoint): state}}))
+
+
+def test_live_city_guard_refuses_to_move_panos_that_carry_live_labels(tmp_path, monkeypatch):
+    """PS places a label once, at insert, so a repositioned file sent where another campaign
+    already put the same panos duplicates every label on them. That is refused unless typed
+    out, and the override is recorded; identical positions (a band file) pass untouched."""
+    sent = _capture_posts(monkeypatch)
+    live = _jsonl(tmp_path, 3)
+    records = [json.loads(line) for line in live.read_text().splitlines()]
+    for i, r in enumerate(records):
+        r["pano"].update(lat=37.54 + i * 0.001, lng=-77.43)
+    live.write_text("".join(json.dumps(r) + "\n" for r in records))
+    send_to_ps.process_jsonl_file(str(live), PROD)          # results.jsonl is live on PROD
+    _live_record(live, "2026-09-01T00:00:00Z")              # ...as of a known, earlier time
+
+    same = tmp_path / "results.band.jsonl"                  # same panos, same coordinates
+    same.write_text("".join(json.dumps(r) + "\n" for r in records))
+    send_to_ps.check_live_positions(same, PROD)
+
+    records[1]["pano"]["lat"] += 0.0001                     # ~11 m: one pano repositioned
+    moved = tmp_path / "results.raw.jsonl"
+    moved.write_text("".join(json.dumps(r) + "\n" for r in records))
+    with pytest.raises(ValueError, match=r"1 pano\(s\) sit at other coordinates than in results\.jsonl"
+                                         r".*retired \(soft-deleted\).*--reposition-live-city"):
+        send_to_ps.process_jsonl_file(str(moved), PROD)
+    assert len(sent) == 3
+    send_to_ps.check_live_positions(moved, TEST)            # nothing of it is live on TEST
+
+    send_to_ps.process_jsonl_file(str(moved), PROD, reposition_live_city=True)
+    assert len(sent) == 6
+    state = json.loads(send_to_ps.submission_record_path(str(moved)).read_text())["endpoints"][
+        send_to_ps.canonical_endpoint(PROD)]
+    assert state["reposition_live_city"]["overridden"] and "results.jsonl" in state["reposition_live_city"]["reason"]
+    # The newer campaign now holds the moved pano: the file that shipped it passes...
+    send_to_ps.check_live_positions(moved, PROD)
+    # ...and the old positions, which used to be live, are what is now refused.
+    with pytest.raises(ValueError, match=r"1 pano\(s\) sit at other coordinates than in results\.raw\.jsonl"):
+        send_to_ps.check_live_positions(same, PROD)
+
+    # "Cannot compare" never reads as "nothing moves".
+    live.unlink()
+    with pytest.raises(ValueError, match="not present"):
+        send_to_ps.check_live_positions(same, PROD)
+
+
+def test_live_city_guard_newest_campaign_wins_per_pano(tmp_path):
+    """Records cannot say a pano was superseded, so after a partial reposition two campaigns
+    disagree on it (Richmond: results.jsonl at SfM, results.posfix3seq.raw.jsonl at raw).
+    The one sent last holds the live position; the panos only the older one sent stay its."""
+    old = _positioned(tmp_path, "results.jsonl", [37.540, 37.541, 37.542])
+    _live_record(old, "2026-09-05T01:39:04Z")
+    fix = _positioned(tmp_path, "results.fix.jsonl", [37.5401])   # PID1 moved ~11 m
+    _live_record(fix, "2026-09-24T13:30:56Z")
+
+    newest = _positioned(tmp_path, "a.jsonl", [37.5401, 37.541, 37.542])
+    send_to_ps.check_live_positions(newest, PROD)
+    with pytest.raises(ValueError, match=r"1 pano\(s\) sit at other coordinates than in results\.fix\.jsonl"):
+        send_to_ps.check_live_positions(_positioned(tmp_path, "b.jsonl", [37.540, 37.541, 37.542]), PROD)
+    # Newest by time, not by file name or order: swap the timestamps and the verdicts swap.
+    _live_record(old, "2026-09-25T00:00:00Z")
+    send_to_ps.check_live_positions(tmp_path / "b.jsonl", PROD)
+    with pytest.raises(ValueError, match=r"1 pano\(s\) sit at other coordinates than in results\.jsonl"):
+        send_to_ps.check_live_positions(newest, PROD)
+
+
+def test_live_city_guard_gives_the_files_own_campaign_no_exemption(tmp_path):
+    """Finding 2 of the #72 review: a file whose own campaign is live, but older than a
+    sibling that moved some of its panos, must not re-POST the old positions - a later band
+    sent from results.band.jsonl would have put Richmond's 72 fixed panos back at SfM."""
+    band = _positioned(tmp_path, "results.band.jsonl", [37.540, 37.541])
+    _live_record(band, "2026-09-22T19:03:45Z",
+                 bands={"0.3-0.55": {"submitted_lines": 2, "labels_submitted": 3,
+                                     "last_submission_utc": "2026-09-22T19:03:45Z"}})
+    send_to_ps.check_live_positions(band, PROD)             # alone, it is the live campaign
+    fix = _positioned(tmp_path, "results.fix.jsonl", [37.5401])
+    _live_record(fix, "2026-09-24T13:30:56Z")
+    with pytest.raises(ValueError, match=r"results\.band\.jsonl would move.*1 pano\(s\).*results\.fix\.jsonl"):
+        send_to_ps.check_live_positions(band, PROD)
+
+
+def test_live_city_guard_reads_a_partial_campaign_by_its_sidecar(tmp_path):
+    """A campaign that sent only some lines holds only those panos; which ones is its
+    sidecar's to say, and without the sidecar the guard cannot tell, so it refuses."""
+    old = _positioned(tmp_path, "results.jsonl", [37.540, 37.541, 37.542])
+    _live_record(old, "2026-09-05T00:00:00Z")
+    newer = _positioned(tmp_path, "results.raw.jsonl", [37.5401, 37.5411, 37.5421])
+    _live_record(newer, "2026-09-24T00:00:00Z", lines=1)    # interrupted after line 2
+    Path(f"{newer}.submitted").write_text("2\n")
+
+    # PID2 is live at the new position, PID1 and PID3 still at the old ones.
+    send_to_ps.check_live_positions(_positioned(tmp_path, "a.jsonl", [37.540, 37.5411, 37.542]), PROD)
+    with pytest.raises(ValueError, match=r"2 pano\(s\) sit at other coordinates than in results\.jsonl"):
+        send_to_ps.check_live_positions(newer, PROD)        # resuming it needs the flag again
+
+    Path(f"{newer}.submitted").unlink()
+    with pytest.raises(ValueError, match=r"partial here \(1 of 3 lines\).*sidecar.*missing"):
+        send_to_ps.check_live_positions(tmp_path / "a.jsonl", PROD)
