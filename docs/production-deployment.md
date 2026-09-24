@@ -100,9 +100,9 @@ Use it for order-of-magnitude scoping, not for `--time`.
 Then do a real smoke run of a few dozen panos before committing cluster hours — it is the
 cheapest way to catch a geometry that is empty, inverted, or in the wrong hemisphere.
 
-The GeoJSON must be a **bare geometry object**, not a `Feature`/`FeatureCollection` —
-`shape()` and the area hash both consume it directly. City geometries live on their own
-`add-<city>-area` branch until merged.
+The GeoJSON may be a bare `Polygon`/`MultiPolygon` or one wrapped in a
+`Feature`/`FeatureCollection`; `main.py` extracts the geometry before hashing, so either form
+binds to the same run. City geometries live on their own `add-<city>-area` branch until merged.
 
 ---
 

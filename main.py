@@ -30,7 +30,9 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 import geojson
 from dotenv import load_dotenv
-from shapely.geometry import shape
+from shapely.geometry import MultiPolygon, mapping, shape
+from shapely.errors import GEOSException
+from shapely.ops import unary_union
 from tqdm import tqdm
 
 import depth as depthlib
@@ -60,10 +62,90 @@ def latlon_to_tile(lat_deg, lon_deg, zoom):
     ytile = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
     return xtile, ytile
 
-def get_geojson_hash(geojson_data):
-    """Creates a stable SHA256 hash of the GeoJSON geometry."""
-    # The root of the geojson is the geometry object itself.
-    geometry = geojson_data
+# The area must be a polygonal region: the scan tests each pano's point for containment.
+AREA_GEOMETRY_TYPES = ('Polygon', 'MultiPolygon')
+
+
+def extract_geometry(geojson_data):
+    """(geometry, input_type): the bare area geometry inside any GeoJSON wrapper.
+
+    Tools like geojson.io export a `Feature` or `FeatureCollection`, while `shape()` and
+    the run-dir area hash both want the geometry itself (issue #7). So:
+
+    - a bare `Polygon`/`MultiPolygon` passes through untouched, which keeps its hash
+      byte-identical to every existing run's `area_hash` (no run directory forks);
+    - a `Feature` yields its `geometry`, and a `FeatureCollection` of exactly one
+      feature yields that feature's geometry, so wrapping or unwrapping the same
+      polygon hashes to the same run;
+    - a `FeatureCollection` of several features yields their `unary_union` as a
+      `MultiPolygon`, announced on stdout so nobody is surprised by the dissolve. Its
+      coordinates are rounded to geojson's 6 decimals, so the stored area.geojson
+      re-hashes to the same `area_hash` on resume. Features that cannot be dissolved
+      (e.g. a self-intersecting ring) raise ValueError rather than a GEOS error.
+
+    Anything else (a `GeometryCollection`, a non-polygonal geometry, an empty or
+    geometry-less feature) raises ValueError naming what was found. `input_type` is the
+    top-level GeoJSON type, recorded in the manifest so a run started from a wrapped
+    file is explainable later.
+
+    Example:
+        >>> extract_geometry({"type": "Feature", "properties": {},
+        ...                   "geometry": {"type": "Polygon", "coordinates": [...]}})
+        ({"type": "Polygon", "coordinates": [...]}, "Feature")
+    """
+    input_type = geojson_data.get('type') if isinstance(geojson_data, dict) else None
+    if input_type == 'Feature':
+        geometry = _polygonal(geojson_data.get('geometry'), 'Feature')
+    elif input_type == 'FeatureCollection':
+        features = geojson_data.get('features') or []
+        if not features:
+            raise ValueError("GeoJSON FeatureCollection has no features; nothing to scan.")
+        geometries = [_polygonal(f.get('geometry') if isinstance(f, dict) else None,
+                                 f'FeatureCollection feature {i}')
+                      for i, f in enumerate(features)]
+        if len(geometries) == 1:
+            geometry = geometries[0]
+        else:
+            try:
+                union = unary_union([shape(g) for g in geometries])
+            except (GEOSException, ValueError, TypeError) as e:
+                # An invalid part (e.g. a self-intersecting ring) makes GEOS throw a
+                # TopologyException; run_labeler turns ValueError into a clean exit.
+                raise ValueError(
+                    f"FeatureCollection features could not be dissolved into one area "
+                    f"({e}). Check that each polygon is valid (no self-intersecting "
+                    f"rings), e.g. with shapely's make_valid.") from e
+            if union.geom_type == 'Polygon':
+                union = MultiPolygon([union])
+            # Round-trip through geojson.loads so the geometry is exactly what
+            # geojson.load yields when area.geojson is read back: plain lists, and
+            # coordinates rounded to geojson's 6 decimals. unary_union computes new
+            # vertices at full float precision, so hashing its raw output would give a
+            # hash that the stored area.geojson can never reproduce (a resume from
+            # runs/<name>/area.geojson would be refused as a different area).
+            geometry = geojson.loads(json.dumps(mapping(union)))
+            print(f"-> GeoJSON FeatureCollection has {len(geometries)} features; "
+                  f"dissolved into one MultiPolygon of {len(union.geoms)} part(s).")
+    else:
+        geometry = _polygonal(geojson_data, 'GeoJSON root')
+    return geometry, input_type
+
+
+def _polygonal(geometry, where):
+    """`geometry` if it is a Polygon/MultiPolygon, else ValueError naming what it is."""
+    found = geometry.get('type') if isinstance(geometry, dict) else None
+    if found not in AREA_GEOMETRY_TYPES:
+        raise ValueError(
+            f"{where} is {found or 'empty'}, not a Polygon or MultiPolygon. The area must be a "
+            f"polygonal geometry, optionally wrapped in a Feature or FeatureCollection.")
+    return geometry
+
+
+def get_geojson_hash(geometry):
+    """Creates a stable SHA256 hash of the area geometry.
+
+    Takes the geometry `extract_geometry` returns, never the raw file, so a Feature
+    wrapper and the bare geometry it holds bind to the same run directory."""
     canonical_json = json.dumps(geometry, sort_keys=True, separators=(',', ':'))
     sha_hash = hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
     return sha_hash
@@ -239,7 +321,7 @@ def bind_model(manifest, provenance, run_name):
     return True
 
 def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_name,
-                         position_field=None, provenance=None):
+                         position_field=None, input_geojson_type=None, provenance=None):
     """
     Creates or validates the run directory (runs/<name>/), which holds all per-area
     state: results.jsonl, already_processed.txt, manifest.json, and a copy of the
@@ -250,6 +332,10 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     (`position_field`, recorded as `mapillary_position`; manifests predating it are 'sfm'),
     and every run to one model revision once a detector has run in it (see bind_model).
     `provenance` is None for --scan-only, which loads no model and so binds none.
+
+    `geojson_data` is the extracted bare geometry (see extract_geometry), which is what
+    area.geojson stores; `input_geojson_type` is the wrapper the file came in, recorded
+    as the manifest's `input_geojson_type`.
     """
     if source_name == 'mapillary' and position_field is None:
         position_field = 'sfm'  # the source's default; never let None reach the manifest
@@ -298,6 +384,7 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
         'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
         'source_geojson': str(geojson_path),
         'area_hash': area_hash,
+        'input_geojson_type': input_geojson_type,
         'imagery_source': source_name,
         **(manifest_model_block(provenance) if provenance is not None else {}),
         'detection_storage_floor': DETECTION_STORAGE_FLOOR,
@@ -521,6 +608,10 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     print(f"-> Loading GeoJSON from {geojson_path}...")
     with open(geojson_path, 'r') as f:
         geojson_data = geojson.load(f)
+    try:
+        geojson_data, input_geojson_type = extract_geometry(geojson_data)
+    except ValueError as e:
+        sys.exit(f"❌ {geojson_path}: {e}")
 
     area_hash = get_geojson_hash(geojson_data)
     started_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
@@ -528,6 +619,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     run_dir = Path("runs") / run_name
     manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source.NAME,
                                     position_field=position_field,
+                                    input_geojson_type=input_geojson_type,
                                     provenance=None if scan_only else provenance)
     manifest_path = run_dir / "manifest.json"
     output_jsonl_file = run_dir / "results.jsonl"
@@ -541,7 +633,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     print(f"-> Found {len(processed_ids)} already processed panoramas in cache.")
 
     # 2. Find all panorama IDs in the area
-    # The geojson_data is the geometry object itself, which shapely can read directly.
+    # geojson_data is the extracted bare geometry, which shapely reads directly.
     area_shape = shape(geojson_data)
 
     if gap_fill_only:

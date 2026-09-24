@@ -2,6 +2,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 import main
 from conftest import make_process_result as _result, make_provenance
 
@@ -379,3 +381,131 @@ def test_record_camera_heights_tallies_and_alarms_on_missing_depth(tmp_path, cap
     assert manifest["camera_height"] == {"measured": 30, "synthetic_ground": 5, "unparsed": 25}
     assert json.loads(manifest_path.read_text())["camera_height"]["unparsed"] == 25
     assert "no usable depth payload" in capsys.readouterr().out
+
+
+# --- GeoJSON input normalization (issue #7) --------------------------------------------
+
+SQUARE = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]}
+FAR_SQUARE = {"type": "Polygon", "coordinates": [[[5, 5], [6, 5], [6, 6], [5, 6], [5, 5]]]}
+
+
+def _feature(geometry):
+    return {"type": "Feature", "properties": {"name": "x"}, "geometry": geometry}
+
+
+def _hash_of(data):
+    return main.get_geojson_hash(main.extract_geometry(data)[0])
+
+
+def test_bare_feature_and_single_feature_collection_hash_alike():
+    # Wrapping or unwrapping the same polygon must bind to the same run directory,
+    # and the bare case must hash exactly as it did before #7 (no run forks).
+    bare = _hash_of(SQUARE)
+    assert bare == main.get_geojson_hash(SQUARE)
+    assert _hash_of(_feature(SQUARE)) == bare
+    assert _hash_of({"type": "FeatureCollection", "features": [_feature(SQUARE)]}) == bare
+    assert main.extract_geometry(_feature(SQUARE))[1] == "Feature"
+
+
+def test_committed_area_hash_survives_a_feature_wrapper(tmp_path):
+    # The same check on a real file loaded the way run_labeler loads it.
+    import geojson
+    from pathlib import Path
+    src = Path(__file__).resolve().parent.parent / "example_geojson" / "richmond.geojson"
+    bare = json.loads(src.read_text())
+    wrapped = tmp_path / "wrapped.geojson"
+    wrapped.write_text(json.dumps({"type": "FeatureCollection", "features": [_feature(bare)]}))
+    with open(src) as f:
+        bare_hash = main.get_geojson_hash(main.extract_geometry(geojson.load(f))[0])
+    with open(wrapped) as f:
+        wrapped_hash = main.get_geojson_hash(main.extract_geometry(geojson.load(f))[0])
+    assert wrapped_hash == bare_hash
+
+
+def test_multi_feature_collection_dissolves_to_one_multipolygon(capsys):
+    geometry, input_type = main.extract_geometry(
+        {"type": "FeatureCollection", "features": [_feature(SQUARE), _feature(FAR_SQUARE)]})
+    assert input_type == "FeatureCollection"
+    assert geometry["type"] == "MultiPolygon"
+    assert len(geometry["coordinates"]) == 2
+    assert main.shape(geometry).area == 2.0
+    json.dumps(geometry)                          # plain lists, storable as area.geojson
+    assert "dissolved" in capsys.readouterr().out
+
+
+def test_touching_features_dissolve_to_a_multipolygon_not_a_polygon():
+    right = {"type": "Polygon", "coordinates": [[[1, 0], [2, 0], [2, 1], [1, 1], [1, 0]]]}
+    geometry, _ = main.extract_geometry(
+        {"type": "FeatureCollection", "features": [_feature(SQUARE), _feature(right)]})
+    assert geometry["type"] == "MultiPolygon" and len(geometry["coordinates"]) == 1
+
+
+@pytest.mark.parametrize("data, found", [
+    (_feature({"type": "Point", "coordinates": [0, 0]}), "Point"),
+    ({"type": "GeometryCollection", "geometries": [SQUARE]}, "GeometryCollection"),
+    ({"type": "FeatureCollection", "features": []}, "no features"),
+    (_feature(None), "empty"),
+])
+def test_non_polygonal_input_is_refused_naming_what_was_found(data, found):
+    with pytest.raises(ValueError, match=found):
+        main.extract_geometry(data)
+
+
+def test_manifest_records_input_type_and_area_geojson_stays_bare(tmp_path):
+    geometry, input_type = main.extract_geometry(_feature(SQUARE))
+    manifest = main.load_or_init_run_dir(tmp_path / "run", "in.geojson", geometry,
+                                         main.get_geojson_hash(geometry), "gsv",
+                                         input_geojson_type=input_type)
+    assert manifest["input_geojson_type"] == "Feature"
+    assert json.loads((tmp_path / "run" / "area.geojson").read_text())["type"] == "Polygon"
+
+
+def test_committed_run_area_hash_still_reproduces_from_its_area_geojson():
+    # Backward compatibility pinned against REAL data, not new code against new code:
+    # paterson's manifest was written before #7, and a resume re-hashes whatever file it
+    # is pointed at, so the committed area.geojson must still produce the committed hash.
+    import geojson
+    from pathlib import Path
+    run_dir = Path(__file__).resolve().parent.parent / "runs" / "paterson"
+    recorded = json.loads((run_dir / "manifest.json").read_text())["area_hash"]
+    assert recorded == "7a3e679281f6318a8d7d152d131307d7d76efdec6f247dbce318f56b52ca8cb4"
+    with open(run_dir / "area.geojson") as f:
+        geometry, input_type = main.extract_geometry(geojson.load(f))
+    assert input_type == "Polygon"
+    assert main.get_geojson_hash(geometry) == recorded
+
+
+def test_dissolved_area_resumes_from_its_own_area_geojson(tmp_path, capsys):
+    # unary_union computes new vertices at full float precision (here where the two
+    # squares' edges cross, x=1, y=0.5555555...), while geojson.load rounds to 6
+    # decimals. The dissolved geometry must already be rounded, or the area.geojson a run
+    # stores could never re-hash to the manifest's area_hash and a resume would be refused.
+    import geojson
+    tilted = {"type": "Polygon", "coordinates": [[[0.3, 0.123457], [1.7, 0.987654],
+                                                  [1.7, 1.5], [0.3, 1.5], [0.3, 0.123457]]]}
+    collection = geojson.loads(json.dumps(
+        {"type": "FeatureCollection", "features": [_feature(SQUARE), _feature(tilted)]}))
+    geometry, _ = main.extract_geometry(collection)
+    area_hash = main.get_geojson_hash(geometry)
+    main.load_or_init_run_dir(tmp_path / "run", "in.geojson", geometry, area_hash, "gsv",
+                              input_geojson_type="FeatureCollection")
+    with open(tmp_path / "run" / "area.geojson") as f:
+        reloaded, input_type = main.extract_geometry(geojson.load(f))
+    assert input_type == "MultiPolygon"
+    assert main.get_geojson_hash(reloaded) == area_hash
+
+
+def test_invalid_features_are_refused_cleanly_not_with_a_geos_traceback(tmp_path):
+    # A self-intersecting ("bowtie") part makes unary_union throw a GEOS
+    # TopologyException; it must surface as the same clean ValueError / sys.exit.
+    bowtie = {"type": "Polygon", "coordinates": [[[0, 0], [1, 1], [1, 0], [0, 1], [0, 0]]]}
+    overlapping = {"type": "Polygon",
+                   "coordinates": [[[0.5, 0], [2, 0], [2, 2], [0.5, 2], [0.5, 0]]]}
+    data = {"type": "FeatureCollection", "features": [_feature(bowtie), _feature(overlapping)]}
+    with pytest.raises(ValueError, match="could not be dissolved"):
+        main.extract_geometry(data)
+    path = tmp_path / "bad.geojson"
+    path.write_text(json.dumps(data))
+    with pytest.raises(SystemExit) as exc:
+        main.run_labeler(str(path), "bad", source=None, scan_only=True)
+    assert "could not be dissolved" in str(exc.value.code)
