@@ -34,10 +34,16 @@ Two distinct thresholds govern detections, and they are deliberately not the sam
 
 A third filter is geometric rather than confidence-based — see NADIR_MASK_DEG.
 
+The module also owns MODEL PROVENANCE (issues #39/#6) — which weights produced a record —
+because it has the same audience: see KNOWN_REVISIONS and provenance_from_snapshot_dir.
+
 This module imports no torch so main.py, send_to_ps.py, and scripts/ can read the
 contract without pulling in the model stack (the test suite runs torch-free); the
 detector itself lives in detectors.curb_ramp.
 """
+import re
+from datetime import date
+from pathlib import PurePath
 
 DETECTION_STORAGE_FLOOR = 0.1
 MAX_PEAKS_PER_PANO = 50
@@ -98,3 +104,215 @@ def on_camera_rig(y_normalized: float) -> bool:
     existed must not apply it — what is already live is what is already live.
     """
     return y_normalized > NADIR_MASK_Y
+
+
+# --- Model provenance (issues #39, #6) -----------------------------------------------
+#
+# Every JSONL line and every manifest run entry says which weights produced it, and Project
+# Sidewalk stores that permanently, one `label_ai_info` row per AI label. It used to be three
+# hand-maintained literals in main.py that nothing tied to the model actually loaded, so a
+# retrained checkpoint would have kept reporting the old training date: provenance that
+# looks authoritative while being wrong, with no signal that anything is stale.
+#
+# Now it is RESOLVED, not declared: detectors.curb_ramp.CurbRampDetector reads the Hugging
+# Face revision SHA of the snapshot it actually loaded, and everything else follows from that
+# SHA through the pure functions below (torch-free, so the test suite covers them).
+
+MODEL_REPO = "projectsidewalk/rampnet-model"
+
+# The version of the record format Project Sidewalk's /ai/submitLabelsOnPano reads. This one
+# IS declared rather than resolved, legitimately: it is a fact about this repo's output
+# contract, not about the weights, so it changes only with a change here.
+API_VERSION = "1.0.0"
+
+# Training date per Hugging Face revision of MODEL_REPO. The HF model card carries no
+# training-date field (and adding one upstream would only move the hand-maintained literal),
+# so the date is recorded here, keyed on the one thing that cannot drift: the commit SHA.
+#
+# Seeded 2026-09-23 from `HfApi().list_repo_commits(MODEL_REPO)`: every revision that carries
+# weights. All of them hold the ICCV 2025 paper weights, so all map to one date. That was
+# checked, not assumed: model.safetensors has the same LFS sha256 (b4122c254fde...) on every
+# revision from fa8e2dc through the v1.0-paper tag (1078bcd), and the 2026-07-24 re-export
+# (606a119, main) serializes the same 380 tensors under a `model.` key prefix — compared
+# value-for-value, all 380 identical. Revisions before 2ccf69f carry no modeling code and
+# cannot be loaded, but are listed anyway: the table answers "what date are these weights",
+# not "can you load it". The initial commit (bbf1ad4, .gitattributes only) has no weights.
+#
+# HOW TO EXTEND IT when a retrained checkpoint is pushed (RampNet#158): push to the hub, copy
+# the new commit SHA (the refusal message prints it; so does `HfApi().list_repo_commits`),
+# and add a row with the date the checkpoint was TRAINED, not pushed. A metadata-only commit
+# (a README edit) keeps the weights, so it keeps the old date; say so in its note.
+#
+# WHY AN UNKNOWN SHA REFUSES: the alternative is a default, and a default date on a new
+# model is precisely the stale-but-authoritative failure this table exists to end. PS rows
+# are permanent and insert-only (SidewalkWebpage#5382), so a wrong date cannot be corrected
+# afterwards. `main.py --allow-unknown-model-revision` runs anyway with the date recorded as
+# null (and the override recorded in the manifest) — and send_to_ps.py refuses such a file,
+# since PS requires the date.
+_PAPER_WEIGHTS = "2025-08-21"
+KNOWN_REVISIONS = {
+    "606a11956743f7eb328d9207769034752f6191f4": {
+        "training_date": _PAPER_WEIGHTS,
+        "note": "HF main since 2026-07-24: transformers-compatible re-export (RampNet#19); "
+                "paper weights, value-identical"},
+    "1078bcd6771d63bd845d9fd36042904473e20b07": {
+        "training_date": _PAPER_WEIGHTS, "note": "v1.0-paper tag (ICCV 2025 release)"},
+    "3cdeabf8cd5571e64c22af65e05c3d12257b6643": {
+        "training_date": _PAPER_WEIGHTS, "note": "README edit; paper weights"},
+    "fbe8e8dbca2995f13463bb2c5ae6cb1e8ca999d5": {
+        "training_date": _PAPER_WEIGHTS, "note": "README edit; paper weights"},
+    "d3f93ddc25e9e9074a1c8dcb0049ab564001a390": {
+        "training_date": _PAPER_WEIGHTS, "note": "README edit; paper weights"},
+    "e941a1f550c0ab0db017cb8d1bc6189350baef6b": {
+        "training_date": _PAPER_WEIGHTS, "note": "README edit; paper weights"},
+    "2b652e5ad4db1b88959977e8d7b6b3c881195efd": {
+        "training_date": _PAPER_WEIGHTS, "note": "README edit; paper weights"},
+    "ad39a5107e2d9121681176e90eb1f8fc82c9a850": {
+        "training_date": _PAPER_WEIGHTS, "note": "README edit; paper weights"},
+    "4e5d7bc12cbf72cb80192a770b672aaf3c72a633": {
+        "training_date": _PAPER_WEIGHTS, "note": "README edit; paper weights"},
+    "58fa1b8b589179e683b83085f904c399b08e13f3": {
+        "training_date": _PAPER_WEIGHTS, "note": "modeling.py fix; paper weights"},
+    "2ccf69ff97a191aaa31082e100c94cfd712649fd": {
+        "training_date": _PAPER_WEIGHTS, "note": "modeling.py added; paper weights"},
+    "4c227f0c4aaf474de82cc8b0ce5717eb02158feb": {
+        "training_date": _PAPER_WEIGHTS, "note": "config.json edit; no modeling code yet"},
+    "fa8e2dc96da04df668e60131bf72dd2384dec294": {
+        "training_date": _PAPER_WEIGHTS, "note": "first weights push; no modeling code yet"},
+}
+
+_SHA_RE = re.compile(r"[0-9a-f]{40}")
+
+
+class ModelProvenanceError(RuntimeError):
+    """The loaded model's provenance cannot be stated truthfully, so detection must not
+    start: either no revision SHA could be resolved at all, or the SHA is not in
+    KNOWN_REVISIONS. Records written anyway would become permanent, unverifiable PS rows."""
+
+
+def is_revision(value) -> bool:
+    """A full 40-hex git commit SHA — the only form KNOWN_REVISIONS is keyed on."""
+    return isinstance(value, str) and _SHA_RE.fullmatch(value) is not None
+
+
+def revision_from_snapshot_path(path):
+    """The SHA in a hub-cache path, `.../models--org--name/snapshots/<sha>[/file]`, or None.
+
+    The fallback for when transformers did not set ``config._commit_hash``: the hub cache
+    names each snapshot directory after the commit it holds, so the directory the weights
+    were read from IS the revision. A model loaded from a plain local folder has no
+    `snapshots/<sha>` component and so no resolvable revision.
+    """
+    if not path:
+        return None
+    parts = PurePath(str(path)).parts
+    for i, part in enumerate(parts[:-1]):
+        if part == "snapshots" and is_revision(parts[i + 1]):
+            return parts[i + 1]
+    return None
+
+
+def model_id_for(revision: str) -> str:
+    """`rampnet-model@<first 12 hex>`: the version-bearing model_id.
+
+    The prefix is the id every existing consumer already matches on (PS's `label_ai_info`
+    queries), so `LIKE 'rampnet-model%'` still finds every row;
+    the suffix makes two checkpoints distinguishable in the database forever. 12 hex is
+    git's usual short-SHA length and far past collision range for one repo. PS stores
+    model_id as unbounded TEXT (SidewalkWebpage evolution 286), so no width limit applies.
+    """
+    return f"{MODEL_REPO.split('/')[-1]}@{revision[:12]}"
+
+
+def ps_training_date(iso_date: str) -> str:
+    """A KNOWN_REVISIONS ISO date as the MM-DD-YYYY string Project Sidewalk parses.
+
+    PS reads `model_training_date` with DateTimeFormatter.ofPattern("MM-dd-yyyy")
+    (ExploreService.submitAiLabelData) into a NOT NULL timestamp column, so the wire format
+    is the server's; the table stays ISO because that is the unambiguous one to edit.
+    """
+    return date.fromisoformat(iso_date).strftime("%m-%d-%Y")
+
+
+def provenance_for_revision(revision, allow_unknown: bool = False) -> dict:
+    """The provenance block written into every JSONL line and manifest run entry.
+
+    Keys: model_repo, model_revision (40 hex), model_id, model_training_date (MM-DD-YYYY,
+    PS's format) and api_version. Raises ModelProvenanceError for an unresolvable revision
+    always, and for one missing from KNOWN_REVISIONS unless ``allow_unknown`` — in which
+    case model_training_date is None, never a guess.
+    """
+    if not is_revision(revision):
+        raise ModelProvenanceError(
+            f"Could not resolve the Hugging Face revision of the loaded {MODEL_REPO} "
+            f"(got {revision!r}). Detection refuses to run without it: every record would "
+            f"carry provenance nobody could verify. Load the model through the hub cache.")
+    known = KNOWN_REVISIONS.get(revision)
+    if known is None and not allow_unknown:
+        raise ModelProvenanceError(
+            f"The loaded {MODEL_REPO} is revision {revision}, which is not in "
+            f"detectors.KNOWN_REVISIONS, so its training date is unknown.\n"
+            f"   If this is a new checkpoint, add a row for {revision} to KNOWN_REVISIONS in "
+            f"detectors/__init__.py with the date it was trained (see the comment there).\n"
+            f"   --allow-unknown-model-revision runs anyway with model_training_date null "
+            f"(recorded in the manifest); send_to_ps.py will refuse that file.")
+    return {
+        "model_repo": MODEL_REPO,
+        "model_revision": revision,
+        "model_id": model_id_for(revision),
+        "model_training_date": ps_training_date(known["training_date"]) if known else None,
+        "api_version": API_VERSION,
+    }
+
+
+def provenance_from_snapshot_dir(snapshot_dir, commit_hash=None, allow_unknown: bool = False) -> dict:
+    """Resolve a loaded model's provenance block.
+
+    ``commit_hash`` is transformers' ``config._commit_hash`` and wins when it is a valid SHA;
+    otherwise the revision is read off the `snapshots/<sha>` directory the weights came from
+    (``snapshot_dir`` may also be a file inside it). See ``provenance_for_revision`` for the
+    refusals.
+
+    Example::
+
+        >>> provenance_from_snapshot_dir(
+        ...     "hub/models--projectsidewalk--rampnet-model/snapshots/"
+        ...     "606a11956743f7eb328d9207769034752f6191f4/config.json")["model_id"]
+        'rampnet-model@606a11956743'
+    """
+    revision = commit_hash if is_revision(commit_hash) else revision_from_snapshot_path(snapshot_dir)
+    return provenance_for_revision(revision, allow_unknown=allow_unknown)
+
+
+def provenance_for_loaded_model(commit_hash, find_snapshot_file, allow_unknown: bool = False) -> dict:
+    """``provenance_from_snapshot_dir`` for a just-loaded model, reading the hub cache only
+    when ``commit_hash`` is not already a valid SHA.
+
+    ``find_snapshot_file`` is a zero-argument callable returning a path inside the cached
+    snapshot (or None); CurbRampDetector passes its hub-cache lookup, the tests a stub. The
+    gate is ``is_revision``, not truthiness: transformers can set ``_commit_hash`` to
+    something that is not a 40-hex SHA, and that must still fall back to the cache.
+    """
+    snapshot_file = None if is_revision(commit_hash) else find_snapshot_file()
+    return provenance_from_snapshot_dir(snapshot_file, commit_hash=commit_hash,
+                                        allow_unknown=allow_unknown)
+
+
+def load_with_offline_fallback(loader, repo_id: str = MODEL_REPO, **kwargs):
+    """``loader(repo_id, **kwargs)``, retried once with ``local_files_only=True`` on OSError.
+
+    Hyak compute nodes have no internet egress. transformers raises OSError when it cannot
+    reach the hub, even though the cached snapshot would do, so the retry loads exactly what
+    is in the local cache — and the provenance is then resolved from that snapshot like any
+    other load, so an offline run is still attributed to the weights it really used.
+    ``loader`` is ``AutoModel.from_pretrained`` in production and a stub in the torch-free
+    tests.
+    """
+    try:
+        return loader(repo_id, **kwargs)
+    except OSError as online_error:
+        if kwargs.get("local_files_only"):
+            raise
+        print(f"-> Could not reach the Hugging Face hub ({online_error}); "
+              f"loading {repo_id} from the local cache.")
+        return loader(repo_id, **dict(kwargs, local_files_only=True))

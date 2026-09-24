@@ -133,10 +133,10 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
 
   <section id="seqsection">
     <h2>Drift by sequence</h2>
-    <p>Median (SfM − raw GPS) displacement per sequence, metres, the 90th percentile of its magnitude, and each field's bias: the largest median signed offset from the street over the grid's two street families. Submitted names the field each sequence's pano lat/lng actually equals (a repositioned file is mixed by design); Beyond 30 m counts its panos with no street within the snap cap on that field. Flagged rows exceed the threshold on the submitted field; the recommendation is the field with the smaller bias.</p>
+    <p id="seqintro"></p>
     <div class="tablewrap">
       <table id="seqs" aria-label="Per-sequence drift">
-        <thead><tr><th>Sequence</th><th class="num">Panos</th><th class="num">SfM − raw E (m)</th><th class="num">N (m)</th><th class="num">p90 |shift|</th><th>Submitted</th><th class="num">Bias SfM (m)</th><th class="num">Bias raw (m)</th><th class="num">Beyond 30 m</th><th>Recommend</th><th>Flag</th></tr></thead>
+        <thead><tr><th>Sequence</th><th class="num">Panos</th><th>Submitted</th><th class="num">Cross SfM (m)</th><th class="num">IQR SfM</th><th class="num">Cross raw (m)</th><th class="num">IQR raw</th><th class="num">Paired (m)</th><th class="num">Raw closer</th><th class="num">SfM − raw E (m)</th><th class="num">N (m)</th><th class="num">Bias SfM (m)</th><th class="num">Bias raw (m)</th><th class="num">Beyond 30 m</th><th>Recommend</th><th>Verdict</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -194,14 +194,23 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
     : `Each pano's submitted position is scored against OpenStreetMap centerlines. Every label placed from a pano inherits that pano's position error one-to-one.`;
   const v = document.getElementById('verdict');
   const subF = C.fields.submitted;
+  const FLOOR = C.resolution_floor_m, IQRX = C.max_iqr_ratio;
+  const liveCampaigns = C.live_campaigns || [];
+  const liveNote = liveCampaigns.length
+    ? ` <strong>This file is already submitted</strong>: ${liveCampaigns.map(c => `${esc(c.endpoint)} holds ${c.labels_submitted.toLocaleString()} labels on ${c.submitted_lines.toLocaleString()} lines`).join('; ')} (as of the check). ${flagged} sequence${flagged === 1 ? '' : 's'} would improve by switching field, but resending moved panos duplicates live labels unless they are retired (soft-deleted) in the database first. That is a whole-city decision, and <code>reposition.py</code> and <code>send_to_ps.py</code> both refuse it without <code>--reposition-live-city</code>.`
+    : '';
+  const P = C.paired;
+  const undecNote = P && P.undecidable
+    ? ` ${P.undecidable} of ${P.sequences_judged} sequences differ between the two fields by ${FLOOR} m or less per pano: inside what this reference can resolve (a well-positioned GSV run measures ~1.75 m against the same kind of centerlines), so no field choice is implied for them.`
+    : '';
   if (flagged) {
     v.style.setProperty('--verdict', 'var(--f-sfm)');
-    v.innerHTML = `<strong>Flagged.</strong> ${flagged} sequence${flagged > 1 ? 's' : ''} with at least ${C.min_sequence} panos sit more than ${C.threshold_m} m off the street as a block on the submitted field, and the other field moves them at least ${C.min_improvement_m} m closer to it. Fix without re-detecting: <code>python scripts/reposition.py ${esc(C.results_path || `runs/${run}/results.jsonl`)} --from-check</code>, then resubmit.` +
-      (bothOff ? ` A further ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street where a switch would buy under ${C.min_improvement_m} m: off in both fields, or only marginally better in the other.` : '');
+    v.innerHTML = `<strong>Flagged.</strong> ${flagged} sequence${flagged > 1 ? 's' : ''} with at least ${C.min_sequence} panos sit more than ${C.threshold_m} m from the street (median unsigned cross-track) on the submitted field, and the other field is closer pano by pano by more than ${FLOOR} m without being more than ${IQRX}× as scattered. Fix without re-detecting: <code>python scripts/reposition.py ${esc(C.results_path || `runs/${run}/results.jsonl`)} --from-check</code>, then resubmit.` +
+      (bothOff ? ` A further ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street where the other field is no fix: off in both fields, closer by ${FLOOR} m or less, or more scattered.` : '') + undecNote + liveNote;
   } else {
     v.style.setProperty('--verdict', 'var(--ref)');
-    v.innerHTML = `<strong>Clear.</strong> No sequence with at least ${C.min_sequence} panos sits more than ${C.threshold_m} m off the street on the submitted field where the other field would fix it (run-wide median offset across ${AX.a.streets} ${fmt(subF.across_a.median)} m, cross-track ${subF.cross_track.median} m).` +
-      (bothOff ? ` ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street where a switch would buy under ${C.min_improvement_m} m — off in both fields (wide one-way streets driven once, or the OSM geometry) or only marginally better in the other — so the field choice is not the fix.` : '');
+    v.innerHTML = `<strong>Clear.</strong> No sequence with at least ${C.min_sequence} panos sits more than ${C.threshold_m} m from the street on the submitted field where the other field would fix it (run-wide cross-track ${subF.cross_track.median} m, median offset across ${AX.a.streets} ${fmt(subF.across_a.median)} m).` +
+      (bothOff ? ` ${bothOff} sequence${bothOff > 1 ? 's are' : ' is'} off the street where the other field is no fix (off in both fields on wide one-way streets driven once or the OSM geometry, or closer by ${FLOOR} m or less), so the field choice is not the fix. Reported, not gated.` : '') + undecNote + liveNote;
   }
 
   document.getElementById('tilesintro').textContent = `Signed offset of each pano across the nearest OpenStreetMap centerline among ${AX.a.streets} (positive = ${AX.a.pos}), whole run. A car drives on the centerline give or take a lane, so a good position source reads near zero with a ${AX.a.neg} share near one half.`;
@@ -226,6 +235,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
   if (hasDrift) {
     const d = C.sfm_vs_raw_drift;
     tile('How far SfM moves a pano from its GPS fix', null, d.median_m.toFixed(1) + ' m', `median · ${pct(d.share_over_5m)} moved > 5 m · ${pct(d.share_over_10m)} moved > 10 m · n = ${d.n.toLocaleString()}`);
+    if (P && P.n) tile('Paired per pano: SfM − raw cross-track', null, fmt(P.median_m) + ' m', `median over ${P.n.toLocaleString()} panos on the same street (+ = raw closer) · raw closer on ${pct(P.raw_closer_share)} · sequences: raw better ${P.raw_better}, SfM better ${P.sfm_better}, within ±${FLOOR} m ${P.undecidable}`);
   }
 
   // ---- map
@@ -369,19 +379,25 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
   const seqSection = document.getElementById('seqsection');
   if (!hasDrift) seqSection.hidden = true;
   else {
+    document.getElementById('seqintro').textContent = `Per sequence: each field's median unsigned cross-track distance from the nearest street and its IQR; the paired difference, the median over panos where both fields snap to the same street of (SfM − raw) cross-track, positive when raw is closer, with the share of panos raw is closer on; the median (SfM − raw GPS) displacement; and each field's signed bias from the street (#60's statistic, now a report only: a lane offset cancels in it). Submitted names the field each sequence's pano lat/lng actually equals (a repositioned file is mixed by design); Beyond 30 m counts panos with no street within the snap cap on that field. A sequence is off the street when the submitted field's cross-track exceeds ${C.threshold_m} m, and flagged only when the other field is closer by more than ${FLOOR} m pano by pano and no more than ${IQRX}× as scattered. Undecidable means the fields differ by ${FLOOR} m or less: the OSM reference cannot adjudicate that, whichever sign it has.`;
     const sb = document.querySelector('#seqs tbody');
+    const num = (v, bad) => cell(v == null ? '—' : v.toFixed(1), 'num' + (bad ? ' bad' : ''));
     for (const r of C.sequences) {
       if (r.n < C.min_sequence) continue;
       const tr = document.createElement('tr'); if (r.flagged) tr.className = 'flag';
+      const ct = r.cross_track_median_m || {}, iq = r.cross_track_iqr_m || {};
       tr.appendChild(cell(r.sequence_id, 'mono')); tr.appendChild(cell(r.n, 'num'));
-      tr.appendChild(cell(fmt(r.sfm_minus_raw_east_m), 'num' + (Math.abs(r.sfm_minus_raw_east_m) >= 3 ? ' bad' : ''))); tr.appendChild(cell(fmt(r.sfm_minus_raw_north_m), 'num' + (Math.abs(r.sfm_minus_raw_north_m) >= 3 ? ' bad' : '')));
-      tr.appendChild(cell(r.shift_p90_m == null ? '—' : r.shift_p90_m.toFixed(1), 'num'));
       tr.appendChild(cell(r.submitted_field === 'raw' ? 'raw GPS' : r.submitted_field === 'sfm' ? 'SfM' : '—'));
-      const bs = r.bias_m.sfm.max_abs, br = r.bias_m.raw.max_abs;
-      tr.appendChild(cell(bs == null ? '—' : bs.toFixed(1), 'num' + (bs > C.threshold_m ? ' bad' : ''))); tr.appendChild(cell(br == null ? '—' : br.toFixed(1), 'num' + (br > C.threshold_m ? ' bad' : '')));
+      tr.appendChild(num(ct.sfm, ct.sfm > C.threshold_m)); tr.appendChild(num(iq.sfm));
+      tr.appendChild(num(ct.raw, ct.raw > C.threshold_m)); tr.appendChild(num(iq.raw));
+      tr.appendChild(num(r.paired_median_m, r.paired_median_m != null && Math.abs(r.paired_median_m) > FLOOR));
+      tr.appendChild(cell(r.raw_closer_share == null ? '—' : pct(r.raw_closer_share), 'num'));
+      tr.appendChild(num(r.sfm_minus_raw_east_m)); tr.appendChild(num(r.sfm_minus_raw_north_m));
+      tr.appendChild(num(r.bias_m.sfm.max_abs)); tr.appendChild(num(r.bias_m.raw.max_abs));
       const ns = r.not_near_a_street ? r.not_near_a_street.submitted : null;
       tr.appendChild(cell(ns == null ? '—' : `${ns} / ${r.n}`, 'num' + (r.beyond_snap ? ' bad' : '')));
-      tr.appendChild(cell(r.recommended === 'raw' ? 'raw GPS' : r.recommended === 'sfm' ? 'SfM' : '—')); tr.appendChild(cell(r.flagged ? 'FLAG' : (r.both_off ? 'both off' : '')));
+      tr.appendChild(cell(r.recommended === 'raw' ? 'raw GPS' : r.recommended === 'sfm' ? 'SfM' : '—'));
+      tr.appendChild(cell(r.flagged ? 'FLAG' : r.both_off ? 'both off' : r.undecidable ? 'undecidable' : ''));
       sb.appendChild(tr);
     }
   }

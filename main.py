@@ -6,6 +6,7 @@ import socket
 import sys
 import traceback
 import os
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from importlib.metadata import version as pkg_version
@@ -35,8 +36,9 @@ from shapely.ops import unary_union
 from shapely.prepared import prep
 from tqdm import tqdm
 
+import depth as depthlib
 import position_check
-from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO
+from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO, ModelProvenanceError
 from sources import get_source, SOURCE_NAMES
 
 # Local secrets (e.g. MAPILLARY_ACCESS_TOKEN) from ./.env; real env vars win.
@@ -48,10 +50,9 @@ load_dotenv()
 COVERAGE_API_CONCURRENCY = 100
 PROCESSING_CONCURRENCY = 50
 
-# Provenance recorded in every JSONL line and in each run's manifest.json.
-MODEL_ID = "rampnet-model"
-MODEL_TRAINING_DATE = "08-21-2025"
-API_VERSION = "1.0.0"
+# Model provenance (model_id, model_training_date, api_version, model_repo, model_revision)
+# is not declared here: CurbRampDetector resolves it from the snapshot it loaded (issue #39)
+# and main() passes its `provenance` dict down to every writer. See detectors/__init__.py.
 
 
 def latlon_to_tile(lat_deg, lon_deg, zoom):
@@ -340,18 +341,19 @@ def process_pano(source, pano_id, lat, lon):
 def process_gap_pano(source, pano_id, area_shape):
     return _process(pano_id, lambda: source.fetch_pano_by_id(pano_id, area_shape))
 
-def handle_result(result, f_cache, f_jsonl):
+def handle_result(result, f_cache, f_jsonl, provenance):
     """
     Writes one process result to the run's JSONL/cache files (both flushed
     line-by-line so the run stays resumable) and returns its outcome:
-    'success', 'skipped', or 'failed'.
+    'success', 'skipped', or 'failed'. `provenance` is the detector's resolved
+    model block (see build_output_line).
     """
     if result['status'] == 'success':
         # ALWAYS write a line to the JSONL file for a successful process.
         # The 'detections' key will be an empty list [] if none were found.
         # Guarded so a single malformed pano cannot abort the whole run.
         try:
-            json_line = json.dumps(build_output_line(result))
+            json_line = json.dumps(build_output_line(result, provenance))
         except Exception as e:
             print(f"  ❌ Failed to build output for {result['pano_id']}. Reason: {e}. Will retry on next run.")
             return 'failed'
@@ -371,10 +373,15 @@ def handle_result(result, f_cache, f_jsonl):
     print(f"  ❌ Failed to process {result['pano_id']}. Reason: {result.get('reason', 'Unknown')}. Will retry on next run.")
     return 'failed'
 
-def build_output_line(result):
+def build_output_line(result, provenance):
     """
     Builds one JSONL record for a successfully processed panorama: the detections
     plus model provenance around the source-built 'pano' block.
+
+    `provenance` is CurbRampDetector.provenance — resolved from the loaded snapshot,
+    never a literal (issue #39). model_id / model_training_date / api_version are the
+    three keys Project Sidewalk stores per label; model_repo and model_revision (the
+    full 40-hex SHA) ride along for everything else and are ignored by the server.
     """
     return {
         "detections": [
@@ -385,9 +392,11 @@ def build_output_line(result):
             } for x_normalized, y_normalized, confidence in result['detections']
         ],
         "label_type": "CurbRamp",
-        "model_id": MODEL_ID,
-        "model_training_date": MODEL_TRAINING_DATE,
-        "api_version": API_VERSION,
+        "model_id": provenance['model_id'],
+        "model_training_date": provenance['model_training_date'],
+        "api_version": provenance['api_version'],
+        "model_repo": provenance['model_repo'],
+        "model_revision": provenance['model_revision'],
         "pano": result['pano'],
     }
 
@@ -395,8 +404,80 @@ def save_manifest(manifest_path, manifest):
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
 
+LEGACY_PROVENANCE_KEYS = ('model_id', 'model_training_date', 'api_version')
+
+def manifest_model_block(provenance):
+    """The model block a manifest records (top level and per run entry): the detector's
+    provenance, plus `unknown_revision_allowed: true` when it ran under
+    --allow-unknown-model-revision — the only way a null training date can arise, and an
+    override the manifest must show rather than leave to be inferred."""
+    block = dict(provenance)
+    if provenance.get('model_training_date') is None:
+        block['unknown_revision_allowed'] = True
+    return block
+
+def bind_model(manifest, provenance, run_name):
+    """
+    Binds a run directory to one model revision, the way it is bound to one geometry:
+    appending a different checkpoint's detections to one results.jsonl would mix two
+    models' confidence semantics in a file whose records nobody could then tell apart
+    downstream. Exits on a revision mismatch; returns True when the manifest changed
+    (first binding) so the caller saves it.
+
+    Manifests predating issue #39 have model_id/model_training_date but no
+    model_revision. Those runs resume with a one-time note — every legacy record came
+    from the paper weights — unless the recorded training date differs from the loaded
+    model's, which would mean different weights. The legacy values are kept under
+    `legacy_model_provenance`, since they describe the records already written.
+
+    A run made under --allow-unknown-model-revision (`unknown_revision_allowed` in the
+    manifest) is also refused once its SHA has gained a KNOWN_REVISIONS row: its existing
+    records have a null training date that no resume can repair.
+    """
+    bound = manifest.get('model_revision')
+    if bound is not None:
+        if bound != provenance['model_revision']:
+            sys.exit(
+                f"❌ Run '{run_name}' was produced by {manifest.get('model_repo', '?')} revision "
+                f"{bound[:12]}…, but the loaded model is revision "
+                f"{provenance['model_revision'][:12]}….\n"
+                f"   Appending would mix two models' detections in one results.jsonl.\n"
+                f"   Use a new --name for this model (or load the revision the run was made with)."
+            )
+        if manifest.get('unknown_revision_allowed') and provenance['model_training_date'] is not None:
+            # Same SHA, but it has since been added to KNOWN_REVISIONS. Resuming would append
+            # dated lines after the null-date ones already written, and the manifest would
+            # keep claiming the override; send_to_ps.py refuses the file either way, because
+            # those earlier lines cannot be submitted. The only clean state is a fresh run.
+            sys.exit(
+                f"❌ Run '{run_name}' was made under --allow-unknown-model-revision: its "
+                f"records from revision {bound[:12]}… carry no training date. That revision "
+                f"is now in detectors.KNOWN_REVISIONS (trained "
+                f"{provenance['model_training_date']}), so resuming would mix null-date and "
+                f"dated records in one results.jsonl, and the null-date ones can never be "
+                f"submitted.\n"
+                f"   Start a fresh --name to re-run this area with the dated revision."
+            )
+        return False
+    legacy = {k: manifest[k] for k in LEGACY_PROVENANCE_KEYS if k in manifest}
+    if legacy:
+        if legacy.get('model_training_date') != provenance['model_training_date']:
+            sys.exit(
+                f"❌ Run '{run_name}' predates model revisions (issue #39) and records training "
+                f"date {legacy.get('model_training_date')!r}; the loaded model "
+                f"({provenance['model_id']}) has {provenance['model_training_date']!r}.\n"
+                f"   Those are different weights. Use a new --name for this model."
+            )
+        print(f"ℹ️  Run '{run_name}' predates model revisions (issue #39): its existing records say "
+              f"model_id {legacy.get('model_id')!r} with no model_revision. Same training date, so "
+              f"binding the run to {provenance['model_id']} from here on (recorded once in the "
+              f"manifest; the old values are kept under legacy_model_provenance).")
+        manifest['legacy_model_provenance'] = legacy
+    manifest.update(manifest_model_block(provenance))
+    return True
+
 def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_name,
-                         position_field=None, input_geojson_type=None):
+                         position_field=None, input_geojson_type=None, provenance=None):
     """
     Creates or validates the run directory (runs/<name>/), which holds all per-area
     state: results.jsonl, already_processed.txt, manifest.json, and a copy of the
@@ -404,7 +485,9 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     imagery source; reusing the name with a different geometry or source is refused
     so that a renamed/edited geojson or a --source change can't silently fork or
     corrupt the run's state. A Mapillary run is likewise bound to one position field
-    (`position_field`, recorded as `mapillary_position`; manifests predating it are 'sfm').
+    (`position_field`, recorded as `mapillary_position`; manifests predating it are 'sfm'),
+    and every run to one model revision once a detector has run in it (see bind_model).
+    `provenance` is None for --scan-only, which loads no model and so binds none.
 
     `geojson_data` is the extracted bare geometry (see extract_geometry), which is what
     area.geojson stores; `input_geojson_type` is the wrapper the file came in, recorded
@@ -448,6 +531,8 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
                 f"   Appending would mix confidence semantics in one results.jsonl.\n"
                 f"   Use a new --name for this area (or run the code version that matches)."
             )
+        if provenance is not None and bind_model(manifest, provenance, run_dir.name):
+            save_manifest(manifest_path, manifest)
         return manifest
 
     manifest = {
@@ -457,9 +542,7 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
         'area_hash': area_hash,
         'input_geojson_type': input_geojson_type,
         'imagery_source': source_name,
-        'model_id': MODEL_ID,
-        'model_training_date': MODEL_TRAINING_DATE,
-        'api_version': API_VERSION,
+        **(manifest_model_block(provenance) if provenance is not None else {}),
         'detection_storage_floor': DETECTION_STORAGE_FLOOR,
         'max_peaks_per_pano': MAX_PEAKS_PER_PANO,
         'streetlevel_version': pkg_version('streetlevel'),
@@ -473,11 +556,12 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     return manifest
 
 def record_run(manifest_path, manifest, started_at, found, success, skipped, failed, phase=None,
-               scan=None):
+                scan=None, provenance=None):
     """
     Appends one entry to the manifest's run history. In a phase='gap_fill' entry,
     'panos_found_in_area' holds the dangling link targets attempted (their in-area
-    status isn't known until fetched) — don't aggregate it across phases.
+    status isn't known until fetched) — don't aggregate it across phases. Each entry
+    carries the model block of the detector that ran it (`model`).
 
     `scan` (main pass only) is merged into the entry: `scan` is 'fresh' or 'reused'
     (--reuse-scan), with `scan_scanned_at` and `scan_age_hours`, so a run whose pano
@@ -495,8 +579,38 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
         entry['phase'] = phase
     if scan:
         entry.update(scan)
+    if provenance is not None:
+        entry['model'] = manifest_model_block(provenance)
     manifest['runs'].append(entry)
     save_manifest(manifest_path, manifest)
+
+# A run where this share of GSV panos got no usable depth is an anomaly, not data: across
+# all four harvested runs (170,932 panos) no payload was ever missing, so a sudden crop is
+# far likelier to be Google moving the undocumented field than panos losing their depth.
+# The minimum keeps a --limit smoke run from alarming on one miss (as harvest_depth.py).
+DEPTH_ALARM_RATE = 0.05
+DEPTH_ALARM_MIN = 20
+
+
+def record_camera_heights(results_path, manifest_path, manifest):
+    """Tally camera_height_status over the run (issue #40) into the manifest, and say so
+    loudly if depth went missing across the board -- sources/gsv.py deliberately never
+    fails a pano over depth, so this is the only place a layout change would show."""
+    counts = Counter()
+    with open(results_path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                counts[json.loads(line)['pano'].get('camera_height_status', 'pre_#40')] += 1
+    manifest['camera_height'] = dict(sorted(counts.items()))
+    save_manifest(manifest_path, manifest)
+    fetched = sum(v for k, v in counts.items() if k != 'pre_#40')
+    missing = counts[depthlib.NO_DEPTH] + counts[depthlib.UNPARSED]
+    print(f"Camera height (depth):  {counts[depthlib.MEASURED]} measured of {fetched}")
+    if missing >= DEPTH_ALARM_MIN and missing > DEPTH_ALARM_RATE * fetched:
+        print(f"⚠ {missing} of {fetched} GSV panos got no usable depth payload. That has "
+              f"never happened before; check `scripts/harvest_depth.py <run> "
+              f"--check-convention` before trusting camera_height_* in this run.")
+
 
 def run_position_check(run_dir, manifest_path, manifest):
     """
@@ -514,7 +628,10 @@ def run_position_check(run_dir, manifest_path, manifest):
         # outputs with a new timestamp. The check is pinned to the file by its hash.
         results_path = run_dir / "results.jsonl"
         existing, _reason = position_check.load_check(results_path)
+        # ...and to the verdict rule and its knobs: a check written under an older rule, or
+        # with --threshold/--min-sequence moved, is re-run, not reused.
         if existing and existing.get('results_sha256') == position_check.file_sha256(results_path) \
+                and not position_check.rule_mismatches(existing) \
                 and position_check.report_path_for(results_path).exists():
             print(f"-> unchanged since the last check ({existing['checked_at']}): "
                   f"{len(existing['flagged_sequences'])} flagged; not re-run")
@@ -533,6 +650,7 @@ def run_position_check(run_dir, manifest_path, manifest):
         'submitted_field': result.get('submitted_field'),
         'flagged': len(result['flagged_sequences']),
         'both_off': len(result['both_off_sequences']),
+        'rule': result.get('rule'),
         'panos_not_near_a_street': result['panos_not_near_a_street'],
     }
     save_manifest(manifest_path, manifest)
@@ -569,15 +687,25 @@ def dangling_link_targets(results_path, processed_ids):
                     targets.add(target)
     return targets - have
 
-def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None):
+def require_provenance(provenance, scan_only):
+    """Raise ValueError unless a run that writes records was handed the detector's
+    provenance. build_output_line needs it for every line, and without this check a
+    missing block surfaced only as one swallowed TypeError per pano, each logged as a
+    retryable failure, so a whole run could "complete" having written nothing."""
+    if provenance is None and not scan_only:
+        raise ValueError("provenance is required unless scan_only: pass "
+                         "CurbRampDetector.provenance (issue #39).")
+
+def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None, provenance=None):
     """
     Post-run link-graph closure (issue #32): fetches the panos that
     dangling_link_targets finds, keeping those whose own position falls inside the
     area, and appends them to results.jsonl/cache exactly like main-pass panos.
     Iterates until closed, since each new record introduces new links (round 2 is
     normally near-empty). Returns (candidates, success, skipped, failed) totals,
-    or None if nothing ran.
+    or None if nothing ran. `provenance` is required unless scan_only.
     """
+    require_provenance(provenance, scan_only)
     results_path = run_dir / "results.jsonl"
     cache_file = run_dir / "already_processed.txt"
     if not results_path.exists():
@@ -607,7 +735,7 @@ def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None):
             futures = [pool.submit(process_gap_pano, source, pid, area_shape) for pid in candidates]
             with tqdm(total=len(futures), desc="Gap-filling Link Targets") as pbar:
                 for future in as_completed(futures):
-                    counts[handle_result(future.result(), f_cache, f_jsonl)] += 1
+                    counts[handle_result(future.result(), f_cache, f_jsonl, provenance)] += 1
                     pbar.update(1)
 
         attempted.update(candidates)
@@ -620,7 +748,7 @@ def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None):
 
 def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thin_spacing=None,
                 gap_fill=True, gap_fill_only=False, position_field=None, check_positions=True,
-                reuse_scan=False):
+                reuse_scan=False, provenance=None):
     """
     Finds and processes all panoramas from the given imagery source within a GeoJSON
     area, writing all per-area state to runs/<run_name>/.
@@ -635,7 +763,10 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     Every completed tile pass is saved to runs/<run_name>/scan.json; reuse_scan=True
     loads it instead of rescanning when it matches this area, source and zoom and had
     no failed tiles (see SCAN_CACHE_FILE for why this is opt-in).
+    `provenance` is the loaded detector's model block (None only for scan_only): it is
+    written into every record and binds the run directory to one model revision.
     """
+    require_provenance(provenance, scan_only)
     print("--- Sidewalk Auto-Labeler ---")
 
     # 1. Load GeoJSON and set up the run directory
@@ -653,7 +784,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     run_dir = Path("runs") / run_name
     manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source.NAME,
                                     position_field=position_field,
-                                    input_geojson_type=input_geojson_type)
+                                    input_geojson_type=input_geojson_type,
+                                    provenance=None if scan_only else provenance)
     manifest_path = run_dir / "manifest.json"
     output_jsonl_file = run_dir / "results.jsonl"
     cache_file = run_dir / "already_processed.txt"
@@ -673,10 +805,11 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
         if not hasattr(source, 'fetch_pano_by_id'):
             sys.exit(f"❌ --gap-fill-only: source '{source.NAME}' has no by-id fetch "
                      f"(its records carry no link graph, so there is nothing to close).")
-        gf = run_gap_fill(source, area_shape, run_dir, scan_only=scan_only, limit=limit)
+        gf = run_gap_fill(source, area_shape, run_dir, scan_only=scan_only, limit=limit,
+                          provenance=provenance)
         if gf is not None:
             record_run(manifest_path, manifest, started_at, gf[0], gf[1], gf[2], gf[3],
-                       phase='gap_fill')
+                       phase='gap_fill', provenance=provenance)
             print(f"\n--- Gap Fill Report ---\n"
                   f"Dangling link targets tried: {gf[0]}\n"
                   f"Added to the run:            {gf[1]}\n"
@@ -768,7 +901,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     if not panos_to_process_ids:
         print("🎉 No new panoramas to process.")
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), 0, 0, 0,
-                   scan=scan_record)
+                   scan=scan_record, provenance=provenance)
     else:
         processing_tasks = [
             (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1])
@@ -783,7 +916,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
 
             with tqdm(total=len(futures), desc="Processing New Panoramas") as pbar:
                 for future in as_completed(futures):
-                    outcome = handle_result(future.result(), f_cache, f_jsonl)
+                    outcome = handle_result(future.result(), f_cache, f_jsonl, provenance)
                     if outcome == 'success':
                         success_count += 1
                     elif outcome == 'skipped':
@@ -793,7 +926,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
                     pbar.update(1)
 
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), success_count, skip_count, fail_count,
-                   scan=scan_record)
+                   scan=scan_record, provenance=provenance)
 
     # 5. Close the link graph (issue #32): fetch in-area panos the new records
     # reference but the scan never enumerated (mostly coverage churn). Done promptly,
@@ -806,10 +939,10 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
             print("-> Gap fill: skipped, --limit budget consumed by the main pass.")
         else:
             gap_started_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
-            gf = run_gap_fill(source, area_shape, run_dir, limit=gap_limit)
+            gf = run_gap_fill(source, area_shape, run_dir, limit=gap_limit, provenance=provenance)
             if gf is not None:
                 record_run(manifest_path, manifest, gap_started_at, gf[0], gf[1], gf[2], gf[3],
-                           phase='gap_fill')
+                           phase='gap_fill', provenance=provenance)
 
     print("\n--- Final Report ---")
     print(f"Successfully processed: {success_count}")
@@ -820,6 +953,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
               f"({gf[2]} skipped, {gf[3]} failed)")
     print(f"Results saved to: {output_jsonl_file}")
     print(f"Export benchmark bundle (imagery for RampNet GT/scoring): python scripts/export_benchmark.py {output_jsonl_file} --out <dir>")
+    if source.NAME == 'gsv' and output_jsonl_file.exists():
+        record_camera_heights(output_jsonl_file, manifest_path, manifest)
     print("----------------------")
 
     # 6. Position check — standard, not optional: this is how a drifted city announces
@@ -902,6 +1037,14 @@ def main():
              "churns, so a reused scan misses panos added since it ran (the manifest "
              "records the scan's age). Pairs with --scan-only, which always saves the scan."
     )
+    parser.add_argument(
+        "--allow-unknown-model-revision", action="store_true",
+        help="Run even though the loaded model's Hugging Face revision is not in "
+             "detectors.KNOWN_REVISIONS (issue #39). model_training_date is then written as "
+             "null and the manifest records the override; send_to_ps.py refuses such a file "
+             "until the revision is added to the table. For trying a new checkpoint, never for "
+             "a submission run."
+    )
     gap_group = parser.add_mutually_exclusive_group()
     gap_group.add_argument(
         "--no-gap-fill", action="store_true",
@@ -927,18 +1070,32 @@ def main():
         position_field = args.mapillary_position
         source.POSITION_FIELD = position_field
 
-    # Initialize detectors (skipped for a scan: importing torch + loading the model takes a while):
+    # Initialize detectors (skipped for a scan: importing torch + loading the model takes a while).
+    # Construction resolves the model's provenance and refuses an unknown revision (issue #39)
+    # before anything is fetched or written.
+    provenance = None
     if not args.scan_only:
         from detectors.curb_ramp import CurbRampDetector
         global curb_ramp_detector
-        curb_ramp_detector = CurbRampDetector()
+        try:
+            curb_ramp_detector = CurbRampDetector(
+                allow_unknown_revision=args.allow_unknown_model_revision)
+        except ModelProvenanceError as e:
+            sys.exit(f"❌ {e}")
+        provenance = curb_ramp_detector.provenance
+        print(f"-> Model: {provenance['model_repo']} revision {provenance['model_revision']} "
+              f"(model_id {provenance['model_id']}, trained {provenance['model_training_date']})")
+        if provenance['model_training_date'] is None:
+            print("⚠ --allow-unknown-model-revision: this revision is not in "
+                  "detectors.KNOWN_REVISIONS; records carry a null training date and "
+                  "send_to_ps.py will refuse them.")
 
     try:
         run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, source, args.scan_only,
                     args.limit, args.thin_spacing,
                     gap_fill=not args.no_gap_fill, gap_fill_only=args.gap_fill_only,
                     position_field=position_field, check_positions=not args.no_position_check,
-                    reuse_scan=args.reuse_scan)
+                    reuse_scan=args.reuse_scan, provenance=provenance)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:

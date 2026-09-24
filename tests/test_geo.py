@@ -141,15 +141,16 @@ def test_pitch_shifts_dead_ahead_elevation():
 
 
 def test_roll_shifts_side_elevation():
-    # +2 deg roll lifts the right side of the image (phi=90): same 5->3 deg shift
-    pose = _flat_pose(pitch=0.0, roll=2.0)
+    # Roll carries Project Sidewalk's sign (#42): POSITIVE lowers the camera's right
+    # axis, so -2 deg lifts the right side of the image (phi=90): same 5->3 deg shift
+    pose = _flat_pose(pitch=0.0, roll=-2.0)
     g = geo.detection_ground_point(pose, 0.75, _y_for_depression(math.radians(5.0)),
                                    max_range_m=100.0)
     assert g.range_m == pytest.approx(2.6 / math.tan(math.radians(3.0)), rel=1e-6)
 
 
 def test_exact_rotation_matches_first_order_formula():
-    # elev ~= theta + pitch*cos(phi) + roll*sin(phi), good to second order
+    # elev ~= theta + pitch*cos(phi) - roll*sin(phi) (PS roll sign), good to second order
     pose = _flat_pose(heading=120.0, pitch=3.0, roll=1.0)
     phi_deg, depression_deg = 40.0, 6.0
     g = geo.detection_ground_point(
@@ -157,7 +158,7 @@ def test_exact_rotation_matches_first_order_formula():
         max_range_m=200.0)
     expected_elev = (-math.radians(depression_deg)
                      + math.radians(3.0) * math.cos(math.radians(phi_deg))
-                     + math.radians(1.0) * math.sin(math.radians(phi_deg)))
+                     - math.radians(1.0) * math.sin(math.radians(phi_deg)))
     assert g.range_m == pytest.approx(2.6 / math.tan(-expected_elev), rel=5e-3)
 
 
@@ -209,3 +210,71 @@ def test_sym2_identities():
     # quadratic form against a hand computation: [1, 2] m [1, 2]^T
     assert geo.sym2_quadform(m, 1.0, 2.0) == pytest.approx(4.0 + 2 * 1.0 * 2.0 + 3.0 * 4.0)
     assert geo.sym2_add((1, 2, 3), (10, 20, 30)) == (11, 22, 33)
+
+
+# --- per-pano camera height (issue #40): opt-in, never a silent default
+
+def _measured_pose(height, spread=0.0, source='launch'):
+    return geo.pano_pose({'lat': 44.05, 'lng': -121.31, 'camera_heading': 0.0,
+                          'camera_pitch': None, 'camera_roll': None, 'source': source,
+                          'camera_height_m': height, 'camera_height_spread_m': spread})
+
+
+def test_measured_height_is_ignored_unless_asked_for():
+    pose = _measured_pose(1.8)
+    y = _y_for_depression(math.atan(2.6 / 10.0))
+    assert geo.detection_ground_point(pose, 0.5, y).range_m == pytest.approx(10.0)
+    per_pano = geo.detection_ground_point(pose, 0.5, y, camera_height=geo.PER_PANO)
+    assert per_pano.range_m == pytest.approx(10.0 * 1.8 / 2.6)
+
+
+def test_per_pano_falls_back_to_the_default_without_a_measurement():
+    assert geo.camera_height_for(_measured_pose(None), camera_height=geo.PER_PANO) \
+        == (geo.DEFAULT_CAMERA_HEIGHT_M, geo.GSV_ERRORS.sigma_height_m)
+
+
+def test_per_pano_sigma_widens_with_the_ground_plane_spread():
+    _, tight = geo.camera_height_for(_measured_pose(2.0, 0.05), camera_height=geo.PER_PANO)
+    _, loose = geo.camera_height_for(_measured_pose(2.0, 1.0), camera_height=geo.PER_PANO)
+    assert tight == geo.GSV_ERRORS.sigma_height_m          # floored at the model's sigma
+    assert loose == pytest.approx(1.0 / 2.563)
+
+
+def test_ground_point_to_pano_inverts_the_per_pano_raycast():
+    pose = _measured_pose(1.9)
+    g = geo.detection_ground_point(pose, 0.3, 0.62, camera_height=geo.PER_PANO,
+                                   apply_pose=False)
+    p = geo.ground_point_to_pano(pose, g.lat, g.lng, camera_height=geo.PER_PANO)
+    assert (p.x_norm, p.y_norm) == (pytest.approx(0.3), pytest.approx(0.62))
+
+
+def _axis_angle(R):
+    """Rotation matrix -> axis-angle (the inverse of geo.rotation_matrix, away from pi)."""
+    angle = math.acos(max(-1.0, min(1.0, (R[0][0] + R[1][1] + R[2][2] - 1) / 2)))
+    k = (R[2][1] - R[1][2], R[0][2] - R[2][0], R[1][0] - R[0][1])
+    n = math.sqrt(sum(c * c for c in k))
+    return [angle * c / n for c in k]
+
+
+def test_road_relative_undoes_the_cross_slope_a_vehicle_camera_inherits():
+    # A camera bolted level to a vehicle on a road that rises 4 deg to its RIGHT (travel
+    # bearing = heading + 90), built from physical axes -- not from any sign convention --
+    # as an OpenSfM world->camera rotation (rows right/down/forward, ENU).
+    g, h = math.radians(4.0), math.radians(30.0)
+    fwd = (math.sin(h), math.cos(h), 0.0)
+    right = (math.cos(g) * math.cos(h), -math.cos(g) * math.sin(h), math.sin(g))  # uphill
+    up = (right[1] * fwd[2] - right[2] * fwd[1], right[2] * fwd[0] - right[0] * fwd[2],
+          right[0] * fwd[1] - right[1] * fwd[0])
+    pose = geo.opensfm_pose(_axis_angle([list(right), [-c for c in up], list(fwd)]))
+    assert pose['pitch_deg'] == pytest.approx(0.0, abs=1e-9)
+    # PS sign: the right axis points UP the slope, so the roll is negative...
+    assert pose['roll_deg'] == pytest.approx(-4.0, abs=1e-9)
+    # ...the raycast agrees: the image's right-hand horizon sees the road surface, +4 deg
+    p = geo.Pose(0.0, 0.0, pose['heading_deg'], pose['pitch_deg'], pose['roll_deg'], True,
+                 'mapillary')
+    elev, _ = geo._world_ray(p, math.pi / 2, 0.0)
+    assert math.degrees(elev) == pytest.approx(4.0, abs=1e-9)
+    # ...and relative to the road the camera is level, so a flat raycast is the right one.
+    assert geo.road_relative_pitch_roll(pose['pitch_deg'], pose['roll_deg'],
+                                        pose['heading_deg'], 4.0, 120.0) == \
+        (pytest.approx(0.0, abs=1e-9), pytest.approx(0.0, abs=1e-9))

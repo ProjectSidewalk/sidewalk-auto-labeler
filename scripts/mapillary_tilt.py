@@ -19,11 +19,16 @@ subcommand's compass identity):
   camera-frame horizon, phi=(x-0.5)*2pi, theta=(0.5-y)*pi.
 - ``opensfm_pose`` decomposes the matrix into (heading, pitch, roll) in exactly the
   convention ``geo._world_ray`` composes (yaw -> pitch about right, +up -> roll about
-  forward, +lifts the image's right side), so ``geo.detection_ground_point(...,
+  forward, + lowers the camera's right axis), so ``geo.detection_ground_point(...,
   apply_pose=True)`` reproduces the direct R^T*bearing raycast to machine precision.
-  Project Sidewalk's Mapillary viewer (``MapillaryViewer.extractPitchRoll``) uses the
-  same pitch and the OPPOSITE roll sign (positive = camera rolled clockwise as seen by
-  the photographer); ``roll_ps_deg`` carries that value.
+  That roll sign is Project Sidewalk's (``MapillaryViewer.extractPitchRoll``: positive =
+  camera rolled clockwise as seen by the photographer). Until the #42 wiring the code
+  used the opposite sign and carried PS's as a separate ``roll_ps_deg``; the two were
+  unified by flipping ``geo._world_ray``, so every roll computed here now has PS's sign
+  -- and the roll columns of the per-pano and summary CSVs committed with PR #50
+  (``tilt_summary.csv``, ``tilt_by_rig.csv``, ``tilt_by_sequence.csv``,
+  ``verticality.csv``) have the other. ``ablation`` and ``eval`` are sign-free (every
+  convention is a product of signs with the same angles) and reproduce cell for cell.
 
 Subcommands. Per-panorama CSVs go to ``runs/<city>/tilt/`` and the aggregated ones to
 ``runs/_summary/tilt/`` (unless --out is given); the aggregated ones are also committed
@@ -35,6 +40,7 @@ under ``docs/figures/mapillary-tilt/data/``, which ``figures`` falls back to:
     python scripts/mapillary_tilt.py horizon richmond ...      # GT marks above the horizon
     python scripts/mapillary_tilt.py ablation richmond ...     # multi-view sign lock
     python scripts/mapillary_tilt.py eval richmond ...         # world P/R vs RampNet GT
+    python scripts/mapillary_tilt.py precondition richmond ... # #42 wiring's p90 gate
     python scripts/mapillary_tilt.py rectify richmond ...      # pixel-level sign lock
     python scripts/mapillary_tilt.py examples richmond ...     # before/after image strips
     python scripts/mapillary_tilt.py figures                   # docs/figures/mapillary-tilt
@@ -101,9 +107,10 @@ def pose_angles(pose, signs):
         g = pose.get('grade_deg')
         if g is None:
             return pose['pitch_deg'], pose['roll_deg']
-        phi = math.radians(geo.norm_deg(pose['travel_bearing_deg'] - pose['heading_deg']))
-        return (pose['pitch_deg'] - g * math.cos(phi),
-                pose['roll_deg'] - g * math.sin(phi))
+        # The production formula (fuse_sites' `road` mode applies the same one).
+        return geo.road_relative_pitch_roll(pose['pitch_deg'], pose['roll_deg'],
+                                            pose['heading_deg'], g,
+                                            pose['travel_bearing_deg'])
     return signs[0] * pose['pitch_deg'], signs[1] * pose['roll_deg']
 # Open-ended on purpose: the top bucket used to stop at 90 deg, so the handful of
 # panos with a failed reconstruction (clovis reaches 170 deg) fell into a label no
@@ -111,54 +118,20 @@ def pose_angles(pose, signs):
 TILT_BUCKETS = [(0, 1.5), (1.5, 3), (3, 5), (5, 10), (10, math.inf)]
 
 
-# --- Rotation math (stdlib only, portable into geo.py / sources/mapillary.py) --------
+# --- Rotation math ------------------------------------------------------------------
 
-def rotation_matrix(rvec):
-    """Rodrigues: axis-angle vector -> 3x3 rotation matrix (nested lists)."""
-    rx, ry, rz = (float(v) for v in rvec)
-    th = math.sqrt(rx * rx + ry * ry + rz * rz)
-    if th < 1e-12:
-        return [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
-    kx, ky, kz = rx / th, ry / th, rz / th
-    c, s = math.cos(th), math.sin(th)
-    v = 1.0 - c
-    return [[c + kx * kx * v, kx * ky * v - kz * s, kx * kz * v + ky * s],
-            [ky * kx * v + kz * s, c + ky * ky * v, ky * kz * v - kx * s],
-            [kz * kx * v - ky * s, kz * ky * v + kx * s, c + kz * kz * v]]
-
-
-def opensfm_pose(rvec):
-    """(heading_deg, pitch_deg, roll_deg) of a world->camera axis-angle rotation, in
-    geo._world_ray's convention, plus tilt_deg (angle between camera-up and world-up)
-    and roll_ps_deg (Project Sidewalk's sign). Rows of R are the camera axes in ENU:
-    R[0] = right, R[1] = down, R[2] = forward."""
-    R = rotation_matrix(rvec)
-    fwd_e, fwd_n, fwd_u = R[2]
-    right_e, right_n, right_u = R[0]
-    up_e, up_n, up_u = -R[1][0], -R[1][1], -R[1][2]
-    heading = math.atan2(fwd_e, fwd_n)
-    pitch = math.asin(max(-1.0, min(1.0, fwd_u)))
-    # Roll: angle of the camera's right axis about the (pitched) forward axis,
-    # measured from the level right axis toward the pitched up axis — exactly the
-    # roll geo._world_ray applies after yaw and pitch.
-    cp, sp = math.cos(heading), math.sin(heading)
-    ca, sa = math.cos(pitch), math.sin(pitch)
-    level_right = (cp, -sp, 0.0)                    # ENU: (E, N, U)
-    pitched_up = (-sa * sp, -sa * cp, ca)
-    roll = math.atan2(right_e * pitched_up[0] + right_n * pitched_up[1] + right_u * pitched_up[2],
-                      right_e * level_right[0] + right_n * level_right[1] + right_u * level_right[2])
-    tilt = math.acos(max(-1.0, min(1.0, up_u)))
-    return {'heading_deg': math.degrees(heading) % 360.0,
-            'pitch_deg': math.degrees(pitch),
-            'roll_deg': math.degrees(roll),
-            'roll_ps_deg': -math.degrees(roll),
-            'tilt_deg': math.degrees(tilt)}
+# rotation_matrix and opensfm_pose moved to geo.py with the #42 production wiring (one
+# decomposition in the tree, shared with sources/mapillary.py); re-exported here because
+# every subcommand and tests/test_mapillary_tilt.py use them by these names.
+rotation_matrix = geo.rotation_matrix
+opensfm_pose = geo.opensfm_pose
 
 
 def matrix_from_pose(heading_deg, pitch_deg, roll_deg):
     """Inverse of opensfm_pose: the world->camera matrix (rows right/down/forward in
     ENU) that geo._world_ray's yaw->pitch->roll composition describes."""
     psi, alpha, rho = (math.radians(a) for a in (heading_deg, pitch_deg, roll_deg))
+    rho = -rho   # PS-sign roll in; the rotation below lifts the right axis for rho > 0
     # geo._world_ray works in (north, east, up); build there, then reorder to ENU.
     f = (math.cos(psi), math.sin(psi), 0.0)
     r = (-math.sin(psi), math.cos(psi), 0.0)
@@ -231,53 +204,39 @@ def load_run(city, floor=None):
     return panos, poses, no_rotation
 
 
-# Consecutive frames of one sequence within this time gap and horizontal distance
-# define a local direction of travel and, through SfM altitude, a road grade.
-GRADE_MAX_GAP_S = 60.0
-GRADE_MIN_DIST_M, GRADE_MAX_DIST_M = 2.0, 40.0
-
-
 def add_sequence_grade(poses):
     """Per pano: the road grade along the direction of travel (from the sequence's
     SfM altitude profile) and the camera's gravity-relative pitch along that same
     direction, so rig tilt can be separated from road grade. Fields stay None when
-    the sequence gives no usable neighbour."""
+    the sequence gives no usable neighbour.
+
+    The grade itself is fuse_sites.sequence_grades -- production's, since the #42
+    wiring -- so what this study measured is what fusion's `road` mode applies."""
     by_seq = defaultdict(list)
     for pose in poses.values():
         pose.update({'grade_deg': None, 'travel_pitch_deg': None, 'travel_bearing_deg': None,
                      'pitch_rel_road_deg': None, 'lag1_pitch_diff': None, 'lag1_roll_diff': None})
         if pose['captured_at'] is not None:
             by_seq[pose['sequence']].append(pose)
-    for seq, ps in by_seq.items():
+    for ps in by_seq.values():
         ps.sort(key=lambda q: q['captured_at'])
-        for i, q in enumerate(ps):
-            prev = ps[i - 1] if i > 0 else None
-            nxt = ps[i + 1] if i + 1 < len(ps) else None
+        for i, q in enumerate(ps[:-1]):
             # lag-1 differences of the tilt signal itself (smoothness test)
-            if nxt is not None and (nxt['captured_at'] - q['captured_at']) / 1000.0 <= GRADE_MAX_GAP_S:
+            nxt = ps[i + 1]
+            if (nxt['captured_at'] - q['captured_at']) / 1000.0 <= fs.GRADE_MAX_GAP_S:
                 q['lag1_pitch_diff'] = nxt['pitch_deg'] - q['pitch_deg']
                 q['lag1_roll_diff'] = nxt['roll_deg'] - q['roll_deg']
-            # grade over the widest usable span around i
-            cands = [(a, b) for a, b in ((prev, nxt), (prev, q), (q, nxt))
-                     if a is not None and b is not None]
-            for a, b in cands:
-                if a['computed_altitude'] is None or b['computed_altitude'] is None:
-                    continue
-                if (b['captured_at'] - a['captured_at']) / 1000.0 > 2 * GRADE_MAX_GAP_S:
-                    continue
-                d = geo.haversine_m(a['lat'], a['lng'], b['lat'], b['lng'])
-                if not (GRADE_MIN_DIST_M <= d <= GRADE_MAX_DIST_M):
-                    continue
-                frame = geo.LocalFrame(a['lat'], a['lng'])
-                e, n = frame.to_enu(b['lat'], b['lng'])
-                bearing = math.degrees(math.atan2(e, n)) % 360.0
-                grade = math.degrees(math.atan2(b['computed_altitude'] - a['computed_altitude'], d))
-                phi = math.radians(geo.norm_deg(bearing - q['heading_deg']))
-                travel_pitch = q['pitch_deg'] * math.cos(phi) + q['roll_deg'] * math.sin(phi)
-                q.update({'grade_deg': grade, 'travel_bearing_deg': bearing,
-                          'travel_pitch_deg': travel_pitch,
-                          'pitch_rel_road_deg': travel_pitch - grade})
-                break
+    grades = fs.sequence_grades(
+        (pid, q['sequence'], q['captured_at'], q['lat'], q['lng'], q['computed_altitude'])
+        for pid, q in poses.items())
+    for pid, (grade, bearing) in grades.items():
+        q = poses[pid]
+        phi = math.radians(geo.norm_deg(bearing - q['heading_deg']))
+        # PS-sign roll: + lowers the right axis, so it enters with a minus.
+        travel_pitch = q['pitch_deg'] * math.cos(phi) - q['roll_deg'] * math.sin(phi)
+        q.update({'grade_deg': grade, 'travel_bearing_deg': bearing,
+                  'travel_pitch_deg': travel_pitch,
+                  'pitch_rel_road_deg': travel_pitch - grade})
 
 
 def with_convention(panos, poses, signs):
@@ -344,7 +303,7 @@ def cmd_stats(args):
                 cd = abs(geo.norm_deg(pose['compass_angle'] - pose['computed_compass_angle']))
             rows.append({k: pose[k] for k in ('pano_id', 'make', 'model', 'sequence',
                                                'capture_date', 'captured_at', 'heading_deg',
-                                               'pitch_deg', 'roll_deg', 'roll_ps_deg', 'tilt_deg',
+                                               'pitch_deg', 'roll_deg', 'tilt_deg',
                                                'n_operational', 'width', 'height',
                                                'computed_altitude', 'grade_deg', 'travel_pitch_deg',
                                                'pitch_rel_road_deg', 'lag1_pitch_diff',
@@ -529,7 +488,10 @@ def cmd_ablation(args):
     # FuseParams.min_confidence defaults to OPERATIONAL_CONFIDENCE, which moved to 0.30
     # with issue #20. Taking the default would silently re-key the committed CSVs.
     # mask_rig=False for the same reason as the tier: these CSVs are committed.
-    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False)
+    # apply_pose pinned OFF for the same reason: the association is frozen from the flat
+    # fuse, which FuseParams' default stopped being for Mapillary with the #42 wiring.
+    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                           apply_pose=fs.POSE_OFF)
     all_rows = []
     for city in args.cities:
         panos, poses, _ = load_run(city)
@@ -655,9 +617,11 @@ def cmd_eval(args):
             ps_ = with_convention(panos, poses, signs)
             # Benchmark tier, for the same reason as `ablation` above: this arm is scored
             # against GT bundles that were exported and judged at 0.55.
+            # 'gravity' = rotate by the angles as injected: with_convention has already
+            # put this convention's (possibly road-relative) pitch/roll on each pano.
             params = replace(fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE,
                                            mask_rig=False),
-                             apply_pose=signs is not None)
+                             apply_pose=fs.POSE_OFF if signs is None else fs.POSE_GRAVITY)
             prefused = fs.fuse(ps_, params)
             r5 = es.evaluate_city(verdict_panos, bundle_ops, ps_, params, match_radius_m=5.0,
                                   prefused=prefused)
@@ -695,6 +659,44 @@ def cmd_eval(args):
                   f"5 m {r['recall_vs_off_pool_5m']:.3f}  2.5 m {r['recall_vs_off_pool_2p5m']:.3f}")
         write_csv(out_dir_for(city, args.out) / 'gt_eval.csv', [r for r in rows if r['city'] == city])
     write_csv(out_dir_for('_summary', args.out) / 'gt_eval.csv', rows)
+
+
+# --- precondition: the #42 wiring's p90 gate ---------------------------------------------
+
+def cmd_precondition(args):
+    """eval_sites.pose_precondition for every city, then the pre-registered rule.
+
+    Unlike every other subcommand this one reads the run through PRODUCTION's loader
+    (fuse_sites.load_results: pose from the block or derived from source_metadata with the
+    45 deg cap, grade from fuse_sites.sequence_grades) and fuses at the production 25 m
+    cap: it is the measurement that sets fuse_sites' Mapillary default, so it has to
+    measure what fuse_sites would do. Tier and rig mask are pinned like `eval`'s.
+    """
+    by_city = {}
+    base = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                         apply_pose=fs.POSE_OFF)
+    all_rows = []
+    for city in args.cities:
+        bench = BENCHMARK_OF.get(city, city)
+        verdict_panos, bundle_ops = load_gt_files(bench, args.benchmark_root)
+        panos, _ = fs.load_results(REPO_ROOT / 'runs' / city / 'results.jsonl',
+                                   read_heights=False)
+        rows, info = es.pose_precondition(verdict_panos, bundle_ops, panos, base)
+        print(es.format_precondition(bench, rows, info))
+        for r in rows:
+            r['city'] = city
+        by_city[city] = rows
+        all_rows.extend({'city': city, **{k: v for k, v in r.items() if k != 'city'}}
+                        for r in rows)
+    passes, reasons = es.precondition_verdict(by_city)
+    print('\n'.join(reasons))
+    print(f"first rule (road vs off): road {'PASSES' if passes else 'FAILS'}")
+    control, _clauses, reasons = es.control_verdict(by_city)
+    print('\n'.join(reasons))
+    keep = passes and control
+    print(f"VERDICT: shuffled-grade control {'PASSES' if control else 'FAILS'} -> "
+          f"fuse_sites' Mapillary default is {'road' if keep else 'off'}")
+    write_csv(out_dir_for('_summary', args.out) / 'pose_precondition.csv', all_rows)
 
 
 # --- rectify: pixel-level sign lock ------------------------------------------------------
@@ -974,7 +976,7 @@ def cmd_pose(args):
             continue
         print(json.dumps({k: pose[k] for k in ('pano_id', 'make', 'model', 'sequence', 'rvec',
                                                 'camera_heading', 'heading_deg', 'pitch_deg',
-                                                'roll_deg', 'roll_ps_deg', 'tilt_deg')}, indent=2))
+                                                'roll_deg', 'tilt_deg')}, indent=2))
 
 
 # --- figures -------------------------------------------------------------------------------
@@ -1084,7 +1086,7 @@ def cmd_figures(args):
             ax.axvline(0, color='k', lw=.5)
             ax.set_xlabel('pitch (deg)')
             ax.legend(fontsize=6, loc='lower left')
-        np.atleast_1d(axes)[0].set_ylabel('roll (deg, geo.py sign)')
+        np.atleast_1d(axes)[0].set_ylabel('roll (deg, PS sign; PR #50 plotted the opposite)')
         fig.suptitle('Pitch and roll by rig (random 4,000 panos per city)', fontsize=11)
         fig.tight_layout()
         fig.savefig(FIG_DIR / 'fig2_pitch_roll_by_rig.png', dpi=150)
@@ -1276,7 +1278,7 @@ def main():
                        default=REPO_ROOT.parent / 'RampNet' / 'benchmark')
     for name, fn in (('stats', cmd_stats), ('displacement', cmd_displacement),
                      ('ablation', cmd_ablation), ('eval', cmd_eval), ('grade', cmd_grade),
-                     ('horizon', cmd_horizon)):
+                     ('horizon', cmd_horizon), ('precondition', cmd_precondition)):
         p = sub.add_parser(name)
         common(p)
         p.set_defaults(fn=fn)
