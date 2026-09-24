@@ -293,18 +293,26 @@ class RegionLocator:
 
 def scan_run(results_path):
     """One light pass over results.jsonl for what fuse_sites.load_results discards:
-    {pano_id: (capture_date, width, height, line_index)}, the history map
-    {older_pano_id: [(run_pano_id, run_capture_date)]}, and the stored detection pixels
-    (the contamination check)."""
+    {pano_id: (capture_date, width, height, record_ordinal)}, the history map
+    {older_pano_id: [(run_pano_id, run_capture_date)]}, the stored detection pixels
+    (the contamination check), and the number of records.
+
+    record_ordinal counts RECORDS (non-blank lines), not raw line numbers, and a pano id
+    that repeats keeps its FIRST ordinal — so it is directly comparable with the record
+    counts manifest.json keeps per phase (see gap_fill_ids)."""
     run, history, pixels = {}, {}, set()
+    n_records = 0
     with open(results_path, encoding='utf-8') as f:
-        for i, line in enumerate(f):
+        for line in f:
             if not line.strip():
                 continue
             rec = json.loads(line)
             p = rec['pano']
             pid = p['panorama_id']
-            run[pid] = (p.get('capture_date'), p.get('width'), p.get('height'), i)
+            if pid not in run:
+                run[pid] = (p.get('capture_date'), p.get('width'), p.get('height'),
+                            n_records)
+            n_records += 1
             for h in p.get('history') or ():
                 history.setdefault(h['pano_id'], []).append((pid, p.get('capture_date')))
             w, h_ = p.get('width'), p.get('height')
@@ -312,7 +320,20 @@ def scan_run(results_path):
                 for d in rec.get('detections', ()):
                     pixels.add((pid, round(d['x_normalized'] * w),
                                 round(d['y_normalized'] * h_)))
-    return run, history, pixels
+    return run, history, pixels, n_records
+
+
+def gap_fill_ids(run_meta, n_records, n_gap):
+    """Pano ids whose record came from the gap-fill phase.
+
+    main.py appends gap-fill records to the end of results.jsonl, and the manifest counts
+    them per phase (`processed` of the `phase: gap_fill` entries), so they are the last
+    n_gap RECORDS. The cut is taken in record ordinals on both sides — mixing a raw line
+    index with a unique-pano count (the earlier version) drifts by one per blank or
+    repeated line.
+    """
+    first = n_records - n_gap
+    return {pid for pid, meta in run_meta.items() if meta[3] >= first}
 
 
 # ------------------------------------------------------------------------ pano frame
@@ -378,6 +399,27 @@ def pano_frame(crowd, run_by_id, tier, radius):
         ai_total += len(ai)
         ai_hit += len(m)
     return hit, ai_total, ai_hit
+
+
+def pano_frame_any(crowd, run_by_id, tier, radius):
+    """{label.id: nearest distance} for crowd labels with ANY operational detection on
+    the same pano strictly within radius — coverage, not one-to-one.
+
+    The headline matcher (pano_frame) is one-to-one, as RampNet's is, so when two crowd
+    marks sit under one AI peak only one of them can agree. This is the other reading:
+    the gap between the two is the count of "shadowed" labels, a detection nearby that
+    another crowd mark on the same pano claimed.
+    """
+    out = {}
+    for lab in crowd:
+        p = run_by_id.get(lab.pano_id)
+        if p is None or lab.x is None:
+            continue
+        ds = [pano_distance(x, y, lab.x, lab.y) for x, y in ai_points(p, tier)]
+        ds = [d for d in ds if d < radius]
+        if ds:
+            out[lab.id] = min(ds)
+    return out
 
 
 # ----------------------------------------------------------------------- world frame
@@ -577,6 +619,34 @@ def unmatched_breakdown(w, crowd_pts, tier, radius):
     return {k: out[k] for k in order if k in out}
 
 
+def skipped_ramp_estimate(n_crowd_labels, crowd_recall_k, n_pool, n_unmatched):
+    """How many of the unmatched AI sites the crowd's recall can account for.
+
+    If the crowd's CurbRamp labels in the fully audited regions cover a share R of the
+    real ramps there (R = crowd recall against the GT pool), and each label is one ramp,
+    the regions hold about n_crowd_labels / R ramps, so about n_crowd_labels * (1/R - 1)
+    were skipped. Each skipped ramp can explain at most one unmatched AI site, so
+    skipped / n_unmatched is an UPPER bound on the share of unmatched sites that are
+    crowd omissions (a skipped ramp the AI also missed explains none).
+
+    Returns {'recall', 'skipped', 'share', 'skipped_lo', 'skipped_hi', 'share_lo',
+    'share_hi'}; lo/hi come from the recall's Wilson 95% interval (a HIGH recall means
+    FEW skipped ramps, so the bounds swap). None when recall or a denominator is 0.
+    """
+    if not n_pool or not crowd_recall_k or not n_unmatched:
+        return None
+    lo, hi = es.wilson(crowd_recall_k, n_pool)
+    r = crowd_recall_k / n_pool
+
+    def skipped(rec):
+        return n_crowd_labels * (1.0 / rec - 1.0)
+    out = {'recall': r, 'skipped': skipped(r), 'skipped_lo': skipped(hi),
+           'skipped_hi': skipped(lo)}
+    for k in ('', '_lo', '_hi'):
+        out['share' + k] = out['skipped' + k] / n_unmatched
+    return out
+
+
 def gt_adjudication(city, benchmark_root, run_panos, w, crowd, regions, full_completion,
                     radius=WORLD_RADIUS):
     """Who is right when AI and crowd disagree, per RampNet's judged benchmark panos.
@@ -719,14 +789,24 @@ def main():
         lab.id = k
 
     results_path = run_dir / 'results.jsonl'
-    run_meta, history, stored_pixels = scan_run(results_path)
+    run_meta, history, stored_pixels, n_records = scan_run(results_path)
+    depth_index = results_path.parent / 'depth' / 'index.csv'
+    if not depth_index.exists():
+        print(f'WARNING: {depth_index} is missing (a local artifact, not in git). The '
+              'per-pano ablation then has only the heights stored in #40-era pano blocks '
+              'and falls back to the default for every other pano; the report prints how '
+              'many panos had a measured height.', file=sys.stderr)
     run_panos, n_unplaceable = fs.load_results(results_path, read_heights=True)
     run_by_id = {p.pano_id: p for p in run_panos}
+    n_measured = sum(1 for p in run_panos if p.camera_height_m is not None)
+    print(f'per-pano heights: {n_measured} of {len(run_panos)} panos have a measured '
+          f'height (depth index {"present" if depth_index.exists() else "MISSING"})',
+          file=sys.stderr)
     manifest = json.loads((run_dir / 'manifest.json').read_text(encoding='utf-8')) \
         if (run_dir / 'manifest.json').exists() else {}
     n_gap = sum(r.get('processed', 0) for r in manifest.get('runs', ())
                 if r.get('phase') == 'gap_fill')
-    gap_from_line = len(run_meta) - n_gap   # gap-fill appends to the end of the file
+    gap_ids = gap_fill_ids(run_meta, n_records, n_gap)
 
     # Contamination guard: a crowd label at exactly a stored detection's pixel is what an
     # AI submission would look like (eval_ps_clustering's label->detection key).
@@ -748,6 +828,8 @@ def main():
     for t in tiers:
         for r in sorted(set(PANO_RADII) | {PANO_RADIUS}):
             pano[(t, r)] = pano_frame(curb, run_by_id, t, r)
+    pano_any = {(t, r): pano_frame_any(curb, run_by_id, t, r)
+                for t in tiers for r in sorted(set(PANO_RADII) | {PANO_RADIUS})}
 
     # ---- world frame
     world = {}  # (tier, height) -> dict
@@ -812,8 +894,15 @@ def main():
          '| file | url | fetched (UTC) | sha256 | features |', '|---|---|---|---|---:|']
     L += [f'| `{a}` | {b} | {c} | `{d}` | {e} |' for a, b, c, d, e in snap]
     L += ['', f'- run: `results.jsonl` sha256 `{sha256_file(results_path)}`, '
-          f'{len(run_meta)} processed panos ({len(run_meta) - n_gap} main pass + {n_gap} '
-          f'gap-fill, per manifest.json); {n_unplaceable} without position/heading',
+          f'{n_records} records / {len(run_meta)} distinct processed panos '
+          f'({n_records - n_gap} main pass + {n_gap} gap-fill records, per manifest.json); '
+          f'{n_unplaceable} without position/heading',
+          f'- per-pano camera heights (the `{geo.PER_PANO}` ablation): **{n_measured} of '
+          f'{len(run_panos)}** panos have a measured height; the rest use the '
+          f'{geo.DEFAULT_CAMERA_HEIGHT_M:g} m default. Blocks from before #40 read it from '
+          '`depth/index.csv` beside results.jsonl, a local artifact that is not in git'
+          + ('' if depth_index.exists() else ' — **MISSING for this run, so the per-pano '
+             'rows below are mostly the default height**'),
           f'- matcher: pano frame = RampNet geometry (x*{PANO_SCALE_X}, y*{PANO_SCALE_Y}, '
           f'x wraps), one-to-one, strictly within {PANO_RADIUS} x-units '
           f'(= {PANO_RADIUS * 360:.1f} deg); world frame = eval_sites.match_one_to_one '
@@ -836,9 +925,10 @@ def main():
           f'- crowd NoCurbRamp labels in scope: {len(nocurb)} ({nocurb_dropped} dropped)',
           f'- **pano-frame coverage: {rate(len(on_run), len(curb))}** of in-scope crowd '
           f'CurbRamp labels sit on a pano the run processed '
-          f'({sum(1 for lab in on_run if run_meta[lab.pano_id][3] >= gap_from_line)} of '
-          f'them on a gap-fill pano); {sum(1 for lab in curb if lab.x is None)} lack pano '
-          'dimensions',
+          f'({sum(1 for lab in on_run if lab.pano_id in gap_ids)} of them on '
+          f'{len({lab.pano_id for lab in on_run if lab.pano_id in gap_ids})} distinct '
+          'gap-fill panos, i.e. panos the tile scan never returned); '
+          f'{sum(1 for lab in curb if lab.x is None)} lack pano dimensions',
           f'- labellers: {len({lab.user_id for lab in curb})} accounts; the largest holds '
           f'{max(sum(1 for lab in curb if lab.user_id == u) for u in {lab.user_id for lab in curb})} '
           'labels',
@@ -872,9 +962,32 @@ def main():
           f'| regions | {tier_name(OP)} | {tier_name(BM)} |', '|---|---|---|']
     L += [f'| {g} | {pano_rate(labs, OP, PANO_RADIUS)} | {pano_rate(labs, BM, PANO_RADIUS)} |'
           for g, labs in groups]
+
+    def any_rate(labs, t, r):
+        hit = pano_any[(t, r)]
+        return rate(sum(1 for lab in labs if lab.id in hit), len(labs))
+
+    def shadowed(labs, t, r):
+        """Labels with a detection within r that another crowd mark claimed."""
+        one, anyd = pano[(t, r)][0], pano_any[(t, r)]
+        return sum(1 for lab in labs if lab.id in anyd and lab.id not in one)
+
+    L += ['', 'The one-to-one matcher is a choice, and it moves the number. When two crowd '
+          'marks sit under one AI peak, only one of them can agree. **any detection** '
+          'drops the one-to-one constraint: a crowd label agrees when ANY operational '
+          'detection on its pano is within the radius. **shadowed** counts the labels '
+          'that have a detection within the radius but lose it to another crowd mark on '
+          'the same pano. Both are all in scope, radius '
+          f'{PANO_RADIUS}.', '',
+          '| tier | one-to-one | any detection | shadowed |', '|---|---|---|---:|']
+    L += [f'| {tier_name(t)} | {pano_rate(on_run, t, PANO_RADIUS)} | '
+          f'{any_rate(on_run, t, PANO_RADIUS)} | {shadowed(on_run, t, PANO_RADIUS)} |'
+          for t in tiers]
     L += ['', f'Radius sweep (all in scope, {tier_name(OP)} / {tier_name(BM)}):', '',
-          '| radius (x-units) | degrees | operational | benchmark |', '|---:|---:|---|---|']
-    L += [f'| {r:g} | {r * 360:.1f} | {pano_rate(on_run, OP, r)} | {pano_rate(on_run, BM, r)} |'
+          '| radius (x-units) | degrees | operational | operational, any detection | '
+          'benchmark |', '|---:|---:|---|---|---|']
+    L += [f'| {r:g} | {r * 360:.1f} | {pano_rate(on_run, OP, r)} | '
+          f'{any_rate(on_run, OP, r)} | {pano_rate(on_run, BM, r)} |'
           for r in PANO_RADII]
 
     L += ['', '### Pano-frame crowd -> AI by the label\'s validation', '',
@@ -989,6 +1102,7 @@ def main():
     wb = world[(BM, H)]
     adj = gt_adjudication(args.city, args.benchmark_root, run_panos, wb, curb, regions,
                           args.full_completion)
+    summary_extra = []
     L += ['', '## Who is right when they disagree: RampNet GT adjudication', '']
     if adj is None:
         L.append(f'- skipped: no RampNet benchmark split at {args.benchmark_root / args.city}')
@@ -1008,7 +1122,43 @@ def main():
               f'- precision of full-region AI sites WITH a crowd label within '
               f'{WORLD_RADIUS:g} m: {rate(tp_n, tp_n + fp_n)}',
               f'- precision of full-region AI sites with NO crowd label within '
-              f'{WORLD_RADIUS:g} m: {rate(tp_f, tp_f + fp_f)}']
+              f'{WORLD_RADIUS:g} m: {rate(tp_f, tp_f + fp_f)}. Measured on '
+              f'{tier_name(BM)} sites (the tier the bundle was judged at): the precision of '
+              f'the extra sites the {tier_name(OP)} tier adds is NOT measured here']
+        n_unm = n_full_sites - len(wo['site_one'][WORLD_RADIUS])
+        n_far = ub.get('no label within 20 m', {'sites': 0})['sites']
+        n_full_labs = sum(1 for lab in curb if lab.region_class == 'full')
+        sk = skipped_ramp_estimate(n_full_labs, adj['crowd_recall'], adj['pool'], n_unm)
+        L += ['', f'### How much of the {tier_name(OP)} AI -> crowd gap crowd omissions '
+              'can explain', '',
+              f'- unmatched full-region AI sites ({tier_name(OP)}, {H:g} m, '
+              f'{WORLD_RADIUS:g} m one-to-one): {n_unm} of {n_full_sites}']
+        if sk:
+            L += [f"- crowd recall {sk['recall']:.3f} over {n_full_labs} full-region crowd "
+                  f"labels implies about **{sk['skipped']:.0f}** skipped ramps "
+                  f"({sk['skipped_lo']:.0f}-{sk['skipped_hi']:.0f} over the recall's 95% "
+                  'CI), assuming one label per ramp',
+                  f"- so crowd omissions can explain **at most {sk['share']:.0%}** of the "
+                  f"unmatched sites ({sk['share_lo']:.0%}-{sk['share_hi']:.0%}); each "
+                  'skipped ramp accounts for at most one site, and one the AI also missed '
+                  'accounts for none']
+        L += [f'- unmatched sites with no crowd label within 20 m: {n_far} '
+              f'({n_far / n_unm:.0%} of the unmatched)',
+              '- the rest of the gap is fragmentation, placement beyond '
+              f'{WORLD_RADIUS:g} m, and low-confidence single-view sites that nobody '
+              f'judged. Precision at {tier_name(OP)} is unmeasured']
+        summary_extra = [
+            {'frame': 'world', 'direction': 'AI->crowd unmatched', 'tier': OP,
+             'height': height_name(H), 'radius': WORLD_RADIUS, 'scope': 'full regions',
+             'k': n_unm, 'n': n_full_sites},
+            {'frame': 'world', 'direction': 'AI->crowd unmatched, no label within 20 m',
+             'tier': OP, 'height': height_name(H), 'radius': WORLD_RADIUS,
+             'scope': 'full regions', 'k': n_far, 'n': n_unm}]
+        if sk:
+            summary_extra.append(
+                {'frame': 'world', 'direction': 'implied skipped ramps / unmatched sites',
+                 'tier': OP, 'height': height_name(H), 'radius': WORLD_RADIUS,
+                 'scope': 'full regions', 'k': round(sk['skipped']), 'n': n_unm})
 
     # --- vintage
     L += ['', '## Vintage: how much of the crowd -> AI miss rate is imagery age', '',
@@ -1115,6 +1265,11 @@ def main():
                             'height': '', 'radius': r, 'scope': 'all in scope',
                             'k': sum(1 for lab in on_run if lab.id in hit),
                             'n': len(on_run)})
+            summary.append({'frame': 'pano', 'direction': 'crowd->AI any detection',
+                            'tier': t, 'height': '', 'radius': r,
+                            'scope': 'all in scope',
+                            'k': sum(1 for lab in on_run if lab.id in pano_any[(t, r)]),
+                            'n': len(on_run)})
             summary.append({'frame': 'pano', 'direction': 'AI->crowd (lower bound)',
                             'tier': t, 'height': '', 'radius': r,
                             'scope': 'crowd-labelled panos', 'k': ah, 'n': tot})
@@ -1139,6 +1294,7 @@ def main():
                                     'height': height_name(h), 'radius': r,
                                     'scope': 'full regions', 'k': len(w[key][r]),
                                     'n': len(w['full_sites'])})
+    summary += summary_extra
     for row in summary:
         row['rate'] = round(row['k'] / row['n'], 4) if row['n'] else None
     write_csv('summary.csv', summary)

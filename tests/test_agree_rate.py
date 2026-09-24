@@ -175,3 +175,80 @@ def test_chance_floor_breaks_real_correspondence():
     assert len(ar.match_one_to_one(labels, sites, 5.0)) == 20
     assert ar.chance_floor(labels, sites, 5.0) == 0            # 25 m away, sites 100 m apart
     assert ar.chance_floor(labels, sites, 5.0) == ar.chance_floor(labels, sites, 5.0)
+
+
+# ------------------------------------------------------------------ review fixes
+
+def test_any_detection_counts_both_marks_under_one_peak_one_to_one_counts_one():
+    # Two crowd marks either side of a single AI peak: one-to-one lets only one agree,
+    # the any-detection reading credits both, and the difference is one shadowed label.
+    panos = {'p1': _pano('p1', [(0.500, 0.56, 0.9)])}
+    crowd = [_label(0, 'p1', 0.495, 0.56), _label(1, 'p1', 0.507, 0.56)]
+    one, _tot, _hit = ar.pano_frame(crowd, panos, 0.30, 0.022)
+    anyd = ar.pano_frame_any(crowd, panos, 0.30, 0.022)
+    assert set(one) == {0}                               # the nearer mark wins
+    assert set(anyd) == {0, 1}
+    assert anyd[1] == pytest.approx(0.007)
+
+
+def test_world_config_passes_the_tier_into_fuse(monkeypatch):
+    seen = []
+
+    def fake_fuse(panos, params):
+        seen.append(('fuse', params.min_confidence, params.camera_height_m))
+        return [], None, {}
+
+    def fake_project(panos, params):
+        seen.append(('project', params.min_confidence, params.camera_height_m))
+        return [], None, {}
+    monkeypatch.setattr(ar.fs, 'fuse', fake_fuse)
+    monkeypatch.setattr(ar.fs, 'project', fake_project)
+    ar.world_config([], 0.55, 2.6)
+    ar.world_config([], 0.30, 'per-pano')
+    assert seen == [('fuse', 0.55, 2.6), ('project', 0.55, 2.6),
+                    ('fuse', 0.30, 'per-pano'), ('project', 0.30, 'per-pano')]
+
+
+def test_unmatched_breakdown_buckets_by_nearest_crowd_label():
+    from types import SimpleNamespace as NS
+
+    def site(sid, e, views, conf):
+        members = [(NS(conf=conf, pano_id=f'p{v}'), None) for v in range(views)]
+        return NS(id=sid, members=members), ar.Pt(sid, e, 0.0)
+    # crowd labels at x = 0 and x = 1000; sites placed relative to them
+    crowd = [ar.Pt(0, 0.0, 0.0), ar.Pt(1, 1000.0, 0.0)]
+    raw, pts = zip(site(0, 1.0, 2, 0.9),       # matched one-to-one
+                   site(1, 2.0, 1, 0.4),       # label within 5 m, but taken by site 0
+                   site(2, 1007.0, 1, 0.6),    # nearest label 7 m
+                   site(3, 1015.0, 3, 0.4),    # nearest label 15 m
+                   site(4, 500.0, 1, 0.35))    # nothing within 20 m
+    w = {'raw_sites': list(raw), 'full_sites': list(pts), 'site_one': {5.0: {0}}}
+    ub = ar.unmatched_breakdown(w, crowd, 0.30, 5.0)
+    assert {k: v['sites'] for k, v in ub.items()} == {
+        'matched one-to-one (<= 5 m)': 1, 'label within 5 m taken by another site': 1,
+        'nearest label 5-10 m': 1, 'nearest label 10-20 m': 1, 'no label within 20 m': 1}
+    assert ub['matched one-to-one (<= 5 m)'] == {'sites': 1, 'multi_view': 1,
+                                                 'benchmark_tier': 1}
+    assert ub['nearest label 5-10 m']['benchmark_tier'] == 1
+    assert ub['nearest label 10-20 m']['multi_view'] == 1
+    assert ub['no label within 20 m'] == {'sites': 1, 'multi_view': 0, 'benchmark_tier': 0}
+
+
+def test_gap_fill_ids_are_the_last_records_not_the_last_unique_panos(tmp_path):
+    recs = [{'pano': {'panorama_id': pid}, 'detections': []}
+            for pid in ('a', 'b', 'a', 'c', 'd')]           # 'a' repeats; blank line too
+    path = tmp_path / 'results.jsonl'
+    path.write_text('\n'.join(json.dumps(r) for r in recs[:2]) + '\n\n'
+                    + '\n'.join(json.dumps(r) for r in recs[2:]) + '\n', encoding='utf-8')
+    run_meta, _hist, _pix, n = ar.scan_run(path)
+    assert n == 5 and len(run_meta) == 4
+    # the last 2 records are the gap fill: c and d, never b
+    assert ar.gap_fill_ids(run_meta, n, 2) == {'c', 'd'}
+
+
+def test_skipped_ramp_estimate_is_bounded_by_the_recall_interval():
+    sk = ar.skipped_ramp_estimate(300, 75, 100, 200)   # recall 0.75 -> 100 skipped
+    assert sk['skipped'] == pytest.approx(100.0)
+    assert sk['share'] == pytest.approx(0.5)
+    assert sk['skipped_lo'] < sk['skipped'] < sk['skipped_hi']
+    assert ar.skipped_ramp_estimate(300, 0, 100, 200) is None

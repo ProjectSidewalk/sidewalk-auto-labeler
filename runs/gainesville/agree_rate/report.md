@@ -8,7 +8,8 @@
 | `raw_labels_NoCurbRamp.geojson` | https://sidewalk-gainesville.cs.washington.edu/v3/api/rawLabels?labelType=NoCurbRamp&filetype=geojson | 2026-09-24T05:28:36+00:00 | `a2c6c4fd08ea152aa3eba5a1c4e1176eb34fbf7a8ef19df63f5efeb506b4895e` | 59 |
 | `regions.geojson` | https://sidewalk-gainesville.cs.washington.edu/v3/api/regions?filetype=geojson | 2026-09-24T05:28:10+00:00 | `25ce88180ef1995f0279ff8f09d0d3bd1a1580ecadb42e173d65fec76d0064cb` | 57 |
 
-- run: `results.jsonl` sha256 `9f4a57f35d24715856d4464dbc0950febbf20de810ec9653432f339a5ab857e8`, 37435 processed panos (35204 main pass + 2231 gap-fill, per manifest.json); 0 without position/heading
+- run: `results.jsonl` sha256 `9f4a57f35d24715856d4464dbc0950febbf20de810ec9653432f339a5ab857e8`, 37435 records / 37435 distinct processed panos (35204 main pass + 2231 gap-fill records, per manifest.json); 0 without position/heading
+- per-pano camera heights (the `per-pano` ablation): **30458 of 37435** panos have a measured height; the rest use the 2.6 m default. Blocks from before #40 read it from `depth/index.csv` beside results.jsonl, a local artifact that is not in git
 - matcher: pano frame = RampNet geometry (x*1024, y*512, x wraps), one-to-one, strictly within 0.022 x-units (= 7.9 deg); world frame = eval_sites.match_one_to_one semantics, 5 m headline
 - AI tiers: operational 0.3 (what production ships, rig-masked) and benchmark 0.55; world camera height 2.6 m (production default) with `per-pano` (#40) as the ablation
 
@@ -17,7 +18,7 @@
 - footprint: 40 PS regions cover the run polygon (overlap >= 0.5); **37 fully audited** (completion_rate >= 0.999) and **3 partial**: 7 (0.907), 30 (0.372), 59 (0.740)
 - crowd CurbRamp labels: 4498 in the pull (0 dropped for a bad position), 44 outside the footprint (regions opened after the run), **4454 in scope**: 4253 in full regions, 201 in partial ones
 - crowd NoCurbRamp labels in scope: 59 (0 dropped)
-- **pano-frame coverage: 0.663 (2952/4454) [0.649, 0.677]** of in-scope crowd CurbRamp labels sit on a pano the run processed (114 of them on a gap-fill pano); 0 lack pano dimensions
+- **pano-frame coverage: 0.663 (2952/4454) [0.649, 0.677]** of in-scope crowd CurbRamp labels sit on a pano the run processed (114 of them on 55 distinct gap-fill panos, i.e. panos the tile scan never returned); 0 lack pano dimensions
 - labellers: 6 accounts; the largest holds 4247 labels
 - validation: 263 in-scope labels carry a human majority verdict; 4439 carry a vote from PS's own AI validator, which is why `correct` is reported apart and never used as ground truth
 - contamination check: 0 crowd labels sit exactly on a stored detection pixel (an AI submission would; must be 0)
@@ -33,14 +34,21 @@ Statistic: share of crowd CurbRamp labels on a run-processed pano with an AI det
 | partial regions | 0.789 (90/114) [0.706, 0.854] | 0.702 (80/114) [0.612, 0.778] |
 | all in scope | 0.728 (2148/2952) [0.711, 0.743] | 0.608 (1794/2952) [0.590, 0.625] |
 
+The one-to-one matcher is a choice, and it moves the number. When two crowd marks sit under one AI peak, only one of them can agree. **any detection** drops the one-to-one constraint: a crowd label agrees when ANY operational detection on its pano is within the radius. **shadowed** counts the labels that have a detection within the radius but lose it to another crowd mark on the same pano. Both are all in scope, radius 0.022.
+
+| tier | one-to-one | any detection | shadowed |
+|---|---|---|---:|
+| operational 0.3 | 0.728 (2148/2952) [0.711, 0.743] | 0.788 (2325/2952) [0.772, 0.802] | 177 |
+| benchmark 0.55 | 0.608 (1794/2952) [0.590, 0.625] | 0.655 (1934/2952) [0.638, 0.672] | 140 |
+
 Radius sweep (all in scope, operational 0.3 / benchmark 0.55):
 
-| radius (x-units) | degrees | operational | benchmark |
-|---:|---:|---|---|
-| 0.011 | 4.0 | 0.643 (1898/2952) [0.625, 0.660] | 0.547 (1616/2952) [0.529, 0.565] |
-| 0.022 | 7.9 | 0.728 (2148/2952) [0.711, 0.743] | 0.608 (1794/2952) [0.590, 0.625] |
-| 0.033 | 11.9 | 0.752 (2220/2952) [0.736, 0.767] | 0.624 (1841/2952) [0.606, 0.641] |
-| 0.05 | 18.0 | 0.770 (2273/2952) [0.754, 0.785] | 0.637 (1879/2952) [0.619, 0.654] |
+| radius (x-units) | degrees | operational | operational, any detection | benchmark |
+|---:|---:|---|---|---|
+| 0.011 | 4.0 | 0.643 (1898/2952) [0.625, 0.660] | 0.692 (2043/2952) [0.675, 0.708] | 0.547 (1616/2952) [0.529, 0.565] |
+| 0.022 | 7.9 | 0.728 (2148/2952) [0.711, 0.743] | 0.788 (2325/2952) [0.772, 0.802] | 0.608 (1794/2952) [0.590, 0.625] |
+| 0.033 | 11.9 | 0.752 (2220/2952) [0.736, 0.767] | 0.814 (2404/2952) [0.800, 0.828] | 0.624 (1841/2952) [0.606, 0.641] |
+| 0.05 | 18.0 | 0.770 (2273/2952) [0.754, 0.785] | 0.834 (2463/2952) [0.821, 0.847] | 0.637 (1879/2952) [0.619, 0.654] |
 
 ### Pano-frame crowd -> AI by the label's validation
 
@@ -133,7 +141,15 @@ World frame, benchmark 0.55 (the tier the bundle was judged at), 2.6 m, 5 m; GT 
 - covered by an operational AI site: 0.923 (180/195) [0.877, 0.953]
 - both 138, crowd only 8, AI only 42, neither 7
 - precision of full-region AI sites WITH a crowd label within 5 m: 0.992 (118/119) [0.954, 0.999]
-- precision of full-region AI sites with NO crowd label within 5 m: 0.837 (36/43) [0.700, 0.919]
+- precision of full-region AI sites with NO crowd label within 5 m: 0.837 (36/43) [0.700, 0.919]. Measured on benchmark 0.55 sites (the tier the bundle was judged at): the precision of the extra sites the operational 0.3 tier adds is NOT measured here
+
+### How much of the operational 0.3 AI -> crowd gap crowd omissions can explain
+
+- unmatched full-region AI sites (operational 0.3, 2.6 m, 5 m one-to-one): 4966 of 8264
+- crowd recall 0.749 over 4253 full-region crowd labels implies about **1427** skipped ramps (1034-1970 over the recall's 95% CI), assuming one label per ramp
+- so crowd omissions can explain **at most 29%** of the unmatched sites (21%-40%); each skipped ramp accounts for at most one site, and one the AI also missed accounts for none
+- unmatched sites with no crowd label within 20 m: 1878 (38% of the unmatched)
+- the rest of the gap is fragmentation, placement beyond 5 m, and low-confidence single-view sites that nobody judged. Precision at operational 0.3 is unmeasured
 
 ## Vintage: how much of the crowd -> AI miss rate is imagery age
 

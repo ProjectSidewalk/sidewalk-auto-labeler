@@ -1,11 +1,15 @@
 frame,direction,tier,height,radius,scope,k,n,rate
 pano,crowd->AI,0.3,,0.011,all in scope,1898,2952,0.643
+pano,crowd->AI any detection,0.3,,0.011,all in scope,2043,2952,0.6921
 pano,AI->crowd (lower bound),0.3,,0.011,crowd-labelled panos,1898,4360,0.4353
 pano,crowd->AI,0.3,,0.022,all in scope,2148,2952,0.7276
+pano,crowd->AI any detection,0.3,,0.022,all in scope,2325,2952,0.7876
 pano,AI->crowd (lower bound),0.3,,0.022,crowd-labelled panos,2148,4360,0.4927
 pano,crowd->AI,0.3,,0.033,all in scope,2220,2952,0.752
+pano,crowd->AI any detection,0.3,,0.033,all in scope,2404,2952,0.8144
 pano,AI->crowd (lower bound),0.3,,0.033,crowd-labelled panos,2220,4360,0.5092
 pano,crowd->AI,0.3,,0.05,all in scope,2273,2952,0.77
+pano,crowd->AI any detection,0.3,,0.05,all in scope,2463,2952,0.8343
 pano,AI->crowd (lower bound),0.3,,0.05,crowd-labelled panos,2273,4360,0.5213
 world,crowd->AI sites,0.3,2.6 m,2.5,all in scope,2933,4454,0.6585
 world,crowd->AI sites,0.3,2.6 m,2.5,full regions,2800,4253,0.6584
@@ -50,12 +54,16 @@ world,AI->crowd any,0.3,per-pano,7.5,full regions,4347,7168,0.6064
 world,AI on NoCurbRamp,0.3,per-pano,7.5,full regions,60,7168,0.0084
 world,"AI on NoCurbRamp, no CurbRamp",0.3,per-pano,7.5,full regions,43,7168,0.006
 pano,crowd->AI,0.55,,0.011,all in scope,1616,2952,0.5474
+pano,crowd->AI any detection,0.55,,0.011,all in scope,1739,2952,0.5891
 pano,AI->crowd (lower bound),0.55,,0.011,crowd-labelled panos,1616,3192,0.5063
 pano,crowd->AI,0.55,,0.022,all in scope,1794,2952,0.6077
+pano,crowd->AI any detection,0.55,,0.022,all in scope,1934,2952,0.6551
 pano,AI->crowd (lower bound),0.55,,0.022,crowd-labelled panos,1794,3192,0.562
 pano,crowd->AI,0.55,,0.033,all in scope,1841,2952,0.6236
+pano,crowd->AI any detection,0.55,,0.033,all in scope,1991,2952,0.6745
 pano,AI->crowd (lower bound),0.55,,0.033,crowd-labelled panos,1841,3192,0.5768
 pano,crowd->AI,0.55,,0.05,all in scope,1879,2952,0.6365
+pano,crowd->AI any detection,0.55,,0.05,all in scope,2044,2952,0.6924
 pano,AI->crowd (lower bound),0.55,,0.05,crowd-labelled panos,1879,3192,0.5887
 world,crowd->AI sites,0.55,2.6 m,2.5,all in scope,2616,4454,0.5873
 world,crowd->AI sites,0.55,2.6 m,2.5,full regions,2491,4253,0.5857
@@ -99,3 +107,6 @@ world,AI->crowd one-to-one,0.55,per-pano,7.5,full regions,3041,4744,0.641
 world,AI->crowd any,0.55,per-pano,7.5,full regions,3517,4744,0.7414
 world,AI on NoCurbRamp,0.55,per-pano,7.5,full regions,35,4744,0.0074
 world,"AI on NoCurbRamp, no CurbRamp",0.55,per-pano,7.5,full regions,20,4744,0.0042
+world,AI->crowd unmatched,0.3,2.6 m,5.0,full regions,4966,8264,0.6009
+world,"AI->crowd unmatched, no label within 20 m",0.3,2.6 m,5.0,full regions,1878,4966,0.3782
+world,implied skipped ramps / unmatched sites,0.3,2.6 m,5.0,full regions,1427,4966,0.2874
