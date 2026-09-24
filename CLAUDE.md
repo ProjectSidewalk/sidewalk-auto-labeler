@@ -552,12 +552,27 @@ gap-fill is GSV-only (`fetch_pano_by_id`).
 - `detections` in results.jsonl means "stored candidates", not "believed ramps": it includes
   peaks down to the storage floor. Any new consumer must filter at `OPERATIONAL_CONFIDENCE`
   (import it from `detectors`) unless it deliberately wants the sub-floor candidates.
-- Each JSONL line carries model provenance (`model_id`, `model_training_date`, `api_version`)
-  and rich pano metadata (capture date, dimensions, camera heading/pitch/roll, source,
+- Each JSONL line carries model provenance (`model_id`, `model_training_date`, `api_version`,
+  plus `model_repo` and the full 40-hex `model_revision`) and rich pano metadata (capture date, dimensions, camera heading/pitch/roll, source,
   historical panos, and links). Heading/pitch/roll are converted from radians to degrees on
   write.
 - Indoor panoramas (sources `innerspace`, `cultural_institute`, `photos:legacy_innerspace`)
   are skipped.
+- **Model provenance is resolved, never declared** (issues #39/#6). `CurbRampDetector` reads
+  the Hugging Face revision SHA of the snapshot it loaded (`config._commit_hash`, else the hub
+  cache's `snapshots/<sha>` dir; loading retries `local_files_only` when the hub is
+  unreachable, e.g. Hyak compute nodes) and exposes `.provenance`; `main.py` and
+  `scripts/reinfer.py` write that dict, and there are no provenance literals left in `main.py`.
+  `model_id` is `rampnet-model@<12 hex>` (PS stores it as TEXT, so no width limit; the prefix
+  keeps `rampnet-model` string matches working). The training date is a fact about a SHA:
+  `detectors.KNOWN_REVISIONS`, seeded with every hub revision that carries weights (all the
+  paper weights → 2025-08-21, emitted as PS's `MM-DD-YYYY`). **An unknown SHA refuses to
+  start** — after a retrain, add the new SHA to the table (instructions beside it) rather than
+  reaching for `--allow-unknown-model-revision`, which writes a null date that
+  `send_to_ps.py` refuses. A run directory is bound to one `model_revision` like it is to one
+  geometry (a mismatch is refused); pre-#39 manifests resume with a one-time note and are
+  bound on that resume, unless their recorded training date differs. `--scan-only` loads no
+  model and binds nothing.
 - `pano.copyright` is an **attribution ingredient, not a rendered attribution** (issue #61,
   SidewalkWebpage#5360). For Mapillary and Panoramax it is the contributor's *bare* name
   (creator username / `geovisio:producer`), `null` when the source names nobody — PS's

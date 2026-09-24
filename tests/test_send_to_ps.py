@@ -144,6 +144,31 @@ def test_transform_accepts_real_stage1_records():
     assert all("target_pano_id" in link for link in pano["links"])
 
 
+def test_transform_passes_provenance_through_and_legacy_records_still_submit():
+    """Issue #39: model_repo/model_revision ride along untouched (PS's reader ignores keys it
+    doesn't name), the three keys PS stores keep their names, and a legacy record with the
+    old literal and no revision transforms exactly as before."""
+    record = json.loads(json.dumps(main.build_output_line(make_process_result(), make_provenance())))
+    payload = send_to_ps.transform_record(record)
+    for key in ("model_id", "model_training_date", "api_version", "model_repo", "model_revision"):
+        assert payload[key] == record[key]
+    legacy = dict(_record([]), model_training_date="08-21-2025", api_version="1.0.0")
+    payload = send_to_ps.transform_record(legacy)
+    assert payload["model_id"] == "rampnet-model" and "model_revision" not in payload
+
+
+def test_unknown_provenance_file_is_refused_before_any_post(tmp_path, monkeypatch):
+    unknown = make_provenance("0123456789abcdef0123456789abcdef01234567", allow_unknown=True)
+    path = tmp_path / "results.jsonl"
+    path.write_text(json.dumps(main.build_output_line(make_process_result(), unknown)) + "\n")
+    sent = _capture_posts(monkeypatch)
+    with pytest.raises(ValueError, match="KNOWN_REVISIONS"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+    send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True)  # a dry run still previews it
+    assert sent == []
+
+
 def test_load_submitted_lines(tmp_path):
     assert send_to_ps.load_submitted_lines(tmp_path / "missing") == set()
     sidecar = tmp_path / "r.jsonl.submitted"
