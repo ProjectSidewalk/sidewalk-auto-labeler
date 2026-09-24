@@ -1,8 +1,9 @@
 """Unit tests for main.py's pure helpers (no network, no model)."""
 import json
+from pathlib import Path
 
 import main
-from conftest import make_process_result as _result
+from conftest import make_process_result as _result, make_provenance
 
 
 def test_latlon_to_tile_known_values():
@@ -38,11 +39,17 @@ def test_load_processed_ids(tmp_path):
 
 
 def test_build_output_line_shape():
-    line = main.build_output_line(_result())
+    line = main.build_output_line(_result(), make_provenance())
     assert line["detections"] == [
         {"x_normalized": 0.5, "y_normalized": 0.25, "confidence": 0.9}]
     assert line["label_type"] == "CurbRamp"
-    assert line["model_id"] == main.MODEL_ID
+    # Provenance comes from the resolved snapshot (issue #39): the three keys PS stores per
+    # label, in the formats it parses, plus the full revision for everything else.
+    assert line["model_id"] == "rampnet-model@606a11956743"
+    assert line["model_training_date"] == "08-21-2025"
+    assert line["api_version"] == "1.0.0"
+    assert line["model_repo"] == "projectsidewalk/rampnet-model"
+    assert line["model_revision"] == "606a11956743f7eb328d9207769034752f6191f4"
     # The source-built pano block passes through untouched (its shape is covered by
     # the per-source tests).
     assert line["pano"]["panorama_id"] == "PID"
@@ -50,7 +57,7 @@ def test_build_output_line_shape():
 
 
 def test_build_output_line_zero_detections():
-    assert main.build_output_line(_result(detections=[]))["detections"] == []
+    assert main.build_output_line(_result(detections=[]), make_provenance())["detections"] == []
 
 
 def _results_file(tmp_path, links_per_record):
@@ -220,3 +227,80 @@ def test_load_falls_back_to_the_local_cache_when_the_hub_is_unreachable():
         raise OSError("not in the cache either")
     with pytest.raises(OSError):
         detectors.load_with_offline_fallback(always_fails)
+
+
+# --- The run directory is bound to one model revision (issue #39) ---
+
+GEOM = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]}
+
+
+def _init(run_dir, provenance):
+    return main.load_or_init_run_dir(run_dir, "city.geojson", GEOM, "hash", "gsv",
+                                     provenance=provenance)
+
+
+def test_manifest_records_the_model_and_refuses_a_different_revision(tmp_path):
+    run_dir = tmp_path / "city"
+    manifest = _init(run_dir, make_provenance())
+    assert manifest["model_revision"] == PAPER_MAIN
+    assert manifest["model_id"] == "rampnet-model@606a11956743"
+    main.record_run(run_dir / "manifest.json", manifest, "t0", 1, 1, 0, 0,
+                    provenance=make_provenance())
+    assert json.load(open(run_dir / "manifest.json"))["runs"][0]["model"]["model_revision"] == PAPER_MAIN
+
+    _init(run_dir, make_provenance())  # same revision resumes
+    other = make_provenance(UNKNOWN_SHA, allow_unknown=True)
+    with pytest.raises(SystemExit) as e:
+        _init(run_dir, other)
+    assert "revision" in str(e.value) and "new --name" in str(e.value)
+
+
+def test_scan_only_binds_no_model_and_a_later_run_binds_quietly(tmp_path, capsys):
+    run_dir = tmp_path / "city"
+    assert "model_revision" not in _init(run_dir, None)
+    assert _init(run_dir, make_provenance())["model_revision"] == PAPER_MAIN
+    assert "predates" not in capsys.readouterr().out
+    assert json.load(open(run_dir / "manifest.json"))["model_revision"] == PAPER_MAIN
+
+
+def test_legacy_manifest_resumes_once_with_a_note(tmp_path, capsys):
+    """Manifests from before #39 carry the three literals and no revision. Same training
+    date = the paper weights, so the run resumes and is bound, and the note prints once."""
+    run_dir = tmp_path / "city"
+    _init(run_dir, None)
+    path = run_dir / "manifest.json"
+    legacy = json.load(open(path))
+    legacy.update(model_id="rampnet-model", model_training_date="08-21-2025", api_version="1.0.0")
+    path.write_text(json.dumps(legacy))
+
+    assert _init(run_dir, make_provenance())["model_revision"] == PAPER_MAIN
+    assert "predates model revisions" in capsys.readouterr().out
+    saved = json.load(open(path))
+    assert saved["legacy_model_provenance"]["model_id"] == "rampnet-model"
+    _init(run_dir, make_provenance())
+    assert "predates" not in capsys.readouterr().out  # one-time
+
+    # A legacy run whose recorded date differs from the loaded model's is different weights.
+    legacy["model_training_date"] = "01-01-2027"
+    path.write_text(json.dumps(legacy))
+    with pytest.raises(SystemExit):
+        _init(run_dir, make_provenance())
+
+
+def test_unknown_revision_override_is_recorded_in_the_manifest(tmp_path):
+    run_dir = tmp_path / "city"
+    manifest = _init(run_dir, make_provenance(UNKNOWN_SHA, allow_unknown=True))
+    assert manifest["model_training_date"] is None
+    assert manifest["unknown_revision_allowed"] is True
+    assert "unknown_revision_allowed" not in main.manifest_model_block(make_provenance())
+
+
+def test_scan_only_stays_torch_free():
+    """--scan-only must not pay for (or require) torch: main imports the detector lazily,
+    and the provenance machinery it now imports eagerly lives in torch-free detectors."""
+    import subprocess
+    import sys
+    code = ("import sys, main, detectors; "
+            "bad = [m for m in ('torch', 'transformers', 'detectors.curb_ramp') if m in sys.modules]; "
+            "sys.exit(1 if bad else 0)")
+    assert subprocess.run([sys.executable, "-c", code], cwd=str(Path(main.__file__).parent)).returncode == 0

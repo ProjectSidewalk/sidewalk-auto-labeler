@@ -7,7 +7,7 @@ import pytest
 import detectors
 import main
 import send_to_ps
-from conftest import make_process_result
+from conftest import make_process_result, make_provenance
 
 
 def _record(detections, pano_id="PID"):
@@ -130,7 +130,7 @@ def test_transform_accepts_real_stage1_records():
     """Producer→consumer contract: feed transform_record an actual build_output_line
     record (round-tripped through JSON like the JSONL file), so a key rename or
     reshape on either side fails here instead of at submission time."""
-    record = json.loads(json.dumps(main.build_output_line(make_process_result())))
+    record = json.loads(json.dumps(main.build_output_line(make_process_result(), make_provenance())))
     payload = send_to_ps.transform_record(record)
     # 0.5 * 16384, 0.25 * 8192 — dimensions come from the record's own pano block.
     assert payload["labels"] == [{"pano_x": 8192, "pano_y": 2048, "confidence": 0.9}]
