@@ -74,8 +74,14 @@ def _northbound(seq, raw_x, sfm_x, frame, n=25):
             for k in range(n)]
 
 
+def _offsets(seq, raw_xs, sfm_xs, frame):
+    """A sequence driving north on NS1 (x=0) with a per-pano east offset for each field, on
+    the block between EW1 (y=0) and EW2 (y=100) so no pano snaps to a cross street."""
+    return [_mapillary_record(f"{seq}{k}", seq, (rx, 8 + 3 * k), (sx, 8 + 3 * k), frame)
+            for k, (rx, sx) in enumerate(zip(raw_xs, sfm_xs))]
+
+
 def _check(records, frame, **kw):
-    kw = {"threshold_m": 3.0, "min_sequence": 20, **kw}
     return position_check.check_run(MANIFEST, AREA, records, _grid_osm(frame), **kw)
 
 
@@ -115,16 +121,60 @@ def test_check_run_flags_the_drifted_sequence_and_recommends_raw():
     assert again["submitted_field"] == "sfm"  # the run-wide majority, kept for the report
 
 
-def test_a_switch_that_buys_under_the_minimum_improvement_is_not_a_flag():
+def test_alternating_lane_offsets_flag_on_the_paired_metric_not_the_signed_bias():
+    """SfM 6 m off on every pano, alternately east and west (a lane offset on a street
+    driven both ways): the signed bias cancels to ~0 and #60's rule saw nothing, while every
+    label sits 6 m off. Raw is uniformly 0.5 m off. The paired metric sees 5.5 m per pano."""
     frame = _frame()
-    # SfM 3.5 m off (over the 3 m threshold), raw 2.8 m off (under it) — a 0.7 m gain.
-    result = _check(_northbound("A", 2.8, -3.5, frame), frame)
+    sfm = [6.0 if k % 2 else -6.0 for k in range(24)]
+    result = _check(_offsets("A", [0.5] * 24, sfm, frame), frame)
     row = result["sequences"][0]
-    assert result["flagged_sequences"] == [] and result["both_off_sequences"] == ["A"]
+    assert row["bias_m"]["sfm"]["max_abs"] < position_check.RESOLUTION_FLOOR_M  # the old rule's blind spot
+    assert row["cross_track_median_m"]["sfm"] == pytest.approx(6.0, abs=0.05)
+    assert row["paired_median_m"] == pytest.approx(5.5, abs=0.05) and row["raw_closer_share"] == 1.0
+    assert row["paired_verdict"] == "raw" and row["flagged"] and row["recommended"] == "raw"
+    assert result["flagged_sequences"] == ["A"]
+
+
+def test_a_closer_but_twice_as_scattered_field_is_not_a_fix():
+    """Jitter is per-pano error too: raw is 3 m closer at the median but its cross-track IQR
+    is 2x SfM's (> MAX_IQR_RATIO), so the sequence is reported off the street, not flagged."""
+    frame = _frame()
+    sfm = [5.0 if k % 2 else 7.0 for k in range(24)]      # median 6, IQR 2
+    raw = [1.0 if k % 2 else 5.0 for k in range(24)]      # median 3, IQR 4
+    row = _check(_offsets("A", raw, sfm, frame), frame)["sequences"][0]
+    assert row["cross_track_iqr_m"] == {"submitted": 2.0, "sfm": 2.0, "raw": 4.0}
+    assert row["paired_verdict"] == "raw"                  # closer, pano by pano...
+    assert row["both_off"] and not row["flagged"]          # ...but not a fix
+    assert row["recommended"] == "sfm"
+
+
+def test_an_alternative_that_is_worse_is_never_recommended():
+    """Richmond-shaped (jKtaJMek7wQl5AOH28qdcm): the submitted field is grossly off, the
+    other is further off still. Reported both_off; never flagged toward the worse field."""
+    frame = _frame()
+    result = _check(_offsets("A", [9.0] * 24, [6.0] * 24, frame), frame)
+    row = result["sequences"][0]
+    assert row["paired_median_m"] == pytest.approx(-3.0, abs=0.05) and row["paired_verdict"] == "sfm"
     assert row["both_off"] and not row["flagged"] and row["recommended"] == "sfm"
-    # ...while a gain of at least MIN_IMPROVEMENT_M flags even if raw stays over the threshold.
-    result = _check(_northbound("A", 3.2, -6.0, frame), frame)
-    assert result["flagged_sequences"] == ["A"] and result["sequences"][0]["recommended"] == "raw"
+    assert result["flagged_sequences"] == [] and result["both_off_sequences"] == ["A"]
+
+
+def test_a_difference_inside_the_resolution_floor_is_undecidable_and_never_gates():
+    """1.5 m per pano is inside the ~1.75 m the OSM reference floors at: whichever field
+    is 'closer', the check cannot see it, so it reports and does not act."""
+    frame = _frame()
+    # Submitted 3 m off: not off the street at all; the 1.5 m difference is just reported.
+    row = _check(_offsets("A", [1.5] * 24, [3.0] * 24, frame), frame)["sequences"][0]
+    assert row["undecidable"] and row["paired_verdict"] == "undecidable"
+    assert not row["off_street"] and not row["flagged"] and not row["both_off"]
+    # Submitted 6 m off: off the street, but a 1.5 m "fix" is not one the check can vouch for.
+    result = _check(_offsets("A", [4.5] * 24, [6.0] * 24, frame), frame)
+    row = result["sequences"][0]
+    assert row["undecidable"] and row["off_street"] and row["both_off"] and not row["flagged"]
+    assert result["paired"]["undecidable"] == 1 and result["paired"]["share_below_floor"] == 1.0
+    # ...while the same 6 m with raw 2.8 m closer (> the floor) is a fix.
+    assert _check(_offsets("A", [3.2] * 24, [6.0] * 24, frame), frame)["flagged_sequences"] == ["A"]
 
 
 def test_a_sequence_beyond_the_snap_cap_is_flagged_not_passed():
@@ -304,3 +354,4 @@ def test_run_check_records_the_results_hash_and_names_outputs_by_file(tmp_path):
     assert position_check.report_path_for(run / "results.check.jsonl") == run / "results.check.position_report.html"
     assert position_check.load_check(run / "results.check.jsonl")[0] is None
     assert position_check.load_check(run / "results.jsonl")[0]["results_sha256"] == result["results_sha256"]
+

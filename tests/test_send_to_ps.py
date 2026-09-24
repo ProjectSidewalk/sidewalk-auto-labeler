@@ -874,7 +874,7 @@ def _mapillary_jsonl(tmp_path, count, name="results.jsonl"):
 def _write_check(path, flagged=(), digest=None):
     import position_check
     check = {"checked_at": "2026-09-16T00:00:00Z", "flagged_sequences": list(flagged),
-             "results_sha256": digest or position_check.file_sha256(path)}
+             "results_sha256": digest or position_check.file_sha256(path), "rule": position_check.RULE}
     position_check.check_path_for(path).write_text(json.dumps(check), encoding="utf-8")
 
 

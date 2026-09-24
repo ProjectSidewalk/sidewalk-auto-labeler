@@ -832,7 +832,8 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
     unchecked or flagged file is --ignore-position-check. Only Mapillary carries two
     positions to choose between, so other sources are not gated. Staleness is the
     results file's sha256 against the one the check recorded, so a check cannot vouch for
-    a file edited after it ran.
+    a file edited after it ran - and the check's `rule` against position_check.RULE, so a
+    verdict written under a retired rule (the pre-#62 signed bias) cannot either.
     """
     if first_pano_source(input_file) != 'mapillary':
         return None
@@ -849,11 +850,17 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
             f"{input_file.name} (sha256 {digest[:12]}... != {str(recorded)[:12]}...): the file changed "
             f"after the check ran, or the check predates results_sha256. Re-run: {rerun}  "
             f"(--ignore-position-check overrides)")
+    if check.get('rule') != position_check.RULE:
+        raise ValueError(
+            f"{position_check.check_path_for(input_file).name} was written under verdict rule "
+            f"{check.get('rule') or 'the pre-#62 signed-bias rule'!r}, not the current "
+            f"{position_check.RULE!r}, so its flags do not mean what the gate needs them to. "
+            f"Re-run: {rerun}  (--ignore-position-check overrides)")
     flagged = check.get('flagged_sequences') or []
     if flagged:
         raise ValueError(
-            f"{len(flagged)} sequence(s) in {input_file.name} sit off the street on the submitted "
-            f"position and the other Mapillary field fixes it ({position_check.check_path_for(input_file).name}). "
+            f"{len(flagged)} sequence(s) in {input_file.name} sit grossly off the street on the "
+            f"submitted position and the other Mapillary field fixes it ({position_check.check_path_for(input_file).name}). "
             f"Run: python scripts/reposition.py {input_file.as_posix()} --from-check, check the output "
             f"with {base} --results <output>, and submit that file instead  "
             f"(--ignore-position-check overrides)")
