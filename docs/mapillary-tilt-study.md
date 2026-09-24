@@ -9,6 +9,10 @@ already stored in every run (`computed_rotation`) and never parsed.*
 date against all five runs; §5.4 and §5.5 changed method (see the revision note at the end
 of each) and their numbers moved. What did not change: §5.1 (the convention lock), §5.2
 and §5.3 reproduce cell for cell.
+**Wired 2026-09-23** (§10): the pose is written into every Mapillary record, `geo._world_ray` now uses
+PS's roll sign (so **every roll value in §5 and the committed per-pano CSVs has the opposite sign to what
+the code produces today**), and fusion applies the tilt road-relative by default for Mapillary — after
+the p90 precondition §6 asked for passed in all five cities.
 
 ## 0. Summary
 
@@ -587,7 +591,7 @@ still applied to bicycle and hand-held rigs, and #42's items 3–5 remain open.
 
 | #42 scope item | Status |
 |---|---|
-| Parse `computed_rotation` into `pano_pose` | Convention established and tested; parser in `scripts/mapillary_tilt.py` (`opensfm_pose`, 30 stdlib lines) ready to move into `sources/mapillary.py` / `geo.py`. Production wiring is the follow-up PR (§8). |
+| Parse `computed_rotation` into `pano_pose` | Convention established and tested; **wired 2026-09-23** (§10): `geo.mapillary_pitch_roll` writes it into every new record and fusion derives it for old ones. |
 | Re-run the pose ablation on a Mapillary city | Done on all five; result in §5.4–5.5: sign locked on every statistic; gravity-relative helps or hurts by regime; road-relative recommended on the median and the range-normalised mean, with its tail behaviour still to be measured under production's range cap (§6). |
 | Validate slope-zeroing height estimation against GSV depth | Not started (needs the depth harvest, a GSV question). |
 | Apply per-sequence height on richmond / clovis / morgantown / annapolis | Not started. |
@@ -627,7 +631,8 @@ still applied to bicycle and hand-held rigs, and #42's items 3–5 remain open.
 
    **And measure the tail.** §5.4's verdict is a median result; §6 explains why the tail is unmeasured under
    production's 25 m cap. Before this ships, re-run `eval_sites` with the cap in place and compare p90
-   GT-to-site distance under off / documented / road-relative.
+   GT-to-site distance under off / documented / road-relative. *(Done 2026-09-23, §10: road-relative
+   tightens the p90 in all five cities; it is now fusion's Mapillary default.)*
 4. **Backfill.** The values need no network: extend `scripts/backfill_metadata.py` with an offline pass that
    fills `camera_pitch`/`camera_roll` from the `source_metadata` already in each line (same atomic rewrite),
    then `send_to_ps.py --min-confidence 2.0` for the submitted cities — the verified idempotent pano-only
@@ -656,6 +661,7 @@ python scripts/mapillary_tilt.py grade          # rig-or-road regression (§5.3)
 python scripts/mapillary_tilt.py horizon        # GT marks above the horizon per convention
 python scripts/mapillary_tilt.py ablation       # frozen-association multi-view spread (§5.4)
 python scripts/mapillary_tilt.py eval           # world P/R vs RampNet GT per convention (§5.5)
+python scripts/mapillary_tilt.py precondition   # the wiring's p90 gate and its verdict (§10)
 python scripts/mapillary_tilt.py rectify        # vertical-edge statistic on 593 benchmark panos
 python scripts/mapillary_tilt.py examples --limit 1   # the image strips
 python scripts/mapillary_tilt.py figures        # redraw the figures (see below)
@@ -671,6 +677,121 @@ per city, deliberately not committed — so `figures` prints what is missing and
 and `grade` first to get those back. After a full re-run, refresh the committed copies with
 `cp runs/_summary/tilt/*.csv docs/figures/mapillary-tilt/data/`.
 
+## 10. Production wiring and the p90 precondition (2026-09-23)
+
+§6 left one thing unmeasured: whether road-relative correction, which wins the centre of §5.4's
+distribution, also holds the tail once production's 25 m range cap is in place. §8 rec 3 made that the
+precondition for wiring it into fusion. The plan comment on #42 posted the measurement design and the
+decision rule **before** it ran; this section reports it, and the wiring that followed.
+
+### 10.1 What shipped
+
+1. **Pose in the record.** `geo.opensfm_pose` / `geo.rotation_matrix` (moved here from the study script,
+   which now imports them) and `geo.mapillary_pitch_roll`, which `sources/mapillary.build_pano_record`
+   uses: gravity-relative pitch and **PS-sign roll**, null when the rotation is missing or malformed or the
+   tilt exceeds `MAX_POSE_TILT_DEG = 45°`. On the five runs that nulls exactly the 30 failed reconstructions
+   of §6 (richmond 1, clovis 25, annapolis 2, laurens 2, morgantown 0).
+2. **One roll sign.** `geo._world_ray` now consumes PS's sign (positive lowers the camera's right axis), so
+   the value in the JSONL, in `pano_data`, and in the raycast are the same number. The study script's
+   decomposition, road-relative formula and travel pitch follow it. `ablation`, `eval` and `grade`
+   reproduce the CSVs committed with PR #50 **cell for cell** after the flip (checked by diffing every
+   cell); the per-pano and summary **roll** columns written by `stats` and `rectify` now carry the other
+   sign from the committed `tilt_summary.csv`, `tilt_by_rig.csv`, `tilt_by_sequence.csv` and
+   `verticality.csv`, and figure 2's axis says so.
+3. **The grade in production.** `fuse_sites.sequence_grades` is §4.3's grade (this script's
+   `add_sequence_grade` now calls it) and `geo.road_relative_pitch_roll` the correction. `load_results`
+   attaches a grade to each pano and, for a Mapillary block written before item 1, derives pitch/roll from
+   `source_metadata` with the same function, so no submitted file has to be rewritten for fusion to use
+   the pose. `--apply-pose` is `auto | off | gravity | road`; `sites_meta.json` gains a `pose` block that
+   counts flat, gravity, road-relative and **gravity-fallback** panos (road mode, no usable neighbour).
+4. **Backfill.** `scripts/backfill_metadata.py --pose` fills old files offline from their own
+   `source_metadata`; it refuses to rewrite a file under a submission record in place (that would break
+   `send_to_ps.py`'s sha256 guard for the live campaign) and writes a separate file with `--out`.
+
+### 10.2 The measurement
+
+`python scripts/mapillary_tilt.py precondition` → `eval_sites.pose_precondition`, per city, reading the run
+through **production's** loader (`fuse_sites.load_results`, so the 45° cap and the production grade apply)
+at the benchmark tier (0.55) with the production 25 m cap, arms `off` / `gravity` / `road`:
+
+- **One site set.** Association is frozen from the `off` fuse. A site is scored only if every arm places
+  every one of its operational members within 25 m; each arm then refits the site from its own raycast of
+  those members with fusion's inverse-covariance refit.
+- **One GT set.** A reviewer mark (verdict-true operational detection or non-unsure missed mark) is used only
+  if every arm places it; marks are grouped into ramps once, under `off`, and each arm places a ramp at the
+  mean of its own raycasts of that ramp's marks.
+- **Distances** are over the pool ramps that every arm matches to a site within 5 m (the same ramps in every
+  row); world recall at 2.5 m and 5 m over the same pool. Precision is identical across arms by
+  construction (membership is frozen) and is shown only so the row reads like `eval_sites`'s.
+
+Freezing the association from `off`, and grouping the shared GT under `off`, both favour `off`: the
+measurement leans against any correction, which is the right direction for a gate.
+
+**The rule (pre-registered on #42):** `road` becomes fusion's Mapillary default only if, against `off`, its
+p90 GT-to-site distance is no worse in any city (tolerance 0.1 m) and its median improves in at least three
+of five.
+
+### 10.3 Results
+
+| City | sites scored (of op.) | common ramps | arm | median (m) | p90 (m) | R@2.5 | R@5 | P | road fallback |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
+| richmond | 1,057 (1,570) | 126 | off | 1.30 | 3.42 | 0.895 | 0.904 | 0.937 | |
+| | | | gravity | 1.14 | 2.86 | 0.886 | 0.913 | 0.937 | |
+| | | | road | 0.96 | 2.74 | 0.900 | 0.917 | 0.937 | 6.9% of panos / 7.6% of members |
+| clovis | 2,311 (2,495) | 141 | off | 1.31 | 3.32 | 0.876 | 0.935 | 0.915 | |
+| | | | gravity | 0.82 | 2.53 | 0.929 | 0.953 | 0.915 | |
+| | | | road | 0.90 | 2.37 | 0.917 | 0.947 | 0.915 | 5.4% / 4.0% |
+| morgantown | 1,275 (1,733) | 137 | off | 1.05 | 3.07 | 0.854 | 0.897 | 0.974 | |
+| | | | gravity | 0.85 | 2.72 | 0.876 | 0.897 | 0.974 | |
+| | | | road | 0.81 | 2.79 | 0.858 | 0.901 | 0.974 | 0.1% / 0.1% |
+| annapolis | 2,873 (4,018) | 128 | off | 1.36 | 3.55 | 0.882 | 0.927 | 0.984 | |
+| | | | gravity | 1.08 | 2.89 | 0.900 | 0.923 | 0.984 | |
+| | | | road | 1.03 | 2.75 | 0.905 | 0.923 | 0.984 | 0.8% / 1.0% |
+| laurens | 171 (186) | 131 | off | 1.83 | 3.82 | 0.553 | 0.693 | 0.880 | |
+| | | | gravity | 1.53 | 2.68 | 0.640 | 0.711 | 0.880 | |
+| | | | road | 1.53 | 2.74 | 0.658 | 0.706 | 0.880 | 0.3% / 0.0% |
+
+(`docs/figures/mapillary-tilt/data/pose_precondition.csv`; laurens is the `laurens_mapillary` split scored
+against `runs/laurens/results.jsonl`. GT marks dropped by the intersection: richmond 81 of 310, clovis 26
+of 195, morgantown 34 of 267, annapolis 74 of 294, laurens 16 of 249.)
+
+| City | Δp90 road − off | Δmedian road − off |
+|---|---:|---:|
+| richmond | −0.68 m | −0.33 m |
+| clovis | −0.96 m | −0.41 m |
+| morgantown | −0.28 m | −0.24 m |
+| annapolis | −0.80 m | −0.33 m |
+| laurens | −1.09 m | −0.30 m |
+
+**Verdict: road passes.** Its p90 is lower than the flat raycast's in all five cities (no city is even
+within the 0.1 m tolerance of failing), and its median is lower in all five (three needed). Fusion's
+default is now `apply_pose='auto'`: road-relative for Mapillary, flat for GSV (gravity-rectified, §6)
+and for Panoramax (its optional `pers:pitch/roll` convention is unmeasured, #57).
+
+**What this changes about §5.4.** The raw-mean and p90 losses there were the uncapped ablation charging
+the correction for rays production never emits: under the cap, on shared sites, the tail tightens by
+0.3–1.1 m everywhere. It does not make road-relative the best arm in every cell — gravity-relative has
+the lower p90 in Morgantown (2.72 vs 2.79 m) and Laurens (2.68 vs 2.74 m) and the lower median in Clovis
+(0.82 vs 0.90 m) — but in each case by less than the rule's tolerance, and road-relative is the one
+convention that §5.3 shows is never the *wrong* model for a car on a slope. That is why it is the default.
+
+**What it costs to measure it this way.** The intersection is expensive: 7% (clovis) to 33% (richmond)
+of operational sites have some member that some arm cannot place within 25 m, and those are the
+long-range sites where pose matters most. The common matched set is 126–141 ramps per city, so a p90 is
+set by the worst dozen or so; treat differences under ~0.2 m as noise. The re-fused end-to-end
+`eval_sites.py --apply-pose <arm>` (each arm on its own subset, the §5.5 design) shows no cost on the
+rates: world recall at 5 m off → road rises in four cities (clovis 0.943 → 0.967, morgantown
+0.948 → 0.951, annapolis 0.934 → 0.959, laurens 0.698 → 0.715) and dips in richmond (0.941 → 0.932,
+well inside its ±3-point interval), and precision moves by at most a point (clovis 0.923 → 0.913).
+
+### 10.4 What is deliberately left to a person
+
+The live servers still hold null `camera_pitch` for every AI-submitted Mapillary pano. Filling them is a
+pano-only push (`send_to_ps.py <file> --min-confidence 2.0` submits no labels, and PS's `COALESCE` upsert
+leaves rows PS populated itself alone) from a file written by `backfill_metadata.py --pose --out`. It is
+not done here: it writes to production, and the submitted files are under a sha256 guard that an
+in-place rewrite would break. The commands are in the wiring PR.
+
 ## Appendix A — the decomposition, in full
 
 With **R** = `rotation_matrix(computed_rotation)` (rows: right, down, forward, each as (E, N, U)):
@@ -680,8 +801,9 @@ heading = atan2(R[2][0], R[2][1])                       # forward's compass bear
 pitch   = asin(R[2][2])                                 # forward's elevation, + up
 level_right = ( cos h, -sin h, 0)
 pitched_up  = (-sin p sin h, -sin p cos h, cos p)
-roll    = atan2(R[0]·pitched_up, R[0]·level_right)      # geo sign: + lifts the image's right side
-roll_ps = -roll                                         # PS sign: + camera rolled clockwise
+roll_geo = atan2(R[0]·pitched_up, R[0]·level_right)     # + lifts the image's right side
+roll    = -roll_geo                                     # PS sign: + camera rolled clockwise;
+                                                        # what the code returns since §10
 tilt    = acos(-R[1][2])                                # camera-up vs world-up
 ```
 
@@ -701,5 +823,5 @@ const right = viewDir × worldUp;  const expectedUp = right × viewDir;
 const roll  = atan2(upDir · right, upDir · expectedUp);           // + = up-vector leans right
 ```
 
-Same frames, same pitch; its roll is the negative of `geo._world_ray`'s. Both are correct; only the name of
-the positive direction differs, and the JSONL should carry PS's.
+Same frames, same pitch; its roll was the negative of `geo._world_ray`'s. Both were correct; only the name
+of the positive direction differed. Since §10 the JSONL carries PS's sign and `geo._world_ray` consumes it.

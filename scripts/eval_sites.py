@@ -410,6 +410,237 @@ def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
     }
 
 
+# --- The #42 pose precondition: p90 placement under the production range cap ----------
+
+PRECONDITION_ARMS = (fs.POSE_OFF, fs.POSE_GRAVITY, fs.POSE_ROAD)
+PRECONDITION_RADII = (2.5, 5.0)
+# The decision rule, pre-registered on issue #42 before any of this was run: `road`
+# becomes fusion's Mapillary default only if, against `off`, its p90 GT-to-site distance
+# is no worse in ANY city (within this tolerance) and its median improves (strictly) in
+# at least PRECONDITION_MIN_MEDIAN_WINS of the cities.
+PRECONDITION_P90_TOLERANCE_M = 0.1
+PRECONDITION_MIN_MEDIAN_WINS = 3
+
+
+def _pct(values, q):
+    """Nearest-rank percentile (the convention of scripts/mapillary_tilt.py's tables)."""
+    if not values:
+        return None
+    v = sorted(values)
+    return v[min(len(v) - 1, int(round((len(v) - 1) * q)))]
+
+
+@dataclass
+class _Placed:
+    """A GT ramp or a site at one arm's position (what match_one_to_one reads)."""
+    id: int
+    e: float
+    n: float
+
+
+def pose_precondition(verdict_panos, bundle_ops, run_panos, base_params,
+                      arms=PRECONDITION_ARMS, gt_merge_m=2.5):
+    """Per-arm GT-to-site placement on ONE site set and ONE GT set (issue #42, study
+    section 8 rec 3). Returns (rows, info): one row per arm.
+
+    Why not just run evaluate_city once per arm: each arm then scores a different subset.
+    A pose that pushes one member of a site above the horizon or past the 25 m cap drops
+    that member, and re-association and GT placement drift with it, so the arms' p90s would
+    describe different ramps -- the trap the #42 study hit in its first ablation. So:
+
+    - Association is frozen from the `off` fuse (production's current output), and a site
+      is scored only if EVERY arm places EVERY one of its operational members at the
+      production cap (base_params.max_range_m). Each arm then refits the site's position
+      from its own raycast of those members (the same inverse-covariance refit fuse uses).
+    - A GT mark (verdict-true operational detection, or a non-unsure missed mark) is used
+      only if every arm places it; ramps are grouped once, under `off`, and each arm puts
+      a ramp at the mean of its own raycasts of that ramp's marks.
+    - Distances are taken over the pool ramps that ALL arms match to a site within 5 m, so
+      median and p90 compare the same ramps; recall at 2.5 m and 5 m is over the same pool.
+
+    Freezing the association from `off` favours `off` (its sites were built from its own
+    geometry); so does the arms' shared GT being grouped under `off`. The measurement is
+    conservative about any correction, which is the right direction for a precondition.
+    World precision is identical across arms by construction (membership is fixed); it is
+    reported so the row reads like evaluate_city's.
+    """
+    by_id = {p.pano_id: p for p in run_panos}
+    params = {arm: replace(base_params, apply_pose=arm) for arm in arms}
+    off = params[fs.POSE_OFF]
+    sites, frame, fuse_stats = fs.fuse(run_panos, off)
+    poses = {arm: {} for arm in arms}
+
+    def place(arm, pano, x, y):
+        pose = poses[arm].get(pano.pano_id)
+        if pose is None:
+            pose = poses[arm][pano.pano_id] = fs.pano_pose(pano, arm)
+        return geo.detection_ground_point(
+            pose, x, y, camera_height=params[arm].camera_height_m,
+            max_range_m=params[arm].max_range_m, errors=geo.error_model_for(pano.source),
+            apply_pose=params[arm].rotates)
+
+    # Sites: frozen membership, kept only if every arm places every operational member.
+    s2 = base_params.sigma_scale ** 2
+    op_sites = [s for s in sites if s.n_operational > 0]
+    kept, site_pos = [], {arm: [] for arm in arms}
+    for site in op_sites:
+        members = [d for d, _ in site.members if d.operational]
+        placed = {}
+        for arm in arms:
+            gs = [place(arm, by_id[d.pano_id], d.x, d.y) for d in members]
+            if any(g is None for g in gs):
+                break
+            placed[arm] = gs
+        else:
+            kept.append(site)
+            for arm in arms:
+                lam, eta_e, eta_n = (0.0, 0.0, 0.0), 0.0, 0.0
+                for d, g in zip(members, placed[arm]):
+                    e, n = frame.to_enu(g.lat, g.lng)
+                    cov = g.cov_en(geo.error_model_for(d.source).sigma_gps_m)
+                    w = geo.sym2_inv((cov[0] * s2, cov[1] * s2, cov[2] * s2))
+                    lam = geo.sym2_add(lam, w)
+                    eta_e += w[0] * e + w[1] * n
+                    eta_n += w[1] * e + w[2] * n
+                inv = geo.sym2_inv(lam)
+                site_pos[arm].append(_Placed(site.id, inv[0] * eta_e + inv[1] * eta_n,
+                                             inv[1] * eta_e + inv[2] * eta_n))
+
+    # GT: marks every arm places; ramps grouped once, under `off`.
+    counts, warnings = gt_counts(), []
+    counts['gt_panos'] = len(verdict_panos)
+    marks, op_verdicts = [], {}
+    for pid, entry, run_pano, ops, in_pool in judged_gt_panos(
+            verdict_panos, bundle_ops, by_id, counts, warnings):
+        for verdict, (stored_i, x, y, _c) in zip(entry['dets'], ops):
+            op_verdicts[(pid, stored_i)] = verdict
+            if verdict is True:
+                marks.append((run_pano, x, y, 'det', in_pool))
+        for mark in entry.get('missed', ()):
+            if not mark.get('unsure'):
+                marks.append((run_pano, mark['x'], mark['y'], 'missed', in_pool))
+    mark_pts = {arm: [] for arm in arms}
+    n_marks_dropped = 0
+    for run_pano, x, y, kind, in_pool in marks:
+        gs = {arm: place(arm, run_pano, x, y) for arm in arms}
+        if any(g is None for g in gs.values()):
+            n_marks_dropped += 1
+            continue
+        for arm in arms:
+            e, n = frame.to_enu(gs[arm].lat, gs[arm].lng)
+            mark_pts[arm].append(GTPoint(run_pano.pano_id, kind, e, n, in_pool))
+    index_of = {id(pt): i for i, pt in enumerate(mark_pts[fs.POSE_OFF])}
+    ramps = merge_gt_points(mark_pts[fs.POSE_OFF], gt_merge_m)
+    pool = [r for r in ramps if r.in_pool]
+    members_of = [[index_of[id(pt)] for pt in r.points] for r in pool]
+
+    # Precision over the kept sites (identical in every arm: membership is frozen).
+    tp = fp = 0
+    for site in kept:
+        vs = [op_verdicts[(d.pano_id, d.det_index)] for d, _ in site.members
+              if d.operational and (d.pano_id, d.det_index) in op_verdicts]
+        if any(v is True or v == 'duplicate' for v in vs):
+            tp += 1
+        elif any(v is False for v in vs):
+            fp += 1
+
+    matched = {}
+    for arm in arms:
+        pts = mark_pts[arm]
+        placed_ramps = [_Placed(i, sum(pts[j].e for j in m) / len(m),
+                                sum(pts[j].n for j in m) / len(m))
+                        for i, m in enumerate(members_of)]
+        for radius in PRECONDITION_RADII:
+            hits = match_one_to_one(placed_ramps, site_pos[arm], radius)
+            matched[arm, radius] = {i: math.hypot(placed_ramps[i].e - s.e,
+                                                  placed_ramps[i].n - s.n)
+                                    for i, s in hits.items()}
+    common = set(range(len(pool)))
+    for arm in arms:
+        common &= set(matched[arm, 5.0])
+
+    posed = [p for p in run_panos if p.camera_pitch is not None and p.camera_roll is not None]
+    graded = sum(1 for p in posed if p.grade_deg is not None)
+    member_panos = [by_id[d.pano_id] for s in kept for d, _ in s.members if d.operational]
+    posed_members = [p for p in member_panos
+                     if p.camera_pitch is not None and p.camera_roll is not None]
+    info = {'op_sites': len(op_sites), 'sites_scored': len(kept),
+            'gt_marks': len(marks), 'gt_marks_dropped': n_marks_dropped,
+            'pool_ramps': len(pool), 'common_matched_5m': len(common),
+            'panos': len(run_panos), 'posed_panos': len(posed),
+            'gravity_fallback_panos': len(posed) - graded,
+            'gravity_fallback_share_panos': (len(posed) - graded) / len(posed) if posed else None,
+            'gravity_fallback_share_members':
+                sum(1 for p in posed_members if p.grade_deg is None) / len(posed_members)
+                if posed_members else None,
+            'warnings': warnings}
+    rows = []
+    for arm in arms:
+        dists = [matched[arm, 5.0][i] for i in sorted(common)]
+        row = {'arm': arm, 'sites_scored': len(kept),
+               'sites_dropped_by_intersection': len(op_sites) - len(kept),
+               'pool_ramps': len(pool), 'gt_marks_dropped_by_intersection': n_marks_dropped,
+               'n_common_matched': len(common),
+               'median_gt_to_site_m': _pct(dists, 0.5), 'p90_gt_to_site_m': _pct(dists, 0.9),
+               'mean_gt_to_site_m': sum(dists) / len(dists) if dists else None,
+               'precision': tp / (tp + fp) if tp + fp else None, 'tp': tp, 'fp': fp}
+        for radius in PRECONDITION_RADII:
+            hit = matched[arm, radius]
+            recalled = sum(1 for i, r in enumerate(pool) if r.self_detected or i in hit)
+            tag = f'{radius:g}'.replace('.', 'p')
+            row[f'world_recall_{tag}m'] = recalled / len(pool) if pool else None
+        row['gravity_fallback_share_panos'] = (info['gravity_fallback_share_panos']
+                                               if arm == fs.POSE_ROAD else None)
+        row['gravity_fallback_share_members'] = (info['gravity_fallback_share_members']
+                                                 if arm == fs.POSE_ROAD else None)
+        rows.append(row)
+    return rows, info
+
+
+def precondition_verdict(rows_by_city):
+    """Apply the pre-registered rule to {city: rows}. Returns (passes, reasons)."""
+    p90_fail, median_wins, reasons = [], [], []
+    for city, rows in rows_by_city.items():
+        r = {row['arm']: row for row in rows}
+        off, road = r[fs.POSE_OFF], r[fs.POSE_ROAD]
+        dp90 = road['p90_gt_to_site_m'] - off['p90_gt_to_site_m']
+        dmed = road['median_gt_to_site_m'] - off['median_gt_to_site_m']
+        if dp90 > PRECONDITION_P90_TOLERANCE_M:
+            p90_fail.append(city)
+        if dmed < 0:
+            median_wins.append(city)
+        reasons.append(f'{city}: p90 road-off {dp90:+.3f} m, median road-off {dmed:+.3f} m')
+    passes = not p90_fail and len(median_wins) >= PRECONDITION_MIN_MEDIAN_WINS
+    reasons.append(f'p90 worse than off by > {PRECONDITION_P90_TOLERANCE_M} m in: '
+                   f'{", ".join(p90_fail) or "none"}; median improves in '
+                   f'{len(median_wins)} of {len(rows_by_city)} '
+                   f'(needs {PRECONDITION_MIN_MEDIAN_WINS}): {", ".join(median_wins) or "none"}')
+    return passes, reasons
+
+
+def format_precondition(city, rows, info):
+    fmt = lambda v, f='.3f': '—' if v is None else format(v, f)  # noqa: E731
+    lines = [f"== {city}: pose precondition (#42) -- one site set, one GT set, "
+             f"{rows[0]['sites_scored']} of {info['op_sites']} operational sites scored "
+             f"({rows[0]['sites_dropped_by_intersection']} dropped: some arm cannot place a "
+             f"member), {info['pool_ramps']} pool ramps, {info['common_matched_5m']} matched "
+             f"within 5 m under every arm; {info['gt_marks_dropped']} of {info['gt_marks']} "
+             f"GT marks unplaceable under some arm",
+             f"{'arm':>8}  {'median':>7}  {'p90':>7}  {'mean':>7}  {'R@2.5':>6}  "
+             f"{'R@5':>6}  {'P':>6}"]
+    for r in rows:
+        lines.append(f"{r['arm']:>8}  {fmt(r['median_gt_to_site_m']):>7}  "
+                     f"{fmt(r['p90_gt_to_site_m']):>7}  {fmt(r['mean_gt_to_site_m']):>7}  "
+                     f"{fmt(r['world_recall_2p5m']):>6}  {fmt(r['world_recall_5m']):>6}  "
+                     f"{fmt(r['precision']):>6}")
+    lines.append(f"road-mode gravity fallback: {info['gravity_fallback_panos']} of "
+                 f"{info['posed_panos']} posed panos ({fmt(info['gravity_fallback_share_panos'], '.1%')}), "
+                 f"{fmt(info['gravity_fallback_share_members'], '.1%')} of scored members")
+    for w in info['warnings']:
+        lines.append(f'warning: {w}')
+    return '\n'.join(lines)
+
+
 def format_report(city, r):
     c, b, p = r['counts'], r['buckets'], r['precision']
     pct = lambda v: 'n/a' if v is None else f'{v:.3f}'  # noqa: E731
@@ -578,9 +809,16 @@ def main():
                     help='raycast height for fusion AND GT placement: meters, or '
                          '"per-pano" for GSV depth-measured heights (#40). A non-default '
                          'value needs --out, so it cannot overwrite the published report')
-    ap.add_argument('--apply-pose', choices=fs.POSE_MODES, default=fs.FuseParams.apply_pose,
-                    help='camera pose for fusion AND GT placement (#42; see fuse_sites.py). '
-                         'A non-default value needs --out, like --camera-height-m')
+    # Default OFF, not FuseParams' `auto`: runs/<city>/fusion_eval/ reports were all
+    # produced flat, and re-running with the defaults must still reproduce them.
+    ap.add_argument('--apply-pose', choices=fs.POSE_MODES, default=fs.POSE_OFF,
+                    help='camera pose for fusion AND GT placement (#42; see fuse_sites.py; '
+                         'default off, which reproduces the published reports). Any other '
+                         'value needs --out, like --camera-height-m')
+    ap.add_argument('--pose-precondition', action='store_true',
+                    help='instead of the report: GT-to-site median/p90 and world P/R under '
+                         'every --apply-pose arm, on one site set and one GT set at the '
+                         'production range cap (#42; see pose_precondition). Needs --out')
     ap.add_argument('--vintage-ablation', action='store_true',
                     help='re-fuse at capture-delta windows 0/18/36/none and '
                          'compare world P/R (the #27 open question)')
@@ -591,7 +829,9 @@ def main():
     if args.camera_height_m != geo.DEFAULT_CAMERA_HEIGHT_M and args.out is None:
         ap.error('--camera-height-m other than the default changes the scoring frame; '
                  'pass --out so the default fusion_eval/ report is not overwritten')
-    if args.apply_pose != fs.FuseParams.apply_pose and args.out is None:
+    if args.pose_precondition and args.out is None:
+        ap.error('--pose-precondition needs --out')
+    if args.apply_pose != fs.POSE_OFF and args.out is None:
         ap.error('--apply-pose other than the default changes the scoring frame; '
                  'pass --out so the default fusion_eval/ report is not overwritten')
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
@@ -605,6 +845,18 @@ def main():
     params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
                            camera_height_m=args.camera_height_m,
                            apply_pose=args.apply_pose)
+    if args.pose_precondition:
+        rows, info = pose_precondition(verdict_panos, bundle_ops, run_panos,
+                                       replace(params, apply_pose=fs.POSE_OFF),
+                                       gt_merge_m=args.gt_merge_m)
+        print(format_precondition(args.city, rows, info))
+        args.out.mkdir(parents=True, exist_ok=True)
+        with open(args.out / 'pose_precondition.csv', 'w', newline='', encoding='utf-8') as f:
+            w = csv.DictWriter(f, list(rows[0].keys()))
+            w.writeheader()
+            w.writerows(rows)
+        print(f'\nwrote {args.out}')
+        return
     prefused = fs.fuse(run_panos, params)
 
     result = evaluate_city(verdict_panos, bundle_ops, run_panos, params,

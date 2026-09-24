@@ -339,8 +339,21 @@ def test_road_mode_takes_the_grade_back_out_of_a_car_on_a_hill(tmp_path):
     assert road['lone'] == pytest.approx(gravity['lone'])
     _, _, stats = fs.fuse(panos, fs.FuseParams(apply_pose=fs.POSE_ROAD))
     assert stats['pose'] == {'mode': 'road', 'panos': 4, 'posed': 4,
-                             'derived_from_source_metadata': 3, 'unposed': 0,
+                             'derived_from_source_metadata': 3, 'flat': 0, 'gravity': 0,
                              'road_relative': 3, 'gravity_fallback': 1}
+    # ...and the production default is exactly that for Mapillary (the #42 precondition)
+    assert ranges(fs.FuseParams().apply_pose) == road
+
+
+def test_auto_pose_keeps_gsv_flat_even_with_a_stored_pose():
+    # GSV equirects are gravity-rectified: rotating by their metadata pose loosens every
+    # city (geo._world_ray), so the default must not, whatever the block carries.
+    p = make_pano('g', 0, 0, [(0, 10, 0.9)])
+    p.camera_pitch, p.camera_roll = 3.0, 1.0
+    auto, _, stats = fs.project([p], fs.FuseParams())
+    flat, _, _ = fs.project([p], fs.FuseParams(apply_pose=fs.POSE_OFF))
+    assert auto[0].ground.range_m == flat[0].ground.range_m == pytest.approx(10.0)
+    assert fs.pose_counts([p], fs.FuseParams())['flat'] == 1
 
 
 def test_fuse_params_refuses_the_pre_42_boolean():

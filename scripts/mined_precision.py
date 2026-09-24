@@ -615,9 +615,14 @@ def main():
                      f'--benchmark-root at it, and --runs-root at the runs, if '
                      f'either sits elsewhere (e.g. in a git worktree).')
         # Fusion at the BENCHMARK threshold (the verdicts' tier), not the production one.
-        params = (fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False)
+        # apply_pose=OFF: geo.ground_point_to_pano inverts only the flat raycast, and the
+        # RampNet#158 numbers were measured flat -- FuseParams' `auto` default would rotate
+        # every Mapillary ray since #42.
+        params = (fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                                apply_pose=fs.POSE_OFF)
                   if heights is None
                   else fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                                     apply_pose=fs.POSE_OFF,
                                      camera_height_m=heights[i] if len(heights) > 1
                                      else heights[0]))
         try:

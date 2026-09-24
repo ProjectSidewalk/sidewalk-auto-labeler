@@ -2,9 +2,10 @@
 physical curb-ramp sites.
 
 Reads a run's results.jsonl, projects every stored detection to a flat-ground
-world point (geo.detection_ground_point with anisotropic error; camera
+world point (geo.detection_ground_point with anisotropic error; GSV camera
 pitch/roll deliberately NOT applied — the --pose-ablation experiment showed
-streetlevel's GSV equirects are already gravity-rectified), and greedily
+streetlevel's GSV equirects are already gravity-rectified — while Mapillary rays are
+rotated road-relative by default, see Camera pose below), and greedily
 associates them into sites:
 
 - processed in descending confidence, so every operational (>= --min-confidence)
@@ -30,10 +31,12 @@ capture-delta data); capture dates are recorded per member and the eval's
 ablation can re-fuse with FuseParams.max_vintage_months set.
 
 Camera pose (issue #42) is --apply-pose: `off` (the flat raycast: ray elevation is the
-pixel's pano-frame elevation), `gravity` (rotate each ray by the pano's stored pitch/roll)
-or `road` (the same, relative to the local road: the grade along the sequence, from
-Mapillary's SfM altitude profile, is subtracted first -- see sequence_grades). GSV is
-measured to want `off` (its equirects are gravity-rectified; geo._world_ray). For
+pixel's pano-frame elevation), `gravity` (rotate each ray by the pano's stored pitch/roll),
+`road` (the same, relative to the local road: the grade along the sequence, from
+Mapillary's SfM altitude profile, is subtracted first -- see sequence_grades), or the
+default `auto`: road for Mapillary, off for everything else (AUTO_ROAD_SOURCES says why;
+docs/mapillary-tilt-study.md section 10 has the measurement). GSV is measured to want
+`off` (its equirects are gravity-rectified; geo._world_ray). For
 Mapillary, blocks written since #42 carry pitch/roll and older ones get them derived here
 from source_metadata, so no run needs rewriting to be fused posed. sites_meta.json's
 `pose` block counts which panos were posed and, under `road`, how many had no usable
@@ -77,10 +80,20 @@ from detectors import (DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE,  # noqa:
 
 # How fusion rotates rays by camera pose (issue #42). The value is recorded in
 # sites_meta.json's params, so a sites file always says which frame it is in.
-POSE_OFF = 'off'          # flat raycast in the pano frame (production default)
+POSE_OFF = 'off'          # flat raycast in the pano frame
 POSE_GRAVITY = 'gravity'  # rotate by the stored pitch/roll (gravity-relative)
 POSE_ROAD = 'road'        # ...minus the sequence's road grade where there is one
-POSE_MODES = (POSE_OFF, POSE_GRAVITY, POSE_ROAD)
+POSE_AUTO = 'auto'        # the default: POSE_ROAD for AUTO_ROAD_SOURCES, POSE_OFF otherwise
+POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
+# Sources `auto` fuses road-relative. Mapillary only, on the #42 precondition
+# (docs/mapillary-tilt-study.md section 10): at the production 25 m cap, on one site set
+# and one GT set per city, road-relative cut the p90 GT-to-site distance against the
+# flat raycast in all five Mapillary cities (-0.28 to -1.09 m) and the median in all five
+# (-0.24 to -0.41 m), passing the rule pre-registered on #42. GSV stays flat: its equirects
+# are gravity-rectified and applying their pose loosens every city (geo._world_ray).
+# Panoramax stays flat until measured: its pers:pitch/roll are optional (28% of panos)
+# and nobody has checked their convention (#57).
+AUTO_ROAD_SOURCES = ('mapillary',)
 
 # Consecutive frames of one sequence within this time gap and horizontal distance define
 # a local direction of travel and, through the SfM altitude, a road grade. The bounds are
@@ -105,9 +118,8 @@ class FuseParams:
     max_match_m: float = 8.0         # above dual-ramp scatter, below corner spacing
     residual_per_dof_max: float = 3.0
     camera_height_m: float | str = geo.DEFAULT_CAMERA_HEIGHT_M  # or geo.PER_PANO
-    apply_pose: str = POSE_OFF       # one of POSE_MODES. GSV equirects are gravity-
-                                     # rectified, so applying their metadata pitch/roll
-                                     # loosens multi-view agreement (geo._world_ray)
+    apply_pose: str = POSE_AUTO      # one of POSE_MODES; see AUTO_ROAD_SOURCES for what
+                                     # the default does per source, and why
     sigma_scale: float = 1.0         # inflate all covariances by scale^2 (model tuning)
     max_vintage_months: int | None = None  # eval-ablation only; None = no gate
 
@@ -119,7 +131,8 @@ class FuseParams:
 
     @property
     def rotates(self):
-        """Whether rays are rotated by pose at all (geo's boolean apply_pose)."""
+        """Whether rays MAY be rotated (geo's boolean apply_pose). Per pano, pano_pose
+        decides: a pano it leaves unposed raycasts flat whatever this says."""
         return self.apply_pose != POSE_OFF
 
 
@@ -315,12 +328,24 @@ def sequence_grades(frames):
     return out
 
 
+def pose_mode_for(pano, mode):
+    """The mode a pano is actually raycast under: POSE_AUTO resolves by source."""
+    if mode == POSE_AUTO:
+        return POSE_ROAD if pano.source in AUTO_ROAD_SOURCES else POSE_OFF
+    return mode
+
+
 def pano_pose(pano, mode):
-    """geo.Pose for a SlimPano under an apply_pose mode. Under POSE_ROAD a posed pano
-    with a sequence grade gets its pitch/roll re-expressed relative to the road
-    (geo.road_relative_pitch_roll); without a grade it keeps the gravity-relative
-    angles -- the fallback sites_meta.json counts. POSE_OFF returns the stored pose
-    too: whether it is applied is detection_ground_point's apply_pose."""
+    """geo.Pose for a SlimPano under an apply_pose mode.
+
+    Under POSE_OFF (or POSE_AUTO for a source not in AUTO_ROAD_SOURCES) the pose comes
+    back WITHOUT pitch/roll, so the raycast is flat whatever apply_pose the caller passes
+    geo. Under POSE_ROAD a posed pano with a sequence grade gets its pitch/roll re-expressed
+    relative to the road (geo.road_relative_pitch_roll); without a grade it keeps the
+    gravity-relative angles -- the fallback sites_meta.json counts."""
+    mode = pose_mode_for(pano, mode)
+    if mode == POSE_OFF:
+        return geo.pano_pose(pano.pose_fields(camera_pitch=None, camera_roll=None))
     if mode == POSE_ROAD and pano.grade_deg is not None \
             and pano.camera_pitch is not None and pano.camera_roll is not None:
         pitch, roll = geo.road_relative_pitch_roll(
@@ -331,18 +356,27 @@ def pano_pose(pano, mode):
 
 
 def pose_counts(panos, params):
-    """Where the run's panos got their pose, and -- under POSE_ROAD -- how many had no
-    sequence grade and so raycast gravity-relative: the provenance sites_meta.json
-    records, because the fallback is the convention the #42 study found WRONG for a
-    vehicle rig on a slope, so its rate has to be visible rather than silent."""
-    posed = [p for p in panos if p.camera_pitch is not None and p.camera_roll is not None]
-    counts = {'mode': params.apply_pose, 'panos': len(panos), 'posed': len(posed),
-              'derived_from_source_metadata':
-                  sum(1 for p in posed if p.pose_origin == 'source_metadata'),
-              'unposed': len(panos) - len(posed)}
-    if params.apply_pose == POSE_ROAD:
-        graded = sum(1 for p in posed if p.grade_deg is not None)
-        counts.update({'road_relative': graded, 'gravity_fallback': len(posed) - graded})
+    """Where the run's panos got their pose and how each was raycast: `flat`,
+    `gravity`, `road_relative`, or `gravity_fallback` -- a pano road mode wanted to
+    correct but whose sequence gave no grade. sites_meta.json records it because that
+    fallback is the convention the #42 study found WRONG for a vehicle rig on a slope,
+    so its rate has to be visible rather than silent."""
+    counts = {'mode': params.apply_pose, 'panos': len(panos), 'posed': 0,
+              'derived_from_source_metadata': 0, 'flat': 0, 'gravity': 0,
+              'road_relative': 0, 'gravity_fallback': 0}
+    for p in panos:
+        posed = p.camera_pitch is not None and p.camera_roll is not None
+        counts['posed'] += posed
+        counts['derived_from_source_metadata'] += p.pose_origin == 'source_metadata'
+        mode = pose_mode_for(p, params.apply_pose)
+        if not posed or mode == POSE_OFF:
+            counts['flat'] += 1
+        elif mode == POSE_GRAVITY:
+            counts['gravity'] += 1
+        elif p.grade_deg is not None:
+            counts['road_relative'] += 1
+        else:
+            counts['gravity_fallback'] += 1
     return counts
 
 
@@ -608,10 +642,11 @@ def main():
     ap.add_argument('--sigma-scale', type=float, default=1.0)
     ap.add_argument('--apply-pose', choices=POSE_MODES, nargs='?', const=POSE_GRAVITY,
                     default=FuseParams.apply_pose,
-                    help='rotate rays by camera pose: off (flat raycast), gravity (stored '
-                         'pitch/roll; a bare --apply-pose means this), or road (minus the '
-                         "sequence's road grade; #42). Measured to hurt on GSV -- see the "
-                         '--pose-ablation report (default: %(default)s)')
+                    help='rotate rays by camera pose: auto (road for Mapillary, off for '
+                         'everything else; the default, set by the #42 precondition), off '
+                         '(flat raycast), gravity (stored pitch/roll; a bare --apply-pose '
+                         "means this), or road (minus the sequence's road grade). Measured "
+                         'to hurt on GSV -- see the --pose-ablation report')
     ap.add_argument('--pose-ablation', action='store_true',
                     help='report within-site spread under each pitch/roll sign '
                          'convention instead of writing sites')

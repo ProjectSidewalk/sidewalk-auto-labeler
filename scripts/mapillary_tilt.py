@@ -40,6 +40,7 @@ under ``docs/figures/mapillary-tilt/data/``, which ``figures`` falls back to:
     python scripts/mapillary_tilt.py horizon richmond ...      # GT marks above the horizon
     python scripts/mapillary_tilt.py ablation richmond ...     # multi-view sign lock
     python scripts/mapillary_tilt.py eval richmond ...         # world P/R vs RampNet GT
+    python scripts/mapillary_tilt.py precondition richmond ... # #42 wiring's p90 gate
     python scripts/mapillary_tilt.py rectify richmond ...      # pixel-level sign lock
     python scripts/mapillary_tilt.py examples richmond ...     # before/after image strips
     python scripts/mapillary_tilt.py figures                   # docs/figures/mapillary-tilt
@@ -487,7 +488,10 @@ def cmd_ablation(args):
     # FuseParams.min_confidence defaults to OPERATIONAL_CONFIDENCE, which moved to 0.30
     # with issue #20. Taking the default would silently re-key the committed CSVs.
     # mask_rig=False for the same reason as the tier: these CSVs are committed.
-    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False)
+    # apply_pose pinned OFF for the same reason: the association is frozen from the flat
+    # fuse, which FuseParams' default stopped being for Mapillary with the #42 wiring.
+    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                           apply_pose=fs.POSE_OFF)
     all_rows = []
     for city in args.cities:
         panos, poses, _ = load_run(city)
@@ -655,6 +659,40 @@ def cmd_eval(args):
                   f"5 m {r['recall_vs_off_pool_5m']:.3f}  2.5 m {r['recall_vs_off_pool_2p5m']:.3f}")
         write_csv(out_dir_for(city, args.out) / 'gt_eval.csv', [r for r in rows if r['city'] == city])
     write_csv(out_dir_for('_summary', args.out) / 'gt_eval.csv', rows)
+
+
+# --- precondition: the #42 wiring's p90 gate ---------------------------------------------
+
+def cmd_precondition(args):
+    """eval_sites.pose_precondition for every city, then the pre-registered rule.
+
+    Unlike every other subcommand this one reads the run through PRODUCTION's loader
+    (fuse_sites.load_results: pose from the block or derived from source_metadata with the
+    45 deg cap, grade from fuse_sites.sequence_grades) and fuses at the production 25 m
+    cap: it is the measurement that sets fuse_sites' Mapillary default, so it has to
+    measure what fuse_sites would do. Tier and rig mask are pinned like `eval`'s.
+    """
+    by_city = {}
+    base = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                         apply_pose=fs.POSE_OFF)
+    all_rows = []
+    for city in args.cities:
+        bench = BENCHMARK_OF.get(city, city)
+        verdict_panos, bundle_ops = load_gt_files(bench, args.benchmark_root)
+        panos, _ = fs.load_results(REPO_ROOT / 'runs' / city / 'results.jsonl',
+                                   read_heights=False)
+        rows, info = es.pose_precondition(verdict_panos, bundle_ops, panos, base)
+        print(es.format_precondition(bench, rows, info))
+        for r in rows:
+            r['city'] = city
+        by_city[city] = rows
+        all_rows.extend({'city': city, **{k: v for k, v in r.items() if k != 'city'}}
+                        for r in rows)
+    passes, reasons = es.precondition_verdict(by_city)
+    print('\n'.join(reasons))
+    print(f"VERDICT: road {'PASSES' if passes else 'FAILS'} the pre-registered rule -> "
+          f"fuse_sites' Mapillary default is {'road' if passes else 'off'}")
+    write_csv(out_dir_for('_summary', args.out) / 'pose_precondition.csv', all_rows)
 
 
 # --- rectify: pixel-level sign lock ------------------------------------------------------
@@ -1236,7 +1274,7 @@ def main():
                        default=REPO_ROOT.parent / 'RampNet' / 'benchmark')
     for name, fn in (('stats', cmd_stats), ('displacement', cmd_displacement),
                      ('ablation', cmd_ablation), ('eval', cmd_eval), ('grade', cmd_grade),
-                     ('horizon', cmd_horizon)):
+                     ('horizon', cmd_horizon), ('precondition', cmd_precondition)):
         p = sub.add_parser(name)
         common(p)
         p.set_defaults(fn=fn)
