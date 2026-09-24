@@ -836,6 +836,7 @@ def check_model_provenance(input_file: Path) -> None:
     path-based reader — and legacy records, which carry neither, submit unchanged.
     """
     unknown = 0
+    revisions = set()
     with open(input_file, 'r', encoding='utf-8') as f:
         for line in f:
             if line.strip():
@@ -847,14 +848,17 @@ def check_model_provenance(input_file: Path) -> None:
                 # revision. (A record lacking the key predates any of this.)
                 if 'model_training_date' in record and record['model_training_date'] is None:
                     unknown += 1
-                    revision = record.get('model_revision')
+                    revisions.add(str(record.get('model_revision')))
     if unknown:
+        # Worded to stay true after the SHA gains a KNOWN_REVISIONS row: the records were
+        # still written without a date, and only a fresh run can produce dated ones.
+        named = ", ".join(sorted(revisions))
         raise ValueError(
             f"{unknown} record(s) in {input_file.name} have no model_training_date: they were "
-            f"made with --allow-unknown-model-revision from revision {revision}, which is not "
-            f"in detectors.KNOWN_REVISIONS. Add that revision (with its training date) to the "
-            f"table and re-run detection into a new run; Project Sidewalk rejects a record "
-            f"without the date.")
+            f"written without a training date (run made under --allow-unknown-model-revision) "
+            f"from revision(s) {named}. Project Sidewalk rejects a record without the date. "
+            f"Make sure each revision has a row (with its training date) in "
+            f"detectors.KNOWN_REVISIONS, then re-run detection into a fresh --name.")
 
 
 def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, Any]]:

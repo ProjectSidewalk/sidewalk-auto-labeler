@@ -169,6 +169,24 @@ def test_unknown_provenance_file_is_refused_before_any_post(tmp_path, monkeypatc
     assert sent == []
 
 
+def test_null_date_refusal_names_every_revision_and_stays_true_once_known(tmp_path, monkeypatch):
+    """Every null-date revision in the file is named (not just the last one read), and the
+    message does not claim the SHA is missing from KNOWN_REVISIONS — it may have been added
+    since, and the records are still undated."""
+    shas = ["0123456789abcdef0123456789abcdef01234567", "fedcba9876543210fedcba9876543210fedcba98"]
+    path = tmp_path / "results.jsonl"
+    lines = [main.build_output_line(make_process_result(), make_provenance(sha, allow_unknown=True))
+             for sha in (shas[0], shas[1], shas[0])]
+    path.write_text("".join(json.dumps(line) + "\n" for line in lines))
+    with pytest.raises(ValueError) as e:
+        send_to_ps.check_model_provenance(path)
+    message = str(e.value)
+    assert message.startswith("3 record(s)")
+    assert shas[0] in message and shas[1] in message
+    assert "written without a training date (run made under --allow-unknown-model-revision)" in message
+    assert "is not in" not in message
+
+
 def test_load_submitted_lines(tmp_path):
     assert send_to_ps.load_submitted_lines(tmp_path / "missing") == set()
     sidecar = tmp_path / "r.jsonl.submitted"

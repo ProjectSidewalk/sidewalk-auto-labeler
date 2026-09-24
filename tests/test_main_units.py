@@ -295,6 +295,24 @@ def test_unknown_revision_override_is_recorded_in_the_manifest(tmp_path):
     assert "unknown_revision_allowed" not in main.manifest_model_block(make_provenance())
 
 
+def test_override_run_is_refused_once_its_revision_becomes_known(tmp_path, monkeypatch):
+    """A run made under --allow-unknown-model-revision holds null-date records. Once that
+    SHA gains a KNOWN_REVISIONS row the loaded provenance has a date, and resuming would
+    append dated lines after undated ones from the same weights — refuse, and say to start
+    a fresh --name, since the null-date lines already written can never be submitted."""
+    run_dir = tmp_path / "city"
+    _init(run_dir, make_provenance(UNKNOWN_SHA, allow_unknown=True))
+    _init(run_dir, make_provenance(UNKNOWN_SHA, allow_unknown=True))  # still unknown: resumes
+    monkeypatch.setitem(detectors.KNOWN_REVISIONS, UNKNOWN_SHA,
+                        {"training_date": "2027-01-01", "note": "test row"})
+    with pytest.raises(SystemExit) as e:
+        _init(run_dir, make_provenance(UNKNOWN_SHA))
+    assert "--allow-unknown-model-revision" in str(e.value) and "fresh --name" in str(e.value)
+    # Nothing was rewritten: the manifest still shows the override the records were made under.
+    saved = json.load(open(run_dir / "manifest.json"))
+    assert saved["unknown_revision_allowed"] is True and saved["model_training_date"] is None
+
+
 def test_scan_only_stays_torch_free():
     """--scan-only must not pay for (or require) torch: main imports the detector lazily,
     and the provenance machinery it now imports eagerly lives in torch-free detectors."""

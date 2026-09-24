@@ -189,6 +189,10 @@ def bind_model(manifest, provenance, run_name):
     from the paper weights — unless the recorded training date differs from the loaded
     model's, which would mean different weights. The legacy values are kept under
     `legacy_model_provenance`, since they describe the records already written.
+
+    A run made under --allow-unknown-model-revision (`unknown_revision_allowed` in the
+    manifest) is also refused once its SHA has gained a KNOWN_REVISIONS row: its existing
+    records have a null training date that no resume can repair.
     """
     bound = manifest.get('model_revision')
     if bound is not None:
@@ -199,6 +203,20 @@ def bind_model(manifest, provenance, run_name):
                 f"{provenance['model_revision'][:12]}….\n"
                 f"   Appending would mix two models' detections in one results.jsonl.\n"
                 f"   Use a new --name for this model (or load the revision the run was made with)."
+            )
+        if manifest.get('unknown_revision_allowed') and provenance['model_training_date'] is not None:
+            # Same SHA, but it has since been added to KNOWN_REVISIONS. Resuming would append
+            # dated lines after the null-date ones already written, and the manifest would
+            # keep claiming the override; send_to_ps.py refuses the file either way, because
+            # those earlier lines cannot be submitted. The only clean state is a fresh run.
+            sys.exit(
+                f"❌ Run '{run_name}' was made under --allow-unknown-model-revision: its "
+                f"records from revision {bound[:12]}… carry no training date. That revision "
+                f"is now in detectors.KNOWN_REVISIONS (trained "
+                f"{provenance['model_training_date']}), so resuming would mix null-date and "
+                f"dated records in one results.jsonl, and the null-date ones can never be "
+                f"submitted.\n"
+                f"   Start a fresh --name to re-run this area with the dated revision."
             )
         return False
     legacy = {k: manifest[k] for k in LEGACY_PROVENANCE_KEYS if k in manifest}
