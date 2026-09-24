@@ -21,6 +21,9 @@ pip install -r requirements.txt
 
 # Scope an area first: pano count + runtime estimate, no model load, nothing processed
 python main.py example_geojson/bend.geojson --name bend --scan-only
+# ...every tile pass is saved to runs/<name>/scan.json; --reuse-scan (OFF by default —
+# coverage churns, so a reused scan misses newer panos) lets the follow-up run skip it
+python main.py example_geojson/bend.geojson --name bend --reuse-scan
 
 # Run the labeler over an area; all per-area state goes to runs/<name>/
 # (--name defaults to the geojson filename stem)
@@ -312,9 +315,21 @@ The pipeline is two stages run by two separate entry points:
    `area.geojson` stores and what the SHA-256 area hash covers, so a wrapped and an unwrapped
    copy of the same polygon bind to the same run (the manifest's `input_geojson_type` says
    which it came in as). Anything non-polygonal is refused.
-2. Converts the area bounds to Slippy Map tiles (zoom per source) and scans them
-   concurrently through the imagery source (`--source`, see below) to collect all pano IDs
-   whose point falls inside the area polygon.
+2. Converts the area bounds to Slippy Map tiles (zoom per source), keeps only the tiles
+   within `TILE_EDGE_BUFFER_M` = 50 m of the polygon (`tiles_intersecting`, issue #4 —
+   on the committed concave/multi-part areas 29–56% of candidate tiles are empty corners),
+   and scans them concurrently through the imagery source (`--source`, see below) to
+   collect all pano IDs whose point falls inside the area polygon. The buffer is not
+   optional: **a coverage tile returns panos lying outside its own bounds** (a live GSV
+   probe measured out-of-tile hits up to 28 m past the edge, and some panos returned only
+   by the neighbouring tile), so a tile that merely touches the area would lose in-area
+   panos near its edge. Don't shrink it without re-measuring. The pano list
+   (pre-thinning) is saved to `scan.json`; `--reuse-scan` loads it instead of rescanning
+   when area hash, source, source endpoint (Panoramax's `PANORAMAX_API_URL`), zoom and
+   tile prefilter rule all match and no tile failed. It is **off by default** because coverage churns (paterson ~0.3% per
+   4 h — the reason gap fill exists): a resume that silently reused an old scan would miss
+   new panos without saying so. Each manifest run entry records `scan: fresh|reused` and
+   `scan_age_hours`.
 3. For each new pano, fetches the 4096×2048 equirectangular image through the source, runs
    the detector (`detectors/curb_ramp.py`), and appends one JSON line per **successfully
    processed** pano — even when zero detections are found (`detections: []`).
@@ -376,8 +391,8 @@ work) are the main tuning knobs. GPU inference is serialized by a lock inside
 
 **Run directories / resumability:** all per-area state lives in `runs/<name>/` —
 `results.jsonl`, the resume cache (`already_processed.txt`), `manifest.json` (geometry hash,
-model provenance, streetlevel version, per-run stats), and `area.geojson` (exact copy of the
-geometry used). The JSONL and cache are appended to and flushed line-by-line, so a run is
+model provenance, streetlevel version, per-run stats), `area.geojson` (exact copy of the
+geometry used), and `scan.json` (the last coverage scan, gitignored; see step 2). The JSONL and cache are appended to and flushed line-by-line, so a run is
 resumable — re-running skips cached panos, and failed panos are intentionally left out of the
 cache so they retry next run. A run directory is bound to one geometry and one imagery
 source: rerunning a name with an edited geojson or a different `--source` is refused

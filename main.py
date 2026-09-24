@@ -30,9 +30,10 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 import geojson
 from dotenv import load_dotenv
-from shapely.geometry import MultiPolygon, mapping, shape
 from shapely.errors import GEOSException
+from shapely.geometry import MultiPolygon, box, mapping, shape
 from shapely.ops import unary_union
+from shapely.prepared import prep
 from tqdm import tqdm
 
 import depth as depthlib
@@ -149,6 +150,161 @@ def get_geojson_hash(geometry):
     canonical_json = json.dumps(geometry, sort_keys=True, separators=(',', ':'))
     sha_hash = hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
     return sha_hash
+
+def tile_lonlat_bounds(tile_x, tile_y, zoom):
+    """(west, south, east, north) in degrees of one Slippy Map tile — the inverse of
+    latlon_to_tile, so a point maps to the tile whose bounds contain it."""
+    n = 2.0 ** zoom
+    west = tile_x / n * 360.0 - 180.0
+    east = (tile_x + 1) / n * 360.0 - 180.0
+    north = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * tile_y / n))))
+    south = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * (tile_y + 1) / n))))
+    return west, south, east, north
+
+
+# A coverage tile does NOT return only the panos inside its own bounds. A live GSV
+# probe (2026-09-24, 7x7 z17 tiles each around Paterson and Bend) found ~10% of pano hits
+# lying outside the tile that returned them (median 4 m past the edge, p95 ~10 m, max
+# 28.0 m) and 49 panos returned ONLY by a neighbouring tile (0.1-12 m past its edge).
+# So a pano just inside the area can be reachable only through a tile that lies wholly
+# outside it, and an exact tile/area intersection test would silently drop it. Every
+# tile within this distance of the area is kept instead: 50 m is ~1.8x the largest
+# out-of-tile hit observed and ~4x the largest neighbour-only one. It is applied to every
+# source (on z14/z15 vector tiles, 1-2.4 km across, it costs almost nothing).
+TILE_EDGE_BUFFER_M = 50.0
+# Identifies the tile-set rule in the scan cache: a cache written under another rule or
+# buffer covered a different set of tiles, so it must not stand in for this one.
+TILE_PREFILTER = f'tile-within-{TILE_EDGE_BUFFER_M:g}m-of-area'
+
+# Metres per degree of latitude is 110,574 at the equator and grows toward the poles, so
+# dividing by the minimum over-pads (never under-pads) the north/south direction.
+_MIN_M_PER_DEG_LAT = 110_574.0
+_M_PER_DEG_LON_EQUATOR = 111_320.0
+
+
+def tiles_intersecting(area_shape, zoom, buffer_m=TILE_EDGE_BUFFER_M):
+    """(tiles, bbox_tile_count): the coverage tiles to scan for `area_shape`.
+
+    Keeps every tile whose lon/lat box comes within `buffer_m` metres of the area (issue
+    #4), out of the tiles of the area's bounding box grown by the same distance.
+    `buffer_m` exists because a coverage tile can return panos lying up to ~28 m outside
+    its own bounds, and some panos only through a neighbouring tile (see
+    TILE_EDGE_BUFFER_M): a tile that merely touches the area is not enough. The same holds
+    at the bounding box's edge, which is why the bbox is grown too; the plain bbox
+    enumeration this replaced could already miss those neighbour-only panos there.
+
+    The buffer is applied in degrees, per axis, sized so it is at least `buffer_m` metres
+    everywhere in the area (the longitude pad is taken at the area's most poleward
+    latitude). The per-pano in-polygon test in each source's fetch_panos_for_tile is
+    unchanged. On a convex area it drops little; on a concave or multi-part one (PS region
+    unions, an OSM relation) it drops the empty corners.
+
+    Example:
+        >>> tiles, bbox_count = tiles_intersecting(area_shape, 17)
+        >>> print(f"{len(tiles)} of {bbox_count} bbox tiles are within 50 m of the area")
+    """
+    min_lon, min_lat, max_lon, max_lat = area_shape.bounds
+    pad_lat = buffer_m / _MIN_M_PER_DEG_LAT
+    poleward = min(max(abs(min_lat), abs(max_lat)) + pad_lat, 85.0)
+    pad_lon = buffer_m / (_M_PER_DEG_LON_EQUATOR * math.cos(math.radians(poleward)))
+    top_left_x, top_left_y = latlon_to_tile(max_lat + pad_lat, min_lon - pad_lon, zoom)
+    bottom_right_x, bottom_right_y = latlon_to_tile(min_lat - pad_lat, max_lon + pad_lon, zoom)
+    bbox_tiles = [(x, y) for x in range(top_left_x, bottom_right_x + 1)
+                  for y in range(top_left_y, bottom_right_y + 1)]
+    # A separate prepared object (rather than shapely.prepare in place) leaves area_shape
+    # itself untouched for the scan's worker threads.
+    prepared = prep(area_shape)
+    tiles = []
+    for x, y in bbox_tiles:
+        west, south, east, north = tile_lonlat_bounds(x, y, zoom)
+        if prepared.intersects(box(west - pad_lon, south - pad_lat,
+                                   east + pad_lon, north + pad_lat)):
+            tiles.append((x, y))
+    return tiles, len(bbox_tiles)
+
+
+# --- Scan cache (issue #4) --------------------------------------------------------------
+# runs/<name>/scan.json holds the last coverage scan's pano list (before thinning, so
+# --thin-spacing still applies on reuse). Reusing it is opt-in (--reuse-scan) because
+# coverage churns: paterson measured ~0.3% new panos per 4 h, and gap fill (#32) exists
+# because a scan goes stale. A resume that silently reused a week-old scan would miss
+# the new panos without saying so; a fresh scan is the default, and the cache only
+# spares the tile pass when the operator asks.
+SCAN_CACHE_FILE = 'scan.json'
+# v2 added `prefilter` and `source_instance` to the key (a v1 cache is refused).
+SCAN_CACHE_VERSION = 2
+
+
+def source_instance(source):
+    """The endpoint a source enumerates, when it is configurable, else None.
+
+    Only Panoramax's is (PANORAMAX_API_URL: the federation or one instance), and two roots
+    see different coverage over the same area, so it is part of the scan cache key."""
+    api_url = getattr(source, 'api_url', None)
+    return api_url() if callable(api_url) else None
+
+
+def write_scan_cache(path, area_hash, source_name, zoom, tile_count, failed_tiles, panos,
+                     scanned_at, prefilter=TILE_PREFILTER, instance=None):
+    """Writes the scan cache atomically. `panos` is {pano_id: tuple}, the scan's own
+    per-source values (GSV: lat, lon; Mapillary/Panoramax add the thinning keys).
+    `prefilter` names the tile-set rule and `instance` the source's endpoint (see
+    source_instance); both are checked on load."""
+    cache = {
+        'version': SCAN_CACHE_VERSION,
+        'area_hash': area_hash,
+        'source': source_name,
+        'source_instance': instance,
+        'zoom': zoom,
+        'prefilter': prefilter,
+        'scanned_at': scanned_at,
+        'tile_count': tile_count,
+        'failed_tiles': failed_tiles,
+        'pano_count': len(panos),
+        'panos': [[pano_id, *values] for pano_id, values in panos.items()],
+    }
+    tmp = Path(path).with_suffix('.json.tmp')
+    with open(tmp, 'w') as f:
+        json.dump(cache, f, separators=(',', ':'))
+    os.replace(tmp, path)
+
+
+def load_scan_cache(path, area_hash, source_name, zoom, prefilter=TILE_PREFILTER,
+                    instance=None):
+    """(panos, cache, None) when the cache at `path` may stand in for a fresh scan, else
+    (None, None, reason). Refused when it is missing or unreadable, from another cache
+    version, another geometry (area_hash), another imagery source, source endpoint
+    (Panoramax's API root), tile zoom or tile prefilter rule, or when any tile failed
+    during that scan — reusing an incomplete scan would make its holes
+    permanent, since a fresh scan is what picks failed tiles back up."""
+    try:
+        with open(path) as f:
+            cache = json.load(f)
+    except FileNotFoundError:
+        return None, None, 'no scan cache yet'
+    except (OSError, ValueError) as e:
+        return None, None, f'scan cache unreadable ({e})'
+    checks = [('version', SCAN_CACHE_VERSION, 'cache format'),
+              ('area_hash', area_hash, 'area geometry'),
+              ('source', source_name, 'imagery source'),
+              ('source_instance', instance, 'source endpoint (API root)'),
+              ('zoom', zoom, 'tile zoom'),
+              ('prefilter', prefilter, 'tile prefilter (rule or buffer)')]
+    for key, expected, what in checks:
+        if cache.get(key) != expected:
+            return None, None, f'scan cache is for a different {what}'
+    if cache.get('failed_tiles') != 0:
+        return None, None, (f"scan cache had {cache.get('failed_tiles')} failed tiles "
+                            f"(a fresh scan picks them up)")
+    panos = {row[0]: tuple(row[1:]) for row in cache.get('panos', [])}
+    return panos, cache, None
+
+
+def scan_age_hours(scanned_at):
+    """Hours since an ISO-8601 UTC timestamp, to one decimal."""
+    then = datetime.fromisoformat(scanned_at)
+    return round((datetime.now(timezone.utc) - then).total_seconds() / 3600, 1)
+
 
 def load_processed_ids(cache_file_path):
     """Loads a set of already processed panorama IDs from the cache file."""
@@ -400,12 +556,16 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     return manifest
 
 def record_run(manifest_path, manifest, started_at, found, success, skipped, failed, phase=None,
-               provenance=None):
+                scan=None, provenance=None):
     """
     Appends one entry to the manifest's run history. In a phase='gap_fill' entry,
     'panos_found_in_area' holds the dangling link targets attempted (their in-area
     status isn't known until fetched) — don't aggregate it across phases. Each entry
     carries the model block of the detector that ran it (`model`).
+
+    `scan` (main pass only) is merged into the entry: `scan` is 'fresh' or 'reused'
+    (--reuse-scan), with `scan_scanned_at` and `scan_age_hours`, so a run whose pano
+    list came from an old scan says how old.
     """
     entry = {
         'started_at': started_at,
@@ -417,6 +577,8 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
     }
     if phase:
         entry['phase'] = phase
+    if scan:
+        entry.update(scan)
     if provenance is not None:
         entry['model'] = manifest_model_block(provenance)
     manifest['runs'].append(entry)
@@ -586,7 +748,7 @@ def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None, prove
 
 def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thin_spacing=None,
                 gap_fill=True, gap_fill_only=False, position_field=None, check_positions=True,
-                provenance=None):
+                reuse_scan=False, provenance=None):
     """
     Finds and processes all panoramas from the given imagery source within a GeoJSON
     area, writing all per-area state to runs/<run_name>/.
@@ -598,6 +760,9 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     (issue #32); gap_fill_only skips straight to that phase on an existing run. Every
     run that processed anything ends with the position check (check_positions).
 
+    Every completed tile pass is saved to runs/<run_name>/scan.json; reuse_scan=True
+    loads it instead of rescanning when it matches this area, source and zoom and had
+    no failed tiles (see SCAN_CACHE_FILE for why this is opt-in).
     `provenance` is the loaded detector's model block (None only for scan_only): it is
     written into every record and binds the run directory to one model revision.
     """
@@ -655,33 +820,50 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
             run_position_check(run_dir, manifest_path, manifest)
         return
 
-    bounds = area_shape.bounds
-    min_lon, min_lat, max_lon, max_lat = bounds
+    zoom = source.COVERAGE_TILE_ZOOM
+    scan_cache_file = run_dir / SCAN_CACHE_FILE
+    all_panos_in_area = None
+    if reuse_scan:
+        all_panos_in_area, cache, reason = load_scan_cache(
+            scan_cache_file, area_hash, source.NAME, zoom, instance=source_instance(source))
+        if all_panos_in_area is None:
+            print(f"-> --reuse-scan: {reason}; scanning fresh.")
+        else:
+            age = scan_age_hours(cache['scanned_at'])
+            print(f"-> --reuse-scan: reusing the scan from {cache['scanned_at']} "
+                  f"({age} h old, {len(all_panos_in_area)} panos over {cache['tile_count']} "
+                  f"tiles). Panos added to coverage since then are not in this run.")
+            scan_record = {'scan': 'reused', 'scan_scanned_at': cache['scanned_at'],
+                           'scan_age_hours': age}
 
-    top_left_x, top_left_y = latlon_to_tile(max_lat, min_lon, source.COVERAGE_TILE_ZOOM)
-    bottom_right_x, bottom_right_y = latlon_to_tile(min_lat, max_lon, source.COVERAGE_TILE_ZOOM)
+    if all_panos_in_area is None:
+        tiles_to_scan, bbox_tile_count = tiles_intersecting(area_shape, zoom)
+        print(f"-> {len(tiles_to_scan)} of {bbox_tile_count} bbox tiles are within "
+              f"{TILE_EDGE_BUFFER_M:g} m of the area.")
+        print(f"-> Scanning {len(tiles_to_scan)} coverage tiles using {COVERAGE_API_CONCURRENCY} concurrent workers...")
 
-    tiles_to_scan = [(x, y) for x in range(top_left_x, bottom_right_x + 1) for y in range(top_left_y, bottom_right_y + 1)]
+        all_panos_in_area = {}
+        scanned_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        failed_tiles = 0
+        with ThreadPoolExecutor(max_workers=COVERAGE_API_CONCURRENCY) as find_pool:
+            futures = [find_pool.submit(source.fetch_panos_for_tile, x, y, area_shape) for x, y in tiles_to_scan]
+            with tqdm(total=len(futures), desc="Finding Panoramas") as pbar:
+                for future in as_completed(futures):
+                    tile_panos = future.result()
+                    if tile_panos is None:
+                        failed_tiles += 1
+                    else:
+                        all_panos_in_area.update(tile_panos)
+                    pbar.update(1)
 
-    print(f"-> Scanning {len(tiles_to_scan)} coverage tiles using {COVERAGE_API_CONCURRENCY} concurrent workers...")
-
-    all_panos_in_area = {}
-
-    failed_tiles = 0
-    with ThreadPoolExecutor(max_workers=COVERAGE_API_CONCURRENCY) as find_pool:
-        futures = [find_pool.submit(source.fetch_panos_for_tile, x, y, area_shape) for x, y in tiles_to_scan]
-        with tqdm(total=len(futures), desc="Finding Panoramas") as pbar:
-            for future in as_completed(futures):
-                tile_panos = future.result()
-                if tile_panos is None:
-                    failed_tiles += 1
-                else:
-                    all_panos_in_area.update(tile_panos)
-                pbar.update(1)
-
-    if failed_tiles:
-        print(f"⚠ {failed_tiles} coverage tiles failed after retries — panos there are "
-              f"missing from this run. A re-run rescans all tiles and picks them up.")
+        if failed_tiles:
+            print(f"⚠ {failed_tiles} coverage tiles failed after retries — panos there are "
+                  f"missing from this run. A re-run rescans all tiles and picks them up.")
+        # Saved before thinning, so a later --reuse-scan can thin at any --thin-spacing.
+        write_scan_cache(scan_cache_file, area_hash, source.NAME, zoom, len(tiles_to_scan),
+                         failed_tiles, all_panos_in_area, scanned_at,
+                         instance=source_instance(source))
+        scan_record = {'scan': 'fresh', 'scan_scanned_at': scanned_at, 'scan_age_hours': 0.0}
 
     # Optional per-source spatial thinning (e.g. Mapillary's near-duplicate coverage).
     if hasattr(source, 'thin_panos') and all_panos_in_area and thin_spacing != 0:
@@ -707,7 +889,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
         # ~1.5 s/pano is the measured single-GPU steady state (RTX 3070, concurrency 10+);
         # downloads overlap but inference is serialized, so the GPU sets the rate.
         est_hours = len(panos_to_process_ids) * 1.5 / 3600
-        print("Scan only — no panoramas processed, nothing recorded in the manifest.")
+        print(f"Scan only — no panoramas processed, nothing recorded in the manifest; "
+              f"the scan is saved to {scan_cache_file} for a later --reuse-scan.")
         print(f"Estimated full-run time: ~{est_hours:.1f} h at 1.5 s/pano "
               f"(single GPU; measure your machine's rate on a smoke run first).")
         return
@@ -718,7 +901,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     if not panos_to_process_ids:
         print("🎉 No new panoramas to process.")
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), 0, 0, 0,
-                   provenance=provenance)
+                   scan=scan_record, provenance=provenance)
     else:
         processing_tasks = [
             (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1])
@@ -743,7 +926,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
                     pbar.update(1)
 
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), success_count, skip_count, fail_count,
-                   provenance=provenance)
+                   scan=scan_record, provenance=provenance)
 
     # 5. Close the link graph (issue #32): fetch in-area panos the new records
     # reference but the scan never enumerated (mostly coverage churn). Done promptly,
@@ -847,6 +1030,14 @@ def main():
              "whose position_check.json is missing, stale or flagged."
     )
     parser.add_argument(
+        "--reuse-scan", action="store_true",
+        help="Reuse the pano list saved by this run's last coverage scan "
+             "(runs/<name>/scan.json) instead of rescanning, when it matches this area, "
+             "source and tile zoom and had no failed tiles. Off by default: coverage "
+             "churns, so a reused scan misses panos added since it ran (the manifest "
+             "records the scan's age). Pairs with --scan-only, which always saves the scan."
+    )
+    parser.add_argument(
         "--allow-unknown-model-revision", action="store_true",
         help="Run even though the loaded model's Hugging Face revision is not in "
              "detectors.KNOWN_REVISIONS (issue #39). model_training_date is then written as "
@@ -904,7 +1095,7 @@ def main():
                     args.limit, args.thin_spacing,
                     gap_fill=not args.no_gap_fill, gap_fill_only=args.gap_fill_only,
                     position_field=position_field, check_positions=not args.no_position_check,
-                    provenance=provenance)
+                    reuse_scan=args.reuse_scan, provenance=provenance)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:
