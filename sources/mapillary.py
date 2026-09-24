@@ -16,6 +16,7 @@ is recorded as `camera_heading`. Pitch/roll only exist inside `computed_rotation
 (an axis-angle vector); geo.mapillary_pitch_roll parses them (issue #42) into the
 gravity-relative angles, in Project Sidewalk's roll sign, and leaves both null when the
 rotation is missing or is a failed reconstruction (tilt past geo.MAX_POSE_TILT_DEG).
+`camera_pose_source` records that derivation (null when the angles are null).
 They are what PS's backup-image gate needs (a non-null `camera_pitch`), and what fusion
 can rotate rays by.
 
@@ -78,6 +79,9 @@ VOLATILE_META_FIELDS = {'thumb_original_url'}
 # itself and, for Mapillary, knows the licence from `source` — only Panoramax's varies
 # per picture, so only there does PS render the submitted `license`.
 LICENSE = 'CC-BY-SA-4.0'
+# Provenance of camera_pitch/camera_roll: decomposed from source_metadata.computed_rotation
+# (OpenSfM's world->camera rotation) by geo.mapillary_pitch_roll -- inferred, not measured.
+POSE_SOURCE = "mapillary_computed_rotation"
 
 # Which of Mapillary's two positions becomes the pano's lat/lng (main.py sets this from
 # --mapillary-position and records it in the manifest). 'sfm' is computed_geometry, the
@@ -353,6 +357,9 @@ def build_pano_record(pano_id, lat, lon, meta):
         "camera_heading": float(_compass_angle(meta)),
         "camera_pitch": pitch,
         "camera_roll": roll,
+        # Pitch/roll are DERIVED (from Mapillary's SfM rotation), not measured by the camera;
+        # say so on the record so no downstream consumer mistakes them for sensor readings.
+        "camera_pose_source": POSE_SOURCE if pitch is not None else None,
         # The contributor's bare name, which is what PS's pano_data.copyright holds for
         # this source; PS composes "© <name> · Mapillary · CC BY-SA 4.0" itself wherever
         # it shows its own copy of the imagery. None when the Graph API names nobody,

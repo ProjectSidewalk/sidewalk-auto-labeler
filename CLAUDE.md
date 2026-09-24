@@ -630,6 +630,12 @@ gap-fill is GSV-only (`fetch_pano_by_id`).
   and rich pano metadata (capture date, dimensions, camera heading/pitch/roll, source,
   historical panos, and links). Heading/pitch/roll are converted from radians to degrees on
   write.
+- Mapillary `camera_pitch`/`camera_roll` are **derived**, not measured: decomposed from the
+  SfM `computed_rotation` (gravity-relative, PS's roll sign), and `camera_pose_source`
+  (`"mapillary_computed_rotation"`, null when the angles are null) says so on every record.
+  PS has no column for it; it lives in the JSONL for any consumer that might otherwise treat
+  the angles as sensor readings. The conversion is exact (matches PS's own viewer to 1e-15);
+  the SfM tilt's absolute error is unmeasured.
 - Indoor panoramas (sources `innerspace`, `cultural_institute`, `photos:legacy_innerspace`)
   are skipped.
 - `pano.copyright` is an **attribution ingredient, not a rendered attribution** (issue #61,

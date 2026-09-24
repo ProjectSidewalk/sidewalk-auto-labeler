@@ -136,6 +136,7 @@ def test_fetch_pano_success_record_contract(monkeypatch):
     # non-null camera_pitch, and a wrong sign would be worse than null for the raycast.
     assert pano["camera_pitch"] == pytest.approx(2.231776541825151, abs=1e-9)
     assert pano["camera_roll"] == pytest.approx(-6.354952531976068, abs=1e-9)
+    assert pano["camera_pose_source"] == "mapillary_computed_rotation"  # derived, not measured
     assert pano["history"] == [] and pano["links"] == []
     # PS's pano_data.copyright holds the contributor's BARE name for this source — it
     # composes the ©, the provider and the licence itself (SidewalkWebpage#5360).
@@ -180,6 +181,7 @@ def test_fetch_pano_pose_is_null_when_the_rotation_is_not_a_pose(monkeypatch, ro
     result = mapillary.fetch_pano("123456", 0.0, 0.0)
     assert result["status"] == "success"
     assert result["pano"]["camera_pitch"] is None and result["pano"]["camera_roll"] is None
+    assert result["pano"]["camera_pose_source"] is None  # no angles, nothing to attribute
 
 
 def test_fetch_pano_pose_cap_is_a_tilt_not_a_pitch(monkeypatch):

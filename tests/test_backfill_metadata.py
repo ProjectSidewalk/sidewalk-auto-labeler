@@ -136,6 +136,8 @@ def test_pose_pass_fills_from_source_metadata_and_keeps_line_order(monkeypatch, 
     assert [p["panorama_id"] for p in out] == ["M_OK", "G1", "M_FLIPPED", "M_BARE"]
     assert (out[0]["camera_pitch"], out[0]["camera_roll"]) == (
         pytest.approx(PITCH, abs=1e-9), pytest.approx(ROLL, abs=1e-9))
+    assert out[0]["camera_pose_source"] == "mapillary_computed_rotation"
+    assert "camera_pose_source" not in out[2]                                # nothing derived
     assert (out[1]["camera_pitch"], out[1]["camera_roll"]) == (1.0, 0.5)     # GSV untouched
     assert out[2]["camera_pitch"] is None and out[2]["camera_roll"] is None  # not a pose
     assert out[3]["camera_pitch"] is None

@@ -121,6 +121,7 @@ def fill_pose(record):
     if status != geo.POSE_OK:
         return status
     pano["camera_pitch"], pano["camera_roll"] = geo.mapillary_pitch_roll(meta["computed_rotation"])
+    pano["camera_pose_source"] = mapillary.POSE_SOURCE
     return POSE_FILLED
 
 
