@@ -139,8 +139,8 @@ def _in_pool(entry):
         if 'no_missed' in entry else True
 
 
-def _pose_and_errors(run_pano):
-    pose = geo.pano_pose(run_pano.pose_fields())
+def _pose_and_errors(run_pano, params):
+    pose = fs.pano_pose(run_pano, params.apply_pose)
     return pose, geo.error_model_for(run_pano.source)
 
 
@@ -156,13 +156,13 @@ def gt_points_by_pano(verdict_panos, bundle_ops, run_by_id, params, frame):
         by_pano.setdefault(pt.pano_id, []).append((pt.kind, pt.e, pt.n))
     for pid in by_pano:
         entry, run_pano = verdict_panos[pid], run_by_id[pid]
-        pose, errors = _pose_and_errors(run_pano)
+        pose, errors = _pose_and_errors(run_pano, params)
 
         def place(x, y, kind):
             g = geo.detection_ground_point(
                 pose, x, y, camera_height=params.camera_height_m,
                 max_range_m=params.max_range_m, errors=errors,
-                apply_pose=params.apply_pose)
+                apply_pose=params.rotates)
             if g is not None:
                 e, n = frame.to_enu(g.lat, g.lng)
                 by_pano[pid].append((kind, e, n))
@@ -209,10 +209,10 @@ def mine_candidates(strong, judged, run_by_id, gt_by_pano, frame, params,
                 if pid not in op_panos:
                     excluded_subfloor += 1
                 continue
-            pose, _ = _pose_and_errors(run_by_id[pid])
+            pose, _ = _pose_and_errors(run_by_id[pid], params)
             proj = geo.ground_point_to_pano(
                 pose, site_lat, site_lng, camera_height=params.camera_height_m,
-                max_range_m=max_radius_m, apply_pose=params.apply_pose)
+                max_range_m=max_radius_m, apply_pose=params.rotates)
             if proj is None:
                 continue
             # The nearest GT point in this pano is recorded whatever its distance:

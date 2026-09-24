@@ -106,11 +106,10 @@ def pose_angles(pose, signs):
         g = pose.get('grade_deg')
         if g is None:
             return pose['pitch_deg'], pose['roll_deg']
-        phi = math.radians(geo.norm_deg(pose['travel_bearing_deg'] - pose['heading_deg']))
-        # Roll carries PS's sign (+ lowers the camera's right axis), so the grade's
-        # cross-track component is ADDED: see geo._world_ray's first-order formula.
-        return (pose['pitch_deg'] - g * math.cos(phi),
-                pose['roll_deg'] + g * math.sin(phi))
+        # The production formula (fuse_sites' `road` mode applies the same one).
+        return geo.road_relative_pitch_roll(pose['pitch_deg'], pose['roll_deg'],
+                                            pose['heading_deg'], g,
+                                            pose['travel_bearing_deg'])
     return signs[0] * pose['pitch_deg'], signs[1] * pose['roll_deg']
 # Open-ended on purpose: the top bucket used to stop at 90 deg, so the handful of
 # panos with a failed reconstruction (clovis reaches 170 deg) fell into a label no
@@ -204,54 +203,39 @@ def load_run(city, floor=None):
     return panos, poses, no_rotation
 
 
-# Consecutive frames of one sequence within this time gap and horizontal distance
-# define a local direction of travel and, through SfM altitude, a road grade.
-GRADE_MAX_GAP_S = 60.0
-GRADE_MIN_DIST_M, GRADE_MAX_DIST_M = 2.0, 40.0
-
-
 def add_sequence_grade(poses):
     """Per pano: the road grade along the direction of travel (from the sequence's
     SfM altitude profile) and the camera's gravity-relative pitch along that same
     direction, so rig tilt can be separated from road grade. Fields stay None when
-    the sequence gives no usable neighbour."""
+    the sequence gives no usable neighbour.
+
+    The grade itself is fuse_sites.sequence_grades -- production's, since the #42
+    wiring -- so what this study measured is what fusion's `road` mode applies."""
     by_seq = defaultdict(list)
     for pose in poses.values():
         pose.update({'grade_deg': None, 'travel_pitch_deg': None, 'travel_bearing_deg': None,
                      'pitch_rel_road_deg': None, 'lag1_pitch_diff': None, 'lag1_roll_diff': None})
         if pose['captured_at'] is not None:
             by_seq[pose['sequence']].append(pose)
-    for seq, ps in by_seq.items():
+    for ps in by_seq.values():
         ps.sort(key=lambda q: q['captured_at'])
-        for i, q in enumerate(ps):
-            prev = ps[i - 1] if i > 0 else None
-            nxt = ps[i + 1] if i + 1 < len(ps) else None
+        for i, q in enumerate(ps[:-1]):
             # lag-1 differences of the tilt signal itself (smoothness test)
-            if nxt is not None and (nxt['captured_at'] - q['captured_at']) / 1000.0 <= GRADE_MAX_GAP_S:
+            nxt = ps[i + 1]
+            if (nxt['captured_at'] - q['captured_at']) / 1000.0 <= fs.GRADE_MAX_GAP_S:
                 q['lag1_pitch_diff'] = nxt['pitch_deg'] - q['pitch_deg']
                 q['lag1_roll_diff'] = nxt['roll_deg'] - q['roll_deg']
-            # grade over the widest usable span around i
-            cands = [(a, b) for a, b in ((prev, nxt), (prev, q), (q, nxt))
-                     if a is not None and b is not None]
-            for a, b in cands:
-                if a['computed_altitude'] is None or b['computed_altitude'] is None:
-                    continue
-                if (b['captured_at'] - a['captured_at']) / 1000.0 > 2 * GRADE_MAX_GAP_S:
-                    continue
-                d = geo.haversine_m(a['lat'], a['lng'], b['lat'], b['lng'])
-                if not (GRADE_MIN_DIST_M <= d <= GRADE_MAX_DIST_M):
-                    continue
-                frame = geo.LocalFrame(a['lat'], a['lng'])
-                e, n = frame.to_enu(b['lat'], b['lng'])
-                bearing = math.degrees(math.atan2(e, n)) % 360.0
-                grade = math.degrees(math.atan2(b['computed_altitude'] - a['computed_altitude'], d))
-                phi = math.radians(geo.norm_deg(bearing - q['heading_deg']))
-                # PS-sign roll: + lowers the right axis, so it enters with a minus.
-                travel_pitch = q['pitch_deg'] * math.cos(phi) - q['roll_deg'] * math.sin(phi)
-                q.update({'grade_deg': grade, 'travel_bearing_deg': bearing,
-                          'travel_pitch_deg': travel_pitch,
-                          'pitch_rel_road_deg': travel_pitch - grade})
-                break
+    grades = fs.sequence_grades(
+        (pid, q['sequence'], q['captured_at'], q['lat'], q['lng'], q['computed_altitude'])
+        for pid, q in poses.items())
+    for pid, (grade, bearing) in grades.items():
+        q = poses[pid]
+        phi = math.radians(geo.norm_deg(bearing - q['heading_deg']))
+        # PS-sign roll: + lowers the right axis, so it enters with a minus.
+        travel_pitch = q['pitch_deg'] * math.cos(phi) - q['roll_deg'] * math.sin(phi)
+        q.update({'grade_deg': grade, 'travel_bearing_deg': bearing,
+                  'travel_pitch_deg': travel_pitch,
+                  'pitch_rel_road_deg': travel_pitch - grade})
 
 
 def with_convention(panos, poses, signs):
@@ -629,9 +613,11 @@ def cmd_eval(args):
             ps_ = with_convention(panos, poses, signs)
             # Benchmark tier, for the same reason as `ablation` above: this arm is scored
             # against GT bundles that were exported and judged at 0.55.
+            # 'gravity' = rotate by the angles as injected: with_convention has already
+            # put this convention's (possibly road-relative) pitch/roll on each pano.
             params = replace(fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE,
                                            mask_rig=False),
-                             apply_pose=signs is not None)
+                             apply_pose=fs.POSE_OFF if signs is None else fs.POSE_GRAVITY)
             prefused = fs.fuse(ps_, params)
             r5 = es.evaluate_city(verdict_panos, bundle_ops, ps_, params, match_radius_m=5.0,
                                   prefused=prefused)

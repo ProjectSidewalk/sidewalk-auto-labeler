@@ -246,3 +246,35 @@ def test_ground_point_to_pano_inverts_the_per_pano_raycast():
                                    apply_pose=False)
     p = geo.ground_point_to_pano(pose, g.lat, g.lng, camera_height=geo.PER_PANO)
     assert (p.x_norm, p.y_norm) == (pytest.approx(0.3), pytest.approx(0.62))
+
+
+def _axis_angle(R):
+    """Rotation matrix -> axis-angle (the inverse of geo.rotation_matrix, away from pi)."""
+    angle = math.acos(max(-1.0, min(1.0, (R[0][0] + R[1][1] + R[2][2] - 1) / 2)))
+    k = (R[2][1] - R[1][2], R[0][2] - R[2][0], R[1][0] - R[0][1])
+    n = math.sqrt(sum(c * c for c in k))
+    return [angle * c / n for c in k]
+
+
+def test_road_relative_undoes_the_cross_slope_a_vehicle_camera_inherits():
+    # A camera bolted level to a vehicle on a road that rises 4 deg to its RIGHT (travel
+    # bearing = heading + 90), built from physical axes -- not from any sign convention --
+    # as an OpenSfM world->camera rotation (rows right/down/forward, ENU).
+    g, h = math.radians(4.0), math.radians(30.0)
+    fwd = (math.sin(h), math.cos(h), 0.0)
+    right = (math.cos(g) * math.cos(h), -math.cos(g) * math.sin(h), math.sin(g))  # uphill
+    up = (right[1] * fwd[2] - right[2] * fwd[1], right[2] * fwd[0] - right[0] * fwd[2],
+          right[0] * fwd[1] - right[1] * fwd[0])
+    pose = geo.opensfm_pose(_axis_angle([list(right), [-c for c in up], list(fwd)]))
+    assert pose['pitch_deg'] == pytest.approx(0.0, abs=1e-9)
+    # PS sign: the right axis points UP the slope, so the roll is negative...
+    assert pose['roll_deg'] == pytest.approx(-4.0, abs=1e-9)
+    # ...the raycast agrees: the image's right-hand horizon sees the road surface, +4 deg
+    p = geo.Pose(0.0, 0.0, pose['heading_deg'], pose['pitch_deg'], pose['roll_deg'], True,
+                 'mapillary')
+    elev, _ = geo._world_ray(p, math.pi / 2, 0.0)
+    assert math.degrees(elev) == pytest.approx(4.0, abs=1e-9)
+    # ...and relative to the road the camera is level, so a flat raycast is the right one.
+    assert geo.road_relative_pitch_roll(pose['pitch_deg'], pose['roll_deg'],
+                                        pose['heading_deg'], 4.0, 120.0) == \
+        (pytest.approx(0.0, abs=1e-9), pytest.approx(0.0, abs=1e-9))

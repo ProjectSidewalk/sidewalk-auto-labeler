@@ -145,14 +145,14 @@ def build_gt(verdict_panos, bundle_ops, run_panos_by_id, params, frame):
     counts['gt_panos'] = len(verdict_panos)
     for pid, entry, run_pano, ops, in_pool in judged_gt_panos(
             verdict_panos, bundle_ops, run_panos_by_id, counts, warnings):
-        pose = geo.pano_pose(run_pano.pose_fields())
+        pose = fs.pano_pose(run_pano, params.apply_pose)
         errors = geo.error_model_for(run_pano.source)
 
         def place(x, y, kind):
             g = geo.detection_ground_point(
                 pose, x, y, camera_height=params.camera_height_m,
                 max_range_m=params.max_range_m, errors=errors,
-                apply_pose=params.apply_pose)
+                apply_pose=params.rotates)
             if g is None:
                 counts['unplaceable'] += 1
                 return
@@ -388,7 +388,8 @@ def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
         'params': {'match_radius_m': match_radius_m, 'gt_merge_m': gt_merge_m,
                    'min_confidence': params.min_confidence,
                    'max_range_m': params.max_range_m,
-                   'camera_height_m': params.camera_height_m},
+                   'camera_height_m': params.camera_height_m,
+                   'apply_pose': params.apply_pose},
         'counts': counts, 'warnings': warnings,
         'fuse': {k: fuse_stats[k] for k in
                  ('n_panos', 'n_projected', 'n_sites', 'n_operational_sites',
@@ -417,7 +418,8 @@ def format_report(city, r):
         f"== {city}: world-space fusion eval "
         f"(match radius {r['params']['match_radius_m']} m, "
         f"GT merge {r['params']['gt_merge_m']} m, "
-        f"camera height {r['params']['camera_height_m']})",
+        f"camera height {r['params']['camera_height_m']}, "
+        f"pose {r['params']['apply_pose']})",
         f"run: {r['fuse']['n_panos']} panos -> {r['fuse']['n_sites']} sites "
         f"({r['fuse']['n_operational_sites']} operational, "
         f"{r['fuse']['n_multi_pano_sites']} multi-pano)",
@@ -576,6 +578,9 @@ def main():
                     help='raycast height for fusion AND GT placement: meters, or '
                          '"per-pano" for GSV depth-measured heights (#40). A non-default '
                          'value needs --out, so it cannot overwrite the published report')
+    ap.add_argument('--apply-pose', choices=fs.POSE_MODES, default=fs.FuseParams.apply_pose,
+                    help='camera pose for fusion AND GT placement (#42; see fuse_sites.py). '
+                         'A non-default value needs --out, like --camera-height-m')
     ap.add_argument('--vintage-ablation', action='store_true',
                     help='re-fuse at capture-delta windows 0/18/36/none and '
                          'compare world P/R (the #27 open question)')
@@ -586,6 +591,9 @@ def main():
     if args.camera_height_m != geo.DEFAULT_CAMERA_HEIGHT_M and args.out is None:
         ap.error('--camera-height-m other than the default changes the scoring frame; '
                  'pass --out so the default fusion_eval/ report is not overwritten')
+    if args.apply_pose != fs.FuseParams.apply_pose and args.out is None:
+        ap.error('--apply-pose other than the default changes the scoring frame; '
+                 'pass --out so the default fusion_eval/ report is not overwritten')
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
     verdict_panos, bundle_ops, run_panos = load_city_files(
         args.city, args.benchmark_root, run_dir,
@@ -595,7 +603,8 @@ def main():
     # mask_rig=False alongside the pinned tier: runs/<city>/fusion_eval/ is git-tracked by
     # the same convention as the tilt CSVs, so re-running must still reproduce it.
     params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
-                           camera_height_m=args.camera_height_m)
+                           camera_height_m=args.camera_height_m,
+                           apply_pose=args.apply_pose)
     prefused = fs.fuse(run_panos, params)
 
     result = evaluate_city(verdict_panos, bundle_ops, run_panos, params,

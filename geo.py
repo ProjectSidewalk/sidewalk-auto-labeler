@@ -322,6 +322,34 @@ def mapillary_pitch_roll(rvec):
     return pose['pitch_deg'], pose['roll_deg']
 
 
+def road_relative_pitch_roll(pitch_deg, roll_deg, heading_deg, grade_deg,
+                             travel_bearing_deg):
+    """Gravity-relative (pitch, roll) re-expressed relative to a road sloping at
+    ``grade_deg`` (positive uphill) along ``travel_bearing_deg`` (#42).
+
+    A flat-ground raycast needs the camera's tilt relative to the ground it meets, and
+    Mapillary's rotation gives it relative to gravity; on a slope the two differ by the
+    grade. The #42 study measured why that matters: a camera riding level on a car in a
+    hill town pitches with the road (slope 0.97 in Morgantown), so correcting it to
+    gravity moves rays OFF the road, while a rig tilted on its own mount (Clovis) wants
+    the gravity correction. Subtracting the grade is right in both regimes
+    (docs/mapillary-tilt-study.md sections 5.3-5.4).
+
+    First order, the ground in pano direction phi rises at grade*cos(phi - phi_travel),
+    and _world_ray's elevation is theta + pitch*cos(phi) - roll*sin(phi) (PS roll sign),
+    so the grade comes off the pitch along the camera's forward axis and goes ONTO the
+    roll across it.
+
+    Example (driving straight uphill at 5 deg with the camera pitched up 5 deg: level
+    relative to the road):
+        >>> [round(v, 9) + 0.0 for v in road_relative_pitch_roll(5.0, 0.0, 90.0, 5.0, 90.0)]
+        [0.0, 0.0]
+    """
+    phi = math.radians(norm_deg(travel_bearing_deg - heading_deg))
+    return (pitch_deg - grade_deg * math.cos(phi),
+            roll_deg + grade_deg * math.sin(phi))
+
+
 @dataclass(frozen=True)
 class ErrorModel:
     """1-sigma inputs for the ground-point covariance.
