@@ -9,8 +9,13 @@ The metadata request also asks for GSV's depth payload (issue #40) -- a flag on 
 URL, not a second fetch -- because its ground plane is the camera height, which the
 raycast needs per pano. Only the handful of derived fields is stored (see
 depth.camera_height_fields); scripts/harvest_depth.py archives the payload itself.
+
+Imagery provenance (issue #23) comes from the same metadata object: see
+provenance_fields, the GSV counterpart of the Mapillary/Panoramax ones.
 """
+import json
 import math
+import numbers
 import random
 import time
 
@@ -186,6 +191,7 @@ def build_pano_record(pano_id, lat, lon, metadata, depth_fields=None):
 
     `depth_fields` (from depth.camera_height_fields) adds camera_height_m and its
     provenance; None records the pano as having no depth, so the keys are always present.
+    provenance_fields adds the imagery provenance shared in shape with the other sources.
     """
     return {
         "panorama_id": pano_id,
@@ -214,5 +220,173 @@ def build_pano_record(pano_id, lat, lon, metadata, depth_fields=None):
                 "description": linked_pano.pano.address[0].value if linked_pano.pano.address else ""
             } for linked_pano in (metadata.links or [])
         ],
+        **provenance_fields(metadata),
         **(depth_fields or depthlib.camera_height_fields(None)),
+    }
+
+
+# --- Extended provenance (issue #23) -------------------------------------------------
+# streetlevel's StreetViewPanorama is a dataclass of nested dataclasses, enums, numpy
+# arrays and further StreetViewPanorama objects, so it is not JSON-serializable and must
+# never be dumped wholesale (vars()/asdict()): the depth raster alone is 131k floats, and
+# neighbors/links/historical recurse. Instead each field kept is named here with its own
+# converter to JSON-native values. A field streetlevel adds later is therefore left out
+# until someone names it, so the record shape cannot drift with a library upgrade.
+# Angles are radians in streetlevel and degrees on the wire, as for the camera pose.
+
+def _localized(value):
+    """streetlevel LocalizedString -> {'value', 'language'}."""
+    if value is None:
+        return None
+    return {'value': value.value, 'language': value.language}
+
+
+def _deg(radians):
+    return None if radians is None else math.degrees(radians)
+
+
+def _upload_date(value):
+    """UploadDate (year/month/day/hour; third-party panos only) -> a dict of ints, kept
+    as fields rather than a string because 'YYYY-MM-DD HH' has no standard spelling."""
+    if value is None:
+        return None
+    return {part: getattr(value, part, None) for part in ('year', 'month', 'day', 'hour')}
+
+
+def _street_names(labels):
+    return [{'name': _localized(label.name),
+             'angles_deg': [math.degrees(a) for a in label.angles or []]}
+            for label in labels]
+
+
+def _building_level(level):
+    return {'level': level.level, 'name': _localized(level.name),
+            'short_name': _localized(level.short_name)}
+
+
+def _places(places):
+    return [{
+        'feature_id': place.feature_id,
+        'cid': place.cid,
+        'name': _localized(place.name),
+        'type': _localized(place.type),
+        # BusinessStatus enum -> its name ('Operational', 'PermanentlyClosed', ...)
+        'status': place.status.name if place.status is not None else None,
+        'marker_yaw_deg': _deg(place.marker_yaw),
+        'marker_pitch_deg': _deg(place.marker_pitch),
+        'marker_distance': place.marker_distance,
+        'marker_icon_url': place.marker_icon_url,
+    } for place in places]
+
+
+def _artworks(artworks):
+    return [{
+        'id': art.id,
+        'title': _localized(art.title),
+        'creator': _localized(art.creator),
+        'description': _localized(art.description),
+        'thumbnail': art.thumbnail,
+        'url': art.url,
+        'attributes': {k: _localized(v) for k, v in (art.attributes or {}).items()},
+        'marker_yaw_deg': _deg(art.marker_yaw),
+        'marker_pitch_deg': _deg(art.marker_pitch),
+        'marker_icon_url': art.marker_icon_url,
+        'link': (None if art.link is None else
+                 {'pano_id': art.link.panoid, 'link_text': _localized(art.link.link_text)}),
+    } for art in artworks]
+
+
+def _pano_ids(panos):
+    """Nested StreetViewPanorama objects -> ids only; each is a pano of its own."""
+    return [pano.id for pano in panos]
+
+
+def _json_native(value):
+    """Coerce a scalar-or-container value to JSON-native types (str/int/float/bool/None,
+    recursively through lists, tuples and dicts), so the record always serializes with
+    plain json.dumps. numpy scalars become int/float; a non-finite float becomes None
+    (NaN is not JSON). Anything else raises TypeError, which _project records as None."""
+    if value is None or isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return str(value)
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    if isinstance(value, numbers.Real):
+        value = float(value)
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {str(k): _json_native(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_native(v) for v in value]
+    raise TypeError(f"not JSON-native: {type(value).__name__}")
+
+
+# name -> converter for the non-None value. Order is the key order on the wire.
+SOURCE_METADATA_FIELDS = (
+    ('uploader', _json_native),
+    ('uploader_icon_url', _json_native),
+    ('upload_date', _upload_date),
+    ('elevation', _json_native),
+    ('country_code', _json_native),
+    ('street_names', _street_names),
+    ('address', lambda parts: [_localized(p) for p in parts]),
+    ('building_level', _building_level),
+    ('building_levels', _pano_ids),
+    ('places', _places),
+    ('artworks', _artworks),
+    ('neighbors', _pano_ids),
+)
+
+
+def _project(metadata, name, convert):
+    """One source_metadata field, or None when streetlevel did not set it (an optional
+    attribute, or one an older streetlevel does not have). Provenance must never fail a
+    pano -- it is record-keeping, not an input to detection -- so a value whose shape a
+    future streetlevel changed under a converter is also recorded as None."""
+    value = getattr(metadata, name, None)
+    if value is None:
+        return None
+    try:
+        converted = convert(value)
+        # The converters pass some leaf values through as they come (ids, distances,
+        # URLs); prove the result serializes, or a stray type would fail the record's
+        # json.dumps in main.py after the image download -- and again on every rerun.
+        json.dumps(converted, allow_nan=False)
+        return converted
+    except Exception:
+        return None
+
+
+def provenance_fields(metadata):
+    """Extended-provenance keys added to a GSV pano block, in the same contract as
+    sources/mapillary.py and sources/panoramax.py (issue #23): curated top-level fields
+    plus a `source_metadata` projection of the streetlevel object.
+
+    GSV exposes no camera make/model, so those are explicit nulls (the shape is the same
+    across sources; the value says 'not known'). Google always serves an equirectangular.
+    The GSV analogue of make/model is `source_detail` + `uploader`: Google's own car
+    imagery (`launch`, `scout`) versus a user photosphere (`photos:...`) is what explains
+    why one pano is sharp and another is not. `source_detail` duplicates the block's
+    `source` here on purpose -- send_to_ps.transform_pano coerces `source` onto PS's
+    pano_source enum ('gsv'), and this is the copy that survives that.
+
+    `source_metadata` is an explicit per-field projection (SOURCE_METADATA_FIELDS), never
+    a dump: see the comment above the helpers. Every named key is always present, so
+    consumers never have to test for the key: None when streetlevel did not set it, except
+    `building_levels` and `neighbors`, which streetlevel defaults to an empty list (so `[]`
+    when there are none, None only from a metadata object lacking the attribute).
+
+    The whole projection is kept in results.jsonl. What reaches Project Sidewalk is a
+    subset -- send_to_ps.PS_GSV_SOURCE_METADATA_KEYS plus `source_detail` -- because PS
+    stores the blob verbatim and caps it at 64 KB; the bulky context stays in the JSONL.
+    """
+    return {
+        'camera_make': None,
+        'camera_model': None,
+        'camera_type': 'equirectangular',
+        'source_detail': getattr(metadata, 'source', None),
+        'uploader': _project(metadata, 'uploader', _json_native),
+        'source_metadata': {name: _project(metadata, name, convert)
+                            for name, convert in SOURCE_METADATA_FIELDS},
     }

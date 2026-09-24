@@ -175,3 +175,121 @@ def test_pano_block_always_carries_the_height_keys():
     for key in ("camera_height_m", "camera_height_spread_m", "ground_tilt_deg",
                 "depth_planes"):
         assert pano[key] is None
+
+
+# --- extended provenance (issue #23). Built from streetlevel's REAL dataclasses, so a
+# --- projection naming an attribute streetlevel does not have fails here, not in a run.
+
+def _full_streetlevel_metadata():
+    from streetlevel.streetview.panorama import (
+        Artwork, ArtworkLink, BuildingLevel, BusinessStatus, CaptureDate, LocalizedString,
+        Place, StreetLabel, StreetViewPanorama, UploadDate)
+    from streetlevel.dataclasses import Size
+    import math
+    en = lambda s: LocalizedString(value=s, language="en")  # noqa: E731
+    return StreetViewPanorama(
+        id="PID", lat=44.05, lon=-121.31,
+        heading=math.radians(90.0), pitch=0.0, roll=0.0,
+        tile_size=Size(512, 512), image_sizes=[Size(16384, 8192)],
+        date=CaptureDate(2021, 6),
+        upload_date=UploadDate(2021, 7, 2, 13),
+        elevation=1103.5,
+        country_code="US",
+        street_names=[StreetLabel(name=en("NW Wall St"), angles=[0.0, math.pi])],
+        address=[en("NW Wall St"), en("Bend, Oregon")],
+        building_level=BuildingLevel(level=1.0, name=en("First"), short_name=None),
+        building_levels=[StreetViewPanorama(id="UPSTAIRS", lat=0, lon=0)],
+        places=[Place(feature_id="0x1:0x2", cid=42, marker_yaw=math.pi / 2,
+                      marker_pitch=None, marker_distance=12.0, name=en("Cafe"),
+                      type=en("Coffee shop"), status=BusinessStatus.Operational,
+                      marker_icon_url=None)],
+        artworks=[Artwork(id="A1", title=en("Mural"), creator=None, description=None,
+                          thumbnail="https://t", url=None, attributes={"Date": en("1999")},
+                          marker_yaw=0.0, marker_pitch=0.0, marker_icon_url=None,
+                          link=ArtworkLink(panoid="ART2", link_text=en("next")))],
+        neighbors=[StreetViewPanorama(id="N1", lat=0, lon=0),
+                   StreetViewPanorama(id="N2", lat=0, lon=0)],
+        source="launch",
+        copyright_message="© 2021 Google",
+        uploader="Google",
+        uploader_icon_url="https://icon",
+    )
+
+
+def test_pano_record_carries_gsv_provenance_in_the_shared_contract():
+    """The same top-level keys as the Mapillary/Panoramax blocks, plus GSV's analogue of
+    make/model (source_detail + uploader), and a source_metadata projection that is
+    JSON-native all the way down (the record is written with plain json.dumps)."""
+    import json
+    pano = gsv.build_pano_record("PID", 44.05, -121.31, _full_streetlevel_metadata())
+    assert (pano["camera_make"], pano["camera_model"]) == (None, None)
+    assert pano["camera_type"] == "equirectangular"
+    assert pano["source_detail"] == "launch" == pano["source"]
+    assert pano["uploader"] == "Google"
+    sm = pano["source_metadata"]
+    assert json.loads(json.dumps(sm)) == sm
+    assert list(sm) == [name for name, _ in gsv.SOURCE_METADATA_FIELDS]
+    assert sm["elevation"] == 1103.5
+    assert sm["country_code"] == "US"
+    assert sm["upload_date"] == {"year": 2021, "month": 7, "day": 2, "hour": 13}
+    assert sm["uploader_icon_url"] == "https://icon"
+    assert sm["street_names"] == [{"name": {"value": "NW Wall St", "language": "en"},
+                                   "angles_deg": [0.0, 180.0]}]
+    assert sm["address"][1] == {"value": "Bend, Oregon", "language": "en"}
+    assert sm["building_level"] == {"level": 1.0,
+                                    "name": {"value": "First", "language": "en"},
+                                    "short_name": None}
+    assert sm["building_levels"] == ["UPSTAIRS"]
+    assert sm["neighbors"] == ["N1", "N2"]
+    place = sm["places"][0]
+    assert place["status"] == "Operational"
+    assert place["marker_yaw_deg"] == pytest.approx(90.0)
+    assert place["marker_pitch_deg"] is None
+    art = sm["artworks"][0]
+    assert art["link"] == {"pano_id": "ART2",
+                           "link_text": {"value": "next", "language": "en"}}
+    assert art["attributes"] == {"Date": {"value": "1999", "language": "en"}}
+
+
+def test_provenance_tolerates_missing_optional_attributes():
+    """make_metadata() carries none of the provenance attributes -- the shape an older
+    streetlevel (or a sparse response) gives. Every key is still present, as None."""
+    pano = gsv.build_pano_record("PID", 44.05, -121.31, make_metadata())
+    assert pano["source_detail"] == "launch"
+    assert pano["uploader"] is None
+    assert set(pano["source_metadata"]) == {n for n, _ in gsv.SOURCE_METADATA_FIELDS}
+    assert all(v is None for v in pano["source_metadata"].values())
+
+
+def test_provenance_never_fails_a_pano_on_an_unexpected_shape():
+    """A future streetlevel reshaping a nested field records None for that field only."""
+    pano = gsv.build_pano_record(
+        "PID", 44.05, -121.31,
+        make_metadata(places=["not a Place"], elevation=12.0))
+    assert pano["source_metadata"]["places"] is None
+    assert pano["source_metadata"]["elevation"] == 12.0
+
+
+def test_provenance_never_fails_a_pano_on_a_non_json_value():
+    """A value json.dumps cannot write would otherwise fail main.handle_result AFTER the
+    image download, and again on every rerun. numpy scalars are coerced, NaN and foreign
+    objects become None, and the whole pano block still serializes."""
+    import json
+    from types import SimpleNamespace
+    import numpy as np
+    place = SimpleNamespace(feature_id="0x1", cid=object(), name=None, type=None,
+                            status=None, marker_yaw=None, marker_pitch=None,
+                            marker_distance=None, marker_icon_url=None)
+    pano = gsv.build_pano_record(
+        "PID", 44.05, -121.31,
+        make_metadata(uploader=object(), country_code=np.str_("US"),
+                      elevation=np.float64("nan"), building_level=None,
+                      places=[place], neighbors=[SimpleNamespace(id=np.int64(7))]))
+    json.dumps(pano, allow_nan=False)
+    sm = pano["source_metadata"]
+    assert pano["uploader"] is None and sm["uploader"] is None
+    assert sm["country_code"] == "US" and type(sm["country_code"]) is str
+    assert sm["elevation"] is None
+    assert sm["places"] is None                  # the nested object nulls that field only
+    assert gsv._json_native(np.float32(1.5)) == 1.5
+    assert gsv._json_native({"a": (np.int64(1), None)}) == {"a": [1, None]}

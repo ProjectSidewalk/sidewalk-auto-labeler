@@ -692,8 +692,17 @@ Reads the Stage-1 JSONL and POSTs each record to a Project Sidewalk endpoint
 width/height stored in the record, renames `detections` → `labels`, and drops the original
 `detections` key. It also maps the pano block onto the server's `PanoSubmission` reader
 (`transform_pano`): `panorama_id` → `pano_id`, raw streetlevel source strings → the
-`pano_source` enum (`gsv`/`mapillary`/`infra3d`), `target_gsv_panorama_id` → `target_pano_id`,
+`pano_source` enum (`gsv`/`mapillary`/`infra3d`) with the raw string kept as `source_detail`
+(issue #23; filled from `source` for records that predate it), `target_gsv_panorama_id` → `target_pano_id`,
 and guarantees `links`/`history` arrays — so legacy JSONL files stay submittable unchanged.
+PS **stores `source_metadata` verbatim** (`pano_data.source_metadata`, jsonb) and 400s the
+whole record when it is over 64 KB (`ExploreFormats.scala` `maxSourceMetadataBytes`), so a
+GSV pano's blob is cut to an **allow-list** (`send_to_ps.PS_GSV_SOURCE_METADATA_KEYS`:
+uploader, uploader_icon_url, upload_date, elevation, country_code) plus `source_detail` —
+inside the blob, because PS does not read the top-level `source_detail`. Every key is
+present, `null` for legacy records. Places, artworks, neighbors, street names, address and
+building levels stay JSONL-only. Mapillary/Panoramax blobs go unchanged.
+`check_source_metadata_size` refuses an over-cap record before its POST (not sidecar'd).
 
 Resume state is a `<file>.submitted` sidecar of **line numbers**, which silently stops
 describing the campaign if the JSONL is edited, if the sidecar is lost (deleted, or a run
@@ -754,6 +763,20 @@ gap-fill is GSV-only (`fetch_pano_by_id`).
   the SfM tilt's absolute error is unmeasured.
 - Indoor panoramas (sources `innerspace`, `cultural_institute`, `photos:legacy_innerspace`)
   are skipped.
+- Every source's pano block carries the same provenance keys, from its own
+  `provenance_fields()`: `camera_make`/`camera_model`/`camera_type` + `source_metadata`
+  (issue #23 added GSV's). GSV has no make/model (`null`); its analogue is `source_detail`
+  (the raw streetlevel source, which survives `transform_pano`'s enum coercion) and
+  `uploader`. GSV's `source_metadata` is an **explicit per-field projection**
+  (`sources/gsv.SOURCE_METADATA_FIELDS`: uploader, uploader_icon_url, upload_date,
+  elevation, country_code, street_names, address, building_level(s), places, artworks,
+  neighbor ids) — never `vars()`/`asdict()` of the streetlevel object, which holds numpy
+  arrays and recursive panos. Every named key is always present (`null` when unset, `[]` for
+  the list-defaulted `building_levels`/`neighbors`); a new streetlevel attribute is ignored
+  until named there; values are coerced to JSON-native types and a converter that throws
+  (or yields something `json.dumps` cannot write) records `null` rather than failing the
+  pano. All of it stays in the JSONL; only the allow-list above reaches PS. GSV runs from
+  before #23 have no `elevation` (#52).
 - **Model provenance is resolved, never declared** (issues #39/#6). `CurbRampDetector` reads
   the Hugging Face revision SHA of the snapshot it loaded (`config._commit_hash`, else the hub
   cache's `snapshots/<sha>` dir; loading retries `local_files_only` when the hub is
