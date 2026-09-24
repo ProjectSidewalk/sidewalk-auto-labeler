@@ -230,6 +230,24 @@ python scripts/mapillary_tilt.py pose <mapillary_id> --run richmond
 python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --dry-run
 python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --out runs/richmond/results.pose.jsonl
 
+# GSV GROUND PLANE (issue #52) -- a STUDY, not production: the depth payload's dominant ground
+# plane NORMAL per pano, decomposed into along-travel grade + cross-slope, and the direct test of
+# #50's road-relative raycast claim (off / ground-normal / shuffled-normal, same site set, plus an
+# exploratory rig-attitude arm and, on review, travel-only / magnitude-matched shuffles / cross-sign
+# arms on their own `*_review` site set). Verdict UNDERCUT by the pre-registered rule (verdict() in the
+# script, committed before the run) -- meaning the GSV estimates cannot improve the flat raycast, NOT
+# that #50's mechanism is refuted (it is untested); write-up in docs/gsv-ground-plane-study.md. No network, no
+# GPU. Inputs are read in place via --run-root (runs/<city>/{results.jsonl,depth/}); outputs go
+# to runs/<city>/ground_plane/ + runs/_summary/ground_plane/, committed copies under
+# docs/figures/gsv-ground-plane/data/. `planes` must run first (~10 min, multiprocess).
+python scripts/gsv_ground_plane.py planes --run-root runs    # step 1 (+ frame checks)
+python scripts/gsv_ground_plane.py chain --run-root runs     # grade persistence along links
+python scripts/gsv_ground_plane.py ablation --run-root runs  # frozen-association spread
+python scripts/gsv_ground_plane.py eval --run-root runs      # world P/R vs RampNet GT, 25 m cap
+python scripts/gsv_ground_plane.py crossslope --run-root runs  # slope at ramp bearings (step 4)
+python scripts/gsv_ground_plane.py verdict                   # the pre-registered reading
+python scripts/gsv_ground_plane.py figures
+
 # POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
 # remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no
 # internet egress) and send_to_ps.py REFUSES a Mapillary file whose position_check.json is
@@ -568,6 +586,32 @@ endpoint used here still serves it. `no_depth.txt`/`gone.txt` are append-only sk
 parsed from computed_rotation and written into the record, and fusion can apply it with
 `--apply-pose road` or `gravity`, but it is OFF by default -- the shuffled-grade control
 withheld the road-relative default; its camera HEIGHT is still the 2.6 m constant — #53).
+
+**GSV ground plane (`scripts/gsv_ground_plane.py`)** — issue #52, a study. The same payloads'
+dominant ground plane has a **normal**, and in depth.py's frame +x is camera-right, **-y is
+camera-forward** (x = 0.5) and +z is down; `camera_frame_normal`/`slopes` turn it into grade
+(rise ahead) and cross-slope (rise to the right), and the tests pin that mapping against
+`depth.ground_range_at`. Measured 2026-09-23 on the four harvested runs: **the normal is not a
+per-pano road-grade measurement.** Its slope along a street does not persist between linked panos
+(r <= 0.31 within one drive, ~0 across capture months; per-pano noise bound 1.0-2.4 deg), its
+grade follows the rig's metadata pitch only on climbs, and the 2025-26 rig reads ~2x the median
+|grade| of earlier rigs on the same streets; its cross-slope does carry the road crown (falls right
+on 56-67% of panos) and tracks the rig roll (but its left/right sign is NOT settled: the measured
+cross-slope loses to its own flip, and a detection-side split says one plane is the wrong model across
+a crowned street, not that the frame is mirrored). **Rotating GSV rays into the observed plane loosens
+multi-view agreement in every city** (median 1.13-1.25x, 2.2-2.9x in the 4+ deg bucket, uncapped), and
+so does `travel-only` -- the grade-only arm that mirrors #50's correction (1.04-1.12x) -- so keep GSV at
+`apply_pose=False` with no ground-plane term. Two traps the review caught: the rig-attitude arm is one
+sign pattern of #27's pose ablation, not an independent estimate; and pair buckets are cut on the arm's
+own |grade|, so a steep-bucket comparison needs a MAGNITUDE-MATCHED control (shuffle within buckets) --
+against one, the observed plane is as good as or slightly better than random, and both lose to flat.
+Scope of the claim: the GSV estimates (0.7-2.4 deg per-pano noise, >= the median grade) cannot improve
+the flat raycast; #50's road-relative *mechanism* on un-rectified Mapillary is untested, not refuted
+(the Mapillary median result itself stands); the doc's section 8 asks the wiring PR for a
+magnitude-matched within-sequence shuffled-grade control. The ray injection trap: expressing a ray in a sloped
+plane's frame via `geo.detection_ground_point(apply_pose=True)` also needs the ray origin moved to
+the foot of the perpendicular (`ground_frame_fields`), or every point of a sloped pano shifts
+downhill by h*sin(slope).
 
 **Position check (`position_check.py`, repo root; `scripts/position_check.py` is a shim)** —
 SidewalkWebpage#5361. Stdlib-only like `geo.py`. Every pano's submitted position is scored
