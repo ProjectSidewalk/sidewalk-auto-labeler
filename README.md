@@ -150,7 +150,11 @@ python main.py example_geojson/bend.geojson --name bend --scan-only
 This scans coverage tiles only (no model load, no processing) and reports how many
 panoramas are in the polygon plus a rough runtime estimate — so you know whether you're
 committing to minutes or days before launching. On a resumed run it also tells you how
-many panos remain.
+many panos remain. The scan is saved to `runs/<name>/scan.json`, so the real run can skip
+the tile pass with `--reuse-scan`. That flag is **off by default** on purpose: coverage
+changes over time, and a reused scan misses any panoramas published since it ran (the
+manifest records the scan's age). Use it for a scan-then-run pair, not for a resume weeks
+later.
 
 ### Step 1 — Run the labeler over an area
 
@@ -167,13 +171,15 @@ runs/bend/
   already_processed.txt   # resume cache
   manifest.json           # geometry hash, model provenance, per-run stats
   area.geojson            # exact copy of the geometry used
+  scan.json               # last coverage scan's pano list (for --reuse-scan)
   spot_check/             # optional visual-QA gallery (see below)
 ```
 
 The run:
 
-- Scans the map tiles covering the polygon's bounding box, keeping only panoramas whose
-  location actually falls inside the polygon.
+- Scans the map tiles covering the polygon's bounding box that actually intersect the
+  polygon (a concave or multi-part area skips its empty corners), keeping only panoramas
+  whose location falls inside the polygon.
 - Skips indoor panoramas.
 - Writes **one line per successfully processed panorama** — including panoramas where zero
   curb ramps were found (those get an empty `detections` list). This is intentional: it
