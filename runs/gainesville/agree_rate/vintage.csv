@@ -1,0 +1,8 @@
+stratum,labels,history_linked,world_agree,world_rate,excess_misses
+same pano,2952,0,2413,0.8174,0.0
+newer than ours,348,43,249,0.7155,35.46
+same month,912,0,718,0.7873,27.48
+1-18 mo older,166,47,116,0.6988,19.69
+19-36 mo older,13,5,8,0.6154,2.63
+>36 mo older,42,18,28,0.6667,6.33
+no run pano nearby,21,0,0,0.0,17.17

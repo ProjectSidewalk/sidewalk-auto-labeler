@@ -124,6 +124,25 @@ python scripts/eval_sites.py paterson --vintage-ablation
 # are not, so the report records each pull's url, fetch time, sha256 and feature count.
 python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond.cs.washington.edu
 
+# AI-vs-crowd AGREE RATE (issue #31 goal 2; write-up in docs/agree-rate-gainesville.md).
+# Compares the run's detections with the city's CROWD CurbRamp labels — read-only, nothing
+# is submitted (an AI label on the server would contaminate the very baseline). Three GETs
+# (rawLabels CurbRamp + NoCurbRamp, regions) are pulled ONCE into runs/<city>/agree_rate/
+# and are the frozen snapshot: reused on every re-run, --refresh makes a NEW snapshot and
+# every number moves with it. Two frames: PANO (the headline — crowd pixel vs detection on
+# the SAME pano, RampNet's matcher geometry: x*1024/y*512, seam wrap, radius 0.022; no
+# camera height, no placement error) and WORLD (a bound — PS's lat/lng vs fused sites, two
+# independent placement errors, with a displaced-label chance floor printed beside it).
+# Every AI figure at OPERATIONAL (0.30) + BENCHMARK (0.55); world at 2.6 m + per-pano.
+# Regions come from the snapshot's completion_rate: partial regions count for crowd -> AI
+# but never for AI -> crowd. Validation buckets use HUMAN votes only — the feed's `correct`
+# is dominated by PS's own AI validator and is reported apart. Per-label rows key on
+# `label_uid` (<city>:<label_id>). Stdlib + shapely (no pandas), so its tests run in CI.
+# With ../RampNet/benchmark/<city> present it also adjudicates the disagreements against
+# RampNet GT. --run-dir reads the run in place (read-only); outputs always go to THIS
+# checkout's runs/<city>/agree_rate/. report.md + CSVs are git-tracked, the geojson not.
+python scripts/agree_rate.py gainesville --server https://sidewalk-gainesville.cs.washington.edu
+
 # Precision of positives mined from multi-view consensus (RampNet#158 step 1 /
 # RampNet#102): for each site with >=3 operational panos and each judged benchmark pano
 # nearby that is NOT one of its members (membership is the only test a real miner can

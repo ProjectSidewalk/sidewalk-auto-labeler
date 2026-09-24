@@ -1,0 +1,101 @@
+frame,direction,tier,height,radius,scope,k,n,rate
+pano,crowd->AI,0.3,,0.011,all in scope,1898,2952,0.643
+pano,AI->crowd (lower bound),0.3,,0.011,crowd-labelled panos,1898,4360,0.4353
+pano,crowd->AI,0.3,,0.022,all in scope,2148,2952,0.7276
+pano,AI->crowd (lower bound),0.3,,0.022,crowd-labelled panos,2148,4360,0.4927
+pano,crowd->AI,0.3,,0.033,all in scope,2220,2952,0.752
+pano,AI->crowd (lower bound),0.3,,0.033,crowd-labelled panos,2220,4360,0.5092
+pano,crowd->AI,0.3,,0.05,all in scope,2273,2952,0.77
+pano,AI->crowd (lower bound),0.3,,0.05,crowd-labelled panos,2273,4360,0.5213
+world,crowd->AI sites,0.3,2.6 m,2.5,all in scope,2933,4454,0.6585
+world,crowd->AI sites,0.3,2.6 m,2.5,full regions,2800,4253,0.6584
+world,crowd->AI union,0.3,2.6 m,2.5,all in scope,3839,4454,0.8619
+world,AI->crowd one-to-one,0.3,2.6 m,2.5,full regions,2747,8264,0.3324
+world,AI->crowd any,0.3,2.6 m,2.5,full regions,2910,8264,0.3521
+world,AI on NoCurbRamp,0.3,2.6 m,2.5,full regions,25,8264,0.003
+world,"AI on NoCurbRamp, no CurbRamp",0.3,2.6 m,2.5,full regions,25,8264,0.003
+world,crowd->AI sites,0.3,2.6 m,5.0,all in scope,3532,4454,0.793
+world,crowd->AI sites,0.3,2.6 m,5.0,full regions,3370,4253,0.7924
+world,crowd->AI union,0.3,2.6 m,5.0,all in scope,4193,4454,0.9414
+world,AI->crowd one-to-one,0.3,2.6 m,5.0,full regions,3298,8264,0.3991
+world,AI->crowd any,0.3,2.6 m,5.0,full regions,4167,8264,0.5042
+world,AI on NoCurbRamp,0.3,2.6 m,5.0,full regions,42,8264,0.0051
+world,"AI on NoCurbRamp, no CurbRamp",0.3,2.6 m,5.0,full regions,36,8264,0.0044
+world,crowd->AI sites,0.3,2.6 m,7.5,all in scope,3775,4454,0.8476
+world,crowd->AI sites,0.3,2.6 m,7.5,full regions,3599,4253,0.8462
+world,crowd->AI union,0.3,2.6 m,7.5,all in scope,4279,4454,0.9607
+world,AI->crowd one-to-one,0.3,2.6 m,7.5,full regions,3520,8264,0.4259
+world,AI->crowd any,0.3,2.6 m,7.5,full regions,5130,8264,0.6208
+world,AI on NoCurbRamp,0.3,2.6 m,7.5,full regions,56,8264,0.0068
+world,"AI on NoCurbRamp, no CurbRamp",0.3,2.6 m,7.5,full regions,42,8264,0.0051
+world,crowd->AI sites,0.3,per-pano,2.5,all in scope,2781,4454,0.6244
+world,crowd->AI sites,0.3,per-pano,2.5,full regions,2658,4253,0.625
+world,crowd->AI union,0.3,per-pano,2.5,all in scope,3786,4454,0.85
+world,AI->crowd one-to-one,0.3,per-pano,2.5,full regions,2609,7168,0.364
+world,AI->crowd any,0.3,per-pano,2.5,full regions,2774,7168,0.387
+world,AI on NoCurbRamp,0.3,per-pano,2.5,full regions,26,7168,0.0036
+world,"AI on NoCurbRamp, no CurbRamp",0.3,per-pano,2.5,full regions,26,7168,0.0036
+world,crowd->AI sites,0.3,per-pano,5.0,all in scope,3493,4454,0.7842
+world,crowd->AI sites,0.3,per-pano,5.0,full regions,3328,4253,0.7825
+world,crowd->AI union,0.3,per-pano,5.0,all in scope,4211,4454,0.9454
+world,AI->crowd one-to-one,0.3,per-pano,5.0,full regions,3252,7168,0.4537
+world,AI->crowd any,0.3,per-pano,5.0,full regions,3813,7168,0.5319
+world,AI on NoCurbRamp,0.3,per-pano,5.0,full regions,47,7168,0.0066
+world,"AI on NoCurbRamp, no CurbRamp",0.3,per-pano,5.0,full regions,42,7168,0.0059
+world,crowd->AI sites,0.3,per-pano,7.5,all in scope,3649,4454,0.8193
+world,crowd->AI sites,0.3,per-pano,7.5,full regions,3474,4253,0.8168
+world,crowd->AI union,0.3,per-pano,7.5,all in scope,4278,4454,0.9605
+world,AI->crowd one-to-one,0.3,per-pano,7.5,full regions,3394,7168,0.4735
+world,AI->crowd any,0.3,per-pano,7.5,full regions,4347,7168,0.6064
+world,AI on NoCurbRamp,0.3,per-pano,7.5,full regions,60,7168,0.0084
+world,"AI on NoCurbRamp, no CurbRamp",0.3,per-pano,7.5,full regions,43,7168,0.006
+pano,crowd->AI,0.55,,0.011,all in scope,1616,2952,0.5474
+pano,AI->crowd (lower bound),0.55,,0.011,crowd-labelled panos,1616,3192,0.5063
+pano,crowd->AI,0.55,,0.022,all in scope,1794,2952,0.6077
+pano,AI->crowd (lower bound),0.55,,0.022,crowd-labelled panos,1794,3192,0.562
+pano,crowd->AI,0.55,,0.033,all in scope,1841,2952,0.6236
+pano,AI->crowd (lower bound),0.55,,0.033,crowd-labelled panos,1841,3192,0.5768
+pano,crowd->AI,0.55,,0.05,all in scope,1879,2952,0.6365
+pano,AI->crowd (lower bound),0.55,,0.05,crowd-labelled panos,1879,3192,0.5887
+world,crowd->AI sites,0.55,2.6 m,2.5,all in scope,2616,4454,0.5873
+world,crowd->AI sites,0.55,2.6 m,2.5,full regions,2491,4253,0.5857
+world,crowd->AI union,0.55,2.6 m,2.5,all in scope,3447,4454,0.7739
+world,AI->crowd one-to-one,0.55,2.6 m,2.5,full regions,2450,5788,0.4233
+world,AI->crowd any,0.55,2.6 m,2.5,full regions,2541,5788,0.439
+world,AI on NoCurbRamp,0.55,2.6 m,2.5,full regions,15,5788,0.0026
+world,"AI on NoCurbRamp, no CurbRamp",0.55,2.6 m,2.5,full regions,15,5788,0.0026
+world,crowd->AI sites,0.55,2.6 m,5.0,all in scope,3194,4454,0.7171
+world,crowd->AI sites,0.55,2.6 m,5.0,full regions,3042,4253,0.7153
+world,crowd->AI union,0.55,2.6 m,5.0,all in scope,3934,4454,0.8833
+world,AI->crowd one-to-one,0.55,2.6 m,5.0,full regions,2985,5788,0.5157
+world,AI->crowd any,0.55,2.6 m,5.0,full regions,3551,5788,0.6135
+world,AI on NoCurbRamp,0.55,2.6 m,5.0,full regions,27,5788,0.0047
+world,"AI on NoCurbRamp, no CurbRamp",0.55,2.6 m,5.0,full regions,21,5788,0.0036
+world,crowd->AI sites,0.55,2.6 m,7.5,all in scope,3416,4454,0.767
+world,crowd->AI sites,0.55,2.6 m,7.5,full regions,3255,4253,0.7653
+world,crowd->AI union,0.55,2.6 m,7.5,all in scope,4069,4454,0.9136
+world,AI->crowd one-to-one,0.55,2.6 m,7.5,full regions,3191,5788,0.5513
+world,AI->crowd any,0.55,2.6 m,7.5,full regions,4282,5788,0.7398
+world,AI on NoCurbRamp,0.55,2.6 m,7.5,full regions,34,5788,0.0059
+world,"AI on NoCurbRamp, no CurbRamp",0.55,2.6 m,7.5,full regions,22,5788,0.0038
+world,crowd->AI sites,0.55,per-pano,2.5,all in scope,2531,4454,0.5683
+world,crowd->AI sites,0.55,per-pano,2.5,full regions,2419,4253,0.5688
+world,crowd->AI union,0.55,per-pano,2.5,all in scope,3482,4454,0.7818
+world,AI->crowd one-to-one,0.55,per-pano,2.5,full regions,2376,4744,0.5008
+world,AI->crowd any,0.55,per-pano,2.5,full regions,2452,4744,0.5169
+world,AI on NoCurbRamp,0.55,per-pano,2.5,full regions,13,4744,0.0027
+world,"AI on NoCurbRamp, no CurbRamp",0.55,per-pano,2.5,full regions,13,4744,0.0027
+world,crowd->AI sites,0.55,per-pano,5.0,all in scope,3141,4454,0.7052
+world,crowd->AI sites,0.55,per-pano,5.0,full regions,2989,4253,0.7028
+world,crowd->AI union,0.55,per-pano,5.0,all in scope,3965,4454,0.8902
+world,AI->crowd one-to-one,0.55,per-pano,5.0,full regions,2922,4744,0.6159
+world,AI->crowd any,0.55,per-pano,5.0,full regions,3224,4744,0.6796
+world,AI on NoCurbRamp,0.55,per-pano,5.0,full regions,24,4744,0.0051
+world,"AI on NoCurbRamp, no CurbRamp",0.55,per-pano,5.0,full regions,19,4744,0.004
+world,crowd->AI sites,0.55,per-pano,7.5,all in scope,3270,4454,0.7342
+world,crowd->AI sites,0.55,per-pano,7.5,full regions,3108,4253,0.7308
+world,crowd->AI union,0.55,per-pano,7.5,all in scope,4092,4454,0.9187
+world,AI->crowd one-to-one,0.55,per-pano,7.5,full regions,3041,4744,0.641
+world,AI->crowd any,0.55,per-pano,7.5,full regions,3517,4744,0.7414
+world,AI on NoCurbRamp,0.55,per-pano,7.5,full regions,35,4744,0.0074
+world,"AI on NoCurbRamp, no CurbRamp",0.55,per-pano,7.5,full regions,20,4744,0.0042
