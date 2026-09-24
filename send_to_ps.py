@@ -870,29 +870,7 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
     return check
 
 
-# Two positions closer than this (degrees, ~1 cm) are the same position: a pano that
-# round-tripped through json.dumps comes back bit-identical, so this only absorbs a
-# re-serialization, never a real field switch (those are metres).
-SAME_POSITION_DEG = 1e-7
-
-
-def pano_positions_by_id(input_file: Path,
-                         line_numbers: Optional[Set[int]] = None) -> Dict[str, tuple]:
-    """{panorama_id: (lat, lng)} for the records of a results file (only `line_numbers`,
-    when given - the lines a campaign actually sent)."""
-    out: Dict[str, tuple] = {}
-    with open(input_file, 'r', encoding='utf-8') as f:
-        for line_number, line in enumerate(f, 1):
-            if not line.strip() or (line_numbers is not None and line_number not in line_numbers):
-                continue
-            pano = json.loads(line).get('pano') or {}
-            if pano.get('panorama_id') is not None and pano.get('lat') is not None:
-                out[str(pano['panorama_id'])] = (float(pano['lat']), float(pano['lng']))
-    return out
-
-
-def check_live_positions(input_file: Path, endpoint_url: str,
-                         record: Dict[str, Any]) -> None:
+def check_live_positions(input_file: Path, endpoint_url: str, trust_own_record: bool = True) -> None:
     """Refuse (ValueError) to submit a file that would MOVE panos already carrying live
     labels on this endpoint - the frame-consistency guard of issue #62.
 
@@ -900,66 +878,57 @@ def check_live_positions(input_file: Path, endpoint_url: str,
     (ExploreService.submitAiLabelData -> PanoDataService.toLatLng); resubmitting a pano
     upserts its pano row but never recomputes a label already stored. So resubmitting a
     pano at a new position leaves every label already live on it where it was - including
-    labels a validator has already judged - inserts a second copy of each at the new
-    position (PS is insert-only for AI labels), and moves the pano row out from under the
-    old ones. Doing it right means retiring the live labels in the database first. A
-    repositioned file (scripts/reposition.py) is a new file with a new hash, so the resume
-    guard sees a fresh campaign and says nothing; this is what notices that its panos are
-    the same panos another campaign already put on this server, at other coordinates.
-    Moving them is a decision about the whole city, never about the file being submitted
-    (Richmond: repositioning the band would have moved 176 panos under 9,526 live labels
-    on differences the position check cannot resolve), so it is refused here and made on
-    purpose with --reposition-live-city.
+    labels a validator has already judged - and inserts a second copy of each at the new
+    position (PS is insert-only for AI labels). Doing it right means retiring (soft-deleting)
+    the live labels in the database first. A repositioned file (scripts/reposition.py) is a
+    new file with a new hash, so the resume guard sees a fresh campaign and says nothing;
+    this is what notices that its panos are the same panos a campaign already put on this
+    server, at other coordinates. Moving them is a decision about the whole city, never
+    about the file being submitted, so it is refused here and made on purpose with
+    --reposition-live-city.
 
-    Evidence is every other `<file>.submission.json` in the same directory that records
-    lines on this endpoint, compared pano by pano with the file it describes. A record
-    whose file is missing refuses too: "cannot compare" must not read as "nothing moves".
-    Skipped when THIS file's own record already holds lines here - its panos are the live
-    ones, and the decision was made when its campaign began.
+    Where a pano is live is decided by NEWEST CAMPAIGN WINS, PER PANO
+    (position_check.live_positions): of every campaign recorded in this directory for this
+    endpoint - sibling `*.submission.json` records and this file's own alike, bands
+    included, each over the lines its sidecar says it sent - the one with the latest
+    `last_submission_utc` that sent the pano holds its live position. That is what makes a
+    partial reposition expressible: after Richmond's three drifted sequences were
+    soft-deleted and resent at raw GPS (results.posfix3seq.raw.jsonl), the older
+    results.jsonl / results.band.jsonl records still list those panos at SfM, and without
+    the rule no file could pass. It also means this file's own campaign earns no exemption:
+    a newer campaign that moved some of its panos refuses it (e.g. a later band sent from
+    results.band.jsonl would put those 72 panos back at SfM), and so does resuming this
+    file after a newer campaign moved panos it has not sent yet.
+
+    A record whose file is missing, a partial campaign without its sidecar, or two
+    campaigns recorded at the same instant that disagree on a pano refuse too: "cannot
+    compare" must not read as "nothing moves". Campaigns submitted from another directory,
+    or whose records were never committed, are invisible to this check.
+
+    `trust_own_record=False` (process_jsonl_file passes it once --ignore-submission-guard
+    has overridden the resume guard) leaves this file's own record out: it is then
+    unreadable, or out of step with a lost sidecar, and that is the resume guard's to
+    judge. Leaving a campaign out can only turn a pass into a refusal - the file itself
+    always matches its own campaign - never the reverse.
     """
     endpoint = canonical_endpoint(endpoint_url)
-    own = (record.get('endpoints') or {}).get(endpoint) or {}
-    if int(own.get('submitted_lines') or 0) > 0:
-        return
-    own_record = submission_record_path(str(input_file)).name
-    ours: Optional[Dict[str, tuple]] = None
-    problems = []
-    for rec_path in sorted(input_file.parent.glob('*' + SUBMISSION_RECORD_SUFFIX)):
-        if rec_path.name == own_record:
-            continue
-        other = load_submission_record(rec_path)  # unreadable -> ValueError, as everywhere
-        state = (other.get('endpoints') or {}).get(endpoint) or {}
-        lines = int(state.get('submitted_lines') or 0)
-        if lines <= 0:
-            continue
-        sibling = rec_path.with_name(other.get('input_file')
-                                     or rec_path.name[:-len(SUBMISSION_RECORD_SUFFIX)])
-        labels = state.get('labels_submitted', '?')
-        if not sibling.exists():
-            problems.append(f"{rec_path.name} records {lines} line(s) / {labels} label(s) of "
-                            f"{sibling.name} live here, and {sibling.name} is not present to "
-                            f"compare pano positions against")
-            continue
-        live_lines = None
-        if lines < int(other.get('total_lines') or 0):
-            sidecar = Path(f"{sibling}.submitted")
-            live_lines = load_submitted_lines(sidecar) if sidecar.exists() else None
-        live = pano_positions_by_id(sibling, live_lines)
-        if ours is None:
-            ours = pano_positions_by_id(input_file)
-        moved = [pid for pid, (lat, lng) in ours.items() if pid in live
-                 and (abs(lat - live[pid][0]) > SAME_POSITION_DEG
-                      or abs(lng - live[pid][1]) > SAME_POSITION_DEG)]
-        if moved:
-            problems.append(f"{len(moved)} pano(s) sit at other coordinates than in {sibling.name}, "
-                            f"which {rec_path.name} records as live here ({lines} line(s), "
-                            f"{labels} label(s))")
+    exclude = () if trust_own_record else (submission_record_path(str(input_file)).name,)
+    live, problems = position_check.live_positions(input_file.parent, endpoint, exclude)
+    if live:
+        moved = position_check.moved_against_live(
+            position_check.pano_positions_by_id(input_file), live)
+        for campaign, pids in sorted(moved.items()):
+            entry = live[pids[0]]
+            problems.append(
+                f"{len(pids)} pano(s) sit at other coordinates than in {campaign}, the newest "
+                f"campaign here to send them (last sent {entry['at'] or 'at an unrecorded time'}; "
+                f"{entry['lines']} line(s), {entry['labels']} label(s))")
     if problems:
         raise ValueError(
             f"{input_file.name} would move panos that already carry live labels on {endpoint}: "
-            + "; ".join(problems) + ". PS places a label once, at insert, so the labels already "
-            f"live on those panos would stay where they are and be DUPLICATED at the new "
-            f"positions - retire them in the database first. Repositioning a city that has "
+            + "; ".join(problems) + ". PS places a label once, at insert, so resending those "
+            f"panos at other coordinates duplicates the live labels on them unless they are "
+            f"retired (soft-deleted) in the database first. Repositioning a city that has "
             f"shipped is a whole-city decision (issue #62), not a property of this file. "
             f"--reposition-live-city overrides, once that decision is made.")
 
@@ -1177,9 +1146,10 @@ def process_jsonl_file(
             complete campaign at exactly ``max_confidence`` (issue #20). Records with no band
             label are not POSTed (the server already holds them as checked) but are marked
             done in the band's own sidecar, ``<file>.band-<min>-<max>.submitted``.
-        reposition_live_city: Submit a file whose panos sit at other coordinates than the
-            same panos another campaign already put on this endpoint - moving every label
-            live on them (see ``check_live_positions``). A whole-city decision.
+        reposition_live_city: Submit a file whose panos sit at other coordinates than
+            where the newest campaign on this endpoint put the same panos - which duplicates
+            live labels unless they are retired (soft-deleted) in the database first (see
+            ``check_live_positions``). A whole-city decision.
     """
     input_file = Path(file_path)
 
@@ -1204,6 +1174,7 @@ def process_jsonl_file(
     digest, total_lines, total_bytes = hash_and_count(input_file)
     previous_record: Dict[str, Any] = {}
     append_note: Optional[str] = None
+    own_record_trusted = True   # False once --ignore-submission-guard overrode a refusal
     try:
         if not dry_run:
             previous_record = load_submission_record(record_path)
@@ -1220,6 +1191,7 @@ def process_jsonl_file(
         if not ignore_guard:
             raise
         print(f"WARNING (--ignore-submission-guard): {e}")
+        own_record_trusted = False
 
     # ...and that its pano positions were checked and passed (SidewalkWebpage#5361). Same
     # shape: a dry run is exempt, the override downgrades the refusal to a warning.
@@ -1240,7 +1212,7 @@ def process_jsonl_file(
     live_override: Optional[str] = None
     try:
         if not dry_run:
-            check_live_positions(input_file, endpoint_url, previous_record)
+            check_live_positions(input_file, endpoint_url, own_record_trusted)
     except ValueError as e:
         if not reposition_live_city:
             raise
@@ -1425,14 +1397,13 @@ def main() -> None:
     parser.add_argument(
         "--reposition-live-city",
         action="store_true",
-        help="Submit a file whose panos sit at other coordinates than the same panos another "
-             "campaign (another <file>.submission.json in this directory) already put on this "
-             "endpoint. PS places a label once, at insert, so the labels already live on those "
-             "panos (including ones validators have judged) stay put and get DUPLICATED at the "
-             "new positions unless they are soft-deleted in the database first; PS has no route "
-             "to retire them, so there is no undo short of database surgery. Use it only "
-             "for a whole-city repositioning decided on purpose (issue #62), never to get a "
-             "file through; the reason is written into the submission record."
+        help="Submit a file whose panos sit at other coordinates than where the newest "
+             "campaign on this endpoint (any <file>.submission.json in this directory, this "
+             "file's own included) put the same panos. PS places a label once, at insert, so "
+             "this duplicates live labels unless they are retired (soft-deleted) in the "
+             "database first; PS has no API route for that, so it is a database step. Use it "
+             "only for a whole-city repositioning decided on purpose (issue #62), never to get "
+             "a file through; the reason is written into the submission record."
     )
     parser.add_argument(
         "--prefix-digest", type=int, metavar="N",

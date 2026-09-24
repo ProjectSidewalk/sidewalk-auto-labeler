@@ -441,6 +441,170 @@ def live_campaigns(results_path):
     return out
 
 
+# Two positions closer than this (degrees, ~1 cm) are the same position: a pano that
+# round-tripped through json.dumps comes back bit-identical, so this only absorbs a
+# re-serialization, never a real field switch (those are metres).
+SAME_POSITION_DEG = 1e-7
+
+
+def same_position(a, b):
+    return abs(a[0] - b[0]) <= SAME_POSITION_DEG and abs(a[1] - b[1]) <= SAME_POSITION_DEG
+
+
+def _positions_by_line(path):
+    """{line_number: (panorama_id, (lat, lng))} for a results file, numbered as
+    send_to_ps.py numbers its sidecar (1-based, blank lines counted). A malformed line is
+    skipped: send_to_ps.py never sends one, so it cannot have placed a pano."""
+    out = {}
+    with open(path, encoding='utf-8') as f:
+        for line_number, line in enumerate(f, 1):
+            if not line.strip():
+                continue
+            try:
+                pano = json.loads(line).get('pano') or {}
+            except (ValueError, AttributeError):
+                continue
+            if pano.get('panorama_id') is not None and pano.get('lat') is not None:
+                out[line_number] = (str(pano['panorama_id']), (float(pano['lat']), float(pano['lng'])))
+    return out
+
+
+def pano_positions_by_id(path, line_numbers=None):
+    """{panorama_id: (lat, lng)} for the records of a results file (only `line_numbers`,
+    when given - the lines a campaign actually sent)."""
+    return {pid: ll for n, (pid, ll) in _positions_by_line(path).items()
+            if line_numbers is None or n in line_numbers}
+
+
+def _read_sidecar(path):
+    with open(path, encoding='utf-8') as f:
+        return {int(line) for line in f if line.strip()}
+
+
+def _read_record(path):
+    """A submission record, validated as send_to_ps.load_submission_record does: an
+    unreadable one raises, because "cannot read what is live" must not become "nothing is"."""
+    try:
+        with open(path, encoding='utf-8') as f:
+            record = json.load(f)
+        if not isinstance(record.get('endpoints'), dict):
+            raise ValueError("'endpoints' is not a per-endpoint mapping")
+        for state in record['endpoints'].values():
+            int(state['submitted_lines'])
+    except (OSError, KeyError, TypeError, AttributeError, ValueError) as exc:
+        raise ValueError(f'{Path(path).name} is not a readable submission record ({exc}): it records '
+                         f'what is live on a server, so it has to be repaired, not ignored') from exc
+    return record
+
+
+def live_endpoints(directory):
+    """Every endpoint any submission record in `directory` says holds at least one line."""
+    out = set()
+    for rec_path in Path(directory).glob('*.submission.json'):
+        for endpoint, state in _read_record(rec_path)['endpoints'].items():
+            if int(state.get('submitted_lines') or 0) > 0:
+                out.add(endpoint)
+    return sorted(out)
+
+
+def live_positions(directory, endpoint, exclude=()):
+    """Where each pano sits on `endpoint`, per the submission records in `directory`:
+    ({panorama_id: {latlng, campaign, at, min_confidence, lines, labels}}, [problems]).
+    Record file names in `exclude` are skipped (send_to_ps.py drops the file's own record
+    once --ignore-submission-guard has overridden it; dropping a campaign can only turn a
+    pass into a refusal, never the reverse).
+
+    NEWEST CAMPAIGN WINS, PER PANO. PS computes a label's lat/lng once, at insert, from the
+    pano position it was sent with, and a later resubmission upserts the pano row but
+    never moves labels already stored. So after a partial reposition (Richmond 2026-09-24:
+    three sequences' 143 labels soft-deleted, then their 72 panos resent at raw GPS from
+    results.posfix3seq.raw.jsonl) the live position of those panos is the one the NEWEST
+    campaign that sent them used, while the older records (results.jsonl,
+    results.band.jsonl) still list the same panos at SfM: a submission record cannot say
+    that some of its panos were superseded. Taking the latest `last_submission_utc` per
+    pano is how the records express it.
+
+    A campaign is every record's base entry for `endpoint` plus each of its `bands`, each
+    with its own timestamp and lines: all lines when it holds `submitted_lines ==
+    total_lines`, else exactly the lines of its sidecar (`<file>.submitted`,
+    `<file>.band-<key>.submitted`). The file's own record is one campaign among the others;
+    nothing is exempt. Gaps come back as problems rather than guesses: a record whose
+    results file is missing, a partial campaign whose sidecar is missing (its lines cannot
+    be told apart, and crediting it with all of them could let it "win" panos it never
+    sent), and two campaigns with the same timestamp that disagree on a pano. A record
+    with no `last_submission_utc` sorts oldest. An unreadable record raises ValueError.
+    """
+    directory = Path(directory)
+    campaigns, problems = [], []
+    for rec_path in sorted(directory.glob('*.submission.json')):
+        if rec_path.name in exclude:
+            continue
+        record = _read_record(rec_path)
+        state = record['endpoints'].get(endpoint) or {}
+        if int(state.get('submitted_lines') or 0) <= 0:
+            continue
+        results = rec_path.with_name(record.get('input_file') or rec_path.name[:-len('.submission.json')])
+        labels = state.get('labels_submitted', '?')
+        if not results.exists():
+            problems.append(f"{rec_path.name} records {state['submitted_lines']} line(s) / {labels} "
+                            f"label(s) of {results.name} live here, and {results.name} is not present "
+                            f"to compare pano positions against")
+            continue
+        total = int(record.get('total_lines') or 0)
+        parts = [('', state, Path(f'{results}.submitted'))]
+        parts += [(f' (band {key})', band, Path(f'{results}.band-{key}.submitted'))
+                  for key, band in sorted((state.get('bands') or {}).items())]
+        for suffix, part, sidecar in parts:
+            n = int(part.get('submitted_lines') or 0)
+            if n <= 0:
+                continue
+            name = results.name + suffix
+            lines = None
+            if n < total:
+                if not sidecar.exists():
+                    problems.append(f"{name} is recorded as partial here ({n} of {total} lines) and "
+                                    f"its sidecar {sidecar.name} is missing, so which panos it put "
+                                    f"on this server cannot be told")
+                    continue
+                lines = _read_sidecar(sidecar)
+            campaigns.append({'at': part.get('last_submission_utc') or state.get('last_submission_utc') or '',
+                              'campaign': name, 'path': results, 'line_numbers': lines,
+                              'min_confidence': float(state.get('min_confidence', 0.0)),
+                              'lines': n, 'labels': part.get('labels_submitted', labels)})
+
+    live, tied, cache = {}, {}, {}
+    for c in sorted(campaigns, key=lambda c: c['at']):   # oldest first: newer ones overwrite
+        if c['path'] not in cache:
+            cache[c['path']] = _positions_by_line(c['path'])
+        for n, (pid, ll) in cache[c['path']].items():
+            if c['line_numbers'] is not None and n not in c['line_numbers']:
+                continue
+            prev = live.get(pid)
+            if prev is not None and prev['at'] == c['at']:
+                if not same_position(prev['latlng'], ll):
+                    tied.setdefault(pid, {prev['campaign']}).add(c['campaign'])
+            else:
+                tied.pop(pid, None)   # strictly newer: any earlier tie is superseded
+            live[pid] = {'latlng': ll, **{k: c[k] for k in ('campaign', 'at', 'min_confidence',
+                                                             'lines', 'labels')}}
+    if tied:
+        names = sorted({n for v in tied.values() for n in v})
+        problems.append(f"{len(tied)} pano(s) were sent at different coordinates by campaigns recorded "
+                        f"at the same time ({', '.join(names)}), so which position is live cannot be told")
+    return live, problems
+
+
+def moved_against_live(positions, live):
+    """{campaign: [panorama_id, ...]} for the panos in `positions` ({id: (lat, lng)}) that
+    sit elsewhere than where the newest campaign on the endpoint put them (live_positions)."""
+    out = defaultdict(list)
+    for pid, ll in positions.items():
+        entry = live.get(pid)
+        if entry is not None and not same_position(ll, entry['latlng']):
+            out[entry['campaign']].append(pid)
+    return dict(out)
+
+
 def repo_relative(path):
     """`path` relative to the repo root when it lies inside it (what the tracked JSON and
     report record — never an absolute local path), else as given."""

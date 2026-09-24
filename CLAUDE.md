@@ -208,10 +208,11 @@ python scripts/position_check.py runs/laurens --report --labels <ps_v3_rawLabels
     --reference runs/laurens_gsv     # optional: the server's own placements; a second run over
                                      # the same area as an independent layer (Laurens only)
 # ...then fix a flagged run WITHOUT re-detecting: rewrite the flagged sequences' pano lat/lng
-# from the recommended field into a new file (new hash -> fresh submission campaign). A file
-# whose .submission.json records live lines is REFUSED (so is sending the output where
-# another campaign already put those panos): PS places a label once, at insert, so resending
-# moved panos DUPLICATES their live labels unless those are soft-deleted first — a whole-city decision, overridden only with --reposition-live-city.
+# from the recommended field into a new file (new hash -> fresh submission campaign). An
+# output that would put any pano elsewhere than its live position (newest campaign wins, per
+# pano, over every .submission.json in the dir) is REFUSED, and so is sending it: PS places a
+# label once, at insert, so resending moved panos DUPLICATES their live labels unless those
+# are soft-deleted first — a whole-city decision, overridden only with --reposition-live-city.
 python scripts/reposition.py runs/laurens/results.jsonl --from-check
 python scripts/reposition.py runs/laurens/results.jsonl --field raw   # whole file, one field
 # ...and confirm the output IN PLACE — never swap it into results.jsonl (main.py's field
@@ -511,12 +512,19 @@ consistency:** repositioning a city that already carries live labels is a whole-
 decision, never a per-file one — PS computes a label's lat/lng once, at insert, and a
 resubmission never moves a stored label, so resending moved panos duplicates their live labels
 unless those are soft-deleted in the database first (the Richmond 3-sequence fix, 2026-09-24,
-did exactly that: 143 retired, 143 resubmitted at raw). `reposition.py` refuses an input whose `.submission.json` records live
-lines (and never overwrites a file that has its own record); `send_to_ps.py`'s
-`check_live_positions` refuses a file whose panos sit at other coordinates than the same
-panos in another campaign live on that endpoint (skipped once the file's own campaign is
-live there). `--reposition-live-city` overrides both, and the reason lands in the
-submission record; the check and report print the live campaigns beside the verdict. It is wired into both stages: `main.py` ends every run with
+did exactly that: 143 retired, 143 resubmitted at raw). Where a pano is live is decided by
+**newest campaign wins, per pano** (`position_check.live_positions`): over every
+`*.submission.json` in the directory — the file's own included, bands as campaigns of their
+own, each over the lines its sidecar says it sent — the campaign with the latest
+`last_submission_utc` that sent the pano holds its live position. Records cannot say a pano
+was superseded, so without it Richmond's older `results.jsonl`/`results.band.jsonl` records
+(SfM) and `results.posfix3seq.raw.jsonl` (raw) would refuse every file. `send_to_ps.py`'s
+`check_live_positions` refuses a file with any pano elsewhere than its live position — there
+is no exemption for the file's own campaign, so a later band from `results.band.jsonl` is
+refused for the 71 panos it would put back at SfM — and `reposition.py` refuses an output
+that would (and never overwrites a file that has its own record). A missing campaign file, a
+partial campaign without its sidecar, or a same-timestamp disagreement also refuses.
+`--reposition-live-city` overrides both, and the reason lands in the submission record; the check and report print the live campaigns beside the verdict. It is wired into both stages: `main.py` ends every run with
 `position_check.run_check` (non-fatal; the verdict summary lands in `manifest.json` under
 `position_check`, the full `position_check.json` + `position_report.html` beside
 `results.jsonl` and are git-tracked), and `send_to_ps.py`'s `check_position_state` refuses a

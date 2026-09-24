@@ -369,7 +369,8 @@ def test_reposition_refuses_a_file_that_is_already_live(tmp_path, capsys):
                   "submitted_lines": 25, "labels_submitted": 40, "min_confidence": 0.3}}}
     position_check.submission_record_for(results).write_text(json.dumps(record), encoding="utf-8")
 
-    with pytest.raises(SystemExit, match=r"already submitted.*25 lines, 40 labels.*move 25 pano"):
+    with pytest.raises(SystemExit, match=r"25 pano\(s\) would sit elsewhere than where results\.jsonl put them"
+                                         r".*25 line\(s\), 40 label\(s\) live"):
         reposition.main([str(results), "--field", "raw"])
     assert not (run / "results.raw.jsonl").exists() and not list(run.glob("*.tmp"))
 
@@ -409,3 +410,43 @@ def test_beyond_snap_with_an_alternative_that_is_itself_off_the_street_is_both_o
     row = result["sequences"][0]
     assert row["beyond_snap"] and row["off_street"] and not row["flagged"] and row["both_off"]
     assert result["flagged_sequences"] == [] and result["both_off_sequences"] == ["A"]
+
+
+def _record_campaign(results, at, lines=None):
+    total = len(results.read_text(encoding="utf-8").splitlines())
+    position_check.submission_record_for(results).write_text(json.dumps(
+        {"input_file": results.name, "total_lines": total, "endpoints": {
+            "https://ps.example/ai/submitLabelsOnPano": {
+                "submitted_lines": lines or total, "labels_submitted": 9, "min_confidence": 0.3,
+                "last_submission_utc": at}}}), encoding="utf-8")
+
+
+def test_reposition_reads_sibling_campaigns_newest_first(tmp_path):
+    """reposition.py uses send_to_ps's newest-wins rule over every record in the directory:
+    once a newer campaign put a sequence on raw, repositioning the old file to raw matches
+    what is live, and repositioning it back to SfM is what would move panos."""
+    frame = _frame()
+    run = tmp_path / "city"
+    _write_run(run, _northbound("A", 0.5, -7.5, frame), frame)
+    results = run / "results.jsonl"
+    _record_campaign(results, "2026-09-05T00:00:00Z")                       # live at SfM...
+    assert reposition.main([str(results), "--field", "raw", "--out", str(run / "fix.jsonl"),
+                            "--reposition-live-city"]) == 0                  # the decision, made once
+    _record_campaign(run / "fix.jsonl", "2026-09-24T00:00:00Z")             # ...then resent at raw
+
+    assert reposition.main([str(results), "--field", "raw", "--out", str(run / "again.jsonl")]) == 0
+    with pytest.raises(SystemExit, match=r"25 pano\(s\) would sit elsewhere than where fix\.jsonl put them"):
+        reposition.main([str(run / "again.jsonl"), "--field", "sfm", "--out", str(run / "back.jsonl")])
+    assert not (run / "back.jsonl").exists()
+
+
+def test_reposition_leaves_no_temp_file_on_error(tmp_path):
+    frame = _frame()
+    run = tmp_path / "city"
+    _write_run(run, _northbound("A", 0.5, -7.5, frame), frame)
+    results = run / "results.jsonl"
+    with open(results, "a", encoding="utf-8") as f:
+        f.write('{"pano": \n')                                              # a truncated last line
+    with pytest.raises(ValueError):
+        reposition.main([str(results), "--field", "raw"])
+    assert not list(run.glob("*.tmp")) and not (run / "results.raw.jsonl").exists()

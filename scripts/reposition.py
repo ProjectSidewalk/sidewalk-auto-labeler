@@ -5,8 +5,11 @@ Companion to scripts/position_check.py (SidewalkWebpage#5361). Every Mapillary r
 already carries both positions in source_metadata — the raw GPS fix (`geometry`) and
 the SfM-corrected one (`computed_geometry`) — so switching the submitted pano lat/lng
 between them needs no re-detection: detections are stored relative to the pano, and the
-server places each label from the pano position plus the pixel offset, so moving the
-pano moves its labels by the same vector.
+server places each label from the pano position plus the pixel offset, so a file that has
+NEVER been submitted places its labels by the same vector its panos moved. Once a file
+is live that stops being true: PS places a label once, at insert, so resending moved
+panos duplicates live labels unless they are retired (soft-deleted) in the database
+first (see below).
 
 Usage:
     # whole file, one field
@@ -31,14 +34,17 @@ field to a file that is now mixed — exactly what the binding exists to prevent
 the output with `position_check.py runs/<name> --results <output>` and submit it from
 where it is.
 
-A file that is already submitted is refused (issue #62). Its `<file>.submission.json`
-records the endpoints holding it, and PS places a label once, at insert, from the pano
-position it was sent with - so shipping the output would leave the live (possibly already
-validated) labels where they are and DUPLICATE them at the new positions, unless they are
-retired in the database first. That is a decision about the whole city, not about this file, and
+An output that would move live panos is refused (issue #62). Every `*.submission.json`
+in the input's directory records what some campaign put on some endpoint, and for each
+pano the NEWEST campaign that sent it holds its live position
+(position_check.live_positions - the same newest-wins helper send_to_ps.py uses, so a
+partial reposition such as Richmond's results.posfix3seq.raw.jsonl counts). The output is
+refused when any of its panos sits elsewhere than that, because PS places a label once,
+at insert: shipping it duplicates live labels unless they are retired (soft-deleted) in
+the database first. That is a decision about the whole city, not about this file, and
 position differences under ~2 m are below what position_check.py can resolve anyway.
-`--reposition-live-city` overrides, for that decision made on purpose; send_to_ps.py
-refuses the output again, independently, unless given the same flag.
+`--reposition-live-city` overrides, for that decision made on purpose; send_to_ps.py runs
+the same check again at submit time and refuses the output unless given the same flag.
 
 Only lat/lng move. `camera_heading` (Mapillary's `computed_compass_angle`) is SfM-derived
 too, but the measured SfM-vs-GPS discrepancies are translations — one near-constant
@@ -57,7 +63,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from detectors import on_camera_rig  # noqa: E402
-from position_check import check_path_for, live_campaigns, submission_record_for  # noqa: E402
+from position_check import (check_path_for, live_endpoints, live_positions,  # noqa: E402
+                            moved_against_live, submission_record_for)
 
 FIELD_KEYS = {'raw': 'geometry', 'sfm': 'computed_geometry'}
 
@@ -73,14 +80,6 @@ def reposition_pano(pano, field):
     out['lng'], out['lat'] = float(coords[0]), float(coords[1])
     out['position_field'] = FIELD_KEYS[field]
     return out
-
-
-def _min_confidence(src, endpoint):
-    """The confidence floor the record says `endpoint` holds (a band lowers it once complete),
-    so the moved-label estimate counts what is actually live there."""
-    with open(submission_record_for(src), encoding='utf-8') as f:
-        state = json.load(f)['endpoints'][endpoint]
-    return float(state.get('min_confidence', 0.0))
 
 
 def plan_from_check(check_path):
@@ -102,9 +101,9 @@ def main(argv=None):
                          '(default: the one beside the results file)')
     ap.add_argument('--out', metavar='FILE', help='output path (default: <stem>.<field|check>.jsonl)')
     ap.add_argument('--reposition-live-city', action='store_true',
-                    help='reposition a file that is ALREADY SUBMITTED (its .submission.json records '
-                         'live lines). Shipping the output moves labels that are live, some of them '
-                         'validated, and PS cannot retire labels, so there is no undo. Only for a '
+                    help='write an output whose panos sit elsewhere than where the newest campaign '
+                         'recorded in this directory put them. Shipping it duplicates live labels '
+                         'unless they are retired (soft-deleted) in the database first. Only for a '
                          'whole-city decision made on purpose (issue #62), never to act on a '
                          'per-sequence difference the position check cannot resolve.')
     args = ap.parse_args(argv)
@@ -144,58 +143,67 @@ def main(argv=None):
         sys.exit(f'refusing to overwrite {out}: {submission_record_for(out).name} records it as a '
                  f'submitted campaign file; choose another --out')
 
-    # Frame consistency (issue #62): what is already live from this file, per its record.
+    # Frame consistency (issue #62): where each pano is live now, per endpoint, by the
+    # newest campaign recorded in this directory that sent it.
     try:
-        live = live_campaigns(src)
+        live = {ep: live_positions(src.parent, ep) for ep in live_endpoints(src.parent)}
     except ValueError as exc:
         sys.exit(f'refusing: {exc}')
     counts = Counter()
-    moved_labels = Counter()   # endpoint -> detections at its min_confidence on moved panos
-    min_conf = {c['endpoint']: _min_confidence(src, c['endpoint']) for c in live}
+    positions = {}   # panorama_id -> (lat, lng) as written
+    live_confs = {}  # panorama_id -> confidences of its off-rig detections (the moved-label estimate)
     tmp = out.with_name(out.name + '.tmp')
-    with open(src, encoding='utf-8') as fin, open(tmp, 'w', encoding='utf-8') as fout:
-        for line in fin:
-            if not line.strip():
-                continue
-            rec = json.loads(line)
-            pano = rec['pano']
-            seq = pano.get('sequence_id')
-            if plan is not None:
-                field = plan.get(seq)
-            else:
-                field = args.field if (only is None or seq in only) else None
-            if field:
-                new = reposition_pano(pano, field)
-                if new is None:
-                    counts['no_field'] += 1
+    try:
+        with open(src, encoding='utf-8') as fin, open(tmp, 'w', encoding='utf-8') as fout:
+            for line in fin:
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                pano = rec['pano']
+                seq = pano.get('sequence_id')
+                if plan is not None:
+                    field = plan.get(seq)
                 else:
-                    if (new['lat'], new['lng']) != (pano['lat'], pano['lng']):
-                        counts['moved'] += 1
-                        for endpoint, floor in min_conf.items():
-                            moved_labels[endpoint] += sum(
-                                1 for d in rec.get('detections') or []
-                                if d.get('confidence', 0) >= floor
-                                and not on_camera_rig(d['y_normalized']))
-                    rec['pano'] = new
-                    counts[f'rewritten_{field}'] += 1
-            else:
-                counts['unchanged'] += 1
-            fout.write(json.dumps(rec) + '\n')
+                    field = args.field if (only is None or seq in only) else None
+                if field:
+                    new = reposition_pano(pano, field)
+                    if new is None:
+                        counts['no_field'] += 1
+                    else:
+                        rec['pano'] = new
+                        counts[f'rewritten_{field}'] += 1
+                else:
+                    counts['unchanged'] += 1
+                pano = rec['pano']
+                if pano.get('panorama_id') is not None and pano.get('lat') is not None:
+                    pid = str(pano['panorama_id'])
+                    positions[pid] = (float(pano['lat']), float(pano['lng']))
+                    live_confs[pid] = [d.get('confidence', 0) for d in rec.get('detections') or []
+                                       if not on_camera_rig(d['y_normalized'])]
+                fout.write(json.dumps(rec) + '\n')
 
-    if live and counts['moved']:
-        where = '; '.join(f"{c['endpoint']} ({c['submitted_lines']} lines, {c['labels_submitted']} labels "
-                          f"live; ~{moved_labels[c['endpoint']]} of them on the moved panos)" for c in live)
-        message = (f"{src.name} is already submitted - {where} per {submission_record_for(src).name}. "
-                   f"This would move {counts['moved']} pano(s); PS places labels once, at insert, so "
-                   f"the live labels on them would stay put and be duplicated at the new "
-                   f"positions unless retired in the database first. Repositioning a city that has "
-                   f"shipped is a whole-city decision, not a per-file one (issue #62)")
-        if not args.reposition_live_city:
+        problems = []
+        for endpoint, (by_pano, gaps) in live.items():
+            problems += [f'{endpoint}: {g}' for g in gaps]
+            for campaign, pids in sorted(moved_against_live(positions, by_pano).items()):
+                entry = by_pano[pids[0]]
+                labels = sum(c >= entry['min_confidence'] for pid in pids for c in live_confs[pid])
+                problems.append(f"{endpoint}: {len(pids)} pano(s) would sit elsewhere than where "
+                                f"{campaign} put them, the newest campaign to send them ({entry['lines']} "
+                                f"line(s), {entry['labels']} label(s) live; ~{labels} on these panos)")
+        if problems:
+            message = ('; '.join(problems) + '. PS places a label once, at insert, so shipping this '
+                       'output duplicates live labels unless they are retired (soft-deleted) in the '
+                       'database first. Repositioning a city that has shipped is a whole-city '
+                       'decision, not a per-file one (issue #62)')
+            if not args.reposition_live_city:
+                sys.exit(f'refusing: {message}. --reposition-live-city overrides, once that decision is made.')
+            print(f'WARNING (--reposition-live-city): {message}.')
+        os.replace(tmp, out)
+    finally:
+        # A refusal, a malformed line or Ctrl-C must not leave a half-written output behind.
+        if tmp.exists():
             tmp.unlink()
-            sys.exit(f'refusing: {message}. --reposition-live-city overrides, once that decision is made.')
-        print(f'WARNING (--reposition-live-city): {message}.')
-    os.replace(tmp, out)
-    counts.pop('moved', None)
     total = sum(counts.values())
     print(f"-> wrote {out}: {total} records; "
           + ', '.join(f'{k} {v}' for k, v in sorted(counts.items())))
