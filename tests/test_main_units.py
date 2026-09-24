@@ -313,6 +313,18 @@ def test_override_run_is_refused_once_its_revision_becomes_known(tmp_path, monke
     assert saved["unknown_revision_allowed"] is True and saved["model_training_date"] is None
 
 
+def test_a_writing_run_without_provenance_fails_loudly_at_entry(tmp_path):
+    """Without provenance every pano's build_output_line would raise a TypeError that
+    handle_result swallows as a retryable failure; refuse up front instead. Scan-only
+    loads no model and is exempt."""
+    with pytest.raises(ValueError, match="provenance is required"):
+        main.run_labeler("never-opened.geojson", "city", source=None)
+    with pytest.raises(ValueError, match="provenance is required"):
+        main.run_gap_fill(None, None, tmp_path)
+    # scan_only passes the check: it reaches the (empty) run dir and returns quietly.
+    assert main.run_gap_fill(None, None, tmp_path, scan_only=True) is None
+
+
 def test_scan_only_stays_torch_free():
     """--scan-only must not pay for (or require) torch: main imports the detector lazily,
     and the provenance machinery it now imports eagerly lives in torch-free detectors."""

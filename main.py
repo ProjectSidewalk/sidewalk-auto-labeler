@@ -404,6 +404,15 @@ def dangling_link_targets(results_path, processed_ids):
                     targets.add(target)
     return targets - have
 
+def require_provenance(provenance, scan_only):
+    """Raise ValueError unless a run that writes records was handed the detector's
+    provenance. build_output_line needs it for every line, and without this check a
+    missing block surfaced only as one swallowed TypeError per pano, each logged as a
+    retryable failure, so a whole run could "complete" having written nothing."""
+    if provenance is None and not scan_only:
+        raise ValueError("provenance is required unless scan_only: pass "
+                         "CurbRampDetector.provenance (issue #39).")
+
 def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None, provenance=None):
     """
     Post-run link-graph closure (issue #32): fetches the panos that
@@ -411,8 +420,9 @@ def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None, prove
     area, and appends them to results.jsonl/cache exactly like main-pass panos.
     Iterates until closed, since each new record introduces new links (round 2 is
     normally near-empty). Returns (candidates, success, skipped, failed) totals,
-    or None if nothing ran.
+    or None if nothing ran. `provenance` is required unless scan_only.
     """
+    require_provenance(provenance, scan_only)
     results_path = run_dir / "results.jsonl"
     cache_file = run_dir / "already_processed.txt"
     if not results_path.exists():
@@ -470,6 +480,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     `provenance` is the loaded detector's model block (None only for scan_only): it is
     written into every record and binds the run directory to one model revision.
     """
+    require_provenance(provenance, scan_only)
     print("--- Sidewalk Auto-Labeler ---")
 
     # 1. Load GeoJSON and set up the run directory
