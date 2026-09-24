@@ -243,13 +243,17 @@ The pipeline is two stages run by two separate entry points:
    copy of the same polygon bind to the same run (the manifest's `input_geojson_type` says
    which it came in as). Anything non-polygonal is refused.
 2. Converts the area bounds to Slippy Map tiles (zoom per source), keeps only the tiles
-   whose lon/lat box intersects the polygon (`tiles_intersecting`, issue #4 — 25–57% of
-   bbox tiles on the committed concave/multi-part areas are empty corners), and scans them
-   concurrently through the imagery source (`--source`, see below) to collect all pano IDs
-   whose point falls inside the area polygon. Nothing is lost: an in-area pano's own tile
-   always intersects the area. The pano list (pre-thinning) is saved to `scan.json`;
-   `--reuse-scan` loads it instead of rescanning when area hash, source and zoom match and
-   no tile failed. It is **off by default** because coverage churns (paterson ~0.3% per
+   within `TILE_EDGE_BUFFER_M` = 50 m of the polygon (`tiles_intersecting`, issue #4 —
+   on the committed concave/multi-part areas 29–56% of candidate tiles are empty corners),
+   and scans them concurrently through the imagery source (`--source`, see below) to
+   collect all pano IDs whose point falls inside the area polygon. The buffer is not
+   optional: **a coverage tile returns panos lying outside its own bounds** (a live GSV
+   probe measured out-of-tile hits up to 28 m past the edge, and some panos returned only
+   by the neighbouring tile), so a tile that merely touches the area would lose in-area
+   panos near its edge. Don't shrink it without re-measuring. The pano list
+   (pre-thinning) is saved to `scan.json`; `--reuse-scan` loads it instead of rescanning
+   when area hash, source, source endpoint (Panoramax's `PANORAMAX_API_URL`), zoom and
+   tile prefilter rule all match and no tile failed. It is **off by default** because coverage churns (paterson ~0.3% per
    4 h — the reason gap fill exists): a resume that silently reused an old scan would miss
    new panos without saying so. Each manifest run entry records `scan: fresh|reused` and
    `scan_age_hours`.

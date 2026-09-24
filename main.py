@@ -161,39 +161,63 @@ def tile_lonlat_bounds(tile_x, tile_y, zoom):
     return west, south, east, north
 
 
-# Tile boxes are padded by this much before the intersection test, so a pano sitting
-# within floating-point error of a tile edge can never lose its tile to rounding in the
-# forward/inverse tile math. ~0.1 mm at the equator: it cannot admit a real extra tile.
-TILE_EDGE_PAD_DEG = 1e-9
+# A coverage tile does NOT return only the panos inside its own bounds. A live GSV
+# probe (2026-09-24, 7x7 z17 tiles each around Paterson and Bend) found ~10% of pano hits
+# lying outside the tile that returned them (median 4 m past the edge, p95 ~10 m, max
+# 28.0 m) and 49 panos returned ONLY by a neighbouring tile (0.1-12 m past its edge).
+# So a pano just inside the area can be reachable only through a tile that lies wholly
+# outside it, and an exact tile/area intersection test would silently drop it. Every
+# tile within this distance of the area is kept instead: 50 m is ~1.8x the largest
+# out-of-tile hit observed and ~4x the largest neighbour-only one. It is applied to every
+# source (on z14/z15 vector tiles, 1-2.4 km across, it costs almost nothing).
+TILE_EDGE_BUFFER_M = 50.0
+# Identifies the tile-set rule in the scan cache: a cache written under another rule or
+# buffer covered a different set of tiles, so it must not stand in for this one.
+TILE_PREFILTER = f'tile-within-{TILE_EDGE_BUFFER_M:g}m-of-area'
+
+# Metres per degree of latitude is 110,574 at the equator and grows toward the poles, so
+# dividing by the minimum over-pads (never under-pads) the north/south direction.
+_MIN_M_PER_DEG_LAT = 110_574.0
+_M_PER_DEG_LON_EQUATOR = 111_320.0
 
 
-def tiles_intersecting(area_shape, zoom):
+def tiles_intersecting(area_shape, zoom, buffer_m=TILE_EDGE_BUFFER_M):
     """(tiles, bbox_tile_count): the coverage tiles to scan for `area_shape`.
 
-    Enumerates the tiles of the area's bounding box, as the scan always did, then keeps
-    only those whose lon/lat box intersects the area itself (issue #4). Nothing is lost:
-    a pano inside the polygon lies inside its own tile, so that tile intersects the
-    polygon; the per-pano in-polygon test in each source's fetch_panos_for_tile is
-    unchanged. On a convex area it drops little; on a concave or multi-part one (PS
-    region unions, an OSM relation) it drops every tile of the empty corners.
+    Keeps every tile whose lon/lat box comes within `buffer_m` metres of the area (issue
+    #4), out of the tiles of the area's bounding box grown by the same distance.
+    `buffer_m` exists because a coverage tile can return panos lying up to ~28 m outside
+    its own bounds, and some panos only through a neighbouring tile (see
+    TILE_EDGE_BUFFER_M): a tile that merely touches the area is not enough. The same holds
+    at the bounding box's edge, which is why the bbox is grown too; the plain bbox
+    enumeration this replaced could already miss those neighbour-only panos there.
+
+    The buffer is applied in degrees, per axis, sized so it is at least `buffer_m` metres
+    everywhere in the area (the longitude pad is taken at the area's most poleward
+    latitude). The per-pano in-polygon test in each source's fetch_panos_for_tile is
+    unchanged. On a convex area it drops little; on a concave or multi-part one (PS region
+    unions, an OSM relation) it drops the empty corners.
 
     Example:
         >>> tiles, bbox_count = tiles_intersecting(area_shape, 17)
-        >>> print(f"{len(tiles)} of {bbox_count} bbox tiles intersect the area")
+        >>> print(f"{len(tiles)} of {bbox_count} bbox tiles are within 50 m of the area")
     """
     min_lon, min_lat, max_lon, max_lat = area_shape.bounds
-    top_left_x, top_left_y = latlon_to_tile(max_lat, min_lon, zoom)
-    bottom_right_x, bottom_right_y = latlon_to_tile(min_lat, max_lon, zoom)
+    pad_lat = buffer_m / _MIN_M_PER_DEG_LAT
+    poleward = min(max(abs(min_lat), abs(max_lat)) + pad_lat, 85.0)
+    pad_lon = buffer_m / (_M_PER_DEG_LON_EQUATOR * math.cos(math.radians(poleward)))
+    top_left_x, top_left_y = latlon_to_tile(max_lat + pad_lat, min_lon - pad_lon, zoom)
+    bottom_right_x, bottom_right_y = latlon_to_tile(min_lat - pad_lat, max_lon + pad_lon, zoom)
     bbox_tiles = [(x, y) for x in range(top_left_x, bottom_right_x + 1)
                   for y in range(top_left_y, bottom_right_y + 1)]
     # A separate prepared object (rather than shapely.prepare in place) leaves area_shape
     # itself untouched for the scan's worker threads.
     prepared = prep(area_shape)
-    pad = TILE_EDGE_PAD_DEG
     tiles = []
     for x, y in bbox_tiles:
         west, south, east, north = tile_lonlat_bounds(x, y, zoom)
-        if prepared.intersects(box(west - pad, south - pad, east + pad, north + pad)):
+        if prepared.intersects(box(west - pad_lon, south - pad_lat,
+                                   east + pad_lon, north + pad_lat)):
             tiles.append((x, y))
     return tiles, len(bbox_tiles)
 
@@ -206,18 +230,32 @@ def tiles_intersecting(area_shape, zoom):
 # the new panos without saying so; a fresh scan is the default, and the cache only
 # spares the tile pass when the operator asks.
 SCAN_CACHE_FILE = 'scan.json'
-SCAN_CACHE_VERSION = 1
+# v2 added `prefilter` and `source_instance` to the key (a v1 cache is refused).
+SCAN_CACHE_VERSION = 2
+
+
+def source_instance(source):
+    """The endpoint a source enumerates, when it is configurable, else None.
+
+    Only Panoramax's is (PANORAMAX_API_URL: the federation or one instance), and two roots
+    see different coverage over the same area, so it is part of the scan cache key."""
+    api_url = getattr(source, 'api_url', None)
+    return api_url() if callable(api_url) else None
 
 
 def write_scan_cache(path, area_hash, source_name, zoom, tile_count, failed_tiles, panos,
-                     scanned_at):
+                     scanned_at, prefilter=TILE_PREFILTER, instance=None):
     """Writes the scan cache atomically. `panos` is {pano_id: tuple}, the scan's own
-    per-source values (GSV: lat, lon; Mapillary/Panoramax add the thinning keys)."""
+    per-source values (GSV: lat, lon; Mapillary/Panoramax add the thinning keys).
+    `prefilter` names the tile-set rule and `instance` the source's endpoint (see
+    source_instance); both are checked on load."""
     cache = {
         'version': SCAN_CACHE_VERSION,
         'area_hash': area_hash,
         'source': source_name,
+        'source_instance': instance,
         'zoom': zoom,
+        'prefilter': prefilter,
         'scanned_at': scanned_at,
         'tile_count': tile_count,
         'failed_tiles': failed_tiles,
@@ -230,11 +268,13 @@ def write_scan_cache(path, area_hash, source_name, zoom, tile_count, failed_tile
     os.replace(tmp, path)
 
 
-def load_scan_cache(path, area_hash, source_name, zoom):
+def load_scan_cache(path, area_hash, source_name, zoom, prefilter=TILE_PREFILTER,
+                    instance=None):
     """(panos, cache, None) when the cache at `path` may stand in for a fresh scan, else
     (None, None, reason). Refused when it is missing or unreadable, from another cache
-    version, another geometry (area_hash), another imagery source or tile zoom, or when
-    any tile failed during that scan — reusing an incomplete scan would make its holes
+    version, another geometry (area_hash), another imagery source, source endpoint
+    (Panoramax's API root), tile zoom or tile prefilter rule, or when any tile failed
+    during that scan — reusing an incomplete scan would make its holes
     permanent, since a fresh scan is what picks failed tiles back up."""
     try:
         with open(path) as f:
@@ -246,7 +286,9 @@ def load_scan_cache(path, area_hash, source_name, zoom):
     checks = [('version', SCAN_CACHE_VERSION, 'cache format'),
               ('area_hash', area_hash, 'area geometry'),
               ('source', source_name, 'imagery source'),
-              ('zoom', zoom, 'tile zoom')]
+              ('source_instance', instance, 'source endpoint (API root)'),
+              ('zoom', zoom, 'tile zoom'),
+              ('prefilter', prefilter, 'tile prefilter (rule or buffer)')]
     for key, expected, what in checks:
         if cache.get(key) != expected:
             return None, None, f'scan cache is for a different {what}'
@@ -649,8 +691,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     scan_cache_file = run_dir / SCAN_CACHE_FILE
     all_panos_in_area = None
     if reuse_scan:
-        all_panos_in_area, cache, reason = load_scan_cache(scan_cache_file, area_hash,
-                                                           source.NAME, zoom)
+        all_panos_in_area, cache, reason = load_scan_cache(
+            scan_cache_file, area_hash, source.NAME, zoom, instance=source_instance(source))
         if all_panos_in_area is None:
             print(f"-> --reuse-scan: {reason}; scanning fresh.")
         else:
@@ -663,7 +705,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
 
     if all_panos_in_area is None:
         tiles_to_scan, bbox_tile_count = tiles_intersecting(area_shape, zoom)
-        print(f"-> {len(tiles_to_scan)} of {bbox_tile_count} bbox tiles intersect the area.")
+        print(f"-> {len(tiles_to_scan)} of {bbox_tile_count} bbox tiles are within "
+              f"{TILE_EDGE_BUFFER_M:g} m of the area.")
         print(f"-> Scanning {len(tiles_to_scan)} coverage tiles using {COVERAGE_API_CONCURRENCY} concurrent workers...")
 
         all_panos_in_area = {}
@@ -685,7 +728,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
                   f"missing from this run. A re-run rescans all tiles and picks them up.")
         # Saved before thinning, so a later --reuse-scan can thin at any --thin-spacing.
         write_scan_cache(scan_cache_file, area_hash, source.NAME, zoom, len(tiles_to_scan),
-                         failed_tiles, all_panos_in_area, scanned_at)
+                         failed_tiles, all_panos_in_area, scanned_at,
+                         instance=source_instance(source))
         scan_record = {'scan': 'fresh', 'scan_scanned_at': scanned_at, 'scan_age_hours': 0.0}
 
     # Optional per-source spatial thinning (e.g. Mapillary's near-duplicate coverage).

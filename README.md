@@ -177,9 +177,10 @@ runs/bend/
 
 The run:
 
-- Scans the map tiles covering the polygon's bounding box that actually intersect the
-  polygon (a concave or multi-part area skips its empty corners), keeping only panoramas
-  whose location falls inside the polygon.
+- Scans the map tiles that come within 50 m of the polygon (a concave or multi-part area
+  skips its empty corners; the 50 m margin is there because a coverage tile can return
+  panoramas lying just outside its own bounds), keeping only panoramas whose location
+  falls inside the polygon.
 - Skips indoor panoramas.
 - Writes **one line per successfully processed panorama** — including panoramas where zero
   curb ramps were found (those get an empty `detections` list). This is intentional: it
