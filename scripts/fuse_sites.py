@@ -98,7 +98,24 @@ POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
 # Put 'mapillary' back here only on a control that passes. GSV stays flat regardless: its
 # equirects are gravity-rectified and applying their pose loosens every city
 # (geo._world_ray, #52). Panoramax: optional pers:pitch/roll, convention unmeasured (#57).
+#
+# WHO FOLLOWS THIS: every caller that leaves FuseParams.apply_pose at its default --
+# fuse_sites.py's own CLI (--apply-pose auto, so production sites.jsonl) and
+# site_explorer.py (a bare fs.FuseParams()). The analysis scripts that reproduce a
+# committed artifact PIN `off` explicitly and do not follow it: eval_sites.py (CLI default
+# off), mined_precision.py, eval_ps_clustering.py, and mapillary_tilt.py's ablation /
+# eval / precondition. So adding a source here silently changes what the followers produce (and
+# nothing in their output says so beyond sites_meta.json's `pose` block) -- check them.
 AUTO_ROAD_SOURCES = ()
+
+# Sources whose pose --apply-pose gravity/road should not be trusted to rotate, and why;
+# fuse_sites.py warns (stderr) when a run holds any. Matched as for site_explorer: a known
+# name, else GSV (legacy GSV records store streetlevel's raw source string, e.g. "launch").
+UNGRADED_POSE_WARNINGS = {
+    'gsv': 'GSV has no sequence grade, so `road` is 100% gravity fallback; its equirects '
+           'are already gravity-rectified and rotating them loosened every city (#52)',
+    'panoramax': "Panoramax's pitch/roll convention is unmeasured (#57)",
+}
 
 # Consecutive frames of one sequence within this time gap and horizontal distance define
 # a local direction of travel and, through the SfM altitude, a road grade. The bounds are
@@ -386,6 +403,22 @@ def pose_counts(panos, params):
     return counts
 
 
+def pose_source_warnings(panos, mode):
+    """Warnings (strings) for an explicit --apply-pose gravity/road over panos it was not
+    measured for: GSV and Panoramax. Empty for off/auto, and for all-Mapillary runs."""
+    if mode not in (POSE_GRAVITY, POSE_ROAD):
+        return []
+    counts = {}
+    for p in panos:
+        src = (p.source or '').lower()
+        kind = ('mapillary' if 'mapillary' in src else
+                'panoramax' if 'panoramax' in src else 'gsv')
+        if kind in UNGRADED_POSE_WARNINGS:
+            counts[kind] = counts.get(kind, 0) + 1
+    return [f'WARNING: --apply-pose {mode} on {n} {kind} pano(s): {UNGRADED_POSE_WARNINGS[kind]}'
+            for kind, n in sorted(counts.items())]
+
+
 def load_results(path, depth_index=None, read_heights=True):
     """Stream results.jsonl into SlimPanos, discarding links/history/metadata.
     Records without a position or heading can't be raycast and are dropped
@@ -630,7 +663,7 @@ def camera_height_arg(value):
     return value if value == geo.PER_PANO else float(value)
 
 
-def main():
+def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('run', help='run directory (with results.jsonl) or a jsonl path')
     ap.add_argument('--floor', type=float, default=DETECTION_STORAGE_FLOOR)
@@ -646,14 +679,15 @@ def main():
                          "each GSV pano's depth-measured height where it has one (#40; "
                          'opt-in -- see docs/camera-height-study.md)')
     ap.add_argument('--sigma-scale', type=float, default=1.0)
-    ap.add_argument('--apply-pose', choices=POSE_MODES, nargs='?', const=POSE_GRAVITY,
-                    default=FuseParams.apply_pose,
+    # A value is REQUIRED (no nargs='?'): an optional value would swallow the positional
+    # run directory in `--apply-pose runs/x`, and a bare flag would have to guess a mode.
+    ap.add_argument('--apply-pose', choices=POSE_MODES, default=FuseParams.apply_pose,
+                    metavar='{off,auto,gravity,road}',
                     help='rotate rays by camera pose: auto (the default; currently off for '
                          'every source -- the #42 shuffled-grade control withheld road for '
-                         'Mapillary, see AUTO_ROAD_SOURCES), off '
-                         '(flat raycast), gravity (stored pitch/roll; a bare --apply-pose '
-                         "means this), or road (minus the sequence's road grade). Measured "
-                         'to hurt on GSV -- see the --pose-ablation report')
+                         'Mapillary, see AUTO_ROAD_SOURCES), off (flat raycast), gravity '
+                         "(stored pitch/roll), or road (minus the sequence's road grade). "
+                         'Measured to hurt on GSV -- see the --pose-ablation report')
     ap.add_argument('--pose-ablation', action='store_true',
                     help='report within-site spread under each pitch/roll sign '
                          'convention instead of writing sites')
@@ -665,7 +699,11 @@ def main():
                     help='harvested depth/index.csv to read heights from for a run '
                          'made before #40 (default: <run>/depth/index.csv)')
     ap.add_argument('--out', type=Path, default=None)
-    args = ap.parse_args()
+    return ap
+
+
+def main():
+    args = build_parser().parse_args()
 
     src = Path(args.run)
     jsonl = src if src.is_file() else src / 'results.jsonl'
@@ -686,6 +724,8 @@ def main():
         print(f'skipped {skipped} records without position/heading')
     if not panos:
         sys.exit('no usable records')
+    for warning in pose_source_warnings(panos, args.apply_pose):
+        print(warning, file=sys.stderr)
 
     if args.pose_ablation:
         print(pose_ablation_report(panos, params))

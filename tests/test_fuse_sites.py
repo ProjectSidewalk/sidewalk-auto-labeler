@@ -362,3 +362,89 @@ def test_fuse_params_refuses_the_pre_42_boolean():
     # than failing.
     with pytest.raises(ValueError, match='apply_pose'):
         fs.FuseParams(apply_pose=True)
+
+
+def test_apply_pose_needs_a_value_and_never_swallows_the_run():
+    parse = fs.build_parser().parse_args
+    assert parse(['runs/x']).apply_pose == fs.POSE_AUTO
+    assert parse(['--apply-pose', 'road', 'runs/x']).apply_pose == fs.POSE_ROAD
+    assert parse(['runs/x', '--apply-pose', 'off']).run == 'runs/x'
+    for argv in (['runs/x', '--apply-pose'],          # bare flag: no guessed mode
+                 ['--apply-pose', 'runs/x'],          # the run is not a mode
+                 ['runs/x', '--apply-pose', 'true']):
+        with pytest.raises(SystemExit):
+            parse(argv)
+
+
+def test_explicit_pose_warns_on_gsv_and_panoramax_only():
+    gsv = make_pano('g', 0, 0, [(0, 10, 0.9)], source='launch')
+    pmx = make_pano('p', 0, 0, [(0, 10, 0.9)], source='panoramax')
+    mly = make_pano('m', 0, 0, [(0, 10, 0.9)], source='mapillary')
+    warnings = fs.pose_source_warnings([gsv, pmx, mly, mly], fs.POSE_ROAD)
+    assert len(warnings) == 2
+    assert 'road on 1 gsv' in warnings[0] and 'gravity fallback' in warnings[0]
+    assert 'road on 1 panoramax' in warnings[1] and 'unmeasured' in warnings[1]
+    assert fs.pose_source_warnings([gsv, pmx], fs.POSE_OFF) == []
+    assert fs.pose_source_warnings([gsv, pmx], fs.POSE_AUTO) == []
+    assert fs.pose_source_warnings([mly], fs.POSE_GRAVITY) == []
+
+
+def test_load_results_rederives_a_half_pose_from_source_metadata(tmp_path):
+    # pitch without roll is not a pose: a Mapillary block rederives BOTH from its own
+    # rotation, and anything else keeps origin None (never posed as 'block').
+    src = tmp_path / 'results.jsonl'
+    gsv = json.loads(_mapillary_line('g', 0.0, 100.0, 0, 'gs', 4.0, block_pose=(3.0, None)))
+    gsv['pano']['source'] = 'launch'
+    src.write_text(_mapillary_line('m', 0.0, 100.0, 0, 'seq', 4.0, block_pose=(3.0, None))
+                   + '\n' + json.dumps(gsv) + '\n', encoding='utf-8')
+    by_id = {p.pano_id: p for p in fs.load_results(src)[0]}
+    assert by_id['m'].pose_origin == 'source_metadata'
+    assert by_id['m'].camera_pitch == pytest.approx(4.0, abs=1e-9)   # the rotation's, not 3.0
+    assert by_id['m'].camera_roll == pytest.approx(0.0, abs=1e-9)
+    assert by_id['g'].pose_origin is None
+
+
+# --- sequence_grades: the #42 study's neighbour rule, at its boundaries
+
+def _frame(key, pn, t_s, alt, seq='s'):
+    lat, lng = FRAME.to_latlng(0.0, pn)
+    return (key, seq, None if t_s is None else t_s * 1000, lat, lng, alt)
+
+
+def _grade(pn_a, alt_a, pn_b, alt_b):
+    d = geo.haversine_m(*FRAME.to_latlng(0.0, pn_a), *FRAME.to_latlng(0.0, pn_b))
+    return math.degrees(math.atan2(alt_b - alt_a, d))
+
+
+def test_sequence_grades_prefers_the_prev_next_span():
+    g = fs.sequence_grades([_frame('a', 0, 0, 100.0), _frame('b', 10, 2, 101.0),
+                            _frame('c', 20, 4, 100.0)])
+    assert g['b'][0] == pytest.approx(0.0, abs=1e-9)             # (a, c): level overall
+    assert g['b'][1] == pytest.approx(0.0, abs=1e-6)             # travelling north
+    assert g['a'][0] == pytest.approx(_grade(0, 100, 10, 101))   # first: (self, next)
+    assert g['c'][0] == pytest.approx(_grade(10, 101, 20, 100))  # last: (prev, self)
+
+
+def test_sequence_grades_gap_over_120_s_falls_back_to_prev_self():
+    # A span may cover at most 2 * GRADE_MAX_GAP_S = 120 s.
+    g = fs.sequence_grades([_frame('a', 0, 0, 100.0), _frame('b', 10, 60, 101.0),
+                            _frame('c', 20, 181, 105.0)])
+    assert g['b'][0] == pytest.approx(_grade(0, 100, 10, 101))   # (a,c) is 181 s: (a,b)
+    assert 'c' not in g                                           # (b,c) is 121 s: none
+    edge = fs.sequence_grades([_frame('a', 0, 0, 100.0), _frame('b', 10, 120, 101.0)])
+    assert set(edge) == {'a', 'b'}                                # exactly 120 s is usable
+
+
+def test_sequence_grades_distance_bounds_and_missing_altitude():
+    near = fs.sequence_grades([_frame('a', 0, 0, 100.0), _frame('b', 1.5, 1, 100.1)])
+    assert near == {}                                             # under 2 m: SfM noise
+    far = fs.sequence_grades([_frame('a', 0, 0, 100.0), _frame('b', 45, 3, 101.0)])
+    assert far == {}                                              # over 40 m
+    # prev has no altitude: b falls through (prev, next) and (prev, self) to (self, next)
+    g = fs.sequence_grades([_frame('a', 0, 0, None), _frame('b', 10, 2, 100.0),
+                            _frame('c', 20, 4, 102.0)])
+    assert 'a' not in g
+    assert g['b'][0] == pytest.approx(_grade(10, 100, 20, 102))
+    # a frame without a sequence or a timestamp is never graded
+    assert fs.sequence_grades([_frame('a', 0, 0, 100.0, seq=None),
+                               _frame('b', 10, None, 101.0)]) == {}
