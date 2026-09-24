@@ -121,6 +121,21 @@ python scripts/eval_sites.py paterson --camera-height-m per-pano --out /tmp/eval
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
 
+# Leave-one-view-out REPROJECTION RESIDUAL (issue #36; findings in
+# docs/reprojection-residual.md). GT-free: for every site with >= 3 operational views,
+# drop each view, re-solve the site from the rest (an information-form subtraction) and
+# compare with what that view emitted, in heatmap px and metres; plus a range-scale fit
+# (member - held-out = s*g exactly under a range scale k, s = 1 - 1/k), pooled and per
+# capture year. GT-anchored: project the full and the leave-that-pano-out site into each
+# judged benchmark pano and compare with the reviewer's box centre / missed click. No GPU,
+# no network; reads runs + ../RampNet/benchmark as data, writes
+# <out-root>/<city>/reprojection/ and <out-root>/_summary/reprojection/. Reads sites.jsonl
+# when it matches the model (it says STALE if results.jsonl grew since); --refuse re-fuses
+# in memory, which is what the published tables use. A regression check for any new city,
+# source or rig: it needs no ground truth.
+python scripts/reprojection_residual.py paterson --camera-height-m 2.6 per-pano --refuse
+python scripts/reprojection_residual.py bend paterson gainesville sao_paulo richmond     clovis laurens laurens_gsv annapolis morgantown --camera-height-m 2.6 per-pano     --refuse --publish docs/figures/reprojection-residual/data
+
 # Score Project Sidewalk's SERVER-SIDE label clustering against RampNet GT (SW#4706 step 1;
 # protocol + findings in docs/ps-clustering-eval.md). Pulls the city's CurbRamp labels and
 # the server's clusters from the v3 API, maps every AI label back to its stored detection,
@@ -544,6 +559,25 @@ untouched. `eval_sites.py` scores fusion against RampNet's benchmark verdicts in
 space (semantics mirror `rampnet.validation.collect`) and produces the stage-4 promotion
 calibration. Measured 2026-08-02 (5 m match radius): world recall 0.93–0.96 vs own-view
 0.72–0.83, precision 0.89–0.98 across paterson/gainesville/sao_paulo/richmond/bend.
+`scripts/reprojection_residual.py` (issue #36) is the GT-free companion: a
+leave-one-view-out residual over every multi-view site, and a range-scale fit that turns
+the residual into an implied range scale per capture year (the instrument that replicates
+the camera-height study's rig ranking without depth or triangulation pairs). Its blind
+spot is structural: a bias every view of a site shares (a common offset, a scale error on
+views that all look the same way) moves the held-out position with it and is invisible;
+its residuals are also truncated by association's own gate. Its `k` is an EFFECTIVE range
+scale: a constant vertical peak offset reads as range error growing ~r^2 and the fit
+absorbs it (the `r2fit_*` columns show k moving 0.05-0.13 when an offset term is allowed),
+and it is measured at the association height, so it is pulled toward 1 (the new rig's
+1.18-1.19 is a lower bound; the camera-height fixed point implies ~1.31-1.35). It also
+runs RampNet#101's own estimator (full-site residual, site fixed effects, >= 4 m span;
+reproduces #101's table exactly on the on-disk sites.jsonl) with its error-model null
+(37-76% of the slope on GSV; the null itself is miscalibrated, see the doc). The
+GT-anchored half projects sites into judged panos against reviewer box centres: quote its
+PIXELS (the pixel residual never raycasts the reference); its metres are truncated for
+missed marks (5 m match gate), so metres are quoted only for the `box_on_detection`
+subset. All of it is benchmark tier 0.55, not the 0.30 production ships. Numbers in
+docs/reprojection-residual.md.
 
 **Mapillary rig tilt (`scripts/mapillary_tilt.py`)** — issue #42. Mapillary blocks store
 `camera_pitch`/`camera_roll` as null, but `source_metadata.computed_rotation` is OpenSfM's full
