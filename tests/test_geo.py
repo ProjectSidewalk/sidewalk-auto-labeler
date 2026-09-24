@@ -209,3 +209,39 @@ def test_sym2_identities():
     # quadratic form against a hand computation: [1, 2] m [1, 2]^T
     assert geo.sym2_quadform(m, 1.0, 2.0) == pytest.approx(4.0 + 2 * 1.0 * 2.0 + 3.0 * 4.0)
     assert geo.sym2_add((1, 2, 3), (10, 20, 30)) == (11, 22, 33)
+
+
+# --- per-pano camera height (issue #40): opt-in, never a silent default
+
+def _measured_pose(height, spread=0.0, source='launch'):
+    return geo.pano_pose({'lat': 44.05, 'lng': -121.31, 'camera_heading': 0.0,
+                          'camera_pitch': None, 'camera_roll': None, 'source': source,
+                          'camera_height_m': height, 'camera_height_spread_m': spread})
+
+
+def test_measured_height_is_ignored_unless_asked_for():
+    pose = _measured_pose(1.8)
+    y = _y_for_depression(math.atan(2.6 / 10.0))
+    assert geo.detection_ground_point(pose, 0.5, y).range_m == pytest.approx(10.0)
+    per_pano = geo.detection_ground_point(pose, 0.5, y, camera_height=geo.PER_PANO)
+    assert per_pano.range_m == pytest.approx(10.0 * 1.8 / 2.6)
+
+
+def test_per_pano_falls_back_to_the_default_without_a_measurement():
+    assert geo.camera_height_for(_measured_pose(None), camera_height=geo.PER_PANO) \
+        == (geo.DEFAULT_CAMERA_HEIGHT_M, geo.GSV_ERRORS.sigma_height_m)
+
+
+def test_per_pano_sigma_widens_with_the_ground_plane_spread():
+    _, tight = geo.camera_height_for(_measured_pose(2.0, 0.05), camera_height=geo.PER_PANO)
+    _, loose = geo.camera_height_for(_measured_pose(2.0, 1.0), camera_height=geo.PER_PANO)
+    assert tight == geo.GSV_ERRORS.sigma_height_m          # floored at the model's sigma
+    assert loose == pytest.approx(1.0 / 2.563)
+
+
+def test_ground_point_to_pano_inverts_the_per_pano_raycast():
+    pose = _measured_pose(1.9)
+    g = geo.detection_ground_point(pose, 0.3, 0.62, camera_height=geo.PER_PANO,
+                                   apply_pose=False)
+    p = geo.ground_point_to_pano(pose, g.lat, g.lng, camera_height=geo.PER_PANO)
+    assert (p.x_norm, p.y_norm) == (pytest.approx(0.3), pytest.approx(0.62))

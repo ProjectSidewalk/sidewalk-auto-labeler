@@ -89,7 +89,7 @@ crop model pretrained on PS labels from 12 cities). ICCV'25 workshop paper: arXi
 | [#3](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/3) | P1 | **Deployed inference doesn't match the evaluated configuration** — see §6. |
 | [#4](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/4) | P2 | Coverage scan: per-tile exceptions silently swallowed (silent pano loss), pano-ID list rescanned every run, tiles enumerated by bbox rather than polygon intersection; output named `<basename>.jsonl` in CWD while cache is keyed by geometry hash — renaming or editing the geojson silently forks state. |
 | [#5](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/5) | P2 | Only 3 indoor sources are skipped; user-generated photospheres may be out-of-distribution for RampNet. `source` is recorded per JSONL line — join against Bend validation outcomes and decide a filter empirically. |
-| [#6](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/6) | P2 | `model_id`/`model_training_date`/`api_version` are hardcoded literals that can drift from the actual HF weights; detector thresholds are magic numbers; no logging framework; no tests. |
+| [#6](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/6) | P2 | `model_id`/`model_training_date`/`api_version` are hardcoded literals that can drift from the actual HF weights; detector thresholds are magic numbers; no logging framework; no tests. *(Provenance fixed via #39; thresholds and tests fixed earlier; logging dropped.)* |
 | [#7](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/7) | P3 | GeoJSON input must be a bare geometry object; accepting `Feature`/`FeatureCollection` (extracting the geometry before hashing) removes a documented footgun. |
 
 ## 5. Findings — RampNet
@@ -167,6 +167,12 @@ milestone or quarterly.
    hash, eval numbers, and recommended thresholds; the auto-labeler reads
    `model_id`/`model_training_date` from the model config (S5) so PS attributes each validation
    to a model version — making the loop's improvements measurable.
+   *Provenance half closed by [#39](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/39)
+   (absorbing [#6](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/6)), 2026-09:
+   the revision SHA is resolved from the loaded snapshot, `model_id` is
+   `rampnet-model@<12 hex>`, and the training date comes from a SHA-keyed table
+   (`detectors.KNOWN_REVISIONS`) — the model card carries no date field, so the table, not the
+   config, is the source; an unknown SHA refuses to run. Per-city thresholds remain open.*
 7. **Drift monitoring:** rolling agree-rate per city × model version, label volume, confidence
    distribution; alert when agree-rate drops below the city's min-accuracy (catches camera
    generation changes, seasonal effects, geographic drift).

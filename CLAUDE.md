@@ -65,8 +65,8 @@ python scripts/export_benchmark.py runs/clovis/results.jsonl --out /path/to/arch
 # depth alongside the metadata we already fetch, so this is a metadata-only pass (no
 # imagery) and gzips to ~5-7 KB/pano — ~1 GB for all four GSV runs. Resumable, with the
 # same reconcile/index.csv verification as export_benchmark.py. GSV only; Mapillary runs
-# are refused. Why it matters: the ground plane's distance IS the camera height, and
-# geo.py's hardcoded 2.6 m is above every observed value (issue #40).
+# are refused. Why it matters: the ground plane's distance is a per-pano camera height
+# (issue #40) -- though in the depth frame, 6-16% short of the imagery's (see below).
 python scripts/harvest_depth.py runs/paterson
 python scripts/harvest_depth.py runs/bend --out /path/to/archive/bend/depth
 python scripts/harvest_depth.py runs/paterson --verify           # reconcile only, no network
@@ -86,6 +86,16 @@ python scripts/harvest_depth.py runs/paterson --check-convention # re-verify dep
 python scripts/fuse_sites.py runs/paterson
 # ...--pose-ablation reports within-site spread per pitch/roll sign convention
 # instead (the experiment that showed GSV equirects are already gravity-rectified).
+
+# CAMERA HEIGHT (issue #40). Every raycast uses geo.DEFAULT_CAMERA_HEIGHT_M = 2.6 unless
+# asked otherwise; `per-pano` uses GSV's depth-measured height (pano block since #40, else
+# the harvested runs/<name>/depth/index.csv) and is OPT-IN on evidence -- see the GSV depth
+# section below and docs/camera-height-study.md. --implied-height is the instrument:
+# bearing-only triangulation of multi-view sites, the height the imagery itself implies,
+# by capture year. Associate near the answer (it drifts toward the association height).
+python scripts/fuse_sites.py runs/paterson --implied-height --camera-height-m per-pano
+python scripts/fuse_sites.py runs/paterson --camera-height-m per-pano   # opt-in fuse
+python scripts/eval_sites.py paterson --camera-height-m per-pano --out /tmp/eval_pp
 
 # Score fusion against RampNet GT in world space: world P/R, the union-recall
 # decomposition, stage-4 promotion calibration, vintage + match-radius ablations.
@@ -131,7 +141,8 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 # --radius may not exceed the 25 m ground-raycast range: past it no GT mark can be
 # placed, so a candidate could only ever be counted false (refused, not silently wrong).
 # --camera-height is the #101 range-anchoring knob. GSV's 2.2 m is the median measured
-# from GSV depth payloads (#40/#41); Mapillary serves no depth, so richmond has NO
+# from GSV depth payloads (#40/#41) -- a depth-frame height, 6-16% below what the imagery
+# implies (docs/camera-height-study.md); Mapillary serves no depth, so richmond has NO
 # measured height — and no constant helps there (a sweep is flat at 0.31-0.32 over
 # 2.0-2.6 m and worse below), which is itself the finding.
 python scripts/mined_precision.py richmond
@@ -456,15 +467,28 @@ into `sources/mapillary.py`/`geo.py`.
 **GSV depth (`depth.py`, `scripts/harvest_depth.py`)** — issues #40/#41. `depth.py` (repo
 root, stdlib-only like `geo.py`) parses GSV's depth payload, which is **not a raster**: it
 is a list of `{normal, distance}` planes plus one plane index per pixel, and streetlevel
-computes a raster from it and then discards the planes. That matters because **the dominant
-ground plane's distance IS the camera height, exactly**, and its normal is the ground tilt.
-Measured across four cities, camera height is per-pano (1.11–2.50 m, tracking capture
-vintage), so `geo.DEFAULT_CAMERA_HEIGHT_M = 2.6` — above every observed value — runs
-**29–35% long at real detection points**; correcting only the height flattens the residual
-across every range bucket, i.e. the flat-ground cotangent is right and only its constant was
-wrong. Four traps live in `depth.py` rather than at call sites: the header's `offset` field
+computes a raster from it and then discards the planes. That matters because the dominant
+ground plane's distance is a **per-pano camera height** and its normal is the ground tilt.
+**But it is the depth frame's height, not the imagery's** (measured 2026-09-23,
+`docs/camera-height-study.md`): bearing-only triangulation of multi-view sites implies
+heights **6–16% above** it, city by city, so #40's original "ranges run 29–35% long at
+2.6 m" was computed against a depth map sharing that bias and does not hold city-wide.
+The rig ranking is real, though: the 2025–26 GSV rig triangulates to ~1.9–2.0 m against
+~2.5 m for every earlier vintage, so on *that* rig 2.6 m does run ranges 31–35% long
+(~2–4% on older ones). GT world P/R still cannot tell any height model apart
+(all within ±3 pts). So `geo.PER_PANO` / `--camera-height-m per-pano` exists and is
+**opt-in**; the default stays 2.6 m and fused output is byte-identical to before #40.
+`sources/gsv.py` stores the height on every new GSV pano block (`camera_height_m`,
+`camera_height_spread_m`, `ground_tilt_deg`, `depth_planes`, `camera_height_status`) —
+read from the raw response, because streetlevel's own depth parser rasterizes 131k pixels
+in pure Python and throws on the uint8-offset bug below; the height is non-null only when
+the status is `measured`. **Google's stand-in ground** is common and the plane-count test
+misses it: 14% of harvested payloads (16% of bend's) are full reconstructions whose ground is exactly 2.500 m
+with an exactly vertical normal (`SYNTHETIC_GROUND`, detected on the normal, not the
+value); those panos triangulate to ≥2.6 m, which is why unmeasured panos fall back to
+2.6 m. Four traps live in `depth.py` rather than at call sites: the header's `offset` field
 is a **uint8** at byte 7 (reading it as a uint16 swallows the first plane index and makes
-~0.5% of panos unparseable); the raster is **mirrored** relative to the raw index array
+~0.3–0.5% of panos unparseable); the raster is **mirrored** relative to the raw index array
 (`_raw_column`); Google returns a degenerate 2-plane fallback at exactly 2.500 m that must
 be filtered structurally (`DEGENERATE_MAX_PLANES`), not by testing the value; and **a range
 query must not snap to a pixel**. On that last one: `depth_at` snaps, because it has to
@@ -593,12 +617,28 @@ gap-fill is GSV-only (`fetch_pano_by_id`).
 - `detections` in results.jsonl means "stored candidates", not "believed ramps": it includes
   peaks down to the storage floor. Any new consumer must filter at `OPERATIONAL_CONFIDENCE`
   (import it from `detectors`) unless it deliberately wants the sub-floor candidates.
-- Each JSONL line carries model provenance (`model_id`, `model_training_date`, `api_version`)
-  and rich pano metadata (capture date, dimensions, camera heading/pitch/roll, source,
+- Each JSONL line carries model provenance (`model_id`, `model_training_date`, `api_version`,
+  plus `model_repo` and the full 40-hex `model_revision`) and rich pano metadata (capture date, dimensions, camera heading/pitch/roll, source,
   historical panos, and links). Heading/pitch/roll are converted from radians to degrees on
   write.
 - Indoor panoramas (sources `innerspace`, `cultural_institute`, `photos:legacy_innerspace`)
   are skipped.
+- **Model provenance is resolved, never declared** (issues #39/#6). `CurbRampDetector` reads
+  the Hugging Face revision SHA of the snapshot it loaded (`config._commit_hash`, else the hub
+  cache's `snapshots/<sha>` dir; loading retries `local_files_only` when the hub is
+  unreachable, e.g. Hyak compute nodes) and exposes `.provenance`; `main.py` and
+  `scripts/reinfer.py` write that dict, and there are no provenance literals left in `main.py`.
+  `model_id` is `rampnet-model@<12 hex>` (PS stores it as TEXT, so no width limit; the prefix
+  keeps `rampnet-model` string matches working). The training date is a fact about a SHA:
+  `detectors.KNOWN_REVISIONS`, seeded with every hub revision that carries weights (all the
+  paper weights → 2025-08-21, emitted as PS's `MM-DD-YYYY`). **An unknown SHA refuses to
+  start** — after a retrain, add the new SHA to the table (instructions beside it) rather than
+  reaching for `--allow-unknown-model-revision`, which writes a null date that
+  `send_to_ps.py` refuses (and a run made that way refuses to resume once its SHA gains a
+  table row: its undated lines can't be repaired, so re-run under a fresh `--name`). A run directory is bound to one `model_revision` like it is to one
+  geometry (a mismatch is refused); pre-#39 manifests resume with a one-time note and are
+  bound on that resume, unless their recorded training date differs. `--scan-only` loads no
+  model and binds nothing.
 - `pano.copyright` is an **attribution ingredient, not a rendered attribution** (issue #61,
   SidewalkWebpage#5360). For Mapillary and Panoramax it is the contributor's *bare* name
   (creator username / `geovisio:producer`), `null` when the source names nobody — PS's
