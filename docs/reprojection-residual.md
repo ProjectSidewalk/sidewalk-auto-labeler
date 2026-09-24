@@ -7,6 +7,13 @@ morgantown). Ground truth is the RampNet benchmark (`../RampNet/benchmark/<split
 data at RampNet `8a41d17`). Every table below is generated from the CSVs committed in
 [`docs/figures/reprojection-residual/data/`](figures/reprojection-residual/data/).
 
+Revised 2026-09-24 after review. Three claims in the first version went further than the
+data: that about half of RampNet#101's 11% slope is an estimator artefact (it compared two
+different estimators), the placement figure in metres (most of its rows are truncated), and
+the new rig's `k` (a lower bound, not a value). Each is corrected below. **Every number in
+this document describes sites fused at the benchmark tier 0.55**, the tier the bundles were
+judged at, not the operational tier 0.30 that production ships.
+
 ## Summary
 
 - **The GT-free residual is small and uniform on GSV.** Hold out one view of a site with
@@ -22,22 +29,46 @@ data at RampNet `8a41d17`). Every table below is generated from the CSVs committ
 - **Per-pano heights flatten the rig-to-rig scale gap. They do not flatten the scale
   itself.** At 2.6 m, the 2025–26 GSV rig reads **k = 1.19 (paterson 2025) and 1.18
   (gainesville 2026)**. The 2019–2024 rigs in the same cities read 1.04–1.07. That is a
-  gap of 10–15 points. Under per-pano heights, every GSV vintage from 2019 on (2018 in
+  gap of 10–15 points. The 1.18–1.19 is a **lower bound**: it is measured on sites
+  associated at 2.6 m, which pulls `s` toward 1 (a view that disagrees more is less likely
+  to be a member). The camera-height study's fixed point for the same rig (1.98 m and
+  1.92 m) implies **k ≈ 1.31–1.35**. It also rests on two city-years, and capture year is
+  not the rig: bend 2025 reads 1.045 and gainesville 2025 reads 1.053. Under per-pano heights, every GSV vintage from 2019 on (2018 in
   paterson) reads **k = 0.94–1.00**, and the new rig is 0.987–0.988. So the gap closes. But the pooled
   scale moves to **0.96–0.99** in all four cities (0.95–0.98 null-corrected). Ranges now
   run 1–4% short, which is the same direction as the camera-height study's "depth heights
   run short" (see *What it cannot see*).
-- **The naive along-ray-vs-range slope overstates the scale error.** This slope is the
-  RampNet#101 instrument (~11%). It is **0.07–0.13** on GSV at 2.6 m, but the same
-  estimator returns **0.047–0.054** in the four GSV cities on simulated data with *no* scale error at all.
-  About half of the ~11% is therefore regression artefact, not scale. The
-  geometry-corrected `s` has a null of only ~0.01.
-- **GT-anchored, first placement number that is not a raycast of the GT.** We project the
-  site, *without* the judged pano's own view, into that pano and compare against the
-  reviewer's box centre or missed-ramp click. Pooled over ten splits at 2.6 m:
-  **p50 11.8 px / p90 40.4 px, p50 1.89 m / p90 4.41 m** (n = 866 references). Of the
-  11.8 px, **~4.7 px** is the box centre's own median offset from the model's peak. That
-  offset is a floor no position estimate can remove.
+- **Part of RampNet#101's slope is an estimator artefact, and how much depends on the
+  city.** #101's estimator regresses each member's along-ray residual from the *full* site
+  on range, with site fixed effects, on sites whose ranges span ≥ 4 m. Run here on the
+  on-disk `sites.jsonl` it reproduces #101's table exactly (e.g. paterson 4,433 sites,
+  19,588 members, 0.1159). On simulated data with *no* scale error, the same estimator
+  returns **0.040–0.050** in bend, paterson and gainesville, against observed 0.108–0.116
+  (**37–45%** of it), and 0.044 of 0.058 in sao_paulo (**76%**). The leave-one-out naive
+  slope this tool also reports has a null share of **39–71%** by city. Both nulls are only
+  as good as the error model, which is miscalibrated (below). On Mapillary the null exceeds
+  the observed slope, so no correction is possible there. The geometry-corrected `s` has a
+  null of only ~0.01.
+- **`k` is an effective range scale, not a camera-height error alone.** A constant
+  vertical offset of the detector's peak produces a range error that grows about as r²,
+  and the `s·g` fit absorbs part of it as scale. The GT shows such an offset: the
+  reviewer's box centre sits a median **−1.2 px** above the model's peak (negative in all
+  four boxed splits). Adding an r² term to the pooled fit moves `k` a lot: at 2.6 m, GSV
+  `k` goes from 1.02–1.10 to **0.93–1.06**, with an implied constant peak offset of
+  −1.0 to −2.8 px. The two terms trade off strongly, so neither fit isolates the camera
+  height. Read every `k` here as scale plus detector placement.
+- **GT-anchored placement, in pixels.** We project the site, *without* the judged pano's
+  own view, into that pano and compare against the reviewer's box centre or missed-ramp
+  click. The pixel residual never raycasts the reference. Pooled over ten splits at 2.6 m:
+  **p50 11.8 px / p90 40.4 px** (n = 866 references). Of the 11.8 px, **~4.7 px** is the
+  box centre's own median offset from the model's peak, a floor no position estimate can
+  remove.
+- **In metres, only the untruncated subset.** 443 of the 866 references are missed marks,
+  matched to a site only if it lies within 5 m, which truncates their tail. The other 423
+  are box centres on a detection of a member pano, which no distance gate touches. On
+  those: **p50 1.86 m / p90 5.22 m** (px p50 11.2 / p90 36.9). These metres raycast the
+  reference pixel under the pano's height model, so they are not independent of that
+  model in the along-ray direction.
 
 ## Method
 
@@ -156,8 +187,61 @@ scale error. The naive slope is along-ray residual on range, with the null in br
 | annapolis | 2.6m | 24228 | 0.154 (0.274) | 0.117 ± 0.004 | 0.076 | 1.132 | 1.042 |
 | morgantown | 2.6m | 9084 | 0.135 (0.221) | 0.102 ± 0.006 | 0.066 | 1.114 | 1.037 |
 
-By capture year (joint fit; GSV vintages with ≥ 150 held-out views; the rest are in
-`range_slope.csv`):
+**RampNet#101's own estimator, and its null.** Full-site residuals (the view included),
+site fixed effects, sites with ≥ 3 members spanning ≥ 4 m of range; the null runs this
+estimator on the same simulated draws as the other nulls. "null share" is null ÷ observed.
+
+| city | height | sites | members | #101 slope (± 1.96 se) | null | null share | LOO naive null share |
+|---|---|---:|---:|---:|---:|---:|---:|
+| bend | 2.6m | 9388 | 42240 | 0.108 ± 0.003 | 0.040 | 0.37 | 0.39 |
+| paterson | 2.6m | 4445 | 19653 | 0.116 ± 0.005 | 0.042 | 0.37 | 0.40 |
+| gainesville | 2.6m | 1965 | 8358 | 0.113 ± 0.008 | 0.050 | 0.45 | 0.49 |
+| sao_paulo | 2.6m | 2265 | 11915 | 0.058 ± 0.006 | 0.044 | 0.76 | 0.71 |
+| richmond | 2.6m | 890 | 7040 | 0.128 ± 0.013 | 0.249 | 1.96 | 1.89 |
+
+The re-fused sites here are a little larger than the on-disk ones #101 used (results.jsonl
+grew), which is why paterson has 4,445 sites rather than 4,433; the slope is the same to
+three decimals. On the on-disk sites the estimator reproduces #101's table exactly.
+
+**How well the null's noise matches the data.** The null perturbs each view by the error
+model's own σ, so it is only as good as those σ. Leave-one-out |residual| in metres,
+observed vs simulated, 2.6 m:
+
+| city | |along| p50 / p90 observed | simulated | |cross| p50 / p90 observed | simulated |
+|---|---:|---:|---:|---:|
+| bend | 0.84 / 3.05 | 1.04 / 2.65 | 0.34 / 1.02 | 0.81 / 1.97 |
+| paterson | 1.26 / 3.70 | 1.07 / 2.75 | 0.51 / 1.44 | 0.81 / 1.98 |
+| gainesville | 1.55 / 3.94 | 1.08 / 2.79 | 0.56 / 1.63 | 0.81 / 1.98 |
+| sao_paulo | 0.94 / 3.08 | 1.02 / 2.62 | 0.43 / 1.35 | 0.77 / 1.88 |
+
+On GSV the model overstates cross-ray noise (1.4–2.4× at the median, 1.2–1.9× at p90) and understates the along-ray tail
+(p90) by 13–29%. On Mapillary it overstates both (simulated |along| p50 ≈ 2.8 m vs
+observed 1.1–2.0 m). So the null shares above are indicative, not exact.
+
+**With an r² term.** The pooled fit again, with a second column for a constant error in the
+detection's dip angle (`range_offset_levers`: a point moves by (r² + h²)/h per radian).
+The offset is expressed as a constant dy in heatmap px, + = detections sit lower (nearer).
+
+| city | height | k, scale only | k, with r² term | implied dy offset px (± 1.96 se) |
+|---|---|---:|---:|---:|
+| bend | 2.6m | 1.056 | 0.943 | −2.79 ± 0.10 |
+| paterson | 2.6m | 1.092 | 1.015 | −1.64 ± 0.15 |
+| gainesville | 2.6m | 1.102 | 1.055 | −0.95 ± 0.26 |
+| sao_paulo | 2.6m | 1.017 | 0.926 | −2.34 ± 0.21 |
+| bend | per-pano | 0.986 | 0.873 | −3.23 ± 0.11 |
+| paterson | per-pano | 0.975 | 0.849 | −3.26 ± 0.14 |
+| gainesville | per-pano | 0.987 | 0.858 | −3.15 ± 0.21 |
+| sao_paulo | per-pano | 0.963 | 0.876 | −2.49 ± 0.24 |
+
+`k` moves by 0.05–0.13 when the offset term is allowed, so the scale-only `k` is not a
+clean camera-height measurement. The fitted offset has the opposite sign to the GT's
+box-minus-peak offset (−1.2 px, i.e. peaks sit *low*), so the r² fit is not simply
+recovering that offset either; the two columns are strongly collinear over the 5–25 m
+range band. What survives is the *comparison* between rigs and height models, which both
+fits share. The r² columns are in `range_slope.csv` (`r2fit_*`).
+
+By capture year (joint fit, scale only; GSV vintages with ≥ 150 held-out views; the rest
+are in `range_slope.csv`):
 
 | city | capture year | views (n) at 2.6 m | k at 2.6 m [95% CI] | views (n) per-pano | k per-pano [95% CI] |
 |---|---|---:|---:|---:|---:|
@@ -197,7 +281,11 @@ What this says:
    triangulates to ~2.14 m when associated at 2.6 m (paterson), against ~2.5 m for older
    vintages. That predicts `k ≈ 2.6/2.14 = 1.21` and `≈ 1.04`. This fit reads 1.19 and
    1.04–1.06. It uses no depth and no bearing-only pairs: every view of every ≥ 3-view site,
-   solved by GLS.
+   solved by GLS. Both instruments are associated at 2.6 m, so both are pulled toward
+   k = 1: the study's fixed point for this rig (1.98 m paterson, 1.92 m gainesville)
+   implies k ≈ 1.31–1.35, and 1.18–1.19 is a lower bound. The new-rig figure rests on two
+   city-years (paterson 2025, gainesville 2026). A capture year is not a rig: bend 2025
+   reads 1.045 and gainesville 2025 reads 1.053, like the older rigs.
 2. **Per-pano heights remove the between-rig disagreement.** Paterson's views grow from
    20,027 to 23,198 and gainesville's from 8,645 to 11,178, because the new rig's views now
    agree with the old ones and associate. Held-out px p50 improves in paterson
@@ -252,7 +340,8 @@ which is why their n is smaller.
 | annapolis | 2.6m | peak | 101 | 10.4 / 25.2 | 1.40 / 5.19 | 100 | 12.1 / 30.1 | 1.62 / 5.60 |
 | morgantown | 2.6m | independent | 50 | 14.2 / 37.9 | 1.63 / 3.31 | 50 | 14.2 / 37.9 | 1.63 / 3.31 |
 | morgantown | 2.6m | peak | 188 | 8.7 / 27.1 | 1.01 / 3.36 | 184 | 11.2 / 34.0 | 1.21 / 3.94 |
-| **ALL (10 splits)** | 2.6m | independent | 888 | 10.6 / 35.6 | 1.71 / 4.19 | **866** | **11.8 / 40.4** | **1.89 / 4.41** |
+| **ALL (10 splits)** | 2.6m | independent | 888 | 10.6 / 35.6 | 1.71 / 4.19 | **866** | **11.8 / 40.4** | 1.89 / 4.41 (truncated) |
+| **ALL (10 splits)** | 2.6m | box on a detection (untruncated) | 445 | 9.3 / 28.2 | 1.57 / 4.41 | **423** | 11.2 / 36.9 | **1.86 / 5.22** |
 | ALL (10 splits) | 2.6m | peak | 1315 | 6.5 / 19.1 | 1.03 / 3.29 | 1209 | 9.5 / 29.3 | 1.52 / 4.18 |
 | GSV-4 | 2.6m | independent | 331 | 8.8 / 33.5 | 1.48 / 3.56 | 321 | 9.8 / 39.3 | 1.65 / 3.76 |
 | GSV-4 | per-pano | independent | 380 | 7.5 / 28.8 | 1.41 / 3.69 | 371 | 8.9 / 32.6 | 1.59 / 3.80 |
@@ -261,14 +350,25 @@ which is why their n is smaller.
 reference. GSV-4 is `ALL_PER_PANO_CITIES` in the CSV, meaning bend, paterson, gainesville
 and sao_paulo pooled.)
 
+**Quote the pixels.** The pixel residual is the placement figure that never raycasts the
+reference. Metres are given for two reasons only, and with two limits. First, 443 of the
+866 independent references are missed marks (and box centres drawn on a missed mark),
+which only reach a site within 5 m, so their metres are truncated; the untruncated metres
+are the 423 box centres on a member pano's detection (`box_on_detection` in the CSV), p50
+1.86 m / p90 5.22 m. Second, every GT metre raycasts the reference pixel under the pano's
+own height model, so it inherits that model's range scale.
+
 Reading it:
 
 - **The box has a floor.** For boxed detections, the box centre sits a median
   **4.7 px** (n = 445 boxed detections, pooled, 2.6 m) from the model's own peak. The peak lands somewhere on
   the ramp, not at its centre. So roughly 4–5 px of every `box` residual is where on the ramp
   the reference point was taken, not placement error.
-- **The left-out vs full gap is the value of the held-out pano's own view:** +1.2 px
-  (independent) and +3.0 px (peak) at the median, pooled.
+- **The left-out vs full gap is the value of the held-out pano's own view:** +1.0 px
+  (independent, 11.8 vs 10.8, n = 866) and +2.4 px (peak, 9.5 vs 7.1, n = 1,209) at the
+  median, pooled, on the rows that have both numbers (`full_on_loo_rows` in the CSV). The
+  first version compared the left-out rows with all full rows, a different set, and read
+  +1.2 / +3.0.
 - **Per-pano vs 2.6 m on GT is mixed.** It helps paterson clearly (left-out independent
   p50 11.0 → 7.6 px). It hurts sao_paulo (9.3 → 12.0 px). Pooled over the four GSV cities,
   it improves 9.8 → 8.9 px, on denominators that differ (321 vs 371, because association
@@ -300,7 +400,13 @@ missed clicks). The judged pano's own view is left out, so the mark cannot pull 
 toward itself. It is limited by size (30–229 independent references per split, and only
 four splits have boxes), by the 5 m match truncation on missed marks, and by the ~4.7 px
 box-vs-peak floor. Its metres are the reference raycast under the pano's height model, so
-they are not independent in the along direction. Quote the pixels.
+they are not independent in the along direction. Quote the pixels, and quote metres only
+for the untruncated box-on-detection subset.
+
+**Tier.** Every site in this document is fused at the benchmark tier 0.55 with
+`mask_rig=False`, so GT joins stay keyed to the bundles. Production ships the operational
+tier 0.30, whose extra sites are mostly single-view and low confidence; none of these
+placement numbers describe them.
 
 ## Reproduce
 

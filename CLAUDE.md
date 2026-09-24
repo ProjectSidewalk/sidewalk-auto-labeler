@@ -454,9 +454,18 @@ the residual into an implied range scale per capture year (the instrument that r
 the camera-height study's rig ranking without depth or triangulation pairs). Its blind
 spot is structural: a bias every view of a site shares (a common offset, a scale error on
 views that all look the same way) moves the held-out position with it and is invisible;
-its residuals are also truncated by association's own gate. The GT-anchored half projects
-sites into judged panos against reviewer box centres, which is the first placement figure
-on #27 not scored against a raycast of the same GT. Numbers in
+its residuals are also truncated by association's own gate. Its `k` is an EFFECTIVE range
+scale: a constant vertical peak offset reads as range error growing ~r^2 and the fit
+absorbs it (the `r2fit_*` columns show k moving 0.05-0.13 when an offset term is allowed),
+and it is measured at the association height, so it is pulled toward 1 (the new rig's
+1.18-1.19 is a lower bound; the camera-height fixed point implies ~1.31-1.35). It also
+runs RampNet#101's own estimator (full-site residual, site fixed effects, >= 4 m span;
+reproduces #101's table exactly on the on-disk sites.jsonl) with its error-model null
+(37-76% of the slope on GSV; the null itself is miscalibrated, see the doc). The
+GT-anchored half projects sites into judged panos against reviewer box centres: quote its
+PIXELS (the pixel residual never raycasts the reference); its metres are truncated for
+missed marks (5 m match gate), so metres are quoted only for the `box_on_detection`
+subset. All of it is benchmark tier 0.55, not the 0.30 production ships. Numbers in
 docs/reprojection-residual.md.
 
 **Mapillary rig tilt (`scripts/mapillary_tilt.py`)** — issue #42. Mapillary blocks store
