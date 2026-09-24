@@ -1325,3 +1325,44 @@ def test_a_band_that_is_all_rig_detections_is_refused(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="holds no labels at all in"):
         send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
     assert sent == []
+
+
+# --- Live-city guard (issue #62: repositioning a shipped city moves its live labels) -------
+
+def test_live_city_guard_refuses_to_move_panos_that_carry_live_labels(tmp_path, monkeypatch):
+    """PS upserts the pano row, so a repositioned file sent where another campaign already
+    put the same panos moves every label on them. That is refused unless typed out, and the
+    override is recorded; identical positions (a band file) pass untouched."""
+    sent = _capture_posts(monkeypatch)
+    live = _jsonl(tmp_path, 3)
+    records = [json.loads(line) for line in live.read_text().splitlines()]
+    for i, r in enumerate(records):
+        r["pano"].update(lat=37.54 + i * 0.001, lng=-77.43)
+    live.write_text("".join(json.dumps(r) + "\n" for r in records))
+    send_to_ps.process_jsonl_file(str(live), PROD)          # results.jsonl is live on PROD
+
+    same = tmp_path / "results.band.jsonl"                  # same panos, same coordinates
+    same.write_text("".join(json.dumps(r) + "\n" for r in records))
+    send_to_ps.check_live_positions(same, PROD, {})
+
+    records[1]["pano"]["lat"] += 0.0001                     # ~11 m: one pano repositioned
+    moved = tmp_path / "results.raw.jsonl"
+    moved.write_text("".join(json.dumps(r) + "\n" for r in records))
+    with pytest.raises(ValueError, match=r"1 pano\(s\) sit at other coordinates.*--reposition-live-city"):
+        send_to_ps.process_jsonl_file(str(moved), PROD)
+    assert len(sent) == 3
+    send_to_ps.check_live_positions(moved, TEST, {})        # nothing of it is live on TEST
+
+    send_to_ps.process_jsonl_file(str(moved), PROD, reposition_live_city=True)
+    assert len(sent) == 6
+    state = json.loads(send_to_ps.submission_record_path(str(moved)).read_text())["endpoints"][
+        send_to_ps.canonical_endpoint(PROD)]
+    assert state["reposition_live_city"]["overridden"] and "results.jsonl" in state["reposition_live_city"]["reason"]
+    # The decision is made once: this file's own campaign is now the live one here.
+    send_to_ps.check_live_positions(moved, PROD, json.loads(
+        send_to_ps.submission_record_path(str(moved)).read_text()))
+
+    # "Cannot compare" never reads as "nothing moves".
+    live.unlink()
+    with pytest.raises(ValueError, match="not present"):
+        send_to_ps.check_live_positions(same, PROD, {})

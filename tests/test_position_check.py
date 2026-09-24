@@ -355,3 +355,33 @@ def test_run_check_records_the_results_hash_and_names_outputs_by_file(tmp_path):
     assert position_check.load_check(run / "results.check.jsonl")[0] is None
     assert position_check.load_check(run / "results.jsonl")[0]["results_sha256"] == result["results_sha256"]
 
+
+def test_reposition_refuses_a_file_that_is_already_live(tmp_path, capsys):
+    """Frame consistency (issue #62): PS upserts the pano row, so repositioning a submitted
+    file moves labels that are live. reposition.py refuses, naming what would move, unless
+    the whole-city decision is typed out; a rewrite that moves nothing is not refused."""
+    frame = _frame()
+    run = tmp_path / "city"
+    _write_run(run, _northbound("A", 0.5, -7.5, frame), frame)
+    results = run / "results.jsonl"
+    record = {"input_file": "results.jsonl", "sha256": position_check.file_sha256(results),
+              "total_lines": 25, "endpoints": {"https://ps.example/ai/submitLabelsOnPano": {
+                  "submitted_lines": 25, "labels_submitted": 40, "min_confidence": 0.3}}}
+    position_check.submission_record_for(results).write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(SystemExit, match=r"already submitted.*25 lines, 40 labels.*move 25 pano"):
+        reposition.main([str(results), "--field", "raw"])
+    assert not (run / "results.raw.jsonl").exists() and not list(run.glob("*.tmp"))
+
+    # The same file on the field it already carries moves nothing: nothing to protect.
+    assert reposition.main([str(results), "--field", "sfm"]) == 0
+
+    assert reposition.main([str(results), "--field", "raw", "--reposition-live-city"]) == 0
+    assert (run / "results.raw.jsonl").exists()
+    assert "WARNING (--reposition-live-city)" in capsys.readouterr().out
+
+    # The check itself reports the live campaign beside its verdict.
+    result = position_check.run_check(run, report=False)
+    assert result["live_campaigns"] == [{"endpoint": "https://ps.example/ai/submitLabelsOnPano",
+                                         "submitted_lines": 25, "labels_submitted": 40}]
+    assert result["rule"] == position_check.RULE

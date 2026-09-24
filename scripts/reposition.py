@@ -31,6 +31,14 @@ field to a file that is now mixed — exactly what the binding exists to prevent
 the output with `position_check.py runs/<name> --results <output>` and submit it from
 where it is.
 
+A file that is already submitted is refused (issue #62). Its `<file>.submission.json`
+records the endpoints holding it, PS upserts the pano row on resubmission, and every label
+is placed from its pano - so shipping the output would MOVE labels that are live and may
+already be validated. That is a decision about the whole city, not about this file, and
+position differences under ~2 m are below what position_check.py can resolve anyway.
+`--reposition-live-city` overrides, for that decision made on purpose; send_to_ps.py
+refuses the output again, independently, unless given the same flag.
+
 Only lat/lng move. `camera_heading` (Mapillary's `computed_compass_angle`) is SfM-derived
 too, but the measured SfM-vs-GPS discrepancies are translations — one near-constant
 vector per sequence (position_check.json `sfm_minus_raw_*`) — not rotations, so the
@@ -38,6 +46,7 @@ heading stays consistent with either position and is deliberately left alone.
 """
 import argparse
 import json
+import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -46,7 +55,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from position_check import check_path_for  # noqa: E402
+from detectors import on_camera_rig  # noqa: E402
+from position_check import check_path_for, live_campaigns, submission_record_for  # noqa: E402
 
 FIELD_KEYS = {'raw': 'geometry', 'sfm': 'computed_geometry'}
 
@@ -62,6 +72,14 @@ def reposition_pano(pano, field):
     out['lng'], out['lat'] = float(coords[0]), float(coords[1])
     out['position_field'] = FIELD_KEYS[field]
     return out
+
+
+def _min_confidence(src, endpoint):
+    """The confidence floor the record says `endpoint` holds (a band lowers it once complete),
+    so the moved-label estimate counts what is actually live there."""
+    with open(submission_record_for(src), encoding='utf-8') as f:
+        state = json.load(f)['endpoints'][endpoint]
+    return float(state.get('min_confidence', 0.0))
 
 
 def plan_from_check(check_path):
@@ -82,6 +100,12 @@ def main(argv=None):
                     help='take flagged sequences and their recommended field from position_check.json '
                          '(default: the one beside the results file)')
     ap.add_argument('--out', metavar='FILE', help='output path (default: <stem>.<field|check>.jsonl)')
+    ap.add_argument('--reposition-live-city', action='store_true',
+                    help='reposition a file that is ALREADY SUBMITTED (its .submission.json records '
+                         'live lines). Shipping the output moves labels that are live, some of them '
+                         'validated, and PS cannot retire labels, so there is no undo. Only for a '
+                         'whole-city decision made on purpose (issue #62), never to act on a '
+                         'per-sequence difference the position check cannot resolve.')
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, 'reconfigure'):  # Windows consoles default to cp1252
         sys.stdout.reconfigure(errors='replace')
@@ -113,8 +137,16 @@ def main(argv=None):
         sys.exit(f'refusing to write {out}: results.jsonl is a run file that main.py resumes into, and this '
                  f'output is a submission artifact (see the docstring); keep it under another name')
 
+    # Frame consistency (issue #62): what is already live from this file, per its record.
+    try:
+        live = live_campaigns(src)
+    except ValueError as exc:
+        sys.exit(f'refusing: {exc}')
     counts = Counter()
-    with open(src, encoding='utf-8') as fin, open(out, 'w', encoding='utf-8') as fout:
+    moved_labels = Counter()   # endpoint -> detections at its min_confidence on moved panos
+    min_conf = {c['endpoint']: _min_confidence(src, c['endpoint']) for c in live}
+    tmp = out.with_name(out.name + '.tmp')
+    with open(src, encoding='utf-8') as fin, open(tmp, 'w', encoding='utf-8') as fout:
         for line in fin:
             if not line.strip():
                 continue
@@ -130,12 +162,32 @@ def main(argv=None):
                 if new is None:
                     counts['no_field'] += 1
                 else:
+                    if (new['lat'], new['lng']) != (pano['lat'], pano['lng']):
+                        counts['moved'] += 1
+                        for endpoint, floor in min_conf.items():
+                            moved_labels[endpoint] += sum(
+                                1 for d in rec.get('detections') or []
+                                if d.get('confidence', 0) >= floor
+                                and not on_camera_rig(d['y_normalized']))
                     rec['pano'] = new
                     counts[f'rewritten_{field}'] += 1
             else:
                 counts['unchanged'] += 1
             fout.write(json.dumps(rec) + '\n')
 
+    if live and counts['moved']:
+        where = '; '.join(f"{c['endpoint']} ({c['submitted_lines']} lines, {c['labels_submitted']} labels "
+                          f"live; ~{moved_labels[c['endpoint']]} of them on the moved panos)" for c in live)
+        message = (f"{src.name} is already submitted - {where} per {submission_record_for(src).name}. "
+                   f"This would move {counts['moved']} pano(s), and PS upserts the pano row on "
+                   f"resubmission, so every label on them moves too. Repositioning a city that has "
+                   f"shipped is a whole-city decision, not a per-file one (issue #62)")
+        if not args.reposition_live_city:
+            tmp.unlink()
+            sys.exit(f'refusing: {message}. --reposition-live-city overrides, once that decision is made.')
+        print(f'WARNING (--reposition-live-city): {message}.')
+    os.replace(tmp, out)
+    counts.pop('moved', None)
     total = sum(counts.values())
     print(f"-> wrote {out}: {total} records; "
           + ', '.join(f'{k} {v}' for k, v in sorted(counts.items())))
