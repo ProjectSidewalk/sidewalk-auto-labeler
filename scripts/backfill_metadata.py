@@ -31,12 +31,15 @@ stay null and are counted.
     python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --dry-run   # counts only
     python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --out runs/richmond/results.pose.jsonl
 
-A file that has a `<file>.submission.json` beside it is under send_to_ps.py's sha256 guard,
-and rewriting it in place changes that hash: the recorded campaign (and any band on it)
-would then refuse to resume, and its position_check.json would go stale. So --pose refuses
-to rewrite such a file in place unless --rewrite-submitted says that is intended; `--out`
-leaves it untouched and is the route for a pano-only push (`send_to_ps.py <out>
---min-confidence 2.0`, which submits no labels).
+A file that has a `<file>.submission.json` or any `<file>.submitted*` /
+`<file>.band-*.submitted` resume sidecar beside it is under send_to_ps.py's guard, and
+rewriting it changes its sha256: the recorded campaign (and any band on it) would then
+refuse to resume, and its position_check.json would go stale. So --pose refuses to write
+over such a file -- in place, or as the `--out` target -- unless --rewrite-submitted says
+that is intended; a fresh `--out` leaves the input untouched and is the route for a
+pano-only push (`send_to_ps.py <out> --min-confidence 2.0`, which submits no labels).
+Blank lines are copied through as blank lines, so a sidecar's line numbers still name the
+same panos after a rewrite.
 """
 import argparse
 import json
@@ -58,8 +61,14 @@ WORKERS = 8
 # send_to_ps.py's campaign record, beside the file it describes (SUBMISSION_RECORD_SUFFIX
 # there; not imported, since send_to_ps pulls in the whole submission stack).
 SUBMISSION_RECORD_SUFFIX = ".submission.json"
+# ...and its resume sidecars, which name lines of the file BY NUMBER: `<file>.submitted`,
+# the `<file>.submitted.<endpoint>` copies the test->prod move leaves, and a band's
+# `<file>.band-<min>-<max>.submitted`.
+SUBMITTED_SIDECAR_SUFFIX = ".submitted"
+BAND_SIDECAR_INFIX = ".band-"
 
-# Outcomes of the --pose pass, per line. The first two change nothing.
+# Outcomes of the --pose pass, per line. The first two change no angle (POSE_ALREADY may
+# still stamp a missing camera_pose_source).
 POSE_ALREADY, POSE_NOT_MAPILLARY, POSE_NO_METADATA, POSE_FILLED = (
     "already_set", "not_mapillary", "no_source_metadata", "filled")
 
@@ -101,6 +110,32 @@ def iter_records(path):
                 yield json.loads(line)
 
 
+def iter_lines(path):
+    """Every physical line of a JSONL: the parsed record, or None for a blank line.
+
+    The --pose rewrite keeps blank lines as blank lines (iter_records drops them):
+    send_to_ps.py's resume sidecars number PHYSICAL lines, blanks included, so dropping one
+    would shift every later line onto a different pano under --rewrite-submitted."""
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            yield json.loads(line) if line.strip() else None
+
+
+def submission_artifacts(path):
+    """Names of send_to_ps.py's campaign state beside `path`, sorted: its
+    `.submission.json` record and every resume sidecar (`.submitted`, `.submitted.*`,
+    `.band-*.submitted`). Empty when there is none (or the directory does not exist)."""
+    path = Path(path)
+    if not path.parent.is_dir():
+        return []
+    name = path.name
+    return sorted(q.name for q in path.parent.iterdir()
+                  if q.name == name + SUBMISSION_RECORD_SUFFIX
+                  or q.name.startswith(name + SUBMITTED_SIDECAR_SUFFIX)
+                  or (q.name.startswith(name + BAND_SIDECAR_INFIX)
+                      and q.name.endswith(SUBMITTED_SIDECAR_SUFFIX)))
+
+
 def fill_pose(record):
     """Fill one line's camera_pitch/camera_roll from its own source_metadata, in place.
 
@@ -113,7 +148,14 @@ def fill_pose(record):
     if not is_mapillary(record):
         return POSE_NOT_MAPILLARY
     if pano.get("camera_pitch") is not None and pano.get("camera_roll") is not None:
+        # A block written between the pose write and camera_pose_source (#42) has the
+        # same derived angles and lacks only the provenance key.
+        if pano.get("camera_pose_source") is None:
+            pano["camera_pose_source"] = mapillary.POSE_SOURCE
         return POSE_ALREADY
+    # Every Mapillary line carries the key, null until there are angles to attribute --
+    # the shape sources/mapillary.build_pano_record writes.
+    pano.setdefault("camera_pose_source", None)
     meta = pano.get("source_metadata")
     if not meta:
         return POSE_NO_METADATA
@@ -137,7 +179,11 @@ def backfill_pose(src, out=None, dry_run=False):
     tmp = dest.with_suffix(dest.suffix + ".tmp")
     sink = None if dry_run else open(tmp, "w", encoding="utf-8", newline="\n")
     try:
-        for rec in iter_records(src):
+        for rec in iter_lines(src):
+            if rec is None:                      # a blank line stays a line: numbering holds
+                if sink:
+                    sink.write("\n")
+                continue
             outcome = fill_pose(rec)
             counts[outcome] = counts.get(outcome, 0) + 1
             if sink:
@@ -151,17 +197,19 @@ def backfill_pose(src, out=None, dry_run=False):
 
 
 def pose_main(args):
-    """--pose: refuse an unintended in-place rewrite of a submitted file, then run."""
-    record = Path(f"{args.jsonl}{SUBMISSION_RECORD_SUFFIX}")
-    if not args.dry_run and args.out is None and record.exists() and not args.rewrite_submitted:
-        sys.exit(f"{args.jsonl} has a submission record ({record.name}): rewriting it in place "
-                 f"changes the sha256 send_to_ps.py's guard holds, so that campaign (and any "
-                 f"band on it) would refuse to resume and its position check would go stale. "
-                 f"Write a new file with --out instead (and submit that, e.g. "
-                 f"`send_to_ps.py <out> --min-confidence 2.0` for a pano-only update), or pass "
-                 f"--rewrite-submitted if the in-place rewrite is really intended.")
+    """--pose: refuse to write over a submitted file (in place or as --out), then run."""
     if args.out is not None and args.out.resolve() == args.jsonl.resolve():
         sys.exit("--out is the input file; drop --out to rewrite in place.")
+    dest = args.out or args.jsonl
+    held = [] if args.dry_run else submission_artifacts(dest)
+    if held and not args.rewrite_submitted:
+        what = "rewriting it in place" if args.out is None else "overwriting it as --out"
+        sys.exit(f"{dest} has send_to_ps.py campaign state beside it ({', '.join(held)}): "
+                 f"{what} changes the sha256 send_to_ps.py's guard holds, so that campaign "
+                 f"(and any band on it) would refuse to resume and its position check would "
+                 f"go stale. Write a NEW file with --out instead (and submit that, e.g. "
+                 f"`send_to_ps.py <out> --min-confidence 2.0` for a pano-only update), or "
+                 f"pass --rewrite-submitted if overwriting it is really intended.")
     counts = backfill_pose(args.jsonl, args.out, args.dry_run)
     order = [POSE_FILLED, POSE_ALREADY, POSE_NO_METADATA, geo.POSE_MISSING,
              geo.POSE_MALFORMED, geo.POSE_OVER_TILT, POSE_NOT_MAPILLARY]
@@ -196,8 +244,9 @@ def main():
     ap.add_argument("--dry-run", action="store_true",
                     help="--pose only: count what would change; write nothing.")
     ap.add_argument("--rewrite-submitted", action="store_true",
-                    help="--pose only: allow rewriting in place a file that has a "
-                         "send_to_ps.py submission record beside it (see the module docstring).")
+                    help="--pose only: allow overwriting (in place, or as the --out "
+                         "target) a file with a send_to_ps.py submission record or resume "
+                         "sidecar beside it (see the module docstring).")
     args = ap.parse_args()
 
     if not args.jsonl.exists():

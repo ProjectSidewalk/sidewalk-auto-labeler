@@ -137,7 +137,9 @@ def test_pose_pass_fills_from_source_metadata_and_keeps_line_order(monkeypatch, 
     assert (out[0]["camera_pitch"], out[0]["camera_roll"]) == (
         pytest.approx(PITCH, abs=1e-9), pytest.approx(ROLL, abs=1e-9))
     assert out[0]["camera_pose_source"] == "mapillary_computed_rotation"
-    assert "camera_pose_source" not in out[2]                                # nothing derived
+    assert "camera_pose_source" not in out[1]                                # GSV: no key
+    assert out[2]["camera_pose_source"] is None                              # key, no angles
+    assert out[3]["camera_pose_source"] is None
     assert (out[1]["camera_pitch"], out[1]["camera_roll"]) == (1.0, 0.5)     # GSV untouched
     assert out[2]["camera_pitch"] is None and out[2]["camera_roll"] is None  # not a pose
     assert out[3]["camera_pitch"] is None
@@ -163,7 +165,7 @@ def test_pose_refuses_in_place_rewrite_of_a_submitted_file(monkeypatch, tmp_path
                          source_metadata={"computed_rotation": RVEC})])
     (tmp_path / "results.jsonl.submission.json").write_text("{}", encoding="utf-8")
     before = jsonl.read_bytes()
-    with pytest.raises(SystemExit, match="submission record"):
+    with pytest.raises(SystemExit, match="campaign state"):
         _pose_run(monkeypatch, jsonl)
     assert jsonl.read_bytes() == before
 
@@ -171,3 +173,72 @@ def test_pose_refuses_in_place_rewrite_of_a_submitted_file(monkeypatch, tmp_path
     _pose_run(monkeypatch, jsonl, "--out", str(out))
     assert jsonl.read_bytes() == before
     assert _read(out)[0]["pano"]["camera_roll"] == pytest.approx(ROLL, abs=1e-9)
+
+
+def test_pose_already_set_gains_the_missing_provenance_key():
+    # A block a fresh run wrote before camera_pose_source existed: angles untouched,
+    # the key filled in.
+    rec = _line("M1", camera_pitch=1.5, camera_roll=-0.5,
+                source_metadata={"computed_rotation": RVEC})
+    assert bf.fill_pose(rec) == bf.POSE_ALREADY
+    assert (rec["pano"]["camera_pitch"], rec["pano"]["camera_roll"]) == (1.5, -0.5)
+    assert rec["pano"]["camera_pose_source"] == "mapillary_computed_rotation"
+
+
+@pytest.mark.parametrize("sidecar", ["results.jsonl.submitted",
+                                     "results.jsonl.submitted.laurens-prod",
+                                     "results.jsonl.band-0.3-0.55.submitted"])
+def test_pose_refuses_a_file_with_only_a_resume_sidecar(monkeypatch, tmp_path, sidecar):
+    """A sidecar with no record beside it (a campaign begun before records existed, a
+    moved-aside copy, a band) still numbers this file's lines, so it guards the file too."""
+    jsonl = tmp_path / "results.jsonl"
+    _write(jsonl, [_line("M1", camera_pitch=None, camera_roll=None,
+                         source_metadata={"computed_rotation": RVEC})])
+    (tmp_path / sidecar).write_text("1\n", encoding="utf-8")
+    before = jsonl.read_bytes()
+    with pytest.raises(SystemExit, match="campaign state"):
+        _pose_run(monkeypatch, jsonl)
+    assert jsonl.read_bytes() == before
+
+
+def test_pose_refuses_an_out_target_under_a_campaign(monkeypatch, tmp_path):
+    """--out onto a file some campaign already holds would change THAT file's hash."""
+    jsonl = tmp_path / "results.jsonl"
+    _write(jsonl, [_line("M1", camera_pitch=None, camera_roll=None,
+                         source_metadata={"computed_rotation": RVEC})])
+    out = tmp_path / "results.pose.jsonl"
+    _write(out, [_line("M1")])
+    (tmp_path / "results.pose.jsonl.submitted").write_text("1\n", encoding="utf-8")
+    before = out.read_bytes()
+    with pytest.raises(SystemExit, match="overwriting it as --out"):
+        _pose_run(monkeypatch, jsonl, "--out", str(out))
+    assert out.read_bytes() == before
+
+
+def test_pose_refuses_out_equal_to_input(monkeypatch, tmp_path):
+    jsonl = tmp_path / "results.jsonl"
+    _write(jsonl, [_line("M1", camera_pitch=None, camera_roll=None,
+                         source_metadata={"computed_rotation": RVEC})])
+    before = jsonl.read_bytes()
+    with pytest.raises(SystemExit, match="--out is the input file"):
+        _pose_run(monkeypatch, jsonl, "--out", str(tmp_path / "." / "results.jsonl"))
+    assert jsonl.read_bytes() == before
+
+
+def test_rewrite_submitted_rewrites_in_place_and_keeps_line_numbers(monkeypatch, tmp_path):
+    """The deliberate override is allowed, and a blank line stays a line: the sidecar's
+    numbers count physical lines, blanks included, so they still name the same panos."""
+    jsonl = tmp_path / "results.jsonl"
+    posed = _line("M2", camera_pitch=None, camera_roll=None,
+                  source_metadata={"computed_rotation": RVEC})
+    jsonl.write_text(json.dumps(_line("G1", source="gsv")) + "\n\n" + json.dumps(posed) + "\n",
+                     encoding="utf-8")
+    (tmp_path / "results.jsonl.submission.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "results.jsonl.submitted").write_text("1\n3\n", encoding="utf-8")
+    _pose_run(monkeypatch, jsonl, "--rewrite-submitted")
+    lines = jsonl.read_text(encoding="utf-8").split("\n")
+    assert len(lines) == 4 and lines[1] == "" and lines[3] == ""   # 3 lines, final newline
+    assert json.loads(lines[0])["pano"]["panorama_id"] == "G1"
+    third = json.loads(lines[2])["pano"]
+    assert third["panorama_id"] == "M2"
+    assert third["camera_roll"] == pytest.approx(ROLL, abs=1e-9)
