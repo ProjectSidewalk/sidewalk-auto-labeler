@@ -140,11 +140,7 @@ def _in_pool(entry):
 
 
 def _pose_and_errors(run_pano):
-    pose = geo.pano_pose({'lat': run_pano.lat, 'lng': run_pano.lng,
-                          'camera_heading': run_pano.camera_heading,
-                          'camera_pitch': run_pano.camera_pitch,
-                          'camera_roll': run_pano.camera_roll,
-                          'source': run_pano.source})
+    pose = geo.pano_pose(run_pano.pose_fields())
     return pose, geo.error_model_for(run_pano.source)
 
 

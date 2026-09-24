@@ -145,11 +145,7 @@ def build_gt(verdict_panos, bundle_ops, run_panos_by_id, params, frame):
     counts['gt_panos'] = len(verdict_panos)
     for pid, entry, run_pano, ops, in_pool in judged_gt_panos(
             verdict_panos, bundle_ops, run_panos_by_id, counts, warnings):
-        pose = geo.pano_pose({'lat': run_pano.lat, 'lng': run_pano.lng,
-                              'camera_heading': run_pano.camera_heading,
-                              'camera_pitch': run_pano.camera_pitch,
-                              'camera_roll': run_pano.camera_roll,
-                              'source': run_pano.source})
+        pose = geo.pano_pose(run_pano.pose_fields())
         errors = geo.error_model_for(run_pano.source)
 
         def place(x, y, kind):
@@ -391,7 +387,8 @@ def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
     return {
         'params': {'match_radius_m': match_radius_m, 'gt_merge_m': gt_merge_m,
                    'min_confidence': params.min_confidence,
-                   'max_range_m': params.max_range_m},
+                   'max_range_m': params.max_range_m,
+                   'camera_height_m': params.camera_height_m},
         'counts': counts, 'warnings': warnings,
         'fuse': {k: fuse_stats[k] for k in
                  ('n_panos', 'n_projected', 'n_sites', 'n_operational_sites',
@@ -419,7 +416,8 @@ def format_report(city, r):
     lines = [
         f"== {city}: world-space fusion eval "
         f"(match radius {r['params']['match_radius_m']} m, "
-        f"GT merge {r['params']['gt_merge_m']} m)",
+        f"GT merge {r['params']['gt_merge_m']} m, "
+        f"camera height {r['params']['camera_height_m']})",
         f"run: {r['fuse']['n_panos']} panos -> {r['fuse']['n_sites']} sites "
         f"({r['fuse']['n_operational_sites']} operational, "
         f"{r['fuse']['n_multi_pano_sites']} multi-pano)",
@@ -547,7 +545,7 @@ def write_outputs(out_dir, report_text, result):
                        + [pr['k'][f] for f in CAL_FLOORS])
 
 
-def load_city_files(city, benchmark_root, run_dir):
+def load_city_files(city, benchmark_root, run_dir, read_heights=True):
     with open(benchmark_root / city / 'verdicts.json', encoding='utf-8') as f:
         verdicts = json.load(f)
     bundle_ops = {}
@@ -558,7 +556,8 @@ def load_city_files(city, benchmark_root, run_dir):
                 bundle_ops[rec['pano']['panorama_id']] = \
                     [(d['x_normalized'], d['y_normalized'], d['confidence'])
                      for d in rec['detections']]
-    run_panos, skipped = fs.load_results(run_dir / 'results.jsonl')
+    run_panos, skipped = fs.load_results(run_dir / 'results.jsonl',
+                                         read_heights=read_heights)
     return verdicts['panos'], bundle_ops, run_panos
 
 
@@ -572,6 +571,11 @@ def main():
     ap.add_argument('--gt-merge-m', type=float, default=2.5)
     ap.add_argument('--radius-sweep', type=float, nargs='*',
                     default=[2.5, 5.0, 7.5, 10.0])
+    ap.add_argument('--camera-height-m', type=fs.camera_height_arg,
+                    default=geo.DEFAULT_CAMERA_HEIGHT_M,
+                    help='raycast height for fusion AND GT placement: meters, or '
+                         '"per-pano" for GSV depth-measured heights (#40). A non-default '
+                         'value needs --out, so it cannot overwrite the published report')
     ap.add_argument('--vintage-ablation', action='store_true',
                     help='re-fuse at capture-delta windows 0/18/36/none and '
                          'compare world P/R (the #27 open question)')
@@ -579,14 +583,19 @@ def main():
                     help='output dir (default runs/<city>/fusion_eval)')
     args = ap.parse_args()
 
+    if args.camera_height_m != geo.DEFAULT_CAMERA_HEIGHT_M and args.out is None:
+        ap.error('--camera-height-m other than the default changes the scoring frame; '
+                 'pass --out so the default fusion_eval/ report is not overwritten')
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
     verdict_panos, bundle_ops, run_panos = load_city_files(
-        args.city, args.benchmark_root, run_dir)
+        args.city, args.benchmark_root, run_dir,
+        read_heights=args.camera_height_m == geo.PER_PANO)
     # Fusion at the BENCHMARK threshold, not the production operating point: the bundle's
     # verdicts and the committed reports are keyed to it (detectors/__init__.py).
     # mask_rig=False alongside the pinned tier: runs/<city>/fusion_eval/ is git-tracked by
     # the same convention as the tilt CSVs, so re-running must still reproduce it.
-    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False)
+    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                           camera_height_m=args.camera_height_m)
     prefused = fs.fuse(run_panos, params)
 
     result = evaluate_city(verdict_panos, bundle_ops, run_panos, params,
