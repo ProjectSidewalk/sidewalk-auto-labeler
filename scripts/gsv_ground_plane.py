@@ -94,8 +94,10 @@ ARMS = ['off', 'ground-normal', 'shuffled-normal']
 # rig's own metadata attitude (a car follows the road). Step 1 found the depth normal is
 # a noisy per-pano estimate of the road whose agreement with that attitude rises to
 # r ~0.9 where the ground plane is large, while the attitude itself persists along the
-# street at r 0.72-0.87 -- so this arm separates "the depth normal is too noisy" from
-# "the mechanism does not hold on GSV". It is scored on its own four-arm site set
+# street at r 0.72-0.87. It was meant to separate "the depth normal is too noisy" from
+# "the mechanism does not hold on GSV", but geometrically it is one sign pattern of #27's
+# pose ablation (and its -roll sign comes from the same fit), so it re-reads #27 rather
+# than adding an independent estimate. It is scored on its own four-arm site set
 # (`*_4arm`) so the pre-registered three-arm rows are untouched by it.
 EXPLORATORY_ARM = 'rig-attitude-normal'
 ALL_ARMS = ARMS + [EXPLORATORY_ARM]

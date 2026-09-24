@@ -4,13 +4,14 @@
 plane directly from GSV's depth planes, and use it to test the road-relative raycast claim.* Split out of
 [#42](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/42); tests the mechanism behind §5.3–5.4
 of the Mapillary tilt study (`docs/mapillary-tilt-study.md`, PR #50).
-**Date:** 2026-09-23. **Branch:** `gsv-ground-plane-52`, stacked on `camera-height-40` (PR #68, whose
+**Date:** 2026-09-23; review arms (§4.4, §5.4) and the corrected claims added 2026-09-24. **Branch:** `gsv-ground-plane-52`, stacked on `camera-height-40` (PR #68, whose
 `depth.py` carries the `SYNTHETIC_GROUND` status this study relies on).
 **Reproduce:** `scripts/gsv_ground_plane.py` (every number and figure below; see §9). **Tests:**
 `tests/test_gsv_ground_plane.py` (the frame mapping, the ray injection, the verdict rule).
 **Pre-registration:** the plan comment on #52 fixed the arms, buckets and reading before any number was
 computed, and commit `f7226e8` put the reading into code (`verdict()`) before the full run. Nothing in it
-changed afterwards.
+changed afterwards. The arms added on review (§4.4) are exploratory, sit on their own site set and do not
+enter the verdict.
 
 ## 0. Summary
 
@@ -29,10 +30,15 @@ panoramas.
    buckets in **0 of 4** cities; the shuffled-normal control wins 0 of 4 as well. The p90 GT-to-site clause
    holds (not worse in any city), but it is not needed for the verdict and §5.5 shows why it is not a
    discriminating statistic here.
-2. **The flat raycast is not paying for the observed slope.** Under production's flat raycast the median pair
-   distance is essentially flat across the grade buckets (bend 1.69 / 1.69 / 1.71 / 1.70 m; São Paulo
-   1.77 / 1.94 / 2.02 / 1.89 m). If the observed grade were real ground the flat raycast ignores, the error
-   would grow with it. It does not; the correction's error does.
+2. **The like-for-like test of #50's correction loses too.** #50's road-relative correction removes only the
+   along-travel grade, so the arm that mirrors it is `travel-only` (the observed plane with its cross-slope
+   zeroed; added on review). It is the least bad correction tried — median 1.04× / 1.12× / 1.07× / 1.09× the
+   flat raycast's (bend / paterson / gainesville / São Paulo, uncapped), 1.01–1.04× capped — but it still
+   loses to `off` in every city and in every qualifying 2–4° and 4°+ bucket (2–4°: 2.41 vs 1.71, 3.61 vs 2.40,
+   3.53 vs 2.72, 2.79 vs 2.02 m). Against a **magnitude-matched** control (the grade permuted only among
+   panos in the same |grade| bucket) it is indistinguishable in the steep buckets (4°+: 3.73 vs 3.72,
+   4.97 vs 5.00, 5.05 vs 5.12 m). The growth of every correction's penalty with the bucket is therefore what
+   a correction *of that size* does here, not by itself evidence that the observed slope is unreal; §5.4.
 3. **The observed ground normal is a noisy per-pano quantity, not a road-grade measurement.** The slope it
    implies along a street does not persist from one panorama to the next: between linked panoramas 10–15 m
    apart on the same drive, r = −0.03 to 0.31 by city, and ≈ 0 (−0.05 to −0.01) between different capture
@@ -42,23 +48,34 @@ panoramas.
    determined); and the 2025–26 GSV rig reads about
    twice the median |grade| of earlier rigs on the same streets, so part of the tilt is the reconstruction's,
    not the road's.
-4. **An independent road-plane estimate fails the same way.** The plane implied by the rig's own metadata
-   attitude (a car rides on the road; exploratory arm, added after step 1 and outside the pre-registered
-   reading) persists far better along a drive (r 0.69–0.86 at 5–15 m) and still loosens the median by
-   1.15–1.29× (uncapped) / 1.08–1.24× (capped) in every city. On GSV, no available estimate of the road frame
-   beats the gravity frame the imagery is already in.
-5. **Cross-slope at ramp bearings (step 4):** the part of the observed slope along a ray toward a detected
+4. **The rig-attitude plane loses too, but it is not an independent test.** The plane implied by the rig's
+   metadata attitude (exploratory) persists far better along a drive (r 0.69–0.86 at 5–15 m) and still
+   loosens the median by 1.15–1.29× (uncapped) / 1.08–1.24× (capped). Geometrically it *is* one sign pattern
+   of #27's pose ablation (metadata pitch and roll applied to the ray, here read as a road plane), and its
+   −roll sign was chosen from the same §5.1 fit; it restates #27's result rather than adding a second estimate.
+   On GSV, none of the estimates available here beats the gravity frame the imagery is already in.
+5. **The cross-slope sign is not settled, and one plane looks like the wrong model for it.** In every city the
+   measured cross-slope does worse than its own sign flip (cross-only 1.07–1.18× vs flipped 1.05–1.08×).
+   Split by detection side, the three US cities do not look mirrored: where the steeper |cross| is ≥ 2°, the
+   measured sign is the less bad one for pairs left of the heading and the flipped sign for pairs right of it,
+   where the flip even beats flat by 7–13% (§5.4). No single plane serves both sides of a crowned street.
+   São Paulo prefers the flip on both sides, which a mirror would also produce; the data cannot separate
+   the two there. Only the crown check (§5.1) pins left/right independently of the fits.
+6. **Cross-slope at ramp bearings (step 4):** the part of the observed slope along a ray toward a detected
    ramp that an along-travel-only model cannot see has a median of 0.47° (bend), 0.49° (paterson), 0.44°
    (gainesville) and 0.59° (São Paulo) — under the 0.5° closure line in three cities, just over it in São
    Paulo — and these are upper bounds, since finding 3 says the normal's noise inflates them.
-6. **Step 2 (validate the SfM grade estimator) cannot be run from the archive** — GSV records carry no altitude.
+7. **Step 2 (validate the SfM grade estimator) cannot be run from the archive** — GSV records carry no altitude.
    It needs #23 (store `elevation`) plus a metadata re-fetch, or a DEM (#51). The offline part, grade
    persistence along the link graph, is finding 3.
 
-**What this means for #42.** The road-relative mechanism was the explanation for #50's median result, and the
-one direct test of it comes out against it. The Mapillary §5.4 numbers are measurements on un-rectified imagery
-and stand as such; what falls is the claim that they are explained by the ground plane. §6 gives an alternative
-that fits both results, and §8 says what the #42 wiring PR should now have to show.
+**What this means for #42.** The finding is narrow: **the per-pano GSV ground estimates available here cannot
+improve the flat raycast.** It does not refute #50's road-frame mechanism. The depth plane carries 1.0–2.4° of
+per-pano noise and the rig attitude 0.7–1.5° (§5.2), at least the median grade either would correct, so a correction this noisy would lose
+whether or not the mechanism is real; and #50's setting (un-rectified Mapillary with ~3° of rig tilt, a grade
+from an SfM altitude profile) is not the one tested here. So the mechanism behind #50's median result is
+**untested**, not refuted, and #50's numbers stand as measurements. §6 gives an alternative explanation that
+fits both results, and §8 says what the #42 wiring PR should now have to show.
 
 ## 1. Background and goals
 
@@ -79,7 +96,7 @@ bearings where ramps actually are.
 |---|---|---|
 | RQ1 | What grade and cross-slope does the depth ground plane report, and is it in the world frame we think? | decomposition + three frame checks (§5.1) |
 | RQ2 | Is the reported grade a property of the street — does it persist pano to pano? | link-graph persistence, depth vs rig attitude (§5.2) |
-| RQ3 | Does rotating rays into the observed plane tighten multi-view agreement, most on steep panoramas, beyond a shuffled control? | frozen-association ablation, three arms, common site set (§5.3) |
+| RQ3 | Does rotating rays into the observed plane tighten multi-view agreement, most on steep panoramas, beyond a shuffled control? | frozen-association ablation, three pre-registered arms on a common site set (§5.3); exploratory review arms and controls (§5.4) |
 | RQ4 | Does it change world P/R and GT-to-site distance under the production cap? | re-fused GT eval per arm (§5.5) |
 | RQ5 | How large is the cross-slope along ramp bearings? | per-detection slope decomposition (§5.6) |
 
@@ -144,7 +161,7 @@ altitude: streetlevel exposes `elevation`, but `sources/gsv.py` never wrote it (
 altitude-profile grade on the observed normal cannot be run from the archive. It needs either #23 plus a
 metadata re-fetch, or a DEM (#51). No proxy is substituted; §4.2's persistence is what the archive can say.
 
-### 4.4 The three-arm ablation (RQ3)
+### 4.4 The ablation arms (RQ3)
 
 #50 §4.4's instrument, on GSV. Association is frozen from the production fuse (flat raycast, benchmark tier
 0.55, `mask_rig=False`, 2.6 m camera height); every operational member of every multi-member site is re-projected
@@ -163,6 +180,22 @@ under each arm and the within-site pairwise member distance compared.
   information removed. If this tightens too, a gain is not the mechanism.
 - **`rig-attitude-normal`** (exploratory; §0 item 4) — the plane implied by the metadata attitude, on measured
   panos only. Scored on its own four-arm site set (`*_4arm`) so the pre-registered rows are untouched by it.
+  Geometrically this is one sign pattern of #27's pose ablation, not an independent estimate (§5.4).
+- **Review arms** (exploratory, added on review of PR #78; scored on their own site set `*_review`, where every
+  arm below places every member, so neither the three- nor the four-arm rows move — re-running reproduces them
+  cell for cell):
+  - `travel-only` — the observed plane with its cross-slope zeroed. This is the like-for-like test of #50,
+    whose road-relative correction removes only the along-travel grade (an SfM altitude profile has no cross
+    term); `ground-normal` applies the full plane.
+  - `travel-shuffled` — its city-wide control (another pano's grade, no cross-slope).
+  - `travel-bucket-shuffled`, `bucket-shuffled-normal` — **magnitude-matched** controls: the grade (resp. the
+    whole normal) permuted only among panos in the same |grade| bucket. The city-wide shuffle hands a pano in
+    the 4°+ bucket a typical ~1° correction while the arm applies ≥ 4°, so comparing the two there compares
+    correction sizes, not information. These controls apply the same size in every bucket.
+  - `cross-flipped` (full plane, cross-slope negated), `cross-only`, `cross-only-flipped` — the cross-slope
+    sign check, read with a **detection-side split** written for every arm: a pair is `left` / `right` when
+    both detections sit on that side of their camera's heading (`x_normalized` < 0.5 is left), else `mixed`;
+    reported over both-measured pairs and over those whose steeper |cross-slope| is ≥ 2°.
 
 Camera height is 2.6 m in every arm, so nothing here depends on the #40/#68 height question.
 
@@ -234,7 +267,11 @@ covers ≥ 30% of the image; dashed: every measured pano; dotted: slope ±1.*
 
 (OLS over every measured pano, and over the well-determined half.) **Cross-slope tracks the rig's roll**, with
 slope close to −1 in São Paulo and gainesville and binned medians on the −1 line out to ±6° (Figure 2, right) —
-evidence that the frame is the gravity frame and the cross axis is right. **Grade tracks pitch only on climbs**:
+evidence that the cross axis is a real side-to-side axis of the gravity frame. It does **not** fix which side is
+which: the sign of GSV's metadata roll is not independently known, so "−1" is consistent with either handedness,
+and the rig arm's −roll was then chosen from this same fit (circular). Only the crown check pins left/right
+without that assumption, and it is a statistical prior (56–67% of panos), not a per-pano guarantee. §5.4's side
+split is the direct test, and it does not settle the sign. **Grade tracks pitch only on climbs**:
 for positive metadata pitch the São Paulo medians follow the +1 line, for negative pitch the depth grade stays
 near 0 in every city (Figure 2, left). A road plane observed in a gravity frame would not know which way the car
 was driving; this asymmetry says the dominant-plane pick is not a clean road measurement along travel. The
@@ -323,13 +360,16 @@ Four things the table says, each on the statistic named:
   beats off in the top buckets in **0 of 4** cities; so does shuffled-normal. **Verdict: UNDERCUT** — "off wins"
   (`verdict.json`).
 - **The ground-normal penalty grows with the observed grade** (median, uncapped: bend 1.20× → 1.28× → 1.70× →
-  2.70× across the buckets; São Paulo 1.32× → 1.31× → 1.64× → 2.94×), while **off's median is flat across the
-  same buckets**. That is the signature of a correction whose size is error: where the normal claims the most
-  slope, applying it moves points furthest from where the other views put them.
-- **The shuffled control is flat across the buckets** (bend 2.23 / 2.16 / 2.16 / 2.25 m), as it must be, and on
-  the overall median slightly *worse* than ground-normal (1.16–1.33× vs 1.13–1.25×). So the real normal is not
-  pure noise — it beats a random one overall — but in the steep buckets, the only place the mechanism predicts a
-  gain, it is worse than random.
+  2.70× across the buckets; São Paulo 1.32× → 1.31× → 1.64× → 2.94×), while off's median is roughly flat across
+  the same buckets. The buckets are defined by the arm's own |grade|, so the arm applies its largest corrections
+  in the top bucket; the magnitude-matched control (§5.4) shows a same-size random correction does the same.
+  Off being flat across buckets of a noisy estimate is expected whether or not the slope is real, so it does not
+  show that real slope costs the flat raycast nothing.
+- **The city-wide shuffled control is flat across the buckets** (bend 2.23 / 2.16 / 2.16 / 2.25 m), because it
+  applies a typical ~1° in every bucket, and on the overall median it is slightly *worse* than ground-normal
+  (1.16–1.33× vs 1.13–1.25×): the real normal is not pure noise. Its being lower than ground-normal in the steep
+  buckets is a **selection effect** (≥ 4° applied against ~1°), not evidence that the normal is worse than random
+  there; against the magnitude-matched control the real normal is as good or slightly better (§5.4).
 - **A well-determined plane does not rescue it.** Restricted to pairs whose planes both cover ≥ 30% of the image
   and at least one reads ≥ 2°, ground-normal's median is 2.65 vs 1.92 m (bend), 4.11 vs 2.67 (paterson),
   3.53 vs 2.84 (gainesville), 3.14 vs 2.16 (São Paulo), uncapped.
@@ -338,22 +378,114 @@ Four things the table says, each on the statistic named:
 uncapped and 1.24× / 1.17× / 1.08× / 1.11× capped, p90 1.18–1.61×. A road-plane estimate that does persist
 along a drive loosens agreement too. This is the GSV analogue of #27's pose ablation, where every sign of the
 metadata pitch/roll loosened paterson and bend on the mean; here the same holds on the median, with the angles
-read as the road's rather than the rig's.
+read as the road's rather than the rig's. It is therefore a re-reading of #27, not an independent second test:
+the same angles, one sign pattern of that ablation, with the −roll sign taken from §5.1's fit.
 
-### 5.4 Why the verdict does not hang on the noisy normal alone
+### 5.4 Review arms: the like-for-like test, a magnitude-matched control, and the cross-slope sign
 
-A fair objection to a negative result is that the instrument was too noisy to see the effect. Three things argue
-against that here. (1) The rig-attitude plane, a different and more persistent estimate, fails the same way.
-(2) The failure is not a uniform blur but grows with the claimed slope, which a noisy-but-unbiased correction on a
-real slope would not do: if the slope were real, off would pay for it in the steep buckets, and off's median is
-flat across them. (3) The well-determined half fails as clearly as the rest. What the study cannot exclude is a
-true slope effect below the ~1–2° noise of every available per-pano estimate; §8 says what would reach below it.
+Added on review of PR #78, exploratory, on the `*_review` site set (11,545 / 5,833 / 3,357 / 3,046 sites uncapped;
+every arm places every member, so `off` differs from §5.3's table in the second decimal at most).
+
+![Review arms](figures/gsv-ground-plane/fig7_review_arms.png)
+
+*Figure 5. Left: travel-only and its two controls, median relative to off by grade bucket. Right: cross-slope only,
+measured vs flipped sign, by detection side (pairs whose steeper |cross| ≥ 2°).*
+
+**Travel-only (#50's correction on GSV) and its controls**, uncapped, median pair distance (m; ×n relative to off):
+
+| City | arm | overall | 0–1° | 1–2° | 2–4° | 4°+ |
+|---|---|---:|---:|---:|---:|---:|
+| bend | **off** | **1.70** | 1.69 | 1.69 | 1.71 | 1.67 (665) |
+| | travel-only | 1.77 (1.04×) | 1.69 | 1.80 | 2.41 | 3.73 |
+| | travel-shuffled (city-wide) | 1.88 (1.10×) | 1.91 | 1.86 | 1.88 | 1.87 |
+| | travel-bucket-shuffled (matched) | 1.85 (1.09×) | 1.74 | 1.95 | 2.70 | 3.72 |
+| | ground-normal | 2.07 (1.22×) | 2.02 | 2.17 | 2.91 | 4.22 |
+| | bucket-shuffled-normal (matched) | 2.13 (1.25×) | 2.05 | 2.33 | 3.16 | 4.53 |
+| paterson | **off** | **2.30** | 2.23 | 2.50 | 2.40 | 2.41 (1,074) |
+| | travel-only | 2.58 (1.12×) | 2.28 | 2.82 | 3.61 | 4.97 |
+| | travel-shuffled (city-wide) | 2.70 (1.18×) | 2.70 | 2.90 | 2.87 | 2.81 |
+| | travel-bucket-shuffled (matched) | 2.61 (1.14×) | 2.34 | 2.86 | 3.60 | 5.00 |
+| | ground-normal | 2.84 (1.23×) | 2.61 | 3.04 | 3.96 | 5.12 |
+| | bucket-shuffled-normal (matched) | 2.92 (1.27×) | 2.67 | 3.19 | 4.08 | 5.19 |
+| gainesville | **off** | **2.63** | 2.64 | 2.98 | 2.72 | (40 pairs) |
+| | travel-only | 2.82 (1.07×) | 2.76 | 3.34 | 3.53 | |
+| | travel-shuffled (city-wide) | 2.85 (1.08×) | 3.00 | 3.24 | 2.94 | |
+| | travel-bucket-shuffled (matched) | 2.83 (1.08×) | 2.78 | 3.35 | 3.51 | |
+| | ground-normal | 2.98 (1.13×) | 2.99 | 3.56 | 3.86 | |
+| | bucket-shuffled-normal (matched) | 3.02 (1.15×) | 3.07 | 3.69 | 3.87 | |
+| sao_paulo | **off** | **1.80** | 1.78 | 1.94 | 2.02 | 1.80 (771) |
+| | travel-only | 1.96 (1.09×) | 1.82 | 2.05 | 2.79 | 5.05 |
+| | travel-shuffled (city-wide) | 2.12 (1.18×) | 2.53 | 2.54 | 2.63 | 2.63 |
+| | travel-bucket-shuffled (matched) | 2.04 (1.14×) | 1.90 | 2.28 | 3.11 | 5.12 |
+| | ground-normal | 2.22 (1.24×) | 2.34 | 2.52 | 3.27 | 4.99 |
+| | bucket-shuffled-normal (matched) | 2.35 (1.31×) | 2.43 | 2.94 | 3.63 | 5.79 |
+
+Capped at 25 m (7,684 / 2,745 / 2,069 / 1,818 sites — a heavy survivorship cut, since every one of eleven arms
+must place every member) travel-only's median is 1.01× / 1.04× / 1.03× / 1.04× and its p90 1.01× / 1.09× /
+1.06× / 1.06× (`ablation.csv`, `site_set = capped_review`). Under the production GT eval (§5.5 table below)
+travel-only's p90 GT-to-site distance is 2.61 vs 2.70 m (bend), 3.43 vs 3.45 (paterson), 3.39 vs 3.08
+(gainesville), 2.98 vs 2.93 (São Paulo), and its recall on the off pool at 2.5 m falls by 4.4 / 2.0 / 1.4 / 0.4
+points.
+
+Four readings, each on the statistic named:
+
+- **Like for like, #50's correction still loses on GSV.** Travel-only is the least bad correction in the study
+  and within 1–4% of flat on the capped median, but it loses to `off` overall in every city and in every
+  qualifying 2–4° and 4°+ bucket. Would it pass the pre-registered rule in `ground-normal`'s place? No: 0 of 4.
+- **The magnitude-matched control removes §5.3's "worse than random".** In the steep buckets travel-only is
+  indistinguishable from a same-size random grade (4°+: 3.73 vs 3.72, 4.97 vs 5.00, 5.05 vs 5.12 m; 2–4°: better
+  in bend and São Paulo, equal in paterson and gainesville), and the full normal is as good or slightly better
+  than a same-size random normal (2–4°: 2.91 vs 3.16, 3.96 vs 4.08, 3.86 vs 3.87, 3.27 vs 3.63). The growth of
+  the penalty with the bucket is what any correction of that size does to multi-view agreement here. It says
+  the correction's error scales with its size; it does not say the slope is unreal.
+- **Overall, real beats random by a little and flat beats both.** Travel-only beats its matched shuffle on the
+  overall median in all four cities (1.04–1.12× vs 1.08–1.14×), and the full normal beats its own (1.13–1.24× vs
+  1.15–1.31×). The observed plane carries some information; not enough to pay for its noise.
+- **The cross-slope sign.** Measured cross-slope loses to its own flip in every city, alone (`cross-only` 1.18× /
+  1.15× / 1.07× / 1.17× vs `cross-only-flipped` 1.07× / 1.08× / 1.05× / 1.06×) and inside the full plane
+  (`ground-normal` 1.22× / 1.23× / 1.13× / 1.24× vs `cross-flipped` 1.09× / 1.20× / 1.12× / 1.13×). Split by side:
+
+| City | side | pairs (steeper \|cross\| ≥ 2°) | off | cross-only (measured) | cross-only-flipped |
+|---|---|---:|---:|---:|---:|
+| bend | left | 5,368 | **1.75** | 2.50 | 2.83 |
+| | right | 5,534 | 1.64 | 2.50 | **1.52** |
+| paterson | left | 3,733 | **2.28** | 2.99 | 3.95 |
+| | right | 3,108 | 2.31 | 3.54 | **2.07** |
+| gainesville | left | 729 | **2.47** | 2.72 | 4.24 |
+| | right | 992 | 2.62 | 3.51 | **2.28** |
+| sao_paulo | left | 1,894 | **1.98** | 3.06 | 2.52 |
+| | right | 1,772 | **1.83** | 2.74 | 2.19 |
+
+(Medians in meters, uncapped review set. Over all both-measured pairs the measured-vs-flipped ordering is the same
+on every side of every city with smaller gaps, and the capped set agrees on every side too; `ablation.csv`.)
+
+A **mirrored frame** would make the flip the better sign on both sides. In the three US cities it is not: on the left the measured sign is the less bad one
+(the flip is far worse), on the right the flip is better and even beats flat by 7–13% (capped too: 1.27 vs 1.33,
+1.73 vs 1.87, 1.99 vs 2.42 m). What fits better is that **a single extrapolated plane is the wrong model across
+a crowned street**: whichever sign it takes, it tips the ground the wrong way on one side, and the right-hand side
+is where a "rising to the right" surface helps (plausibly because the car sits nearest the right curb and ramps
+sit above the gutter the plane falls toward; not tested here). São Paulo prefers the flip on both sides, as a mirror would, though it
+never beats flat there. The frame code is shared by every city and pinned by tests against `depth.py`'s
+convention, so a São Paulo-only mirror is implausible, but these data cannot exclude it. The right-side gain
+is exploratory — one cell of eleven arms by three sides by two subsets, found after looking — and is a
+hypothesis for #51, not a correction to wire.
+
+**Why this still does not rescue the ground plane, and what it cannot say.** Three observations, with their
+limits. (1) The rig-attitude plane, which persists along a drive, also loses — but it is one sign pattern of #27's
+pose ablation, not an independent estimate (§5.3). (2) The well-determined half fails as clearly as the rest
+(§5.3). (3) The like-for-like travel-only arm, #50's correction, loses too. None of this refutes the road-frame
+mechanism: the per-pano estimates tried carry 1.0–2.4° (depth plane) and 0.7–1.5° (rig attitude) RMS of noise
+(§5.2 bounds), at least the median grade they would correct (0.43–1.02°), and a correction that noisy would
+lose to flat whether or not the mechanism is real. The earlier argument that "off's spread is flat across the buckets, so the real slope costs the flat raycast nothing"
+is circular — the buckets are cut on the same noisy estimate — and is withdrawn. What the study shows is that
+**the GSV ground estimates available here cannot improve the flat raycast**; §8 says what would reach below
+their noise.
 
 ### 5.5 RQ4 — against RampNet ground truth
 
 ![GT eval](figures/gsv-ground-plane/fig4_gt_eval.png)
 
-*Figure 5. World recall at 2.5 m on the off arm's pool, and GT-to-site distance p50 / p90, per arm.*
+*Figure 6. World recall at 2.5 m on the off arm's pool, and GT-to-site distance p50 / p90, per arm.*
 
 | City | arm | pool | GT marks unplaceable | recall @5 m | recall @2.5 m | **vs off pool @2.5 m** | precision | GT→site p50 / p90 (m) | sites |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -361,25 +493,34 @@ true slope effect below the ~1–2° noise of every available per-pano estimate;
 | | ground-normal | 286 | 39 | 0.948 | 0.920 | 0.889 | 0.955 | 0.82 / 2.38 | 14,937 |
 | | shuffled-normal | 288 | 37 | 0.962 | 0.938 | 0.912 | 0.955 | 0.86 / 2.51 | 15,237 |
 | | rig-attitude | 297 | 28 | 0.953 | 0.912 | 0.916 | 0.956 | 0.90 / 2.41 | 15,196 |
+| | travel-only | 289 | 36 | 0.952 | 0.917 | 0.895 | 0.955 | 0.82 / 2.61 | 14,318 |
+| | travel-shuffled | 288 | 37 | 0.944 | 0.924 | 0.899 | 0.960 | 0.86 / 2.67 | 14,576 |
 | paterson | off | 304 | 91 | 0.957 | 0.872 | **0.872** | 0.975 | 1.25 / 3.45 | 14,363 |
 | | ground-normal | 296 | 99 | 0.953 | 0.851 | 0.829 | 0.974 | 1.34 / 3.42 | 14,726 |
 | | shuffled-normal | 304 | 91 | 0.911 | 0.839 | 0.839 | 0.974 | 1.12 / 3.31 | 15,065 |
 | | rig-attitude | 301 | 94 | 0.937 | 0.854 | 0.845 | 0.983 | 1.29 / 3.75 | 14,808 |
+| | travel-only | 299 | 96 | 0.946 | 0.866 | 0.852 | 0.974 | 1.22 / 3.43 | 14,334 |
+| | travel-shuffled | 299 | 96 | 0.933 | 0.849 | 0.836 | 0.974 | 1.17 / 3.43 | 14,777 |
 | gainesville | off | 219 | 53 | 0.927 | 0.872 | **0.872** | 0.956 | 1.08 / 3.08 | 16,411 |
 | | ground-normal | 209 | 63 | 0.957 | 0.895 | 0.854 | 0.961 | 1.16 / 3.06 | 16,206 |
 | | shuffled-normal | 206 | 66 | 0.956 | 0.888 | 0.836 | 0.954 | 1.16 / 3.06 | 16,285 |
 | | rig-attitude | 210 | 62 | 0.938 | 0.881 | 0.845 | 0.953 | 1.21 / 3.07 | 16,255 |
+| | travel-only | 216 | 56 | 0.940 | 0.870 | 0.858 | 0.951 | 1.21 / 3.39 | 16,113 |
+| | travel-shuffled | 212 | 60 | 0.948 | 0.887 | 0.858 | 0.955 | 1.22 / 3.09 | 16,218 |
 | sao_paulo | off | 255 | 26 | 0.953 | 0.886 | **0.886** | 0.893 | 1.01 / 2.93 | 17,318 |
 | | ground-normal | 253 | 27 | 0.925 | 0.877 | 0.871 | 0.896 | 0.92 / 2.83 | 17,806 |
 | | shuffled-normal | 248 | 32 | 0.940 | 0.847 | 0.824 | 0.888 | 0.96 / 3.15 | 18,250 |
 | | rig-attitude | 257 | 23 | 0.934 | 0.891 | 0.898 | 0.892 | 1.02 / 2.96 | 17,688 |
+| | travel-only | 254 | 25 | 0.933 | 0.886 | 0.882 | 0.897 | 0.90 / 2.98 | 17,323 |
+| | travel-shuffled | 252 | 29 | 0.925 | 0.877 | 0.867 | 0.889 | 0.87 / 2.58 | 17,919 |
 
 On the fixed denominator at 2.5 m, **ground-normal loses recall in all four cities** (−5.0, −4.3, −1.8, −1.5
 points) and precision moves by at most 0.5 points. Its p90 GT-to-site distance is *not worse* than off's in any
 city (2.38 vs 2.70, 3.42 vs 3.45, 3.06 vs 3.08, 2.83 vs 2.93 m), which is the pre-registered clause — but read it
 with the pool: ground-normal makes 8–10 more GT marks unplaceable in bend, paterson and gainesville, and a
 placement statistic over the ramps that survive gets easier as the hard ones leave. The shuffled control, which
-cannot carry information, also improves p90 in three cities. So on this data the p90 GT distance is not a
+cannot carry information, also improves p90 in three cities, and its travel-only counterpart does in São
+Paulo (2.58 vs 2.93 m). So on this data the p90 GT distance is not a
 discriminating statistic; the cross-view spread of §5.3, which does not share the GT's raycast, is. `off`
 reproduces the committed `fusion_eval/report.md` for bend, paterson and gainesville; São Paulo's world recall reads
 0.953 against the report's 0.933 because the September gap-fill added 7,293 panoramas the report predates.
@@ -388,7 +529,7 @@ reproduces the committed `fusion_eval/report.md` for bend, paterson and gainesvi
 
 ![Cross-slope](figures/gsv-ground-plane/fig5_crossslope.png)
 
-*Figure 6. Left: slope magnitudes at operational detections. Right: ground-point shift between plane models,
+*Figure 7. Left: slope magnitudes at operational detections. Right: ground-point shift between plane models,
 detections placeable at 25 m.*
 
 | City | detections | median \|sin azimuth\| | along-travel model p50 / p90 | **cross component p50 / p90** | > 0.5° | full slope along bearing p50 / p90 | shift full vs travel-only p50 / p90 (m) |
@@ -404,21 +545,27 @@ the along-travel one at ramp bearings. Against the plan's line: **median under 0
 gainesville (0.44–0.49°), 0.59° in São Paulo.** Two qualifications travel with these numbers. They are upper
 bounds on the true cross-slope contribution, because the normal's per-pano noise (§5.2) adds to every magnitude.
 And the meter figures on the right are the size of a correction this study shows not to make: the full plane
-(which includes the cross term) loses to flat in §5.3.
+(which includes the cross term) loses to flat in §5.3. These magnitudes use the measured cross-slope sign, which
+§5.4 could not confirm; flipping the sign leaves every magnitude unchanged but not what a cross term would do.
 
 ## 6. Discussion
 
 **What was undercut.** The plan's claim for GSV: rotating rays into the observed ground plane tightens multi-view
 agreement, most on the steepest panoramas. The opposite happened, in every city, on every statistic, on both
-site sets, and a second, independent road-plane estimate did the same. On GSV the gravity-rectified frame the
-imagery is served in is the best frame available for the flat raycast, and no per-pano ground estimate we have
-improves on it.
+site sets; the travel-only arm that mirrors #50's correction lost too, and so did the rig-attitude plane (a
+re-reading of #27's pose ablation, not an independent estimate). On GSV the gravity-rectified frame the imagery
+is served in is the best frame available for the flat raycast, and no per-pano ground estimate we have improves
+on it. That is a statement about the estimates: at 0.7–2.4° of per-pano noise they would lose whether or not
+the road-frame mechanism is real.
 
 **What that does and does not say about Mapillary (#42 / #50).** #50 §5.4 measured that, on Mapillary, subtracting
 the SfM road grade from the gravity-relative correction tightens the median within-site spread in all five
 cities. That is a measurement and it stands. What it rested on for an explanation was §5.3: the camera rides on
-the road, so the raycast wants the road frame. The direct test of that explanation is this study, and it fails.
-One alternative fits both results and deserves a test before #42 is wired: **`computed_rotation`'s pitch and
+the road, so the raycast wants the road frame. This study was meant to test that explanation on GSV and could
+not: the per-pano GSV estimates are too noisy to show the mechanism either way, and GSV's gravity-rectified
+imagery is not #50's un-rectified Mapillary with a median ~3° of rig tilt, where the corrections at stake are
+larger. The mechanism is **untested**, not refuted. One alternative fits both results and deserves a test before #42 is
+wired: **`computed_rotation`'s pitch and
 `computed_altitude`'s grade come out of the same SfM reconstruction**, so an SfM error that tips a camera also
 tips the altitude profile it sits on. Subtracting the grade then cancels shared SfM error, not road slope.
 Morgantown's slope-0.97 regression of pitch on grade is what a shared error would produce as well as what a
@@ -428,11 +575,13 @@ the true grade is doing the work, the shuffle loses it; if a shared error is, so
 road-relative gain should also be concentrated in frames whose SfM is weakest (Richmond's hand-carried
 sequences over Morgantown's car).
 
-**The control is not optional.** Shuffled-normal loosened spread by 16–33% on the median here, i.e. adding
-degrees of freedom is not free on GSV. On Mapillary the analogous question — does a shuffled grade also help? —
-was never asked, so #50's road-relative gain has no control yet.
+**The control is not optional, and it has to match the correction's size.** Shuffled-normal loosened spread by
+16–33% on the median here, i.e. adding degrees of freedom is not free on GSV; and a city-wide shuffle compared
+within buckets cut on the arm's own magnitude says more about correction size than about information (§5.4). On
+Mapillary the analogous question — does a shuffled grade also help? — was never asked, so #50's road-relative gain has no control yet.
 
-**What the depth normal is good for.** Its cross-slope carries the crown and tracks the rig's roll; its grade
+**What the depth normal is good for.** Its cross-slope carries the crown and tracks the rig's roll (up to a
+sign §5.4 could not settle); its grade
 does not persist and is asymmetric in the rig's pitch; its tilt roughly doubles on the 2025–26 rig. Read together
 with #68 (the same plane's distance runs 6–16% short of the imagery's own geometry), the depth ground plane is a
 reconstruction artefact with real signal in it, not a survey of the road — a point for #44.
@@ -441,10 +590,13 @@ reconstruction artefact with real signal in it, not a survey of the road — a p
 that is not excluded, only unobservable with this data. (2) The frozen-association ablation favours the arm the
 association was built with (off); the GT eval shares its raycast with the GT. Neither is neutral, which is why
 both are reported — but the frozen design is #50's, so the comparison with #50 is like for like. (3) The rig-
-attitude arm and the well-determined subset were added after step 1 was seen; they are labelled exploratory and
-do not enter the verdict. (4) 7,293 São Paulo and 2,232 gainesville panoramas post-date the harvest and are flat
-in every arm, which dilutes rather than biases the comparison. (5) Camera height is fixed at 2.6 m in every arm;
-a plane's distance was not used.
+attitude arm and the well-determined subset were added after step 1 was seen, and the review arms and side split
+after the verdict; all are labelled exploratory and none enters the verdict. (4) 7,293 São Paulo and 2,232
+gainesville panoramas post-date the harvest and are flat in every arm, which dilutes rather than biases the
+comparison. (5) Camera height is fixed at 2.6 m in every arm; a plane's distance was not used. (6) Pair buckets
+are cut on the arm's own noisy |grade|, so any per-bucket comparison against a control that does not match its
+magnitude is a selection effect (§5.4). (7) The side split reads the cross-slope sign only for pairs whose two
+detections sit on one side; the right-side gain it shows is a post-hoc cell, not a tested hypothesis.
 
 ## 7. Answers to the issue's checklist
 
@@ -452,7 +604,7 @@ a plane's distance was not used.
 |---|---|
 | 1. Extract the ground normal, decompose into along-travel grade + cross-slope | Done for 145,304 measured panoramas; frame pinned by tests and three world checks (§5.1). |
 | 2. Validate the SfM grade estimator against it | **Blocked** — GSV records store no altitude; needs #23 + re-fetch or #51. Offline part (persistence) done: the depth grade does not persist (§5.2), so even with altitude it would be a weak reference. |
-| 3. Test the mechanism, bucketed by grade, with a control | Done: **UNDERCUT** by the pre-registered rule (§5.3, §5.5). |
+| 3. Test the mechanism, bucketed by grade, with a control | Done: **UNDERCUT** by the pre-registered rule (§5.3, §5.5); the like-for-like travel-only arm and magnitude-matched controls agree (§5.4). The GSV estimates cannot improve the flat raycast; the mechanism itself is untested. |
 | 4. Cross-slope at ramp bearings | Done: median 0.44–0.49° in three cities, 0.59° in São Paulo, all upper bounds (§5.6). |
 
 ## 8. Recommendations
@@ -462,12 +614,17 @@ a plane's distance was not used.
 2. **#42 wiring: add a control and drop the mechanism claim.** Before `apply_pose=True` goes in for Mapillary,
    the existing precondition (#50 §8 rec 3: `eval_sites` under the 25 m cap, p90 GT-to-site distance under off /
    documented / road-relative) stays, and two things join it: a **within-sequence shuffled-grade** arm that
-   road-relative has to beat, and the #50 write-up's §5.3 reworded from "the raycast wants the road frame" to "on
-   Mapillary, subtracting the SfM grade tightens the median; the mechanism is untested and a direct GSV test did
-   not support the road-frame reading" (#52).
-3. **#51 cross-slope item: close it.** Median cross-slope contribution at ramp bearings is under 0.5° in three
-   cities and 0.59° in São Paulo, as upper bounds, and the full plane (cross term included) makes placement worse,
-   not better. Nothing here justifies modelling it.
+   road-relative has to beat — **magnitude-matched** (shuffled within |grade| buckets, or within the sequence), so
+   a steep-bucket comparison does not compare correction sizes — and the #50 write-up's §5.3 reworded from "the
+   raycast wants the road frame" to "on Mapillary, subtracting the SfM grade tightens the median; the mechanism
+   is untested, and the GSV per-pano ground estimates were too noisy to test it" (#52).
+3. **#51 cross-slope item: close the single-plane version, keep the question open.** Median cross-slope
+   contribution at ramp bearings is under 0.5° in three cities and 0.59° in São Paulo, as upper bounds, and a
+   single cross-slope term makes placement worse with either sign. That closes "add a plane's cross-slope to the
+   raycast". It does not close cross-slope: the side split (§5.4) says a single plane is the wrong model across a
+   crowned street, and on the right-hand side the flipped sign beat flat in the three US cities. If #51 revisits
+   it, the model to test is per-side (or a curb/crown profile), scored with a side-split control, from an
+   independent surface such as a DEM.
 4. **Step 2 needs an independent grade.** A DEM (#51) is the better route than #23: it is independent of both
    GSV's reconstruction and Mapillary's SfM, so it can referee the shared-error question above, which GSV
    `elevation` (same capture system as the depth) could not.
@@ -496,7 +653,7 @@ pytest tests/test_gsv_ground_plane.py
 ```
 
 The aggregated CSVs and `verdict.json` are committed in `docs/figures/gsv-ground-plane/data/`, so every table
-above can be checked without re-running anything, and `figures` redraws figures 2–6 from them (it looks in
+above can be checked without re-running anything, and `figures` redraws figures 2–7 from them (it looks in
 `runs/_summary/ground_plane/` first). Figure 1 needs the per-panorama `planes.csv` (up to 79k rows per city, not
 committed) and is skipped with a message without it. After a full re-run, refresh the committed copies with
 `cp runs/_summary/ground_plane/* docs/figures/gsv-ground-plane/data/`.
