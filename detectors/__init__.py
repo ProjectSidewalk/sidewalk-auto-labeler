@@ -216,7 +216,7 @@ def model_id_for(revision: str) -> str:
     """`rampnet-model@<first 12 hex>`: the version-bearing model_id.
 
     The prefix is the id every existing consumer already matches on (PS's `label_ai_info`
-    queries, the clustering-eval join), so `LIKE 'rampnet-model%'` still finds every row;
+    queries), so `LIKE 'rampnet-model%'` still finds every row;
     the suffix makes two checkpoints distinguishable in the database forever. 12 hex is
     git's usual short-SHA length and far past collision range for one repo. PS stores
     model_id as unbounded TEXT (SidewalkWebpage evolution 286), so no width limit applies.
