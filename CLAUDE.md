@@ -569,7 +569,8 @@ gap-fill is GSV-only (`fetch_pano_by_id`).
   paper weights → 2025-08-21, emitted as PS's `MM-DD-YYYY`). **An unknown SHA refuses to
   start** — after a retrain, add the new SHA to the table (instructions beside it) rather than
   reaching for `--allow-unknown-model-revision`, which writes a null date that
-  `send_to_ps.py` refuses. A run directory is bound to one `model_revision` like it is to one
+  `send_to_ps.py` refuses (and a run made that way refuses to resume once its SHA gains a
+  table row: its undated lines can't be repaired, so re-run under a fresh `--name`). A run directory is bound to one `model_revision` like it is to one
   geometry (a mismatch is refused); pre-#39 manifests resume with a one-time note and are
   bound on that resume, unless their recorded training date differs. `--scan-only` loads no
   model and binds nothing.

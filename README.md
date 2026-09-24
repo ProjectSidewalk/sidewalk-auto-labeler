@@ -495,7 +495,9 @@ Notes:
   A revision **not in `KNOWN_REVISIONS` refuses to start** and prints the SHA to add (see the
   comment on the table for how). `--allow-unknown-model-revision` runs it anyway with
   `model_training_date: null`, recorded in the manifest — and `send_to_ps.py` refuses such a
-  file, since PS requires the date. Lines written before #39 say `"model_id":
+  file, since PS requires the date. Adding the SHA to the table afterwards does not rescue
+  that run: it refuses to resume (its undated lines would stay undated), so re-run the area
+  under a fresh `--name`. Lines written before #39 say `"model_id":
   "rampnet-model"` with no `model_repo`/`model_revision`; they came from the same paper weights
   and submit unchanged.
 
