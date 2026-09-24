@@ -6,11 +6,31 @@ import numpy as np
 from torchvision import transforms
 from skimage.feature import peak_local_max
 
-from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO
+from detectors import (DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO, MODEL_REPO,
+                       load_with_offline_fallback, provenance_for_loaded_model)
+
+
+def _cached_snapshot_file():
+    """Path of config.json in the hub-cache snapshot `main` resolves to, or None.
+
+    Reads only the local cache (no network), so it works on an offline compute node; it is
+    the snapshot from_pretrained just loaded, because both resolve the same ref.
+    """
+    from huggingface_hub import try_to_load_from_cache
+    path = try_to_load_from_cache(MODEL_REPO, "config.json")
+    return path if isinstance(path, str) else None
 
 
 class CurbRampDetector:
-    def __init__(self):
+    """RampNet over one equirectangular pano, plus the provenance of the weights it runs.
+
+    ``provenance`` is resolved from the snapshot actually loaded (issue #39), never
+    declared: construction raises detectors.ModelProvenanceError when the revision cannot be
+    resolved, or is missing from detectors.KNOWN_REVISIONS and ``allow_unknown_revision`` is
+    False, so no record is ever written under a guessed identity.
+    """
+
+    def __init__(self, allow_unknown_revision=False):
         # detect() is called from many download threads; concurrent full-resolution
         # forward passes would exhaust GPU memory, so device work is serialized.
         self._inference_lock = threading.Lock()
@@ -21,7 +41,14 @@ class CurbRampDetector:
         else:
             self.DEVICE = torch.device("cpu")
 
-        self.model = AutoModel.from_pretrained("projectsidewalk/rampnet-model", trust_remote_code=True).to(self.DEVICE).eval()
+        model = load_with_offline_fallback(AutoModel.from_pretrained, MODEL_REPO,
+                                           trust_remote_code=True)
+        # transformers records the commit it resolved in config._commit_hash; the hub
+        # cache's snapshots/<sha> directory is the fallback for a load that did not set it.
+        commit_hash = getattr(model.config, '_commit_hash', None)
+        self.provenance = provenance_for_loaded_model(
+            commit_hash, _cached_snapshot_file, allow_unknown=allow_unknown_revision)
+        self.model = model.to(self.DEVICE).eval()
 
     def detect(self, pil_image):
         preprocess = transforms.Compose([

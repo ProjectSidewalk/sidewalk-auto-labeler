@@ -57,12 +57,10 @@ def test_pure_pitch_and_pure_roll_have_the_documented_signs():
     R = mt.matrix_from_pose(30.0, 10.0, 0.0)
     fwd = R[2]
     assert math.degrees(math.asin(fwd[2])) == pytest.approx(10.0)
-    # Camera rolled so the image's right side lifts: the right axis gains +up.
+    # Positive roll is Project Sidewalk's sign (#42): the camera rolled clockwise as
+    # seen from behind it, so its right axis DIPS below the horizon.
     R = mt.matrix_from_pose(30.0, 0.0, 10.0)
-    assert R[0][2] == pytest.approx(math.sin(math.radians(10.0)))
-    # ...and Project Sidewalk's sign is the negative of that.
-    pose = mt.opensfm_pose([0, 0, 0])
-    assert pose['roll_ps_deg'] == -pose['roll_deg']
+    assert R[0][2] == pytest.approx(-math.sin(math.radians(10.0)))
 
 
 def test_real_record_matches_mapillary_compass_and_project_sidewalk_viewer():
@@ -75,5 +73,5 @@ def test_real_record_matches_mapillary_compass_and_project_sidewalk_viewer():
     pose = mt.opensfm_pose(rvec)
     assert pose['heading_deg'] == pytest.approx(311.5711847973, abs=1e-8)
     assert pose['pitch_deg'] == pytest.approx(2.231776541825151, abs=1e-9)
-    assert pose['roll_ps_deg'] == pytest.approx(-6.354952531976068, abs=1e-9)
-    assert pose['roll_deg'] == pytest.approx(6.354952531976068, abs=1e-9)
+    # PS's own value, sign included: the record, the viewer and the raycast share it.
+    assert pose['roll_deg'] == pytest.approx(-6.354952531976068, abs=1e-9)
