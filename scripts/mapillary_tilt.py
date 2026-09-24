@@ -118,47 +118,13 @@ def pose_angles(pose, signs):
 TILT_BUCKETS = [(0, 1.5), (1.5, 3), (3, 5), (5, 10), (10, math.inf)]
 
 
-# --- Rotation math (stdlib only, portable into geo.py / sources/mapillary.py) --------
+# --- Rotation math ------------------------------------------------------------------
 
-def rotation_matrix(rvec):
-    """Rodrigues: axis-angle vector -> 3x3 rotation matrix (nested lists)."""
-    rx, ry, rz = (float(v) for v in rvec)
-    th = math.sqrt(rx * rx + ry * ry + rz * rz)
-    if th < 1e-12:
-        return [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
-    kx, ky, kz = rx / th, ry / th, rz / th
-    c, s = math.cos(th), math.sin(th)
-    v = 1.0 - c
-    return [[c + kx * kx * v, kx * ky * v - kz * s, kx * kz * v + ky * s],
-            [ky * kx * v + kz * s, c + ky * ky * v, ky * kz * v - kx * s],
-            [kz * kx * v - ky * s, kz * ky * v + kx * s, c + kz * kz * v]]
-
-
-def opensfm_pose(rvec):
-    """(heading_deg, pitch_deg, roll_deg) of a world->camera axis-angle rotation, in
-    geo._world_ray's convention (roll in Project Sidewalk's sign), plus tilt_deg (angle
-    between camera-up and world-up). Rows of R are the camera axes in ENU:
-    R[0] = right, R[1] = down, R[2] = forward."""
-    R = rotation_matrix(rvec)
-    fwd_e, fwd_n, fwd_u = R[2]
-    right_e, right_n, right_u = R[0]
-    up_e, up_n, up_u = -R[1][0], -R[1][1], -R[1][2]
-    heading = math.atan2(fwd_e, fwd_n)
-    pitch = math.asin(max(-1.0, min(1.0, fwd_u)))
-    # Roll: angle of the camera's right axis about the (pitched) forward axis,
-    # measured from the level right axis toward the pitched up axis, then negated into
-    # PS's sign -- exactly the roll geo._world_ray applies after yaw and pitch.
-    cp, sp = math.cos(heading), math.sin(heading)
-    ca, sa = math.cos(pitch), math.sin(pitch)
-    level_right = (cp, -sp, 0.0)                    # ENU: (E, N, U)
-    pitched_up = (-sa * sp, -sa * cp, ca)
-    roll = math.atan2(right_e * pitched_up[0] + right_n * pitched_up[1] + right_u * pitched_up[2],
-                      right_e * level_right[0] + right_n * level_right[1] + right_u * level_right[2])
-    tilt = math.acos(max(-1.0, min(1.0, up_u)))
-    return {'heading_deg': math.degrees(heading) % 360.0,
-            'pitch_deg': math.degrees(pitch),
-            'roll_deg': -math.degrees(roll),
-            'tilt_deg': math.degrees(tilt)}
+# rotation_matrix and opensfm_pose moved to geo.py with the #42 production wiring (one
+# decomposition in the tree, shared with sources/mapillary.py); re-exported here because
+# every subcommand and tests/test_mapillary_tilt.py use them by these names.
+rotation_matrix = geo.rotation_matrix
+opensfm_pose = geo.opensfm_pose
 
 
 def matrix_from_pose(heading_deg, pitch_deg, roll_deg):

@@ -13,7 +13,11 @@ Orientation: the center column of a Mapillary equirectangular is the camera's co
 bearing — the same convention as GSV panos and exactly what Project Sidewalk's
 panoX -> heading math assumes — so the image is never rotated; `computed_compass_angle`
 is recorded as `camera_heading`. Pitch/roll only exist inside `computed_rotation`
-(an axis-angle vector) and are left null.
+(an axis-angle vector); geo.mapillary_pitch_roll parses them (issue #42) into the
+gravity-relative angles, in Project Sidewalk's roll sign, and leaves both null when the
+rotation is missing or is a failed reconstruction (tilt past geo.MAX_POSE_TILT_DEG).
+They are what PS's backup-image gate needs (a non-null `camera_pitch`), and what fusion
+can rotate rays by.
 
 Requires a Mapillary client token (mapillary.com/dashboard/developers) in the
 MAPILLARY_ACCESS_TOKEN environment variable. Rate limits (60k entity requests/min,
@@ -30,6 +34,7 @@ import requests
 from PIL import Image
 from shapely.geometry import Point
 
+import geo
 from sources import TARGET_IMAGE_SIZE as TARGET_SIZE
 
 NAME = 'mapillary'
@@ -335,6 +340,9 @@ def build_pano_record(pano_id, lat, lon, meta):
     # Blank is not a name: a deleted or renamed account can leave `{"username": ""}`,
     # which would otherwise be stored as an empty credit rather than "nobody named".
     creator = ((meta.get('creator') or {}).get('username') or '').strip() or None
+    # Gravity-relative, PS's roll sign: the values PS's own Mapillary viewer writes for the
+    # same image. Null past the tilt cap -- a failed reconstruction is not a pose.
+    pitch, roll = geo.mapillary_pitch_roll(meta.get('computed_rotation'))
     return {
         "panorama_id": pano_id,
         "capture_date": f"{captured.year}-{captured.month:02d}",
@@ -343,8 +351,8 @@ def build_pano_record(pano_id, lat, lon, meta):
         "lat": float(lat),
         "lng": float(lon),
         "camera_heading": float(_compass_angle(meta)),
-        "camera_pitch": None,
-        "camera_roll": None,
+        "camera_pitch": pitch,
+        "camera_roll": roll,
         # The contributor's bare name, which is what PS's pano_data.copyright holds for
         # this source; PS composes "© <name> · Mapillary · CC BY-SA 4.0" itself wherever
         # it shows its own copy of the imagery. None when the Graph API names nobody,

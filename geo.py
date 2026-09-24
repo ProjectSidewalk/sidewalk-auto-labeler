@@ -188,10 +188,14 @@ def pano_pose(pano):
     """Extract a Pose from a results.jsonl pano block.
 
     GSV blocks carry heading/pitch/roll in degrees (sometimes as [0, 360) — always
-    normalized here). Mapillary blocks store pitch/roll as null (the OpenSfM
-    rotation is only inside source_metadata, deliberately not parsed here); those
-    panos get pitch=roll=0 with has_pitch_roll=False and the wider Mapillary error
-    model absorbs the unknown tilt.
+    normalized here). Mapillary blocks written since #42 carry the gravity-relative
+    pitch/roll parsed from OpenSfM's rotation (mapillary_pitch_roll; roll in Project
+    Sidewalk's sign, the one _world_ray consumes); older blocks, and panos whose
+    rotation is missing or failed (tilt past MAX_POSE_TILT_DEG), store null. A null
+    pose gets pitch=roll=0 with has_pitch_roll=False and the wider Mapillary error
+    model absorbs the unknown tilt. This reads the block only: the road-relative
+    angles fusion can apply need the whole sequence, so fuse_sites.load_results
+    derives them.
 
     `camera_height_m` / `camera_height_spread_m` are read when present (GSV blocks written
     since #40 carry them; null or absent means unmeasured). They only take effect for a
@@ -210,6 +214,112 @@ def pano_pose(pano):
     return Pose(pano['lat'], pano['lng'], heading,
                 norm_deg(float(pitch)), norm_deg(float(roll)), True, src,
                 height, spread)
+
+
+# --- OpenSfM / Mapillary rotation -> (heading, pitch, roll) ----------------------------
+# Mapillary serves no pitch/roll fields, only OpenSfM's `computed_rotation`: an axis-angle
+# (Rodrigues) vector for the WORLD->CAMERA rotation, world = topocentric ENU, camera =
+# OpenCV (x right, y down, z forward). The convention was locked four independent ways in
+# the #42 study (docs/mapillary-tilt-study.md section 5.1): the matrix's yaw equals
+# Mapillary's own computed_compass_angle to 1e-11 deg on all 191,286 records, pitch and
+# roll equal what Project Sidewalk's MapillaryViewer.extractPitchRoll derives, re-rendering
+# panos with it levels them, and no reviewer-marked ramp raycasts above the horizon under it.
+
+# A pose past this tilt (camera-up vs world-up) is a failed reconstruction, not a rig: 30
+# of 191,286 panos across the five Mapillary runs exceed it, reaching 170 deg (25 in
+# Clovis, i.e. upside down). Such a pano keeps a null pitch/roll -- an honest "unknown"
+# beats a confidently wrong pose, which would move every ray -- and the flat raycast plus
+# the wide Mapillary error model handle it exactly as before #42.
+MAX_POSE_TILT_DEG = 45.0
+
+
+def rotation_matrix(rvec):
+    """Rodrigues: axis-angle vector -> 3x3 rotation matrix (nested lists)."""
+    rx, ry, rz = (float(v) for v in rvec)
+    th = math.sqrt(rx * rx + ry * ry + rz * rz)
+    if th < 1e-12:
+        return [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+    kx, ky, kz = rx / th, ry / th, rz / th
+    c, s = math.cos(th), math.sin(th)
+    v = 1.0 - c
+    return [[c + kx * kx * v, kx * ky * v - kz * s, kx * kz * v + ky * s],
+            [ky * kx * v + kz * s, c + ky * ky * v, ky * kz * v - kx * s],
+            [kz * kx * v - ky * s, kz * ky * v + kx * s, c + kz * kz * v]]
+
+
+def opensfm_pose(rvec):
+    """(heading_deg, pitch_deg, roll_deg) of a world->camera axis-angle rotation, in
+    _world_ray's convention (roll in Project Sidewalk's sign), plus tilt_deg (angle
+    between camera-up and world-up). Rows of R are the camera axes in ENU:
+    R[0] = right, R[1] = down, R[2] = forward.
+
+    Example (a level camera facing north is a quarter turn about east):
+        >>> p = opensfm_pose([math.pi / 2, 0.0, 0.0])
+        >>> [round(p[k], 9) + 0.0 for k in ('heading_deg', 'pitch_deg', 'roll_deg', 'tilt_deg')]
+        [0.0, 0.0, 0.0, 0.0]
+    """
+    R = rotation_matrix(rvec)
+    fwd_e, fwd_n, fwd_u = R[2]
+    right_e, right_n, right_u = R[0]
+    up_u = -R[1][2]
+    heading = math.atan2(fwd_e, fwd_n)
+    pitch = math.asin(max(-1.0, min(1.0, fwd_u)))
+    # Roll: angle of the camera's right axis about the (pitched) forward axis,
+    # measured from the level right axis toward the pitched up axis, then negated into
+    # PS's sign -- exactly the roll _world_ray applies after yaw and pitch.
+    cp, sp = math.cos(heading), math.sin(heading)
+    ca, sa = math.cos(pitch), math.sin(pitch)
+    level_right = (cp, -sp, 0.0)                    # ENU: (E, N, U)
+    pitched_up = (-sa * sp, -sa * cp, ca)
+    roll = math.atan2(right_e * pitched_up[0] + right_n * pitched_up[1] + right_u * pitched_up[2],
+                      right_e * level_right[0] + right_n * level_right[1] + right_u * level_right[2])
+    tilt = math.acos(max(-1.0, min(1.0, up_u)))
+    return {'heading_deg': math.degrees(heading) % 360.0,
+            'pitch_deg': math.degrees(pitch),
+            'roll_deg': -math.degrees(roll),
+            'tilt_deg': math.degrees(tilt)}
+
+
+POSE_OK, POSE_MISSING, POSE_MALFORMED, POSE_OVER_TILT = 'ok', 'missing', 'malformed', 'over_tilt'
+
+
+def mapillary_pose_status(rvec):
+    """Why a Mapillary rotation does or does not yield a pose: POSE_OK, POSE_MISSING (no
+    computed_rotation -- an unreconstructed image), POSE_MALFORMED (not three finite
+    numbers) or POSE_OVER_TILT (tilt past MAX_POSE_TILT_DEG, a failed reconstruction)."""
+    if rvec is None:
+        return POSE_MISSING
+    if not isinstance(rvec, (list, tuple)) or len(rvec) != 3 or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+            for v in rvec):
+        return POSE_MALFORMED
+    if opensfm_pose(rvec)['tilt_deg'] > MAX_POSE_TILT_DEG:
+        return POSE_OVER_TILT
+    return POSE_OK
+
+
+def mapillary_pitch_roll(rvec):
+    """(camera_pitch, camera_roll) in degrees for a pano block, from Mapillary's
+    `computed_rotation`, or (None, None) when mapillary_pose_status is not POSE_OK.
+
+    Gravity-relative, roll in Project Sidewalk's sign: the values PS's own Mapillary
+    viewer stores in pano_data for the same image, and the ones _world_ray consumes. This
+    is the single decomposition in the tree -- sources/mapillary.py writes it into new
+    records, scripts/backfill_metadata.py --pose into old ones, fuse_sites.load_results
+    derives it for records that have neither, and scripts/mapillary_tilt.py studies it.
+
+    Example (Richmond pano 2163793620710887; PS's viewer derived 2.2318, -6.3550):
+        >>> pitch, roll = mapillary_pitch_roll([1.3857263583832, 0.71804330335161,
+        ...                                     -0.58250746512038])
+        >>> round(pitch, 4), round(roll, 4)
+        (2.2318, -6.355)
+        >>> mapillary_pitch_roll([math.pi, 0.0, 0.0])      # upside down: not a pose
+        (None, None)
+    """
+    if mapillary_pose_status(rvec) != POSE_OK:
+        return None, None
+    pose = opensfm_pose(rvec)
+    return pose['pitch_deg'], pose['roll_deg']
 
 
 @dataclass(frozen=True)

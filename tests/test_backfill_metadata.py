@@ -6,6 +6,8 @@ mapillary lines that need it" gate are what these cover. No test fetches anythin
 """
 import json
 
+import pytest
+
 import backfill_metadata as bf
 
 
@@ -100,3 +102,70 @@ def test_force_refetches_instead_of_replaying_the_cache(monkeypatch, tmp_path):
     assert _read(jsonl)[0]["pano"]["source_metadata"] == {"v": "new"}
     # The refreshed value wins on the next load — the cache file is append-only.
     assert bf.load_cache(cache)["M1"]["source_metadata"] == {"v": "new"}
+
+
+# --- --pose: the offline camera_pitch/camera_roll pass (#42) ---------------------------
+
+# A real rotation (runs/richmond pano 2163793620710887); PS's viewer derived these angles.
+RVEC = [1.3857263583832, 0.71804330335161, -0.58250746512038]
+PITCH, ROLL = 2.231776541825151, -6.354952531976068
+
+
+def _pose_run(monkeypatch, jsonl, *argv_extra):
+    def no_network(*a, **k):
+        raise AssertionError("--pose must not touch the network or need a token")
+    monkeypatch.setattr(bf, "fetch_fields", no_network)
+    monkeypatch.setattr(bf.mapillary, "prepare", no_network)
+    monkeypatch.setattr("sys.argv", ["backfill_metadata.py", str(jsonl), "--pose", *argv_extra])
+    bf.main()
+
+
+def test_pose_pass_fills_from_source_metadata_and_keeps_line_order(monkeypatch, tmp_path):
+    jsonl = tmp_path / "results.jsonl"
+    _write(jsonl, [
+        _line("M_OK", camera_pitch=None, camera_roll=None,
+              source_metadata={"computed_rotation": RVEC}),
+        _line("G1", source="gsv", camera_pitch=1.0, camera_roll=0.5),
+        _line("M_FLIPPED", camera_pitch=None, camera_roll=None,
+              source_metadata={"computed_rotation": [3.14159, 0.0, 0.0]}),   # upside down
+        _line("M_BARE", camera_pitch=None, camera_roll=None),                 # no metadata
+    ])
+    _pose_run(monkeypatch, jsonl)
+    out = [r["pano"] for r in _read(jsonl)]
+    # Same lines, same order: send_to_ps.py's sidecars are line numbers.
+    assert [p["panorama_id"] for p in out] == ["M_OK", "G1", "M_FLIPPED", "M_BARE"]
+    assert (out[0]["camera_pitch"], out[0]["camera_roll"]) == (
+        pytest.approx(PITCH, abs=1e-9), pytest.approx(ROLL, abs=1e-9))
+    assert (out[1]["camera_pitch"], out[1]["camera_roll"]) == (1.0, 0.5)     # GSV untouched
+    assert out[2]["camera_pitch"] is None and out[2]["camera_roll"] is None  # not a pose
+    assert out[3]["camera_pitch"] is None
+
+
+def test_pose_dry_run_counts_and_writes_nothing(monkeypatch, tmp_path):
+    jsonl = tmp_path / "results.jsonl"
+    _write(jsonl, [_line("M1", camera_pitch=None, camera_roll=None,
+                         source_metadata={"computed_rotation": RVEC})])
+    before = jsonl.read_bytes()
+    counts = bf.backfill_pose(jsonl, dry_run=True)
+    assert counts == {bf.POSE_FILLED: 1}
+    assert jsonl.read_bytes() == before
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_pose_refuses_in_place_rewrite_of_a_submitted_file(monkeypatch, tmp_path):
+    """A submitted file's sha256 is what send_to_ps.py's guard holds; changing it in place
+    would make that campaign refuse to resume. --out is the route, and it leaves the input
+    byte-identical."""
+    jsonl = tmp_path / "results.jsonl"
+    _write(jsonl, [_line("M1", camera_pitch=None, camera_roll=None,
+                         source_metadata={"computed_rotation": RVEC})])
+    (tmp_path / "results.jsonl.submission.json").write_text("{}", encoding="utf-8")
+    before = jsonl.read_bytes()
+    with pytest.raises(SystemExit, match="submission record"):
+        _pose_run(monkeypatch, jsonl)
+    assert jsonl.read_bytes() == before
+
+    out = tmp_path / "results.pose.jsonl"
+    _pose_run(monkeypatch, jsonl, "--out", str(out))
+    assert jsonl.read_bytes() == before
+    assert _read(out)[0]["pano"]["camera_roll"] == pytest.approx(ROLL, abs=1e-9)
