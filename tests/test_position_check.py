@@ -399,3 +399,13 @@ def test_reposition_never_overwrites_a_submitted_campaign_file(tmp_path):
     with pytest.raises(SystemExit, match="submitted campaign file"):
         reposition.main([str(run / "results.jsonl"), "--field", "raw"])
     assert shipped.read_text(encoding="utf-8") == "{}\n"
+
+
+def test_beyond_snap_with_an_alternative_that_is_itself_off_the_street_is_both_off():
+    """The alternative is only a fix if it is on the street by the rule's own definition
+    (median cross-track <= GROSS_OFF_STREET_M), not merely back within snapping reach."""
+    frame = _frame()
+    result = _check(_northbound("A", 12.0, 45.0, frame), frame)
+    row = result["sequences"][0]
+    assert row["beyond_snap"] and row["off_street"] and not row["flagged"] and row["both_off"]
+    assert result["flagged_sequences"] == [] and result["both_off_sequences"] == ["A"]

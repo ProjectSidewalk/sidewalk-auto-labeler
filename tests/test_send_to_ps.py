@@ -871,11 +871,38 @@ def _mapillary_jsonl(tmp_path, count, name="results.jsonl"):
     return path
 
 
-def _write_check(path, flagged=(), digest=None):
+def _write_check(path, flagged=(), digest=None, **overrides):
     import position_check
     check = {"checked_at": "2026-09-16T00:00:00Z", "flagged_sequences": list(flagged),
-             "results_sha256": digest or position_check.file_sha256(path), "rule": position_check.RULE}
+             "results_sha256": digest or position_check.file_sha256(path), "rule": position_check.RULE,
+             **{k: v for k, _, v in position_check.RULE_PARAMETERS}, **overrides}
     position_check.check_path_for(path).write_text(json.dumps(check), encoding="utf-8")
+
+
+def test_position_gate_treats_another_rule_or_moved_knobs_as_stale(tmp_path, monkeypatch):
+    """A zero-flag check proves nothing unless it was written under the rule the gate
+    applies, with the knobs at their constants: `--threshold 100` or a huge --min-sequence
+    would otherwise wave a drifted file through under the right RULE name."""
+    path = _mapillary_jsonl(tmp_path, 2)
+    sent = _capture_posts(monkeypatch)
+    for overrides, why in (({"rule": None}, "pre-#62 signed-bias rule"),
+                           ({"rule": "paired-unsigned-v0"}, "paired-unsigned-v0"),
+                           ({"threshold_m": 100.0}, r"threshold_m = 100, not GROSS_OFF_STREET_M = 5"),
+                           ({"min_sequence": 500}, "min_sequence = 500"),
+                           ({"resolution_floor_m": 0.5}, "resolution_floor_m = 0.5"),
+                           ({"max_iqr_ratio": 99}, "max_iqr_ratio = 99")):
+        _write_check(path, **overrides)
+        with pytest.raises(ValueError, match=f"is stale.*{why}.*--ignore-position-check"):
+            send_to_ps.process_jsonl_file(str(path), PROD)
+    check = json.loads(send_to_ps.position_check.check_path_for(path).read_text())
+    del check["max_iqr_ratio"]                         # a knob not recorded at all
+    send_to_ps.position_check.check_path_for(path).write_text(json.dumps(check))
+    with pytest.raises(ValueError, match="max_iqr_ratio not recorded"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+    _write_check(path)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 2
 
 
 def test_position_gate_refuses_unchecked_stale_and_flagged_mapillary_files(tmp_path, monkeypatch):

@@ -116,6 +116,36 @@ MAX_IQR_RATIO = 1.5          # ...and when its cross-track spread is not more th
                              # closer at the median but twice as scattered is not a fix.
 HIST_HALF_WIDTH_M = 25   # signed-offset histograms cover [-25, 25) in 1 m bins
 
+# The knobs a check records beside RULE, and the value the gate requires of each. The CLI
+# can move the first and last (--threshold, --min-sequence) and a caller of check_run all
+# four; a check written with `--threshold 100` would otherwise be a zero-flag verdict under
+# the right RULE, and the gate would pass it. So a knob off its constant is a different
+# rule, as far as the gate is concerned: rule_mismatches() lists every one.
+RULE_PARAMETERS = (
+    ('threshold_m', 'GROSS_OFF_STREET_M', GROSS_OFF_STREET_M),
+    ('resolution_floor_m', 'RESOLUTION_FLOOR_M', RESOLUTION_FLOOR_M),
+    ('max_iqr_ratio', 'MAX_IQR_RATIO', MAX_IQR_RATIO),
+    ('min_sequence', 'DEFAULT_MIN_SEQUENCE', DEFAULT_MIN_SEQUENCE),
+)
+
+
+def rule_mismatches(check):
+    """Why `check` (a position_check.json dict) was not written under the rule the gate
+    applies: [] when it was. Covers the RULE name and every RULE_PARAMETERS knob, so a
+    verdict from a retired rule, or from the current rule with a knob moved on the command
+    line, reads as stale to send_to_ps.py and main.py alike."""
+    if check.get('rule') != RULE:   # another rule entirely; its knobs mean something else
+        return [f"verdict rule {check.get('rule') or 'the pre-#62 signed-bias rule'!r}, "
+                f"not the current {RULE!r}"]
+    out = []
+    for key, name, required in RULE_PARAMETERS:
+        recorded = check.get(key)
+        if recorded is None:
+            out.append(f"{key} not recorded (the gate requires {name} = {required:g})")
+        elif float(recorded) != float(required):
+            out.append(f"{key} = {float(recorded):g}, not {name} = {required:g}")
+    return out
+
 # Position fields per source. 'submitted' is always pano.lat/lng — whatever the run
 # actually wrote; the others are re-read from source_metadata.
 MAPILLARY_FIELDS = {
@@ -528,7 +558,8 @@ def check_run(manifest, area, records, osm_payload, threshold_m=GROSS_OFF_STREET
                   while the other field is not (beyond_snap)
       fixable     the other field is closer pano by pano by more than `floor_m` (paired
                   metric) and no more than `max_iqr_ratio` times as scattered; under
-                  beyond_snap, the other field lands within MAX_SNAP_M - floor_m
+                  beyond_snap, the other field is itself ON the street by this rule's
+                  own definition (median cross-track <= `threshold_m`)
       flagged     off_street and fixable: the only thing that gates a submission
       both_off    off_street and not fixable: reported, never gated
       undecidable the paired difference is inside the floor: reported with the caveat
@@ -634,9 +665,11 @@ def check_run(manifest, area, records, osm_payload, threshold_m=GROSS_OFF_STREET
         sub_iqr, alt_iqr = cross_iqr['submitted'], cross_iqr[alt]
         if beyond_snap:
             # Most of the submitted positions measure nothing, so there is no paired
-            # difference to read; an alternative that lands back within reach of the
-            # street, by more than the floor, is the fix.
-            fixable = cross_med[alt] is not None and cross_med[alt] <= MAX_SNAP_M - floor_m
+            # difference to read. The alternative is the fix only if it is on the street by
+            # the rule's own definition; one that merely lands back within snapping reach
+            # (say 20 m off) is a second off-street field, so the verdict is both_off.
+            fixable = (cross_med[alt] is not None and len(s['cross'][alt]) >= MIN_AXIS_SAMPLES
+                       and cross_med[alt] <= threshold_m)
         else:
             fixable = (off_gross and gain is not None and gain > floor_m
                        and sub_iqr is not None and alt_iqr is not None

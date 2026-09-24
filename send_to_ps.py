@@ -832,8 +832,10 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
     unchecked or flagged file is --ignore-position-check. Only Mapillary carries two
     positions to choose between, so other sources are not gated. Staleness is the
     results file's sha256 against the one the check recorded, so a check cannot vouch for
-    a file edited after it ran - and the check's `rule` against position_check.RULE, so a
-    verdict written under a retired rule (the pre-#62 signed bias) cannot either.
+    a file edited after it ran - and the check's `rule` and recorded knobs (threshold_m,
+    resolution_floor_m, max_iqr_ratio, min_sequence) against position_check.RULE and its
+    constants (position_check.rule_mismatches), so neither a verdict from a retired rule
+    (the pre-#62 signed bias) nor one written with `--threshold 100` can vouch for it.
     """
     if first_pano_source(input_file) != 'mapillary':
         return None
@@ -850,12 +852,13 @@ def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, An
             f"{input_file.name} (sha256 {digest[:12]}... != {str(recorded)[:12]}...): the file changed "
             f"after the check ran, or the check predates results_sha256. Re-run: {rerun}  "
             f"(--ignore-position-check overrides)")
-    if check.get('rule') != position_check.RULE:
+    mismatches = position_check.rule_mismatches(check)
+    if mismatches:
         raise ValueError(
-            f"{position_check.check_path_for(input_file).name} was written under verdict rule "
-            f"{check.get('rule') or 'the pre-#62 signed-bias rule'!r}, not the current "
-            f"{position_check.RULE!r}, so its flags do not mean what the gate needs them to. "
-            f"Re-run: {rerun}  (--ignore-position-check overrides)")
+            f"{position_check.check_path_for(input_file).name} is stale: it was written with "
+            f"{'; '.join(mismatches)}, so its flags do not mean what the gate needs them to "
+            f"(a moved --threshold or --min-sequence can hide a drifted sequence). Re-run with "
+            f"the defaults: {rerun}  (--ignore-position-check overrides)")
     flagged = check.get('flagged_sequences') or []
     if flagged:
         raise ValueError(

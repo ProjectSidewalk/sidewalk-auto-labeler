@@ -499,8 +499,13 @@ gated); **undecidable** when the fields differ by ≤ 2 m (the reference cannot 
 whichever sign it has). The #60 signed bias stays in each row as a report only: a lane
 offset cancels in it, which is how Richmond's `jKtaJMek7wQl5AOH28qdcm` was flagged toward a
 raw field 3.3 m *worse* per pano. The 5 m bar was chosen from a 4/5/6 m table over every
-Mapillary run (in the #62 PR); the check records its verdict `rule`, and a check from
-another rule is stale to the gate and re-run by main.py. The submitted field is voted per
+Mapillary run (in the #62 PR); the check records its verdict `rule` and its knobs
+(`threshold_m`, `resolution_floor_m`, `max_iqr_ratio`, `min_sequence`), and a check from
+another rule — or with any knob off its constant, e.g. `--threshold 100`, which would
+otherwise be a zero-flag verdict under the right rule — is stale to the gate
+(`position_check.rule_mismatches`) and re-run by main.py. Under `beyond_snap` the other
+field is only a fix if it is itself on the street (median cross-track ≤ 5 m); otherwise the
+verdict is both_off. The submitted field is voted per
 sequence from the coordinates, so a mixed reposition output is judged correctly. **Frame
 consistency:** repositioning a city that already carries live labels is a whole-city
 decision, never a per-file one — PS computes a label's lat/lng once, at insert, and a

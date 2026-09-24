@@ -264,9 +264,10 @@ def run_position_check(run_dir, manifest_path, manifest):
         # outputs with a new timestamp. The check is pinned to the file by its hash.
         results_path = run_dir / "results.jsonl"
         existing, _reason = position_check.load_check(results_path)
-        # ...and to the verdict rule: a check written under an older rule is re-run, not reused.
+        # ...and to the verdict rule and its knobs: a check written under an older rule, or
+        # with --threshold/--min-sequence moved, is re-run, not reused.
         if existing and existing.get('results_sha256') == position_check.file_sha256(results_path) \
-                and existing.get('rule') == position_check.RULE \
+                and not position_check.rule_mismatches(existing) \
                 and position_check.report_path_for(results_path).exists():
             print(f"-> unchanged since the last check ({existing['checked_at']}): "
                   f"{len(existing['flagged_sequences'])} flagged; not re-run")

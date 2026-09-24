@@ -122,7 +122,7 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     results = run_dir / "results.jsonl"
     results.write_text("{}\n")
     pinned = {"checked_at": "2026-09-16T01:00:00Z", "results_sha256": position_check.file_sha256(results),
-              "rule": position_check.RULE,
+              "rule": position_check.RULE, **{k: v for k, _, v in position_check.RULE_PARAMETERS},
               "submitted_field": None, "flagged_sequences": [], "both_off_sequences": [],
               "panos_not_near_a_street": 0}
     position_check.check_path_for(results).write_text(json.dumps(pinned))
@@ -139,5 +139,12 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     stale = {k: v for k, v in pinned.items() if k != "rule"}
     stale["results_sha256"] = position_check.file_sha256(results)
     position_check.check_path_for(results).write_text(json.dumps(stale))
+    main.run_position_check(run_dir, manifest_path, manifest)
+    assert calls == [run_dir]
+    # ...and one written under the right rule with a knob moved (--threshold 100).
+    calls.clear()
+    position_check.check_path_for(results).write_text(json.dumps({**stale, "rule": position_check.RULE,
+                                                                  **{k: v for k, _, v in position_check.RULE_PARAMETERS},
+                                                                  "threshold_m": 100.0}))
     main.run_position_check(run_dir, manifest_path, manifest)
     assert calls == [run_dir]
