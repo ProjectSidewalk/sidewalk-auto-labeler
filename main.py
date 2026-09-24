@@ -30,6 +30,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 import geojson
 from dotenv import load_dotenv
 from shapely.geometry import MultiPolygon, mapping, shape
+from shapely.errors import GEOSException
 from shapely.ops import unary_union
 from tqdm import tqdm
 
@@ -76,7 +77,10 @@ def extract_geometry(geojson_data):
       feature yields that feature's geometry, so wrapping or unwrapping the same
       polygon hashes to the same run;
     - a `FeatureCollection` of several features yields their `unary_union` as a
-      `MultiPolygon`, announced on stdout so nobody is surprised by the dissolve.
+      `MultiPolygon`, announced on stdout so nobody is surprised by the dissolve. Its
+      coordinates are rounded to geojson's 6 decimals, so the stored area.geojson
+      re-hashes to the same `area_hash` on resume. Features that cannot be dissolved
+      (e.g. a self-intersecting ring) raise ValueError rather than a GEOS error.
 
     Anything else (a `GeometryCollection`, a non-polygonal geometry, an empty or
     geometry-less feature) raises ValueError naming what was found. `input_type` is the
@@ -101,12 +105,24 @@ def extract_geometry(geojson_data):
         if len(geometries) == 1:
             geometry = geometries[0]
         else:
-            union = unary_union([shape(g) for g in geometries])
+            try:
+                union = unary_union([shape(g) for g in geometries])
+            except (GEOSException, ValueError, TypeError) as e:
+                # An invalid part (e.g. a self-intersecting ring) makes GEOS throw a
+                # TopologyException; run_labeler turns ValueError into a clean exit.
+                raise ValueError(
+                    f"FeatureCollection features could not be dissolved into one area "
+                    f"({e}). Check that each polygon is valid (no self-intersecting "
+                    f"rings), e.g. with shapely's make_valid.") from e
             if union.geom_type == 'Polygon':
                 union = MultiPolygon([union])
-            # mapping() gives tuples; round-trip through JSON so the stored area.geojson
-            # and the hash see plain lists, exactly like a loaded bare geometry.
-            geometry = json.loads(json.dumps(mapping(union)))
+            # Round-trip through geojson.loads so the geometry is exactly what
+            # geojson.load yields when area.geojson is read back: plain lists, and
+            # coordinates rounded to geojson's 6 decimals. unary_union computes new
+            # vertices at full float precision, so hashing its raw output would give a
+            # hash that the stored area.geojson can never reproduce (a resume from
+            # runs/<name>/area.geojson would be refused as a different area).
+            geometry = geojson.loads(json.dumps(mapping(union)))
             print(f"-> GeoJSON FeatureCollection has {len(geometries)} features; "
                   f"dissolved into one MultiPolygon of {len(union.geoms)} part(s).")
     else:
