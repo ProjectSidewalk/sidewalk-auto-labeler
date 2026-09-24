@@ -1327,11 +1327,11 @@ def test_a_band_that_is_all_rig_detections_is_refused(tmp_path, monkeypatch):
     assert sent == []
 
 
-# --- Live-city guard (issue #62: repositioning a shipped city moves its live labels) -------
+# --- Live-city guard (issue #62: repositioning a shipped city duplicates its live labels) --
 
 def test_live_city_guard_refuses_to_move_panos_that_carry_live_labels(tmp_path, monkeypatch):
-    """PS upserts the pano row, so a repositioned file sent where another campaign already
-    put the same panos moves every label on them. That is refused unless typed out, and the
+    """PS places a label once, at insert, so a repositioned file sent where another campaign
+    already put the same panos duplicates every label on them. That is refused unless typed out, and the
     override is recorded; identical positions (a band file) pass untouched."""
     sent = _capture_posts(monkeypatch)
     live = _jsonl(tmp_path, 3)

@@ -35,7 +35,8 @@ both ways (Richmond's jKtaJMek7wQl5AOH28qdcm read as "raw fixes it" by bias whil
 field (main.py --mapillary-position) is a measured, per-city decision made once.
 
 Repositioning a file that is already live is a whole-city decision, not a per-file one:
-PS upserts the pano row, so it moves every live label on the moved panos. The check
+PS places a label once, at insert, so resubmitting moved panos duplicates their live labels
+at the new positions unless those are retired in the database first. The check
 reports the live campaigns from `<file>.submission.json`; scripts/reposition.py and
 send_to_ps.py refuse to move live panos without --reposition-live-city.
 

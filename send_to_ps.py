@@ -893,9 +893,13 @@ def check_live_positions(input_file: Path, endpoint_url: str,
     """Refuse (ValueError) to submit a file that would MOVE panos already carrying live
     labels on this endpoint - the frame-consistency guard of issue #62.
 
-    PS upserts the pano row when a pano is resubmitted, and a label is placed from its
-    pano's position plus a pixel offset, so resubmitting a pano at a new position moves
-    every label already live on it - including labels a validator has already judged. A
+    PS computes a label's lat/lng ONCE, at insert, from the pano position in the payload
+    (ExploreService.submitAiLabelData -> PanoDataService.toLatLng); resubmitting a pano
+    upserts its pano row but never recomputes a label already stored. So resubmitting a
+    pano at a new position leaves every label already live on it where it was - including
+    labels a validator has already judged - inserts a second copy of each at the new
+    position (PS is insert-only for AI labels), and moves the pano row out from under the
+    old ones. Doing it right means retiring the live labels in the database first. A
     repositioned file (scripts/reposition.py) is a new file with a new hash, so the resume
     guard sees a fresh campaign and says nothing; this is what notices that its panos are
     the same panos another campaign already put on this server, at other coordinates.
@@ -950,8 +954,9 @@ def check_live_positions(input_file: Path, endpoint_url: str,
     if problems:
         raise ValueError(
             f"{input_file.name} would move panos that already carry live labels on {endpoint}: "
-            + "; ".join(problems) + ". PS upserts the pano row on resubmission, so every label "
-            f"already on those panos would move with them. Repositioning a city that has "
+            + "; ".join(problems) + ". PS places a label once, at insert, so the labels already "
+            f"live on those panos would stay where they are and be DUPLICATED at the new "
+            f"positions - retire them in the database first. Repositioning a city that has "
             f"shipped is a whole-city decision (issue #62), not a property of this file. "
             f"--reposition-live-city overrides, once that decision is made.")
 
@@ -1419,9 +1424,10 @@ def main() -> None:
         action="store_true",
         help="Submit a file whose panos sit at other coordinates than the same panos another "
              "campaign (another <file>.submission.json in this directory) already put on this "
-             "endpoint. THIS MOVES LABELS THAT ARE ALREADY LIVE, including ones validators have "
-             "judged: PS upserts the pano row, and every label on it is placed from it. PS "
-             "cannot retire labels, so there is no undo short of database surgery. Use it only "
+             "endpoint. PS places a label once, at insert, so the labels already live on those "
+             "panos (including ones validators have judged) stay put and get DUPLICATED at the "
+             "new positions unless they are soft-deleted in the database first; PS has no route "
+             "to retire them, so there is no undo short of database surgery. Use it only "
              "for a whole-city repositioning decided on purpose (issue #62), never to get a "
              "file through; the reason is written into the submission record."
     )

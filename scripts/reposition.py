@@ -32,9 +32,10 @@ the output with `position_check.py runs/<name> --results <output>` and submit it
 where it is.
 
 A file that is already submitted is refused (issue #62). Its `<file>.submission.json`
-records the endpoints holding it, PS upserts the pano row on resubmission, and every label
-is placed from its pano - so shipping the output would MOVE labels that are live and may
-already be validated. That is a decision about the whole city, not about this file, and
+records the endpoints holding it, and PS places a label once, at insert, from the pano
+position it was sent with - so shipping the output would leave the live (possibly already
+validated) labels where they are and DUPLICATE them at the new positions, unless they are
+retired in the database first. That is a decision about the whole city, not about this file, and
 position differences under ~2 m are below what position_check.py can resolve anyway.
 `--reposition-live-city` overrides, for that decision made on purpose; send_to_ps.py
 refuses the output again, independently, unless given the same flag.
@@ -185,8 +186,9 @@ def main(argv=None):
         where = '; '.join(f"{c['endpoint']} ({c['submitted_lines']} lines, {c['labels_submitted']} labels "
                           f"live; ~{moved_labels[c['endpoint']]} of them on the moved panos)" for c in live)
         message = (f"{src.name} is already submitted - {where} per {submission_record_for(src).name}. "
-                   f"This would move {counts['moved']} pano(s), and PS upserts the pano row on "
-                   f"resubmission, so every label on them moves too. Repositioning a city that has "
+                   f"This would move {counts['moved']} pano(s); PS places labels once, at insert, so "
+                   f"the live labels on them would stay put and be duplicated at the new "
+                   f"positions unless retired in the database first. Repositioning a city that has "
                    f"shipped is a whole-city decision, not a per-file one (issue #62)")
         if not args.reposition_live_city:
             tmp.unlink()

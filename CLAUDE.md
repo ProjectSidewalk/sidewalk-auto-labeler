@@ -210,8 +210,8 @@ python scripts/position_check.py runs/laurens --report --labels <ps_v3_rawLabels
 # ...then fix a flagged run WITHOUT re-detecting: rewrite the flagged sequences' pano lat/lng
 # from the recommended field into a new file (new hash -> fresh submission campaign). A file
 # whose .submission.json records live lines is REFUSED (so is sending the output where
-# another campaign already put those panos): PS upserts the pano row, so moving panos moves
-# their live labels — a whole-city decision, overridden only with --reposition-live-city.
+# another campaign already put those panos): PS places a label once, at insert, so resending
+# moved panos DUPLICATES their live labels unless those are soft-deleted first — a whole-city decision, overridden only with --reposition-live-city.
 python scripts/reposition.py runs/laurens/results.jsonl --from-check
 python scripts/reposition.py runs/laurens/results.jsonl --field raw   # whole file, one field
 # ...and confirm the output IN PLACE — never swap it into results.jsonl (main.py's field
@@ -503,8 +503,10 @@ Mapillary run (in the #62 PR); the check records its verdict `rule`, and a check
 another rule is stale to the gate and re-run by main.py. The submitted field is voted per
 sequence from the coordinates, so a mixed reposition output is judged correctly. **Frame
 consistency:** repositioning a city that already carries live labels is a whole-city
-decision, never a per-file one — PS upserts the pano row, so it moves every live label on
-the moved panos. `reposition.py` refuses an input whose `.submission.json` records live
+decision, never a per-file one — PS computes a label's lat/lng once, at insert, and a
+resubmission never moves a stored label, so resending moved panos duplicates their live labels
+unless those are soft-deleted in the database first (the Richmond 3-sequence fix, 2026-09-24,
+did exactly that: 143 retired, 143 resubmitted at raw). `reposition.py` refuses an input whose `.submission.json` records live
 lines (and never overwrites a file that has its own record); `send_to_ps.py`'s
 `check_live_positions` refuses a file whose panos sit at other coordinates than the same
 panos in another campaign live on that endpoint (skipped once the file's own campaign is

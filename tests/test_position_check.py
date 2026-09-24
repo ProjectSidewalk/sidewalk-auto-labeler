@@ -357,8 +357,8 @@ def test_run_check_records_the_results_hash_and_names_outputs_by_file(tmp_path):
 
 
 def test_reposition_refuses_a_file_that_is_already_live(tmp_path, capsys):
-    """Frame consistency (issue #62): PS upserts the pano row, so repositioning a submitted
-    file moves labels that are live. reposition.py refuses, naming what would move, unless
+    """Frame consistency (issue #62): PS places a label once, at insert, so shipping a
+    repositioned submitted file would duplicate labels that are live. reposition.py refuses, naming what would move, unless
     the whole-city decision is typed out; a rewrite that moves nothing is not refused."""
     frame = _frame()
     run = tmp_path / "city"
