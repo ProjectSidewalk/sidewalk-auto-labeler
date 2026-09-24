@@ -672,8 +672,11 @@ def main():
     # world frame, raycast positions, GT — one code path with eval_sites
     # mask_rig=False: this arm is compared against what the SERVER holds, and those
     # labels were submitted before the nadir mask existed.
+    # apply_pose=OFF likewise: the server placed those labels with a flat raycast, and the
+    # committed report was scored flat -- FuseParams' `auto` default would rotate Mapillary.
     params = fs.FuseParams(camera_height_m=args.camera_height_m,
-                           min_confidence=args.min_confidence, mask_rig=False)
+                           min_confidence=args.min_confidence, mask_rig=False,
+                           apply_pose=fs.POSE_OFF)
     lines.append(f'raycast camera height {args.camera_height_m:g} m; '
                  f'fusion arm at --min-confidence {args.min_confidence:g}')
     verdict_panos, bundle_ops, run_panos = es.load_city_files(

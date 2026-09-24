@@ -86,6 +86,20 @@ python scripts/harvest_depth.py runs/paterson --check-convention # re-verify dep
 python scripts/fuse_sites.py runs/paterson
 # ...--pose-ablation reports within-site spread per pitch/roll sign convention
 # instead (the experiment that showed GSV equirects are already gravity-rectified).
+# --apply-pose {auto,off,gravity,road} (issue #42). The DEFAULT is `auto`, which today is FLAT
+# for every source: road-relative (pitch/roll minus the sequence's SfM road grade) passed the
+# first #42 rule but FAILED the pre-registered shuffled-grade control (study section 10.5), so
+# the road-frame default is withheld (fuse_sites.AUTO_ROAD_SOURCES = ()); GSV is flat on
+# evidence (#52). `road` is opt-in. The flag takes an explicit value (`--apply-pose road`;
+# a bare `--apply-pose` is an error), and gravity/road on a run holding GSV or Panoramax
+# panos warns on stderr (GSV has no grade; Panoramax's convention is unmeasured).
+# A Mapillary run from before #42 needs no
+# rewrite: load_results derives the pose from source_metadata. sites_meta.json's `pose`
+# block counts flat / gravity / road_relative / gravity_fallback panos -- the fallback (no
+# usable sequence neighbour; 0.1% Morgantown to 6.9% Richmond) is the convention the study
+# showed wrong for a car on a slope, so watch its rate on a new city.
+python scripts/fuse_sites.py runs/richmond                      # = --apply-pose auto -> flat
+python scripts/fuse_sites.py runs/richmond --apply-pose road    # opt-in, withheld as default
 
 # CAMERA HEIGHT (issue #40). Every raycast uses geo.DEFAULT_CAMERA_HEIGHT_M = 2.6 unless
 # asked otherwise; `per-pano` uses GSV's depth-measured height (pano block since #40, else
@@ -167,13 +181,15 @@ python scripts/site_explorer.py richmond --select fragment  # over-split suspect
 python scripts/site_explorer.py richmond --inline     # one shareable file
 # ...--local-panos <dir> cuts crops locally instead (no SSH; e.g. a RampNet bundle).
 
-# MAPILLARY RIG TILT (issue #42) -- a STUDY, not production: nothing here is wired into
-# main.py/geo.py/sources/. OpenSfM's `computed_rotation` sits in every Mapillary record's
-# source_metadata; scripts/mapillary_tilt.py parses it (convention locked four ways) and
-# measures what applying it buys. Full write-up + recommendations in
-# docs/mapillary-tilt-study.md. No network, no GPU; stdlib on top of geo.py/fuse_sites.py/
-# eval_sites.py except `rectify`/`examples` (numpy, Pillow, SciPy) and `figures` (matplotlib).
-# Ten subcommands. All but `pose` take a city list (default: all five Mapillary runs)
+# MAPILLARY RIG TILT (issue #42) -- the STUDY behind the production wiring. OpenSfM's
+# `computed_rotation` sits in every Mapillary record's source_metadata; the decomposition
+# (convention locked four ways) now lives in geo.py (geo.opensfm_pose /
+# mapillary_pitch_roll) and the road grade in fuse_sites.sequence_grades, and this script
+# imports both, so what it measures is what production does. Full write-up + the wiring's
+# precondition in docs/mapillary-tilt-study.md. No network, no GPU; stdlib on top of
+# geo.py/fuse_sites.py/eval_sites.py except `rectify`/`examples` (numpy, Pillow, SciPy) and
+# `figures` (matplotlib).
+# Eleven subcommands. All but `pose` take a city list (default: all five Mapillary runs)
 # and --out; `pose` takes pano ids and --run. --out redirects the CSVs only: `figures`
 # and `examples` always write into docs/figures/mapillary-tilt/.
 python scripts/mapillary_tilt.py stats                 # tilt distributions + compass identity
@@ -182,6 +198,10 @@ python scripts/mapillary_tilt.py grade                 # is the tilt the rig's o
 python scripts/mapillary_tilt.py horizon               # GT marks raycast above the horizon
 python scripts/mapillary_tilt.py ablation              # multi-view sign lock, by tilt/grade bucket
 python scripts/mapillary_tilt.py eval                  # world P/R vs RampNet GT per convention
+python scripts/mapillary_tilt.py precondition          # #42 gate: p90/median GT-to-site per
+#   arm (off/gravity/road + road-shuffled-within/-across grade controls), one site set + one GT
+#   set, 25 m cap, through PRODUCTION's loader, plus off-pool recall and unplaceable-mark counts
+#   (survivorship); applies BOTH pre-registered rules and prints the verdict that sets `auto`
 python scripts/mapillary_tilt.py rectify               # pixel-level sign lock (vertical edges)
 python scripts/mapillary_tilt.py examples              # the annotated before/after strips
 python scripts/mapillary_tilt.py figures               # redraw docs/figures/mapillary-tilt/
@@ -192,7 +212,23 @@ python scripts/mapillary_tilt.py pose <mapillary_id> --run richmond
 # moves with the convention (GT marks are raycast under the pose being tested) -- hence
 # `recall_vs_off_pool_*` in gt_eval.csv. The ablation runs uncapped, so its raw mean/p90 are
 # pessimistic about any correction that lengthens rays; median and mean/range are the
-# centre. See sections 4.4/4.5/6 of the study.
+# centre. See sections 4.4/4.5/6 of the study. `ablation` and `eval` pin apply_pose=off and
+# BENCHMARK_CONFIDENCE and reproduce PR #50's committed CSVs cell for cell (re-checked after
+# the #42 roll-sign flip); the per-pano ROLL columns of `stats`/`rectify` now have PS's sign,
+# the opposite of the committed tilt_summary/tilt_by_rig/tilt_by_sequence/verticality CSVs.
+
+# POSE BACKFILL (issue #42). Offline, no token: fill camera_pitch/camera_roll from each
+# line's own source_metadata (PS's /backupImage gate 404s on a null camera_pitch). It
+# REFUSES to write over a file with a .submission.json or any .submitted* / .band-*.submitted
+# sidecar beside it, in place OR as the --out target (that breaks send_to_ps.py's sha256
+# guard for the live campaign and stales its position check) -- write a new file and push
+# it pano-only instead; --min-confidence 2.0 submits zero labels. A pano-only push still
+# UPSERTS each pano row's lat/lng, so every pano must be pushed from the file whose
+# positions are live for it: Richmond's 72 posfix3seq panos are live at raw GPS, so they go
+# out from results.posfix3seq.raw.pose.jsonl and are EXCLUDED from results.pose.jsonl's
+# push (exact steps in PR #74's body).
+python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --dry-run
+python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --out runs/richmond/results.pose.jsonl
 
 # POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
 # remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no
@@ -291,7 +327,9 @@ Panoramax's `hd` URL is plain, so a 404 there means the pixels are gone (`skippe
   Richmond: 35k → 9k). The
   center column of a Mapillary equirectangular is the camera's compass bearing (same
   convention as GSV and as PS's panoX→heading math), so images are never rotated;
-  `computed_compass_angle` becomes `camera_heading`, pitch/roll stay null. `copyright` is
+  `computed_compass_angle` becomes `camera_heading`; `camera_pitch`/`camera_roll` are parsed
+  from `computed_rotation` by `geo.mapillary_pitch_roll` (gravity-relative, **PS's roll
+  sign**, null past a 45° tilt = failed reconstruction; issue #42). `copyright` is
   the contributor's bare username (see the attribution note below); the constant CC BY-SA
   4.0 licence rides in the record's own `license` field.
 - **panoramax**: the federated open imagery commons (IGN + OSM France; CC BY-SA / Etalab),
@@ -433,9 +471,12 @@ single home for geodesy: haversine + the declustering grid (imported back by
 `export_benchmark.py`), a `LocalFrame` ENU tangent plane, and the ground raycast
 `detection_ground_point` — flat-ground intersection at 2.6 m camera height with
 closed-form anisotropic error from the 1024×512 heatmap quantization, **dropping** (never
-clamping) rays beyond 25 m. Camera pitch/roll are deliberately NOT applied: the
+clamping) rays beyond 25 m. GSV camera pitch/roll are deliberately NOT applied: the
 `--pose-ablation` experiment measured that streetlevel's GSV equirects are already
-gravity-rectified (details in `geo._world_ray`'s docstring). `fuse_sites.py` associates a
+gravity-rectified (details in `geo._world_ray`'s docstring). Mapillary's are available
+(`--apply-pose road`) but NOT applied by default either: the #42 shuffled-grade control withheld
+it (see the rig-tilt paragraph below).
+`fuse_sites.py` associates a
 run's stored detections into physical-ramp sites (descending-confidence greedy with a
 same-pano cannot-link, chi-square gating, inverse-covariance refit, residual rejection;
 sub-threshold detections attach as `in_refit: false` support and never move operational
@@ -462,11 +503,27 @@ provides — and the `road-relative` convention tightens the MEDIAN in all five 
 **On the RAW MEAN and p90 the same correction is worse than doing nothing** — Richmond +3.9%/+6.1%,
 Morgantown +5.6%/+6.4%, Annapolis +11.3%/+17.5% — partly because the ablation runs uncapped and charges a
 correction for rays production drops, partly because it really does move a minority of detections a long
-way. So: **do not wire `apply_pose=True` for Mapillary on the strength of the median.** The precondition
-(study §8 rec 3) is to re-run `eval_sites.py` with the production 25 m cap and compare p90 GT-to-site
-distance under off / documented / road-relative first — p90 placement is the statistic #27 was sold on.
-Full study, figures and the recommended production change in `docs/mapillary-tilt-study.md`. Not yet wired
-into `sources/mapillary.py`/`geo.py`.
+way. So the wiring was gated on a **pre-registered precondition** (study §8 rec 3, rule posted on #42
+before it ran): at the production 25 m cap, on ONE site set (association frozen from the flat fuse; a site
+is scored only if every arm places every operational member) and ONE GT set, road-relative had to be no
+worse than flat on p90 GT-to-site distance in any city (0.1 m tolerance) and better on the median in 3 of
+5. **It passed the first rule everywhere** (2026-09-23, study §10, `docs/figures/mapillary-tilt/data/pose_precondition_3arm.csv`):
+p90 off→road Richmond 3.42→2.74, Clovis 3.32→2.37, Morgantown 3.07→2.79, Annapolis 3.55→2.75, Laurens
+3.82→2.74 m; median better in all five. The uncapped ablation's bad tail was the rays production drops.
+**Then it failed the control** (second pre-registered rule, after #52 showed on GSV that a shuffled
+ground normal also "improves" p90 and that p90 can improve by survivorship; study §10.5): road had to beat
+`road-shuffled-within` (each frame given another frame's grade from its own sequence) by >0.1 m on p90 AND
+median in 4 of 5 cities, lose ≤1.0 pt of recall@2.5 m on the OFF pool, and add ≤5% of the pool in
+unplaceable GT marks. It beat the shuffle in only 3 (Clovis and Laurens: shuffled median is *better*),
+and off-pool recall fell 4.0 pts (Richmond) and 2.9 pts (Annapolis). So **the road-frame default is
+withheld**: `auto` resolves to off for Mapillary. Open reading (#52): pitch and grade come from the same
+SfM, so subtracting may cancel shared SfM error, not road slope — a DEM grade (#51) is the independent
+referee.
+**What shipped (#42):** `sources/mapillary.py` writes pitch/roll (PS sign, 45° cap); **`geo._world_ray`
+now takes PS's roll sign** (positive lowers the camera's right axis — the opposite of before #42, so any
+roll quoted from earlier has the other sign); `fuse_sites` has `--apply-pose road` (default still flat); and
+`backfill_metadata.py --pose` fills old files. The in-place backfill of submitted files and the pano-only
+push to PS are deliberately manual (see the backfill command block).
 
 **GSV depth (`depth.py`, `scripts/harvest_depth.py`)** — issues #40/#41. `depth.py` (repo
 root, stdlib-only like `geo.py`) parses GSV's depth payload, which is **not a raster**: it
@@ -507,8 +564,10 @@ correct convention from a backwards one.
 `harvest_depth.py` archives the payloads before they go away: the *JavaScript* API that
 exposed depth was withdrawn in 2020 and anonymous tile access in ~2026, but the metadata
 endpoint used here still serves it. `no_depth.txt`/`gone.txt` are append-only skip caches
-(see the command block above). GSV only; Mapillary serves no depth (its tilt is parsed and
-measured by the #42 study — scripts/mapillary_tilt.py — but not yet wired into production).
+(see the command block above). GSV only; Mapillary serves no depth (since #42 its tilt is
+parsed from computed_rotation and written into the record, and fusion can apply it with
+`--apply-pose road` or `gravity`, but it is OFF by default -- the shuffled-grade control
+withheld the road-relative default; its camera HEIGHT is still the 2.6 m constant — #53).
 
 **Position check (`position_check.py`, repo root; `scripts/position_check.py` is a shim)** —
 SidewalkWebpage#5361. Stdlib-only like `geo.py`. Every pano's submitted position is scored
@@ -625,6 +684,12 @@ gap-fill is GSV-only (`fetch_pano_by_id`).
   plus `model_repo` and the full 40-hex `model_revision`) and rich pano metadata (capture date, dimensions, camera heading/pitch/roll, source,
   historical panos, and links). Heading/pitch/roll are converted from radians to degrees on
   write.
+- Mapillary `camera_pitch`/`camera_roll` are **derived**, not measured: decomposed from the
+  SfM `computed_rotation` (gravity-relative, PS's roll sign), and `camera_pose_source`
+  (`"mapillary_computed_rotation"`, null when the angles are null) says so on every record.
+  PS has no column for it; it lives in the JSONL for any consumer that might otherwise treat
+  the angles as sensor readings. The conversion is exact (matches PS's own viewer to 1e-15);
+  the SfM tilt's absolute error is unmeasured.
 - Indoor panoramas (sources `innerspace`, `cultural_institute`, `photos:legacy_innerspace`)
   are skipped.
 - **Model provenance is resolved, never declared** (issues #39/#6). `CurbRampDetector` reads
