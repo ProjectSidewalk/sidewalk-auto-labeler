@@ -18,9 +18,11 @@ H = geo.DEFAULT_CAMERA_HEIGHT_M
 
 
 def make_pano(pano_id, pe, pn, targets, heading_deg=None,
-              source='launch', capture='2024-06'):
+              source='launch', capture='2024-06', height=None):
     """A SlimPano at ENU (pe, pn) whose i-th detection raycasts exactly to the
-    i-th (te, tn, conf) target. Pitch/roll stay None so the flat raycast is exact."""
+    i-th (te, tn, conf) target. Pitch/roll stay None so the flat raycast is exact.
+    `height` is the camera's true (and recorded, measured) height; None means H,
+    unmeasured."""
     if heading_deg is None:
         te, tn, _ = targets[0]
         heading_deg = math.degrees(math.atan2(te - pe, tn - pn)) % 360.0
@@ -30,11 +32,11 @@ def make_pano(pano_id, pe, pn, targets, heading_deg=None,
         dist = math.hypot(de, dn)
         bearing = math.degrees(math.atan2(de, dn))
         x = 0.5 + geo.norm_deg(bearing - heading_deg) / 360.0
-        y = 0.5 + math.atan(H / dist) / math.pi
+        y = 0.5 + math.atan((height or H) / dist) / math.pi
         dets.append((i, x, y, conf))
     lat, lng = FRAME.to_latlng(pe, pn)
     return fs.SlimPano(pano_id, lat, lng, heading_deg, None, None,
-                       capture, source, dets)
+                       capture, source, dets, camera_height_m=height)
 
 
 def enu_of(frame, te, tn):
@@ -193,3 +195,73 @@ def test_load_results_needs_no_manifest_and_site_json_round_trips(tmp_path):
     assert (member['x_normalized'], member['y_normalized']) == (x, y)
     assert member['confidence'] == conf
     assert isinstance(member['in_refit'], bool)
+
+
+# --- camera height (issue #40)
+
+def test_per_pano_heights_reunite_what_a_constant_splits():
+    # Two rigs at different real heights see one ramp. Under the 2.6 m constant their
+    # ground points disagree; with each pano's measured height they coincide.
+    panos = [make_pano('low', -10, 0, [(0, 0, 0.9)], height=1.8),
+             make_pano('high', 0, -12, [(0, 0, 0.9)], height=2.5)]
+    fixed, _, _ = fs.fuse(panos, fs.FuseParams())
+    per_pano, frame, stats = fs.fuse(panos, fs.FuseParams(camera_height_m=geo.PER_PANO))
+    assert len(per_pano) == 1 and len(per_pano[0].pano_ids) == 2
+    te, tn = enu_of(frame, 0, 0)
+    assert math.hypot(per_pano[0].e - te, per_pano[0].n - tn) < 0.05
+    assert stats['camera_heights'] == {'measured': 2, 'fallback': 0}
+    spread = max(math.hypot(d.e - te, d.n - tn) for s in fixed for d, _ in s.members)
+    assert spread > 2.0
+
+
+def test_implied_heights_recover_the_true_rig_height():
+    # Bearing-only triangulation does not depend on the height the raycast assumed.
+    panos = [make_pano('a', -10, 0, [(0, 0, 0.9)], height=2.05),
+             make_pano('b', 0, -12, [(0, 0, 0.9)], height=2.05)]
+    sites, frame, _ = fs.fuse(panos, fs.FuseParams(camera_height_m=geo.PER_PANO))
+    implied = fs.implied_heights(sites, frame, {p.pano_id: p for p in panos})
+    assert implied['a'] == [pytest.approx(2.05)] and implied['b'] == [pytest.approx(2.05)]
+
+
+def _line_with_block(p, **block):
+    rec = json.loads(_record_line(p))
+    rec['pano'].update(block)
+    return json.dumps(rec)
+
+
+def test_load_results_reads_heights_from_the_block_or_the_harvested_index(tmp_path):
+    a, b, c, d = (make_pano(n, 0, i * 20.0, [(5, i * 20.0, 0.9)])
+                  for i, n in enumerate('abcd'))
+    src = tmp_path / 'results.jsonl'
+    src.write_text('\n'.join([
+        _line_with_block(a, camera_height_m=1.9, camera_height_spread_m=0.1,
+                         camera_height_status='measured'),
+        # a post-#40 null is final, even though the index below measured this pano
+        _line_with_block(b, camera_height_m=None, camera_height_status='synthetic_ground'),
+        _record_line(c),                               # pre-#40: no keys, so the index
+        # ...and so for a fetch that got no usable payload: a later harvest may have it
+        _line_with_block(d, camera_height_m=None, camera_height_status='unparsed'),
+    ]) + '\n', encoding='utf-8')
+    (tmp_path / 'depth').mkdir()
+    (tmp_path / 'depth' / 'index.csv').write_text(
+        'panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m\n'
+        'b,0,2.2,1.5,0.1\n'
+        'c,0,2.1,1.4,0.2\n'
+        'd,0,2.0,1.3,0.1\n', encoding='utf-8')
+    by_id = {p.pano_id: p for p in fs.load_results(src)[0]}
+    assert (by_id['a'].camera_height_m, by_id['a'].camera_height_spread_m) == (1.9, 0.1)
+    assert by_id['b'].camera_height_m is None
+    assert (by_id['c'].camera_height_m, by_id['c'].camera_height_spread_m) == (2.1, 0.2)
+    assert by_id['d'].camera_height_m == 2.0
+    # a fixed-height caller can skip the index read entirely
+    assert fs.load_results(src, read_heights=False)[0][2].camera_height_m is None
+
+
+def test_harvested_stand_in_grounds_are_not_heights(tmp_path):
+    path = tmp_path / 'index.csv'
+    path.write_text('panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m\n'
+                    'stand_in,0,2.5000,0.000,0.0000\n'
+                    'degenerate,1,2.5000,0.000,0.0000\n'
+                    'wrong_plane,0,0.0407,11.871,0.0000\n'
+                    'real,0,1.9154,1.482,0.2318\n', encoding='utf-8')
+    assert fs.load_depth_index(path) == {'real': (1.9154, 0.2318)}

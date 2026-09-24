@@ -9,9 +9,11 @@ plus one plane index per pixel of a 512x256 grid; a per-pixel depth is the ray-p
 intersection. `streetlevel` computes that raster and then discards the planes, which
 throws away the two numbers that matter most here:
 
-  - the dominant ground plane's `distance` IS the camera height, exactly. No fitting,
-    no assumed constant. `geo.DEFAULT_CAMERA_HEIGHT_M = 2.6` is above every value
-    observed in a 160-pano survey (min 1.114, median 2.206) — see labeler #40.
+  - the dominant ground plane's `distance` is the camera height *in the depth frame*.
+    It ranks capture rigs correctly, but runs 6-16% short of the height the imagery's
+    own geometry implies (bearing-only triangulation, labeler #40), so it is evidence
+    about the rig rather than a drop-in raycast constant -- see
+    docs/camera-height-study.md. Not every payload has a real one: see SYNTHETIC_GROUND.
   - its normal IS the ground tilt, 1-2 degrees even on levelled professional rigs,
     against the perfectly-level ground the raycast currently assumes.
 
@@ -59,6 +61,32 @@ GROUND_MIN_BELOW_HORIZON = 0.9
 # many planes the whole payload has) is far more robust than testing the value 2.5,
 # which also occurs as one plane among many in perfectly good reconstructions.
 DEGENERATE_MAX_PLANES = 2
+
+# ...and a second, far commoner fallback that the plane count cannot see: a full
+# reconstruction (100-200 planes of real facades) whose *ground* is a stand-in, a plane at
+# exactly 2.500 m with a normal of exactly (0, 0, -1). Measured over the four harvested GSV
+# runs it is 24,529 of 170,462 non-degenerate payloads (14%; 16% in bend alone), and it
+# separates on the normal alone: of the payloads whose dominant ground is exactly level,
+# all but 55 sit at exactly 2.5000 m, while a measured ground plane is 1-2 deg off level
+# (median 1.2-1.4 deg in bend and gainesville). So the test is structural again -- "is
+# the normal exactly vertical?" -- not "is the value 2.5?".
+#
+# Heights outside this window are not a camera on a vehicle or a backpack; they are a
+# ground plane picked from the wrong surface (0.04 m at 11.9 deg of tilt, say). Measured
+# ground heights put 1% below 1.09 m and 1% above 2.49 m.
+PLAUSIBLE_HEIGHT_M = (0.8, 3.5)
+
+# Why a ground plane is or is not a camera-height measurement. Stored per pano in
+# results.jsonl (`camera_height_status`), so a consumer can tell "no depth served" from
+# "depth served, ground was a stand-in" without re-fetching anything.
+MEASURED = "measured"
+NO_DEPTH = "no_depth"            # no payload in the response
+UNPARSED = "unparsed"            # a payload was there but did not parse (retryable: a
+                                 # later harvest may still supply the height)
+DEGENERATE = "degenerate"        # the whole payload is a fallback (DEGENERATE_MAX_PLANES)
+NO_GROUND = "no_ground"          # a real payload with no plane that qualifies as a floor
+SYNTHETIC_GROUND = "synthetic_ground"  # exactly-level stand-in ground (see above)
+IMPLAUSIBLE = "implausible"      # outside PLAUSIBLE_HEIGHT_M
 
 SKY = 0  # plane index 0 means "no plane" -- sky, or unreconstructed
 
@@ -112,6 +140,63 @@ class GroundPlane:
     n_ground_planes: int      # roadways are segmented; more than one is normal
     height_spread_m: float    # p90-p10 of camera height across all ground planes,
                               # weighted by pixel count -- a free per-pano uncertainty
+    exactly_level: bool = False  # normal is exactly (0, 0, +-1): Google's stand-in
+                                 # ground, not a measurement (see SYNTHETIC_GROUND)
+
+
+def classify_height(height_m, tilt_deg, *, degenerate=False, exactly_level=None):
+    """Whether a ground plane's distance is a camera-height measurement, as a status.
+
+    Returns one of the status constants above; only MEASURED means `height_m` may be used
+    as the camera height. `exactly_level` is the test on the plane normal; callers that
+    only have index.csv's tilt (3 decimals) pass None and it is compared against 0 instead.
+    That is the same test: the smallest nonzero tilt a float32 unit normal can carry is
+    0.0198 deg, which rounds to 0.020, never to 0.000.
+
+    Example:
+        >>> classify_height(2.5, 0.0)
+        'synthetic_ground'
+        >>> classify_height(1.73, 2.01)
+        'measured'
+    """
+    if degenerate:
+        return DEGENERATE
+    if height_m is None:
+        return NO_GROUND
+    if exactly_level if exactly_level is not None else tilt_deg == 0.0:
+        return SYNTHETIC_GROUND
+    lo, hi = PLAUSIBLE_HEIGHT_M
+    if not lo <= height_m <= hi:
+        return IMPLAUSIBLE
+    return MEASURED
+
+
+def camera_height_fields(payload):
+    """The camera-height fields of a results.jsonl pano block, from a parsed payload.
+
+    `payload` may be None (no depth in the response). Every key is always present so a
+    consumer never has to distinguish a missing key from a null; `camera_height_m` is
+    non-null only when the status is MEASURED, so nothing downstream can use a stand-in
+    by accident. The raw ground distance of a non-measurement is deliberately not kept --
+    the harvested archive has it (scripts/harvest_depth.py) for anyone studying them.
+    """
+    fields = {"camera_height_m": None, "camera_height_spread_m": None,
+              "ground_tilt_deg": None, "depth_planes": None,
+              "camera_height_status": NO_DEPTH}
+    if payload is None:
+        return fields
+    fields["depth_planes"] = payload.n_planes
+    ground = None if payload.degenerate else ground_plane(payload)
+    status = classify_height(ground and ground.camera_height_m,
+                             ground and ground.tilt_deg,
+                             degenerate=payload.degenerate,
+                             exactly_level=ground and ground.exactly_level)
+    fields["camera_height_status"] = status
+    if status == MEASURED:
+        fields["camera_height_m"] = round(ground.camera_height_m, 4)
+        fields["camera_height_spread_m"] = round(ground.height_spread_m, 4)
+        fields["ground_tilt_deg"] = round(ground.tilt_deg, 3)
+    return fields
 
 
 def blob_from_response(response):
@@ -162,7 +247,7 @@ def parse(b64_string):
     # *first plane index* — as a high byte. When the top-left pixel is sky (index 0) the
     # misread is invisible and offset comes out as 8; when it is anything else, offset
     # comes out as 8 + 256*index, the plane list is then read past the end of the buffer,
-    # and the parse throws. That is ~0.3% of panoramas, and it is why those are
+    # and the parse throws. That is ~0.3-0.5% of panoramas, and it is why those are
     # unreadable upstream rather than merely unusual.
     n_planes, width, height = struct.unpack_from("<HHH", raw, 1)
     offset = raw[7]
@@ -302,7 +387,8 @@ def ground_plane(payload):
     spread = wpct(0.9) - wpct(0.1)
 
     return GroundPlane(camera_height_m=best.d, tilt_deg=tilt, pixel_share=count / total,
-                       n_ground_planes=len(candidates), height_spread_m=spread)
+                       n_ground_planes=len(candidates), height_spread_m=spread,
+                       exactly_level=best.nx == 0.0 and best.ny == 0.0)
 
 
 def _intersect(plane, direction):

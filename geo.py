@@ -26,8 +26,27 @@ EARTH_RADIUS_M = 6371000.0
 # where that script clamped (a clamp fabricates ranges — ~20% of paterson's stored
 # detections sat on the old 30 m clamp).
 MIN_DEPRESSION_RAD = 0.02
-DEFAULT_CAMERA_HEIGHT_M = 2.6  # typical roof-mounted 360 rig
 DEFAULT_MAX_RANGE_M = 25.0
+
+# Camera height (issue #40). Every raycast uses DEFAULT_CAMERA_HEIGHT_M unless the caller
+# asks for PER_PANO, which uses the pano's own height where it has a measurement (GSV's
+# depth ground plane; see depth.camera_height_fields and fuse_sites.load_results) and the
+# default where it does not.
+#
+# PER_PANO is opt-in, not the default, on evidence (docs/camera-height-study.md). The
+# depth ground plane ranks rigs correctly -- the 2025-26 GSV rig really is lower -- but
+# measured against the imagery's own geometry (bearing-only triangulation of multi-view
+# ramps, iterated to a self-consistent height) it runs 6-16% short, city by city, and
+# world P/R against RampNet GT cannot tell any of the height models apart. The 2.6 m
+# constant runs ranges ~2-4% long for pre-2025 GSV rigs and 31-35% long for the 2025-26
+# one (2.6/1.98, 2.6/1.92); panos with no measurement triangulate to >= 2.6 m, which is
+# why they fall back to it rather than to the measured median.
+DEFAULT_CAMERA_HEIGHT_M = 2.6
+PER_PANO = 'per-pano'
+# Under PER_PANO, a measured pano's height sigma comes from the p90-p10 spread of camera
+# height across its ground planes (a segmented roadway disagrees with itself where it
+# slopes or crowns). p90-p10 of a normal is 2.563 sigma.
+SIGMA_PER_P10_P90 = 1.0 / 2.563
 
 # RampNet's heatmap is 1024x512 over the full equirect, so detections are quantized
 # to that grid — and both axes step by the same angle: 2*pi/1024 == pi/512 rad/px.
@@ -161,6 +180,8 @@ class Pose:
     roll_deg: float
     has_pitch_roll: bool
     source: str
+    camera_height_m: float | None = None         # measured (GSV depth); None = unknown
+    camera_height_spread_m: float | None = None  # p90-p10 over the pano's ground planes
 
 
 def pano_pose(pano):
@@ -171,14 +192,24 @@ def pano_pose(pano):
     rotation is only inside source_metadata, deliberately not parsed here); those
     panos get pitch=roll=0 with has_pitch_roll=False and the wider Mapillary error
     model absorbs the unknown tilt.
+
+    `camera_height_m` / `camera_height_spread_m` are read when present (GSV blocks written
+    since #40 carry them; null or absent means unmeasured). They only take effect for a
+    raycast asked for with camera_height=PER_PANO -- see camera_height_for.
     """
     src = pano.get('source') or ''
     heading = norm_deg(float(pano['camera_heading']))
     pitch, roll = pano.get('camera_pitch'), pano.get('camera_roll')
+    height = pano.get('camera_height_m')
+    spread = pano.get('camera_height_spread_m')
+    height = None if height is None else float(height)
+    spread = None if spread is None else float(spread)
     if pitch is None or roll is None:
-        return Pose(pano['lat'], pano['lng'], heading, 0.0, 0.0, False, src)
+        return Pose(pano['lat'], pano['lng'], heading, 0.0, 0.0, False, src,
+                    height, spread)
     return Pose(pano['lat'], pano['lng'], heading,
-                norm_deg(float(pitch)), norm_deg(float(roll)), True, src)
+                norm_deg(float(pitch)), norm_deg(float(roll)), True, src,
+                height, spread)
 
 
 @dataclass(frozen=True)
@@ -212,6 +243,33 @@ CROWDSOURCED_SOURCES = ('mapillary', 'panoramax')
 
 def error_model_for(source):
     return MAPILLARY_ERRORS if source in CROWDSOURCED_SOURCES else GSV_ERRORS
+
+
+def camera_height_for(pose, errors=None, camera_height=DEFAULT_CAMERA_HEIGHT_M):
+    """(camera height, its 1-sigma) to raycast a pano with, in meters.
+
+    ``camera_height`` is a number -- every pano gets that height and the error model's
+    flat sigma, which is what every raycast did before #40 -- or PER_PANO: the pano's
+    measured height, with sigma from its own ground-plane spread floored at the error
+    model's (curb, crown and gutter are there whatever the planes say), falling back to
+    DEFAULT_CAMERA_HEIGHT_M for a pano with no measurement.
+
+    Example:
+        >>> pose = pano_pose({'lat': 40.0, 'lng': -74.0, 'camera_heading': 0.0,
+        ...                   'camera_pitch': 0.0, 'camera_roll': 0.0, 'source': 'launch',
+        ...                   'camera_height_m': 1.73, 'camera_height_spread_m': 0.02})
+        >>> camera_height_for(pose)
+        (2.6, 0.15)
+        >>> camera_height_for(pose, camera_height=PER_PANO)
+        (1.73, 0.15)
+    """
+    errors = errors or error_model_for(pose.source)
+    if camera_height != PER_PANO:
+        return float(camera_height), errors.sigma_height_m
+    if pose.camera_height_m is None:
+        return DEFAULT_CAMERA_HEIGHT_M, errors.sigma_height_m
+    spread = pose.camera_height_spread_m or 0.0
+    return pose.camera_height_m, max(errors.sigma_height_m, spread * SIGMA_PER_P10_P90)
 
 
 @dataclass(frozen=True)
@@ -294,9 +352,13 @@ def detection_ground_point(pose, x_norm, y_norm, *,
     gravity-rectified), so fusion passes apply_pose=False; the flat path is
     also always used when the pose carries no pitch/roll (Mapillary).
 
+    ``camera_height`` is a height in meters, or PER_PANO for the pano's own measured
+    one where it has it. See camera_height_for.
+
     Returns None for rays at/above the horizon (within MIN_DEPRESSION_RAD) and
     for ranges beyond max_range_m — dropped, never clamped.
     """
+    camera_height, sigma_height = camera_height_for(pose, errors, camera_height)
     phi = (x_norm - 0.5) * 2.0 * math.pi
     theta = (0.5 - y_norm) * math.pi
 
@@ -320,7 +382,7 @@ def detection_ground_point(pose, x_norm, y_norm, *,
         + errors.sigma_pitch_rad ** 2
     dd_ddelta = (camera_height ** 2 + d * d) / camera_height
     sigma_along = math.sqrt(dd_ddelta ** 2 * sigma_theta2
-                            + (d / camera_height) ** 2 * errors.sigma_height_m ** 2)
+                            + (d / camera_height) ** 2 * sigma_height ** 2)
     sigma_cross = d * math.sqrt((errors.sigma_peak_px * RAD_PER_HEATMAP_PX) ** 2
                                 + errors.sigma_heading_rad ** 2)
 
@@ -346,6 +408,9 @@ def ground_point_to_pano(pose, lat, lng, *,
     """Where a known ground point lands in a pano: the exact inverse of the flat
     path of detection_ground_point (apply_pose=False, which is what production
     fusion uses), or None where the forward function would have dropped it.
+
+    ``camera_height`` resolves exactly as in detection_ground_point, so the pair stays
+    inverse per pano whatever that pano's height is.
 
     ``apply_pose`` exists only for parity with detection_ground_point, so a caller
     that threads ``params.apply_pose`` through both cannot silently end up with a
@@ -373,6 +438,7 @@ def ground_point_to_pano(pose, lat, lng, *,
         raise NotImplementedError(
             'ground_point_to_pano inverts only the flat (gravity-rectified) path; '
             'pass apply_pose=False, as production fusion does')
+    camera_height, _ = camera_height_for(pose, camera_height=camera_height)
     e, n = LocalFrame(pose.lat, pose.lng).to_enu(lat, lng)
     d = math.hypot(e, n)
     if d > max_range_m or d < 1e-6:

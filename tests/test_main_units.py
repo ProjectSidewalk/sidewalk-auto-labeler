@@ -352,3 +352,15 @@ def test_scan_only_stays_torch_free():
             "bad = [m for m in ('torch', 'transformers', 'detectors.curb_ramp') if m in sys.modules]; "
             "sys.exit(1 if bad else 0)")
     assert subprocess.run([sys.executable, "-c", code], cwd=str(Path(main.__file__).parent)).returncode == 0
+
+
+def test_record_camera_heights_tallies_and_alarms_on_missing_depth(tmp_path, capsys):
+    results, manifest_path = tmp_path / "results.jsonl", tmp_path / "manifest.json"
+    statuses = ["measured"] * 30 + ["unparsed"] * 25 + ["synthetic_ground"] * 5
+    results.write_text("".join(json.dumps({"pano": {"camera_height_status": s}}) + "\n"
+                               for s in statuses), encoding="utf-8")
+    manifest = {}
+    main.record_camera_heights(results, manifest_path, manifest)
+    assert manifest["camera_height"] == {"measured": 30, "synthetic_ground": 5, "unparsed": 25}
+    assert json.loads(manifest_path.read_text())["camera_height"]["unparsed"] == 25
+    assert "no usable depth payload" in capsys.readouterr().out

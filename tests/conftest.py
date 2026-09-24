@@ -23,6 +23,7 @@ for p in (str(REPO_ROOT / "scripts"), str(REPO_ROOT)):
 
 import requests  # noqa: E402
 from streetlevel import streetview  # noqa: E402  (needs the path setup above)
+from streetlevel.streetview import api as streetview_api  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -33,6 +34,8 @@ def no_network(monkeypatch):
         raise AssertionError("network call attempted in tests — monkeypatch the entry point")
     for fn in ("find_panorama_by_id", "get_panorama", "get_coverage_tile"):
         monkeypatch.setattr(streetview, fn, blocked)
+    # sources/gsv.py calls the raw API directly, to read the depth payload (#40)
+    monkeypatch.setattr(streetview_api, "find_panorama_by_id", blocked)
     for fn in ("get", "post"):
         monkeypatch.setattr(requests, fn, blocked)
 

@@ -8,10 +8,11 @@ imagery tile endpoint went away in ~June 2026. The metadata endpoint used here s
 serves the payload today — that is precisely the point. Capture it now, derive from it
 later (labeler #41).
 
-What it buys, measured in #40: the dominant ground plane's distance IS the camera height,
-exactly, and `geo.DEFAULT_CAMERA_HEIGHT_M = 2.6` is above every value observed — ranges
-run ~29-35% long at real detection points. The plane normal gives ground tilt (1-2 deg
-even on levelled rigs) and the per-pixel plane index gives occlusion structure.
+What it buys (#40): the dominant ground plane's distance is a per-pano camera height --
+it ranks capture rigs correctly (the 2025-26 GSV rig really is lower), though it runs
+6-16% short of the height the imagery's own geometry implies, so it is not a drop-in
+range correction (docs/camera-height-study.md). The plane normal gives ground tilt (1-2
+deg even on levelled rigs) and the per-pixel plane index gives occlusion structure.
 
 Cheap enough to be complete rather than a sample: the payload gzips to ~5-7 KB, so all
 four GSV runs (~171k panoramas) are ~1 GB. This is a metadata-only pass — no imagery is
@@ -50,6 +51,7 @@ import hashlib
 import json
 import sys
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -349,16 +351,18 @@ def summarize(depth_dir):
     index_path = depth_dir / "index.csv"
     if not index_path.exists():
         return
-    heights, degenerate, tilts, n = [], 0, [], 0
+    heights, tilts, n = [], [], 0
+    statuses = Counter()
     with open(index_path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             n += 1
-            if int(row["degenerate"] or 0):
-                degenerate += 1
-                continue                    # a fallback reconstruction, not a measurement
-            if row["camera_height_m"]:
-                heights.append(float(row["camera_height_m"]))
-                tilts.append(float(row["ground_tilt_deg"]))
+            h = float(row["camera_height_m"]) if row["camera_height_m"] else None
+            tilt = float(row["ground_tilt_deg"]) if row["ground_tilt_deg"] else None
+            status = depthlib.classify_height(h, tilt, degenerate=row["degenerate"] == "1")
+            statuses[status] += 1
+            if status == depthlib.MEASURED:
+                heights.append(h)
+                tilts.append(tilt)
     if not heights:
         return
     heights.sort()
@@ -367,18 +371,19 @@ def summarize(depth_dir):
     def pct(a, q):
         return a[min(len(a) - 1, int(q * len(a)))]
 
+    excluded = ", ".join(f"{k} {v}" for k, v in sorted(statuses.items())
+                         if k != depthlib.MEASURED)
     print(f"--- Camera height across {n} panoramas "
-          f"({degenerate} degenerate, excluded) ---")
+          f"({statuses[depthlib.MEASURED]} measured; excluded: {excluded or 'none'}) ---")
     print(f"  min {heights[0]:.3f}   p25 {pct(heights, .25):.3f}   "
           f"median {pct(heights, .5):.3f}   p75 {pct(heights, .75):.3f}   "
           f"max {heights[-1]:.3f}")
     print(f"  ground tilt: median {pct(tilts, .5):.2f} deg, p90 {pct(tilts, .9):.2f} deg")
-    # Read the live constant rather than restating it: #40 is about to change it, and a
-    # hardcoded 2.6 here would start printing a false claim the moment it lands.
-    bias = 100 * (DEFAULT_CAMERA_HEIGHT_M / pct(heights, .5) - 1)
-    print(f"  geo.DEFAULT_CAMERA_HEIGHT_M = {DEFAULT_CAMERA_HEIGHT_M} "
-          f"{'overestimates' if bias >= 0 else 'underestimates'} range by "
-          f"{abs(bias):.0f}% at the median (labeler #40)")
+    # These are the depth frame's heights, which run 6-16% short of the height the
+    # imagery's own geometry implies -- so a gap to the raycast constant here is NOT a
+    # range bias. `fuse_sites.py --implied-height` measures that one.
+    print(f"  (depth-frame heights; geo.DEFAULT_CAMERA_HEIGHT_M = {DEFAULT_CAMERA_HEIGHT_M}. "
+          f"Compare against fuse_sites.py --implied-height, not this -- labeler #40)")
 
 
 def check_convention(pano_ids, n_panos, n_samples=2000):
