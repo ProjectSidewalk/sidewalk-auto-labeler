@@ -114,6 +114,24 @@ def test_transform_pano_source_enum(source, expected):
     assert send_to_ps.transform_pano({"pano_id": "x", "source": source})["source"] == expected
 
 
+def test_transform_pano_keeps_the_streetlevel_source_string():
+    """Issue #23: the enum coercion PS needs must not destroy 'launch'/'scout'/'photos'.
+    A new GSV record already carries source_detail; a legacy one gets it filled from the
+    pre-coercion value; an enum source is not relabeled and gains nothing."""
+    new = send_to_ps.transform_pano({"pano_id": "x", "source": "launch",
+                                     "source_detail": "launch"})
+    assert (new["source"], new["source_detail"]) == ("gsv", "launch")
+    legacy = send_to_ps.transform_pano({"pano_id": "x", "source": "scout"})
+    assert (legacy["source"], legacy["source_detail"]) == ("gsv", "scout")
+    # An existing source_detail is authoritative, never overwritten.
+    kept = send_to_ps.transform_pano({"pano_id": "x", "source": "launch",
+                                      "source_detail": "photos:street_view_android"})
+    assert kept["source_detail"] == "photos:street_view_android"
+    assert "source_detail" not in send_to_ps.transform_pano({"pano_id": "x",
+                                                             "source": "mapillary"})
+    assert "source_detail" not in send_to_ps.transform_pano({"pano_id": "x"})
+
+
 def test_transform_pano_passes_through_canonical_fields():
     pano = send_to_ps.transform_pano({
         "pano_id": "123456789",
@@ -140,6 +158,9 @@ def test_transform_accepts_real_stage1_records():
     pano = payload["pano"]
     assert pano["pano_id"] == "PID" and "panorama_id" not in pano
     assert pano["source"] in send_to_ps.PS_PANO_SOURCES
+    # ...with the streetlevel string and the provenance projection riding along (#23).
+    assert (pano["source"], pano["source_detail"]) == ("gsv", "launch")
+    assert isinstance(pano["source_metadata"], dict)
     assert isinstance(pano["links"], list) and isinstance(pano["history"], list)
     assert all("target_pano_id" in link for link in pano["links"])
 

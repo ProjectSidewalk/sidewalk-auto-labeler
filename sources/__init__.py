@@ -17,6 +17,10 @@ Each source module provides the same interface, consumed by main.py:
   {'status': 'skipped'|'failure', 'reason': str}. 'skipped' is deterministic
   (main.py caches it so it's never retried); 'failure' is retryable (left
   uncached so the next run retries it).
+- provenance_fields(...) (by convention, called from each source's own
+  build_pano_record): the shared provenance keys every pano block carries --
+  camera_make, camera_model, camera_type, source_metadata (None when unknown) plus
+  source-specific extras (GSV: source_detail/uploader; Panoramax: panoramax_instance).
 - fetch_pano_by_id(pano_id, area_shape) (OPTIONAL): same contract as fetch_pano
   for a pano known only by id (a dangling link target), positioned from its own
   metadata; outside-the-area is a deterministic skip. Providing this hook enables

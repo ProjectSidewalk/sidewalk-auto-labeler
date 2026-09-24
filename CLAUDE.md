@@ -526,7 +526,8 @@ Reads the Stage-1 JSONL and POSTs each record to a Project Sidewalk endpoint
 width/height stored in the record, renames `detections` → `labels`, and drops the original
 `detections` key. It also maps the pano block onto the server's `PanoSubmission` reader
 (`transform_pano`): `panorama_id` → `pano_id`, raw streetlevel source strings → the
-`pano_source` enum (`gsv`/`mapillary`/`infra3d`), `target_gsv_panorama_id` → `target_pano_id`,
+`pano_source` enum (`gsv`/`mapillary`/`infra3d`) with the raw string kept as `source_detail`
+(issue #23; filled from `source` for records that predate it), `target_gsv_panorama_id` → `target_pano_id`,
 and guarantees `links`/`history` arrays — so legacy JSONL files stay submittable unchanged.
 
 Resume state is a `<file>.submitted` sidecar of **line numbers**, which silently stops
@@ -582,6 +583,17 @@ gap-fill is GSV-only (`fetch_pano_by_id`).
   write.
 - Indoor panoramas (sources `innerspace`, `cultural_institute`, `photos:legacy_innerspace`)
   are skipped.
+- Every source's pano block carries the same provenance keys, from its own
+  `provenance_fields()`: `camera_make`/`camera_model`/`camera_type` + `source_metadata`
+  (issue #23 added GSV's). GSV has no make/model (`null`); its analogue is `source_detail`
+  (the raw streetlevel source, which survives `transform_pano`'s enum coercion) and
+  `uploader`. GSV's `source_metadata` is an **explicit per-field projection**
+  (`sources/gsv.SOURCE_METADATA_FIELDS`: uploader, uploader_icon_url, upload_date,
+  elevation, country_code, street_names, address, building_level(s), places, artworks,
+  neighbor ids) — never `vars()`/`asdict()` of the streetlevel object, which holds numpy
+  arrays and recursive panos. Every named key is always present (`null` when unset); a new
+  streetlevel attribute is ignored until named there; a converter that throws records
+  `null` rather than failing the pano. GSV runs from before #23 have no `elevation` (#52).
 - `pano.copyright` is an **attribution ingredient, not a rendered attribution** (issue #61,
   SidewalkWebpage#5360). For Mapillary and Panoramax it is the contributor's *bare* name
   (creator username / `geovisio:producer`), `null` when the source names nobody — PS's

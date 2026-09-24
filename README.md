@@ -456,9 +456,18 @@ Each line of `results.jsonl` is a JSON object like:
     "camera_pitch": 1.2,
     "camera_roll": 0.3,
     "copyright": "© Google",
-    "source": "…",
+    "source": "launch",
     "history": [ { "pano_id": "…", "date": "2019-08" } ],
-    "links":   [ { "target_gsv_panorama_id": "…", "yaw_deg": 90.0, "description": "…" } ]
+    "links":   [ { "target_gsv_panorama_id": "…", "yaw_deg": 90.0, "description": "…" } ],
+    "camera_make": null,
+    "camera_model": null,
+    "camera_type": "equirectangular",
+    "source_detail": "launch",
+    "uploader": "Google",
+    "source_metadata": { "elevation": 1103.5, "country_code": "US", "…": "…" },
+    "camera_height_m": 2.21,
+    "camera_height_status": "measured",
+    "…": "…"
   }
 }
 ```
@@ -474,6 +483,19 @@ Notes:
   it in `license` — Project Sidewalk composes the `©`, the provider and the licence itself
   when it shows its own copy of the imagery. The `"© Google"` above is a GSV record, where
   the string is Google's own and is shown verbatim.
+- Every source writes the same provenance keys: `camera_make`, `camera_model`,
+  `camera_type` and a `source_metadata` object. Mapillary and Panoramax fill make/model
+  from the camera; GSV exposes none, so they are `null` there, and its analogue is
+  `source_detail` (streetlevel's raw source: `launch`/`scout` for Google's own capture,
+  `photos:…` for a user upload) plus `uploader`. GSV's `source_metadata` is an explicit
+  projection of the streetlevel metadata — `uploader`, `uploader_icon_url`, `upload_date`,
+  `elevation` (m), `country_code`, `street_names`, `address`, `building_level`,
+  `building_levels`, `places`, `artworks`, `neighbors` (ids only) — every key present,
+  `null` when Google did not send it, angles in degrees. GSV records written before
+  issue #23 have none of these keys.
+- `source` is coerced to Project Sidewalk's `pano_source` enum on submission (`launch` →
+  `gsv`); the raw string travels beside it as `source_detail`, filled from `source` for
+  older records that lack it.
 - `model_training_date` and `api_version` are currently hard-coded in `main.py`.
 
 ## Tests

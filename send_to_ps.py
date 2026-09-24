@@ -114,7 +114,10 @@ def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
     produced before the field names were aligned with the server:
 
     - 'panorama_id' -> 'pano_id'
-    - 'source' outside the pano_source enum (raw streetlevel strings) -> 'gsv'
+    - 'source' outside the pano_source enum (raw streetlevel strings) -> 'gsv', with the
+      raw string kept under 'source_detail' when the record does not already carry one
+      (issue #23: 'launch' vs 'scout' vs 'photos:...' is GSV's image-quality provenance,
+      and coercing in place used to destroy it; GSV records since #23 carry it already)
     - links[].'target_gsv_panorama_id' -> 'target_pano_id'
     - 'links'/'history' are required (possibly empty) arrays server-side
 
@@ -122,13 +125,16 @@ def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
     have, so it's already in the payload the day PS learns to store it. Extra keys are
     safe — PanoSubmission's reader (ExploreFormats.scala) is path-based and ignores
     what it doesn't name — but they are also discarded server-side today: pano_data has
-    no column for source_metadata, camera_make/model/type, sequence_id or quality_score.
+    no column for source_metadata, camera_make/model/type, source_detail, uploader,
+    sequence_id or quality_score.
     Landing them needs a SidewalkWebpage change, not a change here.
     """
     pano = dict(pano)
     if 'panorama_id' in pano:
         pano['pano_id'] = pano.pop('panorama_id')
     if pano.get('source') not in PS_PANO_SOURCES:
+        if pano.get('source') is not None:
+            pano.setdefault('source_detail', pano['source'])
         pano['source'] = 'gsv'
     pano['links'] = [
         {
