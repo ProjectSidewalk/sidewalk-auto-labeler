@@ -99,7 +99,33 @@ ARMS = ['off', 'ground-normal', 'shuffled-normal']
 # (`*_4arm`) so the pre-registered three-arm rows are untouched by it.
 EXPLORATORY_ARM = 'rig-attitude-normal'
 ALL_ARMS = ARMS + [EXPLORATORY_ARM]
+# Added on review of PR #78, also outside the pre-registered reading, and scored on their
+# own site set (`*_review`: every arm below places every member) so neither the
+# three-arm nor the four-arm rows move:
+#   - `travel-only`: the observed plane with its cross-slope zeroed -- the like-for-like
+#     test of #50's road-relative correction, which removes only the along-travel grade
+#     (the Mapillary SfM altitude profile has no cross term);
+#   - `travel-shuffled`: its within-city control (another pano's grade, no cross);
+#   - `travel-bucket-shuffled` / `bucket-shuffled-normal`: MAGNITUDE-MATCHED controls --
+#     the grade (resp. the whole normal) permuted only among panos in the same |grade|
+#     bucket, so in the 4+ deg bucket the control applies >= 4 deg too. The city-wide
+#     shuffle applies a typical ~1 deg there, so comparing the arm with it in a steep
+#     bucket compares two different correction sizes;
+#   - `cross-flipped`, `cross-only`, `cross-only-flipped`: the cross-slope sign check
+#     (is the frame mirrored, or is one plane the wrong model across a crowned road?),
+#     read with the detection-side split `cmd_ablation` writes for every arm.
+TRAVEL_ARM = 'travel-only'
+REVIEW_ARMS = [TRAVEL_ARM, 'travel-shuffled', 'travel-bucket-shuffled',
+               'bucket-shuffled-normal', 'cross-flipped', 'cross-only', 'cross-only-flipped']
+ABLATION_ARMS = ALL_ARMS + REVIEW_ARMS
+# The GT eval runs the pre-registered arms, the rig arm and the travel pair (the
+# statistic #50's precondition asks for, on the arm that mirrors #50's correction).
+EVAL_ARMS = ALL_ARMS + [TRAVEL_ARM, 'travel-shuffled']
 SHUFFLE_SEED = 52
+# Detection side relative to the camera heading: x_normalized < 0.5 is left of it.
+SIDES = ('left', 'right', 'mixed')
+# Pairs whose steeper |cross-slope| reaches this are where a cross-slope sign would show.
+CROSS_SPLIT_DEG = 2.0
 # Ground-plane pixel share above which the depth normal is called well determined.
 WELL_DETERMINED_SHARE = 0.3
 
@@ -223,7 +249,7 @@ def slopes(n_f, n_r, n_u):
     Example:
         >>> g, c = slopes(-math.sin(math.radians(3)), 0.0, math.cos(math.radians(3)))
         >>> round(g, 9), round(c, 9)
-        (3.0, 0.0)
+        (3.0, -0.0)
     """
     return (math.degrees(math.atan2(-n_f, n_u)), math.degrees(math.atan2(-n_r, n_u)))
 
@@ -648,14 +674,42 @@ def rig_attitude_normal(meta_pitch_deg, meta_roll_deg):
     return normal_from_slopes(meta_pitch_deg, -meta_roll_deg)
 
 
+def _bucket_shuffle(pids, values, key, seed):
+    """Permute `values` (aligned with `pids`) only among pids sharing `key(pid)`."""
+    groups = defaultdict(list)
+    for i, pid in enumerate(pids):
+        groups[key(pid)].append(i)
+    out = list(values)
+    rng = random.Random(seed)
+    for b in sorted(groups):
+        idx = groups[b]
+        vs = [values[i] for i in idx]
+        rng.shuffle(vs)
+        for i, v in zip(idx, vs):
+            out[i] = v
+    return out
+
+
 def arm_normals(meas, seed=SHUFFLE_SEED):
-    """{arm: {pano_id: upward camera-frame normal}} for the two non-off arms.
+    """{arm: {pano_id: upward camera-frame normal}} for every non-off arm.
 
     'ground-normal' uses each pano's own observed plane. 'shuffled-normal' hands every
     measured pano ANOTHER measured pano's normal -- a fixed-seed permutation over the
     city -- so it has the same distribution of corrections and the same extra degrees of
     freedom with the pano-specific information removed. Panos without a measured plane
-    get no entry in either and are raycast flat, exactly as in production."""
+    get no entry in any arm and are raycast flat, exactly as in production.
+
+    The review arms (REVIEW_ARMS; see there) decompose the same plane: travel-only keeps
+    the grade and zeroes the cross-slope, cross-only the reverse, the *-flipped arms
+    negate the cross-slope, and the two bucket-shuffled arms permute within the pano's
+    own |grade| bucket (GRADE_BUCKETS) so the control's magnitude matches the arm's in
+    every bucket.
+
+    Example:
+        >>> m = {'a': dict(zip(('n_f', 'n_r', 'n_u'), normal_from_slopes(3.0, -1.0)))}
+        >>> [round(v, 9) for v in slopes(*arm_normals(m)['travel-only']['a'])]
+        [3.0, 0.0]
+    """
     pids = sorted(meas)
     real = {pid: (meas[pid]['n_f'], meas[pid]['n_r'], meas[pid]['n_u']) for pid in pids}
     values = [real[p] for p in pids]
@@ -663,8 +717,44 @@ def arm_normals(meas, seed=SHUFFLE_SEED):
     rig = {pid: rig_attitude_normal(meas[pid]['meta_pitch_deg'], meas[pid]['meta_roll_deg'])
            for pid in pids if meas[pid].get('meta_pitch_deg') is not None
            and meas[pid].get('meta_roll_deg') is not None}
+    gc = {pid: slopes(*real[pid]) for pid in pids}
+    grades = [gc[p][0] for p in pids]
+    shuffled_grades = list(grades)
+    random.Random(seed).shuffle(shuffled_grades)
+
+    def bucket(pid):
+        return grade_bucket(abs(gc[pid][0]))
+
+    bucket_grades = _bucket_shuffle(pids, grades, bucket, seed)
+    bucket_normals = _bucket_shuffle(pids, [real[p] for p in pids], bucket, seed)
     return {'ground-normal': real, 'shuffled-normal': dict(zip(pids, values)),
-            EXPLORATORY_ARM: rig}
+            EXPLORATORY_ARM: rig,
+            TRAVEL_ARM: {p: normal_from_slopes(gc[p][0], 0.0) for p in pids},
+            'travel-shuffled': {p: normal_from_slopes(g, 0.0)
+                                for p, g in zip(pids, shuffled_grades)},
+            'travel-bucket-shuffled': {p: normal_from_slopes(g, 0.0)
+                                       for p, g in zip(pids, bucket_grades)},
+            'bucket-shuffled-normal': dict(zip(pids, bucket_normals)),
+            'cross-flipped': {p: (f, -r, u) for p, (f, r, u) in real.items()},
+            'cross-only': {p: normal_from_slopes(0.0, gc[p][1]) for p in pids},
+            'cross-only-flipped': {p: normal_from_slopes(0.0, -gc[p][1]) for p in pids}}
+
+
+def pair_side(xa, xb):
+    """'left' / 'right' when both detections sit on that side of their camera's heading
+    (x_normalized < 0.5 is left), else 'mixed'. A cross-slope correction moves a left
+    and a right detection in opposite senses, so its sign is read per side.
+
+    Example:
+        >>> pair_side(0.2, 0.4), pair_side(0.7, 0.9), pair_side(0.2, 0.9)
+        ('left', 'right', 'mixed')
+    """
+    a, b = xa < 0.5, xb < 0.5
+    if a and b:
+        return 'left'
+    if not a and not b:
+        return 'right'
+    return 'mixed'
 
 
 def arm_fields(p, normals, arm):
@@ -716,7 +806,13 @@ def cmd_ablation(args):
     Pairs are bucketed by the pair's larger |along-travel grade| (the plan's buckets),
     by the TRUE grade in every arm -- so the shuffled control is scored on the same pairs,
     bucketed by how steep they really are. A pair enters the buckets only if both panos
-    carry a measured plane; the overall rows include every pair."""
+    carry a measured plane; the overall rows include every pair.
+
+    Two more site-set pairs: `*_4arm` adds the rig-attitude arm, `*_review` every arm in
+    ABLATION_ARMS. Each set is the intersection over its own arms, so adding an arm never
+    moves a row of a smaller set. Every row also carries the detection-side split
+    (pair_side; both-measured pairs, and those whose steeper |cross-slope| is >=
+    CROSS_SPLIT_DEG), which is how the cross-slope sign is read."""
     params = benchmark_params()
     all_rows = []
     for city in args.cities:
@@ -728,6 +824,7 @@ def cmd_ablation(args):
         groups = [g for g in groups if len(g) >= 2]
         by_id = {p.pano_id: p for p in panos}
         grade = {pid: abs(r['grade_deg']) for pid, r in meas.items()}
+        cross = {pid: abs(r['cross_deg']) for pid, r in meas.items()}
         tilt = {pid: r['tilt_deg'] for pid, r in meas.items()}
         welldet = {pid for pid, r in meas.items() if r['pixel_share'] >= WELL_DETERMINED_SHARE}
 
@@ -741,7 +838,7 @@ def cmd_ablation(args):
         placed = {}   # (arm, pano, det) -> GroundEstimate or None
         for g in groups:
             for d in g:
-                for arm in ALL_ARMS:
+                for arm in ABLATION_ARMS:
                     placed[(arm, d.pano_id, d.det_index)] = place(d, arm)
 
         def ok(g, cap, arms):
@@ -751,7 +848,9 @@ def cmd_ablation(args):
 
         sets = {'uncapped': (math.inf, ARMS), 'capped': (geo.DEFAULT_MAX_RANGE_M, ARMS),
                 'uncapped_4arm': (math.inf, ALL_ARMS),
-                'capped_4arm': (geo.DEFAULT_MAX_RANGE_M, ALL_ARMS)}
+                'capped_4arm': (geo.DEFAULT_MAX_RANGE_M, ALL_ARMS),
+                'uncapped_review': (math.inf, ABLATION_ARMS),
+                'capped_review': (geo.DEFAULT_MAX_RANGE_M, ABLATION_ARMS)}
         for set_name, (cap, arms) in sets.items():
             gs = [g for g in groups if ok(g, cap, arms)]
             print(f'{city}: {set_name}: {len(gs):,} of {len(groups):,} multi-member sites '
@@ -759,14 +858,16 @@ def cmd_ablation(args):
             for arm in arms:
                 dists, norm, both_meas, wd, wd_steep = [], [], [], [], []
                 by_grade, by_tilt = defaultdict(list), defaultdict(list)
+                by_side, by_side_cross = defaultdict(list), defaultdict(list)
                 for g in gs:
                     pts = []
                     for d in g:
                         est = placed[(arm, d.pano_id, d.det_index)]
-                        pts.append((frame.to_enu(est.lat, est.lng), est.range_m, d.pano_id))
+                        pts.append((frame.to_enu(est.lat, est.lng), est.range_m, d.pano_id,
+                                    d.x))
                     for i in range(len(pts)):
                         for j in range(i + 1, len(pts)):
-                            (a, ra, pa), (b, rb, pb) = pts[i], pts[j]
+                            (a, ra, pa, xa), (b, rb, pb, xb) = pts[i], pts[j]
                             dd = math.hypot(a[0] - b[0], a[1] - b[1])
                             dists.append(dd)
                             norm.append(dd / (0.5 * (ra + rb)))
@@ -778,6 +879,10 @@ def cmd_ablation(args):
                                 both_meas.append(dd)
                                 by_grade[grade_bucket(max(grade[pa], grade[pb]))].append(dd)
                                 by_tilt[grade_bucket(max(tilt[pa], tilt[pb]))].append(dd)
+                                side = pair_side(xa, xb)
+                                by_side[side].append(dd)
+                                if max(cross[pa], cross[pb]) >= CROSS_SPLIT_DEG:
+                                    by_side_cross[side].append(dd)
                 row = {'city': city, 'site_set': set_name, 'arm': arm, 'n_sites': len(gs),
                        'n_sites_before_intersection': len(groups), 'n_pairs': len(dists),
                        'median_pair_m': mt.pct(dists, .5),
@@ -797,13 +902,21 @@ def cmd_ablation(args):
                     row[f'n_pairs_grade_{b}'] = len(by_grade[b])
                     row[f'median_pair_m_tilt_{b}'] = mt.pct(by_tilt[b], .5)
                     row[f'n_pairs_tilt_{b}'] = len(by_tilt[b])
+                cs = f'cross_{CROSS_SPLIT_DEG:g}+'
+                for sd in SIDES:
+                    row[f'median_pair_m_side_{sd}'] = mt.pct(by_side[sd], .5)
+                    row[f'n_pairs_side_{sd}'] = len(by_side[sd])
+                    row[f'median_pair_m_side_{sd}_{cs}'] = mt.pct(by_side_cross[sd], .5)
+                    row[f'n_pairs_side_{sd}_{cs}'] = len(by_side_cross[sd])
                 all_rows.append(row)
-                print(f"{city:>11} {set_name:>8} {arm:>15}  median {row['median_pair_m']:.3f}  "
+                print(f"{city:>11} {set_name:>8} {arm:>22}  median {row['median_pair_m']:.3f}  "
                       f"mean {row['mean_pair_m']:.3f}  p90 {row['p90_pair_m']:.3f}  norm "
                       f"{row['mean_pair_over_range']:.4f}  pairs {len(dists):,}  | by grade "
                       + '  '.join(f"{b}: {row[f'median_pair_m_grade_{b}'] or float('nan'):.2f}"
-                                  f" ({row[f'n_pairs_grade_{b}']:,})" for b in GRADE_LABELS),
-                      flush=True)
+                                  f" ({row[f'n_pairs_grade_{b}']:,})" for b in GRADE_LABELS)
+                      + '  | by side ' + '  '.join(
+                          f"{sd}: {row[f'median_pair_m_side_{sd}'] or float('nan'):.2f}"
+                          for sd in SIDES), flush=True)
     mt.write_csv(summary_dir(args.out_root) / 'ablation.csv', all_rows)
 
 
@@ -824,7 +937,7 @@ def cmd_eval(args):
         normals = arm_normals(meas)
         verdict_panos, bundle_ops = mt.load_gt_files(city, args.benchmark_root)
         panos, _ = fs.load_results(args.run_root / city / 'results.jsonl', read_heights=False)
-        for arm in ALL_ARMS:
+        for arm in EVAL_ARMS:
             ps_ = arm_panos(panos, normals, arm)
             params = benchmark_params(apply_pose=arm != 'off')
             prefused = fs.fuse(ps_, params)
@@ -848,7 +961,7 @@ def cmd_eval(args):
                    'match_dist_p50': mt.pct(dists, .5), 'match_dist_p90': mt.pct(dists, .9),
                    'n_matched': len(dists)}
             rows.append(row)
-            print(f"{city:>11} {arm:>15}  R5 {row['world_recall_5m']:.3f}  R2.5 "
+            print(f"{city:>11} {arm:>22}  R5 {row['world_recall_5m']:.3f}  R2.5 "
                   f"{row['world_recall_2p5m']:.3f}  P {row['precision_5m']:.3f}  GT->site "
                   f"p50/p90 {row['match_dist_p50']:.2f}/{row['match_dist_p90']:.2f} m  pool "
                   f"{row['pool_ramps']}  unplaceable {counts['unplaceable']}  sites "
@@ -1086,10 +1199,11 @@ def cmd_figures(args):
         w = 0.8 / len(cities)
         for k, city in enumerate(cities):
             rs = {r['arm']: r for r in ev if r['city'] == city}
-            ax.bar(np.arange(len(ALL_ARMS)) + (k - len(cities) / 2 + .5) * w,
-                   [rs[a][key] for a in ALL_ARMS], w, color=colors[city], label=city)
-        ax.set_xticks(np.arange(len(ALL_ARMS)))
-        ax.set_xticklabels(ALL_ARMS, fontsize=7, rotation=15, ha='right')
+            arms = [a for a in EVAL_ARMS if a in rs]
+            ax.bar(np.arange(len(arms)) + (k - len(cities) / 2 + .5) * w,
+                   [rs[a][key] for a in arms], w, color=colors[city], label=city)
+        ax.set_xticks(np.arange(len(arms)))
+        ax.set_xticklabels(arms, fontsize=7, rotation=20, ha='right')
         ax.set_title(title, fontsize=9)
         ax.grid(alpha=.3, axis='y')
     axes[0].set_ylim(0.6, 1.0)
@@ -1157,6 +1271,58 @@ def cmd_figures(args):
                  fontsize=9)
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'fig6_frame_check.png', dpi=150)
+
+    # Fig 7: the review arms -- travel-only against its two controls by grade bucket, and
+    # the cross-slope sign by detection side
+    rv = [r for r in abl if r['site_set'] == 'uncapped_review']
+    if rv:
+        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+        ax = axes[0]
+        for city in cities:
+            rs = {r['arm']: r for r in rv if r['city'] == city}
+            for arm, ls, mk in ((TRAVEL_ARM, '-', 'o'), ('travel-shuffled', '--', 's'),
+                                ('travel-bucket-shuffled', ':', '^')):
+                vals = []
+                for b in GRADE_LABELS:
+                    o, a = rs['off'][f'median_pair_m_grade_{b}'], rs[arm][f'median_pair_m_grade_{b}']
+                    n = rs['off'][f'n_pairs_grade_{b}'] or 0
+                    vals.append(np.nan if (not o or a is None or n < MIN_BUCKET_PAIRS) else a / o)
+                ax.plot(range(len(GRADE_LABELS)), vals, ls=ls, marker=mk, color=colors[city],
+                        label=city if arm == TRAVEL_ARM else None)
+        ax.axhline(1.0, color='k', lw=.8)
+        ax.set_xticks(range(len(GRADE_LABELS)))
+        ax.set_xticklabels([f'{b}°' for b in GRADE_LABELS])
+        ax.set_xlabel("pair's larger |along-travel grade|")
+        ax.set_ylabel('median within-site pair distance, relative to off')
+        ax.set_title('solid = travel-only, dashed = city-wide grade shuffle,\n'
+                     'dotted = magnitude-matched (within-bucket) shuffle', fontsize=9)
+        ax.grid(alpha=.3)
+        ax.legend(fontsize=7)
+        ax = axes[1]
+        cs = f'cross_{CROSS_SPLIT_DEG:g}+'
+        w = 0.8 / len(cities)
+        labels = []
+        for j, (sd, arm) in enumerate([(sd, arm) for sd in ('left', 'right')
+                                       for arm in ('cross-only', 'cross-only-flipped')]):
+            labels.append(f"{sd}\n{'measured' if arm == 'cross-only' else 'flipped'}")
+            for k, city in enumerate(cities):
+                rs = {r['arm']: r for r in rv if r['city'] == city}
+                o = rs['off'][f'median_pair_m_side_{sd}_{cs}']
+                a = rs[arm][f'median_pair_m_side_{sd}_{cs}']
+                ax.bar(j + (k - len(cities) / 2 + .5) * w, a / o if o and a else np.nan, w,
+                       color=colors[city], label=city if j == 0 else None)
+        ax.axhline(1.0, color='k', lw=.8)
+        ax.set_xticks(range(len(labels)))
+        ax.set_xticklabels(labels, fontsize=8)
+        ax.set_ylabel('median pair distance, relative to off')
+        ax.set_title(f'cross-slope only, measured vs flipped sign, by detection side\n'
+                     f'(both detections on that side; steeper |cross| >= {CROSS_SPLIT_DEG:g}°)',
+                     fontsize=9)
+        ax.grid(alpha=.3, axis='y')
+        fig.suptitle('Review arms (uncapped_review site set; exploratory, outside the '
+                     'pre-registered reading)', fontsize=10)
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / 'fig7_review_arms.png', dpi=150)
     print('wrote figures to', FIG_DIR)
 
 

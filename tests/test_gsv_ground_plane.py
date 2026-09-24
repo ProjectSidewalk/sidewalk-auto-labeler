@@ -159,3 +159,95 @@ def test_a_thin_top_bucket_is_not_testable():
         for b in gp.TOP_BUCKETS:
             r[f'n_pairs_grade_{b}'] = gp.MIN_BUCKET_PAIRS - 1
     assert gp.bucket_win(abl, 'a', 'ground-normal') is None
+
+
+def _meas(n=40):
+    """Measured-plane rows spanning every grade bucket, both grade signs, both cross signs."""
+    out = {}
+    for i in range(n):
+        g = (-1) ** i * (i * 0.15)          # 0 .. ~5.9 deg, alternating sign
+        c = (-1) ** (i // 2) * (0.2 + (i % 7) * 0.4)
+        out[f'p{i:02d}'] = dict(zip(('n_f', 'n_r', 'n_u'), gp.normal_from_slopes(g, c)))
+    return out
+
+
+def _gc(n):
+    g, c = gp.slopes(*n)
+    return round(g, 9), round(c, 9)
+
+
+def test_review_arms_decompose_the_observed_plane():
+    # travel-only is #50's correction on GSV: the grade kept, the cross-slope zeroed.
+    # cross-only is the reverse, and the flipped arms negate only the cross-slope.
+    meas = _meas()
+    arms = gp.arm_normals(meas)
+    for pid in meas:
+        g, c = _gc(arms['ground-normal'][pid])
+        assert _gc(arms['travel-only'][pid]) == (g, 0.0)
+        assert _gc(arms['cross-only'][pid]) == (0.0, c)
+        assert _gc(arms['cross-only-flipped'][pid]) == (0.0, -c)
+        assert _gc(arms['cross-flipped'][pid]) == (g, -c)
+
+
+def test_travel_shuffled_is_a_permutation_of_the_grades_with_no_cross():
+    arms = gp.arm_normals(_meas())
+    real = sorted(_gc(n)[0] for n in arms['ground-normal'].values())
+    for arm in ('travel-shuffled', 'travel-bucket-shuffled'):
+        gcs = [_gc(n) for n in arms[arm].values()]
+        assert sorted(g for g, _ in gcs) == real
+        assert all(c == 0.0 for _, c in gcs)
+    assert arms['travel-shuffled'] != arms['travel-only']
+
+
+@pytest.mark.parametrize('arm,real_arm', [('travel-bucket-shuffled', 'travel-only'),
+                                          ('bucket-shuffled-normal', 'ground-normal')])
+def test_bucket_shuffles_are_magnitude_matched(arm, real_arm):
+    # The magnitude-matched control: every pano gets a grade from its OWN |grade| bucket,
+    # so in the 4+ deg bucket the control applies >= 4 deg too -- unlike the city-wide
+    # shuffle, which hands a steep pano a typical (~1 deg) correction.
+    arms = gp.arm_normals(_meas())
+    moved = 0
+    for pid, n in arms[arm].items():
+        own = arms[real_arm][pid]
+        assert gp.grade_bucket(abs(_gc(n)[0])) == gp.grade_bucket(abs(_gc(own)[0]))
+        moved += n != own
+    assert moved > len(arms[arm]) // 2       # a real permutation, not the identity
+    assert sorted(arms[arm].values()) == sorted(arms[real_arm].values())
+    assert gp.arm_normals(_meas())[arm] == arms[arm]      # fixed seed
+
+
+def test_existing_arms_are_unchanged_by_the_review_arms():
+    # The pre-registered shuffle must draw the same permutation it always did, or the
+    # committed three-arm rows would stop reproducing.
+    meas = _meas()
+    pids = sorted(meas)
+    values = [(meas[p]['n_f'], meas[p]['n_r'], meas[p]['n_u']) for p in pids]
+    import random
+    random.Random(gp.SHUFFLE_SEED).shuffle(values)
+    assert gp.arm_normals(meas)['shuffled-normal'] == dict(zip(pids, values))
+
+
+def test_pair_side_reads_x_against_the_heading():
+    # x_normalized < 0.5 is left of the heading (azimuth (x - 0.5) * 360 < 0)
+    assert gp.pair_side(0.1, 0.49) == 'left'
+    assert gp.pair_side(0.5, 0.99) == 'right'
+    assert gp.pair_side(0.3, 0.7) == 'mixed'
+    assert gp.pair_side(0.7, 0.3) == 'mixed'
+
+
+def test_a_flipped_cross_slope_mirrors_left_and_right_placements():
+    # The side split only reads the cross-slope sign if flipping it swaps what happens
+    # on the two sides: a detection on the left under +c lands where its mirror image on
+    # the right lands under -c (same range), and the plane rising to the right shortens
+    # right-side ranges.
+    base = {'lat': 40.0, 'lng': -74.0, 'camera_heading': 0.0, 'source': 'launch'}
+    up_right = gp.normal_from_slopes(0.0, 3.0)
+    up_left = gp.normal_from_slopes(0.0, -3.0)
+    pose_r = geo.pano_pose({**base, **gp.ground_frame_fields(40.0, -74.0, 0.0, up_right)})
+    pose_l = geo.pano_pose({**base, **gp.ground_frame_fields(40.0, -74.0, 0.0, up_left)})
+    for x, y in ((0.25, 0.6), (0.35, 0.7)):
+        left_r = geo.detection_ground_point(pose_r, x, y, max_range_m=math.inf)
+        right_r = geo.detection_ground_point(pose_r, 1 - x, y, max_range_m=math.inf)
+        right_l = geo.detection_ground_point(pose_l, 1 - x, y, max_range_m=math.inf)
+        assert right_r.range_m < left_r.range_m
+        assert right_l.range_m == pytest.approx(left_r.range_m, rel=1e-9)
