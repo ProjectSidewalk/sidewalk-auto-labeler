@@ -186,25 +186,32 @@ python scripts/mapillary_tilt.py pose <mapillary_id> --run richmond
 # POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
 # remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no
 # internet egress) and send_to_ps.py REFUSES a Mapillary file whose position_check.json is
-# missing, stale (results_sha256 mismatch) or flagged (--ignore-position-check overrides).
-# The manual commands below are for re-checks and for confirming a reposition output. Scores
-# every pano's position against OSM street centerlines (one cached Overpass query, no GPU,
-# no imagery, no second source needed). Mapillary serves two positions per image and the
-# run submits one of them (--mapillary-position, default sfm = computed_geometry); SfM
-# sequences can sit 8-10 m off the street as a block while raw GPS (geometry) does not, and
-# every label inherits its pano's error 1:1. Exit 1 = some sequence is off the street on the
-# submitted field (>3 m median signed offset, or most of it beyond 30 m of any street) AND
-# the other field moves it >= 2 m closer — a swap forces a new submission campaign, so it has
-# to buy something. The submitted field is judged per sequence from the coordinates, so a
-# mixed (repositioned) file is checked correctly. Writes position_check.json + (--report) a
-# self-contained position_report.html, both git-tracked beside manifest.json. A partial
-# Overpass answer (HTTP 200 + `remark`) is refused and never cached.
+# missing, stale (results_sha256 mismatch, or written under another verdict `rule`) or
+# flagged (--ignore-position-check overrides). The manual commands below are for re-checks
+# and for confirming a reposition output. Scores every pano's position against OSM street
+# centerlines (one cached Overpass query, no GPU, no imagery, no second source needed).
+# Mapillary serves two positions per image and the run submits one of them
+# (--mapillary-position, default sfm = computed_geometry, a whole-run per-city choice — there
+# is deliberately no per-sequence `auto`); SfM sequences can sit 8-10 m off the street as a
+# block, and every label inherits its pano's error 1:1. The metric FLOORS near 1.75 m (the
+# Laurens GSV control), so it gates only GROSS drift (issue #62): exit 1 = some sequence's
+# submitted field sits > 5 m from the street (median unsigned cross-track, or most of it
+# beyond 30 m of any street) AND the other field is closer PANO BY PANO on the same street by
+# > 2 m (the paired metric) without being > 1.5x as scattered (IQR). Fields differing by
+# <= 2 m are reported `undecidable` and never gate. The submitted field is judged per sequence
+# from the coordinates, so a mixed (repositioned) file is checked correctly. Writes
+# position_check.json + (--report) a self-contained position_report.html, both git-tracked
+# beside manifest.json. A partial Overpass answer (HTTP 200 + `remark`) is refused and never
+# cached.
 python scripts/position_check.py runs/laurens --report
 python scripts/position_check.py runs/laurens --report --labels <ps_v3_rawLabels.geojson> \
     --reference runs/laurens_gsv     # optional: the server's own placements; a second run over
                                      # the same area as an independent layer (Laurens only)
 # ...then fix a flagged run WITHOUT re-detecting: rewrite the flagged sequences' pano lat/lng
-# from the recommended field into a new file (new hash -> fresh submission campaign).
+# from the recommended field into a new file (new hash -> fresh submission campaign). A file
+# whose .submission.json records live lines is REFUSED (so is sending the output where
+# another campaign already put those panos): PS upserts the pano row, so moving panos moves
+# their live labels — a whole-city decision, overridden only with --reposition-live-city.
 python scripts/reposition.py runs/laurens/results.jsonl --from-check
 python scripts/reposition.py runs/laurens/results.jsonl --field raw   # whole file, one field
 # ...and confirm the output IN PLACE — never swap it into results.jsonl (main.py's field
@@ -478,12 +485,31 @@ measured by the #42 study — scripts/mapillary_tilt.py — but not yet wired in
 SidewalkWebpage#5361. Stdlib-only like `geo.py`. Every pano's submitted position is scored
 against OpenStreetMap street centerlines (one Overpass query, cached beside the run in
 `osm_streets.json`; a partial answer — HTTP 200 + `remark` — is refused and never cached).
-For Mapillary runs both positions are scored and each sequence gets a verdict: **flagged**
-when the median signed offset on the submitted field exceeds 3 m (or most of the sequence
-is beyond 30 m of any street) AND the other field moves it ≥ 2 m closer; **both_off** when
-it is off but a switch would not buy that (wide one-way streets driven once). The submitted
-field is voted per sequence from the coordinates, so a mixed reposition output is judged
-correctly. It is wired into both stages: `main.py` ends every run with
+The metric is real but coarse: a camera is legitimately metres from a centerline, so it
+floors near 1.75 m (Laurens: GSV 1.75 m vs Mapillary SfM 3.73 m / raw 2.59 m against the
+same streets), and it gates only gross block drift (issue #62, rescoped 2026-09-22). For
+Mapillary runs both positions are scored and each sequence gets a verdict on the field it
+submitted: **off the street** when that field's median unsigned cross-track exceeds
+`GROSS_OFF_STREET_M` = 5 m (or most of the sequence is beyond 30 m of any street);
+**flagged** when it is off AND the other field is closer by > `RESOLUTION_FLOOR_M` = 2 m on
+the **paired metric** — median over panos where both fields snap to the same street of
+`cross_sfm − cross_raw`, where lane offset and OSM error cancel — without being more than
+`MAX_IQR_RATIO` = 1.5× as scattered; **both_off** when off but not fixable (reported, never
+gated); **undecidable** when the fields differ by ≤ 2 m (the reference cannot see it,
+whichever sign it has). The #60 signed bias stays in each row as a report only: a lane
+offset cancels in it, which is how Richmond's `jKtaJMek7wQl5AOH28qdcm` was flagged toward a
+raw field 3.3 m *worse* per pano. The 5 m bar was chosen from a 4/5/6 m table over every
+Mapillary run (in the #62 PR); the check records its verdict `rule`, and a check from
+another rule is stale to the gate and re-run by main.py. The submitted field is voted per
+sequence from the coordinates, so a mixed reposition output is judged correctly. **Frame
+consistency:** repositioning a city that already carries live labels is a whole-city
+decision, never a per-file one — PS upserts the pano row, so it moves every live label on
+the moved panos. `reposition.py` refuses an input whose `.submission.json` records live
+lines (and never overwrites a file that has its own record); `send_to_ps.py`'s
+`check_live_positions` refuses a file whose panos sit at other coordinates than the same
+panos in another campaign live on that endpoint (skipped once the file's own campaign is
+live there). `--reposition-live-city` overrides both, and the reason lands in the
+submission record; the check and report print the live campaigns beside the verdict. It is wired into both stages: `main.py` ends every run with
 `position_check.run_check` (non-fatal; the verdict summary lands in `manifest.json` under
 `position_check`, the full `position_check.json` + `position_report.html` beside
 `results.jsonl` and are git-tracked), and `send_to_ps.py`'s `check_position_state` refuses a
@@ -492,8 +518,8 @@ Mapillary file whose check is missing, stale (`results_sha256` ≠ the file) or 
 flagged sequences' pano lat/lng from the other field into a new file (a *submission
 artifact*, never swapped into `results.jsonl`: the run-dir field binding cannot see inside
 the file), which is confirmed with `--results` and submitted from where it is. What it
-cannot catch: a bias both fields share, drift under 3 m, and anything on a source with one
-position (GSV/Panoramax are scored for the record but never gated).
+cannot catch: a bias both fields share, anything under the ~2 m floor, and anything on a
+source with one position (GSV/Panoramax are scored for the record but never gated).
 
 **Stage 2 — submission (`send_to_ps.py`)**
 Reads the Stage-1 JSONL and POSTs each record to a Project Sidewalk endpoint

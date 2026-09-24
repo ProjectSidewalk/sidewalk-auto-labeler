@@ -495,7 +495,12 @@ against `results.band.jsonl` before the band will go. A band inherits the pano p
 base campaign already shipped, so if that check flags sequences the base campaign also shipped
 under, `--ignore-position-check` is the honest answer — repositioning is a separate decision
 covering *all* of the city's labels, and it needs the live ones retired first
-(SidewalkWebpage#5382).
+(SidewalkWebpage#5382). The tools enforce that (issue #62): `scripts/reposition.py` refuses a
+file whose `.submission.json` records live lines, and `send_to_ps.py` refuses a file whose
+panos sit at other coordinates than the same panos already live on that endpoint, both
+unless given `--reposition-live-city`. Note the check itself only gates *gross* drift (a
+submitted field > 5 m from the street with the other field > 2 m closer per pano);
+differences under ~2 m are reported as undecidable and are not a reason to reposition.
 
 ---
 
