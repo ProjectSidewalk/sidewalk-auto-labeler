@@ -141,6 +141,9 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 # With ../RampNet/benchmark/<city> present it also adjudicates the disagreements against
 # RampNet GT. --run-dir reads the run in place (read-only); outputs always go to THIS
 # checkout's runs/<city>/agree_rate/. report.md + CSVs are git-tracked, the geojson not.
+# Quote the pano headline WITH its matcher: one-to-one moves it ~6 pts vs any-detection
+# (both are printed, plus the "shadowed" count). The per-pano ablation needs the untracked
+# depth/index.csv beside results.jsonl; the report prints how many panos had a height.
 python scripts/agree_rate.py gainesville --server https://sidewalk-gainesville.cs.washington.edu
 
 # Precision of positives mined from multi-view consensus (RampNet#158 step 1 /

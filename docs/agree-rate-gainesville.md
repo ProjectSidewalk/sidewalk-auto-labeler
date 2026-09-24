@@ -1,7 +1,14 @@
 # How often do RampNet and the crowd agree on Gainesville's curb ramps?
 
 **Status:** measured 2026-09-24 against a frozen snapshot of the crowd labels; nothing was
-submitted to the server. This is goal 2 of
+submitted to the server. Revised the same day after review: the reading of the AI → crowd
+gap was overstated and is corrected below, and the one-to-one matcher's effect on the
+headline is now reported beside it.
+
+**One caveat up front:** the "crowd" here is effectively one auditor. One account made 4,247
+of the 4,498 CurbRamp labels in the pull. Every crowd figure below is therefore closer to
+"AI vs one careful labeller" than to "AI vs a crowd", and none of it says how much labellers
+disagree with each other. This is goal 2 of
 [issue #31](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/31). The plan it
 follows is the most recent plan comment on that issue. The tool is `scripts/agree_rate.py`,
 and the full numbers are in `runs/gainesville/agree_rate/report.md` and its CSVs.
@@ -33,7 +40,16 @@ All three are from `https://sidewalk-gainesville.cs.washington.edu`. The geojson
 not committed; their hashes above identify them.
 
 **Run:** `results.jsonl` sha256 `9f4a57f3…ab857e8`, 37,435 panos. That is the 35,204 from the
-main pass plus 2,231 from the 2026-09-21 gap-fill.
+main pass plus 2,231 from the 2026-09-21 gap-fill. 114 of the in-scope crowd labels sit on 55
+of the gap-fill panos, which the tile scan never returned. The first version of the script
+found the gap-fill records by comparing a raw line index with a unique-pano count. This file
+has no blank or repeated lines, so the two coincide and the 114 stands (it was re-checked
+independently); the code now counts records on both sides.
+
+**Per-pano heights:** 30,458 of the 37,435 panos have a measured camera height; the other
+6,977 use the 2.6 m default. Most of these heights come from `runs/gainesville/depth/index.csv`,
+a local artifact that is not in git. Without it the per-pano rows fall back to the default for
+most panos, so the script now warns when the file is missing and the report prints the count.
 
 ## Scope
 
@@ -68,6 +84,11 @@ Two frames, reported side by side:
     p90 is within ±2.7°.
   - Its limit is coverage: **66.3% (2,952 / 4,454)** of in-scope crowd labels are on a pano
     the run processed.
+  - The one-to-one constraint is a choice, and it moves the headline by 6 points. Where two
+    crowd marks sit under one AI peak, only one of them can agree. The report therefore also
+    gives the **any-detection** rate (a crowd label agrees when any operational detection on
+    its pano is within the radius) and the count of **shadowed** labels (a detection is
+    within the radius, but another crowd mark on the same pano claimed it).
 - **World frame (a bound).** Every crowd label is placed where PS placed it (the feed's
   lat/lng, from the viewer's estimator,
   [SidewalkWebpage#4766](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/4766)). It
@@ -105,12 +126,23 @@ panos.
 | 3 partial | 0.789 (90/114) [0.706, 0.854] | 0.702 (80/114) [0.612, 0.778] |
 | all 40 | **0.728** (2,148/2,952) [0.711, 0.743] | 0.608 (1,794/2,952) [0.590, 0.625] |
 
-| radius (x-units) | degrees | operational 0.30 | benchmark 0.55 |
-|---:|---:|---|---|
-| 0.011 | 4.0 | 0.643 | 0.547 |
-| **0.022** | 7.9 | **0.728** | 0.608 |
-| 0.033 | 11.9 | 0.752 | 0.624 |
-| 0.05 | 18.0 | 0.770 | 0.637 |
+The same labels without the one-to-one constraint (all 40 regions, radius 0.022):
+
+| tier | one-to-one | any detection | shadowed |
+|---|---|---|---:|
+| 0.30 | **0.728** (2,148/2,952) | 0.788 (2,325/2,952) [0.772, 0.802] | 177 |
+| 0.55 | 0.608 (1,794/2,952) | 0.655 (1,934/2,952) [0.638, 0.672] | 140 |
+
+| radius (x-units) | degrees | operational 0.30 | 0.30, any detection | benchmark 0.55 |
+|---:|---:|---|---|---|
+| 0.011 | 4.0 | 0.643 | 0.692 | 0.547 |
+| **0.022** | 7.9 | **0.728** | 0.788 | 0.608 |
+| 0.033 | 11.9 | 0.752 | 0.814 | 0.624 |
+| 0.05 | 18.0 | 0.770 | 0.834 | 0.637 |
+
+So at 0.30 the pano-frame crowd → AI rate is 0.728 one-to-one, 0.788 with any detection, and
+0.643–0.770 across the radius sweep. The matcher and the radius each move it by a few points,
+so quote the headline with its matcher and radius.
 
 **By validation** (pano frame, 0.30):
 
@@ -173,6 +205,11 @@ Denominator: operational fused sites that fall in a fully audited region.
 | 0.55 | 2.6 m | 0.516 (2,985/5,788) | 0.614 | 0.005 |
 | 0.55 | per-pano | 0.616 (2,922/4,744) | 0.680 | 0.005 |
 
+The per-pano rows look better mostly because the denominator shrinks. At 0.30, per-pano
+heights leave 7,168 sites in the full regions instead of 8,264 (−1,096), while the matched
+sites barely move (3,252 instead of 3,298, −46). So the rise from 0.399 to 0.454 is mostly
+fewer unmatched sites, not more agreement.
+
 Where the unlabelled 0.30 sites sit, by the distance to the nearest crowd CurbRamp label:
 
 | nearest crowd label | sites | seen from ≥ 2 panos | has a member ≥ 0.55 |
@@ -183,9 +220,10 @@ Where the unlabelled 0.30 sites sit, by the distance to the nearest crowd CurbRa
 | 10–20 m | 705 | 0.330 | 0.423 |
 | none within 20 m | 1,878 | 0.332 | 0.454 |
 
-Only 42 AI sites sit on a crowd NoCurbRamp label, so explicit disagreement is rare. Most of the
-AI → crowd gap is **AI sites where the crowd put nothing at all**. Some of it is AI
-fragmentation: 869 sites lost a crowd label to a neighbouring site.
+Only 42 AI sites sit on a crowd NoCurbRamp label, so explicit disagreement is rare. Of the
+4,966 unmatched sites, 869 (18%) are fragmentation: a crowd label within 5 m went to a
+neighbouring site. Another 2,219 (45%) have a crowd label 5–20 m away, which is placement
+error or a second ramp at the same corner. Only 1,878 (38%) have no crowd label within 20 m.
 
 ### Who is right when they disagree (RampNet GT)
 
@@ -199,10 +237,20 @@ favours the AI. Read the crowd figures as lower bounds.
   (180/195) [0.877, 0.953].
   - Split: both 138, crowd only 8, AI only 42, neither 7.
 - **Precision of AI sites:** 0.992 (118/119) where a crowd label is within 5 m, and **0.837**
-  (36/43) [0.700, 0.919] where there is none.
+  (36/43) [0.700, 0.919] where there is none. Both are measured on **0.55-tier** sites, the
+  tier the bundle was judged at. The AI → crowd gap discussed above is at 0.30, and the
+  precision of the sites the 0.30 tier adds is **not measured**.
 
-So the AI → crowd rate should not be read as AI precision. Most AI sites the crowd did not
-label are real ramps the crowd skipped.
+How much of the 0.30 gap can crowd omissions explain? If the crowd's 4,253 full-region labels
+cover 0.749 of the real ramps, the regions hold about 4,253 / 0.749 ≈ 5,680 ramps, so about
+**1,430 were skipped** (1,030–1,970 over the recall's 95% CI). Each skipped ramp can account
+for at most one unmatched site, so skipped ramps explain **at most about 29%** of the 4,966
+unmatched sites (21–40%). The report computes these figures.
+
+So the AI → crowd rate should not be read as AI precision, and it should not be read as crowd
+recall either. A sizeable minority of the unmatched sites are real ramps the crowd skipped.
+The rest are fragmentation (869 sites), placement beyond 5 m (a crowd label 5–20 m away), and
+low-confidence single-view sites that nobody judged. Precision at 0.30 is unmeasured.
 
 ### Vintage: how much of the crowd → AI miss rate is imagery age
 
@@ -242,18 +290,26 @@ Two further observations:
 ## Reading it
 
 - **Headline:** on identical imagery, RampNet at the production tier marks **72.8%** of the
-  crowd's curb ramps (pano frame, 0.30, 0.022; 95% CI 71.1–74.3%). At the old 0.55 tier it
-  marks 60.8%. Coverage is 66% of the crowd's labels.
+  crowd's curb ramps (pano frame, 0.30, 0.022, one-to-one; 95% CI 71.1–74.3%). Without the
+  one-to-one constraint it is 78.8% (177 labels are shadowed by a neighbouring crowd mark),
+  and across the radius sweep it runs 64.3–77.0%. At the old 0.55 tier it marks 60.8%.
+  Coverage is 66% of the crowd's labels. The "crowd" is effectively one auditor (4,247 of
+  4,498 labels), so this is agreement with one labeller's judgement.
 - **Same image vs whole system:** counting other views, 79–82% of crowd labels have an AI site
   within 5 m. That is a bound, against an 8.5% chance floor.
 - **The other direction:** only 40% of the AI's operational sites (0.30) have a crowd label.
-  The RampNet GT says this is mostly the crowd leaving real ramps unlabelled (crowd coverage
-  of GT ramps is 0.75) plus some AI fragmentation. It is not mainly AI false positives: AI
-  sites with no crowd label are still 84% precise at 0.55.
+  Crowd recall against the RampNet GT is 0.75, which implies about 1,430 skipped ramps: at
+  most about 29% of the 4,966 unmatched sites. So a sizeable minority of the gap is real
+  ramps the crowd skipped. The rest is fragmentation (869 sites), placement beyond 5 m, and
+  low-confidence single-view sites nobody judged. AI sites with no crowd label are 84%
+  precise at **0.55**; precision at 0.30, the tier this gap is measured at, is unmeasured.
 - **Explicit disagreement** (an AI site on a crowd NoCurbRamp label) is 0.5%.
 
 ## Caveats
 
+- **The crowd is effectively one auditor.** One account made 4,247 of the 4,498 CurbRamp
+  labels. Agreement with the crowd here is agreement with that person's judgement, and
+  disagreement between labellers cannot be measured from this corpus.
 - **Crowd labels are not ground truth.** Only 263 carry a human verdict. The feed's `correct`
   field is dominated by PS's own AI validator.
 - **The world frame mixes geometry with detection.** The frame comparison above shows both
