@@ -284,6 +284,20 @@ def provenance_from_snapshot_dir(snapshot_dir, commit_hash=None, allow_unknown: 
     return provenance_for_revision(revision, allow_unknown=allow_unknown)
 
 
+def provenance_for_loaded_model(commit_hash, find_snapshot_file, allow_unknown: bool = False) -> dict:
+    """``provenance_from_snapshot_dir`` for a just-loaded model, reading the hub cache only
+    when ``commit_hash`` is not already a valid SHA.
+
+    ``find_snapshot_file`` is a zero-argument callable returning a path inside the cached
+    snapshot (or None); CurbRampDetector passes its hub-cache lookup, the tests a stub. The
+    gate is ``is_revision``, not truthiness: transformers can set ``_commit_hash`` to
+    something that is not a 40-hex SHA, and that must still fall back to the cache.
+    """
+    snapshot_file = None if is_revision(commit_hash) else find_snapshot_file()
+    return provenance_from_snapshot_dir(snapshot_file, commit_hash=commit_hash,
+                                        allow_unknown=allow_unknown)
+
+
 def load_with_offline_fallback(loader, repo_id: str = MODEL_REPO, **kwargs):
     """``loader(repo_id, **kwargs)``, retried once with ``local_files_only=True`` on OSError.
 

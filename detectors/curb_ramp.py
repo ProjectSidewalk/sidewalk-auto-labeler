@@ -7,7 +7,7 @@ from torchvision import transforms
 from skimage.feature import peak_local_max
 
 from detectors import (DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO, MODEL_REPO,
-                       load_with_offline_fallback, provenance_from_snapshot_dir)
+                       load_with_offline_fallback, provenance_for_loaded_model)
 
 
 def _cached_snapshot_file():
@@ -46,9 +46,8 @@ class CurbRampDetector:
         # transformers records the commit it resolved in config._commit_hash; the hub
         # cache's snapshots/<sha> directory is the fallback for a load that did not set it.
         commit_hash = getattr(model.config, '_commit_hash', None)
-        self.provenance = provenance_from_snapshot_dir(
-            None if commit_hash else _cached_snapshot_file(), commit_hash=commit_hash,
-            allow_unknown=allow_unknown_revision)
+        self.provenance = provenance_for_loaded_model(
+            commit_hash, _cached_snapshot_file, allow_unknown=allow_unknown_revision)
         self.model = model.to(self.DEVICE).eval()
 
     def detect(self, pil_image):

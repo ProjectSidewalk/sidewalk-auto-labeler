@@ -178,6 +178,24 @@ def test_provenance_from_snapshot_dir_resolves_the_cache_path(tmp_path):
         commit_hash=PAPER_MAIN)["model_revision"] == PAPER_MAIN
 
 
+def test_loaded_model_falls_back_to_the_cache_unless_the_commit_hash_is_a_sha(tmp_path):
+    """The detector's wiring: a valid _commit_hash skips the cache lookup; a missing OR
+    malformed one (truthy but not 40 hex) must still consult it."""
+    cached = _snapshot(tmp_path, PAPER_MAIN)
+    lookups = []
+
+    def find():
+        lookups.append(1)
+        return cached
+
+    assert detectors.provenance_for_loaded_model(PAPER_MAIN, find)["model_revision"] == PAPER_MAIN
+    assert lookups == []
+    for commit_hash in (None, "", "main", PAPER_MAIN[:12]):
+        prov = detectors.provenance_for_loaded_model(commit_hash, find)
+        assert prov["model_revision"] == PAPER_MAIN
+    assert len(lookups) == 4
+
+
 def test_model_id_keeps_the_prefix_consumers_match_on():
     model_id = detectors.model_id_for(PAPER_MAIN)
     assert model_id.startswith("rampnet-model") and model_id != "rampnet-model"
