@@ -368,8 +368,9 @@ GSV_ERRORS = ErrorModel()
 # Mapillary: consumer rigs, SfM positions with meters of scatter between sequences, and a
 # pose that is known (#42) but only road-relative-corrected to ~0.5-1.9 deg median (the
 # residual after subtracting a ~1-deg-noisy SfM grade), which is what sigma_pitch covers --
-# roughly right for the corrected raycast, far too small for a flat one (median tilt 3 deg),
-# which is why fusion rotates Mapillary rays by default (fuse_sites.AUTO_ROAD_SOURCES). Panoramax shares every one of
+# roughly right for the corrected raycast, far too small for a flat one (median tilt 3 deg);
+# fusion still raycasts Mapillary flat by default (fuse_sites.AUTO_ROAD_SOURCES says why),
+# so for the default path this sigma is optimistic. Panoramax shares every one of
 # those traits and adds raw GPS positions (no SfM; the catalog's own accuracy figure
 # is a 4 m 95% interval), so it gets the same model until measured otherwise. Note
 # sigma_pitch_rad=1.5 deg is the unknown-tilt budget, and the Panoramax panos that do

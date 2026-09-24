@@ -11,8 +11,9 @@ of each) and their numbers moved. What did not change: §5.1 (the convention loc
 and §5.3 reproduce cell for cell.
 **Wired 2026-09-23** (§10): the pose is written into every Mapillary record, `geo._world_ray` now uses
 PS's roll sign (so **every roll value in §5 and the committed per-pano CSVs has the opposite sign to what
-the code produces today**), and fusion applies the tilt road-relative by default for Mapillary — after
-the p90 precondition §6 asked for passed in all five cities.
+the code produces today**), and fusion can apply the tilt road-relative (`--apply-pose road`). The p90
+precondition §6 asked for passed in all five cities, but a pre-registered **shuffled-grade control then
+failed** (§10.5), so the road-relative *default* is withheld: fusion still raycasts Mapillary flat by default.
 
 ## 0. Summary
 
@@ -632,7 +633,8 @@ still applied to bicycle and hand-held rigs, and #42's items 3–5 remain open.
    **And measure the tail.** §5.4's verdict is a median result; §6 explains why the tail is unmeasured under
    production's 25 m cap. Before this ships, re-run `eval_sites` with the cap in place and compare p90
    GT-to-site distance under off / documented / road-relative. *(Done 2026-09-23, §10: road-relative
-   tightens the p90 in all five cities; it is now fusion's Mapillary default.)*
+   tightens the p90 in all five cities. The shuffled-grade control of §10.5 then failed, so it is available
+   as `--apply-pose road` but is not the default.)*
 4. **Backfill.** The values need no network: extend `scripts/backfill_metadata.py` with an offline pass that
    fills `camera_pitch`/`camera_roll` from the `source_metadata` already in each line (same atomic rewrite),
    then `send_to_ps.py --min-confidence 2.0` for the submitted cities — the verified idempotent pano-only
@@ -751,7 +753,7 @@ of five.
 | | | | gravity | 1.53 | 2.68 | 0.640 | 0.711 | 0.880 | |
 | | | | road | 1.53 | 2.74 | 0.658 | 0.706 | 0.880 | 0.3% / 0.0% |
 
-(`docs/figures/mapillary-tilt/data/pose_precondition.csv`; laurens is the `laurens_mapillary` split scored
+(`docs/figures/mapillary-tilt/data/pose_precondition_3arm.csv`, the three-arm run; laurens is the `laurens_mapillary` split scored
 against `runs/laurens/results.jsonl`. GT marks dropped by the intersection: richmond 81 of 310, clovis 26
 of 195, morgantown 34 of 267, annapolis 74 of 294, laurens 16 of 249.)
 
@@ -763,17 +765,19 @@ of 195, morgantown 34 of 267, annapolis 74 of 294, laurens 16 of 249.)
 | annapolis | −0.80 m | −0.33 m |
 | laurens | −1.09 m | −0.30 m |
 
-**Verdict: road passes.** Its p90 is lower than the flat raycast's in all five cities (no city is even
-within the 0.1 m tolerance of failing), and its median is lower in all five (three needed). Fusion's
-default is now `apply_pose='auto'`: road-relative for Mapillary, flat for GSV (gravity-rectified, §6)
-and for Panoramax (its optional `pers:pitch/roll` convention is unmeasured, #57).
+**Verdict of the first rule: road passes.** Its p90 is lower than the flat raycast's in all five cities
+(no city is even within the 0.1 m tolerance of failing), and its median is lower in all five (three
+needed). On that basis the first version of the wiring made road-relative fusion's Mapillary default.
+**That default was withdrawn after the control in §10.5 failed**; `auto` now resolves to flat for every
+source.
 
 **What this changes about §5.4.** The raw-mean and p90 losses there were the uncapped ablation charging
 the correction for rays production never emits: under the cap, on shared sites, the tail tightens by
 0.3–1.1 m everywhere. It does not make road-relative the best arm in every cell — gravity-relative has
 the lower p90 in Morgantown (2.72 vs 2.79 m) and Laurens (2.68 vs 2.74 m) and the lower median in Clovis
 (0.82 vs 0.90 m) — but in each case by less than the rule's tolerance, and road-relative is the one
-convention that §5.3 shows is never the *wrong* model for a car on a slope. That is why it is the default.
+convention that §5.3 shows is never the *wrong* model for a car on a slope — an argument that §10.5's
+control, not this table, had to test.
 
 **What it costs to measure it this way.** The intersection is expensive: 7% (clovis) to 33% (richmond)
 of operational sites have some member that some arm cannot place within 25 m, and those are the
@@ -791,6 +795,98 @@ pano-only push (`send_to_ps.py <file> --min-confidence 2.0` submits no labels, a
 leaves rows PS populated itself alone) from a file written by `backfill_metadata.py --pose --out`. It is
 not done here: it writes to production, and the submitted files are under a sha256 guard that an
 in-place rewrite would break. The commands are in the wiring PR.
+
+### 10.5 The shuffled-grade control (added 2026-09-24): the road-frame default is withheld
+
+#52 (PR #78) ran the direct test of §5.3's mechanism on GSV — rotate rays into the depth-observed ground
+plane — and it failed in all four cities, worst on the steepest panoramas; a shuffled-normal control
+behaved like the treatment, and on the GT eval a p90 improvement appeared alongside *more* unplaceable
+marks, i.e. survivorship. It proposed an alternative reading of this study's result: a Mapillary frame's
+pitch (`computed_rotation`) and its grade (`computed_altitude`) come out of the **same SfM**, so
+subtracting one from the other may cancel shared SfM error rather than road slope. §10.3 had no control
+that could tell those apart. So a second rule was pre-registered — fixed in code, with its diff hashed,
+before any shuffled arm was run — and it decides whether `auto` stays road-relative:
+
+- **Arms added.** `road-shuffled-within`: each frame's grade replaced by the grade of another randomly
+  chosen frame of the *same* sequence (seed 42; keeps the sequence's grade distribution and its
+  sequence-level SfM error, destroys the per-frame alignment; the frame keeps its own travel bearing).
+  `road-shuffled-across`: grades permuted across every graded frame of the run.
+- **Survivorship columns, for every arm.** Recall at 2.5 m and 5 m on the **off pool** (ramps grouped from
+  every mark the flat raycast places; a ramp counts only if the arm places at least one of its marks and it
+  is self-detected or matched within the radius), and the arm's count of **unplaceable GT marks**.
+- **The rule.** Road keeps the default only if (i) it beats `road-shuffled-within` on p90 **and** median
+  GT-to-site distance by more than 0.1 m in at least 4 of 5 cities, (ii) its recall at 2.5 m on the off
+  pool drops by no more than 1.0 point against off in any city, and (iii) its unplaceable-mark count
+  exceeds off's by no more than 5% of the off pool in any city.
+
+All five arms share one site set and one GT set, so the intersection is tighter than §10.3's three-arm one
+(the across-run shuffle in particular pushes rays out of range): the numbers for off / gravity / road move a
+little from §10.3 (`pose_precondition_3arm.csv` keeps those; `pose_precondition.csv` is this table).
+
+| City | sites scored (of op.) | common ramps / off pool | arm | median (m) | p90 (m) | R@2.5 | R@5 | R@2.5 off pool | R@5 off pool | GT marks unplaceable (Δ vs off) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| richmond | 830 (1,570) | 82 / 253 | off | 1.30 | 3.53 | 0.877 | 0.886 | 0.870 | 0.881 | 57 (+0) |
+| | | | gravity | 1.19 | 2.86 | 0.872 | 0.891 | 0.814 | 0.830 | 58 (+1) |
+| | | | road | 0.97 | 2.74 | 0.882 | 0.896 | 0.830 | 0.842 | 59 (+2) |
+| | | | road-shuffled-within | 1.20 | 3.08 | 0.872 | 0.886 | 0.791 | 0.802 | 60 (+3) |
+| | | | road-shuffled-across | 1.33 | 3.64 | 0.872 | 0.886 | 0.771 | 0.783 | 65 (+8) |
+| clovis | 2,195 (2,495) | 129 / 174 | off | 1.28 | 3.28 | 0.869 | 0.929 | 0.856 | 0.914 | 21 (+0) |
+| | | | gravity | 0.77 | 2.46 | 0.923 | 0.946 | 0.902 | 0.925 | 14 (-7) |
+| | | | road | 0.85 | 2.26 | 0.911 | 0.940 | 0.891 | 0.920 | 14 (-7) |
+| | | | road-shuffled-within | 0.79 | 2.43 | 0.917 | 0.946 | 0.897 | 0.925 | 14 (-7) |
+| | | | road-shuffled-across | 0.75 | 2.33 | 0.917 | 0.946 | 0.891 | 0.920 | 16 (-5) |
+| morgantown | 866 (1,733) | 81 / 250 | off | 1.00 | 2.77 | 0.832 | 0.855 | 0.816 | 0.840 | 17 (+0) |
+| | | | gravity | 0.85 | 2.31 | 0.846 | 0.855 | 0.792 | 0.804 | 22 (+5) |
+| | | | road | 0.86 | 2.28 | 0.841 | 0.855 | 0.812 | 0.840 | 21 (+4) |
+| | | | road-shuffled-within | 1.01 | 2.60 | 0.841 | 0.855 | 0.800 | 0.820 | 17 (+0) |
+| | | | road-shuffled-across | 1.20 | 3.14 | 0.827 | 0.860 | 0.736 | 0.768 | 35 (+18) |
+| annapolis | 2,471 (4,018) | 95 / 241 | off | 1.32 | 3.29 | 0.877 | 0.900 | 0.851 | 0.884 | 53 (+0) |
+| | | | gravity | 0.99 | 2.81 | 0.886 | 0.905 | 0.817 | 0.834 | 56 (+3) |
+| | | | road | 0.87 | 2.44 | 0.896 | 0.905 | 0.822 | 0.842 | 50 (-3) |
+| | | | road-shuffled-within | 1.02 | 2.75 | 0.882 | 0.905 | 0.809 | 0.830 | 58 (+5) |
+| | | | road-shuffled-across | 1.08 | 2.85 | 0.886 | 0.905 | 0.793 | 0.809 | 57 (+4) |
+| laurens_mapillary | 161 (186) | 115 / 235 | off | 1.79 | 3.84 | 0.529 | 0.670 | 0.511 | 0.660 | 9 (+0) |
+| | | | gravity | 1.43 | 2.67 | 0.617 | 0.683 | 0.600 | 0.664 | 13 (+4) |
+| | | | road | 1.43 | 2.61 | 0.634 | 0.683 | 0.621 | 0.664 | 12 (+3) |
+| | | | road-shuffled-within | 1.33 | 2.74 | 0.599 | 0.670 | 0.583 | 0.651 | 12 (+3) |
+| | | | road-shuffled-across | 1.40 | 2.69 | 0.626 | 0.678 | 0.609 | 0.664 | 9 (+0) |
+
+| City | shuffled-within − road: p90 / median | (i) | off-pool R@2.5 road − off | (ii) | unplaceable road − off (limit) | (iii) |
+|---|---:|:-:|---:|:-:|---:|:-:|
+| richmond | +0.34 / +0.22 m | beat | −4.0 pt | **fail** | +2 (12.7) | ok |
+| clovis | +0.16 / **−0.06** m | **no** | +3.4 pt | ok | −7 (8.7) | ok |
+| morgantown | +0.32 / +0.15 m | beat | −0.4 pt | ok | +4 (12.5) | ok |
+| annapolis | +0.30 / +0.15 m | beat | −2.9 pt | **fail** | −3 (12.1) | ok |
+| laurens | +0.12 / **−0.09** m | **no** | +11.1 pt | ok | +3 (11.8) | ok |
+
+**Verdict: the control fails, on clauses (i) and (ii); (iii) passes.** Road beats the within-sequence
+shuffle by more than 0.1 m on both statistics in only 3 of 5 cities: in Clovis and Laurens a grade taken
+from a *different* frame of the same sequence gives a **better** median than the frame's own. And on the
+flat raycast's own pool, road loses 4.0 points of recall at 2.5 m in Richmond and 2.9 in Annapolis (as do
+gravity and both shuffles). Under the rule, **fusion's `auto` default now resolves to flat for Mapillary
+too** (`fuse_sites.AUTO_ROAD_SOURCES = ()`); the three-way flag, the pose in the record and the roll-sign
+flip are unaffected, and `--apply-pose road` remains available.
+
+What the table does and does not say:
+
+- **The road-relative gain is not all noise.** The across-run shuffle, which breaks any link between a
+  frame and its own sequence's altitudes, is clearly worse than road in Richmond, Morgantown and Annapolis
+  (and makes 18 more marks unplaceable in Morgantown). The within-sequence shuffle lands *between* road and
+  off in those three. So something sequence-local in the grade carries signal — which is what shared
+  sequence-level SfM error would also produce, and what the control was designed not to credit.
+- **In the two rig-tilted cities the grade barely matters.** In Clovis and Laurens, where §5.3 found the
+  tilt is the rig's own, gravity, road and both shuffles land within ~0.1 m of each other on the median;
+  the gain over off there is the gravity correction, not the grade.
+- **The off-pool recall loss is a survivorship signal the intersected table hid.** On the common set road
+  looks no worse than off at 2.5 m; on off's own pool every rotating arm loses 3–10 points in Richmond and
+  Annapolis. Road's unplaceable-mark count moves by only +2 / −3 there, so the loss is ramps that are placed but land
+  farther than 2.5 m from any scored site — a placement cost the p90 over *matched* ramps cannot see.
+- **The intersection is now very expensive**: 830 of 1,570 Richmond and 866 of 1,733 Morgantown sites
+  survive all five arms, and the common matched set is 81–129 ramps per city. That makes this a weak
+  instrument in both directions; it is the one that was pre-registered.
+
+What would settle it: a road grade independent of the reconstruction that produced the pitch — a DEM
+(#51) — as the `road` arm, under the same control. Until then the road-frame default is withheld.
 
 ## Appendix A — the decomposition, in full
 

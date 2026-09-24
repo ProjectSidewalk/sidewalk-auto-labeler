@@ -86,16 +86,17 @@ python scripts/harvest_depth.py runs/paterson --check-convention # re-verify dep
 python scripts/fuse_sites.py runs/paterson
 # ...--pose-ablation reports within-site spread per pitch/roll sign convention
 # instead (the experiment that showed GSV equirects are already gravity-rectified).
-# --apply-pose {auto,off,gravity,road} (issue #42). The DEFAULT is `auto`: road-relative for
-# Mapillary (pitch/roll minus the sequence's SfM road grade), flat for everything else (GSV
-# is gravity-rectified; Panoramax unmeasured). Set by the #42 precondition, which road passed
-# in all five Mapillary cities (study section 10). A Mapillary run from before #42 needs no
+# --apply-pose {auto,off,gravity,road} (issue #42). The DEFAULT is `auto`, which today is FLAT
+# for every source: road-relative (pitch/roll minus the sequence's SfM road grade) passed the
+# first #42 rule but FAILED the pre-registered shuffled-grade control (study section 10.5), so
+# the road-frame default is withheld (fuse_sites.AUTO_ROAD_SOURCES = ()); GSV is flat on
+# evidence (#52). `road` is opt-in. A Mapillary run from before #42 needs no
 # rewrite: load_results derives the pose from source_metadata. sites_meta.json's `pose`
 # block counts flat / gravity / road_relative / gravity_fallback panos -- the fallback (no
 # usable sequence neighbour; 0.1% Morgantown to 6.9% Richmond) is the convention the study
 # showed wrong for a car on a slope, so watch its rate on a new city.
-python scripts/fuse_sites.py runs/richmond                      # = --apply-pose auto -> road
-python scripts/fuse_sites.py runs/richmond --apply-pose off     # the pre-#42 flat raycast
+python scripts/fuse_sites.py runs/richmond                      # = --apply-pose auto -> flat
+python scripts/fuse_sites.py runs/richmond --apply-pose road    # opt-in, withheld as default
 
 # CAMERA HEIGHT (issue #40). Every raycast uses geo.DEFAULT_CAMERA_HEIGHT_M = 2.6 unless
 # asked otherwise; `per-pano` uses GSV's depth-measured height (pano block since #40, else
@@ -195,8 +196,9 @@ python scripts/mapillary_tilt.py horizon               # GT marks raycast above 
 python scripts/mapillary_tilt.py ablation              # multi-view sign lock, by tilt/grade bucket
 python scripts/mapillary_tilt.py eval                  # world P/R vs RampNet GT per convention
 python scripts/mapillary_tilt.py precondition          # #42 gate: p90/median GT-to-site per
-#   --apply-pose arm, one site set + one GT set, 25 m cap, through PRODUCTION's loader; applies
-#   the pre-registered rule and prints the verdict (the one that set fuse_sites' default)
+#   arm (off/gravity/road + road-shuffled-within/-across grade controls), one site set + one GT
+#   set, 25 m cap, through PRODUCTION's loader, plus off-pool recall and unplaceable-mark counts
+#   (survivorship); applies BOTH pre-registered rules and prints the verdict that sets `auto`
 python scripts/mapillary_tilt.py rectify               # pixel-level sign lock (vertical edges)
 python scripts/mapillary_tilt.py examples              # the annotated before/after strips
 python scripts/mapillary_tilt.py figures               # redraw docs/figures/mapillary-tilt/
@@ -451,8 +453,9 @@ single home for geodesy: haversine + the declustering grid (imported back by
 closed-form anisotropic error from the 1024×512 heatmap quantization, **dropping** (never
 clamping) rays beyond 25 m. GSV camera pitch/roll are deliberately NOT applied: the
 `--pose-ablation` experiment measured that streetlevel's GSV equirects are already
-gravity-rectified (details in `geo._world_ray`'s docstring). Mapillary's ARE, road-relative,
-by default since #42 (`FuseParams.apply_pose='auto'`; see the rig-tilt paragraph below).
+gravity-rectified (details in `geo._world_ray`'s docstring). Mapillary's are available
+(`--apply-pose road`) but NOT applied by default either: the #42 shuffled-grade control withheld
+it (see the rig-tilt paragraph below).
 `fuse_sites.py` associates a
 run's stored detections into physical-ramp sites (descending-confidence greedy with a
 same-pano cannot-link, chi-square gating, inverse-covariance refit, residual rejection;
@@ -484,15 +487,21 @@ way. So the wiring was gated on a **pre-registered precondition** (study §8 rec
 before it ran): at the production 25 m cap, on ONE site set (association frozen from the flat fuse; a site
 is scored only if every arm places every operational member) and ONE GT set, road-relative had to be no
 worse than flat on p90 GT-to-site distance in any city (0.1 m tolerance) and better on the median in 3 of
-5. **It passed everywhere** (2026-09-23, study §10, `docs/figures/mapillary-tilt/data/pose_precondition.csv`):
+5. **It passed the first rule everywhere** (2026-09-23, study §10, `docs/figures/mapillary-tilt/data/pose_precondition_3arm.csv`):
 p90 off→road Richmond 3.42→2.74, Clovis 3.32→2.37, Morgantown 3.07→2.79, Annapolis 3.55→2.75, Laurens
 3.82→2.74 m; median better in all five. The uncapped ablation's bad tail was the rays production drops.
-Caveats that travel with it: the intersection drops 7–33% of sites (the long-range ones), and on p90
-gravity-relative beats road in Morgantown and Laurens by <0.1 m -- road is chosen because it is never
-the wrong convention for a car on a slope, not because it wins every cell.
+**Then it failed the control** (second pre-registered rule, after #52 showed on GSV that a shuffled
+ground normal also "improves" p90 and that p90 can improve by survivorship; study §10.5): road had to beat
+`road-shuffled-within` (each frame given another frame's grade from its own sequence) by >0.1 m on p90 AND
+median in 4 of 5 cities, lose ≤1.0 pt of recall@2.5 m on the OFF pool, and add ≤5% of the pool in
+unplaceable GT marks. It beat the shuffle in only 3 (Clovis and Laurens: shuffled median is *better*),
+and off-pool recall fell 4.0 pts (Richmond) and 2.9 pts (Annapolis). So **the road-frame default is
+withheld**: `auto` resolves to off for Mapillary. Open reading (#52): pitch and grade come from the same
+SfM, so subtracting may cancel shared SfM error, not road slope — a DEM grade (#51) is the independent
+referee.
 **What shipped (#42):** `sources/mapillary.py` writes pitch/roll (PS sign, 45° cap); **`geo._world_ray`
 now takes PS's roll sign** (positive lowers the camera's right axis — the opposite of before #42, so any
-roll quoted from earlier has the other sign); `fuse_sites` defaults to `auto` = road for Mapillary; and
+roll quoted from earlier has the other sign); `fuse_sites` has `--apply-pose road` (default still flat); and
 `backfill_metadata.py --pose` fills old files. The in-place backfill of submitted files and the pano-only
 push to PS are deliberately manual (see the backfill command block).
 

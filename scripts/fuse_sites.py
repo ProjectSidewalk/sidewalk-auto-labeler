@@ -4,8 +4,8 @@ physical curb-ramp sites.
 Reads a run's results.jsonl, projects every stored detection to a flat-ground
 world point (geo.detection_ground_point with anisotropic error; GSV camera
 pitch/roll deliberately NOT applied — the --pose-ablation experiment showed
-streetlevel's GSV equirects are already gravity-rectified — while Mapillary rays are
-rotated road-relative by default, see Camera pose below), and greedily
+streetlevel's GSV equirects are already gravity-rectified; Mapillary pose is available
+but also off by default, see Camera pose below), and greedily
 associates them into sites:
 
 - processed in descending confidence, so every operational (>= --min-confidence)
@@ -34,7 +34,8 @@ Camera pose (issue #42) is --apply-pose: `off` (the flat raycast: ray elevation 
 pixel's pano-frame elevation), `gravity` (rotate each ray by the pano's stored pitch/roll),
 `road` (the same, relative to the local road: the grade along the sequence, from
 Mapillary's SfM altitude profile, is subtracted first -- see sequence_grades), or the
-default `auto`: road for Mapillary, off for everything else (AUTO_ROAD_SOURCES says why;
+default `auto`, which today resolves to off for EVERY source: road-relative was withheld
+for Mapillary by the #42 shuffled-grade control (AUTO_ROAD_SOURCES says why;
 docs/mapillary-tilt-study.md section 10 has the measurement). GSV is measured to want
 `off` (its equirects are gravity-rectified; geo._world_ray). For
 Mapillary, blocks written since #42 carry pitch/roll and older ones get them derived here
@@ -85,15 +86,19 @@ POSE_GRAVITY = 'gravity'  # rotate by the stored pitch/roll (gravity-relative)
 POSE_ROAD = 'road'        # ...minus the sequence's road grade where there is one
 POSE_AUTO = 'auto'        # the default: POSE_ROAD for AUTO_ROAD_SOURCES, POSE_OFF otherwise
 POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
-# Sources `auto` fuses road-relative. Mapillary only, on the #42 precondition
-# (docs/mapillary-tilt-study.md section 10): at the production 25 m cap, on one site set
-# and one GT set per city, road-relative cut the p90 GT-to-site distance against the
-# flat raycast in all five Mapillary cities (-0.28 to -1.09 m) and the median in all five
-# (-0.24 to -0.41 m), passing the rule pre-registered on #42. GSV stays flat: its equirects
-# are gravity-rectified and applying their pose loosens every city (geo._world_ray).
-# Panoramax stays flat until measured: its pers:pitch/roll are optional (28% of panos)
-# and nobody has checked their convention (#57).
-AUTO_ROAD_SOURCES = ('mapillary',)
+# Sources `auto` fuses road-relative: NONE, for now. Road-relative passed the first #42
+# rule for Mapillary (at the 25 m cap, on one site set and one GT set, it cut p90 and
+# median GT-to-site distance against the flat raycast in all five cities), but FAILED the
+# pre-registered shuffled-grade control that #52's GSV result called for (study section
+# 10.5): giving each frame another frame's grade from the same sequence did about as well
+# in Clovis and Laurens -- so the gain cannot be credited to each frame's own road grade
+# (pitch and grade share one SfM; subtracting could cancel shared error) -- and recall on
+# the flat raycast's own GT pool fell 4.0 / 2.9 points in Richmond / Annapolis. So the
+# road-frame default is WITHHELD pending that question; `--apply-pose road` still works.
+# Put 'mapillary' back here only on a control that passes. GSV stays flat regardless: its
+# equirects are gravity-rectified and applying their pose loosens every city
+# (geo._world_ray, #52). Panoramax: optional pers:pitch/roll, convention unmeasured (#57).
+AUTO_ROAD_SOURCES = ()
 
 # Consecutive frames of one sequence within this time gap and horizontal distance define
 # a local direction of travel and, through the SfM altitude, a road grade. The bounds are
@@ -151,6 +156,7 @@ class SlimPano:
     camera_height_m: float | None = None         # measured (#40); None = unmeasured
     camera_height_spread_m: float | None = None
     pose_origin: str | None = None               # 'block' | 'source_metadata' | None (#42)
+    sequence_id: str | None = None               # capture sequence (Mapillary)
     grade_deg: float | None = None               # road grade along travel (sequence_grades)
     travel_bearing_deg: float | None = None
 
@@ -431,7 +437,7 @@ def load_results(path, depth_index=None, read_heights=True):
                 detections=[(i, d['x_normalized'], d['y_normalized'], d['confidence'])
                             for i, d in enumerate(rec.get('detections', []))],
                 camera_height_m=height, camera_height_spread_m=spread,
-                pose_origin=origin))
+                pose_origin=origin, sequence_id=p.get('sequence_id')))
             frames.append((len(panos) - 1, p.get('sequence_id'), meta.get('captured_at'),
                            p['lat'], p['lng'], meta.get('computed_altitude')))
     for i, (grade, bearing) in sequence_grades(frames).items():
@@ -642,8 +648,9 @@ def main():
     ap.add_argument('--sigma-scale', type=float, default=1.0)
     ap.add_argument('--apply-pose', choices=POSE_MODES, nargs='?', const=POSE_GRAVITY,
                     default=FuseParams.apply_pose,
-                    help='rotate rays by camera pose: auto (road for Mapillary, off for '
-                         'everything else; the default, set by the #42 precondition), off '
+                    help='rotate rays by camera pose: auto (the default; currently off for '
+                         'every source -- the #42 shuffled-grade control withheld road for '
+                         'Mapillary, see AUTO_ROAD_SOURCES), off '
                          '(flat raycast), gravity (stored pitch/roll; a bare --apply-pose '
                          "means this), or road (minus the sequence's road grade). Measured "
                          'to hurt on GSV -- see the --pose-ablation report')

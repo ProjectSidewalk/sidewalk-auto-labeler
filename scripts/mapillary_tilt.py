@@ -690,8 +690,12 @@ def cmd_precondition(args):
                         for r in rows)
     passes, reasons = es.precondition_verdict(by_city)
     print('\n'.join(reasons))
-    print(f"VERDICT: road {'PASSES' if passes else 'FAILS'} the pre-registered rule -> "
-          f"fuse_sites' Mapillary default is {'road' if passes else 'off'}")
+    print(f"first rule (road vs off): road {'PASSES' if passes else 'FAILS'}")
+    control, _clauses, reasons = es.control_verdict(by_city)
+    print('\n'.join(reasons))
+    keep = passes and control
+    print(f"VERDICT: shuffled-grade control {'PASSES' if control else 'FAILS'} -> "
+          f"fuse_sites' Mapillary default is {'road' if keep else 'off'}")
     write_csv(out_dir_for('_summary', args.out) / 'pose_precondition.csv', all_rows)
 
 
