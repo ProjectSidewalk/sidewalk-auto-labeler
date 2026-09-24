@@ -279,7 +279,9 @@ def slope_along(grade_deg, cross_deg, azimuth_deg):
 def road_pose(n_f, n_r, n_u):
     """(pitch_deg, roll_deg) of the gravity-level camera RELATIVE TO the ground plane,
     in geo._world_ray's composition (pitch about right, + raises the view axis; then roll
-    about forward, + lifts the image's right side).
+    about forward). The roll is returned in Project Sidewalk's sign, which geo takes since
+    #42 (+ LOWERS the image's right side); the geometric roll derived below (+ lifts the
+    right side) is negated on the way out, so the raycast is unchanged by that flip.
 
     Derivation: after pitch a and roll r, _world_ray's camera axes expressed in the
     'world' (here: road) frame make the road's up axis read (sin a, sin r cos a,
@@ -288,7 +290,7 @@ def road_pose(n_f, n_r, n_u):
     lengthens a forward ray's depression and shortens its range.
     """
     return (math.degrees(math.asin(max(-1.0, min(1.0, n_f)))),
-            math.degrees(math.atan2(n_r, n_u)))
+            -math.degrees(math.atan2(n_r, n_u)))
 
 
 def fold180(a):
