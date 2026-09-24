@@ -90,7 +90,10 @@ python scripts/fuse_sites.py runs/paterson
 # for every source: road-relative (pitch/roll minus the sequence's SfM road grade) passed the
 # first #42 rule but FAILED the pre-registered shuffled-grade control (study section 10.5), so
 # the road-frame default is withheld (fuse_sites.AUTO_ROAD_SOURCES = ()); GSV is flat on
-# evidence (#52). `road` is opt-in. A Mapillary run from before #42 needs no
+# evidence (#52). `road` is opt-in. The flag takes an explicit value (`--apply-pose road`;
+# a bare `--apply-pose` is an error), and gravity/road on a run holding GSV or Panoramax
+# panos warns on stderr (GSV has no grade; Panoramax's convention is unmeasured).
+# A Mapillary run from before #42 needs no
 # rewrite: load_results derives the pose from source_metadata. sites_meta.json's `pose`
 # block counts flat / gravity / road_relative / gravity_fallback panos -- the fallback (no
 # usable sequence neighbour; 0.1% Morgantown to 6.9% Richmond) is the convention the study
@@ -216,9 +219,14 @@ python scripts/mapillary_tilt.py pose <mapillary_id> --run richmond
 
 # POSE BACKFILL (issue #42). Offline, no token: fill camera_pitch/camera_roll from each
 # line's own source_metadata (PS's /backupImage gate 404s on a null camera_pitch). It
-# REFUSES to rewrite a file with a .submission.json in place (that breaks send_to_ps.py's
-# sha256 guard for the live campaign and stales its position check) -- write a new file
-# and push it pano-only instead; --min-confidence 2.0 submits zero labels.
+# REFUSES to write over a file with a .submission.json or any .submitted* / .band-*.submitted
+# sidecar beside it, in place OR as the --out target (that breaks send_to_ps.py's sha256
+# guard for the live campaign and stales its position check) -- write a new file and push
+# it pano-only instead; --min-confidence 2.0 submits zero labels. A pano-only push still
+# UPSERTS each pano row's lat/lng, so every pano must be pushed from the file whose
+# positions are live for it: Richmond's 72 posfix3seq panos are live at raw GPS, so they go
+# out from results.posfix3seq.raw.pose.jsonl and are EXCLUDED from results.pose.jsonl's
+# push (exact steps in PR #74's body).
 python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --dry-run
 python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --out runs/richmond/results.pose.jsonl
 
@@ -544,9 +552,10 @@ correct convention from a backwards one.
 `harvest_depth.py` archives the payloads before they go away: the *JavaScript* API that
 exposed depth was withdrawn in 2020 and anonymous tile access in ~2026, but the metadata
 endpoint used here still serves it. `no_depth.txt`/`gone.txt` are append-only skip caches
-(see the command block above). GSV only; Mapillary serves no depth (its tilt is parsed
-from computed_rotation and applied road-relative in fusion since #42, but its camera
-HEIGHT is still the 2.6 m constant — #53).
+(see the command block above). GSV only; Mapillary serves no depth (since #42 its tilt is
+parsed from computed_rotation and written into the record, and fusion can apply it with
+`--apply-pose road` or `gravity`, but it is OFF by default -- the shuffled-grade control
+withheld the road-relative default; its camera HEIGHT is still the 2.6 m constant — #53).
 
 **Position check (`position_check.py`, repo root; `scripts/position_check.py` is a shim)** —
 SidewalkWebpage#5361. Stdlib-only like `geo.py`. Every pano's submitted position is scored

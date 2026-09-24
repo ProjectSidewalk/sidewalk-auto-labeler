@@ -704,11 +704,12 @@ decision rule **before** it ran; this section reports it, and the wiring that fo
    `add_sequence_grade` now calls it) and `geo.road_relative_pitch_roll` the correction. `load_results`
    attaches a grade to each pano and, for a Mapillary block written before item 1, derives pitch/roll from
    `source_metadata` with the same function, so no submitted file has to be rewritten for fusion to use
-   the pose. `--apply-pose` is `auto | off | gravity | road`; `sites_meta.json` gains a `pose` block that
+   the pose. `--apply-pose` takes one explicit value, `auto | off | gravity | road`; `sites_meta.json` gains a `pose` block that
    counts flat, gravity, road-relative and **gravity-fallback** panos (road mode, no usable neighbour).
 4. **Backfill.** `scripts/backfill_metadata.py --pose` fills old files offline from their own
-   `source_metadata`; it refuses to rewrite a file under a submission record in place (that would break
-   `send_to_ps.py`'s sha256 guard for the live campaign) and writes a separate file with `--out`.
+   `source_metadata`; it refuses to write over a file with a submission record or resume sidecar beside
+   it, in place or as the `--out` target (that would break `send_to_ps.py`'s sha256 guard for the live
+   campaign), and writes a separate file with `--out`.
 
 ### 10.2 The measurement
 
@@ -818,6 +819,10 @@ before any shuffled arm was run — and it decides whether `auto` stays road-rel
   GT-to-site distance by more than 0.1 m in at least 4 of 5 cities, (ii) its recall at 2.5 m on the off
   pool drops by no more than 1.0 point against off in any city, and (iii) its unplaceable-mark count
   exceeds off's by no more than 5% of the off pool in any city.
+- **Clause (iii) mixes units, as registered.** Its left side counts GT *marks* (a ramp can carry several
+  reviewer marks); its limit is 5% of the off pool's *ramps* (Richmond: 5% of 253 ramps = 12.7 marks).
+  Every pool ramp has at least one mark, so this limit is no looser than 5% of the pool's marks would be
+  (it errs strict). It was pre-registered in these units and is reported in them, unchanged.
 
 All five arms share one site set and one GT set, so the intersection is tighter than §10.3's three-arm one
 (the across-run shuffle in particular pushes rays out of range): the numbers for off / gravity / road move a
