@@ -50,6 +50,25 @@ RETRY_BACKOFF_SECONDS = [2, 8]
 # rejects such records — better than this script silently relabeling them as GSV.
 PS_PANO_SOURCES = {"gsv", "mapillary", "infra3d", "panoramax"}
 
+# What of a GSV record's `source_metadata` is submitted to PS (issue #23). PS stores the
+# pano's `source_metadata` verbatim in pano_data.source_metadata, so a GSV pano sends only
+# its imagery provenance: who uploaded it, when, and the capture elevation and country.
+# The bulky context the JSONL also keeps (street_names, address, building_level(s),
+# places, artworks, neighbors) stays in the run's results.jsonl. An allow-list, not a
+# deny-list, so a field sources/gsv.py adds later stays out of the payload until it is
+# named here. The streetlevel source string ('launch'/'scout'/'photos:...') rides along
+# inside the blob as `source_detail`: the top-level key of that name is not read by PS.
+# Mapillary and Panoramax blobs are provider provenance documents already and are sent
+# unchanged.
+PS_GSV_SOURCE_METADATA_KEYS = ('uploader', 'uploader_icon_url', 'upload_date',
+                               'elevation', 'country_code')
+
+# PS refuses a pano whose source_metadata serializes to more than this (UTF-8 bytes of the
+# compact JSON; ExploreFormats.scala maxSourceMetadataBytes). The refusal is an HTTP 400 on
+# the whole submission, which send_to_project_sidewalk treats as permanent, so the size is
+# checked here, before the POST, where the message can say what is wrong.
+PS_MAX_SOURCE_METADATA_BYTES = 64 * 1024
+
 
 class CampaignComplete(Exception):
     """The guard proved there is nothing left to send; stop without POSTing anything.
@@ -120,14 +139,16 @@ def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
       and coercing in place used to destroy it; GSV records since #23 carry it already)
     - links[].'target_gsv_panorama_id' -> 'target_pano_id'
     - 'links'/'history' are required (possibly empty) arrays server-side
+    - a GSV pano's 'source_metadata' is cut down to PS_GSV_SOURCE_METADATA_KEYS plus
+      'source_detail' (see that constant). Every one of those keys is present, None when
+      the record lacks it, so a legacy GSV record (no source_metadata at all) still
+      submits its source string. Mapillary/Panoramax source_metadata passes unchanged.
 
-    Every other key is forwarded as-is, deliberately: we submit all the provenance we
-    have, so it's already in the payload the day PS learns to store it. Extra keys are
-    safe — PanoSubmission's reader (ExploreFormats.scala) is path-based and ignores
-    what it doesn't name — but they are also discarded server-side today: pano_data has
-    no column for source_metadata, camera_make/model/type, source_detail, uploader,
-    sequence_id or quality_score.
-    Landing them needs a SidewalkWebpage change, not a change here.
+    PS reads 'source_metadata' and stores it verbatim in pano_data.source_metadata, capped
+    at PS_MAX_SOURCE_METADATA_BYTES (checked by check_source_metadata_size, not here).
+    Other keys the reader does not name (camera_make/model/type, the top-level
+    source_detail and uploader, sequence_id, quality_score) are forwarded and ignored
+    server-side: its reader (ExploreFormats.scala) is path-based.
     """
     pano = dict(pano)
     if 'panorama_id' in pano:
@@ -136,6 +157,11 @@ def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
         if pano.get('source') is not None:
             pano.setdefault('source_detail', pano['source'])
         pano['source'] = 'gsv'
+    if pano['source'] == 'gsv':
+        full = pano.get('source_metadata') or {}
+        submitted = {key: full.get(key) for key in PS_GSV_SOURCE_METADATA_KEYS}
+        submitted['source_detail'] = pano.get('source_detail')
+        pano['source_metadata'] = submitted
     pano['links'] = [
         {
             "target_pano_id": link.get('target_pano_id', link.get('target_gsv_panorama_id')),
@@ -145,6 +171,33 @@ def transform_pano(pano: Dict[str, Any]) -> Dict[str, Any]:
     ]
     pano['history'] = pano.get('history') or []
     return pano
+
+
+class SourceMetadataTooLarge(ValueError):
+    """A pano's submitted source_metadata is over PS's cap; the record is not POSTed."""
+
+
+def source_metadata_bytes(pano: Dict[str, Any]) -> int:
+    """Size of a pano's source_metadata as PS measures it: UTF-8 bytes of compact JSON."""
+    blob = pano.get('source_metadata')
+    if blob is None:
+        return 0
+    return len(json.dumps(blob, separators=(',', ':'), ensure_ascii=False).encode('utf-8'))
+
+
+def check_source_metadata_size(payload: Dict[str, Any]) -> None:
+    """Refuse a payload PS would reject for its source_metadata size (HTTP 400).
+
+    Raises:
+        SourceMetadataTooLarge: when the blob is over PS_MAX_SOURCE_METADATA_BYTES.
+    """
+    size = source_metadata_bytes(payload['pano'])
+    if size > PS_MAX_SOURCE_METADATA_BYTES:
+        raise SourceMetadataTooLarge(
+            f"pano {payload['pano'].get('pano_id')}: source_metadata is {size:,} bytes, over "
+            f"Project Sidewalk's {PS_MAX_SOURCE_METADATA_BYTES:,}-byte cap, so the server "
+            f"would refuse the whole record. Not POSTed. Trim what transform_pano sends "
+            f"for this source (PS_GSV_SOURCE_METADATA_KEYS for GSV).")
 
 
 def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_CONFIDENCE,
@@ -1186,6 +1239,10 @@ def process_jsonl_file(
                             f_sidecar.flush()
                         continue
 
+                    # Refuse here, before any POST (and in a dry run too, so it shows up
+                    # there first): PS would 400 the whole record for its blob size.
+                    check_source_metadata_size(payload)
+
                     if dry_run:
                         print(json.dumps(payload, indent=2))
                         success_count += 1
@@ -1205,6 +1262,10 @@ def process_jsonl_file(
                 except json.JSONDecodeError as e:
                     error_count += 1
                     print(f"Line {line_number}: Invalid JSON - {e}")
+
+                except SourceMetadataTooLarge as e:
+                    error_count += 1
+                    print(f"Line {line_number}: REFUSED - {e}")
 
                 except Exception as e:
                     error_count += 1

@@ -90,10 +90,10 @@ def test_transform_pano_maps_legacy_fields_to_ps_reader():
     assert pano["history"] == []
 
 
-def test_transform_pano_forwards_all_provenance():
-    """We submit every field we have, so provenance is already in the payload the day PS
-    learns to store it. The server's reader ignores keys it doesn't name, so nothing here
-    can break a submission — but nothing may quietly strip them either."""
+def test_transform_pano_forwards_non_gsv_provenance():
+    """Mapillary/Panoramax source_metadata is the provider's provenance document and is
+    sent as-is (PS stores it verbatim); keys the reader does not name are forwarded and
+    ignored server-side, so nothing may quietly strip them either."""
     pano = send_to_ps.transform_pano({
         "panorama_id": "123456789",
         "source": "mapillary",
@@ -103,6 +103,49 @@ def test_transform_pano_forwards_all_provenance():
     })
     assert pano["source_metadata"] == {"make": "GoPro", "camera_parameters": [0.4, 0.0, 0.0]}
     assert pano["camera_make"] == "GoPro" and pano["sequence_id"] == "seq-1"
+
+
+GSV_SUBMITTED_KEYS = [*send_to_ps.PS_GSV_SOURCE_METADATA_KEYS, "source_detail"]
+
+
+def test_gsv_source_metadata_is_the_allow_list_plus_the_source_string():
+    """Issue #23: PS stores source_metadata verbatim, so a GSV pano sends only its imagery
+    provenance plus the streetlevel source string -- the top-level source_detail is not
+    read by PS, so the string has to travel inside the blob. A legacy record (no
+    source_metadata at all) gets the same keys, None except its source string."""
+    from sources import gsv
+    from test_sources_gsv import _full_streetlevel_metadata
+    record = json.loads(json.dumps(
+        gsv.build_pano_record("PID", 44.05, -121.31, _full_streetlevel_metadata())))
+    sm = send_to_ps.transform_pano(record)["source_metadata"]
+    assert list(sm) == GSV_SUBMITTED_KEYS
+    assert sm["source_detail"] == "launch"
+    assert (sm["uploader"], sm["elevation"], sm["country_code"]) == ("Google", 1103.5, "US")
+    assert sm["upload_date"] == {"year": 2021, "month": 7, "day": 2, "hour": 13}
+
+    legacy = send_to_ps.transform_pano({"panorama_id": "OLD", "source": "scout"})
+    assert list(legacy["source_metadata"]) == GSV_SUBMITTED_KEYS
+    assert legacy["source_metadata"]["source_detail"] == "scout"
+    assert all(legacy["source_metadata"][k] is None
+               for k in send_to_ps.PS_GSV_SOURCE_METADATA_KEYS)
+
+
+def test_bulky_gsv_context_stays_in_the_jsonl():
+    """A pano beside a busy street can carry thousands of places. They stay whole in the
+    results.jsonl record and are not submitted: the payload's blob stays small, where
+    the full projection would have been over PS's 64 KB cap."""
+    from sources import gsv
+    from test_sources_gsv import _full_streetlevel_metadata
+    metadata = _full_streetlevel_metadata()
+    metadata.places = metadata.places * 2000
+    line = json.dumps(gsv.build_pano_record("PID", 44.05, -121.31, metadata))
+    record = json.loads(line)
+    assert len(record["source_metadata"]["places"]) == 2000
+    assert send_to_ps.source_metadata_bytes(record) > send_to_ps.PS_MAX_SOURCE_METADATA_BYTES
+    pano = send_to_ps.transform_pano(record)
+    assert "places" not in pano["source_metadata"]
+    assert send_to_ps.source_metadata_bytes(pano) < 1024
+    assert len(json.loads(line)["source_metadata"]["places"]) == 2000  # input untouched
 
 
 @pytest.mark.parametrize("source, expected", [
@@ -1346,3 +1389,22 @@ def test_a_band_that_is_all_rig_detections_is_refused(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="holds no labels at all in"):
         send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.3, max_confidence=0.55)
     assert sent == []
+
+
+def test_oversized_source_metadata_is_refused_before_the_post(tmp_path, monkeypatch, capsys):
+    """PS answers a >64 KB source_metadata with a 400 for the whole record, which this
+    script treats as permanent. Refuse it here instead, loudly, and leave it unsent (not
+    in the sidecar) while the records around it go through."""
+    records = [_record([], pano_id=f"PID{i}") for i in (1, 2, 3)]
+    for rec in records:
+        rec["pano"]["source"] = "panoramax"    # a provider blob, sent as-is
+    records[1]["pano"]["source_metadata"] = {"blob": "x" * (64 * 1024)}
+    path = tmp_path / "results.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in records))
+    sent = _capture_posts(monkeypatch)
+
+    send_to_ps.process_jsonl_file(str(path), "https://ps.example/ai")
+    assert [p["pano"]["pano_id"] for p in sent] == ["PID1", "PID3"]
+    assert send_to_ps.load_submitted_lines(tmp_path / "results.jsonl.submitted") == {1, 3}
+    out = capsys.readouterr().out
+    assert "Line 2: REFUSED" in out and "65,536-byte cap" in out

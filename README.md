@@ -491,11 +491,18 @@ Notes:
   projection of the streetlevel metadata — `uploader`, `uploader_icon_url`, `upload_date`,
   `elevation` (m), `country_code`, `street_names`, `address`, `building_level`,
   `building_levels`, `places`, `artworks`, `neighbors` (ids only) — every key present,
-  `null` when Google did not send it, angles in degrees. GSV records written before
+  `null` when Google did not send it (`[]` for `building_levels`/`neighbors`, which
+  streetlevel defaults to an empty list), angles in degrees. GSV records written before
   issue #23 have none of these keys.
 - `source` is coerced to Project Sidewalk's `pano_source` enum on submission (`launch` →
-  `gsv`); the raw string travels beside it as `source_detail`, filled from `source` for
-  older records that lack it.
+  `gsv`). Project Sidewalk stores the pano's `source_metadata` verbatim, capped at 64 KB, so
+  a GSV pano submits only its imagery provenance there — `uploader`, `uploader_icon_url`,
+  `upload_date`, `elevation`, `country_code` — plus the raw source string as
+  `source_detail` (filled from `source` for older records, which submit the same keys with
+  `null` values). The bulky context (street names, address, building levels, places,
+  artworks, neighbors) stays in `results.jsonl`. Mapillary and Panoramax `source_metadata`
+  is submitted unchanged. `send_to_ps.py` refuses, before the POST, any record whose
+  submitted `source_metadata` is over 64 KB.
 - `model_training_date` and `api_version` are currently hard-coded in `main.py`.
 
 ## Tests

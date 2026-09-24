@@ -529,6 +529,14 @@ width/height stored in the record, renames `detections` → `labels`, and drops 
 `pano_source` enum (`gsv`/`mapillary`/`infra3d`) with the raw string kept as `source_detail`
 (issue #23; filled from `source` for records that predate it), `target_gsv_panorama_id` → `target_pano_id`,
 and guarantees `links`/`history` arrays — so legacy JSONL files stay submittable unchanged.
+PS **stores `source_metadata` verbatim** (`pano_data.source_metadata`, jsonb) and 400s the
+whole record when it is over 64 KB (`ExploreFormats.scala` `maxSourceMetadataBytes`), so a
+GSV pano's blob is cut to an **allow-list** (`send_to_ps.PS_GSV_SOURCE_METADATA_KEYS`:
+uploader, uploader_icon_url, upload_date, elevation, country_code) plus `source_detail` —
+inside the blob, because PS does not read the top-level `source_detail`. Every key is
+present, `null` for legacy records. Places, artworks, neighbors, street names, address and
+building levels stay JSONL-only. Mapillary/Panoramax blobs go unchanged.
+`check_source_metadata_size` refuses an over-cap record before its POST (not sidecar'd).
 
 Resume state is a `<file>.submitted` sidecar of **line numbers**, which silently stops
 describing the campaign if the JSONL is edited, if the sidecar is lost (deleted, or a run
@@ -591,9 +599,12 @@ gap-fill is GSV-only (`fetch_pano_by_id`).
   (`sources/gsv.SOURCE_METADATA_FIELDS`: uploader, uploader_icon_url, upload_date,
   elevation, country_code, street_names, address, building_level(s), places, artworks,
   neighbor ids) — never `vars()`/`asdict()` of the streetlevel object, which holds numpy
-  arrays and recursive panos. Every named key is always present (`null` when unset); a new
-  streetlevel attribute is ignored until named there; a converter that throws records
-  `null` rather than failing the pano. GSV runs from before #23 have no `elevation` (#52).
+  arrays and recursive panos. Every named key is always present (`null` when unset, `[]` for
+  the list-defaulted `building_levels`/`neighbors`); a new streetlevel attribute is ignored
+  until named there; values are coerced to JSON-native types and a converter that throws
+  (or yields something `json.dumps` cannot write) records `null` rather than failing the
+  pano. All of it stays in the JSONL; only the allow-list above reaches PS. GSV runs from
+  before #23 have no `elevation` (#52).
 - `pano.copyright` is an **attribution ingredient, not a rendered attribution** (issue #61,
   SidewalkWebpage#5360). For Mapillary and Panoramax it is the contributor's *bare* name
   (creator username / `geovisio:producer`), `null` when the source names nobody — PS's

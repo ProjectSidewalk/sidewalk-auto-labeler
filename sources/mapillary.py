@@ -105,9 +105,9 @@ def provenance_fields(meta):
     the stable Graph metadata (minus the volatile thumb URL). Shared by build_pano_record
     and scripts/backfill_metadata.py so a fresh run and a backfill produce identical fields.
     `source_metadata` roughly doubles a record's size and mostly restates fields already
-    promoted to the top level, but it is submitted to Project Sidewalk along with
-    everything else — the payload should carry all the provenance we have, ready for the
-    day PS stores it. PS's reader ignores unnamed keys, so today it lands nowhere."""
+    promoted to the top level. It is submitted to Project Sidewalk unchanged, and PS
+    stores it verbatim in pano_data.source_metadata (capped at 64 KB, which
+    send_to_ps.check_source_metadata_size enforces before the POST)."""
     return {
         'camera_make': meta.get('make'),
         'camera_model': meta.get('model'),
