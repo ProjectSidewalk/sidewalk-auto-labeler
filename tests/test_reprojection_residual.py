@@ -177,3 +177,78 @@ def test_null_scale_is_near_zero_without_a_scale_error():
     # range reads long is both farther and beyond the consensus (errors in variables)
     assert naive > 0.03 and naive > 3 * abs(null)
     assert rr.null_scale(svs, seed=1) == (null, naive)   # deterministic per seed
+
+
+# --- review fixes ----------------------------------------------------------------------
+
+def test_ols_slope_recovers_line_and_intercept():
+    xs = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    ys = [1.0 + 0.5 * x for x in xs]
+    slope, se, icpt = rr.ols_slope(xs, ys, clusters=list(range(6)))
+    assert slope == pytest.approx(0.5) and icpt == pytest.approx(1.0)
+    assert se == pytest.approx(0.0, abs=1e-12)            # an exact line has no residual
+    assert rr.ols_slope([1.0, 2.0], [1.0, 2.0], [0, 1]) == (None, None, None)
+    assert rr.ols_slope([2.0, 2.0, 2.0], [1.0, 2.0, 3.0], [0, 1, 2]) == (None, None, None)
+
+
+def test_fe_slope_removes_per_site_offsets():
+    # two sites with the same within-site slope 0.1 and very different offsets: pooled
+    # OLS is dragged by the offsets, the fixed-effect slope (RampNet#101's) is not
+    xs = [5.0, 10.0, 15.0, 20.0, 25.0, 30.0]
+    ys = [0.1 * x + (0.0 if x <= 15 else -10.0) for x in xs]
+    cl = ['a', 'a', 'a', 'b', 'b', 'b']
+    slope, _se, n = rr.fe_slope(xs, ys, cl)
+    assert slope == pytest.approx(0.1) and n == 2
+    assert rr.ols_slope(xs, ys, cl)[0] < 0
+
+
+def test_k_null_corrected_subtracts_the_null_before_converting():
+    row = rr._scale_row('c', 'x', 'all', 10, 3, 0.12, 0.01, -1.0, 0.10, 0.005,
+                        null=(0.02, 0.05))
+    assert row['implied_range_scale_k'] == pytest.approx(1 / 0.90, abs=1e-4)
+    assert row['k_null_corrected'] == pytest.approx(1 / 0.92, abs=1e-4)
+    assert rr._scale_row('c', 'x', 'all', 10, 3, 0.12, 0.01, -1.0, 0.10,
+                         0.005)['k_null_corrected'] is None   # no null, no correction
+
+
+def test_offset_lever_fit_recovers_scale_and_dip_offset():
+    """Member points displaced by s r u + c (r^2 + h^2)/h u: the two-column fit returns
+    both, which is how the r^2 column separates a peak offset from a range scale."""
+    s_true, c_true, h = 0.05, 0.004, 2.6
+    spots = [(0, -6), (8, 0), (-10, 0), (3, 12), (-7, 7), (6, -9), (15, 4)]
+    views = []
+    for i, (pe, pn) in enumerate(spots):
+        r = math.hypot(pe, pn)
+        b = math.atan2(-pe, -pn)
+        shift = s_true * r + c_true * (r * r + h * h) / h
+        views.append(rr.View(f'p{i}', 0, 0.5, 0.6, 0.9, math.sin(b) * shift,
+                             math.cos(b) * shift, (1.0, 0.2, 1.5 + i * 0.1), r,
+                             math.degrees(b) % 360, 'launch', None))
+    design = rr.lever_design(views, rr.range_offset_levers(views, [h] * len(views)))
+    loo = rr.leave_one_out(views)
+    block = [(cols, (v.e - he, v.n - hn)) for v, ((he, hn), _), cols in
+             zip(views, loo, design)]
+    fit = rr.fit_scale([block], ['s', 'c'])
+    assert fit['s'][0] == pytest.approx(s_true, abs=1e-9)
+    assert fit['c'][0] == pytest.approx(c_true, abs=1e-9)
+
+
+def test_gt_summary_left_out_variant_keeps_only_rows_with_a_left_out_number():
+    def row(kind, full_px, loo_px, in_site=True):
+        r = {'ref_kind': kind, 'pano_in_site': in_site, 'ref_minus_peak_dx_px': None,
+             'ref_minus_peak_dy_px': None}
+        for pre, px in (('full', full_px), ('loo', loo_px)):
+            r.update({f'{pre}_px': px, f'{pre}_dx_px': px, f'{pre}_dy_px': 0.0,
+                      f'{pre}_dist_m': None if px is None else px / 10,
+                      f'{pre}_along_m': 0.0})
+        return r
+    rows = [row('box', 2.0, 4.0), row('box', 6.0, None),      # no other view: no loo
+            row('missed', 8.0, 8.0, in_site=False), row('peak', 1.0, 3.0)]
+    out = {(r['ref_group'], r['variant']): r for r in rr.gt_summary(rows, 'c', 'x')}
+    assert out[('box', 'full')]['n_refs'] == 2
+    assert out[('box', 'loo')]['n_refs'] == 1
+    assert out[('box', 'full_on_loo_rows')]['n_refs'] == 1
+    assert out[('box', 'full_on_loo_rows')]['px_p50'] == 2.0   # the paired full value
+    assert out[('independent', 'loo')]['n_refs'] == 2
+    assert out[('box_on_detection', 'full')]['n_refs'] == 2    # the missed mark is out
+    assert out[('peak', 'loo')]['px_p50'] == 3.0

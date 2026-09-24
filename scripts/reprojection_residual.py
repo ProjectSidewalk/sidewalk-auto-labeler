@@ -107,6 +107,9 @@ RANGE_EDGES = (8.0, 12.0, 18.0, 25.0)
 # its Mapillary run is runs/laurens, and the GSV run already carries the split's name.
 DEFAULT_SPLITS = {'laurens': 'laurens_mapillary'}
 MIN_GROUP_ROWS = 30              # a capture year with fewer member rows joins 'other'
+# RampNet#101's instrument: full-site along-ray residual on range, site fixed effects,
+# sites with >= MIN_VIEWS refit members whose ranges span at least this much.
+RN101_MIN_SPAN_M = 4.0
 
 
 # --- Views and the information-form algebra ------------------------------------------
@@ -261,6 +264,48 @@ def scale_design(views, groups, group_names):
     return out
 
 
+def lever_design(views, levers):
+    """The general form of scale_design: for each view i and column k,
+
+        D_i[k] = L_i[k] - Lambda_{-i}^{-1} sum_{j != i} W_j L_j[k]
+
+    where L_j[k] is view j's own displacement per unit of parameter k (a 2-vector).
+    member_i - heldout_i = sum_k theta_k D_i[k] holds exactly when every member point
+    is displaced by sum_k theta_k L_j[k]. scale_design is the case L_j[g] = [g_j == g]
+    r_j u_j; the r^2 nuisance column (range_offset_levers) is another."""
+    lam, _ = accumulate(views)
+    ncol = len(levers[0]) if levers else 0
+    ws = [_info(v)[0] for v in views]
+    wl = [[_mul(w, lv) for lv in lvs] for w, lvs in zip(ws, levers)]
+    totals = [(sum(t[k][0] for t in wl), sum(t[k][1] for t in wl)) for k in range(ncol)]
+    out = []
+    for i in range(len(views)):
+        w = ws[i]
+        inv = geo.sym2_inv((lam[0] - w[0], lam[1] - w[1], lam[2] - w[2]))
+        cols = []
+        for k in range(ncol):
+            pe, pn = _mul(inv, (totals[k][0] - wl[i][k][0], totals[k][1] - wl[i][k][1]))
+            cols.append((levers[i][k][0] - pe, levers[i][k][1] - pn))
+        out.append(cols)
+    return out
+
+
+def range_offset_levers(views, heights):
+    """Per view: [scale lever r u, dip-offset lever (r^2 + h^2)/h u].
+
+    A constant error eps (radians) in the detection's dip angle moves a flat-ground
+    point along its ray by -(h / sin^2 dip) eps = -((r^2 + h^2) / h) eps, so a fixed
+    vertical peak offset reads as a range error that grows about as r^2 - which a
+    scale-only fit (lever r) partly absorbs as scale. Fitting both separates them to the
+    extent the viewing geometry allows. `heights` is each view's camera height."""
+    out = []
+    for v, h in zip(views, heights):
+        ue, un = v.unit
+        q = (v.range_m ** 2 + h ** 2) / h
+        out.append([(v.range_m * ue, v.range_m * un), (q * ue, q * un)])
+    return out
+
+
 def along_cross(de, dn, bearing_deg):
     """Split an ENU vector along a ray (positive = away from the camera) and across it
     (positive = to the camera's right, i.e. clockwise)."""
@@ -409,6 +454,13 @@ def fit_scale(site_blocks, group_names):
 
 
 def null_scale(sites, seed=0):
+    """(null s, null naive slope): null_study's two headline numbers. Deterministic for
+    a given seed."""
+    d = null_study(sites, seed)
+    return d['s'], d['naive']
+
+
+def null_study(sites, seed=0):
     """The pooled scale estimator's answer when there is NO scale error, under the
     error model's own noise: every view of every scored site is re-drawn to look at the
     site's fused position exactly, then perturbed by N(0, sigma_along) along its ray,
@@ -421,10 +473,18 @@ def null_scale(sites, seed=0):
     the same artefact, far more strongly (a view whose range reads long is, by that
     fact, both farther and beyond the consensus), so its null is returned too.
 
-    Returns (null s, null naive slope). Deterministic for a given seed."""
+    The same draws also give RampNet#101's instrument (rn101_rows on the simulated
+    full sites: residual from the full solution, site fixed effects, >= 4 m range span)
+    and the simulated |along| / |cross| residual percentiles, which say how well the
+    error model's noise matches what is observed - the null is only as good as that.
+
+    Returns {'s', 'naive', 'rn101', 'abs_along', 'abs_cross'} (the last two are lists of
+    the simulated leave-one-out |residual| in metres). Deterministic for a given seed."""
     import random
     rng = random.Random(seed)
     blocks, xs, ys, cl = [], [], [], []
+    fe = ([], [], [])
+    abs_along, abs_cross = [], []
     for sv in sites:
         if len(sv.views) < MIN_VIEWS:
             continue
@@ -454,11 +514,59 @@ def null_scale(sites, seed=0):
         blocks.append([(cols, (v.e - he, v.n - hn))
                        for v, ((he, hn), _), cols in zip(sim, loo, design)])
         for v, ((he, hn), _) in zip(sim, loo):
+            a, c = along_cross(v.e - he, v.n - hn, v.bearing_deg)
             xs.append(v.range_m)
-            ys.append(along_cross(v.e - he, v.n - hn, v.bearing_deg)[0])
+            ys.append(a)
             cl.append(sv.site_id)
+            abs_along.append(abs(a))
+            abs_cross.append(abs(c))
+        fe_e, fe_n = solve_views(sim)
+        for part, vals in zip(fe, rn101_rows([SiteViews(sv.site_id, sim, fe_e, fe_n)])):
+            part.extend(vals)
     fit = fit_scale(blocks, ['all'])
-    return fit.get('all', (None, None))[0], ols_slope(xs, ys, cl)[0]
+    return {'s': fit.get('all', (None, None))[0], 'naive': ols_slope(xs, ys, cl)[0],
+            'rn101': fe_slope(*fe)[0], 'abs_along': abs_along, 'abs_cross': abs_cross}
+
+
+def rn101_rows(sites, min_span=RN101_MIN_SPAN_M):
+    """(ranges, signed along-ray residuals, site ids) as RampNet#101 built them: each
+    refit member's ground point minus the FULL fused position (the view itself included,
+    unlike the leave-one-out rows), along its own ray, for sites with >= MIN_VIEWS
+    members whose ranges span >= min_span metres."""
+    xs, ys, cl = [], [], []
+    for sv in sites:
+        if len(sv.views) < MIN_VIEWS:
+            continue
+        rs = [v.range_m for v in sv.views]
+        if max(rs) - min(rs) < min_span:
+            continue
+        for v in sv.views:
+            xs.append(v.range_m)
+            ys.append(along_cross(v.e - sv.e, v.n - sv.n, v.bearing_deg)[0])
+            cl.append(sv.site_id)
+    return xs, ys, cl
+
+
+def fe_slope(xs, ys, clusters):
+    """Slope of y on x with a fixed effect per cluster (both demeaned within cluster) -
+    RampNet#101's estimator - and its cluster-robust standard error. Returns
+    (slope, se, n_clusters)."""
+    groups = {}
+    for x, y, c in zip(xs, ys, clusters):
+        groups.setdefault(c, []).append((x, y))
+    sxx = sxy = 0.0
+    dem = {}
+    for c, pts in groups.items():
+        mx = sum(p[0] for p in pts) / len(pts)
+        my = sum(p[1] for p in pts) / len(pts)
+        dem[c] = [(x - mx, y - my) for x, y in pts]
+        sxx += sum(dx * dx for dx, _ in dem[c])
+        sxy += sum(dx * dy for dx, dy in dem[c])
+    if sxx <= 0:
+        return None, None, len(groups)
+    slope = sxy / sxx
+    meat = sum(sum(dx * (dy - slope * dx) for dx, dy in pts) ** 2 for pts in dem.values())
+    return slope, math.sqrt(meat) / sxx, len(groups)
 
 
 def ols_slope(xs, ys, clusters):
@@ -495,8 +603,30 @@ def scale_table(city, height_label, sites, rows):
             ([(r['g_e'], r['g_n'])], (r['res_e'], r['res_n'])))
     pooled = fit_scale(list(pooled_blocks.values()), ['all'])
     s, se = pooled.get('all', (None, None))
-    out.append(_scale_row(city, height_label, 'all', len(rows), len(pooled_blocks),
-                          slope, slope_se, icpt, s, se, null=null_scale(sites)))
+    nd = null_study(sites)
+    row = _scale_row(city, height_label, 'all', len(rows), len(pooled_blocks),
+                     slope, slope_se, icpt, s, se, null=(nd['s'], nd['naive']))
+    # RampNet#101's own estimator on these sites, and on the same null draws.
+    fx, fy, fc = rn101_rows(sites)
+    rn, rn_se, rn_sites = fe_slope(fx, fy, fc)
+    row.update(rn101_n_views=len(fx), rn101_n_sites=rn_sites, rn101_slope=_r(rn),
+               rn101_slope_se=_r(rn_se), null_rn101_slope=_r(nd['rn101']),
+               rn101_null_share=_r(None if not rn or nd['rn101'] is None
+                                   else nd['rn101'] / rn, 3),
+               naive_null_share=_r(None if not slope or nd['naive'] is None
+                                   else nd['naive'] / slope, 3))
+    # How well the error model's noise matches the observed residual: the null is only
+    # as good as this.
+    row.update(obs_abs_along_p50=_r(pct([abs(r['along_m']) for r in rows], 50), 3),
+               obs_abs_along_p90=_r(pct([abs(r['along_m']) for r in rows], 90), 3),
+               null_abs_along_p50=_r(pct(nd['abs_along'], 50), 3),
+               null_abs_along_p90=_r(pct(nd['abs_along'], 90), 3),
+               obs_abs_cross_p50=_r(pct([abs(r['cross_m']) for r in rows], 50), 3),
+               obs_abs_cross_p90=_r(pct([abs(r['cross_m']) for r in rows], 90), 3),
+               null_abs_cross_p50=_r(pct(nd['abs_cross'], 50), 3),
+               null_abs_cross_p90=_r(pct(nd['abs_cross'], 90), 3))
+    row.update(scale_with_offset_fit(sites, rows))
+    out.append(row)
 
     # Joint per-year fit: a site mixing rigs contributes to every year it holds.
     counts = {}
@@ -535,6 +665,33 @@ def scale_table(city, height_label, sites, rows):
         out.append(_scale_row(city, height_label, g, len(grp),
                               len({r['site_id'] for r in grp}), gs, gse, gi, s_g, se_g))
     return out
+
+
+def scale_with_offset_fit(sites, rows):
+    """The pooled scale fit with an r^2 nuisance column (range_offset_levers): a
+    constant vertical peak offset reads as a range error growing ~r^2, which the
+    scale-only fit absorbs as scale. Returns the scale s and k with the offset term in,
+    and the offset as an implied constant dy in heatmap px (+ = detections sit lower in
+    the pano, i.e. nearer, than the ramp point the other views agree on)."""
+    by_key = {(r['site_id'], r['pano_id']): r for r in rows}
+    blocks = []
+    for sv in sites:
+        if len(sv.views) < MIN_VIEWS:
+            continue
+        rs = [by_key[(sv.site_id, v.pano_id)] for v in sv.views]
+        design = lever_design(sv.views, range_offset_levers(
+            sv.views, [r['camera_height_m'] for r in rs]))
+        blocks.append([(cols, (r['res_e'], r['res_n'])) for cols, r in zip(design, rs)])
+    fit = fit_scale(blocks, ['s', 'c'])
+    if not fit:
+        return {'r2fit_scale_s': None, 'r2fit_scale_s_se': None, 'r2fit_k': None,
+                'r2fit_dy_offset_px': None, 'r2fit_dy_offset_px_se': None}
+    (s, se), (c, cse) = fit['s'], fit['c']
+    # eps = -c radians of dip; 1 heatmap px of y = pi / 512 rad
+    px = HEATMAP_H / math.pi
+    return {'r2fit_scale_s': _r(s), 'r2fit_scale_s_se': _r(se),
+            'r2fit_k': _r(None if s >= 1 else 1.0 / (1.0 - s)),
+            'r2fit_dy_offset_px': _r(-c * px, 3), 'r2fit_dy_offset_px_se': _r(cse * px, 3)}
 
 
 def _scale_row(city, height_label, group, n_rows, n_sites, slope, slope_se, icpt, s, se,
@@ -805,10 +962,15 @@ def summarize_gt(rows, keys, prefix):
     along = [r[f'{prefix}_along_m'] for r in rows if r[f'{prefix}_along_m'] is not None]
     offs = [math.hypot(r['ref_minus_peak_dx_px'], r['ref_minus_peak_dy_px'])
             for r in rows if r.get('ref_minus_peak_dx_px') is not None]
+    off_dy = [r['ref_minus_peak_dy_px'] for r in rows
+              if r.get('ref_minus_peak_dy_px') is not None]
     return {**keys, 'variant': prefix, 'n_refs': len(px),
             # boxed detections only: the box centre's own distance from the model's
             # peak, a floor under those rows that no position estimate can remove
             'n_box_vs_peak': len(offs), 'box_vs_peak_px_p50': _r(pct(offs, 50), 3),
+            # ...and its signed vertical part (box centre minus peak; < 0 = the peak
+            # sits LOWER than the box centre, i.e. it raycasts nearer)
+            'box_minus_peak_dy_px_median': _r(pct(off_dy, 50), 3),
             'px_p50': _r(pct(px, 50), 3), 'px_p90': _r(pct(px, 90), 3),
             'abs_dx_px_p50': _r(pct(adx, 50), 3), 'abs_dy_px_p50': _r(pct(ady, 50), 3),
             'dy_px_median': _r(pct(dy, 50), 3),
@@ -816,19 +978,35 @@ def summarize_gt(rows, keys, prefix):
             'along_m_median': _r(pct(along, 50), 3)}
 
 
+def _has_loo(r):
+    return r['loo_px'] is not None or r['loo_dist_m'] is not None
+
+
 def gt_summary(rows, city, height_label):
-    """Per ref-kind group ('independent' = box + missed, and 'peak'), full vs left-out.
-    Left-out rows need at least one other view; the n_refs column is the denominator."""
+    """Per ref-kind group, full vs left-out. Left-out rows need at least one other view;
+    the n_refs column is the denominator.
+
+    Groups: 'independent' = box + missed; 'box', 'missed', 'peak'; and
+    'box_on_detection' = box centres on a verdict-true detection of a member pano - the
+    one independent group NOT matched to its site through the 5 m world-space gate that
+    truncates every missed mark, so its metres are the untruncated placement figure.
+    Variant 'full_on_loo_rows' is the full site on exactly the rows that have a left-out
+    number, so left-out minus it is a paired value-of-own-view gap."""
     out = []
     groups = {'independent': [r for r in rows if r['ref_kind'] in ('box', 'missed')],
               'box': [r for r in rows if r['ref_kind'] == 'box'],
               'missed': [r for r in rows if r['ref_kind'] == 'missed'],
-              'peak': [r for r in rows if r['ref_kind'] == 'peak']}
+              'peak': [r for r in rows if r['ref_kind'] == 'peak'],
+              'box_on_detection': [r for r in rows
+                                   if r['ref_kind'] == 'box' and r['pano_in_site']]}
     for name, grp in groups.items():
         keys = {'city': city, 'height_model': height_label, 'ref_group': name}
         out.append(summarize_gt(grp, keys, 'full'))
-        out.append(summarize_gt([r for r in grp if r['loo_px'] is not None or
-                                 r['loo_dist_m'] is not None], keys, 'loo'))
+        paired = [r for r in grp if _has_loo(r)]
+        out.append(summarize_gt(paired, keys, 'loo'))
+        row = summarize_gt(paired, keys, 'full')
+        row['variant'] = 'full_on_loo_rows'
+        out.append(row)
     return out
 
 
