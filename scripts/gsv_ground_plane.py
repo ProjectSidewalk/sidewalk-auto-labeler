@@ -90,7 +90,18 @@ from detectors import (BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE,  # noqa: E4
 DEFAULT_CITIES = ['bend', 'paterson', 'gainesville', 'sao_paulo']
 FIG_DIR = REPO_ROOT / 'docs' / 'figures' / 'gsv-ground-plane'
 ARMS = ['off', 'ground-normal', 'shuffled-normal']
+# Added after step 1, NOT part of the pre-registered reading: the plane implied by the
+# rig's own metadata attitude (a car follows the road). Step 1 found the depth normal is
+# a noisy per-pano estimate of the road whose agreement with that attitude rises to
+# r ~0.9 where the ground plane is large, while the attitude itself persists along the
+# street at r 0.72-0.87 -- so this arm separates "the depth normal is too noisy" from
+# "the mechanism does not hold on GSV". It is scored on its own four-arm site set
+# (`*_4arm`) so the pre-registered three-arm rows are untouched by it.
+EXPLORATORY_ARM = 'rig-attitude-normal'
+ALL_ARMS = ARMS + [EXPLORATORY_ARM]
 SHUFFLE_SEED = 52
+# Ground-plane pixel share above which the depth normal is called well determined.
+WELL_DETERMINED_SHARE = 0.3
 
 # Grade buckets fixed by the plan (issue #52), before any number was seen.
 GRADE_BUCKETS = [(0, 1), (1, 2), (2, 4), (4, math.inf)]
@@ -369,7 +380,7 @@ def ols(xs, ys):
 def cmd_planes(args):
     """Step 1: the observed ground plane per panorama, decomposed into along-travel grade
     and cross-slope, with the frame checks that tie it to the world."""
-    summary, by_year = [], []
+    summary, by_year, rig_rows = [], [], []
     for city in args.cities:
         run_dir = args.run_root / city
         meta = load_run_meta(run_dir)
@@ -420,6 +431,10 @@ def cmd_planes(args):
                if r['meta_roll_deg'] is not None]
         sp, rp = ols([a for a, _ in imu], [b for _, b in imu])
         sr, rr = ols([a for a, _ in imr], [b for _, b in imr])
+        wd = [r for r in meas if r['pixel_share'] >= WELL_DETERMINED_SHARE
+              and r['meta_pitch_deg'] is not None and r['meta_roll_deg'] is not None]
+        wsp, wrp = ols([r['meta_pitch_deg'] for r in wd], [r['grade_deg'] for r in wd])
+        wsr, wrr = ols([r['meta_roll_deg'] for r in wd], [r['cross_deg'] for r in wd])
         s = {'city': city, 'n_panos': len(out_rows), 'n_measured': len(meas),
              'frac_measured': len(meas) / len(out_rows),
              **{f'n_{k}': v for k, v in sorted(status.items())},
@@ -444,8 +459,30 @@ def cmd_planes(args):
              'frac_link_axis_within_5': (sum(x <= 5 for x in links) / len(links)
                                          if links else None),
              'slope_grade_on_meta_pitch': sp, 'r_grade_meta_pitch': rp,
-             'slope_cross_on_meta_roll': sr, 'r_cross_meta_roll': rr}
+             'slope_cross_on_meta_roll': sr, 'r_cross_meta_roll': rr,
+             'n_well_determined': len(wd),
+             'frac_well_determined': len(wd) / len(meas) if meas else None,
+             'slope_grade_on_meta_pitch_welldet': wsp, 'r_grade_meta_pitch_welldet': wrp,
+             'slope_cross_on_meta_roll_welldet': wsr, 'r_cross_meta_roll_welldet': wrr,
+             'pixel_share_p50': mt.pct([r['pixel_share'] for r in meas], .5)}
         summary.append(s)
+        # The frame check, binned: depth grade / cross-slope against the rig's metadata
+        # attitude. A car rides on the road, so a gravity-frame ground normal should track
+        # it with slope ~ +/-1 wherever the plane is well determined.
+        for axis, mkey, dkey in (('pitch', 'meta_pitch_deg', 'grade_deg'),
+                                 ('roll', 'meta_roll_deg', 'cross_deg')):
+            for subset, rs in (('all', meas),
+                               ('well_determined', [r for r in meas if r['pixel_share']
+                                                    >= WELL_DETERMINED_SHARE])):
+                bins = defaultdict(list)
+                for r in rs:
+                    if r[mkey] is not None:
+                        bins[max(-8, min(8, round(r[mkey])))].append(r[dkey])
+                for b, v in sorted(bins.items()):
+                    rig_rows.append({'city': city, 'axis': axis, 'subset': subset,
+                                     'meta_bin_deg': b, 'n': len(v),
+                                     'depth_p25': mt.pct(v, .25), 'depth_p50': mt.pct(v, .5),
+                                     'depth_p75': mt.pct(v, .75)})
         years = defaultdict(list)
         for r in meas:
             years[(r['capture_date'] or '????')[:4]].append(r)
@@ -466,6 +503,7 @@ def cmd_planes(args):
     if not args.limit:
         mt.write_csv(summary_dir(args.out_root) / 'planes_summary.csv', summary)
         mt.write_csv(summary_dir(args.out_root) / 'planes_by_year.csv', by_year)
+        mt.write_csv(summary_dir(args.out_root) / 'planes_vs_rig.csv', rig_rows)
 
 
 def load_planes(out_root, city):
@@ -485,15 +523,26 @@ DIST_BINS = [(0, 5), (5, 10), (10, 15), (15, 20), (20, 30), (30, 50), (50, 80)]
 MAX_HOPS = 8
 
 
+CHAIN_SIGNALS = ('depth', 'depth_well_determined', 'rig_attitude')
+
+
 def cmd_chain(args):
     """Autocorrelation of the observed slope along the street, pano to pano.
 
     Pairs are panos joined by the GSV link graph (up to MAX_HOPS hops, both measured).
     For each pair the slope of EACH pano's own plane is taken along the one world bearing
-    A->B, so both numbers describe the same stretch of street; a flat road and a
-    consistent measurement give r -> 1 at short separation, and the RMS of the difference
-    / sqrt(2) bounds the per-pano noise from above. Split by whether the two panos share
-    a capture month (same drive, same rig) or not."""
+    A->B, so both numbers describe the same stretch of street; a persistent road grade
+    and a consistent measurement give r -> 1 at short separation, and the RMS of the
+    difference / sqrt(2) bounds the per-pano noise from above. Split by whether the two
+    panos share a capture month (same drive, same rig) or not.
+
+    Three signals, so the depth plane is read against something:
+      - `depth`: the dominant ground plane, every measured pano;
+      - `depth_well_determined`: the same, both panos' plane covering >=
+        WELL_DETERMINED_SHARE of the image;
+      - `rig_attitude`: the plane implied by the GSV metadata pitch/roll
+        (rig_attitude_normal) -- a car follows the road, so this is an independent,
+        IMU-borne road-grade estimate on exactly the same pairs."""
     rows = []
     for city in args.cities:
         run_dir = args.run_root / city
@@ -529,30 +578,41 @@ def cmd_chain(args):
                 bearing = math.degrees(math.atan2(e, n))
                 sa = slope_along(pa['grade_deg'], pa['cross_deg'], bearing - ma['heading'])
                 sb = slope_along(pb['grade_deg'], pb['cross_deg'], bearing - mb['heading'])
+                vals = {'depth': (sa, sb)}
+                if min(pa['pixel_share'], pb['pixel_share']) >= WELL_DETERMINED_SHARE:
+                    vals['depth_well_determined'] = (sa, sb)
+                if None not in (ma['meta_pitch'], ma['meta_roll'], mb['meta_pitch'],
+                                mb['meta_roll']):
+                    vals['rig_attitude'] = (
+                        slope_along(ma['meta_pitch'], -ma['meta_roll'], bearing - ma['heading']),
+                        slope_along(mb['meta_pitch'], -mb['meta_roll'], bearing - mb['heading']))
                 same = (ma['capture_date'] or 'a')[:7] == (mb['capture_date'] or 'b')[:7]
                 for lo, hi in DIST_BINS:
                     if lo <= d < hi:
-                        bins[(f'{lo}-{hi}', 'same' if same else 'different')].append((sa, sb))
-                        bins[(f'{lo}-{hi}', 'all')].append((sa, sb))
+                        for sig, v in vals.items():
+                            bins[(sig, f'{lo}-{hi}', 'same' if same else 'different')].append(v)
+                            bins[(sig, f'{lo}-{hi}', 'all')].append(v)
                         break
-        for lo, hi in DIST_BINS:
-            for vint in ('all', 'same', 'different'):
-                prs = bins.get((f'{lo}-{hi}', vint), [])
-                _, r = ols([a for a, _ in prs], [b for _, b in prs])
-                diffs = [a - b for a, b in prs]
-                rows.append({'city': city, 'dist_bin_m': f'{lo}-{hi}', 'vintage': vint,
-                             'n_pairs': len(prs), 'r': r,
-                             'rms_diff_over_sqrt2': (math.sqrt(sum(x * x for x in diffs)
-                                                               / len(diffs)) / math.sqrt(2)
-                                                     if diffs else None),
-                             'abs_diff_p50': mt.pct([abs(x) for x in diffs], .5),
-                             'slope_abs_p50': mt.pct([abs(a) for a, _ in prs], .5)})
-                r_ = rows[-1]
-                if vint == 'all' or prs:
-                    print(f"{city:>11} {r_['dist_bin_m']:>6} m {vint:>9}: n {len(prs):7,}  r "
-                          f"{'n/a' if r is None else format(r, '.3f')}  rms/sqrt2 "
-                          f"{'n/a' if not diffs else format(r_['rms_diff_over_sqrt2'], '.3f')}",
-                          flush=True)
+        for sig in CHAIN_SIGNALS:
+            for lo, hi in DIST_BINS:
+                for vint in ('all', 'same', 'different'):
+                    prs = bins.get((sig, f'{lo}-{hi}', vint), [])
+                    _, r = ols([a for a, _ in prs], [b for _, b in prs])
+                    diffs = [a - b for a, b in prs]
+                    rows.append({'city': city, 'signal': sig, 'dist_bin_m': f'{lo}-{hi}',
+                                 'vintage': vint, 'n_pairs': len(prs), 'r': r,
+                                 'rms_diff_over_sqrt2': (
+                                     math.sqrt(sum(x * x for x in diffs) / len(diffs))
+                                     / math.sqrt(2) if diffs else None),
+                                 'abs_diff_p50': mt.pct([abs(x) for x in diffs], .5),
+                                 'slope_abs_p50': mt.pct([abs(a) for a, _ in prs], .5)})
+            for vint in ('same', 'different'):
+                line = [f'{city:>11} {sig:>22} {vint:>9}:']
+                for r_ in rows[-3 * len(DIST_BINS):]:
+                    if r_['vintage'] == vint and r_['signal'] == sig:
+                        line.append(f"{r_['dist_bin_m']}m " + ('  n/a' if r_['r'] is None
+                                                               else f"{r_['r']:.2f}"))
+                print('  '.join(line), flush=True)
     mt.write_csv(summary_dir(args.out_root) / 'chain.csv', rows)
 
 
@@ -580,6 +640,14 @@ def ground_frame_fields(lat, lng, heading_deg, normal, h=geo.DEFAULT_CAMERA_HEIG
     return {'camera_pitch': pitch, 'camera_roll': roll, 'lat': flat, 'lng': flng}
 
 
+def rig_attitude_normal(meta_pitch_deg, meta_roll_deg):
+    """The ground normal implied by the capture rig's metadata attitude, for a car that
+    rides on the road: grade = pitch, cross-slope = -roll. The signs are not assumed;
+    they are the ones the depth planes themselves select (`planes` regresses depth grade
+    on metadata pitch and depth cross-slope on metadata roll: slopes > 0 and < 0)."""
+    return normal_from_slopes(meta_pitch_deg, -meta_roll_deg)
+
+
 def arm_normals(meas, seed=SHUFFLE_SEED):
     """{arm: {pano_id: upward camera-frame normal}} for the two non-off arms.
 
@@ -592,7 +660,11 @@ def arm_normals(meas, seed=SHUFFLE_SEED):
     real = {pid: (meas[pid]['n_f'], meas[pid]['n_r'], meas[pid]['n_u']) for pid in pids}
     values = [real[p] for p in pids]
     random.Random(seed).shuffle(values)
-    return {'ground-normal': real, 'shuffled-normal': dict(zip(pids, values))}
+    rig = {pid: rig_attitude_normal(meas[pid]['meta_pitch_deg'], meas[pid]['meta_roll_deg'])
+           for pid in pids if meas[pid].get('meta_pitch_deg') is not None
+           and meas[pid].get('meta_roll_deg') is not None}
+    return {'ground-normal': real, 'shuffled-normal': dict(zip(pids, values)),
+            EXPLORATORY_ARM: rig}
 
 
 def arm_fields(p, normals, arm):
@@ -657,6 +729,7 @@ def cmd_ablation(args):
         by_id = {p.pano_id: p for p in panos}
         grade = {pid: abs(r['grade_deg']) for pid, r in meas.items()}
         tilt = {pid: r['tilt_deg'] for pid, r in meas.items()}
+        welldet = {pid for pid, r in meas.items() if r['pixel_share'] >= WELL_DETERMINED_SHARE}
 
         def place(d, arm):
             p = by_id[d.pano_id]
@@ -668,21 +741,23 @@ def cmd_ablation(args):
         placed = {}   # (arm, pano, det) -> GroundEstimate or None
         for g in groups:
             for d in g:
-                for arm in ARMS:
+                for arm in ALL_ARMS:
                     placed[(arm, d.pano_id, d.det_index)] = place(d, arm)
 
-        def ok(g, cap):
+        def ok(g, cap, arms):
             return all(placed[(arm, d.pano_id, d.det_index)] is not None
                        and placed[(arm, d.pano_id, d.det_index)].range_m <= cap
-                       for d in g for arm in ARMS)
+                       for d in g for arm in arms)
 
-        sets = {'uncapped': [g for g in groups if ok(g, math.inf)],
-                'capped': [g for g in groups if ok(g, geo.DEFAULT_MAX_RANGE_M)]}
-        for set_name, gs in sets.items():
+        sets = {'uncapped': (math.inf, ARMS), 'capped': (geo.DEFAULT_MAX_RANGE_M, ARMS),
+                'uncapped_4arm': (math.inf, ALL_ARMS),
+                'capped_4arm': (geo.DEFAULT_MAX_RANGE_M, ALL_ARMS)}
+        for set_name, (cap, arms) in sets.items():
+            gs = [g for g in groups if ok(g, cap, arms)]
             print(f'{city}: {set_name}: {len(gs):,} of {len(groups):,} multi-member sites '
                   f'placeable under every arm', flush=True)
-            for arm in ARMS:
-                dists, norm, both_meas = [], [], []
+            for arm in arms:
+                dists, norm, both_meas, wd, wd_steep = [], [], [], [], []
                 by_grade, by_tilt = defaultdict(list), defaultdict(list)
                 for g in gs:
                     pts = []
@@ -695,6 +770,10 @@ def cmd_ablation(args):
                             dd = math.hypot(a[0] - b[0], a[1] - b[1])
                             dists.append(dd)
                             norm.append(dd / (0.5 * (ra + rb)))
+                            if pa in welldet and pb in welldet:
+                                wd.append(dd)
+                                if max(grade[pa], grade[pb]) >= 2:
+                                    wd_steep.append(dd)
                             if pa in grade and pb in grade:
                                 both_meas.append(dd)
                                 by_grade[grade_bucket(max(grade[pa], grade[pb]))].append(dd)
@@ -706,7 +785,10 @@ def cmd_ablation(args):
                        'p90_pair_m': mt.pct(dists, .9),
                        'mean_pair_over_range': statistics.mean(norm) if norm else None,
                        'n_pairs_both_measured': len(both_meas),
-                       'median_pair_m_both_measured': mt.pct(both_meas, .5)}
+                       'median_pair_m_both_measured': mt.pct(both_meas, .5),
+                       'n_pairs_welldet': len(wd), 'median_pair_m_welldet': mt.pct(wd, .5),
+                       'n_pairs_welldet_grade_2+': len(wd_steep),
+                       'median_pair_m_welldet_grade_2+': mt.pct(wd_steep, .5)}
                 for b in GRADE_LABELS:
                     row[f'median_pair_m_grade_{b}'] = mt.pct(by_grade[b], .5)
                     row[f'mean_pair_m_grade_{b}'] = (statistics.mean(by_grade[b])
@@ -742,7 +824,7 @@ def cmd_eval(args):
         normals = arm_normals(meas)
         verdict_panos, bundle_ops = mt.load_gt_files(city, args.benchmark_root)
         panos, _ = fs.load_results(args.run_root / city / 'results.jsonl', read_heights=False)
-        for arm in ARMS:
+        for arm in ALL_ARMS:
             ps_ = arm_panos(panos, normals, arm)
             params = benchmark_params(apply_pose=arm != 'off')
             prefused = fs.fuse(ps_, params)
@@ -919,7 +1001,7 @@ def cmd_figures(args):
                 ax.axvline(b, color='k', lw=.5, ls=':')
         axes[0].legend(fontsize=7)
         axes[2].axvline(0, color='k', lw=.8)
-        axes[2].set_xlabel('signed cross-slope (deg; negative = ground falls to the right)')
+        axes[2].set_xlabel('signed cross-slope (deg, clipped at 6; < 0 = falls to the right)')
         axes[2].set_ylabel('density')
         axes[2].legend(fontsize=7)
         fig.suptitle('The ground plane GSV depth observes under each panorama (stand-in grounds '
@@ -929,28 +1011,33 @@ def cmd_figures(args):
     else:
         print('skipping fig1: no planes.csv for', ', '.join(set(cities) - set(have)))
 
-    # Fig 2: grade persistence along the link graph
+    # Fig 2: slope persistence along the link graph, depth plane vs rig attitude
     ch = summary_csv(args.out_root, 'chain.csv')
-    fig, ax = plt.subplots(figsize=(7.5, 4))
     labels = [f'{lo}-{hi}' for lo, hi in DIST_BINS]
-    for city in cities:
-        for vint, ls in (('same', '-'), ('different', '--')):
-            rs = {r['dist_bin_m']: r for r in ch if r['city'] == city and r['vintage'] == vint}
-            ys = [rs[b]['r'] if b in rs and rs[b]['r'] is not None and rs[b]['n_pairs'] >= 100
-                  else np.nan for b in labels]
-            ax.plot(range(len(labels)), ys, ls=ls, marker='o', color=colors[city],
-                    label=city if vint == 'same' else None)
-    ax.set_xticks(range(len(labels)))
-    ax.set_xticklabels([f'{b} m' for b in labels])
-    ax.set_ylim(-0.1, 1.0)
-    ax.axhline(0, color='k', lw=.5)
-    ax.set_xlabel('separation between two linked panoramas')
-    ax.set_ylabel('correlation of slope along the A->B bearing')
-    ax.set_title('How far an observed grade persists along the street '
-                 '(solid = same capture month, dashed = different; bins >= 100 pairs)',
-                 fontsize=9)
-    ax.grid(alpha=.3)
-    ax.legend(fontsize=7)
+    fig, axes = plt.subplots(1, 3, figsize=(13, 3.8), sharey=True)
+    for ax, sig, title in zip(axes, CHAIN_SIGNALS,
+                              ('depth ground plane, every measured pano',
+                               f'depth ground plane, both covering >= {WELL_DETERMINED_SHARE:.0%}',
+                               'rig attitude (GSV metadata pitch, -roll)')):
+        for city in cities:
+            for vint, ls in (('same', '-'), ('different', '--')):
+                rs = {r['dist_bin_m']: r for r in ch if r['city'] == city
+                      and r['vintage'] == vint and r['signal'] == sig}
+                ys = [rs[b]['r'] if b in rs and rs[b]['r'] is not None and rs[b]['n_pairs'] >= 100
+                      else np.nan for b in labels]
+                ax.plot(range(len(labels)), ys, ls=ls, marker='o', ms=3, color=colors[city],
+                        label=city if vint == 'same' else None)
+        ax.set_xticks(range(len(labels)))
+        ax.set_xticklabels([b for b in labels], fontsize=7)
+        ax.set_ylim(-0.2, 1.0)
+        ax.axhline(0, color='k', lw=.5)
+        ax.set_xlabel('separation of two linked panoramas (m)')
+        ax.set_title(title, fontsize=9)
+        ax.grid(alpha=.3)
+    axes[0].set_ylabel('correlation of slope along the A->B bearing')
+    axes[0].legend(fontsize=7)
+    fig.suptitle('Does an observed slope persist along the street? solid = same capture month '
+                 '(one drive), dashed = different months; bins >= 100 pairs', fontsize=9)
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'fig2_grade_persistence.png', dpi=150)
 
@@ -960,11 +1047,18 @@ def cmd_figures(args):
     for ax, set_name in zip(axes, ('uncapped', 'capped')):
         for city in cities:
             rs = {r['arm']: r for r in abl if r['city'] == city and r['site_set'] == set_name}
-            for arm, ls, mk in (('ground-normal', '-', 'o'), ('shuffled-normal', '--', 's')):
+            rs4 = {r['arm']: r for r in abl if r['city'] == city
+                   and r['site_set'] == f'{set_name}_4arm'}
+            for arm, ls, mk, src in (('ground-normal', '-', 'o', rs),
+                                     ('shuffled-normal', '--', 's', rs),
+                                     (EXPLORATORY_ARM, ':', '^', rs4)):
+                if arm not in src:
+                    continue
                 vals = []
                 for b in GRADE_LABELS:
-                    o, a = rs['off'][f'median_pair_m_grade_{b}'], rs[arm][f'median_pair_m_grade_{b}']
-                    n = rs['off'][f'n_pairs_grade_{b}'] or 0
+                    o = src['off'][f'median_pair_m_grade_{b}']
+                    a = src[arm][f'median_pair_m_grade_{b}']
+                    n = src['off'][f'n_pairs_grade_{b}'] or 0
                     vals.append(np.nan if (o is None or a is None or not o or n < MIN_BUCKET_PAIRS)
                                 else a / o)
                 ax.plot(range(len(GRADE_LABELS)), vals, ls=ls, marker=mk, color=colors[city],
@@ -977,8 +1071,9 @@ def cmd_figures(args):
         ax.grid(alpha=.3)
     axes[0].set_ylabel('median within-site pair distance, relative to off')
     axes[0].legend(fontsize=7)
-    fig.suptitle('solid = ground-normal, dashed = shuffled-normal control; below 1 = tighter '
-                 f'multi-view agreement (buckets with >= {MIN_BUCKET_PAIRS} pairs)', fontsize=9)
+    fig.suptitle('solid = ground-normal, dashed = shuffled-normal control, dotted = rig-attitude '
+                 '(exploratory, own 4-arm site set)\nbelow 1 = tighter multi-view agreement than '
+                 f'the flat raycast (buckets with >= {MIN_BUCKET_PAIRS} pairs)', fontsize=9)
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'fig3_ablation_by_grade.png', dpi=150)
 
@@ -991,10 +1086,10 @@ def cmd_figures(args):
         w = 0.8 / len(cities)
         for k, city in enumerate(cities):
             rs = {r['arm']: r for r in ev if r['city'] == city}
-            ax.bar(np.arange(len(ARMS)) + (k - len(cities) / 2 + .5) * w,
-                   [rs[a][key] for a in ARMS], w, color=colors[city], label=city)
-        ax.set_xticks(np.arange(len(ARMS)))
-        ax.set_xticklabels(ARMS, fontsize=8)
+            ax.bar(np.arange(len(ALL_ARMS)) + (k - len(cities) / 2 + .5) * w,
+                   [rs[a][key] for a in ALL_ARMS], w, color=colors[city], label=city)
+        ax.set_xticks(np.arange(len(ALL_ARMS)))
+        ax.set_xticklabels(ALL_ARMS, fontsize=7, rotation=15, ha='right')
         ax.set_title(title, fontsize=9)
         ax.grid(alpha=.3, axis='y')
     axes[0].set_ylim(0.6, 1.0)
@@ -1037,6 +1132,31 @@ def cmd_figures(args):
                  'dashed = the 0.5° closure line from #52)', fontsize=9)
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'fig5_crossslope.png', dpi=150)
+    # Fig 6: the frame check -- depth slope against the rig's metadata attitude
+    rig = summary_csv(args.out_root, 'planes_vs_rig.csv')
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+    for ax, axis, ylab, sign in zip(axes, ('pitch', 'roll'),
+                                    ('depth along-travel grade (deg)',
+                                     'depth cross-slope (deg, + rises to the right)'),
+                                    (1, -1)):
+        for city in cities:
+            for subset, ls in (('all', '--'), ('well_determined', '-')):
+                rs = sorted((r for r in rig if r['city'] == city and r['axis'] == axis
+                             and r['subset'] == subset and r['n'] >= 30),
+                            key=lambda r: r['meta_bin_deg'])
+                ax.plot([r['meta_bin_deg'] for r in rs], [r['depth_p50'] for r in rs], ls=ls,
+                        marker='o', ms=3, color=colors[city],
+                        label=city if subset == 'well_determined' else None)
+        ax.plot([-8, 8], [-8 * sign, 8 * sign], color='k', lw=.8, ls=':')
+        ax.set_xlabel(f'GSV metadata {axis} of the capture rig (deg, 1-deg bins, n >= 30)')
+        ax.set_ylabel(ylab + ', median')
+        ax.grid(alpha=.3)
+    axes[0].legend(fontsize=7)
+    fig.suptitle(f'Frame check: solid = plane covers >= {WELL_DETERMINED_SHARE:.0%} of the image, '
+                 'dashed = every measured pano; dotted = slope 1 (a plane riding with the car)',
+                 fontsize=9)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / 'fig6_frame_check.png', dpi=150)
     print('wrote figures to', FIG_DIR)
 
 
