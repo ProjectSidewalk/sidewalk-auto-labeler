@@ -13,7 +13,9 @@ depth.camera_height_fields); scripts/harvest_depth.py archives the payload itsel
 Imagery provenance (issue #23) comes from the same metadata object: see
 provenance_fields, the GSV counterpart of the Mapillary/Panoramax ones.
 """
+import json
 import math
+import numbers
 import random
 import time
 
@@ -299,17 +301,34 @@ def _pano_ids(panos):
     return [pano.id for pano in panos]
 
 
-def _plain(value):
-    return value
+def _json_native(value):
+    """Coerce a scalar-or-container value to JSON-native types (str/int/float/bool/None,
+    recursively through lists, tuples and dicts), so the record always serializes with
+    plain json.dumps. numpy scalars become int/float; a non-finite float becomes None
+    (NaN is not JSON). Anything else raises TypeError, which _project records as None."""
+    if value is None or isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return str(value)
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    if isinstance(value, numbers.Real):
+        value = float(value)
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {str(k): _json_native(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_native(v) for v in value]
+    raise TypeError(f"not JSON-native: {type(value).__name__}")
 
 
 # name -> converter for the non-None value. Order is the key order on the wire.
 SOURCE_METADATA_FIELDS = (
-    ('uploader', _plain),
-    ('uploader_icon_url', _plain),
+    ('uploader', _json_native),
+    ('uploader_icon_url', _json_native),
     ('upload_date', _upload_date),
-    ('elevation', float),
-    ('country_code', _plain),
+    ('elevation', _json_native),
+    ('country_code', _json_native),
     ('street_names', _street_names),
     ('address', lambda parts: [_localized(p) for p in parts]),
     ('building_level', _building_level),
@@ -329,7 +348,12 @@ def _project(metadata, name, convert):
     if value is None:
         return None
     try:
-        return convert(value)
+        converted = convert(value)
+        # The converters pass some leaf values through as they come (ids, distances,
+        # URLs); prove the result serializes, or a stray type would fail the record's
+        # json.dumps in main.py after the image download -- and again on every rerun.
+        json.dumps(converted, allow_nan=False)
+        return converted
     except Exception:
         return None
 
@@ -348,15 +372,21 @@ def provenance_fields(metadata):
     pano_source enum ('gsv'), and this is the copy that survives that.
 
     `source_metadata` is an explicit per-field projection (SOURCE_METADATA_FIELDS), never
-    a dump: see the comment above the helpers. Every named key is always present, None
-    when streetlevel did not set it, so consumers never have to test for the key.
+    a dump: see the comment above the helpers. Every named key is always present, so
+    consumers never have to test for the key: None when streetlevel did not set it, except
+    `building_levels` and `neighbors`, which streetlevel defaults to an empty list (so `[]`
+    when there are none, None only from a metadata object lacking the attribute).
+
+    The whole projection is kept in results.jsonl. What reaches Project Sidewalk is a
+    subset -- send_to_ps.PS_GSV_SOURCE_METADATA_KEYS plus `source_detail` -- because PS
+    stores the blob verbatim and caps it at 64 KB; the bulky context stays in the JSONL.
     """
     return {
         'camera_make': None,
         'camera_model': None,
         'camera_type': 'equirectangular',
         'source_detail': getattr(metadata, 'source', None),
-        'uploader': getattr(metadata, 'uploader', None),
+        'uploader': _project(metadata, 'uploader', _json_native),
         'source_metadata': {name: _project(metadata, name, convert)
                             for name, convert in SOURCE_METADATA_FIELDS},
     }

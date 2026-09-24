@@ -268,3 +268,28 @@ def test_provenance_never_fails_a_pano_on_an_unexpected_shape():
         make_metadata(places=["not a Place"], elevation=12.0))
     assert pano["source_metadata"]["places"] is None
     assert pano["source_metadata"]["elevation"] == 12.0
+
+
+def test_provenance_never_fails_a_pano_on_a_non_json_value():
+    """A value json.dumps cannot write would otherwise fail main.handle_result AFTER the
+    image download, and again on every rerun. numpy scalars are coerced, NaN and foreign
+    objects become None, and the whole pano block still serializes."""
+    import json
+    from types import SimpleNamespace
+    import numpy as np
+    place = SimpleNamespace(feature_id="0x1", cid=object(), name=None, type=None,
+                            status=None, marker_yaw=None, marker_pitch=None,
+                            marker_distance=None, marker_icon_url=None)
+    pano = gsv.build_pano_record(
+        "PID", 44.05, -121.31,
+        make_metadata(uploader=object(), country_code=np.str_("US"),
+                      elevation=np.float64("nan"), building_level=None,
+                      places=[place], neighbors=[SimpleNamespace(id=np.int64(7))]))
+    json.dumps(pano, allow_nan=False)
+    sm = pano["source_metadata"]
+    assert pano["uploader"] is None and sm["uploader"] is None
+    assert sm["country_code"] == "US" and type(sm["country_code"]) is str
+    assert sm["elevation"] is None
+    assert sm["places"] is None                  # the nested object nulls that field only
+    assert gsv._json_native(np.float32(1.5)) == 1.5
+    assert gsv._json_native({"a": (np.int64(1), None)}) == {"a": [1, None]}
