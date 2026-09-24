@@ -197,7 +197,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
   const FLOOR = C.resolution_floor_m, IQRX = C.max_iqr_ratio;
   const liveCampaigns = C.live_campaigns || [];
   const liveNote = liveCampaigns.length
-    ? ` <strong>This file is already submitted</strong>: ${liveCampaigns.map(c => `${esc(c.endpoint)} holds ${c.labels_submitted.toLocaleString()} labels on ${c.submitted_lines.toLocaleString()} lines`).join('; ')} (as of the check). ${flagged} sequence${flagged === 1 ? '' : 's'} would improve by switching field, but repositioning moves every live label on those panos. That is a whole-city decision, and <code>reposition.py</code> and <code>send_to_ps.py</code> both refuse it without <code>--reposition-live-city</code>.`
+    ? ` <strong>This file is already submitted</strong>: ${liveCampaigns.map(c => `${esc(c.endpoint)} holds ${c.labels_submitted.toLocaleString()} labels on ${c.submitted_lines.toLocaleString()} lines`).join('; ')} (as of the check). ${flagged} sequence${flagged === 1 ? '' : 's'} would improve by switching field, but resending moved panos duplicates live labels unless they are retired (soft-deleted) in the database first. That is a whole-city decision, and <code>reposition.py</code> and <code>send_to_ps.py</code> both refuse it without <code>--reposition-live-city</code>.`
     : '';
   const P = C.paired;
   const undecNote = P && P.undecidable
