@@ -109,9 +109,9 @@ def test_thin_panos_spacing_is_tunable():
     assert set(mapillary.thin_panos(panos, 100_000)) == {"b"}
 
 
-def _patch_fetch(monkeypatch, meta, image="IMAGE", gone=False):
+def _patch_fetch(monkeypatch, meta, image="IMAGE", gone=False, undecodable=False):
     monkeypatch.setattr(mapillary, "fetch_image_metadata", lambda image_id: (meta, gone))
-    monkeypatch.setattr(mapillary, "_download_image", lambda url: image)
+    monkeypatch.setattr(mapillary, "_download_image", lambda url: (image, undecodable))
 
 
 def test_fetch_pano_success_record_contract(monkeypatch):
@@ -234,3 +234,65 @@ def test_fetch_pano_metadata_unavailable_is_retryable(monkeypatch):
 def test_fetch_pano_download_failure_is_retryable(monkeypatch):
     _patch_fetch(monkeypatch, make_meta(), image=None)
     assert mapillary.fetch_pano("123456", 0.0, 0.0)["status"] == "failure"
+
+
+def test_fetch_pano_undecodable_image_is_skipped_not_retried(monkeypatch):
+    # main.py caches a skip, so the same unreadable bytes are never re-downloaded.
+    _patch_fetch(monkeypatch, make_meta(), image=None, undecodable=True)
+    result = mapillary.fetch_pano("123456", 0.0, 0.0)
+    assert result == {"status": "skipped", "reason": "Undecodable image bytes"}
+
+
+def _fake_image_get(monkeypatch, respond):
+    """Route mapillary.requests.get through `respond(call_number)`; returns the call log."""
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append(url)
+        return respond(len(calls))
+
+    monkeypatch.setattr(mapillary.requests, "get", fake_get)
+    monkeypatch.setattr(mapillary.time, "sleep", lambda s: None)
+    return calls
+
+
+def _response(status, content=b""):
+    def raise_for_status():
+        if status >= 400:
+            raise mapillary.requests.HTTPError(f"{status}")
+    return SimpleNamespace(status_code=status, content=content,
+                           raise_for_status=raise_for_status)
+
+
+def test_download_image_non_image_bytes_are_permanent_after_one_request(monkeypatch):
+    calls = _fake_image_get(monkeypatch, lambda n: _response(200, b"<html>not a jpeg</html>"))
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, True)
+    assert len(calls) == 1                       # decode failures are never re-looped
+
+
+def test_download_image_connection_error_is_retryable_after_all_attempts(monkeypatch):
+    def respond(n):
+        raise OSError("connection reset")
+    calls = _fake_image_get(monkeypatch, respond)
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
+
+
+def test_download_image_404_is_retryable_because_the_url_is_signed(monkeypatch):
+    # Unlike Panoramax's plain hd URL, a 404 on an expiring signed URL is transient:
+    # it must come back as a retryable failure, not a cached skip.
+    calls = _fake_image_get(monkeypatch, lambda n: _response(404))
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
+
+
+def test_download_image_success_normalizes_to_detector_size(monkeypatch):
+    from io import BytesIO
+    from PIL import Image
+    buf = BytesIO()
+    Image.new("RGB", (200, 100)).save(buf, format="JPEG")
+    calls = _fake_image_get(monkeypatch, lambda n: _response(200, buf.getvalue()))
+    image, permanent = mapillary._download_image("https://example.test/signed.jpg")
+    assert permanent is False
+    assert image.size == mapillary.TARGET_SIZE
+    assert len(calls) == 1
