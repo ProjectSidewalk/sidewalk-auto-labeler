@@ -821,6 +821,46 @@ def first_pano_source(input_file: Path) -> Optional[str]:
     return None
 
 
+def check_model_provenance(input_file: Path) -> None:
+    """Refuse (ValueError) a file holding any record whose model training date is null.
+
+    main.py writes a null `model_training_date` only under --allow-unknown-model-revision:
+    the loaded Hugging Face revision was not in detectors.KNOWN_REVISIONS, so nobody has
+    said what those weights are (issue #39). PS needs the date (it parses MM-dd-yyyy into a
+    NOT NULL column), so every such POST would 400 — but refusing the file here says why,
+    once, before any line is sent, instead of one opaque error per record. The fix is a
+    KNOWN_REVISIONS row and a re-run, not an override: PS rows are permanent.
+
+    Every other provenance key passes through untouched — `model_repo` and
+    `model_revision` are forwarded like the rest of the record and ignored by the server's
+    path-based reader — and legacy records, which carry neither, submit unchanged.
+    """
+    unknown = 0
+    revisions = set()
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    continue  # reported per line by the send loop, as before
+                # Explicit null only: that is the one shape main.py writes for an unknown
+                # revision. (A record lacking the key predates any of this.)
+                if 'model_training_date' in record and record['model_training_date'] is None:
+                    unknown += 1
+                    revisions.add(str(record.get('model_revision')))
+    if unknown:
+        # Worded to stay true after the SHA gains a KNOWN_REVISIONS row: the records were
+        # still written without a date, and only a fresh run can produce dated ones.
+        named = ", ".join(sorted(revisions))
+        raise ValueError(
+            f"{unknown} record(s) in {input_file.name} have no model_training_date: they were "
+            f"written without a training date (run made under --allow-unknown-model-revision) "
+            f"from revision(s) {named}. Project Sidewalk rejects a record without the date. "
+            f"Make sure each revision has a row (with its training date) in "
+            f"detectors.KNOWN_REVISIONS, then re-run detection into a fresh --name.")
+
+
 def check_position_state(input_file: Path, digest: str) -> Optional[Dict[str, Any]]:
     """Refuse (ValueError) to submit a Mapillary file whose pano-position check is missing,
     stale or flagged; return the check otherwise (None for a non-Mapillary file).
@@ -1075,6 +1115,10 @@ def process_jsonl_file(
 
     # Fail before opening the file: a cleartext key leaks on the very first request.
     check_endpoint_security(endpoint_url, None if dry_run else api_key)
+
+    # A record of unknown provenance can never land (issue #39); say so before sending any.
+    if not dry_run:
+        check_model_provenance(input_file)
 
     # Load resume state: line numbers that already got a 200 on a previous run (or, for a
     # band campaign, lines already handled by that band - sent, or empty and skipped).

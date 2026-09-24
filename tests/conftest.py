@@ -71,3 +71,14 @@ def make_process_result(**overrides):
                 detections=[(0.5, 0.25, 0.9)])
     base.update(overrides)
     return base
+
+
+# HF main since 2026-07-24 (the paper weights); in detectors.KNOWN_REVISIONS.
+PAPER_REVISION = "606a11956743f7eb328d9207769034752f6191f4"
+
+
+def make_provenance(revision=PAPER_REVISION, allow_unknown=False):
+    """The provenance block CurbRampDetector resolves for `revision`, built by the same
+    torch-free function it uses — so tests exercise the real table, not a copy of it."""
+    import detectors
+    return detectors.provenance_for_revision(revision, allow_unknown=allow_unknown)

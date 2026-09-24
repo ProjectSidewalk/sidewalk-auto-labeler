@@ -7,7 +7,7 @@ import pytest
 import detectors
 import main
 import send_to_ps
-from conftest import make_process_result
+from conftest import make_process_result, make_provenance
 
 
 def _record(detections, pano_id="PID"):
@@ -130,7 +130,7 @@ def test_transform_accepts_real_stage1_records():
     """Producer→consumer contract: feed transform_record an actual build_output_line
     record (round-tripped through JSON like the JSONL file), so a key rename or
     reshape on either side fails here instead of at submission time."""
-    record = json.loads(json.dumps(main.build_output_line(make_process_result())))
+    record = json.loads(json.dumps(main.build_output_line(make_process_result(), make_provenance())))
     payload = send_to_ps.transform_record(record)
     # 0.5 * 16384, 0.25 * 8192 — dimensions come from the record's own pano block.
     assert payload["labels"] == [{"pano_x": 8192, "pano_y": 2048, "confidence": 0.9}]
@@ -142,6 +142,49 @@ def test_transform_accepts_real_stage1_records():
     assert pano["source"] in send_to_ps.PS_PANO_SOURCES
     assert isinstance(pano["links"], list) and isinstance(pano["history"], list)
     assert all("target_pano_id" in link for link in pano["links"])
+
+
+def test_transform_passes_provenance_through_and_legacy_records_still_submit():
+    """Issue #39: model_repo/model_revision ride along untouched (PS's reader ignores keys it
+    doesn't name), the three keys PS stores keep their names, and a legacy record with the
+    old literal and no revision transforms exactly as before."""
+    record = json.loads(json.dumps(main.build_output_line(make_process_result(), make_provenance())))
+    payload = send_to_ps.transform_record(record)
+    for key in ("model_id", "model_training_date", "api_version", "model_repo", "model_revision"):
+        assert payload[key] == record[key]
+    legacy = dict(_record([]), model_training_date="08-21-2025", api_version="1.0.0")
+    payload = send_to_ps.transform_record(legacy)
+    assert payload["model_id"] == "rampnet-model" and "model_revision" not in payload
+
+
+def test_unknown_provenance_file_is_refused_before_any_post(tmp_path, monkeypatch):
+    unknown = make_provenance("0123456789abcdef0123456789abcdef01234567", allow_unknown=True)
+    path = tmp_path / "results.jsonl"
+    path.write_text(json.dumps(main.build_output_line(make_process_result(), unknown)) + "\n")
+    sent = _capture_posts(monkeypatch)
+    with pytest.raises(ValueError, match="KNOWN_REVISIONS"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+    send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True)  # a dry run still previews it
+    assert sent == []
+
+
+def test_null_date_refusal_names_every_revision_and_stays_true_once_known(tmp_path, monkeypatch):
+    """Every null-date revision in the file is named (not just the last one read), and the
+    message does not claim the SHA is missing from KNOWN_REVISIONS — it may have been added
+    since, and the records are still undated."""
+    shas = ["0123456789abcdef0123456789abcdef01234567", "fedcba9876543210fedcba9876543210fedcba98"]
+    path = tmp_path / "results.jsonl"
+    lines = [main.build_output_line(make_process_result(), make_provenance(sha, allow_unknown=True))
+             for sha in (shas[0], shas[1], shas[0])]
+    path.write_text("".join(json.dumps(line) + "\n" for line in lines))
+    with pytest.raises(ValueError) as e:
+        send_to_ps.check_model_provenance(path)
+    message = str(e.value)
+    assert message.startswith("3 record(s)")
+    assert shas[0] in message and shas[1] in message
+    assert "written without a training date (run made under --allow-unknown-model-revision)" in message
+    assert "is not in" not in message
 
 
 def test_load_submitted_lines(tmp_path):
