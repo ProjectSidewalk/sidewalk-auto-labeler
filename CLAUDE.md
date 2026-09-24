@@ -233,9 +233,12 @@ build step. (Validation-scoring and gallery tests moved to RampNet with their to
 The pipeline is two stages run by two separate entry points:
 
 **Stage 1 — detection (`main.py`)**
-1. Loads a GeoJSON file. **The file must be a bare geometry object** (e.g. a raw
-   `MultiPolygon`), not a `Feature` or `FeatureCollection` — `shape()` and the SHA-256 area
-   hash both consume the geometry directly. See `example_geojson/` for the expected shape.
+1. Loads a GeoJSON file — a `Polygon`/`MultiPolygon`, bare or wrapped in a `Feature` or
+   `FeatureCollection` (issue #7). `extract_geometry` normalizes it to the bare geometry,
+   dissolving a multi-feature collection into one `MultiPolygon`; that bare geometry is what
+   `area.geojson` stores and what the SHA-256 area hash covers, so a wrapped and an unwrapped
+   copy of the same polygon bind to the same run (the manifest's `input_geojson_type` says
+   which it came in as). Anything non-polygonal is refused.
 2. Converts the area bounds to Slippy Map tiles (zoom per source) and scans them
    concurrently through the imagery source (`--source`, see below) to collect all pano IDs
    whose point falls inside the area polygon.

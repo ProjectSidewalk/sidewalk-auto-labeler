@@ -341,14 +341,14 @@ the **normalized** detection coordinates from step 1 into **pixel** coordinates
 You already have a Bend, Oregon polygon at `example_geojson/bend.geojson`. To run a new city
 from scratch:
 
-1. **Create a GeoJSON polygon** for the city boundary. The file must be a **bare geometry
-   object** (a raw `Polygon` or `MultiPolygon`) — *not* a GeoJSON `Feature` or
-   `FeatureCollection`. Compare against the existing examples; tools like
-   [geojson.io](https://geojson.io) export Features, so you may need to extract just the
-   `geometry` portion. A quick source for city limits is
+1. **Create a GeoJSON polygon** for the city boundary: a `Polygon` or `MultiPolygon`, either
+   bare or wrapped in a `Feature`/`FeatureCollection` (as [geojson.io](https://geojson.io)
+   exports it). `main.py` extracts the geometry before hashing, so wrapping does not change
+   which run a file belongs to, and a collection of several features is dissolved into one
+   `MultiPolygon`. A quick source for city limits is
    [OSM Nominatim](https://nominatim.openstreetmap.org/): search the city with
    `polygon_geojson=1`, take the `boundary=administrative` result, and save its `geojson`
-   field (the bare geometry) to a file. Ideally, though, derive the boundary from the
+   field to a file. Ideally, though, derive the boundary from the
    target Project Sidewalk instance's own regions so the two areas match exactly (see
    [Keep the two areas aligned](#keep-the-two-areas-aligned)).
 2. Save it under `example_geojson/` (or anywhere) and run

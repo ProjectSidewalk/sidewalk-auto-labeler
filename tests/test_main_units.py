@@ -1,6 +1,8 @@
 """Unit tests for main.py's pure helpers (no network, no model)."""
 import json
 
+import pytest
+
 import main
 from conftest import make_process_result as _result
 
@@ -133,3 +135,80 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     results.write_text("{}\n{}\n")  # the file changed: the check runs again
     main.run_position_check(run_dir, manifest_path, manifest)
     assert calls == [run_dir]
+
+
+# --- GeoJSON input normalization (issue #7) --------------------------------------------
+
+SQUARE = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]}
+FAR_SQUARE = {"type": "Polygon", "coordinates": [[[5, 5], [6, 5], [6, 6], [5, 6], [5, 5]]]}
+
+
+def _feature(geometry):
+    return {"type": "Feature", "properties": {"name": "x"}, "geometry": geometry}
+
+
+def _hash_of(data):
+    return main.get_geojson_hash(main.extract_geometry(data)[0])
+
+
+def test_bare_feature_and_single_feature_collection_hash_alike():
+    # Wrapping or unwrapping the same polygon must bind to the same run directory,
+    # and the bare case must hash exactly as it did before #7 (no run forks).
+    bare = _hash_of(SQUARE)
+    assert bare == main.get_geojson_hash(SQUARE)
+    assert _hash_of(_feature(SQUARE)) == bare
+    assert _hash_of({"type": "FeatureCollection", "features": [_feature(SQUARE)]}) == bare
+    assert main.extract_geometry(_feature(SQUARE))[1] == "Feature"
+
+
+def test_committed_area_hash_survives_a_feature_wrapper(tmp_path):
+    # The same check on a real file loaded the way run_labeler loads it.
+    import geojson
+    from pathlib import Path
+    src = Path(__file__).resolve().parent.parent / "example_geojson" / "richmond.geojson"
+    bare = json.loads(src.read_text())
+    wrapped = tmp_path / "wrapped.geojson"
+    wrapped.write_text(json.dumps({"type": "FeatureCollection", "features": [_feature(bare)]}))
+    with open(src) as f:
+        bare_hash = main.get_geojson_hash(main.extract_geometry(geojson.load(f))[0])
+    with open(wrapped) as f:
+        wrapped_hash = main.get_geojson_hash(main.extract_geometry(geojson.load(f))[0])
+    assert wrapped_hash == bare_hash
+
+
+def test_multi_feature_collection_dissolves_to_one_multipolygon(capsys):
+    geometry, input_type = main.extract_geometry(
+        {"type": "FeatureCollection", "features": [_feature(SQUARE), _feature(FAR_SQUARE)]})
+    assert input_type == "FeatureCollection"
+    assert geometry["type"] == "MultiPolygon"
+    assert len(geometry["coordinates"]) == 2
+    assert main.shape(geometry).area == 2.0
+    json.dumps(geometry)                          # plain lists, storable as area.geojson
+    assert "dissolved" in capsys.readouterr().out
+
+
+def test_touching_features_dissolve_to_a_multipolygon_not_a_polygon():
+    right = {"type": "Polygon", "coordinates": [[[1, 0], [2, 0], [2, 1], [1, 1], [1, 0]]]}
+    geometry, _ = main.extract_geometry(
+        {"type": "FeatureCollection", "features": [_feature(SQUARE), _feature(right)]})
+    assert geometry["type"] == "MultiPolygon" and len(geometry["coordinates"]) == 1
+
+
+@pytest.mark.parametrize("data, found", [
+    (_feature({"type": "Point", "coordinates": [0, 0]}), "Point"),
+    ({"type": "GeometryCollection", "geometries": [SQUARE]}, "GeometryCollection"),
+    ({"type": "FeatureCollection", "features": []}, "no features"),
+    (_feature(None), "empty"),
+])
+def test_non_polygonal_input_is_refused_naming_what_was_found(data, found):
+    with pytest.raises(ValueError, match=found):
+        main.extract_geometry(data)
+
+
+def test_manifest_records_input_type_and_area_geojson_stays_bare(tmp_path):
+    geometry, input_type = main.extract_geometry(_feature(SQUARE))
+    manifest = main.load_or_init_run_dir(tmp_path / "run", "in.geojson", geometry,
+                                         main.get_geojson_hash(geometry), "gsv",
+                                         input_geojson_type=input_type)
+    assert manifest["input_geojson_type"] == "Feature"
+    assert json.loads((tmp_path / "run" / "area.geojson").read_text())["type"] == "Polygon"
