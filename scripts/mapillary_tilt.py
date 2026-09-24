@@ -19,11 +19,16 @@ subcommand's compass identity):
   camera-frame horizon, phi=(x-0.5)*2pi, theta=(0.5-y)*pi.
 - ``opensfm_pose`` decomposes the matrix into (heading, pitch, roll) in exactly the
   convention ``geo._world_ray`` composes (yaw -> pitch about right, +up -> roll about
-  forward, +lifts the image's right side), so ``geo.detection_ground_point(...,
+  forward, + lowers the camera's right axis), so ``geo.detection_ground_point(...,
   apply_pose=True)`` reproduces the direct R^T*bearing raycast to machine precision.
-  Project Sidewalk's Mapillary viewer (``MapillaryViewer.extractPitchRoll``) uses the
-  same pitch and the OPPOSITE roll sign (positive = camera rolled clockwise as seen by
-  the photographer); ``roll_ps_deg`` carries that value.
+  That roll sign is Project Sidewalk's (``MapillaryViewer.extractPitchRoll``: positive =
+  camera rolled clockwise as seen by the photographer). Until the #42 wiring the code
+  used the opposite sign and carried PS's as a separate ``roll_ps_deg``; the two were
+  unified by flipping ``geo._world_ray``, so every roll computed here now has PS's sign
+  -- and the roll columns of the per-pano and summary CSVs committed with PR #50
+  (``tilt_summary.csv``, ``tilt_by_rig.csv``, ``tilt_by_sequence.csv``,
+  ``verticality.csv``) have the other. ``ablation`` and ``eval`` are sign-free (every
+  convention is a product of signs with the same angles) and reproduce cell for cell.
 
 Subcommands. Per-panorama CSVs go to ``runs/<city>/tilt/`` and the aggregated ones to
 ``runs/_summary/tilt/`` (unless --out is given); the aggregated ones are also committed
@@ -102,8 +107,10 @@ def pose_angles(pose, signs):
         if g is None:
             return pose['pitch_deg'], pose['roll_deg']
         phi = math.radians(geo.norm_deg(pose['travel_bearing_deg'] - pose['heading_deg']))
+        # Roll carries PS's sign (+ lowers the camera's right axis), so the grade's
+        # cross-track component is ADDED: see geo._world_ray's first-order formula.
         return (pose['pitch_deg'] - g * math.cos(phi),
-                pose['roll_deg'] - g * math.sin(phi))
+                pose['roll_deg'] + g * math.sin(phi))
     return signs[0] * pose['pitch_deg'], signs[1] * pose['roll_deg']
 # Open-ended on purpose: the top bucket used to stop at 90 deg, so the handful of
 # panos with a failed reconstruction (clovis reaches 170 deg) fell into a label no
@@ -129,8 +136,8 @@ def rotation_matrix(rvec):
 
 def opensfm_pose(rvec):
     """(heading_deg, pitch_deg, roll_deg) of a world->camera axis-angle rotation, in
-    geo._world_ray's convention, plus tilt_deg (angle between camera-up and world-up)
-    and roll_ps_deg (Project Sidewalk's sign). Rows of R are the camera axes in ENU:
+    geo._world_ray's convention (roll in Project Sidewalk's sign), plus tilt_deg (angle
+    between camera-up and world-up). Rows of R are the camera axes in ENU:
     R[0] = right, R[1] = down, R[2] = forward."""
     R = rotation_matrix(rvec)
     fwd_e, fwd_n, fwd_u = R[2]
@@ -139,8 +146,8 @@ def opensfm_pose(rvec):
     heading = math.atan2(fwd_e, fwd_n)
     pitch = math.asin(max(-1.0, min(1.0, fwd_u)))
     # Roll: angle of the camera's right axis about the (pitched) forward axis,
-    # measured from the level right axis toward the pitched up axis — exactly the
-    # roll geo._world_ray applies after yaw and pitch.
+    # measured from the level right axis toward the pitched up axis, then negated into
+    # PS's sign -- exactly the roll geo._world_ray applies after yaw and pitch.
     cp, sp = math.cos(heading), math.sin(heading)
     ca, sa = math.cos(pitch), math.sin(pitch)
     level_right = (cp, -sp, 0.0)                    # ENU: (E, N, U)
@@ -150,8 +157,7 @@ def opensfm_pose(rvec):
     tilt = math.acos(max(-1.0, min(1.0, up_u)))
     return {'heading_deg': math.degrees(heading) % 360.0,
             'pitch_deg': math.degrees(pitch),
-            'roll_deg': math.degrees(roll),
-            'roll_ps_deg': -math.degrees(roll),
+            'roll_deg': -math.degrees(roll),
             'tilt_deg': math.degrees(tilt)}
 
 
@@ -159,6 +165,7 @@ def matrix_from_pose(heading_deg, pitch_deg, roll_deg):
     """Inverse of opensfm_pose: the world->camera matrix (rows right/down/forward in
     ENU) that geo._world_ray's yaw->pitch->roll composition describes."""
     psi, alpha, rho = (math.radians(a) for a in (heading_deg, pitch_deg, roll_deg))
+    rho = -rho   # PS-sign roll in; the rotation below lifts the right axis for rho > 0
     # geo._world_ray works in (north, east, up); build there, then reorder to ENU.
     f = (math.cos(psi), math.sin(psi), 0.0)
     r = (-math.sin(psi), math.cos(psi), 0.0)
@@ -273,7 +280,8 @@ def add_sequence_grade(poses):
                 bearing = math.degrees(math.atan2(e, n)) % 360.0
                 grade = math.degrees(math.atan2(b['computed_altitude'] - a['computed_altitude'], d))
                 phi = math.radians(geo.norm_deg(bearing - q['heading_deg']))
-                travel_pitch = q['pitch_deg'] * math.cos(phi) + q['roll_deg'] * math.sin(phi)
+                # PS-sign roll: + lowers the right axis, so it enters with a minus.
+                travel_pitch = q['pitch_deg'] * math.cos(phi) - q['roll_deg'] * math.sin(phi)
                 q.update({'grade_deg': grade, 'travel_bearing_deg': bearing,
                           'travel_pitch_deg': travel_pitch,
                           'pitch_rel_road_deg': travel_pitch - grade})
@@ -344,7 +352,7 @@ def cmd_stats(args):
                 cd = abs(geo.norm_deg(pose['compass_angle'] - pose['computed_compass_angle']))
             rows.append({k: pose[k] for k in ('pano_id', 'make', 'model', 'sequence',
                                                'capture_date', 'captured_at', 'heading_deg',
-                                               'pitch_deg', 'roll_deg', 'roll_ps_deg', 'tilt_deg',
+                                               'pitch_deg', 'roll_deg', 'tilt_deg',
                                                'n_operational', 'width', 'height',
                                                'computed_altitude', 'grade_deg', 'travel_pitch_deg',
                                                'pitch_rel_road_deg', 'lag1_pitch_diff',
@@ -974,7 +982,7 @@ def cmd_pose(args):
             continue
         print(json.dumps({k: pose[k] for k in ('pano_id', 'make', 'model', 'sequence', 'rvec',
                                                 'camera_heading', 'heading_deg', 'pitch_deg',
-                                                'roll_deg', 'roll_ps_deg', 'tilt_deg')}, indent=2))
+                                                'roll_deg', 'tilt_deg')}, indent=2))
 
 
 # --- figures -------------------------------------------------------------------------------
@@ -1084,7 +1092,7 @@ def cmd_figures(args):
             ax.axvline(0, color='k', lw=.5)
             ax.set_xlabel('pitch (deg)')
             ax.legend(fontsize=6, loc='lower left')
-        np.atleast_1d(axes)[0].set_ylabel('roll (deg, geo.py sign)')
+        np.atleast_1d(axes)[0].set_ylabel('roll (deg, PS sign; PR #50 plotted the opposite)')
         fig.suptitle('Pitch and roll by rig (random 4,000 panos per city)', fontsize=11)
         fig.tight_layout()
         fig.savefig(FIG_DIR / 'fig2_pitch_roll_by_rig.png', dpi=150)

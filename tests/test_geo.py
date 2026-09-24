@@ -141,15 +141,16 @@ def test_pitch_shifts_dead_ahead_elevation():
 
 
 def test_roll_shifts_side_elevation():
-    # +2 deg roll lifts the right side of the image (phi=90): same 5->3 deg shift
-    pose = _flat_pose(pitch=0.0, roll=2.0)
+    # Roll carries Project Sidewalk's sign (#42): POSITIVE lowers the camera's right
+    # axis, so -2 deg lifts the right side of the image (phi=90): same 5->3 deg shift
+    pose = _flat_pose(pitch=0.0, roll=-2.0)
     g = geo.detection_ground_point(pose, 0.75, _y_for_depression(math.radians(5.0)),
                                    max_range_m=100.0)
     assert g.range_m == pytest.approx(2.6 / math.tan(math.radians(3.0)), rel=1e-6)
 
 
 def test_exact_rotation_matches_first_order_formula():
-    # elev ~= theta + pitch*cos(phi) + roll*sin(phi), good to second order
+    # elev ~= theta + pitch*cos(phi) - roll*sin(phi) (PS roll sign), good to second order
     pose = _flat_pose(heading=120.0, pitch=3.0, roll=1.0)
     phi_deg, depression_deg = 40.0, 6.0
     g = geo.detection_ground_point(
@@ -157,7 +158,7 @@ def test_exact_rotation_matches_first_order_formula():
         max_range_m=200.0)
     expected_elev = (-math.radians(depression_deg)
                      + math.radians(3.0) * math.cos(math.radians(phi_deg))
-                     + math.radians(1.0) * math.sin(math.radians(phi_deg)))
+                     - math.radians(1.0) * math.sin(math.radians(phi_deg)))
     assert g.range_m == pytest.approx(2.6 / math.tan(-expected_elev), rel=5e-3)
 
 

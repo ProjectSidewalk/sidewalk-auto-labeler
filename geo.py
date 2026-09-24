@@ -298,10 +298,19 @@ def _world_ray(pose, phi, theta):
     pano's yaw/pitch/roll exactly.
 
     Rotation: intrinsic yaw (about up) -> pitch (about the right axis; positive
-    raises the view axis) -> roll (about the forward axis; positive lifts the
-    right side of the image). First-order effect on elevation:
-    elev ~= theta + pitch*cos(phi) + roll*sin(phi). Vector components are
-    (north, east, up).
+    raises the view axis) -> roll (about the forward axis; positive LOWERS the
+    camera's right axis, i.e. the camera is rolled clockwise as seen from behind it).
+    First-order effect on elevation: elev ~= theta + pitch*cos(phi) - roll*sin(phi).
+    Vector components are (north, east, up).
+
+    The roll sign is Project Sidewalk's (MapillaryViewer.extractPitchRoll), which is
+    what results.jsonl stores and submits (issue #42): one convention from the record
+    to the raycast, with no per-source special case. Until #42 this function used the
+    opposite sign (positive lifted the image's right side), so any roll quoted from
+    before then -- including the GSV ablation below and docs/mapillary-tilt-study.md's
+    per-pano CSVs -- has the other sign. The sign was locked on Mapillary four ways
+    (compass identity, PS's own viewer, pixel re-rectification, reviewer marks above
+    the horizon; docs/mapillary-tilt-study.md section 5.1).
 
     MEASURED (fuse_sites.py --pose-ablation, 2026-08-02, paterson + bend,
     ~123k within-site member pairs): applying GSV metadata pitch/roll under ANY
@@ -314,7 +323,7 @@ def _world_ray(pose, phi, theta):
     """
     psi = math.radians(pose.heading_deg)
     alpha = math.radians(pose.pitch_deg)
-    rho = math.radians(pose.roll_deg)
+    rho = -math.radians(pose.roll_deg)   # PS sign in, geometric rotation out (see above)
 
     # Pano-frame basis in world coordinates, after yaw:
     f = (math.cos(psi), math.sin(psi), 0.0)      # forward (center column)
@@ -324,7 +333,7 @@ def _world_ray(pose, phi, theta):
     ca, sa = math.cos(alpha), math.sin(alpha)
     f, u = tuple(ca * fi + sa * ui for fi, ui in zip(f, u)), \
            tuple(-sa * fi + ca * ui for fi, ui in zip(f, u))
-    # ...roll about f:
+    # ...roll about f (rho > 0 lifts r, so a positive PS roll, which lowers it, is -rho):
     cr, sr = math.cos(rho), math.sin(rho)
     r, u = tuple(cr * ri + sr * ui for ri, ui in zip(r, u)), \
            tuple(-sr * ri + cr * ui for ri, ui in zip(r, u))
