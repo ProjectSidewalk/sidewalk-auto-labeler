@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 
 import requests
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from shapely.geometry import Point
 
 from sources import TARGET_IMAGE_SIZE as TARGET_SIZE
@@ -301,6 +301,14 @@ def _fetch_image_metadata(image_id):
 
 
 
+# Decode errors that describe the bytes themselves, so a retry cannot fix them.
+# UnidentifiedImageError is an OSError subclass (listed for the reader); OSError also
+# covers a truncated file; SyntaxError is what PIL raises for some malformed headers;
+# DecompressionBombError is a plain Exception subclass, not an OSError.
+PERMANENT_DECODE_ERRORS = (UnidentifiedImageError, OSError, SyntaxError,
+                           Image.DecompressionBombError)
+
+
 def _download_image(url):
     """(image, permanent) for one image's signed thumbnail, normalized to the detector's
     4096x2048.
@@ -310,11 +318,16 @@ def _download_image(url):
     sources/panoramax.py's _download_image draws (issue #57, part 2):
 
     - Network/HTTP failures are retryable and return (None, False) after ATTEMPTS tries.
+    - A 200 whose Content-Type is not `image/*` (an HTML error or interstitial page
+      served with a 200) is also retryable: that says nothing about the image.
     - A decode failure is not. Bytes that arrived intact and are not a readable image (a
       truncated upload, a decompression bomb past PIL's ceiling) will not become one on
       the next try, so it returns (None, True) on the first attempt, never re-looped.
       Before this split, one bare `except Exception` sent such a pano back around the
       loop and then left it uncached, so every run of the area re-downloaded it.
+      Only PERMANENT_DECODE_ERRORS count: anything else raised while decoding (a
+      MemoryError under load, say) is about this process, not the bytes, so it is
+      retried like a network failure and never cached.
 
     A 404 deliberately stays RETRYABLE here, unlike in the Panoramax template, which
     treats a 404 on its plain, unsigned `hd` URL as the pixels being gone. This URL is
@@ -328,16 +341,20 @@ def _download_image(url):
         try:
             response = requests.get(url, timeout=120)
             response.raise_for_status()  # a 404 raises here and is retried, see above
+            content_type = (response.headers or {}).get('Content-Type', '')
+            if content_type and not content_type.lower().startswith('image/'):
+                raise ValueError(f"non-image Content-Type {content_type!r}")
             payload = response.content
+            # Past this point the bytes are in hand, so a PERMANENT_DECODE_ERRORS failure
+            # is about the bytes; any other exception falls through and is retried.
+            try:
+                image = Image.open(BytesIO(payload)).convert('RGB')
+            except PERMANENT_DECODE_ERRORS:
+                return None, True
         except Exception:
             if attempt < ATTEMPTS - 1:
                 time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
             continue
-        # Past this point the bytes are in hand, so a failure is about the bytes.
-        try:
-            image = Image.open(BytesIO(payload)).convert('RGB')
-        except Exception:
-            return None, True
         if image.size != TARGET_SIZE:
             image = image.resize(TARGET_SIZE, Image.BILINEAR)
         return image, False

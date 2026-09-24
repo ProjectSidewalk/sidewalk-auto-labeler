@@ -256,12 +256,21 @@ def _fake_image_get(monkeypatch, respond):
     return calls
 
 
-def _response(status, content=b""):
+def _response(status, content=b"", content_type="image/jpeg"):
     def raise_for_status():
         if status >= 400:
             raise mapillary.requests.HTTPError(f"{status}")
     return SimpleNamespace(status_code=status, content=content,
+                           headers={"Content-Type": content_type},
                            raise_for_status=raise_for_status)
+
+
+def _jpeg_bytes():
+    from io import BytesIO
+    from PIL import Image
+    buf = BytesIO()
+    Image.new("RGB", (200, 100)).save(buf, format="JPEG")
+    return buf.getvalue()
 
 
 def test_download_image_non_image_bytes_are_permanent_after_one_request(monkeypatch):
@@ -287,12 +296,39 @@ def test_download_image_404_is_retryable_because_the_url_is_signed(monkeypatch):
 
 
 def test_download_image_success_normalizes_to_detector_size(monkeypatch):
-    from io import BytesIO
-    from PIL import Image
-    buf = BytesIO()
-    Image.new("RGB", (200, 100)).save(buf, format="JPEG")
-    calls = _fake_image_get(monkeypatch, lambda n: _response(200, buf.getvalue()))
+    calls = _fake_image_get(monkeypatch, lambda n: _response(200, _jpeg_bytes()))
     image, permanent = mapillary._download_image("https://example.test/signed.jpg")
     assert permanent is False
     assert image.size == mapillary.TARGET_SIZE
     assert len(calls) == 1
+
+
+def test_download_image_memory_error_during_decode_stays_retryable(monkeypatch):
+    # Only "these bytes are not an image" errors are permanent. A MemoryError under load
+    # is about this process, so it must never become a cached skip.
+    calls = _fake_image_get(monkeypatch, lambda n: _response(200, _jpeg_bytes()))
+
+    def oom(*args, **kwargs):
+        raise MemoryError()
+    monkeypatch.setattr(mapillary.Image, "open", oom)
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
+
+
+def test_download_image_non_image_content_type_is_retryable(monkeypatch):
+    # An HTML error page served with a 200 says nothing about the image itself.
+    calls = _fake_image_get(
+        monkeypatch, lambda n: _response(200, b"<html>busy</html>", content_type="text/html"))
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
+
+
+def test_download_image_network_error_then_bad_bytes_is_permanent_after_two(monkeypatch):
+    # A transient failure is retried; once bytes arrive and do not decode, the loop stops.
+    def respond(n):
+        if n == 1:
+            raise OSError("connection reset")
+        return _response(200, b"not a jpeg")
+    calls = _fake_image_get(monkeypatch, respond)
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, True)
+    assert len(calls) == 2

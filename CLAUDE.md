@@ -254,8 +254,9 @@ The pipeline is two stages run by two separate entry points:
 (metadata + image → the JSONL `pano` block + a PIL image), and `prepare` (fail fast on
 misconfiguration). `fetch_pano` distinguishes deterministic `skipped` (cached, never
 retried — indoor GSV panos, non-360 or non-2:1 Mapillary images, incomplete metadata,
-image bytes that arrived but do not decode) from retryable `failure` (left uncached —
-network/HTTP errors). An image **404 differs by source on purpose**: Mapillary's
+image bytes that arrived but do not decode — only PIL's "these bytes are not an image"
+errors count, so a `MemoryError` mid-decode stays retryable) from retryable `failure` (left
+uncached — network/HTTP errors, and a 200 whose Content-Type is not `image/*`). An image **404 differs by source on purpose**: Mapillary's
 `thumb_original_url` is signed and expires, so a 404 there is transient (`failure`);
 Panoramax's `hd` URL is plain, so a 404 there means the pixels are gone (`skipped`).
 - **gsv** (default): z17 coverage tiles + metadata/imagery via streetlevel; the original
