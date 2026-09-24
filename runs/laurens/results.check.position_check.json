@@ -1,10 +1,12 @@
 {
  "run_name": "laurens",
  "imagery_source": "mapillary",
- "checked_at": "2026-09-16T20:38:40Z",
- "threshold_m": 3.0,
+ "checked_at": "2026-09-24T05:13:45Z",
+ "rule": "paired-unsigned-v1 (issue #62)",
+ "threshold_m": 5.0,
+ "resolution_floor_m": 2.0,
+ "max_iqr_ratio": 1.5,
  "min_sequence": 20,
- "min_improvement_m": 2.0,
  "max_snap_m": 30.0,
  "panos": 4495,
  "panos_not_near_a_street": 557,
@@ -432,6 +434,17 @@
   "share_over_5m": 0.754,
   "share_over_10m": 0.304
  },
+ "paired": {
+  "n": 3607,
+  "median_m": 1.01,
+  "raw_closer_share": 0.687,
+  "sequences_judged": 19,
+  "raw_better": 4,
+  "sfm_better": 0,
+  "undecidable": 15,
+  "raw_closer_by_sign": 19,
+  "share_below_floor": 0.789
+ },
  "sequences": [
   {
    "sequence_id": "axZPXQLSm6hrvCoYd9f1cl",
@@ -462,12 +475,23 @@
     "sfm": 3.09,
     "raw": 2.9
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.58,
+    "sfm": 2.58,
+    "raw": 2.2
+   },
+   "paired_median_m": 0.55,
+   "paired_n": 294,
+   "raw_closer_share": 0.602,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -501,14 +525,25 @@
     "sfm": 3.35,
     "raw": 2.03
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.95,
+    "sfm": 3.95,
+    "raw": 2.01
+   },
+   "paired_median_m": 1.12,
+   "paired_n": 271,
+   "raw_closer_share": 0.838,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 30,
     "sfm": 30,
     "raw": 29
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -540,12 +575,23 @@
     "sfm": 2.75,
     "raw": 2.06
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.53,
+    "sfm": 3.53,
+    "raw": 1.81
+   },
+   "paired_median_m": 0.63,
+   "paired_n": 285,
+   "raw_closer_share": 0.593,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -579,12 +625,23 @@
     "sfm": 3.09,
     "raw": 2.33
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.74,
+    "sfm": 1.74,
+    "raw": 1.85
+   },
+   "paired_median_m": 0.79,
+   "paired_n": 238,
+   "raw_closer_share": 0.761,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 53,
     "sfm": 53,
     "raw": 53
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -618,12 +675,23 @@
     "sfm": 6.96,
     "raw": 3.75
    },
+   "cross_track_iqr_m": {
+    "submitted": 8.03,
+    "sfm": 9.58,
+    "raw": 8.03
+   },
+   "paired_median_m": 1.68,
+   "paired_n": 184,
+   "raw_closer_share": 0.663,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 62,
     "sfm": 58,
     "raw": 62
    },
    "recommended": "raw",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -657,12 +725,23 @@
     "sfm": 3.54,
     "raw": 3.41
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.97,
+    "sfm": 4.97,
+    "raw": 2.88
+   },
+   "paired_median_m": 0.46,
+   "paired_n": 237,
+   "raw_closer_share": 0.624,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 28,
     "sfm": 28,
     "raw": 26
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -696,12 +775,23 @@
     "sfm": 3.15,
     "raw": 1.75
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.53,
+    "sfm": 2.53,
+    "raw": 2.3
+   },
+   "paired_median_m": 1.13,
+   "paired_n": 242,
+   "raw_closer_share": 0.678,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 21,
     "sfm": 21,
     "raw": 21
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -735,12 +825,23 @@
     "sfm": 4.11,
     "raw": 2.48
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.83,
+    "sfm": 5.83,
+    "raw": 2.18
+   },
+   "paired_median_m": 1.2,
+   "paired_n": 228,
+   "raw_closer_share": 0.724,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 24,
     "sfm": 24,
     "raw": 25
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -774,12 +875,23 @@
     "sfm": 4.77,
     "raw": 3.18
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.09,
+    "sfm": 3.02,
+    "raw": 2.09
+   },
+   "paired_median_m": 1.22,
+   "paired_n": 238,
+   "raw_closer_share": 0.731,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "raw",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -813,12 +925,23 @@
     "sfm": 3.21,
     "raw": 2.99
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.36,
+    "sfm": 5.36,
+    "raw": 3.33
+   },
+   "paired_median_m": 0.67,
+   "paired_n": 185,
+   "raw_closer_share": 0.616,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 54,
     "sfm": 54,
     "raw": 54
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -852,12 +975,23 @@
     "sfm": 6.68,
     "raw": 3.45
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.91,
+    "sfm": 7.56,
+    "raw": 3.91
+   },
+   "paired_median_m": 2.47,
+   "paired_n": 154,
+   "raw_closer_share": 0.74,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 84,
     "sfm": 85,
     "raw": 84
    },
    "recommended": "raw",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -891,12 +1025,23 @@
     "sfm": 6.09,
     "raw": 2.01
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.59,
+    "sfm": 6.33,
+    "raw": 2.59
+   },
+   "paired_median_m": 3.91,
+   "paired_n": 201,
+   "raw_closer_share": 0.811,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 16,
     "sfm": 16,
     "raw": 16
    },
    "recommended": "raw",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -930,12 +1075,23 @@
     "sfm": 2.96,
     "raw": 2.19
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.82,
+    "sfm": 4.82,
+    "raw": 1.2
+   },
+   "paired_median_m": 0.2,
+   "paired_n": 156,
+   "raw_closer_share": 0.551,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 60,
     "sfm": 60,
     "raw": 64
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -969,14 +1125,25 @@
     "sfm": 4.76,
     "raw": 3.71
    },
+   "cross_track_iqr_m": {
+    "submitted": 7.57,
+    "sfm": 7.57,
+    "raw": 7.53
+   },
+   "paired_median_m": 0.41,
+   "paired_n": 147,
+   "raw_closer_share": 0.619,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 63,
     "sfm": 63,
     "raw": 62
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -1008,12 +1175,23 @@
     "sfm": 3.66,
     "raw": 1.73
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.48,
+    "sfm": 4.48,
+    "raw": 2.05
+   },
+   "paired_median_m": 2.24,
+   "paired_n": 170,
+   "raw_closer_share": 0.729,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 24,
     "sfm": 24,
     "raw": 23
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1047,13 +1225,24 @@
     "sfm": 7.26,
     "raw": 4.2
    },
+   "cross_track_iqr_m": {
+    "submitted": 7.99,
+    "sfm": 7.99,
+    "raw": 5.5
+   },
+   "paired_median_m": 2.14,
+   "paired_n": 135,
+   "raw_closer_share": 0.63,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 38,
     "sfm": 38,
     "raw": 38
    },
-   "recommended": "sfm",
-   "flagged": false,
+   "recommended": "raw",
+   "off_street": true,
+   "flagged": true,
    "both_off": false,
    "beyond_snap": false
   },
@@ -1086,12 +1275,23 @@
     "sfm": 3.96,
     "raw": 2.76
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.72,
+    "sfm": 3.62,
+    "raw": 1.72
+   },
+   "paired_median_m": 1.33,
+   "paired_n": 110,
+   "raw_closer_share": 0.818,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "raw",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1125,12 +1325,23 @@
     "sfm": 3.27,
     "raw": 3.07
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.2,
+    "sfm": 2.2,
+    "raw": 1.55
+   },
+   "paired_median_m": 0.33,
+   "paired_n": 94,
+   "raw_closer_share": 0.564,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1164,26 +1375,43 @@
     "sfm": 1.7,
     "raw": 1.06
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.74,
+    "sfm": 2.74,
+    "raw": 1.51
+   },
+   "paired_median_m": 0.28,
+   "paired_n": 38,
+   "raw_closer_share": 0.842,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
   }
  ],
- "flagged_sequences": [],
- "both_off_sequences": [
-  "rF2x7s5zpZ9u1TDVHeXStC",
-  "sWgIuf2jYGaEJPXzVck8on"
+ "flagged_sequences": [
+  "eTW2wxXc9iFHR8hQ0BZYDL"
  ],
+ "both_off_sequences": [],
  "frame": {
   "lat0": 42.8469425,
   "lng0": -94.8488815
  },
  "results_path": "runs/laurens/results.check.jsonl",
- "results_sha256": "df32c3381bdb49e2c32516b74d2de8b82e715a6048f43c95d8df9b450df2bf49"
+ "results_sha256": "df32c3381bdb49e2c32516b74d2de8b82e715a6048f43c95d8df9b450df2bf49",
+ "live_campaigns": [
+  {
+   "endpoint": "https://sidewalk-laurens-test.cs.washington.edu/ai/submitLabelsOnPano",
+   "submitted_lines": 4495,
+   "labels_submitted": 708
+  }
+ ]
 }

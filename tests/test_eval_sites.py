@@ -167,3 +167,94 @@ def test_bundle_drift_skips_the_pano_with_a_warning():
     assert r['counts']['skipped'] == 1
     assert any('drifted' in w for w in r['warnings'])
     assert r['n_pool_ramps'] == 0
+
+
+# --- the #42 pose precondition ----------------------------------------------------------
+
+def test_pose_precondition_scores_every_arm_on_the_same_sites():
+    """One member that some arm cannot place drops its whole site from EVERY arm, so the
+    arms' distances describe the same ramps (the trap the #42 study hit)."""
+    panos = [make_pano('g1', 0, -10, [(0, 0, 0.9)]), make_pano('n1', 0, 10, [(0, 0, 0.9)]),
+             make_pano('g2', 30, -10, [(30, 0, 0.9)]),
+             make_pano('n2', 30, 22, [(30, 0, 0.9)])]
+    # n2 sees ramp B 22 m away, and its rig is pitched up 3 deg: rotated by that pose the
+    # ray meets the ground ~40 m out, past the 25 m cap -- so B cannot be scored at all.
+    panos[3].camera_pitch, panos[3].camera_roll = 3.0, 0.0
+    verdicts = {'g1': _entry(dets=[True]), 'g2': _entry(dets=[True])}
+    rows, info = es.pose_precondition(
+        verdicts, _bundle_ops(panos, verdicts), panos,
+        fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE))
+    assert (info['op_sites'], info['sites_scored']) == (2, 1)
+    assert [r['arm'] for r in rows] == ['off', 'gravity', 'road', 'road-shuffled-within',
+                                        'road-shuffled-across']
+    # only ramp A is left, and nobody on it is posed: the arms must agree exactly, and
+    # the off arm's refit must land where fuse put the site (on the ramp).
+    for r in rows:
+        assert r['n_common_matched'] == 1
+        assert r['median_gt_to_site_m'] < 1e-6
+        assert (r['world_recall_5m'], r['precision']) == (1.0, 1.0)
+    # n2 has no sequence grade, so road mode fell back to gravity for it -- and said so
+    assert info['gravity_fallback_panos'] == 1
+    # survivorship is visible: nothing here becomes unplaceable, the off pool is both ramps
+    for r in rows:
+        assert r['gt_marks_unplaceable_vs_off'] == 0 and r['off_pool_ramps'] == 2
+
+
+def test_shuffled_grades_keep_the_distribution_and_move_only_the_grade():
+    panos = [make_pano(f'p{i}', 0, 10.0 * i, [(5, 10.0 * i, 0.9)]) for i in range(6)]
+    for i, p in enumerate(panos):
+        p.sequence_id = 'a' if i < 3 else 'b'
+        p.grade_deg, p.travel_bearing_deg = float(i), 7.0
+    panos[5].grade_deg = None                     # ungraded: stays ungraded
+    within, unshuffled = es.shuffled_grades(panos, within_sequence=True)
+    for orig, new in zip(panos, within):
+        assert new.travel_bearing_deg == orig.travel_bearing_deg   # own bearing kept
+    # each graded frame draws from ANOTHER frame of its own sequence
+    assert all(within[i].grade_deg in {0.0, 1.0, 2.0} - {float(i)} for i in range(3))
+    assert {within[3].grade_deg, within[4].grade_deg} == {3.0, 4.0}
+    assert within[5].grade_deg is None and unshuffled == 0
+    across, _ = es.shuffled_grades(panos, within_sequence=False)
+    assert sorted(p.grade_deg for p in across[:5]) == [0.0, 1.0, 2.0, 3.0, 4.0]
+    assert es.shuffled_grades(panos, True)[0] == within          # seeded: reproducible
+    assert [p.grade_deg for p in panos[:5]] == [0.0, 1.0, 2.0, 3.0, 4.0]   # input untouched
+
+
+def test_control_rule_clauses():
+    def city(road=(1.0, 2.0), shuf=(1.2, 2.2), rec=(0.90, 0.90), unpl=(10, 10), pool=100):
+        base = {'off_pool_ramps': pool}
+        return [dict(base, arm='off', recall_off_pool_2p5m=rec[0], gt_marks_unplaceable=unpl[0],
+                     median_gt_to_site_m=1.5, p90_gt_to_site_m=3.0),
+                dict(base, arm='road', median_gt_to_site_m=road[0], p90_gt_to_site_m=road[1],
+                     recall_off_pool_2p5m=rec[1], gt_marks_unplaceable=unpl[1]),
+                dict(base, arm='road-shuffled-within', median_gt_to_site_m=shuf[0],
+                     p90_gt_to_site_m=shuf[1], recall_off_pool_2p5m=rec[1],
+                     gt_marks_unplaceable=unpl[1])]
+    good = {c: city() for c in 'abcde'}
+    assert es.control_verdict(good)[0]
+    # (i) a shuffled grade within 0.1 m of the real one (on either statistic) in 2 of 5
+    # cities fails the control: only 3 cities show the frame's own grade mattering
+    tie = dict(good, d=city(shuf=(1.05, 2.5)), e=city(shuf=(1.0, 2.0)))
+    ok, clauses, _ = es.control_verdict(tie)
+    assert not ok and clauses == {'i': False, 'ii': True, 'iii': True}
+    # (ii) 1.1 points of off-pool recall lost in one city
+    ok, clauses, _ = es.control_verdict(dict(good, a=city(rec=(0.900, 0.889))))
+    assert not ok and not clauses['ii']
+    # (iii) six more unplaceable marks on a 100-ramp pool (limit 5)
+    ok, clauses, _ = es.control_verdict(dict(good, a=city(unpl=(10, 16))))
+    assert not ok and not clauses['iii']
+
+
+def test_precondition_rule_needs_p90_everywhere_and_three_median_wins():
+    def rows(off_med, off_p90, road_med, road_p90):
+        return [{'arm': 'off', 'median_gt_to_site_m': off_med, 'p90_gt_to_site_m': off_p90},
+                {'arm': 'road', 'median_gt_to_site_m': road_med, 'p90_gt_to_site_m': road_p90}]
+    better = rows(2.0, 4.0, 1.5, 3.5)
+    assert es.precondition_verdict({c: better for c in 'abcde'})[0]
+    # within the 0.1 m tolerance is "no worse"; three median wins are enough
+    ok = {'a': better, 'b': better, 'c': better,
+          'd': rows(2.0, 4.0, 2.1, 4.09), 'e': rows(2.0, 4.0, 2.0, 4.0)}
+    assert es.precondition_verdict(ok)[0]
+    # one city's p90 worse by more than the tolerance vetoes it, whatever the medians say
+    assert not es.precondition_verdict({**ok, 'e': rows(2.0, 4.0, 1.0, 4.2)})[0]
+    # two median wins are not enough
+    assert not es.precondition_verdict({'a': better, 'b': better, 'c': rows(2, 4, 2, 4)})[0]

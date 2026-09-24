@@ -1,0 +1,27 @@
+{
+  "input_file": "results.posfix3seq.raw.jsonl",
+  "sha256": "e7eee73bd402e752592c872e8a98969a8b0588984b979f4652e792f349d4bbb2",
+  "total_lines": 72,
+  "total_bytes": 119232,
+  "endpoints": {
+    "https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano": {
+      "rig_masked": true,
+      "submitted_lines": 72,
+      "labels_submitted": 143,
+      "min_confidence": 0.3,
+      "first_submission_utc": "2026-09-24T13:30:56Z",
+      "last_submission_utc": "2026-09-24T13:30:56Z",
+      "last_run_host": "jonfhome",
+      "position_check": {
+        "checked_at": "2026-09-24T13:15:39Z",
+        "results_sha256": "e7eee73bd402e752592c872e8a98969a8b0588984b979f4652e792f349d4bbb2",
+        "flagged": 0
+      },
+      "reposition_live_city": {
+        "overridden": true,
+        "reason": "results.posfix3seq.raw.jsonl would move panos that already carry live labels on https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano: 71 pano(s) sit at other coordinates than in results.band.jsonl, which results.band.jsonl.submission.json records as live here (9091 line(s), 12962 label(s)); 71 pano(s) sit at other coordinates than in results.jsonl, which results.jsonl.submission.json records as live here (9091 line(s), 9526 label(s)). PS upserts the pano row on resubmission, so every label already on those panos would move with them. Repositioning a city that has shipped is a whole-city decision (issue #62), not a property of this file. --reposition-live-city overrides, once that decision is made.",
+        "at_utc": "2026-09-24T13:30:56Z"
+      }
+    }
+  }
+}

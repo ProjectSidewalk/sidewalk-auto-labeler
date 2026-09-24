@@ -1,10 +1,12 @@
 {
  "run_name": "richmond",
  "imagery_source": "mapillary",
- "checked_at": "2026-09-22T14:20:35Z",
- "threshold_m": 3.0,
+ "checked_at": "2026-09-24T05:13:43Z",
+ "rule": "paired-unsigned-v1 (issue #62)",
+ "threshold_m": 5.0,
+ "resolution_floor_m": 2.0,
+ "max_iqr_ratio": 1.5,
  "min_sequence": 20,
- "min_improvement_m": 2.0,
  "max_snap_m": 30.0,
  "panos": 9091,
  "panos_not_near_a_street": 468,
@@ -432,6 +434,17 @@
   "share_over_5m": 0.281,
   "share_over_10m": 0.095
  },
+ "paired": {
+  "n": 7988,
+  "median_m": -0.0,
+  "raw_closer_share": 0.483,
+  "sequences_judged": 129,
+  "raw_better": 12,
+  "sfm_better": 7,
+  "undecidable": 110,
+  "raw_closer_by_sign": 62,
+  "share_below_floor": 0.853
+ },
  "sequences": [
   {
    "sequence_id": "ZKgN1oIYcrSmeAsBzTH40U",
@@ -462,14 +475,25 @@
     "sfm": 3.46,
     "raw": 3.8
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.7,
+    "sfm": 3.7,
+    "raw": 4.35
+   },
+   "paired_median_m": 0.02,
+   "paired_n": 578,
+   "raw_closer_share": 0.507,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 126,
     "sfm": 126,
     "raw": 123
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -501,14 +525,25 @@
     "sfm": 5.12,
     "raw": 8.38
    },
+   "cross_track_iqr_m": {
+    "submitted": 9.43,
+    "sfm": 9.43,
+    "raw": 11.14
+   },
+   "paired_median_m": -1.18,
+   "paired_n": 232,
+   "raw_closer_share": 0.388,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 91,
     "sfm": 91,
     "raw": 98
    },
-   "recommended": "raw",
-   "flagged": true,
-   "both_off": false,
+   "recommended": "sfm",
+   "off_street": true,
+   "flagged": false,
+   "both_off": true,
    "beyond_snap": false
   },
   {
@@ -540,14 +575,25 @@
     "sfm": 2.91,
     "raw": 3.26
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.59,
+    "sfm": 4.59,
+    "raw": 4.35
+   },
+   "paired_median_m": -0.19,
+   "paired_n": 360,
+   "raw_closer_share": 0.447,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 76,
     "sfm": 76,
     "raw": 74
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -579,12 +625,23 @@
     "sfm": 5.46,
     "raw": 5.82
    },
+   "cross_track_iqr_m": {
+    "submitted": 6.4,
+    "sfm": 6.4,
+    "raw": 6.11
+   },
+   "paired_median_m": -0.43,
+   "paired_n": 255,
+   "raw_closer_share": 0.427,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 92,
     "sfm": 92,
     "raw": 95
    },
    "recommended": "sfm",
+   "off_street": true,
    "flagged": false,
    "both_off": true,
    "beyond_snap": false
@@ -618,12 +675,23 @@
     "sfm": 3.7,
     "raw": 2.31
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.91,
+    "sfm": 5.91,
+    "raw": 3.01
+   },
+   "paired_median_m": 0.71,
+   "paired_n": 289,
+   "raw_closer_share": 0.623,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 48,
     "sfm": 48,
     "raw": 52
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -657,14 +725,25 @@
     "sfm": 2.22,
     "raw": 1.55
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.19,
+    "sfm": 3.19,
+    "raw": 2.14
+   },
+   "paired_median_m": 0.02,
+   "paired_n": 233,
+   "raw_closer_share": 0.541,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -696,12 +775,23 @@
     "sfm": 1.9,
     "raw": 3.17
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.95,
+    "sfm": 2.95,
+    "raw": 2.69
+   },
+   "paired_median_m": -0.13,
+   "paired_n": 169,
+   "raw_closer_share": 0.29,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -735,12 +825,23 @@
     "sfm": 1.1,
     "raw": 1.54
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.36,
+    "sfm": 2.36,
+    "raw": 2.93
+   },
+   "paired_median_m": 0.0,
+   "paired_n": 117,
+   "raw_closer_share": 0.427,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -774,14 +875,25 @@
     "sfm": 2.06,
     "raw": 2.66
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.59,
+    "sfm": 2.59,
+    "raw": 1.86
+   },
+   "paired_median_m": -0.01,
+   "paired_n": 101,
+   "raw_closer_share": 0.327,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -813,14 +925,25 @@
     "sfm": 2.16,
     "raw": 2.51
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.95,
+    "sfm": 4.95,
+    "raw": 4.8
+   },
+   "paired_median_m": 0.37,
+   "paired_n": 56,
+   "raw_closer_share": 0.536,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -852,12 +975,23 @@
     "sfm": 2.04,
     "raw": 0.88
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.28,
+    "sfm": 1.28,
+    "raw": 0.82
+   },
+   "paired_median_m": 1.31,
+   "paired_n": 76,
+   "raw_closer_share": 1.0,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -891,14 +1025,25 @@
     "sfm": 3.49,
     "raw": 5.39
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.27,
+    "sfm": 3.27,
+    "raw": 4.39
+   },
+   "paired_median_m": -3.69,
+   "paired_n": 71,
+   "raw_closer_share": 0.056,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -930,12 +1075,23 @@
     "sfm": 0.51,
     "raw": 1.29
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.45,
+    "sfm": 0.45,
+    "raw": 0.15
+   },
+   "paired_median_m": -0.7,
+   "paired_n": 76,
+   "raw_closer_share": 0.145,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -969,14 +1125,25 @@
     "sfm": 3.88,
     "raw": 5.85
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.28,
+    "sfm": 3.28,
+    "raw": 0.81
+   },
+   "paired_median_m": -1.71,
+   "paired_n": 71,
+   "raw_closer_share": 0.225,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -1008,13 +1175,24 @@
     "sfm": 4.07,
     "raw": 2.42
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.37,
+    "sfm": 2.37,
+    "raw": 1.8
+   },
+   "paired_median_m": 0.79,
+   "paired_n": 65,
+   "raw_closer_share": 0.723,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": "raw",
-   "flagged": true,
+   "recommended": "sfm",
+   "off_street": false,
+   "flagged": false,
    "both_off": false,
    "beyond_snap": false
   },
@@ -1047,12 +1225,23 @@
     "sfm": 2.07,
     "raw": 2.9
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.15,
+    "sfm": 2.15,
+    "raw": 2.76
+   },
+   "paired_median_m": -0.46,
+   "paired_n": 58,
+   "raw_closer_share": 0.293,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 8,
     "sfm": 8,
     "raw": 8
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1086,12 +1275,23 @@
     "sfm": 1.28,
     "raw": 1.5
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.87,
+    "sfm": 1.87,
+    "raw": 1.2
+   },
+   "paired_median_m": -0.29,
+   "paired_n": 58,
+   "raw_closer_share": 0.328,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1125,12 +1325,23 @@
     "sfm": 2.58,
     "raw": 3.74
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.79,
+    "sfm": 3.79,
+    "raw": 5.39
+   },
+   "paired_median_m": -3.61,
+   "paired_n": 55,
+   "raw_closer_share": 0.327,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1164,13 +1375,24 @@
     "sfm": 3.93,
     "raw": 1.58
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.67,
+    "sfm": 5.67,
+    "raw": 1.15
+   },
+   "paired_median_m": 2.75,
+   "paired_n": 58,
+   "raw_closer_share": 0.672,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": "raw",
-   "flagged": true,
+   "recommended": "sfm",
+   "off_street": false,
+   "flagged": false,
    "both_off": false,
    "beyond_snap": false
   },
@@ -1203,13 +1425,24 @@
     "sfm": 3.87,
     "raw": 1.54
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.79,
+    "sfm": 0.79,
+    "raw": 0.62
+   },
+   "paired_median_m": 2.47,
+   "paired_n": 63,
+   "raw_closer_share": 0.984,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": "raw",
-   "flagged": true,
+   "recommended": "sfm",
+   "off_street": false,
+   "flagged": false,
    "both_off": false,
    "beyond_snap": false
   },
@@ -1242,14 +1475,25 @@
     "sfm": 3.23,
     "raw": 4.14
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.65,
+    "sfm": 1.65,
+    "raw": 0.68
+   },
+   "paired_median_m": -1.22,
+   "paired_n": 61,
+   "raw_closer_share": 0.0,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -1281,13 +1525,24 @@
     "sfm": 3.45,
     "raw": 0.71
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.58,
+    "sfm": 1.58,
+    "raw": 0.99
+   },
+   "paired_median_m": 2.79,
+   "paired_n": 58,
+   "raw_closer_share": 1.0,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": "raw",
-   "flagged": true,
+   "recommended": "sfm",
+   "off_street": false,
+   "flagged": false,
    "both_off": false,
    "beyond_snap": false
   },
@@ -1320,13 +1575,24 @@
     "sfm": 3.73,
     "raw": 1.15
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.77,
+    "sfm": 0.77,
+    "raw": 0.42
+   },
+   "paired_median_m": 2.49,
+   "paired_n": 58,
+   "raw_closer_share": 0.983,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": "raw",
-   "flagged": true,
+   "recommended": "sfm",
+   "off_street": false,
+   "flagged": false,
    "both_off": false,
    "beyond_snap": false
   },
@@ -1359,12 +1625,23 @@
     "sfm": 3.25,
     "raw": 0.68
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.83,
+    "sfm": 3.83,
+    "raw": 0.34
+   },
+   "paired_median_m": 2.69,
+   "paired_n": 44,
+   "raw_closer_share": 1.0,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1398,14 +1675,25 @@
     "sfm": 3.54,
     "raw": 5.33
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.58,
+    "sfm": 3.58,
+    "raw": 2.38
+   },
+   "paired_median_m": -0.48,
+   "paired_n": 46,
+   "raw_closer_share": 0.152,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -1437,12 +1725,23 @@
     "sfm": 2.84,
     "raw": 2.81
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.93,
+    "sfm": 2.93,
+    "raw": 2.4
+   },
+   "paired_median_m": 0.4,
+   "paired_n": 46,
+   "raw_closer_share": 0.63,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1476,12 +1775,23 @@
     "sfm": 6.41,
     "raw": 6.54
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.99,
+    "sfm": 1.99,
+    "raw": 0.63
+   },
+   "paired_median_m": -0.28,
+   "paired_n": 48,
+   "raw_closer_share": 0.375,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": true,
    "flagged": false,
    "both_off": true,
    "beyond_snap": false
@@ -1515,14 +1825,25 @@
     "sfm": 3.11,
     "raw": 3.73
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.6,
+    "sfm": 3.6,
+    "raw": 3.31
+   },
+   "paired_median_m": -0.76,
+   "paired_n": 43,
+   "raw_closer_share": 0.07,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -1554,12 +1875,23 @@
     "sfm": 1.88,
     "raw": 1.08
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.66,
+    "sfm": 1.66,
+    "raw": 2.18
+   },
+   "paired_median_m": 0.39,
+   "paired_n": 43,
+   "raw_closer_share": 0.628,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1593,12 +1925,23 @@
     "sfm": 1.94,
     "raw": 1.02
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.72,
+    "sfm": 1.72,
+    "raw": 1.8
+   },
+   "paired_median_m": 0.44,
+   "paired_n": 43,
+   "raw_closer_share": 0.581,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1632,13 +1975,24 @@
     "sfm": 4.9,
     "raw": 2.81
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.56,
+    "sfm": 5.56,
+    "raw": 5.55
+   },
+   "paired_median_m": 2.26,
+   "paired_n": 29,
+   "raw_closer_share": 0.793,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 12,
     "sfm": 12,
     "raw": 11
    },
-   "recommended": "raw",
-   "flagged": true,
+   "recommended": "sfm",
+   "off_street": false,
+   "flagged": false,
    "both_off": false,
    "beyond_snap": false
   },
@@ -1671,12 +2025,23 @@
     "sfm": 1.09,
     "raw": 0.76
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.8,
+    "sfm": 0.8,
+    "raw": 1.33
+   },
+   "paired_median_m": 0.31,
+   "paired_n": 41,
+   "raw_closer_share": 0.659,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1710,12 +2075,23 @@
     "sfm": 2.27,
     "raw": 2.35
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.07,
+    "sfm": 2.07,
+    "raw": 2.44
+   },
+   "paired_median_m": 0.0,
+   "paired_n": 40,
+   "raw_closer_share": 0.375,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1749,14 +2125,25 @@
     "sfm": 2.39,
     "raw": 2.3
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.38,
+    "sfm": 1.38,
+    "raw": 3.72
+   },
+   "paired_median_m": 0.07,
+   "paired_n": 38,
+   "raw_closer_share": 0.526,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -1788,12 +2175,23 @@
     "sfm": 2.87,
     "raw": 2.58
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.0,
+    "sfm": 1.0,
+    "raw": 2.89
+   },
+   "paired_median_m": 0.33,
+   "paired_n": 39,
+   "raw_closer_share": 0.615,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1827,12 +2225,23 @@
     "sfm": 2.05,
     "raw": 1.29
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.31,
+    "sfm": 1.31,
+    "raw": 1.21
+   },
+   "paired_median_m": 1.02,
+   "paired_n": 38,
+   "raw_closer_share": 0.947,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1866,14 +2275,25 @@
     "sfm": 3.53,
     "raw": 4.6
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.54,
+    "sfm": 3.54,
+    "raw": 3.32
+   },
+   "paired_median_m": -0.78,
+   "paired_n": 34,
+   "raw_closer_share": 0.059,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -1905,12 +2325,23 @@
     "sfm": 2.96,
     "raw": 3.43
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.35,
+    "sfm": 2.35,
+    "raw": 2.86
+   },
+   "paired_median_m": -0.3,
+   "paired_n": 34,
+   "raw_closer_share": 0.206,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1944,12 +2375,23 @@
     "sfm": 1.51,
     "raw": 1.92
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.82,
+    "sfm": 0.82,
+    "raw": 0.81
+   },
+   "paired_median_m": -0.36,
+   "paired_n": 37,
+   "raw_closer_share": 0.189,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -1983,14 +2425,25 @@
     "sfm": 3.86,
     "raw": 3.57
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.82,
+    "sfm": 3.82,
+    "raw": 3.5
+   },
+   "paired_median_m": 0.32,
+   "paired_n": 36,
+   "raw_closer_share": 0.861,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -2022,12 +2475,23 @@
     "sfm": 0.56,
     "raw": 1.96
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.23,
+    "sfm": 2.23,
+    "raw": 2.05
+   },
+   "paired_median_m": -1.06,
+   "paired_n": 33,
+   "raw_closer_share": 0.242,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2061,12 +2525,23 @@
     "sfm": 2.07,
     "raw": 2.15
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.18,
+    "sfm": 2.18,
+    "raw": 2.36
+   },
+   "paired_median_m": 0.31,
+   "paired_n": 33,
+   "raw_closer_share": 0.515,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2100,12 +2575,23 @@
     "sfm": 0.94,
     "raw": 0.88
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.81,
+    "sfm": 0.81,
+    "raw": 1.21
+   },
+   "paired_median_m": -0.01,
+   "paired_n": 33,
+   "raw_closer_share": 0.455,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2139,14 +2625,25 @@
     "sfm": 2.16,
     "raw": 1.36
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.82,
+    "sfm": 1.82,
+    "raw": 2.95
+   },
+   "paired_median_m": -0.32,
+   "paired_n": 32,
+   "raw_closer_share": 0.469,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -2178,12 +2675,23 @@
     "sfm": 2.69,
     "raw": 2.48
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.15,
+    "sfm": 2.15,
+    "raw": 0.71
+   },
+   "paired_median_m": 0.16,
+   "paired_n": 32,
+   "raw_closer_share": 0.562,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2217,12 +2725,23 @@
     "sfm": 1.45,
     "raw": 2.66
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.9,
+    "sfm": 0.9,
+    "raw": 1.35
+   },
+   "paired_median_m": -0.79,
+   "paired_n": 32,
+   "raw_closer_share": 0.094,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2256,14 +2775,25 @@
     "sfm": 2.23,
     "raw": 1.27
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.22,
+    "sfm": 3.22,
+    "raw": 5.62
+   },
+   "paired_median_m": -0.45,
+   "paired_n": 33,
+   "raw_closer_share": 0.424,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -2295,14 +2825,25 @@
     "sfm": 3.38,
     "raw": 2.98
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.47,
+    "sfm": 3.47,
+    "raw": 2.89
+   },
+   "paired_median_m": 0.36,
+   "paired_n": 29,
+   "raw_closer_share": 0.586,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -2334,12 +2875,23 @@
     "sfm": 1.72,
     "raw": 6.81
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.75,
+    "sfm": 2.75,
+    "raw": 10.21
+   },
+   "paired_median_m": -5.3,
+   "paired_n": 31,
+   "raw_closer_share": 0.226,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2373,12 +2925,23 @@
     "sfm": 2.85,
     "raw": 5.13
    },
+   "cross_track_iqr_m": {
+    "submitted": 7.47,
+    "sfm": 7.47,
+    "raw": 6.81
+   },
+   "paired_median_m": -1.24,
+   "paired_n": 30,
+   "raw_closer_share": 0.467,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2412,12 +2975,23 @@
     "sfm": 1.61,
     "raw": 2.43
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.68,
+    "sfm": 0.68,
+    "raw": 2.03
+   },
+   "paired_median_m": -0.66,
+   "paired_n": 31,
+   "raw_closer_share": 0.129,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2451,12 +3025,23 @@
     "sfm": 1.21,
     "raw": 1.29
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.35,
+    "sfm": 0.35,
+    "raw": 0.4
+   },
+   "paired_median_m": 0.06,
+   "paired_n": 31,
+   "raw_closer_share": 0.548,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2490,12 +3075,23 @@
     "sfm": 1.18,
     "raw": 2.13
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.4,
+    "sfm": 1.4,
+    "raw": 2.2
+   },
+   "paired_median_m": -0.87,
+   "paired_n": 30,
+   "raw_closer_share": 0.233,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2529,12 +3125,23 @@
     "sfm": 2.15,
     "raw": 2.73
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.14,
+    "sfm": 2.14,
+    "raw": 0.62
+   },
+   "paired_median_m": -0.51,
+   "paired_n": 30,
+   "raw_closer_share": 0.467,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2568,14 +3175,25 @@
     "sfm": 2.74,
     "raw": 2.85
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.67,
+    "sfm": 2.67,
+    "raw": 0.62
+   },
+   "paired_median_m": -0.32,
+   "paired_n": 30,
+   "raw_closer_share": 0.433,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -2607,12 +3225,23 @@
     "sfm": 1.41,
     "raw": 1.81
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.58,
+    "sfm": 1.58,
+    "raw": 1.42
+   },
+   "paired_median_m": -0.45,
+   "paired_n": 29,
+   "raw_closer_share": 0.172,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2646,12 +3275,23 @@
     "sfm": 3.61,
     "raw": 2.83
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.13,
+    "sfm": 5.13,
+    "raw": 4.67
+   },
+   "paired_median_m": 0.26,
+   "paired_n": 30,
+   "raw_closer_share": 0.667,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2685,12 +3325,23 @@
     "sfm": 2.64,
     "raw": 2.26
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.16,
+    "sfm": 5.16,
+    "raw": 4.04
+   },
+   "paired_median_m": 0.82,
+   "paired_n": 27,
+   "raw_closer_share": 0.667,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2724,12 +3375,23 @@
     "sfm": 1.79,
     "raw": 1.04
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.34,
+    "sfm": 1.34,
+    "raw": 2.22
+   },
+   "paired_median_m": -0.27,
+   "paired_n": 30,
+   "raw_closer_share": 0.467,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2763,14 +3425,25 @@
     "sfm": 4.18,
     "raw": 4.37
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.79,
+    "sfm": 0.79,
+    "raw": 0.53
+   },
+   "paired_median_m": -0.18,
+   "paired_n": 30,
+   "raw_closer_share": 0.367,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -2802,14 +3475,25 @@
     "sfm": 3.09,
     "raw": 3.23
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.55,
+    "sfm": 2.55,
+    "raw": 0.88
+   },
+   "paired_median_m": 0.06,
+   "paired_n": 29,
+   "raw_closer_share": 0.552,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -2841,12 +3525,23 @@
     "sfm": 3.94,
     "raw": 3.7
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.08,
+    "sfm": 3.08,
+    "raw": 4.56
+   },
+   "paired_median_m": 0.35,
+   "paired_n": 26,
+   "raw_closer_share": 0.615,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2880,14 +3575,25 @@
     "sfm": 7.0,
     "raw": 4.5
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.83,
+    "sfm": 0.83,
+    "raw": 8.17
+   },
+   "paired_median_m": 2.45,
+   "paired_n": 26,
+   "raw_closer_share": 0.692,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": "raw",
-   "flagged": true,
-   "both_off": false,
+   "recommended": "sfm",
+   "off_street": true,
+   "flagged": false,
+   "both_off": true,
    "beyond_snap": false
   },
   {
@@ -2919,12 +3625,23 @@
     "sfm": 2.33,
     "raw": 7.82
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.24,
+    "sfm": 1.24,
+    "raw": 9.24
+   },
+   "paired_median_m": -5.82,
+   "paired_n": 25,
+   "raw_closer_share": 0.16,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2958,12 +3675,23 @@
     "sfm": 0.59,
     "raw": 2.19
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.67,
+    "sfm": 1.67,
+    "raw": 1.4
+   },
+   "paired_median_m": -1.13,
+   "paired_n": 27,
+   "raw_closer_share": 0.074,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -2997,12 +3725,23 @@
     "sfm": 2.06,
     "raw": 1.55
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.93,
+    "sfm": 2.93,
+    "raw": 3.21
+   },
+   "paired_median_m": -0.11,
+   "paired_n": 29,
+   "raw_closer_share": 0.414,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3036,13 +3775,24 @@
     "sfm": 4.31,
     "raw": 1.63
    },
+   "cross_track_iqr_m": {
+    "submitted": 7.69,
+    "sfm": 7.69,
+    "raw": 10.87
+   },
+   "paired_median_m": 3.3,
+   "paired_n": 13,
+   "raw_closer_share": 1.0,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 14,
     "sfm": 14,
     "raw": 13
    },
-   "recommended": "raw",
-   "flagged": true,
+   "recommended": "sfm",
+   "off_street": false,
+   "flagged": false,
    "both_off": false,
    "beyond_snap": false
   },
@@ -3075,12 +3825,23 @@
     "sfm": 0.82,
     "raw": 3.16
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.96,
+    "sfm": 2.96,
+    "raw": 0.82
+   },
+   "paired_median_m": -1.95,
+   "paired_n": 29,
+   "raw_closer_share": 0.241,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3114,12 +3875,23 @@
     "sfm": 2.16,
     "raw": 2.7
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.05,
+    "sfm": 1.05,
+    "raw": 0.79
+   },
+   "paired_median_m": -0.52,
+   "paired_n": 27,
+   "raw_closer_share": 0.185,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3153,12 +3925,23 @@
     "sfm": 0.93,
     "raw": 1.93
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.78,
+    "sfm": 1.78,
+    "raw": 0.95
+   },
+   "paired_median_m": -0.35,
+   "paired_n": 28,
+   "raw_closer_share": 0.25,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3192,12 +3975,23 @@
     "sfm": 0.63,
     "raw": 0.94
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.45,
+    "sfm": 0.45,
+    "raw": 0.94
+   },
+   "paired_median_m": -0.2,
+   "paired_n": 28,
+   "raw_closer_share": 0.357,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3231,14 +4025,25 @@
     "sfm": 3.72,
     "raw": 2.13
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.33,
+    "sfm": 4.33,
+    "raw": 3.23
+   },
+   "paired_median_m": 1.42,
+   "paired_n": 26,
+   "raw_closer_share": 0.615,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -3270,14 +4075,25 @@
     "sfm": 2.89,
     "raw": 2.3
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.52,
+    "sfm": 2.52,
+    "raw": 4.04
+   },
+   "paired_median_m": -0.8,
+   "paired_n": 28,
+   "raw_closer_share": 0.393,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -3309,12 +4125,23 @@
     "sfm": 0.86,
     "raw": 2.8
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.93,
+    "sfm": 1.93,
+    "raw": 2.63
+   },
+   "paired_median_m": -1.0,
+   "paired_n": 28,
+   "raw_closer_share": 0.25,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3348,12 +4175,23 @@
     "sfm": 1.15,
     "raw": 1.72
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.84,
+    "sfm": 1.84,
+    "raw": 1.0
+   },
+   "paired_median_m": -0.49,
+   "paired_n": 26,
+   "raw_closer_share": 0.154,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3387,12 +4225,23 @@
     "sfm": 1.69,
     "raw": 0.97
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.24,
+    "sfm": 2.24,
+    "raw": 5.17
+   },
+   "paired_median_m": 0.33,
+   "paired_n": 25,
+   "raw_closer_share": 0.52,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3426,12 +4275,23 @@
     "sfm": 1.7,
     "raw": 1.11
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.36,
+    "sfm": 1.36,
+    "raw": 1.2
+   },
+   "paired_median_m": 1.05,
+   "paired_n": 27,
+   "raw_closer_share": 0.852,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3465,12 +4325,23 @@
     "sfm": 6.26,
     "raw": 5.74
    },
+   "cross_track_iqr_m": {
+    "submitted": 11.67,
+    "sfm": 11.67,
+    "raw": 6.63
+   },
+   "paired_median_m": 2.39,
+   "paired_n": 23,
+   "raw_closer_share": 0.609,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "raw",
+   "off_street": true,
    "flagged": true,
    "both_off": false,
    "beyond_snap": false
@@ -3504,14 +4375,25 @@
     "sfm": 3.59,
     "raw": 3.14
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.93,
+    "sfm": 2.93,
+    "raw": 2.97
+   },
+   "paired_median_m": -0.0,
+   "paired_n": 25,
+   "raw_closer_share": 0.48,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -3543,12 +4425,23 @@
     "sfm": 2.05,
     "raw": 1.78
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.08,
+    "sfm": 2.08,
+    "raw": 1.38
+   },
+   "paired_median_m": 0.37,
+   "paired_n": 26,
+   "raw_closer_share": 0.654,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3582,12 +4475,23 @@
     "sfm": 1.6,
     "raw": 0.99
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.21,
+    "sfm": 1.21,
+    "raw": 1.26
+   },
+   "paired_median_m": 0.13,
+   "paired_n": 26,
+   "raw_closer_share": 0.577,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3621,12 +4525,23 @@
     "sfm": 1.48,
     "raw": 2.71
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.23,
+    "sfm": 1.23,
+    "raw": 1.18
+   },
+   "paired_median_m": -0.73,
+   "paired_n": 26,
+   "raw_closer_share": 0.154,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3660,12 +4575,23 @@
     "sfm": 2.72,
     "raw": 3.84
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.98,
+    "sfm": 1.98,
+    "raw": 1.55
+   },
+   "paired_median_m": -0.47,
+   "paired_n": 26,
+   "raw_closer_share": 0.346,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3699,12 +4625,23 @@
     "sfm": 1.34,
     "raw": 2.95
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.66,
+    "sfm": 1.66,
+    "raw": 2.51
+   },
+   "paired_median_m": -0.96,
+   "paired_n": 25,
+   "raw_closer_share": 0.16,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3738,13 +4675,24 @@
     "sfm": 3.81,
     "raw": 1.82
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.79,
+    "sfm": 1.79,
+    "raw": 2.44
+   },
+   "paired_median_m": 1.56,
+   "paired_n": 25,
+   "raw_closer_share": 0.8,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": "raw",
-   "flagged": true,
+   "recommended": "sfm",
+   "off_street": false,
+   "flagged": false,
    "both_off": false,
    "beyond_snap": false
   },
@@ -3777,14 +4725,25 @@
     "sfm": 4.21,
     "raw": 5.92
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.17,
+    "sfm": 2.17,
+    "raw": 1.34
+   },
+   "paired_median_m": -0.97,
+   "paired_n": 24,
+   "raw_closer_share": 0.125,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -3816,12 +4775,23 @@
     "sfm": 6.32,
     "raw": 3.02
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.55,
+    "sfm": 3.55,
+    "raw": 0.65
+   },
+   "paired_median_m": 3.26,
+   "paired_n": 21,
+   "raw_closer_share": 0.81,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "raw",
+   "off_street": true,
    "flagged": true,
    "both_off": false,
    "beyond_snap": false
@@ -3855,12 +4825,23 @@
     "sfm": 1.51,
     "raw": 5.59
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.73,
+    "sfm": 2.73,
+    "raw": 4.36
+   },
+   "paired_median_m": -4.37,
+   "paired_n": 21,
+   "raw_closer_share": 0.286,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3894,12 +4875,23 @@
     "sfm": 5.31,
     "raw": 5.21
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.5,
+    "sfm": 4.5,
+    "raw": 3.73
+   },
+   "paired_median_m": -0.9,
+   "paired_n": 24,
+   "raw_closer_share": 0.333,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": true,
    "flagged": false,
    "both_off": true,
    "beyond_snap": false
@@ -3933,12 +4925,23 @@
     "sfm": 0.65,
     "raw": 1.31
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.36,
+    "sfm": 0.36,
+    "raw": 0.36
+   },
+   "paired_median_m": -0.5,
+   "paired_n": 25,
+   "raw_closer_share": 0.04,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -3972,12 +4975,23 @@
     "sfm": 2.29,
     "raw": 1.08
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.36,
+    "sfm": 2.36,
+    "raw": 1.52
+   },
+   "paired_median_m": 1.26,
+   "paired_n": 23,
+   "raw_closer_share": 0.609,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4011,12 +5025,23 @@
     "sfm": 5.69,
     "raw": 4.78
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.72,
+    "sfm": 4.72,
+    "raw": 3.56
+   },
+   "paired_median_m": 1.75,
+   "paired_n": 25,
+   "raw_closer_share": 0.88,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": true,
    "flagged": false,
    "both_off": true,
    "beyond_snap": false
@@ -4050,12 +5075,23 @@
     "sfm": 0.48,
     "raw": 2.2
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.69,
+    "sfm": 0.69,
+    "raw": 1.12
+   },
+   "paired_median_m": -1.1,
+   "paired_n": 25,
+   "raw_closer_share": 0.04,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4089,14 +5125,25 @@
     "sfm": 4.5,
     "raw": 4.41
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.97,
+    "sfm": 2.97,
+    "raw": 2.25
+   },
+   "paired_median_m": 1.57,
+   "paired_n": 22,
+   "raw_closer_share": 0.682,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -4128,12 +5175,23 @@
     "sfm": 1.86,
     "raw": 0.8
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.76,
+    "sfm": 0.76,
+    "raw": 0.77
+   },
+   "paired_median_m": 1.09,
+   "paired_n": 23,
+   "raw_closer_share": 0.957,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4167,12 +5225,23 @@
     "sfm": 2.33,
     "raw": 1.61
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.36,
+    "sfm": 4.36,
+    "raw": 2.14
+   },
+   "paired_median_m": 1.5,
+   "paired_n": 23,
+   "raw_closer_share": 0.957,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4206,12 +5275,23 @@
     "sfm": 1.67,
     "raw": 0.55
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.59,
+    "sfm": 1.59,
+    "raw": 0.56
+   },
+   "paired_median_m": 0.64,
+   "paired_n": 23,
+   "raw_closer_share": 0.826,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4245,12 +5325,23 @@
     "sfm": 1.55,
     "raw": 2.45
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.95,
+    "sfm": 0.95,
+    "raw": 2.08
+   },
+   "paired_median_m": -0.57,
+   "paired_n": 22,
+   "raw_closer_share": 0.136,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4284,12 +5375,23 @@
     "sfm": 1.82,
     "raw": 1.05
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.37,
+    "sfm": 1.37,
+    "raw": 2.17
+   },
+   "paired_median_m": -0.1,
+   "paired_n": 21,
+   "raw_closer_share": 0.476,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4323,12 +5425,23 @@
     "sfm": 2.15,
     "raw": 1.34
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.08,
+    "sfm": 1.08,
+    "raw": 2.47
+   },
+   "paired_median_m": 0.34,
+   "paired_n": 23,
+   "raw_closer_share": 0.522,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4362,12 +5475,23 @@
     "sfm": 3.73,
     "raw": 3.63
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.32,
+    "sfm": 2.32,
+    "raw": 1.83
+   },
+   "paired_median_m": -0.91,
+   "paired_n": 23,
+   "raw_closer_share": 0.348,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4401,14 +5525,25 @@
     "sfm": 1.58,
     "raw": 2.72
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.44,
+    "sfm": 5.44,
+    "raw": 4.94
+   },
+   "paired_median_m": -0.17,
+   "paired_n": 23,
+   "raw_closer_share": 0.478,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -4440,14 +5575,25 @@
     "sfm": 1.36,
     "raw": 2.66
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.28,
+    "sfm": 2.28,
+    "raw": 2.47
+   },
+   "paired_median_m": 0.56,
+   "paired_n": 21,
+   "raw_closer_share": 0.524,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -4479,12 +5625,23 @@
     "sfm": 3.74,
     "raw": 4.21
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.91,
+    "sfm": 3.91,
+    "raw": 2.7
+   },
+   "paired_median_m": -0.38,
+   "paired_n": 23,
+   "raw_closer_share": 0.174,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4518,12 +5675,23 @@
     "sfm": 1.22,
     "raw": 1.05
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.87,
+    "sfm": 0.87,
+    "raw": 1.13
+   },
+   "paired_median_m": 0.04,
+   "paired_n": 23,
+   "raw_closer_share": 0.522,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4557,12 +5725,23 @@
     "sfm": 1.94,
     "raw": 1.91
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.98,
+    "sfm": 1.98,
+    "raw": 1.61
+   },
+   "paired_median_m": 0.1,
+   "paired_n": 22,
+   "raw_closer_share": 0.682,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4596,12 +5775,23 @@
     "sfm": 5.3,
     "raw": 5.01
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.86,
+    "sfm": 3.86,
+    "raw": 2.81
+   },
+   "paired_median_m": -0.56,
+   "paired_n": 19,
+   "raw_closer_share": 0.368,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": true,
    "flagged": false,
    "both_off": true,
    "beyond_snap": false
@@ -4635,12 +5825,23 @@
     "sfm": 5.05,
     "raw": 4.21
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.72,
+    "sfm": 1.72,
+    "raw": 0.93
+   },
+   "paired_median_m": 0.56,
+   "paired_n": 20,
+   "raw_closer_share": 0.7,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": true,
    "flagged": false,
    "both_off": true,
    "beyond_snap": false
@@ -4674,12 +5875,23 @@
     "sfm": 5.49,
     "raw": 9.1
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.72,
+    "sfm": 4.72,
+    "raw": 5.73
+   },
+   "paired_median_m": -1.16,
+   "paired_n": 18,
+   "raw_closer_share": 0.278,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": true,
    "flagged": false,
    "both_off": true,
    "beyond_snap": false
@@ -4713,14 +5925,25 @@
     "sfm": 3.41,
     "raw": 6.23
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.15,
+    "sfm": 1.15,
+    "raw": 1.48
+   },
+   "paired_median_m": -3.01,
+   "paired_n": 21,
+   "raw_closer_share": 0.095,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -4752,14 +5975,25 @@
     "sfm": 2.39,
     "raw": 1.73
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.3,
+    "sfm": 2.3,
+    "raw": 3.55
+   },
+   "paired_median_m": -0.08,
+   "paired_n": 21,
+   "raw_closer_share": 0.429,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -4791,14 +6025,25 @@
     "sfm": 4.59,
     "raw": 5.48
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.24,
+    "sfm": 3.24,
+    "raw": 8.87
+   },
+   "paired_median_m": -2.73,
+   "paired_n": 22,
+   "raw_closer_share": 0.273,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -4830,12 +6075,23 @@
     "sfm": 1.94,
     "raw": 1.74
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.31,
+    "sfm": 1.31,
+    "raw": 0.64
+   },
+   "paired_median_m": 0.27,
+   "paired_n": 22,
+   "raw_closer_share": 0.773,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4869,12 +6125,23 @@
     "sfm": 2.52,
     "raw": 0.66
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.37,
+    "sfm": 2.37,
+    "raw": 0.43
+   },
+   "paired_median_m": 1.22,
+   "paired_n": 21,
+   "raw_closer_share": 0.81,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4908,12 +6175,23 @@
     "sfm": 1.01,
     "raw": 0.84
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.86,
+    "sfm": 1.86,
+    "raw": 1.08
+   },
+   "paired_median_m": 0.15,
+   "paired_n": 21,
+   "raw_closer_share": 0.762,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4947,12 +6225,23 @@
     "sfm": 1.72,
     "raw": 2.67
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.25,
+    "sfm": 2.25,
+    "raw": 1.13
+   },
+   "paired_median_m": -0.34,
+   "paired_n": 21,
+   "raw_closer_share": 0.333,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -4986,12 +6275,23 @@
     "sfm": 2.77,
     "raw": 2.73
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.25,
+    "sfm": 2.25,
+    "raw": 1.99
+   },
+   "paired_median_m": 0.2,
+   "paired_n": 21,
+   "raw_closer_share": 0.857,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5025,13 +6325,24 @@
     "sfm": 2.97,
     "raw": 0.86
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.48,
+    "sfm": 1.48,
+    "raw": 1.48
+   },
+   "paired_median_m": 2.04,
+   "paired_n": 21,
+   "raw_closer_share": 1.0,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": "raw",
-   "flagged": true,
+   "recommended": "sfm",
+   "off_street": false,
+   "flagged": false,
    "both_off": false,
    "beyond_snap": false
   },
@@ -5064,12 +6375,23 @@
     "sfm": 2.58,
     "raw": 1.09
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.36,
+    "sfm": 2.36,
+    "raw": 1.03
+   },
+   "paired_median_m": 1.2,
+   "paired_n": 18,
+   "raw_closer_share": 0.611,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5103,14 +6425,25 @@
     "sfm": 3.43,
     "raw": 2.81
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.66,
+    "sfm": 4.66,
+    "raw": 4.32
+   },
+   "paired_median_m": 0.25,
+   "paired_n": 20,
+   "raw_closer_share": 0.65,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -5142,14 +6475,25 @@
     "sfm": 3.83,
     "raw": 3.54
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.36,
+    "sfm": 2.36,
+    "raw": 1.57
+   },
+   "paired_median_m": -0.07,
+   "paired_n": 20,
+   "raw_closer_share": 0.5,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -5181,14 +6525,25 @@
     "sfm": 5.32,
     "raw": 5.26
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.19,
+    "sfm": 0.19,
+    "raw": 0.33
+   },
+   "paired_median_m": -0.02,
+   "paired_n": 20,
+   "raw_closer_share": 0.35,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": true,
    "flagged": false,
-   "both_off": false,
+   "both_off": true,
    "beyond_snap": false
   },
   {
@@ -5220,12 +6575,23 @@
     "sfm": 2.04,
     "raw": 1.8
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.97,
+    "sfm": 0.97,
+    "raw": 0.67
+   },
+   "paired_median_m": 0.22,
+   "paired_n": 20,
+   "raw_closer_share": 0.75,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5259,12 +6625,23 @@
     "sfm": 0.86,
     "raw": 3.45
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.67,
+    "sfm": 1.67,
+    "raw": 1.64
+   },
+   "paired_median_m": -1.51,
+   "paired_n": 16,
+   "raw_closer_share": 0.125,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5298,14 +6675,25 @@
     "sfm": 3.32,
     "raw": 2.16
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.79,
+    "sfm": 2.79,
+    "raw": 0.29
+   },
+   "paired_median_m": 1.0,
+   "paired_n": 20,
+   "raw_closer_share": 0.7,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -5337,12 +6725,23 @@
     "sfm": 7.35,
     "raw": 4.59
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.5,
+    "sfm": 3.5,
+    "raw": 2.69
+   },
+   "paired_median_m": 2.38,
+   "paired_n": 20,
+   "raw_closer_share": 0.9,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "raw",
+   "off_street": true,
    "flagged": true,
    "both_off": false,
    "beyond_snap": false
@@ -5376,14 +6775,25 @@
     "sfm": 4.07,
     "raw": 2.3
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.06,
+    "sfm": 3.06,
+    "raw": 0.58
+   },
+   "paired_median_m": 1.92,
+   "paired_n": 20,
+   "raw_closer_share": 0.65,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
-   "both_off": true,
+   "both_off": false,
    "beyond_snap": false
   },
   {
@@ -5415,12 +6825,23 @@
     "sfm": 7.45,
     "raw": 7.85
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.62,
+    "sfm": 2.62,
+    "raw": 2.87
+   },
+   "paired_median_m": 0.59,
+   "paired_n": 20,
+   "raw_closer_share": 0.6,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": true,
    "flagged": false,
    "both_off": true,
    "beyond_snap": false
@@ -5454,12 +6875,23 @@
     "sfm": 1.81,
     "raw": 1.57
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.16,
+    "sfm": 1.16,
+    "raw": 0.92
+   },
+   "paired_median_m": 0.84,
+   "paired_n": 18,
+   "raw_closer_share": 0.833,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5493,12 +6925,23 @@
     "sfm": 0.63,
     "raw": 0.94
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.58,
+    "sfm": 0.58,
+    "raw": 0.99
+   },
+   "paired_median_m": -0.05,
+   "paired_n": 19,
+   "raw_closer_share": 0.316,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5532,12 +6975,23 @@
     "sfm": 1.86,
     "raw": 2.35
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.8,
+    "sfm": 2.8,
+    "raw": 3.12
+   },
+   "paired_median_m": -0.09,
+   "paired_n": 18,
+   "raw_closer_share": 0.389,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5571,12 +7025,23 @@
     "sfm": 1.16,
     "raw": 1.71
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.28,
+    "sfm": 2.28,
+    "raw": 1.97
+   },
+   "paired_median_m": -0.01,
+   "paired_n": 17,
+   "raw_closer_share": 0.294,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5610,12 +7075,23 @@
     "sfm": 2.1,
     "raw": 1.16
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.34,
+    "sfm": 1.34,
+    "raw": 1.41
+   },
+   "paired_median_m": 0.87,
+   "paired_n": 19,
+   "raw_closer_share": 0.632,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5649,12 +7125,23 @@
     "sfm": 0.92,
     "raw": 3.28
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.67,
+    "sfm": 1.67,
+    "raw": 2.28
+   },
+   "paired_median_m": -2.13,
+   "paired_n": 19,
+   "raw_closer_share": 0.211,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5688,12 +7175,23 @@
     "sfm": 1.98,
     "raw": 1.04
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.54,
+    "sfm": 0.54,
+    "raw": 1.36
+   },
+   "paired_median_m": 0.97,
+   "paired_n": 18,
+   "raw_closer_share": 0.833,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5727,12 +7225,23 @@
     "sfm": 1.28,
     "raw": 3.16
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.87,
+    "sfm": 0.87,
+    "raw": 0.48
+   },
+   "paired_median_m": -1.56,
+   "paired_n": 18,
+   "raw_closer_share": 0.0,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5766,12 +7275,23 @@
     "sfm": 0.35,
     "raw": 0.7
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.56,
+    "sfm": 0.56,
+    "raw": 0.74
+   },
+   "paired_median_m": -0.48,
+   "paired_n": 18,
+   "raw_closer_share": 0.333,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5805,12 +7325,23 @@
     "sfm": 2.39,
     "raw": 2.38
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.93,
+    "sfm": 0.93,
+    "raw": 3.45
+   },
+   "paired_median_m": -0.07,
+   "paired_n": 18,
+   "raw_closer_share": 0.389,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5844,12 +7375,23 @@
     "sfm": 2.98,
     "raw": 2.32
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.0,
+    "sfm": 1.0,
+    "raw": 1.14
+   },
+   "paired_median_m": 0.13,
+   "paired_n": 15,
+   "raw_closer_share": 0.8,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5883,12 +7425,23 @@
     "sfm": 2.96,
     "raw": 1.95
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.41,
+    "sfm": 1.41,
+    "raw": 1.11
+   },
+   "paired_median_m": 0.22,
+   "paired_n": 17,
+   "raw_closer_share": 0.824,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5922,12 +7475,23 @@
     "sfm": 1.7,
     "raw": 1.13
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.69,
+    "sfm": 1.69,
+    "raw": 1.6
+   },
+   "paired_median_m": 0.02,
+   "paired_n": 18,
+   "raw_closer_share": 0.556,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -5961,12 +7525,23 @@
     "sfm": 1.48,
     "raw": 0.64
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.21,
+    "sfm": 1.21,
+    "raw": 2.14
+   },
+   "paired_median_m": 0.57,
+   "paired_n": 17,
+   "raw_closer_share": 0.882,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6000,12 +7575,23 @@
     "sfm": 1.66,
     "raw": 1.82
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.96,
+    "sfm": 1.96,
+    "raw": 0.56
+   },
+   "paired_median_m": -0.48,
+   "paired_n": 18,
+   "raw_closer_share": 0.389,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6039,12 +7625,23 @@
     "sfm": 3.26,
     "raw": 5.73
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.23,
+    "sfm": 2.23,
+    "raw": 2.25
+   },
+   "paired_median_m": -1.24,
+   "paired_n": 16,
+   "raw_closer_share": 0.188,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6078,12 +7675,23 @@
     "sfm": 0.74,
     "raw": 1.53
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.23,
+    "sfm": 0.23,
+    "raw": 1.16
+   },
+   "paired_median_m": -0.8,
+   "paired_n": 18,
+   "raw_closer_share": 0.389,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6117,12 +7725,23 @@
     "sfm": 1.51,
     "raw": 2.59
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.56,
+    "sfm": 0.56,
+    "raw": 1.05
+   },
+   "paired_median_m": -1.12,
+   "paired_n": 18,
+   "raw_closer_share": 0.056,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6156,12 +7775,23 @@
     "sfm": 0.38,
     "raw": 0.89
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.16,
+    "sfm": 0.16,
+    "raw": 0.79
+   },
+   "paired_median_m": -0.72,
+   "paired_n": 17,
+   "raw_closer_share": 0.294,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6195,12 +7825,23 @@
     "sfm": 4.3,
     "raw": 3.59
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.43,
+    "sfm": 3.43,
+    "raw": 2.62
+   },
+   "paired_median_m": 1.35,
+   "paired_n": 15,
+   "raw_closer_share": 0.8,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6234,12 +7875,23 @@
     "sfm": 4.62,
     "raw": 4.47
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.6,
+    "sfm": 3.6,
+    "raw": 1.67
+   },
+   "paired_median_m": 0.57,
+   "paired_n": 16,
+   "raw_closer_share": 0.625,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6273,12 +7925,23 @@
     "sfm": 4.1,
     "raw": 3.45
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.98,
+    "sfm": 1.98,
+    "raw": 1.81
+   },
+   "paired_median_m": 0.15,
+   "paired_n": 17,
+   "raw_closer_share": 0.529,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6312,12 +7975,23 @@
     "sfm": 3.02,
     "raw": 1.81
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.43,
+    "sfm": 1.43,
+    "raw": 0.96
+   },
+   "paired_median_m": 1.65,
+   "paired_n": 12,
+   "raw_closer_share": 0.833,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6351,12 +8025,23 @@
     "sfm": 1.82,
     "raw": 1.93
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.82,
+    "sfm": 0.82,
+    "raw": 0.98
+   },
+   "paired_median_m": -0.39,
+   "paired_n": 15,
+   "raw_closer_share": 0.267,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6390,12 +8075,23 @@
     "sfm": 1.92,
     "raw": 0.11
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.01,
+    "sfm": 1.01,
+    "raw": 0.15
+   },
+   "paired_median_m": 1.9,
+   "paired_n": 16,
+   "raw_closer_share": 0.938,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6429,12 +8125,23 @@
     "sfm": 2.78,
     "raw": 2.72
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.91,
+    "sfm": 2.91,
+    "raw": 1.07
+   },
+   "paired_median_m": -0.17,
+   "paired_n": 16,
+   "raw_closer_share": 0.375,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6468,12 +8175,23 @@
     "sfm": 5.56,
     "raw": 5.52
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.86,
+    "sfm": 0.86,
+    "raw": 0.73
+   },
+   "paired_median_m": 0.05,
+   "paired_n": 16,
+   "raw_closer_share": 0.688,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6507,12 +8225,23 @@
     "sfm": 1.51,
     "raw": 1.77
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.02,
+    "sfm": 2.02,
+    "raw": 1.02
+   },
+   "paired_median_m": -0.17,
+   "paired_n": 15,
+   "raw_closer_share": 0.2,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6546,12 +8275,23 @@
     "sfm": 1.36,
     "raw": 1.62
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.99,
+    "sfm": 1.99,
+    "raw": 1.34
+   },
+   "paired_median_m": -0.17,
+   "paired_n": 16,
+   "raw_closer_share": 0.312,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6585,12 +8325,23 @@
     "sfm": 2.66,
     "raw": 2.56
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.41,
+    "sfm": 2.41,
+    "raw": 2.53
+   },
+   "paired_median_m": 0.61,
+   "paired_n": 16,
+   "raw_closer_share": 0.562,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6624,12 +8375,23 @@
     "sfm": 1.55,
     "raw": 3.09
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.27,
+    "sfm": 1.27,
+    "raw": 2.02
+   },
+   "paired_median_m": -1.4,
+   "paired_n": 16,
+   "raw_closer_share": 0.062,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6663,12 +8425,23 @@
     "sfm": 7.98,
     "raw": 6.01
    },
+   "cross_track_iqr_m": {
+    "submitted": 7.92,
+    "sfm": 7.92,
+    "raw": 6.04
+   },
+   "paired_median_m": -2.03,
+   "paired_n": 15,
+   "raw_closer_share": 0.267,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6702,12 +8475,23 @@
     "sfm": 1.69,
     "raw": 1.74
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.63,
+    "sfm": 0.63,
+    "raw": 1.99
+   },
+   "paired_median_m": 0.0,
+   "paired_n": 15,
+   "raw_closer_share": 0.467,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6741,12 +8525,23 @@
     "sfm": 1.85,
     "raw": 1.63
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.15,
+    "sfm": 4.15,
+    "raw": 4.73
+   },
+   "paired_median_m": -0.18,
+   "paired_n": 14,
+   "raw_closer_share": 0.357,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6780,12 +8575,23 @@
     "sfm": 3.02,
     "raw": 1.13
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.54,
+    "sfm": 1.54,
+    "raw": 1.36
+   },
+   "paired_median_m": 2.53,
+   "paired_n": 11,
+   "raw_closer_share": 1.0,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6819,12 +8625,23 @@
     "sfm": 2.01,
     "raw": 0.82
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.28,
+    "sfm": 0.28,
+    "raw": 0.51
+   },
+   "paired_median_m": 1.23,
+   "paired_n": 15,
+   "raw_closer_share": 1.0,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6858,12 +8675,23 @@
     "sfm": 2.45,
     "raw": 2.43
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.22,
+    "sfm": 2.22,
+    "raw": 1.48
+   },
+   "paired_median_m": 0.04,
+   "paired_n": 15,
+   "raw_closer_share": 0.533,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6897,12 +8725,23 @@
     "sfm": 1.78,
     "raw": 2.34
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.61,
+    "sfm": 2.61,
+    "raw": 1.61
+   },
+   "paired_median_m": -0.36,
+   "paired_n": 15,
+   "raw_closer_share": 0.467,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6936,12 +8775,23 @@
     "sfm": 2.99,
     "raw": 1.4
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.64,
+    "sfm": 2.64,
+    "raw": 0.57
+   },
+   "paired_median_m": 1.64,
+   "paired_n": 15,
+   "raw_closer_share": 0.933,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -6975,12 +8825,23 @@
     "sfm": 2.15,
     "raw": 1.44
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.17,
+    "sfm": 1.17,
+    "raw": 1.48
+   },
+   "paired_median_m": 0.72,
+   "paired_n": 15,
+   "raw_closer_share": 1.0,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7014,12 +8875,23 @@
     "sfm": 5.37,
     "raw": 5.4
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.3,
+    "sfm": 0.3,
+    "raw": 0.4
+   },
+   "paired_median_m": 0.03,
+   "paired_n": 15,
+   "raw_closer_share": 0.667,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7053,12 +8925,23 @@
     "sfm": 1.68,
     "raw": 1.72
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.85,
+    "sfm": 1.85,
+    "raw": 0.71
+   },
+   "paired_median_m": 0.25,
+   "paired_n": 14,
+   "raw_closer_share": 0.714,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7092,12 +8975,23 @@
     "sfm": 1.91,
     "raw": 1.73
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.62,
+    "sfm": 1.62,
+    "raw": 4.42
+   },
+   "paired_median_m": 0.05,
+   "paired_n": 14,
+   "raw_closer_share": 0.5,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7131,12 +9025,23 @@
     "sfm": 2.04,
     "raw": 1.55
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.99,
+    "sfm": 0.99,
+    "raw": 0.57
+   },
+   "paired_median_m": 0.12,
+   "paired_n": 14,
+   "raw_closer_share": 0.5,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7170,12 +9075,23 @@
     "sfm": 6.68,
     "raw": 6.34
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.61,
+    "sfm": 3.61,
+    "raw": 2.68
+   },
+   "paired_median_m": 0.45,
+   "paired_n": 14,
+   "raw_closer_share": 0.571,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7209,12 +9125,23 @@
     "sfm": 1.22,
     "raw": 1.19
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.46,
+    "sfm": 1.46,
+    "raw": 1.13
+   },
+   "paired_median_m": -0.14,
+   "paired_n": 14,
+   "raw_closer_share": 0.286,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7248,12 +9175,23 @@
     "sfm": 5.62,
     "raw": 5.23
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.01,
+    "sfm": 2.01,
+    "raw": 1.85
+   },
+   "paired_median_m": 0.25,
+   "paired_n": 14,
+   "raw_closer_share": 0.929,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7287,12 +9225,23 @@
     "sfm": 4.92,
     "raw": 0.85
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.96,
+    "sfm": 3.96,
+    "raw": 0.63
+   },
+   "paired_median_m": 4.22,
+   "paired_n": 12,
+   "raw_closer_share": 0.75,
+   "paired_verdict": "raw",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7326,12 +9275,23 @@
     "sfm": 1.82,
     "raw": 1.61
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.17,
+    "sfm": 1.17,
+    "raw": 1.31
+   },
+   "paired_median_m": -0.0,
+   "paired_n": 13,
+   "raw_closer_share": 0.462,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7365,12 +9325,23 @@
     "sfm": 1.16,
     "raw": 5.5
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.47,
+    "sfm": 3.47,
+    "raw": 2.43
+   },
+   "paired_median_m": -4.91,
+   "paired_n": 13,
+   "raw_closer_share": 0.154,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7404,12 +9375,23 @@
     "sfm": 0.56,
     "raw": 1.54
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.95,
+    "sfm": 1.95,
+    "raw": 1.33
+   },
+   "paired_median_m": -0.99,
+   "paired_n": 14,
+   "raw_closer_share": 0.286,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7443,12 +9425,23 @@
     "sfm": 1.79,
     "raw": 2.73
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.46,
+    "sfm": 1.46,
+    "raw": 4.12
+   },
+   "paired_median_m": -0.55,
+   "paired_n": 14,
+   "raw_closer_share": 0.357,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7482,12 +9475,23 @@
     "sfm": 5.68,
     "raw": 10.93
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.71,
+    "sfm": 0.71,
+    "raw": 8.43
+   },
+   "paired_median_m": -5.21,
+   "paired_n": 13,
+   "raw_closer_share": 0.231,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7521,12 +9525,23 @@
     "sfm": 1.14,
     "raw": 1.8
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.8,
+    "sfm": 1.8,
+    "raw": 0.88
+   },
+   "paired_median_m": -0.37,
+   "paired_n": 13,
+   "raw_closer_share": 0.154,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7560,12 +9575,23 @@
     "sfm": 1.71,
     "raw": 4.6
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.44,
+    "sfm": 0.44,
+    "raw": 1.75
+   },
+   "paired_median_m": -2.85,
+   "paired_n": 13,
+   "raw_closer_share": 0.154,
+   "paired_verdict": "sfm",
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7599,12 +9625,23 @@
     "sfm": 0.53,
     "raw": 1.39
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.55,
+    "sfm": 0.55,
+    "raw": 0.95
+   },
+   "paired_median_m": -0.3,
+   "paired_n": 13,
+   "raw_closer_share": 0.462,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7638,12 +9675,23 @@
     "sfm": 1.83,
     "raw": 2.97
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.05,
+    "sfm": 1.05,
+    "raw": 2.4
+   },
+   "paired_median_m": -1.03,
+   "paired_n": 13,
+   "raw_closer_share": 0.231,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7677,12 +9725,23 @@
     "sfm": 0.73,
     "raw": 0.61
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.23,
+    "sfm": 1.23,
+    "raw": 1.95
+   },
+   "paired_median_m": 0.02,
+   "paired_n": 12,
+   "raw_closer_share": 0.5,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7716,12 +9775,23 @@
     "sfm": 2.73,
     "raw": 2.24
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.33,
+    "sfm": 2.33,
+    "raw": 2.72
+   },
+   "paired_median_m": 0.89,
+   "paired_n": 11,
+   "raw_closer_share": 0.545,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7755,12 +9825,23 @@
     "sfm": 4.85,
     "raw": 3.95
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.92,
+    "sfm": 1.92,
+    "raw": 0.8
+   },
+   "paired_median_m": -0.33,
+   "paired_n": 13,
+   "raw_closer_share": 0.462,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7794,12 +9875,23 @@
     "sfm": 1.63,
     "raw": 2.23
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.26,
+    "sfm": 2.26,
+    "raw": 1.19
+   },
+   "paired_median_m": -0.36,
+   "paired_n": 12,
+   "raw_closer_share": 0.417,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7833,12 +9925,23 @@
     "sfm": 2.43,
     "raw": 2.85
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.83,
+    "sfm": 3.83,
+    "raw": 4.44
+   },
+   "paired_median_m": 0.25,
+   "paired_n": 8,
+   "raw_closer_share": 0.625,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7872,12 +9975,23 @@
     "sfm": 1.49,
     "raw": 1.9
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.06,
+    "sfm": 2.06,
+    "raw": 1.38
+   },
+   "paired_median_m": -0.59,
+   "paired_n": 12,
+   "raw_closer_share": 0.333,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7911,12 +10025,23 @@
     "sfm": 3.42,
     "raw": 4.22
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.87,
+    "sfm": 4.87,
+    "raw": 3.33
+   },
+   "paired_median_m": -0.64,
+   "paired_n": 11,
+   "raw_closer_share": 0.364,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7950,12 +10075,23 @@
     "sfm": 1.41,
     "raw": 2.13
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.32,
+    "sfm": 2.32,
+    "raw": 0.85
+   },
+   "paired_median_m": 0.01,
+   "paired_n": 12,
+   "raw_closer_share": 0.5,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -7989,12 +10125,23 @@
     "sfm": 4.86,
     "raw": 5.76
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.28,
+    "sfm": 3.28,
+    "raw": 2.75
+   },
+   "paired_median_m": -0.88,
+   "paired_n": 11,
+   "raw_closer_share": 0.364,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8028,12 +10175,23 @@
     "sfm": 0.27,
     "raw": 0.44
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.21,
+    "sfm": 0.21,
+    "raw": 0.24
+   },
+   "paired_median_m": -0.07,
+   "paired_n": 12,
+   "raw_closer_share": 0.333,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8067,12 +10225,23 @@
     "sfm": 1.7,
     "raw": 2.07
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.63,
+    "sfm": 0.63,
+    "raw": 0.6
+   },
+   "paired_median_m": -0.77,
+   "paired_n": 11,
+   "raw_closer_share": 0.091,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8106,12 +10275,23 @@
     "sfm": 2.33,
     "raw": 1.56
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.55,
+    "sfm": 1.55,
+    "raw": 1.6
+   },
+   "paired_median_m": 0.17,
+   "paired_n": 12,
+   "raw_closer_share": 0.5,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8145,12 +10325,23 @@
     "sfm": 3.73,
     "raw": 3.18
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.91,
+    "sfm": 0.91,
+    "raw": 1.62
+   },
+   "paired_median_m": 0.31,
+   "paired_n": 12,
+   "raw_closer_share": 0.75,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8184,12 +10375,23 @@
     "sfm": 2.42,
     "raw": 1.33
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.98,
+    "sfm": 1.98,
+    "raw": 1.18
+   },
+   "paired_median_m": 1.48,
+   "paired_n": 11,
+   "raw_closer_share": 0.727,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8223,12 +10425,23 @@
     "sfm": 1.35,
     "raw": 0.94
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.83,
+    "sfm": 0.83,
+    "raw": 1.52
+   },
+   "paired_median_m": 0.87,
+   "paired_n": 11,
+   "raw_closer_share": 0.727,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8262,12 +10475,23 @@
     "sfm": 1.2,
     "raw": 1.81
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.93,
+    "sfm": 2.93,
+    "raw": 0.32
+   },
+   "paired_median_m": -0.43,
+   "paired_n": 12,
+   "raw_closer_share": 0.333,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8301,12 +10525,23 @@
     "sfm": 6.17,
     "raw": 6.32
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.24,
+    "sfm": 1.24,
+    "raw": 1.6
+   },
+   "paired_median_m": -0.32,
+   "paired_n": 12,
+   "raw_closer_share": 0.417,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8340,12 +10575,23 @@
     "sfm": 1.59,
     "raw": 0.81
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.22,
+    "sfm": 3.22,
+    "raw": 2.93
+   },
+   "paired_median_m": 0.46,
+   "paired_n": 9,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8379,12 +10625,23 @@
     "sfm": 2.1,
     "raw": 2.29
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.33,
+    "sfm": 4.33,
+    "raw": 2.32
+   },
+   "paired_median_m": -0.13,
+   "paired_n": 11,
+   "raw_closer_share": 0.364,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8418,12 +10675,23 @@
     "sfm": 4.86,
     "raw": 4.54
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.86,
+    "sfm": 1.86,
+    "raw": 1.5
+   },
+   "paired_median_m": 0.21,
+   "paired_n": 11,
+   "raw_closer_share": 0.818,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8457,12 +10725,23 @@
     "sfm": 1.3,
     "raw": 1.8
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.01,
+    "sfm": 1.01,
+    "raw": 3.46
+   },
+   "paired_median_m": -0.82,
+   "paired_n": 11,
+   "raw_closer_share": 0.091,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8496,12 +10775,23 @@
     "sfm": 3.19,
     "raw": 3.76
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.83,
+    "sfm": 1.83,
+    "raw": 1.37
+   },
+   "paired_median_m": -0.39,
+   "paired_n": 11,
+   "raw_closer_share": 0.364,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8535,12 +10825,23 @@
     "sfm": 1.77,
     "raw": 3.5
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.97,
+    "sfm": 0.97,
+    "raw": 0.75
+   },
+   "paired_median_m": -1.83,
+   "paired_n": 8,
+   "raw_closer_share": 0.125,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8574,12 +10875,23 @@
     "sfm": 4.75,
     "raw": 4.79
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.94,
+    "sfm": 1.94,
+    "raw": 1.81
+   },
+   "paired_median_m": 0.04,
+   "paired_n": 11,
+   "raw_closer_share": 0.636,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8613,12 +10925,23 @@
     "sfm": 2.18,
     "raw": 1.58
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.14,
+    "sfm": 4.14,
+    "raw": 2.88
+   },
+   "paired_median_m": 0.69,
+   "paired_n": 11,
+   "raw_closer_share": 0.727,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8652,12 +10975,23 @@
     "sfm": 1.68,
     "raw": 3.37
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.87,
+    "sfm": 0.87,
+    "raw": 3.41
+   },
+   "paired_median_m": -1.6,
+   "paired_n": 11,
+   "raw_closer_share": 0.182,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8691,12 +11025,23 @@
     "sfm": 1.01,
     "raw": 2.46
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.1,
+    "sfm": 1.1,
+    "raw": 1.22
+   },
+   "paired_median_m": -1.16,
+   "paired_n": 11,
+   "raw_closer_share": 0.091,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8730,12 +11075,23 @@
     "sfm": 3.35,
     "raw": 2.15
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.39,
+    "sfm": 3.39,
+    "raw": 1.33
+   },
+   "paired_median_m": -0.01,
+   "paired_n": 10,
+   "raw_closer_share": 0.5,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8769,12 +11125,23 @@
     "sfm": 8.06,
     "raw": 7.85
    },
+   "cross_track_iqr_m": {
+    "submitted": 6.05,
+    "sfm": 6.05,
+    "raw": 4.13
+   },
+   "paired_median_m": -1.64,
+   "paired_n": 10,
+   "raw_closer_share": 0.2,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8808,12 +11175,23 @@
     "sfm": 1.05,
     "raw": 2.19
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.04,
+    "sfm": 1.04,
+    "raw": 1.59
+   },
+   "paired_median_m": -0.81,
+   "paired_n": 11,
+   "raw_closer_share": 0.273,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8847,12 +11225,23 @@
     "sfm": 3.98,
     "raw": 4.57
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.86,
+    "sfm": 3.86,
+    "raw": 2.36
+   },
+   "paired_median_m": -0.09,
+   "paired_n": 11,
+   "raw_closer_share": 0.455,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8886,12 +11275,23 @@
     "sfm": 1.94,
     "raw": 1.74
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.15,
+    "sfm": 3.15,
+    "raw": 1.65
+   },
+   "paired_median_m": 0.87,
+   "paired_n": 8,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8925,12 +11325,23 @@
     "sfm": 1.92,
     "raw": 2.25
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.26,
+    "sfm": 2.26,
+    "raw": 1.12
+   },
+   "paired_median_m": -0.23,
+   "paired_n": 10,
+   "raw_closer_share": 0.4,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -8964,12 +11375,23 @@
     "sfm": 0.25,
     "raw": 0.41
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.27,
+    "sfm": 0.27,
+    "raw": 0.38
+   },
+   "paired_median_m": 0.02,
+   "paired_n": 9,
+   "raw_closer_share": 0.556,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9003,12 +11425,23 @@
     "sfm": 7.58,
     "raw": 5.31
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.63,
+    "sfm": 5.63,
+    "raw": 2.64
+   },
+   "paired_median_m": 0.09,
+   "paired_n": 9,
+   "raw_closer_share": 0.778,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9042,12 +11475,23 @@
     "sfm": 1.84,
     "raw": 1.34
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.19,
+    "sfm": 1.19,
+    "raw": 0.96
+   },
+   "paired_median_m": 1.54,
+   "paired_n": 9,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9081,12 +11525,23 @@
     "sfm": 4.29,
     "raw": 4.17
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.72,
+    "sfm": 2.72,
+    "raw": 1.24
+   },
+   "paired_median_m": 0.53,
+   "paired_n": 8,
+   "raw_closer_share": 0.75,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9120,12 +11575,23 @@
     "sfm": 1.86,
     "raw": 0.75
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.2,
+    "sfm": 0.2,
+    "raw": 0.61
+   },
+   "paired_median_m": 0.99,
+   "paired_n": 9,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9159,12 +11625,23 @@
     "sfm": 2.37,
     "raw": 1.95
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.27,
+    "sfm": 2.27,
+    "raw": 1.41
+   },
+   "paired_median_m": 0.35,
+   "paired_n": 9,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9198,12 +11675,23 @@
     "sfm": 0.86,
     "raw": 0.89
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.28,
+    "sfm": 1.28,
+    "raw": 0.79
+   },
+   "paired_median_m": 0.08,
+   "paired_n": 10,
+   "raw_closer_share": 0.6,
+   "paired_verdict": "undecidable",
+   "undecidable": true,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9237,12 +11725,23 @@
     "sfm": 3.92,
     "raw": 5.57
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.28,
+    "sfm": 2.28,
+    "raw": 4.55
+   },
+   "paired_median_m": -0.04,
+   "paired_n": 9,
+   "raw_closer_share": 0.444,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9276,12 +11775,23 @@
     "sfm": 2.4,
     "raw": 6.89
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.32,
+    "sfm": 2.32,
+    "raw": 5.89
+   },
+   "paired_median_m": -4.05,
+   "paired_n": 9,
+   "raw_closer_share": 0.222,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
-   "recommended": null,
+   "recommended": "sfm",
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9315,12 +11825,23 @@
     "sfm": 1.07,
     "raw": 0.6
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.97,
+    "sfm": 1.97,
+    "raw": 1.2
+   },
+   "paired_median_m": 0.35,
+   "paired_n": 9,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9354,12 +11875,23 @@
     "sfm": 1.48,
     "raw": 2.22
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.22,
+    "sfm": 3.22,
+    "raw": 0.16
+   },
+   "paired_median_m": 0.03,
+   "paired_n": 9,
+   "raw_closer_share": 0.556,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9393,12 +11925,23 @@
     "sfm": 0.88,
     "raw": 0.53
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.77,
+    "sfm": 0.77,
+    "raw": 0.58
+   },
+   "paired_median_m": 0.14,
+   "paired_n": 9,
+   "raw_closer_share": 0.778,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9432,12 +11975,23 @@
     "sfm": 0.57,
     "raw": 1.4
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.15,
+    "sfm": 0.15,
+    "raw": 0.9
+   },
+   "paired_median_m": -0.9,
+   "paired_n": 8,
+   "raw_closer_share": 0.125,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9471,12 +12025,23 @@
     "sfm": 1.97,
     "raw": 1.66
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.54,
+    "sfm": 1.54,
+    "raw": 1.77
+   },
+   "paired_median_m": 0.85,
+   "paired_n": 8,
+   "raw_closer_share": 0.625,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9510,12 +12075,23 @@
     "sfm": 1.39,
     "raw": 1.61
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.42,
+    "sfm": 0.42,
+    "raw": 1.07
+   },
+   "paired_median_m": -0.17,
+   "paired_n": 9,
+   "raw_closer_share": 0.444,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9549,12 +12125,23 @@
     "sfm": 1.64,
     "raw": 2.4
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.67,
+    "sfm": 1.67,
+    "raw": 0.78
+   },
+   "paired_median_m": -0.07,
+   "paired_n": 7,
+   "raw_closer_share": 0.286,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9588,12 +12175,23 @@
     "sfm": 2.76,
     "raw": 3.74
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.71,
+    "sfm": 1.71,
+    "raw": 4.44
+   },
+   "paired_median_m": 0.73,
+   "paired_n": 9,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9627,12 +12225,23 @@
     "sfm": 4.07,
     "raw": 0.9
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.17,
+    "sfm": 0.17,
+    "raw": 1.44
+   },
+   "paired_median_m": 2.22,
+   "paired_n": 9,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9666,12 +12275,23 @@
     "sfm": 2.77,
     "raw": 2.24
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.89,
+    "sfm": 0.89,
+    "raw": 1.74
+   },
+   "paired_median_m": 0.13,
+   "paired_n": 8,
+   "raw_closer_share": 0.625,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9705,12 +12325,23 @@
     "sfm": 1.9,
     "raw": 0.94
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.49,
+    "sfm": 0.49,
+    "raw": 0.44
+   },
+   "paired_median_m": 0.93,
+   "paired_n": 9,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9744,12 +12375,23 @@
     "sfm": 1.81,
     "raw": 3.14
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.56,
+    "sfm": 0.56,
+    "raw": 0.6
+   },
+   "paired_median_m": -1.36,
+   "paired_n": 8,
+   "raw_closer_share": 0.125,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9783,12 +12425,23 @@
     "sfm": 1.24,
     "raw": 2.8
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.33,
+    "sfm": 1.33,
+    "raw": 2.89
+   },
+   "paired_median_m": 0.3,
+   "paired_n": 9,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9822,12 +12475,23 @@
     "sfm": 1.95,
     "raw": 1.78
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.8,
+    "sfm": 1.8,
+    "raw": 1.37
+   },
+   "paired_median_m": -0.19,
+   "paired_n": 9,
+   "raw_closer_share": 0.444,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9861,12 +12525,23 @@
     "sfm": 0.77,
     "raw": 2.21
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.66,
+    "sfm": 1.66,
+    "raw": 0.49
+   },
+   "paired_median_m": -1.27,
+   "paired_n": 8,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9900,12 +12575,23 @@
     "sfm": 1.17,
     "raw": 5.51
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.74,
+    "sfm": 1.74,
+    "raw": 6.26
+   },
+   "paired_median_m": -3.52,
+   "paired_n": 8,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9939,12 +12625,23 @@
     "sfm": 4.68,
     "raw": 3.43
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.52,
+    "sfm": 2.52,
+    "raw": 0.54
+   },
+   "paired_median_m": 2.24,
+   "paired_n": 6,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -9978,12 +12675,23 @@
     "sfm": 2.59,
     "raw": 0.66
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.9,
+    "sfm": 0.9,
+    "raw": 2.99
+   },
+   "paired_median_m": 1.35,
+   "paired_n": 8,
+   "raw_closer_share": 0.875,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10017,12 +12725,23 @@
     "sfm": 5.49,
     "raw": 7.97
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.26,
+    "sfm": 0.26,
+    "raw": 2.37
+   },
+   "paired_median_m": -2.24,
+   "paired_n": 7,
+   "raw_closer_share": 0.286,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10056,12 +12775,23 @@
     "sfm": 3.9,
     "raw": 5.43
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.76,
+    "sfm": 4.76,
+    "raw": 4.64
+   },
+   "paired_median_m": -0.58,
+   "paired_n": 8,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10095,12 +12825,23 @@
     "sfm": 1.86,
     "raw": 2.53
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.44,
+    "sfm": 2.44,
+    "raw": 0.87
+   },
+   "paired_median_m": -0.54,
+   "paired_n": 8,
+   "raw_closer_share": 0.375,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10134,12 +12875,23 @@
     "sfm": 1.17,
     "raw": 0.63
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.81,
+    "sfm": 2.81,
+    "raw": 0.49
+   },
+   "paired_median_m": 0.43,
+   "paired_n": 8,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10173,12 +12925,23 @@
     "sfm": 5.07,
     "raw": 4.12
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.41,
+    "sfm": 0.41,
+    "raw": 0.49
+   },
+   "paired_median_m": 0.92,
+   "paired_n": 8,
+   "raw_closer_share": 0.875,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10212,12 +12975,23 @@
     "sfm": 1.64,
     "raw": 3.11
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.46,
+    "sfm": 0.46,
+    "raw": 0.17
+   },
+   "paired_median_m": -1.47,
+   "paired_n": 8,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10251,12 +13025,23 @@
     "sfm": 2.07,
     "raw": 2.35
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.98,
+    "sfm": 1.98,
+    "raw": 0.64
+   },
+   "paired_median_m": 0.25,
+   "paired_n": 7,
+   "raw_closer_share": 0.571,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10290,12 +13075,23 @@
     "sfm": 2.4,
     "raw": 2.08
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.45,
+    "sfm": 1.45,
+    "raw": 2.12
+   },
+   "paired_median_m": 0.49,
+   "paired_n": 7,
+   "raw_closer_share": 0.714,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10329,12 +13125,23 @@
     "sfm": 3.1,
     "raw": 3.89
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.43,
+    "sfm": 1.43,
+    "raw": 3.83
+   },
+   "paired_median_m": 0.26,
+   "paired_n": 7,
+   "raw_closer_share": 0.571,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10368,12 +13175,23 @@
     "sfm": 1.34,
     "raw": 0.5
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.42,
+    "sfm": 1.42,
+    "raw": 1.11
+   },
+   "paired_median_m": 0.3,
+   "paired_n": 6,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10407,12 +13225,23 @@
     "sfm": 1.17,
     "raw": 1.59
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.62,
+    "sfm": 1.62,
+    "raw": 2.42
+   },
+   "paired_median_m": -0.19,
+   "paired_n": 6,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10446,12 +13275,23 @@
     "sfm": 0.6,
     "raw": 0.67
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.39,
+    "sfm": 1.39,
+    "raw": 1.53
+   },
+   "paired_median_m": 0.14,
+   "paired_n": 7,
+   "raw_closer_share": 0.714,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10485,12 +13325,23 @@
     "sfm": 5.73,
     "raw": 6.83
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.13,
+    "sfm": 4.13,
+    "raw": 2.87
+   },
+   "paired_median_m": -0.22,
+   "paired_n": 7,
+   "raw_closer_share": 0.429,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10524,12 +13375,23 @@
     "sfm": 3.25,
     "raw": 3.32
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.63,
+    "sfm": 1.63,
+    "raw": 1.77
+   },
+   "paired_median_m": -0.33,
+   "paired_n": 7,
+   "raw_closer_share": 0.286,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10563,12 +13425,23 @@
     "sfm": 4.23,
     "raw": 4.23
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.75,
+    "sfm": 1.75,
+    "raw": 1.1
+   },
+   "paired_median_m": 0.0,
+   "paired_n": 7,
+   "raw_closer_share": 0.286,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10602,12 +13475,23 @@
     "sfm": 3.27,
     "raw": 1.66
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.05,
+    "sfm": 2.05,
+    "raw": 0.54
+   },
+   "paired_median_m": 1.09,
+   "paired_n": 7,
+   "raw_closer_share": 0.857,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10641,12 +13525,23 @@
     "sfm": 2.22,
     "raw": 1.48
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.45,
+    "sfm": 0.45,
+    "raw": 1.19
+   },
+   "paired_median_m": 0.74,
+   "paired_n": 7,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10680,12 +13575,23 @@
     "sfm": 1.71,
     "raw": 2.19
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.25,
+    "sfm": 1.25,
+    "raw": 2.2
+   },
+   "paired_median_m": 0.46,
+   "paired_n": 6,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10719,12 +13625,23 @@
     "sfm": 2.54,
     "raw": 1.75
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.84,
+    "sfm": 1.84,
+    "raw": 2.73
+   },
+   "paired_median_m": 1.45,
+   "paired_n": 5,
+   "raw_closer_share": 0.6,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10758,12 +13675,23 @@
     "sfm": 0.99,
     "raw": 1.21
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.84,
+    "sfm": 0.84,
+    "raw": 1.85
+   },
+   "paired_median_m": 0.09,
+   "paired_n": 6,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10797,12 +13725,23 @@
     "sfm": 7.4,
     "raw": 9.5
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.4,
+    "sfm": 4.4,
+    "raw": 10.16
+   },
+   "paired_median_m": -1.82,
+   "paired_n": 6,
+   "raw_closer_share": 0.333,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10836,12 +13775,23 @@
     "sfm": 7.46,
     "raw": 8.1
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.11,
+    "sfm": 0.11,
+    "raw": 0.68
+   },
+   "paired_median_m": -0.63,
+   "paired_n": 6,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10875,12 +13825,23 @@
     "sfm": 2.16,
     "raw": 1.2
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.71,
+    "sfm": 1.71,
+    "raw": 0.73
+   },
+   "paired_median_m": 0.86,
+   "paired_n": 5,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10914,12 +13875,23 @@
     "sfm": 2.29,
     "raw": 1.92
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.71,
+    "sfm": 2.71,
+    "raw": 0.54
+   },
+   "paired_median_m": 0.32,
+   "paired_n": 5,
+   "raw_closer_share": 0.6,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10953,12 +13925,23 @@
     "sfm": 0.54,
     "raw": 1.58
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.0,
+    "sfm": 1.0,
+    "raw": 0.29
+   },
+   "paired_median_m": -1.06,
+   "paired_n": 6,
+   "raw_closer_share": 0.167,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -10992,12 +13975,23 @@
     "sfm": 2.66,
     "raw": 2.14
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.11,
+    "sfm": 2.11,
+    "raw": 1.44
+   },
+   "paired_median_m": 0.22,
+   "paired_n": 6,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11031,12 +14025,23 @@
     "sfm": 0.78,
     "raw": 1.18
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.4,
+    "sfm": 0.4,
+    "raw": 1.58
+   },
+   "paired_median_m": -0.4,
+   "paired_n": 6,
+   "raw_closer_share": 0.167,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11070,12 +14075,23 @@
     "sfm": 1.88,
     "raw": 1.65
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.33,
+    "sfm": 2.33,
+    "raw": 4.69
+   },
+   "paired_median_m": 0.22,
+   "paired_n": 5,
+   "raw_closer_share": 0.6,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11109,12 +14125,23 @@
     "sfm": 1.82,
     "raw": 0.61
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.64,
+    "sfm": 1.64,
+    "raw": 0.76
+   },
+   "paired_median_m": 0.97,
+   "paired_n": 5,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11148,12 +14175,23 @@
     "sfm": 1.56,
     "raw": 0.88
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.17,
+    "sfm": 1.17,
+    "raw": 2.3
+   },
+   "paired_median_m": 0.26,
+   "paired_n": 6,
+   "raw_closer_share": 0.833,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11187,12 +14225,23 @@
     "sfm": 1.86,
     "raw": 2.54
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.33,
+    "sfm": 2.33,
+    "raw": 0.26
+   },
+   "paired_median_m": -0.55,
+   "paired_n": 6,
+   "raw_closer_share": 0.167,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11226,12 +14275,23 @@
     "sfm": 7.09,
     "raw": 7.53
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.22,
+    "sfm": 5.22,
+    "raw": 2.83
+   },
+   "paired_median_m": -0.57,
+   "paired_n": 5,
+   "raw_closer_share": 0.2,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11265,12 +14325,23 @@
     "sfm": 7.66,
     "raw": 5.51
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.5,
+    "sfm": 5.5,
+    "raw": 4.29
+   },
+   "paired_median_m": 1.35,
+   "paired_n": 6,
+   "raw_closer_share": 0.833,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11304,12 +14375,23 @@
     "sfm": 1.87,
     "raw": 2.03
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.36,
+    "sfm": 0.36,
+    "raw": 0.1
+   },
+   "paired_median_m": -0.17,
+   "paired_n": 5,
+   "raw_closer_share": 0.2,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11343,12 +14425,23 @@
     "sfm": 7.1,
     "raw": 10.63
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.05,
+    "sfm": 0.05,
+    "raw": 0.23
+   },
+   "paired_median_m": -3.5,
+   "paired_n": 5,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11382,12 +14475,23 @@
     "sfm": 5.81,
     "raw": 5.03
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.07,
+    "sfm": 0.07,
+    "raw": 1.05
+   },
+   "paired_median_m": 1.07,
+   "paired_n": 4,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11421,12 +14525,23 @@
     "sfm": 6.06,
     "raw": 5.61
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.18,
+    "sfm": 0.18,
+    "raw": 0.37
+   },
+   "paired_median_m": 0.64,
+   "paired_n": 5,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11460,12 +14575,23 @@
     "sfm": 0.89,
     "raw": 1.15
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.4,
+    "sfm": 1.4,
+    "raw": 0.52
+   },
+   "paired_median_m": -0.42,
+   "paired_n": 5,
+   "raw_closer_share": 0.4,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11499,12 +14625,23 @@
     "sfm": 4.26,
     "raw": 3.66
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.93,
+    "sfm": 1.93,
+    "raw": 1.91
+   },
+   "paired_median_m": 1.5,
+   "paired_n": 4,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11538,12 +14675,23 @@
     "sfm": 3.47,
     "raw": 7.47
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.2,
+    "sfm": 0.2,
+    "raw": 2.29
+   },
+   "paired_median_m": -4.09,
+   "paired_n": 5,
+   "raw_closer_share": 0.2,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11577,12 +14725,23 @@
     "sfm": 0.95,
     "raw": 3.3
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.28,
+    "sfm": 1.28,
+    "raw": 2.4
+   },
+   "paired_median_m": -1.9,
+   "paired_n": 3,
+   "raw_closer_share": 0.333,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11616,12 +14775,23 @@
     "sfm": 3.07,
     "raw": 3.32
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.21,
+    "sfm": 2.21,
+    "raw": 2.11
+   },
+   "paired_median_m": -0.26,
+   "paired_n": 3,
+   "raw_closer_share": 0.333,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11655,12 +14825,23 @@
     "sfm": 8.49,
     "raw": 6.11
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.26,
+    "sfm": 0.26,
+    "raw": 0.02
+   },
+   "paired_median_m": 2.2,
+   "paired_n": 5,
+   "raw_closer_share": 0.8,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11694,12 +14875,23 @@
     "sfm": 0.28,
     "raw": 0.55
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.3,
+    "sfm": 0.3,
+    "raw": 1.09
+   },
+   "paired_median_m": -0.06,
+   "paired_n": 5,
+   "raw_closer_share": 0.4,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11733,12 +14925,23 @@
     "sfm": 2.19,
     "raw": 1.7
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.59,
+    "sfm": 0.59,
+    "raw": 0.34
+   },
+   "paired_median_m": 0.23,
+   "paired_n": 5,
+   "raw_closer_share": 0.8,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11772,12 +14975,23 @@
     "sfm": 0.58,
     "raw": 2.19
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.65,
+    "sfm": 1.65,
+    "raw": 3.61
+   },
+   "paired_median_m": 0.03,
+   "paired_n": 5,
+   "raw_closer_share": 0.6,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11811,12 +15025,23 @@
     "sfm": 3.17,
     "raw": 1.93
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.28,
+    "sfm": 1.28,
+    "raw": 2.18
+   },
+   "paired_median_m": 0.38,
+   "paired_n": 3,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11850,12 +15075,23 @@
     "sfm": 1.93,
     "raw": 1.93
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.49,
+    "sfm": 1.49,
+    "raw": 0.92
+   },
+   "paired_median_m": 0.0,
+   "paired_n": 5,
+   "raw_closer_share": 0.2,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11889,12 +15125,23 @@
     "sfm": 2.32,
     "raw": 0.24
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.22,
+    "sfm": 0.22,
+    "raw": 0.19
+   },
+   "paired_median_m": 2.05,
+   "paired_n": 5,
+   "raw_closer_share": 0.8,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11928,12 +15175,23 @@
     "sfm": 3.42,
     "raw": 1.51
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.1,
+    "sfm": 1.1,
+    "raw": 1.11
+   },
+   "paired_median_m": 1.92,
+   "paired_n": 5,
+   "raw_closer_share": 0.8,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -11967,12 +15225,23 @@
     "sfm": 1.53,
     "raw": 0.04
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.04,
+    "sfm": 1.04,
+    "raw": 0.06
+   },
+   "paired_median_m": 1.5,
+   "paired_n": 5,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12006,12 +15275,23 @@
     "sfm": 3.49,
     "raw": 4.45
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.09,
+    "sfm": 4.09,
+    "raw": 2.51
+   },
+   "paired_median_m": -0.96,
+   "paired_n": 4,
+   "raw_closer_share": 0.25,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12045,12 +15325,23 @@
     "sfm": 8.56,
     "raw": 6.58
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.56,
+    "sfm": 1.56,
+    "raw": 1.38
+   },
+   "paired_median_m": 1.98,
+   "paired_n": 4,
+   "raw_closer_share": 0.75,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12084,12 +15375,23 @@
     "sfm": 5.58,
     "raw": 7.84
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.43,
+    "sfm": 2.43,
+    "raw": 1.23
+   },
+   "paired_median_m": -1.96,
+   "paired_n": 4,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12123,12 +15425,23 @@
     "sfm": 3.49,
     "raw": 5.38
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.75,
+    "sfm": 3.75,
+    "raw": 1.68
+   },
+   "paired_median_m": -1.39,
+   "paired_n": 3,
+   "raw_closer_share": 0.333,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12162,12 +15475,23 @@
     "sfm": 5.16,
     "raw": 3.68
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.42,
+    "sfm": 1.42,
+    "raw": 1.22
+   },
+   "paired_median_m": 2.69,
+   "paired_n": 3,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12201,12 +15525,23 @@
     "sfm": 2.62,
     "raw": 0.63
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.22,
+    "sfm": 0.22,
+    "raw": 0.21
+   },
+   "paired_median_m": 1.99,
+   "paired_n": 4,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12240,12 +15575,23 @@
     "sfm": 2.46,
     "raw": 4.32
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.71,
+    "sfm": 5.71,
+    "raw": 3.58
+   },
+   "paired_median_m": -0.8,
+   "paired_n": 4,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12279,12 +15625,23 @@
     "sfm": 2.02,
     "raw": 0.71
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.78,
+    "sfm": 1.78,
+    "raw": 0.9
+   },
+   "paired_median_m": 2.21,
+   "paired_n": 2,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12318,12 +15675,23 @@
     "sfm": 1.61,
     "raw": 0.57
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.5,
+    "sfm": 3.5,
+    "raw": 6.73
+   },
+   "paired_median_m": 0.15,
+   "paired_n": 4,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12357,12 +15725,23 @@
     "sfm": 3.41,
     "raw": 2.28
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.77,
+    "sfm": 0.77,
+    "raw": 0.61
+   },
+   "paired_median_m": 0.91,
+   "paired_n": 4,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12396,12 +15775,23 @@
     "sfm": 2.06,
     "raw": 2.98
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.26,
+    "sfm": 5.26,
+    "raw": 1.99
+   },
+   "paired_median_m": -0.05,
+   "paired_n": 3,
+   "raw_closer_share": 0.333,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12435,12 +15825,23 @@
     "sfm": 3.04,
     "raw": 2.77
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.67,
+    "sfm": 1.67,
+    "raw": 4.28
+   },
+   "paired_median_m": 0.35,
+   "paired_n": 4,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12474,12 +15875,23 @@
     "sfm": 1.98,
     "raw": 1.46
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.06,
+    "sfm": 1.06,
+    "raw": 1.59
+   },
+   "paired_median_m": 0.43,
+   "paired_n": 4,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12513,12 +15925,23 @@
     "sfm": 3.58,
     "raw": 2.1
    },
+   "cross_track_iqr_m": {
+    "submitted": 12.12,
+    "sfm": 12.12,
+    "raw": 10.96
+   },
+   "paired_median_m": 3.14,
+   "paired_n": 2,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12552,12 +15975,23 @@
     "sfm": 4.16,
     "raw": 1.09
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.64,
+    "sfm": 1.64,
+    "raw": 4.17
+   },
+   "paired_median_m": 2.45,
+   "paired_n": 4,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12591,12 +16025,23 @@
     "sfm": 0.67,
     "raw": 1.82
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.02,
+    "sfm": 1.02,
+    "raw": 0.98
+   },
+   "paired_median_m": -0.93,
+   "paired_n": 3,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12630,12 +16075,23 @@
     "sfm": 3.8,
     "raw": 4.17
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.97,
+    "sfm": 3.97,
+    "raw": 6.47
+   },
+   "paired_median_m": -0.48,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12669,12 +16125,23 @@
     "sfm": 0.24,
     "raw": 1.95
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.8,
+    "sfm": 2.8,
+    "raw": 1.35
+   },
+   "paired_median_m": -1.71,
+   "paired_n": 3,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12708,12 +16175,23 @@
     "sfm": 6.73,
     "raw": 7.31
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.41,
+    "sfm": 5.41,
+    "raw": 6.16
+   },
+   "paired_median_m": -1.86,
+   "paired_n": 3,
+   "raw_closer_share": 0.333,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12747,12 +16225,23 @@
     "sfm": 1.36,
     "raw": 2.86
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.48,
+    "sfm": 1.48,
+    "raw": 2.18
+   },
+   "paired_median_m": -1.79,
+   "paired_n": 3,
+   "raw_closer_share": 0.333,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12786,12 +16275,23 @@
     "sfm": 2.98,
     "raw": 0.54
    },
+   "cross_track_iqr_m": {
+    "submitted": 3.07,
+    "sfm": 3.07,
+    "raw": 0.74
+   },
+   "paired_median_m": 1.72,
+   "paired_n": 3,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12825,12 +16325,23 @@
     "sfm": 4.66,
     "raw": 3.03
    },
+   "cross_track_iqr_m": {
+    "submitted": 7.19,
+    "sfm": 7.19,
+    "raw": 3.89
+   },
+   "paired_median_m": 1.63,
+   "paired_n": 3,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12864,12 +16375,23 @@
     "sfm": 6.41,
     "raw": 5.78
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.45,
+    "sfm": 1.45,
+    "raw": 1.66
+   },
+   "paired_median_m": 0.33,
+   "paired_n": 3,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12903,12 +16425,23 @@
     "sfm": 1.01,
     "raw": 0.7
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.68,
+    "sfm": 0.68,
+    "raw": 0.5
+   },
+   "paired_median_m": 0.31,
+   "paired_n": 3,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12942,12 +16475,23 @@
     "sfm": 7.81,
     "raw": 7.36
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.24,
+    "sfm": 1.24,
+    "raw": 0.91
+   },
+   "paired_median_m": 0.74,
+   "paired_n": 3,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -12981,12 +16525,23 @@
     "sfm": 3.53,
     "raw": 4.08
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.22,
+    "sfm": 2.22,
+    "raw": 11.94
+   },
+   "paired_median_m": -0.55,
+   "paired_n": 3,
+   "raw_closer_share": 0.333,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13020,12 +16575,23 @@
     "sfm": 2.51,
     "raw": 0.13
    },
+   "cross_track_iqr_m": {
+    "submitted": 5.1,
+    "sfm": 5.1,
+    "raw": 3.84
+   },
+   "paired_median_m": 2.51,
+   "paired_n": 3,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13059,12 +16625,23 @@
     "sfm": 1.79,
     "raw": 1.19
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.27,
+    "sfm": 1.27,
+    "raw": 2.68
+   },
+   "paired_median_m": 0.44,
+   "paired_n": 3,
+   "raw_closer_share": 0.667,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13098,12 +16675,23 @@
     "sfm": 0.46,
     "raw": 0.92
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.24,
+    "sfm": 0.24,
+    "raw": 0.3
+   },
+   "paired_median_m": -0.45,
+   "paired_n": 2,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13137,12 +16725,23 @@
     "sfm": 5.6,
     "raw": 4.78
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 2.66
+   },
+   "paired_median_m": -0.51,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 1,
     "sfm": 1,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13176,12 +16775,23 @@
     "sfm": 5.84,
     "raw": 4.89
    },
+   "cross_track_iqr_m": {
+    "submitted": 2.28,
+    "sfm": 2.28,
+    "raw": 1.13
+   },
+   "paired_median_m": 0.94,
+   "paired_n": 2,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13215,12 +16825,23 @@
     "sfm": 4.2,
     "raw": 4.45
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.62,
+    "sfm": 0.62,
+    "raw": 4.39
+   },
+   "paired_median_m": -2.14,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13254,12 +16875,23 @@
     "sfm": 2.36,
     "raw": 6.64
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.65,
+    "sfm": 0.65,
+    "raw": 4.26
+   },
+   "paired_median_m": -4.28,
+   "paired_n": 2,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13293,12 +16925,23 @@
     "sfm": 0.88,
     "raw": 2.17
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.05,
+    "sfm": 1.05,
+    "raw": 0.86
+   },
+   "paired_median_m": -1.29,
+   "paired_n": 2,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13332,12 +16975,23 @@
     "sfm": 3.42,
     "raw": 4.19
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.69,
+    "sfm": 1.69,
+    "raw": 2.0
+   },
+   "paired_median_m": -0.77,
+   "paired_n": 2,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13371,12 +17025,23 @@
     "sfm": 5.67,
     "raw": 4.68
    },
+   "cross_track_iqr_m": {
+    "submitted": 4.32,
+    "sfm": 4.32,
+    "raw": 4.82
+   },
+   "paired_median_m": 0.99,
+   "paired_n": 2,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13410,12 +17075,23 @@
     "sfm": 2.01,
     "raw": 2.0
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.28,
+    "sfm": 1.28,
+    "raw": 1.28
+   },
+   "paired_median_m": 0.01,
+   "paired_n": 2,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13449,12 +17125,23 @@
     "sfm": 5.83,
     "raw": 3.26
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.77,
+    "sfm": 0.77,
+    "raw": 0.86
+   },
+   "paired_median_m": 2.57,
+   "paired_n": 2,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13488,12 +17175,23 @@
     "sfm": 2.86,
     "raw": 2.83
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.41,
+    "sfm": 0.41,
+    "raw": 0.35
+   },
+   "paired_median_m": 0.03,
+   "paired_n": 2,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13527,12 +17225,23 @@
     "sfm": 3.48,
     "raw": 11.64
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.14,
+    "sfm": 0.14,
+    "raw": 0.11
+   },
+   "paired_median_m": -8.17,
+   "paired_n": 2,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13566,12 +17275,23 @@
     "sfm": 0.87,
     "raw": 1.58
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.24,
+    "sfm": 1.24,
+    "raw": 2.03
+   },
+   "paired_median_m": -0.71,
+   "paired_n": 2,
+   "raw_closer_share": 0.5,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13605,12 +17325,23 @@
     "sfm": 0.79,
     "raw": 1.84
    },
+   "cross_track_iqr_m": {
+    "submitted": 1.45,
+    "sfm": 1.45,
+    "raw": 1.44
+   },
+   "paired_median_m": -1.05,
+   "paired_n": 2,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13644,12 +17375,23 @@
     "sfm": 1.36,
     "raw": 1.08
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.02,
+    "sfm": 0.02,
+    "raw": 0.01
+   },
+   "paired_median_m": 0.28,
+   "paired_n": 2,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13683,12 +17425,23 @@
     "sfm": 0.62,
     "raw": 0.49
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.79,
+    "sfm": 0.79,
+    "raw": 0.82
+   },
+   "paired_median_m": 0.14,
+   "paired_n": 2,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13722,12 +17475,23 @@
     "sfm": 1.01,
     "raw": 1.45
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.93,
+    "sfm": 0.93,
+    "raw": 1.13
+   },
+   "paired_median_m": -0.44,
+   "paired_n": 2,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13761,12 +17525,23 @@
     "sfm": 2.5,
     "raw": 2.29
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.55,
+    "sfm": 0.55,
+    "raw": 4.45
+   },
+   "paired_median_m": -2.29,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13800,12 +17575,23 @@
     "sfm": 2.83,
     "raw": 5.0
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": -2.17,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13839,12 +17625,23 @@
     "sfm": 2.35,
     "raw": 13.59
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": -11.25,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13878,12 +17675,23 @@
     "sfm": 0.44,
     "raw": 0.53
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": -0.09,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13917,12 +17725,23 @@
     "sfm": 2.65,
     "raw": 12.09
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": -9.45,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13956,12 +17775,23 @@
     "sfm": 6.74,
     "raw": 4.48
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": 2.26,
+   "paired_n": 1,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -13995,12 +17825,23 @@
     "sfm": 1.25,
     "raw": 1.21
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": 0.04,
+   "paired_n": 1,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -14034,12 +17875,23 @@
     "sfm": 12.35,
     "raw": 12.35
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": -0.0,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -14073,12 +17925,23 @@
     "sfm": 0.96,
     "raw": 4.39
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": -3.42,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -14112,12 +17975,23 @@
     "sfm": 18.92,
     "raw": 18.88
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": 0.04,
+   "paired_n": 1,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -14151,12 +18025,23 @@
     "sfm": 0.98,
     "raw": 1.37
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": null,
+   "paired_n": 0,
+   "raw_closer_share": null,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -14190,12 +18075,23 @@
     "sfm": 4.62,
     "raw": 1.88
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": 2.74,
+   "paired_n": 1,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -14229,12 +18125,23 @@
     "sfm": 0.13,
     "raw": 1.12
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": -1.0,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -14268,12 +18175,23 @@
     "sfm": 5.65,
     "raw": 4.47
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": 1.18,
+   "paired_n": 1,
+   "raw_closer_share": 1.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -14307,12 +18225,23 @@
     "sfm": 1.13,
     "raw": 1.79
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": null,
+   "paired_n": 0,
+   "raw_closer_share": null,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -14346,12 +18275,23 @@
     "sfm": 7.53,
     "raw": 7.97
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": -0.44,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
@@ -14385,80 +18325,57 @@
     "sfm": 0.02,
     "raw": 0.03
    },
+   "cross_track_iqr_m": {
+    "submitted": 0.0,
+    "sfm": 0.0,
+    "raw": 0.0
+   },
+   "paired_median_m": -0.01,
+   "paired_n": 1,
+   "raw_closer_share": 0.0,
+   "paired_verdict": null,
+   "undecidable": false,
    "not_near_a_street": {
     "submitted": 0,
     "sfm": 0,
     "raw": 0
    },
    "recommended": null,
+   "off_street": false,
    "flagged": false,
    "both_off": false,
    "beyond_snap": false
   }
  ],
  "flagged_sequences": [
-  "jKtaJMek7wQl5AOH28qdcm",
-  "eBmRAW0TaZ4HvFx2qlpcit",
-  "fy7V2zXY61m8OCIhkvRjxZ",
-  "NrdhSW0EuTjlBsxAktVUO9",
-  "EowrXcadVPk5Bhe8GmRS6K",
-  "TRfFo75XcLyDU2OJvmQadP",
   "85uMdUO6JNok4mQDszXvcB",
-  "QPw2eEmbV3lqh6pvcWUoO0",
   "IhOuUZXHYjAdbtE9vaWoMR",
-  "03vDTp9NwbSRuYXkcaCUO2",
-  "0tDUHua5rIyeh8lEk9MXjS",
-  "RfwMrVX3Q1eizvIHubJaOl",
-  "hNSXaMWORxpeyZw647PDk0",
-  "A1p326CI7NPBWraLgHbx5j"
+  "hNSXaMWORxpeyZw647PDk0"
  ],
  "both_off_sequences": [
-  "neXd4zYCGbcF6kQ2ZvEimS",
   "fP2wSATCUL7BEiah1jqdyJ",
-  "ZKgN1oIYcrSmeAsBzTH40U",
-  "uLfPk59sqn6KlyUbMW1NpI",
-  "6adFufAJGvqweLWsKkB2xY",
-  "DHSzjckYPUTmXq5B4driL0",
-  "jPda9D0IS4pAi7ZvEywUFO",
-  "8TahjbXIzxUYD1P9nQpFRq",
-  "qhyHOpCSt8IArkbaeiKJ1N",
+  "jKtaJMek7wQl5AOH28qdcm",
+  "fy7V2zXY61m8OCIhkvRjxZ",
   "SNqQGwltMPfeuiRa7xLjX9",
-  "tSQYwhz0i2AHGZoClVucJj",
   "bJSpFz7EU04cvliTnBGHAX",
-  "vYifbuL7SD964mKATO2sQt",
   "HI0O4hLtr9wylnvs7oJkYu",
-  "drsjvX3k4KiBTH7Pb5LV8h",
   "FikNdPgXBoJsDtfnQWwhu6",
-  "oHxLZapKqwhiybvJdSC2TF",
-  "92chHUjF35ZsNXydIEf6r4",
-  "wGojXkNRdvyJBKn6ra7xZf",
   "cuDX3YvV2OMCwigylKNrep",
-  "7xBa0FEUj13gPc4tiXRVl2",
-  "wxghBIWdRM3L41CTZUVGYr",
-  "XrEo23tcK1SHzDyCwNOPMq",
-  "0IgGoZMtylA1RYhDwrkBdL",
-  "8nJmwzk2qTe6vFrXPfsLY9",
+  "LIJBehAVj7q5y2i3RmnrS9",
   "YyQ8XUiOJqZ2wHEhxvlc6N",
-  "j6YnwrTFufN5HRck4IJp7b",
-  "r0swHqPtmvWjM47bEY31fQ",
-  "mAi8GdLHau6qc1JxNXUwO4",
-  "v7LX8yga4fpD6Sr3lHtjUA",
-  "CWFGwlfenILZ7JmzypsYjr",
-  "SxYBZr4QKfn7pIX3t90eow",
-  "oYqky7hRdx6ZmnTrWAzFvs",
-  "yt0M4SslP7ZWnAFeuQjKvJ",
-  "bPlZw6Mp5Lzac941Xev2Kd",
-  "n57VkKslrDmajtFBETNqzJ",
-  "hjP59iev0UbQWlTrCOLG8k",
-  "J7IAMxeHE3a2Q5dpYV6SuT",
-  "Cj38dYsJnmzgZcE7XeaPUV",
-  "U4eWPoxCEMYT8R0wLzd97b",
-  "bESXlFv3MPDUHTjsrpki60"
+  "U4eWPoxCEMYT8R0wLzd97b"
  ],
  "frame": {
   "lat0": 37.538789,
   "lng0": -77.4431735
  },
  "results_path": "runs/richmond/results.band.jsonl",
- "results_sha256": "04e7325eb07c660e4bb540aff7afe83f9acf555bfab3c9537bb52c69d7fc0660"
+ "results_sha256": "04e7325eb07c660e4bb540aff7afe83f9acf555bfab3c9537bb52c69d7fc0660",
+ "live_campaigns": [
+  {
+   "endpoint": "https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano",
+   "submitted_lines": 9091,
+   "labels_submitted": 12962
+  }
+ ]
 }
