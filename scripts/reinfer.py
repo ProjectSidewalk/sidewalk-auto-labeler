@@ -259,7 +259,20 @@ def reinfer(run_dir, out_path, workers, limit):
     if source_name == 'mapillary':
         source.POSITION_FIELD = manifest.get('mapillary_position', 'sfm')
     source.prepare()
-    main.curb_ramp_detector = CurbRampDetector()
+    from detectors import ModelProvenanceError
+    try:
+        main.curb_ramp_detector = CurbRampDetector()  # refuses an unknown revision (issue #39)
+    except ModelProvenanceError as e:
+        raise SystemExit(str(e))
+    provenance = main.curb_ramp_detector.provenance
+    # A re-inference exists to reproduce the run's own detections, so it should use the
+    # weights the run was made with. It writes a separate file and --verify catches any
+    # pixel that moved, so a different revision is warned about rather than refused.
+    bound = manifest.get('model_revision')
+    if bound and bound != provenance['model_revision']:
+        print(f"WARNING: {run_dir.name} was made with revision {bound[:12]}; re-inferring "
+              f"with {provenance['model_revision'][:12]}. --verify will show what moved.")
+    print(f"-> Model: {provenance['model_id']} (trained {provenance['model_training_date']})")
 
     cache_path = Path(f"{out_path}.processed")
     done = set()
@@ -286,7 +299,7 @@ def reinfer(run_dir, out_path, workers, limit):
         except ImportError:
             it = futures
         for future in it:
-            counts[main.handle_result(future.result(), f_cache, f_out)] += 1
+            counts[main.handle_result(future.result(), f_cache, f_out, provenance)] += 1
     print(f"-> Re-inference: {counts['success']} written, {counts['skipped']} skipped "
           f"(no longer served / unusable), {counts['failed']} failed (retry by re-running).")
 

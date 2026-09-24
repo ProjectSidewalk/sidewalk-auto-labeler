@@ -93,8 +93,8 @@ HuggingFace warning that `modeling.py` "may contain malicious code" — this is 
 ## Running a city
 
 `example_geojson/bend.geojson` (and `chicago`, `vancouver`) already ship in the repo — no file
-transfer needed. For a **new** city, `scp` its GeoJSON into `example_geojson/` first (it must
-be a bare geometry object — see the README's "Deploying to a new city").
+transfer needed. For a **new** city, `scp` its GeoJSON into `example_geojson/` first (a polygon,
+bare or in a `Feature`/`FeatureCollection` — see the README's "Deploying to a new city").
 
 ### 1. Scope it first (always)
 

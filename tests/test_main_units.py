@@ -1,8 +1,11 @@
 """Unit tests for main.py's pure helpers (no network, no model)."""
 import json
+from pathlib import Path
+
+import pytest
 
 import main
-from conftest import make_process_result as _result
+from conftest import make_process_result as _result, make_provenance
 
 
 def test_latlon_to_tile_known_values():
@@ -38,11 +41,17 @@ def test_load_processed_ids(tmp_path):
 
 
 def test_build_output_line_shape():
-    line = main.build_output_line(_result())
+    line = main.build_output_line(_result(), make_provenance())
     assert line["detections"] == [
         {"x_normalized": 0.5, "y_normalized": 0.25, "confidence": 0.9}]
     assert line["label_type"] == "CurbRamp"
-    assert line["model_id"] == main.MODEL_ID
+    # Provenance comes from the resolved snapshot (issue #39): the three keys PS stores per
+    # label, in the formats it parses, plus the full revision for everything else.
+    assert line["model_id"] == "rampnet-model@606a11956743"
+    assert line["model_training_date"] == "08-21-2025"
+    assert line["api_version"] == "1.0.0"
+    assert line["model_repo"] == "projectsidewalk/rampnet-model"
+    assert line["model_revision"] == "606a11956743f7eb328d9207769034752f6191f4"
     # The source-built pano block passes through untouched (its shape is covered by
     # the per-source tests).
     assert line["pano"]["panorama_id"] == "PID"
@@ -50,7 +59,7 @@ def test_build_output_line_shape():
 
 
 def test_build_output_line_zero_detections():
-    assert main.build_output_line(_result(detections=[]))["detections"] == []
+    assert main.build_output_line(_result(detections=[]), make_provenance())["detections"] == []
 
 
 def _results_file(tmp_path, links_per_record):
@@ -108,7 +117,7 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     saved = json.load(open(manifest_path))
     assert saved["position_check"] == {"checked_at": "2026-09-16T00:00:00Z", "results_sha256": "abc",
                                        "submitted_field": "sfm", "flagged": 1, "both_off": 0,
-                                       "panos_not_near_a_street": 3}
+                                       "panos_not_near_a_street": 3, "rule": None}
 
     def boom(rd):
         raise OSError("Overpass query failed on every endpoint")
@@ -122,6 +131,7 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     results = run_dir / "results.jsonl"
     results.write_text("{}\n")
     pinned = {"checked_at": "2026-09-16T01:00:00Z", "results_sha256": position_check.file_sha256(results),
+              "rule": position_check.RULE, **{k: v for k, _, v in position_check.RULE_PARAMETERS},
               "submitted_field": None, "flagged_sequences": [], "both_off_sequences": [],
               "panos_not_near_a_street": 0}
     position_check.check_path_for(results).write_text(json.dumps(pinned))
@@ -133,6 +143,232 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     results.write_text("{}\n{}\n")  # the file changed: the check runs again
     main.run_position_check(run_dir, manifest_path, manifest)
     assert calls == [run_dir]
+    # ...and so does one pinned to the file but written under a retired verdict rule (#62).
+    calls.clear()
+    stale = {k: v for k, v in pinned.items() if k != "rule"}
+    stale["results_sha256"] = position_check.file_sha256(results)
+    position_check.check_path_for(results).write_text(json.dumps(stale))
+    main.run_position_check(run_dir, manifest_path, manifest)
+    assert calls == [run_dir]
+    # ...and one written under the right rule with a knob moved (--threshold 100).
+    calls.clear()
+    position_check.check_path_for(results).write_text(json.dumps({**stale, "rule": position_check.RULE,
+                                                                  **{k: v for k, _, v in position_check.RULE_PARAMETERS},
+                                                                  "threshold_m": 100.0}))
+    main.run_position_check(run_dir, manifest_path, manifest)
+    assert calls == [run_dir]
+
+
+# --- Model provenance (issues #39, #6): resolved from the snapshot, refusing the unknown ---
+
+import pytest  # noqa: E402
+
+import detectors  # noqa: E402
+
+PAPER_MAIN = "606a11956743f7eb328d9207769034752f6191f4"   # HF main since 2026-07-24
+UNKNOWN_SHA = "0123456789abcdef0123456789abcdef01234567"
+
+
+def _snapshot(tmp_path, sha):
+    d = tmp_path / "hub" / "models--projectsidewalk--rampnet-model" / "snapshots" / sha
+    d.mkdir(parents=True)
+    (d / "config.json").write_text("{}")
+    return d / "config.json"
+
+
+def test_provenance_from_snapshot_dir_resolves_the_cache_path(tmp_path):
+    """The offline fallback: with no commit hash from transformers, the snapshots/<sha>
+    directory the weights were read from IS the revision."""
+    prov = detectors.provenance_from_snapshot_dir(_snapshot(tmp_path, PAPER_MAIN))
+    assert prov == {
+        "model_repo": "projectsidewalk/rampnet-model",
+        "model_revision": PAPER_MAIN,
+        "model_id": "rampnet-model@606a11956743",
+        # PS parses MM-dd-yyyy into a NOT NULL timestamp (ExploreService.submitAiLabelData);
+        # the paper weights were trained 2025-08-21, which is the date every live row holds.
+        "model_training_date": "08-21-2025",
+        "api_version": "1.0.0",
+    }
+    # The directory alone works too, and a commit hash from transformers takes precedence.
+    assert detectors.provenance_from_snapshot_dir(
+        _snapshot(tmp_path, "1078bcd6771d63bd845d9fd36042904473e20b07").parent,
+        commit_hash=PAPER_MAIN)["model_revision"] == PAPER_MAIN
+
+
+def test_loaded_model_falls_back_to_the_cache_unless_the_commit_hash_is_a_sha(tmp_path):
+    """The detector's wiring: a valid _commit_hash skips the cache lookup; a missing OR
+    malformed one (truthy but not 40 hex) must still consult it."""
+    cached = _snapshot(tmp_path, PAPER_MAIN)
+    lookups = []
+
+    def find():
+        lookups.append(1)
+        return cached
+
+    assert detectors.provenance_for_loaded_model(PAPER_MAIN, find)["model_revision"] == PAPER_MAIN
+    assert lookups == []
+    for commit_hash in (None, "", "main", PAPER_MAIN[:12]):
+        prov = detectors.provenance_for_loaded_model(commit_hash, find)
+        assert prov["model_revision"] == PAPER_MAIN
+    assert len(lookups) == 4
+
+
+def test_model_id_keeps_the_prefix_consumers_match_on():
+    model_id = detectors.model_id_for(PAPER_MAIN)
+    assert model_id.startswith("rampnet-model") and model_id != "rampnet-model"
+    assert model_id.split("@")[1] == PAPER_MAIN[:12]
+
+
+def test_every_known_revision_is_a_full_sha_with_an_iso_date():
+    for sha, row in detectors.KNOWN_REVISIONS.items():
+        assert detectors.is_revision(sha)
+        assert detectors.ps_training_date(row["training_date"])  # parses as ISO
+        assert row["note"]
+
+
+def test_unknown_revision_refuses_and_names_the_sha_and_the_table(tmp_path):
+    with pytest.raises(detectors.ModelProvenanceError) as e:
+        detectors.provenance_from_snapshot_dir(_snapshot(tmp_path, UNKNOWN_SHA))
+    assert UNKNOWN_SHA in str(e.value) and "KNOWN_REVISIONS" in str(e.value)
+    # The override runs, but the date is null — never a stale default that reads as fact.
+    prov = detectors.provenance_from_snapshot_dir(None, commit_hash=UNKNOWN_SHA, allow_unknown=True)
+    assert prov["model_training_date"] is None
+    assert prov["model_id"] == "rampnet-model@0123456789ab"
+
+
+def test_unresolvable_revision_refuses_even_with_the_override(tmp_path):
+    """A plain local folder has no snapshots/<sha>: there is nothing to attribute to, and
+    --allow-unknown-model-revision covers an unknown SHA, not a missing one."""
+    folder = tmp_path / "my-local-model" / "config.json"
+    for commit_hash in (None, "main", PAPER_MAIN[:12]):
+        with pytest.raises(detectors.ModelProvenanceError):
+            detectors.provenance_from_snapshot_dir(folder, commit_hash=commit_hash, allow_unknown=True)
+
+
+def test_load_falls_back_to_the_local_cache_when_the_hub_is_unreachable():
+    calls = []
+
+    def loader(repo, **kw):
+        calls.append(kw)
+        if not kw.get("local_files_only"):
+            raise OSError("We couldn't connect to 'https://huggingface.co'")
+        return "model"
+
+    assert detectors.load_with_offline_fallback(loader, trust_remote_code=True) == "model"
+    assert calls == [{"trust_remote_code": True},
+                     {"trust_remote_code": True, "local_files_only": True}]
+
+    def always_fails(repo, **kw):
+        raise OSError("not in the cache either")
+    with pytest.raises(OSError):
+        detectors.load_with_offline_fallback(always_fails)
+
+
+# --- The run directory is bound to one model revision (issue #39) ---
+
+GEOM = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]}
+
+
+def _init(run_dir, provenance):
+    return main.load_or_init_run_dir(run_dir, "city.geojson", GEOM, "hash", "gsv",
+                                     provenance=provenance)
+
+
+def test_manifest_records_the_model_and_refuses_a_different_revision(tmp_path):
+    run_dir = tmp_path / "city"
+    manifest = _init(run_dir, make_provenance())
+    assert manifest["model_revision"] == PAPER_MAIN
+    assert manifest["model_id"] == "rampnet-model@606a11956743"
+    main.record_run(run_dir / "manifest.json", manifest, "t0", 1, 1, 0, 0,
+                    provenance=make_provenance())
+    assert json.load(open(run_dir / "manifest.json"))["runs"][0]["model"]["model_revision"] == PAPER_MAIN
+
+    _init(run_dir, make_provenance())  # same revision resumes
+    other = make_provenance(UNKNOWN_SHA, allow_unknown=True)
+    with pytest.raises(SystemExit) as e:
+        _init(run_dir, other)
+    assert "revision" in str(e.value) and "new --name" in str(e.value)
+
+
+def test_scan_only_binds_no_model_and_a_later_run_binds_quietly(tmp_path, capsys):
+    run_dir = tmp_path / "city"
+    assert "model_revision" not in _init(run_dir, None)
+    assert _init(run_dir, make_provenance())["model_revision"] == PAPER_MAIN
+    assert "predates" not in capsys.readouterr().out
+    assert json.load(open(run_dir / "manifest.json"))["model_revision"] == PAPER_MAIN
+
+
+def test_legacy_manifest_resumes_once_with_a_note(tmp_path, capsys):
+    """Manifests from before #39 carry the three literals and no revision. Same training
+    date = the paper weights, so the run resumes and is bound, and the note prints once."""
+    run_dir = tmp_path / "city"
+    _init(run_dir, None)
+    path = run_dir / "manifest.json"
+    legacy = json.load(open(path))
+    legacy.update(model_id="rampnet-model", model_training_date="08-21-2025", api_version="1.0.0")
+    path.write_text(json.dumps(legacy))
+
+    assert _init(run_dir, make_provenance())["model_revision"] == PAPER_MAIN
+    assert "predates model revisions" in capsys.readouterr().out
+    saved = json.load(open(path))
+    assert saved["legacy_model_provenance"]["model_id"] == "rampnet-model"
+    _init(run_dir, make_provenance())
+    assert "predates" not in capsys.readouterr().out  # one-time
+
+    # A legacy run whose recorded date differs from the loaded model's is different weights.
+    legacy["model_training_date"] = "01-01-2027"
+    path.write_text(json.dumps(legacy))
+    with pytest.raises(SystemExit):
+        _init(run_dir, make_provenance())
+
+
+def test_unknown_revision_override_is_recorded_in_the_manifest(tmp_path):
+    run_dir = tmp_path / "city"
+    manifest = _init(run_dir, make_provenance(UNKNOWN_SHA, allow_unknown=True))
+    assert manifest["model_training_date"] is None
+    assert manifest["unknown_revision_allowed"] is True
+    assert "unknown_revision_allowed" not in main.manifest_model_block(make_provenance())
+
+
+def test_override_run_is_refused_once_its_revision_becomes_known(tmp_path, monkeypatch):
+    """A run made under --allow-unknown-model-revision holds null-date records. Once that
+    SHA gains a KNOWN_REVISIONS row the loaded provenance has a date, and resuming would
+    append dated lines after undated ones from the same weights — refuse, and say to start
+    a fresh --name, since the null-date lines already written can never be submitted."""
+    run_dir = tmp_path / "city"
+    _init(run_dir, make_provenance(UNKNOWN_SHA, allow_unknown=True))
+    _init(run_dir, make_provenance(UNKNOWN_SHA, allow_unknown=True))  # still unknown: resumes
+    monkeypatch.setitem(detectors.KNOWN_REVISIONS, UNKNOWN_SHA,
+                        {"training_date": "2027-01-01", "note": "test row"})
+    with pytest.raises(SystemExit) as e:
+        _init(run_dir, make_provenance(UNKNOWN_SHA))
+    assert "--allow-unknown-model-revision" in str(e.value) and "fresh --name" in str(e.value)
+    # Nothing was rewritten: the manifest still shows the override the records were made under.
+    saved = json.load(open(run_dir / "manifest.json"))
+    assert saved["unknown_revision_allowed"] is True and saved["model_training_date"] is None
+
+
+def test_a_writing_run_without_provenance_fails_loudly_at_entry(tmp_path):
+    """Without provenance every pano's build_output_line would raise a TypeError that
+    handle_result swallows as a retryable failure; refuse up front instead. Scan-only
+    loads no model and is exempt."""
+    with pytest.raises(ValueError, match="provenance is required"):
+        main.run_labeler("never-opened.geojson", "city", source=None)
+    with pytest.raises(ValueError, match="provenance is required"):
+        main.run_gap_fill(None, None, tmp_path)
+    # scan_only passes the check: it reaches the (empty) run dir and returns quietly.
+    assert main.run_gap_fill(None, None, tmp_path, scan_only=True) is None
+
+
+def test_scan_only_stays_torch_free():
+    """--scan-only must not pay for (or require) torch: main imports the detector lazily,
+    and the provenance machinery it now imports eagerly lives in torch-free detectors."""
+    import subprocess
+    import sys
+    code = ("import sys, main, detectors; "
+            "bad = [m for m in ('torch', 'transformers', 'detectors.curb_ramp') if m in sys.modules]; "
+            "sys.exit(1 if bad else 0)")
+    assert subprocess.run([sys.executable, "-c", code], cwd=str(Path(main.__file__).parent)).returncode == 0
 
 
 def test_record_camera_heights_tallies_and_alarms_on_missing_depth(tmp_path, capsys):
@@ -145,3 +381,131 @@ def test_record_camera_heights_tallies_and_alarms_on_missing_depth(tmp_path, cap
     assert manifest["camera_height"] == {"measured": 30, "synthetic_ground": 5, "unparsed": 25}
     assert json.loads(manifest_path.read_text())["camera_height"]["unparsed"] == 25
     assert "no usable depth payload" in capsys.readouterr().out
+
+
+# --- GeoJSON input normalization (issue #7) --------------------------------------------
+
+SQUARE = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]}
+FAR_SQUARE = {"type": "Polygon", "coordinates": [[[5, 5], [6, 5], [6, 6], [5, 6], [5, 5]]]}
+
+
+def _feature(geometry):
+    return {"type": "Feature", "properties": {"name": "x"}, "geometry": geometry}
+
+
+def _hash_of(data):
+    return main.get_geojson_hash(main.extract_geometry(data)[0])
+
+
+def test_bare_feature_and_single_feature_collection_hash_alike():
+    # Wrapping or unwrapping the same polygon must bind to the same run directory,
+    # and the bare case must hash exactly as it did before #7 (no run forks).
+    bare = _hash_of(SQUARE)
+    assert bare == main.get_geojson_hash(SQUARE)
+    assert _hash_of(_feature(SQUARE)) == bare
+    assert _hash_of({"type": "FeatureCollection", "features": [_feature(SQUARE)]}) == bare
+    assert main.extract_geometry(_feature(SQUARE))[1] == "Feature"
+
+
+def test_committed_area_hash_survives_a_feature_wrapper(tmp_path):
+    # The same check on a real file loaded the way run_labeler loads it.
+    import geojson
+    from pathlib import Path
+    src = Path(__file__).resolve().parent.parent / "example_geojson" / "richmond.geojson"
+    bare = json.loads(src.read_text())
+    wrapped = tmp_path / "wrapped.geojson"
+    wrapped.write_text(json.dumps({"type": "FeatureCollection", "features": [_feature(bare)]}))
+    with open(src) as f:
+        bare_hash = main.get_geojson_hash(main.extract_geometry(geojson.load(f))[0])
+    with open(wrapped) as f:
+        wrapped_hash = main.get_geojson_hash(main.extract_geometry(geojson.load(f))[0])
+    assert wrapped_hash == bare_hash
+
+
+def test_multi_feature_collection_dissolves_to_one_multipolygon(capsys):
+    geometry, input_type = main.extract_geometry(
+        {"type": "FeatureCollection", "features": [_feature(SQUARE), _feature(FAR_SQUARE)]})
+    assert input_type == "FeatureCollection"
+    assert geometry["type"] == "MultiPolygon"
+    assert len(geometry["coordinates"]) == 2
+    assert main.shape(geometry).area == 2.0
+    json.dumps(geometry)                          # plain lists, storable as area.geojson
+    assert "dissolved" in capsys.readouterr().out
+
+
+def test_touching_features_dissolve_to_a_multipolygon_not_a_polygon():
+    right = {"type": "Polygon", "coordinates": [[[1, 0], [2, 0], [2, 1], [1, 1], [1, 0]]]}
+    geometry, _ = main.extract_geometry(
+        {"type": "FeatureCollection", "features": [_feature(SQUARE), _feature(right)]})
+    assert geometry["type"] == "MultiPolygon" and len(geometry["coordinates"]) == 1
+
+
+@pytest.mark.parametrize("data, found", [
+    (_feature({"type": "Point", "coordinates": [0, 0]}), "Point"),
+    ({"type": "GeometryCollection", "geometries": [SQUARE]}, "GeometryCollection"),
+    ({"type": "FeatureCollection", "features": []}, "no features"),
+    (_feature(None), "empty"),
+])
+def test_non_polygonal_input_is_refused_naming_what_was_found(data, found):
+    with pytest.raises(ValueError, match=found):
+        main.extract_geometry(data)
+
+
+def test_manifest_records_input_type_and_area_geojson_stays_bare(tmp_path):
+    geometry, input_type = main.extract_geometry(_feature(SQUARE))
+    manifest = main.load_or_init_run_dir(tmp_path / "run", "in.geojson", geometry,
+                                         main.get_geojson_hash(geometry), "gsv",
+                                         input_geojson_type=input_type)
+    assert manifest["input_geojson_type"] == "Feature"
+    assert json.loads((tmp_path / "run" / "area.geojson").read_text())["type"] == "Polygon"
+
+
+def test_committed_run_area_hash_still_reproduces_from_its_area_geojson():
+    # Backward compatibility pinned against REAL data, not new code against new code:
+    # paterson's manifest was written before #7, and a resume re-hashes whatever file it
+    # is pointed at, so the committed area.geojson must still produce the committed hash.
+    import geojson
+    from pathlib import Path
+    run_dir = Path(__file__).resolve().parent.parent / "runs" / "paterson"
+    recorded = json.loads((run_dir / "manifest.json").read_text())["area_hash"]
+    assert recorded == "7a3e679281f6318a8d7d152d131307d7d76efdec6f247dbce318f56b52ca8cb4"
+    with open(run_dir / "area.geojson") as f:
+        geometry, input_type = main.extract_geometry(geojson.load(f))
+    assert input_type == "Polygon"
+    assert main.get_geojson_hash(geometry) == recorded
+
+
+def test_dissolved_area_resumes_from_its_own_area_geojson(tmp_path, capsys):
+    # unary_union computes new vertices at full float precision (here where the two
+    # squares' edges cross, x=1, y=0.5555555...), while geojson.load rounds to 6
+    # decimals. The dissolved geometry must already be rounded, or the area.geojson a run
+    # stores could never re-hash to the manifest's area_hash and a resume would be refused.
+    import geojson
+    tilted = {"type": "Polygon", "coordinates": [[[0.3, 0.123457], [1.7, 0.987654],
+                                                  [1.7, 1.5], [0.3, 1.5], [0.3, 0.123457]]]}
+    collection = geojson.loads(json.dumps(
+        {"type": "FeatureCollection", "features": [_feature(SQUARE), _feature(tilted)]}))
+    geometry, _ = main.extract_geometry(collection)
+    area_hash = main.get_geojson_hash(geometry)
+    main.load_or_init_run_dir(tmp_path / "run", "in.geojson", geometry, area_hash, "gsv",
+                              input_geojson_type="FeatureCollection")
+    with open(tmp_path / "run" / "area.geojson") as f:
+        reloaded, input_type = main.extract_geometry(geojson.load(f))
+    assert input_type == "MultiPolygon"
+    assert main.get_geojson_hash(reloaded) == area_hash
+
+
+def test_invalid_features_are_refused_cleanly_not_with_a_geos_traceback(tmp_path):
+    # A self-intersecting ("bowtie") part makes unary_union throw a GEOS
+    # TopologyException; it must surface as the same clean ValueError / sys.exit.
+    bowtie = {"type": "Polygon", "coordinates": [[[0, 0], [1, 1], [1, 0], [0, 1], [0, 0]]]}
+    overlapping = {"type": "Polygon",
+                   "coordinates": [[[0.5, 0], [2, 0], [2, 2], [0.5, 2], [0.5, 0]]]}
+    data = {"type": "FeatureCollection", "features": [_feature(bowtie), _feature(overlapping)]}
+    with pytest.raises(ValueError, match="could not be dissolved"):
+        main.extract_geometry(data)
+    path = tmp_path / "bad.geojson"
+    path.write_text(json.dumps(data))
+    with pytest.raises(SystemExit) as exc:
+        main.run_labeler(str(path), "bad", source=None, scan_only=True)
+    assert "could not be dissolved" in str(exc.value.code)

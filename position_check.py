@@ -12,15 +12,39 @@ is a per-city, per-sequence question, so it has to be measured, not assumed.
 
 The measurement needs no ground truth and no second imagery source: a car drives on the
 street, so a pano's perpendicular distance to the nearest OpenStreetMap centerline is a
-direct read on position error (GSV panos measure 0.9 m median in Laurens; Mapillary's SfM
-positions 2.9 m with 25% beyond 7.5 m). For Mapillary runs both fields are scored and
-each sequence gets a recommendation; `scripts/reposition.py` applies it to results.jsonl
-without re-running detection.
+read on position error. It is a coarse one. A camera is legitimately metres from a
+centerline (lane, parking, one-way geometry), so the metric FLOORS: GSV, whose positions
+are not in question, measures 1.75 m median against the Laurens centerlines where
+Mapillary SfM measures 3.73 m and raw GPS 2.59 m. So this check catches gross block drift
+and says so plainly when a difference is below what it can see (issue #62).
+
+The verdict per sequence, on the field it actually submitted:
+  - OFF THE STREET: median unsigned cross-track distance above GROSS_OFF_STREET_M
+    (--threshold), or most of it beyond MAX_SNAP_M of any street while the other field
+    is not (beyond_snap).
+  - FLAGGED: off the street AND the other field fixes it: pano by pano, against the same
+    street, it is closer by more than RESOLUTION_FLOOR_M (the paired metric, median of
+    cross_sfm - cross_raw) and no more than MAX_IQR_RATIO times as scattered.
+  - BOTH_OFF: off the street and no such fix. Reported, never gated.
+  - UNDECIDABLE: the fields differ by RESOLUTION_FLOOR_M or less. Reported with the
+    caveat that the reference cannot adjudicate it, whichever sign it has.
+The #60 signed per-axis bias stays in every row as the off-street picture a human reads;
+it no longer decides anything, because a lane offset cancels in it over a sequence driven
+both ways (Richmond's jKtaJMek7wQl5AOH28qdcm read as "raw fixes it" by bias while raw was
+3.3 m worse per pano). There is no per-sequence automatic field choice: the whole-run
+field (main.py --mapillary-position) is a measured, per-city decision made once.
+
+Repositioning a file that is already live is a whole-city decision, not a per-file one:
+PS places a label once, at insert, so resubmitting moved panos duplicates their live labels
+at the new positions unless those are retired in the database first. The check
+reports the live campaigns from `<file>.submission.json`; scripts/reposition.py and
+send_to_ps.py refuse to move live panos without --reposition-live-city.
 
 This runs automatically at the end of every main.py run (--no-position-check skips it),
-and send_to_ps.py refuses a Mapillary file whose check is missing, stale or flagged
-(--ignore-position-check overrides). The module lives at the repo root so both stages
-import it; scripts/position_check.py is a shim for the manual commands below.
+and send_to_ps.py refuses a Mapillary file whose check is missing, stale (another file
+hash, or another verdict RULE) or flagged (--ignore-position-check overrides). The module
+lives at the repo root so both stages import it; scripts/position_check.py is a shim for
+the manual commands below.
 
 Usage:
     python scripts/position_check.py runs/laurens                 # console + position_check.json
@@ -29,16 +53,9 @@ Usage:
         --labels runs/laurens/ps_labels.geojson \\                 # PS v3 rawLabels feed
         --reference runs/laurens_gsv                              # independent run, same area
 
-Exit status 1 when any sequence with >= --min-sequence panos is flagged: its median
-*signed* offset from the street on the submitted field (across either family of the
-street grid: east of north-south streets, north of east-west ones, or the rotated
-equivalents when the grid is not cardinal — see StreetIndex) exceeds --threshold, or
-the submitted field leaves most of the sequence beyond MAX_SNAP_M of any street while
-the other field does not — AND switching to the other field buys at least
-MIN_IMPROVEMENT_M. That is a bias test, not a spread test — a lane offset cancels over
-a sequence that drives both ways, a block shift does not — so a deploy script can gate
-on it. Streets come from Overpass once and are cached beside the run (osm_streets.json;
-a partial or errored answer is never cached). Stdlib only, like geo.py.
+Exit status 1 when any sequence with >= --min-sequence panos is flagged, so a deploy
+script can gate on it. Streets come from Overpass once and are cached beside the run
+(osm_streets.json; a partial or errored answer is never cached). Stdlib only, like geo.py.
 
 `--results FILE` checks another results file against the run's area and streets — the
 way to confirm a scripts/reposition.py output before it is submitted, without swapping
@@ -74,13 +91,60 @@ STREET_HIGHWAY_RE = '^(motorway|trunk|primary|secondary|tertiary|unclassified|re
 MAX_SNAP_M = 30.0        # a pano farther than this from any street is not scored
 AXIS_TOLERANCE_DEG = 25  # a segment within this of N-S (E-W) counts for the signed east (north) offset
 GRID_M = 40.0
-DEFAULT_THRESHOLD_M = 3.0    # a sequence whose median signed offset from the street exceeds this is off it
 DEFAULT_MIN_SEQUENCE = 20
-MIN_AXIS_SAMPLES = 10        # panos on N-S (E-W) streets a sequence needs before its east (north) bias counts
-MIN_IMPROVEMENT_M = 2.0      # switching fields must move the sequence at least this much closer to the
-                             # street: a swap moves every label and forces a new submission campaign, so
-                             # a 3.4 -> 2.9 m "fix" is not worth it even though 2.9 is under the threshold
+MIN_AXIS_SAMPLES = 10        # panos a sequence needs on one street family before its signed bias is
+                             # reported, and paired / cross-track samples before it can be judged at all
+
+# The verdict (issue #62). The reference is OSM centerlines, and a camera is legitimately
+# metres from one (lane position, parking, one-way geometry): GSV, whose positioning is not
+# in question, measures 1.75 m median cross-track against the same Laurens centerlines
+# that Mapillary SfM measures 3.73 m against. That floor bounds what this check can see.
+GROSS_OFF_STREET_M = 5.0     # a sequence is OFF THE STREET when the submitted field's median
+                             # unsigned cross-track distance exceeds this: ~3x the GSV floor, and
+                             # well under the 8-10 m block drift of SidewalkWebpage#5361. Chosen
+                             # from the 4/5/6 m table in the #62 PR, not from first principles.
+RESOLUTION_FLOOR_M = 2.0     # the other field only FIXES a sequence when, pano by pano on the
+                             # same street, it is closer by more than this (paired median). Below
+                             # it the difference is inside the reference's own floor: reported as
+                             # undecidable, never acted on.
+# Names the verdict rule a position_check.json was written under. send_to_ps.py treats a
+# check from any other rule as stale and main.py re-runs it, so a gate can never pass (or
+# refuse) a file on a rule the code no longer applies.
+RULE = 'paired-unsigned-v1 (issue #62)'
+MAX_IQR_RATIO = 1.5          # ...and when its cross-track spread is not more than this times the
+                             # submitted field's: jitter is per-pano error too, so a field that is
+                             # closer at the median but twice as scattered is not a fix.
 HIST_HALF_WIDTH_M = 25   # signed-offset histograms cover [-25, 25) in 1 m bins
+
+# The knobs a check records beside RULE, and the value the gate requires of each. The CLI
+# can move the first and last (--threshold, --min-sequence) and a caller of check_run all
+# four; a check written with `--threshold 100` would otherwise be a zero-flag verdict under
+# the right RULE, and the gate would pass it. So a knob off its constant is a different
+# rule, as far as the gate is concerned: rule_mismatches() lists every one.
+RULE_PARAMETERS = (
+    ('threshold_m', 'GROSS_OFF_STREET_M', GROSS_OFF_STREET_M),
+    ('resolution_floor_m', 'RESOLUTION_FLOOR_M', RESOLUTION_FLOOR_M),
+    ('max_iqr_ratio', 'MAX_IQR_RATIO', MAX_IQR_RATIO),
+    ('min_sequence', 'DEFAULT_MIN_SEQUENCE', DEFAULT_MIN_SEQUENCE),
+)
+
+
+def rule_mismatches(check):
+    """Why `check` (a position_check.json dict) was not written under the rule the gate
+    applies: [] when it was. Covers the RULE name and every RULE_PARAMETERS knob, so a
+    verdict from a retired rule, or from the current rule with a knob moved on the command
+    line, reads as stale to send_to_ps.py and main.py alike."""
+    if check.get('rule') != RULE:   # another rule entirely; its knobs mean something else
+        return [f"verdict rule {check.get('rule') or 'the pre-#62 signed-bias rule'!r}, "
+                f"not the current {RULE!r}"]
+    out = []
+    for key, name, required in RULE_PARAMETERS:
+        recorded = check.get(key)
+        if recorded is None:
+            out.append(f"{key} not recorded (the gate requires {name} = {required:g})")
+        elif float(recorded) != float(required):
+            out.append(f"{key} = {float(recorded):g}, not {name} = {required:g}")
+    return out
 
 # Position fields per source. 'submitted' is always pano.lat/lng — whatever the run
 # actually wrote; the others are re-read from source_metadata.
@@ -107,11 +171,11 @@ class StreetIndex:
     """
 
     def __init__(self, segments):
-        # segments: list of (ax, ay, bx, by, name)
+        # segments: list of (ax, ay, bx, by, name, street_key)
         self.segments = segments
         self.cells = defaultdict(list)
         sx = sy = 0.0
-        for i, (ax, ay, bx, by, _name) in enumerate(segments):
+        for i, (ax, ay, bx, by, *_rest) in enumerate(segments):
             x0, x1 = sorted((ax, bx))
             y0, y1 = sorted((ay, by))
             for cx in range(int((x0 - MAX_SNAP_M) // GRID_M), int((x1 + MAX_SNAP_M) // GRID_M) + 1):
@@ -143,7 +207,7 @@ class StreetIndex:
         """(distance, foot_x, foot_y, segment_index) of the nearest segment, or None."""
         best = None
         for i in self.cells.get((int(x // GRID_M), int(y // GRID_M)), ()):
-            ax, ay, bx, by, _ = self.segments[i]
+            ax, ay, bx, by, *_rest = self.segments[i]
             dx, dy = bx - ax, by - ay
             l2 = dx * dx + dy * dy
             t = 0.0 if l2 == 0 else max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / l2))
@@ -155,7 +219,7 @@ class StreetIndex:
 
     def axis_of(self, i):
         """'a', 'b' or None (diagonal to the grid) for a segment, by its bearing."""
-        ax, ay, bx, by, _ = self.segments[i]
+        ax, ay, bx, by, *_rest = self.segments[i]
         rel = (math.degrees(math.atan2(bx - ax, by - ay)) - self.theta0) % 180.0
         if rel < AXIS_TOLERANCE_DEG or rel > 180 - AXIS_TOLERANCE_DEG:
             return 'a'
@@ -167,17 +231,21 @@ class StreetIndex:
 def measure_point(index, x, y):
     """Offsets of one point from the street network, or None when no street is within reach.
 
-    cross: unsigned perpendicular distance to the nearest street of any orientation
-    a:     signed offset across the street when it belongs to family 'a' (N-S on a
-           cardinal grid; positive = east of it), else None
-    b:     signed offset across a family-'b' street (E-W; positive = north), else None
+    cross:      unsigned perpendicular distance to the nearest street of any orientation
+    a:          signed offset across the street when it belongs to family 'a' (N-S on a
+                cardinal grid; positive = east of it), else None
+    b:          signed offset across a family-'b' street (E-W; positive = north), else None
+    street:     the street's OSM name ('' when unnamed)
+    street_key: what "the same street" means for the paired metric — the name, or the way
+                id for an unnamed way, so a named street split into several ways still pairs
     """
     hit = index.nearest(x, y)
     if hit is None:
         return None
     d, px, py, i = hit
     axis = index.axis_of(i)
-    out = {'cross': d, 'a': None, 'b': None, 'street': index.segments[i][4]}
+    out = {'cross': d, 'a': None, 'b': None, 'street': index.segments[i][4],
+           'street_key': index.segments[i][5]}
     if axis:
         nx, ny = index.normal[axis]
         out[axis] = (x - px) * nx + (y - py) * ny
@@ -281,9 +349,10 @@ def street_segments(osm_payload, frame):
         if way.get('type') != 'way' or not way.get('geometry'):
             continue
         name = (way.get('tags') or {}).get('name') or ''
+        key = name or f"way/{way.get('id')}"
         pts = [frame.to_enu(p['lat'], p['lon']) for p in way['geometry']]
         for (ax, ay), (bx, by) in zip(pts, pts[1:]):
-            segments.append((ax, ay, bx, by, name))
+            segments.append((ax, ay, bx, by, name, key))
     return segments
 
 
@@ -339,6 +408,201 @@ def load_check(results_path):
             return json.load(f), None
     except ValueError as exc:
         return None, f'{path} is unreadable ({exc})'
+
+
+def submission_record_for(results_path):
+    """Where send_to_ps.py keeps a results file's submission record (<file>.submission.json).
+    Duplicated here rather than imported: send_to_ps pulls in requests, and this module is
+    stdlib-only so main.py and the scripts can run it anywhere."""
+    results_path = Path(results_path)
+    return results_path.with_name(results_path.name + '.submission.json')
+
+
+def live_campaigns(results_path):
+    """[{endpoint, submitted_lines, labels_submitted}] for every endpoint the submission
+    record beside `results_path` says holds at least one line of it; [] when there is no
+    record. An unreadable record raises ValueError: it is the memory of what is live on a
+    server, so "can't read it" must not decay into "nothing is live" (as in send_to_ps.py)."""
+    path = submission_record_for(results_path)
+    if not path.exists():
+        return []
+    try:
+        with open(path, encoding='utf-8') as f:
+            record = json.load(f)
+    except ValueError as exc:
+        raise ValueError(f'{path} is unreadable ({exc}): it records what is live on a server, so it '
+                         f'has to be repaired, not ignored') from exc
+    out = []
+    for endpoint, state in sorted((record.get('endpoints') or {}).items()):
+        lines = int(state.get('submitted_lines') or 0)
+        if lines > 0:
+            out.append({'endpoint': endpoint, 'submitted_lines': lines,
+                        'labels_submitted': int(state.get('labels_submitted') or 0)})
+    return out
+
+
+# Two positions closer than this (degrees, ~1 cm) are the same position: a pano that
+# round-tripped through json.dumps comes back bit-identical, so this only absorbs a
+# re-serialization, never a real field switch (those are metres).
+SAME_POSITION_DEG = 1e-7
+
+
+def same_position(a, b):
+    return abs(a[0] - b[0]) <= SAME_POSITION_DEG and abs(a[1] - b[1]) <= SAME_POSITION_DEG
+
+
+def _positions_by_line(path):
+    """{line_number: (panorama_id, (lat, lng))} for a results file, numbered as
+    send_to_ps.py numbers its sidecar (1-based, blank lines counted). A malformed line is
+    skipped: send_to_ps.py never sends one, so it cannot have placed a pano."""
+    out = {}
+    with open(path, encoding='utf-8') as f:
+        for line_number, line in enumerate(f, 1):
+            if not line.strip():
+                continue
+            try:
+                pano = json.loads(line).get('pano') or {}
+            except (ValueError, AttributeError):
+                continue
+            if pano.get('panorama_id') is not None and pano.get('lat') is not None:
+                out[line_number] = (str(pano['panorama_id']), (float(pano['lat']), float(pano['lng'])))
+    return out
+
+
+def pano_positions_by_id(path, line_numbers=None):
+    """{panorama_id: (lat, lng)} for the records of a results file (only `line_numbers`,
+    when given - the lines a campaign actually sent)."""
+    return {pid: ll for n, (pid, ll) in _positions_by_line(path).items()
+            if line_numbers is None or n in line_numbers}
+
+
+def _read_sidecar(path):
+    with open(path, encoding='utf-8') as f:
+        return {int(line) for line in f if line.strip()}
+
+
+def _read_record(path):
+    """A submission record, validated as send_to_ps.load_submission_record does: an
+    unreadable one raises, because "cannot read what is live" must not become "nothing is"."""
+    try:
+        with open(path, encoding='utf-8') as f:
+            record = json.load(f)
+        if not isinstance(record.get('endpoints'), dict):
+            raise ValueError("'endpoints' is not a per-endpoint mapping")
+        for state in record['endpoints'].values():
+            int(state['submitted_lines'])
+    except (OSError, KeyError, TypeError, AttributeError, ValueError) as exc:
+        raise ValueError(f'{Path(path).name} is not a readable submission record ({exc}): it records '
+                         f'what is live on a server, so it has to be repaired, not ignored') from exc
+    return record
+
+
+def live_endpoints(directory):
+    """Every endpoint any submission record in `directory` says holds at least one line."""
+    out = set()
+    for rec_path in Path(directory).glob('*.submission.json'):
+        for endpoint, state in _read_record(rec_path)['endpoints'].items():
+            if int(state.get('submitted_lines') or 0) > 0:
+                out.add(endpoint)
+    return sorted(out)
+
+
+def live_positions(directory, endpoint, exclude=()):
+    """Where each pano sits on `endpoint`, per the submission records in `directory`:
+    ({panorama_id: {latlng, campaign, at, min_confidence, lines, labels}}, [problems]).
+    Record file names in `exclude` are skipped (send_to_ps.py drops the file's own record
+    once --ignore-submission-guard has overridden it; dropping a campaign can only turn a
+    pass into a refusal, never the reverse).
+
+    NEWEST CAMPAIGN WINS, PER PANO. PS computes a label's lat/lng once, at insert, from the
+    pano position it was sent with, and a later resubmission upserts the pano row but
+    never moves labels already stored. So after a partial reposition (Richmond 2026-09-24:
+    three sequences' 143 labels soft-deleted, then their 72 panos resent at raw GPS from
+    results.posfix3seq.raw.jsonl) the live position of those panos is the one the NEWEST
+    campaign that sent them used, while the older records (results.jsonl,
+    results.band.jsonl) still list the same panos at SfM: a submission record cannot say
+    that some of its panos were superseded. Taking the latest `last_submission_utc` per
+    pano is how the records express it.
+
+    A campaign is every record's base entry for `endpoint` plus each of its `bands`, each
+    with its own timestamp and lines: all lines when it holds `submitted_lines ==
+    total_lines`, else exactly the lines of its sidecar (`<file>.submitted`,
+    `<file>.band-<key>.submitted`). The file's own record is one campaign among the others;
+    nothing is exempt. Gaps come back as problems rather than guesses: a record whose
+    results file is missing, a partial campaign whose sidecar is missing (its lines cannot
+    be told apart, and crediting it with all of them could let it "win" panos it never
+    sent), and two campaigns with the same timestamp that disagree on a pano. A record
+    with no `last_submission_utc` sorts oldest. An unreadable record raises ValueError.
+    """
+    directory = Path(directory)
+    campaigns, problems = [], []
+    for rec_path in sorted(directory.glob('*.submission.json')):
+        if rec_path.name in exclude:
+            continue
+        record = _read_record(rec_path)
+        state = record['endpoints'].get(endpoint) or {}
+        if int(state.get('submitted_lines') or 0) <= 0:
+            continue
+        results = rec_path.with_name(record.get('input_file') or rec_path.name[:-len('.submission.json')])
+        labels = state.get('labels_submitted', '?')
+        if not results.exists():
+            problems.append(f"{rec_path.name} records {state['submitted_lines']} line(s) / {labels} "
+                            f"label(s) of {results.name} live here, and {results.name} is not present "
+                            f"to compare pano positions against")
+            continue
+        total = int(record.get('total_lines') or 0)
+        parts = [('', state, Path(f'{results}.submitted'))]
+        parts += [(f' (band {key})', band, Path(f'{results}.band-{key}.submitted'))
+                  for key, band in sorted((state.get('bands') or {}).items())]
+        for suffix, part, sidecar in parts:
+            n = int(part.get('submitted_lines') or 0)
+            if n <= 0:
+                continue
+            name = results.name + suffix
+            lines = None
+            if n < total:
+                if not sidecar.exists():
+                    problems.append(f"{name} is recorded as partial here ({n} of {total} lines) and "
+                                    f"its sidecar {sidecar.name} is missing, so which panos it put "
+                                    f"on this server cannot be told")
+                    continue
+                lines = _read_sidecar(sidecar)
+            campaigns.append({'at': part.get('last_submission_utc') or state.get('last_submission_utc') or '',
+                              'campaign': name, 'path': results, 'line_numbers': lines,
+                              'min_confidence': float(state.get('min_confidence', 0.0)),
+                              'lines': n, 'labels': part.get('labels_submitted', labels)})
+
+    live, tied, cache = {}, {}, {}
+    for c in sorted(campaigns, key=lambda c: c['at']):   # oldest first: newer ones overwrite
+        if c['path'] not in cache:
+            cache[c['path']] = _positions_by_line(c['path'])
+        for n, (pid, ll) in cache[c['path']].items():
+            if c['line_numbers'] is not None and n not in c['line_numbers']:
+                continue
+            prev = live.get(pid)
+            if prev is not None and prev['at'] == c['at']:
+                if not same_position(prev['latlng'], ll):
+                    tied.setdefault(pid, {prev['campaign']}).add(c['campaign'])
+            else:
+                tied.pop(pid, None)   # strictly newer: any earlier tie is superseded
+            live[pid] = {'latlng': ll, **{k: c[k] for k in ('campaign', 'at', 'min_confidence',
+                                                             'lines', 'labels')}}
+    if tied:
+        names = sorted({n for v in tied.values() for n in v})
+        problems.append(f"{len(tied)} pano(s) were sent at different coordinates by campaigns recorded "
+                        f"at the same time ({', '.join(names)}), so which position is live cannot be told")
+    return live, problems
+
+
+def moved_against_live(positions, live):
+    """{campaign: [panorama_id, ...]} for the panos in `positions` ({id: (lat, lng)}) that
+    sit elsewhere than where the newest campaign on the endpoint put them (live_positions)."""
+    out = defaultdict(list)
+    for pid, ll in positions.items():
+        entry = live.get(pid)
+        if entry is not None and not same_position(ll, entry['latlng']):
+            out[entry['campaign']].append(pid)
+    return dict(out)
 
 
 def repo_relative(path):
@@ -410,10 +674,63 @@ def _median(values):
     return round(statistics.median(values), 2) if values else None
 
 
+def _iqr(values):
+    """q75 - q25 on the same quantile rule as summarize_offsets, or None when empty."""
+    if not values:
+        return None
+    q25, q75 = quantiles(values, (0.25, 0.75))
+    return round(q75 - q25, 2)
+
+
+def paired_verdict(paired_median, paired_n, floor_m=RESOLUTION_FLOOR_M):
+    """Which field the paired metric says is closer to the street, or 'undecidable'.
+
+    `paired_median` is median(cross_sfm - cross_raw) over panos where both fields snap to
+    the same street, so positive means raw is closer. Lane offset and the OSM geometry's
+    own error are identical for both fields on one pano and cancel in the difference, which
+    is why this is the statistic and the signed bias is not (a lane offset cancels over a
+    sequence only when its two driving directions are balanced; per pano it never has to).
+    A difference inside the reference's floor is 'undecidable': the check cannot see it,
+    whichever way the sign points. None when there are too few pairs to say anything.
+    """
+    if paired_median is None or paired_n < MIN_AXIS_SAMPLES:
+        return None
+    if paired_median > floor_m:
+        return 'raw'
+    if paired_median < -floor_m:
+        return 'sfm'
+    return 'undecidable'
+
+
+def summarize_paired(diffs):
+    """{n, median_m, raw_closer_share} of a list of cross_sfm - cross_raw differences."""
+    if not diffs:
+        return {'n': 0, 'median_m': None, 'raw_closer_share': None}
+    return {'n': len(diffs), 'median_m': _median(diffs),
+            'raw_closer_share': round(sum(d > 0 for d in diffs) / len(diffs), 3)}
+
+
 # --------------------------------------------------------------------------- core check
-def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOLD_M,
-              min_sequence=DEFAULT_MIN_SEQUENCE):
-    """The whole measurement, as one JSON-serializable dict (see position_check.json)."""
+def check_run(manifest, area, records, osm_payload, threshold_m=GROSS_OFF_STREET_M,
+              min_sequence=DEFAULT_MIN_SEQUENCE, floor_m=RESOLUTION_FLOOR_M,
+              max_iqr_ratio=MAX_IQR_RATIO):
+    """The whole measurement, as one JSON-serializable dict (see position_check.json).
+
+    The verdict per sequence (issue #62), always on the field it actually submitted:
+      off_street  its median unsigned cross-track distance exceeds `threshold_m`
+                  (GROSS_OFF_STREET_M), or most of it is beyond MAX_SNAP_M of any street
+                  while the other field is not (beyond_snap)
+      fixable     the other field is closer pano by pano by more than `floor_m` (paired
+                  metric) and no more than `max_iqr_ratio` times as scattered; under
+                  beyond_snap, the other field is itself ON the street by this rule's
+                  own definition (median cross-track <= `threshold_m`)
+      flagged     off_street and fixable: the only thing that gates a submission
+      both_off    off_street and not fixable: reported, never gated
+      undecidable the paired difference is inside the floor: reported with the caveat
+                  that this reference cannot adjudicate it, whichever sign it has
+    The signed per-axis bias from #60 stays in every row (`bias_m`) as the off-street
+    report a human eyeballs; it no longer decides anything.
+    """
     source = manifest.get('imagery_source', 'gsv')
     min_lng, min_lat, max_lng, max_lat = area_bbox(area)
     frame = geo.LocalFrame((min_lat + max_lat) / 2, (min_lng + max_lng) / 2)
@@ -423,9 +740,10 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
     per_field_rows = defaultdict(list)   # field -> [measure_point(...)]
     per_seq = defaultdict(lambda: {'n': 0, 'shift': [], 'cross': defaultdict(list),
                                    'a': defaultdict(list), 'b': defaultdict(list),
-                                   'votes': defaultdict(int)})
+                                   'votes': defaultdict(int), 'paired': []})
     unsnapped = 0
     votes = defaultdict(int)   # run-wide: which re-readable field equals the submitted one
+    pooled_paired = []
     for rec in records:
         pano = rec['pano']
         positions = pano_positions(pano)
@@ -450,15 +768,24 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
                     for axis in ('a', 'b'):
                         if m[axis] is not None:
                             s[axis][f].append(m[axis])
+            # The paired metric compares the two fields on the SAME pano against the SAME
+            # street; a pano whose fields snap to different streets (near an intersection,
+            # or one of them drifted onto a parallel street) says nothing about either.
+            ms, mr = measured.get('sfm'), measured.get('raw')
+            if ms and mr and ms['street_key'] == mr['street_key']:
+                diff = ms['cross'] - mr['cross']
+                s['paired'].append(diff)
+                pooled_paired.append(diff)
 
     fields = {f: {'label': labels.get(f, f), **summarize_offsets(rows)} for f, rows in per_field_rows.items()}
 
     # Which field did the run submit? Compared coordinate by coordinate, not read from the
-    # manifest, so old runs work — and PER SEQUENCE, because a reposition.py output is mixed
+    # manifest, so old runs work - and PER SEQUENCE, because a reposition.py output is mixed
     # by design (flagged sequences on one field, the rest on the other) and the check has
     # to be able to confirm its own fix. The run-wide majority is kept for the report.
     submitted_field = max(votes, key=votes.get) if votes else None
 
+    all_fields = ('submitted', *MAPILLARY_FIELDS)
     sequences = []
     flagged = []
     both_off = []
@@ -466,51 +793,67 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
         de = _median([v[0] for v in s['shift']])
         dn = _median([v[1] for v in s['shift']])
         mags = sorted(math.hypot(*v) for v in s['shift'])
-        cross_med = {f: _median(v) for f, v in s['cross'].items()}
-        # Bias, not spread: the median *signed* offset from the street, per axis. A lane
-        # offset is symmetric over a sequence that drives both ways and cancels; a block
-        # shift does not. Diagonal streets contribute to neither axis (documented limit).
+        cross_med = {f: _median(s['cross'][f]) for f in all_fields}
+        cross_iqr = {f: _iqr(s['cross'][f]) for f in all_fields}
+        # Signed bias per street family: the #60 statistic, kept as a report. A lane
+        # offset cancels over a sequence driven both ways and a block shift does not,
+        # which makes it a good picture of drift and a poor judge of it (Richmond's
+        # jKtaJMek7wQl5AOH28qdcm read as "raw fixes it" by bias while raw was 3.3 m
+        # worse per pano).
         bias = {}
-        for f in ('submitted', *MAPILLARY_FIELDS):
+        for f in all_fields:
             across_a = _median(s['a'][f]) if len(s['a'][f]) >= MIN_AXIS_SAMPLES else None
             across_b = _median(s['b'][f]) if len(s['b'][f]) >= MIN_AXIS_SAMPLES else None
             worst = max((abs(v) for v in (across_a, across_b) if v is not None), default=None)
             bias[f] = {'a': across_a, 'b': across_b, 'max_abs': worst}
         # Panos beyond MAX_SNAP_M of any street measure nothing, so a sequence that
-        # drifted 40 m would otherwise have no bias at all and read as clean — the worst
-        # failure passing while an 8 m one flags. Count them per field instead.
-        unsnapped_by_field = {f: s['n'] - len(s['cross'][f]) for f in ('submitted', *MAPILLARY_FIELDS)}
+        # drifted 40 m would otherwise have no cross-track at all and read as clean - the
+        # worst failure passing while an 8 m one flags. Count them per field instead.
+        unsnapped_by_field = {f: s['n'] - len(s['cross'][f]) for f in all_fields}
         chosen = (max(s['votes'], key=s['votes'].get) if s['votes'] else None) or submitted_field or 'sfm'
         alt = next(f for f in MAPILLARY_FIELDS if f != chosen)
-        # The verdict is on what was actually submitted (pano.lat/lng), never on the field
-        # the sequence is believed to carry.
-        sub_bias, alt_bias = bias['submitted']['max_abs'], bias[alt]['max_abs']
+
+        paired = summarize_paired(s['paired'])
+        verdict = paired_verdict(paired['median_m'], paired['n'], floor_m)
+        # How much closer the alternative is, pano by pano (positive = alt closer).
+        gain = None
+        if verdict is not None:
+            gain = paired['median_m'] if alt == 'raw' else -paired['median_m']
+
         enough = s['n'] >= min_sequence
-        off_bias = enough and sub_bias is not None and sub_bias > threshold_m
+        sub_cross = cross_med['submitted'] if len(s['cross']['submitted']) >= MIN_AXIS_SAMPLES else None
+        off_gross = enough and sub_cross is not None and sub_cross > threshold_m
         beyond_snap = enough and (unsnapped_by_field['submitted'] - unsnapped_by_field[alt]
                                   >= max(MIN_AXIS_SAMPLES, s['n'] // 2))
-        off = off_bias or beyond_snap
-        # Actionable only when switching fields would fix it, and fix it by enough to be
-        # worth a new submission campaign (MIN_IMPROVEMENT_M). A wide one-way street driven
-        # once puts the car metres from the OSM centerline in BOTH fields (downtown
-        # Richmond: 4-lane one-ways), and no field choice changes that — so a sequence
-        # whose alternative field is about as far off is reported as 'both_off', not flagged.
+        off = off_gross or beyond_snap
+        sub_iqr, alt_iqr = cross_iqr['submitted'], cross_iqr[alt]
         if beyond_snap:
-            # Most of the submitted positions are beyond MAX_SNAP_M, so an alternative
-            # that snaps at all is already closer; require the same MIN_IMPROVEMENT_M
-            # against the cap rather than a bias the submitted field cannot supply.
-            fixable = alt_bias is not None and alt_bias <= MAX_SNAP_M - MIN_IMPROVEMENT_M
+            # Most of the submitted positions measure nothing, so there is no paired
+            # difference to read. The alternative is the fix only if it is on the street by
+            # the rule's own definition; one that merely lands back within snapping reach
+            # (say 20 m off) is a second off-street field, so the verdict is both_off.
+            fixable = (cross_med[alt] is not None and len(s['cross'][alt]) >= MIN_AXIS_SAMPLES
+                       and cross_med[alt] <= threshold_m)
         else:
-            fixable = off_bias and alt_bias is not None and alt_bias <= sub_bias - MIN_IMPROVEMENT_M
+            fixable = (off_gross and gain is not None and gain > floor_m
+                       and sub_iqr is not None and alt_iqr is not None
+                       and alt_iqr <= max_iqr_ratio * sub_iqr)
         row = {
             'sequence_id': seq, 'n': s['n'],
             'submitted_field': chosen if s['votes'] else None,
             'sfm_minus_raw_east_m': de, 'sfm_minus_raw_north_m': dn,
             'shift_p90_m': round(mags[int(len(mags) * 0.9)], 2) if mags else None,
             'bias_m': bias,
-            'cross_track_median_m': {f: cross_med.get(f) for f in ('submitted', *MAPILLARY_FIELDS)},
+            'cross_track_median_m': cross_med,
+            'cross_track_iqr_m': cross_iqr,
+            'paired_median_m': paired['median_m'],     # median(cross_sfm - cross_raw); + = raw closer
+            'paired_n': paired['n'],
+            'raw_closer_share': paired['raw_closer_share'],
+            'paired_verdict': verdict,                 # 'raw' | 'sfm' | 'undecidable' | None
+            'undecidable': verdict == 'undecidable',
             'not_near_a_street': unsnapped_by_field,
-            'recommended': alt if fixable else (chosen if sub_bias is not None else None),
+            'recommended': alt if fixable else (chosen if sub_cross is not None else None),
+            'off_street': bool(off),
             'flagged': bool(fixable),
             'both_off': bool(off and not fixable),
             'beyond_snap': bool(beyond_snap),
@@ -529,13 +872,27 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
                  'share_over_5m': round(sum(m > 5 for m in all_mags) / len(all_mags), 3),
                  'share_over_10m': round(sum(m > 10 for m in all_mags) / len(all_mags), 3)}
 
+    paired_run = None
+    if per_seq:
+        judged = [r for r in sequences if r['n'] >= min_sequence and r['paired_verdict']]
+        n_undecidable = sum(r['paired_verdict'] == 'undecidable' for r in judged)
+        paired_run = {**summarize_paired(pooled_paired),
+                      'sequences_judged': len(judged),
+                      'raw_better': sum(r['paired_verdict'] == 'raw' for r in judged),
+                      'sfm_better': sum(r['paired_verdict'] == 'sfm' for r in judged),
+                      'undecidable': n_undecidable,
+                      'raw_closer_by_sign': sum(r['paired_median_m'] > 0 for r in judged),
+                      'share_below_floor': round(n_undecidable / len(judged), 3) if judged else None}
+
     return {
         'run_name': manifest.get('run_name'),
         'imagery_source': source,
         'checked_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-        'threshold_m': threshold_m,
+        'rule': RULE,
+        'threshold_m': threshold_m,          # GROSS_OFF_STREET_M: the off-street cross-track bar
+        'resolution_floor_m': floor_m,
+        'max_iqr_ratio': max_iqr_ratio,
         'min_sequence': min_sequence,
-        'min_improvement_m': MIN_IMPROVEMENT_M,
         'max_snap_m': MAX_SNAP_M,
         'panos': len(records),
         'panos_not_near_a_street': unsnapped,
@@ -543,6 +900,7 @@ def check_run(manifest, area, records, osm_payload, threshold_m=DEFAULT_THRESHOL
         'axes': index.axes(),
         'fields': fields,
         'sfm_vs_raw_drift': drift,
+        'paired': paired_run,
         'sequences': sequences,
         'flagged_sequences': flagged,
         'both_off_sequences': both_off,
@@ -678,7 +1036,7 @@ def build_report_data(result, manifest, area, records, osm_payload, labels_path=
 
     seg_rows = []
     index = StreetIndex(street_segments(osm_payload, frame))
-    for i, (ax, ay, bx, by, name) in enumerate(index.segments):
+    for i, (ax, ay, bx, by, name, _key) in enumerate(index.segments):
         if _segment_hits_window((ax, ay), (bx, by), w, 60):
             seg_rows.append({'a': [r(ax), r(ay)], 'b': [r(bx), r(by)], 'axis': index.axis_of(i), 'name': name})
 
@@ -797,45 +1155,71 @@ def print_summary(result):
         iqr = f"{_s(a.get('q25'))} .. {_s(a.get('q75'))}" if a.get('n') else '-'
         print(f"{s['label']:40s} {_s(a.get('median')):>9s} {iqr:>14s} {_s(a.get('neg_share')):>6s} "
               f"{_s(b.get('median')):>9s} {_s(ct.get('median')):>11s}")
+    floor = result['resolution_floor_m']
     d = result['sfm_vs_raw_drift']
     if d:
         print(f"SfM moves a pano {d['median_m']} m from its GPS fix (median); "
               f"{d['share_over_5m']:.0%} > 5 m, {d['share_over_10m']:.0%} > 10 m")
-        print(f"\n{'sequence':26s} {'n':>5s} {'SfM-raw E':>10s} {'N':>6s} {'bias sfm':>9s} {'bias raw':>9s} {'rec':>4s}  flag")
+        p = result.get('paired') or {}
+        if p.get('n'):
+            print(f"paired per pano (cross_sfm - cross_raw, same street): median {p['median_m']} m over "
+                  f"{p['n']} panos, raw closer on {p['raw_closer_share']:.0%}; of {p['sequences_judged']} "
+                  f"sequences: raw better {p['raw_better']}, SfM better {p['sfm_better']}, "
+                  f"undecidable (|paired| <= {floor} m) {p['undecidable']}")
+        print(f"\n{'sequence':26s} {'n':>5s} {'cross sfm':>9s} {'IQR':>5s} {'cross raw':>9s} {'IQR':>5s} "
+              f"{'paired':>7s} {'raw<':>5s} {'bias sfm':>8s} {'bias raw':>8s} {'rec':>4s}  verdict")
         for s in result['sequences']:
             if s['n'] < result['min_sequence']:
                 continue
-            b = s['bias_m']
-            print(f"{s['sequence_id']:26s} {s['n']:5d} {_s(s['sfm_minus_raw_east_m']):>10s} "
-                  f"{_s(s['sfm_minus_raw_north_m']):>6s} {_s(b['sfm']['max_abs']):>9s} {_s(b['raw']['max_abs']):>9s} "
-                  f"{_s(s['recommended']):>4s}  {'FLAG' if s['flagged'] else ('both off' if s['both_off'] else '')}"
+            b, c, q = s['bias_m'], s['cross_track_median_m'], s['cross_track_iqr_m']
+            share = s['raw_closer_share']
+            verdict = ('FLAG' if s['flagged'] else 'both off' if s['both_off']
+                       else 'undecidable' if s['undecidable'] else '')
+            print(f"{s['sequence_id']:26s} {s['n']:5d} {_s(c['sfm']):>9s} {_s(q['sfm']):>5s} "
+                  f"{_s(c['raw']):>9s} {_s(q['raw']):>5s} {_s(s['paired_median_m']):>7s} "
+                  f"{('-' if share is None else f'{share:.0%}'):>5s} {_s(b['sfm']['max_abs']):>8s} "
+                  f"{_s(b['raw']['max_abs']):>8s} {_s(s['recommended']):>4s}  {verdict}"
                   f"{' (beyond snap)' if s.get('beyond_snap') else ''}")
-        print(f"(bias = largest |median signed offset| over the grid's two street families, metres; "
-              f"'beyond snap' = most of the sequence is > {MAX_SNAP_M:.0f} m from any street on the submitted field)")
+        print(f"(cross = median unsigned distance to the nearest street, IQR its spread; paired = median of "
+              f"cross_sfm - cross_raw per pano on the same street, + = raw closer; raw< = share of panos raw "
+              f"is closer on; bias = the #60 signed offset, a report only; 'beyond snap' = most of the "
+              f"sequence is > {MAX_SNAP_M:.0f} m from any street on the submitted field)")
     n_flag, n_both = len(result['flagged_sequences']), len(result['both_off_sequences'])
     if n_both:
-        print(f"\n{n_both} sequence(s) sit more than {result['threshold_m']} m off the street on the submitted "
-              f"field where switching would buy under {result['min_improvement_m']} m: off in both fields "
-              f"(wide one-way streets driven once, or OSM geometry) or only marginally better in the other - "
-              f"eyeball them in the report")
+        print(f"\n{n_both} sequence(s) sit more than {result['threshold_m']} m from the street on the submitted "
+              f"field where the other field is not closer by more than {floor} m (or is more scattered): off "
+              f"in both fields (wide one-way streets driven once, or OSM geometry) - reported, not gated")
+    undecidable = [s for s in result['sequences'] if s['undecidable'] and s['n'] >= result['min_sequence']]
+    if undecidable:
+        print(f"{len(undecidable)} sequence(s) differ between the fields by {floor} m or less per pano: the OSM "
+              f"reference cannot adjudicate that (GSV itself measures ~1.75 m against it), so no field "
+              f"choice is implied")
+    live = result.get('live_campaigns') or []
+    if live:
+        where = '; '.join(f"{c['endpoint']} with {c['labels_submitted']} labels on {c['submitted_lines']} "
+                          f"lines" for c in live)
+        print(f"\nThis file is already submitted: {where}. {n_flag} sequence(s) would improve by switching "
+              f"field, but repositioning moves panos that carry live labels - a whole-city decision "
+              f"(scripts/reposition.py refuses without --reposition-live-city).")
     if n_flag:
         results = result.get('results_path') or f"runs/{result['run_name']}/results.jsonl"
-        print(f"\n!! {n_flag} sequence(s) sit more than {result['threshold_m']} m off the street on the "
-              f"submitted field and the other field moves them at least {result['min_improvement_m']} m "
-              f"closer. Run: python scripts/reposition.py {results} --from-check")
+        print(f"\n!! {n_flag} sequence(s) sit more than {result['threshold_m']} m from the street on the "
+              f"submitted field and the other field is closer pano by pano by more than {floor} m. "
+              f"Run: python scripts/reposition.py {results} --from-check")
     else:
-        print('\nOK: no sequence is off the street on the submitted field where the other field would fix it')
+        print('\nOK: no sequence is grossly off the street on the submitted field where the other field would fix it')
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('run_dir', help='runs/<name> with manifest.json, area.geojson, results.jsonl')
-    ap.add_argument('--threshold', type=float, default=DEFAULT_THRESHOLD_M, metavar='M',
-                    help='flag a sequence whose median signed offset from the street (submitted field) '
-                         'exceeds this on either axis (default %(default)s)')
+    ap.add_argument('--threshold', type=float, default=GROSS_OFF_STREET_M, metavar='M',
+                    help='a sequence is off the street when the median unsigned distance of its submitted '
+                         'positions from the nearest street exceeds this (default %(default)s; the metric '
+                         'floors near 1.75 m on a well-positioned source, so do not go near that)')
     ap.add_argument('--min-sequence', type=int, default=DEFAULT_MIN_SEQUENCE, metavar='N',
                     help=f'only sequences with at least N panos can be flagged (default %(default)s; '
-                         f'a bias needs {MIN_AXIS_SAMPLES} panos on one street family, so values below '
+                         f'a verdict needs {MIN_AXIS_SAMPLES} measured panos, so values below '
                          f'{MIN_AXIS_SAMPLES} are raised to it)')
     ap.add_argument('--results', metavar='FILE',
                     help='check this results file instead of runs/<name>/results.jsonl (e.g. a '
@@ -867,7 +1251,7 @@ def main(argv=None):
     return 1 if result['flagged_sequences'] else 0
 
 
-def run_check(run_dir, results_path=None, threshold_m=DEFAULT_THRESHOLD_M, min_sequence=DEFAULT_MIN_SEQUENCE,
+def run_check(run_dir, results_path=None, threshold_m=GROSS_OFF_STREET_M, min_sequence=DEFAULT_MIN_SEQUENCE,
               osm_path=None, report=True, labels_path=None, reference_dir=None, window=None):
     """The whole check as one call — what main.py runs at the end of every run and what
     the CLI wraps: load the run (or `results_path` against its area/streets), score it,
@@ -878,8 +1262,8 @@ def run_check(run_dir, results_path=None, threshold_m=DEFAULT_THRESHOLD_M, min_s
     run_dir = Path(run_dir)
     results_path = Path(results_path) if results_path else run_dir / 'results.jsonl'
     if min_sequence < MIN_AXIS_SAMPLES:
-        print(f"-> --min-sequence {min_sequence} raised to {MIN_AXIS_SAMPLES}: a bias needs that many "
-              f"panos on one street family, so nothing smaller can be flagged")
+        print(f"-> --min-sequence {min_sequence} raised to {MIN_AXIS_SAMPLES}: a verdict needs that many "
+              f"measured panos, so nothing smaller can be flagged")
         min_sequence = MIN_AXIS_SAMPLES
     manifest, area, records = load_run(run_dir, results_path)
     osm_payload, osm_file, cached = load_or_fetch_streets(run_dir, area, osm_path)
@@ -891,6 +1275,14 @@ def run_check(run_dir, results_path=None, threshold_m=DEFAULT_THRESHOLD_M, min_s
     # send_to_ps.py's gate compares this with the file it is about to submit, so a check
     # cannot vouch for a results file that changed after it ran.
     result['results_sha256'] = file_sha256(results_path)
+    # What is already live from this very file, read from its submission record: the
+    # report's "N sequences would improve; this file is already submitted to X with M
+    # labels" sentence (issue #62). As of checked_at; the record is the authority.
+    try:
+        result['live_campaigns'] = live_campaigns(results_path)
+    except ValueError as exc:   # report it; the check itself is still valid
+        result['live_campaigns'], result['live_campaigns_error'] = [], str(exc)
+        print(f'!! {exc}')
     # Outputs sit beside the results file they describe: a --results check of a
     # reposition.py output must not overwrite the run's own verdict.
     out_json = check_path_for(results_path)

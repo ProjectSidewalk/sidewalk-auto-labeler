@@ -1,0 +1,25 @@
+{
+  "verdict": "UNDERCUT",
+  "ground_normal_bucket_win": {
+    "bend": false,
+    "paterson": false,
+    "gainesville": false,
+    "sao_paulo": false
+  },
+  "shuffled_bucket_win": {
+    "bend": false,
+    "paterson": false,
+    "gainesville": false,
+    "sao_paulo": false
+  },
+  "ground_normal_wins": 0,
+  "shuffled_wins": 0,
+  "p90_not_worse": {
+    "bend": true,
+    "paterson": true,
+    "gainesville": true,
+    "sao_paulo": true
+  },
+  "p90_rule_holds": true,
+  "why": "off wins (ground-normal wins <= 1 city)"
+}

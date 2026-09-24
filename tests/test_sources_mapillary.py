@@ -27,6 +27,10 @@ def make_meta(**overrides):
         "quality_score": 0.8,
         "make": "GoPro",
         "model": "Fusion",
+        # OpenSfM world->camera axis-angle. This one is real (runs/richmond pano
+        # 2163793620710887), and PS's own MapillaryViewer.extractPitchRoll derived
+        # pitch 2.231776541825151, roll -6.354952531976068 from it (sidewalk-richmond-test).
+        "computed_rotation": [1.3857263583832, 0.71804330335161, -0.58250746512038],
     }
     base.update(overrides)
     # Graph API omits absent fields entirely rather than sending nulls.
@@ -109,9 +113,9 @@ def test_thin_panos_spacing_is_tunable():
     assert set(mapillary.thin_panos(panos, 100_000)) == {"b"}
 
 
-def _patch_fetch(monkeypatch, meta, image="IMAGE", gone=False):
+def _patch_fetch(monkeypatch, meta, image="IMAGE", gone=False, undecodable=False):
     monkeypatch.setattr(mapillary, "fetch_image_metadata", lambda image_id: (meta, gone))
-    monkeypatch.setattr(mapillary, "_download_image", lambda url: image)
+    monkeypatch.setattr(mapillary, "_download_image", lambda url: (image, undecodable))
 
 
 def test_fetch_pano_success_record_contract(monkeypatch):
@@ -127,8 +131,12 @@ def test_fetch_pano_success_record_contract(monkeypatch):
     # SfM-computed values beat the tile position and EXIF compass.
     assert (pano["lat"], pano["lng"]) == (37.5407, -77.4360)
     assert pano["camera_heading"] == pytest.approx(123.4)
-    # Pitch/roll only exist inside computed_rotation (axis-angle); left null.
-    assert pano["camera_pitch"] is None and pano["camera_roll"] is None
+    # Pitch/roll are parsed from computed_rotation (#42) into exactly what PS's viewer
+    # stores for the same image, roll sign included: PS's backup-image gate needs a
+    # non-null camera_pitch, and a wrong sign would be worse than null for the raycast.
+    assert pano["camera_pitch"] == pytest.approx(2.231776541825151, abs=1e-9)
+    assert pano["camera_roll"] == pytest.approx(-6.354952531976068, abs=1e-9)
+    assert pano["camera_pose_source"] == "mapillary_computed_rotation"  # derived, not measured
     assert pano["history"] == [] and pano["links"] == []
     # PS's pano_data.copyright holds the contributor's BARE name for this source — it
     # composes the ©, the provider and the licence itself (SidewalkWebpage#5360).
@@ -157,6 +165,41 @@ def test_fetch_pano_copyright_is_none_without_a_creator(monkeypatch, creator):
     pano = mapillary.fetch_pano("123456", 0.0, 0.0)["pano"]
     assert pano["copyright"] is None
     assert pano["license"] == "CC-BY-SA-4.0"
+
+
+@pytest.mark.parametrize("rotation", [
+    None,                              # unreconstructed image: Graph API omits the field
+    [1.0, 2.0],                        # malformed: not a 3-vector
+    [1.0, float("nan"), 0.0],          # malformed: not finite
+    [math.pi, 0.0, 0.0],               # upside down: tilt 180 > MAX_POSE_TILT_DEG
+    [0.0, 0.0, 0.0],                   # identity = camera forward straight UP: tilt 90
+])
+def test_fetch_pano_pose_is_null_when_the_rotation_is_not_a_pose(monkeypatch, rotation):
+    # A failed or absent reconstruction is not a pose; null is the honest value (the
+    # record is still a success -- pose is not required to submit or detect).
+    _patch_fetch(monkeypatch, make_meta(computed_rotation=rotation))
+    result = mapillary.fetch_pano("123456", 0.0, 0.0)
+    assert result["status"] == "success"
+    assert result["pano"]["camera_pitch"] is None and result["pano"]["camera_roll"] is None
+    assert result["pano"]["camera_pose_source"] is None  # no angles, nothing to attribute
+
+
+def test_fetch_pano_pose_cap_is_a_tilt_not_a_pitch(monkeypatch):
+    # 40 deg of roll alone is under the 45 deg cap and must survive; 50 deg must not.
+    def rotation(roll_deg):
+        # level camera facing north (quarter turn about east), then rolled about forward
+        import mapillary_tilt as mt
+        R = mt.matrix_from_pose(0.0, 0.0, roll_deg)
+        # matrix -> axis-angle
+        angle = math.acos(max(-1.0, min(1.0, (R[0][0] + R[1][1] + R[2][2] - 1) / 2)))
+        k = (R[2][1] - R[1][2], R[0][2] - R[2][0], R[1][0] - R[0][1])
+        n = math.sqrt(sum(c * c for c in k))
+        return [angle * c / n for c in k]
+    _patch_fetch(monkeypatch, make_meta(computed_rotation=rotation(40.0)))
+    pano = mapillary.fetch_pano("123456", 0.0, 0.0)["pano"]
+    assert pano["camera_roll"] == pytest.approx(40.0, abs=1e-9)
+    _patch_fetch(monkeypatch, make_meta(computed_rotation=rotation(50.0)))
+    assert mapillary.fetch_pano("123456", 0.0, 0.0)["pano"]["camera_roll"] is None
 
 
 def test_fetch_pano_falls_back_to_exif_compass_and_tile_position(monkeypatch):
@@ -234,3 +277,101 @@ def test_fetch_pano_metadata_unavailable_is_retryable(monkeypatch):
 def test_fetch_pano_download_failure_is_retryable(monkeypatch):
     _patch_fetch(monkeypatch, make_meta(), image=None)
     assert mapillary.fetch_pano("123456", 0.0, 0.0)["status"] == "failure"
+
+
+def test_fetch_pano_undecodable_image_is_skipped_not_retried(monkeypatch):
+    # main.py caches a skip, so the same unreadable bytes are never re-downloaded.
+    _patch_fetch(monkeypatch, make_meta(), image=None, undecodable=True)
+    result = mapillary.fetch_pano("123456", 0.0, 0.0)
+    assert result == {"status": "skipped", "reason": "Undecodable image bytes"}
+
+
+def _fake_image_get(monkeypatch, respond):
+    """Route mapillary.requests.get through `respond(call_number)`; returns the call log."""
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append(url)
+        return respond(len(calls))
+
+    monkeypatch.setattr(mapillary.requests, "get", fake_get)
+    monkeypatch.setattr(mapillary.time, "sleep", lambda s: None)
+    return calls
+
+
+def _response(status, content=b"", content_type="image/jpeg"):
+    def raise_for_status():
+        if status >= 400:
+            raise mapillary.requests.HTTPError(f"{status}")
+    return SimpleNamespace(status_code=status, content=content,
+                           headers={"Content-Type": content_type},
+                           raise_for_status=raise_for_status)
+
+
+def _jpeg_bytes():
+    from io import BytesIO
+    from PIL import Image
+    buf = BytesIO()
+    Image.new("RGB", (200, 100)).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+def test_download_image_non_image_bytes_are_permanent_after_one_request(monkeypatch):
+    calls = _fake_image_get(monkeypatch, lambda n: _response(200, b"<html>not a jpeg</html>"))
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, True)
+    assert len(calls) == 1                       # decode failures are never re-looped
+
+
+def test_download_image_connection_error_is_retryable_after_all_attempts(monkeypatch):
+    def respond(n):
+        raise OSError("connection reset")
+    calls = _fake_image_get(monkeypatch, respond)
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
+
+
+def test_download_image_404_is_retryable_because_the_url_is_signed(monkeypatch):
+    # Unlike Panoramax's plain hd URL, a 404 on an expiring signed URL is transient:
+    # it must come back as a retryable failure, not a cached skip.
+    calls = _fake_image_get(monkeypatch, lambda n: _response(404))
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
+
+
+def test_download_image_success_normalizes_to_detector_size(monkeypatch):
+    calls = _fake_image_get(monkeypatch, lambda n: _response(200, _jpeg_bytes()))
+    image, permanent = mapillary._download_image("https://example.test/signed.jpg")
+    assert permanent is False
+    assert image.size == mapillary.TARGET_SIZE
+    assert len(calls) == 1
+
+
+def test_download_image_memory_error_during_decode_stays_retryable(monkeypatch):
+    # Only "these bytes are not an image" errors are permanent. A MemoryError under load
+    # is about this process, so it must never become a cached skip.
+    calls = _fake_image_get(monkeypatch, lambda n: _response(200, _jpeg_bytes()))
+
+    def oom(*args, **kwargs):
+        raise MemoryError()
+    monkeypatch.setattr(mapillary.Image, "open", oom)
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
+
+
+def test_download_image_non_image_content_type_is_retryable(monkeypatch):
+    # An HTML error page served with a 200 says nothing about the image itself.
+    calls = _fake_image_get(
+        monkeypatch, lambda n: _response(200, b"<html>busy</html>", content_type="text/html"))
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
+
+
+def test_download_image_network_error_then_bad_bytes_is_permanent_after_two(monkeypatch):
+    # A transient failure is retried; once bytes arrive and do not decode, the loop stops.
+    def respond(n):
+        if n == 1:
+            raise OSError("connection reset")
+        return _response(200, b"not a jpeg")
+    calls = _fake_image_get(monkeypatch, respond)
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, True)
+    assert len(calls) == 2

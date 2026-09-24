@@ -341,14 +341,14 @@ the **normalized** detection coordinates from step 1 into **pixel** coordinates
 You already have a Bend, Oregon polygon at `example_geojson/bend.geojson`. To run a new city
 from scratch:
 
-1. **Create a GeoJSON polygon** for the city boundary. The file must be a **bare geometry
-   object** (a raw `Polygon` or `MultiPolygon`) — *not* a GeoJSON `Feature` or
-   `FeatureCollection`. Compare against the existing examples; tools like
-   [geojson.io](https://geojson.io) export Features, so you may need to extract just the
-   `geometry` portion. A quick source for city limits is
+1. **Create a GeoJSON polygon** for the city boundary: a `Polygon` or `MultiPolygon`, either
+   bare or wrapped in a `Feature`/`FeatureCollection` (as [geojson.io](https://geojson.io)
+   exports it). `main.py` extracts the geometry before hashing, so wrapping does not change
+   which run a file belongs to, and a collection of several features is dissolved into one
+   `MultiPolygon`. A quick source for city limits is
    [OSM Nominatim](https://nominatim.openstreetmap.org/): search the city with
    `polygon_geojson=1`, take the `boundary=administrative` result, and save its `geojson`
-   field (the bare geometry) to a file. Ideally, though, derive the boundary from the
+   field to a file. Ideally, though, derive the boundary from the
    target Project Sidewalk instance's own regions so the two areas match exactly (see
    [Keep the two areas aligned](#keep-the-two-areas-aligned)).
 2. Save it under `example_geojson/` (or anywhere) and run
@@ -422,9 +422,14 @@ Each run directory is bound to the **SHA-256 hash of its GeoJSON geometry**, rec
   manifest) instead of silently mixing two areas' state — use a new `--name`, or restore the
   geometry from the run's `area.geojson`. To fully re-run an unchanged area, delete its
   `runs/<name>/` directory.
-- `manifest.json` also records model provenance (`model_id`, training date, `api_version`),
-  the `streetlevel` version, and per-run counts (found/processed/skipped/failed) — so a
-  months-old results file is self-describing.
+- `manifest.json` also records model provenance (`model_repo`, `model_revision`, `model_id`,
+  training date, `api_version` — at top level and in each run entry), the `streetlevel`
+  version, and per-run counts (found/processed/skipped/failed) — so a months-old results file
+  is self-describing.
+- A run directory is likewise **bound to one model revision**: resuming with a different
+  Hugging Face revision loaded is refused (use a new `--name`), so one `results.jsonl` never
+  mixes two checkpoints. Manifests from before revisions were recorded resume with a one-time
+  note and are bound on that resume.
 - **Git tracks the small, irreplaceable files** in each run directory — `manifest.json`,
   `area.geojson`, and `*_verdicts.json` (hand-labeled ground truth) — while `results.jsonl`
   and the resume cache stay local. Archive full-city `results.jsonl` files as release assets
@@ -440,9 +445,11 @@ Each line of `results.jsonl` is a JSON object like:
     { "x_normalized": 0.61, "y_normalized": 0.78, "confidence": 0.91 }
   ],
   "label_type": "CurbRamp",
-  "model_id": "rampnet-model",
+  "model_id": "rampnet-model@606a11956743",
   "model_training_date": "08-21-2025",
   "api_version": "1.0.0",
+  "model_repo": "projectsidewalk/rampnet-model",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
   "pano": {
     "panorama_id": "…",
     "capture_date": "2021-06",
@@ -503,7 +510,25 @@ Notes:
   artworks, neighbors) stays in `results.jsonl`. Mapillary and Panoramax `source_metadata`
   is submitted unchanged. `send_to_ps.py` refuses, before the POST, any record whose
   submitted `source_metadata` is over 64 KB.
-- `model_training_date` and `api_version` are currently hard-coded in `main.py`.
+- Model provenance is **resolved from the weights actually loaded**, never declared
+  ([#39](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/39)):
+
+  | Field | Where it comes from | Stored by PS |
+  |---|---|---|
+  | `model_revision` | The Hugging Face commit SHA of the loaded snapshot (`config._commit_hash`, else the hub cache's `snapshots/<sha>` directory — works offline) | no (passed through, ignored) |
+  | `model_repo` | `detectors.MODEL_REPO` | no (passed through, ignored) |
+  | `model_id` | `rampnet-model@<first 12 hex of model_revision>` — the old id as a prefix, so string matches on `rampnet-model` keep working, and a different checkpoint is a different id | `label_ai_info.model_id` (TEXT) |
+  | `model_training_date` | Looked up by SHA in `detectors.KNOWN_REVISIONS`; `MM-DD-YYYY` because that is what PS parses | `label_ai_info.model_training_date` |
+  | `api_version` | `detectors.API_VERSION`, the version of this record format | `label_ai_info.api_version` |
+
+  A revision **not in `KNOWN_REVISIONS` refuses to start** and prints the SHA to add (see the
+  comment on the table for how). `--allow-unknown-model-revision` runs it anyway with
+  `model_training_date: null`, recorded in the manifest — and `send_to_ps.py` refuses such a
+  file, since PS requires the date. Adding the SHA to the table afterwards does not rescue
+  that run: it refuses to resume (its undated lines would stay undated), so re-run the area
+  under a fresh `--name`. Lines written before #39 say `"model_id":
+  "rampnet-model"` with no `model_repo`/`model_revision`; they came from the same paper weights
+  and submit unchanged.
 
 ## Tests
 

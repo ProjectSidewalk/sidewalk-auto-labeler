@@ -13,7 +13,12 @@ Orientation: the center column of a Mapillary equirectangular is the camera's co
 bearing — the same convention as GSV panos and exactly what Project Sidewalk's
 panoX -> heading math assumes — so the image is never rotated; `computed_compass_angle`
 is recorded as `camera_heading`. Pitch/roll only exist inside `computed_rotation`
-(an axis-angle vector) and are left null.
+(an axis-angle vector); geo.mapillary_pitch_roll parses them (issue #42) into the
+gravity-relative angles, in Project Sidewalk's roll sign, and leaves both null when the
+rotation is missing or is a failed reconstruction (tilt past geo.MAX_POSE_TILT_DEG).
+`camera_pose_source` records that derivation (null when the angles are null).
+They are what PS's backup-image gate needs (a non-null `camera_pitch`), and what fusion
+can rotate rays by.
 
 Requires a Mapillary client token (mapillary.com/dashboard/developers) in the
 MAPILLARY_ACCESS_TOKEN environment variable. Rate limits (60k entity requests/min,
@@ -27,9 +32,10 @@ from datetime import datetime, timezone
 from io import BytesIO
 
 import requests
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from shapely.geometry import Point
 
+import geo
 from sources import TARGET_IMAGE_SIZE as TARGET_SIZE
 
 NAME = 'mapillary'
@@ -73,6 +79,9 @@ VOLATILE_META_FIELDS = {'thumb_original_url'}
 # itself and, for Mapillary, knows the licence from `source` — only Panoramax's varies
 # per picture, so only there does PS render the submitted `license`.
 LICENSE = 'CC-BY-SA-4.0'
+# Provenance of camera_pitch/camera_roll: decomposed from source_metadata.computed_rotation
+# (OpenSfM's world->camera rotation) by geo.mapillary_pitch_roll -- inferred, not measured.
+POSE_SOURCE = "mapillary_computed_rotation"
 
 # Which of Mapillary's two positions becomes the pano's lat/lng (main.py sets this from
 # --mapillary-position and records it in the manifest). 'sfm' is computed_geometry, the
@@ -253,7 +262,11 @@ def fetch_pano(pano_id, lat, lon):
     if _compass_angle(meta) is None:
         return {'status': 'skipped', 'reason': 'No compass angle'}
 
-    image = _download_image(meta['thumb_original_url'])
+    image, undecodable = _download_image(meta['thumb_original_url'])
+    if undecodable:
+        # The bytes arrived and are not an image: deterministic, so cache it as skipped
+        # rather than re-downloading the same unreadable megabytes on every future run.
+        return {'status': 'skipped', 'reason': 'Undecodable image bytes'}
     if image is None:
         return {'status': 'failure', 'reason': 'Failed to download equirectangular image'}
 
@@ -297,27 +310,64 @@ def _fetch_image_metadata(image_id):
 
 
 
-def _download_image(url):
-    """Downloads the signed thumbnail and normalizes it to the detector's 4096x2048.
-    Returns None on failure (caller treats as retryable).
+# Decode errors that describe the bytes themselves, so a retry cannot fix them.
+# UnidentifiedImageError is an OSError subclass (listed for the reader); OSError also
+# covers a truncated file; SyntaxError is what PIL raises for some malformed headers;
+# DecompressionBombError is a plain Exception subclass, not an OSError.
+PERMANENT_DECODE_ERRORS = (UnidentifiedImageError, OSError, SyntaxError,
+                           Image.DecompressionBombError)
 
-    Note this treats an undecodable image as retryable, so such a pano is re-downloaded
-    on every future run of the area and never cached. sources/panoramax.py splits the two
-    (see its _download_image); issue #57 tracks porting the decode half here. The 404 half
-    deliberately does not port: this URL is signed and short-lived, so a 404 really is
-    transient."""
+
+def _download_image(url):
+    """(image, permanent) for one image's signed thumbnail, normalized to the detector's
+    4096x2048.
+
+    Splits the two failure kinds main.py treats differently — it caches a deterministic
+    `skipped` forever and retries a `failure` on every future run — the same split
+    sources/panoramax.py's _download_image draws (issue #57, part 2):
+
+    - Network/HTTP failures are retryable and return (None, False) after ATTEMPTS tries.
+    - A 200 whose Content-Type is not `image/*` (an HTML error or interstitial page
+      served with a 200) is also retryable: that says nothing about the image.
+    - A decode failure is not. Bytes that arrived intact and are not a readable image (a
+      truncated upload, a decompression bomb past PIL's ceiling) will not become one on
+      the next try, so it returns (None, True) on the first attempt, never re-looped.
+      Before this split, one bare `except Exception` sent such a pano back around the
+      loop and then left it uncached, so every run of the area re-downloaded it.
+      Only PERMANENT_DECODE_ERRORS count: anything else raised while decoding (a
+      MemoryError under load, say) is about this process, not the bytes, so it is
+      retried like a network failure and never cached.
+
+    A 404 deliberately stays RETRYABLE here, unlike in the Panoramax template, which
+    treats a 404 on its plain, unsigned `hd` URL as the pixels being gone. This URL is
+    `thumb_original_url`, which is signed and expires: a 404 on it means the signature
+    lapsed, which is transient by construction — the next run fetches fresh metadata and
+    a fresh URL. Whether the image itself still exists is answered by the Graph API
+    metadata call (fetch_image_metadata's `gone`), not by this download. Do not "fix"
+    this to match Panoramax: it would permanently cache live panos as skipped.
+    """
     for attempt in range(ATTEMPTS):
         try:
             response = requests.get(url, timeout=120)
-            response.raise_for_status()
-            image = Image.open(BytesIO(response.content)).convert('RGB')
-            if image.size != TARGET_SIZE:
-                image = image.resize(TARGET_SIZE, Image.BILINEAR)
-            return image
+            response.raise_for_status()  # a 404 raises here and is retried, see above
+            content_type = (response.headers or {}).get('Content-Type', '')
+            if content_type and not content_type.lower().startswith('image/'):
+                raise ValueError(f"non-image Content-Type {content_type!r}")
+            payload = response.content
+            # Past this point the bytes are in hand, so a PERMANENT_DECODE_ERRORS failure
+            # is about the bytes; any other exception falls through and is retried.
+            try:
+                image = Image.open(BytesIO(payload)).convert('RGB')
+            except PERMANENT_DECODE_ERRORS:
+                return None, True
         except Exception:
             if attempt < ATTEMPTS - 1:
                 time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
-    return None
+            continue
+        if image.size != TARGET_SIZE:
+            image = image.resize(TARGET_SIZE, Image.BILINEAR)
+        return image, False
+    return None, False
 
 
 def build_pano_record(pano_id, lat, lon, meta):
@@ -335,6 +385,9 @@ def build_pano_record(pano_id, lat, lon, meta):
     # Blank is not a name: a deleted or renamed account can leave `{"username": ""}`,
     # which would otherwise be stored as an empty credit rather than "nobody named".
     creator = ((meta.get('creator') or {}).get('username') or '').strip() or None
+    # Gravity-relative, PS's roll sign: the values PS's own Mapillary viewer writes for the
+    # same image. Null past the tilt cap -- a failed reconstruction is not a pose.
+    pitch, roll = geo.mapillary_pitch_roll(meta.get('computed_rotation'))
     return {
         "panorama_id": pano_id,
         "capture_date": f"{captured.year}-{captured.month:02d}",
@@ -343,8 +396,11 @@ def build_pano_record(pano_id, lat, lon, meta):
         "lat": float(lat),
         "lng": float(lon),
         "camera_heading": float(_compass_angle(meta)),
-        "camera_pitch": None,
-        "camera_roll": None,
+        "camera_pitch": pitch,
+        "camera_roll": roll,
+        # Pitch/roll are DERIVED (from Mapillary's SfM rotation), not measured by the camera;
+        # say so on the record so no downstream consumer mistakes them for sensor readings.
+        "camera_pose_source": POSE_SOURCE if pitch is not None else None,
         # The contributor's bare name, which is what PS's pano_data.copyright holds for
         # this source; PS composes "© <name> · Mapillary · CC BY-SA 4.0" itself wherever
         # it shows its own copy of the imagery. None when the Graph API names nobody,
