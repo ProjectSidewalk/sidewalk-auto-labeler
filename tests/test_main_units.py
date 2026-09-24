@@ -133,3 +133,90 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     results.write_text("{}\n{}\n")  # the file changed: the check runs again
     main.run_position_check(run_dir, manifest_path, manifest)
     assert calls == [run_dir]
+
+
+# --- Model provenance (issues #39, #6): resolved from the snapshot, refusing the unknown ---
+
+import pytest  # noqa: E402
+
+import detectors  # noqa: E402
+
+PAPER_MAIN = "606a11956743f7eb328d9207769034752f6191f4"   # HF main since 2026-07-24
+UNKNOWN_SHA = "0123456789abcdef0123456789abcdef01234567"
+
+
+def _snapshot(tmp_path, sha):
+    d = tmp_path / "hub" / "models--projectsidewalk--rampnet-model" / "snapshots" / sha
+    d.mkdir(parents=True)
+    (d / "config.json").write_text("{}")
+    return d / "config.json"
+
+
+def test_provenance_from_snapshot_dir_resolves_the_cache_path(tmp_path):
+    """The offline fallback: with no commit hash from transformers, the snapshots/<sha>
+    directory the weights were read from IS the revision."""
+    prov = detectors.provenance_from_snapshot_dir(_snapshot(tmp_path, PAPER_MAIN))
+    assert prov == {
+        "model_repo": "projectsidewalk/rampnet-model",
+        "model_revision": PAPER_MAIN,
+        "model_id": "rampnet-model@606a11956743",
+        # PS parses MM-dd-yyyy into a NOT NULL timestamp (ExploreService.submitAiLabelData);
+        # the paper weights were trained 2025-08-21, which is the date every live row holds.
+        "model_training_date": "08-21-2025",
+        "api_version": "1.0.0",
+    }
+    # The directory alone works too, and a commit hash from transformers takes precedence.
+    assert detectors.provenance_from_snapshot_dir(
+        _snapshot(tmp_path, "1078bcd6771d63bd845d9fd36042904473e20b07").parent,
+        commit_hash=PAPER_MAIN)["model_revision"] == PAPER_MAIN
+
+
+def test_model_id_keeps_the_prefix_consumers_match_on():
+    model_id = detectors.model_id_for(PAPER_MAIN)
+    assert model_id.startswith("rampnet-model") and model_id != "rampnet-model"
+    assert model_id.split("@")[1] == PAPER_MAIN[:12]
+
+
+def test_every_known_revision_is_a_full_sha_with_an_iso_date():
+    for sha, row in detectors.KNOWN_REVISIONS.items():
+        assert detectors.is_revision(sha)
+        assert detectors.ps_training_date(row["training_date"])  # parses as ISO
+        assert row["note"]
+
+
+def test_unknown_revision_refuses_and_names_the_sha_and_the_table(tmp_path):
+    with pytest.raises(detectors.ModelProvenanceError) as e:
+        detectors.provenance_from_snapshot_dir(_snapshot(tmp_path, UNKNOWN_SHA))
+    assert UNKNOWN_SHA in str(e.value) and "KNOWN_REVISIONS" in str(e.value)
+    # The override runs, but the date is null — never a stale default that reads as fact.
+    prov = detectors.provenance_from_snapshot_dir(None, commit_hash=UNKNOWN_SHA, allow_unknown=True)
+    assert prov["model_training_date"] is None
+    assert prov["model_id"] == "rampnet-model@0123456789ab"
+
+
+def test_unresolvable_revision_refuses_even_with_the_override(tmp_path):
+    """A plain local folder has no snapshots/<sha>: there is nothing to attribute to, and
+    --allow-unknown-model-revision covers an unknown SHA, not a missing one."""
+    folder = tmp_path / "my-local-model" / "config.json"
+    for commit_hash in (None, "main", PAPER_MAIN[:12]):
+        with pytest.raises(detectors.ModelProvenanceError):
+            detectors.provenance_from_snapshot_dir(folder, commit_hash=commit_hash, allow_unknown=True)
+
+
+def test_load_falls_back_to_the_local_cache_when_the_hub_is_unreachable():
+    calls = []
+
+    def loader(repo, **kw):
+        calls.append(kw)
+        if not kw.get("local_files_only"):
+            raise OSError("We couldn't connect to 'https://huggingface.co'")
+        return "model"
+
+    assert detectors.load_with_offline_fallback(loader, trust_remote_code=True) == "model"
+    assert calls == [{"trust_remote_code": True},
+                     {"trust_remote_code": True, "local_files_only": True}]
+
+    def always_fails(repo, **kw):
+        raise OSError("not in the cache either")
+    with pytest.raises(OSError):
+        detectors.load_with_offline_fallback(always_fails)
