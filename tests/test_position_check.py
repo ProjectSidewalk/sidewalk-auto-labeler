@@ -385,3 +385,17 @@ def test_reposition_refuses_a_file_that_is_already_live(tmp_path, capsys):
     assert result["live_campaigns"] == [{"endpoint": "https://ps.example/ai/submitLabelsOnPano",
                                          "submitted_lines": 25, "labels_submitted": 40}]
     assert result["rule"] == position_check.RULE
+
+
+def test_reposition_never_overwrites_a_submitted_campaign_file(tmp_path):
+    """The default output name can be a file that already shipped (Laurens' results.check.jsonl);
+    overwriting it would put other panos under the hash its submission record vouches for."""
+    frame = _frame()
+    run = tmp_path / "city"
+    _write_run(run, _northbound("A", 0.5, -7.5, frame), frame)
+    shipped = run / "results.raw.jsonl"
+    shipped.write_text("{}\n", encoding="utf-8")
+    position_check.submission_record_for(shipped).write_text("{}", encoding="utf-8")
+    with pytest.raises(SystemExit, match="submitted campaign file"):
+        reposition.main([str(run / "results.jsonl"), "--field", "raw"])
+    assert shipped.read_text(encoding="utf-8") == "{}\n"

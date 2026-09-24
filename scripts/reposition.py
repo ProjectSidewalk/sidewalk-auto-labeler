@@ -137,6 +137,12 @@ def main(argv=None):
         sys.exit(f'refusing to write {out}: results.jsonl is a run file that main.py resumes into, and this '
                  f'output is a submission artifact (see the docstring); keep it under another name')
 
+    if submission_record_for(out).exists():
+        # e.g. Laurens' results.check.jsonl: a file some campaign shipped. Overwriting it
+        # would put different panos under the sha256 its submission record vouches for.
+        sys.exit(f'refusing to overwrite {out}: {submission_record_for(out).name} records it as a '
+                 f'submitted campaign file; choose another --out')
+
     # Frame consistency (issue #62): what is already live from this file, per its record.
     try:
         live = live_campaigns(src)
