@@ -703,7 +703,7 @@ def main():
         text, bins_rows, gates = city_report(city, rows, n_panos, n_implied, t)
         out = args.runs_root / city / 'height_qc'
         out.mkdir(parents=True, exist_ok=True)
-        (out / 'report.md').write_text(text, encoding='utf-8')
+        (out / 'report.md').write_text(text, encoding='utf-8', newline='\n')
         write_csv(out / 'bins.csv', bins_rows)
         write_csv(out / 'gates.csv', gates)
         print(text)
@@ -718,7 +718,7 @@ def main():
             + decision_markdown(table, res['t1_verdict']))
     out = args.runs_root / '_pooled' / 'height_qc'
     out.mkdir(parents=True, exist_ok=True)
-    (out / 'report.md').write_text(text, encoding='utf-8')
+    (out / 'report.md').write_text(text, encoding='utf-8', newline='\n')
     write_csv(out / 'bins.csv', all_bins)
     write_csv(out / 'gates.csv', [{'city': 'pooled', **g}
                                   for a in ASSOCIATIONS for g in res['t3'][a]])

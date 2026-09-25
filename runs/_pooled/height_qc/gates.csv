@@ -1,0 +1,13 @@
+city,gate,association,n_measured,n_flagged,flag_rate,n_flagged_implied,n_unflagged_implied,med_rel_resid_flagged,med_rel_resid_unflagged,ratio,pass
+pooled,ground_tilt_deg >= 6,per-pano,145250,4927,0.0339,857,39794,0.1097,0.0711,1.542,False
+pooled,height_spread_m >= 0.3,per-pano,145250,11278,0.0776,2266,38385,0.0896,0.0707,1.267,False
+pooled,ground_pixel_share < 0.15,per-pano,145250,2395,0.0165,602,40049,0.0738,0.0717,1.03,False
+pooled,depth_planes < 60,per-pano,145250,3906,0.0269,631,40020,0.0879,0.0715,1.23,False
+pooled,sky_fraction > 0.6,per-pano,145250,0,0.0,0,40651,,0.0717,,False
+pooled,|depth - vintage_median| >= 0.4,per-pano,145250,5856,0.0403,804,39847,0.1682,0.0705,2.384,True
+pooled,ground_tilt_deg >= 6,2.3,145250,4927,0.0339,845,39423,0.1242,0.0715,1.738,False
+pooled,height_spread_m >= 0.3,2.3,145250,11278,0.0776,2256,38012,0.0957,0.0711,1.347,False
+pooled,ground_pixel_share < 0.15,2.3,145250,2395,0.0165,606,39662,0.073,0.0721,1.013,False
+pooled,depth_planes < 60,2.3,145250,3906,0.0269,616,39652,0.0884,0.0719,1.229,False
+pooled,sky_fraction > 0.6,2.3,145250,0,0.0,0,40268,,0.0721,,False
+pooled,|depth - vintage_median| >= 0.4,2.3,145250,5856,0.0403,928,39340,0.2491,0.0704,3.536,True
