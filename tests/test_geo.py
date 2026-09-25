@@ -240,6 +240,18 @@ def test_per_pano_sigma_widens_with_the_ground_plane_spread():
     assert loose == pytest.approx(1.0 / 2.563)
 
 
+def test_per_pano_qc_flag_keeps_the_height_and_the_fixed_path_ignores_it():
+    pose = geo.pano_pose({'lat': 44.05, 'lng': -121.31, 'camera_heading': 0.0,
+                          'camera_pitch': None, 'camera_roll': None, 'source': 'launch',
+                          'camera_height_m': 1.2, 'camera_height_spread_m': 0.02,
+                          'ground_tilt_deg': 1.1, 'camera_height_vintage_m': 1.8})
+    assert pose.ground_tilt_deg == 1.1
+    assert geo.camera_height_for(pose, camera_height=geo.PER_PANO) == (
+        1.2, geo.GSV_ERRORS.sigma_height_m)
+    assert geo.camera_height_for(pose) == (2.6, geo.GSV_ERRORS.sigma_height_m)
+    assert geo.camera_height_for(pose, camera_height=2.3) == (2.3, 0.15)
+
+
 def test_ground_point_to_pano_inverts_the_per_pano_raycast():
     pose = _measured_pose(1.9)
     g = geo.detection_ground_point(pose, 0.3, 0.62, camera_height=geo.PER_PANO,
