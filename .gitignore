@@ -46,3 +46,10 @@ runs/**
 !runs/*/agree_rate/
 !runs/*/agree_rate/report.md
 !runs/*/agree_rate/*.csv
+# DEM road grade (scripts/dem_grade.py, #51; write-up in docs/dem-grade-study.md): the tile
+# manifest (service, request, per-tile sha256) and the agreement report are tracked. The
+# tiles themselves (tens to hundreds of MB) and grades.csv are NOT — the report carries
+# grades.csv's sha256, and tiles.json is enough to refetch and verify every tile.
+!runs/*/dem/
+!runs/*/dem/tiles.json
+!runs/*/dem/report.md

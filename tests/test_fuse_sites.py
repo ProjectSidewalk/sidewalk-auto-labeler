@@ -340,7 +340,8 @@ def test_road_mode_takes_the_grade_back_out_of_a_car_on_a_hill(tmp_path):
     _, _, stats = fs.fuse(panos, fs.FuseParams(apply_pose=fs.POSE_ROAD))
     assert stats['pose'] == {'mode': 'road', 'panos': 4, 'posed': 4,
                              'derived_from_source_metadata': 3, 'flat': 0, 'gravity': 0,
-                             'road_relative': 3, 'gravity_fallback': 1}
+                             'road_relative': 3, 'gravity_fallback': 1,
+                             'grade_source': 'sfm', 'grade_replaced': 0}
     # ...but the production default stays FLAT for Mapillary: road-relative failed the #42
     # shuffled-grade control, so `auto` withholds it (fuse_sites.AUTO_ROAD_SOURCES).
     assert ranges(fs.FuseParams().apply_pose) == off

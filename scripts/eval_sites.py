@@ -416,6 +416,16 @@ ARM_SHUFFLED_WITHIN = 'road-shuffled-within'
 ARM_SHUFFLED_ACROSS = 'road-shuffled-across'
 PRECONDITION_ARMS = (fs.POSE_OFF, fs.POSE_GRAVITY, fs.POSE_ROAD,
                      ARM_SHUFFLED_WITHIN, ARM_SHUFFLED_ACROSS)
+# #51: road mode with a grade from somewhere other than production's SfM two-point
+# grade. `road-dem` takes the USGS 3DEP grade (scripts/dem_grade.py), which never saw the
+# SfM; its control is the SAME within-sequence shuffle applied to the DEM grades, so it
+# keeps each sequence's DEM grade distribution and destroys only the per-frame alignment.
+# `road-sfm-smoothed` (a +-20 m fit on the SfM altitude) is descriptive only.
+ARM_ROAD_DEM = 'road-dem'
+ARM_ROAD_DEM_SHUFFLED_WITHIN = 'road-dem-shuffled-within'
+ARM_ROAD_SFM_SMOOTHED = 'road-sfm-smoothed'
+PRECONDITION_ARMS_DEM = PRECONDITION_ARMS + (ARM_ROAD_SFM_SMOOTHED, ARM_ROAD_DEM,
+                                             ARM_ROAD_DEM_SHUFFLED_WITHIN)
 PRECONDITION_RADII = (2.5, 5.0)
 # Fixed seed for the shuffled-grade controls, so the table is reproducible.
 SHUFFLE_SEED = 42
@@ -439,6 +449,20 @@ CONTROL_MARGIN_M = 0.1
 CONTROL_MIN_CITIES = 4
 CONTROL_MAX_RECALL_DROP = 0.010
 CONTROL_MAX_UNPLACEABLE_FRAC = 0.05
+# The #51 rule, pre-registered on the issue before any DEM arm was scored: `road` with
+# the DEM grade earns AUTO_ROAD_SOURCES = ('mapillary',) only if ALL FOUR hold on the
+# eight-arm intersected set, with the constants above unchanged --
+#  (i)   road-dem beats road-dem-shuffled-within on BOTH p90 and median by more than
+#        CONTROL_MARGIN_M in at least CONTROL_MIN_CITIES cities;
+#  (ii)  its off-pool recall at 2.5 m drops by no more than CONTROL_MAX_RECALL_DROP
+#        against off in every city;
+#  (iii) its unplaceable marks exceed off's by no more than CONTROL_MAX_UNPLACEABLE_FRAC
+#        of the off pool in every city;
+#  (iv)  the FIRST rule against off: p90 no worse by more than PRECONDITION_P90_TOLERANCE_M
+#        in any city, median better in at least PRECONDITION_MIN_MEDIAN_WINS.
+# (i)-(iii) are control_verdict(rows, ARM_ROAD_DEM, ARM_ROAD_DEM_SHUFFLED_WITHIN) and (iv)
+# is precondition_verdict(rows, ARM_ROAD_DEM); dem_verdict combines them. If any clause
+# fails, #51 closes negative and the road frame stays opt-in.
 
 
 def _pct(values, q):
@@ -495,7 +519,7 @@ def shuffled_grades(run_panos, within_sequence, seed=SHUFFLE_SEED):
 
 
 def pose_precondition(verdict_panos, bundle_ops, run_panos, base_params,
-                      arms=PRECONDITION_ARMS, gt_merge_m=2.5):
+                      arms=PRECONDITION_ARMS, gt_merge_m=2.5, graded_panos=None):
     """Per-arm GT-to-site placement on ONE site set and ONE GT set (issue #42, study
     section 8 rec 3). Returns (rows, info): one row per arm.
 
@@ -526,6 +550,11 @@ def pose_precondition(verdict_panos, bundle_ops, run_panos, base_params,
     from the same SfM and subtracting one from the other might cancel shared SfM error
     rather than road slope.
 
+    graded_panos (#51): {fs.GRADE_DEM: panos, fs.GRADE_SFM_SMOOTHED: panos} -- the same
+    panos loaded with that grade source (fs.load_results(..., grade_source=...)). They
+    feed the `road-dem`, `road-dem-shuffled-within` and `road-sfm-smoothed` arms; only
+    grade_deg may differ from run_panos. Required when `arms` names any of those.
+
     Freezing the association from `off` favours `off` (its sites were built from its own
     geometry); so does the arms' shared GT being grouped under `off`. World precision is
     identical across arms by construction (membership is fixed); it is reported so the row
@@ -534,6 +563,13 @@ def pose_precondition(verdict_panos, bundle_ops, run_panos, base_params,
     by_id = {p.pano_id: p for p in run_panos}
     shuffled = {ARM_SHUFFLED_WITHIN: shuffled_grades(run_panos, True),
                 ARM_SHUFFLED_ACROSS: shuffled_grades(run_panos, False)}
+    graded_panos = graded_panos or {}
+    if ARM_ROAD_DEM in arms or ARM_ROAD_DEM_SHUFFLED_WITHIN in arms:
+        shuffled[ARM_ROAD_DEM] = (graded_panos[fs.GRADE_DEM], 0)
+        shuffled[ARM_ROAD_DEM_SHUFFLED_WITHIN] = shuffled_grades(graded_panos[fs.GRADE_DEM],
+                                                                 True)
+    if ARM_ROAD_SFM_SMOOTHED in arms:
+        shuffled[ARM_ROAD_SFM_SMOOTHED] = (graded_panos[fs.GRADE_SFM_SMOOTHED], 0)
     lookup = {arm: ({p.pano_id: p for p in shuffled[arm][0]} if arm in shuffled else by_id)
               for arm in arms}
     mode = {arm: fs.POSE_ROAD if arm in shuffled else arm for arm in arms}
@@ -669,7 +705,17 @@ def pose_precondition(verdict_panos, bundle_ops, run_panos, base_params,
                 if posed_members else None,
             'shuffle_within_unshuffled_frames': shuffled[ARM_SHUFFLED_WITHIN][1]
             if ARM_SHUFFLED_WITHIN in arms else None,
+            'dem_shuffle_within_unshuffled_frames': shuffled[ARM_ROAD_DEM_SHUFFLED_WITHIN][1]
+            if ARM_ROAD_DEM_SHUFFLED_WITHIN in arms else None,
             'warnings': warnings}
+
+    def fallback_shares(arm):
+        """Gravity-fallback shares under this arm's own grades (#51: the DEM arms leave a
+        different set of frames ungraded; for the SfM arms this equals info's)."""
+        ps = [lookup[arm][p.pano_id] for p in posed]
+        ms = [lookup[arm][p.pano_id] for p in posed_members]
+        return (sum(1 for p in ps if p.grade_deg is None) / len(ps) if ps else None,
+                sum(1 for p in ms if p.grade_deg is None) / len(ms) if ms else None)
     rows = []
     for arm in arms:
         dists = [matched[arm, 5.0][i] for i in sorted(common)]
@@ -692,28 +738,28 @@ def pose_precondition(verdict_panos, bundle_ops, run_panos, base_params,
         row['gt_marks_unplaceable'] = unplaceable[arm]
         row['gt_marks_unplaceable_vs_off'] = unplaceable[arm] - unplaceable[fs.POSE_OFF]
         road_like = mode[arm] == fs.POSE_ROAD
-        row['gravity_fallback_share_panos'] = (info['gravity_fallback_share_panos']
-                                               if road_like else None)
-        row['gravity_fallback_share_members'] = (info['gravity_fallback_share_members']
-                                                 if road_like else None)
+        share_panos, share_members = fallback_shares(arm) if road_like else (None, None)
+        row['gravity_fallback_share_panos'] = share_panos
+        row['gravity_fallback_share_members'] = share_members
         rows.append(row)
     return rows, info
 
 
-def precondition_verdict(rows_by_city):
-    """Apply the FIRST pre-registered rule (road vs off) to {city: rows}.
-    Returns (passes, reasons)."""
+def precondition_verdict(rows_by_city, road_arm=fs.POSE_ROAD):
+    """Apply the FIRST pre-registered rule (road_arm vs off) to {city: rows}.
+    Returns (passes, reasons). #51 applies it to ARM_ROAD_DEM as its clause (iv)."""
     p90_fail, median_wins, reasons = [], [], []
     for city, rows in rows_by_city.items():
         r = {row['arm']: row for row in rows}
-        off, road = r[fs.POSE_OFF], r[fs.POSE_ROAD]
+        off, road = r[fs.POSE_OFF], r[road_arm]
         dp90 = road['p90_gt_to_site_m'] - off['p90_gt_to_site_m']
         dmed = road['median_gt_to_site_m'] - off['median_gt_to_site_m']
         if dp90 > PRECONDITION_P90_TOLERANCE_M:
             p90_fail.append(city)
         if dmed < 0:
             median_wins.append(city)
-        reasons.append(f'{city}: p90 road-off {dp90:+.3f} m, median road-off {dmed:+.3f} m')
+        reasons.append(f'{city}: p90 {road_arm}-off {dp90:+.3f} m, '
+                       f'median {road_arm}-off {dmed:+.3f} m')
     passes = not p90_fail and len(median_wins) >= PRECONDITION_MIN_MEDIAN_WINS
     reasons.append(f'p90 worse than off by > {PRECONDITION_P90_TOLERANCE_M} m in: '
                    f'{", ".join(p90_fail) or "none"}; median improves in '
@@ -722,13 +768,14 @@ def precondition_verdict(rows_by_city):
     return passes, reasons
 
 
-def control_verdict(rows_by_city):
+def control_verdict(rows_by_city, road_arm=fs.POSE_ROAD, shuffle_arm=ARM_SHUFFLED_WITHIN):
     """Apply the SECOND pre-registered rule (the shuffled-grade control) to {city: rows}.
-    Returns (passes, clauses, reasons) with clauses = {'i': bool, 'ii': bool, 'iii': bool}."""
+    Returns (passes, clauses, reasons) with clauses = {'i': bool, 'ii': bool, 'iii': bool}.
+    #51 applies it to (ARM_ROAD_DEM, ARM_ROAD_DEM_SHUFFLED_WITHIN) as its (i)-(iii)."""
     beats, recall_fail, unplace_fail, reasons = [], [], [], []
     for city, rows in rows_by_city.items():
         r = {row['arm']: row for row in rows}
-        off, road, shuf = r[fs.POSE_OFF], r[fs.POSE_ROAD], r[ARM_SHUFFLED_WITHIN]
+        off, road, shuf = r[fs.POSE_OFF], r[road_arm], r[shuffle_arm]
         d90 = shuf['p90_gt_to_site_m'] - road['p90_gt_to_site_m']
         dmed = shuf['median_gt_to_site_m'] - road['median_gt_to_site_m']
         if d90 > CONTROL_MARGIN_M and dmed > CONTROL_MARGIN_M:
@@ -740,12 +787,16 @@ def control_verdict(rows_by_city):
         limit = CONTROL_MAX_UNPLACEABLE_FRAC * off['off_pool_ramps']
         if extra > limit:
             unplace_fail.append(city)
-        reasons.append(f'{city}: shuffled-within minus road p90 {d90:+.3f} m, median '
-                       f'{dmed:+.3f} m; off-pool R@2.5 road-off {100 * drec:+.1f} pt; '
-                       f'unplaceable marks road-off {extra:+d} (limit {limit:.1f})')
+        if (road_arm, shuffle_arm) == (fs.POSE_ROAD, ARM_SHUFFLED_WITHIN):
+            name_s, name_r = 'shuffled-within', 'road'      # #74's committed wording
+        else:
+            name_s, name_r = shuffle_arm, road_arm
+        reasons.append(f'{city}: {name_s} minus {name_r} p90 {d90:+.3f} m, median '
+                       f'{dmed:+.3f} m; off-pool R@2.5 {name_r}-off {100 * drec:+.1f} pt; '
+                       f'unplaceable marks {name_r}-off {extra:+d} (limit {limit:.1f})')
     clauses = {'i': len(beats) >= CONTROL_MIN_CITIES, 'ii': not recall_fail,
                'iii': not unplace_fail}
-    reasons.append(f'(i) road beats road-shuffled-within by > {CONTROL_MARGIN_M} m on p90 AND '
+    reasons.append(f'(i) {road_arm} beats {shuffle_arm} by > {CONTROL_MARGIN_M} m on p90 AND '
                    f'median in {len(beats)} of {len(rows_by_city)} (needs {CONTROL_MIN_CITIES}): '
                    f'{", ".join(beats) or "none"} -> {"PASS" if clauses["i"] else "FAIL"}')
     reasons.append(f'(ii) off-pool recall@2.5 drops > {100 * CONTROL_MAX_RECALL_DROP:.1f} pt in: '
@@ -756,6 +807,25 @@ def control_verdict(rows_by_city):
     return all(clauses.values()), clauses, reasons
 
 
+def dem_verdict(rows_by_city):
+    """The #51 rule (see the comment above CONTROL_MARGIN_M): clauses (i)-(iii) are the
+    shuffled-grade control on road-dem vs road-dem-shuffled-within, (iv) the first rule on
+    road-dem vs off. Returns (passes, clauses, reasons); passes only if all four do."""
+    _ok, clauses, reasons = control_verdict(rows_by_city, ARM_ROAD_DEM,
+                                            ARM_ROAD_DEM_SHUFFLED_WITHIN)
+    first, first_reasons = precondition_verdict(rows_by_city, ARM_ROAD_DEM)
+    clauses = {**clauses, 'iv': first}
+    reasons = reasons + first_reasons + [
+        f'(iv) first rule, {ARM_ROAD_DEM} vs off -> {"PASS" if first else "FAIL"}']
+    passes = all(clauses.values())
+    reasons.append(f'#51 VERDICT: {"PASS" if passes else "FAIL"} on '
+                   + ', '.join(f'({k}) {"pass" if v else "FAIL"}' for k, v in clauses.items())
+                   + (" -> AUTO_ROAD_SOURCES = ('mapillary',) with the DEM grade" if passes
+                      else ' -> #51 closes negative: AUTO_ROAD_SOURCES stays (), '
+                           '--apply-pose road --grade-source dem stays opt-in'))
+    return passes, clauses, reasons
+
+
 def format_precondition(city, rows, info):
     fmt = lambda v, f='.3f': '—' if v is None else format(v, f)  # noqa: E731
     lines = [f"== {city}: pose precondition (#42) -- one site set, one GT set, "
@@ -764,10 +834,10 @@ def format_precondition(city, rows, info):
              f"member), {info['pool_ramps']} pool ramps, {info['common_matched_5m']} matched "
              f"within 5 m under every arm; {info['gt_marks_dropped']} of {info['gt_marks']} "
              f"GT marks unplaceable under some arm; off pool {info['off_pool_ramps']} ramps",
-             f"{'arm':>21}  {'median':>7}  {'p90':>7}  {'mean':>7}  {'R@2.5':>6}  "
+             f"{'arm':>24}  {'median':>7}  {'p90':>7}  {'mean':>7}  {'R@2.5':>6}  "
              f"{'R@5':>6}  {'P':>6}  {'offR@2.5':>8}  {'offR@5':>6}  {'unplaced':>8}"]
     for r in rows:
-        lines.append(f"{r['arm']:>21}  {fmt(r['median_gt_to_site_m']):>7}  "
+        lines.append(f"{r['arm']:>24}  {fmt(r['median_gt_to_site_m']):>7}  "
                      f"{fmt(r['p90_gt_to_site_m']):>7}  {fmt(r['mean_gt_to_site_m']):>7}  "
                      f"{fmt(r['world_recall_2p5m']):>6}  {fmt(r['world_recall_5m']):>6}  "
                      f"{fmt(r['precision']):>6}  {fmt(r['recall_off_pool_2p5m']):>8}  "
