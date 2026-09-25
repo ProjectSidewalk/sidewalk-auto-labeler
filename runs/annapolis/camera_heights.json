@@ -14,7 +14,7 @@
   }
  },
  "results_sha256": "f1b228f742dc95909067cc3ba9b045f1acf76617747b6e21eb9e7df58335b9dd",
- "generated_at": "2026-09-25T15:23:13+00:00",
+ "generated_at": "2026-09-25T16:48:51+00:00",
  "generated_by": "scripts/mapillary_height.py (issue #53)",
  "groups": {
   "trimble/mx7": {
@@ -27,8 +27,8 @@
    "n_views_b": 24228,
    "h_bearing": 2.257,
    "h_bearing_ci": [
-    2.257,
-    2.265
+    2.253,
+    2.264
    ],
    "h_scale": 2.495,
    "h_scale_ci": [

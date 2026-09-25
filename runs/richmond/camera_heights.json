@@ -2,7 +2,7 @@
  "schema": 1,
  "source": "mapillary",
  "default_m": 2.6,
- "grain": "sequence",
+ "grain": "rig",
  "recommended": false,
  "gate": {
   "passes": false,
@@ -14,7 +14,7 @@
   }
  },
  "results_sha256": "109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c",
- "generated_at": "2026-09-25T15:23:12+00:00",
+ "generated_at": "2026-09-25T16:48:51+00:00",
  "generated_by": "scripts/mapillary_height.py (issue #53)",
  "groups": {
   "arashi/insta360 x4": {
@@ -47,8 +47,8 @@
    "n_views_b": 1301,
    "h_bearing": 1.983,
    "h_bearing_ci": [
-    1.934,
-    2.012
+    1.939,
+    2.043
    ],
    "h_scale": 2.377,
    "h_scale_ci": [
@@ -77,8 +77,8 @@
    "n_views_b": 5230,
    "h_bearing": 2.595,
    "h_bearing_ci": [
-    2.583,
-    2.617
+    2.577,
+    2.623
    ],
    "h_scale": 2.68,
    "h_scale_ci": [
@@ -107,8 +107,8 @@
    "n_views_b": 704,
    "h_bearing": 2.708,
    "h_bearing_ci": [
-    2.63,
-    2.77
+    2.632,
+    2.779
    ],
    "h_scale": 2.64,
    "h_scale_ci": [
@@ -123,7 +123,7 @@
     "identifiable",
     "agreement"
    ],
-   "reason": "fails material (CI 2.63-2.77, h_g 2.674)",
+   "reason": "fails material (CI 2.63-2.78, h_g 2.674)",
    "sequence_iqr_m": 0.321,
    "qualifying_sequences": 4
   }

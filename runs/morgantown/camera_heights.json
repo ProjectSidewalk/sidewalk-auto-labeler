@@ -14,7 +14,7 @@
   }
  },
  "results_sha256": "7dbf24e03574c31b0a3011490177a5d51dc20e30badf7fdd35da443e870b98bc",
- "generated_at": "2026-09-25T15:23:13+00:00",
+ "generated_at": "2026-09-25T16:48:51+00:00",
  "generated_by": "scripts/mapillary_height.py (issue #53)",
  "groups": {
   "gopro/max": {
@@ -27,8 +27,8 @@
    "n_views_b": 9065,
    "h_bearing": 2.352,
    "h_bearing_ci": [
-    2.345,
-    2.356
+    2.342,
+    2.357
    ],
    "h_scale": 2.52,
    "h_scale_ci": [
