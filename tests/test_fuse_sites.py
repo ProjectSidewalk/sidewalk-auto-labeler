@@ -209,7 +209,7 @@ def test_per_pano_heights_reunite_what_a_constant_splits():
     assert len(per_pano) == 1 and len(per_pano[0].pano_ids) == 2
     te, tn = enu_of(frame, 0, 0)
     assert math.hypot(per_pano[0].e - te, per_pano[0].n - tn) < 0.05
-    assert stats['camera_heights'] == {'measured': 2, 'fallback': 0}
+    assert stats['camera_heights'] == {'measured': 2, 'rejected_qc': {}, 'fallback': 0}
     spread = max(math.hypot(d.e - te, d.n - tn) for s in fixed for d, _ in s.members)
     assert spread > 2.0
 
@@ -221,6 +221,24 @@ def test_implied_heights_recover_the_true_rig_height():
     sites, frame, _ = fs.fuse(panos, fs.FuseParams(camera_height_m=geo.PER_PANO))
     implied = fs.implied_heights(sites, frame, {p.pano_id: p for p in panos})
     assert implied['a'] == [pytest.approx(2.05)] and implied['b'] == [pytest.approx(2.05)]
+
+
+def test_qc_rejected_heights_fall_back_and_are_counted():
+    # #44: a pano whose depth height sits >= 0.40 m from its vintage median raycasts at
+    # the default, and sites_meta.json's camera_heights says how many and why.
+    panos = [make_pano(n, i * 20.0, 0, [(i * 20.0, 10, 0.9)], height=h, capture='2026-03')
+             for i, (n, h) in enumerate([('a', 1.80), ('b', 1.82), ('c', 1.20), ('d', None)])]
+    fs.attach_vintage_medians(panos)
+    assert panos[0].camera_height_vintage_m == pytest.approx(1.80)
+    assert panos[3].camera_height_vintage_m is None
+    stats = fs.fuse(panos, fs.FuseParams(camera_height_m=geo.PER_PANO))[2]
+    assert stats['camera_heights'] == {
+        'measured': 2, 'rejected_qc': {'rejected_qc:vintage_deviation': 1}, 'fallback': 1}
+    rejected = fs.pano_pose(panos[2], fs.POSE_OFF)
+    assert geo.camera_height_for(rejected, camera_height=geo.PER_PANO)[0]         == geo.DEFAULT_CAMERA_HEIGHT_M
+    # the default (fixed-height) path neither reads nor reports any of it
+    assert fs.fuse(panos, fs.FuseParams())[2]['camera_heights'] == {'fixed_m': 2.6,
+                                                                   'panos': 4}
 
 
 def _line_with_block(p, **block):
@@ -253,6 +271,7 @@ def test_load_results_reads_heights_from_the_block_or_the_harvested_index(tmp_pa
     assert by_id['b'].camera_height_m is None
     assert (by_id['c'].camera_height_m, by_id['c'].camera_height_spread_m) == (2.1, 0.2)
     assert by_id['d'].camera_height_m == 2.0
+    assert by_id['c'].ground_tilt_deg == 1.4          # from the index (#44 QC input)
     # a fixed-height caller can skip the index read entirely
     assert fs.load_results(src, read_heights=False)[0][2].camera_height_m is None
 
@@ -264,7 +283,7 @@ def test_harvested_stand_in_grounds_are_not_heights(tmp_path):
                     'degenerate,1,2.5000,0.000,0.0000\n'
                     'wrong_plane,0,0.0407,11.871,0.0000\n'
                     'real,0,1.9154,1.482,0.2318\n', encoding='utf-8')
-    assert fs.load_depth_index(path) == {'real': (1.9154, 0.2318)}
+    assert fs.load_depth_index(path) == {'real': (1.9154, 0.2318, 1.482)}  # tilt (#44)
 
 
 # --- camera pose (issue #42)

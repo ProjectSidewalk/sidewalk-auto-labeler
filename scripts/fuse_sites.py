@@ -172,6 +172,9 @@ class SlimPano:
     detections: list  # [(det_index, x_normalized, y_normalized, confidence)] as stored
     camera_height_m: float | None = None         # measured (#40); None = unmeasured
     camera_height_spread_m: float | None = None
+    ground_tilt_deg: float | None = None         # the ground plane's tilt (#44 QC reads it)
+    camera_height_vintage_m: float | None = None  # median measured height, same capture
+                                                  # year in this run (#44 QC gate)
     pose_origin: str | None = None               # 'block' | 'source_metadata' | None (#42)
     sequence_id: str | None = None               # capture sequence (Mapillary)
     grade_deg: float | None = None               # road grade along travel (sequence_grades)
@@ -182,7 +185,9 @@ class SlimPano:
         return {'lat': self.lat, 'lng': self.lng, 'camera_heading': self.camera_heading,
                 'camera_pitch': self.camera_pitch, 'camera_roll': self.camera_roll,
                 'source': self.source, 'camera_height_m': self.camera_height_m,
-                'camera_height_spread_m': self.camera_height_spread_m, **overrides}
+                'camera_height_spread_m': self.camera_height_spread_m,
+                'ground_tilt_deg': self.ground_tilt_deg,
+                'camera_height_vintage_m': self.camera_height_vintage_m, **overrides}
 
 
 @dataclass
@@ -281,7 +286,7 @@ def _months(capture_date):
 
 
 def load_depth_index(path):
-    """{pano_id: (camera_height_m, height_spread_m)} for the MEASURED heights in a
+    """{pano_id: (camera_height_m, height_spread_m, ground_tilt_deg)} for the MEASURED heights in a
     harvested depth/index.csv (scripts/harvest_depth.py), or {} if there is none.
 
     This is how a run made before #40 -- whose pano blocks carry no height -- gets its
@@ -300,7 +305,7 @@ def load_depth_index(path):
             h, tilt = float(row['camera_height_m']), float(row['ground_tilt_deg'])
             status = depthlib.classify_height(h, tilt, degenerate=row['degenerate'] == '1')
             if status == depthlib.MEASURED:
-                heights[row['panorama_id']] = (h, float(row['height_spread_m']))
+                heights[row['panorama_id']] = (h, float(row['height_spread_m']), tilt)
     return heights
 
 
@@ -453,9 +458,10 @@ def load_results(path, depth_index=None, read_heights=True):
                 skipped += 1
                 continue
             if p.get('camera_height_status') in _UNDECIDED:
-                height, spread = index.get(p['panorama_id'], (None, None))
+                height, spread, tilt = index.get(p['panorama_id'], (None, None, None))
             else:
                 height, spread = p.get('camera_height_m'), p.get('camera_height_spread_m')
+                tilt = p.get('ground_tilt_deg')
             pitch, roll = p.get('camera_pitch'), p.get('camera_roll')
             meta = p.get('source_metadata') or {}
             origin = 'block' if pitch is not None and roll is not None else None
@@ -470,12 +476,28 @@ def load_results(path, depth_index=None, read_heights=True):
                 detections=[(i, d['x_normalized'], d['y_normalized'], d['confidence'])
                             for i, d in enumerate(rec.get('detections', []))],
                 camera_height_m=height, camera_height_spread_m=spread,
-                pose_origin=origin, sequence_id=p.get('sequence_id')))
+                ground_tilt_deg=tilt, pose_origin=origin, sequence_id=p.get('sequence_id')))
             frames.append((len(panos) - 1, p.get('sequence_id'), meta.get('captured_at'),
                            p['lat'], p['lng'], meta.get('computed_altitude')))
     for i, (grade, bearing) in sequence_grades(frames).items():
         panos[i].grade_deg, panos[i].travel_bearing_deg = grade, bearing
+    attach_vintage_medians(panos)
     return panos, skipped
+
+
+def attach_vintage_medians(panos):
+    """Set each measured pano's camera_height_vintage_m: the median measured height over
+    the run's panos of the same capture year, the vintage depth.believe_height's QC gate
+    compares against (#44). A run is bound to one imagery source, so the year is the
+    vintage -- exactly as scripts/height_qc.py measured it."""
+    by_year = {}
+    for p in panos:
+        if p.camera_height_m is not None:
+            by_year.setdefault((p.capture_date or '')[:4], []).append(p.camera_height_m)
+    medians = {y: _median(v) for y, v in by_year.items()}
+    for p in panos:
+        if p.camera_height_m is not None:
+            p.camera_height_vintage_m = medians[(p.capture_date or '')[:4]]
 
 
 def project(panos, params):
@@ -587,8 +609,21 @@ def camera_height_counts(panos, params):
     sites_meta.json needs to know which frame the positions are in."""
     if params.camera_height_m != geo.PER_PANO:
         return {'fixed_m': params.camera_height_m, 'panos': len(panos)}
-    measured = sum(1 for p in panos if p.camera_height_m is not None)
-    return {'measured': measured, 'fallback': len(panos) - measured}
+    measured, rejected = 0, {}
+    for p in panos:
+        if p.camera_height_m is None:
+            continue
+        _, _, reason = depthlib.believe_height(
+            p.camera_height_m, p.camera_height_spread_m, p.ground_tilt_deg,
+            vintage_median_m=p.camera_height_vintage_m)
+        if reason == depthlib.MEASURED:
+            measured += 1
+        else:
+            rejected[reason] = rejected.get(reason, 0) + 1
+    # measured = raycast at its own height; rejected_qc = measured but refused by the #44
+    # QC rule; fallback = no measurement. The latter two raycast at the default.
+    return {'measured': measured, 'rejected_qc': rejected,
+            'fallback': len(panos) - measured - sum(rejected.values())}
 
 
 def site_to_json(site, frame):

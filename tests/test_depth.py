@@ -18,6 +18,7 @@ runs on every `pytest` rather than only when someone remembers
 `python scripts/harvest_depth.py <run> --check-convention` (which stays, for re-checking
 against live panoramas after a streetlevel upgrade).
 """
+import doctest
 import math
 import base64
 import random
@@ -297,3 +298,24 @@ def test_camera_height_fields_null_everything_but_a_measurement():
     fields = depthlib.camera_height_fields(payload)
     assert fields["camera_height_status"] == depthlib.MEASURED
     assert fields["camera_height_m"] == pytest.approx(1.87)
+
+
+# --- the #44 QC rule on a measured height
+
+def test_believe_height_keeps_a_nominal_measurement():
+    assert depthlib.believe_height(1.80, 0.05, 1.2, vintage_median_m=1.76)         == (1.80, depthlib.MEASURED_HEIGHT_SIGMA_M, depthlib.MEASURED)
+    # no vintage median: the only adopted gate cannot fire
+    assert depthlib.believe_height(0.9, 0.9, 15.0)[2] == depthlib.MEASURED
+
+
+@pytest.mark.parametrize('height', [1.35, 2.17, 0.9])
+def test_believe_height_rejects_a_vintage_outlier_with_its_reason(height):
+    assert depthlib.believe_height(height, 0.05, 1.2, vintage_median_m=1.76)         == (None, None, 'rejected_qc:vintage_deviation')
+    # just inside the gate is kept, and the gates T2/T3 did not adopt (tilt, spread) do
+    # nothing on their own
+    assert depthlib.believe_height(1.37, 0.9, 12.0, vintage_median_m=1.76)[0] == 1.37
+
+
+def test_depth_doctests_run():
+    """believe_height's and classify_height's examples stay true (see test_geo's twin)."""
+    assert doctest.testmod(depthlib, verbose=False).failed == 0

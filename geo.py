@@ -17,6 +17,8 @@ Two coordinate models coexist deliberately:
 import math
 from dataclasses import dataclass
 
+import depth as depthlib
+
 METERS_PER_DEG_LAT = 111320.0
 EARTH_RADIUS_M = 6371000.0
 
@@ -43,10 +45,10 @@ DEFAULT_MAX_RANGE_M = 25.0
 # why they fall back to it rather than to the measured median.
 DEFAULT_CAMERA_HEIGHT_M = 2.6
 PER_PANO = 'per-pano'
-# Under PER_PANO, a measured pano's height sigma comes from the p90-p10 spread of camera
-# height across its ground planes (a segmented roadway disagrees with itself where it
-# slopes or crowns). p90-p10 of a normal is 2.563 sigma.
-SIGMA_PER_P10_P90 = 1.0 / 2.563
+# Under PER_PANO a measured height is first put through depth.believe_height, the QC
+# rule measured in #44: a rejected one falls back to the default like an unmeasured pano,
+# and a kept one gets depth.MEASURED_HEIGHT_SIGMA_M (the ground-plane spread was measured
+# not to predict the error, so it no longer sets the sigma).
 
 # RampNet's heatmap is 1024x512 over the full equirect, so detections are quantized
 # to that grid — and both axes step by the same angle: 2*pi/1024 == pi/512 rad/px.
@@ -182,6 +184,9 @@ class Pose:
     source: str
     camera_height_m: float | None = None         # measured (GSV depth); None = unknown
     camera_height_spread_m: float | None = None  # p90-p10 over the pano's ground planes
+    ground_tilt_deg: float | None = None         # that ground plane's tilt (#44 QC input)
+    camera_height_vintage_m: float | None = None  # median measured height of the pano's
+                                                  # vintage in its run (#44 QC input)
 
 
 def pano_pose(pano):
@@ -208,12 +213,16 @@ def pano_pose(pano):
     spread = pano.get('camera_height_spread_m')
     height = None if height is None else float(height)
     spread = None if spread is None else float(spread)
+    tilt = pano.get('ground_tilt_deg')
+    tilt = None if tilt is None else float(tilt)
+    vintage = pano.get('camera_height_vintage_m')   # set by fuse_sites.load_results only
+    vintage = None if vintage is None else float(vintage)
     if pitch is None or roll is None:
         return Pose(pano['lat'], pano['lng'], heading, 0.0, 0.0, False, src,
-                    height, spread)
+                    height, spread, tilt, vintage)
     return Pose(pano['lat'], pano['lng'], heading,
                 norm_deg(float(pitch)), norm_deg(float(roll)), True, src,
-                height, spread)
+                height, spread, tilt, vintage)
 
 
 # --- OpenSfM / Mapillary rotation -> (heading, pitch, roll) ----------------------------
@@ -392,9 +401,9 @@ def camera_height_for(pose, errors=None, camera_height=DEFAULT_CAMERA_HEIGHT_M):
 
     ``camera_height`` is a number -- every pano gets that height and the error model's
     flat sigma, which is what every raycast did before #40 -- or PER_PANO: the pano's
-    measured height, with sigma from its own ground-plane spread floored at the error
-    model's (curb, crown and gutter are there whatever the planes say), falling back to
-    DEFAULT_CAMERA_HEIGHT_M for a pano with no measurement.
+    measured height if depth.believe_height keeps it (#44), with its sigma floored at the
+    error model's, falling back to DEFAULT_CAMERA_HEIGHT_M and the model's sigma for a pano
+    with no measurement or a rejected one.
 
     Example:
         >>> pose = pano_pose({'lat': 40.0, 'lng': -74.0, 'camera_heading': 0.0,
@@ -403,15 +412,19 @@ def camera_height_for(pose, errors=None, camera_height=DEFAULT_CAMERA_HEIGHT_M):
         >>> camera_height_for(pose)
         (2.6, 0.15)
         >>> camera_height_for(pose, camera_height=PER_PANO)
-        (1.73, 0.15)
+        (1.73, 0.259)
     """
     errors = errors or error_model_for(pose.source)
     if camera_height != PER_PANO:
         return float(camera_height), errors.sigma_height_m
     if pose.camera_height_m is None:
         return DEFAULT_CAMERA_HEIGHT_M, errors.sigma_height_m
-    spread = pose.camera_height_spread_m or 0.0
-    return pose.camera_height_m, max(errors.sigma_height_m, spread * SIGMA_PER_P10_P90)
+    height, sigma, _ = depthlib.believe_height(
+        pose.camera_height_m, pose.camera_height_spread_m, pose.ground_tilt_deg,
+        vintage_median_m=pose.camera_height_vintage_m)
+    if height is None:
+        return DEFAULT_CAMERA_HEIGHT_M, errors.sigma_height_m
+    return height, max(errors.sigma_height_m, sigma)
 
 
 @dataclass(frozen=True)

@@ -4,6 +4,7 @@ import math
 
 import pytest
 
+import depth
 import geo
 
 
@@ -233,11 +234,25 @@ def test_per_pano_falls_back_to_the_default_without_a_measurement():
         == (geo.DEFAULT_CAMERA_HEIGHT_M, geo.GSV_ERRORS.sigma_height_m)
 
 
-def test_per_pano_sigma_widens_with_the_ground_plane_spread():
+def test_per_pano_sigma_is_the_measured_constant_not_the_spread():
+    # #44 T4: the plane spread does not predict the error, so a kept height gets one sigma.
     _, tight = geo.camera_height_for(_measured_pose(2.0, 0.05), camera_height=geo.PER_PANO)
     _, loose = geo.camera_height_for(_measured_pose(2.0, 1.0), camera_height=geo.PER_PANO)
-    assert tight == geo.GSV_ERRORS.sigma_height_m          # floored at the model's sigma
-    assert loose == pytest.approx(1.0 / 2.563)
+    assert tight == loose == depth.MEASURED_HEIGHT_SIGMA_M
+    # ...floored at the error model's, as before
+    assert max(geo.MAPILLARY_ERRORS.sigma_height_m, depth.MEASURED_HEIGHT_SIGMA_M) ==         geo.camera_height_for(_measured_pose(2.0, 0.05, source='mapillary'),
+                              camera_height=geo.PER_PANO)[1]
+
+
+def test_per_pano_qc_rejection_falls_back_and_the_fixed_path_ignores_it():
+    pose = geo.pano_pose({'lat': 44.05, 'lng': -121.31, 'camera_heading': 0.0,
+                          'camera_pitch': None, 'camera_roll': None, 'source': 'launch',
+                          'camera_height_m': 1.2, 'camera_height_spread_m': 0.02,
+                          'ground_tilt_deg': 1.1, 'camera_height_vintage_m': 1.8})
+    assert pose.ground_tilt_deg == 1.1
+    assert geo.camera_height_for(pose, camera_height=geo.PER_PANO)         == (geo.DEFAULT_CAMERA_HEIGHT_M, geo.GSV_ERRORS.sigma_height_m)
+    assert geo.camera_height_for(pose) == (2.6, geo.GSV_ERRORS.sigma_height_m)
+    assert geo.camera_height_for(pose, camera_height=2.3) == (2.3, 0.15)
 
 
 def test_ground_point_to_pano_inverts_the_per_pano_raycast():
