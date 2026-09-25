@@ -55,6 +55,11 @@ Interpretation choices the plan left open, fixed here BEFORE the numbers ran:
   - Sensitivity: 0.40 m, 6 deg, 1.30 and 2x are each re-run at x0.75 and x1.25, one at a
     time; the report says whether any verdict moves.
 
+What shipped is narrower than the pre-registered verdicts (ADOPTED_GATES, and
+docs/camera-height-study.md "QC rule (#44)"): on review the T3 gate failed per city and
+its fallback was worse than the height it replaced, so it only flags; and T4's constant
+sigma worsened GT placement, so the spread sigma stays. Per-pano output is #68's.
+
 No GPU, no network. Reads runs/<city>/{results.jsonl, depth/index.csv}; writes
 runs/<city>/height_qc/{report.md, bins.csv, gates.csv} per city and the cross-city
 verdicts to runs/_pooled/height_qc/ (the same three, plus decision.csv: the default-height
@@ -113,6 +118,15 @@ class Thresholds:
 
 
 SENSITIVITY_KNOBS = ('dev_m', 'tilt_deg', 'ratio_max', 'gate_factor')
+
+# What shipped, which is NOT simply what the pooled verdict says. The pooled T3 verdict
+# ships the vintage-deviation gate, but on review (PR #81) it fails its own rule per city in
+# gainesville (flag rate 11%) and sao_paulo (ratio 1.38 per-pano), the pooled pass being
+# carried by bend (45% of the pool), and the plan's 2.6 m fallback is worse than the
+# rejected depth height on the low rig under the per-pano association (post_hoc_fallback).
+# So no gate rejects: depth.believe_height only FLAGS. The decision table below therefore
+# keeps every measured height, exactly as the shipped per-pano mode does.
+ADOPTED_GATES = ()
 
 
 @dataclass
@@ -516,15 +530,16 @@ def decision_table(per_city, kept):
 
 
 def decision_markdown(table, t1_verdict):
-    lines = ['## Default-height decision table (rule applied; the default is NOT changed)',
+    lines = ['## Default-height decision table (the default is NOT changed)',
              '',
              'Range error = H / implied − 1 per pano (positive = ranges run long), median '
              'signed / median absolute. "Low rig" = vintages whose median depth is below '
              f'{LOW_VINTAGE_M} m. Options: (a) 2.6 m everywhere; (b) {OPTION_B_SCALE} × the '
-             f'depth height where the QC rule keeps it, else 2.6; (c) depth < {OPTION_C[0]} '
-             f'→ {OPTION_C[1]} m, else {OPTION_C[2]} m where kept, else 2.6. Unmeasured and '
-             f'rejected panos raycast at 2.6 m under every option. T1 said: '
-             f'**{t1_verdict}**.', '']
+             f'depth height; (c) depth < {OPTION_C[0]} → {OPTION_C[1]} m, else '
+             f'{OPTION_C[2]} m. No QC gate rejects (ADOPTED_GATES is empty), so every '
+             'measured height is used; unmeasured panos raycast at 2.6 m under every option. '
+             f'T1 said: **{t1_verdict}**. The pre-registered verdicts behind this table are '
+             'fragile: the ±25% sensitivity pass moves them in 4 of 8 runs.', '']
     for a in ASSOCIATIONS:
         lines += [f'Associated at {a}:', '',
                   '| city | option | low rig (n) | low rig err | other (n) | other err | '
@@ -618,7 +633,31 @@ def city_report(city, rows, n_panos, n_implied, t):
     return '\n'.join(lines) + '\n', bins_rows, gates
 
 
-def pooled_report(cities, res, sens, t):
+def post_hoc_fallback(rows, t):
+    """POST-HOC (not pre-registered; asked for by the PR #81 review). For panos the
+    vintage-deviation gate flags, the median |H / implied - 1| under three replacement
+    heights: keep the depth height, the 2.6 m default (the plan's fallback), or the
+    vintage median. Split by rig and by side of the vintage median."""
+    out = []
+    for a in ASSOCIATIONS:
+        for rig in ('low', 'other'):
+            flagged = [r for r in rows if abs(r.depth - r.vintage_median) >= t.dev_m
+                       and r.implied[a] is not None
+                       and (r.vintage_median < LOW_VINTAGE_M) == (rig == 'low')]
+            for side in ('below', 'above'):
+                g = [r for r in flagged if (r.depth < r.vintage_median) == (side == 'below')]
+                if not g:
+                    continue
+                out.append({'association': a, 'rig': rig, 'side': side, 'n': len(g),
+                            'keep_depth': median(abs(r.depth / r.implied[a] - 1) for r in g),
+                            'fallback_default': median(
+                                abs(geo.DEFAULT_CAMERA_HEIGHT_M / r.implied[a] - 1) for r in g),
+                            'vintage_median': median(
+                                abs(r.vintage_median / r.implied[a] - 1) for r in g)})
+    return out
+
+
+def pooled_report(cities, res, sens, t, rows=None):
     lines = [f'# Height QC verdicts (#44), pooled over {", ".join(cities)}', '',
              'Pre-registered on '
              '[#44](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/44); '
@@ -629,12 +668,16 @@ def pooled_report(cities, res, sens, t):
              f"{res['t1_labels'][ASSOCIATIONS[0]]}; 2.3 m: "
              f"{res['t1_labels'][ASSOCIATIONS[1]]}) |",
              f"| T2 | fallback: {', '.join(res['t2_fallback']) or 'none'} |",
-             f"| T3 | ships: {', '.join(res['t3_ship']) or 'none'} |",
+             f"| T3 | pooled verdict ships: {', '.join(res['t3_ship']) or 'none'}; "
+             f"**adopted: {', '.join(ADOPTED_GATES) or 'none'}** (per-city results below; "
+             "the gate only flags) |",
              f"| T4 | {'keep spread × SIGMA_PER_P10_P90' if res['t4_keep_spread'] else 'constant sigma'}"
              f" (p68 rising: per-pano {res['t4_rising'][ASSOCIATIONS[0]]}, 2.3 m "
              f"{res['t4_rising'][ASSOCIATIONS[1]]}; kept-pano p68 "
              + ', '.join(f"{fmt(res['t4_p68_kept'][a])} ({a})" for a in ASSOCIATIONS)
-             + ') |', '',
+             + '); **not adopted**: scored against RampNet GT, the constant made p90 '
+             'GT-to-site placement worse in all four cities, so the spread sigma stays '
+             '(docs/camera-height-study.md) |', '',
              '## T1: pano-weighted slope per city', '',
              '| city | ' + ' | '.join(f'slope ({a})' for a in ASSOCIATIONS) + ' |',
              '|---|' + '---:|' * len(ASSOCIATIONS)]
@@ -659,6 +702,33 @@ def pooled_report(cities, res, sens, t):
             cells += [fmt(ga['flag_rate'], 4), fmt(ga['ratio'])]
         lines.append(f"| {g['gate']} | " + ' | '.join(cells)
                      + f" | {'yes' if g['gate'] in res['t3_ship'] else 'no'} |")
+    if rows:
+        lines += ['', '## T3 per city (context for the pooled verdict; not pre-registered)',
+                  '', '| gate | city | measured | flag rate | ratio (per-pano / 2.3) '
+                  '| passes in this city |', '|---|---|---:|---:|---|---|']
+        per = {c: {a: t3([r for r in rows if r.city == c], a, t) for a in ASSOCIATIONS}
+               for c in cities}
+        for i, g in enumerate(res['t3'][ASSOCIATIONS[0]]):
+            for c in cities:
+                ga = [per[c][a][i] for a in ASSOCIATIONS]
+                lines.append(f"| {g['gate']} | {c} | {ga[0]['n_measured']} | "
+                             f"{fmt(ga[0]['flag_rate'], 4)} | "
+                             + ' / '.join(fmt(x['ratio']) for x in ga)
+                             + f" | {'yes' if all(x['pass'] for x in ga) else 'no'} |")
+        share = {c: sum(1 for r in rows if r.city == c) / len(rows) for c in cities}
+        lines += ['', 'Share of the pooled measured panos: ' + ', '.join(
+            f'{c} {100 * v:.0f}%' for c, v in share.items()) + '.', '',
+                  '## POST-HOC: what a flagged pano should be raycast at', '',
+                  'Not pre-registered (asked for by the PR #81 review). For panos the '
+                  f'vintage-deviation gate flags (≥ {t.dev_m:g} m from the vintage median): '
+                  'median |H / implied − 1| if H is the depth height, the 2.6 m default '
+                  '(the plan\'s fallback), or the vintage median.', '',
+                  '| association | rig | side of median | n | keep depth | 2.6 m | '
+                  'vintage median |', '|---|---|---|---:|---:|---:|---:|']
+        for f in post_hoc_fallback(rows, t):
+            lines.append(f"| {f['association']} | {f['rig']} | {f['side']} | {f['n']} | "
+                         f"{fmt(f['keep_depth'])} | {fmt(f['fallback_default'])} | "
+                         f"{fmt(f['vintage_median'])} |")
     lines += ['', '## T4: p68 of |resid| (m) by spread quartile, pooled', '',
               '| quartile | ' + ' | '.join(f'spread ({a}) | p68 ({a})' for a in ASSOCIATIONS)
               + ' |', '|---|' + '---|---:|' * len(ASSOCIATIONS)]
@@ -713,8 +783,8 @@ def main():
 
     res = verdicts(all_rows, t)
     sens = sensitivity(all_rows, res)
-    table = decision_table(per_city, kept_predicate(res, t))
-    text = (pooled_report(args.cities, res, sens, t) + '\n'
+    table = decision_table(per_city, lambda r: not ADOPTED_GATES)
+    text = (pooled_report(args.cities, res, sens, t, all_rows) + '\n'
             + decision_markdown(table, res['t1_verdict']))
     out = args.runs_root / '_pooled' / 'height_qc'
     out.mkdir(parents=True, exist_ok=True)

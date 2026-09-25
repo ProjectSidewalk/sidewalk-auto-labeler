@@ -635,12 +635,12 @@ The rig ranking is real, though: the 2025–26 GSV rig triangulates to ~1.9–2.
 (~2–4% on older ones). GT world P/R still cannot tell any height model apart
 (all within ±3 pts). So `geo.PER_PANO` / `--camera-height-m per-pano` exists and is
 **opt-in**; the default stays 2.6 m and fused output is byte-identical to before #40.
-Under per-pano a measured height first passes `depth.believe_height` (#44, pre-registered
-tests in `scripts/height_qc.py`): it is refused — raycast at 2.6 m, counted in
-`sites_meta.json` as `rejected_qc` — when it sits ≥ 0.40 m from its vintage's median (same
-run, same capture year; `fuse_sites.load_results` attaches it), and a kept one gets a
-constant 0.259 m sigma, since the plane spread was measured not to predict the error.
-Nothing else (tilt, spread, pixel share, the sub-1.5 m tail) passed its rule.
+Under per-pano a measured height passes `depth.believe_height` (#44, pre-registered tests
+in `scripts/height_qc.py`), which today only FLAGS: a height ≥ 0.40 m from its vintage's
+median (same run and capture year, ≥ 300 panos) is counted as `flagged_qc` in
+`sites_meta.json` and still used. The gate failed per city and its 2.6 m fallback was worse
+than the flagged height; T4's constant sigma worsened GT p90 placement. So both were not
+adopted, and per-pano `sites.jsonl` is byte-identical to #68's.
 `sources/gsv.py` stores the height on every new GSV pano block (`camera_height_m`,
 `camera_height_spread_m`, `ground_tilt_deg`, `depth_planes`, `camera_height_status`) —
 read from the raw response, because streetlevel's own depth parser rasterizes 131k pixels
