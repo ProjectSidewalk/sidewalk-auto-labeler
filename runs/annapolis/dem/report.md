@@ -5,6 +5,7 @@ Written by `scripts/dem_grade.py`; the study is `docs/dem-grade-study.md`.
 - DEM: USGS 3DEP via `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage`, 2 m posts (square 1.797e-05 deg pixels), 4076x3443 px in 9 tile(s), 60.6 MB; per-tile sha256 in `tiles.json`.
 - grades.csv sha256 `4b97c0e8ce228ad4315f1dd81a2bdc474375c7545df6bcffcda696a2d358304e` (10197238 bytes; not tracked -- regenerate with the command above and compare).
 - Fit window +-20 m of path distance, >= 3 frames.
+- Sampled from `results.jsonl` (sha256 `f1b228f742dc95909067cc3ba9b045f1acf76617747b6e21eb9e7df58335b9dd`, 53232 rows); `grades.json` records this and `--grade-source` refuses any other file.
 
 ## annapolis
 

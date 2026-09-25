@@ -4,7 +4,10 @@ Issue: [#51](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/51)
 [#42](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/42) (study:
 `docs/mapillary-tilt-study.md`; this repeats the control in §10.5). Related:
 [#52](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/52) (the shared-SfM-frame reading).
-Written 2026-09-25.
+Written 2026-09-25. **Revised after review** (same day,
+[PR #83 review](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/83#issuecomment-5835238567)):
+§0, §4.2 and §5 had misread which rule cells the DEM arm fails and overstated the #52 conclusion.
+They are corrected below; the verdict and every number are unchanged.
 
 ## 0. Summary
 
@@ -29,22 +32,28 @@ Written 2026-09-25.
 - **In fusion, the DEM grade behaves like the SfM grade.**
   - `road-dem` vs `road`: the median is within ±0.09 m and the p90 within ±0.23 m in every city. An
     independent grade neither rescues the control nor breaks the road frame.
-  - Where the SfM grade beat its shuffle (Richmond, Morgantown), the DEM grade beats its own shuffle
-    too. Where the SfM grade did not (Clovis and Laurens, the rig-tilted cities), the DEM grade does not
-    either.
-  - Off-pool recall at 2.5 m still falls by more than 1 point against the flat raycast: −4.0 in
-    Richmond, −1.6 in Morgantown, −2.5 in Annapolis. Gravity loses more (−5.6, −2.8, −3.3), so this cost
-    comes from rotating rays, not from the grade.
+  - **On the same eight-arm set the DEM arm fails six rule cells and the SfM arm four.** Both fail
+    (i) in Clovis and Laurens and (ii) in Richmond and Annapolis. The DEM arm fails two more, each
+    where the SfM arm passes:
+    - (i) in **Annapolis**: the SfM grade beats its shuffle (+0.480 / +0.121 m on p90 / median), the DEM
+      grade does not (+0.350 / +0.052 m; the median margin is under 0.1 m).
+    - (ii) in **Morgantown**: off-pool recall at 2.5 m falls 1.6 points under the DEM grade against 0.8
+      under the SfM grade.
+  - Both road arms beat their shuffles in Richmond and Morgantown.
+  - Off-pool recall at 2.5 m falls by more than 1 point against the flat raycast under `road-dem`: −4.0
+    in Richmond, −1.6 in Morgantown, −2.5 in Annapolis. Gravity loses more (−5.6, −2.8, −3.3), so most of
+    this cost comes with rotating rays rather than with either grade.
 - **What it means for #52.** #52 suggested that road-relative wins because subtracting the SfM grade
-  cancels error that the grade shares with the pitch. The DEM result weakens that reading:
-  - A grade the SfM never saw reproduces the SfM grade's advantage over its shuffle (Richmond,
-    Morgantown) and matches it in fusion.
-  - The SfM altitude tracks the terrain to within a few percent.
-
-  So in the hilly cities the grade is real road slope. The control fails anyway, for two reasons. In
-  the rig-tilted cities the grade does not matter. And the rotation costs recall on the flat raycast's
-  own GT pool. The study's §5.3 mechanism (the pitch tracks the road grade, so remove the grade) is
-  consistent with an independent grade, but that does not earn it a default. The rule decides that.
+  cancels error that the grade shares with the pitch.
+  - Against a *pure* shared-error reading in the hilly cities: the SfM grade is mostly terrain slope
+    (r = 0.80 / 0.83 with the DEM grade in Morgantown / Annapolis), and in Richmond and Morgantown a grade
+    the SfM never saw reproduces the effect of a frame's own grade over its shuffle.
+  - Not ruled out: r = 0.80–0.83 leaves about a third of the SfM grade's variance unexplained by the
+    terrain, which is where any shared error would sit. Annapolis is the one pattern the shared-error
+    reading predicts (the SfM grade clears its shuffle, the DEM grade does not), though its 0.07 m
+    shortfall on 90 common ramps is within this instrument's noise.
+  - So the DEM result contradicts a pure shared-SfM-error reading of the hilly cities' grade, and no
+    more. The fusion instrument cannot resolve whether the SfM-specific residual matters.
 
 ## 1. What was built
 
@@ -106,7 +115,10 @@ off, and the same constants as §10.5.
   - Annapolis 0.018 m
 - **Fetch size and time:** 55 tiles, 415 MB, about 3.5 minutes for the five cities (Clovis alone is
   25 tiles, 213 MB). No pano falls outside the raster.
-- **Checksums:** each city's `grades.csv` sha256 is in its `runs/<city>/dem/report.md`.
+- **Checksums:** each city's `grades.csv` sha256 is in its `runs/<city>/dem/report.md`, with the
+  sha256 of the `results.jsonl` it was sampled from. `grades.json` beside the CSV records both, and
+  `--grade-source` refuses a CSV built from another results file (e.g. Laurens' `results.raw.jsonl`),
+  a CSV that no longer matches its recorded hash, a graded pano with no row, and a non-finite cell.
 
 ### 3.2 Per city (all rigs; degrees)
 
@@ -128,14 +140,20 @@ Readings:
 - **The hilly cities agree.**
   - Morgantown and Annapolis correlate at r = 0.80–0.83, and at 0.88–0.90 once both grades are fitted.
   - Agreement rises with steepness: r = 0.86 in Morgantown's 4°+ bucket on the DEM.
-  - The SfM altitude profile is not compressed: 89% (Morgantown) and 84% (Annapolis) of sequences have
-    a relief ratio between 0.8 and 1.2.
+  - Over whole sequences the SfM altitude profile is not compressed: 89% (Morgantown) and 84%
+    (Annapolis) of sequences have a relief ratio between 0.8 and 1.2.
 - **Richmond's disagreement comes from the GoPro Max frames.** Their SfM grade has a lag-1 RMS of 4.2°,
   against the DEM's 1.2°, and they correlate at only r = 0.30. The iSTAR Pulsar rig agrees better (r =
   0.42, median |Δ| 0.34°) on flatter ground.
 - **Clovis's low r comes from SfM outliers on flat ground.** The median |Δ| is only 0.13°. But 1,687
   frames have an SfM grade of 4° or more (median 11.6°) where the DEM says 0.27°. Most are on the GoPro
   Fusion rig (lag-1 RMS 6.0°). These are the failed reconstructions that §5.2 of the tilt study found.
+- **Limit: the relief ratio is a sequence-scale statistic.** A per-sequence regression is dominated
+  by long-wavelength relief. It refutes the pilot's 0.27, but it says little about fidelity at the
+  2–40 m scale the grade is taken over; the per-frame r and slope above are the evidence for that.
+- **Limit: compare roughness like for like.** The lag-1 RMS column lists the production two-point SfM
+  grade next to the ±20 m fitted DEM grade, and a fitted grade is smoother by construction. Compare
+  two-point with two-point (Richmond 2.92° SfM vs 2.20° DEM) or fitted with fitted (2.36° vs 1.45°).
 - **Smoothing mostly de-noises the SfM grade.** In Morgantown, fitting the SfM altitude cuts its lag-1
   RMS from 2.11° to 0.87° and raises its agreement with the DEM from r = 0.80 to 0.88. Fitting changes
   the DEM grade less: DEM two-point vs DEM fit correlate at r = 0.87–0.97.
@@ -264,21 +282,27 @@ Richmond and Annapolis.
   - #51 was motivated partly by Clovis's "2 recall points". On this pool, road trails gravity by 1.1
     points of off-pool recall in Clovis, and the DEM arm more than makes that up (+1.7 over road).
 - **The DEM arm does not sit below gravity, as the pilot predicted.**
-  - It beats gravity on the median in 4 of 5 cities, and on off-pool recall in all five.
+  - It beats gravity on the median in 4 of 5 cities, and on off-pool recall in all five, though the
+    recall margins (+0.6 to +1.7 pt) are 1 to 4 ramps per pool.
   - So among rotated raycasts, road-relative is still the better frame. What the rule asks is whether
     any rotated raycast should be the default, and the answer is still no.
 
 ## 5. What this does and does not settle
 
-- **Settled: a better grade will not make road-relative pass the control.**
-  - The SfM grade was already close to the terrain in the hilly cities.
-  - The clauses that fail cannot be fixed by any grade. (i) fails in Clovis and Laurens, where the tilt
-    belongs to the rig, the grade is near zero and does not matter. (ii) fails in Richmond, Morgantown
-    and Annapolis, where the recall cost on the flat raycast's own pool comes with the rotation itself;
-    gravity pays more of it than `road-dem` does.
-- **Strengthened, not settled: #52's shared-error reading.** In Richmond and Morgantown the frame's own
-  grade does matter, and an independent grade shows the same effect. That argues against #52's reading
-  that the gain is only the cancellation of error shared inside one SfM.
+- **Settled for the two grades tested: neither makes road-relative pass the control.**
+  - The SfM grade was already mostly terrain slope in the hilly cities, and swapping in the DEM grade
+    fails more rule cells (six), not fewer (four).
+  - Clovis and Laurens fail (i) under both grades: there the tilt belongs to the rig, the grade is near
+    zero and does not matter.
+  - Richmond and Annapolis fail (ii) under both grades, and gravity pays more of that recall cost than
+    either road arm, so most of it comes with the rotation itself.
+  - The DEM arm additionally fails (i) in Annapolis and (ii) in Morgantown. Whether some other grade
+    would fix those cells is not tested here.
+- **Weakened, not settled: #52's shared-error reading.** In Richmond and Morgantown the frame's own
+  grade does matter, and an independent grade shows the same effect, which contradicts a *pure*
+  shared-SfM-error reading of the hilly cities' grade. About a third of the SfM grade's variance is not
+  explained by the terrain, and Annapolis leans slightly the shared-error way (within noise), so a
+  shared-error contribution is not ruled out.
 - **Not addressed:**
   - Cross-slope. This was closed per #52 (under 0.5° at ramp bearings).
   - The instrument's weakness. It rests on 74–128 common ramps per city, and only 802 of 1,570 Richmond

@@ -277,7 +277,8 @@ python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --out run
 # `fuse_sites.py --grade-source {sfm,sfm-smoothed,dem}` (default sfm; only matters under
 # --apply-pose road) reads it. VERDICT: NEGATIVE -- the pre-registered rule (eval_sites.dem_verdict)
 # fails (i)+(ii), so AUTO_ROAD_SOURCES stays (); DEM and SfM grades agree (r 0.80-0.83 in hilly
-# cities) and are interchangeable in fusion. The service returns SQUARE degree-pixels whatever size
+# cities) and land within 0.23 m in fusion. grades.csv is BOUND to its results file by grades.json
+# (sha256): fusing another file (e.g. laurens results.raw.jsonl) or a stale/truncated CSV refuses. The service returns SQUARE degree-pixels whatever size
 # is asked, so the grid is square in degrees and every tile's georeference is checked.
 python scripts/dem_grade.py richmond clovis morgantown annapolis laurens   # --verify re-hashes
 python scripts/mapillary_tilt.py precondition --grade-source dem           # eight arms + verdict

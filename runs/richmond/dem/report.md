@@ -5,6 +5,7 @@ Written by `scripts/dem_grade.py`; the study is `docs/dem-grade-study.md`.
 - DEM: USGS 3DEP via `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage`, 2 m posts (square 1.797e-05 deg pixels), 1946x1655 px in 4 tile(s), 14.7 MB; per-tile sha256 in `tiles.json`.
 - grades.csv sha256 `063bf8d292ff3f5b3a824d9579ff3879b254cb562d19c7cd8e72d966ad3af5de` (1596004 bytes; not tracked -- regenerate with the command above and compare).
 - Fit window +-20 m of path distance, >= 3 frames.
+- Sampled from `results.jsonl` (sha256 `109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c`, 9091 rows); `grades.json` records this and `--grade-source` refuses any other file.
 
 ## richmond
 
@@ -29,11 +30,11 @@ Panos 9091; out of raster 0; with a grade: sfm 8466, sfm_smoothed 8558, dem_2pt 
 | NCTECH LTD iSTAR Pulsar | DEM (fit) vs SfM (fit) | 4301 | 0.43 | 0.41 | 0.32 | 1.52 |
 | NCTECH LTD iSTAR Pulsar | SfM (production) vs SfM (fit) | 4289 | 0.98 | 0.95 | 0.00 | 0.25 |
 | NCTECH LTD iSTAR Pulsar | DEM (2-point) vs DEM (fit) | 4289 | 0.96 | 0.93 | 0.00 | 0.23 |
-| none none | DEM (fit) vs SfM (production) | 960 | 0.42 | 0.37 | 0.48 | 2.15 |
-| none none | DEM (2-point) vs SfM (production) | 960 | 0.34 | 0.23 | 0.44 | 2.02 |
-| none none | DEM (fit) vs SfM (fit) | 960 | 0.48 | 0.36 | 0.47 | 2.16 |
-| none none | SfM (production) vs SfM (fit) | 960 | 0.87 | 0.73 | 0.08 | 0.38 |
-| none none | DEM (2-point) vs DEM (fit) | 960 | 0.87 | 0.69 | 0.08 | 0.73 |
+| unknown | DEM (fit) vs SfM (production) | 960 | 0.42 | 0.37 | 0.48 | 2.15 |
+| unknown | DEM (2-point) vs SfM (production) | 960 | 0.34 | 0.23 | 0.44 | 2.02 |
+| unknown | DEM (fit) vs SfM (fit) | 960 | 0.48 | 0.36 | 0.47 | 2.16 |
+| unknown | SfM (production) vs SfM (fit) | 960 | 0.87 | 0.73 | 0.08 | 0.38 |
+| unknown | DEM (2-point) vs DEM (fit) | 960 | 0.87 | 0.69 | 0.08 | 0.73 |
 
 ### Frame-to-frame roughness and magnitude (degrees)
 
@@ -51,10 +52,10 @@ Panos 9091; out of raster 0; with a grade: sfm 8466, sfm_smoothed 8558, dem_2pt 
 | NCTECH LTD iSTAR Pulsar | sfm_smoothed | 1.46 | 0.80 |
 | NCTECH LTD iSTAR Pulsar | dem_2pt | 1.92 | 0.72 |
 | NCTECH LTD iSTAR Pulsar | dem | 1.70 | 0.71 |
-| none none | sfm | 2.01 | 0.98 |
-| none none | sfm_smoothed | 0.76 | 0.97 |
-| none none | dem_2pt | 2.69 | 0.77 |
-| none none | dem | 1.04 | 0.77 |
+| unknown | sfm | 2.01 | 0.98 |
+| unknown | sfm_smoothed | 0.76 | 0.97 |
+| unknown | dem_2pt | 2.69 | 0.77 |
+| unknown | dem | 1.04 | 0.77 |
 
 ### Relief ratio: per-sequence slope of SfM altitude on DEM elevation
 
@@ -65,7 +66,7 @@ Sequences with >= 30 frames and >= 0.5 m of DEM relief. 1.0 = the SfM altitude p
 | all | 61 | 0.38 | 0.98 | 1.16 | 61% | 3% |
 | GoPro GoPro Max | 13 | 0.71 | 1.00 | 1.05 | 77% | 0% |
 | NCTECH LTD iSTAR Pulsar | 34 | 0.40 | 0.98 | 1.17 | 62% | 0% |
-| none none | 14 | -0.15 | 0.77 | 1.17 | 43% | 14% |
+| unknown | 14 | -0.15 | 0.77 | 1.17 | 43% | 14% |
 
 ### DEM (fit) vs SfM (production) by |grade| bucket
 

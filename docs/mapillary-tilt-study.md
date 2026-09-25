@@ -910,10 +910,11 @@ Results:
 - **It passes (iii) and (iv).** So `AUTO_ROAD_SOURCES` stays empty, and `--grade-source dem` is opt-in.
 - **The DEM and SfM grades agree closely in the hilly cities.** Grade correlation is 0.80 in Morgantown
   and 0.83 in Annapolis. The per-sequence relief ratio has a median of 0.96–0.99.
-- **In fusion, `road-dem` sits within about 0.1–0.2 m of `road` everywhere.** So the grade that §5.3
-  subtracts is real road slope, not SfM error that cancels because the pitch shares it. What still
-  fails is the part no grade can fix: the rig-tilted cities, and the recall cost of rotating rays on
-  the flat raycast's own pool.
+- **In fusion, `road-dem` sits within about 0.1–0.2 m of `road` everywhere**, but on the same set it
+  fails six rule cells to the SfM arm's four (it also fails (i) in Annapolis and (ii) in Morgantown).
+  In the hilly cities the grade §5.3 subtracts is mostly real road slope, which contradicts a pure
+  shared-SfM-error reading; about a third of its variance is unexplained, so a shared-error share is
+  not ruled out. Neither grade fixes the rig-tilted cities or the recall cost of rotating rays.
 
 Full write-up: `docs/dem-grade-study.md`.
 

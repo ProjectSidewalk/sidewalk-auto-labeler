@@ -74,22 +74,6 @@ laurens: shuffled-within minus road p90 +0.122 m, median -0.094 m; off-pool R@2.
 (ii) off-pool recall@2.5 drops > 1.0 pt in: richmond, annapolis -> FAIL
 (iii) unplaceable marks exceed off by > 5% of the off pool in: none -> PASS
 shuffled-grade control (road vs road-shuffled-within): FAILS
-richmond: p90 road-dem-off -0.810 m, median road-dem-off -0.221 m
-clovis: p90 road-dem-off -0.793 m, median road-dem-off -0.435 m
-morgantown: p90 road-dem-off -0.133 m, median road-dem-off -0.218 m
-annapolis: p90 road-dem-off -0.737 m, median road-dem-off -0.414 m
-laurens: p90 road-dem-off -1.120 m, median road-dem-off -0.400 m
-p90 worse than off by > 0.1 m in: none; median improves in 5 of 5 (needs 3): richmond, clovis, morgantown, annapolis, laurens
-first rule (road-dem vs off): PASSES
-richmond: road-dem-shuffled-within minus road-dem p90 +0.664 m, median +0.103 m; off-pool R@2.5 road-dem-off -4.0 pt; unplaceable marks road-dem-off -2 (limit 12.7)
-clovis: road-dem-shuffled-within minus road-dem p90 -0.210 m, median -0.079 m; off-pool R@2.5 road-dem-off +5.2 pt; unplaceable marks road-dem-off -8 (limit 8.7)
-morgantown: road-dem-shuffled-within minus road-dem p90 +0.367 m, median +0.246 m; off-pool R@2.5 road-dem-off -1.6 pt; unplaceable marks road-dem-off +3 (limit 12.5)
-annapolis: road-dem-shuffled-within minus road-dem p90 +0.350 m, median +0.052 m; off-pool R@2.5 road-dem-off -2.5 pt; unplaceable marks road-dem-off -2 (limit 12.1)
-laurens: road-dem-shuffled-within minus road-dem p90 +0.117 m, median +0.036 m; off-pool R@2.5 road-dem-off +10.6 pt; unplaceable marks road-dem-off +2 (limit 11.8)
-(i) road-dem beats road-dem-shuffled-within by > 0.1 m on p90 AND median in 2 of 5 (needs 4): richmond, morgantown -> FAIL
-(ii) off-pool recall@2.5 drops > 1.0 pt in: richmond, morgantown, annapolis -> FAIL
-(iii) unplaceable marks exceed off by > 5% of the off pool in: none -> PASS
-shuffled-grade control (road-dem vs road-dem-shuffled-within): FAILS
 richmond: road-dem - road: p90 -0.074 m, median +0.075 m, off-pool R@2.5 +0.0 pt
 clovis: road-dem - road: p90 +0.223 m, median -0.011 m, off-pool R@2.5 +1.7 pt
 morgantown: road-dem - road: p90 -0.081 m, median -0.086 m, off-pool R@2.5 -0.8 pt

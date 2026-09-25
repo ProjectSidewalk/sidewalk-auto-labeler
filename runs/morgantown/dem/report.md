@@ -5,6 +5,7 @@ Written by `scripts/dem_grade.py`; the study is `docs/dem-grade-study.md`.
 - DEM: USGS 3DEP via `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage`, 2 m posts (square 1.797e-05 deg pixels), 5092x5619 px in 16 tile(s), 120.9 MB; per-tile sha256 in `tiles.json`.
 - grades.csv sha256 `886515e1ed00245d3d9fa1caf12b7ccc194f1d00d50a1af582da5f0e440fd913` (9962045 bytes; not tracked -- regenerate with the command above and compare).
 - Fit window +-20 m of path distance, >= 3 frames.
+- Sampled from `results.jsonl` (sha256 `7dbf24e03574c31b0a3011490177a5d51dc20e30badf7fdd35da443e870b98bc`, 51692 rows); `grades.json` records this and `--grade-source` refuses any other file.
 
 ## morgantown
 
