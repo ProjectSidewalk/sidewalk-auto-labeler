@@ -48,7 +48,10 @@ Camera height (issue #40) is geo.DEFAULT_CAMERA_HEIGHT_M for every pano unless
 height where there is one -- from the pano block on runs made since #40, else from the
 harvested depth/index.csv beside results.jsonl (scripts/harvest_depth.py). Per-pano is
 opt-in on evidence; --implied-height is the instrument that measured why, and
-docs/camera-height-study.md has the numbers.
+docs/camera-height-study.md has the numbers. For Mapillary/Panoramax, which serve no
+depth, `per-rig` reads a per-capture-rig height table, runs/<name>/camera_heights.json
+(issue #53; scripts/mapillary_height.py measures and writes it, bound to results.jsonl by
+its sha256) -- also opt-in, see docs/mapillary-camera-height.md.
 
 Output: sites.jsonl (one site per line, fused position + covariance + members)
 and sites_meta.json (parameters, frame origin, drop counters) beside the input.
@@ -64,6 +67,7 @@ Usage:
 """
 import argparse
 import csv
+import hashlib
 import json
 import math
 import sys
@@ -189,18 +193,25 @@ class SlimPano:
     detections: list  # [(det_index, x_normalized, y_normalized, confidence)] as stored
     camera_height_m: float | None = None         # measured (#40); None = unmeasured
     camera_height_spread_m: float | None = None
+    ground_tilt_deg: float | None = None         # the ground plane's tilt (#44 QC reads it)
+    camera_height_vintage_m: float | None = None  # median measured height, same capture
+                                                  # year in this run (#44 QC gate)
     pose_origin: str | None = None               # 'block' | 'source_metadata' | None (#42)
     sequence_id: str | None = None               # capture sequence (Mapillary)
     grade_deg: float | None = None               # road grade along travel (sequence_grades)
     travel_bearing_deg: float | None = None
     grade_origin: str | None = None              # GRADE_SOURCES member that set grade_deg
+    height_group: str | None = None              # camera_heights.json group (#53, per-rig)
+    height_table: dict | None = None             # ...and that table's provenance (shared)
 
     def pose_fields(self, **overrides):
         """The pano-block fields geo.pano_pose reads, with any of them overridden."""
         return {'lat': self.lat, 'lng': self.lng, 'camera_heading': self.camera_heading,
                 'camera_pitch': self.camera_pitch, 'camera_roll': self.camera_roll,
                 'source': self.source, 'camera_height_m': self.camera_height_m,
-                'camera_height_spread_m': self.camera_height_spread_m, **overrides}
+                'camera_height_spread_m': self.camera_height_spread_m,
+                'ground_tilt_deg': self.ground_tilt_deg,
+                'camera_height_vintage_m': self.camera_height_vintage_m, **overrides}
 
 
 @dataclass
@@ -299,8 +310,8 @@ def _months(capture_date):
 
 
 def load_depth_index(path):
-    """{pano_id: (camera_height_m, height_spread_m)} for the MEASURED heights in a
-    harvested depth/index.csv (scripts/harvest_depth.py), or {} if there is none.
+    """{pano_id: (camera_height_m, height_spread_m, ground_tilt_deg)} for the MEASURED
+    heights in a harvested depth/index.csv (scripts/harvest_depth.py), or {} if there is none.
 
     This is how a run made before #40 -- whose pano blocks carry no height -- gets its
     measured heights: the four GSV runs were harvested in full. Rows go through the same
@@ -318,7 +329,7 @@ def load_depth_index(path):
             h, tilt = float(row['camera_height_m']), float(row['ground_tilt_deg'])
             status = depthlib.classify_height(h, tilt, degenerate=row['degenerate'] == '1')
             if status == depthlib.MEASURED:
-                heights[row['panorama_id']] = (h, float(row['height_spread_m']))
+                heights[row['panorama_id']] = (h, float(row['height_spread_m']), tilt)
     return heights
 
 
@@ -442,9 +453,11 @@ def pose_source_warnings(panos, mode):
             for kind, n in sorted(counts.items())]
 
 
+HEIGHT_TABLE_NAME = 'camera_heights.json'   # per-rig camera heights beside results.jsonl
+
+
 def file_sha256(path):
-    """sha256 hex digest of a file, streamed."""
-    import hashlib
+    """Hex sha256 of a file, streamed (results.jsonl runs to ~100 MB)."""
     h = hashlib.sha256()
     with open(path, 'rb') as f:
         for chunk in iter(lambda: f.read(1 << 20), b''):
@@ -500,7 +513,48 @@ def load_grades_csv(path, grade_source, results_path=None):
         return out
 
 
-def load_results(path, depth_index=None, read_heights=True,
+def apply_height_table(panos, table_path, results_path):
+    """Fill SlimPano.camera_height_m / camera_height_spread_m from a per-rig table (#53).
+
+    Refuses (ValueError) a table whose results_sha256 is not this results.jsonl's -- a
+    table measured on another file says nothing about this one -- and a run holding any
+    non-crowdsourced pano: GSV serves a real per-pano height (use `per-pano`). Every
+    sequence resolves through table['sequences'] to one group; a group whose height_m is
+    the table's default_m (it failed a rule, or was never measured) leaves the pano at
+    None, so camera_height_for falls back exactly as a 2.6 m fuse would. Whether a group
+    applies is the table's own `applied` flag. Under PER_RIG the spread field carries the
+    group's 1-sigma (geo.camera_height_for). The lookup key is SlimPano.sequence_id, which
+    load_results takes from pano.sequence_id else source_metadata.sequence -- the same
+    expression mapillary_height.pano_groups keys the table by."""
+    table_path = Path(table_path)
+    with open(table_path, encoding='utf-8') as f:
+        table = json.load(f)
+    if table.get('schema') != 1:
+        raise ValueError(f'{table_path}: unknown camera-height table schema '
+                         f'{table.get("schema")!r}')
+    sha = file_sha256(results_path)
+    if table.get('results_sha256') != sha:
+        raise ValueError(f'{table_path} was measured on a different results.jsonl '
+                         f'(table {table.get("results_sha256")}, file {sha}); re-run '
+                         'scripts/mapillary_height.py')
+    other = {p.source for p in panos if p.source not in geo.CROWDSOURCED_SOURCES}
+    if other:
+        raise ValueError(f'per-rig heights are for crowdsourced sources only; this run '
+                         f'holds {sorted(other)} panos (GSV: use per-pano)')
+    prov = {'table': str(table_path), 'sha256': file_sha256(table_path),
+            'grain': table.get('grain'), 'recommended': table.get('recommended')}
+    for p in panos:
+        key = table['sequences'].get(p.sequence_id)
+        group = table['groups'].get(key) if key is not None else None
+        p.height_group, p.height_table = key, prov
+        if group is None or not group.get('applied'):
+            p.camera_height_m = p.camera_height_spread_m = None
+        else:
+            p.camera_height_m, p.camera_height_spread_m = group['height_m'], group['sigma_m']
+    return panos
+
+
+def load_results(path, depth_index=None, read_heights=True, height_table=None,
                  grade_source=GRADE_SFM, grades_path=None):
     """Stream results.jsonl into SlimPanos, discarding links/history/metadata.
     Records without a position or heading can't be raycast and are dropped
@@ -523,7 +577,10 @@ def load_results(path, depth_index=None, read_heights=True,
     grade_source (#51): under anything but `sfm`, each graded pano's grade_deg is then
     replaced from `grades_path` (default: dem/grades.csv beside the file); the travel
     bearing is kept. A pano with no value there gets grade_deg=None, i.e. the gravity
-    fallback pose_counts already counts."""
+    fallback pose_counts already counts.
+
+    height_table (#53): a camera_heights.json path, for a PER_RIG fuse -- the heights
+    come from it instead (apply_height_table; it refuses a mismatched file or a GSV run)."""
     path = Path(path)
     index = load_depth_index(depth_index or path.parent / 'depth' / 'index.csv') \
         if read_heights else {}
@@ -540,9 +597,10 @@ def load_results(path, depth_index=None, read_heights=True,
                 skipped += 1
                 continue
             if p.get('camera_height_status') in _UNDECIDED:
-                height, spread = index.get(p['panorama_id'], (None, None))
+                height, spread, tilt = index.get(p['panorama_id'], (None, None, None))
             else:
                 height, spread = p.get('camera_height_m'), p.get('camera_height_spread_m')
+                tilt = p.get('ground_tilt_deg')
             pitch, roll = p.get('camera_pitch'), p.get('camera_roll')
             meta = p.get('source_metadata') or {}
             origin = 'block' if pitch is not None and roll is not None else None
@@ -557,7 +615,8 @@ def load_results(path, depth_index=None, read_heights=True,
                 detections=[(i, d['x_normalized'], d['y_normalized'], d['confidence'])
                             for i, d in enumerate(rec.get('detections', []))],
                 camera_height_m=height, camera_height_spread_m=spread,
-                pose_origin=origin, sequence_id=p.get('sequence_id')))
+                ground_tilt_deg=tilt, pose_origin=origin,
+                sequence_id=p.get('sequence_id') or meta.get('sequence')))
             frames.append((len(panos) - 1, p.get('sequence_id'), meta.get('captured_at'),
                            p['lat'], p['lng'], meta.get('computed_altitude')))
     for i, (grade, bearing) in sequence_grades(frames).items():
@@ -579,7 +638,30 @@ def load_results(path, depth_index=None, read_heights=True,
                 continue                    # no travel direction: nothing to rotate about
             p.grade_deg = grades[p.pano_id]
             p.grade_origin = grade_source if p.grade_deg is not None else None
+    attach_vintage_medians(panos)
+    if height_table is not None:
+        apply_height_table(panos, height_table, path)
     return panos, skipped
+
+
+def attach_vintage_medians(panos, min_panos=None):
+    """Set each measured pano's camera_height_vintage_m: the median measured height over
+    the run's panos of the same capture year, the vintage depth.believe_height's QC gate
+    compares against (#44). A run is bound to one imagery source, so the year is the
+    vintage -- exactly as scripts/height_qc.py measured it. A vintage with fewer than
+    `min_panos` measured panos (default depth.QC_MIN_VINTAGE_PANOS), or an undated pano,
+    gets no median: a median of one or two panos can hardly be deviated from, and the
+    undated bucket would pool unrelated years."""
+    min_panos = depthlib.QC_MIN_VINTAGE_PANOS if min_panos is None else min_panos
+    by_year = {}
+    for p in panos:
+        year = (p.capture_date or '')[:4]
+        if p.camera_height_m is not None and year:
+            by_year.setdefault(year, []).append(p.camera_height_m)
+    medians = {y: _median(v) for y, v in by_year.items() if len(v) >= min_panos}
+    for p in panos:
+        if p.camera_height_m is not None:
+            p.camera_height_vintage_m = medians.get((p.capture_date or '')[:4])
 
 
 def project(panos, params):
@@ -689,10 +771,32 @@ def fuse(panos, params):
 def camera_height_counts(panos, params):
     """How the run's panos got their camera height -- the provenance a reader of
     sites_meta.json needs to know which frame the positions are in."""
+    if params.camera_height_m == geo.PER_RIG:
+        prov = next((p.height_table for p in panos if p.height_table), None) or {}
+        groups = {}
+        for p in panos:
+            if p.camera_height_m is not None:
+                groups[p.height_group] = groups.get(p.height_group, 0) + 1
+        applied = sum(groups.values())
+        return {'mode': geo.PER_RIG, 'table': prov.get('table'), 'sha256': prov.get('sha256'),
+                'grain': prov.get('grain'), 'applied': applied,
+                'fallback': len(panos) - applied, 'applied_by_group': groups}
     if params.camera_height_m != geo.PER_PANO:
         return {'fixed_m': params.camera_height_m, 'panos': len(panos)}
-    measured = sum(1 for p in panos if p.camera_height_m is not None)
-    return {'measured': measured, 'fallback': len(panos) - measured}
+    measured, flagged = 0, {}
+    for p in panos:
+        if p.camera_height_m is None:
+            continue
+        measured += 1
+        _, _, reason = depthlib.believe_height(
+            p.camera_height_m, p.camera_height_spread_m, p.ground_tilt_deg,
+            vintage_median_m=p.camera_height_vintage_m)
+        if reason != depthlib.MEASURED:
+            flagged[reason] = flagged.get(reason, 0) + 1
+    # measured = raycast at its own height; flagged_qc = the subset of those the #44 QC
+    # gate flags (kept all the same); fallback = no measurement, raycast at the default.
+    return {'measured': measured, 'flagged_qc': flagged,
+            'fallback': len(panos) - measured}
 
 
 def site_to_json(site, frame):
@@ -763,8 +867,8 @@ def summarize(sites, stats):
 
 
 def camera_height_arg(value):
-    """argparse type for --camera-height-m: meters, or geo.PER_PANO."""
-    return value if value == geo.PER_PANO else float(value)
+    """argparse type for --camera-height-m: meters, geo.PER_PANO or geo.PER_RIG."""
+    return value if value in (geo.PER_PANO, geo.PER_RIG) else float(value)
 
 
 def build_parser():
@@ -781,7 +885,12 @@ def build_parser():
                     default=geo.DEFAULT_CAMERA_HEIGHT_M,
                     help='camera height in meters for every pano, or "per-pano" for '
                          "each GSV pano's depth-measured height where it has one (#40; "
-                         'opt-in -- see docs/camera-height-study.md)')
+                         'opt-in -- see docs/camera-height-study.md), or "per-rig" for a '
+                         "Mapillary/Panoramax run's camera_heights.json (#53; opt-in -- "
+                         'see docs/mapillary-camera-height.md)')
+    ap.add_argument('--height-table', type=Path, default=None,
+                    help='camera_heights.json for --camera-height-m per-rig '
+                         '(default: beside results.jsonl)')
     ap.add_argument('--sigma-scale', type=float, default=1.0)
     # A value is REQUIRED (no nargs='?'): an optional value would swallow the positional
     # run directory in `--apply-pose runs/x`, and a bare flag would have to guess a mode.
@@ -827,10 +936,23 @@ def main():
         camera_height_m=args.camera_height_m, apply_pose=args.apply_pose,
         sigma_scale=args.sigma_scale, grade_source=args.grade_source)
 
-    panos, skipped = load_results(
-        jsonl, args.depth_index,
-        read_heights=args.camera_height_m == geo.PER_PANO or args.implied_height,
-        grade_source=args.grade_source, grades_path=args.grades)
+    height_table = None
+    if args.height_table is not None and args.camera_height_m != geo.PER_RIG:
+        print('WARNING: --height-table is ignored unless --camera-height-m per-rig',
+              file=sys.stderr)
+    if args.camera_height_m == geo.PER_RIG:
+        height_table = args.height_table or jsonl.parent / HEIGHT_TABLE_NAME
+        if not Path(height_table).exists():
+            sys.exit(f'per-rig needs a camera-height table; none at {height_table} '
+                     '(scripts/mapillary_height.py writes it)')
+    try:
+        panos, skipped = load_results(
+            jsonl, args.depth_index,
+            read_heights=args.camera_height_m == geo.PER_PANO or args.implied_height,
+            height_table=height_table,
+            grade_source=args.grade_source, grades_path=args.grades)
+    except ValueError as e:
+        sys.exit(str(e))
     if skipped:
         print(f'skipped {skipped} records without position/heading')
     if not panos:

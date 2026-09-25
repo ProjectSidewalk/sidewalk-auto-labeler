@@ -1,0 +1,13 @@
+city,gate,association,n_measured,n_flagged,flag_rate,n_flagged_implied,n_unflagged_implied,med_rel_resid_flagged,med_rel_resid_unflagged,ratio,pass
+gainesville,ground_tilt_deg >= 6,per-pano,30458,284,0.0093,39,7613,0.1345,0.0919,1.464,False
+gainesville,height_spread_m >= 0.3,per-pano,30458,710,0.0233,129,7523,0.1037,0.0919,1.128,False
+gainesville,ground_pixel_share < 0.15,per-pano,30458,225,0.0074,52,7600,0.0695,0.0923,0.752,False
+gainesville,depth_planes < 60,per-pano,30458,2034,0.0668,391,7261,0.0943,0.0919,1.026,False
+gainesville,sky_fraction > 0.6,per-pano,30458,0,0.0,0,7652,,0.0921,,False
+gainesville,|depth - vintage_median| >= 0.4,per-pano,30458,3370,0.1106,295,7357,0.2093,0.0895,2.339,False
+gainesville,ground_tilt_deg >= 6,2.3,30458,284,0.0093,37,7407,0.1691,0.095,1.78,False
+gainesville,height_spread_m >= 0.3,2.3,30458,710,0.0233,122,7322,0.1165,0.0949,1.228,False
+gainesville,ground_pixel_share < 0.15,2.3,30458,225,0.0074,55,7389,0.0803,0.0952,0.843,False
+gainesville,depth_planes < 60,2.3,30458,2034,0.0668,380,7064,0.0975,0.095,1.026,False
+gainesville,sky_fraction > 0.6,2.3,30458,0,0.0,0,7444,,0.0951,,False
+gainesville,|depth - vintage_median| >= 0.4,2.3,30458,3370,0.1106,361,7083,0.3264,0.09,3.626,False

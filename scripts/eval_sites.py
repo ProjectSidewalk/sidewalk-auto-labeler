@@ -989,7 +989,7 @@ def write_outputs(out_dir, report_text, result):
                        + [pr['k'][f] for f in CAL_FLOORS])
 
 
-def load_city_files(city, benchmark_root, run_dir, read_heights=True):
+def load_city_files(city, benchmark_root, run_dir, read_heights=True, height_table=None):
     with open(benchmark_root / city / 'verdicts.json', encoding='utf-8') as f:
         verdicts = json.load(f)
     bundle_ops = {}
@@ -1001,7 +1001,7 @@ def load_city_files(city, benchmark_root, run_dir, read_heights=True):
                     [(d['x_normalized'], d['y_normalized'], d['confidence'])
                      for d in rec['detections']]
     run_panos, skipped = fs.load_results(run_dir / 'results.jsonl',
-                                         read_heights=read_heights)
+                                         read_heights=read_heights, height_table=height_table)
     return verdicts['panos'], bundle_ops, run_panos
 
 
@@ -1018,7 +1018,8 @@ def main():
     ap.add_argument('--camera-height-m', type=fs.camera_height_arg,
                     default=geo.DEFAULT_CAMERA_HEIGHT_M,
                     help='raycast height for fusion AND GT placement: meters, or '
-                         '"per-pano" for GSV depth-measured heights (#40). A non-default '
+                         '"per-pano" for GSV depth-measured heights (#40), or "per-rig" '
+                         "for the run's camera_heights.json (#53). A non-default "
                          'value needs --out, so it cannot overwrite the published report')
     # Default OFF, not FuseParams' `auto`: runs/<city>/fusion_eval/ reports were all
     # produced flat, and re-running with the defaults must still reproduce them.
@@ -1046,9 +1047,18 @@ def main():
         ap.error('--apply-pose other than the default changes the scoring frame; '
                  'pass --out so the default fusion_eval/ report is not overwritten')
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
-    verdict_panos, bundle_ops, run_panos = load_city_files(
-        args.city, args.benchmark_root, run_dir,
-        read_heights=args.camera_height_m == geo.PER_PANO)
+    height_table = None
+    if args.camera_height_m == geo.PER_RIG:
+        height_table = run_dir / fs.HEIGHT_TABLE_NAME
+        if not height_table.exists():
+            sys.exit(f'per-rig needs a camera-height table; none at {height_table} '
+                     '(scripts/mapillary_height.py writes it)')
+    try:
+        verdict_panos, bundle_ops, run_panos = load_city_files(
+            args.city, args.benchmark_root, run_dir,
+            read_heights=args.camera_height_m == geo.PER_PANO, height_table=height_table)
+    except ValueError as e:        # a table measured on another file, or a GSV run
+        sys.exit(str(e))
     # Fusion at the BENCHMARK threshold, not the production operating point: the bundle's
     # verdicts and the committed reports are keyed to it (detectors/__init__.py).
     # mask_rig=False alongside the pinned tier: runs/<city>/fusion_eval/ is git-tracked by

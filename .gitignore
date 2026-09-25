@@ -39,6 +39,9 @@ runs/**
 # cleanup would retire, so they have to outlive both the database state and the API pull
 # they were derived from — the file records that pull's url and sha256 for the tie-back.
 !runs/*/rig_labels.json
+# Per-rig camera heights for Mapillary runs (scripts/mapillary_height.py, issue #53): the
+# table `fuse_sites.py --camera-height-m per-rig` reads, bound to results.jsonl by sha256.
+!runs/*/camera_heights.json
 # AI-vs-crowd agree rate (scripts/agree_rate.py, write-up in docs/agree-rate-<city>.md): the
 # report and CSVs are the evidence and are tracked. The three API pulls they are computed
 # from (the frozen crowd snapshot) are NOT — the report carries each one's url, fetch time,
@@ -53,3 +56,9 @@ runs/**
 !runs/*/dem/
 !runs/*/dem/tiles.json
 !runs/*/dem/report.md
+# Per-pano camera-height QC tests (scripts/height_qc.py, issue #44; write-up in
+# docs/camera-height-study.md): the pre-registered verdicts and their tables are tracked.
+# runs/_pooled/height_qc/ holds the cross-city verdicts the rule in depth.py follows.
+!runs/*/height_qc/
+!runs/*/height_qc/report.md
+!runs/*/height_qc/*.csv

@@ -240,12 +240,39 @@ def test_per_pano_sigma_widens_with_the_ground_plane_spread():
     assert loose == pytest.approx(1.0 / 2.563)
 
 
+def test_per_pano_qc_flag_keeps_the_height_and_the_fixed_path_ignores_it():
+    pose = geo.pano_pose({'lat': 44.05, 'lng': -121.31, 'camera_heading': 0.0,
+                          'camera_pitch': None, 'camera_roll': None, 'source': 'launch',
+                          'camera_height_m': 1.2, 'camera_height_spread_m': 0.02,
+                          'ground_tilt_deg': 1.1, 'camera_height_vintage_m': 1.8})
+    assert pose.ground_tilt_deg == 1.1
+    assert geo.camera_height_for(pose, camera_height=geo.PER_PANO) == (
+        1.2, geo.GSV_ERRORS.sigma_height_m)
+    assert geo.camera_height_for(pose) == (2.6, geo.GSV_ERRORS.sigma_height_m)
+    assert geo.camera_height_for(pose, camera_height=2.3) == (2.3, 0.15)
+
+
 def test_ground_point_to_pano_inverts_the_per_pano_raycast():
     pose = _measured_pose(1.9)
     g = geo.detection_ground_point(pose, 0.3, 0.62, camera_height=geo.PER_PANO,
                                    apply_pose=False)
     p = geo.ground_point_to_pano(pose, g.lat, g.lng, camera_height=geo.PER_PANO)
     assert (p.x_norm, p.y_norm) == (pytest.approx(0.3), pytest.approx(0.62))
+
+
+# --- per-rig camera height (issue #53): a table value, opt-in, never a silent default
+
+def test_per_rig_uses_the_table_height_and_its_sigma():
+    pose = _measured_pose(1.9, 0.4, source='mapillary')
+    assert geo.camera_height_for(pose) == (2.6, geo.MAPILLARY_ERRORS.sigma_height_m)
+    # the spread field is the group's 1-sigma under PER_RIG, floored at the model's
+    assert geo.camera_height_for(pose, camera_height=geo.PER_RIG) == (1.9, 0.4)
+    tight = _measured_pose(1.9, 0.05, source='mapillary')
+    assert geo.camera_height_for(tight, camera_height=geo.PER_RIG) \
+        == (1.9, geo.MAPILLARY_ERRORS.sigma_height_m)
+    none = _measured_pose(None, None, source='mapillary')
+    assert geo.camera_height_for(none, camera_height=geo.PER_RIG) \
+        == (geo.DEFAULT_CAMERA_HEIGHT_M, geo.MAPILLARY_ERRORS.sigma_height_m)
 
 
 def _axis_angle(R):

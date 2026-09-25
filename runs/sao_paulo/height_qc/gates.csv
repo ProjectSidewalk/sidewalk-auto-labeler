@@ -1,0 +1,13 @@
+city,gate,association,n_measured,n_flagged,flag_rate,n_flagged_implied,n_unflagged_implied,med_rel_resid_flagged,med_rel_resid_unflagged,ratio,pass
+sao_paulo,ground_tilt_deg >= 6,per-pano,18601,1972,0.106,340,5617,0.1267,0.0888,1.427,False
+sao_paulo,height_spread_m >= 0.3,per-pano,18601,2820,0.1516,651,5306,0.0994,0.0893,1.113,False
+sao_paulo,ground_pixel_share < 0.15,per-pano,18601,469,0.0252,134,5823,0.0957,0.0904,1.059,False
+sao_paulo,depth_planes < 60,per-pano,18601,247,0.0133,29,5928,0.0606,0.0906,0.669,False
+sao_paulo,sky_fraction > 0.6,per-pano,18601,0,0.0,0,5957,,0.0905,,False
+sao_paulo,|depth - vintage_median| >= 0.4,per-pano,18601,965,0.0519,246,5711,0.1226,0.0891,1.376,False
+sao_paulo,ground_tilt_deg >= 6,2.3,18601,1972,0.106,356,5718,0.1436,0.0918,1.565,False
+sao_paulo,height_spread_m >= 0.3,2.3,18601,2820,0.1516,680,5394,0.1129,0.0921,1.225,False
+sao_paulo,ground_pixel_share < 0.15,2.3,18601,469,0.0252,139,5935,0.0878,0.0942,0.932,False
+sao_paulo,depth_planes < 60,2.3,18601,247,0.0133,29,6045,0.0611,0.0942,0.648,False
+sao_paulo,sky_fraction > 0.6,2.3,18601,0,0.0,0,6074,,0.0941,,False
+sao_paulo,|depth - vintage_median| >= 0.4,2.3,18601,965,0.0519,281,5793,0.189,0.0916,2.064,False
