@@ -485,9 +485,9 @@ def build_table(groups_of, a_rig, b_rig, a_seq, b_seq_views, a_seq_boot=None,
         per_seq = iqr is not None and iqr > SEQ_IQR_M
         notes[rig] = {'qualifying_sequences': len(qual), 'sequence_iqr_m': iqr,
                       'grain': 'sequence' if per_seq else 'rig'}
-        groups[rig]['sequence_iqr_m'] = iqr
+        groups[rig]['sequence_iqr_m'] = _rd(iqr)
         groups[rig]['qualifying_sequences'] = len(qual)
-        for seq in seqs_by_rig[rig]:
+        for seq in sorted(seqs_by_rig[rig], key=str):
             sequences[seq] = rig
         if not per_seq:
             continue
