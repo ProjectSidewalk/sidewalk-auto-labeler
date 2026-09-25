@@ -502,7 +502,7 @@ def summarize(city, frames, rows, n_out_of_raster):
            if sum(1 for i in v if rows[i]['grade_sfm_deg'] is not None) >= RIG_MIN_FRAMES}
     groups = [('all', list(range(len(frames))))] + sorted(big.items())
     other = [i for k, v in rigs.items() if k not in big for i in v]
-    if other and big and len(big) < len(rigs):
+    if big and any(rows[i]['grade_sfm_deg'] is not None for i in other):
         groups.append(('other', other))
 
     relief = {}
