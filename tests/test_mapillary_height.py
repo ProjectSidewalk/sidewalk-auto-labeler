@@ -116,24 +116,30 @@ def test_disagreeing_sequences_go_per_sequence_and_small_ones_inherit():
     assert table['groups']['r1@a']['height_m'] == pytest.approx(1.525)
 
 
-def _write_run(tmp_path, source='mapillary'):
+def _record(p, source, meta_only_sequence=False):
+    pano = {'panorama_id': p.pano_id, 'lat': p.lat, 'lng': p.lng,
+            'camera_heading': 0.0, 'camera_pitch': None, 'camera_roll': None,
+            'capture_date': p.capture_date, 'source': source,
+            'sequence_id': None if meta_only_sequence else p.sequence_id,
+            'source_metadata': {'sequence': p.sequence_id, 'make': 'GoPro',
+                                'model': 'GoPro Max'}}
+    return {'detections': [{'x_normalized': x, 'y_normalized': y, 'confidence': c}
+                           for _i, x, y, c in p.detections], 'pano': pano}
+
+
+def _write_run(tmp_path, source='mapillary', meta_only=()):
     run = tmp_path / 'run'
     run.mkdir()
     with open(run / 'results.jsonl', 'w', encoding='utf-8') as f:
         for p in synthetic_panos(source):
-            f.write(json.dumps({'detections': [
-                {'x_normalized': x, 'y_normalized': y, 'confidence': c}
-                for _i, x, y, c in p.detections],
-                'pano': {'panorama_id': p.pano_id, 'lat': p.lat, 'lng': p.lng,
-                         'camera_heading': 0.0, 'camera_pitch': None, 'camera_roll': None,
-                         'capture_date': p.capture_date, 'source': source,
-                         'sequence_id': p.sequence_id}}) + '\n')
+            f.write(json.dumps(_record(p, source, p.pano_id in meta_only)) + '\n')
     return run
 
 
 def _table(r1_applied=True):
-    groups = {'r1': {'height_m': 1.8 if r1_applied else 2.6, 'sigma_m': 0.1},
-              'r2': {'height_m': 2.6, 'sigma_m': None}}
+    groups = {'r1': {'height_m': 1.8 if r1_applied else 2.6, 'sigma_m': 0.1,
+                     'applied': r1_applied},
+              'r2': {'height_m': 2.6, 'sigma_m': None, 'applied': False}}
     return {'schema': 1, 'source': 'mapillary', 'default_m': 2.6, 'grain': 'rig',
             'groups': groups, 'sequences': {'seq-r1': 'r1', 'seq-r2': 'r2'}}
 
@@ -192,3 +198,137 @@ def test_gate_needs_three_changed_cities_and_no_recall_loss():
     assert not ok and not clauses['iii'] and clauses['ii']
     two = {c: good[c] for c in 'xy'}
     assert not mh.gate_verdict(two, {})[1]['ii']
+
+
+# --- review fixes: bootstrap multiplicity, instrument B, the gate, key symmetry, eval_sites
+
+def test_bootstrap_draw_keeps_multiplicity():
+    sites = [(10, [('p', 1.0)]), (11, [('p', 3.0), ('q', 2.0)]), (12, [('r', 9.0)])]
+    full = {'p': 2, 'q': 1, 'r': 1}
+    # every site once: exactly the point estimate
+    assert mh.resampled_median(sites, [0, 1, 2], full) \
+        == mh._group_median([e for _s, es_ in sites for e in es_])
+    # site 12 drawn three times outweighs the rest: r's 9.0 carries weight 3 of 5
+    assert mh.resampled_median(sites, [2, 2, 2, 1], full) == 9.0
+    # ...whereas collapsing repeats (the pre-review bug) would give p, q, r one vote each
+    assert mh._group_median([e for i in {2, 1} for e in sites[i][1]]) == 3.0
+    assert mh.weighted_median([(1.0, 1), (2.0, 1), (3.0, 1), (4.0, 1)]) == 2.5
+
+
+def _uniform_panos(h):
+    """The synthetic scene with every camera at true height h (one rig)."""
+    global CAMERAS
+    saved = CAMERAS
+    CAMERAS = [(pid, e, n, 'r1', h) for pid, e, n, _r, _h in saved]
+    try:
+        return synthetic_panos()
+    finally:
+        CAMERAS = saved
+
+
+def test_instrument_b_reads_a_lower_true_height_below_the_default():
+    sites, _frame = mh.site_views(_uniform_panos(2.1), mh.production_params())
+    assert sites, 'the scene must yield sites with >= 3 views'
+    rows = mh.instrument_b(sites, lambda _pid: 'r1', min_rows=1)
+    # ranges run 2.6/2.1 long; the null-corrected scale identity must see most of it
+    assert rows['r1']['h_scale'] == pytest.approx(2.1, abs=0.2)
+    assert rows['r1']['k_net'] > 1.05
+
+
+def _gt_for(panos):
+    verdicts, bundle = {}, {}
+    for p in panos:
+        ops = [(x, y, c) for _i, x, y, c in p.detections if c >= mh.BENCHMARK_CONFIDENCE]
+        bundle[p.pano_id] = ops
+        verdicts[p.pano_id] = {'dets': [True] * len(ops), 'missed': [], 'no_missed': True}
+    return verdicts, bundle
+
+
+def test_height_gate_scores_the_true_heights_better():
+    panos = synthetic_panos()
+    for p in panos:            # the table knows each rig's true height
+        p.camera_height_m = 1.8 if RIG_OF[p.pano_id] == 'r1' else 2.5
+    verdicts, bundle = _gt_for(panos)
+    rows, info = mh.height_gate(verdicts, bundle, panos)
+    r = {row['arm']: row for row in rows}
+    assert info['panos_changed'] == 6 and info['sites_scored'] > 0
+    assert r['per-rig']['median_gt_to_site_m'] < r['off']['median_gt_to_site_m']
+    assert r['per-rig']['median_gt_to_site_m'] < 0.05      # exact geometry, right height
+
+
+def test_gate_clauses_i_and_iv_fail_on_their_own():
+    def rows(p90):
+        return [{'arm': 'off', 'p90_gt_to_site_m': 2.0, 'median_gt_to_site_m': 1.0,
+                 'recall_off_pool_2p5m': 0.9},
+                {'arm': 'per-rig', 'p90_gt_to_site_m': p90, 'median_gt_to_site_m': 0.9,
+                 'recall_off_pool_2p5m': 0.9}]
+    info = {'panos': 100, 'panos_changed': 50}
+    worse = {c: (rows(2.2 if c == 'x' else 1.9), info) for c in 'xyz'}
+    ok, clauses, _ = mh.gate_verdict(worse, {})
+    assert not ok and not clauses['i'] and clauses['ii'] and clauses['iv']
+    steeper = {c: {'off': {'all_slope': -0.1},
+                   'per-rig': {'all_slope': -0.2 if c == 'y' else -0.05}} for c in 'xyz'}
+    ok, clauses, _ = mh.gate_verdict({c: (rows(1.9), info) for c in 'xyz'}, steeper)
+    assert not ok and not clauses['iv'] and clauses['i']
+
+
+def test_table_key_falls_back_to_source_metadata_sequence(tmp_path):
+    run = _write_run(tmp_path, meta_only={'a1'})
+    groups = mh.pano_groups(run / 'results.jsonl')
+    assert groups['a1']['sequence'] == 'seq-r1'
+    path = mh.write_table(run, _table(), recommended=False)
+    panos, _ = fs.load_results(run / 'results.jsonl', read_heights=False, height_table=path)
+    assert {p.pano_id: p.camera_height_m for p in panos}['a1'] == 1.8
+
+
+def test_a_sequence_spanning_two_rigs_goes_to_its_majority():
+    groups_of = {'p1': {'rig': 'r1', 'sequence': 's'}, 'p2': {'rig': 'r2', 'sequence': 's'},
+                 'p3': {'rig': 'r2', 'sequence': 's'}}
+    table, _ = mh.build_table(groups_of, {}, {}, {}, {})
+    assert table['sequences'] == {'s': 'r2'} and table['grain'] == 'rig'
+
+
+def _eval_setup(tmp_path, monkeypatch, with_table):
+    import eval_sites as es
+    run = _write_run(tmp_path)
+    bench = tmp_path / 'bench' / 'syn'
+    bench.mkdir(parents=True)
+    panos = synthetic_panos()
+    verdicts, bundle = _gt_for(panos)
+    (bench / 'verdicts.json').write_text(json.dumps({'panos': verdicts}), encoding='utf-8')
+    with open(bench / 'records.jsonl', 'w', encoding='utf-8') as f:
+        for p in panos:
+            f.write(json.dumps({'pano': {'panorama_id': p.pano_id}, 'detections': [
+                {'x_normalized': x, 'y_normalized': y, 'confidence': c}
+                for x, y, c in bundle[p.pano_id]]}) + '\n')
+    if with_table:
+        mh.write_table(run, _table(), recommended=False)
+    monkeypatch.setattr('sys.argv', ['eval_sites.py', 'syn', '--benchmark-root',
+                                     str(tmp_path / 'bench'), '--run-dir', str(run),
+                                     '--camera-height-m', 'per-rig',
+                                     '--out', str(tmp_path / 'out'), '--radius-sweep'])
+    return es, run
+
+
+def test_eval_sites_per_rig_exits_cleanly_without_a_table(tmp_path, monkeypatch):
+    es, _run = _eval_setup(tmp_path, monkeypatch, with_table=False)
+    with pytest.raises(SystemExit, match='camera-height table'):
+        es.main()
+
+
+def test_eval_sites_per_rig_runs_with_a_table_and_refuses_a_stale_one(tmp_path, monkeypatch):
+    es, run = _eval_setup(tmp_path, monkeypatch, with_table=True)
+    es.main()
+    assert (tmp_path / 'out').exists()
+    with open(run / 'results.jsonl', 'a', encoding='utf-8') as f:
+        f.write('\n')
+    with pytest.raises(SystemExit, match='different results.jsonl'):
+        es.main()
+
+
+def test_fuse_sites_cli_exits_cleanly_without_a_table(tmp_path, monkeypatch):
+    run = _write_run(tmp_path)
+    monkeypatch.setattr('sys.argv', ['fuse_sites.py', str(run), '--camera-height-m',
+                                     'per-rig', '--out', str(tmp_path / 's.jsonl')])
+    with pytest.raises(SystemExit, match='camera-height table'):
+        fs.main()

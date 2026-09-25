@@ -256,9 +256,11 @@ def test_per_rig_uses_the_table_height_and_its_sigma():
     # the spread field is the group's 1-sigma under PER_RIG, floored at the model's
     assert geo.camera_height_for(pose, camera_height=geo.PER_RIG) == (1.9, 0.4)
     tight = _measured_pose(1.9, 0.05, source='mapillary')
-    assert geo.camera_height_for(tight, camera_height=geo.PER_RIG)         == (1.9, geo.MAPILLARY_ERRORS.sigma_height_m)
+    assert geo.camera_height_for(tight, camera_height=geo.PER_RIG) \
+        == (1.9, geo.MAPILLARY_ERRORS.sigma_height_m)
     none = _measured_pose(None, None, source='mapillary')
-    assert geo.camera_height_for(none, camera_height=geo.PER_RIG)         == (geo.DEFAULT_CAMERA_HEIGHT_M, geo.MAPILLARY_ERRORS.sigma_height_m)
+    assert geo.camera_height_for(none, camera_height=geo.PER_RIG) \
+        == (geo.DEFAULT_CAMERA_HEIGHT_M, geo.MAPILLARY_ERRORS.sigma_height_m)
 
 
 def _axis_angle(R):

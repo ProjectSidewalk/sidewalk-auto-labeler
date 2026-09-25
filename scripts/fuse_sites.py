@@ -445,8 +445,11 @@ def apply_height_table(panos, table_path, results_path):
     non-crowdsourced pano: GSV serves a real per-pano height (use `per-pano`). Every
     sequence resolves through table['sequences'] to one group; a group whose height_m is
     the table's default_m (it failed a rule, or was never measured) leaves the pano at
-    None, so camera_height_for falls back exactly as a 2.6 m fuse would. Under PER_RIG the
-    spread field carries the group's 1-sigma (geo.camera_height_for)."""
+    None, so camera_height_for falls back exactly as a 2.6 m fuse would. Whether a group
+    applies is the table's own `applied` flag. Under PER_RIG the spread field carries the
+    group's 1-sigma (geo.camera_height_for). The lookup key is SlimPano.sequence_id, which
+    load_results takes from pano.sequence_id else source_metadata.sequence -- the same
+    expression mapillary_height.pano_groups keys the table by."""
     table_path = Path(table_path)
     with open(table_path, encoding='utf-8') as f:
         table = json.load(f)
@@ -462,14 +465,13 @@ def apply_height_table(panos, table_path, results_path):
     if other:
         raise ValueError(f'per-rig heights are for crowdsourced sources only; this run '
                          f'holds {sorted(other)} panos (GSV: use per-pano)')
-    default = table['default_m']
     prov = {'table': str(table_path), 'sha256': file_sha256(table_path),
             'grain': table.get('grain'), 'recommended': table.get('recommended')}
     for p in panos:
         key = table['sequences'].get(p.sequence_id)
         group = table['groups'].get(key) if key is not None else None
         p.height_group, p.height_table = key, prov
-        if group is None or group['height_m'] is None or group['height_m'] == default:
+        if group is None or not group.get('applied'):
             p.camera_height_m = p.camera_height_spread_m = None
         else:
             p.camera_height_m, p.camera_height_spread_m = group['height_m'], group['sigma_m']
@@ -530,7 +532,8 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None):
                 detections=[(i, d['x_normalized'], d['y_normalized'], d['confidence'])
                             for i, d in enumerate(rec.get('detections', []))],
                 camera_height_m=height, camera_height_spread_m=spread,
-                pose_origin=origin, sequence_id=p.get('sequence_id')))
+                pose_origin=origin,
+                sequence_id=p.get('sequence_id') or meta.get('sequence')))
             frames.append((len(panos) - 1, p.get('sequence_id'), meta.get('captured_at'),
                            p['lat'], p['lng'], meta.get('computed_altitude')))
     for i, (grade, bearing) in sequence_grades(frames).items():
@@ -795,6 +798,9 @@ def main():
         sigma_scale=args.sigma_scale)
 
     height_table = None
+    if args.height_table is not None and args.camera_height_m != geo.PER_RIG:
+        print('WARNING: --height-table is ignored unless --camera-height-m per-rig',
+              file=sys.stderr)
     if args.camera_height_m == geo.PER_RIG:
         height_table = args.height_table or jsonl.parent / HEIGHT_TABLE_NAME
         if not Path(height_table).exists():

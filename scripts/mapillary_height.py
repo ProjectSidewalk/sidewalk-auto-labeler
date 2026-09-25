@@ -236,6 +236,44 @@ def _group_median(entries):
     return statistics.median(statistics.median(v) for v in per.values()) if per else None
 
 
+def weighted_median(pairs):
+    """Median of [(value, weight)] with positive weights: the value where cumulative
+    weight crosses half the total, averaging the two neighbours on an exact tie -- so
+    with every weight 1 it equals statistics.median."""
+    pairs = sorted(pairs)
+    total = sum(w for _, w in pairs)
+    cum = 0.0
+    for i, (v, w) in enumerate(pairs):
+        cum += w
+        if abs(cum - total / 2) < 1e-9 * total and i + 1 < len(pairs):
+            return (v + pairs[i + 1][0]) / 2
+        if cum > total / 2:
+            return v
+    return pairs[-1][0]
+
+
+def resampled_median(site_list, picks, full_counts):
+    """Group median for one bootstrap draw, keeping draw multiplicity (#53 review).
+
+    `site_list` is [(site_id, [(pano, v)])], `picks` the drawn site indices (with
+    replacement) and `full_counts` {pano: its number of entries over ALL sites}. Each pano's
+    median weights every value by how many times its site was drawn; the group median then
+    weights each pano by (drawn entries, with multiplicity) / (its full entry count), whose
+    expectation is 1. With every site drawn exactly once, both weights are 1 and this is
+    the point estimate (_group_median of all entries)."""
+    mult = {}
+    for i in picks:
+        mult[i] = mult.get(i, 0) + 1
+    per = {}
+    for i, m in mult.items():
+        for pid, v in site_list[i][1]:
+            per.setdefault(pid, []).append((v, m))
+    if not per:
+        return None
+    return weighted_median([(weighted_median(vs), sum(w for _, w in vs) / full_counts[pid])
+                            for pid, vs in per.items()])
+
+
 def instrument_a(sweep, key_of, n_boot=N_BOOT, seed=BOOT_SEED, boot_keys=None):
     """Per group: medians over the sweep, the fit, h*, and (for boot_keys, default all) a
     bootstrap 95% CI resampling sites independently at each association height.
@@ -264,6 +302,11 @@ def instrument_a(sweep, key_of, n_boot=N_BOOT, seed=BOOT_SEED, boot_keys=None):
         if h_star is not None and (boot_keys is None or key in boot_keys) and n_boot:
             draws, undefined = [], 0
             site_lists = {h: list(per_h.get(h, {}).items()) for h in heights}
+            full_counts = {h: {} for h in heights}   # entries per pano over all sites
+            for h in heights:
+                for es_ in per_h.get(h, {}).values():
+                    for pid, _v in es_:
+                        full_counts[h][pid] = full_counts[h].get(pid, 0) + 1
             for _ in range(n_boot):
                 bm = []
                 for h in heights:
@@ -271,8 +314,8 @@ def instrument_a(sweep, key_of, n_boot=N_BOOT, seed=BOOT_SEED, boot_keys=None):
                     if not sl:
                         bm.append(None)
                         continue
-                    pick = [sl[rng.randrange(len(sl))][1] for _ in sl]
-                    bm.append(_group_median([e for es_ in pick for e in es_]))
+                    picks = [rng.randrange(len(sl)) for _ in sl]
+                    bm.append(resampled_median(sl, picks, full_counts[h]))
                 hs, _, _ = fixed_point(heights, bm)
                 if hs is None:
                     undefined += 1
@@ -464,9 +507,16 @@ def build_table(groups_of, a_rig, b_rig, a_seq, b_seq_views, a_seq_boot=None,
     sequence grain (as returned by instrument_a / instrument_b with sequence keys).
     Returns (table, per-rig grain notes)."""
     h0 = geo.DEFAULT_CAMERA_HEIGHT_M
-    seqs_by_rig = {}
+    # A sequence belongs to the rig class most of its panos report (ties: first by name),
+    # so a sequence spanning two rig keys resolves deterministically.
+    votes = {}
     for g in groups_of.values():
-        seqs_by_rig.setdefault(g['rig'], set()).add(g['sequence'])
+        v = votes.setdefault(g['sequence'], {})
+        v[g['rig']] = v.get(g['rig'], 0) + 1
+    seqs_by_rig = {}
+    for seq, v in votes.items():
+        rig = min(v, key=lambda r: (-v[r], str(r)))
+        seqs_by_rig.setdefault(rig, set()).add(seq)
     groups, sequences, notes = {}, {}, {}
     for rig in sorted(seqs_by_rig):
         a, b = a_rig.get(rig), b_rig.get(rig)
@@ -500,7 +550,9 @@ def build_table(groups_of, a_rig, b_rig, a_seq, b_seq_views, a_seq_boot=None,
             key = f'{rig}@{seq}'
             groups[key] = _group_entry(sa, sb, h_s, p_s, r_s, 'sequence')
             sequences[seq] = key
-    grain = 'sequence' if any(n['grain'] == 'sequence' for n in notes.values()) else 'rig'
+    # The table's grain is what it resolves to: 'sequence' only if a per-sequence group was
+    # actually written (a rig class can go per-sequence with every sequence inheriting).
+    grain = 'sequence' if any(g['grain'] == 'sequence' for g in groups.values()) else 'rig'
     return {'schema': 1, 'source': 'mapillary', 'default_m': h0, 'grain': grain,
             'groups': groups, 'sequences': sequences}, notes
 
@@ -878,7 +930,7 @@ def main():
                     help='measure and write tables only (recommended: false)')
     args = ap.parse_args()
 
-    measured = {}
+    measured, k_rows = {}, []
     for city in args.cities:
         run_dir = args.run_root / city
         m = measure_city(city, run_dir, n_boot=args.n_boot)
@@ -887,7 +939,10 @@ def main():
         write_csv(out / 'groups.csv', group_rows(m))
         write_table(run_dir, m['table'], recommended=False)
         k, s, s0 = m['pooled_k']
-        kb, _, _ = m['pooled_k_bench']
+        kb, sb, s0b = m['pooled_k_bench']
+        k_rows.append({'city': city, 'k_net_production': _rd(k, 4), 's_production': _rd(s, 4),
+                       's_null_production': _rd(s0, 4), 'k_net_benchmark': _rd(kb, 4),
+                       's_benchmark': _rd(sb, 4), 's_null_benchmark': _rd(s0b, 4)})
         print(f'{city}: pooled k_net {k:.3f} at the production tier, {kb:.3f} at the '
               f'benchmark tier (#76 tie-back)')
         for rig, n in m['notes'].items():
@@ -896,6 +951,8 @@ def main():
         for key, g in m['table']['groups'].items():
             print(f"  {key}: {g['height_m']} m (applied {g['applied']}); A {g['h_bearing']} "
                   f"{g['h_bearing_ci']} slope {g['slope']}; B {g['h_scale']}; {g['reason']}")
+    summ = args.run_root / '_summary' / 'camera_height'
+    write_csv(summ / 'k_net.csv', k_rows)
     if args.no_gate:
         return
 
@@ -917,7 +974,6 @@ def main():
                          for arm, h in ((ARM_OFF, geo.DEFAULT_CAMERA_HEIGHT_M),
                                         (ARM_RIG, geo.PER_RIG))}
     passes, clauses, lines = gate_verdict(gate, cslopes)
-    summ = args.run_root / '_summary' / 'camera_height'
     write_csv(summ / 'gate.csv', [{'city': c, **row, **{f'info_{k}': v for k, v in info.items()
                                                         if k != 'warnings'}}
                                   for c, (rows, info) in gate.items() for row in rows])

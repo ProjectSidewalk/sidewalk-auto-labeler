@@ -977,11 +977,18 @@ def main():
         ap.error('--apply-pose other than the default changes the scoring frame; '
                  'pass --out so the default fusion_eval/ report is not overwritten')
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
-    verdict_panos, bundle_ops, run_panos = load_city_files(
-        args.city, args.benchmark_root, run_dir,
-        read_heights=args.camera_height_m == geo.PER_PANO,
-        height_table=(run_dir / fs.HEIGHT_TABLE_NAME
-                      if args.camera_height_m == geo.PER_RIG else None))
+    height_table = None
+    if args.camera_height_m == geo.PER_RIG:
+        height_table = run_dir / fs.HEIGHT_TABLE_NAME
+        if not height_table.exists():
+            sys.exit(f'per-rig needs a camera-height table; none at {height_table} '
+                     '(scripts/mapillary_height.py writes it)')
+    try:
+        verdict_panos, bundle_ops, run_panos = load_city_files(
+            args.city, args.benchmark_root, run_dir,
+            read_heights=args.camera_height_m == geo.PER_PANO, height_table=height_table)
+    except ValueError as e:        # a table measured on another file, or a GSV run
+        sys.exit(str(e))
     # Fusion at the BENCHMARK threshold, not the production operating point: the bundle's
     # verdicts and the committed reports are keyed to it (detectors/__init__.py).
     # mask_rig=False alongside the pinned tier: runs/<city>/fusion_eval/ is git-tracked by
