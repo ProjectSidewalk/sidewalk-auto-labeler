@@ -49,6 +49,14 @@ def test_uphill_ahead_is_closer_ahead_in_depth_py():
 
 
 def test_rising_to_the_right_is_closer_on_the_right_in_depth_py():
+    # In the image frame x = 0.75 is heading + 90 deg, the camera's right -- which is -x
+    # in depth.py's frame (#80; it was read as +x until then, inverting every cross-slope
+    # sign). The round trip below cannot see that on its own, since depth_frame_normal
+    # and camera_frame_normal would flip together; the ray check ties them to depth.py.
+    # (a ray 18 deg above the horizon, so camera_frame_normal's flip-to-up leaves it alone)
+    f, r, u = gp.camera_frame_normal(*depth._direction_continuous(0.75, 0.4))
+    assert (f, r, u) == pytest.approx((0.0, math.cos(math.radians(18)),
+                                       math.sin(math.radians(18))), abs=1e-12)
     p = _payload(0.0, 5.0)
     right = depth.ground_range_at(p, 0.75, 0.6)   # heading + 90 deg
     left = depth.ground_range_at(p, 0.25, 0.6)
