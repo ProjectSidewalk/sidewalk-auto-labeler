@@ -801,6 +801,14 @@ def benchmark_params(**kw):
     return fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False, **kw)
 
 
+def eval_params(arm):
+    """`cmd_eval`'s FuseParams for an arm. Every non-off arm injects its ground frame as
+    the SlimPano's pitch/roll (arm_panos), so it wants those stored angles applied as they
+    are -- fuse_sites' POSE_GRAVITY -- and `off` wants the flat raycast. (This was
+    `apply_pose=arm != 'off'`, a bool, which FuseParams has rejected since #74.)"""
+    return benchmark_params(apply_pose=fs.POSE_OFF if arm == 'off' else fs.POSE_GRAVITY)
+
+
 # --- ablation: frozen-association multi-view spread (step 3, instrument 1) -------------
 
 def cmd_ablation(args):
@@ -952,7 +960,7 @@ def cmd_eval(args):
         panos, _ = fs.load_results(args.run_root / city / 'results.jsonl', read_heights=False)
         for arm in EVAL_ARMS:
             ps_ = arm_panos(panos, normals, arm)
-            params = benchmark_params(apply_pose=arm != 'off')
+            params = eval_params(arm)
             prefused = fs.fuse(ps_, params)
             r5 = es.evaluate_city(verdict_panos, bundle_ops, ps_, params, match_radius_m=5.0,
                                   prefused=prefused)

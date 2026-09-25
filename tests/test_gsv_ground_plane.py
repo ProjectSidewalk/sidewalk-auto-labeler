@@ -118,6 +118,14 @@ def test_zero_pose_is_the_flat_raycast():
         assert a.lng == pytest.approx(b.lng, abs=1e-12)
 
 
+@pytest.mark.parametrize('arm', gp.EVAL_ARMS)
+def test_eval_params_build_for_every_arm(arm):
+    # FuseParams takes a pose-mode string since #74; a bool here raised ValueError.
+    params = gp.eval_params(arm)
+    assert params.rotates == (arm != 'off')
+    assert params.min_confidence == gp.BENCHMARK_CONFIDENCE and params.mask_rig is False
+
+
 def test_shuffled_arm_is_a_permutation_of_the_real_one():
     meas = {f'p{i}': dict(zip(('n_f', 'n_r', 'n_u'), gp.normal_from_slopes(i * 0.3, -i * 0.1)))
             for i in range(20)}
