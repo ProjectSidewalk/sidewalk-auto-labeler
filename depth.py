@@ -88,21 +88,31 @@ NO_GROUND = "no_ground"          # a real payload with no plane that qualifies a
 SYNTHETIC_GROUND = "synthetic_ground"  # exactly-level stand-in ground (see above)
 IMPLAUSIBLE = "implausible"      # outside PLAUSIBLE_HEIGHT_M
 
-# Which MEASURED heights a raycast should believe (#44). Pre-registered tests on the four
-# harvested GSV runs (scripts/height_qc.py; runs/_pooled/height_qc/report.md), judged against
-# bearing-only triangulation, adopted exactly one gate: a pano whose depth height sits
-# QC_VINTAGE_DEVIATION_M or more from its vintage's median (same run, same capture year) has
-# 2.4-3.5x the relative residual of the rest, at a 4.0% flag rate. Every other candidate
-# (tilt, plane spread, ground pixel share, plane count, sky share, the sub-1.5 m tail by
-# tilt) failed its rule and is NOT applied. Whether a kept pano's deviation from its
-# vintage is real could not be decided (T1), so a kept height is used as measured.
+# Which MEASURED heights to flag (#44). Pre-registered tests on the four harvested GSV runs
+# (scripts/height_qc.py; runs/_pooled/height_qc/report.md), judged against bearing-only
+# triangulation, found ONE candidate gate that passed when the cities were pooled: a depth
+# height QC_VINTAGE_DEVIATION_M or more from its vintage's median (same run, same capture
+# year). It is NOT adopted as a rejection: per city it fails its own rule in gainesville
+# (11% flagged) and sao_paulo (1.38x ratio) -- the pooled pass was carried by bend, 45% of
+# the pool -- and on the 2025-26 rig raycasting a flagged pano at the 2.6 m default is worse
+# than keeping its depth height (docs/camera-height-study.md, "QC rule (#44)"). So the gate
+# only FLAGS: believe_height reports it, sites_meta.json counts it, the height is kept.
+# Every other candidate (tilt, plane spread, ground pixel share, plane count, sky share,
+# the sub-1.5 m tail by tilt) failed its rule.
 QC_VINTAGE_DEVIATION_M = 0.40
-# The plane spread does not predict the residual (T4: its p68 is flat across spread
-# quartiles), so a kept height gets this constant sigma: the p68 of |implied - k * depth|
-# over kept panos, the larger of the two association heights. It includes the
-# triangulation's own noise, so it is an upper bound on the depth height's error.
-MEASURED_HEIGHT_SIGMA_M = 0.259
-REJECTED_QC = "rejected_qc"      # prefix of believe_height's rejection reasons
+# A vintage median needs this many measured panos (T1's minimum); a smaller or undated
+# vintage gets none, and the gate cannot fire on it.
+QC_MIN_VINTAGE_PANOS = 300
+# A measured height's sigma is the p90-p10 spread of camera height across its ground planes
+# (a segmented roadway disagrees with itself where it slopes or crowns); p90-p10 of a normal
+# is 2.563 sigma, and geo floors it at the error model's. T4 found the spread does NOT
+# predict the triangulation residual (its p68 is flat across spread quartiles) and the
+# pre-registered rule swapped in a constant 0.259 m (the kept-pano p68 of |implied - k *
+# depth|). That constant was then scored against RampNet GT and made p90 GT-to-site
+# placement worse in all four cities (+0.12 to +0.30 m; P/R unchanged within noise), so
+# it was reverted and the spread sigma stays -- per-pano output is exactly #68's.
+SIGMA_PER_P10_P90 = 1.0 / 2.563
+FLAGGED_QC = "flagged_qc"        # prefix of believe_height's flag reasons
 
 SKY = 0  # plane index 0 means "no plane" -- sky, or unreconstructed
 
@@ -188,24 +198,27 @@ def classify_height(height_m, tilt_deg, *, degenerate=False, exactly_level=None)
 
 
 def believe_height(height_m, spread_m, tilt_deg, *, vintage_median_m=None):
-    """(height or None, sigma or None, reason): whether to raycast with a MEASURED height.
+    """(height, sigma, reason) to raycast a MEASURED height with, per the #44 QC tests.
 
-    The QC rule of #44, applied by consumers (geo.camera_height_for under PER_PANO), never
-    written to a pano block -- the block records what was measured. A rejection reads
-    `rejected_qc:<gate>` and the caller falls back to its default height. The only adopted
-    gate needs `vintage_median_m` (fuse_sites.load_results supplies it); without one it
-    cannot fire. `spread_m` and `tilt_deg` are taken so a gate on them, if a later test
-    adopts one, does not change the signature: today neither passed its test.
+    Applied by consumers (geo.camera_height_for under PER_PANO), never written to a pano
+    block -- the block records what was measured. Today no gate rejects: the height always
+    comes back with its spread-based sigma (SIGMA_PER_P10_P90; geo floors it), and `reason`
+    is `measured` or `flagged_qc:<gate>` (counted in sites_meta.json). A height of None is reserved for a future rule that does reject; the
+    caller then falls back to its default. The vintage gate needs `vintage_median_m`
+    (fuse_sites.load_results supplies it); `spread_m` and `tilt_deg` are taken so a gate on
+    them would not change the signature -- neither passed its test.
 
     Example:
-        >>> believe_height(1.80, 0.05, 1.2, vintage_median_m=1.76)
-        (1.8, 0.259, 'measured')
-        >>> believe_height(1.20, 0.05, 1.2, vintage_median_m=1.76)
-        (None, None, 'rejected_qc:vintage_deviation')
+        >>> believe_height(1.80, 0.0, 1.2, vintage_median_m=1.76)
+        (1.8, 0.0, 'measured')
+        >>> believe_height(1.20, 0.0, 1.2, vintage_median_m=1.76)
+        (1.2, 0.0, 'flagged_qc:vintage_deviation')
     """
-    if vintage_median_m is not None             and abs(height_m - vintage_median_m) >= QC_VINTAGE_DEVIATION_M:
-        return None, None, f"{REJECTED_QC}:vintage_deviation"
-    return height_m, MEASURED_HEIGHT_SIGMA_M, MEASURED
+    sigma = (spread_m or 0.0) * SIGMA_PER_P10_P90
+    if (vintage_median_m is not None
+            and abs(height_m - vintage_median_m) >= QC_VINTAGE_DEVIATION_M):
+        return height_m, sigma, f"{FLAGGED_QC}:vintage_deviation"
+    return height_m, sigma, MEASURED
 
 
 def camera_height_fields(payload):

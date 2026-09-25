@@ -209,7 +209,7 @@ def test_per_pano_heights_reunite_what_a_constant_splits():
     assert len(per_pano) == 1 and len(per_pano[0].pano_ids) == 2
     te, tn = enu_of(frame, 0, 0)
     assert math.hypot(per_pano[0].e - te, per_pano[0].n - tn) < 0.05
-    assert stats['camera_heights'] == {'measured': 2, 'rejected_qc': {}, 'fallback': 0}
+    assert stats['camera_heights'] == {'measured': 2, 'flagged_qc': {}, 'fallback': 0}
     spread = max(math.hypot(d.e - te, d.n - tn) for s in fixed for d, _ in s.members)
     assert spread > 2.0
 
@@ -223,22 +223,43 @@ def test_implied_heights_recover_the_true_rig_height():
     assert implied['a'] == [pytest.approx(2.05)] and implied['b'] == [pytest.approx(2.05)]
 
 
-def test_qc_rejected_heights_fall_back_and_are_counted():
-    # #44: a pano whose depth height sits >= 0.40 m from its vintage median raycasts at
-    # the default, and sites_meta.json's camera_heights says how many and why.
+def test_qc_flags_are_counted_but_heights_are_kept():
+    # #44: a pano whose depth height sits >= 0.40 m from its vintage median is FLAGGED in
+    # sites_meta.json's camera_heights, and still raycasts at its own height.
     panos = [make_pano(n, i * 20.0, 0, [(i * 20.0, 10, 0.9)], height=h, capture='2026-03')
              for i, (n, h) in enumerate([('a', 1.80), ('b', 1.82), ('c', 1.20), ('d', None)])]
-    fs.attach_vintage_medians(panos)
+    fs.attach_vintage_medians(panos, min_panos=1)
     assert panos[0].camera_height_vintage_m == pytest.approx(1.80)
     assert panos[3].camera_height_vintage_m is None
     stats = fs.fuse(panos, fs.FuseParams(camera_height_m=geo.PER_PANO))[2]
     assert stats['camera_heights'] == {
-        'measured': 2, 'rejected_qc': {'rejected_qc:vintage_deviation': 1}, 'fallback': 1}
-    rejected = fs.pano_pose(panos[2], fs.POSE_OFF)
-    assert geo.camera_height_for(rejected, camera_height=geo.PER_PANO)[0]         == geo.DEFAULT_CAMERA_HEIGHT_M
+        'measured': 3, 'flagged_qc': {'flagged_qc:vintage_deviation': 1}, 'fallback': 1}
+    flagged = fs.pano_pose(panos[2], fs.POSE_OFF)
+    assert geo.camera_height_for(flagged, camera_height=geo.PER_PANO)[0] == 1.20
     # the default (fixed-height) path neither reads nor reports any of it
     assert fs.fuse(panos, fs.FuseParams())[2]['camera_heights'] == {'fixed_m': 2.6,
                                                                    'panos': 4}
+
+
+def test_small_and_undated_vintages_get_no_median():
+    # A median needs depth.QC_MIN_VINTAGE_PANOS measured panos; a single-pano year (paterson
+    # has three) and the undated bucket, which would pool unrelated years, get none, so the
+    # gate cannot fire on them.
+    big = [make_pano(f'b{i}', i, 0, [], heading_deg=0.0, height=2.3, capture='2024-05')
+           for i in range(300)]
+    lone = make_pano('lone', 0, 5, [], heading_deg=0.0, height=1.2, capture='2013-07')
+    undated = [make_pano(f'u{i}', i, 9, [], heading_deg=0.0, height=2.3, capture=None)
+               for i in range(300)]
+    panos = big + [lone] + undated
+    fs.attach_vintage_medians(panos)
+    assert big[0].camera_height_vintage_m == pytest.approx(2.3)
+    assert lone.camera_height_vintage_m is None
+    assert all(p.camera_height_vintage_m is None for p in undated)
+    counts = fs.camera_height_counts(panos, fs.FuseParams(camera_height_m=geo.PER_PANO))
+    assert counts['flagged_qc'] == {}
+    # ...while a year that reaches the minimum does get one
+    fs.attach_vintage_medians(panos, min_panos=1)
+    assert lone.camera_height_vintage_m == pytest.approx(1.2)
 
 
 def _line_with_block(p, **block):

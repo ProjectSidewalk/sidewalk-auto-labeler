@@ -286,8 +286,8 @@ def _months(capture_date):
 
 
 def load_depth_index(path):
-    """{pano_id: (camera_height_m, height_spread_m, ground_tilt_deg)} for the MEASURED heights in a
-    harvested depth/index.csv (scripts/harvest_depth.py), or {} if there is none.
+    """{pano_id: (camera_height_m, height_spread_m, ground_tilt_deg)} for the MEASURED
+    heights in a harvested depth/index.csv (scripts/harvest_depth.py), or {} if there is none.
 
     This is how a run made before #40 -- whose pano blocks carry no height -- gets its
     measured heights: the four GSV runs were harvested in full. Rows go through the same
@@ -485,19 +485,24 @@ def load_results(path, depth_index=None, read_heights=True):
     return panos, skipped
 
 
-def attach_vintage_medians(panos):
+def attach_vintage_medians(panos, min_panos=None):
     """Set each measured pano's camera_height_vintage_m: the median measured height over
     the run's panos of the same capture year, the vintage depth.believe_height's QC gate
     compares against (#44). A run is bound to one imagery source, so the year is the
-    vintage -- exactly as scripts/height_qc.py measured it."""
+    vintage -- exactly as scripts/height_qc.py measured it. A vintage with fewer than
+    `min_panos` measured panos (default depth.QC_MIN_VINTAGE_PANOS), or an undated pano,
+    gets no median: a median of one or two panos can hardly be deviated from, and the
+    undated bucket would pool unrelated years."""
+    min_panos = depthlib.QC_MIN_VINTAGE_PANOS if min_panos is None else min_panos
     by_year = {}
     for p in panos:
-        if p.camera_height_m is not None:
-            by_year.setdefault((p.capture_date or '')[:4], []).append(p.camera_height_m)
-    medians = {y: _median(v) for y, v in by_year.items()}
+        year = (p.capture_date or '')[:4]
+        if p.camera_height_m is not None and year:
+            by_year.setdefault(year, []).append(p.camera_height_m)
+    medians = {y: _median(v) for y, v in by_year.items() if len(v) >= min_panos}
     for p in panos:
         if p.camera_height_m is not None:
-            p.camera_height_vintage_m = medians[(p.capture_date or '')[:4]]
+            p.camera_height_vintage_m = medians.get((p.capture_date or '')[:4])
 
 
 def project(panos, params):
@@ -609,21 +614,20 @@ def camera_height_counts(panos, params):
     sites_meta.json needs to know which frame the positions are in."""
     if params.camera_height_m != geo.PER_PANO:
         return {'fixed_m': params.camera_height_m, 'panos': len(panos)}
-    measured, rejected = 0, {}
+    measured, flagged = 0, {}
     for p in panos:
         if p.camera_height_m is None:
             continue
+        measured += 1
         _, _, reason = depthlib.believe_height(
             p.camera_height_m, p.camera_height_spread_m, p.ground_tilt_deg,
             vintage_median_m=p.camera_height_vintage_m)
-        if reason == depthlib.MEASURED:
-            measured += 1
-        else:
-            rejected[reason] = rejected.get(reason, 0) + 1
-    # measured = raycast at its own height; rejected_qc = measured but refused by the #44
-    # QC rule; fallback = no measurement. The latter two raycast at the default.
-    return {'measured': measured, 'rejected_qc': rejected,
-            'fallback': len(panos) - measured - sum(rejected.values())}
+        if reason != depthlib.MEASURED:
+            flagged[reason] = flagged.get(reason, 0) + 1
+    # measured = raycast at its own height; flagged_qc = the subset of those the #44 QC
+    # gate flags (kept all the same); fallback = no measurement, raycast at the default.
+    return {'measured': measured, 'flagged_qc': flagged,
+            'fallback': len(panos) - measured}
 
 
 def site_to_json(site, frame):

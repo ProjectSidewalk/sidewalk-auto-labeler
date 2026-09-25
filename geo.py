@@ -45,10 +45,11 @@ DEFAULT_MAX_RANGE_M = 25.0
 # why they fall back to it rather than to the measured median.
 DEFAULT_CAMERA_HEIGHT_M = 2.6
 PER_PANO = 'per-pano'
-# Under PER_PANO a measured height is first put through depth.believe_height, the QC
-# rule measured in #44: a rejected one falls back to the default like an unmeasured pano,
-# and a kept one gets depth.MEASURED_HEIGHT_SIGMA_M (the ground-plane spread was measured
-# not to predict the error, so it no longer sets the sigma).
+# Under PER_PANO a measured height goes through depth.believe_height (#44): today it is
+# always kept (the one candidate gate only flags), with its sigma from the p90-p10 spread of
+# camera height across its ground planes -- p90-p10 of a normal is 2.563 sigma. A height a
+# future rule rejects falls back to the default like an unmeasured pano.
+SIGMA_PER_P10_P90 = depthlib.SIGMA_PER_P10_P90
 
 # RampNet's heatmap is 1024x512 over the full equirect, so detections are quantized
 # to that grid — and both axes step by the same angle: 2*pi/1024 == pi/512 rad/px.
@@ -401,9 +402,9 @@ def camera_height_for(pose, errors=None, camera_height=DEFAULT_CAMERA_HEIGHT_M):
 
     ``camera_height`` is a number -- every pano gets that height and the error model's
     flat sigma, which is what every raycast did before #40 -- or PER_PANO: the pano's
-    measured height if depth.believe_height keeps it (#44), with its sigma floored at the
+    measured height as depth.believe_height returns it (#44), with its sigma floored at the
     error model's, falling back to DEFAULT_CAMERA_HEIGHT_M and the model's sigma for a pano
-    with no measurement or a rejected one.
+    with no measurement (or, should a future rule reject one, a rejected one).
 
     Example:
         >>> pose = pano_pose({'lat': 40.0, 'lng': -74.0, 'camera_heading': 0.0,
@@ -412,7 +413,7 @@ def camera_height_for(pose, errors=None, camera_height=DEFAULT_CAMERA_HEIGHT_M):
         >>> camera_height_for(pose)
         (2.6, 0.15)
         >>> camera_height_for(pose, camera_height=PER_PANO)
-        (1.73, 0.259)
+        (1.73, 0.15)
     """
     errors = errors or error_model_for(pose.source)
     if camera_height != PER_PANO:

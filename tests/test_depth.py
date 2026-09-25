@@ -303,17 +303,21 @@ def test_camera_height_fields_null_everything_but_a_measurement():
 # --- the #44 QC rule on a measured height
 
 def test_believe_height_keeps_a_nominal_measurement():
-    assert depthlib.believe_height(1.80, 0.05, 1.2, vintage_median_m=1.76)         == (1.80, depthlib.MEASURED_HEIGHT_SIGMA_M, depthlib.MEASURED)
-    # no vintage median: the only adopted gate cannot fire
+    assert depthlib.believe_height(1.80, 0.2563, 1.2, vintage_median_m=1.76) == (
+        1.80, pytest.approx(0.1), depthlib.MEASURED)
+    # no vintage median: the vintage gate cannot fire
     assert depthlib.believe_height(0.9, 0.9, 15.0)[2] == depthlib.MEASURED
 
 
 @pytest.mark.parametrize('height', [1.35, 2.17, 0.9])
-def test_believe_height_rejects_a_vintage_outlier_with_its_reason(height):
-    assert depthlib.believe_height(height, 0.05, 1.2, vintage_median_m=1.76)         == (None, None, 'rejected_qc:vintage_deviation')
-    # just inside the gate is kept, and the gates T2/T3 did not adopt (tilt, spread) do
-    # nothing on their own
-    assert depthlib.believe_height(1.37, 0.9, 12.0, vintage_median_m=1.76)[0] == 1.37
+def test_believe_height_flags_a_vintage_outlier_but_keeps_its_height(height):
+    # #44: the gate did not survive per city, so it flags and never rejects.
+    assert depthlib.believe_height(height, 0.2563, 1.2, vintage_median_m=1.76) == (
+        height, pytest.approx(0.1), 'flagged_qc:vintage_deviation')
+    # just inside the gate is unflagged, and the gates T2/T3 did not adopt (tilt, spread)
+    # do nothing on their own
+    assert depthlib.believe_height(1.37, 0.9, 12.0, vintage_median_m=1.76)[2] == (
+        depthlib.MEASURED)
 
 
 def test_depth_doctests_run():
