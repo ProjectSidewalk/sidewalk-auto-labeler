@@ -241,7 +241,7 @@ def test_image_frame_matches_the_real_panorama():
 
     The payload is read from the local depth archive (runs/<city>/depth, written by
     scripts/harvest_depth.py; LABELER_RUNS points elsewhere) and the test is skipped
-    where that is absent. The offline synthetic tests above pin the code relation between
+    where that file is absent; a present file that is not the fixture's payload fails. The offline synthetic tests above pin the code relation between
     the frames; this pins which frame the imagery is in. Measured when written: 59 of 64
     agree in the image frame, 5 of 64 mirrored.
     """
@@ -251,8 +251,8 @@ def test_image_frame_matches_the_real_panorama():
     if not path.exists():
         pytest.skip(f"no local depth archive at {path}")
     raw = path.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != fx["payload_file_sha256"]:
-        pytest.skip(f"{path.name} is not the payload the fixture was derived from")
+    assert hashlib.sha256(raw).hexdigest() == fx["payload_file_sha256"], (
+        f"{path} is not the payload the fixture was derived from")
     payload = depthlib.parse(json.loads(gzip.decompress(raw))["depth_b64"])
 
     def agree(mirror):

@@ -26,8 +26,9 @@ enter the verdict.
 >   site set, off / ground-normal (as run, mirrored) / cross-flipped (correct sign), m: bend 1.70 / 2.07 / 1.86;
 >   paterson 2.30 / 2.84 / 2.76; gainesville 2.63 / 2.98 / 2.95; São Paulo 1.80 / 2.22 / 2.03 (`capped_review`:
 >   1.53 / 1.80 / 1.60, 2.05 / 2.33 / 2.25, 2.42 / 2.59 / 2.50, 1.65 / 1.88 / 1.74). The correct sign beats the
->   mirrored one on the median and on mean / range in all four cities, but not on every statistic (mean and p90
->   are worse in paterson and gainesville: p90 8.20 vs 7.84 m and 7.22 vs 7.16 m).
+>   mirrored one on the median and on mean / range in all four cities and both site sets. In `capped_review` it
+>   wins on every statistic in all four; in `uncapped_review` its mean and p90 are worse in paterson and
+>   gainesville (p90 8.20 vs 7.84 m and 7.22 vs 7.16 m).
 > - **The headline stands: `off` still wins, and the verdict stays UNDERCUT.** The correctly signed plane loosens
 >   agreement in every city on median, mean and p90 (p90 5.34 / 8.20 / 7.22 / 5.90 m against off's 4.22 / 4.91 /
 >   5.23 / 4.15), and loses to off in both qualifying steep buckets everywhere (2–4°: 2.54 vs 1.71, 4.13 vs 2.40,
