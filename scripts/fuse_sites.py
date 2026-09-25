@@ -99,7 +99,8 @@ POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
 # equirects are gravity-rectified and applying their pose loosens every city
 # (geo._world_ray, #52). Panoramax: optional pers:pitch/roll, convention unmeasured (#57).
 # #51 re-ran the same control with a road grade that never saw the SfM (USGS 3DEP DEM,
-# --grade-source dem; docs/dem-grade-study.md); its pre-registered rule decides this too.
+# --grade-source dem) and it FAILED again, on (i) and (ii) (docs/dem-grade-study.md): the
+# DEM grade matches the SfM one in fusion, so a better grade does not change this.
 #
 # WHO FOLLOWS THIS: every caller that leaves FuseParams.apply_pose at its default --
 # fuse_sites.py's own CLI (--apply-pose auto, so production sites.jsonl) and

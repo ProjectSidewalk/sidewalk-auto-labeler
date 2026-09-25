@@ -270,6 +270,18 @@ python scripts/mapillary_tilt.py pose <mapillary_id> --run richmond
 python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --dry-run
 python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --out runs/richmond/results.pose.jsonl
 
+# DEM ROAD GRADE (issue #51) -- the independent arm of the #42 shuffled-grade control. USGS 3DEP
+# float32 GeoTIFF tiles (network: elevation.nationalmap.gov only; tiles cached under
+# runs/<city>/dem/tiles/, hashed in the tracked tiles.json) -> runs/<city>/dem/grades.csv (SfM,
+# SfM-fitted, DEM 2-point, DEM-fitted grade per pano; untracked, sha256 in the tracked report.md).
+# `fuse_sites.py --grade-source {sfm,sfm-smoothed,dem}` (default sfm; only matters under
+# --apply-pose road) reads it. VERDICT: NEGATIVE -- the pre-registered rule (eval_sites.dem_verdict)
+# fails (i)+(ii), so AUTO_ROAD_SOURCES stays (); DEM and SfM grades agree (r 0.80-0.83 in hilly
+# cities) and are interchangeable in fusion. The service returns SQUARE degree-pixels whatever size
+# is asked, so the grid is square in degrees and every tile's georeference is checked.
+python scripts/dem_grade.py richmond clovis morgantown annapolis laurens   # --verify re-hashes
+python scripts/mapillary_tilt.py precondition --grade-source dem           # eight arms + verdict
+
 # GSV GROUND PLANE (issue #52) -- a STUDY, not production: the depth payload's dominant ground
 # plane NORMAL per pano, decomposed into along-travel grade + cross-slope, and the direct test of
 # #50's road-relative raycast claim (off / ground-normal / shuffled-normal, same site set, plus an
