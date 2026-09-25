@@ -3,10 +3,13 @@
 Deliberately narrow, per the repo's lean-test rule. These lock the two things that would
 corrupt every derived number silently rather than loudly:
 
-  - the **mirrored column**. `compute_depth_map` reads the raw index at column `col` but
-    writes the result to stored column `width-col-1`, so a parser that skips the flip
-    still returns plausible distances — just for the wrong side of the panorama. Nothing
-    downstream could catch that.
+  - the **two column frames** (#80). `compute_depth_map` reads the raw index at column
+    `col` but writes the result to stored column `width-col-1`, so streetlevel's raster
+    is the mirror of the imagery, while a raw column IS an image column. Getting either
+    backwards still returns plausible distances — just for the wrong side of the
+    panorama — and a synthetic payload built under the same wrong assumption passes its
+    own tests, which is how the range queries shipped mirrored. So the image frame is
+    pinned against a real panorama (test_image_frame_matches_the_real_panorama).
   - the **ground plane read**, since the camera height it returns replaces a hardcoded
     constant in the raycast (labeler #40).
   - the **snapped/continuous split**: a range query must intersect the true ray, not a
@@ -20,12 +23,19 @@ against live panoramas after a streetlevel upgrade).
 """
 import math
 import base64
+import gzip
+import hashlib
+import json
+import os
 import random
 import struct
+from pathlib import Path
 
 import pytest
 
 import depth as depthlib
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def build_payload(width, height, planes, indices):
@@ -94,7 +104,7 @@ def test_sky_returns_none():
 
 
 def test_stored_columns_are_mirrored_relative_to_raw_indices():
-    """The flip that a naive parser gets wrong: raw column 0 is stored column width-1."""
+    """depth_at is in streetlevel's RASTER frame: raw column 0 is raster column width-1."""
     width, height = 8, 4
     indices = [depthlib.SKY] * (width * height)
     for row in range(height // 2, height):       # ground everywhere below the horizon...
@@ -173,7 +183,9 @@ def tilted_ground(deg, bearing=35.0, height=2.5):
 
 def test_ray_depth_matches_depth_at_on_pixel_centres():
     """The continuous ray must reduce to the quantized one exactly at a pixel centre --
-    otherwise it would be a different convention rather than a refinement.
+    otherwise it would be a different convention rather than a refinement. The two take
+    different frames (#80): ray_depth_at the image, depth_at streetlevel's raster, which
+    is its mirror, so image x meets raster 1 - x.
 
     Planes with a nonzero normal-x are what pin the azimuth down; see tilted_ground.
     """
@@ -185,7 +197,7 @@ def test_ray_depth_matches_depth_at_on_pixel_centres():
         for col in range(W):
             x, y = (col + 0.5) / W, (row + 0.5) / H
             assert depthlib.ray_depth_at(payload, x, y) == pytest.approx(
-                depthlib.depth_at(payload, x, y), rel=1e-12)
+                depthlib.depth_at(payload, 1.0 - x, y), rel=1e-12)
 
 
 def test_ground_range_is_exact_between_pixel_centres():
@@ -203,18 +215,53 @@ def test_ground_range_is_exact_between_pixel_centres():
 
 
 def test_ground_range_uses_the_plane_under_the_detection():
-    """Sanity that the (quantized) plane lookup still drives the answer: a nearer plane
-    patch under the query point must shorten the range."""
-    W, H, h = 64, 32, 2.5
+    """The (quantized) plane lookup drives the answer, in the IMAGE frame: a nearer patch
+    at raw column 0 is under image column 0 -- the left edge -- and nowhere else (#80)."""
+    W, H = 64, 32
     indices = [0] * (W * H)
     for row in range(H // 2, H):
         for col in range(W):
             indices[row * W + col] = 1
-    indices[(H - 1) * W + 0] = 2                  # RAW column 0 -> stored column W-1
+    indices[(H - 1) * W + 0] = 2                  # RAW column 0 == image column 0
     payload = depthlib.parse(build_payload(W, H, [GROUND, GROUND, (0, 0, -1, 1.0)], indices))
     y = (H - 0.5) / H
-    assert (depthlib.ground_range_at(payload, (W - 0.5) / W, y)
-            < depthlib.ground_range_at(payload, 0.5, y))
+    left = depthlib.ground_range_at(payload, 0.5 / W, y)
+    right = depthlib.ground_range_at(payload, (W - 0.5) / W, y)
+    middle = depthlib.ground_range_at(payload, 0.5, y)
+    assert left == pytest.approx(middle * 1.0 / 2.5, rel=1e-6)   # the 1.0 m patch
+    assert right == pytest.approx(middle, rel=1e-12)             # its mirror is plain ground
+
+
+def test_image_frame_matches_the_real_panorama():
+    """The regression guard for #80, pinned to reality rather than to a synthetic payload
+    built under our own assumption. tests/fixtures/depth_image_frame.json holds 64 points
+    of one real paterson panorama labelled sky/surface from its JPEG alone, at cells where
+    the image frame and its mirror disagree about sky; ray_depth_at (None = sky) must side
+    with the image on nearly all of them, and the mirror on nearly none.
+
+    The payload is read from the local depth archive (runs/<city>/depth, written by
+    scripts/harvest_depth.py; LABELER_RUNS points elsewhere) and the test is skipped
+    where that is absent. The offline synthetic tests above pin the code relation between
+    the frames; this pins which frame the imagery is in. Measured when written: 59 of 64
+    agree in the image frame, 5 of 64 mirrored.
+    """
+    fx = json.loads((REPO_ROOT / "tests" / "fixtures" / "depth_image_frame.json").read_text())
+    runs = Path(os.environ.get("LABELER_RUNS", REPO_ROOT / "runs"))
+    path = runs / fx["city"] / "depth" / f"{fx['panorama_id']}.json.gz"
+    if not path.exists():
+        pytest.skip(f"no local depth archive at {path}")
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != fx["payload_file_sha256"]:
+        pytest.skip(f"{path.name} is not the payload the fixture was derived from")
+    payload = depthlib.parse(json.loads(gzip.decompress(raw))["depth_b64"])
+
+    def agree(mirror):
+        return sum((depthlib.ray_depth_at(payload, 1.0 - x if mirror else x, y) is None)
+                   == (label == "sky") for x, y, label in fx["points"])
+
+    n = len(fx["points"])
+    assert agree(mirror=False) >= 0.85 * n
+    assert agree(mirror=True) <= 0.15 * n
 
 
 def test_agrees_with_streetlevel_raster_offline():
