@@ -731,8 +731,8 @@ def _precondition_dem(args):
                           for r in rows if r['gravity_fallback_share_members'] is not None))
         by_city[city] = rows
         all_rows.extend({'city': city, **r} for r in rows)
-    for road_arm, shuffle_arm in ((fs.POSE_ROAD, es.ARM_SHUFFLED_WITHIN),
-                                  (es.ARM_ROAD_DEM, es.ARM_ROAD_DEM_SHUFFLED_WITHIN)):
+    # Both rules for the SfM road arm here; the DEM arm's come once, from dem_verdict below.
+    for road_arm, shuffle_arm in ((fs.POSE_ROAD, es.ARM_SHUFFLED_WITHIN),):
         passes, reasons = es.precondition_verdict(by_city, road_arm)
         print('\n'.join(reasons))
         print(f"first rule ({road_arm} vs off): {'PASSES' if passes else 'FAILS'}")

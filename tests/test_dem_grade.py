@@ -103,7 +103,7 @@ def test_grades_csv_sfm_column_reproduces_load_results_bit_for_bit(tmp_path):
     run = _write_run(tmp_path)
     frames = dg.read_frames(run / 'results.jsonl')
     rows = dg.compute_grades(frames, [100.0 + i for i in range(len(frames))])
-    dg.write_grades(run / 'dem' / 'grades.csv', rows)
+    dg.write_grades(run / 'dem' / 'grades.csv', rows, run / 'results.jsonl')
     panos, _ = fs.load_results(run / 'results.jsonl')
     with open(run / 'dem' / 'grades.csv', newline='', encoding='utf-8') as f:
         csv_sfm = {r['panorama_id']: r['grade_sfm_deg'] for r in csv.DictReader(f)}
@@ -111,11 +111,20 @@ def test_grades_csv_sfm_column_reproduces_load_results_bit_for_bit(tmp_path):
         assert (float(csv_sfm[p.pano_id]) if csv_sfm[p.pano_id] else None) == p.grade_deg
 
 
+def _hand_grades(run, body, results='results.jsonl'):
+    """A hand-written grades.csv plus the sidecar dem_grade.write_grades would write."""
+    csv_path = run / 'dem' / 'grades.csv'
+    csv_path.write_text(body, encoding='utf-8')
+    (run / 'dem' / 'grades.json').write_text(json.dumps({
+        'results_file': results, 'results_sha256': fs.file_sha256(run / results),
+        'rows': body.count('\n') - 1, 'grades_sha256': fs.file_sha256(csv_path)}),
+        encoding='utf-8')
+
+
 def test_load_results_replaces_the_grade_from_the_csv_and_keeps_the_bearing(tmp_path):
     run = _write_run(tmp_path, n=3)
-    (run / 'dem' / 'grades.csv').write_text(
-        'panorama_id,grade_dem_deg,grade_sfm_smoothed_deg\n'
-        'm0,1.5,2.5\nm1,-0.25,2.75\nm2,,\n', encoding='utf-8')
+    _hand_grades(run, 'panorama_id,grade_dem_deg,grade_sfm_smoothed_deg\n'
+                      'm0,1.5,2.5\nm1,-0.25,2.75\nm2,,\n')
     base = {p.pano_id: p for p in fs.load_results(run / 'results.jsonl')[0]}
     dem = {p.pano_id: p for p in fs.load_results(run / 'results.jsonl',
                                                  grade_source=fs.GRADE_DEM)[0]}
@@ -140,6 +149,75 @@ def test_load_results_replaces_the_grade_from_the_csv_and_keeps_the_bearing(tmp_
         fs.FuseParams(grade_source='lidar')
 
 
+def test_grades_are_refused_for_another_results_file_or_a_truncated_csv(tmp_path):
+    """grades.csv is bound to the results file it was sampled from (grades.json): fusing
+    a sibling file (laurens' results.raw.jsonl vs results.jsonl) or a CSV that lost rows
+    must refuse, not silently mix position sets or fall back to gravity."""
+    run = _write_run(tmp_path, n=4)
+    frames = dg.read_frames(run / 'results.jsonl')
+    rows = dg.compute_grades(frames, [100.0 + i for i in range(len(frames))])
+    grades = run / 'dem' / 'grades.csv'
+    dg.write_grades(grades, rows, run / 'results.jsonl')
+    assert fs.load_results(run / 'results.jsonl', grade_source=fs.GRADE_DEM)[0]
+    # a sibling results file with moved positions, fused against the same grades.csv
+    raw = run / 'results.raw.jsonl'
+    raw.write_text((run / 'results.jsonl').read_text(encoding='utf-8')
+                   .replace('"capture_date": "2024-06"', '"capture_date": "2024-07"', 1),
+                   encoding='utf-8')
+    with pytest.raises(SystemExit, match='was built from .results.jsonl.'):
+        fs.load_results(raw, grade_source=fs.GRADE_DEM, grades_path=grades)
+    # a truncated CSV: refused against the sidecar's hash
+    lines = grades.read_text(encoding='utf-8').splitlines(keepends=True)
+    grades.write_text(''.join(lines[:3]), encoding='utf-8')
+    with pytest.raises(SystemExit, match='truncated, stale or edited'):
+        fs.load_results(run / 'results.jsonl', grade_source=fs.GRADE_DEM)
+    # ...and a CSV that is internally consistent but simply lacks a graded pano's row
+    _hand_grades(run, 'panorama_id,grade_dem_deg\nm0,1.0\nm1,1.0\n')
+    with pytest.raises(SystemExit, match='have no row'):
+        fs.load_results(run / 'results.jsonl', grade_source=fs.GRADE_DEM)
+    # no sidecar at all
+    (run / 'dem' / 'grades.json').unlink()
+    with pytest.raises(SystemExit, match='grades.json'):
+        fs.load_results(run / 'results.jsonl', grade_source=fs.GRADE_DEM)
+
+
+@pytest.mark.parametrize('bad', ['nan', 'inf', '-inf'])
+def test_a_non_finite_grade_is_refused(tmp_path, bad):
+    run = _write_run(tmp_path, n=3)
+    _hand_grades(run, f'panorama_id,grade_dem_deg\nm0,1.0\nm1,{bad}\nm2,0.5\n')
+    with pytest.raises(SystemExit, match='non-finite'):
+        fs.load_results(run / 'results.jsonl', grade_source=fs.GRADE_DEM)
+
+
+def test_relief_ratio_is_the_slope_of_sfm_altitude_on_dem_with_its_gates():
+    def seq(name, n, dem_step, k):
+        return ([(f'{name}{i}', name, i * 1000, LAT0, LNG0, 7.0 + k * dem_step * i, 'r')
+                 for i in range(n)], [dem_step * i for i in range(n)])
+    f1, z1 = seq('a', 40, 0.1, 0.5)          # 3.9 m of relief, altitude carries half of it
+    f2, z2 = seq('b', 29, 0.1, 1.0)          # too few frames
+    f3, z3 = seq('c', 40, 0.01, 1.0)         # 0.39 m of relief: below the 0.5 m gate
+    r = dg.relief_ratios(f1 + f2 + f3, z1 + z2 + z3)
+    assert r.keys() == {'a'} and r['a'] == pytest.approx(0.5)
+
+
+def test_fitted_grade_window_edges_and_segment_breaks():
+    # 9 frames 5 m apart, 1 s apart, on a 5% slope; then a 200 s gap before 2 more frames
+    frames = [(f'p{i}', 's', i * 1000, LAT0 + 5.0 * i / M_PER_DEG, LNG0, None, 'r')
+              for i in range(9)]
+    frames += [(f'q{i}', 's', 208_000 + i * 1000, LAT0 + (40.0 + 5.0 * (i + 1)) / M_PER_DEG,
+                LNG0, None, 'r') for i in range(2)]
+    z = [0.05 * 5.0 * i for i in range(9)] + [0.0, 50.0]
+    g = dg.fitted_grades(frames, z, half_window_m=20.0)
+    want = math.degrees(math.atan(0.05))
+    # the window is one-sided at the ends of the segment: 0..20 m, i.e. 5 frames
+    assert g[0][2] == 5 and g[0][1] == pytest.approx(20.0)
+    assert g[4][2] == 9 and g[8][2] == 5
+    assert all(g[i][0] == pytest.approx(want, abs=1e-6) for i in range(9))
+    # the time gap starts a new segment: its two frames never join the first nine (a
+    # 50 m jump would otherwise be fitted) and two frames are too few for a fit
+    assert 9 not in g and 10 not in g
+
+
 # --- fetch --------------------------------------------------------------------------
 
 class _Resp:
@@ -147,16 +225,53 @@ class _Resp:
         self.content, self.status_code = content, status
 
 
-def _geotiff(tile, step, value=42.0):
+def _geotiff(tile, step, value=42.0, raster_type=1):
+    """A float32 GeoTIFF for the tile: `value` is a constant or an (h, w) array."""
     w, h = tile['size']
     ifd = TiffImagePlugin.ImageFileDirectory_v2()
     ifd[33922] = (0.0, 0.0, 0.0, tile['bbox'][0], tile['bbox'][3], 0.0)
     ifd[33550] = (step, step, 0.0)
     ifd.tagtype[33922] = ifd.tagtype[33550] = 12
+    ifd[34735] = (1, 1, 0, 1, 1025, 0, 1, raster_type)   # GTRasterTypeGeoKey
+    ifd.tagtype[34735] = 3
     buf = io.BytesIO()
-    Image.fromarray(np.full((h, w), value, np.float32), 'F').save(
-        buf, format='TIFF', tiffinfo=ifd)
+    arr = np.broadcast_to(np.asarray(value, np.float32), (h, w)).copy()
+    Image.fromarray(arr, 'F').save(buf, format='TIFF', tiffinfo=ifd)
     return buf.getvalue()
+
+
+def test_a_gradient_tile_samples_at_the_right_pixel_centres(tmp_path, monkeypatch):
+    """Round trip through a real GeoTIFF: pixel (r, c) holds 10 r + c, so a half-pixel
+    offset (off by 5 or 0.5) or a row flip (rows counted from the south) would show."""
+    g = _small_grid()
+    t = g['tiles'][0]
+    w, h = t['size']
+    rows, cols = np.mgrid[0:h, 0:w]
+    monkeypatch.setattr(requests, 'get', lambda *a, **k: _Resp(
+        _geotiff(t, g['step_deg'], value=10.0 * rows + cols)))
+    manifest = dg.fetch_city(tmp_path, g, (0, 0, 0, 0), 2.0,
+                             pause=lambda s: None, log=lambda m: None)
+    m = dg.Mosaic.from_cache(tmp_path, manifest)
+    s = g['step_deg']
+    lat = lambda r: g['y1'] - (r + 0.5) * s     # noqa: E731  pixel-centre latitude
+    lng = lambda c: g['x0'] + (c + 0.5) * s     # noqa: E731
+    assert m.sample([lat(3)], [lng(7)])[0] == pytest.approx(37.0, abs=1e-6)
+    assert m.sample([lat(h - 2)], [lng(1)])[0] == pytest.approx(10.0 * (h - 2) + 1, abs=1e-6)
+    # halfway between centres: the bilinear mean
+    assert m.sample([lat(3.5)], [lng(7.5)])[0] == pytest.approx(42.5, abs=1e-6)
+    # a NoData neighbour makes the sample None (NaN), not a blend with -3.4e38
+    m.a[3, 7] = np.nan
+    assert np.isnan(m.sample([lat(3.25)], [lng(7.25)])[0])
+    # a tile that is not PixelIsArea is refused: the centre convention assumes it
+    with pytest.raises(dg.FetchRefused, match='PixelIsArea'):
+        dg.decode_tile(_geotiff(t, s, raster_type=2), t, s)
+
+
+def test_a_missing_grade_column_is_refused(tmp_path):
+    run = _write_run(tmp_path, n=3)
+    _hand_grades(run, 'panorama_id,grade_sfm_deg\nm0,1.0\nm1,1.0\nm2,1.0\n')
+    with pytest.raises(SystemExit, match='no grade_dem_deg column'):
+        fs.load_results(run / 'results.jsonl', grade_source=fs.GRADE_DEM)
 
 
 def _small_grid():

@@ -442,22 +442,62 @@ def pose_source_warnings(panos, mode):
             for kind, n in sorted(counts.items())]
 
 
-def load_grades_csv(path, grade_source):
+def file_sha256(path):
+    """sha256 hex digest of a file, streamed."""
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def load_grades_csv(path, grade_source, results_path=None):
     """{panorama_id: grade_deg or None} from scripts/dem_grade.py's grades.csv, for a
-    non-`sfm` grade source (#51). Refuses, naming the command, when the file or the column
-    is missing -- a silent fallback to the SfM grade would mislabel the frame."""
+    non-`sfm` grade source (#51).
+
+    Refuses (SystemExit, naming the command that writes it) when:
+    - the file, its grades.json sidecar or the column is missing;
+    - the sidecar's results_sha256 is not `results_path`'s -- the grades were sampled at
+      another file's positions (e.g. results.jsonl's, fused as results.raw.jsonl), so
+      each frame would mix two position sets;
+    - the CSV is not the one the sidecar recorded (truncated, stale or edited);
+    - a cell is not a finite number. An EMPTY cell is a legitimate "no grade here".
+    """
     path = Path(path)
     column = GRADE_CSV_COLUMN[grade_source]
     hint = (f'run `python scripts/dem_grade.py <city>` to write it (grade source '
             f'{grade_source!r} reads its {column} column)')
     if not path.exists():
         raise SystemExit(f'no grades file at {path}: {hint}')
+    sidecar = path.with_suffix('.json')
+    if not sidecar.exists():
+        raise SystemExit(f'no {sidecar.name} beside {path}, so nothing ties it to a '
+                         f'results file: {hint}')
+    meta = json.loads(sidecar.read_text(encoding='utf-8'))
+    if results_path is not None and meta.get('results_sha256') != file_sha256(results_path):
+        raise SystemExit(f"{path} was built from {meta.get('results_file')!r} "
+                         f"(sha256 {str(meta.get('results_sha256'))[:12]}...), not from "
+                         f'{Path(results_path).name} as it is now: its grades were sampled at '
+                         f'that file\'s positions. Re-run dem_grade.py on this file, or pass '
+                         f'--grades for the right one')
+    if meta.get('grades_sha256') != file_sha256(path):
+        raise SystemExit(f'{path} is not the file {sidecar.name} recorded (truncated, stale '
+                         f'or edited): {hint}')
     with open(path, newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         if column not in (reader.fieldnames or ()):
             raise SystemExit(f'{path} has no {column} column: {hint}')
-        return {row['panorama_id']: float(row[column]) if row[column] else None
-                for row in reader}
+        out = {}
+        for row in reader:
+            v = row[column]
+            if v:
+                v = float(v)
+                if not math.isfinite(v):
+                    raise SystemExit(f"{path}: non-finite {column} {row[column]!r} for "
+                                     f"{row['panorama_id']}")
+            out[row['panorama_id']] = v if v != '' else None
+        return out
 
 
 def load_results(path, depth_index=None, read_heights=True,
@@ -528,11 +568,16 @@ def load_results(path, depth_index=None, read_heights=True,
             raise ValueError(f'grade_source must be one of {GRADE_SOURCES}, '
                              f'got {grade_source!r}')
         grades = load_grades_csv(grades_path or path.parent / 'dem' / 'grades.csv',
-                                 grade_source)
+                                 grade_source, results_path=path)
+        missing = [p.pano_id for p in panos
+                   if p.travel_bearing_deg is not None and p.pano_id not in grades]
+        if missing:
+            raise SystemExit(f'{len(missing)} graded pano(s) have no row in the grades file '
+                             f'(first: {missing[0]}); it does not cover {path.name}')
         for p in panos:
             if p.travel_bearing_deg is None:
                 continue                    # no travel direction: nothing to rotate about
-            p.grade_deg = grades.get(p.pano_id)
+            p.grade_deg = grades[p.pano_id]
             p.grade_origin = grade_source if p.grade_deg is not None else None
     return panos, skipped
 

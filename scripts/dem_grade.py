@@ -167,6 +167,11 @@ def decode_tile(content, tile, step):
     if im.mode != 'F' or im.size != (w, h):
         raise FetchRefused(f'expected a {w}x{h} float32 raster, got mode {im.mode} '
                            f'size {im.size}')
+    keys = im.tag_v2.get(34735) or ()
+    geokeys = {keys[i]: keys[i + 3] for i in range(4, len(keys) - 3, 4)}
+    if geokeys.get(1025) != 1:          # GTRasterTypeGeoKey: 1 = PixelIsArea
+        raise FetchRefused(f'raster type {geokeys.get(1025)!r}, expected PixelIsArea (1): '
+                           'the pixel-centre convention below assumes it')
     tie, scale = im.tag_v2.get(33922), im.tag_v2.get(33550)
     if tie is None or scale is None:
         raise FetchRefused('GeoTIFF carries no tie point / pixel scale')
@@ -317,9 +322,11 @@ def read_frames(results_path):
                 continue
             meta = p.get('source_metadata') or {}
             rig = ' '.join(x for x in (p.get('camera_make') or meta.get('make'),
-                                       p.get('camera_model') or meta.get('model')) if x)
+                                       p.get('camera_model') or meta.get('model'))
+                           if x and str(x).lower() != 'none')
             frames.append((p['panorama_id'], p.get('sequence_id'), meta.get('captured_at'),
-                           p['lat'], p['lng'], meta.get('computed_altitude'), rig or '?'))
+                           p['lat'], p['lng'], meta.get('computed_altitude'),
+                           rig or 'unknown'))
     return frames
 
 
@@ -434,14 +441,23 @@ def compute_grades(frames, dem_z, half_window_m=FIT_HALF_WINDOW_M):
     return rows
 
 
-def write_grades(path, rows):
-    """CSV with repr floats (round-trip exact) and empty cells for None."""
+def write_grades(path, rows, results_path):
+    """CSV with repr floats (round-trip exact) and empty cells for None, plus the
+    grades.json sidecar that binds it to the results file it was sampled from:
+    fuse_sites.load_grades_csv refuses the CSV for any other results file, or if the CSV
+    no longer hashes to what the sidecar recorded."""
+    path = Path(path)
     with open(path, 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, GRADES_FIELDS)
         w.writeheader()
         for r in rows:
             w.writerow({k: '' if v is None else (repr(v) if isinstance(v, float) else v)
                         for k, v in r.items()})
+    meta = {'results_file': Path(results_path).name,
+            'results_sha256': fs.file_sha256(results_path), 'rows': len(rows),
+            'grades_sha256': fs.file_sha256(path)}
+    path.with_suffix('.json').write_text(json.dumps(meta, indent=2) + '\n', 'utf-8')
+    return meta
 
 
 # --- report -------------------------------------------------------------------------
@@ -588,7 +604,7 @@ def summarize(city, frames, rows, n_out_of_raster):
     return summary, lines, rv
 
 
-def write_report(path, city, manifest, grades_path, lines):
+def write_report(path, city, manifest, grades_path, lines, binding=None):
     sha = sha256_bytes(Path(grades_path).read_bytes())
     head = [f'# DEM road grade: {city} (#51)', '',
             'Written by `scripts/dem_grade.py`; the study is `docs/dem-grade-study.md`.', '',
@@ -600,7 +616,12 @@ def write_report(path, city, manifest, grades_path, lines):
             '`tiles.json`.',
             f"- grades.csv sha256 `{sha}` ({Path(grades_path).stat().st_size} bytes; not "
             'tracked -- regenerate with the command above and compare).',
-            f'- Fit window +-{FIT_HALF_WINDOW_M:g} m of path distance, >= 3 frames.', '']
+            f'- Fit window +-{FIT_HALF_WINDOW_M:g} m of path distance, >= 3 frames.']
+    if binding:
+        head.append(f"- Sampled from `{binding['results_file']}` (sha256 "
+                    f"`{binding['results_sha256']}`, {binding['rows']} rows); "
+                    '`grades.json` records this and `--grade-source` refuses any other file.')
+    head.append('')
     Path(path).write_text('\n'.join(head + lines) + '\n', 'utf-8')
 
 
@@ -627,9 +648,9 @@ def run_city(city, runs_root, posts_m, half_window_m, no_fetch=False, log=print)
     n_out = sum(1 for v in dem_z if v is None)
     rows = compute_grades(frames, dem_z, half_window_m)
     grades_path = dem_dir / 'grades.csv'
-    write_grades(grades_path, rows)
+    binding = write_grades(grades_path, rows, run_dir / 'results.jsonl')
     summary, lines, _ = summarize(city, frames, rows, n_out)
-    write_report(dem_dir / 'report.md', city, manifest, grades_path, lines)
+    write_report(dem_dir / 'report.md', city, manifest, grades_path, lines, binding)
     log(f'  wrote {grades_path} and {dem_dir / "report.md"}')
     return summary
 
