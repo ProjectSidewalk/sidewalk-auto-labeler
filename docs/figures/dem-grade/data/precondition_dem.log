@@ -1,0 +1,123 @@
+== richmond: pose precondition (#42) -- one site set, one GT set, 802 of 1570 operational sites scored (768 dropped: some arm cannot place a member), 211 pool ramps, 76 matched within 5 m under every arm; 99 of 310 GT marks unplaceable under some arm; off pool 253 ramps
+                     arm   median      p90     mean   R@2.5     R@5       P  offR@2.5  offR@5  unplaced
+                     off    1.297    3.533    1.703   0.877   0.886   0.896     0.870   0.881        57
+                 gravity    1.201    2.860    1.435   0.872   0.891   0.896     0.814   0.830        58
+                    road    1.000    2.797    1.285   0.882   0.896   0.896     0.830   0.842        59
+    road-shuffled-within    1.196    3.153    1.446   0.872   0.886   0.896     0.791   0.802        60
+    road-shuffled-across    1.412    3.643    1.664   0.872   0.886   0.896     0.771   0.783        65
+       road-sfm-smoothed    1.057    2.772    1.284   0.882   0.896   0.896     0.826   0.838        61
+                road-dem    1.076    2.723    1.290   0.877   0.891   0.896     0.830   0.842        55
+road-dem-shuffled-within    1.178    3.388    1.467   0.872   0.886   0.896     0.783   0.794        66
+road-mode gravity fallback: 625 of 9090 posed panos (6.9%), 8.9% of scored members; shuffle-within kept its own grade on 0 frames (single-graded-frame sequences)
+dem-shuffle-within kept its own grade on 0 frames; gravity fallback road 8.9% of members, road-shuffled-within 8.9% of members, road-shuffled-across 8.9% of members, road-sfm-smoothed 8.9% of members, road-dem 8.9% of members, road-dem-shuffled-within 8.9% of members
+== clovis: pose precondition (#42) -- one site set, one GT set, 2188 of 2495 operational sites scored (307 dropped: some arm cannot place a member), 168 pool ramps, 128 matched within 5 m under every arm; 27 of 195 GT marks unplaceable under some arm; off pool 174 ramps
+                     arm   median      p90     mean   R@2.5     R@5       P  offR@2.5  offR@5  unplaced
+                     off    1.275    3.279    1.588   0.869   0.929   0.913     0.856   0.914        21
+                 gravity    0.768    2.458    1.061   0.923   0.946   0.913     0.902   0.925        14
+                    road    0.851    2.263    1.078   0.911   0.940   0.913     0.891   0.920        14
+    road-shuffled-within    0.794    2.427    1.057   0.917   0.946   0.913     0.897   0.925        14
+    road-shuffled-across    0.751    2.329    1.087   0.917   0.946   0.913     0.891   0.920        16
+       road-sfm-smoothed    0.809    2.317    1.070   0.917   0.940   0.913     0.897   0.920        14
+                road-dem    0.840    2.486    1.082   0.923   0.946   0.913     0.908   0.931        13
+road-dem-shuffled-within    0.761    2.276    1.047   0.923   0.946   0.913     0.902   0.925        14
+road-mode gravity fallback: 3959 of 72751 posed panos (5.4%), 4.2% of scored members; shuffle-within kept its own grade on 0 frames (single-graded-frame sequences)
+dem-shuffle-within kept its own grade on 0 frames; gravity fallback road 4.2% of members, road-shuffled-within 4.2% of members, road-shuffled-across 4.2% of members, road-sfm-smoothed 4.2% of members, road-dem 4.2% of members, road-dem-shuffled-within 4.2% of members
+== morgantown: pose precondition (#42) -- one site set, one GT set, 839 of 1733 operational sites scored (894 dropped: some arm cannot place a member), 212 pool ramps, 74 matched within 5 m under every arm; 55 of 267 GT marks unplaceable under some arm; off pool 250 ramps
+                     arm   median      p90     mean   R@2.5     R@5       P  offR@2.5  offR@5  unplaced
+                     off    0.915    2.336    1.137   0.825   0.849   0.971     0.808   0.832        17
+                 gravity    0.843    2.312    1.136   0.835   0.849   0.971     0.780   0.796        22
+                    road    0.783    2.284    1.041   0.830   0.844   0.971     0.800   0.828        21
+    road-shuffled-within    0.993    2.601    1.280   0.830   0.849   0.971     0.788   0.812        17
+    road-shuffled-across    1.162    2.681    1.351   0.825   0.849   0.971     0.732   0.756        35
+       road-sfm-smoothed    0.751    2.313    1.017   0.825   0.854   0.971     0.796   0.832        21
+                road-dem    0.697    2.203    1.002   0.821   0.854   0.971     0.792   0.836        20
+road-dem-shuffled-within    0.943    2.570    1.259   0.825   0.854   0.971     0.788   0.816        16
+road-mode gravity fallback: 43 of 51692 posed panos (0.1%), 0.1% of scored members; shuffle-within kept its own grade on 0 frames (single-graded-frame sequences)
+dem-shuffle-within kept its own grade on 0 frames; gravity fallback road 0.1% of members, road-shuffled-within 0.1% of members, road-shuffled-across 0.1% of members, road-sfm-smoothed 0.1% of members, road-dem 0.1% of members, road-dem-shuffled-within 0.1% of members
+== annapolis: pose precondition (#42) -- one site set, one GT set, 2443 of 4018 operational sites scored (1575 dropped: some arm cannot place a member), 211 pool ramps, 90 matched within 5 m under every arm; 83 of 294 GT marks unplaceable under some arm; off pool 241 ramps
+                     arm   median      p90     mean   R@2.5     R@5       P  offR@2.5  offR@5  unplaced
+                     off    1.323    3.054    1.519   0.872   0.891   0.978     0.846   0.876        53
+                 gravity    0.938    2.309    1.227   0.882   0.896   0.978     0.813   0.826        56
+                    road    0.862    2.169    1.144   0.886   0.900   0.978     0.813   0.838        50
+    road-shuffled-within    0.983    2.649    1.305   0.877   0.900   0.978     0.805   0.826        58
+    road-shuffled-across    1.037    2.663    1.316   0.882   0.896   0.978     0.788   0.801        57
+       road-sfm-smoothed    0.910    2.068    1.146   0.886   0.900   0.978     0.817   0.838        48
+                road-dem    0.909    2.317    1.155   0.886   0.900   0.978     0.822   0.842        51
+road-dem-shuffled-within    0.961    2.668    1.288   0.877   0.900   0.978     0.805   0.826        56
+road-mode gravity fallback: 405 of 53230 posed panos (0.8%), 1.1% of scored members; shuffle-within kept its own grade on 0 frames (single-graded-frame sequences)
+dem-shuffle-within kept its own grade on 0 frames; gravity fallback road 1.1% of members, road-shuffled-within 1.1% of members, road-shuffled-across 1.1% of members, road-sfm-smoothed 1.1% of members, road-dem 1.1% of members, road-dem-shuffled-within 1.1% of members
+== laurens_mapillary: pose precondition (#42) -- one site set, one GT set, 161 of 186 operational sites scored (25 dropped: some arm cannot place a member), 227 pool ramps, 115 matched within 5 m under every arm; 18 of 249 GT marks unplaceable under some arm; off pool 235 ramps
+                     arm   median      p90     mean   R@2.5     R@5       P  offR@2.5  offR@5  unplaced
+                     off    1.788    3.836    2.008   0.529   0.670   0.874     0.511   0.660         9
+                 gravity    1.425    2.673    1.495   0.617   0.683   0.874     0.600   0.664        13
+                    road    1.426    2.614    1.502   0.634   0.683   0.874     0.621   0.664        12
+    road-shuffled-within    1.331    2.736    1.527   0.599   0.670   0.874     0.583   0.651        12
+    road-shuffled-across    1.397    2.693    1.553   0.626   0.678   0.874     0.609   0.664         9
+       road-sfm-smoothed    1.393    2.680    1.514   0.630   0.678   0.874     0.617   0.660        12
+                road-dem    1.388    2.717    1.475   0.630   0.683   0.874     0.617   0.664        11
+road-dem-shuffled-within    1.423    2.834    1.526   0.599   0.670   0.874     0.579   0.647        12
+road-mode gravity fallback: 12 of 4493 posed panos (0.3%), 0.0% of scored members; shuffle-within kept its own grade on 0 frames (single-graded-frame sequences)
+dem-shuffle-within kept its own grade on 0 frames; gravity fallback road 0.0% of members, road-shuffled-within 0.0% of members, road-shuffled-across 0.0% of members, road-sfm-smoothed 0.0% of members, road-dem 0.0% of members, road-dem-shuffled-within 0.0% of members
+richmond: p90 road-off -0.735 m, median road-off -0.297 m
+clovis: p90 road-off -1.016 m, median road-off -0.424 m
+morgantown: p90 road-off -0.052 m, median road-off -0.132 m
+annapolis: p90 road-off -0.885 m, median road-off -0.461 m
+laurens: p90 road-off -1.222 m, median road-off -0.362 m
+p90 worse than off by > 0.1 m in: none; median improves in 5 of 5 (needs 3): richmond, clovis, morgantown, annapolis, laurens
+first rule (road vs off): PASSES
+richmond: shuffled-within minus road p90 +0.355 m, median +0.195 m; off-pool R@2.5 road-off -4.0 pt; unplaceable marks road-off +2 (limit 12.7)
+clovis: shuffled-within minus road p90 +0.164 m, median -0.057 m; off-pool R@2.5 road-off +3.4 pt; unplaceable marks road-off -7 (limit 8.7)
+morgantown: shuffled-within minus road p90 +0.317 m, median +0.210 m; off-pool R@2.5 road-off -0.8 pt; unplaceable marks road-off +4 (limit 12.5)
+annapolis: shuffled-within minus road p90 +0.480 m, median +0.121 m; off-pool R@2.5 road-off -3.3 pt; unplaceable marks road-off -3 (limit 12.1)
+laurens: shuffled-within minus road p90 +0.122 m, median -0.094 m; off-pool R@2.5 road-off +11.1 pt; unplaceable marks road-off +3 (limit 11.8)
+(i) road beats road-shuffled-within by > 0.1 m on p90 AND median in 3 of 5 (needs 4): richmond, morgantown, annapolis -> FAIL
+(ii) off-pool recall@2.5 drops > 1.0 pt in: richmond, annapolis -> FAIL
+(iii) unplaceable marks exceed off by > 5% of the off pool in: none -> PASS
+shuffled-grade control (road vs road-shuffled-within): FAILS
+richmond: p90 road-dem-off -0.810 m, median road-dem-off -0.221 m
+clovis: p90 road-dem-off -0.793 m, median road-dem-off -0.435 m
+morgantown: p90 road-dem-off -0.133 m, median road-dem-off -0.218 m
+annapolis: p90 road-dem-off -0.737 m, median road-dem-off -0.414 m
+laurens: p90 road-dem-off -1.120 m, median road-dem-off -0.400 m
+p90 worse than off by > 0.1 m in: none; median improves in 5 of 5 (needs 3): richmond, clovis, morgantown, annapolis, laurens
+first rule (road-dem vs off): PASSES
+richmond: road-dem-shuffled-within minus road-dem p90 +0.664 m, median +0.103 m; off-pool R@2.5 road-dem-off -4.0 pt; unplaceable marks road-dem-off -2 (limit 12.7)
+clovis: road-dem-shuffled-within minus road-dem p90 -0.210 m, median -0.079 m; off-pool R@2.5 road-dem-off +5.2 pt; unplaceable marks road-dem-off -8 (limit 8.7)
+morgantown: road-dem-shuffled-within minus road-dem p90 +0.367 m, median +0.246 m; off-pool R@2.5 road-dem-off -1.6 pt; unplaceable marks road-dem-off +3 (limit 12.5)
+annapolis: road-dem-shuffled-within minus road-dem p90 +0.350 m, median +0.052 m; off-pool R@2.5 road-dem-off -2.5 pt; unplaceable marks road-dem-off -2 (limit 12.1)
+laurens: road-dem-shuffled-within minus road-dem p90 +0.117 m, median +0.036 m; off-pool R@2.5 road-dem-off +10.6 pt; unplaceable marks road-dem-off +2 (limit 11.8)
+(i) road-dem beats road-dem-shuffled-within by > 0.1 m on p90 AND median in 2 of 5 (needs 4): richmond, morgantown -> FAIL
+(ii) off-pool recall@2.5 drops > 1.0 pt in: richmond, morgantown, annapolis -> FAIL
+(iii) unplaceable marks exceed off by > 5% of the off pool in: none -> PASS
+shuffled-grade control (road-dem vs road-dem-shuffled-within): FAILS
+richmond: road-dem - road: p90 -0.074 m, median +0.075 m, off-pool R@2.5 +0.0 pt
+clovis: road-dem - road: p90 +0.223 m, median -0.011 m, off-pool R@2.5 +1.7 pt
+morgantown: road-dem - road: p90 -0.081 m, median -0.086 m, off-pool R@2.5 -0.8 pt
+annapolis: road-dem - road: p90 +0.148 m, median +0.047 m, off-pool R@2.5 +0.8 pt
+laurens: road-dem - road: p90 +0.102 m, median -0.038 m, off-pool R@2.5 -0.4 pt
+richmond: road-dem - gravity: p90 -0.137 m, median -0.125 m, off-pool R@2.5 +1.6 pt
+clovis: road-dem - gravity: p90 +0.028 m, median +0.073 m, off-pool R@2.5 +0.6 pt
+morgantown: road-dem - gravity: p90 -0.109 m, median -0.146 m, off-pool R@2.5 +1.2 pt
+annapolis: road-dem - gravity: p90 +0.009 m, median -0.029 m, off-pool R@2.5 +0.8 pt
+laurens: road-dem - gravity: p90 +0.043 m, median -0.038 m, off-pool R@2.5 +1.7 pt
+richmond: road-sfm-smoothed - road: p90 -0.026 m, median +0.057 m, off-pool R@2.5 -0.4 pt
+clovis: road-sfm-smoothed - road: p90 +0.053 m, median -0.042 m, off-pool R@2.5 +0.6 pt
+morgantown: road-sfm-smoothed - road: p90 +0.029 m, median -0.032 m, off-pool R@2.5 -0.4 pt
+annapolis: road-sfm-smoothed - road: p90 -0.101 m, median +0.048 m, off-pool R@2.5 +0.4 pt
+laurens: road-sfm-smoothed - road: p90 +0.065 m, median -0.033 m, off-pool R@2.5 -0.4 pt
+richmond: road-dem-shuffled-within minus road-dem p90 +0.664 m, median +0.103 m; off-pool R@2.5 road-dem-off -4.0 pt; unplaceable marks road-dem-off -2 (limit 12.7)
+clovis: road-dem-shuffled-within minus road-dem p90 -0.210 m, median -0.079 m; off-pool R@2.5 road-dem-off +5.2 pt; unplaceable marks road-dem-off -8 (limit 8.7)
+morgantown: road-dem-shuffled-within minus road-dem p90 +0.367 m, median +0.246 m; off-pool R@2.5 road-dem-off -1.6 pt; unplaceable marks road-dem-off +3 (limit 12.5)
+annapolis: road-dem-shuffled-within minus road-dem p90 +0.350 m, median +0.052 m; off-pool R@2.5 road-dem-off -2.5 pt; unplaceable marks road-dem-off -2 (limit 12.1)
+laurens: road-dem-shuffled-within minus road-dem p90 +0.117 m, median +0.036 m; off-pool R@2.5 road-dem-off +10.6 pt; unplaceable marks road-dem-off +2 (limit 11.8)
+(i) road-dem beats road-dem-shuffled-within by > 0.1 m on p90 AND median in 2 of 5 (needs 4): richmond, morgantown -> FAIL
+(ii) off-pool recall@2.5 drops > 1.0 pt in: richmond, morgantown, annapolis -> FAIL
+(iii) unplaceable marks exceed off by > 5% of the off pool in: none -> PASS
+richmond: p90 road-dem-off -0.810 m, median road-dem-off -0.221 m
+clovis: p90 road-dem-off -0.793 m, median road-dem-off -0.435 m
+morgantown: p90 road-dem-off -0.133 m, median road-dem-off -0.218 m
+annapolis: p90 road-dem-off -0.737 m, median road-dem-off -0.414 m
+laurens: p90 road-dem-off -1.120 m, median road-dem-off -0.400 m
+p90 worse than off by > 0.1 m in: none; median improves in 5 of 5 (needs 3): richmond, clovis, morgantown, annapolis, laurens
+(iv) first rule, road-dem vs off -> PASS
+#51 VERDICT: FAIL on (i) FAIL, (ii) FAIL, (iii) pass, (iv) pass -> #51 closes negative: AUTO_ROAD_SOURCES stays (), --apply-pose road --grade-source dem stays opt-in

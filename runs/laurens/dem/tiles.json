@@ -1,0 +1,51 @@
+{
+  "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage",
+  "request_params": {
+    "bboxSR": 4326,
+    "imageSR": 4326,
+    "format": "tiff",
+    "pixelType": "F32",
+    "interpolation": "RSP_BilinearInterpolation",
+    "f": "image"
+  },
+  "posts_m": 2.0,
+  "pad_m": 100.0,
+  "max_tile_px": 1500,
+  "area_bbox": [
+    -94.859586,
+    42.83843,
+    -94.838177,
+    42.855455
+  ],
+  "grid": {
+    "step_deg": 1.796622349982034e-05,
+    "x0": -94.86081123774706,
+    "y1": 42.85635331117499,
+    "width": 1329,
+    "height": 1048
+  },
+  "tiles": [
+    {
+      "name": "0_0",
+      "row": 0,
+      "col": 0,
+      "px_offset": [
+        0,
+        0
+      ],
+      "size": [
+        1329,
+        1048
+      ],
+      "bbox": [
+        -94.86081123774706,
+        42.83752470894718,
+        -94.83693412671579,
+        42.85635331117499
+      ],
+      "sha256": "9a1394ce9bedbcfb7e17f64359e31cbb3c2df11e65970931b89a8090d827921b",
+      "bytes": 6489662,
+      "fetched_at": "2026-09-25T15:19:49+00:00"
+    }
+  ]
+}
