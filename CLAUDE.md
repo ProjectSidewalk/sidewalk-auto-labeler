@@ -650,9 +650,11 @@ snapping it to one of 256 rows costs up to **6.6% of the horizontal range (±1.2
 20–25 m)** once the near-horizon `1/(sin·cos)` amplification is applied — an alternating
 sign that reads as noise. So `ray_depth_at`/`ground_range_at` snap only the *plane lookup*
 (the segmentation genuinely is per-pixel) and intersect the true ray. Watch the azimuth
-there: the mirror cancels in the continuous form, and because mirroring phi flips only the
-ray's x component, any plane with `nx == 0` — every level ground plane — cannot tell a
-correct convention from a backwards one.
+there: range queries take the IMAGE frame (raw index column == JPEG column, `phi = (1-x)2pi +
+pi/2`), while `depth_at` alone takes streetlevel's raster, which is the image's MIRROR (#80: the
+range queries read `(1-x, y)` until then); because mirroring phi flips only the ray's x
+component, any plane with `nx == 0` — every level ground plane — cannot tell a correct
+convention from a backwards one.
 `harvest_depth.py` archives the payloads before they go away: the *JavaScript* API that
 exposed depth was withdrawn in 2020 and anonymous tile access in ~2026, but the metadata
 endpoint used here still serves it. `no_depth.txt`/`gone.txt` are append-only skip caches
@@ -662,17 +664,17 @@ parsed from computed_rotation and written into the record, and fusion can apply 
 withheld the road-relative default; its camera HEIGHT is still the 2.6 m constant — #53).
 
 **GSV ground plane (`scripts/gsv_ground_plane.py`)** — issue #52, a study. The same payloads'
-dominant ground plane has a **normal**, and in depth.py's frame +x is camera-right, **-y is
+dominant ground plane has a **normal**, and in depth.py's frame -x is camera-right (#80), **-y is
 camera-forward** (x = 0.5) and +z is down; `camera_frame_normal`/`slopes` turn it into grade
 (rise ahead) and cross-slope (rise to the right), and the tests pin that mapping against
 `depth.ground_range_at`. Measured 2026-09-23 on the four harvested runs: **the normal is not a
 per-pano road-grade measurement.** Its slope along a street does not persist between linked panos
 (r <= 0.31 within one drive, ~0 across capture months; per-pano noise bound 1.0-2.4 deg), its
 grade follows the rig's metadata pitch only on climbs, and the 2025-26 rig reads ~2x the median
-|grade| of earlier rigs on the same streets; its cross-slope does carry the road crown (falls right
-on 56-67% of panos) and tracks the rig roll (but its left/right sign is NOT settled: the measured
-cross-slope loses to its own flip, and a detection-side split says one plane is the wrong model across
-a crowned street, not that the frame is mirrored). **Rotating GSV rays into the observed plane loosens
+|grade| of earlier rigs on the same streets; its cross-slope tracks the rig roll, but the study
+ran in the mirrored frame (#80): every cross-sign in it is inverted, `cross-flipped` is the correctly
+signed arm (verdict unchanged, see the dated correction in the study), and in the corrected frame the
+plane falls LEFT on 56-67% of panos, against the crown prior -- unexplained, open. **Rotating GSV rays into the observed plane loosens
 multi-view agreement in every city** (median 1.13-1.25x, 2.2-2.9x in the 4+ deg bucket, uncapped), and
 so does `travel-only` -- the grade-only arm that mirrors #50's correction (1.04-1.12x) -- so keep GSV at
 `apply_pose=False` with no ground-plane term. Two traps the review caught: the rig-attitude arm is one
