@@ -290,12 +290,30 @@ def test_gt_anchored_rows_resolve_the_pose_mode_flat(source, mode):
         assert r['full_dist_m'] < 1e-3 and abs(r['full_px']) < 1e-3
 
 
-def test_gt_anchored_rows_rotate_under_gravity():
-    """...and an explicit `gravity` does rotate the judged pano's raycast, so the same
-    tilted panos now land off the flat-fused site (the missed mark then misses its site
-    too, so only the member's row is compared)."""
-    rows = _posed_gt_case('mapillary', fs.POSE_GRAVITY)
-    assert rows['a']['full_dist_m'] > 0.1
+@pytest.mark.parametrize('mode', [fs.POSE_GRAVITY, fs.POSE_ROAD])
+def test_gt_anchored_rows_refuse_a_rotating_mode(mode):
+    """...and a mode that rotates a posed pano is refused: the metre columns would
+    follow it while the pixel columns (ground_point_to_pano, flat-only) could not, so
+    one row would report two frames (#86 review)."""
+    with pytest.raises(ValueError, match='flat-only'):
+        _posed_gt_case('mapillary', mode)
+
+
+@pytest.mark.parametrize('fused_mode, accepted', [(fs.POSE_AUTO, True), (fs.POSE_OFF, True),
+                                                  (fs.POSE_GRAVITY, False)])
+def test_sites_for_disk_path_accepts_only_flat_sites(tmp_path, fused_mode, accepted):
+    """sites_for end to end on a sites.jsonl written by fuse_sites: flat-fused files are
+    read from disk, a rotated one is refused (re-fused in memory), and either way the
+    returned params score flat."""
+    panos = [replace(p, source='mapillary', camera_pitch=4.0, camera_roll=-3.0)
+             for p in _panos()]
+    params = fs.FuseParams(min_confidence=0.55, mask_rig=False, apply_pose=fused_mode)
+    sites, frame, stats = fs.fuse(panos, params)
+    fs.write_sites(sites, frame, stats, params, tmp_path / 'sites.jsonl',
+                   tmp_path / 'sites_meta.json')
+    _, _, got, prov = rr.sites_for(tmp_path, panos, geo.DEFAULT_CAMERA_HEIGHT_M, False)
+    assert prov.startswith('sites.jsonl on disk') == accepted
+    assert got.apply_pose == fs.POSE_OFF
 
 
 def test_geo_refuses_a_pose_mode_string():
@@ -315,3 +333,4 @@ def test_fused_flat_never_tests_a_mode_for_truthiness():
     assert not rr.fused_flat(True, None) and not rr.fused_flat('auto', None)
     assert rr.fused_flat('auto', {'panos': 5, 'flat': 5})
     assert not rr.fused_flat('gravity', {'panos': 5, 'flat': 4})
+    assert not rr.fused_flat('gravity', {'mode': 'gravity'})

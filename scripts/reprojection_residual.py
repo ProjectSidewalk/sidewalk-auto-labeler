@@ -842,7 +842,18 @@ def _gt_measure(pose, frame, ref_x, ref_y, e, n, camera_height, errors, params):
 def gt_anchored_rows(city, height_label, verdict_panos, bundle_ops, boxes, run_panos,
                      sites_views, frame, params):
     """One row per reviewer reference that maps to an operational site. Returns
-    (rows, counts, warnings)."""
+    (rows, counts, warnings).
+
+    ``params.apply_pose`` must resolve flat for every pano: the metre columns follow it,
+    but the pixel columns come from geo.ground_point_to_pano, which inverts only the flat
+    raycast, so a rotating mode would mix two frames in one row. Refused, not guessed."""
+    rotated = sum(1 for p in run_panos
+                  if fs.pose_mode_for(p, params.apply_pose) != fs.POSE_OFF
+                  and p.camera_pitch is not None and p.camera_roll is not None)
+    if rotated:
+        raise ValueError(
+            f'gt_anchored_rows: apply_pose {params.apply_pose!r} rotates {rotated} pano(s), '
+            'but the pixel projection is flat-only; score sites fused with apply_pose=off')
     by_id = {p.pano_id: p for p in run_panos}
     counts = es.gt_counts()
     counts['gt_panos'] = len(verdict_panos)
@@ -1066,7 +1077,8 @@ def fused_flat(apply_pose, pose_block):
     """
     if apply_pose in (None, False, fs.POSE_OFF):
         return True
-    return bool(pose_block) and pose_block.get('flat') == pose_block.get('panos')
+    return (bool(pose_block) and 'flat' in pose_block and 'panos' in pose_block
+            and pose_block['flat'] == pose_block['panos'])
 
 
 def height_label(h):
@@ -1078,8 +1090,11 @@ def sites_for(run_dir, panos, camera_height, force_refuse):
     this model at the benchmark tier (every one on disk is: 2.6 m, 0.55), else an
     in-memory re-fuse with those same parameters. Returns (sites, frame, params,
     provenance string)."""
+    # apply_pose pinned OFF, as every script that reproduces a committed artifact does:
+    # the pixel projections (geo.ground_point_to_pano) invert only the flat raycast, so a
+    # rotating mode would put a GT row's metres and pixels in two frames (#85).
     params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
-                           camera_height_m=camera_height)
+                           camera_height_m=camera_height, apply_pose=fs.POSE_OFF)
     if not force_refuse:
         disk = load_sites_json(run_dir)
         if disk is not None:

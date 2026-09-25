@@ -420,3 +420,6 @@ This takes ~3 minutes on one CPU. Per-run outputs (`views.csv`, `gt_anchored.csv
 `breakdown.csv`, `report.md`) go to `runs/<city>/reprojection/`, which is gitignored. The
 aggregates go to `runs/_summary/reprojection/`, and `--publish` copies them here. The null
 simulation is seeded, so the tables are deterministic given the same `results.jsonl` files.
+The committed tables use `--refuse`. Without it, sites rebuilt from `sites.jsonl`'s rounded
+fields can move a boundary missed mark across the 5 m match radius (Laurens: 73 references
+instead of 72, one mark at 4.997 m).

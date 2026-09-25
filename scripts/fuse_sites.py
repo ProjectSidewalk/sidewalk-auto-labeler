@@ -103,7 +103,7 @@ POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
 # fuse_sites.py's own CLI (--apply-pose auto, so production sites.jsonl) and
 # site_explorer.py (a bare fs.FuseParams()). The analysis scripts that reproduce a
 # committed artifact PIN `off` explicitly and do not follow it: eval_sites.py (CLI default
-# off), mined_precision.py, eval_ps_clustering.py, and mapillary_tilt.py's ablation /
+# off), mined_precision.py, eval_ps_clustering.py, reprojection_residual.py, and mapillary_tilt.py's ablation /
 # eval / precondition. So adding a source here silently changes what the followers produce (and
 # nothing in their output says so beyond sites_meta.json's `pose` block) -- check them.
 AUTO_ROAD_SOURCES = ()
