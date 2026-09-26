@@ -1,12 +1,14 @@
 """depth_at_detection (#47 step 1): the plane class, the local height offset, the column
 walk and the pre-registered verdict.
 
-All payloads are synthetic (tests/test_depth.py's build_payload); no real payload bytes
-are used. The planes that matter carry a nonzero normal-x or sit at an asymmetric image
+All payloads are synthetic (tests/test_depth.py's build_payload). The planes that matter carry a nonzero normal-x or sit at an asymmetric image
 column, so a mirrored (raster-frame, `1 - x`) lookup fails here rather than passing
 unnoticed (#80).
 """
 import math
+import struct
+import types
+import zlib
 
 import pytest
 
@@ -144,11 +146,124 @@ def test_verdict_rule_ii_needs_separated_intervals_and_flags_underpower():
     assert tiny['non_surface_diff'] >= 0.20 and tiny['rule_ii'] == 'NOT SUPPORTED'
 
 
-def test_offset_claim_is_read_descriptively():
-    assert dad.verdict(_gt((10, 9, 1, 0)), (0.12, 0.10, 0.14))['offset_claim_0p15'] == \
-        'consistent'
-    assert dad.verdict(_gt((10, 9, 1, 0)), (0.02, 0.0, 0.04))['offset_claim_0p15'] == \
-        'not consistent'
+@pytest.mark.parametrize('median,expected', [
+    (0.12, 'consistent'), (0.02, 'not consistent'),
+    # the knife-edge the real result sits on (0.0498): the band is [0.05, 0.30)
+    (0.05, 'consistent'), (0.0499, 'not consistent'),
+    (0.2999, 'consistent'), (0.30, 'not consistent')])
+def test_offset_claim_is_read_descriptively(median, expected):
+    v = dad.verdict(_gt((10, 9, 1, 0)), (median, median - 0.01, median + 0.01))
+    assert v['offset_claim_0p15'] == expected
+
+
+def test_payload_index_refuses_a_drifted_dominant_plane(monkeypatch):
+    pix = _index()
+    other = pix.payload.planes[2]                       # the patch, not the ground
+    monkeypatch.setattr(dad.gp, 'dominant_ground', lambda payload: other)
+    with pytest.raises(RuntimeError, match='drifted'):
+        dad.PayloadIndex(pix.payload)
+
+
+def test_no_plane_near_wraps_the_seam_and_clamps_rows():
+    w, h = 8, 4
+    idx = [1] * (w * h)
+    idx[2 * w + (w - 1)] = depth.SKY                    # row 2, the LAST column
+    pix = dad.PayloadIndex(depth.parse(build_payload(w, h, [GROUND, GROUND], idx)))
+    assert dad.no_plane_near(pix, 2, 0) == 1            # column 0's left neighbour wraps
+    assert dad.no_plane_near(pix, 2, 3) == 0
+    assert dad.no_plane_near(pix, 0, w - 1) == 0        # row 0: row -1 clamped, row 2 unseen
+    assert dad.no_plane_near(pix, 3, w - 1) == 1        # row 3: row 4 clamped, row 2 seen
+
+
+def test_is_level_floor_tests_the_normal_not_the_distance():
+    assert dad.is_level_floor({'plane_class': dad.FLOOR, 'plane_tilt_deg': 0.0})
+    assert not dad.is_level_floor({'plane_class': dad.FLOOR, 'plane_tilt_deg': 1e-7})
+    assert not dad.is_level_floor({'plane_class': dad.GROUND, 'plane_tilt_deg': 0.0})
+    assert not dad.is_level_floor({'plane_class': dad.FLOOR, 'plane_tilt_deg': None})
+    # and the level patch of the fixture is one, measured through classify
+    assert dad.is_level_floor(dad.classify(_index(), *_xy(9, 21)))
+
+
+@pytest.mark.parametrize('exc', [zlib.error('invalid stored block lengths'),
+                                 struct.error('unpack_from requires a buffer'),
+                                 EOFError(), OSError('bad gzip')])
+def test_an_unreadable_payload_is_unparsed_never_raised(monkeypatch, exc):
+    def boom(path):
+        raise exc
+    monkeypatch.setattr(dad, 'read_payload', boom)
+    status, fields = dad.measure_pano(('x.json.gz', [(0, 0.5, 0.7), (3, 0.1, 0.8)]))
+    assert status == depth.UNPARSED and fields == [(0, {}), (3, {})]
+
+
+def test_a_corrupt_deflate_stream_is_unparsed(tmp_path):
+    import gzip
+    path = tmp_path / 'p.json.gz'
+    raw = bytearray(gzip.compress(b'{"depth_b64": "' + b'A' * 4000 + b'"}'))
+    for i in range(12, len(raw) - 8):                  # scramble the deflate body only
+        raw[i] ^= 0x5A
+    path.write_bytes(bytes(raw))
+    status, fields = dad.measure_pano((str(path), [(0, 0.5, 0.7)]))
+    assert status == depth.UNPARSED and fields == [(0, {})]
+
+
+def test_summaries_only_refuses_a_partial_detections_file():
+    cov = [{'city': 'a', 'n_detections_0p30': 3}, {'city': 'b', 'n_detections_0p30': 2}]
+    dad.check_row_counts({'a': [{}] * 3, 'b': [{}] * 2}, cov)
+    with pytest.raises(SystemExit, match='coverage.csv'):
+        dad.check_row_counts({'a': [{}] * 3, 'b': [{}]}, cov)
+    with pytest.raises(SystemExit):
+        dad.check_row_counts({'c': [{}]}, cov)             # a city coverage never saw
+
+
+def test_limit_writes_its_own_file(tmp_path, monkeypatch):
+    """`measure --limit` must not overwrite the full run's detections.csv."""
+    (tmp_path / 'runs' / 'x').mkdir(parents=True)
+    out = tmp_path / 'out'
+    (out / 'x' / 'depth_at_detection').mkdir(parents=True)
+    full = out / 'x' / 'depth_at_detection' / 'detections.csv'
+    full.write_text('the full run\n')
+    pano = types.SimpleNamespace(pano_id='p1', detections=[(0, 0.5, 0.7, 0.9)],
+                                 camera_height_m=None, capture_date='2024-05')
+    monkeypatch.setattr(dad.fs, 'load_results', lambda path: ([pano], None))
+    monkeypatch.setattr(dad.fs, 'pano_pose', lambda p, mode: None)
+    monkeypatch.setattr(dad.geo, 'detection_ground_point', lambda *a, **k: None)
+    args = types.SimpleNamespace(cities=['x'], run_root=tmp_path / 'runs', out_root=out,
+                                 limit=1, workers=1, summaries_only=False)
+    dad.cmd_measure(args)
+    assert full.read_text() == 'the full run\n'
+    rows = dad.read_detections(out / 'x' / 'depth_at_detection' / 'detections.limit.csv')
+    assert [(r['pano_id'], r['payload_status']) for r in rows] == [('p1', dad.NO_FILE)]
+    assert not (out / '_summary').exists()
+
+
+def test_figure_errorbar_skips_an_empty_gt_group():
+    assert dad.surface_errorbar({'n': 0.0, 'share_surface': None, 'surface_lo': None,
+                                 'surface_hi': None}) is None
+    assert dad.surface_errorbar({'n': None, 'share_surface': None}) is None
+    s, lo, hi = dad.surface_errorbar({'n': 10.0, 'share_surface': 0.9, 'surface_lo': 0.6,
+                                      'surface_hi': 0.98})
+    assert (s, lo, hi) == pytest.approx((0.9, 0.3, 0.08))
+
+
+def test_figures_draw_with_an_empty_gt_group(tmp_path, monkeypatch):
+    pytest.importorskip('matplotlib')
+    import shutil
+    import mapillary_tilt as mt
+    fig_dir = tmp_path / 'fig'
+    (fig_dir / 'data').mkdir(parents=True)
+    for f in (dad.REPO_ROOT / 'docs' / 'figures' / 'depth-at-detection' / 'data').iterdir():
+        shutil.copy2(f, fig_dir / 'data' / f.name)
+    rows = mt._read_csv(fig_dir / 'data' / 'gt_classes.csv')
+    for r in rows:                                      # empty the pooled measured False group
+        if r['city'] == 'pooled' and r['subset'] == 'measured' and r['gt_group'] == 'false':
+            for k in r:
+                if k not in ('city', 'gt_group', 'subset'):
+                    r[k] = 0 if k.startswith('n') else None
+    dad.write_rows(fig_dir / 'data' / 'gt_classes.csv', rows, list(rows[0]))
+    monkeypatch.setattr(dad, 'FIG_DIR', fig_dir)
+    args = types.SimpleNamespace(cities=list(dad.DEFAULT_CITIES), out_root=tmp_path / 'none')
+    dad.cmd_figures(args)
+    assert (fig_dir / 'fig4_gt.png').stat().st_size > 0
 
 
 def test_doctests_run():

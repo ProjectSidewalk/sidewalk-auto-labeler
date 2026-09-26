@@ -48,7 +48,10 @@ those aggregates are committed under ``docs/figures/depth-at-detection/data/``, 
     python scripts/depth_at_detection.py figures
 
 ``measure`` must run first; ``gt`` reads its detections.csv. ``--limit N`` reads the first
-N detection-bearing panos per city and writes no summaries (a smoke test).
+N detection-bearing panos per city, writes them to ``detections.limit.csv`` (never over a
+full run's ``detections.csv``) and writes no summaries (a smoke test).
+``measure --summaries-only`` rebuilds the aggregates from each city's ``detections.csv``
+and refuses when its row count disagrees with ``coverage.csv``'s ``n_detections_0p30``.
 
 Stdlib on top of depth.py / geo.py / fuse_sites.py / eval_sites.py / gsv_ground_plane.py /
 mapillary_tilt.py, except ``figures`` (matplotlib).
@@ -60,7 +63,9 @@ import json
 import math
 import os
 import shutil
+import struct
 import sys
+import zlib
 from collections import Counter, defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -293,11 +298,13 @@ def measure_pano(task):
     """Worker: (payload_path, [(key, x, y), ...]) -> (status, [(key, fields), ...]).
 
     Module-level so ProcessPoolExecutor can pickle it on Windows. A payload that does not
-    parse is recorded as UNPARSED, never raised."""
+    parse is recorded as UNPARSED, never raised -- including a bit-rotted deflate stream
+    (zlib.error, not an OSError) and a short struct read."""
     path_str, points = task
     try:
         pix = PayloadIndex(read_payload(path_str))
-    except (OSError, ValueError, KeyError, EOFError, json.JSONDecodeError):
+    except (OSError, ValueError, KeyError, EOFError, json.JSONDecodeError, zlib.error,
+            struct.error):
         return depthlib.UNPARSED, [(k, {}) for k, _, _ in points]
     return pix.status(), [(k, classify(pix, x, y)) for k, x, y in points]
 
@@ -508,6 +515,19 @@ def summary_csv(out_root, name):
 
 # --- measure ----------------------------------------------------------------------------
 
+def check_row_counts(city_rows, coverage):
+    """Refuse (SystemExit) unless every city's detections.csv holds exactly the
+    n_detections_0p30 rows coverage.csv recorded for it: a partial file (a smoke run, an
+    interrupted write) must never be summarised as if it were the full run."""
+    by_city = {r['city']: r for r in coverage}
+    for city, rows in city_rows.items():
+        want = by_city.get(city, {}).get('n_detections_0p30')
+        if want is None or int(want) != len(rows):
+            raise SystemExit(f'{city}: detections.csv has {len(rows):,} rows but coverage.csv '
+                             f'records {want} -- re-run `measure` in full, not '
+                             f'--summaries-only')
+
+
 def cmd_measure(args):
     if args.summaries_only:
         # Rebuild the aggregates from the per-city detections.csv without re-reading any
@@ -519,6 +539,7 @@ def cmd_measure(args):
             for k, v in r.items():
                 if isinstance(v, float):
                     r[k] = int(v)
+        check_row_counts(city_rows, coverage)
         write_summaries(args.out_root, city_rows, coverage)
         return
     coverage, city_rows = [], {}
@@ -566,12 +587,19 @@ def cmd_measure(args):
                        'beyond_25m': int(g is None or g.range_m > geo.DEFAULT_MAX_RANGE_M)}
                 row.update(fields.get(i, {}))
                 rows.append(row)
-        write_rows(city_dir(args.out_root, city) / 'detections.csv', rows, DET_FIELDS)
+        # A smoke run must never overwrite the full run's file that `gt` and
+        # --summaries-only read.
+        write_rows(city_dir(args.out_root, city)
+                   / ('detections.limit.csv' if args.limit else 'detections.csv'),
+                   rows, DET_FIELDS)
         city_rows[city] = rows
         st = Counter(r['payload_status'] for r in rows)
         pst = Counter(res[0] for res in results.values())
         coverage.append({'city': city, 'n_panos_with_detection': len(panos),
                          'n_panos_with_payload': len(tasks),
+                         # explicit: `results` only holds panos that had a payload, so the
+                         # panos_<status> columns below cannot carry this one
+                         'n_panos_no_file': len(no_file),
                          **{f'panos_{k}': v for k, v in sorted(pst.items())},
                          'n_detections_0p30': len(rows),
                          'n_detections_0p55': sum(r['confidence'] >= BENCHMARK_CONFIDENCE
@@ -837,6 +865,15 @@ def cmd_verdict(args):
 
 # --- figures ----------------------------------------------------------------------------
 
+def surface_errorbar(r):
+    """(share, below, above) for a gt_classes row's surface-share error bar, or None for
+    an empty group (n = 0 writes an empty share and interval, read back as None)."""
+    if not r.get('n') or r.get('share_surface') is None or r.get('surface_lo') is None:
+        return None
+    s = r['share_surface']
+    return s, s - r['surface_lo'], r['surface_hi'] - s
+
+
 def cmd_figures(args):
     """Redraw the four figures into docs/figures/depth-at-detection/ from the aggregates
     (run tree first, then the committed copies), and refresh the committed data copies
@@ -973,11 +1010,11 @@ def cmd_figures(args):
                 width=0.6)
         for i, g in enumerate(groups):
             r = next(r for r in gt if r['gt_group'] == g)
-            ax.errorbar(i + 0.38, r['share_surface'],
-                        yerr=[[r['share_surface'] - r['surface_lo']],
-                              [r['surface_hi'] - r['share_surface']]],
-                        fmt='D', color=ink, ms=4, capsize=3)
-            ax.text(i, 1.02, f"n={int(r['n'])}", ha='center', color=muted)
+            eb = surface_errorbar(r)
+            if eb is not None:
+                ax.errorbar(i + 0.38, eb[0], yerr=[[eb[1]], [eb[2]]],
+                            fmt='D', color=ink, ms=4, capsize=3)
+            ax.text(i, 1.02, f"n={int(r['n'] or 0)}", ha='center', color=muted)
         ax.set_ylim(0, 1.08)
         ax.set_ylabel('share (pooled, measured payloads, >= 0.55)')
         ax.set_title('Plane under reviewed detections and missed marks\n'
@@ -1008,7 +1045,8 @@ def main():
         common(p)
         if name == 'measure':
             p.add_argument('--limit', type=int, default=0,
-                           help='first N detection-bearing panos per city; writes no summaries')
+                           help='first N detection-bearing panos per city, to '
+                                'detections.limit.csv; writes no summaries')
             p.add_argument('--workers', type=int, default=max(1, (os.cpu_count() or 2) - 2))
             p.add_argument('--summaries-only', action='store_true',
                            help='rebuild the aggregates from existing detections.csv files')
