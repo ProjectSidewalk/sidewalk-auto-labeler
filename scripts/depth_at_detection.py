@@ -128,8 +128,8 @@ DET_FIELDS = ['pano_id', 'det_index', 'x', 'y', 'confidence', 'capture_year',
               'offset_local_m', 'offset_dominant_m', 'rows_to_ref', 'range_depth_m',
               'range_flat_2p6_m', 'range_flat_pp_m', 'camera_height_pp_m', 'beyond_25m',
               'no_plane_3x3']
-_STR_FIELDS = {'pano_id', 'capture_year', 'payload_status', 'plane_class'}
-_INT_FIELDS = {'det_index', 'rows_to_ref', 'beyond_25m', 'no_plane_3x3'}
+_STR_FIELDS = {'pano_id', 'capture_year', 'payload_status', 'plane_class', 'city', 'gt_group'}
+_INT_FIELDS = {'det_index', 'rows_to_ref', 'beyond_25m', 'no_plane_3x3', 'in_pool'}
 
 
 # --- geometry on one payload (stdlib; tests/test_depth_at_detection.py) -----------------
@@ -370,7 +370,20 @@ def class_counts(rows):
     k = sum(is_surface(r) for r in rows)
     out['n_surface'] = k
     out['share_surface'] = k / n if n else None
+    # Exploratory, outside the pre-registered reading (added after the full run): how much
+    # of `surface` rests on an EXACTLY level secondary floor plane -- Google's 2.500 m
+    # stand-in (depth.SYNTHETIC_GROUND's pattern), appearing as a secondary plane.
+    lv = sum(is_surface(r) and is_level_floor(r) for r in rows)
+    out['n_surface_level_floor'] = lv
+    out['share_surface_excl_level_floor'] = (k - lv) / n if n else None
     return out
+
+
+def is_level_floor(row):
+    """A `floor` detection on an exactly level plane (normal exactly vertical): the
+    stand-in pattern depth.SYNTHETIC_GROUND tests on the dominant plane, here on a
+    secondary one. Exploratory; not part of the pre-registered reading."""
+    return row['plane_class'] == FLOOR and row.get('plane_tilt_deg') == 0.0
 
 
 def ratio(a, b):
@@ -496,6 +509,18 @@ def summary_csv(out_root, name):
 # --- measure ----------------------------------------------------------------------------
 
 def cmd_measure(args):
+    if args.summaries_only:
+        # Rebuild the aggregates from the per-city detections.csv without re-reading any
+        # payload; coverage.csv is carried over from the last full run.
+        city_rows = {c: read_detections(args.out_root / c / 'depth_at_detection'
+                                        / 'detections.csv') for c in args.cities}
+        coverage = mt._read_csv(summary_dir(args.out_root) / 'coverage.csv')
+        for r in coverage:
+            for k, v in r.items():
+                if isinstance(v, float):
+                    r[k] = int(v)
+        write_summaries(args.out_root, city_rows, coverage)
+        return
     coverage, city_rows = [], {}
     for city in args.cities:
         run_dir = args.run_root / city
@@ -589,19 +614,25 @@ def write_summaries(out_root, city_rows, coverage):
             meas = by_status.get(depthlib.MEASURED, [])
             # offsets of `floor` detections, local reference (primary) and dominant
             fl = [r for r in meas if r['plane_class'] == FLOOR]
-            for ref in ('local', 'dominant'):
-                vals = [r[f'offset_{ref}_m'] for r in fl if r[f'offset_{ref}_m'] is not None]
+            # `local` and `dominant` are the plan's; the level / non-level split of the local
+            # offset is exploratory (see is_level_floor).
+            for ref, col, sub in (('local', 'local', fl), ('dominant', 'dominant', fl),
+                                  ('local_nonlevel', 'local',
+                                   [r for r in fl if not is_level_floor(r)]),
+                                  ('local_level', 'local',
+                                   [r for r in fl if is_level_floor(r)])):
+                vals = [r[f'offset_{col}_m'] for r in sub if r[f'offset_{col}_m'] is not None]
                 bins = Counter(offset_bin(v) for v in vals)
                 med, lo, hi = median_ci(vals)
                 offs.append({'tier': tier, 'city': label, 'reference': ref,
-                             'n_floor': len(fl), 'n_with_ref': len(vals),
+                             'n_floor': len(sub), 'n_with_ref': len(vals),
                              **{f'n_{b}': bins[b] for b in OFFSET_LABELS},
                              'p10': mt.pct(vals, .1), 'p25': mt.pct(vals, .25),
                              'median': med, 'median_lo': lo, 'median_hi': hi,
                              'p75': mt.pct(vals, .75), 'p90': mt.pct(vals, .9),
-                             'rows_to_ref_p50': mt.pct([r['rows_to_ref'] for r in fl
+                             'rows_to_ref_p50': mt.pct([r['rows_to_ref'] for r in sub
                                                         if r['rows_to_ref'] is not None], .5)
-                             if ref == 'local' else None})
+                             if col == 'local' else None})
                 for v in vals:
                     b = math.floor(max(-1.0, min(0.999, v)) / 0.05)
                     hist.append((tier, label, ref, b))
@@ -652,7 +683,8 @@ def write_summaries(out_root, city_rows, coverage):
                                      if r['camera_height_pp_m'] is not None], .5)})
     share_fields = ['tier', 'city', 'payload_status', 'n'] \
         + [f'n_{k}' for k in CLASSES] + [f'share_{k}' for k in CLASSES] \
-        + ['n_surface', 'share_surface', 'non_horizontal_tilt_p50']
+        + ['n_surface', 'share_surface', 'n_surface_level_floor',
+           'share_surface_excl_level_floor', 'non_horizontal_tilt_p50']
     write_rows(sd / 'class_shares.csv', shares, share_fields)
     write_rows(sd / 'class_by_year.csv', by_year, list(by_year[0]) if by_year else ['tier'])
     write_rows(sd / 'offset_bins.csv', offs, list(offs[0]))
@@ -668,7 +700,21 @@ def write_summaries(out_root, city_rows, coverage):
 
 # --- gt ---------------------------------------------------------------------------------
 
-GT_GROUPS = ['true', 'false', 'missed', 'unsure', 'duplicate', 'unsure_missed']
+def exploratory_offsets(rows):
+    """Median offset_local (with CI) of floor rows split by is_level_floor. Exploratory;
+    the pre-registered claim reads the unsplit median."""
+    out = {}
+    for name, keep in (('nonlevel', False), ('level', True)):
+        v = [r['offset_local_m'] for r in rows if r['plane_class'] == FLOOR
+             and r['offset_local_m'] is not None and is_level_floor(r) == keep]
+        med, lo, hi = median_ci(v)
+        out.update({f'n_floor_{name}': len(v), f'offset_local_median_{name}': med,
+                    f'offset_local_median_{name}_lo': lo,
+                    f'offset_local_median_{name}_hi': hi})
+    return out
+
+
+GT_GROUPS = ['true','false', 'missed', 'unsure', 'duplicate', 'unsure_missed']
 _VERDICT_GROUP = {True: 'true', False: 'false', 'unsure': 'unsure', 'duplicate': 'duplicate'}
 
 
@@ -715,7 +761,10 @@ def cmd_gt(args):
         write_rows(city_dir(args.out_root, city) / 'gt_rows.csv', items,
                    ['city', 'gt_group', 'in_pool'] + DET_FIELDS)
         per_city[city] = items
-        counts_rows.append({'city': city, **counts, 'n_warnings': len(warnings)})
+        # placeable/unplaceable/unsure_missed are filled by eval_sites.build_gt, not by
+        # judged_gt_panos, so they are left out rather than written as zeros.
+        counts_rows.append({'city': city, **{k: v for k, v in counts.items() if k not in (
+            'placeable', 'unplaceable', 'unsure_missed')}, 'n_warnings': len(warnings)})
         print(f'{city}: {counts} ({len(warnings)} warnings); '
               + ', '.join(f'{g} {sum(i["gt_group"] == g for i in items)}' for g in GT_GROUPS))
     rows = []
@@ -739,6 +788,7 @@ def cmd_gt(args):
                              **{f'offset_n_{b}': bins[b] for b in OFFSET_LABELS},
                              'offset_local_median': med, 'offset_local_median_lo': mlo,
                              'offset_local_median_hi': mhi,
+                             **exploratory_offsets(si),
                              'statuses': ';'.join(f'{k}={v}' for k, v in sorted(Counter(
                                  i['payload_status'] for i in si).items()))})
     sd = summary_dir(args.out_root)
@@ -763,6 +813,23 @@ def cmd_verdict(args):
            pt['offset_local_median_hi'])
     v = verdict(gt, med)
     v['per_city_counts'] = gt
+    # Exploratory, NOT the verdict: the same rule (i) arithmetic with surface hits on an
+    # exactly level secondary floor plane (is_level_floor) moved out of `surface`.
+    ex = {c: {**g, 'true_surface': g['true_surface'] - int(next(
+        r for r in meas if r['city'] == c and r['gt_group'] == 'true')['n_surface_level_floor'])}
+        for c, g in gt.items()}
+    exv = verdict(ex)
+    v['exploratory_excluding_level_floor'] = {
+        'note': 'not part of the pre-registered reading; see the study doc',
+        'true_surface_share_pooled': exv['true_surface_share_pooled'],
+        'true_surface_share_by_city': exv['true_surface_share_by_city'],
+        'rule_i_arithmetic': exv['rule_i'],
+        'true_floor_offset_local_median_nonlevel': [
+            pt['offset_local_median_nonlevel'], pt['offset_local_median_nonlevel_lo'],
+            pt['offset_local_median_nonlevel_hi']],
+        'true_floor_offset_local_median_level': [
+            pt['offset_local_median_level'], pt['offset_local_median_level_lo'],
+            pt['offset_local_median_level_hi']]}
     print(json.dumps(v, indent=2))
     with open(summary_dir(args.out_root) / 'verdict.json', 'w', encoding='utf-8') as f:
         json.dump(v, f, indent=2)
@@ -784,9 +851,13 @@ def cmd_figures(args):
         for f in sd.iterdir():
             if f.suffix in ('.csv', '.json'):
                 shutil.copy2(f, FIG_DIR / 'data' / f.name)
-    # Reference categorical palette (dataviz skill, light mode), fixed order per class.
-    colour = {GROUND: '#2a78d6', FLOOR: '#1baf7a', HORIZONTAL_NONFLOOR: '#eda100',
-              NON_HORIZONTAL: '#eb6834', NO_PLANE: '#52514e'}
+    # Reference categorical palette (dataviz skill, light mode), fixed order; this order
+    # passes its validator's adjacent-pair checks. The three rare classes (<= 1.3% of
+    # detections each) are folded into one neutral "other" segment; the CSVs keep them apart.
+    segs = [('ground', '#2a78d6'), ('floor, within +/-0.30 m of the local road', '#1baf7a'),
+            ('floor, exactly level 2.5 m stand-in plane (in band)', '#4a3aa7'),
+            ('floor, outside the band or no local reference', '#eb6834'),
+            ('other: wall / overhang / no plane', '#8a8984')]
     ink, muted = '#0b0b0b', '#52514e'
     plt.rcParams.update({'font.size': 9, 'axes.edgecolor': muted, 'axes.labelcolor': ink,
                          'xtick.color': muted, 'ytick.color': muted,
@@ -794,47 +865,73 @@ def cmd_figures(args):
     cities = args.cities
     labels = cities + ['pooled']
 
-    # fig1: class shares, measured payloads, both tiers
+    def segment_shares(r):
+        """Shares of the five plotted segments from a class_counts row."""
+        n = r['n'] or 1
+        lv = r.get('n_surface_level_floor') or 0
+        in_band = r['n_surface'] - r['n_ground']
+        return [r['n_ground'] / n, (in_band - lv) / n, lv / n,
+                (r['n_floor'] - in_band) / n,
+                (r['n_horizontal_nonfloor'] + r['n_non_horizontal'] + r['n_no_plane']) / n]
+
+    def stacked(ax, xlabels, rows, width=0.8):
+        bottom = [0.0] * len(xlabels)
+        vals = [segment_shares(r) for r in rows]
+        for j, (name, col) in enumerate(segs):
+            v = [x[j] for x in vals]
+            ax.bar(xlabels, v, bottom=bottom, color=col, label=name, edgecolor='white',
+                   linewidth=1, width=width)
+            bottom = [b + x for b, x in zip(bottom, v)]
+
+    # fig1: plane class under the detection, measured payloads, both tiers
     shares = [r for r in summary_csv(args.out_root, 'class_shares.csv')
               if r['payload_status'] == depthlib.MEASURED]
-    fig, axes = plt.subplots(1, 2, figsize=(9, 3.4), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.6), sharey=True)
     for ax, (tier, _) in zip(axes, TIERS):
-        bottom = [0.0] * len(labels)
-        for k in CLASSES:
-            vals = []
-            for c in labels:
-                r = next((r for r in shares if r['city'] == c and r['tier'] == float(tier)),
-                         None)
-                vals.append((r or {}).get(f'share_{k}') or 0.0)
-            ax.bar(labels, vals, bottom=bottom, color=colour[k], label=k,
-                   edgecolor='white', linewidth=1)
-            bottom = [b + v for b, v in zip(bottom, vals)]
+        stacked(ax, labels, [next(r for r in shares if r['city'] == c
+                                  and r['tier'] == float(tier)) for c in labels])
         ax.set_title(f'confidence >= {tier}', color=ink)
         ax.set_ylim(0, 1)
         ax.tick_params(axis='x', labelrotation=20)
     axes[0].set_ylabel('share of detections (measured payloads)')
-    axes[1].legend(loc='center left', bbox_to_anchor=(1.0, 0.5), frameon=False)
+    axes[1].legend(loc='center left', bbox_to_anchor=(1.0, 0.5), frameon=False, fontsize=8)
     fig.suptitle('Depth plane under the detection pixel', color=ink)
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'fig1_classes.png', dpi=150)
     plt.close(fig)
 
-    # fig2: offset_local histogram of `floor` detections (0.55 tier), local vs dominant
+    # fig2: height of `floor` detections above the reference (0.55 tier, pooled)
     hist = summary_csv(args.out_root, 'offset_hist.csv')
-    fig, axes = plt.subplots(1, 2, figsize=(9, 3.2), sharey=True)
-    for ax, ref, col in zip(axes, ('local', 'dominant'), ('#1baf7a', '#52514e')):
-        hr = [r for r in hist if r['tier'] == 0.55 and r['city'] == 'pooled'
-              and r['reference'] == ref]
-        tot = sum(r['n'] for r in hr) or 1
-        ax.bar([r['bin_lo_m'] + 0.025 for r in hr], [r['n'] / tot for r in hr], width=0.045,
-               color=col)
+
+    def hist_of(ref):
+        return {r['bin_lo_m']: r['n'] for r in hist if r['tier'] == 0.55
+                and r['city'] == 'pooled' and r['reference'] == ref}
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.4), sharey=True)
+    nl, lv, dom = hist_of('local_nonlevel'), hist_of('local_level'), hist_of('dominant')
+    tot = sum(nl.values()) + sum(lv.values()) or 1
+    xs = sorted(set(nl) | set(lv))
+    axes[0].bar([x + 0.025 for x in xs], [nl.get(x, 0) / tot for x in xs], width=0.045,
+                color='#1baf7a', label='non-level plane')
+    axes[0].bar([x + 0.025 for x in xs], [lv.get(x, 0) / tot for x in xs], width=0.045,
+                bottom=[nl.get(x, 0) / tot for x in xs], color='#4a3aa7',
+                label='level 2.5 m stand-in plane')
+    td = sum(dom.values()) or 1
+    axes[1].bar([x + 0.025 for x in sorted(dom)], [dom[x] / td for x in sorted(dom)],
+                width=0.045, color='#8a8984')
+    for ax, title in zip(axes, ('vs the local road (first different floor plane below)',
+                                'vs the dominant ground plane (extrapolated; not a height)')):
         ax.axvspan(*CLAIM_BAND_M, color='#eda100', alpha=0.15, lw=0)
-        for b in SURFACE_BAND_M:
-            ax.axvline(b, color=muted, lw=0.8, ls='--')
+        for bnd in SURFACE_BAND_M:
+            ax.axvline(bnd, color=muted, lw=0.8, ls='--')
         ax.set_xlim(-1.0, 1.0)
-        ax.set_title(f'vs {ref} reference plane', color=ink)
-        ax.set_xlabel('height above the reference (m); shaded = [0.05, 0.30)')
+        ax.set_title(title, color=ink, fontsize=9)
+        ax.set_xlabel('height above the reference (m); shaded [0.05, 0.30), dashed +/-0.30')
     axes[0].set_ylabel('share of floor detections (pooled, >= 0.55)')
+    axes[0].set_ylim(0, max(0.05, axes[0].get_ylim()[1] * 1.25))  # headroom for the legend
+    axes[0].legend(frameon=False, fontsize=8, loc='upper right')
+    fig.text(0.5, 0.005, 'Values beyond +/-1 m are clamped into the end bins.',
+             ha='center', color=muted, fontsize=7)
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'fig2_offset.png', dpi=150)
     plt.close(fig)
@@ -845,7 +942,7 @@ def cmd_figures(args):
     for ax, key, title in zip(axes, ('ratio_flat', 'ratio_pp'),
                               ('depth range / flat range at 2.6 m',
                                'depth range / flat range at per-pano height')):
-        for j, (cls, col) in enumerate(((GROUND, colour[GROUND]), (FLOOR, colour[FLOOR]))):
+        for j, (cls, col) in enumerate(((GROUND, '#2a78d6'), (FLOOR, '#1baf7a'))):
             for i, c in enumerate(labels):
                 r = next((r for r in rr if r['city'] == c and r['plane_class'] == cls), None)
                 if not r or r.get(f'{key}_p50') is None:
@@ -871,14 +968,9 @@ def cmd_figures(args):
         gt = []
     if gt:
         groups = [g for g in ('true', 'false', 'missed') if any(r['gt_group'] == g for r in gt)]
-        fig, ax = plt.subplots(figsize=(6, 3.4))
-        bottom = [0.0] * len(groups)
-        for k in CLASSES:
-            vals = [next(r for r in gt if r['gt_group'] == g).get(f'share_{k}') or 0.0
-                    for g in groups]
-            ax.bar(groups, vals, bottom=bottom, color=colour[k], label=k, edgecolor='white',
-                   linewidth=1, width=0.6)
-            bottom = [b + v for b, v in zip(bottom, vals)]
+        fig, ax = plt.subplots(figsize=(7.5, 3.6))
+        stacked(ax, groups, [next(r for r in gt if r['gt_group'] == g) for g in groups],
+                width=0.6)
         for i, g in enumerate(groups):
             r = next(r for r in gt if r['gt_group'] == g)
             ax.errorbar(i + 0.38, r['share_surface'],
@@ -888,9 +980,10 @@ def cmd_figures(args):
             ax.text(i, 1.02, f"n={int(r['n'])}", ha='center', color=muted)
         ax.set_ylim(0, 1.08)
         ax.set_ylabel('share (pooled, measured payloads, >= 0.55)')
-        ax.set_title('Plane class by reviewer verdict  (diamond: surface share, 95% CI)',
+        ax.set_title('Plane under reviewed detections and missed marks\n'
+                     '(diamond: pre-registered surface share, Wilson 95% CI)',
                      color=ink, fontsize=9)
-        ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5), frameon=False)
+        ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5), frameon=False, fontsize=8)
         fig.tight_layout()
         fig.savefig(FIG_DIR / 'fig4_gt.png', dpi=150)
         plt.close(fig)
@@ -917,6 +1010,8 @@ def main():
             p.add_argument('--limit', type=int, default=0,
                            help='first N detection-bearing panos per city; writes no summaries')
             p.add_argument('--workers', type=int, default=max(1, (os.cpu_count() or 2) - 2))
+            p.add_argument('--summaries-only', action='store_true',
+                           help='rebuild the aggregates from existing detections.csv files')
         p.set_defaults(fn=fn)
     args = ap.parse_args()
     if getattr(args, 'cities', None) == []:
