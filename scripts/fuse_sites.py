@@ -102,6 +102,9 @@ POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
 # Put 'mapillary' back here only on a control that passes. GSV stays flat regardless: its
 # equirects are gravity-rectified and applying their pose loosens every city
 # (geo._world_ray, #52). Panoramax: optional pers:pitch/roll, convention unmeasured (#57).
+# #51 re-ran the same control with a road grade that never saw the SfM (USGS 3DEP DEM,
+# --grade-source dem) and it FAILED again, on (i) and (ii) (docs/dem-grade-study.md): the
+# DEM grade matches the SfM one in fusion, so a better grade does not change this.
 #
 # WHO FOLLOWS THIS: every caller that leaves FuseParams.apply_pose at its default --
 # fuse_sites.py's own CLI (--apply-pose auto, so production sites.jsonl) and
@@ -128,6 +131,15 @@ UNGRADED_POSE_WARNINGS = {
 GRADE_MAX_GAP_S = 60.0
 GRADE_MIN_DIST_M, GRADE_MAX_DIST_M = 2.0, 40.0
 
+# Where road mode's grade comes from (#51). `sfm` is production's sequence_grades on the
+# SfM altitude; the other two are columns of runs/<name>/dem/grades.csv, written by
+# scripts/dem_grade.py: `sfm-smoothed` (a +-20 m least-squares fit on the same SfM
+# altitude) and `dem` (the same fit on USGS 3DEP elevation, independent of the SfM).
+# The travel bearing is sequence_grades' in every case; only the grade value changes.
+GRADE_SFM, GRADE_SFM_SMOOTHED, GRADE_DEM = 'sfm', 'sfm-smoothed', 'dem'
+GRADE_SOURCES = (GRADE_SFM, GRADE_SFM_SMOOTHED, GRADE_DEM)
+GRADE_CSV_COLUMN = {GRADE_SFM_SMOOTHED: 'grade_sfm_smoothed_deg', GRADE_DEM: 'grade_dem_deg'}
+
 
 @dataclass(frozen=True)
 class FuseParams:
@@ -148,12 +160,17 @@ class FuseParams:
                                      # the default does per source, and why
     sigma_scale: float = 1.0         # inflate all covariances by scale^2 (model tuning)
     max_vintage_months: int | None = None  # eval-ablation only; None = no gate
+    grade_source: str = GRADE_SFM    # one of GRADE_SOURCES (#51); load_results applies it,
+                                     # this records it in sites_meta.json
 
     def __post_init__(self):
         # A bool here is a caller from before #42 made this three-way; refusing it beats
         # guessing which of gravity/road `True` meant.
         if self.apply_pose not in POSE_MODES:
             raise ValueError(f'apply_pose must be one of {POSE_MODES}, got {self.apply_pose!r}')
+        if self.grade_source not in GRADE_SOURCES:
+            raise ValueError(f'grade_source must be one of {GRADE_SOURCES}, '
+                             f'got {self.grade_source!r}')
 
     @property
     def rotates(self):
@@ -183,6 +200,7 @@ class SlimPano:
     sequence_id: str | None = None               # capture sequence (Mapillary)
     grade_deg: float | None = None               # road grade along travel (sequence_grades)
     travel_bearing_deg: float | None = None
+    grade_origin: str | None = None              # GRADE_SOURCES member that set grade_deg
     height_group: str | None = None              # camera_heights.json group (#53, per-rig)
     height_table: dict | None = None             # ...and that table's provenance (shared)
 
@@ -397,7 +415,12 @@ def pose_counts(panos, params):
     so its rate has to be visible rather than silent."""
     counts = {'mode': params.apply_pose, 'panos': len(panos), 'posed': 0,
               'derived_from_source_metadata': 0, 'flat': 0, 'gravity': 0,
-              'road_relative': 0, 'gravity_fallback': 0}
+              'road_relative': 0, 'gravity_fallback': 0,
+              # #51: which grade road mode subtracts, and on how many panos load_results
+              # replaced the SfM grade with it (0 under `sfm`; a mismatch is the tell)
+              'grade_source': params.grade_source,
+              'grade_replaced': sum(1 for p in panos
+                                    if p.grade_origin not in (None, GRADE_SFM))}
     for p in panos:
         posed = p.camera_pitch is not None and p.camera_roll is not None
         counts['posed'] += posed
@@ -442,6 +465,54 @@ def file_sha256(path):
     return h.hexdigest()
 
 
+def load_grades_csv(path, grade_source, results_path=None):
+    """{panorama_id: grade_deg or None} from scripts/dem_grade.py's grades.csv, for a
+    non-`sfm` grade source (#51).
+
+    Refuses (SystemExit, naming the command that writes it) when:
+    - the file, its grades.json sidecar or the column is missing;
+    - the sidecar's results_sha256 is not `results_path`'s -- the grades were sampled at
+      another file's positions (e.g. results.jsonl's, fused as results.raw.jsonl), so
+      each frame would mix two position sets;
+    - the CSV is not the one the sidecar recorded (truncated, stale or edited);
+    - a cell is not a finite number. An EMPTY cell is a legitimate "no grade here".
+    """
+    path = Path(path)
+    column = GRADE_CSV_COLUMN[grade_source]
+    hint = (f'run `python scripts/dem_grade.py <city>` to write it (grade source '
+            f'{grade_source!r} reads its {column} column)')
+    if not path.exists():
+        raise SystemExit(f'no grades file at {path}: {hint}')
+    sidecar = path.with_suffix('.json')
+    if not sidecar.exists():
+        raise SystemExit(f'no {sidecar.name} beside {path}, so nothing ties it to a '
+                         f'results file: {hint}')
+    meta = json.loads(sidecar.read_text(encoding='utf-8'))
+    if results_path is not None and meta.get('results_sha256') != file_sha256(results_path):
+        raise SystemExit(f"{path} was built from {meta.get('results_file')!r} "
+                         f"(sha256 {str(meta.get('results_sha256'))[:12]}...), not from "
+                         f'{Path(results_path).name} as it is now: its grades were sampled at '
+                         f'that file\'s positions. Re-run dem_grade.py on this file, or pass '
+                         f'--grades for the right one')
+    if meta.get('grades_sha256') != file_sha256(path):
+        raise SystemExit(f'{path} is not the file {sidecar.name} recorded (truncated, stale '
+                         f'or edited): {hint}')
+    with open(path, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        if column not in (reader.fieldnames or ()):
+            raise SystemExit(f'{path} has no {column} column: {hint}')
+        out = {}
+        for row in reader:
+            v = row[column]
+            if v:
+                v = float(v)
+                if not math.isfinite(v):
+                    raise SystemExit(f"{path}: non-finite {column} {row[column]!r} for "
+                                     f"{row['panorama_id']}")
+            out[row['panorama_id']] = v if v != '' else None
+        return out
+
+
 def apply_height_table(panos, table_path, results_path):
     """Fill SlimPano.camera_height_m / camera_height_spread_m from a per-rig table (#53).
 
@@ -483,7 +554,8 @@ def apply_height_table(panos, table_path, results_path):
     return panos
 
 
-def load_results(path, depth_index=None, read_heights=True, height_table=None):
+def load_results(path, depth_index=None, read_heights=True, height_table=None,
+                 grade_source=GRADE_SFM, grades_path=None):
     """Stream results.jsonl into SlimPanos, discarding links/history/metadata.
     Records without a position or heading can't be raycast and are dropped
     (counted by the caller via the skipped list).
@@ -501,6 +573,11 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None):
     them (null) gets them from its own source_metadata.computed_rotation through the same
     geo.mapillary_pitch_roll a fresh run writes, so fusion never depends on a backfill.
     Each pano's road grade (sequence_grades) is attached for --apply-pose road.
+
+    grade_source (#51): under anything but `sfm`, each graded pano's grade_deg is then
+    replaced from `grades_path` (default: dem/grades.csv beside the file); the travel
+    bearing is kept. A pano with no value there gets grade_deg=None, i.e. the gravity
+    fallback pose_counts already counts.
 
     height_table (#53): a camera_heights.json path, for a PER_RIG fuse -- the heights
     come from it instead (apply_height_table; it refuses a mismatched file or a GSV run)."""
@@ -544,6 +621,23 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None):
                            p['lat'], p['lng'], meta.get('computed_altitude')))
     for i, (grade, bearing) in sequence_grades(frames).items():
         panos[i].grade_deg, panos[i].travel_bearing_deg = grade, bearing
+        panos[i].grade_origin = GRADE_SFM
+    if grade_source != GRADE_SFM:
+        if grade_source not in GRADE_CSV_COLUMN:
+            raise ValueError(f'grade_source must be one of {GRADE_SOURCES}, '
+                             f'got {grade_source!r}')
+        grades = load_grades_csv(grades_path or path.parent / 'dem' / 'grades.csv',
+                                 grade_source, results_path=path)
+        missing = [p.pano_id for p in panos
+                   if p.travel_bearing_deg is not None and p.pano_id not in grades]
+        if missing:
+            raise SystemExit(f'{len(missing)} graded pano(s) have no row in the grades file '
+                             f'(first: {missing[0]}); it does not cover {path.name}')
+        for p in panos:
+            if p.travel_bearing_deg is None:
+                continue                    # no travel direction: nothing to rotate about
+            p.grade_deg = grades[p.pano_id]
+            p.grade_origin = grade_source if p.grade_deg is not None else None
     attach_vintage_medians(panos)
     if height_table is not None:
         apply_height_table(panos, height_table, path)
@@ -807,6 +901,12 @@ def build_parser():
                          'Mapillary, see AUTO_ROAD_SOURCES), off (flat raycast), gravity '
                          "(stored pitch/roll), or road (minus the sequence's road grade). "
                          'Measured to hurt on GSV -- see the --pose-ablation report')
+    ap.add_argument('--grade-source', choices=GRADE_SOURCES, default=GRADE_SFM,
+                    help='where --apply-pose road takes the road grade from: sfm (the '
+                         "default; the sequence's SfM altitude), sfm-smoothed or dem "
+                         '(runs/<name>/dem/grades.csv from scripts/dem_grade.py; #51)')
+    ap.add_argument('--grades', type=Path, default=None,
+                    help='grades.csv for --grade-source (default: <run>/dem/grades.csv)')
     ap.add_argument('--pose-ablation', action='store_true',
                     help='report within-site spread under each pitch/roll sign '
                          'convention instead of writing sites')
@@ -834,7 +934,7 @@ def main():
         max_match_m=args.max_match_m,
         residual_per_dof_max=args.residual_per_dof_max,
         camera_height_m=args.camera_height_m, apply_pose=args.apply_pose,
-        sigma_scale=args.sigma_scale)
+        sigma_scale=args.sigma_scale, grade_source=args.grade_source)
 
     height_table = None
     if args.height_table is not None and args.camera_height_m != geo.PER_RIG:
@@ -849,7 +949,8 @@ def main():
         panos, skipped = load_results(
             jsonl, args.depth_index,
             read_heights=args.camera_height_m == geo.PER_PANO or args.implied_height,
-            height_table=height_table)
+            height_table=height_table,
+            grade_source=args.grade_source, grades_path=args.grades)
     except ValueError as e:
         sys.exit(str(e))
     if skipped:

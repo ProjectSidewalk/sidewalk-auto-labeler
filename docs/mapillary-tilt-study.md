@@ -893,6 +893,31 @@ What the table does and does not say:
 What would settle it: a road grade independent of the reconstruction that produced the pitch — a DEM
 (#51) — as the `road` arm, under the same control. Until then the road-frame default is withheld.
 
+## 11. The DEM grade (#51, 2026-09-25): the control still fails, and the default stays flat
+
+#51 ran that test. Setup:
+
+- The road grade was taken from USGS 3DEP elevation instead of `computed_altitude`.
+- It went through the same eight-arm control: this section's five arms plus `road-sfm-smoothed`,
+  `road-dem` and `road-dem-shuffled-within`, all on one site set and one GT set.
+- The rule was pre-registered and committed before the run.
+
+Results:
+
+- **`road-dem` fails clause (i)**: it beats its own shuffle in 2 of 5 cities.
+- **It fails clause (ii)**: off-pool recall drops 4.0, 1.6 and 2.5 points in Richmond, Morgantown and
+  Annapolis.
+- **It passes (iii) and (iv).** So `AUTO_ROAD_SOURCES` stays empty, and `--grade-source dem` is opt-in.
+- **The DEM and SfM grades agree closely in the hilly cities.** Grade correlation is 0.80 in Morgantown
+  and 0.83 in Annapolis. The per-sequence relief ratio has a median of 0.96–0.99.
+- **In fusion, `road-dem` sits within about 0.1–0.2 m of `road` everywhere**, but on the same set it
+  fails six rule cells to the SfM arm's four (it also fails (i) in Annapolis and (ii) in Morgantown).
+  In the hilly cities the grade §5.3 subtracts is mostly real road slope, which contradicts a pure
+  shared-SfM-error reading; about a third of its variance is unexplained, so a shared-error share is
+  not ruled out. Neither grade fixes the rig-tilted cities or the recall cost of rotating rays.
+
+Full write-up: `docs/dem-grade-study.md`.
+
 ## Appendix A — the decomposition, in full
 
 With **R** = `rotation_matrix(computed_rotation)` (rows: right, down, forward, each as (E, N, U)):

@@ -41,6 +41,7 @@ under ``docs/figures/mapillary-tilt/data/``, which ``figures`` falls back to:
     python scripts/mapillary_tilt.py ablation richmond ...     # multi-view sign lock
     python scripts/mapillary_tilt.py eval richmond ...         # world P/R vs RampNet GT
     python scripts/mapillary_tilt.py precondition richmond ... # #42 wiring's p90 gate
+    python scripts/mapillary_tilt.py precondition --grade-source dem  # #51's eight arms
     python scripts/mapillary_tilt.py rectify richmond ...      # pixel-level sign lock
     python scripts/mapillary_tilt.py examples richmond ...     # before/after image strips
     python scripts/mapillary_tilt.py figures                   # docs/figures/mapillary-tilt
@@ -671,7 +672,16 @@ def cmd_precondition(args):
     45 deg cap, grade from fuse_sites.sequence_grades) and fuses at the production 25 m
     cap: it is the measurement that sets fuse_sites' Mapillary default, so it has to
     measure what fuse_sites would do. Tier and rig mask are pinned like `eval`'s.
+
+    --grade-source dem (#51) runs the eight-arm table instead (eval_sites.
+    PRECONDITION_ARMS_DEM: the five #42 arms plus road-sfm-smoothed, road-dem and
+    road-dem-shuffled-within, all on one site set and one GT set), reading each city's
+    runs/<city>/dem/grades.csv (scripts/dem_grade.py), prints both rules for both road
+    arms and eval_sites.dem_verdict, and writes _summary/pose_precondition_dem.csv; the
+    five-arm pose_precondition.csv is left alone.
     """
+    if args.grade_source == fs.GRADE_DEM:
+        return _precondition_dem(args)
     by_city = {}
     base = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
                          apply_pose=fs.POSE_OFF)
@@ -697,6 +707,52 @@ def cmd_precondition(args):
     print(f"VERDICT: shuffled-grade control {'PASSES' if control else 'FAILS'} -> "
           f"fuse_sites' Mapillary default is {'road' if keep else 'off'}")
     write_csv(out_dir_for('_summary', args.out) / 'pose_precondition.csv', all_rows)
+
+
+def _precondition_dem(args):
+    """The #51 eight-arm precondition; see cmd_precondition."""
+    base = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                         apply_pose=fs.POSE_OFF)
+    by_city, all_rows = {}, []
+    for city in args.cities:
+        bench = BENCHMARK_OF.get(city, city)
+        verdict_panos, bundle_ops = load_gt_files(bench, args.benchmark_root)
+        results = REPO_ROOT / 'runs' / city / 'results.jsonl'
+        panos, _ = fs.load_results(results, read_heights=False)
+        graded = {src: fs.load_results(results, read_heights=False, grade_source=src)[0]
+                  for src in (fs.GRADE_DEM, fs.GRADE_SFM_SMOOTHED)}
+        rows, info = es.pose_precondition(verdict_panos, bundle_ops, panos, base,
+                                          arms=es.PRECONDITION_ARMS_DEM,
+                                          graded_panos=graded)
+        print(es.format_precondition(bench, rows, info))
+        print(f"dem-shuffle-within kept its own grade on "
+              f"{info['dem_shuffle_within_unshuffled_frames']} frames; gravity fallback "
+              + ', '.join(f"{r['arm']} {r['gravity_fallback_share_members']:.1%} of members"
+                          for r in rows if r['gravity_fallback_share_members'] is not None))
+        by_city[city] = rows
+        all_rows.extend({'city': city, **r} for r in rows)
+    # Both rules for the SfM road arm here; the DEM arm's come once, from dem_verdict below.
+    for road_arm, shuffle_arm in ((fs.POSE_ROAD, es.ARM_SHUFFLED_WITHIN),):
+        passes, reasons = es.precondition_verdict(by_city, road_arm)
+        print('\n'.join(reasons))
+        print(f"first rule ({road_arm} vs off): {'PASSES' if passes else 'FAILS'}")
+        control, _clauses, reasons = es.control_verdict(by_city, road_arm, shuffle_arm)
+        print('\n'.join(reasons))
+        print(f"shuffled-grade control ({road_arm} vs {shuffle_arm}): "
+              f"{'PASSES' if control else 'FAILS'}")
+    # Reported, not gating: the DEM grade head to head with the SfM one, and with gravity.
+    for a, b in ((es.ARM_ROAD_DEM, fs.POSE_ROAD), (es.ARM_ROAD_DEM, fs.POSE_GRAVITY),
+                 (es.ARM_ROAD_SFM_SMOOTHED, fs.POSE_ROAD)):
+        for city, rows in by_city.items():
+            r = {row['arm']: row for row in rows}
+            print(f"{city}: {a} - {b}: p90 "
+                  f"{r[a]['p90_gt_to_site_m'] - r[b]['p90_gt_to_site_m']:+.3f} m, median "
+                  f"{r[a]['median_gt_to_site_m'] - r[b]['median_gt_to_site_m']:+.3f} m, "
+                  f"off-pool R@2.5 "
+                  f"{100 * (r[a]['recall_off_pool_2p5m'] - r[b]['recall_off_pool_2p5m']):+.1f} pt")
+    passes, _clauses, reasons = es.dem_verdict(by_city)
+    print('\n'.join(reasons))
+    write_csv(out_dir_for('_summary', args.out) / 'pose_precondition_dem.csv', all_rows)
 
 
 # --- rectify: pixel-level sign lock ------------------------------------------------------
@@ -1282,6 +1338,9 @@ def main():
         p = sub.add_parser(name)
         common(p)
         p.set_defaults(fn=fn)
+    sub.choices['precondition'].add_argument(
+        '--grade-source', choices=(fs.GRADE_SFM, fs.GRADE_DEM), default=fs.GRADE_SFM,
+        help='dem: the #51 eight-arm table (needs runs/<city>/dem/grades.csv)')
     p = sub.add_parser('rectify')
     common(p)
     p.add_argument('--width', type=int, default=2048)
