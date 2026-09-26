@@ -124,6 +124,8 @@ python scripts/height_qc.py
 # steeper), so every table says recommended: false -- docs/mapillary-camera-height.md.
 python scripts/mapillary_height.py richmond laurens clovis morgantown annapolis
 python scripts/fuse_sites.py runs/annapolis --camera-height-m per-rig --out /tmp/s.jsonl
+# #87: B read at one association height is pulled toward it; as a fixed point it meets A (doc s7)
+python scripts/height_gap.py sweep richmond --group gopro/max --sequences  # + simulate/gt/verdict
 
 # Score fusion against RampNet GT in world space: world P/R, the union-recall
 # decomposition, stage-4 promotion calibration, vintage + match-radius ablations.
