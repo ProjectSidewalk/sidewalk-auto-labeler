@@ -1,6 +1,6 @@
 # Post-submission coverage check: laurens
 
-Server `https://sidewalk-laurens.cs.washington.edu` (records matched on `https://sidewalk-laurens.cs.washington.edu/ai/submitLabelsOnPano`), run `runs/laurens`, checked 2026-09-26T14:13:11+00:00 by `scripts/coverage_check.py` (issue #46). Read-only: GET requests only.
+Server `https://sidewalk-laurens.cs.washington.edu` (records matched on `https://sidewalk-laurens.cs.washington.edu/ai/submitLabelsOnPano`), run `runs/laurens`, checked 2026-09-26T14:44:44+00:00 by `scripts/coverage_check.py` (issue #46). Read-only: GET requests only.
 
 **Exit 0**: every expected pano with a live AI label is backed up.
 
@@ -12,16 +12,16 @@ Server `https://sidewalk-laurens.cs.washington.edu` (records matched on `https:/
 | `labels_all.geojson` | https://sidewalk-laurens.cs.washington.edu/labels/all | 2026-09-26T14:09:15+00:00 (cached) | 2,847 | `1ccda445033acb6ec939bacd67bdf33966638de44996aa284c3cd6e98b2ec19b` |
 | `raw_labels_CurbRamp.geojson` | https://sidewalk-laurens.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson | 2026-09-26T14:09:16+00:00 (cached) | 1,790 | `9a4f6e3ca619538a112c5c58e321ae9297648d7e64ee489556371c9906d3e419` |
 
-The pulls are cached beside this report and not tracked; `--refresh` re-pulls.
+The pulls are cached beside this report and not tracked. Every run pulls fresh unless `--reuse-pulls` is given; a reused set is marked (cached).
 
 ## Expected set (campaigns unioned)
 
-Each campaign replayed through `send_to_ps.transform_record` at the range it sent; `rig_masked` absent in a record means the campaign predates the nadir mask. The recorded label count of a base entry includes its bands once they cover the file, so only the replayed column is per campaign.
+Each campaign replayed through `send_to_ps.transform_record` at the range it sent; `rig_masked` absent in a record means the campaign predates the nadir mask. The recorded label count of a base entry includes its bands once they cover the file, so only the replayed column is per campaign. Every recorded count is checked: a band must equal its replay, a base entry its replay plus its complete bands.
 
 | campaign | sent range | rig masked | lines | labels (record) | labels (replayed) | panos with labels |
 |---|---|---|---:|---:|---:|---:|
-| `results.raw.jsonl` | [0.55, ∞) | no | 4,495 | 1733 | 708 | 420 |
-| `results.raw.jsonl (band 0.3-0.55)` | [0.3, 0.55) | no | 4,495 | 1025 | 1,025 | 723 |
+| `results.raw.jsonl` | [0.55, ∞) | no | 4,495 | 1,733 | 708 | 420 |
+| `results.raw.jsonl (band 0.3-0.55)` | [0.3, 0.55) | no | 4,495 | 1,025 | 1,025 | 723 |
 
 Distinct expected panos: **875**.
 
@@ -30,20 +30,21 @@ Distinct expected panos: **875**.
 | status | panos | meaning |
 |---|---:|---|
 | covered | 741 | a live AI label on it reads `has_backup: true` |
-| covered_metadata | 0 | `/backupImage/<id>/metadata` answered 200 |
+| covered_metadata | 0 | `/backupImage/<id>/metadata` answered 200 with a JSON object |
 | missing | 0 | metadata 404 with a non-null `camera_pitch` (decisive) |
 | unconfirmed | 0 | flag false and not settled by the probe (e.g. 404 with a null pitch) |
-| retired | 134 | no live AI label on the server: nothing renders, not a gap |
+| retired | 134 | no live AI label left, but the pano once held one: nothing renders, not a gap |
+| never_landed | 0 | no label ever on the server (`has_labels` false or no pano row): the labels never arrived (a problem) |
 
 **741 of 741** expected panos with a live AI label are confirmed backed up.
 
-## Server cross-checks (informational)
+## Server cross-checks
 
 - Live AI labels of the checked type(s) on the server: 1,575 on 741 panos.
 - Server AI panos NOT in the expected set: 0 (labels sent from files with no record here, or from another run).
-- Live AI labels that rawLabels does not list (unjoinable, no pano id): 0.
+- Live AI labels that rawLabels does not list (unjoinable, no pano id; a problem when non-zero): 0.
 - `/adminapi/panos`: 4,564 rows, 1,254 with `has_labels` (ever labelled, soft-deleted included); 379 of those are not expected (crowd-only, retired-only or other); 26 of them carry a live label of the checked type(s), and 1 of those read `has_backup: true`.
-- Expected panos absent from the server's pano table: 0.
+- Expected panos absent from the server's pano table (a problem when non-zero): 0.
 
 ## Reading this
 
