@@ -354,14 +354,27 @@ python scripts/position_check.py runs/laurens --results runs/laurens/results.che
 # records + sidecars (position_check.campaigns_for, each campaign replayed through
 # transform_record at the range it sent and its recorded rig mask), never from results.jsonl
 # alone, and every record in the run dir is unioned (Richmond = three files, 4,613 panos).
-# Backup state is `has_backup` from /labels/all joined to rawLabels on label_id; `false` means
-# UNCONFIRMED (NULL reads as false), never absent. /backupImage/<id>/metadata also 404s when
-# the pano row has a null camera_pitch, so its probe (sequential, spaced, --max-confirm) is
+# The range a BASE entry sent is not its recorded min_confidence once it has bands: when a
+# band completes, send_to_ps.write_submission_record moves the base min_confidence DOWN to
+# the band's floor and adds the band's labels to the base labels_submitted, so the base is
+# replayed from the highest band ceiling (a partial band has moved nothing: the recorded
+# value stands). Anyone changing write_submission_record must keep that rule in step. Every
+# replay is checked against its record (band = its replay; base = its replay + its complete
+# bands) and a mismatch is exit 2. Backup state is `has_backup` from /labels/all joined to
+# rawLabels on label_id; `false` means UNCONFIRMED (NULL reads as false), never absent.
+# /backupImage/<id>/metadata also 404s when the pano row has a null camera_pitch, so its
+# probe (sequential, spaced, no redirects, JSON 200 required, 429 honoured, --max-confirm) is
 # decisive only for pose-pushed panos: 404 + pitch = missing, 404 + null pitch = unconfirmed.
-# Panos with no live AI label left (soft-deleted) are `retired`, never a gap. Exit 0 clean,
-# 1 missing (or unconfirmed with --strict), 2 undetermined. --archive <index.csv|dir> lists
-# the archived fallback files (fallback.csv); placing them is out of scope (SW#4865). Pulls
-# cached in runs/<city>/coverage/ (untracked; --refresh re-pulls); report.md + CSVs tracked.
+# No live AI label left = `retired` (never a gap) only when the pano row has `has_labels`;
+# otherwise `never_landed`, which is exit 2, as are unjoinable AI labels and expected panos
+# with no pano row. Exit 0 clean, 1 missing (or unconfirmed with --strict) and nothing else,
+# 2 undetermined (incl. usage errors and crashes; a run that stops before classifying still
+# rewrites report.md as exit 2). --archive <index.csv|dir> lists the archived fallback files
+# (fallback.csv); placing them is out of scope (SW#4865). Pulls are FRESH every run (a re-run
+# after the scraper's night must not read yesterday's flags), staged so a failed GET leaves
+# the old set whole, and cached in runs/<city>/coverage/ (untracked); --reuse-pulls re-reads
+# them for an offline re-render, refusing an edited file or a set fetched > 10 min apart.
+# report.md + CSVs tracked.
 python scripts/coverage_check.py runs/richmond/results.jsonl --server https://sidewalk-richmond.cs.washington.edu
 python scripts/coverage_check.py runs/laurens/results.raw.jsonl --server https://sidewalk-laurens.cs.washington.edu
 
