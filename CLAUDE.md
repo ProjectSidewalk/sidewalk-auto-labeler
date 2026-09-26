@@ -120,12 +120,16 @@ python scripts/height_qc.py
 # PLACEMENT ORACLE (issue #79). Bend and Gainesville publish per-corner curb-ramp
 # inventories (one point per ramp, at the ramp); `scripts/inventory_oracle.py` fetches them
 # into runs/<city>/inventory_oracle/ (geojson untracked; inventory.json + report + CSVs
-# tracked, sha256 in the record), re-solves each GSV city's sites under 2.6 m /
-# per-pano x1.08 / per-rig with the association frozen from the 2.6 m fuse, and scores
-# site-to-inventory distance one-to-one. Gainesville (64% 2026 rig) decides, Bend (84% 2024)
-# guards the old rig; Paterson and Sao Paulo have no inventory. The verdict rule is
-# pre-registered on #79 (inventory_oracle.verdict); docs/placement-oracle.md. Network only
-# in `fetch` (the two ArcGIS hosts); a cached pull is reused, --refresh re-pulls it.
+# tracked, sha256 in the record), re-solves Bend's and Gainesville's sites (the only GSV
+# cities with an inventory; Paterson and Sao Paulo have none) under 2.6 m / per-pano x1.08 /
+# per-rig with the association frozen from the 2.6 m fuse, and scores site-to-inventory
+# distance one-to-one. Gainesville (64% 2026 rig) decides, Bend (84% 2024) guards the old
+# rig. The verdict rule is pre-registered on #79 (inventory_oracle.verdict);
+# docs/placement-oracle.md. VERDICT under the committed rule: 2.6 m stays; (c) per-rig fails
+# only a two-sided reading of rule 4 (its coverage GAIN) -- the reading is open on #79.
+# Network only in `fetch` (the two ArcGIS hosts); a cached pull is reused (refused if
+# area.geojson's bbox changed), --refresh re-pulls it. `score --pool-anchor frame --out
+# <dir>` is the rule-3 anchoring sensitivity, never read by verdict.
 python scripts/inventory_oracle.py fetch bend gainesville vancouver
 python scripts/inventory_oracle.py score bend gainesville     # ~100 s for both, no GPU/network
 python scripts/inventory_oracle.py verdict

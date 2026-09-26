@@ -117,12 +117,16 @@ which reads the harvested `depth/index.csv`; `score` refuses a city without it.
 - **The (a)-anchored pool:** kept inventory points matched one-to-one (greedy, ascending
   distance) to a site under (a)'s positions within the radius. Since membership is frozen,
   every arm is scored on the same point–site pairs. Per arm: median and p90 (nearest rank,
-  `eval_sites._pct`) of the point-to-site distance, and the share within 3 m.
+  `eval_sites._pct`) of the point-to-site distance, and the share within 3 m. The match
+  truncates (a)'s own errors at the radius and no other arm's, so this pool is
+  **conservative against both candidates**: an (a)-anchored p90 can only flatter (a).
 - **Own-match per arm**, in the same frame: that arm's re-placed sites matched to the
   inventory on their own. Coverage is matched / kept points, plus the share within 3 m. This
   is the survivorship check.
 - **`frozen@b`, `frozen@c`:** the same design, with membership from (b)'s or (c)'s own fuse.
-  The pool stays anchored on (a)'s positions within that membership. Rule 3 reads it.
+  The pool stays anchored on (a)'s positions within that membership (fixed here, before
+  scoring). Rule 3 reads it. `score --pool-anchor frame --out <dir>` re-anchors
+  `frozen@X`'s pool on X instead, as a sensitivity check that the verdict never reads.
 - **Own association (`own`):** each arm fused under itself and matched on its own. It
   favours each arm by construction. It is reported beside the primary frame, and rule 3
   reads it.
@@ -218,7 +222,7 @@ within 0.04 m on p90 and 0.1 pt on coverage of each other.
 |---|---|---|
 | 1 gainesville p90 and median improve > 0.10 m | pass (p90 +0.105, median +0.236) | pass (+0.348, +0.281) |
 | 2 bend p90 not worse by > 0.10 m | pass (+0.017) | pass (+0.044) |
-| 3 not by construction | **FAIL**: under (b)'s own membership (a) beats it (p90 3.03 vs 3.40) | pass (own-association 2.84 < 3.29; under (c)'s membership 2.87 < 2.97) |
+| 3 not by construction | **FAIL**: under (b)'s own membership (a) beats it (p90 3.03 vs 3.40, (a)-anchored pool; see *Pool anchoring* below) | pass (own-association 2.84 < 3.29; under (c)'s membership 2.87 < 2.97) |
 | 4 coverage within 1.0 pt; site drop ≤ 5% | **FAIL**: gainesville +2.05 pt | **FAIL**: gainesville **+2.18 pt** |
 | 5 gainesville 2026 along-ray within ±0.75 m | pass (−0.62) | pass (−0.47) |
 
@@ -230,9 +234,16 @@ inventory ramps get a site within 5 m once ranges stop running long. The committ
 `verdict()` reads "within 1.0 pt of (a)'s" literally, as a two-sided band, and that is the
 verdict above. The rule is headed *survivorship*, though, and the plan's own test
 description reads "rule 4 fails on a coverage drop". Its #42 precedent is also a
-one-sided drop limit. All of these suggest the intent was "coverage must not fall by more
-than 1.0 point". Under that one-sided reading (c) passes all five rules while (b) still
-fails rule 3, and rule 6 selects **(c)**.
+one-sided drop limit, and the constant enforcing it is named `RULE_MAX_COVERAGE_DROP`.
+All of these suggest the intent was "coverage must not fall by more than 1.0 point". Under
+that one-sided reading (c) passes all five rules while (b) still fails rule 3, and rule 6
+selects **(c)**.
+
+One fact bears on both readings: (c)'s extra coverage is real matches, not chance. The
+displaced-point chance floor (every kept point moved 25 m and matched again) is *lower*
+under (c) than under (a): 6.70% of Gainesville's points (215) against 8.85% (284), while
+(c)'s own match count is 70 points higher (2,747 vs 2,677). Survivorship would push the
+chance floor up, not down.
 
 The reading was not changed after the numbers were seen: `verdict()` is exactly as
 pre-registered, and so is its answer, (a). Choosing the one-sided reading, and with it (c),
@@ -246,19 +257,28 @@ is a call for the maintainer, and would be made in the follow-up PR that flips t
   stay inside the pre-registered ±0.75 m. The unscaled per-pano height overshoots to −1.01 m,
   which independently confirms that the depth frame runs short.
 - **(c) beats (b) on this oracle.** It has the lower p90 in Gainesville (2.94 vs 3.18 m).
-  (b) also loses to (a) inside (b)'s own membership, which is exactly the
-  favoured-by-construction pattern rule 3 exists to catch.
+  (b)'s rule-3 failure, though, is created by the anchoring, not by (b): in `frozen@b` the
+  pool is matched on (a)'s positions, which truncates (a)'s errors at 5 m and no one
+  else's. Re-anchored on (b), (b) beats (a) inside its own membership (p90 3.00 vs 3.63;
+  see the anchoring sensitivity below). The (a)-anchored pool is conservative against
+  both candidates, and the verdict does not move under either anchoring.
 - **Bend does not care.** Its 2024 imagery (84% of the run) is already unbiased at 2.6 m
   (+0.03 m along-ray). All three arms land within 0.05 m on median and p90, and (c)'s
   2.5 m costs a hair (−0.14 m along-ray on 2024, p90 +0.04 m).
-- **(c)'s vintage rule has a visible flaw.** Gainesville's 2015 and 2018 vintages (606 and
-  1,059 panos) have depth medians of 1.94 and 2.07 m, so (c) puts them at 2.0 m. Their sites
-  then land 1.8–2.1 m *short* (2018: −0.50 → −2.13 m along-ray), which suggests those are old
-  rigs that happen to read low. The rule has no minimum vintage size and no second signal. A
+- **(c)'s vintage rule has a visible flaw, on thin evidence.** Gainesville's 2015 and 2018
+  vintages (606 and 1,059 panos) have depth medians of 1.94 and 2.07 m, so (c) puts them at
+  2.0 m. Their pool sites then land 1.8–2.1 m *short* (2015: −0.85 → −1.79 m, 2018: −0.50 →
+  −2.13 m median along-ray), which suggests those are old rigs that happen to read low. Those
+  medians rest on only **6 and 22 single-vintage pool sites** (`vintage.csv`); the panos
+  counts above are not the n. The rule has no minimum vintage size and no second signal. A
   follow-up that adopts (c) should look at that; the cut sensitivity below is where it shows.
-- **The pilot's +1.92 m was an upper figure.** The pilot matched on-disk 0.55-tier sites with
-  the rig mask off. Re-fused here, the 2026 offset is +1.35 m at 0.55 and +1.17 m at 0.30.
-  The pre-registered +1.92 m only motivated rule 5's ±0.75 m.
+- **The pilot's +1.92 m is not decomposed.** Two differences are the likelier contributors:
+  the pilot counted any site within 5 m of a point, where this matches one-to-one, and it
+  read the on-disk 0.55-tier `sites.jsonl` (fused 2026-08-07), which predates the
+  2026-09-21 `results.jsonl` scored here. Tier explains 0.18 m of it (re-fused here, the
+  2026 offset is +1.35 m at 0.55 and +1.17 m at 0.30); the rig mask should explain little,
+  since it removed almost nothing at 0.55. The rest (0.57 m) was not attributed. The
+  pre-registered +1.92 m only motivated rule 5's ±0.75 m.
 
 ### Sensitivity (not verdict inputs; scratch runs, not committed)
 
@@ -267,6 +287,22 @@ is a call for the maintainer, and would be made in the follow-up PR that flips t
   +2.61 pt coverage. (b) fails rule 1 (p90 unchanged at 3.39) and rule 3. Bend's tables are
   identical at 0.30 and 0.55, because its `results.jsonl` predates the storage floor and
   holds no sub-0.55 detections.
+- **Pool anchoring** (`score --pool-anchor frame`, Gainesville, 5 m, tier 0.30): `frozen@X`'s
+  pool matched on X's positions instead of (a)'s. Bend moves by at most 0.004 m.
+
+  | frame | pool anchored on | pool | (a) median / p90 m | X median / p90 m | rule 3b |
+  |---|---|---:|---:|---:|---|
+  | frozen@b | (a) — committed | 2,469 | 1.32 / 3.03 | 1.23 / 3.40 | (b) fails |
+  | frozen@b | (b) | 2,513 | 1.40 / 3.63 | 1.20 / 3.00 | (b) passes |
+  | frozen@c | (a) — committed | 2,642 | 1.29 / 2.97 | 1.13 / 2.87 | (c) passes |
+  | frozen@c | (c) | 2,709 | 1.35 / 3.38 | 1.12 / 2.84 | (c) passes |
+
+  Taking the anchor away from (a) costs it 0.41–0.60 m of p90; (b) gains 0.40 m by
+  anchoring its own frame and (c) only 0.03 m. With
+  X-anchored rule-3 frames substituted into the committed tables, `verdict()` still
+  returns (a): (b) then passes rules 1, 2, 3 and 5 and, like (c), fails only the
+  two-sided rule 4. Under the one-sided reading both would pass, and rule 6 would still
+  select (c), since (b)'s Gainesville p90 (3.18 m) does not beat (c)'s (2.94 m).
 - **Radius.** At 8 m, (c) has p90 3.45 vs (a) 3.84 in Gainesville. At 2.5 m the pool is, by
   construction, only the points (a) already places within 2.5 m, so (a)'s p90 is capped
   there (2.15 vs (c)'s 2.25). The informative 2.5 m number is coverage: (c) matches 75.1% of

@@ -316,7 +316,7 @@ Reading it for the decision:
 
 The choice stays with the default-height decision.
 
-### Decided by the placement oracle (#79)
+### Scored by the placement oracle (#79)
 
 The held-out check this section asks for exists for two of the four GSV cities: Bend and
 Gainesville publish per-corner curb-ramp inventories. `scripts/inventory_oracle.py`
@@ -324,4 +324,5 @@ scores (a)/(b)/(c) against them under a rule pre-registered on #79, and
 [docs/placement-oracle.md](placement-oracle.md) holds the search (including the negative
 result for Paterson and São Paulo), the rule, the tables and the verdict. Its (c) is the
 per-rig constant applied to every pano of a low-rig vintage, not the per-pano-keyed (c) of
-the table above.
+the table above. Under the committed rule the verdict is (a), 2.6 m stays; (c) fails only
+rule 4, and only if that rule is read as two-sided, which is an open reading on #79.
