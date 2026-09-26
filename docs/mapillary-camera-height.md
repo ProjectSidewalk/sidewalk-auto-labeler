@@ -263,11 +263,27 @@ this section were pre-registered on #87 before any number was produced, and
 here is offline CPU and changes nothing in production. No `camera_heights.json` is
 rewritten, `per-rig` stays opt-in with `recommended: false`, and the default stays 2.6 m.
 
+**Corrections after review (PR #90, same day).** The first version of this section had
+four problems. All are fixed below, and the overall verdict is unchanged.
+
+- **Candidate 2's reading.** The first version read candidate 2 on the raw gap. The
+  results commit made that switch after the numbers were in. The pre-registered reading
+  is the fixed-point gap (the plan's E4: "both fixed points, from E1"). Under that reading
+  candidate 2 is **partial**, not rejected.
+- **The zero-noise mechanism.** The first version said the pull at zero noise comes from
+  association alone. Most of it comes from the null, which is not noise-matched in the
+  simulation (see E2).
+- **h\*\_B and the Pulsar and unknown classes.** The first version said h\*\_B overshoots
+  and that rule 3 then fails for Richmond's Pulsar and unknown class. That is largely an
+  artifact of the line fit. It is now reported beside a local-crossing estimate.
+- **h\*\_B's CI.** It is too narrow, and is now quoted with that caveat.
+
 ```bash
 python scripts/height_gap.py sweep richmond --group gopro/max --sequences          # E1, E4
 python scripts/height_gap.py sweep richmond laurens clovis morgantown annapolis     # E1, all rigs
 python scripts/height_gap.py simulate richmond --group gopro/max --true-height 1.8 2.0 2.2 2.4 --noise-scale 0 0.5 1 --seeds 2
 python scripts/height_gap.py simulate richmond --group gopro/max --true-height 2.0 --offset-px -4 -2 -1 0 1 2 4 --noise-scale 0.5 --seeds 2
+python scripts/height_gap.py simulate richmond --group gopro/max --true-height 2.0 --offset-px -4 -2 -1 0 1 2 4 --noise-scale 0.5 --seeds 4 --seed-start 2 --out runs/richmond/camera_height/gap/simulate_e3b_seeds.csv   # E3b robustness
 python scripts/height_gap.py gt richmond --group gopro/max --heights 1.98 2.2 2.38 2.6   # E3a, E5
 python scripts/height_gap.py sweep laurens --results results.jsonl results.raw.jsonl     # E6
 python scripts/height_gap.py simulate laurens --group gopro/max --true-height 2.6 3.0 3.4 --noise-scale 0.5 --seeds 2
@@ -276,32 +292,43 @@ python scripts/height_gap.py verdict richmond                                   
 ```
 
 The tracked outputs are
-`runs/richmond/camera_height/gap/{sweep,sequences,simulate,gt_offset,instrument_c}.csv`,
+`runs/richmond/camera_height/gap/{sweep,sequences,simulate,simulate_e3b_seeds,gt_offset,instrument_c}.csv`,
 `report.md`, and `runs/laurens/camera_height/gap/{sweep,simulate}.csv`. The five-city
 sweep and the Paterson arm are local: `runs/_summary/camera_height/gap_sweep.csv` and
 `gap_paterson_year.csv`. With the jobs run in parallel, everything took about 35 minutes
-of wall-clock time on a 16-core desktop.
+of wall-clock time on a 16-core desktop. The review re-run reproduced every earlier
+column exactly (the seeds are fixed) and added only new columns.
 
 **Notation.** h\*\_A is A's fixed point. B(h) = h·(1 − (s − s\_null)) is B read after
-associating at height h; #53 read B only at 2.6 m. h\*\_B is the fixed point of the line
-B(h) = a\_B + b\_B·h. The null s\_null is now averaged over 10 seeds, where #53 used one.
-For this rig the null's SD across seeds is 0.030 m at 2.6 m, under the plan's 0.05 m
-alarm, so #53's CI was not too narrow on that account. The 10-seed mean does move B(2.6)
-from #53's 2.377 m to 2.396 m. So here **G = 2.396 − 1.983 = 0.414 m**, not the 0.394 m
-quoted in the issue.
+associating at height h; #53 read B only at 2.6 m. B\_raw(h) = h·(1 − s) is the same
+reading without the null correction. h\*\_B is the fixed point of the line
+B(h) = a\_B + b\_B·h, as pre-registered. The **local crossing** is where B(h) = h,
+interpolated between the two sweep heights that bracket it; it is reported beside h\*\_B
+and is not used by any rule. The null s\_null is now averaged over 10 seeds, where #53
+used one. For this rig the null's SD across seeds is 0.030 m at 2.6 m, under the plan's
+0.05 m alarm, so #53's CI was not too narrow on that account. The 10-seed mean does move
+B(2.6) from #53's 2.377 m to 2.396 m. So here **G = 2.396 − 1.983 = 0.414 m**, not the
+0.394 m quoted in the issue.
+
+**Caveat on every h\*\_B CI below.** The CI draws each association height independently.
+But every height re-associates the same views, so their errors are correlated, and a
+common-mode shift is exactly what the fixed point amplifies, by 1/(1 − b\_B) (3.4 for
+this rig). The intervals are therefore too narrow. For example, 1.948–2.040 excludes the
+local crossing, 2.07. The verdict does not depend on them: the gap is 0.011 m against a
+0.25 m bar.
 
 ### Verdict
 
 **Explained, by candidate 3: association pulls B toward the height it ran at.** Read as
-a fixed point, B agrees with A to 1 cm.
+a fixed point, B agrees with A to 1 cm; read at the local crossing, to 9 cm.
 
 | candidate | outcome | the numbers the rule reads |
 |---|---|---|
-| 3. association pull | **confirmed** | Real data: h\*\_B 1.993 (95% CI 1.948–2.040) vs h\*\_A 1.983; b\_B 0.708. E2 at h\_true 2.0, noise 0.5 / 1.0: B(2.6) − h\_true +0.359 / +0.480; h\*\_A − h\_true −0.048 / +0.018; h\*\_B − h\_true +0.046 / +0.059. |
-| 1. vertical peak offset | **rejected**, narrowly | GoPro Max ε (peak minus box) is +1.62 px (95% CI +0.47 to +2.20). Inside that CI the fixed-point gap moves −0.015 m, the wrong way. The largest move for \|ε\| ≤ 4 px is 0.090 m (at ε = −4), under the 0.10 m bar. |
-| 2. mixed mountings | **rejected** | Median within-sequence gap B(2.6) − h\*\_A is +0.392 m over 8 quarter-support sequences; the mixture arm closes 56% of G. On the fixed points instead, the median is +0.129 m, which would be **partial**. |
+| 3. association pull | **confirmed** | Real data: h\*\_B 1.993 (95% CI 1.948–2.040, too narrow, see the caveat) vs h\*\_A 1.983; b\_B 0.708. The local crossing is 2.072 (+0.090). E2 at h\_true 2.0, noise 0.5 / 1.0: B(2.6) − h\_true +0.359 / +0.480; h\*\_A − h\_true −0.048 / +0.018; h\*\_B − h\_true +0.046 / +0.059. |
+| 1. vertical peak offset | **rejected at the bar; the margin is inside 2-seed noise** | GoPro Max ε (peak minus box) is +1.62 px (95% CI +0.47 to +2.20). Inside that CI the fixed-point gap moves −0.015 m, the wrong way. The largest move for \|ε\| ≤ 4 px is 0.090 m (at ε = −4), against the 0.10 m bar. The pooled per-seed SD of the gap is 0.019 m, twice the 0.010 m margin. With six seeds (not the pre-registered input) the largest move is 0.087 m, still under the bar. |
+| 2. mixed mountings | **partial** (pre-registered reading) | Median within-sequence fixed-point gap h\*\_B − h\*\_A is +0.129 m over 8 quarter-support sequences (confirm ≤ 0.10, reject ≥ 0.25); the mixture arm closes 56% of G (confirm ≥ 75%). Secondary, the raw gap B(2.6) − h\*\_A has a median of +0.392 m, which would reject. |
 | E5, instrument C | not decisive | C slope at 2.6 m is −0.111 ± 0.150 (needs SE < 0.05), from only 36–41 GoPro Max references. |
-| overall | **explained** | Corrected fixed points 1.983 / 1.993, residual +0.011 m (needs ≤ 0.25). Simulated raw gap +0.407 / +0.462 m against G = 0.414 (needs within 0.10). |
+| overall | **explained** | Only confirmed candidates count, so candidate 2's partial does not change it. Corrected fixed points 1.983 / 1.993, residual +0.011 m (needs ≤ 0.25). Simulated raw gap +0.407 / +0.462 m against G = 0.414 (needs within 0.10). |
 
 ### E1: B swept over the association heights
 
@@ -309,21 +336,32 @@ For the GoPro Max, B(h) at 1.4, 1.6, 1.8, 2.0, 2.3, 2.6 and 3.0 m is 1.548, 1.72
 2.033, 2.197, 2.396 and 2.717. B tracks the association height with slope 0.71, steeper
 than A's 0.49. Its fixed point is where the two lines meet.
 
-| city / rig | h\*\_A | A slope | B(2.6) | b\_B | h\*\_B (95% CI) | h\*\_B − h\*\_A | B(2.6) − h\*\_A (#53's rule 3) |
-|---|---:|---:|---:|---:|---|---:|---:|
-| richmond / gopro max | 1.983 | 0.486 | 2.396 | 0.708 | 1.993 (1.948–2.040) | **+0.011** | +0.413 |
-| richmond / nctech istar pulsar | 2.595 | 0.285 | 2.680 | 0.668 | 2.846 (2.809–2.891) | **+0.251** | +0.085 |
-| richmond / unknown | 2.708 | 0.359 | 2.666 | 0.815 | 2.997 (2.800–3.325) | **+0.288** | −0.043 |
-| laurens / gopro max | 4.314 | 0.723 | 2.977 | 1.036 | none (b\_B ≥ 1) | — | −1.337 |
-| clovis / gopro fusion | 2.420 | 0.133 | 2.545 | 0.494 | 2.541 (2.524–2.562) | +0.121 | +0.124 |
-| morgantown / gopro max | 2.352 | 0.146 | 2.507 | 0.567 | 2.387 (2.370–2.405) | +0.035 | +0.154 |
-| annapolis / trimble mx7 | 2.257 | 0.202 | 2.486 | 0.637 | 2.309 (2.298–2.321) | +0.052 | +0.229 |
+| city / rig | h\*\_A | A slope | B(2.6) | b\_B | 1/(1 − b\_B) | h\*\_B, line (95% CI\*) | h\*\_B, local crossing | line − h\*\_A | local − h\*\_A | B(2.6) − h\*\_A (#53's rule 3) |
+|---|---:|---:|---:|---:|---:|---|---:|---:|---:|---:|
+| richmond / gopro max | 1.983 | 0.486 | 2.396 | 0.708 | 3.43 | 1.993 (1.948–2.040) | 2.072 | **+0.011** | +0.090 | +0.413 |
+| richmond / nctech istar pulsar | 2.595 | 0.285 | 2.680 | 0.668 | 3.01 | 2.846 (2.809–2.891) | 2.744 | +0.251 | +0.149 | +0.085 |
+| richmond / unknown | 2.708 | 0.359 | 2.666 | 0.815 | 5.41 | 2.997 (2.800–3.325) | 2.820 | +0.288 | +0.111 | −0.043 |
+| laurens / gopro max | 4.314 | 0.723 | 2.977 | 1.036 | — | none (b\_B ≥ 1) | 3.749, extrapolated | — | −0.565 | −1.337 |
+| clovis / gopro fusion | 2.420 | 0.133 | 2.545 | 0.494 | 1.98 | 2.541 (2.524–2.562) | 2.518 | +0.121 | +0.098 | +0.124 |
+| morgantown / gopro max | 2.352 | 0.146 | 2.507 | 0.567 | 2.31 | 2.387 (2.370–2.405) | 2.431 | +0.035 | +0.079 | +0.154 |
+| annapolis / trimble mx7 | 2.257 | 0.202 | 2.486 | 0.637 | 2.75 | 2.309 (2.298–2.321) | 2.337 | +0.052 | +0.081 | +0.229 |
 
-With h\*\_B in place of B(2.6), rule 3 passes for Richmond's GoPro Max, Clovis,
-Morgantown and Annapolis. It **fails** for Richmond's Pulsar (by 1 mm) and for Richmond's
-unknown class; both passed rule 3 as #53 ran it. So the fixed-point form is not a drop-in
-improvement. For rigs near 2.6 m it lands 0.25–0.29 m above A, and the Laurens simulation
-below shows the same overshoot at a known 2.6 m (+0.24 m).
+\* Too narrow; see the caveat above.
+
+With the line's h\*\_B in place of B(2.6), rule 3 passes for Richmond's GoPro Max, Clovis,
+Morgantown and Annapolis. It fails for Richmond's Pulsar (by 1 mm) and its unknown class.
+**That failure is mostly an artifact of the line fit, not of B.** The fixed point
+a\_B / (1 − b\_B) amplifies any bias of the line near the crossing by 1/(1 − b\_B), 3–5×
+here. B(h) is concave: the Pulsar's step slopes are 0.88, 0.91, 1.26, 0.53, 0.38 and
+0.45. So a straight line through the sweep's centroid overshoots a crossing near the top
+of the sweep. Read locally, the Pulsar crosses at 2.74 m and the unknown class at 2.82 m,
+and both pass rule 3 (+0.149 and +0.111).
+
+The local crossing is **not validated** either. On Richmond's simulated view graph it
+reads high by 0.03–0.21 m (E2 below), more than the line does for h\_true 2.0–2.4. So
+neither estimator is established. Choosing one is a pre-registration question for
+[#89](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/89), not something
+this table settles.
 
 ### E2: simulation on Richmond's real view graph
 
@@ -349,13 +387,39 @@ averages two seeds.
 | 2.4 | 0.5 | 2.345 (0.297) | 2.542 | 2.405 (0.661) | +0.142 | +0.005 | −0.055 |
 | 2.4 | 1 | 2.378 (0.608) | 2.558 | 2.333 (0.787) | +0.158 | −0.067 | −0.022 |
 
-On a known world with this view graph, B read at 2.6 m is pulled toward 2.6 m. The pull
-is present **at zero noise**, so it comes from association, that is, from which views end
-up sharing a site, and not from the errors-in-variables null. B's fixed point recovers
-the truth to within about 0.07 m for h\_true 2.0–2.4 m, and overshoots by 0.10–0.15 m at
-1.8 m. A recovers the truth to within 0.06 m everywhere. At h\_true = 2.0 m the simulated
-raw gap B(2.6) − h\*\_A is +0.407 m at noise 0.5 and +0.462 m at noise 1.0; the real G is
-0.414 m.
+**The null is not noise-matched, and that changes how the zero-noise row reads.**
+`mapillary_height._null_views` draws the errors-in-variables null at the error model's
+full sigmas, whatever `noise_scale` the simulation injected. At noise 0, then, B is
+corrected for noise that was never injected, and at 0.5 it is over-corrected. Only at 1.0
+does the null match. The raw reading B\_raw separates association from that mismatch
+(`simulate.csv`, `b_raw_at_*`). At h\_true 2.0:
+
+| noise | B\_raw at 1.8 / 2.0 / 2.6 | B at 1.8 / 2.0 / 2.6 | B\_raw(2.6) − h\_true | B(2.6) − B(h\_true) |
+|---:|---|---|---:|---:|
+| 0 | 1.823 / 1.939 / 2.064 | 1.972 / 2.111 / 2.293 | +0.064 | +0.182 |
+| 0.5 | 1.784 / 1.906 / 2.135 | 1.945 / 2.073 / 2.359 | +0.135 | +0.286 |
+| 1 | 1.712 / 1.871 / 2.310 | 1.852 / 2.036 / 2.480 | +0.310 | +0.444 |
+
+The zero-noise pull of +0.29 m (B(2.6) − h\_true) splits into about +0.06 m of
+association (B\_raw(2.6) − h\_true) and about +0.23 m of mismatched null. The earlier
+reading, "present at zero noise, so it comes from association and not from the null", had
+the attribution backwards.
+
+The mechanism, restated: **at matched noise (1.0), B is unbiased at the true height
+(B(2.0) = 2.036) and associating at 2.6 m pulls it up by +0.44 m. At zero noise, the pull
+on the raw reading is only about +0.06 m, so the pull grows with noise.** That fits the
+chi-square gate: with more noise, more of the opposite-side views that carry the scale
+signal fall outside the gate at a wrong height. Rule 3's simulation clause still holds at
+both pre-registered levels (+0.359 at 0.5, +0.480 at 1.0, both ≥ 0.25). At 0.5 part of
+that is the over-correcting null; the raw pull there is +0.135 m. This is also the
+setting that mirrors the real data, if #76's finding holds that the model overstates
+Mapillary noise about 2×: the real B is corrected by a full-sigma null too.
+
+B's line fixed point recovers the truth to within about 0.07 m for h\_true 2.0–2.4 m and
+overshoots by 0.10–0.15 m at 1.8 m. The local crossing does worse here, at +0.15 to
++0.18 m for h\_true 2.0 (`report.md`, E2). A recovers the truth to within 0.06 m
+everywhere. At h\_true = 2.0 m the simulated raw gap B(2.6) − h\*\_A is +0.407 m at
+noise 0.5 and +0.462 m at noise 1.0; the real G is 0.414 m.
 
 ### E3: a constant vertical peak offset
 
@@ -374,20 +438,40 @@ The GoPro Max peak sits about 1.6 heatmap px *below* the box centre. E3b plants 
 |---|---:|---:|---:|---:|---:|---:|---:|
 | h\*\_A | 1.680 | 1.825 | 1.885 | 1.952 | 2.015 | 2.080 | 2.216 |
 | h\*\_B | 1.864 | 1.943 | 1.989 | 2.046 | 2.077 | 2.137 | 2.273 |
-| h\*\_B − h\*\_A | +0.184 | +0.118 | +0.104 | +0.094 | +0.062 | +0.057 | +0.057 |
+| h\*\_B − h\*\_A (2 seeds, the rule's input) | +0.184 | +0.118 | +0.104 | +0.094 | +0.062 | +0.057 | +0.057 |
+| h\*\_B − h\*\_A (6 seeds, robustness) | +0.172 | +0.122 | +0.105 | +0.085 | +0.062 | +0.053 | +0.055 |
 
 The offset moves both instruments together. An offset of the measured size, ε ≈ +1.6 px,
 raises both by about 0.1 m, so it is a shared bias rather than a disagreement, and it
 cannot open G. It does mean both instruments probably read this rig about 0.1 m high.
 
+The rejection is at the bar, and not by a comfortable margin. The largest move for
+\|ε\| ≤ 4 px is 0.090 m against the 0.10 m bar. The two pre-registered seeds disagree by
+up to 0.05 m in a cell (ε +1: 0.039 / 0.085), and the pooled per-seed SD is 0.019 m, so
+the 0.010 m margin is inside 2-seed noise. Four more seeds (`simulate_e3b_seeds.csv`,
+seeds 2–5; not what the rule reads) give a largest move of 0.087 m (at ε = −4), with
+per-cell SDs of 0.009–0.021 m. So candidate 1 is still rejected, still narrowly. The
+part of the reading that is robust is the direction: inside the measured CI the offset
+*closes* the gap slightly rather than opening it.
+
 ### E4: per sequence
 
-For the 8 GoPro Max sequences with quarter support, ordered by B views, the raw gap
-B(2.6) − h\*\_A is +0.415, +0.259, −0.151, +0.369, +0.621, −0.700, +0.596 and +0.622 m.
-The median is **+0.392 m**, so G is present inside single sequences. The mixture arm
-weights each sequence's h\*\_A by its held-out views: the mean is 2.215 m, which closes 56%
-of G. Over all 11 sequences with both readings, the mean is 2.181 m and closes 48%. The
-per-sequence fixed-point gaps have a median of +0.129 m. Full rows are in `sequences.csv`.
+For the 8 GoPro Max sequences with quarter support, ordered by B views, the
+**fixed-point gap** h\*\_B − h\*\_A is +0.316, +0.114, +0.210, +0.069, +0.011, −0.375,
++0.145 and +0.179 m. Its median is **+0.129 m**, between the confirm bar (≤ 0.10) and
+the reject bar (≥ 0.25). With
+the mixture arm closing 56% of G (it needs 75%), candidate 2 is **partial** under the
+pre-registered reading. A share of G may come from mixed mountings. It does not enter
+"explained", which counts confirmed candidates only.
+
+The raw gap B(2.6) − h\*\_A is reported as secondary: +0.415, +0.259, −0.151, +0.369,
++0.621, −0.700, +0.596 and +0.622 m, median +0.392 m, so G is present inside single
+sequences. The first version of this section applied the rule to this raw gap, which
+would reject. The switch came after the numbers, and has been reverted.
+`height_gap.candidate2_gaps` feeds the rule, and a test pins that input. The mixture
+arm weights each sequence's h\*\_A by its held-out views: the mean is 2.215 m, which
+closes 56% of G. Over all 11 sequences with both readings, the mean is 2.181 m and closes
+48%. Full rows are in `sequences.csv`.
 
 ### E5: instrument C on GoPro Max references
 
@@ -399,36 +483,60 @@ Each slope rests on 36–41 references, all boxed or reviewer-missed, so none is
 model's own peak. The weighted zero crossing is 2.80 m (SE 0.63). The SEs are two to
 three times the 0.05 bar, so C cannot choose between 2.0 m and 2.38 m; it is reported
 only. The plan predicted positive slopes at 2.6 m: +0.23 for a 2.0 m rig and +0.09 for a
-2.38 m one. Every observed slope is negative. The plan's sizing did not anticipate that,
-and it is not explained here.
+2.38 m one. Every observed slope is negative. That is not a sign error, and it has
+precedent. `run_gt` uses #53's own regression: along = reference raycast minus site,
+positive away from the camera (`mapillary_height.instrument_c`). #53's gate already
+recorded negative C slopes, for example Annapolis −0.176 at 2.6 m and −0.207 at
+2.376 m (§4). The plan's predicted slopes did not allow for that offset, which is why
+its sizing missed.
 
 ### E6: second cases (report only)
 
 - **Laurens.** A is not identifiable on either file: its slope is 0.72 on `results.jsonl`
   and 0.84 on `results.raw.jsonl`. B's line is as steep. b\_B is 1.04 on `results.jsonl`,
-  so there is no fixed point, and 0.93 on `results.raw.jsonl`, where h\*\_B is 4.22, an
-  extrapolation. Simulated on Laurens's graph at noise 0.5, a tall rig gives A a slope of
-  0.38 at 2.6 m, 0.50 at 3.0 m and 0.63 at 3.4 m. **A tall rig alone does not reach 0.7**
-  within 3.4 m, so Laurens's 0.72 needs something more. B's fixed point is poor there:
-  2.84, 4.45 and 9.43 m against true heights of 2.6, 3.0 and 3.4 m.
+  so the line has no fixed point, and 0.93 on `results.raw.jsonl`, where h\*\_B is 4.22.
+  The local crossings are 3.75 and 3.38 m, and both are **extrapolations**, since B stays
+  above the identity up to the 3.0 m sweep top. Simulated on Laurens's graph at
+  noise 0.5, a tall rig gives A a slope of 0.38 at 2.6 m, 0.50 at 3.0 m and 0.63 at
+  3.4 m. **A tall rig alone does not reach 0.7** within 3.4 m, so Laurens's 0.72 needs
+  something more. B's fixed point for h\_true 2.6, 3.0 and 3.4 m:
+
+  | h\_true | line h\*\_B | local crossing |
+  |---:|---:|---:|
+  | 2.6 | 2.836 | 2.746 |
+  | 3.0 | 4.450, extrapolated | 3.177, extrapolated |
+  | 3.4 | 9.432, extrapolated | 4.412, extrapolated |
+
+  The plan's risk note said heights at or above the sweep top must be quoted as
+  extrapolations. The first version quoted 4.45 and 9.43 m as overshoots without that
+  label, and most of that size is the line's 1/(1 − b\_B) (7.4 and 19). Inside the sweep,
+  at 2.6 m, both estimators read high: +0.24 on the line and +0.15 at the local crossing.
 - **Paterson (GSV, with a depth-measured height).** The 2025–26 rig has 15,155 panos with
-  a depth height. It reads h\*\_A 1.975, B(2.6) 2.237, h\*\_B **1.843**, and a depth
-  median of 1.862. So the same pattern holds on GSV: B read at 2.6 m sits 0.26 m above A,
-  and its fixed point lands near A and the depth median. For the 2018–2024 vintages,
-  h\*\_A is 2.46–2.56, h\*\_B is 2.25–2.47 and the depth median is 2.35–2.37. The
-  2007–2017 vintages have few multi-view sites and A slopes of 0.60–0.93, so they are not
-  identifiable.
+  a depth height. It reads h\*\_A 1.975, B(2.6) 2.237, h\*\_B **1.843** (local crossing
+  2.022), and a depth median of 1.862. So the same pattern holds on GSV: B read at 2.6 m
+  sits 0.26 m above A, and both fixed-point readings land near A. For the 2018–2024
+  vintages, h\*\_A is 2.46–2.56. The line's h\*\_B is 2.25–2.47 and the local crossing
+  2.47–2.53, against a depth median of 2.35–2.37. The 2007–2017 vintages have few
+  multi-view sites and A slopes of 0.60–0.93, so they are not identifiable.
 
 ### What follows
 
 - #53's rule 3 compared unlike quantities: A as a fixed point and B at 2.6 m. Read as
   fixed points, Richmond's GoPro Max passes agreement, and with its §3 support, slope and
-  CI it would then pass all four rules at h\_g ≈ 1.99 m. Richmond's Pulsar and unknown
-  class would instead fail agreement. Nothing here rewrites `camera_heights.json`.
-- The follow-up is to make B a fixed point in `mapillary_height.py` and re-run the #53
-  rule and gate. The Pulsar result and the Laurens simulation show that B's fixed point
-  overshoots for rigs near or above 2.6 m, so that change needs its own simulation check
-  and is not a pure win.
+  CI it would then pass all four rules at h\_g ≈ 1.99 m. On the line fit, Richmond's
+  Pulsar and unknown class fail agreement; at the local crossing they pass. Nothing here
+  rewrites `camera_heights.json`.
+- The follow-up,
+  [#89](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/89), is to make B
+  a fixed point in `mapillary_height.py` and re-run the #53 rule and gate. The review
+  findings above set three requirements for its pre-registration:
+  - pre-register the estimator: the local crossing, or the line over a sweep extended
+    above 3.0 m;
+  - report 1/(1 − b\_B) beside every h\*\_B;
+  - run its simulation gate with a noise-matched null.
+
+  Without these, a gate such as \|h\*\_B − h\_true\| ≤ 0.10 m measures the line's
+  amplification and the null mismatch, not B.
 - RampNet#101 measures the same identity at a single association height. Its 11% slope is
   therefore a lower bound on the range error, and the fixed-point form is the right
   estimator.
