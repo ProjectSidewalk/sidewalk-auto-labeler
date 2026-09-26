@@ -1,0 +1,111 @@
+{
+ "city": "bend",
+ "status": "ok",
+ "url": "https://services5.arcgis.com/JisFYcK2mIVg9ueP/arcgis/rest/services/sCurbRamps/FeatureServer/0",
+ "portal": "https://data.bendoregon.gov/datasets/curb-ramps",
+ "item": "aa70ed04816040ea9c6dd5de6789448c",
+ "publisher": "City of Bend, OR (CityofBendOR)",
+ "terms": "public item; City disclaimer (reference purposes only, not for survey or engineering); no explicit open licence -- cited, used for analysis",
+ "query": {
+  "where": "1=1",
+  "geometry": "envelope of area.geojson bounds",
+  "bbox_wgs84": [
+   -121.382433,
+   43.999063,
+   -121.243349,
+   44.123752
+  ],
+  "outSR": 4326,
+  "f": "geojson",
+  "paging": "resultOffset"
+ },
+ "keep": {
+  "field": "LifeCycleStatus",
+  "values": [
+   "I"
+  ],
+  "where_equivalent": "LifeCycleStatus IN ('I')"
+ },
+ "fetched_utc": "2026-09-26T14:28:53+00:00",
+ "file": "inventory.geojson",
+ "sha256": "30acadb2abdf5dfd06adaa32705814518e8af505ee9a166db07d6a34cb7bb8ba",
+ "bytes": 14430983,
+ "layer_name": "Curb Ramps",
+ "max_record_count": 2000,
+ "page_size": 1000,
+ "pages": 15,
+ "object_id_field": "OBJECTID",
+ "last_edit_date_ms": 1790420348700,
+ "layer_total": 14822,
+ "in_bbox": 14822,
+ "in_area": 14328,
+ "kept": 12504,
+ "histograms_in_area": {
+  "LifeCycleStatus": {
+   "I": 12504,
+   "D": 1411,
+   "DC": 210,
+   "PROP": 200,
+   "IN": 2,
+   "None": 1
+  },
+  "Direction": {
+   "distinct": 49
+  },
+  "Method": {
+   "Digitized": 12178,
+   "GPS": 2023,
+   "None": 127
+  },
+  "Owner": {
+   "None": 11388,
+   "COB": 2482,
+   "Private": 290,
+   "PRIVATE": 101,
+   "STATE": 67
+  },
+  "Responsibility": {
+   "PRIDE": 5590,
+   "STREET": 4361,
+   "None": 2538,
+   "CIP": 875,
+   "AR": 293,
+   "ODOT": 280,
+   "LEGACY": 235,
+   "COUNTYSUB": 129,
+   "X": 11,
+   "NA": 9,
+   "": 5,
+   "COB Street Dept": 2
+  },
+  "StreetClass": {
+   "R": 8927,
+   "A": 2784,
+   "C": 1431,
+   "None": 828,
+   "MINA": 327,
+   "MAJA": 31
+  },
+  "Compliant": {
+   "YES": 7279,
+   "NO": 4055,
+   "PEN": 2972,
+   "YESEX": 21,
+   "None": 1
+  },
+  "Source": {
+   "None": 6160,
+   "Inspection": 5695,
+   " ": 940,
+   "Overlay Drive-By Jan 2010": 886,
+   "Commercial Zones Guess - Need to Verify": 558,
+   "2004 Aerial Photo Interpretation": 47,
+   "2008 Aerial Photo Interpretation": 16,
+   "GPS": 14,
+   "Spreadsheet": 9,
+   "": 1,
+   ".": 1,
+   "ADAM": 1
+  }
+ }
+}

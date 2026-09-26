@@ -1,0 +1,7 @@
+{
+ "city": "vancouver",
+ "status": "service not started (probed 2026-09-06 and 2026-09-26)",
+ "url": "https://utility.arcgis.com/usrsvcs/servers/90f910b76e3c43e0acd3cfd623a3818c/rest/services/PublicWorks/transSidewalkPUB/MapServer/0",
+ "publisher": "City of Vancouver, WA",
+ "note": "not fetched: the service is not answering; no scoring possible"
+}

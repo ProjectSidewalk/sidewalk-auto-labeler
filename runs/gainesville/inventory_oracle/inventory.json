@@ -1,0 +1,93 @@
+{
+ "city": "gainesville",
+ "status": "ok",
+ "url": "https://services2.arcgis.com/Zzhtlau4ccHkQgTu/arcgis/rest/services/PublicWorksInfrastructure_AGO/FeatureServer/3",
+ "portal": "https://data.cityofgainesville.org/ (dataGNV \"ADA Ramps\", 3um4-3vb3)",
+ "item": "817b0156f40a4cb8a1ccdb88510d6dce",
+ "publisher": "City of Gainesville, FL Public Works",
+ "terms": "Public Domain on the dataGNV Socrata mirror; informational-use disclaimer on the service",
+ "query": {
+  "where": "1=1",
+  "geometry": "envelope of area.geojson bounds",
+  "bbox_wgs84": [
+   -82.372895,
+   29.593153,
+   -82.272419,
+   29.662797
+  ],
+  "outSR": 4326,
+  "f": "geojson",
+  "paging": "resultOffset"
+ },
+ "keep": {
+  "field": "LIFECYCLE",
+  "values": [
+   "Active"
+  ],
+  "where_equivalent": "LIFECYCLE IN ('Active')"
+ },
+ "fetched_utc": "2026-09-26T14:28:58+00:00",
+ "file": "inventory.geojson",
+ "sha256": "5ddc4e17548faff50175bd3fba5b4cd32cf944cec77585a3a5f075a4ed8c8018",
+ "bytes": 1687204,
+ "layer_name": "CurbRamp",
+ "max_record_count": 2000,
+ "page_size": 1000,
+ "pages": 4,
+ "object_id_field": "OBJECTID",
+ "last_edit_date_ms": 1783628976506,
+ "layer_total": 7248,
+ "in_bbox": 3820,
+ "in_area": 3246,
+ "kept": 3208,
+ "histograms_in_area": {
+  "LIFECYCLE": {
+   "Active": 3208,
+   "Removed": 14,
+   "Retired": 12,
+   "Replaced": 11,
+   "AWRD": 1
+  },
+  "CORNER": {
+   "NE": 756,
+   "SW": 725,
+   "SE": 714,
+   "NW": 697,
+   "None": 233,
+   "S": 45,
+   "N": 25,
+   "W": 22,
+   "E": 20,
+   "C": 9
+  },
+  "OWNEDBY": {
+   "City of Gainesville": 2082,
+   "State of Florida": 802,
+   "Private": 139,
+   "United States": 129,
+   "Alachua County": 66,
+   "UF-State": 26,
+   "US - Highway": 2
+  },
+  "MAINTBY": {
+   "City of Gainesville": 2108,
+   "State of Florida": 762,
+   "US - Highway": 171,
+   "Private": 113,
+   "Alachua County": 66,
+   "UF - State": 26
+  },
+  "CROSSWALK": {
+   "Yes": 1921,
+   "No": 1024,
+   "None": 163,
+   "Partial": 138
+  },
+  "SIDEWALK": {
+   "Yes": 2920,
+   "Partial": 180,
+   "None": 111,
+   "No": 35
+  }
+ }
+}
