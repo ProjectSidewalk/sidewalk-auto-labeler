@@ -13,6 +13,41 @@ computed, and commit `f7226e8` put the reading into code (`verdict()`) before th
 changed afterwards. The arms added on review (§4.4) are exploratory, sit on their own site set and do not
 enter the verdict.
 
+> **Correction, 2026-09-25 ([#80](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/80)): every
+> cross-slope sign in this study is inverted.** The text below is left as written; this block says what changes.
+>
+> - **Cause.** `depth.py`'s range queries were in streetlevel's raster frame, which is the mirror of the imagery,
+>   so §4.1's "+x is camera-right" was wrong: in the image frame camera-right (x = 0.75) is **−x**.
+>   `camera_frame_normal` now sets `r = −n_x`. Grade (`n_y`) is unaffected; every cross-slope, and everything
+>   derived from its sign, flips. The CSVs and figures under `docs/figures/gsv-ground-plane/` predate the fix and
+>   were not regenerated.
+> - **`cross-flipped` is the correctly signed full-plane arm** in the committed `ablation.csv` (and
+>   `cross-only-flipped` the correctly signed `cross-only`). Median within-site pair distance, `uncapped_review`
+>   site set, off / ground-normal (as run, mirrored) / cross-flipped (correct sign), m: bend 1.70 / 2.07 / 1.86;
+>   paterson 2.30 / 2.84 / 2.76; gainesville 2.63 / 2.98 / 2.95; São Paulo 1.80 / 2.22 / 2.03 (`capped_review`:
+>   1.53 / 1.80 / 1.60, 2.05 / 2.33 / 2.25, 2.42 / 2.59 / 2.50, 1.65 / 1.88 / 1.74). The correct sign beats the
+>   mirrored one on the median and on mean / range in all four cities and both site sets. In `capped_review` it
+>   wins on every statistic in all four; in `uncapped_review` its mean and p90 are worse in paterson and
+>   gainesville (p90 8.20 vs 7.84 m and 7.22 vs 7.16 m).
+> - **The headline stands: `off` still wins, and the verdict stays UNDERCUT.** The correctly signed plane loosens
+>   agreement in every city on median, mean and p90 (p90 5.34 / 8.20 / 7.22 / 5.90 m against off's 4.22 / 4.91 /
+>   5.23 / 4.15), and loses to off in both qualifying steep buckets everywhere (2–4°: 2.54 vs 1.71, 4.13 vs 2.40,
+>   3.99 vs 2.72, 2.97 vs 2.02 m). Grade-only arms (`travel-only` and its controls) do not involve the sign.
+> - **Finding 5 is explained, not settled the other way.** "Measured cross-slope does worse than its own flip" was
+>   the mirror. The side split now reads: the correctly signed cross-slope alone (`cross-only-flipped` in §5.4's
+>   table) beats flat right of the heading in the three US cities and is far worse left of it; São Paulo is worse
+>   than flat on both sides. §5.4's argument that "a mirrored frame would make the flip better on both sides" does
+>   not hold and should not be reused; the mirror is established independently (#80: an overlay of the planes on
+>   the imagery, and wall/ground contact continuity).
+> - **§5.1's crown check reads the other way.** In the corrected frame the cross-slope falls to the **left** on
+>   56–67% of panoramas (median +0.29° to +0.56°), against the right-hand-traffic crown prior; and the cross-slope
+>   on metadata-roll slopes become positive (+0.45 to +0.87; +0.89 where well determined). The roll-sign argument
+>   was already flagged as circular; the rig-attitude arm's `−roll` was chosen from that fit, so under its own rule
+>   it would now be `+roll` (not changed, not re-run). **Open:** why the dominant plane falls left on most panoramas was not
+>   measured. The imagery overlay and the contact check are far stronger evidence about the frame than the crown
+>   prior, and the correctly signed arm's better raycast agreement points the same way, but the observation
+>   itself is unexplained. Finding 6's magnitudes depend on the sign only to second order.
+
 ## 0. Summary
 
 Every GSV panorama in the four harvested runs (bend, paterson, gainesville, sao_paulo; 180,716 panoramas,
@@ -122,6 +157,8 @@ payload, which is why São Paulo's measured share is 62%.
 ## 4. Methods
 
 ### 4.1 Frames and the decomposition (RQ1)
+
+*The frame stated in this section is mirrored in x; see the 2026-09-25 correction at the top.*
 
 `depth.py`'s ray convention (transcribed from streetlevel and checked against its raster in
 `tests/test_depth.py`) puts stored coordinate `(x, y)` at `phi = 2πx + π/2`, `v = (sin t cos phi,
@@ -235,6 +272,9 @@ city or shuffled wins ≥ ground-normal's wins; otherwise NOT SUPPORTED.
 ## 5. Findings
 
 ### 5.1 RQ1 — the observed ground plane
+
+*Every cross-slope sign in this section is inverted, so the crown check reads the other way; see the 2026-09-25
+correction at the top.*
 
 ![Slope distributions](figures/gsv-ground-plane/fig1_slope_distributions.png)
 

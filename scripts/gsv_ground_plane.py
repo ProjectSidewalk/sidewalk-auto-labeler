@@ -18,10 +18,13 @@ should tighten multi-view agreement, most on the steepest panoramas; if it is ex
 degrees of freedom that help, a shuffled normal will help as much.
 
 Frames. ``depth.py``'s coordinate convention (transcribed from streetlevel, checked
-against its raster in tests/test_depth.py) puts a stored coordinate ``(x, y)`` at
-``phi = 2*pi*x + pi/2`` with ``v = (sin t cos phi, sin t sin phi, cos t)``: so in the
-depth frame **+x is camera-right, -y is camera-forward (x = 0.5, the heading) and +z is
-down**. ``camera_frame_normal`` converts a plane normal to the camera frame
+against its raster and against real imagery in tests/test_depth.py) puts an IMAGE-frame
+coordinate ``(x, y)`` at ``phi = (1 - x)*2*pi + pi/2`` with
+``v = (sin t cos phi, sin t sin phi, cos t)``: so in the depth frame **-x is
+camera-right (x = 0.75), -y is camera-forward (x = 0.5, the heading) and +z is down**.
+(Corrected in #80: this read ``+x is camera-right`` until then, which inverted every
+cross-slope sign; the committed figures/data predate the fix -- see the dated
+correction in docs/gsv-ground-plane-study.md.) ``camera_frame_normal`` converts a plane normal to the camera frame
 ``(forward, right, up)`` with the normal pointing up; ``slopes`` turns that into
 along-travel grade (rise ahead, positive uphill) and cross-slope (rise toward the
 camera's right). ``road_pose`` turns it into the (pitch, roll) of the camera *relative
@@ -115,7 +118,9 @@ ALL_ARMS = ARMS + [EXPLORATORY_ARM]
 #     bucket compares two different correction sizes;
 #   - `cross-flipped`, `cross-only`, `cross-only-flipped`: the cross-slope sign check
 #     (is the frame mirrored, or is one plane the wrong model across a crowned road?),
-#     read with the detection-side split `cmd_ablation` writes for every arm.
+#     read with the detection-side split `cmd_ablation` writes for every arm. The frame
+#     WAS mirrored (#80): in the CSVs committed before that fix, `cross-flipped` is the
+#     correctly signed arm and `ground-normal` the mirrored one; a re-run swaps them.
 TRAVEL_ARM = 'travel-only'
 REVIEW_ARMS = [TRAVEL_ARM, 'travel-shuffled', 'travel-bucket-shuffled',
                'bucket-shuffled-normal', 'cross-flipped', 'cross-only', 'cross-only-flipped']
@@ -221,15 +226,15 @@ def camera_frame_normal(nx, ny, nz):
     """A depth-frame plane normal -> the unit UPWARD normal (forward, right, up) in the
     camera frame.
 
-    depth.py's frame is +x right, -y forward, +z down (module docstring), and a payload
-    stores a ground normal as ~(0, 0, -1) but either orientation describes the plane, so
-    the result is flipped to point up.
+    depth.py's frame is -x right, -y forward, +z down (module docstring; #80), and a
+    payload stores a ground normal as ~(0, 0, -1) but either orientation describes the
+    plane, so the result is flipped to point up.
 
     Example:
         >>> camera_frame_normal(0.0, 0.0, -1.0)
-        (-0.0, 0.0, 1.0)
+        (-0.0, -0.0, 1.0)
     """
-    f, r, u = -ny, nx, -nz
+    f, r, u = -ny, -nx, -nz
     n = math.sqrt(f * f + r * r + u * u)
     if u < 0:
         n = -n
@@ -238,7 +243,7 @@ def camera_frame_normal(nx, ny, nz):
 
 def depth_frame_normal(n_f, n_r, n_u):
     """Inverse of camera_frame_normal (up-pointing), for building synthetic payloads."""
-    return n_r, -n_f, -n_u
+    return -n_r, -n_f, -n_u
 
 
 def slopes(n_f, n_r, n_u):
@@ -674,7 +679,11 @@ def rig_attitude_normal(meta_pitch_deg, meta_roll_deg):
     """The ground normal implied by the capture rig's metadata attitude, for a car that
     rides on the road: grade = pitch, cross-slope = -roll. The signs are not assumed;
     they are the ones the depth planes themselves select (`planes` regresses depth grade
-    on metadata pitch and depth cross-slope on metadata roll: slopes > 0 and < 0)."""
+    on metadata pitch and depth cross-slope on metadata roll: slopes > 0 and < 0).
+
+    That cross-on-roll slope was measured in the mirrored frame (#80); in the corrected
+    frame it is > 0, so by this rule the sign would be +roll. Left as -roll so the arm
+    still matches the committed #52 data; revisit with any re-run of these arms."""
     return normal_from_slopes(meta_pitch_deg, -meta_roll_deg)
 
 
@@ -790,6 +799,14 @@ GRADE_LABELS = [mt.bucket_label(lo, hi) for lo, hi in GRADE_BUCKETS]
 def benchmark_params(**kw):
     """The tier every GT-joined number here uses; see the module docstring."""
     return fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False, **kw)
+
+
+def eval_params(arm):
+    """`cmd_eval`'s FuseParams for an arm. Every non-off arm injects its ground frame as
+    the SlimPano's pitch/roll (arm_panos), so it wants those stored angles applied as they
+    are -- fuse_sites' POSE_GRAVITY -- and `off` wants the flat raycast. (This was
+    `apply_pose=arm != 'off'`, a bool, which FuseParams has rejected since #74.)"""
+    return benchmark_params(apply_pose=fs.POSE_OFF if arm == 'off' else fs.POSE_GRAVITY)
 
 
 # --- ablation: frozen-association multi-view spread (step 3, instrument 1) -------------
@@ -943,7 +960,7 @@ def cmd_eval(args):
         panos, _ = fs.load_results(args.run_root / city / 'results.jsonl', read_heights=False)
         for arm in EVAL_ARMS:
             ps_ = arm_panos(panos, normals, arm)
-            params = benchmark_params(apply_pose=arm != 'off')
+            params = eval_params(arm)
             prefused = fs.fuse(ps_, params)
             r5 = es.evaluate_city(verdict_panos, bundle_ops, ps_, params, match_radius_m=5.0,
                                   prefused=prefused)

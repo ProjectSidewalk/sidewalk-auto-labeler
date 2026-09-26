@@ -28,10 +28,24 @@ panoramas):
     depth = |distance / dot(v, normal)|
 
 so **+z points at the nadir, i.e. DOWN**, and a ground plane's normal is ~(0, 0, -1).
-Note also that `compute_depth_map` writes the value computed at column `col` into stored
-column `width - col - 1`: the raster is mirrored relative to the raw index array. That
-flip is the easiest thing to get wrong here, so it lives in exactly one place
-(`_raw_column`) rather than being open-coded at each call site.
+
+**Two column frames, and which one a function takes matters** (labeler #80):
+
+  - the **image frame** -- x from the left of the panorama JPEG, the frame detections,
+    Project Sidewalk's `pano_x` and the RampNet benchmark use. Raw index column `c` IS
+    image column `c`: the payload's planes overlay the imagery with no flip. In this
+    frame the heading is x = 0.5 and x = 0.75 is heading + 90 deg (the camera's right),
+    which is **-x** in the depth frame above: `phi = (1 - x) * 2pi + pi/2`.
+  - the **raster frame** -- streetlevel's rastered depth map. `compute_depth_map` writes
+    the value computed at raw column `col` into stored column `width - col - 1`, so that
+    raster is the MIRROR of the imagery: raster column `c` is image column `width-1-c`.
+
+`ray_depth_at` / `ground_range_at` take image-frame coordinates. `depth_at` alone takes
+raster-frame coordinates, because its job is to reproduce streetlevel's raster; for an
+image coordinate `(x, y)` the raster-faithful value is `depth_at(payload, 1 - x, y)`.
+The raster flip lives in exactly one place (`_raw_column`) rather than being open-coded.
+Until #80 the range queries used the raster frame too, and so answered for the point at
+`(1 - x, y)`; no production path called them.
 
 Two ways to sample, and the distinction matters:
 
@@ -319,16 +333,19 @@ def parse(b64_string):
 
 
 def _raw_column(payload, col):
-    """Stored/rastered column -> the column in the raw index array.
+    """RASTER-frame column -> the column in the raw index array.
 
     `compute_depth_map` reads index[row][col] but writes the result to stored column
-    width-col-1, so the raster is mirrored relative to the raw indices.
+    width-col-1, so streetlevel's raster is mirrored relative to the raw indices -- and
+    so relative to the imagery, whose columns ARE the raw ones. Only `depth_at` (the
+    raster-faithful path) uses this; an image-frame column needs no mapping.
     """
     return payload.width - col - 1
 
 
 def _direction(payload, row, col):
-    """Unit ray for a RAW (unmirrored) row/column, per the module docstring.
+    """Unit ray for a RAW (unmirrored) row/column, per the module docstring. A raw column
+    is also an image column, so this is the image-frame ray through a pixel centre.
 
     This is the *quantized* ray: the direction through the centre of one payload pixel.
     It is what reproduces streetlevel's raster, so `depth_at` uses it -- but it is the
@@ -342,7 +359,7 @@ def _direction(payload, row, col):
 
 
 def _direction_continuous(x_norm, y_norm):
-    """Unit ray for an exact normalized STORED coordinate -- no pixel snapping.
+    """Unit ray for an exact normalized IMAGE-frame coordinate -- no pixel snapping.
 
     A detection lands at an arbitrary (x, y), not at a payload pixel centre. Snapping the
     ray to the nearest of 256 rows costs up to half a row of elevation (0.30 deg), and
@@ -356,33 +373,35 @@ def _direction_continuous(x_norm, y_norm):
     per-pixel); once the plane is known it is a continuous surface and the intersection
     should be exact.
 
-    Note there is **no width-col-1 flip here**: the mirror cancels. `_direction` takes a
-    RAW column and counts azimuth down from `width`, whereas a stored column already counts
-    up, so the two compose to `phi = x_norm * 2pi + pi/2`. That is easy to get backwards,
-    and hard to catch: mirroring phi flips the sign of vx and nothing else, so any plane
-    whose normal has nx == 0 -- which includes every level ground plane, the case one
-    naturally reaches for -- returns the identical answer either way. Only a plane with a
-    nonzero normal-x pins the convention down; tests/test_depth.py uses several. At a pixel
-    centre this agrees with `_direction` bit-for-bit.
+    This is `_direction` made continuous: an image column is a raw column, and
+    `_direction` counts azimuth down from `width`, so `phi = (1 - x_norm) * 2pi + pi/2`.
+    At a pixel centre the two agree bit-for-bit. Until #80 this was `x_norm * 2pi + pi/2`,
+    the raster frame's ray. That is easy to get backwards and hard to catch: mirroring
+    phi flips the sign of vx and nothing else, so any plane whose normal has nx == 0 --
+    every level ground plane, the case one naturally reaches for -- returns the identical
+    answer either way, and a synthetic payload built under the wrong assumption passes
+    its own tests. What pins it is the imagery: tests/test_depth.py checks the lookup
+    against sky and surface read off a real panorama.
     """
     theta = (1.0 - y_norm) * math.pi
-    phi = x_norm * 2.0 * math.pi + math.pi / 2.0
+    phi = (1.0 - x_norm) * 2.0 * math.pi + math.pi / 2.0
     st = math.sin(theta)
     return st * math.cos(phi), st * math.sin(phi), math.cos(theta)
 
 
-def _plane_at(payload, x_norm, y_norm):
+def _plane_at(payload, x_norm, y_norm, *, raster=False):
     """(plane, row, raw_col) under a normalized coordinate; plane is None for sky.
 
-    The row needs no un-mirroring -- only columns are flipped -- but the column does, so
-    both are returned ready for `_direction`.
+    The coordinate is in the IMAGE frame (raw column == image column) unless `raster` is
+    set, when it is in streetlevel's mirrored raster frame -- `depth_at`'s, and no other
+    caller's. Rows are never flipped. Both are returned ready for `_direction`.
 
     The lookup snaps to a pixel because the plane segmentation is genuinely per-pixel --
     this is the one place quantization is correct rather than merely convenient.
     """
     col = min(payload.width - 1, max(0, int(x_norm * payload.width)))
     row = min(payload.height - 1, max(0, int(y_norm * payload.height)))
-    raw_col = _raw_column(payload, col)
+    raw_col = _raw_column(payload, col) if raster else col
     idx = payload.indices[row * payload.width + raw_col]
     if idx == SKY or idx >= len(payload.planes):
         return None, row, raw_col
@@ -451,32 +470,34 @@ def _intersect(plane, direction):
 
 
 def depth_at(payload, x_norm, y_norm):
-    """Euclidean ray distance at the payload PIXEL containing a normalized coordinate.
+    """Euclidean ray distance at the payload PIXEL containing a RASTER-frame coordinate.
 
     Raster-faithful: this snaps to a pixel centre and so reproduces streetlevel's own
     depth map exactly, which is what `--check-convention` and the offline cross-check in
     tests/test_depth.py compare against. Use it to reason about the payload.
 
-    For a measurement at an arbitrary coordinate -- a detection, say -- use
-    `ray_depth_at` / `ground_range_at`, which intersect the true ray instead of a
-    quantized one.
-
-    (x_norm, y_norm) use the pipeline's convention -- x from the left of the rastered
-    image, y from the top -- the same one detections are stored in.
+    (x_norm, y_norm) are x from the left of streetlevel's RASTER, y from the top. That
+    raster is the mirror of the imagery (module docstring), so this is NOT the frame
+    detections are stored in: for an image coordinate use `depth_at(payload, 1 - x, y)`,
+    or, for a measurement at an arbitrary coordinate -- a detection, say --
+    `ray_depth_at` / `ground_range_at`, which take the image frame and intersect the
+    true ray instead of a quantized one.
     """
-    p, row, raw_col = _plane_at(payload, x_norm, y_norm)
+    p, row, raw_col = _plane_at(payload, x_norm, y_norm, raster=True)
     if p is None:
         return None
     return _intersect(p, _direction(payload, row, raw_col))
 
 
 def ray_depth_at(payload, x_norm, y_norm):
-    """Euclidean distance along the exact ray at a normalized coordinate, or None for sky.
+    """Euclidean distance along the exact ray at a normalized IMAGE-frame coordinate
+    (x from the left of the panorama JPEG, y from the top), or None for sky.
 
-    Same plane lookup as `depth_at`, but intersected at the un-snapped ray direction, so
-    the result is continuous in (x_norm, y_norm) rather than piecewise-constant across a
-    pixel. Identical to `depth_at` at pixel centres. See `_direction_continuous` for why
-    the difference is worth up to 6.6% of the range.
+    Same pixel-snapped plane lookup as `depth_at`, but in the image frame and intersected
+    at the un-snapped ray direction, so the result is continuous in (x_norm, y_norm)
+    rather than piecewise-constant across a pixel. At pixel centres it equals
+    `depth_at(payload, 1 - x_norm, y_norm)`. See `_direction_continuous` for why the
+    snap is worth up to 6.6% of the range.
     """
     p, _, _ = _plane_at(payload, x_norm, y_norm)
     if p is None:
@@ -485,7 +506,7 @@ def ray_depth_at(payload, x_norm, y_norm):
 
 
 def ground_range_at(payload, x_norm, y_norm):
-    """Horizontal distance from the camera at a normalized coordinate, or None.
+    """Horizontal distance from the camera at a normalized IMAGE-frame coordinate, or None.
 
     The horizontal component of `ray_depth_at` -- directly comparable to what
     `geo.detection_ground_point` computes as `camera_height / tan(depression)`, and the
