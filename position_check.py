@@ -507,6 +507,91 @@ def live_endpoints(directory):
     return sorted(out)
 
 
+def _band_bounds(key):
+    """(min, max) of a band key as send_to_ps.band_key writes it ("0.3-0.55"), or
+    (None, None) for a key it cannot parse (reported by the caller that needs it; positions
+    do not depend on it, so live_positions must not start failing over one)."""
+    try:
+        lo, hi = key.split('-', 1)
+        return float(lo), float(hi)
+    except (AttributeError, ValueError):
+        return None, None
+
+
+def campaigns_for(directory, endpoint, exclude=()):
+    """Every campaign the submission records in `directory` hold for `endpoint`:
+    ([{campaign, path, at, line_numbers, min_confidence, lines, labels, select_min,
+    select_max, rig_masked, band, record}], [problems]). `band` is the band key, None for
+    the base entry; `record` is the submission record's file name.
+
+    A campaign is a record's base entry plus each of its `bands`: all lines when it holds
+    `submitted_lines == total_lines`, else exactly the lines of its sidecar
+    (`<file>.submitted`, `<file>.band-<key>.submitted`; `line_numbers` is None for "all").
+    Record file names in `exclude` are skipped. Gaps come back as problems, never
+    guesses: a record whose results file is missing, and a partial campaign whose sidecar
+    is missing. An unreadable record raises ValueError. The single enumeration behind
+    live_positions (where a pano sits) and scripts/coverage_check.py (which panos carry
+    labels, issue #46).
+
+    `min_confidence` is the endpoint entry's recorded value, as live_positions has always
+    reported it. What a campaign actually SENT is `[select_min, select_max)` with the
+    nadir mask on iff `rig_masked`:
+      - a band sent exactly its key's range, masked iff the band entry says so;
+      - the base entry's `min_confidence` moves DOWN to a band's floor once that band
+        covers the file (send_to_ps.write_submission_record), so the base campaign's own
+        floor is the highest band ceiling when there are bands (a band always sits on a
+        campaign at exactly its ceiling), else the recorded value; select_max is None.
+    `rig_masked` absent means unmasked: the record gained the flag with the mask, so a
+    campaign without it predates the mask and shipped rig labels.
+    """
+    directory = Path(directory)
+    campaigns, problems = [], []
+    for rec_path in sorted(directory.glob('*.submission.json')):
+        if rec_path.name in exclude:
+            continue
+        record = _read_record(rec_path)
+        state = record['endpoints'].get(endpoint) or {}
+        if int(state.get('submitted_lines') or 0) <= 0:
+            continue
+        results = rec_path.with_name(record.get('input_file') or rec_path.name[:-len('.submission.json')])
+        labels = state.get('labels_submitted', '?')
+        if not results.exists():
+            problems.append(f"{rec_path.name} records {state['submitted_lines']} line(s) / {labels} "
+                            f"label(s) of {results.name} live here, and {results.name} is not present, "
+                            f"so which panos they are cannot be read")
+            continue
+        total = int(record.get('total_lines') or 0)
+        recorded_min = float(state.get('min_confidence', 0.0))
+        bands = sorted((state.get('bands') or {}).items())
+        base_min = max([recorded_min] + [hi for hi in (_band_bounds(key)[1] for key, _ in bands)
+                                         if hi is not None])
+        parts = [(None, state, Path(f'{results}.submitted'), (base_min, None))]
+        parts += [(key, band, Path(f'{results}.band-{key}.submitted'), _band_bounds(key))
+                  for key, band in bands]
+        for band_key, part, sidecar, (select_min, select_max) in parts:
+            suffix = '' if band_key is None else f' (band {band_key})'
+            n = int(part.get('submitted_lines') or 0)
+            if n <= 0:
+                continue
+            name = results.name + suffix
+            lines = None
+            if n < total:
+                if not sidecar.exists():
+                    problems.append(f"{name} is recorded as partial here ({n} of {total} lines) and "
+                                    f"its sidecar {sidecar.name} is missing, so which panos it put "
+                                    f"on this server cannot be told")
+                    continue
+                lines = _read_sidecar(sidecar)
+            campaigns.append({'at': part.get('last_submission_utc') or state.get('last_submission_utc') or '',
+                              'campaign': name, 'path': results, 'line_numbers': lines,
+                              'min_confidence': recorded_min,
+                              'lines': n, 'labels': part.get('labels_submitted', labels),
+                              'select_min': select_min, 'select_max': select_max,
+                              'rig_masked': bool(part.get('rig_masked', False)),
+                              'band': band_key, 'record': rec_path.name})
+    return campaigns, problems
+
+
 def live_positions(directory, endpoint, exclude=()):
     """Where each pano sits on `endpoint`, per the submission records in `directory`:
     ({panorama_id: {latlng, campaign, at, min_confidence, lines, labels}}, [problems]).
@@ -534,43 +619,7 @@ def live_positions(directory, endpoint, exclude=()):
     sent), and two campaigns with the same timestamp that disagree on a pano. A record
     with no `last_submission_utc` sorts oldest. An unreadable record raises ValueError.
     """
-    directory = Path(directory)
-    campaigns, problems = [], []
-    for rec_path in sorted(directory.glob('*.submission.json')):
-        if rec_path.name in exclude:
-            continue
-        record = _read_record(rec_path)
-        state = record['endpoints'].get(endpoint) or {}
-        if int(state.get('submitted_lines') or 0) <= 0:
-            continue
-        results = rec_path.with_name(record.get('input_file') or rec_path.name[:-len('.submission.json')])
-        labels = state.get('labels_submitted', '?')
-        if not results.exists():
-            problems.append(f"{rec_path.name} records {state['submitted_lines']} line(s) / {labels} "
-                            f"label(s) of {results.name} live here, and {results.name} is not present "
-                            f"to compare pano positions against")
-            continue
-        total = int(record.get('total_lines') or 0)
-        parts = [('', state, Path(f'{results}.submitted'))]
-        parts += [(f' (band {key})', band, Path(f'{results}.band-{key}.submitted'))
-                  for key, band in sorted((state.get('bands') or {}).items())]
-        for suffix, part, sidecar in parts:
-            n = int(part.get('submitted_lines') or 0)
-            if n <= 0:
-                continue
-            name = results.name + suffix
-            lines = None
-            if n < total:
-                if not sidecar.exists():
-                    problems.append(f"{name} is recorded as partial here ({n} of {total} lines) and "
-                                    f"its sidecar {sidecar.name} is missing, so which panos it put "
-                                    f"on this server cannot be told")
-                    continue
-                lines = _read_sidecar(sidecar)
-            campaigns.append({'at': part.get('last_submission_utc') or state.get('last_submission_utc') or '',
-                              'campaign': name, 'path': results, 'line_numbers': lines,
-                              'min_confidence': float(state.get('min_confidence', 0.0)),
-                              'lines': n, 'labels': part.get('labels_submitted', labels)})
+    campaigns, problems = campaigns_for(directory, endpoint, exclude)
 
     live, tied, cache = {}, {}, {}
     for c in sorted(campaigns, key=lambda c: c['at']):   # oldest first: newer ones overwrite
