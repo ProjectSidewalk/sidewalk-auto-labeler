@@ -117,6 +117,18 @@ python scripts/eval_sites.py paterson --camera-height-m per-pano --out /tmp/eval
 # the four harvested GSV cities, both association heights; writes runs/<city>/height_qc/
 # and the cross-city verdicts + default-height decision table to runs/_pooled/height_qc/.
 python scripts/height_qc.py
+# PLACEMENT ORACLE (issue #79). Bend and Gainesville publish per-corner curb-ramp
+# inventories (one point per ramp, at the ramp); `scripts/inventory_oracle.py` fetches them
+# into runs/<city>/inventory_oracle/ (geojson untracked; inventory.json + report + CSVs
+# tracked, sha256 in the record), re-solves each GSV city's sites under 2.6 m /
+# per-pano x1.08 / per-rig with the association frozen from the 2.6 m fuse, and scores
+# site-to-inventory distance one-to-one. Gainesville (64% 2026 rig) decides, Bend (84% 2024)
+# guards the old rig; Paterson and Sao Paulo have no inventory. The verdict rule is
+# pre-registered on #79 (inventory_oracle.verdict); docs/placement-oracle.md. Network only
+# in `fetch` (the two ArcGIS hosts); a cached pull is reused, --refresh re-pulls it.
+python scripts/inventory_oracle.py fetch bend gainesville vancouver
+python scripts/inventory_oracle.py score bend gainesville     # ~minutes, no GPU/network
+python scripts/inventory_oracle.py verdict
 # Mapillary has no depth: `per-rig` (issue #53) reads runs/<name>/camera_heights.json, a
 # per-rig-class height measured by scripts/mapillary_height.py (bearing fixed point + #76's
 # scale identity, a pre-registered rule, then a production gate). OPT-IN: only Annapolis's
@@ -661,6 +673,9 @@ median (same run and capture year, ≥ 300 panos) is counted as `flagged_qc` in
 `sites_meta.json` and still used. The gate failed per city and its 2.6 m fallback was worse
 than the flagged height; T4's constant sigma worsened GT p90 placement. So both were not
 adopted, and per-pano `sites.jsonl` is byte-identical to #68's.
+The default-height decision itself (#79) is scored against the Bend and Gainesville city
+curb-ramp inventories by `scripts/inventory_oracle.py`, under a pre-registered rule; see
+`docs/placement-oracle.md`.
 `sources/gsv.py` stores the height on every new GSV pano block (`camera_height_m`,
 `camera_height_spread_m`, `ground_tilt_deg`, `depth_planes`, `camera_height_status`) —
 read from the raw response, because streetlevel's own depth parser rasterizes 131k pixels

@@ -62,3 +62,11 @@ runs/**
 !runs/*/height_qc/
 !runs/*/height_qc/report.md
 !runs/*/height_qc/*.csv
+# External placement oracle (scripts/inventory_oracle.py, issue #79; write-up in
+# docs/placement-oracle.md): the city inventory's provenance record (url, query, fetch
+# time, sha256, counts) and the scored tables are tracked. The inventory pull itself
+# (inventory.geojson) is NOT -- inventory.json carries its sha256 and the query to refetch it.
+!runs/*/inventory_oracle/
+!runs/*/inventory_oracle/report.md
+!runs/*/inventory_oracle/*.csv
+!runs/*/inventory_oracle/inventory.json
