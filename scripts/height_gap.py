@@ -959,8 +959,16 @@ def run_verdict(args):
                  f'{_fmt(m)} m against pooled h*_A {real["h_star_a"]:.3f} and B(2.6) '
                  f'{real["b_2p6"]:.3f}: closes {_fmt(closure, ".0%")} of G.')
     L.append('')
+    # The rule's "within-sequence gap" is read as the raw gap B(2.6) - h*_A: candidate 2
+    # claims to explain G, which is that quantity, and the plan's own expectation cites the
+    # raw per-sequence gaps of groups.csv. The fixed-point reading is reported beside it.
     c2, c2_med, c2_reasons = verdict_candidate2(
-        gaps, mix.get('qualifying', (None, None, 0))[1], 1.0 if g > 0 else -1.0)
+        gaps_raw, mix.get('qualifying', (None, None, 0))[1], 1.0 if g > 0 else -1.0)
+    if gaps:
+        alt = verdict_candidate2(gaps, mix.get('qualifying', (None, None, 0))[1],
+                                 1.0 if g > 0 else -1.0)
+        c2_reasons.append(f'under the fixed-point reading (h*_B - h*_A per sequence) the '
+                          f'median is {alt[1]:+.3f} m -> {alt[0]}')
 
     # E5
     L += ['## E5: instrument C on the group\'s references', '',

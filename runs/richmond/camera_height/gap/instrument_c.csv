@@ -1,0 +1,13 @@
+city,group,height_m,refs,n,n_sites,slope,slope_se,intercept_m,zero_crossing_m,zero_crossing_se_m
+richmond,gopro/max,1.98,all,41,41,-0.2196,0.107,3.7807,,
+richmond,gopro/max,1.98,independent,41,41,-0.2196,0.107,3.7807,,
+richmond,gopro/max,2.2,all,39,39,-0.0671,0.0967,2.9516,,
+richmond,gopro/max,2.2,independent,39,39,-0.0671,0.0967,2.9516,,
+richmond,gopro/max,2.38,all,39,39,-0.0927,0.0933,3.5235,,
+richmond,gopro/max,2.38,independent,39,39,-0.0927,0.0933,3.5235,,
+richmond,gopro/max,2.6,all,36,36,-0.1111,0.1497,4.3418,,
+richmond,gopro/max,2.6,independent,36,36,-0.1111,0.1497,4.3418,,
+richmond,gopro/max,1.993,all,41,41,-0.2147,0.1079,3.797,,
+richmond,gopro/max,1.993,independent,41,41,-0.2147,0.1079,3.797,,
+richmond,gopro/max,zero_crossing,all,,,0.2317,,,2.7964,0.6256
+richmond,gopro/max,zero_crossing,independent,,,0.2317,,,2.7964,0.6256
