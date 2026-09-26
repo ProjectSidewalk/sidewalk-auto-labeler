@@ -324,9 +324,16 @@ python scripts/gsv_ground_plane.py figures
 # Measured 2026-09-26: "no plane" under a detection NEVER happens (0 of 114,932); (i) SUPPORTED
 # (0.919 of True on surface) but (ii) NOT SUPPORTED (False sits on surface as often; not underpowered),
 # so depth is no FP filter. 10-27% of "floor" hits are an EXACTLY level 2.5 m secondary plane --
-# Google's stand-in again, now as a secondary plane: without them True surface is 0.782, and they are
-# where the "ramps sit ~0.15 m above the road" figure comes from (real planes: ~0.03 m).
+# Google's stand-in again, now as a secondary plane. Set aside the way the registration sets stand-ins
+# aside (out of the denominator) True surface is 0.930, still SUPPORTED; counted as failures, 0.782 --
+# quote (i) with that qualifier. The stand-ins read ~0.13-0.15 m above the local road, but that is the
+# road's TILT carried out to the hit (were the road level, the stand-in would sit ~0.14 m BELOW it), so
+# no ramp plane measured here sits ~0.15 m up (real planes: ~0.03 m). offset_local always includes the
+# reference's tilt extrapolated over the distance from where the column walk met it to the hit;
+# level_floor.csv splits it. Also: height_spread_m (#44's per-pano sigma) takes in secondary stand-in
+# planes, since classify_height tests only the dominant one -- a follow-up depth.py helper.
 python scripts/depth_at_detection.py measure       # ~53k panos, multiprocess; --limit N smoke-tests
+#   (to detections.limit.csv, never over the full file); --summaries-only refuses a row-count mismatch
 python scripts/depth_at_detection.py gt            # reads ../RampNet/benchmark
 python scripts/depth_at_detection.py verdict
 python scripts/depth_at_detection.py figures       # also copies aggregates to docs/figures/depth-at-detection/data/
