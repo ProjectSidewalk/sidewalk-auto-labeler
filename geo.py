@@ -502,6 +502,20 @@ def _world_ray(pose, phi, theta):
     return elev, bearing
 
 
+def _check_apply_pose(apply_pose):
+    """Refuse a pose-mode string where geo wants a flag.
+
+    FuseParams.apply_pose is a mode (`off|auto|gravity|road`) since #42, and every
+    non-empty string is truthy -- `'off'` included -- so passing one here would rotate
+    rays the caller meant to keep flat, silently (#85). Resolve the mode per pano first:
+    fuse_sites.pano_pose(pano, mode) for the pose and FuseParams.rotates for this flag.
+    """
+    if isinstance(apply_pose, str):
+        raise TypeError(
+            f'apply_pose must be a bool, got the mode string {apply_pose!r}; resolve it '
+            'with fuse_sites.pano_pose(pano, mode) and pass FuseParams.rotates')
+
+
 def detection_ground_point(pose, x_norm, y_norm, *,
                            camera_height=DEFAULT_CAMERA_HEIGHT_M,
                            max_range_m=DEFAULT_MAX_RANGE_M,
@@ -523,6 +537,7 @@ def detection_ground_point(pose, x_norm, y_norm, *,
     Returns None for rays at/above the horizon (within MIN_DEPRESSION_RAD) and
     for ranges beyond max_range_m — dropped, never clamped.
     """
+    _check_apply_pose(apply_pose)
     camera_height, sigma_height = camera_height_for(pose, errors, camera_height)
     phi = (x_norm - 0.5) * 2.0 * math.pi
     theta = (0.5 - y_norm) * math.pi
@@ -599,6 +614,7 @@ def ground_point_to_pano(pose, lat, lng, *,
         >>> round(p.x_norm, 9), round(p.y_norm, 9)
         (0.4, 0.6)
     """
+    _check_apply_pose(apply_pose)
     if apply_pose and pose.has_pitch_roll:
         raise NotImplementedError(
             'ground_point_to_pano inverts only the flat (gravity-rectified) path; '

@@ -5,6 +5,7 @@ raycast at its true height, and a deliberately wrong height must show up as the 
 range-scale identity the scale fit relies on (member - held-out = s * g, s = 1 - 1/k).
 """
 import math
+from dataclasses import replace
 
 import pytest
 
@@ -252,3 +253,84 @@ def test_gt_summary_left_out_variant_keeps_only_rows_with_a_left_out_number():
     assert out[('independent', 'loo')]['n_refs'] == 2
     assert out[('box_on_detection', 'full')]['n_refs'] == 2    # the missed mark is out
     assert out[('peak', 'loo')]['px_p50'] == 3.0
+
+
+def _posed_gt_case(source, mode):
+    """The box/missed scenario of test_gt_anchored_box_missed_and_peak with every pano
+    tilted (pitch 4, roll -3) and tagged `source`, fused under `auto` (flat for every
+    source today), then GT-anchored under `mode`. Returns {pano_id: row}."""
+    panos = [replace(p, source=source, camera_pitch=4.0, camera_roll=-3.0)
+             for p in _panos() + [make_pano('g', 0, 9, [], heading_deg=180.0,
+                                            height=TRUE_H)]]
+    fused = fs.FuseParams(min_confidence=0.55, mask_rig=False,
+                          camera_height_m=geo.PER_PANO)
+    sites, frame, _ = fs.fuse(panos, fused)
+    svs = [rr.views_from_site(s) for s in sites]
+    mark = _xy(0, 9, 180.0, 0, 0)
+    mark['y'] = 0.5 + math.atan(TRUE_H / 9.0) / math.pi
+    a = next(p for p in panos if p.pano_id == 'a')
+    _, ax, ay, _ = a.detections[0]
+    verdicts = {'a': _entry(dets=[True]), 'g': _entry(missed=[mark], no_missed=False)}
+    boxes = {'a': {'det:0': (ax, ay, {'x': ax, 'y': ay})}}
+    rows, _, _ = rr.gt_anchored_rows(
+        'synthetic', 'per-pano', verdicts, _bundle_ops(panos, verdicts), boxes, panos,
+        svs, frame, replace(fused, apply_pose=mode))
+    return {r['pano_id']: r for r in rows}
+
+
+@pytest.mark.parametrize('source', ['mapillary', 'launch'])
+@pytest.mark.parametrize('mode', [fs.POSE_AUTO, fs.POSE_OFF])
+def test_gt_anchored_rows_resolve_the_pose_mode_flat(source, mode):
+    """#85: a pose-mode string passed straight to geo is truthy, so posed panos were
+    raycast rotated against sites fused flat. Under off/auto (flat for Mapillary and
+    GSV alike) the GT rows must share the sites' frame: every residual is 0."""
+    rows = _posed_gt_case(source, mode)
+    assert set(rows) == {'a', 'g'}
+    for r in rows.values():
+        assert r['full_dist_m'] < 1e-3 and abs(r['full_px']) < 1e-3
+
+
+@pytest.mark.parametrize('mode', [fs.POSE_GRAVITY, fs.POSE_ROAD])
+def test_gt_anchored_rows_refuse_a_rotating_mode(mode):
+    """...and a mode that rotates a posed pano is refused: the metre columns would
+    follow it while the pixel columns (ground_point_to_pano, flat-only) could not, so
+    one row would report two frames (#86 review)."""
+    with pytest.raises(ValueError, match='flat-only'):
+        _posed_gt_case('mapillary', mode)
+
+
+@pytest.mark.parametrize('fused_mode, accepted', [(fs.POSE_AUTO, True), (fs.POSE_OFF, True),
+                                                  (fs.POSE_GRAVITY, False)])
+def test_sites_for_disk_path_accepts_only_flat_sites(tmp_path, fused_mode, accepted):
+    """sites_for end to end on a sites.jsonl written by fuse_sites: flat-fused files are
+    read from disk, a rotated one is refused (re-fused in memory), and either way the
+    returned params score flat."""
+    panos = [replace(p, source='mapillary', camera_pitch=4.0, camera_roll=-3.0)
+             for p in _panos()]
+    params = fs.FuseParams(min_confidence=0.55, mask_rig=False, apply_pose=fused_mode)
+    sites, frame, stats = fs.fuse(panos, params)
+    fs.write_sites(sites, frame, stats, params, tmp_path / 'sites.jsonl',
+                   tmp_path / 'sites_meta.json')
+    _, _, got, prov = rr.sites_for(tmp_path, panos, geo.DEFAULT_CAMERA_HEIGHT_M, False)
+    assert prov.startswith('sites.jsonl on disk') == accepted
+    assert got.apply_pose == fs.POSE_OFF
+
+
+def test_geo_refuses_a_pose_mode_string():
+    """The #85 bug class cannot recur silently: geo takes a bool, never a mode."""
+    pose = geo.pano_pose({'lat': 40.0, 'lng': -74.0, 'camera_heading': 0.0,
+                          'camera_pitch': 2.0, 'camera_roll': 1.0, 'source': 'mapillary'})
+    for mode in fs.POSE_MODES:
+        with pytest.raises(TypeError, match='mode string'):
+            geo.detection_ground_point(pose, 0.5, 0.6, apply_pose=mode)
+        with pytest.raises(TypeError, match='mode string'):
+            geo.ground_point_to_pano(pose, 40.0, -74.0, apply_pose=mode)
+
+
+def test_fused_flat_never_tests_a_mode_for_truthiness():
+    assert rr.fused_flat(False, None) and rr.fused_flat(None, None)
+    assert rr.fused_flat('off', None)
+    assert not rr.fused_flat(True, None) and not rr.fused_flat('auto', None)
+    assert rr.fused_flat('auto', {'panos': 5, 'flat': 5})
+    assert not rr.fused_flat('gravity', {'panos': 5, 'flat': 4})
+    assert not rr.fused_flat('gravity', {'mode': 'gravity'})

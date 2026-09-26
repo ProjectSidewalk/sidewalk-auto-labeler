@@ -86,7 +86,7 @@ import json
 import math
 import shutil
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -830,7 +830,7 @@ def _gt_measure(pose, frame, ref_x, ref_y, e, n, camera_height, errors, params):
                    pred_range_m=_r(proj.range_m, 3))
     g = geo.detection_ground_point(pose, ref_x, ref_y, camera_height=camera_height,
                                    max_range_m=math.inf, errors=errors,
-                                   apply_pose=params.apply_pose)
+                                   apply_pose=params.rotates)
     if g is not None:
         re_, rn = frame.to_enu(g.lat, g.lng)
         de, dn = re_ - e, rn - n
@@ -842,7 +842,18 @@ def _gt_measure(pose, frame, ref_x, ref_y, e, n, camera_height, errors, params):
 def gt_anchored_rows(city, height_label, verdict_panos, bundle_ops, boxes, run_panos,
                      sites_views, frame, params):
     """One row per reviewer reference that maps to an operational site. Returns
-    (rows, counts, warnings)."""
+    (rows, counts, warnings).
+
+    ``params.apply_pose`` must resolve flat for every pano: the metre columns follow it,
+    but the pixel columns come from geo.ground_point_to_pano, which inverts only the flat
+    raycast, so a rotating mode would mix two frames in one row. Refused, not guessed."""
+    rotated = sum(1 for p in run_panos
+                  if fs.pose_mode_for(p, params.apply_pose) != fs.POSE_OFF
+                  and p.camera_pitch is not None and p.camera_roll is not None)
+    if rotated:
+        raise ValueError(
+            f'gt_anchored_rows: apply_pose {params.apply_pose!r} rotates {rotated} pano(s), '
+            'but the pixel projection is flat-only; score sites fused with apply_pose=off')
     by_id = {p.pano_id: p for p in run_panos}
     counts = es.gt_counts()
     counts['gt_panos'] = len(verdict_panos)
@@ -862,7 +873,10 @@ def gt_anchored_rows(city, height_label, verdict_panos, bundle_ops, boxes, run_p
     rows = []
     for pid, entry, run_pano, ops, _in_pool in es.judged_gt_panos(
             verdict_panos, bundle_ops, by_id, counts, warnings):
-        pose = geo.pano_pose(run_pano.pose_fields())
+        # The judged pano is raycast in the frame its sites were fused in: resolve the
+        # pose mode per pano exactly as fuse_sites.project does (#85). params.apply_pose
+        # is a mode string, not a flag -- passed straight to geo it is always truthy.
+        pose = fs.pano_pose(run_pano, params.apply_pose)
         errors = geo.error_model_for(run_pano.source)
 
         def emit(kind, ref_x, ref_y, sv, own_view, peak=None):
@@ -925,7 +939,7 @@ def gt_anchored_rows(city, height_label, verdict_panos, bundle_ops, boxes, run_p
             g = geo.detection_ground_point(
                 pose, mark['x'], mark['y'], camera_height=params.camera_height_m,
                 max_range_m=params.max_range_m, errors=errors,
-                apply_pose=params.apply_pose)
+                apply_pose=params.rotates)
             if g is None:
                 counts['missed_unplaceable'] += 1
                 continue
@@ -1042,6 +1056,31 @@ def meta_panos(run_dir):
         return json.load(f).get('n_panos')
 
 
+def meta_pose(run_dir):
+    """sites_meta.json's `pose` block (fuse_sites.pose_counts), or None before #42."""
+    with open(run_dir / 'sites_meta.json', encoding='utf-8') as f:
+        return json.load(f).get('pose')
+
+
+def fused_flat(apply_pose, pose_block):
+    """Whether a sites.jsonl was fused with every ray flat.
+
+    ``apply_pose`` is the recorded FuseParams value: a bool before #42 made it a mode
+    string, a mode after. A string is never tested for truthiness (#85): `off` is
+    flat; any other mode is flat only if the run's own pose counts say every pano was.
+
+    Example:
+        >>> fused_flat(False, None), fused_flat('off', None), fused_flat('auto', None)
+        (True, True, False)
+        >>> fused_flat('auto', {'panos': 3, 'flat': 3})
+        True
+    """
+    if apply_pose in (None, False, fs.POSE_OFF):
+        return True
+    return (bool(pose_block) and 'flat' in pose_block and 'panos' in pose_block
+            and pose_block['flat'] == pose_block['panos'])
+
+
 def height_label(h):
     return geo.PER_PANO if h == geo.PER_PANO else f'{float(h):g}m'
 
@@ -1051,15 +1090,19 @@ def sites_for(run_dir, panos, camera_height, force_refuse):
     this model at the benchmark tier (every one on disk is: 2.6 m, 0.55), else an
     in-memory re-fuse with those same parameters. Returns (sites, frame, params,
     provenance string)."""
+    # apply_pose pinned OFF, as every script that reproduces a committed artifact does:
+    # the pixel projections (geo.ground_point_to_pano) invert only the flat raycast, so a
+    # rotating mode would put a GT row's metres and pixels in two frames (#85).
     params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
-                           camera_height_m=camera_height)
+                           camera_height_m=camera_height, apply_pose=fs.POSE_OFF)
     if not force_refuse:
         disk = load_sites_json(run_dir)
         if disk is not None:
             svs, frame, p, worst = disk
             same = (p.get('camera_height_m') == camera_height
                     and p.get('min_confidence') == BENCHMARK_CONFIDENCE
-                    and not p.get('mask_rig', False) and not p.get('apply_pose'))
+                    and not p.get('mask_rig', False)
+                    and fused_flat(p.get('apply_pose'), meta_pose(run_dir)))
             if same:
                 prov = (f'sites.jsonl on disk (fused at {p["camera_height_m"]} m, tier '
                         f'{p["min_confidence"]}); worst full-site rebuild error '
@@ -1069,7 +1112,9 @@ def sites_for(run_dir, panos, camera_height, force_refuse):
                     # still score, but not the same pano set a re-fuse would.
                     prov += (f'; STALE: fused over {meta_panos(run_dir)} panos, '
                              f'results.jsonl now has {len(panos)} (use --refuse)')
-                return svs, frame, params, prov
+                # Sites on disk are accepted only when fused flat, so their GT rows are
+                # raycast flat too, whatever `auto` resolves to today.
+                return svs, frame, replace(params, apply_pose=fs.POSE_OFF), prov
     sites, frame, _ = fs.fuse(panos, params)
     return ([views_from_site(s) for s in sites], frame, params,
             f're-fused in memory (fuse_sites.fuse, height {camera_height}, tier '
