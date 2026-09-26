@@ -1068,7 +1068,9 @@ def run_verdict(args):
     L += ['', 'The null is not noise-matched: `mapillary_height._null_views` draws it at the '
           "error model's full sigmas whatever noise the simulation injected, so at noise 0 "
           'B is corrected for noise that was never there. The raw columns below (h·(1 − s), '
-          'no null) separate the association effect from that mismatch:', '',
+          'no null) separate the association effect from that mismatch. B(h_true) is B read '
+          'after associating at the true height (interpolated between sweep heights when '
+          'h_true is not one):', '',
           '| h_true | noise | B_raw(h_true) | B(h_true) | B_raw(2.6) | B(2.6) | '
           'B(2.6) − B(h_true) | h*_B local |', '|---:|---:|---:|---:|---:|---:|---:|---|']
     for (ht, n), m in sims.items():
