@@ -43,8 +43,17 @@ from source_metadata, so no run needs rewriting to be fused posed. sites_meta.js
 `pose` block counts which panos were posed and, under `road`, how many had no usable
 sequence neighbour and fell back to gravity-relative.
 
-Camera height (issue #40) is geo.DEFAULT_CAMERA_HEIGHT_M for every pano unless
---camera-height-m says otherwise: another constant, or `per-pano` for GSV's measured
+Camera height: the CLI default is `auto` (issue #79). GSV panos are raycast at a
+per-rig height, derived from the run's own depth-measured heights by capture year:
+gsv_rig_assignment, the rule the #79 placement oracle selected as arm (d)
+(docs/placement-oracle.md). Mapillary and Panoramax panos, and a GSV run with no measured
+height at all, stay at geo.DEFAULT_CAMERA_HEIGHT_M. sites_meta.json's `camera_heights`
+block records what `auto` resolved to, with the year-by-year assignment. Only this CLI
+defaults to `auto`: FuseParams() and every analysis script keep 2.6 m unless asked, so
+published numbers stay reproducible.
+
+Explicitly: --camera-height-m takes a constant (2.6 reproduces every fuse before #79), or
+`per-pano` for GSV's measured
 height where there is one -- from the pano block on runs made since #40, else from the
 harvested depth/index.csv beside results.jsonl (scripts/harvest_depth.py). Per-pano is
 opt-in on evidence; --implied-height is the instrument that measured why, and
@@ -59,7 +68,8 @@ Deliberately reads NO manifest.json (cluster-pulled runs lack one) and leaves
 send_to_ps.py untouched — what to submit per site is a late decision (#27).
 
 Usage:
-    python scripts/fuse_sites.py runs/paterson
+    python scripts/fuse_sites.py runs/paterson                   # camera height: auto
+    python scripts/fuse_sites.py runs/paterson --camera-height-m 2.6   # the pre-#79 default
     python scripts/fuse_sites.py runs/paterson --pose-ablation   # lock pitch/roll signs
     python scripts/fuse_sites.py runs/richmond --apply-pose road # Mapillary, road-relative
     python scripts/fuse_sites.py runs/paterson --implied-height  # camera height the
@@ -71,7 +81,7 @@ import hashlib
 import json
 import math
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -444,9 +454,7 @@ def pose_source_warnings(panos, mode):
         return []
     counts = {}
     for p in panos:
-        src = (p.source or '').lower()
-        kind = ('mapillary' if 'mapillary' in src else
-                'panoramax' if 'panoramax' in src else 'gsv')
+        kind = source_kind(p.source)
         if kind in UNGRADED_POSE_WARNINGS:
             counts[kind] = counts.get(kind, 0) + 1
     return [f'WARNING: --apply-pose {mode} on {n} {kind} pano(s): {UNGRADED_POSE_WARNINGS[kind]}'
@@ -454,6 +462,97 @@ def pose_source_warnings(panos, mode):
 
 
 HEIGHT_TABLE_NAME = 'camera_heights.json'   # per-rig camera heights beside results.jsonl
+
+# Camera-height AUTO (#79): the fuse_sites CLI default. GSV panos get a per-rig height by
+# capture year, the rule the placement oracle selected (arm (d), docs/placement-oracle.md):
+# a year whose median depth-measured height is below GSV_RIG_CUT_M is the low 2025-26 rig
+# and raycasts at GSV_RIG_LOW_M; every other year at GSV_RIG_HIGH_M -- but a year keeps its
+# own median-derived height only with >= GSV_RIG_MIN_MEASURED measured panos that are
+# >= GSV_RIG_MIN_SHARE of its dated panos, since a median of a few payloads misfired on
+# old imagery (Gainesville 2015/2018 under the oracle's (c)). The rig cannot be read from
+# the year itself (the new rig arrives in 2025 in Paterson, 2026 in Gainesville) or from
+# any GSV metadata field. scripts/inventory_oracle.py scores exactly this function.
+HEIGHT_AUTO = 'auto'
+GSV_RIG_CUT_M = 2.1          # = height_qc.LOW_VINTAGE_M / OPTION_C[0] (a test ties them)
+GSV_RIG_LOW_M = 2.0
+GSV_RIG_HIGH_M = 2.5
+GSV_RIG_MIN_MEASURED = 50
+GSV_RIG_MIN_SHARE = 0.5
+
+
+def source_kind(source):
+    """'mapillary', 'panoramax' or 'gsv' for a pano block's `source` string."""
+    src = (source or '').lower()
+    return 'mapillary' if 'mapillary' in src else 'panoramax' if 'panoramax' in src else 'gsv'
+
+
+def gsv_rig_assignment(panos, cut=GSV_RIG_CUT_M, low=GSV_RIG_LOW_M, high=GSV_RIG_HIGH_M,
+                       min_measured=GSV_RIG_MIN_MEASURED, min_share=GSV_RIG_MIN_SHARE):
+    """{capture year: (median measured height or None, n_measured, n_dated, height)} over
+    the GSV panos in `panos` (measured = camera_height_m non-null as load_results read it).
+
+    Example: 606 dated panos, 226 measured at a 1.93 m median -> 37% < 50% -> `high`
+    (2.5 m); 23,766 dated, 21,950 measured at 1.76 m -> `low` (2.0 m).
+    """
+    heights, dated = {}, {}
+    for p in panos:
+        year = (p.capture_date or '')[:4]
+        if not year or source_kind(p.source) != 'gsv':
+            continue
+        dated[year] = dated.get(year, 0) + 1
+        if p.camera_height_m is not None:
+            heights.setdefault(year, []).append(p.camera_height_m)
+    out = {}
+    for year, n in dated.items():
+        hs = sorted(heights.get(year, []))
+        med = _median(hs) if hs else None
+        ok = med is not None and len(hs) >= min_measured and len(hs) / n >= min_share
+        out[year] = (med, len(hs), n, (low if med < cut else high) if ok else high)
+    return out
+
+
+def apply_gsv_rig_heights(panos, assignment):
+    """Copies of `panos` for a geo.PER_RIG fuse under `assignment` (gsv_rig_assignment):
+    a dated GSV pano takes its year's height, with no spread (the error model's flat sigma)
+    and height_group '<year>:<height>'; an undated GSV pano, and every Mapillary/Panoramax
+    pano, gets None -- geo.camera_height_for's DEFAULT_CAMERA_HEIGHT_M under PER_RIG."""
+    out = []
+    for p in panos:
+        year = (p.capture_date or '')[:4]
+        h = (assignment[year][3] if source_kind(p.source) == 'gsv' and year in assignment
+             else None)
+        out.append(replace(p, camera_height_m=h, camera_height_spread_m=None,
+                           camera_height_vintage_m=None, height_table=None,
+                           height_group=f'{year}:{h:g}' if h is not None else None))
+    return out
+
+
+def resolve_auto_height(panos):
+    """(panos, camera_height_m for FuseParams, provenance dict) for --camera-height-m auto.
+
+    GSV panos with at least one measured height -> PER_RIG over gsv_rig_assignment. No GSV
+    pano, or no measured height on any (a pre-#40 run whose depth was never harvested) ->
+    DEFAULT_CAMERA_HEIGHT_M for every pano: without a measurement the rig cannot be told
+    apart, and 2.5 m everywhere would be a silent default change nobody measured."""
+    n_gsv = sum(source_kind(p.source) == 'gsv' for p in panos)
+    measured = sum(source_kind(p.source) == 'gsv' and p.camera_height_m is not None
+                   for p in panos)
+    rule = {'cut_m': GSV_RIG_CUT_M, 'low_m': GSV_RIG_LOW_M, 'high_m': GSV_RIG_HIGH_M,
+            'min_measured': GSV_RIG_MIN_MEASURED, 'min_share': GSV_RIG_MIN_SHARE}
+    if not measured:
+        why = ('no GSV panos' if not n_gsv else
+               f'none of {n_gsv} GSV panos has a measured height (harvest depth first: '
+               'scripts/harvest_depth.py)')
+        return panos, geo.DEFAULT_CAMERA_HEIGHT_M, {
+            'mode': HEIGHT_AUTO, 'resolved': geo.DEFAULT_CAMERA_HEIGHT_M, 'reason': why,
+            'gsv_panos': n_gsv, 'rule': rule}
+    assignment = gsv_rig_assignment(panos)
+    return apply_gsv_rig_heights(panos, assignment), geo.PER_RIG, {
+        'mode': HEIGHT_AUTO, 'resolved': 'gsv-per-rig', 'gsv_panos': n_gsv,
+        'gsv_measured': measured, 'rule': rule,
+        'assignment': {y: {'median_m': None if m is None else round(m, 4), 'measured': k,
+                           'dated': n, 'height_m': h}
+                       for y, (m, k, n, h) in sorted(assignment.items())}}
 
 
 def file_sha256(path):
@@ -871,6 +970,12 @@ def camera_height_arg(value):
     return value if value in (geo.PER_PANO, geo.PER_RIG) else float(value)
 
 
+def fuse_camera_height_arg(value):
+    """fuse_sites' own --camera-height-m: camera_height_arg plus HEIGHT_AUTO (#79). The
+    analysis scripts keep camera_height_arg, so `auto` never reaches them by accident."""
+    return value if value == HEIGHT_AUTO else camera_height_arg(value)
+
+
 def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('run', help='run directory (with results.jsonl) or a jsonl path')
@@ -881,9 +986,11 @@ def build_parser():
     ap.add_argument('--max-match-m', type=float, default=FuseParams.max_match_m)
     ap.add_argument('--residual-per-dof-max', type=float,
                     default=FuseParams.residual_per_dof_max)
-    ap.add_argument('--camera-height-m', type=camera_height_arg,
-                    default=geo.DEFAULT_CAMERA_HEIGHT_M,
-                    help='camera height in meters for every pano, or "per-pano" for '
+    ap.add_argument('--camera-height-m', type=fuse_camera_height_arg, default=HEIGHT_AUTO,
+                    help='"auto" (the default, #79): GSV panos at a per-rig height by '
+                         'capture year from the run\'s depth-measured heights, everything '
+                         'else at 2.6 m -- see gsv_rig_assignment; or a height in meters '
+                         'for every pano (2.6 = the pre-#79 default), or "per-pano" for '
                          "each GSV pano's depth-measured height where it has one (#40; "
                          'opt-in -- see docs/camera-height-study.md), or "per-rig" for a '
                          "Mapillary/Panoramax run's camera_heights.json (#53; opt-in -- "
@@ -921,8 +1028,8 @@ def build_parser():
     return ap
 
 
-def main():
-    args = build_parser().parse_args()
+def main(argv=None):
+    args = build_parser().parse_args(argv)
 
     src = Path(args.run)
     jsonl = src if src.is_file() else src / 'results.jsonl'
@@ -933,7 +1040,9 @@ def main():
         max_range_m=args.max_range_m, gate_chi2=args.gate_chi2,
         max_match_m=args.max_match_m,
         residual_per_dof_max=args.residual_per_dof_max,
-        camera_height_m=args.camera_height_m, apply_pose=args.apply_pose,
+        camera_height_m=(geo.DEFAULT_CAMERA_HEIGHT_M if args.camera_height_m == HEIGHT_AUTO
+                         else args.camera_height_m),
+        apply_pose=args.apply_pose,
         sigma_scale=args.sigma_scale, grade_source=args.grade_source)
 
     height_table = None
@@ -948,7 +1057,8 @@ def main():
     try:
         panos, skipped = load_results(
             jsonl, args.depth_index,
-            read_heights=args.camera_height_m == geo.PER_PANO or args.implied_height,
+            read_heights=(args.camera_height_m in (geo.PER_PANO, HEIGHT_AUTO)
+                          or args.implied_height),
             height_table=height_table,
             grade_source=args.grade_source, grades_path=args.grades)
     except ValueError as e:
@@ -959,6 +1069,15 @@ def main():
         sys.exit('no usable records')
     for warning in pose_source_warnings(panos, args.apply_pose):
         print(warning, file=sys.stderr)
+    auto = None
+    if args.camera_height_m == HEIGHT_AUTO and not args.implied_height:
+        # --implied-height compares the measured heights with the imagery's, so it keeps
+        # them; everything else fuses under what auto resolves to.
+        panos, resolved, auto = resolve_auto_height(panos)
+        params = replace(params, camera_height_m=resolved)
+        print(f"camera height: auto -> {auto['resolved']}"
+              + (f" ({auto['reason']})" if 'reason' in auto else ''),
+              file=sys.stderr if 'reason' in auto and auto['gsv_panos'] else sys.stdout)
 
     if args.pose_ablation:
         print(pose_ablation_report(panos, params))
@@ -968,6 +1087,12 @@ def main():
         return
 
     sites, frame, stats = fuse(panos, params)
+    if auto is not None:
+        # auto's provenance over camera_height_counts' per-rig block, minus that block's
+        # camera_heights.json fields, which a GSV auto fuse never has
+        counts = {k: v for k, v in stats['camera_heights'].items()
+                  if k not in ('mode', 'table', 'sha256', 'grain')}
+        stats['camera_heights'] = {**auto, **counts}
     out = args.out or jsonl.parent / 'sites.jsonl'
     meta = out.with_name(out.stem + '_meta.json')
     write_sites(sites, frame, stats, params, out, meta)

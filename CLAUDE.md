@@ -104,13 +104,23 @@ python scripts/fuse_sites.py runs/paterson
 python scripts/fuse_sites.py runs/richmond                      # = --apply-pose auto -> flat
 python scripts/fuse_sites.py runs/richmond --apply-pose road    # opt-in, withheld as default
 
-# CAMERA HEIGHT (issue #40). Every raycast uses geo.DEFAULT_CAMERA_HEIGHT_M = 2.6 unless
-# asked otherwise; `per-pano` uses GSV's depth-measured height (pano block since #40, else
-# the harvested runs/<name>/depth/index.csv) and is OPT-IN on evidence -- see the GSV depth
+# CAMERA HEIGHT (issues #40, #79). fuse_sites.py DEFAULTS to `--camera-height-m auto` (#79):
+# GSV panos get a per-rig height by capture year from the run's own depth-measured heights
+# (fuse_sites.gsv_rig_assignment: a year whose median is < 2.1 m -> 2.0 m, else 2.5 m, but
+# only with >= 50 measured panos that are >= 50% of the year -- else 2.5 m); Mapillary,
+# Panoramax, and a GSV run with no measured height stay at 2.6 m. sites_meta.json's
+# `camera_heights` records the resolution and the year table. ONLY that CLI default moved:
+# FuseParams() and every analysis script (eval_sites, mined_precision, agree_rate,
+# reprojection_residual, ...) still default to geo.DEFAULT_CAMERA_HEIGHT_M = 2.6, so
+# published numbers reproduce; `fuse_sites.py --camera-height-m 2.6` reproduces a pre-#79
+# fuse. `per-pano` uses GSV's depth-measured height (pano block since #40, else the
+# harvested runs/<name>/depth/index.csv) and is OPT-IN on evidence -- see the GSV depth
 # section below and docs/camera-height-study.md. --implied-height is the instrument:
 # bearing-only triangulation of multi-view sites, the height the imagery itself implies,
 # by capture year. Associate near the answer (it drifts toward the association height).
 python scripts/fuse_sites.py runs/paterson --implied-height --camera-height-m per-pano
+python scripts/fuse_sites.py runs/paterson                              # auto (per-rig GSV)
+python scripts/fuse_sites.py runs/paterson --camera-height-m 2.6        # the pre-#79 default
 python scripts/fuse_sites.py runs/paterson --camera-height-m per-pano   # opt-in fuse
 python scripts/eval_sites.py paterson --camera-height-m per-pano --out /tmp/eval_pp
 # Which measured heights per-pano believes (#44): the pre-registered QC tests T1-T4 over
@@ -128,8 +138,8 @@ python scripts/height_qc.py
 # docs/placement-oracle.md. VERDICT (amended 2026-09-26, posted on #79 before scoring): rule 4
 # read one-sided, and (d) -- per-rig, but a vintage keeps its depth-median height only with
 # >= 50 measured panos that are >= 50% of it (else 2.5 m) -- replaces (c), which gave thinly
-# measured old vintages 2.0 m. (d) PASSES and is selected; the default is still 2.6 m
-# until the follow-up flip PR.
+# measured old vintages 2.0 m. (d) PASSES and is selected, and is now fuse_sites.py's
+# default (`auto`); the oracle scores the production function itself.
 # Network only in `fetch` (the two ArcGIS hosts); a cached pull is reused (refused if
 # area.geojson's bbox changed), --refresh re-pulls it. `score --pool-anchor frame --out
 # <dir>` is the rule-3 anchoring sensitivity, never read by verdict.
@@ -644,7 +654,8 @@ issue #27 stages 2–3, a post-processing layer between detection and submission
 `geo.py` (repo root, stdlib-only, torch/numpy-free like `detectors/__init__.py`) is the
 single home for geodesy: haversine + the declustering grid (imported back by
 `export_benchmark.py`), a `LocalFrame` ENU tangent plane, and the ground raycast
-`detection_ground_point` — flat-ground intersection at 2.6 m camera height with
+`detection_ground_point` — flat-ground intersection at a camera height (2.6 m unless the
+caller asks otherwise; the fuse_sites CLI's `auto` default is per-rig for GSV, #79) with
 closed-form anisotropic error from the 1024×512 heatmap quantization, **dropping** (never
 clamping) rays beyond 25 m. GSV camera pitch/roll are deliberately NOT applied: the
 `--pose-ablation` experiment measured that streetlevel's GSV equirects are already
@@ -732,7 +743,10 @@ The rig ranking is real, though: the 2025–26 GSV rig triangulates to ~1.9–2.
 ~2.5 m for every earlier vintage, so on *that* rig 2.6 m does run ranges 31–35% long
 (~2–4% on older ones). GT world P/R still cannot tell any height model apart
 (all within ±3 pts). So `geo.PER_PANO` / `--camera-height-m per-pano` exists and is
-**opt-in**; the default stays 2.6 m and fused output is byte-identical to before #40.
+**opt-in**. What finally moved the default was an EXTERNAL oracle, not GT: city curb-ramp
+inventories (#79, `docs/placement-oracle.md`) select a per-rig constant by capture year
+(2.0 m for a well-measured low-rig year, else 2.5 m), now the fuse_sites CLI's `auto`
+default for GSV; analysis scripts and `FuseParams()` still default to 2.6 m.
 Under per-pano a measured height passes `depth.believe_height` (#44, pre-registered tests
 in `scripts/height_qc.py`), which today only FLAGS: a height ≥ 0.40 m from its vintage's
 median (same run and capture year, ≥ 300 panos) is counted as `flagged_qc` in

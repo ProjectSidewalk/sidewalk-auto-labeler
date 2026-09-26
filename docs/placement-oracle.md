@@ -289,8 +289,12 @@ along the ray, against (a)'s −0.85 and −0.50 m. Gainesville's p90 falls from
 (a) to 2.90 m under (d), slightly better than (c)'s 2.94 m. Nothing else moves: every (a),
 (b) and (c) row in the committed tables reproduced unchanged beside the new (d) rows.
 
-The default is not changed here; that is a separate PR. It inherits both scope limits
-above: the evidence is one city's new rig, and Paterson's 2025 rig (91% measured, median
+**Adopted as the `fuse_sites.py` default** (`--camera-height-m auto`, the follow-up PR):
+(d)'s rule now lives in `fuse_sites.gsv_rig_assignment` / `apply_gsv_rig_heights`, and this
+script's arm (d) calls those functions, so the oracle scores exactly what ships (re-scoring
+after the move reproduced the committed tables byte for byte). Mapillary and Panoramax,
+and a GSV run with no measured height, stay at 2.6 m; analysis scripts and `FuseParams()`
+keep 2.6 m unless asked. The adoption inherits both scope limits above: the evidence is one city's new rig, and Paterson's 2025 rig (91% measured, median
 1.86 m) would take 2.0 m on Gainesville's evidence alone.
 
 ### What the numbers say, rule aside

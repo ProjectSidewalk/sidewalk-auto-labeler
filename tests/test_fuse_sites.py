@@ -489,3 +489,73 @@ def test_sequence_grades_distance_bounds_and_missing_altitude():
     # a frame without a sequence or a timestamp is never graded
     assert fs.sequence_grades([_frame('a', 0, 0, 100.0, seq=None),
                                _frame('b', 10, None, 101.0)]) == {}
+
+
+# --- camera height AUTO (issue #79)
+def _slim(pid, year, height, source='launch'):
+    return fs.SlimPano(pid, 40.0, -74.0, 0.0, None, None, year and f'{year}-06', source, [],
+                       camera_height_m=height)
+
+
+def test_gsv_rig_assignment_needs_enough_measured_panos_and_counts_gsv_only():
+    panos = ([_slim(f'l{i}', 2026, 1.8) for i in range(50)]
+             + [_slim(f'lu{i}', 2026, None) for i in range(50)]    # exactly both minimums
+             + [_slim(f't{i}', 2015, 1.9) for i in range(60)]
+             + [_slim(f'tu{i}', 2015, None) for i in range(61)]    # 60 / 121 < 50%
+             + [_slim(f'o{i}', 2024, 2.4) for i in range(60)]
+             + [_slim(f'm{i}', 2026, 1.5, source='mapillary') for i in range(100)])
+    rig = fs.gsv_rig_assignment(panos)
+    assert rig['2026'] == (1.8, 50, 100, 2.0)       # the Mapillary panos are not counted
+    assert rig['2015'] == (1.9, 60, 121, 2.5)       # low median, too thinly measured
+    assert rig['2024'] == (2.4, 60, 60, 2.5)
+
+
+def test_rig_rule_constants_are_the_ones_the_camera_height_study_named():
+    import height_qc
+    assert fs.GSV_RIG_CUT_M == height_qc.LOW_VINTAGE_M
+    assert (fs.GSV_RIG_CUT_M, fs.GSV_RIG_LOW_M, fs.GSV_RIG_HIGH_M) == height_qc.OPTION_C
+
+
+def test_auto_height_gives_gsv_its_rig_and_everything_else_the_default():
+    panos = ([_slim(f'l{i}', 2026, 1.8) for i in range(60)]
+             + [_slim('u', None, 1.8), _slim('m', 2026, None, source='mapillary')])
+    out, resolved, prov = fs.resolve_auto_height(panos)
+    assert resolved == geo.PER_RIG and prov['resolved'] == 'gsv-per-rig'
+    h = {p.pano_id: p.camera_height_m for p in out}
+    assert h['l0'] == 2.0 and h['u'] is None and h['m'] is None   # None = 2.6 under PER_RIG
+    assert all(p.camera_height_spread_m is None for p in out)
+    assert prov['assignment'] == {'2026': {'median_m': 1.8, 'measured': 60, 'dated': 60,
+                                           'height_m': 2.0}}    # 'm' is not GSV: uncounted
+    pose = geo.pano_pose(next(p for p in out if p.pano_id == 'u').pose_fields())
+    assert geo.camera_height_for(pose, camera_height=geo.PER_RIG)[0] == 2.6
+
+
+def test_auto_height_without_any_measured_gsv_height_keeps_the_default():
+    for panos in ([_slim('g', 2026, None)], [_slim('m', 2026, 1.5, source='mapillary')]):
+        out, resolved, prov = fs.resolve_auto_height(panos)
+        assert out is panos and resolved == geo.DEFAULT_CAMERA_HEIGHT_M
+        assert prov['resolved'] == geo.DEFAULT_CAMERA_HEIGHT_M and prov['reason']
+
+
+def test_auto_is_the_cli_default_only(tmp_path):
+    """The fuse_sites CLI defaults to auto and records what it resolved to; FuseParams()
+    -- what every analysis script builds -- and the shared camera_height_arg stay as they
+    were, so no published number moves by accident."""
+    assert fs.FuseParams().camera_height_m == geo.DEFAULT_CAMERA_HEIGHT_M
+    with pytest.raises(ValueError):
+        fs.camera_height_arg('auto')
+    src = tmp_path / 'results.jsonl'
+    src.write_text('\n'.join(
+        _line_with_block(p, camera_height_m=1.8, camera_height_spread_m=0.05,
+                         camera_height_status='measured') for p in _demo_city()) + '\n',
+        encoding='utf-8')
+    fs.main([str(tmp_path)])
+    meta = json.loads((tmp_path / 'sites_meta.json').read_text(encoding='utf-8'))
+    ch = meta['camera_heights']
+    assert ch['mode'] == 'auto' and ch['resolved'] == 'gsv-per-rig'
+    # 12 measured panos < GSV_RIG_MIN_MEASURED: the old-rig height, not the low one
+    assert ch['assignment']['2024']['height_m'] == 2.5 and ch['applied'] == 12
+    assert meta['params']['camera_height_m'] == geo.PER_RIG
+    fs.main([str(tmp_path), '--camera-height-m', '2.6', '--out', str(tmp_path / 'f.jsonl')])
+    fixed = json.loads((tmp_path / 'f_meta.json').read_text(encoding='utf-8'))
+    assert fixed['camera_heights'] == {'fixed_m': 2.6, 'panos': 12}
