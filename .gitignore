@@ -49,6 +49,12 @@ runs/**
 !runs/*/agree_rate/
 !runs/*/agree_rate/report.md
 !runs/*/agree_rate/*.csv
+# Post-submission coverage check (scripts/coverage_check.py, issue #46): the report and its
+# gap lists (missing.csv, fallback.csv) are tracked. The three API pulls are NOT — the report
+# carries each one's url, fetch time, sha256 and row count instead.
+!runs/*/coverage/
+!runs/*/coverage/report.md
+!runs/*/coverage/*.csv
 # DEM road grade (scripts/dem_grade.py, #51; write-up in docs/dem-grade-study.md): the tile
 # manifest (service, request, per-tile sha256) and the agreement report are tracked. The
 # tiles themselves (tens to hundreds of MB) and grades.csv are NOT — the report carries
