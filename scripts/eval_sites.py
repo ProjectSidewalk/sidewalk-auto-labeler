@@ -518,6 +518,53 @@ def shuffled_grades(run_panos, within_sequence, seed=SHUFFLE_SEED):
              for i, p in enumerate(run_panos)], unshuffled)
 
 
+def refit_frozen(sites, frame, place, arms, sigma_scale=1.0):
+    """Re-place a frozen site set under several arms (the #42 precondition design, also
+    scripts/inventory_oracle.py's for #79).
+
+    Membership is fixed -- whatever fuse built `sites` -- and each arm re-solves every site
+    from its own raycast of the site's OPERATIONAL members, with the same inverse-covariance
+    refit fuse_sites.Site uses. A site is kept only if EVERY arm places EVERY one of those
+    members (place() returning None anywhere drops it), so all arms describe one site set.
+
+    place(arm, pano_id, x, y) -> geo.GroundEstimate or None; `frame` is the fuse's
+    LocalFrame. Returns (kept, site_pos, placed): the kept sites in input order,
+    {arm: [_Placed(site.id, e, n)]} aligned with kept, and {arm: [[GroundEstimate per
+    operational member]]} aligned with kept (callers that need each member's ray, e.g.
+    its bearing and range, read it there).
+
+    Example (two arms that agree reproduce each other exactly):
+        kept, pos, _ = refit_frozen(op_sites, frame, place, ('off', 'road'))
+        assert [p.id for p in pos['off']] == [s.id for s in kept]
+    """
+    s2 = sigma_scale ** 2
+    kept, site_pos, member_placed = [], {arm: [] for arm in arms}, {arm: [] for arm in arms}
+    for site in sites:
+        members = [d for d, _ in site.members if d.operational]
+        placed = {}
+        for arm in arms:
+            gs = [place(arm, d.pano_id, d.x, d.y) for d in members]
+            if any(g is None for g in gs):
+                break
+            placed[arm] = gs
+        else:
+            kept.append(site)
+            for arm in arms:
+                lam, eta_e, eta_n = (0.0, 0.0, 0.0), 0.0, 0.0
+                for d, g in zip(members, placed[arm]):
+                    e, n = frame.to_enu(g.lat, g.lng)
+                    cov = g.cov_en(geo.error_model_for(d.source).sigma_gps_m)
+                    w = geo.sym2_inv((cov[0] * s2, cov[1] * s2, cov[2] * s2))
+                    lam = geo.sym2_add(lam, w)
+                    eta_e += w[0] * e + w[1] * n
+                    eta_n += w[1] * e + w[2] * n
+                inv = geo.sym2_inv(lam)
+                site_pos[arm].append(_Placed(site.id, inv[0] * eta_e + inv[1] * eta_n,
+                                             inv[1] * eta_e + inv[2] * eta_n))
+                member_placed[arm].append(placed[arm])
+    return kept, site_pos, member_placed
+
+
 def pose_precondition(verdict_panos, bundle_ops, run_panos, base_params,
                       arms=PRECONDITION_ARMS, gt_merge_m=2.5, graded_panos=None):
     """Per-arm GT-to-site placement on ONE site set and ONE GT set (issue #42, study
@@ -589,31 +636,9 @@ def pose_precondition(verdict_panos, bundle_ops, run_panos, base_params,
             apply_pose=params[arm].rotates)
 
     # Sites: frozen membership, kept only if every arm places every operational member.
-    s2 = base_params.sigma_scale ** 2
     op_sites = [s for s in sites if s.n_operational > 0]
-    kept, site_pos = [], {arm: [] for arm in arms}
-    for site in op_sites:
-        members = [d for d, _ in site.members if d.operational]
-        placed = {}
-        for arm in arms:
-            gs = [place(arm, d.pano_id, d.x, d.y) for d in members]
-            if any(g is None for g in gs):
-                break
-            placed[arm] = gs
-        else:
-            kept.append(site)
-            for arm in arms:
-                lam, eta_e, eta_n = (0.0, 0.0, 0.0), 0.0, 0.0
-                for d, g in zip(members, placed[arm]):
-                    e, n = frame.to_enu(g.lat, g.lng)
-                    cov = g.cov_en(geo.error_model_for(d.source).sigma_gps_m)
-                    w = geo.sym2_inv((cov[0] * s2, cov[1] * s2, cov[2] * s2))
-                    lam = geo.sym2_add(lam, w)
-                    eta_e += w[0] * e + w[1] * n
-                    eta_n += w[1] * e + w[2] * n
-                inv = geo.sym2_inv(lam)
-                site_pos[arm].append(_Placed(site.id, inv[0] * eta_e + inv[1] * eta_n,
-                                             inv[1] * eta_e + inv[2] * eta_n))
+    kept, site_pos, _placed = refit_frozen(op_sites, frame, place, arms,
+                                           base_params.sigma_scale)
 
     # GT marks, each raycast under every arm (None = unplaceable under that arm).
     counts, warnings = gt_counts(), []
