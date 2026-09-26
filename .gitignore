@@ -46,3 +46,9 @@ runs/**
 !runs/*/agree_rate/
 !runs/*/agree_rate/report.md
 !runs/*/agree_rate/*.csv
+# Per-pano camera-height QC tests (scripts/height_qc.py, issue #44; write-up in
+# docs/camera-height-study.md): the pre-registered verdicts and their tables are tracked.
+# runs/_pooled/height_qc/ holds the cross-city verdicts the rule in depth.py follows.
+!runs/*/height_qc/
+!runs/*/height_qc/report.md
+!runs/*/height_qc/*.csv
