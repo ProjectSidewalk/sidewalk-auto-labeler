@@ -42,11 +42,13 @@ def run_dir(tmp_path):
             _line("L", (0.4, 0.6)),       # band
             _line("B", (0.4, 0.9)),       # band, on the rig: masked, never sent
             _line("N", (0.2, 0.6))],      # below every range
-           {PROD: {"submitted_lines": 5, "min_confidence": 0.3,
-                   "bands": {"0.3-0.55": {"submitted_lines": 5, "rig_masked": True}}}})
+           {PROD: {"submitted_lines": 5, "min_confidence": 0.3, "labels_submitted": 3,
+                   "bands": {"0.3-0.55": {"submitted_lines": 5, "rig_masked": True,
+                                          "labels_submitted": 1}}}})
     _write(tmp_path, "c.jsonl", [_line("C1", (0.5, 0.6)), _line("C2", (0.5, 0.6)),
                                  _line("C3", (0.5, 0.6))],
-           {PROD: {"submitted_lines": 2, "min_confidence": 0.3, "rig_masked": True}},
+           {PROD: {"submitted_lines": 2, "min_confidence": 0.3, "rig_masked": True,
+                   "labels_submitted": 2}},
            sidecars=[(".submitted", [1, 3])])
     _write(tmp_path, "d.jsonl", [_line("D", (0.9, 0.6))],
            {TEST: {"submitted_lines": 1, "min_confidence": 0.3}})
@@ -128,23 +130,149 @@ def test_archive_index_as_file_or_dir(tmp_path):
             "archived", "decayed", "not_archived"]
 
 
+def test_partial_band_leaves_the_base_floor_at_its_recorded_value(tmp_path):
+    """A band that has not covered the file has not moved the base min_confidence down, so
+    the base replays at its recorded 0.55 and its recorded count is its own replay alone."""
+    _write(tmp_path, "p.jsonl", [_line("A", (0.9, 0.6)), _line("L1", (0.4, 0.6)),
+                                 _line("L2", (0.4, 0.6))],
+           {PROD: {"submitted_lines": 3, "min_confidence": 0.55, "labels_submitted": 1,
+                   "bands": {"0.3-0.55": {"submitted_lines": 1, "rig_masked": True,
+                                          "labels_submitted": 1}}}},
+           sidecars=[(".band-0.3-0.55.submitted", [2])])
+    expected, campaigns, problems = cc.expected_panos(tmp_path, PROD)
+    assert problems == []
+    assert set(expected) == {"A", "L1"}                   # L2: the band never reached it
+    base = next(c for c in campaigns if c["band"] is None)
+    assert (base["select_min"], base["partial"]) == (0.55, False)
+
+
+def test_unmasked_band_ships_its_rig_labels(tmp_path):
+    """Laurens' shape: a band recorded without rig_masked predates the mask, so a
+    band-range detection on the rig was sent and its pano is expected."""
+    _write(tmp_path, "u.jsonl", [_line("A", (0.9, 0.6)), _line("RIG", (0.4, 0.9))],
+           {PROD: {"submitted_lines": 2, "min_confidence": 0.3, "labels_submitted": 2,
+                   "bands": {"0.3-0.55": {"submitted_lines": 2, "labels_submitted": 1}}}})
+    expected, campaigns, problems = cc.expected_panos(tmp_path, PROD)
+    assert problems == [] and set(expected) == {"A", "RIG"}
+    assert not next(c for c in campaigns if c["band"])["rig_masked"]
+
+
+def test_recorded_label_counts_must_match_the_replay(run_dir):
+    """Base = its replay + its complete bands; band = its replay. A mismatch (here: a base
+    count that says the range or mask was inferred wrong) is a problem, and so is a record
+    with no count to check against."""
+    rec = run_dir / "a.jsonl.submission.json"
+    record = json.loads(rec.read_text())
+    record["endpoints"][PROD]["labels_submitted"] = 4          # replay says 2 + 1
+    rec.write_text(json.dumps(record))
+    _, _, problems = cc.expected_panos(run_dir, PROD)
+    assert len(problems) == 1 and "a.jsonl: the record says 4 label(s)" in problems[0]
+    del record["endpoints"][PROD]["labels_submitted"]
+    rec.write_text(json.dumps(record))
+    _, _, problems = cc.expected_panos(run_dir, PROD)
+    assert len(problems) == 1 and "a.jsonl: the record holds no label count" in problems[0]
+
+
+def test_never_landed_is_not_retired():
+    """No live AI label is `retired` only when the pano row says it once held a label."""
+    expected = {"GONE": {"labels": 1}, "LOST": {"labels": 1}}
+    rows, problems = cc.classify(expected, {}, {}.get, ever_labelled={"GONE"})
+    assert {p: r["status"] for p, r in rows.items()} == {"GONE": "retired", "LOST": "never_landed"}
+    assert len(problems) == 1 and "never_landed" in problems[0]
+
+
+class _Resp:
+    def __init__(self, status, body=None, headers=None):
+        self.status_code, self._body, self.headers = status, body, headers or {}
+
+    def json(self):
+        if self._body is None:
+            raise ValueError("not JSON")
+        return self._body
+
+
+class _Session:
+    def __init__(self, *responses):
+        self.responses, self.calls = list(responses), []
+
+    def get(self, url, **kw):
+        self.calls.append(kw)
+        return self.responses.pop(0)
+
+
+def test_probe_does_not_follow_redirects_needs_json_and_honours_retry_after(monkeypatch):
+    slept = []
+    monkeypatch.setattr(cc.time, "sleep", slept.append)
+    s = _Session(_Resp(303, headers={"Location": "/login"}))
+    assert cc.probe_metadata(SERVER, "P", s) == 303             # a session gate is not "there"
+    assert s.calls[0]["allow_redirects"] is False
+    assert cc.probe_metadata(SERVER, "P", _Session(_Resp(200))) == "200-not-json"
+    assert cc.probe_metadata(SERVER, "P", _Session(_Resp(200, body=["x"]))) == "200-not-json"
+    s = _Session(_Resp(429, headers={"Retry-After": "5"}), _Resp(200, body={"width": 1}))
+    assert cc.probe_metadata(SERVER, "P", s) == 200 and slept == [5.0]
+    rows, problems = cc.classify({"P": {"labels": 1}}, {"P": {"ai_labels": 1, "backed": False,
+                                                              "pitch": 1.0}},
+                                 lambda p: "200-not-json", spacing_s=0)
+    assert rows["P"]["status"] == "unconfirmed" and problems
+
+
 def test_empty_pull_is_refused_and_not_cached(tmp_path, monkeypatch):
     monkeypatch.setattr(cc, "fetch_json", lambda url: b'{"type":"FeatureCollection","features":[]}')
     with pytest.raises(cc.PullError, match="zero rows"):
-        cc.pull(SERVER + "/labels/all", tmp_path / "labels_all.geojson")
+        cc.pull_set([("labels_all.geojson", SERVER + "/labels/all")], tmp_path)
     assert not (tmp_path / "labels_all.geojson").exists()
 
 
-def test_main_end_to_end_exit_codes_and_report(run_dir, monkeypatch):
-    backed = {"A": True, "R": True, "L": True, "C1": True, "C3": False}
+def test_pull_set_is_fresh_by_default_and_reuse_is_guarded(tmp_path, monkeypatch):
+    """Fresh unless asked; a failed GET part-way leaves the old cache whole; --reuse-pulls
+    refuses an edited file and a mixed-age set."""
+    specs = [("one.json", SERVER + "/1"), ("two.json", SERVER + "/2")]
+    bodies = {SERVER + "/1": b'[1]', SERVER + "/2": b'[2]'}
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        if url not in bodies:
+            raise cc.PullError(f"{url}: HTTP 500")
+        return bodies[url]
+    monkeypatch.setattr(cc, "fetch_json", fetch)
+    cc.pull_set(specs, tmp_path)
+    cc.pull_set(specs, tmp_path)
+    assert len(calls) == 4                                  # no silent reuse
+    got = cc.pull_set(specs, tmp_path, reuse=True)
+    assert len(calls) == 4 and got["one.json"][0]["reused"] and got["two.json"][1] == b'[2]'
+
+    bodies[SERVER + "/1"], _ = b'[9]', bodies.pop(SERVER + "/2")
+    with pytest.raises(cc.PullError, match="HTTP 500"):
+        cc.pull_set(specs, tmp_path)
+    assert (tmp_path / "one.json").read_bytes() == b'[1]'  # nothing committed
+    assert not list(tmp_path.glob("*.part"))
+
+    (tmp_path / "two.json").write_bytes(b'[3]')
+    with pytest.raises(cc.PullError, match="sha256"):
+        cc.pull_set(specs, tmp_path, reuse=True)
+    (tmp_path / "two.json").write_bytes(b'[2]')
+    side = tmp_path / "two.json.source.json"
+    meta = json.loads(side.read_text())
+    side.write_text(json.dumps({**meta, "fetched_at": "2020-01-01T00:00:00+00:00"}))
+    with pytest.raises(cc.PullError, match="mixed-age"):
+        cc.pull_set(specs, tmp_path, reuse=True)
+
+
+def _server_payloads(backed, pitch=None):
     ids = {p: i for i, p in enumerate(sorted(backed), 1)}
-    payloads = {
+    return {
         "/adminapi/panos": [{"pano_id": p, "has_labels": True} for p in backed],
         "/labels/all": {"type": "FeatureCollection", "features": [
             _feature(ids[p], backup=b) for p, b in backed.items()]},
         "/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson": {
             "type": "FeatureCollection", "features": [
-                _feature(ids[p], p, pitch=1.0 if p == "C3" else None) for p in backed]}}
+                _feature(ids[p], p, pitch=(pitch or {}).get(p)) for p in backed]}}
+
+
+def test_main_end_to_end_exit_codes_and_report(run_dir, monkeypatch):
+    backed = {"A": True, "R": True, "L": True, "C1": True, "C3": False}
+    payloads = _server_payloads(backed, pitch={"C3": 1.0})
     monkeypatch.setattr(cc, "fetch_json",
                         lambda url: json.dumps(payloads[url[len(SERVER):]]).encode())
     monkeypatch.setattr(cc.time, "sleep", lambda s: None)
@@ -159,11 +287,53 @@ def test_main_end_to_end_exit_codes_and_report(run_dir, monkeypatch):
     assert "C3" in (run_dir / "coverage" / "missing.csv").read_text()
 
     status["C3"] = 200
-    assert cc.main(argv) == cc.EXIT_OK                     # cached pulls, probe settles it
+    assert cc.main(argv + ["--reuse-pulls"]) == cc.EXIT_OK  # cached pulls, probe settles it
+    assert "(cached)" in (run_dir / "coverage" / "report.md").read_text(encoding="utf-8")
     assert not (run_dir / "coverage" / "missing.csv").exists()
 
     payloads["/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson"]["features"][-1][
         "properties"]["camera_pitch"] = None               # C3 now has no pose on the server
     status["C3"] = 404
-    assert cc.main(argv + ["--refresh"]) == cc.EXIT_OK     # unconfirmed only
-    assert cc.main(argv + ["--strict"]) == cc.EXIT_GAPS
+    assert cc.main(argv) == cc.EXIT_OK                     # a fresh pull: unconfirmed only
+    assert cc.main(argv + ["--strict", "--reuse-pulls"]) == cc.EXIT_GAPS
+
+    payloads["/labels/all"]["features"].append(_feature(99))   # an AI label with no pano
+    assert cc.main(argv) == cc.EXIT_UNDETERMINED
+    assert "not listed by rawLabels" in (run_dir / "coverage" / "report.md").read_text(encoding="utf-8")
+
+
+def test_main_pull_failure_rewrites_the_report_as_exit_2(run_dir, monkeypatch):
+    payloads = _server_payloads({"A": True, "R": True, "L": True, "C1": True, "C3": True})
+    monkeypatch.setattr(cc, "fetch_json",
+                        lambda url: json.dumps(payloads[url[len(SERVER):]]).encode())
+    argv = [str(run_dir / "a.jsonl"), "--server", SERVER]
+    assert cc.main(argv) == cc.EXIT_OK
+    out = run_dir / "coverage"
+    (out / "missing.csv").write_text("stale\n")
+    cached = (out / "panos.json").read_bytes()
+
+    def failing(url):
+        if url.endswith("/labels/all"):
+            raise cc.PullError(f"{url}: HTTP 503")
+        return json.dumps(payloads[url[len(SERVER):]]).encode()
+    monkeypatch.setattr(cc, "fetch_json", failing)
+    assert cc.main(argv) == cc.EXIT_UNDETERMINED
+    report = (out / "report.md").read_text(encoding="utf-8")
+    assert "**Exit 2**" in report and "HTTP 503" in report and "Exit 0" not in report
+    assert not (out / "missing.csv").exists()
+    assert (out / "panos.json").read_bytes() == cached     # the old set stays whole
+
+
+def test_usage_errors_exit_2_and_write_nothing(run_dir, monkeypatch):
+    monkeypatch.setattr(cc, "fetch_json", lambda url: pytest.fail("no pull on a usage error"))
+    base = [str(run_dir / "a.jsonl"), "--server", SERVER]
+    assert cc.main(base + ["--archive", str(run_dir / "no-such-archive")]) == cc.EXIT_UNDETERMINED
+    assert cc.main([str(run_dir / "nope.jsonl"), "--server", SERVER]) == cc.EXIT_UNDETERMINED
+    assert cc.main([str(run_dir / "a.jsonl"), "--server", "ps.example.org"]) == cc.EXIT_UNDETERMINED
+    assert not (run_dir / "coverage").exists()
+
+
+def test_unexpected_error_is_exit_2_not_exit_1(run_dir, monkeypatch):
+    monkeypatch.setattr(cc, "fetch_json", lambda url: b'[{"no_pano_id": 1}]')
+    assert cc.main([str(run_dir / "a.jsonl"), "--server", SERVER]) == cc.EXIT_UNDETERMINED
+    assert "unexpected error" in (run_dir / "coverage" / "report.md").read_text(encoding="utf-8")
