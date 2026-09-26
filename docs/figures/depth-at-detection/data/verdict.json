@@ -1,0 +1,96 @@
+{
+  "rule_i": "SUPPORTED",
+  "rule_ii": "NOT SUPPORTED",
+  "underpowered": false,
+  "true_surface_share_pooled": 0.9194805194805195,
+  "true_n_pooled": 770,
+  "true_surface_share_by_city": {
+    "bend": 0.9343434343434344,
+    "paterson": 0.8975409836065574,
+    "gainesville": 0.9473684210526315,
+    "sao_paulo": 0.9044585987261147
+  },
+  "true_non_surface_share": 0.08051948051948052,
+  "true_non_surface_ci": [
+    0.06331783960723192,
+    0.10188599538949095
+  ],
+  "false_non_surface_share": 0.09523809523809523,
+  "false_n_pooled": 42,
+  "false_non_surface_ci": [
+    0.0376616388283121,
+    0.2206539522505333
+  ],
+  "non_surface_diff": 0.014718614719,
+  "true_floor_offset_local_median": [
+    0.0498347,
+    0.0392519,
+    0.0572453
+  ],
+  "offset_claim_0p15": "not consistent",
+  "per_city_counts": {
+    "bend": {
+      "true_n": 198,
+      "true_surface": 185,
+      "false_n": 7,
+      "false_non_surface": 0
+    },
+    "paterson": {
+      "true_n": 244,
+      "true_surface": 219,
+      "false_n": 5,
+      "false_non_surface": 0
+    },
+    "gainesville": {
+      "true_n": 171,
+      "true_surface": 162,
+      "false_n": 9,
+      "false_non_surface": 1
+    },
+    "sao_paulo": {
+      "true_n": 157,
+      "true_surface": 142,
+      "false_n": 21,
+      "false_non_surface": 3
+    }
+  },
+  "exploratory_level_floor": {
+    "note": "not part of the pre-registered reading; see the study doc",
+    "excluded_from_denominator": {
+      "true_surface_share_pooled": 0.9304482225656878,
+      "true_n_pooled": 647,
+      "true_surface_share_by_city": {
+        "bend": 0.9423076923076923,
+        "paterson": 0.9178743961352657,
+        "gainesville": 0.95,
+        "sao_paulo": 0.9112903225806451
+      },
+      "rule_i_arithmetic": "SUPPORTED",
+      "false_surface_share_pooled": 0.90625,
+      "missed_surface_share_pooled": 0.9032258064516129
+    },
+    "counted_as_off_surface": {
+      "true_surface_share_pooled": 0.7818181818181819,
+      "true_n_pooled": 770,
+      "true_surface_share_by_city": {
+        "bend": 0.7424242424242424,
+        "paterson": 0.7786885245901639,
+        "gainesville": 0.8888888888888888,
+        "sao_paulo": 0.7197452229299363
+      },
+      "rule_i_arithmetic": "NOT SUPPORTED",
+      "false_surface_share_pooled": 0.6904761904761905,
+      "missed_surface_share_pooled": 0.7613293051359517
+    },
+    "true_floor_offset_local_median_nonlevel": [
+      0.030408,
+      0.0179074,
+      0.0395923
+    ],
+    "true_floor_offset_local_median_level": [
+      0.147569,
+      0.119767,
+      0.174204
+    ]
+  }
+}

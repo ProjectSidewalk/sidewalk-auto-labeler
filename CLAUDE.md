@@ -312,6 +312,32 @@ python scripts/gsv_ground_plane.py crossslope --run-root runs  # slope at ramp b
 python scripts/gsv_ground_plane.py verdict                   # the pre-registered reading
 python scripts/gsv_ground_plane.py figures
 
+# DEPTH AT THE DETECTION (issue #47 step 1) -- a STUDY, not production: what GSV's depth model puts
+# under every stored detection's pixel (ground / another floor plane / horizontal non-floor / wall /
+# no plane), the height of a secondary floor plane above the LOCAL road (the first different floor
+# plane down the same payload column; the dominant-plane offset is extrapolation, never a height),
+# and the plane's range against the flat raycast (a third range instrument, #40/#101). IMAGE frame:
+# the lookup is depth._plane_at + the exact ray (depth._direction_continuous) -- NEVER depth.depth_at
+# (raster frame, snapped ray). Only `measured` payloads enter the headline; anything joined to GT is
+# tier 0.55 through eval_sites.judged_gt_panos. Pre-registered verdict() (rules (i) surface on True
+# detections, (ii) free FP signal, flagged underpowered) -- docs/depth-at-detection-study.md.
+# Measured 2026-09-26: "no plane" under a detection NEVER happens (0 of 114,932); (i) SUPPORTED
+# (0.919 of True on surface) but (ii) NOT SUPPORTED (False sits on surface as often; not underpowered),
+# so depth is no FP filter. 10-27% of "floor" hits are an EXACTLY level 2.5 m secondary plane --
+# Google's stand-in again, now as a secondary plane. Set aside the way the registration sets stand-ins
+# aside (out of the denominator) True surface is 0.930, still SUPPORTED; counted as failures, 0.782 --
+# quote (i) with that qualifier. The stand-ins read ~0.13-0.15 m above the local road, but that is the
+# road's TILT carried out to the hit (were the road level, the stand-in would sit ~0.14 m BELOW it), so
+# no ramp plane measured here sits ~0.15 m up (real planes: ~0.03 m). offset_local always includes the
+# reference's tilt extrapolated over the distance from where the column walk met it to the hit;
+# level_floor.csv splits it. Also: height_spread_m (#44's per-pano sigma) takes in secondary stand-in
+# planes, since classify_height tests only the dominant one -- a follow-up depth.py helper.
+python scripts/depth_at_detection.py measure       # ~53k panos, multiprocess; --limit N smoke-tests
+#   (to detections.limit.csv, never over the full file); --summaries-only refuses a row-count mismatch
+python scripts/depth_at_detection.py gt            # reads ../RampNet/benchmark
+python scripts/depth_at_detection.py verdict
+python scripts/depth_at_detection.py figures       # also copies aggregates to docs/figures/depth-at-detection/data/
+
 # POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
 # remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no
 # internet egress) and send_to_ps.py REFUSES a Mapillary file whose position_check.json is
