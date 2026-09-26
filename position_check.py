@@ -521,7 +521,8 @@ def _band_bounds(key):
 def campaigns_for(directory, endpoint, exclude=()):
     """Every campaign the submission records in `directory` hold for `endpoint`:
     ([{campaign, path, at, line_numbers, min_confidence, lines, labels, select_min,
-    select_max, rig_masked}], [problems]).
+    select_max, rig_masked, band, record}], [problems]). `band` is the band key, None for
+    the base entry; `record` is the submission record's file name.
 
     A campaign is a record's base entry plus each of its `bands`: all lines when it holds
     `submitted_lines == total_lines`, else exactly the lines of its sidecar
@@ -556,18 +557,19 @@ def campaigns_for(directory, endpoint, exclude=()):
         labels = state.get('labels_submitted', '?')
         if not results.exists():
             problems.append(f"{rec_path.name} records {state['submitted_lines']} line(s) / {labels} "
-                            f"label(s) of {results.name} live here, and {results.name} is not present "
-                            f"to compare pano positions against")
+                            f"label(s) of {results.name} live here, and {results.name} is not present, "
+                            f"so which panos they are cannot be read")
             continue
         total = int(record.get('total_lines') or 0)
         recorded_min = float(state.get('min_confidence', 0.0))
         bands = sorted((state.get('bands') or {}).items())
         base_min = max([recorded_min] + [hi for hi in (_band_bounds(key)[1] for key, _ in bands)
                                          if hi is not None])
-        parts = [('', state, Path(f'{results}.submitted'), (base_min, None))]
-        parts += [(f' (band {key})', band, Path(f'{results}.band-{key}.submitted'), _band_bounds(key))
+        parts = [(None, state, Path(f'{results}.submitted'), (base_min, None))]
+        parts += [(key, band, Path(f'{results}.band-{key}.submitted'), _band_bounds(key))
                   for key, band in bands]
-        for suffix, part, sidecar, (select_min, select_max) in parts:
+        for band_key, part, sidecar, (select_min, select_max) in parts:
+            suffix = '' if band_key is None else f' (band {band_key})'
             n = int(part.get('submitted_lines') or 0)
             if n <= 0:
                 continue
@@ -585,7 +587,8 @@ def campaigns_for(directory, endpoint, exclude=()):
                               'min_confidence': recorded_min,
                               'lines': n, 'labels': part.get('labels_submitted', labels),
                               'select_min': select_min, 'select_max': select_max,
-                              'rig_masked': bool(part.get('rig_masked', False))})
+                              'rig_masked': bool(part.get('rig_masked', False)),
+                              'band': band_key, 'record': rec_path.name})
     return campaigns, problems
 
 
