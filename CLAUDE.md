@@ -321,6 +321,11 @@ python scripts/gsv_ground_plane.py figures
 # (raster frame, snapped ray). Only `measured` payloads enter the headline; anything joined to GT is
 # tier 0.55 through eval_sites.judged_gt_panos. Pre-registered verdict() (rules (i) surface on True
 # detections, (ii) free FP signal, flagged underpowered) -- docs/depth-at-detection-study.md.
+# Measured 2026-09-26: "no plane" under a detection NEVER happens (0 of 114,932); (i) SUPPORTED
+# (0.919 of True on surface) but (ii) NOT SUPPORTED (False sits on surface as often; not underpowered),
+# so depth is no FP filter. 10-27% of "floor" hits are an EXACTLY level 2.5 m secondary plane --
+# Google's stand-in again, now as a secondary plane: without them True surface is 0.782, and they are
+# where the "ramps sit ~0.15 m above the road" figure comes from (real planes: ~0.03 m).
 python scripts/depth_at_detection.py measure       # ~53k panos, multiprocess; --limit N smoke-tests
 python scripts/depth_at_detection.py gt            # reads ../RampNet/benchmark
 python scripts/depth_at_detection.py verdict

@@ -9,12 +9,62 @@ eat the signal?*
 `tests/test_depth_at_detection.py` (the plane class in the image frame, the local height offset, the column walk,
 the verdict rule), all on synthetic payloads.
 **Pre-registration:** the plan comment on #47 fixed the classes, the offset definition, the bins and the reading
-before any GT-conditioned number was computed. The commit that added this section also put the reading into code
-(`verdict()`), before the full measurement ran. Nothing in it changes afterwards.
+before any GT-conditioned number was computed. Commit `f895e20` put the reading into code (`verdict()`) together
+with §1–4 below, before the full measurement ran; nothing in them changed afterwards. Everything marked
+*exploratory* was added after the run and does not enter the verdict.
 
 ## 0. Summary
 
-*Filled in with the results (§5).*
+Over the four harvested GSV runs, 138,084 stored detections at ≥ 0.30 sit on 56,941 panoramas; 53,092 of those
+panoramas have a payload, and 114,932 detections sit on a payload whose ground plane is `measured`. For each, the
+depth plane under the detection's pixel was read in the image frame and classified.
+
+1. **Depth never has "no plane" under a detection.** 0 of 114,932 at the pixel, 4 of 114,932 anywhere in the
+   3x3 neighbourhood (all at ≥ 25 m). The issue's "how often is it −1" is answered: never, at any range. GSV
+   models a surface under every below-horizon pixel a ramp detector fires on.
+2. **The plane is almost always horizontal, and usually not the dominant one.** 19.5% of detections land on the
+   dominant ground plane, 79.9% on another floor plane, 0.4% on a steep plane (median tilt 88.7°: walls) and
+   0.2% on an overhang (0.30 tier, pooled; §5.1). A ramp is a separately segmented piece of ground.
+3. **Rule (i), depth carries the surface: SUPPORTED.** 708 of 770 verdict-True detections on measured payloads
+   (0.919, Wilson 0.898–0.937) are `ground` or a floor plane within ±0.30 m of the local road; every city clears
+   0.80 (bend 0.934, paterson 0.898, gainesville 0.947, São Paulo 0.904). **But see finding 6** — the reading
+   rests partly on stand-in planes.
+4. **Rule (ii), a free false-positive signal: NOT SUPPORTED.** The non-surface share is 0.095 (4 of 42, Wilson
+   0.038–0.221) among verdict-False detections against 0.081 (62 of 770, 0.063–0.102) among True — a 1.5-point
+   difference against a pre-registered 20. `underpowered` came out **false**: with the share near 10% the
+   False interval is 18.3 points wide, under the 20-point margin, and even its upper end is only ~16 points
+   above the True interval's lower end, so an effect of the registered size is not merely undetected but
+   implausible. The reviewed false positives sit on the modelled surface as often as the real ramps do.
+5. **The ~0.15 m ramp-above-road offset is not what depth shows for most ramps.** The median height of a True
+   `floor` detection above the local road is **0.050 m** (95% CI 0.039–0.057), which falls 0.0002 m below the
+   pre-registered [0.05, 0.30) band, so the descriptive claim reads *not consistent* — a knife-edge on the band
+   edge, but decisively below 0.15 m. Over all 76,003 floor detections at ≥ 0.55 the median is 0.049 m
+   (p10/p90 −0.11/+0.26 m); 31% sit within ±0.05 m of the road ("same surface, different segment") and 42% in
+   the curb-height band.
+6. **Exploratory, not part of the reading: a large share of the "floor" planes are Google's 2.500 m stand-in.**
+   10–27% of floor detections (by city) sit on a secondary plane that is *exactly* level — the stand-in pattern
+   `depth.SYNTHETIC_GROUND` tests on the dominant plane, here appearing as a secondary plane (399 of 400 sampled
+   are at exactly 2.5000 m). On non-level floor planes the True median offset is **0.030 m** (0.018–0.040); on
+   the stand-ins it is **0.148 m** (0.120–0.174). That 0.15 m figure is the stand-in plane's default height
+   against a measured road, not ramp geometry. Moving the stand-ins out of `surface`, the True surface share
+   falls from 0.919 to **0.782** (bend 0.742, paterson 0.779, gainesville 0.889, São Paulo 0.720), which by rule
+   (i)'s arithmetic would read NOT SUPPORTED. The registered verdict stands as registered; this finding is why it
+   should be quoted with the qualifier.
+7. **Range.** The depth plane's horizontal range runs 0.86x (dominant ground) and 0.88x (other floors) of the
+   flat 2.6 m raycast's, pooled; against the raycast at the pano's own depth-measured height the medians are
+   0.98x and 1.01x (§5.3). By vintage, the new rig (paterson 2025, gainesville 2026) reads 0.73x and 0.69x
+   (depth heights 1.88 and 1.80 m) and nearly every other vintage 0.88–0.92x (2.23–2.39 m; São Paulo 2021 is the exception, §5.3). This is the depth frame's own scale — the same frame that runs 6–16%
+   short of the imagery (docs/camera-height-study.md) — so it corroborates the camera-height study's rig ranking
+   without adding an independent scale.
+8. **Missed ramps sit on the surface too.** 293 of 331 non-unsure missed marks on measured payloads (0.885,
+   0.846–0.915) are surface (0.761 without the stand-ins): a depth-based miner for step 2 would find the modelled
+   surface under the ramps the model misses about as often as under the ones it finds.
+
+**Bottom line for #47.** Depth reliably says "there is modelled ground here" under a curb-ramp detection — never
+sky, almost never a wall — and gives a usable range at its own height. It does **not** separate real ramps from
+false positives, and its plane geometry does not resolve a ramp as a raised surface: most ramp pixels are a
+separately segmented floor plane a few centimetres from the road, and the one population that does sit ~0.15 m
+up is Google's default plane. Step 2 needs the segmenter for the semantics; depth contributes the metric frame.
 
 ## 1. Background and goals
 
@@ -137,7 +187,195 @@ In `verdict()` (committed before the full run), on `measured` payloads at the be
 
 ## 5. Findings
 
-*Filled in after the full run (commit 2).*
+All tables are in `docs/figures/depth-at-detection/data/` (file named per table). "Measured" = measured payloads
+only; "pooled" = the four cities' detections together.
+
+### 5.0 Coverage (`coverage.csv`)
+
+| City | Panos with a detection ≥ 0.30 | … with a payload | Detections ≥ 0.30 | ≥ 0.55 | On a measured payload (≥ 0.30) | Stand-in dominant ground | No payload |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| bend | 20,613 | 20,607 | 51,543 | 51,543 | 45,219 | 6,273 | 18 |
+| paterson | 12,820 | 12,789 | 35,110 | 29,756 | 32,188 | 2,837 | 81 |
+| gainesville | 11,457 | 10,467 | 24,082 | 15,574 | 19,664 | 2,192 | 2,199 |
+| sao_paulo | 12,051 | 9,229 | 27,349 | 16,159 | 17,861 | 3,003 | 6,463 |
+| **total** | 56,941 | 53,092 | 138,084 | 113,032 | 114,932 | 14,305 | 8,761 |
+
+The rest are `degenerate` (42 detections) and `implausible` (44). No payload failed to parse. bend's two tiers
+coincide (it predates the storage floor). The "no payload" detections are on gap-fill panoramas (#32) added after
+the harvest.
+
+### 5.1 RQ1 — what plane is under a detection (`class_shares.csv`, `no_plane_by_range.csv`, fig. 1)
+
+![Plane class under the detection](figures/depth-at-detection/fig1_classes.png)
+
+| Measured, ≥ 0.30 | n | ground | floor | horizontal non-floor | non-horizontal | no plane | surface |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| bend | 45,219 | 0.199 | 0.801 | 0.0003 | 0.0003 | 0 | 0.926 |
+| paterson | 32,188 | 0.160 | 0.831 | 0.0034 | 0.0061 | 0 | 0.895 |
+| gainesville | 19,664 | 0.281 | 0.716 | 0.0007 | 0.0022 | 0 | 0.940 |
+| sao_paulo | 17,861 | 0.155 | 0.829 | 0.0029 | 0.0133 | 0 | 0.842 |
+| pooled | 114,932 | 0.195 | 0.799 | 0.0016 | 0.0042 | 0 | 0.907 |
+| pooled, ≥ 0.55 | 95,595 | 0.199 | 0.797 | 0.0011 | 0.0031 | 0 | 0.916 |
+
+- **No plane: zero.** Not one of 114,932 detections has index 0 at its pixel, in any range bin (0–5 m through
+  ≥ 25 m and above the raycast horizon). In the 3x3 neighbourhood, 4 do — 3 in paterson, 1 in São Paulo, all ≥ 25
+  m. The other payload statuses show the same (stand-in-ground payloads: 0 of 14,305).
+- **Non-horizontal** planes are walls (median tilt 88.7°) and are rare everywhere; São Paulo's 1.3% is the most.
+- **Floor, not ground.** Four in five detections sit on a floor plane other than the dominant one; these are small
+  (median pixel share 0.9–1.9% of the image). A curb ramp is a separately segmented piece of ground.
+- `surface` (the rule (i) definition: ground, or floor within ±0.30 m of the local road) is 0.84–0.94 of all
+  detections by city — the same order as on verdict-True detections (§5.4), which is the first sign that the
+  class does not separate true from false.
+
+Per capture year (`class_by_year.csv`, cells ≥ 300), the surface share is flat within a city (0.87–0.95 for
+bend, paterson, gainesville; 0.83–0.86 for São Paulo 2022–25) except São Paulo 2021 (0.71, n = 573, with 4.2% overhang
+hits).
+
+### 5.2 RQ2 — height above the local road (`offset_bins.csv`, `offset_hist.csv`, fig. 2)
+
+![Height of floor detections above the reference](figures/depth-at-detection/fig2_offset.png)
+
+A local reference was found for 76,003 of 76,157 floor detections at ≥ 0.55 (99.8%), a median 7 payload rows
+further down the column (6 for non-level planes, 12 for the stand-ins).
+
+| Floor, ≥ 0.55, pooled | n | < −0.30 | [−0.30, −0.05) | [−0.05, 0.05) | **[0.05, 0.30)** | ≥ 0.30 | median (95% CI) | p10 / p90 |
+|---|---:|---:|---:|---:|---:|---:|---|---|
+| vs local road | 76,003 | 2.2% | 17.1% | 31.0% | 42.0% | 7.7% | 0.049 (0.048–0.050) | −0.114 / 0.261 |
+| vs dominant plane (not a height) | 76,157 | 6.4% | 19.7% | 22.0% | 37.8% | 14.1% | 0.058 (0.056–0.059) | −0.208 / 0.376 |
+| *exploratory:* non-level planes | 60,246 | 2.6% | 20.9% | 33.5% | 37.9% | 5.1% | 0.031 (0.030–0.033) | −0.135 / 0.211 |
+| *exploratory:* exactly level (stand-in) | 15,757 | 0.5% | 2.5% | 21.4% | 58.1% | 17.6% | 0.129 (0.127–0.132) | 0.013 / 0.390 |
+
+- The distribution against the local road is centred a few centimetres above it with a long positive tail. The
+  dominant-plane column is wider in both directions, as the plan expected: a 1.5° plane extrapolated over 20 m
+  moves 0.5 m.
+- Per city the local median is 0.034 (gainesville) to 0.061 m (São Paulo).
+- **The stand-in planes (exploratory).** 10.1% (gainesville) to 26.8% (São Paulo) of floor detections sit on a
+  secondary plane whose normal is *exactly* vertical; of 400 sampled in paterson, 399 are at exactly 2.5000 m.
+  That is the stand-in `depth.SYNTHETIC_GROUND` detects on the dominant plane, appearing here as a secondary
+  plane inside payloads whose dominant ground is measured. Its offset (median 0.13 m, most of it in the curb band)
+  is the gap between a fixed, level 2.5 m plane and the measured, tilted road where the ray meets it (in a
+  300-detection sample each from paterson and bend, the reference road sits 2.36 m under the camera with a median
+  tilt of 1.7-2.0 deg), so it reflects the stand-in's default distance, not geometry of anything on the street. On
+  real (non-level) planes the median is 0.031 m.
+
+### 5.3 RQ3 — range against the flat raycast (`range_ratio.csv`, `class_by_year.csv`, fig. 3)
+
+![Range ratio](figures/depth-at-detection/fig3_range_ratio.png)
+
+| Measured, ≥ 0.30 | class | n placed (≤ 25 m) | beyond 25 m / horizon | ratio_flat p10 / **p50** / p90 | ratio_pp p10 / **p50** / p90 |
+|---|---|---:|---:|---|---|
+| bend | ground | 8,940 | 37 | 0.83 / **0.89** / 0.94 | 0.92 / **0.98** / 1.03 |
+| bend | floor | 34,577 | 1,639 | 0.82 / **0.91** / 0.96 | 0.90 / **1.00** / 1.06 |
+| paterson | ground | 4,948 | 190 | 0.67 / **0.80** / 0.93 | 0.90 / **0.98** / 1.07 |
+| paterson | floor | 21,596 | 5,151 | 0.67 / **0.85** / 0.96 | 0.90 / **1.01** / 1.15 |
+| gainesville | ground | 5,248 | 281 | 0.56 / **0.71** / 0.88 | 0.89 / **0.99** / 1.11 |
+| gainesville | floor | 11,777 | 2,302 | 0.59 / **0.76** / 0.96 | 0.88 / **1.01** / 1.18 |
+| sao_paulo | ground | 2,688 | 71 | 0.75 / **0.86** / 0.94 | 0.90 / **0.98** / 1.07 |
+| sao_paulo | floor | 13,737 | 1,075 | 0.76 / **0.90** / 0.96 | 0.89 / **1.02** / 1.16 |
+| pooled | ground | 21,824 | 579 | 0.66 / **0.86** / 0.93 | 0.91 / **0.98** / 1.06 |
+| pooled | floor | 81,687 | 10,167 | 0.70 / **0.88** / 0.96 | 0.90 / **1.01** / 1.11 |
+
+- Against the flat raycast at 2.6 m, depth ranges run 10–30% short, city by city, in the rig order the camera-height
+  study found. Against the raycast at the pano's own depth-measured height the medians sit at 0.98–1.02: depth's
+  range and depth's height agree, as they must, since both are in the depth frame. So this is a **third reading of
+  the depth frame's scale**, not an independent referee of the imagery's (the depth frame is 6–16% short of the
+  imagery's height; docs/camera-height-study.md).
+- **The floor class's p90 of `ratio_flat` is exactly 0.9615 = 2.5 / 2.6 in every city.** That is the stand-in
+  plane again (§5.2): a detection on a level 2.5 m plane has a range exactly 2.5/2.6 of the flat raycast's.
+- By vintage (`class_by_year.csv`), `ratio_flat` is 0.73 (paterson 2025) and 0.69 (gainesville 2026) on the new
+  rig, with depth heights 1.88 and 1.80 m, and 0.88–0.92 on every other vintage (heights 2.23–2.39 m), except
+  São Paulo 2021 (0.88 at a 1.73 m median height, `ratio_pp` 1.09 — its detections' planes are not the plane the
+  height was read from; n = 573).
+- 11% of floor detections at ≥ 0.30 (10,167) are beyond 25 m or above the horizon under the flat raycast and are
+  kept out of the ratios; paterson has the most (19%).
+
+### 5.4 RQ4 — against RampNet ground truth (`gt_classes.csv`, `gt_counts.csv`, `verdict.json`, fig. 4)
+
+![Plane under reviewed detections](figures/depth-at-detection/fig4_gt.png)
+
+All 485 GT panoramas passed the drift gate (0 skipped, 0 partial, 0 warnings). Of 897 verdict-True detections,
+770 are on measured payloads; the other 127 are on stand-in-ground payloads (125 of them surface) and stay out, as
+registered. Likewise 42 of 49 verdict-False and 331 of 378 non-unsure missed marks.
+
+| Measured, ≥ 0.55 | True n | True surface (Wilson 95%) | False n | False non-surface | Missed n | Missed surface |
+|---|---:|---|---:|---|---:|---|
+| bend | 198 | 185 = 0.934 (0.891–0.961) | 7 | 0 | 56 | 0.875 |
+| paterson | 244 | 219 = 0.898 (0.853–0.930) | 5 | 0 | 116 | 0.845 |
+| gainesville | 171 | 162 = 0.947 (0.903–0.972) | 9 | 1 | 78 | 0.936 |
+| sao_paulo | 157 | 142 = 0.904 (0.848–0.941) | 21 | 3 | 81 | 0.901 |
+| **pooled** | **770** | **708 = 0.919 (0.898–0.937)** | **42** | **4 = 0.095 (0.038–0.221)** | **331** | **0.885 (0.846–0.915)** |
+
+**Rule (i): SUPPORTED** — pooled 0.919 ≥ 0.85 and every city ≥ 0.80. The 62 non-surface True detections are
+floor planes ≥ 0.30 m above the road (42), ≤ −0.30 m (13), walls (4), floor with no reference (2) and an overhang
+(1). The ~0.15 m claim: the median `offset_local` of True floor detections is **0.050 m (0.039–0.057) — "not
+consistent"**, by 0.0002 m at the band's lower edge; its interval straddles 0.05 and lies wholly below 0.15.
+
+**Rule (ii): NOT SUPPORTED** — False non-surface 0.095 against True 0.081 (0.063–0.102): +1.5 points, not +20,
+and the intervals overlap. **`underpowered: false`**: the False interval is 18.3 points wide, inside the 20-point
+margin. The plan expected ~26 points at n = 49, assuming a share near one half; at a share near a tenth the Wilson
+interval is narrower. Even taking both intervals' far ends (0.221 − 0.063) the gap is 15.8 points, short of the
+registered 20: the null is informative, not just unpowered.
+
+**Missed marks (no gate):** 0.885 surface against True's 0.919, the same classes in the same proportions.
+
+**Exploratory, NOT part of the reading** (`verdict.json` → `exploratory_excluding_level_floor`). With surface
+hits on exactly level secondary planes (§5.2) moved out of `surface`: True 0.782 pooled (bend 0.742, paterson
+0.779, gainesville 0.889, São Paulo 0.720), False 0.690, missed 0.761 — rule (i)'s arithmetic would then read NOT
+SUPPORTED. The True floor median is 0.030 m (0.018–0.040) on non-level planes and 0.148 m (0.120–0.174) on the
+stand-ins. Unsure verdicts (47 measured) and unsure marks (162) sit at 0.83 surface; the 4 duplicates are too few
+to read.
+
+## 6. Discussion
+
+**What depth gives a curb-ramp detection.** A guarantee that the pixel is modelled ground (never sky, almost never
+a wall), a floor plane of its own four times in five, and a range consistent with the depth frame's own height.
+That is exactly the "surface" half of #47's decomposition. What it does not give is *discrimination*: a false
+positive sits on the modelled surface as often as a ramp (rule ii), and the geometry of the plane under a ramp is
+indistinguishable from the road's within a few centimetres for most ramps. The segmentation that separates a
+ramp's plane from the road's exists — floor is its own plane 80% of the time — but its *height* carries no ramp
+signal beyond ~3 cm on real planes.
+
+**The 0.15 m folklore.** sidewalk-panorama-tools' `docs/depth.md` says curb ramps "sit ~0.15 m above the modelled
+road surface, so rays overshoot them by roughly 0.5 m". On real planes the offset is ~0.03 m; the population that
+does sit ~0.13–0.15 m up is the exactly level 2.5 m stand-in, whose "height" is its default distance measured
+against a nearer road. A ray overshoot of ~0.5 m should not be attributed to ramp height.
+
+**Rule (i) and the stand-ins.** The registered surface definition counts any floor plane within ±0.30 m of the
+local road, and a stand-in plane usually lands there by construction (a fixed 2.5 m plane against a measured
+road 2.3–2.4 m under the camera on the older rigs is within a few tenths of a metre of it at street range). So rule (i)'s SUPPORTED is true of the pre-registered definition and should be quoted
+with the stand-in qualifier: excluding them, 78% of True detections sit on a real modelled ground plane. The
+rule's thresholds were not revisited.
+
+**For the cropper's size rule** (ProjectSidewalk/sidewalk-panorama-tools#32 / #54): `range_depth_m` is available
+under every detection and never missing; it is in the depth frame (`ratio_pp` ≈ 1), so as a distance input it
+needs the same per-rig scale question the camera-height study left open, and a stand-in plane gives a range scaled
+by 2.5 m rather than a measurement.
+
+**For step 2.** The miner's premise holds (missed ramps sit on modelled surface 88% of the time), but depth adds no
+ramp-vs-not evidence; the semantics have to come from the segmenter.
+
+## 7. Answers to the issue's step-1 questions
+
+- *Is it a near-horizontal plane at plausible range?* Yes: 99.4% horizontal; range consistent with the depth
+  frame's height (median ratio 0.98–1.02).
+- *How often is it −1?* Never at the pixel (0 of 114,932); 4 in the 3x3 neighbourhood, all ≥ 25 m.
+- *Does depth carry the surface for our binding class?* Pre-registered rule (i): SUPPORTED (0.919), with the
+  stand-in qualifier (0.782 on real planes).
+- *Does the ~0.15 m offset eat it?* No — the offset on real planes is ~0.03 m; the 0.15 m population is Google's
+  stand-in.
+- *A free false-positive signal?* No (rule ii NOT SUPPORTED, not underpowered).
+
+## 8. Recommendations
+
+1. **Do not build a depth-based FP filter** for curb ramps from the plane class or height; rule (ii) rules it out
+   at this effect size.
+2. **Treat exactly level secondary planes as unmeasured**, as `depth.py` already does for the dominant plane,
+   in any consumer that reads a plane under a pixel (a range for the cropper, a surface test for step 2).
+   *TODO (not done here, out of scope): a `depth.py` helper for this belongs in its own PR.*
+3. **Step 2 proceeds on the segmenter** for semantics; depth supplies metric range and a surface prior.
+4. **Follow-up measurement** (not this step): re-run the lookup at the box bottom-centre of the paterson and São
+   Paulo `boxes.json` (ProjectSidewalk/RampNet#83) instead of the heatmap peak — the ground-contact line is where a
+   surface test is meant to be read.
 
 ## 9. Reproducibility
 
@@ -145,7 +383,8 @@ Everything reads `runs/<city>/{results.jsonl,depth/}` (from `--run-root`, read-o
 `../RampNet/benchmark/<city>/`, writes per-detection CSVs to `runs/<city>/depth_at_detection/` and the aggregates
 to `runs/_summary/depth_at_detection/` (both gitignored), and figures to `docs/figures/depth-at-detection/`.
 Stdlib on top of `depth.py`, `geo.py`, `fuse_sites.py`, `eval_sites.py`, `gsv_ground_plane.py`,
-`mapillary_tilt.py`; `figures` needs matplotlib. No network, no GPU.
+`mapillary_tilt.py`; `figures` needs matplotlib. No network, no GPU. `measure` read 53,092 payloads in 9.4
+minutes on 14 processes (the plan estimated ~5 minutes on 8); `gt` takes ~30 s; the rest run in seconds.
 
 ```bash
 python scripts/depth_at_detection.py measure --limit 500   # smoke: first 500 panos per city, no summaries
@@ -155,3 +394,19 @@ python scripts/depth_at_detection.py verdict               # the pre-registered 
 python scripts/depth_at_detection.py figures               # copies the aggregates to docs/figures/.../data/, redraws
 pytest tests/test_depth_at_detection.py tests/test_depth.py
 ```
+
+`figures` copies the aggregates in `runs/_summary/depth_at_detection/` to `docs/figures/depth-at-detection/data/`
+(committed) and redraws from them; `verdict` and `figures` fall back to the committed copies, so every table above
+can be checked from a fresh clone. `measure --summaries-only` rebuilds the aggregates from the per-city
+`detections.csv` without re-reading any payload. The per-detection CSVs (`runs/<city>/depth_at_detection/`) are
+not committed (tens of MB).
+
+**Deviations from the plan, all minor:** (1) a floor detection with no local reference counts as non-surface
+(clarified in code before the full run, §4.4); (2) the payload status list includes `implausible`, which
+`classify_height` returns and the plan's list omitted; (3) the ratio medians are taken over rays the production
+raycast places (≤ 25 m), with the rest counted as `beyond_25m`; (4) `underpowered` is defined as the False share's
+Wilson interval being wider than the 20-point margin (the plan's "CI width exceeds the margin"); (5) exploratory
+columns added after the full run — the exactly-level-plane split (`n_surface_level_floor`,
+`share_surface_excl_level_floor`, `local_level` / `local_nonlevel` offsets, `exploratory_excluding_level_floor` in
+`verdict.json`), plus `coverage.csv`, `offset_hist.csv` and `gt_counts.csv` — none of which enter `verdict()`;
+(6) figure 1 and 4 fold the three rare classes into one segment (the CSVs keep them apart).
