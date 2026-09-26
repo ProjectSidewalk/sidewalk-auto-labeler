@@ -104,6 +104,15 @@ def test_fetch_city_filters_to_the_area_and_caches(tmp_path, monkeypatch):
     again = io.fetch_city('gainesville', get=offline, runs_root=tmp_path / 'runs',
                           out=tmp_path / 'out')
     assert again['sha256'] == rec['sha256']
+    # a cache is bound to the area it was pulled for: an edited area.geojson is refused
+    bigger = {'type': 'Polygon', 'coordinates': [[[-82.35, 29.63], [-82.32, 29.63],
+                                                  [-82.32, 29.65], [-82.35, 29.65],
+                                                  [-82.35, 29.63]]]}
+    (run / 'area.geojson').write_text(json.dumps(bigger), encoding='utf-8')
+    with pytest.raises(SystemExit, match='the area changed'):
+        io.fetch_city('gainesville', get=offline, runs_root=tmp_path / 'runs',
+                      out=tmp_path / 'out')
+    (run / 'area.geojson').write_text(json.dumps(square), encoding='utf-8')
     # an edited cache is refused, not silently scored
     p = tmp_path / 'out' / 'gainesville' / 'inventory.geojson'
     p.write_bytes(p.read_bytes() + b' ')
@@ -261,6 +270,13 @@ def _city_rows(a, b, c, own=None, frozen_x=None, cov=None, dropped=0):
 def _vint(b, c):
     return [{'frame': 'frozen@a', 'arm': 'b', 'vintage': '2026', 'median_along_m': b},
             {'frame': 'frozen@a', 'arm': 'c', 'vintage': '2026', 'median_along_m': c}]
+
+
+def test_verdict_cli_takes_no_city_list():
+    """The rule names its own cities; a positional list would be silently ignored."""
+    assert io.build_parser().parse_args(['verdict']).cmd == 'verdict'
+    with pytest.raises(SystemExit):
+        io.build_parser().parse_args(['verdict', 'bend'])
 
 
 def test_verdict_selects_c_when_only_c_passes():

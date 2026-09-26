@@ -54,7 +54,7 @@ Usage:
     python scripts/inventory_oracle.py score bend gainesville
     python scripts/inventory_oracle.py score gainesville --tier 0.55 --radius 2.5 5 8 \\
         --scale 1.06 1.10 --rig-cut 2.0 2.2 --out /tmp/sens     # sensitivity, not committed
-    python scripts/inventory_oracle.py verdict bend gainesville
+    python scripts/inventory_oracle.py verdict        # always gainesville (decides) + bend
 """
 import argparse
 import csv
@@ -322,14 +322,20 @@ def fetch_city(city, refresh=False, get=http_get_json, runs_root=None, out=None)
         print(f'{city}: {entry["status"]} -- recorded in {record_path}, nothing fetched')
         return record
     geo_path = dest / 'inventory.geojson'
+    run_dir = Path(runs_root or REPO_ROOT / 'runs') / city
+    area = load_area(run_dir)
     if geo_path.exists() and record_path.exists() and not refresh:
         record = json.loads(record_path.read_text(encoding='utf-8'))
         check_cache(geo_path, record)
+        bbox = [round(v, 7) for v in area.bounds]
+        if bbox != (record.get('query') or {}).get('bbox_wgs84'):
+            raise SystemExit(f'{city}: the cached snapshot was pulled for bbox '
+                             f'{(record.get("query") or {}).get("bbox_wgs84")}, but '
+                             f'{run_dir / "area.geojson"} now spans {bbox} -- the area '
+                             'changed; --refresh re-pulls it')
         print(f'{city}: reusing cached {geo_path.name} fetched {record["fetched_utc"]} '
               '(the frozen snapshot; --refresh re-pulls it)', file=sys.stderr)
         return record
-    run_dir = Path(runs_root or REPO_ROOT / 'runs') / city
-    area = load_area(run_dir)
     feats, info = fetch_features(entry['url'], area.bounds, get=get)
     inside = in_area(feats, area)
     keep = kept(inside, entry)
@@ -950,9 +956,8 @@ def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     sub = ap.add_subparsers(dest='cmd', required=True)
 
-    def common(p, cities_default=None):
-        p.add_argument('cities', nargs='*' if cities_default else '+',
-                       default=cities_default)
+    def common(p):
+        p.add_argument('cities', nargs='+')
         p.add_argument('--out', default=None,
                        help='write under <out>/<city>/ instead of runs/<city>/inventory_oracle')
     p = sub.add_parser('fetch', help='pull and cache the inventories (network)')
@@ -974,8 +979,10 @@ def build_parser():
                    help='extra per-rig threshold arms (sensitivity, not a verdict)')
     p.add_argument('--limit', type=int, default=None, help='first N panos (smoke)')
     p.set_defaults(fn=cmd_score)
-    p = sub.add_parser('verdict', help='the pre-registered rule over arms.csv/vintage.csv')
-    common(p, cities_default=[DECIDING_CITY, GUARD_CITY])
+    p = sub.add_parser('verdict', help='the pre-registered rule over arms.csv/vintage.csv '
+                       f'(always {DECIDING_CITY} + {GUARD_CITY}: the rule names its cities)')
+    p.add_argument('--out', default=None,
+                   help='read <out>/<city>/ instead of runs/<city>/inventory_oracle')
     p.set_defaults(fn=cmd_verdict)
     return ap
 
