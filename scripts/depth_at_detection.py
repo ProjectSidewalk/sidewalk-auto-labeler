@@ -132,7 +132,11 @@ DET_FIELDS = ['pano_id', 'det_index', 'x', 'y', 'confidence', 'capture_year',
               'payload_status', 'plane_class', 'plane_tilt_deg', 'plane_pixel_share',
               'offset_local_m', 'offset_dominant_m', 'rows_to_ref', 'range_depth_m',
               'range_flat_2p6_m', 'range_flat_pp_m', 'camera_height_pp_m', 'beyond_25m',
-              'no_plane_3x3']
+              'no_plane_3x3',
+              # descriptive only (added after the full run; nothing in verdict() reads them):
+              # the plane's own perpendicular distance, the local reference's distance and
+              # tilt, and offset_local's split into a level-reference part and the rest
+              'plane_d_m', 'ref_d_m', 'ref_tilt_deg', 'offset_local_level_ref_m']
 _STR_FIELDS = {'pano_id', 'capture_year', 'payload_status', 'plane_class', 'city', 'gt_group'}
 _INT_FIELDS = {'det_index', 'rows_to_ref', 'beyond_25m', 'no_plane_3x3', 'in_pool'}
 
@@ -235,6 +239,23 @@ def vertical_offset(plane, ref, x_norm, y_norm):
     return floor_z(ref, hit[0], hit[1]) - hit[2]
 
 
+def level_ref_offset(plane, ref, x_norm, y_norm):
+    """offset_local as it would read if `ref` were LEVEL at its own height under the
+    camera: z_ref(0, 0) - P_z. Descriptive only.
+
+    offset_local = level_ref_offset + (z_ref(P_xy) - z_ref(0, 0)); the second term is the
+    reference's tilt carried from the camera's nadir out to the hit point, so it grows
+    with the hit's horizontal distance, not with the rows walked to find the reference.
+    None where vertical_offset is None.
+    """
+    if ref.nz == 0:
+        return None
+    hit = floor_hit(plane, x_norm, y_norm)
+    if hit is None:
+        return None
+    return floor_z(ref, 0.0, 0.0) - hit[2]
+
+
 def local_reference(pix, row, col, own_idx):
     """(ref_idx, rows_walked) for the first floor-candidate plane DIFFERENT from `own_idx`
     met walking raw column `col` down from `row` toward the nadir (the road in front of
@@ -272,6 +293,7 @@ def classify(pix, x_norm, y_norm):
     if plane is None:
         return out
     out['plane_tilt_deg'] = plane_tilt_deg(plane)
+    out['plane_d_m'] = plane.d
     out['plane_pixel_share'] = pix.counts[idx] / len(payload.indices)
     # Horizontal range exactly as depth.ground_range_at computes it (same lookup).
     d = depthlib._intersect(plane, depthlib._direction_continuous(x_norm, y_norm))
@@ -280,9 +302,12 @@ def classify(pix, x_norm, y_norm):
     if out['plane_class'] == FLOOR:
         ref_idx, walked = local_reference(pix, row, col, idx)
         if ref_idx is not None:
-            out['offset_local_m'] = vertical_offset(plane, payload.planes[ref_idx],
-                                                    x_norm, y_norm)
+            ref = payload.planes[ref_idx]
+            out['offset_local_m'] = vertical_offset(plane, ref, x_norm, y_norm)
             out['rows_to_ref'] = walked
+            out['ref_d_m'] = ref.d
+            out['ref_tilt_deg'] = plane_tilt_deg(ref)
+            out['offset_local_level_ref_m'] = level_ref_offset(plane, ref, x_norm, y_norm)
         if pix.dominant is not None:
             out['offset_dominant_m'] = vertical_offset(
                 plane, payload.planes[pix.dominant], x_norm, y_norm)
@@ -381,8 +406,14 @@ def class_counts(rows):
     # of `surface` rests on an EXACTLY level secondary floor plane -- Google's 2.500 m
     # stand-in (depth.SYNTHETIC_GROUND's pattern), appearing as a secondary plane.
     lv = sum(is_surface(r) and is_level_floor(r) for r in rows)
+    nl = sum(is_level_floor(r) for r in rows)
     out['n_surface_level_floor'] = lv
+    out['n_level_floor'] = nl
+    # Two readings of "without the stand-ins": counted as off-surface failures (numerator
+    # only) and excluded from the denominator too. The second matches how every other
+    # stand-in (a synthetic_ground payload) is handled: reported apart, never pooled.
     out['share_surface_excl_level_floor'] = (k - lv) / n if n else None
+    out['share_surface_level_floor_excluded'] = (k - lv) / (n - nl) if n - nl else None
     return out
 
 
@@ -466,7 +497,9 @@ def summary_dir(out_root):
 
 # Written at full precision: a confidence rounded to 0.55 would move a detection between
 # tiers, and x/y are the stored coordinates.
-_EXACT_FIELDS = {'x', 'y', 'confidence'}
+# plane_d_m / ref_d_m too: "exactly 2.5 m" must survive the CSV round trip, and 6
+# significant digits would print 2.4999999 as 2.5.
+_EXACT_FIELDS = {'x', 'y', 'confidence', 'plane_d_m', 'ref_d_m'}
 
 
 def _fmt(k, v):
@@ -621,11 +654,43 @@ def _groups(city_rows):
     yield 'pooled', [r for rows in city_rows.values() for r in rows]
 
 
+STAND_IN_D_M = 2.5   # the distance of Google's stand-in plane (depth.SYNTHETIC_GROUND)
+
+
+def level_floor_rows(tier, label, floor_rows):
+    """Exploratory: the level / non-level split of `floor` detections, with the numbers
+    behind the stand-in reading -- how many level planes sit at exactly 2.5 m, the local
+    reference's distance and tilt, and offset_local split into its level-reference part
+    (level_ref_offset) and the reference-tilt term (the rest)."""
+    out = []
+    for split, keep in (('all', None), ('nonlevel', False), ('level', True)):
+        sub = [r for r in floor_rows if keep is None or is_level_floor(r) == keep]
+        wr = [r for r in sub if r.get('offset_local_m') is not None
+              and r.get('offset_local_level_ref_m') is not None]
+        out.append({
+            'tier': tier, 'city': label, 'split': split, 'n_floor': len(sub),
+            'n_plane_d_exactly_2p5': sum(r.get('plane_d_m') == STAND_IN_D_M for r in sub),
+            'plane_d_p50': mt.pct([r['plane_d_m'] for r in sub
+                                   if r.get('plane_d_m') is not None], .5),
+            'n_with_ref': len(wr),
+            'ref_d_p50': mt.pct([r['ref_d_m'] for r in wr], .5),
+            'ref_tilt_p50': mt.pct([r['ref_tilt_deg'] for r in wr], .5),
+            'rows_to_ref_p50': mt.pct([r['rows_to_ref'] for r in wr], .5),
+            'range_depth_p50': mt.pct([r['range_depth_m'] for r in wr
+                                       if r.get('range_depth_m') is not None], .5),
+            'offset_local_p50': mt.pct([r['offset_local_m'] for r in wr], .5),
+            'offset_level_ref_p50': mt.pct([r['offset_local_level_ref_m'] for r in wr], .5),
+            'offset_ref_tilt_term_p50': mt.pct(
+                [r['offset_local_m'] - r['offset_local_level_ref_m'] for r in wr], .5)})
+    return out
+
+
 def write_summaries(out_root, city_rows, coverage):
     sd = summary_dir(out_root)
     fields = sorted({k for c in coverage for k in c}, key=lambda k: (k != 'city', k))
     write_rows(sd / 'coverage.csv', coverage, fields)
     shares, by_year, offs, ratios, noplane, hist = [], [], [], [], [], []
+    level_rows = []
     for tier, floor in TIERS:
         for label, rows in _groups(city_rows):
             rows = [r for r in rows if r['confidence'] >= floor]
@@ -642,6 +707,7 @@ def write_summaries(out_root, city_rows, coverage):
             meas = by_status.get(depthlib.MEASURED, [])
             # offsets of `floor` detections, local reference (primary) and dominant
             fl = [r for r in meas if r['plane_class'] == FLOOR]
+            level_rows.extend(level_floor_rows(tier, label, fl))
             # `local` and `dominant` are the plan's; the level / non-level split of the local
             # offset is exploratory (see is_level_floor).
             for ref, col, sub in (('local', 'local', fl), ('dominant', 'dominant', fl),
@@ -712,8 +778,10 @@ def write_summaries(out_root, city_rows, coverage):
     share_fields = ['tier', 'city', 'payload_status', 'n'] \
         + [f'n_{k}' for k in CLASSES] + [f'share_{k}' for k in CLASSES] \
         + ['n_surface', 'share_surface', 'n_surface_level_floor',
-           'share_surface_excl_level_floor', 'non_horizontal_tilt_p50']
+           'share_surface_excl_level_floor', 'n_level_floor',
+           'share_surface_level_floor_excluded', 'non_horizontal_tilt_p50']
     write_rows(sd / 'class_shares.csv', shares, share_fields)
+    write_rows(sd / 'level_floor.csv', level_rows, list(level_rows[0]))
     write_rows(sd / 'class_by_year.csv', by_year, list(by_year[0]) if by_year else ['tier'])
     write_rows(sd / 'offset_bins.csv', offs, list(offs[0]))
     write_rows(sd / 'range_ratio.csv', ratios, list(ratios[0]))
@@ -827,6 +895,54 @@ def cmd_gt(args):
 
 # --- verdict ----------------------------------------------------------------------------
 
+def exploratory_level_floor(meas, gt, cities):
+    """Exploratory, NOT the verdict: rule (i)'s arithmetic with the detections on an
+    exactly level secondary floor plane (is_level_floor) taken out, in both readings.
+
+    `excluded_from_denominator` drops them from numerator and denominator -- the reading
+    consistent with the registration's handling of stand-ins (a synthetic_ground payload
+    is reported apart, never pooled), so it leads. `counted_as_off_surface` keeps them in
+    the denominator as failures. `meas` = gt_classes rows of the measured subset.
+
+    Example:
+        >>> rows = [{'city': 'a', 'gt_group': 'true', 'n': 10, 'n_surface': 9,
+        ...          'n_surface_level_floor': 2, 'n_level_floor': 3}]
+        >>> ex = exploratory_level_floor(rows, {'a': {'true_n': 10, 'true_surface': 9,
+        ...     'false_n': 1, 'false_non_surface': 0}}, ['a'])
+        >>> ex['excluded_from_denominator']['true_surface_share_pooled']   # 7 / 7
+        1.0
+        >>> ex['counted_as_off_surface']['true_surface_share_pooled']      # 7 / 10
+        0.7
+    """
+    def row(c, g):
+        return next(r for r in meas if r['city'] == c and r['gt_group'] == g)
+
+    out = {'note': 'not part of the pre-registered reading; see the study doc'}
+    for name, drop_denominator in (('excluded_from_denominator', True),
+                                   ('counted_as_off_surface', False)):
+        ex = {}
+        for c, g in gt.items():
+            t = row(c, 'true')
+            lv, nl = int(t['n_surface_level_floor']), int(t.get('n_level_floor') or 0)
+            ex[c] = {**g, 'true_surface': g['true_surface'] - lv,
+                     'true_n': g['true_n'] - (nl if drop_denominator else 0)}
+        exv = verdict(ex)
+        other = {}
+        for group in ('false', 'missed'):
+            try:
+                r = row('pooled', group)
+            except StopIteration:
+                continue
+            n = int(r['n']) - (int(r.get('n_level_floor') or 0) if drop_denominator else 0)
+            k = int(r['n_surface']) - int(r['n_surface_level_floor'])
+            other[f'{group}_surface_share_pooled'] = k / n if n else None
+        out[name] = {'true_surface_share_pooled': exv['true_surface_share_pooled'],
+                     'true_n_pooled': exv['true_n_pooled'],
+                     'true_surface_share_by_city': exv['true_surface_share_by_city'],
+                     'rule_i_arithmetic': exv['rule_i'], **other}
+    return out
+
+
 def cmd_verdict(args):
     rows = summary_csv(args.out_root, 'gt_classes.csv')
     meas = [r for r in rows if r['subset'] == 'measured']
@@ -841,23 +957,14 @@ def cmd_verdict(args):
            pt['offset_local_median_hi'])
     v = verdict(gt, med)
     v['per_city_counts'] = gt
-    # Exploratory, NOT the verdict: the same rule (i) arithmetic with surface hits on an
-    # exactly level secondary floor plane (is_level_floor) moved out of `surface`.
-    ex = {c: {**g, 'true_surface': g['true_surface'] - int(next(
-        r for r in meas if r['city'] == c and r['gt_group'] == 'true')['n_surface_level_floor'])}
-        for c, g in gt.items()}
-    exv = verdict(ex)
-    v['exploratory_excluding_level_floor'] = {
-        'note': 'not part of the pre-registered reading; see the study doc',
-        'true_surface_share_pooled': exv['true_surface_share_pooled'],
-        'true_surface_share_by_city': exv['true_surface_share_by_city'],
-        'rule_i_arithmetic': exv['rule_i'],
+    v['exploratory_level_floor'] = exploratory_level_floor(meas, gt, args.cities)
+    v['exploratory_level_floor'].update({
         'true_floor_offset_local_median_nonlevel': [
             pt['offset_local_median_nonlevel'], pt['offset_local_median_nonlevel_lo'],
             pt['offset_local_median_nonlevel_hi']],
         'true_floor_offset_local_median_level': [
             pt['offset_local_median_level'], pt['offset_local_median_level_lo'],
-            pt['offset_local_median_level_hi']]}
+            pt['offset_local_median_level_hi']]})
     print(json.dumps(v, indent=2))
     with open(summary_dir(args.out_root) / 'verdict.json', 'w', encoding='utf-8') as f:
         json.dump(v, f, indent=2)

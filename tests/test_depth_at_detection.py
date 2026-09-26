@@ -67,6 +67,8 @@ def test_offset_local_is_the_height_above_the_road():
     pix = _index()
     out = dad.classify(pix, *_xy(9, 21))
     assert out['offset_local_m'] == pytest.approx(0.15, abs=1e-6)
+    # a level reference: the tilt term is zero, so the split gives the whole offset
+    assert out['offset_local_level_ref_m'] == pytest.approx(0.15, abs=1e-6)
     assert out['rows_to_ref'] == 3                     # rows 22, 23 are patch; 24 is road
     assert out['offset_dominant_m'] == pytest.approx(0.15, abs=1e-6)
 
@@ -84,6 +86,14 @@ def test_offset_against_a_tilted_reference_is_analytic():
     out = dad.classify(pix, x, y)
     assert out['plane_class'] == dad.FLOOR
     assert out['offset_local_m'] == pytest.approx(z_ref - p[2], abs=1e-5)
+    # the descriptive split: a level reference at the tilted road's nadir height, plus the
+    # reference-tilt term carried out to the hit point (#91 review finding 2)
+    assert out['offset_local_level_ref_m'] == pytest.approx(h / math.cos(tr) - p[2], abs=1e-5)
+    assert out['offset_local_m'] - out['offset_local_level_ref_m'] == pytest.approx(
+        math.tan(tr) * (math.cos(br) * p[0] + math.sin(br) * p[1]), abs=1e-5)
+    assert out['plane_d_m'] == pytest.approx(patch_d, abs=1e-6)
+    assert out['ref_d_m'] == pytest.approx(h, abs=1e-6)
+    assert out['ref_tilt_deg'] == pytest.approx(t, abs=1e-4)
     # a mirrored azimuth would put the hit elsewhere on the tilted plane
     pm = [p[0] * -1, p[1], p[2]]
     z_m = h / math.cos(tr) + math.tan(tr) * (math.cos(br) * pm[0] + math.sin(br) * pm[1])
@@ -234,6 +244,32 @@ def test_limit_writes_its_own_file(tmp_path, monkeypatch):
     rows = dad.read_detections(out / 'x' / 'depth_at_detection' / 'detections.limit.csv')
     assert [(r['pano_id'], r['payload_status']) for r in rows] == [('p1', dad.NO_FILE)]
     assert not (out / '_summary').exists()
+
+
+def _floor_row(level, d, off, off_level, ref_d=2.36, ref_tilt=1.8):
+    return {'plane_class': dad.FLOOR, 'plane_tilt_deg': 0.0 if level else 2.0,
+            'plane_d_m': d, 'offset_local_m': off, 'offset_local_level_ref_m': off_level,
+            'ref_d_m': ref_d, 'ref_tilt_deg': ref_tilt, 'rows_to_ref': 12,
+            'range_depth_m': 10.0}
+
+
+def test_level_floor_rows_count_the_exact_stand_in_distance():
+    rows = [_floor_row(True, 2.5, 0.12, -0.14), _floor_row(True, 2.5, 0.14, -0.14),
+            _floor_row(True, 2.4999999, 0.1, -0.1), _floor_row(False, 2.3, 0.03, 0.03)]
+    by = {r['split']: r for r in dad.level_floor_rows('0.55', 'c', rows)}
+    assert by['all']['n_floor'] == 4 and by['level']['n_floor'] == 3
+    assert by['level']['n_plane_d_exactly_2p5'] == 2        # 2.4999999 is not 2.5
+    assert by['nonlevel']['n_plane_d_exactly_2p5'] == 0
+    assert by['level']['offset_ref_tilt_term_p50'] == pytest.approx(0.26)
+
+
+def test_plane_distance_survives_the_csv_round_trip(tmp_path):
+    rows = [{'pano_id': '0012e', 'det_index': 1, 'plane_d_m': 2.4999999, 'ref_d_m': 2.5,
+             'plane_tilt_deg': 0.0, 'plane_class': dad.FLOOR}]
+    dad.write_rows(tmp_path / 'd.csv', rows, dad.DET_FIELDS)
+    back = dad.read_detections(tmp_path / 'd.csv')[0]
+    assert back['plane_d_m'] == 2.4999999 and back['ref_d_m'] == 2.5
+    assert back['pano_id'] == '0012e' and dad.is_level_floor(back)
 
 
 def test_figure_errorbar_skips_an_empty_gt_group():
