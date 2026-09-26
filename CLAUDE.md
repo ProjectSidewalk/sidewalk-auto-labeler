@@ -349,6 +349,22 @@ python scripts/reposition.py runs/laurens/results.jsonl --field raw   # whole fi
 # mixed file). Outputs land beside it as results.check.position_check.json / _report.html.
 python scripts/position_check.py runs/laurens --results runs/laurens/results.check.jsonl
 
+# POST-SUBMISSION COVERAGE CHECK (issue #46). Read-only (GET only): does every pano we sent
+# labels to have its backup image on the server? The EXPECTED set comes from the submission
+# records + sidecars (position_check.campaigns_for, each campaign replayed through
+# transform_record at the range it sent and its recorded rig mask), never from results.jsonl
+# alone, and every record in the run dir is unioned (Richmond = three files, 4,613 panos).
+# Backup state is `has_backup` from /labels/all joined to rawLabels on label_id; `false` means
+# UNCONFIRMED (NULL reads as false), never absent. /backupImage/<id>/metadata also 404s when
+# the pano row has a null camera_pitch, so its probe (sequential, spaced, --max-confirm) is
+# decisive only for pose-pushed panos: 404 + pitch = missing, 404 + null pitch = unconfirmed.
+# Panos with no live AI label left (soft-deleted) are `retired`, never a gap. Exit 0 clean,
+# 1 missing (or unconfirmed with --strict), 2 undetermined. --archive <index.csv|dir> lists
+# the archived fallback files (fallback.csv); placing them is out of scope (SW#4865). Pulls
+# cached in runs/<city>/coverage/ (untracked; --refresh re-pulls); report.md + CSVs tracked.
+python scripts/coverage_check.py runs/richmond/results.jsonl --server https://sidewalk-richmond.cs.washington.edu
+python scripts/coverage_check.py runs/laurens/results.raw.jsonl --server https://sidewalk-laurens.cs.washington.edu
+
 # Run the tests (no GPU/network/model; light deps via requirements-test.txt)
 pytest
 
