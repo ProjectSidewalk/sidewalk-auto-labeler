@@ -518,7 +518,7 @@ def shuffled_grades(run_panos, within_sequence, seed=SHUFFLE_SEED):
              for i, p in enumerate(run_panos)], unshuffled)
 
 
-def refit_frozen(sites, frame, place, arms, sigma_scale=1.0):
+def refit_frozen(sites, frame, place, arms, sigma_scale=1.0, counts=None):
     """Re-place a frozen site set under several arms (the #42 precondition design, also
     scripts/inventory_oracle.py's for #79).
 
@@ -526,6 +526,10 @@ def refit_frozen(sites, frame, place, arms, sigma_scale=1.0):
     from its own raycast of the site's OPERATIONAL members, with the same inverse-covariance
     refit fuse_sites.Site uses. A site is kept only if EVERY arm places EVERY one of those
     members (place() returning None anywhere drops it), so all arms describe one site set.
+    A site with NO operational member has nothing to refit from and is dropped too (its
+    information matrix would be zero); when `counts` (a dict) is given, those drops are
+    tallied in counts['no_operational_members']. Today's callers pass only sites with
+    n_operational > 0, so this is a guard, not a behaviour change.
 
     place(arm, pano_id, x, y) -> geo.GroundEstimate or None; `frame` is the fuse's
     LocalFrame. Returns (kept, site_pos, placed): the kept sites in input order,
@@ -541,6 +545,10 @@ def refit_frozen(sites, frame, place, arms, sigma_scale=1.0):
     kept, site_pos, member_placed = [], {arm: [] for arm in arms}, {arm: [] for arm in arms}
     for site in sites:
         members = [d for d, _ in site.members if d.operational]
+        if not members:
+            if counts is not None:
+                counts['no_operational_members'] = counts.get('no_operational_members', 0) + 1
+            continue
         placed = {}
         for arm in arms:
             gs = [place(arm, d.pano_id, d.x, d.y) for d in members]

@@ -2,6 +2,7 @@
 convention and the pre-registered verdict -- all offline and synthetic."""
 import json
 import math
+from types import SimpleNamespace
 
 import pytest
 
@@ -166,6 +167,24 @@ def test_frozen_refit_drops_a_site_any_arm_cannot_place():
     kept, pos, _ = es.refit_frozen(sites, frame, io.placer(arms), ('a', 'tall'))
     assert [s.members[0][0].pano_id for s in kept] == ['near']
     assert [p.id for p in pos['a']] == [kept[0].id]
+
+
+def test_frozen_refit_drops_and_counts_a_site_with_no_operational_member():
+    """A site with nothing to refit from is dropped (not a ZeroDivisionError in
+    geo.sym2_inv), and counted when the caller asks."""
+    pano = make_pano('p', 0, 0, [(0, 10, 0.9)], heading_deg=0.0)
+    arms = {'a': ([pano], fs.FuseParams())}
+    sites, frame, _ = fs.fuse([pano], arms['a'][1])
+    empty = SimpleNamespace(id=-1, members=[(d, r) for d, r in sites[0].members
+                                            if not d.operational])
+    counts = {}
+    kept, pos, _ = es.refit_frozen([empty, sites[0]], frame, io.placer(arms), ('a',),
+                                   counts=counts)
+    assert [s.id for s in kept] == [sites[0].id]
+    assert [p.id for p in pos['a']] == [sites[0].id]
+    assert counts == {'no_operational_members': 1}
+    kept, _, _ = es.refit_frozen([empty], frame, io.placer(arms), ('a',))   # no counts
+    assert kept == []
 
 
 # ------------------------------------------------------------------- along-ray sign
