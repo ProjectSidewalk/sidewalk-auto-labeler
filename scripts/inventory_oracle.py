@@ -27,7 +27,10 @@ Scoring (the #42 precondition design, eval_sites.refit_frozen):
   repeat it with membership from (b)'s / (c)'s own fuse (decision rule 3).
 - The (a)-ANCHORED POOL: inventory points matched one-to-one to a site under (a) within
   the radius. Frozen membership keeps site identity, so each arm's distance is to the SAME
-  site for the SAME point: median, p90, share within 3 m.
+  site for the SAME point: median, p90, share within 3 m. The match truncates (a)'s own
+  errors at the radius and no one else's, so the pool is conservative against both
+  candidates -- in frozen@b / frozen@c too. `score --pool-anchor frame` re-anchors
+  frozen@X's pool on X, as a sensitivity check (docs/placement-oracle.md).
 - OWN-MATCH per arm: that arm's sites matched to the inventory on their own -- coverage
   (matched / kept points) and share within 3 m; the survivorship check.
 - OWN association (`own` frame): each arm fused under itself, own-match only. It favours
@@ -54,6 +57,7 @@ Usage:
     python scripts/inventory_oracle.py score bend gainesville
     python scripts/inventory_oracle.py score gainesville --tier 0.55 --radius 2.5 5 8 \\
         --scale 1.06 1.10 --rig-cut 2.0 2.2 --out /tmp/sens     # sensitivity, not committed
+    python scripts/inventory_oracle.py score bend gainesville --pool-anchor frame         --out /tmp/anchor      # frozen@X's pool on X: the rule-3 anchoring sensitivity
     python scripts/inventory_oracle.py verdict        # always gainesville (decides) + bend
 """
 import argparse
@@ -166,6 +170,7 @@ RADII_M = (2.5, 5.0, 8.0)
 WITHIN_M = 3.0
 FROZEN = 'frozen@'          # frame name prefix: membership from that arm's own fuse
 OWN = 'own'
+POOL_FRAME = 'frame'        # score --pool-anchor frame: frozen@X's pool on X (sensitivity)
 DECIDING_CITY = 'gainesville'   # 64% 2026 rig: the only city that can show the effect
 GUARD_CITY = 'bend'             # 84% 2024: old-rig no-regression
 DECIDING_VINTAGE = '2026'
@@ -515,11 +520,16 @@ def _stats(dists):
                                         if dists else None)}
 
 
-def score_frozen(anchor, fused, points, arm_names, arms, by_id, radii, sigma_scale):
+def score_frozen(anchor, fused, points, arm_names, arms, by_id, radii, sigma_scale,
+                 pool_arm=ARM_A):
     """Rows and vintage rows for one frozen frame (membership from `anchor`'s own fuse).
 
     fused[anchor] = (sites, frame); points are Pt in that frame. The pool at each radius
-    is always anchored on arm (a)'s re-placed positions within this membership."""
+    is anchored on `pool_arm`'s re-placed positions within this membership: arm (a) for
+    every frame, as pre-registered. The one-to-one match truncates the pool arm's own
+    errors at the radius and nobody else's, so an (a)-anchored pool is conservative
+    against both candidates; `score --pool-anchor frame` (pool_arm = anchor) is the
+    sensitivity check on that, never the verdict."""
     sites, frame = fused[anchor]
     op_sites = [s for s in sites if s.n_operational > 0]
     kept_sites, site_pos, members = es.refit_frozen(op_sites, frame, placer(arms), arm_names,
@@ -528,7 +538,7 @@ def score_frozen(anchor, fused, points, arm_names, arms, by_id, radii, sigma_sca
     frame_name = FROZEN + anchor
     rows, vrows = [], []
     for radius in radii:
-        pool = match_one_to_one(points, site_pos[ARM_A], radius)   # {pt index: _Placed}
+        pool = match_one_to_one(points, site_pos[pool_arm], radius)  # {pt index: _Placed}
         for arm in arm_names:
             pos = site_pos[arm]
             dists = [math.hypot(points[i].e - pos[index[s.id]].e,
@@ -589,8 +599,12 @@ def score_own(arm, fused, points, radii):
 
 
 def score_city(city, tier=OPERATIONAL_CONFIDENCE, radii=RADII_M, scales=(), rig_cuts=(),
-               runs_root=None, out=None, limit=None, panos=None, inventory=None):
+               runs_root=None, out=None, limit=None, panos=None, inventory=None,
+               pool_anchor=ARM_A):
     """Everything `score` computes for one city. Returns a dict (see write_outputs).
+
+    pool_anchor: ARM_A (pre-registered: every frozen frame's pool on (a)) or 'frame'
+    (frozen@X's pool on X -- the anchoring sensitivity check; not what verdict reads).
 
     `panos` / `inventory` ([(index, lat, lng, props)]) may be passed in (tests); by
     default they are read from runs/<city>/ and the cached snapshot."""
@@ -626,7 +640,8 @@ def score_city(city, tier=OPERATIONAL_CONFIDENCE, radii=RADII_M, scales=(), rig_
     rows, vrows = [], []
     for anchor in DECISION_ARMS:
         r, v = score_frozen(anchor, fused, points, arm_names, arms, by_id, radii,
-                            base.sigma_scale)
+                            base.sigma_scale,
+                            pool_arm=anchor if pool_anchor == POOL_FRAME else ARM_A)
         rows += r
         vrows += v
     for arm in arm_names:
@@ -635,7 +650,7 @@ def score_city(city, tier=OPERATIONAL_CONFIDENCE, radii=RADII_M, scales=(), rig_
         r['city'] = city
         r['tier'] = tier
     return {'city': city, 'tier': tier, 'rows': rows, 'vintage_rows': vrows,
-            'record': record, 'rig': rig, 'n_panos': len(panos),
+            'pool_anchor': pool_anchor, 'record': record, 'rig': rig, 'n_panos': len(panos),
             'camera_heights': {a: stats[a]['camera_heights'] for a in arm_names},
             'n_op_sites': {a: stats[a]['n_operational_sites'] for a in arm_names},
             'inventory': inventory, 'fused_a': fused[ARM_A],
@@ -867,7 +882,9 @@ def report_markdown(res):
     for y, (med, h) in sorted(res['rig'].items()):
         lines.append(f'| {y} | {med:.3f} | {h:.1f} |')
     for radius in sorted({r['radius_m'] for r in rows}):
-        lines += ['', f'## Frozen association, {radius:g} m, (a)-anchored pool', '',
+        anchoring = ('(a)-anchored pool' if res.get('pool_anchor', ARM_A) == ARM_A else
+                     "pool anchored on each frame's own arm (SENSITIVITY, not the verdict)")
+        lines += ['', f'## Frozen association, {radius:g} m, {anchoring}', '',
                   '| frame | arm | pool | median m | p90 m | <= 3 m | own coverage | '
                   'own <= 3 m | chance | sites scored / dropped |',
                   '|---|---|---:|---:|---:|---:|---:|---:|---:|---|']
@@ -932,7 +949,7 @@ def cmd_score(args):
     for city in args.cities:
         res = score_city(city, tier=args.tier, radii=tuple(args.radius),
                          scales=tuple(args.scale), rig_cuts=tuple(args.rig_cut),
-                         out=args.out, limit=args.limit)
+                         out=args.out, limit=args.limit, pool_anchor=args.pool_anchor)
         dest = write_outputs(res, args.out)
         print(f'{city}: {res["n_panos"]} panos, {len(res["inventory"])} kept points, '
               f'{res["runtime_s"]:.0f} s -> {dest}')
@@ -977,6 +994,9 @@ def build_parser():
                    help='extra per-pano scale arms (sensitivity, not a verdict)')
     p.add_argument('--rig-cut', type=float, nargs='*', default=[],
                    help='extra per-rig threshold arms (sensitivity, not a verdict)')
+    p.add_argument('--pool-anchor', choices=(ARM_A, POOL_FRAME), default=ARM_A,
+                   help="a (pre-registered): every frozen frame's pool on (a); frame: "
+                        "frozen@X's pool on X -- sensitivity only, needs --out")
     p.add_argument('--limit', type=int, default=None, help='first N panos (smoke)')
     p.set_defaults(fn=cmd_score)
     p = sub.add_parser('verdict', help='the pre-registered rule over arms.csv/vintage.csv '
@@ -991,6 +1011,9 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     if args.cmd == 'score' and PRIMARY_RADIUS_M not in args.radius:
         raise SystemExit(f'--radius must include the primary {PRIMARY_RADIUS_M:g} m')
+    if args.cmd == 'score' and args.pool_anchor != ARM_A and not args.out:
+        raise SystemExit('--pool-anchor frame is a sensitivity check: pass --out so it never '
+                         'overwrites the committed arms.csv that verdict reads')
     args.fn(args)
 
 

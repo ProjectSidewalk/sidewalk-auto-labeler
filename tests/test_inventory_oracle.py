@@ -248,6 +248,25 @@ def test_score_anchors_the_pool_on_a_and_reads_the_same_site_under_every_arm():
     assert res['rig'] == {'2026': (2.0, 2.0)}
 
 
+def test_pool_anchor_frame_re_anchors_only_the_other_memberships():
+    """--pool-anchor frame (sensitivity): frozen@X's pool on X; frozen@a is untouched."""
+    targets = [(0.0, 8.0), (40.0, 10.0), (80.0, 6.0)]
+    panos = [make_pano(f'p{k}', te, 0.0, [(te, tn, 0.9)], heading_deg=0.0,
+                       capture='2026-04', height=2.0) for k, (te, tn) in enumerate(targets)]
+    inventory = [(k, *FRAME.to_latlng(te, tn), {}) for k, (te, tn) in enumerate(targets)]
+    kw = dict(radii=(2.5, 5.0), panos=panos, inventory=inventory)
+    pre = {(r['frame'], r['arm'], r['radius_m']): r
+           for r in io.score_city('synthetic', **kw)['rows']}
+    sen = {(r['frame'], r['arm'], r['radius_m']): r
+           for r in io.score_city('synthetic', pool_anchor=io.POOL_FRAME, **kw)['rows']}
+    assert all(sen[k] == pre[k] for k in pre if k[0] in ('frozen@a', 'own'))
+    # at 2.5 m (a) reaches 2 of the 3 ramps and (c) all three: the pool follows the anchor
+    assert pre['frozen@c', 'c', 2.5]['n_pool'] == 2
+    assert sen['frozen@c', 'c', 2.5]['n_pool'] == sen['frozen@c', 'a', 2.5]['n_pool'] == 3
+    with pytest.raises(SystemExit, match='--out'):
+        io.main(['score', 'synthetic', '--pool-anchor', 'frame'])
+
+
 # -------------------------------------------------------------------------- verdict
 
 def _city_rows(a, b, c, own=None, frozen_x=None, cov=None, dropped=0):
