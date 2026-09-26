@@ -18,13 +18,20 @@ Three camera-height arms, all GSV, all at OPERATIONAL_CONFIDENCE with the rig ma
            depth height is < 2.1 m raycasts at 2.0 m, every other dated pano at 2.5 m --
            unmeasured panos included, since a rig is not a payload. A vintage with no
            measured pano, or an undated pano, falls back to 2.6 m.
+  (d) `d`  (c) with a measurement minimum -- added 2026-09-26 and posted on #79 before it
+           was scored, because (c) gave thinly measured vintages (Gainesville 2015: 226 of
+           606 panos measured; 2018: 187 of 1,059) the low-rig height on a median of few
+           payloads. A vintage gets its depth-median height (2.0 m below 2.1 m, else 2.5 m)
+           only if >= 50% of its dated panos AND >= 50 panos are measured; every other
+           dated vintage gets 2.5 m. Undated panos fall back to 2.6 m. (d) replaces (c) as
+           the per-rig candidate: (c) is still scored and reported, never selected.
 
 Scoring (the #42 precondition design, eval_sites.refit_frozen):
 
 - FROZEN association, the primary frame: fuse once under (a); keep that membership; each
   arm re-places every operational member and re-solves the site. A site counts only if
-  every arm places every operational member at the 25 m cap. `frozen@b` / `frozen@c`
-  repeat it with membership from (b)'s / (c)'s own fuse (decision rule 3).
+  every arm places every operational member at the 25 m cap. `frozen@b` / `frozen@c` /
+  `frozen@d` repeat it with membership from (b)'s / (c)'s own fuse (decision rule 3).
 - The (a)-ANCHORED POOL: inventory points matched one-to-one to a site under (a) within
   the radius. Frozen membership keeps site identity, so each arm's distance is to the SAME
   site for the SAME point: median, p90, share within 3 m. The match truncates (a)'s own
@@ -42,7 +49,9 @@ Scoring (the #42 precondition design, eval_sites.refit_frozen):
   again (agree_rate.chance_floor), the share that still matches.
 
 The decision rule is PRE-REGISTERED on #79 (constants below, `verdict()`), fixed before
-the first scoring run. It is applied to the committed arms.csv / vintage.csv; this script
+the first scoring run. Amended once, 2026-09-26, before (d) was scored: rule 4's coverage
+half is read one-sided (a drop fails, a gain passes -- the maintainer's reading of the
+committed intent), and (d) takes (c)'s place in rule 6. It is applied to the committed arms.csv / vintage.csv; this script
 never changes the default -- a pass is a follow-up PR.
 
 Network: `fetch` only, read-only GETs to the two ArcGIS hosts in INVENTORIES, paged with
@@ -162,9 +171,12 @@ ALLOWED_HOSTS = {urllib.parse.urlparse(v['url']).hostname
 
 # --- arms and the pre-registered rule (issue #79; fixed before the first scoring run) ---
 
-ARM_A, ARM_B, ARM_C, ARM_B_REF = 'a', 'b', 'c', 'b1.00'
-DECISION_ARMS = (ARM_A, ARM_B, ARM_C)
-CANDIDATES = (ARM_B, ARM_C)
+ARM_A, ARM_B, ARM_C, ARM_D, ARM_B_REF = 'a', 'b', 'c', 'd', 'b1.00'
+DECISION_ARMS = (ARM_A, ARM_B, ARM_C, ARM_D)
+CANDIDATES = (ARM_B, ARM_C, ARM_D)   # every candidate is scored against rules 1-5 ...
+SELECTABLE = (ARM_B, ARM_D)          # ... but (c) is superseded by (d) (#79, 2026-09-26)
+OPTION_D_MIN_MEASURED = 50           # (d): measured panos a vintage needs for its own height
+OPTION_D_MIN_SHARE = 0.5             # (d): ... and the share of its dated panos they must be
 PRIMARY_RADIUS_M = 5.0
 RADII_M = (2.5, 5.0, 8.0)
 WITHIN_M = 3.0
@@ -175,14 +187,15 @@ DECIDING_CITY = 'gainesville'   # 64% 2026 rig: the only city that can show the 
 GUARD_CITY = 'bend'             # 84% 2024: old-rig no-regression
 DECIDING_VINTAGE = '2026'
 RULE_MARGIN_M = 0.10            # rules 1, 2, 6 (the #42 tolerance)
-RULE_MAX_COVERAGE_DROP = 0.010  # rule 4: own-match coverage within 1.0 pt of (a)'s
+RULE_MAX_COVERAGE_DROP = 0.010  # rule 4: own-match coverage may not DROP > 1.0 pt (one-sided)
 RULE_MAX_SITE_DROP = 0.05       # rule 4: sites lost to the every-arm-places filter
 RULE_DIRECTION_M = 0.75         # rule 5: |2026 median along-ray offset| under X
 
 
 def arm_label(arm):
     return {ARM_A: '(a) 2.6 m', ARM_B: f'(b) per-pano x {OPTION_B_SCALE:.2f}',
-            ARM_C: '(c) per-rig 2.0/2.5', ARM_B_REF: 'per-pano x 1.00 (ref)'}.get(arm, arm)
+            ARM_C: '(c) per-rig 2.0/2.5',
+            ARM_D: '(d) per-rig, measured vintages', ARM_B_REF: 'per-pano x 1.00 (ref)'}.get(arm, arm)
 
 
 # ----------------------------------------------------------------------------- fetch
@@ -441,6 +454,41 @@ def per_rig_panos(panos, cut=OPTION_C[0], low=OPTION_C[1], high=OPTION_C[2]):
     return out, rig
 
 
+def per_rig_measured_panos(panos, cut=OPTION_C[0], low=OPTION_C[1], high=OPTION_C[2],
+                           min_measured=OPTION_D_MIN_MEASURED, min_share=OPTION_D_MIN_SHARE):
+    """Option (d): (c) with a measurement minimum (#79, posted 2026-09-26 before scoring).
+
+    A vintage (capture year) takes (c)'s depth-median height only if at least
+    `min_measured` of its dated panos, and at least `min_share` of them, carry a measured
+    height; every other dated vintage -- thinly measured or not measured at all -- gets
+    `high`, the old-rig height. Undated panos get None (the 2.6 m fallback), as in (c).
+    Returns (panos, {year: (median or None, n_measured, n_dated, height)}).
+
+    Example: 606 dated panos, 226 measured at a 1.93 m median -> 37% < 50% -> 2.5 m, where
+    (c) would give 2.0 m.
+    """
+    med = vintage_medians(panos)
+    dated, measured = {}, {}
+    for p in panos:
+        y = _year(p)
+        if y:
+            dated[y] = dated.get(y, 0) + 1
+            measured[y] = measured.get(y, 0) + (p.camera_height_m is not None)
+    rig = {}
+    for y, n in dated.items():
+        m, k = med.get(y), measured[y]
+        qualifies = m is not None and k >= min_measured and k / n >= min_share
+        rig[y] = (m, k, n, (low if m < cut else high) if qualifies else high)
+    out = []
+    for p in panos:
+        y = _year(p)
+        h = rig[y][3] if y in rig else None
+        out.append(replace(p, camera_height_m=h, camera_height_spread_m=None,
+                           camera_height_vintage_m=None,
+                           height_group=f'{y}:{h:g}' if h is not None else None))
+    return out, rig
+
+
 def scaled_panos(panos, scale):
     """Option (b): copies with every measured depth height (and its vintage median, so the
     #44 QC flag reads the same) multiplied by `scale`; unmeasured panos unchanged. The
@@ -454,19 +502,22 @@ def scaled_panos(panos, scale):
 
 def build_arms(panos, base, scales=(), rig_cuts=()):
     """{arm: (panos, FuseParams)} -- the three decision arms, the x1.00 reference, and any
-    sensitivity arms (`b<scale>`, `c<cut>`), plus the per-rig assignment for the report."""
+    sensitivity arms (`b<scale>`, `c<cut>`), plus the per-rig assignments ((c), (d)) for
+    the report."""
     rig_panos, rig = per_rig_panos(panos)
+    rig_d_panos, rig_d = per_rig_measured_panos(panos)
     arms = {ARM_A: (panos, replace(base, camera_height_m=geo.DEFAULT_CAMERA_HEIGHT_M)),
             ARM_B: (scaled_panos(panos, OPTION_B_SCALE),
                     replace(base, camera_height_m=geo.PER_PANO)),
             ARM_C: (rig_panos, replace(base, camera_height_m=geo.PER_RIG)),
+            ARM_D: (rig_d_panos, replace(base, camera_height_m=geo.PER_RIG)),
             ARM_B_REF: (panos, replace(base, camera_height_m=geo.PER_PANO))}
     for s in scales:
         arms[f'b{s:.2f}'] = (scaled_panos(panos, s), replace(base, camera_height_m=geo.PER_PANO))
     for cut in rig_cuts:
         arms[f'c{cut:.2f}'] = (per_rig_panos(panos, cut=cut)[0],
                                replace(base, camera_height_m=geo.PER_RIG))
-    return arms, rig
+    return arms, rig, rig_d
 
 
 # ---------------------------------------------------------------------------- scoring
@@ -622,7 +673,7 @@ def score_city(city, tier=OPERATIONAL_CONFIDENCE, radii=RADII_M, scales=(), rig_
     if inventory is None:
         inventory, record = load_inventory(city, out)
     base = fs.FuseParams(min_confidence=tier)
-    arms, rig = build_arms(panos, base, scales, rig_cuts)
+    arms, rig, rig_d = build_arms(panos, base, scales, rig_cuts)
     arm_names = tuple(arms)
     fused, stats = {}, {}
     for arm, (ps, params) in arms.items():
@@ -650,7 +701,8 @@ def score_city(city, tier=OPERATIONAL_CONFIDENCE, radii=RADII_M, scales=(), rig_
         r['city'] = city
         r['tier'] = tier
     return {'city': city, 'tier': tier, 'rows': rows, 'vintage_rows': vrows,
-            'pool_anchor': pool_anchor, 'record': record, 'rig': rig, 'n_panos': len(panos),
+            'pool_anchor': pool_anchor, 'record': record, 'rig': rig, 'rig_d': rig_d,
+            'n_panos': len(panos),
             'camera_heights': {a: stats[a]['camera_heights'] for a in arm_names},
             'n_op_sites': {a: stats[a]['n_operational_sites'] for a in arm_names},
             'inventory': inventory, 'fused_a': fused[ARM_A],
@@ -735,25 +787,27 @@ def verdict(rows_by_city, vintage_by_city):
     written to arms.csv / vintage.csv (strings or numbers). Returns
     (selected arm, {candidate: {rule: bool}}, reasons).
 
-    Primary frame: frozen@a, 5 m, the (a)-anchored pool. A candidate X in {b, c} replaces
-    2.6 m only if ALL hold:
+    Primary frame: frozen@a, 5 m, the (a)-anchored pool. Every candidate X in {b, c, d}
+    present in the rows is scored; X in SELECTABLE {b, d} replaces 2.6 m only if ALL hold:
       1. gainesville: X's p90 AND median improve on (a) by > 0.10 m.
       2. bend: X's p90 is not worse than (a)'s by > 0.10 m.
       3. gainesville, not by construction: X fused under itself (`own`) has an own-match
          p90 below (a)'s primary p90, AND in frozen@X (X's membership, pool still anchored
          on (a)'s positions) X's p90 is below (a)'s.
-      4. survivorship, both cities: X's own-match coverage (primary frame) within 1.0 pt of
-         (a)'s; sites dropped by the every-arm-places filter <= 5% of (a)'s operational
+      4. survivorship, both cities: X's own-match coverage (primary frame) does not DROP
+         more than 1.0 pt below (a)'s -- one-sided since 2026-09-26 (#79); sites dropped by the every-arm-places filter <= 5% of (a)'s operational
          sites -- else the candidate is a CAVEAT, never selected.
       5. direction: gainesville's 2026-vintage median along-ray offset under X (primary
          frame) within +-0.75 m of zero.
-      6. tie-break: both pass -> (c), unless (b)'s p90 beats (c)'s by > 0.10 m in both
-         cities. Neither passes -> (a): 2.6 m stays.
+      6. tie-break: both selectable candidates pass -> (d), unless (b)'s p90 beats (d)'s by
+         > 0.10 m in both cities. Neither passes -> (a): 2.6 m stays. (c) is reported
+         with its rule results but is never selected: (d) superseded it (#79).
     """
     reasons, results = [], {}
     prim = FROZEN + ARM_A
     gv, bd = rows_by_city[DECIDING_CITY], rows_by_city[GUARD_CITY]
-    for x in CANDIDATES:
+    present = {r['arm'] for r in gv}
+    for x in (c for c in CANDIDATES if c in present):
         res = {}
         ga, gx = _row(gv, prim, ARM_A), _row(gv, prim, x)
         dp90 = _f(ga['p90_m']) - _f(gx['p90_m'])
@@ -787,14 +841,15 @@ def verdict(rows_by_city, vintage_by_city):
             ra, rx = _row(rows, prim, ARM_A), _row(rows, prim, x)
             dcov = _f(rx['coverage']) - _f(ra['coverage'])
             drop = _f(ra['sites_dropped']) / _f(ra['op_sites']) if _f(ra['op_sites']) else 0.0
-            cov_ok &= abs(dcov) <= RULE_MAX_COVERAGE_DROP + 1e-12
+            cov_ok &= dcov >= -RULE_MAX_COVERAGE_DROP - 1e-12
             drop_ok &= drop <= RULE_MAX_SITE_DROP
             bits.append(f'{city} coverage {x}-a {100 * dcov:+.2f} pt, sites dropped '
                         f'{100 * drop:.2f}%')
         res['4'] = cov_ok and drop_ok
         res['caveat'] = not drop_ok
         reasons.append(f'[{x}] rule 4: ' + '; '.join(bits)
-                       + f' (coverage within {100 * RULE_MAX_COVERAGE_DROP:.1f} pt, drop <= '
+                       + f' (coverage may not drop > {100 * RULE_MAX_COVERAGE_DROP:.1f} pt, '
+                       f'site drop <= '
                        f'{100 * RULE_MAX_SITE_DROP:.0f}%) -> '
                        + ('pass' if res['4'] else 'CAVEAT (site drop)' if not drop_ok
                           else 'FAIL'))
@@ -807,19 +862,21 @@ def verdict(rows_by_city, vintage_by_city):
         res['pass'] = all(res[k] for k in '12345')
         results[x] = res
         reasons.append(f'[{x}] -> {"PASSES" if res["pass"] else "does not pass"}')
-    passing = [x for x in CANDIDATES if results[x]['pass']]
+    if results.get(ARM_C, {}).get('pass'):
+        reasons.append(f'[{ARM_C}] passes but is superseded by {ARM_D} (#79): not selectable')
+    passing = [x for x in SELECTABLE if x in results and results[x]['pass']]
     if not passing:
         selected = ARM_A
-        reasons.append('rule 6: neither candidate passes -> (a) 2.6 m stays')
+        reasons.append('rule 6: no selectable candidate passes -> (a) 2.6 m stays')
     elif len(passing) == 1:
         selected = passing[0]
         reasons.append(f'rule 6: only {selected} passes -> {arm_label(selected)}')
     else:
-        b_better = all(_f(_row(rows_by_city[c], prim, ARM_C)['p90_m'])
+        b_better = all(_f(_row(rows_by_city[c], prim, ARM_D)['p90_m'])
                        - _f(_row(rows_by_city[c], prim, ARM_B)['p90_m']) > RULE_MARGIN_M
                        for c in (DECIDING_CITY, GUARD_CITY))
-        selected = ARM_B if b_better else ARM_C
-        reasons.append(f'rule 6: both pass; (b) beats (c) on p90 by > {RULE_MARGIN_M} m in '
+        selected = ARM_B if b_better else ARM_D
+        reasons.append(f'rule 6: both pass; (b) beats (d) on p90 by > {RULE_MARGIN_M} m in '
                        f'both cities: {b_better} -> {arm_label(selected)}')
     reasons.append(f'#79 VERDICT: {arm_label(selected)}'
                    + ('' if selected == ARM_A else ' -- a follow-up PR flips the default'))
@@ -881,6 +938,13 @@ def report_markdown(res):
     lines += ['| vintage | median depth m | (c) height m |', '|---|---:|---:|']
     for y, (med, h) in sorted(res['rig'].items()):
         lines.append(f'| {y} | {med:.3f} | {h:.1f} |')
+    lines += ['', f'(d) assignment: a vintage keeps its depth-median height only with >= '
+              f'{OPTION_D_MIN_MEASURED} measured panos that are >= '
+              f'{100 * OPTION_D_MIN_SHARE:.0f}% of its dated panos; else 2.5 m.', '',
+              '| vintage | measured / dated | share | median depth m | (d) height m |',
+              '|---|---:|---:|---:|---:|']
+    for y, (med, k, n, h) in sorted(res['rig_d'].items()):
+        lines.append(f'| {y} | {k} / {n} | {100 * k / n:.0f}% | {m(med, 3)} | {h:.1f} |')
     for radius in sorted({r['radius_m'] for r in rows}):
         anchoring = ('(a)-anchored pool' if res.get('pool_anchor', ARM_A) == ARM_A else
                      "pool anchored on each frame's own arm (SENSITIVITY, not the verdict)")
