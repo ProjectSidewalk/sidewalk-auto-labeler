@@ -127,7 +127,7 @@ python scripts/height_qc.py
 # pre-registered on #79 (inventory_oracle.verdict); docs/placement-oracle.md. Network only
 # in `fetch` (the two ArcGIS hosts); a cached pull is reused, --refresh re-pulls it.
 python scripts/inventory_oracle.py fetch bend gainesville vancouver
-python scripts/inventory_oracle.py score bend gainesville     # ~minutes, no GPU/network
+python scripts/inventory_oracle.py score bend gainesville     # ~100 s for both, no GPU/network
 python scripts/inventory_oracle.py verdict
 # Mapillary has no depth: `per-rig` (issue #53) reads runs/<name>/camera_heights.json, a
 # per-rig-class height measured by scripts/mapillary_height.py (bearing fixed point + #76's

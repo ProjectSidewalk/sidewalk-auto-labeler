@@ -182,9 +182,111 @@ Reported, but not part of the verdict: radius 2.5 and 8 m, tier 0.55, ×1.06 and
 - The verdict rests on one city and one rig (Gainesville 2026). Paterson's 2025 rig
   inherits it untested.
 
-## Results
+## Results (scored 2026-09-26, after the pre-registration commit)
 
-*Added after the scoring run; see the next commit.*
+`score bend gainesville` took 96 s wall for both cities on the desktop (bend 64 s, 78,560
+panos, 12,504 kept points; gainesville 30 s, 37,435 panos, 3,208 kept points). It needs no
+GPU and no network. Each arm is one full `fs.fuse`, plus three frozen refits. The committed
+tables are `runs/{bend,gainesville}/inventory_oracle/{report.md,arms.csv,vintage.csv}`.
+
+### Primary frame: frozen@a, 5 m, the (a)-anchored pool, tier 0.30
+
+| city | arm | pool | median m | p90 m | ≤ 3 m | own coverage | 2026 / 2024 median along-ray m |
+|---|---|---:|---:|---:|---:|---:|---:|
+| gainesville | (a) 2.6 m | 2,677 | 1.50 | 3.29 | 87.3% | 83.4% | **+1.17** (2026) |
+| gainesville | (b) per-pano × 1.08 | 2,677 | 1.27 | 3.18 | 88.1% | 85.5% | −0.62 |
+| gainesville | (c) per-rig 2.0/2.5 | 2,677 | 1.22 | 2.94 | 90.4% | 85.6% | −0.47 |
+| gainesville | per-pano × 1.00 (ref) | 2,677 | 1.42 | 3.47 | 85.4% | 85.5% | −1.01 |
+| bend | (a) 2.6 m | 10,914 | 0.61 | 1.33 | 98.8% | 87.3% | +0.03 (2024) |
+| bend | (b) per-pano × 1.08 | 10,914 | 0.62 | 1.35 | 98.7% | 87.2% | −0.04 |
+| bend | (c) per-rig 2.0/2.5 | 10,914 | 0.63 | 1.37 | 98.8% | 87.3% | −0.14 |
+| bend | per-pano × 1.00 (ref) | 10,914 | 0.69 | 1.49 | 98.6% | 87.2% | −0.34 |
+
+No site was dropped by the every-arm-places filter in either city's primary frame (0 of
+8,967 and 0 of 14,187). The chance floor at 5 m is 8.9% of Gainesville's points under (a)
+and 6.7% under (c); Bend's is 4.3%.
+
+Own association (each arm fused under itself, 5 m): Gainesville (a) 8,967 sites, coverage
+83.4%, p90 3.29 m; (b) 7,488, 84.7%, 2.86 m; (c) 7,301, 84.4%, 2.84 m. Bend's three are
+within 0.04 m on p90 and 0.1 pt on coverage of each other.
+
+### The verdict under the committed rule: (a), 2.6 m stays
+
+`python scripts/inventory_oracle.py verdict` prints:
+
+| rule | (b) per-pano × 1.08 | (c) per-rig |
+|---|---|---|
+| 1 gainesville p90 and median improve > 0.10 m | pass (p90 +0.105, median +0.236) | pass (+0.348, +0.281) |
+| 2 bend p90 not worse by > 0.10 m | pass (+0.017) | pass (+0.044) |
+| 3 not by construction | **FAIL**: under (b)'s own membership (a) beats it (p90 3.03 vs 3.40) | pass (own-association 2.84 < 3.29; under (c)'s membership 2.87 < 2.97) |
+| 4 coverage within 1.0 pt; site drop ≤ 5% | **FAIL**: gainesville +2.05 pt | **FAIL**: gainesville **+2.18 pt** |
+| 5 gainesville 2026 along-ray within ±0.75 m | pass (−0.62) | pass (−0.47) |
+
+Neither candidate passes, so rule 6 keeps 2.6 m.
+
+**Decision point for the maintainer: how rule 4 is read.** (c) fails only rule 4, and only
+because its own-match coverage in Gainesville is 2.18 points *higher* than (a)'s. More
+inventory ramps get a site within 5 m once ranges stop running long. The committed
+`verdict()` reads "within 1.0 pt of (a)'s" literally, as a two-sided band, and that is the
+verdict above. The rule is headed *survivorship*, though, and the plan's own test
+description reads "rule 4 fails on a coverage drop". Its #42 precedent is also a
+one-sided drop limit. All of these suggest the intent was "coverage must not fall by more
+than 1.0 point". Under that one-sided reading (c) passes all five rules while (b) still
+fails rule 3, and rule 6 selects **(c)**.
+
+The reading was not changed after the numbers were seen: `verdict()` is exactly as
+pre-registered, and so is its answer, (a). Choosing the one-sided reading, and with it (c),
+is a call for the maintainer, and would be made in the follow-up PR that flips the default.
+
+### What the numbers say, rule aside
+
+- **The oracle sees the new rig's range bias, and both corrections remove it.** Under (a),
+  Gainesville's 2026 sites sit a median +1.17 m beyond their inventory ramp (along/range
+  +0.088). (c) brings that to −0.47 m and (b) to −0.62 m: both overshoot slightly, and both
+  stay inside the pre-registered ±0.75 m. The unscaled per-pano height overshoots to −1.01 m,
+  which independently confirms that the depth frame runs short.
+- **(c) beats (b) on this oracle.** It has the lower p90 in Gainesville (2.94 vs 3.18 m).
+  (b) also loses to (a) inside (b)'s own membership, which is exactly the
+  favoured-by-construction pattern rule 3 exists to catch.
+- **Bend does not care.** Its 2024 imagery (84% of the run) is already unbiased at 2.6 m
+  (+0.03 m along-ray). All three arms land within 0.05 m on median and p90, and (c)'s
+  2.5 m costs a hair (−0.14 m along-ray on 2024, p90 +0.04 m).
+- **(c)'s vintage rule has a visible flaw.** Gainesville's 2015 and 2018 vintages (606 and
+  1,059 panos) have depth medians of 1.94 and 2.07 m, so (c) puts them at 2.0 m. Their sites
+  then land 1.8–2.1 m *short* (2018: −0.50 → −2.13 m along-ray), which suggests those are old
+  rigs that happen to read low. The rule has no minimum vintage size and no second signal. A
+  follow-up that adopts (c) should look at that; the cut sensitivity below is where it shows.
+- **The pilot's +1.92 m was an upper figure.** The pilot matched on-disk 0.55-tier sites with
+  the rig mask off. Re-fused here, the 2026 offset is +1.35 m at 0.55 and +1.17 m at 0.30.
+  The pre-registered +1.92 m only motivated rule 5's ±0.75 m.
+
+### Sensitivity (not verdict inputs; scratch runs, not committed)
+
+- **Tier 0.55** (`score --tier 0.55`): the same pattern. (c) passes rules 1, 2, 3 and 5
+  (Gainesville p90 3.39 → 2.94, median 1.56 → 1.20) and fails the two-sided rule 4 on
+  +2.61 pt coverage. (b) fails rule 1 (p90 unchanged at 3.39) and rule 3. Bend's tables are
+  identical at 0.30 and 0.55, because its `results.jsonl` predates the storage floor and
+  holds no sub-0.55 detections.
+- **Radius.** At 8 m, (c) has p90 3.45 vs (a) 3.84 in Gainesville. At 2.5 m the pool is, by
+  construction, only the points (a) already places within 2.5 m, so (a)'s p90 is capped
+  there (2.15 vs (c)'s 2.25). The informative 2.5 m number is coverage: (c) matches 75.1% of
+  points within 2.5 m, against (a)'s 66.4%.
+- **Scale** (× 1.06 / × 1.10, Gainesville 5 m): p90 3.27 / 3.17 and median 1.30 / 1.24,
+  bracketing × 1.08. None reaches (c)'s p90.
+- **Rig threshold** (2.0 / 2.2 m instead of 2.1): Gainesville p90 2.92 / 2.97, against 2.94
+  for (c) at 2.1. A 2.0 m cut moves the 2018 vintage back to 2.5 m, which is the better
+  of the two. Bend is unchanged, because its three low vintages (2007–2009, 34 panos) have
+  medians below 2.0 m. These runs add four arms to the site intersection, which drops 2
+  of Bend's 14,187 sites; the primary rows move by at most 0.001.
+
+### What this means for Paterson
+
+Paterson has no inventory. Its 2025 vintage is the same low rig (depth median ~1.86 m, 48%
+of its panos), so a flip to (c) would apply to it on Gainesville's evidence alone,
+untested. São Paulo's single low vintage (2021, ~175 panos) is the case the camera-height
+study found ambiguous. Ortho imagery
+([label-latlng-estimation#20](https://github.com/ProjectSidewalk/label-latlng-estimation/issues/20))
+remains the route to an oracle there.
 
 ## Related
 
