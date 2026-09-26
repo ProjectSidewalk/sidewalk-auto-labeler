@@ -1,6 +1,6 @@
 # Post-submission coverage check: richmond
 
-Server `https://sidewalk-richmond.cs.washington.edu` (records matched on `https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano`), run `runs/richmond`, checked 2026-09-26T14:09:52+00:00 by `scripts/coverage_check.py` (issue #46). Read-only: GET requests only.
+Server `https://sidewalk-richmond.cs.washington.edu` (records matched on `https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano`), run `runs/richmond`, checked 2026-09-26T14:13:13+00:00 by `scripts/coverage_check.py` (issue #46). Read-only: GET requests only.
 
 **Exit 0**: every expected pano with a live AI label is backed up.
 
@@ -8,15 +8,15 @@ Server `https://sidewalk-richmond.cs.washington.edu` (records matched on `https:
 
 | file | url | fetched (UTC) | rows | sha256 |
 |---|---|---|---:|---|
-| `panos.json` | https://sidewalk-richmond.cs.washington.edu/adminapi/panos | 2026-09-26T14:09:49+00:00 | 9,282 | `c3cb0bfa75f4ed71a4d02c8fedc908c061c4500eba5ffafe626a9d1def911515` |
-| `labels_all.geojson` | https://sidewalk-richmond.cs.washington.edu/labels/all | 2026-09-26T14:09:50+00:00 | 13,346 | `50878f975f4b7eade58ccfd2462a4ccb2557d59e4a4cd66d584c451b949452ab` |
-| `raw_labels_CurbRamp.geojson` | https://sidewalk-richmond.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson | 2026-09-26T14:09:51+00:00 | 13,078 | `00e86369e3313a08a10b39f0ba9211c550182e0879fb96ed3e7a8c9fca362f05` |
+| `panos.json` | https://sidewalk-richmond.cs.washington.edu/adminapi/panos | 2026-09-26T14:09:49+00:00 (cached) | 9,282 | `c3cb0bfa75f4ed71a4d02c8fedc908c061c4500eba5ffafe626a9d1def911515` |
+| `labels_all.geojson` | https://sidewalk-richmond.cs.washington.edu/labels/all | 2026-09-26T14:09:50+00:00 (cached) | 13,346 | `50878f975f4b7eade58ccfd2462a4ccb2557d59e4a4cd66d584c451b949452ab` |
+| `raw_labels_CurbRamp.geojson` | https://sidewalk-richmond.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson | 2026-09-26T14:09:51+00:00 (cached) | 13,078 | `00e86369e3313a08a10b39f0ba9211c550182e0879fb96ed3e7a8c9fca362f05` |
 
 The pulls are cached beside this report and not tracked; `--refresh` re-pulls.
 
 ## Expected set (campaigns unioned)
 
-Each campaign replayed through `send_to_ps.transform_record` at the range it sent; `rig_masked` absent in a record means the campaign predates the nadir mask.
+Each campaign replayed through `send_to_ps.transform_record` at the range it sent; `rig_masked` absent in a record means the campaign predates the nadir mask. The recorded label count of a base entry includes its bands once they cover the file, so only the replayed column is per campaign.
 
 | campaign | sent range | rig masked | lines | labels (record) | labels (replayed) | panos with labels |
 |---|---|---|---:|---:|---:|---:|

@@ -387,7 +387,9 @@ def render_report(ctx):
     L += ['', 'The pulls are cached beside this report and not tracked; `--refresh` re-pulls.', '',
           '## Expected set (campaigns unioned)', '',
           'Each campaign replayed through `send_to_ps.transform_record` at the range it sent; '
-          '`rig_masked` absent in a record means the campaign predates the nadir mask.', '',
+          '`rig_masked` absent in a record means the campaign predates the nadir mask. The '
+          'recorded label count of a base entry includes its bands once they cover the file, so only '
+          'the replayed column is per campaign.', '',
           '| campaign | sent range | rig masked | lines | labels (record) | labels (replayed) | panos with labels |',
           '|---|---|---|---:|---:|---:|---:|']
     for s in ctx['campaigns']:

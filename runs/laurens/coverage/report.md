@@ -1,6 +1,6 @@
 # Post-submission coverage check: laurens
 
-Server `https://sidewalk-laurens.cs.washington.edu` (records matched on `https://sidewalk-laurens.cs.washington.edu/ai/submitLabelsOnPano`), run `runs/laurens`, checked 2026-09-26T14:09:47+00:00 by `scripts/coverage_check.py` (issue #46). Read-only: GET requests only.
+Server `https://sidewalk-laurens.cs.washington.edu` (records matched on `https://sidewalk-laurens.cs.washington.edu/ai/submitLabelsOnPano`), run `runs/laurens`, checked 2026-09-26T14:13:11+00:00 by `scripts/coverage_check.py` (issue #46). Read-only: GET requests only.
 
 **Exit 0**: every expected pano with a live AI label is backed up.
 
@@ -16,7 +16,7 @@ The pulls are cached beside this report and not tracked; `--refresh` re-pulls.
 
 ## Expected set (campaigns unioned)
 
-Each campaign replayed through `send_to_ps.transform_record` at the range it sent; `rig_masked` absent in a record means the campaign predates the nadir mask.
+Each campaign replayed through `send_to_ps.transform_record` at the range it sent; `rig_masked` absent in a record means the campaign predates the nadir mask. The recorded label count of a base entry includes its bands once they cover the file, so only the replayed column is per campaign.
 
 | campaign | sent range | rig masked | lines | labels (record) | labels (replayed) | panos with labels |
 |---|---|---|---:|---:|---:|---:|
