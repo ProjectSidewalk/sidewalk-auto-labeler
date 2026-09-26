@@ -365,9 +365,11 @@ def _null_views(sv, rng):
     return sim
 
 
-def _scale_blocks(sites, key_of, names, offset=False, simulate=None):
+def _scale_blocks(sites, key_of, names, offset=False, simulate=None,
+                  h0=geo.DEFAULT_CAMERA_HEIGHT_M):
     """fit_scale blocks for a joint per-group scale fit (plus a pooled dip-offset column
-    when offset=True). key_of maps a view's pano to a name in `names`."""
+    when offset=True). key_of maps a view's pano to a name in `names`. h0 is the height
+    the sites were associated (fused) at, which the dip-offset lever needs (#87)."""
     blocks = []
     for sv in sites:
         views = simulate(sv) if simulate else sv.views
@@ -379,7 +381,7 @@ def _scale_blocks(sites, key_of, names, offset=False, simulate=None):
             idx = {g: k for k, g in enumerate(names)}
             levers = []
             for v, g, (sc, off) in zip(views, groups, rr.range_offset_levers(
-                    views, [geo.DEFAULT_CAMERA_HEIGHT_M] * len(views))):
+                    views, [h0] * len(views))):
                 cols = [(0.0, 0.0)] * len(names)
                 cols[idx[g]] = sc
                 levers.append(cols + [off])
@@ -391,9 +393,14 @@ def _scale_blocks(sites, key_of, names, offset=False, simulate=None):
     return blocks
 
 
-def instrument_b(sites, key_of, min_rows=rr.MIN_GROUP_ROWS, seed=0):
-    """Joint per-group range scale at 2.6 m, null-corrected per group. Groups with fewer
-    than min_rows held-out views are fitted together as 'other'. Returns {key: row}."""
+def instrument_b(sites, key_of, min_rows=rr.MIN_GROUP_ROWS, seed=0,
+                 h0=geo.DEFAULT_CAMERA_HEIGHT_M):
+    """Joint per-group range scale, null-corrected per group. Groups with fewer than
+    min_rows held-out views are fitted together as 'other'. Returns {key: row}.
+
+    h0 is the association height `sites` were fused at (default 2.6 m, the #53
+    measurement); h_B = h0 * (1 - (s - s_null)) is written against it, so a sweep over
+    association heights (scripts/height_gap.py, #87) reads B(h) at each."""
     counts = {}
     for sv in sites:
         for v in sv.views:
@@ -413,9 +420,8 @@ def instrument_b(sites, key_of, min_rows=rr.MIN_GROUP_ROWS, seed=0):
     rng = random.Random(seed)
     null = rr.fit_scale(_scale_blocks(sites, kof, names,
                                       simulate=lambda sv: _null_views(sv, rng)), names)
-    off = rr.fit_scale(_scale_blocks(sites, kof, names, offset=True),
+    off = rr.fit_scale(_scale_blocks(sites, kof, names, offset=True, h0=h0),
                        names + ['__dip_offset__'])
-    h0 = geo.DEFAULT_CAMERA_HEIGHT_M
     out = {}
     for g in names:
         if g not in fit:
@@ -427,7 +433,7 @@ def instrument_b(sites, key_of, min_rows=rr.MIN_GROUP_ROWS, seed=0):
                                           if (k if k in named else 'other') == g),
                'scale_s': s, 'scale_s_se': se, 'null_s': s0,
                'k_net': None if net >= 1 else 1.0 / (1.0 - net),
-               'h_scale': h0 * (1.0 - net),                 # = 2.6 / k_net
+               'h_scale': h0 * (1.0 - net),                 # = h0 / k_net
                'h_scale_lo': h0 * (1.0 - (net + 1.96 * se)),
                'h_scale_hi': h0 * (1.0 - (net - 1.96 * se)),
                'offset_fit_s': None, 'h_scale_with_offset': None}

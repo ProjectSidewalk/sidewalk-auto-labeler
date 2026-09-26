@@ -1,0 +1,5 @@
+city,rig,n_boxes,n_panos,box_minus_peak_dy_px_median,ci_lo,ci_hi,box_minus_peak_dy_px_mean,eps_px_median,eps_px_lo,eps_px_hi
+richmond,all,202,77,-0.776,-1.456,-0.416,-0.788,0.776,0.416,1.456
+richmond,gopro/max,38,14,-1.618,-2.202,-0.473,-1.037,1.618,0.473,2.202
+richmond,nctech/istar pulsar,144,55,-0.525,-1.238,0.019,-0.586,0.525,-0.019,1.238
+richmond,unknown,20,8,-1.549,-3.284,-0.046,-1.775,1.549,0.046,3.284
