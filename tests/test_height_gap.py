@@ -121,3 +121,124 @@ def test_verdict_rules():
         == 'partially explained'
     assert hg.verdict_explained(far, 'confirmed', 'rejected', [0.35, 0.42], 0.394)[0] \
         == 'partially explained'
+
+
+# --- Review fixes (PR #90 consolidated review) ------------------------------------------
+
+def test_local_crossing_reads_the_bracketing_heights():
+    # Richmond GoPro Max's B(h), 1.4-2.3 m: crosses between 2.0 (+0.033) and 2.3 (-0.103)
+    h, ex = hg.local_crossing([1.4, 1.6, 1.8, 2.0, 2.3], [1.548, 1.721, 1.870, 2.033, 2.197])
+    assert h == pytest.approx(2.0 + 0.3 * 0.033 / 0.136, abs=1e-9) and ex is False
+    # no bracket, B above the identity everywhere: extrapolate the top segment, flagged
+    h, ex = hg.local_crossing([2.6, 3.0], [2.8, 3.1])
+    assert h == pytest.approx(2.6 + 0.4 * 0.2 / 0.1) and ex is True   # d 0.2 -> 0.1
+    # the top segment only follows (local slope >= 1): no crossing at all
+    assert hg.local_crossing([2.6, 3.0], [2.8, 3.3]) == (None, True)
+    assert hg.local_crossing([2.6], [2.8]) == (None, None)
+
+
+def test_b_at_refuses_a_null_seed_that_misses_a_group(monkeypatch):
+    real_b = hg.mh.instrument_b
+
+    def first_seed_then_break(*a, **k):
+        rows = real_b(*a, **k)
+        monkeypatch.setattr(hg.rr, 'fit_scale', lambda _blocks, _names: {})
+        return rows
+    monkeypatch.setattr(hg.mh, 'instrument_b', first_seed_then_break)
+    with pytest.raises(SystemExit, match='null seed 1'):
+        hg.sweep(_uniform(2.1), {'rig': _key}, heights=(2.1,), null_seeds=range(2),
+                 min_rows=1)
+
+
+def test_resynthesis_noise_path_is_seeded():
+    panos = _uniform(2.1)
+    truth, _ = hg.planted_sites(panos)
+    a, ca = hg.resynthesize(panos, truth, lambda _p: 2.1, noise_scale=1.0, seed=3)
+    b, cb = hg.resynthesize(panos, truth, lambda _p: 2.1, noise_scale=1.0, seed=3)
+    c, _ = hg.resynthesize(panos, truth, lambda _p: 2.1, noise_scale=1.0, seed=4)
+    assert ca == cb and ca['dets_out'] + ca['no_site'] + ca['unprojectable'] == ca['dets_in']
+    assert [p.detections for p in a] == [p.detections for p in b]
+    assert [p.detections for p in a] != [p.detections for p in c]
+    assert any((p.lat, p.lng) != (q.lat, q.lng) for p, q in zip(panos, a))
+
+
+def test_mixture_arm_and_pooled_row_when_a_is_not_identifiable():
+    laurens = {'group': 'gopro/max', 'h_star_a': None, 'b_2p6': 2.977}
+    seqs = [{'h_star_a': 2.5, 'b_views_2p6': 40, 'quarter_support': True}]
+    assert hg.mixture_arm(seqs, laurens) is None
+    assert hg.mixture_arm(seqs, dict(laurens, h_star_a=2.0, b_2p6=None)) is None
+    assert hg.pooled_row([laurens], 'gopro/max', 'x') is laurens
+    with pytest.raises(SystemExit, match="pooled 'gopro/fusion' row"):
+        hg.pooled_row([laurens], 'gopro/fusion', 'laurens/results.jsonl')
+
+
+def test_offset_rows_skip_rigs_without_boxes():
+    assert hg.offset_rows_by_rig([], lambda _pid: 'gopro/max', 'x') == []
+    rows = [{'ref_kind': 'missed', 'ref_minus_peak_dy_px': None, 'pano_id': 'p1'},
+            {'ref_kind': 'box', 'ref_minus_peak_dy_px': -1.0, 'pano_id': 'p1'},
+            {'ref_kind': 'box', 'ref_minus_peak_dy_px': -2.0, 'pano_id': 'p2'}]
+    out = hg.offset_rows_by_rig(rows, lambda _pid: 'gopro/max', 'x')
+    assert [r['rig'] for r in out] == ['all', 'gopro/max']
+    assert out[1]['box_minus_peak_dy_px_median'] == -1.5 and out[1]['eps_px_median'] == 1.5
+
+
+def test_candidate1_with_an_incomplete_ci_is_untested():
+    grid = {-4.0: 0.1, 0.0: 0.0, 4.0: -0.1}
+    assert hg.verdict_candidate1((None, 2.0), grid)[0] == 'untested'
+    assert hg.verdict_candidate1((-1.0, None), grid)[0] == 'untested'
+
+
+def _write(path, rows):
+    import csv
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+
+
+def _sweep_row(**kw):
+    row = {'city': 'richmond', 'results': 'results.jsonl', 'grouping': 'rig',
+           'group': 'gopro/max', 'a_panos': 698, 'a_sites': 503, 'h_star_a': 1.98,
+           'h_star_a_lo': 1.94, 'h_star_a_hi': 2.04, 'a_slope': 0.49, 'b_views_2p6': 1301,
+           'b_2p6': 2.40, 'b_2p6_null_sd_m': 0.03, 'b_slope': 0.71, 'h_star_b': 1.99,
+           'h_star_b_lo': 1.95, 'h_star_b_hi': 2.04, 'gap_fixed': 0.01, 'gap_raw': 0.42,
+           'b_at_1.4': 1.548, 'b_at_1.6': 1.721, 'b_at_1.8': 1.870, 'b_at_2': 2.033,
+           'b_at_2.3': 2.197, 'b_at_2.6': 2.396, 'b_at_3': 2.717}
+    row.update(kw)
+    return row
+
+
+def _seq_row(name, h_a, h_b, b26):
+    return {'group': name, 'rig': 'gopro/max', 'quarter_support': True, 'a_panos': 60,
+            'a_sites': 40, 'b_views_2p6': 100, 'h_star_a': h_a, 'a_slope': 0.4,
+            'b_2p6': b26, 'h_star_b': h_b, 'b_slope': 0.7, 'gap_fixed': h_b - h_a,
+            'gap_raw': b26 - h_a}
+
+
+def test_run_verdict_reads_candidate2_on_the_fixed_point_gap(tmp_path):
+    """Pins the pre-registered input (review #4): the per-sequence gaps are small on the
+    fixed points (median 0.05 -> partial here, the mixture arm closing < 75%) and large
+    raw (median 0.40 -> rejected). Fed the raw gap, the verdict would say rejected."""
+    gap = tmp_path / 'richmond' / 'camera_height' / 'gap'
+    _write(gap / 'sweep.csv', [_sweep_row()])
+    _write(gap / 'sequences.csv', [_seq_row('s1', 2.00, 2.04, 2.40),
+                                   _seq_row('s2', 1.95, 2.00, 2.35),
+                                   _seq_row('s3', 2.05, 2.11, 2.46)])
+    hg.main(['verdict', 'richmond', '--run-root', str(tmp_path)])
+    report = (gap / 'report.md').read_text(encoding='utf-8')
+    assert '**Candidate 2 (mixed mountings): partial**' in report
+    assert 'pre-registered reading (fixed points' in report
+    assert 'median +0.400 m -> rejected' in report      # the raw reading, secondary
+    assert 'local crossing' in report and '2.073' in report
+
+
+def test_run_verdict_refuses_a_missing_or_unidentifiable_group(tmp_path):
+    gap = tmp_path / 'laurens' / 'camera_height' / 'gap'
+    # Laurens-shaped: A has no fixed point, so h_star_a (and both gaps) are empty
+    _write(gap / 'sweep.csv', [_sweep_row(city='laurens', h_star_a='', h_star_a_lo='',
+                                          h_star_a_hi='', gap_fixed='', gap_raw='')])
+    with pytest.raises(SystemExit, match='no h_star_a'):
+        hg.main(['verdict', 'laurens', '--run-root', str(tmp_path)])
+    with pytest.raises(SystemExit, match="no rig row for 'gopro/fusion'"):
+        hg.main(['verdict', 'laurens', '--run-root', str(tmp_path), '--group', 'gopro/fusion'])

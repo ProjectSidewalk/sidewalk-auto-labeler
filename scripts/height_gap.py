@@ -154,7 +154,11 @@ def b_at(sites, key_of, h0, null_seeds=range(NULL_SEEDS), min_rows=rr.MIN_GROUP_
                                             simulate=lambda sv: mh._null_views(sv, rng)),
                            names)
         for g in nulls:
-            nulls[g].append(fit.get(g, (0.0, None))[0])
+            if g not in fit:
+                # a zero here would be averaged in silently as "no null bias" (review #7)
+                raise SystemExit(f'b_at: null seed {seed} at h0 {h0:g} fitted no scale for '
+                                 f'group {g!r}, which the first seed did fit')
+            nulls[g].append(fit[g][0])
     out = {}
     for g, r in rows.items():
         s0 = statistics.fmean(nulls[g])
@@ -201,12 +205,46 @@ def sweep(panos, keyings, heights=SWEEP_HEIGHTS, null_seeds=range(NULL_SEEDS),
     return {'a': a, 'b': b}
 
 
+def local_crossing(heights, values):
+    """(h, extrapolated) where B(h) crosses the identity B = h, read locally.
+
+    The line fit's fixed point a_B / (1 - b_B) amplifies any bias of the line near the
+    crossing by 1/(1 - b_B) (about 3.4 at b_B = 0.7), and B(h) is concave, so a global
+    line through the sweep's centroid overshoots a crossing near the top of the sweep.
+    This reads the crossing off the two sweep heights that bracket it instead: the first
+    adjacent pair where d = B(h) - h goes from >= 0 to < 0 (a stable fixed point),
+    linearly interpolated. With no bracket inside the sweep it extrapolates the end
+    segment on the side the crossing lies (the top pair when d > 0 everywhere, the bottom
+    pair when d < 0 everywhere) and flags it; None when that segment's slope is >= 1 (B
+    only follows, no crossing) or fewer than two heights have a value.
+
+    Example: B = 1.548, 1.721, 1.870, 2.033, 2.197 at 1.4, 1.6, 1.8, 2.0, 2.3 m crosses
+    between 2.0 (d +0.033) and 2.3 (d -0.103): 2.0 + 0.3 * 0.033 / 0.136 = 2.073."""
+    pts = sorted((h, v) for h, v in zip(heights, values) if v is not None)
+    if len(pts) < 2:
+        return None, None
+    d = [(h, v - h) for h, v in pts]
+    for h, dv in d:
+        if dv == 0.0:
+            return h, False
+    for (h0, d0), (h1, d1) in zip(d, d[1:]):
+        if d0 > 0 > d1:
+            return h0 + (h1 - h0) * d0 / (d0 - d1), False
+    (h0, d0), (h1, d1) = (d[-2], d[-1]) if all(dv > 0 for _, dv in d) else (d[0], d[1])
+    if d1 - d0 >= 0:          # B's local slope >= 1: no crossing on this segment's line
+        return None, True
+    return h0 + (h1 - h0) * d0 / (d0 - d1), True
+
+
 def b_fixed_point(b_by_h, group, n_draws=N_DRAWS, seed=DRAW_SEED):
     """(h*_B, a_B, b_B, ci_lo, ci_hi, undefined draws) of the line through (h, B(h)).
 
     The CI draws s at each height from N(s, cluster-robust SE) independently (the plan's
-    choice; heights share data, so this treats them as independent) and keeps the mean
-    null fixed."""
+    choice) and keeps the mean null fixed. The heights share data -- the same views are
+    re-associated at every height -- so their errors are positively correlated, and a
+    common-mode shift is exactly what 1/(1 - b_B) amplifies: the CI is too narrow and must
+    be quoted with that caveat (review #3). It also describes the line fit only, not
+    local_crossing's estimate."""
     pts = [(h, rows[group]) for h, rows in sorted(b_by_h.items()) if group in rows]
     if len(pts) < 3:
         return None, None, None, None, None, None
@@ -251,6 +289,9 @@ def summarize(sw, keying, key_of, city, results, grouping, n_boot=mh.N_BOOT,
             if len(off_pts) >= 3 else None
         b26 = b_by_h.get(H0, {}).get(g)
         ha = ra.get('h_star')
+        loc, loc_extrap = local_crossing(
+            [h for h, rows in sorted(b_by_h.items()) if g in rows],
+            [rows[g]['h_b'] for h, rows in sorted(b_by_h.items()) if g in rows])
         row = {'city': city, 'results': results, 'grouping': grouping, 'group': g,
                'a_panos': ra.get('n_panos'), 'a_sites': ra.get('n_sites'),
                'h_star_a': _rd(ha), 'a_intercept': _rd(ra.get('a')),
@@ -262,8 +303,12 @@ def summarize(sw, keying, key_of, city, results, grouping, n_boot=mh.N_BOOT,
                'b_2p6_hi': _rd(b26['h_b'] + 1.96 * b26['h_b_se']) if b26 else None,
                'b_2p6_null_sd_m': _rd(b26['null_sd_m']) if b26 else None,
                'b_2p6_offset': _rd(b26['h_b_offset']) if b26 else None,
+               'b_2p6_raw': _rd(b26['h_b_raw']) if b26 else None,
                'h_star_b': _rd(hb), 'b_intercept': _rd(ab), 'b_slope': _rd(bb),
+               'b_amplification': _rd(1.0 / (1.0 - bb)) if bb is not None and bb < 1 else None,
                'h_star_b_lo': _rd(lo), 'h_star_b_hi': _rd(hi), 'b_draws_undefined': und,
+               'h_star_b_local': _rd(loc), 'h_star_b_local_extrapolated': loc_extrap,
+               'gap_local': _rd(loc - ha) if loc is not None and ha is not None else None,
                'h_star_b_offset': _rd(hb_off),
                'gap_raw': _rd(b26['h_b'] - ha) if b26 and ha is not None else None,
                'gap_fixed': _rd(hb - ha) if hb is not None and ha is not None else None,
@@ -274,6 +319,7 @@ def summarize(sw, keying, key_of, city, results, grouping, n_boot=mh.N_BOOT,
             row[f'implied_at_{h:g}'] = _rd(ra.get(f'implied_at_{h:g}'))
         for h, rows in sorted(b_by_h.items()):
             row[f'b_at_{h:g}'] = _rd(rows[g]['h_b']) if g in rows else None
+            row[f'b_raw_at_{h:g}'] = _rd(rows[g]['h_b_raw']) if g in rows else None
             row[f'b_views_at_{h:g}'] = rows[g]['n_views'] if g in rows else None
         if extra:
             row.update(extra.get(g, {}))
@@ -291,8 +337,12 @@ def quarter_support(row):
 
 def mixture_arm(seq_rows, pooled):
     """E4's mixture arm: the held-out-view-weighted mean of per-sequence h*_A against the
-    pooled B(2.6). Returns {subset: (mean, closure of G)} for qualifying and all sequences
-    with a defined h*_A and B views."""
+    pooled B(2.6). Returns {subset: (mean, closure of G, n)} for qualifying and all
+    sequences with a defined h*_A and B views, or None when G itself is undefined (the
+    pooled group has no h*_A -- A not identifiable, e.g. Laurens's GoPro Max -- or no
+    B(2.6)): there is no gap to close."""
+    if pooled.get('h_star_a') is None or pooled.get('b_2p6') is None:
+        return None
     g = pooled['b_2p6'] - pooled['h_star_a']
     out = {}
     for name, rows in (('qualifying', [r for r in seq_rows if r['quarter_support']]),
@@ -305,6 +355,17 @@ def mixture_arm(seq_rows, pooled):
         m = sum(h * w for h, w in use) / sum(w for _, w in use)
         out[name] = (m, (m - pooled['h_star_a']) / g if g else None, len(use))
     return out
+
+
+def pooled_row(rows, group, where):
+    """The pooled row of `group` among a sweep's summary rows, or a named SystemExit
+    (review #9: a group with no panos in this run used to raise a bare StopIteration)."""
+    pooled = next((r for r in rows if r['group'] == group), None)
+    if pooled is None:
+        have = ', '.join(sorted(str(r['group']) for r in rows)) or 'none'
+        raise SystemExit(f'{where}: --sequences needs the pooled {group!r} row, but the '
+                         f'sweep has none (groups: {have})')
+    return pooled
 
 
 def run_sweep(args):
@@ -361,9 +422,12 @@ def run_sweep(args):
                     r['group'] = r['group'][4:]
                     r['rig'] = args.group
                     r['quarter_support'] = quarter_support(r)
-                pooled = next(r for r in rows if r['group'] == args.group)
+                pooled = pooled_row(rows, args.group, f'{city}/{results}')
                 mix = mixture_arm(srows, pooled)
-                for name, (m, closure, n) in mix.items():
+                if mix is None:
+                    print(f'  mixture arm: not identifiable (pooled h*_A {pooled["h_star_a"]}, '
+                          f'B(2.6) {pooled["b_2p6"]}: G undefined)')
+                for name, (m, closure, n) in (mix or {}).items():
                     print(f'  mixture arm ({name}, {n} sequences): view-weighted h*_A '
                           f'{_fmt(m)} vs pooled h*_A {pooled["h_star_a"]} and B(2.6) '
                           f'{pooled["b_2p6"]}: closes {_fmt(closure, ".0%")} of G')
@@ -372,7 +436,9 @@ def run_sweep(args):
                 print(f"  {r['group']}: h*_A {r['h_star_a']} (slope {r['a_slope']}), "
                       f"B(2.6) {r['b_2p6']} (null SD {r['b_2p6_null_sd_m']} m), "
                       f"h*_B {r['h_star_b']} [{r['h_star_b_lo']}, {r['h_star_b_hi']}] "
-                      f"(b_B {r['b_slope']}); gap raw {r['gap_raw']}, fixed {r['gap_fixed']}")
+                      f"(b_B {r['b_slope']}), local crossing {r['h_star_b_local']}"
+                      f"{' (extrapolated)' if r['h_star_b_local_extrapolated'] else ''}; "
+                      f"gap raw {r['gap_raw']}, fixed {r['gap_fixed']}, local {r['gap_local']}")
             print(f'{city}/{results}: {time.time() - t0:.0f} s', flush=True)
     if args.out:
         out = args.out
@@ -476,7 +542,14 @@ def sim_height_of(groups_of, group, h_true):
 
 def simulate_one(panos, truth, groups_of, group, h_true, noise, offset_px, seed,
                  null_seeds=range(NULL_SEEDS), n_draws=N_DRAWS, heights=SWEEP_HEIGHTS):
-    """One simulation configuration: resynthesize, sweep, summarize the named group."""
+    """One simulation configuration: resynthesize, sweep, summarize the named group.
+
+    The null is NOT noise-matched: mapillary_height._null_views always draws it at the
+    error model's full sigmas, whatever noise_scale injected. So at noise 0 the
+    null-corrected B (b_at_*, b_2p6, h_star_b) is "corrected" for noise that was never
+    there, and at 0.5 it is over-corrected; only at 1.0 does the null match. The raw
+    columns (b_raw_at_*, b_2p6_raw: h * (1 - s), no null) are written beside them so the
+    association effect can be read apart from the null (review #1)."""
     syn, counts = resynthesize(panos, truth, sim_height_of(groups_of, group, h_true),
                                noise, offset_px, seed)
     key_of = lambda pid: groups_of[pid]['rig']   # noqa: E731
@@ -485,15 +558,19 @@ def simulate_one(panos, truth, groups_of, group, h_true, noise, offset_px, seed,
                      n_draws=n_draws)
     r = rows[0] if rows else {}
     keep = ('a_panos', 'a_sites', 'h_star_a', 'a_slope', 'b_views_2p6', 'b_2p6',
-            'b_2p6_null_sd_m', 'b_2p6_offset', 'h_star_b', 'b_slope', 'h_star_b_lo',
-            'h_star_b_hi', 'gap_raw', 'gap_fixed')
+            'b_2p6_null_sd_m', 'b_2p6_offset', 'b_2p6_raw', 'h_star_b', 'b_slope',
+            'b_amplification', 'h_star_b_lo', 'h_star_b_hi', 'h_star_b_local',
+            'h_star_b_local_extrapolated', 'gap_raw', 'gap_fixed', 'gap_local')
     return {'group': group, 'h_true': h_true, 'noise_scale': noise, 'offset_px': offset_px,
             'seed': seed, **{k: r.get(k) for k in keep},
             'a_err': _rd(r['h_star_a'] - h_true) if r.get('h_star_a') is not None else None,
             'b_2p6_err': _rd(r['b_2p6'] - h_true) if r.get('b_2p6') is not None else None,
             'b_fixed_err': _rd(r['h_star_b'] - h_true) if r.get('h_star_b') is not None
             else None,
+            'b_local_err': _rd(r['h_star_b_local'] - h_true)
+            if r.get('h_star_b_local') is not None else None,
             **{f'b_at_{h:g}': r.get(f'b_at_{h:g}') for h in heights},
+            **{f'b_raw_at_{h:g}': r.get(f'b_raw_at_{h:g}') for h in heights},
             **{f'implied_at_{h:g}': r.get(f'implied_at_{h:g}') for h in heights},
             **{f'n_{k}': v for k, v in counts.items()}}
 
@@ -526,7 +603,7 @@ def run_simulate(args):
     for h_true in args.true_height:
         for noise in args.noise_scale:
             for off in args.offset_px:
-                for seed in range(args.seeds):
+                for seed in range(args.seed_start, args.seed_start + args.seeds):
                     t0 = time.time()
                     r = simulate_one(panos, truth, groups_of, args.group, h_true, noise, off,
                                      seed, null_seeds=range(args.null_seeds))
@@ -612,26 +689,9 @@ def run_gt(args):
                                                       bundle_ops, boxes, panos, svs, frame,
                                                       params)
         if abs(h - H0) < 1e-9:
-            by_rig = {}
-            for r in rows:
-                if r['ref_kind'] == 'box' and r['ref_minus_peak_dy_px'] is not None:
-                    by_rig.setdefault(rig_of(r['pano_id']), []).append(r)
-            by_rig['all'] = [r for rs in by_rig.values() for r in rs]
-            for rig in sorted(by_rig, key=str):
-                rs = by_rig[rig]
-                med, lo, hi = median_ci([r['ref_minus_peak_dy_px'] for r in rs],
-                                        [r['pano_id'] for r in rs])
-                offset_rows.append({
-                    'city': city, 'rig': rig, 'n_boxes': len(rs),
-                    'n_panos': len({r['pano_id'] for r in rs}),
-                    'box_minus_peak_dy_px_median': _rd(med, 3),
-                    'ci_lo': _rd(lo, 3), 'ci_hi': _rd(hi, 3),
-                    'box_minus_peak_dy_px_mean': _rd(statistics.fmean(
-                        r['ref_minus_peak_dy_px'] for r in rs), 3),
-                    # the simulation's eps (peak minus ramp) is the negation
-                    'eps_px_median': _rd(-med, 3) if med is not None else None,
-                    'eps_px_lo': _rd(-hi, 3) if hi is not None else None,
-                    'eps_px_hi': _rd(-lo, 3) if lo is not None else None})
+            offset_rows = offset_rows_by_rig(rows, rig_of, city)
+            if not offset_rows:
+                print(f'  h={h:g}: no benchmark box rows, so no E3a offset')
         mine = [r for r in rows if rig_of(r['pano_id']) == args.group]
         for name, kinds in (('all', ('box', 'missed', 'peak')), ('independent', ('box', 'missed'))):
             use = [r for r in mine if r['ref_kind'] in kinds and r['loo_along_m'] is not None
@@ -729,9 +789,12 @@ def verdict_candidate1(eps_ci, gap_by_eps, direction=1.0):
     xs = sorted(gap_by_eps)
     if 0.0 not in gap_by_eps or len(xs) < 2:
         return 'untested', ['E3b grid missing eps = 0']
+    lo, hi = eps_ci
+    if lo is None or hi is None:
+        return 'untested', [f'the box-minus-peak CI is incomplete ({lo}, {hi}): no E3a boxes '
+                            'to bound eps']
     base = gap_by_eps[0.0]
     move = {e: gap_by_eps[e] - base for e in xs}
-    lo, hi = eps_ci
     inside = [e for e in xs if lo <= e <= hi] + [lo, hi]
     in_ci = max(direction * (_interp(xs, [gap_by_eps[e] for e in xs], e) - base)
                 for e in inside)
@@ -750,9 +813,10 @@ def verdict_candidate1(eps_ci, gap_by_eps, direction=1.0):
 
 
 def verdict_candidate2(seq_gaps, closure, pooled_sign=1.0):
-    """Candidate 2 (A mixes mountings). seq_gaps: within-sequence gaps h*_B - h*_A for
-    sequences meeting quarter support; closure: the mixture arm's share of G.
-    Returns (outcome, median, reasons)."""
+    """Candidate 2 (A mixes mountings). seq_gaps: within-sequence gaps for sequences
+    meeting quarter support; closure: the mixture arm's share of G. The rule reads
+    whichever gap it is given; run_verdict feeds it the pre-registered reading, the
+    fixed-point gap h*_B - h*_A (candidate2_gaps). Returns (outcome, median, reasons)."""
     if not seq_gaps:
         return 'untested', None, ['no sequence meets quarter support on both instruments']
     med = statistics.median(seq_gaps)
@@ -765,6 +829,84 @@ def verdict_candidate2(seq_gaps, closure, pooled_sign=1.0):
     if med * pooled_sign >= RULE2_REJECT_MEDIAN_M:
         return 'rejected', med, reasons
     return 'partial', med, reasons
+
+
+def candidate2_gaps(seq_rows):
+    """(fixed, raw) within-sequence gaps over the quarter-support sequences.
+
+    fixed = h*_B - h*_A per sequence is the PRE-REGISTERED reading (the #87 plan's E4:
+    "per-sequence h*_A and h*_B side by side (both fixed points, from E1)"), and is what
+    the rule is applied to. raw = B(2.6) - h*_A is reported beside it as secondary. The
+    results commit (1c2b24e) switched the rule to the raw gap after the numbers were in;
+    that was a post-hoc change of reading and is reverted here (review #4)."""
+    q = [r for r in seq_rows if r.get('quarter_support') in (True, 'True', 1.0)]
+    fixed = [r['h_star_b'] - r['h_star_a'] for r in q
+             if r.get('h_star_b') is not None and r.get('h_star_a') is not None]
+    raw = [r['b_2p6'] - r['h_star_a'] for r in q
+           if r.get('b_2p6') is not None and r.get('h_star_a') is not None]
+    return fixed, raw
+
+
+def resolve_real(sweep_rows, group, where):
+    """The group's pooled rig row from sweep.csv, with everything G needs, or a named
+    SystemExit (review #13/#14): a missing group, or a group whose A has no fixed point
+    (not identifiable, e.g. Laurens's GoPro Max) or has no B(2.6), leaves G = B(2.6) -
+    h*_A undefined, and no rule can be applied."""
+    rows = [r for r in sweep_rows if r.get('group') == group and r.get('grouping') == 'rig']
+    if not rows:
+        have = sorted({str(r.get('group')) for r in sweep_rows if r.get('grouping') == 'rig'})
+        raise SystemExit(f'verdict: {where} has no rig row for {group!r} (rig rows: '
+                         f'{", ".join(have) or "none"}); run `height_gap.py sweep` for it first')
+    real = rows[0]
+    missing = [k for k in ('h_star_a', 'b_2p6') if real.get(k) is None]
+    if missing:
+        raise SystemExit(f'verdict: {group!r} in {where} has no {" or ".join(missing)} '
+                         '(h_star_a is empty when A is not identifiable): G = B(2.6) - h*_A '
+                         'is undefined, so the pre-registered rules cannot be applied')
+    return real
+
+
+def row_local_crossing(row, heights=SWEEP_HEIGHTS):
+    """(h, extrapolated) for a CSV row: its stored h_star_b_local when present, else read
+    from its b_at_* columns (older CSVs, e.g. a local gap_paterson_year.csv)."""
+    if row.get('h_star_b_local') is not None:
+        return row['h_star_b_local'], row.get('h_star_b_local_extrapolated') in (True, 'True', 1.0)
+    hs = [h for h in heights if row.get(f'b_at_{h:g}') is not None]
+    return local_crossing(hs, [row[f'b_at_{h:g}'] for h in hs])
+
+
+def _loc(row):
+    h, ex = row_local_crossing(row)
+    return 'none' if h is None else _fmt(h) + (' (extrap.)' if ex else '')
+
+
+def offset_rows_by_rig(rows, rig_of, city):
+    """E3a: box-minus-peak dy per rig (and 'all'), median + pano-bootstrap CI. Rigs with
+    no box rows are left out, and so is 'all' when no rig has any (review #11: a city
+    with no benchmark boxes used to crash in fmean on an empty list)."""
+    by_rig = {}
+    for r in rows:
+        if r['ref_kind'] == 'box' and r['ref_minus_peak_dy_px'] is not None:
+            by_rig.setdefault(rig_of(r['pano_id']), []).append(r)
+    if by_rig:
+        by_rig['all'] = [r for rs in by_rig.values() for r in rs]
+    out = []
+    for rig in sorted(by_rig, key=str):
+        rs = by_rig[rig]
+        med, lo, hi = median_ci([r['ref_minus_peak_dy_px'] for r in rs],
+                                [r['pano_id'] for r in rs])
+        out.append({
+            'city': city, 'rig': rig, 'n_boxes': len(rs),
+            'n_panos': len({r['pano_id'] for r in rs}),
+            'box_minus_peak_dy_px_median': _rd(med, 3),
+            'ci_lo': _rd(lo, 3), 'ci_hi': _rd(hi, 3),
+            'box_minus_peak_dy_px_mean': _rd(statistics.fmean(
+                r['ref_minus_peak_dy_px'] for r in rs), 3),
+            # the simulation's eps (peak minus ramp) is the negation
+            'eps_px_median': _rd(-med, 3) if med is not None else None,
+            'eps_px_lo': _rd(-hi, 3) if hi is not None else None,
+            'eps_px_hi': _rd(-lo, 3) if lo is not None else None})
+    return out
 
 
 def verdict_e5(slope, se):
@@ -824,12 +966,28 @@ def sim_mean(rows, group, h_true, noise, offset=0.0):
     if not rs:
         return None
     out = {'n_seeds': len(rs)}
-    for k in ('h_star_a', 'a_slope', 'b_2p6', 'h_star_b', 'b_slope', 'gap_raw', 'gap_fixed',
-              'b_2p6_null_sd_m', 'n_on_rig', 'n_no_site', 'n_dets_out'):
+    for k in ('h_star_a', 'a_slope', 'b_2p6', 'b_2p6_raw', 'h_star_b', 'b_slope',
+              'h_star_b_local', 'gap_raw', 'gap_fixed', 'gap_local', 'b_2p6_null_sd_m',
+              'n_on_rig', 'n_no_site', 'n_dets_out',
+              *(f'b_at_{h:g}' for h in SWEEP_HEIGHTS),
+              *(f'b_raw_at_{h:g}' for h in SWEEP_HEIGHTS)):
         vals = [r[k] for r in rs if isinstance(r.get(k), float)]
         out[k] = statistics.fmean(vals) if len(vals) == len(rs) else None
         out[k + '_sd'] = statistics.stdev(vals) if len(vals) > 1 else None
+    out['h_star_b_local_extrapolated'] = any(
+        r.get('h_star_b_local_extrapolated') in (True, 'True', 1.0) for r in rs)
     return out
+
+
+def _b_at_height(m, h, raw=False):
+    """B (or raw B) read at association height h from a sim_mean dict, interpolated
+    between sweep heights when h is not one."""
+    pre = 'b_raw_at_' if raw else 'b_at_'
+    pts = [(hh, m.get(f'{pre}{hh:g}')) for hh in SWEEP_HEIGHTS]
+    pts = [(hh, v) for hh, v in pts if v is not None]
+    if not pts:
+        return None
+    return _interp([hh for hh, _ in pts], [v for _, v in pts], h)
 
 
 def run_verdict(args):
@@ -844,7 +1002,7 @@ def run_verdict(args):
     c_rows = _numrows(_read_csv(gap_dir / 'instrument_c.csv'))
     summ = args.run_root / '_summary' / 'camera_height'
     five = _numrows(_read_csv(summ / 'gap_sweep.csv'))
-    real = next(r for r in sweep_rows if r['group'] == group and r['grouping'] == 'rig')
+    real = resolve_real(sweep_rows, group, gap_dir / 'sweep.csv')
     g = real['b_2p6'] - real['h_star_a']
     L = []   # report lines
     L += [f'# Height gap, {city} {group} (issue #87)', '',
@@ -854,33 +1012,42 @@ def run_verdict(args):
 
     # E1
     L += ['## E1: B swept over association heights', '',
-          '| group | h*_A (95% CI) | A slope | B(2.6) | null SD at 2.6 (m) | b_B | h*_B (95% CI) '
-          '| h*_B − h*_A | B(2.6) − h*_A |', '|---|---|---:|---:|---:|---:|---|---:|---:|']
+          '| group | h*_A (95% CI) | A slope | B(2.6) | null SD at 2.6 (m) | b_B | 1/(1 − b_B) '
+          '| h*_B, line (95% CI†) | h*_B, local crossing | h*_B − h*_A (line) | B(2.6) − h*_A |',
+          '|---|---|---:|---:|---:|---:|---:|---|---|---:|---:|']
     for r in sweep_rows:
+        amp = None if r['b_slope'] is None or r['b_slope'] >= 1 else 1 / (1 - r['b_slope'])
         L.append(f"| {r['group']} | {_fmt(r['h_star_a'])} ({_fmt(r['h_star_a_lo'])}–"
                  f"{_fmt(r['h_star_a_hi'])}) | {_fmt(r['a_slope'])} | {_fmt(r['b_2p6'])} | "
-                 f"{_fmt(r['b_2p6_null_sd_m'])} | {_fmt(r['b_slope'])} | {_fmt(r['h_star_b'])} "
-                 f"({_fmt(r['h_star_b_lo'])}–{_fmt(r['h_star_b_hi'])}) | "
-                 f"{_fmt(r['gap_fixed'], '+.3f')} | {_fmt(r['gap_raw'], '+.3f')} |")
+                 f"{_fmt(r['b_2p6_null_sd_m'])} | {_fmt(r['b_slope'])} | {_fmt(amp, '.2f')} | "
+                 f"{_fmt(r['h_star_b'])} ({_fmt(r['h_star_b_lo'])}–{_fmt(r['h_star_b_hi'])}) | "
+                 f"{_loc(r)} | {_fmt(r['gap_fixed'], '+.3f')} | {_fmt(r['gap_raw'], '+.3f')} |")
     hs = [h for h in SWEEP_HEIGHTS if f'b_at_{h:g}' in real]
     L += ['', f'B(h) for {group}: ' + ', '.join(f"{h:g} m → {_fmt(real[f'b_at_{h:g}'])}"
-                                                 for h in hs), '']
+                                                 for h in hs), '',
+          '† The CI draws each height independently, but every height re-associates the same '
+          "views, so the heights' errors are correlated and a common-mode shift is amplified "
+          'by 1/(1 − b_B): the interval is too narrow. The local crossing reads B(h) = h off '
+          "the two sweep heights that bracket it; the line's fixed point amplifies the "
+          'curvature of a concave B(h) by 1/(1 − b_B) and overshoots near the sweep top.', '']
     if five:
         L += ['### Every rig group, five cities (rule 3 with h*_B)', '',
-              '| city / group | h*_A | A slope | B(2.6) | b_B | h*_B | |h*_B − h*_A| ≤ 0.25 | '
-              '|B(2.6) − h*_A| ≤ 0.25 (#53) |', '|---|---:|---:|---:|---:|---:|---|---|']
+              '| city / group | h*_A | A slope | B(2.6) | b_B | h*_B line | h*_B local | '
+              '|line − h*_A| ≤ 0.25 | |local − h*_A| ≤ 0.25 | |B(2.6) − h*_A| ≤ 0.25 (#53) |',
+              '|---|---:|---:|---:|---:|---:|---|---|---|---|']
+
+        def _pf(v):
+            return 'n/a' if v is None else ('pass' if abs(v) <= 0.25 else 'fail')
         for r in five:
             if r['h_star_a'] is None and r['h_star_b'] is None:
                 continue
-            fx = r['gap_fixed']
-            rw = r['gap_raw']
+            fx, rw = r['gap_fixed'], r['gap_raw']
+            lc, _ex = row_local_crossing(r)
+            lg = None if lc is None or r['h_star_a'] is None else lc - r['h_star_a']
             L.append(f"| {r['city']} / {r['group']} | {_fmt(r['h_star_a'])} | "
                      f"{_fmt(r['a_slope'])} | {_fmt(r['b_2p6'])} | {_fmt(r['b_slope'])} | "
-                     f"{_fmt(r['h_star_b'])} | "
-                     f"{'n/a' if fx is None else ('pass' if abs(fx) <= 0.25 else 'fail')} "
-                     f"({_fmt(fx, '+.3f')}) | "
-                     f"{'n/a' if rw is None else ('pass' if abs(rw) <= 0.25 else 'fail')} "
-                     f"({_fmt(rw, '+.3f')}) |")
+                     f"{_fmt(r['h_star_b'])} | {_loc(r)} | {_pf(fx)} ({_fmt(fx, '+.3f')}) | "
+                     f"{_pf(lg)} ({_fmt(lg, '+.3f')}) | {_pf(rw)} ({_fmt(rw, '+.3f')}) |")
         L.append('')
 
     # E2
@@ -898,6 +1065,19 @@ def run_verdict(args):
                  f"({_fmt(m['b_slope'])}) | {_fmt(m['b_2p6'] - ht if m['b_2p6'] is not None else None, '+.3f')} | "
                  f"{_fmt(m['h_star_b'] - ht if m['h_star_b'] is not None else None, '+.3f')} | "
                  f"{_fmt(m['h_star_a'] - ht if m['h_star_a'] is not None else None, '+.3f')} |")
+    L += ['', 'The null is not noise-matched: `mapillary_height._null_views` draws it at the '
+          "error model's full sigmas whatever noise the simulation injected, so at noise 0 "
+          'B is corrected for noise that was never there. The raw columns below (h·(1 − s), '
+          'no null) separate the association effect from that mismatch:', '',
+          '| h_true | noise | B_raw(h_true) | B(h_true) | B_raw(2.6) | B(2.6) | '
+          'B(2.6) − B(h_true) | h*_B local |', '|---:|---:|---:|---:|---:|---:|---:|---|']
+    for (ht, n), m in sims.items():
+        bt, bt_raw = _b_at_height(m, ht), _b_at_height(m, ht, raw=True)
+        lc = m.get('h_star_b_local')
+        ext = ' (extrap.)' if lc is not None and m['h_star_b_local_extrapolated'] else ''
+        dif = None if bt is None or m['b_2p6'] is None else m['b_2p6'] - bt
+        L.append(f"| {ht:g} | {n:g} | {_fmt(bt_raw)} | {_fmt(bt)} | {_fmt(m.get('b_2p6_raw'))} | "
+                 f"{_fmt(m['b_2p6'])} | {_fmt(dif, '+.3f')} | {_fmt(lc)}{ext} |")
     L.append('')
     sim3 = {n: sims.get((RULE3_SIM_TRUE_M, n)) for n in RULE3_NOISES}
     c3, _share, c3_reasons = verdict_candidate3(real, {n: s for n, s in sim3.items() if s})
@@ -930,18 +1110,38 @@ def run_verdict(args):
             (off['eps_px_lo'], off['eps_px_hi']),
             {e: m['gap_fixed'] for e, m in e3b.items() if m['gap_fixed'] is not None},
             direction=1.0 if g > 0 else -1.0)
+        sds = [m['gap_fixed_sd'] for m in e3b.values() if m.get('gap_fixed_sd') is not None]
+        if sds:
+            pooled_sd = math.sqrt(statistics.fmean(s * s for s in sds))
+            c1_reasons.append(f'seed noise: pooled per-seed SD of the fixed-point gap '
+                              f'{pooled_sd:.3f} m ({e3b[0.0]["n_seeds"]} seeds per eps); a '
+                              'margin to the bar smaller than that is inside seed noise')
     else:
         c1, c1_reasons = 'untested', ['E3a or E3b missing']
+    extra = _numrows(_read_csv(gap_dir / 'simulate_e3b_seeds.csv'))
+    if extra:
+        allr = [r for r in sim_rows + extra if r['group'] == group
+                and r['h_true'] == RULE3_SIM_TRUE_M and r['noise_scale'] == 0.5]
+        ex = {e: sim_mean(allr, group, RULE3_SIM_TRUE_M, 0.5, e)
+              for e in sorted({r['offset_px'] for r in allr})}
+        base = ex.get(0.0)
+        L += ['### E3b robustness: more seeds (not the pre-registered input)', '',
+              'The rule reads the two pre-registered seeds above. `simulate_e3b_seeds.csv` adds '
+              'seeds from `--seed-start 2`; pooled with seeds 0–1:', '',
+              '| eps px | seeds | h*_B − h*_A (SD) | move vs eps 0 |', '|---:|---:|---|---:|']
+        for e, m in ex.items():
+            mv = None if base is None or m['gap_fixed'] is None \
+                else m['gap_fixed'] - base['gap_fixed']
+            L.append(f"| {e:+g} | {m['n_seeds']} | {_fmt(m['gap_fixed'], '+.3f')} "
+                     f"({_fmt(m['gap_fixed_sd'])}) | {_fmt(mv, '+.3f')} |")
+        L.append('')
 
     # E4
-    q = [r for r in seq_rows if r.get('quarter_support') in (True, 'True', 1.0)]
     for r in seq_rows:
         r['quarter_support'] = r.get('quarter_support') in (True, 'True', 1.0)
-    gaps = [r['h_star_b'] - r['h_star_a'] for r in q
-            if r['h_star_b'] is not None and r['h_star_a'] is not None]
-    gaps_raw = [r['b_2p6'] - r['h_star_a'] for r in q
-                if r['b_2p6'] is not None and r['h_star_a'] is not None]
-    mix = mixture_arm(seq_rows, real) if seq_rows else {}
+    q = [r for r in seq_rows if r['quarter_support']]
+    gaps, gaps_raw = candidate2_gaps(seq_rows)
+    mix = (mixture_arm(seq_rows, real) or {}) if seq_rows else {}
     L += ['## E4: per sequence (quarter support)', '',
           '| sequence | A panos | A sites | B views | h*_A (slope) | B(2.6) | h*_B (b_B) | '
           'h*_B − h*_A | B(2.6) − h*_A |', '|---|---:|---:|---:|---|---:|---|---:|---:|']
@@ -951,24 +1151,27 @@ def run_verdict(args):
                  f" | {_fmt(r['b_2p6'])} | {_fmt(r['h_star_b'])} ({_fmt(r['b_slope'])}) | "
                  f"{_fmt(r['gap_fixed'], '+.3f')} | {_fmt(r['gap_raw'], '+.3f')} |")
     L.append('')
+    if gaps:
+        L.append(f'Median within-sequence fixed-point gap h*_B − h*_A (the pre-registered '
+                 f'reading): {statistics.median(gaps):+.3f} m over {len(gaps)} sequences.')
     if gaps_raw:
-        L.append(f'Median within-sequence raw gap B(2.6) − h*_A: '
+        L.append(f'Median within-sequence raw gap B(2.6) − h*_A (secondary): '
                  f'{statistics.median(gaps_raw):+.3f} m over {len(gaps_raw)} sequences.')
     for name, (m, closure, n) in mix.items():
         L.append(f'Mixture arm ({name} sequences, n = {n}): view-weighted mean of h*_A '
                  f'{_fmt(m)} m against pooled h*_A {real["h_star_a"]:.3f} and B(2.6) '
                  f'{real["b_2p6"]:.3f}: closes {_fmt(closure, ".0%")} of G.')
     L.append('')
-    # The rule's "within-sequence gap" is read as the raw gap B(2.6) - h*_A: candidate 2
-    # claims to explain G, which is that quantity, and the plan's own expectation cites the
-    # raw per-sequence gaps of groups.csv. The fixed-point reading is reported beside it.
-    c2, c2_med, c2_reasons = verdict_candidate2(
-        gaps_raw, mix.get('qualifying', (None, None, 0))[1], 1.0 if g > 0 else -1.0)
-    if gaps:
-        alt = verdict_candidate2(gaps, mix.get('qualifying', (None, None, 0))[1],
-                                 1.0 if g > 0 else -1.0)
-        c2_reasons.append(f'under the fixed-point reading (h*_B - h*_A per sequence) the '
-                          f'median is {alt[1]:+.3f} m -> {alt[0]}')
+    # The pre-registered reading is the fixed-point gap (candidate2_gaps' docstring); the
+    # raw gap is secondary. The results commit had switched to the raw gap post hoc.
+    closure = mix.get('qualifying', (None, None, 0))[1]
+    c2, c2_med, c2_reasons = verdict_candidate2(gaps, closure, 1.0 if g > 0 else -1.0)
+    c2_reasons[0] = 'pre-registered reading (fixed points, h*_B - h*_A): ' + c2_reasons[0]
+    if gaps_raw:
+        alt = verdict_candidate2(gaps_raw, closure, 1.0 if g > 0 else -1.0)
+        c2_reasons.append(f'secondary, raw gap B(2.6) - h*_A per sequence: median '
+                          f'{alt[1]:+.3f} m -> {alt[0]} (the results commit read this one; '
+                          'that switch followed the numbers and is reverted)')
 
     # E5
     L += ['## E5: instrument C on the group\'s references', '',
@@ -995,23 +1198,30 @@ def run_verdict(args):
     if lau or lau_sim or pat:
         L += ['## E6: second cases (report only)', '']
     if lau:
-        L += ['| Laurens file / group | h*_A (slope) | B(2.6) | h*_B (b_B) |', '|---|---|---:|---|']
+        L += ['| Laurens file / group | h*_A (slope) | B(2.6) | h*_B line (b_B) | h*_B local |',
+              '|---|---|---:|---|---|']
         L += [f"| {r['results']} / {r['group']} | {_fmt(r['h_star_a'])} ({_fmt(r['a_slope'])}) | "
-              f"{_fmt(r['b_2p6'])} | {_fmt(r['h_star_b'])} ({_fmt(r['b_slope'])}) |" for r in lau]
+              f"{_fmt(r['b_2p6'])} | {_fmt(r['h_star_b'])} ({_fmt(r['b_slope'])}) | {_loc(r)} |"
+              for r in lau]
         L.append('')
     if lau_sim:
-        L += ['| Laurens sim h_true | noise | h*_A (A slope) | B(2.6) | h*_B (b_B) |',
-              '|---:|---:|---|---:|---|']
+        L += ['| Laurens sim h_true | noise | h*_A (A slope) | B(2.6) | h*_B line (b_B) | '
+              'h*_B local |', '|---:|---:|---|---:|---|---|']
         for ht, n in sorted({(r['h_true'], r['noise_scale']) for r in lau_sim}):
             m = sim_mean(lau_sim, lau_sim[0]['group'], ht, n)
+            lc = m.get('h_star_b_local')
+            ext = ' (extrap.)' if lc is not None and m['h_star_b_local_extrapolated'] else ''
             L.append(f"| {ht:g} | {n:g} | {_fmt(m['h_star_a'])} ({_fmt(m['a_slope'])}) | "
-                     f"{_fmt(m['b_2p6'])} | {_fmt(m['h_star_b'])} ({_fmt(m['b_slope'])}) |")
-        L.append('')
+                     f"{_fmt(m['b_2p6'])} | {_fmt(m['h_star_b'])} ({_fmt(m['b_slope'])}) | "
+                     f"{_fmt(lc)}{ext} |")
+        L += ['', 'h_true at or above the sweep top (3.0 m) is an extrapolation for every B '
+              'fixed point: the local crossing extends the top segment, the line extends the '
+              'whole fit.', '']
     if pat:
-        L += ['| Paterson year | h*_A (slope) | B(2.6) | h*_B (b_B) | depth median |',
-              '|---|---|---:|---|---:|']
+        L += ['| Paterson year | h*_A (slope) | B(2.6) | h*_B line (b_B) | h*_B local | '
+              'depth median |', '|---|---|---:|---|---|---:|']
         L += [f"| {r['group']} | {_fmt(r['h_star_a'])} ({_fmt(r['a_slope'])}) | "
-              f"{_fmt(r['b_2p6'])} | {_fmt(r['h_star_b'])} ({_fmt(r['b_slope'])}) | "
+              f"{_fmt(r['b_2p6'])} | {_fmt(r['h_star_b'])} ({_fmt(r['b_slope'])}) | {_loc(r)} | "
               f"{_fmt(r.get('depth_median_m'))} |" for r in pat]
         L.append('')
 
@@ -1070,7 +1280,9 @@ def main(argv=None):
     ap.add_argument('--true-height', type=float, nargs='+', default=[2.0])
     ap.add_argument('--noise-scale', type=float, nargs='+', default=[0.5])
     ap.add_argument('--offset-px', type=float, nargs='+', default=[0.0])
-    ap.add_argument('--seeds', type=int, default=2)
+    ap.add_argument('--seeds', type=int, default=2, help='simulate: seeds per configuration')
+    ap.add_argument('--seed-start', type=int, default=0,
+                    help='simulate: first seed (extra seeds on top of an existing grid)')
     ap.add_argument('--heights', type=float, nargs='+', default=[1.98, 2.2, 2.38, 2.6])
     ap.add_argument('--out', type=Path, default=None, help='output CSV path override')
     args = ap.parse_args(argv)
