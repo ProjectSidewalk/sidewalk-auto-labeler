@@ -1,0 +1,71 @@
+{
+ "schema": 1,
+ "source": "mapillary",
+ "default_m": 2.6,
+ "grain": "rig",
+ "recommended": false,
+ "gate": {
+  "passes": false,
+  "clauses": {
+   "i": true,
+   "ii": false,
+   "iii": false,
+   "iv": false
+  }
+ },
+ "results_sha256": "16c5a348b739274bf8e7623b63551da5245547d0ca4e5a52956fd2413b4fe213",
+ "generated_at": "2026-09-25T16:48:51+00:00",
+ "generated_by": "scripts/mapillary_height.py (issue #53)",
+ "groups": {
+  "gopro/max": {
+   "height_m": 2.6,
+   "sigma_m": null,
+   "applied": false,
+   "grain": "rig",
+   "n_panos": 644,
+   "n_sites": 219,
+   "n_views_b": 1371,
+   "h_bearing": 4.314,
+   "h_bearing_ci": [
+    3.802,
+    4.841
+   ],
+   "h_scale": 2.949,
+   "h_scale_ci": [
+    2.897,
+    3.0
+   ],
+   "h_scale_with_offset": 3.438,
+   "slope": 0.723,
+   "method": "mean(bearing fixed point, null-corrected scale identity)",
+   "passed": [
+    "support",
+    "material"
+   ],
+   "reason": "fails identifiable (slope 0.723); agreement (A 4.314, B 2.949); SUSPECT: bearing height outside 1.0-3.5 m",
+   "sequence_iqr_m": 0.736,
+   "qualifying_sequences": 7
+  }
+ },
+ "sequences": {
+  "1vDiqGEpeuIsYb6AXo5y0Z": "gopro/max",
+  "BkWj9PJOTmhN5KeQIsozwg": "gopro/max",
+  "C6dwIBRe791hVFz8x2OWJY": "gopro/max",
+  "C8rnZtapvRTc59YOBjAklG": "gopro/max",
+  "Dq1MnGTap8j642PmRYXywt": "gopro/max",
+  "OIomhEn0VrPvSL7TxGi9NW": "gopro/max",
+  "RbiQWPvZCdhHTA03w1rLql": "gopro/max",
+  "SpjgxY5nETrQRPuDqzwhoN": "gopro/max",
+  "XyPtf86jxEsdVoC1puIBhJ": "gopro/max",
+  "axZPXQLSm6hrvCoYd9f1cl": "gopro/max",
+  "eTW2wxXc9iFHR8hQ0BZYDL": "gopro/max",
+  "fqZJNGcvt9HM3QxdhkXisB": "gopro/max",
+  "ngTGPIQjmsxLf0uY8d4otC": "gopro/max",
+  "rF2x7s5zpZ9u1TDVHeXStC": "gopro/max",
+  "sWgIuf2jYGaEJPXzVck8on": "gopro/max",
+  "sfIZLd16KQWHDVMn2pwRyF": "gopro/max",
+  "vngsVZuQaY9U4lF7zJ6dro": "gopro/max",
+  "z0rwf2KqY6IS5XELmdtpyV": "gopro/max",
+  "z2rS8wRVoXTeflg6sMIUj5": "gopro/max"
+ }
+}

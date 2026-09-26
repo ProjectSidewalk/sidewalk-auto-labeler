@@ -117,6 +117,13 @@ python scripts/eval_sites.py paterson --camera-height-m per-pano --out /tmp/eval
 # the four harvested GSV cities, both association heights; writes runs/<city>/height_qc/
 # and the cross-city verdicts + default-height decision table to runs/_pooled/height_qc/.
 python scripts/height_qc.py
+# Mapillary has no depth: `per-rig` (issue #53) reads runs/<name>/camera_heights.json, a
+# per-rig-class height measured by scripts/mapillary_height.py (bearing fixed point + #76's
+# scale identity, a pre-registered rule, then a production gate). OPT-IN: only Annapolis's
+# MX7 passed the rule (2.376 m) and the gate FAILED (recall -1.2 pt, GT range slope
+# steeper), so every table says recommended: false -- docs/mapillary-camera-height.md.
+python scripts/mapillary_height.py richmond laurens clovis morgantown annapolis
+python scripts/fuse_sites.py runs/annapolis --camera-height-m per-rig --out /tmp/s.jsonl
 
 # Score fusion against RampNet GT in world space: world P/R, the union-recall
 # decomposition, stage-4 promotion calibration, vintage + match-radius ablations.

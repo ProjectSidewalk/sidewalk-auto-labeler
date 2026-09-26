@@ -50,6 +50,13 @@ PER_PANO = 'per-pano'
 # camera height across its ground planes -- p90-p10 of a normal is 2.563 sigma. A height a
 # future rule rejects falls back to the default like an unmeasured pano.
 SIGMA_PER_P10_P90 = depthlib.SIGMA_PER_P10_P90
+# Camera height per capture rig (issue #53), for the crowdsourced sources that serve no
+# depth. The height is not read from the pano block but from a per-run table,
+# runs/<name>/camera_heights.json (scripts/mapillary_height.py measures and writes it);
+# fuse_sites.load_results fills SlimPano.camera_height_m / camera_height_spread_m from it
+# by sequence, and under PER_RIG the spread field is the group's 1-sigma, not a p90-p10.
+# Opt-in; see docs/mapillary-camera-height.md for the evidence and the verdict.
+PER_RIG = 'per-rig'
 
 # RampNet's heatmap is 1024x512 over the full equirect, so detections are quantized
 # to that grid — and both axes step by the same angle: 2*pi/1024 == pi/512 rad/px.
@@ -416,6 +423,13 @@ def camera_height_for(pose, errors=None, camera_height=DEFAULT_CAMERA_HEIGHT_M):
         (1.73, 0.15)
     """
     errors = errors or error_model_for(pose.source)
+    if camera_height == PER_RIG:
+        # The table's height where the pano's rig/sequence has one, sigma floored at the
+        # error model's; the default otherwise (#53). Separate from PER_PANO on purpose.
+        if pose.camera_height_m is None:
+            return DEFAULT_CAMERA_HEIGHT_M, errors.sigma_height_m
+        return pose.camera_height_m, max(errors.sigma_height_m,
+                                         pose.camera_height_spread_m or 0.0)
     if camera_height != PER_PANO:
         return float(camera_height), errors.sigma_height_m
     if pose.camera_height_m is None:
