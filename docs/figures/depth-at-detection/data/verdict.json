@@ -54,16 +54,34 @@
       "false_non_surface": 3
     }
   },
-  "exploratory_excluding_level_floor": {
+  "exploratory_level_floor": {
     "note": "not part of the pre-registered reading; see the study doc",
-    "true_surface_share_pooled": 0.7818181818181819,
-    "true_surface_share_by_city": {
-      "bend": 0.7424242424242424,
-      "paterson": 0.7786885245901639,
-      "gainesville": 0.8888888888888888,
-      "sao_paulo": 0.7197452229299363
+    "excluded_from_denominator": {
+      "true_surface_share_pooled": 0.9304482225656878,
+      "true_n_pooled": 647,
+      "true_surface_share_by_city": {
+        "bend": 0.9423076923076923,
+        "paterson": 0.9178743961352657,
+        "gainesville": 0.95,
+        "sao_paulo": 0.9112903225806451
+      },
+      "rule_i_arithmetic": "SUPPORTED",
+      "false_surface_share_pooled": 0.90625,
+      "missed_surface_share_pooled": 0.9032258064516129
     },
-    "rule_i_arithmetic": "NOT SUPPORTED",
+    "counted_as_off_surface": {
+      "true_surface_share_pooled": 0.7818181818181819,
+      "true_n_pooled": 770,
+      "true_surface_share_by_city": {
+        "bend": 0.7424242424242424,
+        "paterson": 0.7786885245901639,
+        "gainesville": 0.8888888888888888,
+        "sao_paulo": 0.7197452229299363
+      },
+      "rule_i_arithmetic": "NOT SUPPORTED",
+      "false_surface_share_pooled": 0.6904761904761905,
+      "missed_surface_share_pooled": 0.7613293051359517
+    },
     "true_floor_offset_local_median_nonlevel": [
       0.030408,
       0.0179074,

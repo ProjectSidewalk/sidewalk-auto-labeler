@@ -1,5 +1,5 @@
-city,dets_degenerate,dets_implausible,dets_measured,dets_no_file,dets_synthetic_ground,n_detections_0p30,n_detections_0p55,n_panos_with_detection,n_panos_with_payload,panos_degenerate,panos_implausible,panos_measured,panos_synthetic_ground
-bend,31,2,45219,18,6273,51543,51543,20613,20607,8,1,18136,2462
-paterson,,4,32188,81,2837,35110,29756,12820,12789,,2,11780,1007
-gainesville,11,16,19664,2199,2192,24082,15574,11457,10467,5,13,9350,1099
-sao_paulo,,22,17861,6463,3003,27349,16159,12051,9229,,8,7893,1328
+city,dets_degenerate,dets_implausible,dets_measured,dets_no_file,dets_synthetic_ground,n_detections_0p30,n_detections_0p55,n_panos_no_file,n_panos_with_detection,n_panos_with_payload,panos_degenerate,panos_implausible,panos_measured,panos_synthetic_ground
+bend,31,2,45219,18,6273,51543,51543,6,20613,20607,8,1,18136,2462
+paterson,,4,32188,81,2837,35110,29756,31,12820,12789,,2,11780,1007
+gainesville,11,16,19664,2199,2192,24082,15574,990,11457,10467,5,13,9350,1099
+sao_paulo,,22,17861,6463,3003,27349,16159,2822,12051,9229,,8,7893,1328

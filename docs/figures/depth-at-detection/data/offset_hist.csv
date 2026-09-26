@@ -166,8 +166,8 @@ tier,city,reference,bin_lo_m,n
 0.30,gainesville,dominant,-0.55,81
 0.30,gainesville,dominant,-0.5,66
 0.30,gainesville,dominant,-0.45,90
-0.30,gainesville,dominant,-0.4,116
-0.30,gainesville,dominant,-0.35,198
+0.30,gainesville,dominant,-0.4,117
+0.30,gainesville,dominant,-0.35,197
 0.30,gainesville,dominant,-0.3,203
 0.30,gainesville,dominant,-0.25,336
 0.30,gainesville,dominant,-0.2,535
@@ -474,8 +474,8 @@ tier,city,reference,bin_lo_m,n
 0.30,pooled,dominant,-0.55,458
 0.30,pooled,dominant,-0.5,560
 0.30,pooled,dominant,-0.45,707
-0.30,pooled,dominant,-0.4,873
-0.30,pooled,dominant,-0.35,1224
+0.30,pooled,dominant,-0.4,874
+0.30,pooled,dominant,-0.35,1223
 0.30,pooled,dominant,-0.3,1645
 0.30,pooled,dominant,-0.25,2203
 0.30,pooled,dominant,-0.2,3240
@@ -487,8 +487,8 @@ tier,city,reference,bin_lo_m,n
 0.30,pooled,dominant,0.1,8396
 0.30,pooled,dominant,0.15,6336
 0.30,pooled,dominant,0.2,4953
-0.30,pooled,dominant,0.25,3591
-0.30,pooled,dominant,0.3,2657
+0.30,pooled,dominant,0.25,3590
+0.30,pooled,dominant,0.3,2658
 0.30,pooled,dominant,0.35,1996
 0.30,pooled,dominant,0.4,1556
 0.30,pooled,dominant,0.45,1263
@@ -645,8 +645,8 @@ tier,city,reference,bin_lo_m,n
 0.30,sao_paulo,dominant,0.1,1169
 0.30,sao_paulo,dominant,0.15,899
 0.30,sao_paulo,dominant,0.2,828
-0.30,sao_paulo,dominant,0.25,599
-0.30,sao_paulo,dominant,0.3,484
+0.30,sao_paulo,dominant,0.25,598
+0.30,sao_paulo,dominant,0.3,485
 0.30,sao_paulo,dominant,0.35,362
 0.30,sao_paulo,dominant,0.4,321
 0.30,sao_paulo,dominant,0.45,273
@@ -1253,8 +1253,8 @@ tier,city,reference,bin_lo_m,n
 0.55,pooled,dominant,0.1,7196
 0.55,pooled,dominant,0.15,5432
 0.55,pooled,dominant,0.2,4192
-0.55,pooled,dominant,0.25,3004
-0.55,pooled,dominant,0.3,2199
+0.55,pooled,dominant,0.25,3003
+0.55,pooled,dominant,0.3,2200
 0.55,pooled,dominant,0.35,1638
 0.55,pooled,dominant,0.4,1265
 0.55,pooled,dominant,0.45,1009
@@ -1411,8 +1411,8 @@ tier,city,reference,bin_lo_m,n
 0.55,sao_paulo,dominant,0.1,698
 0.55,sao_paulo,dominant,0.15,542
 0.55,sao_paulo,dominant,0.2,488
-0.55,sao_paulo,dominant,0.25,335
-0.55,sao_paulo,dominant,0.3,264
+0.55,sao_paulo,dominant,0.25,334
+0.55,sao_paulo,dominant,0.3,265
 0.55,sao_paulo,dominant,0.35,194
 0.55,sao_paulo,dominant,0.4,183
 0.55,sao_paulo,dominant,0.45,139
