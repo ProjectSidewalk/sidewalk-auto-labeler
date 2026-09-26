@@ -313,6 +313,24 @@ def test_verdict_rule_4_fails_on_a_coverage_drop_and_caveats_a_site_drop():
     assert any('CAVEAT' in r for r in reasons)
 
 
+def test_verdict_rule_4_is_two_sided_a_coverage_gain_also_fails():
+    """Pins the branch that decided #79: Gainesville's (c) GAINS 2.18 pt of coverage.
+
+    The committed rule reads 'within 1.0 pt of (a)'s' as two-sided (abs(dcov)), so a gain
+    fails rule 4 exactly like a drop. Whether a gain should pass (the one-sided reading:
+    the survivorship heading, the constant's name RULE_MAX_COVERAGE_DROP, the #42
+    precedent) is Jon's open decision on #79. If he adopts the one-sided reading, flip the
+    ONE marked assertion below; everything else here holds under both readings."""
+    good_c = dict(a=(2.0, 4.0), b=(1.95, 3.9), c=(1.2, 2.6))
+    rows = {'gainesville': _city_rows(**good_c, cov={'a': 0.80, 'c': 0.822}),
+            'bend': _city_rows(a=(0.7, 1.5), b=(0.7, 1.5), c=(0.7, 1.5))}
+    vint = {'gainesville': _vint(1.0, 0.2), 'bend': []}
+    selected, res, _ = io.verdict(rows, vint)
+    assert all(res['c'][k] for k in '1235') and not res['c']['caveat']
+    # TWO-SIDED (committed) reading. One-sided: `assert res['c']['4'] and selected == 'c'`
+    assert not res['c']['4'] and not res['c']['pass'] and selected == 'a'
+
+
 def test_verdict_rule_3_and_rule_2_guard_against_construction_and_regression():
     vint = {'gainesville': _vint(1.0, 0.2), 'bend': []}
     base = dict(a=(2.0, 4.0), b=(1.95, 3.9), c=(1.2, 2.6))
