@@ -42,6 +42,12 @@ runs/**
 # Per-rig camera heights for Mapillary runs (scripts/mapillary_height.py, issue #53): the
 # table `fuse_sites.py --camera-height-m per-rig` reads, bound to results.jsonl by sha256.
 !runs/*/camera_heights.json
+# The #87 height-gap study (scripts/height_gap.py; docs/mapillary-camera-height.md section 7):
+# its CSVs and report are the evidence and are tracked. camera_height/groups.csv stays local.
+!runs/*/camera_height/
+!runs/*/camera_height/gap/
+!runs/*/camera_height/gap/*.csv
+!runs/*/camera_height/gap/report.md
 # AI-vs-crowd agree rate (scripts/agree_rate.py, write-up in docs/agree-rate-<city>.md): the
 # report and CSVs are the evidence and are tracked. The three API pulls they are computed
 # from (the frozen crowd snapshot) are NOT — the report carries each one's url, fetch time,
