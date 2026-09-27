@@ -28,7 +28,9 @@ Subcommands:
             --true-height; Pulsar 2.6 m, unknown 2.65 m, anything else 2.6 m), add the
             Mapillary error model's noise scaled by --noise-scale and an optional
             constant dip offset (--offset-px, heatmap px; + = the peak sits LOWER than
-            the ramp), and run the same A and B sweep.
+            the ramp), and run the same A and B sweep. Since #89 B's null is
+            noise-matched (drawn at --noise-scale) and the output is
+            simulate_matched.csv; --null-unmatched reproduces #87's simulate.csv.
   gt        E3a (box-minus-peak vertical offset per rig, bootstrap CI by pano) and E5
             (instrument C for the group's references at each --heights value plus h*_B).
   verdict   applies the pre-registered rules to the CSVs above and writes report.md.
@@ -39,8 +41,8 @@ production: camera_heights.json, groups.csv, results.jsonl and sites.jsonl are o
 Usage:
     python scripts/height_gap.py sweep richmond --group gopro/max --sequences
     python scripts/height_gap.py sweep richmond laurens clovis morgantown annapolis
-    python scripts/height_gap.py simulate richmond --group gopro/max \\
-        --true-height 1.8 2.0 2.2 2.4 --noise-scale 0 0.5 1 --seeds 2
+    python scripts/height_gap.py simulate richmond --group gopro/max --null-unmatched \\
+        --true-height 1.8 2.0 2.2 2.4 --noise-scale 0 0.5 1 --seeds 2   # #87's E2
     python scripts/height_gap.py gt richmond --group gopro/max --heights 1.98 2.2 2.38 2.6
     python scripts/height_gap.py verdict richmond
 
@@ -70,9 +72,9 @@ from detectors import on_camera_rig  # noqa: E402
 
 SWEEP_HEIGHTS = mh.SWEEP_HEIGHTS
 H0 = geo.DEFAULT_CAMERA_HEIGHT_M
-NULL_SEEDS = 10           # the errors-in-variables null is averaged over this many seeds
-N_DRAWS = 500             # parametric draws for h*_B's CI
-DRAW_SEED = 87
+NULL_SEEDS = mh.NULL_SEEDS   # the errors-in-variables null is averaged over this many seeds
+N_DRAWS = mh.N_DRAWS         # parametric draws for h*_B's CI
+DRAW_SEED = mh.DRAW_SEED
 N_BOOT_OFFSET = 2000      # bootstrap draws (by pano) for the box-minus-peak CI
 SIM_TRUE_HEIGHTS = {'nctech/istar pulsar': 2.6, 'unknown': 2.65}   # the other Richmond rigs
 SIM_DEFAULT_HEIGHT = 2.6
@@ -121,151 +123,28 @@ def load_run(run_dir, results='results.jsonl', group_by='rig'):
     return panos, groups_of
 
 
-# --- Instrument B at one association height, null averaged over seeds -----------------
+# --- Instrument B: the helpers live in mapillary_height since #89 ----------------------
+# b_at, local_crossing and b_fixed_point moved to mapillary_height (#89), which now reads
+# B as a fixed point itself; they are re-exported here so #87's code and tests read
+# unchanged. sweep keeps #87's contract: A and B both at `heights`.
 
-def _b_names(sites, key_of, min_rows):
-    """instrument_b's own grouping: groups under min_rows held-out views pool as 'other'."""
-    counts = {}
-    for sv in sites:
-        for v in sv.views:
-            counts[key_of(v.pano_id)] = counts.get(key_of(v.pano_id), 0) + 1
-    names = sorted((g for g, c in counts.items() if c >= min_rows), key=str)
-    if len(counts) > len(names):
-        names.append('other')
-    named = set(names)
-    return names, (lambda pid: key_of(pid) if key_of(pid) in named else 'other')
+_b_names = mh._b_names
+b_at = mh.b_at
+local_crossing = mh.local_crossing
+b_fixed_point = mh.b_fixed_point
 
-
-def b_at(sites, key_of, h0, null_seeds=range(NULL_SEEDS), min_rows=rr.MIN_GROUP_ROWS):
-    """Instrument B at association height h0 with the null averaged over `null_seeds`.
-
-    mapillary_height.instrument_b gives the fit, the first seed's null and the offset fit;
-    the remaining seeds refit the null only. Returns {group: row} with h_b = h0 * (1 - (s -
-    mean null)) and null_sd_m = h0 * SD(null s) -- the null's own contribution to B."""
-    seeds = list(null_seeds)
-    rows = mh.instrument_b(sites, key_of, min_rows=min_rows, seed=seeds[0], h0=h0)
-    if not rows:
-        return {}
-    names, kof = _b_names(sites, key_of, min_rows)
-    nulls = {g: [r['null_s']] for g, r in rows.items()}
-    for seed in seeds[1:]:
-        rng = random.Random(seed)
-        fit = rr.fit_scale(mh._scale_blocks(sites, kof, names, h0=h0,
-                                            simulate=lambda sv: mh._null_views(sv, rng)),
-                           names)
-        for g in nulls:
-            if g not in fit:
-                # a zero here would be averaged in silently as "no null bias" (review #7)
-                raise SystemExit(f'b_at: null seed {seed} at h0 {h0:g} fitted no scale for '
-                                 f'group {g!r}, which the first seed did fit')
-            nulls[g].append(fit[g][0])
-    out = {}
-    for g, r in rows.items():
-        s0 = statistics.fmean(nulls[g])
-        sd = statistics.stdev(nulls[g]) if len(nulls[g]) > 1 else None
-        net = r['scale_s'] - s0
-        out[g] = {'group': g, 'n_views': r['n_views'], 'scale_s': r['scale_s'],
-                  'scale_s_se': r['scale_s_se'], 'null_s_mean': s0, 'null_s_sd': sd,
-                  'h_b': h0 * (1.0 - net), 'h_b_se': h0 * r['scale_s_se'],
-                  'null_sd_m': None if sd is None else h0 * sd,
-                  'h_b_raw': h0 * (1.0 - r['scale_s']),
-                  'h_b_offset': (None if r['offset_fit_s'] is None
-                                 else h0 * (1.0 - (r['offset_fit_s'] - s0)))}
-    return out
-
-
-# --- The sweep ------------------------------------------------------------------------------
 
 def sweep(panos, keyings, heights=SWEEP_HEIGHTS, null_seeds=range(NULL_SEEDS),
-          params=None, log=None, min_rows=rr.MIN_GROUP_ROWS):
-    """Associate the run at every height once and read both instruments.
+          params=None, log=None, min_rows=rr.MIN_GROUP_ROWS, noise_scale=1.0):
+    """Associate the run at every height once and read both instruments (#87's sweep:
+    A and B at the same heights; mapillary_height.sweep_ab with a_heights = heights).
 
     keyings: {name: key_of(pano_id)} -- instrument B is fitted jointly per keying.
+    noise_scale scales B's null (#89; 1.0 on real data).
     Returns {'a': {h: [(site_id, pano_id, implied)]}, 'b': {name: {h: {group: row}}}}."""
-    params = params or mh.production_params()
-    by_id = {p.pano_id: p for p in panos}
-    a, b = {}, {name: {} for name in keyings}
-    for h in heights:
-        t0 = time.time()
-        sites, frame, _ = fs.fuse(panos, replace(params, camera_height_m=h))
-        recs = []
-        for site in sites:
-            if site.n_operational < 2:
-                continue
-            for pid, vals in fs.implied_heights([site], frame, by_id).items():
-                recs.extend((site.id, pid, v) for v in vals)
-        a[h] = recs
-        svs = [sv for sv in (rr.views_from_site(s) for s in sites)
-               if len(sv.views) >= rr.MIN_VIEWS]
-        for name, key_of in keyings.items():
-            b[name][h] = b_at(svs, key_of, h, null_seeds, min_rows=min_rows)
-        if log:
-            log(f'  h={h:g}: {len(sites)} sites, {len(svs)} with >= {rr.MIN_VIEWS} views, '
-                f'{len(recs)} implied heights ({time.time() - t0:.1f} s)')
-    return {'a': a, 'b': b}
-
-
-def local_crossing(heights, values):
-    """(h, extrapolated) where B(h) crosses the identity B = h, read locally.
-
-    The line fit's fixed point a_B / (1 - b_B) amplifies any bias of the line near the
-    crossing by 1/(1 - b_B) (about 3.4 at b_B = 0.7), and B(h) is concave, so a global
-    line through the sweep's centroid overshoots a crossing near the top of the sweep.
-    This reads the crossing off the two sweep heights that bracket it instead: the first
-    adjacent pair where d = B(h) - h goes from >= 0 to < 0 (a stable fixed point),
-    linearly interpolated. With no bracket inside the sweep it extrapolates the end
-    segment on the side the crossing lies (the top pair when d > 0 everywhere, the bottom
-    pair when d < 0 everywhere) and flags it; None when that segment's slope is >= 1 (B
-    only follows, no crossing) or fewer than two heights have a value.
-
-    Example: B = 1.548, 1.721, 1.870, 2.033, 2.197 at 1.4, 1.6, 1.8, 2.0, 2.3 m crosses
-    between 2.0 (d +0.033) and 2.3 (d -0.103): 2.0 + 0.3 * 0.033 / 0.136 = 2.073."""
-    pts = sorted((h, v) for h, v in zip(heights, values) if v is not None)
-    if len(pts) < 2:
-        return None, None
-    d = [(h, v - h) for h, v in pts]
-    for h, dv in d:
-        if dv == 0.0:
-            return h, False
-    for (h0, d0), (h1, d1) in zip(d, d[1:]):
-        if d0 > 0 > d1:
-            return h0 + (h1 - h0) * d0 / (d0 - d1), False
-    (h0, d0), (h1, d1) = (d[-2], d[-1]) if all(dv > 0 for _, dv in d) else (d[0], d[1])
-    if d1 - d0 >= 0:          # B's local slope >= 1: no crossing on this segment's line
-        return None, True
-    return h0 + (h1 - h0) * d0 / (d0 - d1), True
-
-
-def b_fixed_point(b_by_h, group, n_draws=N_DRAWS, seed=DRAW_SEED):
-    """(h*_B, a_B, b_B, ci_lo, ci_hi, undefined draws) of the line through (h, B(h)).
-
-    The CI draws s at each height from N(s, cluster-robust SE) independently (the plan's
-    choice) and keeps the mean null fixed. The heights share data -- the same views are
-    re-associated at every height -- so their errors are positively correlated, and a
-    common-mode shift is exactly what 1/(1 - b_B) amplifies: the CI is too narrow and must
-    be quoted with that caveat (review #3). It also describes the line fit only, not
-    local_crossing's estimate."""
-    pts = [(h, rows[group]) for h, rows in sorted(b_by_h.items()) if group in rows]
-    if len(pts) < 3:
-        return None, None, None, None, None, None
-    hs = [h for h, _ in pts]
-    h_star, a, b = mh.fixed_point(hs, [r['h_b'] for _, r in pts])
-    rng = random.Random(seed)
-    draws, undefined = [], 0
-    for _ in range(n_draws):
-        vals = [h * (1.0 - (rng.gauss(r['scale_s'], r['scale_s_se'] or 0.0) - r['null_s_mean']))
-                for h, r in pts]
-        hd, _, _ = mh.fixed_point(hs, vals)
-        if hd is None:
-            undefined += 1
-        else:
-            draws.append(hd)
-    lo = hi = None
-    if draws:
-        draws.sort()
-        lo = draws[int(0.025 * (len(draws) - 1))]
-        hi = draws[int(math.ceil(0.975 * (len(draws) - 1)))]
-    return h_star, a, b, lo, hi, undefined
+    return mh.sweep_ab(panos, keyings, heights=heights, a_heights=heights,
+                       null_seeds=null_seeds, params=params, log=log, min_rows=min_rows,
+                       noise_scale=noise_scale)
 
 
 def summarize(sw, keying, key_of, city, results, grouping, n_boot=mh.N_BOOT,
@@ -541,19 +420,22 @@ def sim_height_of(groups_of, group, h_true):
 
 
 def simulate_one(panos, truth, groups_of, group, h_true, noise, offset_px, seed,
-                 null_seeds=range(NULL_SEEDS), n_draws=N_DRAWS, heights=SWEEP_HEIGHTS):
+                 null_seeds=range(NULL_SEEDS), n_draws=N_DRAWS, heights=SWEEP_HEIGHTS,
+                 null_matched=True):
     """One simulation configuration: resynthesize, sweep, summarize the named group.
 
-    The null is NOT noise-matched: mapillary_height._null_views always draws it at the
-    error model's full sigmas, whatever noise_scale injected. So at noise 0 the
-    null-corrected B (b_at_*, b_2p6, h_star_b) is "corrected" for noise that was never
-    there, and at 0.5 it is over-corrected; only at 1.0 does the null match. The raw
-    columns (b_raw_at_*, b_2p6_raw: h * (1 - s), no null) are written beside them so the
-    association effect can be read apart from the null (review #1)."""
+    null_matched (default since #89): the null's sigmas are scaled by the injected noise
+    (mapillary_height._null_views' noise_scale), so B is corrected for exactly the noise
+    that was put in. null_matched=False reproduces #87's committed simulate.csv, whose
+    null was drawn at the model's full sigmas whatever noise_scale injected -- at noise 0
+    "corrected" for noise that was never there, at 0.5 over-corrected. The raw columns
+    (b_raw_at_*, b_2p6_raw: h * (1 - s), no null) are written beside them either way, so
+    the association effect can be read apart from the null (#90 review #1)."""
     syn, counts = resynthesize(panos, truth, sim_height_of(groups_of, group, h_true),
                                noise, offset_px, seed)
     key_of = lambda pid: groups_of[pid]['rig']   # noqa: E731
-    sw = sweep(syn, {'rig': key_of}, heights=heights, null_seeds=null_seeds)
+    sw = sweep(syn, {'rig': key_of}, heights=heights, null_seeds=null_seeds,
+               noise_scale=noise if null_matched else 1.0)
     rows = summarize(sw, 'rig', key_of, '', '', 'rig', n_boot=0, groups={group},
                      n_draws=n_draws)
     r = rows[0] if rows else {}
@@ -562,7 +444,8 @@ def simulate_one(panos, truth, groups_of, group, h_true, noise, offset_px, seed,
             'b_amplification', 'h_star_b_lo', 'h_star_b_hi', 'h_star_b_local',
             'h_star_b_local_extrapolated', 'gap_raw', 'gap_fixed', 'gap_local')
     return {'group': group, 'h_true': h_true, 'noise_scale': noise, 'offset_px': offset_px,
-            'seed': seed, **{k: r.get(k) for k in keep},
+            'seed': seed, 'null_noise_scale': noise if null_matched else 1.0,
+            **{k: r.get(k) for k in keep},
             'a_err': _rd(r['h_star_a'] - h_true) if r.get('h_star_a') is not None else None,
             'b_2p6_err': _rd(r['b_2p6'] - h_true) if r.get('b_2p6') is not None else None,
             'b_fixed_err': _rd(r['h_star_b'] - h_true) if r.get('h_star_b') is not None
@@ -590,15 +473,19 @@ def _key(row):
 
 
 def run_simulate(args):
-    """The `simulate` subcommand: rows are merged into simulate.csv by configuration, so
-    E2 and E3b land in one file."""
+    """The `simulate` subcommand: rows are merged into the output CSV by configuration,
+    so E2 and E3b land in one file. The null is noise-matched (#89) and the default
+    output is simulate_matched.csv; --null-unmatched reproduces #87's simulate.csv
+    (null at full sigmas), which is its default output and is never overwritten by a
+    matched run."""
     city = args.cities[0]
     run_dir = args.run_root / city
     panos, groups_of = load_run(run_dir, args.results[0])
     truth, stats = planted_sites(panos)
     print(f'{city}: {len(panos)} panos, {stats["n_sites"]} planted sites '
           f'({stats["n_projected"]} projected detections)', flush=True)
-    out = args.out or run_dir / 'camera_height' / 'gap' / 'simulate.csv'
+    name = 'simulate.csv' if args.null_unmatched else 'simulate_matched.csv'
+    out = args.out or run_dir / 'camera_height' / 'gap' / name
     rows = {_key(r): r for r in _read_csv(out)}
     for h_true in args.true_height:
         for noise in args.noise_scale:
@@ -606,7 +493,10 @@ def run_simulate(args):
                 for seed in range(args.seed_start, args.seed_start + args.seeds):
                     t0 = time.time()
                     r = simulate_one(panos, truth, groups_of, args.group, h_true, noise, off,
-                                     seed, null_seeds=range(args.null_seeds))
+                                     seed, null_seeds=range(args.null_seeds),
+                                     null_matched=not args.null_unmatched)
+                    if args.null_unmatched:
+                        r.pop('null_noise_scale')      # #87's columns, byte for byte
                     r = {'city': city, 'results': args.results[0], **r}
                     rows[_key(r)] = r
                     print(f"  h_true {h_true} noise {noise} eps {off:+g} px seed {seed}: "
@@ -1286,6 +1176,10 @@ def main(argv=None):
     ap.add_argument('--seed-start', type=int, default=0,
                     help='simulate: first seed (extra seeds on top of an existing grid)')
     ap.add_argument('--heights', type=float, nargs='+', default=[1.98, 2.2, 2.38, 2.6])
+    ap.add_argument('--null-unmatched', action='store_true',
+                    help="simulate: #87's null at full sigmas whatever the injected noise "
+                         '(reproduces simulate.csv); default is noise-matched (#89), '
+                         'written to simulate_matched.csv')
     ap.add_argument('--out', type=Path, default=None, help='output CSV path override')
     args = ap.parse_args(argv)
     {'sweep': run_sweep, 'simulate': run_simulate, 'gt': run_gt,

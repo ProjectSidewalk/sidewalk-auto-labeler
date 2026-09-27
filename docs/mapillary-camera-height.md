@@ -281,12 +281,12 @@ four problems. All are fixed below, and the overall verdict is unchanged.
 ```bash
 python scripts/height_gap.py sweep richmond --group gopro/max --sequences          # E1, E4
 python scripts/height_gap.py sweep richmond laurens clovis morgantown annapolis     # E1, all rigs
-python scripts/height_gap.py simulate richmond --group gopro/max --true-height 1.8 2.0 2.2 2.4 --noise-scale 0 0.5 1 --seeds 2
-python scripts/height_gap.py simulate richmond --group gopro/max --true-height 2.0 --offset-px -4 -2 -1 0 1 2 4 --noise-scale 0.5 --seeds 2
-python scripts/height_gap.py simulate richmond --group gopro/max --true-height 2.0 --offset-px -4 -2 -1 0 1 2 4 --noise-scale 0.5 --seeds 4 --seed-start 2 --out runs/richmond/camera_height/gap/simulate_e3b_seeds.csv   # E3b robustness
+python scripts/height_gap.py simulate richmond --group gopro/max --null-unmatched --true-height 1.8 2.0 2.2 2.4 --noise-scale 0 0.5 1 --seeds 2
+python scripts/height_gap.py simulate richmond --group gopro/max --null-unmatched --true-height 2.0 --offset-px -4 -2 -1 0 1 2 4 --noise-scale 0.5 --seeds 2
+python scripts/height_gap.py simulate richmond --group gopro/max --null-unmatched --true-height 2.0 --offset-px -4 -2 -1 0 1 2 4 --noise-scale 0.5 --seeds 4 --seed-start 2 --out runs/richmond/camera_height/gap/simulate_e3b_seeds.csv   # E3b robustness
 python scripts/height_gap.py gt richmond --group gopro/max --heights 1.98 2.2 2.38 2.6   # E3a, E5
 python scripts/height_gap.py sweep laurens --results results.jsonl results.raw.jsonl     # E6
-python scripts/height_gap.py simulate laurens --group gopro/max --true-height 2.6 3.0 3.4 --noise-scale 0.5 --seeds 2
+python scripts/height_gap.py simulate laurens --group gopro/max --null-unmatched --true-height 2.6 3.0 3.4 --noise-scale 0.5 --seeds 2
 python scripts/height_gap.py sweep paterson --group-by year                          # E6, GSV
 python scripts/height_gap.py verdict richmond                                        # -> report.md
 ```
@@ -540,3 +540,105 @@ its sizing missed.
 - RampNet#101 measures the same identity at a single association height. Its 11% slope is
   therefore a lower bound on the range error, and the fixed-point form is the right
   estimator.
+
+## 8. Instrument B as a validated fixed point ([#89](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/89)), 2026-09-27
+
+§7 showed that #53's rule 3 compared unlike quantities: A as a fixed point, B read once at
+the 2.6 m association. This section makes B a fixed point in `mapillary_height.py`,
+validates the two candidate estimators in simulation on every city's real view graph, and
+re-runs the #53 rule and production gate with the selected estimator. The default height
+stays 2.6 m whatever comes out; `recommended` in each table records the verdict.
+
+```bash
+python scripts/mapillary_height.py --validate richmond laurens clovis morgantown annapolis   # the estimator gate
+python scripts/mapillary_height.py richmond laurens clovis morgantown annapolis              # rule + gate + tables
+```
+
+`--validate` first times one real sweep per city (the budget clock, below), then runs the
+simulation grid in a process pool with fixed seeds. It is resumable: per-seed rows land in
+`runs/<city>/camera_height/estimator_validation_seeds.csv` as they finish, and the cell
+means rule V reads are in `estimator_validation.csv` beside it. The measurement step
+refuses a city with no `estimator_validation.csv`.
+
+### 8.1 Pre-registration
+
+The plan below was posted on #89
+([comment](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/89#issuecomment-5857916579))
+and committed with the code and tests before any real-data or simulation number was
+produced. It is reproduced verbatim, headings demoted.
+
+**Implementation readings, fixed with the code (same commit, before any number).** Where
+the plan leaves a choice open, the code makes it as follows. None of these was chosen
+after seeing a number.
+
+1. **Which groups rule V reads.** "The city's pooled rig class(es) that meet rule 1
+   (`RULE_MIN_VIEWS_B`)" is read as: the rig classes (each pooled over its sequences)
+   with at least 300 held-out views at the 2.6 m association **on the real data**,
+   `other` excluded (`validation_groups`). Where a city has several (Richmond), rule V
+   takes the maximum over classes as well as cells: an estimator is valid in the city
+   only if it is valid for every class.
+2. **"One real sweep"** for the budget rule is the real run's B sweep over
+   `SWEEP_HEIGHTS_B` with the rig keying and 10 null seeds (`time_real_sweep`): the work
+   one simulation cell repeats, less the re-synthesis. It prints support counts only, no
+   h\*\_B. The desktop is shared with other sessions, so the clock is wall time under
+   whatever load there was; it is recorded per city.
+3. **Undefined and extrapolated.** The line is undefined when b\_B ≥ 1; the local
+   crossing when no segment crosses the identity. The line is extrapolated when h\*\_B
+   lies outside [1.4, 3.8] m; the local crossing when no adjacent pair of swept heights
+   brackets it (`local_crossing`'s flag). A cell is undefined or extrapolated if any of
+   its seeds is.
+4. **Real-data extrapolation.** When the selected estimator's real-data h\*\_B lies
+   outside the sweep, it is flagged (`extrapolated` in the table) and quoted as an
+   extrapolation, but rule 3 still reads it: the plan adds no rule for that case.
+5. **Sequence grain.** A per-sequence B (only when a rig class goes per sequence) is a
+   separate joint sweep over `SWEEP_HEIGHTS_B` and uses the city's selected estimator.
+6. **B(2.6)** is still reported (`h_scale` in groups.csv and the table, `h_at_2p6` in the
+   `instrument_b` block), now with the null averaged over 10 seeds. It therefore moves
+   slightly from #53's single-seed values (§7: Richmond GoPro Max 2.377 → 2.396).
+7. **Seeds.** Cell seed *s* is `resynthesize`'s seed; every cell uses null seeds 0–9. The
+   simulation reads B only; instrument A is not re-run in the grid.
+8. **Cities.** The grid runs on the same five Mapillary runs as #53: Richmond, Laurens,
+   Clovis, Morgantown and Annapolis. `height_gap.py simulate` now defaults to the
+   noise-matched null and writes `simulate_matched.csv`; `--null-unmatched` reproduces
+   #87's `simulate.csv`, which is not rewritten.
+
+#### Plan (pre-registration): instrument B as a validated fixed point, then the #53 rule and gate re-run
+
+Branch `mapillary-height-fixed-point-89`. Everything runs offline (CPU, no network, no GPU, no production change). The default height stays 2.6 m whatever comes out; `recommended` in each table records the verdict. The rule below is fixed before any real-data number is produced: the estimator-selection step and the gate are committed to the branch and posted here first, the real run comes after.
+
+##### 1. What changes in `scripts/mapillary_height.py`
+
+- **Noise-matched null.** `_null_views(sv, rng, noise_scale=1.0)` scales every sigma it draws (along, cross, GPS) by `noise_scale`. `instrument_b` and the sweep take the same argument and pass it through. `scripts/height_gap.py simulate` passes its own `noise_scale` to the null, so the null matches the injected noise (the 2026-09-26 correction on this issue, item 3). At noise 0 the null is drawn at zero sigma and contributes nothing.
+- **Null averaged over seeds.** Instrument B's null is the mean over `NULL_SEEDS = 10` seeds (as #87 ran it), with its SD across seeds recorded (`null_sd_m`).
+- **B swept over association heights.** New `SWEEP_HEIGHTS_B = (1.4, 1.6, 1.8, 2.0, 2.3, 2.6, 3.0, 3.4, 3.8)`: #53's seven heights plus two above 3.0 m so a rig anywhere in `SANE_HEIGHT_M` (1.0-3.5) is bracketed rather than extrapolated. Instrument A keeps `SWEEP_HEIGHTS` unchanged so #53's A numbers reproduce exactly. `b_at`, `local_crossing` and `b_fixed_point` move from `height_gap.py` into `mapillary_height.py` (height_gap imports them back; its tests keep passing).
+- **Two estimators of h*_B, both always reported**, per row: `h_b_line` = a_B / (1 - b_B) from the line B(h) = a_B + b_B·h over `SWEEP_HEIGHTS_B`, with **`amplification = 1/(1 - b_B)` beside it**; `h_b_local` = the local crossing of B(h) = h between the bracketing sweep heights, with `extrapolated` flagged when no pair brackets it. Anything outside the sweep is quoted as an extrapolation. The old single reading B(2.6) stays as `h_b_at_2p6` for comparison with #53.
+- **CI on h*_B** (parametric draws as in `b_fixed_point`) is printed with the independence caveat: the heights share views, so the draws understate the common mode and the interval is too narrow.
+
+##### 2. The estimator gate (simulation only, pre-registered)
+
+Neither estimator is validated (this issue, 2026-09-26). So each is validated per city on that city's **real view graph** with `height_gap.py`'s existing re-synthesis (`planted_sites` / `resynthesize`: the 2.6 m fused sites are the true ramps, every member re-projected at a known height), extended from one group to the whole run: **every group is planted at the same `h_true`**.
+
+- Grid per city: `h_true ∈ {1.8, 2.2, 2.6, 3.0}` × `noise_scale ∈ {0.5, 1.0}` × 2 seeds, null noise-matched, null seeds 10. The cell value is the mean over seeds of `h*_B - h_true` per estimator, on the city's pooled rig class(es) that meet rule 1 (`RULE_MIN_VIEWS_B`).
+- **Rule V (validation).** An estimator is VALID in a city iff over all 8 cells `max |mean error| ≤ 0.10 m` and no cell is undefined (b_B ≥ 1) or extrapolated.
+- **Selection.** Both valid → the line (the proposal on this issue). One valid → that one. Neither → B has no validated fixed point in that city: its groups are reported with both estimators but **rule 3 reads `b_unvalidated` and fails** (conservative), so the group cannot pass and stays at 2.6 m.
+- Budget rule, declared now: if one real sweep of a city takes longer than 15 minutes on this desktop, that city's grid drops to 1 seed per cell (timed on the real sweep, which reveals no simulation result). The runtime per city is recorded in the report.
+
+##### 3. Re-run the #53 rule and the production gate
+
+With the selected estimator's h*_B in place of B(2.6): rules 1-4 (`decide_group`, unchanged constants, `RULE_MAX_DISAGREE_M` 0.25 on |h*_A - h*_B|), the per-sequence split, then `height_gate` / `gate_verdict` exactly as #53 ran them. Tables are re-issued: `runs/<city>/camera_heights.json` (git-tracked, sha256-bound) gains an `instrument_b` block per group (`estimator`, `h_star`, `amplification`, `extrapolated`, `validated`, `h_at_2p6`) and a top-level `estimator_validation` block; `recommended` follows the gate. The five-city groups.csv and the gate CSVs are regenerated. Expected direction, stated now so the reading is honest: on #87's numbers rule 3 passes for GoPro Max, Clovis, Morgantown and Annapolis under either estimator and Richmond's Pulsar / unknown class under the local one; the gate is the open question.
+
+##### 4. Files
+
+- `scripts/mapillary_height.py`: the above; a `validate` step (writes `runs/<city>/camera_height/estimator_validation.csv`) and the report lines.
+- `scripts/height_gap.py`: import the moved helpers; `simulate` gains the noise-matched null (its committed `simulate.csv` is NOT rewritten; a re-run writes `simulate_matched.csv` beside it so #87's verdict inputs stay as they were).
+- `tests/test_mapillary_height.py`: `_null_views` at noise 0 returns the views unchanged and at 0.5 halves the spread; line vs local estimator on a synthetic concave B(h) (the line overshoots, the crossing lands, extrapolation flagged past the sweep); `amplification`; rule V on boundary rows (0.10 exactly passes, one undefined cell fails, neither-valid → `b_unvalidated`); `decide_group` with the new row shape; `camera_heights.json` round-trip with the new blocks and `fuse_sites --camera-height-m per-rig` still loading it.
+- `docs/mapillary-camera-height.md`: new §8 with this pre-registration verbatim, then the results; §3/§4 tables re-issued with the old ones kept for comparison; CLAUDE.md's per-rig paragraph updated.
+- Regression: `height_gap.py sweep richmond --group gopro/max --sequences` re-run and diffed against the committed `runs/richmond/camera_height/gap/sweep.csv` (old columns identical; new columns only). `fuse_sites.py runs/annapolis` default output byte-identical to main (the table is opt-in).
+
+##### 5. Commit order
+
+(1) code + tests + the pre-registration section of the doc, no numbers; (2) validation + real-data results, tables, doc findings; results comment here. PR opened for review; nothing merged by the agent.
+
+##### Out of scope
+
+Instrument A's sweep, the gate constants, any default change, GSV runs, `reprojection_residual.py`, RampNet.
