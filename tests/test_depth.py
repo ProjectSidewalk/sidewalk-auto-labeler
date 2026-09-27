@@ -300,21 +300,27 @@ def test_agrees_with_streetlevel_raster_offline():
 
 def test_height_spread_matches_the_pixel_weighted_percentiles():
     """height_spread_m takes a weighted percentile over (height, count) pairs instead of
-    materializing one float per pixel; it must agree with the naive form exactly."""
+    materializing one float per pixel; it must agree with the naive form exactly -- with a
+    stand-in present too, which the naive list leaves out (#47)."""
     W, H = 32, 16
-    # Slightly tilted, not exactly level: an exactly level plane is a stand-in (#47) and
-    # would be left out of the spread, which is not what this test is about.
-    planes = [GROUND] + [(0.01, 0.0, -0.99995, d) for d in (2.0, 2.4, 2.6, 3.0, 2.2)]
+    # Slightly tilted, not exactly level: these are measured planes. The last plane is
+    # exactly level, i.e. a stand-in, at a height that would widen the spread if counted.
+    planes = ([GROUND] + [(0.01, 0.0, -0.99995, d) for d in (2.0, 2.4, 2.6, 3.0, 2.2)]
+              + [(0.0, 0.0, -1.0, 3.6)])
+    standin = len(planes) - 1
     rng = random.Random(3)
     indices = [0] * (W * H // 2) + [rng.randrange(1, len(planes)) for _ in range(W * H // 2)]
     payload = depthlib.parse(build_payload(W, H, planes, indices))
 
-    heights = []
-    for idx in range(1, len(planes)):
-        heights.extend([planes[idx][3]] * indices.count(idx))
-    heights.sort()
-    naive = (heights[int(0.9 * (len(heights) - 1))] - heights[int(0.1 * (len(heights) - 1))])
-    assert depthlib.ground_plane(payload).height_spread_m == pytest.approx(naive)
+    def naive_spread(idxs):
+        heights = sorted(h for idx in idxs for h in [planes[idx][3]] * indices.count(idx))
+        return heights[int(0.9 * (len(heights) - 1))] - heights[int(0.1 * (len(heights) - 1))]
+
+    naive = naive_spread(range(1, standin))
+    g = depthlib.ground_plane(payload)
+    assert g.n_standin_planes == 1
+    assert g.height_spread_m == pytest.approx(naive)
+    assert naive_spread(range(1, len(planes))) != pytest.approx(naive)   # it would count
 
 
 # --- stand-in planes out of the spread (#47 step 1 follow-up)

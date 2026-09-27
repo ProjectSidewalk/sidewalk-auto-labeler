@@ -63,6 +63,7 @@ import math
 import struct
 from collections import Counter
 from dataclasses import dataclass
+from pathlib import Path
 
 # A ground plane must be within this of vertical, and have at least this share of its
 # pixels below the horizon, to be a floor rather than a wall or a ceiling.
@@ -124,11 +125,38 @@ QC_MIN_VINTAGE_PANOS = 300
 # pre-registered rule swapped in a constant 0.259 m (the kept-pano p68 of |implied - k *
 # depth|). That constant was then scored against RampNet GT and made p90 GT-to-site
 # placement worse in all four cities (+0.12 to +0.30 m; P/R unchanged within noise), so
-# it was reverted and the spread sigma stays -- per-pano output is exactly #68's.
+# it was reverted and the spread sigma stays -- per-pano output was exactly #68's until
+# #47's follow-up (see the 2026-09-27 addendum in docs/camera-height-study.md).
 # Since #47 the spread leaves Google's stand-in planes out (ground_plane, is_standin); the
 # T4 re-read under that definition is in docs/camera-height-study.md.
 SIGMA_PER_P10_P90 = 1.0 / 2.563
 FLAGGED_QC = "flagged_qc"        # prefix of believe_height's flag reasons
+
+# A harvested depth/index.csv written since #47 has this column, and its height_spread_m
+# leaves the stand-in planes out; one without it carries the old, stand-in-inclusive spread
+# and nothing else in the file says so. Readers refuse it (require_current_index).
+STANDIN_INDEX_COLUMN = "n_standin_planes"
+SPREAD_DEFINITION = "measured_planes_only"   # recorded in sites_meta.json / QC reports
+
+
+def require_current_index(fieldnames, path):
+    """Refuse a depth/index.csv whose header predates #47's spread definition.
+
+    Refuse, not warn: an old index is otherwise indistinguishable, and a silent old spread
+    under `--camera-height-m per-pano` is exactly the failure. `fieldnames` is the csv
+    header (None for an empty file). Returns SPREAD_DEFINITION when the index is current.
+
+    Example:
+        >>> require_current_index(["panorama_id", "n_standin_planes"], "runs/x/depth/index.csv")
+        'measured_planes_only'
+    """
+    if STANDIN_INDEX_COLUMN not in (fieldnames or ()):
+        run = Path(path).parent.parent
+        raise SystemExit(
+            f"{path}: index predates #47 (no {STANDIN_INDEX_COLUMN} column, so its "
+            f"height_spread_m still includes Google's stand-in planes); run "
+            f"`python scripts/harvest_depth.py {run.as_posix()} --reindex`")
+    return SPREAD_DEFINITION
 
 SKY = 0  # plane index 0 means "no plane" -- sky, or unreconstructed
 
@@ -249,8 +277,9 @@ def camera_height_fields(payload):
     non-null only when the status is MEASURED, so nothing downstream can use a stand-in
     by accident. `camera_height_spread_m` is `ground_plane`'s `height_spread_m`, which
     since #47 leaves Google's stand-in planes out; pano blocks written before that change
-    (post-#40 GSV runs) carry the old, stand-in-inclusive spread under the same key. The raw ground distance of a non-measurement is deliberately not kept --
-    the harvested archive has it (scripts/harvest_depth.py) for anyone studying them.
+    (post-#40 GSV runs) carry the old, stand-in-inclusive spread under the same key. The
+    raw ground distance of a non-measurement is deliberately not kept -- the harvested
+    archive has it (scripts/harvest_depth.py) for anyone studying them.
     """
     fields = {"camera_height_m": None, "camera_height_spread_m": None,
               "ground_tilt_deg": None, "depth_planes": None,
@@ -424,6 +453,10 @@ def is_standin(plane):
     plane under 10-27% of floor detections (docs/depth-at-detection-study.md 5.4), which
     is why `ground_plane` now keeps these out of `height_spread_m`. Structural, like the
     dominant-plane test: the normal, never the value 2.5.
+
+    A test for FLOOR CANDIDATES only (planes `ground_plane` has already kept as
+    near-horizontal, so |nz| is ~1): it reads nx and ny alone, and a degenerate zero
+    normal would pass it too.
     """
     return plane.nx == 0.0 and plane.ny == 0.0
 
