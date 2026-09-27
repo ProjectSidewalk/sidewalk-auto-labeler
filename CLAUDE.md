@@ -264,7 +264,9 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 python scripts/provenance_gate.py vancouver --server https://sidewalk-vancouver.cs.washington.edu --fetch-only
 python scripts/detect_from_store.py --run-dir runs/vancouver --store <store> --server <server> \
     --labels runs/vancouver/provenance_gate/raw_labels.geojson --labels-user <ai user_id> \
-    --sample-unlabeled 300 --seed 56 [--metadata-only]
+    --sample-unlabeled 300 --seed 56 [--metadata-only] [--batch-size 4]
+# ...--batch-size N (reinfer.py too; issue #2) runs N panos per forward pass; the pass ends
+# with a `detector:` line (mean batch fill, seconds in forward, panos/s) to measure it by.
 python scripts/provenance_gate.py vancouver
 python scripts/provenance_gate.py vancouver --draw-control     # optional Arm Z, then:
 python scripts/reinfer.py runs/vancouver --ids runs/vancouver/provenance_gate/control_ids.txt \
@@ -609,6 +611,18 @@ those loops collide and every download stalls for minutes. Two pools
 (`COVERAGE_API_CONCURRENCY=100` for tile scanning, `PROCESSING_CONCURRENCY=50` for per-pano
 work) are the main tuning knobs. GPU inference is serialized by a lock inside
 `CurbRampDetector` — download threads overlap, forward passes don't (VRAM limit).
+Preprocessing (resize/normalize) runs in the calling thread, outside the lock. `--batch-size N`
+(issue #2; `main.py`, `scripts/reinfer.py`, `scripts/detect_from_store.py`, default 1 = the
+unbatched path) instead hands each thread's tensor to one consumer thread
+(`detectors/batching.py`, torch-free) that runs a single forward over up to N images, waiting
+at most 0.1 s for a batch to fill; a failed batched forward (e.g. CUDA OOM) fails only that
+batch's panos, as retryable failures. Each queued image is a ~100 MB 3x2048x4096 float32 tensor
+on top of the decoded panos the pool already holds. Every pass ends with a `detector:` line
+(forward passes, mean batch fill, seconds in forward, panos/s) — measure the gain there; it is
+for the fetch-cheap re-inference paths, since `main.py` is network-bound. Batched and unbatched
+heatmaps agree (the opt-in `RAMPNET_EQUIVALENCE=1|full pytest
+tests/test_curb_ramp_batching_equivalence.py -s` check, CPU, needs the cached weights and
+../RampNet bundle panos).
 
 **Run directories / resumability:** all per-area state lives in `runs/<name>/` —
 `results.jsonl`, the resume cache (`already_processed.txt`), `manifest.json` (geometry hash,
