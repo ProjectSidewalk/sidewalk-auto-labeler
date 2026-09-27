@@ -158,10 +158,12 @@ python scripts/inventory_oracle.py verdict
 # #89: B is read as a fixed point; --validate FIRST (simulation on each city's real view graph,
 # rule V picks the line or the local-crossing estimator per city; ~15 min on 10 workers, resumable).
 python scripts/mapillary_height.py --validate richmond laurens clovis morgantown annapolis
+# ...--exploratory adds the #98 review arms (B at h_true, oracle-clean B, local slope, noise-0
+# cells: estimator_validation_exploratory.csv); rule V never reads them. docs s8.3.
 python scripts/mapillary_height.py richmond laurens clovis morgantown annapolis
 python scripts/fuse_sites.py runs/annapolis --camera-height-m per-rig --out /tmp/s.jsonl
 # #87: B read at one association height is pulled toward it; as a fixed point it meets A (doc s7).
-# Its line fixed point amplifies bias by 1/(1-b_B); #89 validates it against the local crossing.
+# Its line fixed point amplifies bias by 1/(1-b_B); #89: neither estimator passes rule V in any city (docs s8).
 # `simulate` now draws the null at the injected noise (-> simulate_matched.csv); #87's committed
 # simulate.csv was full-sigma at every noise scale and reproduces with --null-unmatched.
 python scripts/height_gap.py sweep richmond --group gopro/max --sequences  # + simulate/gt/verdict

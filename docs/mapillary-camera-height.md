@@ -661,20 +661,28 @@ applied at 2.376 m: its agreement clause used B(2.6), and B(2.6) is not a fixed 
 ("median better in 0 changed cities, needs 3"), and every table is re-issued with
 `recommended: false`. The default stays 2.6 m, as it would have whatever came out.
 
-What fails rule V is B itself at the model's full noise, not the choice of estimator. At
-noise 0.5 the local crossing recovers the planted height within 0.071 m in four cities
-(0.008 m in Laurens) and within 0.135 m in Richmond. At noise 1.0 both estimators read
-**high at low heights**, by +0.25 to +0.53 m at h\_true 1.8, in every city and every rig class, with the error
-falling as the true height rises (−0.28 to +0.18 m at 3.0 m). The line is worse than the
-local crossing in most noise-0.5 cells, as §7 predicted from its amplification.
+The two estimators fail in different ways, and at noise 0.5 the choice matters. **At
+noise 0.5 the line fails LOW** in all five cities, from −0.113 m (Clovis) to −0.462 m
+(Richmond GoPro Max), always at h\_true 3.0 and worsening as the true height rises. That
+is the concave-B overshoot §7 predicted from the line's amplification. At the same noise
+the local crossing passes in four cities (worst −0.071 m, Laurens −0.008 m) and fails only
+in Richmond (−0.135 m, GoPro Max at 3.0 m). **At noise 1.0 both fail HIGH at low true
+heights**, by +0.25 to +0.53 m at h\_true 1.8, in every city and every rig class, with the
+error falling as the true height rises (−0.28 to +0.18 m at 3.0 m). That is a small bias
+of B at the true height, amplified by the fixed point (§8.3). Signed worst cells:
 
-| city | real sweep | seeds / cell | rig classes validated | line: max \|mean error\| (0.5 / 1.0) | local: max \|mean error\| (0.5 / 1.0) | selected |
+| city | real sweep | seeds / cell | rig classes validated | line: worst mean error (0.5 / 1.0) | local: worst mean error (0.5 / 1.0) | selected |
 |---|---:|---:|---|---|---|---|
-| richmond | 30 s | 2 | gopro/max, nctech/istar pulsar, unknown | 0.462 / 0.525 | 0.135 / 0.444 | none (`b_unvalidated`) |
-| laurens | 5 s | 2 | gopro/max | 0.280 / 0.361 | 0.008 / 0.418 | none |
-| clovis | 30 s | 2 | gopro/fusion | 0.113 / 0.370 | 0.028 / 0.324 | none |
-| morgantown | 42 s | 2 | gopro/max | 0.255 / 0.268 | 0.067 / 0.252 | none |
-| annapolis | 99 s | 2 | trimble/mx7 | 0.250 / 0.344 | 0.071 / 0.306 | none |
+| richmond | 30 s | 2 | gopro/max, nctech/istar pulsar, unknown | −0.462 / +0.525 | −0.135 / +0.444 | none (`b_unvalidated`) |
+| laurens | 5 s | 2 | gopro/max | −0.280 / +0.361 | −0.008 / +0.418 | none |
+| clovis | 30 s | 2 | gopro/fusion | −0.113 / +0.370 | −0.028 / +0.324 | none |
+| morgantown | 42 s | 2 | gopro/max | −0.255 / +0.268 | −0.067 / +0.252 | none |
+| annapolis | 99 s | 2 | trimble/mx7 | −0.250 / +0.344 | −0.071 / +0.306 | none |
+
+The worst noise-0.5 cell is at h\_true 3.0 for the line in every city (for the local
+crossing: 3.0, or 2.6 in Laurens and Clovis). The worst noise-1.0 cell is at h\_true 1.8
+for both estimators in every city (Richmond: the Pulsar class). Rule V reads |mean error|,
+so the signs change no verdict.
 
 No cell of either estimator was undefined or extrapolated, so every failure is on the
 0.10 m error bar alone. The budget rule never bit: the slowest real sweep took 99 s
@@ -707,24 +715,107 @@ seeds. Inputs: `runs/<city>/camera_height/estimator_validation{,_seeds}.csv`.
 | annapolis / trimble/mx7 | 0.5 | **−0.117** / −0.029 | −0.098 / −0.050 | **−0.198** / −0.058 | **−0.250** / −0.071 |
 | annapolis / trimble/mx7 | 1.0 | **+0.344** / **+0.306** | **+0.156** / **+0.159** | −0.005 / +0.069 | −0.094 / −0.008 |
 
-**Reading the noise-1.0 bias.** B's slope b\_B is 0.36–0.84 across cells and is steeper at
-noise 1.0 (0.69–0.84) than at 0.5 (0.36–0.68): with more noise, association pulls B more
-strongly toward the height it runs at (§7's mechanism). Where the true height is low,
-every association height above it pulls B up, and the crossing moves up with it. The
-matched-null re-run of #87's E2 cell (`simulate_matched.csv`, Richmond GoPro Max,
-h\_true 2.0) shows the same thing at one rig. Seed-mean B at the true height is
-1.951 (noise 0.5) and 2.036 (noise 1.0), so B is nearly unbiased *at* the true
-association. But the local crossing reads 1.877 and 2.151, and the line 1.782 and 2.059.
-At noise 0.5 the null is now matched: #87's full-sigma null had over-corrected B(2.6) to
-2.359, while the matched null gives 2.198.
+**Why the fixed point fails: a small bias of B at the true height, amplified.**
+(Corrected after review on #98. An earlier version of this paragraph said association
+"pulls B up" from the heights above a low true height. That cannot move the local
+crossing, which reads only the two swept heights that bracket it.) With L(h) the line
+through the bracketing pair and slope b\_loc = dB/dh on that segment,
 
-**The noise level decides it, and the real noise level is not known.** #76 found the
-error model overstates Mapillary noise about 2×. If that holds, the real data sit near
-the noise-0.5 rows, where the local crossing would pass everywhere except Richmond
-(−0.103 and −0.135 m for GoPro Max at 2.6 and 3.0 m). The rule was fixed at both noise
-levels before any number, precisely because the real level is uncertain, and it is not
-re-read here. A follow-up that measures the real noise scale could license a narrower
-grid; this section does not.
+  h\*\_local − h\_true = (L(h\_true) − h\_true) / (1 − b\_loc) ≈ (B(h\_true) − h\_true) × 1 / (1 − b\_loc).
+
+So B can be pulled anywhere away from h\_true without moving the crossing, and a bias of
+B *at* h\_true is multiplied by the local amplification 1 / (1 − b\_loc). Where h\_true is
+itself a swept height (1.8, 2.6, 3.0 m) the identity is exact. At 2.2 m, which is not
+swept, it holds to the segment's curvature (Richmond GoPro Max at noise 1.0: predicted
++0.076, read +0.141). Rule V's 0.10 m bar on h\* therefore needs
+|B(h\_true) − h\_true| ≤ 0.10 × (1 − b\_loc). Across the cells that is **0.016–0.042 m
+at noise 1.0** (b\_loc 0.58–0.84, amplification 2.4–7.6) and 0.049–0.081 m at noise 0.5
+(b\_loc 0.19–0.51). The same bar applies to the line with its global slope b\_B, plus the
+line's own concavity error (§8.2).
+
+Restricting the sweep to heights near h\_true would not help. The local crossing already
+uses only the bracketing pair, and the bias it amplifies is B's own at h\_true.
+
+**What B's bias at the true height is made of.** These readings come from an
+EXPLORATORY arm added after the verdict (`--validate --exploratory`). They are not read by
+rule V, change no pre-registered column and re-run no rule-V cell. Per cell-seed, the
+synthetic run is fused once more at h\_true, and B is read there on every site
+(`b_at_h_true`) and on the **oracle-clean** sites only (`b_at_h_true_clean`: every view of
+the site was planted from the same ramp). The local segment's slope and amplification
+(`local_slope`, `local_amplification`) and the association's merge count are also
+written. Re-reading B at a swept h\_true reproduces the committed sweep value of the same
+cell-seed exactly in all 84 checks (§8.6). The table gives seed means, B(h\_true) − h\_true
+in metres. A noise-0 cell is added per city (arm `exploratory_noise0`, 2 seeds; at zero
+noise the two seeds are identical). It is written to `estimator_validation_exploratory.csv`,
+never to the file rule V reads.
+
+| city / rig class | noise | B − h\_true, all sites (1.8 / 2.2 / 2.6 / 3.0) | oracle-clean | b\_loc | sites merged |
+|---|---:|---|---|---:|---:|
+| richmond / gopro/max | 0 | −0.042 / −0.050 / −0.059 / −0.068 | 0.000 | 0.36–0.51 | 12% |
+| richmond / gopro/max | 0.5 | −0.031 / −0.049 / −0.057 / −0.068 | +0.018 to +0.029 | 0.46–0.51 | 34–38% |
+| richmond / gopro/max | 1.0 | +0.063 / +0.014 / +0.004 / −0.008 | +0.025 to +0.084 | 0.74–0.84 | 54–57% |
+| richmond / nctech/istar pulsar | 0 | −0.006 / −0.007 / −0.008 / −0.010 | 0.000 | 0.10–0.12 | 12% |
+| richmond / nctech/istar pulsar | 1.0 | +0.112 / +0.092 / +0.075 / +0.062 | +0.093 to +0.135 | 0.65–0.73 | 54–57% |
+| richmond / unknown | 0 | −0.013 / −0.015 / −0.021 / −0.024 | 0.000 | 0.25–0.28 | 12% |
+| laurens / gopro/max | 0 | 0.000 / 0.000 / 0.000 / 0.000 | 0.000 | 0.10–0.17 | 12–13% |
+| laurens / gopro/max | 1.0 | +0.093 / +0.063 / +0.040 / +0.019 | +0.062 to +0.102 | 0.60–0.75 | 60–66% |
+| clovis / gopro/fusion | 0 | −0.015 / −0.019 / −0.022 / −0.025 | 0.000 | 0.11–0.12 | 7% |
+| clovis / gopro/fusion | 1.0 | +0.094 / +0.064 / +0.040 / +0.026 | +0.039 to +0.102 | 0.58–0.69 | 25–28% |
+| morgantown / gopro/max | 0 | −0.014 / −0.017 / −0.020 / −0.023 | 0.000 | 0.21–0.31 | 6–7% |
+| morgantown / gopro/max | 1.0 | +0.063 / +0.031 / +0.012 / −0.009 | +0.043 to +0.097 | 0.62–0.75 | 46–49% |
+| annapolis / trimble/mx7 | 0 | −0.027 / −0.033 / −0.039 / −0.045 | 0.000 | 0.25–0.32 | 13% |
+| annapolis / trimble/mx7 | 1.0 | +0.079 / +0.044 / +0.023 / −0.003 | +0.050 to +0.103 | 0.67–0.74 | 46–48% |
+
+Every row, and the noise-0.5 rows not shown, is in the seeds CSVs (`b_at_h_true`,
+`b_at_h_true_clean`, `local_slope`, `local_amplification`, `sites_merged` /
+`sites_multi`, `merged_sep_median_m`). Two parts show up.
+
+- **An association (merge) bias, present at noise 0.** With no noise the matched null is
+  identically zero, and B is still biased **low** in four cities. In Richmond, 114 of 924
+  multi-view sites (12%; 115 at 3.0 m) contain views planted from two *different* ramps, whose planted
+  positions lie a median 6.5 m apart (p90 7.9 m). That is paired-ramp corner geometry the
+  association re-merges. On the 810 oracle-clean sites, B is h\_true to 1e-11 in every
+  class, city and height. Laurens merges at the same rate but shows no bias from it. The
+  merge share grows with noise (Richmond 12% → 35% → 55%), so this part is present at
+  every noise level. **Caveat on its size:** `planted_sites` plants every member *exactly*
+  at its site's refit position. That removes the within-site scatter that let the real
+  fuse keep neighbouring ramps apart, so the noise-0 merge rate is partly a construction
+  effect of the simulation. Its size on real data is unknown.
+- **A null over-correction that grows with noise, present even on oracle-clean sites.**
+  At noise 1.0, B on the oracle-clean sites reads high in every city and class: +0.025 to
+  +0.135 m, largest at h\_true 1.8. Examples at 1.8 m are Richmond GoPro Max +0.084 and
+  Pulsar +0.135 as seed means (+0.093 and +0.142 on seed 0, the review's numbers), and
+  Laurens +0.102. At noise 0.5 it is −0.027 to +0.029 m. It is roughly quadratic in the
+  noise. Its mechanism is **not confirmed**. Three candidates remain:
+  1. The linearised σ\_along ∝ r²/h is evaluated at the *realised, noisy* range.
+  2. The 25 m drop is a selection that the Gaussian null does not model.
+  3. Range is nonlinear in the dip.
+
+  A ≤ 12 m restriction did not remove it in the review's check, but that check had only
+  54–67 views.
+
+At noise 1.0 the net bias of B at 1.8 m is the second part minus the first: +0.06 to
++0.11 m, amplified 3.2–4.2× into the +0.25 to +0.44 m local-crossing errors of the rule-V
+table. At noise 0.5 the two parts nearly cancel (−0.07 to +0.03 m). That is why the local
+crossing passes there except in Richmond GoPro Max, where the merge part dominates
+(−0.057 and −0.068 m at 2.6 and 3.0 m, amplified 1.8–2.0× to −0.103 and −0.135 m).
+
+**Rule V at noise 0 (EXPLORATORY; not a rule-V cell and not read by the verdict).** On the
+same arm, the local crossing's worst cell passes in four cities: Laurens −0.009 m,
+Clovis −0.028, Morgantown −0.038 and Annapolis −0.066. **Richmond fails at noise 0**:
+GoPro Max reads −0.085, −0.107, −0.118 and −0.132 m at 1.8, 2.2, 2.6 and 3.0 m. The line
+fails at noise 0 in every city but Clovis: Richmond −0.416, Laurens −0.250, Morgantown
+−0.238 and Annapolis −0.235 m, while Clovis's worst is −0.094 m. #87's committed
+`simulate.csv` agrees. It planted only GoPro Max, and at noise 0 its `b_raw_at_*` columns
+*are* the matched B. There the line reads −0.20 to −0.28 m and the local crossing −0.11 to
+−0.21 m at h\_true 1.8–2.4.
+
+**So the noise level alone does not decide it.** #76 found that the error model overstates
+Mapillary noise about 2×. If that holds, the real data sit near the noise-0.5 rows, where
+the local crossing passes everywhere except Richmond (−0.103 and −0.135 m). But Richmond
+also fails at noise 0.5 and at noise 0, because of a structural association bias that
+exists independent of noise. The rule was fixed at both noise levels before any number,
+because the real level is uncertain, and it is not re-read here.
 
 ### 8.4 Per-rig results, re-issued (§3's table, B as a fixed point)
 
@@ -781,16 +872,37 @@ identical.
 - `fuse_sites.py runs/annapolis` (default `auto`) writes a byte-identical `sites.jsonl`
   from `main`'s code and from this branch's, before and after the tables were re-issued
   (sha256 `BC019B8F…02FC`). `--camera-height-m per-rig` loads the new table.
-- #87's `simulate.csv` is untouched; `simulate_matched.csv` is new.
+- #87's `simulate.csv` is untouched. `simulate_matched.csv` is new and holds **one cell**
+  (Richmond GoPro Max, h\_true 2.0 × noise 0.5/1.0 × 2 seeds, #87's E2 cell), not #87's
+  grid. A matched row at noise 0 would equal #87's `b_raw_at_*` columns, since the matched
+  null is zero there (§8.3).
+- **Review re-run (#98), exploratory arm.** `--validate --exploratory` reused the
+  committed rule-V seeds: resynthesize is seeded, so B re-read at h\_true = 1.8, 2.6 and
+  3.0 m (swept heights) equals the committed `b_at_*` column of the same cell-seed exactly,
+  in every city, class and seed. The local crossing recomputed from each row's stored
+  `b_at_*` columns reproduces its `h_b_local` (checked to 1e-9 before `local_slope` is
+  written). No rule-V row was re-run, and every pre-registered column of both
+  `estimator_validation*.csv` files is byte-identical to `1d8127e`; the new columns are
+  appended at the right.
 
 ### 8.7 What follows
 
 - Per-rig heights for Mapillary stay opt-in and currently apply nowhere. #53's one applied
   value, Annapolis 2.376 m, rested on B(2.6) and is withdrawn.
-- B's fixed point is biased high at low heights at the error model's full noise, under
-  either estimator. Before B can be validated, the real Mapillary noise scale has to be
-  measured rather than assumed (#76's 2× is an estimate from the residuals, not a
-  calibration). A pre-registered re-run at a measured noise scale is the natural next step.
+- B's fixed point is **amplification-limited**. The local crossing multiplies B's bias
+  *at* the true height by 1 / (1 − b\_loc), and the line does the same with 1 / (1 − b\_B).
+  So rule V's 0.10 m bar needs B itself unbiased to about 0.02–0.08 m (§8.3). That bias
+  has two parts: an association (merge) bias, present at noise 0, and a null
+  over-correction that grows with noise. **Measuring the real noise scale cannot by
+  itself validate B.** Richmond fails rule V at noise 0 and at noise 0.5 as well
+  (local crossing −0.132 m and −0.135 m at worst), from the merge part. That part's real
+  size is itself unknown, since `planted_sites` makes the simulation merge more readily
+  than real data. A validated B needs three things, each of them a new pre-registration:
+  - a simulation whose planted sites keep realistic within-site scatter, so the merge
+    bias is measured rather than constructed;
+  - the null over-correction's mechanism identified and removed;
+  - then the real noise scale, measured rather than assumed. #76's 2× is an estimate
+    from the residuals, not a calibration.
 - Instrument A needs no B to be read, and on the placement oracle (#79) an external
   inventory, not agreement between A and B, is what moved the GSV default. None of the
   five Mapillary cities is among the oracle's inventory cities (Bend, Gainesville,
