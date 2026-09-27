@@ -230,6 +230,9 @@ python scripts/reprojection_residual.py bend paterson gainesville sao_paulo rich
 # 2.341219672825709) and picks the default output dir, so the two frames never overwrite
 # each other. report.md/arms.csv are git-tracked like manifest.json; the two API geojson
 # are not, so the report records each pull's url, fetch time, sha256 and feature count.
+# It also takes per-pano / auto / per-rig (#56), resolved by fuse_sites.load_at_height -- the one
+# resolver fuse_sites, eval_sites and mined_precision share -- into ps_clustering_eval_<mode>/;
+# the report says how many panos fell back to 2.6 m (Richmond, Mapillary: all of them).
 python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond.cs.washington.edu
 
 # A RUN REBUILT FROM THE PANO STORE (issue #56; runbook in docs/ps-clustering-eval.md, "Step 2").
@@ -322,7 +325,8 @@ python scripts/mined_precision.py paterson --camera-height 2.2 --radius 10 15 20
 # regenerates them — the PR-body table comes from exactly these. `site_id` is a
 # per-run serial, so never pool by concatenating candidates.csv and grouping on it;
 # the city column is there because (city, site_id) is the key, as with a PS label_id.
-# --camera-height takes one value for all, or one per city in the order named.
+# --camera-height takes one value for all, or one per city in the order named; a value may
+# also be per-pano / auto (#56, the shared resolver), and the report records the mode.
 python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo
 python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
     --camera-height 2.6 2.2 2.2 2.2 2.2   # richmond has no measured height; GSV does

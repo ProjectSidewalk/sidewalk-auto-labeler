@@ -41,6 +41,11 @@ Usage:
     python scripts/eval_ps_clustering.py richmond \
         --server https://sidewalk-richmond.cs.washington.edu \
         --ps-script /path/to/SidewalkWebpage/scripts/label_clustering.py
+    # another frame (#56): metres, per-pano, auto or per-rig, resolved exactly as
+    # fuse_sites.py does; writes ps_clustering_eval_<mode>/ (a number: _h<val>)
+    python scripts/eval_ps_clustering.py richmond --camera-height-m per-pano \
+        --labels runs/richmond/ps_clustering_eval/raw_labels.geojson \
+        --clusters runs/richmond/ps_clustering_eval/clusters.geojson
 """
 import argparse
 import csv

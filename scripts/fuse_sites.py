@@ -1040,7 +1040,7 @@ def height_resolution_lines(requested, panos, params, auto=None):
         if c.get('flagged_qc'):
             lines.append(f"- flagged by the #44 QC gate (kept all the same): "
                          f"{c['flagged_qc']}")
-        if c.get('applied_by_group'):
+        if c.get('applied_by_group') and auto is None:   # auto: the year table below
             lines.append('- per-rig groups (panos): ' + ', '.join(
                 f'{g} {k}' for g, k in sorted(c['applied_by_group'].items())))
         if c.get('spread_definition'):

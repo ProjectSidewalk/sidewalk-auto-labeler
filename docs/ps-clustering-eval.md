@@ -476,12 +476,30 @@ with pano-tools' `<id>.depth.npz` beside each JPEG), and
    `python scripts/export_benchmark.py runs/vancouver/results.jsonl --bundle ../RampNet/benchmark/vancouver --sample 100 --empty-sample 25 --records-only`.
    Copy those panos' JPEGs in from `$STORE`, re-run without `--records-only` to reconcile,
    then review them in RampNet (Richmond's session took about a day).
-7. **The evaluation**: `python scripts/eval_ps_clustering.py vancouver --server $SERVER` (the
-   labeler's 2.6 m frame), plus the same with `--camera-height-m 2.341219672825709` (the
-   server's frame). The per-pano frame (`--camera-height-m per-pano`) is the one small change
-   left: the flag is a float today, and the script would also have to pass the depth index to
-   `fuse_sites.load_results`. That is the same work as step 2 of
-   [RampNet#158](https://github.com/ProjectSidewalk/RampNet/issues/158).
+7. **The evaluation**, in three frames (four with `auto`). Each writes its own directory, and
+   the first call pulls the two API files into `ps_clustering_eval/`; the others read that
+   pull through `--labels`/`--clusters`, so every frame scores the same snapshot:
+
+   ```bash
+   E=runs/vancouver/ps_clustering_eval
+   python scripts/eval_ps_clustering.py vancouver --server $SERVER            # 2.6 m -> $E/
+   python scripts/eval_ps_clustering.py vancouver --camera-height-m 2.341219672825709 \
+       --labels $E/raw_labels.geojson --clusters $E/clusters.geojson          # server -> ${E}_h2.34/
+   python scripts/eval_ps_clustering.py vancouver --camera-height-m per-pano \
+       --labels $E/raw_labels.geojson --clusters $E/clusters.geojson          # -> ${E}_per-pano/
+   python scripts/eval_ps_clustering.py vancouver --camera-height-m auto \
+       --labels $E/raw_labels.geojson --clusters $E/clusters.geojson          # -> ${E}_auto/
+   ```
+
+   `per-pano` and `auto` read heights exactly as `fuse_sites.py` does (#56: one shared
+   resolver, `fuse_sites.load_at_height`): the pano block's measured height, else
+   `runs/vancouver/depth/index.csv` from step 5's `harvest_depth.py --from-store`. The frame
+   applies to every labeler raycast (detections, GT, `ps_raycast`, fusion); arms on the
+   server's own positions are untouched. The report states the resolution, including how many
+   panos had no measured height and fell back to 2.6 m -- read that line before reading the
+   per-pano arms, since a thin index makes the "per-pano" frame mostly the constant one.
+   `mined_precision.py --camera-height per-pano|auto` goes through the same resolver
+   (step 2 of [RampNet#158](https://github.com/ProjectSidewalk/RampNet/issues/158)).
 
 **Store frame check (2026-09-27, five panos).** pano-tools flips its depth *raster* on write
 (sidewalk-panorama-tools#58), and `depth.py` has its own raster mirror (#80). Neither convention touches the
