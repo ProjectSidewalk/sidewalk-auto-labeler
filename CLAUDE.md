@@ -208,19 +208,38 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 # pano block from the server's /backupImage/<id>/metadata (sequential, spaced, 429 honoured,
 # cached per id in store_metadata/; source_detail "ps_store", no links/history/depth), and runs
 # them through main.py's detect/record/resume path. The id list (labels' panos + a seeded
-# unlabeled sample) is frozen in store_ids.txt on first use. --metadata-only needs no model.
-# provenance_gate.py then checks that the rebuilt run IS the deployed one: AI labels joined on
-# send_to_ps's pixel key, +/-1 px, at 0.55; pre-registered PASS iff >= 0.98 match, else STOP and
-# nothing downstream runs. harvest_depth.py --from-store indexes pano-tools' v3 .depth.npz in
-# place (same index.csv schema; --check-store-frame N proves the artifacts equal N live
-# payloads in the image frame -- a mirrored index array fails, a payload Google has revised
-# since reads `revised`). depth_at_detection/gsv_ground_plane read *.json.gz payloads, not the
-# index, so they do not see a store index yet.
+# unlabeled sample) is frozen in store_ids.txt on first use; store_selection.json (which binds
+# the resolved store, layout and SERVER, checked on every call) and store_sampled_ids.txt are
+# git-tracked. --metadata-only needs no model. The metadata 404 is cached as
+# `metadata_404_null_field_or_no_file` -- NOT "no backup": the server 404s on a null pano_data
+# field (usually camera_pitch) as well as on a missing file. jpg_missing and that 404 are
+# poison-guarded (> 5% of a pass, min 20: not cached; --accept-skip-rate after a hand check).
+# A store-built run is fenced off both ways: main.py refuses a manifest with `pixels`, the
+# runner refuses a run dir main.py wrote, and send_to_ps.py refuses the file (its labels are the
+# live ones; --allow-store-file overrides).
+# provenance_gate.py then checks that the rebuilt run can stand in for the deployed one. Rule
+# AMENDED after the PR #96 review, before any Vancouver number: Arm S (always) = a >= 0.55
+# detection within +/-(W/1024+1) x, +/-(H/512+1) y, >= 0.98 of joinable labels (exact_share at
+# +/-1 px reported, not gated); Arm Z (optional, --control) = a zoom-3 control on 200 seeded
+# labeled panos (--draw-control, then reinfer.py --ids) at +/-1 px, >= 0.98; UNDETERMINED
+# unless nothing is pending and joinable >= 0.95 of labels with a store JPEG; STOP if unclaimed
+# tier detections on labeled panos exceed 0.02 x joinable. harvest_depth.py --from-store indexes
+# pano-tools' v3 .depth.npz in place (same index.csv schema; --check-store-frame N draws until
+# N panos are checked against live payloads in the image frame and records the result in
+# depth/store.json -- a mirrored index array fails, a payload Google has revised since reads
+# `revised`; the index pass says "frame unchecked" without it). A store-bound depth dir is
+# ALWAYS addressed with --from-store (--verify --rehash too): without it the call is refused.
+# pano-tools' `unavailable` goes to unavailable.txt. depth_at_detection/gsv_ground_plane read
+# *.json.gz payloads, not the index, so they do not see a store index yet.
 python scripts/provenance_gate.py vancouver --server https://sidewalk-vancouver.cs.washington.edu --fetch-only
 python scripts/detect_from_store.py --run-dir runs/vancouver --store <store> --server <server> \
     --labels runs/vancouver/provenance_gate/raw_labels.geojson --labels-user <ai user_id> \
     --sample-unlabeled 300 --seed 56 [--metadata-only]
 python scripts/provenance_gate.py vancouver
+python scripts/provenance_gate.py vancouver --draw-control     # optional Arm Z, then:
+python scripts/reinfer.py runs/vancouver --ids runs/vancouver/provenance_gate/control_ids.txt \
+    --out runs/vancouver/control_zoom3.jsonl
+python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl
 python scripts/harvest_depth.py runs/vancouver --from-store <store> [--check-store-frame 5]
 
 # AI-vs-crowd AGREE RATE (issue #31 goal 2; write-up in docs/agree-rate-gainesville.md).

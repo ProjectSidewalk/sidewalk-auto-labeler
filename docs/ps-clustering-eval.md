@@ -398,32 +398,80 @@ with pano-tools' `<id>.depth.npz` beside each JPEG), and
    count. The AI account is the one with the most labels, and the default everywhere below.
 2. **Pano metadata** (on makelab2, no GPU; can run while the A40 is busy):
    `python scripts/detect_from_store.py --run-dir runs/vancouver --store $STORE --labels runs/vancouver/provenance_gate/raw_labels.geojson --labels-user <AI user_id> --sample-unlabeled 300 --seed 56 --server $SERVER --metadata-only`.
-   This fixes the pano list (`store_ids.txt` + `store_selection.json`: the labeled panos plus
-   300 seeded unlabeled store panos for the benchmark's empty stratum) and caches one
-   `/backupImage/<id>/metadata` JSON per pano under `store_metadata/`. The GETs are
-   sequential, spaced 0.2 s apart, and a 429's Retry-After is honoured, so ~29k panos take a
-   couple of hours. A pano with no JPEG in the store, or whose metadata returns 404, is logged
-   in `store_skipped.jsonl` and never retried.
+   This fixes the pano list (`store_ids.txt` + `store_selection.json` + `store_sampled_ids.txt`:
+   the labeled panos plus 300 seeded unlabeled store panos for the benchmark's empty stratum)
+   and caches one `/backupImage/<id>/metadata` JSON per pano under `store_metadata/`. The
+   selection JSON and the sampled ids are git-tracked; commit them. The selection binds the
+   store (resolved path), its layout and the server, so a later call with any of them different
+   is refused. The GETs are sequential, spaced 0.2 s apart, and a 429's Retry-After is
+   honoured, so ~29k panos take a couple of hours.
+   - **Skips.** A pano with no JPEG in the store (`jpg_missing`) or whose metadata answers 404
+     is logged in `store_skipped.jsonl` and not retried. **A metadata 404 does not mean "no
+     backup":** the server answers 404 unless its file is on disk *and* the pano_data row has
+     non-null width, height, lat, lng, camera_heading and camera_pitch
+     (`PanoDataService.getLocalBackupImage`). The runner only asks after finding the JPEG, so a
+     404 here is most often a null camera_pitch. The reason is recorded as
+     `metadata_404_null_field_or_no_file`, and the gate reports that set by count and share,
+     since it is not a random hole.
+   - **Poison guard.** Either of those two reasons above 5% of a pass (minimum 20) is **not**
+     cached: a wrong or unmounted `--store`, or a wrong `--server`, produces exactly that for
+     every pano. The pass says so and the panos stay pending. If the rate is real, re-run with
+     `--accept-skip-rate` after checking by hand.
 3. **Launch 1: detection** (makelab2 A40): the same command without `--metadata-only`. It
    appends to `runs/vancouver/results.jsonl` through main.py's own record writer and resume
    cache. It binds the existing scan-only `manifest.json` to the model revision and adds a
    `pixels` block (store, server, id-list sha256). `--workers` defaults to 8, because a
-   16384x8192 JPEG decodes to ~400 MB.
-4. **Provenance gate**: `python scripts/provenance_gate.py vancouver`. Its rule was
-   pre-registered before any Vancouver number existed. PASS requires >= 0.98 of the AI labels
-   whose pano is in the run to have a stored detection within +/-1 px at >= 0.55. On STOP,
-   nothing below runs until the difference is found. The report's near-miss histogram is
-   binned by heatmap cell: a label one cell (16 px) away points at resampling. The 2025 run
-   stitched Google's zoom-3 tiles, while the store holds native-resolution JPEGs that
-   `panorama.normalize_image` resizes, so the pixels can differ slightly.
+   16384x8192 JPEG decodes to ~400 MB and the RGB copy doubles the peak to ~800 MB per worker.
+   From here on **main.py refuses `runs/vancouver`** (its manifest carries `pixels`), and
+   **`send_to_ps.py` refuses the file**: its >= 0.55 detections are the labels already live,
+   and PS is insert-only ([SidewalkWebpage#5382](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/5382)).
+   `--allow-store-file` overrides that; nothing in this runbook needs it.
+4. **Provenance gate**: `python scripts/provenance_gate.py vancouver`. The rule below was
+   **amended after review ([PR #96](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/96)),
+   before any Vancouver number existed**. The first version, PASS iff >= 0.98 of joinable labels
+   match within +/-1 px, would have made a STOP from resampling alone likely. The 2025 run
+   detected on Google's zoom-3 4096x2048 JPEG. This run detects on a PIL-bilinear 4x downsample
+   of pano-tools' native JPEG, which is a different low-pass filter and a different JPEG. A
+   peak that moves one heatmap cell (16 px at W = 16384) is therefore expected, and after a STOP
+   there would have been no pre-registered path. The amended `verdict()`:
+   - **Arm S, store usability (always run).** A label matches when a >= 0.55 detection on the
+     same pano lies within +/-(W/1024 + 1) px in x and +/-(H/512 + 1) px in y: one heatmap cell
+     plus the rounding pixel, with W and H the pano's stored native size. S passes iff >= 0.98
+     of joinable labels match. The +/-1 px share is reported beside it as `exact_share` and
+     never gates.
+   - **Arm Z, pipeline identity (optional control).** It needs about 200 GSV requests:
+     `python scripts/provenance_gate.py vancouver --draw-control` draws 200 labeled ids of the
+     run with seed 56 into `provenance_gate/control_ids.txt` (tracked). Then
+     `python scripts/reinfer.py runs/vancouver --ids runs/vancouver/provenance_gate/control_ids.txt --out runs/vancouver/control_zoom3.jsonl`
+     re-detects them through the 2025 path, zoom-3 pixels via `panorama.fetch_panorama`. A pano
+     gone from GSV is skipped there. Finally, `python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl`.
+     Z passes iff >= 0.98 of the labels on the control's panos match at +/-1 px. Threshold
+     flips between the arms (labels matched under S but not Z, and vice versa) are reported.
+   - **Coverage floor.** The gate is UNDETERMINED unless no selected pano is pending (every id
+     is processed or cached-skipped) and joinable labels are >= 0.95 of the AI labels whose
+     pano has a store JPEG. The metadata-404 set is reported by count and share.
+   - **Precision.** Detections >= 0.55 on labeled panos that no label claims must be <= 0.02 x
+     joinable labels, else STOP. The 2025 run shipped every such detection. Soft-deleted AI
+     labels are a known source of them (the detection is still in the run, the label is no
+     longer in the pull), so a STOP on this arm is a signal to investigate, not a verdict on
+     the store.
+   - **Verdict.** PASS only if S passes, precision passes, and (when a control is given) Z
+     passes. Otherwise STOP, naming the failing arm. UNDETERMINED takes precedence over STOP.
+     On STOP or UNDETERMINED, nothing below runs.
 5. **Depth**: `python scripts/harvest_depth.py runs/vancouver --from-store $STORE --check-store-frame 5`
-   (five live requests), then `python scripts/harvest_depth.py runs/vancouver --from-store $STORE`.
-   This writes `runs/vancouver/depth/index.csv` in the harvest's schema from the artifacts,
-   reading them in place. `fuse_sites.load_depth_index` and `height_qc.py` read it unchanged.
-   `depth_at_detection.py` and `gsv_ground_plane.py` read harvested `*.json.gz` payloads rather
-   than the index, so they would need `harvest_depth.payload_from_npz` to run on a store
-   index. Panos without an artifact are listed as `gone.txt` (per the store's
-   `depth_log.csv`) or as pending.
+   draws in a seeded order until five panos have been **checked**. A pano gone from GSV does
+   not count, and the draw is capped at 4N + 10 live requests. The result is written into
+   `runs/vancouver/depth/store.json` (tracked). Then run
+   `python scripts/harvest_depth.py runs/vancouver --from-store $STORE`, which says "frame
+   unchecked" if no passing check is recorded. This writes `runs/vancouver/depth/index.csv` in
+   the harvest's schema from the artifacts, reading them in place. The depth dir is then
+   bound to the store: every later call must pass `--from-store` (`--verify --rehash` included),
+   and one without it is refused. `fuse_sites.load_depth_index` and `height_qc.py` read the
+   index unchanged. `depth_at_detection.py` and `gsv_ground_plane.py` read harvested
+   `*.json.gz` payloads rather than the index, so they would need `harvest_depth.payload_from_npz`
+   to run on a store index. Panos without an artifact go to `unavailable.txt` when the store's
+   `depth_log.csv` says `unavailable` (pano-tools' word for "gone OR served no depth", which a
+   harvest would split into `gone.txt` and `no_depth.txt`), and are otherwise listed as pending.
 6. **Launch 2: benchmark and GT session.**
    `python scripts/export_benchmark.py runs/vancouver/results.jsonl --bundle ../RampNet/benchmark/vancouver --sample 100 --empty-sample 25 --records-only`.
    Copy those panos' JPEGs in from `$STORE`, re-run without `--records-only` to reconcile,

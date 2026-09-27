@@ -687,7 +687,7 @@ def main_cli(argv=None):
                     help='only fetch and cache the server metadata; no model is loaded')
     ap.add_argument('--accept-skip-rate', action='store_true',
                     help=f'cache {" / ".join(GUARDED_SKIPS)} skips even above '
-                         f'{SKIP_ALARM_RATE:.0%} of a pass; only after checking by hand that '
+                         f'{SKIP_ALARM_RATE * 100:.0f}%% of a pass; only after checking by hand that '
                          f'the store, its mount and the server are right')
     args = ap.parse_args(argv)
 
