@@ -724,9 +724,14 @@ through the bracketing pair and slope b\_loc = dB/dh on that segment,
   h\*\_local − h\_true = (L(h\_true) − h\_true) / (1 − b\_loc) ≈ (B(h\_true) − h\_true) × 1 / (1 − b\_loc).
 
 So B can be pulled anywhere away from h\_true without moving the crossing, and a bias of
-B *at* h\_true is multiplied by the local amplification 1 / (1 − b\_loc). Where h\_true is
-itself a swept height (1.8, 2.6, 3.0 m) the identity is exact. At 2.2 m, which is not
-swept, it holds to the segment's curvature (Richmond GoPro Max at noise 1.0: predicted
+B *at* h\_true is multiplied by the local amplification 1 / (1 − b\_loc). The identity is
+**exact when h\_true is an endpoint of the bracketing segment, approximate otherwise**
+(then L(h\_true) is an extrapolation of the segment, not B(h\_true)). On the committed
+seeds, 112 of the 126 swept-height cell-seeds match to 1e-6. All 14 at 1.8 m / noise 1.0
+miss, because the crossing sits at about 2.05–2.3 m and is read off the 2.0–2.3 segment:
+per seed by up to 0.20 m (Laurens: predicted +0.309 / +0.475, read +0.505 / +0.331), in
+cell means by up to 0.10 m (Richmond unknown: predicted +0.287, read +0.385). At 2.2 m,
+never a swept height, it is approximate too (Richmond GoPro Max at noise 1.0: predicted
 +0.076, read +0.141). Rule V's 0.10 m bar on h\* therefore needs
 |B(h\_true) − h\_true| ≤ 0.10 × (1 − b\_loc). Across the cells that is **0.016–0.042 m
 at noise 1.0** (b\_loc 0.58–0.84, amplification 2.4–7.6) and 0.049–0.081 m at noise 0.5
@@ -795,7 +800,7 @@ Every row, and the noise-0.5 rows not shown, is in the seeds CSVs (`b_at_h_true`
   54–67 views.
 
 At noise 1.0 the net bias of B at 1.8 m is the second part minus the first: +0.06 to
-+0.11 m, amplified 3.2–4.2× into the +0.25 to +0.44 m local-crossing errors of the rule-V
++0.11 m, amplified ≈3.4–4.5× effective into the +0.25 to +0.44 m local-crossing errors of the rule-V
 table. At noise 0.5 the two parts nearly cancel (−0.07 to +0.03 m). That is why the local
 crossing passes there except in Richmond GoPro Max, where the merge part dominates
 (−0.057 and −0.068 m at 2.6 and 3.0 m, amplified 1.8–2.0× to −0.103 and −0.135 m).
@@ -910,6 +915,12 @@ identical.
   - the null over-correction's mechanism identified and removed;
   - then the real noise scale, measured rather than assumed. #76's 2× is an estimate
     from the residuals, not a calibration.
+
+  Two notes from the post-review check on #98. First, at noise > 0 the oracle-clean
+  subset still depends on association: 46–66% of sites merge at noise 1.0, so the
+  surviving clean sites are a selected sample. That selection is a fourth candidate for
+  the null over-correction study. Second, the two noise-0 seeds are identical by
+  construction: with zero noise, `resynthesize` draws nothing, so the seed has no effect.
 - Instrument A needs no B to be read, and on the placement oracle (#79) an external
   inventory, not agreement between A and B, is what moved the GSV default. None of the
   five Mapillary cities is among the oracle's inventory cities (Bend, Gainesville,
