@@ -38,7 +38,7 @@
   }
  },
  "results_sha256": "7dbf24e03574c31b0a3011490177a5d51dc20e30badf7fdd35da443e870b98bc",
- "generated_at": "2026-09-27T18:26:19+00:00",
+ "generated_at": "2026-09-27T19:41:34+00:00",
  "generated_by": "scripts/mapillary_height.py (issues #53, #89)",
  "groups": {
   "gopro/max": {
@@ -70,7 +70,9 @@
    "instrument_b": {
     "estimator": null,
     "h_star": null,
-    "amplification": 2.133,
+    "line_amplification": 2.133,
+    "local_slope": 0.448,
+    "local_amplification": 1.81,
     "extrapolated": null,
     "validated": false,
     "h_at_2p6": 2.507,

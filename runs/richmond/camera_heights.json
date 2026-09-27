@@ -40,7 +40,7 @@
   }
  },
  "results_sha256": "109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c",
- "generated_at": "2026-09-27T18:26:18+00:00",
+ "generated_at": "2026-09-27T19:41:33+00:00",
  "generated_by": "scripts/mapillary_height.py (issues #53, #89)",
  "groups": {
   "arashi/insta360 x4": {
@@ -92,7 +92,9 @@
    "instrument_b": {
     "estimator": null,
     "h_star": null,
-    "amplification": 3.168,
+    "line_amplification": 3.168,
+    "local_slope": 0.546,
+    "local_amplification": 2.203,
     "extrapolated": null,
     "validated": false,
     "h_at_2p6": 2.396,
@@ -141,7 +143,9 @@
    "instrument_b": {
     "estimator": null,
     "h_star": null,
-    "amplification": 2.428,
+    "line_amplification": 2.428,
+    "local_slope": 0.447,
+    "local_amplification": 1.809,
     "extrapolated": null,
     "validated": false,
     "h_at_2p6": 2.68,
@@ -190,7 +194,9 @@
    "instrument_b": {
     "estimator": null,
     "h_star": null,
-    "amplification": 3.874,
+    "line_amplification": 3.874,
+    "local_slope": 0.7,
+    "local_amplification": 3.335,
     "extrapolated": null,
     "validated": false,
     "h_at_2p6": 2.666,

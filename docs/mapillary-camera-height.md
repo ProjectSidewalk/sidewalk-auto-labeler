@@ -841,6 +841,13 @@ GoPro Max still go per sequence (IQR 0.614 and 0.736 m), and as in §3 no sequen
 full rule-1 support, so every sequence inherits the rig class's 2.6 m. The insta360 x4
 class (4 panos) fails support.
 
+The 1/(1 − b\_B) column is the **line's** amplification (`line_amplification` in each
+table's `instrument_b` block, renamed after review on #98). The local crossing's own,
+1/(1 − b\_loc) on the segment it is read off, is now reported beside it as
+`local_amplification`: Richmond 2.20 (GoPro Max), 1.81 (Pulsar) and 3.34 (unknown),
+Laurens 1.44, Clovis 1.48, Morgantown 1.81 and Annapolis 2.30. Regenerating the tables
+for that changed no height, verdict, gate clause or other field.
+
 Unvalidated, the fixed points are descriptive only. For what they are worth, the line's
 h\*\_B lands within 0.025 m of h\*\_A for Richmond's GoPro Max, Morgantown and Annapolis
 (the §7 pattern) and within 0.13 m for Clovis. The local crossing sits 0.08–0.10 m above
