@@ -125,6 +125,8 @@ QC_MIN_VINTAGE_PANOS = 300
 # depth|). That constant was then scored against RampNet GT and made p90 GT-to-site
 # placement worse in all four cities (+0.12 to +0.30 m; P/R unchanged within noise), so
 # it was reverted and the spread sigma stays -- per-pano output is exactly #68's.
+# Since #47 the spread leaves Google's stand-in planes out (ground_plane, is_standin); the
+# T4 re-read under that definition is in docs/camera-height-study.md.
 SIGMA_PER_P10_P90 = 1.0 / 2.563
 FLAGGED_QC = "flagged_qc"        # prefix of believe_height's flag reasons
 
@@ -178,10 +180,14 @@ class GroundPlane:
     tilt_deg: float           # angle between its normal and vertical
     pixel_share: float        # share of the whole image on this plane
     n_ground_planes: int      # roadways are segmented; more than one is normal
-    height_spread_m: float    # p90-p10 of camera height across all ground planes,
-                              # weighted by pixel count -- a free per-pano uncertainty
+    height_spread_m: float    # p90-p10 of camera height across the MEASURED ground
+                              # planes (stand-ins excluded, #47), weighted by pixel count
+                              # -- a free per-pano uncertainty
     exactly_level: bool = False  # normal is exactly (0, 0, +-1): Google's stand-in
                                  # ground, not a measurement (see SYNTHETIC_GROUND)
+    n_standin_planes: int = 0     # ground candidates that are stand-ins (is_standin),
+                                  # the dominant plane included when it is one
+    standin_pixel_share: float = 0.0  # share of the whole image on those planes
 
 
 def classify_height(height_m, tilt_deg, *, degenerate=False, exactly_level=None):
@@ -241,7 +247,9 @@ def camera_height_fields(payload):
     `payload` may be None (no depth in the response). Every key is always present so a
     consumer never has to distinguish a missing key from a null; `camera_height_m` is
     non-null only when the status is MEASURED, so nothing downstream can use a stand-in
-    by accident. The raw ground distance of a non-measurement is deliberately not kept --
+    by accident. `camera_height_spread_m` is `ground_plane`'s `height_spread_m`, which
+    since #47 leaves Google's stand-in planes out; pano blocks written before that change
+    (post-#40 GSV runs) carry the old, stand-in-inclusive spread under the same key. The raw ground distance of a non-measurement is deliberately not kept --
     the harvested archive has it (scripts/harvest_depth.py) for anyone studying them.
     """
     fields = {"camera_height_m": None, "camera_height_spread_m": None,
@@ -408,11 +416,66 @@ def _plane_at(payload, x_norm, y_norm, *, raster=False):
     return payload.planes[idx], row, raw_col
 
 
+def is_standin(plane):
+    """Google's stand-in ground: a plane whose normal is exactly (0, 0, +-1).
+
+    The SYNTHETIC_GROUND test, applied to one plane. `classify_height` applies it to the
+    dominant ground plane only; step 1 of #47 found the same pattern as a *secondary* floor
+    plane under 10-27% of floor detections (docs/depth-at-detection-study.md 5.4), which
+    is why `ground_plane` now keeps these out of `height_spread_m`. Structural, like the
+    dominant-plane test: the normal, never the value 2.5.
+    """
+    return plane.nx == 0.0 and plane.ny == 0.0
+
+
+def _weighted_spread(pairs):
+    """p90-p10 over (value, pixel count) pairs, pixel-weighted; 0.0 for no pairs.
+
+    Taken as a weighted percentile rather than by materializing one float per pixel:
+    identical result, but it does not build a 131k-element list per panorama across a
+    170k-panorama archive.
+    """
+    weighted = sorted(pairs)
+    total_px = sum(c for _, c in weighted)
+    if not total_px:
+        return 0.0
+
+    def wpct(q):
+        rank, seen = int(q * (total_px - 1)), 0
+        for value, c in weighted:
+            seen += c
+            if seen > rank:
+                return value
+        return weighted[-1][0]
+
+    return wpct(0.9) - wpct(0.1)
+
+
 def ground_plane(payload):
     """The dominant ground plane, or None if the payload has no usable floor.
 
     Picks by pixel share among planes that are near-horizontal and sit below the
-    horizon. Returns the camera height directly -- this is a read, not a fit.
+    horizon -- stand-ins included, so the choice (and with it `camera_height_m` and
+    `classify_height`) is the same as before #47. Returns the camera height directly --
+    this is a read, not a fit.
+
+    `height_spread_m` is the pixel-weighted p90-p10 of camera height over the candidates
+    that are NOT stand-ins (`is_standin`): a stand-in is Google's default at 2.500 m, not
+    a second opinion about the camera height, so letting it in (as before #47) widened
+    the spread by however far 2.5 m sat from the measured road. 0.0 with a single measured
+    candidate, or none; when the dominant plane is itself a stand-in the status is
+    SYNTHETIC_GROUND anyway and the spread is reported for completeness only.
+    `n_standin_planes` / `standin_pixel_share` count the stand-in candidates, dominant
+    included.
+
+    Example (a measured road at 2.40 m on 10 floor pixels, a measured patch at 2.50 m on
+    4, and an exactly level stand-in at 2.50 m on 2 that no longer counts):
+        >>> p = [Plane(0, 0, 0, 0), Plane(0.02, 0, -0.9998, 2.4),
+        ...      Plane(0.01, 0, -0.99995, 2.5), Plane(0.0, 0.0, -1.0, 2.5)]
+        >>> ix = bytes([0] * 16 + [1] * 10 + [2] * 4 + [3] * 2)
+        >>> g = ground_plane(DepthPayload(width=8, height=4, planes=p, indices=ix))
+        >>> round(g.camera_height_m, 2), round(g.height_spread_m, 2), g.n_standin_planes
+        (2.4, 0.1, 1)
     """
     w, h = payload.width, payload.height
     counts = Counter(payload.indices)
@@ -436,28 +499,18 @@ def ground_plane(payload):
     total = len(payload.indices)
     count, _, best, tilt = candidates[0]
 
-    # Spread across every ground plane, pixel-weighted: the roadway is segmented into
-    # several planes, and how much they disagree about the camera height is a genuine
-    # per-pano uncertainty -- better than the flat sigma_height_m the error model uses.
-    # Taken as a weighted percentile over (height, pixel count) pairs rather than by
-    # materializing one float per pixel: identical result, but it does not build a
-    # 131k-element list per panorama across a 170k-panorama archive.
-    weighted = sorted((p.d, c) for c, _, p, _ in candidates)
-    total_px = sum(c for _, c in weighted)
-
-    def wpct(q):
-        rank, seen = int(q * (total_px - 1)), 0
-        for value, c in weighted:
-            seen += c
-            if seen > rank:
-                return value
-        return weighted[-1][0]
-
-    spread = wpct(0.9) - wpct(0.1)
+    # Spread across the measured ground planes, pixel-weighted: the roadway is segmented
+    # into several planes, and how much they disagree about the camera height is a
+    # genuine per-pano uncertainty -- better than the flat sigma_height_m the error model
+    # uses. Stand-ins are Google's default, not a disagreement, so they stay out (#47).
+    standins = [(c, p) for c, _, p, _ in candidates if is_standin(p)]
+    spread = _weighted_spread([(p.d, c) for c, _, p, _ in candidates if not is_standin(p)])
 
     return GroundPlane(camera_height_m=best.d, tilt_deg=tilt, pixel_share=count / total,
                        n_ground_planes=len(candidates), height_spread_m=spread,
-                       exactly_level=best.nx == 0.0 and best.ny == 0.0)
+                       exactly_level=is_standin(best),
+                       n_standin_planes=len(standins),
+                       standin_pixel_share=sum(c for c, _ in standins) / total)
 
 
 def _intersect(plane, direction):

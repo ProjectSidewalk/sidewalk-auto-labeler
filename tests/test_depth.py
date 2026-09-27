@@ -302,7 +302,9 @@ def test_height_spread_matches_the_pixel_weighted_percentiles():
     """height_spread_m takes a weighted percentile over (height, count) pairs instead of
     materializing one float per pixel; it must agree with the naive form exactly."""
     W, H = 32, 16
-    planes = [GROUND] + [(0.0, 0.0, -1.0, d) for d in (2.0, 2.4, 2.6, 3.0, 2.2)]
+    # Slightly tilted, not exactly level: an exactly level plane is a stand-in (#47) and
+    # would be left out of the spread, which is not what this test is about.
+    planes = [GROUND] + [(0.01, 0.0, -0.99995, d) for d in (2.0, 2.4, 2.6, 3.0, 2.2)]
     rng = random.Random(3)
     indices = [0] * (W * H // 2) + [rng.randrange(1, len(planes)) for _ in range(W * H // 2)]
     payload = depthlib.parse(build_payload(W, H, planes, indices))
@@ -313,6 +315,74 @@ def test_height_spread_matches_the_pixel_weighted_percentiles():
     heights.sort()
     naive = (heights[int(0.9 * (len(heights) - 1))] - heights[int(0.1 * (len(heights) - 1))])
     assert depthlib.ground_plane(payload).height_spread_m == pytest.approx(naive)
+
+
+# --- stand-in planes out of the spread (#47 step 1 follow-up)
+
+ROAD = (0.02, 0.0, -0.9998, 2.30)       # measured dominant ground, ~1.1 deg off level
+PATCH = (0.0, 0.03, -0.99955, 2.45)     # measured secondary floor plane (a ramp, a lane)
+STANDIN = (0.0, 0.0, -1.0, 2.5)         # Google's stand-in: normal exactly vertical
+
+
+def _standin_payload(dominant, other, standin, w=16, h=8):
+    """Sky on top; below the horizon 40 px of `dominant`, 16 of `other`, 8 of `standin`."""
+    below = [1] * 40 + [2] * 16 + [3] * 8
+    indices = [depthlib.SKY] * (w * h // 2) + below
+    planes = [GROUND, dominant, other, standin]
+    return depthlib.parse(build_payload(w, h, planes, indices))
+
+
+def test_spread_leaves_a_secondary_standin_out():
+    """The two measured planes' difference, not stretched to the stand-in's 2.5 m; the
+    dominant plane (and so camera_height_m and the status) is unchanged."""
+    payload = _standin_payload(ROAD, PATCH, STANDIN)
+    g = depthlib.ground_plane(payload)
+    assert g.camera_height_m == pytest.approx(2.30)
+    assert g.height_spread_m == pytest.approx(2.45 - 2.30)
+    assert g.n_ground_planes == 3
+    assert g.n_standin_planes == 1
+    assert g.standin_pixel_share == pytest.approx(8 / 128)
+    assert g.exactly_level is False
+    fields = depthlib.camera_height_fields(payload)
+    assert fields["camera_height_status"] == depthlib.MEASURED
+    assert fields["camera_height_m"] == pytest.approx(2.30)
+    assert fields["camera_height_spread_m"] == pytest.approx(0.15, abs=1e-4)
+
+
+def test_spread_before_47_would_have_taken_the_standin_in():
+    """Pins what changed: the same planes with the stand-in tilted a hair (so it counts
+    as measured) widen the spread to reach it -- the pre-#47 behaviour."""
+    tilted_standin = (0.001, 0.0, -0.9999995, 2.5)
+    g = depthlib.ground_plane(_standin_payload(ROAD, PATCH, tilted_standin))
+    assert g.n_standin_planes == 0
+    assert g.height_spread_m == pytest.approx(2.5 - 2.30)
+
+
+def test_single_measured_plane_has_zero_spread():
+    g = depthlib.ground_plane(_standin_payload(ROAD, ROAD, STANDIN))
+    assert g.height_spread_m == 0.0
+    assert g.n_standin_planes == 1
+
+
+def test_dominant_standin_still_classifies_synthetic_ground():
+    """The dominant-plane choice counts stand-ins as before, so a stand-in dominant ground
+    stays SYNTHETIC_GROUND; the spread is over the measured candidates only."""
+    payload = _standin_payload(STANDIN, ROAD, PATCH)
+    g = depthlib.ground_plane(payload)
+    assert g.camera_height_m == pytest.approx(2.5)
+    assert g.exactly_level is True
+    assert g.n_standin_planes == 1
+    assert g.standin_pixel_share == pytest.approx(40 / 128)
+    assert g.height_spread_m == pytest.approx(2.45 - 2.30)
+    fields = depthlib.camera_height_fields(payload)
+    assert fields["camera_height_status"] == depthlib.SYNTHETIC_GROUND
+    assert fields["camera_height_spread_m"] is None
+
+
+def test_is_standin_is_the_normal_test_not_the_value():
+    assert depthlib.is_standin(depthlib.Plane(0.0, 0.0, -1.0, 2.5))
+    assert depthlib.is_standin(depthlib.Plane(0.0, 0.0, 1.0, 1.9))
+    assert not depthlib.is_standin(depthlib.Plane(0.01, 0.0, -0.99995, 2.5))
 
 
 # --- camera-height classification (labeler #40)

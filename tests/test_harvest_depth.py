@@ -13,6 +13,8 @@ import gzip
 import json
 import struct
 
+import pytest
+
 import depth as depthlib
 import harvest_depth as hd
 
@@ -160,6 +162,77 @@ def test_interrupted_part_files_are_swept(tmp_path):
     hd.reconcile(depth_dir, ["A", "B"], failures={}, attempted={"A"})
 
     assert not (depth_dir / "B.json.gz.part").exists()
+
+
+def _read_index(depth_dir):
+    import csv
+    with open(depth_dir / "index.csv", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return reader.fieldnames, list(reader)
+
+
+def test_reindex_rewrites_an_old_index_with_the_new_columns(tmp_path):
+    """#47: an index written under the old INDEX_FIELDS (no stand-in columns, the old
+    spread) is rebuilt from the archived files, offline."""
+    import csv
+    depth_dir = tmp_path / "depth"
+    archive(depth_dir, "A")
+    hd.reconcile(depth_dir, ["A"])
+    old_fields = [f for f in hd.INDEX_FIELDS
+                  if f not in ("n_standin_planes", "standin_pixel_share")]
+    _, rows = _read_index(depth_dir)
+    with open(depth_dir / "index.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=old_fields, extrasaction="ignore")
+        w.writeheader()
+        for r in rows:
+            w.writerow({**r, "height_spread_m": "9.9999"})   # a stale derived value
+
+    assert hd.reindex(depth_dir, ["A"])[3] == 0
+    fields, rows = _read_index(depth_dir)
+    assert fields == hd.INDEX_FIELDS
+    # the fixture's floor is one exactly level plane: a stand-in, the dominant one
+    assert rows[0]["n_standin_planes"] == "1"
+    assert rows[0]["standin_pixel_share"] == "0.5000"
+    assert rows[0]["height_spread_m"] == "0.0000"
+
+
+def test_reconcile_does_not_reuse_rows_from_an_older_schema(tmp_path):
+    """Without --reindex too: an index missing a current column is recomputed, never
+    copied through with blanks and a stale spread."""
+    import csv
+    depth_dir = tmp_path / "depth"
+    archive(depth_dir, "A")
+    with open(depth_dir / "index.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(hd.INDEX_FIELDS[:-2])
+        size = (depth_dir / "A.json.gz").stat().st_size
+        w.writerow(["A", "A.json.gz", size, "x" * 64, 2, 1, "2.5000", "0.000", "0.5000",
+                    "9.9999", "0.5000"])
+    hd.reconcile(depth_dir, ["A"])
+    _, rows = _read_index(depth_dir)
+    assert rows[0]["height_spread_m"] == "0.0000"
+    assert rows[0]["n_standin_planes"] == "1"
+
+
+def test_reindex_refuses_a_missing_file(tmp_path):
+    depth_dir = tmp_path / "depth"
+    archive(depth_dir, "A")
+    archive(depth_dir, "B")
+    hd.reconcile(depth_dir, ["A", "B"])
+    before = (depth_dir / "index.csv").read_bytes()
+    (depth_dir / "B.json.gz").unlink()
+
+    with pytest.raises(SystemExit) as exc:
+        hd.reindex(depth_dir, ["A", "B"])
+    assert "REFUSING" in str(exc.value)
+    assert (depth_dir / "index.csv").read_bytes() == before
+
+
+def test_reindex_refuses_without_an_index(tmp_path):
+    depth_dir = tmp_path / "depth"
+    archive(depth_dir, "A")
+    with pytest.raises(SystemExit):
+        hd.reindex(depth_dir, ["A"])
 
 
 def test_no_depth_alarm_fires_only_on_an_implausible_rate():

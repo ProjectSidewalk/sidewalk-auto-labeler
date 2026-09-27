@@ -30,6 +30,9 @@ downloaded — so it neither needs nor touches the native-resolution archive.
     # ...and re-hash every file rather than trusting a matching byte size (catches bit rot)
     python scripts/harvest_depth.py runs/paterson --verify --rehash
 
+    # rebuild index.csv's derived columns after a depth.py change (offline, #47)
+    python scripts/harvest_depth.py runs/paterson --reindex
+
     # re-check that depth.py still agrees with streetlevel's own raster (do this after
     # any streetlevel upgrade — the payload layout is undocumented)
     python scripts/harvest_depth.py runs/paterson --check-convention
@@ -82,9 +85,14 @@ ERROR = "ERROR"       # transient; left uncached so the next run retries it
 NO_DEPTH_ALARM_RATE = 0.05
 NO_DEPTH_ALARM_MIN = 20
 
+# height_spread_m leaves Google's stand-in planes out since #47 (depth.ground_plane);
+# n_standin_planes / standin_pixel_share count them. An index written before that has
+# neither column and the old spread: reconcile recomputes such rows rather than trusting
+# them, and --reindex rebuilds a whole archive's index offline.
 INDEX_FIELDS = ["panorama_id", "filename", "bytes", "sha256", "n_planes", "degenerate",
                 "camera_height_m", "ground_tilt_deg", "ground_pixel_share",
-                "height_spread_m", "sky_fraction"]
+                "height_spread_m", "sky_fraction", "n_standin_planes",
+                "standin_pixel_share"]
 
 
 def run_pano_ids(run_dir):
@@ -273,8 +281,17 @@ def reconcile(depth_dir, expected, failures=None, attempted=None, rehash=False):
     prior = {}
     if index_path.exists():
         with open(index_path, newline="", encoding="utf-8") as f:
-            for row in csv.DictReader(f):
+            reader = csv.DictReader(f)
+            # An index from an older INDEX_FIELDS is missing columns, and its derived
+            # columns may follow an older definition (the #47 spread), so none of its rows
+            # may be reused as-is: every file is re-read. Its sha256s are still compared.
+            stale_schema = not set(INDEX_FIELDS) <= set(reader.fieldnames or [])
+            for row in reader:
                 prior[row["panorama_id"]] = row
+        if stale_schema and prior:
+            print(f"  index.csv predates the current columns; recomputing all "
+                  f"{len(prior)} row(s)")
+            rehash = True
 
     rows, unreadable, corrupted = [], [], []
     for pid in tqdm(sorted(verified), desc="Indexing depth", unit="pano"):
@@ -301,6 +318,8 @@ def reconcile(depth_dir, expected, failures=None, attempted=None, rehash=False):
             f"{g.pixel_share:.4f}" if g else "",
             f"{g.height_spread_m:.4f}" if g else "",
             f"{payload.sky_fraction:.4f}",
+            g.n_standin_planes if g else "",
+            f"{g.standin_pixel_share:.4f}" if g else "",
         ])
 
     with open(index_path, "w", newline="", encoding="utf-8") as f:
@@ -344,6 +363,30 @@ def reconcile(depth_dir, expected, failures=None, attempted=None, rehash=False):
         status = "OK — depth archive matches the run 1:1"
     print(f"  STATUS: {status}")
     return len(gone), len(failed), len(pending), len(extra) + len(unreadable) + len(corrupted)
+
+
+def reindex(depth_dir, expected):
+    """Recompute every derived index.csv column from the archived files, offline (#47).
+
+    For a change to what `depth.py` derives from a payload -- the files themselves never
+    change, so nothing is fetched. Every file is re-read and re-hashed (reconcile with
+    `rehash`), so a file altered since it was indexed still surfaces as an anomaly.
+
+    Refuses, before writing anything, when index.csv is absent or names a panorama whose
+    file is gone: reconcile would silently drop that row, and a reindex must never be able
+    to shrink the archive's record. Returns reconcile's tuple.
+    """
+    index_path = depth_dir / "index.csv"
+    if not index_path.exists():
+        sys.exit(f"--reindex: no index.csv in {depth_dir}; nothing to reindex")
+    with open(index_path, newline="", encoding="utf-8") as f:
+        indexed = [row["panorama_id"] for row in csv.DictReader(f)]
+    missing = [pid for pid in indexed if not (depth_dir / f"{pid}.json.gz").exists()]
+    if missing:
+        sys.exit(f"--reindex: REFUSING -- {len(missing)} indexed panorama(s) have no file "
+                 f"in {depth_dir}, e.g. {missing[:3]}; index.csv left untouched")
+    print(f"--- Reindex: recomputing {len(indexed)} row(s) from the archived files ---")
+    return reconcile(depth_dir, expected, rehash=True)
 
 
 def summarize(depth_dir):
@@ -443,6 +486,10 @@ def main():
     ap.add_argument("--rehash", action="store_true",
                     help="Re-read and re-hash every archived file instead of trusting a "
                          "matching byte size — the only way to catch silent bit rot.")
+    ap.add_argument("--reindex", action="store_true",
+                    help="Offline: recompute every derived index.csv column from the "
+                         "archived files (after a depth.py change, e.g. #47's spread). "
+                         "Fetches nothing; refuses if any indexed file is missing.")
     ap.add_argument("--check-convention", type=int, nargs="?", const=3, metavar="N",
                     help="Verify depth.py against streetlevel's raster on N live panoramas.")
     args = ap.parse_args()
@@ -472,6 +519,11 @@ def main():
     depth_dir = args.out or (run_dir / "depth")
     depth_dir.mkdir(parents=True, exist_ok=True)
     print(f"{run_dir.name}: {len(pano_ids)} panoramas in the run -> {depth_dir}")
+
+    if args.reindex:
+        gone, failed, pending, anomalies = reindex(depth_dir, pano_ids)
+        summarize(depth_dir)
+        sys.exit(1 if (failed or anomalies) else 0)
 
     failures, attempted, poisoned = {}, None, False
     if not args.verify:
