@@ -82,3 +82,10 @@ runs/**
 !runs/*/inventory_oracle/report.md
 !runs/*/inventory_oracle/*.csv
 !runs/*/inventory_oracle/inventory.json
+# Provenance gate (scripts/provenance_gate.py, issue #56): does a run rebuilt from the pano
+# store reproduce the city's deployed AI labels? The report and the unmatched-label rows are
+# tracked; the label pull (raw_labels.geojson) is NOT -- the report carries its url, fetch
+# time, sha256 and feature count.
+!runs/*/provenance_gate/
+!runs/*/provenance_gate/report.md
+!runs/*/provenance_gate/unmatched.csv
