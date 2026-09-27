@@ -52,6 +52,7 @@ import csv
 import gzip
 import hashlib
 import json
+import os
 import sys
 import time
 from collections import Counter
@@ -66,6 +67,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import depth as depthlib  # noqa: E402
 from geo import DEFAULT_CAMERA_HEIGHT_M  # noqa: E402  (stdlib-only, like depth.py)
+from sources import SOURCE_NAMES  # noqa: E402  (the registry only; source modules load lazily)
 
 WORKERS = 16          # metadata-sized requests; the main pipeline uses 50-100 for these
 FETCH_ATTEMPTS = 3    # per panorama, with backoff, before it becomes a retryable ERROR
@@ -96,11 +98,12 @@ INDEX_FIELDS = ["panorama_id", "filename", "bytes", "sha256", "n_planes", "degen
 
 
 def run_pano_ids(run_dir):
-    """Every panorama id in a run's results.jsonl, in file order, plus its source."""
+    """Every panorama id in a run's results.jsonl, in file order, plus the set of every
+    record's `source` (None left out) -- all of them, so a mixed file can be refused."""
     results = run_dir / "results.jsonl"
     if not results.exists():
         sys.exit(f"No results.jsonl in {run_dir}")
-    ids, source = [], None
+    ids, sources = [], set()
     with open(results, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -108,16 +111,19 @@ def run_pano_ids(run_dir):
                 continue
             pano = json.loads(line)["pano"]
             ids.append(pano["panorama_id"])
-            source = source or pano.get("source")
-    return ids, source
+            if pano.get("source") is not None:
+                sources.add(pano["source"])
+    return ids, sources
 
 
-# Pano-block `source` values that name a non-GSV provider (send_to_ps.PS_PANO_SOURCES
-# minus gsv). A GSV record stores streetlevel's raw source string instead -- 'launch',
-# 'scout', 'photos:...' -- an open set, so GSV cannot be an allowlist of strings: the
+# Pano-block `source` values that name a non-GSV provider: every registered imagery source
+# but gsv (derived, so a source added to sources.SOURCE_NAMES is refused without touching
+# this file), plus infra3d, the one PS pano_source enum value no source module writes yet.
+# A GSV record stores streetlevel's raw source string instead -- 'launch', 'scout',
+# 'photos:...' -- an open set, so GSV cannot be an allowlist of strings: the
 # `source != "gsv"` test that stood here refused every real GSV run ('launch'), --verify
 # included. send_to_ps.transform_pano reads the field the same way.
-NON_GSV_SOURCES = {"mapillary", "panoramax", "infra3d"}
+NON_GSV_SOURCES = frozenset((set(SOURCE_NAMES) | {"infra3d"}) - {"gsv"})
 
 
 def is_gsv_source(source):
@@ -129,6 +135,27 @@ def is_gsv_source(source):
         [True, True, True, False, True]
     """
     return source is None or source.lower() not in NON_GSV_SOURCES
+
+
+def record_source_problem(sources):
+    """Why a run's record sources rule out a depth harvest, or None if they are all GSV.
+
+    `sources` is run_pano_ids' set. Any non-GSV provider refuses; a file that holds both
+    GSV and non-GSV records is called out as mixed, since no run directory should be.
+
+    Example:
+        >>> record_source_problem({"launch", "scout"}) is None
+        True
+        >>> record_source_problem({"launch", "mapillary"})
+        "This run's records are mixed (GSV and mapillary); only GSV serves depth (see #42)."
+    """
+    non_gsv = sorted(s for s in sources if not is_gsv_source(s))
+    if not non_gsv:
+        return None
+    if len(non_gsv) < len(sources):
+        return (f"This run's records are mixed (GSV and {', '.join(non_gsv)}); "
+                f"only GSV serves depth (see #42).")
+    return f"This run's records are {', '.join(non_gsv)}; only GSV serves depth (see #42)."
 
 
 def check_gsv(run_dir):
@@ -241,7 +268,8 @@ def load_gone(manifest_dir):
     return _load_ids(manifest_dir / "gone.txt")
 
 
-def reconcile(depth_dir, expected, failures=None, attempted=None, rehash=False):
+def reconcile(depth_dir, expected, failures=None, attempted=None, rehash=False,
+              write_on_anomaly=True):
     """Prove the archive matches the run it was built from, and record what's in it.
 
     Mirrors export_benchmark.reconcile so "is this the same data we processed?" is
@@ -264,6 +292,12 @@ def reconcile(depth_dir, expected, failures=None, attempted=None, rehash=False):
     anything now archived. It must never be rebuilt from this pass alone: --verify and
     --limit legitimately do not re-encounter those ids, and overwriting from an empty set
     silently deleted gone.txt and downgraded a complete archive to PARTIAL.
+
+    An unreadable or altered file (same size, different sha256) keeps its PRIOR index row,
+    old sha256 included, so the anomaly is reported on every later --rehash pass instead of
+    being laundered into a clean index by recording the new digest. The index is written to
+    a temporary file and moved into place (os.replace). With write_on_anomaly=False
+    (--reindex) nothing is written at all unless the pass found no anomaly.
 
     Returns (gone, failed, pending, anomalies); failed/anomalies are what make a run
     untrustworthy, pending only means unfinished.
@@ -317,18 +351,25 @@ def reconcile(depth_dir, expected, failures=None, attempted=None, rehash=False):
         p = present[pid]
         size = p.stat().st_size
         cached = prior.get(pid)
-        if not rehash and cached and int(cached["bytes"]) == size and cached.get("sha256"):
+        # A row carried forward from an older schema (an anomaly's, below) has a ground
+        # plane but blank stand-in columns and the old spread: never reuse it as current.
+        current = cached and (cached.get("n_standin_planes") or not cached.get("camera_height_m"))
+        if not rehash and current and int(cached["bytes"]) == size and cached.get("sha256"):
             rows.append([cached.get(k, "") for k in INDEX_FIELDS])
             continue
         try:
             payload = read_payload(p)
         except Exception as e:
             unreadable.append((pid, str(e)))
+            if cached:
+                rows.append([cached.get(k, "") for k in INDEX_FIELDS])   # carried forward
             continue
         digest = _sha256(p)
         # Only reachable under --rehash: without it a size match short-circuits above.
         if cached and cached.get("sha256") and cached["sha256"] != digest:
             corrupted.append(pid)
+            rows.append([cached.get(k, "") for k in INDEX_FIELDS])       # old sha kept
+            continue
         g = depthlib.ground_plane(payload)
         rows.append([
             pid, p.name, size, digest, payload.n_planes, int(payload.degenerate),
@@ -341,16 +382,21 @@ def reconcile(depth_dir, expected, failures=None, attempted=None, rehash=False):
             f"{g.standin_pixel_share:.4f}" if g else "",
         ])
 
-    with open(index_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(INDEX_FIELDS)
-        w.writerows(rows)
-
-    _write_ids(depth_dir / "gone.txt", gone)
+    n_anomalies = len(extra) + len(unreadable) + len(corrupted)
+    written = write_on_anomaly or not n_anomalies
+    if written:
+        tmp = index_path.with_name(index_path.name + ".tmp")
+        with open(tmp, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(INDEX_FIELDS)
+            w.writerows(rows)
+        os.replace(tmp, index_path)
+        _write_ids(depth_dir / "gone.txt", gone)
 
     print(f"--- Reconcile: run records vs {depth_dir} ---")
     print(f"  run panoramas (unique):  {len(expected_ids)}")
-    print(f"  archived + verified:     {len(rows)}  -> index.csv")
+    print(f"  archived + verified:     {len(rows)}  -> index.csv"
+          + ("" if written else " NOT WRITTEN (anomalies; index.csv left untouched)"))
     print(f"  no depth served:         {len(no_depth & expected_ids)}" +
           ("  -> no_depth.txt" if no_depth else ""))
     if gone:
@@ -381,7 +427,7 @@ def reconcile(depth_dir, expected, failures=None, attempted=None, rehash=False):
     else:
         status = "OK — depth archive matches the run 1:1"
     print(f"  STATUS: {status}")
-    return len(gone), len(failed), len(pending), len(extra) + len(unreadable) + len(corrupted)
+    return len(gone), len(failed), len(pending), n_anomalies
 
 
 def reindex(depth_dir, expected):
@@ -392,20 +438,28 @@ def reindex(depth_dir, expected):
     `rehash`), so a file altered since it was indexed still surfaces as an anomaly.
 
     Refuses, before writing anything, when index.csv is absent or names a panorama whose
-    file is gone: reconcile would silently drop that row, and a reindex must never be able
-    to shrink the archive's record. Returns reconcile's tuple.
+    file is gone or empty (reconcile deletes a zero-byte file, and would then silently drop
+    that row): a reindex must never be able to shrink the archive's record. The rebuilt
+    index replaces the old one (temp file + os.replace) ONLY when the pass found no anomaly
+    -- an unreadable, altered or unbacked file leaves index.csv and gone.txt untouched, so
+    the old row and its recorded sha256 stay the evidence. Returns reconcile's tuple.
     """
     index_path = depth_dir / "index.csv"
     if not index_path.exists():
         sys.exit(f"--reindex: no index.csv in {depth_dir}; nothing to reindex")
     with open(index_path, newline="", encoding="utf-8") as f:
         indexed = [row["panorama_id"] for row in csv.DictReader(f)]
-    missing = [pid for pid in indexed if not (depth_dir / f"{pid}.json.gz").exists()]
+    def _missing(pid):
+        path = depth_dir / f"{pid}.json.gz"
+        return not path.exists() or path.stat().st_size == 0
+
+    missing = [pid for pid in indexed if _missing(pid)]
     if missing:
         sys.exit(f"--reindex: REFUSING -- {len(missing)} indexed panorama(s) have no file "
-                 f"in {depth_dir}, e.g. {missing[:3]}; index.csv left untouched")
+                 f"(or an empty one) in {depth_dir}, e.g. {missing[:3]}; index.csv left "
+                 f"untouched")
     print(f"--- Reindex: recomputing {len(indexed)} row(s) from the archived files ---")
-    return reconcile(depth_dir, expected, rehash=True)
+    return reconcile(depth_dir, expected, rehash=True, write_on_anomaly=False)
 
 
 def summarize(depth_dir):
@@ -517,11 +571,12 @@ def main():
     if not run_dir.is_dir():
         sys.exit(f"Not a directory: {run_dir}")
     check_gsv(run_dir)
-    pano_ids, source = run_pano_ids(run_dir)
+    pano_ids, sources = run_pano_ids(run_dir)
     # Belt to check_gsv's braces: that reads the manifest, this the records, so a run dir
     # without a manifest is still refused.
-    if not is_gsv_source(source):
-        sys.exit(f"This run's records are {source}; only GSV serves depth (see #42).")
+    problem = record_source_problem(sources)
+    if problem:
+        sys.exit(problem)
 
     # `is not None`, not truthiness: 0 is a meaningful value for both of these and reading
     # it as "unset" turns `--limit 0` into a full 170k-panorama harvest.
