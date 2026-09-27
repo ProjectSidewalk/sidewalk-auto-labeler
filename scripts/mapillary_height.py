@@ -31,6 +31,25 @@ error model's own simulated noise (the errors-in-variables null, here per group)
 range scale k = 1/(1 - (s - s_null)) and h_B = 2.6 / k. The scale-plus-dip-offset fit
 (range_offset_levers) is reported beside it, since #76 found an offset moves k.
 
+Instrument B as a fixed point (#89). Read at one association height, B is pulled toward
+that height (#87, docs section 7). So B is read at every height in SWEEP_HEIGHTS_B, with
+the null averaged over NULL_SEEDS seeds (b_at), and two estimators of its fixed point are
+always reported (b_estimates): the line B(h) = a_B + b_B h and a_B / (1 - b_B), with the
+amplification 1/(1 - b_B) beside it, and the local crossing of B(h) = h between the
+bracketing swept heights. Which one rule 3 reads is decided per city by the estimator
+gate: `--validate` re-synthesizes the city's real view graph with every pano at a known
+height (height_gap.resynthesize), sweeps B with a noise-matched null, and rule V (the
+VALID_* constants, pre-registered on #89) keeps an estimator only if it recovers the
+planted height within 0.10 m in every cell. Neither valid -> rule 3 reads b_unvalidated.
+
+EXPLORATORY (#98 review; never read by rule V): `--validate --exploratory` adds, per
+validation cell-seed, B read AT the planted height (b_at_h_true), the same reading on the
+oracle-clean sites only (b_at_h_true_clean: sites whose members all come from one planted
+ramp), the association's merge count, and the local crossing's segment slope and
+amplification -- the local crossing's error is ~ (B(h_true) - h_true) * local_amplification.
+It also runs a noise-0 cell per city (arm `exploratory_noise0`), whose cell means go to
+estimator_validation_exploratory.csv, never to the file rule V reads.
+
 Instrument C -- GT-anchored (the five judged splits): the slope of the along-ray residual
 of reviewer references (reprojection_residual.gt_anchored_rows, left-out variant) on the
 predicted range. A correct height flattens it.
@@ -51,7 +70,11 @@ so truthy -- straight to geo.detection_ground_point, which would rotate any pose
 No network, no GPU, no writes outside the output directories.
 
 Usage:
-    # all five Mapillary runs, the gate, and the tables (the #53 measurement)
+    # the estimator gate first (#89; simulation, ~15 min on 10 workers, resumable)
+    python scripts/mapillary_height.py --validate richmond laurens clovis morgantown annapolis
+    # ...the exploratory arm on top (reuses the committed rule-V seeds; not read by rule V)
+    python scripts/mapillary_height.py --validate --exploratory richmond laurens clovis         morgantown annapolis
+    # then all five Mapillary runs, the gate, and the tables (the #53 measurement)
     python scripts/mapillary_height.py richmond laurens clovis morgantown annapolis
     python scripts/mapillary_height.py richmond --run-root D:/Git/sidewalk-auto-labeler/runs
     # one run, no gate (the table is written with recommended: false)
@@ -70,6 +93,7 @@ import random
 import re
 import statistics
 import sys
+import time
 from dataclasses import replace
 from pathlib import Path
 
@@ -85,6 +109,12 @@ import reprojection_residual as rr  # noqa: E402
 from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
 
 SWEEP_HEIGHTS = (1.4, 1.6, 1.8, 2.0, 2.3, 2.6, 3.0)
+# Instrument B's sweep (#89): #53's heights plus two above 3.0 m, so a rig anywhere in
+# SANE_HEIGHT_M is bracketed rather than extrapolated. A keeps SWEEP_HEIGHTS.
+SWEEP_HEIGHTS_B = (1.4, 1.6, 1.8, 2.0, 2.3, 2.6, 3.0, 3.4, 3.8)
+NULL_SEEDS = 10           # B's errors-in-variables null is averaged over this many seeds
+N_DRAWS = 500             # parametric draws for h*_B's CI
+DRAW_SEED = 87
 SUPPORT_AT_M = 2.6        # instrument A's support counts are taken at this association
 N_BOOT = 200
 BOOT_SEED = 53
@@ -110,6 +140,22 @@ GATE_P90_TOL_M = 0.1      # (i) p90 GT-to-site no worse by more than this in a c
 GATE_MIN_MEDIAN_WINS = 3  # (ii) median better in at least this many changed cities
 GATE_MAX_RECALL_DROP = 0.010  # (iii) off-pool recall@2.5 m drop, any city
 # (iv) instrument C's |slope| not larger in any changed city.
+
+# --- The estimator gate (#89 plan section 2; fixed before any number) -----------------
+# Each h*_B estimator is validated per city on the city's real view graph, every group
+# planted at the same h_true (validation_cell). Rule V: VALID iff over every cell the
+# |mean error over seeds| <= VALID_MAX_ERR_M and no cell is undefined or extrapolated.
+VALID_TRUE_HEIGHTS = (1.8, 2.2, 2.6, 3.0)
+VALID_NOISES = (0.5, 1.0)
+VALID_SEEDS = 2
+VALID_MAX_ERR_M = 0.10
+VALID_BUDGET_S = 15 * 60  # one real sweep longer than this -> 1 seed per cell
+EST_LINE, EST_LOCAL = 'line', 'local'
+B_UNVALIDATED = 'b_unvalidated'
+# EXPLORATORY arms (#98 review), added after the verdict; rule V never reads them.
+ARM_RULE_V = 'rule_v'                     # the pre-registered grid (rows without `arm`)
+ARM_NOISE0 = 'exploratory_noise0'
+EXPLORATORY_NOISES = (0.0,)               # same h_true grid and seeds as rule V
 
 ARM_OFF, ARM_RIG = 'off', 'per-rig'
 
@@ -340,9 +386,15 @@ def site_views(panos, params):
     return [sv for sv in svs if len(sv.views) >= rr.MIN_VIEWS], frame
 
 
-def _null_views(sv, rng):
+def _null_views(sv, rng, noise_scale=1.0):
     """One site's views re-drawn under the error model's own noise and NO scale error
-    (reprojection_residual.null_study's simulation, verbatim in effect)."""
+    (reprojection_residual.null_study's simulation, verbatim in effect).
+
+    noise_scale multiplies every sigma drawn (along, cross, GPS) -- #89's noise-matched
+    null: a simulation that injects noise at scale k must be corrected by a null drawn at
+    k, not at the model's full sigmas. At 0 every view is re-drawn exactly at the site
+    (zero residual, so the null fits s = 0 and corrects nothing); the draws are the same
+    standard normals whatever the scale, so at 0.5 every displacement is exactly half."""
     sim = []
     for v in sv.views:
         ue, un = v.unit
@@ -352,9 +404,9 @@ def _null_views(sv, rng):
         if r0 < 1e-6:
             continue
         u0 = (te / r0, tn / r0)
-        a = rng.gauss(0.0, v.sigma_along_m)
-        c = rng.gauss(0.0, v.sigma_cross_m)
-        gps = geo.error_model_for(v.source).sigma_gps_m
+        a = rng.gauss(0.0, v.sigma_along_m * noise_scale)
+        c = rng.gauss(0.0, v.sigma_cross_m * noise_scale)
+        gps = geo.error_model_for(v.source).sigma_gps_m * noise_scale
         ge, gn = rng.gauss(0.0, gps), rng.gauss(0.0, gps)
         pe = sv.e + a * u0[0] + c * u0[1] + ge
         pn = sv.n + a * u0[1] - c * u0[0] + gn
@@ -394,13 +446,14 @@ def _scale_blocks(sites, key_of, names, offset=False, simulate=None,
 
 
 def instrument_b(sites, key_of, min_rows=rr.MIN_GROUP_ROWS, seed=0,
-                 h0=geo.DEFAULT_CAMERA_HEIGHT_M):
+                 h0=geo.DEFAULT_CAMERA_HEIGHT_M, noise_scale=1.0):
     """Joint per-group range scale, null-corrected per group. Groups with fewer than
     min_rows held-out views are fitted together as 'other'. Returns {key: row}.
 
     h0 is the association height `sites` were fused at (default 2.6 m, the #53
     measurement); h_B = h0 * (1 - (s - s_null)) is written against it, so a sweep over
-    association heights (scripts/height_gap.py, #87) reads B(h) at each."""
+    association heights (scripts/height_gap.py, #87) reads B(h) at each. One null seed;
+    b_at averages NULL_SEEDS. noise_scale scales the null's sigmas (_null_views)."""
     counts = {}
     for sv in sites:
         for v in sv.views:
@@ -419,7 +472,8 @@ def instrument_b(sites, key_of, min_rows=rr.MIN_GROUP_ROWS, seed=0,
     fit = rr.fit_scale(_scale_blocks(sites, kof, names), names)
     rng = random.Random(seed)
     null = rr.fit_scale(_scale_blocks(sites, kof, names,
-                                      simulate=lambda sv: _null_views(sv, rng)), names)
+                                      simulate=lambda sv: _null_views(sv, rng, noise_scale)),
+                        names)
     off = rr.fit_scale(_scale_blocks(sites, kof, names, offset=True, h0=h0),
                        names + ['__dip_offset__'])
     out = {}
@@ -454,11 +508,588 @@ def pooled_scale(sites):
     return 1.0 / (1.0 - (s - s0)), s, s0
 
 
+# --- Instrument B as a fixed point (#87 helpers, moved here by #89) ---------------------
+
+def _b_names(sites, key_of, min_rows):
+    """instrument_b's own grouping: groups under min_rows held-out views pool as 'other'."""
+    counts = {}
+    for sv in sites:
+        for v in sv.views:
+            counts[key_of(v.pano_id)] = counts.get(key_of(v.pano_id), 0) + 1
+    names = sorted((g for g, c in counts.items() if c >= min_rows), key=str)
+    if len(counts) > len(names):
+        names.append('other')
+    named = set(names)
+    return names, (lambda pid: key_of(pid) if key_of(pid) in named else 'other')
+
+
+def b_at(sites, key_of, h0, null_seeds=range(NULL_SEEDS), min_rows=rr.MIN_GROUP_ROWS,
+         noise_scale=1.0):
+    """Instrument B at association height h0 with the null averaged over `null_seeds`.
+
+    instrument_b gives the fit, the first seed's null and the offset fit; the remaining
+    seeds refit the null only. noise_scale scales every null draw (#89: 1.0 on real data;
+    a simulation passes the noise it injected). Returns {group: row} with h_b = h0 * (1 -
+    (s - mean null)) and null_sd_m = h0 * SD(null s) -- the null's own contribution."""
+    seeds = list(null_seeds)
+    rows = instrument_b(sites, key_of, min_rows=min_rows, seed=seeds[0], h0=h0,
+                        noise_scale=noise_scale)
+    if not rows:
+        return {}
+    names, kof = _b_names(sites, key_of, min_rows)
+    nulls = {g: [r['null_s']] for g, r in rows.items()}
+    for seed in seeds[1:]:
+        rng = random.Random(seed)
+        fit = rr.fit_scale(_scale_blocks(sites, kof, names, h0=h0,
+                                         simulate=lambda sv: _null_views(sv, rng,
+                                                                         noise_scale)),
+                           names)
+        for g in nulls:
+            if g not in fit:
+                # a zero here would be averaged in silently as "no null bias" (#90 review)
+                raise SystemExit(f'b_at: null seed {seed} at h0 {h0:g} fitted no scale for '
+                                 f'group {g!r}, which the first seed did fit')
+            nulls[g].append(fit[g][0])
+    out = {}
+    for g, r in rows.items():
+        s0 = statistics.fmean(nulls[g])
+        sd = statistics.stdev(nulls[g]) if len(nulls[g]) > 1 else None
+        net = r['scale_s'] - s0
+        out[g] = {'group': g, 'n_views': r['n_views'], 'scale_s': r['scale_s'],
+                  'scale_s_se': r['scale_s_se'], 'null_s_mean': s0, 'null_s_sd': sd,
+                  'h_b': h0 * (1.0 - net), 'h_b_se': h0 * r['scale_s_se'],
+                  'null_sd_m': None if sd is None else h0 * sd,
+                  'h_b_raw': h0 * (1.0 - r['scale_s']),
+                  'h_b_offset': (None if r['offset_fit_s'] is None
+                                 else h0 * (1.0 - (r['offset_fit_s'] - s0)))}
+    return out
+
+
+def sweep_ab(panos, keyings, heights=SWEEP_HEIGHTS_B, a_heights=SWEEP_HEIGHTS,
+             null_seeds=range(NULL_SEEDS), params=None, log=None,
+             min_rows=rr.MIN_GROUP_ROWS, noise_scale=1.0):
+    """Associate the run once at every height and read both instruments.
+
+    B (b_at, per keying: {name: key_of(pano_id)}, fitted jointly per keying) is read at
+    every height in `heights`; A's implied heights only at those also in `a_heights`
+    (A keeps #53's sweep, so its numbers reproduce exactly; pass () to skip A).
+    Returns {'a': {h: [(site_id, pano_id, implied)]}, 'b': {name: {h: {group: row}}}}."""
+    params = params or production_params()
+    by_id = {p.pano_id: p for p in panos}
+    a_set = set(a_heights)
+    a, b = {}, {name: {} for name in keyings}
+    for h in sorted(set(heights) | a_set):
+        t0 = time.time()
+        sites, frame, _ = fs.fuse(panos, replace(params, camera_height_m=h))
+        recs = []
+        if h in a_set:
+            for site in sites:
+                if site.n_operational < 2:
+                    continue
+                for pid, vals in fs.implied_heights([site], frame, by_id).items():
+                    recs.extend((site.id, pid, v) for v in vals)
+            a[h] = recs
+        if h in heights:
+            svs = [sv for sv in (rr.views_from_site(s) for s in sites)
+                   if len(sv.views) >= rr.MIN_VIEWS]
+            for name, key_of in keyings.items():
+                b[name][h] = b_at(svs, key_of, h, null_seeds, min_rows=min_rows,
+                                  noise_scale=noise_scale)
+        if log:
+            log(f'  h={h:g}: {len(sites)} sites, {len(recs)} implied heights '
+                f'({time.time() - t0:.1f} s)')
+    return {'a': a, 'b': b}
+
+
+def local_crossing(heights, values):
+    """(h, extrapolated) where B(h) crosses the identity B = h, read locally.
+
+    The line fit's fixed point a_B / (1 - b_B) amplifies any bias of the line near the
+    crossing by 1/(1 - b_B) (about 3.4 at b_B = 0.7), and B(h) is concave, so a global
+    line through the sweep's centroid overshoots a crossing near the top of the sweep.
+    This reads the crossing off the two sweep heights that bracket it instead: the first
+    adjacent pair where d = B(h) - h goes from >= 0 to < 0 (a stable fixed point),
+    linearly interpolated. With no bracket inside the sweep it extrapolates the end
+    segment on the side the crossing lies (the top pair when d > 0 everywhere, the bottom
+    pair when d < 0 everywhere) and flags it; None when that segment's slope is >= 1 (B
+    only follows, no crossing) or fewer than two heights have a value.
+
+    Example: B = 1.548, 1.721, 1.870, 2.033, 2.197 at 1.4, 1.6, 1.8, 2.0, 2.3 m crosses
+    between 2.0 (d +0.033) and 2.3 (d -0.103): 2.0 + 0.3 * 0.033 / 0.136 = 2.073."""
+    pts = sorted((h, v) for h, v in zip(heights, values) if v is not None)
+    if len(pts) < 2:
+        return None, None
+    d = [(h, v - h) for h, v in pts]
+    for h, dv in d:
+        if dv == 0.0:
+            return h, False
+    for (h0, d0), (h1, d1) in zip(d, d[1:]):
+        if d0 > 0 > d1:
+            return h0 + (h1 - h0) * d0 / (d0 - d1), False
+    (h0, d0), (h1, d1) = (d[-2], d[-1]) if all(dv > 0 for _, dv in d) else (d[0], d[1])
+    if d1 - d0 >= 0:          # B's local slope >= 1: no crossing on this segment's line
+        return None, True
+    return h0 + (h1 - h0) * d0 / (d0 - d1), True
+
+
+def local_segment_slope(heights, values):
+    """Slope dB/dh of the segment local_crossing reads its crossing off (#98 review).
+
+    The crossing is read between two adjacent swept heights, so its error is set by that
+    segment alone: with the segment's line L(h), h* - h_true = (L(h_true) - h_true) /
+    (1 - slope), i.e. any bias of B at the true height is amplified by 1 / (1 - slope)
+    (local_amplification), however B behaves elsewhere in the sweep. Same segment choice
+    as local_crossing: the bracketing pair, else the extrapolated end segment. When B hits
+    the identity exactly at a swept height, the segment above it (the one below at the top
+    of the sweep). None when fewer than two heights have a value.
+
+    Example: B = 1.87, 2.033, 2.197 at 1.8, 2.0, 2.3 brackets between 2.0 and 2.3, slope
+    (2.197 - 2.033) / 0.3 = 0.547, amplification 2.2."""
+    pts = sorted((h, v) for h, v in zip(heights, values) if v is not None)
+    if len(pts) < 2:
+        return None
+    d = [(h, v - h) for h, v in pts]
+    seg = None
+    for k, (_h, dv) in enumerate(d):
+        if dv == 0.0:
+            seg = (k, k + 1) if k + 1 < len(pts) else (k - 1, k)
+            break
+    if seg is None:
+        for k, ((_h0, d0), (_h1, d1)) in enumerate(zip(d, d[1:])):
+            if d0 > 0 > d1:
+                seg = (k, k + 1)
+                break
+    if seg is None:
+        seg = ((len(pts) - 2, len(pts) - 1) if all(dv > 0 for _, dv in d) else (0, 1))
+    (h0, v0), (h1, v1) = pts[seg[0]], pts[seg[1]]
+    return (v1 - v0) / (h1 - h0)
+
+
+def _amp(slope):
+    """1 / (1 - slope), None when undefined (slope None or >= 1)."""
+    return None if slope is None or slope >= 1 else 1.0 / (1.0 - slope)
+
+
+def b_fixed_point(b_by_h, group, n_draws=N_DRAWS, seed=DRAW_SEED):
+    """(h*_B, a_B, b_B, ci_lo, ci_hi, undefined draws) of the line through (h, B(h)).
+
+    The CI draws s at each height from N(s, cluster-robust SE) independently (the plan's
+    choice) and keeps the mean null fixed. The heights share data -- the same views are
+    re-associated at every height -- so their errors are positively correlated, and a
+    common-mode shift is exactly what 1/(1 - b_B) amplifies: the CI is too narrow and must
+    be quoted with that caveat (#90 review). It also describes the line fit only, not
+    local_crossing's estimate (b_estimates draws both)."""
+    pts = [(h, rows[group]) for h, rows in sorted(b_by_h.items()) if group in rows]
+    if len(pts) < 3:
+        return None, None, None, None, None, None
+    hs = [h for h, _ in pts]
+    h_star, a, b = fixed_point(hs, [r['h_b'] for _, r in pts])
+    rng = random.Random(seed)
+    draws, undefined = [], 0
+    for _ in range(n_draws):
+        vals = [h * (1.0 - (rng.gauss(r['scale_s'], r['scale_s_se'] or 0.0) - r['null_s_mean']))
+                for h, r in pts]
+        hd, _, _ = fixed_point(hs, vals)
+        if hd is None:
+            undefined += 1
+        else:
+            draws.append(hd)
+    lo, hi = _ci(draws)
+    return h_star, a, b, lo, hi, undefined
+
+
+def _ci(draws):
+    """(2.5%, 97.5%) order statistics of `draws`, (None, None) when empty."""
+    if not draws:
+        return None, None
+    draws = sorted(draws)
+    return (draws[int(0.025 * (len(draws) - 1))],
+            draws[int(math.ceil(0.975 * (len(draws) - 1)))])
+
+
+def b_estimates(b_by_h, group, n_draws=N_DRAWS, seed=DRAW_SEED):
+    """Both #89 estimators of instrument B's fixed point for one group, always reported.
+
+    b_by_h: {h: {group: b_at row}} over the sweep. Returns a dict:
+      h_b_line, a_b, b_b     the line B(h) = a_B + b_B h over every swept height and its
+                             fixed point a_B / (1 - b_B); None when b_B >= 1 (undefined)
+      amplification          1 / (1 - b_B): how much any bias of the line near the crossing
+                             is magnified in h_b_line (the LINE's amplification; the table
+                             block calls it line_amplification)
+      line_extrapolated      h_b_line outside the swept heights
+      h_b_local, local_extrapolated   local_crossing over the same B(h)
+      local_slope, local_amplification   slope of the segment the local crossing is read
+                             off (local_segment_slope) and 1 / (1 - it): the local
+                             crossing's error is ~ (B(h_true) - h_true) * local_amplification
+                             (#98 review). Reported only; no rule reads them.
+      *_ci_lo / *_ci_hi      parametric draws of each height's s (b_fixed_point's scheme);
+                             TOO NARROW -- the heights share views, so the common mode is
+                             understated. line_draws_undefined counts draws with b_B >= 1.
+      h_at_2p6, n_views, null_sd_m, h_at_2p6_se, h_at_2p6_offset   B read at 2.6 m (#53's
+                             single reading) and its support
+    With fewer than three heights holding the group, the line is None."""
+    pts = [(h, rows[group]) for h, rows in sorted(b_by_h.items()) if group in rows]
+    hs = [h for h, _ in pts]
+    out = {'h_b_line': None, 'a_b': None, 'b_b': None, 'amplification': None,
+           'line_extrapolated': None, 'line_ci_lo': None, 'line_ci_hi': None,
+           'line_draws_undefined': None, 'h_b_local': None, 'local_extrapolated': None,
+           'local_ci_lo': None, 'local_ci_hi': None, 'local_slope': None,
+           'local_amplification': None}
+    r26 = b_by_h.get(geo.DEFAULT_CAMERA_HEIGHT_M, {}).get(group)
+    out.update({'h_at_2p6': r26['h_b'] if r26 else None,
+                'h_at_2p6_se': r26['h_b_se'] if r26 else None,
+                'h_at_2p6_offset': r26['h_b_offset'] if r26 else None,
+                'n_views': r26['n_views'] if r26 else 0,
+                'null_sd_m': r26['null_sd_m'] if r26 else None})
+    for h, r in pts:
+        out[f'b_at_{h:g}'] = r['h_b']
+    if len(pts) >= 2:
+        out['h_b_local'], out['local_extrapolated'] = local_crossing(
+            hs, [r['h_b'] for _, r in pts])
+        out['local_slope'] = local_segment_slope(hs, [r['h_b'] for _, r in pts])
+        out['local_amplification'] = _amp(out['local_slope'])
+    if len(pts) >= 3:
+        h_star, a, b = fixed_point(hs, [r['h_b'] for _, r in pts])
+        out.update({'h_b_line': h_star, 'a_b': a, 'b_b': b,
+                    'amplification': None if b is None or b >= 1 else 1.0 / (1.0 - b),
+                    'line_extrapolated': None if h_star is None
+                    else not (min(hs) <= h_star <= max(hs))})
+    if n_draws and len(pts) >= 2:
+        rng = random.Random(seed)
+        line, local, undefined = [], [], 0
+        for _ in range(n_draws):
+            vals = [h * (1.0 - (rng.gauss(r['scale_s'], r['scale_s_se'] or 0.0)
+                                - r['null_s_mean'])) for h, r in pts]
+            if len(pts) >= 3:
+                hd = fixed_point(hs, vals)[0]
+                if hd is None:
+                    undefined += 1
+                else:
+                    line.append(hd)
+            hl = local_crossing(hs, vals)[0]
+            if hl is not None:
+                local.append(hl)
+        out['line_ci_lo'], out['line_ci_hi'] = _ci(line)
+        out['local_ci_lo'], out['local_ci_hi'] = _ci(local)
+        out['line_draws_undefined'] = undefined if len(pts) >= 3 else None
+    return out
+
+
+def estimator_value(est, estimator):
+    """(h*_B, extrapolated) of the named estimator from a b_estimates dict."""
+    if estimator == EST_LINE:
+        return est['h_b_line'], est['line_extrapolated']
+    if estimator == EST_LOCAL:
+        return est['h_b_local'], est['local_extrapolated']
+    raise ValueError(estimator)
+
+
+def b_rows_from_sweep(b_by_h, estimator, validated, n_draws=N_DRAWS):
+    """Instrument B rows for decide_group / the table from one keying's sweep.
+
+    Each row carries both estimators (b_estimates) and the SELECTED one as h_star (None
+    when the city validated neither: estimator None, validated False -> rule 3 reads
+    b_unvalidated). #53's single reading B(2.6) stays as h_scale / h_at_2p6, now with the
+    null averaged over NULL_SEEDS seeds."""
+    groups = set()
+    for rows in b_by_h.values():
+        groups |= set(rows)
+    out = {}
+    for g in sorted(groups, key=str):
+        est = b_estimates(b_by_h, g, n_draws=n_draws)
+        h_star, extrap = (estimator_value(est, estimator) if validated
+                          else (None, None))
+        r26 = b_by_h.get(geo.DEFAULT_CAMERA_HEIGHT_M, {}).get(g)
+        se = est['h_at_2p6_se']
+        out[g] = {**est, 'group': g, 'estimator': estimator if validated else None,
+                  'validated': bool(validated), 'h_star': h_star, 'extrapolated': extrap,
+                  'h_scale': est['h_at_2p6'],
+                  'h_scale_lo': None if se is None else est['h_at_2p6'] - 1.96 * se,
+                  'h_scale_hi': None if se is None else est['h_at_2p6'] + 1.96 * se,
+                  'h_scale_with_offset': est['h_at_2p6_offset'],
+                  'null_s': r26['null_s_mean'] if r26 else None,
+                  'k_net': None if not r26 or r26['h_b'] <= 0
+                  else geo.DEFAULT_CAMERA_HEIGHT_M / r26['h_b']}
+    return out
+
+
+# --- The estimator gate (#89): validation on the real view graph -----------------------
+
+def validation_groups(b_by_h_real):
+    """Rig classes a city's estimators are validated on: those meeting rule 1's B clause
+    (>= RULE_MIN_VIEWS_B held-out views at 2.6 m) on the real data ('other' excluded)."""
+    rows = b_by_h_real.get(geo.DEFAULT_CAMERA_HEIGHT_M, {})
+    return sorted(g for g, r in rows.items()
+                  if g != 'other' and r['n_views'] >= RULE_MIN_VIEWS_B)
+
+
+def validation_cells(seed_rows):
+    """Cell means over seeds: one row per (city, group, h_true, noise) with, per
+    estimator, the mean error and whether any seed was undefined or extrapolated."""
+    cells = {}
+    for r in seed_rows:
+        cells.setdefault((r['city'], r['group'], r['h_true'], r['noise_scale']), []).append(r)
+    out = []
+    for (city, group, ht, ns), rs in sorted(cells.items(), key=lambda kv: tuple(map(str, kv[0]))):
+        row = {'city': city, 'group': group, 'h_true': ht, 'noise_scale': ns,
+               'seeds': len(rs), 'real_sweep_s': rs[0].get('real_sweep_s')}
+        for est in (EST_LINE, EST_LOCAL):
+            vals = [r[f'h_b_{est}'] for r in rs]
+            undefined = any(v is None for v in vals)
+            row[f'{est}_undefined'] = undefined
+            row[f'{est}_extrapolated'] = any(bool(r[f'{est}_extrapolated']) for r in rs
+                                             if r[f'h_b_{est}'] is not None)
+            row[f'{est}_mean_err'] = None if undefined else statistics.fmean(
+                v - ht for v in vals)
+            row[f'{est}_errs'] = ' '.join('none' if v is None else f'{v - ht:+.4f}'
+                                          for v in vals)
+        row['b_b_mean'] = (statistics.fmean(r['b_b'] for r in rs)
+                           if all(r['b_b'] is not None for r in rs) else None)
+        if any(r.get('b_at_h_true') is not None for r in rs):
+            row.update(_exploratory_means(rs, float(ht)))
+        out.append(row)
+    return out
+
+
+def _exploratory_means(rs, ht):
+    """EXPLORATORY cell means (#98 review; rule V never reads them): B's bias at the true
+    height (all sites and oracle-clean sites), the local segment's slope and amplification,
+    the local error the identity predicts from them, and the association's merge share."""
+    def mean(vals):
+        vals = [v for v in vals if v is not None]
+        return statistics.fmean(vals) if vals else None
+    pred = [(r['b_at_h_true'] - ht) * r['local_amplification'] for r in rs
+            if r.get('b_at_h_true') is not None and r.get('local_amplification') is not None]
+    return {'local_slope_mean': mean(r.get('local_slope') for r in rs),
+            'local_amplification_mean': mean(r.get('local_amplification') for r in rs),
+            'b_err_at_h_true': mean(None if r.get('b_at_h_true') is None
+                                    else r['b_at_h_true'] - ht for r in rs),
+            'b_err_at_h_true_clean': mean(None if r.get('b_at_h_true_clean') is None
+                                          else r['b_at_h_true_clean'] - ht for r in rs),
+            'local_err_predicted': mean(pred),
+            'sites_merged_frac': mean(None if not r.get('sites_multi')
+                                      else r['sites_merged'] / r['sites_multi'] for r in rs)}
+
+
+def rule_v(cells, estimator):
+    """Rule V for one city's cells and one estimator: (valid, max |mean error|, reasons).
+
+    VALID iff every cell has a defined, non-extrapolated value on every seed and the
+    largest |mean error over seeds| is <= VALID_MAX_ERR_M (0.10 exactly passes). No
+    cells at all is not valid (nothing was validated)."""
+    if not cells:
+        return False, None, ['no validation cells']
+    reasons, errs = [], []
+    for c in cells:
+        tag = f"{c['group']} h_true {float(c['h_true']):g} noise {float(c['noise_scale']):g}"
+        if _truthy(c[f'{estimator}_undefined']):
+            reasons.append(f'{tag}: undefined')
+            continue
+        if _truthy(c[f'{estimator}_extrapolated']):
+            reasons.append(f'{tag}: extrapolated')
+        errs.append(abs(float(c[f'{estimator}_mean_err'])))
+    worst = max(errs) if errs else None
+    if worst is not None and worst > VALID_MAX_ERR_M + 1e-12:
+        reasons.append(f'max |mean error| {worst:.3f} m > {VALID_MAX_ERR_M}')
+    return not reasons, worst, reasons
+
+
+def _truthy(v):
+    return v in (True, 'True', 'true', 1, '1')
+
+
+def select_estimator(valid_line, valid_local):
+    """The plan's selection: both valid -> the line; one -> that one; neither -> None."""
+    if valid_line:
+        return EST_LINE
+    if valid_local:
+        return EST_LOCAL
+    return None
+
+
+def city_selection(cells):
+    """{'estimator', 'validated', 'line': {...}, 'local': {...}} for one city's cells."""
+    out = {}
+    for est in (EST_LINE, EST_LOCAL):
+        ok, worst, reasons = rule_v(cells, est)
+        out[est] = {'valid': ok, 'max_abs_mean_err_m': None if worst is None
+                    else round(worst, 4), 'reasons': reasons}
+    sel = select_estimator(out[EST_LINE]['valid'], out[EST_LOCAL]['valid'])
+    out.update({'estimator': sel, 'validated': sel is not None,
+                'groups': sorted({c['group'] for c in cells}),
+                'seeds_per_cell': min(int(float(c['seeds'])) for c in cells) if cells else 0,
+                'real_sweep_s': cells[0].get('real_sweep_s') if cells else None})
+    return out
+
+
+_VALIDATION_CACHE = {}
+
+
+def _validation_inputs(run_dir):
+    """(panos, groups_of, truth) for a run, cached per worker process."""
+    key = str(run_dir)
+    if key not in _VALIDATION_CACHE:
+        import height_gap as hg
+        jsonl = Path(run_dir) / 'results.jsonl'
+        panos, _ = fs.load_results(jsonl, read_heights=False)
+        groups_of = pano_groups(jsonl)
+        truth, _stats = hg.planted_sites(panos)
+        _VALIDATION_CACHE.clear()          # one run per worker at a time
+        _VALIDATION_CACHE[key] = (panos, groups_of, truth)
+    return _VALIDATION_CACHE[key]
+
+
+def validation_cell(city, run_dir, groups, h_true, noise, seed, real_sweep_s=None,
+                    heights=SWEEP_HEIGHTS_B, null_seeds=range(NULL_SEEDS),
+                    min_rows=rr.MIN_GROUP_ROWS, arm=None, exploratory=False):
+    """One cell-seed of the estimator gate: the run re-synthesized with EVERY pano at
+    h_true (height_gap.resynthesize, noise scaled, seeded), B swept over `heights` with a
+    noise-matched null, both estimators read for each group in `groups`. Module level
+    so a ProcessPoolExecutor can run it. Returns a list of rows.
+
+    arm tags the rows (ARM_NOISE0 for the exploratory noise-0 cells; None = the rule-V
+    grid, which #89 wrote without the column). exploratory=True also reads B at h_true
+    (h_true_readings). local_slope / local_amplification are always written; they are
+    reported only."""
+    import height_gap as hg
+    t0 = time.time()
+    panos, groups_of, truth = _validation_inputs(run_dir)
+    syn, counts = hg.resynthesize(panos, truth, lambda _p: h_true, noise, 0.0, seed)
+    key_of = lambda pid: groups_of[pid]['rig']   # noqa: E731
+    sw = sweep_ab(syn, {'rig': key_of}, heights=heights, a_heights=(),
+                  null_seeds=null_seeds, noise_scale=noise, min_rows=min_rows)
+    extra = (h_true_readings(syn, truth, key_of, groups, h_true, noise,
+                             null_seeds=null_seeds, min_rows=min_rows)
+             if exploratory else {})
+    rows = []
+    for g in groups:
+        est = b_estimates(sw['b']['rig'], g, n_draws=0)
+        row = {'city': city, 'group': g, 'h_true': h_true, 'noise_scale': noise,
+               'seed': seed, 'h_b_line': est['h_b_line'], 'b_b': est['b_b'],
+               'amplification': est['amplification'],
+               'line_extrapolated': est['line_extrapolated'],
+               'h_b_local': est['h_b_local'],
+               'local_extrapolated': est['local_extrapolated'],
+               'h_at_2p6': est['h_at_2p6'], 'n_views': est['n_views'],
+               **{f'b_at_{h:g}': est.get(f'b_at_{h:g}') for h in heights},
+               'n_dets_out': counts['dets_out'], 'real_sweep_s': real_sweep_s,
+               'cell_s': round(time.time() - t0, 1),
+               'local_slope': est['local_slope'],
+               'local_amplification': est['local_amplification']}
+        if arm is not None:
+            row['arm'] = arm
+        row.update(extra.get(g, {}))
+        rows.append(row)
+    return rows
+
+
+def h_true_readings(syn, truth, key_of, groups, h_true, noise, null_seeds=range(NULL_SEEDS),
+                    min_rows=rr.MIN_GROUP_ROWS, params=None):
+    """EXPLORATORY (#98 review; rule V never reads it). The re-synthesized run `syn` fused
+    once AT the planted height h_true, and B read there with the noise-matched null:
+
+      b_at_h_true         on every site with >= rr.MIN_VIEWS views (what the sweep reads)
+      b_at_h_true_clean   on the ORACLE-CLEAN sites only: every view's planted ramp
+                          (truth[(pano_id, det_index)]) is the same one. What is left of
+                          B's bias there is not association's; with the null at zero
+                          (noise 0) B is exact on them.
+      n_views_clean       the group's views on the clean sites
+      sites_multi, sites_merged   sites read, and those whose views come from >= 2
+                          different planted ramps (association re-merged them)
+      merged_sep_median_m, merged_sep_p90_m   per merged site, the largest distance
+                          between its planted ramps; median / p90 over merged sites
+
+    The local crossing's error is ~ (b_at_h_true - h_true) * local_amplification: the
+    crossing reads only the bracketing pair, so pull at far heights cannot move it.
+    Returns {group: {column: value}}."""
+    params = params or production_params()
+    sites, _frame, _ = fs.fuse(syn, replace(params, camera_height_m=h_true))
+    svs = [sv for sv in (rr.views_from_site(s) for s in sites)
+           if len(sv.views) >= rr.MIN_VIEWS]
+    clean, seps = [], []
+    for sv in svs:
+        ramps = {truth[(v.pano_id, v.det_index)] for v in sv.views}
+        if len(ramps) == 1:
+            clean.append(sv)
+            continue
+        ramps = sorted(ramps)
+        seps.append(max(geo.haversine_m(a[0], a[1], b[0], b[1])
+                        for i, a in enumerate(ramps) for b in ramps[i + 1:]))
+    b_all = b_at(svs, key_of, h_true, null_seeds, min_rows=min_rows, noise_scale=noise)
+    b_clean = b_at(clean, key_of, h_true, null_seeds, min_rows=min_rows, noise_scale=noise)
+    seps.sort()
+    common = {'sites_multi': len(svs), 'sites_merged': len(seps),
+              'merged_sep_median_m': statistics.median(seps) if seps else None,
+              'merged_sep_p90_m': seps[int(0.9 * (len(seps) - 1))] if seps else None}
+    out = {}
+    for g in groups:
+        ra, rc = b_all.get(g), b_clean.get(g)
+        out[g] = {'b_at_h_true': ra['h_b'] if ra else None,
+                  'b_at_h_true_clean': rc['h_b'] if rc else None,
+                  'n_views_clean': rc['n_views'] if rc else 0, **common}
+    return out
+
+
+def exploratory_cell(city, run_dir, groups, h_true, noise, seed,
+                     null_seeds=range(NULL_SEEDS), min_rows=rr.MIN_GROUP_ROWS):
+    """h_true_readings for one committed rule-V cell-seed, without re-running its sweep:
+    resynthesize is seeded, so the same seed rebuilds the same synthetic run. Returns
+    {(city, group, h_true, noise, seed): columns}."""
+    import height_gap as hg
+    t0 = time.time()
+    panos, groups_of, truth = _validation_inputs(run_dir)
+    syn, _counts = hg.resynthesize(panos, truth, lambda _p: h_true, noise, 0.0, seed)
+    key_of = lambda pid: groups_of[pid]['rig']   # noqa: E731
+    got = h_true_readings(syn, truth, key_of, groups, h_true, noise,
+                          null_seeds=null_seeds, min_rows=min_rows)
+    secs = round(time.time() - t0, 1)
+    return {(city, g, float(h_true), float(noise), int(seed)): dict(v, exploratory_s=secs)
+            for g, v in got.items()}
+
+
+def add_local_segment(row, heights=SWEEP_HEIGHTS_B):
+    """Fill local_slope / local_amplification on a committed seed row from its own b_at_*
+    columns, after checking that local_crossing over them reproduces its h_b_local."""
+    hs = [h for h in heights if row.get(f'b_at_{h:g}') is not None]
+    vals = [row[f'b_at_{h:g}'] for h in hs]
+    h_local = local_crossing(hs, vals)[0]
+    if (h_local is None) != (row.get('h_b_local') is None) or (
+            h_local is not None and abs(h_local - row['h_b_local']) > 1e-9):
+        raise SystemExit(f"{_seed_key(row)}: local crossing from the stored b_at_* columns "
+                         f"({h_local}) does not reproduce h_b_local ({row.get('h_b_local')})")
+    row['local_slope'] = local_segment_slope(hs, vals)
+    row['local_amplification'] = _amp(row['local_slope'])
+    return row
+
+
+def time_real_sweep(run_dir, log=print):
+    """The budget clock (#89 plan section 2): one real B sweep of the city -- every
+    height in SWEEP_HEIGHTS_B, the rig keying, NULL_SEEDS null seeds, i.e. the work one
+    validation cell repeats on the real data. Returns (seconds, groups to validate).
+    Prints only support counts: no h*_B is read or shown."""
+    jsonl = Path(run_dir) / 'results.jsonl'
+    panos, _ = fs.load_results(jsonl, read_heights=False)
+    groups_of = pano_groups(jsonl)
+    t0 = time.time()
+    sw = sweep_ab(panos, {'rig': lambda pid: groups_of[pid]['rig']}, a_heights=())
+    secs = time.time() - t0
+    groups = validation_groups(sw['b']['rig'])
+    views = {g: r['n_views'] for g, r in sw['b']['rig'][geo.DEFAULT_CAMERA_HEIGHT_M].items()}
+    log(f'{Path(run_dir).name}: real sweep {secs:.0f} s; B views at 2.6 m {views}; '
+        f'validating {groups}')
+    return secs, groups
+
+
 # --- The decision rule ------------------------------------------------------------------
 
 def decide_group(a, b, support_scale=1.0):
     """Apply rules 1-4 to one group's instrument A row `a` and B row `b` (either None).
-    Returns (height_m or None, passed [rule names], reason)."""
+    Returns (height_m or None, passed [rule names], reason).
+
+    Since #89, B's value is its fixed point h*_B under the city's validated estimator
+    (b['h_star'], from b_rows_from_sweep), not #53's single reading B(2.6). A B row with
+    validated False (no estimator passed rule V in the city) fails rule 3 as
+    'b_unvalidated'. A row without the key (#53's shape) reads h_scale, as #53 did."""
     passed, fails = [], []
     n_views = b['n_views'] if b else 0
     if a and a['n_panos'] >= RULE_MIN_PANOS_A * support_scale \
@@ -475,8 +1106,13 @@ def decide_group(a, b, support_scale=1.0):
         fails.append('identifiable (slope '
                      f"{'n/a' if not a or a['slope'] is None else round(a['slope'], 3)})")
     h_a = a['h_star'] if a else None
-    h_b = b['h_scale'] if b else None
-    if h_a is not None and h_b is not None and abs(h_a - h_b) <= RULE_MAX_DISAGREE_M:
+    h_b = _b_value(b)
+    unvalidated = bool(b) and 'validated' in b and not b['validated']
+    if unvalidated:
+        fails.append(f'agreement ({B_UNVALIDATED}: no h*_B estimator passed rule V in '
+                     f"this city; line {_f(b.get('h_b_line'), '.3f')}, local "
+                     f"{_f(b.get('h_b_local'), '.3f')})")
+    elif h_a is not None and h_b is not None and abs(h_a - h_b) <= RULE_MAX_DISAGREE_M:
         passed.append('agreement')
     else:
         fails.append('agreement (A '
@@ -494,6 +1130,13 @@ def decide_group(a, b, support_scale=1.0):
     if fails:
         return None, passed, 'fails ' + '; '.join(fails)
     return h_g, passed, 'passes all four rules'
+
+
+def _b_value(b):
+    """B's value for rule 3: the selected fixed point (#89 rows), else B(2.6) (#53 rows)."""
+    if not b:
+        return None
+    return b['h_star'] if 'h_star' in b else b['h_scale']
 
 
 def _iqr(values):
@@ -564,14 +1207,40 @@ def build_table(groups_of, a_rig, b_rig, a_seq, b_seq_views, a_seq_boot=None,
 
 
 def _group_entry(a, b, h, passed, reason, grain):
-    h0 = geo.DEFAULT_CAMERA_HEIGHT_M
     h_a = a['h_star'] if a else None
-    h_b = b['h_scale'] if b else None
+    h_b = _b_value(b)
     sigma = None
     if h is not None:
         sd = a['boot_sd'] or 0.0
         sigma = math.sqrt(sd ** 2 + ((h_a - h_b) / 2) ** 2)
     suspect = h_a is not None and not (SANE_HEIGHT_M[0] <= h_a <= SANE_HEIGHT_M[1])
+    entry = _entry_core(a, b, h, sigma, passed, reason, grain, suspect)
+    if b and 'h_star' in b:
+        entry['method'] = ('mean(bearing fixed point, scale-identity fixed point '
+                           f"[{b['estimator'] or 'none validated'}])")
+        entry['instrument_b'] = {
+            'estimator': b['estimator'], 'h_star': _rd(b['h_star']),
+            # the LINE's 1/(1 - b_B); the local crossing's own is local_amplification (#98)
+            'line_amplification': _rd(b['amplification']),
+            'local_slope': _rd(b.get('local_slope')),
+            'local_amplification': _rd(b.get('local_amplification')),
+            'extrapolated': b['extrapolated'],
+            'validated': b['validated'], 'h_at_2p6': _rd(b['h_at_2p6']),
+            'h_line': _rd(b['h_b_line']), 'h_line_ci': _ci_pair(b, 'line'),
+            'h_local': _rd(b['h_b_local']), 'h_local_ci': _ci_pair(b, 'local'),
+            'local_extrapolated': b['local_extrapolated'],
+            'ci_note': 'too narrow: the association heights share views'}
+    return entry
+
+
+def _ci_pair(b, est):
+    lo, hi = b.get(f'{est}_ci_lo'), b.get(f'{est}_ci_hi')
+    return None if lo is None else [_rd(lo), _rd(hi)]
+
+
+def _entry_core(a, b, h, sigma, passed, reason, grain, suspect):
+    h0 = geo.DEFAULT_CAMERA_HEIGHT_M
+    h_a = a['h_star'] if a else None
     return {'height_m': h0 if h is None else round(h, 3),
             'sigma_m': None if sigma is None else round(sigma, 3),
             'applied': h is not None, 'grain': grain,
@@ -579,7 +1248,7 @@ def _group_entry(a, b, h, passed, reason, grain):
             'n_views_b': b['n_views'] if b else 0,
             'h_bearing': _rd(h_a), 'h_bearing_ci': None if not a or a['ci_lo'] is None
             else [_rd(a['ci_lo']), _rd(a['ci_hi'])],
-            'h_scale': _rd(h_b), 'h_scale_ci': None if not b
+            'h_scale': _rd(b['h_scale']) if b else None, 'h_scale_ci': None if not b
             else [_rd(b['h_scale_lo']), _rd(b['h_scale_hi'])],
             'h_scale_with_offset': _rd(b['h_scale_with_offset']) if b else None,
             'slope': _rd(a['slope']) if a else None,
@@ -818,9 +1487,14 @@ def _pf(ok):
 
 # --- Per-city driver ------------------------------------------------------------------
 
-def measure_city(city, run_dir, n_boot=N_BOOT, log=print):
+def measure_city(city, run_dir, selection, n_boot=N_BOOT, log=print):
     """Instruments A and B over every grouping, the rule, and the table body.
-    Returns a dict with rows per grouping, the table and notes."""
+
+    selection: the city's estimator selection (city_selection over its
+    estimator_validation.csv): B's value for rule 3 is the selected estimator's h*_B, or
+    b_unvalidated when neither passed rule V. Returns a dict with rows per grouping, the
+    table and notes."""
+    t_start = time.time()
     jsonl = run_dir / 'results.jsonl'
     panos, _ = fs.load_results(jsonl, read_heights=False)
     other = {p.source for p in panos if p.source not in geo.CROWDSOURCED_SOURCES}
@@ -828,18 +1502,20 @@ def measure_city(city, run_dir, n_boot=N_BOOT, log=print):
         raise ValueError(f'{city}: per-rig heights are for crowdsourced runs; holds {other}')
     groups_of = pano_groups(jsonl)
     params = production_params()
-    log(f'{city}: {len(panos)} panos; sweeping association heights {SWEEP_HEIGHTS} ...')
-    sweep = sweep_implied(panos, params)
     kinds = ('rig', 'creator', 'speed', 'sequence')
+    b_kinds = ('rig', 'creator', 'speed')
+    log(f'{city}: {len(panos)} panos; A at {SWEEP_HEIGHTS}, B at {SWEEP_HEIGHTS_B} '
+        f'({NULL_SEEDS} null seeds) ...')
+    sw = sweep_ab(panos, {k: (lambda pid, k=k: groups_of[pid][k]) for k in b_kinds},
+                  heights=SWEEP_HEIGHTS_B, a_heights=SWEEP_HEIGHTS, params=params, log=log)
     a_rows = {}
     for kind in kinds:
         a_rows[kind] = instrument_a(
-            sweep, lambda pid, k=kind: groups_of[pid][k], n_boot=n_boot,
+            sw['a'], lambda pid, k=kind: groups_of[pid][k], n_boot=n_boot,
             boot_keys=set() if kind == 'sequence' else None)
-    log(f'{city}: instrument B ...')
+    est, ok = selection['estimator'], selection['validated']
+    b_rows = {kind: b_rows_from_sweep(sw['b'][kind], est, ok) for kind in b_kinds}
     sites, _frame = site_views(panos, replace(params, camera_height_m=geo.DEFAULT_CAMERA_HEIGHT_M))
-    b_rows = {kind: instrument_b(sites, lambda pid, k=kind: groups_of[pid][k])
-              for kind in ('rig', 'creator', 'speed')}
     seq_views = {}
     for sv in sites:
         for v in sv.views:
@@ -853,27 +1529,44 @@ def measure_city(city, run_dir, n_boot=N_BOOT, log=print):
     seq_rigs = [rig for rig, n in notes.items() if n['grain'] == 'sequence']
     if seq_rigs:
         # Sequence grain: the rig's sequences that meet rule 1 become their own groups,
-        # so they need the full instruments (CI for A, a joint fit for B).
+        # so they need the full instruments (CI for A, a joint B sweep).
         cand = {g['sequence'] for g in groups_of.values() if g['rig'] in seq_rigs}
-        a_seq_boot = instrument_a(sweep, lambda pid: groups_of[pid]['sequence'],
+        a_seq_boot = instrument_a(sw['a'], lambda pid: groups_of[pid]['sequence'],
                                   n_boot=n_boot, boot_keys=cand)
 
         def seq_or_rig(pid):
             g = groups_of[pid]
             return g['sequence'] if g['sequence'] in cand else g['rig']
-        b_seq = instrument_b(sites, seq_or_rig)
+        log(f'{city}: sequence grain for {seq_rigs}; B sweep per sequence ...')
+        sw_seq = sweep_ab(panos, {'seq': seq_or_rig}, heights=SWEEP_HEIGHTS_B, a_heights=(),
+                          params=params, log=log)
+        b_seq = b_rows_from_sweep(sw_seq['b']['seq'], est, ok)
         table, notes = build_table(groups_of, a_rows['rig'], b_rows['rig'],
                                    a_rows['sequence'], seq_views, a_seq_boot, b_seq)
         a_rows['sequence'] = {**a_rows['sequence'], **{k: v for k, v in a_seq_boot.items()
                                                        if k in cand}}
         b_rows['sequence'] = b_seq
+    table['estimator_validation'] = validation_block(selection)
     panos_by_group = {}
     for g in groups_of.values():
         for kind in kinds:
             panos_by_group[kind, g[kind]] = panos_by_group.get((kind, g[kind]), 0) + 1
     return {'city': city, 'panos': panos, 'groups_of': groups_of, 'a': a_rows, 'b': b_rows,
             'table': table, 'notes': notes, 'pooled_k': pooled, 'pooled_k_bench': pooled_bench,
-            'panos_by_group': panos_by_group, 'seq_views': seq_views}
+            'panos_by_group': panos_by_group, 'seq_views': seq_views,
+            'seconds': round(time.time() - t_start)}
+
+
+def validation_block(selection):
+    """The camera_heights.json `estimator_validation` block (#89)."""
+    return {'estimator': selection['estimator'], 'validated': selection['validated'],
+            'rule': (f'rule V: over h_true {list(VALID_TRUE_HEIGHTS)} x noise '
+                     f'{list(VALID_NOISES)}, max |mean error over seeds| <= '
+                     f'{VALID_MAX_ERR_M} m and no cell undefined or extrapolated; both '
+                     'valid -> line, one -> that one, neither -> b_unvalidated'),
+            'groups': selection['groups'], 'seeds_per_cell': selection['seeds_per_cell'],
+            'real_sweep_s': selection['real_sweep_s'],
+            'line': selection[EST_LINE], 'local': selection[EST_LOCAL]}
 
 
 def group_rows(m):
@@ -894,9 +1587,26 @@ def group_rows(m):
                    'h_scale': _rd(rb.get('h_scale')), 'h_scale_lo': _rd(rb.get('h_scale_lo')),
                    'h_scale_hi': _rd(rb.get('h_scale_hi')), 'k_net': _rd(rb.get('k_net')),
                    'null_s': _rd(rb.get('null_s'), 4),
-                   'h_scale_with_offset': _rd(rb.get('h_scale_with_offset'))}
+                   'null_sd_m': _rd(rb.get('null_sd_m'), 4),
+                   'h_scale_with_offset': _rd(rb.get('h_scale_with_offset')),
+                   'estimator': rb.get('estimator'), 'b_validated': rb.get('validated'),
+                   'h_star_b': _rd(rb.get('h_star')),
+                   'h_b_line': _rd(rb.get('h_b_line')), 'b_slope_b': _rd(rb.get('b_b')),
+                   'line_amplification': _rd(rb.get('amplification')),
+                   'line_extrapolated': rb.get('line_extrapolated'),
+                   'h_b_line_lo': _rd(rb.get('line_ci_lo')),
+                   'h_b_line_hi': _rd(rb.get('line_ci_hi')),
+                   'line_draws_undefined': rb.get('line_draws_undefined'),
+                   'h_b_local': _rd(rb.get('h_b_local')),
+                   'local_extrapolated': rb.get('local_extrapolated'),
+                   'h_b_local_lo': _rd(rb.get('local_ci_lo')),
+                   'h_b_local_hi': _rd(rb.get('local_ci_hi')),
+                   'local_slope': _rd(rb.get('local_slope')),
+                   'local_amplification': _rd(rb.get('local_amplification'))}
             for h in SWEEP_HEIGHTS:
                 row[f'implied_at_{h:g}'] = _rd(ra.get(f'implied_at_{h:g}'))
+            for h in SWEEP_HEIGHTS_B:
+                row[f'b_at_{h:g}'] = _rd(rb.get(f'b_at_{h:g}'))
             rows.append(row)
     return rows
 
@@ -914,15 +1624,168 @@ def write_table(run_dir, table, recommended, gate_summary=None):
     body['recommended'] = bool(recommended)
     if gate_summary is not None:
         body['gate'] = gate_summary
-    body['generated_by'] = 'scripts/mapillary_height.py (issue #53)'
-    order = ['schema', 'source', 'default_m', 'grain', 'recommended', 'gate', 'results_sha256',
-             'generated_at', 'generated_by', 'groups', 'sequences']
+    body['generated_by'] = 'scripts/mapillary_height.py (issues #53, #89)'
+    order = ['schema', 'source', 'default_m', 'grain', 'recommended', 'gate',
+             'estimator_validation', 'results_sha256', 'generated_at', 'generated_by',
+             'groups', 'sequences']
     body = {k: body[k] for k in order if k in body}
     path = run_dir / fs.HEIGHT_TABLE_NAME
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
         json.dump(body, f, indent=1, sort_keys=False)
         f.write('\n')
     return path
+
+
+# --- The validate step (#89) ------------------------------------------------------------
+
+VALIDATION_CSV = 'estimator_validation.csv'               # cell means (what rule V reads)
+VALIDATION_SEEDS_CSV = 'estimator_validation_seeds.csv'   # one row per cell-seed-group
+EXPLORATORY_CSV = 'estimator_validation_exploratory.csv'  # noise-0 cell means (#98)
+
+
+def _read_rows(path):
+    if not Path(path).exists() or Path(path).stat().st_size == 0:
+        return []
+    with open(path, encoding='utf-8', newline='') as f:
+        return list(csv.DictReader(f))
+
+
+def _num(v):
+    """A CSV cell back to None / bool / float (strings otherwise)."""
+    if v in (None, '', 'None'):
+        return None
+    if v in ('True', 'False'):
+        return v == 'True'
+    if re.fullmatch(r'-?\d+', v):
+        return int(v)      # an integer column round-trips as written (seed, n_views)
+    try:
+        return float(v)
+    except ValueError:
+        return v
+
+
+def _typed(rows):
+    return [{k: v if k in ('city', 'group') else _num(v) for k, v in r.items()} for r in rows]
+
+
+def _seed_key(r):
+    return (str(r['city']), str(r['group']), float(r['h_true']), float(r['noise_scale']),
+            int(float(r['seed'])))
+
+
+def run_validation(cities, run_root, workers, log=print, exploratory=False):
+    """The estimator gate: for each city, time one real sweep (the budget rule), then run
+    the grid VALID_TRUE_HEIGHTS x VALID_NOISES x seeds in a process pool. Resumable: the
+    per-seed rows are written to runs/<city>/camera_height/estimator_validation_seeds.csv
+    as they finish and a re-run skips them (and reuses the recorded sweep time).
+
+    exploratory=True (#98 review; rule V never reads any of it) adds, on top of the
+    committed rule-V rows and without re-running their sweeps: local_slope /
+    local_amplification from each row's own b_at_* columns (after checking they reproduce
+    its h_b_local), and h_true_readings per cell-seed (exploratory_cell). It then runs the
+    noise-0 arm (ARM_NOISE0: VALID_TRUE_HEIGHTS x EXPLORATORY_NOISES x the same seeds),
+    whose cell means go to EXPLORATORY_CSV. estimator_validation.csv holds rule-V cells
+    only, whatever the seeds file holds."""
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    plan, extra_plan, done = [], [], {}
+    for city in cities:
+        run_dir = run_root / city
+        prior = _typed(_read_rows(run_dir / 'camera_height' / VALIDATION_SEEDS_CSV))
+        done[city] = {_seed_key(r): r for r in prior}
+        if prior and prior[0].get('real_sweep_s') is not None:
+            secs = prior[0]['real_sweep_s']
+            groups = sorted({r['group'] for r in prior})
+            log(f'{city}: reusing the recorded real sweep time {secs:.0f} s; groups {groups}')
+        else:
+            secs, groups = time_real_sweep(run_dir, log=log)
+            secs = round(secs, 1)
+        seeds = VALID_SEEDS if secs <= VALID_BUDGET_S else 1
+        log(f'{city}: {seeds} seed(s) per cell (budget rule: real sweep {secs:.0f} s vs '
+            f'{VALID_BUDGET_S} s)', flush=True)
+        for ht in VALID_TRUE_HEIGHTS:
+            for ns in VALID_NOISES:
+                for seed in range(seeds):
+                    if groups and all((city, g, ht, ns, seed) in done[city] for g in groups):
+                        continue
+                    plan.append((secs, city, run_dir, groups, ht, ns, seed, None, False))
+        if not exploratory:
+            continue
+        for ht in VALID_TRUE_HEIGHTS:
+            for ns in VALID_NOISES:
+                for seed in range(seeds):
+                    keys = [(city, g, ht, ns, seed) for g in groups]
+                    rows = [done[city][k] for k in keys if k in done[city]]
+                    for r in rows:
+                        if r.get('local_slope') is None:
+                            add_local_segment(r)
+                    if rows and any(r.get('b_at_h_true') is None for r in rows):
+                        extra_plan.append((secs, city, run_dir, groups, ht, ns, seed))
+            for ns in EXPLORATORY_NOISES:
+                for seed in range(seeds):
+                    if groups and all((city, g, ht, ns, seed) in done[city] for g in groups):
+                        continue
+                    plan.append((secs, city, run_dir, groups, ht, ns, seed, ARM_NOISE0, True))
+    plan.sort(key=lambda t: -t[0])               # the slowest cities first
+    extra_plan.sort(key=lambda t: -t[0])
+    log(f'{len(plan)} cell-seeds and {len(extra_plan)} exploratory readings to run on '
+        f'{workers} workers', flush=True)
+
+    def flush(city):
+        rows = list(done[city].values())
+        rule = sorted((r for r in rows if r.get('arm') in (None, ARM_RULE_V)),
+                      key=lambda r: tuple(map(str, _seed_key(r))))
+        expl = sorted((r for r in rows if r.get('arm') not in (None, ARM_RULE_V)),
+                      key=lambda r: (str(r['arm']),) + tuple(map(str, _seed_key(r))))
+        out = run_root / city / 'camera_height'
+        write_csv(out / VALIDATION_SEEDS_CSV, rule + expl)
+        write_csv(out / VALIDATION_CSV, validation_cells(rule))
+        if expl:
+            write_csv(out / EXPLORATORY_CSV, [dict(c, arm=ARM_NOISE0)
+                                              for c in validation_cells(expl)])
+    total = len(plan) + len(extra_plan)
+    if total:
+        with ProcessPoolExecutor(max_workers=workers) as ex:
+            futs = {ex.submit(validation_cell, city, run_dir, groups, ht, ns, seed, secs,
+                              arm=arm, exploratory=expl):
+                    ('cell', city, ht, ns, seed)
+                    for secs, city, run_dir, groups, ht, ns, seed, arm, expl in plan}
+            futs.update({ex.submit(exploratory_cell, city, run_dir, groups, ht, ns, seed):
+                         ('extra', city, ht, ns, seed)
+                         for _secs, city, run_dir, groups, ht, ns, seed in extra_plan})
+            for k, fut in enumerate(as_completed(futs), 1):
+                kind, city, ht, ns, seed = futs[fut]
+                if kind == 'cell':
+                    rows = fut.result()
+                    for r in rows:
+                        done[city][_seed_key(r)] = r
+                    secs_taken = rows[0]['cell_s'] if rows else 0
+                else:
+                    got = fut.result()
+                    for key, cols in got.items():
+                        done[city][key].update(cols)
+                    secs_taken = next(iter(got.values()))['exploratory_s'] if got else 0
+                flush(city)
+                log(f'  [{k}/{total}] {kind} {city} h_true {ht:g} noise {ns:g} seed {seed}: '
+                    f'{secs_taken:.0f} s', flush=True)
+    for city in cities:
+        flush(city)
+
+
+def load_selection(run_dir):
+    """The city's estimator selection from its estimator_validation.csv, or SystemExit."""
+    path = Path(run_dir) / 'camera_height' / VALIDATION_CSV
+    rows = _read_rows(path)
+    if not rows:
+        raise SystemExit(f'{path} is missing or empty: run `mapillary_height.py --validate '
+                         f'{Path(run_dir).name}` first (#89: B needs a validated estimator)')
+    return city_selection(rule_v_cells(_typed(rows)))
+
+
+def rule_v_cells(cells):
+    """Only rule-V cells enter rule V: rows of the rule-V arm, or without an arm column (as
+    #89 wrote them). An exploratory row (#98) that reached the file by mistake is dropped
+    here, never read."""
+    return [c for c in cells if c.get('arm') in (None, ARM_RULE_V)]
 
 
 def main():
@@ -934,12 +1797,38 @@ def main():
     ap.add_argument('--n-boot', type=int, default=N_BOOT)
     ap.add_argument('--no-gate', action='store_true',
                     help='measure and write tables only (recommended: false)')
+    ap.add_argument('--validate', action='store_true',
+                    help='run the #89 estimator gate (simulation) and write '
+                         'camera_height/estimator_validation.csv; nothing else')
+    ap.add_argument('--exploratory', action='store_true',
+                    help='--validate: also the EXPLORATORY arms of the #98 review (B at '
+                         'h_true, oracle-clean B, local slope, a noise-0 cell); rule V '
+                         'never reads them')
+    ap.add_argument('--workers', type=int, default=None,
+                    help='--validate: worker processes (default: CPU count)')
     args = ap.parse_args()
 
-    measured, k_rows = {}, []
+    if args.validate:
+        import os
+        run_validation(args.cities, args.run_root, args.workers or os.cpu_count() or 1,
+                       exploratory=args.exploratory)
+        return
+
+    measured, k_rows, v_rows, v_lines = {}, [], [], []
     for city in args.cities:
         run_dir = args.run_root / city
-        m = measure_city(city, run_dir, n_boot=args.n_boot)
+        selection = load_selection(run_dir)
+        v_rows += _read_rows(run_dir / 'camera_height' / VALIDATION_CSV)
+        v_lines.append(f"{city}: estimator {selection['estimator'] or B_UNVALIDATED} "
+                       f"(groups {selection['groups']}, {selection['seeds_per_cell']} seed(s) "
+                       f"per cell, real sweep {_f(selection['real_sweep_s'], '.0f')} s)")
+        for est in (EST_LINE, EST_LOCAL):
+            s = selection[est]
+            v_lines.append(f"  {est}: {'VALID' if s['valid'] else 'not valid'}; max |mean "
+                           f"error| {_f(s['max_abs_mean_err_m'], '.3f')} m"
+                           + (f"; {'; '.join(s['reasons'])}" if s['reasons'] else ''))
+        print('\n'.join(v_lines[-3:]), flush=True)
+        m = measure_city(city, run_dir, selection, n_boot=args.n_boot)
         measured[city] = m
         out = run_dir / 'camera_height'
         write_csv(out / 'groups.csv', group_rows(m))
@@ -949,16 +1838,24 @@ def main():
         k_rows.append({'city': city, 'k_net_production': _rd(k, 4), 's_production': _rd(s, 4),
                        's_null_production': _rd(s0, 4), 'k_net_benchmark': _rd(kb, 4),
                        's_benchmark': _rd(sb, 4), 's_null_benchmark': _rd(s0b, 4)})
-        print(f'{city}: pooled k_net {k:.3f} at the production tier, {kb:.3f} at the '
-              f'benchmark tier (#76 tie-back)')
+        print(f"{city}: measured in {m['seconds']} s; pooled k_net {k:.3f} at the production "
+              f'tier, {kb:.3f} at the benchmark tier (#76 tie-back)')
         for rig, n in m['notes'].items():
             print(f"  {rig}: grain {n['grain']} ({n['qualifying_sequences']} qualifying "
                   f"sequences, h* IQR {_f(n['sequence_iqr_m'], '.3f')} m)")
         for key, g in m['table']['groups'].items():
+            ib = g.get('instrument_b') or {}
             print(f"  {key}: {g['height_m']} m (applied {g['applied']}); A {g['h_bearing']} "
-                  f"{g['h_bearing_ci']} slope {g['slope']}; B {g['h_scale']}; {g['reason']}")
+                  f"{g['h_bearing_ci']} slope {g['slope']}; B(2.6) {g['h_scale']}; h*_B line "
+                  f"{ib.get('h_line')} {ib.get('h_line_ci')} (x{ib.get('line_amplification')}), "
+                  f"local {ib.get('h_local')} (x{ib.get('local_amplification')})"
+                  f"{' (extrapolated)' if ib.get('local_extrapolated') else ''} "
+                  f"{ib.get('h_local_ci')} [CIs too narrow: heights share views]; "
+                  f"{g['reason']}", flush=True)
     summ = args.run_root / '_summary' / 'camera_height'
     write_csv(summ / 'k_net.csv', k_rows)
+    write_csv(summ / VALIDATION_CSV, v_rows)
+    (summ / 'estimator_validation.txt').write_text('\n'.join(v_lines) + '\n', encoding='utf-8')
     if args.no_gate:
         return
 

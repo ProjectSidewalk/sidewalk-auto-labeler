@@ -6,6 +6,7 @@ must recover those heights whatever height the association runs at.
 """
 import json
 import math
+import sys
 
 import pytest
 
@@ -332,3 +333,199 @@ def test_fuse_sites_cli_exits_cleanly_without_a_table(tmp_path, monkeypatch):
                                      'per-rig', '--out', str(tmp_path / 's.jsonl')])
     with pytest.raises(SystemExit, match='camera-height table'):
         fs.main()
+
+
+# --- #89: instrument B as a validated fixed point ---------------------------------------
+
+def _scene_sites(h=2.1):
+    sites, _frame = mh.site_views(_uniform_panos(h), mh.production_params())
+    assert sites
+    return sites
+
+
+def test_null_views_scale_with_the_injected_noise():
+    import random
+    sv = _scene_sites()[0]
+    at0 = mh._null_views(sv, random.Random(5), noise_scale=0.0)
+    assert [(v.pano_id, v.det_index) for v in at0] == [(v.pano_id, v.det_index)
+                                                       for v in sv.views]
+    for v, w in zip(sv.views, at0):
+        # every view re-drawn noiselessly: its point is the site, its camera unmoved
+        assert (w.e, w.n) == pytest.approx((sv.e, sv.n), abs=1e-9)
+        cam_v = (v.e - v.range_m * v.unit[0], v.n - v.range_m * v.unit[1])
+        cam_w = (w.e - w.range_m * w.unit[0], w.n - w.range_m * w.unit[1])
+        assert cam_w == pytest.approx(cam_v, abs=1e-6)
+    full = mh._null_views(sv, random.Random(5), noise_scale=1.0)
+    half = mh._null_views(sv, random.Random(5), noise_scale=0.5)
+    for f, hv in zip(full, half):   # the same normals, so every displacement halves
+        assert hv.e - sv.e == pytest.approx(0.5 * (f.e - sv.e), abs=1e-9)
+        assert hv.n - sv.n == pytest.approx(0.5 * (f.n - sv.n), abs=1e-9)
+    # ... and a null drawn at zero noise corrects nothing
+    rows = mh.instrument_b(_scene_sites(), lambda _p: 'r1', min_rows=1, noise_scale=0.0)
+    assert rows['r1']['null_s'] == pytest.approx(0.0, abs=1e-12)
+
+
+def _b_by_h(fn, heights=mh.SWEEP_HEIGHTS_B):
+    """{h: {'g': b_at-shaped row}} with B(h) = fn(h), no null and no SE."""
+    return {h: {'g': {'group': 'g', 'n_views': 500, 'scale_s': 1 - fn(h) / h,
+                      'scale_s_se': 0.0, 'null_s_mean': 0.0, 'null_s_sd': 0.0,
+                      'h_b': fn(h), 'h_b_se': 0.0, 'null_sd_m': 0.0, 'h_b_raw': fn(h),
+                      'h_b_offset': None}} for h in heights}
+
+
+def test_line_overshoots_a_concave_b_where_the_local_crossing_lands():
+    def concave(h):            # crosses the identity at 2.3 m, a sweep height
+        return 2.3 + 0.8 * (h - 2.3) - 0.3 * (h - 2.3) ** 2
+    est = mh.b_estimates(_b_by_h(concave), 'g', n_draws=20)
+    assert est['h_b_local'] == 2.3 and est['local_extrapolated'] is False
+    assert est['amplification'] == pytest.approx(1 / (1 - est['b_b']))
+    assert est['amplification'] > 2
+    assert abs(est['h_b_line'] - 2.3) > 0.05          # the line's bias, amplified
+    assert est['line_ci_lo'] == pytest.approx(est['h_b_line'])   # SE 0: degenerate draws
+    assert est['h_at_2p6'] == pytest.approx(concave(2.6))
+    # the local crossing's own amplification is the bracketing segment's (2.3 is hit
+    # exactly, so the segment above it: 2.3-2.6)
+    seg = (concave(2.6) - concave(2.3)) / 0.3
+    assert est['local_slope'] == pytest.approx(seg)
+    assert est['local_amplification'] == pytest.approx(1 / (1 - seg))
+    # B above the identity at every swept height: no bracket, extrapolation flagged
+    tall = mh.b_estimates(_b_by_h(lambda h: 3.9 + 0.5 * (h - 3.8)), 'g', n_draws=0)
+    assert tall['local_extrapolated'] is True and tall['h_b_local'] > 3.8
+    assert tall['line_extrapolated'] is True
+    # b_B >= 1: the line has no fixed point
+    follows = mh.b_estimates(_b_by_h(lambda h: h + 0.1), 'g', n_draws=0)
+    assert follows['h_b_line'] is None and follows['amplification'] is None
+
+
+def test_local_segment_slope_is_the_segment_the_crossing_is_read_off():
+    hs = (1.8, 2.0, 2.3, 2.6)
+    vals = (1.87, 2.033, 2.197, 2.36)                    # brackets between 2.0 and 2.3
+    assert mh.local_segment_slope(hs, vals) == pytest.approx((2.197 - 2.033) / 0.3)
+    # the identity the #98 review reads: a bias of B AT the true height, amplified
+    # 1 / (1 - slope), whatever B does elsewhere in the sweep
+    def b(h):
+        return 2.1 + 0.05 + 0.7 * (h - 2.1)             # true height 2.1, B(2.1) + 0.05
+    hs = mh.SWEEP_HEIGHTS_B
+    far = [b(h) if 1.8 <= h <= 2.3 else b(h) + 0.4 * (h - 2.1) for h in hs]
+    h_local, _ = mh.local_crossing(hs, far)
+    amp = 1 / (1 - mh.local_segment_slope(hs, far))
+    assert h_local - 2.1 == pytest.approx(0.05 * amp)    # 0.05 * 3.33
+    # no bracket: the extrapolated end segment, as local_crossing reads it
+    assert mh.local_segment_slope((1.4, 1.6, 1.8), (1.9, 2.0, 2.05)) == pytest.approx(0.25)
+    assert mh.local_segment_slope((1.4, 1.6), (1.0, None)) is None
+    assert mh._amp(1.0) is None and mh._amp(0.5) == pytest.approx(2.0)
+
+
+def test_rule_v_reads_only_the_pre_registered_grid():
+    cells = [_cell(0.0), dict(_cell(0.5, 0.5, noise=0.0), arm=mh.ARM_NOISE0),
+             dict(_cell(0.5, 0.5), arm=mh.ARM_NOISE0), dict(_cell(0.02), arm=mh.ARM_RULE_V)]
+    kept = mh.rule_v_cells(cells)
+    assert kept == [cells[0], cells[3]]
+    assert mh.city_selection(kept)['estimator'] == mh.EST_LINE
+
+
+def _cell(err_line, err_local=0.0, group='g', h_true=2.2, noise=0.5):
+    return {'city': 'c', 'group': group, 'h_true': h_true, 'noise_scale': noise, 'seeds': 2,
+            'line_undefined': err_line is None, 'line_extrapolated': False,
+            'line_mean_err': err_line, 'local_undefined': err_local is None,
+            'local_extrapolated': False, 'local_mean_err': err_local}
+
+
+def test_rule_v_boundaries_and_the_selection():
+    assert mh.rule_v([_cell(0.10), _cell(-0.10, noise=1.0)], mh.EST_LINE)[0]
+    assert not mh.rule_v([_cell(0.1001)], mh.EST_LINE)[0]
+    assert not mh.rule_v([_cell(0.0), _cell(None, noise=1.0)], mh.EST_LINE)[0]
+    assert not mh.rule_v([dict(_cell(0.0), line_extrapolated=True)], mh.EST_LINE)[0]
+    assert not mh.rule_v([], mh.EST_LINE)[0]
+    assert mh.select_estimator(True, True) == mh.EST_LINE
+    assert mh.select_estimator(False, True) == mh.EST_LOCAL
+    assert mh.select_estimator(False, False) is None
+    sel = mh.city_selection([_cell(0.2, 0.05), _cell(0.0, 0.08, noise=1.0)])
+    assert (sel['estimator'], sel['validated']) == (mh.EST_LOCAL, True)
+    assert sel['line']['max_abs_mean_err_m'] == pytest.approx(0.2)
+    # cell means: an undefined seed makes the whole cell undefined
+    seeds = [{'city': 'c', 'group': 'g', 'h_true': 2.2, 'noise_scale': 0.5, 'seed': s,
+              'h_b_line': v, 'line_extrapolated': False, 'h_b_local': 2.25,
+              'local_extrapolated': False, 'b_b': 0.5} for s, v in ((0, 2.3), (1, None))]
+    cell, = mh.validation_cells(seeds)
+    assert cell['line_undefined'] and cell['line_mean_err'] is None
+    assert cell['local_mean_err'] == pytest.approx(0.05)
+
+
+def test_decide_group_reads_the_selected_fixed_point_and_fails_unvalidated():
+    sweep = _b_by_h(lambda h: 2.0 + 0.5 * (h - 2.0))     # fixed point 2.0, B(2.6) 2.3
+    for rows in sweep.values():
+        rows['g']['n_views'] = 1000
+    b = mh.b_rows_from_sweep(sweep, mh.EST_LINE, True, n_draws=0)['g']
+    assert b['h_star'] == pytest.approx(2.0) and b['h_scale'] == pytest.approx(2.3)
+    h, passed, _ = mh.decide_group(_a(2.05), b)
+    assert 'agreement' in passed and h == pytest.approx(2.025)
+    # #53's reading, B(2.6) = 2.3, would have failed agreement against A = 1.9
+    assert 'agreement' in mh.decide_group(_a(1.9), b)[1]
+    assert 'agreement' not in mh.decide_group(_a(1.9), _b(2.3))[1]
+    none = mh.b_rows_from_sweep(sweep, None, False, n_draws=0)['g']
+    h, passed, reason = mh.decide_group(_a(2.0), none)
+    assert h is None and 'agreement' not in passed and mh.B_UNVALIDATED in reason
+    assert none['h_b_line'] == pytest.approx(2.0)          # both still reported
+
+
+def test_table_round_trip_with_the_89_blocks_and_per_rig_still_loads(tmp_path, monkeypatch):
+    run = _write_run(tmp_path)
+    groups_of = mh.pano_groups(run / 'results.jsonl')
+    sweep = _b_by_h(lambda h: 1.9 + 0.3 * (h - 1.9))
+    for rows in sweep.values():
+        rows['gopro/max'] = dict(rows.pop('g'), group='gopro/max', n_views=1000)
+    b_rig = mh.b_rows_from_sweep(sweep, mh.EST_LOCAL, True, n_draws=10)
+    table, _ = mh.build_table(groups_of, {'gopro/max': _a(1.95)}, b_rig, {}, {})
+    table['estimator_validation'] = mh.validation_block(mh.city_selection([_cell(0.2, 0.05)]))
+    path = mh.write_table(run, table, recommended=False)
+    body = json.loads(path.read_text(encoding='utf-8'))
+    assert body['estimator_validation']['estimator'] == mh.EST_LOCAL
+    assert list(body)[:7] == ['schema', 'source', 'default_m', 'grain', 'recommended',
+                              'estimator_validation', 'results_sha256']
+    g = body['groups']['gopro/max']
+    ib = g['instrument_b']
+    assert set(ib) >= {'estimator', 'h_star', 'line_amplification', 'local_slope',
+                       'local_amplification', 'extrapolated', 'validated', 'h_at_2p6'}
+    assert 'amplification' not in ib      # renamed (#98): it was the line's only
+    assert ib['local_slope'] == pytest.approx(0.3, abs=1e-3)   # B(h) = 1.9 + 0.3 (h - 1.9)
+    assert ib['local_amplification'] == pytest.approx(1 / 0.7, abs=1e-3)
+    assert ib['estimator'] == 'local' and ib['validated'] is True
+    assert ib['h_star'] == pytest.approx(1.9) and ib['h_at_2p6'] == pytest.approx(2.11)
+    assert g['applied'] and g['height_m'] == pytest.approx(1.925)
+    panos, _ = fs.load_results(run / 'results.jsonl', read_heights=False, height_table=path)
+    assert {p.camera_height_m for p in panos} == {1.925}
+    out = tmp_path / 'sites.jsonl'
+    monkeypatch.setattr('sys.argv', ['fuse_sites.py', str(run), '--camera-height-m',
+                                     'per-rig', '--out', str(out)])
+    fs.main()
+    assert out.exists()
+
+
+def test_validation_cell_recovers_h_true_without_noise_and_the_csv_round_trips(
+        tmp_path, monkeypatch):
+    # one true height everywhere, so the 2.6 m fuse the cell plants from is exact
+    monkeypatch.setattr(sys.modules[__name__], 'CAMERAS',
+                        [(pid, e, n, rig, 2.6) for pid, e, n, rig, _h in CAMERAS])
+    # NOTE: this toy scene has no neighbouring ramp inside the association gate, so it
+    # cannot see the merge bias that dominates B at noise 0 on real view graphs (#98
+    # review, docs section 8.3) -- it pins the plumbing, not the estimator's accuracy.
+    run = _write_run(tmp_path)
+    rows = mh.validation_cell('syn', run, ['gopro/max'], 2.2, 0.0, 0, real_sweep_s=1.0,
+                              heights=(1.6, 2.0, 2.6, 3.0), null_seeds=range(2),
+                              min_rows=1, exploratory=True)
+    r, = rows
+    # the exploratory readings: nothing merged, so every site is oracle-clean and B at
+    # the true height is exact on both
+    assert r['sites_merged'] == 0 and r['sites_multi'] > 0
+    assert r['b_at_h_true'] == pytest.approx(2.2, abs=1e-4)
+    assert r['b_at_h_true_clean'] == pytest.approx(2.2, abs=1e-4)
+    assert 'arm' not in r and r['local_amplification'] is not None
+    # exact geometry, no noise, null at zero: B's raw scale is exact at every height
+    assert r['h_b_line'] == pytest.approx(2.2, abs=1e-4)
+    assert r['h_b_local'] == pytest.approx(2.2, abs=1e-4)
+    mh.write_csv(run / 'camera_height' / mh.VALIDATION_CSV, mh.validation_cells(rows))
+    sel = mh.load_selection(run)
+    assert sel['estimator'] == mh.EST_LINE and sel['seeds_per_cell'] == 1
+    with pytest.raises(SystemExit, match='--validate'):
+        mh.load_selection(tmp_path / 'nowhere')

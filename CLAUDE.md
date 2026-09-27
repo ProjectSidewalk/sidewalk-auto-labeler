@@ -172,14 +172,22 @@ python scripts/inventory_oracle.py score bend gainesville     # ~100 s for both,
 python scripts/inventory_oracle.py verdict
 # Mapillary has no depth: `per-rig` (issue #53) reads runs/<name>/camera_heights.json, a
 # per-rig-class height measured by scripts/mapillary_height.py (bearing fixed point + #76's
-# scale identity, a pre-registered rule, then a production gate). OPT-IN: only Annapolis's
-# MX7 passed the rule (2.376 m) and the gate FAILED (recall -1.2 pt, GT range slope
-# steeper), so every table says recommended: false -- docs/mapillary-camera-height.md.
+# scale identity, a pre-registered rule, then a production gate). OPT-IN, and since #89 it
+# applies NOTHING: B read as a fixed point has no validated estimator in any city (rule V:
+# at the model's full noise both the line and the local crossing read +0.25-0.53 m high at a
+# 1.8 m rig), so rule 3 reads b_unvalidated everywhere, #53's Annapolis 2.376 m is withdrawn,
+# every group is 2.6 m and every table says recommended: false -- docs/mapillary-camera-height.md s8.
+# #89: B is read as a fixed point; --validate FIRST (simulation on each city's real view graph,
+# rule V picks the line or the local-crossing estimator per city; ~15 min on 10 workers, resumable).
+python scripts/mapillary_height.py --validate richmond laurens clovis morgantown annapolis
+# ...--exploratory adds the #98 review arms (B at h_true, oracle-clean B, local slope, noise-0
+# cells: estimator_validation_exploratory.csv); rule V never reads them. docs s8.3.
 python scripts/mapillary_height.py richmond laurens clovis morgantown annapolis
 python scripts/fuse_sites.py runs/annapolis --camera-height-m per-rig --out /tmp/s.jsonl
 # #87: B read at one association height is pulled toward it; as a fixed point it meets A (doc s7).
-# Its line fixed point amplifies bias by 1/(1-b_B) and the sim null is full-sigma at every noise
-# scale; the local crossing is reported beside it, and neither estimator is validated yet (#89).
+# Its line fixed point amplifies bias by 1/(1-b_B); #89: neither estimator passes rule V in any city (docs s8).
+# `simulate` now draws the null at the injected noise (-> simulate_matched.csv); #87's committed
+# simulate.csv was full-sigma at every noise scale and reproduces with --null-unmatched.
 python scripts/height_gap.py sweep richmond --group gopro/max --sequences  # + simulate/gt/verdict
 
 # Score fusion against RampNet GT in world space: world P/R, the union-recall

@@ -9,13 +9,37 @@
   "clauses": {
    "i": true,
    "ii": false,
-   "iii": false,
-   "iv": false
+   "iii": true,
+   "iv": true
+  }
+ },
+ "estimator_validation": {
+  "estimator": null,
+  "validated": false,
+  "rule": "rule V: over h_true [1.8, 2.2, 2.6, 3.0] x noise [0.5, 1.0], max |mean error over seeds| <= 0.1 m and no cell undefined or extrapolated; both valid -> line, one -> that one, neither -> b_unvalidated",
+  "groups": [
+   "gopro/max"
+  ],
+  "seeds_per_cell": 2,
+  "real_sweep_s": 42.4,
+  "line": {
+   "valid": false,
+   "max_abs_mean_err_m": 0.2677,
+   "reasons": [
+    "max |mean error| 0.268 m > 0.1"
+   ]
+  },
+  "local": {
+   "valid": false,
+   "max_abs_mean_err_m": 0.2516,
+   "reasons": [
+    "max |mean error| 0.252 m > 0.1"
+   ]
   }
  },
  "results_sha256": "7dbf24e03574c31b0a3011490177a5d51dc20e30badf7fdd35da443e870b98bc",
- "generated_at": "2026-09-25T16:48:51+00:00",
- "generated_by": "scripts/mapillary_height.py (issue #53)",
+ "generated_at": "2026-09-27T19:41:34+00:00",
+ "generated_by": "scripts/mapillary_height.py (issues #53, #89)",
  "groups": {
   "gopro/max": {
    "height_m": 2.6,
@@ -30,20 +54,41 @@
     2.342,
     2.357
    ],
-   "h_scale": 2.52,
+   "h_scale": 2.507,
    "h_scale_ci": [
-    2.504,
-    2.536
+    2.491,
+    2.523
    ],
-   "h_scale_with_offset": 2.757,
+   "h_scale_with_offset": 2.744,
    "slope": 0.146,
-   "method": "mean(bearing fixed point, null-corrected scale identity)",
+   "method": "mean(bearing fixed point, scale-identity fixed point [none validated])",
    "passed": [
     "support",
-    "identifiable",
-    "agreement"
+    "identifiable"
    ],
-   "reason": "fails material (CI 2.34-2.36, h_g 2.436)",
+   "reason": "fails agreement (b_unvalidated: no h*_B estimator passed rule V in this city; line 2.347, local 2.431); material (CI 2.34-2.36, h_g n/a)",
+   "instrument_b": {
+    "estimator": null,
+    "h_star": null,
+    "line_amplification": 2.133,
+    "local_slope": 0.448,
+    "local_amplification": 1.81,
+    "extrapolated": null,
+    "validated": false,
+    "h_at_2p6": 2.507,
+    "h_line": 2.347,
+    "h_line_ci": [
+     2.33,
+     2.362
+    ],
+    "h_local": 2.431,
+    "h_local_ci": [
+     2.411,
+     2.452
+    ],
+    "local_extrapolated": false,
+    "ci_note": "too narrow: the association heights share views"
+   },
    "sequence_iqr_m": 0.128,
    "qualifying_sequences": 37
   }

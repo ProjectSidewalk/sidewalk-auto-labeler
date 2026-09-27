@@ -9,13 +9,39 @@
   "clauses": {
    "i": true,
    "ii": false,
-   "iii": false,
-   "iv": false
+   "iii": true,
+   "iv": true
+  }
+ },
+ "estimator_validation": {
+  "estimator": null,
+  "validated": false,
+  "rule": "rule V: over h_true [1.8, 2.2, 2.6, 3.0] x noise [0.5, 1.0], max |mean error over seeds| <= 0.1 m and no cell undefined or extrapolated; both valid -> line, one -> that one, neither -> b_unvalidated",
+  "groups": [
+   "gopro/max",
+   "nctech/istar pulsar",
+   "unknown"
+  ],
+  "seeds_per_cell": 2,
+  "real_sweep_s": 30.5,
+  "line": {
+   "valid": false,
+   "max_abs_mean_err_m": 0.5246,
+   "reasons": [
+    "max |mean error| 0.525 m > 0.1"
+   ]
+  },
+  "local": {
+   "valid": false,
+   "max_abs_mean_err_m": 0.4438,
+   "reasons": [
+    "max |mean error| 0.444 m > 0.1"
+   ]
   }
  },
  "results_sha256": "109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c",
- "generated_at": "2026-09-25T16:48:51+00:00",
- "generated_by": "scripts/mapillary_height.py (issue #53)",
+ "generated_at": "2026-09-27T19:41:33+00:00",
+ "generated_by": "scripts/mapillary_height.py (issues #53, #89)",
  "groups": {
   "arashi/insta360 x4": {
    "height_m": 2.6,
@@ -50,20 +76,41 @@
     1.939,
     2.043
    ],
-   "h_scale": 2.377,
+   "h_scale": 2.396,
    "h_scale_ci": [
-    2.336,
-    2.418
+    2.355,
+    2.437
    ],
-   "h_scale_with_offset": 2.8,
+   "h_scale_with_offset": 2.82,
    "slope": 0.486,
-   "method": "mean(bearing fixed point, null-corrected scale identity)",
+   "method": "mean(bearing fixed point, scale-identity fixed point [none validated])",
    "passed": [
     "support",
-    "identifiable",
-    "material"
+    "identifiable"
    ],
-   "reason": "fails agreement (A 1.983, B 2.377)",
+   "reason": "fails agreement (b_unvalidated: no h*_B estimator passed rule V in this city; line 1.982, local 2.072); material (CI 1.94-2.04, h_g n/a)",
+   "instrument_b": {
+    "estimator": null,
+    "h_star": null,
+    "line_amplification": 3.168,
+    "local_slope": 0.546,
+    "local_amplification": 2.203,
+    "extrapolated": null,
+    "validated": false,
+    "h_at_2p6": 2.396,
+    "h_line": 1.982,
+    "h_line_ci": [
+     1.94,
+     2.022
+    ],
+    "h_local": 2.072,
+    "h_local_ci": [
+     1.986,
+     2.131
+    ],
+    "local_extrapolated": false,
+    "ci_note": "too narrow: the association heights share views"
+   },
    "sequence_iqr_m": 0.614,
    "qualifying_sequences": 8
   },
@@ -82,18 +129,39 @@
    ],
    "h_scale": 2.68,
    "h_scale_ci": [
-    2.659,
+    2.66,
     2.7
    ],
-   "h_scale_with_offset": 3.126,
+   "h_scale_with_offset": 3.127,
    "slope": 0.286,
-   "method": "mean(bearing fixed point, null-corrected scale identity)",
+   "method": "mean(bearing fixed point, scale-identity fixed point [none validated])",
    "passed": [
     "support",
-    "identifiable",
-    "agreement"
+    "identifiable"
    ],
-   "reason": "fails material (CI 2.58-2.62, h_g 2.637)",
+   "reason": "fails agreement (b_unvalidated: no h*_B estimator passed rule V in this city; line 2.664, local 2.744); material (CI 2.58-2.62, h_g n/a)",
+   "instrument_b": {
+    "estimator": null,
+    "h_star": null,
+    "line_amplification": 2.428,
+    "local_slope": 0.447,
+    "local_amplification": 1.809,
+    "extrapolated": null,
+    "validated": false,
+    "h_at_2p6": 2.68,
+    "h_line": 2.664,
+    "h_line_ci": [
+     2.639,
+     2.688
+    ],
+    "h_local": 2.744,
+    "h_local_ci": [
+     2.717,
+     2.769
+    ],
+    "local_extrapolated": false,
+    "ci_note": "too narrow: the association heights share views"
+   },
    "sequence_iqr_m": null,
    "qualifying_sequences": 1
   },
@@ -110,20 +178,41 @@
     2.632,
     2.779
    ],
-   "h_scale": 2.64,
+   "h_scale": 2.666,
    "h_scale_ci": [
-    2.58,
-    2.701
+    2.606,
+    2.726
    ],
-   "h_scale_with_offset": 3.042,
+   "h_scale_with_offset": 3.067,
    "slope": 0.359,
-   "method": "mean(bearing fixed point, null-corrected scale identity)",
+   "method": "mean(bearing fixed point, scale-identity fixed point [none validated])",
    "passed": [
     "support",
-    "identifiable",
-    "agreement"
+    "identifiable"
    ],
-   "reason": "fails material (CI 2.63-2.78, h_g 2.674)",
+   "reason": "fails agreement (b_unvalidated: no h*_B estimator passed rule V in this city; line 2.690, local 2.820); material (CI 2.63-2.78, h_g n/a)",
+   "instrument_b": {
+    "estimator": null,
+    "h_star": null,
+    "line_amplification": 3.874,
+    "local_slope": 0.7,
+    "local_amplification": 3.335,
+    "extrapolated": null,
+    "validated": false,
+    "h_at_2p6": 2.666,
+    "h_line": 2.69,
+    "h_line_ci": [
+     2.601,
+     2.786
+    ],
+    "h_local": 2.82,
+    "h_local_ci": [
+     2.655,
+     3.018
+    ],
+    "local_extrapolated": false,
+    "ci_note": "too narrow: the association heights share views"
+   },
    "sequence_iqr_m": 0.321,
    "qualifying_sequences": 4
   }
