@@ -2,6 +2,8 @@
 
 34687 panos, 30325 with a measured depth height; implied height for 11054 (assoc per-pano), 10746 (assoc 2.3). k = 1.08.
 
+Spread definition: `measured_planes_only` (read from depth/index.csv's header; since #47 the spread leaves Google's stand-in planes out -- docs/camera-height-study.md, 2026-09-27 addendum).
+
 ## T1: Theil–Sen slope of implied on depth, per vintage
 
 | vintage | n (per-pano) | slope (per-pano) | n (2.3) | slope (2.3) |

@@ -2,6 +2,8 @@
 
 Pre-registered on [#44](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/44); scripts/height_qc.py has the rules verbatim and the interpretation choices fixed before the run.
 
+Spread definition: `measured_planes_only` (read from depth/index.csv's header; since #47 the spread leaves Google's stand-in planes out -- docs/camera-height-study.md, 2026-09-27 addendum).
+
 ## Verdicts
 
 | test | verdict |

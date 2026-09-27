@@ -81,7 +81,9 @@ python scripts/harvest_depth.py runs/paterson --check-convention # re-verify dep
 #   a synthetic payload in tests/test_depth.py, so CI catches a convention regression too.)
 python scripts/harvest_depth.py runs/paterson --reindex    # offline: recompute every derived
 #   index.csv column from the archived files after a depth.py change; refuses if an indexed
-#   file is missing. (reconcile also recomputes any row from an index with older columns.)
+#   file is missing or empty, and replaces index.csv only when the pass finds no anomaly.
+#   (reconcile also recomputes any row from an index with older columns, and never launders
+#   an anomaly: an unreadable or altered file keeps its prior row and recorded sha256.)
 # STAND-INS OUT OF THE SPREAD (#47 follow-up). 98% of measured GSV payloads carry a small secondary
 # stand-in plane (normal exactly vertical, 2.500 m; median 1.2% of the image), and
 # depth.ground_plane's height_spread_m -- the per-pano sigma under --camera-height-m per-pano --
@@ -92,7 +94,11 @@ python scripts/harvest_depth.py runs/paterson --reindex    # offline: recompute 
 # predict the residual; every #44 verdict label is unchanged. auto and 2.6 m fuses are
 # byte-identical; per-pano sites move slightly (paterson 13,135 -> 13,146; world P/R unchanged).
 # GSV pano blocks written before this change carry the OLD camera_height_spread_m under the
-# same key. Addendum in docs/camera-height-study.md.
+# same key. An index.csv WITHOUT n_standin_planes is REFUSED by fuse_sites.load_depth_index
+# (so every fuse that reads heights, auto included) and height_qc: `harvest_depth.py <run>
+# --reindex` it (offline, minutes). sites_meta.json's camera_heights records
+# spread_definition when per-pano heights came from an index. Addendum in
+# docs/camera-height-study.md.
 python scripts/depth_standin.py snapshot    # copy each depth/index.csv aside BEFORE --reindex
 python scripts/depth_standin.py measure     # old vs new -> runs/_summary/depth_standin/ + docs copy
 # no_depth.txt and gone.txt are skip caches for the two deterministic outcomes — delete one

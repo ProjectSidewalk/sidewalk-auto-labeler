@@ -28,8 +28,9 @@ Measured 2026-09-23 on the four GSV runs whose depth payloads are fully harveste
   ~2.9 m), which is why unmeasured panos fall back to 2.6 m, not to the measured median.
 
 **Since #44**, per-pano heights are run through pre-registered QC tests. Nothing they found
-changes a raycast: one gate only flags, and per-pano output is still #68's. See "QC rule
-(#44)" below, which ends with the decision table for the default.
+changes a raycast: one gate only flags, and per-pano output stayed #68's (until #47's
+follow-up changed the spread; see the 2026-09-27 addendum). See "QC rule (#44)" below,
+which ends with the decision table for the default.
 
 **What shipped:** the pano block now carries the depth-derived height and its provenance
 (`camera_height_status`). `geo.PER_PANO` / `--camera-height-m per-pano` raycast with it,
@@ -155,9 +156,9 @@ above. The full tables, including T3 per city and the post-hoc comparison below,
 **Nothing from these tests changes a raycast.** The PR #81 review found that the one gate
 the pooled reading passed does not survive per city, and that its fallback is worse than
 the height it replaces. The constant sigma that T4 pre-registered made GT placement worse.
-So the shipped rule only flags, and `--camera-height-m per-pano` output is exactly what
-#68 produced. Paterson's per-pano `sites.jsonl` hashes the same before and after, and so
-does its default `sites.jsonl`.
+So the shipped rule only flags, and `--camera-height-m per-pano` output was exactly what
+#68 produced (until #47's follow-up; see the 2026-09-27 addendum). Paterson's per-pano
+`sites.jsonl` hashed the same before and after #44, and so did its default `sites.jsonl`.
 
 ### Pre-registered verdicts, and what was adopted
 
@@ -214,12 +215,13 @@ on the depth height's error", but the residual is measured against `k × depth` 
 raycast uses the raw depth. The 6–16% depth-frame scale bias (roughly 0.1–0.35 m) is
 therefore **not** inside that sigma.
 
-**Reproducibility.** Default outputs are unchanged: paterson's `sites.jsonl` and
-`sites_meta.json` are byte-identical to main. Per-pano `sites.jsonl` is byte-identical to
-main too. Only per-pano `sites_meta.json` gains the `flagged_qc` counts, and no script
-reads that key. So the committed per-pano artifacts from #76
-(`docs/figures/reprojection-residual/data/`), #75 (`runs/gainesville/agree_rate/`) and #68
-(the per-pano sections above) still reproduce. They would **not** have reproduced under
+**Reproducibility** (as of #44; until #47's follow-up, see the 2026-09-27 addendum).
+Default outputs were unchanged: paterson's `sites.jsonl` and `sites_meta.json` were
+byte-identical to main. Per-pano `sites.jsonl` was byte-identical to main too. Only per-pano
+`sites_meta.json` gained the `flagged_qc` counts, and no script reads that key. So the
+committed per-pano artifacts from #76 (`docs/figures/reprojection-residual/data/`), #75
+(`runs/gainesville/agree_rate/`) and #68 (the per-pano sections above) still reproduced
+under #44; since #47's spread change they may move slightly. They would **not** have reproduced under
 the review draft of this change, with its 2.6 m fallback and 0.259 m sigma.
 
 **How firm the verdicts are.** The sensitivity pass moves each of 0.40 m, 6°, 1.30 and 2×
@@ -369,9 +371,11 @@ and `standin_by_year.csv` hold the full tables. Measured panos only:
 Nearly every measured payload carries at least one small stand-in plane: median 1.2% of
 the image, the pixel share of the whole panorama. It is not a minority pattern. The
 spread narrows on 47,667 panos and widens on 8,316; removing a weighted point can move a
-percentile either way. The per-pano sigma only changes where the spread exceeds geo's
-floor (0.15 m × 2.563 = 0.384 m). That is 5,875 panos under the old definition and 4,289
-under the new one. The largest per-year effects are in thinly measured old vintages,
+percentile either way. geo floors the per-pano sigma (0.15 m, i.e. a spread of
+0.15 m × 2.563 = 0.384 m), so a pano's sigma changes only where its spread changed and
+max(old, new) exceeds that floor: **3,625 panos** (bend 1,381, paterson 972, gainesville
+284, sao_paulo 988; `n_sigma_changed` in the CSV). For scale, 5,875 / 4,289 panos have a
+spread-driven sigma under the old / new definition. The largest per-year effects are in thinly measured old vintages,
 e.g. sao_paulo 2017 p50 0.316 → 0.018 m, and on the older rigs generally. The 2025–26 rig
 vintages barely move (paterson 2025 7.8% of panos moved, gainesville 2026 4.7%).
 
@@ -415,8 +419,10 @@ ratio 1.27 → 1.19, still failing. The regenerated reports are committed in pla
 **What no longer reproduces exactly.** The QC section's reproducibility paragraph above
 (per-pano `sites.jsonl` byte-identical to #68's) held for the old definition. It no
 longer does. Committed per-pano artifacts made before this change were not regenerated
-here and may move slightly if re-run: #76's per-pano reprojection data, #75's per-pano
-agree-rate ablation, and the inventory oracle's arm (b) (#79). Arm (d), the one selected,
-clears the spread, so it cannot move. The same holds for the per-rig `auto` default and
+here and may move slightly if re-run: the #68 per-pano sections of this document, #76's
+per-pano reprojection data, #75's per-pano agree-rate ablation, and the inventory oracle's
+per-pano arms (#79): arm (b), its `ARM_B_REF` reference arm (per-pano x 1.00) and the
+`--scale` sensitivity arms, all run under `geo.PER_PANO`. Arms (c) and (d), the one
+selected, clear the spread, so they cannot move. The same holds for the per-rig `auto` default and
 every 2.6 m output. Pano blocks written by `sources/gsv.py` before this change (post-#40
 GSV runs) carry the old, stand-in-inclusive `camera_height_spread_m` under the same key.
