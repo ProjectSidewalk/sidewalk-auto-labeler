@@ -383,6 +383,11 @@ def test_line_overshoots_a_concave_b_where_the_local_crossing_lands():
     assert abs(est['h_b_line'] - 2.3) > 0.05          # the line's bias, amplified
     assert est['line_ci_lo'] == pytest.approx(est['h_b_line'])   # SE 0: degenerate draws
     assert est['h_at_2p6'] == pytest.approx(concave(2.6))
+    # the local crossing's own amplification is the bracketing segment's (2.3 is hit
+    # exactly, so the segment above it: 2.3-2.6)
+    seg = (concave(2.6) - concave(2.3)) / 0.3
+    assert est['local_slope'] == pytest.approx(seg)
+    assert est['local_amplification'] == pytest.approx(1 / (1 - seg))
     # B above the identity at every swept height: no bracket, extrapolation flagged
     tall = mh.b_estimates(_b_by_h(lambda h: 3.9 + 0.5 * (h - 3.8)), 'g', n_draws=0)
     assert tall['local_extrapolated'] is True and tall['h_b_local'] > 3.8
@@ -390,6 +395,33 @@ def test_line_overshoots_a_concave_b_where_the_local_crossing_lands():
     # b_B >= 1: the line has no fixed point
     follows = mh.b_estimates(_b_by_h(lambda h: h + 0.1), 'g', n_draws=0)
     assert follows['h_b_line'] is None and follows['amplification'] is None
+
+
+def test_local_segment_slope_is_the_segment_the_crossing_is_read_off():
+    hs = (1.8, 2.0, 2.3, 2.6)
+    vals = (1.87, 2.033, 2.197, 2.36)                    # brackets between 2.0 and 2.3
+    assert mh.local_segment_slope(hs, vals) == pytest.approx((2.197 - 2.033) / 0.3)
+    # the identity the #98 review reads: a bias of B AT the true height, amplified
+    # 1 / (1 - slope), whatever B does elsewhere in the sweep
+    def b(h):
+        return 2.1 + 0.05 + 0.7 * (h - 2.1)             # true height 2.1, B(2.1) + 0.05
+    hs = mh.SWEEP_HEIGHTS_B
+    far = [b(h) if 1.8 <= h <= 2.3 else b(h) + 0.4 * (h - 2.1) for h in hs]
+    h_local, _ = mh.local_crossing(hs, far)
+    amp = 1 / (1 - mh.local_segment_slope(hs, far))
+    assert h_local - 2.1 == pytest.approx(0.05 * amp)    # 0.05 * 3.33
+    # no bracket: the extrapolated end segment, as local_crossing reads it
+    assert mh.local_segment_slope((1.4, 1.6, 1.8), (1.9, 2.0, 2.05)) == pytest.approx(0.25)
+    assert mh.local_segment_slope((1.4, 1.6), (1.0, None)) is None
+    assert mh._amp(1.0) is None and mh._amp(0.5) == pytest.approx(2.0)
+
+
+def test_rule_v_reads_only_the_pre_registered_grid():
+    cells = [_cell(0.0), dict(_cell(0.5, 0.5, noise=0.0), arm=mh.ARM_NOISE0),
+             dict(_cell(0.5, 0.5), arm=mh.ARM_NOISE0), dict(_cell(0.02), arm=mh.ARM_RULE_V)]
+    kept = mh.rule_v_cells(cells)
+    assert kept == [cells[0], cells[3]]
+    assert mh.city_selection(kept)['estimator'] == mh.EST_LINE
 
 
 def _cell(err_line, err_local=0.0, group='g', h_true=2.2, noise=0.5):
@@ -453,8 +485,11 @@ def test_table_round_trip_with_the_89_blocks_and_per_rig_still_loads(tmp_path, m
                               'estimator_validation', 'results_sha256']
     g = body['groups']['gopro/max']
     ib = g['instrument_b']
-    assert set(ib) >= {'estimator', 'h_star', 'amplification', 'extrapolated', 'validated',
-                       'h_at_2p6'}
+    assert set(ib) >= {'estimator', 'h_star', 'line_amplification', 'local_slope',
+                       'local_amplification', 'extrapolated', 'validated', 'h_at_2p6'}
+    assert 'amplification' not in ib      # renamed (#98): it was the line's only
+    assert ib['local_slope'] == pytest.approx(0.3, abs=1e-3)   # B(h) = 1.9 + 0.3 (h - 1.9)
+    assert ib['local_amplification'] == pytest.approx(1 / 0.7, abs=1e-3)
     assert ib['estimator'] == 'local' and ib['validated'] is True
     assert ib['h_star'] == pytest.approx(1.9) and ib['h_at_2p6'] == pytest.approx(2.11)
     assert g['applied'] and g['height_m'] == pytest.approx(1.925)
@@ -472,11 +507,20 @@ def test_validation_cell_recovers_h_true_without_noise_and_the_csv_round_trips(
     # one true height everywhere, so the 2.6 m fuse the cell plants from is exact
     monkeypatch.setattr(sys.modules[__name__], 'CAMERAS',
                         [(pid, e, n, rig, 2.6) for pid, e, n, rig, _h in CAMERAS])
+    # NOTE: this toy scene has no neighbouring ramp inside the association gate, so it
+    # cannot see the merge bias that dominates B at noise 0 on real view graphs (#98
+    # review, docs section 8.3) -- it pins the plumbing, not the estimator's accuracy.
     run = _write_run(tmp_path)
     rows = mh.validation_cell('syn', run, ['gopro/max'], 2.2, 0.0, 0, real_sweep_s=1.0,
                               heights=(1.6, 2.0, 2.6, 3.0), null_seeds=range(2),
-                              min_rows=1)
+                              min_rows=1, exploratory=True)
     r, = rows
+    # the exploratory readings: nothing merged, so every site is oracle-clean and B at
+    # the true height is exact on both
+    assert r['sites_merged'] == 0 and r['sites_multi'] > 0
+    assert r['b_at_h_true'] == pytest.approx(2.2, abs=1e-4)
+    assert r['b_at_h_true_clean'] == pytest.approx(2.2, abs=1e-4)
+    assert 'arm' not in r and r['local_amplification'] is not None
     # exact geometry, no noise, null at zero: B's raw scale is exact at every height
     assert r['h_b_line'] == pytest.approx(2.2, abs=1e-4)
     assert r['h_b_local'] == pytest.approx(2.2, abs=1e-4)
