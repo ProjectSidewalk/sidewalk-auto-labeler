@@ -92,6 +92,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import depth as depthlib  # noqa: E402
+from detectors.batching import BATCH_SIZE_HELP, report_detector  # noqa: E402
 
 SOURCE_DETAIL = 'ps_store'
 API_METADATA = '/backupImage/{pano_id}/metadata'
@@ -589,17 +590,20 @@ def prefetch_metadata(run_dir, ids, store, layout, server, accept_skip_rate=Fals
     return counts
 
 
-def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_skip_rate=False):
+def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_skip_rate=False,
+        batch_size=1):
     """The detection pass. Loads the model, binds the manifest, and appends to
     results.jsonl through main.handle_result in id-list order. GUARDED_SKIPS are held back
-    until the pass ends and cached only if their rate passes the poison guard."""
+    until the pass ends and cached only if their rate passes the poison guard.
+    ``batch_size`` (issue #2) applies only when this call loads the model; a detector
+    already set on main is reused as it is."""
     from concurrent.futures import ThreadPoolExecutor
     import main
     from detectors import ModelProvenanceError
     if getattr(main, 'curb_ramp_detector', None) is None:
         from detectors.curb_ramp import CurbRampDetector
         try:
-            main.curb_ramp_detector = CurbRampDetector()
+            main.curb_ramp_detector = CurbRampDetector(batch_size=batch_size)
         except ModelProvenanceError as e:
             raise SystemExit(str(e))
     provenance = main.curb_ramp_detector.provenance
@@ -629,6 +633,7 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_s
         result['native_size_mismatch'] = box.get('native_size_mismatch', False)
         return result
 
+    t_pass = time.perf_counter()
     with open(run_dir / 'already_processed.txt', 'a', encoding='utf-8') as f_cache, \
          open(run_dir / 'results.jsonl', 'a', encoding='utf-8') as f_out, \
          ThreadPoolExecutor(max_workers=workers) as pool:
@@ -651,6 +656,7 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_s
             counts[outcome] += 1
             size_mismatch += outcome == 'success' and result['native_size_mismatch']
         refused = commit_guarded_skips(run_dir, f_cache, deferred, len(todo), accept_skip_rate)
+    wall = time.perf_counter() - t_pass
     counts['skipped'] -= sum(refused.values())
     counts['failed'] += sum(refused.values())
 
@@ -662,6 +668,7 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_s
                           'guarded_skips_refused': refused})
     print(f"-> {counts['success']} written, {counts['skipped']} skipped (see {SKIP_LOG}), "
           f"{counts['failed']} failed (re-run to retry).")
+    report_detector(main.curb_ramp_detector, wall, counts['success'])
     if size_mismatch:
         print(f'-> NOTE: {size_mismatch} store JPEG(s) differ in size from the server\'s '
               f'width/height; their detections are still keyed by the server\'s dimensions.')
@@ -682,6 +689,7 @@ def main_cli(argv=None):
                     help='also process N store panos that are not in the id list')
     ap.add_argument('--seed', type=int, default=0, help='seed for --sample-unlabeled')
     ap.add_argument('--workers', type=int, default=DEFAULT_WORKERS)
+    ap.add_argument('--batch-size', type=int, default=1, help=BATCH_SIZE_HELP)
     ap.add_argument('--limit', type=int, help='process at most this many new panos')
     ap.add_argument('--metadata-only', action='store_true',
                     help='only fetch and cache the server metadata; no model is loaded')
@@ -695,6 +703,8 @@ def main_cli(argv=None):
         ap.error('give --ids and/or --labels')
     if args.labels_user and not args.labels:
         ap.error('--labels-user needs --labels')
+    if args.batch_size < 1:
+        ap.error('--batch-size must be >= 1')
     if args.sample_unlabeled < 0 or (args.limit is not None and args.limit < 0):
         ap.error('--sample-unlabeled and --limit must be >= 0')
     input_ids = []
@@ -716,7 +726,7 @@ def main_cli(argv=None):
         prefetch_metadata(args.run_dir, ids, args.store, layout, server, args.accept_skip_rate)
         return
     run(args.run_dir, ids, args.store, layout, server, selection, args.workers, args.limit,
-        args.accept_skip_rate)
+        args.accept_skip_rate, batch_size=args.batch_size)
 
 
 if __name__ == '__main__':

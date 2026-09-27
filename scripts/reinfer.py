@@ -46,6 +46,7 @@ band guard applies with no override.
 import argparse
 import json
 import sys
+import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -55,6 +56,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from detectors import BENCHMARK_CONFIDENCE, on_camera_rig  # noqa: E402
+from detectors.batching import BATCH_SIZE_HELP, report_detector  # noqa: E402
 
 # The pano fields a band must not change: the first two set the pixel key PS stores, the
 # rest are what every label on that pano inherits (SidewalkWebpage#5361).
@@ -281,7 +283,7 @@ def select_todo(run_dir, done, ids=None):
     return [(pid, *positions[pid]) for pid in ids if pid not in done]
 
 
-def reinfer(run_dir, out_path, workers, limit, ids=None):
+def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1):
     manifest = json.loads((run_dir / 'manifest.json').read_text(encoding='utf-8'))
     source_name = manifest.get('imagery_source') or manifest.get('source') or 'gsv'
     if ids is not None and source_name != 'gsv':
@@ -298,7 +300,8 @@ def reinfer(run_dir, out_path, workers, limit, ids=None):
     source.prepare()
     from detectors import ModelProvenanceError
     try:
-        main.curb_ramp_detector = CurbRampDetector()  # refuses an unknown revision (issue #39)
+        # refuses an unknown revision (issue #39); batch_size > 1 batches forwards (#2)
+        main.curb_ramp_detector = CurbRampDetector(batch_size=batch_size)
     except ModelProvenanceError as e:
         raise SystemExit(str(e))
     provenance = main.curb_ramp_detector.provenance
@@ -324,6 +327,7 @@ def reinfer(run_dir, out_path, workers, limit, ids=None):
     counts = {'success': 0, 'skipped': 0, 'failed': 0}
     # Futures are consumed in submission order so the output keeps the input's line order;
     # downloads still overlap (the pool runs ahead) and the GPU serialises inference.
+    t_pass = time.perf_counter()
     with open(cache_path, 'a', encoding='utf-8') as f_cache, \
          open(out_path, 'a', encoding='utf-8') as f_out, \
          ThreadPoolExecutor(max_workers=workers) as pool:
@@ -337,6 +341,8 @@ def reinfer(run_dir, out_path, workers, limit, ids=None):
             counts[main.handle_result(future.result(), f_cache, f_out, provenance)] += 1
     print(f"-> Re-inference: {counts['success']} written, {counts['skipped']} skipped "
           f"(no longer served / unusable), {counts['failed']} failed (retry by re-running).")
+    report_detector(main.curb_ramp_detector, time.perf_counter() - t_pass, counts['success'])
+    getattr(main.curb_ramp_detector, "close", lambda: None)()
 
 
 def main_cli(argv=None):
@@ -357,6 +363,7 @@ def main_cli(argv=None):
                          'band is empty and they are never POSTed.')
     ap.add_argument('--workers', type=int, default=None,
                     help='fetch threads (default main.PROCESSING_CONCURRENCY)')
+    ap.add_argument('--batch-size', type=int, default=1, help=BATCH_SIZE_HELP)
     ap.add_argument('--limit', type=int, default=None, help='re-infer at most this many panos')
     ap.add_argument('--ids', type=Path, default=None, metavar='FILE',
                     help='re-infer exactly these pano ids (one per line, each with a record in '
@@ -365,6 +372,8 @@ def main_cli(argv=None):
                          '(provenance_gate.py --draw-control writes the file)')
     args = ap.parse_args(argv)
 
+    if args.batch_size < 1:
+        ap.error('--batch-size must be >= 1')
     if args.ids is not None:
         if args.verify:
             ap.error('--ids re-infers; it does not combine with --verify')
@@ -424,7 +433,7 @@ def main_cli(argv=None):
 
     import main  # noqa: E402
     reinfer(args.run_dir, out_path, args.workers or main.PROCESSING_CONCURRENCY, args.limit,
-            None if args.ids is None else read_id_list(args.ids))
+            None if args.ids is None else read_id_list(args.ids), batch_size=args.batch_size)
 
 
 if __name__ == '__main__':
