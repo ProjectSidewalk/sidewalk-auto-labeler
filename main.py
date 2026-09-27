@@ -515,6 +515,16 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
                 f"'{manifest.get('imagery_source', 'gsv')}', not '{source_name}'.\n"
                 f"   Use a new --name for a different source."
             )
+        # A run rebuilt from the Project Sidewalk pano store (scripts/detect_from_store.py,
+        # issue #56) is a GSV run by manifest, but its pixels and pano blocks came from
+        # somewhere else and its records carry no links: appending zoom-3 GSV panos to it
+        # would mix two pixel sources in one results.jsonl, with nothing for gap fill to follow.
+        if manifest.get('pixels') is not None:
+            sys.exit(
+                f"❌ Run '{run_dir.name}' was built from a local pano store "
+                f"({manifest['pixels'].get('store', '?')}) by scripts/detect_from_store.py.\n"
+                f"   main.py must not append to it; use a new --name, or detect_from_store.py."
+            )
         if source_name == 'mapillary' and manifest.get('mapillary_position', 'sfm') != position_field:
             sys.exit(
                 f"❌ Run '{run_dir.name}' positions panos from Mapillary's "

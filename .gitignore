@@ -89,3 +89,15 @@ runs/**
 !runs/*/provenance_gate/
 !runs/*/provenance_gate/report.md
 !runs/*/provenance_gate/unmatched.csv
+# ...and the control arm's pano ids (--draw-control), drawn with a fixed seed.
+!runs/*/provenance_gate/control_ids.txt
+# The rebuilt run's definition (scripts/detect_from_store.py, #56): the selection record
+# (inputs' sha256, seed, store, layout, server, id-list sha256) and the sampled unlabeled
+# stratum are tracked, so the empty stratum can be rebuilt from git after the store grows.
+# store_ids.txt (the full list, ~700 KB) is NOT: its labeled part is the label pull's.
+!runs/*/store_selection.json
+!runs/*/store_sampled_ids.txt
+# A store-bound depth dir's record (harvest_depth.py --from-store): which store, and the
+# live frame check's result. The index itself stays untracked, as for a harvest.
+!runs/*/depth/
+!runs/*/depth/store.json

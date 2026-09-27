@@ -10,8 +10,13 @@ Sidewalk's own pano store still holds the native-resolution JPEGs, and the serve
   * pano ids   : `--ids <file>` and/or `--labels <rawLabels geojson>` (the panos carrying
                  labels), plus `--sample-unlabeled N --seed S` store panos that carry none
                  (the benchmark's empty stratum). The selection is written once to
-                 `<run-dir>/store_ids.txt` + `store_selection.json` and reused on resume,
-                 so a store that grows between sessions cannot change the sample.
+                 `<run-dir>/store_ids.txt` + `store_selection.json` (+ the sample alone in
+                 `store_sampled_ids.txt`) and reused on resume, so a store that grows
+                 between sessions cannot change the sample. The selection JSON and the
+                 sampled ids are git-tracked; the full id list is not (the labeled part is
+                 rebuilt from the label pull, whose sha256 the gate report records).
+                 The selection binds the store (resolved path), its layout and the server:
+                 a later call with any of them different is refused, --metadata-only too.
   * pano block : GET <server>/backupImage/<id>/metadata, sequential and spaced (a 429's
                  Retry-After is honoured), cached one JSON per id under
                  `<run-dir>/store_metadata/` so a resume never re-GETs. The block has every
@@ -19,18 +24,36 @@ Sidewalk's own pano store still holds the native-resolution JPEGs, and the serve
                  (links, history, source, source_metadata, depth) is [] / null,
                  `source_detail` is "ps_store", and `camera_height_status` is `no_depth` --
                  heights come from the store's depth artifacts via
-                 `scripts/harvest_depth.py --from-store`.
+                 `scripts/harvest_depth.py --from-store`. `camera_pitch` / `camera_roll` are
+                 the PS pano row's, which may not share streetlevel's convention; harmless
+                 while GSV fusion is flat (apply_pose off), but do not mix them with a GSV
+                 run's pitch/roll without checking.
   * pixels     : `<store>/<id[:2]>/<id>.jpg` (sharded) or `<store>/<id>.jpg` (flat),
-                 autodetected, normalized by panorama.normalize_image -- the same clamp +
-                 resize as the GSV download path.
+                 detected from where the selected ids' JPEGs actually are, normalized by
+                 panorama.normalize_image -- the same clamp + resize as the GSV download
+                 path.
 
 Detection, records and resume are main.py's own (`main._process`, `main.handle_result`,
 `main.build_output_line`, `already_processed.txt`), so the output is an ordinary
 `results.jsonl`. The manifest is bound to the model like any run (`main.bind_model`), is
 `imagery_source: gsv`, and carries a `pixels` block saying where the pixels and metadata
-came from. Deterministic skips (no JPEG in the store, metadata 404, incomplete metadata,
-bytes that are not an image) are cached and logged with their reason in
-`store_skipped.jsonl`; network and HTTP errors are left uncached and retried next run.
+came from. main.py refuses a run dir whose manifest carries `pixels`, and this runner
+refuses a run dir that main.py already wrote records into, so the two never append to one
+file. send_to_ps.py refuses a store-built file (it would re-insert the city's live labels)
+unless --allow-store-file is given.
+
+Deterministic skips are cached and logged with their reason in `store_skipped.jsonl`:
+`jpg_missing` (no JPEG in the store), `metadata_404_null_field_or_no_file`, the metadata
+endpoint's 404 -- which does NOT mean "no backup": the server answers 404 unless its file
+is on disk AND the pano_data row has non-null width/height/lat/lng/camera_heading/
+camera_pitch (PanoDataService.getLocalBackupImage), and since this runner only asks after
+finding the JPEG, a 404 here is most often a null camera_pitch -- a non-random set, which
+the provenance gate reports by count and share; `metadata_incomplete`; and
+`jpg_unreadable`. The first two are poison-guarded like harvest_depth's NO_DEPTH: when
+either exceeds SKIP_ALARM_RATE of a pass (minimum SKIP_ALARM_MIN) it is NOT cached -- an
+unmounted or wrong --store, or a wrong --server, would otherwise skip the whole run
+forever -- unless --accept-skip-rate says the rate was checked by hand. Network and HTTP
+errors are left uncached and retried next run.
 
     # 1. metadata only (no model, no GPU): fill the cache first, anywhere the store is
     python scripts/detect_from_store.py --run-dir runs/vancouver \\
@@ -41,8 +64,9 @@ bytes that are not an image) are cached and logged with their reason in
 
     # 2. the detection run (same arguments, without --metadata-only)
 
-Memory: a 16384x8192 JPEG decodes to ~400 MB before the resize, so --workers defaults to
-8, not main.py's 50.
+Memory: a 16384x8192 JPEG decodes to ~400 MB, and the convert('RGB') copy doubles that to
+a peak of ~800 MB per worker before the resize, so --workers defaults to 8 (~6.4 GB), not
+main.py's 50.
 """
 import argparse
 import hashlib
@@ -56,6 +80,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
+from PIL import Image
+
+# A 16384x8192 store pano is 134 MP, past PIL's decompression-bomb warning (89 MP). These
+# are the lab's own files, so the guard is lifted once for this process, here, rather than
+# re-set inside every per-pano read.
+Image.MAX_IMAGE_PIXELS = None
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -68,8 +98,10 @@ API_METADATA = '/backupImage/{pano_id}/metadata'
 METADATA_DIR = 'store_metadata'
 SKIP_LOG = 'store_skipped.jsonl'
 IDS_FILE = 'store_ids.txt'
+SAMPLED_IDS_FILE = 'store_sampled_ids.txt'
 SELECTION_FILE = 'store_selection.json'
 DEFAULT_WORKERS = 8
+LAYOUT_PROBE = 200      # selected ids probed to decide the store's layout
 
 # Same politeness as scripts/coverage_check.py's metadata probe: one request at a time,
 # spaced, retrying a 5xx / 429 / connection error after a backoff.
@@ -80,9 +112,20 @@ REQUEST_TIMEOUT_S = 30
 
 # Deterministic skip reasons (cached, never retried).
 SKIP_NO_JPEG = 'jpg_missing'
-SKIP_METADATA_404 = 'metadata_404'
+# /backupImage/<id>/metadata's 404: the server has no file for the pano, OR its pano_data
+# row has a null width/height/lat/lng/camera_heading/camera_pitch. Named for what it is,
+# not "no backup" -- see the module docstring.
+SKIP_METADATA_UNSERVED = 'metadata_404_null_field_or_no_file'
 SKIP_METADATA_INCOMPLETE = 'metadata_incomplete'
 SKIP_NOT_AN_IMAGE = 'jpg_unreadable'
+
+# Poison guard (as harvest_depth.NO_DEPTH_ALARM_*): these two outcomes are what a wrong or
+# unmounted --store, a stray layout, or a wrong --server produce for EVERY pano, so above
+# this share of a pass they are not cached (and so retried next run) unless the operator
+# passes --accept-skip-rate after checking by hand.
+GUARDED_SKIPS = (SKIP_NO_JPEG, SKIP_METADATA_UNSERVED)
+SKIP_ALARM_RATE = 0.05
+SKIP_ALARM_MIN = 20
 
 # The pano-block keys the server must supply; anything else may be null.
 REQUIRED_METADATA = ('lat', 'lng', 'width', 'height', 'cameraHeading')
@@ -93,16 +136,27 @@ _last_request = [0.0]
 
 # ------------------------------------------------------------------------------ the store
 
-def store_layout(store):
-    """'sharded' (`<id[:2]>/<id>.jpg`, pano-tools' layout) or 'flat' (`<id>.jpg`)."""
+def store_layout(store, ids, probe=LAYOUT_PROBE):
+    """'sharded' (`<id[:2]>/<id>.jpg`, pano-tools' layout) or 'flat' (`<id>.jpg`), decided
+    from where the first `probe` of the selected `ids` actually have their JPEG -- not from
+    what happens to sit at the store's root, where one stray JPEG would otherwise make every
+    id of a sharded store read `jpg_missing`. Refuses a store where none of the probed ids
+    has a JPEG in either layout (wrong path, or an unmounted share), and one where both
+    layouts hold some of them."""
     store = Path(store)
     if not store.is_dir():
         raise SystemExit(f'--store {store}: not a directory')
-    with os.scandir(store) as it:
-        for entry in it:
-            if entry.is_file() and entry.name.endswith('.jpg'):
-                return 'flat'
-    return 'sharded'
+    probed = list(dict.fromkeys(ids))[:probe]
+    hits = {layout: sum(jpg_path(store, layout, pid).is_file() for pid in probed)
+            for layout in ('sharded', 'flat')}
+    if hits['sharded'] and hits['flat']:
+        raise SystemExit(f'--store {store}: of {len(probed)} probed ids, {hits["sharded"]} have '
+                         f'a sharded JPEG and {hits["flat"]} a flat one; refusing a mixed store.')
+    if not hits['sharded'] and not hits['flat']:
+        raise SystemExit(f'--store {store}: none of the first {len(probed)} selected ids has a '
+                         f'JPEG there (<id[:2]>/<id>.jpg or <id>.jpg). Wrong path, or the share '
+                         f'is not mounted?')
+    return 'sharded' if hits['sharded'] else 'flat'
 
 
 def jpg_path(store, layout, pano_id):
@@ -117,13 +171,19 @@ def _is_pano_jpg(name):
 
 
 def store_ids(store, layout):
-    """Every pano id with a JPEG in the store, sorted (so a seeded sample is reproducible)."""
+    """Every pano id with a JPEG in the store, sorted (so a seeded sample is reproducible).
+    In a sharded store only two-character shard dirs count, and only JPEGs whose id starts
+    with their dir's name -- anything else there is not where jpg_path would look for it."""
     store = Path(store)
-    dirs = [store] if layout == 'flat' else sorted(p for p in store.iterdir() if p.is_dir())
+    if layout == 'flat':
+        dirs = [store]
+    else:
+        dirs = sorted(p for p in store.iterdir() if p.is_dir() and len(p.name) == 2)
     ids = []
     for d in dirs:
         with os.scandir(d) as it:
-            ids.extend(e.name[:-4] for e in it if e.is_file() and _is_pano_jpg(e.name))
+            ids.extend(e.name[:-4] for e in it if e.is_file() and _is_pano_jpg(e.name)
+                       and (layout == 'flat' or e.name[:2] == d.name))
     return sorted(ids)
 
 
@@ -169,17 +229,27 @@ def _sha256_lines(ids):
     return hashlib.sha256(''.join(f'{i}\n' for i in ids).encode('utf-8')).hexdigest()
 
 
-def select_ids(run_dir, store, layout, input_ids, n_unlabeled, seed):
+def normalize_server(server):
+    """The server as it is bound and recorded: no trailing slash."""
+    return server.rstrip('/')
+
+
+def select_ids(run_dir, store, layout, input_ids, n_unlabeled, seed, server):
     """The run's pano list: the input ids followed by the unlabeled sample. Written once
-    (store_ids.txt + store_selection.json) and REUSED on every later call, so a resume
-    processes exactly the list the run started with. A resume with different inputs,
-    sample size or seed is refused rather than silently forking the run."""
+    (store_ids.txt + store_selection.json + store_sampled_ids.txt) and REUSED on every
+    later call, so a resume processes exactly the list the run started with. A later call
+    with different inputs, sample size, seed, store (compared resolved, so a trailing slash
+    or a relative path is the same store), layout or server is refused rather than silently
+    forking the run -- the server too, because the metadata cache and the cached 404 skips
+    came from it, and a detection pass must not record another server in its manifest."""
     ids_path, sel_path = run_dir / IDS_FILE, run_dir / SELECTION_FILE
+    store = str(Path(store).resolve())
     selection = {'input_ids_sha256': _sha256_lines(input_ids), 'n_input_ids': len(input_ids),
                  'sample_unlabeled': n_unlabeled, 'seed': seed}
+    bound = {**selection, 'store': store, 'layout': layout, 'server': normalize_server(server)}
     if sel_path.exists():
         recorded = json.loads(sel_path.read_text(encoding='utf-8'))
-        for key, value in {**selection, 'store': str(store)}.items():
+        for key, value in bound.items():
             if recorded.get(key) != value:
                 raise SystemExit(
                     f'{run_dir} was started with a different pano selection ({key}: recorded '
@@ -196,9 +266,11 @@ def select_ids(run_dir, store, layout, input_ids, n_unlabeled, seed):
     ids = list(dict.fromkeys(list(input_ids) + sample))
     run_dir.mkdir(parents=True, exist_ok=True)
     ids_path.write_text(''.join(f'{i}\n' for i in ids), encoding='utf-8', newline='\n')
-    selection.update({'ids_sha256': _sha256_lines(ids), 'n_ids': len(ids),
-                      'n_sampled_unlabeled': len(sample), 'store': str(store), 'layout': layout,
-                      'selected_at': datetime.now(timezone.utc).isoformat(timespec='seconds')})
+    (run_dir / SAMPLED_IDS_FILE).write_text(''.join(f'{i}\n' for i in sample),
+                                            encoding='utf-8', newline='\n')
+    selection = {**bound, 'ids_sha256': _sha256_lines(ids), 'n_ids': len(ids),
+                 'n_sampled_unlabeled': len(sample), 'sampled_ids_sha256': _sha256_lines(sample),
+                 'selected_at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
     sel_path.write_text(json.dumps(selection, indent=2) + '\n', encoding='utf-8')
     return ids, selection
 
@@ -231,7 +303,10 @@ def fetch_metadata(server, pano_id, cache_dir):
     """('ok', dict) | ('skipped', reason) | ('failure', reason) for one pano's
     /backupImage/<id>/metadata, served from the cache when present.
 
-    404 is deterministic (the server has no backup for this pano); a 5xx, a 429 or a
+    404 is deterministic, SKIP_METADATA_UNSERVED: the server has no file for the pano, or
+    its pano_data row has a null width/height/lat/lng/camera_heading/camera_pitch
+    (PanoDataService.getLocalBackupImage returns None for either) -- since the caller has
+    already found the JPEG in the store, usually the latter. A 5xx, a 429 or a
     connection error is retried after REQUEST_BACKOFF_S (a 429 honours Retry-After) and
     then left as a retryable failure; any other status, a redirect, or a 200 that is not
     a JSON object is a retryable failure too -- a login page served with 200 must never
@@ -259,7 +334,7 @@ def fetch_metadata(server, pano_id, cache_dir):
             tmp.replace(cache)
             return 'ok', body
         if status == 404:
-            return 'skipped', SKIP_METADATA_404
+            return 'skipped', SKIP_METADATA_UNSERVED
         if status is not None and status < 500 and status != 429:
             return 'failure', f'metadata: HTTP {status} from {url}'
         if attempt < len(REQUEST_BACKOFF_S):
@@ -285,6 +360,11 @@ def pano_record_from_ps(pano_id, meta):
     /backupImage/<id>/metadata. Same keys as sources/gsv.build_pano_record, in the same
     order; the values PS does not hold are [] / None, and `source_detail` says where the
     block came from. Raises KeyError / TypeError / ValueError on unusable metadata.
+
+    `camera_pitch` / `camera_roll` are the PS pano row's values. They may not share
+    streetlevel's convention (sign, and the row may have been written by another client),
+    so they are not interchangeable with a main.py GSV record's; harmless while GSV fusion
+    ignores pose (apply_pose off, #27/#52), and to be checked before anything applies them.
 
     Example:
         >>> b = pano_record_from_ps('P', {'lat': 45.6, 'lng': -122.5, 'width': 16384,
@@ -326,12 +406,9 @@ def pano_record_from_ps(pano_id, meta):
 # ---------------------------------------------------------------------------- per pano
 
 def load_store_image(path):
-    """(4096x2048 RGB PIL image, native (w, h)) for one store JPEG."""
-    from PIL import Image
+    """(4096x2048 RGB PIL image, native (w, h)) for one store JPEG. PIL's decompression-bomb
+    guard is lifted once, at import (see the module top)."""
     import panorama
-    # A 16384x8192 pano is 134 MP, past PIL's decompression-bomb warning (89 MP); these
-    # are our own files, so the guard is off for this read.
-    Image.MAX_IMAGE_PIXELS = None
     with Image.open(path) as im:
         native = im.size
         image = im.convert('RGB')
@@ -382,9 +459,9 @@ def load_skips(run_dir):
 
 # ---------------------------------------------------------------------------- manifest
 
-def pixels_block(selection, server):
+def pixels_block(selection):
     return {'store': selection['store'], 'layout': selection['layout'],
-            'server': server.rstrip('/'), 'metadata': API_METADATA,
+            'server': selection['server'], 'metadata': API_METADATA,
             'ids_sha256': selection['ids_sha256'], 'n_ids': selection['n_ids'],
             'n_sampled_unlabeled': selection['n_sampled_unlabeled'],
             'seed': selection['seed'], 'source_detail': SOURCE_DETAIL}
@@ -393,8 +470,10 @@ def pixels_block(selection, server):
 def bind_manifest(run_dir, provenance, pixels):
     """Load or create runs/<name>/manifest.json for a store run and bind it: a GSV run,
     this code's storage floor, one model revision (main.bind_model) and one `pixels`
-    block. An existing manifest from a scan (area hash, no runs) is adopted; one bound to
-    another store, server or id list is refused."""
+    block. An existing manifest from a scan (area hash, no runs, no results.jsonl) is
+    adopted; one bound to another store, server or id list is refused, and so is a run dir
+    that main.py has already written records into (runs or results.jsonl, but no `pixels`):
+    appending store records to a scanned run would mix two pixel sources in one file."""
     import main
     from importlib.metadata import version as pkg_version
     path = run_dir / 'manifest.json'
@@ -403,6 +482,11 @@ def bind_manifest(run_dir, provenance, pixels):
         if manifest.get('imagery_source', 'gsv') != 'gsv':
             raise SystemExit(f"{run_dir.name} is a '{manifest['imagery_source']}' run; a store "
                              f"run writes GSV records. Use a new --run-dir.")
+        if manifest.get('pixels') is None and (manifest.get('runs')
+                                               or (run_dir / 'results.jsonl').exists()):
+            raise SystemExit(f'{run_dir.name} already holds records written by main.py (no '
+                             f'`pixels` block in its manifest); a store run must not append to '
+                             f'them. Use a new --run-dir.')
         floor = manifest.get('detection_storage_floor', 0.55)
         if floor != main.DETECTION_STORAGE_FLOOR:
             raise SystemExit(f'{run_dir.name} stores detections down to {floor}; this code '
@@ -433,13 +517,46 @@ def bind_manifest(run_dir, provenance, pixels):
 
 # --------------------------------------------------------------------------------- runs
 
-def prefetch_metadata(run_dir, ids, store, layout, server):
+def skips_look_poisoned(n_reason, n_pass):
+    """Is this pass's share of one guarded skip reason high enough to suspect a wrong or
+    unmounted --store, or a wrong --server, rather than genuinely missing panos? See
+    SKIP_ALARM_RATE; the minimum keeps a small --limit pass from tripping on a few."""
+    return n_reason >= SKIP_ALARM_MIN and n_reason / max(n_pass, 1) > SKIP_ALARM_RATE
+
+
+def commit_guarded_skips(run_dir, f_cache, deferred, n_pass, accept_rate=False):
+    """Cache and log the pass's GUARDED_SKIPS (`deferred`: [(pano_id, reason)]) unless a
+    reason looks poisoned (skips_look_poisoned) and the operator has not accepted the
+    rate. Returns {reason: n refused}; a refused pano stays uncached and is retried."""
+    by_reason = {}
+    for pid, reason in deferred:
+        by_reason.setdefault(reason, []).append(pid)
+    refused = {}
+    for reason, pids in sorted(by_reason.items()):
+        if skips_look_poisoned(len(pids), n_pass) and not accept_rate:
+            refused[reason] = len(pids)
+            print(f'  REFUSING to cache {len(pids)} `{reason}` skip(s) ({100 * len(pids) / n_pass:.1f}% '
+                  f'of this pass, threshold {100 * SKIP_ALARM_RATE:.0f}%). A rate this high is far '
+                  f'more likely a wrong or unmounted --store, or a wrong --server, than panos that '
+                  f'are really missing; caching it would skip them forever. Check, then re-run '
+                  f'(add --accept-skip-rate if the rate is real).')
+            continue
+        for pid in pids:
+            log_skip(run_dir, pid, reason)
+            f_cache.write(f'{pid}\n')
+        f_cache.flush()
+    return refused
+
+
+def prefetch_metadata(run_dir, ids, store, layout, server, accept_skip_rate=False):
     """--metadata-only: fill store_metadata/ without loading a model. Deterministic skips
-    are cached exactly as the detection pass would cache them."""
+    are cached exactly as the detection pass would cache them, under the same poison
+    guard."""
     import main
     done = main.load_processed_ids(run_dir / 'already_processed.txt')
     cache_dir = run_dir / METADATA_DIR
     counts = {'cached': 0, 'fetched': 0, 'skipped': 0, 'failed': 0}
+    deferred, n_pass = [], 0
     with open(run_dir / 'already_processed.txt', 'a', encoding='utf-8') as f_cache:
         for pid in ids:
             if pid in done:
@@ -447,6 +564,7 @@ def prefetch_metadata(run_dir, ids, store, layout, server):
             if (cache_dir / f'{pid}.json').exists():
                 counts['cached'] += 1
                 continue
+            n_pass += 1
             if not jpg_path(store, layout, pid).is_file():
                 status, reason = 'skipped', SKIP_NO_JPEG
             else:
@@ -455,19 +573,26 @@ def prefetch_metadata(run_dir, ids, store, layout, server):
                 counts['fetched'] += 1
             elif status == 'skipped':
                 counts['skipped'] += 1
+                if reason in GUARDED_SKIPS:
+                    deferred.append((pid, reason))
+                    continue
                 log_skip(run_dir, pid, reason)
                 f_cache.write(f'{pid}\n')
                 f_cache.flush()
             else:
                 counts['failed'] += 1
                 print(f'  {pid}: {reason} (will retry)')
+        refused = commit_guarded_skips(run_dir, f_cache, deferred, n_pass, accept_skip_rate)
+    counts['skipped'] -= sum(refused.values())
+    counts['failed'] += sum(refused.values())
     print(f'-> metadata: {counts}')
     return counts
 
 
-def run(run_dir, ids, store, layout, server, selection, workers, limit):
+def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_skip_rate=False):
     """The detection pass. Loads the model, binds the manifest, and appends to
-    results.jsonl through main.handle_result in id-list order."""
+    results.jsonl through main.handle_result in id-list order. GUARDED_SKIPS are held back
+    until the pass ends and cached only if their rate passes the poison guard."""
     from concurrent.futures import ThreadPoolExecutor
     import main
     from detectors import ModelProvenanceError
@@ -478,7 +603,7 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit):
         except ModelProvenanceError as e:
             raise SystemExit(str(e))
     provenance = main.curb_ramp_detector.provenance
-    manifest = bind_manifest(run_dir, provenance, pixels_block(selection, server))
+    manifest = bind_manifest(run_dir, provenance, pixels_block(selection))
     started = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
     done = main.load_processed_ids(run_dir / 'already_processed.txt')
@@ -491,6 +616,7 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit):
     cache_dir = run_dir / METADATA_DIR
     counts = {'success': 0, 'skipped': 0, 'failed': 0}
     size_mismatch = 0
+    deferred = []
 
     def work(pid):
         box = {}
@@ -515,13 +641,25 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit):
         for fut in it:
             result = fut.result()
             if result['status'] == 'skipped':
-                log_skip(run_dir, result['pano_id'], result.get('reason', 'unknown'))
+                reason = result.get('reason', 'unknown')
+                if reason in GUARDED_SKIPS:
+                    deferred.append((result['pano_id'], reason))
+                    counts['skipped'] += 1
+                    continue
+                log_skip(run_dir, result['pano_id'], reason)
             outcome = main.handle_result(result, f_cache, f_out, provenance)
             counts[outcome] += 1
             size_mismatch += outcome == 'success' and result['native_size_mismatch']
+        refused = commit_guarded_skips(run_dir, f_cache, deferred, len(todo), accept_skip_rate)
+    counts['skipped'] -= sum(refused.values())
+    counts['failed'] += sum(refused.values())
 
+    # record_run merges its `scan` dict into the entry; the store pass uses it for its own
+    # counts, so the gate report can cite them from the manifest.
     main.record_run(run_dir / 'manifest.json', manifest, started, len(todo), counts['success'],
-                    counts['skipped'], counts['failed'], phase='store', provenance=provenance)
+                    counts['skipped'], counts['failed'], phase='store', provenance=provenance,
+                    scan={'native_size_mismatch': size_mismatch,
+                          'guarded_skips_refused': refused})
     print(f"-> {counts['success']} written, {counts['skipped']} skipped (see {SKIP_LOG}), "
           f"{counts['failed']} failed (re-run to retry).")
     if size_mismatch:
@@ -547,6 +685,10 @@ def main_cli(argv=None):
     ap.add_argument('--limit', type=int, help='process at most this many new panos')
     ap.add_argument('--metadata-only', action='store_true',
                     help='only fetch and cache the server metadata; no model is loaded')
+    ap.add_argument('--accept-skip-rate', action='store_true',
+                    help=f'cache {" / ".join(GUARDED_SKIPS)} skips even above '
+                         f'{SKIP_ALARM_RATE:.0%} of a pass; only after checking by hand that '
+                         f'the store, its mount and the server are right')
     args = ap.parse_args(argv)
 
     if not args.ids and not args.labels:
@@ -564,15 +706,17 @@ def main_cli(argv=None):
     if not input_ids:
         raise SystemExit('the id list is empty')
 
-    layout = store_layout(args.store)
+    layout = store_layout(args.store, input_ids)
+    server = normalize_server(args.server)
     ids, selection = select_ids(args.run_dir, args.store, layout, input_ids,
-                                args.sample_unlabeled, args.seed)
+                                args.sample_unlabeled, args.seed, server)
     print(f'-> store {args.store} ({layout}); {selection["n_ids"]} pano ids '
           f'({selection["n_sampled_unlabeled"]} sampled unlabeled, seed {selection["seed"]})')
     if args.metadata_only:
-        prefetch_metadata(args.run_dir, ids, args.store, layout, args.server)
+        prefetch_metadata(args.run_dir, ids, args.store, layout, server, args.accept_skip_rate)
         return
-    run(args.run_dir, ids, args.store, layout, args.server, selection, args.workers, args.limit)
+    run(args.run_dir, ids, args.store, layout, server, selection, args.workers, args.limit,
+        args.accept_skip_rate)
 
 
 if __name__ == '__main__':
