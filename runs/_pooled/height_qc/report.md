@@ -15,56 +15,56 @@ Pre-registered on [#44](https://github.com/ProjectSidewalk/sidewalk-auto-labeler
 
 | city | slope (per-pano) | slope (2.3) |
 |---|---:|---:|
-| bend | 0.227 | 0.075 |
-| paterson | 0.522 | 0.197 |
-| gainesville | 0.422 | 0.051 |
-| sao_paulo | 0.503 | 0.090 |
+| bend | 0.088 | 0.075 |
+| paterson | 0.551 | 0.197 |
+| gainesville | 0.404 | 0.051 |
+| sao_paulo | 0.511 | 0.090 |
 
 ## T2: low tail, pooled
 
 | group | n (per-pano) | implied/depth (per-pano) | n (2.3) | implied/depth (2.3) |
 |---|---:|---:|---:|---:|
-| tilt < 6 | 513 | 1.297 | 562 | 1.525 |
-| tilt >= 6 | 62 | 1.297 | 61 | 1.782 |
+| tilt < 6 | 513 | 1.296 | 562 | 1.525 |
+| tilt >= 6 | 62 | 1.271 | 61 | 1.782 |
 
 ## T3: gates, pooled
 
 | gate | rate (per-pano) | ratio (per-pano) | rate (2.3) | ratio (2.3) | ships |
 |---|---:|---:|---:|---:|---|
-| ground_tilt_deg >= 6 | 0.0339 | 1.542 | 0.0339 | 1.738 | no |
-| height_spread_m >= 0.3 | 0.0776 | 1.267 | 0.0776 | 1.347 | no |
+| ground_tilt_deg >= 6 | 0.0339 | 1.538 | 0.0339 | 1.738 | no |
+| height_spread_m >= 0.3 | 0.0587 | 1.192 | 0.0587 | 1.238 | no |
 | ground_pixel_share < 0.15 | 0.0165 | 1.030 | 0.0165 | 1.013 | no |
-| depth_planes < 60 | 0.0269 | 1.230 | 0.0269 | 1.229 | no |
+| depth_planes < 60 | 0.0269 | 1.223 | 0.0269 | 1.229 | no |
 | sky_fraction > 0.6 | 0.0000 | — | 0.0000 | — | no |
-| |depth - vintage_median| >= 0.4 | 0.0403 | 2.384 | 0.0403 | 3.536 | yes |
+| |depth - vintage_median| >= 0.4 | 0.0403 | 2.371 | 0.0403 | 3.536 | yes |
 
 ## T3 per city (context for the pooled verdict; not pre-registered)
 
 | gate | city | measured | flag rate | ratio (per-pano / 2.3) | passes in this city |
 |---|---|---:|---:|---|---|
-| ground_tilt_deg >= 6 | bend | 65866 | 0.0193 | 1.382 / 1.394 | no |
-| ground_tilt_deg >= 6 | paterson | 30325 | 0.0462 | 1.497 / 1.699 | no |
-| ground_tilt_deg >= 6 | gainesville | 30458 | 0.0093 | 1.464 / 1.780 | no |
-| ground_tilt_deg >= 6 | sao_paulo | 18601 | 0.1060 | 1.427 / 1.565 | no |
-| height_spread_m >= 0.3 | bend | 65866 | 0.0715 | 1.232 / 1.235 | no |
-| height_spread_m >= 0.3 | paterson | 30325 | 0.1002 | 1.429 / 1.557 | no |
-| height_spread_m >= 0.3 | gainesville | 30458 | 0.0233 | 1.128 / 1.228 | no |
-| height_spread_m >= 0.3 | sao_paulo | 18601 | 0.1516 | 1.113 / 1.225 | no |
+| ground_tilt_deg >= 6 | bend | 65866 | 0.0193 | 1.381 / 1.394 | no |
+| ground_tilt_deg >= 6 | paterson | 30325 | 0.0462 | 1.491 / 1.699 | no |
+| ground_tilt_deg >= 6 | gainesville | 30458 | 0.0093 | 1.466 / 1.780 | no |
+| ground_tilt_deg >= 6 | sao_paulo | 18601 | 0.1060 | 1.442 / 1.565 | no |
+| height_spread_m >= 0.3 | bend | 65866 | 0.0641 | 1.182 / 1.196 | no |
+| height_spread_m >= 0.3 | paterson | 30325 | 0.0745 | 1.354 / 1.494 | no |
+| height_spread_m >= 0.3 | gainesville | 30458 | 0.0114 | 1.032 / 0.941 | no |
+| height_spread_m >= 0.3 | sao_paulo | 18601 | 0.0915 | 1.068 / 1.173 | no |
 | ground_pixel_share < 0.15 | bend | 65866 | 0.0183 | 1.098 / 1.050 | no |
-| ground_pixel_share < 0.15 | paterson | 30325 | 0.0163 | 1.155 / 1.088 | no |
-| ground_pixel_share < 0.15 | gainesville | 30458 | 0.0074 | 0.752 / 0.843 | no |
+| ground_pixel_share < 0.15 | paterson | 30325 | 0.0163 | 1.154 / 1.088 | no |
+| ground_pixel_share < 0.15 | gainesville | 30458 | 0.0074 | 0.753 / 0.843 | no |
 | ground_pixel_share < 0.15 | sao_paulo | 18601 | 0.0252 | 1.059 / 0.932 | no |
 | depth_planes < 60 | bend | 65866 | 0.0142 | 0.977 / 1.017 | no |
-| depth_planes < 60 | paterson | 30325 | 0.0227 | 1.236 / 1.249 | no |
-| depth_planes < 60 | gainesville | 30458 | 0.0668 | 1.026 / 1.026 | no |
+| depth_planes < 60 | paterson | 30325 | 0.0227 | 1.237 / 1.249 | no |
+| depth_planes < 60 | gainesville | 30458 | 0.0668 | 1.021 / 1.026 | no |
 | depth_planes < 60 | sao_paulo | 18601 | 0.0133 | 0.669 / 0.648 | no |
 | sky_fraction > 0.6 | bend | 65866 | 0.0000 | — / — | no |
 | sky_fraction > 0.6 | paterson | 30325 | 0.0000 | — / — | no |
 | sky_fraction > 0.6 | gainesville | 30458 | 0.0000 | — / — | no |
 | sky_fraction > 0.6 | sao_paulo | 18601 | 0.0000 | — / — | no |
-| |depth - vintage_median| >= 0.4 | bend | 65866 | 0.0156 | 3.034 / 3.484 | yes |
-| |depth - vintage_median| >= 0.4 | paterson | 30325 | 0.0162 | 2.145 / 3.161 | yes |
-| |depth - vintage_median| >= 0.4 | gainesville | 30458 | 0.1106 | 2.339 / 3.626 | no |
+| |depth - vintage_median| >= 0.4 | bend | 65866 | 0.0156 | 3.002 / 3.484 | yes |
+| |depth - vintage_median| >= 0.4 | paterson | 30325 | 0.0162 | 2.132 / 3.161 | yes |
+| |depth - vintage_median| >= 0.4 | gainesville | 30458 | 0.1106 | 2.341 / 3.626 | no |
 | |depth - vintage_median| >= 0.4 | sao_paulo | 18601 | 0.0519 | 1.376 / 2.064 | no |
 
 Share of the pooled measured panos: bend 45%, paterson 21%, gainesville 21%, sao_paulo 13%.
@@ -76,8 +76,8 @@ Not pre-registered (asked for by the PR #81 review). For panos the vintage-devia
 | association | rig | side of median | n | keep depth | 2.6 m | vintage median |
 |---|---|---|---:|---:|---:|---:|
 | per-pano | low | below | 285 | 0.269 | 0.524 | 0.115 |
-| per-pano | low | above | 85 | 0.120 | 0.118 | 0.317 |
-| per-pano | other | below | 434 | 0.219 | 0.137 | 0.090 |
+| per-pano | low | above | 85 | 0.122 | 0.118 | 0.317 |
+| per-pano | other | below | 432 | 0.217 | 0.140 | 0.089 |
 | 2.3 | low | below | 322 | 0.390 | 0.285 | 0.124 |
 | 2.3 | low | above | 87 | 0.115 | 0.108 | 0.315 |
 | 2.3 | other | below | 519 | 0.287 | 0.082 | 0.090 |
@@ -86,10 +86,10 @@ Not pre-registered (asked for by the PR #81 review). For panos the vintage-devia
 
 | quartile | spread (per-pano) | p68 (per-pano) | spread (2.3) | p68 (2.3) |
 |---|---|---:|---|---:|
-| Q1 | 0.000–0.042 | 0.261 | 0.000–0.043 | 0.271 |
-| Q2 | 0.042–0.099 | 0.257 | 0.043–0.100 | 0.261 |
-| Q3 | 0.099–0.166 | 0.249 | 0.100–0.167 | 0.252 |
-| Q4 | 0.166–1.662 | 0.269 | 0.167–1.662 | 0.281 |
+| Q1 | 0.000–0.018 | 0.260 | 0.000–0.018 | 0.271 |
+| Q2 | 0.018–0.070 | 0.256 | 0.018–0.070 | 0.260 |
+| Q3 | 0.070–0.138 | 0.257 | 0.070–0.138 | 0.261 |
+| Q4 | 0.138–1.588 | 0.263 | 0.138–1.588 | 0.272 |
 
 ## Sensitivity (one threshold at a time, ×0.75 and ×1.25)
 
@@ -112,18 +112,18 @@ Associated at per-pano:
 
 | city | option | low rig (n) | low rig err | other (n) | other err | panos changed |
 |---|---|---:|---:|---:|---:|---:|
-| bend | a | 3 | +17.4% / +17.4% | 19124 | +3.9% / +6.6% | +0.0% |
-| bend | b | 3 | +4.5% / +18.2% | 19124 | +2.2% / +6.4% | +83.8% |
-| bend | c | 3 | +12.9% / +19.9% | 19124 | +0.0% / +5.9% | +83.8% |
-| paterson | a | 5315 | +31.1% / +31.1% | 5742 | +2.6% / +6.6% | +0.0% |
-| paterson | b | 5315 | +1.9% / +8.2% | 5742 | +0.8% / +6.6% | +87.4% |
-| paterson | c | 5315 | +1.2% / +8.2% | 5742 | -1.3% / +6.4% | +87.4% |
+| bend | a | 3 | +17.4% / +17.4% | 19120 | +3.9% / +6.6% | +0.0% |
+| bend | b | 3 | +4.5% / +18.2% | 19120 | +2.2% / +6.4% | +83.8% |
+| bend | c | 3 | +12.9% / +19.9% | 19120 | +0.0% / +5.9% | +83.8% |
+| paterson | a | 5312 | +31.1% / +31.1% | 5742 | +2.6% / +6.5% | +0.0% |
+| paterson | b | 5312 | +1.9% / +8.2% | 5742 | +0.8% / +6.6% | +87.4% |
+| paterson | c | 5312 | +1.2% / +8.2% | 5742 | -1.3% / +6.4% | +87.4% |
 | gainesville | a | 6069 | +33.9% / +33.9% | 3306 | +3.9% / +7.9% | +0.0% |
 | gainesville | b | 6069 | -0.2% / +10.4% | 3306 | +1.0% / +7.9% | +81.4% |
 | gainesville | c | 6069 | +4.0% / +9.8% | 3306 | +0.4% / +7.6% | +81.4% |
-| sao_paulo | a | 175 | +17.7% / +18.6% | 9159 | +2.8% / +7.8% | +0.0% |
-| sao_paulo | b | 175 | +0.3% / +12.0% | 9159 | -1.3% / +8.0% | +61.9% |
-| sao_paulo | c | 175 | +5.7% / +15.3% | 9159 | -1.2% / +8.0% | +61.9% |
+| sao_paulo | a | 176 | +18.5% / +19.0% | 9155 | +2.8% / +7.8% | +0.0% |
+| sao_paulo | b | 176 | +0.6% / +12.1% | 9155 | -1.2% / +8.0% | +61.9% |
+| sao_paulo | c | 176 | +6.6% / +15.4% | 9155 | -1.2% / +8.0% | +61.9% |
 
 Associated at 2.3:
 

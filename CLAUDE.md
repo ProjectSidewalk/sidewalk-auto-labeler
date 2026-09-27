@@ -79,6 +79,22 @@ python scripts/harvest_depth.py runs/paterson --check-convention # re-verify dep
 #   streetlevel's own raster on live panos — run this after any streetlevel upgrade, since
 #   the payload layout is undocumented and positional. (The same check runs offline against
 #   a synthetic payload in tests/test_depth.py, so CI catches a convention regression too.)
+python scripts/harvest_depth.py runs/paterson --reindex    # offline: recompute every derived
+#   index.csv column from the archived files after a depth.py change; refuses if an indexed
+#   file is missing. (reconcile also recomputes any row from an index with older columns.)
+# STAND-INS OUT OF THE SPREAD (#47 follow-up). 98% of measured GSV payloads carry a small secondary
+# stand-in plane (normal exactly vertical, 2.500 m; median 1.2% of the image), and
+# depth.ground_plane's height_spread_m -- the per-pano sigma under --camera-height-m per-pano --
+# used to take it in. It is now computed over measured planes only (depth.is_standin); the
+# dominant plane, camera_height_m and every status are unchanged (asserted column by column).
+# index.csv gains n_standin_planes / standin_pixel_share. Pooled spread p50 0.105 -> 0.074 m.
+# T4 (height_qc) re-read: still not rising, so the stand-ins were not why the spread fails to
+# predict the residual; every #44 verdict label is unchanged. auto and 2.6 m fuses are
+# byte-identical; per-pano sites move slightly (paterson 13,135 -> 13,146; world P/R unchanged).
+# GSV pano blocks written before this change carry the OLD camera_height_spread_m under the
+# same key. Addendum in docs/camera-height-study.md.
+python scripts/depth_standin.py snapshot    # copy each depth/index.csv aside BEFORE --reindex
+python scripts/depth_standin.py measure     # old vs new -> runs/_summary/depth_standin/ + docs copy
 # no_depth.txt and gone.txt are skip caches for the two deterministic outcomes — delete one
 # to force a re-check. Both are append-only: a pass that doesn't re-encounter an id
 # (--verify, --limit) must never be able to erase it.
@@ -365,8 +381,8 @@ python scripts/gsv_ground_plane.py figures
 # road's TILT carried out to the hit (were the road level, the stand-in would sit ~0.14 m BELOW it), so
 # no ramp plane measured here sits ~0.15 m up (real planes: ~0.03 m). offset_local always includes the
 # reference's tilt extrapolated over the distance from where the column walk met it to the hit;
-# level_floor.csv splits it. Also: height_spread_m (#44's per-pano sigma) takes in secondary stand-in
-# planes, since classify_height tests only the dominant one -- a follow-up depth.py helper.
+# level_floor.csv splits it. Follow-up (shipped): height_spread_m (#44's per-pano sigma) now leaves
+# those secondary stand-ins out (depth.is_standin) -- see the stand-in command block above.
 python scripts/depth_at_detection.py measure       # ~53k panos, multiprocess; --limit N smoke-tests
 #   (to detections.limit.csv, never over the full file); --summaries-only refuses a row-count mismatch
 python scripts/depth_at_detection.py gt            # reads ../RampNet/benchmark
@@ -754,12 +770,14 @@ in `scripts/height_qc.py`), which today only FLAGS: a height ≥ 0.40 m from its
 median (same run and capture year, ≥ 300 panos) is counted as `flagged_qc` in
 `sites_meta.json` and still used. The gate failed per city and its 2.6 m fallback was worse
 than the flagged height; T4's constant sigma worsened GT p90 placement. So both were not
-adopted, and per-pano `sites.jsonl` is byte-identical to #68's.
+adopted, and per-pano `sites.jsonl` was byte-identical to #68's until #47's follow-up
+took stand-in planes out of the spread (the sigma), which moves it slightly.
 The default-height decision itself (#79) is scored against the Bend and Gainesville city
 curb-ramp inventories by `scripts/inventory_oracle.py`, under a pre-registered rule; see
 `docs/placement-oracle.md`.
 `sources/gsv.py` stores the height on every new GSV pano block (`camera_height_m`,
-`camera_height_spread_m`, `ground_tilt_deg`, `depth_planes`, `camera_height_status`) —
+`camera_height_spread_m` (stand-in planes excluded since #47; older blocks include them),
+`ground_tilt_deg`, `depth_planes`, `camera_height_status`) —
 read from the raw response, because streetlevel's own depth parser rasterizes 131k pixels
 in pure Python and throws on the uint8-offset bug below; the height is non-null only when
 the status is `measured`. **Google's stand-in ground** is common and the plane-count test
