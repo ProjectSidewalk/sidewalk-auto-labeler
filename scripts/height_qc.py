@@ -58,7 +58,10 @@ Interpretation choices the plan left open, fixed here BEFORE the numbers ran:
 What shipped is narrower than the pre-registered verdicts (ADOPTED_GATES, and
 docs/camera-height-study.md "QC rule (#44)"): on review the T3 gate failed per city and
 its fallback was worse than the height it replaced, so it only flags; and T4's constant
-sigma worsened GT placement, so the spread sigma stays. Per-pano output is #68's.
+sigma worsened GT placement, so the spread sigma stays. Per-pano output was #68's until
+#47's follow-up took Google's stand-in planes out of the spread (see the 2026-09-27
+addendum in docs/camera-height-study.md). An index from before that is refused; each report
+states the spread definition it was produced under, read from the index header.
 
 No GPU, no network. Reads runs/<city>/{results.jsonl, depth/index.csv}; writes
 runs/<city>/height_qc/{report.md, bins.csv, gates.csv} per city and the cross-city
@@ -148,12 +151,16 @@ class Row:
 # --- data ------------------------------------------------------------------------------
 
 def load_index_features(path):
-    """{pano_id: row dict} of depth/index.csv, for the features the pano block lacks."""
+    """({pano_id: row dict}, spread definition) of depth/index.csv, for the features the
+    pano block lacks. Refuses an index from before #47 (depth.require_current_index); the
+    definition goes into the report as provenance only -- no rule reads it."""
     feats = {}
     with open(path, newline='', encoding='utf-8') as f:
-        for r in csv.DictReader(f):
+        reader = csv.DictReader(f)
+        definition = depthlib.require_current_index(reader.fieldnames, path)
+        for r in reader:
             feats[r['panorama_id']] = r
-    return feats
+    return feats, definition
 
 
 def _f(value, cast=float):
@@ -194,14 +201,14 @@ def implied_by_pano(panos, camera_height):
 
 
 def load_city(city, runs_root):
-    """(rows, unmeasured, n_panos, n_implied) for one city.
+    """(rows, unmeasured, n_panos, n_implied, spread definition) for one city.
 
     `rows` is every measured pano, with its features; `unmeasured` is (year, that year's
     vintage median or None, {association: implied}) for the rest, which the default-height
     decision table needs (they raycast at the fallback under every option)."""
     run = Path(runs_root) / city
+    feats, definition = load_index_features(run / 'depth' / 'index.csv')
     panos, _ = fs.load_results(run / 'results.jsonl', run / 'depth' / 'index.csv')
-    feats = load_index_features(run / 'depth' / 'index.csv')
     implied = {a: implied_by_pano(panos, a) for a in ASSOCIATIONS}
 
     by_year = {}
@@ -224,7 +231,8 @@ def load_city(city, runs_root):
             pixel_share=_f(r.get('ground_pixel_share')), planes=_f(r.get('n_planes'), int),
             sky=_f(r.get('sky_fraction')), vintage_median=vmed[year],
             implied={a: implied[a].get(p.pano_id) for a in ASSOCIATIONS}))
-    return rows, unmeasured, len(panos), {a: len(implied[a]) for a in ASSOCIATIONS}
+    return (rows, unmeasured, len(panos), {a: len(implied[a]) for a in ASSOCIATIONS},
+            definition)
 
 
 # --- statistics (stdlib) ---------------------------------------------------------------
@@ -566,11 +574,20 @@ def fmt(v, nd=3):
     return '—' if v is None or v == '' else f'{v:.{nd}f}'
 
 
-def city_report(city, rows, n_panos, n_implied, t):
+def spread_note(definitions):
+    """One provenance line: which height_spread_m definition the depth index(es) held.
+    Read from the index header (load_index_features); no rule reads it."""
+    names = ', '.join(sorted(set(definitions)))
+    return (f'Spread definition: `{names}` (read from depth/index.csv\'s header; since #47 '
+            'the spread leaves Google\'s stand-in planes out -- '
+            'docs/camera-height-study.md, 2026-09-27 addendum).')
+
+
+def city_report(city, rows, n_panos, n_implied, t, spread_definition):
     lines = [f'# Height QC tests (#44): {city}', '',
              f'{n_panos} panos, {len(rows)} with a measured depth height; implied height '
              f'for ' + ', '.join(f'{n_implied[a]} (assoc {a})' for a in ASSOCIATIONS)
-             + f'. k = {K_CITY[city]}.', '']
+             + f'. k = {K_CITY[city]}.', '', spread_note([spread_definition]), '']
     bins_rows = []
     lines += ['## T1: Theil–Sen slope of implied on depth, per vintage', '',
               '| vintage | ' + ' | '.join(f'n ({a}) | slope ({a})' for a in ASSOCIATIONS)
@@ -657,12 +674,15 @@ def post_hoc_fallback(rows, t):
     return out
 
 
-def pooled_report(cities, res, sens, t, rows=None):
+def pooled_report(cities, res, sens, t, rows=None, spread_definitions=()):
     lines = [f'# Height QC verdicts (#44), pooled over {", ".join(cities)}', '',
              'Pre-registered on '
              '[#44](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/44); '
              'scripts/height_qc.py has the rules verbatim and the interpretation choices '
-             'fixed before the run.', '', '## Verdicts', '',
+             'fixed before the run.', '']
+    if spread_definitions:
+        lines += [spread_note(spread_definitions), '']
+    lines += ['## Verdicts', '',
              '| test | verdict |', '|---|---|',
              f"| T1 | **{res['t1_verdict']}** (per-pano association: "
              f"{res['t1_labels'][ASSOCIATIONS[0]]}; 2.3 m: "
@@ -765,12 +785,13 @@ def main():
         ap.error(f'k_city is only defined for {", ".join(K_CITY)}')
 
     t = Thresholds()
-    all_rows, all_bins, all_gates, per_city = [], [], [], {}
+    all_rows, all_bins, all_gates, per_city, definitions = [], [], [], {}, []
     for city in args.cities:
         print(f'{city}: loading and fusing twice ...', file=sys.stderr)
-        rows, unmeasured, n_panos, n_implied = load_city(city, args.runs_root)
+        rows, unmeasured, n_panos, n_implied, definition = load_city(city, args.runs_root)
         per_city[city] = (rows, unmeasured, n_panos)
-        text, bins_rows, gates = city_report(city, rows, n_panos, n_implied, t)
+        definitions.append(definition)
+        text, bins_rows, gates = city_report(city, rows, n_panos, n_implied, t, definition)
         out = args.runs_root / city / 'height_qc'
         out.mkdir(parents=True, exist_ok=True)
         (out / 'report.md').write_text(text, encoding='utf-8', newline='\n')
@@ -784,7 +805,7 @@ def main():
     res = verdicts(all_rows, t)
     sens = sensitivity(all_rows, res)
     table = decision_table(per_city, lambda r: not ADOPTED_GATES)
-    text = (pooled_report(args.cities, res, sens, t, all_rows) + '\n'
+    text = (pooled_report(args.cities, res, sens, t, all_rows, definitions) + '\n'
             + decision_markdown(table, res['t1_verdict']))
     out = args.runs_root / '_pooled' / 'height_qc'
     out.mkdir(parents=True, exist_ok=True)

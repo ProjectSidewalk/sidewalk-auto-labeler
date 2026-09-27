@@ -283,10 +283,11 @@ def test_load_results_reads_heights_from_the_block_or_the_harvested_index(tmp_pa
     ]) + '\n', encoding='utf-8')
     (tmp_path / 'depth').mkdir()
     (tmp_path / 'depth' / 'index.csv').write_text(
-        'panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m\n'
-        'b,0,2.2,1.5,0.1\n'
-        'c,0,2.1,1.4,0.2\n'
-        'd,0,2.0,1.3,0.1\n', encoding='utf-8')
+        'panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m,'
+        'n_standin_planes\n'
+        'b,0,2.2,1.5,0.1,0\n'
+        'c,0,2.1,1.4,0.2,0\n'
+        'd,0,2.0,1.3,0.1,0\n', encoding='utf-8')
     by_id = {p.pano_id: p for p in fs.load_results(src)[0]}
     assert (by_id['a'].camera_height_m, by_id['a'].camera_height_spread_m) == (1.9, 0.1)
     assert by_id['b'].camera_height_m is None
@@ -306,8 +307,9 @@ def _pre40_run_with_harvested_depth(tmp_path, n=60, height=1.8):
         '\n'.join(_record_line(p) for p in panos) + '\n', encoding='utf-8')
     (tmp_path / 'depth').mkdir()
     (tmp_path / 'depth' / 'index.csv').write_text(
-        'panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m\n'
-        + ''.join(f'p{i},0,{height},1.4,0.1\n' for i in range(n)), encoding='utf-8')
+        'panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m,'
+        'n_standin_planes\n'
+        + ''.join(f'p{i},0,{height},1.4,0.1,0\n' for i in range(n)), encoding='utf-8')
 
 
 def test_auto_reads_the_harvested_depth_index(tmp_path):
@@ -343,12 +345,52 @@ def test_auto_leaves_the_pose_ablation_and_implied_height_at_the_constant(tmp_pa
 
 def test_harvested_stand_in_grounds_are_not_heights(tmp_path):
     path = tmp_path / 'index.csv'
-    path.write_text('panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m\n'
-                    'stand_in,0,2.5000,0.000,0.0000\n'
-                    'degenerate,1,2.5000,0.000,0.0000\n'
-                    'wrong_plane,0,0.0407,11.871,0.0000\n'
-                    'real,0,1.9154,1.482,0.2318\n', encoding='utf-8')
+    path.write_text('panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m,'
+                    'n_standin_planes\n'
+                    'stand_in,0,2.5000,0.000,0.0000,1\n'
+                    'degenerate,1,2.5000,0.000,0.0000,1\n'
+                    'wrong_plane,0,0.0407,11.871,0.0000,0\n'
+                    'real,0,1.9154,1.482,0.2318,1\n', encoding='utf-8')
     assert fs.load_depth_index(path) == {'real': (1.9154, 0.2318, 1.482)}  # tilt (#44)
+
+
+def test_an_index_from_before_47_is_refused(tmp_path):
+    """#97 review: its height_spread_m still takes the stand-in planes in and nothing
+    else in the file says so -- a per-pano fuse would silently use the old sigma."""
+    path = tmp_path / 'depth' / 'index.csv'
+    path.parent.mkdir()
+    path.write_text('panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m\n'
+                    'real,0,1.9154,1.482,0.2318\n', encoding='utf-8')
+    with pytest.raises(SystemExit, match=r'index predates #47.*--reindex'):
+        fs.load_depth_index(path)
+    import height_qc
+    with pytest.raises(SystemExit, match=r'index predates #47.*--reindex'):
+        height_qc.load_index_features(path)
+
+
+def test_height_qc_reads_the_spread_definition_from_the_header(tmp_path):
+    import height_qc
+    path = tmp_path / 'index.csv'
+    path.write_text('panorama_id,height_spread_m,n_standin_planes\nA,0.1,1\n',
+                    encoding='utf-8')
+    feats, definition = height_qc.load_index_features(path)
+    assert set(feats) == {'A'} and definition == 'measured_planes_only'
+    assert 'measured_planes_only' in height_qc.spread_note([definition])
+
+
+def test_sites_meta_records_the_spread_definition_of_index_heights(tmp_path):
+    """A per-pano fuse whose heights came from depth/index.csv says which spread its
+    sigma is; a fixed-height fuse has no spread to describe."""
+    _pre40_run_with_harvested_depth(tmp_path)
+    fs.main([str(tmp_path), '--camera-height-m', 'per-pano'])
+    ch = json.loads((tmp_path / 'sites_meta.json').read_text(encoding='utf-8'))[
+        'camera_heights']
+    assert ch['spread_definition'] == 'measured_planes_only'
+    assert ch['measured_from_index'] == 60
+    fs.main([str(tmp_path), '--camera-height-m', '2.6'])
+    ch = json.loads((tmp_path / 'sites_meta.json').read_text(encoding='utf-8'))[
+        'camera_heights']
+    assert 'spread_definition' not in ch
 
 
 # --- camera pose (issue #42)

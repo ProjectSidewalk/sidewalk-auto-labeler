@@ -172,6 +172,12 @@ def test_store_index_has_the_harvest_schema_and_feeds_fuse_sites(tmp_path, capsy
     assert [r[0] for r in rows] == ["AAone"]
     assert rows[0][1] == "AA/AAone.depth.npz"
     assert rows[0][3] == hd._sha256(store / "AA" / "AAone.depth.npz")
+    # Every row is as wide as the header, with the #47 stand-in columns filled: a short row
+    # would leave n_standin_planes blank and read as a pre-#47 spread (require_current_index
+    # only checks the header).
+    assert all(len(r) == len(hd.INDEX_FIELDS) for r in rows)
+    row = dict(zip(hd.INDEX_FIELDS, rows[0]))
+    assert row["n_standin_planes"] != "" and row["standin_pixel_share"] != ""
     assert hd._load_ids(depth_dir / hd.UNAVAILABLE_FILE) == {"CCgone"}
     assert not (depth_dir / "gone.txt").exists()
     assert (depth_dir / hd.NO_PLANES_FILE).read_text().split() == ["BBold"]

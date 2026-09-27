@@ -215,6 +215,7 @@ class SlimPano:
     grade_origin: str | None = None              # GRADE_SOURCES member that set grade_deg
     height_group: str | None = None              # camera_heights.json group (#53, per-rig)
     height_table: dict | None = None             # ...and that table's provenance (shared)
+    height_from_index: bool = False              # height read from depth/index.csv (#47)
 
     def pose_fields(self, **overrides):
         """The pano-block fields geo.pano_pose reads, with any of them overridden."""
@@ -329,13 +330,19 @@ def load_depth_index(path):
     measured heights: the four GSV runs were harvested in full. Rows go through the same
     depth.classify_height as a live fetch, so a stand-in ground or an implausible plane is
     left out here exactly as it would be nulled in a pano block.
+
+    An index from before #47 (no n_standin_planes column) is REFUSED
+    (depth.require_current_index): its spread still takes Google's stand-in planes in, and
+    nothing else in the file says so. `harvest_depth.py <run> --reindex` rebuilds it offline.
     """
     path = Path(path)
     if not path.exists():
         return {}
     heights = {}
     with open(path, newline='', encoding='utf-8') as f:
-        for row in csv.DictReader(f):
+        reader = csv.DictReader(f)
+        depthlib.require_current_index(reader.fieldnames, path)
+        for row in reader:
             if not row['camera_height_m']:
                 continue
             h, tilt = float(row['camera_height_m']), float(row['ground_tilt_deg'])
@@ -717,8 +724,10 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
                     or p.get('camera_heading') is None:
                 skipped += 1
                 continue
+            from_index = False
             if p.get('camera_height_status') in _UNDECIDED:
                 height, spread, tilt = index.get(p['panorama_id'], (None, None, None))
+                from_index = height is not None
             else:
                 height, spread = p.get('camera_height_m'), p.get('camera_height_spread_m')
                 tilt = p.get('ground_tilt_deg')
@@ -737,7 +746,8 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
                             for i, d in enumerate(rec.get('detections', []))],
                 camera_height_m=height, camera_height_spread_m=spread,
                 ground_tilt_deg=tilt, pose_origin=origin,
-                sequence_id=p.get('sequence_id') or meta.get('sequence')))
+                sequence_id=p.get('sequence_id') or meta.get('sequence'),
+                height_from_index=from_index))
             frames.append((len(panos) - 1, p.get('sequence_id'), meta.get('captured_at'),
                            p['lat'], p['lng'], meta.get('computed_altitude')))
     for i, (grade, bearing) in sequence_grades(frames).items():
@@ -916,8 +926,16 @@ def camera_height_counts(panos, params):
             flagged[reason] = flagged.get(reason, 0) + 1
     # measured = raycast at its own height; flagged_qc = the subset of those the #44 QC
     # gate flags (kept all the same); fallback = no measurement, raycast at the default.
-    return {'measured': measured, 'flagged_qc': flagged,
-            'fallback': len(panos) - measured}
+    out = {'measured': measured, 'flagged_qc': flagged,
+           'fallback': len(panos) - measured}
+    # Which spread the per-pano sigma is: an index is refused unless it is #47's
+    # (load_depth_index), so any height read from one carries the measured-planes spread.
+    # Blocks written by sources/gsv.py before #47 carry the old one and are not counted.
+    from_index = sum(1 for p in panos if p.height_from_index and p.camera_height_m is not None)
+    if from_index:
+        out['spread_definition'] = depthlib.SPREAD_DEFINITION
+        out['measured_from_index'] = from_index
+    return out
 
 
 def site_to_json(site, frame):
