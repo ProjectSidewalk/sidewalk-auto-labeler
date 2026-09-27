@@ -3,7 +3,7 @@
 The artifact under test is built by hand with the layout pano-tools documents for format
 v3 (sidewalk-panorama-tools downloaders/gsv.py, _write_depth_artifact): `plane_indices`
 verbatim in the payload's column order, `planes_n`/`planes_d` verbatim, and `depth` the
-reconstruction identity in the SAME column order (their #58 un-mirror). The raster here is
+reconstruction identity in the SAME column order (sidewalk-panorama-tools#58 un-mirror). The raster here is
 computed from that identity with numpy, not through depth.py, so the raster comparison is
 an independent check of depth.py's image frame (#80) rather than a tautology.
 

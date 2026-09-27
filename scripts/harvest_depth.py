@@ -455,7 +455,7 @@ def check_convention(pano_ids, n_panos, n_samples=2000):
 # schema as a harvest; `filename` is the artifact's path relative to the store and
 # `bytes`/`sha256` are the artifact's own. Nothing is copied.
 #
-# Frame: pano-tools flips its *raster* (`depth`) on write (its #58), and depth.py has its own
+# Frame: pano-tools flips its *raster* (`depth`) on write (sidewalk-panorama-tools#58), and depth.py has its own
 # raster mirror (#80). Neither touches the plane indices, which both sides keep in raw
 # payload order (= image order) -- but that is a claim about two codebases, so
 # check_store_frame proves it against live payloads before an index is trusted.

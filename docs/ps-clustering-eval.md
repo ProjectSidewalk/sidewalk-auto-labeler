@@ -436,7 +436,7 @@ with pano-tools' `<id>.depth.npz` beside each JPEG), and
    [RampNet#158](https://github.com/ProjectSidewalk/RampNet/issues/158).
 
 **Store frame check (2026-09-27, five panos).** pano-tools flips its depth *raster* on write
-(its #58), and `depth.py` has its own raster mirror (#80). Neither convention touches the
+(sidewalk-panorama-tools#58), and `depth.py` has its own raster mirror (#80). Neither convention touches the
 plane indices, which the bridge reads. To show that directly, five store panos were compared
 with their live payloads fetched today. The five were the first artifacts in five shards
 spread across the id space.
