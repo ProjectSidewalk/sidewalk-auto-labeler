@@ -47,10 +47,12 @@ Camera height: the CLI default is `auto` (issue #79). GSV panos are raycast at a
 per-rig height, derived from the run's own depth-measured heights by capture year:
 gsv_rig_assignment, the rule the #79 placement oracle selected as arm (d)
 (docs/placement-oracle.md). Mapillary and Panoramax panos, and a GSV run with no measured
-height at all, stay at geo.DEFAULT_CAMERA_HEIGHT_M. sites_meta.json's `camera_heights`
+height at all -- or none in a year that meets the measurement minimum -- stay at
+geo.DEFAULT_CAMERA_HEIGHT_M, as do undated GSV panos. sites_meta.json's `camera_heights`
 block records what `auto` resolved to, with the year-by-year assignment. Only this CLI
-defaults to `auto`: FuseParams() and every analysis script keep 2.6 m unless asked, so
-published numbers stay reproducible.
+defaults to `auto`, and only for a fuse: --pose-ablation and --implied-height keep 2.6 m
+unless asked, as do FuseParams() and every analysis script, so published numbers stay
+reproducible.
 
 Explicitly: --camera-height-m takes a constant (2.6 reproduces every fuse before #79), or
 `per-pano` for GSV's measured
@@ -480,6 +482,19 @@ GSV_RIG_MIN_MEASURED = 50
 GSV_RIG_MIN_SHARE = 0.5
 
 
+def rig_year_qualifies(n_measured, n_dated, min_measured=GSV_RIG_MIN_MEASURED,
+                       min_share=GSV_RIG_MIN_SHARE):
+    """Whether a capture year is measured well enough to keep its median-derived height:
+    >= min_measured measured panos AND >= min_share of the year's dated GSV panos, both
+    inclusive.
+
+    Example:
+        >>> rig_year_qualifies(50, 100), rig_year_qualifies(49, 49), rig_year_qualifies(60, 121)
+        (True, False, False)
+    """
+    return n_measured >= min_measured and n_measured / n_dated >= min_share
+
+
 def source_kind(source):
     """'mapillary', 'panoramax' or 'gsv' for a pano block's `source` string."""
     src = (source or '').lower()
@@ -491,7 +506,7 @@ def gsv_rig_assignment(panos, cut=GSV_RIG_CUT_M, low=GSV_RIG_LOW_M, high=GSV_RIG
     """{capture year: (median measured height or None, n_measured, n_dated, height)} over
     the GSV panos in `panos` (measured = camera_height_m non-null as load_results read it).
 
-    Example: 606 dated panos, 226 measured at a 1.93 m median -> 37% < 50% -> `high`
+    Example: 606 dated panos, 225 measured at a 1.93 m median -> 37% < 50% -> `high`
     (2.5 m); 23,766 dated, 21,950 measured at 1.76 m -> `low` (2.0 m).
     """
     heights, dated = {}, {}
@@ -506,7 +521,7 @@ def gsv_rig_assignment(panos, cut=GSV_RIG_CUT_M, low=GSV_RIG_LOW_M, high=GSV_RIG
     for year, n in dated.items():
         hs = sorted(heights.get(year, []))
         med = _median(hs) if hs else None
-        ok = med is not None and len(hs) >= min_measured and len(hs) / n >= min_share
+        ok = med is not None and rig_year_qualifies(len(hs), n, min_measured, min_share)
         out[year] = (med, len(hs), n, (low if med < cut else high) if ok else high)
     return out
 
@@ -530,23 +545,30 @@ def apply_gsv_rig_heights(panos, assignment):
 def resolve_auto_height(panos):
     """(panos, camera_height_m for FuseParams, provenance dict) for --camera-height-m auto.
 
-    GSV panos with at least one measured height -> PER_RIG over gsv_rig_assignment. No GSV
-    pano, or no measured height on any (a pre-#40 run whose depth was never harvested) ->
-    DEFAULT_CAMERA_HEIGHT_M for every pano: without a measurement the rig cannot be told
-    apart, and 2.5 m everywhere would be a silent default change nobody measured."""
+    GSV panos with at least one capture year that meets the measurement minimum
+    (rig_year_qualifies) -> PER_RIG over gsv_rig_assignment. Otherwise -> the constant
+    DEFAULT_CAMERA_HEIGHT_M for every pano: no GSV pano, no measured height on any (a pre-#40
+    run whose depth was never harvested), or measured heights too thin in every year (a
+    partly harvested depth/index.csv). Without one well-measured year the rig cannot be
+    told apart, and gsv_rig_assignment would put every pano at GSV_RIG_HIGH_M -- 2.5 m
+    everywhere, a silent default change nobody measured. The oracle's arm (d) scores
+    gsv_rig_assignment directly and is unaffected: every GSV oracle city has such a year."""
     n_gsv = sum(source_kind(p.source) == 'gsv' for p in panos)
     measured = sum(source_kind(p.source) == 'gsv' and p.camera_height_m is not None
                    for p in panos)
     rule = {'cut_m': GSV_RIG_CUT_M, 'low_m': GSV_RIG_LOW_M, 'high_m': GSV_RIG_HIGH_M,
             'min_measured': GSV_RIG_MIN_MEASURED, 'min_share': GSV_RIG_MIN_SHARE}
-    if not measured:
+    assignment = gsv_rig_assignment(panos) if measured else {}
+    if not any(rig_year_qualifies(k, n) for _, k, n, _ in assignment.values()):
         why = ('no GSV panos' if not n_gsv else
                f'none of {n_gsv} GSV panos has a measured height (harvest depth first: '
-               'scripts/harvest_depth.py)')
+               'scripts/harvest_depth.py)' if not measured else
+               f'{measured} of {n_gsv} GSV panos measured, but no capture year has '
+               f'>= {GSV_RIG_MIN_MEASURED} measured that are >= {GSV_RIG_MIN_SHARE:.0%} '
+               'of it (finish the depth harvest: scripts/harvest_depth.py)')
         return panos, geo.DEFAULT_CAMERA_HEIGHT_M, {
             'mode': HEIGHT_AUTO, 'resolved': geo.DEFAULT_CAMERA_HEIGHT_M, 'reason': why,
-            'gsv_panos': n_gsv, 'rule': rule}
-    assignment = gsv_rig_assignment(panos)
+            'gsv_panos': n_gsv, 'gsv_measured': measured, 'rule': rule}
     return apply_gsv_rig_heights(panos, assignment), geo.PER_RIG, {
         'mode': HEIGHT_AUTO, 'resolved': 'gsv-per-rig', 'gsv_panos': n_gsv,
         'gsv_measured': measured, 'rule': rule,
@@ -988,8 +1010,10 @@ def build_parser():
                     default=FuseParams.residual_per_dof_max)
     ap.add_argument('--camera-height-m', type=fuse_camera_height_arg, default=HEIGHT_AUTO,
                     help='"auto" (the default, #79): GSV panos at a per-rig height by '
-                         'capture year from the run\'s depth-measured heights, everything '
-                         'else at 2.6 m -- see gsv_rig_assignment; or a height in meters '
+                         'capture year from the run\'s depth-measured heights; undated GSV '
+                         'panos, Mapillary/Panoramax, and a GSV run with no well-measured '
+                         'year at 2.6 m -- see gsv_rig_assignment. --pose-ablation and '
+                         '--implied-height resolve auto to 2.6 m. Or a height in meters '
                          'for every pano (2.6 = the pre-#79 default), or "per-pano" for '
                          "each GSV pano's depth-measured height where it has one (#40; "
                          'opt-in -- see docs/camera-height-study.md), or "per-rig" for a '
@@ -1070,9 +1094,11 @@ def main(argv=None):
     for warning in pose_source_warnings(panos, args.apply_pose):
         print(warning, file=sys.stderr)
     auto = None
-    if args.camera_height_m == HEIGHT_AUTO and not args.implied_height:
+    if args.camera_height_m == HEIGHT_AUTO and not (args.implied_height
+                                                    or args.pose_ablation):
         # --implied-height compares the measured heights with the imagery's, so it keeps
-        # them; everything else fuses under what auto resolves to.
+        # them; --pose-ablation reproduces #27's experiment, run at 2.6 m (params already
+        # holds it). Only a fuse resolves auto.
         panos, resolved, auto = resolve_auto_height(panos)
         params = replace(params, camera_height_m=resolved)
         print(f"camera height: auto -> {auto['resolved']}"

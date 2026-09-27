@@ -42,7 +42,8 @@ an external oracle, city curb-ramp inventories (`docs/placement-oracle.md`). It 
 version of option (c) with a measurement minimum: a capture year keeps its depth-median
 height (2.0 m below 2.1 m, else 2.5 m) only with ≥ 50 measured panos that are ≥ 50% of
 the year, else 2.5 m. That is now `fuse_sites.py`'s default for GSV
-(`--camera-height-m auto`). Analysis scripts and `FuseParams()` still default to 2.6 m,
+(`--camera-height-m auto`); undated panos, and a run with no year that meets the minimum,
+stay at 2.6 m. Analysis scripts and `FuseParams()` still default to 2.6 m,
 so the tables in this document reproduce as written.
 
 ## The instrument: implied height by bearing-only triangulation

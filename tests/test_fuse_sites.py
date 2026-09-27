@@ -297,6 +297,50 @@ def test_load_results_reads_heights_from_the_block_or_the_harvested_index(tmp_pa
     assert fs.load_results(src, read_heights=False)[0][2].camera_height_m is None
 
 
+def _pre40_run_with_harvested_depth(tmp_path, n=60, height=1.8):
+    """A pre-#40 GSV run (no height keys in any pano block) whose only heights are the
+    harvested depth/index.csv -- the shape of all four harvested GSV cities."""
+    panos = [make_pano(f'p{i}', 12.0 * i, -8, [(12.0 * i + 2, 0, 0.9)], capture='2026-06')
+             for i in range(n)]
+    (tmp_path / 'results.jsonl').write_text(
+        '\n'.join(_record_line(p) for p in panos) + '\n', encoding='utf-8')
+    (tmp_path / 'depth').mkdir()
+    (tmp_path / 'depth' / 'index.csv').write_text(
+        'panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m\n'
+        + ''.join(f'p{i},0,{height},1.4,0.1\n' for i in range(n)), encoding='utf-8')
+
+
+def test_auto_reads_the_harvested_depth_index(tmp_path):
+    """auto must read depth/index.csv: pre-#40 runs have heights nowhere else, and
+    without it they would quietly resolve to 2.6 m."""
+    _pre40_run_with_harvested_depth(tmp_path)
+    fs.main([str(tmp_path)])
+    ch = json.loads((tmp_path / 'sites_meta.json').read_text(encoding='utf-8'))[
+        'camera_heights']
+    assert ch['resolved'] == 'gsv-per-rig' and ch['gsv_measured'] == 60
+    assert ch['assignment']['2026']['height_m'] == fs.GSV_RIG_LOW_M
+
+
+def test_auto_leaves_the_pose_ablation_and_implied_height_at_the_constant(tmp_path,
+                                                                          monkeypatch):
+    """Only a fuse resolves auto; the two analysis modes reproduce their 2.6 m runs."""
+    _pre40_run_with_harvested_depth(tmp_path)
+    seen = {}
+
+    def spy(name):
+        def report(panos, params):
+            seen[name] = (params.camera_height_m, {p.camera_height_m for p in panos})
+            return ''
+        return report
+    for flag, name in (('--pose-ablation', 'pose_ablation_report'),
+                       ('--implied-height', 'implied_height_report')):
+        monkeypatch.setattr(fs, name, spy(name))
+        fs.main([str(tmp_path), flag])
+    assert seen['pose_ablation_report'][0] == geo.DEFAULT_CAMERA_HEIGHT_M
+    assert seen['implied_height_report'][0] == geo.DEFAULT_CAMERA_HEIGHT_M
+    assert seen['implied_height_report'][1] == {1.8}     # the measured heights, kept
+
+
 def test_harvested_stand_in_grounds_are_not_heights(tmp_path):
     path = tmp_path / 'index.csv'
     path.write_text('panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m\n'
@@ -510,6 +554,17 @@ def test_gsv_rig_assignment_needs_enough_measured_panos_and_counts_gsv_only():
     assert rig['2024'] == (2.4, 60, 60, 2.5)
 
 
+@pytest.mark.parametrize('measured, unmeasured, median, height', [
+    (50, 0, 1.8, 2.0),     # exactly the count floor, at 100%
+    (49, 0, 1.8, 2.5),     # one short of it, at 100%: thin, so the old-rig height
+    (60, 0, 2.1, 2.5),     # a median of exactly the cut is not below it
+])
+def test_gsv_rig_assignment_boundaries(measured, unmeasured, median, height):
+    panos = ([_slim(f'm{i}', 2026, median) for i in range(measured)]
+             + [_slim(f'u{i}', 2026, None) for i in range(unmeasured)])
+    assert fs.gsv_rig_assignment(panos)['2026'][3] == height
+
+
 def test_rig_rule_constants_are_the_ones_the_camera_height_study_named():
     import height_qc
     assert fs.GSV_RIG_CUT_M == height_qc.LOW_VINTAGE_M
@@ -530,11 +585,18 @@ def test_auto_height_gives_gsv_its_rig_and_everything_else_the_default():
     assert geo.camera_height_for(pose, camera_height=geo.PER_RIG)[0] == 2.6
 
 
-def test_auto_height_without_any_measured_gsv_height_keeps_the_default():
-    for panos in ([_slim('g', 2026, None)], [_slim('m', 2026, 1.5, source='mapillary')]):
+def test_auto_height_without_a_well_measured_gsv_year_keeps_the_default():
+    """No GSV pano, none measured, or measured too thinly in EVERY year (a partly
+    harvested depth index): 2.6 m for all, never gsv_rig_assignment's 2.5 m everywhere."""
+    thin = ([_slim(f't{i}', 2024, 2.3) for i in range(49)]
+            + [_slim(f'u{i}', 2025, 1.8) for i in range(10)]
+            + [_slim(f'x{i}', 2025, None) for i in range(90)])
+    for panos in ([_slim('g', 2026, None)], [_slim('m', 2026, 1.5, source='mapillary')],
+                  thin):
         out, resolved, prov = fs.resolve_auto_height(panos)
         assert out is panos and resolved == geo.DEFAULT_CAMERA_HEIGHT_M
         assert prov['resolved'] == geo.DEFAULT_CAMERA_HEIGHT_M and prov['reason']
+    assert prov['gsv_measured'] == 59 and 'no capture year' in prov['reason']
 
 
 def test_auto_is_the_cli_default_only(tmp_path):
@@ -552,10 +614,11 @@ def test_auto_is_the_cli_default_only(tmp_path):
     fs.main([str(tmp_path)])
     meta = json.loads((tmp_path / 'sites_meta.json').read_text(encoding='utf-8'))
     ch = meta['camera_heights']
-    assert ch['mode'] == 'auto' and ch['resolved'] == 'gsv-per-rig'
-    # 12 measured panos < GSV_RIG_MIN_MEASURED: the old-rig height, not the low one
-    assert ch['assignment']['2024']['height_m'] == 2.5 and ch['applied'] == 12
-    assert meta['params']['camera_height_m'] == geo.PER_RIG
+    # 12 measured panos < GSV_RIG_MIN_MEASURED in their one year: no rig can be told
+    # apart, so auto falls back to the constant rather than 2.5 m everywhere
+    assert ch['mode'] == 'auto' and ch['resolved'] == geo.DEFAULT_CAMERA_HEIGHT_M
+    assert ch['gsv_measured'] == 12
+    assert meta['params']['camera_height_m'] == geo.DEFAULT_CAMERA_HEIGHT_M
     fs.main([str(tmp_path), '--camera-height-m', '2.6', '--out', str(tmp_path / 'f.jsonl')])
     fixed = json.loads((tmp_path / 'f_meta.json').read_text(encoding='utf-8'))
     assert fixed['camera_heights'] == {'fixed_m': 2.6, 'panos': 12}

@@ -19,8 +19,8 @@ Three camera-height arms, all GSV, all at OPERATIONAL_CONFIDENCE with the rig ma
            unmeasured panos included, since a rig is not a payload. A vintage with no
            measured pano, or an undated pano, falls back to 2.6 m.
   (d) `d`  (c) with a measurement minimum -- added 2026-09-26 and posted on #79 before it
-           was scored, because (c) gave thinly measured vintages (Gainesville 2015: 226 of
-           606 panos measured; 2018: 187 of 1,059) the low-rig height on a median of few
+           was scored, because (c) gave thinly measured vintages (Gainesville 2015: 225 of
+           606 panos measured; 2018: 160 of 1,059) the low-rig height on a median of few
            payloads. A vintage gets its depth-median height (2.0 m below 2.1 m, else 2.5 m)
            only if >= 50% of its dated panos AND >= 50 panos are measured; every other
            dated vintage gets 2.5 m. Undated panos fall back to 2.6 m. (d) replaces (c) as

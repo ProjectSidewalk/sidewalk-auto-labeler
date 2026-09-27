@@ -108,8 +108,10 @@ python scripts/fuse_sites.py runs/richmond --apply-pose road    # opt-in, withhe
 # GSV panos get a per-rig height by capture year from the run's own depth-measured heights
 # (fuse_sites.gsv_rig_assignment: a year whose median is < 2.1 m -> 2.0 m, else 2.5 m, but
 # only with >= 50 measured panos that are >= 50% of the year -- else 2.5 m); Mapillary,
-# Panoramax, and a GSV run with no measured height stay at 2.6 m. sites_meta.json's
-# `camera_heights` records the resolution and the year table. ONLY that CLI default moved:
+# Panoramax, undated GSV panos, and a GSV run with no year that meets that minimum (none
+# measured, or a partly harvested depth index) stay at 2.6 m. sites_meta.json's
+# `camera_heights` records the resolution and the year table. ONLY that CLI's fuse default
+# moved (its --pose-ablation / --implied-height still resolve `auto` to 2.6 m):
 # FuseParams() and every analysis script (eval_sites, mined_precision, agree_rate,
 # reprojection_residual, ...) still default to geo.DEFAULT_CAMERA_HEIGHT_M = 2.6, so
 # published numbers reproduce; `fuse_sites.py --camera-height-m 2.6` reproduces a pre-#79
