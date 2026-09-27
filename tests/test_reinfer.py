@@ -350,3 +350,48 @@ def test_a_pre_mask_campaign_is_recounted_without_the_mask(tmp_path):
     reinfer.write_band_file(old, new, band, set(), 0.55)
     _, endpoints = reinfer.write_derived_record(old, band, 0.55)   # must not raise
     assert endpoints[PROD]["labels_submitted"] == 2
+
+
+# ---------------------------------------------------- --ids (issue #56, PR #96 review)
+
+def _run_with(tmp_path, ids):
+    run = tmp_path / "run"
+    run.mkdir()
+    _write(run / "results.jsonl", [_record([], pano_id=pid, lat=45.0 + i, lng=-122.0)
+                                   for i, pid in enumerate(ids)])
+    return run
+
+
+def test_ids_select_exactly_those_panos_in_list_order(tmp_path):
+    run = _run_with(tmp_path, ["A", "B", "C", "D"])
+    assert reinfer.select_todo(run, set(), ["C", "A"]) == [("C", 47.0, -122.0), ("A", 45.0, -122.0)]
+    assert reinfer.select_todo(run, {"C"}, ["C", "A"]) == [("A", 45.0, -122.0)]
+    # without --ids: the whole run, unchanged behaviour
+    assert [t[0] for t in reinfer.select_todo(run, {"B"})] == ["A", "C", "D"]
+    with pytest.raises(SystemExit, match="no record"):
+        reinfer.select_todo(run, set(), ["A", "ZZZ"])
+
+
+def test_id_list_file(tmp_path):
+    path = tmp_path / "ids.txt"
+    path.write_text("A\n\n# a comment\nB  # trailing\nA\n", encoding="utf-8")
+    assert reinfer.read_id_list(path) == ["A", "B"]
+
+
+def test_ids_needs_out_and_refuses_verify(tmp_path):
+    run = _run_with(tmp_path, ["A"])
+    ids = tmp_path / "ids.txt"
+    ids.write_text("A\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        reinfer.main_cli([str(run), "--ids", str(ids)])
+    with pytest.raises(SystemExit):
+        reinfer.main_cli([str(run), "--ids", str(ids), "--out", str(tmp_path / "c.jsonl"),
+                          "--verify"])
+
+
+def test_ids_refuse_a_non_gsv_run(tmp_path):
+    run = _run_with(tmp_path, ["A"])
+    (run / "manifest.json").write_text(json.dumps({"imagery_source": "mapillary"}),
+                                       encoding="utf-8")
+    with pytest.raises(SystemExit, match="GSV path"):
+        reinfer.reinfer(run, tmp_path / "c.jsonl", 1, None, ids=["A"])

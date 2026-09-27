@@ -12,6 +12,11 @@ the run's `--mapillary-position` binding is honoured from the manifest.
     python scripts/reinfer.py runs/richmond --verify        # compare, no network, no GPU
     python scripts/reinfer.py runs/richmond --verify --band-floor 0.30 --write-band-file
 
+    # issue #56: re-infer exactly the listed ids through the GSV path (zoom-3 pixels via
+    # panorama.fetch_panorama) into a control file for scripts/provenance_gate.py --control
+    python scripts/reinfer.py runs/vancouver \\
+        --ids runs/vancouver/provenance_gate/control_ids.txt --out runs/vancouver/control_zoom3.jsonl
+
 Output order follows the old file where it can: futures are consumed in submission order,
 so a single clean pass preserves it, but a pano that failed and is retried on a later pass
 lands at the end of that pass instead.
@@ -248,13 +253,45 @@ def write_derived_record(old_path, band_path, tier):
     return record_path, endpoints
 
 
-def reinfer(run_dir, out_path, workers, limit):
+def read_id_list(path):
+    """Pano ids, one per line; blank lines and `#` comments ignored; order kept, deduped."""
+    ids = []
+    for line in Path(path).read_text(encoding='utf-8').splitlines():
+        line = line.split('#', 1)[0].strip()
+        if line:
+            ids.append(line)
+    return list(dict.fromkeys(ids))
+
+
+def select_todo(run_dir, done, ids=None):
+    """(pano_id, lat, lng) to re-infer: every record of the run not yet `done`, or with
+    `ids` exactly those ids, in the list's order, positioned from the run's own records.
+    An id the run has no record for is refused: without a record there is no lat/lng to
+    build the pano block from, and a silent drop would shrink a pre-registered draw."""
+    if ids is None:
+        return [(r['pano']['panorama_id'], r['pano']['lat'], r['pano']['lng'])
+                for r in read_records(run_dir / 'results.jsonl')
+                if r['pano']['panorama_id'] not in done]
+    positions = {r['pano']['panorama_id']: (r['pano']['lat'], r['pano']['lng'])
+                 for r in read_records(run_dir / 'results.jsonl')}
+    unknown = [pid for pid in ids if pid not in positions]
+    if unknown:
+        raise SystemExit(f"{len(unknown)} id(s) of --ids have no record in "
+                         f"{run_dir / 'results.jsonl'}, e.g. {unknown[:3]}")
+    return [(pid, *positions[pid]) for pid in ids if pid not in done]
+
+
+def reinfer(run_dir, out_path, workers, limit, ids=None):
+    manifest = json.loads((run_dir / 'manifest.json').read_text(encoding='utf-8'))
+    source_name = manifest.get('imagery_source') or manifest.get('source') or 'gsv'
+    if ids is not None and source_name != 'gsv':
+        raise SystemExit(f"--ids re-runs panos through the GSV path; {run_dir.name} is a "
+                         f"'{source_name}' run.")
+
     import main  # noqa: E402  (loads torch lazily below, like main.py does)
     from sources import get_source
     from detectors.curb_ramp import CurbRampDetector
 
-    manifest = json.loads((run_dir / 'manifest.json').read_text(encoding='utf-8'))
-    source_name = manifest.get('imagery_source') or manifest.get('source') or 'gsv'
     source = get_source(source_name)
     if source_name == 'mapillary':
         source.POSITION_FIELD = manifest.get('mapillary_position', 'sfm')
@@ -278,9 +315,7 @@ def reinfer(run_dir, out_path, workers, limit):
     done = set()
     if cache_path.exists():
         done = {l.strip() for l in cache_path.read_text(encoding='utf-8').splitlines() if l.strip()}
-    todo = [(r['pano']['panorama_id'], r['pano']['lat'], r['pano']['lng'])
-            for r in read_records(run_dir / 'results.jsonl')
-            if r['pano']['panorama_id'] not in done]
+    todo = select_todo(run_dir, done, ids)
     if limit is not None:
         todo = todo[:limit]
     print(f"-> {len(done)} already done, {len(todo)} to re-infer from {source_name} "
@@ -304,7 +339,7 @@ def reinfer(run_dir, out_path, workers, limit):
           f"(no longer served / unusable), {counts['failed']} failed (retry by re-running).")
 
 
-def main_cli():
+def main_cli(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('run_dir', type=Path, help='runs/<name>, holding results.jsonl + manifest.json')
     ap.add_argument('--out', type=Path, default=None,
@@ -323,8 +358,19 @@ def main_cli():
     ap.add_argument('--workers', type=int, default=None,
                     help='fetch threads (default main.PROCESSING_CONCURRENCY)')
     ap.add_argument('--limit', type=int, default=None, help='re-infer at most this many panos')
-    args = ap.parse_args()
+    ap.add_argument('--ids', type=Path, default=None, metavar='FILE',
+                    help='re-infer exactly these pano ids (one per line, each with a record in '
+                         'results.jsonl) through the GSV path into --out, which is required. '
+                         'Issue #56: the provenance gate\'s zoom-3 control arm '
+                         '(provenance_gate.py --draw-control writes the file)')
+    args = ap.parse_args(argv)
 
+    if args.ids is not None:
+        if args.verify:
+            ap.error('--ids re-infers; it does not combine with --verify')
+        if args.out is None:
+            ap.error('--ids needs an explicit --out: its file is a control, not the run\'s '
+                     'results.f01.jsonl')
     out_path = args.out or (args.run_dir / 'results.f01.jsonl')
     if args.write_band_file is not None and not args.verify:
         ap.error('--write-band-file requires --verify: the band file is built from the '
@@ -377,7 +423,8 @@ def main_cli():
         return
 
     import main  # noqa: E402
-    reinfer(args.run_dir, out_path, args.workers or main.PROCESSING_CONCURRENCY, args.limit)
+    reinfer(args.run_dir, out_path, args.workers or main.PROCESSING_CONCURRENCY, args.limit,
+            None if args.ids is None else read_id_list(args.ids))
 
 
 if __name__ == '__main__':

@@ -6,6 +6,28 @@ from sources import TARGET_IMAGE_SIZE as TARGET_SIZE
 PREFERRED_ZOOM = 3
 
 
+def normalize_image(pano):
+    """
+    Clamps an equirectangular PIL image to a 2:1 aspect ratio (cropping extra width from
+    the right) and resizes it to the detector's input size, TARGET_SIZE.
+
+    The one place this happens for GSV imagery, whether the pixels were stitched from
+    Google's tiles (fetch_panorama) or read from a local pano store
+    (scripts/detect_from_store.py, issue #56), so the two paths cannot drift apart.
+
+    Example:
+        >>> normalize_image(Image.new('RGB', (16384, 8192))).size
+        (4096, 2048)
+    """
+    width, height = pano.size
+    max_width = height * 2
+    if width > max_width:
+        pano = pano.crop((0, 0, max_width, height))
+    if pano.size != TARGET_SIZE:
+        pano = pano.resize(TARGET_SIZE, Image.BILINEAR)
+    return pano
+
+
 def fetch_panorama(metadata):
     """
     Downloads the equirectangular panorama for an already-fetched StreetViewPanorama
@@ -22,13 +44,7 @@ def fetch_panorama(metadata):
             return None
 
         # Defensive: clamp to a 2:1 aspect ratio, then normalize to the detector's size.
-        width, height = pano.size
-        max_width = height * 2
-        if width > max_width:
-            pano = pano.crop((0, 0, max_width, height))
-        if pano.size != TARGET_SIZE:
-            pano = pano.resize(TARGET_SIZE, Image.BILINEAR)
-        return pano
+        return normalize_image(pano)
     except Exception as e:
         print(f"Error fetching panorama {metadata.id}: {e}")
         return None
