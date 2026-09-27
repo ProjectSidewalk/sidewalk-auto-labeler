@@ -880,6 +880,49 @@ def first_pano_source(input_file: Path) -> Optional[str]:
     return None
 
 
+STORE_SOURCE_DETAIL = 'ps_store'   # scripts/detect_from_store.SOURCE_DETAIL
+
+
+def check_store_built(input_file: Path) -> None:
+    """Refuse (ValueError) a file rebuilt from the Project Sidewalk pano store.
+
+    scripts/detect_from_store.py (issue #56) rebuilds a city's run from the pixels PS
+    already holds, to evaluate the labels that city already has; by construction its
+    >= 0.55 detections ARE the live AI labels. Sending it would insert every one of them a
+    second time, and PS is insert-only for AI labels (SidewalkWebpage#5382), so nothing
+    could retire the copies. A fresh file has no submission record, so check_resume_state
+    cannot see it: this is that guard. A record is store-built when its pano block says
+    `source_detail: "ps_store"`, or when the run's manifest beside the file carries a
+    `pixels` block. Overridden only with --allow-store-file.
+    """
+    manifest_path = input_file.parent / 'manifest.json'
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+        except ValueError:
+            manifest = {}
+        if isinstance(manifest, dict) and manifest.get('pixels') is not None:
+            raise ValueError(
+                f"{manifest_path} carries a `pixels` block: this run was rebuilt from the "
+                f"pano store (scripts/detect_from_store.py), and its labels are the ones "
+                f"already live. Sending it would duplicate them. (--allow-store-file overrides)")
+    n = 0
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            if STORE_SOURCE_DETAIL in line and line.strip():
+                try:
+                    pano = json.loads(line).get('pano') or {}
+                except ValueError:
+                    continue
+                n += pano.get('source_detail') == STORE_SOURCE_DETAIL
+    if n:
+        raise ValueError(
+            f"{n} record(s) in {input_file.name} have source_detail \"{STORE_SOURCE_DETAIL}\": "
+            f"they were rebuilt from the pano store (scripts/detect_from_store.py), and their "
+            f"labels are the ones already live. Sending them would duplicate them. "
+            f"(--allow-store-file overrides)")
+
+
 def check_model_provenance(input_file: Path) -> None:
     """Refuse (ValueError) a file holding any record whose model training date is null.
 
@@ -1218,6 +1261,7 @@ def process_jsonl_file(
     ignore_position_check: bool = False,
     max_confidence: Optional[float] = None,
     reposition_live_city: bool = False,
+    allow_store_file: bool = False,
 ) -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending
@@ -1249,6 +1293,8 @@ def process_jsonl_file(
             where the newest campaign on this endpoint put the same panos - which duplicates
             live labels unless they are retired (soft-deleted) in the database first (see
             ``check_live_positions``). A whole-city decision.
+        allow_store_file: Submit a file rebuilt from the Project Sidewalk pano store (see
+            ``check_store_built``), whose labels are the city's live ones.
     """
     input_file = Path(file_path)
 
@@ -1263,6 +1309,16 @@ def process_jsonl_file(
     # A record of unknown provenance can never land (issue #39); say so before sending any.
     if not dry_run:
         check_model_provenance(input_file)
+
+    # A run rebuilt from the pano store holds the city's live labels (issue #56). Dry runs
+    # are exempt; the override downgrades the refusal to a warning.
+    if not dry_run:
+        try:
+            check_store_built(input_file)
+        except ValueError as e:
+            if not allow_store_file:
+                raise
+            print(f"WARNING (--allow-store-file): {e}")
 
     # Load resume state: line numbers that already got a 200 on a previous run (or, for a
     # band campaign, lines already handled by that band - sent, or empty and skipped).
@@ -1517,6 +1573,14 @@ def main() -> None:
              "a file through; the reason is written into the submission record."
     )
     parser.add_argument(
+        "--allow-store-file",
+        action="store_true",
+        help="Submit a file rebuilt from the Project Sidewalk pano store "
+             "(scripts/detect_from_store.py: records with source_detail \"ps_store\", or a run "
+             "manifest with a `pixels` block). Its labels are the city's live ones, so sending "
+             "it duplicates them and PS cannot retire the copies (SidewalkWebpage#5382)."
+    )
+    parser.add_argument(
         "--prefix-digest", type=int, metavar="N",
         help="Print the sha256 and byte length of the file's first N non-blank lines, then "
              "exit without submitting anything. Use it to migrate a submission record written "
@@ -1580,7 +1644,7 @@ def main() -> None:
         process_jsonl_file(args.jsonl_file, args.endpoint, api_key, args.dry_run,
                            args.min_confidence, args.limit, args.ignore_submission_guard,
                            args.ignore_position_check, args.max_confidence,
-                           args.reposition_live_city)
+                           args.reposition_live_city, args.allow_store_file)
     except ValueError as e:
         raise SystemExit(f"Error: {e}")
 
