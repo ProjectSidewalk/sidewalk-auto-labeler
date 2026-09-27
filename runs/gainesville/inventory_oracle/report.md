@@ -51,6 +51,7 @@ Kept point -> nearest operational site under (a) (in-memory fuse at the scoring 
 | (a) 2.6 m | `{"fixed_m": 2.6, "panos": 37435}` | 8967 |
 | (b) per-pano x 1.08 | `{"fallback": 6977, "flagged_qc": {"flagged_qc:vintage_deviation": 3527}, "measured": 30458}` | 7488 |
 | (c) per-rig 2.0/2.5 | `{"applied": 37435, "applied_by_group": {"2007:2.5": 299, "2008:2.5": 14, "2011:2.5": 358, "2014:2.5": 108, "2015:2": 606, "2016:2.5": 549, "2017:2.5": 96, "2018:2": 1059, "2019:2.5": 304, "2021:2.5": 368, "2022:2.5": 2592, "2023:2.5": 2140, "2024:2.5": 3679, "2025:2.5": 1497, "2026:2": 23766}, "fallback": 0, "grain": null, "mode": "per-rig", "sha256": null, "table": null}` | 7301 |
+| (d) per-rig, measured vintages | `{"applied": 37435, "applied_by_group": {"2007:2.5": 299, "2008:2.5": 14, "2011:2.5": 358, "2014:2.5": 108, "2015:2.5": 606, "2016:2.5": 549, "2017:2.5": 96, "2018:2.5": 1059, "2019:2.5": 304, "2021:2.5": 368, "2022:2.5": 2592, "2023:2.5": 2140, "2024:2.5": 3679, "2025:2.5": 1497, "2026:2": 23766}, "fallback": 0, "grain": null, "mode": "per-rig", "sha256": null, "table": null}` | 7151 |
 | per-pano x 1.00 (ref) | `{"fallback": 6977, "flagged_qc": {"flagged_qc:vintage_deviation": 3112}, "measured": 30458}` | 7855 |
 
 Per-rig assignment (vintage: median measured depth height -> height):
@@ -73,6 +74,26 @@ Per-rig assignment (vintage: median measured depth height -> height):
 | 2025 | 2.287 | 2.5 |
 | 2026 | 1.761 | 2.0 |
 
+(d) assignment: a vintage keeps its depth-median height only with >= 50 measured panos that are >= 50% of its dated panos; else 2.5 m.
+
+| vintage | measured / dated | share | median depth m | (d) height m |
+|---|---:|---:|---:|---:|
+| 2007 | 153 / 299 | 51% | 2.147 | 2.5 |
+| 2008 | 9 / 14 | 64% | 2.420 | 2.5 |
+| 2011 | 136 / 358 | 38% | 2.121 | 2.5 |
+| 2014 | 44 / 108 | 41% | 2.289 | 2.5 |
+| 2015 | 225 / 606 | 37% | 1.935 | 2.5 |
+| 2016 | 110 / 549 | 20% | 2.131 | 2.5 |
+| 2017 | 17 / 96 | 18% | 2.240 | 2.5 |
+| 2018 | 160 / 1059 | 15% | 2.065 | 2.5 |
+| 2019 | 64 / 304 | 21% | 2.141 | 2.5 |
+| 2021 | 334 / 368 | 91% | 2.303 | 2.5 |
+| 2022 | 2224 / 2592 | 86% | 2.275 | 2.5 |
+| 2023 | 1619 / 2140 | 76% | 2.300 | 2.5 |
+| 2024 | 2286 / 3679 | 62% | 2.314 | 2.5 |
+| 2025 | 1127 / 1497 | 75% | 2.287 | 2.5 |
+| 2026 | 21950 / 23766 | 92% | 1.761 | 2.0 |
+
 ## Frozen association, 2.5 m, (a)-anchored pool
 
 | frame | arm | pool | median m | p90 m | <= 3 m | own coverage | own <= 3 m | chance | sites scored / dropped |
@@ -80,15 +101,23 @@ Per-rig assignment (vintage: median measured depth height -> height):
 | frozen@a | (a) 2.6 m | 2130 | 1.24 | 2.15 | 100.0% | 66.4% | 100.0% | 2.6% | 8967 / 0 |
 | frozen@a | (b) per-pano x 1.08 | 2130 | 1.14 | 2.46 | 94.6% | 73.4% | 100.0% | 1.8% | 8967 / 0 |
 | frozen@a | (c) per-rig 2.0/2.5 | 2130 | 1.10 | 2.25 | 96.8% | 75.1% | 100.0% | 2.0% | 8967 / 0 |
+| frozen@a | (d) per-rig, measured vintages | 2130 | 1.08 | 2.21 | 96.9% | 75.5% | 100.0% | 2.0% | 8967 / 0 |
 | frozen@a | per-pano x 1.00 (ref) | 2130 | 1.29 | 2.80 | 91.7% | 71.9% | 100.0% | 1.8% | 8967 / 0 |
 | frozen@b | (a) 2.6 m | 2056 | 1.17 | 2.03 | 100.0% | 64.1% | 100.0% | 1.5% | 7086 / 402 |
 | frozen@b | (b) per-pano x 1.08 | 2056 | 1.09 | 2.35 | 94.7% | 66.4% | 100.0% | 1.8% | 7086 / 402 |
 | frozen@b | (c) per-rig 2.0/2.5 | 2056 | 1.05 | 2.22 | 96.0% | 68.0% | 100.0% | 1.9% | 7086 / 402 |
+| frozen@b | (d) per-rig, measured vintages | 2056 | 1.04 | 2.16 | 96.2% | 68.3% | 100.0% | 1.9% | 7086 / 402 |
 | frozen@b | per-pano x 1.00 (ref) | 2056 | 1.17 | 2.55 | 92.8% | 65.5% | 100.0% | 1.8% | 7086 / 402 |
 | frozen@c | (a) 2.6 m | 2226 | 1.14 | 2.01 | 100.0% | 69.4% | 100.0% | 1.5% | 7301 / 0 |
 | frozen@c | (b) per-pano x 1.08 | 2226 | 1.05 | 2.18 | 97.3% | 72.8% | 100.0% | 1.7% | 7301 / 0 |
 | frozen@c | (c) per-rig 2.0/2.5 | 2226 | 1.01 | 2.08 | 97.6% | 73.5% | 100.0% | 1.9% | 7301 / 0 |
+| frozen@c | (d) per-rig, measured vintages | 2226 | 1.00 | 2.03 | 97.8% | 73.9% | 100.0% | 1.8% | 7301 / 0 |
 | frozen@c | per-pano x 1.00 (ref) | 2226 | 1.13 | 2.38 | 95.3% | 71.9% | 100.0% | 1.7% | 7301 / 0 |
+| frozen@d | (a) 2.6 m | 2228 | 1.14 | 2.01 | 100.0% | 69.5% | 100.0% | 1.5% | 7151 / 0 |
+| frozen@d | (b) per-pano x 1.08 | 2228 | 1.06 | 2.18 | 97.2% | 72.9% | 100.0% | 1.7% | 7151 / 0 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2228 | 1.02 | 2.07 | 97.6% | 73.6% | 100.0% | 1.9% | 7151 / 0 |
+| frozen@d | (d) per-rig, measured vintages | 2228 | 1.00 | 2.02 | 97.8% | 73.9% | 100.0% | 1.8% | 7151 / 0 |
+| frozen@d | per-pano x 1.00 (ref) | 2228 | 1.14 | 2.37 | 95.3% | 72.0% | 100.0% | 1.7% | 7151 / 0 |
 
 ## Frozen association, 5 m, (a)-anchored pool
 
@@ -97,15 +126,23 @@ Per-rig assignment (vintage: median measured depth height -> height):
 | frozen@a | (a) 2.6 m | 2677 | 1.50 | 3.29 | 87.3% | 83.4% | 87.3% | 8.9% | 8967 / 0 |
 | frozen@a | (b) per-pano x 1.08 | 2677 | 1.27 | 3.18 | 88.1% | 85.5% | 90.9% | 6.6% | 8967 / 0 |
 | frozen@a | (c) per-rig 2.0/2.5 | 2677 | 1.22 | 2.94 | 90.4% | 85.6% | 91.8% | 6.7% | 8967 / 0 |
+| frozen@a | (d) per-rig, measured vintages | 2677 | 1.20 | 2.90 | 90.5% | 85.6% | 91.9% | 6.7% | 8967 / 0 |
 | frozen@a | per-pano x 1.00 (ref) | 2677 | 1.42 | 3.47 | 85.4% | 85.5% | 90.1% | 6.3% | 8967 / 0 |
 | frozen@b | (a) 2.6 m | 2469 | 1.32 | 3.03 | 89.8% | 77.0% | 89.8% | 6.5% | 7086 / 402 |
 | frozen@b | (b) per-pano x 1.08 | 2469 | 1.23 | 3.40 | 87.1% | 78.3% | 90.0% | 5.8% | 7086 / 402 |
 | frozen@b | (c) per-rig 2.0/2.5 | 2469 | 1.18 | 3.16 | 88.8% | 78.8% | 90.5% | 6.0% | 7086 / 402 |
+| frozen@b | (d) per-rig, measured vintages | 2469 | 1.16 | 3.13 | 89.1% | 78.8% | 90.8% | 6.0% | 7086 / 402 |
 | frozen@b | per-pano x 1.00 (ref) | 2469 | 1.31 | 3.59 | 85.3% | 77.9% | 89.1% | 5.8% | 7086 / 402 |
 | frozen@c | (a) 2.6 m | 2642 | 1.29 | 2.97 | 90.3% | 82.4% | 90.3% | 6.7% | 7301 / 0 |
 | frozen@c | (b) per-pano x 1.08 | 2642 | 1.17 | 2.98 | 90.4% | 84.5% | 91.0% | 6.0% | 7301 / 0 |
 | frozen@c | (c) per-rig 2.0/2.5 | 2642 | 1.13 | 2.87 | 90.9% | 84.4% | 91.3% | 6.3% | 7301 / 0 |
+| frozen@c | (d) per-rig, measured vintages | 2642 | 1.12 | 2.84 | 91.2% | 84.5% | 91.5% | 6.3% | 7301 / 0 |
 | frozen@c | per-pano x 1.00 (ref) | 2642 | 1.25 | 3.14 | 88.8% | 84.4% | 90.2% | 5.9% | 7301 / 0 |
+| frozen@d | (a) 2.6 m | 2642 | 1.29 | 2.97 | 90.2% | 82.4% | 90.2% | 6.7% | 7151 / 0 |
+| frozen@d | (b) per-pano x 1.08 | 2642 | 1.18 | 2.98 | 90.3% | 84.4% | 91.0% | 6.0% | 7151 / 0 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2642 | 1.13 | 2.87 | 90.9% | 84.4% | 91.3% | 6.2% | 7151 / 0 |
+| frozen@d | (d) per-rig, measured vintages | 2642 | 1.12 | 2.85 | 91.1% | 84.4% | 91.5% | 6.3% | 7151 / 0 |
+| frozen@d | per-pano x 1.00 (ref) | 2642 | 1.26 | 3.14 | 88.8% | 84.3% | 90.2% | 5.9% | 7151 / 0 |
 
 ## Frozen association, 8 m, (a)-anchored pool
 
@@ -114,15 +151,23 @@ Per-rig assignment (vintage: median measured depth height -> height):
 | frozen@a | (a) 2.6 m | 2823 | 1.57 | 3.84 | 82.7% | 88.0% | 82.7% | 17.6% | 8967 / 0 |
 | frozen@a | (b) per-pano x 1.08 | 2823 | 1.32 | 3.68 | 84.9% | 88.5% | 87.8% | 14.6% | 8967 / 0 |
 | frozen@a | (c) per-rig 2.0/2.5 | 2823 | 1.26 | 3.45 | 87.1% | 88.5% | 88.8% | 14.6% | 8967 / 0 |
+| frozen@a | (d) per-rig, measured vintages | 2823 | 1.25 | 3.43 | 87.2% | 88.5% | 89.0% | 14.6% | 8967 / 0 |
 | frozen@a | per-pano x 1.00 (ref) | 2823 | 1.47 | 3.87 | 82.8% | 88.5% | 87.0% | 14.3% | 8967 / 0 |
 | frozen@b | (a) 2.6 m | 2630 | 1.40 | 3.91 | 84.3% | 82.0% | 84.3% | 14.0% | 7086 / 402 |
 | frozen@b | (b) per-pano x 1.08 | 2630 | 1.28 | 4.15 | 83.2% | 82.4% | 85.6% | 13.6% | 7086 / 402 |
 | frozen@b | (c) per-rig 2.0/2.5 | 2630 | 1.24 | 3.75 | 84.8% | 82.4% | 86.6% | 13.3% | 7086 / 402 |
+| frozen@b | (d) per-rig, measured vintages | 2630 | 1.23 | 3.74 | 85.0% | 82.4% | 86.8% | 13.3% | 7086 / 402 |
 | frozen@b | per-pano x 1.00 (ref) | 2630 | 1.37 | 4.38 | 81.8% | 82.3% | 84.3% | 13.5% | 7086 / 402 |
 | frozen@c | (a) 2.6 m | 2788 | 1.35 | 3.70 | 85.5% | 86.9% | 85.5% | 14.3% | 7301 / 0 |
 | frozen@c | (b) per-pano x 1.08 | 2788 | 1.22 | 3.39 | 86.9% | 87.4% | 87.9% | 13.7% | 7301 / 0 |
 | frozen@c | (c) per-rig 2.0/2.5 | 2788 | 1.19 | 3.35 | 87.3% | 87.4% | 88.2% | 13.7% | 7301 / 0 |
+| frozen@c | (d) per-rig, measured vintages | 2788 | 1.17 | 3.31 | 87.6% | 87.4% | 88.4% | 13.8% | 7301 / 0 |
 | frozen@c | per-pano x 1.00 (ref) | 2788 | 1.30 | 3.53 | 85.7% | 87.3% | 87.1% | 13.7% | 7301 / 0 |
+| frozen@d | (a) 2.6 m | 2788 | 1.35 | 3.73 | 85.5% | 86.9% | 85.5% | 14.3% | 7151 / 0 |
+| frozen@d | (b) per-pano x 1.08 | 2788 | 1.22 | 3.40 | 86.9% | 87.4% | 87.9% | 13.7% | 7151 / 0 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2788 | 1.20 | 3.34 | 87.3% | 87.4% | 88.3% | 13.8% | 7151 / 0 |
+| frozen@d | (d) per-rig, measured vintages | 2788 | 1.18 | 3.32 | 87.5% | 87.4% | 88.4% | 13.8% | 7151 / 0 |
+| frozen@d | per-pano x 1.00 (ref) | 2788 | 1.30 | 3.53 | 85.8% | 87.3% | 87.1% | 13.7% | 7151 / 0 |
 
 ## Own association (each arm fused under itself; favours itself)
 
@@ -137,6 +182,9 @@ Per-rig assignment (vintage: median measured depth height -> height):
 | (c) per-rig 2.0/2.5 | 2.5 | 7301 | 73.5% | 1.02 | 1.95 | 100.0% | 1.9% |
 | (c) per-rig 2.0/2.5 | 5 | 7301 | 84.4% | 1.12 | 2.84 | 91.3% | 6.3% |
 | (c) per-rig 2.0/2.5 | 8 | 7301 | 87.4% | 1.17 | 3.23 | 88.2% | 13.7% |
+| (d) per-rig, measured vintages | 2.5 | 7151 | 73.9% | 1.01 | 1.94 | 100.0% | 1.8% |
+| (d) per-rig, measured vintages | 5 | 7151 | 84.4% | 1.12 | 2.79 | 91.5% | 6.3% |
+| (d) per-rig, measured vintages | 8 | 7151 | 87.4% | 1.15 | 3.21 | 88.4% | 13.8% |
 | per-pano x 1.00 (ref) | 2.5 | 7855 | 72.2% | 1.08 | 2.01 | 100.0% | 2.0% |
 | per-pano x 1.00 (ref) | 5 | 7855 | 84.7% | 1.23 | 2.99 | 90.0% | 6.2% |
 | per-pano x 1.00 (ref) | 8 | 7855 | 87.9% | 1.27 | 3.37 | 86.7% | 14.5% |
@@ -189,6 +237,20 @@ Per-rig assignment (vintage: median measured depth height -> height):
 | frozen@a | (c) per-rig 2.0/2.5 | 2025 | 30 | -0.32 | -1.07 … 0.30 | -0.025 | 12.7 |
 | frozen@a | (c) per-rig 2.0/2.5 | 2026 | 1401 | -0.47 | -1.24 … 0.24 | -0.045 | 10.6 |
 | frozen@a | (c) per-rig 2.0/2.5 | mixed | 1077 | -0.31 | -0.94 … 0.30 | -0.025 | 12.3 |
+| frozen@a | (d) per-rig, measured vintages | 2007 | 3 | 0.87 | 0.18 … 2.17 | 0.060 | 11.1 |
+| frozen@a | (d) per-rig, measured vintages | 2011 | 8 | -2.46 | -2.93 … -1.04 | -0.169 | 11.4 |
+| frozen@a | (d) per-rig, measured vintages | 2014 | 7 | -1.03 | -1.90 … -0.10 | -0.125 | 10.9 |
+| frozen@a | (d) per-rig, measured vintages | 2015 | 6 | -1.00 | -2.01 … -0.24 | -0.126 | 8.9 |
+| frozen@a | (d) per-rig, measured vintages | 2017 | 1 | 1.09 | 1.09 … 1.09 | 0.076 | 14.4 |
+| frozen@a | (d) per-rig, measured vintages | 2018 | 22 | -0.85 | -1.44 … -0.26 | -0.075 | 10.1 |
+| frozen@a | (d) per-rig, measured vintages | 2019 | 8 | 1.23 | -1.19 … 1.73 | 0.077 | 12.0 |
+| frozen@a | (d) per-rig, measured vintages | 2021 | 1 | -0.13 | -0.13 … -0.13 | -0.014 | 8.8 |
+| frozen@a | (d) per-rig, measured vintages | 2022 | 21 | 0.58 | -0.27 … 1.05 | 0.054 | 12.3 |
+| frozen@a | (d) per-rig, measured vintages | 2023 | 31 | 0.24 | -0.38 … 1.19 | 0.024 | 12.1 |
+| frozen@a | (d) per-rig, measured vintages | 2024 | 61 | -0.06 | -0.61 … 0.43 | -0.006 | 11.1 |
+| frozen@a | (d) per-rig, measured vintages | 2025 | 30 | -0.32 | -1.07 … 0.30 | -0.025 | 12.7 |
+| frozen@a | (d) per-rig, measured vintages | 2026 | 1401 | -0.47 | -1.24 … 0.24 | -0.045 | 10.6 |
+| frozen@a | (d) per-rig, measured vintages | mixed | 1077 | -0.29 | -0.90 … 0.30 | -0.023 | 12.4 |
 | frozen@a | per-pano x 1.00 (ref) | 2007 | 3 | 1.16 | -2.66 … 1.45 | 0.097 | 8.3 |
 | frozen@a | per-pano x 1.00 (ref) | 2011 | 8 | -2.06 | -2.69 … -0.95 | -0.136 | 11.9 |
 | frozen@a | per-pano x 1.00 (ref) | 2014 | 7 | -1.22 | -1.59 … -0.58 | -0.115 | 10.2 |
@@ -245,6 +307,20 @@ Per-rig assignment (vintage: median measured depth height -> height):
 | frozen@b | (c) per-rig 2.0/2.5 | 2025 | 22 | -0.56 | -1.41 … -0.07 | -0.051 | 11.0 |
 | frozen@b | (c) per-rig 2.0/2.5 | 2026 | 1277 | -0.36 | -1.19 … 0.36 | -0.032 | 11.5 |
 | frozen@b | (c) per-rig 2.0/2.5 | mixed | 1015 | -0.27 | -0.86 … 0.33 | -0.022 | 12.5 |
+| frozen@b | (d) per-rig, measured vintages | 2007 | 1 | 2.17 | 2.17 … 2.17 | 0.281 | 7.7 |
+| frozen@b | (d) per-rig, measured vintages | 2011 | 8 | -2.46 | -2.93 … -1.04 | -0.169 | 11.4 |
+| frozen@b | (d) per-rig, measured vintages | 2014 | 4 | -0.10 | -1.03 … -0.10 | -0.009 | 10.9 |
+| frozen@b | (d) per-rig, measured vintages | 2015 | 8 | -1.00 | -1.72 … -0.72 | -0.126 | 11.5 |
+| frozen@b | (d) per-rig, measured vintages | 2017 | 1 | 1.09 | 1.09 … 1.09 | 0.076 | 14.4 |
+| frozen@b | (d) per-rig, measured vintages | 2018 | 22 | -0.85 | -1.44 … -0.26 | -0.075 | 10.1 |
+| frozen@b | (d) per-rig, measured vintages | 2019 | 6 | 1.23 | 0.96 … 2.79 | 0.129 | 7.5 |
+| frozen@b | (d) per-rig, measured vintages | 2021 | 2 | -0.54 | -0.54 … -0.13 | -0.069 | 7.7 |
+| frozen@b | (d) per-rig, measured vintages | 2022 | 19 | 0.58 | -0.27 … 1.30 | 0.054 | 12.7 |
+| frozen@b | (d) per-rig, measured vintages | 2023 | 29 | 0.30 | -0.38 … 1.35 | 0.031 | 12.4 |
+| frozen@b | (d) per-rig, measured vintages | 2024 | 55 | -0.10 | -0.71 … 0.43 | -0.006 | 11.5 |
+| frozen@b | (d) per-rig, measured vintages | 2025 | 22 | -0.56 | -1.41 … -0.07 | -0.051 | 11.0 |
+| frozen@b | (d) per-rig, measured vintages | 2026 | 1277 | -0.36 | -1.19 … 0.36 | -0.032 | 11.5 |
+| frozen@b | (d) per-rig, measured vintages | mixed | 1015 | -0.25 | -0.83 … 0.33 | -0.019 | 12.6 |
 | frozen@b | per-pano x 1.00 (ref) | 2007 | 1 | 1.16 | 1.16 … 1.16 | 0.173 | 6.7 |
 | frozen@b | per-pano x 1.00 (ref) | 2011 | 8 | -2.06 | -2.69 … -0.95 | -0.136 | 11.9 |
 | frozen@b | per-pano x 1.00 (ref) | 2014 | 4 | -0.58 | -1.22 … -0.58 | -0.102 | 10.2 |
@@ -298,6 +374,19 @@ Per-rig assignment (vintage: median measured depth height -> height):
 | frozen@c | (c) per-rig 2.0/2.5 | 2025 | 24 | -0.32 | -0.81 … -0.16 | -0.022 | 12.9 |
 | frozen@c | (c) per-rig 2.0/2.5 | 2026 | 1359 | -0.22 | -0.99 … 0.41 | -0.019 | 11.4 |
 | frozen@c | (c) per-rig 2.0/2.5 | mixed | 1104 | -0.23 | -0.82 … 0.35 | -0.018 | 12.6 |
+| frozen@c | (d) per-rig, measured vintages | 2007 | 1 | 2.17 | 2.17 … 2.17 | 0.281 | 7.7 |
+| frozen@c | (d) per-rig, measured vintages | 2011 | 8 | -2.46 | -2.93 … -1.04 | -0.169 | 11.4 |
+| frozen@c | (d) per-rig, measured vintages | 2014 | 4 | 0.22 | -0.10 … 0.22 | 0.035 | 9.0 |
+| frozen@c | (d) per-rig, measured vintages | 2015 | 9 | -0.82 | -0.86 … -0.43 | -0.103 | 8.4 |
+| frozen@c | (d) per-rig, measured vintages | 2018 | 23 | -0.81 | -1.21 … -0.32 | -0.069 | 10.1 |
+| frozen@c | (d) per-rig, measured vintages | 2019 | 7 | 1.73 | 1.23 … 2.58 | 0.194 | 7.5 |
+| frozen@c | (d) per-rig, measured vintages | 2021 | 3 | -0.13 | -0.54 … 0.36 | -0.014 | 8.8 |
+| frozen@c | (d) per-rig, measured vintages | 2022 | 18 | 0.27 | -0.27 … 1.30 | 0.047 | 10.5 |
+| frozen@c | (d) per-rig, measured vintages | 2023 | 31 | 0.24 | -0.38 … 1.19 | 0.019 | 12.4 |
+| frozen@c | (d) per-rig, measured vintages | 2024 | 51 | -0.10 | -0.61 … 0.56 | -0.006 | 11.5 |
+| frozen@c | (d) per-rig, measured vintages | 2025 | 24 | -0.32 | -0.81 … -0.16 | -0.022 | 12.9 |
+| frozen@c | (d) per-rig, measured vintages | 2026 | 1359 | -0.22 | -0.99 … 0.41 | -0.019 | 11.4 |
+| frozen@c | (d) per-rig, measured vintages | mixed | 1104 | -0.21 | -0.82 … 0.35 | -0.017 | 12.6 |
 | frozen@c | per-pano x 1.00 (ref) | 2007 | 1 | 1.16 | 1.16 … 1.16 | 0.173 | 6.7 |
 | frozen@c | per-pano x 1.00 (ref) | 2011 | 8 | -2.06 | -2.69 … -0.95 | -0.136 | 11.9 |
 | frozen@c | per-pano x 1.00 (ref) | 2014 | 4 | -0.44 | -0.58 … -0.44 | -0.054 | 8.1 |
@@ -311,3 +400,68 @@ Per-rig assignment (vintage: median measured depth height -> height):
 | frozen@c | per-pano x 1.00 (ref) | 2025 | 24 | -0.64 | -1.59 … -0.31 | -0.057 | 11.6 |
 | frozen@c | per-pano x 1.00 (ref) | 2026 | 1359 | -0.60 | -1.49 … 0.10 | -0.058 | 10.1 |
 | frozen@c | per-pano x 1.00 (ref) | mixed | 1104 | -0.39 | -1.05 … 0.21 | -0.032 | 11.8 |
+| frozen@d | (a) 2.6 m | 2007 | 1 | 2.48 | 2.48 … 2.48 | 0.309 | 8.0 |
+| frozen@d | (a) 2.6 m | 2011 | 8 | -2.06 | -2.69 … -0.95 | -0.136 | 11.9 |
+| frozen@d | (a) 2.6 m | 2014 | 4 | 0.48 | 0.08 … 0.48 | 0.072 | 9.4 |
+| frozen@d | (a) 2.6 m | 2015 | 8 | -0.53 | -1.07 … -0.46 | -0.073 | 12.0 |
+| frozen@d | (a) 2.6 m | 2018 | 22 | -0.49 | -1.13 … -0.04 | -0.042 | 10.5 |
+| frozen@d | (a) 2.6 m | 2019 | 6 | 1.79 | 1.20 … 3.37 | 0.155 | 7.8 |
+| frozen@d | (a) 2.6 m | 2021 | 2 | -0.23 | -0.23 … -0.04 | -0.028 | 8.0 |
+| frozen@d | (a) 2.6 m | 2022 | 17 | 0.79 | -0.06 … 1.43 | 0.062 | 12.8 |
+| frozen@d | (a) 2.6 m | 2023 | 31 | 0.39 | -0.09 … 1.50 | 0.039 | 12.9 |
+| frozen@d | (a) 2.6 m | 2024 | 50 | 0.12 | -0.37 … 0.74 | 0.012 | 11.9 |
+| frozen@d | (a) 2.6 m | 2025 | 22 | -0.12 | -0.61 … 0.13 | -0.008 | 12.5 |
+| frozen@d | (a) 2.6 m | 2026 | 1354 | 0.83 | 0.07 … 1.61 | 0.058 | 14.8 |
+| frozen@d | (a) 2.6 m | mixed | 1117 | 0.31 | -0.31 … 0.89 | 0.021 | 14.8 |
+| frozen@d | (b) per-pano x 1.08 | 2007 | 1 | 1.70 | 1.70 … 1.70 | 0.234 | 7.3 |
+| frozen@d | (b) per-pano x 1.08 | 2011 | 8 | -2.06 | -2.69 … -0.95 | -0.136 | 11.9 |
+| frozen@d | (b) per-pano x 1.08 | 2014 | 4 | 0.00 | -0.13 … 0.00 | 0.000 | 8.8 |
+| frozen@d | (b) per-pano x 1.08 | 2015 | 8 | -0.48 | -1.57 … -0.46 | -0.066 | 11.8 |
+| frozen@d | (b) per-pano x 1.08 | 2018 | 22 | -0.49 | -1.13 … -0.04 | -0.042 | 10.5 |
+| frozen@d | (b) per-pano x 1.08 | 2019 | 6 | 1.79 | 1.20 … 3.37 | 0.155 | 7.8 |
+| frozen@d | (b) per-pano x 1.08 | 2021 | 2 | -0.72 | -0.72 … -0.03 | -0.095 | 7.5 |
+| frozen@d | (b) per-pano x 1.08 | 2022 | 17 | 0.51 | -0.27 … 1.30 | 0.058 | 12.3 |
+| frozen@d | (b) per-pano x 1.08 | 2023 | 31 | 0.53 | -0.09 … 1.14 | 0.035 | 12.9 |
+| frozen@d | (b) per-pano x 1.08 | 2024 | 50 | -0.10 | -0.44 … 0.59 | -0.006 | 11.9 |
+| frozen@d | (b) per-pano x 1.08 | 2025 | 22 | -0.39 | -1.19 … 0.00 | -0.047 | 12.0 |
+| frozen@d | (b) per-pano x 1.08 | 2026 | 1354 | -0.33 | -1.20 … 0.33 | -0.030 | 10.9 |
+| frozen@d | (b) per-pano x 1.08 | mixed | 1117 | -0.21 | -0.85 … 0.38 | -0.017 | 12.6 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2007 | 1 | 2.17 | 2.17 … 2.17 | 0.281 | 7.7 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2011 | 8 | -2.46 | -2.93 … -1.04 | -0.169 | 11.4 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2014 | 4 | 0.22 | -0.10 … 0.22 | 0.035 | 9.0 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2015 | 8 | -1.79 | -3.02 … -1.67 | -0.281 | 9.2 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2018 | 22 | -2.13 | -2.68 … -0.79 | -0.261 | 8.1 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2019 | 6 | 1.23 | 0.96 … 2.79 | 0.129 | 7.5 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2021 | 2 | -0.54 | -0.54 … -0.13 | -0.069 | 7.7 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2022 | 17 | 0.58 | -0.16 … 1.30 | 0.054 | 12.3 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2023 | 31 | 0.30 | -0.38 … 1.19 | 0.024 | 12.4 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2024 | 50 | -0.12 | -0.61 … 0.43 | -0.007 | 11.5 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2025 | 22 | -0.38 | -1.07 … -0.16 | -0.026 | 12.0 |
+| frozen@d | (c) per-rig 2.0/2.5 | 2026 | 1354 | -0.23 | -0.99 … 0.41 | -0.019 | 11.4 |
+| frozen@d | (c) per-rig 2.0/2.5 | mixed | 1117 | -0.24 | -0.84 … 0.35 | -0.018 | 12.6 |
+| frozen@d | (d) per-rig, measured vintages | 2007 | 1 | 2.17 | 2.17 … 2.17 | 0.281 | 7.7 |
+| frozen@d | (d) per-rig, measured vintages | 2011 | 8 | -2.46 | -2.93 … -1.04 | -0.169 | 11.4 |
+| frozen@d | (d) per-rig, measured vintages | 2014 | 4 | 0.22 | -0.10 … 0.22 | 0.035 | 9.0 |
+| frozen@d | (d) per-rig, measured vintages | 2015 | 8 | -0.90 | -1.39 … -0.72 | -0.103 | 11.5 |
+| frozen@d | (d) per-rig, measured vintages | 2018 | 22 | -0.76 | -1.44 … -0.12 | -0.074 | 10.1 |
+| frozen@d | (d) per-rig, measured vintages | 2019 | 6 | 1.23 | 0.96 … 2.79 | 0.129 | 7.5 |
+| frozen@d | (d) per-rig, measured vintages | 2021 | 2 | -0.54 | -0.54 … -0.13 | -0.069 | 7.7 |
+| frozen@d | (d) per-rig, measured vintages | 2022 | 17 | 0.58 | -0.16 … 1.30 | 0.054 | 12.3 |
+| frozen@d | (d) per-rig, measured vintages | 2023 | 31 | 0.30 | -0.38 … 1.19 | 0.024 | 12.4 |
+| frozen@d | (d) per-rig, measured vintages | 2024 | 50 | -0.12 | -0.61 … 0.43 | -0.007 | 11.5 |
+| frozen@d | (d) per-rig, measured vintages | 2025 | 22 | -0.38 | -1.07 … -0.16 | -0.026 | 12.0 |
+| frozen@d | (d) per-rig, measured vintages | 2026 | 1354 | -0.23 | -0.99 … 0.41 | -0.019 | 11.4 |
+| frozen@d | (d) per-rig, measured vintages | mixed | 1117 | -0.22 | -0.82 … 0.35 | -0.017 | 12.6 |
+| frozen@d | per-pano x 1.00 (ref) | 2007 | 1 | 1.16 | 1.16 … 1.16 | 0.173 | 6.7 |
+| frozen@d | per-pano x 1.00 (ref) | 2011 | 8 | -2.06 | -2.69 … -0.95 | -0.136 | 11.9 |
+| frozen@d | per-pano x 1.00 (ref) | 2014 | 4 | -0.44 | -0.58 … -0.44 | -0.054 | 8.1 |
+| frozen@d | per-pano x 1.00 (ref) | 2015 | 8 | -0.76 | -1.68 … -0.52 | -0.109 | 11.6 |
+| frozen@d | per-pano x 1.00 (ref) | 2018 | 22 | -0.49 | -1.13 … -0.04 | -0.042 | 10.5 |
+| frozen@d | per-pano x 1.00 (ref) | 2019 | 6 | 1.79 | 1.20 … 3.37 | 0.155 | 7.8 |
+| frozen@d | per-pano x 1.00 (ref) | 2021 | 2 | -1.28 | -1.28 … -0.20 | -0.183 | 7.0 |
+| frozen@d | per-pano x 1.00 (ref) | 2022 | 17 | 0.16 | -0.53 … 1.02 | 0.014 | 11.4 |
+| frozen@d | per-pano x 1.00 (ref) | 2023 | 31 | 0.25 | -0.53 … 0.99 | 0.019 | 12.6 |
+| frozen@d | per-pano x 1.00 (ref) | 2024 | 50 | -0.34 | -0.85 … 0.36 | -0.034 | 11.3 |
+| frozen@d | per-pano x 1.00 (ref) | 2025 | 22 | -0.91 | -1.83 … -0.33 | -0.075 | 11.1 |
+| frozen@d | per-pano x 1.00 (ref) | 2026 | 1354 | -0.60 | -1.50 … 0.10 | -0.059 | 10.1 |
+| frozen@d | per-pano x 1.00 (ref) | mixed | 1117 | -0.39 | -1.05 … 0.21 | -0.032 | 11.8 |

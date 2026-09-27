@@ -142,6 +142,28 @@ def test_per_rig_assigns_by_vintage_median_including_unmeasured_panos():
     assert geo.camera_height_for(pose, camera_height=geo.PER_RIG)[0] == 2.6
 
 
+def test_per_rig_measured_needs_enough_measured_panos_before_a_vintage_gets_its_own_height():
+    """(d), #79: a thinly measured vintage gets the old-rig 2.5 m, never its median's 2.0 m."""
+    low = [_slim(f'l{i}', 2026, 1.8) for i in range(60)] + [_slim('lu', 2026, None)]
+    thin = ([_slim(f't{i}', 2015, 1.9) for i in range(60)]
+            + [_slim(f'tu{i}', 2015, None) for i in range(61)])        # 60 / 121 < 50%
+    few = [_slim(f'f{i}', 2018, 1.9) for i in range(40)]                # 100% but only 40
+    none = [_slim('n', 2019, None)]
+    old = [_slim(f'o{i}', 2024, 2.4) for i in range(50)] + [_slim('u', None, 1.8)]
+    out, rig = io.per_rig_measured_panos(low + thin + few + none + old)
+    h = {p.pano_id: p.camera_height_m for p in out}
+    assert h['l0'] == h['lu'] == 2.0                    # well measured low rig, unmeasured too
+    assert h['t0'] == h['tu0'] == 2.5                   # (c) would give 2.0 m here
+    assert h['f0'] == 2.5 and h['n'] == 2.5 and h['o0'] == 2.5
+    assert h['u'] is None                               # undated: the 2.6 m fallback, as (c)
+    assert rig['2015'] == (1.9, 60, 121, 2.5) and rig['2019'] == (None, 0, 1, 2.5)
+    assert io.per_rig_panos(thin)[1]['2015'] == (1.9, 2.0)
+    # exactly at both minimums qualifies
+    edge = [_slim(f'e{i}', 2025, 1.8) for i in range(50)] + [_slim(f'eu{i}', 2025, None)
+                                                            for i in range(50)]
+    assert io.per_rig_measured_panos(edge)[1]['2025'][3] == 2.0
+
+
 def test_scaled_panos_scale_measured_heights_only():
     out = io.scaled_panos([_slim('m', 2024, 2.0), _slim('u', 2024, None)], 1.08)
     assert out[0].camera_height_m == pytest.approx(2.16)
@@ -269,26 +291,27 @@ def test_pool_anchor_frame_re_anchors_only_the_other_memberships():
 
 # -------------------------------------------------------------------------- verdict
 
-def _city_rows(a, b, c, own=None, frozen_x=None, cov=None, dropped=0):
-    """arms.csv-like rows: a/b/c = (median, p90) in frozen@a at 5 m."""
+def _city_rows(a, b, c, own=None, frozen_x=None, cov=None, dropped=0, d=None):
+    """arms.csv-like rows: a/b/c/d = (median, p90) in frozen@a at 5 m; d defaults to c."""
     cov = cov or {}
+    d = c if d is None else d
     rows = []
-    for arm, (med, p90) in (('a', a), ('b', b), ('c', c)):
+    for arm, (med, p90) in (('a', a), ('b', b), ('c', c), ('d', d)):
         rows.append({'frame': 'frozen@a', 'arm': arm, 'radius_m': '5.0', 'median_m': med,
                      'p90_m': p90, 'coverage': cov.get(arm, 0.80), 'op_sites': 1000,
                      'sites_dropped': dropped})
-    for x in ('b', 'c'):
-        fx = (frozen_x or {}).get(x, (dict(b=b, c=c)[x][1], a[1]))
+    for x in ('b', 'c', 'd'):
+        fx = (frozen_x or {}).get(x, (dict(b=b, c=c, d=d)[x][1], a[1]))
         rows.append({'frame': f'frozen@{x}', 'arm': x, 'radius_m': '5.0', 'p90_m': fx[0]})
         rows.append({'frame': f'frozen@{x}', 'arm': 'a', 'radius_m': '5.0', 'p90_m': fx[1]})
         rows.append({'frame': 'own', 'arm': x, 'radius_m': '5.0',
-                     'own_p90_m': (own or {}).get(x, dict(b=b, c=c)[x][1])})
+                     'own_p90_m': (own or {}).get(x, dict(b=b, c=c, d=d)[x][1])})
     return rows
 
 
-def _vint(b, c):
-    return [{'frame': 'frozen@a', 'arm': 'b', 'vintage': '2026', 'median_along_m': b},
-            {'frame': 'frozen@a', 'arm': 'c', 'vintage': '2026', 'median_along_m': c}]
+def _vint(b, c, d=None):
+    return [{'frame': 'frozen@a', 'arm': arm, 'vintage': '2026', 'median_along_m': v}
+            for arm, v in (('b', b), ('c', c), ('d', c if d is None else d))]
 
 
 def test_verdict_cli_takes_no_city_list():
@@ -298,68 +321,78 @@ def test_verdict_cli_takes_no_city_list():
         io.build_parser().parse_args(['verdict', 'bend'])
 
 
-def test_verdict_selects_c_when_only_c_passes():
+def test_verdict_selects_d_when_only_the_per_rig_arm_passes():
     rows = {'gainesville': _city_rows(a=(2.0, 4.0), b=(1.95, 3.5), c=(1.2, 2.6)),
             'bend': _city_rows(a=(0.7, 1.5), b=(0.7, 1.5), c=(0.7, 1.55))}
     vint = {'gainesville': _vint(1.0, 0.2), 'bend': []}
     selected, res, _ = io.verdict(rows, vint)
-    assert selected == 'c'
-    assert res['c']['pass'] and not res['b']['1'] and not res['b']['5']
+    assert selected == 'd'
+    assert res['d']['pass'] and not res['b']['1'] and not res['b']['5']
 
 
-def test_verdict_tie_break_prefers_c_unless_b_is_clearly_better_in_both_cities():
+def test_verdict_never_selects_c_it_is_superseded_by_d():
+    """(c) passing while (d) fails keeps 2.6 m: (d) replaced (c) before scoring (#79)."""
+    rows = {'gainesville': _city_rows(a=(2.0, 4.0), b=(1.95, 3.5), c=(1.2, 2.6),
+                                      d=(1.95, 3.95)),
+            'bend': _city_rows(a=(0.7, 1.5), b=(0.7, 1.5), c=(0.7, 1.55))}
+    vint = {'gainesville': _vint(1.0, 0.2), 'bend': []}
+    selected, res, reasons = io.verdict(rows, vint)
+    assert res['c']['pass'] and not res['d']['pass'] and selected == 'a'
+    assert any('superseded' in r for r in reasons)
+
+
+def test_verdict_tie_break_prefers_d_unless_b_is_clearly_better_in_both_cities():
     g = _city_rows(a=(2.0, 4.0), b=(1.2, 2.6), c=(1.2, 2.6))
     bd = _city_rows(a=(0.7, 1.5), b=(0.7, 1.5), c=(0.7, 1.5))
     vint = {'gainesville': _vint(0.1, 0.2), 'bend': []}
     selected, res, _ = io.verdict({'gainesville': g, 'bend': bd}, vint)
-    assert res['b']['pass'] and res['c']['pass'] and selected == 'c'
+    assert res['b']['pass'] and res['d']['pass'] and selected == 'd'
     g = _city_rows(a=(2.0, 4.0), b=(1.1, 2.3), c=(1.2, 2.6))
     bd = _city_rows(a=(0.7, 1.7), b=(0.7, 1.3), c=(0.7, 1.55))
     selected, res, _ = io.verdict({'gainesville': g, 'bend': bd}, vint)
-    assert res['b']['pass'] and res['c']['pass'] and selected == 'b'
+    assert res['b']['pass'] and res['d']['pass'] and selected == 'b'
 
 
 def test_verdict_rule_4_fails_on_a_coverage_drop_and_caveats_a_site_drop():
-    good_c = dict(a=(2.0, 4.0), b=(1.95, 3.9), c=(1.2, 2.6))
-    rows = {'gainesville': _city_rows(**good_c, cov={'a': 0.80, 'c': 0.785}),
+    good = dict(a=(2.0, 4.0), b=(1.95, 3.9), c=(1.2, 2.6))
+    rows = {'gainesville': _city_rows(**good, cov={'a': 0.80, 'd': 0.785}),
             'bend': _city_rows(a=(0.7, 1.5), b=(0.7, 1.5), c=(0.7, 1.5))}
     vint = {'gainesville': _vint(1.0, 0.2), 'bend': []}
     selected, res, _ = io.verdict(rows, vint)
-    assert not res['c']['4'] and not res['c']['caveat'] and selected == 'a'
-    rows['gainesville'] = _city_rows(**good_c, dropped=60)     # 6% of 1000
+    assert not res['d']['4'] and not res['d']['caveat'] and selected == 'a'
+    rows['gainesville'] = _city_rows(**good, dropped=60)     # 6% of 1000
     selected, res, reasons = io.verdict(rows, vint)
-    assert res['c']['caveat'] and not res['c']['pass'] and selected == 'a'
+    assert res['d']['caveat'] and not res['d']['pass'] and selected == 'a'
     assert any('CAVEAT' in r for r in reasons)
 
 
-def test_verdict_rule_4_is_two_sided_a_coverage_gain_also_fails():
-    """Pins the branch that decided #79: Gainesville's (c) GAINS 2.18 pt of coverage.
+def test_verdict_rule_4_is_one_sided_a_coverage_gain_passes():
+    """Pins the branch that decided #79: Gainesville's per-rig arm GAINS ~2 pt of coverage.
 
-    The committed rule reads 'within 1.0 pt of (a)'s' as two-sided (abs(dcov)), so a gain
-    fails rule 4 exactly like a drop. Whether a gain should pass (the one-sided reading:
-    the survivorship heading, the constant's name RULE_MAX_COVERAGE_DROP, the #42
-    precedent) is Jon's open decision on #79. If he adopts the one-sided reading, flip the
-    ONE marked assertion below; everything else here holds under both readings."""
-    good_c = dict(a=(2.0, 4.0), b=(1.95, 3.9), c=(1.2, 2.6))
-    rows = {'gainesville': _city_rows(**good_c, cov={'a': 0.80, 'c': 0.822}),
+    The rule as first committed read 'within 1.0 pt of (a)'s' two-sided, so the gain failed
+    rule 4 like a drop. On 2026-09-26 the maintainer adopted the one-sided reading (the
+    survivorship heading, the constant's name RULE_MAX_COVERAGE_DROP, the #42 precedent),
+    posted on #79 before (d) was scored: only a drop of more than 1.0 pt fails."""
+    good = dict(a=(2.0, 4.0), b=(1.95, 3.9), c=(1.2, 2.6))
+    rows = {'gainesville': _city_rows(**good, cov={'a': 0.80, 'd': 0.822}),
             'bend': _city_rows(a=(0.7, 1.5), b=(0.7, 1.5), c=(0.7, 1.5))}
     vint = {'gainesville': _vint(1.0, 0.2), 'bend': []}
     selected, res, _ = io.verdict(rows, vint)
-    assert all(res['c'][k] for k in '1235') and not res['c']['caveat']
-    # TWO-SIDED (committed) reading. One-sided: `assert res['c']['4'] and selected == 'c'`
-    assert not res['c']['4'] and not res['c']['pass'] and selected == 'a'
+    assert res['d']['4'] and res['d']['pass'] and selected == 'd'
+    rows['gainesville'] = _city_rows(**good, cov={'a': 0.80, 'd': 0.790})   # exactly -1.0 pt
+    assert io.verdict(rows, vint)[1]['d']['4']
 
 
 def test_verdict_rule_3_and_rule_2_guard_against_construction_and_regression():
     vint = {'gainesville': _vint(1.0, 0.2), 'bend': []}
     base = dict(a=(2.0, 4.0), b=(1.95, 3.9), c=(1.2, 2.6))
-    # (c) wins only inside (a)'s membership: under its own, (a) is no worse
-    rows = {'gainesville': _city_rows(**base, frozen_x={'c': (2.9, 2.8)}),
+    # (d) wins only inside (a)'s membership: under its own, (a) is no worse
+    rows = {'gainesville': _city_rows(**base, frozen_x={'d': (2.9, 2.8)}),
             'bend': _city_rows(a=(0.7, 1.5), b=(0.7, 1.5), c=(0.7, 1.5))}
     selected, res, _ = io.verdict(rows, vint)
-    assert not res['c']['3'] and selected == 'a'
+    assert not res['d']['3'] and selected == 'a'
     # bend's old rig regresses by more than 0.10 m
     rows = {'gainesville': _city_rows(**base),
             'bend': _city_rows(a=(0.7, 1.5), b=(0.7, 1.5), c=(0.8, 1.65))}
     selected, res, _ = io.verdict(rows, vint)
-    assert not res['c']['2'] and selected == 'a'
+    assert not res['d']['2'] and selected == 'a'

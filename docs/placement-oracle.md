@@ -146,7 +146,9 @@ which reads the harvested `depth/index.csv`; `score` refuses a city without it.
 ### The decision rule
 
 Primary frame: `frozen@a`, `OPERATIONAL_CONFIDENCE`, 5 m radius, the (a)-anchored pool,
-rig mask on. A candidate X ∈ {(b), (c)} replaces 2.6 m only if **all** of these hold:
+rig mask on. A candidate X ∈ {(b), (c)} replaces 2.6 m only if **all** of these hold. (As
+committed. Amended once, before scoring (d): rule 4 one-sided, (d) in (c)'s place; see
+*Amendment* under Results.)
 
 1. **gainesville:** X's p90 and median site-to-inventory distance both improve on (a) by
    more than 0.10 m (the #42 tolerance).
@@ -248,6 +250,48 @@ chance floor up, not down.
 The reading was not changed after the numbers were seen: `verdict()` is exactly as
 pre-registered, and so is its answer, (a). Choosing the one-sided reading, and with it (c),
 is a call for the maintainer, and would be made in the follow-up PR that flips the default.
+
+### Amendment (2026-09-26): rule 4 read one-sided, and (d) replaces (c) -- verdict (d)
+
+Posted on [#79](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/79#issuecomment-5850316242)
+before (d) was scored. Two changes, both the maintainer's decision:
+
+1. **Rule 4's coverage half is one-sided:** coverage may not *drop* by more than 1.0 pt;
+   a gain passes. The reasons are the ones above: the survivorship heading, the constant's
+   name, the #42 precedent, and a chance floor that falls under (c). The site-drop half
+   is unchanged.
+2. **(d) = (c) with a measurement minimum.** A vintage takes its depth-median height
+   (2.0 m below 2.1 m, else 2.5 m) only if **>= 50** of its dated panos **and >= 50%** of
+   them have a measured depth height. Every other dated vintage gets 2.5 m, and undated
+   panos keep 2.6 m. The rig cannot be read from capture year or from any GSV metadata
+   field. The new rig arrives in 2025 in Paterson and 2026 in Gainesville, and Bend's 2025
+   reads 2.35 m; width is 16384 and source is `launch` for everything since 2018. So the
+   depth median is the only rig signal, and (c)'s flaw was trusting it on thin evidence.
+   (c) is still scored and reported, but it is no longer selectable, and rule 6's
+   tie-break uses (d) in its place. The thresholds were chosen after seeing per-vintage
+   measured counts, and before any (d) score existed.
+
+`verdict` now returns **(d)**:
+
+| rule | (b) per-pano × 1.08 | (c) per-rig (superseded) | (d) per-rig, measured vintages |
+|---|---|---|---|
+| 1 gainesville p90 / median improve > 0.10 m | pass (+0.105, +0.236) | pass (+0.348, +0.281) | pass (**+0.387**, **+0.304**) |
+| 2 bend p90 not worse by > 0.10 m | pass (+0.017) | pass (+0.044) | pass (+0.044) |
+| 3 not by construction | **FAIL** | pass (own 2.84; 2.87 < 2.97) | pass (own 2.79; 2.85 < 2.97) |
+| 4 coverage drop ≤ 1.0 pt (one-sided); site drop ≤ 5% | pass (+2.05 pt) | pass (+2.18 pt) | pass (+2.18 pt) |
+| 5 gainesville 2026 along-ray within ±0.75 m | pass (−0.62) | pass (−0.47) | pass (−0.47) |
+
+Under (d), the only 2.0 m vintage in either city is Gainesville 2026 (21,950 of 23,766
+measured, median 1.76 m). Gainesville 2015 (37% measured) and 2018 (15%), and Bend's tiny
+2007–09 vintages (6–19 panos), return to 2.5 m. That removes (c)'s misfire: single-vintage
+pool sites move from −1.79 to −1.00 m (2015, n = 6) and from −2.13 to −0.85 m (2018, n = 22)
+along the ray, against (a)'s −0.85 and −0.50 m. Gainesville's p90 falls from 3.29 m under
+(a) to 2.90 m under (d), slightly better than (c)'s 2.94 m. Nothing else moves: every (a),
+(b) and (c) row in the committed tables reproduced unchanged beside the new (d) rows.
+
+The default is not changed here; that is a separate PR. It inherits both scope limits
+above: the evidence is one city's new rig, and Paterson's 2025 rig (91% measured, median
+1.86 m) would take 2.0 m on Gainesville's evidence alone.
 
 ### What the numbers say, rule aside
 

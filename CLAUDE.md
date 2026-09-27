@@ -125,8 +125,11 @@ python scripts/height_qc.py
 # per-rig with the association frozen from the 2.6 m fuse, and scores site-to-inventory
 # distance one-to-one. Gainesville (64% 2026 rig) decides, Bend (84% 2024) guards the old
 # rig. The verdict rule is pre-registered on #79 (inventory_oracle.verdict);
-# docs/placement-oracle.md. VERDICT under the committed rule: 2.6 m stays; (c) per-rig fails
-# only a two-sided reading of rule 4 (its coverage GAIN) -- the reading is open on #79.
+# docs/placement-oracle.md. VERDICT (amended 2026-09-26, posted on #79 before scoring): rule 4
+# read one-sided, and (d) -- per-rig, but a vintage keeps its depth-median height only with
+# >= 50 measured panos that are >= 50% of it (else 2.5 m) -- replaces (c), which gave thinly
+# measured old vintages 2.0 m. (d) PASSES and is selected; the default is still 2.6 m
+# until the follow-up flip PR.
 # Network only in `fetch` (the two ArcGIS hosts); a cached pull is reused (refused if
 # area.geojson's bbox changed), --refresh re-pulls it. `score --pool-anchor frame --out
 # <dir>` is the rule-3 anchoring sensitivity, never read by verdict.
