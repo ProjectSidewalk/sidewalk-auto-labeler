@@ -112,6 +112,25 @@ def run_pano_ids(run_dir):
     return ids, source
 
 
+# Pano-block `source` values that name a non-GSV provider (send_to_ps.PS_PANO_SOURCES
+# minus gsv). A GSV record stores streetlevel's raw source string instead -- 'launch',
+# 'scout', 'photos:...' -- an open set, so GSV cannot be an allowlist of strings: the
+# `source != "gsv"` test that stood here refused every real GSV run ('launch'), --verify
+# included. send_to_ps.transform_pano reads the field the same way.
+NON_GSV_SOURCES = {"mapillary", "panoramax", "infra3d"}
+
+
+def is_gsv_source(source):
+    """Is a pano block's `source` GSV imagery? None (no records) passes; the manifest
+    check (check_gsv) is the other half.
+
+    Example:
+        >>> [is_gsv_source(s) for s in ("launch", "gsv", "scout", "mapillary", None)]
+        [True, True, True, False, True]
+    """
+    return source is None or source.lower() not in NON_GSV_SOURCES
+
+
 def check_gsv(run_dir):
     """Refuse a non-GSV run up front rather than fetching 50k panoramas of nothing."""
     manifest_path = run_dir / "manifest.json"
@@ -500,9 +519,8 @@ def main():
     check_gsv(run_dir)
     pano_ids, source = run_pano_ids(run_dir)
     # Belt to check_gsv's braces: that reads the manifest, this the records, so a run dir
-    # without a manifest is still refused. Allowlist rather than denylist — a new source
-    # must not default into "GSV serves depth for this".
-    if source and source != "gsv":
+    # without a manifest is still refused.
+    if not is_gsv_source(source):
         sys.exit(f"This run's records are {source}; only GSV serves depth (see #42).")
 
     # `is not None`, not truthiness: 0 is a meaningful value for both of these and reading

@@ -243,3 +243,11 @@ def test_no_depth_alarm_fires_only_on_an_implausible_rate():
     assert not hd.no_depth_looks_poisoned(20, 1000)        # 2%, under the threshold
     assert hd.no_depth_looks_poisoned(200, 1000)           # 20%, not plausible
     assert hd.no_depth_looks_poisoned(1000, 1000)          # everything — the real signal
+
+
+def test_gsv_runs_are_not_refused_by_their_raw_source_string():
+    """GSV records carry streetlevel's raw source ('launch'), never 'gsv'; refusing
+    anything but 'gsv' refused every real GSV run."""
+    assert hd.is_gsv_source("launch") and hd.is_gsv_source("scout")
+    assert hd.is_gsv_source("gsv") and hd.is_gsv_source(None)
+    assert not hd.is_gsv_source("mapillary") and not hd.is_gsv_source("panoramax")
