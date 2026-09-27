@@ -19,8 +19,8 @@ Three camera-height arms, all GSV, all at OPERATIONAL_CONFIDENCE with the rig ma
            unmeasured panos included, since a rig is not a payload. A vintage with no
            measured pano, or an undated pano, falls back to 2.6 m.
   (d) `d`  (c) with a measurement minimum -- added 2026-09-26 and posted on #79 before it
-           was scored, because (c) gave thinly measured vintages (Gainesville 2015: 226 of
-           606 panos measured; 2018: 187 of 1,059) the low-rig height on a median of few
+           was scored, because (c) gave thinly measured vintages (Gainesville 2015: 225 of
+           606 panos measured; 2018: 160 of 1,059) the low-rig height on a median of few
            payloads. A vintage gets its depth-median height (2.0 m below 2.1 m, else 2.5 m)
            only if >= 50% of its dated panos AND >= 50 panos are measured; every other
            dated vintage gets 2.5 m. Undated panos fall back to 2.6 m. (d) replaces (c) as
@@ -175,8 +175,8 @@ ARM_A, ARM_B, ARM_C, ARM_D, ARM_B_REF = 'a', 'b', 'c', 'd', 'b1.00'
 DECISION_ARMS = (ARM_A, ARM_B, ARM_C, ARM_D)
 CANDIDATES = (ARM_B, ARM_C, ARM_D)   # every candidate is scored against rules 1-5 ...
 SELECTABLE = (ARM_B, ARM_D)          # ... but (c) is superseded by (d) (#79, 2026-09-26)
-OPTION_D_MIN_MEASURED = 50           # (d): measured panos a vintage needs for its own height
-OPTION_D_MIN_SHARE = 0.5             # (d): ... and the share of its dated panos they must be
+OPTION_D_MIN_MEASURED = fs.GSV_RIG_MIN_MEASURED  # (d): measured panos a vintage needs
+OPTION_D_MIN_SHARE = fs.GSV_RIG_MIN_SHARE        # (d): ... and their share of its dated panos
 PRIMARY_RADIUS_M = 5.0
 RADII_M = (2.5, 5.0, 8.0)
 WITHIN_M = 3.0
@@ -464,29 +464,12 @@ def per_rig_measured_panos(panos, cut=OPTION_C[0], low=OPTION_C[1], high=OPTION_
     `high`, the old-rig height. Undated panos get None (the 2.6 m fallback), as in (c).
     Returns (panos, {year: (median or None, n_measured, n_dated, height)}).
 
-    Example: 606 dated panos, 226 measured at a 1.93 m median -> 37% < 50% -> 2.5 m, where
-    (c) would give 2.0 m.
+    This IS production's rule: fuse_sites.gsv_rig_assignment + apply_gsv_rig_heights, what
+    `fuse_sites.py --camera-height-m auto` (its default) runs on a GSV run. Scoring the
+    production function is what makes the oracle's verdict a statement about what ships.
     """
-    med = vintage_medians(panos)
-    dated, measured = {}, {}
-    for p in panos:
-        y = _year(p)
-        if y:
-            dated[y] = dated.get(y, 0) + 1
-            measured[y] = measured.get(y, 0) + (p.camera_height_m is not None)
-    rig = {}
-    for y, n in dated.items():
-        m, k = med.get(y), measured[y]
-        qualifies = m is not None and k >= min_measured and k / n >= min_share
-        rig[y] = (m, k, n, (low if m < cut else high) if qualifies else high)
-    out = []
-    for p in panos:
-        y = _year(p)
-        h = rig[y][3] if y in rig else None
-        out.append(replace(p, camera_height_m=h, camera_height_spread_m=None,
-                           camera_height_vintage_m=None,
-                           height_group=f'{y}:{h:g}' if h is not None else None))
-    return out, rig
+    rig = fs.gsv_rig_assignment(panos, cut, low, high, min_measured, min_share)
+    return fs.apply_gsv_rig_heights(panos, rig), rig
 
 
 def scaled_panos(panos, scale):

@@ -263,7 +263,9 @@ before (d) was scored. Two changes, both the maintainer's decision:
 2. **(d) = (c) with a measurement minimum.** A vintage takes its depth-median height
    (2.0 m below 2.1 m, else 2.5 m) only if **>= 50** of its dated panos **and >= 50%** of
    them have a measured depth height. Every other dated vintage gets 2.5 m, and undated
-   panos keep 2.6 m. The rig cannot be read from capture year or from any GSV metadata
+   panos keep 2.6 m. So (d) is not strictly (c) plus a minimum: a vintage with no measured
+   pano at all gets 2.6 m under (c) (its fallback) but 2.5 m under (d) (Bend 2011, 8
+   panos). The rig cannot be read from capture year or from any GSV metadata
    field. The new rig arrives in 2025 in Paterson and 2026 in Gainesville, and Bend's 2025
    reads 2.35 m; width is 16384 and source is `launch` for everything since 2018. So the
    depth median is the only rig signal, and (c)'s flaw was trusting it on thin evidence.
@@ -289,8 +291,16 @@ along the ray, against (a)'s −0.85 and −0.50 m. Gainesville's p90 falls from
 (a) to 2.90 m under (d), slightly better than (c)'s 2.94 m. Nothing else moves: every (a),
 (b) and (c) row in the committed tables reproduced unchanged beside the new (d) rows.
 
-The default is not changed here; that is a separate PR. It inherits both scope limits
-above: the evidence is one city's new rig, and Paterson's 2025 rig (91% measured, median
+**Adopted as the `fuse_sites.py` default** (`--camera-height-m auto`, the follow-up PR):
+(d)'s rule now lives in `fuse_sites.gsv_rig_assignment` / `apply_gsv_rig_heights`, and this
+script's arm (d) calls those functions, so the oracle scores exactly what ships (re-scoring
+after the move reproduced the committed tables byte for byte). Mapillary and Panoramax,
+undated GSV panos, and a GSV run with no vintage that meets the measurement minimum (no
+measured height, or a partly harvested depth index, which would otherwise put every pano
+at 2.5 m) stay at 2.6 m. That run-level fallback is production's, not (d)'s: every oracle
+city has a qualifying vintage, so the oracle is unaffected. Analysis scripts,
+`FuseParams()`, and `fuse_sites.py --pose-ablation` / `--implied-height` keep 2.6 m unless
+asked. The adoption inherits both scope limits above: the evidence is one city's new rig, and Paterson's 2025 rig (91% measured, median
 1.86 m) would take 2.0 m on Gainesville's evidence alone.
 
 ### What the numbers say, rule aside

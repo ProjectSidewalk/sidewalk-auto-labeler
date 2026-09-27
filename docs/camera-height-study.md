@@ -37,6 +37,15 @@ and `fuse_sites.py --implied-height` is the instrument below. **The production d
 is unchanged at 2.6 m**, so `sites.jsonl` is byte-identical to before (checked on
 paterson).
 
+**Update, 2026-09-26 (#79):** the default question below (open question 2) was settled by
+an external oracle, city curb-ramp inventories (`docs/placement-oracle.md`). It selected a
+version of option (c) with a measurement minimum: a capture year keeps its depth-median
+height (2.0 m below 2.1 m, else 2.5 m) only with ≥ 50 measured panos that are ≥ 50% of
+the year, else 2.5 m. That is now `fuse_sites.py`'s default for GSV
+(`--camera-height-m auto`); undated panos, and a run with no year that meets the minimum,
+stay at 2.6 m. Analysis scripts and `FuseParams()` still default to 2.6 m,
+so the tables in this document reproduce as written.
+
 ## The instrument: implied height by bearing-only triangulation
 
 For two operational members of one fused site whose rays cross at ≥30°, the ramp's

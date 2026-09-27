@@ -1062,6 +1062,16 @@ def meta_pose(run_dir):
         return json.load(f).get('pose')
 
 
+def fused_gsv_per_rig(run_dir):
+    """Whether sites_meta.json says fuse_sites' `auto` (#79) resolved to GSV per-rig-by-year
+    heights. Such a fuse records params.camera_height_m == 'per-rig', exactly as a Mapillary
+    per-rig fuse does, so only the `camera_heights` block tells the two apart. (An `auto`
+    fuse that fell back to the constant records that constant, and is a genuine one.)"""
+    with open(run_dir / 'sites_meta.json', encoding='utf-8') as f:
+        heights = json.load(f).get('camera_heights') or {}
+    return heights.get('mode') == fs.HEIGHT_AUTO and heights.get('resolved') == 'gsv-per-rig'
+
+
 def fused_flat(apply_pose, pose_block):
     """Whether a sites.jsonl was fused with every ray flat.
 
@@ -1102,6 +1112,7 @@ def sites_for(run_dir, panos, camera_height, force_refuse):
             same = (p.get('camera_height_m') == camera_height
                     and p.get('min_confidence') == BENCHMARK_CONFIDENCE
                     and not p.get('mask_rig', False)
+                    and not fused_gsv_per_rig(run_dir)
                     and fused_flat(p.get('apply_pose'), meta_pose(run_dir)))
             if same:
                 prov = (f'sites.jsonl on disk (fused at {p["camera_height_m"]} m, tier '

@@ -351,6 +351,12 @@ def test_verdict_tie_break_prefers_d_unless_b_is_clearly_better_in_both_cities()
     bd = _city_rows(a=(0.7, 1.7), b=(0.7, 1.3), c=(0.7, 1.55))
     selected, res, _ = io.verdict({'gainesville': g, 'bend': bd}, vint)
     assert res['b']['pass'] and res['d']['pass'] and selected == 'b'
+    # the tie-break compares (b) with (d), not with the superseded (c): (b) is clearly
+    # better than (c) in both cities but within the margin of (d), so (d) is kept
+    g = _city_rows(a=(2.0, 4.0), b=(1.1, 2.3), c=(1.2, 2.6), d=(1.15, 2.35))
+    bd = _city_rows(a=(0.7, 1.7), b=(0.7, 1.3), c=(0.7, 1.55), d=(0.7, 1.35))
+    selected, res, _ = io.verdict({'gainesville': g, 'bend': bd}, vint)
+    assert res['b']['pass'] and res['d']['pass'] and selected == 'd'
 
 
 def test_verdict_rule_4_fails_on_a_coverage_drop_and_caveats_a_site_drop():

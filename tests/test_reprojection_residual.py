@@ -334,3 +334,18 @@ def test_fused_flat_never_tests_a_mode_for_truthiness():
     assert rr.fused_flat('auto', {'panos': 5, 'flat': 5})
     assert not rr.fused_flat('gravity', {'panos': 5, 'flat': 4})
     assert not rr.fused_flat('gravity', {'mode': 'gravity'})
+
+
+def test_an_auto_per_rig_fuse_is_not_taken_for_a_per_rig_one(tmp_path):
+    """fuse_sites' auto (#79) records params.camera_height_m == 'per-rig', as a Mapillary
+    per-rig fuse does; only its camera_heights block may tell sites_for they differ."""
+    import json
+
+    def meta(heights):
+        (tmp_path / 'sites_meta.json').write_text(json.dumps({'camera_heights': heights}),
+                                                  encoding='utf-8')
+        return rr.fused_gsv_per_rig(tmp_path)
+    assert meta({'mode': 'auto', 'resolved': 'gsv-per-rig'})
+    assert not meta({'mode': 'auto', 'resolved': 2.6})    # a fallback is a real 2.6 m fuse
+    assert not meta({'mode': 'per-rig', 'table': 'camera_heights.json'})
+    assert not meta(None)
