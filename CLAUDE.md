@@ -202,6 +202,27 @@ python scripts/reprojection_residual.py bend paterson gainesville sao_paulo rich
 # are not, so the report records each pull's url, fetch time, sha256 and feature count.
 python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond.cs.washington.edu
 
+# A RUN REBUILT FROM THE PANO STORE (issue #56; runbook in docs/ps-clustering-eval.md, "Step 2").
+# For a city whose results.jsonl was not kept and whose panos have partly left GSV (Vancouver).
+# detect_from_store.py reads pixels from the PS pano store (<id[:2]>/<id>.jpg or flat) and the
+# pano block from the server's /backupImage/<id>/metadata (sequential, spaced, 429 honoured,
+# cached per id in store_metadata/; source_detail "ps_store", no links/history/depth), and runs
+# them through main.py's detect/record/resume path. The id list (labels' panos + a seeded
+# unlabeled sample) is frozen in store_ids.txt on first use. --metadata-only needs no model.
+# provenance_gate.py then checks that the rebuilt run IS the deployed one: AI labels joined on
+# send_to_ps's pixel key, +/-1 px, at 0.55; pre-registered PASS iff >= 0.98 match, else STOP and
+# nothing downstream runs. harvest_depth.py --from-store indexes pano-tools' v3 .depth.npz in
+# place (same index.csv schema; --check-store-frame N proves the artifacts equal N live
+# payloads in the image frame -- a mirrored index array fails, a payload Google has revised
+# since reads `revised`). depth_at_detection/gsv_ground_plane read *.json.gz payloads, not the
+# index, so they do not see a store index yet.
+python scripts/provenance_gate.py vancouver --server https://sidewalk-vancouver.cs.washington.edu --fetch-only
+python scripts/detect_from_store.py --run-dir runs/vancouver --store <store> --server <server> \
+    --labels runs/vancouver/provenance_gate/raw_labels.geojson --labels-user <ai user_id> \
+    --sample-unlabeled 300 --seed 56 [--metadata-only]
+python scripts/provenance_gate.py vancouver
+python scripts/harvest_depth.py runs/vancouver --from-store <store> [--check-store-frame 5]
+
 # AI-vs-crowd AGREE RATE (issue #31 goal 2; write-up in docs/agree-rate-gainesville.md).
 # Compares the run's detections with the city's CROWD CurbRamp labels — read-only, nothing
 # is submitted (an AI label on the server would contaminate the very baseline). Three GETs

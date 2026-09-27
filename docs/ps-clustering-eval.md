@@ -377,3 +377,79 @@ read against: `deployed` and `ps @ 15 m` are both exactly level with `fusion_ref
    once, and unlike a wider cut they cost no coverage.
 5. **A second city is the next run**, ideally GSV where per-pano depth gives true heights.
    The tool takes a city name and the two API downloads.
+
+## Step 2 (Vancouver) runbook
+
+Issue [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56). Vancouver, WA
+is the second city: all GSV and AI-dense, and its server has already clustered it. The labels
+went live in September 2025, and that run's `results.jsonl` was not kept. By 2026-09 about a
+third of the labeled panos no longer resolve on GSV by id. So the run is rebuilt from the
+Project Sidewalk pano store on makelab2, with each pano's metadata taken from the Vancouver
+server. The tooling is in place; the two launches left are the detection run (makelab2 A40,
+~4-6 h) and the RampNet GT session.
+
+`STORE=/projects/makeabilitylab/sidewalk_panos/Panoramas/vancouver-wa` (`<id[:2]>/<id>.jpg`,
+with pano-tools' `<id>.depth.npz` beside each JPEG), and
+`SERVER=https://sidewalk-vancouver.cs.washington.edu`.
+
+1. **Labels and the AI account** (any machine; one GET, cached):
+   `python scripts/provenance_gate.py vancouver --server $SERVER --fetch-only` writes
+   `runs/vancouver/provenance_gate/raw_labels.geojson` and prints every account's CurbRamp
+   count. The AI account is the one with the most labels, and the default everywhere below.
+2. **Pano metadata** (on makelab2, no GPU; can run while the A40 is busy):
+   `python scripts/detect_from_store.py --run-dir runs/vancouver --store $STORE --labels runs/vancouver/provenance_gate/raw_labels.geojson --labels-user <AI user_id> --sample-unlabeled 300 --seed 56 --server $SERVER --metadata-only`.
+   This fixes the pano list (`store_ids.txt` + `store_selection.json`: the labeled panos plus
+   300 seeded unlabeled store panos for the benchmark's empty stratum) and caches one
+   `/backupImage/<id>/metadata` JSON per pano under `store_metadata/`. The GETs are
+   sequential, spaced 0.2 s apart, and a 429's Retry-After is honoured, so ~29k panos take a
+   couple of hours. A pano with no JPEG in the store, or whose metadata returns 404, is logged
+   in `store_skipped.jsonl` and never retried.
+3. **Launch 1: detection** (makelab2 A40): the same command without `--metadata-only`. It
+   appends to `runs/vancouver/results.jsonl` through main.py's own record writer and resume
+   cache. It binds the existing scan-only `manifest.json` to the model revision and adds a
+   `pixels` block (store, server, id-list sha256). `--workers` defaults to 8, because a
+   16384x8192 JPEG decodes to ~400 MB.
+4. **Provenance gate**: `python scripts/provenance_gate.py vancouver`. Its rule was
+   pre-registered before any Vancouver number existed. PASS requires >= 0.98 of the AI labels
+   whose pano is in the run to have a stored detection within +/-1 px at >= 0.55. On STOP,
+   nothing below runs until the difference is found. The report's near-miss histogram is
+   binned by heatmap cell: a label one cell (16 px) away points at resampling. The 2025 run
+   stitched Google's zoom-3 tiles, while the store holds native-resolution JPEGs that
+   `panorama.normalize_image` resizes, so the pixels can differ slightly.
+5. **Depth**: `python scripts/harvest_depth.py runs/vancouver --from-store $STORE --check-store-frame 5`
+   (five live requests), then `python scripts/harvest_depth.py runs/vancouver --from-store $STORE`.
+   This writes `runs/vancouver/depth/index.csv` in the harvest's schema from the artifacts,
+   reading them in place. `fuse_sites.load_depth_index` and `height_qc.py` read it unchanged.
+   `depth_at_detection.py` and `gsv_ground_plane.py` read harvested `*.json.gz` payloads rather
+   than the index, so they would need `harvest_depth.payload_from_npz` to run on a store
+   index. Panos without an artifact are listed as `gone.txt` (per the store's
+   `depth_log.csv`) or as pending.
+6. **Launch 2: benchmark and GT session.**
+   `python scripts/export_benchmark.py runs/vancouver/results.jsonl --bundle ../RampNet/benchmark/vancouver --sample 100 --empty-sample 25 --records-only`.
+   Copy those panos' JPEGs in from `$STORE`, re-run without `--records-only` to reconcile,
+   then review them in RampNet (Richmond's session took about a day).
+7. **The evaluation**: `python scripts/eval_ps_clustering.py vancouver --server $SERVER` (the
+   labeler's 2.6 m frame), plus the same with `--camera-height-m 2.341219672825709` (the
+   server's frame). The per-pano frame (`--camera-height-m per-pano`) is the one small change
+   left: the flag is a float today, and the script would also have to pass the depth index to
+   `fuse_sites.load_results`. That is the same work as step 2 of
+   [RampNet#158](https://github.com/ProjectSidewalk/RampNet/issues/158).
+
+**Store frame check (2026-09-27, five panos).** pano-tools flips its depth *raster* on write
+(its #58), and `depth.py` has its own raster mirror (#80). Neither convention touches the
+plane indices, which the bridge reads. To show that directly, five store panos were compared
+with their live payloads fetched today. The five were the first artifacts in five shards
+spread across the id space.
+
+- Four were byte-identical: plane indices, normals and offsets. None matched a mirrored
+  index array. On the two whose artifacts were copied here, the ground plane, the image-frame
+  `ground_range_at` at eight asymmetric points (8 and 2 of them discriminate a mirror), and
+  the artifact's own raster against `depth_at(payload, 1 - x, y)` (0 mismatches) all agree.
+- One (`0A5ipVeTM-1W8-lsIhLePg`, saved to the store 2026-09-17) has since been revised
+  upstream: 130 planes today against 127. 98.3% of its pixels keep the same plane index,
+  against 65.8% for the mirrored artifact. The sky mask is identical. Per-pixel depth is
+  identical wherever both have a plane, and the ground plane (2.323 m, 1.01°) is identical.
+  `compare_store_frame` reports such a pair as `revised`, not as a frame error.
+
+Heights on those five, for the record: 2.323, 2.199, 1.823 and 2.389 m measured, plus one
+2.5 m stand-in ground.
