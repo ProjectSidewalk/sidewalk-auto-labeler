@@ -353,10 +353,11 @@ def test_a_mixed_file_is_refused(tmp_path):
     assert hd.record_source_problem(set()) is None
 
 
-def _producer_run(run_dir, pano_ids, imagery_source="gsv"):
-    """A run dir whose records come from the real producer chain (sources/gsv's pano
-    block through main.build_output_line), so the test sees whatever `source` string GSV
-    records actually store -- 'launch' today -- rather than one a test author assumed."""
+def _producer_run(run_dir, pano_ids):
+    """A GSV run dir whose records come from the real producer code (sources/gsv's pano
+    block through main.build_output_line), fed conftest's streetlevel-shaped metadata, so
+    `source` is whatever that chain writes for a streetlevel 'launch' pano -- not a record
+    hand-written by the test."""
     import main
     from conftest import make_process_result, make_provenance
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -366,7 +367,7 @@ def _producer_run(run_dir, pano_ids, imagery_source="gsv"):
             result["pano"] = dict(result["pano"], panorama_id=pid)
             f.write(json.dumps(main.build_output_line(result, make_provenance())) + "\n")
     (run_dir / "manifest.json").write_text(
-        json.dumps({"imagery_source": imagery_source}), encoding="utf-8")
+        json.dumps({"imagery_source": "gsv"}), encoding="utf-8")
 
 
 def test_main_verify_accepts_a_real_gsv_run(tmp_path, capsys):
@@ -374,8 +375,9 @@ def test_main_verify_accepts_a_real_gsv_run(tmp_path, capsys):
     store 'launch', not 'gsv'. Driven through main() so the whole source check is covered."""
     run_dir = tmp_path / "city"
     _producer_run(run_dir, ["A", "B"])
-    assert {json.loads(l)["pano"]["source"]
-            for l in (run_dir / "results.jsonl").read_text().splitlines()} == {"launch"}
+    assert ({json.loads(l)["pano"]["source"]
+             for l in (run_dir / "results.jsonl").read_text(encoding="utf-8").splitlines()}
+            == {"launch"})
     for pid in ("A", "B"):
         archive(run_dir / "depth", pid)
 
