@@ -172,7 +172,8 @@ def test_store_index_has_the_harvest_schema_and_feeds_fuse_sites(tmp_path, capsy
     assert [r[0] for r in rows] == ["AAone"]
     assert rows[0][1] == "AA/AAone.depth.npz"
     assert rows[0][3] == hd._sha256(store / "AA" / "AAone.depth.npz")
-    assert hd.load_gone(depth_dir) == {"CCgone"}
+    assert hd._load_ids(depth_dir / hd.UNAVAILABLE_FILE) == {"CCgone"}
+    assert not (depth_dir / "gone.txt").exists()
     assert (depth_dir / hd.NO_PLANES_FILE).read_text().split() == ["BBold"]
     assert "PARTIAL" in capsys.readouterr().out
 
@@ -226,9 +227,102 @@ def test_check_store_frame_fetches_through_fetch_depth(tmp_path, monkeypatch):
             json.dump({"pano_id": pid, "depth_b64": _blob()}, f)
         return None
     monkeypatch.setattr(hd, "fetch_depth", fake_fetch)
-    results = hd.check_store_frame(store, ["AAone", "ZZnone"], 5, scratch=tmp_path / "s")
+    results = hd.check_store_frame(store, ["AAone", "ZZnone"], 1, scratch=tmp_path / "s")
     assert [r["pano_id"] for r in results] == ["AAone"] and results[0]["ok"]
 
     _write_npz(store, "AAone", _artifact(idx=_indices()[:, ::-1].copy()))
     with pytest.raises(SystemExit, match="FAILED"):
-        hd.check_store_frame(store, ["AAone"], 5, scratch=tmp_path / "s2")
+        hd.check_store_frame(store, ["AAone"], 1, scratch=tmp_path / "s2")
+
+
+# ------------------------------------------------------------ review fixes (PR #96)
+
+def _run_dir(tmp_path, ids):
+    import json
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "manifest.json").write_text(json.dumps({"imagery_source": "gsv"}), encoding="utf-8")
+    (run / "results.jsonl").write_text("".join(
+        json.dumps({"pano": {"panorama_id": pid, "source": None}}) + "\n" for pid in ids),
+        encoding="utf-8")
+    return run
+
+
+def test_a_store_bound_dir_refuses_a_call_without_from_store(tmp_path, monkeypatch):
+    """The reproduced bug: `--verify --rehash` (the documented idiom) without --from-store
+    used to rewrite a store index as an empty harvest index."""
+    store = tmp_path / "store"
+    _write_npz(store, "AAone", _artifact())
+    run = _run_dir(tmp_path, ["AAone"])
+    with pytest.raises(SystemExit) as e:
+        hd.main([str(run), "--from-store", str(store)])
+    assert e.value.code == 0
+    index = (run / "depth" / "index.csv").read_text(encoding="utf-8")
+    monkeypatch.setattr(hd, "fetch_depth", lambda *a: pytest.fail("fetched into a store dir"))
+    for argv in ([str(run), "--verify", "--rehash"], [str(run)]):
+        with pytest.raises(SystemExit, match="--from-store"):
+            hd.main(argv)
+    assert (run / "depth" / "index.csv").read_text(encoding="utf-8") == index
+    # ...and with --from-store, --verify --rehash is accepted and keeps the index.
+    with pytest.raises(SystemExit) as e:
+        hd.main([str(run), "--from-store", str(store), "--verify", "--rehash"])
+    assert e.value.code == 0
+    assert (run / "depth" / "index.csv").read_text(encoding="utf-8") == index
+
+
+def test_the_store_is_compared_resolved(tmp_path):
+    store = tmp_path / "store"
+    _write_npz(store, "AAone", _artifact())
+    depth_dir = tmp_path / "depth"
+    hd.reconcile_store(depth_dir, store, ["AAone"])
+    hd.reconcile_store(depth_dir, str(store) + "/", ["AAone"])
+    hd.reconcile_store(depth_dir, store / "AA" / "..", ["AAone"])
+
+
+def _fake_fetch(gone=()):
+    def fetch(pid, out_path):
+        import gzip
+        import json
+        if pid in gone:
+            return (hd.GONE, "gone")
+        with gzip.open(out_path, "wt", encoding="utf-8") as f:
+            json.dump({"pano_id": pid, "depth_b64": _blob()}, f)
+        return None
+    return fetch
+
+
+def test_frame_check_draws_until_n_are_checked_and_records_it(tmp_path, monkeypatch, capsys):
+    store = tmp_path / "store"
+    ids = [f"A{c}pano" for c in "BCDEFGH"]
+    for pid in ids:
+        _write_npz(store, pid, _artifact())
+    gone = set(ids[:4])                       # most of the draw is gone from GSV
+    monkeypatch.setattr(hd, "fetch_depth", _fake_fetch(gone))
+    depth_dir = tmp_path / "depth"
+    results = hd.check_store_frame(store, ids, 3, scratch=tmp_path / "s", depth_dir=depth_dir)
+    assert len(results) == 3 and not {r["pano_id"] for r in results} & gone
+    frame = hd.load_store_record(depth_dir)["frame_check"]
+    assert frame["ok"] and frame["n_checked"] == 3 and frame["identical"] == 3
+    assert frame["live_requests"] == 7
+    hd.reconcile_store(depth_dir, store, ids)
+    assert "frame: checked" in capsys.readouterr().out
+
+
+def test_frame_check_that_cannot_reach_n_fails_and_says_so(tmp_path, monkeypatch):
+    store = tmp_path / "store"
+    for pid in ("AAone", "BBtwo"):
+        _write_npz(store, pid, _artifact())
+    monkeypatch.setattr(hd, "fetch_depth", _fake_fetch({"BBtwo"}))
+    depth_dir = tmp_path / "depth"
+    with pytest.raises(SystemExit, match="only 1 of 2"):
+        hd.check_store_frame(store, ["AAone", "BBtwo"], 2, scratch=tmp_path / "s",
+                             depth_dir=depth_dir)
+    assert hd.load_store_record(depth_dir)["frame_check"]["ok"] is False
+
+
+def test_index_pass_says_frame_unchecked(tmp_path, capsys):
+    store = tmp_path / "store"
+    _write_npz(store, "AAone", _artifact())
+    hd.reconcile_store(tmp_path / "depth", store, ["AAone"])
+    out = capsys.readouterr().out
+    assert "frame unchecked" in out and "STATUS: OK" in out

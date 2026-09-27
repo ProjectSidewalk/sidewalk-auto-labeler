@@ -38,8 +38,15 @@ downloaded — so it neither needs nor touches the native-resolution archive.
     # fetching (issue #56): <store>/<id[:2]>/<id>.depth.npz, read in place, nothing copied
     python scripts/harvest_depth.py runs/vancouver --from-store /projects/.../vancouver-wa
 
-    # ...after proving the store's frame equals a live payload's on N panos (N requests)
+    # ...after proving the store's frame equals a live payload's on N panos (N checked; a
+    # pano gone from GSV is not a check, so the draw goes on; the result lands in
+    # <depth dir>/store.json, and an index pass without one says "frame unchecked")
     python scripts/harvest_depth.py runs/vancouver --from-store <store> --check-store-frame 5
+
+A depth dir indexed from a store is bound to it (store.json) and is ALWAYS addressed with
+--from-store: without the flag the script refuses it rather than reconciling it as a harvest
+archive (which would empty its index) or fetching into it. A store index keeps pano-tools'
+`unavailable` ledger outcome (gone OR served no depth) in `unavailable.txt`, not gone.txt.
 
 GSV only: Mapillary serves no depth, and the run's manifest is checked so a Mapillary run
 is refused rather than silently producing an empty archive.
@@ -94,8 +101,12 @@ NO_DEPTH_ALARM_MIN = 20
 # ('saved' | 'unavailable' = the pano is gone or served no depth; never retried there).
 STORE_SUFFIX = ".depth.npz"
 STORE_LEDGER = "depth_log.csv"
-STORE_RECORD = "store.json"          # in the depth dir: which store the index was built from
+STORE_RECORD = "store.json"          # in the depth dir: which store, + the frame check's result
 NO_PLANES_FILE = "no_planes.txt"     # artifacts without the plane list (pre-v3); see NoPlanes
+# pano-tools' `unavailable` means "gone OR served no depth" (its gsv.py does not tell them
+# apart), which a harvest keeps in two files (gone.txt / no_depth.txt). A store index keeps
+# it under its own name rather than pretending it is either.
+UNAVAILABLE_FILE = "unavailable.txt"
 
 INDEX_FIELDS = ["panorama_id", "filename", "bytes", "sha256", "n_planes", "degenerate",
                 "camera_height_m", "ground_tilt_deg", "ground_pixel_share",
@@ -524,41 +535,60 @@ def load_store_ledger(store):
     return status
 
 
+def load_store_record(depth_dir):
+    """The depth dir's store record (STORE_RECORD), or None when it indexes no store."""
+    path = Path(depth_dir) / STORE_RECORD
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def _write_store_record(depth_dir, record):
+    path = Path(depth_dir) / STORE_RECORD
+    tmp = path.with_name(path.name + ".part")
+    tmp.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
 def bind_store(depth_dir, store):
     """A depth dir indexes ONE source: a harvest's *.json.gz or one store. Mixing them would
-    give index.csv rows whose `filename` means two different things."""
+    give index.csv rows whose `filename` means two different things. Stores are compared
+    resolved, so a trailing slash or a relative path names the same store. Returns the
+    store record."""
     depth_dir.mkdir(parents=True, exist_ok=True)
     if any(depth_dir.glob("*.json.gz")):
         sys.exit(f"{depth_dir} holds harvested payloads (*.json.gz); index a store into a "
                  f"separate --out rather than mixing the two in one index.csv.")
-    record_path = depth_dir / STORE_RECORD
-    store = str(store)
-    if record_path.exists():
-        bound = json.loads(record_path.read_text(encoding="utf-8")).get("store")
-        if bound != store:
-            sys.exit(f"{depth_dir} was indexed from store {bound}, not {store}; use another --out.")
-        return
-    record_path.write_text(json.dumps({
-        "store": store, "artifact": f"<id[:2]>/<id>{STORE_SUFFIX}",
-        "producer": "sidewalk-panorama-tools depth phase (format v3)",
-        "bound_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}, indent=2) + "\n",
-        encoding="utf-8")
+    store = str(Path(store).resolve())
+    record = load_store_record(depth_dir)
+    if record is not None:
+        if record.get("store") != store:
+            sys.exit(f"{depth_dir} was indexed from store {record.get('store')}, not {store}; "
+                     f"use another --out.")
+        return record
+    record = {"store": store, "artifact": f"<id[:2]>/<id>{STORE_SUFFIX}",
+              "producer": "sidewalk-panorama-tools depth phase (format v3)",
+              "bound_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    _write_store_record(depth_dir, record)
+    return record
 
 
 def reconcile_store(depth_dir, store, expected, rehash=False):
     """index.csv for a run's panos from the store's depth artifacts, with the same schema,
     incremental re-use and --rehash semantics as `reconcile`.
 
-    Outcomes per run pano: indexed; `gone` (no artifact, and the store's ledger says
-    'unavailable' -- the pano was gone or served no depth when pano-tools asked; added to
-    gone.txt, which as in a harvest is only ever added to); `no_planes` (a pre-v3 artifact;
-    rewritten each pass into no_planes.txt, since pano-tools can still re-fetch it); pending
-    (no artifact and no ledger verdict yet -- the depth phase has not reached it).
+    Outcomes per run pano: indexed; `unavailable` (no artifact, and the store's ledger says
+    'unavailable' -- the pano was gone OR served no depth when pano-tools asked, which it
+    does not tell apart; added to unavailable.txt, which like a harvest's gone.txt is only
+    ever added to); `no_planes` (a pre-v3 artifact; rewritten each pass into no_planes.txt,
+    since pano-tools can still re-fetch it); pending (no artifact and no ledger verdict yet
+    -- the depth phase has not reached it).
 
-    Returns (gone, no_planes, pending, anomalies).
+    The index is only as good as the frame it was read in: without a passing
+    --check-store-frame result in the store record, the pass says "frame unchecked".
+
+    Returns (unavailable, no_planes, pending, anomalies).
     """
     store = Path(store)
-    bind_store(depth_dir, store)
+    record = bind_store(depth_dir, store)
     expected_ids = list(dict.fromkeys(expected))
     ledger = load_store_ledger(store)
 
@@ -612,16 +642,17 @@ def reconcile_store(depth_dir, store, expected, rehash=False):
 
     unavailable = {pid for pid in absent if ledger.get(pid) == "unavailable"}
     indexed = {r[0] for r in rows}
-    gone = ((load_gone(depth_dir) | unavailable) & set(expected_ids)) - indexed
-    _write_ids(depth_dir / "gone.txt", gone)
+    gone = ((_load_ids(depth_dir / UNAVAILABLE_FILE) | unavailable) & set(expected_ids)) - indexed
+    _write_ids(depth_dir / UNAVAILABLE_FILE, gone)
     _write_ids(depth_dir / NO_PLANES_FILE, no_planes)
     pending = absent - gone
+    frame = record.get("frame_check")
 
     print(f"--- Reconcile: run records vs store {store} ---")
     print(f"  run panoramas (unique):  {len(expected_ids)}")
     print(f"  indexed from the store:  {len(rows)}  -> index.csv")
     if gone:
-        print(f"  gone / no depth (ledger 'unavailable'): {len(gone)}  -> gone.txt")
+        print(f"  gone or no depth (ledger 'unavailable'): {len(gone)}  -> {UNAVAILABLE_FILE}")
     if no_planes:
         print(f"  artifact has no plane list (pre-v3): {len(no_planes)}  -> {NO_PLANES_FILE}")
     if pending:
@@ -639,6 +670,16 @@ def reconcile_store(depth_dir, store, expected, rehash=False):
         status = f"OK with gaps — {len(gone)} gone / no depth, {len(no_planes)} without planes"
     else:
         status = "OK — every run panorama indexed from the store"
+    if frame is None:
+        print(f"  frame unchecked: no --check-store-frame result in {STORE_RECORD}; run it "
+              f"before anything reads this index")
+        status += " (frame unchecked)"
+    elif not frame.get("ok"):
+        print(f"  WARNING: the recorded store frame check FAILED ({frame.get('checked_at')})")
+        status += " (frame check FAILED)"
+    else:
+        print(f"  frame: checked {frame.get('checked_at')} on {frame.get('n_checked')} "
+              f"panorama(s): {frame.get('identical')} identical, {frame.get('revised')} revised")
     print(f"  STATUS: {status}")
     return len(gone), len(no_planes), len(pending), len(unreadable) + len(corrupted)
 
@@ -733,22 +774,36 @@ def compare_store_frame(raw, stored, raster=None, points=FRAME_POINTS, tol=FRAME
     return out
 
 
-def check_store_frame(store, pano_ids, n, seed=0, scratch=None):
-    """Fetch the live payload for `n` panos that have a v3 artifact in the store and compare
-    each with its artifact (compare_store_frame). One request per pano, through fetch_depth.
-    Exits non-zero on any disagreement; a pano whose fetch fails is reported and does not
-    count as checked. Returns the per-pano result dicts."""
+FRAME_MAX_ATTEMPTS_PER_CHECK = 4    # live requests allowed per wanted check, + FRAME_MAX_EXTRA
+FRAME_MAX_EXTRA = 10
+
+
+def check_store_frame(store, pano_ids, n, seed=0, scratch=None, depth_dir=None):
+    """Fetch live payloads for panos that have a v3 artifact in the store, drawing in a
+    seeded order until `n` have been CHECKED, and compare each with its artifact
+    (compare_store_frame). A pano whose live fetch fails (about a third of a year-old
+    city's labeled panos are gone from GSV) or whose artifact has no plane list is reported
+    and does not count, so the draw goes on -- up to FRAME_MAX_ATTEMPTS_PER_CHECK * n +
+    FRAME_MAX_EXTRA live requests, so a GSV outage cannot turn into a request storm. One
+    request per attempt, through fetch_depth.
+
+    With `depth_dir` the result is written into its store record (bind_store), which is
+    what the index pass reads to say whether the frame was checked. Exits non-zero on any
+    disagreement, or when fewer than `n` could be checked. Returns the per-pano results."""
     import random
     import tempfile
     import numpy as np
     candidates = [pid for pid in sorted(set(pano_ids)) if store_npz_path(store, pid).exists()]
     if not candidates:
         sys.exit("no run panorama has an artifact in the store")
-    picked = random.Random(seed).sample(candidates, min(n, len(candidates)))
+    order = random.Random(seed).sample(candidates, len(candidates))
+    max_attempts = FRAME_MAX_ATTEMPTS_PER_CHECK * n + FRAME_MAX_EXTRA
     tmp = Path(scratch or tempfile.mkdtemp(prefix="store_frame_"))
     tmp.mkdir(parents=True, exist_ok=True)
-    results, failed = [], 0
-    for pid in picked:
+    results, failed, attempts = [], 0, 0
+    for pid in order:
+        if len(results) >= n or attempts >= max_attempts:
+            break
         with np.load(store_npz_path(store, pid)) as z:
             fields = {k: z[k] for k in z.files}
         try:
@@ -756,6 +811,7 @@ def check_store_frame(store, pano_ids, n, seed=0, scratch=None):
         except NoPlanes:
             print(f"  {pid}: artifact has no plane list, skipped")
             continue
+        attempts += 1
         err = fetch_depth(pid, tmp / f"{pid}.json.gz")
         if err is not None:
             print(f"  {pid}: live fetch failed ({err[0]}: {err[1]}), not checked")
@@ -773,12 +829,26 @@ def check_store_frame(store, pano_ids, n, seed=0, scratch=None):
               f"(h {res['ground_height_m']}), range {res['range_points']} "
               f"({res['discriminating']}/{len(FRAME_POINTS)} points discriminate a mirror), "
               f"raster mismatches {res['raster_mismatches']}")
+    revised = sum(r["match"] == "revised" for r in results)
+    if depth_dir is not None:
+        record = bind_store(Path(depth_dir), store)
+        record["frame_check"] = {
+            "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "n_requested": n, "n_checked": len(results), "live_requests": attempts,
+            "seed": seed, "identical": len(results) - revised - failed, "revised": revised,
+            "mismatch": failed, "ok": not failed and len(results) >= n,
+            "panos": [{"pano_id": r["pano_id"], "match": r["match"],
+                       "index_agreement": r["index_agreement"],
+                       "mirrored_agreement": r["mirrored_agreement"]} for r in results]}
+        _write_store_record(Path(depth_dir), record)
     if failed:
         sys.exit(f"STORE FRAME CHECK FAILED on {failed} of {len(results)} panorama(s): do not "
                  f"index this store until the frames are reconciled")
     if not results:
         sys.exit("STORE FRAME CHECK: nothing could be checked")
-    revised = sum(r["match"] == "revised" for r in results)
+    if len(results) < n:
+        sys.exit(f"STORE FRAME CHECK: only {len(results)} of {n} panorama(s) could be checked "
+                 f"in {attempts} live request(s); the frame is not established")
     print(f"  STATUS: OK — {len(results)} store artifact(s) agree with the live payload in the "
           f"image frame ({len(results) - revised} identical, {revised} revised by the source "
           f"since the artifact was saved)")
@@ -831,16 +901,27 @@ def main(argv=None):
 
     if args.check_store_frame is not None and args.from_store is None:
         sys.exit("--check-store-frame needs --from-store")
+    depth_dir = args.out or (run_dir / "depth")
+    # A store-bound depth dir is ALWAYS addressed with --from-store: the harvest path would
+    # reconcile it as an archive of *.json.gz (finding none, it rewrites index.csv with only
+    # its header), and a plain harvest would fetch every run pano live into it (PR #96).
+    bound = load_store_record(depth_dir)
+    if bound is not None and args.from_store is None:
+        sys.exit(f"{depth_dir} indexes the pano store {bound.get('store')}; pass "
+                 f"--from-store {bound.get('store')} (with --rehash to re-hash it), or --out "
+                 f"another directory for a harvest.")
     if args.from_store is not None:
         if not args.from_store.is_dir():
             sys.exit(f"--from-store {args.from_store}: not a directory")
+        # --verify is accepted and changes nothing: a --from-store pass fetches nothing and
+        # always reconciles, so `--verify --rehash` means here what it means for a harvest.
         if args.check_store_frame is not None:
             if args.check_store_frame < 1:
                 sys.exit("--check-store-frame needs at least 1 panorama")
             print(f"--- Store frame check ({args.check_store_frame} panoramas) ---")
-            check_store_frame(args.from_store, pano_ids, args.check_store_frame)
+            check_store_frame(args.from_store, pano_ids, args.check_store_frame,
+                              depth_dir=depth_dir)
             return
-        depth_dir = args.out or (run_dir / "depth")
         print(f"{run_dir.name}: {len(pano_ids)} panoramas in the run -> {depth_dir} "
               f"(from store {args.from_store}; nothing is fetched)")
         _, _, _, anomalies = reconcile_store(depth_dir, args.from_store, pano_ids,
@@ -848,7 +929,6 @@ def main(argv=None):
         summarize(depth_dir)
         sys.exit(1 if anomalies else 0)
 
-    depth_dir = args.out or (run_dir / "depth")
     depth_dir.mkdir(parents=True, exist_ok=True)
     print(f"{run_dir.name}: {len(pano_ids)} panoramas in the run -> {depth_dir}")
 
