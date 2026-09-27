@@ -16,7 +16,9 @@ moved, pre-registered on #47 (the plan comment of 2026-09-27) before any number 
   - reported beside those (no rule reads them): how many panos widened (removing a
     weighted point can move a percentile either way), and how many sit above geo's sigma
     floor under each definition (spread * SIGMA_PER_P10_P90 > the GSV error model's
-    sigma_height_m) -- the only panos whose per-pano raycast sigma the change can move.
+    sigma_height_m), and the union that decides it: panos whose spread differs AND where
+    max(old, new) is above the floor -- exactly the panos whose per-pano raycast sigma the
+    change moves (added on the #97 review; no rule reads it).
 
 It also ASSERTS the plan's invariant: every index column other than the spread and the two
 new stand-in columns is byte-identical between the old and the reindexed index.csv for
@@ -111,10 +113,13 @@ def invariant_violations(old, new):
 
 
 def pano_rows(old, new, years):
-    """One dict per MEASURED pano: year, old/new spread, stand-in count and share."""
+    """One dict per MEASURED pano: year, old/new spread, stand-in count and share.
+
+    A pano missing from the old index is skipped: invariant_violations has already
+    reported it as a lost row, and cmd_measure exits 1 on that, not on a KeyError here."""
     rows = []
     for pid, n in new.items():
-        if status_of(n) != depthlib.MEASURED:
+        if pid not in old or status_of(n) != depthlib.MEASURED:
             continue
         rows.append({'pano_id': pid, 'year': years.get(pid, '????'),
                      'spread_old': float(old[pid]['height_spread_m']),
@@ -130,7 +135,10 @@ def summarize(rows):
     with_si = [r for r in rows if r['n_standin'] >= 1]
     old = [r['spread_old'] for r in rows]
     new = [r['spread_new'] for r in rows]
-    changed = [r for r in rows if abs(r['spread_new'] - r['spread_old']) >= CHANGE_M]
+    # Rounded first: the index values carry 4 decimals, and without it float error makes a
+    # difference of exactly 0.0500 read as 0.04999... and miss the pre-registered bar.
+    changed = [r for r in rows
+               if round(abs(r['spread_new'] - r['spread_old']), 4) >= CHANGE_M]
 
     def rnd(v, nd=4):
         return None if v is None else round(v, nd)
@@ -149,6 +157,9 @@ def summarize(rows):
         'n_widened': sum(r['spread_new'] > r['spread_old'] for r in rows),
         'n_old_above_sigma_floor': sum(v > SIGMA_FLOOR_SPREAD_M for v in old),
         'n_new_above_sigma_floor': sum(v > SIGMA_FLOOR_SPREAD_M for v in new),
+        'n_sigma_changed': sum(1 for r in rows if r['spread_new'] != r['spread_old']
+                               and max(r['spread_old'], r['spread_new'])
+                               > SIGMA_FLOOR_SPREAD_M),
     }
 
 

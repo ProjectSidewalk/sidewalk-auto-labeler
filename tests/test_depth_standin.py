@@ -32,3 +32,33 @@ def test_summarize_counts_standins_and_changes():
     s = ds.summarize(rows)
     assert (s['n_measured'], s['n_with_standin'], s['n_changed_ge_0p05']) == (2, 1, 1)
     assert (s['n_narrowed'], s['n_widened']) == (1, 0)
+
+
+def _pano(pid, old, new):
+    return {'pano_id': pid, 'year': '2024', 'spread_old': old, 'spread_new': new,
+            'n_standin': 1, 'standin_share': 0.01}
+
+
+def test_a_change_of_exactly_the_bar_counts():
+    """0.1234 - 0.0734 is 0.04999... in floats; the index holds 4 decimals."""
+    assert abs(0.1234 - 0.0734) < ds.CHANGE_M
+    assert ds.summarize([_pano('A', 0.1234, 0.0734)])['n_changed_ge_0p05'] == 1
+
+
+def test_sigma_changed_is_the_union_above_the_floor():
+    f = ds.SIGMA_FLOOR_SPREAD_M
+    rows = [_pano('A', f + 0.1, f - 0.1),      # crosses down: counted
+            _pano('B', f - 0.1, f + 0.1),      # crosses up: counted
+            _pano('C', f + 0.2, f + 0.1),      # both above, moved: counted
+            _pano('D', f - 0.2, f - 0.1),      # both floored: sigma unchanged
+            _pano('E', f + 0.1, f + 0.1)]      # above, unchanged
+    s = ds.summarize(rows)
+    assert s['n_sigma_changed'] == 3
+    assert (s['n_old_above_sigma_floor'], s['n_new_above_sigma_floor']) == (3, 3)
+
+
+def test_pano_rows_skips_a_row_the_invariant_already_reported():
+    """A lost row is an invariant failure (exit 1), not a KeyError."""
+    new = {'A': _row('A', height_spread_m='0.1000', n_standin_planes='1',
+                     standin_pixel_share='0.0400')}
+    assert ds.pano_rows({}, new, {}) == []
