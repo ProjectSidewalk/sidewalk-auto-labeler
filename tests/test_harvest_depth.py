@@ -351,3 +351,46 @@ def test_a_mixed_file_is_refused(tmp_path):
     assert problem and "mixed" in problem and "mapillary" in problem
     assert "mixed" not in hd.record_source_problem({"panoramax"})
     assert hd.record_source_problem(set()) is None
+
+
+def _producer_run(run_dir, pano_ids, imagery_source="gsv"):
+    """A run dir whose records come from the real producer chain (sources/gsv's pano
+    block through main.build_output_line), so the test sees whatever `source` string GSV
+    records actually store -- 'launch' today -- rather than one a test author assumed."""
+    import main
+    from conftest import make_process_result, make_provenance
+    run_dir.mkdir(parents=True, exist_ok=True)
+    with open(run_dir / "results.jsonl", "w", encoding="utf-8") as f:
+        for pid in pano_ids:
+            result = make_process_result(pano_id=pid)
+            result["pano"] = dict(result["pano"], panorama_id=pid)
+            f.write(json.dumps(main.build_output_line(result, make_provenance())) + "\n")
+    (run_dir / "manifest.json").write_text(
+        json.dumps({"imagery_source": imagery_source}), encoding="utf-8")
+
+
+def test_main_verify_accepts_a_real_gsv_run(tmp_path, capsys):
+    """Issue #99: main() refused every real GSV run, --verify included, because records
+    store 'launch', not 'gsv'. Driven through main() so the whole source check is covered."""
+    run_dir = tmp_path / "city"
+    _producer_run(run_dir, ["A", "B"])
+    assert {json.loads(l)["pano"]["source"]
+            for l in (run_dir / "results.jsonl").read_text().splitlines()} == {"launch"}
+    for pid in ("A", "B"):
+        archive(run_dir / "depth", pid)
+
+    with pytest.raises(SystemExit) as exc:
+        hd.main([str(run_dir), "--verify"])
+    assert exc.value.code in (0, None)
+    out = capsys.readouterr().out
+    assert "only GSV serves depth" not in out
+    assert "matches the run 1:1" in out
+
+
+def test_main_refuses_mapillary_records_without_a_manifest(tmp_path):
+    """The records check is the one that still refuses when manifest.json is missing."""
+    run_dir = tmp_path / "city"
+    _results(run_dir, ["mapillary", "mapillary"])
+    with pytest.raises(SystemExit) as exc:
+        hd.main([str(run_dir), "--verify"])
+    assert "mapillary" in str(exc.value.code) and "only GSV serves depth" in str(exc.value.code)
