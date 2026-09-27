@@ -93,6 +93,10 @@ value. Instrument C's gate slope uses every reference kind (box, missed and peak
 
 ## 3. Per-rig results
 
+> **Superseded by §8.4 (#89, 2026-09-27).** Read as a fixed point, B has no validated
+> estimator in any city, so no group passes and Annapolis's 2.376 m below is withdrawn.
+> The table here is kept as #53 ran it, for comparison.
+
 Instrument A medians across the association sweep (m):
 
 | city / rig | 1.4 | 1.6 | 1.8 | 2.0 | 2.3 | 2.6 | 3.0 |
@@ -173,6 +177,9 @@ same group, so those splits add nothing there. Annapolis's MX7 reads 2.27 m on d
 
 ## 4. Production gate
 
+> **Superseded by §8.5 (#89).** With no group applied, no city changes and the gate fails
+> vacuously on (ii). The #53 gate below is kept for comparison.
+
 Only Annapolis changes: the MX7 value covers all 53,232 of its panos. In the other four
 cities the per-rig arm is identical to `off` by construction. Common site set, benchmark
 tier, 25 m cap:
@@ -251,7 +258,8 @@ is harmful.
 - `scripts/mapillary_height.py`, which contains instruments A, B and C, the rule, the
   table writer and the gate.
 - `runs/{richmond,laurens,clovis,morgantown,annapolis}/camera_heights.json`, all with
-  `recommended: false`. Only Annapolis's applies a height other than 2.6 m.
+  `recommended: false`. Only Annapolis's applies a height other than 2.6 m. (Since #89,
+  §8, none does: every group is at 2.6 m.)
 - Under the default, fused output is byte-identical: Richmond's `sites.jsonl` and
   `sites_meta.json` fused at 2.6 m match before and after the change.
 
@@ -642,3 +650,148 @@ With the selected estimator's h*_B in place of B(2.6): rules 1-4 (`decide_group`
 ##### Out of scope
 
 Instrument A's sweep, the gate constants, any default change, GSV runs, `reprojection_residual.py`, RampNet.
+
+### 8.2 Verdict
+
+**Neither estimator of B's fixed point passes rule V in any of the five cities.** So in
+every city rule 3 reads `b_unvalidated` and fails, no group passes the #53 rule, and every
+`camera_heights.json` applies 2.6 m everywhere. That includes Annapolis's MX7, which #53
+applied at 2.376 m: its agreement clause used B(2.6), and B(2.6) is not a fixed point
+(§7). The production gate then has no changed city. It fails on clause (ii), vacuously
+("median better in 0 changed cities, needs 3"), and every table is re-issued with
+`recommended: false`. The default stays 2.6 m, as it would have whatever came out.
+
+What fails rule V is B itself at the model's full noise, not the choice of estimator. At
+noise 0.5 the local crossing recovers the planted height within 0.071 m in four cities
+(0.008 m in Laurens) and within 0.135 m in Richmond. At noise 1.0 both estimators read
+**high at low heights**, by +0.25 to +0.53 m at h\_true 1.8, in every city and every rig class, with the error
+falling as the true height rises (−0.28 to +0.18 m at 3.0 m). The line is worse than the
+local crossing in most noise-0.5 cells, as §7 predicted from its amplification.
+
+| city | real sweep | seeds / cell | rig classes validated | line: max \|mean error\| (0.5 / 1.0) | local: max \|mean error\| (0.5 / 1.0) | selected |
+|---|---:|---:|---|---|---|---|
+| richmond | 30 s | 2 | gopro/max, nctech/istar pulsar, unknown | 0.462 / 0.525 | 0.135 / 0.444 | none (`b_unvalidated`) |
+| laurens | 5 s | 2 | gopro/max | 0.280 / 0.361 | 0.008 / 0.418 | none |
+| clovis | 30 s | 2 | gopro/fusion | 0.113 / 0.370 | 0.028 / 0.324 | none |
+| morgantown | 42 s | 2 | gopro/max | 0.255 / 0.268 | 0.067 / 0.252 | none |
+| annapolis | 99 s | 2 | trimble/mx7 | 0.250 / 0.344 | 0.071 / 0.306 | none |
+
+No cell of either estimator was undefined or extrapolated, so every failure is on the
+0.10 m error bar alone. The budget rule never bit: the slowest real sweep took 99 s
+against 900 s. The whole `--validate` step (five timing sweeps, then 80 cell-seeds on 10 worker
+processes) took about 14 minutes of wall time, and the measurement plus gate about
+34 minutes (Richmond 370 s, Laurens 53 s, Clovis 224 s, Morgantown 296 s, Annapolis
+1,072 s, then the gate). The desktop was shared with other sessions throughout.
+
+### 8.3 Rule V cells
+
+Mean error over two seeds, h\*\_B − h\_true in metres, as **line / local**. Bold is
+outside ±0.10 m. Every row is the city's real view graph re-synthesized with every pano at
+h\_true; B is swept over `SWEEP_HEIGHTS_B` with a noise-matched null averaged over 10
+seeds. Inputs: `runs/<city>/camera_height/estimator_validation{,_seeds}.csv`.
+
+| city / rig class | noise | h_true 1.8 | h_true 2.2 | h_true 2.6 | h_true 3.0 |
+|---|---:|---:|---:|---:|---:|
+| richmond / gopro/max | 0.5 | **−0.191** / −0.056 | **−0.194** / −0.085 | **−0.352** / **−0.103** | **−0.462** / **−0.135** |
+| richmond / gopro/max | 1.0 | **+0.310** / **+0.257** | **+0.121** / **+0.141** | **−0.137** / +0.010 | **−0.276** / −0.052 |
+| richmond / nctech/istar pulsar | 0.5 | −0.008 / +0.039 | +0.010 / +0.026 | **−0.104** / +0.022 | **−0.144** / +0.013 |
+| richmond / nctech/istar pulsar | 1.0 | **+0.525** / **+0.444** | **+0.330** / **+0.299** | **+0.187** / **+0.240** | **+0.115** / **+0.182** |
+| richmond / unknown | 0.5 | −0.056 / +0.005 | −0.014 / −0.019 | **−0.123** / −0.022 | **−0.163** / −0.016 |
+| richmond / unknown | 1.0 | **+0.496** / **+0.385** | **+0.260** / **+0.254** | **+0.147** / **+0.139** | −0.003 / +0.093 |
+| laurens / gopro/max | 0.5 | −0.058 / −0.001 | **−0.102** / −0.006 | **−0.234** / −0.008 | **−0.280** / −0.001 |
+| laurens / gopro/max | 1.0 | **+0.361** / **+0.418** | **+0.179** / **+0.258** | +0.038 / **+0.130** | −0.044 / +0.049 |
+| clovis / gopro/fusion | 0.5 | −0.056 / −0.006 | +0.011 / −0.020 | −0.072 / −0.028 | **−0.113** / −0.027 |
+| clovis / gopro/fusion | 1.0 | **+0.370** / **+0.324** | **+0.218** / **+0.210** | +0.077 / **+0.104** | +0.014 / +0.062 |
+| morgantown / gopro/max | 0.5 | **−0.116** / −0.028 | **−0.113** / −0.049 | **−0.211** / −0.055 | **−0.255** / −0.067 |
+| morgantown / gopro/max | 1.0 | **+0.268** / **+0.252** | +0.098 / +0.097 | −0.054 / +0.034 | **−0.127** / −0.028 |
+| annapolis / trimble/mx7 | 0.5 | **−0.117** / −0.029 | −0.098 / −0.050 | **−0.198** / −0.058 | **−0.250** / −0.071 |
+| annapolis / trimble/mx7 | 1.0 | **+0.344** / **+0.306** | **+0.156** / **+0.159** | −0.005 / +0.069 | −0.094 / −0.008 |
+
+**Reading the noise-1.0 bias.** B's slope b\_B is 0.36–0.84 across cells and is steeper at
+noise 1.0 (0.69–0.84) than at 0.5 (0.36–0.68): with more noise, association pulls B more
+strongly toward the height it runs at (§7's mechanism). Where the true height is low,
+every association height above it pulls B up, and the crossing moves up with it. The
+matched-null re-run of #87's E2 cell (`simulate_matched.csv`, Richmond GoPro Max,
+h\_true 2.0) shows the same thing at one rig. Seed-mean B at the true height is
+1.951 (noise 0.5) and 2.036 (noise 1.0), so B is nearly unbiased *at* the true
+association. But the local crossing reads 1.877 and 2.151, and the line 1.782 and 2.059.
+At noise 0.5 the null is now matched: #87's full-sigma null had over-corrected B(2.6) to
+2.359, while the matched null gives 2.198.
+
+**The noise level decides it, and the real noise level is not known.** #76 found the
+error model overstates Mapillary noise about 2×. If that holds, the real data sit near
+the noise-0.5 rows, where the local crossing would pass everywhere except Richmond
+(−0.103 and −0.135 m for GoPro Max at 2.6 and 3.0 m). The rule was fixed at both noise
+levels before any number, precisely because the real level is uncertain, and it is not
+re-read here. A follow-up that measures the real noise scale could license a narrower
+grid; this section does not.
+
+### 8.4 Per-rig results, re-issued (§3's table, B as a fixed point)
+
+A reproduces §3 exactly (A's sweep and bootstrap are unchanged). B(2.6) now averages 10
+null seeds, so it moves a few mm from §3. Both h\*\_B estimators are reported with the
+line's amplification 1/(1 − b\_B). **The CIs are too narrow**: the association heights
+share views, so the parametric draws understate the common mode. None of the local
+crossings is extrapolated: the two added heights (3.4, 3.8 m) bracket Laurens, whose
+local crossing moves from §7's extrapolated 3.749 to a bracketed 3.481.
+
+| city / rig | h\*\_A (slope) | B(2.6) | b\_B | 1/(1 − b\_B) | h\*\_B line (CI) | h\*\_B local (CI) | rule outcome |
+|---|---|---:|---:|---:|---|---|---|
+| richmond / gopro max | 1.983 (0.486) | 2.396 | 0.684 | 3.17 | 1.982 (1.940–2.022) | 2.072 (1.986–2.131) | fails 3 (`b_unvalidated`), 4 |
+| richmond / nctech istar pulsar | 2.595 (0.286) | 2.680 | 0.588 | 2.43 | 2.664 (2.639–2.688) | 2.744 (2.717–2.769) | fails 3 (`b_unvalidated`), 4 |
+| richmond / unknown | 2.708 (0.359) | 2.666 | 0.742 | 3.87 | 2.690 (2.601–2.786) | 2.820 (2.655–3.018) | fails 3 (`b_unvalidated`), 4 |
+| laurens / gopro max | 4.314 (0.723) | 2.977 | 0.850 | 6.67 | 3.755 (3.587–3.957) | 3.481 (3.422–3.528) | fails 2, 3 (`b_unvalidated`), 4; suspect |
+| clovis / gopro fusion | 2.420 (0.133) | 2.544 | 0.500 | 2.00 | 2.545 (2.526–2.563) | 2.518 (2.499–2.541) | fails 3 (`b_unvalidated`), 4 |
+| morgantown / gopro max | 2.352 (0.146) | 2.507 | 0.531 | 2.13 | 2.347 (2.330–2.362) | 2.431 (2.411–2.452) | fails 3 (`b_unvalidated`), 4 |
+| annapolis / trimble mx7 | 2.257 (0.202) | 2.486 | 0.615 | 2.60 | 2.280 (2.269–2.290) | 2.338 (2.319–2.355) | fails 3 (`b_unvalidated`), 4; was **passes, 2.376 m** in §3 |
+
+Rule 4 (material) needs h\_g, the mean of A and B, so it cannot pass once rule 3 fails. Richmond's and Laurens's
+GoPro Max still go per sequence (IQR 0.614 and 0.736 m), and as in §3 no sequence meets
+full rule-1 support, so every sequence inherits the rig class's 2.6 m. The insta360 x4
+class (4 panos) fails support.
+
+Unvalidated, the fixed points are descriptive only. For what they are worth, the line's
+h\*\_B lands within 0.025 m of h\*\_A for Richmond's GoPro Max, Morgantown and Annapolis
+(the §7 pattern) and within 0.13 m for Clovis. The local crossing sits 0.08–0.10 m above
+A for the same four classes, the direction the noise-1.0 simulation biases it.
+
+### 8.5 Production gate, re-issued (§4's table)
+
+With no group applied, the per-rig arm is the `off` arm in all five cities. Common site
+set, benchmark tier, 25 m cap:
+
+| city | sites scored | common ramps | median m | p90 m | off-pool R@2.5 | C slope (all refs) |
+|---|---:|---:|---:|---:|---:|---:|
+| richmond | 1,570 | 227 | 1.553 | 3.854 | 0.905 | −0.086 |
+| laurens | 186 | 151 | 1.879 | 3.828 | 0.536 | −0.186 |
+| clovis | 2,495 | 159 | 1.322 | 3.279 | 0.873 | −0.082 |
+| morgantown | 1,733 | 227 | 1.097 | 2.989 | 0.892 | +0.012 |
+| annapolis | 4,018 | 211 | 1.379 | 3.546 | 0.879 | −0.176 |
+
+(i) PASS, (ii) FAIL (no changed city), (iii) PASS, (iv) PASS. **Verdict: FAIL**, and
+`recommended: false` in every table. Annapolis's common set is now 211 ramps, not §4's
+207, because the set is built from GT marks both arms can place and the arms are now
+identical.
+
+### 8.6 Regression checks
+
+- `height_gap.py sweep richmond --group gopro/max --sequences` re-run after the helpers
+  moved: `sweep.csv` and `sequences.csv` match the committed files in every column and
+  value (the only byte difference is CRLF vs LF line endings).
+- `fuse_sites.py runs/annapolis` (default `auto`) writes a byte-identical `sites.jsonl`
+  from `main`'s code and from this branch's, before and after the tables were re-issued
+  (sha256 `BC019B8F…02FC`). `--camera-height-m per-rig` loads the new table.
+- #87's `simulate.csv` is untouched; `simulate_matched.csv` is new.
+
+### 8.7 What follows
+
+- Per-rig heights for Mapillary stay opt-in and currently apply nowhere. #53's one applied
+  value, Annapolis 2.376 m, rested on B(2.6) and is withdrawn.
+- B's fixed point is biased high at low heights at the error model's full noise, under
+  either estimator. Before B can be validated, the real Mapillary noise scale has to be
+  measured rather than assumed (#76's 2× is an estimate from the residuals, not a
+  calibration). A pre-registered re-run at a measured noise scale is the natural next step.
+- Instrument A needs no B to be read, and on the placement oracle (#79) an external
+  inventory, not agreement between A and B, is what moved the GSV default. None of the
+  five Mapillary cities is among the oracle's inventory cities (Bend, Gainesville,
+  Vancouver).

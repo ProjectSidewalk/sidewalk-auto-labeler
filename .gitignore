@@ -45,6 +45,8 @@ runs/**
 # The #87 height-gap study (scripts/height_gap.py; docs/mapillary-camera-height.md section 7):
 # its CSVs and report are the evidence and are tracked. camera_height/groups.csv stays local.
 !runs/*/camera_height/
+!runs/*/camera_height/estimator_validation.csv
+!runs/*/camera_height/estimator_validation_seeds.csv
 !runs/*/camera_height/gap/
 !runs/*/camera_height/gap/*.csv
 !runs/*/camera_height/gap/report.md

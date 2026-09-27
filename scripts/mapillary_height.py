@@ -62,7 +62,7 @@ so truthy -- straight to geo.detection_ground_point, which would rotate any pose
 No network, no GPU, no writes outside the output directories.
 
 Usage:
-    # the estimator gate first (#89; simulation, hours on the big runs, resumable)
+    # the estimator gate first (#89; simulation, ~15 min on 10 workers, resumable)
     python scripts/mapillary_height.py --validate richmond laurens clovis morgantown annapolis
     # then all five Mapillary runs, the gate, and the tables (the #53 measurement)
     python scripts/mapillary_height.py richmond laurens clovis morgantown annapolis

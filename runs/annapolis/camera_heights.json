@@ -9,18 +9,42 @@
   "clauses": {
    "i": true,
    "ii": false,
-   "iii": false,
-   "iv": false
+   "iii": true,
+   "iv": true
+  }
+ },
+ "estimator_validation": {
+  "estimator": null,
+  "validated": false,
+  "rule": "rule V: over h_true [1.8, 2.2, 2.6, 3.0] x noise [0.5, 1.0], max |mean error over seeds| <= 0.1 m and no cell undefined or extrapolated; both valid -> line, one -> that one, neither -> b_unvalidated",
+  "groups": [
+   "trimble/mx7"
+  ],
+  "seeds_per_cell": 2,
+  "real_sweep_s": 99.4,
+  "line": {
+   "valid": false,
+   "max_abs_mean_err_m": 0.3436,
+   "reasons": [
+    "max |mean error| 0.344 m > 0.1"
+   ]
+  },
+  "local": {
+   "valid": false,
+   "max_abs_mean_err_m": 0.3064,
+   "reasons": [
+    "max |mean error| 0.306 m > 0.1"
+   ]
   }
  },
  "results_sha256": "f1b228f742dc95909067cc3ba9b045f1acf76617747b6e21eb9e7df58335b9dd",
- "generated_at": "2026-09-25T16:48:51+00:00",
- "generated_by": "scripts/mapillary_height.py (issue #53)",
+ "generated_at": "2026-09-27T18:26:19+00:00",
+ "generated_by": "scripts/mapillary_height.py (issues #53, #89)",
  "groups": {
   "trimble/mx7": {
-   "height_m": 2.376,
-   "sigma_m": 0.119,
-   "applied": true,
+   "height_m": 2.6,
+   "sigma_m": null,
+   "applied": false,
    "grain": "rig",
    "n_panos": 13174,
    "n_sites": 2766,
@@ -30,21 +54,39 @@
     2.253,
     2.264
    ],
-   "h_scale": 2.495,
+   "h_scale": 2.486,
    "h_scale_ci": [
-    2.486,
-    2.504
+    2.476,
+    2.495
    ],
-   "h_scale_with_offset": 2.784,
+   "h_scale_with_offset": 2.774,
    "slope": 0.202,
-   "method": "mean(bearing fixed point, null-corrected scale identity)",
+   "method": "mean(bearing fixed point, scale-identity fixed point [none validated])",
    "passed": [
     "support",
-    "identifiable",
-    "agreement",
-    "material"
+    "identifiable"
    ],
-   "reason": "passes all four rules",
+   "reason": "fails agreement (b_unvalidated: no h*_B estimator passed rule V in this city; line 2.280, local 2.338); material (CI 2.25-2.26, h_g n/a)",
+   "instrument_b": {
+    "estimator": null,
+    "h_star": null,
+    "amplification": 2.595,
+    "extrapolated": null,
+    "validated": false,
+    "h_at_2p6": 2.486,
+    "h_line": 2.28,
+    "h_line_ci": [
+     2.269,
+     2.29
+    ],
+    "h_local": 2.338,
+    "h_local_ci": [
+     2.319,
+     2.355
+    ],
+    "local_extrapolated": false,
+    "ci_note": "too narrow: the association heights share views"
+   },
    "sequence_iqr_m": 0.129,
    "qualifying_sequences": 97
   }

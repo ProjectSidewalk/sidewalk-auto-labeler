@@ -150,11 +150,13 @@ python scripts/inventory_oracle.py score bend gainesville     # ~100 s for both,
 python scripts/inventory_oracle.py verdict
 # Mapillary has no depth: `per-rig` (issue #53) reads runs/<name>/camera_heights.json, a
 # per-rig-class height measured by scripts/mapillary_height.py (bearing fixed point + #76's
-# scale identity, a pre-registered rule, then a production gate). OPT-IN: only Annapolis's
-# MX7 passed the rule (2.376 m) and the gate FAILED (recall -1.2 pt, GT range slope
-# steeper), so every table says recommended: false -- docs/mapillary-camera-height.md.
+# scale identity, a pre-registered rule, then a production gate). OPT-IN, and since #89 it
+# applies NOTHING: B read as a fixed point has no validated estimator in any city (rule V:
+# at the model's full noise both the line and the local crossing read +0.25-0.53 m high at a
+# 1.8 m rig), so rule 3 reads b_unvalidated everywhere, #53's Annapolis 2.376 m is withdrawn,
+# every group is 2.6 m and every table says recommended: false -- docs/mapillary-camera-height.md s8.
 # #89: B is read as a fixed point; --validate FIRST (simulation on each city's real view graph,
-# rule V picks the line or the local-crossing estimator per city; hours, resumable, pooled).
+# rule V picks the line or the local-crossing estimator per city; ~15 min on 10 workers, resumable).
 python scripts/mapillary_height.py --validate richmond laurens clovis morgantown annapolis
 python scripts/mapillary_height.py richmond laurens clovis morgantown annapolis
 python scripts/fuse_sites.py runs/annapolis --camera-height-m per-rig --out /tmp/s.jsonl
