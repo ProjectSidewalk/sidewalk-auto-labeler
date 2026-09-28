@@ -378,6 +378,47 @@ read against: `deployed` and `ps @ 15 m` are both exactly level with `fusion_ref
 5. **A second city is the next run**, ideally GSV where per-pano depth gives true heights.
    The tool takes a city name and the two API downloads.
 
+## Fusion on what the server holds (`fusion_server`, 2026-09-28)
+
+The `fusion` arm runs on the labeler's `results.jsonl`, which the server does not have.
+`fusion_server` runs the same associator (`fuse_sites.fuse`) on **only what the server
+holds**, the partition the server would compute if its clustering were fusion. It is an
+evaluation arm only and changes no SidewalkWebpage code.
+
+- **Labels:** every live CurbRamp label, AI and human, at its stored pixel. All of them are
+  operational: they are live.
+- **Confidence:** AI labels take their detection's confidence, which the server stores in
+  `label_ai_info`. Human labels get 1.0, so they seed sites first.
+- **Camera:** heading from the label row. The position is `pano_data`'s: the run's pano
+  block for a pano the labeler submitted, else inverted from that pano's labels. The server
+  placed each label with a flat raycast at 2.341 m, so the camera is the label minus that
+  offset. Only labels within 15 m are used, and the median is taken.
+- **Frame:** the scoring frame, like every other labeler arm (height fields are copied from
+  the run's pano when there is one).
+
+Richmond (Mapillary; 2026-09-21 pull), 2.6 m frame, 5 m match radius:
+
+| arm | clusters | coverage | frag 5 m (extra) | dual both/one/neither |
+|---|---:|---|---|---|
+| deployed | 2156 | 0.917 | 0.47 (132) | 23/4/3 |
+| fusion | 1570 | 0.909 | 0.16 (38) | 24/3/3 |
+| fusion_server | 3025 | 0.913 | 0.17 (44) | 24/3/3 |
+
+- **Server-only data loses nothing.** 1,521 of `fusion_server`'s 1,587 clusters with AI
+  members are, member for member, clusters of `fusion`. Fragmentation stays at fusion's level
+  (0.17 vs 0.16, against the deployed 0.47), coverage and dual-ramp separation are unchanged,
+  and precision equals the deployed 0.964. Inverting camera positions is accurate: over the
+  3,024 panos where both are known, the inverted position is a median 0.01 m and a p90
+  0.20 m from the run's.
+- **The open design question is the labels fusion cannot place.** 1,434 of 9,639 labels (15%)
+  lie beyond the 25 m raycast cap or at the horizon; no site holds them, so the arm makes
+  each one a singleton cluster, which is where 3,025 clusters against 1,587 placed ones comes
+  from. They are unscored (no raycast position), so the scores above are unaffected. A server
+  still has to put them somewhere. Candidates: attach by bearing to a site their ray passes
+  near, fall back to the PS distance rule on the server's own lat/lng, or leave them
+  unclustered. That choice needs its own measurement, which the scorer cannot give today
+  because it places clusters by raycast.
+
 ## Step 2 (Vancouver) runbook
 
 Issue [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56). Vancouver, WA
