@@ -195,7 +195,9 @@ def crosswalk_anchors(crosswalks, sidewalks, touch_m=ANCHOR_TOUCH_M, merge_m=ANC
         near = [sidewalks[i] for i in tree.query(cw.buffer(touch_m), predicate='intersects')]
         if not near:
             continue
-        zone = unary_union(near).buffer(touch_m)
+        # clip first: a Tile2Net sidewalk polygon can be a whole connected block network
+        local = cw.buffer(2 * touch_m).envelope
+        zone = unary_union([s.intersection(local) for s in near]).buffer(touch_m)
         touch = cw.boundary.intersection(zone)
         if touch.is_empty:
             continue
@@ -338,7 +340,9 @@ def q3_verdict(rows):
         for arm in Q3_ARMS:
             cells = [r for r in rows if r['base'] == base and r['arm'] == arm]
             cities = sorted({r['city'] for r in cells})
-            ok, why = bool(cells), []
+            ok, why = set(cities) == set(CITIES), []
+            if not ok:
+                why.append(f'scored in {cities}, the rule needs {list(CITIES)}')
             for r in cells:
                 d_frag = r['frag5'] - r['base_frag5']
                 d_cov = r['coverage'] - r['base_coverage']
@@ -516,8 +520,10 @@ def provenance_lines(c):
             f"({r.get('n_tiles')} tiles); polygons.geojson sha256 "
             f"`{r.get('polygons_geojson_sha256')}`",
             f"- camera height `auto` -> {c.height}" + (
-                f" ({c.auto.get('reason')})" if isinstance(c.auto, dict)
-                and c.auto.get('reason') else '')]
+                f" ({c.auto.get('resolved')}; per capture year: "
+                + ', '.join(f"{y} {a['height_m']:g} m" for y, a in
+                            sorted((c.auto.get('assignment') or {}).items())) + ')'
+                if isinstance(c.auto, dict) else '')]
 
 
 def distance_summary(label, city, dists, chance=None):
@@ -665,10 +671,15 @@ def project_runs(c, pano, height, polygons):
     of (x_norm, y_norm) or None where a sample falls outside the raycast's reach."""
     import fuse_sites as fs
     pose = fs.pano_pose(pano, fs.POSE_OFF)
+    ce, cn = c.frame.to_enu(pano.lat, pano.lng)
+    reach = geo.DEFAULT_MAX_RANGE_M + 0.5       # cheap pre-filter; the projection decides
     out = []
     for run in sample_boundary(polygons):
         proj = []
         for e, n in run:
+            if math.hypot(e - ce, n - cn) > reach:
+                proj.append(None)
+                continue
             lat, lng = c.frame.to_latlng(e, n)
             p = geo.ground_point_to_pano(pose, lat, lng, camera_height=height)
             proj.append(None if p is None else (p.x_norm, p.y_norm))
@@ -689,6 +700,13 @@ def cmd_project(args):
         rows = []
         heights = {'auto': c.height, '2.6': 2.6}
         cache = {}
+        from shapely.geometry import Point
+        reach = c.coverage_enu.buffer(-geo.DEFAULT_MAX_RANGE_M)   # the whole 25 m disk mapped
+        outside = [pid for pid in by_pano
+                   if not reach.contains(Point(*c.frame.to_enu(c.by_id[pid].lat,
+                                                                c.by_id[pid].lng)))]
+        for pid in outside:
+            del by_pano[pid]
         for pid in sorted(by_pano):
             pano = c.by_id[pid]
             ce, cn = c.frame.to_enu(pano.lat, pano.lng)
@@ -744,18 +762,19 @@ def cmd_project(args):
         write_csv(out_dir(city) / 'q2.csv', summ)
         summ_all += summ
         rows_all += rows
-        write_report_q2(c, summ, len(by_pano))
+        write_report_q2(c, summ, len(by_pano), len(outside))
         if args.gallery:
             render_gallery(c, by_pano, cache, args)
         print(f'{city}: {len(rows)} reference rows on {len(by_pano)} panos{training_note(city)}')
     write_csv(SUMMARY / 'q2.csv', summ_all)
 
 
-def write_report_q2(c, summ, n_panos):
+def write_report_q2(c, summ, n_panos, n_outside=0):
     lines = [f'# {c.name}: Q2 projected sidewalk edges vs reviewer marks (#104)'
              f'{training_note(c.name)}', '']
     lines += provenance_lines(c)
-    lines += [f'- {n_panos} judged panos with at least one reference mark', '',
+    lines += [f'- {n_panos} judged panos with at least one reference mark and their whole '
+              f'25 m disk inside the Tile2Net coverage ({n_outside} more left out)', '',
               '| height | reference | n | with an edge in range | px p50 | px p90 | '
               'dx p50 | dy p50 | share <= 5 px | world dist p50 (m) | ref on surface |',
               '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|']
@@ -787,7 +806,7 @@ def render_gallery(c, by_pano, cache, args):
     ids = sorted(by_pano)
     random.Random(GALLERY_SEED).shuffle(ids)
     ids = ids[:GALLERY_PANOS]
-    W, y0, y1 = 2048, 0.48, 0.80
+    W, y0, y1 = 2048, 0.47, 0.68
     H = int(round(W / 2 * (y1 - y0) * 2))
     cards = []
     for pid in sorted(ids):
@@ -1032,6 +1051,9 @@ def cmd_precision(args):
         counts, warnings, rows = es.gt_counts(), [], []
         panos = []
         walk = c.surfaces[WALKABLE]
+        from shapely.geometry import Point
+        from shapely.prepared import prep
+        covered = prep(c.coverage_enu)
         for pid, entry, rp, ops, _pool in es.judged_gt_panos(
                 c.verdict_panos, c.bundle_ops, c.by_id, counts, warnings):
             verdict_of = {i: v for v, (i, *_r) in zip(entry['dets'], ops)}
@@ -1046,7 +1068,10 @@ def cmd_precision(args):
                        'confidence': round(conf, 4),
                        'verdict': {True: 'true', False: 'false'}.get(v, str(v)),
                        'range_m': None, 'dist_walkable_m': None, 'off_surface': None}
-                if g is not None:
+                if g is not None and not covered.contains(
+                        Point(*c.frame.to_enu(g.lat, g.lng))):
+                    row['verdict'] += ':outside_coverage'
+                elif g is not None:
                     e, n = c.frame.to_enu(g.lat, g.lng)
                     d = float(walk.distance([(e, n)])[0])
                     row.update(range_m=round(g.range_m, 2), dist_walkable_m=round(d, 3),
@@ -1071,6 +1096,8 @@ def cmd_precision(args):
         b_off, n_b, u_b = share(b_rows)
         gap, lo, hi = bootstrap_gap([panos])
         city_rows.append({'city': city, 'n_true': n_t, 'n_false': n_f, 'n_band': n_b,
+                          'n_outside_coverage': sum(1 for r in rows
+                                                    if r['verdict'].endswith('outside_coverage')),
                           'unplaceable_true': u_t, 'unplaceable_false': u_f,
                           'unplaceable_band': u_b,
                           'true_off_share': t_off,
@@ -1084,7 +1111,7 @@ def cmd_precision(args):
               'n_false': sum(r['n_false'] for r in city_rows), 'gap': gap, 'gap_lo': lo,
               'gap_hi': hi}
     write_csv(SUMMARY / 'q4.csv', city_rows + [pooled],
-              ['city', 'n_true', 'n_false', 'n_band', 'unplaceable_true', 'unplaceable_false',
+              ['city', 'n_true', 'n_false', 'n_band', 'n_outside_coverage', 'unplaceable_true', 'unplaceable_false',
                'unplaceable_band', 'true_off_share', 'true_on_share', 'false_off_share',
                'band_off_share', 'gap', 'gap_lo', 'gap_hi'])
     for r in city_rows:
