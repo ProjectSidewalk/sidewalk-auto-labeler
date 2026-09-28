@@ -587,7 +587,7 @@ rig is absent: the labels were made in 2025-09, and the 2025 captures here (497 
 
 | capture year | panos | measured | median (m) |
 |---|---:|---:|---:|
-| 2011-2018 (six years) | 3,036 | 153 | 2.24-2.43 |
+| 2011-2018 (seven years) | 3,036 | 153 | 2.24-2.43 |
 | 2019 | 1,663 | 968 | 2.324 |
 | 2021 | 926 | 506 | 2.370 |
 | 2022 | 3,434 | 1,624 | 2.354 |
