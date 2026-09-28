@@ -561,7 +561,10 @@ def cmd_gt(args):
         for k, r in enumerate(ramps):
             kinds = sorted({p.kind for p in r.points})
             lat, lng = c.frame.to_latlng(r.e, r.n)
+            years = sorted({(c.by_id[p.pano_id].capture_date or '')[:4] or 'undated'
+                            for p in r.points})
             per.append({'city': city, 'ramp': k, 'kinds': '+'.join(kinds),
+                        'capture_year': years[-1],
                         'n_points': len(r.points), 'lat': round(lat, 7), 'lng': round(lng, 7),
                         'in_coverage': bool(cov[k]), 'dist_surface_m': round(float(d_sc[k]), 3),
                         'dist_walkable_m': round(float(d_walk[k]), 3),
@@ -573,6 +576,11 @@ def cmd_gt(args):
         for kind in ('det', 'missed'):
             idx = [i for i in keep if kind in per[i]['kinds'].split('+')]
             summary.append(distance_summary(f'gt_{kind}', city, d_sc[idx], chance[idx]))
+        # by the capture year of the ramp's newest judged pano: the aerial imagery has one
+        # date per city, the panos do not, so a year gap is a candidate for disagreement
+        for year in sorted({per[i]['capture_year'] for i in keep}):
+            idx = [i for i in keep if per[i]['capture_year'] == year]
+            summary.append(distance_summary(f'gt_year_{year}', city, d_sc[idx], chance[idx]))
         summary.append(distance_summary('gt_all_walkable', city, d_walk[keep]))
         summary.append(distance_summary('gt_all_sidewalk_only', city, d_sw[keep]))
         for s in summary:
