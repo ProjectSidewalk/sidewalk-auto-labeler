@@ -573,3 +573,75 @@ spread across the id space.
 
 Heights on those five, for the record: 2.323, 2.199, 1.823 and 2.389 m measured, plus one
 2.5 m stand-in ground.
+
+## City-inventory scoring (issue #106, Part 2)
+
+RampNet GT judges a de-clustered sample of panos, so it never says "these labels from
+different panos are one ramp", and it cannot score a split or a merge directly. Bend and
+Gainesville publish per-corner curb-ramp inventories (one point per ramp, fetched for #79 by
+`scripts/inventory_oracle.py`). Those are an external answer to exactly that question, so
+Part 2 scores the partitions against them. Tool: `scripts/inventory_clustering.py`.
+
+### Pre-registration (committed and posted on #106 before any score was computed)
+
+**Inputs.** `runs/<city>/inventory_oracle/inventory.geojson` as filtered by
+`inventory_oracle.load_inventory` (Bend 12,504 ramps with `LifeCycleStatus == 'I'`,
+Gainesville 3,208), and the run's `results.jsonl`. Labels are synthesized as
+`eval_ps_clustering.py --offline` does: one per stored detection at or above the tier,
+rig-masked, at the integer pixel `send_to_ps.py` sends. Tier **0.30** (the operating point:
+what a server would hold today) is primary; 0.55 is reported beside it.
+
+**Visible pool.** Inventory ramps within 20 m of at least one processed pano position (every
+pano of the run with a position). Everything is scored over the pool, so a ramp no pano came
+near is not a miss. The pool size and the excluded count are reported.
+
+**Arms.**
+- `ps @ 7.5 m`: the server's method. Labels at the server's own positions (`ps_placement`,
+  2.341 m), complete linkage with the same-(user, pano) cannot-link, cut at 7.5 m, per region
+  for Gainesville (regions from the Gainesville server's street network, the server's own
+  nearest-street rule; one GET of `/v3/api/streets`) and citywide for Bend (no server).
+  `ps_citywide @ 7.5 m` is reported for both (for Bend it is the same partition).
+- `ps @ 10 / 12.5 / 15 m`: secondary, descriptive.
+- `fusion`: `fuse_sites.fuse` over the run at the tier (rig-masked, flat pose), in the `auto`
+  frame (primary, fuse_sites' default since #79) and in the 2.6 m frame. A cluster is a
+  site's operational members.
+- `fusion_server+attach`: cluster count only.
+
+**Cluster placement (common frame).** Every cluster of every arm is placed at the mean of its
+members' labeler raycast positions in the frame under test (`auto` primary, 2.6 m
+secondary), so split and merge respond to the partition only. A member the raycast cannot
+place contributes nothing; a cluster with no placeable member is counted in `n_clusters` but
+not placed. The server arm's native centroid (the mean of its members' 2.341 m server
+positions) is one extra sensitivity row.
+
+**Metrics, at r in {3, 5, 8} m, r = 5 m primary.** Each placed cluster is assigned to its
+nearest inventory ramp (any kept ramp, pool or not) if that ramp is within r, else it is
+unassigned.
+- `covered` = pool ramps with at least one assigned cluster / pool. (`missed` = 1 - covered
+  is an upper bound on misses: occlusion and construction since capture are in it.)
+- `split` = covered pool ramps with at least two assigned clusters / covered pool ramps. Also
+  `extra per covered ramp` = (clusters assigned to covered pool ramps - covered pool ramps) /
+  covered pool ramps.
+- `merge`: each placeable member of a cluster is assigned to its nearest inventory ramp within
+  r the same way. Denominator: clusters with at least two assigned members. Numerator: those
+  in which at least two distinct ramps each hold at least two of the cluster's assigned
+  members. Both are reported.
+- `clusters / covered ramp`, `n_clusters`, `n_labels`.
+
+**Decision rule (read at r = 5 m, tier 0.30, common `auto` frame).** `fusion` is judged better
+than `ps @ 7.5 m` if in BOTH cities: split is lower by at least 5 points (absolute), merge is
+not higher by more than 1 point, and covered is not lower by more than 1 point. The same
+comparison in the 2.6 m frame must not reverse any of the three; a reversal (fusion's split
+not lower at all, its merge higher by more than 1 point, or its covered lower by more than
+1 point) reads "NOT ESTABLISHED (frame-dependent)". Gainesville decides generalization (not a
+RampNet training city); Bend is the guard (a training city, with the larger inventory).
+Anything else reads NOT ESTABLISHED. The threshold sweep and the 0.55 tier are descriptive
+only.
+
+**Named risks.** Inventory points sit at the ramp, labels at the ramp's foot (about 1-2 m); a
+consistent offset moves covered at r = 3 m for every arm equally, which is why r = 5 m is
+primary. Bend's inventory is 'Digitized' for 97% of points (map-traced, not surveyed).
+Perpendicular ramps at one corner are 1.5-3 m apart and are distinct inventory ramps: a
+cluster spanning them counts as a merge under this rule, as intended. Bend was a RampNet
+training city, so its detections are not a generalization test; clustering is what is
+measured there. Gainesville is read-only (no submission, no re-detection).
