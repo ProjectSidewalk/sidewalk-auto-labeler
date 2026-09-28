@@ -240,7 +240,9 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 # own estimator ported exactly (SW's 59-case parity fixture, tests/fixtures/). Regions are the
 # NEAREST STREET's (the server's insert rule; --server only GETs /v3/api/streets), not
 # point-in-region-polygon (6% wrong on Richmond). --offline-check (live mode) proves it:
-# Richmond/Laurens placement exact to 1e-6 m, 7.5 m partition 0.982 / 1.000. --results reads
+# Richmond/Laurens placement exact to 1e-6 m (gated on ALL labels); all-AI 7.5 m partition
+# Richmond 0.996 / Laurens 0.945 (1.000 / 1.000 with live humans). Regions snap to OPEN
+# streets only, as the server does (/v3/api/streets returns all). --results reads
 # another file (Laurens is live from results.raw.jsonl), --split names the benchmark split,
 # --mask-rig for a live city whose rig labels were soft-deleted. The PS partition is BLOCKED
 # (exact: single-linkage components at max t + 0.5 m), so ps_citywide runs at any size.
@@ -250,10 +252,11 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 # level coverage (0.872 vs 0.876); a 12.5 m cut matches fusion's fragmentation but costs 3.7
 # pts coverage -- no constant fixes it. Unplaceable labels are real ramps (0.96 precision) and
 # 93% attach. Part 2 (city inventories, pre-registered on #106): NOT ESTABLISHED -- fusion's
-# split advantage in Gainesville holds at `auto` and reverses at 2.6 m (the 2026 low rig).
+# split advantage in Gainesville holds at `auto` and reverses at 2.6 m (Gainesville alone:
+# it holds at 2.6 m in Bend and in the Part 1 pool); Bend misses the 5-pt split bar.
 # Five runs (bend clovis morgantown annapolis richmond) predate the storage floor: their 0.30
-# tier IS their 0.55 tier. The pooled driver is resumable (results sha256 + SCORER_VERSION;
-# bump SCORER_VERSION by hand when a number can move).
+# tier IS their 0.55 tier. The pooled driver is resumable (results, streets and verdicts
+# sha256 + SCORER_VERSION; bump SCORER_VERSION by hand when a number can move).
 python scripts/eval_ps_clustering.py bend --offline                      # -> ..._offline_t0.55/
 python scripts/eval_ps_clustering.py laurens --split laurens_mapillary --results \
     runs/laurens/results.raw.jsonl --min-confidence 0.3 --mask-rig --offline-check \
