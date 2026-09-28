@@ -640,8 +640,9 @@ def main():
         mode = (None if heights is None
                 else heights[i] if len(heights) > 1 else heights[0])
         try:
-            # read_heights=True for a numeric height too: the load before #56 always
-            # read the depth index, and a numeric run must reproduce it exactly
+            # read_heights=True for a numeric height too, as before #56. The heights go
+            # unused there (geo.camera_height_for); what it keeps is the refusal of a
+            # pre-#47 depth index, which eval_ps_clustering no longer applies at a number
             verdict_panos, bundle_ops, run_panos, height, auto = es.load_city_at_height(
                 city, args.benchmark_root, run_dir,
                 geo.DEFAULT_CAMERA_HEIGHT_M if mode is None else mode,

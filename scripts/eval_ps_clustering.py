@@ -875,8 +875,12 @@ def main():
     fr = results['fusion_refit']
     # The published fusion_eval numbers were produced in the labeler's default frame,
     # so this only reproduces them when this run is scored at that height; at any other
-    # --camera-height-m the world-space columns are expected to differ.
-    same_frame = args.camera_height_m == geo.DEFAULT_CAMERA_HEIGHT_M
+    # --camera-height-m the world-space columns are expected to differ. Judged on what the
+    # height RESOLVED to: per-pano/per-rig with no pano measured (every Mapillary city) or
+    # auto -> 2.6 is the published frame, whatever the mode is called.
+    resolved = fs.resolved_height_counts(run_panos, params, auto)
+    same_frame = (params.camera_height_m == geo.DEFAULT_CAMERA_HEIGHT_M
+                  or resolved.get('measured', resolved.get('applied')) == 0)
     lines.append(
         f"- fusion_refit at {fs.frame_label(args.camera_height_m)} vs "
         f"runs/{args.city}/fusion_eval/"
