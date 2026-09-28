@@ -12,7 +12,7 @@ import pytest
 import geo
 import fuse_sites as fs
 import mined_precision as mp
-from test_fuse_sites import _record_line, make_pano
+from test_fuse_sites import FRAME, _record_line, make_pano
 from test_mined_precision import _run, _scene
 
 
@@ -155,3 +155,43 @@ def test_fuse_sites_doctests_run():
     """The helpers' docstring examples (frame_suffix, the parser, ...) stay true."""
     import doctest
     assert doctest.testmod(fs).failed == 0
+
+
+def test_the_frame_moves_the_detection_and_the_gt_raycast_together(tmp_path):
+    """eval_ps_clustering / eval_sites / mined_precision place detections (fs.project)
+    and GT (es.build_gt) with the SAME params, so a per-pano frame must move both. A ramp
+    at (0, 0) seen from 10 m south by g1's detection and from 10 m north as g2's missed
+    mark, both cameras truly at 1.8 m (measured in the index): per-pano puts the two on
+    the ramp, the 2.6 m constant pushes each ~4.4 m long, in opposite directions."""
+    import eval_sites as es
+    true_h = 1.8
+    g1 = make_pano('g1', 0, -10, [(0, 0, 0.9)], height=true_h)
+    g2 = make_pano('g2', 0, 10, [], heading_deg=180.0)
+    mark = make_pano('tmp', 0, 10, [(0, 0, 1.0)], heading_deg=180.0, height=true_h)
+    _, mx, my, _ = mark.detections[0]
+    (tmp_path / 'results.jsonl').write_text(
+        _record_line(g1) + '\n' + _record_line(g2) + '\n', encoding='utf-8')
+    (tmp_path / 'depth').mkdir()
+    (tmp_path / 'depth' / 'index.csv').write_text(
+        'panorama_id,degenerate,camera_height_m,ground_tilt_deg,height_spread_m,'
+        f'n_standin_planes\ng1,0,{true_h},1.4,0.01,0\ng2,0,{true_h},1.4,0.01,0\n',
+        encoding='utf-8')
+    verdicts = {'g1': {'group': 'random', 'dets': [True], 'missed': [], 'no_missed': True},
+                'g2': {'group': 'random', 'dets': [], 'no_missed': False,
+                       'missed': [{'x': mx, 'y': my}]}}
+    bundle = {'g1': [(x, y, c) for _, x, y, c in g1.detections], 'g2': []}
+
+    def gap(mode):
+        panos, _, height, _ = fs.load_at_height(tmp_path / 'results.jsonl', mode)
+        params = fs.FuseParams(camera_height_m=height, apply_pose=fs.POSE_OFF)
+        dets, frame, _ = fs.project(panos, params)
+        points, _, _, _ = es.build_gt(verdicts, bundle, {p.pano_id: p for p in panos},
+                                      params, frame)
+        (det,) = dets
+        (missed,) = [pt for pt in points if pt.pano_id == 'g2']
+        return abs(det.n - missed.n), frame.to_enu(*FRAME.to_latlng(0, 0))[1] - det.n
+
+    per_pano_gap, per_pano_off = gap(geo.PER_PANO)
+    const_gap, const_off = gap(2.6)
+    assert per_pano_gap < 0.05 and abs(per_pano_off) < 0.05
+    assert const_gap == pytest.approx(2 * 10 * (2.6 / true_h - 1), abs=0.1)
