@@ -1,7 +1,8 @@
 # laurens_gsv: PS label clustering vs RampNet GT (offline)
 
 mode: offline -- 473 labels synthesized from `results.jsonl`, one per stored detection >= 0.55 (0 on the camera rig left out), each placed where the server would place it (ps_placement: the server's estimator at 2.341 m); no server labels or clusters, so `deployed` and `ps_repro` do not exist here
-scorer 106.1; results `results.jsonl` sha256 `83f49aaecac1b37cf05f6687ac350694681832229f33107b42142437f43338e7`
+scorer 106.2; results `results.jsonl` sha256 `83f49aaecac1b37cf05f6687ac350694681832229f33107b42142437f43338e7`
+inputs: streets sha256 `ced8bab31b6335b8c700d6cea5f014bbc851598a66ef5f6f765dff828d493ef4`; verdicts sha256 `0f4608abcd6d380d388d668c4b2e48ebece2b058f8f934ab3b889d12ae9974e3`
 raycast camera height auto; fusion arm at --min-confidence 0.55
 - camera height mode `auto`: auto -> gsv-per-rig
 - 2137 of 2137 panos took a per-rig height; 0 fell back to the 2.6 m constant
@@ -15,7 +16,7 @@ GT: 86 judged panos -> 196 placeable points -> 193 ramps (3 cross-pano merges), 
 
 - results file `D:\Git\sidewalk-auto-labeler\runs\laurens_gsv\results.jsonl`: sha256 `83f49aaecac1b37cf05f6687ac350694681832229f33107b42142437f43338e7`
 - 0 ambiguous pixel keys in `results.jsonl` (two stored detections round to one pixel); offline labels map to their detection directly, and the pixel-key map agrees on 473 of 473
-- `ps_streets.geojson`: 169 features, sha256 `ced8bab31b6335b8c700d6cea5f014bbc851598a66ef5f6f765dff828d493ef4`, 2026-09-28T17:22:15+00:00 (0.0 days old at run time), from https://sidewalk-laurens.cs.washington.edu/v3/api/streets?filetype=geojson
+- `ps_streets.geojson`: 169 features, sha256 `ced8bab31b6335b8c700d6cea5f014bbc851598a66ef5f6f765dff828d493ef4`, 2026-09-28T17:22:15+00:00 (0.2 days old at run time), from https://sidewalk-laurens.cs.washington.edu/v3/api/streets?filetype=geojson; 168 open streets kept (the server snaps to open streets only)
 - regions: every synthesized label takes the region of the street nearest its server position, as the server assigns it at insert; 0 labels were equidistant from streets in two regions (lowest street_edge_id taken)
 - PS partitions are blocked (single-linkage components at the widest threshold + 0.5 m): 59 blocks, largest 26 labels
 

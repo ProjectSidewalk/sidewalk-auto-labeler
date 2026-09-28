@@ -1,19 +1,20 @@
 # laurens: PS label clustering vs RampNet GT
 
 labels: 1803 CurbRamp on the server, 1575 map to stored detections (AI), 228 do not (human); 671 server clusters over 1708 labels
-scorer 106.1; results `results.raw.jsonl` sha256 `a7da290de5b0576cf5f54ab5bc1615a52fba766c47da3acb97e57c272860340a`; benchmark split `laurens_mapillary`
+scorer 106.2; results `results.raw.jsonl` sha256 `a7da290de5b0576cf5f54ab5bc1615a52fba766c47da3acb97e57c272860340a`; benchmark split `laurens_mapillary`
+inputs: streets sha256 `ced8bab31b6335b8c700d6cea5f014bbc851598a66ef5f6f765dff828d493ef4`; verdicts sha256 `0fb67c5d6da90827049c30f17ce5150ff4b24c5ae605a3f047b0b1d6255ad49e`
 raycast camera height 2.6 m; fusion arm at --min-confidence 0.3
 GT: 94 judged panos -> 240 placeable points -> 238 ramps (2 cross-pano merges), 238 in the recall pool; raycast placed 3370 of 5727 detections (drops {'below_floor': 0, 'on_rig': 2199, 'horizon': 7, 'out_of_range': 151})
 
 ## Data provenance
 
-- `raw_labels.geojson`: 1803 features, sha256 `4fea373b3a7ebe2755e9396a6b73c6ab35642cd2cbaa52759fbb607e237cdb65`, 2026-09-28T17:09:50+00:00 (0.0 days old at run time), from https://sidewalk-laurens.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
-- `clusters.geojson`: 671 features, sha256 `329706bb7d21796497ee11c40162339aa63e5c66957d197a8a7d23bf82b5b838`, 2026-09-28T17:09:51+00:00 (0.0 days old at run time), from https://sidewalk-laurens.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
+- `raw_labels.geojson`: 1803 features, sha256 `4fea373b3a7ebe2755e9396a6b73c6ab35642cd2cbaa52759fbb607e237cdb65`, 2026-09-28T17:09:50+00:00 (0.2 days old at run time), from https://sidewalk-laurens.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
+- `clusters.geojson`: 671 features, sha256 `329706bb7d21796497ee11c40162339aa63e5c66957d197a8a7d23bf82b5b838`, 2026-09-28T17:09:51+00:00 (0.2 days old at run time), from https://sidewalk-laurens.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
 - labels by account: 51b0b927-3c8a-45b2-93de-bd878d1e5cf4 (AI) 1575, 549187e0-82c9-4014-a48d-31f18083d575 224, 18b26a38-24ab-402d-a64e-158fc0bb8a8a 4
 - 0 labels dropped before clustering (null lng or lng > 360), matching label_clustering.clean_label_data
 - 0 ambiguous pixel keys in results.raw.jsonl (two stored detections round to one pixel; those keys are left unmapped)
 - 0 server labels share a pixel with another label and so map to the same stored detection (a re-submitted campaign does this)
-- `streets.geojson`: 169 features, sha256 `ced8bab31b6335b8c700d6cea5f014bbc851598a66ef5f6f765dff828d493ef4`, 2026-09-28T17:09:49+00:00 (0.0 days old at run time), from https://sidewalk-laurens.cs.washington.edu/v3/api/streets?filetype=geojson
+- `streets.geojson`: 169 features, sha256 `ced8bab31b6335b8c700d6cea5f014bbc851598a66ef5f6f765dff828d493ef4`, 2026-09-28T17:09:49+00:00 (0.2 days old at run time), from https://sidewalk-laurens.cs.washington.edu/v3/api/streets?filetype=geojson; 168 open streets kept (the server snaps to open streets only)
 - PS partitions are blocked (single-linkage components at the widest threshold + 0.5 m): 115 blocks, largest 81 labels
 
 ## Validation checks
@@ -116,8 +117,9 @@ One rule, fixed before any result and not tuned on GT (issue #106): a label the 
 
 Validates the offline mode used for cities without a server: the labels it synthesizes from `results.raw.jsonl` and places with the server's estimator (ps_placement), against the labels this server actually holds.
 
-- (a) placement, 1575 of 1575 AI labels re-placed from the file: 0 labels on 0 panos left out because the position their labels imply (inverting the server's estimator, median per pano) is > 0.5 m from the file's; over the other 1575: median 0.000000 m, p90 0.000000 m, max 0.000000 m, 0 over 0.5 m (all labels: median 0.000000 m, p90 0.000000 m, 0 over 0.5 m)
-- (b) labels: 1733 synthesized at 0.3 (unmasked); 1575 match a live AI label by pano and pixel, 158 do not (soft-deleted, or never sent); 0 live AI labels have no synthesized twin; 84 matched labels are in no deployed cluster (inserted after the last nightly clustering) and are left out of the partitions
+- (a) placement, 1575 of 1575 AI labels re-placed from the file: 0 labels on 0 panos left out because the position their labels imply (inverting the server's estimator, median per pano) is > 0.5 m from the file's; over the other 1575: median 0.000000 m, p90 0.000000 m, max 0.000000 m, 0 over 0.5 m (all labels: median 0.000000 m, p90 0.000000 m, 0 over 0.5 m, max 0.000000 m)
+- (a) placement check: **PASS** (max error over ALL labels <= 0.5 m). Gated on all labels because the moved-pano exclusion above is self-referential: it inverts the estimator being validated, so an error consistent within a pano would be excluded, not failed
+- (b) labels: 1733 synthesized at 0.3 (unmasked); 1575 match a live AI label by pano and pixel, 158 do not (soft-deleted, or never sent); 0 live AI labels have no synthesized twin; 84 matched labels are in no deployed cluster (the server has not clustered them) and are left out of the partitions
 - (b) regions by nearest street to the offline position: 1491 of 1491 equal the label's live region_id (0 equidistant ties)
 - (b) partition: of the 508 deployed clusters whose labels are all AI and all synthesized (of 671), 480 are, label for label, a cluster of the offline `ps @ 7.5 m` (0.945; 71 labels in the others)
 - (b+) the same with the 217 live human labels added at their live positions and regions: 671 of the 671 deployed clusters whose labels are all present are reproduced (1.000; 0 labels in the others)

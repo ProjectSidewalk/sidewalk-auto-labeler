@@ -1,7 +1,8 @@
 # morgantown: PS label clustering vs RampNet GT (offline)
 
 mode: offline -- 10401 labels synthesized from `results.jsonl`, one per stored detection >= 0.3 (81 on the camera rig left out), each placed where the server would place it (ps_placement: the server's estimator at 2.341 m); no server labels or clusters, so `deployed` and `ps_repro` do not exist here
-scorer 106.1; results `results.jsonl` sha256 `7dbf24e03574c31b0a3011490177a5d51dc20e30badf7fdd35da443e870b98bc`
+scorer 106.2; results `results.jsonl` sha256 `7dbf24e03574c31b0a3011490177a5d51dc20e30badf7fdd35da443e870b98bc`
+inputs: streets sha256 `none`; verdicts sha256 `8a919c94294ac3ae62b226be744b15c378d1537cc30b3408850379122fb0e9cd`
 raycast camera height 2.6 m; fusion arm at --min-confidence 0.3
 GT: 125 judged panos -> 250 placeable points -> 250 ramps (0 cross-pano merges), 250 in the recall pool; raycast placed 9753 of 10482 detections (drops {'below_floor': 0, 'on_rig': 81, 'horizon': 31, 'out_of_range': 617})
 

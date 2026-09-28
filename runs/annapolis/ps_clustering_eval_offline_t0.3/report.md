@@ -1,7 +1,8 @@
 # annapolis: PS label clustering vs RampNet GT (offline)
 
 mode: offline -- 29188 labels synthesized from `results.jsonl`, one per stored detection >= 0.3 (0 on the camera rig left out), each placed where the server would place it (ps_placement: the server's estimator at 2.341 m); no server labels or clusters, so `deployed` and `ps_repro` do not exist here
-scorer 106.1; results `results.jsonl` sha256 `f1b228f742dc95909067cc3ba9b045f1acf76617747b6e21eb9e7df58335b9dd`
+scorer 106.2; results `results.jsonl` sha256 `f1b228f742dc95909067cc3ba9b045f1acf76617747b6e21eb9e7df58335b9dd`
+inputs: streets sha256 `none`; verdicts sha256 `c24ce33fc068150415f0d34cb74564d60c491cb9010b0a82a3e88a529f74a112`
 raycast camera height 2.6 m; fusion arm at --min-confidence 0.3
 GT: 125 judged panos -> 241 placeable points -> 241 ramps (0 cross-pano merges), 241 in the recall pool; raycast placed 25927 of 29188 detections (drops {'below_floor': 0, 'on_rig': 0, 'horizon': 23, 'out_of_range': 3238})
 

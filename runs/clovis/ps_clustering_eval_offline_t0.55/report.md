@@ -1,7 +1,8 @@
 # clovis: PS label clustering vs RampNet GT (offline)
 
 mode: offline -- 8961 labels synthesized from `results.jsonl`, one per stored detection >= 0.55 (0 on the camera rig left out), each placed where the server would place it (ps_placement: the server's estimator at 2.341 m); no server labels or clusters, so `deployed` and `ps_repro` do not exist here
-scorer 106.1; results `results.jsonl` sha256 `f6a896f19f4c7036186b201bbd2a1bfa4d6a20f34c14f5586a72da936475c15d`
+scorer 106.2; results `results.jsonl` sha256 `f6a896f19f4c7036186b201bbd2a1bfa4d6a20f34c14f5586a72da936475c15d`
+inputs: streets sha256 `none`; verdicts sha256 `2097b14f28b650a0b7fa06398ee1dfd893c0cac7d96549e2c2c08df17c3fd718`
 raycast camera height 2.6 m; fusion arm at --min-confidence 0.55
 GT: 125 judged panos -> 174 placeable points -> 174 ramps (0 cross-pano merges), 174 in the recall pool; raycast placed 8626 of 8961 detections (drops {'below_floor': 0, 'on_rig': 0, 'horizon': 5, 'out_of_range': 330})
 

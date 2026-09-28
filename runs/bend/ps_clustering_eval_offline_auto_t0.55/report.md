@@ -1,7 +1,8 @@
 # bend: PS label clustering vs RampNet GT (offline)
 
 mode: offline -- 51529 labels synthesized from `results.jsonl`, one per stored detection >= 0.55 (14 on the camera rig left out), each placed where the server would place it (ps_placement: the server's estimator at 2.341 m); no server labels or clusters, so `deployed` and `ps_repro` do not exist here
-scorer 106.1; results `results.jsonl` sha256 `1307faa8041acbbf4cba78fd53979e2215511b8371c018f427c356f6b0e26153`
+scorer 106.2; results `results.jsonl` sha256 `1307faa8041acbbf4cba78fd53979e2215511b8371c018f427c356f6b0e26153`
+inputs: streets sha256 `none`; verdicts sha256 `9d9835db27f66c1904fcfd4fc87b06f26638a3c033ef10936387db40feb84b05`
 raycast camera height auto; fusion arm at --min-confidence 0.55
 - camera height mode `auto`: auto -> gsv-per-rig
 - 78560 of 78560 panos took a per-rig height; 0 fell back to the 2.6 m constant
