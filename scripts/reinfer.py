@@ -328,21 +328,24 @@ def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1):
     # Futures are consumed in submission order so the output keeps the input's line order;
     # downloads still overlap (the pool runs ahead) and the GPU serialises inference.
     t_pass = time.perf_counter()
-    with open(cache_path, 'a', encoding='utf-8') as f_cache, \
-         open(out_path, 'a', encoding='utf-8') as f_out, \
-         ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = [pool.submit(main.process_pano, source, pid, lat, lon) for pid, lat, lon in todo]
-        try:
-            from tqdm import tqdm
-            it = tqdm(futures, desc="Re-inferring")
-        except ImportError:
-            it = futures
-        for future in it:
-            counts[main.handle_result(future.result(), f_cache, f_out, provenance)] += 1
-    print(f"-> Re-inference: {counts['success']} written, {counts['skipped']} skipped "
-          f"(no longer served / unusable), {counts['failed']} failed (retry by re-running).")
-    report_detector(main.curb_ramp_detector, time.perf_counter() - t_pass, counts['success'])
-    getattr(main.curb_ramp_detector, "close", lambda: None)()
+    try:
+        with open(cache_path, 'a', encoding='utf-8') as f_cache, \
+             open(out_path, 'a', encoding='utf-8') as f_out, \
+             ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(main.process_pano, source, pid, lat, lon)
+                       for pid, lat, lon in todo]
+            try:
+                from tqdm import tqdm
+                it = tqdm(futures, desc="Re-inferring")
+            except ImportError:
+                it = futures
+            for future in it:
+                counts[main.handle_result(future.result(), f_cache, f_out, provenance)] += 1
+        print(f"-> Re-inference: {counts['success']} written, {counts['skipped']} skipped "
+              f"(no longer served / unusable), {counts['failed']} failed (retry by re-running).")
+        report_detector(main.curb_ramp_detector, time.perf_counter() - t_pass, counts['success'])
+    finally:  # also on Ctrl-C or an exception out of the pass
+        getattr(main.curb_ramp_detector, "close", lambda: None)()
 
 
 def main_cli(argv=None):

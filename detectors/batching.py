@@ -166,7 +166,14 @@ class Batcher:
                 raise BatcherDeadError('detector batcher consumer exited without '
                                        'running this item') from self._death
         if pending.error is not None:
-            raise pending.error
+            # Hand the exception over and forget it: error -> traceback -> the consumer's
+            # frame -> batch -> pending -> error is a cycle that would keep a failed batch's
+            # device tensors (an OOM's activations too) alive until the cyclic GC ran.
+            err, pending.error = pending.error, None
+            try:
+                raise err
+            finally:
+                del err
         return pending.result
 
     def close(self, timeout=None):

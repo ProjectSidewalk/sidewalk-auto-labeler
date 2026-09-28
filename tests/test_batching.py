@@ -2,8 +2,10 @@
 
 The real-model equivalence check is tests/test_curb_ramp_batching_equivalence.py (opt-in).
 """
+import gc
 import threading
 import time
+import weakref
 
 import pytest
 
@@ -115,6 +117,30 @@ def test_close_drains_pending_items_then_refuses():
     with pytest.raises(BatcherClosedError):
         b.submit(7)
     b.close()  # idempotent
+
+
+def test_a_failed_batch_frees_its_tensors_without_waiting_for_the_gc():
+    """A failed forward's frame (the device batch, an OOM's activations) must be freed as
+    soon as the caller has handled the error, as on the unbatched path -- not pinned by an
+    error -> traceback -> pending -> error cycle until the cyclic GC happens to run."""
+    class Big:
+        pass
+    refs = []
+
+    def run_batch(items):
+        big = Big()
+        refs.append(weakref.ref(big))
+        raise RuntimeError('CUDA out of memory')
+
+    b = Batcher(run_batch, batch_size=2, batch_wait_s=0.0)
+    gc.disable()
+    try:
+        with pytest.raises(RuntimeError, match='out of memory'):
+            b.submit(1)
+        b.close()
+        assert refs[0]() is None
+    finally:
+        gc.enable()
 
 
 def test_a_dead_consumer_fails_its_waiters_instead_of_hanging():

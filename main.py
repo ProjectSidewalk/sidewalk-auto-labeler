@@ -1122,11 +1122,13 @@ def main():
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
         traceback.print_exc()
-    detector = globals().get('curb_ramp_detector')
-    if detector is not None:
-        # Wall time here includes the coverage scan, so panos/s is the whole run's rate.
-        report_detector(detector, time.perf_counter() - t_run, detector.stats()['images'])
-        detector.close()
+    finally:  # also on a refusal's sys.exit and on Ctrl-C
+        detector = globals().get('curb_ramp_detector')
+        if detector is not None:
+            # Wall time here includes the coverage scan, so panos/s is the whole run's
+            # rate, and `images` counts every forwarded image, failed batches included.
+            report_detector(detector, time.perf_counter() - t_run, detector.stats()['images'])
+            detector.close()
 
 if __name__ == "__main__":
     main()

@@ -596,16 +596,30 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_s
     results.jsonl through main.handle_result in id-list order. GUARDED_SKIPS are held back
     until the pass ends and cached only if their rate passes the poison guard.
     ``batch_size`` (issue #2) applies only when this call loads the model; a detector
-    already set on main is reused as it is."""
-    from concurrent.futures import ThreadPoolExecutor
+    already set on main is reused as it is, and left open. One this call loaded is closed
+    on every exit path, and unset so a later call loads a fresh one."""
     import main
     from detectors import ModelProvenanceError
-    if getattr(main, 'curb_ramp_detector', None) is None:
-        from detectors.curb_ramp import CurbRampDetector
-        try:
-            main.curb_ramp_detector = CurbRampDetector(batch_size=batch_size)
-        except ModelProvenanceError as e:
-            raise SystemExit(str(e))
+    if getattr(main, 'curb_ramp_detector', None) is not None:
+        return _detect_pass(main, run_dir, ids, store, layout, server, selection, workers,
+                            limit, accept_skip_rate)
+    from detectors.curb_ramp import CurbRampDetector
+    try:
+        main.curb_ramp_detector = CurbRampDetector(batch_size=batch_size)
+    except ModelProvenanceError as e:
+        raise SystemExit(str(e))
+    try:
+        return _detect_pass(main, run_dir, ids, store, layout, server, selection, workers,
+                            limit, accept_skip_rate)
+    finally:
+        main.curb_ramp_detector.close()
+        main.curb_ramp_detector = None
+
+
+def _detect_pass(main, run_dir, ids, store, layout, server, selection, workers, limit,
+                 accept_skip_rate):
+    """run()'s body, with main.curb_ramp_detector already loaded."""
+    from concurrent.futures import ThreadPoolExecutor
     provenance = main.curb_ramp_detector.provenance
     manifest = bind_manifest(run_dir, provenance, pixels_block(selection))
     started = datetime.now(timezone.utc).isoformat(timespec='seconds')

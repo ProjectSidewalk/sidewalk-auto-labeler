@@ -1,6 +1,6 @@
 """Batched inference gives the detections unbatched inference gives (issue #2).
 
-OPT-IN: it runs real forward passes on CPU, several minutes even downscaled, so it is
+OPT-IN: it runs real forward passes on CPU, tens of seconds even downscaled, so it is
 skipped unless RAMPNET_EQUIVALENCE is set, and it also skips without torch (CI's
 requirements-test.txt has none), without the cached RampNet weights, or without the local
 RampNet bundle panos. It never touches the network. CPU, so the numbers do not depend on
@@ -9,7 +9,7 @@ whichever GPU happens to be free.
     RAMPNET_EQUIVALENCE=1     pytest tests/test_curb_ramp_batching_equivalence.py -s
     RAMPNET_EQUIVALENCE=full  pytest tests/test_curb_ramp_batching_equivalence.py -s
 
-``1`` feeds 512x1024 inputs (~25 s per CPU forward, ~4 min in all); the model is fully
+``1`` feeds 512x1024 inputs (about 35 s in all on a desktop CPU); the model is fully
 convolutional up to a fixed-size upsample, so this exercises the same stacking, splitting
 and peak code. ``full`` feeds the production 2048x4096 input (~95 s per CPU forward), where
 the unbatched comparison is literally the pre-#2 detect() code, inlined below.
