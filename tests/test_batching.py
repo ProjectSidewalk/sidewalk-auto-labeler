@@ -7,8 +7,7 @@ import time
 
 import pytest
 
-from detectors.batching import (Batcher, BatcherClosedError, BatcherDeadError,
-                                format_stats, make_batcher)
+from detectors.batching import Batcher, BatcherClosedError, BatcherDeadError, format_stats
 
 
 class FakeModel:
@@ -112,7 +111,7 @@ def test_close_drains_pending_items_then_refuses():
     gate.set()
     join(t_first + t_rest + [closer])
     assert first == {100: 200} and rest == {1: 2, 2: 4, 3: 6}
-    assert not b.alive
+    assert not b._thread.is_alive()
     with pytest.raises(BatcherClosedError):
         b.submit(7)
     b.close()  # idempotent
@@ -131,11 +130,7 @@ def test_a_dead_consumer_fails_its_waiters_instead_of_hanging():
         b.submit(2)  # refused up front, not queued forever
 
 
-def test_batch_size_one_starts_no_consumer_thread():
-    before = threading.active_count()
-    assert make_batcher(FakeModel(), batch_size=1) is None
-    assert threading.active_count() == before
+def test_batcher_refuses_batch_size_below_two():
+    # batch_size 1 is CurbRampDetector's unbatched path, which builds no Batcher at all.
     with pytest.raises(ValueError):
         Batcher(FakeModel(), batch_size=1)
-    with pytest.raises(ValueError):
-        make_batcher(FakeModel(), batch_size=0)

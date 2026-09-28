@@ -114,14 +114,6 @@ def format_stats(stats, wall_seconds=None, panos=None):
     return line
 
 
-def make_batcher(run_batch, batch_size, batch_wait_s=DEFAULT_BATCH_WAIT_S):
-    """A started Batcher for ``batch_size > 1``; None for 1, which starts no thread and
-    leaves the caller on its unbatched path."""
-    if batch_size < 1:
-        raise ValueError('batch_size must be >= 1')
-    return Batcher(run_batch, batch_size, batch_wait_s) if batch_size > 1 else None
-
-
 class _Pending:
     __slots__ = ('item', 'done', 'result', 'error')
 
@@ -186,10 +178,6 @@ class Batcher:
                 self._queue.put(_STOP)  # FIFO: lands behind every accepted item
         if threading.current_thread() is not self._thread:
             self._thread.join(timeout)
-
-    @property
-    def alive(self):
-        return self._thread.is_alive()
 
     def stats(self):
         return self._stats.snapshot()

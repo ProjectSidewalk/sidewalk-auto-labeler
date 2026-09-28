@@ -1004,8 +1004,8 @@ def main():
     )
     parser.add_argument(
         "--batch-size", type=int, default=1,
-        help=BATCH_SIZE_HELP[0].upper() + BATCH_SIZE_HELP[1:] + " Here downloads, not the "
-             "GPU, usually set the rate, so the default is the right one (issue #2)."
+        help=BATCH_SIZE_HELP[0].upper() + BATCH_SIZE_HELP[1:] + " main.py is usually "
+             "download-bound, so batching is unlikely to help here (issue #2)."
     )
     parser.add_argument(
         "--coverage-concurrency", type=int, default=COVERAGE_API_CONCURRENCY,

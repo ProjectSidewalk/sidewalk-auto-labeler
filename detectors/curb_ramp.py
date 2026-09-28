@@ -9,7 +9,7 @@ from skimage.feature import peak_local_max
 
 from detectors import (DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO, MODEL_REPO,
                        load_with_offline_fallback, provenance_for_loaded_model)
-from detectors.batching import DEFAULT_BATCH_WAIT_S, ForwardStats, make_batcher
+from detectors.batching import DEFAULT_BATCH_WAIT_S, Batcher, ForwardStats
 
 # The model's fixed input size (rampnet_model.PANO_INPUT_SIZE) and ImageNet normalization.
 INPUT_SIZE = (2048, 4096)
@@ -110,16 +110,14 @@ class CurbRampDetector:
             transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
         ])
         self.batch_size = batch_size
-        self._batcher = make_batcher(self._forward_batch, batch_size, batch_wait_s)
+        # batch_size 1 starts no consumer thread: detect() stays on the pre-#2 path.
+        self._batcher = (Batcher(self._forward_batch, batch_size, batch_wait_s)
+                         if batch_size > 1 else None)
         self._stats = ForwardStats(1) if self._batcher is None else None
-
-    def preprocess(self, pil_image):
-        """PIL image -> normalized 3x2048x4096 float32 tensor (CPU, calling thread)."""
-        return self._preprocess(pil_image)
 
     def heatmap(self, pil_image):
         """The model's 512x1024 heatmap for one image, as a float32 numpy array."""
-        img_tensor = self.preprocess(pil_image)
+        img_tensor = self._preprocess(pil_image)  # CPU, in the calling thread
         if self._batcher is not None:
             return self._batcher.submit(img_tensor)
         img_tensor = img_tensor.unsqueeze(0)
@@ -138,7 +136,9 @@ class CurbRampDetector:
         Runs on the batcher's consumer thread."""
         with self._inference_lock, torch.no_grad():
             batch = torch.stack(tensors).to(self.DEVICE)
-            out = self.model(batch).cpu().numpy()  # (B, 1, H, W)
+            out = self.model(batch).cpu().numpy()
+        if out.ndim != 4 or out.shape[:2] != (len(tensors), 1):
+            raise RuntimeError(f'expected a (B, 1, H, W) heatmap batch, got {out.shape}')
         return [out[i, 0] for i in range(out.shape[0])]
 
     def stats(self):
