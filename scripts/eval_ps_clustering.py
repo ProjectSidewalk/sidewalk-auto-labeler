@@ -626,11 +626,22 @@ def partition_agreement(a, b):
 def score(clusters, gt, det_pos, radius_m=5.0, frag_radii=(3.0, 5.0)):
     ramps, pool, points, op_verdicts = gt
     placed = [c for c in clusters if c.e is not None]
-    matched = es.match_one_to_one(pool, placed, radius_m)
+    # Only clusters within reach of some GT ramp can match or count as a fragment, so the
+    # O(ramps x clusters) loops below run over those alone (identical results; a city of
+    # 100k clusters otherwise costs minutes per arm).
+    reach = max(radius_m, *frag_radii)
+    near = placed
+    if placed and ramps:
+        tree = cKDTree(np.array([[c.e, c.n] for c in placed]))
+        hit = set()
+        for lst in tree.query_ball_point(np.array([[r.e, r.n] for r in ramps]), reach):
+            hit.update(lst)
+        near = [placed[i] for i in sorted(hit)]
+    matched = es.match_one_to_one(pool, near, radius_m)
     # A cluster is "somebody's match" if it matches ANY GT ramp, not only a pool
     # one: a ramp on a pano whose missed-check was not confirmed is still a real
     # ramp, and a cluster sitting on it is not a fragment.
-    matched_all = es.match_one_to_one(ramps, placed, radius_m)
+    matched_all = es.match_one_to_one(ramps, near, radius_m)
     matched_ids = {c.id for c in matched_all.values()}
 
     # Two recall-shaped numbers, deliberately both reported:
@@ -669,7 +680,7 @@ def score(clusters, gt, det_pos, radius_m=5.0, frag_radii=(3.0, 5.0)):
         n_with = n_extra = 0
         for i, _c in matched.items():
             ramp = pool[i]
-            extra = sum(1 for o in placed if o.id not in matched_ids
+            extra = sum(1 for o in near if o.id not in matched_ids
                         and math.hypot(o.e - ramp.e, o.n - ramp.n) <= rf)
             n_extra += extra
             n_with += extra > 0
