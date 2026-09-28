@@ -90,6 +90,27 @@ def test_regions_come_from_the_nearest_street():
     assert epc.assign_regions(lat, lng, [])[0].tolist() == [epc.NO_REGION] * 3
 
 
+def test_load_streets_keeps_open_streets_only(tmp_path):
+    """The server snaps a label to its nearest OPEN street; /v3/api/streets returns all."""
+    pytest.importorskip('shapely')
+    import json
+
+    def feat(sid, rid, status):
+        props = {'street_edge_id': sid, 'region_id': rid}
+        if status is not None:
+            props['status'] = status
+        return {'type': 'Feature', 'properties': props, 'geometry': {
+            'type': 'LineString', 'coordinates': [[LNG0, LAT0], [LNG0 + 0.001, LAT0]]}}
+    path = tmp_path / 'streets.geojson'
+    path.write_text(json.dumps({'type': 'FeatureCollection', 'features': [
+        feat(1, 7, 'open'), feat(2, 8, 'closed'), feat(3, 9, 'no_imagery')]}))
+    assert [(s, r) for s, r, _ in epc.load_streets(path)] == [(1, 7)]
+    path.write_text(json.dumps({'type': 'FeatureCollection', 'features': [
+        feat(1, 7, 'open'), feat(2, 8, None)]}))
+    with pytest.raises(SystemExit):
+        epc.load_streets(path)
+
+
 class _Site:
     def __init__(self, sid, e, n, members):
         self.id, self.e, self.n = sid, e, n
@@ -124,3 +145,9 @@ def test_attach_rule_by_range_and_perpendicular_distance():
     far = [_Site(0, 0.0, 70.0, [('o5', 0)])]
     clusters, attached = epc.attach_unplaceable(far, [cam], frame)
     assert attached == {} and [c.n_labels for c in clusters] == [1, 1]
+    # a label in the rig band was dropped as on_rig, never for range: it stays a singleton
+    rig = fs.SlimPano('rig', LAT0, LNG0, 0.0, None, None, None, 'gsv',
+                      [(0, 0.5, 0.95, 0.9)])
+    sites = [_Site(0, 1.0, 30.0, [('o6', 0)])]
+    assert epc.attach_unplaceable(sites, [rig], frame)[1] == {('rig', 0): 0}
+    assert epc.attach_unplaceable(sites, [rig], frame, mask_rig=True)[1] == {}

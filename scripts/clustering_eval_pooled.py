@@ -90,14 +90,24 @@ def cell_dir(run_dir, tier, frame):
     return run_dir / (f'ps_clustering_eval_offline{fs.frame_suffix(frame)}_t{tier:g}')
 
 
-def cell_current(out, results_sha):
-    """True when out/ holds arms.csv and a report stamped with this results file's sha256
-    and this SCORER_VERSION."""
+def cell_current(out, results_sha, stamp):
+    """True when out/ holds arms.csv and a report stamped with this results file's sha256,
+    this SCORER_VERSION and `stamp` (epc.input_stamp: the street pull's and the RampNet
+    verdicts' sha256), so a re-pulled street network or an updated benchmark re-runs it."""
     rep, arms = out / 'report.md', out / 'arms.csv'
     if not (rep.exists() and arms.exists()):
         return False
     head = rep.read_text(encoding='utf-8')[:4000]
-    return (f'scorer {epc.SCORER_VERSION};' in head and f'sha256 `{results_sha}`' in head)
+    return (f'scorer {epc.SCORER_VERSION};' in head and f'sha256 `{results_sha}`' in head
+            and stamp in head)
+
+
+def cell_stamp(run_dir, server_key, split, bench=None):
+    """epc.input_stamp for a cell: the cached street pull (if the city has a server) and the
+    split's RampNet verdicts. Never fetches."""
+    streets = run_dir / 'ps_streets.geojson' if server_key is not None else None
+    bench_root = Path(bench or epc.build_parser().get_default('benchmark_root'))
+    return epc.input_stamp(streets, bench_root / split / 'verdicts.json')
 
 
 def streets_for(run_dir, server_key, refresh=False):
@@ -115,10 +125,10 @@ def run_cell(city, tier, frame, force=False, refresh=False, bench=None):
     results_path = run_dir / results
     out = cell_dir(run_dir, tier, frame)
     sha = fs.file_sha256(results_path)
-    if not force and cell_current(out, sha):
+    streets = streets_for(run_dir, server_key, refresh)
+    if not force and cell_current(out, sha, cell_stamp(run_dir, server_key, split, bench)):
         print(f'[{name} t{tier:g} {frame}] current, reading back', flush=True)
         return out
-    streets = streets_for(run_dir, server_key, refresh)
     argv = [name, '--split', split, '--run-dir', str(run_dir), '--results', str(results_path),
             '--offline', '--min-confidence', str(tier), '--camera-height-m', str(frame),
             '--out', str(out)]
@@ -210,14 +220,15 @@ def main(argv=None):
                 run_cell(city, tier, frame, args.force, args.refresh, args.benchmark_root)
 
     per_city, attach_rows, missing = [], [], []
-    for name, _split, run, results, _srv, source in CITIES:
+    for name, split, run, results, srv, source in CITIES:
         run_dir = REPO_ROOT / 'runs' / run
         sha = fs.file_sha256(run_dir / results)
         for tier, frame, gsv_only in CELLS:
             if gsv_only and source != 'gsv':
                 continue
             out = cell_dir(run_dir, tier, frame)
-            if not cell_current(out, sha):
+            if not cell_current(out, sha, cell_stamp(run_dir, srv, split,
+                                                     args.benchmark_root)):
                 missing.append(f'{name} t{tier:g} {frame}')
                 continue
             arms = read_arms(out / 'arms.csv')
@@ -289,8 +300,10 @@ def main(argv=None):
               '/ neither matched to distinct clusters; precision = clusters with a judged '
               'member, TP if any member is verdict-true; prec. size k = per-label precision '
               'bucketed by the size of the label\'s cluster, `unplaceable` = labels the raycast '
-              'cannot place. `fusion_server+attach` differs from `fusion_server` only in '
-              'cluster count and size buckets (its attached labels have no raycast position).']
+              'cannot place. `fusion_server+attach` has the same coverage, frag, dual and '
+              'coherence as `fusion_server` (its attached labels have no raycast position); '
+              'cluster count, size buckets and cluster-level precision can move (attaching a '
+              'judged-true singleton to a site that is already TP removes one TP cluster).']
     for tier, frame, gsv_only in CELLS:
         tag = f'tier {tier:g}, {fs.frame_label(frame)} frame' + (' (GSV only)' if gsv_only
                                                                    else '')

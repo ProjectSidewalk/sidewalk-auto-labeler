@@ -922,6 +922,12 @@ CITY_REGION = 0
 # check leaves its labels out: the server placed each label ONCE, from the pano position
 # the campaign sent, and a later repositioning campaign moves the pano row, not the labels.
 MOVED_PANO_M = 0.5
+# The placement check fails when ANY live AI label -- moved panos included -- re-places
+# more than this far from where the server put it. The moved-pano exclusion is decided
+# by inverting the same estimator the check validates, so a placement error that is
+# consistent within a pano (a heading offset, a systematic distance error) would be
+# excluded as "moved" rather than failed; gating on every label closes that hole.
+PLACEMENT_TOL_M = 0.5
 
 
 def synthesize_labels(results_path, min_confidence, mask_rig=True):
@@ -979,12 +985,36 @@ def synthesize_labels(results_path, min_confidence, mask_rig=True):
 
 
 def load_streets(path):
-    """[(street_edge_id, region_id, shapely LineString)] from a /v3/api/streets geojson."""
+    """[(street_edge_id, region_id, shapely LineString)] for the OPEN streets of a
+    /v3/api/streets geojson.
+
+    The server snaps an AI label to its nearest OPEN street only
+    (LabelTable.getStreetEdgeIdClosestToLatLng queries streetEdgeTable.streetsWithTutorial,
+    i.e. status == Open), while /v3/api/streets returns every street (open, no_imagery,
+    closed/disabled) -- on Richmond only 704 of 16,365. Keeping them all put 1.4% of
+    Richmond's live labels in the wrong region. The server's set also includes the
+    tutorial street, which the API omits; no real label lies near it, so that difference
+    is negligible. A pull without a `status` property cannot be filtered and is refused
+    (re-pull it).
+    """
     from shapely.geometry import shape
     with open(path, encoding='utf-8') as f:
         feats = json.load(f)['features']
+    feats = [ft for ft in feats if ft.get('geometry')]
+    if any('status' not in (ft.get('properties') or {}) for ft in feats):
+        raise SystemExit(f'{path}: street features without a `status` property; cannot '
+                         'keep open streets only (the server rule). Re-pull with --refresh.')
     return [(int(ft['properties']['street_edge_id']), int(ft['properties']['region_id']),
-             shape(ft['geometry'])) for ft in feats if ft.get('geometry')]
+             shape(ft['geometry'])) for ft in feats
+            if ft['properties']['status'] == 'open']
+
+
+def streets_provenance(path, streets):
+    """provenance() for a street pull, saying how many OPEN streets load_streets kept."""
+    with open(path, encoding='utf-8') as f:
+        n_all = len(json.load(f)['features'])
+    return (provenance(path, n_all)
+            + f'; {len(streets)} open streets kept (the server snaps to open streets only)')
 
 
 def assign_regions(lat, lng, streets):
@@ -1049,7 +1079,9 @@ def offline_check(ai, det_of, results_path, streets, min_confidence, deployed,
         A pano whose position the server's labels imply (camera_from_label, median over
         the pano's labels) sits more than MOVED_PANO_M from the file's is left out and
         counted: its labels were inserted from another pano position (a repositioning
-        campaign after the file was written).
+        campaign after the file was written). That exclusion is self-referential (it
+        inverts the estimator under test), so the check's pass/fail (`placement_ok`) is
+        taken over ALL labels: max re-placement error <= PLACEMENT_TOL_M.
     (b) partition: the labels synthesized offline from the file (at min_confidence,
         unmasked), joined to the live AI labels on (pano_id, pano_x, pano_y) and given
         regions by nearest street (assign_regions), are clustered with the PS rule at
@@ -1099,7 +1131,9 @@ def offline_check(ai, det_of, results_path, streets, min_confidence, deployed,
            'max': kept[-1] if kept else None,
            'over_0_5': sum(1 for o in kept if o > 0.5),
            'median_all': quantile(every, .5), 'p90_all': quantile(every, .9),
-           'over_0_5_all': sum(1 for o in every if o > 0.5)}
+           'over_0_5_all': sum(1 for o in every if o > 0.5),
+           'max_all': every[-1] if every else None}
+    res['placement_ok'] = bool(every) and every[-1] <= PLACEMENT_TOL_M
 
     syn, _syn_det = synthesize_labels(results_path, min_confidence, mask_rig=False)
     live_key = {(r.pano_id, r.pano_x, r.pano_y): r.label_id
@@ -1161,7 +1195,8 @@ ATTACH_MAX_RANGE_M = 60.0
 
 
 def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
-                       min_range_m=ATTACH_MIN_RANGE_M, max_range_m=ATTACH_MAX_RANGE_M):
+                       min_range_m=ATTACH_MIN_RANGE_M, max_range_m=ATTACH_MAX_RANGE_M,
+                       mask_rig=False):
     """(clusters, attached) for the `fusion_server+attach` arm.
 
     Every label of `panos` that no site holds (clusters_from_server_sites makes these
@@ -1173,6 +1208,10 @@ def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
     joins the qualifying site nearest along the ray as a non-refit member (the site does
     not move); otherwise it stays a singleton. Labels are processed in descending
     confidence (then pano id, index), so the cannot-link is deterministic.
+
+    Only labels the raycast dropped for the horizon or the range cap are candidates: with
+    mask_rig (the fuse's FuseParams.mask_rig), a label in the rig band was dropped as
+    `on_rig` -- it is on the camera vehicle, not the street -- and stays a singleton.
 
     Returns the clusters (sites with their attachments, then the remaining singletons,
     in clusters_from_server_sites' layout) and {(pano_id, det_index): site id}.
@@ -1187,14 +1226,16 @@ def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
     tree = cKDTree(xy) if sites else None
     loose = []
     for p in panos:
-        for i, x, _y, conf in p.detections:
+        for i, x, y, conf in p.detections:
             if (p.pano_id, i) not in held:
-                loose.append((-conf, p.pano_id, i, x, p))
+                loose.append((-conf, p.pano_id, i, x, p, y))
     loose.sort(key=lambda t: t[:3])
     attached = {}
-    for _negc, pid, i, x, p in loose:
+    for _negc, pid, i, x, p, y in loose:
         if tree is None:
             break
+        if mask_rig and on_camera_rig(y):
+            continue
         ce, cn = frame.to_enu(p.lat, p.lng)
         b = math.radians(p.camera_heading - 180.0 + x * 360.0)
         ue, un = math.sin(b), math.cos(b)
@@ -1220,7 +1261,7 @@ def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
     for s in sites:
         keys = [(d.pano_id, d.det_index) for d, _ in s.members] + extra.get(s.id, [])
         out.append(Cluster(s.id, [k for k in keys if k[1] < HUMAN_DET_BASE], len(keys)))
-    for _negc, pid, i, _x, _p in sorted(loose, key=lambda t: (t[1], t[2])):
+    for _negc, pid, i, _x, _p, _y in sorted(loose, key=lambda t: (t[1], t[2])):
         if (pid, i) not in attached:
             out.append(Cluster(len(out), [(pid, i)] if i < HUMAN_DET_BASE else [], 1))
     return out, attached
@@ -1230,7 +1271,15 @@ def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
 
 # Bumped by hand whenever a change moves any number the reports print; the pooled driver
 # (clustering_eval_pooled.py) re-runs a cell whose report records another version.
-SCORER_VERSION = '106.1'
+SCORER_VERSION = '106.2'
+
+
+def input_stamp(streets_path, verdicts_path):
+    """The report-head line stamping the street pull and the RampNet verdicts by sha256
+    (`none` when absent), read back by clustering_eval_pooled.cell_current."""
+    def sha(p):
+        return fs.file_sha256(p) if p and Path(p).exists() else 'none'
+    return f'inputs: streets sha256 `{sha(streets_path)}`; verdicts sha256 `{sha(verdicts_path)}`'
 
 
 def build_parser():
@@ -1389,6 +1438,9 @@ def run(args):
     lines.append(f'scorer {SCORER_VERSION}; results `{results_path.name}` sha256 '
                  f'`{results_sha}`' + (f'; benchmark split `{split}`' if split != args.city
                                        else ''))
+    # the other two inputs a number can move with; clustering_eval_pooled.cell_current
+    # checks both, so a --refresh'ed street pull or an updated benchmark re-runs the cell
+    lines.append(input_stamp(streets_path, args.benchmark_root / split / 'verdicts.json'))
 
     # world frame, raycast positions, GT — one code path with eval_sites
     # mask_rig: live, this arm is compared against what the SERVER holds, and Richmond's
@@ -1531,8 +1583,11 @@ def run(args):
 
     # arm: fusion_server+attach — the same sites, plus the pre-declared bearing rule for
     # the labels the raycast cannot place (attach_unplaceable). Their positions are
-    # unknown to the scorer, so only cluster counts and size buckets can move.
-    att_clusters, attached = attach_unplaceable(srv_sites, srv_panos, srv_frame)
+    # unknown to the scorer, so coverage, frag, dual and coherence cannot move; cluster
+    # counts, size buckets and cluster-level precision can (attaching a judged-true
+    # singleton to a site that is already TP removes one TP cluster).
+    att_clusters, attached = attach_unplaceable(srv_sites, srv_panos, srv_frame,
+                                                mask_rig=srv_params.mask_rig)
     add_arm('fusion_server+attach', place(att_clusters, det_pos))
     site_true = {}
     for s in srv_sites:
@@ -1619,7 +1674,7 @@ def run(args):
                   f'- {n_dup_labels} server labels share a pixel with another label and so '
                   'map to the same stored detection (a re-submitted campaign does this)']
     if streets_path:
-        lines.append(provenance(streets_path, len(streets)))
+        lines.append(streets_provenance(streets_path, streets))
     if args.offline:
         if streets:
             lines.append('- regions: every synthesized label takes the region of the street '
@@ -1795,7 +1850,12 @@ def run(args):
                   f"p90 {fmt(o['p90'], 6)} m, max {fmt(o['max'], 6)} m, "
                   f"{o['over_0_5']} over 0.5 m (all labels: median "
                   f"{fmt(o['median_all'], 6)} m, p90 {fmt(o['p90_all'], 6)} m, "
-                  f"{o['over_0_5_all']} over 0.5 m)",
+                  f"{o['over_0_5_all']} over 0.5 m, max {fmt(o['max_all'], 6)} m)",
+                  f"- (a) placement check: **{'PASS' if o['placement_ok'] else 'FAIL'}** "
+                  f"(max error over ALL labels <= {PLACEMENT_TOL_M:g} m). Gated on all "
+                  'labels because the moved-pano exclusion above is self-referential: it '
+                  'inverts the estimator being validated, so an error consistent within a '
+                  'pano would be excluded, not failed',
                   f"- (b) labels: {o['n_synth']} synthesized at {args.min_confidence:g} "
                   f"(unmasked); {o['n_synth'] - o['synth_not_live']} match a live AI label "
                   f"by pano and pixel, {o['synth_not_live']} do not (soft-deleted, or never "
@@ -1850,7 +1910,12 @@ def synthesize_rig_count(results_path, min_confidence):
 
 
 def main(argv=None):
-    run(build_parser().parse_args(argv))
+    out = run(build_parser().parse_args(argv))
+    oc = out.get('offline_check') if isinstance(out, dict) else None
+    if oc is not None and not oc['placement_ok']:
+        print(f"offline check FAILED: a live AI label re-places {oc['max_all']:.3f} m from "
+              f'the server (> {PLACEMENT_TOL_M:g} m)', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

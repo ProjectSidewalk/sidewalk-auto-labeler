@@ -236,7 +236,7 @@ def score_city(city, tiers=TIERS, frames=FRAMES, radii=RADII_M):
              f"{record.get('url')}",
              f'- results `{results_path.name}` sha256 `{fs.file_sha256(results_path)}`',
              ('- regions: nearest street of the server\'s street network (the server\'s '
-              'insert rule); ' + epc.provenance(streets_path, len(streets))[2:])
+              'insert rule); ' + epc.streets_provenance(streets_path, streets)[2:])
              if streets else '- regions: none (no server), so per-region == citywide']
     rows = []
     for tier in tiers:
