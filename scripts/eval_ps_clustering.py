@@ -79,6 +79,9 @@ from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
 try:  # analysis-only dependencies, deliberately not in requirements.txt
     import pandas as pd
     from scipy.cluster.hierarchy import fcluster, linkage
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    from scipy.spatial import cKDTree
     from scipy.spatial.distance import squareform
     from haversine import haversine_vector
 except ImportError as exc:  # pragma: no cover
@@ -91,9 +94,6 @@ PS_THRESHOLD_KM = 0.0075   # label_clustering.py THRESHOLDS['CurbRamp']
 API_LABELS = '/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson'
 API_CLUSTERS = ('/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true'
                 '&filetype=geojson')
-# A dense N x N float64 matrix plus its bool mask and condensed copy; the citywide
-# arm is the only path that builds one over every label in the city.
-CITYWIDE_MAX_LABELS = 20000
 
 
 # ----------------------------------------------------------------------------- inputs
@@ -485,14 +485,73 @@ def region_groups(labels):
     return [idx for _, idx in sorted(labels.groupby('region_id').indices.items())]
 
 
-def ps_partition(labels, thresholds_km, per_region=True):
+# The blocked partition (issue #106) cuts the city into single-linkage components at the
+# widest threshold plus this margin before running complete linkage per component. The
+# components are found on a flat equirectangular projection and the cut is made on the
+# script's own haversine distances; the two disagree by well under 1e-3 relative at city
+# scale (centimetres at 15 m), so 0.5 m guarantees no pair within any threshold is ever
+# separated by the blocking.
+BLOCK_MARGIN_M = 0.5
+
+
+def blocked_components(lat, lng, radius_m):
+    """Connected components of the graph joining every pair of points within radius_m
+    (flat projection about the points' mean). Returns a label array aligned with lat.
+
+    Why it is exact for complete linkage: every pair in two different components is more
+    than radius_m apart, so any two clusters drawn from different components are too, and
+    complete linkage never merges them below radius_m. Every flat cluster at a cut
+    t <= radius_m therefore lies inside one component, and the merges below t inside a
+    component happen in the same order as over the whole set.
+
+    Example:
+        >>> blocked_components(np.array([0.0, 0.0, 0.001]), np.array([0.0, 0.00005, 0.0]),
+        ...                    10.0).tolist()
+        [0, 0, 1]
+    """
+    lat = np.asarray(lat, dtype=float)
+    lng = np.asarray(lng, dtype=float)
+    if len(lat) == 0:
+        return np.zeros(0, dtype=int)
+    lat0 = math.radians(float(lat.mean()))
+    xy = np.column_stack([np.radians(lng) * math.cos(lat0) * geo.EARTH_RADIUS_M,
+                          np.radians(lat) * geo.EARTH_RADIUS_M])
+    pairs = cKDTree(xy).query_pairs(radius_m, output_type='ndarray')
+    n = len(lat)
+    graph = coo_matrix((np.ones(len(pairs), dtype=np.int8), (pairs[:, 0], pairs[:, 1])),
+                       shape=(n, n))
+    _n, comp = connected_components(graph, directed=False)
+    return comp
+
+
+def ps_partition(labels, thresholds_km, per_region=True, blocked=True, stats=None):
     """{threshold_km: cluster-id array aligned with labels rows} for one linkage per
-    group, cut at every threshold (fcluster cuts the same tree the script builds)."""
+    group, cut at every threshold (fcluster cuts the same tree the script builds).
+
+    blocked=True (the default since #106) runs the linkage per single-linkage component
+    at the widest threshold + BLOCK_MARGIN_M (blocked_components) instead of over the
+    whole group: the same partition at every threshold, without an N x N matrix over a
+    whole city. blocked=False is the dense path, kept for the equality test. `stats`, if
+    given, receives the largest block size."""
     # -1, not 0: every row must be assigned, and an unassigned row has to be loud
     # rather than collapsing into a fabricated cluster 0.
     out = {t: np.full(len(labels), -1, dtype=int) for t in thresholds_km}
     offset = {t: 0 for t in thresholds_km}
     groups = region_groups(labels) if per_region else [np.arange(len(labels))]
+    if blocked:
+        radius_m = max(thresholds_km) * 1000.0 + BLOCK_MARGIN_M
+        lat_all = labels['lat'].to_numpy(dtype=float)
+        lng_all = labels['lng'].to_numpy(dtype=float)
+        blocks = []
+        for idx in groups:
+            comp = blocked_components(lat_all[idx], lng_all[idx], radius_m)
+            order = np.argsort(comp, kind='stable')
+            cuts = np.flatnonzero(np.diff(comp[order])) + 1
+            blocks += [np.asarray(idx)[part] for part in np.split(order, cuts)]
+        groups = blocks
+    if stats is not None:
+        stats['largest_block'] = max((len(g) for g in groups), default=0)
+        stats['n_blocks'] = len(groups)
     for idx in groups:
         sub = labels.iloc[idx]
         if len(sub) == 1:
@@ -510,12 +569,6 @@ def ps_partition(labels, thresholds_km, per_region=True):
             raise SystemExit(f'{int((arr < 0).sum())} labels were never assigned a '
                              f'cluster at {t} km — the grouping dropped rows')
     return out
-
-
-def dense_matrix_gb(n):
-    """Peak memory of ps_linkage over n labels: float64 matrix + bool mask +
-    condensed copy."""
-    return (n * n * 8 * 1.5 + n * n) / 1024 ** 3
 
 
 def ps_verbatim(labels, ps_script):
@@ -852,9 +905,6 @@ def main():
                          'scores what the SERVER holds, and every city clustered so far went '
                          'live at 0.55. Set it to whatever a city was actually submitted at '
                          '(its submission record says) before comparing arms.')
-    ap.add_argument('--citywide-max-labels', type=int, default=CITYWIDE_MAX_LABELS,
-                    help='skip the ps_citywide arm above this many labels (it builds '
-                         'a dense N x N distance matrix)')
     args = ap.parse_args()
 
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
@@ -977,16 +1027,11 @@ def main():
     for t_m, t_km in zip(args.thresholds_m, t_kms):
         cl = place(clusters_from_assignment(ai, parts[t_km], det_of), det_pos)
         results[f'ps @ {t_m:g} m'] = score(cl, gt, det_pos, args.match_radius_m)
-    if len(ai) <= args.citywide_max_labels:
-        city = ps_partition(ai, [PS_THRESHOLD_KM], per_region=False)[PS_THRESHOLD_KM]
-        results['ps_citywide @ 7.5 m'] = score(
-            place(clusters_from_assignment(ai, city, det_of), det_pos), gt, det_pos,
-            args.match_radius_m)
-    else:
-        checks.append(
-            f'ps_citywide skipped: {len(ai)} labels exceed --citywide-max-labels '
-            f'{args.citywide_max_labels}; one dense matrix over them would need about '
-            f'{dense_matrix_gb(len(ai)):.1f} GB (per-region arms are unaffected)')
+    # Blocked (#106), so it runs at any city size: no N x N matrix over the whole city.
+    city = ps_partition(ai, [PS_THRESHOLD_KM], per_region=False)[PS_THRESHOLD_KM]
+    results['ps_citywide @ 7.5 m'] = score(
+        place(clusters_from_assignment(ai, city, det_of), det_pos), gt, det_pos,
+        args.match_radius_m)
 
     # arms: ps_placeable @ t — the PS algorithm on server positions, restricted to the
     # labels the raycast can place: exactly the label set ps_raycast and fusion use, so
