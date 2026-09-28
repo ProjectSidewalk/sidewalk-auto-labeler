@@ -211,3 +211,15 @@ def test_csv_has_one_row_per_candidate(tmp_path):
     assert {r['within_match'] for r in rows} == {'1', '0'}
     report = (tmp_path / 'report.md').read_text(encoding='utf-8')
     assert 'hard-only' in report and 'all-mined' in report
+
+
+@pytest.mark.parametrize('heights, name', [
+    ([2.6], 'mined_precision'),
+    ([2.6, 2.6], 'mined_precision'),
+    (['auto'], 'mined_precision_auto'),
+    (['per-pano', 'per-pano'], 'mined_precision_per-pano'),
+    ([2.2], 'mined_precision_h2.20'),
+    ([2.6, 2.2, 'auto'], 'mined_precision_h2.60+h2.20+auto'),
+])
+def test_default_dir_names_the_frame_so_frames_never_overwrite(heights, name):
+    assert mp.default_dir_name(heights) == name
