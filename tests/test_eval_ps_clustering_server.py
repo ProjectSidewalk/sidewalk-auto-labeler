@@ -77,3 +77,23 @@ def test_every_label_lands_in_a_cluster_and_only_ai_ones_are_scored():
     assert n_singletons == 1
     assert sum(c.n_labels for c in clusters) == 2
     assert sorted(m for c in clusters for m in c.members) == [('p', 0)]
+
+
+def test_precision_by_cluster_size_buckets_unplaceable_first():
+    big = epc.Cluster(0, [('p', 0), ('q', 0), ('r', 0)], 3)
+    lone = epc.Cluster(1, [('s', 0)], 1)
+    det_of = {1: ('p', 0), 2: ('q', 0), 3: ('r', 0), 4: ('s', 0), 5: ('t', 0)}
+    det_pos = {k: (0.0, 0.0) for k in det_of.values() if k != ('t', 0)}   # t: unplaceable
+    verdicts = {('p', 0): True, ('q', 0): False, ('s', 0): False, ('t', 0): True}
+    conf = {k: 0.8 for k in det_of.values()}
+    rows = {r['bucket']: r for r in epc.size_precision([big, lone], det_of, det_pos,
+                                                        verdicts, conf)}
+    assert [(r['n'], r['judged'], r['t'], r['f']) for r in rows.values()] == [
+        (1, 1, 1, 0), (1, 1, 0, 1), (0, 0, 0, 0), (3, 2, 1, 1)]
+
+
+def test_wilson_interval():
+    lo, hi = epc.wilson(21, 25)
+    assert (round(lo, 2), round(hi, 2)) == (0.65, 0.94)   # scipy binomtest's Wilson
+    assert epc.wilson(0, 0) is None
+    assert epc.precision_ci_text(0, 0) == 'n/a'

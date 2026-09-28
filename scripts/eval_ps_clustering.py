@@ -748,6 +748,65 @@ def csv_row(name, r):
             'coh_over_5m': co['over_5m'], 'same_pano_pairs': r['same_pano_pairs']}
 
 
+SIZE_BUCKETS = ('unplaceable', 'cluster of 1', 'cluster of 2', 'cluster of 3+')
+
+
+def size_precision(clusters, det_of, det_pos, verdicts, conf):
+    """Rows (one per SIZE_BUCKETS entry) of GT precision by the size of the cluster
+    holding each AI label. A label the raycast cannot place (not in det_pos) is
+    `unplaceable` whatever partition holds it. `verdicts` is build_gt's
+    (pano_id, det_index) -> verdict map; only True and False count toward precision.
+
+    Example:
+        A label alone in its cluster, judged False, lands in 'cluster of 1' with
+        t=0, f=1; one on a pano nobody judged adds to n but not to `judged`.
+    """
+    size_of = {}
+    for c in clusters:
+        for m in c.members:
+            size_of[m] = c.n_labels
+    keys = {b: [] for b in SIZE_BUCKETS}
+    for key in det_of.values():
+        if key not in det_pos:
+            keys['unplaceable'].append(key)
+        else:
+            s = size_of.get(key, 1)
+            keys['cluster of 1' if s == 1 else 'cluster of 2' if s == 2
+                 else 'cluster of 3+'].append(key)
+    rows = []
+    for b in SIZE_BUCKETS:
+        ks = keys[b]
+        v = [verdicts[k] for k in ks if k in verdicts]
+        cs = sorted(conf[k] for k in ks if k in conf)
+        rows.append({'bucket': b, 'n': len(ks), 'judged': len(v),
+                     't': sum(x is True for x in v), 'f': sum(x is False for x in v),
+                     'median_conf': quantile(cs, .5)})
+    return rows
+
+
+def wilson(t, n, z=1.96):
+    """Wilson score interval for t successes in n trials; None when n == 0.
+
+    Example:
+        >>> [round(x, 2) for x in wilson(27, 27)]
+        [0.88, 1.0]
+    """
+    if n == 0:
+        return None
+    p = t / n
+    d = 1 + z * z / n
+    mid = (p + z * z / (2 * n)) / d
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return max(0.0, mid - half), min(1.0, mid + half)
+
+
+def precision_ci_text(t, f):
+    ci = wilson(t, t + f)
+    if ci is None:
+        return 'n/a'
+    return f'{t / (t + f):.3f} [{ci[0]:.2f}, {ci[1]:.2f}]'
+
+
 def quantile(xs, p):
     return xs[min(len(xs) - 1, int(p * len(xs)))] if xs else None
 
@@ -1120,6 +1179,25 @@ def main():
                      f"| {a['dual']['both']}/{a['dual']['pairs']} | {fmt(b['coverage'])} | "
                      f"{fb['with_extra']}/{fb['ramps']} | "
                      f"{b['dual']['both']}/{b['dual']['pairs']} |")
+
+    run_conf = {(p.pano_id, i): c for p in run_panos for i, _x, _y, c in p.detections}
+    lines += ['', '## Precision by cluster size', '',
+              'Is a small cluster a false positive? Each AI label is bucketed by the size '
+              '(labels) of the cluster holding it, or as `unplaceable` when the raycast '
+              'cannot place it (beyond the range cap, or at/above the horizon); fusion '
+              'cannot associate those, so they are the singletons of `fusion_server`, and '
+              'the same bucket is split out of `deployed` for comparison. Precision is '
+              'T / (T + F) over labels on judged panos (RampNet verdicts, benchmark tier), '
+              'with a Wilson 95% interval.', '',
+              '| partition | bucket | AI labels | median conf | judged | precision [95% CI] '
+              '| T | F | neither |',
+              '|---|---|---:|---:|---:|---|---:|---:|---:|']
+    for name, cl in (('deployed', deployed), ('fusion_server', srv_clusters)):
+        for row in size_precision(cl, det_of, det_pos, gt[3], run_conf):
+            lines.append(f"| {name} | {row['bucket']} | {row['n']} | "
+                         f"{fmt(row['median_conf'], 2)} | {row['judged']} | "
+                         f"{precision_ci_text(row['t'], row['f'])} | {row['t']} | "
+                         f"{row['f']} | {row['judged'] - row['t'] - row['f']} |")
 
     report = '\n'.join(lines) + '\n'
     (out / 'report.md').write_text(report, encoding='utf-8')

@@ -80,3 +80,18 @@ Largest pairwise member distance over 945 fusion sites with >= 3 placeable membe
 | 5 | 0.917 | 109/232 | 23/30 | 0.909 | 36/230 | 24/30 |
 | 7.5 | 0.957 | 109/242 | 23/30 | 0.949 | 35/240 | 24/30 |
 | 10 | 0.976 | 108/247 | 25/30 | 0.968 | 35/245 | 25/30 |
+
+## Precision by cluster size
+
+Is a small cluster a false positive? Each AI label is bucketed by the size (labels) of the cluster holding it, or as `unplaceable` when the raycast cannot place it (beyond the range cap, or at/above the horizon); fusion cannot associate those, so they are the singletons of `fusion_server`, and the same bucket is split out of `deployed` for comparison. Precision is T / (T + F) over labels on judged panos (RampNet verdicts, benchmark tier), with a Wilson 95% interval.
+
+| partition | bucket | AI labels | median conf | judged | precision [95% CI] | T | F | neither |
+|---|---|---:|---:|---:|---|---:|---:|---:|
+| deployed | unplaceable | 1428 | 0.79 | 33 | 1.000 [0.88, 1.00] | 27 | 0 | 6 |
+| deployed | cluster of 1 | 326 | 0.75 | 11 | 0.900 [0.60, 0.98] | 9 | 1 | 1 |
+| deployed | cluster of 2 | 595 | 0.81 | 18 | 0.812 [0.57, 0.93] | 13 | 3 | 2 |
+| deployed | cluster of 3+ | 7177 | 0.87 | 205 | 0.974 [0.94, 0.99] | 188 | 5 | 12 |
+| fusion_server | unplaceable | 1428 | 0.79 | 33 | 1.000 [0.88, 1.00] | 27 | 0 | 6 |
+| fusion_server | cluster of 1 | 388 | 0.78 | 13 | 0.846 [0.58, 0.96] | 11 | 2 | 0 |
+| fusion_server | cluster of 2 | 479 | 0.76 | 15 | 0.833 [0.55, 0.95] | 10 | 2 | 3 |
+| fusion_server | cluster of 3+ | 7231 | 0.87 | 206 | 0.974 [0.94, 0.99] | 189 | 5 | 12 |

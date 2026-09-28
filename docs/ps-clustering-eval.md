@@ -419,6 +419,19 @@ Richmond (Mapillary; 2026-09-21 pull), 2.6 m frame, 5 m match radius:
   unclustered. That choice needs its own measurement, which the scorer cannot give today
   because it places clusters by raycast.
 
+**Is a small cluster a false positive?** The report's "Precision by cluster size" section
+answers this per partition, against RampNet verdicts (Richmond, 2.6 m):
+
+- **Unplaceable labels are not false positives:** 27/27 judged true (Wilson 95% CI
+  0.88-1.00). They sit just below the horizon (median y 0.523): real ramps too far for the
+  flat raycast. So the fix for them is association (e.g. by bearing), not rejection.
+- **Placed clusters of 1-2 labels are weaker:** under `fusion_server`, 11/13 and 10/12
+  (pooled 21/25 = 0.84, CI 0.65-0.94), against 189/194 = 0.974 for 3+ (Fisher p = 0.011);
+  `deployed` shows the same shape. With 25 judged labels this is a thin sample. Read it as
+  validation priority, not a filter: most small clusters are still real ramps, and under
+  the recall-first policy a false positive costs one validation while a dropped ramp is
+  never seen again. Vancouver's run will add a GSV city with far more labels.
+
 ## Step 2 (Vancouver) runbook
 
 Issue [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56). Vancouver, WA
