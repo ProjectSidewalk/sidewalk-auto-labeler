@@ -938,6 +938,140 @@ def camera_height_counts(panos, params):
     return out
 
 
+def height_table_path(camera_height, results_path, height_table=None):
+    """The camera_heights.json a PER_RIG load reads (default: beside results.jsonl), or
+    None for any other mode. Raises ValueError when per-rig has no table to read."""
+    if camera_height != geo.PER_RIG:
+        return None
+    table = Path(height_table) if height_table else Path(results_path).parent / HEIGHT_TABLE_NAME
+    if not table.exists():
+        raise ValueError(f'per-rig needs a camera-height table; none at {table} '
+                         '(scripts/mapillary_height.py writes it)')
+    return table
+
+
+def load_at_height(results_path, camera_height, *, depth_index=None, height_table=None,
+                   read_heights=None, resolve_auto=True, grade_source=GRADE_SFM,
+                   grades_path=None):
+    """Load results.jsonl and resolve a --camera-height-m value in ONE place (#56).
+
+    fuse_sites' CLI, eval_sites, eval_ps_clustering and mined_precision all load through
+    here, so `per-pano`, `per-rig` and `auto` cannot mean different things in different
+    scripts. `camera_height` is a number, geo.PER_PANO, geo.PER_RIG or HEIGHT_AUTO:
+
+    - a number: every pano at it (the index is not read unless read_heights=True);
+    - per-pano: the pano block's measured height, else depth/index.csv beside the file
+      (or `depth_index`); unmeasured panos fall back to geo.DEFAULT_CAMERA_HEIGHT_M;
+    - per-rig: camera_heights.json beside the file (or `height_table`);
+    - auto: per-pano's heights, then resolve_auto_height (per-rig by capture year for GSV,
+      the constant otherwise). resolve_auto=False keeps the heights unresolved and
+      returns the constant, which is what --pose-ablation / --implied-height need.
+
+    Returns (panos, skipped, height, auto): `height` is what FuseParams.camera_height_m
+    takes, `auto` is resolve_auto_height's provenance (None unless auto resolved). Raises
+    ValueError on a missing or mismatched height table (callers turn it into an exit).
+
+    Example:
+        >>> panos, skipped, height, auto = load_at_height('runs/richmond/results.jsonl',
+        ...                                               HEIGHT_AUTO)  # doctest: +SKIP
+        >>> height, auto['resolved'], auto['reason']                    # doctest: +SKIP
+        (2.6, 2.6, 'no GSV panos')
+    """
+    if read_heights is None:
+        read_heights = camera_height in (geo.PER_PANO, HEIGHT_AUTO)
+    table = height_table_path(camera_height, results_path, height_table)
+    panos, skipped = load_results(results_path, depth_index, read_heights=read_heights,
+                                  height_table=table, grade_source=grade_source,
+                                  grades_path=grades_path)
+    if camera_height != HEIGHT_AUTO:
+        return panos, skipped, camera_height, None
+    if not resolve_auto:
+        return panos, skipped, geo.DEFAULT_CAMERA_HEIGHT_M, None
+    panos, height, auto = resolve_auto_height(panos)
+    return panos, skipped, height, auto
+
+
+def resolved_height_counts(panos, params, auto=None):
+    """camera_height_counts with an `auto` resolution folded in: auto's provenance over
+    the per-rig block it resolved to, minus that block's camera_heights.json fields,
+    which a GSV auto fuse never has. What sites_meta.json and the eval reports record."""
+    counts = camera_height_counts(panos, params)
+    if auto is None:
+        return counts
+    counts = {k: v for k, v in counts.items() if k not in ('mode', 'table', 'sha256', 'grain')}
+    return {**auto, **counts}
+
+
+def describe_auto(auto):
+    """One line for how `auto` resolved, e.g. 'auto -> 2.6 (no GSV panos)'."""
+    return (f"auto -> {auto['resolved']}"
+            + (f" ({auto['reason']})" if 'reason' in auto else ''))
+
+
+def height_resolution_lines(requested, panos, params, auto=None):
+    """Markdown bullets stating how a report's camera height resolved (#56): the mode,
+    how many panos took a measured/table height vs fell back to the constant, the per-rig
+    year table under auto, and the spread definition when an index supplied heights.
+    Empty for a numeric request, so a constant-height report is unchanged.
+
+    Example:
+        >>> class P: camera_height_m = 2.6
+        >>> height_resolution_lines(2.6, [], P())
+        []
+    """
+    if not isinstance(requested, str):
+        return []
+    c = resolved_height_counts(panos, params, auto)
+    n = len(panos)
+    d = geo.DEFAULT_CAMERA_HEIGHT_M
+    lines = [f'- camera height mode `{requested}`'
+             + (f": {describe_auto(auto)}" if auto is not None else '')]
+    if 'fixed_m' in c:          # auto resolved to the constant
+        lines.append(f'- all {n} panos raycast at the constant {c["fixed_m"]:g} m '
+                     '(no pano took a measured or per-rig height)')
+    else:
+        used = n - c['fallback']
+        what = 'a measured height' if params.camera_height_m == geo.PER_PANO \
+            else 'a per-rig height'
+        lines.append(f'- {used} of {n} panos took {what}; {c["fallback"]} fell back to '
+                     f'the {d:g} m constant'
+                     + (' -- ALL of them, so this frame equals the constant one'
+                        if used == 0 else ''))
+        if c.get('flagged_qc'):
+            lines.append(f"- flagged by the #44 QC gate (kept all the same): "
+                         f"{c['flagged_qc']}")
+        if c.get('applied_by_group') and auto is None:   # auto: the year table below
+            lines.append('- per-rig groups (panos): ' + ', '.join(
+                f'{g} {k}' for g, k in sorted(c['applied_by_group'].items())))
+        if c.get('spread_definition'):
+            lines.append(f"- {c['measured_from_index']} heights read from depth/index.csv; "
+                         f"spread definition: {c['spread_definition']}")
+    for year, a in (c.get('assignment') or {}).items():
+        med = 'n/a' if a['median_m'] is None else f"{a['median_m']:.2f} m"
+        lines.append(f"  - {year}: median {med}, {a['measured']} of {a['dated']} measured "
+                     f"-> {a['height_m']:g} m")
+    return lines
+
+
+def frame_suffix(camera_height):
+    """Output-directory suffix for a scoring frame, so a report in one frame never
+    overwrites another: '' for the default constant, '_h<metres, 2 dp>' for any other
+    number, '_<mode>' for a named mode.
+
+    Example:
+        >>> [frame_suffix(h) for h in (2.6, 2.341219672825709, 'per-pano', 'auto')]
+        ['', '_h2.34', '_per-pano', '_auto']
+    """
+    if isinstance(camera_height, str):
+        return f'_{camera_height}'
+    return '' if camera_height == geo.DEFAULT_CAMERA_HEIGHT_M else f'_h{camera_height:.2f}'
+
+
+def frame_label(camera_height):
+    """'2.6 m' for a number, the mode name for a named mode -- for report text."""
+    return camera_height if isinstance(camera_height, str) else f'{camera_height:g} m'
+
+
 def site_to_json(site, frame):
     lat, lng = frame.to_latlng(site.e, site.n)
     ops_panos = {d.pano_id for d, _ in site.members if d.operational}
@@ -1011,8 +1145,15 @@ def camera_height_arg(value):
 
 
 def fuse_camera_height_arg(value):
-    """fuse_sites' own --camera-height-m: camera_height_arg plus HEIGHT_AUTO (#79). The
-    analysis scripts keep camera_height_arg, so `auto` never reaches them by accident."""
+    """fuse_sites' own --camera-height-m: camera_height_arg plus HEIGHT_AUTO (#79). Also
+    the type of eval_ps_clustering's --camera-height-m and mined_precision's
+    --camera-height, which accept `auto` explicitly (#56); eval_sites and the other
+    analysis scripts keep camera_height_arg, so `auto` never reaches them by accident.
+
+    Example:
+        >>> [fuse_camera_height_arg(v) for v in ('2.6', 'auto', 'per-pano', 'per-rig')]
+        [2.6, 'auto', 'per-pano', 'per-rig']
+    """
     return value if value == HEIGHT_AUTO else camera_height_arg(value)
 
 
@@ -1087,21 +1228,20 @@ def main(argv=None):
         apply_pose=args.apply_pose,
         sigma_scale=args.sigma_scale, grade_source=args.grade_source)
 
-    height_table = None
     if args.height_table is not None and args.camera_height_m != geo.PER_RIG:
         print('WARNING: --height-table is ignored unless --camera-height-m per-rig',
               file=sys.stderr)
-    if args.camera_height_m == geo.PER_RIG:
-        height_table = args.height_table or jsonl.parent / HEIGHT_TABLE_NAME
-        if not Path(height_table).exists():
-            sys.exit(f'per-rig needs a camera-height table; none at {height_table} '
-                     '(scripts/mapillary_height.py writes it)')
+    # --implied-height compares the measured heights with the imagery's, so it keeps
+    # them; --pose-ablation reproduces #27's experiment, run at 2.6 m (params already
+    # holds it). Only a fuse resolves auto.
+    resolve = not (args.implied_height or args.pose_ablation)
     try:
-        panos, skipped = load_results(
-            jsonl, args.depth_index,
+        panos, skipped, resolved, auto = load_at_height(
+            jsonl, args.camera_height_m, depth_index=args.depth_index,
+            height_table=args.height_table,
             read_heights=(args.camera_height_m in (geo.PER_PANO, HEIGHT_AUTO)
                           or args.implied_height),
-            height_table=height_table,
+            resolve_auto=resolve,
             grade_source=args.grade_source, grades_path=args.grades)
     except ValueError as e:
         sys.exit(str(e))
@@ -1111,16 +1251,9 @@ def main(argv=None):
         sys.exit('no usable records')
     for warning in pose_source_warnings(panos, args.apply_pose):
         print(warning, file=sys.stderr)
-    auto = None
-    if args.camera_height_m == HEIGHT_AUTO and not (args.implied_height
-                                                    or args.pose_ablation):
-        # --implied-height compares the measured heights with the imagery's, so it keeps
-        # them; --pose-ablation reproduces #27's experiment, run at 2.6 m (params already
-        # holds it). Only a fuse resolves auto.
-        panos, resolved, auto = resolve_auto_height(panos)
+    if auto is not None:
         params = replace(params, camera_height_m=resolved)
-        print(f"camera height: auto -> {auto['resolved']}"
-              + (f" ({auto['reason']})" if 'reason' in auto else ''),
+        print(f'camera height: {describe_auto(auto)}',
               file=sys.stderr if 'reason' in auto and auto['gsv_panos'] else sys.stdout)
 
     if args.pose_ablation:
@@ -1132,11 +1265,7 @@ def main(argv=None):
 
     sites, frame, stats = fuse(panos, params)
     if auto is not None:
-        # auto's provenance over camera_height_counts' per-rig block, minus that block's
-        # camera_heights.json fields, which a GSV auto fuse never has
-        counts = {k: v for k, v in stats['camera_heights'].items()
-                  if k not in ('mode', 'table', 'sha256', 'grain')}
-        stats['camera_heights'] = {**auto, **counts}
+        stats['camera_heights'] = resolved_height_counts(panos, params, auto)
     out = args.out or jsonl.parent / 'sites.jsonl'
     meta = out.with_name(out.stem + '_meta.json')
     write_sites(sites, frame, stats, params, out, meta)

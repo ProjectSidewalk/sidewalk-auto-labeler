@@ -370,8 +370,14 @@ def rule_reading(p, lo, hi, radius_m):
 
 
 def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
-             min_panos=3, match_m=5.0, city=''):
-    """The whole check for one city; returns (result dict, candidates). No I/O."""
+             min_panos=3, match_m=5.0, city='', height_mode=None, auto=None):
+    """The whole check for one city; returns (result dict, candidates). No I/O.
+
+    `height_mode` is the --camera-height value as asked (a number, or `auto` /
+    `per-pano` / `per-rig`), recorded in the result instead of the resolved
+    params.camera_height_m when it is a named mode (#56); `auto` is the provenance
+    fs.load_at_height returned for it. A numeric run records exactly what it did before.
+    """
     # A candidate past the ground-raycast range can never be adjudicated: the GT
     # marks that would answer for it are placed through the same raycast and dropped
     # beyond params.max_range_m, so everything out there falls to `fp` by default and
@@ -394,9 +400,13 @@ def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
         match_m, city)
     yields, n_ops = yield_all_panos(strong, run_panos, frame, radii_m)
     headline = precision_row('headline', cands)
+    named = isinstance(height_mode, str)
     return {
         'params': {'radii_m': list(radii_m), 'min_panos': min_panos,
-                   'match_m': match_m, 'camera_height_m': params.camera_height_m},
+                   'match_m': match_m,
+                   'camera_height_m': height_mode if named else params.camera_height_m},
+        'height_resolution': (fs.height_resolution_lines(height_mode, run_panos, params, auto)
+                              if named else []),
         'fuse': {'n_panos': fuse_stats['n_panos'], 'n_sites': fuse_stats['n_sites']},
         'n_strong_sites': len(strong),
         'n_judged_panos': len(judged),
@@ -415,7 +425,7 @@ def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
     }, cands
 
 
-def pool_cities(per_city, radii_m, min_panos, match_m):
+def pool_cities(per_city, radii_m, min_panos, match_m, cities=None):
     """One result dict over several cities' (result, candidates) pairs.
 
     The decision numbers on RampNet#158 are pooled, so pooling lives here rather
@@ -432,14 +442,18 @@ def pool_cities(per_city, radii_m, min_panos, match_m):
             f'were two runs of the same city pooled?')
     all_cands.sort(key=lambda c: (c.range_m, c.city, c.site_id, c.pano_id))
     results = [r for r, _c in per_city]
-    heights = sorted({r['params']['camera_height_m'] for r in results})
+    # a pooled run may mix numbers and named modes (`2.6 auto auto`): numbers first,
+    # sorted as before, then the modes -- a numeric pool formats exactly as it did
+    hs = {r['params']['camera_height_m'] for r in results}
+    heights = (sorted(h for h in hs if not isinstance(h, str))
+               + sorted(h for h in hs if isinstance(h, str)))
     counts = {r_m: sum(res['yield']['counts'][r_m] for res in results)
               for r_m in radii_m}
     headline = precision_row('headline', all_cands)
     return {
         'params': {'radii_m': list(radii_m), 'min_panos': min_panos,
                    'match_m': match_m,
-                   'camera_height_m': '/'.join(f'{h:g}' for h in heights)},
+                   'camera_height_m': '/'.join(_num(h) for h in heights)},
         'fuse': {'n_panos': sum(r['fuse']['n_panos'] for r in results),
                  'n_sites': sum(r['fuse']['n_sites'] for r in results)},
         'n_strong_sites': sum(r['n_strong_sites'] for r in results),
@@ -459,11 +473,22 @@ def pool_cities(per_city, radii_m, min_panos, match_m):
                   'n_operational_detections': sum(
                       r['yield']['n_operational_detections'] for r in results)},
         'warnings': [w for r in results for w in r['warnings']],
+        'height_resolution': [
+            (f'- {city}: ' + line[2:]) if city and line.startswith('- ') else line
+            for city, r in zip(cities or [''] * len(results), results)
+            for line in r.get('height_resolution', [])],
     }, all_cands
 
 
 def _num(v):
     return v if isinstance(v, str) else f'{v:g}'
+
+
+def _height_text(v):
+    """'2.2 m' for a number and '2.2/2.6 m' for a numeric pool (as every report before
+    #56 read); anything naming a mode ('auto', '2.6/auto') as-is."""
+    text = _num(v)
+    return text if any(c.isalpha() for c in text) else f'{text} m'
 
 
 def _pct(row, key):
@@ -496,9 +521,11 @@ def format_report(city, r):
         f"GT: {r['n_judged_panos']} fully judged panos, {r['n_attested_panos']} with "
         f"the missed-ramp check attested; match radius {r['params']['match_m']:g} m; "
         f"candidates within {max(r['params']['radii_m']):g} m; camera height "
-        f"{_num(r['params']['camera_height_m'])} m",
+        f"{_height_text(r['params']['camera_height_m'])}",
         f"excluded: {r['excluded_subfloor_members']} (site, pano) pairs where the pano "
         f"is a member through a sub-threshold detection only",
+        *(['', 'camera-height resolution (#56):', *r['height_resolution']]
+          if r.get('height_resolution') else []),
         '',
         'Two denominators (see the module docstring). A miner has no verdicts, so it '
         'cannot filter `already_detected` out; those labels ship and they are correct.',
@@ -580,7 +607,8 @@ def main():
                     help='world-space radius within which a GT point adjudicates '
                          'a candidate (the eval\'s match radius; same name as '
                          'eval_sites.py, --match-m still accepted)')
-    ap.add_argument('--camera-height', type=float, nargs='+', default=None,
+    ap.add_argument('--camera-height', type=fs.fuse_camera_height_arg, nargs='+',
+                    default=None,
                     help='override geo.DEFAULT_CAMERA_HEIGHT_M for fusion, GT '
                          'placement and the projection alike (the #101 range-'
                          'anchoring sensitivity knob). One value for every city, '
@@ -588,7 +616,10 @@ def main():
                          'the median measured from GSV depth payloads (#40/#41). '
                          'Mapillary serves no depth, so richmond has NO measured '
                          'height - a sweep there is flat at 0.31-0.32 for 2.0-2.6 m '
-                         'and worse below, i.e. no constant fixes it')
+                         'and worse below, i.e. no constant fixes it. A value may also '
+                         'be "per-pano", "auto" or "per-rig", resolved exactly as '
+                         'fuse_sites.py resolves them (#56); the report says how many '
+                         'panos fell back to 2.6 m')
     ap.add_argument('--out', type=Path, default=None,
                     help='output dir (default runs/<city>/mined_precision, and '
                          'runs/_pooled/mined_precision for the pooled report)')
@@ -606,9 +637,18 @@ def main():
     per_city, out_dirs = [], []
     for i, city in enumerate(cities):
         run_dir = args.run_dir or args.runs_root / city
+        mode = (None if heights is None
+                else heights[i] if len(heights) > 1 else heights[0])
         try:
-            verdict_panos, bundle_ops, run_panos = es.load_city_files(
-                city, args.benchmark_root, run_dir)
+            # read_heights=True for a numeric height too, as before #56. The heights go
+            # unused there (geo.camera_height_for); what it keeps is the refusal of a
+            # pre-#47 depth index, which eval_ps_clustering no longer applies at a number
+            verdict_panos, bundle_ops, run_panos, height, auto = es.load_city_at_height(
+                city, args.benchmark_root, run_dir,
+                geo.DEFAULT_CAMERA_HEIGHT_M if mode is None else mode,
+                read_heights=True)
+        except ValueError as exc:      # per-rig without a table, or on a GSV run
+            ap.error(str(exc))
         except FileNotFoundError as exc:
             ap.error(f'{exc.filename}: not found. The benchmark lives in the RampNet '
                      f'checkout (default {ap.get_default("benchmark_root")}); point '
@@ -618,18 +658,14 @@ def main():
         # apply_pose=OFF: geo.ground_point_to_pano inverts only the flat raycast, and the
         # RampNet#158 numbers were measured flat -- FuseParams' `auto` default would rotate
         # every Mapillary ray since #42.
-        params = (fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
-                                apply_pose=fs.POSE_OFF)
-                  if heights is None
-                  else fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
-                                     apply_pose=fs.POSE_OFF,
-                                     camera_height_m=heights[i] if len(heights) > 1
-                                     else heights[0]))
+        params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                               apply_pose=fs.POSE_OFF, camera_height_m=height)
         try:
             result, cands = run_city(verdict_panos, bundle_ops, run_panos, params,
                                      radii_m=tuple(args.radius),
                                      min_panos=args.min_panos,
-                                     match_m=args.match_radius_m, city=city)
+                                     match_m=args.match_radius_m, city=city,
+                                     height_mode=mode, auto=auto)
         except ValueError as exc:
             ap.error(str(exc))
         report_text = format_report(city, result)
@@ -642,7 +678,8 @@ def main():
 
     if len(cities) > 1:
         pooled, pooled_cands = pool_cities(
-            per_city, tuple(args.radius), args.min_panos, args.match_radius_m)
+            per_city, tuple(args.radius), args.min_panos, args.match_radius_m,
+            cities=cities)
         text = format_report('pooled over ' + ', '.join(cities), pooled)
         print('\n\n' + text)
         pooled_dir = (args.out / '_pooled' if args.out

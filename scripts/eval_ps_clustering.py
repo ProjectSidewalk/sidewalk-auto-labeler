@@ -41,6 +41,11 @@ Usage:
     python scripts/eval_ps_clustering.py richmond \
         --server https://sidewalk-richmond.cs.washington.edu \
         --ps-script /path/to/SidewalkWebpage/scripts/label_clustering.py
+    # another frame (#56): metres, per-pano, auto or per-rig, resolved exactly as
+    # fuse_sites.py does; writes ps_clustering_eval_<mode>/ (a number: _h<val>)
+    python scripts/eval_ps_clustering.py richmond --camera-height-m per-pano \
+        --labels runs/richmond/ps_clustering_eval/raw_labels.geojson \
+        --clusters runs/richmond/ps_clustering_eval/clusters.geojson
 """
 import argparse
 import csv
@@ -612,9 +617,17 @@ def main():
     ap.add_argument('--match-radius-m', type=float, default=5.0)
     ap.add_argument('--radius-sweep', type=float, nargs='*', default=[2.5, 5.0, 7.5, 10.0])
     ap.add_argument('--gt-merge-m', type=float, default=2.5)
-    ap.add_argument('--camera-height-m', type=float, default=geo.DEFAULT_CAMERA_HEIGHT_M,
-                    help='raycast camera height for every placement (GT, clusters, '
-                         'fusion); the #101/#158 sensitivity knob')
+    ap.add_argument('--camera-height-m', type=fs.fuse_camera_height_arg,
+                    default=geo.DEFAULT_CAMERA_HEIGHT_M,
+                    help='raycast camera height for every labeler placement (detections, '
+                         "GT, ps_raycast, fusion; arms on the server's own positions are "
+                         "untouched): metres (default 2.6; the server's own frame is "
+                         '2.341219672825709), or "per-pano" (GSV depth-measured heights, '
+                         'from the pano block else runs/<city>/depth/index.csv; unmeasured '
+                         "panos fall back to 2.6), \"auto\" (fuse_sites' per-rig GSV rule, "
+                         "#79) or \"per-rig\" (the run's camera_heights.json, #53), resolved "
+                         'exactly as fuse_sites.py does (#56). The report states the '
+                         'resolution; a non-default frame writes its own output dir')
     ap.add_argument('--min-confidence', type=float, default=BENCHMARK_CONFIDENCE,
                     help='the tier the fusion arm runs at. Defaults to the BENCHMARK tier '
                          f'({BENCHMARK_CONFIDENCE}), not the operating point: this script '
@@ -629,10 +642,7 @@ def main():
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
     # The scoring frame is part of the result, so a non-default height gets its own
     # directory instead of silently overwriting the default one.
-    default_out = 'ps_clustering_eval' if (
-        args.camera_height_m == geo.DEFAULT_CAMERA_HEIGHT_M
-    ) else f'ps_clustering_eval_h{args.camera_height_m:.2f}'
-    out = args.out or run_dir / default_out
+    out = args.out or run_dir / ('ps_clustering_eval' + fs.frame_suffix(args.camera_height_m))
     out.mkdir(parents=True, exist_ok=True)
     labels_path = args.labels or out / 'raw_labels.geojson'
     clusters_path = args.clusters or out / 'clusters.geojson'
@@ -674,13 +684,19 @@ def main():
     # labels were submitted before the nadir mask existed.
     # apply_pose=OFF likewise: the server placed those labels with a flat raycast, and the
     # committed report was scored flat -- FuseParams' `auto` default would rotate Mapillary.
-    params = fs.FuseParams(camera_height_m=args.camera_height_m,
+    # The camera height resolves through fs.load_at_height, the resolver fuse_sites and
+    # eval_sites share (#56): per-pano / auto / per-rig mean the same thing everywhere.
+    try:
+        verdict_panos, bundle_ops, run_panos, height, auto = es.load_city_at_height(
+            args.city, args.benchmark_root, run_dir, args.camera_height_m)
+    except ValueError as e:        # no per-rig table, or one measured on another file
+        raise SystemExit(str(e))
+    params = fs.FuseParams(camera_height_m=height,
                            min_confidence=args.min_confidence, mask_rig=False,
                            apply_pose=fs.POSE_OFF)
-    lines.append(f'raycast camera height {args.camera_height_m:g} m; '
+    lines.append(f'raycast camera height {fs.frame_label(args.camera_height_m)}; '
                  f'fusion arm at --min-confidence {args.min_confidence:g}')
-    verdict_panos, bundle_ops, run_panos = es.load_city_files(
-        args.city, args.benchmark_root, run_dir)
+    lines += fs.height_resolution_lines(args.camera_height_m, run_panos, params, auto)
     dets, frame, drops = fs.project(run_panos, params)
     det_pos = {(d.pano_id, d.det_index): (d.e, d.n) for d in dets}
     points, op_verdicts, counts, warnings = es.build_gt(
@@ -859,10 +875,15 @@ def main():
     fr = results['fusion_refit']
     # The published fusion_eval numbers were produced in the labeler's default frame,
     # so this only reproduces them when this run is scored at that height; at any other
-    # --camera-height-m the world-space columns are expected to differ.
-    same_frame = args.camera_height_m == geo.DEFAULT_CAMERA_HEIGHT_M
+    # --camera-height-m the world-space columns are expected to differ. Judged on what the
+    # height RESOLVED to: per-pano/per-rig with no pano measured (every Mapillary city) or
+    # auto -> 2.6 is the published frame, whatever the mode is called.
+    resolved = fs.resolved_height_counts(run_panos, params, auto)
+    same_frame = (params.camera_height_m == geo.DEFAULT_CAMERA_HEIGHT_M
+                  or resolved.get('measured', resolved.get('applied')) == 0)
     lines.append(
-        f"- fusion_refit at {args.camera_height_m:g} m vs runs/{args.city}/fusion_eval/"
+        f"- fusion_refit at {fs.frame_label(args.camera_height_m)} vs "
+        f"runs/{args.city}/fusion_eval/"
         f"report.md (published in the {geo.DEFAULT_CAMERA_HEIGHT_M:g} m frame): precision "
         f"{fmt(fr['precision'])}, recall (union) {fmt(fr['recall'])}, dual "
         f"{fr['dual']['both']}/{fr['dual']['one']}/{fr['dual']['neither']}"
