@@ -234,6 +234,36 @@ python scripts/reprojection_residual.py bend paterson gainesville sao_paulo rich
 # resolver fuse_sites, eval_sites and mined_precision share -- into ps_clustering_eval_<mode>/;
 # the report says how many panos fell back to 2.6 m (Richmond, Mapillary: all of them).
 python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond.cs.washington.edu
+# BEYOND RICHMOND (#106; docs/ps-clustering-eval.md "Beyond Richmond" + "City-inventory
+# scoring"). --offline scores a city with NO server: one label per stored detection >= the
+# tier (rig-masked) at send_to_ps's integer pixel, placed by ps_placement.py -- the server's
+# own estimator ported exactly (SW's 59-case parity fixture, tests/fixtures/). Regions are the
+# NEAREST STREET's (the server's insert rule; --server only GETs /v3/api/streets), not
+# point-in-region-polygon (6% wrong on Richmond). --offline-check (live mode) proves it:
+# Richmond/Laurens placement exact to 1e-6 m (gated on ALL labels); all-AI 7.5 m partition
+# Richmond 0.996 / Laurens 0.945 (1.000 / 1.000 with live humans). Regions snap to OPEN
+# streets only, as the server does (/v3/api/streets returns all). --results reads
+# another file (Laurens is live from results.raw.jsonl), --split names the benchmark split,
+# --mask-rig for a live city whose rig labels were soft-deleted. The PS partition is BLOCKED
+# (exact: single-linkage components at max t + 0.5 m), so ps_citywide runs at any size.
+# fusion_server+attach = one pre-declared bearing rule for unplaceable labels (15-60 m along
+# the ray, 3 m perpendicular; never tune it on GT). Pooled (10 cities; Budapest excluded --
+# its local file is partial): the server rule fragments ~2x fusion (frag 5 m 0.24 vs 0.12) at
+# level coverage (0.872 vs 0.876); a 12.5 m cut matches fusion's fragmentation but costs 3.7
+# pts coverage -- no constant fixes it. Unplaceable labels are real ramps (0.96 precision) and
+# 93% attach. Part 2 (city inventories, pre-registered on #106): NOT ESTABLISHED -- fusion's
+# split advantage in Gainesville holds at `auto` and reverses at 2.6 m (Gainesville alone:
+# it holds at 2.6 m in Bend and in the Part 1 pool); Bend misses the 5-pt split bar.
+# Five runs (bend clovis morgantown annapolis richmond) predate the storage floor: their 0.30
+# tier IS their 0.55 tier. The pooled driver is resumable (results, streets and verdicts
+# sha256 + SCORER_VERSION; bump SCORER_VERSION by hand when a number can move).
+python scripts/eval_ps_clustering.py bend --offline                      # -> ..._offline_t0.55/
+python scripts/eval_ps_clustering.py laurens --split laurens_mapillary --results \
+    runs/laurens/results.raw.jsonl --min-confidence 0.3 --mask-rig --offline-check \
+    --server https://sidewalk-laurens.cs.washington.edu
+python scripts/clustering_eval_pooled.py            # every (city, tier, frame) cell, then pool
+python scripts/clustering_eval_pooled.py --pool-only   # -> runs/_pooled/ps_clustering_eval/
+python scripts/inventory_clustering.py score bend gainesville && python scripts/inventory_clustering.py verdict
 
 # A RUN REBUILT FROM THE PANO STORE (issue #56; runbook in docs/ps-clustering-eval.md, "Step 2").
 # For a city whose results.jsonl was not kept and whose panos have partly left GSV (Vancouver).

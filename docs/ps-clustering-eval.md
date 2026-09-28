@@ -573,3 +573,259 @@ spread across the id space.
 
 Heights on those five, for the record: 2.323, 2.199, 1.823 and 2.389 m measured, plus one
 2.5 m stand-in ground.
+
+## Beyond Richmond (issue #106, Part 1)
+
+Richmond is one Mapillary city with a live server. Issue
+[#106](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/106) asks the same
+questions of every RampNet benchmark city, most of which have no server. Tools:
+`eval_ps_clustering.py --offline` per city and `scripts/clustering_eval_pooled.py` for the
+pooled table. No SidewalkWebpage code changed, and every server call is a GET.
+
+### Method
+
+- **Server labels without a server.** `--offline` synthesizes one label per stored detection at
+  the tier, rig-masked, at the integer pixel `send_to_ps.py` sends, and places it with
+  `ps_placement.py`: a stdlib port of the server's own estimator (`PanoDataService.toLatLng`,
+  "approximation3" at 2.341 m, spherical destination at R = 6371 km). The port passes all 59
+  cases of SidewalkWebpage's cross-implementation parity fixture at 1e-9.
+- **Regions.** The server gives an AI label the region of the street nearest the label's own
+  lat/lng (`ExploreService.submitAiLabelData`), so offline labels do the same against the
+  city's `/v3/api/streets`. Point-in-region-polygon was tried first: it disagreed with the
+  live region on 6% of Richmond's labels and cost the partition check 6 points. Cities with
+  no server are one region, so `ps @ t` equals `ps_citywide` there.
+- **Blocked PS partition.** Complete-linkage clusters at a cut t lie inside the single-linkage
+  components at t, so the linkage runs per component at the widest threshold + 0.5 m instead
+  of on one N x N matrix. It is exact: on Richmond the blocked and dense partitions are
+  identical cluster for cluster at every threshold from 2.5 to 15 m, per region and citywide.
+  `ps_citywide` therefore runs at any size (largest block over all 25 cells: 301 labels).
+- **Unplaceable labels (`fusion_server+attach`).** One rule, fixed before any result and not
+  tuned on GT: a label the raycast cannot place joins the placed `fusion_server` site nearest
+  along its bearing ray, if one lies 15-60 m ahead and within 3 m of the ray and holds no
+  label from the same pano. The site does not move. 15 m is where the server's tail departs
+  from the flat raycast, 60 m is about where a ramp stops being resolvable at 4096 px, and
+  3 m is the same-ramp lateral scatter.
+- **Cells.** Tier 0.55 in the 2.6 m frame is the headline, since every judged bundle was
+  reviewed at 0.55 and every published GT number is in that frame. Tier 0.30 at 2.6 m and
+  tier 0.55 in the `auto` frame (GSV only) are secondary. Laurens (Mapillary) is scored on
+  `results.raw.jsonl`, the file prod went live from.
+- **Excluded.** Budapest District V: this machine holds 300 of the run's 18,183 panos and 2 of
+  its 125 benchmark panos (the full file was never copied back). Five runs (Bend, Clovis,
+  Morgantown, Annapolis, Richmond) predate the storage floor and stored only >= 0.55
+  detections. Their 0.30 cells equal their 0.55 cells and are kept out of the 0.30 table.
+
+### Validation gates
+
+| gate | bar | measured |
+|---|---|---|
+| `ps_placement` vs SidewalkWebpage parity fixture | all cases at 1e-9 | 59 / 59 |
+| blocked vs dense partition, Richmond, every threshold, per region and citywide | identical | identical at all 24 (threshold, scope, label set) cells |
+| offline placement vs live lat/lng, Richmond (9,526 AI labels, 2026-09-21 pull) | median < 0.05 m | median, p90 and max 0.000000 m; 0 panos moved |
+| offline placement vs live lat/lng, Laurens (1,575 AI labels, 2026-09-28 pull) | median < 0.05 m | median, p90 and max 0.000000 m; 0 panos moved |
+| offline placement check over ALL labels (moved panos included), Richmond / Laurens | max <= 0.5 m | PASS / PASS (max 0.000000 m) |
+| offline `ps @ 7.5 m` vs all-AI deployed clusters, Richmond | >= 0.98 identical | 2,080 / 2,088 = 0.996 (open-street regions; 0.982 before the fix) |
+| ...with the live human labels added (all deployed clusters), Richmond | (diagnostic) | 2,156 / 2,156 = 1.000 |
+| offline `ps @ 7.5 m` vs all-AI deployed clusters, Laurens | (not gated) | 480 / 508 = 0.945 |
+| ...with the live human labels added (all deployed clusters), Laurens | (diagnostic) | 671 / 671 = 1.000 |
+| `ps_repro` reproduces deployed (verbatim SW script) | identical | Richmond 2,156 / 2,156; Laurens 671 / 671 |
+| same-pano pairs inside any cluster, all 25 offline cells | 0 | 0 in every arm |
+
+The Richmond residual before the #107 review fix was the region rule, not the network: the
+offline arm snapped labels to every street `/v3/api/streets` returns (16,365 in Richmond),
+while the server snaps to OPEN streets only (704). With open streets only, 9,525 of 9,525
+labels take their live region (was 9,394), the all-AI partition matches 2,080 of 2,088
+(0.982 -> 0.996) and the with-humans check matches 2,156 of 2,156. (The server's snap set
+also holds the tutorial street, which the API omits; no real label is near it.) Where the
+all-AI check falls short of the with-humans check, the gap is human labels, which the
+offline arm does not have: complete linkage lets a nearby human label change how AI labels
+group, which is why Laurens' all-AI figure (0.945) sits below its with-humans 1.000. The
+placement check is gated on ALL labels, because the moved-pano exclusion inverts the
+estimator it validates (an error consistent within a pano would be excluded, not failed).
+Laurens' live report scores the fusion arms rig-masked (`--mask-rig`), because its 158 rig
+labels were soft-deleted.
+
+### Pooled results, tier 0.55, 2.6 m frame (headline)
+
+Ten cities, 2,420 pool GT ramps, 5 m match radius. Counts are summed over cities.
+Full tables: `runs/_pooled/ps_clustering_eval/report.md`.
+
+| arm | clusters | coverage | frag 3 m / 5 m | dual both/one/neither | precision |
+|---|---:|---|---|---|---|
+| ps @ 7.5 m (server rule) | 44,575 | 0.872 (2110/2420) | 0.11 / 0.24 | 246/89/20 | 0.950 |
+| ps_citywide @ 7.5 m | 44,006 | 0.871 | 0.10 / 0.23 | 245/90/20 | 0.950 |
+| ps @ 12.5 m | 39,359 | 0.834 | 0.07 / 0.15 | 219/112/24 | 0.951 |
+| ps @ 15 m | 38,351 | 0.821 | 0.07 / 0.14 | 213/113/29 | 0.951 |
+| ps_raycast @ 7.5 m | 45,183 | 0.891 | 0.05 / 0.16 | 252/87/16 | 0.950 |
+| fusion | 44,359 | 0.876 (2121/2420) | 0.04 / 0.12 | 255/81/19 | 0.949 |
+| fusion_server | 57,960 | 0.876 | 0.04 / 0.12 | 255/81/19 | 0.950 |
+| fusion_server+attach | 45,360 | 0.876 | 0.04 / 0.12 | 255/81/19 | 0.950 |
+
+By source: GSV (5 cities, 1,264 ramps) `ps @ 7.5 m` 0.894 and 0.11 / 0.23 against fusion 0.921
+and 0.04 / 0.14. Mapillary (5 cities, 1,156 ramps) 0.848 and 0.11 / 0.25 against 0.828 and
+0.04 / 0.09.
+
+- **Richmond generalizes.** The server's rule fragments about twice as much as fusion
+  (frag 5 m 0.24 against 0.12 pooled), in 9 of 10 cities. Gainesville is level (0.19
+  against 0.20). Coverage and precision are level: +0.5
+  points coverage for fusion pooled, +2.7 on GSV, -2.0 on Mapillary.
+- **Widening the cut costs coverage everywhere.** 12.5 m cuts fragmentation most of the way to
+  fusion's level (0.15 vs 0.12 at 5 m) but loses 3.8 points of coverage (5.1 at 15 m) and 27 kept dual pairs. That
+  is Richmond's labeler-frame result, now pooled. A wider constant is not the fix.
+- **Placement matters on its own.** The same rule on the labeler's raycast positions
+  (`ps_raycast @ 7.5 m`) has the best coverage of any arm (0.891) and fragmentation between
+  the two (0.05 / 0.16).
+- **Regions are second-order.** Citywide vs per region differs by 0.1 point of coverage and
+  1 point of fragmentation.
+- **Small clusters are weaker, unplaceable labels are not.** Per-label precision is 0.72
+  (99/137) in `ps @ 7.5 m` singletons and 0.88 in pairs, against 0.98 in clusters of 3+. The
+  labels the raycast cannot place are 0.96 (130/135), so Richmond's 27/27 holds at ten times
+  the sample.
+- **The attach rule** puts 12,600 of the 13,584 unplaceable labels (0.93) on a site: 0.79
+  (Richmond) to 0.98 (Paterson, Bend). `fusion_server` then goes from 57,960 clusters to 45,360
+  (fusion alone: 44,359). Coverage, frag, dual and coherence cannot move, because
+  attached labels have no raycast position. Cluster-level precision can: attaching a
+  judged-true singleton to a site that is already TP removes one TP cluster (pooled TP 1,893
+  -> 1,891). Richmond's judged ones: 28 of 33 attached (24 of those judged true). Only 1
+  attached to a site holding a verdict-true member, since de-clustered benchmark panos rarely
+  share sites.
+
+Secondary cells, in the same report:
+
+- **Tier 0.30** (5 cities with a band, 1,206 ramps). The band is unjudged. Pooled `ps @ 7.5 m`
+  coverage is 0.907 with frag 0.16 / 0.33. Fusion is 0.910 with 0.06 / 0.18. Fragmentation
+  under the server rule grows with the extra labels.
+- **Auto frame** (GSV). `ps @ 7.5 m` 0.911 and 0.11 / 0.23 against fusion 0.919 and 0.06 / 0.13.
+- **Live `deployed` rows**, for comparison: Richmond at 0.55 has coverage 0.917 and frag
+  0.24 / 0.47. Laurens at 0.30 has 0.807 and 0.05 / 0.28.
+
+## City-inventory scoring (issue #106, Part 2)
+
+RampNet GT judges a de-clustered sample of panos, so it never says "these labels from
+different panos are one ramp", and it cannot score a split or a merge directly. Bend and
+Gainesville publish per-corner curb-ramp inventories (one point per ramp, fetched for #79 by
+`scripts/inventory_oracle.py`). Those are an external answer to exactly that question, so
+Part 2 scores the partitions against them. Tool: `scripts/inventory_clustering.py`.
+
+### Pre-registration (committed and posted on #106 before any score was computed)
+
+**Inputs.** `runs/<city>/inventory_oracle/inventory.geojson` as filtered by
+`inventory_oracle.load_inventory` (Bend 12,504 ramps with `LifeCycleStatus == 'I'`,
+Gainesville 3,208), and the run's `results.jsonl`. Labels are synthesized as
+`eval_ps_clustering.py --offline` does: one per stored detection at or above the tier,
+rig-masked, at the integer pixel `send_to_ps.py` sends. Tier **0.30** (the operating point:
+what a server would hold today) is primary; 0.55 is reported beside it.
+
+**Visible pool.** Inventory ramps within 20 m of at least one processed pano position (every
+pano of the run with a position). Everything is scored over the pool, so a ramp no pano came
+near is not a miss. The pool size and the excluded count are reported.
+
+**Arms.**
+- `ps @ 7.5 m`: the server's method. Labels at the server's own positions (`ps_placement`,
+  2.341 m), complete linkage with the same-(user, pano) cannot-link, cut at 7.5 m, per region
+  for Gainesville (regions from the Gainesville server's street network, the server's own
+  nearest-street rule; one GET of `/v3/api/streets`) and citywide for Bend (no server).
+  `ps_citywide @ 7.5 m` is reported for both (for Bend it is the same partition).
+- `ps @ 10 / 12.5 / 15 m`: secondary, descriptive.
+- `fusion`: `fuse_sites.fuse` over the run at the tier (rig-masked, flat pose), in the `auto`
+  frame (primary, fuse_sites' default since #79) and in the 2.6 m frame. A cluster is a
+  site's operational members.
+- `fusion_server+attach`: cluster count only.
+
+**Cluster placement (common frame).** Every cluster of every arm is placed at the mean of its
+members' labeler raycast positions in the frame under test (`auto` primary, 2.6 m
+secondary), so split and merge respond to the partition only. A member the raycast cannot
+place contributes nothing; a cluster with no placeable member is counted in `n_clusters` but
+not placed. The server arm's native centroid (the mean of its members' 2.341 m server
+positions) is one extra sensitivity row.
+
+**Metrics, at r in {3, 5, 8} m, r = 5 m primary.** Each placed cluster is assigned to its
+nearest inventory ramp (any kept ramp, pool or not) if that ramp is within r, else it is
+unassigned.
+- `covered` = pool ramps with at least one assigned cluster / pool. (`missed` = 1 - covered
+  is an upper bound on misses: occlusion and construction since capture are in it.)
+- `split` = covered pool ramps with at least two assigned clusters / covered pool ramps. Also
+  `extra per covered ramp` = (clusters assigned to covered pool ramps - covered pool ramps) /
+  covered pool ramps.
+- `merge`: each placeable member of a cluster is assigned to its nearest inventory ramp within
+  r the same way. Denominator: clusters with at least two assigned members. Numerator: those
+  in which at least two distinct ramps each hold at least two of the cluster's assigned
+  members. Both are reported.
+- `clusters / covered ramp`, `n_clusters`, `n_labels`.
+
+**Decision rule (read at r = 5 m, tier 0.30, common `auto` frame).** `fusion` is judged better
+than `ps @ 7.5 m` if in BOTH cities: split is lower by at least 5 points (absolute), merge is
+not higher by more than 1 point, and covered is not lower by more than 1 point. The same
+comparison in the 2.6 m frame must not reverse any of the three; a reversal (fusion's split
+not lower at all, its merge higher by more than 1 point, or its covered lower by more than
+1 point) reads "NOT ESTABLISHED (frame-dependent)". Gainesville decides generalization (not a
+RampNet training city); Bend is the guard (a training city, with the larger inventory).
+Anything else reads NOT ESTABLISHED. The threshold sweep and the 0.55 tier are descriptive
+only.
+
+**Named risks.** Inventory points sit at the ramp, labels at the ramp's foot (about 1-2 m); a
+consistent offset moves covered at r = 3 m for every arm equally, which is why r = 5 m is
+primary. Bend's inventory is 'Digitized' for 97% of points (map-traced, not surveyed).
+Perpendicular ramps at one corner are 1.5-3 m apart and are distinct inventory ramps: a
+cluster spanning them counts as a merge under this rule, as intended. Bend was a RampNet
+training city, so its detections are not a generalization test; clustering is what is
+measured there. Gainesville is read-only (no submission, no re-detection).
+
+The pre-registration above was committed in `ebc3652` and posted on #106
+([comment](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/106#issuecomment-5875088671))
+before `scripts/inventory_clustering.py` existed. It was scored once, unamended. After the
+#107 review it was re-scored once with the region rule corrected to OPEN streets only, the
+implementation catching up to the registered "server's own nearest-street rule" (noted on
+#106 before re-scoring,
+[comment](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/106#issuecomment-5879886962));
+the rule is unchanged. Only Gainesville's `ps @ t` rows moved (7,936 -> 7,930 clusters at
+0.30), and the verdict did not.
+
+### Results (2026-09-28)
+
+`runs/<city>/inventory_clustering/report.md` (all tiers, frames and radii) and
+`runs/_pooled/inventory_clustering/{report.md,verdict.json}`. Visible pool: Gainesville
+3,107 of 3,208 ramps, Bend 12,065 of 12,504. Values at r = 5 m and tier 0.30.
+
+| city | frame | arm | clusters | covered | split | merge (k/n) |
+|---|---|---|---:|---|---|---|
+| gainesville | auto | ps @ 7.5 m | 7,930 | 0.864 | 0.311 | 0.009 (29/3117) |
+| gainesville | auto | fusion | 7,151 | 0.863 | **0.211** | 0.017 (48/2763) |
+| gainesville | 2.6 m | ps @ 7.5 m | 7,930 | 0.833 | 0.288 | 0.024 (69/2866) |
+| gainesville | 2.6 m | fusion | 8,967 | 0.851 | **0.331** | 0.016 (43/2633) |
+| bend | auto | ps @ 7.5 m | 14,650 | 0.896 | 0.093 | 0.016 (170/10780) |
+| bend | auto | fusion | 14,058 | 0.897 | 0.048 | 0.031 (316/10324) |
+| bend | 2.6 m | ps @ 7.5 m | 14,650 | 0.893 | 0.098 | 0.020 (220/10788) |
+| bend | 2.6 m | fusion | 14,187 | 0.897 | 0.048 | 0.034 (346/10287) |
+
+**Verdict: NOT ESTABLISHED.** Gainesville, the deciding city, meets the rule in the `auto`
+frame: split falls 10.0 points, merge rises 0.8 and covered falls 0.1. In the 2.6 m frame it
+reverses, and fusion splits more than the server rule (0.331 against 0.288). Bend meets
+neither clause that matters there: split falls 4.6 points against a 5-point bar, and merge
+rises 1.5 points against a 1-point allowance. Bend's 2.6 m comparison also reads as a
+reversal under the rule, on merge alone (+1.3 points; its split still halves).
+
+What the numbers say beyond the verdict (descriptive, not part of the rule):
+
+- **In Gainesville the split advantage depends on the height frame; in Bend and in the Part 1
+  GT pool it holds at 2.6 m** (Bend split 0.048 against 0.098; Part 1 pooled frag 5 m 0.12
+  against 0.24, in 9 of 10 cities). 64% of Gainesville's panos are the 2026 GSV rig (depth
+  median 1.76 m), which `auto` raycasts at 2.0 m. At 2.6 m fusion splits more there (8,967
+  clusters against 7,151), while the server's distance-only rule moves less (0.311 to
+  0.288). A plausible mechanism is that 2.6 m runs that rig's ranges long
+  (docs/camera-height-study.md) and the ray-aware gate then refuses to merge views that
+  disagree on range, but that is descriptive: nothing here tests it.
+- **Fusion trades split for merge in Bend.** Split halves (0.093 to 0.048), but merge doubles
+  (1.6% to 3.1%). Widening the server cut to 10 m gets a similar split (0.057) with less
+  merge (2.0%) and 0.5 points less coverage.
+- **The server's own centroid** (sensitivity row) scores the PS clusters better than their
+  raycast mean does. Gainesville's split is 0.267 and Bend's 0.057, and in Gainesville the
+  2.6 m covered rises from 0.833 to 0.871. So part of the frame effect is in the scoring
+  frame, not in the partition.
+- **Bend's tiers are one tier.** Its `results.jsonl` predates the storage floor and holds only
+  >= 0.55 detections, so the 0.30 read there is the 0.55 read. The rule was applied as
+  written to what the file holds.
+
+Caveats (from the issue). `missed` = 1 - covered is an upper bound, since occlusion and
+construction since capture are in it. Bend was a RampNet training city. Gainesville was read
+only: no submission, no re-detection. Vancouver's inventory is down, so two cities is all
+there is.
