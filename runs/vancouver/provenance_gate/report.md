@@ -1,6 +1,6 @@
 # vancouver: provenance gate (#56)
 
-**Verdict: STOP** -- failing: Arm S (store usability), precision (unclaimed detections).
+**Verdict: STOP** -- failing: Arm S (store usability), Arm Z (pipeline identity), precision (unclaimed detections).
 
 ## Rule (pre-registered; amended after the PR #96 review, before any Vancouver number)
 
@@ -14,7 +14,7 @@
 |---|---:|---|---|
 | Arm S share | 0.8252 | >= 0.98 | fail |
 | exact_share (+/-1 px, not gated) | 0.7385 | -- | -- |
-| Arm Z share | n/a | >= 0.98 | not run |
+| Arm Z share | 0.9632 | >= 0.98 | fail |
 | coverage (joinable / labels with a JPEG) | 1.0000 | >= 0.95 | pass |
 | pending selected panos | 0 | 0 | pass |
 | unclaimed tier detections / joinable | 0.1316 | <= 0.02 | fail |
@@ -24,7 +24,8 @@
 - Labels: `raw_labels.geojson`: 64,847 features, sha256 `57c31c73dc75a6139b2694fdc5e7c0823bf0d0504348f1e1f38d3681b713098d`, fetched 2026-09-28T23:01:58+00:00 from https://sidewalk-vancouver.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
 - AI account: `51b0b927-3c8a-45b2-93de-bd878d1e5cf4` (64,814 CurbRamp labels); every account: `51b0b927-3c8a-45b2-93de-bd878d1e5cf4` 64,814, `c6030d8f-9163-498b-a102-d147a27b8c44` 7, `f34410b6-90d2-4176-a590-f371b75ab4c5` 6, `de9a2eb6-52e3-4854-b488-b970c5c1c567` 5, `aab0b9c1-bffc-4884-9c76-365762503a95` 5, `fb9b61d7-c613-454e-82de-63722f6baa2a` 5, `71a31933-61d9-4474-b0d0-1d41f7aba0ac` 2, `964eb6f2-da36-4a4f-bb95-aa99ff6eae6f` 2, `0ff4a61a-8f80-4ef9-a5f5-1c85d8917e0d` 1
 - Run: `D:/Git/sal-vancouver/runs/vancouver/results.jsonl`, 28,830 panos, sha256 `7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28`
-- Generated 2026-09-28T23:02:10+00:00
+- Control: `runs/vancouver/control_zoom3.jsonl`, sha256 `748734afa2a2057e3eeb678f973e3787981addd13d7b7a3b22ccdac63caba2f7`
+- Generated 2026-09-28T23:39:23+00:00
 
 ## Coverage
 
@@ -66,6 +67,20 @@ A heatmap cell is W/1024 px (16 px on a 16384-wide pano).
 
 - on panos carrying AI labels (gated by P): 8,424
 - on panos carrying none (e.g. the sampled empty stratum; not gated): 1
+
+## Arm Z (control)
+
+- Joinable labels on the control's panos: 299; matched at +/-1 px: 288 (96.32%)
+- Unmatched: 11; threshold flips within tolerance: 1
+
+| on the control's panos | labels |
+|---|---:|
+| both | 247 |
+| S only | 7 |
+| Z only | 41 |
+| neither | 4 |
+
+`S only`: the store run matches within a cell but the zoom-3 control does not match within 1 px; `Z only` the reverse.
 
 ## AI labels whose pano is not in the run
 
