@@ -4,6 +4,7 @@ import hashlib
 import json
 import socket
 import sys
+import time
 import traceback
 import os
 from collections import Counter
@@ -39,6 +40,7 @@ from tqdm import tqdm
 import depth as depthlib
 import position_check
 from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO, ModelProvenanceError
+from detectors.batching import BATCH_SIZE_HELP, report_detector
 from sources import get_source, SOURCE_NAMES
 
 # Local secrets (e.g. MAPILLARY_ACCESS_TOKEN) from ./.env; real env vars win.
@@ -1001,6 +1003,11 @@ def main():
              "Lower this if Google starts dropping connections."
     )
     parser.add_argument(
+        "--batch-size", type=int, default=1,
+        help=BATCH_SIZE_HELP[0].upper() + BATCH_SIZE_HELP[1:] + " main.py is usually "
+             "download-bound, so batching is unlikely to help here (issue #2)."
+    )
+    parser.add_argument(
         "--coverage-concurrency", type=int, default=COVERAGE_API_CONCURRENCY,
         help="Concurrent workers scanning coverage tiles (default: %(default)s)."
     )
@@ -1068,6 +1075,8 @@ def main():
     )
     args = parser.parse_args()
 
+    if args.batch_size < 1:
+        parser.error("--batch-size must be >= 1")
     PROCESSING_CONCURRENCY = args.processing_concurrency
     COVERAGE_API_CONCURRENCY = args.coverage_concurrency
 
@@ -1089,7 +1098,8 @@ def main():
         global curb_ramp_detector
         try:
             curb_ramp_detector = CurbRampDetector(
-                allow_unknown_revision=args.allow_unknown_model_revision)
+                allow_unknown_revision=args.allow_unknown_model_revision,
+                batch_size=args.batch_size)
         except ModelProvenanceError as e:
             sys.exit(f"❌ {e}")
         provenance = curb_ramp_detector.provenance
@@ -1100,6 +1110,7 @@ def main():
                   "detectors.KNOWN_REVISIONS; records carry a null training date and "
                   "send_to_ps.py will refuse them.")
 
+    t_run = time.perf_counter()
     try:
         run_labeler(args.geojson_file, args.name or Path(args.geojson_file).stem, source, args.scan_only,
                     args.limit, args.thin_spacing,
@@ -1111,6 +1122,13 @@ def main():
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
         traceback.print_exc()
+    finally:  # also on a refusal's sys.exit and on Ctrl-C
+        detector = globals().get('curb_ramp_detector')
+        if detector is not None:
+            # Wall time here includes the coverage scan, so panos/s is the whole run's
+            # rate, and `images` counts every forwarded image, failed batches included.
+            report_detector(detector, time.perf_counter() - t_run, detector.stats()['images'])
+            detector.close()
 
 if __name__ == "__main__":
     main()
