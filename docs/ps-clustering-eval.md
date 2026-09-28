@@ -519,3 +519,94 @@ spread across the id space.
 
 Heights on those five, for the record: 2.323, 2.199, 1.823 and 2.389 m measured, plus one
 2.5 m stand-in ground.
+
+## Step 2: Vancouver (run 2026-09-28): the provenance gate stopped the scoring
+
+Issue [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56). The runbook above
+was followed through step 4. **The gate returned STOP, so the deployed-partition scoring (step 7)
+was not run and no clustering metric was pre-registered.** Depth, fusion and the benchmark bundle
+do not depend on the gate, so they were run.
+
+**The run.** On makelab2 (A40), `detect_from_store.py` finished on 2026-09-28: 28,830 panos, 0
+failed, 351 cached `jpg_missing`. That covers the 28,881 labeled panos plus 300 seeded unlabeled
+ones, 29,181 selected ids in all. There were 0 metadata 404s and 0 native-size mismatches. The
+run was copied home with sha256 verified on both ends (results.jsonl `7fdf4005…9f28`).
+
+**The gate** (`runs/vancouver/provenance_gate/report.md`, rule unchanged). The labels were pulled
+fresh on 2026-09-28T23:01Z: 64,847 CurbRamp features, 64,814 of them from the AI account on
+28,881 panos, and 64,006 of those joinable.
+
+| check | value | rule | result |
+|---|---:|---|---|
+| Arm S share | 0.8252 (52,819 / 64,006) | >= 0.98 | fail |
+| exact_share (+/-1 px) | 0.7385 | -- | -- |
+| coverage | 1.0000 | >= 0.95 | pass |
+| unclaimed tier detections / joinable | 0.1316 (8,424) | <= 0.02 | fail |
+
+**What the misses are.** This diagnostic is not part of the rule. Of the 11,187 unmatched labels:
+
+- 3,502 are threshold flips: a stored detection sits within tolerance, but below 0.55.
+- 7,679 have no detection within 64 px. **7,339 of these sit exactly 7 heatmap cells from a
+  stored detection** (Chebyshev distance). 6,170 of them are axis-aligned, spread about evenly over
+  the four directions.
+- No miss lies between 2 and 6 cells. Widening the tolerance from 1 to 6 cells adds 4 labels. At
+  8 cells, Arm S would read 0.9301 at >= 0.55 and 0.9967 at any stored confidence.
+- The rate is flat across capture years (0.81-0.84), pano widths and label days, and no global
+  heading shift fits.
+
+Re-running the model on one far-miss pano (`-65GoVmwedYvlbgkb8nAgA`) shows the mechanism. The
+heatmap has an **8-cell plateau** at 0.91 (row 307, columns 236-243). `peak_local_max` keeps one
+pixel of it: column 236 today, and column 243 for the 2025 label. The unclaimed detections are the
+other ends of the same plateaus. So the STOP comes mostly from the model's output, not from the
+store, and a +/-1-cell rule cannot be met by any rebuild that perturbs the input pixels.
+
+A second, rare mode also exists. On about 19 panos, every label is moved by one linear horizontal
+map, for example x2025 = (x - 0.125)/0.875 on `qWxSMzkdRIaDQegUsxsY2w`. On those panos the live
+labels are probably misplaced.
+
+What would unblock scoring is a decision, not a re-run:
+
+- Arm Z (the zoom-3 control) would show whether the 2025 pipeline itself reproduces at +/-1 px.
+- Or a post-hoc amendment could match on a label's plateau.
+
+**Depth** (`runs/vancouver/depth/store.json`, tracked). The frame check found 5 of 5 store
+artifacts identical to the live payloads, with 0 revised. The index covers 18,473 of 28,830 run
+panos:
+
+- 13,572 have a measured height (47.1% of the run). The median is 2.356 m (p25 2.268, p75 2.417).
+- 4,890 have a stand-in ground and 11 are degenerate.
+- 8,952 panos are `unavailable` in pano-tools' ledger, and 1,405 had no artifact yet (the depth
+  phase was still running).
+
+Under `per-pano`, 15,258 panos (52.9%) therefore fall back to 2.6 m.
+
+**Fusion** (`fuse_sites.py`; `sites_meta.json` untracked). Every capture year's depth median is
+above the 2.1 m cut (2.24-2.43 m), so `auto` puts **all 28,830 panos at 2.5 m**. The low 2025-26
+rig is absent: the labels were made in 2025-09, and the 2025 captures here (497 panos) read
+2.362 m.
+
+| capture year | panos | measured | median (m) |
+|---|---:|---:|---:|
+| 2011-2018 (six years) | 3,036 | 153 | 2.24-2.43 |
+| 2019 | 1,663 | 968 | 2.324 |
+| 2021 | 926 | 506 | 2.370 |
+| 2022 | 3,434 | 1,624 | 2.354 |
+| 2023 | 8,653 | 4,562 | 2.366 |
+| 2024 | 10,621 | 5,482 | 2.349 |
+| 2025 | 497 | 277 | 2.362 |
+
+| frame | sites | operational | multi-pano |
+|---|---:|---:|---:|
+| auto (2.5 m) | 24,080 | 17,650 | 15,769 |
+| 2.6 m | 23,925 | 17,551 | 15,609 |
+| per-pano | 24,612 | 18,094 | 15,896 |
+
+**Benchmark bundle.** It sits on makelab2 at
+`/projects/makeabilitylab/sidewalk-auto-labeler/runs/vancouver/benchmark/`: 125 panos (top 5,
+random 95, empty 25), with native JPEGs copied from the store. The reconcile reads OK, 125/125
+into `index.csv`. The pixels are not committed. The bundle's README notes two caveats: Portland
+(the same metro) was in RampNet's Stage-1 training, and the gate stopped.
+
+**City inventory.** The City's hosted `COV_TransCurbRamp` layer replaces the dead proxy (see
+`docs/placement-oracle.md`). It was fetched on 2026-09-28: 11,355 in-area ramps with
+`STATUS = 'Available'`. It has not been scored, because the scoring is held by the gate.
