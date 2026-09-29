@@ -1,0 +1,22 @@
+{
+  "what": "Inputs to the RampNet#158 step-2 mined-precision rerun (2026-09-29). 'frozen' = the run files as they stood for step 1; 'current' = the run files after the 2026-09-21 GSV gap-fill phases (#32).",
+  "benchmark": {"repo": "ProjectSidewalk/RampNet", "commit": "4a859f1815bb4895f00780e108b054f3d7a844dc", "paths": "benchmark/<city>/{verdicts.json,records.jsonl}", "last_changed_by": "e68f438 (2026-09-21)"},
+  "labeler_code": {"branch": "analysis/mined-precision-step2", "base": "660ccd5 (origin/main)", "scripts": ["scripts/mined_precision.py (unchanged)", "scripts/mined_precision_compare.py (new, layout only)"]},
+  "frozen": {
+    "richmond":    {"results.jsonl": {"sha256": "109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c", "panos": 9091,  "source": "makelab2 /projects/makeabilitylab/sidewalk-auto-labeler/runs/richmond/results.jsonl (byte-identical)"},
+                    "camera_heights.json": {"sha256": "d91cd00991a0056a5957486a52982e2e102c30864b574fefe0bc8628b6aa9ee0", "source": "git-tracked runs/richmond/camera_heights.json (#53/#89: every group 2.6 m, recommended false)"}},
+    "paterson":    {"results.jsonl": {"sha256": "651226f9f1e66d60fc8504423e7400730aad649e20a4a448d25bd4e5c620a2a8", "panos": 34687, "source": "Jon's desktop runs/paterson/results.jsonl (includes the 260-pano gap fill of 2026-09-21T23:33Z). NOT on makelab2: the archive copy is the pre-gap-fill 34,427-pano file (sha256 ba987cfd...), identical detections on the shared panos"},
+                    "depth/index.csv": {"sha256": "06e878e2d77e60dbf2652d8e7b31ca8763d0aa49876d02c9e67338a2e90ebfa1", "source": "makelab2 archive (byte-identical)"}},
+    "bend":        {"results.jsonl": {"sha256": "1307faa8041acbbf4cba78fd53979e2215511b8371c018f427c356f6b0e26153", "panos": 78560, "source": "makelab2 archive (byte-identical)"},
+                    "depth/index.csv": {"sha256": "a4ae7d3743ca11b8e3ccce652009dcc57309dbd410ea8c90e57b4c3d044b448d", "source": "makelab2 archive (byte-identical)"}},
+    "gainesville": {"results.jsonl": {"sha256": "bb8a78729cfb97a98a4f99211c90763fb3760c9c216f2233b1c0cc8aa450abde", "panos": 35204, "source": "makelab2 archive (byte-identical) == first 35,204 lines of the current gap-filled file"},
+                    "depth/index.csv": {"sha256": "02ad2a5d87e2d45a2fb5eb6e3b4215546f07a8425ea7032a49e9cf8b2f67c527", "source": "makelab2 archive (byte-identical)"}},
+    "sao_paulo":   {"results.jsonl": {"sha256": "72fa99b69ce2742c03becf427ca1674c2a0971531cc4f84ad793d5dc3a2fe926", "panos": 22741, "source": "makelab2 archive (byte-identical) == first 22,741 lines of the current gap-filled file"},
+                    "depth/index.csv": {"sha256": "46315eb54fbb14c17669be6a08f6c3ec1d7560f8c7d8864a8c600a147438aa09", "source": "makelab2 archive (byte-identical)"}}
+  },
+  "current": {
+    "gainesville": {"results.jsonl": {"sha256": "9f4a57f35d24715856d4464dbc0950febbf20de810ec9653432f339a5ab857e8", "panos": 37435, "source": "Jon's desktop only (gap fill 2026-09-21T23:50Z); the 2,231 gap-fill panos have no depth row"}},
+    "sao_paulo":   {"results.jsonl": {"sha256": "54348f367dfa3ecb9cde587d106d493d729fb5e5744687e3f38d1c9f1549bf7f", "panos": 30034, "source": "Jon's desktop only (gap fill); the 7,293 gap-fill panos have no depth row"}},
+    "others": "richmond, paterson, bend identical to frozen"
+  }
+}

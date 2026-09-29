@@ -1,0 +1,200 @@
+# Precision of mined hard positives (RampNet#158, steps 1 and 2)
+
+`scripts/mined_precision.py` measures how often a label mined from multi-view consensus is
+right. A **mined label** is a strong fused site (≥ 3 operational panos) projected into a
+nearby judged benchmark pano that did not detect it. The reviewer's verdicts in
+`../RampNet/benchmark/<city>/` decide whether the projected point is a ramp. The script's
+docstring and the CLAUDE.md section describe the buckets. There are two denominators, and
+neither is quoted without the other:
+
+- **hard-only** = tp / (tp + fp). The share of mined targets that are misses the model does
+  not already make.
+- **all-mined** = (tp + already_detected) / (… + fp). The share of shipped labels that are
+  correct. A miner has no verdicts, so it cannot drop `already_detected`.
+
+Pre-registered rule (RampNet#158): ≥ 0.80 → build the miner; 0.50–0.80 → add the visibility
+test first; < 0.50 → drop this label source. The rule is read at ≤ 15 m on the point
+estimate, and a reading whose 95% Wilson CI crosses a band edge is "not decisive".
+
+Step 1 (2026-09-21, [labeler#54](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/54))
+found mined labels about half right, with placement as the main failure: 48 of 65 false
+positives have a verdict-true detection as their nearest GT point. Its numbers are in the
+[correction comment on RampNet#158](https://github.com/ProjectSidewalk/RampNet/issues/158#issuecomment-5769032890).
+Step 2 is below.
+
+## Step 2 (2026-09-29): measured camera heights
+
+**Question.** Does moving fusion, GT placement and projection from the 2.6 m constant to
+measured heights raise mined precision? Step 2 was planned as per-pano GSV depth heights
+(#40) plus Mapillary rig-class heights (#53). Nothing else changed from step 1: candidates
+within 15 m, a 5 m match radius, operational members only, `apply_pose` off, fusion at the
+benchmark threshold, and the same rule and CI.
+
+**Arms.** All arms run on the same five runs and the same verdicts. Only `--camera-height`
+differs:
+
+| arm | `--camera-height` (richmond, paterson, bend, gainesville, sao_paulo) | what it is |
+|---|---|---|
+| `step1_2.6` | 2.6 for all | step 1's pre-registered headline |
+| `step1_gsv2.2` | 2.6 2.2 2.2 2.2 2.2 | step 1's measured-constant row |
+| **`step2_perpano`** | **per-rig per-pano per-pano per-pano per-pano** | **step 2 as planned** |
+| `auto` | auto for all | the labeler's production fuse default since #79: GSV per capture-year rig, 2.0 / 2.5 m; Mapillary 2.6 m |
+
+The `auto` arm is also RampNet PR #210's `proj_height_auto`. That arm calls the labeler's
+own resolver (`fs.HEIGHT_AUTO`, pose off; `scripts/analysis/crossview_arms/geometry.py` on
+`analysis/crossview-align-48`), so the rule is the same and it is not reported separately.
+
+**Richmond is identical in every arm.** `per-rig` reads `runs/richmond/camera_heights.json`.
+Since #89 every group in that table is 2.6 m with `recommended: false`, so 0 of 9,091 panos
+take a per-rig height (the report says so). `auto` also keeps Mapillary at 2.6 m. #53 exists,
+but no validated Mapillary height does, so step 2 has nothing to apply to richmond.
+
+**Inputs are frozen to step 1.** After step 1, the 2026-09-21 gap-fill phases (#32) appended
+2,231 panos to gainesville and 7,293 to são paulo. `results.jsonl` is append-only, so the
+step-1 files are the first 35,204 and 22,741 lines. They are byte-identical to the makelab2
+archive copies. The `step1_*` arms reproduce the step-1 correction exactly (0.327 32/98 and
+0.511 69/135; 0.440 40/91 and 0.585 72/123), so every difference below comes from the
+height. Hashes and sources are in
+[`figures/mined-precision/data/inputs.json`](figures/mined-precision/data/inputs.json).
+The same arms on the gap-filled runs are in `data/current/` (see Caveats).
+
+### Headline, pooled over five cities
+
+| arm | hard-only ≤ 15 m | all-mined ≤ 15 m | hard-only ≤ 10 m | all-mined ≤ 10 m | cand. | fp placed |
+|---|---|---|---|---|--:|--:|
+| step1_2.6 | 0.327 [0.24, 0.42] (32/98) | 0.511 [0.43, 0.59] (69/135) | 0.471 [0.31, 0.63] (16/34) | 0.660 [0.53, 0.77] (35/53) | 148 | 48 |
+| step1_gsv2.2 | 0.440 [0.34, 0.54] (40/91) | 0.585 [0.50, 0.67] (72/123) | 0.632 [0.47, 0.77] (24/38) | 0.725 [0.59, 0.83] (37/51) | 136 | 36 |
+| **step2_perpano** | **0.483 [0.38, 0.59] (42/87)** | **0.605 [0.51, 0.69] (69/114)** | 0.657 [0.49, 0.79] (23/35) | 0.745 [0.60, 0.85] (35/47) | 127 | 29 |
+| auto | 0.452 [0.35, 0.56] (38/84) | 0.562 [0.47, 0.65] (59/105) | 0.647 [0.48, 0.79] (22/34) | 0.727 [0.58, 0.84] (32/44) | 118 | 31 |
+
+*fp placed* counts false positives (≤ 15 m) whose nearest GT point in that pano is a
+verdict-true detection. The pano saw a real ramp there and the site landed more than 5 m
+from it.
+
+### GSV cities only (paterson, bend, gainesville, são paulo)
+
+| arm | hard-only ≤ 15 m | all-mined ≤ 15 m | hard-only ≤ 10 m | all-mined ≤ 10 m |
+|---|---|---|---|---|
+| step1_2.6 | 0.339 [0.23, 0.47] (19/56) | 0.560 [0.45, 0.66] (47/84) | 0.375 [0.18, 0.61] (6/16) | 0.667 [0.49, 0.81] (20/30) |
+| step1_gsv2.2 | 0.551 [0.41, 0.68] (27/49) | 0.694 [0.58, 0.79] (50/72) | 0.700 [0.48, 0.85] (14/20) | 0.786 [0.60, 0.90] (22/28) |
+| **step2_perpano** | **0.644 [0.50, 0.77] (29/45)** | **0.746 [0.63, 0.84] (47/63)** | 0.765 [0.53, 0.90] (13/17) | 0.833 [0.64, 0.93] (20/24) |
+| auto | 0.595 [0.44, 0.73] (25/42) | 0.685 [0.55, 0.79] (37/54) | 0.750 [0.51, 0.90] (12/16) | 0.810 [0.60, 0.92] (17/21) |
+
+### Per city, ≤ 15 m: step 1 (2.6 m) → step 2 (per-pano / per-rig)
+
+| city | hard-only step 1 | hard-only step 2 | all-mined step 1 | all-mined step 2 | fp placed |
+|---|---|---|---|---|---|
+| richmond (Mapillary) | 0.310 [0.19, 0.46] (13/42) | 0.310 [0.19, 0.46] (13/42), unchanged | 0.431 [0.31, 0.57] (22/51) | 0.431, unchanged | 20 → 20 |
+| paterson | 0.350 [0.18, 0.57] (7/20) | **0.800 [0.58, 0.92] (16/20)** | 0.629 [0.46, 0.77] (22/35) | 0.852 [0.68, 0.94] (23/27) | 10 → 2 |
+| bend | 0.636 [0.35, 0.85] (7/11) | 0.750 [0.41, 0.93] (6/8) | 0.714 [0.45, 0.88] (10/14) | 0.800 [0.49, 0.94] (8/10) | 3 → 2 |
+| gainesville | 0.133 [0.04, 0.38] (2/15) | 0.333 [0.06, 0.79] (1/3) | 0.350 [0.18, 0.57] (7/20) | 0.750 [0.41, 0.93] (6/8) | 12 → 2 |
+| são paulo | 0.300 [0.11, 0.60] (3/10) | 0.429 [0.21, 0.67] (6/14) | 0.533 [0.30, 0.75] (8/15) | 0.556 [0.34, 0.75] (10/18) | 3 → 3 |
+
+### By range band, pooled: step 1 (2.6 m) → step 2
+
+| band | hard-only step 1 | hard-only step 2 | all-mined step 1 | all-mined step 2 |
+|---|---|---|---|---|
+| 0–8 m | 0.545 [0.35, 0.73] (12/22) | 0.667 [0.45, 0.83] (14/21) | 0.667 [0.49, 0.81] (20/30) | 0.741 [0.55, 0.87] (20/27) |
+| 8–12 m | 0.333 [0.19, 0.51] (10/30) | 0.500 [0.32, 0.68] (13/26) | 0.583 [0.44, 0.71] (28/48) | 0.629 [0.46, 0.77] (22/35) |
+| 12–18 m | 0.217 [0.12, 0.36] (10/46) | 0.375 [0.24, 0.53] (15/40) | 0.368 [0.26, 0.50] (21/57) | 0.519 [0.39, 0.65] (27/52) |
+
+Candidates stop at 15 m, so the 12–18 m band holds 12–15 m. The full per-city × band ×
+arm table, with both denominators and CIs, is
+[`data/frozen/compare.md`](figures/mined-precision/data/frozen/compare.md) (CSV beside it).
+Each arm's own reports, including support and confidence strata, heights resolved and
+fall-back counts, are in `data/frozen/<arm>/<city>/report.md`.
+
+### Reading against the pre-registered rule
+
+- **Pooled, ≤ 15 m, step 2.** hard-only 0.483 [0.38, 0.59]: *drop* on the point estimate,
+  with a CI that spans drop and visibility, so not decisive. all-mined 0.605 [0.51, 0.69]:
+  *visibility*, and the whole CI is inside that band, so decisive. At step 1's 2.6 m,
+  hard-only was decisively *drop* and all-mined's CI straddled 0.50.
+- **GSV only, ≤ 15 m, step 2.** hard-only 0.644 [0.50, 0.77] and all-mined 0.746
+  [0.63, 0.84]. Both read *visibility*. hard-only's lower bound is 0.498, just under the
+  edge; all-mined's upper bound reaches into build.
+- **Richmond reads *drop*** (hard-only 0.310 [0.19, 0.46]; all-mined 0.431 [0.31, 0.57]) and
+  did not move, because step 2 had no Mapillary height to apply.
+
+So, on GSV, measured heights move the source from drop to visibility on both denominators.
+On open imagery, the case #158 exists for, nothing has changed. Of the 29 placed false
+positives left after step 2, 20 are richmond's.
+
+### What the change is made of
+
+- **Most of the GSV gain comes from leaving 2.6 m, not from per-pano over a constant.**
+  GSV hard-only goes 0.339 (2.6) → 0.551 (2.2 constant) → 0.644 (per-pano), and pooled goes
+  0.327 → 0.440 → 0.483. Per-pano's gain over the 2.2 constant is inside every CI.
+- **Per-pano vs `auto`: no resolvable difference here.** Pooled hard-only is 0.483 vs 0.452
+  and GSV-only 0.644 vs 0.595, with overlapping CIs. RampNet PR #210 scored single pairs and
+  found per-pano heights (`proj_height_perpano`) worse than `auto` on paired gain. That
+  measures placement directly; this measures a precision rate after re-fusion. The two do
+  not contradict each other, and neither separates the two frames.
+- **Placement false positives fall 48 → 29, and the candidate set shrinks** (148 → 127;
+  `already_detected` 37 → 27). A different height means a different fuse, so the arms are
+  not paired candidate by candidate. Some of the gain is candidates that no longer exist.
+  For example, a pano that detected the ramp now joins its site as a member instead of
+  being mined as a non-member (gainesville: 20 candidates → 8). That is also how a real
+  miner would behave, so it counts, but a fixed-candidate comparison is not available.
+- **Where step 1's range cliff went.** On GSV under per-pano, hard-only reads 0.778 / 0.643 /
+  0.591 across the three bands, against 0.500 / 0.333 / 0.286 at 2.6 m. Pooled, the 12–15 m
+  band is still the weakest (0.375), and richmond's 0.111 is most of that.
+
+### Caveats (they travel with the numbers)
+
+- **Small n.** Per-city cells run n = 3–20 on hard-only. gainesville's hard-only is 1/3 under
+  per-pano. Read pooled rows and CIs, not per-city point estimates.
+- **Not every pano has a measured height.** paterson 30,325 / 34,687, bend 65,866 / 78,560,
+  gainesville 30,458 / 35,204, são paulo 18,601 / 22,741. The rest fall back to 2.6 m.
+  Measured heights flagged by #44's QC gate (vintage deviation) are kept, as `per-pano`
+  does by design; each report lists the counts.
+- **são paulo stays low** (0.429 hard-only) under every arm. The flat-ground model is wrong
+  on hills, as step 1 expected, and a per-pano height does not fix slope.
+- **Current (gap-filled) runs.** The same arms on the runs as they stand today read the same
+  way: pooled per-pano hard-only 0.495 [0.40, 0.59] (47/95), all-mined 0.625 [0.54, 0.70]
+  (80/128); 2.6 m gives 0.333 / 0.510. The 9,524 gap-fill panos have no depth row, so they
+  fall back to 2.6 m. Tables: `data/current/compare.md`.
+- **Replication gap: paterson's input is not on makelab2.** The frozen paterson file (sha256
+  `651226f9…`, 34,687 panos, including the 260-pano gap fill) exists only in Jon's desktop
+  checkout. The makelab2 archive holds the pre-gap-fill 34,427-pano file. Detections are
+  identical on the shared panos, but the numbers here need the newer file. Copying it into
+  the archive (for example as `results.gapfill-2026-09-21.jsonl`) would close the gap. The
+  current gainesville and são paulo files are in the same position; the frozen ones are not.
+
+### Runtime and cost
+
+CPU only, no network, on Jon's desktop. Each arm takes 16–21 s wall-clock for all five
+cities. No GPU, no paid API, and nothing to record in a ledger. A re-run with the same
+inputs rewrites every `candidates.csv` byte-identically (checked).
+
+### Reproduce
+
+```bash
+# Build the frozen runs root from the makelab2 archive (runs/<city>/{results.jsonl,depth/index.csv});
+# paterson from the desktop checkout (see the replication gap above); richmond's per-rig
+# table is git-tracked. Verify every sha256 against data/inputs.json before running.
+FROZEN=/path/to/frozen   # <city>/results.jsonl, <city>/depth/index.csv, richmond/camera_heights.json
+C="richmond paterson bend gainesville sao_paulo"
+B="--runs-root $FROZEN --benchmark-root ../RampNet/benchmark"   # RampNet at 4a859f1
+D=docs/figures/mined-precision/data/frozen
+python scripts/mined_precision.py $C $B --out $D/h2.6
+python scripts/mined_precision.py $C $B --out $D/h2.6_gsv2.2 --camera-height 2.6 2.2 2.2 2.2 2.2
+python scripts/mined_precision.py $C $B --out $D/perrig_perpano \
+    --camera-height per-rig per-pano per-pano per-pano per-pano
+python scripts/mined_precision.py $C $B --out $D/auto --camera-height auto
+python scripts/mined_precision_compare.py --cities $C --mapillary richmond \
+    --arm step1_2.6=$D/h2.6 --arm step1_gsv2.2=$D/h2.6_gsv2.2 \
+    --arm step2_perpano=$D/perrig_perpano --arm auto=$D/auto \
+    --out $D/compare.csv --md $D/compare.md
+# the gap-filled runs: --runs-root runs (a checkout holding them), --out data/current/<arm>,
+# arms h2.6 / perrig_perpano / auto, labels 2.6 / perpano / auto
+```
+
+### Next
+
+Phase 2 replaces the flat projection with image-based placement from RampNet PR #210:
+MapAnything on the posed pair, and RoMa for Mapillary. It reruns the same check on the same
+frozen inputs, so the result is paired against both tables above. Richmond is the city it has
+to move, because no height rule can. The peak-anchored target definition (a sub-threshold
+peak near the projected point, from step 1's plan) is still open. richmond needs an inference
+pass at the storage floor before that definition can be tested there.

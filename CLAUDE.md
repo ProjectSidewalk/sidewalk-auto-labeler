@@ -332,6 +332,16 @@ python scripts/mined_precision.py paterson --camera-height 2.2 --radius 10 15 20
 python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo
 python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
     --camera-height 2.6 2.2 2.2 2.2 2.2   # richmond has no measured height; GSV does
+# STEP 2 (RampNet#158, 2026-09-29; docs/mined-precision.md): the same check under
+# per-rig/per-pano and auto heights on inputs frozen to step 1 (the 2026-09-21 gap fills
+# are cut off; hashes in docs/figures/mined-precision/data/inputs.json). GSV moves from drop
+# to visibility on both denominators; richmond cannot move (per-rig applies 2.6 m, #89).
+# mined_precision_compare.py lays several --out dirs side by side (per city, range band,
+# pooled, pooled GSV) from their candidates.csv, with mined_precision's own tallies.
+python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
+    --camera-height per-rig per-pano per-pano per-pano per-pano --out /tmp/mp/perrig_perpano
+python scripts/mined_precision_compare.py --cities richmond paterson bend gainesville \
+    sao_paulo --mapillary richmond --arm a=/tmp/mp/h2.6 --arm b=/tmp/mp/perrig_perpano
 
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.
