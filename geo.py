@@ -485,11 +485,23 @@ def _world_ray(pose, phi, theta):
     MEASURED (fuse_sites.py --pose-ablation, 2026-08-02, paterson + bend,
     ~123k within-site member pairs): applying GSV metadata pitch/roll under ANY
     sign convention LOOSENS multi-view agreement — mean pairwise member distance
-    2.61 m -> 3.9-4.7 m (paterson), 2.06 m -> 2.8-3.9 m (bend) — i.e. the
-    equirectangulars streetlevel serves are already gravity-rectified and the
-    metadata angles describe the capture rig, not the stitched pano frame. So
-    production fusion runs with apply_pose=False and this rotation exists for
-    experiments (and any future source whose imagery is NOT rectified).
+    2.61 m -> 3.9-4.7 m (paterson), 2.06 m -> 2.8-3.9 m (bend). So production
+    fusion runs with apply_pose=False and this rotation exists for experiments.
+
+    CORRECTED 2026-09-29 (issue #113): that measurement stands, but the conclusion
+    first drawn from it here -- that the equirectangulars are "already
+    gravity-rectified" -- does not. They are in the capture rig's frame
+    (sidewalk-panorama-tools#158), and the pixels streetlevel serves are the ones
+    that study measured. The ablation tried only the FULL pose, which overshoots:
+    the car rides the road, so the local ground shares most of the pitch and part
+    of the roll, and only the remainder is a placement error (a triangulation
+    regression reads roughly 0.15-0.25 of the pitch term and 0.4-0.55 of the roll
+    term, attenuated by the flat association). Two things to know before reusing
+    this function on GSV: streetlevel's pitch > 0 is nose DOWN, so the physically
+    correct input is (-camera_pitch, +camera_roll); and GSV camera_roll is stored
+    unwrapped (359.4 means -0.6), which the rotation below does not mind but any
+    arithmetic on the angle does. Numbers on #113; a pre-registered partial-pose
+    study is the open follow-up.
     """
     psi = math.radians(pose.heading_deg)
     alpha = math.radians(pose.pitch_deg)
@@ -541,8 +553,8 @@ def detection_ground_point(pose, x_norm, y_norm, *,
     column x=0.5 is the camera heading, y=0.5 is the pano-frame horizon, so
     phi = (x-0.5)*2*pi and theta = (0.5-y)*pi (positive up). apply_pose=True
     additionally rotates the direction by the pano's pitch/roll — measured to
-    HURT on GSV (see _world_ray: streetlevel's equirects are already
-    gravity-rectified), so fusion passes apply_pose=False; the flat path is
+    HURT on GSV (see _world_ray: the full pose overshoots, because the local
+    ground shares most of the rig's tilt), so fusion passes apply_pose=False; the flat path is
     also always used when the pose carries no pitch/roll (Mapillary).
 
     ``camera_height`` is a height in meters, or PER_PANO for the pano's own measured
@@ -631,7 +643,7 @@ def ground_point_to_pano(pose, lat, lng, *,
     _check_apply_pose(apply_pose)
     if apply_pose and pose.has_pitch_roll:
         raise NotImplementedError(
-            'ground_point_to_pano inverts only the flat (gravity-rectified) path; '
+            'ground_point_to_pano inverts only the flat (pose not applied) path; '
             'pass apply_pose=False, as production fusion does')
     camera_height, _ = camera_height_for(pose, camera_height=camera_height)
     e, n = LocalFrame(pose.lat, pose.lng).to_enu(lat, lng)

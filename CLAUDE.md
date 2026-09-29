@@ -110,7 +110,8 @@ python scripts/depth_standin.py measure     # old vs new -> runs/_summary/depth_
 # no network); writes runs/<name>/sites.jsonl + sites_meta.json.
 python scripts/fuse_sites.py runs/paterson
 # ...--pose-ablation reports within-site spread per pitch/roll sign convention
-# instead (the experiment that showed GSV equirects are already gravity-rectified).
+# instead (the experiment behind GSV's flat default: the FULL pose loosens every city. It
+# does NOT show the equirects are gravity-rectified -- they are rig-frame, #113).
 # --apply-pose {auto,off,gravity,road} (issue #42). The DEFAULT is `auto`, which today is FLAT
 # for every source: road-relative (pitch/roll minus the sequence's SfM road grade) passed the
 # first #42 rule but FAILED the pre-registered shuffled-grade control (study section 10.5), so
@@ -791,8 +792,17 @@ single home for geodesy: haversine + the declustering grid (imported back by
 caller asks otherwise; the fuse_sites CLI's `auto` default is per-rig for GSV, #79) with
 closed-form anisotropic error from the 1024×512 heatmap quantization, **dropping** (never
 clamping) rays beyond 25 m. GSV camera pitch/roll are deliberately NOT applied: the
-`--pose-ablation` experiment measured that streetlevel's GSV equirects are already
-gravity-rectified (details in `geo._world_ray`'s docstring). Mapillary's are available
+`--pose-ablation` experiment measured that applying the full pose loosens multi-view
+agreement. **That does not mean the equirects are gravity-rectified** (corrected 2026-09-29,
+#113): they are in the rig's frame (sidewalk-panorama-tools#158), streetlevel and the PS pano
+store serve the same pixels, and the full pose overshoots because the car rides the road, so
+the local ground shares most of the tilt. What leaks into placement is a fraction of it
+(roughly 0.15-0.25 of the pitch term, 0.4-0.55 of the roll term, scratch measurements on
+#113); a partial pose is untested against a control, so the default stays flat. Two
+consequences outside fusion: a detection's `pano_y` is in the image's frame while a human PS
+label's is off by about the tilt at its bearing, which biases any AI-vs-human pixel match
+(`agree_rate.py`'s pano frame); and streetlevel's pitch > 0 is nose DOWN, with GSV
+`camera_roll` stored unwrapped (359.4 = -0.6). Details in `geo._world_ray`'s docstring. Mapillary's are available
 (`--apply-pose road`) but NOT applied by default either: the #42 shuffled-grade control withheld
 it (see the rig-tilt paragraph below).
 `fuse_sites.py` associates a

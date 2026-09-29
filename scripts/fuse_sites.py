@@ -4,7 +4,8 @@ physical curb-ramp sites.
 Reads a run's results.jsonl, projects every stored detection to a flat-ground
 world point (geo.detection_ground_point with anisotropic error; GSV camera
 pitch/roll deliberately NOT applied — the --pose-ablation experiment showed
-streetlevel's GSV equirects are already gravity-rectified; Mapillary pose is available
+that applying them loosens every city (the full pose overshoots; see
+geo._world_ray and issue #113); Mapillary pose is available
 but also off by default, see Camera pose below), and greedily
 associates them into sites:
 
@@ -37,7 +38,7 @@ Mapillary's SfM altitude profile, is subtracted first -- see sequence_grades), o
 default `auto`, which today resolves to off for EVERY source: road-relative was withheld
 for Mapillary by the #42 shuffled-grade control (AUTO_ROAD_SOURCES says why;
 docs/mapillary-tilt-study.md section 10 has the measurement). GSV is measured to want
-`off` (its equirects are gravity-rectified; geo._world_ray). For
+`off` (applying its full pose loosens every city; geo._world_ray, #113). For
 Mapillary, blocks written since #42 carry pitch/roll and older ones get them derived here
 from source_metadata, so no run needs rewriting to be fused posed. sites_meta.json's
 `pose` block counts which panos were posed and, under `road`, how many had no usable
@@ -111,9 +112,10 @@ POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
 # (pitch and grade share one SfM; subtracting could cancel shared error) -- and recall on
 # the flat raycast's own GT pool fell 4.0 / 2.9 points in Richmond / Annapolis. So the
 # road-frame default is WITHHELD pending that question; `--apply-pose road` still works.
-# Put 'mapillary' back here only on a control that passes. GSV stays flat regardless: its
-# equirects are gravity-rectified and applying their pose loosens every city
-# (geo._world_ray, #52). Panoramax: optional pers:pitch/roll, convention unmeasured (#57).
+# Put 'mapillary' back here only on a control that passes. GSV stays flat regardless:
+# applying its full pose loosens every city (geo._world_ray, #52). Its equirects are
+# rig-frame, not gravity-rectified (#113); a partial pose is untested. Panoramax:
+# optional pers:pitch/roll, convention unmeasured (#57).
 # #51 re-ran the same control with a road grade that never saw the SfM (USGS 3DEP DEM,
 # --grade-source dem) and it FAILED again, on (i) and (ii) (docs/dem-grade-study.md): the
 # DEM grade matches the SfM one in fusion, so a better grade does not change this.
@@ -131,8 +133,8 @@ AUTO_ROAD_SOURCES = ()
 # fuse_sites.py warns (stderr) when a run holds any. Matched as for site_explorer: a known
 # name, else GSV (legacy GSV records store streetlevel's raw source string, e.g. "launch").
 UNGRADED_POSE_WARNINGS = {
-    'gsv': 'GSV has no sequence grade, so `road` is 100% gravity fallback; its equirects '
-           'are already gravity-rectified and rotating them loosened every city (#52)',
+    'gsv': 'GSV has no sequence grade, so `road` is 100% gravity fallback; rotating its '
+           'rays by the full pose loosened every city (#52, #113)',
     'panoramax': "Panoramax's pitch/roll convention is unmeasured (#57)",
 }
 
