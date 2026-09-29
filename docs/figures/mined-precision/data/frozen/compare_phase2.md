@@ -176,26 +176,26 @@
 | pooled GSV | roma | 12-18 m | 33 | 11 | 8 | 6 | 12 | 2 | 0.579 [0.36, 0.77] (11/19) | 0.742 [0.57, 0.86] (23/31) |
 | pooled GSV | roma_local | 12-18 m | 33 | 13 | 7 | 5 | 11 | 2 | 0.650 [0.43, 0.82] (13/20) | 0.774 [0.60, 0.89] (24/31) |
 
-| group | base -> arm | cand. | buckets changed | fixed (fp -> right) | broken (right -> fp) | sign-test p | tp gained | tp lost |
-|---|---|--:|--:|--:|--:|--:|--:|--:|
-| richmond | step2_flat -> mapa_posed_pair | 59 | 9 | 4 | 2 | 0.688 | 0 | 0 |
-| paterson | step2_flat -> mapa_posed_pair | 27 | 6 | 0 | 1 | 1.000 | 1 | 4 |
-| bend | step2_flat -> mapa_posed_pair | 12 | 2 | 0 | 1 | 1.000 | 1 | 0 |
-| gainesville | step2_flat -> mapa_posed_pair | 8 | 0 | 0 | 0 | 1.000 | 0 | 0 |
-| sao_paulo | step2_flat -> mapa_posed_pair | 21 | 3 | 1 | 0 | 1.000 | 0 | 1 |
-| pooled | step2_flat -> mapa_posed_pair | 127 | 20 | 5 | 4 | 1.000 | 2 | 5 |
-| pooled GSV | step2_flat -> mapa_posed_pair | 68 | 11 | 1 | 2 | 1.000 | 2 | 5 |
-| richmond | step2_flat -> roma | 59 | 10 | 8 | 0 | 0.008 | 0 | 0 |
-| paterson | step2_flat -> roma | 27 | 10 | 0 | 3 | 0.250 | 2 | 7 |
-| bend | step2_flat -> roma | 12 | 1 | 0 | 0 | 1.000 | 1 | 0 |
-| gainesville | step2_flat -> roma | 8 | 0 | 0 | 0 | 1.000 | 0 | 0 |
-| sao_paulo | step2_flat -> roma | 21 | 5 | 1 | 0 | 1.000 | 1 | 2 |
-| pooled | step2_flat -> roma | 127 | 26 | 9 | 3 | 0.146 | 4 | 9 |
-| pooled GSV | step2_flat -> roma | 68 | 16 | 1 | 3 | 0.625 | 4 | 9 |
-| richmond | step2_flat -> roma_local | 59 | 11 | 9 | 0 | 0.004 | 0 | 0 |
-| paterson | step2_flat -> roma_local | 27 | 9 | 0 | 1 | 1.000 | 3 | 5 |
-| bend | step2_flat -> roma_local | 12 | 1 | 0 | 0 | 1.000 | 1 | 0 |
-| gainesville | step2_flat -> roma_local | 8 | 0 | 0 | 0 | 1.000 | 0 | 0 |
-| sao_paulo | step2_flat -> roma_local | 21 | 4 | 1 | 0 | 1.000 | 0 | 2 |
-| pooled | step2_flat -> roma_local | 127 | 25 | 10 | 1 | 0.012 | 4 | 7 |
-| pooled GSV | step2_flat -> roma_local | 68 | 14 | 1 | 1 | 1.000 | 4 | 7 |
+| group | base -> arm | cand. | not emitted | buckets changed | fixed (fp -> right) | broken (right -> fp) | sign-test p | tp gained | tp lost | base on same cand. hard / all | arm hard / all |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|---|---|
+| richmond | step2_flat -> mapa_posed_pair | 59 | 0 | 9 | 4 | 2 | 0.688 | 0 | 0 | 0.310 / 0.431 | 0.342 / 0.500 |
+| paterson | step2_flat -> mapa_posed_pair | 27 | 0 | 6 | 0 | 1 | 1.000 | 1 | 4 | 0.800 / 0.852 | 0.722 / 0.815 |
+| bend | step2_flat -> mapa_posed_pair | 12 | 0 | 2 | 0 | 1 | 1.000 | 1 | 0 | 0.750 / 0.800 | 0.700 / 0.727 |
+| gainesville | step2_flat -> mapa_posed_pair | 8 | 0 | 0 | 0 | 0 | 1.000 | 0 | 0 | 0.333 / 0.750 | 0.333 / 0.750 |
+| sao_paulo | step2_flat -> mapa_posed_pair | 21 | 0 | 3 | 1 | 0 | 1.000 | 0 | 1 | 0.429 / 0.556 | 0.455 / 0.647 |
+| pooled | step2_flat -> mapa_posed_pair | 127 | 0 | 20 | 5 | 4 | 1.000 | 2 | 5 | 0.483 / 0.605 | 0.487 / 0.637 |
+| pooled GSV | step2_flat -> mapa_posed_pair | 68 | 0 | 11 | 1 | 2 | 1.000 | 2 | 5 | 0.644 / 0.746 | 0.619 / 0.746 |
+| richmond | step2_flat -> roma | 59 | 0 | 10 | 8 | 0 | 0.008 | 0 | 0 | 0.310 / 0.431 | 0.394 / 0.608 |
+| paterson | step2_flat -> roma | 27 | 0 | 10 | 0 | 3 | 0.250 | 2 | 7 | 0.800 / 0.852 | 0.611 / 0.741 |
+| bend | step2_flat -> roma | 12 | 0 | 1 | 0 | 0 | 1.000 | 1 | 0 | 0.750 / 0.800 | 0.778 / 0.818 |
+| gainesville | step2_flat -> roma | 8 | 0 | 0 | 0 | 0 | 1.000 | 0 | 0 | 0.333 / 0.750 | 0.333 / 0.750 |
+| sao_paulo | step2_flat -> roma | 21 | 0 | 5 | 1 | 0 | 1.000 | 1 | 2 | 0.429 / 0.556 | 0.455 / 0.667 |
+| pooled | step2_flat -> roma | 127 | 0 | 26 | 9 | 3 | 0.146 | 4 | 9 | 0.483 / 0.605 | 0.500 / 0.678 |
+| pooled GSV | step2_flat -> roma | 68 | 0 | 16 | 1 | 3 | 0.625 | 4 | 9 | 0.644 / 0.746 | 0.585 / 0.734 |
+| richmond | step2_flat -> roma_local | 59 | 0 | 11 | 9 | 0 | 0.004 | 0 | 0 | 0.310 / 0.431 | 0.406 / 0.627 |
+| paterson | step2_flat -> roma_local | 27 | 0 | 9 | 0 | 1 | 1.000 | 3 | 5 | 0.800 / 0.852 | 0.737 / 0.815 |
+| bend | step2_flat -> roma_local | 12 | 0 | 1 | 0 | 0 | 1.000 | 1 | 0 | 0.750 / 0.800 | 0.778 / 0.818 |
+| gainesville | step2_flat -> roma_local | 8 | 0 | 0 | 0 | 0 | 1.000 | 0 | 0 | 0.333 / 0.750 | 0.333 / 0.750 |
+| sao_paulo | step2_flat -> roma_local | 21 | 0 | 4 | 1 | 0 | 1.000 | 0 | 2 | 0.429 / 0.556 | 0.400 / 0.647 |
+| pooled | step2_flat -> roma_local | 127 | 0 | 25 | 10 | 1 | 0.012 | 4 | 7 | 0.483 / 0.605 | 0.534 / 0.702 |
+| pooled GSV | step2_flat -> roma_local | 68 | 0 | 14 | 1 | 1 | 1.000 | 4 | 7 | 0.644 / 0.746 | 0.634 / 0.762 |
