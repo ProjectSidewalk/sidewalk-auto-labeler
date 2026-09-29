@@ -10,6 +10,9 @@ sources/. It needs no network and no GPU. Inputs are a finished GSV run's
 Why GSV can test the claim cleanly. #50 found that on a vehicle rig the flat-ground
 raycast wants the camera's orientation *relative to the local road*, not to gravity, and
 supported that only indirectly (camera pitch regressed on an SfM altitude-profile grade).
+[Premise corrected 2026-09-29, #113: the equirectangulars are rig-frame, not
+gravity-rectified; see the dated correction in docs/gsv-ground-plane-study.md. The
+paragraph below is the study's design as it was run.]
 GSV separates the two frames: its equirectangulars are gravity-rectified (the #27 pose
 ablation, quoted in ``geo._world_ray``), so the camera frame IS the gravity frame, and the
 depth payload's dominant ground plane gives the road's normal in that frame per pano. If

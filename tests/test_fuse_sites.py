@@ -474,8 +474,8 @@ def test_road_mode_takes_the_grade_back_out_of_a_car_on_a_hill(tmp_path):
 
 
 def test_auto_pose_keeps_gsv_flat_even_with_a_stored_pose():
-    # GSV equirects are gravity-rectified: rotating by their metadata pose loosens every
-    # city (geo._world_ray), so the default must not, whatever the block carries.
+    # Rotating GSV rays by their full metadata pose loosens every city (geo._world_ray,
+    # #113), so the default must not, whatever the block carries.
     p = make_pano('g', 0, 0, [(0, 10, 0.9)])
     p.camera_pitch, p.camera_roll = 3.0, 1.0
     auto, _, stats = fs.project([p], fs.FuseParams())
