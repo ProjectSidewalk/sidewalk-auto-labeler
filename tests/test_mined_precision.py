@@ -5,6 +5,7 @@ next to it, one per outcome the check has to tell apart — including the three 
 first version of this file never exercised (`already_detected`, `false_det_nearby`,
 `unadjudicable`), which is where the two denominators differ."""
 import csv
+import math
 
 import pytest
 
@@ -211,3 +212,81 @@ def test_csv_has_one_row_per_candidate(tmp_path):
     assert {r['within_match'] for r in rows} == {'1', '0'}
     report = (tmp_path / 'report.md').read_text(encoding='utf-8')
     assert 'hard-only' in report and 'all-mined' in report
+
+
+# --------------------------------------------------------------------------- #
+# RampNet#158 phase 2: the source rule and external (image-based) placement
+# --------------------------------------------------------------------------- #
+
+
+def test_source_rule_picks_the_nearest_member_camera_then_confidence(tmp_path):
+    panos, verdicts = _scene()
+    result, cands = _run(panos, verdicts, emit_sources=True)
+    src = {s['pano_id']: s for s in result['sources']}
+    assert set(src) == {c.pano_id for c in cands}
+    # g1 stands at (0, 8). Member cameras: n1 18 m, n2 and n3 both ~12.8 m, g3 14 m.
+    # n2 / n3 tie on distance, so the higher confidence (n3, 0.95) wins.
+    assert src['g1']['src_pano'] == 'n3'
+    assert src['g1']['baseline_m'] == pytest.approx(math.hypot(10, 8), abs=0.05)
+    # nothing GT-derived travels with a source row
+    assert set(src['g1']) == set(mp.SOURCE_FIELDS)
+    mp.write_outputs(tmp_path, 'r', cands, result['sources'])
+    with open(tmp_path / 'sources.csv', newline='', encoding='utf-8') as f:
+        assert len(list(csv.DictReader(f))) == len(cands)
+
+
+def test_source_rule_never_uses_the_target_or_a_subfloor_member():
+    panos, verdicts = _scene()
+    # g9 is 1 m from g1's camera but only responds below the operational floor
+    panos.append(make_pano('g9', 1, 8, [(0, 0, 0.2)], heading_deg=180.0))
+    result, _ = _run(panos, verdicts, emit_sources=True)
+    assert next(s for s in result['sources'] if s['pano_id'] == 'g1')['src_pano'] == 'n3'
+
+
+def test_placement_is_adjudicated_where_it_lands_and_paired():
+    panos, verdicts = _scene()
+    _, flat = _run(panos, verdicts)
+    by = {c.pano_id: c for c in flat}
+    g1, g2 = by['g1'], by['g2']
+    assert g1.bucket == 'tp'
+    # g1: the arm puts the target 90 deg off, on the ground 8 m to one side -> fp.
+    # g2: the arm fell back (None) -> the flat position, same bucket as before.
+    place = {('synthetic', g1.site_id, 'g1'): (g1.x_norm + 0.25, g1.y_norm),
+             ('synthetic', g2.site_id, 'g2'): None}
+    result, cands = _run(panos, verdicts, placement=place)
+    by2 = {c.pano_id: c for c in cands}
+    assert [(c.site_id, c.pano_id, c.range_m) for c in cands] == \
+        [(c.site_id, c.pano_id, c.range_m) for c in flat]      # paired: same candidates
+    assert by2['g1'].bucket == 'fp'
+    assert by2['g2'].bucket == by['g2'].bucket
+    status = {r['pano_id']: r for r in result['placement']}
+    assert status['g1']['status'] == 'placed' and status['g1']['shift_m'] > 5.0
+    assert status['g2']['status'] == 'fallback' and status['g2']['shift_m'] == 0.0
+    # the flat pixel itself reproduces the flat adjudication
+    same = {k: (by[k[2]].x_norm, by[k[2]].y_norm) for k in place}
+    _, again = _run(panos, verdicts, placement=same)
+    assert [c.bucket for c in again] == [c.bucket for c in flat]
+
+
+def test_placement_must_cover_exactly_the_candidates():
+    panos, verdicts = _scene()
+    _, flat = _run(panos, verdicts)
+    full = {('synthetic', c.site_id, c.pano_id): None for c in flat}
+    missing = dict(list(full.items())[:1])
+    with pytest.raises(ValueError, match='no row for candidate'):
+        _run(panos, verdicts, placement=missing)
+    extra = {**full, ('synthetic', 999, 'zz'): None}
+    with pytest.raises(ValueError, match='match no candidate'):
+        _run(panos, verdicts, placement=extra)
+
+
+def test_read_placement_refuses_duplicates(tmp_path):
+    p = tmp_path / 'p.jsonl'
+    p.write_text('{"city": "a", "site_id": 1, "pano_id": "x", "x": 0.5, "y": 0.6}\n'
+                 '{"city": "a", "site_id": 1, "pano_id": "y", "x": null, "y": null}\n',
+                 encoding='utf-8')
+    assert mp.read_placement(p) == {('a', 1, 'x'): (0.5, 0.6), ('a', 1, 'y'): None}
+    with open(p, 'a', encoding='utf-8') as f:
+        f.write('{"city": "a", "site_id": 1, "pano_id": "x", "x": 0.1, "y": 0.6}\n')
+    with pytest.raises(ValueError, match='duplicate'):
+        mp.read_placement(p)
