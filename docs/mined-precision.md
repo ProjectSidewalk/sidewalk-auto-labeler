@@ -363,19 +363,24 @@ missed ramp the reviewer marked. The image transfer pulled it onto a neighbourin
 the target pano already detected, on the same corner.
 
 **Re-tally of the sign test.** The original count, 9 / 0 (p = 0.004), stands under the
-rubric. Read as "placed on the mined ramp":
-- Removing the 2 demonstrated wrong-ramp transfers leaves 7 / 0 (p = 0.016).
-- Counting only the 3 singletons, the only fixes whose landed detection fusion did not
-  assign to another corroborated ramp, gives 3 / 0 (p = 0.25).
-- The first is an upper bound and the second a lower bound on how often RoMa placed the
-  site's own ramp.
+rubric. Read as "placed on the mined ramp", the paired count lies between 0 / 0 and 7 / 0:
+- Removing the 2 demonstrated wrong-ramp transfers leaves 7 / 0 (p = 0.016). This is the
+  upper bound: no other fix is shown to be a wrong ramp.
+- None of the 9 is shown to be the mined ramp, so the lower bound is 0 / 0. With no
+  discordant pair the sign test is undefined there.
+- 3 / 0 (p = 0.25) is a reading, not a bound: it counts the 3 singletons as the mined ramp.
+  Their landed detections are 8.08–8.17 m from the candidate site, inside the 5.4–11 m of
+  the 6 other-multi-pano landings, and their identity is undetermined (see the category
+  definitions above).
 
-**Strict sensitivity.** A cruder bound on all-mined counts every `already_detected` that
+**Strict sensitivity.** A cruder reading of all-mined counts every `already_detected` that
 lands on another multi-pano site as wrong, for the flat run and each arm alike. Richmond
 reads 0.255 (13/51) flat and 0.314 (16/51) with `roma_local`. Pooled it is 0.368 → 0.386,
-and GSV pooled 0.460 → 0.444. The rubric's all-mined and this strict reading bracket the
-precision of "a label on the mined ramp". Every arm's gain over flat sits almost entirely
-in the gap between them.
+and GSV pooled 0.460 → 0.444. This strict reading is a sensitivity reading, not a bound on
+the precision of "a label on the mined ramp": it still counts a singleton
+`already_detected` as correct, and any `tp` whose nearest point is a *different* missed
+mark within 5 m. Every arm's gain over flat sits almost entirely in the gap between it and
+the rubric's all-mined.
 
 **What this means for the 5 m world match (a finding for step 3).** The adjudication rule
 takes the nearest GT point within 5 m. On a dense corner that cannot tell the mined ramp from
@@ -417,7 +422,8 @@ later step that adjudicates mined targets this way, step 3's peak-anchored targe
   the labels a `roma_local` miner ships on richmond are right 63% of the time instead of 43%
   (paired 9 / 0). Hard-only rises only because false positives leave its denominator
   (0.310 → 0.406). Whether image placement puts the label on the *mined* ramp more often
-  than flat projection does is not shown; the bounds above run from 3 / 0 to 7 / 0.
+  than flat projection does is not shown; the bounds above run from 0 / 0 to 7 / 0 (3 / 0
+  if the 3 singleton landings are taken to be the mined ramp).
 - **RoMa and MapAnything on richmond.** On #48's Mapillary pairs the two were close
   (RoMa 1.75–1.87° gain, MapAnything 1.73°). Here MapAnything fixes 4 (2 onto another
   multi-pano site, 2 onto singletons) and breaks 2. RoMa's larger count is at least partly
@@ -434,9 +440,13 @@ later step that adjudicates mined targets this way, step 3's peak-anchored targe
   - `mapa_posed_pair` is post hoc in #48, but #48's fresh-pair re-test
     ([RampNet#220](https://github.com/ProjectSidewalk/RampNet/pull/220), open;
     [results](https://github.com/ProjectSidewalk/RampNet/issues/48#issuecomment-5895553631))
-    has since **confirmed** all three MapAnything arms against `proj_height_auto`, Mapillary
-    included (`mapa_posed_pair` +1.32° [0.73, 2.34]). On Mapillary `mapa_k_pair` was best
-    (+1.89°); it was not run here.
+    has since confirmed `mapa_posed_pair` against `proj_height_auto` (Mapillary +1.32°
+    [0.73, 2.34]), and it stays robust under #220's sensitivity reads (GSV α/3 lower bound
+    ≥ +0.105°). It also confirmed `mapa_posed_corner`. `mapa_k_pair` is confirmed as
+    pre-specified but borderline on GSV: under #220's review and
+    [sensitivity reads](https://github.com/ProjectSidewalk/RampNet/issues/48#issuecomment-5896570175)
+    its GSV lower bound is 0.000 / −0.009 / −0.048, so that cell is not confirmed under any
+    of them. On Mapillary `mapa_k_pair` was best (+1.89°); it was not run here.
   - `roma` and `roma_local` were **not** in that re-test, so neither is confirmed on fresh
     pairs. In #48 no matching arm beats auto on GSV. Their Mapillary gains (+1.75 / +1.87°)
     come from a stratum #48 did not screen for multiplicity.
@@ -522,7 +532,8 @@ Every output above is written with LF line endings, so a re-run on Windows is
 byte-identical on disk (checked 2026-09-29 for all phase-2 and step-2 files under
 `data/frozen/`).
 
-The views are not published: 254 JPEGs, `views.tar` sha256 `8a8bd690…cad6`, on makelab2 at
+The views are not published: 254 JPEGs, `views.tar` sha256
+`8a8bd69029736ffa1207de69484826b453109046485de028fadf2cabd7cccad6`, on makelab2 at
 `/homes/gws/jonf/mined158/views`. They regenerate from the archive with `cut-views`. A
 GPU re-run can differ by a pair or two (#48 matching.md §2).
 

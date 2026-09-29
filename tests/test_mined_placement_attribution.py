@@ -61,3 +61,56 @@ def test_transition_names():
     assert mpa.transition('already_detected', 'tp') == 'ad_to_tp'
     assert mpa.transition('unsure', 'fp') == 'other_change'
     assert mpa.transition('fp', 'fp') is None
+
+
+def _g2_arm(flat):
+    """The test arm: carries A's click onto g2's detection of B; everything else falls back."""
+    g2_a = next(c for c in flat if c.pano_id == 'g2')
+    place = {('s', c.site_id, c.pano_id): None for c in flat}
+    return g2_a, place
+
+
+def test_verify_refuses_a_bucket_that_differs_from_the_committed_run(tmp_path, monkeypatch):
+    """run_city(verify_root=...) re-reads each committed candidates.csv and refuses on any
+    bucket mismatch. Planting a no-op _verify must make this test fail."""
+    import pytest
+    panos, verdicts = _two_ramp_scene()
+    ops = _bundle_ops(panos, verdicts)
+    params = fs.FuseParams()
+    _, flat = mp.run_city(verdicts, ops, panos, params, city='s')
+    g2_a, place = _g2_arm(flat)
+    g2 = next(p for p in panos if p.pano_id == 'g2')
+    place[('s', g2_a.site_id, 'g2')] = g2.detections[0][1:3]
+    arms = [('img', place)]
+    # write the "committed" runs from the same code path, so they verify cleanly
+    seen = []
+    with monkeypatch.context() as m:
+        m.setattr(mpa, '_verify', lambda path, cands: seen.append((path, cands)))
+        mpa.run_city('s', verdicts, ops, panos, params, arms, 15.0, 5.0,
+                     verify_root=tmp_path)
+    assert [p.parent.parent.name for p, _ in seen] == ['perrig_perpano', 'place_img']
+    for path, cands in seen:
+        mp.write_outputs(path.parent, '', cands)
+    mpa.run_city('s', verdicts, ops, panos, params, arms, 15.0, 5.0, verify_root=tmp_path)
+    # flip one committed bucket in the arm's run: refused
+    arm_csv = tmp_path / 'place_img' / 's' / 'candidates.csv'
+    text = arm_csv.read_text(encoding='utf-8')
+    assert text.count(',already_detected,') == 1
+    arm_csv.write_text(text.replace(',already_detected,', ',fp,'), encoding='utf-8',
+                       newline='\n')
+    with pytest.raises(AssertionError, match='recomputed buckets differ'):
+        mpa.run_city('s', verdicts, ops, panos, params, arms, 15.0, 5.0,
+                     verify_root=tmp_path)
+
+
+def test_writing_into_frozen_requires_verify(tmp_path):
+    import pytest
+    frozen = tmp_path / 'frozen'
+    with pytest.raises(SystemExit, match='--verify'):
+        mpa.require_verify((None, frozen / 'attribution_phase2.md'), None, frozen)
+    with pytest.raises(SystemExit, match='--verify'):
+        mpa.require_verify((frozen / 'sub' / 'a.csv', None), None, frozen)
+    mpa.require_verify((frozen / 'a.csv',), frozen, frozen)      # verified: allowed
+    mpa.require_verify((tmp_path / 'scratch.csv', None), None, frozen)  # elsewhere: allowed
+    assert mpa.FROZEN_DIR.parts[-5:] == ('docs', 'figures', 'mined-precision', 'data',
+                                         'frozen')

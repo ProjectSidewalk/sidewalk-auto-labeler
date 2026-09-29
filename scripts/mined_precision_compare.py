@@ -137,7 +137,7 @@ def paired(base, arm, cities, mapillary=()):
             raise ValueError(f'{c}: {base[0]} and {arm[0]} disagree on range_m for '
                              f'{len(moved)} candidates (e.g. {moved[0]}); they are '
                              f'not the same fuse, so not paired')
-        per[c] =[(a[k], b[k]) for k in sorted(a)]
+        per[c] = [(a[k], b[k]) for k in sorted(a)]
     groups = [(c, [c]) for c in cities] + [('pooled', list(cities))]
     gsv = [c for c in cities if c not in set(mapillary)]
     if gsv and len(gsv) != len(cities):

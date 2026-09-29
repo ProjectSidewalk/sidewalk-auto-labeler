@@ -41,16 +41,22 @@ flat point had matched). Every recomputed bucket is checked against the committe
 candidates.csv of the same run (--verify), so the attribution describes exactly the
 candidates the tables count.
 
-Usage (frozen inputs as in docs/mined-precision.md; RampNet benchmark at 4a859f1):
+Usage (frozen inputs as in docs/mined-precision.md, step 2 "Reproduce"; RampNet
+benchmark at 4a859f1). The --arm order sets the row order of the markdown tables, so it
+must be mapa_posed_pair, roma, roma_local to reproduce the committed .md byte for byte:
+    FROZEN=/path/to/frozen   # <city>/results.jsonl, <city>/depth/index.csv, richmond/camera_heights.json
     D=docs/figures/mined-precision/data/frozen
+    P=docs/figures/mined-precision/data/placement
     python scripts/mined_placement_attribution.py richmond paterson bend gainesville sao_paulo \\
         --runs-root $FROZEN --benchmark-root ../RampNet/benchmark \\
         --camera-height per-rig per-pano per-pano per-pano per-pano \\
-        --arm roma=docs/figures/mined-precision/data/placement/roma.jsonl \\
-        --arm roma_local=docs/figures/mined-precision/data/placement/roma_local.jsonl \\
-        --arm mapa_posed_pair=docs/figures/mined-precision/data/placement/mapa_posed_pair.jsonl \\
+        --arm mapa_posed_pair=$P/mapa_posed_pair.jsonl \\
+        --arm roma=$P/roma.jsonl --arm roma_local=$P/roma_local.jsonl \\
         --verify $D --mapillary richmond \\
         --out $D/attribution_phase2.csv --md $D/attribution_phase2.md
+
+Writing --out or --md into data/frozen/ without --verify is refused (require_verify), so a
+committed table cannot be rewritten from buckets that differ from the committed runs.
 """
 import argparse
 import csv
@@ -249,6 +255,25 @@ def _verify(path, cands):
                              f'for {len(diff)} candidates (e.g. {diff[0]})')
 
 
+FROZEN_DIR = REPO_ROOT / 'docs' / 'figures' / 'mined-precision' / 'data' / 'frozen'
+
+
+def require_verify(outputs, verify, frozen_dir=FROZEN_DIR):
+    """Refuse to write any output inside the committed frozen dir unless --verify is set,
+    so a committed table is only ever rewritten from buckets equal to the committed runs'.
+    Outputs elsewhere (exploration) need no --verify."""
+    if verify is not None:
+        return
+    frozen = Path(frozen_dir).resolve()
+    for o in outputs:
+        if o is None:
+            continue
+        o = Path(o).resolve()
+        if o == frozen or frozen in o.parents:
+            raise SystemExit(f'{o} is inside {frozen}: pass --verify {frozen_dir} so the '
+                             f'recomputed buckets are checked against the committed runs')
+
+
 def summarise(rows, cities, mapillary=()):
     """[(group, arm, transition, {category: n}, n_src_in_landed)] in a stable order."""
     groups = [(c, [c]) for c in cities] + [('pooled', list(cities))]
@@ -360,6 +385,7 @@ def main():
     ap.add_argument('--out', type=Path, default=None, help='per-candidate CSV')
     ap.add_argument('--md', type=Path, default=None, help='summary table (markdown)')
     args = ap.parse_args()
+    require_verify((args.out, args.md), args.verify)
     heights = args.camera_height
     if len(heights) not in (1, len(args.city)):
         ap.error('--camera-height takes one value or one per city')
