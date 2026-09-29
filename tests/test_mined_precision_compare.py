@@ -57,3 +57,22 @@ def test_duplicate_key_refused(tmp_path):
     _write(tmp_path, 'x', 'a', dup)
     with pytest.raises(ValueError, match='not unique'):
         mpc.read_candidates(tmp_path / 'x' / 'a' / 'candidates.csv')
+
+
+def test_paired_transitions_and_sign_test(tmp_path):
+    base = [_cand('a', 1, 'p1', 5.0, 'fp', 'det'), _cand('a', 2, 'p2', 9.0, 'tp', 'missed'),
+            _cand('a', 3, 'p3', 12.0, 'unsure', 'unsure')]
+    arm = [_cand('a', 1, 'p1', 5.0, 'tp', 'missed'), _cand('a', 2, 'p2', 9.0, 'fp'),
+           _cand('a', 3, 'p3', 12.0, 'already_detected', 'det')]
+    _write(tmp_path, 'flat', 'a', base)
+    _write(tmp_path, 'img', 'a', arm)
+    rows = mpc.paired(('flat', tmp_path / 'flat'), ('img', tmp_path / 'img'), ['a'])
+    r = next(x for x in rows if x['group'] == 'a')
+    assert (r['fixed'], r['broken'], r['changed']) == (1, 1, 3)   # unsure -> right is neither
+    assert (r['tp_gained'], r['tp_lost']) == (1, 1)
+    assert r['sign_p'] == 1.0
+    assert mpc.sign_test_p(0, 6) == pytest.approx(2 / 64)
+    # different candidate sets are not paired
+    _write(tmp_path, 'other', 'a', base[:2])
+    with pytest.raises(ValueError, match='not the same candidates'):
+        mpc.paired(('flat', tmp_path / 'flat'), ('other', tmp_path / 'other'), ['a'])

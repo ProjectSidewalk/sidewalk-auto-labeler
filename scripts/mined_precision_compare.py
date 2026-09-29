@@ -97,6 +97,68 @@ def compare(arms, cities, mapillary=()):
     return out
 
 
+def _state(c):
+    """'right' (tp / already_detected), 'wrong' (a false positive) or 'out' (unsure,
+    unadjudicable: in neither denominator)."""
+    if c.bucket in mp.TP_ALL:
+        return 'right'
+    if c.bucket in mp.FP_BUCKETS:
+        return 'wrong'
+    return 'out'
+
+
+def sign_test_p(k, n):
+    """Two-sided exact binomial (p = 0.5) p-value for k of n discordant pairs."""
+    if n == 0:
+        return 1.0
+    tail = sum(math.comb(n, i) for i in range(0, min(k, n - k) + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
+
+
+def paired(base, arm, cities, mapillary=()):
+    """Candidate-by-candidate transitions from `base` to `arm` (both (label, dir)), for
+    runs made on the SAME candidate set (an image-placement arm against its flat run).
+    Per city, pooled and pooled GSV: fixed (wrong -> right), broken (right -> wrong),
+    tp gained / lost, and a two-sided sign test on fixed vs broken. Two runs whose
+    candidate keys differ are refused: they are not paired."""
+    per = {}
+    for c in cities:
+        a = {(x.city, x.site_id, x.pano_id): x
+             for x in read_candidates(Path(base[1]) / c / 'candidates.csv')}
+        b = {(x.city, x.site_id, x.pano_id): x
+             for x in read_candidates(Path(arm[1]) / c / 'candidates.csv')}
+        if set(a) != set(b):
+            raise ValueError(f'{c}: {base[0]} and {arm[0]} are not the same candidates')
+        per[c] = [(a[k], b[k]) for k in sorted(a)]
+    groups = [(c, [c]) for c in cities] + [('pooled', list(cities))]
+    gsv = [c for c in cities if c not in set(mapillary)]
+    if gsv and len(gsv) != len(cities):
+        groups.append(('pooled GSV', gsv))
+    out = []
+    for g, cs in groups:
+        pp = [x for c in cs for x in per[c]]
+        fixed = sum(1 for x, y in pp if _state(x) == 'wrong' and _state(y) == 'right')
+        broken = sum(1 for x, y in pp if _state(x) == 'right' and _state(y) == 'wrong')
+        out.append({'group': g, 'base': base[0], 'arm': arm[0], 'candidates': len(pp),
+                    'changed': sum(1 for x, y in pp if x.bucket != y.bucket),
+                    'fixed': fixed, 'broken': broken,
+                    'sign_p': sign_test_p(fixed, fixed + broken),
+                    'tp_gained': sum(1 for x, y in pp if x.bucket != 'tp' and y.bucket == 'tp'),
+                    'tp_lost': sum(1 for x, y in pp if x.bucket == 'tp' and y.bucket != 'tp')})
+    return out
+
+
+def paired_markdown(rows):
+    lines = ['| group | base -> arm | cand. | buckets changed | fixed (fp -> right) '
+             '| broken (right -> fp) | sign-test p | tp gained | tp lost |',
+             '|---|---|--:|--:|--:|--:|--:|--:|--:|']
+    for r in rows:
+        lines.append(f"| {r['group']} | {r['base']} -> {r['arm']} | {r['candidates']} "
+                     f"| {r['changed']} | {r['fixed']} | {r['broken']} | {r['sign_p']:.3f} "
+                     f"| {r['tp_gained']} | {r['tp_lost']} |")
+    return '\n'.join(lines)
+
+
 def _cell(p, lo, hi, k, n):
     if p is None:
         return '- (n=0)'
@@ -150,6 +212,12 @@ def main():
                     help='cities left out of the "pooled GSV" row')
     ap.add_argument('--out', type=Path, default=None, help='CSV of every cell')
     ap.add_argument('--md', type=Path, default=None, help='markdown copy of the table')
+    ap.add_argument('--paired-base', default=None,
+                    help='label of an --arm run on the SAME candidates as --paired-arms; '
+                         'each gets a candidate-by-candidate transition table against it '
+                         '(image-placement arms against their flat run)')
+    ap.add_argument('--paired-arms', nargs='*', default=None,
+                    help='arms to pair against --paired-base (default: every other arm)')
     args = ap.parse_args()
     arms = []
     for a in args.arm:
@@ -162,6 +230,16 @@ def main():
     print(md)
     if args.out:
         write_csv(args.out, rows)
+    if args.paired_base:
+        base = next(a for a in arms if a[0] == args.paired_base)
+        prow = []
+        for a in arms:
+            if a is base or (args.paired_arms is not None and a[0] not in args.paired_arms):
+                continue
+            prow += paired(base, a, args.cities, args.mapillary)
+        pmd = paired_markdown(prow)
+        print('\n' + pmd)
+        md = md + '\n\n' + pmd
     if args.md:
         args.md.parent.mkdir(parents=True, exist_ok=True)
         args.md.write_text(md + '\n', encoding='utf-8', newline='\n')

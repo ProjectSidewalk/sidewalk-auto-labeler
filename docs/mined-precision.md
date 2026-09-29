@@ -1,4 +1,4 @@
-# Precision of mined hard positives (RampNet#158, steps 1 and 2)
+# Precision of mined hard positives (RampNet#158: steps 1, 2 and phase 2)
 
 `scripts/mined_precision.py` measures how often a label mined from multi-view consensus is
 right. A **mined label** is a strong fused site (≥ 3 operational panos) projected into a
@@ -154,12 +154,14 @@ positives left after step 2, 20 are richmond's.
   way: pooled per-pano hard-only 0.495 [0.40, 0.59] (47/95), all-mined 0.625 [0.54, 0.70]
   (80/128); 2.6 m gives 0.333 / 0.510. The 9,524 gap-fill panos have no depth row, so they
   fall back to 2.6 m. Tables: `data/current/compare.md`.
-- **Replication gap: paterson's input is not on makelab2.** The frozen paterson file (sha256
-  `651226f9…`, 34,687 panos, including the 260-pano gap fill) exists only in Jon's desktop
-  checkout. The makelab2 archive holds the pre-gap-fill 34,427-pano file. Detections are
-  identical on the shared panos, but the numbers here need the newer file. Copying it into
-  the archive (for example as `results.gapfill-2026-09-21.jsonl`) would close the gap. The
-  current gainesville and são paulo files are in the same position; the frozen ones are not.
+- **Paterson's input is in the archive under its own name (gap closed 2026-09-29).** The
+  frozen paterson file (sha256 `651226f9…`, 34,687 panos, including the 260-pano gap fill)
+  was at first only in Jon's desktop checkout. On 2026-09-29 it was copied, with Jon's
+  approval, to `runs/paterson/results.gapfill-2026-09-21.jsonl` in the makelab2 archive
+  (read-only, byte-identical). The archive's `results.jsonl` beside it is still the
+  pre-gap-fill 34,427-pano file and is not the input used here. The current (gap-filled)
+  gainesville and são paulo files are still desktop-only; only the secondary `current/`
+  tables use them.
 
 ### Runtime and cost
 
@@ -171,7 +173,8 @@ inputs rewrites every `candidates.csv` byte-identically (checked).
 
 ```bash
 # Build the frozen runs root from the makelab2 archive (runs/<city>/{results.jsonl,depth/index.csv});
-# paterson from the desktop checkout (see the replication gap above); richmond's per-rig
+# paterson from runs/paterson/results.gapfill-2026-09-21.jsonl there (renamed to
+# results.jsonl in FROZEN); richmond's per-rig
 # table is git-tracked. Verify every sha256 against data/inputs.json before running.
 FROZEN=/path/to/frozen   # <city>/results.jsonl, <city>/depth/index.csv, richmond/camera_heights.json
 C="richmond paterson bend gainesville sao_paulo"
@@ -192,9 +195,202 @@ python scripts/mined_precision_compare.py --cities $C --mapillary richmond \
 
 ### Next
 
-Phase 2 replaces the flat projection with image-based placement from RampNet PR #210:
-MapAnything on the posed pair, and RoMa for Mapillary. It reruns the same check on the same
-frozen inputs, so the result is paired against both tables above. Richmond is the city it has
-to move, because no height rule can. The peak-anchored target definition (a sub-threshold
-peak near the projected point, from step 1's plan) is still open. richmond needs an inference
-pass at the storage floor before that definition can be tested there.
+Phase 2 (below) replaced the flat projection with image-based placement.
+
+## Phase 2 (2026-09-29): image-based placement of the mined target
+
+**Question.** Step 2 could not move richmond, and richmond holds 20 of the 29 placement false
+positives left after it. RampNet [#210](https://github.com/ProjectSidewalk/RampNet/pull/210)
+found image-based transfers that place a ramp from one view into another better than flat
+ground does, most clearly on Mapillary. If the miner places its target with one of those
+instead of projecting the fused site, does mined precision rise?
+
+**Design. Fixed and posted before any placement was scored**
+([RampNet#158 comment](https://github.com/ProjectSidewalk/RampNet/issues/158#issuecomment-5894832666);
+code in `44784ef`):
+
+- **Same candidates, so the comparison is paired.** The 127 candidates are step 2's
+  (frozen inputs, per-rig / per-pano frame). Each arm is scored candidate by candidate
+  against the step-2 flat run (`step2_flat`).
+- **Source rule.** An image transfer needs one view of the ramp to start from. It is the
+  site's operational member from another pano whose camera is nearest the target camera;
+  ties go to higher confidence, then pano_id. The rule never reads a verdict or the target
+  pano's detections. Output: `frozen/perrig_perpano/<city>/sources.csv`, which carries no GT.
+- **Views** are the #48 harness's (1024 × 768, 75°). The source view is centred on the
+  source detection, and the target view on the step-2 projection.
+- **Arms**, run through the harness's own `Context` / `run_arm`, which hide the answer:
+  - `mapa_posed_pair`: MapAnything on the pair, given the #48 pose priors (auto height, pose
+    off). It is **post hoc in #48 and in its fresh-pair re-test now**, so read its row as
+    provisional.
+  - `roma`: RoMa with the RANSAC ground homography, pre-specified in #48.
+  - `roma_local`: post hoc in #48.
+  - A fallback, or a pixel that does not reach the ground, keeps the step-2 point.
+- **Adjudication.** The placed pixel is raycast from the target camera in the step-2 frame,
+  exactly as that pano's GT marks are. Match radius 5 m, same buckets, same rule, same
+  Wilson CIs. Range bands use the candidate's site range, so the strata are the flat run's.
+  `placement.csv` records per candidate whether the arm placed it and how far it moved.
+- **Driver.** RampNet `scripts/analysis/mined_placement_158.py`, branch
+  `analysis/mined-placement-158`. Predictions are copied to
+  `figures/mined-precision/data/placement/`.
+
+**Coverage.** `mapa_posed_pair` placed 127 of 127 targets. `roma` placed 114: 9 fell back
+and 4 missed the ground. `roma_local` placed 116: 7 fell back and 4 missed the ground.
+Median shift of a placed target from the site: 1.84 / 2.19 / 2.23 m.
+
+### Richmond (Mapillary), ≤ 15 m
+
+| arm | hard-only [95% CI] (k/n) | all-mined [95% CI] (k/n) | fp placed | fixed / broken vs flat | sign-test p |
+|---|---|---|--:|---|--:|
+| step 1, 2.6 m = step 2 flat | 0.310 [0.19, 0.46] (13/42) | 0.431 [0.31, 0.57] (22/51) | 20 | – | – |
+| `mapa_posed_pair` (provisional) | 0.342 [0.21, 0.50] (13/38) | 0.500 [0.37, 0.63] (25/50) | 19 | 4 / 2 | 0.69 |
+| `roma` | 0.394 [0.25, 0.56] (13/33) | 0.608 [0.47, 0.73] (31/51) | 13 | 8 / 0 | 0.008 |
+| **`roma_local`** | **0.406 [0.26, 0.58] (13/32)** | **0.627 [0.49, 0.75] (32/51)** | 12 | **9 / 0** | **0.004** |
+
+*Fixed* means a false positive under flat placement that is correct under the arm; *broken*
+is the reverse. The sign test is two-sided and exact.
+
+### Pooled over five cities, ≤ 15 m
+
+| arm | hard-only | all-mined | fixed / broken vs flat (p) |
+|---|---|---|---|
+| step 1, 2.6 m | 0.327 [0.24, 0.42] (32/98) | 0.511 [0.43, 0.59] (69/135) | – |
+| step 2 flat | 0.483 [0.38, 0.59] (42/87) | 0.605 [0.51, 0.69] (69/114) | – |
+| `mapa_posed_pair` (provisional) | 0.487 [0.38, 0.60] (39/80) | 0.637 [0.55, 0.72] (72/113) | 5 / 4 (1.00) |
+| `roma` | 0.500 [0.39, 0.61] (37/74) | 0.678 [0.59, 0.76] (78/115) | 9 / 3 (0.15) |
+| **`roma_local`** | **0.534 [0.42, 0.64] (39/73)** | **0.702 [0.61, 0.78] (80/114)** | 10 / 1 (0.012) |
+
+**GSV only (pooled, ≤ 15 m):**
+
+| arm | hard-only | all-mined | fixed / broken vs flat |
+|---|---|---|---|
+| step 2 flat | 0.644 (29/45) | 0.746 (47/63) | – |
+| `mapa_posed_pair` | 0.619 (26/42) | 0.746 (47/63) | 1 / 2 |
+| `roma` | 0.585 (24/41) | 0.734 (47/64) | 1 / 3 |
+| `roma_local` | 0.634 (26/41) | 0.762 (48/63) | 1 / 1 |
+
+No arm helps on GSV. On paterson, `roma` turns 3 correct labels into false positives, and
+several `tp` become `already_detected`.
+
+### By range band, pooled, ≤ 15 m: step 2 flat → `roma_local`
+
+| band | hard-only | all-mined |
+|---|---|---|
+| 0–8 m | 0.667 (14/21) → 0.667 (14/21) | 0.741 → 0.731 |
+| 8–12 m | 0.500 (13/26) → 0.476 (10/21) | 0.629 → 0.686 |
+| 12–15 m | 0.375 (15/40) → 0.484 (15/31) | 0.519 → 0.698 |
+
+For richmond alone, the far band's all-mined goes 0.238 → 0.591 (5/21 → 13/22). The full
+city × band × arm table, with both denominators, CIs and the paired transitions, is
+[`data/frozen/compare_phase2.md`](figures/mined-precision/data/frozen/compare_phase2.md).
+
+### Reading against the pre-registered rule
+
+- **Richmond, best arm (`roma_local`).**
+  - hard-only 0.406 [0.26, 0.58]: *drop* on the point estimate, and the CI spans drop and
+    visibility, so it is not decisive.
+  - all-mined 0.627 [0.49, 0.75]: *visibility*, with a CI that dips just under 0.50, so it
+    is not decisive either.
+  - Under flat placement richmond read *drop* on both denominators.
+- **Pooled, `roma_local`.**
+  - hard-only 0.534 [0.42, 0.64]: *visibility*, not decisive.
+  - all-mined 0.702 [0.61, 0.78]: *visibility*, decisive (the whole CI is inside the band).
+- **GSV is unchanged.** The step-2 reading stands there.
+
+### What the change is made of
+
+- **On richmond, every fix is a label that was already a detection.** RoMa creates no new
+  hard positive there: `tp` stays at 13 in every arm, and all 8–9 fixed candidates move from
+  `fp` to `already_detected` (9 → 18 / 19). The flat projection of the fused site had landed
+  more than 5 m from a ramp that the target pano itself detected. The image transfer from
+  the nearest member lands on that ramp. So hard-only rises only because false positives
+  leave its denominator (0.310 → 0.406). What the miner gains on richmond is **correct
+  labels, not new ones**. For training that still matters: the labels it ships are right
+  63% of the time instead of 43%.
+- **Why RoMa and not MapAnything on richmond.** On #48's Mapillary pairs the two were close
+  (RoMa 1.75–1.87° gain, MapAnything 1.73°). Here MapAnything fixes 4 and breaks 2, and a
+  placement error in degrees is not the whole story at a 5 m world radius. The MapAnything
+  arm is provisional in any case.
+- **GSV does not need it.** After step 2's measured heights, the flat projection is already
+  about as good as the image transfers on GSV, as in #48 (no GSV arm beat auto height except
+  the posed MapAnything pair, by 0.63°).
+
+### Caveats (they travel with the numbers)
+
+- **`mapa_posed_pair` is post hoc** (#48) and its fresh-pair re-test is running now. Its row
+  is provisional. `roma_local` is also post hoc in #48. Only `roma` was pre-specified there.
+  All three were named here before scoring.
+- **Richmond n is small.** 32–42 adjudicable candidates on hard-only, 59 in all. The
+  paired sign test is the strongest evidence (9 / 0, p = 0.004). The unpaired CIs overlap.
+- **One source view per candidate.** A different source rule (for example, the most
+  confident member) could transfer differently. It was not tried, so that no rule was chosen
+  on these scores.
+- **Adjudication stays in world space.** The placed pixel is raycast from the target camera,
+  as the GT marks are, so the step-2 frame still sets the metre scale of the 5 m match. For
+  a target and a GT mark in the same pano this is close to a pixel comparison. It is not
+  identical.
+- **Views and arms are #48's harness and code at `e00fcda`,** except that the pair list is
+  this one. The #48 caveats about reference noise do not apply here, because the reference
+  is the reviewer's verdict, not a detection peak.
+
+### Runtime and cost
+
+| step | where | wall-clock | GPU-h | $ |
+|---|---|---|---|---|
+| `--emit-sources` + adjudication, per arm | desktop CPU | 13–16 s | 0 | 0 |
+| `mined_placement_158.py build` | desktop CPU | 8 s | 0 | 0 |
+| `cut-views` (254 views from 211 panos) | makelab2 CPU, 8 workers | 40 s | 0 | 0 |
+| `mapa_posed_pair` (127 pairs, incl. model load) | makelab2 A40 (shared; 8.8 GB held by an unrelated process, checked first) | 134 s | 0.037 | 0 |
+| `roma` + `roma_local` (127 pairs, cached matches) | desktop RTX 3070 | 204 s | 0.057 (upper bound) | 0 |
+
+No Tillicum and no paid API. The two GPU runs have `paid: false` rows in RampNet's
+`analysis_out/usage_log.jsonl`. RoMa (`romatch` 0.1.2, `kornia` 0.8.3, `loguru`) was
+installed `--no-deps` into a scratch directory and put on `PYTHONPATH` beside RampNet's
+`.venv`, as #48 did. MapAnything ran in makelab2's `crossview48_sfm/venv`.
+
+### Reproduce (phase 2)
+
+```bash
+# labeler: the source rows (already committed) come from the step-2 command plus --emit-sources
+python scripts/mined_precision.py $C $B --out $D/perrig_perpano \
+    --camera-height per-rig per-pano per-pano per-pano per-pano --emit-sources
+# RampNet (branch analysis/mined-placement-158):
+python scripts/analysis/mined_placement_158.py build --sources-root <labeler>/$D/perrig_perpano \
+    --labeler-root <labeler> --runs-root $FROZEN
+python scripts/analysis/mined_placement_158.py cut-views \
+    --archive-root /projects/makeabilitylab/sidewalk-auto-labeler/runs --out VIEWS   # makelab2
+python scripts/analysis/mined_placement_158.py predict --arm mapa_posed_pair --views VIEWS
+PYTHONPATH=<romatch pkgs> python scripts/analysis/mined_placement_158.py predict --arm roma \
+    --views VIEWS --extra match_cache=CACHE
+PYTHONPATH=<romatch pkgs> python scripts/analysis/mined_placement_158.py predict --arm roma_local \
+    --views VIEWS --extra match_cache=CACHE
+# labeler: adjudicate each arm, then the paired table
+for a in mapa_posed_pair roma roma_local; do
+  python scripts/mined_precision.py $C $B --out $D/place_$a \
+      --camera-height per-rig per-pano per-pano per-pano per-pano \
+      --placement docs/figures/mined-precision/data/placement/$a.jsonl --placement-label $a
+done
+python scripts/mined_precision_compare.py --cities $C --mapillary richmond \
+    --arm step1_2.6=$D/h2.6 --arm step2_flat=$D/perrig_perpano \
+    --arm mapa_posed_pair=$D/place_mapa_posed_pair --arm roma=$D/place_roma \
+    --arm roma_local=$D/place_roma_local --paired-base step2_flat \
+    --paired-arms mapa_posed_pair roma roma_local \
+    --out $D/compare_phase2.csv --md $D/compare_phase2.md
+```
+
+The views are not published: 254 JPEGs, `views.tar` sha256 `8a8bd690…cad6`, on makelab2 at
+`/homes/gws/jonf/mined158/views`. They regenerate from the archive with `cut-views`. A
+GPU re-run can differ by a pair or two (#48 matching.md §2).
+
+### Next
+
+- **Wait for the fresh-pair re-test of `mapa_posed_pair`** before reading its row as
+  anything but provisional. It does not lead here in any case.
+- **Richmond now reads *visibility* on all-mined, not decisively, and *drop* on
+  hard-only.** RoMa fixes placement but adds no new misses there. So the next lever is
+  about which targets are hard misses, not where they land:
+  - the peak-anchored target definition from step 1's plan, which needs a richmond
+    inference pass at the storage floor;
+  - the visibility test the rule names for the 0.50–0.80 band.
+- **A miner that uses `roma_local` on Mapillary and the flat projection on GSV** is what
+  these numbers support. It has not been measured as one arm. Its pooled reading would be
+  richmond's `roma_local` rows plus GSV's flat rows.

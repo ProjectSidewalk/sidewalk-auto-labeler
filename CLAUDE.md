@@ -342,6 +342,16 @@ python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
     --camera-height per-rig per-pano per-pano per-pano per-pano --out /tmp/mp/perrig_perpano
 python scripts/mined_precision_compare.py --cities richmond paterson bend gainesville \
     sao_paulo --mapillary richmond --arm a=/tmp/mp/h2.6 --arm b=/tmp/mp/perrig_perpano
+# PHASE 2 (image-based placement; docs/mined-precision.md). --emit-sources writes, per
+# candidate, the source view the pre-registered SOURCE RULE picks (nearest member camera;
+# nothing GT-derived). RampNet's scripts/analysis/mined_placement_158.py runs a #48
+# placement arm on those pairs; --placement FILE then adjudicates the placed pixel on the
+# SAME candidates (paired), and --paired-base in the compare tool gives fixed/broken counts.
+# RoMa (roma_local) fixes richmond's placement (9 fixed / 0 broken, all into
+# already_detected: correct labels, no new misses); nothing helps on GSV.
+python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
+    --camera-height per-rig per-pano per-pano per-pano per-pano --out /tmp/mp/roma_local \
+    --placement docs/figures/mined-precision/data/placement/roma_local.jsonl
 
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.
