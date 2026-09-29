@@ -460,3 +460,27 @@ counted.
   yield threshold is set.
 
 **Cost** gets `paid: false` rows in RampNet's `analysis_out/usage_log.jsonl`.
+
+### Step 3: addendum written after inference, before scoring (2026-09-29)
+
+1. **Instrument check.** richmond passes: **124 of 124** panos reproduce their ≥ 0.55
+   detections (267 before and after). bend **fails**: 77 of 110 reproduce (0.70; 265
+   operational detections before, 257 after). The pixel sizes of bend's archived JPEGs match
+   its pano blocks (101 are 16384 × 8192 and 9 are 13312 × 6656), so it is not a size
+   mismatch. bend's run is the oldest (2026-07-03), and why its peaks move was not
+   investigated. **Under the gate, bend's pass is not used.** Every step-3 arm, and the flat
+   comparison beside it, is therefore over **richmond, paterson, gainesville and são paulo:
+   115 of the 127 candidates**. Outputs are in `step3/<city>.floor.jsonl` and
+   `step3/<city>.check.json`.
+2. **Own-site read, secondary, added after the review of RampNet#219 and before any step-3
+   scoring.** The reviewer found that 6 of phase 2's 9 richmond `roma_local` fixes were
+   matched to a detection of a *different* fused site 5.4–11 m away. The 5 m world match
+   accepts a neighbouring ramp on a dense corner. `--own-site` therefore reads each
+   adjudication a second way:
+   - A right adjudication (tp or already_detected) whose GT point is strictly closer to
+     another site of the same fuse than to the candidate's own becomes `other_site`.
+   - `other_site` is false under both denominators.
+
+   It is reported beside the pre-registered read for every arm, flat and phase 2 included.
+   It is not a replacement for that read.
+3. **`mapa_k_pair` ran.** 127 pairs, 1 fell back, 50 s on the A40.

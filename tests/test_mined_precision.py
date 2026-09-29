@@ -312,3 +312,21 @@ def test_read_placement_reads_emit_false(tmp_path):
     p.write_text('{"city": "a", "site_id": 1, "pano_id": "x", "emit": false, "x": null}\n',
                  encoding='utf-8')
     assert mp.read_placement(p) == {('a', 1, 'x'): mp.NOT_EMITTED}
+
+
+def test_own_site_read_refuses_a_neighbouring_sites_ramp():
+    """Step 3's own-site read: a right adjudication whose GT point sits closer to ANOTHER
+    fused site counts as other_site (false under both denominators)."""
+    panos, verdicts = _scene()
+    # ramp B, 4 m east of A, is its own strong site (three views of it)
+    panos += [make_pano('m1', 4, -10, [(4, 0, 0.9)]), make_pano('m2', 14, 0, [(4, 0, 0.9)]),
+              make_pano('m3', 4, 10, [(4, 0, 0.9)])]
+    # g1's reviewer marked B (not A) as its missed ramp: inside A's 5 m match
+    verdicts['g1'] = _entry(missed=[_xy(0, 8, 180.0, 4, 0)], no_missed=False)
+    plain = {c.pano_id: c for c in _run(panos, verdicts)[1] if c.site_id == 0}
+    assert plain['g1'].bucket == 'tp'
+    result, cands = _run(panos, verdicts, own_site=True)
+    own = {c.pano_id: c for c in cands if c.site_id == 0}
+    assert own['g1'].bucket == 'other_site'
+    assert result['headline']['other_site'] >= 1
+    assert 'other_site' in mp.FP_BUCKETS

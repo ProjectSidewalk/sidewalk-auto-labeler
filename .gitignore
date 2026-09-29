@@ -109,3 +109,5 @@ runs/_summary/camera_height/estimator_validation*.csv
 # RampNet#158 phase 2: placement arms' per-candidate predictions (copied from RampNet's
 # analysis_out/mined_placement_158/predictions/), the input to mined_precision.py --placement.
 !docs/figures/mined-precision/data/placement/*.jsonl
+# RampNet#158 step 3: the richmond / bend floor re-inference over judged panos (small).
+!docs/figures/mined-precision/data/step3/*.jsonl
