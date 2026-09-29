@@ -1,0 +1,3 @@
+city,n_anchors,n_anchors_polygon_only,n_network_endpoints,pool_ramps,pool_share_anchor_within_3m,pool_anchor_dist_p50
+bend,1833,1833,0,298,0.1242,115.032
+paterson,5815,3853,4650,323,0.5387,2.809

@@ -1,0 +1,78 @@
+{
+ "issue": 104,
+ "city": "paterson",
+ "tile2net_version": "0.5.0",
+ "tile2net_commit": "c737a4e8c8b907ee3c80739673c67140ce95483d",
+ "tile2net_repo": "https://github.com/VIDA-NYU/tile2net",
+ "checkpoints": [
+  "satellite_2021.pth",
+  "hrnetv2_w48_imagenet_pretrained.pth"
+ ],
+ "tile_source": "nj (Tile2Net built-in NewJersey source)",
+ "tile_source_url": "https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer",
+ "imagery_date": "2020",
+ "zoom": 19,
+ "base_tilesize": 256,
+ "stitch_step": 4,
+ "bbox_wgs84": [
+  -74.206203,
+  40.888682,
+  -74.128458,
+  40.941752
+ ],
+ "bbox_from": "runs/paterson/area.geojson bounds",
+ "n_tiles": 12064,
+ "n_stitched_inputs": 754,
+ "host": "makelab2 (NVIDIA A40)",
+ "commands": [
+  "python -m tile2net generate --location '40.941752,-74.206203,40.888682,-74.128458' --output <archive>/paterson/aerial --name paterson --zoom 19 --source nj",
+  "| python -m tile2net inference --local --eval test --dump_percent 0 --deterministic"
+ ],
+ "started": "2026-09-28T16:18:09-07:00",
+ "finished": "2026-09-28T16:33:46-07:00",
+ "runtime_s": 937,
+ "inference_elapsed_s": 807.7,
+ "peak_vram_mib": 1396.1,
+ "archive": "makelab2:/projects/makeabilitylab/sidewalk-auto-labeler/runs/paterson/aerial/",
+ "converter": "t2n_convert.py (f_type + geometry, EPSG:4326, 7-decimal coordinates)",
+ "polygons_parquet_sha256": "338a99739cdff999e4a1d5dd01f179c938175552f13672c41e43d3febc8274a2",
+ "polygons_geojson_sha256": "0867561c7e04fa205f097f639cb113ee177c29ef88f1f1242bd3bd577c61ea45",
+ "polygons_geojson_bytes": 4935019,
+ "polygons_features": 8252,
+ "polygons_by_class": {
+  "crosswalk": {
+   "n": 1887,
+   "area_m2": 100672
+  },
+  "road": {
+   "n": 1396,
+   "area_m2": 5596823
+  },
+  "sidewalk": {
+   "n": 4969,
+   "area_m2": 2218154
+  }
+ },
+ "network_parquet_sha256": "d39df9da92289b240a3b3adb1e8a1d93a46dac701b8e69d1a7ba70e06d84064c",
+ "network_geojson_sha256": "7b57dddfeca23491c4d2dc15a0185478c11c935d17a1a66de63c7d10b3174d8f",
+ "network_geojson_bytes": 5484455,
+ "network_features": 30365,
+ "network_by_class": {
+  "crosswalk": {
+   "n": 2210,
+   "length_m": 22989
+  },
+  "sidewalk": {
+   "n": 23878,
+   "length_m": 707362
+  },
+  "sidewalk_connection": {
+   "n": 4277,
+   "length_m": 11462
+  }
+ },
+ "polygons_parquet": "paterson/polygons/paterson-polygons.parquet",
+ "network_parquet": "paterson/network/paterson-network.parquet",
+ "vram_note": "Three short runs WITHOUT --deterministic (Boston example, two 1 km2 Paterson pilots, ~50 s each, 2026-09-28 16:04-16:10 PT) peaked at ~34 GB VRAM from cudnn benchmark probing while another job held ~9 GB, leaving ~3 GB free on the shared A40 (below the 20 GB-free rule). Every run that produced results used --deterministic: 1.4 GB peak.",
+ "deviation": "None for imagery: Tile2Net's built-in nj source. Paterson's GSV panos are 48% 2025: a ~5-year imagery gap."
+}
