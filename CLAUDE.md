@@ -324,6 +324,19 @@ python scripts/harvest_depth.py runs/vancouver --from-store <store> [--check-sto
 # depth/index.csv beside results.jsonl; the report prints how many panos had a height.
 python scripts/agree_rate.py gainesville --server https://sidewalk-gainesville.cs.washington.edu
 
+# LABEL-FRAME BETA (issue #113). GSV equirects are rig-frame, so a detection's row is in the
+# image's frame while a human PS label's pano_y is off by beta x T(b), T = pitch cos b +
+# roll sin b (streetlevel's sign). Fits beta from labels paired with the nearest detection on
+# the SAME pano (3 deg of bearing, 4/6/10 deg of elevation; pano-clustered SEs; rig-masked).
+# `run` pulls the city's labels once (read-only GET, cached, --refresh re-pulls; --exclude-user
+# drops an AI account) and reads pose + detections from results.jsonl; `pool` reads
+# sidewalk-panorama-tools' vouched pool + pose scan and a detections file made over those
+# store panos, and reports per label era. Gainesville: beta 0.936 (SE 0.021), 1,704 pairs.
+# It is NOT a placement coefficient (#116). Stdlib only; report.md + CSVs tracked, pull not.
+python scripts/label_frame_beta.py run gainesville --server https://sidewalk-gainesville.cs.washington.edu
+python scripts/label_frame_beta.py pool --pool <tilt-jm-pool.csv.gz> --pose <tilt-pose-jm.csv.gz> \
+    --detections <pool_detections.jsonl>          # -> runs/_pooled/label_frame_beta/
+
 # Precision of positives mined from multi-view consensus (RampNet#158 step 1 /
 # RampNet#102): for each site with >=3 operational panos and each judged benchmark pano
 # nearby that is NOT one of its members (membership is the only test a real miner can
