@@ -131,6 +131,14 @@ def paired(base, arm, cities, mapillary=()):
         # definition drops some); it may never hold a candidate the base does not.
         if set(b) - set(a):
             raise ValueError(f'{c}: {base[0]} and {arm[0]} are not the same candidates')
+        # site_id is a per-run serial: two different fuses can share key sets by
+        # coincidence. A placement arm keeps the flat run's range_m (it is the site's
+        # range, never the placed point's), so any difference means a different fuse.
+        moved = [k for k in b if a[k].range_m != b[k].range_m]
+        if moved:
+            raise ValueError(f'{c}: {base[0]} and {arm[0]} disagree on range_m for '
+                             f'{len(moved)} candidates (e.g. {moved[0]}); they are '
+                             f'not the same fuse, so not paired')
         per[c] = [(a[k], b[k]) for k in sorted(b)]
         not_emitted[c] = len(set(a) - set(b))
     groups = [(c, [c]) for c in cities] + [('pooled', list(cities))]

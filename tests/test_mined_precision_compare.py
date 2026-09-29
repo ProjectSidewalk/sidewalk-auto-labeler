@@ -81,3 +81,20 @@ def test_paired_transitions_and_sign_test(tmp_path):
     _write(tmp_path, 'other', 'a', base + [_cand('a', 9, 'p9', 3.0, 'tp', 'missed')])
     with pytest.raises(ValueError, match='not the same candidates'):
         mpc.paired(('flat', tmp_path / 'flat'), ('other', tmp_path / 'other'), ['a'])
+
+
+def test_paired_refuses_a_different_fuse_with_coinciding_keys(tmp_path):
+    """site_id is a per-run serial: equal key sets can still be two different fuses. A
+    placement arm keeps the flat run's range_m, so a range mismatch is refused."""
+    base = [_cand('a', 1, 'p1', 5.0, 'fp', 'det')]
+    other = [_cand('a', 1, 'p1', 6.5, 'tp', 'missed')]
+    _write(tmp_path, 'flat', 'a', base)
+    _write(tmp_path, 'img', 'a', other)
+    with pytest.raises(ValueError, match='range_m'):
+        mpc.paired(('flat', tmp_path / 'flat'), ('img', tmp_path / 'img'), ['a'])
+
+
+def test_outputs_are_lf_on_every_platform(tmp_path):
+    mp.write_outputs(tmp_path, 'line one\nline two', [_cand('a', 1, 'p1', 5.0, 'tp', 'missed')])
+    for name in ('candidates.csv', 'report.md'):
+        assert b'\r' not in (tmp_path / name).read_bytes()

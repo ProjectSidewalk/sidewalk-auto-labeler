@@ -334,8 +334,9 @@ python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
     --camera-height 2.6 2.2 2.2 2.2 2.2   # richmond has no measured height; GSV does
 # STEP 2 (RampNet#158, 2026-09-29; docs/mined-precision.md): the same check under
 # per-rig/per-pano and auto heights on inputs frozen to step 1 (the 2026-09-21 gap fills
-# are cut off; hashes in docs/figures/mined-precision/data/inputs.json). GSV moves from drop
-# to visibility on both denominators; richmond cannot move (per-rig applies 2.6 m, #89).
+# are cut off; hashes in docs/figures/mined-precision/data/inputs.json). GSV's point
+# estimates move from drop into visibility on both denominators, NOT decisively (each CI
+# crosses a band edge); richmond cannot move (per-rig applies 2.6 m, #89).
 # mined_precision_compare.py lays several --out dirs side by side (per city, range band,
 # pooled, pooled GSV) from their candidates.csv, with mined_precision's own tallies.
 python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
@@ -347,11 +348,33 @@ python scripts/mined_precision_compare.py --cities richmond paterson bend gaines
 # nothing GT-derived). RampNet's scripts/analysis/mined_placement_158.py runs a #48
 # placement arm on those pairs; --placement FILE then adjudicates the placed pixel on the
 # SAME candidates (paired), and --paired-base in the compare tool gives fixed/broken counts.
-# RoMa (roma_local) fixes richmond's placement (9 fixed / 0 broken, all into
-# already_detected: correct labels, no new misses); nothing helps on GSV.
+# Under the pre-registered 5 m world match, roma_local moves 9 richmond false positives
+# into already_detected (9 / 0) - but that does NOT show it places the SITE's ramp: the
+# post hoc attribution below finds 6 of the 9 land on a detection of ANOTHER multi-pano
+# site 5.4-11 m away (>= 2 demonstrably a different ramp), and on GSV it turns 7 true hard
+# positives into already_detected. Nothing helps on GSV. See docs/mined-precision.md.
 python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
     --camera-height per-rig per-pano per-pano per-pano per-pano --out /tmp/mp/roma_local \
     --placement docs/figures/mined-precision/data/placement/roma_local.jsonl
+# POST HOC (after review): which fused site does each changed candidate's adjudicating
+# detection belong to? own site (impossible by construction) / another multi-pano site /
+# singleton / none, plus a strict all-mined sensitivity; --verify refuses unless every
+# recomputed bucket equals the committed run's.
+python scripts/mined_placement_attribution.py richmond paterson bend gainesville sao_paulo \
+    --runs-root $FROZEN --camera-height per-rig per-pano per-pano per-pano per-pano \
+    --arm roma_local=docs/figures/mined-precision/data/placement/roma_local.jsonl \
+    --verify docs/figures/mined-precision/data/frozen --mapillary richmond
+# STEP 3 (peak-anchored targets; docs/mined-precision.md). floor_infer_archive.py re-runs
+# RampNet at the 0.1 storage floor on a pinned run's ARCHIVED panos (pano blocks untouched)
+# and gates it (--check: >= 95% of panos reproduce their >= 0.55 detections; bend FAILED,
+# 0.70). peak_anchor.py turns an anchor into a --placement file: emit the strongest
+# [0.1, 0.55) peak within the 0.022 benchmark radius, or not at all (emit: false leaves both
+# denominators). --own-site is a secondary read (other_site = closer to another fused site).
+python scripts/floor_infer_archive.py --results $A/richmond/results.jsonl --panos $A/richmond/panos \
+    --ids docs/figures/mined-precision/data/step3/richmond_ids.txt --out richmond.floor.jsonl
+python scripts/peak_anchor.py --sources-root docs/figures/mined-precision/data/frozen/perrig_perpano \
+    --cities richmond paterson gainesville sao_paulo --runs-root $FROZEN \
+    --peaks richmond=docs/figures/mined-precision/data/step3/richmond.floor.jsonl --out /tmp/peak_flat.jsonl
 
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.
