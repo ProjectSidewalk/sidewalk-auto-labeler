@@ -121,15 +121,18 @@ def paired(base, arm, cities, mapillary=()):
     Per city, pooled and pooled GSV: fixed (wrong -> right), broken (right -> wrong),
     tp gained / lost, and a two-sided sign test on fixed vs broken. Two runs whose
     candidate keys differ are refused: they are not paired."""
-    per = {}
+    per, not_emitted = {}, {}
     for c in cities:
         a = {(x.city, x.site_id, x.pano_id): x
              for x in read_candidates(Path(base[1]) / c / 'candidates.csv')}
         b = {(x.city, x.site_id, x.pano_id): x
              for x in read_candidates(Path(arm[1]) / c / 'candidates.csv')}
-        if set(a) != set(b):
+        # An arm may emit a SUBSET of the base's candidates (step 3's peak-anchored
+        # definition drops some); it may never hold a candidate the base does not.
+        if set(b) - set(a):
             raise ValueError(f'{c}: {base[0]} and {arm[0]} are not the same candidates')
-        per[c] = [(a[k], b[k]) for k in sorted(a)]
+        per[c] = [(a[k], b[k]) for k in sorted(b)]
+        not_emitted[c] = len(set(a) - set(b))
     groups = [(c, [c]) for c in cities] + [('pooled', list(cities))]
     gsv = [c for c in cities if c not in set(mapillary)]
     if gsv and len(gsv) != len(cities):
@@ -139,7 +142,13 @@ def paired(base, arm, cities, mapillary=()):
         pp = [x for c in cs for x in per[c]]
         fixed = sum(1 for x, y in pp if _state(x) == 'wrong' and _state(y) == 'right')
         broken = sum(1 for x, y in pp if _state(x) == 'right' and _state(y) == 'wrong')
+        bs = mp.precision_row('base on subset', [x for x, _ in pp])
+        ar = mp.precision_row('arm', [y for _, y in pp])
         out.append({'group': g, 'base': base[0], 'arm': arm[0], 'candidates': len(pp),
+                    'not_emitted': sum(not_emitted[c] for c in cs),
+                    'base_hard': bs['p_hard'], 'base_all': bs['p_all'],
+                    'arm_hard': ar['p_hard'], 'arm_all': ar['p_all'],
+                    'base_n_hard': bs['n_hard'], 'arm_n_hard': ar['n_hard'],
                     'changed': sum(1 for x, y in pp if x.bucket != y.bucket),
                     'fixed': fixed, 'broken': broken,
                     'sign_p': sign_test_p(fixed, fixed + broken),
@@ -149,13 +158,18 @@ def paired(base, arm, cities, mapillary=()):
 
 
 def paired_markdown(rows):
-    lines = ['| group | base -> arm | cand. | buckets changed | fixed (fp -> right) '
-             '| broken (right -> fp) | sign-test p | tp gained | tp lost |',
-             '|---|---|--:|--:|--:|--:|--:|--:|--:|']
+    def f(v):
+        return '-' if v is None else f'{v:.3f}'
+    lines = ['| group | base -> arm | cand. | not emitted | buckets changed '
+             '| fixed (fp -> right) | broken (right -> fp) | sign-test p | tp gained '
+             '| tp lost | base on same cand. hard / all | arm hard / all |',
+             '|---|---|--:|--:|--:|--:|--:|--:|--:|--:|---|---|']
     for r in rows:
         lines.append(f"| {r['group']} | {r['base']} -> {r['arm']} | {r['candidates']} "
-                     f"| {r['changed']} | {r['fixed']} | {r['broken']} | {r['sign_p']:.3f} "
-                     f"| {r['tp_gained']} | {r['tp_lost']} |")
+                     f"| {r['not_emitted']} | {r['changed']} | {r['fixed']} | {r['broken']} "
+                     f"| {r['sign_p']:.3f} | {r['tp_gained']} | {r['tp_lost']} "
+                     f"| {f(r['base_hard'])} / {f(r['base_all'])} "
+                     f"| {f(r['arm_hard'])} / {f(r['arm_all'])} |")
     return '\n'.join(lines)
 
 

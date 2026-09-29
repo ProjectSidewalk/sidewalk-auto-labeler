@@ -211,6 +211,9 @@ SOURCE_FIELDS = ('city', 'site_id', 'pano_id', 'src_pano', 'src_det_index', 'src
                  'src_y', 'src_conf', 'baseline_m', 'src_range_m', 'oth_range_m',
                  'proj_x', 'proj_y')
 PLACEMENT_FIELDS = ('city', 'site_id', 'pano_id', 'status', 'x', 'y', 'shift_m')
+#: A placement row with ``"emit": false`` (step 3's peak-anchored definition): the miner
+#: would not emit this candidate at all, so it leaves both denominators and is counted.
+NOT_EMITTED = 'not_emitted'
 
 
 def choose_source(site, target_pid, run_by_id, frame):
@@ -275,6 +278,9 @@ def read_placement(path):
             key = (r['city'], int(r['site_id']), str(r['pano_id']))
             if key in out:
                 raise ValueError(f'{path}: duplicate placement row {key}')
+            if r.get('emit') is False:
+                out[key] = NOT_EMITTED
+                continue
             x, y = r.get('x'), r.get('y')
             out[key] = None if x is None or y is None else (float(x), float(y))
     return out
@@ -337,6 +343,11 @@ def mine_candidates(strong, judged, run_by_id, gt_by_pano, frame, params,
                     raise ValueError(f'placement has no row for candidate {key}; a '
                                      f'placement arm must cover the same candidates')
                 pix, status = placement[key], 'fallback'
+                if pix == NOT_EMITTED:
+                    placed.append({'city': city, 'site_id': site.id, 'pano_id': pid,
+                                   'status': NOT_EMITTED, 'x': None, 'y': None,
+                                   'shift_m': 0.0})
+                    continue
                 if pix is not None:
                     g = geo.detection_ground_point(
                         pose, pix[0], pix[1], camera_height=params.camera_height_m,
@@ -518,7 +529,7 @@ def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
         strong, judged, run_by_id, gt_by_pano, frame, params, max(radii_m),
         match_m, city, sources=sources, placement=placement, placed=placed)
     if placement is not None:
-        extra = set(placement) - {(c.city, c.site_id, c.pano_id) for c in cands}
+        extra = set(placement) - {(r['city'], r['site_id'], r['pano_id']) for r in placed}
         if extra:
             raise ValueError(f'{len(extra)} placement rows match no candidate (e.g. '
                              f'{sorted(extra)[0]}); the placement was made on a '
@@ -701,7 +712,7 @@ def placement_line(r):
     """One report line summarising an image-placement run (phase 2)."""
     rows = r['placement']
     n = {s: sum(1 for x in rows if x['status'] == s)
-         for s in ('placed', 'fallback', 'no_ground')}
+         for s in ('placed', 'fallback', 'no_ground', NOT_EMITTED)}
     shifts = sorted(x['shift_m'] for x in rows if x['status'] == 'placed')
     med = shifts[len(shifts) // 2] if shifts else float('nan')
     return (f"placement: {r.get('placement_label') or 'external'} -- "
@@ -709,7 +720,9 @@ def placement_line(r):
             f"{n['fallback']} fell back and {n['no_ground']} did not reach the ground "
             f"(both keep the flat projection of the site); median shift of a placed "
             f"target from the site {med:.2f} m. Candidates, ranges and strata are the "
-            f"flat run's, so this is paired candidate by candidate with it.")
+            f"flat run's, so this is paired candidate by candidate with it."
+            + (f" {n[NOT_EMITTED]} candidates were NOT EMITTED by the placement's target "
+               f"definition and are in neither denominator." if n[NOT_EMITTED] else ''))
 
 
 def _write_rows(path, fields, rows):
@@ -851,7 +864,8 @@ def main():
         out_dirs.append(out_dir)
         per_city.append((result, cands))
     if placement is not None:
-        got = {(c.city, c.site_id, c.pano_id) for _r, cs in per_city for c in cs}
+        got = {(x['city'], x['site_id'], x['pano_id'])
+               for r, _cs in per_city for x in r['placement']}
         stray = set(placement) - got
         if stray:
             ap.error(f'{len(stray)} placement rows match no candidate of the cities '

@@ -72,7 +72,12 @@ def test_paired_transitions_and_sign_test(tmp_path):
     assert (r['tp_gained'], r['tp_lost']) == (1, 1)
     assert r['sign_p'] == 1.0
     assert mpc.sign_test_p(0, 6) == pytest.approx(2 / 64)
-    # different candidate sets are not paired
-    _write(tmp_path, 'other', 'a', base[:2])
+    # an arm may emit a subset (step 3's peak-anchored definition), paired on it...
+    _write(tmp_path, 'sub', 'a', arm[:2])
+    sub = mpc.paired(('flat', tmp_path / 'flat'), ('sub', tmp_path / 'sub'), ['a'])[0]
+    assert (sub['candidates'], sub['not_emitted']) == (2, 1)
+    assert sub['base_hard'] == 0.5 and sub['arm_hard'] == 0.5   # base on the SAME 2
+    # ...but never a candidate the base does not have
+    _write(tmp_path, 'other', 'a', base + [_cand('a', 9, 'p9', 3.0, 'tp', 'missed')])
     with pytest.raises(ValueError, match='not the same candidates'):
         mpc.paired(('flat', tmp_path / 'flat'), ('other', tmp_path / 'other'), ['a'])

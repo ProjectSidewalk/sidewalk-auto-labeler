@@ -394,3 +394,69 @@ GPU re-run can differ by a pair or two (#48 matching.md §2).
 - **A miner that uses `roma_local` on Mapillary and the flat projection on GSV** is what
   these numbers support. It has not been measured as one arm. Its pooled reading would be
   richmond's `roma_local` rows plus GSV's flat rows.
+
+## Step 3 (2026-09-29): peak-anchored targets. Plan, fixed before inference and scoring
+
+**Question.** In phase 2, image placement made richmond's shipped labels correct more often,
+but it added no new misses: every label it fixed was one the model already detected. Step
+1's plan proposed a stricter target, where geometry proposes and the model localizes. Emit a
+target only where the target pano holds a **sub-threshold peak** near the geometric anchor,
+and put the target on that peak. Does that make mined targets genuine misses?
+
+**Target definition** (`scripts/peak_anchor.py`):
+
+- **Window:** the benchmark's per-pano match radius, 0.022 in RampNet's pano geometry (x
+  scaled by 1024, y by 512, x cyclic at the seam), around the anchor pixel. That is about
+  7.9°.
+- **Peaks:** the target pano's stored peaks down to the storage floor (0.1), at most 50 per
+  pano, from the published model (`projectsidewalk/rampnet-model`, paper weights).
+- **Rule:**
+  - If a peak ≥ 0.55 is in the window, the model already fires there, so the candidate is
+    **not emitted**.
+  - Otherwise, if any peak in [0.1, 0.55) is in the window, the miner **emits the
+    highest-confidence one's pixel** as the target.
+  - Otherwise (no response at all), the candidate is **not emitted**.
+- **Anchors**, all named now:
+  - **`peak_flat`** (primary): the step-2 flat projection of the site.
+  - `peak_roma_local`: phase 2's `roma_local` placement, falling back to flat.
+  - `peak_mapa_k_pair`: a new placement arm, MapAnything on the pair given intrinsics only.
+    #48's fresh-pair re-test ([RampNet#220](https://github.com/ProjectSidewalk/RampNet/pull/220))
+    found it the best Mapillary arm. `mapa_k_pair` is also scored on its own as a placement
+    arm, like phase 2's.
+
+**Where the floor peaks come from:**
+
+- **paterson, gainesville, são paulo:** these runs already store peaks to 0.1 (post-#28),
+  and their frozen `results.jsonl` are used as they are.
+- **richmond and bend:** these runs predate the floor, so both get one inference pass on
+  makelab2's A40 (`scripts/floor_infer_archive.py`):
+  - Scope: every benchmark-judged pano (richmond 124, bend 110; `step3/<city>_ids.txt`,
+    taken from `benchmark/<city>/records.jsonl`). That covers all 39 + 10 candidate targets.
+  - Pixels: the native-resolution JPEGs in the makelab2 run archive, read-only.
+  - Pano blocks: unchanged, taken from the pinned archived `results.jsonl` (sha256 in
+    `inputs.json`).
+
+**Instrument check, a gate run before any scoring.** A pano reproduces if its re-inferred
+peaks ≥ 0.55 match the pinned run's ≥ 0.55 detections: the same count, each within one
+heatmap cell. If fewer than **95%** of a city's panos reproduce, that city's pass is not
+used, and the check is reported instead of a precision.
+
+**Adjudication** is unchanged. The emitted peak's pixel goes through
+`mined_precision.py --placement` in the step-2 frame: raycast from the target camera, 5 m
+match, same buckets. A candidate that is not emitted leaves both denominators and is
+counted.
+
+**What is reported, and how it is read:**
+
+- Both denominators, per city, by range band, on the emitted subset.
+- **Yield:** emitted / 127, per city.
+- Beside every number, the **flat arm on the same emitted candidates** (paired), so that a
+  gain is not just a different subset.
+- The decision rule is the pre-registered one, unchanged: ≥ 0.80 build, 0.50–0.80 add
+  visibility, < 0.50 drop, read on the point estimate and CI, both denominators, at ≤ 15 m.
+- **Primary reading:** `peak_flat`, on richmond and pooled.
+- **Yield changes what "build" means.** A definition that emits few targets can read
+  "build" and still not be worth building. Yield is stated beside the reading, and no
+  yield threshold is set.
+
+**Cost** gets `paid: false` rows in RampNet's `analysis_out/usage_log.jsonl`.

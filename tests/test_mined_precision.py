@@ -290,3 +290,25 @@ def test_read_placement_refuses_duplicates(tmp_path):
         f.write('{"city": "a", "site_id": 1, "pano_id": "x", "x": 0.1, "y": 0.6}\n')
     with pytest.raises(ValueError, match='duplicate'):
         mp.read_placement(p)
+
+
+def test_not_emitted_candidates_leave_both_denominators():
+    """Step 3: a placement row with emit=false means the miner would not emit that
+    candidate; it is counted, not scored."""
+    panos, verdicts = _scene()
+    _, flat = _run(panos, verdicts)
+    by = {c.pano_id: c for c in flat}
+    place = {('synthetic', by['g1'].site_id, 'g1'): mp.NOT_EMITTED,
+             ('synthetic', by['g2'].site_id, 'g2'): None}
+    result, cands = _run(panos, verdicts, placement=place)
+    assert [c.pano_id for c in cands] == ['g2']
+    assert {r['pano_id']: r['status'] for r in result['placement']} == \
+        {'g1': 'not_emitted', 'g2': 'fallback'}
+    assert 'NOT EMITTED' in mp.placement_line(result)
+
+
+def test_read_placement_reads_emit_false(tmp_path):
+    p = tmp_path / 'p.jsonl'
+    p.write_text('{"city": "a", "site_id": 1, "pano_id": "x", "emit": false, "x": null}\n',
+                 encoding='utf-8')
+    assert mp.read_placement(p) == {('a', 1, 'x'): mp.NOT_EMITTED}
