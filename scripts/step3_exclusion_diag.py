@@ -4,8 +4,10 @@ NOT part of the pre-registered step-3 design (RampNet#158, comment 5895808813). 
 the gate and every step-3 number stand as posted. This diagnostic was written after the
 independent review of sidewalk-auto-labeler#112, which found that on GSV the rule's
 "operational peak in window" exclusion mostly removes verified misses because a
-reviewer-judged-TRUE detection of a NEIGHBOURING ramp sits inside the 0.022 window, not
-because the model already fires on the mined ramp.
+reviewer-judged-TRUE detection of a NEIGHBOURING ramp sits inside the 0.022 window. The
+model has no separate peak at the mined ramp's mark, even at min_distance=1, although its
+heatmap there is at operational level; whether that is the neighbour's shoulder or a
+merged response to both ramps is not separated (docs/mined-precision.md).
 
 For every flat `tp` at <= --radius in the given cities (the step-2 flat arm,
 `frozen/perrig_perpano`), it:
@@ -34,10 +36,17 @@ checked the way the step-3 gate checks a floor pass (floor_infer_archive.reprodu
 against the stored >= 0.55 detections), and its full stored peak set is compared, so the
 heatmap is shown to be the production one before it is read. Then peaks are re-extracted
 with min_distance=1 (every local maximum >= 0.1), and the nearest one to the missed mark
-is reported with the heatmap's max within 2 cells of the mark. Images and heatmaps are
-cached in DIR (gitignored scratch, not an input); the model revision and torch /
+is reported with the heatmap's max within 2 cells of the mark. Heatmaps are cached in
+DIR as <pano_id>.z3.npy (images are not kept); the model revision and torch /
 transformers versions are written into the output. Network: Google's unofficial GSV
 endpoints (the same ones the production run used).
+
+The committed hm_* columns come from 20 cached heatmaps that are an INPUT, not scratch:
+their sha256s are in data/step3/zoom3_heatmaps.sha256.json and the files are on makelab2
+(/homes/gws/jonf/mined158/hm_zoom3/, unpublished). Writing into the committed data/ dir
+with GSV rows is refused unless --heatmap points at a directory holding exactly those
+files with those hashes, so a re-run can neither blank the hm_* columns (no --heatmap)
+nor silently replace them with a re-fetch that differs.
 
 Usage (frozen inputs as in docs/mined-precision.md, step 2 "Reproduce"; RampNet
 benchmark at 4a859f1):
@@ -158,6 +167,51 @@ def diagnose_city(city, verdict_panos, bundle_ops, run_panos, params, radius_m, 
             row['nearest_stored_conf'] = q[2]
         rows.append(row)
     return rows
+
+
+HEATMAP_MANIFEST = mpa.FROZEN_DIR.parent / 'step3' / 'zoom3_heatmaps.sha256.json'
+
+
+def _sha256(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def require_committed_heatmaps(outputs, heatmap_dir, pano_ids,
+                               committed_dir=mpa.FROZEN_DIR.parent, manifest=HEATMAP_MANIFEST):
+    """Refuse to write any output inside the committed data dir unless the GSV heatmaps are
+    supplied and equal the committed manifest, file for file, by sha256.
+
+    Without this, a re-run without --heatmap exits 0 and blanks the committed hm_* columns
+    and the zoom-3 section, and a re-run whose cache was re-fetched could replace them with
+    different numbers. Outputs elsewhere (exploration), or runs with no GSV rows, pass.
+
+    Example: require_committed_heatmaps([args.out, args.md], args.heatmap, {'zB7_9m...'})
+    """
+    committed = Path(committed_dir).resolve()
+    inside = [o for o in outputs if o is not None
+              and (Path(o).resolve() == committed or committed in Path(o).resolve().parents)]
+    if not inside or not pano_ids:
+        return
+    if heatmap_dir is None:
+        raise SystemExit(f'{inside[0]} is inside {committed}: pass --heatmap DIR holding the '
+                         f'zoom-3 heatmaps listed in {manifest} (makelab2 '
+                         f'/homes/gws/jonf/mined158/hm_zoom3/), or write elsewhere; without '
+                         f'them the committed hm_* columns would be blanked')
+    want = json.loads(Path(manifest).read_text(encoding='utf-8'))['files']
+    names = {f'{pid}.z3.npy' for pid in pano_ids}
+    if names != set(want):
+        raise SystemExit(f'the GSV target panos ({len(names)}) differ from the {len(want)} '
+                         f'heatmaps in {manifest}')
+    bad = [n for n in sorted(names) if not (Path(heatmap_dir) / n).exists()
+           or _sha256(Path(heatmap_dir) / n) != want[n]['sha256']]
+    if bad:
+        raise SystemExit(f'{len(bad)} heatmap(s) in {heatmap_dir} missing or not equal to '
+                         f'{manifest} (first: {bad[0]}); refusing to write into {committed}')
 
 
 def software_versions():
@@ -327,6 +381,9 @@ def main():
         rows += diagnose_city(city, verdict_panos, bundle_ops, run_panos, params,
                               args.radius, args.match_radius_m, peaks, peak_flat,
                               args.verify)
+    require_committed_heatmaps(
+        (args.out, args.md), args.heatmap,
+        {r['pano_id'] for r in rows if r['city'] not in set(args.mapillary)})
     prov = None
     if args.heatmap:
         prov = add_heatmap([r for r in rows if r['city'] not in set(args.mapillary)],
