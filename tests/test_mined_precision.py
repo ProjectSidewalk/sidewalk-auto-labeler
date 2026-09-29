@@ -290,3 +290,43 @@ def test_read_placement_refuses_duplicates(tmp_path):
         f.write('{"city": "a", "site_id": 1, "pano_id": "x", "x": 0.1, "y": 0.6}\n')
     with pytest.raises(ValueError, match='duplicate'):
         mp.read_placement(p)
+
+
+# Review of labeler#110 (finding 4): the two adjudication paths the design leans on.
+
+
+def test_placed_pixel_above_the_horizon_keeps_the_flat_point_exactly():
+    """A pixel that never reaches the ground (y < 0.5 looks up) is `no_ground` and must
+    be adjudicated at the site's own position - the same bucket AND the same nearest-GT
+    distance as the flat run, with zero shift. Moving the kept point fails this."""
+    panos, verdicts = _scene()
+    _, flat = _run(panos, verdicts)
+    place = {('synthetic', c.site_id, c.pano_id): (c.x_norm, 0.3) for c in flat}
+    result, cands = _run(panos, verdicts, placement=place)
+    assert {r['status'] for r in result['placement']} == {'no_ground'}
+    assert all(r['shift_m'] == 0.0 for r in result['placement'])
+    assert [(c.bucket, c.nearest_gt_kind, c.nearest_gt_m) for c in cands] == \
+        [(c.bucket, c.nearest_gt_kind, c.nearest_gt_m) for c in flat]
+
+
+def test_placement_raycast_uses_the_same_height_frame_as_the_gt_marks():
+    """Pins "raycast from the target camera exactly as its GT marks are": under PER_PANO
+    every pano here carries a measured 1.7 m, so the flat pixel carried back through the
+    placement raycast must land on the site to ~1e-6 m. A raycast with a hard-coded
+    height (2.2, 2.6) lands ~2 m off at these 7-8 m ranges and fails."""
+    import geo
+    h = 1.7
+    panos = [make_pano('n1', 0, -10, [(0, 0, 0.9)], height=h),
+             make_pano('n2', 10, 0, [(0, 0, 0.8)], height=h),
+             make_pano('n3', -10, 0, [(0, 0, 0.95)], height=h),
+             make_pano('g1', 0, 8, [], heading_deg=180.0, height=h),
+             make_pano('g2', 5, 5, [], heading_deg=225.0, height=h)]
+    verdicts = {'g1': _entry(no_missed=True), 'g2': _entry(no_missed=True)}
+    params = fs.FuseParams(camera_height_m=geo.PER_PANO)
+    _, flat = _run(panos, verdicts, params=params)
+    assert {c.pano_id for c in flat} == {'g1', 'g2'}
+    place = {('synthetic', c.site_id, c.pano_id): (c.x_norm, c.y_norm) for c in flat}
+    result, _ = _run(panos, verdicts, params=params, placement=place)
+    assert {r['status'] for r in result['placement']} == {'placed'}
+    for r in result['placement']:
+        assert r['shift_m'] == pytest.approx(0.0, abs=1e-6)

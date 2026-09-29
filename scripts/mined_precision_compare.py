@@ -129,7 +129,15 @@ def paired(base, arm, cities, mapillary=()):
              for x in read_candidates(Path(arm[1]) / c / 'candidates.csv')}
         if set(a) != set(b):
             raise ValueError(f'{c}: {base[0]} and {arm[0]} are not the same candidates')
-        per[c] = [(a[k], b[k]) for k in sorted(a)]
+        # site_id is a per-run serial: two different fuses can share key sets by
+        # coincidence. A placement arm keeps the flat run's range_m (it is the site's
+        # range, never the placed point's), so any difference means a different fuse.
+        moved = [k for k in a if a[k].range_m != b[k].range_m]
+        if moved:
+            raise ValueError(f'{c}: {base[0]} and {arm[0]} disagree on range_m for '
+                             f'{len(moved)} candidates (e.g. {moved[0]}); they are '
+                             f'not the same fuse, so not paired')
+        per[c] =[(a[k], b[k]) for k in sorted(a)]
     groups = [(c, [c]) for c in cities] + [('pooled', list(cities))]
     gsv = [c for c in cities if c not in set(mapillary)]
     if gsv and len(gsv) != len(cities):

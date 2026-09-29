@@ -262,6 +262,18 @@ def _classify(gt_points, e, n, match_m, entry):
     return bucket, kind, dist, within
 
 
+def raycast_pixel(pose, pix, run_pano, params, frame):
+    """ENU (e, n) of a target-pano pixel on the ground, raycast exactly as that pano's GT
+    marks are (gt_points_by_pano / eval_sites.build_gt): the same camera height frame
+    (params.camera_height_m, so PER_PANO / PER_RIG resolve per pano), range cap, error
+    model and pose. None when the ray does not reach the ground within the range cap."""
+    g = geo.detection_ground_point(
+        pose, pix[0], pix[1], camera_height=params.camera_height_m,
+        max_range_m=params.max_range_m, errors=geo.error_model_for(run_pano.source),
+        apply_pose=params.rotates)
+    return None if g is None else frame.to_enu(g.lat, g.lng)
+
+
 def read_placement(path):
     """{(city, site_id, pano_id): (x, y) or None} from a placement JSONL (one row per
     candidate, x / y null where the arm fell back). Duplicate keys are refused."""
@@ -338,21 +350,21 @@ def mine_candidates(strong, judged, run_by_id, gt_by_pano, frame, params,
                                      f'placement arm must cover the same candidates')
                 pix, status = placement[key], 'fallback'
                 if pix is not None:
-                    g = geo.detection_ground_point(
-                        pose, pix[0], pix[1], camera_height=params.camera_height_m,
-                        max_range_m=params.max_range_m,
-                        errors=geo.error_model_for(run_by_id[pid].source),
-                        apply_pose=params.rotates)
-                    if g is None:
+                    enu = raycast_pixel(pose, pix, run_by_id[pid], params, frame)
+                    if enu is None:
                         status = 'no_ground'
                     else:
-                        te, tn = frame.to_enu(g.lat, g.lng)
+                        te, tn = enu
                         status = 'placed'
+                # adj_e / adj_n (the point actually adjudicated) are for in-memory callers
+                # such as mined_placement_attribution.py; placement.csv writes only
+                # PLACEMENT_FIELDS, so the committed files are unchanged by them.
                 placed.append({'city': city, 'site_id': site.id, 'pano_id': pid,
                                'status': status,
                                'x': None if pix is None else pix[0],
                                'y': None if pix is None else pix[1],
-                               'shift_m': math.hypot(te - site.e, tn - site.n)})
+                               'shift_m': math.hypot(te - site.e, tn - site.n),
+                               'adj_e': te, 'adj_n': tn})
             bucket, kind, dist, within = _classify(
                 gt_by_pano.get(pid, ()), te, tn, match_m, judged[pid])
             cands.append(Candidate(city, site.id, pid,
@@ -728,9 +740,13 @@ def write_outputs(out_dir, report_text, cands, sources=None, placed=None):
         _write_rows(out_dir / 'sources.csv', SOURCE_FIELDS, sources)
     if placed is not None:
         _write_rows(out_dir / 'placement.csv', PLACEMENT_FIELDS, placed)
-    (out_dir / 'report.md').write_text(report_text + '\n', encoding='utf-8')
+    # LF on every platform, so a re-run is byte-identical on disk and not only after
+    # git's line-ending normalisation (csv's default terminator is CRLF, and write_text
+    # translates newlines to os.linesep).
+    (out_dir / 'report.md').write_text(report_text + '\n', encoding='utf-8',
+                                       newline='\n')
     with open(out_dir / 'candidates.csv', 'w', newline='', encoding='utf-8') as f:
-        w = csv.DictWriter(f, list(Candidate.__dataclass_fields__))
+        w = csv.DictWriter(f, list(Candidate.__dataclass_fields__), lineterminator='\n')
         w.writeheader()
         for c in cands:
             row = asdict(c)
