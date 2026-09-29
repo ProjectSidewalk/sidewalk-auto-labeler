@@ -45,3 +45,16 @@ def test_instrument_check_matches_operational_sets_within_one_cell():
     assert not fia.reproduces(old, [_d(0.5 + 3 / 1024, 0.6, 0.7)])       # moved
     assert not fia.reproduces(old, [_d(0.5, 0.6, 0.7), _d(0.1, 0.6, 0.6)])  # extra op
     assert fia.reproduces([_d(0.9995, 0.6, 0.8)], [_d(0.0, 0.6, 0.8)])      # seam
+
+
+def test_whole_run_ids_and_order_independent_digest(tmp_path):
+    import json
+    res = tmp_path / 'results.jsonl'
+    res.write_text(''.join(json.dumps({'pano': {'panorama_id': p}, 'detections': []}) + '\n'
+                           for p in ('b', 'a', 'c')), encoding='utf-8')
+    assert fia.all_ids(res) == ['b', 'a', 'c']
+    one, two = tmp_path / 'one.jsonl', tmp_path / 'two.jsonl'
+    rows = [json.dumps({'pano': {'panorama_id': p}, 'detections': []}) + '\n' for p in 'abc']
+    one.write_text(''.join(rows), encoding='utf-8')
+    two.write_text(''.join(reversed(rows)), encoding='utf-8')
+    assert fia.canonical_sha256(one) == fia.canonical_sha256(two)
