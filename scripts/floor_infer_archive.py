@@ -153,6 +153,55 @@ def canonical_sha256(path):
     return hashlib.sha256((NL.join(lines) + NL).encode('utf-8')).hexdigest()
 
 
+CONF_TOL = 1e-3
+
+
+def same_peaks(a, b, tol=CONF_TOL):
+    """Full peak sets down to the floor agree: same count, and a one-to-one pairing in
+    which each peak is in the same heatmap cell (seam-wrapped) with |dconf| <= tol."""
+    if len(a) != len(b):
+        return False
+    left = list(b)
+    for x, y, c in a:
+        hit = next((q for q in left
+                    if min(abs(q[0] - x), 1 - abs(q[0] - x)) <= CELL_X + 1e-9
+                    and abs(q[1] - y) <= CELL_Y + 1e-9 and abs(q[2] - c) <= tol), None)
+        if hit is None:
+            return False
+        left.remove(hit)
+    return True
+
+
+def _peaks_of(path):
+    out = {}
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                r = json.loads(line)
+                out[str(r['pano']['panorama_id'])] = [
+                    (d['x_normalized'], d['y_normalized'], d['confidence'])
+                    for d in r['detections']]
+    return out
+
+
+def cmd_compare(args):
+    """Cross-check two floor passes (e.g. this pass against an older re-inference) on the
+    panos they share, or on --ids: the share whose FULL peak sets agree (same_peaks)."""
+    a, b = _peaks_of(args.out), _peaks_of(args.compare)
+    ids = read_ids(args.ids) if args.ids else sorted(set(a) & set(b))
+    missing = [p for p in ids if p not in a or p not in b]
+    ok = [p for p in ids if p in a and p in b and same_peaks(a[p], b[p])]
+    floors = {'out_min_conf': min((c for p in ids if p in a for _, _, c in a[p]), default=None),
+              'other_min_conf': min((c for p in ids if p in b for _, _, c in b[p]), default=None)}
+    out = {'panos': len(ids), 'missing': len(missing), 'same': len(ok),
+           'share': round(len(ok) / len(ids), 6) if ids else None, 'conf_tol': CONF_TOL,
+           **floors, 'differing': [p for p in ids if p not in set(ok) and p not in missing]}
+    print(json.dumps({k: v for k, v in out.items() if k != 'differing'}))
+    if args.check_out:
+        args.check_out.write_text(json.dumps(out, indent=1) + NL, encoding='utf-8')
+    return out
+
+
 def cmd_check(args):
     ids = _ids(args)
     recs = pinned_records(args.results, ids)
@@ -189,11 +238,16 @@ def main():
                          'serialized, so peaks are identical to --workers 1')
     ap.add_argument('--check', action='store_true', help='run the instrument check only')
     ap.add_argument('--check-out', type=Path, default=None)
+    ap.add_argument('--compare', type=Path, default=None,
+                    help='another floor pass: report how many panos have the same FULL '
+                         'peak set as --out (cross-check; writes --check-out if given)')
     ap.add_argument('--digest', action='store_true',
                     help='print the order-independent sha256 of --out and exit')
     args = ap.parse_args()
     if args.digest:
         print(canonical_sha256(args.out))
+    elif args.compare:
+        cmd_compare(args)
     elif args.check:
         cmd_check(args)
     else:

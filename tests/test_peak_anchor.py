@@ -58,3 +58,11 @@ def test_whole_run_ids_and_order_independent_digest(tmp_path):
     one.write_text(''.join(rows), encoding='utf-8')
     two.write_text(''.join(reversed(rows)), encoding='utf-8')
     assert fia.canonical_sha256(one) == fia.canonical_sha256(two)
+
+
+def test_same_peaks_compares_full_sets():
+    a = [(0.5, 0.6, 0.3), (0.2, 0.55, 0.12)]
+    assert fia.same_peaks(a, [(0.2, 0.55, 0.1205), (0.5 + 1 / 1024, 0.6, 0.3)])
+    assert not fia.same_peaks(a, [(0.5, 0.6, 0.3)])                      # count
+    assert not fia.same_peaks(a, [(0.5, 0.6, 0.3), (0.2, 0.55, 0.15)])   # conf
+    assert not fia.same_peaks(a, [(0.5, 0.6, 0.3), (0.2 + 2 / 1024, 0.55, 0.12)])
