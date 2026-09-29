@@ -72,5 +72,7 @@
   }
  },
  "polygons_parquet": "paterson/polygons/paterson-polygons.parquet",
- "network_parquet": "paterson/network/paterson-network.parquet"
+ "network_parquet": "paterson/network/paterson-network.parquet",
+ "vram_note": "Three short runs WITHOUT --deterministic (Boston example, two 1 km2 Paterson pilots, ~50 s each, 2026-09-28 16:04-16:10 PT) peaked at ~34 GB VRAM from cudnn benchmark probing while another job held ~9 GB, leaving ~3 GB free on the shared A40 (below the 20 GB-free rule). Every run that produced results used --deterministic: 1.4 GB peak.",
+ "deviation": "None for imagery: Tile2Net's built-in nj source. Paterson's GSV panos are 48% 2025: a ~5-year imagery gap."
 }

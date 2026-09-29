@@ -596,7 +596,13 @@ def cmd_gt(args):
 
 def inventory_rows(c, args):
     import inventory_oracle as ioracle
-    pts, _rec = ioracle.load_inventory(c.name, out=args.run_root)
+    # ioracle.load_inventory reads this checkout's runs/; the snapshot lives under --run-root
+    src = args.run_root / c.name / ioracle.OUT_NAME
+    record = json.loads((src / 'inventory.json').read_text(encoding='utf-8'))
+    ioracle.check_cache(src / 'inventory.geojson', record)
+    feats = json.loads((src / 'inventory.geojson').read_text(encoding='utf-8'))['features']
+    pts = [(k, f['geometry']['coordinates'][1], f['geometry']['coordinates'][0], None)
+           for k, f in enumerate(ioracle.kept(feats, ioracle.INVENTORIES[c.name]))]
     area = ioracle.load_area(args.run_root / c.name)
     from shapely.geometry import Point
     from shapely.prepared import prep
@@ -962,7 +968,7 @@ def q3_row(city, base, arm, r, b):
 def cmd_anchors(args):
     import fuse_sites as fs
     import eval_ps_clustering as epc
-    rows_all, anchor_stats = [], []
+    rows_all, anchor_stats, sens_all = [], [], []
     for city in args.cities:
         c = load_city(city, args)
         run_dir = args.run_root / city
@@ -1013,11 +1019,22 @@ def cmd_anchors(args):
                 rows.append(q3_row(city, base, arm, epc.score(cl, gt, det_pos, MATCH_RADIUS_M), b))
         write_csv(out_dir(city) / 'q3.csv', rows)
         rows_all += rows
+        # sensitivity, never gated: anchors from polygon contacts alone (Bend's Tile2Net
+        # network step failed, so there this is the same set as the headline)
+        sens = []
+        for base in Q3_BASES:
+            b = epc.score(bases[base], gt, det_pos, MATCH_RADIUS_M)
+            anchored, merged = anchor_clusters(bases[base], poly_only)
+            for arm, cl in (('anchored', anchored), ('merge-at-anchor', merged)):
+                sens.append(q3_row(city, base, arm, epc.score(cl, gt, det_pos, MATCH_RADIUS_M), b))
+        write_csv(out_dir(city) / 'q3_polygon_anchors.csv', sens)
+        sens_all += sens
         write_report_q3(c, rows, anchor_stats[-1])
         print(f'{city}: {len(anchors)} anchors; {near_share:.2f} of pool ramps have one '
               f'within {ANCHOR_RADIUS_M:g} m{training_note(city)}')
     write_csv(SUMMARY / 'q3.csv', rows_all)
     write_csv(SUMMARY / 'q3_anchors.csv', anchor_stats)
+    write_csv(SUMMARY / 'q3_polygon_anchors.csv', sens_all)
 
 
 def write_report_q3(c, rows, st):
@@ -1190,9 +1207,9 @@ def cmd_figures(args):
     if hist.exists():
         h = read_csv(hist)
         cnt = np.array([int(r['count']) for r in h])
-        edges = np.array([float(r['bin_lo_m']) for r in h]) + 0.5
-        ax.plot(np.concatenate([[0], edges]), np.concatenate([[0], np.cumsum(cnt) / cnt.sum()]),
-                color='#2a9d5c', label='Bend inventory ramps')
+        lo = np.array([float(r['bin_lo_m']) for r in h])
+        ax.step(lo, np.cumsum(cnt) / cnt.sum(), where='post', color='#2a9d5c',
+                label='Bend inventory ramps (0.5 m bins)')
     ax.axvline(Q1_USABLE_WITHIN_M, color='#888', lw=0.8)
     ax.axhline(Q1_USABLE_SHARE, color='#888', lw=0.8)
     ax.set_xlim(0, 10)

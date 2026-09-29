@@ -1,0 +1,89 @@
+{
+ "Q1": {
+  "answer": "NOT USABLE",
+  "inventory_share_within_2m": 0.7029,
+  "bar": 0.9,
+  "n": 12504.0,
+  "gt_share_within_2m": {
+   "bend": 0.6745,
+   "paterson": 0.9133
+  }
+ },
+ "Q2": {
+  "answer": "DESCRIPTIVE (no gate pre-registered)",
+  "px_p50": {
+   "bend @ auto": 3.613,
+   "bend @ 2.6": 3.674,
+   "paterson @ auto": 3.409,
+   "paterson @ 2.6": 4.575
+  }
+ },
+ "Q3": {
+  "answer": "NO",
+  "arms": {
+   "fusion / anchored": {
+    "verdict": "FAIL",
+    "cities": [
+     "bend",
+     "paterson"
+    ],
+    "why": [
+     "bend: frag 5 m -0.002 (needs <= -0.03)",
+     "bend: coverage -0.010",
+     "paterson: frag 5 m +0.013 (needs <= -0.03)"
+    ]
+   },
+   "fusion / merge-at-anchor": {
+    "verdict": "FAIL",
+    "cities": [
+     "bend",
+     "paterson"
+    ],
+    "why": [
+     "bend: frag 5 m -0.011 (needs <= -0.03)",
+     "bend: coverage -0.020",
+     "bend: dual -0.088",
+     "paterson: coverage -0.167",
+     "paterson: dual -0.540"
+    ]
+   },
+   "ps @ 7.5 m / anchored": {
+    "verdict": "FAIL",
+    "cities": [
+     "bend",
+     "paterson"
+    ],
+    "why": [
+     "bend: frag 5 m -0.003 (needs <= -0.03)",
+     "paterson: frag 5 m +0.014 (needs <= -0.03)",
+     "paterson: dual -0.010"
+    ]
+   },
+   "ps @ 7.5 m / merge-at-anchor": {
+    "verdict": "FAIL",
+    "cities": [
+     "bend",
+     "paterson"
+    ],
+    "why": [
+     "bend: coverage -0.013",
+     "bend: dual -0.088",
+     "paterson: coverage -0.139",
+     "paterson: dual -0.460"
+    ]
+   }
+  }
+ },
+ "Q4": {
+  "answer": "NOT ESTABLISHED (underpowered)",
+  "i_true_on_surface_every_city": false,
+  "ii_gap": 0.164262,
+  "ii_ci": [
+   -0.064837,
+   0.435155
+  ],
+  "ii_holds": false,
+  "n_false_pooled": 17
+ },
+ "note": "Bend is a RampNet training city; its GT and detection numbers carry that."
+}
