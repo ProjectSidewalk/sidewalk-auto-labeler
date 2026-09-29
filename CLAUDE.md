@@ -800,8 +800,11 @@ the local ground shares most of the tilt. What leaks into placement is a fractio
 (roughly 0.15-0.25 of the pitch term, 0.4-0.55 of the roll term, scratch measurements on
 #113); a partial pose is untested against a control, so the default stays flat. Two
 consequences outside fusion: a detection's `pano_y` is in the image's frame while a human PS
-label's is off by about the tilt at its bearing, which biases any AI-vs-human pixel match
-(`agree_rate.py`'s pano frame); and streetlevel's pitch > 0 is nose DOWN, with GSV
+label's is off by about 0.9 of the tilt at its bearing (measured on 1,704 Gainesville
+crowd/detection pairs, #113), so an AI-vs-human pixel comparison mixes two frames. At
+Gainesville's tilts that moves `agree_rate.py`'s pano-frame rate by only 0.2-0.3 points (its
+radius is 7.9 deg), but it matters wherever the tolerance is tight or the tilt large. And
+streetlevel's pitch > 0 is nose DOWN, with GSV
 `camera_roll` stored unwrapped (359.4 = -0.6). Details in `geo._world_ray`'s docstring. Mapillary's are available
 (`--apply-pose road`) but NOT applied by default either: the #42 shuffled-grade control withheld
 it (see the rig-tilt paragraph below).
