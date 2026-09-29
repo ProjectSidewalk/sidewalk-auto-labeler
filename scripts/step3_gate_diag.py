@@ -134,7 +134,8 @@ def cmd_f01(args):
            'judged_max_abs_dconf': round(max_dconf, 8)}
     print(json.dumps({k: v for k, v in out.items() if k != 'not_reproducing'}))
     if args.json_out:
-        args.json_out.write_text(json.dumps(out, indent=1) + '\n', encoding='utf-8')
+        args.json_out.write_text(json.dumps(out, indent=1) + '\n', encoding='utf-8',
+                                 newline='\n')
     return out
 
 
