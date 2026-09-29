@@ -1087,3 +1087,176 @@ unchanged.
   exclusion tied to the missed ramp rather than the whole window, and a target that need
   not be a peak. A smaller `min_distance` alone would not recover the 15 withheld GSV
   misses. See "Post hoc: why GSV's true misses are withheld".
+
+## Step 4 (2026-09-29): the Richmond miner and a rated gallery. Plan, fixed before any crop is cut
+
+**Question.** On the 13 adjudicable benchmark candidates, step 3's `peak_flat` read 0.769
+[0.497, 0.92]. That is *visibility*, but not decisively. Two things are needed to decide
+it: (1) run the miner over the whole of Richmond, and (2) have Jon rate about 100 of its
+labels. That sample is about 8× step 3's n, and it comes from panos no benchmark verdict
+has seen.
+
+### 1. Floor pass and miner
+
+- **Floor pass.** Same as step 3, over all 9,091 panos of the pinned richmond
+  `results.jsonl` (sha256 `109e7645…`):
+  - published model at revision 606a119;
+  - the makelab2 archive's native-resolution JPEGs, read-only;
+  - pano blocks unchanged.
+
+  It started on the A40 at 2026-09-29T20:22:48Z (`floor_infer_archive.py --workers 6`).
+  - **Gate:** step 3's gate, unchanged. At least 95% of the 124 benchmark panos inside
+    the pass must reproduce their ≥ 0.55 detections within one heatmap cell. If it fails,
+    stop.
+  - **Cross-check:** the step-3 review found that `results.f01.jsonl` (#20) meets the
+    gate city-wide. The pass had already started, so f01 is not used in its place. It is
+    compared with the pass instead: the share of panos whose full peak sets down to 0.1
+    agree (same count, same cell, |Δconf| ≤ 1e-3). The share is reported whatever it is.
+    Both files are pinned by sha256.
+- **Miner.** This is step 3's `peak_flat` rule, unchanged, applied city-wide:
+  - fuse the pinned run exactly as in step 3 (benchmark threshold, pose off, per-rig
+    frame, which resolves to 2.6 m in Richmond);
+  - take every site with ≥ 3 operational panos;
+  - for each such site, take every run pano within 15 m that is not a member;
+  - anchor on the flat projection of the site;
+  - use the pass's peaks: a peak ≥ 0.55 in the 0.022 window means not emitted; otherwise
+    emit the strongest [0.1, 0.55) peak; with no peak, not emitted.
+
+  **Reported:** the emitted total; counts by band (0–8, 8–12, 12–15 m); counts by status;
+  and how many emitted labels fall on benchmark panos.
+
+  **Consistency check.** On the 124 benchmark panos, the city-wide miner must reproduce
+  step 3's 16 emitted richmond targets, with the same pixels. If it does not, say so.
+- **Known limitation, stated before the numbers (review of labeler#112, finding 1).** The
+  rule's exclusion test drops a candidate when *any* ≥ 0.55 peak falls in its 7.9°
+  window, including a neighbouring ramp's detection. `peak_local_max(min_distance=10)`
+  suppresses a weaker peak within about 3.5° of a stronger one, so a missed ramp beside a
+  detected one cannot hold its own peak. On GSV this dropped 15 of 23 true misses. In
+  step 3, Richmond had none dropped that way, but city-wide it can happen on any dense
+  corner. **If Richmond's yield or gallery precision disappoints, this is the first cause
+  to check.** The rule is not changed mid-stream.
+
+### 2. Gallery (RampNet `scripts/analysis/mined_label_check_158.py`)
+
+- **Population:** every emitted label whose target pano is **not** one of the 124
+  benchmark panos.
+- **Sample:** 100 labels, stratified by range band (0–8, 8–12, 12–15 m).
+  - Allocation is **proportional** to each band's share of the population, by largest
+    remainder, so the pooled sample is self-weighting and one Wilson interval is valid
+    for the pooled rate.
+  - Within a band, draw uniformly without replacement with `random.Random(158)` over the
+    labels sorted by (site_id, pano_id).
+  - If the population has fewer than 100 labels, all of them are taken.
+- **Instrument items: 10.** These are drawn with the same seed from step 3's richmond
+  `peak_flat` targets that the benchmark adjudicated `tp` or `fp` (13 labels). Their known
+  answer is Yes for a `tp` and No for an `fp` (Jon's earlier verdicts, through the 5 m
+  world match).
+  - They are flagged in the committed item file, but not on the cards or in the per-rater
+    file. Cards are shuffled with seed 158.
+  - They are scored separately, as agreement with his earlier verdicts, and are never
+    part of the precision.
+- **Cards.** Each card shows:
+  - one ringed crop of the target pano, a 36 × 24° window centred on the emitted pixel,
+    cut with the #48 harness's `cut_one`;
+  - one unringed context crop: the source-rule view (the member pano whose camera is
+    nearest the target's), centred on that member's detection.
+
+  Cards show no model confidence, no range, no band and no instrument flag. The header is
+  a card number plus an opaque id.
+- **Question:** "Is there a curb ramp at the ring?" The answers are Yes, No and Can't tell.
+  The rubric, stored in every per-rater file:
+  - **Yes:** a curb ramp is at the ring or touching it. It may be partly hidden or faint,
+    as long as it is visibly a ramp.
+  - **No:** there is no curb ramp at that spot. The ring is on plain curb, a driveway,
+    sidewalk, street or something else, and the nearest ramp, if any, is more than about
+    one ramp width away.
+  - **Can't tell:** the view does not let you decide (too dark, blocked, too far, too
+    blurry). These are excluded from every rate and counted.
+- **Rules:** answer from the ringed view; the context view is not rated; judge the spot
+  under the ring, not whether a ramp is somewhere in the crop.
+- **Per-rater file:** `analysis_out/mined_label_check_158/mined_label_check__<rater>.json`.
+  It carries the question, rubric, rules, item list, manifest digest (items plus crop
+  sha256s) and empty verdicts. The page asks for a rater id, so a second rater gets their
+  own file. `rates` refuses a file whose digest, items, question, rubric or rules differ
+  from the committed ones. `agreement` compares two raters.
+- **Precision:** Yes / (Yes + No) over the 100 sample items, with a 95% Wilson interval,
+  pooled and per band. It is read against #158's rule: ≥ 0.80 build, 0.50–0.80 visibility
+  test, < 0.50 drop, judged on the point estimate and the CI.
+  - A label is emitted only where no ≥ 0.55 peak lies in its window, so a Yes is a ramp
+    the model did not detect there. The rate therefore reads as hard-only and all-mined at
+    once (as in step 3, the two coincide by construction). The gallery cannot tell a missed
+    ramp from a ramp detected just outside the window; that is stated beside the number.
+  - The Can't-tell count and the instrument agreement are reported beside it.
+- **Publishing:** crops committed under `benchmark/mined_label_check_158/crops/`, with a
+  sha256 per crop in `manifest.json`. The gallery is a local HTML file,
+  `benchmark/mined_label_check_158/gallery.html`, as for the #48 GT check.
+
+### Step 4 results so far (2026-09-29): floor pass, miner and gallery built; rating pending
+
+**Floor pass (the pass, not f01, is the input).** The pass had already started when the
+step-3 review reported that f01 meets the gate. Per the plan, f01 is the cross-check.
+
+- **Run:** all 9,091 richmond panos on the makelab2 A40 with `--workers 6`.
+  - Incarnation 1: 20:22:48Z to 20:55:14Z, 2,500 panos. It ended because makelab2 was
+    rebooted (a root login, then a system reboot); this job did not cause it.
+  - Incarnation 2: resumed at 21:03:57Z and ran the remaining 6,591 panos, finishing at
+    22:28:17Z after 1 h 24 min.
+  - Total: **1.95 A40-hours**, recorded as `paid: false` in RampNet's ledger.
+- **Gate (pre-set):**
+  - **124 / 124** benchmark panos reproduce, with 267 → 267 operational detections. Pass.
+  - City-wide: 9,090 / 9,091 (`step4/richmond.all.gate{124,all}.json`).
+- **Cross-check against f01:** **9,086 / 9,091** panos have identical *full* peak sets down
+  to 0.1 (same cell, |Δconf| ≤ 1e-3; `step4/richmond.f01_crosscheck.json`).
+  - In each of the 5 that differ, one peak lands on a different cell of a flat plateau, or
+    one peak sits at the 0.100 floor. Confidences agree to 1e-3.
+  - On the 124 benchmark panos the pass equals step 3's floor file exactly.
+  - About f01 itself:
+    - sha256 `e81954f4…`;
+    - the #20 re-inference, re-fetched from Mapillary, on Jon's desktop;
+    - its records carry `rampnet-model` and training date 08-21-2025 but no revision;
+    - its lowest stored confidence is 0.10000.
+  - So the two agree closely, and f01 could have stood in.
+- **Pinned** in `step4/richmond.all.floor.{provenance,inputs,software}.json`:
+  - the output, by its raw and pano-sorted sha256 (the 18 MB file stays on makelab2 and
+    regenerates);
+  - every input image's sha256, from the archive index. The 124 benchmark panos equal
+    RampNet's `imagery_manifest.json`;
+  - the software: torch 2.14.0+cu130, transformers 5.12.1.
+
+**Miner** (`mine_city.py`, the `peak_flat` rule unchanged; `step4/richmond/{labels.jsonl,summary.json}`):
+
+| | total | 0–8 m | 8–12 m | 12–15 m |
+|---|--:|--:|--:|--:|
+| (strong site, non-member pano) pairs within 15 m | 3,011 | 746 | 1,093 | 1,172 |
+| emitted | **573** | 103 | 215 | 255 |
+| emitted, target not a benchmark pano | 557 | 98 | 209 | 250 |
+
+- **Pairs:** 3,011 equals #102's richmond yield at 15 m.
+- **Status:** 1,928 pairs have no peak in the window, 510 have an operational peak in it,
+  and 573 emit.
+- **Spread:** the 573 labels lie on 340 sites and 498 panos.
+- **Emission rate: 19%** of pairs overall (14 / 20 / 22% by band). The rate is lowest close
+  in, where more windows hold an operational peak.
+- **Consistency check (pre-registered):** on the 124 benchmark panos, the city-wide miner
+  reproduces all 59 step-3 candidate statuses, and the same 16 emitted targets with the
+  same pixels.
+- **The known limitation applies:** 510 of 3,011 pairs (17%) are withheld because a
+  ≥ 0.55 peak sits in the window. On a dense corner that can be a neighbouring ramp's
+  detection. How many of the 510 are that case is not measured.
+
+**Gallery** (RampNet `scripts/analysis/mined_label_check_158.py`):
+
+- **Sample:** drawn by the fixed rule, 100 labels allocated 18 / 37 / 45 from
+  98 / 209 / 250.
+- **Instrument items:** 10, 8 with a known Yes and 2 with a known No, drawn from step 3's
+  13 adjudicated targets.
+- **Size:** 110 cards and 220 crops.
+- **Crops:** cut on makelab2 CPU in 50 s, from the archive. Manifest digest
+  `bf3c00686e50e0da`.
+- **Files:**
+  - page: `benchmark/mined_label_check_158/gallery.html` (RampNet branch
+    `analysis/mined-placement-158-step4`);
+  - rater file: `analysis_out/mined_label_check_158/mined_label_check__jonf.json`,
+    verdicts empty.
+- **Scoring:** `rates` is written and tested. No precision exists until the file comes
+  back.

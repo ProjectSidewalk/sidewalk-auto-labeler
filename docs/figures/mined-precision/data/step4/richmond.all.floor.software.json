@@ -1,0 +1,1 @@
+{"torch": "2.14.0+cu130", "transformers": "5.12.1", "torchvision": "0.29.0", "pillow": "12.3.0", "scikit-image": "0.26.0", "numpy": "2.5.3"}
