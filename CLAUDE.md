@@ -332,6 +332,38 @@ python scripts/mined_precision.py paterson --camera-height 2.2 --radius 10 15 20
 python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo
 python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
     --camera-height 2.6 2.2 2.2 2.2 2.2   # richmond has no measured height; GSV does
+# STEP 2 (RampNet#158, 2026-09-29; docs/mined-precision.md): the same check under
+# per-rig/per-pano and auto heights on inputs frozen to step 1 (the 2026-09-21 gap fills
+# are cut off; hashes in docs/figures/mined-precision/data/inputs.json). GSV's point
+# estimates move from drop into visibility on both denominators, NOT decisively (each CI
+# crosses a band edge); richmond cannot move (per-rig applies 2.6 m, #89).
+# mined_precision_compare.py lays several --out dirs side by side (per city, range band,
+# pooled, pooled GSV) from their candidates.csv, with mined_precision's own tallies.
+python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
+    --camera-height per-rig per-pano per-pano per-pano per-pano --out /tmp/mp/perrig_perpano
+python scripts/mined_precision_compare.py --cities richmond paterson bend gainesville \
+    sao_paulo --mapillary richmond --arm a=/tmp/mp/h2.6 --arm b=/tmp/mp/perrig_perpano
+# PHASE 2 (image-based placement; docs/mined-precision.md). --emit-sources writes, per
+# candidate, the source view the pre-registered SOURCE RULE picks (nearest member camera;
+# nothing GT-derived). RampNet's scripts/analysis/mined_placement_158.py runs a #48
+# placement arm on those pairs; --placement FILE then adjudicates the placed pixel on the
+# SAME candidates (paired), and --paired-base in the compare tool gives fixed/broken counts.
+# Under the pre-registered 5 m world match, roma_local moves 9 richmond false positives
+# into already_detected (9 / 0) - but that does NOT show it places the SITE's ramp: the
+# post hoc attribution below finds 6 of the 9 land on a detection of ANOTHER multi-pano
+# site 5.4-11 m away (>= 2 demonstrably a different ramp), and on GSV it turns 7 true hard
+# positives into already_detected. Nothing helps on GSV. See docs/mined-precision.md.
+python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
+    --camera-height per-rig per-pano per-pano per-pano per-pano --out /tmp/mp/roma_local \
+    --placement docs/figures/mined-precision/data/placement/roma_local.jsonl
+# POST HOC (after review): which fused site does each changed candidate's adjudicating
+# detection belong to? own site (impossible by construction) / another multi-pano site /
+# singleton / none, plus a strict all-mined sensitivity; --verify refuses unless every
+# recomputed bucket equals the committed run's.
+python scripts/mined_placement_attribution.py richmond paterson bend gainesville sao_paulo \
+    --runs-root $FROZEN --camera-height per-rig per-pano per-pano per-pano per-pano \
+    --arm roma_local=docs/figures/mined-precision/data/placement/roma_local.jsonl \
+    --verify docs/figures/mined-precision/data/frozen --mapillary richmond
 
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.

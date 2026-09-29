@@ -190,12 +190,127 @@ def strong_sites(sites, min_panos):
     return out
 
 
+# --------------------------------------------------------------------------- #
+# Image-based placement (RampNet#158 phase 2)
+# --------------------------------------------------------------------------- #
+# The flat projection above places a mined target by carrying the SITE's world position
+# into the target pano. Phase 2 swaps that for an image-based transfer (RampNet's #48
+# placement arms: MapAnything on the posed pair, RoMa), which needs ONE source view of the
+# ramp to transfer from. The rule that picks it was fixed and written down before any
+# placement was scored (RampNet#158 phase-2 plan):
+#
+#   SOURCE RULE: among the site's OPERATIONAL members (>= the benchmark threshold the
+#   fuse ran at) from panos other than the target, the one whose CAMERA is nearest the
+#   target pano's camera; ties by higher confidence, then pano_id, then det_index.
+#
+# Nearest camera because every #48 arm transfers best across a short baseline (#48's
+# matching doc: fallback rises with baseline; beyond 20 m lg never aligns). It reads
+# only what a miner has: the site's member detections and camera positions. It never
+# reads a verdict, and never the target pano's own detections.
+SOURCE_FIELDS = ('city', 'site_id', 'pano_id', 'src_pano', 'src_det_index', 'src_x',
+                 'src_y', 'src_conf', 'baseline_m', 'src_range_m', 'oth_range_m',
+                 'proj_x', 'proj_y')
+PLACEMENT_FIELDS = ('city', 'site_id', 'pano_id', 'status', 'x', 'y', 'shift_m')
+
+
+def choose_source(site, target_pid, run_by_id, frame):
+    """The SOURCE RULE above: (member Det, its camera ENU, baseline_m), or None when the
+    site has no operational member outside the target pano."""
+    t = run_by_id[target_pid]
+    te, tn = frame.to_enu(t.lat, t.lng)
+    best = None
+    for d, _ in site.members:
+        if not d.operational or d.pano_id == target_pid:
+            continue
+        p = run_by_id[d.pano_id]
+        e, n = frame.to_enu(p.lat, p.lng)
+        key = (math.hypot(e - te, n - tn), -d.conf, d.pano_id, d.det_index)
+        if best is None or key < best[0]:
+            best = (key, d, (e, n))
+    if best is None:
+        return None
+    return best[1], best[2], best[0][0]
+
+
+def _classify(gt_points, e, n, match_m, entry):
+    """(bucket, nearest kind, nearest distance, within) for a mined target at ENU
+    (e, n) in one judged pano. The nearest GT point is recorded whatever its distance:
+    for an fp, "how far away was the nearest missed mark" is the whole localization
+    diagnostic."""
+    kind, dist = '', math.inf
+    for k, ge, gn in gt_points:
+        d = math.hypot(ge - e, gn - n)
+        if d < dist:
+            kind, dist = k, d
+    within = dist <= match_m
+    adjudicating = kind if within else ''
+    if adjudicating == 'missed':
+        bucket = 'tp'
+    elif adjudicating == 'det':
+        bucket = 'already_detected'
+    elif adjudicating == 'unsure':
+        bucket = 'unsure'
+    elif adjudicating == 'false_det':
+        # NOT gated on _in_pool: a rejected detection adjudicates that spot in that
+        # pano by itself, so whether the pano's separate missed-ramp sweep was attested
+        # has no bearing on it. Gating it here would drop exactly the rejected-detection
+        # candidates out of the denominator in any bundle where the sweep was skipped,
+        # reading precision high - the inversion counting them as fp exists to prevent.
+        bucket = 'false_det_nearby'
+    else:
+        bucket = 'fp' if _in_pool(entry) else 'unadjudicable'
+    return bucket, kind, dist, within
+
+
+def raycast_pixel(pose, pix, run_pano, params, frame):
+    """ENU (e, n) of a target-pano pixel on the ground, raycast exactly as that pano's GT
+    marks are (gt_points_by_pano / eval_sites.build_gt): the same camera height frame
+    (params.camera_height_m, so PER_PANO / PER_RIG resolve per pano), range cap, error
+    model and pose. None when the ray does not reach the ground within the range cap."""
+    g = geo.detection_ground_point(
+        pose, pix[0], pix[1], camera_height=params.camera_height_m,
+        max_range_m=params.max_range_m, errors=geo.error_model_for(run_pano.source),
+        apply_pose=params.rotates)
+    return None if g is None else frame.to_enu(g.lat, g.lng)
+
+
+def read_placement(path):
+    """{(city, site_id, pano_id): (x, y) or None} from a placement JSONL (one row per
+    candidate, x / y null where the arm fell back). Duplicate keys are refused."""
+    import json
+    out = {}
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            r = json.loads(line)
+            key = (r['city'], int(r['site_id']), str(r['pano_id']))
+            if key in out:
+                raise ValueError(f'{path}: duplicate placement row {key}')
+            x, y = r.get('x'), r.get('y')
+            out[key] = None if x is None or y is None else (float(x), float(y))
+    return out
+
+
 def mine_candidates(strong, judged, run_by_id, gt_by_pano, frame, params,
-                    max_radius_m, match_m, city):
+                    max_radius_m, match_m, city, sources=None, placement=None,
+                    placed=None):
     """Every (strong site, judged non-member pano within max_radius_m) pair,
     classified. Also returns how many pairs were excluded because the pano is a
     member through a sub-threshold detection only (the model did respond, so it
-    is not a miss - but not a training positive either)."""
+    is not a miss - but not a training positive either).
+
+    `sources` (a list, optional) receives one SOURCE_FIELDS dict per candidate: the
+    source view the SOURCE RULE picks, with nothing GT-derived in it.
+
+    `placement` ({(city, site_id, pano_id): (x, y) | None}, optional) replaces the flat
+    projection of the site with an externally placed pixel in the target pano. The
+    pixel is raycast from the target camera exactly as its GT marks are (same height
+    frame, range cap and pose), and THAT point is adjudicated; the candidate set, its
+    range_m and its strata stay the site's, so a placement arm is paired candidate by
+    candidate with the flat run. A None (the arm fell back) or a pixel that does not
+    reach the ground keeps the site's position. Every candidate must have a row, and
+    `placed` (a list) receives one PLACEMENT_FIELDS dict per candidate."""
     cands, excluded_subfloor = [], 0
     pano_enu = {pid: frame.to_enu(run_by_id[pid].lat, run_by_id[pid].lng)
                 for pid in judged}
@@ -215,32 +330,43 @@ def mine_candidates(strong, judged, run_by_id, gt_by_pano, frame, params,
                 max_range_m=max_radius_m, apply_pose=params.rotates)
             if proj is None:
                 continue
-            # The nearest GT point in this pano is recorded whatever its distance:
-            # for an fp, "how far away was the nearest missed mark" is the whole
-            # localization diagnostic, and blanking it past match_m threw it away.
-            kind, dist = '', math.inf
-            for k, e, n in gt_by_pano.get(pid, ()):
-                d = math.hypot(e - site.e, n - site.n)
-                if d < dist:
-                    kind, dist = k, d
-            within = dist <= match_m
-            adjudicating = kind if within else ''
-            if adjudicating == 'missed':
-                bucket = 'tp'
-            elif adjudicating == 'det':
-                bucket = 'already_detected'
-            elif adjudicating == 'unsure':
-                bucket = 'unsure'
-            elif adjudicating == 'false_det':
-                # NOT gated on _in_pool: a rejected detection adjudicates that spot
-                # in that pano by itself, so whether the pano's separate missed-ramp
-                # sweep was attested has no bearing on it. Gating it here would drop
-                # exactly the rejected-detection candidates out of the denominator
-                # in any bundle where the sweep was skipped, reading precision high
-                # - the inversion counting them as fp exists to prevent.
-                bucket = 'false_det_nearby'
-            else:
-                bucket = 'fp' if _in_pool(judged[pid]) else 'unadjudicable'
+            if sources is not None:
+                src = choose_source(site, pid, run_by_id, frame)
+                if src is not None:
+                    d, (se, sn), baseline = src
+                    sources.append({
+                        'city': city, 'site_id': site.id, 'pano_id': pid,
+                        'src_pano': d.pano_id, 'src_det_index': d.det_index,
+                        'src_x': d.x, 'src_y': d.y, 'src_conf': d.conf,
+                        'baseline_m': baseline,
+                        'src_range_m': math.hypot(se - site.e, sn - site.n),
+                        'oth_range_m': proj.range_m,
+                        'proj_x': proj.x_norm, 'proj_y': proj.y_norm})
+            te, tn = site.e, site.n
+            if placement is not None:
+                key = (city, site.id, pid)
+                if key not in placement:
+                    raise ValueError(f'placement has no row for candidate {key}; a '
+                                     f'placement arm must cover the same candidates')
+                pix, status = placement[key], 'fallback'
+                if pix is not None:
+                    enu = raycast_pixel(pose, pix, run_by_id[pid], params, frame)
+                    if enu is None:
+                        status = 'no_ground'
+                    else:
+                        te, tn = enu
+                        status = 'placed'
+                # adj_e / adj_n (the point actually adjudicated) are for in-memory callers
+                # such as mined_placement_attribution.py; placement.csv writes only
+                # PLACEMENT_FIELDS, so the committed files are unchanged by them.
+                placed.append({'city': city, 'site_id': site.id, 'pano_id': pid,
+                               'status': status,
+                               'x': None if pix is None else pix[0],
+                               'y': None if pix is None else pix[1],
+                               'shift_m': math.hypot(te - site.e, tn - site.n),
+                               'adj_e': te, 'adj_n': tn})
+            bucket, kind, dist, within = _classify(
+                gt_by_pano.get(pid, ()), te, tn, match_m, judged[pid])
             cands.append(Candidate(city, site.id, pid,
                                    proj.range_m, proj.bearing_deg,
                                    proj.x_norm, proj.y_norm, n_op_panos,
@@ -370,7 +496,8 @@ def rule_reading(p, lo, hi, radius_m):
 
 
 def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
-             min_panos=3, match_m=5.0, city='', height_mode=None, auto=None):
+             min_panos=3, match_m=5.0, city='', height_mode=None, auto=None,
+             emit_sources=False, placement=None):
     """The whole check for one city; returns (result dict, candidates). No I/O.
 
     `height_mode` is the --camera-height value as asked (a number, or `auto` /
@@ -395,9 +522,19 @@ def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
     gt_by_pano, warnings = gt_points_by_pano(
         verdict_panos, bundle_ops, run_by_id, params, frame)
     strong = strong_sites(sites, min_panos)
+    sources = [] if emit_sources else None
+    placed = [] if placement is not None else None
+    if placement is not None:
+        placement = {k: v for k, v in placement.items() if k[0] == city}
     cands, excluded_subfloor = mine_candidates(
         strong, judged, run_by_id, gt_by_pano, frame, params, max(radii_m),
-        match_m, city)
+        match_m, city, sources=sources, placement=placement, placed=placed)
+    if placement is not None:
+        extra = set(placement) - {(c.city, c.site_id, c.pano_id) for c in cands}
+        if extra:
+            raise ValueError(f'{len(extra)} placement rows match no candidate (e.g. '
+                             f'{sorted(extra)[0]}); the placement was made on a '
+                             f'different candidate set')
     yields, n_ops = yield_all_panos(strong, run_panos, frame, radii_m)
     headline = precision_row('headline', cands)
     named = isinstance(height_mode, str)
@@ -422,6 +559,8 @@ def run_city(verdict_panos, bundle_ops, run_panos, params, radii_m=(10.0, 15.0),
         'strata': strata(cands, radii_m),
         'yield': {'counts': yields, 'n_operational_detections': n_ops},
         'warnings': warnings,
+        'sources': sources,
+        'placement': placed,
     }, cands
 
 
@@ -473,6 +612,11 @@ def pool_cities(per_city, radii_m, min_panos, match_m, cities=None):
                   'n_operational_detections': sum(
                       r['yield']['n_operational_detections'] for r in results)},
         'warnings': [w for r in results for w in r['warnings']],
+        'sources': (None if any(r.get('sources') is None for r in results)
+                    else [x for r in results for x in r['sources']]),
+        'placement': (None if any(r.get('placement') is None for r in results)
+                      else [x for r in results for x in r['placement']]),
+        'placement_label': results[0].get('placement_label') if results else None,
         'height_resolution': [
             (f'- {city}: ' + line[2:]) if city and line.startswith('- ') else line
             for city, r in zip(cities or [''] * len(results), results)
@@ -526,6 +670,7 @@ def format_report(city, r):
         f"is a member through a sub-threshold detection only",
         *(['', 'camera-height resolution (#56):', *r['height_resolution']]
           if r.get('height_resolution') else []),
+        *(['', placement_line(r)] if r.get('placement') is not None else []),
         '',
         'Two denominators (see the module docstring). A miner has no verdicts, so it '
         'cannot filter `already_detected` out; those labels ship and they are correct.',
@@ -564,11 +709,44 @@ def format_report(city, r):
     return '\n'.join(lines)
 
 
-def write_outputs(out_dir, report_text, cands):
+def placement_line(r):
+    """One report line summarising an image-placement run (phase 2)."""
+    rows = r['placement']
+    n = {s: sum(1 for x in rows if x['status'] == s)
+         for s in ('placed', 'fallback', 'no_ground')}
+    shifts = sorted(x['shift_m'] for x in rows if x['status'] == 'placed')
+    med = shifts[len(shifts) // 2] if shifts else float('nan')
+    return (f"placement: {r.get('placement_label') or 'external'} -- "
+            f"{n['placed']} of {len(rows)} candidates placed by the arm, "
+            f"{n['fallback']} fell back and {n['no_ground']} did not reach the ground "
+            f"(both keep the flat projection of the site); median shift of a placed "
+            f"target from the site {med:.2f} m. Candidates, ranges and strata are the "
+            f"flat run's, so this is paired candidate by candidate with it.")
+
+
+def _write_rows(path, fields, rows):
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        w = csv.DictWriter(f, fields, lineterminator='\n')
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: ('' if r[k] is None else
+                            f'{r[k]:.6f}' if isinstance(r[k], float) else r[k])
+                        for k in fields})
+
+
+def write_outputs(out_dir, report_text, cands, sources=None, placed=None):
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / 'report.md').write_text(report_text + '\n', encoding='utf-8')
+    if sources is not None:
+        _write_rows(out_dir / 'sources.csv', SOURCE_FIELDS, sources)
+    if placed is not None:
+        _write_rows(out_dir / 'placement.csv', PLACEMENT_FIELDS, placed)
+    # LF on every platform, so a re-run is byte-identical on disk and not only after
+    # git's line-ending normalisation (csv's default terminator is CRLF, and write_text
+    # translates newlines to os.linesep).
+    (out_dir / 'report.md').write_text(report_text + '\n', encoding='utf-8',
+                                       newline='\n')
     with open(out_dir / 'candidates.csv', 'w', newline='', encoding='utf-8') as f:
-        w = csv.DictWriter(f, list(Candidate.__dataclass_fields__))
+        w = csv.DictWriter(f, list(Candidate.__dataclass_fields__), lineterminator='\n')
         w.writeheader()
         for c in cands:
             row = asdict(c)
@@ -620,6 +798,15 @@ def main():
                          'be "per-pano", "auto" or "per-rig", resolved exactly as '
                          'fuse_sites.py resolves them (#56); the report says how many '
                          'panos fell back to 2.6 m')
+    ap.add_argument('--emit-sources', action='store_true',
+                    help='also write sources.csv: per candidate, the source view the '
+                         'SOURCE RULE picks (RampNet#158 phase 2), nothing GT-derived')
+    ap.add_argument('--placement', type=Path, default=None,
+                    help='placement JSONL (city, site_id, pano_id, x, y; null x/y = '
+                         'fell back) from an image-placement arm: adjudicate the placed '
+                         'pixel instead of the flat projection (RampNet#158 phase 2)')
+    ap.add_argument('--placement-label', default=None,
+                    help='name of the placement arm, for the report')
     ap.add_argument('--out', type=Path, default=None,
                     help='output dir (default runs/<city>/mined_precision, and '
                          'runs/_pooled/mined_precision for the pooled report)')
@@ -634,6 +821,7 @@ def main():
         ap.error(f'--camera-height takes one value or one per city '
                  f'({len(cities)} named), got {len(heights)}.')
 
+    placement = read_placement(args.placement) if args.placement else None
     per_city, out_dirs = [], []
     for i, city in enumerate(cities):
         run_dir = args.run_dir or args.runs_root / city
@@ -665,16 +853,25 @@ def main():
                                      radii_m=tuple(args.radius),
                                      min_panos=args.min_panos,
                                      match_m=args.match_radius_m, city=city,
-                                     height_mode=mode, auto=auto)
+                                     height_mode=mode, auto=auto,
+                                     emit_sources=args.emit_sources,
+                                     placement=placement)
         except ValueError as exc:
             ap.error(str(exc))
+        result['placement_label'] = args.placement_label
         report_text = format_report(city, result)
         print(report_text)
         out_dir = (args.out / city if args.out and len(cities) > 1
                    else args.out or run_dir / 'mined_precision')
-        write_outputs(out_dir, report_text, cands)
+        write_outputs(out_dir, report_text, cands, result['sources'], result['placement'])
         out_dirs.append(out_dir)
         per_city.append((result, cands))
+    if placement is not None:
+        got = {(c.city, c.site_id, c.pano_id) for _r, cs in per_city for c in cs}
+        stray = set(placement) - got
+        if stray:
+            ap.error(f'{len(stray)} placement rows match no candidate of the cities '
+                     f'named (e.g. {sorted(stray)[0]})')
 
     if len(cities) > 1:
         pooled, pooled_cands = pool_cities(
@@ -684,7 +881,8 @@ def main():
         print('\n\n' + text)
         pooled_dir = (args.out / '_pooled' if args.out
                       else args.runs_root / '_pooled' / 'mined_precision')
-        write_outputs(pooled_dir, text, pooled_cands)
+        write_outputs(pooled_dir, text, pooled_cands, pooled['sources'],
+                      pooled['placement'])
         out_dirs.append(pooled_dir)
     print('\nwrote ' + ', '.join(str(d) for d in out_dirs))
 

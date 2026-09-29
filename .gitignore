@@ -106,3 +106,6 @@ runs/_summary/camera_height/estimator_validation*.csv
 # live frame check's result. The index itself stays untracked, as for a harvest.
 !runs/*/depth/
 !runs/*/depth/store.json
+# RampNet#158 phase 2: placement arms' per-candidate predictions (copied from RampNet's
+# analysis_out/mined_placement_158/predictions/), the input to mined_precision.py --placement.
+!docs/figures/mined-precision/data/placement/*.jsonl
