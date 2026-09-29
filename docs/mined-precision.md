@@ -554,3 +554,536 @@ GPU re-run can differ by a pair or two (#48 matching.md §2).
 - **Adjudication on dense corners** needs the own / other attribution reported beside it
   (see the post hoc subsection) before any `already_detected` gain is read as better
   placement.
+
+## Step 3 (2026-09-29): peak-anchored targets. Plan, fixed before inference and scoring
+
+*(Timing, added 2026-09-29 after the review of #112. The plan was committed at 17:59:08Z
+(7e1f391), before any inference. The RampNet#158 comment that posts it went up at
+18:03:33Z, about two minutes after the richmond floor pass had started: that pass ended at
+about 18:05Z after 214 s. So the plan was committed before inference and posted as it
+started. When 7e1f391 was pushed is not recorded; it was on origin by 18:16:07Z. Scoring
+began after all of this, at d23e2fc, 18:21:39Z.)*
+
+**Question.** In phase 2, image placement raised richmond's all-mined under the rubric, but
+it added no new misses, and its "fixes" are not shown to land on the mined ramp (see the
+post hoc attribution above). *(Edited 2026-09-29 at the merge with the reviewed phase 2,
+after inference and scoring: the plan as committed in 7e1f391 said image placement "made
+richmond's shipped labels correct more often ... every label it fixed was one the model
+already detected", wording the phase-2 correction withdrew. Only the description of phase 2
+changed; the question, the definition and the gate below are as committed.)* Step
+1's plan proposed a stricter target, where geometry proposes and the model localizes. Emit a
+target only where the target pano holds a **sub-threshold peak** near the geometric anchor,
+and put the target on that peak. Does that make mined targets genuine misses?
+
+**Target definition** (`scripts/peak_anchor.py`):
+
+- **Window:** the benchmark's per-pano match radius, 0.022 in RampNet's pano geometry (x
+  scaled by 1024, y by 512, x cyclic at the seam), around the anchor pixel. That is about
+  7.9°.
+- **Peaks:** the target pano's stored peaks down to the storage floor (0.1), at most 50 per
+  pano, from the published model (`projectsidewalk/rampnet-model`, paper weights).
+- **Rule:**
+  - If a peak ≥ 0.55 is in the window, the model already fires there, so the candidate is
+    **not emitted**.
+  - Otherwise, if any peak in [0.1, 0.55) is in the window, the miner **emits the
+    highest-confidence one's pixel** as the target.
+  - Otherwise (no response at all), the candidate is **not emitted**.
+- **Anchors**, all named now:
+  - **`peak_flat`** (primary): the step-2 flat projection of the site.
+  - `peak_roma_local`: phase 2's `roma_local` placement, falling back to flat.
+  - `peak_mapa_k_pair`: a new placement arm, MapAnything on the pair given intrinsics only.
+    #48's fresh-pair re-test ([RampNet#220](https://github.com/ProjectSidewalk/RampNet/pull/220))
+    found it the best Mapillary arm. `mapa_k_pair` is also scored on its own as a placement
+    arm, like phase 2's. *(Status as of #220's final reads, added at the merge with the
+    reviewed phase 2: confirmed as pre-specified but **borderline on GSV**, lower bounds
+    0.000 / −0.009 / −0.048 under the
+    [sensitivity reads](https://github.com/ProjectSidewalk/RampNet/issues/48#issuecomment-5896570175);
+    best on Mapillary, +1.89°. The plan above is unchanged.)*
+
+**Where the floor peaks come from:**
+
+- **paterson, gainesville, são paulo:** these runs already store peaks to 0.1 (post-#28),
+  and their frozen `results.jsonl` are used as they are.
+- **richmond and bend:** these runs predate the floor, so both get one inference pass on
+  makelab2's A40 (`scripts/floor_infer_archive.py`):
+  - Scope: every benchmark-judged pano (richmond 124, bend 110; `step3/<city>_ids.txt`,
+    taken from `benchmark/<city>/records.jsonl`). That covers all 39 + 10 candidate targets.
+    *(Note added 2026-09-29 after the review of #112: 39 + 10 counts distinct target
+    **panos**; they carry 59 + 12 candidates.)*
+  - Pixels: the native-resolution JPEGs in the makelab2 run archive, read-only.
+  - Pano blocks: unchanged, taken from the pinned archived `results.jsonl` (sha256 in
+    `inputs.json`).
+
+**Instrument check, a gate run before any scoring.** A pano reproduces if its re-inferred
+peaks ≥ 0.55 match the pinned run's ≥ 0.55 detections: the same count, each within one
+heatmap cell. If fewer than **95%** of a city's panos reproduce, that city's pass is not
+used, and the check is reported instead of a precision.
+
+**Adjudication** is unchanged. The emitted peak's pixel goes through
+`mined_precision.py --placement` in the step-2 frame: raycast from the target camera, 5 m
+match, same buckets. A candidate that is not emitted leaves both denominators and is
+counted.
+
+**What is reported, and how it is read:**
+
+- Both denominators, per city, by range band, on the emitted subset.
+- **Yield:** emitted / 127, per city.
+- Beside every number, the **flat arm on the same emitted candidates** (paired), so that a
+  gain is not just a different subset.
+- The decision rule is the pre-registered one, unchanged: ≥ 0.80 build, 0.50–0.80 add
+  visibility, < 0.50 drop, read on the point estimate and CI, both denominators, at ≤ 15 m.
+- **Primary reading:** `peak_flat`, on richmond and pooled.
+- **Yield changes what "build" means.** A definition that emits few targets can read
+  "build" and still not be worth building. Yield is stated beside the reading, and no
+  yield threshold is set.
+
+**Cost** gets `paid: false` rows in RampNet's `analysis_out/usage_log.jsonl`.
+
+### Step 3: addendum written after inference, before scoring (2026-09-29)
+
+1. **Instrument check.** richmond passes: **124 of 124** panos reproduce their ≥ 0.55
+   detections (267 before and after). bend **fails**: 77 of 110 reproduce (0.70; 265
+   operational detections before, 257 after). The pixel sizes of bend's archived JPEGs match
+   its pano blocks (101 are 16384 × 8192 and 9 are 13312 × 6656), so it is not a size
+   mismatch. bend's run is the oldest (2026-07-03), and why its peaks move was not
+   investigated. *(Post hoc, 2026-09-29: the size check compared against the max-zoom
+   size, so it could not see the likely cause, zoom 3 in production against max zoom in
+   the archive. See "Post hoc: why bend fails the gate".)* **Under the gate, bend's pass is
+   not used.** Every step-3 arm, and the flat
+   comparison beside it, is therefore over **richmond, paterson, gainesville and são paulo:
+   115 of the 127 candidates**. Outputs are in `step3/<city>.floor.jsonl` and
+   `step3/<city>.check.json`.
+2. **Own-site read, secondary, added after the review of RampNet#219 and before any step-3
+   scoring.** The reviewer found that 6 of phase 2's 9 richmond `roma_local` fixes were
+   matched to a detection of a *different* fused site 5.4–11 m away. The 5 m world match
+   accepts a neighbouring ramp on a dense corner. `--own-site` therefore reads each
+   adjudication a second way:
+   - A right adjudication (tp or already_detected) whose GT point is strictly closer to
+     another site of the same fuse than to the candidate's own becomes `other_site`.
+   - `other_site` is false under both denominators.
+
+   It is reported beside the pre-registered read for every arm, flat and phase 2 included.
+   It is not a replacement for that read.
+3. **`mapa_k_pair` ran.** 127 pairs, 1 fell back, 50 s on the A40.
+
+### Step 3 results (2026-09-29)
+
+**Scope.** Four cities: richmond, paterson, gainesville and são paulo. bend's floor pass
+failed the instrument gate (addendum above), so bend is excluded, and every "flat" and
+phase-2 number in this section is recomputed on the same four cities (115 candidates). The
+read is at ≤ 15 m. Each cell gives the point estimate [95% Wilson CI] (k/n).
+
+#### Pre-registered read
+
+| group | arm | emitted / cand. | hard-only | all-mined | flat on the SAME candidates, hard / all |
+|---|---|---|---|---|---|
+| richmond | step 1 = step 2 flat | 59 / 59 | 0.310 [0.19, 0.46] (13/42) | 0.431 [0.31, 0.57] (22/51) | – |
+| richmond | phase 2 `roma_local` | 59 / 59 | 0.406 [0.26, 0.58] (13/32) | 0.627 [0.49, 0.75] (32/51) | 0.310 / 0.431 |
+| richmond | `mapa_k_pair` (placement) | 59 / 59 | 0.448 [0.28, 0.62] (13/29) | 0.680 [0.54, 0.79] (34/50) | 0.310 / 0.431 |
+| richmond | **`peak_flat`** | **16 / 59** | **0.769 [0.50, 0.92] (10/13)** | **0.769 [0.50, 0.92] (10/13)** | 0.769 / 0.769 |
+| richmond | `peak_roma_local` | 17 / 59 | 0.615 [0.36, 0.82] (8/13) | 0.615 (8/13) | 0.643 / 0.643 |
+| richmond | `peak_mapa_k_pair` | 19 / 59 | 0.600 [0.36, 0.80] (9/15) | 0.600 (9/15) | 0.625 / 0.625 |
+| 4 cities | step 2 flat | 115 / 115 | 0.456 [0.35, 0.57] (36/79) | 0.587 [0.49, 0.68] (61/104) | – |
+| 4 cities | `mapa_k_pair` | 115 / 115 | 0.525 [0.40, 0.64] (32/61) | 0.716 [0.62, 0.79] (73/102) | 0.456 / 0.587 |
+| 4 cities | **`peak_flat`** | **20 / 115** | **0.688 [0.44, 0.86] (11/16)** | **0.706 [0.47, 0.87] (12/17)** | 0.688 / 0.706 |
+| GSV (3 cities) | step 2 flat | 56 / 56 | 0.622 [0.46, 0.76] (23/37) | 0.736 [0.60, 0.84] (39/53) | – |
+| GSV (3 cities) | `peak_flat` | 4 / 56 | 0.333 (1/3) | 0.500 (2/4) | 0.333 / 0.500 |
+
+**Richmond `peak_flat` by band.** 0–8 m 0.800 (4/5), 8–12 m 0.800 (4/5), 12–15 m 0.667 (2/3).
+Within 10 m it is 0.778 [0.45, 0.94] (7/9). The full city × band × arm table, with the
+paired transitions, is [`data/frozen/compare_step3.md`](figures/mined-precision/data/frozen/compare_step3.md).
+
+**Which candidates the rule withholds (`peak_flat`):**
+
+| city | no peak in window | operational (≥ 0.55) peak in window | emitted |
+|---|--:|--:|--:|
+| richmond | 35 | 8 | 16 |
+| paterson | 8 | 18 | 1 |
+| gainesville | 5 | 2 | 1 |
+| são paulo | 10 | 9 | 2 |
+
+#### Reading against the pre-registered rule
+
+- **One reading, not two.** For the peak arms the two denominators coincide by
+  construction: the rule withholds every candidate with an operational peak in its window,
+  so the emitted subset holds no `already_detected` in richmond and one per arm in the four
+  cities pooled (gainesville's). In richmond hard-only therefore equals all-mined, and
+  pooled they differ by that one candidate. "Both denominators" below is one reading, not
+  two that agree. *(Added 2026-09-29 after the review of #112.)*
+- **richmond, `peak_flat`.** 0.769 on both denominators, which is *visibility* on the point
+  estimate. The CI [0.50, 0.92] spans drop, visibility and build, so the reading is **not
+  decisive**. It is the highest richmond has read at any step. Yield is 16 of 59 candidates.
+- **Four cities, `peak_flat`.** hard-only 0.688 and all-mined 0.706, both *visibility* and
+  not decisive. Yield is 20 of 115.
+- **GSV.** The definition emits almost nothing: 4 of 56 candidates.
+
+#### What it is made of
+
+- **The gain is selection, not relocation.** On the 16 candidates it emits in richmond, the
+  flat target scores exactly the same (0.769). Moving the target onto the peak changed 2
+  buckets and fixed none. What the peak test does is **choose** candidates: of richmond
+  flat's 13 true misses it keeps 10, and of its 29 false positives it keeps 3. So the
+  model's own sub-threshold response is a working precision filter, and it needs no verdict.
+- **On GSV the filter removes the true misses too, and the reason is dense corners.** Of GSV
+  flat's 23 true misses, `peak_flat` keeps 1. 15 of the 23 are withheld because an
+  operational peak is in the 7.9° window, and in all 15 that peak is a reviewer-judged
+  **true detection of a neighbouring ramp**, 2.1–6.9° from the missed ramp the candidate
+  points at. The model produces no separate peak for the missed ramp, even at
+  `min_distance=1`, although its heatmap there is at operational level; whether that is
+  the neighbour's shoulder or a merged response to both ramps is not separated. The other
+  7 have no peak at all. So GSV's low yield is **confounded by dense corners**; it is not
+  evidence that sub-threshold response is Mapillary-specific. See "Post hoc: why GSV's true
+  misses are withheld" below. *(Rewritten 2026-09-29 after the review of #112. The text
+  first read this as "the model already fires here", which the post hoc diagnostic does
+  not show. No number changed. Edited again 2026-09-29 after the final re-review: an
+  interim version said the model "is not firing on the mined ramp", which overstates the
+  other way.)*
+- **Image anchors do not help the peak definition.** `peak_roma_local` (0.615) and
+  `peak_mapa_k_pair` (0.600) are both below `peak_flat` on richmond. More of their windows
+  land on an operational peak (21 and 25 against 8), which fits the review finding that
+  those transfers often land on a *neighbouring* ramp's detection. The exclusion side has
+  the same dense-corner problem (see the post hoc diagnostic below).
+- **`mapa_k_pair` as a placement arm.** Under the rubric, 11 of richmond's false positives
+  become correct and none break (a post hoc sign test gives p = 0.001). All 11 become
+  `already_detected`, so, as with `roma_local` in phase 2, they are **not shown to land on
+  the mined ramp**. The own-site read below removes most of them. This is a rubric reading,
+  not evidence of better placement.
+
+#### Own-site read (secondary; added before scoring after the #219 review)
+
+| group | arm | hard-only | all-mined | `other_site` |
+|---|---|---|---|--:|
+| richmond | step 2 flat | 0.224 [0.13, 0.36] (11/49) | 0.255 (13/51) | 9 |
+| richmond | `roma_local` | 0.250 (12/48) | 0.294 (15/51) | 17 |
+| richmond | `mapa_k_pair` | 0.255 (12/47) | 0.300 (15/50) | 19 |
+| richmond | **`peak_flat`** | **0.538 [0.29, 0.77] (7/13)** | **0.538 (7/13)** | 3 |
+| 4 cities | step 2 flat | 0.263 [0.19, 0.36] (26/99) | 0.298 (31/104) | 30 |
+| 4 cities | **`peak_flat`** | **0.471 [0.26, 0.69] (8/17)** | **0.471 (8/17)** | 4 |
+
+The own-site read **is biased low by construction**, and it has to be read with that in
+mind:
+
+- An `already_detected` candidate is one where the target pano's own detection was fused
+  into a *different* site. That detection's GT point is a member of that site, so it is
+  nearly always closer to it. Under this read almost every `already_detected` becomes
+  `other_site`: for the flat arm in four cities, 25 become 5.
+- The read also cannot tell a different ramp from the same ramp split across two sites by
+  fusion.
+
+So it is a sensitivity reading biased low, not a bound and not a better estimate. It can
+also still credit a different ramp that has no fused site of its own.
+
+**It tests site attribution, not label correctness.** *(Added 2026-09-29 after the review
+of #112.)* An `other_site` true miss is a ramp this pano missed that fusion put in a
+different site. As a hard-positive **training label** it is still correct: the pixel is on a
+real ramp the model missed. Only the site identity is wrong. So the own-site read answers
+"did the target land on the mined site's ramp?", a placement and identity question. It is
+not a bound on label precision in either direction. It also sees only emitted rows, so it
+cannot see what the exclusion side withholds (see the post hoc diagnostic below). It is a distance test
+on fused-site positions, which differs from phase 2's post hoc attribution
+(`mined_placement_attribution.py`), which asks which site the landed *detection* belongs to.
+Step 3's peak-anchored arms have almost no `already_detected` (0–1 per arm), so the
+dense-corner flip that attribution addresses barely arises for them. What the read shows:
+
+- **Most of the image arms' right adjudications do not survive it.** 17 of richmond's
+  `roma_local` right adjudications and 19 of `mapa_k_pair`'s are closer to another site.
+  This is consistent with phase 2's attribution: none of the 9 `roma_local` fixes is shown
+  to be the mined ramp, and the mined-ramp count is between 0 / 0 and 7 / 0.
+- **`peak_flat` loses 3 of richmond's 10 true misses to it.** Those 3 hold GT points closer
+  to another fused site, which could be a split or a different ramp. Under this read
+  `peak_flat` is still the best arm: 0.538 against flat's 0.224.
+
+#### Caveats
+
+- **Small n.** richmond `peak_flat` is 13 adjudicable candidates, and the CI is wide. Its
+  Wilson lower bound is 0.497, just below 0.50, so the CI reaches into *drop*. *(Corrected
+  2026-09-29 after the review of #112; this line first said the bound "sits on 0.50".)*
+- **bend is excluded.** Its floor pass failed the gate. The cause was not known when this
+  was written; the likely cause, found after the review of #112, is the pixel source (see
+  "Post hoc: why bend fails the gate" below).
+- **Yield.** The peak-anchored miner emits about 27% of richmond's candidates and 7% of
+  GSV's. Scaled by #102's richmond yield (upper bounds of 1,210 targets at 10 m and 3,011 at
+  15 m), that is roughly 300–800 targets. That is an extrapolation, not a measurement.
+- **The floor pass is per pano.** Only the 124 judged richmond panos were re-inferred.
+  Building the miner for real needs floor peaks over the whole run. *(Added 2026-09-29:
+  the existing `results.f01.jsonl` already passes the gate on 9,089 of 9,091 richmond
+  panos; see "Post hoc" below.)*
+- **The window is the benchmark radius** (0.022), chosen before scoring and not tuned.
+- **The own-site read was added after the review**, before scoring, and is secondary.
+
+#### Runtime and cost
+
+| step | where | wall-clock | GPU-h |
+|---|---|---|---|
+| richmond floor pass (124 panos) | makelab2 A40 (shared; checked first) | 214 s | 0.059 |
+| bend floor pass (110 panos; failed the gate) | makelab2 A40 | 245 s | 0.068 |
+| `mapa_k_pair` (127 pairs) | makelab2 A40 | 50 s | 0.014 |
+| peak_anchor + 17 adjudication runs + compare | desktop CPU | ~3 min | 0 |
+| makelab2 venv (labeler `requirements.txt`: torch 2.14.0+cu130, transformers 5.12.1) | makelab2 CPU | ~2 min | 0 |
+| post hoc (review of #112): zoom-3 re-fetch + re-inference of 20 GSV panos | desktop **CPU** (no GPU) | ~12 min | 0 |
+| post hoc: gate displacement, f01 check (9,091 panos), input sidecars | desktop CPU | ~1 min | 0 |
+
+Total: 0.14 A40-hours, $0. The `paid: false` rows are in RampNet's
+`analysis_out/usage_log.jsonl` (branch `analysis/mined-placement-158-step3`). The labeler has
+no ledger. Nothing ran on Tillicum, no paid API was used, and nothing was written to the
+shared archive.
+
+#### Reproduce (step 3)
+
+```bash
+# makelab2: the floor passes (labeler branch analysis/mined-precision-step3; A = the archive)
+for c in richmond bend; do
+  python scripts/floor_infer_archive.py --results $A/$c/results.jsonl --panos $A/$c/panos \
+      --ids docs/figures/mined-precision/data/step3/${c}_ids.txt --out $c.floor.jsonl
+  python scripts/floor_infer_archive.py --results $A/$c/results.jsonl \
+      --ids docs/figures/mined-precision/data/step3/${c}_ids.txt --out $c.floor.jsonl \
+      --check --check-out $c.check.json
+done
+# RampNet (branch analysis/mined-placement-158-step3): mapa_k_pair, as phase 2's arms
+python scripts/analysis/mined_placement_158.py predict --arm mapa_k_pair --views VIEWS
+# desktop: peak-anchored placements, then adjudicate (plain and --own-site), then compare
+DD=docs/figures/mined-precision/data; C4="richmond paterson gainesville sao_paulo"
+for a in flat roma_local mapa_k_pair; do
+  python scripts/peak_anchor.py --sources-root $DD/frozen/perrig_perpano --cities $C4 \
+      --runs-root $FROZEN --peaks richmond=$DD/step3/richmond.floor.jsonl \
+      $( [ $a != flat ] && echo --anchor-placement $DD/placement/$a.jsonl ) \
+      --out $DD/placement/peak_$a.jsonl
+  python scripts/mined_precision.py $C4 $B --camera-height per-rig per-pano per-pano per-pano \
+      --placement $DD/placement/peak_$a.jsonl --placement-label peak_$a --out $DD/frozen/peak_$a
+  # ... and again with --own-site --out $DD/frozen/peak_${a}__own; the flat and placement arms
+  # likewise (5 cities) into perrig_perpano__own / place_<arm>[__own]
+done
+python scripts/mined_precision_compare.py --cities $C4 --mapillary richmond \
+    --arm step2_flat=$DD/frozen/perrig_perpano --arm roma_local=$DD/frozen/place_roma_local \
+    --arm mapa_k_pair=$DD/frozen/place_mapa_k_pair --arm peak_flat=$DD/frozen/peak_flat \
+    --arm peak_roma_local=$DD/frozen/peak_roma_local \
+    --arm peak_mapa_k_pair=$DD/frozen/peak_mapa_k_pair --paired-base step2_flat \
+    --out $DD/frozen/compare_step3.csv --md $DD/frozen/compare_step3.md   # and the __own set
+# POST HOC (after the review of #112). The exclusion diagnostic; --heatmap re-fetches the
+# GSV target panos at zoom 3 (network) and runs the model (CPU is fine, ~35 s a pano; the
+# committed run used the desktop CPU, torch 2.12.1+cu126, transformers 5.12.1)
+python scripts/step3_exclusion_diag.py richmond $C4_GSV --runs-root $FROZEN \
+    --benchmark-root ../RampNet/benchmark --camera-height per-rig per-pano per-pano per-pano \
+    --verify $DD/frozen --peak-flat $DD/placement/peak_flat.jsonl \
+    --peaks richmond=$DD/step3/richmond.floor.jsonl --mapillary richmond --heatmap HM \
+    --out $DD/step3/posthoc_exclusion.csv --md $DD/step3/posthoc_exclusion.md
+#   ($C4_GSV = paterson gainesville sao_paulo; HM = a copy of makelab2
+#   /homes/gws/jonf/mined158/hm_zoom3/. Into $DD the script refuses unless HM holds exactly
+#   the 20 files of step3/zoom3_heatmaps.sha256.json; an empty HM re-fetches from Google
+#   and must be written elsewhere.)
+# the gate diagnosis and the f01 check (no model, no network)
+for c in richmond bend; do
+  python scripts/step3_gate_diag.py displacement --city $c --results $FROZEN/$c/results.jsonl \
+      --floor $DD/step3/$c.floor.jsonl --json-out $DD/step3/posthoc_gate_displacement_$c.json
+done
+python scripts/step3_gate_diag.py f01 --results $FROZEN/richmond/results.jsonl \
+    --f01 runs/richmond/results.f01.jsonl --floor $DD/step3/richmond.floor.jsonl \
+    --json-out $DD/step3/posthoc_f01_gate.json
+# the floor passes' input sidecars (A/<city>/index.csv read from the makelab2 archive;
+# SW = the recorded software versions as a JSON object)
+for c in richmond bend; do
+  python scripts/floor_infer_archive.py --results $FROZEN/$c/results.jsonl \
+      --ids $DD/step3/${c}_ids.txt --out $DD/step3/$c.floor.jsonl --manifest \
+      --index $A/$c/index.csv --imagery-manifest ../RampNet/benchmark/$c/imagery_manifest.json \
+      --software-json SW --manifest-out $DD/step3/$c.floor.inputs.json
+done
+```
+
+### Step 3: post hoc diagnostics (added 2026-09-29, after the review of #112)
+
+None of this is part of the pre-registered step-3 design. The rule, the gate and every
+number above stand as posted. Each item below answers a question the review raised, with a
+committed script and committed output. One input is not committed: the exclusion
+diagnostic's 20 zoom-3 heatmaps are hash-pinned and kept on makelab2 (see "Where the
+heatmaps are" below).
+
+#### Post hoc: why GSV's true misses are withheld
+
+`scripts/step3_exclusion_diag.py` takes every flat `tp` at ≤ 15 m and re-runs the step-2
+fuse and adjudication. It refuses to continue unless every bucket equals the committed
+`perrig_perpano` run. It then finds the missed mark that adjudicated each candidate, and
+re-applies the step-3 rule, which must agree with the committed `peak_flat.jsonl`. Output:
+[`step3/posthoc_exclusion.csv`](figures/mined-precision/data/step3/posthoc_exclusion.csv) and
+[`.md`](figures/mined-precision/data/step3/posthoc_exclusion.md).
+
+| imagery | `peak_flat` status | flat `tp` | in-window operational peak judged **true** | its distance to the missed mark | within 10 heatmap cells of it |
+|---|---|--:|--:|---|--:|
+| GSV (3 cities) | operational peak in window | 15 | 15 of 15 | 2.1–6.9° | 10 of 15 |
+| GSV | no peak in window | 7 | – | – | – |
+| GSV | emitted | 1 | – | – | – |
+| Mapillary (richmond) | operational peak in window | 0 | – | – | – |
+| Mapillary | no peak in window | 3 | – | – | – |
+| Mapillary | emitted | 10 | – | – | – |
+
+- **The withheld GSV misses sit next to a detected ramp.** In all 15, the operational peak
+  in the window is a detection the reviewer judged true. The reviewer also marked a
+  separate *missed* ramp 2.1–6.9° from it, inside the 7.9° window. That is two ramps: a
+  detected neighbour, and the missed ramp the candidate points at. The rule reads the
+  neighbour's peak as "the model already fires here". Whether the model also responds to
+  the missed ramp is the next bullet's question, and the data do not settle it.
+- **The missed ramp has no peak of its own, even without suppression.** The 15 candidates
+  point at 14 distinct missed marks on 12 panos: `paterson:2579` and `paterson:1348` share
+  one mark on `zB7_9mtLQuVbRyZrttlMXg`. Counts below are per candidate. None of the 15
+  has a stored sub-threshold peak within the window of its missed mark. The production
+  extraction (`peak_local_max`, `min_distance=10`) keeps a pixel only if it is the maximum
+  of the 21 × 21 cells around it, so 10 of the 15 marks (≤ 10 cells, about 3.5°, from the
+  stronger peak) could not have held one. To check the other 5 and see what suppression
+  hides, the script re-fetched the 20 target panos at **zoom 3 through the production
+  path** and re-ran the published model on the desktop CPU. All 20 reproduce their stored
+  peak sets, floor included, so these are the production heatmaps. Re-extracting every
+  local maximum (`min_distance=1`): for all 15, the nearest local maximum to the missed
+  mark is the neighbour's own peak. Yet the heatmap at the missed mark is at operational
+  level (median 0.77 within 2 cells; 13 of 15 are ≥ 0.55). So the model produces no
+  separate peak for the missed ramp; its response there belongs to one blob with the
+  detected neighbour. **Whether that is the neighbour's shoulder or a merged response to
+  both ramps is not separated here.** Two heatmap-profile checks in the final re-review of
+  #112 (scratch, not committed) disagree: against the axis-averaged profile of 40 isolated
+  peaks, about 10 of 15 marks sit above the isolated blobs' 90th percentile at that
+  distance (merged); against the most generous direction of those blobs, all 15 fall
+  inside (shoulder). *(Edited 2026-09-29 after that re-review; the previous text said
+  both "shoulder" and "merges". No number changed.)*
+- **Where the heatmaps are.** The `hm_*` columns rest on 20 zoom-3 heatmaps, one float32
+  512 × 1024 array per GSV target pano. They are **not published**. Their sha256s are
+  committed in
+  [`step3/zoom3_heatmaps.sha256.json`](figures/mined-precision/data/step3/zoom3_heatmaps.sha256.json),
+  and the files are on makelab2 at `/homes/gws/jonf/mined158/hm_zoom3/` (copied
+  2026-09-29; remote sha256s verified equal to the manifest). Without those files,
+  regenerating the `hm_*` columns means re-fetching the 20 panos from Google's unofficial
+  GSV endpoints and re-running the model; a re-fetch cannot be proven equal to these
+  hashes, only re-checked through `hm_reproduces` / `hm_same_peak_set`. The script refuses
+  to write into the committed `data/` dir unless `--heatmap` holds exactly these 20 files
+  with these hashes, so a re-run without them can no longer blank the columns.
+- **Richmond has no such case.** None of its 13 flat true misses has an operational peak in
+  the window. 10 of the 13 are emitted.
+- **So the GSV/Mapillary gap is confounded by dense corners.** It is not evidence that
+  sub-threshold response is Mapillary-specific. On GSV, the rule's exclusion mostly removes
+  misses that sit beside a detected ramp, and the flat anchors on GSV land close to that
+  neighbour. Whether that is GSV's tighter anchors or GSV's denser benchmark corners is not
+  separated here.
+- **This answers the review's question on the window.** The 0.022 window *is* wide enough
+  to take in a neighbouring ramp's peak. On GSV that shows up on the exclusion side, which
+  the own-site read cannot see because it looks only at emitted rows.
+
+**Design implication, a follow-up and not implemented.** A miner that wants these misses
+needs a rule that can tell "the model fires on *this* ramp" from "the model fires on a
+neighbour":
+- an exclusion radius tied to the missed ramp, for example an operational peak within a
+  cell or two of the anchor rather than anywhere in the 7.9° window; and
+- a target that need not be a peak, such as the anchor pixel itself when the heatmap there
+  is high. On these 15, extracting peaks with a smaller `min_distance` would **not** help:
+  even at `min_distance=1` there is no separate peak.
+
+Either one would change the pre-registered definition, so it would need its own plan and
+its own read. The diagnostic's three GSV groups are small (15 + 7 + 1 misses), and the
+reviewer's missed marks are clicks, not precise positions.
+
+#### Post hoc: why bend fails the gate
+
+The likely cause is the **pixel source**, not the weights:
+
+- **Production fed the model zoom-3 GSV imagery.** `panorama.py` fetches at
+  `PREFERRED_ZOOM = 3`, and it had that value at 5805dd7 (2026-07-01), the code bend's
+  production run used (the run is from 2026-07-03). Zoom 3 is Google's own 4096 × 2048
+  rendition of a 16384-px pano. For the 9 bend panos that are 13312 px wide, zoom 3 is
+  3328 × 1664, which production upscaled to 4096.
+- **The floor pass read max zoom.** The archive holds each pano at max zoom, re-encoded as
+  a JPEG at quality 95 (`scripts/export_benchmark.py`, `fetch_native`), and the floor pass
+  resized that to the model's input. So the model saw different pixels.
+- **The addendum's size check could not see this.** It compared the JPEG with the pano
+  block's `width` / `height`, and those record the max-zoom size.
+- **Richmond is unaffected.** Mapillary's production path resizes `thumb_original` to
+  4096 × 2048 with PIL bilinear, and the floor pass's `transforms.Resize` does the same
+  operation on a PIL image. The archive's richmond JPEGs are the `thumb_original` bytes.
+- **The committed outputs fit a pixel-source difference** (`scripts/step3_gate_diag.py
+  displacement`; output with the sha256 of both inputs in
+  [`step3/posthoc_gate_displacement_richmond.json`](figures/mined-precision/data/step3/posthoc_gate_displacement_richmond.json)
+  and [`_bend.json`](figures/mined-precision/data/step3/posthoc_gate_displacement_bend.json),
+  added after the final re-review):
+
+  | city | pinned operational detections | same heatmap cell | within one cell | exact confidence | median / max &#124;Δconf&#124; |
+  |---|--:|--:|--:|--:|---|
+  | richmond | 267 | 267 | 267 | 1 | 0.00002 / 0.00006 |
+  | bend | 265 | 208 | 238 (90%) | 0 | 0.020 / 0.29 |
+
+  A weights difference would not leave richmond reproducing to 1e-4. The two runs also
+  used value-identical weights: bend's production predates the 2026-07-24 re-export
+  (606a119), which `detectors.KNOWN_REVISIONS` records as paper weights, value-identical.
+- **Supporting evidence from GSV at zoom 3.** The exclusion diagnostic above re-fetched 20
+  paterson, gainesville and são paulo panos at zoom 3 through the production path. All 20
+  reproduce their stored peak sets, floor included, on a different machine (desktop CPU,
+  torch 2.12.1). So GSV reproduces when the pixels match.
+
+**Consequence.** A GSV floor pass must re-fetch zoom 3 through `panorama.fetch_panorama`,
+not read the archive. A bend floor pass would need that. None was run for this review; a
+zoom-3 re-fetch of one failing bend pano would confirm the diagnosis directly. The gate did
+its job: it caught a changed instrument before anything was scored.
+
+#### Post hoc: `results.f01.jsonl` already passes the gate on richmond
+
+`results.f01.jsonl` (#20, 2026-09-22; sha256 `e81954f4…`) is a full richmond re-inference
+at the 0.1 floor, re-fetched from Mapillary. Running the gate's own check over every pano
+against the pinned run (`scripts/step3_gate_diag.py f01`):
+
+- **9,089 of 9,091 panos reproduce** (0.9998), well above the 0.95 gate.
+- **On the 124 judged panos, its full peak sets equal the floor pass**: the same positions
+  for every peak down to 0.1, and |Δconf| ≤ 5.2e-5. That covers the one thing the gate
+  does not check, sub-threshold reproduction.
+
+Output: [`step3/posthoc_f01_gate.json`](figures/mined-precision/data/step3/posthoc_f01_gate.json),
+with the sha256 of all three inputs and the two non-reproducing pano ids. So a
+richmond-wide floor pass is not needed: f01's peaks, with the pinned pano blocks, can stand
+in for one. `results.f01.jsonl` is on Jon's desktop only and is not published; that is the
+gap a replicator would hit.
+
+#### Post hoc: floor-pass inputs by hash, and the environment
+
+- **Input hashes.** `step3/<city>.floor.inputs.json` lists the sha256, byte size and pixel
+  size of every image each floor pass read. The hashes come from the archive's `index.csv`,
+  recorded when the archive was exported, and were not re-hashed at pass time. All 124
+  (richmond) and 110 (bend) equal RampNet's `benchmark/<city>/imagery_manifest.json`, hash
+  and size. So a replicator can run the pass on the published benchmark imagery (HF
+  `projectsidewalk/rampnet-benchmark`) instead of the makelab2 archive.
+- **Software.** The same file records the pass's environment: torch 2.14.0+cu130,
+  transformers 5.12.1, torchvision 0.29.0+cu130, Pillow 12.3.0, scikit-image 0.26.0. These
+  were read afterwards from the venv the pass ran in (makelab2
+  `/homes/gws/jonf/mined158/venv`); the pass itself did not record them. The sidecars omit
+  numpy; the same venv has numpy 2.5.3 (read 2026-09-29, after the final re-review; the
+  sidecars are left as written). New passes write `<out>.software.json` themselves, with
+  numpy, and `floor_infer_archive.py --manifest` writes the inputs file. A
+  `--software-json` that omits any recorded package, numpy included, is now refused.
+
+#### Post hoc: `mapa_k_pair.meta.json` provenance
+
+As written by the run, the meta says `"pre_specified_for_158": false`, because RampNet's
+`PLANNED_ARMS` then listed only the phase-2 arms. The step-3 plan named the arm before the
+run and before scoring, so the file now also carries `"pre_specified_in": "step 3"` and a
+dated `provenance_correction` (RampNet#222). This copy stays byte-identical to RampNet's.
+No prediction changed.
+
+#### Post hoc: `compare_phase2.md` layout
+
+`mined_precision_compare.py` gained two columns in the paired table in 7e1f391
+(`not emitted`, `base on same cand.`). `compare_phase2.md` is regenerated with them, so it
+again regenerates byte for byte at HEAD. `compare_phase2.csv` and every number are
+unchanged.
+
+### Step 3: next
+
+- **A richmond-wide floor pass** so that the miner can actually be built. The published
+  model over 9,091 panos on the A40 is about 3.5 h. An existing re-inference,
+  `results.f01.jsonl` (#20, 2026-09-22), is on Jon's desktop. It was re-fetched from
+  Mapillary, not taken from the archive, so it was not used here. It would need the same
+  instrument check before it could replace a new pass. *(Update 2026-09-29, post hoc: it
+  passes that check on 9,089 of 9,091 panos and matches the floor pass's full peak sets on
+  the 124 judged panos, so no new pass is needed; see "Post hoc" above.)*
+- **The visibility test** the rule names for the 0.50–0.80 band, applied to
+  `peak_flat`'s emitted targets.
+- **A look at the 3 `other_site` true misses** under `peak_flat`, to tell a split from a
+  different ramp.
+- **bend.** Find out why the archived JPEGs do not reproduce its run before using bend in
+  any floor-based result. *(Update 2026-09-29, post hoc: the likely cause is zoom 3 in
+  production against max zoom in the archive; a bend floor pass needs zoom-3 imagery.)*
+- **A peak rule that survives dense corners** (post hoc follow-up, not implemented): an
+  exclusion tied to the missed ramp rather than the whole window, and a target that need
+  not be a peak. A smaller `min_distance` alone would not recover the 15 withheld GSV
+  misses. See "Post hoc: why GSV's true misses are withheld".

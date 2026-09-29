@@ -364,6 +364,17 @@ python scripts/mined_placement_attribution.py richmond paterson bend gainesville
     --runs-root $FROZEN --camera-height per-rig per-pano per-pano per-pano per-pano \
     --arm roma_local=docs/figures/mined-precision/data/placement/roma_local.jsonl \
     --verify docs/figures/mined-precision/data/frozen --mapillary richmond
+# STEP 3 (peak-anchored targets; docs/mined-precision.md). floor_infer_archive.py re-runs
+# RampNet at the 0.1 storage floor on a pinned run's ARCHIVED panos (pano blocks untouched)
+# and gates it (--check: >= 95% of panos reproduce their >= 0.55 detections; bend FAILED,
+# 0.70). peak_anchor.py turns an anchor into a --placement file: emit the strongest
+# [0.1, 0.55) peak within the 0.022 benchmark radius, or not at all (emit: false leaves both
+# denominators). --own-site is a secondary read (other_site = closer to another fused site).
+python scripts/floor_infer_archive.py --results $A/richmond/results.jsonl --panos $A/richmond/panos \
+    --ids docs/figures/mined-precision/data/step3/richmond_ids.txt --out richmond.floor.jsonl
+python scripts/peak_anchor.py --sources-root docs/figures/mined-precision/data/frozen/perrig_perpano \
+    --cities richmond paterson gainesville sao_paulo --runs-root $FROZEN \
+    --peaks richmond=docs/figures/mined-precision/data/step3/richmond.floor.jsonl --out /tmp/peak_flat.jsonl
 
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.
