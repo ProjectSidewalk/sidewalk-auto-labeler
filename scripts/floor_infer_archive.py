@@ -112,11 +112,14 @@ def _ids(args):
     return read_ids(args.ids) if args.ids else all_ids(args.results)
 
 
+SOFTWARE_PACKAGES = ('torch', 'transformers', 'torchvision', 'pillow', 'scikit-image', 'numpy')
+
+
 def software_versions():
     """Versions of the packages that decide the pixels and the heatmap."""
     import importlib.metadata as md
     out = {}
-    for name in ('torch', 'transformers', 'torchvision', 'pillow', 'scikit-image', 'numpy'):
+    for name in SOFTWARE_PACKAGES:
         try:
             out[name] = md.version(name)
         except md.PackageNotFoundError:
@@ -136,6 +139,17 @@ def sha256_file(path):
             h.update(chunk)
     return h.hexdigest()
 
+
+def read_software_json(path):
+    """--software-json: versions recorded elsewhere. Refuse one that omits a package
+    software_versions() records (numpy was missing from the 2026-09-29 step-3 sidecars),
+    so a hand-written block cannot silently record less than a pass writes itself."""
+    sw = json.loads(Path(path).read_text(encoding='utf-8'))
+    missing = [k for k in SOFTWARE_PACKAGES if k not in sw]
+    if missing:
+        raise SystemExit(f'{path}: --software-json lacks {missing}; record every one of '
+                         f'{list(SOFTWARE_PACKAGES)} (null if not installed)')
+    return sw
 
 def input_manifest(ids, floor_recs, index=None, panos=None, imagery_manifest=None):
     """{images: {id: {sha256, bytes, image_size}}, rampnet_check: ...} for the floor pass's
@@ -188,7 +202,7 @@ def cmd_manifest(args):
                                     Path(args.imagery_manifest).parts.index('benchmark'):])
                                 if 'benchmark' in Path(args.imagery_manifest).parts
                                 else Path(args.imagery_manifest).as_posix()),
-           'software': (json.loads(Path(args.software_json).read_text(encoding='utf-8'))
+           'software': (read_software_json(args.software_json)
                         if args.software_json else software_versions()),
            **out}
     chk = out['rampnet_check']

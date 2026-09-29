@@ -22,9 +22,11 @@ included, which the gate does not check) with the floor pass on the judged panos
 Usage:
     D=docs/figures/mined-precision/data/step3
     python scripts/step3_gate_diag.py displacement --city richmond \\
-        --results $FROZEN/richmond/results.jsonl --floor $D/richmond.floor.jsonl
+        --results $FROZEN/richmond/results.jsonl --floor $D/richmond.floor.jsonl \\
+        --json-out $D/posthoc_gate_displacement_richmond.json
     python scripts/step3_gate_diag.py displacement --city bend \\
-        --results $FROZEN/bend/results.jsonl --floor $D/bend.floor.jsonl
+        --results $FROZEN/bend/results.jsonl --floor $D/bend.floor.jsonl \\
+        --json-out $D/posthoc_gate_displacement_bend.json
     python scripts/step3_gate_diag.py f01 --results $FROZEN/richmond/results.jsonl \\
         --f01 runs/richmond/results.f01.jsonl --floor $D/richmond.floor.jsonl \\
         --json-out $D/posthoc_f01_gate.json
@@ -96,7 +98,10 @@ def cmd_displacement(args):
     rows = displacement(pinned, floor)
     dc = [r['dconf'] for r in rows]
     sizes = Counter(tuple(r['floor_reinfer']['image_size']) for r in floor.values())
-    out = {'city': args.city, 'operational_detections': len(rows),
+    out = {'what': 'POST HOC (RampNet#158 step-3 review): pinned operational detections vs '
+                   'the nearest floor-pass peak (step3_gate_diag.py displacement)',
+           'results_sha256': sha256(args.results), 'floor_sha256': sha256(args.floor),
+           'city': args.city, 'operational_detections': len(rows),
            'same_cell': sum(r['exact'] for r in rows),
            'same_cell_and_confidence': sum(r['exact'] and r['dconf'] == 0 for r in rows),
            'within_one_cell': sum(r['one_cell'] for r in rows),
@@ -104,6 +109,9 @@ def cmd_displacement(args):
            'dconf_max': round(max(dc), 6),
            'archive_image_sizes': {f'{w}x{h}': n for (w, h), n in sorted(sizes.items())}}
     print(json.dumps(out))
+    if args.json_out:
+        args.json_out.write_text(json.dumps(out, indent=1) + '\n', encoding='utf-8',
+                                 newline='\n')
     return out
 
 
@@ -146,6 +154,7 @@ def main():
     d.add_argument('--city', required=True)
     d.add_argument('--results', type=Path, required=True, help='the pinned results.jsonl')
     d.add_argument('--floor', type=Path, required=True, help='the step-3 floor pass')
+    d.add_argument('--json-out', type=Path, default=None)
     f = sub.add_parser('f01')
     f.add_argument('--results', type=Path, required=True, help='the pinned results.jsonl')
     f.add_argument('--f01', type=Path, required=True, help='the full-run re-inference')

@@ -728,12 +728,16 @@ paired transitions, is [`data/frozen/compare_step3.md`](figures/mined-precision/
   flat's 23 true misses, `peak_flat` keeps 1. 15 of the 23 are withheld because an
   operational peak is in the 7.9° window, and in all 15 that peak is a reviewer-judged
   **true detection of a neighbouring ramp**, 2.1–6.9° from the missed ramp the candidate
-  points at. The model is not firing on the mined ramp. The other 7 have no peak at all.
-  So GSV's low yield is **confounded by dense corners**; it is not evidence that
-  sub-threshold response is Mapillary-specific. See "Post hoc: why GSV's true misses are
-  withheld" below. *(Rewritten 2026-09-29 after the review of #112. The text first read
-  this as "the model already fires here", which the post hoc diagnostic contradicts. No
-  number changed.)*
+  points at. The model produces no separate peak for the missed ramp, even at
+  `min_distance=1`, although its heatmap there is at operational level; whether that is
+  the neighbour's shoulder or a merged response to both ramps is not separated. The other
+  7 have no peak at all. So GSV's low yield is **confounded by dense corners**; it is not
+  evidence that sub-threshold response is Mapillary-specific. See "Post hoc: why GSV's true
+  misses are withheld" below. *(Rewritten 2026-09-29 after the review of #112. The text
+  first read this as "the model already fires here", which the post hoc diagnostic does
+  not show. No number changed. Edited again 2026-09-29 after the final re-review: an
+  interim version said the model "is not firing on the mined ramp", which overstates the
+  other way.)*
 - **Image anchors do not help the peak definition.** `peak_roma_local` (0.615) and
   `peak_mapa_k_pair` (0.600) are both below `peak_flat` on richmond. More of their windows
   land on an operational peak (21 and 25 against 8), which fits the review finding that
@@ -861,13 +865,16 @@ python scripts/mined_precision_compare.py --cities $C4 --mapillary richmond \
 python scripts/step3_exclusion_diag.py richmond $C4_GSV --runs-root $FROZEN \
     --benchmark-root ../RampNet/benchmark --camera-height per-rig per-pano per-pano per-pano \
     --verify $DD/frozen --peak-flat $DD/placement/peak_flat.jsonl \
-    --peaks richmond=$DD/step3/richmond.floor.jsonl --mapillary richmond --heatmap SCRATCH \
+    --peaks richmond=$DD/step3/richmond.floor.jsonl --mapillary richmond --heatmap HM \
     --out $DD/step3/posthoc_exclusion.csv --md $DD/step3/posthoc_exclusion.md
-#   ($C4_GSV = paterson gainesville sao_paulo)
+#   ($C4_GSV = paterson gainesville sao_paulo; HM = a copy of makelab2
+#   /homes/gws/jonf/mined158/hm_zoom3/. Into $DD the script refuses unless HM holds exactly
+#   the 20 files of step3/zoom3_heatmaps.sha256.json; an empty HM re-fetches from Google
+#   and must be written elsewhere.)
 # the gate diagnosis and the f01 check (no model, no network)
 for c in richmond bend; do
   python scripts/step3_gate_diag.py displacement --city $c --results $FROZEN/$c/results.jsonl \
-      --floor $DD/step3/$c.floor.jsonl
+      --floor $DD/step3/$c.floor.jsonl --json-out $DD/step3/posthoc_gate_displacement_$c.json
 done
 python scripts/step3_gate_diag.py f01 --results $FROZEN/richmond/results.jsonl \
     --f01 runs/richmond/results.f01.jsonl --floor $DD/step3/richmond.floor.jsonl \
@@ -886,7 +893,9 @@ done
 
 None of this is part of the pre-registered step-3 design. The rule, the gate and every
 number above stand as posted. Each item below answers a question the review raised, with a
-committed script and committed output.
+committed script and committed output. One input is not committed: the exclusion
+diagnostic's 20 zoom-3 heatmaps are hash-pinned and kept on makelab2 (see "Where the
+heatmaps are" below).
 
 #### Post hoc: why GSV's true misses are withheld
 
@@ -910,9 +919,12 @@ re-applies the step-3 rule, which must agree with the committed `peak_flat.jsonl
   in the window is a detection the reviewer judged true. The reviewer also marked a
   separate *missed* ramp 2.1–6.9° from it, inside the 7.9° window. That is two ramps: a
   detected neighbour, and the missed ramp the candidate points at. The rule reads the
-  neighbour as "the model already fires here", and it is wrong to.
-- **The missed ramp has no peak of its own, even without suppression.** None of the 15
-  missed marks has a stored sub-threshold peak within the window. The production
+  neighbour's peak as "the model already fires here". Whether the model also responds to
+  the missed ramp is the next bullet's question, and the data do not settle it.
+- **The missed ramp has no peak of its own, even without suppression.** The 15 candidates
+  point at 14 distinct missed marks on 12 panos: `paterson:2579` and `paterson:1348` share
+  one mark on `zB7_9mtLQuVbRyZrttlMXg`. Counts below are per candidate. None of the 15
+  has a stored sub-threshold peak within the window of its missed mark. The production
   extraction (`peak_local_max`, `min_distance=10`) keeps a pixel only if it is the maximum
   of the 21 × 21 cells around it, so 10 of the 15 marks (≤ 10 cells, about 3.5°, from the
   stronger peak) could not have held one. To check the other 5 and see what suppression
@@ -920,9 +932,27 @@ re-applies the step-3 rule, which must agree with the committed `peak_flat.jsonl
   path** and re-ran the published model on the desktop CPU. All 20 reproduce their stored
   peak sets, floor included, so these are the production heatmaps. Re-extracting every
   local maximum (`min_distance=1`): for all 15, the nearest local maximum to the missed
-  mark is the neighbour's own peak. The heatmap is high at the missed mark (median 0.77
-  within 2 cells; 13 of 15 are ≥ 0.55), but it is the shoulder of the neighbour's blob,
-  not a second peak. The model's response merges the two ramps.
+  mark is the neighbour's own peak. Yet the heatmap at the missed mark is at operational
+  level (median 0.77 within 2 cells; 13 of 15 are ≥ 0.55). So the model produces no
+  separate peak for the missed ramp; its response there belongs to one blob with the
+  detected neighbour. **Whether that is the neighbour's shoulder or a merged response to
+  both ramps is not separated here.** Two heatmap-profile checks in the final re-review of
+  #112 (scratch, not committed) disagree: against the axis-averaged profile of 40 isolated
+  peaks, about 10 of 15 marks sit above the isolated blobs' 90th percentile at that
+  distance (merged); against the most generous direction of those blobs, all 15 fall
+  inside (shoulder). *(Edited 2026-09-29 after that re-review; the previous text said
+  both "shoulder" and "merges". No number changed.)*
+- **Where the heatmaps are.** The `hm_*` columns rest on 20 zoom-3 heatmaps, one float32
+  512 × 1024 array per GSV target pano. They are **not published**. Their sha256s are
+  committed in
+  [`step3/zoom3_heatmaps.sha256.json`](figures/mined-precision/data/step3/zoom3_heatmaps.sha256.json),
+  and the files are on makelab2 at `/homes/gws/jonf/mined158/hm_zoom3/` (copied
+  2026-09-29; remote sha256s verified equal to the manifest). Without those files,
+  regenerating the `hm_*` columns means re-fetching the 20 panos from Google's unofficial
+  GSV endpoints and re-running the model; a re-fetch cannot be proven equal to these
+  hashes, only re-checked through `hm_reproduces` / `hm_same_peak_set`. The script refuses
+  to write into the committed `data/` dir unless `--heatmap` holds exactly these 20 files
+  with these hashes, so a re-run without them can no longer blank the columns.
 - **Richmond has no such case.** None of its 13 flat true misses has an operational peak in
   the window. 10 of the 13 are emitted.
 - **So the GSV/Mapillary gap is confounded by dense corners.** It is not evidence that
@@ -944,8 +974,8 @@ neighbour":
   even at `min_distance=1` there is no separate peak.
 
 Either one would change the pre-registered definition, so it would need its own plan and
-its own read. The diagnostic's two denominators are small (15 + 7 + 1 GSV misses), and
-the reviewer's missed marks are clicks, not precise positions.
+its own read. The diagnostic's three GSV groups are small (15 + 7 + 1 misses), and the
+reviewer's missed marks are clicks, not precise positions.
 
 #### Post hoc: why bend fails the gate
 
@@ -965,7 +995,10 @@ The likely cause is the **pixel source**, not the weights:
   4096 × 2048 with PIL bilinear, and the floor pass's `transforms.Resize` does the same
   operation on a PIL image. The archive's richmond JPEGs are the `thumb_original` bytes.
 - **The committed outputs fit a pixel-source difference** (`scripts/step3_gate_diag.py
-  displacement`):
+  displacement`; output with the sha256 of both inputs in
+  [`step3/posthoc_gate_displacement_richmond.json`](figures/mined-precision/data/step3/posthoc_gate_displacement_richmond.json)
+  and [`_bend.json`](figures/mined-precision/data/step3/posthoc_gate_displacement_bend.json),
+  added after the final re-review):
 
   | city | pinned operational detections | same heatmap cell | within one cell | exact confidence | median / max &#124;Δconf&#124; |
   |---|--:|--:|--:|--:|---|
@@ -1013,9 +1046,11 @@ gap a replicator would hit.
 - **Software.** The same file records the pass's environment: torch 2.14.0+cu130,
   transformers 5.12.1, torchvision 0.29.0+cu130, Pillow 12.3.0, scikit-image 0.26.0. These
   were read afterwards from the venv the pass ran in (makelab2
-  `/homes/gws/jonf/mined158/venv`); the pass itself did not record them. New passes write
-  `<out>.software.json` themselves, and `floor_infer_archive.py --manifest` writes the
-  inputs file.
+  `/homes/gws/jonf/mined158/venv`); the pass itself did not record them. The sidecars omit
+  numpy; the same venv has numpy 2.5.3 (read 2026-09-29, after the final re-review; the
+  sidecars are left as written). New passes write `<out>.software.json` themselves, with
+  numpy, and `floor_infer_archive.py --manifest` writes the inputs file. A
+  `--software-json` that omits any recorded package, numpy included, is now refused.
 
 #### Post hoc: `mapa_k_pair.meta.json` provenance
 
