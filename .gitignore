@@ -111,3 +111,5 @@ runs/_summary/camera_height/estimator_validation*.csv
 !docs/figures/mined-precision/data/placement/*.jsonl
 # RampNet#158 step 3: the richmond / bend floor re-inference over judged panos (small).
 !docs/figures/mined-precision/data/step3/*.jsonl
+# RampNet#158 step 4: the city-wide miner's labels (one row per candidate pair, ~1 MB).
+!docs/figures/mined-precision/data/step4/**/*.jsonl
