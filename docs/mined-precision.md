@@ -585,8 +585,8 @@ So it is a lower bound, not a better estimate. What it shows reliably:
   lower bound sits on 0.50.
 - **bend is excluded.** Its floor pass failed the gate, and the cause is not known.
 - **Yield.** The peak-anchored miner emits about 27% of richmond's candidates and 7% of
-  GSV's. Scaled by #102's yield estimate (the upper bound of 1,210 mined richmond targets
-  at 10 m), that is on the order of 300 targets. That is an extrapolation, not a measurement.
+  GSV's. Scaled by #102's richmond yield (upper bounds of 1,210 targets at 10 m and 3,011 at
+  15 m), that is roughly 300–800 targets. That is an extrapolation, not a measurement.
 - **The floor pass is per pano.** Only the 124 judged richmond panos were re-inferred.
   Building the miner for real needs the floor pass over the whole run.
 - **The window is the benchmark radius** (0.022), chosen before scoring and not tuned.
