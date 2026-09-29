@@ -484,3 +484,172 @@ counted.
    It is reported beside the pre-registered read for every arm, flat and phase 2 included.
    It is not a replacement for that read.
 3. **`mapa_k_pair` ran.** 127 pairs, 1 fell back, 50 s on the A40.
+
+### Step 3 results (2026-09-29)
+
+**Scope.** Four cities: richmond, paterson, gainesville and são paulo. bend's floor pass
+failed the instrument gate (addendum above), so bend is excluded, and every "flat" and
+phase-2 number in this section is recomputed on the same four cities (115 candidates). The
+read is at ≤ 15 m. Each cell gives the point estimate [95% Wilson CI] (k/n).
+
+#### Pre-registered read
+
+| group | arm | emitted / cand. | hard-only | all-mined | flat on the SAME candidates, hard / all |
+|---|---|---|---|---|---|
+| richmond | step 1 = step 2 flat | 59 / 59 | 0.310 [0.19, 0.46] (13/42) | 0.431 [0.31, 0.57] (22/51) | – |
+| richmond | phase 2 `roma_local` | 59 / 59 | 0.406 [0.26, 0.58] (13/32) | 0.627 [0.49, 0.75] (32/51) | 0.310 / 0.431 |
+| richmond | `mapa_k_pair` (placement) | 59 / 59 | 0.448 [0.28, 0.62] (13/29) | 0.680 [0.54, 0.79] (34/50) | 0.310 / 0.431 |
+| richmond | **`peak_flat`** | **16 / 59** | **0.769 [0.50, 0.92] (10/13)** | **0.769 [0.50, 0.92] (10/13)** | 0.769 / 0.769 |
+| richmond | `peak_roma_local` | 17 / 59 | 0.615 [0.36, 0.82] (8/13) | 0.615 (8/13) | 0.643 / 0.643 |
+| richmond | `peak_mapa_k_pair` | 19 / 59 | 0.600 [0.36, 0.80] (9/15) | 0.600 (9/15) | 0.625 / 0.625 |
+| 4 cities | step 2 flat | 115 / 115 | 0.456 [0.35, 0.57] (36/79) | 0.587 [0.49, 0.68] (61/104) | – |
+| 4 cities | `mapa_k_pair` | 115 / 115 | 0.525 [0.40, 0.64] (32/61) | 0.716 [0.62, 0.79] (73/102) | 0.456 / 0.587 |
+| 4 cities | **`peak_flat`** | **20 / 115** | **0.688 [0.44, 0.86] (11/16)** | **0.706 [0.47, 0.87] (12/17)** | 0.688 / 0.706 |
+| GSV (3 cities) | step 2 flat | 56 / 56 | 0.622 [0.46, 0.76] (23/37) | 0.736 [0.60, 0.84] (39/53) | – |
+| GSV (3 cities) | `peak_flat` | 4 / 56 | 0.333 (1/3) | 0.500 (2/4) | 0.333 / 0.500 |
+
+**Richmond `peak_flat` by band.** 0–8 m 0.800 (4/5), 8–12 m 0.800 (4/5), 12–15 m 0.667 (2/3).
+Within 10 m it is 0.778 [0.45, 0.94] (7/9). The full city × band × arm table, with the
+paired transitions, is [`data/frozen/compare_step3.md`](figures/mined-precision/data/frozen/compare_step3.md).
+
+**Which candidates the rule withholds (`peak_flat`):**
+
+| city | no peak in window | operational (≥ 0.55) peak in window | emitted |
+|---|--:|--:|--:|
+| richmond | 35 | 8 | 16 |
+| paterson | 8 | 18 | 1 |
+| gainesville | 5 | 2 | 1 |
+| são paulo | 10 | 9 | 2 |
+
+#### Reading against the pre-registered rule
+
+- **richmond, `peak_flat`.** 0.769 on both denominators, which is *visibility* on the point
+  estimate. The CI [0.50, 0.92] spans drop, visibility and build, so the reading is **not
+  decisive**. It is the highest richmond has read at any step. Yield is 16 of 59 candidates.
+- **Four cities, `peak_flat`.** hard-only 0.688 and all-mined 0.706, both *visibility* and
+  not decisive. Yield is 20 of 115.
+- **GSV.** The definition emits almost nothing: 4 of 56 candidates.
+
+#### What it is made of
+
+- **The gain is selection, not relocation.** On the 16 candidates it emits in richmond, the
+  flat target scores exactly the same (0.769). Moving the target onto the peak changed 2
+  buckets and fixed none. What the peak test does is **choose** candidates: of richmond
+  flat's 13 true misses it keeps 10, and of its 29 false positives it keeps 3. So the
+  model's own sub-threshold response is a working precision filter, and it needs no verdict.
+- **On GSV the filter removes the true misses too.** Of GSV flat's 23 true misses, `peak_flat`
+  keeps 1. On paterson, 18 of 27 candidates have an operational peak inside the 7.9° window,
+  so the rule reads them as "the model already fires here". That fits paterson's high
+  `already_detected` count. The GSV misses that are left mostly have no peak at all.
+- **Image anchors do not help the peak definition.** `peak_roma_local` (0.615) and
+  `peak_mapa_k_pair` (0.600) are both below `peak_flat` on richmond. More of their windows
+  land on an operational peak (21 and 25 against 8), which fits the review finding that
+  those transfers often land on a *neighbouring* ramp's detection.
+- **`mapa_k_pair` as a placement arm** fixes 11 and breaks 0 on richmond (p = 0.001). Like
+  `roma_local`, though, all its fixes become `already_detected`, and the own-site read below
+  removes most of them.
+
+#### Own-site read (secondary; added before scoring after the #219 review)
+
+| group | arm | hard-only | all-mined | `other_site` |
+|---|---|---|---|--:|
+| richmond | step 2 flat | 0.224 [0.13, 0.36] (11/49) | 0.255 (13/51) | 9 |
+| richmond | `roma_local` | 0.250 (12/48) | 0.294 (15/51) | 17 |
+| richmond | `mapa_k_pair` | 0.255 (12/47) | 0.300 (15/50) | 19 |
+| richmond | **`peak_flat`** | **0.538 [0.29, 0.77] (7/13)** | **0.538 (7/13)** | 3 |
+| 4 cities | step 2 flat | 0.263 [0.19, 0.36] (26/99) | 0.298 (31/104) | 30 |
+| 4 cities | **`peak_flat`** | **0.471 [0.26, 0.69] (8/17)** | **0.471 (8/17)** | 4 |
+
+The own-site read **is biased low by construction**, and it has to be read with that in
+mind:
+
+- An `already_detected` candidate is one where the target pano's own detection was fused
+  into a *different* site. That detection's GT point is a member of that site, so it is
+  nearly always closer to it. Under this read almost every `already_detected` becomes
+  `other_site`: for the flat arm in four cities, 25 become 5.
+- The read also cannot tell a different ramp from the same ramp split across two sites by
+  fusion.
+
+So it is a lower bound, not a better estimate. What it shows reliably:
+
+- **Most of phase 2's `already_detected` fixes do not survive it.** This agrees with the
+  review: 17 of richmond's `roma_local` right adjudications and 19 of `mapa_k_pair`'s are
+  closer to another site.
+- **`peak_flat` loses 3 of richmond's 10 true misses to it.** Those 3 hold GT points closer
+  to another fused site, which could be a split or a different ramp. Under this read
+  `peak_flat` is still the best arm: 0.538 against flat's 0.224.
+
+#### Caveats
+
+- **Small n.** richmond `peak_flat` is 13 adjudicable candidates, and the CI is wide. Its
+  lower bound sits on 0.50.
+- **bend is excluded.** Its floor pass failed the gate, and the cause is not known.
+- **Yield.** The peak-anchored miner emits about 27% of richmond's candidates and 7% of
+  GSV's. Scaled by #102's yield estimate (the upper bound of 1,210 mined richmond targets
+  at 10 m), that is on the order of 300 targets. That is an extrapolation, not a measurement.
+- **The floor pass is per pano.** Only the 124 judged richmond panos were re-inferred.
+  Building the miner for real needs the floor pass over the whole run.
+- **The window is the benchmark radius** (0.022), chosen before scoring and not tuned.
+- **The own-site read was added after the review**, before scoring, and is secondary.
+
+#### Runtime and cost
+
+| step | where | wall-clock | GPU-h |
+|---|---|---|---|
+| richmond floor pass (124 panos) | makelab2 A40 (shared; checked first) | 214 s | 0.059 |
+| bend floor pass (110 panos; failed the gate) | makelab2 A40 | 245 s | 0.068 |
+| `mapa_k_pair` (127 pairs) | makelab2 A40 | 50 s | 0.014 |
+| peak_anchor + 17 adjudication runs + compare | desktop CPU | ~3 min | 0 |
+| makelab2 venv (labeler `requirements.txt`: torch 2.14.0+cu130, transformers 5.12.1) | makelab2 CPU | ~2 min | 0 |
+
+Total: 0.14 A40-hours, $0. The `paid: false` rows are in RampNet's
+`analysis_out/usage_log.jsonl` (branch `analysis/mined-placement-158-step3`). The labeler has
+no ledger. Nothing ran on Tillicum, no paid API was used, and nothing was written to the
+shared archive.
+
+#### Reproduce (step 3)
+
+```bash
+# makelab2: the floor passes (labeler branch analysis/mined-precision-step3; A = the archive)
+for c in richmond bend; do
+  python scripts/floor_infer_archive.py --results $A/$c/results.jsonl --panos $A/$c/panos \
+      --ids docs/figures/mined-precision/data/step3/${c}_ids.txt --out $c.floor.jsonl
+  python scripts/floor_infer_archive.py --results $A/$c/results.jsonl \
+      --ids docs/figures/mined-precision/data/step3/${c}_ids.txt --out $c.floor.jsonl \
+      --check --check-out $c.check.json
+done
+# RampNet (branch analysis/mined-placement-158-step3): mapa_k_pair, as phase 2's arms
+python scripts/analysis/mined_placement_158.py predict --arm mapa_k_pair --views VIEWS
+# desktop: peak-anchored placements, then adjudicate (plain and --own-site), then compare
+DD=docs/figures/mined-precision/data; C4="richmond paterson gainesville sao_paulo"
+for a in flat roma_local mapa_k_pair; do
+  python scripts/peak_anchor.py --sources-root $DD/frozen/perrig_perpano --cities $C4 \
+      --runs-root $FROZEN --peaks richmond=$DD/step3/richmond.floor.jsonl \
+      $( [ $a != flat ] && echo --anchor-placement $DD/placement/$a.jsonl ) \
+      --out $DD/placement/peak_$a.jsonl
+  python scripts/mined_precision.py $C4 $B --camera-height per-rig per-pano per-pano per-pano \
+      --placement $DD/placement/peak_$a.jsonl --placement-label peak_$a --out $DD/frozen/peak_$a
+  # ... and again with --own-site --out $DD/frozen/peak_${a}__own; the flat and placement arms
+  # likewise (5 cities) into perrig_perpano__own / place_<arm>[__own]
+done
+python scripts/mined_precision_compare.py --cities $C4 --mapillary richmond \
+    --arm step2_flat=$DD/frozen/perrig_perpano --arm roma_local=$DD/frozen/place_roma_local \
+    --arm mapa_k_pair=$DD/frozen/place_mapa_k_pair --arm peak_flat=$DD/frozen/peak_flat \
+    --arm peak_roma_local=$DD/frozen/peak_roma_local \
+    --arm peak_mapa_k_pair=$DD/frozen/peak_mapa_k_pair --paired-base step2_flat \
+    --out $DD/frozen/compare_step3.csv --md $DD/frozen/compare_step3.md   # and the __own set
+```
+
+#### Next
+
+- **A richmond-wide floor pass** so that the miner can actually be built. The published
+  model over 9,091 panos on the A40 is about 3.5 h. An existing re-inference,
+  `results.f01.jsonl` (#20, 2026-09-22), is on Jon's desktop. It was re-fetched from
+  Mapillary, not taken from the archive, so it was not used here. It would need the same
+  instrument check before it could replace a new pass.
+- **The visibility test** the rule names for the 0.50–0.80 band, applied to
+  `peak_flat`'s emitted targets.
+- **A look at the 3 `other_site` true misses** under `peak_flat`, to tell a split from a
+  different ramp.
+- **bend.** Find out why the archived JPEGs do not reproduce its run before using bend in
+  any floor-based result.
