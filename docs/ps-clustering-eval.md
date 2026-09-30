@@ -1079,3 +1079,19 @@ Caveats (from the issue). `missed` = 1 - covered is an upper bound, since occlus
 construction since capture are in it. Bend was a RampNet training city. Gainesville was read
 only: no submission, no re-detection. Vancouver's inventory is down, so two cities is all
 there is.
+
+## Cluster-review GT (RampNet#224)
+
+**Status (2026-09-29): pre-registered, bundle exported, no GT yet.** Every number above that
+scores fragmentation depends on where a cluster is placed (the Vancouver split rates move from
+0.255 / 0.200 / 0.091 in the raycast frame to 0.196 / 0.138 / 0.199 / 0.118 at server placement).
+RampNet#224 replaces placement with membership: reviewers correct seeded clusters one
+intersection or mid-block window at a time, producing a label -> ramp assignment on the frozen
+label pull, so every arm scores against the same answer with no radius or camera height. The
+rubric is RampNet `benchmark/RUBRICS.md` §6 and the sampling rule, schemas, metrics
+(`inventory_clustering.assignment_metrics`) and decision rule (`fusion_server+attach` vs
+`ps @ 7.5 m`, the `RULE_*` thresholds above) are pre-registered in RampNet
+`docs/cluster_review_protocol.md`. The Vancouver bundle (80 units, 30 pilot, 1,406 labels) is at
+RampNet `benchmark/vancouver/cluster_review/`; `scripts/cluster_review_score.py` currently writes
+a "NO GT YET" report (`runs/vancouver/cluster_review/score/report.md`). No result exists until
+the pilot has been reviewed.

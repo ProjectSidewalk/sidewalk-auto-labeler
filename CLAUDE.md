@@ -264,6 +264,22 @@ python scripts/eval_ps_clustering.py laurens --split laurens_mapillary --results
 python scripts/clustering_eval_pooled.py            # every (city, tier, frame) cell, then pool
 python scripts/clustering_eval_pooled.py --pool-only   # -> runs/_pooled/ps_clustering_eval/
 python scripts/inventory_clustering.py score bend gainesville && python scripts/inventory_clustering.py verdict
+
+# CLUSTER-REVIEW GT (RampNet#224; protocol RampNet docs/cluster_review_protocol.md, rubric
+# RUBRICS.md §6). export_cluster_review.py samples OSM intersection / mid-block units (seed 224,
+# 20 per stratum, 15% no-label, >= 60 m apart, 30 m windows by SERVER position) and writes a
+# bundle into RampNet: snapshot.json + corners.jsonl (each label with its `deployed` and
+# `fusion_server+attach` seed group -- inventory_clustering.server_arms, a verbatim duplicate of
+# score_server_arms' construction, checked against split_figures/state.pkl), Esri aerials and
+# 45 deg / 512 px crops cut on makelab2 from the sharded PS store (site_explorer's worker; item
+# `path` + job `draft_width`). Resumable; never re-samples corners.jsonl; reconciles crops and
+# aerials. The run dir is read in place. cluster_review_score.py reads assignments.json AS DATA
+# (no RampNet import), rebuilds every #56 arm, applies inventory_clustering.assignment_metrics +
+# the pre-registered rule (fusion_server+attach vs ps @ 7.5 m) and the inventory calibration; with
+# no assignments.json it writes a "NO GT YET" report and exits 0. Nobody but a human reviewer in
+# RampNet's cluster_review_gallery.py writes an assignments file.
+python scripts/export_cluster_review.py vancouver --run-dir ../sal-vancouver/runs/vancouver     --bundle ../RampNet/benchmark/vancouver/cluster_review [--no-crops] [--skip-aerial]
+python scripts/cluster_review_score.py vancouver --run-dir ../sal-vancouver/runs/vancouver     --bundle ../RampNet/benchmark/vancouver/cluster_review    # -> runs/vancouver/cluster_review/score/
 # Vancouver split examples (#56): ramps one arm splits and another does not, drawn on Esri
 # aerial tiles at SERVER placement (every cluster placed) -> docs/figures/vancouver-splits/
 python scripts/split_figures.py            # --rebuild recomputes the cached partitions
