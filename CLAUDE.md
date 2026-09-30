@@ -681,6 +681,7 @@ idle time for a batch to fill. Peak VRAM was 5.8 / 22.9 / 40.1-44.6 GB: batch 4 
 exactly; batched passes matched it at every detection >= 0.30, with confidence drift <= 6e-5
 and 2 of 300 panos differing only below 0.14 (a peak crossing the 0.1 storage floor, a
 plateau peak moving one heatmap row). Revisit only for a smaller input or a lighter model.
+Figure: `docs/figures/batch-size/batch_size_a40.png` (redraw with its `make_figure.py`).
 
 **Run directories / resumability:** all per-area state lives in `runs/<name>/` —
 `results.jsonl`, the resume cache (`already_processed.txt`), `manifest.json` (geometry hash,
