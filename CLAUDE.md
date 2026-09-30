@@ -670,7 +670,17 @@ on top of the decoded panos the pool already holds. Every pass ends with a `dete
 for the fetch-cheap re-inference paths, since `main.py` is network-bound. Batched and unbatched
 heatmaps agree (the opt-in `RAMPNET_EQUIVALENCE=1|full pytest
 tests/test_curb_ramp_batching_equivalence.py -s` check, CPU, needs the cached weights and
-../RampNet bundle panos).
+../RampNet bundle panos). **Measured on makelab2's A40 (2026-09-30, issue #2): batching buys
+nothing, so the default stays 1.** Same 300 Vancouver store panos, `detect_from_store.py
+--workers 16`, GPU otherwise idle, two passes per size: batch 1 / 4 / 8 ran at 1.273-1.279 /
+1.275-1.279 / 1.270-1.279 panos/s, with forward time 99% of wall at every size (~0.78 s per
+image) -- one 4096x2048 forward already holds the GPU at ~100% utilization, so there is no
+idle time for a batch to fill. Peak VRAM was 5.8 / 22.9 / 40.1-44.6 GB: batch 4 OOMs beside
+~28 GB of other jobs, and batch 8 leaves no room for anything. Host RSS ~23 GB at every size
+(the 16 workers decoding 13-16k store JPEGs). Batch 1 reproduced the deployed Vancouver run
+exactly; batched passes matched it at every detection >= 0.30, with confidence drift <= 6e-5
+and 2 of 300 panos differing only below 0.14 (a peak crossing the 0.1 storage floor, a
+plateau peak moving one heatmap row). Revisit only for a smaller input or a lighter model.
 
 **Run directories / resumability:** all per-area state lives in `runs/<name>/` —
 `results.jsonl`, the resume cache (`already_processed.txt`), `manifest.json` (geometry hash,
