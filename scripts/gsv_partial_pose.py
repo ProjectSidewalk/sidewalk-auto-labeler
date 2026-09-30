@@ -958,6 +958,7 @@ CONFIRM_CANDIDATES = {ARM_PARTIAL: ARM_SHUFFLED}
 # limit the study used, read as a per-ramp loss RATE, at one-sided alpha 0.05.
 CONFIRM_LOSS_RATE = 0.01
 CONFIRM_ALPHA = 0.05
+CONFIRM_MIN_POOL = 50           # below this many off-pool ramps (ii) is INCONCLUSIVE
 CONFIRM_MIN_VINTAGE_ROWS = 50   # per-vintage k is reported only with this many fit rows
 
 
@@ -1125,7 +1126,8 @@ def confirm_verdict(pairs, gt, inventory, candidates=CONFIRM_CANDIDATES,
           strictly below off's AND below its magnitude-matched shuffle's. Fewer pairs
           -> INCONCLUSIVE, never a pass.
     (ii)  L = ramps lost - ramps gained vs off (off pool, 2.5 m); FAIL iff
-          L >= recall_loss_bar(n), n = the off-pool denominator.
+          L >= recall_loss_bar(n), n = the off-pool denominator. n < CONFIRM_MIN_POOL
+          -> INCONCLUSIVE.
     (iii) extra unplaceable GT marks <= 5% of the off pool.
     (iv)  Bend and Gainesville inventories (frozen@off, pool on off, 5 m): median and p90
           no worse than off by more than 0.10 m.
@@ -1166,6 +1168,9 @@ def confirm_verdict(pairs, gt, inventory, candidates=CONFIRM_CANDIDATES,
         ok3 = ok3 and extra <= limit
         lines.append(f'(iii) {cand}: unplaceable GT marks {extra:+d} (limit {limit:.1f}) -> '
                      f'{"ok" if extra <= limit else "FAIL"}')
+    if ok2 and n < CONFIRM_MIN_POOL:
+        ok2 = None
+        lines.append(f'(ii) off pool n = {n} < {CONFIRM_MIN_POOL}: INCONCLUSIVE')
     state['ii'], state['iii'] = ok2, ok3
     ok4 = True
     for city in inventory_cities:

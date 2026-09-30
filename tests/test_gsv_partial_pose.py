@@ -226,6 +226,7 @@ def test_confirm_verdict_sizes_the_recall_clause_to_the_pool():
     assert out == 'FAIL' and state['ii'] is False
     # too few pairs to score (i): inconclusive, never a pass
     assert gpp.confirm_verdict(*_confirm_rows(n_pairs=499))[0] == 'INCONCLUSIVE'
+    assert gpp.confirm_verdict(*_confirm_rows(pool=49))[0] == 'INCONCLUSIVE'
     # a FAIL anywhere beats an inconclusive
     assert gpp.confirm_verdict(*_confirm_rows(n_pairs=499, lost=9))[0] == 'FAIL'
 
