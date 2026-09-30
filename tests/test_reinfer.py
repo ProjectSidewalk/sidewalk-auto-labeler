@@ -395,3 +395,34 @@ def test_ids_refuse_a_non_gsv_run(tmp_path):
                                        encoding="utf-8")
     with pytest.raises(SystemExit, match="GSV path"):
         reinfer.reinfer(run, tmp_path / "c.jsonl", 1, None, ids=["A"])
+
+
+# --- coarse-cell diagnostic (#111) -----------------------------------------------------------
+
+def test_a_coarse_cell_flip_is_reported_but_still_carried_over(tmp_path):
+    """#111: a peak that moved 7 heatmap cells (112 px on a 16384-wide pano) is the same ramp
+    decoded at the neighbouring coarse cell. --verify names it as a flip, but the pano does
+    NOT reproduce: the band file must take the old record, whose labels are the live ones."""
+    x0 = 1000 / 16384
+    old, new = _old_and_new(tmp_path,
+                            [_record([_det(0.9, x=x0)], "A"), _record([_det(0.9)], "B")],
+                            [_record([_det(0.9, x=x0 + 112 / 16384), _det(0.4, x=0.2)], "A"),
+                             _record([_det(0.9), _det(0.4, x=0.3)], "B")])
+    summary, _, carry = reinfer.verify(old, new, floor=0.55, band_floor=0.30)
+    assert (summary["exact"], summary["mismatch"]) == (1, 1) and carry == {"A"}
+    cc = summary["coarse_cell"]
+    assert (cc["panos"], cc["panos_agree_within_cell"]) == (1, 1)
+    assert cc["pairs"]["flip"] == 1 and cc["unpaired_old"] == cc["unpaired_new"] == 0
+    assert summary["band_labels"] == 1              # only B's, never the moved pano's
+
+    band = tmp_path / "results.band.jsonl"
+    reinfer.write_band_file(old, new, band, carry, 0.55)
+    assert [r["detections"] for r in reinfer.read_records(band)][0] == [_det(0.9, x=x0)]
+
+
+def test_cell_agreement_pairs_one_to_one_and_leaves_the_rest_unpaired():
+    from collections import Counter
+    old = Counter({(1000, 4000): 1, (5000, 4000): 1})
+    new = Counter({(1016, 4000): 1, (9000, 4000): 1})         # one neighbour, one far
+    pairs, lone_old, lone_new = reinfer.cell_agreement(old, new, 16384, 8192)
+    assert pairs == {"grid_neighbour": 1} and (lone_old, lone_new) == (1, 1)

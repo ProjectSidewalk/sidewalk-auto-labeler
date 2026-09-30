@@ -57,6 +57,19 @@ PASS only if the coverage floor holds, S passes, P passes, and -- when a control
 Z passes; STOP otherwise, naming the failing arm(s). UNDETERMINED (coverage floor not met,
 or nothing joinable in an arm that runs) takes precedence over STOP. Exit 0 / 1 / 2.
 
+**The coarse-cell rule (#111; amended 2026-09-30, the default since).** Both tolerances above
+assumed a detection is stable to the heatmap pixel. It is not: RampNet's head upsamples a
+stride-32 map 8x bilinearly, so every stored detection sits on residue 3 or 4 of an 8-cell
+block, and where two neighbouring coarse cells are near-tied a small input change moves the
+argmax 7-8 heatmap cells -- the same ramp, decoded at the other cell (the Vancouver gate
+under the rule above: 7,339 of 7,679 far misses at exactly 7 cells). So Arms S and Z now
+both match within +/-1 coarse cell, +/-(8 W/1024 + 1) px in x and +/-(8 H/512 + 1) px in y
+(Chebyshev, seam-wrapped), and the report splits every match by how far its detection sits
+(same heatmap cell / grid neighbour / off-grid / **adjacent-coarse-cell flip** / further).
+PASS_SHARE, the coverage floor and the precision bound are unchanged. The amendment was made
+AFTER the Vancouver gate had run, so a Vancouver report under it is exploratory; `--rule
+pixel-96` reproduces the rule above exactly (PR #108's report).
+
 What the report carries besides the verdict, all diagnostics that never move it:
   - per pano, whether all / some / none of its AI labels matched;
   - for every unmatched label, the nearest stored detection at ANY confidence (pixel
@@ -91,6 +104,7 @@ for _p in (REPO_ROOT / 'scripts', REPO_ROOT):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+import geo  # noqa: E402  (stdlib-only)
 from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
 
 # ---- Pre-registered (issue #56; amended after the PR #96 review, before any Vancouver ----
@@ -105,6 +119,15 @@ CONTROL_SEED = 56             # ...with this seed
 TIER = BENCHMARK_CONFIDENCE
 # -------------------------------------------------------------------------------------------
 
+# ---- Amended again for #111 (2026-09-30), AFTER the Vancouver gate had run under the rule ----
+# ---- above: see "The coarse-cell rule" in the module docstring. Both arms now match       ----
+# ---- within one coarse heatmap cell; the #96 tolerances stay available as RULE_PIXEL_96.  ----
+COARSE_CELL = geo.HEATMAP_COARSE_CELL_PX   # heatmap px per coarse (stride-32) cell
+COARSE_CELLS = 1              # Arms S and Z: +/-1 coarse cell (+ the rounding pixel), Chebyshev
+RULE_COARSE_CELL = 'coarse-cell'   # the default since #111
+RULE_PIXEL_96 = 'pixel-96'         # the #96 rule the Vancouver gate (PR #108) ran under
+# -------------------------------------------------------------------------------------------
+
 HEATMAP_WIDTH = 1024    # detector heatmap columns: a detection's x is a multiple of W/1024
 HEATMAP_HEIGHT = 512    # ...and rows
 
@@ -115,8 +138,16 @@ SKIP_METADATA_UNSERVED = 'metadata_404_null_field_or_no_file'
 
 API_LABELS = '/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson'
 CONTROL_IDS_FILE = 'control_ids.txt'
+# Distances in native px or in heatmap cells ('cell' = W/1024 px); first bucket that fits.
 DISTANCE_BUCKETS = ((2, '<= 2 px'), (4, '<= 4 px'), ('cell', '<= 1 heatmap cell'),
-                    ('2cell', '<= 2 heatmap cells'), (64, '<= 64 px'), (math.inf, '> 64 px'))
+                    ('2cell', '<= 2 heatmap cells'), ('coarse', '<= 1 coarse cell (8 heatmap cells)'),
+                    ('2coarse', '<= 2 coarse cells'), (math.inf, '> 2 coarse cells'))
+# How far (Chebyshev, heatmap cells, rounded) a matched detection sits from its label (#111):
+# geo.CELL_SHIFT_CLASSES, named for the report.
+MATCH_CLASSES = {'same_cell': 'same heatmap cell (0)',
+                 'grid_neighbour': 'grid neighbour (1: residue 3 <-> 4)',
+                 'off_grid': 'off-grid shift (2-6)', 'flip': 'adjacent-coarse-cell flip (7-8)',
+                 'beyond': 'further (> 8)'}
 UNMATCHED_FIELDS = ['label_uid', 'label_id', 'pano_id', 'pano_x', 'pano_y', 'run_width',
                     'run_height', 'label_width', 'label_height', 'reason',
                     'nearest_px', 'nearest_confidence', 'nearest_at_tier_px']
@@ -247,13 +278,32 @@ def native_size_mismatches(run_dir):
 # ------------------------------------------------------------------------------- join
 
 def store_tolerance(w, h):
-    """Arm S: one heatmap cell plus the rounding pixel, per axis."""
+    """Arm S under the #96 rule: one heatmap cell plus the rounding pixel, per axis."""
     return w / HEATMAP_WIDTH + STORE_SLACK_PX, h / HEATMAP_HEIGHT + STORE_SLACK_PX
 
 
 def exact_tolerance(w, h):
-    """Arm Z (and exact_share): +/-1 px per axis."""
+    """Arm Z under the #96 rule (and exact_share under both): +/-1 px per axis."""
     return TOLERANCE_PX, TOLERANCE_PX
+
+
+def coarse_tolerance(w, h):
+    """Arms S and Z under the #111 rule: +/-COARSE_CELLS coarse cells plus the rounding
+    pixel, per axis (a box, so Chebyshev), x wrapping at the seam.
+
+    Example:
+        >>> coarse_tolerance(16384, 8192)        # 8 heatmap cells of 16 px, + 1
+        (129.0, 129.0)
+    """
+    return (COARSE_CELLS * COARSE_CELL * w / HEATMAP_WIDTH + STORE_SLACK_PX,
+            COARSE_CELLS * COARSE_CELL * h / HEATMAP_HEIGHT + STORE_SLACK_PX)
+
+
+# rule -> (Arm S tolerance, Arm Z tolerance)
+RULES = {RULE_COARSE_CELL: (coarse_tolerance, coarse_tolerance),
+         RULE_PIXEL_96: (store_tolerance, exact_tolerance)}
+
+
 
 
 def _dx(a, b, w):
@@ -278,7 +328,8 @@ def join(labels, run, selected=None, skips=None, tolerance=store_tolerance):
     out = {'joinable': 0, 'matched': 0, 'within_1px': 0, 'on_pixel': 0, 'sub_tier': 0,
            'dims_differ': 0, 'not_in_run': Counter(), 'unmatched': [], 'buckets': Counter(),
            'panos': Counter(), 'unlabeled_dets': {'labeled_panos': 0, 'unlabeled_panos': 0},
-           'matched_ids': set()}
+           'matched_ids': set(), 'match_classes': Counter(), 'shared_claims': 0}
+    claims = defaultdict(set)    # (pano, detection index) -> distinct label pixels claiming it
     keys = Counter((lab['pano_id'], lab['pano_x'], lab['pano_y']) for lab in labels)
     out['duplicate_keys'] = sum(1 for n in keys.values() if n > 1)
     out['duplicate_labels'] = sum(n for n in keys.values() if n > 1)
@@ -318,6 +369,9 @@ def join(labels, run, selected=None, skips=None, tolerance=store_tolerance):
                 out['matched'] += 1
                 out['matched_ids'].add(lab['label_id'])
                 out['on_pixel'] += dets[hit][:2] == pt
+                out['match_classes'][geo.cell_shift_class(
+                    geo.heatmap_cell_distance(pt, dets[hit], w, h))] += 1
+                claims[(pid, hit)].add(pt)
                 used[pid].add(hit)
                 continue
             near = min(dets, key=lambda d: _dist(pt, d, w), default=None)
@@ -331,7 +385,8 @@ def join(labels, run, selected=None, skips=None, tolerance=store_tolerance):
                 out['buckets']['no detection on the pano'] += 1
             else:
                 for bound, name in DISTANCE_BUCKETS:
-                    limit = cell if bound == 'cell' else 2 * cell if bound == '2cell' else bound
+                    limit = {'cell': cell, '2cell': 2 * cell, 'coarse': COARSE_CELL * cell,
+                             '2coarse': 2 * COARSE_CELL * cell}.get(bound, bound)
                     if dist <= limit:
                         out['buckets'][name] += 1
                         break
@@ -349,6 +404,10 @@ def join(labels, run, selected=None, skips=None, tolerance=store_tolerance):
         out['panos']['all matched' if n_ok == len(labs) else 'none matched' if n_ok == 0
                      else 'partly matched'] += 1
 
+    # A detection claimed by labels at two different pixels: with a coarse-cell tolerance two
+    # ramps within ~2.8 deg can share one detection (the join is nearest-within-tolerance,
+    # not one-to-one). Duplicate label keys (same pixel) are not counted here.
+    out['shared_claims'] = sum(1 for pts in claims.values() if len(pts) > 1)
     for pid, (w, h, dets) in run.items():
         n = sum(1 for i, d in enumerate(dets) if d[2] >= TIER and i not in used[pid])
         out['unlabeled_dets']['labeled_panos' if pid in by_pano else 'unlabeled_panos'] += n
@@ -412,8 +471,49 @@ def _verdict_for(res, cov, control=None):
                    None if control is None else control['joinable'])
 
 
+def rule_lines(rule):
+    """The report's statement of the Arm S / Arm Z tolerances under `rule`."""
+    if rule == RULE_PIXEL_96:
+        return [
+            '## Rule (pre-registered; amended after the PR #96 review, before any Vancouver number)',
+            '',
+            f'- **Arm S, store usability:** a label matches when a stored detection >= {TIER} lies '
+            f'within +/-(W/{HEATMAP_WIDTH} + {STORE_SLACK_PX}) px in x and +/-(H/{HEATMAP_HEIGHT} + '
+            f'{STORE_SLACK_PX}) px in y of it (key `round(x*W), round(y*H)`, x wrapping at the seam). '
+            f'Passes iff >= {PASS_SHARE} of joinable labels match. `exact_share` (+/-{TOLERANCE_PX} px) '
+            f'is reported, never gated.',
+            f'- **Arm Z, pipeline identity (with --control):** the same join at +/-{TOLERANCE_PX} px on a '
+            f'zoom-3 control file ({CONTROL_SIZE} seeded labeled panos, seed {CONTROL_SEED}, via '
+            f'`reinfer.py --ids`); passes iff >= {PASS_SHARE}.']
+    return [
+        f'## Rule (`{RULE_COARSE_CELL}`: amended for #111 on 2026-09-30, after the Vancouver gate '
+        f'had run under `{RULE_PIXEL_96}`)', '',
+        f'- **Arms S and Z:** a label matches when a stored detection >= {TIER} lies within '
+        f'+/-{COARSE_CELLS} coarse heatmap cell -- +/-({COARSE_CELL}W/{HEATMAP_WIDTH} + '
+        f'{STORE_SLACK_PX}) px in x and +/-({COARSE_CELL}H/{HEATMAP_HEIGHT} + {STORE_SLACK_PX}) px '
+        f"in y, Chebyshev, x wrapping at the seam (key `round(x*W), round(y*H)`). RampNet's "
+        f'heatmap is a bilinear 8x upsample of a stride-32 map, so a detection can only land on '
+        f'residue 3 or 4 of each 8-cell block, and a near-tie between two coarse cells moves it by '
+        f'7-8 heatmap cells on a small input change (the **adjacent-coarse-cell flip**, counted '
+        f'below). Arm S runs on the store run; Arm Z on a zoom-3 control file ({CONTROL_SIZE} '
+        f'seeded labeled panos, seed {CONTROL_SEED}, via `reinfer.py --ids`). Each passes iff '
+        f'>= {PASS_SHARE}. `exact_share` (+/-{TOLERANCE_PX} px) is reported, never gated. '
+        f'`--rule {RULE_PIXEL_96}` reproduces the previous rule.']
+
+
+def class_table(res):
+    """Matched labels by the Chebyshev distance (heatmap cells) of their detection."""
+    n = res['matched']
+    rows = ['| matched detection sits | labels | share of matched |', '|---|---:|---:|']
+    for key, name in MATCH_CLASSES.items():
+        k = res['match_classes'][key]
+        rows.append(f'| {name} | {k:,} | {k / n:.4f} |' if n else f'| {name} | 0 | n/a |')
+    return rows
+
+
 def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
-           control=None, control_path=None, arms=None, size_mismatch=None):
+           control=None, control_path=None, arms=None, size_mismatch=None,
+           rule=RULE_COARSE_CELL, exploratory=None):
     v, d = _verdict_for(res, cov, control)
     pct = lambda n, t: f'{n:,} ({100 * n / t:.2f}%)' if t else f'{n:,}'  # noqa: E731
     fmt = lambda x: 'n/a' if x is None else f'{x:.4f}'  # noqa: E731
@@ -424,16 +524,8 @@ def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
         head += ' -- failing: ' + ', '.join(ARM_NAMES[a] for a in d['failing']) + '.'
     lines = [
         f'# {city}: provenance gate (#56)', '', head, '',
-        '## Rule (pre-registered; amended after the PR #96 review, before any Vancouver number)',
-        '',
-        f'- **Arm S, store usability:** a label matches when a stored detection >= {TIER} lies '
-        f'within +/-(W/{HEATMAP_WIDTH} + {STORE_SLACK_PX}) px in x and +/-(H/{HEATMAP_HEIGHT} + '
-        f'{STORE_SLACK_PX}) px in y of it (key `round(x*W), round(y*H)`, x wrapping at the seam). '
-        f'Passes iff >= {PASS_SHARE} of joinable labels match. `exact_share` (+/-{TOLERANCE_PX} px) '
-        f'is reported, never gated.',
-        f'- **Arm Z, pipeline identity (with --control):** the same join at +/-{TOLERANCE_PX} px on a '
-        f'zoom-3 control file ({CONTROL_SIZE} seeded labeled panos, seed {CONTROL_SEED}, via '
-        f'`reinfer.py --ids`); passes iff >= {PASS_SHARE}.',
+        *([f'> **Exploratory:** {exploratory}', ''] if exploratory else []),
+        *rule_lines(rule),
         f'- **Coverage floor:** UNDETERMINED unless no selected pano is pending and joinable '
         f'labels are >= {COVERAGE_FLOOR} of the AI labels whose pano has a store JPEG.',
         f'- **Precision (P):** detections >= {TIER} on labeled panos that no label claims must be '
@@ -484,11 +576,17 @@ def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
         f'- Within +/-{TOLERANCE_PX} px at >= {TIER} (exact_share): {pct(res["within_1px"], res["joinable"])}',
         f'- Unmatched: {len(res["unmatched"]):,}; of those, a stored detection BELOW {TIER} sits '
         f'within tolerance (a threshold flip): {res["sub_tier"]:,}',
+        f'- Tier detections claimed by labels at two or more different pixels (the join is '
+        f'nearest-within-tolerance, not one-to-one): {res["shared_claims"]:,}',
         f'- Labels whose pano width/height differ from the run\'s: {res["dims_differ"]:,}',
         f'- Duplicate label keys (same pano and pixel; PS is insert-only, and the join is '
         f'many-to-one): {res["duplicate_keys"]:,} key(s) carrying {res["duplicate_labels"]:,} labels', '',
         '| panos with AI labels | count |', '|---|---:|',
         *[f'| {k} | {res["panos"][k]:,} |' for k in ('all matched', 'partly matched', 'none matched')],
+        '', '### Matched labels: where the detection sits (heatmap cells, Chebyshev; #111)', '',
+        *class_table(res), '',
+        'A flip (7-8 cells) is the same ramp decoded at the neighbouring coarse cell of a '
+        'near-tied pair; residue 3 <-> 4 (1 cell) is the same coarse cell.',
         '', '### Unmatched labels: nearest stored detection (any confidence)', '',
         '| distance | labels |', '|---|---:|',
         *[f'| {name} | {res["buckets"][name]:,} |'
@@ -502,14 +600,16 @@ def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
     if control is not None:
         lines += [
             '## Arm Z (control)', '',
-            f'- Joinable labels on the control\'s panos: {control["joinable"]:,}; matched at '
-            f'+/-{TOLERANCE_PX} px: {pct(control["matched"], control["joinable"])}',
+            f'- Joinable labels on the control\'s panos: {control["joinable"]:,}; matched '
+            f'under Arm Z: {pct(control["matched"], control["joinable"])}; within '
+            f'+/-{TOLERANCE_PX} px: {pct(control["within_1px"], control["joinable"])}',
             f'- Unmatched: {len(control["unmatched"]):,}; threshold flips within tolerance: '
             f'{control["sub_tier"]:,}', '',
+            *class_table(control), '',
             '| on the control\'s panos | labels |', '|---|---:|',
             *[f'| {k} | {arms[k]:,} |' for k in ('both', 'S only', 'Z only', 'neither')],
-            '', '`S only`: the store run matches within a cell but the zoom-3 control does not '
-            'match within 1 px; `Z only` the reverse.', '',
+            '', '`S only`: matched under Arm S on the store run but not under Arm Z on the '
+            'control; `Z only` the reverse.', '',
         ]
     lines += [
         '## AI labels whose pano is not in the run', '',
@@ -547,7 +647,15 @@ def main(argv=None):
                     help=f'write <out>/{CONTROL_IDS_FILE}: N (default {CONTROL_SIZE}) AI-labeled '
                          f'panos of the run, seed --control-seed, then stop')
     ap.add_argument('--control-seed', type=int, default=CONTROL_SEED)
+    ap.add_argument('--rule', choices=sorted(RULES), default=RULE_COARSE_CELL,
+                    help=f'match tolerances: {RULE_COARSE_CELL} (the default since #111: both arms '
+                         f'+/-1 coarse heatmap cell) or {RULE_PIXEL_96} (the rule the Vancouver '
+                         f'gate ran under in PR #108: Arm S one heatmap cell, Arm Z +/-1 px)')
+    ap.add_argument('--exploratory', metavar='NOTE',
+                    help='mark the report exploratory with this note (a check re-run after the '
+                         'decision it would have gated was taken)')
     args = ap.parse_args(argv)
+    tol_s, tol_z = RULES[args.rule]
 
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
     out = args.out or run_dir / 'provenance_gate'
@@ -589,7 +697,7 @@ def main(argv=None):
         return 0
 
     selected, skips = load_selection(run_dir)
-    res = join(labels, run, selected, skips, tolerance=store_tolerance)
+    res = join(labels, run, selected, skips, tolerance=tol_s)
     cov = coverage(labels, run, selected, skips)
     control = arms = None
     if args.control is not None:
@@ -597,17 +705,23 @@ def main(argv=None):
             raise SystemExit(f'{args.control} does not exist')
         control_run = load_run(args.control)
         control_labels = [lab for lab in labels if lab['pano_id'] in control_run]
-        control = join(control_labels, control_run, tolerance=exact_tolerance)
+        control = join(control_labels, control_run, tolerance=tol_z)
         arms = compare_arms(res, control, labels, control_run)
     report = render(args.city, res, cov, ai_user, users, pull_record(labels_path), results_path,
-                    len(run), control, args.control, arms, native_size_mismatches(run_dir))
+                    len(run), control, args.control, arms, native_size_mismatches(run_dir),
+                    rule=args.rule, exploratory=args.exploratory)
     (out / 'report.md').write_text(report, encoding='utf-8')
     write_unmatched(out / 'unmatched.csv', args.city, res['unmatched'])
     v, d = _verdict_for(res, cov, control)
     tail = (d['reason'] if v == 'UNDETERMINED' else
             'failing: ' + ', '.join(ARM_NAMES[a] for a in d['failing']) if v == 'STOP' else
             f'S {d["store_share"]:.4f}' + ('' if control is None else f', Z {d["control_share"]:.4f}'))
-    print(f'{args.city}: {v} ({tail}) -> {out / "report.md"}')
+    print(f'{args.city}: {v} [{args.rule}] ({tail}) -> {out / "report.md"}')
+    flip = 'flip'
+    print(f'  Arm S: {res["match_classes"][flip]:,} of {res["matched"]:,} matches are '
+          f'adjacent-coarse-cell flips' + ('' if control is None else
+                                           f'; Arm Z: {control["match_classes"][flip]:,} of '
+                                           f'{control["matched"]:,}'))
     return {'PASS': 0, 'STOP': 1}.get(v, 2)
 
 
