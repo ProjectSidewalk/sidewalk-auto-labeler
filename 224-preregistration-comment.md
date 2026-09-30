@@ -11,6 +11,10 @@ or a mid-block point (> 60 m from every intersection node), window radius 30 m, 
 window by their SERVER position. Types: `signalised` (a signal node merged in or within 30 m),
 `residential` (every leg residential / living_street / unclassified), `arterial`, `mid_block`.
 Eligible only inside the area and ≤ 20 m from an open PS street.
+**Grade separation (sampling rule v2):** a candidate is excluded when its window touches any OSM
+way tagged bridge / covered (≠ no) or layer ≥ 1, or a street way tagged tunnel (≠ no) or layer ≤ −1.
+The aerial is how a unit is confirmed, and an overhead deck hides the ground. The rule is objective
+and applied before any look, and the report states the share it removes.
 
 **Draw.** Seed 224; 20 units per stratum, 3 of them from no-label units (15%); ≥ 60 m between any
 two unit centres across strata; no top-ups. Pilot = 30 units (8 / 7 / 8 / 7) by sha1(corner_id),
@@ -25,7 +29,9 @@ to it. The Vancouver inventory calibration is the only check independent of the 
 
 **Rubric v1.** A dual-direction apron is two ramps (#116 box rule); a driveway is not a ramp; an
 unlabelled ramp is one `uncovered` point at the ramp; `unsure` abstains from every metric; a unit
-counts only when attested `complete`; crops 45° / 512 px (4096×2048-equivalent); inventory points
+counts only when attested `complete`; a unit may instead be marked **can't judge** with a required
+reason (trees, construction, missing imagery — never merely hard), which counts in no metric and is
+listed; crops 45° / 512 px (4096×2048-equivalent); inventory points
 hidden until the unit is complete; a unit edited after the reveal is flagged and dropped from
 the inventory calibration. Reviewer time accrues only while the unit is visible and there was input
 in the last 60 s.

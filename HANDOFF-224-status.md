@@ -202,3 +202,13 @@ Decision taken while fixing that the brief did not spell out: flagging on *every
 empty the Vancouver inventory calibration (every completed unit reveals it), so the calibration drops
 only units **edited after** the reveal; `inventory_seen` alone is reported, not dropped. Reopening a
 unit counts as an edit (conservative).
+
+## Amendment 3 (2026-09-30): sampling rule v2 + can't judge, bundle re-drawn
+
+- Rule 6b excludes windows touching bridge / covered / layer>=1 ways or street tunnels /
+  layer<=-1: 422 of 21,763 eligible candidates (1.9%): sig 19/303, art 35/1532, res 4/2652,
+  mid 364/17276. The v1 bundle (never reviewed) was moved to the session scratchpad.
+- New bundle: 80 units, 30 pilot (8/7/8/7, 4 no-label, 621 labels), 1,459 labels, 1,453 crops
+  (6 missing), arms identical to state.pkl, 0 drawn windows touch a structure.
+- `cant_judge` + `cant_judge_reason` per unit: validated in RampNet, excluded from scoring and
+  listed by the auto-labeler scorer, counted in agreement. The gallery button is the parent's.
