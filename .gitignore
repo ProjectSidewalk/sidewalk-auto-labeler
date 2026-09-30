@@ -60,6 +60,11 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/agree_rate/
 !runs/*/agree_rate/report.md
 !runs/*/agree_rate/*.csv
+# Server-side validations + one auditor vs the AI (scripts/server_agree_check.py): report and
+# CSVs tracked; the four API pulls are NOT -- the report carries url, fetch time, sha256, count.
+!runs/*/server_agree/
+!runs/*/server_agree/report.md
+!runs/*/server_agree/*.csv
 # Post-submission coverage check (scripts/coverage_check.py, issue #46): the report and its
 # gap lists (missing.csv, fallback.csv) are tracked. The three API pulls are NOT — the report
 # carries each one's url, fetch time, sha256 and row count instead.
