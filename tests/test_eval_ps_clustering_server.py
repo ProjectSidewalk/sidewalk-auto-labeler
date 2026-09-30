@@ -60,8 +60,32 @@ def test_server_panos_keep_ai_indices_and_seed_human_labels():
     assert (by_id['p'].lat, by_id['p'].lng) == (LAT0, LNG0)     # the run's position
     dets = {i: c for i, _x, _y, c in by_id['p'].detections}
     assert dets == {0: 0.81, 3: 0.62, epc.HUMAN_DET_BASE: epc.HUMAN_CONFIDENCE}
-    assert stats == {'run_position': 1, 'inverted': 1, 'unplaceable': 0,
-                     'human_labels': 2, 'ai_labels': 2}
+    assert {k: v for k, v in stats.items() if k != 'label_of'} == {
+        'run_position': 1, 'inverted': 1, 'unplaceable': 0,
+        'human_labels': 2, 'ai_labels': 2, 'ai_unmapped': 0}
+    assert stats['label_of'] == {('p', 0): 10, ('p', 3): 11, ('p', epc.HUMAN_DET_BASE): 12,
+                                 ('q', epc.HUMAN_DET_BASE): 13}
+
+
+def test_server_panos_ai_user_keeps_unmapped_ai_labels_as_ai():
+    # #56: a deployed label the rebuilt run does not reproduce pixel-exactly is still an
+    # AI label -- at the tier, in its own index band, never a seeding human label
+    run = fs.SlimPano('p', LAT0, LNG0, 30.0, None, None, '2025-06', 'gsv',
+                      [(0, 0.40, 0.62, 0.81)])
+    labels = pd.DataFrame([_label(10, 'p', 0.40, 0.62, 30.0),
+                           _label(11, 'p', 0.70, 0.58, 30.0),          # AI, unmapped
+                           _label(12, 'p', 0.55, 0.60, 30.0, user='human')])
+    det_of = {10: ('p', 0)}
+    panos, stats = epc.server_panos(labels, det_of, {'p': run}, ai_user='ai',
+                                    unmapped_confidence=0.55)
+    dets = {i: c for i, _x, _y, c in panos[0].detections}
+    assert dets == {0: 0.81, epc.AI_UNMAPPED_BASE: 0.55,
+                    epc.HUMAN_DET_BASE: epc.HUMAN_CONFIDENCE}
+    assert (stats['ai_labels'], stats['ai_unmapped'], stats['human_labels']) == (1, 1, 1)
+    assert stats['label_of'][('p', epc.AI_UNMAPPED_BASE)] == 11
+    # without ai_user the same label is read as human, as before
+    _panos, stats0 = epc.server_panos(labels, det_of, {'p': run})
+    assert (stats0['ai_unmapped'], stats0['human_labels']) == (0, 2)
 
 
 def test_every_label_lands_in_a_cluster_and_only_ai_ones_are_scored():
@@ -97,3 +121,44 @@ def test_wilson_interval():
     assert (round(lo, 2), round(hi, 2)) == (0.65, 0.94)   # scipy binomtest's Wilson
     assert epc.wilson(0, 0) is None
     assert epc.precision_ci_text(0, 0) == 'n/a'
+
+
+def test_human_votes_and_label_verdicts_ignore_the_ai_validator():
+    assert epc.human_votes([{'validation': 'Agree', 'validator_type': 'Human'},
+                            {'validation': 'Disagree', 'validator_type': 'AI'},
+                            {'validation': 'Unsure', 'validator_type': 'Human'}]) == (1, 0, 1)
+    assert epc.human_votes(None) == (0, 0, 0)
+    labels = pd.DataFrame([{'label_id': 1, 'human_agree': 2, 'human_disagree': 0, 'human_unsure': 0},
+                           {'label_id': 2, 'human_agree': 0, 'human_disagree': 1, 'human_unsure': 0},
+                           {'label_id': 3, 'human_agree': 1, 'human_disagree': 1, 'human_unsure': 0},
+                           {'label_id': 4, 'human_agree': 0, 'human_disagree': 0, 'human_unsure': 0}])
+    assert epc.label_verdicts(labels) == {1: True, 2: False, 3: None}
+
+
+def test_validation_precision_by_cluster_size():
+    clusters = [epc.Cluster(0, [], 2, label_ids=[1, 2]),      # one true, one false
+                epc.Cluster(1, [], 1, label_ids=[3]),         # validated true
+                epc.Cluster(2, [], 1, label_ids=[4]),         # no vote
+                epc.Cluster(3, [], 3, label_ids=[5, 6, 7])]   # all false
+    verdicts = {1: True, 2: False, 3: True, 5: False, 6: False, 7: False}
+    rows = {r['bucket']: r for r in epc.validation_precision(clusters, verdicts)}
+    assert (rows['cluster of 1']['clusters'], rows['cluster of 1']['n'],
+            rows['cluster of 1']['any_false']) == (2, 1, 0)
+    assert (rows['cluster of 2']['n'], rows['cluster of 2']['any_false'],
+            rows['cluster of 2']['all_false'], rows['cluster of 2']['labels_validated'],
+            rows['cluster of 2']['labels_false']) == (1, 1, 0, 2, 1)
+    assert (rows['cluster of 3+']['any_false'], rows['cluster of 3+']['all_false']) == (1, 1)
+
+
+def test_near_cluster_rate_counts_neighbours_within_r():
+    frame = geo.LocalFrame(LAT0, LNG0)
+    # three clusters at 0, 4 and 30 m north of the origin, positioned by their labels
+    server_pos = {k: frame.to_latlng(0.0, n) for k, n in ((1, 0.0), (2, 4.0), (3, 30.0))}
+    clusters = [epc.Cluster(k, [], 1, label_ids=[k]) for k in (1, 2, 3)]
+    r = epc.near_cluster_rate(clusters, server_pos, frame, radii=(5.0, 12.5, 40.0))
+    assert r['frame'] == 'server' and r['n_pos'] == 3
+    assert [round(r['near'][x], 3) for x in (5.0, 12.5, 40.0)] == [0.667, 0.667, 1.0]
+    assert r['per_1000_labels'] == 1000.0
+    # a run-only cluster (no label ids) sits at its raycast position instead
+    ray = [epc.Cluster(9, [], 1, e=0.0, n=100.0)]
+    assert epc.near_cluster_rate(clusters + ray, server_pos, frame)['frame'] == 'mixed'
