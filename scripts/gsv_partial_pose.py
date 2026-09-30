@@ -49,6 +49,15 @@ Usage:
     python scripts/gsv_partial_pose.py all
     python scripts/gsv_partial_pose.py figures        # docs/figures/gsv-partial-pose/
 
+Added by the #116 follow-up (after the verdict; nothing above changes):
+    python scripts/gsv_partial_pose.py consistency paterson   # production `partial` beside
+                                                              # the study arms (reported)
+    python scripts/gsv_partial_pose.py loss-bar               # clause (ii)'s k*(n) table
+    python scripts/gsv_partial_pose.py confirm <city>         # the pre-registered
+        # confirmatory run on a NEW GSV benchmark city (whole run, frozen pooled constants
+        # geo.PARTIAL_POSE_K_GSV); --camera-height-m 2.6 for the reported height;
+        # --exploratory to allow a #116 train city (outputs labelled EXPLORATORY)
+
 Inputs are read in place from runs/<city>/ (results.jsonl, depth/index.csv, and for the
 inventory cities inventory_oracle/inventory.geojson); RampNet GT from --benchmark-root.
 Outputs: runs/<city>/partial_pose/{report.md,*.csv}, runs/_pooled/partial_pose/.
@@ -935,6 +944,381 @@ def cmd_explore(args):
     print('\n'.join(text))
 
 
+# ------------------------------------------------- production arm + confirmatory run
+#
+# Added by the #116 follow-up (2026-09-30), after the verdict: `--apply-pose partial` is
+# wired into fuse_sites as an OPT-IN mode with the frozen pooled constants
+# (geo.PARTIAL_POSE_K_GSV), and the confirmatory run below is pre-registered on #116
+# before any new data is looked at. Neither changes the #116 verdict or its outputs.
+
+ARM_POOLED = 'partial-pooled'   # production's --apply-pose partial (frozen pooled constants)
+CONFIRM_ARMS = (ARM_OFF, ARM_PARTIAL, ARM_SHUFFLED, ARM_MIRROR)
+CONFIRM_CANDIDATES = {ARM_PARTIAL: ARM_SHUFFLED}
+# (ii), re-sized to the pool: FAIL iff (lost - gained) >= recall_loss_bar(n). The 1.0 pt
+# limit the study used, read as a per-ramp loss RATE, at one-sided alpha 0.05.
+CONFIRM_LOSS_RATE = 0.01
+CONFIRM_ALPHA = 0.05
+CONFIRM_MIN_VINTAGE_ROWS = 50   # per-vintage k is reported only with this many fit rows
+
+
+def recall_loss_bar(n, rate=CONFIRM_LOSS_RATE, alpha=CONFIRM_ALPHA):
+    """k*(n): the smallest k with P(Binomial(n, rate) >= k) <= alpha (exact, one-sided).
+    Clause (ii) of the confirmatory run FAILS iff ramps lost - ramps gained >= k*(n),
+    where n is the off-pool recall denominator at 2.5 m.
+
+    Example:
+        >>> [recall_loss_bar(n) for n in (100, 157, 300)]
+        [4, 5, 7]
+    """
+    if n <= 0:
+        return 1
+    pmf = (1.0 - rate) ** n        # P(X = 0)
+    cdf = 0.0                      # P(X <= k - 1)
+    for k in range(0, n + 1):
+        if 1.0 - cdf <= alpha:     # P(X >= k)
+            return k
+        cdf += pmf
+        pmf *= (n - k) / (k + 1) * rate / (1.0 - rate)
+    return n + 1
+
+
+def recall_loss_bar_table(lo=50, hi=800, rate=CONFIRM_LOSS_RATE, alpha=CONFIRM_ALPHA):
+    """[(n_first, n_last, k*)] runs of equal k*(n) over n in [lo, hi]."""
+    out = []
+    for n in range(lo, hi + 1):
+        k = recall_loss_bar(n, rate, alpha)
+        if out and out[-1][2] == k:
+            out[-1] = (out[-1][0], n, k)
+        else:
+            out.append((n, n, k))
+    return out
+
+
+def production_pose_mismatches(panos, k=geo.PARTIAL_POSE_K_GSV):
+    """Pano ids whose study-built pose (posed_panos under POSE_GRAVITY, the path every #116
+    arm used) differs from production's fs.pano_pose(p, POSE_PARTIAL). Empty means the
+    study's arm and the shipped mode raycast identically."""
+    bad = []
+    for p, q in zip(panos, posed_panos(panos, *k)):
+        a = fs.pano_pose(q, fs.POSE_GRAVITY)
+        b = fs.pano_pose(p, fs.POSE_PARTIAL)
+        if (a.pitch_deg, a.roll_deg, a.has_pitch_roll) != (b.pitch_deg, b.roll_deg,
+                                                         b.has_pitch_roll):
+            bad.append(p.pano_id)
+    return bad
+
+
+def _fuse_arms(arms):
+    fused = {}
+    for arm, (ps, params) in arms.items():
+        sites, frame, _st = fs.fuse(ps, params)
+        fused[arm] = (sites, frame)
+    frame = fused[ARM_OFF][1]
+    assert all(abs(f.lat0 - frame.lat0) < 1e-12 and abs(f.lng0 - frame.lng0) < 1e-12
+               for _s, f in fused.values())
+    return fused
+
+
+def consistency_city(city, heights, coef_table, runs_root, benchmark_root,
+                     tier=OPERATIONAL_CONFIDENCE, seed=SEED):
+    """The study's TEST-half arms plus ARM_POOLED -- production's `--apply-pose partial`
+    on the unmodified panos -- re-fused and scored with the same machinery, seed and
+    common pairs (the common set is the DECISION arms', so adding an arm moves nothing
+    else). Also checks production_pose_mismatches is empty on the whole run.
+    Returns {'pairs', 'gt', 'info'} (reassoc frame only: the frozen frame's site set is
+    'every arm places every member', so an extra arm would change it)."""
+    out = {'pairs': [], 'gt': [], 'info': []}
+    bench = None
+    if benchmark_root and (Path(benchmark_root) / city / 'verdicts.json').exists():
+        bench = es.load_benchmark(city, Path(benchmark_root))
+    for height in heights:
+        label = height_label(height)
+        panos, fuse_height = load_city(city, height, runs_root)
+        bad = production_pose_mismatches(panos)
+        if bad:
+            raise SystemExit(f'{city}: {len(bad)} panos pose differently under production '
+                             f'`partial` than under the study arm, e.g. {bad[:3]}')
+        _train, test = split_halves(panos, seed)
+        coefs = {ARM_PARTIAL: coef_pair(coef_table, label, 'city', city),
+                 ARM_LOCO: coef_pair(coef_table, label, 'loco', city)}
+        arms, _own = build_arms(test, coefs, fuse_height, tier, seed=seed)
+        arms[ARM_POOLED] = (test, replace(arms[ARM_OFF][1], apply_pose=fs.POSE_PARTIAL))
+        fused = _fuse_arms(arms)
+        tag = {'city': city, 'height': label}
+        out['pairs'] += [{**tag, **r} for r in score_reassoc(arms, fused)]
+        if bench is not None:
+            rows, _info = score_gt(arms, fused, *bench)
+            out['gt'] += [{**tag, **r} for r in rows]
+        out['info'].append({**tag, 'panos': len(panos), 'test_panos': len(test),
+                            'pose_checked_panos': len(panos),
+                            'k_partial': coefs[ARM_PARTIAL], 'k_loco': coefs[ARM_LOCO],
+                            'k_pooled': geo.PARTIAL_POSE_K_GSV})
+        print(f'  consistency {city} @ {label}: {len(test)} test panos, '
+              f'{len(panos)} poses checked', file=sys.stderr)
+    return out
+
+
+def cmd_consistency(args):
+    """Consistency row (#116 follow-up; reported, gates nothing): production's pooled
+    `partial` beside the study's per-city and LOCO arms on the same TEST half."""
+    table = read_csv(args.pooled_dir / 'coefficients.csv')
+    for city in args.cities:
+        res = consistency_city(city, args.heights, table, args.runs_root, args.benchmark_root,
+                               seed=args.seed)
+        out = REPO_ROOT / 'runs' / city / OUT_NAME
+        write_csv(out / 'consistency_pairs.csv', res['pairs'])
+        if res['gt']:
+            write_csv(out / 'consistency_gt.csv', res['gt'])
+        lines = [f'# {city}: production `--apply-pose partial` vs the #116 arms', '',
+                 'Generated by `scripts/gsv_partial_pose.py consistency`. TEST half (seed 116), '
+                 'tier 0.30, re-associated per arm, on the pairs every #116 decision arm '
+                 "co-associates. `partial-pooled` is production's mode (frozen pooled "
+                 f'constants {geo.PARTIAL_POSE_K_GSV}); reported, gates nothing.', '']
+        for info in res['info']:
+            lines.append(f"- @ {info['height']}: production pose == study arm pose on all "
+                         f"{info['pose_checked_panos']} panos of the run; partial k = "
+                         f"{_fmt(info['k_partial'])}, LOCO k = {_fmt(info['k_loco'])}, pooled "
+                         f"k = {_fmt(info['k_pooled'])}")
+        shown = (ARM_OFF, ARM_PARTIAL, ARM_LOCO, ARM_POOLED, ARM_SHUFFLED)
+        for h in args.heights:
+            label = height_label(h)
+            rows = [r for r in _str_rows(res['pairs']) if r['height'] == label
+                    and r['arm'] in shown]
+            lines += ['', f'## Pair distance, reassoc, height {label}', '',
+                      _md_table(rows, ['arm', 'multi_view_sites', 'pairs_scored', 'median_m',
+                                       'mean_m', 'p90_m'])]
+            rows = [r for r in _str_rows(res['gt']) if r['height'] == label
+                    and r['arm'] in shown]
+            if rows:
+                lines += ['', f'## Off-pool recall, height {label}', '',
+                          _md_table(rows, ['arm', 'off_pool_ramps', 'recall_off_pool_2p5m',
+                                           'lost_vs_off_2p5m', 'gained_vs_off_2p5m',
+                                           'gt_marks_unplaceable'])]
+        (out / 'consistency.md').write_text('\n'.join(lines) + '\n', encoding='utf-8',
+                                            newline='\n')
+        print('\n'.join(lines))
+
+
+def vintage_coefficients(panos, height, tier=OPERATIONAL_CONFIDENCE,
+                         min_rows=CONFIRM_MIN_VINTAGE_ROWS):
+    """Descriptive only (never scored): #116's fit on the WHOLE confirm run, overall and
+    per capture year. A group below min_rows reports its row count and no slopes."""
+    rows = fit_rows(panos, height, tier)
+    year = {p.pano_id: (p.capture_date or '')[:4] or 'undated' for p in panos}
+    groups = {'all': rows}
+    for r in rows:
+        groups.setdefault(year[r[3]], []).append(r)
+    out = []
+    for key in ['all'] + sorted(k for k in groups if k != 'all'):
+        rs = groups[key]
+        c = fit_coefficients(rs) if len(rs) >= min_rows else None
+        out.append({'vintage': key, 'n_rows': len(rs),
+                    'n_panos': len({r[3] for r in rs}), **(c or {})})
+    return out
+
+
+def confirm_verdict(pairs, gt, inventory, candidates=CONFIRM_CANDIDATES,
+                    inventory_cities=INVENTORY_CITIES):
+    """The confirmatory rule (pre-registered on #116, 2026-09-30). One city, one height.
+
+    (i)   >= RULE_MIN_COMMON_PAIRS common pairs (reassoc): the candidate's median AND p90
+          strictly below off's AND below its magnitude-matched shuffle's. Fewer pairs
+          -> INCONCLUSIVE, never a pass.
+    (ii)  L = ramps lost - ramps gained vs off (off pool, 2.5 m); FAIL iff
+          L >= recall_loss_bar(n), n = the off-pool denominator.
+    (iii) extra unplaceable GT marks <= 5% of the off pool.
+    (iv)  Bend and Gainesville inventories (frozen@off, pool on off, 5 m): median and p90
+          no worse than off by more than 0.10 m.
+    Returns (outcome in {'PASS', 'FAIL', 'INCONCLUSIVE'}, {clause: True/False/None}, lines)."""
+    lines, state = [], {}
+    off = _get(pairs, frame=FRAME_REASSOC, arm=ARM_OFF)
+    n_pairs = int(float(off['pairs_scored']))
+    if n_pairs < RULE_MIN_COMMON_PAIRS:
+        state['i'] = None
+        lines.append(f'(i) {n_pairs} common pairs < {RULE_MIN_COMMON_PAIRS}: INCONCLUSIVE')
+    else:
+        ok_all = True
+        for cand, ctrl in candidates.items():
+            c = _get(pairs, frame=FRAME_REASSOC, arm=cand)
+            s = _get(pairs, frame=FRAME_REASSOC, arm=ctrl)
+            d = {k: _num(c[k]) - _num(off[k]) for k in ('median_m', 'p90_m')}
+            e = {k: _num(c[k]) - _num(s[k]) for k in ('median_m', 'p90_m')}
+            ok = all(v < 0 for v in (*d.values(), *e.values()))
+            ok_all = ok_all and ok
+            lines.append(f"(i) {cand} ({n_pairs} pairs): median {d['median_m']:+.3f} m vs off, "
+                         f"{e['median_m']:+.3f} m vs {ctrl}; p90 {d['p90_m']:+.3f} vs off, "
+                         f"{e['p90_m']:+.3f} vs {ctrl} -> {'ok' if ok else 'FAIL'}")
+        state['i'] = ok_all
+    goff = _get(gt, arm=ARM_OFF)
+    n = int(float(goff['off_pool_ramps']))
+    bar = recall_loss_bar(n)
+    ok2 = ok3 = True
+    for cand in candidates:
+        c = _get(gt, arm=cand)
+        lost, gained = int(float(c['lost_vs_off_2p5m'])), int(float(c['gained_vs_off_2p5m']))
+        loss = lost - gained
+        ok = loss < bar
+        ok2 = ok2 and ok
+        lines.append(f'(ii) {cand}: n = {n}, lost {lost}, gained {gained}, L = {loss:+d}; '
+                     f'k*(n) = {bar} -> {"ok" if ok else "FAIL"}')
+        extra = int(float(c['gt_marks_unplaceable'])) - int(float(goff['gt_marks_unplaceable']))
+        limit = RULE_MAX_UNPLACEABLE_FRAC * n
+        ok3 = ok3 and extra <= limit
+        lines.append(f'(iii) {cand}: unplaceable GT marks {extra:+d} (limit {limit:.1f}) -> '
+                     f'{"ok" if extra <= limit else "FAIL"}')
+    state['ii'], state['iii'] = ok2, ok3
+    ok4 = True
+    for city in inventory_cities:
+        ioff = _get(inventory, city=city, frame=FRAME_FROZEN, arm=ARM_OFF,
+                    radius_m=INVENTORY_RADIUS_M)
+        if ioff is None:
+            ok4 = False
+            lines.append(f'(iv) {city}: not scored -> FAIL')
+            continue
+        for cand in candidates:
+            c = _get(inventory, city=city, frame=FRAME_FROZEN, arm=cand,
+                     radius_m=INVENTORY_RADIUS_M)
+            dm = _num(c['median_m']) - _num(ioff['median_m'])
+            d9 = _num(c['p90_m']) - _num(ioff['p90_m'])
+            ok = dm <= RULE_INVENTORY_MARGIN_M and d9 <= RULE_INVENTORY_MARGIN_M
+            ok4 = ok4 and ok
+            lines.append(f'(iv) {city} {cand}: inventory median {dm:+.3f} m, p90 {d9:+.3f} m '
+                         f'vs off (limit +{RULE_INVENTORY_MARGIN_M:.2f}) -> '
+                         f'{"ok" if ok else "FAIL"}')
+    state['iv'] = ok4
+    if any(v is False for v in state.values()):
+        outcome = 'FAIL'
+    elif any(v is None for v in state.values()):
+        outcome = 'INCONCLUSIVE'
+    else:
+        outcome = 'PASS'
+    for k in ('i', 'ii', 'iii', 'iv'):
+        v = state[k]
+        lines.append(f'clause ({k}): ' + ('INCONCLUSIVE' if v is None else
+                                          'PASS' if v else 'FAIL'))
+    return outcome, state, lines
+
+
+def confirm_arms(panos, height, tier=OPERATIONAL_CONFIDENCE, seed=SEED,
+                 k=geo.PARTIAL_POSE_K_GSV):
+    """{arm: (panos, FuseParams)} for the confirmatory run: off and partial through
+    PRODUCTION's modes on the unmodified panos; the shuffle and the mirror built as #116
+    built them (posed_panos under POSE_GRAVITY), with the frozen constants."""
+    tilts, own = shuffled_tilts(panos, seed)
+    base = fs.FuseParams(min_confidence=tier, camera_height_m=height)
+    grav = replace(base, apply_pose=fs.POSE_GRAVITY)
+    return {ARM_OFF: (panos, replace(base, apply_pose=fs.POSE_OFF)),
+            ARM_PARTIAL: (panos, replace(base, apply_pose=fs.POSE_PARTIAL)),
+            ARM_SHUFFLED: (posed_panos(panos, k[0], k[1], tilts), grav),
+            ARM_MIRROR: (posed_panos(panos, -k[0], -k[1]), grav)}, own
+
+
+def cmd_confirm(args):
+    """The pre-registered confirmatory run (#116): one NEW GSV benchmark city, whole run,
+    frozen pooled constants. See confirm_verdict for the rule."""
+    if len(args.cities) != 1 or args.cities == list(CITIES):
+        raise SystemExit('confirm takes exactly one city')
+    city = args.cities[0]
+    exploratory = args.exploratory
+    if city in CITIES and not exploratory:
+        raise SystemExit(f"{city} was in #116's train set ({', '.join(CITIES)}): its panos "
+                         'fitted the constants, so it cannot confirm them. Pass '
+                         '--exploratory to run it anyway (every output is labelled so)')
+    bench_root = Path(args.benchmark_root)
+    if not (bench_root / city / 'verdicts.json').exists():
+        raise SystemExit(f'{bench_root / city}/verdicts.json is missing: clauses (ii) and '
+                         '(iii) need RampNet GT for the city')
+    height = parse_height(args.camera_height_m)
+    label = height_label(height)
+    deciding = height == PRIMARY_HEIGHT and not exploratory
+    tag_x = 'EXPLORATORY ' if exploratory else ''
+    t0 = time.time()
+    panos, fuse_height = load_city(city, height, args.runs_root)
+    bad = production_pose_mismatches(panos)
+    if bad:
+        raise SystemExit(f'{city}: production `partial` and the study arm disagree on '
+                         f'{len(bad)} panos, e.g. {bad[:3]}')
+    arms, own = confirm_arms(panos, fuse_height, seed=args.seed)
+    fused = _fuse_arms(arms)
+    tag = {'city': city, 'height': label, 'exploratory': exploratory}
+    pairs = [{**tag, **r} for r in score_reassoc(arms, fused)]
+    gt_rows, gt_info = score_gt(arms, fused, *es.load_benchmark(city, bench_root))
+    gt = [{**tag, **r} for r in gt_rows]
+    members = unplaceable_members(arms, OPERATIONAL_CONFIDENCE)
+    member_rows = [{**tag, 'arm': a, 'unplaceable': members[a],
+                    'unplaceable_vs_off': members[a] - members[ARM_OFF]} for a in arms]
+    print(f'  confirm {city} @ {label}: {len(panos)} panos, {time.time() - t0:.0f} s',
+          file=sys.stderr)
+    inventory = []
+    referee = list(INVENTORY_CITIES)
+    own_inventory = (REPO_ROOT / 'runs' / city / 'inventory_oracle' /
+                     'inventory.geojson').exists()
+    for icity in referee + ([city] if own_inventory and city not in referee else []):
+        if icity == city:
+            ipanos, iarms, ifused = panos, arms, fused
+        else:
+            ipanos, ih = load_city(icity, height, args.runs_root)
+            iarms, _ = confirm_arms(ipanos, ih, seed=args.seed)
+            ifused = _fuse_arms(iarms)
+        by_id = {p.pano_id: p for p in ipanos}
+        role = 'referee' if icity in referee else 'reported'
+        inventory += [{'city': icity, 'height': label, 'exploratory': exploratory,
+                       'role': role, **r}
+                      for r in score_inventory(icity, iarms, ifused, by_id, args.runs_root)]
+        print(f'  inventory {icity} ({role}) @ {label}: {time.time() - t0:.0f} s',
+              file=sys.stderr)
+    vint = [{**tag, **r} for r in vintage_coefficients(panos, fuse_height)]
+    outcome, _state, lines = confirm_verdict(
+        _str_rows(pairs), _str_rows(gt),
+        _str_rows([r for r in inventory if r['role'] == 'referee']))
+    out = REPO_ROOT / 'runs' / city / OUT_NAME / (
+        f'confirm_exploratory_{label}' if exploratory else f'confirm_{label}')
+    write_csv(out / 'pairs.csv', pairs)
+    write_csv(out / 'gt.csv', gt)
+    write_csv(out / 'members.csv', member_rows)
+    write_csv(out / 'inventory.csv', inventory)
+    write_csv(out / 'vintage_k.csv', vint)
+    k = geo.PARTIAL_POSE_K_GSV
+    if exploratory:
+        head = ("**EXPLORATORY: this city was in #116's train set, so this output proves the "
+                'code path and is not a confirmation.**')
+    else:
+        head = 'This height DECIDES.' if deciding else 'Reported at this height; `auto` decides.'
+    inv_rows = [r for r in _str_rows(inventory) if r['frame'] == FRAME_FROZEN
+                and _same(r['radius_m'], INVENTORY_RADIUS_M)]
+    text = [f'# {tag_x}#116 confirmatory run: {city} @ {label}', '', head, '',
+            f'Frozen constants k_pitch {k[0]}, k_roll {k[1]} (geo.PARTIAL_POSE_K_GSV); whole '
+            f'run, {len(panos)} panos, tier {OPERATIONAL_CONFIDENCE}, 25 m cap, seed '
+            f'{args.seed} (the shuffle kept its own tilt on {own} panos). Production\'s pose '
+            f"equals the study arm's on all {len(panos)} panos.", '',
+            f'## Outcome: {tag_x}{outcome}', ''] + [f'- {ln}' for ln in lines]
+    text += ['', '## Pair distance, reassoc (m)', '',
+             _md_table(_str_rows(pairs), ['arm', 'multi_view_sites', 'pairs_scored',
+                                          'median_m', 'mean_m', 'p90_m']),
+             '', '## RampNet GT survivorship (off pool)', '',
+             _md_table(_str_rows(gt), ['arm', 'gt_marks', 'gt_marks_unplaceable',
+                                       'off_pool_ramps', 'recall_off_pool_2p5m',
+                                       'lost_vs_off_2p5m', 'gained_vs_off_2p5m']),
+             '', f"GT panos judged: {gt_info['counts'].get('judged')}", '',
+             '## Operational members not placed inside 25 m', '',
+             _md_table(_str_rows(member_rows), ['arm', 'unplaceable', 'unplaceable_vs_off']),
+             '', '## Inventories (frozen@off, pool on off, 5 m)', '',
+             _md_table(inv_rows, ['city', 'role', 'arm', 'n_pool', 'median_m', 'p90_m']),
+             '', '## k per capture vintage (descriptive; never scored)', '',
+             _md_table(_str_rows(vint), ['vintage', 'n_rows', 'n_panos', 'k_pitch', 'se_pitch',
+                                         'k_roll', 'se_roll', 'intercept'])]
+    out.mkdir(parents=True, exist_ok=True)
+    (out / 'verdict.md').write_text('\n'.join(text) + '\n', encoding='utf-8', newline='\n')
+    print('\n'.join(text))
+
+
+def cmd_loss_bar(args):
+    """Print the confirmatory clause (ii)'s k*(n) table."""
+    print('| n | k*(n) |\n|---|---|')
+    for lo, hi, k in recall_loss_bar_table():
+        print(f'| {lo}' + (f'-{hi}' if hi != lo else '') + f' | {k} |')
+
+
 def _str_rows(rows):
     return [{k: (v if isinstance(v, str) else _fmt(v)) for k, v in r.items()} for r in rows]
 
@@ -1505,7 +1889,8 @@ def cmd_figures(args):
 
 def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('command', choices=('fit', 'score', 'tieback', 'verdict', 'explore', 'figures', 'all'))
+    ap.add_argument('command', choices=('fit', 'score', 'tieback', 'verdict', 'explore', 'figures',
+                                        'consistency', 'confirm', 'loss-bar', 'all'))
     ap.add_argument('cities', nargs='*', default=list(CITIES))
     ap.add_argument('--heights', nargs='+', default=[height_label(h) for h in HEIGHTS])
     ap.add_argument('--runs-root', default=str(REPO_ROOT / 'runs'))
@@ -1514,6 +1899,11 @@ def build_parser():
     ap.add_argument('--seed', type=int, default=SEED)
     ap.add_argument('--refresh', action='store_true',
                     help='figures: recompute the re-fused figure data')
+    ap.add_argument('--camera-height-m', default='auto', choices=('auto', '2.6'),
+                    help='confirm: the height to score at (auto decides; 2.6 is reported)')
+    ap.add_argument('--exploratory', action='store_true',
+                    help="confirm: allow a city from #116's train set; every output is "
+                         'labelled EXPLORATORY')
     return ap
 
 
@@ -1523,7 +1913,9 @@ def main(argv=None):
     args.pooled_dir = Path(args.out) if args.out else POOLED_DIR
     cmds = {'fit': [cmd_fit], 'score': [cmd_score], 'tieback': [cmd_tieback],
             'verdict': [cmd_verdict], 'explore': [cmd_explore],
-            'figures': [cmd_figures], 'all': [cmd_fit, cmd_score, cmd_tieback, cmd_verdict]}
+            'figures': [cmd_figures], 'consistency': [cmd_consistency],
+            'confirm': [cmd_confirm], 'loss-bar': [cmd_loss_bar],
+            'all': [cmd_fit, cmd_score, cmd_tieback, cmd_verdict]}
     for cmd in cmds[args.command]:
         cmd(args)
 

@@ -179,3 +179,58 @@ def test_pano_crop_wraps_the_seam_and_centres_the_mark(tmp_path):
     assert arr[:, 1, 2].mean() > 150 and arr[:, w - 2, 0].mean() > 150   # blue then red
     assert abs(mark_row - arr.shape[0] / 2) <= 1
     assert gpp.pano_crop(tmp_path, 'missing', 0.5, 0.5) is None
+
+
+# --- #116 follow-up: production's `partial` and the confirmatory rule -------------------
+
+def test_study_arm_is_productions_partial_pose():
+    rng = random.Random(7)
+    panos = [_pano(f'p{i}', pitch=rng.uniform(-4, 4), roll=rng.uniform(-3, 3) % 360)
+             for i in range(50)] + [_pano('none', pitch=None), _pano('half', roll=None)]
+    assert gpp.arm_pose is geo.partial_pitch_roll
+    assert gpp.production_pose_mismatches(panos) == []
+
+
+def test_recall_loss_bar_is_the_exact_binomial_tail():
+    def tail(n, k, p=0.01):
+        return sum(math.comb(n, j) * p ** j * (1 - p) ** (n - j) for j in range(k, n + 1))
+    for n in (50, 100, 157, 200, 300, 500, 800):
+        k = gpp.recall_loss_bar(n)
+        assert tail(n, k) <= 0.05 < tail(n, k - 1)
+    assert [gpp.recall_loss_bar(n) for n in (100, 157, 200, 300, 500)] == [4, 5, 6, 7, 10]
+    table = gpp.recall_loss_bar_table()
+    assert table[0][0] == 50 and table[-1][1] == 800
+    assert all(a[1] + 1 == b[0] and a[2] < b[2] for a, b in zip(table, table[1:]))
+
+
+def _confirm_rows(n_pairs=1000, lost=0, gained=0, pool=157):
+    pairs = [{'frame': gpp.FRAME_REASSOC, 'arm': a, 'pairs_scored': str(n_pairs),
+              'median_m': m, 'p90_m': p}
+             for a, m, p in ((gpp.ARM_OFF, '2.0', '4.0'), (gpp.ARM_PARTIAL, '1.9', '3.9'),
+                             (gpp.ARM_SHUFFLED, '2.1', '4.1'))]
+    gt = [{'arm': gpp.ARM_OFF, 'off_pool_ramps': str(pool), 'gt_marks_unplaceable': '5',
+           'lost_vs_off_2p5m': '0', 'gained_vs_off_2p5m': '0'},
+          {'arm': gpp.ARM_PARTIAL, 'off_pool_ramps': str(pool), 'gt_marks_unplaceable': '5',
+           'lost_vs_off_2p5m': str(lost), 'gained_vs_off_2p5m': str(gained)}]
+    inv = [{'city': c, 'frame': gpp.FRAME_FROZEN, 'arm': a, 'radius_m': '5.0000',
+            'median_m': '1.0', 'p90_m': '2.0'}
+           for c in gpp.INVENTORY_CITIES for a in (gpp.ARM_OFF, gpp.ARM_PARTIAL)]
+    return pairs, gt, inv
+
+
+def test_confirm_verdict_sizes_the_recall_clause_to_the_pool():
+    # Bend's #116 half split (2 lost, 0 gained of 157) clears the pool-sized bar (k* = 5)
+    assert gpp.confirm_verdict(*_confirm_rows(lost=2))[0] == 'PASS'
+    assert gpp.confirm_verdict(*_confirm_rows(lost=6, gained=2))[0] == 'PASS'   # L = 4
+    out, state, _ = gpp.confirm_verdict(*_confirm_rows(lost=7, gained=2))       # L = 5
+    assert out == 'FAIL' and state['ii'] is False
+    # too few pairs to score (i): inconclusive, never a pass
+    assert gpp.confirm_verdict(*_confirm_rows(n_pairs=499))[0] == 'INCONCLUSIVE'
+    # a FAIL anywhere beats an inconclusive
+    assert gpp.confirm_verdict(*_confirm_rows(n_pairs=499, lost=9))[0] == 'FAIL'
+
+
+def test_confirm_refuses_a_train_city_unless_exploratory():
+    import pytest
+    with pytest.raises(SystemExit, match='train set'):
+        gpp.main(['confirm', 'bend'])
