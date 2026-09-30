@@ -87,6 +87,15 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/inventory_oracle/report.md
 !runs/*/inventory_oracle/*.csv
 !runs/*/inventory_oracle/inventory.json
+# GSV partial pose (scripts/gsv_partial_pose.py, issue #116; write-up in
+# docs/gsv-partial-pose-study.md): per-city report + CSVs and the pooled coefficients,
+# verdict and summary are the evidence and are tracked.
+!runs/*/partial_pose/
+!runs/*/partial_pose/*.md
+!runs/*/partial_pose/*.csv
+!runs/*/partial_pose/explore_full/
+!runs/*/partial_pose/explore_full/*.md
+!runs/*/partial_pose/explore_full/*.csv
 # Provenance gate (scripts/provenance_gate.py, issue #56): does a run rebuilt from the pano
 # store reproduce the city's deployed AI labels? The report and the unmatched-label rows are
 # tracked; the label pull (raw_labels.geojson) is NOT -- the report carries its url, fetch

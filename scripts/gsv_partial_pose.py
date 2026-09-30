@@ -103,6 +103,9 @@ ARM_FIXED_113 = 'fixed-113'
 FIXED_113 = (0.25, 0.5)            # #113's (-0.25 pitch, +0.5 roll)
 ARMS = (ARM_OFF, ARM_PARTIAL, ARM_LOCO, ARM_SHUFFLED, ARM_LOCO_SHUFFLED, ARM_FULL,
         ARM_MIRROR, ARM_FIXED_113)
+# The exploratory full-run reading (added 2026-09-30 AFTER the verdict, never gated): the
+# whole run, LOCO coefficients only -- they never saw the city, so it stays held out.
+EXPLORE_ARMS = (ARM_OFF, ARM_LOCO, ARM_LOCO_SHUFFLED, ARM_FULL, ARM_FIXED_113)
 DECISION_ARMS = (ARM_OFF, ARM_PARTIAL, ARM_LOCO, ARM_SHUFFLED, ARM_LOCO_SHUFFLED)
 CANDIDATES = {ARM_PARTIAL: ARM_SHUFFLED, ARM_LOCO: ARM_LOCO_SHUFFLED}  # arm -> its control
 FRAME_REASSOC = 'reassoc'
@@ -509,7 +512,7 @@ def score_gt(arms, fused, verdict_panos, bundle_ops, gt_merge_m=2.5):
     pool = ramps_from(common_ids)
     own_sites = {arm: [Pt(s.id, s.e, s.n) for s in fused[arm][0] if s.n_operational > 0]
                  for arm in arms}
-    matched = {}
+    matched, recalled = {}, {}
     rows = []
     for arm in arms:
         placed = place_ramps(arm, pool)
@@ -528,14 +531,19 @@ def score_gt(arms, fused, verdict_panos, bundle_ops, gt_merge_m=2.5):
         for radius in (2.5, 5.0):
             hits = match_one_to_one(present, own_sites[arm], radius)
             hit_ids = {present[i].id for i in hits}
-            rec = sum(1 for k, (r, _ids) in enumerate(off_pool)
-                      if placed_off[k] is not None and (r.self_detected or k in hit_ids))
+            got = {k for k, (r, _ids) in enumerate(off_pool)
+                   if placed_off[k] is not None and (r.self_detected or k in hit_ids)}
+            recalled[arm, radius] = got
             row[f'recall_off_pool_{radius:g}m'.replace('.', 'p')] = \
-                rec / len(off_pool) if off_pool else None
+                len(got) / len(off_pool) if off_pool else None
         dists = [matched[arm][i] for i in sorted(common)]
         row.update({'gt_common_ramps': len(common),
                     **{'gt_to_site_' + k: v for k, v in _dist_stats(dists).items()}})
         rows.append(row)
+    for row in rows:   # paired: which off-pool ramps this arm loses / gains against off
+        base, mine = recalled[ARM_OFF, 2.5], recalled[row['arm'], 2.5]
+        row['lost_vs_off_2p5m'] = len(base - mine)
+        row['gained_vs_off_2p5m'] = len(mine - base)
     info = {'counts': counts, 'warnings': len(warnings)}
     return rows, info
 
@@ -561,9 +569,13 @@ def score_inventory(city, arms, fused, by_id, runs_root):
 
 
 def score_city(city, heights, coef_table, runs_root, benchmark_root, tier=OPERATIONAL_CONFIDENCE,
-               seed=SEED):
+               seed=SEED, explore=False):
     """Every table for one city at each height. Returns {'pairs', 'gt', 'inventory',
-    'members', 'info'} row lists."""
+    'members', 'info'} row lists.
+
+    explore=True is the EXPLORATORY full-run reading added after the verdict (see
+    EXPLORE_ARMS): every pano of the run, and only arms whose coefficients never saw this
+    city (LOCO), so the run stays held out for them. It never feeds the #116 verdict."""
     out = {'pairs': [], 'gt': [], 'inventory': [], 'members': [], 'info': []}
     bench = None
     if benchmark_root and (Path(benchmark_root) / city / 'verdicts.json').exists():
@@ -575,7 +587,12 @@ def score_city(city, heights, coef_table, runs_root, benchmark_root, tier=OPERAT
         _train, test = split_halves(panos, seed)
         coefs = {ARM_PARTIAL: coef_pair(coef_table, label, 'city', city),
                  ARM_LOCO: coef_pair(coef_table, label, 'loco', city)}
-        arms, own_tilt = build_arms(test, coefs, fuse_height, tier, seed=seed)
+        if explore:
+            test = panos
+            arms, own_tilt = build_arms(test, coefs, fuse_height, tier, arms=EXPLORE_ARMS,
+                                        seed=seed)
+        else:
+            arms, own_tilt = build_arms(test, coefs, fuse_height, tier, seed=seed)
         fused = {}
         for arm, (ps, params) in arms.items():
             sites, frame, _st = fs.fuse(ps, params)
@@ -659,7 +676,8 @@ def _num(v):
     return None if v in (None, '') else float(v)
 
 
-def verdict(pairs, gt, inventory, height=PRIMARY_HEIGHT, cities=CITIES):
+def verdict(pairs, gt, inventory, height=PRIMARY_HEIGHT, cities=CITIES,
+            candidates=CANDIDATES):
     """Apply the pre-registered rule. Returns (passes, clauses, lines).
 
     (i)   every scored city (>= RULE_MIN_COMMON_PAIRS common pairs, reassoc frame):
@@ -682,7 +700,7 @@ def verdict(pairs, gt, inventory, height=PRIMARY_HEIGHT, cities=CITIES):
             lines.append(f'{city}: {n} common pairs < {RULE_MIN_COMMON_PAIRS}: not scored by (i)')
             continue
         scored.append(city)
-        for cand, ctrl in CANDIDATES.items():
+        for cand, ctrl in candidates.items():
             c = _get(pairs, city=city, height=h, frame=FRAME_REASSOC, arm=cand)
             s = _get(pairs, city=city, height=h, frame=FRAME_REASSOC, arm=ctrl)
             dm_off = _num(c['median_m']) - _num(off['median_m'])
@@ -699,7 +717,7 @@ def verdict(pairs, gt, inventory, height=PRIMARY_HEIGHT, cities=CITIES):
         off = _get(gt, city=city, height=h, arm=ARM_OFF)
         if off is None:
             continue
-        for cand in CANDIDATES:
+        for cand in candidates:
             c = _get(gt, city=city, height=h, arm=cand)
             drec = _num(c['recall_off_pool_2p5m']) - _num(off['recall_off_pool_2p5m'])
             extra = int(float(c['gt_marks_unplaceable'])) - int(float(off['gt_marks_unplaceable']))
@@ -716,7 +734,7 @@ def verdict(pairs, gt, inventory, height=PRIMARY_HEIGHT, cities=CITIES):
         if off is None:
             fails['iv'].append(f'{city}: not scored')
             continue
-        for cand in CANDIDATES:
+        for cand in candidates:
             c = _get(inventory, city=city, height=h, frame=FRAME_FROZEN, arm=cand,
                      radius_m=INVENTORY_RADIUS_M)
             dm = _num(c['median_m']) - _num(off['median_m'])
@@ -809,6 +827,7 @@ def city_report(city, res):
             lines += ['', f'## RampNet GT survivorship (test-half judged panos), height {h}', '',
                       _md_table(rows, ['arm', 'gt_marks', 'gt_marks_unplaceable',
                                        'off_pool_ramps', 'recall_off_pool_2p5m',
+                                       'lost_vs_off_2p5m', 'gained_vs_off_2p5m',
                                        'recall_off_pool_5m', 'gt_common_ramps',
                                        'gt_to_site_median_m', 'gt_to_site_p90_m'])]
         rows = [r for r in res['inventory'] if r['height'] == h
@@ -872,6 +891,37 @@ def cmd_score(args):
         write_csv(args.pooled_dir / f'{key}.csv', allres[key])
 
 
+def cmd_explore(args):
+    """EXPLORATORY (added after the verdict; see score_city(explore=True))."""
+    table = read_csv(args.pooled_dir / 'coefficients.csv')
+    allres = {'pairs': [], 'gt': [], 'inventory': [], 'members': [], 'info': []}
+    for city in args.cities:
+        res = score_city(city, args.heights, table, args.runs_root, args.benchmark_root,
+                         seed=args.seed, explore=True)
+        out = Path(args.runs_root) / city / OUT_NAME / 'explore_full'
+        for key in ('pairs', 'gt', 'inventory', 'members'):
+            if res[key]:
+                write_csv(out / f'{key}.csv', res[key])
+        for k in allres:
+            allres[k] += res[k]
+    d = args.pooled_dir / 'explore_full'
+    for key in ('pairs', 'gt', 'inventory', 'members'):
+        write_csv(d / f'{key}.csv', allres[key])
+    text = ['# EXPLORATORY: full run, LOCO coefficients (not the #116 verdict)', '',
+            'The pre-registered clauses applied to the full-run LOCO arm, for reading only.', '']
+    for h in args.heights:
+        _p, _c, lines = verdict(_str_rows(allres['pairs']), _str_rows(allres['gt']),
+                                _str_rows(allres['inventory']), height=height_label(h),
+                                cities=args.cities, candidates={ARM_LOCO: ARM_LOCO_SHUFFLED})
+        text += [f'## height {height_label(h)}', ''] + [f'- {ln}' for ln in lines] + ['']
+    (d / 'verdict.md').write_text('\n'.join(text), encoding='utf-8')
+    print('\n'.join(text))
+
+
+def _str_rows(rows):
+    return [{k: (v if isinstance(v, str) else _fmt(v)) for k, v in r.items()} for r in rows]
+
+
 def cmd_tieback(args):
     rows = []
     for city in args.cities:
@@ -892,11 +942,126 @@ def cmd_verdict(args):
     text = '\n'.join(out)
     (d / 'verdict.md').write_text(text, encoding='utf-8')
     print(text)
+    (d / 'summary.md').write_text(summary_markdown(d, args.cities), encoding='utf-8')
+
+
+def _f3(v):
+    return '—' if v in (None, '') else f'{float(v):.3f}'
+
+
+def summary_markdown(d, cities=CITIES):
+    """The cross-city tables docs/gsv-partial-pose-study.md quotes, from the pooled CSVs."""
+    coef = read_csv(d / 'coefficients.csv')
+    pairs, gt = read_csv(d / 'pairs.csv'), read_csv(d / 'gt.csv')
+    inv, mem = read_csv(d / 'inventory.csv'), read_csv(d / 'members.csv')
+    out = ['# #116 summary tables', '',
+           'Regenerated by `scripts/gsv_partial_pose.py verdict` from the CSVs beside it.', '',
+           '## Coefficients (tier 0.30; k = leaked fraction, SE pano-clustered)', '',
+           '| height | scope | city | k_pitch (SE) | k_roll (SE) | intercept (deg) | rows | panos |',
+           '|---|---|---|---|---|---|---|---|']
+    for r in coef:
+        if not _same(r['tier'], OPERATIONAL_CONFIDENCE) or not r.get('k_pitch'):
+            continue
+        out.append(f"| {r['height']} | {r['scope']} | {r['city']} | {_f3(r['k_pitch'])} "
+                   f"({_f3(r['se_pitch'])}) | {_f3(r['k_roll'])} ({_f3(r['se_roll'])}) | "
+                   f"{_f3(r['intercept'])} | {r['n_rows']} | {r['n_panos']} |")
+    arms_shown = (ARM_OFF, ARM_PARTIAL, ARM_LOCO, ARM_SHUFFLED, ARM_LOCO_SHUFFLED, ARM_FULL,
+                  ARM_MIRROR, ARM_FIXED_113)
+    for h in ('auto', '2.6'):
+        for frame in (FRAME_REASSOC, FRAME_FROZEN):
+            out += ['', f'## Pair distance median / p90 (m), {frame}, height {h}', '',
+                    '| city | pairs | ' + ' | '.join(arms_shown) + ' |',
+                    '|---|---|' + '---|' * len(arms_shown)]
+            for city in cities:
+                row = [_get(pairs, city=city, height=h, frame=frame, arm=a) for a in arms_shown]
+                if row[0] is None:
+                    continue
+                out.append(f'| {city} | {row[0]["pairs_scored"]} | ' + ' | '.join(
+                    '—' if r is None else f'{_f3(r["median_m"])} / {_f3(r["p90_m"])}'
+                    for r in row) + ' |')
+        out += ['', f'## Sites formed under re-association, height {h} '
+                '(multi-view sites / of them in the common set)', '',
+                '| city | ' + ' | '.join(arms_shown) + ' |', '|---|' + '---|' * len(arms_shown)]
+        for city in cities:
+            row = [_get(pairs, city=city, height=h, frame=FRAME_REASSOC, arm=a) for a in arms_shown]
+            if row[0] is None:
+                continue
+            out.append(f'| {city} | ' + ' | '.join(
+                f'{r["multi_view_sites"]} / {r["sites_in_common"]}' for r in row) + ' |')
+        out += ['', f'## Survivorship, height {h}: off-pool recall@2.5 m (lost/gained ramps '
+                'vs off), unplaceable GT marks, unplaceable operational members', '',
+                '| city | arm | off pool | recall@2.5 | lost / gained | GT marks unplaceable '
+                '| members unplaceable (vs off) |', '|---|---|---|---|---|---|---|']
+        for city in cities:
+            for a in (ARM_OFF, ARM_PARTIAL, ARM_LOCO, ARM_SHUFFLED, ARM_LOCO_SHUFFLED, ARM_FULL):
+                g = _get(gt, city=city, height=h, arm=a)
+                m = _get(mem, city=city, height=h, arm=a)
+                if g is None or m is None:
+                    continue
+                out.append(f"| {city} | {a} | {g['off_pool_ramps']} | "
+                           f"{_f3(g['recall_off_pool_2p5m'])} | {g['lost_vs_off_2p5m']} / "
+                           f"{g['gained_vs_off_2p5m']} | {g['gt_marks_unplaceable']} | "
+                           f"{m['unplaceable']} ({m['unplaceable_vs_off']}) |")
+        out += ['', f'## Inventory referee, height {h}: frozen@off, pool on off, 5 m '
+                '(median / p90 m, share <= 3 m); own-association coverage', '',
+                '| city | arm | pool | median / p90 | share <= 3 m | own coverage |',
+                '|---|---|---|---|---|---|']
+        for city in INVENTORY_CITIES:
+            for a in arms_shown:
+                fz = _get(inv, city=city, height=h, frame=FRAME_FROZEN, arm=a,
+                          radius_m=INVENTORY_RADIUS_M)
+                ow = _get(inv, city=city, height=h, frame=FRAME_REASSOC, arm=a,
+                          radius_m=INVENTORY_RADIUS_M)
+                if fz is None:
+                    continue
+                out.append(f"| {city} | {a} | {fz['n_pool']} | {_f3(fz['median_m'])} / "
+                           f"{_f3(fz['p90_m'])} | {_f3(fz['share_le_3m'])} | "
+                           f"{_f3(ow['coverage']) if ow else '—'} |")
+    ex = d / 'explore_full'
+    if (ex / 'pairs.csv').exists():
+        ep, eg, ei = (read_csv(ex / 'pairs.csv'), read_csv(ex / 'gt.csv'),
+                      read_csv(ex / 'inventory.csv'))
+        out += ['', '## EXPLORATORY (added after the verdict): full run, LOCO coefficients', '',
+                '| height | city | pairs | off med / p90 | loco med / p90 | loco-shuffled med / p90 '
+                '| off-pool R@2.5 off -> loco (lost/gained) | inventory median / p90 off -> loco |',
+                '|---|---|---|---|---|---|---|---|']
+        for h in ('auto', '2.6'):
+            for city in cities:
+                o = _get(ep, city=city, height=h, frame=FRAME_REASSOC, arm=ARM_OFF)
+                if o is None:
+                    continue
+                lo = _get(ep, city=city, height=h, frame=FRAME_REASSOC, arm=ARM_LOCO)
+                ls = _get(ep, city=city, height=h, frame=FRAME_REASSOC, arm=ARM_LOCO_SHUFFLED)
+                go, gl = (_get(eg, city=city, height=h, arm=a) for a in (ARM_OFF, ARM_LOCO))
+                io_, il = (_get(ei, city=city, height=h, frame=FRAME_FROZEN, arm=a,
+                                radius_m=INVENTORY_RADIUS_M) for a in (ARM_OFF, ARM_LOCO))
+                rec = (f"{_f3(go['recall_off_pool_2p5m'])} -> {_f3(gl['recall_off_pool_2p5m'])} "
+                       f"({gl['lost_vs_off_2p5m']}/{gl['gained_vs_off_2p5m']})") if go else '—'
+                invs = (f"{_f3(io_['median_m'])} / {_f3(io_['p90_m'])} -> {_f3(il['median_m'])} / "
+                        f"{_f3(il['p90_m'])}") if io_ else '—'
+                out.append(f"| {h} | {city} | {o['pairs_scored']} | {_f3(o['median_m'])} / "
+                           f"{_f3(o['p90_m'])} | {_f3(lo['median_m'])} / {_f3(lo['p90_m'])} | "
+                           f"{_f3(ls['median_m'])} / {_f3(ls['p90_m'])} | {rec} | {invs} |")
+    tb = d / 'tieback_113.csv'
+    if tb.exists():
+        out += ['', '## Tie-back to #113 (full run, 2.6 m, frozen@off; median / mean / p90 m)', '',
+                '| city | tier | pairs | off | full | full-mirror | fixed-113 |',
+                '|---|---|---|---|---|---|---|']
+        rows = read_csv(tb)
+        for city in cities:
+            for tier in FIT_TIERS:
+                rs = {r['arm']: r for r in rows if r['city'] == city and _same(r['tier'], tier)}
+                if not rs:
+                    continue
+                out.append(f"| {city} | {tier:g} | {rs[ARM_OFF]['pairs_scored']} | " + ' | '.join(
+                    f"{_f3(rs[a]['median_m'])} / {_f3(rs[a]['mean_m'])} / {_f3(rs[a]['p90_m'])}"
+                    for a in (ARM_OFF, ARM_FULL, 'full-mirror', ARM_FIXED_113)) + ' |')
+    return '\n'.join(out) + '\n'
 
 
 def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('command', choices=('fit', 'score', 'tieback', 'verdict', 'all'))
+    ap.add_argument('command', choices=('fit', 'score', 'tieback', 'verdict', 'explore', 'all'))
     ap.add_argument('cities', nargs='*', default=list(CITIES))
     ap.add_argument('--heights', nargs='+', default=[height_label(h) for h in HEIGHTS])
     ap.add_argument('--runs-root', default=str(REPO_ROOT / 'runs'))
@@ -911,7 +1076,7 @@ def main(argv=None):
     args.heights = [parse_height(h) for h in args.heights]
     args.pooled_dir = Path(args.out) if args.out else POOLED_DIR
     cmds = {'fit': [cmd_fit], 'score': [cmd_score], 'tieback': [cmd_tieback],
-            'verdict': [cmd_verdict], 'all': [cmd_fit, cmd_score, cmd_tieback, cmd_verdict]}
+            'verdict': [cmd_verdict], 'explore': [cmd_explore], 'all': [cmd_fit, cmd_score, cmd_tieback, cmd_verdict]}
     for cmd in cmds[args.command]:
         cmd(args)
 
