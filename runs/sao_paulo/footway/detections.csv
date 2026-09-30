@@ -1,0 +1,397 @@
+city,pano_id,kind,det_index,x,y,confidence,gt_group,seg_group,seg_class,direct_group,direct_class,depth_class,plane_tilt_deg,offset_local_m,range_flat_2p6_m,on_camera_rig
+sao_paulo,-pcHlrGDC4hPPRHVxU3W3Q,det,0,0.730469,0.662109,0.933173,true,WALK,Curb Cut,WALK,Sidewalk,ground,2.2588,,4.65603,0
+sao_paulo,-pcHlrGDC4hPPRHVxU3W3Q,det,1,0.78418,0.615234,0.855563,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.4122,-0.0218665,6.86541,0
+sao_paulo,-pcHlrGDC4hPPRHVxU3W3Q,det,2,0.0820312,0.552734,0.782343,true,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.399249,15.55,0
+sao_paulo,-pcHlrGDC4hPPRHVxU3W3Q,det,3,0.957031,0.554688,0.699251,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.251469,14.9842,0
+sao_paulo,-pcHlrGDC4hPPRHVxU3W3Q,missed,0,0.0651947,0.552201,,missed,WALK,Curb Cut,WALK,Curb,floor_standin,0,0.40819,15.712,0
+sao_paulo,-pcHlrGDC4hPPRHVxU3W3Q,missed,1,0.211133,0.587447,,unsure_missed,WALK,Curb,WALK,Sidewalk,floor_standin,0,0.02731,9.22474,0
+sao_paulo,-pcHlrGDC4hPPRHVxU3W3Q,missed,2,0.971241,0.555233,,missed,WALK,Curb,WALK,Curb,floor_standin,0,0.277151,14.8332,0
+sao_paulo,-pcHlrGDC4hPPRHVxU3W3Q,missed,3,0.263434,0.607374,,unsure_missed,OBJECT,Car,OBJECT,Car,ground,2.2588,,7.41312,0
+sao_paulo,-uqS0QNM8aUFtP5gwTMu4w,det,0,0.886719,0.552734,1.00008,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.658,0.0125115,15.55,0
+sao_paulo,-uqS0QNM8aUFtP5gwTMu4w,det,1,0.932617,0.552734,1.00088,true,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.0765585,15.55,0
+sao_paulo,-uqS0QNM8aUFtP5gwTMu4w,det,2,0.214844,0.646484,0.939222,true,WALK,Curb Cut,WALK,Sidewalk,ground,1.26424,,5.24521,0
+sao_paulo,-uqS0QNM8aUFtP5gwTMu4w,det,3,0.0351562,0.552734,0.895756,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.21997,15.55,0
+sao_paulo,-uqS0QNM8aUFtP5gwTMu4w,det,4,0.0585938,0.554688,0.880988,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.174204,14.9842,0
+sao_paulo,-uqS0QNM8aUFtP5gwTMu4w,det,5,0.760742,0.599609,0.799778,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.50523,0.0799851,8.03552,0
+sao_paulo,-uqS0QNM8aUFtP5gwTMu4w,det,6,0.166992,0.585938,0.671519,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0136693,9.39519,0
+sao_paulo,-uqS0QNM8aUFtP5gwTMu4w,det,7,0.691406,0.646484,0.618756,true,WALK,Curb Cut,WALK,Curb Cut,floor,2.50523,0.0292913,5.24521,0
+sao_paulo,0aJabNkZdyIHXbiruS_yLw,det,0,0.0966797,0.554688,0.581835,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.34465,0.075889,14.9842,0
+sao_paulo,0aJabNkZdyIHXbiruS_yLw,det,1,0.0498047,0.539062,0.465896,band_0p30,ROAD,Road,ROAD,Road,floor,1.34465,0.382819,21.0802,0
+sao_paulo,0aJabNkZdyIHXbiruS_yLw,missed,0,0.0434127,0.534665,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.3814,0.107697,23.7799,0
+sao_paulo,1bF6KihYF1Rw8PIg_ZTh6g,det,0,0.362305,0.617188,0.854875,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.34392,,6.74025,0
+sao_paulo,1bF6KihYF1Rw8PIg_ZTh6g,det,1,0.557617,0.539062,0.66726,false,WALK,Sidewalk,WALK,Sidewalk,floor,1.32264,-0.0841919,21.0802,0
+sao_paulo,1bF6KihYF1Rw8PIg_ZTh6g,det,2,0.464844,0.539062,0.559793,false,WALK,Curb,WALK,Curb,floor,0.261696,-0.0252671,21.0802,0
+sao_paulo,1bF6KihYF1Rw8PIg_ZTh6g,det,3,0.651367,0.601562,0.329821,band_0p30,OBJECT,Pole,OBJECT,Pole,floor,0.261696,-0.12224,7.87031,0
+sao_paulo,23nSVF67ExPhVWfty9-4Qw,det,0,0.424805,0.539062,0.780826,unsure,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,2.74566,-0.208325,21.0802,0
+sao_paulo,23nSVF67ExPhVWfty9-4Qw,det,1,0.542969,0.552734,0.596074,false,ROAD,Road,WALK,Curb,floor_standin,0,0.188625,15.55,0
+sao_paulo,2XdWe9r6z5m-9SmNQq7TGQ,det,0,0.448242,0.552734,0.623728,false,WALK,Curb,ROAD,Lane Marking - Crosswalk,floor,1.61058,0.234649,15.55,0
+sao_paulo,2vVoZEbjn1wxGCCvCmgeUQ,det,0,0.339844,0.617188,0.962284,true,WALK,Sidewalk,WALK,Sidewalk,ground,0.44013,,6.74025,0
+sao_paulo,2vVoZEbjn1wxGCCvCmgeUQ,det,1,0.605469,0.601562,0.899641,true,WALK,Curb Cut,WALK,Sidewalk,floor,0.64589,0.0776875,7.87031,0
+sao_paulo,2vVoZEbjn1wxGCCvCmgeUQ,det,2,0.558594,0.539062,0.859963,true,WALK,Sidewalk,WALK,Curb Cut,floor,1.58437,0.0678435,21.0802,0
+sao_paulo,2vVoZEbjn1wxGCCvCmgeUQ,det,3,0.456055,0.539062,0.782474,true,WALK,Curb,WALK,Curb,floor,0.64589,0.142389,21.0802,0
+sao_paulo,2vVoZEbjn1wxGCCvCmgeUQ,det,4,0.535156,0.539062,0.721064,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.58437,0.0313319,21.0802,0
+sao_paulo,2vVoZEbjn1wxGCCvCmgeUQ,det,5,0.417969,0.539062,0.414735,band_0p30,WALK,Sidewalk,WALK,Curb Cut,floor,0.64589,0.105908,21.0802,0
+sao_paulo,2vVoZEbjn1wxGCCvCmgeUQ,missed,0,0.425416,0.539212,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.64589,0.113166,20.9993,0
+sao_paulo,2vVoZEbjn1wxGCCvCmgeUQ,missed,1,0.623658,0.562796,,unsure_missed,OBJECT,Utility Pole,OBJECT,Utility Pole,floor,1.58437,0.00744106,13.0078,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,det,0,0.792969,0.583984,0.926314,true,WALK,Curb Cut,WALK,Sidewalk,ground,3.08838,,9.62455,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,det,1,0.253906,0.617188,0.870617,true,WALK,Sidewalk,WALK,Sidewalk,ground,3.08838,,6.74025,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,det,2,0.636719,0.523438,0.668753,true,ROAD,Road,ROAD,Road,floor,2.6189,0.157738,35.2473,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,det,3,0.535156,0.507812,0.548652,band_0p30,WALK,Curb,WALK,Curb,floor,2.68,-0.134545,105.912,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,det,4,0.338867,0.583984,0.433252,band_0p30,ROAD,Bike Lane,ROAD,Bike Lane,ground,3.08838,,9.62455,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,det,5,0.831055,0.583984,0.41045,band_0p30,WALK,Sidewalk,WALK,Sidewalk,ground,3.08838,,9.62455,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,missed,0,0.243928,0.589578,,missed,WALK,Sidewalk,WALK,Sidewalk,ground,3.08838,,8.99376,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,missed,1,0.318332,0.580049,,missed,WALK,Curb Cut,WALK,Sidewalk,ground,3.08838,,10.1199,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,missed,2,0.761546,0.556511,,missed,WALK,Sidewalk,WALK,Curb,floor,5.20259,-0.060446,14.4907,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,missed,3,0.640242,0.532601,,missed,WALK,Curb Cut,ROAD,Lane Marking - Crosswalk,floor,2.6189,0.103066,25.2968,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,missed,4,0.594844,0.513137,,missed,WALK,Curb,WALK,Sidewalk,floor,3.73235,0.0486522,62.9608,0
+sao_paulo,3SnxAqXSf1WzcWlp76h_2Q,missed,5,0.537386,0.508069,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.68,-0.124052,102.548,0
+sao_paulo,4RXNxzYjFwN0EBvKh8aHSQ,det,0,0.362305,0.583984,1.00377,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0558706,9.62455,0
+sao_paulo,4RXNxzYjFwN0EBvKh8aHSQ,det,1,0.636719,0.630859,0.87112,true,WALK,Curb Cut,WALK,Curb Cut,floor,2.23957,0.114067,5.96402,0
+sao_paulo,4RXNxzYjFwN0EBvKh8aHSQ,det,2,0.910156,0.552734,0.863358,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.50909,-0.16178,15.55,0
+sao_paulo,4RXNxzYjFwN0EBvKh8aHSQ,det,3,0.769531,0.585938,0.842396,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.23957,0.292854,9.39519,0
+sao_paulo,4RXNxzYjFwN0EBvKh8aHSQ,det,4,0.105469,0.568359,0.800192,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.13189,11.92,0
+sao_paulo,4RXNxzYjFwN0EBvKh8aHSQ,det,5,0.307617,0.570312,0.794803,true,WALK,Curb,WALK,Sidewalk,floor_standin,0,0.233011,11.5783,0
+sao_paulo,4RXNxzYjFwN0EBvKh8aHSQ,det,6,0.963867,0.539062,0.703251,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.50909,0.13737,21.0802,0
+sao_paulo,4RXNxzYjFwN0EBvKh8aHSQ,det,7,0.166992,0.568359,0.637404,true,WALK,Sidewalk,WALK,Curb,floor_standin,0,0.333863,11.92,0
+sao_paulo,4n8b3OMdbJZgeJXz_TxNBA,det,0,0.229492,0.615234,0.974202,true,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.154258,6.86541,0
+sao_paulo,4n8b3OMdbJZgeJXz_TxNBA,det,1,0.53418,0.523438,0.944374,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.84076,-0.199999,35.2473,0
+sao_paulo,4n8b3OMdbJZgeJXz_TxNBA,det,2,0.738281,0.662109,0.850647,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.47512,-0.124507,4.65603,0
+sao_paulo,4n8b3OMdbJZgeJXz_TxNBA,det,3,0.675781,0.615234,0.776503,true,WALK,Curb Cut,WALK,Sidewalk,floor,2.44577,0.0022687,6.86541,0
+sao_paulo,4n8b3OMdbJZgeJXz_TxNBA,det,4,0.566406,0.523438,0.74882,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.84076,0.0441313,35.2473,0
+sao_paulo,4n8b3OMdbJZgeJXz_TxNBA,det,5,0.285156,0.568359,0.732044,true,OBJECT,Pole,OBJECT,Utility Pole,floor,2.62391,0.0144914,11.92,0
+sao_paulo,4n8b3OMdbJZgeJXz_TxNBA,det,6,0.432617,0.523438,0.704096,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.84076,-0.199431,35.2473,0
+sao_paulo,4n8b3OMdbJZgeJXz_TxNBA,det,7,0.706055,0.630859,0.561531,false,WALK,Sidewalk,WALK,Sidewalk,floor,1.47512,-0.146081,5.96402,0
+sao_paulo,52VthEdI90oCcFRLa9Wy5g,det,0,0.0195312,0.539062,0.831149,true,ROAD,Manhole,WALK,Sidewalk,floor,3.6688,0.360558,21.0802,0
+sao_paulo,52VthEdI90oCcFRLa9Wy5g,det,1,0.113281,0.617188,0.81884,true,WALK,Sidewalk,WALK,Sidewalk,ground,2.56247,,6.74025,0
+sao_paulo,53l0gQcJPK4NrZhJZhtKlg,det,0,0.0507812,0.539062,0.79494,unsure,ROAD,Road,ROAD,Road,floor,0.901355,0.162942,21.0802,0
+sao_paulo,53l0gQcJPK4NrZhJZhtKlg,det,1,0.957031,0.554688,0.493696,band_0p30,WALK,Curb Cut,WALK,Sidewalk,floor,2.51715,0.0269616,14.9842,0
+sao_paulo,5IK4jyU16o627F2yDHu6Gw,det,0,0.0585938,0.554688,0.747711,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.151629,14.9842,0
+sao_paulo,5IK4jyU16o627F2yDHu6Gw,det,1,0.588867,0.537109,0.742693,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.50896,-0.144523,22.2007,0
+sao_paulo,5IK4jyU16o627F2yDHu6Gw,det,2,0.385742,0.539062,0.303095,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,5.93544,-0.167619,21.0802,0
+sao_paulo,5IK4jyU16o627F2yDHu6Gw,missed,0,0.48116,0.5099,,unsure_missed,WALK,Curb,WALK,Curb,floor,4.60096,-0.130651,83.5733,0
+sao_paulo,5IK4jyU16o627F2yDHu6Gw,missed,1,0.52483,0.509314,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.7328,0.0649264,88.8313,0
+sao_paulo,5IK4jyU16o627F2yDHu6Gw,missed,2,0.557431,0.516639,,unsure_missed,WALK,Curb,ROAD,Lane Marking - Crosswalk,floor,2.7328,0.0424979,49.6928,0
+sao_paulo,5IK4jyU16o627F2yDHu6Gw,missed,3,0.932198,0.555696,,missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.174525,14.7074,0
+sao_paulo,5b-MNFZDk9yhziWPr2u7Hg,det,0,0.666992,0.523438,0.562281,false,WALK,Sidewalk,WALK,Sidewalk,floor,2.76074,-0.0527961,35.2473,0
+sao_paulo,6a_UTgidEGA0mlGKPlurNw,det,0,0.37793,0.662109,1.01257,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.07556,0.0154311,4.65603,0
+sao_paulo,6a_UTgidEGA0mlGKPlurNw,det,1,0.0820312,0.554688,0.972526,true,WALK,Sidewalk,WALK,Sidewalk,non_horizontal,88.8926,,14.9842,0
+sao_paulo,6a_UTgidEGA0mlGKPlurNw,det,2,0.269531,0.630859,0.888942,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.07556,0.0164719,5.96402,0
+sao_paulo,6a_UTgidEGA0mlGKPlurNw,det,3,0.855469,0.585938,0.875575,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.205407,9.39519,0
+sao_paulo,6a_UTgidEGA0mlGKPlurNw,det,4,0.0351562,0.552734,0.769273,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.19058,0.0118801,15.55,0
+sao_paulo,6a_UTgidEGA0mlGKPlurNw,det,5,0.932617,0.539062,0.646958,unsure,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.304032,21.0802,0
+sao_paulo,6a_UTgidEGA0mlGKPlurNw,missed,0,0.789899,0.637273,,missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.112874,5.65044,0
+sao_paulo,7O-o_5mVjT3KdC0SV0shUw,det,0,0.597656,0.585938,0.566305,true,WALK,Sidewalk,WALK,Curb Cut,floor,4.55918,-0.233016,9.39519,0
+sao_paulo,7UTz_5Xfnx4Hz_0gfN2WZA,det,0,0.635742,0.585938,0.651661,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.0625573,0.400172,9.39519,0
+sao_paulo,7UTz_5Xfnx4Hz_0gfN2WZA,missed,0,0.172525,0.725354,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,6.43818,0.125614,3.03737,0
+sao_paulo,7um0A6G_bSJ3Hn6nRbixvA,det,0,0.823242,0.539062,0.758846,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.12631,21.0802,0
+sao_paulo,7um0A6G_bSJ3Hn6nRbixvA,det,1,0.245117,0.585938,0.729472,true,WALK,Sidewalk,WALK,Curb,ground,0.26467,,9.39519,0
+sao_paulo,7um0A6G_bSJ3Hn6nRbixvA,det,2,0.347656,0.552734,0.666145,true,ROAD,Bike Lane,ROAD,Bike Lane,floor,0.48092,-0.0275213,15.55,0
+sao_paulo,7um0A6G_bSJ3Hn6nRbixvA,det,3,0.761719,0.552734,0.547212,band_0p30,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,1.12657,-0.131966,15.55,0
+sao_paulo,7um0A6G_bSJ3Hn6nRbixvA,det,4,0.174805,0.552734,0.355141,band_0p30,ROAD,Bike Lane,ROAD,Bike Lane,ground,0.26467,,15.55,0
+sao_paulo,7um0A6G_bSJ3Hn6nRbixvA,missed,0,0.784242,0.77303,,missed,WALK,Sidewalk,WALK,Curb Cut,ground,0.26467,,2.24858,1
+sao_paulo,7um0A6G_bSJ3Hn6nRbixvA,missed,1,0.776162,0.656667,,missed,WALK,Sidewalk,WALK,Sidewalk,ground,0.26467,,4.84898,0
+sao_paulo,7um0A6G_bSJ3Hn6nRbixvA,missed,2,0.762865,0.547892,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.12657,-0.159934,17.15,0
+sao_paulo,7um0A6G_bSJ3Hn6nRbixvA,missed,3,0.228281,0.522806,,unsure_missed,WALK,Curb,ROAD,Lane Marking - Crosswalk,floor_standin,0,-0.0374466,36.2263,0
+sao_paulo,8PunOGXWhLW2Jcp-z1kSNg,det,0,0.0810547,0.539062,0.747285,false,OTHER,Terrain,WALK,Sidewalk,floor,5.85139,0.497829,21.0802,0
+sao_paulo,9e52qBoSx6RlPRP2VHBTqA,det,0,0.448242,0.552734,0.970331,true,WALK,Curb Cut,WALK,Sidewalk,ground,2.14457,,15.55,0
+sao_paulo,9e52qBoSx6RlPRP2VHBTqA,det,1,0.69043,0.570312,0.83447,true,WALK,Curb Cut,WALK,Sidewalk,floor,2.91497,0.0660844,11.5783,0
+sao_paulo,9e52qBoSx6RlPRP2VHBTqA,missed,0,0.596125,0.538211,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,ground,2.14457,,21.5547,0
+sao_paulo,9ogLSXwqkmRsXUlTLya0uQ,det,0,0.566406,0.552734,1.00712,true,WALK,Curb Cut,WALK,Sidewalk,floor,3.13269,-0.0165178,15.55,0
+sao_paulo,9ogLSXwqkmRsXUlTLya0uQ,det,1,0.206055,0.615234,1.00414,true,WALK,Sidewalk,WALK,Sidewalk,ground,0.705266,,6.86541,0
+sao_paulo,9ogLSXwqkmRsXUlTLya0uQ,det,2,0.519531,0.539062,0.985382,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.13269,0.105702,21.0802,0
+sao_paulo,9ogLSXwqkmRsXUlTLya0uQ,det,3,0.386719,0.539062,0.945785,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.493768,-0.102161,21.0802,0
+sao_paulo,9ogLSXwqkmRsXUlTLya0uQ,det,4,0.425781,0.539062,0.923288,true,WALK,Sidewalk,OBJECT,Pole,ground,0.705266,,21.0802,0
+sao_paulo,9ogLSXwqkmRsXUlTLya0uQ,det,5,0.746094,0.648438,0.906956,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.76754,0.220165,5.16531,0
+sao_paulo,9ogLSXwqkmRsXUlTLya0uQ,det,6,0.253906,0.585938,0.901973,true,WALK,Sidewalk,WALK,Sidewalk,floor,8.44539,0.034612,9.39519,0
+sao_paulo,9ogLSXwqkmRsXUlTLya0uQ,det,7,0.691406,0.599609,0.852998,true,WALK,Sidewalk,WALK,Sidewalk,floor,5.89368,-0.0239807,8.03552,0
+sao_paulo,AJVnpStT1x3aP5rNLkUUyA,det,0,0.964844,0.570312,0.624944,false,WALK,Sidewalk,WALK,Sidewalk,floor,5.5335,-0.169498,11.5783,0
+sao_paulo,AJVnpStT1x3aP5rNLkUUyA,det,1,0.362305,0.568359,0.613246,false,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0180905,11.92,0
+sao_paulo,AJVnpStT1x3aP5rNLkUUyA,det,2,0.526367,0.523438,0.352826,band_0p30,OBJECT,Utility Pole,OBJECT,Utility Pole,ground,4.71094,,35.2473,0
+sao_paulo,AJVnpStT1x3aP5rNLkUUyA,missed,0,0.525408,0.545511,,missed,WALK,Curb Cut,WALK,Sidewalk,ground,4.71094,,18.0608,0
+sao_paulo,AJVnpStT1x3aP5rNLkUUyA,missed,1,0.418316,0.531452,,missed,WALK,Curb Cut,ROAD,Road,floor_standin,0,0.0200718,26.2278,0
+sao_paulo,AyVE6TqZxahbZyzOG8KhPg,det,0,0.105469,0.583984,0.792556,false,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0909845,9.62455,0
+sao_paulo,AyVE6TqZxahbZyzOG8KhPg,det,1,0.97168,0.539062,0.602062,unsure,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.616403,21.0802,0
+sao_paulo,AyVE6TqZxahbZyzOG8KhPg,det,2,0.0585938,0.539062,0.433728,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.557752,21.0802,0
+sao_paulo,BK29yXSNmXidi-3ggxm_Zg,det,0,0.378906,0.617188,0.881135,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.181257,6.74025,0
+sao_paulo,BK29yXSNmXidi-3ggxm_Zg,det,1,0.925781,0.568359,0.831925,false,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.116829,11.92,0
+sao_paulo,BK29yXSNmXidi-3ggxm_Zg,det,2,0.0888672,0.570312,0.822264,false,ROAD,Road,ROAD,Road,floor_standin,0,0.371629,11.5783,0
+sao_paulo,BK29yXSNmXidi-3ggxm_Zg,det,3,0.268555,0.617188,0.673283,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.21573,6.74025,0
+sao_paulo,BK29yXSNmXidi-3ggxm_Zg,missed,0,0.624187,0.623199,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,floor,3.51736,0.0105124,6.3788,0
+sao_paulo,Cuj3qJDAZnTKnMhQLXy1ig,det,0,0.894531,0.662109,0.8709,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.22669,0.0118531,4.65603,0
+sao_paulo,Cuj3qJDAZnTKnMhQLXy1ig,missed,0,0.296126,0.606788,,missed,WALK,Sidewalk,WALK,Curb Cut,ground,0.301316,,7.45703,0
+sao_paulo,DSdxd4wO-H8l4g-O_IGfkg,det,0,0.574219,0.568359,0.820438,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.35229,0.138924,11.92,0
+sao_paulo,DSdxd4wO-H8l4g-O_IGfkg,det,1,0.432617,0.539062,0.30628,band_0p30,WALK,Curb,WALK,Sidewalk,floor_standin,0,0.0963143,21.0802,0
+sao_paulo,DSdxd4wO-H8l4g-O_IGfkg,missed,0,0.434013,0.537886,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.140108,21.7414,0
+sao_paulo,E2-oeApmq0sW_GDdLFbnCQ,det,0,0.533203,0.552734,1.00794,true,OBJECT,Pole,OBJECT,Pole,floor_standin,0,-0.0026456,15.55,0
+sao_paulo,E2-oeApmq0sW_GDdLFbnCQ,det,1,0.300781,0.599609,0.890784,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.65481,-0.0991437,8.03552,0
+sao_paulo,E2-oeApmq0sW_GDdLFbnCQ,det,2,0.410156,0.539062,0.884855,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.65481,0.129983,21.0802,0
+sao_paulo,E2-oeApmq0sW_GDdLFbnCQ,det,3,0.714844,0.601562,0.849217,true,WALK,Curb Cut,WALK,Curb Cut,floor,0.660864,,7.87031,0
+sao_paulo,E2-oeApmq0sW_GDdLFbnCQ,det,4,0.449219,0.539062,0.822801,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.65481,0.115716,21.0802,0
+sao_paulo,E2-oeApmq0sW_GDdLFbnCQ,det,5,0.558594,0.568359,0.546625,band_0p30,WALK,Curb Cut,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.0649812,11.92,0
+sao_paulo,E2-oeApmq0sW_GDdLFbnCQ,missed,0,0.317421,0.566446,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.65481,-0.14962,12.274,0
+sao_paulo,E2-oeApmq0sW_GDdLFbnCQ,missed,1,0.563589,0.566631,,missed,OBJECT,Bicycle,OBJECT,Wheeled Slow,floor_standin,0,0.0319043,12.2387,0
+sao_paulo,E2-oeApmq0sW_GDdLFbnCQ,missed,2,0.754343,0.673636,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.660864,,4.2839,0
+sao_paulo,FRKJomHWa7nYfbmGJRNuvA,det,0,0.526367,0.523438,0.630242,unsure,ROAD,Lane Marking - Crosswalk,ROAD,Road,floor,1.27932,0.0382927,35.2473,0
+sao_paulo,GnxqQAq5GVonmVKfcMcr6w,det,0,0.963867,0.539062,0.735833,unsure,ROAD,Road,ROAD,Road,floor_standin,0,0.0410357,21.0802,0
+sao_paulo,GnxqQAq5GVonmVKfcMcr6w,missed,0,0.969532,0.528434,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.300703,29.0284,0
+sao_paulo,GnxqQAq5GVonmVKfcMcr6w,missed,1,0.073324,0.557188,,missed,WALK,Curb Cut,ROAD,Bike Lane,floor_standin,0,0.665852,14.3155,0
+sao_paulo,H2cEJygbNd56-362PsICjA,det,0,0.589844,0.585938,0.928867,true,WALK,Sidewalk,WALK,Sidewalk,floor,4.4312,0.111676,9.39519,0
+sao_paulo,H2cEJygbNd56-362PsICjA,det,1,0.363281,0.570312,0.925489,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.68992,-0.108493,11.5783,0
+sao_paulo,H2cEJygbNd56-362PsICjA,missed,0,0.43296,0.536179,,missed,WALK,Sidewalk,WALK,Curb,floor,1.13263,0.522954,22.7768,0
+sao_paulo,H2cEJygbNd56-362PsICjA,missed,1,0.549166,0.52992,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.64479,0.0884398,27.5788,0
+sao_paulo,H2cEJygbNd56-362PsICjA,missed,2,0.594597,0.566097,,missed,ROAD,Road,WALK,Sidewalk,floor,4.4312,0.213431,12.3407,0
+sao_paulo,H2cEJygbNd56-362PsICjA,missed,3,0.358553,0.563757,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.68992,-0.1506,12.8066,0
+sao_paulo,I0LGgFwBsGIYNbIsIaLgpQ,det,0,0.737305,0.630859,0.964174,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.10003,-0.225895,5.96402,0
+sao_paulo,I0LGgFwBsGIYNbIsIaLgpQ,det,1,0.582031,0.539062,0.93136,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.78958,0.568399,21.0802,0
+sao_paulo,I0LGgFwBsGIYNbIsIaLgpQ,det,2,0.308594,0.664062,0.899228,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.7587,-0.00920965,4.58964,0
+sao_paulo,I0LGgFwBsGIYNbIsIaLgpQ,det,3,0.417969,0.554688,0.898627,true,STRUCTURE,Building,STRUCTURE,Building,floor,1.7587,0.0929281,14.9842,0
+sao_paulo,I0LGgFwBsGIYNbIsIaLgpQ,det,4,0.557617,0.539062,0.839742,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.7587,0.0133106,21.0802,0
+sao_paulo,I0LGgFwBsGIYNbIsIaLgpQ,det,5,0.706055,0.599609,0.784562,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.3546,-0.00369241,8.03552,0
+sao_paulo,I0LGgFwBsGIYNbIsIaLgpQ,det,6,0.441406,0.568359,0.571068,true,ROAD,Road,ROAD,Road,floor,1.7587,0.0546629,11.92,0
+sao_paulo,I0LGgFwBsGIYNbIsIaLgpQ,det,7,0.355469,0.615234,0.515533,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,1.7587,0.0193319,6.86541,0
+sao_paulo,I0LGgFwBsGIYNbIsIaLgpQ,missed,0,0.360576,0.609466,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.7587,0.0237467,7.26,0
+sao_paulo,IAF46f7Lfz65Y2vjckHeMA,det,0,0.214844,0.585938,0.404453,band_0p30,ROAD,Bike Lane,ROAD,Bike Lane,floor_standin,0,0.10603,9.39519,0
+sao_paulo,IAF46f7Lfz65Y2vjckHeMA,det,1,0.152344,0.583984,0.314107,band_0p30,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.16443,9.62455,0
+sao_paulo,IAF46f7Lfz65Y2vjckHeMA,det,2,0.777344,0.599609,0.310998,band_0p30,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor,2.44352,0.051885,8.03552,0
+sao_paulo,IAF46f7Lfz65Y2vjckHeMA,missed,0,0.211187,0.641953,,missed,WALK,Curb Cut,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.0219693,5.43844,0
+sao_paulo,IAF46f7Lfz65Y2vjckHeMA,missed,1,0.223119,0.605739,,missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0689728,7.53681,0
+sao_paulo,IAF46f7Lfz65Y2vjckHeMA,missed,2,0.209749,0.555778,,missed,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.214506,14.6852,0
+sao_paulo,IAF46f7Lfz65Y2vjckHeMA,missed,3,0.780615,0.592618,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,2.44352,0.0598527,8.68205,0
+sao_paulo,JAwR7rGXLysrpeYgTzkLCQ,det,0,0.885742,0.664062,0.95386,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.72601,,4.58964,0
+sao_paulo,JAwR7rGXLysrpeYgTzkLCQ,det,1,0.136719,0.677734,0.89568,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.72601,,4.16213,0
+sao_paulo,KD-uKFrh3oLPfzbwOStEWA,det,0,0.151367,0.599609,0.677001,true,WALK,Curb Cut,WALK,Curb Cut,floor,0.962865,0.00102027,8.03552,0
+sao_paulo,KD-uKFrh3oLPfzbwOStEWA,det,1,0.191406,0.568359,0.405625,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,0.987545,0.0634765,11.92,0
+sao_paulo,LUW-LxIfrK_j7kCq16WoyQ,det,0,0.910156,0.554688,0.912952,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.5761,-0.0417785,14.9842,0
+sao_paulo,LUW-LxIfrK_j7kCq16WoyQ,det,1,0.956055,0.552734,0.879398,true,WALK,Curb Cut,WALK,Sidewalk,floor,2.52739,0.0620535,15.55,0
+sao_paulo,LUW-LxIfrK_j7kCq16WoyQ,det,2,0.81543,0.599609,0.874848,true,WALK,Sidewalk,WALK,Sidewalk,floor,5.39757,-0.161086,8.03552,0
+sao_paulo,LUW-LxIfrK_j7kCq16WoyQ,det,3,0.245117,0.583984,0.619835,true,WALK,Curb Cut,WALK,Sidewalk,floor,4.62016,0.247378,9.62455,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,det,0,0.261719,0.599609,0.903082,true,WALK,Sidewalk,WALK,Sidewalk,ground,0.51129,,8.03552,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,det,1,0.636719,0.646484,0.721706,true,WALK,Sidewalk,WALK,Curb Cut,ground,0.51129,,5.24521,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,det,2,0.104492,0.554688,0.627257,false,WALK,Sidewalk,WALK,Sidewalk,non_horizontal,89.2522,,14.9842,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,det,3,0.50293,0.552734,0.617851,false,WALK,Curb,WALK,Curb,floor_standin,0,0.0603737,15.55,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,det,4,0.807617,0.554688,0.516467,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,0.795001,0.123651,14.9842,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,missed,0,0.638384,0.577475,,missed,WALK,Sidewalk,WALK,Curb,floor_standin,0,0.0359266,10.4705,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,missed,1,0.497695,0.530452,,missed,ROAD,Road,OBJECT,Car,floor_standin,0,0.138565,27.0948,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,missed,2,0.527085,0.554428,,missed,WALK,Curb,WALK,Curb,floor_standin,0,0.0664169,15.057,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,missed,3,0.51903,0.54784,,missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.0795476,17.1688,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,missed,4,0.683969,0.571271,,missed,WALK,Sidewalk,ROAD,Road,floor_standin,0,0.0326686,11.4173,0
+sao_paulo,M5mjc-BAtPFJppa9npq4xA,missed,5,0.698489,0.527949,,missed,WALK,Sidewalk,OBJECT,Pole,floor_standin,0,0.0415594,29.5349,0
+sao_paulo,MBuniYPiSz9apm9agSpqPw,det,0,0.62793,0.570312,0.83199,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0162578,11.5783,0
+sao_paulo,MBuniYPiSz9apm9agSpqPw,det,1,0.557617,0.539062,0.691345,true,ROAD,Lane Marking - Crosswalk,ROAD,Road,floor,1.14586,-0.00862427,21.0802,0
+sao_paulo,MBuniYPiSz9apm9agSpqPw,det,2,0.393555,0.599609,0.422582,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,0.463938,0.0206983,8.03552,0
+sao_paulo,MBuniYPiSz9apm9agSpqPw,missed,0,0.543398,0.535285,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,1.14586,-0.0388204,23.3584,0
+sao_paulo,MBuniYPiSz9apm9agSpqPw,missed,1,0.627798,0.561013,,missed,WALK,Sidewalk,WALK,Curb,floor_standin,0,0.0440584,13.3979,0
+sao_paulo,MBuniYPiSz9apm9agSpqPw,missed,2,0.395838,0.601732,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.463938,0.0213414,7.85624,0
+sao_paulo,MO1IiuyyjHfY4uBuEsgoeg,det,0,0.941406,0.570312,0.819563,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.137151,11.5783,0
+sao_paulo,MO1IiuyyjHfY4uBuEsgoeg,det,1,0.722656,0.646484,0.760505,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.5827,-0.0349366,5.24521,0
+sao_paulo,MTKGGsTjIZqzb5CJ4L_zKw,det,0,0.47168,0.523438,0.781377,unsure,ROAD,Road,ROAD,Road,floor,2.9198,0.162118,35.2473,0
+sao_paulo,MTKGGsTjIZqzb5CJ4L_zKw,det,1,0.535156,0.537109,0.591941,unsure,ROAD,Road,ROAD,Road,floor,1.65185,0.231419,22.2007,0
+sao_paulo,MTKGGsTjIZqzb5CJ4L_zKw,missed,0,0.539789,0.518747,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,6.60438,0.20724,44.0956,0
+sao_paulo,MTKGGsTjIZqzb5CJ4L_zKw,missed,1,0.525415,0.515485,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,6.60438,0.163588,53.4027,0
+sao_paulo,MTKGGsTjIZqzb5CJ4L_zKw,missed,2,0.471288,0.510404,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,4.8686,0.074325,79.5183,0
+sao_paulo,MTKGGsTjIZqzb5CJ4L_zKw,missed,3,0.556616,0.531869,,unsure_missed,WALK,Sidewalk,OBJECT,Utility Pole,floor_standin,0,-0.0678922,25.8824,0
+sao_paulo,MTKGGsTjIZqzb5CJ4L_zKw,missed,4,0.458552,0.522928,,unsure_missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,non_horizontal,89.0156,,36.033,0
+sao_paulo,MjzhJxGXvpsFuKgE1Mh-Xg,det,0,0.535156,0.523438,0.558236,unsure,ROAD,Lane Marking - Crosswalk,ROAD,Road,floor,1.96672,0.0397578,35.2473,0
+sao_paulo,MjzhJxGXvpsFuKgE1Mh-Xg,det,1,0.456055,0.523438,0.476396,band_0p30,OBJECT,Person,OBJECT,Person,floor,1.48293,0.346957,35.2473,0
+sao_paulo,MjzhJxGXvpsFuKgE1Mh-Xg,missed,0,0.450165,0.534402,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.48293,-0.0300862,23.9635,0
+sao_paulo,MjzhJxGXvpsFuKgE1Mh-Xg,missed,1,0.439642,0.528244,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.48293,0.110395,29.225,0
+sao_paulo,MjzhJxGXvpsFuKgE1Mh-Xg,missed,2,0.459089,0.515549,,missed,WALK,Sidewalk,OBJECT,Person,floor,4.4705,-0.0606574,53.1829,0
+sao_paulo,MjzhJxGXvpsFuKgE1Mh-Xg,missed,3,0.528158,0.515686,,missed,ROAD,Road,ROAD,Lane Marking - Crosswalk,floor,1.96672,0.222615,52.7192,0
+sao_paulo,NiIR-hk3d6gP7qp4s1BM4w,det,0,0.972656,0.552734,0.575215,unsure,ROAD,Road,ROAD,Road,floor_standin,0,0.156646,15.55,0
+sao_paulo,NiIR-hk3d6gP7qp4s1BM4w,det,1,0.84668,0.646484,0.39446,band_0p30,WALK,Curb Cut,WALK,Curb Cut,floor,4.64452,0.118837,5.24521,0
+sao_paulo,NiIR-hk3d6gP7qp4s1BM4w,missed,0,0.841502,0.63406,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,4.64452,0.143853,5.80399,0
+sao_paulo,Nn8w6mmD-cbG_XScCiIjwA,det,0,0.972656,0.537109,0.719008,unsure,ROAD,Road,ROAD,Road,floor,1.62847,-0.265342,22.2007,0
+sao_paulo,Nn8w6mmD-cbG_XScCiIjwA,missed,0,0.0351908,0.530639,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.9819,0.0323151,26.9283,0
+sao_paulo,NoadtY-SJzlUAlm7E74VLw,det,0,0.0742188,0.539062,0.699439,unsure,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.765109,21.0802,0
+sao_paulo,NoadtY-SJzlUAlm7E74VLw,det,1,0.144531,0.568359,0.328347,band_0p30,STRUCTURE,Fence,STRUCTURE,Fence,floor_standin,0,0.192017,11.92,0
+sao_paulo,NoadtY-SJzlUAlm7E74VLw,missed,0,0.0799642,0.551709,,unsure_missed,WALK,Sidewalk,ROAD,Road,floor_standin,0,0.456295,15.864,0
+sao_paulo,OwHITjkTQwapTUEqLaf_HA,det,0,0.94043,0.585938,0.991281,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.276139,9.39519,0
+sao_paulo,OwHITjkTQwapTUEqLaf_HA,det,1,0.307617,0.601562,0.948067,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.54099,-0.0786586,7.87031,0
+sao_paulo,OwHITjkTQwapTUEqLaf_HA,det,2,0.651367,0.617188,0.947027,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.20143,-0.0147855,6.74025,0
+sao_paulo,OwHITjkTQwapTUEqLaf_HA,det,3,0.87793,0.585938,0.940387,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.257972,9.39519,0
+sao_paulo,OwHITjkTQwapTUEqLaf_HA,det,4,0.72168,0.601562,0.904589,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.20143,-0.105823,7.87031,0
+sao_paulo,OwHITjkTQwapTUEqLaf_HA,det,5,0.15918,0.554688,0.84342,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,-0.0457252,14.9842,0
+sao_paulo,OwHITjkTQwapTUEqLaf_HA,det,6,0.0742188,0.568359,0.663824,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.149247,11.92,0
+sao_paulo,OwHITjkTQwapTUEqLaf_HA,det,7,0.238281,0.568359,0.483378,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,2.54099,0.0258318,11.92,0
+sao_paulo,OwHITjkTQwapTUEqLaf_HA,missed,0,0.232893,0.559164,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.54099,0.0655301,13.8269,0
+sao_paulo,PLxw5KV6VDCzoMS7hmL8yw,det,0,0.541992,0.554688,0.69391,unsure,WALK,Sidewalk,WALK,Sidewalk,floor,3.1315,0.0321467,14.9842,0
+sao_paulo,PLxw5KV6VDCzoMS7hmL8yw,det,1,0.448242,0.552734,0.315714,band_0p30,ROAD,Lane Marking - Crosswalk,WALK,Curb Cut,floor,3.1315,0.150633,15.55,0
+sao_paulo,PLxw5KV6VDCzoMS7hmL8yw,missed,0,0.555008,0.537254,,unsure_missed,ROAD,Road,ROAD,Road,floor,5.14879,0.0581987,22.1137,0
+sao_paulo,Pvs7VOQJOX9mw2Ru9PrQZw,det,0,0.964844,0.539062,0.619714,unsure,ROAD,Lane Marking - Crosswalk,ROAD,Road,floor,1.32101,-0.00549725,21.0802,0
+sao_paulo,PyBg7R0KLocC6zqVFijKSg,det,0,0.963867,0.537109,0.690989,unsure,ROAD,Road,ROAD,Road,floor,2.4504,0.0899549,22.2007,0
+sao_paulo,PyBg7R0KLocC6zqVFijKSg,det,1,0.0576172,0.537109,0.394224,band_0p30,ROAD,Lane Marking - Crosswalk,WALK,Curb,floor,2.4504,0.0236083,22.2007,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,det,0,0.416992,0.570312,0.797623,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.16885,-0.00153841,11.5783,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,det,1,0.457031,0.537109,0.472659,band_0p30,ROAD,Road,ROAD,Road,floor,1.68074,0.350047,22.2007,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,det,2,0.573242,0.552734,0.471256,band_0p30,WALK,Curb,WALK,Sidewalk,floor,2.17799,0.093275,15.55,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,det,3,0.527344,0.523438,0.448528,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,2.87024,-0.037104,35.2473,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,missed,0,0.406557,0.558318,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.51334,0.026121,14.0322,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,missed,1,0.44574,0.532632,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,1.68074,0.413274,25.2726,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,missed,2,0.463898,0.529562,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,1.68074,-0.273665,27.9151,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,missed,3,0.526768,0.526973,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.87024,-0.0131289,30.6089,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,missed,4,0.545058,0.528158,,missed,WALK,Sidewalk,ROAD,Road,floor,1.77399,0.069161,29.3153,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,missed,5,0.58308,0.551908,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,4.09868,0.0677278,15.802,0
+sao_paulo,S2IuBk3pE9q76j1Z4hQC8A,missed,6,0.565931,0.564655,,unsure_missed,WALK,Curb,ROAD,Road,floor,2.17799,0.0704161,12.6237,0
+sao_paulo,S4WdqpLlooYt4ODkL03k5g,det,0,0.948242,0.585938,0.918289,true,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.279428,9.39519,0
+sao_paulo,S4WdqpLlooYt4ODkL03k5g,det,1,0.588867,0.583984,0.901383,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.86676,-0.265817,9.62455,0
+sao_paulo,S4WdqpLlooYt4ODkL03k5g,det,2,0.729492,0.539062,0.574096,unsure,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,floor_standin,0,0.0711254,21.0802,0
+sao_paulo,S4WdqpLlooYt4ODkL03k5g,det,3,0.31543,0.726562,0.565723,true,WALK,Curb Cut,WALK,Curb Cut,ground,2.39996,,3.01412,0
+sao_paulo,S4WdqpLlooYt4ODkL03k5g,det,4,0.198242,0.708984,0.400437,band_0p30,WALK,Sidewalk,WALK,Sidewalk,ground,2.39996,,3.37407,0
+sao_paulo,SL1kkNP2VXfJkTD7YQf4tQ,det,0,0.40918,0.568359,0.84455,true,WALK,Curb Cut,WALK,Sidewalk,floor,1.20837,0.366412,11.92,0
+sao_paulo,SL1kkNP2VXfJkTD7YQf4tQ,det,1,0.59668,0.585938,0.829561,true,ROAD,Manhole,WALK,Sidewalk,floor,1.20837,0.165421,9.39519,0
+sao_paulo,SL1kkNP2VXfJkTD7YQf4tQ,det,2,0.472656,0.523438,0.420989,band_0p30,WALK,Curb,WALK,Curb,floor,2.61254,0.23381,35.2473,0
+sao_paulo,SL1kkNP2VXfJkTD7YQf4tQ,missed,0,0.588791,0.523615,,missed,WALK,Sidewalk,ROAD,Road,floor,1.16012,-0.148543,34.9814,0
+sao_paulo,SL1kkNP2VXfJkTD7YQf4tQ,missed,1,0.403594,0.546341,,missed,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor,1.20837,0.639862,17.7326,0
+sao_paulo,SL1kkNP2VXfJkTD7YQf4tQ,missed,2,0.468803,0.522983,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.61254,0.235656,35.9473,0
+sao_paulo,Sg0GiqhXxeFwuhRVQZGWfw,det,0,0.448242,0.537109,0.818737,true,WALK,Curb Cut,WALK,Curb Cut,ground,2.20265,,22.2007,0
+sao_paulo,Sg0GiqhXxeFwuhRVQZGWfw,det,1,0.292969,0.539062,0.544578,band_0p30,WALK,Sidewalk,ROAD,Road,ground,2.20265,,21.0802,0
+sao_paulo,Sg0GiqhXxeFwuhRVQZGWfw,missed,0,0.358796,0.569291,,unsure_missed,WALK,Sidewalk,ROAD,Road,ground,2.20265,,11.7546,0
+sao_paulo,Sg0GiqhXxeFwuhRVQZGWfw,missed,1,0.295739,0.544885,,unsure_missed,WALK,Sidewalk,ROAD,Road,ground,2.20265,,18.3161,0
+sao_paulo,Sg0GiqhXxeFwuhRVQZGWfw,missed,2,0.56861,0.535764,,missed,WALK,Sidewalk,WALK,Curb,ground,2.20265,,23.0431,0
+sao_paulo,VEIsNEdoZ793WdrHU57t2g,det,0,0.535156,0.537109,0.733339,unsure,ROAD,Road,ROAD,Road,floor,1.78882,-0.0109392,22.2007,0
+sao_paulo,VEIsNEdoZ793WdrHU57t2g,det,1,0.441406,0.539062,0.573795,unsure,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.221784,21.0802,0
+sao_paulo,VEIsNEdoZ793WdrHU57t2g,det,2,0.933594,0.568359,0.305855,band_0p30,WALK,Sidewalk,WALK,Sidewalk,non_horizontal,19.7334,,11.92,0
+sao_paulo,VEIsNEdoZ793WdrHU57t2g,missed,0,0.541489,0.516399,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,5.26366,0.183361,50.4219,0
+sao_paulo,VEIsNEdoZ793WdrHU57t2g,missed,1,0.446902,0.525001,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.877195,33.0349,0
+sao_paulo,WC5s83YNe-hRPVOd0KZQrA,det,0,0.854492,0.583984,0.923272,true,WALK,Curb Cut,WALK,Sidewalk,floor,3.27823,-0.190809,9.62455,0
+sao_paulo,WC5s83YNe-hRPVOd0KZQrA,det,1,0.941406,0.539062,0.908085,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.0505459,21.0802,0
+sao_paulo,WC5s83YNe-hRPVOd0KZQrA,det,2,0.151367,0.570312,0.895179,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.58066,-0.105874,11.5783,0
+sao_paulo,WC5s83YNe-hRPVOd0KZQrA,det,3,0.0498047,0.537109,0.701476,true,ROAD,Road,ROAD,Road,floor,1.51633,0.023787,22.2007,0
+sao_paulo,WC5s83YNe-hRPVOd0KZQrA,det,4,0.0732422,0.539062,0.590353,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,0.882931,0.0515089,21.0802,0
+sao_paulo,WC5s83YNe-hRPVOd0KZQrA,det,5,0.44043,0.552734,0.45319,band_0p30,WALK,Curb Cut,WALK,Curb Cut,floor,2.64826,0.0959438,15.55,0
+sao_paulo,WC5s83YNe-hRPVOd0KZQrA,missed,0,0.15173,0.582643,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.58066,-0.0384685,9.78818,0
+sao_paulo,WC5s83YNe-hRPVOd0KZQrA,missed,1,0.857969,0.57407,,missed,WALK,Sidewalk,WALK,Curb Cut,floor,3.27823,-0.287285,10.9709,0
+sao_paulo,WC5s83YNe-hRPVOd0KZQrA,missed,2,0.948618,0.534561,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.73903,0.104823,23.8523,0
+sao_paulo,XnnGXt94GGVxBt_3oSk2Uw,det,0,0.0273438,0.537109,0.757193,true,WALK,Curb,WALK,Curb,floor,3.42228,0.0356327,22.2007,0
+sao_paulo,XnnGXt94GGVxBt_3oSk2Uw,det,1,0.964844,0.537109,0.304483,band_0p30,ROAD,Lane Marking - Crosswalk,WALK,Curb,floor_standin,0,0.537942,22.2007,0
+sao_paulo,XnnGXt94GGVxBt_3oSk2Uw,missed,0,0.962674,0.535799,,unsure_missed,WALK,Curb,WALK,Curb,floor_standin,0,0.575279,23.0207,0
+sao_paulo,ZdSe6D-Wu285r762n01uOg,det,0,0.0498047,0.539062,0.78838,unsure,WALK,Sidewalk,WALK,Sidewalk,floor,4.31103,0.168007,21.0802,0
+sao_paulo,ZdSe6D-Wu285r762n01uOg,det,1,0.120117,0.583984,0.72312,unsure,WALK,Sidewalk,WALK,Sidewalk,floor,3.44253,-0.0497187,9.62455,0
+sao_paulo,ZdSe6D-Wu285r762n01uOg,det,2,0.643555,0.583984,0.614795,unsure,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.365195,9.62455,0
+sao_paulo,ZdSe6D-Wu285r762n01uOg,det,3,0.862305,0.599609,0.596495,false,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.277197,8.03552,0
+sao_paulo,Zx5RLbncodJhmxWdJwAaEA,det,0,0.917969,0.585938,0.850456,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.2035,,9.39519,0
+sao_paulo,Zx5RLbncodJhmxWdJwAaEA,det,1,0.222656,0.552734,0.715543,true,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.0555749,15.55,0
+sao_paulo,Zx5RLbncodJhmxWdJwAaEA,missed,0,0.97822,0.521647,,missed,ROAD,Lane Marking - General,ROAD,Lane Marking - Crosswalk,floor,2.55489,0.218362,38.1734,0
+sao_paulo,_E3aWogWLo5SoGkPdihyAQ,det,0,0.588867,0.568359,0.860763,false,WALK,Sidewalk,WALK,Sidewalk,floor,2.99728,0.00879318,11.92,0
+sao_paulo,_E3aWogWLo5SoGkPdihyAQ,det,1,0.363281,0.583984,0.653816,unsure,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.115711,9.62455,0
+sao_paulo,_E3aWogWLo5SoGkPdihyAQ,det,2,0.542969,0.523438,0.445367,band_0p30,WALK,Sidewalk,WALK,Curb Cut,floor,2.99728,0.475031,35.2473,0
+sao_paulo,_fPo4iIbhE1HLT_ixD57_Q,det,0,0.714844,0.583984,0.786872,unsure,WALK,Sidewalk,WALK,Sidewalk,floor,1.43381,0.0877377,9.62455,0
+sao_paulo,_fPo4iIbhE1HLT_ixD57_Q,det,1,0.50293,0.537109,0.444316,band_0p30,ROAD,Road,WALK,Curb Cut,floor,1.43381,0.124152,22.2007,0
+sao_paulo,_fPo4iIbhE1HLT_ixD57_Q,det,2,0.924805,0.537109,0.434054,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.597267,22.2007,0
+sao_paulo,_zoPpzbkTA4aS166T26J_Q,det,0,0.549805,0.539062,0.833383,true,WALK,Sidewalk,ROAD,Road,floor,0.821153,-0.0557109,21.0802,0
+sao_paulo,_zoPpzbkTA4aS166T26J_Q,det,1,0.456055,0.539062,0.810715,true,WALK,Curb Cut,WALK,Curb Cut,floor,0.821153,-0.0834888,21.0802,0
+sao_paulo,_zoPpzbkTA4aS166T26J_Q,det,2,0.62793,0.554688,0.808467,true,WALK,Sidewalk,WALK,Pedestrian Area,floor,1.5357,0.146542,14.9842,0
+sao_paulo,_zoPpzbkTA4aS166T26J_Q,det,3,0.0507812,0.539062,0.300392,band_0p30,ROAD,Lane Marking - General,ROAD,Road,floor,2.37891,0.228221,21.0802,0
+sao_paulo,a70PDmeTUAplnAAszg96rQ,det,0,0.56543,0.552734,0.734343,unsure,ROAD,Road,WALK,Curb,floor_standin,0,-0.0980168,15.55,0
+sao_paulo,a70PDmeTUAplnAAszg96rQ,det,1,0.230469,0.583984,0.521185,band_0p30,WALK,Curb Cut,WALK,Curb,floor_standin,0,0.231224,9.62455,0
+sao_paulo,a70PDmeTUAplnAAszg96rQ,det,2,0.870117,0.615234,0.425662,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,1.73449,-0.0961635,6.86541,0
+sao_paulo,a70PDmeTUAplnAAszg96rQ,missed,0,0.232793,0.582523,,missed,WALK,Curb Cut,WALK,Curb,floor_standin,0,0.238612,9.80304,0
+sao_paulo,bNHPwV-rN_X3TENKUQgmNg,det,0,0.143555,0.568359,0.883511,true,WALK,Curb Cut,WALK,Curb Cut,floor,0.694925,0.0982381,11.92,0
+sao_paulo,bNHPwV-rN_X3TENKUQgmNg,det,1,0.90918,0.599609,0.345162,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,4.28907,-0.056444,8.03552,0
+sao_paulo,bNHPwV-rN_X3TENKUQgmNg,missed,0,0.46854,0.524644,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.23035,-0.0605604,33.5159,0
+sao_paulo,dZ3b0KCyXPcdVPHv5lCR2Q,det,0,0.581055,0.554688,0.981269,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.04755,-0.0491774,14.9842,0
+sao_paulo,dZ3b0KCyXPcdVPHv5lCR2Q,det,1,0.707031,0.615234,0.967948,true,WALK,Curb Cut,WALK,Sidewalk,floor,3.06567,0.0999293,6.86541,0
+sao_paulo,dZ3b0KCyXPcdVPHv5lCR2Q,det,2,0.549805,0.554688,0.794608,false,WALK,Sidewalk,WALK,Sidewalk,floor,1.87357,0.00402085,14.9842,0
+sao_paulo,dZHjPLWAOhyUatavJJEPzA,det,0,0.972656,0.539062,0.691422,true,WALK,Sidewalk,WALK,Sidewalk,non_horizontal,89.5377,,21.0802,0
+sao_paulo,dZHjPLWAOhyUatavJJEPzA,det,1,0.0507812,0.552734,0.491946,band_0p30,WALK,Curb,WALK,Curb,floor_standin,0,-0.0482935,15.55,0
+sao_paulo,dZHjPLWAOhyUatavJJEPzA,missed,0,0.0505051,0.542727,,missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor_standin,0,-0.0755839,19.253,0
+sao_paulo,e6i7jzmjStkNCJ7jp_KV5Q,det,0,0.0419922,0.539062,0.816435,unsure,ROAD,Road,ROAD,Road,floor,4.54196,0.292453,21.0802,0
+sao_paulo,e6i7jzmjStkNCJ7jp_KV5Q,det,1,0.964844,0.537109,0.703611,unsure,WALK,Sidewalk,WALK,Sidewalk,floor,6.76869,0.233315,22.2007,0
+sao_paulo,el13lYhzqKSZJwWb5w5vUg,det,0,0.635742,0.617188,0.817625,true,WALK,Sidewalk,WALK,Pedestrian Area,floor,0.353878,-0.00512143,6.74025,0
+sao_paulo,el13lYhzqKSZJwWb5w5vUg,det,1,0.371094,0.601562,0.813515,true,WALK,Sidewalk,WALK,Pedestrian Area,floor,0.515483,-0.00395682,7.87031,0
+sao_paulo,el13lYhzqKSZJwWb5w5vUg,det,2,0.838867,0.537109,0.624075,true,WALK,Curb Cut,ROAD,Road,ground,0.530818,,22.2007,0
+sao_paulo,el13lYhzqKSZJwWb5w5vUg,det,3,0.901367,0.537109,0.539833,band_0p30,WALK,Curb,WALK,Curb,ground,0.530818,,22.2007,0
+sao_paulo,el13lYhzqKSZJwWb5w5vUg,det,4,0.910156,0.601562,0.462115,band_0p30,WALK,Sidewalk,WALK,Pedestrian Area,ground,0.530818,,7.87031,0
+sao_paulo,el13lYhzqKSZJwWb5w5vUg,missed,0,0.762245,0.570415,,missed,WALK,Sidewalk,WALK,Pedestrian Area,floor,0.800642,0.00317305,11.5609,0
+sao_paulo,el13lYhzqKSZJwWb5w5vUg,missed,1,0.111515,0.596061,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,0.968942,0.0117271,8.3523,0
+sao_paulo,fwvaPMif_uwbx3U5SrHM2Q,det,0,0.527344,0.523438,0.812977,unsure,ROAD,Road,ROAD,Road,floor,1.04474,0.152791,35.2473,0
+sao_paulo,iGerSDCCTaZmeNVguzT7mg,det,0,0.729492,0.539062,0.723985,true,WALK,Sidewalk,WALK,Sidewalk,floor,8.31205,0.102503,21.0802,0
+sao_paulo,iGerSDCCTaZmeNVguzT7mg,det,1,0.425781,0.630859,0.367116,band_0p30,WALK,Sidewalk,WALK,Sidewalk,ground,5.18788,,5.96402,0
+sao_paulo,iGerSDCCTaZmeNVguzT7mg,missed,0,0.465859,0.611414,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,ground,5.18788,,7.12233,0
+sao_paulo,iXAvtzzMg2Vh5aZPuGIk_Q,det,0,0.87793,0.632812,0.911529,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.17803,0.0423,5.86551,0
+sao_paulo,ieZ8VA3zKLMrd7to7HHB5A,det,0,0.378906,0.632812,0.827741,false,ROAD,Manhole,ROAD,Manhole,ground,0.57946,,5.86551,0
+sao_paulo,ieZ8VA3zKLMrd7to7HHB5A,det,1,0.457031,0.539062,0.662259,true,WALK,Curb,WALK,Curb,floor,0.611658,0.081802,21.0802,0
+sao_paulo,ieZ8VA3zKLMrd7to7HHB5A,det,2,0.393555,0.585938,0.377594,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,3.80323,-0.00920209,9.39519,0
+sao_paulo,ieZ8VA3zKLMrd7to7HHB5A,missed,0,0.389556,0.57805,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,3.80323,0.0440475,10.3901,0
+sao_paulo,ilpqlnL95rHOAj1Q46fLuw,det,0,0.113281,0.599609,0.958265,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.60498,0.00646425,8.03552,0
+sao_paulo,ilpqlnL95rHOAj1Q46fLuw,det,1,0.878906,0.554688,0.844485,true,WALK,Sidewalk,ROAD,Road,ground,0.489789,,14.9842,0
+sao_paulo,ilpqlnL95rHOAj1Q46fLuw,missed,0,0.859093,0.545295,,missed,OBJECT,Vegetation,OBJECT,Vegetation,ground,0.489789,,18.1481,0
+sao_paulo,ilpqlnL95rHOAj1Q46fLuw,missed,1,0.839451,0.530088,,unsure_missed,ROAD,Lane Marking - Crosswalk,ROAD,Road,floor_standin,0,-0.0162099,27.4238,0
+sao_paulo,kJesVaz2BfulGS7gWiNsNg,det,0,0.862305,0.539062,0.616998,true,OBJECT,Person,OBJECT,Motorcycle,floor,0.588174,0.106447,21.0802,0
+sao_paulo,lASBXjG5VnksPRJajz2FKw,det,0,0.198242,0.583984,0.873291,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.195528,9.62455,0
+sao_paulo,lASBXjG5VnksPRJajz2FKw,det,1,0.121094,0.583984,0.48713,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.250084,9.62455,0
+sao_paulo,lASBXjG5VnksPRJajz2FKw,det,2,0.425781,0.585938,0.395429,band_0p30,OBJECT,Vegetation,WALK,Sidewalk,ground,3.01292,,9.39519,0
+sao_paulo,lASBXjG5VnksPRJajz2FKw,missed,0,0.354748,0.565354,,missed,ROAD,Road,WALK,Sidewalk,floor,2.38129,0.0306721,12.4851,0
+sao_paulo,loCxSX72-DYrDrDwY0cVGw,det,0,0.378906,0.599609,0.911741,true,WALK,Sidewalk,WALK,Curb Cut,ground,1.24096,,8.03552,0
+sao_paulo,loCxSX72-DYrDrDwY0cVGw,det,1,0.737305,0.708984,0.540445,band_0p30,WALK,Sidewalk,WALK,Sidewalk,ground,1.24096,,3.37407,0
+sao_paulo,loCxSX72-DYrDrDwY0cVGw,missed,0,0.720404,0.710808,,missed,WALK,Sidewalk,WALK,Sidewalk,ground,1.24096,,3.33439,0
+sao_paulo,n-DwmldMs-ZZVYS1gF_qYQ,det,0,0.549805,0.554688,0.710258,false,WALK,Sidewalk,WALK,Sidewalk,floor,3.91261,-0.039426,14.9842,0
+sao_paulo,n-DwmldMs-ZZVYS1gF_qYQ,det,1,0.472656,0.539062,0.43749,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,4.97134,0.0651131,21.0802,0
+sao_paulo,nBEV4rFOanW4bZa31JM0Sw,det,0,0.386719,0.583984,0.918478,true,WALK,Curb Cut,WALK,Curb Cut,ground,3.22901,,9.62455,0
+sao_paulo,nBEV4rFOanW4bZa31JM0Sw,det,1,0.151367,0.554688,0.897457,true,WALK,Sidewalk,WALK,Sidewalk,non_horizontal,88.7359,,14.9842,0
+sao_paulo,nBEV4rFOanW4bZa31JM0Sw,det,2,0.285156,0.568359,0.749758,true,WALK,Curb,WALK,Sidewalk,ground,3.22901,,11.92,0
+sao_paulo,nBEV4rFOanW4bZa31JM0Sw,det,3,0.0810547,0.570312,0.692346,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.355036,11.5783,0
+sao_paulo,nBEV4rFOanW4bZa31JM0Sw,det,4,0.948242,0.583984,0.46887,band_0p30,WALK,Curb Cut,WALK,Curb,floor_standin,0,0.392366,9.62455,0
+sao_paulo,nBEV4rFOanW4bZa31JM0Sw,det,5,0.644531,0.585938,0.364405,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,4.54502,-0.146497,9.39519,0
+sao_paulo,nBEV4rFOanW4bZa31JM0Sw,missed,0,0.581395,0.579673,,missed,WALK,Sidewalk,WALK,Curb Cut,floor,4.46484,0.194098,10.1697,0
+sao_paulo,nBEV4rFOanW4bZa31JM0Sw,missed,1,0.948243,0.580979,,missed,WALK,Curb Cut,WALK,Curb,floor_standin,0,0.412472,9.99852,0
+sao_paulo,oV7Q7EUJPH-5ZMAT16aI7A,det,0,0.542969,0.537109,0.580491,true,WALK,Sidewalk,WALK,Curb Cut,floor,0.812529,-0.233912,22.2007,0
+sao_paulo,oV7Q7EUJPH-5ZMAT16aI7A,missed,0,0.531942,0.51689,,unsure_missed,ROAD,Road,WALK,Sidewalk,floor,1.21531,-0.163539,48.9534,0
+sao_paulo,oV7Q7EUJPH-5ZMAT16aI7A,missed,1,0.555669,0.5284,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.812529,-0.412923,29.0632,0
+sao_paulo,oubzmEZebW0xt9hWWIgN3Q,det,0,0.40918,0.539062,0.858584,true,ROAD,Road,ROAD,Road,floor_standin,0,0.11997,21.0802,0
+sao_paulo,oubzmEZebW0xt9hWWIgN3Q,det,1,0.566406,0.539062,0.643357,unsure,ROAD,Bike Lane,ROAD,Bike Lane,floor_standin,0,0.958536,21.0802,0
+sao_paulo,p3WPC3r3OZij0pZr8jyR-A,det,0,0.956055,0.552734,0.634602,true,ROAD,Road,ROAD,Road,floor,0.914502,0.034393,15.55,0
+sao_paulo,p3WPC3r3OZij0pZr8jyR-A,det,1,0.0351562,0.554688,0.387609,band_0p30,ROAD,Road,OBJECT,Person,floor,0.914502,0.0943228,14.9842,0
+sao_paulo,p3WPC3r3OZij0pZr8jyR-A,missed,0,0.0476394,0.552609,,missed,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor,0.914502,0.101617,15.5876,0
+sao_paulo,pEfwvmb_FBOmLOnckeIGFA,det,0,0.291992,0.554688,0.869594,true,WALK,Curb,WALK,Curb,floor,1.62654,0.167043,14.9842,0
+sao_paulo,pEfwvmb_FBOmLOnckeIGFA,det,1,0.666992,0.568359,0.838887,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.80103,0.0613669,11.92,0
+sao_paulo,pEfwvmb_FBOmLOnckeIGFA,det,2,0.574219,0.523438,0.38652,band_0p30,WALK,Curb,WALK,Curb,floor,1.80103,0.0426934,35.2473,0
+sao_paulo,pEfwvmb_FBOmLOnckeIGFA,missed,0,0.572763,0.525563,,unsure_missed,WALK,Curb Cut,WALK,Curb,floor,1.80103,0.0335829,32.3055,0
+sao_paulo,pEfwvmb_FBOmLOnckeIGFA,missed,1,0.419305,0.52822,,unsure_missed,ROAD,Lane Marking - Crosswalk,WALK,Curb,floor,1.62654,1.01413,29.2497,0
+sao_paulo,r0oKhyEUSiK2FMKwXE7Z4g,det,0,0.925781,0.585938,0.859583,unsure,WALK,Sidewalk,WALK,Sidewalk,floor,2.47804,0.280452,9.39519,0
+sao_paulo,r0oKhyEUSiK2FMKwXE7Z4g,det,1,0.97168,0.539062,0.660058,unsure,WALK,Sidewalk,WALK,Curb Cut,floor,1.1742,0.0136023,21.0802,0
+sao_paulo,r0oKhyEUSiK2FMKwXE7Z4g,det,2,0.0664062,0.554688,0.431985,band_0p30,ROAD,Road,ROAD,Road,floor,1.51427,-0.140197,14.9842,0
+sao_paulo,thO-ovLo5h3IcEIBiZSBmA,det,0,0.924805,0.570312,0.948364,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.16382,0.0709729,11.5783,0
+sao_paulo,thO-ovLo5h3IcEIBiZSBmA,det,1,0.0664062,0.554688,0.943462,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.883374,0.338002,14.9842,0
+sao_paulo,thO-ovLo5h3IcEIBiZSBmA,missed,0,0.961929,0.533533,,missed,WALK,Curb Cut,WALK,Curb,floor,0.883374,-0.132306,24.5886,0
+sao_paulo,thO-ovLo5h3IcEIBiZSBmA,missed,1,0.907304,0.553549,,unsure_missed,WALK,Sidewalk,ROAD,Road,floor,1.16382,0.0776697,15.3091,0
+sao_paulo,uVUc_s2SzXj8SYWwiFlbzA,det,0,0.574219,0.568359,0.846228,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.50493,-0.377463,11.92,0
+sao_paulo,uVUc_s2SzXj8SYWwiFlbzA,det,1,0.268555,0.617188,0.824168,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.39858,0.0327404,6.74025,0
+sao_paulo,vsYI9YRnGs7H2rchsFS44A,det,0,0.557617,0.476562,0.718781,true,WALK,Curb Cut,ROAD,Road,non_horizontal,36.3237,,,0
+sao_paulo,vsYI9YRnGs7H2rchsFS44A,det,1,0.635742,0.554688,0.552963,false,WALK,Sidewalk,WALK,Sidewalk,floor,16.245,0.0910094,14.9842,0
+sao_paulo,vsYI9YRnGs7H2rchsFS44A,det,2,0.988281,0.601562,0.370774,band_0p30,OBJECT,Person,OBJECT,Person,floor_standin,0,0.6973,7.87031,0
+sao_paulo,vsYI9YRnGs7H2rchsFS44A,det,3,0.0117188,0.615234,0.324907,band_0p30,ROAD,Road,ROAD,Road,floor_standin,0,0.529592,6.86541,0
+sao_paulo,vsYI9YRnGs7H2rchsFS44A,missed,0,0.368829,0.672303,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,16.245,0.000745112,4.32463,0
+sao_paulo,wX8uKBQfioiFHogENC9FbQ,det,0,0.917969,0.583984,0.866108,false,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.10107,9.62455,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,det,0,0.433594,0.554688,0.916618,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.26098,-0.108059,14.9842,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,det,1,0.855469,0.599609,0.829671,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.32364,0.0914737,8.03552,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,det,2,0.56543,0.554688,0.818316,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.26098,-0.268912,14.9842,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,det,3,0.229492,0.583984,0.48559,band_0p30,WALK,Sidewalk,WALK,Pedestrian Area,floor,0.678974,-0.0157623,9.62455,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,det,4,0.957031,0.539062,0.453578,band_0p30,WALK,Sidewalk,ROAD,Road,floor,1.12012,0.198169,21.0802,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,det,5,0.0742188,0.552734,0.428742,band_0p30,WALK,Sidewalk,ROAD,Road,ground,0.26393,,15.55,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,missed,0,0.0777599,0.554804,,missed,WALK,Sidewalk,ROAD,Road,ground,0.26393,,14.9517,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,missed,1,0.92,0.548384,,missed,WALK,Sidewalk,WALK,Curb Cut,floor,1.12012,0.130799,16.9731,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,missed,2,0.952727,0.546768,,missed,WALK,Sidewalk,ROAD,Road,floor,1.12012,0.139268,17.5686,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,missed,3,0.591688,0.527418,,unsure_missed,WALK,Curb Cut,WALK,Curb,floor,3.49978,-0.651335,30.1098,0
+sao_paulo,xfnPV8p9liS6w_thn5Juqw,missed,4,0.629621,0.535642,,unsure_missed,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor,10.7575,0.372715,23.1225,0
+sao_paulo,xyyjv_yjywf2p-XYB-9qDg,det,0,0.268555,0.585938,0.904819,true,WALK,Sidewalk,WALK,Sidewalk,ground,2.35044,,9.39519,0
+sao_paulo,xyyjv_yjywf2p-XYB-9qDg,det,1,0.206055,0.570312,0.814392,unsure,ROAD,Bike Lane,ROAD,Bike Lane,ground,2.35044,,11.5783,0
+sao_paulo,xyyjv_yjywf2p-XYB-9qDg,det,2,0.894531,0.599609,0.790024,unsure,ROAD,Bike Lane,ROAD,Bike Lane,floor_standin,0,0.0102472,8.03552,0
+sao_paulo,xyyjv_yjywf2p-XYB-9qDg,det,3,0.824219,0.646484,0.357623,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,4.95159,0.0331808,5.24521,0
+sao_paulo,xyyjv_yjywf2p-XYB-9qDg,missed,0,0.828283,0.647778,,missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,-0.0420209,5.19208,0
+sao_paulo,xyyjv_yjywf2p-XYB-9qDg,missed,1,0.947071,0.539209,,missed,WALK,Sidewalk,ROAD,Road,floor_standin,0,0.389729,21.0006,0
+sao_paulo,xyyjv_yjywf2p-XYB-9qDg,missed,2,0.880223,0.552191,,missed,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.0273381,15.715,0
+sao_paulo,zo9eQGzGOdA57uZQE89rOA,det,0,0.924805,0.554688,0.913733,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.219681,14.9842,0
+sao_paulo,zo9eQGzGOdA57uZQE89rOA,det,1,0.269531,0.615234,0.793122,true,WALK,Curb Cut,WALK,Sidewalk,floor,4.33097,0.115543,6.86541,0
+sao_paulo,zo9eQGzGOdA57uZQE89rOA,det,2,0.128906,0.552734,0.674398,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.176876,15.55,0
+sao_paulo,zo9eQGzGOdA57uZQE89rOA,det,3,0.0810547,0.539062,0.588156,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.393756,21.0802,0
+sao_paulo,zo9eQGzGOdA57uZQE89rOA,det,4,0.957031,0.552734,0.566231,true,WALK,Curb Cut,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.271155,15.55,0
+sao_paulo,zo9eQGzGOdA57uZQE89rOA,det,5,0.691406,0.617188,0.311953,band_0p30,ROAD,Manhole,ROAD,Manhole,ground,1.69824,,6.74025,0
+sao_paulo,zo9eQGzGOdA57uZQE89rOA,det,6,0.746094,0.583984,0.308331,band_0p30,WALK,Sidewalk,WALK,Sidewalk,ground,1.69824,,9.62455,0
+sao_paulo,zrChULSCpDxHp7XG9HdGzw,det,0,0.682617,0.630859,0.822156,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.89214,-0.0215553,5.96402,0
+sao_paulo,zrChULSCpDxHp7XG9HdGzw,det,1,0.308594,0.585938,0.71365,true,WALK,Sidewalk,ROAD,Road,floor,1.05406,-0.00374482,9.39519,0
+sao_paulo,zrChULSCpDxHp7XG9HdGzw,det,2,0.433594,0.552734,0.454677,band_0p30,ROAD,Road,ROAD,Lane Marking - General,floor,1.05406,-0.0853922,15.55,0
+sao_paulo,zrChULSCpDxHp7XG9HdGzw,det,3,0.276367,0.632812,0.35711,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,0.713267,0.0252247,5.86551,0
+sao_paulo,zrChULSCpDxHp7XG9HdGzw,det,4,0.542969,0.539062,0.356448,band_0p30,OBJECT,Pole,ROAD,Lane Marking - Crosswalk,floor,1.05406,-0.0557731,21.0802,0
+sao_paulo,zrChULSCpDxHp7XG9HdGzw,missed,0,0.271919,0.646162,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,3.89214,-0.039972,5.2586,0
+sao_paulo,zrChULSCpDxHp7XG9HdGzw,missed,1,0.530623,0.527204,,missed,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.093559,30.3481,0
+sao_paulo,zrChULSCpDxHp7XG9HdGzw,missed,2,0.662571,0.597107,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,3.89214,-0.078595,8.25656,0

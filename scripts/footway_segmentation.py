@@ -748,7 +748,10 @@ def compare_pano(pix, run_pano, tiled, direct, fine_names, table_seg, ctx):
             off = f.get('offset_local_m')
             if off is None:
                 continue
+            walked = f.get('rows_to_ref')
+            ref_lab = tiled[min(ph - 1, r + walked) * sy, c * sx] if walked else NONE_LABEL
             curb.append({'group': gname, 'standin_plane': int(cls == FLOOR_STANDIN),
+                         'ref_group': SEG_GROUPS[table_seg[ref_lab]],
                          'standin_ref': int(f.get('ref_tilt_deg') == 0.0),
                          'offset_local_m': off,
                          'offset_level_ref_m': f.get('offset_local_level_ref_m'),
@@ -756,23 +759,37 @@ def compare_pano(pix, run_pano, tiled, direct, fine_names, table_seg, ctx):
     return pano_row, curb
 
 
+# `measured` is the registered reading; `with_standins` is registered as reported-beside;
+# `measured_ref_road` is EXPLORATORY (added after the first scoring run): only pixels whose
+# local reference -- the first different floor plane met walking the column toward the
+# nadir -- is itself labelled ROAD by the segmenter at the pixel where the walk met it, i.e.
+# the step really is sidewalk-to-road rather than sidewalk-to-another-sidewalk-segment.
+CURB_READINGS = ('measured', 'with_standins', 'measured_ref_road')
+
+
+def curb_keep(r, reading):
+    measured = not (r['standin_plane'] or r['standin_ref'])
+    if reading == 'with_standins':
+        return True
+    if reading == 'measured_ref_road':
+        return measured and r['ref_group'] == ROAD
+    return measured
+
+
 def curb_summary(curb_by_pano):
     """Per group and reading: the median across panos of per-pano median offsets."""
     out = []
     for group in ('sidewalk', 'walk', 'road'):
-        for reading in ('measured', 'with_standins'):
+        for reading in CURB_READINGS:
             meds, npx = [], 0
             for pid, rows in curb_by_pano.items():
-                v = [r['offset_local_m'] for r in rows if r['group'] == group
-                     and (reading == 'with_standins'
-                          or not (r['standin_plane'] or r['standin_ref']))]
+                v = [r['offset_local_m'] for r in rows if r['group'] == group and curb_keep(r, reading)]
                 npx += len(v)
                 if len(v) >= CURB_MIN_PIXELS:
                     meds.append(float(np.median(v)))
             med, lo, hi = dad.median_ci(meds)
             allv = [r['offset_local_m'] for rows in curb_by_pano.values() for r in rows
-                    if r['group'] == group and (reading == 'with_standins' or not (
-                        r['standin_plane'] or r['standin_ref']))]
+                    if r['group'] == group and curb_keep(r, reading)]
             out.append({'group': group, 'reading': reading, 'n_panos': len(meds),
                         'n_pixels': npx, 'median_of_pano_medians': med,
                         'median_lo': lo, 'median_hi': hi,
@@ -790,10 +807,8 @@ def curb_pano_medians(curb_by_pano):
     out = []
     for uid, rows in sorted(curb_by_pano.items()):
         for group in ('sidewalk', 'walk', 'road'):
-            for reading in ('measured', 'with_standins'):
-                v = [r['offset_local_m'] for r in rows if r['group'] == group
-                     and (reading == 'with_standins'
-                          or not (r['standin_plane'] or r['standin_ref']))]
+            for reading in CURB_READINGS:
+                v = [r['offset_local_m'] for r in rows if r['group'] == group and curb_keep(r, reading)]
                 if len(v) >= CURB_MIN_PIXELS:
                     out.append({'pano_uid': uid, 'group': group, 'reading': reading,
                                 'n_pixels': len(v), 'median_offset_m': float(np.median(v))})
@@ -1078,6 +1093,19 @@ def cmd_verdict(args):
         lo, hi = es.wilson(tr, len(t))
         v['surface_reading'] = {'true_on_walkroad': tr, 'true_n': len(t),
                                 'share': tr / len(t) if t else None, 'lo': lo, 'hi': hi}
+        # EXPLORATORY, outside the registered reading (added after the first scoring run):
+        # the fine Vistas class `Curb Cut` at the pixel, a positive rather than a negative
+        # signal. Not a verdict; a candidate rule for a pre-registered follow-up.
+        expl = {}
+        for arm in ('seg', 'direct'):
+            for g in ('true', 'false', 'missed', 'unsure_missed', 'band_0p30'):
+                rows = [d for d in dets if d['gt_group'] == g]
+                k = sum(d[f'{arm}_class'] == 'Curb Cut' for d in rows)
+                lo, hi = es.wilson(k, len(rows))
+                expl[f"{'tiled' if arm == 'seg' else 'direct'}_{g}"] = {
+                    'n': len(rows), 'curb_cut': k,
+                    'share': k / len(rows) if rows else None, 'lo': lo, 'hi': hi}
+        v['exploratory_curb_cut'] = expl
         out['tiers'][tier_name] = v
     row = next((r for r in curb if r['city'] == 'pooled' and r['group'] == 'sidewalk'
                 and r['reading'] == 'measured'), None)
@@ -1156,6 +1184,16 @@ def write_reports(args, head_rows, curb_all, trap_all, v):
                              f"{_f(ch['median_of_pano_medians_m'])} m [{_f(ch['lo'])}, "
                              f"{_f(ch['hi'])}] over {ch['n_panos']} panos -> "
                              f"**{ch['reading']}** with ~0.15 m (band [{CLAIM_BAND_M[0]:.2f}, {CLAIM_BAND_M[1]:.2f})).")
+            ex = t['exploratory_curb_cut']
+            lines += ['', '## Exploratory (not part of the registered reading)', '',
+                      '`Curb Cut` (fine Vistas class) at the pixel, tiled vs direct arm:', '',
+                      '| group | n | tiled share [95% CI] | direct share [95% CI] |',
+                      '|---|---:|---|---|']
+            for g in ('true', 'false', 'missed', 'unsure_missed', 'band_0p30'):
+                a, b = ex[f'tiled_{g}'], ex[f'direct_{g}']
+                lines.append(f"| {g} | {a['n']} | {_f(a['share'])} [{_f(a['lo'])}, "
+                             f"{_f(a['hi'])}] | {_f(b['share'])} [{_f(b['lo'])}, "
+                             f"{_f(b['hi'])}] |")
             tr = [r for r in trap_all if r['city'] == 'pooled']
             lines += ['', '## Tiled vs direct equirect (the trap)', '',
                       '| latitude band (deg) | interior agreement | seam agreement |',
@@ -1299,8 +1337,7 @@ def cmd_figures(args):
     ax.set_yticks(range(len(rows)), [f"{r['depth_class']}  (n={int(m[i].sum()):,})"
                                      for i, r in enumerate(rows)])
     ax.set_xlabel('segmenter group (tiled arm)')
-    ax.set_title('Depth plane class vs segmenter group: below-horizon pixels, 416 panos '
-                 '(row shares)', fontsize=9)
+    ax.set_title('Depth class vs segmenter group, below-horizon pixels (row shares)', fontsize=9)
     for sp in ax.spines.values():
         sp.set_visible(False)
     fig.tight_layout()
@@ -1345,7 +1382,7 @@ def cmd_figures(args):
     ax.axvline(0.15, color='#52514e', lw=1, ls='--')
     ax.set_xlabel('per-pano median height above the local road (m), stand-ins excluded')
     ax.set_ylabel('panos')
-    ax.legend(frameon=False, fontsize=8)
+    ax.legend(frameon=False, fontsize=8, loc='upper left')
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'fig3_curb_height.png', dpi=150)
     plt.close(fig)
@@ -1426,7 +1463,7 @@ def cmd_figures(args):
             ax.set_title(f"{p['city']}:{p['pano_id'][:11]}\ndepth {p['depth']} | "
                          f"seg {p['seg']}{extra}", fontsize=6.5)
     fig.tight_layout()
-    fig.savefig(FIG_DIR / 'fig6_gallery.png', dpi=110)
+    fig.savefig(FIG_DIR / 'fig6_gallery.jpg', dpi=110, pil_kwargs={'quality': 85})
     plt.close(fig)
     print(f'figures -> {FIG_DIR}')
 

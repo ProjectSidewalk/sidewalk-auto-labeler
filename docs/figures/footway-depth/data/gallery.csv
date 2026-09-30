@@ -1,0 +1,25 @@
+category,city,pano_id,size,x,y,depth,seg,verdict
+surface_object,gainesville,WVSHD61mDgZmv8fnzj3i6Q,6679,0.805664,0.662109,ground,Vegetation,
+surface_object,sao_paulo,oV7Q7EUJPH-5ZMAT16aI7A,9834,0.760742,0.634766,floor,Bus,
+surface_object,sao_paulo,qZhtfaweaHDmUgGJtgVKTQ,6317,0.62207,0.755859,ground,Barrier,
+surface_object,sao_paulo,ZdSe6D-Wu285r762n01uOg,6132,0.868164,0.861328,floor,Car,
+surface_object,gainesville,TsU9TS4hpMHXVwv-YIrvCQ,7032,0.424805,0.783203,floor,Ego Vehicle,
+surface_object,sao_paulo,NoadtY-SJzlUAlm7E74VLw,8478,0.803711,0.677734,ground,Ego Vehicle,
+surface_structure,paterson,0-zmUwLwl5ENJgqxheDklQ,2110,0.739258,0.564453,floor,Fence,
+surface_structure,bend,ScnPNQ2cah0xzWlH28uoOw,6286,0.243164,0.611328,floor,Fence,
+surface_structure,sao_paulo,GnxqQAq5GVonmVKfcMcr6w,2006,0.786133,0.568359,ground,Wall,
+surface_structure,bend,X3HUl4G0JyP3fwNYcFAXVw,1809,0.764648,0.564453,floor_standin,Fence,
+surface_structure,gainesville,oyTDvou4dK-Hm3v-cIaToQ,2163,0.772461,0.572266,ground,Fence,
+surface_structure,paterson,60amgEGA1TEcbtRBTtxUTg,4513,0.25293,0.642578,floor,Wall,
+wall_walkroad,bend,5U3KS0M2Y8w3qsDGGV610g,399,0.670898,0.591797,non_horizontal,Sidewalk,
+wall_walkroad,sao_paulo,dZHjPLWAOhyUatavJJEPzA,2042,0.698242,0.650391,non_horizontal,Sidewalk,
+wall_walkroad,sao_paulo,vsYI9YRnGs7H2rchsFS44A,380,0.709961,0.552734,non_horizontal,Sidewalk,
+wall_walkroad,sao_paulo,JAwR7rGXLysrpeYgTzkLCQ,347,0.194336,0.591797,non_horizontal,Sidewalk,
+wall_walkroad,sao_paulo,MTKGGsTjIZqzb5CJ4L_zKw,409,0.217773,0.587891,non_horizontal,Sidewalk,
+wall_walkroad,paterson,Tyc7Xoi2Qu6tNrHVre2kNA,606,0.262695,0.619141,non_horizontal,Curb,
+det_non_surface,gainesville,q2yX7pwQF7_3SFGxEqlDHQ,,0.253906,0.523438,floor,Pole,true
+det_non_surface,bend,Jv7Zl2erbO_g10pRN-IS_Q,,0.0898438,0.554688,floor_standin,Terrain,true
+det_non_surface,paterson,2lovLRC7Pv6S94tMW3mDug,,0.441406,0.507812,floor,Terrain,true
+det_non_surface,paterson,L8lyOJwUI8j3Mk_cV-R80Q,,0.941406,0.539062,floor_standin,Terrain,true
+det_non_surface,paterson,5M-GzTlVe-lrOqHmypJqTA,,0.542969,0.537109,floor,Pole,true
+det_non_surface,paterson,NqOWmuzYX0M4vXF6ioTD7Q,,0.0351562,0.521484,floor,Terrain,true
