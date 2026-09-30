@@ -884,7 +884,7 @@ def cmd_score(args):
         for key in ('pairs', 'gt', 'inventory', 'members'):
             if res[key]:
                 write_csv(out / f'{key}.csv', res[key])
-        (out / 'report.md').write_text(city_report(city, res), encoding='utf-8')
+        (out / 'report.md').write_text(city_report(city, res), encoding='utf-8', newline='\n')
         for k in allres:
             allres[k] += res[k]
     for key in ('pairs', 'gt', 'inventory', 'members'):
@@ -914,7 +914,7 @@ def cmd_explore(args):
                                 _str_rows(allres['inventory']), height=height_label(h),
                                 cities=args.cities, candidates={ARM_LOCO: ARM_LOCO_SHUFFLED})
         text += [f'## height {height_label(h)}', ''] + [f'- {ln}' for ln in lines] + ['']
-    (d / 'verdict.md').write_text('\n'.join(text), encoding='utf-8')
+    (d / 'verdict.md').write_text('\n'.join(text), encoding='utf-8', newline='\n')
     print('\n'.join(text))
 
 
@@ -940,9 +940,9 @@ def cmd_verdict(args):
                 + (' (decides)' if h == PRIMARY_HEIGHT else ' (reported)'), '']
         out += [f'- {ln}' for ln in lines] + ['']
     text = '\n'.join(out)
-    (d / 'verdict.md').write_text(text, encoding='utf-8')
+    (d / 'verdict.md').write_text(text, encoding='utf-8', newline='\n')
     print(text)
-    (d / 'summary.md').write_text(summary_markdown(d, args.cities), encoding='utf-8')
+    (d / 'summary.md').write_text(summary_markdown(d, args.cities), encoding='utf-8', newline='\n')
 
 
 def _f3(v):

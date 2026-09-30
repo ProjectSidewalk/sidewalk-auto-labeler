@@ -114,7 +114,10 @@ POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
 # road-frame default is WITHHELD pending that question; `--apply-pose road` still works.
 # Put 'mapillary' back here only on a control that passes. GSV stays flat regardless:
 # applying its full pose loosens every city (geo._world_ray, #52). Its equirects are
-# rig-frame, not gravity-rectified (#113); a partial pose is untested. Panoramax:
+# rig-frame, not gravity-rectified (#113). A partial pose (~0.18 pitch, ~0.38 roll)
+# tightens held-out sites and beats a magnitude-matched shuffle, but FAILED #116's
+# pre-registered recall clause (Bend, 2 of 157 ramps), so there is no `partial` mode
+# (docs/gsv-partial-pose-study.md). Panoramax:
 # optional pers:pitch/roll, convention unmeasured (#57).
 # #51 re-ran the same control with a road grade that never saw the SfM (USGS 3DEP DEM,
 # --grade-source dem) and it FAILED again, on (i) and (ii) (docs/dem-grade-study.md): the
