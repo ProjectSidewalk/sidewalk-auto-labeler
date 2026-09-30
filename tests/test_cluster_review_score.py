@@ -91,21 +91,34 @@ def test_self_consistency_of_a_derived_assignment():
     assert m['split'] == 0 and m['merge_k'] == 0 and m['covered'] == 5
 
 
-def _bundle(tmp_path, keys, assignment=None):
+def _sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _bundle(tmp_path, keys, assignment=None, human=(), inventory=False):
     run = tmp_path / 'run'
     (run / 'provenance_gate').mkdir(parents=True)
+    (run / 'ps_clustering_eval').mkdir(parents=True)
     labels_file = run / 'provenance_gate' / 'raw_labels.geojson'
     labels_file.write_text('{"features": []}', encoding='utf-8')
+    (run / 'ps_clustering_eval' / 'clusters.geojson').write_text('{"features": [1]}',
+                                                                 encoding='utf-8')
     (run / 'results.jsonl').write_text('', encoding='utf-8')
     bundle = tmp_path / 'bundle'
     bundle.mkdir()
-    sha = hashlib.sha256(labels_file.read_bytes()).hexdigest()
+    sha = _sha(labels_file)
     (bundle / 'snapshot.json').write_text(json.dumps({
         'city': 'vancouver', 'labels': {'sha256': sha, 'n_features': len(keys),
                                         'fetched_at': 'x'},
-        'seed_arms': {'deployed': {'sha256': 'd'}}}), encoding='utf-8')
+        'seed_arms': {'deployed': {'sha256': _sha(run / 'ps_clustering_eval' / 'clusters.geojson')},
+                      'fusion': {'results_sha256': _sha(run / 'results.jsonl')}}}),
+        encoding='utf-8')
     corner = {'corner_id': 'u1', 'type': 'signalised', 'n_labels': len(keys), 'pilot': True,
-              'labels': [{'key': str(k), 'lat': 45.6, 'lng': -122.6} for k in keys]}
+              'centre': {'lat': 45.6, 'lng': -122.6},
+              'labels': [{'key': str(k), 'lat': 45.6, 'lng': -122.6,
+                          'user_kind': 'human' if k in human else 'ai'} for k in keys]}
+    if inventory:
+        corner['inventory'] = [{'lat': 45.6, 'lng': -122.6, 'unit_id': 'CR1'}]
     (bundle / 'corners.jsonl').write_text(json.dumps(corner) + '\n', encoding='utf-8')
     if assignment is not None:
         (bundle / 'assignments.json').write_text(json.dumps(dict(assignment, snapshot_sha256=sha)),
@@ -157,3 +170,83 @@ def test_refuses_a_file_on_another_snapshot(tmp_path, monkeypatch):
     with pytest.raises(SystemExit, match='cannot be scored'):
         crs.main(['vancouver', '--run-dir', str(run), '--bundle', str(bundle),
                   '--out', str(tmp_path / 'out')])
+
+
+def _fixture(**kw):
+    return dict({'schema': crs.SCHEMA, 'rubric_version': 1, 'seed_arm': 'deployed',
+                 'corners': {'u1': dict(U1, stratum={'type': 'signalised'})}}, **kw)
+
+
+def _run(tmp_path, monkeypatch, toy, df, run, bundle, *extra):
+    monkeypatch.setattr(ic, 'server_arms', lambda *k, **kw: (df, toy, {}))
+    return crs.main(['vancouver', '--run-dir', str(run), '--bundle', str(bundle),
+                     '--out', str(tmp_path / 'out')] + list(extra))
+
+
+def test_refuses_arm_inputs_other_than_the_bundles(tmp_path, monkeypatch):
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), _fixture())
+    (run / 'results.jsonl').write_text('{"changed": 1}\n', encoding='utf-8')
+    toy = {n: [[1, 2], [3, 4, 7], [5, 6]] for n in crs.ARMS}
+    with pytest.raises(SystemExit, match='results.jsonl sha256'):
+        _run(tmp_path, monkeypatch, toy, df, run, bundle)
+    (run / 'ps_clustering_eval' / 'clusters.geojson').write_text('{}', encoding='utf-8')
+    with pytest.raises(SystemExit, match='deployed clusters sha256'):
+        _run(tmp_path, monkeypatch, toy, df, run, bundle)
+    assert _run(tmp_path, monkeypatch, toy, df, run, bundle, '--allow-arm-mismatch') == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert 'ARM INPUT MISMATCH' in text
+
+
+@pytest.mark.parametrize('mutate, needle', [
+    (lambda a: a['corners']['u1']['labels'].update({'3': 'r3 '}), 'label value'),
+    (lambda a: a['corners']['u1']['labels'].update({'3': 'ramp'}), 'label value'),
+    (lambda a: a.update(rubric_version=2), 'rubric_version'),
+])
+def test_check_assignments_rejects_bad_values_and_foreign_rubrics(tmp_path, monkeypatch,
+                                                                  mutate, needle):
+    a = json.loads(json.dumps(_fixture()))
+    mutate(a)
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    with pytest.raises(SystemExit, match=needle):
+        _run(tmp_path, monkeypatch, {n: [[1]] for n in crs.ARMS}, df, run, bundle)
+
+
+def test_every_arm_scores_the_same_labels():
+    # arm P holds neither the human label 8 nor label 7; arm F holds everything. With human
+    # labels out of the key set and unheld labels completed as singletons, coverage is equal
+    unit = dict(U1, labels=dict(U1['labels'], **{'8': 'r3'}))
+    keys = {'u1': [str(k) for k in range(1, 8)]}            # 8 is human: excluded
+    p_arm, n_p = ic.complete_arm(ic.arm_index([[1], [2], [3, 4], [5], [6]]), keys['u1'])
+    f_arm, n_f = ic.complete_arm(ic.arm_index([[1, 2], [3, 4], [7, 8], [5, 6]]), keys['u1'])
+    assert (n_p, n_f) == (1, 0) and p_arm['7'] == {('singleton', '7')}
+    mp = ic.assignment_metrics(p_arm, {'u1': unit}, keys)
+    mf = ic.assignment_metrics(f_arm, {'u1': unit}, keys)
+    assert mp['coverage'] == mf['coverage'] == pytest.approx(3 / 4)
+    assert (mp['covered'], mf['covered']) == (3, 3)
+    assert (mp['split'], mf['split']) == (1, 0)
+
+
+def test_human_labels_and_singletons_through_main(tmp_path, monkeypatch):
+    unit = dict(U1, labels=dict(U1['labels'], **{'8': 'r3'}), stratum={'type': 'signalised'})
+    run, bundle, df = _bundle(tmp_path, list(range(1, 9)), _fixture(corners={'u1': unit}),
+                              human=(8,))
+    toy = {n: [[1, 2], [3, 4], [7, 8], [5, 6]] for n in crs.ARMS}
+    toy[ic.REVIEW_BASE] = [[1], [2], [3, 4], [5], [6]]       # no human, no label 7
+    assert _run(tmp_path, monkeypatch, toy, df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert '1 human label(s) excluded' in text and f'{ic.REVIEW_BASE} 1' in text
+    with open(tmp_path / 'out' / 'arms.csv', newline='', encoding='utf-8') as f:
+        cov = {r['arm']: r['coverage'] for r in csv.DictReader(f) if r['stratum'] == 'all'}
+    assert len(set(cov.values())) == 1                      # coverage is arm-independent
+
+
+def test_calibration_drops_units_edited_after_the_inventory_reveal(tmp_path, monkeypatch):
+    unit = dict(U1, stratum={'type': 'signalised'}, inventory_seen=True,
+                edited_after_inventory=True)
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), _fixture(corners={'u1': unit}),
+                              inventory=True)
+    toy = {n: [[1, 2], [3, 4, 7], [5, 6]] for n in crs.ARMS}
+    assert _run(tmp_path, monkeypatch, toy, df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert '1 were edited after the reveal and are DROPPED' in text
+    assert 'no reviewed unit carries inventory points' in text

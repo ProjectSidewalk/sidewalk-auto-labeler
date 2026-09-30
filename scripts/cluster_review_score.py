@@ -24,6 +24,7 @@ import argparse
 import csv
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -43,6 +44,7 @@ THRESHOLDS_M = (7.5, 10.0, 12.5, 15.0)
 STRATA = ('signalised', 'arterial', 'residential', 'mid_block')
 MATCH_M = 5.0
 SANITY_ARM = 'fusion_server+attach'   # a true partition (deployed can hold a label twice)
+VALUE_RE = re.compile(r'^(r\d+|not_ramp|unsure)$')
 
 
 def sha256_file(path):
@@ -62,6 +64,10 @@ def check_assignments(a, snapshot, corners):
     problems = []
     if a.get('schema') != SCHEMA:
         problems.append(f"schema {a.get('schema')!r}")
+    if a.get('rubric_version') != RUBRIC_VERSION:
+        problems.append(f"rubric_version {a.get('rubric_version')!r}: this scorer implements "
+                        f'v{RUBRIC_VERSION} only, and passes under different rubrics are not '
+                        'comparable')
     if a.get('snapshot_sha256') != snapshot['labels']['sha256']:
         problems.append('snapshot_sha256 is not the bundle\'s label snapshot')
     by_id = {c['corner_id']: c for c in corners}
@@ -74,9 +80,29 @@ def check_assignments(a, snapshot, corners):
         labels = u.get('labels') or {}
         if set(labels) - keys:
             problems.append(f'{cid}: labels not in the unit: {sorted(set(labels) - keys)[:3]}')
+        bad = sorted(k for k, v in labels.items()
+                     if not (isinstance(v, str) and VALUE_RE.match(v)))
+        if bad:
+            problems.append(f'{cid}: label value(s) not r<N> / not_ramp / unsure: '
+                            + ', '.join(f'{k}={labels[k]!r}' for k in bad[:3]))
         if u.get('complete') and keys - set(labels):
             problems.append(f'{cid}: complete but {len(keys - set(labels))} label(s) unassigned')
     return problems
+
+
+def arm_input_mismatches(run_dir, cfg, snapshot):
+    """How the run dir's arm inputs differ from the ones snapshot.json records."""
+    out = []
+    want = (snapshot.get('seed_arms') or {})
+    dep = sha256_file(run_dir / cfg['clusters'])
+    if dep != (want.get('deployed') or {}).get('sha256'):
+        out.append(f"deployed clusters sha256 {dep[:12]} != snapshot "
+                   f"{str((want.get('deployed') or {}).get('sha256'))[:12]}")
+    res = sha256_file(run_dir / 'results.jsonl')
+    if res != (want.get('fusion') or {}).get('results_sha256'):
+        out.append(f"results.jsonl sha256 {res[:12]} != snapshot "
+                   f"{str((want.get('fusion') or {}).get('results_sha256'))[:12]}")
+    return out
 
 
 def derived_assignment(arm_of, corners):
@@ -85,11 +111,11 @@ def derived_assignment(arm_of, corners):
     must give split 0 and merge 0 -- the self-consistency check."""
     out = {}
     for c in corners:
-        labels, ramps = {}, {}
+        labels, ramps, name = {}, {}, {}
         for lab in c['labels']:
             cl = arm_of.get(lab['key'])
             if cl and len(cl) == 1:
-                r = f'r{next(iter(cl)) + 1}'
+                r = name.setdefault(next(iter(cl)), f'r{len(name) + 1}')
                 labels[lab['key']] = r
                 ramps[r] = {'lat': lab['lat'], 'lng': lab['lng']}
             else:
@@ -181,6 +207,9 @@ def main(argv=None):
     ap.add_argument('--frame', default='auto', help='fuse frame of the fusion arms')
     ap.add_argument('--out', type=Path, default=None,
                     help='default runs/<city>/cluster_review/score in this checkout')
+    ap.add_argument('--allow-arm-mismatch', action='store_true',
+                    help='score although the deployed clusters or results.jsonl are not the '
+                         'ones the bundle was exported from (recorded in the report)')
     args = ap.parse_args(argv)
     bundle, run_dir = args.bundle.resolve(), args.run_dir.resolve()
     out = (args.out or REPO_ROOT / 'runs' / args.city / 'cluster_review' / 'score').resolve()
@@ -191,6 +220,11 @@ def main(argv=None):
     run_labels = run_dir / cfg['labels']
     if sha256_file(run_labels) != snapshot['labels']['sha256']:
         raise SystemExit(f'{run_labels}: not the label snapshot the bundle was exported from')
+    mismatch = arm_input_mismatches(run_dir, cfg, snapshot)
+    if mismatch and not args.allow_arm_mismatch:
+        raise SystemExit('the arms would be rebuilt from other inputs than the bundle was '
+                         'exported from: ' + '; '.join(mismatch)
+                         + ' (--allow-arm-mismatch overrides, and says so in the report)')
     a_path = bundle / args.assignments
     lines = [f'# {args.city}: clustering scored against cluster-review GT (RampNet#224)', '',
              'Protocol and decision rule: RampNet docs/cluster_review_protocol.md (pre-registered); '
@@ -203,14 +237,29 @@ def main(argv=None):
              f"- deployed clusters sha256 `{snapshot['seed_arms']['deployed']['sha256']}`; "
              f"results.jsonl sha256 `{sha256_file(run_dir / 'results.jsonl')}`; fusion frame "
              f'`{args.frame}`']
+    if mismatch:
+        lines.append('- **ARM INPUT MISMATCH, overridden with --allow-arm-mismatch**: '
+                     + '; '.join(mismatch))
 
     labels, clusters, st = ic.server_arms(run_dir, cfg, frame=args.frame,
                                           thresholds_m=THRESHOLDS_M)
-    arms = {name: ic.arm_index(clusters[name]) for name in ARMS}
+    # the pre-registered label set (protocol, "Metrics"): human labels are out of every arm,
+    # and a label an arm does not hold is that arm's singleton, so all arms cluster the same
+    # labels and coverage cannot differ between them
+    unit_keys = {c['corner_id']: [lab['key'] for lab in c['labels']
+                                  if lab.get('user_kind') != 'human'] for c in corners}
+    n_human = sum(1 for c in corners for lab in c['labels'] if lab.get('user_kind') == 'human')
+    scored = [k for ks in unit_keys.values() for k in ks]
+    arms, n_single = {}, {}
+    for name in ARMS:
+        arms[name], n_single[name] = ic.complete_arm(ic.arm_index(clusters[name]), scored)
     label_pos = {str(int(r.label_id)): (r.lat, r.lng) for r in labels.itertuples(index=False)}
-    unit_keys = {c['corner_id']: [lab['key'] for lab in c['labels']] for c in corners}
     lines.append('- arms rebuilt: ' + ', '.join(f'{n} {len(clusters[n])}' for n in ARMS)
                  + ' clusters')
+    lines.append(f'- scored label set: {len(scored)} labels in the bundle\'s windows; '
+                 f'{n_human} human label(s) excluded from every arm; labels an arm does not '
+                 'hold, scored as its singletons: '
+                 + ', '.join(f'{n} {n_single[n]}' for n in ARMS))
 
     derived = derived_assignment(arms[SANITY_ARM], corners)
     sm = ic.assignment_metrics(arms[SANITY_ARM], derived, unit_keys)
@@ -248,8 +297,6 @@ def main(argv=None):
               f"seed {a.get('seed_arm')}, exported {a.get('exported_at')}; "
               f'{len(units)} complete of {len(a.get("corners") or {})} units in the file',
               f'- {sanity}']
-    if a.get('rubric_version') != RUBRIC_VERSION:
-        lines.append(f"- WARNING: rubric v{a.get('rubric_version')} -- not comparable with v{RUBRIC_VERSION} files")
     if notes.get('caveats'):
         lines += ['- reviewer caveats:'] + [f'  - {c}' for c in notes['caveats']]
 
@@ -298,8 +345,14 @@ def main(argv=None):
         t = ic.paired_ramp_table(by_arm[base]['per_ramp'], by_arm[arm]['per_ramp'])
         lines.append(f"| {base} | {arm} | {t['fixed']} | {t['broken']} | {t['both']} | "
                      f"{t['neither']} | {t['only_a']} | {t['only_b']} |")
-    cal = inventory_calibration(units, corners_by_id, arms, label_pos)
-    lines += ['', '## Calibration against the city inventory', '']
+    seen_inv = [cid for cid, u in units.items() if u.get('inventory_seen')]
+    tainted = [cid for cid, u in units.items() if u.get('edited_after_inventory')]
+    cal = inventory_calibration({cid: u for cid, u in units.items() if cid not in tainted},
+                                corners_by_id, arms, label_pos)
+    lines += ['', '## Calibration against the city inventory', '',
+              f'- {len(seen_inv)} complete unit(s) revealed the inventory; {len(tainted)} were '
+              'edited after the reveal and are DROPPED from this calibration (they stay in every '
+              'other table)' + (f": {', '.join(sorted(tainted))}" if tainted else '')]
     if cal is None:
         lines.append('- no reviewed unit carries inventory points (the city has none)')
     else:

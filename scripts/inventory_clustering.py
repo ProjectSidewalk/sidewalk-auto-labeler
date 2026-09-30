@@ -198,6 +198,21 @@ def arm_index(clusters):
     return out
 
 
+def complete_arm(arm_of, keys):
+    """(arm_of, n_added): every key in `keys` the arm does not hold becomes a singleton
+    cluster of that arm (id ('singleton', key)), the pre-registered rule that makes every
+    arm cluster the same label set (RampNet#224 protocol, "Metrics"): ps @ t holds no human
+    label and fusion drops labels on unplaceable panos, and neither may read as lost
+    coverage. The input is not modified."""
+    out = dict(arm_of)
+    n = 0
+    for k in keys:
+        if not out.get(k):
+            out[k] = {('singleton', k)}
+            n += 1
+    return out, n
+
+
 def assignment_metrics(arm_of, units, unit_keys=None):
     """The pre-registered cluster-review metrics (RampNet docs/cluster_review_protocol.md,
     "Metrics") for one arm over reviewed units. Pure, numpy-free.

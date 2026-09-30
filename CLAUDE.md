@@ -276,7 +276,9 @@ python scripts/inventory_clustering.py score bend gainesville && python scripts/
 # aerials. The run dir is read in place. cluster_review_score.py reads assignments.json AS DATA
 # (no RampNet import), rebuilds every #56 arm, applies inventory_clustering.assignment_metrics +
 # the pre-registered rule (fusion_server+attach vs ps @ 7.5 m) and the inventory calibration; with
-# no assignments.json it writes a "NO GT YET" report and exits 0. Nobody but a human reviewer in
+# no assignments.json it writes a "NO GT YET" report and exits 0. Every arm scores the SAME labels:
+# human labels out, a label an arm does not hold = its singleton. It refuses deployed clusters /
+# results.jsonl whose sha256 differs from snapshot.json (--allow-arm-mismatch, recorded). Nobody but a human reviewer in
 # RampNet's cluster_review_gallery.py writes an assignments file.
 python scripts/export_cluster_review.py vancouver --run-dir ../sal-vancouver/runs/vancouver     --bundle ../RampNet/benchmark/vancouver/cluster_review [--no-crops] [--skip-aerial]
 python scripts/cluster_review_score.py vancouver --run-dir ../sal-vancouver/runs/vancouver     --bundle ../RampNet/benchmark/vancouver/cluster_review    # -> runs/vancouver/cluster_review/score/
