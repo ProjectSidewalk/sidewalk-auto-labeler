@@ -282,6 +282,11 @@ def test_store_pose_gate_finds_the_mapping_or_refuses():
     assert _gate([_pano('g')], offline)['status'] == 'not_required'
     # too few comparable panos fails even when they all agree
     assert _gate(panos[:30], lambda pid: truth[pid])['status'] == 'fail'
+    # angles all within the tolerance of zero: every mapping clears the bar -> not unique
+    flat = [_store_pano(f'z{i}', 0.01 * (i % 5), 0.02) for i in range(80)]
+    g = _gate(flat, lambda pid: (0.0, 0.0))
+    assert g['status'] == 'fail' and len(g['mappings_over_bar']) == 4
+    assert 'not identified' in g['reason'] and 'mapping' not in g
 
 
 def pytest_approx(v):

@@ -156,7 +156,9 @@ python scripts/gsv_partial_pose.py consistency paterson --benchmark-root ../Ramp
 # Vancouver) must first pass the store-pose gate: PS-row pitch/roll vs streetlevel's on a
 # seeded sample of the same ids (metadata only; network), one sign mapping agreeing within
 # 0.1 deg on >= 95% of >= 50 panos -> the mapping is applied; fail or no network refuses.
-# `--apply-pose partial` itself raycasts `ps_store` panos flat (warned, counted).
+# `--apply-pose partial` itself raycasts `ps_store` panos flat (warned, counted): the gate's
+# mapping is applied in confirm's memory only and is NOT persisted, so a later default-switch
+# PR must persist or apply it first.
 python scripts/gsv_partial_pose.py confirm vancouver --benchmark-root ../RampNet/benchmark
 python scripts/gsv_partial_pose.py confirm laurens_gsv --exploratory \
     --benchmark-root ../RampNet/benchmark     # the dry run; outputs labelled EXPLORATORY

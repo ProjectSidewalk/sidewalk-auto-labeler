@@ -452,7 +452,7 @@ multinomial over lost / gained / unchanged per ramp):
 | n | true lost / gained per ramp | P(FAIL) | reading |
 |---|---|---|---|
 | 157 | 2% / 0% | 0.208 | **power** against a real 2% loss is about 1 in 5 |
-| 300 | 2% / 0% | 0.394 | power at a larger pool |
+| 300 | 2% / 0% | 0.393 | power at a larger pool |
 | 157 | 1% / 0% | 0.021 | size at the nominal null: conservative (discrete) |
 | 300 | 3% / 2% | 0.180 | **size under churn**: net loss 1%, but FAIL 18% of the time |
 | 157 | 3% / 2% | 0.145 | size under churn at Bend's half-split pool |
@@ -493,7 +493,7 @@ runs a **store-pose gate** before it scores such a city:
 On a pass, `confirm` applies that mapping and marks the blocks `ps_store:pose_verified`,
 which `partial` then poses. A fail, or no network (every fetch raised), refuses to score.
 The gate writes `store_pose_gate.json` into the confirm output dir. **The gate is what
-makes Vancouver eligible:** without a pass it cannot be scored.
+makes Vancouver eligible:** without a pass it cannot be scored. One limit: the gate's mapping lives only in `confirm`'s memory: nothing persists it, so a plain `fuse_sites --apply-pose partial` on a store-built run (Vancouver) still raycasts every `ps_store` pano flat, and any later PR that makes `partial` a default must persist or apply the gate's mapping first.
 
 **Frozen knobs (review of PR #123).** `confirm` refuses:
 - `--seed` other than 116 without `--exploratory` (a re-seeded exploratory run writes to

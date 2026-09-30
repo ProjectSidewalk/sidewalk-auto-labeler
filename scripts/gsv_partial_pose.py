@@ -1123,6 +1123,9 @@ def cmd_consistency(args):
         for new, committed in (('consistency_pairs.csv', 'pairs.csv'),
                                ('consistency_gt.csv', 'gt.csv')):
             if not (out / new).exists() or not (out / committed).exists():
+                print(f'{city}: {new} or the committed {committed} is missing: cannot check',
+                      file=sys.stderr)
+                failed = True
                 continue
             n, bad = consistency_mismatches(read_csv(out / new), read_csv(out / committed))
             print(f'{city}: {new} vs committed {committed}: {n} rows, {len(bad)} mismatches',
@@ -1321,12 +1324,21 @@ def store_pose_gate(panos, fetch=streetlevel_pitch_roll, n=GATE_SAMPLE, seed=SEE
         agree[f'{sp:+d}{sr:+d}'] = ok / len(comp) if comp else None
     best = max(SIGN_MAPPINGS, key=lambda m: agree[f'{m[0]:+d}{m[1]:+d}'] or 0.0)
     share = agree[f'{best[0]:+d}{best[1]:+d}']
-    passed = len(comp) >= GATE_MIN_COMPARED and share is not None and share >= GATE_MIN_AGREE
+    # The mapping must be UNIQUE: two mappings over the bar (e.g. angles all within the
+    # tolerance of zero) cannot tell the sign, so the gate fails rather than taking the first.
+    over = [m for m in SIGN_MAPPINGS
+            if (agree[f'{m[0]:+d}{m[1]:+d}'] or 0.0) >= GATE_MIN_AGREE]
+    passed = (len(comp) >= GATE_MIN_COMPARED and share is not None
+              and share >= GATE_MIN_AGREE and len(over) == 1)
     out.update({'compared': len(comp), 'agreement_by_mapping': agree,
                 'best_mapping': list(best), 'best_agreement': share,
+                'mappings_over_bar': [list(m) for m in over],
                 'status': 'pass' if passed else 'fail'})
     if passed:
         out['mapping'] = list(best)
+    elif len(over) > 1:
+        out['reason'] = (f'{len(over)} sign mappings clear the {GATE_MIN_AGREE} bar '
+                         f'({over}): the sign is not identified')
     else:
         out['reason'] = (f'{len(comp)} comparable panos (need {GATE_MIN_COMPARED}); best '
                          f'mapping {best} agrees on {share} (need {GATE_MIN_AGREE})')
