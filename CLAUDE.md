@@ -517,6 +517,26 @@ python scripts/depth_at_detection.py gt            # reads ../RampNet/benchmark
 python scripts/depth_at_detection.py verdict
 python scripts/depth_at_detection.py figures       # also copies aggregates to docs/figures/depth-at-detection/data/
 
+# FOOTWAY: SEGMENTER vs DEPTH (issue #47 step 2) -- a STUDY, not production; docs/footway-depth-study.md.
+# 416 judged GSV benchmark panos with a `measured` payload; Mask2Former Swin-L Mapillary Vistas (pinned
+# revision; processor resize OFF; torch + transformers deliberately NOT in requirements.txt, only `segment`
+# needs them) on 16 PERSPECTIVE TILES per pano (90 deg, 1024 px, 8 headings x pitch 0/-35), voted back onto
+# a 1024x512 image-frame grid; a direct-equirect CONTROL arm is reported, never headlined. Depth classes,
+# the plane lookup and offset_local are IMPORTED from depth_at_detection.py. Tiles + label maps stay in the
+# untracked runs/_pooled/footway/work/ (sha256 in masks_manifest.json). Measured 2026-09-30: depth surface
+# is WALK/ROAD to the segmenter 0.87 (0.90 within 25 m), and 95% of segmenter-OBJECT pixels within 25 m sit
+# on a depth floor plane (depth draws the ground THROUGH objects); (C) the segmenter class at the peak pixel
+# is NO FP filter (False 2/42 non-surface vs True 43/770; not underpowered); the Sidewalk plane sits 0.02 m
+# (road-referenced, exploratory: 0.04 m) above the local road -- GSV depth does not carry a curb step. The
+# trap is at the FINE class: direct-equirect `Curb Cut` under True detections 0.18 vs tiled 0.27. Tile.
+python scripts/footway_segmentation.py sample --run-root <runs> --benchmark-root ../RampNet/benchmark
+python scripts/footway_segmentation.py tiles --benchmark-root ../RampNet/benchmark --workers 8
+python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/tiles     --out runs/_pooled/footway/work/tile_labels --fp16 --batch-size 2          # GPU; ~19 min on a 3070
+python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/direct     --out runs/_pooled/footway/work/direct_labels --target 1024x512 --fp16 --batch-size 1
+python scripts/footway_segmentation.py stitch  --run-root <runs> --benchmark-root ../RampNet/benchmark
+python scripts/footway_segmentation.py compare --run-root <runs> --benchmark-root ../RampNet/benchmark
+python scripts/footway_segmentation.py figures --run-root <runs> --benchmark-root ../RampNet/benchmark
+
 # POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
 # remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no
 # internet egress) and send_to_ps.py REFUSES a Mapillary file whose position_check.json is
