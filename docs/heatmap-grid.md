@@ -34,6 +34,12 @@ The 0.30 tier sits between the two columns in every run (in the CSV). The few of
 detections are almost all at residue 2, one cell off. The quantum of a stored detection is
 one coarse cell, 8 heatmap px = 2.8 deg, not one heatmap px.
 
+![Two log-scale bar charts of heatmap column and row residue mod 8, pooled over 13 runs and 351,326 stored detections: residues 3 and 4 hold about 169k and 182k columns and 151k and 200k rows, every other residue holds at most 162. A dot strip beside them shows each run's share of detections on residue 3 or 4 in both axes, from 99.78% in Bend to 100% in Bayonne, Budapest and Laurens GSV.](figures/heatmap-grid/grid_mod8.png)
+
+*Figure 1. Where stored detections land inside each 8-px block, pooled over every run's stored
+detections (the Vancouver zoom-3 control is left out, since its panos are a subset of the store
+run). Residues 3 and 4 are the two hi-res pixels beside each coarse sample.*
+
 ## 2. Error model
 
 **The quantization term.** An integer argmax on this map is off from the continuous peak by
@@ -55,6 +61,14 @@ downsample of a different JPEG (the store run). The uniform term does not cover 
 own coarse-level error, where the coarse peak falls in a cell that does not hold the ramp.
 That is step 1's measurement (RampNet#221), and `sigma_peak_px` should become the measured
 residual when it arrives.
+
+![Six panels. Top: a Richmond Mapillary pano crop with a curb ramp circled (confidence 0.91), its 64 by 64 px heatmap crop with the 8-px coarse-cell grid overlaid and a smooth peak, and the row and column profiles through the peak, which are piecewise linear with kinks at the coarse samples. Bottom: a second Richmond pano's heatmap before and after resampling to 0.75x with JPEG re-encoding; the two look identical, yet the argmax moves 7 px right and 7 px up, and a profile along the line through both argmaxes shows two peaks of 0.697 and 0.698 that trade places.](figures/heatmap-grid/heatmap_crop.png)
+
+*Figure 2. A real RampNet heatmap (Richmond bundle, `scripts/heatmap_grid.py examples`). Top:
+the peak is a bilinear surface with straight segments between coarse samples, so the argmax can
+only land on a sample. Bottom: an adjacent-coarse-cell flip, the section 3 mechanism. The
+resample changes the heatmap by about 0.001, which is enough to reorder two samples tied at 0.70.
+Imagery: Mapillary contributors vukmercd23 and HKocen, CC BY-SA 4.0.*
 
 **Measured effect of 1.0 -> 2.31 on fusion.** `scripts/heatmap_grid.py sigma`
 (`figures/heatmap-grid/data/sigma_peak.csv`, `sigma_peak_verdict.csv`). Each cell re-fuses at
@@ -88,6 +102,12 @@ world recall falls 1.57 pts (4 of 255 pool ramps) against an SE of 1.33 pts. So
 `geo.SIGMA_PEAK_PX_DEFAULT` stays 1.0, and 2.31 is opt-in through `--sigma-peak-px`
 (`fuse_sites.py`, `eval_sites.py`) or `FuseParams.sigma_peak_px`. **Every published fusion,
 clustering, residual and camera-height table used 1.0.**
+
+![Two dot plots over ten city-by-height cells. Left: change in world recall from sigma 1.0 to 2.31 px, each with a grey band of plus or minus one binomial standard error; nine dots sit inside their band, and Sao Paulo at 2.6 m sits outside at minus 1.57 points against a 1.33-point bound, marked FAIL. World precision is unchanged in every cell. Right: relative change in chi-square gate and residual rejections, all between minus 58% and 0%, well left of the dashed plus-10% limit.](figures/heatmap-grid/sigma_sweep.png)
+
+*Figure 3. The pre-registered rule, cell by cell. Recall moves only inside its noise band except
+in Sao Paulo at 2.6 m (4 of 255 pool ramps). The rejection clause is nowhere near binding: a
+wider sigma merges more, so both counters fall.*
 
 What the table says besides the verdict:
 - **World precision cannot see this change.** TP and FP are identical in every cell. The
