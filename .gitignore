@@ -120,3 +120,11 @@ runs/_summary/camera_height/estimator_validation*.csv
 !docs/figures/mined-precision/data/placement/*.jsonl
 # RampNet#158 step 3: the richmond / bend floor re-inference over judged panos (small).
 !docs/figures/mined-precision/data/step3/*.jsonl
+# Footway: segmenter vs GSV depth (scripts/footway_segmentation.py, issue #47 step 2; write-up
+# in docs/footway-depth-study.md): per-city and pooled reports, CSVs, the verdict and the
+# label-map manifest are tracked. The tiles and label maps (runs/_pooled/footway/work/) are
+# NOT -- masks_manifest.json carries the model revision and every label map's sha256.
+!runs/*/footway/
+!runs/*/footway/report.md
+!runs/*/footway/*.csv
+!runs/*/footway/*.json
