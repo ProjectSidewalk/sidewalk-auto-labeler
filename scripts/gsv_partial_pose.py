@@ -143,18 +143,11 @@ def stored_tilt(pano):
     return geo.norm_deg(float(pano.camera_pitch)), geo.norm_deg(float(pano.camera_roll))
 
 
-def arm_pose(pitch, roll, k_pitch, k_roll):
-    """The (pitch_deg, roll_deg) geo._world_ray takes for a stored GSV (pitch, roll) under
-    leak fractions (k_pitch, k_roll). Streetlevel's pitch > 0 is nose DOWN while _world_ray's
-    raises the view axis, so the pitch term flips sign; roll is already Project Sidewalk's.
-
-    Example:
-        >>> arm_pose(2.0, -1.0, 1.0, 1.0)      # the full pose
-        (-2.0, -1.0)
-        >>> arm_pose(2.0, -1.0, 0.25, 0.5)     # #113's partial arm
-        (-0.5, -0.5)
-    """
-    return -k_pitch * pitch, k_roll * roll
+# The arm's pose IS production's (#116 follow-up): geo.partial_pitch_roll, the function
+# `fuse_sites --apply-pose partial` applies, so what this study measures cannot drift from
+# what fusion does (the mapillary_tilt.py precedent). Signature (pitch, roll, k_pitch, k_roll);
+# its doctest carries the sign convention.
+arm_pose = geo.partial_pitch_roll
 
 
 def posed_panos(panos, k_pitch, k_roll, tilts=None):

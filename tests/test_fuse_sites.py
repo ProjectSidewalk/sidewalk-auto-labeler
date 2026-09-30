@@ -467,6 +467,7 @@ def test_road_mode_takes_the_grade_back_out_of_a_car_on_a_hill(tmp_path):
     assert stats['pose'] == {'mode': 'road', 'panos': 4, 'posed': 4,
                              'derived_from_source_metadata': 3, 'flat': 0, 'gravity': 0,
                              'road_relative': 3, 'gravity_fallback': 1,
+                             'partial': 0, 'partial_coefficients': None,
                              'grade_source': 'sfm', 'grade_replaced': 0}
     # ...but the production default stays FLAT for Mapillary: road-relative failed the #42
     # shuffled-grade control, so `auto` withholds it (fuse_sites.AUTO_ROAD_SOURCES).
@@ -514,6 +515,77 @@ def test_explicit_pose_warns_on_gsv_and_panoramax_only():
     assert fs.pose_source_warnings([gsv, pmx], fs.POSE_OFF) == []
     assert fs.pose_source_warnings([gsv, pmx], fs.POSE_AUTO) == []
     assert fs.pose_source_warnings([mly], fs.POSE_GRAVITY) == []
+
+
+def _posed(pano_id, x_target, pitch, roll, source='launch'):
+    """A pano whose one detection flat-raycasts to 10 m at bearing offset `x_target`
+    (0 = dead ahead, 90 = to the right), with a stored GSV-style (pitch, roll)."""
+    rad = math.radians(x_target)
+    p = make_pano(pano_id, 0, 0, [(10 * math.sin(rad), 10 * math.cos(rad), 0.9)],
+                  heading_deg=0.0, source=source)
+    p.camera_pitch, p.camera_roll = pitch, roll
+    return p
+
+
+def test_partial_pose_is_the_frozen_fraction_on_gsv():
+    """#116 follow-up: `partial` feeds _world_ray geo.partial_pitch_roll of the stored
+    angles with the frozen PARTIAL_POSE_K_GSV (roll stored unwrapped, as GSV does)."""
+    assert geo.PARTIAL_POSE_K_GSV == (0.183, 0.382)
+    p = _posed('g', 0, 2.0, 359.0)
+    pose = fs.pano_pose(p, fs.POSE_PARTIAL)
+    want = geo.partial_pitch_roll(2.0, 359.0, *geo.PARTIAL_POSE_K_GSV)
+    assert (pose.pitch_deg, pose.roll_deg) == pytest.approx(want)
+    assert want == pytest.approx((-0.183 * 2.0, 0.382 * -1.0))
+    assert pose.has_pitch_roll
+    counts = fs.pose_counts([p], fs.FuseParams(apply_pose=fs.POSE_PARTIAL))
+    assert (counts['partial'], counts['flat']) == (1, 0)
+    assert counts['partial_coefficients'] == {'k_pitch': 0.183, 'k_roll': 0.382}
+
+
+def test_partial_pose_moves_the_ray_part_of_the_way_the_full_pose_does():
+    """Direction, not a re-derivation: a nose-DOWN pano (streetlevel pitch > 0) sees a
+    point ahead closer than flat, and a pano rolled right-side-down (PS roll > 0) sees a
+    point to its right closer; `partial` lands between flat and the full pose."""
+    def rng(p, mode):
+        dets, _, _ = fs.project([p], fs.FuseParams(apply_pose=mode))
+        return dets[0].ground.range_m
+    for p in (_posed('ahead', 0, 2.0, 0.0), _posed('right', 90, 0.0, 2.0)):
+        flat = rng(p, fs.POSE_OFF)
+        full = geo.detection_ground_point(
+            geo.pano_pose(p.pose_fields(camera_pitch=-p.camera_pitch,
+                                        camera_roll=p.camera_roll)),
+            *p.detections[0][1:3]).range_m
+        assert flat == pytest.approx(10.0)
+        assert full < rng(p, fs.POSE_PARTIAL) < flat
+
+
+def test_partial_pose_leaves_non_gsv_and_half_posed_panos_flat():
+    mly = _posed('m', 0, 2.0, 1.0, source='mapillary')
+    pmx = _posed('p', 0, 2.0, 1.0, source='panoramax')
+    half = _posed('h', 0, 2.0, None)
+    params = fs.FuseParams(apply_pose=fs.POSE_PARTIAL)
+    dets, _, _ = fs.project([mly, pmx, half], params)
+    assert all(d.ground.range_m == pytest.approx(10.0) for d in dets)
+    counts = fs.pose_counts([mly, pmx, half], params)
+    assert (counts['partial'], counts['flat']) == (0, 3)
+    # ...and `auto` never applies it
+    gsv = _posed('g', 0, 2.0, 1.0)
+    assert fs.pose_counts([gsv], fs.FuseParams())['partial'] == 0
+    assert fs.pose_counts([gsv], fs.FuseParams())['partial_coefficients'] is None
+    auto, _, _ = fs.project([gsv], fs.FuseParams())
+    assert auto[0].ground.range_m == pytest.approx(10.0)
+
+
+def test_partial_pose_warns_once_on_non_gsv_panos_and_parses():
+    gsv = make_pano('g', 0, 0, [(0, 10, 0.9)], source='launch')
+    pmx = make_pano('p', 0, 0, [(0, 10, 0.9)], source='panoramax')
+    mly = make_pano('m', 0, 0, [(0, 10, 0.9)], source='mapillary')
+    warnings = fs.pose_source_warnings([gsv, pmx, mly, mly], fs.POSE_PARTIAL)
+    assert len(warnings) == 1
+    assert 'partial on 2 mapillary, 1 panoramax' in warnings[0] and 'GSV' in warnings[0]
+    assert fs.pose_source_warnings([gsv, gsv], fs.POSE_PARTIAL) == []
+    assert fs.build_parser().parse_args(
+        ['runs/x', '--apply-pose', 'partial']).apply_pose == fs.POSE_PARTIAL
 
 
 def test_load_results_rederives_a_half_pose_from_source_metadata(tmp_path):
