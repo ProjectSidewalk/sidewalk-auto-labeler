@@ -10,6 +10,10 @@ before any scoring run, and the script was committed at the same time.
 **FAIL under the pre-registered rule, on one clause. Production does not change:** GSV
 still raycasts flat, and `--apply-pose` gains no `partial` mode.
 
+*Update 2026-09-30 (see the addendum at the end):* `--apply-pose partial` is now wired as
+an **opt-in** mode with the frozen pooled constants. The default is unchanged. A
+confirmatory run with a pool-sized recall clause is pre-registered on #116.
+
 - **Clause (i) passes (self-agreement).** At the production height (`auto`), on held-out
   panos, with each arm re-associated under its own pose, a partial pose cuts the median
   within-site pair distance by 5.7-10.7% and the p90 by 4.7-8.5%. This holds in all four
@@ -332,6 +336,124 @@ mirror is worst, and `fixed-113` is the best median.
    quantity** and must not borrow these numbers. Beta is about 0.9 because it concerns the
    viewer; these fractions concern the ground.
 
+## Addendum 2026-09-30: opt-in wiring and the confirmatory run
+
+This addendum was written after the verdict. It does not change the verdict or any table
+above.
+
+### Wiring (opt-in; the default is unchanged)
+
+- `geo.PARTIAL_POSE_K_GSV = (0.183, 0.382)` holds the pooled `auto` fit from the
+  coefficient table above (`runs/_pooled/partial_pose/coefficients.csv`: scope `pooled`,
+  height `auto`, tier 0.3). It is frozen.
+- `geo.partial_pitch_roll` is the study's former `arm_pose`, moved beside `_world_ray`,
+  which owns the sign convention. It now folds both angles into [-180, 180) itself.
+  `gsv_partial_pose.arm_pose` *is* this function, so the study measures exactly what
+  fusion applies. This follows the `mapillary_tilt.py` precedent.
+- `fuse_sites --apply-pose partial` (and `eval_sites --apply-pose partial`, via
+  `fs.POSE_MODES`) applies the fraction to GSV panos that store both angles:
+  - A GSV pano missing either angle raycasts flat.
+  - Every Mapillary and Panoramax pano raycasts flat too, with one stderr warning per run,
+    because the fractions were fit on GSV rigs only.
+  - `sites_meta.json`'s `pose` block counts `partial` and records `partial_coefficients`.
+- `auto` still resolves to flat for every source.
+
+### Consistency row (reported; gates nothing)
+
+`gsv_partial_pose.py consistency paterson` re-scores Paterson's TEST half with the
+study's arms plus `partial-pooled`, which is production's mode on the unmodified panos.
+It uses the same seed-116 split and the same common pairs; the common set is the decision
+arms', so the extra arm changes nothing else.
+
+Two checks pass before any numbers:
+- **Every study-arm row reproduces the committed `pairs.csv` exactly.** That is 16 rows,
+  compared on pair count, median, mean, p90, sites and own pairs.
+- **The poses match.** Production's pose equals the study's posed-panos pose on all 34,687
+  panos of the run, at both heights.
+
+Within-site pair distance, reassoc (median / p90, m), with off-pool recall at 2.5 m
+(lost / gained vs off):
+
+| height | off | partial (city fit) | partial-loco | partial-pooled (production) | partial-shuffled |
+|---|---|---|---|---|---|
+| auto | 1.736 / 3.883 | 1.587 / 3.604 | 1.588 / 3.604 | 1.591 / 3.604 | 1.758 / 4.030 |
+| auto, recall | 0.876 (185) | 0.892 (1/4) | 0.892 (1/4) | 0.892 (1/4) | 0.881 (2/3) |
+| 2.6 | 2.228 / 4.543 | 2.175 / 4.544 | 2.169 / 4.546 | 2.168 / 4.550 | 2.257 / 4.680 |
+| 2.6, recall | 0.851 (175) | 0.857 (1/2) | 0.857 (1/2) | 0.857 (1/2) | 0.846 (3/2) |
+
+- **At `auto`:** the pooled constants land within 0.004 m of both fitted arms on the
+  median and match them on the p90. They are not strictly between them: the median is
+  0.003-0.004 m above both.
+- **At 2.6 m:** the pooled arm uses constants fit at `auto`. Its pitch fraction is 0.183
+  against 0.15 for the 2.6 m fits. It has the best median and a p90 0.004-0.006 m above the
+  others. It also leaves 10 of the 10,457 common pairs unplaced, because the larger pitch
+  term pushes a few rays past the 25 m cap.
+- **Recall is identical** to both fitted arms at both heights.
+
+Files: `runs/paterson/partial_pose/consistency{.md,_pairs.csv,_gt.csv}`.
+
+### Confirmatory run (pre-registered)
+
+The rule was posted on
+[#116](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/116#issuecomment-5921256808)
+before any new city was scored. The constants and the rule are frozen there. In summary:
+
+- **City:** the first GSV benchmark city with RampNet verdicts that this study never saw,
+  which is Vancouver WA once its GT session lands. `confirm` refuses #116's five cities
+  unless `--exploratory` is passed, and then every output is labelled exploratory.
+- **Run:** the whole run. With frozen constants there is nothing to train, so there is no
+  split. It uses production's loader, tier 0.30, the rig mask and the 25 m cap. `auto`
+  decides; 2.6 m is reported.
+- **Arms:**
+  - `off`
+  - `partial` (production's mode)
+  - `partial-shuffled` (the frozen constants on another pano's tilt, within |tilt|
+    buckets, seed 116)
+  - `partial-mirror` (descriptive)
+- **Clauses:**
+  - **(i)** Unchanged, for the one candidate. Fewer than 500 common pairs makes the run
+    INCONCLUSIVE.
+  - **(ii)** Replaced by a pool-sized rule. Let n be the off-pool recall denominator at
+    2.5 m and L be ramps lost minus ramps gained against off. The clause **FAILS iff
+    L >= k\*(n)**, where k\*(n) is the smallest k with P(Binomial(n, 0.01) >= k) <= 0.05
+    (one-sided; 0.01 is this study's 1.0 pt limit read as a per-ramp rate). n < 50 is
+    INCONCLUSIVE.
+  - **(iii)** Unchanged.
+  - **(iv)** Unchanged: the Bend and Gainesville inventories, scored on their whole runs
+    with the frozen constants.
+- **Reported, never scored:** k_pitch and k_roll re-fitted on the confirm city, overall
+  and per capture year.
+
+k\*(n) for every n from 50 to 800 (`gsv_partial_pose.py loss-bar`):
+
+| n | k\*(n) | | n | k\*(n) |
+|---|---|---|---|---|
+| 50-82 | 3 | | 400-471 | 9 |
+| 83-137 | 4 | | 472-544 | 10 |
+| 138-198 | 5 | | 545-618 | 11 |
+| 199-262 | 6 | | 619-694 | 12 |
+| 263-329 | 7 | | 695-771 | 13 |
+| 330-399 | 8 | | 772-800 | 14 |
+
+For scale, Bend's half split (n = 157, L = 2) sits under its bar of 5.
+
+### Exploratory dry run: laurens_gsv, whole run, `auto` (a train city; not a confirmation)
+
+`confirm laurens_gsv --exploratory` exercises the code path end to end. The output is in
+`runs/laurens_gsv/partial_pose/confirm_exploratory_auto/`. It reads PASS on all four
+clauses:
+
+- **(i)** Across 1,236 pairs, off 1.749 / 3.908 m becomes 1.576 / 3.535 m, against the
+  shuffle's 1.724 / 3.794 m.
+- **(ii)** n = 193, 2 ramps lost and 3 gained, so L = -1 against a bar of 5.
+- **(iii)** One fewer unplaceable mark than off.
+- **(iv)** Bend's median moves -0.010 m and its p90 -0.051 m. Gainesville's median moves
+  -0.034 m and its p90 -0.050 m.
+
+Laurens's own k is 0.33 / 0.52 (SE 0.07 / 0.06, in-sample), in line with its #116
+per-city fit. The (iv) referee does not depend on the confirm city, so its `auto` numbers
+above are already known. The pre-registration says so.
+
 ## Limits
 
 - **Self-agreement is not accuracy.** Clause (i) measures how tightly members agree. The
@@ -352,6 +474,11 @@ python scripts/gsv_partial_pose.py tieback paterson bend sao_paulo gainesville
 python scripts/gsv_partial_pose.py verdict                  # verdict.md + summary.md
 python scripts/gsv_partial_pose.py explore --benchmark-root ../RampNet/benchmark  # exploratory
 python scripts/gsv_partial_pose.py figures --benchmark-root ../RampNet/benchmark  # docs/figures/gsv-partial-pose/
+# addendum (2026-09-30)
+python scripts/gsv_partial_pose.py consistency paterson --benchmark-root ../RampNet/benchmark
+python scripts/gsv_partial_pose.py loss-bar
+python scripts/gsv_partial_pose.py confirm laurens_gsv --exploratory --benchmark-root ../RampNet/benchmark
+python scripts/gsv_partial_pose.py confirm vancouver --benchmark-root ../RampNet/benchmark  # when its GT lands
 ```
 
 Inputs are read in place: `runs/<city>/results.jsonl`, `runs/<city>/depth/index.csv` (for
