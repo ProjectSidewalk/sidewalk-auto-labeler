@@ -122,9 +122,11 @@ python scripts/fuse_sites.py runs/paterson
 # `partial` (#116 follow-up; OPT-IN, GSV only) feeds the ray the frozen leaked fraction of the
 # stored pose: geo.partial_pitch_roll with geo.PARTIAL_POSE_K_GSV = (0.183 pitch, 0.382 roll),
 # #116's pooled `auto` fit, i.e. (-0.183 x pitch, +0.382 x roll). A GSV pano missing either
-# angle, and every Mapillary/Panoramax pano, raycasts flat (one stderr warning per run for the
-# non-GSV ones); sites_meta.json's `pose` block counts `partial` and records
-# `partial_coefficients`. eval_sites.py --apply-pose takes it too (fs.POSE_MODES). `auto` is
+# angle, every Mapillary/Panoramax pano, and every store-built GSV block (source_detail
+# `ps_store`: the PS row's pose convention is unverified) raycasts flat, with one stderr
+# warning per kind; sites_meta.json's `pose` block counts `partial`, `store_unverified_flat`
+# and records `partial_coefficients`. eval_sites.py --apply-pose takes it too
+# (fs.POSE_MODES) and prints the same warnings. `auto` is
 # NOT changed: that waits on #116's pre-registered confirmatory run (below).
 # A Mapillary run from before #42 needs no
 # rewrite: load_results derives the pose from source_metadata. sites_meta.json's `pose`
@@ -147,8 +149,14 @@ python scripts/gsv_partial_pose.py consistency paterson --benchmark-root ../Ramp
 # the first GSV benchmark city with verdicts #116 never saw (Vancouver when its GT lands),
 # whole run, arms off / partial / partial-shuffled / mirror; clauses (i), (iii), (iv) as
 # #116, and (ii) sized to the pool: FAIL iff lost - gained >= k*(n), the smallest k with
-# P(Binomial(n, 0.01) >= k) <= 0.05 (n = off-pool ramps at 2.5 m; n < 50 inconclusive;
-# `loss-bar` prints the table). A #116 train city is refused without --exploratory.
+# P(Binomial(n, 0.01) >= k) <= 0.05 (n = off-pool ramps at 2.5 m; below n = 50 a FAIL
+# stands and a pass becomes INCONCLUSIVE; `loss-bar` prints the table; its power and its size
+# under churn are in the doc addendum). A #116 train city (any case), a path-like name, or
+# --seed != 116 is refused without --exploratory. A STORE-BUILT city (detect_from_store.py;
+# Vancouver) must first pass the store-pose gate: PS-row pitch/roll vs streetlevel's on a
+# seeded sample of the same ids (metadata only; network), one sign mapping agreeing within
+# 0.1 deg on >= 95% of >= 50 panos -> the mapping is applied; fail or no network refuses.
+# `--apply-pose partial` itself raycasts `ps_store` panos flat (warned, counted).
 python scripts/gsv_partial_pose.py confirm vancouver --benchmark-root ../RampNet/benchmark
 python scripts/gsv_partial_pose.py confirm laurens_gsv --exploratory \
     --benchmark-root ../RampNet/benchmark     # the dry run; outputs labelled EXPLORATORY

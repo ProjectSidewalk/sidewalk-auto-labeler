@@ -101,6 +101,7 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/partial_pose/confirm_*/
 !runs/*/partial_pose/confirm_*/*.md
 !runs/*/partial_pose/confirm_*/*.csv
+!runs/*/partial_pose/confirm_*/*.json
 # Provenance gate (scripts/provenance_gate.py, issue #56): does a run rebuilt from the pano
 # store reproduce the city's deployed AI labels? The report and the unmatched-label rows are
 # tracked; the label pull (raw_labels.geojson) is NOT -- the report carries its url, fetch

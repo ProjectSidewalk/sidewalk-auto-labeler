@@ -4,6 +4,8 @@
 
 Frozen constants k_pitch 0.183, k_roll 0.382 (geo.PARTIAL_POSE_K_GSV); whole run, 2137 panos, tier 0.3, 25 m cap, seed 116 (the shuffle kept its own tilt on 10 panos). Production's pose equals the study arm's on all 2137 panos.
 
+Store-pose gate: **not_required** -- no store-built panos: every angle is streetlevel's own; `store_pose_gate.json`.
+
 ## Outcome: EXPLORATORY PASS
 
 - (i) partial (1236 pairs): median -0.173 m vs off, -0.147 m vs partial-shuffled; p90 -0.373 vs off, -0.259 vs partial-shuffled -> ok

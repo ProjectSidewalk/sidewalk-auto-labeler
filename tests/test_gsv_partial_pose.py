@@ -227,11 +227,73 @@ def test_confirm_verdict_sizes_the_recall_clause_to_the_pool():
     # too few pairs to score (i): inconclusive, never a pass
     assert gpp.confirm_verdict(*_confirm_rows(n_pairs=499))[0] == 'INCONCLUSIVE'
     assert gpp.confirm_verdict(*_confirm_rows(pool=49))[0] == 'INCONCLUSIVE'
+    # ...but n < 50 only turns a PASS into INCONCLUSIVE: a (ii) FAIL there stands (k* = 2)
+    out, state, _ = gpp.confirm_verdict(*_confirm_rows(pool=30, lost=2))
+    assert gpp.recall_loss_bar(30) == 2 and out == 'FAIL' and state['ii'] is False
     # a FAIL anywhere beats an inconclusive
     assert gpp.confirm_verdict(*_confirm_rows(n_pairs=499, lost=9))[0] == 'FAIL'
 
 
-def test_confirm_refuses_a_train_city_unless_exploratory():
+def test_confirm_refuses_train_cities_paths_and_unfrozen_seeds():
     import pytest
-    with pytest.raises(SystemExit, match='train set'):
-        gpp.main(['confirm', 'bend'])
+    for city in ('bend', 'Bend', 'LAURENS_GSV'):
+        with pytest.raises(SystemExit, match='train set'):
+            gpp.main(['confirm', city])
+    for city in ('../bend', 'runs/vancouver', 'a\\b', 'C:x'):
+        with pytest.raises(SystemExit, match='not a city name'):
+            gpp.main(['confirm', city, '--exploratory'])
+    with pytest.raises(SystemExit, match='seed 116'):
+        gpp.main(['confirm', 'vancouver', '--seed', '7'])
+    gpp.check_confirm_city('vancouver', False, gpp.SEED)          # the pre-registered call
+    gpp.check_confirm_city('bend', True, 7)                       # exploratory may re-seed
+
+
+def _store_pano(pid, pitch, roll):
+    from dataclasses import replace
+    return replace(_pano(pid, pitch=pitch, roll=roll), source='',
+                   source_detail=fs.STORE_SOURCE_DETAIL)
+
+
+def _gate(panos, fetch):
+    return gpp.store_pose_gate(panos, fetch=fetch, spacing_s=0)
+
+
+def test_store_pose_gate_finds_the_mapping_or_refuses():
+    rng = random.Random(5)
+    truth = {f's{i}': (rng.uniform(-3, 3), rng.uniform(-3, 3)) for i in range(120)}
+    # PS rows hold streetlevel's pitch and the NEGATED roll, unwrapped; 10% null roll
+    panos = [_store_pano(k, p, None if i % 10 == 0 else (-r) % 360)
+             for i, (k, (p, r)) in enumerate(sorted(truth.items()))]
+    g = _gate(panos, lambda pid: truth[pid])
+    assert g['status'] == 'pass' and g['mapping'] == [1, -1]
+    assert g['ps_null_roll_share'] == pytest_approx(0.1)
+    mapped = gpp.apply_store_mapping(panos, g['mapping'])
+    assert all(q.source_detail == fs.STORE_POSE_VERIFIED_DETAIL for q in mapped)
+    assert gpp.production_pose_mismatches(mapped) == []
+    pose = fs.pano_pose(mapped[1], fs.POSE_PARTIAL)
+    want = geo.partial_pitch_roll(*truth[mapped[1].pano_id])
+    assert (pose.pitch_deg, pose.roll_deg) == pytest_approx(want)
+    # unrelated angles: no mapping agrees -> fail; no network -> skipped; GSV-built: not needed
+    assert _gate(panos, lambda pid: (rng.uniform(-3, 3), rng.uniform(-3, 3)))['status'] == 'fail'
+
+    def offline(pid):
+        raise OSError('no network')
+    assert _gate(panos, offline)['status'] == 'skipped'
+    assert _gate([_pano('g')], offline)['status'] == 'not_required'
+    # too few comparable panos fails even when they all agree
+    assert _gate(panos[:30], lambda pid: truth[pid])['status'] == 'fail'
+
+
+def pytest_approx(v):
+    import pytest
+    return pytest.approx(v)
+
+
+def test_consistency_rows_reproduce_the_committed_116_outputs():
+    """The committed consistency run (production's `partial` beside the #116 arms on
+    Paterson's TEST half) must reproduce every committed #116 row, column for column."""
+    from pathlib import Path
+    d = Path(gpp.REPO_ROOT) / 'runs' / 'paterson' / gpp.OUT_NAME
+    for new, old in (('consistency_pairs.csv', 'pairs.csv'), ('consistency_gt.csv', 'gt.csv')):
+        n, bad = gpp.consistency_mismatches(gpp.read_csv(d / new), gpp.read_csv(d / old))
+        assert n == 16 and bad == []

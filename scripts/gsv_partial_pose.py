@@ -66,6 +66,7 @@ No network, no GPU.
 import argparse
 import csv
 import hashlib
+import json
 import math
 import random
 import sys
@@ -958,7 +959,7 @@ CONFIRM_CANDIDATES = {ARM_PARTIAL: ARM_SHUFFLED}
 # limit the study used, read as a per-ramp loss RATE, at one-sided alpha 0.05.
 CONFIRM_LOSS_RATE = 0.01
 CONFIRM_ALPHA = 0.05
-CONFIRM_MIN_POOL = 50           # below this many off-pool ramps (ii) is INCONCLUSIVE
+CONFIRM_MIN_POOL = 50           # below this, a (ii) pass reads INCONCLUSIVE (a FAIL stands)
 CONFIRM_MIN_VINTAGE_ROWS = 50   # per-vintage k is reported only with this many fit rows
 
 
@@ -1059,6 +1060,24 @@ def consistency_city(city, heights, coef_table, runs_root, benchmark_root,
     return out
 
 
+def consistency_mismatches(new_rows, committed_rows):
+    """[(key, column, committed, new)] where a row of the consistency run differs from the
+    committed #116 row for the same (height, frame, arm), over every column both carry.
+    Rows only one side has (partial-pooled; the frozen frame) are not compared. Returns
+    (n_rows_compared, mismatches)."""
+    def key(r):
+        return (r['height'], r.get('frame', ''), r['arm'])
+    old = {key(r): r for r in committed_rows}
+    n, bad = 0, []
+    for r in new_rows:
+        o = old.get(key(r))
+        if o is None:
+            continue
+        n += 1
+        bad += [(key(r), c, o[c], r[c]) for c in r if c in o and o[c] != r[c]]
+    return n, bad
+
+
 def cmd_consistency(args):
     """Consistency row (#116 follow-up; reported, gates nothing): production's pooled
     `partial` beside the study's per-city and LOCO arms on the same TEST half."""
@@ -1098,6 +1117,19 @@ def cmd_consistency(args):
         (out / 'consistency.md').write_text('\n'.join(lines) + '\n', encoding='utf-8',
                                             newline='\n')
         print('\n'.join(lines))
+        # The automated half of the check: every study-arm row must reproduce the
+        # committed #116 outputs (pairs.csv, gt.csv) column for column.
+        failed = False
+        for new, committed in (('consistency_pairs.csv', 'pairs.csv'),
+                               ('consistency_gt.csv', 'gt.csv')):
+            if not (out / new).exists() or not (out / committed).exists():
+                continue
+            n, bad = consistency_mismatches(read_csv(out / new), read_csv(out / committed))
+            print(f'{city}: {new} vs committed {committed}: {n} rows, {len(bad)} mismatches',
+                  file=sys.stderr)
+            failed |= bool(bad) or n == 0
+        if failed:
+            raise SystemExit(f'{city}: the consistency run does not reproduce #116\'s rows')
 
 
 def vintage_coefficients(panos, height, tier=OPERATIONAL_CONFIDENCE,
@@ -1126,8 +1158,8 @@ def confirm_verdict(pairs, gt, inventory, candidates=CONFIRM_CANDIDATES,
           strictly below off's AND below its magnitude-matched shuffle's. Fewer pairs
           -> INCONCLUSIVE, never a pass.
     (ii)  L = ramps lost - ramps gained vs off (off pool, 2.5 m); FAIL iff
-          L >= recall_loss_bar(n), n = the off-pool denominator. n < CONFIRM_MIN_POOL
-          -> INCONCLUSIVE.
+          L >= recall_loss_bar(n), n = the off-pool denominator. Below
+          CONFIRM_MIN_POOL a FAIL stands; only a would-be pass becomes INCONCLUSIVE.
     (iii) extra unplaceable GT marks <= 5% of the off pool.
     (iv)  Bend and Gainesville inventories (frozen@off, pool on off, 5 m): median and p90
           no worse than off by more than 0.10 m.
@@ -1204,6 +1236,135 @@ def confirm_verdict(pairs, gt, inventory, candidates=CONFIRM_CANDIDATES,
     return outcome, state, lines
 
 
+# STORE-POSE GATE (review of PR #123). A run rebuilt from the PS pano store
+# (detect_from_store.py; Vancouver) carries the PS pano row's pitch/roll, whose convention
+# against streetlevel's -- the angles PARTIAL_POSE_K_GSV was fit on -- is unverified; a
+# sign flip would make `partial` behave as the mirror arm. fuse_sites therefore raycasts
+# such panos flat under `partial`. `confirm` may score a store-built city only after this
+# gate: a seeded sample of its store panos is resolved live through streetlevel (METADATA
+# only, sources/gsv.fetch_metadata_with_retry; no imagery) and the PS angles are compared
+# with streetlevel's on the same ids under each of the four sign mappings. The gate passes
+# only if one mapping agrees within GATE_TOL_DEG on BOTH angles for >= GATE_MIN_AGREE of
+# at least GATE_MIN_COMPARED comparable panos; confirm then applies that mapping and
+# re-labels the blocks fs.STORE_POSE_VERIFIED_DETAIL. This gate is what makes a
+# store-built city (Vancouver) eligible for the confirmatory run.
+GATE_SAMPLE = 200
+GATE_TOL_DEG = 0.1
+GATE_MIN_AGREE = 0.95
+GATE_MIN_COMPARED = 50
+GATE_SPACING_S = 0.2
+SIGN_MAPPINGS = ((1, 1), (1, -1), (-1, 1), (-1, -1))   # (pitch sign, roll sign)
+
+
+def streetlevel_pitch_roll(pano_id):
+    """(pitch_deg, roll_deg) streetlevel reports for a pano id -- the convention
+    sources/gsv.build_pano_record stores -- or None when it no longer resolves.
+    Metadata only (the same call main.py makes; no imagery)."""
+    from sources import gsv as gsv_source
+    metadata, _depth = gsv_source.fetch_metadata_with_retry(pano_id)
+    if metadata is None:
+        return None
+    return math.degrees(metadata.pitch), math.degrees(metadata.roll)
+
+
+def store_panos(panos):
+    return [p for p in panos if p.source_detail == fs.STORE_SOURCE_DETAIL]
+
+
+def store_pose_gate(panos, fetch=streetlevel_pitch_roll, n=GATE_SAMPLE, seed=SEED,
+                    tol=GATE_TOL_DEG, spacing_s=GATE_SPACING_S):
+    """The store-pose convention gate (see GATE_SAMPLE). Returns a JSON-able dict with
+    `status` in {'not_required', 'pass', 'fail', 'skipped'} and, on a pass, `mapping`
+    (pitch sign, roll sign) to apply to the PS angles. `fetch(pano_id)` returns
+    streetlevel's (pitch, roll) or None; an exception from it counts as a network error,
+    and a sample where every fetch raised is `skipped` (no network), which confirm treats
+    as a refusal."""
+    store = sorted(store_panos(panos), key=lambda p: p.pano_id)
+    out = {'store_panos': len(store), 'run_panos': len(panos), 'sample_seed': seed,
+           'tol_deg': tol, 'min_agree': GATE_MIN_AGREE, 'min_compared': GATE_MIN_COMPARED}
+    if not store:
+        return {**out, 'status': 'not_required',
+                'reason': "no store-built panos: every angle is streetlevel's own"}
+    sample = random.Random(seed).sample(store, min(n, len(store)))
+    rows, errors = [], 0
+    for i, p in enumerate(sample):
+        if i and spacing_s:
+            time.sleep(spacing_s)
+        try:
+            got = fetch(p.pano_id)
+            err = None
+        except Exception as e:           # network / parse: recorded, never fatal here
+            got, err = None, f'{type(e).__name__}: {e}'
+            errors += 1
+        rows.append({'pano_id': p.pano_id, 'ps_pitch': p.camera_pitch, 'ps_roll': p.camera_roll,
+                     'sl_pitch': None if got is None else got[0],
+                     'sl_roll': None if got is None else got[1], 'error': err})
+    out.update({'sample': len(sample), 'fetch_errors': errors,
+                'streetlevel_unresolved': sum(1 for r in rows if r['sl_pitch'] is None
+                                              and r['error'] is None),
+                'ps_null_pitch_share': sum(r['ps_pitch'] is None for r in rows) / len(rows),
+                'ps_null_roll_share': sum(r['ps_roll'] is None for r in rows) / len(rows),
+                'ps_roll_unwrapped_share': sum(
+                    1 for r in rows if r['ps_roll'] is not None
+                    and not -180.0 <= float(r['ps_roll']) < 180.0) / len(rows),
+                'rows': rows})
+    if errors == len(rows):
+        return {**out, 'status': 'skipped',
+                'reason': 'no streetlevel metadata reachable (every fetch raised; no network?)'}
+    comp = [r for r in rows if None not in (r['ps_pitch'], r['ps_roll'], r['sl_pitch'],
+                                            r['sl_roll'])]
+    agree = {}
+    for sp, sr in SIGN_MAPPINGS:
+        ok = sum(1 for r in comp
+                 if abs(geo.norm_deg(sp * float(r['ps_pitch']) - float(r['sl_pitch']))) <= tol
+                 and abs(geo.norm_deg(sr * float(r['ps_roll']) - float(r['sl_roll']))) <= tol)
+        agree[f'{sp:+d}{sr:+d}'] = ok / len(comp) if comp else None
+    best = max(SIGN_MAPPINGS, key=lambda m: agree[f'{m[0]:+d}{m[1]:+d}'] or 0.0)
+    share = agree[f'{best[0]:+d}{best[1]:+d}']
+    passed = len(comp) >= GATE_MIN_COMPARED and share is not None and share >= GATE_MIN_AGREE
+    out.update({'compared': len(comp), 'agreement_by_mapping': agree,
+                'best_mapping': list(best), 'best_agreement': share,
+                'status': 'pass' if passed else 'fail'})
+    if passed:
+        out['mapping'] = list(best)
+    else:
+        out['reason'] = (f'{len(comp)} comparable panos (need {GATE_MIN_COMPARED}); best '
+                         f'mapping {best} agrees on {share} (need {GATE_MIN_AGREE})')
+    return out
+
+
+def apply_store_mapping(panos, mapping):
+    """Store-built panos with their PS angles put into streetlevel's convention (the
+    gate's sign mapping) and re-labelled fs.STORE_POSE_VERIFIED_DETAIL, so `partial`
+    poses them; every other pano is returned unchanged."""
+    sp, sr = mapping
+    out = []
+    for p in panos:
+        if p.source_detail != fs.STORE_SOURCE_DETAIL:
+            out.append(p)
+            continue
+        out.append(replace(
+            p, camera_pitch=None if p.camera_pitch is None else sp * float(p.camera_pitch),
+            camera_roll=None if p.camera_roll is None else sr * float(p.camera_roll),
+            source_detail=fs.STORE_POSE_VERIFIED_DETAIL))
+    return out
+
+
+def check_confirm_city(city, exploratory, seed):
+    """Refusals for `confirm` before anything is loaded: a path-like name, a #116 train
+    city (case-insensitively: on Windows/macOS `Bend` resolves runs/bend/) without
+    --exploratory, and an unfrozen seed without --exploratory."""
+    if not city or any(c in city for c in ('/', '\\', ':')) or '..' in city:
+        raise SystemExit(f'{city!r} is not a city name (no paths)')
+    if city.lower() in CITIES and not exploratory:
+        raise SystemExit(f"{city} was in #116's train set ({', '.join(CITIES)}): its panos "
+                         'fitted the constants, so it cannot confirm them. Pass '
+                         '--exploratory to run it anyway (every output is labelled so)')
+    if seed != SEED and not exploratory:
+        raise SystemExit(f'the confirmatory run is pre-registered at seed {SEED}; --seed '
+                         f'{seed} is only allowed with --exploratory')
+
+
 def confirm_arms(panos, height, tier=OPERATIONAL_CONFIDENCE, seed=SEED,
                  k=geo.PARTIAL_POSE_K_GSV):
     """{arm: (panos, FuseParams)} for the confirmatory run: off and partial through
@@ -1225,10 +1386,7 @@ def cmd_confirm(args):
         raise SystemExit('confirm takes exactly one city')
     city = args.cities[0]
     exploratory = args.exploratory
-    if city in CITIES and not exploratory:
-        raise SystemExit(f"{city} was in #116's train set ({', '.join(CITIES)}): its panos "
-                         'fitted the constants, so it cannot confirm them. Pass '
-                         '--exploratory to run it anyway (every output is labelled so)')
+    check_confirm_city(city, exploratory, args.seed)
     bench_root = Path(args.benchmark_root)
     if not (bench_root / city / 'verdicts.json').exists():
         raise SystemExit(f'{bench_root / city}/verdicts.json is missing: clauses (ii) and '
@@ -1237,8 +1395,23 @@ def cmd_confirm(args):
     label = height_label(height)
     deciding = height == PRIMARY_HEIGHT and not exploratory
     tag_x = 'EXPLORATORY ' if exploratory else ''
+    out = REPO_ROOT / 'runs' / city / OUT_NAME / (
+        f'confirm_exploratory_{label}' + (f'_seed{args.seed}' if args.seed != SEED else '')
+        if exploratory else f'confirm_{label}')
     t0 = time.time()
     panos, fuse_height = load_city(city, height, args.runs_root)
+    gate = store_pose_gate(panos)
+    out.mkdir(parents=True, exist_ok=True)
+    with open(out / 'store_pose_gate.json', 'w', encoding='utf-8', newline='\n') as f:
+        json.dump(gate, f, indent=1)
+    print(f"  store-pose gate: {gate['status']}"
+          + (f" ({gate.get('reason')})" if gate.get('reason') else ''), file=sys.stderr)
+    if gate['status'] in ('fail', 'skipped'):
+        raise SystemExit(f"{city}: {gate['store_panos']} store-built panos and the store-pose "
+                         f"gate did not pass ({gate['status']}: {gate.get('reason')}); "
+                         f'refusing to score. See {out / "store_pose_gate.json"}')
+    if gate['status'] == 'pass':
+        panos = apply_store_mapping(panos, gate['mapping'])
     bad = production_pose_mismatches(panos)
     if bad:
         raise SystemExit(f'{city}: production `partial` and the study arm disagree on '
@@ -1276,8 +1449,6 @@ def cmd_confirm(args):
     outcome, _state, lines = confirm_verdict(
         _str_rows(pairs), _str_rows(gt),
         _str_rows([r for r in inventory if r['role'] == 'referee']))
-    out = REPO_ROOT / 'runs' / city / OUT_NAME / (
-        f'confirm_exploratory_{label}' if exploratory else f'confirm_{label}')
     write_csv(out / 'pairs.csv', pairs)
     write_csv(out / 'gt.csv', gt)
     write_csv(out / 'members.csv', member_rows)
@@ -1296,6 +1467,11 @@ def cmd_confirm(args):
             f'run, {len(panos)} panos, tier {OPERATIONAL_CONFIDENCE}, 25 m cap, seed '
             f'{args.seed} (the shuffle kept its own tilt on {own} panos). Production\'s pose '
             f"equals the study arm's on all {len(panos)} panos.", '',
+            f"Store-pose gate: **{gate['status']}**"
+            + (f" -- {gate['reason']}" if gate.get('reason') else '')
+            + (f" (mapping {gate['mapping']}, agreement {gate['best_agreement']:.3f} on "
+               f"{gate['compared']} panos; PS null-roll share {gate['ps_null_roll_share']:.3f})"
+               if gate['status'] == 'pass' else '') + '; `store_pose_gate.json`.', '',
             f'## Outcome: {tag_x}{outcome}', ''] + [f'- {ln}' for ln in lines]
     text += ['', '## Pair distance, reassoc (m)', '',
              _md_table(_str_rows(pairs), ['arm', 'multi_view_sites', 'pairs_scored',

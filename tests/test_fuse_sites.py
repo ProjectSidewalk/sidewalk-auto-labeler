@@ -467,7 +467,8 @@ def test_road_mode_takes_the_grade_back_out_of_a_car_on_a_hill(tmp_path):
     assert stats['pose'] == {'mode': 'road', 'panos': 4, 'posed': 4,
                              'derived_from_source_metadata': 3, 'flat': 0, 'gravity': 0,
                              'road_relative': 3, 'gravity_fallback': 1,
-                             'partial': 0, 'partial_coefficients': None,
+                             'partial': 0, 'store_unverified_flat': 0,
+                             'partial_coefficients': None,
                              'grade_source': 'sfm', 'grade_replaced': 0}
     # ...but the production default stays FLAT for Mapillary: road-relative failed the #42
     # shuffled-grade control, so `auto` withholds it (fuse_sites.AUTO_ROAD_SOURCES).
@@ -574,6 +575,37 @@ def test_partial_pose_leaves_non_gsv_and_half_posed_panos_flat():
     assert fs.pose_counts([gsv], fs.FuseParams())['partial_coefficients'] is None
     auto, _, _ = fs.project([gsv], fs.FuseParams())
     assert auto[0].ground.range_m == pytest.approx(10.0)
+
+
+def test_partial_pose_leaves_store_built_panos_flat_until_verified():
+    """A block rebuilt from the PS pano store (source None -> '', source_detail
+    'ps_store') carries the PS row's pitch/roll, convention unverified: flat under
+    `partial`, counted, warned; posed once re-labelled verified."""
+    from dataclasses import replace
+    store = replace(_posed('s', 0, 2.0, 1.0, source=''), source_detail=fs.STORE_SOURCE_DETAIL)
+    params = fs.FuseParams(apply_pose=fs.POSE_PARTIAL)
+    dets, _, _ = fs.project([store], params)
+    assert dets[0].ground.range_m == pytest.approx(10.0)
+    counts = fs.pose_counts([store], params)
+    assert (counts['partial'], counts['flat'], counts['store_unverified_flat']) == (0, 1, 1)
+    warnings = fs.pose_source_warnings([store], fs.POSE_PARTIAL)
+    assert len(warnings) == 1 and '1 store-built GSV' in warnings[0]
+    verified = replace(store, source_detail=fs.STORE_POSE_VERIFIED_DETAIL)
+    dets, _, _ = fs.project([verified], params)
+    assert dets[0].ground.range_m < 10.0 - 1e-6
+    assert fs.pose_counts([verified], params)['partial'] == 1
+    assert fs.pose_source_warnings([verified], fs.POSE_PARTIAL) == []
+
+
+def test_load_results_carries_source_detail(tmp_path):
+    src = tmp_path / 'results.jsonl'
+    src.write_text(json.dumps({'pano': {
+        'panorama_id': 'P', 'lat': 40.0, 'lng': -74.0, 'camera_heading': 0.0,
+        'camera_pitch': 1.0, 'camera_roll': 0.5, 'capture_date': '2023-05', 'source': None,
+        'source_detail': 'ps_store'}, 'detections': []}) + '\n', encoding='utf-8')
+    panos, _ = fs.load_results(src)
+    assert panos[0].source_detail == fs.STORE_SOURCE_DETAIL
+    assert fs.pose_mode_for(panos[0], fs.POSE_PARTIAL) == fs.POSE_OFF
 
 
 def test_partial_pose_warns_once_on_non_gsv_panos_and_parses():

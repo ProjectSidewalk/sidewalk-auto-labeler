@@ -7,8 +7,8 @@ before any scoring run, and the script was committed at the same time.
 
 ## Verdict
 
-**FAIL under the pre-registered rule, on one clause. Production does not change:** GSV
-still raycasts flat, and `--apply-pose` gains no `partial` mode.
+**FAIL under the pre-registered rule, on one clause. The production default does not
+change:** GSV still raycasts flat, and the study's verdict wires nothing.
 
 *Update 2026-09-30 (see the addendum at the end):* `--apply-pose partial` is now wired as
 an **opt-in** mode with the frozen pooled constants. The default is unchanged. A
@@ -366,8 +366,10 @@ It uses the same seed-116 split and the same common pairs; the common set is the
 arms', so the extra arm changes nothing else.
 
 Two checks pass before any numbers:
-- **Every study-arm row reproduces the committed `pairs.csv` exactly.** That is 16 rows,
-  compared on pair count, median, mean, p90, sites and own pairs.
+- **Every study-arm row reproduces the committed outputs exactly, column for column:**
+  16 of 16 rows of `pairs.csv` (the reassoc frame) and 16 of 16 rows of `gt.csv`. This
+  is automated: `consistency` exits nonzero on any mismatch, and
+  `tests/test_gsv_partial_pose.py` re-checks the committed files.
 - **The poses match.** Production's pose equals the study's posed-panos pose on all 34,687
   panos of the run, at both heights.
 
@@ -385,9 +387,14 @@ Within-site pair distance, reassoc (median / p90, m), with off-pool recall at 2.
   median and match them on the p90. They are not strictly between them: the median is
   0.003-0.004 m above both.
 - **At 2.6 m:** the pooled arm uses constants fit at `auto`. Its pitch fraction is 0.183
-  against 0.15 for the 2.6 m fits. It has the best median and a p90 0.004-0.006 m above the
-  others. It also leaves 10 of the 10,457 common pairs unplaced, because the larger pitch
-  term pushes a few rays past the 25 m cap.
+  against 0.15 for the 2.6 m fits. It has the best median (2.168 m). Its p90 is 4.5499 m,
+  **+0.0065 m against off** (4.5434 m) and 0.004-0.006 m above the two fitted arms.
+- **The 2.6 m pooled row sits on a slightly different pair set.** It is scored on 10,447
+  of the 10,457 common pairs: the larger pitch term pushes 10 rays past the 25 m cap, and
+  each arm's median and p90 are taken over the pairs it places. Clause (i) inherits the
+  same survivorship, in #116 and in the confirmatory rule. A pre-data amendment scoring
+  (i) only on pairs that off, partial and the shuffle all place (equal `pairs_scored`)
+  would remove it; that is left for Jon to decide before any confirm city is scored.
 - **Recall is identical** to both fitted arms at both heights.
 
 Files: `runs/paterson/partial_pose/consistency{.md,_pairs.csv,_gt.csv}`.
@@ -416,8 +423,9 @@ before any new city was scored. The constants and the rule are frozen there. In 
   - **(ii)** Replaced by a pool-sized rule. Let n be the off-pool recall denominator at
     2.5 m and L be ramps lost minus ramps gained against off. The clause **FAILS iff
     L >= k\*(n)**, where k\*(n) is the smallest k with P(Binomial(n, 0.01) >= k) <= 0.05
-    (one-sided; 0.01 is this study's 1.0 pt limit read as a per-ramp rate). n < 50 is
-    INCONCLUSIVE.
+    (one-sided; 0.01 is this study's 1.0 pt limit read as a per-ramp rate). **Below
+    n = 50, a FAIL still stands** (k\*(n) is 2-3 there); n < 50 only turns what would
+    have been a pass into INCONCLUSIVE.
   - **(iii)** Unchanged.
   - **(iv)** Unchanged: the Bend and Gainesville inventories, scored on their whole runs
     with the frozen constants.
@@ -436,6 +444,62 @@ k\*(n) for every n from 50 to 800 (`gsv_partial_pose.py loss-bar`):
 | 330-399 | 8 | | 772-800 | 14 |
 
 For scale, Bend's half split (n = 157, L = 2) sits under its bar of 5.
+
+**What clause (ii) can and cannot see.** The rule is not changed here; this states its
+operating characteristics. Simulated with 200,000 draws per cell, seed 116 (numpy
+multinomial over lost / gained / unchanged per ramp):
+
+| n | true lost / gained per ramp | P(FAIL) | reading |
+|---|---|---|---|
+| 157 | 2% / 0% | 0.208 | **power** against a real 2% loss is about 1 in 5 |
+| 300 | 2% / 0% | 0.394 | power at a larger pool |
+| 157 | 1% / 0% | 0.021 | size at the nominal null: conservative (discrete) |
+| 300 | 3% / 2% | 0.180 | **size under churn**: net loss 1%, but FAIL 18% of the time |
+| 157 | 3% / 2% | 0.145 | size under churn at Bend's half-split pool |
+
+So the clause is weak against a small real loss, and when arms churn ramps both ways it
+fails well above 5%, because L = lost - gained is Binomial(n, 0.01) only when nothing is
+gained. The comparison Jon may prefer instead is an **exact binomial (sign) test on the
+discordant ramps**: FAIL when lost is significantly more than half of lost + gained. That
+test is valid under churn, and it could be paired with a point bar on L. Changing to it is
+a pre-data decision for Jon; the frozen rule stays as posted until he makes it.
+
+```python
+import numpy as np, gsv_partial_pose as g
+rng = np.random.default_rng(116)
+def p_fail(n, lost, gained, reps=200_000):
+    d = rng.multinomial(n, [lost, gained, 1 - lost - gained], size=reps)
+    return ((d[:, 0] - d[:, 1]) >= g.recall_loss_bar(n)).mean()
+p_fail(157, .02, 0), p_fail(300, .02, 0), p_fail(157, .01, 0), p_fail(300, .03, .02), p_fail(157, .03, .02)
+```
+
+**Store-built cities (review of PR #123).** Vancouver's run is rebuilt from the Project
+Sidewalk pano store (`detect_from_store.py`). Its blocks carry `source` None,
+`source_detail` `ps_store`, and the PS pano row's pitch/roll, whose convention against
+streetlevel's (the angles the constants were fit on) is unverified. A sign flip would turn
+`partial` into the mirror arm. So `--apply-pose partial` raycasts `ps_store` panos flat
+(stderr warning; counted as `store_unverified_flat` in `sites_meta.json`), and `confirm`
+runs a **store-pose gate** before it scores such a city:
+
+- Draw a seeded sample (seed 116, up to 200) of the store panos.
+- Resolve each id live through streetlevel. This is metadata only, the call main.py already
+  makes; no imagery is fetched.
+- Compare the PS angles with streetlevel's under each of the four sign mappings, after
+  folding into [-180, 180).
+- **Pass** only when one mapping agrees within 0.1 deg on both angles for >= 95% of at
+  least 50 comparable panos. The PS null-roll share and the unwrapped-roll share are
+  reported beside it.
+
+On a pass, `confirm` applies that mapping and marks the blocks `ps_store:pose_verified`,
+which `partial` then poses. A fail, or no network (every fetch raised), refuses to score.
+The gate writes `store_pose_gate.json` into the confirm output dir. **The gate is what
+makes Vancouver eligible:** without a pass it cannot be scored.
+
+**Frozen knobs (review of PR #123).** `confirm` refuses:
+- `--seed` other than 116 without `--exploratory` (a re-seeded exploratory run writes to
+  its own `_seed<N>` dir);
+- a #116 train city in any letter case (on Windows or macOS `Bend` resolves `runs/bend/`);
+- any path-like name.
 
 ### Exploratory dry run: laurens_gsv, whole run, `auto` (a train city; not a confirmation)
 

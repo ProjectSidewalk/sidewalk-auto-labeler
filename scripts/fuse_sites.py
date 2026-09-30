@@ -150,6 +150,18 @@ UNGRADED_POSE_WARNINGS = {
 # panos raycast flat under it, and fuse_sites.py says so once per run.
 PARTIAL_POSE_NON_GSV_WARNING = ('the #116 fractions were fit on GSV rigs only, so these '
                                 'raycast flat under `partial`')
+# A pano block rebuilt from the Project Sidewalk pano store (scripts/detect_from_store.py)
+# carries source None and the PS pano row's camera_pitch/camera_roll, whose convention
+# against streetlevel's (the angles the #116 fractions were fit on) is UNVERIFIED -- a sign
+# flip would turn `partial` into the mirror arm. So `partial` raycasts these flat, and says
+# so, unless the block has been re-labelled STORE_POSE_VERIFIED_DETAIL by a check that
+# compared them with streetlevel's on the same pano ids (gsv_partial_pose.store_pose_gate)
+# and mapped them into streetlevel's convention.
+STORE_SOURCE_DETAIL = 'ps_store'
+STORE_POSE_VERIFIED_DETAIL = 'ps_store:pose_verified'
+PARTIAL_POSE_STORE_WARNING = ("their pitch/roll are the PS pano row's, whose convention "
+                              "against streetlevel's is unverified, so they raycast flat "
+                              'under `partial` (gsv_partial_pose.store_pose_gate verifies it)')
 
 # Consecutive frames of one sequence within this time gap and horizontal distance define
 # a local direction of travel and, through the SfM altitude, a road grade. The bounds are
@@ -233,6 +245,7 @@ class SlimPano:
     height_group: str | None = None              # camera_heights.json group (#53, per-rig)
     height_table: dict | None = None             # ...and that table's provenance (shared)
     height_from_index: bool = False              # height read from depth/index.csv (#47)
+    source_detail: str | None = None             # e.g. 'ps_store' for a store-built block
 
     def pose_fields(self, **overrides):
         """The pano-block fields geo.pano_pose reads, with any of them overridden."""
@@ -418,12 +431,19 @@ def sequence_grades(frames):
 
 def pose_mode_for(pano, mode):
     """The mode a pano is actually raycast under: POSE_AUTO resolves by source, and
-    POSE_PARTIAL applies to GSV panos only (every other source raycasts flat under it)."""
+    POSE_PARTIAL applies to GSV panos only (every other source raycasts flat under it) --
+    and not to a store-built GSV block whose pose convention is unverified
+    (STORE_SOURCE_DETAIL; see there)."""
     if mode == POSE_AUTO:
         return POSE_ROAD if pano.source in AUTO_ROAD_SOURCES else POSE_OFF
-    if mode == POSE_PARTIAL and source_kind(pano.source) != 'gsv':
+    if mode == POSE_PARTIAL and (source_kind(pano.source) != 'gsv'
+                                 or _unverified_store(pano)):
         return POSE_OFF
     return mode
+
+
+def _unverified_store(pano):
+    return getattr(pano, 'source_detail', None) == STORE_SOURCE_DETAIL
 
 
 def pano_pose(pano, mode):
@@ -459,12 +479,14 @@ def pose_counts(panos, params):
     `gravity`, `road_relative`, `gravity_fallback` -- a pano road mode wanted to
     correct but whose sequence gave no grade -- or `partial` (#116: a GSV pano given the
     frozen fraction of its stored pose; `partial_coefficients` records which, and is
-    None under every other mode). sites_meta.json records it because that
+    None under every other mode). `store_unverified_flat` counts store-built GSV panos
+    that `partial` left flat because their pose convention is unverified. sites_meta.json records it because that
     fallback is the convention the #42 study found WRONG for a vehicle rig on a slope,
     so its rate has to be visible rather than silent."""
     counts = {'mode': params.apply_pose, 'panos': len(panos), 'posed': 0,
               'derived_from_source_metadata': 0, 'flat': 0, 'gravity': 0,
               'road_relative': 0, 'gravity_fallback': 0, 'partial': 0,
+              'store_unverified_flat': 0,
               'partial_coefficients': (
                   dict(zip(('k_pitch', 'k_roll'), geo.PARTIAL_POSE_K_GSV))
                   if params.apply_pose == POSE_PARTIAL else None),
@@ -477,6 +499,9 @@ def pose_counts(panos, params):
         posed = p.camera_pitch is not None and p.camera_roll is not None
         counts['posed'] += posed
         counts['derived_from_source_metadata'] += p.pose_origin == 'source_metadata'
+        if (params.apply_pose == POSE_PARTIAL and posed and _unverified_store(p)
+                and source_kind(p.source) == 'gsv'):
+            counts['store_unverified_flat'] += 1
         mode = pose_mode_for(p, params.apply_pose)
         if not posed or mode == POSE_OFF:
             counts['flat'] += 1
@@ -498,15 +523,22 @@ def pose_source_warnings(panos, mode):
     Empty for off/auto, for gravity/road on all-Mapillary runs, and for partial on
     all-GSV runs."""
     if mode == POSE_PARTIAL:
-        kinds = {}
+        kinds, store = {}, 0
         for p in panos:
             kind = source_kind(p.source)
             if kind != 'gsv':
                 kinds[kind] = kinds.get(kind, 0) + 1
-        if not kinds:
-            return []
-        what = ', '.join(f'{n} {kind}' for kind, n in sorted(kinds.items()))
-        return [f'WARNING: --apply-pose partial on {what} pano(s): {PARTIAL_POSE_NON_GSV_WARNING}']
+            elif _unverified_store(p):
+                store += 1
+        out = []
+        if kinds:
+            what = ', '.join(f'{n} {kind}' for kind, n in sorted(kinds.items()))
+            out.append(f'WARNING: --apply-pose partial on {what} pano(s): '
+                       f'{PARTIAL_POSE_NON_GSV_WARNING}')
+        if store:
+            out.append(f'WARNING: --apply-pose partial on {store} store-built GSV pano(s): '
+                       f'{PARTIAL_POSE_STORE_WARNING}')
+        return out
     if mode not in (POSE_GRAVITY, POSE_ROAD):
         return []
     counts = {}
@@ -795,7 +827,7 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
                 camera_height_m=height, camera_height_spread_m=spread,
                 ground_tilt_deg=tilt, pose_origin=origin,
                 sequence_id=p.get('sequence_id') or meta.get('sequence'),
-                height_from_index=from_index))
+                height_from_index=from_index, source_detail=p.get('source_detail')))
             frames.append((len(panos) - 1, p.get('sequence_id'), meta.get('captured_at'),
                            p['lat'], p['lng'], meta.get('computed_altitude')))
     for i, (grade, bearing) in sequence_grades(frames).items():
