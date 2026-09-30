@@ -165,3 +165,85 @@ def test_rig_borne_detections_never_enter_a_pair():
     # y = 0.9 is 72 deg below the horizon: the camera vehicle, masked in production
     assert lfb._masked([(0.5, 0.9, 0.99), (0.5, 0.6, 0.9)]) == [(0.5, 0.6, 0.9)]
     assert math.isclose(lfb.WINDOW_BEARING_DEG, 3.0)
+
+
+# ------------------------------------------------------------------------- pool mode
+
+POSE_COLS = ['city', 'pano_id', 'jpg_present', 'jpg_width', 'jpg_height', 'npz_present',
+             'pitch_deg', 'roll_deg', 'xml_present', 'xml_pano_yaw_deg', 'xml_tilt_yaw_deg',
+             'xml_tilt_pitch_deg']
+POOL_COLS = ['label_uid', 'city', 'pano_id', 'label_type', 'pano_source', 'pano_x', 'pano_y',
+             'pano_width', 'pano_height', 'era']
+
+
+def _gz_csv(path, cols, rows):
+    import csv
+    import gzip
+    with gzip.open(path, 'wt', encoding='utf-8', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        for r in rows:
+            w.writerow({c: r.get(c, '') for c in cols})
+
+
+def test_the_xml_pose_wins_over_the_modern_one_and_a_missing_pose_is_none():
+    both = dict(xml_present='1', xml_pano_yaw_deg='90', xml_tilt_yaw_deg='90',
+                xml_tilt_pitch_deg='2', npz_present='1', pitch_deg='5', roll_deg='5')
+    pitch, roll, source = lfb.pose_from_scan_row(both)
+    assert source == 'xml'
+    assert pitch == pytest.approx(-2.0) and roll == pytest.approx(0.0, abs=1e-12)
+    npz_only = dict(xml_present='0', xml_pano_yaw_deg='', xml_tilt_yaw_deg='',
+                    xml_tilt_pitch_deg='', npz_present='1', pitch_deg='5', roll_deg='-1')
+    assert lfb.pose_from_scan_row(npz_only) == (5.0, -1.0, 'npz')
+    none = dict(xml_present='0', xml_pano_yaw_deg='', xml_tilt_yaw_deg='',
+                xml_tilt_pitch_deg='', npz_present='0', pitch_deg='', roll_deg='')
+    assert lfb.pose_from_scan_row(none) is None
+
+
+def test_load_pool_keeps_only_labels_with_a_jpeg_a_pose_matching_dims_and_a_detection(tmp_path):
+    import json
+    pose = tmp_path / 'pose.csv.gz'
+    pool = tmp_path / 'pool.csv.gz'
+    dets = tmp_path / 'dets.jsonl'
+    posed = dict(jpg_present='1', jpg_width='16384', jpg_height='8192', npz_present='1',
+                 pitch_deg='1', roll_deg='2', xml_present='0')
+    _gz_csv(pose, POSE_COLS, [
+        dict(city='c', pano_id='ok', **posed),
+        dict(city='c', pano_id='nojpg', **{**posed, 'jpg_present': '0'}),
+        dict(city='c', pano_id='nopose', **{**posed, 'npz_present': '0'}),
+        dict(city='c', pano_id='undetected', **posed),
+    ])
+    lab = dict(label_type='CurbRamp', pano_source='gsv', pano_x='8192', pano_y='4915',
+               pano_width='16384', pano_height='8192', era='mid')
+    _gz_csv(pool, POOL_COLS, [
+        dict(label_uid='c:1', city='c', pano_id='ok', **lab),
+        dict(label_uid='c:2', city='c', pano_id='ok', **{**lab, 'pano_width': '13312',
+                                                          'pano_height': '6656'}),
+        dict(label_uid='c:3', city='c', pano_id='nojpg', **lab),
+        dict(label_uid='c:4', city='c', pano_id='nopose', **lab),
+        dict(label_uid='c:5', city='c', pano_id='undetected', **lab),
+        dict(label_uid='c:6', city='c', pano_id='noscan', **lab),
+        dict(label_uid='c:7', city='c', pano_id='ok', **{**lab, 'label_type': 'Obstacle'}),
+    ])
+    dets.write_text(json.dumps({'city': 'c', 'pano_id': 'ok', 'native_w': 16384,
+                                'native_h': 8192, 'detections': [[0.5, 0.6, 0.9]]}) + '\n')
+    labels, panos, counts = lfb.load_pool(pool, pose, dets, 'CurbRamp')
+    assert [lab.uid for lab in labels] == ['c:1']
+    assert list(panos) == [('c', 'ok')] and panos[('c', 'ok')].pose_source == 'npz'
+    assert counts == {'other_type_or_source': 1, 'no_pose_row': 1, 'no_jpg': 1,
+                      'no_pose': 1, 'dims_differ': 1, 'not_detected': 1}
+    pairs, _ = lfb.pair_labels(labels, panos, 0.55, 6.0)
+    assert len(pairs) == 1 and pairs[0].era == 'mid' and pairs[0].pose_source == 'npz'
+
+
+def test_load_pool_refuses_a_detection_made_on_other_pixels_than_the_scan_saw(tmp_path):
+    import json
+    pose, pool, dets = tmp_path / 'pose.csv.gz', tmp_path / 'pool.csv.gz', tmp_path / 'd.jsonl'
+    _gz_csv(pose, POSE_COLS, [dict(city='c', pano_id='p', jpg_present='1', jpg_width='16384',
+                                   jpg_height='8192', npz_present='1', pitch_deg='1',
+                                   roll_deg='2', xml_present='0')])
+    _gz_csv(pool, POOL_COLS, [])
+    dets.write_text(json.dumps({'city': 'c', 'pano_id': 'p', 'native_w': 13312,
+                                'native_h': 6656, 'detections': []}) + '\n')
+    with pytest.raises(SystemExit, match='different pixels'):
+        lfb.load_pool(pool, pose, dets, 'CurbRamp')

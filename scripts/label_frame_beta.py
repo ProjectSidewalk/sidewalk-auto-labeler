@@ -183,13 +183,30 @@ def _num(value):
     return float(value) if value not in (None, '') else None
 
 
-def load_pool(pool_path, pose_path, detections_path, label_type):
-    """(labels, panos, counts) for sidewalk-panorama-tools' vouched pool.
+def pose_from_scan_row(r):
+    """(pitch, roll, source) from one row of pano-tools' pose scan, or None.
 
     A store JPEG with an .xml beside it is a 2019-22 stitch and is posed by that XML,
     never by a later record that may describe a re-render (#158's rule); otherwise the
-    pose is the modern one. A label whose stored pano size differs from the JPEG's was
-    made on other pixels and is dropped.
+    modern pose is used.
+    """
+    xml = [_num(r[k]) for k in ('xml_pano_yaw_deg', 'xml_tilt_yaw_deg', 'xml_tilt_pitch_deg')]
+    if r.get('xml_present') == '1' and None not in xml:
+        pitch, roll = xml_pitch_roll(*xml)
+        return pitch, roll, 'xml'
+    if r.get('npz_present') == '1' and _num(r['pitch_deg']) is not None \
+            and _num(r['roll_deg']) is not None:
+        return _num(r['pitch_deg']), _num(r['roll_deg']), 'npz'
+    return None
+
+
+def load_pool(pool_path, pose_path, detections_path, label_type):
+    """(labels, panos, counts) for sidewalk-panorama-tools' vouched pool.
+
+    A label is dropped, and counted by the first reason that applies, when its pano has
+    no row in the pose scan, no JPEG on the store, no pose (pose_from_scan_row), a JPEG
+    whose size differs from the label's stored pano size (the label was made on other
+    pixels), or no line in the detections file.
     """
     dets = {}
     with open(detections_path, encoding='utf-8') as f:
@@ -200,30 +217,22 @@ def load_pool(pool_path, pose_path, detections_path, label_type):
             if 'error' not in r:
                 dets[(r['city'], r['pano_id'])] = (int(r['native_w']), int(r['native_h']),
                                                    [tuple(d) for d in r['detections']])
+    scan = {}
+    with gzip.open(pose_path, 'rt', encoding='utf-8') as f:
+        for r in csv.DictReader(f):
+            scan[(r['city'], r['pano_id'])] = (r.get('jpg_present') == '1',
+                                               _num(r['jpg_width']), _num(r['jpg_height']),
+                                               pose_from_scan_row(r))
     panos = {}
-    counts = {'no_pose_row': 0, 'no_pose': 0, 'not_detected': 0, 'dims_differ': 0,
-              'other_type_or_source': 0}
-    with gzip.open(pose_path, 'rt', encoding='utf-8') as f:
-        for r in csv.DictReader(f):
-            key = (r['city'], r['pano_id'])
-            if key not in dets:
-                continue
-            xml = [_num(r[k]) for k in ('xml_pano_yaw_deg', 'xml_tilt_yaw_deg',
-                                        'xml_tilt_pitch_deg')]
-            if r['xml_present'] == '1' and None not in xml:
-                pitch, roll = xml_pitch_roll(*xml)
-                source = 'xml'
-            elif r['npz_present'] == '1' and _num(r['pitch_deg']) is not None \
-                    and _num(r['roll_deg']) is not None:
-                pitch, roll, source = _num(r['pitch_deg']), _num(r['roll_deg']), 'npz'
-            else:
-                continue
-            w, h, d = dets[key]
-            panos[key] = Pano(pitch, roll, w, h, source, _masked(d))
-    posed_rows = set()
-    with gzip.open(pose_path, 'rt', encoding='utf-8') as f:
-        for r in csv.DictReader(f):
-            posed_rows.add((r['city'], r['pano_id']))
+    for key, (has_jpg, w, h, pose) in scan.items():
+        if key in dets and pose is not None:
+            dw, dh, d = dets[key]
+            if (w, h) != (float(dw), float(dh)):
+                raise SystemExit(f'{key}: the detections file saw a {dw}x{dh} JPEG but the '
+                                 f'pose scan recorded {w}x{h} -- different pixels')
+            panos[key] = Pano(pose[0], pose[1], dw, dh, pose[2], _masked(d))
+    counts = {'other_type_or_source': 0, 'no_pose_row': 0, 'no_jpg': 0, 'no_pose': 0,
+              'dims_differ': 0, 'not_detected': 0}
     labels = []
     with gzip.open(pool_path, 'rt', encoding='utf-8') as f:
         for r in csv.DictReader(f):
@@ -232,14 +241,18 @@ def load_pool(pool_path, pose_path, detections_path, label_type):
                 continue
             key = (r['city'], r['pano_id'])
             w, h = _num(r['pano_width']), _num(r['pano_height'])
-            if key not in posed_rows:
+            if key not in scan:
                 counts['no_pose_row'] += 1
-            elif key not in dets:
-                counts['not_detected'] += 1
-            elif key not in panos:
+                continue
+            has_jpg, jw, jh, pose = scan[key]
+            if not has_jpg:
+                counts['no_jpg'] += 1
+            elif pose is None:
                 counts['no_pose'] += 1
-            elif not (w and h) or (int(w), int(h)) != (panos[key].width, panos[key].height):
+            elif not (w and h) or (w, h) != (jw, jh):
                 counts['dims_differ'] += 1
+            elif key not in panos:
+                counts['not_detected'] += 1
             else:
                 labels.append(Label(uid=r['label_uid'], key=key,
                                     x=float(r['pano_x']) / w, y=float(r['pano_y']) / h,
