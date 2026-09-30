@@ -173,6 +173,8 @@ class FuseParams:
     apply_pose: str = POSE_AUTO      # one of POSE_MODES; see AUTO_ROAD_SOURCES for what
                                      # the default does per source, and why
     sigma_scale: float = 1.0         # inflate all covariances by scale^2 (model tuning)
+    sigma_peak_px: float | None = None  # heatmap-peak 1-sigma, heatmap px (#111); None =
+                                     # geo.SIGMA_PEAK_PX_DEFAULT via the source's ErrorModel
     max_vintage_months: int | None = None  # eval-ablation only; None = no gate
     grade_source: str = GRADE_SFM    # one of GRADE_SOURCES (#51); load_results applies it,
                                      # this records it in sites_meta.json
@@ -806,7 +808,7 @@ def project(panos, params):
     s2 = params.sigma_scale ** 2
     for p in panos:
         pose = pano_pose(p, params.apply_pose)
-        errors = geo.error_model_for(p.source)
+        errors = geo.error_model_for(p.source, params.sigma_peak_px)
         months = _months(p.capture_date)
         for i, x, y, conf in p.detections:
             if conf < params.floor:
@@ -854,8 +856,14 @@ def fuse(panos, params):
         grid.add(site.e, site.n, site)
         return site
 
+    # Why a detection opened a new site instead of joining one (#111: the peak sigma feeds
+    # the gate and the residual). chi2_gate: some site passed the cap, the cannot-link and
+    # the vintage window, and none passed the gate. residual: the best site passed the gate
+    # but the refit residual would have exceeded residual_per_dof_max.
+    rejections = {'chi2_gate': 0, 'residual': 0}
     for det in dets:
         best = None
+        gated = False
         seen = set()
         for site in grid.near(det.e, det.n):
             if site.id in seen:
@@ -870,10 +878,12 @@ def fuse(panos, params):
                 continue
             d2 = geo.sym2_quadform(geo.sym2_inv(geo.sym2_add(det.cov, site.cov_p)),
                                    de, dn)
+            gated = True
             if d2 <= params.gate_chi2 and (best is None or (d2, site.id) < best[:2]):
                 best = (d2, site.id, site)
 
         if best is None:
+            rejections['chi2_gate'] += gated
             new_site(det)
             continue
         site = best[2]
@@ -881,6 +891,7 @@ def fuse(panos, params):
             # refit merge — unless it would blow up the triangulation residual
             if site.n_refit >= 1 and \
                     site.tentative_residual_per_dof(det) > params.residual_per_dof_max:
+                rejections['residual'] += 1
                 new_site(det)
                 continue
             old_key = grid.key(site.e, site.n)
@@ -895,6 +906,7 @@ def fuse(panos, params):
              'n_sites': len(sites),
              'n_operational_sites': sum(1 for s in sites if s.n_operational),
              'n_multi_pano_sites': sum(1 for s in sites if len(s.pano_ids) > 1),
+             'rejections': rejections,
              'camera_heights': camera_height_counts(panos, params),
              'pose': pose_counts(panos, params),
              'frame_origin': {'lat0': frame.lat0, 'lng0': frame.lng0}}
@@ -1184,6 +1196,11 @@ def build_parser():
                     help='camera_heights.json for --camera-height-m per-rig '
                          '(default: beside results.jsonl)')
     ap.add_argument('--sigma-scale', type=float, default=1.0)
+    ap.add_argument('--sigma-peak-px', type=float, default=None,
+                    help='heatmap-peak 1-sigma in heatmap px (#111; default '
+                         f'geo.SIGMA_PEAK_PX_DEFAULT = {geo.SIGMA_PEAK_PX_DEFAULT}). '
+                         f'{geo.SIGMA_PEAK_COARSE_CELL_PX:.2f} is the uniform quantization of one '
+                         '8-px coarse cell; see docs/heatmap-grid.md')
     # A value is REQUIRED (no nargs='?'): an optional value would swallow the positional
     # run directory in `--apply-pose runs/x`, and a bare flag would have to guess a mode.
     ap.add_argument('--apply-pose', choices=POSE_MODES, default=FuseParams.apply_pose,
@@ -1228,7 +1245,8 @@ def main(argv=None):
         camera_height_m=(geo.DEFAULT_CAMERA_HEIGHT_M if args.camera_height_m == HEIGHT_AUTO
                          else args.camera_height_m),
         apply_pose=args.apply_pose,
-        sigma_scale=args.sigma_scale, grade_source=args.grade_source)
+        sigma_scale=args.sigma_scale, sigma_peak_px=args.sigma_peak_px,
+        grade_source=args.grade_source)
 
     if args.height_table is not None and args.camera_height_m != geo.PER_RIG:
         print('WARNING: --height-table is ignored unless --camera-height-m per-rig',
@@ -1343,7 +1361,8 @@ def pose_ablation_report(panos, params):
                 g = geo.detection_ground_point(
                     pose_cache[key], d.x, d.y,
                     camera_height=params.camera_height_m,
-                    max_range_m=math.inf, errors=geo.error_model_for(p.source))
+                    max_range_m=math.inf,
+                    errors=geo.error_model_for(p.source, params.sigma_peak_px))
                 if g is None:
                     break
                 pts.append(frame.to_enu(g.lat, g.lng))
