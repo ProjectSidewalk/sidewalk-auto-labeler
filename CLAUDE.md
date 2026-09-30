@@ -198,6 +198,15 @@ python scripts/height_gap.py sweep richmond --group gopro/max --sequences  # + s
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
 
+# HEATMAP GRID (issue #111; docs/heatmap-grid.md). RampNet's heatmap is an 8x bilinear upsample
+# of a stride-32 map, so every detection sits on residue 3/4 of an 8-cell block. `grid` is the
+# census per run and tier; `sigma` re-fuses at the benchmark tier with sigma_peak_px 1.0 vs 2.31
+# (one coarse cell's uniform quantization) at 2.6 m and auto and applies the pre-registered rule
+# (verdict: KEEP 1.0). Writes docs/figures/heatmap-grid/data/. No GPU, no network.
+python scripts/heatmap_grid.py grid paterson bend gainesville sao_paulo richmond
+python scripts/heatmap_grid.py sigma paterson bend gainesville sao_paulo richmond
+python scripts/eval_sites.py paterson --sigma-peak-px 2.31 --out /tmp/eval_s231   # one cell
+
 # Leave-one-view-out REPROJECTION RESIDUAL (issue #36; findings in
 # docs/reprojection-residual.md). GT-free: for every site with >= 3 operational views,
 # drop each view, re-solve the site from the rest (an information-form subtraction) and
@@ -251,13 +260,22 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 # A store-built run is fenced off both ways: main.py refuses a manifest with `pixels`, the
 # runner refuses a run dir main.py wrote, and send_to_ps.py refuses the file (its labels are the
 # live ones; --allow-store-file overrides).
-# provenance_gate.py then checks that the rebuilt run can stand in for the deployed one. Rule
-# AMENDED after the PR #96 review, before any Vancouver number: Arm S (always) = a >= 0.55
-# detection within +/-(W/1024+1) x, +/-(H/512+1) y, >= 0.98 of joinable labels (exact_share at
-# +/-1 px reported, not gated); Arm Z (optional, --control) = a zoom-3 control on 200 seeded
-# labeled panos (--draw-control, then reinfer.py --ids) at +/-1 px, >= 0.98; UNDETERMINED
-# unless nothing is pending and joinable >= 0.95 of labels with a store JPEG; STOP if unclaimed
-# tier detections on labeled panos exceed 0.02 x joinable. harvest_depth.py --from-store indexes
+# provenance_gate.py then checks that the rebuilt run can stand in for the deployed one. The
+# match rule is in COARSE heatmap cells since #111 (2026-09-30; `--rule coarse-cell`, the
+# default): Arm S (always, the store run) and Arm Z (optional, --control: a zoom-3 control on
+# 200 seeded labeled panos via --draw-control then reinfer.py --ids) each match a label when a
+# >= 0.55 detection lies within +/-1 coarse cell = +/-(8W/1024+1) x, +/-(8H/512+1) y
+# (Chebyshev, seam-wrapped), >= 0.98 of joinable labels (exact_share at +/-1 px reported, not
+# gated). Why cells: RampNet's heatmap is an 8x bilinear upsample of a stride-32 map, so every
+# detection sits on residue 3/4 of an 8-cell block and a near-tie flips the argmax 7-8 cells on
+# a small input change; the report counts matches by distance class and names that flip.
+# `--rule pixel-96` reproduces the rule PR #108's Vancouver report ran under (Arm S
+# +/-(W/1024+1) px, Arm Z +/-1 px; amended after the PR #96 review, before any Vancouver
+# number). UNDETERMINED unless nothing is pending and joinable >= 0.95 of labels with a store
+# JPEG; STOP if unclaimed tier detections on labeled panos exceed 0.02 x joinable (unchanged).
+# Vancouver under the coarse-cell rule (exploratory, #111; the #56 decision stands): still STOP
+# -- S 0.930 (11.3% of its matches are flips; 4,268 of 4,477 misses are sub-0.55 at the spot),
+# Z 0.987 passes, P 0.029 fails; docs/heatmap-grid.md. harvest_depth.py --from-store indexes
 # pano-tools' v3 .depth.npz in place (same index.csv schema; --check-store-frame N draws until
 # N panos are checked against live payloads in the image frame and records the result in
 # depth/store.json -- a mirrored index array fails, a payload Google has revised since reads
@@ -783,6 +801,14 @@ live ones, and derives `results.band.jsonl.submission.json` from the old campaig
 what lets the ordinary band guard pass with **no override**. Ship from `results.band.jsonl`,
 never from `results.f01.jsonl`.
 
+`--verify` also prints a **coarse-cell diagnostic** (#111): for every pano whose pixel keys
+differ, how old and new keys pair one-to-one within +/-1 coarse heatmap cell (same cell, 3<->4
+neighbour, off-grid, and the 7-8-cell **flip** of a near-tied pair). It explains a mismatch; it
+never excuses one. Band eligibility stays EXACT pixel keys on purpose: a label that moved a
+cell is a different pixel on the server, so a pano that agrees only within a cell is carried
+over from the old file like any other, and the band file's labels at the tier stay exactly the
+live ones.
+
 **Multi-view fusion (`geo.py`, `scripts/fuse_sites.py`, `scripts/eval_sites.py`)** —
 issue #27 stages 2–3, a post-processing layer between detection and submission.
 `geo.py` (repo root, stdlib-only, torch/numpy-free like `detectors/__init__.py`) is the
@@ -790,8 +816,16 @@ single home for geodesy: haversine + the declustering grid (imported back by
 `export_benchmark.py`), a `LocalFrame` ENU tangent plane, and the ground raycast
 `detection_ground_point` — flat-ground intersection at a camera height (2.6 m unless the
 caller asks otherwise; the fuse_sites CLI's `auto` default is per-rig for GSV, #79) with
-closed-form anisotropic error from the 1024×512 heatmap quantization, **dropping** (never
-clamping) rays beyond 25 m. GSV camera pitch/roll are deliberately NOT applied: the
+closed-form anisotropic error (`geo.ErrorModel`), **dropping** (never clamping) rays beyond
+25 m. Its peak term `sigma_peak_px` defaults to **1.0 heatmap px**, which is optimistic: the
+heatmap is an 8x bilinear upsample of a stride-32 map, so detections are quantized to 8-px
+coarse cells (#111; `scripts/heatmap_grid.py grid`: >= 99.8% on residue 3/4 in every run), whose
+uniform quantization alone is 8/sqrt(12) = 2.31 px. 2.31 failed #111's pre-registered adoption
+rule in one of ten cells (Sao Paulo at 2.6 m: world recall -1.6 pts, SE 1.3; precision
+unchanged everywhere; gate/residual rejections down 16-58% on GSV), so the default stayed 1.0
+and `--sigma-peak-px` (fuse_sites, eval_sites; `FuseParams.sigma_peak_px`) opts in. **Every
+published fusion/clustering/residual table used 1.0.** The measured residual that should
+replace both waits on the sub-cell decode study (RampNet#221); docs/heatmap-grid.md. GSV camera pitch/roll are deliberately NOT applied: the
 `--pose-ablation` experiment measured that applying the full pose loosens multi-view
 agreement. **That does not mean the equirects are gravity-rectified** (corrected 2026-09-29,
 #113): they are in the rig's frame (sidewalk-panorama-tools#158), streetlevel and the PS pano
