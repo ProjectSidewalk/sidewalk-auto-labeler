@@ -349,3 +349,56 @@ def test_an_auto_per_rig_fuse_is_not_taken_for_a_per_rig_one(tmp_path):
     assert not meta({'mode': 'auto', 'resolved': 2.6})    # a fallback is a real 2.6 m fuse
     assert not meta({'mode': 'per-rig', 'table': 'camera_heights.json'})
     assert not meta(None)
+
+
+def _noisy_views(n_sites, sigma_pitch_true_deg, seed=57):
+    """Synthetic 4-view sites whose ground points scatter exactly as MAPILLARY_ERRORS
+    predicts, except that the along-ray pitch term is drawn at sigma_pitch_true_deg.
+    Every View carries the MODEL's covariance (sigma_pitch 1.5 deg), as fusion would."""
+    import random
+    rng = random.Random(seed)
+    em, h = geo.MAPILLARY_ERRORS, 2.6
+    peak = em.sigma_peak_px * geo.RAD_PER_HEATMAP_PX
+    sites = []
+    for s in range(n_sites):
+        views = []
+        for i in range(4):
+            d, b = rng.uniform(5.0, 20.0), rng.uniform(0.0, 360.0)
+            k = (h * h + d * d) / h
+            sc = d * math.hypot(peak, em.sigma_heading_rad)
+
+            def sa(pitch_rad):
+                return math.sqrt(k * k * (peak ** 2 + pitch_rad ** 2)
+                                 + (d / h) ** 2 * em.sigma_height_m ** 2)
+            ub = math.radians(b)
+            along = rng.gauss(0.0, sa(math.radians(sigma_pitch_true_deg)))
+            cross = rng.gauss(0.0, sc)
+            e = along * math.sin(ub) + cross * math.cos(ub) + rng.gauss(0.0, em.sigma_gps_m)
+            n = along * math.cos(ub) - cross * math.sin(ub) + rng.gauss(0.0, em.sigma_gps_m)
+            g = geo.GroundEstimate(0.0, 0.0, d, b, sa(em.sigma_pitch_rad), sc)
+            views.append(rr.View(f's{s}v{i}', 0, 0.5, 0.6, 0.9, e, n,
+                                 g.cov_en(em.sigma_gps_m), d, b, 'panoramax', None,
+                                 g.sigma_along_m, g.sigma_cross_m))
+        sites.append(rr.SiteViews(s, views, 0.0, 0.0, {v.pano_id for v in views}))
+    return sites
+
+
+def test_chi2_dof_is_one_when_the_model_is_right():
+    sites = _noisy_views(3000, sigma_pitch_true_deg=1.5)
+    assert rr.pooled_chi2_dof(sites) == pytest.approx(1.0, abs=0.05)
+
+
+def test_sigma_pitch_fit_recovers_the_true_pitch_sigma():
+    """#57: data scattered at a 4 deg pitch sigma read too tight under the 1.5 deg model,
+    and the bisection hands back ~4 deg with every other sigma fixed."""
+    sites = _noisy_views(3000, sigma_pitch_true_deg=4.0)
+    assert rr.pooled_chi2_dof(sites) > 1.5
+    heights = {v.pano_id: 2.6 for sv in sites for v in sv.views}
+    assert rr.sigma_pitch_for_unit_chi2(sites, heights) == pytest.approx(4.0, abs=0.3)
+
+
+def test_pose_group_splits_tilt_zeros_absent():
+    pano = make_pano('p', 0, 0, [], heading_deg=0.0)
+    assert rr.pose_group(replace(pano, camera_pitch=None, camera_roll=None)) == 'absent'
+    assert rr.pose_group(replace(pano, camera_pitch=0.0, camera_roll=0.0)) == 'zeros'
+    assert rr.pose_group(replace(pano, camera_pitch=-3.2, camera_roll=0.0)) == 'tilt'

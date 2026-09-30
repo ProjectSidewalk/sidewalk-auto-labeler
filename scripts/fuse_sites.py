@@ -1381,7 +1381,72 @@ def pose_ablation_report(panos, params):
         mean = sum(dists) / len(dists)
         lines.append(f'{name:>14}  {mean:7.3f}  {dists[len(dists) // 2]:7.3f}  '
                      f'{len(dists):7d}')
+    lines += ['', *pose_ablation_same_sites(groups, by_id, frame, params, conventions)]
     return '\n'.join(lines)
+
+
+def pose_ablation_same_sites(groups, by_id, frame, params, conventions):
+    """The ablation re-read on ONE site set at the production range cap (issue #57).
+
+    The table above lets each convention drop a whole group when one member's ray
+    misses the ground, and runs uncapped, so its rows are different subsets and its
+    tail charges a convention for rays production drops. Here a group counts only if
+    EVERY convention places EVERY member within params.max_range_m, and the pairwise
+    spread is read as a median and a p90 -- twice: over all posed members, and over
+    members whose pose is a real tilt (a 0/0 pose is identical under every sign, so
+    it only dilutes the contrast)."""
+    out = []
+    for label, keep in (('posed members (incl. 0/0)', lambda p: True),
+                        ('real-tilt members only',
+                         lambda p: float(p.camera_pitch) != 0.0
+                         or float(p.camera_roll) != 0.0)):
+        subset = [[d for d in ms if keep(by_id[d.pano_id])] for ms in groups]
+        subset = [ms for ms in subset if len(ms) >= 2]
+        pts = {name: [] for name, _ in conventions}
+        kept = 0
+        for ms in subset:
+            per = {}
+            for name, signs in conventions:
+                row = []
+                for d in ms:
+                    p = by_id[d.pano_id]
+                    if signs is None:
+                        pose = geo.pano_pose(p.pose_fields(camera_pitch=None,
+                                                           camera_roll=None))
+                    else:
+                        pose = geo.pano_pose(p.pose_fields(
+                            camera_pitch=signs[0] * p.camera_pitch,
+                            camera_roll=signs[1] * p.camera_roll))
+                    g = geo.detection_ground_point(
+                        pose, d.x, d.y, camera_height=params.camera_height_m,
+                        max_range_m=params.max_range_m,
+                        errors=geo.error_model_for(p.source, params.sigma_peak_px))
+                    if g is None:
+                        break
+                    row.append(frame.to_enu(g.lat, g.lng))
+                else:
+                    per[name] = row
+                    continue
+                break
+            if len(per) != len(conventions):
+                continue
+            kept += 1
+            for name, row in per.items():
+                pts[name] += [math.hypot(row[i][0] - row[j][0], row[i][1] - row[j][1])
+                              for i in range(len(row)) for j in range(i + 1, len(row))]
+        out += [f'same-site set, {label}: {kept} of {len(subset)} groups placed by every '
+                f'convention within {params.max_range_m:g} m; pairwise distance (m):',
+                f'{"convention":>14}  {"median":>7}  {"p90":>7}  {"pairs":>7}']
+        for name, _ in conventions:
+            dists = sorted(pts[name])
+            if not dists:
+                out.append(f'{name:>14}  {"—":>7}  {"—":>7}  {0:7d}')
+                continue
+            p90 = dists[min(len(dists) - 1, max(0, math.ceil(len(dists) * 0.9) - 1))]
+            out.append(f'{name:>14}  {dists[len(dists) // 2]:7.3f}  {p90:7.3f}  '
+                       f'{len(dists):7d}')
+        out.append('')
+    return out
 
 
 IMPLIED_MIN_ANGLE_DEG = 30.0   # below this two bearings barely constrain a range
