@@ -20,7 +20,14 @@ Full pass: 20% of the rest double-rated the same way.
 **Rubric v1.** A dual-direction apron is two ramps (#116 box rule); a driveway is not a ramp; an
 unlabelled ramp is one `uncovered` point at the ramp; `unsure` abstains from every metric; a unit
 counts only when attested `complete`; crops 45° / 512 px (4096×2048-equivalent); inventory points
-hidden until the unit is complete.
+hidden until the unit is complete; a unit edited after the reveal is flagged and dropped from
+the inventory calibration. Reviewer time accrues only while the unit is visible and there was input
+in the last 60 s.
+
+**Same labels in every arm.** Human labels are excluded from scoring in every arm; a label an
+arm does not hold (ps has no humans; fusion drops 34 labels on unplaceable panos) is scored as
+that arm's singleton cluster, so coverage is arm-independent and only split / merge / validity
+differ.
 
 **Metrics.** Per GT ramp: clusters holding its labels → covered (≥ 1), split (≥ 2); per cluster:
 ramps its in-window labels span → merge (≥ 2 ramps; the ≥ 2-labels-each variant beside it);

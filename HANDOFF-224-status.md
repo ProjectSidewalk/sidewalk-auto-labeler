@@ -8,8 +8,8 @@ assignments file exists anywhere outside test fixtures. All five plan milestones
 
 | repo / branch | HEAD | pushed | contents |
 |---|---|---|---|
-| RampNet `cluster-review-224` (off main) | `244098b` | yes | M1 `benchmark/RUBRICS.md` §6 + `docs/cluster_review_protocol.md`; M3 `scripts/cluster_review_gallery.py`, `rampnet/cluster_review.py`, `scripts/cluster_review_agreement.py`, tests, README/city-doc pointers, .gitignore; M5 `benchmark/vancouver/cluster_review/{snapshot.json, corners.jsonl, crops_missing.csv, report.md, export_runs.json}` |
-| sidewalk-auto-labeler `cluster-review-224` (off `vancouver-56-scoring`, worktree `D:/Git/sal-cluster-review`) | `39ecc9c` | yes | M2 `scripts/export_cluster_review.py`, `inventory_clustering.server_arms`, site_explorer crop-worker extension, tests; M4 `assignment_metrics` / `paired_ramp_table` / `assignment_verdict`, `scripts/cluster_review_score.py`, tests, CLAUDE.md block, `docs/ps-clustering-eval.md` section; M5 `runs/vancouver/cluster_review/report.md` + `score/{report.md, arms.csv, ramps.csv}` |
+| RampNet `cluster-review-224` (off main) | `6550ad4` (review fixes; was `244098b`) | yes | M1 `benchmark/RUBRICS.md` §6 + `docs/cluster_review_protocol.md`; M3 `scripts/cluster_review_gallery.py`, `rampnet/cluster_review.py`, `scripts/cluster_review_agreement.py`, tests, README/city-doc pointers, .gitignore; M5 `benchmark/vancouver/cluster_review/{snapshot.json, corners.jsonl, crops_missing.csv, report.md, export_runs.json}` |
+| sidewalk-auto-labeler `cluster-review-224` (off `vancouver-56-scoring`, worktree `D:/Git/sal-cluster-review`) | `bd1d428` (review fixes; was `39ecc9c`) | yes | M2 `scripts/export_cluster_review.py`, `inventory_clustering.server_arms`, site_explorer crop-worker extension, tests; M4 `assignment_metrics` / `paired_ramp_table` / `assignment_verdict`, `scripts/cluster_review_score.py`, tests, CLAUDE.md block, `docs/ps-clustering-eval.md` section; M5 `runs/vancouver/cluster_review/report.md` + `score/{report.md, arms.csv, ramps.csv}` |
 | sal-working-notes `working-notes` | (this commit) | local commit | `224-preregistration-comment.md` (DRAFT, not posted), this note |
 
 Untracked, local only: pixels `D:/Git/RampNet/benchmark/vancouver/cluster_review/{crops (78 MB, 1,365 files), aerial (4.2 MB, 80 files)}`, the built pilot gallery `.../cluster_review/gallery/index.html`, the Overpass cache `D:/Git/sal-cluster-review/runs/vancouver/cluster_review/osm.json` and Esri tile cache `.../tiles/` (1,050 tiles). `D:/Git/sal-vancouver` was only read.
@@ -32,8 +32,8 @@ Put your name in the "Review notes" panel. Export downloads `assignments.json`; 
 **Rater B (pilot, every unit seeded with its `rater_b_seed`: 15 fusion / 15 deployed):**
 ```
 python scripts/cluster_review_gallery.py benchmark/vancouver/cluster_review --pilot \
-    --rater <name> --role b --seed-arm auto --out benchmark/vancouver/cluster_review/gallery/b
-start benchmark\vancouver\cluster_review\gallery\b\index.html
+    --rater <name> --role b --seed-arm auto --out benchmark/vancouver/cluster_review/gallery/<name>
+start benchmark\vancouver\cluster_review\gallery\<name>\index.html
 ```
 Export downloads `assignments__<name>.json`; save it into the bundle. Two raters in one browser
 do not collide (localStorage is keyed by bundle + rater + label-snapshot sha256).
@@ -129,12 +129,19 @@ python scripts/export_cluster_review.py vancouver --run-dir ../sal-vancouver/run
 - Crops: 1,406 requested, **1,365 cut, 41 missing** — 14 panos absent from the PS store (verified
   with `ls` on makelab2; the same panos are the 41 inverted cameras). Aerials 80/80. Reconcile OK.
 - Inventory points in the 80 windows: 225.
-- Wall clock: arms 41.7 s, Overpass GET 6.4 s (first run; cached after), sampling 12.3 s,
+- Wall clock: arms 41.7 s, Overpass GET 6.4 s (first, trial run into the scratchpad; console /
+  scratch `export_runs.json` output, NOT in a tracked file — the tracked `export_runs.json` shows
+  the cached re-use, 0.2 s), sampling 12.3 s,
   aerials 360.7 s (1,050 Esri tiles fetched, none seeded — sal-vancouver's 94 cached tiles did not
   overlap), crops 55.9 s on makelab2 (16 workers), scorer ~45 s.
 - Scorer self-consistency on the real bundle: fusion_server+attach vs an assignment derived from
-  itself over all 80 units: split 0/296, merge 0/245 — OK.
-- Tests: RampNet `pytest -q` 2,285 passed, 1 skipped, **1 failed — pre-existing and untouched by the
+  itself over all 80 units: split 0/296, merge 0/245 — OK (after the review fixes, with the 34
+  labels fusion does not hold scored as its singletons: split 0/330, merge 0/245). Singletons
+  added per arm on the bundle: deployed 1, ps @ t 0, fusion_server 34, fusion_server+attach 34;
+  human labels excluded: 0 (none fell in a window).
+- Tests after the review fixes: RampNet 2,290 passed, 1 skipped, 1 failed (the same pre-existing
+  test below); auto-labeler 894 passed, 2 skipped.
+- Tests before the review: RampNet `pytest -q` 2,285 passed, 1 skipped, **1 failed — pre-existing and untouched by the
   branch** (`tests/test_stage1_bearing_residual.py::test_great_circle_matches_the_geodesic_used_by_stage_1`:
   great-circle vs pyproj bearing differs by 0.08°; it runs only where pyproj is installed, which
   CI does not). New RampNet tests: 28 (`test_cluster_review.py`, `test_cluster_review_gallery.py`,
@@ -167,3 +174,29 @@ python scripts/export_cluster_review.py vancouver --run-dir ../sal-vancouver/run
 3. Run the agreement CLI (pilot rule: pairwise ≥ 0.90 and κ ≥ 0.6) and score; revise rubric to v2
    before the full pass if the pilot fails.
 4. Decide on the Esri imagery licence for a lab tool, the #56 headline correction, and the PR stack.
+
+## Review fixes (2026-09-29, after an independent review; still before any unit was reviewed)
+
+RampNet `6550ad4` ("M3 review fixes"), auto-labeler `bd1d428` ("M4 review fixes"). The pilot gallery
+was rebuilt (`gallery/index.html`, 30 units, 622 labels) and re-probed in headless Edge (undo keeps
+elapsed_s/note, inventory flags set on reveal and on reopen, uncovered-on-ramp click refused).
+
+| # | defect | fix |
+|---|---|---|
+| 1 | a later-placed assignments file was shadowed by merely seeded browser state | local state wins only on units `seen` or `complete`; otherwise the file; conflicts listed in the notice; node test added |
+| 2 | `--role b` without `--rater` shared rater A's storage/prefill/export | refused; a rater's export made under the other role is refused (`role_problem`) |
+| 3 | undo rewound `elapsed_s` and the note | undo restores labels / ramps / uncovered / complete only |
+| 4 | inventory could be seen, then the unit reopened and edited | sticky `inventory_seen`, `edited_after_inventory` on any later edit (reopen included), exported + validated; the scorer drops edited-after units from the inventory calibration |
+| 5 | scorer printed but never compared the deployed-clusters / results.jsonl sha256 | refused on mismatch; `--allow-arm-mismatch` overrides and is written into the report |
+| 6 | malformed label values accepted; foreign rubric only warned | values must match `^r\d+$` / not_ramp / unsure; `rubric_version != 1` refused; tests added |
+| 7+8 | arms were scored on different label sets | **pre-registration change**: human labels excluded in every arm; a label an arm does not hold is its singleton; coverage arm-independent (`inventory_clustering.complete_arm`). Protocol "Metrics" + "Amendment", RUBRICS §6 "What is scored", draft comment updated |
+| 9 | idle time accrued; saves only every 5 ticks | clock pauses after 60 s without keyboard/mouse input; save on `pagehide` and when hidden; documented in protocol + RUBRICS §6 |
+| 10 | storage key could collide across re-samples | key adds the `corners.jsonl` sha256 |
+| 11 | uncovered point on a ramp only caught by validate() | refused at click (and ramp placement onto an uncovered mark refused); Export refuses a complete unit that still has one |
+| 12 | docstring `--out .../gallery_mikey` not git-ignored | now `gallery/<rater>` |
+| 13 | first-run Overpass timing cited as if tracked | marked as console / scratch output above |
+
+Decision taken while fixing that the brief did not spell out: flagging on *every* revealed unit would
+empty the Vancouver inventory calibration (every completed unit reveals it), so the calibration drops
+only units **edited after** the reveal; `inventory_seen` alone is reported, not dropped. Reopening a
+unit counts as an edit (conservative).
