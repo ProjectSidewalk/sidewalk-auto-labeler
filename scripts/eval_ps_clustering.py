@@ -26,6 +26,22 @@ Arms (every one a partition of the same AI labels, scored by one scorer in one f
   ps_raycast @ t  the PS algorithm on the labeler's raycast positions (isolates
                   placement from algorithm)
   fusion          fuse_sites.py's ray-aware associator (the labeler's reference)
+  fusion_server   the same associator fed only what the server holds: every live label
+                  (AI and human) at its stored pixel, AI confidence (label_ai_info), and
+                  the pano position (pano_data; inverted from the labels for a pano only
+                  humans labeled). The partition the server would compute if its
+                  clustering were fusion; it touches no SidewalkWebpage code
+  fusion_server+attach  ...plus one pre-declared rule for the labels the raycast cannot
+                  place: join the site on the label's bearing ray (attach_unplaceable)
+
+Offline mode (--offline, issue #106) scores a city with no server, or a run no server
+holds: one label per stored detection >= --min-confidence (rig-masked) is synthesized
+and placed with the server's own estimator (ps_placement.py, exact to the server's
+parity fixture); regions come from the nearest street of /v3/api/streets when --server
+names one (the server's own rule), else every label is in one region. `deployed` and
+`ps_repro` do not exist there; every other arm runs unchanged. --offline-check, run
+against a live server, measures how well that reproduces the server's positions and
+partition (docs/ps-clustering-eval.md, "Beyond Richmond").
 
 The headline metric is `coverage` (a cluster of this arm within the match radius
 of a pool GT ramp). `recall (union)` is eval_sites' definition, kept only for the
@@ -46,6 +62,11 @@ Usage:
     python scripts/eval_ps_clustering.py richmond --camera-height-m per-pano \
         --labels runs/richmond/ps_clustering_eval/raw_labels.geojson \
         --clusters runs/richmond/ps_clustering_eval/clusters.geojson
+    # offline (no server labels): -> runs/<city>/ps_clustering_eval_offline_t0.55/
+    python scripts/eval_ps_clustering.py bend --offline
+    python scripts/eval_ps_clustering.py laurens --split laurens_mapillary \
+        --results runs/laurens/results.raw.jsonl --offline --min-confidence 0.3 \
+        --server https://sidewalk-laurens.cs.washington.edu    # streets, for regions only
 """
 import argparse
 import csv
@@ -55,7 +76,7 @@ import json
 import math
 import sys
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -67,13 +88,17 @@ for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
         sys.path.insert(0, str(_p))
 
 import geo  # noqa: E402
+import ps_placement  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
-from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, on_camera_rig  # noqa: E402
 
 try:  # analysis-only dependencies, deliberately not in requirements.txt
     import pandas as pd
     from scipy.cluster.hierarchy import fcluster, linkage
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    from scipy.spatial import cKDTree
     from scipy.spatial.distance import squareform
     from haversine import haversine_vector
 except ImportError as exc:  # pragma: no cover
@@ -86,9 +111,6 @@ PS_THRESHOLD_KM = 0.0075   # label_clustering.py THRESHOLDS['CurbRamp']
 API_LABELS = '/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson'
 API_CLUSTERS = ('/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true'
                 '&filetype=geojson')
-# A dense N x N float64 matrix plus its bool mask and condensed copy; the citywide
-# arm is the only path that builds one over every label in the city.
-CITYWIDE_MAX_LABELS = 20000
 
 
 # ----------------------------------------------------------------------------- inputs
@@ -188,7 +210,12 @@ def load_labels(path):
                      'pano_x': q['pano_x'], 'pano_y': q['pano_y'],
                      # severity is unused here; the verbatim PS cluster() reads it.
                      'severity': float('nan') if sev is None else float(sev),
-                     'label_type': q['label_type']})
+                     'label_type': q['label_type'],
+                     # read only by the fusion_server arm (server_panos)
+                     'pano_width': q.get('pano_width'), 'pano_height': q.get('pano_height'),
+                     'camera_heading': q.get('camera_heading'),
+                     'pano_source': q.get('pano_source'),
+                     'image_capture_date': q.get('image_capture_date')})
     return pd.DataFrame(rows), dropped
 
 
@@ -300,6 +327,155 @@ def clusters_from_sites(sites, refit_position):
     return out
 
 
+# ------------------------------------------------- fusion on what the server holds
+
+# The server's own placement height (SidewalkWebpage#4819): its label lat/lng are the
+# flat raycast at this height, so inverting that raycast recovers the camera position.
+SERVER_CAMERA_HEIGHT_M = 2.341219672825709
+# Only labels this close are inverted: nearer the horizon the server's bounded tail
+# departs from the flat raycast, and one such label would move a camera metres.
+INVERT_MAX_RANGE_M = 15.0
+# det_index for a human label. Stored detections are capped at 50 per pano, so this
+# never collides with a real index, and det_pos never holds it (scored by n_labels only).
+HUMAN_DET_BASE = 10000
+HUMAN_CONFIDENCE = 1.0
+
+
+def invert_camera_position(rows, server_height=SERVER_CAMERA_HEIGHT_M):
+    """(lat, lng, n_used) of one pano's camera, from its labels' server positions, or
+    None when no label is close enough to invert.
+
+    Each server position is the flat raycast from the camera, so the camera sits at the
+    label minus that raycast's offset (the offset depends only on heading, pixel and
+    height). The per-label estimates are combined by median.
+
+    Example:
+        A label straight ahead (x = 0.5, heading 0) and 20 degrees down at 2.34 m lies
+        ~6.4 m north of the camera, so the camera comes back ~6.4 m south of the label.
+    """
+    lats, lngs = [], []
+    for r in rows:
+        if not r['pano_width'] or not r['pano_height'] or r['camera_heading'] is None:
+            continue
+        probe = fs.SlimPano(r['pano_id'], r['lat'], r['lng'], r['camera_heading'],
+                            None, None, None, r['pano_source'] or '', [])
+        g = geo.detection_ground_point(
+            fs.pano_pose(probe, fs.POSE_OFF), r['pano_x'] / r['pano_width'],
+            r['pano_y'] / r['pano_height'], camera_height=server_height,
+            max_range_m=INVERT_MAX_RANGE_M, errors=geo.error_model_for(probe.source),
+            apply_pose=False)
+        if g is None:
+            continue
+        f = geo.LocalFrame(r['lat'], r['lng'])
+        ge, gn = f.to_enu(g.lat, g.lng)
+        lat, lng = f.to_latlng(-ge, -gn)
+        lats.append(lat)
+        lngs.append(lng)
+    if not lats:
+        return None
+    return float(np.median(lats)), float(np.median(lngs)), len(lats)
+
+
+def server_panos(labels, det_of, run_by_id):
+    """SlimPanos built from the server's labels, for fuse_sites to associate: the
+    partition the server would compute if its clustering were fusion. What each field
+    comes from, and why the server has it:
+
+    - detections: every label on the pano, at its stored pixel. AI labels keep the
+      run's det_index (so the scorer places them) and their confidence, which the
+      server stores in label_ai_info; human labels get HUMAN_DET_BASE+k and
+      HUMAN_CONFIDENCE (they seed sites first).
+    - heading / source / capture date: the label row.
+    - camera position: pano_data's, which for a pano the labeler submitted is the run's
+      pano block; a pano only humans labeled is inverted from its labels.
+    - camera height fields: copied from the run pano when there is one, so this arm
+      raycasts in the same frame as every other labeler arm; otherwise unmeasured.
+
+    Returns (panos, stats) where stats counts inverted and unplaceable panos.
+    """
+    stats = {'run_position': 0, 'inverted': 0, 'unplaceable': 0,
+             'human_labels': 0, 'ai_labels': 0}
+    panos = []
+    for pano_id, grp in labels.groupby('pano_id', sort=True):
+        rows = grp.to_dict('records')
+        dets, k = [], 0
+        for r in rows:
+            if not r['pano_width'] or not r['pano_height']:
+                continue
+            x, y = r['pano_x'] / r['pano_width'], r['pano_y'] / r['pano_height']
+            ai = det_of.get(r['label_id'])
+            if ai is not None:
+                run = run_by_id.get(pano_id)
+                conf = next((c for i, _x, _y, c in run.detections if i == ai[1]),
+                            None) if run else None
+                dets.append((ai[1], x, y, HUMAN_CONFIDENCE if conf is None else conf))
+                stats['ai_labels'] += 1
+            else:
+                dets.append((HUMAN_DET_BASE + k, x, y, HUMAN_CONFIDENCE))
+                k += 1
+                stats['human_labels'] += 1
+        run = run_by_id.get(pano_id)
+        head = rows[0]
+        if run is not None:
+            lat, lng = run.lat, run.lng
+            stats['run_position'] += 1
+        else:
+            inv = invert_camera_position(rows)
+            if inv is None:
+                stats['unplaceable'] += 1
+                continue
+            lat, lng, _n = inv
+            stats['inverted'] += 1
+        p = fs.SlimPano(pano_id, lat, lng, head['camera_heading'], None, None,
+                        head['image_capture_date'], head['pano_source'] or '', dets)
+        if run is not None:
+            p.camera_height_m = run.camera_height_m
+            p.camera_height_spread_m = run.camera_height_spread_m
+            p.ground_tilt_deg = run.ground_tilt_deg
+            p.camera_height_vintage_m = run.camera_height_vintage_m
+            p.height_group = run.height_group
+            p.height_table = run.height_table
+        panos.append(p)
+    return panos, stats
+
+
+def inversion_check(labels, run_by_id):
+    """Distances (m) between the inverted and the run camera position over panos in
+    both: how far to trust inversion for the panos only humans labeled."""
+    out = []
+    for pano_id, grp in labels.groupby('pano_id', sort=True):
+        run = run_by_id.get(pano_id)
+        if run is None:
+            continue
+        inv = invert_camera_position(grp.to_dict('records'))
+        if inv is not None:
+            out.append(geo.haversine_m(inv[0], inv[1], run.lat, run.lng))
+    return sorted(out)
+
+
+def clusters_from_server_sites(sites, panos=()):
+    """Clusters from a fusion_server fuse: every member counts toward n_labels, but only
+    AI members (a real det_index) are placeable and scoreable, as in the other arms.
+
+    A server has to put every label somewhere, but the raycast drops the ones it cannot
+    place (beyond the range cap, or at/above the horizon), so no site holds them. Each
+    label of `panos` that no site holds becomes a singleton cluster, and the number of
+    them is the second return value."""
+    out, held = [], set()
+    for s in sites:
+        keys = [(d.pano_id, d.det_index) for d, _ in s.members]
+        held.update(keys)
+        out.append(Cluster(s.id, [k for k in keys if k[1] < HUMAN_DET_BASE], len(keys)))
+    n_singletons = 0
+    for p in panos:
+        for i, *_rest in p.detections:
+            if (p.pano_id, i) not in held:
+                out.append(Cluster(len(out), [(p.pano_id, i)] if i < HUMAN_DET_BASE
+                                   else [], 1))
+                n_singletons += 1
+    return out, n_singletons
+
+
 # ---------------------------------------------------------------- the PS algorithm
 
 def ps_linkage(sub):
@@ -326,14 +502,73 @@ def region_groups(labels):
     return [idx for _, idx in sorted(labels.groupby('region_id').indices.items())]
 
 
-def ps_partition(labels, thresholds_km, per_region=True):
+# The blocked partition (issue #106) cuts the city into single-linkage components at the
+# widest threshold plus this margin before running complete linkage per component. The
+# components are found on a flat equirectangular projection and the cut is made on the
+# script's own haversine distances; the two disagree by well under 1e-3 relative at city
+# scale (centimetres at 15 m), so 0.5 m guarantees no pair within any threshold is ever
+# separated by the blocking.
+BLOCK_MARGIN_M = 0.5
+
+
+def blocked_components(lat, lng, radius_m):
+    """Connected components of the graph joining every pair of points within radius_m
+    (flat projection about the points' mean). Returns a label array aligned with lat.
+
+    Why it is exact for complete linkage: every pair in two different components is more
+    than radius_m apart, so any two clusters drawn from different components are too, and
+    complete linkage never merges them below radius_m. Every flat cluster at a cut
+    t <= radius_m therefore lies inside one component, and the merges below t inside a
+    component happen in the same order as over the whole set.
+
+    Example:
+        >>> blocked_components(np.array([0.0, 0.0, 0.001]), np.array([0.0, 0.00005, 0.0]),
+        ...                    10.0).tolist()
+        [0, 0, 1]
+    """
+    lat = np.asarray(lat, dtype=float)
+    lng = np.asarray(lng, dtype=float)
+    if len(lat) == 0:
+        return np.zeros(0, dtype=int)
+    lat0 = math.radians(float(lat.mean()))
+    xy = np.column_stack([np.radians(lng) * math.cos(lat0) * geo.EARTH_RADIUS_M,
+                          np.radians(lat) * geo.EARTH_RADIUS_M])
+    pairs = cKDTree(xy).query_pairs(radius_m, output_type='ndarray')
+    n = len(lat)
+    graph = coo_matrix((np.ones(len(pairs), dtype=np.int8), (pairs[:, 0], pairs[:, 1])),
+                       shape=(n, n))
+    _n, comp = connected_components(graph, directed=False)
+    return comp
+
+
+def ps_partition(labels, thresholds_km, per_region=True, blocked=True, stats=None):
     """{threshold_km: cluster-id array aligned with labels rows} for one linkage per
-    group, cut at every threshold (fcluster cuts the same tree the script builds)."""
+    group, cut at every threshold (fcluster cuts the same tree the script builds).
+
+    blocked=True (the default since #106) runs the linkage per single-linkage component
+    at the widest threshold + BLOCK_MARGIN_M (blocked_components) instead of over the
+    whole group: the same partition at every threshold, without an N x N matrix over a
+    whole city. blocked=False is the dense path, kept for the equality test. `stats`, if
+    given, receives the largest block size."""
     # -1, not 0: every row must be assigned, and an unassigned row has to be loud
     # rather than collapsing into a fabricated cluster 0.
     out = {t: np.full(len(labels), -1, dtype=int) for t in thresholds_km}
     offset = {t: 0 for t in thresholds_km}
     groups = region_groups(labels) if per_region else [np.arange(len(labels))]
+    if blocked:
+        radius_m = max(thresholds_km) * 1000.0 + BLOCK_MARGIN_M
+        lat_all = labels['lat'].to_numpy(dtype=float)
+        lng_all = labels['lng'].to_numpy(dtype=float)
+        blocks = []
+        for idx in groups:
+            comp = blocked_components(lat_all[idx], lng_all[idx], radius_m)
+            order = np.argsort(comp, kind='stable')
+            cuts = np.flatnonzero(np.diff(comp[order])) + 1
+            blocks += [np.asarray(idx)[part] for part in np.split(order, cuts)]
+        groups = blocks
+    if stats is not None:
+        stats['largest_block'] = max((len(g) for g in groups), default=0)
+        stats['n_blocks'] = len(groups)
     for idx in groups:
         sub = labels.iloc[idx]
         if len(sub) == 1:
@@ -351,12 +586,6 @@ def ps_partition(labels, thresholds_km, per_region=True):
             raise SystemExit(f'{int((arr < 0).sum())} labels were never assigned a '
                              f'cluster at {t} km — the grouping dropped rows')
     return out
-
-
-def dense_matrix_gb(n):
-    """Peak memory of ps_linkage over n labels: float64 matrix + bool mask +
-    condensed copy."""
-    return (n * n * 8 * 1.5 + n * n) / 1024 ** 3
 
 
 def ps_verbatim(labels, ps_script):
@@ -397,11 +626,22 @@ def partition_agreement(a, b):
 def score(clusters, gt, det_pos, radius_m=5.0, frag_radii=(3.0, 5.0)):
     ramps, pool, points, op_verdicts = gt
     placed = [c for c in clusters if c.e is not None]
-    matched = es.match_one_to_one(pool, placed, radius_m)
+    # Only clusters within reach of some GT ramp can match or count as a fragment, so the
+    # O(ramps x clusters) loops below run over those alone (identical results; a city of
+    # 100k clusters otherwise costs minutes per arm).
+    reach = max(radius_m, *frag_radii)
+    near = placed
+    if placed and ramps:
+        tree = cKDTree(np.array([[c.e, c.n] for c in placed]))
+        hit = set()
+        for lst in tree.query_ball_point(np.array([[r.e, r.n] for r in ramps]), reach):
+            hit.update(lst)
+        near = [placed[i] for i in sorted(hit)]
+    matched = es.match_one_to_one(pool, near, radius_m)
     # A cluster is "somebody's match" if it matches ANY GT ramp, not only a pool
     # one: a ramp on a pano whose missed-check was not confirmed is still a real
     # ramp, and a cluster sitting on it is not a fragment.
-    matched_all = es.match_one_to_one(ramps, placed, radius_m)
+    matched_all = es.match_one_to_one(ramps, near, radius_m)
     matched_ids = {c.id for c in matched_all.values()}
 
     # Two recall-shaped numbers, deliberately both reported:
@@ -440,7 +680,7 @@ def score(clusters, gt, det_pos, radius_m=5.0, frag_radii=(3.0, 5.0)):
         n_with = n_extra = 0
         for i, _c in matched.items():
             ramp = pool[i]
-            extra = sum(1 for o in placed if o.id not in matched_ids
+            extra = sum(1 for o in near if o.id not in matched_ids
                         and math.hypot(o.e - ramp.e, o.n - ramp.n) <= rf)
             n_extra += extra
             n_with += extra > 0
@@ -586,27 +826,498 @@ def csv_row(name, r):
             'frag5_extra': fr5['extra'], 'dual_pairs': d['pairs'], 'dual_both': d['both'],
             'dual_one': d['one'], 'dual_neither': d['neither'],
             'coh_n': co['n'], 'coh_median': co['median'], 'coh_p90': co['p90'],
-            'coh_over_5m': co['over_5m'], 'same_pano_pairs': r['same_pano_pairs']}
+            'coh_over_5m': co['over_5m'], 'same_pano_pairs': r['same_pano_pairs'],
+            **size_columns(r.get('size'))}
+
+
+SIZE_KEYS = {'unplaceable': 'sz_unpl', 'cluster of 1': 'sz_1', 'cluster of 2': 'sz_2',
+             'cluster of 3+': 'sz_3p'}
+
+
+def size_columns(rows):
+    """arms.csv columns for size_precision rows: n / judged / t / f per bucket, so a pooled
+    table can sum numerators and denominators across cities."""
+    out = {}
+    for row in rows or ():
+        k = SIZE_KEYS[row['bucket']]
+        out.update({f'{k}_n': row['n'], f'{k}_judged': row['judged'],
+                    f'{k}_t': row['t'], f'{k}_f': row['f']})
+    return out
+
+
+SIZE_BUCKETS = ('unplaceable', 'cluster of 1', 'cluster of 2', 'cluster of 3+')
+
+
+def size_precision(clusters, det_of, det_pos, verdicts, conf):
+    """Rows (one per SIZE_BUCKETS entry) of GT precision by the size of the cluster
+    holding each AI label. A label the raycast cannot place (not in det_pos) is
+    `unplaceable` whatever partition holds it. `verdicts` is build_gt's
+    (pano_id, det_index) -> verdict map; only True and False count toward precision.
+
+    Example:
+        A label alone in its cluster, judged False, lands in 'cluster of 1' with
+        t=0, f=1; one on a pano nobody judged adds to n but not to `judged`.
+    """
+    size_of = {}
+    for c in clusters:
+        for m in c.members:
+            size_of[m] = c.n_labels
+    keys = {b: [] for b in SIZE_BUCKETS}
+    for key in det_of.values():
+        if key not in det_pos:
+            keys['unplaceable'].append(key)
+        else:
+            s = size_of.get(key, 1)
+            keys['cluster of 1' if s == 1 else 'cluster of 2' if s == 2
+                 else 'cluster of 3+'].append(key)
+    rows = []
+    for b in SIZE_BUCKETS:
+        ks = keys[b]
+        v = [verdicts[k] for k in ks if k in verdicts]
+        cs = sorted(conf[k] for k in ks if k in conf)
+        rows.append({'bucket': b, 'n': len(ks), 'judged': len(v),
+                     't': sum(x is True for x in v), 'f': sum(x is False for x in v),
+                     'median_conf': quantile(cs, .5)})
+    return rows
+
+
+def wilson(t, n, z=1.96):
+    """Wilson score interval for t successes in n trials; None when n == 0.
+
+    Example:
+        >>> [round(x, 2) for x in wilson(27, 27)]
+        [0.88, 1.0]
+    """
+    if n == 0:
+        return None
+    p = t / n
+    d = 1 + z * z / n
+    mid = (p + z * z / (2 * n)) / d
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return max(0.0, mid - half), min(1.0, mid + half)
+
+
+def precision_ci_text(t, f):
+    ci = wilson(t, t + f)
+    if ci is None:
+        return 'n/a'
+    return f'{t / (t + f):.3f} [{ci[0]:.2f}, {ci[1]:.2f}]'
 
 
 def quantile(xs, p):
     return xs[min(len(xs) - 1, int(p * len(xs)))] if xs else None
 
 
+# --------------------------------------------------------- offline mode (issue #106)
+
+API_STREETS = '/v3/api/streets?filetype=geojson'
+# The label account offline-synthesized labels are attributed to. One account, so the
+# same-(user, pano) cannot-link is exactly "same pano", as it is for the live AI user.
+OFFLINE_USER = 'ai'
+# Region id for every label of a city whose streets are unknown (no street feed), and
+# the one region every label of a city with no server (and so no regions) shares.
+NO_REGION = -1
+CITY_REGION = 0
+# How far (m) a pano may have moved since its labels were inserted before the offline
+# check leaves its labels out: the server placed each label ONCE, from the pano position
+# the campaign sent, and a later repositioning campaign moves the pano row, not the labels.
+MOVED_PANO_M = 0.5
+# The placement check fails when ANY live AI label -- moved panos included -- re-places
+# more than this far from where the server put it. The moved-pano exclusion is decided
+# by inverting the same estimator the check validates, so a placement error that is
+# consistent within a pano (a heading offset, a systematic distance error) would be
+# excluded as "moved" rather than failed; gating on every label closes that hole.
+PLACEMENT_TOL_M = 0.5
+
+
+def synthesize_labels(results_path, min_confidence, mask_rig=True):
+    """(labels DataFrame, det_of) for a city with no server, or no server holding this
+    run: one label per stored detection with confidence >= min_confidence, exactly as
+    send_to_ps.transform_record would send it (pixel = round(x * width), round(y * height);
+    rig detections dropped when mask_rig), placed where the server would place it
+    (ps_placement.label_latlng at the server's 2.341 m).
+
+    Records without a position or heading are skipped, as fuse_sites.load_results skips
+    them. label_id is a per-run serial (unique only within this run; never pool on it),
+    region_id is CITY_REGION until assign_regions sets it, and det_of maps each label_id to
+    its (pano_id, det_index) directly -- no pixel lookup, so two detections that round to
+    one pixel both keep their labels (the live path has to drop such keys).
+
+    Example:
+        One record at (47.0, -122.0), heading 0, width 4096, with one detection at
+        x = 0.5, y = 0.6 and confidence 0.7 gives one label at pano_x 2048, pano_y 1229,
+        due north of the camera, ~12.9 m out (18 degrees down at 2.341 m).
+    """
+    rows, det_of = [], {}
+    with open(results_path, encoding='utf-8') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            p = rec['pano']
+            if p.get('lat') is None or p.get('lng') is None \
+                    or p.get('camera_heading') is None:
+                continue
+            w, h = p['width'], p['height']
+            for i, d in enumerate(rec.get('detections', [])):
+                if d['confidence'] < min_confidence:
+                    continue
+                if mask_rig and on_camera_rig(d['y_normalized']):
+                    continue
+                px, py = round(d['x_normalized'] * w), round(d['y_normalized'] * h)
+                lat, lng = ps_placement.label_latlng(p['lat'], p['lng'], px, py, w, h,
+                                                     p['camera_heading'])
+                lid = len(rows) + 1
+                det_of[lid] = (p['panorama_id'], i)
+                rows.append({'label_id': lid, 'user_id': OFFLINE_USER,
+                             'pano_id': p['panorama_id'], 'region_id': CITY_REGION,
+                             'lat': lat, 'lng': lng, 'pano_x': px, 'pano_y': py,
+                             'severity': float('nan'), 'label_type': 'CurbRamp',
+                             'pano_width': w, 'pano_height': h,
+                             'camera_heading': p['camera_heading'],
+                             'pano_source': p.get('source'),
+                             'image_capture_date': p.get('capture_date'),
+                             'confidence': d['confidence']})
+    cols = ['label_id', 'user_id', 'pano_id', 'region_id', 'lat', 'lng', 'pano_x',
+            'pano_y', 'severity', 'label_type', 'pano_width', 'pano_height',
+            'camera_heading', 'pano_source', 'image_capture_date', 'confidence']
+    return pd.DataFrame(rows, columns=cols), det_of
+
+
+def load_streets(path):
+    """[(street_edge_id, region_id, shapely LineString)] for the OPEN streets of a
+    /v3/api/streets geojson.
+
+    The server snaps an AI label to its nearest OPEN street only
+    (LabelTable.getStreetEdgeIdClosestToLatLng queries streetEdgeTable.streetsWithTutorial,
+    i.e. status == Open), while /v3/api/streets returns every street (open, no_imagery,
+    closed/disabled) -- on Richmond only 704 of 16,365. Keeping them all put 1.4% of
+    Richmond's live labels in the wrong region. The server's set also includes the
+    tutorial street, which the API omits; no real label lies near it, so that difference
+    is negligible. A pull without a `status` property cannot be filtered and is refused
+    (re-pull it).
+    """
+    from shapely.geometry import shape
+    with open(path, encoding='utf-8') as f:
+        feats = json.load(f)['features']
+    feats = [ft for ft in feats if ft.get('geometry')]
+    if any('status' not in (ft.get('properties') or {}) for ft in feats):
+        raise SystemExit(f'{path}: street features without a `status` property; cannot '
+                         'keep open streets only (the server rule). Re-pull with --refresh.')
+    return [(int(ft['properties']['street_edge_id']), int(ft['properties']['region_id']),
+             shape(ft['geometry'])) for ft in feats
+            if ft['properties']['status'] == 'open']
+
+
+def streets_provenance(path, streets):
+    """provenance() for a street pull, saying how many OPEN streets load_streets kept."""
+    with open(path, encoding='utf-8') as f:
+        n_all = len(json.load(f)['features'])
+    return (provenance(path, n_all)
+            + f'; {len(streets)} open streets kept (the server snaps to open streets only)')
+
+
+def assign_regions(lat, lng, streets):
+    """(region id array, n_ties): each point takes the region of its NEAREST street edge,
+    which is how the server assigns an AI label's region at insert
+    (ExploreService.submitAiLabelData: LabelTable.getStreetEdgeIdClosestToLatLng on the
+    label's own lat/lng, then that street's region). Distances are taken on an
+    equirectangular projection about the points' mean (the server uses
+    ST_DistanceSphere; the two agree to well under a centimetre over label-to-street
+    distances). A point equidistant from streets in different regions takes the lowest
+    street_edge_id, and how many did is returned (should be ~0). With no streets every
+    point gets NO_REGION.
+
+    Example:
+        >>> from shapely.geometry import LineString
+        >>> st = [(1, 7, LineString([(0, 0), (0.001, 0)])),
+        ...       (2, 9, LineString([(0, 0.001), (0.001, 0.001)]))]
+        >>> assign_regions([0.0002, 0.0009], [0.0005, 0.0005], st)[0].tolist()
+        [7, 9]
+    """
+    import shapely
+    lat = np.asarray(lat, dtype=float)
+    lng = np.asarray(lng, dtype=float)
+    out = np.full(len(lat), NO_REGION, dtype=int)
+    if not streets or not len(lat):
+        return out, 0
+    k = math.cos(math.radians(float(lat.mean())))
+
+    def proj(geom):
+        return shapely.transform(geom, lambda c: np.column_stack([c[:, 0] * k, c[:, 1]]))
+
+    lines = [proj(g) for _sid, _rid, g in streets]
+    tree = shapely.STRtree(lines)
+    pts = shapely.points(lng * k, lat)
+    pt_idx, line_idx = tree.query_nearest(pts, all_matches=True)
+    best = {}
+    for i, j in zip(pt_idx.tolist(), line_idx.tolist()):
+        sid, rid, _g = streets[j]
+        best.setdefault(i, []).append((sid, rid))
+    ties = 0
+    for i, cands in best.items():
+        cands.sort()
+        out[i] = cands[0][1]
+        ties += len({rid for _sid, rid in cands}) > 1
+    return out, ties
+
+
+def camera_from_label(lat, lng, pano_x, pano_y, width, height, camera_heading):
+    """The camera position a server label implies: its lat/lng walked back along the
+    server's own bearing by the server's own distance (the exact inverse of
+    ps_placement.label_latlng to well under a millimetre at label ranges)."""
+    dist, bearing = ps_placement.label_offset(pano_x, pano_y, width, height, camera_heading)
+    return ps_placement.destination(lat, lng, dist, bearing + 180.0)
+
+
+def offline_check(ai, det_of, results_path, streets, min_confidence, deployed,
+                  humans=None, clustered=None, threshold_km=PS_THRESHOLD_KM):
+    """Validate the offline server arm against a city that HAS live labels (issue #106).
+
+    (a) placement: every live AI label is re-placed by ps_placement from the results
+        file's pano block and its stored pixel, and compared with the server's lat/lng.
+        A pano whose position the server's labels imply (camera_from_label, median over
+        the pano's labels) sits more than MOVED_PANO_M from the file's is left out and
+        counted: its labels were inserted from another pano position (a repositioning
+        campaign after the file was written). That exclusion is self-referential (it
+        inverts the estimator under test), so the check's pass/fail (`placement_ok`) is
+        taken over ALL labels: max re-placement error <= PLACEMENT_TOL_M.
+    (b) partition: the labels synthesized offline from the file (at min_confidence,
+        unmasked), joined to the live AI labels on (pano_id, pano_x, pano_y) and given
+        regions by nearest street (assign_regions), are clustered with the PS rule at
+        7.5 m; the
+        deployed clusters whose labels are all AI and all joined are then looked up in
+        that partition by label set (partition_agreement). That is the gate. Offline
+        there are no human labels, and complete linkage lets a nearby human label change
+        how AI labels group, so (b+) repeats it with the live `humans` added at their live
+        positions and regions, against every deployed cluster whose labels are all present:
+        where (b) falls short and (b+) does not, the gap is the human labels, not the
+        offline placement or regions. Both partitions are computed over the labels the
+        server has clustered (`clustered`, label ids): a label inserted after the last
+        nightly clustering is in no deployed cluster, and complete linkage would let it
+        move others.
+
+    Returns a dict of the measured numbers (the report formats them).
+    """
+    by_key = {}
+    with open(results_path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                p = json.loads(line)['pano']
+                by_key[p['panorama_id']] = p
+    offs, cams = {}, {}
+    for r in ai.itertuples(index=False):
+        p = by_key.get(r.pano_id)
+        if p is None or p.get('lat') is None or p.get('camera_heading') is None:
+            continue
+        lat, lng = ps_placement.label_latlng(p['lat'], p['lng'], r.pano_x, r.pano_y,
+                                             p['width'], p['height'], p['camera_heading'])
+        offs[r.label_id] = geo.haversine_m(lat, lng, r.lat, r.lng)
+        cams.setdefault(r.pano_id, []).append(camera_from_label(
+            r.lat, r.lng, r.pano_x, r.pano_y, p['width'], p['height'],
+            p['camera_heading']))
+    moved = set()
+    for pid, cs in cams.items():
+        lat = float(np.median([c[0] for c in cs]))
+        lng = float(np.median([c[1] for c in cs]))
+        if geo.haversine_m(lat, lng, by_key[pid]['lat'], by_key[pid]['lng']) > MOVED_PANO_M:
+            moved.add(pid)
+    pano_of = dict(zip(ai.label_id, ai.pano_id))
+    kept = sorted(o for lid, o in offs.items() if pano_of[lid] not in moved)
+    every = sorted(offs.values())
+    res = {'n_ai': len(ai), 'n_placed': len(offs), 'n_moved_panos': len(moved),
+           'n_moved_labels': len(offs) - len(kept), 'n_kept': len(kept),
+           'median': quantile(kept, .5), 'p90': quantile(kept, .9),
+           'max': kept[-1] if kept else None,
+           'over_0_5': sum(1 for o in kept if o > 0.5),
+           'median_all': quantile(every, .5), 'p90_all': quantile(every, .9),
+           'over_0_5_all': sum(1 for o in every if o > 0.5),
+           'max_all': every[-1] if every else None}
+    res['placement_ok'] = bool(every) and every[-1] <= PLACEMENT_TOL_M
+
+    syn, _syn_det = synthesize_labels(results_path, min_confidence, mask_rig=False)
+    live_key = {(r.pano_id, r.pano_x, r.pano_y): r.label_id
+                for r in ai.itertuples(index=False)}
+    syn['live_id'] = [live_key.get(k) for k in zip(syn.pano_id, syn.pano_x, syn.pano_y)]
+    res['n_synth'] = len(syn)
+    res['synth_not_live'] = int(syn.live_id.isna().sum())
+    res['live_not_synth'] = len(ai) - int(syn.live_id.notna().sum())
+    joined = syn[syn.live_id.notna() & ~syn.pano_id.isin(moved)].copy()
+    joined['label_id'] = joined['live_id'].astype(int)
+    joined = joined.drop_duplicates('label_id').reset_index(drop=True)
+    res['unclustered'] = 0
+    if clustered is not None:
+        res['unclustered'] = int((~joined.label_id.isin(clustered)).sum())
+        joined = joined[joined.label_id.isin(clustered)].reset_index(drop=True)
+        if humans is not None:
+            humans = humans[humans.label_id.isin(clustered)].reset_index(drop=True)
+    reg, n_ties = assign_regions(joined.lat, joined.lng, streets)
+    live_region = dict(zip(ai.label_id, ai.region_id))
+    res['region_agree'] = int(sum(int(live_region[lid]) == int(g)
+                                  for lid, g in zip(joined.label_id, reg)))
+    res['n_joined'] = len(joined)
+    res['region_ties'] = n_ties
+    joined['region_id'] = reg
+    part = ps_partition(joined, [threshold_km])[threshold_km]
+    offline = clusters_from_assignment(joined, part, det_of)
+    joined_ids = set(joined.label_id)
+    ai_ids = set(ai.label_id)
+    eligible = [c for c in deployed if c.label_ids
+                and all(lab in ai_ids and lab in joined_ids for lab in c.label_ids)]
+    k, n, off = partition_agreement(eligible, offline)
+    res.update({'identical': k, 'eligible': n, 'off_labels': off,
+                'n_deployed': len(deployed)})
+    if humans is not None and len(humans):
+        both = pd.concat([joined[list(humans.columns.intersection(joined.columns))],
+                          humans[list(humans.columns.intersection(joined.columns))]],
+                         ignore_index=True)
+        part2 = ps_partition(both, [threshold_km])[threshold_km]
+        offline2 = clusters_from_assignment(both, part2, det_of)
+        present = set(both.label_id)
+        eligible2 = [c for c in deployed if c.label_ids
+                     and all(lab in present for lab in c.label_ids)]
+        k2, n2, off2 = partition_agreement(eligible2, offline2)
+        res.update({'identical_h': k2, 'eligible_h': n2, 'off_labels_h': off2,
+                    'n_humans': len(humans)})
+    return res
+
+
+# Unplaceable labels (no raycast position: at/above the horizon or beyond the 25 m cap)
+# get one pre-declared association rule, fixed before any result (#106) and never tuned on
+# GT: attach to a placed site of the same fuse that lies ON the label's bearing ray.
+# 15 m: where the server's bounded tail departs from the flat raycast (INVERT_MAX_RANGE_M);
+#   nearer than that a label would have been placeable, so a site there is another ramp.
+# 60 m: about where a curb ramp stops being resolvable in a 4096 px equirectangular.
+# 3 m:  the lateral same-ramp scatter of a multi-view site.
+ATTACH_PERP_M = 3.0
+ATTACH_MIN_RANGE_M = 15.0
+ATTACH_MAX_RANGE_M = 60.0
+
+
+def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
+                       min_range_m=ATTACH_MIN_RANGE_M, max_range_m=ATTACH_MAX_RANGE_M,
+                       mask_rig=False):
+    """(clusters, attached) for the `fusion_server+attach` arm.
+
+    Every label of `panos` that no site holds (clusters_from_server_sites makes these
+    singletons) is tested against the placed sites of the same fuse (`sites`, positions
+    in `frame`): along the label's bearing from its camera -- the server's own heading,
+    camera_heading - 180 + x * 360, which is the labeler's azimuth -- a site qualifies
+    when it lies between min_range_m and max_range_m ahead and within perp_m of the ray,
+    and does not already hold a label from the same pano (fusion's cannot-link). The label
+    joins the qualifying site nearest along the ray as a non-refit member (the site does
+    not move); otherwise it stays a singleton. Labels are processed in descending
+    confidence (then pano id, index), so the cannot-link is deterministic.
+
+    Only labels the raycast dropped for the horizon or the range cap are candidates: with
+    mask_rig (the fuse's FuseParams.mask_rig), a label in the rig band was dropped as
+    `on_rig` -- it is on the camera vehicle, not the street -- and stays a singleton.
+
+    Returns the clusters (sites with their attachments, then the remaining singletons,
+    in clusters_from_server_sites' layout) and {(pano_id, det_index): site id}.
+
+    Example:
+        A label looking due north from (0, 0) attaches to a site at (1.0, 30.0) (30 m
+        ahead, 1 m off the ray), not to one at (0, 10.0) (too near) or (5.0, 30.0) (5 m off).
+    """
+    held = {(d.pano_id, d.det_index) for s in sites for d, _ in s.members}
+    site_panos = {s.id: set(s.pano_ids) for s in sites}
+    xy = np.array([[s.e, s.n] for s in sites]) if sites else np.zeros((0, 2))
+    tree = cKDTree(xy) if sites else None
+    loose = []
+    for p in panos:
+        for i, x, y, conf in p.detections:
+            if (p.pano_id, i) not in held:
+                loose.append((-conf, p.pano_id, i, x, p, y))
+    loose.sort(key=lambda t: t[:3])
+    attached = {}
+    for _negc, pid, i, x, p, y in loose:
+        if tree is None:
+            break
+        if mask_rig and on_camera_rig(y):
+            continue
+        ce, cn = frame.to_enu(p.lat, p.lng)
+        b = math.radians(p.camera_heading - 180.0 + x * 360.0)
+        ue, un = math.sin(b), math.cos(b)
+        best = None
+        for j in tree.query_ball_point([ce, cn], max_range_m + perp_m):
+            de, dn = xy[j, 0] - ce, xy[j, 1] - cn
+            along = de * ue + dn * un
+            perp = abs(de * un - dn * ue)
+            if not (min_range_m <= along <= max_range_m and perp <= perp_m):
+                continue
+            sid = sites[j].id
+            if pid in site_panos[sid]:
+                continue
+            if best is None or (along, sid) < best:
+                best = (along, sid)
+        if best is not None:
+            attached[(pid, i)] = best[1]
+            site_panos[best[1]].add(pid)
+    extra = {}
+    for key, sid in attached.items():
+        extra.setdefault(sid, []).append(key)
+    out = []
+    for s in sites:
+        keys = [(d.pano_id, d.det_index) for d, _ in s.members] + extra.get(s.id, [])
+        out.append(Cluster(s.id, [k for k in keys if k[1] < HUMAN_DET_BASE], len(keys)))
+    for _negc, pid, i, _x, _p, _y in sorted(loose, key=lambda t: (t[1], t[2])):
+        if (pid, i) not in attached:
+            out.append(Cluster(len(out), [(pid, i)] if i < HUMAN_DET_BASE else [], 1))
+    return out, attached
+
+
 # ----------------------------------------------------------------------------- main
 
-def main():
+# Bumped by hand whenever a change moves any number the reports print; the pooled driver
+# (clustering_eval_pooled.py) re-runs a cell whose report records another version.
+SCORER_VERSION = '106.2'
+
+
+def input_stamp(streets_path, verdicts_path):
+    """The report-head line stamping the street pull and the RampNet verdicts by sha256
+    (`none` when absent), read back by clustering_eval_pooled.cell_current."""
+    def sha(p):
+        return fs.file_sha256(p) if p and Path(p).exists() else 'none'
+    return f'inputs: streets sha256 `{sha(streets_path)}`; verdicts sha256 `{sha(verdicts_path)}`'
+
+
+def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('city')
+    ap.add_argument('--split', default=None,
+                    help='RampNet benchmark split, when it is not named like the city '
+                         '(laurens -> laurens_mapillary)')
     ap.add_argument('--benchmark-root', type=Path,
                     default=REPO_ROOT.parent / 'RampNet' / 'benchmark')
     ap.add_argument('--run-dir', type=Path, default=None)
+    ap.add_argument('--results', type=Path, default=None,
+                    help="the run's results file (default <run-dir>/results.jsonl; Laurens "
+                         'went live from results.raw.jsonl)')
     ap.add_argument('--out', type=Path, default=None,
-                    help='output dir (default runs/<city>/ps_clustering_eval)')
+                    help='output dir (default runs/<city>/ps_clustering_eval, or '
+                         'ps_clustering_eval_offline<frame>_t<tier> with --offline)')
+    ap.add_argument('--offline', action='store_true',
+                    help='no server labels: synthesize one label per stored detection >= '
+                         '--min-confidence (rig-masked) and place it with the server\'s own '
+                         'estimator (ps_placement). --server then only supplies the street '
+                         'network, for regions')
+    ap.add_argument('--offline-check', action='store_true',
+                    help='(live mode) validate the offline arm against this live server: '
+                         'per-label placement and the 7.5 m partition')
+    ap.add_argument('--streets', type=Path, default=None,
+                    help="a /v3/api/streets geojson, for each label's region (its nearest "
+                         "street's, as the server assigns it; default: pulled with --server "
+                         'into the output dir when --offline or --offline-check needs it)')
+    ap.add_argument('--mask-rig', action='store_true',
+                    help='(live mode) the fusion arms drop camera-rig detections too: for a '
+                         "city whose live AI labels are rig-masked (Laurens: its rig labels "
+                         'were soft-deleted), so fusion scores the label set the server holds. '
+                         'Offline mode always masks')
     ap.add_argument('--server', default=None,
-                    help='PS server URL; downloads the two geojson files if absent')
+                    help='PS server URL; downloads the geojson files if absent (GET only)')
     ap.add_argument('--refresh', action='store_true',
-                    help='with --server, re-pull the two geojson over the cached copies '
+                    help='with --server, re-pull the geojson over the cached copies '
                          '(the server re-clusters nightly, so a cached pull goes stale)')
     ap.add_argument('--labels', type=Path, default=None)
     ap.add_argument('--clusters', type=Path, default=None)
@@ -633,67 +1344,122 @@ def main():
                          f'({BENCHMARK_CONFIDENCE}), not the operating point: this script '
                          'scores what the SERVER holds, and every city clustered so far went '
                          'live at 0.55. Set it to whatever a city was actually submitted at '
-                         '(its submission record says) before comparing arms.')
-    ap.add_argument('--citywide-max-labels', type=int, default=CITYWIDE_MAX_LABELS,
-                    help='skip the ps_citywide arm above this many labels (it builds '
-                         'a dense N x N distance matrix)')
-    args = ap.parse_args()
+                         '(its submission record says) before comparing arms. With --offline '
+                         'it is also the tier the labels are synthesized at.')
+    return ap
 
+
+def default_out(args, run_dir):
+    """The output dir a run writes to when --out is not given: the scoring frame and, for
+    an offline run, the tier are part of the result, so each gets its own directory."""
+    suffix = fs.frame_suffix(args.camera_height_m)
+    if args.offline:
+        return run_dir / f'ps_clustering_eval_offline{suffix}_t{args.min_confidence:g}'
+    return run_dir / ('ps_clustering_eval' + suffix)
+
+
+def run(args):
+    """Score every arm for one city, write report.md + arms.csv, and return
+    {'results': {arm: score}, 'out': Path, 'attach': {...}, 'meta': {...}} for the pooled
+    driver (scripts/clustering_eval_pooled.py)."""
+    if args.offline and (args.labels or args.clusters or args.ps_script or args.offline_check):
+        raise SystemExit('--offline synthesizes the labels: --labels, --clusters, '
+                         '--ps-script and --offline-check need a live server')
+    split = args.split or args.city
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
-    # The scoring frame is part of the result, so a non-default height gets its own
-    # directory instead of silently overwriting the default one.
-    out = args.out or run_dir / ('ps_clustering_eval' + fs.frame_suffix(args.camera_height_m))
+    results_path = args.results or run_dir / 'results.jsonl'
+    out = args.out or default_out(args, run_dir)
     out.mkdir(parents=True, exist_ok=True)
-    labels_path = args.labels or out / 'raw_labels.geojson'
-    clusters_path = args.clusters or out / 'clusters.geojson'
-    if args.server:
-        fetch(args.server.rstrip('/') + API_LABELS, labels_path, args.refresh)
-        fetch(args.server.rstrip('/') + API_CLUSTERS, clusters_path, args.refresh)
-    elif args.refresh:
+    server = args.server.rstrip('/') if args.server else None
+    if args.refresh and not server:
         raise SystemExit('--refresh needs --server (there is nothing to re-pull from)')
 
-    labels, n_bad_lng = load_labels(labels_path)
-    labels = labels[labels.label_type == 'CurbRamp'].reset_index(drop=True)
-    server_clusters = load_server_clusters(clusters_path)
-    det_of, n_ambiguous, n_dup_labels = label_to_detection(
-        run_dir / 'results.jsonl', labels)
-    ai = labels[labels.label_id.isin(det_of)].reset_index(drop=True)
-    # "AI label" is inferred from the pixel match; make sure that inference picks out
-    # exactly one submitting account, otherwise a human label at the same pixel as a
-    # detection would be scored as an AI label.
-    ai_users = sorted({str(u) for u in ai.user_id})
-    if len(ai_users) != 1:
-        raise SystemExit('labels that map to stored detections span '
-                         f'{len(ai_users)} user_ids ({", ".join(ai_users[:5])}); '
-                         'the pixel map cannot be read as "the AI user\'s labels"')
-    ai_user = ai_users[0]
-    unmapped_ai = int((labels.user_id.astype(str) == ai_user).sum()) - len(ai)
-    by_user = labels.user_id.astype(str).value_counts()
-    user_breakdown = ', '.join(
-        f'{u}{" (AI)" if u == ai_user else ""} {int(c)}'
-        for u, c in by_user.items())
-    lines = [f'# {args.city}: PS label clustering vs RampNet GT',
-             '',
-             f'labels: {len(labels)} CurbRamp on the server, {len(ai)} map to stored '
-             f'detections (AI), {len(labels) - len(ai)} do not (human); '
-             f'{len(server_clusters)} server clusters over '
-             f'{sum(len(c["label_ids"]) for c in server_clusters)} labels']
+    streets_path = args.streets
+    if streets_path is None and server and (args.offline or args.offline_check):
+        streets_path = out / 'streets.geojson'
+        fetch(server + API_STREETS, streets_path, args.refresh)
+    if args.offline_check and streets_path is None:
+        raise SystemExit('--offline-check needs the street network: --streets, or --server '
+                         'to pull it')
+    streets = load_streets(streets_path) if streets_path else []
+    results_sha = fs.file_sha256(results_path)
+
+    if args.offline:
+        labels, det_of = synthesize_labels(results_path, args.min_confidence, mask_rig=True)
+        n_rig = synthesize_rig_count(results_path, args.min_confidence)
+        n_ties = 0
+        if streets:
+            reg, n_ties = assign_regions(labels.lat, labels.lng, streets)
+            labels['region_id'] = reg
+        ai = labels
+        server_clusters = None
+        n_bad_lng = n_ambiguous = n_dup_labels = 0
+        pix_map, n_ambiguous, _dup = label_to_detection(results_path, labels)
+        n_pix_same = sum(1 for lid, m in pix_map.items() if det_of.get(lid) == m)
+        lines = [f'# {args.city}: PS label clustering vs RampNet GT (offline)',
+                 '',
+                 f'mode: offline -- {len(labels)} labels synthesized from '
+                 f'`{results_path.name}`, one per stored detection >= '
+                 f'{args.min_confidence:g} ({n_rig} on the camera rig left out), each placed '
+                 "where the server would place it (ps_placement: the server's estimator at "
+                 f'{ps_placement.CAMERA_HEIGHT_M:.3f} m); no server labels or clusters, so '
+                 '`deployed` and `ps_repro` do not exist here']
+    else:
+        labels_path = args.labels or out / 'raw_labels.geojson'
+        clusters_path = args.clusters or out / 'clusters.geojson'
+        if server:
+            fetch(server + API_LABELS, labels_path, args.refresh)
+            fetch(server + API_CLUSTERS, clusters_path, args.refresh)
+        labels, n_bad_lng = load_labels(labels_path)
+        labels = labels[labels.label_type == 'CurbRamp'].reset_index(drop=True)
+        server_clusters = load_server_clusters(clusters_path)
+        det_of, n_ambiguous, n_dup_labels = label_to_detection(results_path, labels)
+        ai = labels[labels.label_id.isin(det_of)].reset_index(drop=True)
+        # "AI label" is inferred from the pixel match; make sure that inference picks out
+        # exactly one submitting account, otherwise a human label at the same pixel as a
+        # detection would be scored as an AI label.
+        ai_users = sorted({str(u) for u in ai.user_id})
+        if len(ai_users) != 1:
+            raise SystemExit('labels that map to stored detections span '
+                             f'{len(ai_users)} user_ids ({", ".join(ai_users[:5])}); '
+                             'the pixel map cannot be read as "the AI user\'s labels"')
+        ai_user = ai_users[0]
+        unmapped_ai = int((labels.user_id.astype(str) == ai_user).sum()) - len(ai)
+        by_user = labels.user_id.astype(str).value_counts()
+        user_breakdown = ', '.join(
+            f'{u}{" (AI)" if u == ai_user else ""} {int(c)}'
+            for u, c in by_user.items())
+        lines = [f'# {args.city}: PS label clustering vs RampNet GT',
+                 '',
+                 f'labels: {len(labels)} CurbRamp on the server, {len(ai)} map to stored '
+                 f'detections (AI), {len(labels) - len(ai)} do not (human); '
+                 f'{len(server_clusters)} server clusters over '
+                 f'{sum(len(c["label_ids"]) for c in server_clusters)} labels']
+    lines.append(f'scorer {SCORER_VERSION}; results `{results_path.name}` sha256 '
+                 f'`{results_sha}`' + (f'; benchmark split `{split}`' if split != args.city
+                                       else ''))
+    # the other two inputs a number can move with; clustering_eval_pooled.cell_current
+    # checks both, so a --refresh'ed street pull or an updated benchmark re-runs the cell
+    lines.append(input_stamp(streets_path, args.benchmark_root / split / 'verdicts.json'))
 
     # world frame, raycast positions, GT — one code path with eval_sites
-    # mask_rig=False: this arm is compared against what the SERVER holds, and those
-    # labels were submitted before the nadir mask existed.
+    # mask_rig: live, this arm is compared against what the SERVER holds, and Richmond's
+    # labels were submitted before the nadir mask existed, so it is off (--mask-rig for a
+    # city whose live labels are masked, e.g. Laurens); offline, every
+    # arm scores the same rig-masked label set a run submitted today would ship.
     # apply_pose=OFF likewise: the server placed those labels with a flat raycast, and the
     # committed report was scored flat -- FuseParams' `auto` default would rotate Mapillary.
     # The camera height resolves through fs.load_at_height, the resolver fuse_sites and
     # eval_sites share (#56): per-pano / auto / per-rig mean the same thing everywhere.
     try:
         verdict_panos, bundle_ops, run_panos, height, auto = es.load_city_at_height(
-            args.city, args.benchmark_root, run_dir, args.camera_height_m)
+            split, args.benchmark_root, run_dir, args.camera_height_m,
+            results_path=results_path)
     except ValueError as e:        # no per-rig table, or one measured on another file
         raise SystemExit(str(e))
     params = fs.FuseParams(camera_height_m=height,
-                           min_confidence=args.min_confidence, mask_rig=False,
-                           apply_pose=fs.POSE_OFF)
+                           min_confidence=args.min_confidence,
+                           mask_rig=args.offline or args.mask_rig, apply_pose=fs.POSE_OFF)
     lines.append(f'raycast camera height {fs.frame_label(args.camera_height_m)}; '
                  f'fusion arm at --min-confidence {args.min_confidence:g}')
     lines += fs.height_resolution_lines(args.camera_height_m, run_panos, params, auto)
@@ -712,63 +1478,65 @@ def main():
     for w in warnings:
         lines.append(f'warning: {w}')
 
-    results = {}
+    results, partitions = {}, {}
 
-    # arm: deployed
-    deployed = place(clusters_from_server(server_clusters, det_of), det_pos)
-    results['deployed'] = score(deployed, gt, det_pos, args.match_radius_m)
+    def add_arm(name, clusters):
+        partitions[name] = clusters
+        results[name] = score(clusters, gt, det_pos, args.match_radius_m)
 
-    # descriptive: server centroid vs raycast centroid; per-label placement offset
-    offs = []
-    for c in deployed:
-        if c.e is not None and c.server_latlng:
-            lat, lng = frame.to_latlng(c.e, c.n)
-            offs.append(geo.haversine_m(lat, lng, *c.server_latlng))
-    offs.sort()
-    lab_offs = []
-    for row in ai.itertuples(index=False):
-        m = det_of[row.label_id]
-        if m in det_pos:
-            lat, lng = frame.to_latlng(*det_pos[m])
-            lab_offs.append(geo.haversine_m(lat, lng, row.lat, row.lng))
-    lab_offs.sort()
-    sizes = {}
-    for c in deployed:
-        sizes[c.n_labels] = sizes.get(c.n_labels, 0) + 1
-
-    # arm: ps_repro (verbatim script) — on the labels the server actually clustered
     checks = []
-    clustered_ids = {lab for c in server_clusters for lab in c['label_ids']}
-    on_server = labels[labels.label_id.isin(clustered_ids)].reset_index(drop=True)
-    if args.ps_script:
-        assign, t_km = ps_verbatim(on_server, args.ps_script)
-        repro = place(clusters_from_assignment(on_server, assign, det_of), det_pos)
-        results['ps_repro'] = score(repro, gt, det_pos, args.match_radius_m)
-        k, n, off = partition_agreement(deployed, repro)
-        checks.append(f'ps_repro reproduces deployed: {k}/{n} clusters identical '
-                      f'({off} labels in clusters that differ); script threshold {t_km} km')
-        vec = ps_partition(on_server, [PS_THRESHOLD_KM])[PS_THRESHOLD_KM]
-        vec_clusters = clusters_from_assignment(on_server, vec, det_of)
-        k2, n2, off2 = partition_agreement(repro, vec_clusters)
-        checks.append(f'vectorized PS distance reproduces the script: {k2}/{n2} clusters '
-                      f'identical ({off2} labels differ)')
+    deployed = None
+    if not args.offline:
+        # arm: deployed
+        deployed = place(clusters_from_server(server_clusters, det_of), det_pos)
+        add_arm('deployed', deployed)
+
+        # descriptive: server centroid vs raycast centroid; per-label placement offset
+        offs = []
+        for c in deployed:
+            if c.e is not None and c.server_latlng:
+                lat, lng = frame.to_latlng(c.e, c.n)
+                offs.append(geo.haversine_m(lat, lng, *c.server_latlng))
+        offs.sort()
+        lab_offs = []
+        for row in ai.itertuples(index=False):
+            m = det_of[row.label_id]
+            if m in det_pos:
+                lat, lng = frame.to_latlng(*det_pos[m])
+                lab_offs.append(geo.haversine_m(lat, lng, row.lat, row.lng))
+        lab_offs.sort()
+        sizes = {}
+        for c in deployed:
+            sizes[c.n_labels] = sizes.get(c.n_labels, 0) + 1
+
+        # arm: ps_repro (verbatim script) — on the labels the server actually clustered
+        clustered_ids = {lab for c in server_clusters for lab in c['label_ids']}
+        on_server = labels[labels.label_id.isin(clustered_ids)].reset_index(drop=True)
+        if args.ps_script:
+            assign, t_km = ps_verbatim(on_server, args.ps_script)
+            repro = place(clusters_from_assignment(on_server, assign, det_of), det_pos)
+            add_arm('ps_repro', repro)
+            k, n, off = partition_agreement(deployed, repro)
+            checks.append(f'ps_repro reproduces deployed: {k}/{n} clusters identical '
+                          f'({off} labels in clusters that differ); script threshold '
+                          f'{t_km} km')
+            vec = ps_partition(on_server, [PS_THRESHOLD_KM])[PS_THRESHOLD_KM]
+            vec_clusters = clusters_from_assignment(on_server, vec, det_of)
+            k2, n2, off2 = partition_agreement(repro, vec_clusters)
+            checks.append(f'vectorized PS distance reproduces the script: {k2}/{n2} '
+                          f'clusters identical ({off2} labels differ)')
 
     # arms: ps @ t (server positions, per region) and ps_citywide @ 7.5
     t_kms = [t / 1000.0 for t in args.thresholds_m]
-    parts = ps_partition(ai, t_kms, per_region=True)
+    block_stats = {}
+    parts = ps_partition(ai, t_kms, per_region=True, stats=block_stats)
     for t_m, t_km in zip(args.thresholds_m, t_kms):
-        cl = place(clusters_from_assignment(ai, parts[t_km], det_of), det_pos)
-        results[f'ps @ {t_m:g} m'] = score(cl, gt, det_pos, args.match_radius_m)
-    if len(ai) <= args.citywide_max_labels:
-        city = ps_partition(ai, [PS_THRESHOLD_KM], per_region=False)[PS_THRESHOLD_KM]
-        results['ps_citywide @ 7.5 m'] = score(
-            place(clusters_from_assignment(ai, city, det_of), det_pos), gt, det_pos,
-            args.match_radius_m)
-    else:
-        checks.append(
-            f'ps_citywide skipped: {len(ai)} labels exceed --citywide-max-labels '
-            f'{args.citywide_max_labels}; one dense matrix over them would need about '
-            f'{dense_matrix_gb(len(ai)):.1f} GB (per-region arms are unaffected)')
+        add_arm(f'ps @ {t_m:g} m',
+                place(clusters_from_assignment(ai, parts[t_km], det_of), det_pos))
+    # Blocked (#106), so it runs at any city size: no N x N matrix over the whole city.
+    city = ps_partition(ai, [PS_THRESHOLD_KM], per_region=False)[PS_THRESHOLD_KM]
+    add_arm('ps_citywide @ 7.5 m',
+            place(clusters_from_assignment(ai, city, det_of), det_pos))
 
     # arms: ps_placeable @ t — the PS algorithm on server positions, restricted to the
     # labels the raycast can place: exactly the label set ps_raycast and fusion use, so
@@ -776,31 +1544,66 @@ def main():
     placeable = ai[[det_of[lab] in det_pos for lab in ai.label_id]].reset_index(drop=True)
     parts_pl = ps_partition(placeable, t_kms, per_region=True)
     for t_m, t_km in zip(args.thresholds_m, t_kms):
-        cl = place(clusters_from_assignment(placeable, parts_pl[t_km], det_of), det_pos)
-        results[f'ps_placeable @ {t_m:g} m'] = score(cl, gt, det_pos, args.match_radius_m)
+        add_arm(f'ps_placeable @ {t_m:g} m',
+                place(clusters_from_assignment(placeable, parts_pl[t_km], det_of), det_pos))
 
     # arms: ps_raycast @ t — same algorithm, labeler raycast positions
-    ray = ai.copy()
-    keep = []
+    keep, ray_lat, ray_lng = [], [], []
     for i, row in enumerate(ai.itertuples(index=False)):
         m = det_of[row.label_id]
         if m in det_pos:
             lat, lng = frame.to_latlng(*det_pos[m])
-            ray.loc[i, 'lat'] = lat
-            ray.loc[i, 'lng'] = lng
             keep.append(i)
-    ray = ray.iloc[keep].reset_index(drop=True)
+            ray_lat.append(lat)
+            ray_lng.append(lng)
+    ray = ai.iloc[keep].copy().reset_index(drop=True)
+    ray['lat'] = ray_lat
+    ray['lng'] = ray_lng
     parts_ray = ps_partition(ray, t_kms, per_region=True)
     for t_m, t_km in zip(args.thresholds_m, t_kms):
-        cl = place(clusters_from_assignment(ray, parts_ray[t_km], det_of), det_pos)
-        results[f'ps_raycast @ {t_m:g} m'] = score(cl, gt, det_pos, args.match_radius_m)
+        add_arm(f'ps_raycast @ {t_m:g} m',
+                place(clusters_from_assignment(ray, parts_ray[t_km], det_of), det_pos))
 
     # arm: fusion (mean-of-members placement, and refit position as the tie-back)
     sites, _frame2, _stats = fs.fuse(run_panos, params)
-    results['fusion'] = score(place(clusters_from_sites(sites, False), det_pos), gt,
-                              det_pos, args.match_radius_m)
-    results['fusion_refit'] = score(clusters_from_sites(sites, True), gt, det_pos,
-                                    args.match_radius_m)
+    add_arm('fusion', place(clusters_from_sites(sites, False), det_pos))
+    add_arm('fusion_refit', clusters_from_sites(sites, True))
+
+    # arm: fusion_server — the same associator on the server's labels (AI and human)
+    # instead of the run's detections: what the server would compute if its clustering
+    # were fusion. Every label on the server is live, so all of them are operational.
+    # Offline, "the server's labels" are the synthesized ones.
+    run_by_id = {p.pano_id: p for p in run_panos}
+    srv_panos, srv_stats = server_panos(labels, det_of, run_by_id)
+    srv_params = replace(params, min_confidence=0.0, floor=0.0)
+    srv_sites, srv_frame, _s3 = fs.fuse(srv_panos, srv_params)
+    srv_clusters, srv_singletons = clusters_from_server_sites(srv_sites, srv_panos)
+    add_arm('fusion_server', place(srv_clusters, det_pos))
+    inv_err = inversion_check(labels, run_by_id)
+
+    # arm: fusion_server+attach — the same sites, plus the pre-declared bearing rule for
+    # the labels the raycast cannot place (attach_unplaceable). Their positions are
+    # unknown to the scorer, so coverage, frag, dual and coherence cannot move; cluster
+    # counts, size buckets and cluster-level precision can (attaching a judged-true
+    # singleton to a site that is already TP removes one TP cluster).
+    att_clusters, attached = attach_unplaceable(srv_sites, srv_panos, srv_frame,
+                                                mask_rig=srv_params.mask_rig)
+    add_arm('fusion_server+attach', place(att_clusters, det_pos))
+    site_true = {}
+    for s in srv_sites:
+        site_true[s.id] = any(op_verdicts.get((d.pano_id, d.det_index)) is True
+                              for d, _ in s.members)
+    judged_att = [(k, sid) for k, sid in attached.items() if k in op_verdicts]
+    attach_stats = {
+        'unplaceable': srv_singletons, 'attached': len(attached),
+        'clusters_server': len(srv_clusters), 'clusters_attach': len(att_clusters),
+        'judged_unplaceable': sum(1 for p in srv_panos for i, *_r in p.detections
+                                  if (p.pano_id, i) in op_verdicts
+                                  and (p.pano_id, i) not in det_pos),
+        'judged_attached': len(judged_att),
+        'judged_attached_true': sum(1 for k, _s in judged_att if op_verdicts[k] is True),
+        'judged_attached_to_true_site': sum(1 for _k, sid in judged_att if site_true[sid]),
+    }
 
     # mechanism: same-ramp scatter. Over fusion sites with >= 3 placeable members, the
     # largest pairwise distance among the members under server positions vs raycast
@@ -830,38 +1633,74 @@ def main():
     for v in spread.values():
         v.sort()
 
-    # radius sweep for the two arms that matter most
+    # radius sweep for the two arms that matter most (offline: ps @ 7.5 m stands in for
+    # the deployed clustering, which it reproduces where a server exists)
+    ref_name = 'deployed' if not args.offline else f'ps @ {PS_THRESHOLD_KM * 1000:g} m'
+    ref_clusters = partitions.get(ref_name)
     sweep = []
-    for r_m in args.radius_sweep:
-        sweep.append((r_m,
-                      score(deployed, gt, det_pos, r_m),
-                      score(place(clusters_from_sites(sites, False), det_pos), gt,
-                            det_pos, r_m)))
+    if ref_clusters is not None:
+        for r_m in args.radius_sweep:
+            sweep.append((r_m,
+                          score(ref_clusters, gt, det_pos, r_m),
+                          score(place(clusters_from_sites(sites, False), det_pos), gt,
+                                det_pos, r_m)))
+
+    run_conf = {(p.pano_id, i): c for p in run_panos for i, _x, _y, c in p.detections}
+    for name, cl in partitions.items():
+        results[name]['size'] = size_precision(cl, det_of, det_pos, gt[3], run_conf)
+
+    ocheck = None
+    if args.offline_check:
+        humans = labels[~labels.label_id.isin(det_of)].reset_index(drop=True)
+        ocheck = offline_check(ai, det_of, results_path, streets, args.min_confidence,
+                               deployed, humans=humans, clustered=clustered_ids)
 
     # ---- report
-    lines += ['', '## Data provenance', '',
-              provenance(labels_path, len(labels)),
-              provenance(clusters_path, len(server_clusters)),
-              f'- labels by account: {user_breakdown}',
-              f'- {n_bad_lng} labels dropped before clustering (null lng or lng > 360), '
-              'matching label_clustering.clean_label_data',
-              f'- {n_ambiguous} ambiguous pixel keys in results.jsonl (two stored '
-              'detections round to one pixel; those keys are left unmapped)',
-              f'- {n_dup_labels} server labels share a pixel with another label and so '
-              'map to the same stored detection (a re-submitted campaign does this)']
+    lines += ['', '## Data provenance', '']
+    if args.offline:
+        lines += [f'- results file `{results_path}`: sha256 `{results_sha}`',
+                  f'- {n_ambiguous} ambiguous pixel keys in `{results_path.name}` (two '
+                  'stored detections round to one pixel); offline labels map to their '
+                  f'detection directly, and the pixel-key map agrees on {n_pix_same} of '
+                  f'{len(labels)}']
+    else:
+        lines += [provenance(labels_path, len(labels)),
+                  provenance(clusters_path, len(server_clusters)),
+                  f'- labels by account: {user_breakdown}',
+                  f'- {n_bad_lng} labels dropped before clustering (null lng or lng > 360), '
+                  'matching label_clustering.clean_label_data',
+                  f'- {n_ambiguous} ambiguous pixel keys in {results_path.name} (two stored '
+                  'detections round to one pixel; those keys are left unmapped)',
+                  f'- {n_dup_labels} server labels share a pixel with another label and so '
+                  'map to the same stored detection (a re-submitted campaign does this)']
+    if streets_path:
+        lines.append(streets_provenance(streets_path, streets))
+    if args.offline:
+        if streets:
+            lines.append('- regions: every synthesized label takes the region of the street '
+                         'nearest its server position, as the server assigns it at insert; '
+                         f'{n_ties} labels were equidistant from streets in two regions '
+                         '(lowest street_edge_id taken)')
+        else:
+            lines.append('- regions: none (no server), so every label is in one region and '
+                         'per-region == citywide')
+    lines.append(f"- PS partitions are blocked (single-linkage components at the widest "
+                 f"threshold + {BLOCK_MARGIN_M:g} m): {block_stats.get('n_blocks')} blocks, "
+                 f"largest {block_stats.get('largest_block')} labels")
 
     lines += ['', '## Validation checks', '']
-    if not args.ps_script:
+    if not args.offline and not args.ps_script:
         checks.insert(0, 'ps_repro skipped (no --ps-script)')
     lines += [f'- {c}' for c in checks]
 
     def check_line(text, ok):
         return f'- {"" if ok else "warning: "}{text}'
 
-    lines.append(check_line(
-        'every label that maps to a stored detection belongs to one account '
-        f'({ai_user}); {unmapped_ai} of that account\'s labels did not map '
-        '(should be 0)', unmapped_ai == 0))
+    if not args.offline:
+        lines.append(check_line(
+            'every label that maps to a stored detection belongs to one account '
+            f'({ai_user}); {unmapped_ai} of that account\'s labels did not map '
+            '(should be 0)', unmapped_ai == 0))
     ps_pl = results.get(f'ps_placeable @ {args.thresholds_m[0]:g} m')
     lines.append(check_line(
         'fusion arm vs ps_* arms cover the same labels: '
@@ -889,6 +1728,23 @@ def main():
         f"{fr['dual']['both']}/{fr['dual']['one']}/{fr['dual']['neither']}"
         + ('' if same_frame else ' — a different frame, so the world-space figures are '
                                  'expected to differ; precision is the frame-free part'))
+    fus_sets = {frozenset(c.members) for c in clusters_from_sites(sites, False)}
+    srv_sets = [frozenset(c.members) for c in srv_clusters[:len(srv_sites)]
+                if c.members]
+    same_as_fusion = sum(1 for s in srv_sets if s in fus_sets)
+    lines.append(
+        f"- fusion_server input: {srv_stats['ai_labels']} AI + "
+        f"{srv_stats['human_labels']} human labels on {len(srv_panos)} panos "
+        f"({srv_stats['run_position']} positioned from the run's pano block, "
+        f"{srv_stats['inverted']} inverted from their labels, "
+        f"{srv_stats['unplaceable']} unplaceable and left out); {srv_singletons} labels "
+        'the raycast cannot place (range cap, horizon) are singleton clusters; '
+        f'{same_as_fusion} of its {len(srv_sets)} clusters with AI members are, member '
+        f"for member, a cluster of the `fusion` arm")
+    lines.append(
+        f'- camera-position inversion (for panos only humans labeled) vs the run\'s '
+        f'position, over {len(inv_err)} panos in both: median '
+        f'{fmt(quantile(inv_err, .5), 2)} m, p90 {fmt(quantile(inv_err, .9), 2)} m')
     bad = {k: v['same_pano_pairs'] for k, v in results.items() if v['same_pano_pairs']}
     lines.append('- same-pano pairs inside one cluster (must be 0 under the cannot-link): '
                  + (', '.join(f'{k} {v}' for k, v in bad.items()) if bad
@@ -897,15 +1753,17 @@ def main():
               f'{args.gt_merge_m:g} m)', '', TABLE_HEADER]
     lines += [row_line(k, v) for k, v in results.items()]
     lines += ['', table_legend(results)]
-    lines += ['', '## Deployed clusters, descriptive', '',
-              '- cluster size histogram (labels -> clusters): '
-              + ', '.join(f'{k}: {v}' for k, v in sorted(sizes.items())),
-              f'- server centroid vs raycast centroid, same members (n={len(offs)}): '
-              f'median {fmt(quantile(offs, .5), 1)} m, p90 {fmt(quantile(offs, .9), 1)} m',
-              f'- per-label server lat/lng vs labeler raycast (n={len(lab_offs)}): '
-              f'median {fmt(quantile(lab_offs, .5), 1)} m, p90 '
-              f'{fmt(quantile(lab_offs, .9), 1)} m, over 5 m '
-              f'{sum(1 for o in lab_offs if o > 5) / len(lab_offs):.2f}']
+    if not args.offline:
+        lines += ['', '## Deployed clusters, descriptive', '',
+                  '- cluster size histogram (labels -> clusters): '
+                  + ', '.join(f'{k}: {v}' for k, v in sorted(sizes.items())),
+                  f'- server centroid vs raycast centroid, same members (n={len(offs)}): '
+                  f'median {fmt(quantile(offs, .5), 1)} m, p90 '
+                  f'{fmt(quantile(offs, .9), 1)} m',
+                  f'- per-label server lat/lng vs labeler raycast (n={len(lab_offs)}): '
+                  f'median {fmt(quantile(lab_offs, .5), 1)} m, p90 '
+                  f'{fmt(quantile(lab_offs, .9), 1)} m, over 5 m '
+                  f'{sum(1 for o in lab_offs if o > 5) / len(lab_offs):.2f}']
     lines += ['', '## Same-ramp scatter (mechanism)', '',
               f'Largest pairwise member distance over {len(spread["server"])} fusion '
               f'sites with >= 3 placeable members (a complete-linkage cut at t keeps the '
@@ -913,6 +1771,9 @@ def main():
               '| positions | median | p90 | share > 7.5 m | share > 10 m | share > 15 m |',
               '|---|---:|---:|---:|---:|---:|']
     for key, v in spread.items():
+        if not v:
+            lines.append(f'| {key} | n/a | n/a | n/a | n/a | n/a |')
+            continue
         lines.append(f'| {key} | {fmt(quantile(v, .5), 1)} m | {fmt(quantile(v, .9), 1)} m '
                      f'| {sum(1 for x in v if x > 7.5) / len(v):.2f} '
                      f'| {sum(1 for x in v if x > 10) / len(v):.2f} '
@@ -922,7 +1783,11 @@ def main():
     lines += ['', '- self-detections whose cluster could not be located (should be 0): '
               + (', '.join(f'{k} {v}' for k, v in missing.items()) if missing
                  else '0 in every arm')]
-    lines += ['', '## Match-radius sweep (deployed vs fusion)', '',
+    ref_label = ref_name if not args.offline else f'{ref_name} (offline stand-in for deployed)'
+    lines += ['', f'## Match-radius sweep ({ref_name} vs fusion)', '',
+              f'| radius m | {ref_label} coverage | {ref_name} frag 5 m | {ref_name} dual '
+              'both | fusion coverage | fusion frag 5 m | fusion dual both |'
+              if args.offline else
               '| radius m | deployed coverage | deployed frag 5 m | deployed dual both | '
               'fusion coverage | fusion frag 5 m | fusion dual both |',
               '|---:|---|---|---|---|---|---|']
@@ -933,6 +1798,86 @@ def main():
                      f"{fb['with_extra']}/{fb['ramps']} | "
                      f"{b['dual']['both']}/{b['dual']['pairs']} |")
 
+    lines += ['', '## Precision by cluster size', '',
+              'Is a small cluster a false positive? Each AI label is bucketed by the size '
+              '(labels) of the cluster holding it, or as `unplaceable` when the raycast '
+              'cannot place it (beyond the range cap, or at/above the horizon); fusion '
+              'cannot associate those, so they are the singletons of `fusion_server`, and '
+              f'the same bucket is split out of `{ref_name}` for comparison. Precision is '
+              'T / (T + F) over labels on judged panos (RampNet verdicts, benchmark tier), '
+              'with a Wilson 95% interval.', '',
+              '| partition | bucket | AI labels | median conf | judged | precision [95% CI] '
+              '| T | F | neither |',
+              '|---|---|---:|---:|---:|---|---:|---:|---:|']
+    for name in (ref_name, 'fusion_server', 'fusion_server+attach'):
+        for row in results[name]['size']:
+            lines.append(f"| {name} | {row['bucket']} | {row['n']} | "
+                         f"{fmt(row['median_conf'], 2)} | {row['judged']} | "
+                         f"{precision_ci_text(row['t'], row['f'])} | {row['t']} | "
+                         f"{row['f']} | {row['judged'] - row['t'] - row['f']} |")
+
+    a = attach_stats
+    lines += ['', '## Unplaceable labels: attach by bearing (`fusion_server+attach`)', '',
+              'One rule, fixed before any result and not tuned on GT (issue #106): a label '
+              'the raycast cannot place joins the placed `fusion_server` site nearest along '
+              f'its bearing ray, if one lies {ATTACH_MIN_RANGE_M:g}-{ATTACH_MAX_RANGE_M:g} m '
+              f'ahead and within {ATTACH_PERP_M:g} m of the ray and holds no label from the '
+              'same pano; it does not move the site. Otherwise it stays a singleton.', '',
+              f"- unplaceable labels: {a['unplaceable']}; attached {a['attached']} "
+              f"({a['attached'] / a['unplaceable']:.2f})" if a['unplaceable'] else
+              '- unplaceable labels: 0',
+              f"- clusters: {a['clusters_server']} (`fusion_server`) -> "
+              f"{a['clusters_attach']} (`fusion_server+attach`)",
+              f"- sanity (not a metric): {a['judged_unplaceable']} unplaceable labels are on "
+              f"judged panos; {a['judged_attached']} of them attached "
+              f"({a['judged_attached_true']} judged true), "
+              f"{a['judged_attached_to_true_site']} to a site holding a verdict-true member "
+              '(de-clustered benchmark panos rarely see each other, so most sites hold no '
+              'judged member at all)']
+
+    if ocheck is not None:
+        o = ocheck
+        lines += ['', '## Offline server arm vs this server (`--offline-check`)', '',
+                  "Validates the offline mode used for cities without a server: the labels "
+                  f"it synthesizes from `{results_path.name}` and places with the server's "
+                  'estimator (ps_placement), against the labels this server actually holds.',
+                  '',
+                  f"- (a) placement, {o['n_placed']} of {o['n_ai']} AI labels re-placed from "
+                  f"the file: {o['n_moved_labels']} labels on {o['n_moved_panos']} panos "
+                  f'left out because the position their labels imply (inverting the '
+                  f"server's estimator, median per pano) is > {MOVED_PANO_M:g} m from the "
+                  f"file's; over the other {o['n_kept']}: median {fmt(o['median'], 6)} m, "
+                  f"p90 {fmt(o['p90'], 6)} m, max {fmt(o['max'], 6)} m, "
+                  f"{o['over_0_5']} over 0.5 m (all labels: median "
+                  f"{fmt(o['median_all'], 6)} m, p90 {fmt(o['p90_all'], 6)} m, "
+                  f"{o['over_0_5_all']} over 0.5 m, max {fmt(o['max_all'], 6)} m)",
+                  f"- (a) placement check: **{'PASS' if o['placement_ok'] else 'FAIL'}** "
+                  f"(max error over ALL labels <= {PLACEMENT_TOL_M:g} m). Gated on all "
+                  'labels because the moved-pano exclusion above is self-referential: it '
+                  'inverts the estimator being validated, so an error consistent within a '
+                  'pano would be excluded, not failed',
+                  f"- (b) labels: {o['n_synth']} synthesized at {args.min_confidence:g} "
+                  f"(unmasked); {o['n_synth'] - o['synth_not_live']} match a live AI label "
+                  f"by pano and pixel, {o['synth_not_live']} do not (soft-deleted, or never "
+                  f"sent); {o['live_not_synth']} live AI labels have no synthesized twin; "
+                  f"{o['unclustered']} matched labels are in no deployed cluster (the "
+                  'server has not clustered them) and are left out of the partitions',
+                  f"- (b) regions by nearest street to the offline position: "
+                  f"{o['region_agree']} of {o['n_joined']} equal the label's live region_id "
+                  f"({o['region_ties']} equidistant ties)",
+                  f"- (b) partition: of the {o['eligible']} deployed clusters whose labels "
+                  f"are all AI and all synthesized (of {o['n_deployed']}), {o['identical']} "
+                  f"are, label for label, a cluster of the offline `ps @ 7.5 m` "
+                  f"({o['identical'] / o['eligible']:.3f}; {o['off_labels']} labels in the "
+                  'others)' if o['eligible'] else '- (b) partition: no eligible clusters']
+        if 'identical_h' in o:
+            lines.append(
+                f"- (b+) the same with the {o['n_humans']} live human labels added at their "
+                f"live positions and regions: {o['identical_h']} of the {o['eligible_h']} "
+                'deployed clusters whose labels are all present are reproduced '
+                f"({o['identical_h'] / o['eligible_h']:.3f}; {o['off_labels_h']} labels in "
+                'the others)' if o['eligible_h'] else '- (b+) no eligible clusters')
+
     report = '\n'.join(lines) + '\n'
     (out / 'report.md').write_text(report, encoding='utf-8')
     with open(out / 'arms.csv', 'w', newline='', encoding='utf-8') as f:
@@ -942,6 +1887,35 @@ def main():
         w.writerows(rows)
     print(report)
     print(f'wrote {out / "report.md"} and arms.csv')
+    return {'results': results, 'out': out, 'attach': attach_stats, 'offline_check': ocheck,
+            'meta': {'city': args.city, 'split': split, 'offline': args.offline,
+                     'results_sha256': results_sha, 'n_labels': len(labels),
+                     'n_ai': len(ai), 'scorer': SCORER_VERSION}}
+
+
+def synthesize_rig_count(results_path, min_confidence):
+    """How many stored detections >= min_confidence the nadir mask drops (report line)."""
+    n = 0
+    with open(results_path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                rec = json.loads(line)
+                if rec['pano'].get('lat') is None or rec['pano'].get('lng') is None \
+                        or rec['pano'].get('camera_heading') is None:
+                    continue
+                n += sum(1 for d in rec.get('detections', [])
+                         if d['confidence'] >= min_confidence
+                         and on_camera_rig(d['y_normalized']))
+    return n
+
+
+def main(argv=None):
+    out = run(build_parser().parse_args(argv))
+    oc = out.get('offline_check') if isinstance(out, dict) else None
+    if oc is not None and not oc['placement_ok']:
+        print(f"offline check FAILED: a live AI label re-places {oc['max_all']:.3f} m from "
+              f'the server (> {PLACEMENT_TOL_M:g} m)', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

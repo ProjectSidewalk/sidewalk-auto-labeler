@@ -87,6 +87,18 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/inventory_oracle/report.md
 !runs/*/inventory_oracle/*.csv
 !runs/*/inventory_oracle/inventory.json
+# Clustering scored against those inventories (scripts/inventory_clustering.py, #106 Part 2;
+# pre-registration and findings in docs/ps-clustering-eval.md): the per-city report and
+# per-arm CSV, and the pooled verdict, are tracked. The street-network pull used for regions
+# (streets.geojson) is NOT -- the report carries its url, fetch time, sha256 and count.
+!runs/*/inventory_clustering/
+!runs/*/inventory_clustering/report.md
+!runs/*/inventory_clustering/*.csv
+!runs/_pooled/inventory_clustering/verdict.json
+# The pooled clustering eval over every benchmark city (scripts/clustering_eval_pooled.py,
+# #106 Part 1): report.md is covered by the ps_clustering_eval* rule above; its two tables
+# are tracked too. The per-run street pulls (runs/<run>/ps_streets.geojson) are NOT.
+!runs/_pooled/ps_clustering_eval/*.csv
 # Provenance gate (scripts/provenance_gate.py, issue #56): does a run rebuilt from the pano
 # store reproduce the city's deployed AI labels? The report and the unmatched-label rows are
 # tracked; the label pull (raw_labels.geojson) is NOT -- the report carries its url, fetch
