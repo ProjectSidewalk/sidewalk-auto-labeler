@@ -264,6 +264,9 @@ python scripts/eval_ps_clustering.py laurens --split laurens_mapillary --results
 python scripts/clustering_eval_pooled.py            # every (city, tier, frame) cell, then pool
 python scripts/clustering_eval_pooled.py --pool-only   # -> runs/_pooled/ps_clustering_eval/
 python scripts/inventory_clustering.py score bend gainesville && python scripts/inventory_clustering.py verdict
+# Vancouver split examples (#56): ramps one arm splits and another does not, drawn on Esri
+# aerial tiles at SERVER placement (every cluster placed) -> docs/figures/vancouver-splits/
+python scripts/split_figures.py            # --rebuild recomputes the cached partitions
 # VANCOUVER (#56, scored under the amended scope pre-registered on #56; docs "Step 2"). No
 # RampNet GT and a run rebuilt from the pano store that the gate STOPPED (heatmap plateaus,
 # #111), so the CONFIRMATORY arms are the server's own labels only: deployed, ps@t on server
