@@ -1091,7 +1091,8 @@ label pull, so every arm scores against the same answer with no radius or camera
 rubric is RampNet `benchmark/RUBRICS.md` §6 and the sampling rule, schemas, metrics
 (`inventory_clustering.assignment_metrics`) and decision rule (`fusion_server+attach` vs
 `ps @ 7.5 m`, the `RULE_*` thresholds above) are pre-registered in RampNet
-`docs/cluster_review_protocol.md`. The Vancouver bundle (80 units, 30 pilot, 1,406 labels) is at
+`docs/cluster_review_protocol.md`. The Vancouver bundle (sampling rule v2, which drops windows over bridges or street tunnels: 80
+units, 30 pilot, 1,459 labels) is at
 RampNet `benchmark/vancouver/cluster_review/`; `scripts/cluster_review_score.py` currently writes
 a "NO GT YET" report (`runs/vancouver/cluster_review/score/report.md`). No result exists until
 the pilot has been reviewed.
