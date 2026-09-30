@@ -163,3 +163,19 @@ def test_verdict_passes_only_when_every_clause_holds():
     pairs[3 + 5] = pr('y', gpp.ARM_SHUFFLED, 1.8, 4.1)
     ok, clauses, _ = gpp.verdict(pairs, gt, inv, cities=('x', 'y'))
     assert not ok and not clauses['i'] and clauses['ii'] and clauses['iv']
+
+
+def test_pano_crop_wraps_the_seam_and_centres_the_mark(tmp_path):
+    """A mark at x = 0.99 must pull columns from both edges; the mark is the centre column.
+    A pano missing from the bundle is None, not an error."""
+    from PIL import Image
+    (tmp_path / 'panos').mkdir()
+    img = Image.new('RGB', (400, 200), (0, 0, 0))
+    img.paste((255, 0, 0), (0, 0, 20, 200))      # red at the left edge
+    img.paste((0, 0, 255), (380, 0, 400, 200))   # blue at the right edge
+    img.save(tmp_path / 'panos' / 'p.jpg', quality=95)
+    arr, mark_row = gpp.pano_crop(tmp_path, 'p', 0.99, 0.5, half_w=0.05, half_h=0.1, out_px=1000)
+    w = arr.shape[1]
+    assert arr[:, 1, 2].mean() > 150 and arr[:, w - 2, 0].mean() > 150   # blue then red
+    assert abs(mark_row - arr.shape[0] / 2) <= 1
+    assert gpp.pano_crop(tmp_path, 'missing', 0.5, 0.5) is None

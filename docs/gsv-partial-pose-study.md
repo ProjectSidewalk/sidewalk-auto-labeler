@@ -134,6 +134,16 @@ heights.
 - Bend's 0.30 and 0.55 fits are identical because Bend's run predates the storage floor:
   its 0.30 tier is its 0.55 tier.
 
+![Two dot plots of the fitted fractions k_pitch and k_roll with 95% intervals, one row per
+own-city fit, leave-one-city-out fit and pooled fit, blue for the auto height and orange for
+2.6 m. Pitch fractions cluster near 0.15-0.2 and roll fractions near 0.35-0.55, left of
+#113's fixed arm at 0.25 and 0.5. Laurens GSV has the widest intervals; Gainesville's pitch
+fraction halves at 2.6 m.](figures/gsv-partial-pose/fig2_coefficients.png)
+
+*Figure 2. The fitted fractions, with 95% intervals. The leave-one-city-out and pooled fits
+agree within about 0.03, so the partial pose is not a per-city artefact. Gainesville's pitch
+fraction is the one that moves with the camera height.*
+
 ### Primary: within-site pair distance, re-associated, `auto` (median / p90, m)
 
 | city | pairs | off | partial | partial-loco | partial-shuffled | loco-shuffled | full | partial-mirror |
@@ -161,6 +171,30 @@ heights.
   in Bend). The frozen-at-off frame gives the same ranking and similar gains
   (`summary.md`).
 
+![Two panels, median and p90 within-site pair distance, each showing every arm's change
+from off in metres for five cities. In every city both partial arms sit left of zero
+(members agree better), the two shuffled controls sit at or right of zero, and the mirror
+sits well right of zero. The full pose is right of zero on the p90 everywhere except
+laurens_gsv.](figures/gsv-partial-pose/fig1_pair_distance.png)
+
+*Figure 1. Change from off in held-out within-site pair distance, at `auto`. Left of zero
+means a site's members agree better. The partial arms move left in every city; their
+magnitude-matched shuffles do not, and the mirror moves right. laurens_gsv has 300 pairs,
+under the 500-pair bar, so it is shown but not gated.*
+
+![Plan view of one Gainesville site in two panels. Left: five cameras up to 18 m away with
+their rays converging on the site. Right: a 4 m zoom around the city inventory ramp, with
+each member's placement under off (grey) and partial (blue) joined by an arrow. The fused
+off and partial sites both sit about 0.4 m from the inventory ramp.](figures/gsv-partial-pose/fig3_site_example.png)
+
+*Figure 3. A typical site, not a showcase. It was chosen by a rule fixed before looking: of
+the 898 held-out Gainesville sites with at least three members on three panos and an
+inventory ramp within 2.5 m, the one whose partial/off member-spread ratio is the median
+(0.87). The partial pose moves each placement by a few decimetres along its ray and the
+members close up. The fused site barely moves (0.37 m to 0.38 m from the inventory ramp),
+which is why the inventory referee sees only 0.02-0.06 m. None of the five member panos is
+in the local RampNet bundle, so the figure has no image crops.*
+
 ### Survivorship (RampNet GT, TEST-half judged panos, `auto`)
 
 | city | off pool | off R@2.5 | partial (lost/gained) | partial-loco (lost/gained) | shuffled (lost/gained) | full (lost/gained) |
@@ -184,6 +218,24 @@ byte-identical to the verdict run.
   rotated arm in Bend loses some recall, and the partial arm loses the least. The GT pool
   is grouped under `off` (#42's design), which favours `off`. Two ramps is below what the
   clause can resolve at this pool size: 1.0 pt of 157 is 1.6 ramps.
+
+![Three scatter plots of each Bend GT ramp's distance to its nearest site, off on the x
+axis against the candidate on the y axis, with dashed lines at the 2.5 m match radius.
+Almost every point lies on the diagonal. In the two held-out panels, one lost ramp moves
+from 2.28 m to about 2.6 m, just across the radius, and a second lost ramp is drawn at the
+top because the candidate can no longer place it. The exploratory full-run panel loses that
+second ramp and one other that moves from 2.29 m to 2.67 m, and gains two that move from
+2.64 m to 1.76 m and 1.49 m. Below, six street-level crops
+show each changed ramp's GT mark circled.](figures/gsv-partial-pose/fig4_bend_recall.png)
+
+*Figure 4. The two ramps behind the failed clause, which are the same two for both
+candidates. Both sit at a threshold, and neither is a large misplacement. One ramp's
+nearest site moves from 2.28 m to 2.60 m (2.56 m under LOCO), just across the 2.5 m match
+radius. The other is a reviewer's missed-ramp mark near the horizon whose off raycast lands
+at 24.8 m. The partial pose lengthens that ray to 25.9 m, past the production 25 m cap, so
+the candidate cannot place the mark at all. The right panel is EXPLORATORY: on the whole
+run, the LOCO arm loses the same beyond-the-cap mark and one other threshold ramp (2.29 m
+to 2.67 m), and gains two that sat just outside the radius (2.64 m to 1.76 m and 1.49 m).*
 
 ### External referee: city inventories (frozen@off, 5 m pool on off)
 
@@ -299,8 +351,15 @@ python scripts/gsv_partial_pose.py score --benchmark-root ../RampNet/benchmark  
 python scripts/gsv_partial_pose.py tieback paterson bend sao_paulo gainesville
 python scripts/gsv_partial_pose.py verdict                  # verdict.md + summary.md
 python scripts/gsv_partial_pose.py explore --benchmark-root ../RampNet/benchmark  # exploratory
+python scripts/gsv_partial_pose.py figures --benchmark-root ../RampNet/benchmark  # docs/figures/gsv-partial-pose/
 ```
 
 Inputs are read in place: `runs/<city>/results.jsonl`, `runs/<city>/depth/index.csv` (for
 `auto`), `runs/{bend,gainesville}/inventory_oracle/inventory.geojson`, and RampNet's
 `benchmark/<city>/{verdicts.json,records.jsonl}`. No network, no GPU.
+
+`figures` redraws Figures 1-2 from the committed pooled CSVs, which it copies into
+`docs/figures/gsv-partial-pose/data/`. Figures 3-4 need a re-fuse. Their data
+(`site_example.json`, `bend_recall_ramps.csv`) is written there once, with the Bend
+lost/gained counts asserted against the committed `gt.csv`, and re-read after that. Pass
+`--refresh` to recompute it. Crops come from local bundle panos only.

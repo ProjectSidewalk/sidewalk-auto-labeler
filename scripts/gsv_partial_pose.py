@@ -47,6 +47,7 @@ Usage:
     python scripts/gsv_partial_pose.py tieback             # #113's frozen table, full run
     python scripts/gsv_partial_pose.py verdict
     python scripts/gsv_partial_pose.py all
+    python scripts/gsv_partial_pose.py figures        # docs/figures/gsv-partial-pose/
 
 Inputs are read in place from runs/<city>/ (results.jsonl, depth/index.csv, and for the
 inventory cities inventory_oracle/inventory.geojson); RampNet GT from --benchmark-root.
@@ -464,12 +465,17 @@ def unplaceable_members(arms, tier):
     return out
 
 
-def score_gt(arms, fused, verdict_panos, bundle_ops, gt_merge_m=2.5):
+def score_gt(arms, fused, verdict_panos, bundle_ops, gt_merge_m=2.5, details=None):
     """Survivorship on RampNet GT, test-half judged panos. Per arm: unplaceable GT marks,
     recall at 2.5 / 5 m on the OFF pool (ramps grouped under off from every mark off places;
     recalled if the arm places a mark and the ramp is self-detected or one-to-one matched to
     one of the arm's OWN operational sites), and GT-to-site distance over the ramps every
-    arm matches within 5 m (descriptive). Returns (rows, info)."""
+    arm matches within 5 m (descriptive). Returns (rows, info).
+
+    `details`, when a list, receives one dict per off-pool ramp (its marks, whether it is
+    self-detected, and per arm its placement, nearest own operational site, one-to-one
+    match distance at 2.5 m and whether it was recalled). Only `figures` passes it; the
+    returned rows are identical either way."""
     panos = arms[ARM_OFF][0]
     by_id = {p.pano_id: p for p in panos}
     test_verdicts = {pid: v for pid, v in verdict_panos.items() if pid in by_id}
@@ -522,6 +528,7 @@ def score_gt(arms, fused, verdict_panos, bundle_ops, gt_merge_m=2.5):
     common = set(range(len(pool)))
     for arm in arms:
         common &= set(matched[arm])
+    hit_dist, placed_by_arm = {}, {}
     for arm in arms:
         placed_off = place_ramps(arm, off_pool)
         present = [p for p in placed_off if p is not None]
@@ -531,6 +538,10 @@ def score_gt(arms, fused, verdict_panos, bundle_ops, gt_merge_m=2.5):
         for radius in (2.5, 5.0):
             hits = match_one_to_one(present, own_sites[arm], radius)
             hit_ids = {present[i].id for i in hits}
+            if radius == 2.5:
+                hit_dist[arm] = {present[i].id: math.hypot(present[i].e - s.e, present[i].n - s.n)
+                                 for i, s in hits.items()}
+                placed_by_arm[arm] = placed_off
             got = {k for k, (r, _ids) in enumerate(off_pool)
                    if placed_off[k] is not None and (r.self_detected or k in hit_ids)}
             recalled[arm, radius] = got
@@ -544,6 +555,19 @@ def score_gt(arms, fused, verdict_panos, bundle_ops, gt_merge_m=2.5):
         base, mine = recalled[ARM_OFF, 2.5], recalled[row['arm'], 2.5]
         row['lost_vs_off_2p5m'] = len(base - mine)
         row['gained_vs_off_2p5m'] = len(mine - base)
+    if details is not None:
+        for k, (r, ids) in enumerate(off_pool):
+            entry = {'ramp': k, 'self_detected': bool(r.self_detected),
+                     'marks': [marks[i][:4] for i in ids], 'arms': {}}
+            for arm in arms:
+                pt = placed_by_arm[arm][k]
+                near = None if pt is None or not own_sites[arm] else min(
+                    math.hypot(pt.e - s.e, pt.n - s.n) for s in own_sites[arm])
+                entry['arms'][arm] = {
+                    'e': None if pt is None else pt.e, 'n': None if pt is None else pt.n,
+                    'nearest_site_m': near, 'match_2p5m': hit_dist[arm].get(k),
+                    'recalled_2p5m': k in recalled[arm, 2.5]}
+            details.append(entry)
     info = {'counts': counts, 'warnings': len(warnings)}
     return rows, info
 
@@ -1059,15 +1083,444 @@ def summary_markdown(d, cities=CITIES):
     return '\n'.join(out) + '\n'
 
 
+# ------------------------------------------------------------------------ figures
+
+FIG_DIR = REPO_ROOT / 'docs' / 'figures' / 'gsv-partial-pose'
+FIG_DATA = FIG_DIR / 'data'
+FIG_SITE_CITY = 'gainesville'   # the deciding inventory city (64% 2026 rig, #79)
+FIG_RECALL_CITY = 'bend'        # where clause (ii) failed
+FIG_RADIUS_M = 2.5
+# Categorical slots from the dataviz reference palette, in fixed order; `off` is ink grey.
+FIG_COLORS = {ARM_OFF: '#52514e', ARM_PARTIAL: '#2a78d6', ARM_LOCO: '#4a3aa7',
+              ARM_SHUFFLED: '#eb6834', ARM_LOCO_SHUFFLED: '#eda100', ARM_FULL: '#1baf7a',
+              ARM_MIRROR: '#e87ba4'}
+FIG_MARKERS = {ARM_OFF: 'o', ARM_PARTIAL: 'o', ARM_LOCO: 's', ARM_SHUFFLED: 'v',
+               ARM_LOCO_SHUFFLED: '^', ARM_FULL: 'D', ARM_MIRROR: 'X'}
+
+
+def pano_crop(bundle_dir, pano_id, x, y, half_w=0.045, half_h=0.09, out_px=360):
+    """(crop array, mark row in the crop) for a bundle pano around normalized (x, y),
+    wrapping across the seam; the mark sits on the crop's centre column. None when the
+    pano is not in the local bundle. Decodes at quarter scale (JPEG draft)."""
+    import numpy as np
+    from PIL import Image
+    path = Path(bundle_dir) / 'panos' / f'{pano_id}.jpg'
+    if not path.exists():
+        return None
+    Image.MAX_IMAGE_PIXELS = None
+    with Image.open(path) as im:
+        im.draft('RGB', (im.width // 4, im.height // 4))
+        arr = np.asarray(im.convert('RGB'))
+    h, w = arr.shape[:2]
+    cx, cy = int(x * w), int(y * h)
+    dx, dy = int(half_w * w), int(half_h * h)
+    cols = [(cx + i) % w for i in range(-dx, dx)]
+    y0, y1 = max(0, cy - dy), min(h, cy + dy)
+    img = Image.fromarray(arr[y0:y1][:, cols])
+    img.thumbnail((out_px, out_px))
+    return np.asarray(img), (cy - y0) / (y1 - y0) * img.height
+
+
+def figure_recall_data(args):
+    """Per off-pool ramp, per arm, for FIG_RECALL_CITY at `auto`: the TEST half (off,
+    partial, partial-loco -- the decision) and, exploratory, the full run (off,
+    partial-loco). Asserts the lost/gained counts reproduce the committed gt.csv."""
+    city = FIG_RECALL_CITY
+    table = read_csv(args.pooled_dir / 'coefficients.csv')
+    bench = es.load_benchmark(city, Path(args.benchmark_root))
+    panos, fuse_height = load_city(city, fs.HEIGHT_AUTO, args.runs_root)
+    _train, test = split_halves(panos, args.seed)
+    coefs = {ARM_PARTIAL: coef_pair(table, 'auto', 'city', city),
+             ARM_LOCO: coef_pair(table, 'auto', 'loco', city)}
+    rows = []
+    for scope, ps, arm_set, gt_name in (
+            ('test_half', test, (ARM_OFF, ARM_PARTIAL, ARM_LOCO), 'gt.csv'),
+            ('full_run_exploratory', panos, (ARM_OFF, ARM_LOCO), 'explore_full/gt.csv')):
+        arms, _own = build_arms(ps, coefs, fuse_height, arms=arm_set, seed=args.seed)
+        fused = {arm: fs.fuse(p, params)[:2] for arm, (p, params) in arms.items()}
+        details = []
+        gt_rows, _info = score_gt(arms, fused, *bench, details=details)
+        committed = {r['arm']: r for r in read_csv(args.pooled_dir / gt_name)
+                     if r['city'] == city and r['height'] == 'auto'}
+        for r in gt_rows:
+            c = committed[r['arm']]
+            assert (int(c['lost_vs_off_2p5m']), int(c['gained_vs_off_2p5m'])) == \
+                (r['lost_vs_off_2p5m'], r['gained_vs_off_2p5m']), (scope, r['arm'])
+        for d in details:
+            pid, x, y, kind = d['marks'][0]
+            for arm, a in d['arms'].items():
+                rows.append({'scope': scope, 'ramp': d['ramp'], 'arm': arm,
+                             'self_detected': d['self_detected'], 'n_marks': len(d['marks']),
+                             'pano_id': pid, 'x': x, 'y': y, 'mark_kind': kind,
+                             'nearest_site_m': a['nearest_site_m'],
+                             'match_2p5m': a['match_2p5m'],
+                             'recalled_2p5m': a['recalled_2p5m']})
+        print(f'  figure data: {city} {scope}: {len(details)} off-pool ramps', file=sys.stderr)
+    write_csv(FIG_DATA / 'bend_recall_ramps.csv', rows)
+
+
+def figure_site_data(args):
+    """One representative multi-view site in FIG_SITE_CITY (TEST half, `auto`), off vs the
+    city's own partial fit, association frozen from off (as clause (iv) scores it).
+
+    Selection rule (fixed before looking at any candidate): a site is eligible when it has
+    >= 3 operational members on >= 3 panos and is matched one-to-one to an inventory point
+    within 2.5 m under off. Its spread under an arm is the median pairwise distance between
+    its members' placements; the site drawn is the eligible one whose partial/off spread
+    ratio is closest to the median ratio over all eligible sites (ties: lowest site id)."""
+    import json
+    city = FIG_SITE_CITY
+    table = read_csv(args.pooled_dir / 'coefficients.csv')
+    panos, fuse_height = load_city(city, fs.HEIGHT_AUTO, args.runs_root)
+    _train, test = split_halves(panos, args.seed)
+    coefs = {ARM_PARTIAL: coef_pair(table, 'auto', 'city', city),
+             ARM_LOCO: coef_pair(table, 'auto', 'loco', city)}
+    names = (ARM_OFF, ARM_PARTIAL)
+    arms, _own = build_arms(test, coefs, fuse_height, arms=names, seed=args.seed)
+    sites, frame = fs.fuse(*arms[ARM_OFF])[:2]
+    op_sites = [s for s in sites if s.n_operational > 0]
+    kept, pos, placed = es.refit_frozen(op_sites, frame, oracle.placer(arms), names)
+    inventory, _rec = oracle.load_inventory(city)
+    points = [Pt(k, *frame.to_enu(lat, lng)) for k, lat, lng, _p in inventory]
+    pool = match_one_to_one(points, pos[ARM_OFF], FIG_RADIUS_M)
+    index = {s.id: k for k, s in enumerate(kept)}
+
+    def spread(gs):
+        en = [frame.to_enu(g.lat, g.lng) for g in gs]
+        return es._pct([math.hypot(a[0] - b[0], a[1] - b[1])
+                        for i, a in enumerate(en) for b in en[i + 1:]], 0.5)
+
+    cands = []
+    for pi, s in pool.items():
+        k = index[s.id]
+        members = [d for d, _ in kept[k].members if d.operational]
+        if len(members) < 3 or len({d.pano_id for d in members}) < 3:
+            continue
+        off_s = spread(placed[ARM_OFF][k])
+        if off_s and off_s > 0:
+            cands.append((spread(placed[ARM_PARTIAL][k]) / off_s, s.id, k, pi))
+    med = es._pct(sorted(c[0] for c in cands), 0.5)
+    ratio, site_id, k, pi = min(cands, key=lambda c: (abs(c[0] - med), c[1]))
+    by_id = {p.pano_id: p for p in test}
+    members = [d for d, _ in kept[k].members if d.operational]
+    out = {'city': city, 'height': 'auto', 'site_id': site_id, 'eligible_sites': len(cands),
+           'median_ratio': med, 'site_ratio': ratio,
+           'share_tighter': sum(1 for c in cands if c[0] < 1) / len(cands),
+           'k_partial': coefs[ARM_PARTIAL],
+           'inventory_en': [points[pi].e, points[pi].n],
+           'site_en': {arm: [pos[arm][k].e, pos[arm][k].n] for arm in names},
+           'members': []}
+    for j, d in enumerate(members):
+        p = by_id[d.pano_id]
+        tilt = stored_tilt(p)
+        out['members'].append({
+            'pano_id': d.pano_id, 'x': d.x, 'y': d.y,
+            'camera_en': list(frame.to_enu(p.lat, p.lng)),
+            'pitch': None if tilt is None else tilt[0],
+            'roll': None if tilt is None else tilt[1], 'capture_date': p.capture_date,
+            'placed_en': {arm: list(frame.to_enu(placed[arm][k][j].lat, placed[arm][k][j].lng))
+                          for arm in names}})
+    (FIG_DATA / 'site_example.json').write_text(json.dumps(out, indent=1), encoding='utf-8',
+                                                 newline='\n')
+    print(f'  figure data: {city} site {site_id}, ratio {ratio:.3f} (median {med:.3f} over '
+          f'{len(cands)} eligible)', file=sys.stderr)
+
+
+def _style(plt):
+    plt.rcParams.update({'font.size': 9, 'axes.spines.top': False, 'axes.spines.right': False,
+                         'axes.edgecolor': '#52514e', 'axes.labelcolor': '#0b0b0b',
+                         'xtick.color': '#52514e', 'ytick.color': '#52514e',
+                         'figure.facecolor': '#fcfcfb', 'axes.facecolor': '#fcfcfb',
+                         'savefig.facecolor': '#fcfcfb', 'grid.color': '#e4e3df'})
+
+
+def fig_pair_distance(plt, pairs):
+    """Change vs off in median and p90 re-associated pair distance, per city and arm."""
+    arms = (ARM_PARTIAL, ARM_LOCO, ARM_SHUFFLED, ARM_LOCO_SHUFFLED, ARM_FULL, ARM_MIRROR)
+    rows = {(r['city'], r['arm']): r for r in pairs
+            if r['height'] == 'auto' and r['frame'] == FRAME_REASSOC}
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5.6), sharey=True)
+    step = 0.12
+    for ax, stat, name in ((axes[0], 'median_m', 'median'), (axes[1], 'p90_m', 'p90')):
+        for ci, city in enumerate(CITIES):
+            off = float(rows[city, ARM_OFF][stat])
+            for ai, arm in enumerate(arms):
+                yv = ci + (ai - (len(arms) - 1) / 2) * step
+                dv = float(rows[city, arm][stat]) - off
+                ax.plot([0, dv], [yv, yv], color=FIG_COLORS[arm], lw=1.2, alpha=.55)
+                ax.plot(dv, yv, FIG_MARKERS[arm], color=FIG_COLORS[arm], ms=6,
+                        mec='#fcfcfb', mew=.8, label=arm if ci == 0 else None)
+            ax.annotate(f'off = {off:.2f} m', (0, ci - .42), fontsize=7, color='#52514e',
+                        ha='left', xytext=(3, 0), textcoords='offset points')
+        ax.axvline(0, color='#0b0b0b', lw=1)
+        ax.grid(axis='x')
+        ax.set_xlabel(f'{name} pair distance minus off (m)\n<- members agree better | worse ->')
+        ax.set_title(f'{name} within-site pair distance', fontsize=10)
+    labels = []
+    for city in CITIES:
+        n = int(rows[city, ARM_OFF]['common_pairs'])
+        tag = '' if n >= RULE_MIN_COMMON_PAIRS else '\n(not gated)'
+        labels.append(f'{city}\n{n:,} pairs{tag}')
+    axes[0].set_yticks(range(len(CITIES)), labels)
+    axes[0].set_ylim(len(CITIES) - .45, -.6)
+    axes[1].legend(loc='lower right', fontsize=7.5, frameon=False, title='arm',
+                   title_fontsize=7.5)
+    fig.suptitle('Held-out GSV panos, auto height: the partial pose tightens multi-view sites;\n'
+                 'its magnitude-matched shuffle and the mirror sign do not', fontsize=10.5)
+    fig.tight_layout()
+    return fig
+
+
+def fig_coefficients(plt, coefs):
+    """k_pitch and k_roll, 95% CI, per scope and city, at both heights."""
+    rows = [r for r in coefs if r['tier'] == '0.3000']
+    order = [('city', c) for c in CITIES] + [('loco', c) for c in CITIES] + [('pooled', 'all')]
+    labels = [f'{c} (own fit)' if s == 'city' else f'all but {c} (LOCO)' if s == 'loco'
+              else 'pooled, all five' for s, c in order]
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5.6), sharey=True)
+    colors = {'auto': '#2a78d6', '2.6': '#eb6834'}
+    for ax, (k, se, name, ref) in zip(axes, (('k_pitch', 'se_pitch', 'pitch', 0.25),
+                                              ('k_roll', 'se_roll', 'roll', 0.5))):
+        for hi, h in enumerate(('auto', '2.6')):
+            for yi, (scope, city) in enumerate(order):
+                r = next(r for r in rows if r['height'] == h and r['scope'] == scope
+                         and r['city'] == city)
+                ax.errorbar(float(r[k]), yi + (hi - .5) * 0.3, xerr=1.96 * float(r[se]),
+                            fmt='o', color=colors[h], ms=5, lw=1.4, capsize=2,
+                            label=(f'camera height {h}' + (' m' if h == '2.6' else ''))
+                            if yi == 0 else None)
+        ax.axvline(ref, color='#52514e', lw=1, ls='--')
+        ax.annotate(f'#113 fixed arm ({ref})', (ref, -0.9), fontsize=7, color='#52514e',
+                    ha='center')
+        ax.axvline(0, color='#0b0b0b', lw=.8)
+        for yb in (4.5, 9.5):
+            ax.axhline(yb, color='#e4e3df', lw=1)
+        ax.set_xlabel(f'k_{name}: fraction of the stored {name}\ntreated as placement error')
+        ax.grid(axis='x')
+    axes[0].set_yticks(range(len(order)), labels)
+    axes[0].set_ylim(len(order) - .4, -1.3)
+    axes[1].legend(loc='lower right', fontsize=8, frameon=False)
+    fig.suptitle('Leak fractions fitted on the TRAIN halves (95% CI, pano-clustered SE):\n'
+                 'about a fifth of the pitch and two fifths of the roll', fontsize=10.5)
+    fig.tight_layout()
+    return fig
+
+
+def fig_site_example(plt, site, bundle_dir):
+    """Plan view of the selected site (every view, and a zoom on the inventory ramp), plus
+    crops of its member views when they are in the local bundle."""
+    members = site['members']
+    crops = [pano_crop(bundle_dir, m['pano_id'], m['x'], m['y']) for m in members]
+    n_have = sum(c is not None for c in crops)
+    ncol = max(2, n_have)
+    fig = plt.figure(figsize=(12, 7.6 if n_have else 5.8))
+    gs = fig.add_gridspec(2 if n_have else 1, ncol, height_ratios=[3, 1.2] if n_have else [1])
+    half = ncol // 2
+    _site_panel(fig.add_subplot(gs[0, :half]), site, zoom=False)
+    _site_panel(fig.add_subplot(gs[0, half:]), site, zoom=True)
+    ie, inn = site['inventory_en']
+    d = {a: math.hypot(site['site_en'][a][0] - ie, site['site_en'][a][1] - inn)
+         for a in (ARM_OFF, ARM_PARTIAL)}
+    fig.suptitle(f"{site['city']}, held-out site {site['site_id']}, chosen as the median-ratio "
+                 f"site: member spread partial/off = {site['site_ratio']:.2f} (median over "
+                 f"{site['eligible_sites']} eligible sites {site['median_ratio']:.2f})\n"
+                 f"fused site to the city inventory ramp: {d[ARM_OFF]:.2f} m off, "
+                 f"{d[ARM_PARTIAL]:.2f} m partial", fontsize=9.5)
+    j = 0
+    for i, c in enumerate(crops):
+        if c is None:
+            continue
+        img, my = c
+        cax = fig.add_subplot(gs[1, j])
+        cax.imshow(img)
+        cax.plot(img.shape[1] / 2, my, marker='o', ms=16, mfc='none', mec='#eda100', mew=2)
+        cax.set_title(f'view {i + 1}', fontsize=8)
+        cax.axis('off')
+        j += 1
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    return fig, n_have, len(members)
+
+
+def _site_panel(ax, site, zoom):
+    """One plan-view panel of fig 3: every camera and ray, or +-2.2 m around the inventory
+    ramp with an arrow from each member's off placement to its partial placement."""
+    ie, inn = site['inventory_en']
+    for i, m in enumerate(site['members']):
+        ce, cn = m['camera_en']
+        pe = {a: m['placed_en'][a] for a in (ARM_OFF, ARM_PARTIAL)}
+        far = max(pe.values(), key=lambda p: math.hypot(p[0] - ce, p[1] - cn))
+        ax.plot([ce, far[0]], [cn, far[1]], color='#b5b4ae', lw=.9, zorder=1)
+        ax.plot(ce, cn, marker='^', color='#0b0b0b', ms=7, ls='none', zorder=3,
+                label='camera' if i == 0 else None)
+        if zoom:
+            ax.annotate('', xy=pe[ARM_PARTIAL], xytext=pe[ARM_OFF],
+                        arrowprops={'arrowstyle': '->', 'color': '#52514e', 'lw': .8})
+        else:
+            tilt = ('' if m['pitch'] is None else
+                    f"\npitch {m['pitch']:+.1f}°, roll {m['roll']:+.1f}°")
+            ax.annotate(f'view {i + 1}{tilt}', (ce, cn), textcoords='offset points',
+                        xytext=(6, -14), fontsize=7, color='#52514e')
+        for arm, mk in ((ARM_OFF, 'o'), (ARM_PARTIAL, 'D')):
+            ax.plot(*pe[arm], mk, color=FIG_COLORS[arm], ms=7 if zoom else 4, mec='#fcfcfb',
+                    mew=.8, ls='none', zorder=4,
+                    label=f'member placement, {arm}' if i == 0 else None)
+            if zoom:
+                ax.annotate(str(i + 1), pe[arm], textcoords='offset points', xytext=(5, 3),
+                            fontsize=8, color=FIG_COLORS[arm])
+    for arm, mk in ((ARM_OFF, 'o'), (ARM_PARTIAL, 'D')):
+        ax.plot(*site['site_en'][arm], mk, color=FIG_COLORS[arm], ms=14, mfc='none', mew=2,
+                ls='none', zorder=5, label=f'fused site, {arm}')
+    ax.plot(ie, inn, marker='*', color='#0b0b0b', ms=14, ls='none', zorder=6,
+            label='city inventory ramp')
+    ax.set_aspect('equal', adjustable='datalim')
+    if zoom:
+        ax.set_xlim(ie - 2.2, ie + 2.2)
+        ax.set_ylim(inn - 2.2, inn + 2.2)
+        ax.set_title('zoom, +-2 m around the inventory ramp (arrows: off -> partial)',
+                     fontsize=8.5)
+        ax.legend(fontsize=7.5, frameon=False, loc='lower left')
+    else:
+        ax.set_title('every member view: cameras and rays; numbers = view', fontsize=8.5)
+    ax.set_xlabel('east (m)')
+    ax.set_ylabel('north (m)')
+    ax.grid(True)
+
+
+def fig_recall(plt, rows, bundle_dir):
+    """Every off-pool Bend ramp's nearest-site distance, off vs candidate, with the ramps a
+    candidate lost or gained against off at 2.5 m highlighted and cropped."""
+    by = {}
+    for r in rows:
+        by.setdefault((r['scope'], int(r['ramp'])), {})[r['arm']] = r
+    panels = (('test_half', ARM_PARTIAL, 'decision: held-out half, own fit'),
+              ('test_half', ARM_LOCO, 'decision: held-out half, LOCO fit'),
+              ('full_run_exploratory', ARM_LOCO, 'EXPLORATORY: full run, LOCO fit'))
+    num = lambda v: None if v in ('', None) else float(v)  # noqa: E731
+    changed = []
+    fig = plt.figure(figsize=(13, 8.8))
+    gs = fig.add_gridspec(2, 6, height_ratios=[2.4, 1.2])
+    cap = 8.0
+    for pi, (scope, arm, title) in enumerate(panels):
+        ax = fig.add_subplot(gs[0, 2 * pi:2 * pi + 2])
+        same, lost, gained, lost_unplaced = [], [], [], []
+        for (sc, k), a in sorted(by.items()):
+            if sc != scope:
+                continue
+            o, c = a[ARM_OFF], a[arm]
+            ro, rc = o['recalled_2p5m'] == 'True', c['recalled_2p5m'] == 'True'
+            if ro != rc:
+                changed.append((scope, arm, k, 'lost' if ro else 'gained', o, c))
+            xo, yc = num(o['nearest_site_m']), num(c['nearest_site_m'])
+            if xo is None:
+                continue
+            if yc is None:   # the arm cannot place the GT mark (past the 25 m raycast cap)
+                (lost_unplaced if ro and not rc else same).append((min(xo, cap), cap))
+                continue
+            pt = (min(xo, cap), min(yc, cap))
+            (lost if ro and not rc else gained if rc and not ro else same).append(pt)
+        for pts, mk, col, lab, ms in (
+                (same, 'o', '#b5b4ae', 'recall unchanged', 3.5),
+                (lost, 'X', '#e87ba4', 'lost vs off', 10),
+                (lost_unplaced, 'v', '#e87ba4', 'lost: mark now past 25 m (drawn at 8)', 10),
+                (gained, 'P', '#1baf7a', 'gained vs off', 10)):
+            ax.plot([p[0] for p in pts], [p[1] for p in pts], mk, ms=ms, color=col,
+                    mec='#0b0b0b' if ms > 5 else col, mew=.6, ls='none',
+                    label=f'{lab} ({len(pts)})')
+        ax.plot([0, cap], [0, cap], color='#52514e', lw=.7, ls=':')
+        ax.axvline(FIG_RADIUS_M, color='#0b0b0b', lw=.9, ls='--')
+        ax.axhline(FIG_RADIUS_M, color='#0b0b0b', lw=.9, ls='--')
+        ax.set_xlim(0, cap + .3)
+        ax.set_ylim(0, cap + .3)
+        ax.set_aspect('equal')
+        ax.set_xlabel('off: GT ramp to nearest site (m)')
+        ax.set_ylabel(f'{arm}: GT ramp to nearest site (m)')
+        ax.set_title(title, fontsize=9)
+        ax.legend(fontsize=6.8, frameon=False, loc='lower right')
+    fig.text(0.5, 0.012, 'Distances beyond 8 m are drawn at 8 m. Dashed: the 2.5 m match radius. '
+             'A ramp counts as recalled if it is self-detected or matched one-to-one within '
+             '2.5 m, so a ramp inside the radius can still be lost\nto a neighbouring ramp that '
+             'claims the same site. Crops: the GT mark (circle) in its judged pano, from the '
+             'local RampNet bundle.', ha='center', fontsize=7.5, color='#52514e')
+    seen, j = set(), 0
+    for scope, arm, k, what, o, c in changed:
+        if j >= 6 or (scope, k) in seen:
+            continue
+        seen.add((scope, k))
+        cax = fig.add_subplot(gs[1, j])
+        crop = pano_crop(bundle_dir, o['pano_id'], float(o['x']), float(o['y']),
+                         half_w=0.03, half_h=0.06)
+        if crop is not None:
+            img, my = crop
+            cax.imshow(img)
+            cax.plot(img.shape[1] / 2, my, marker='o', ms=16, mfc='none', mec='#eda100', mew=2)
+        else:
+            cax.text(.5, .5, 'pano not in\nlocal bundle', ha='center', va='center', fontsize=8)
+        fm = lambda v: 'unplaced' if num(v) is None else f'{num(v):.2f} m'  # noqa: E731
+        tag = 'held-out' if scope == 'test_half' else 'full run'
+        cax.set_title(f'{what}: {tag}, {arm}\nnearest site {fm(o["nearest_site_m"])} -> '
+                      f'{fm(c["nearest_site_m"])}', fontsize=7)
+        cax.axis('off')
+        j += 1
+    fig.suptitle(f'{FIG_RECALL_CITY}, auto height: the ramps behind the failed recall clause',
+                 fontsize=10.5)
+    fig.tight_layout(rect=(0, 0.045, 1, 0.97))
+    return fig, changed
+
+
+def cmd_figures(args):
+    """Draw docs/figures/gsv-partial-pose/*.png. Figures 1-2 read the committed pooled CSVs
+    (copied into data/). Figures 3-4 need a re-fuse (runs/<city>/ + the RampNet bundle):
+    their data is written once to data/ and re-read after that (--refresh redoes it).
+    Crops come from the local bundle panos only (no network)."""
+    import json
+    import shutil
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    _style(plt)
+    FIG_DATA.mkdir(parents=True, exist_ok=True)
+    for name in ('pairs.csv', 'coefficients.csv', 'gt.csv'):
+        shutil.copyfile(args.pooled_dir / name, FIG_DATA / name)
+    shutil.copyfile(args.pooled_dir / 'explore_full' / 'gt.csv',
+                    FIG_DATA / 'explore_full_gt.csv')
+    recall_csv, site_json = FIG_DATA / 'bend_recall_ramps.csv', FIG_DATA / 'site_example.json'
+    if args.refresh or not recall_csv.exists():
+        figure_recall_data(args)
+    if args.refresh or not site_json.exists():
+        figure_site_data(args)
+    bench = Path(args.benchmark_root)
+    figs = {'fig1_pair_distance.png': fig_pair_distance(plt, read_csv(FIG_DATA / 'pairs.csv')),
+            'fig2_coefficients.png': fig_coefficients(plt,
+                                                      read_csv(FIG_DATA / 'coefficients.csv'))}
+    site = json.loads(site_json.read_text(encoding='utf-8'))
+    figs['fig3_site_example.png'], n_crops, n_members = fig_site_example(
+        plt, site, bench / site['city'])
+    figs['fig4_bend_recall.png'], changed = fig_recall(plt, read_csv(recall_csv),
+                                                       bench / FIG_RECALL_CITY)
+    for name, fig in figs.items():
+        fig.savefig(FIG_DIR / name, dpi=80 if name.startswith('fig4') else 110)  # < 300 KB
+        plt.close(fig)
+        print(f'  wrote {FIG_DIR / name} ({(FIG_DIR / name).stat().st_size // 1024} KB)')
+    print(f'  site example: {n_crops} of {n_members} member views cropped from the bundle')
+    for scope, arm, k, what, o, c in changed:
+        print(f'  {scope} {arm} ramp {k}: {what}; off match={o["match_2p5m"] or "-"} '
+              f'nearest={o["nearest_site_m"] or "-"}; {arm} match={c["match_2p5m"] or "-"} '
+              f'nearest={c["nearest_site_m"] or "-"}; self_detected={o["self_detected"]}; '
+              f'marks={o["n_marks"]} ({o["mark_kind"]}); pano {o["pano_id"]} '
+              f'x={float(o["x"]):.3f} y={float(o["y"]):.3f}')
+
+
 def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('command', choices=('fit', 'score', 'tieback', 'verdict', 'explore', 'all'))
+    ap.add_argument('command', choices=('fit', 'score', 'tieback', 'verdict', 'explore', 'figures', 'all'))
     ap.add_argument('cities', nargs='*', default=list(CITIES))
     ap.add_argument('--heights', nargs='+', default=[height_label(h) for h in HEIGHTS])
     ap.add_argument('--runs-root', default=str(REPO_ROOT / 'runs'))
     ap.add_argument('--benchmark-root', default=str(DEFAULT_BENCHMARK_ROOT))
     ap.add_argument('--out', default=None, help='pooled output dir (default runs/_pooled/partial_pose)')
     ap.add_argument('--seed', type=int, default=SEED)
+    ap.add_argument('--refresh', action='store_true',
+                    help='figures: recompute the re-fused figure data')
     return ap
 
 
@@ -1076,7 +1529,8 @@ def main(argv=None):
     args.heights = [parse_height(h) for h in args.heights]
     args.pooled_dir = Path(args.out) if args.out else POOLED_DIR
     cmds = {'fit': [cmd_fit], 'score': [cmd_score], 'tieback': [cmd_tieback],
-            'verdict': [cmd_verdict], 'explore': [cmd_explore], 'all': [cmd_fit, cmd_score, cmd_tieback, cmd_verdict]}
+            'verdict': [cmd_verdict], 'explore': [cmd_explore],
+            'figures': [cmd_figures], 'all': [cmd_fit, cmd_score, cmd_tieback, cmd_verdict]}
     for cmd in cmds[args.command]:
         cmd(args)
 
