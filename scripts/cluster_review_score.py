@@ -87,7 +87,32 @@ def check_assignments(a, snapshot, corners):
                             + ', '.join(f'{k}={labels[k]!r}' for k in bad[:3]))
         if u.get('complete') and keys - set(labels):
             problems.append(f'{cid}: complete but {len(keys - set(labels))} label(s) unassigned')
+        cj = u.get('cant_judge', False)
+        if not isinstance(cj, bool):
+            problems.append(f'{cid}: cant_judge {cj!r} is not a boolean')
+        elif cj and u.get('complete'):
+            problems.append(f'{cid}: cant_judge and complete together')
+        elif cj and not str(u.get('cant_judge_reason') or '').strip():
+            problems.append(f'{cid}: cant_judge without a cant_judge_reason')
     return problems
+
+
+def cant_judge_section(a, corners_by_id):
+    """report.md lines: every can't-judge unit (protocol Amendment 3) with its reason,
+    counted overall and per stratum. Such units are excluded from every metric."""
+    cj = {cid: u for cid, u in (a.get('corners') or {}).items() if u.get('cant_judge') is True}
+    by = {s: 0 for s in STRATA}
+    for cid in cj:
+        t = (corners_by_id.get(cid) or {}).get('type')
+        by[t] = by.get(t, 0) + 1
+    lines = ['', "## Can't judge (excluded from every metric)", '',
+             f"- {len(cj)} unit(s): " + ', '.join(f'{s} {by.get(s, 0)}' for s in STRATA)]
+    if cj:
+        lines += ['', '| unit | type | reason |', '|---|---|---|']
+        for cid in sorted(cj):
+            reason = str(cj[cid].get('cant_judge_reason') or '').strip().replace('|', '/')
+            lines.append(f"| {cid} | {(corners_by_id.get(cid) or {}).get('type', '?')} | {reason} |")
+    return lines, len(cj)
 
 
 def arm_input_mismatches(run_dir, cfg, snapshot):
@@ -290,12 +315,15 @@ def main(argv=None):
     problems = check_assignments(a, snapshot, corners)
     if problems:
         raise SystemExit(f'{a_path}: cannot be scored: ' + '; '.join(problems[:10]))
-    units = {cid: u for cid, u in (a.get('corners') or {}).items() if u.get('complete')}
+    units = {cid: u for cid, u in (a.get('corners') or {}).items()
+             if u.get('complete') and not u.get('cant_judge')}
+    cj_lines, n_cj = cant_judge_section(a, corners_by_id)
     notes = a.get('review_notes') or {}
     lines += [f"- assignments: `{a_path.name}` sha256 `{sha256_file(a_path)}`, rater "
               f"{a.get('rater') or notes.get('reviewer') or '?'}, rubric v{a.get('rubric_version')}, "
               f"seed {a.get('seed_arm')}, exported {a.get('exported_at')}; "
-              f'{len(units)} complete of {len(a.get("corners") or {})} units in the file',
+              f'{len(units)} complete, {n_cj} can\'t judge, of {len(a.get("corners") or {})} '
+              'units in the file',
               f'- {sanity}']
     if notes.get('caveats'):
         lines += ['- reviewer caveats:'] + [f'  - {c}' for c in notes['caveats']]
@@ -367,6 +395,7 @@ def main(argv=None):
             im = cal['inventory_metrics'].get(name) or {}
             lines.append(f"| {name} | {fmt(im.get('split_rate'))} | {fmt(by_arm[name]['split_rate'])} | "
                          f"{fmt(im.get('merge_rate'))} | {fmt(by_arm[name]['merge_rate'])} |")
+    lines += cj_lines
     lines += ['', '## Against verdicts.json', '',
               '- not run here: RampNet `rampnet.cluster_review.verdict_consistency` does it for '
               'cities with a benchmark bundle (Vancouver has none).']

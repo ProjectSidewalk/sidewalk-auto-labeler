@@ -218,7 +218,8 @@ def assignment_metrics(arm_of, units, unit_keys=None):
     "Metrics") for one arm over reviewed units. Pure, numpy-free.
 
     arm_of: {label key: set of cluster ids} (arm_index); units: {corner_id: assignment
-    unit} -- only `complete` ones count; unit_keys: {corner_id: the unit's label keys}
+    unit} -- only `complete` ones count (a `cant_judge` unit never does); unit_keys:
+    {corner_id: the unit's label keys}
     (default: the keys the unit's assignment names). Within a unit only its own labels are
     read; unsure labels are dropped from everything; not_ramp labels count for validity.
 
@@ -233,7 +234,7 @@ def assignment_metrics(arm_of, units, unit_keys=None):
              uncovered_sure=0)
     per_ramp = {}
     for cid, u in sorted(units.items()):
-        if not u.get('complete'):
+        if not u.get('complete') or u.get('cant_judge'):
             continue
         m['units'] += 1
         a = u.get('labels') or {}

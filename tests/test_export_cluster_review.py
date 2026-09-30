@@ -261,3 +261,64 @@ def test_overpass_query_unions_signals():
     assert q.endswith('out geom;') and ecr.STREET_HIGHWAY_RE in q
     assert ecr.validate_osm({'elements': [], 'remark': 'runtime error'}).startswith('Overpass')
     assert math.isclose(ecr.round_half_up(2.5), 3) and ecr.round_half_up(1.05) == 1
+
+
+# --- rule 6b (rule_version 2): grade-separated windows ---------------------------------------
+
+def tagged(wid, tags, pts):
+    return {'type': 'way', 'id': wid, 'tags': tags, 'nodes': list(range(wid * 10, wid * 10 + len(pts))),
+            'geometry': [ll(*p) for p in pts]}
+
+
+def test_grade_reason_rules():
+    assert ecr.grade_reason({'bridge': 'yes'}, False) == 'bridge'
+    assert ecr.grade_reason({'bridge': 'no'}, True) is None
+    assert ecr.grade_reason({'covered': 'yes'}, False) == 'covered'
+    assert ecr.grade_reason({'layer': '1'}, False) == 'layer_above'
+    assert ecr.grade_reason({'layer': '1;2'}, False) == 'layer_above'
+    assert ecr.grade_reason({'layer': 'x'}, True) is None
+    assert ecr.grade_reason({'tunnel': 'yes'}, True) == 'street_tunnel'
+    assert ecr.grade_reason({'layer': '-1'}, True) == 'street_below'
+    # underground and not a street (a subway, a culvert): nobody's corner is hidden by it
+    assert ecr.grade_reason({'tunnel': 'yes', 'railway': 'subway', 'layer': '-2'}, False) is None
+
+
+def _grade_payload(extra):
+    return {'elements': PAYLOAD['elements'] + extra}
+
+
+def test_grade_rule_excludes_windows_over_structures_only():
+    base, st0 = ecr.build_candidates(PAYLOAD, FR)
+    assert st0['grade_separated'] == 0
+    near_plus = [(-50, 20), (50, 20)]            # 20 m from the "+" at (0, 0)
+    far = [(-50, 700), (50, 700)]                # 300 m from everything
+    cases = [
+        ([tagged(90, {'railway': 'rail', 'bridge': 'yes'}, near_plus)], True),   # overhead rail
+        ([tagged(90, {'railway': 'subway', 'tunnel': 'yes', 'layer': '-2'}, near_plus)], False),
+        ([tagged(90, {'highway': 'primary', 'tunnel': 'yes', 'layer': '-1'}, near_plus)], True),
+        ([tagged(90, {'highway': 'footway', 'bridge': 'yes'}, far)], False),
+    ]
+    for extra, excluded in cases:
+        cands, st = ecr.build_candidates(_grade_payload(extra), FR)
+        at_plus = any(abs(c['lat'] - ll(0, 0)['lat']) < 1e-7 and abs(c['lng'] - ll(0, 0)['lon']) < 1e-7
+                      for c in cands)
+        assert at_plus is not excluded, extra
+        assert (st['grade_separated'] > 0) is excluded
+        assert sum(st['grade_separated_by_stratum'].values()) == st['grade_separated']
+    cands, st = ecr.build_candidates(_grade_payload(cases[0][0]), FR, grade_rule=False)
+    assert len(cands) == len(base) and st['grade_separated'] == 0
+
+
+def test_street_ways_ignore_the_structure_ways():
+    extra = [tagged(90, {'railway': 'rail', 'bridge': 'yes'}, [(-50, 20), (50, 20)]),
+             tagged(91, {'highway': 'footway', 'bridge': 'yes'}, [(-50, 30), (50, 30)])]
+    assert {w['id'] for w in ecr.street_ways(_grade_payload(extra))} == \
+        {w['id'] for w in ecr.street_ways(PAYLOAD)}
+
+
+def test_overpass_query_fetches_rule_6b_structures():
+    q = ecr.overpass_query((-122.7, 45.5, -122.5, 45.7))
+    for part in ('way["bridge"]["bridge"!="no"]', 'way["covered"]["covered"!="no"]',
+                 'way["layer"~"^[+]?[1-9]"]'):
+        assert part in q
+    assert ecr.RULE_VERSION == 2

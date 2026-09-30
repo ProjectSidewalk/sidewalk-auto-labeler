@@ -267,7 +267,9 @@ python scripts/inventory_clustering.py score bend gainesville && python scripts/
 
 # CLUSTER-REVIEW GT (RampNet#224; protocol RampNet docs/cluster_review_protocol.md, rubric
 # RUBRICS.md §6). export_cluster_review.py samples OSM intersection / mid-block units (seed 224,
-# 20 per stratum, 15% no-label, >= 60 m apart, 30 m windows by SERVER position) and writes a
+# 20 per stratum, 15% no-label, >= 60 m apart, 30 m windows by SERVER position; sampling rule v2
+# drops any window touching a bridge / covered / layer>=1 way or a street below grade --
+# `grade_separated`, protocol rule 6b) and writes a
 # bundle into RampNet: snapshot.json + corners.jsonl (each label with its `deployed` and
 # `fusion_server+attach` seed group -- inventory_clustering.server_arms, a verbatim duplicate of
 # score_server_arms' construction, checked against split_figures/state.pkl), Esri aerials and
@@ -277,7 +279,8 @@ python scripts/inventory_clustering.py score bend gainesville && python scripts/
 # (no RampNet import), rebuilds every #56 arm, applies inventory_clustering.assignment_metrics +
 # the pre-registered rule (fusion_server+attach vs ps @ 7.5 m) and the inventory calibration; with
 # no assignments.json it writes a "NO GT YET" report and exits 0. Every arm scores the SAME labels:
-# human labels out, a label an arm does not hold = its singleton. It refuses deployed clusters /
+# human labels out, a label an arm does not hold = its singleton. A `cant_judge` unit (reason
+# required) counts in no metric and is listed with its reason. It refuses deployed clusters /
 # results.jsonl whose sha256 differs from snapshot.json (--allow-arm-mismatch, recorded). Nobody but a human reviewer in
 # RampNet's cluster_review_gallery.py writes an assignments file.
 python scripts/export_cluster_review.py vancouver --run-dir ../sal-vancouver/runs/vancouver     --bundle ../RampNet/benchmark/vancouver/cluster_review [--no-crops] [--skip-aerial]

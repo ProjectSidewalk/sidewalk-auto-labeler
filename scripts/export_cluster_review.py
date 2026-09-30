@@ -57,7 +57,7 @@ for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
 import geo  # noqa: E402
 
 SCHEMA_SNAPSHOT = 'rampnet.cluster_review.snapshot/1'
-RULE_VERSION = 1
+RULE_VERSION = 2          # 2: grade-separated windows excluded (protocol, Amendment 3)
 SEED = 224
 PER_STRATUM = 20
 EMPTY_SHARE = 0.15
@@ -86,6 +86,13 @@ STREET_HIGHWAY_RE = ('^(motorway|trunk|primary|secondary|tertiary|unclassified|r
 OVERPASS_ENDPOINTS = ('https://overpass-api.de/api/interpreter',
                       'https://overpass.kumi.systems/api/interpreter')
 USER_AGENT = 'sidewalk-auto-labeler export_cluster_review (RampNet#224)'
+# rule 6b (rule_version 2): a candidate is excluded when its window touches (a) ANY OSM way
+# over the ground -- bridge/covered not "no", or layer >= 1: an overhead structure hides the
+# ground on the aerial, the reviewer's check -- or (b) a STREET under it -- tunnel not "no",
+# or layer <= -1: a corner nobody stands at. A subway or pipe underground is not (b).
+GRADE_RULE = ('exclude a candidate whose 30 m window touches any OSM way tagged bridge!=no, '
+              'covered!=no or layer>=1, or a street way (STREET_HIGHWAY_RE) tagged tunnel!=no '
+              'or layer<=-1')
 # where each city's inputs live inside its run dir (the #56 layout)
 CITY_INPUTS = {
     'vancouver': {'streets': 'ps_clustering_eval/streets.geojson',
@@ -126,6 +133,10 @@ def overpass_query(bbox, pad_deg=0.003):
     b = f'({min_lat - pad_deg},{min_lng - pad_deg},{max_lat + pad_deg},{max_lng + pad_deg})'
     return (f'[out:json][timeout:180];(way["highway"~"{STREET_HIGHWAY_RE}"]{b};'
             f'node["highway"="traffic_signals"]{b};node["crossing"="traffic_signals"]{b};'
+            # rule 6b (a): any way over the ground. (b)'s streets below grade need no clause:
+            # the street ways above already come back with their tunnel / layer tags.
+            f'way["bridge"]["bridge"!="no"]{b};way["covered"]["covered"!="no"]{b};'
+            f'way["layer"~"^[+]?[1-9]"]{b};'
             f');out geom;')
 
 
@@ -177,6 +188,51 @@ def street_ways(payload):
     return [e for e in payload.get('elements', ())
             if e.get('type') == 'way' and e.get('nodes') and e.get('geometry')
             and rx.match((e.get('tags') or {}).get('highway', ''))]
+
+
+def _on(tags, key):
+    v = tags.get(key)
+    return v is not None and str(v).strip().lower() != 'no'
+
+
+def _layer(tags):
+    """OSM layer as an int (0 when absent or unparseable; '1;2' reads its first value)."""
+    v = tags.get('layer')
+    if v is None:
+        return 0
+    try:
+        return int(round(float(str(v).split(';')[0].strip())))
+    except ValueError:
+        return 0
+
+
+def grade_reason(tags, is_street):
+    """Why a way makes a window grade-separated under rule 6b, or None."""
+    if _on(tags, 'bridge'):
+        return 'bridge'
+    if _on(tags, 'covered'):
+        return 'covered'
+    if _layer(tags) >= 1:
+        return 'layer_above'
+    if is_street and _on(tags, 'tunnel'):
+        return 'street_tunnel'
+    if is_street and _layer(tags) <= -1:
+        return 'street_below'
+    return None
+
+
+def grade_separated_lines(payload):
+    """[(reason, [(lat, lng), ...])] for every way rule 6b excludes a window over."""
+    rx = re.compile(STREET_HIGHWAY_RE)
+    out = []
+    for e in payload.get('elements', ()):
+        if e.get('type') != 'way' or len(e.get('geometry') or ()) < 2:
+            continue
+        tags = e.get('tags') or {}
+        r = grade_reason(tags, bool(rx.match(tags.get('highway', ''))))
+        if r:
+            out.append((r, [(p['lat'], p['lon']) for p in e['geometry']]))
+    return out
 
 
 def signal_points(payload):
@@ -365,9 +421,11 @@ def open_ps_streets(path):
 # ---------------------------------------------------------------------- candidates
 
 def build_candidates(payload, fr, area_geom=None, street_index=None,
-                     eligible_m=ELIGIBLE_STREET_M):
+                     eligible_m=ELIGIBLE_STREET_M, grade_rule=True):
     """(candidates, stats): every eligible unit before sampling, each
-    {'type', 'lat', 'lng', 'node_ids', 'highways'}; deterministic order."""
+    {'type', 'lat', 'lng', 'node_ids', 'highways'}; deterministic order. With
+    grade_rule (rule 6b, rule_version 2) a candidate whose window touches a
+    grade-separated way is excluded and counted as `grade_separated`."""
     ways = street_ways(payload)
     nodes = intersection_nodes(ways)
     units = merge_nodes(nodes)
@@ -386,7 +444,15 @@ def build_candidates(payload, fr, area_geom=None, street_index=None,
     stats = {'street_ways': len(ways), 'intersection_nodes': len(nodes),
              'intersection_units': len(units), 'signal_nodes': len(sigs),
              'midblock_points': sum(1 for c in cands if c['type'] == 'mid_block'),
-             'outside_area': 0, 'off_ps_street': 0}
+             'outside_area': 0, 'off_ps_street': 0, 'grade_separated': 0,
+             'grade_separated_by_stratum': {st: 0 for st in STRATA},
+             'grade_separated_ways': {}}
+    grade = None
+    if grade_rule:
+        lines = grade_separated_lines(payload)
+        for r, _ in lines:
+            stats['grade_separated_ways'][r] = stats['grade_separated_ways'].get(r, 0) + 1
+        grade = SegmentIndex(fr, [ln for _, ln in lines], WINDOW_M)
     kept = []
     for c in cands:
         if area_geom is not None and not in_area(c['lat'], c['lng'], area_geom):
@@ -394,6 +460,10 @@ def build_candidates(payload, fr, area_geom=None, street_index=None,
             continue
         if street_index is not None and not street_index.near(c['lat'], c['lng'], eligible_m):
             stats['off_ps_street'] += 1
+            continue
+        if grade is not None and grade.near(c['lat'], c['lng'], WINDOW_M):
+            stats['grade_separated'] += 1
+            stats['grade_separated_by_stratum'][c['type']] += 1
             continue
         kept.append(c)
     stats['eligible'] = {s: sum(1 for c in kept if c['type'] == s) for s in STRATA}
@@ -682,8 +752,17 @@ def write_report(bundle, snapshot, corners, draw_stats, cand_stats, runs, proble
                  f"{cr['store']}")
     lines += ['', '## Candidates', '', '| step | count |', '|---|---:|']
     for k in ('street_ways', 'intersection_nodes', 'intersection_units', 'signal_nodes',
-              'midblock_points', 'outside_area', 'off_ps_street'):
+              'midblock_points', 'outside_area', 'off_ps_street', 'grade_separated'):
         lines.append(f'| {k} | {cand_stats.get(k)} |')
+    if 'grade_separated' in cand_stats:
+        gs, by = cand_stats['grade_separated'], cand_stats.get('grade_separated_by_stratum') or {}
+        elig = cand_stats.get('eligible') or {}
+        pre = gs + sum(elig.values())
+        per = ', '.join(f'{st} {by.get(st, 0)}/{by.get(st, 0) + elig.get(st, 0)}' for st in STRATA)
+        share = f' ({gs / pre:.1%})' if pre else ''
+        lines += ['', f'Rule 6b ({GRADE_RULE}) removed {gs} of {pre} otherwise eligible '
+                  f'candidates{share}; by stratum {per}; structures '
+                  f"{cand_stats.get('grade_separated_ways')}. The study's scope is corners at grade."]
     lines += ['', '| stratum | eligible | of them no-label | labelled drawn / target | '
               'no-label drawn / target | spacing rejections (labelled, no-label) |',
               '|---|---:|---:|---|---|---|']
@@ -909,6 +988,7 @@ def build_bundle(args, run_dir, bundle, work, steps):
                      'midblock_min_m': MIDBLOCK_MIN_M, 'midblock_step_m': MIDBLOCK_STEP_M,
                      'eligible_street_m': ELIGIBLE_STREET_M, 'pilot_quota': PILOT_QUOTA,
                      'double_rate_share': DOUBLE_RATE_SHARE, 'rule_version': RULE_VERSION,
+                     'grade_separation': {'rule': GRADE_RULE, 'window_m': WINDOW_M},
                      'candidates': cand_stats, 'draw': draw_stats},
         'exported_at': utc_now(),
         'exporter': f'sidewalk-auto-labeler scripts/export_cluster_review.py@{git_sha()}'}

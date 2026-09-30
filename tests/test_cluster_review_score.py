@@ -250,3 +250,40 @@ def test_calibration_drops_units_edited_after_the_inventory_reveal(tmp_path, mon
     text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
     assert '1 were edited after the reveal and are DROPPED' in text
     assert 'no reviewed unit carries inventory points' in text
+
+
+# --- can't judge (RampNet protocol, Amendment 3) -------------------------------------------
+
+def test_cant_judge_units_count_in_no_metric():
+    cj = dict(U1, complete=False, cant_judge=True, cant_judge_reason='under a bridge deck')
+    m = ic.assignment_metrics(ARM_A, {'u1': cj, 'u2': U2}, KEYS)
+    assert m['units'] == 0 and m['ramps'] == 0
+    # defensive: even a file that (invalidly) says both is not scored
+    both = dict(U1, cant_judge=True)
+    assert ic.assignment_metrics(ARM_A, {'u1': both}, KEYS)['units'] == 0
+
+
+@pytest.mark.parametrize('fields, needle', [
+    ({'cant_judge': 'yes'}, 'not a boolean'),
+    ({'cant_judge': True, 'cant_judge_reason': 'x'}, 'cant_judge and complete'),
+    ({'cant_judge': True, 'complete': False, 'cant_judge_reason': ' '}, 'without a cant_judge_reason'),
+])
+def test_check_assignments_cant_judge_invariants(tmp_path, monkeypatch, fields, needle):
+    a = json.loads(json.dumps(_fixture()))
+    a['corners']['u1'].update(fields)
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    with pytest.raises(SystemExit, match=needle):
+        _run(tmp_path, monkeypatch, {n: [[1]] for n in crs.ARMS}, df, run, bundle)
+
+
+def test_cant_judge_listed_with_its_reason(tmp_path, monkeypatch):
+    a = json.loads(json.dumps(_fixture()))
+    a['corners']['u1'].update(complete=False, cant_judge=True,
+                              cant_judge_reason='tree canopy hides the corner')
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    assert _run(tmp_path, monkeypatch, {n: [[1, 2], [3, 4, 7], [5, 6]] for n in crs.ARMS},
+                df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert "0 complete, 1 can't judge" in text
+    assert "## Can't judge" in text and 'signalised 1' in text
+    assert '| u1 | signalised | tree canopy hides the corner |' in text
