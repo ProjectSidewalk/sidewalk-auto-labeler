@@ -348,6 +348,53 @@ def score_server_arms(city, cfg, inventory, results_path, frames, radii, rows, l
                 f"({p['merge_k']}/{p['merge_n']}) | {p['clusters_per_covered']:.2f} |")
 
 
+def server_arms(run_dir, cfg, frame=PRIMARY_FRAME, thresholds_m=THRESHOLDS_M):
+    """(labels, arms, stats): every #56 server-label arm as {name: [[label_id, ...], ...]}.
+
+    The same construction as score_server_arms (RampNet#224 reuses it verbatim, so the
+    cluster-review GT scores exactly the partitions #56 scored): `deployed` as served,
+    `ps @ t` per region on the AI labels' server positions, `fusion_server` and
+    `fusion_server+attach` from a fuse of the server's labels in `frame`. It is duplicated
+    here rather than factored out of score_server_arms so that function, and the committed
+    report it writes, stay byte-for-byte what they were. `run_dir` is a run directory
+    holding cfg['labels'], cfg['clusters'] and results.jsonl (read in place; nothing is
+    written). `labels` is the CurbRamp DataFrame the arms were built from."""
+    run_dir = Path(run_dir)
+    results_path = run_dir / 'results.jsonl'
+    labels, _bad = epc.load_labels(run_dir / cfg['labels'])
+    labels = labels[labels.label_type == 'CurbRamp'].reset_index(drop=True)
+    server_clusters = epc.load_server_clusters(run_dir / cfg['clusters'])
+    det_of, _amb, _dup = epc.label_to_detection(results_path, labels)
+    ai = labels[labels.user_id.astype(str) == cfg['ai_user']].reset_index(drop=True)
+    arms = {'deployed': [list(sc['label_ids']) for sc in server_clusters]}
+    t_kms = [t / 1000.0 for t in thresholds_m]
+    parts = epc.ps_partition(ai, t_kms, per_region=True)
+    for t_m, t_km in zip(thresholds_m, t_kms):
+        arms[f'ps @ {t_m:g} m'] = [c.label_ids for c in
+                                   epc.clusters_from_assignment(ai, parts[t_km], det_of)]
+    try:
+        panos, _skip, height, _auto = fs.load_at_height(results_path, frame)
+    except ValueError as e:
+        raise SystemExit(str(e))
+    params = fs.FuseParams(camera_height_m=height, min_confidence=cfg['tier'],
+                           mask_rig=False, apply_pose=fs.POSE_OFF)
+    srv_panos, st = epc.server_panos(labels, det_of, {p.pano_id: p for p in panos},
+                                     ai_user=cfg['ai_user'], unmapped_confidence=cfg['tier'])
+    srv_sites, srv_frame, _s3 = fs.fuse(srv_panos, replace(params, min_confidence=0.0,
+                                                           floor=0.0))
+    srv_cl, _n1 = epc.clusters_from_server_sites(srv_sites, srv_panos, st['label_of'])
+    att, attached = epc.attach_unplaceable(srv_sites, srv_panos, srv_frame,
+                                           label_of=st['label_of'])
+    arms['fusion_server'] = [c.label_ids for c in srv_cl]
+    arms['fusion_server+attach'] = [c.label_ids for c in att]
+    stats = {'n_labels': len(labels), 'n_ai': len(ai), 'n_mapped': len(det_of),
+             'n_run_panos': len(panos), 'n_attached': len(attached),
+             'run_pos': {p.pano_id: (p.lat, p.lng, p.camera_heading) for p in panos},
+             'server_panos': {k: v for k, v in st.items() if k != 'label_of'},
+             'frame': str(frame), 'height': str(height)}
+    return labels, arms, stats
+
+
 def score_city(city, tiers=TIERS, frames=None, radii=RADII_M):
     frames = tuple(frames) if frames else FRAMES_BY_CITY.get(city, FRAMES)
     run_dir = REPO_ROOT / 'runs' / city

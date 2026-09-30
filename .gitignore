@@ -120,3 +120,13 @@ runs/_summary/camera_height/estimator_validation*.csv
 # live frame check's result. The index itself stays untracked, as for a harvest.
 !runs/*/depth/
 !runs/*/depth/store.json
+# Corner-level cluster review (scripts/export_cluster_review.py + cluster_review_score.py,
+# RampNet#224; protocol in RampNet docs/cluster_review_protocol.md): the exporter's report
+# copy and the scorer's report + CSVs are tracked. The Overpass cache (osm.json) and the
+# Esri tile cache (tiles/) are NOT -- the report carries the payload's sha256 and fetch time.
+!runs/*/cluster_review/
+!runs/*/cluster_review/report.md
+!runs/*/cluster_review/*.csv
+!runs/*/cluster_review/score/
+!runs/*/cluster_review/score/report.md
+!runs/*/cluster_review/score/*.csv

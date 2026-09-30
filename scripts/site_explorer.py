@@ -74,12 +74,18 @@ Image.MAX_IMAGE_PIXELS = None
 
 
 def one_pano(task):
-    pano_id, items, panos_root, out_dir = task
-    path = os.path.join(panos_root, pano_id + ".jpg")
+    # optional (RampNet#224): an item "path" relative to panos_root (a sharded store's
+    # <id[:2]>/<id>.jpg) and a job "draft_width" (JPEG draft decode, never below it);
+    # a job with neither behaves exactly as before
+    pano_id, items, panos_root, out_dir = task[:4]
+    draft = task[4] if len(task) > 4 else None
+    path = os.path.join(panos_root, items[0].get("path") or (pano_id + ".jpg"))
     if not os.path.exists(path):
         return [it["name"] for it in items], []
     try:
         im = Image.open(path)
+        if draft:
+            im.draft("RGB", (draft, draft // 2))
         im.load()
         im = im.convert("RGB")
     except Exception:
@@ -128,6 +134,7 @@ def main():
     for it in job["items"]:
         by_pano.setdefault(it["pano_id"], []).append(it)
     tasks = [(pid, items, job["panos_root"], out_dir)
+             + ((job["draft_width"],) if job.get("draft_width") else ())
              for pid, items in sorted(by_pano.items())]
     missing, made = [], 0
     with Pool(job["workers"]) as pool:
@@ -139,7 +146,8 @@ def main():
     sys.stderr.write("cropped %d, missing %d\n" % (made, len(missing)))
 
 
-main()
+if __name__ == "__main__":   # a spawn-start Pool (Windows) re-imports this file
+    main()
 '''
 
 
@@ -350,12 +358,16 @@ def fetch_crops_local(job, crops_dir, panos_dir):
     for it in job['items']:
         by_pano.setdefault(it['pano_id'], []).append(it)
     missing = set()
+    draft = job.get('draft_width')
     for pano_id, items in sorted(by_pano.items()):
-        path = Path(panos_dir) / (pano_id + '.jpg')
+        path = Path(panos_dir) / (items[0].get('path') or (pano_id + '.jpg'))
         if not path.exists():
             missing.update(it['name'] for it in items)
             continue
-        im = Image.open(path).convert('RGB')
+        im = Image.open(path)
+        if draft:
+            im.draft('RGB', (draft, draft // 2))
+        im = im.convert('RGB')
         W, H = im.size
         for it in items:
             side = min(max(64, int(round(W * it['fov_deg'] / 360.0))), H)
