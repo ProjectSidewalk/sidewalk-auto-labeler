@@ -1,0 +1,11 @@
+city,height,arm,gt_panos_judged,gt_marks,gt_marks_unplaceable,off_pool_ramps,recall_off_pool_2p5m,recall_off_pool_5m,gt_common_ramps,gt_to_site_median_m,gt_to_site_p90_m,gt_to_site_mean_m,lost_vs_off_2p5m,gained_vs_off_2p5m
+gainesville,auto,off,125,272,42,230,0.9174,0.9609,210,0.8666,2.3325,1.1230,0,0
+gainesville,auto,partial-loco,125,272,40,230,0.9130,0.9696,210,0.8167,2.1805,1.0550,4,3
+gainesville,auto,partial-loco-shuffled,125,272,41,230,0.9043,0.9739,210,0.8333,2.2244,1.1094,5,2
+gainesville,auto,full,125,272,35,230,0.9130,0.9435,210,0.8558,2.4050,1.1413,8,7
+gainesville,auto,fixed-113,125,272,39,230,0.9174,0.9696,210,0.8184,2.2249,1.0384,4,4
+gainesville,2.6,off,125,272,53,219,0.9269,0.9680,184,1.1213,2.5812,1.2747,0,0
+gainesville,2.6,partial-loco,125,272,57,219,0.9178,0.9589,184,1.2364,2.8840,1.4086,4,2
+gainesville,2.6,partial-loco-shuffled,125,272,54,219,0.9224,0.9589,184,1.1600,2.3928,1.2464,4,3
+gainesville,2.6,full,125,272,72,219,0.8356,0.8721,184,1.2871,2.6970,1.3863,24,4
+gainesville,2.6,fixed-113,125,272,58,219,0.9087,0.9498,184,1.2463,2.8115,1.4233,5,1

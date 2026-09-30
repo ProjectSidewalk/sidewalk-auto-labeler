@@ -562,8 +562,10 @@ def _world_ray(pose, phi, theta):
     this function on GSV: streetlevel's pitch > 0 is nose DOWN, so the physically
     correct input is (-camera_pitch, +camera_roll); and GSV camera_roll is stored
     unwrapped (359.4 means -0.6), which the rotation below does not mind but any
-    arithmetic on the angle does. Numbers on #113; a pre-registered partial-pose
-    study is the open follow-up.
+    arithmetic on the angle does. Numbers on #113. The pre-registered partial-pose
+    study (#116, docs/gsv-partial-pose-study.md) confirmed a fraction (~0.18 pitch,
+    ~0.38 roll) out of sample and against a shuffled control, but failed its recall
+    clause, so fusion still passes apply_pose=False for GSV.
     """
     psi = math.radians(pose.heading_deg)
     alpha = math.radians(pose.pitch_deg)

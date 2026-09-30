@@ -126,6 +126,12 @@ python scripts/fuse_sites.py runs/paterson
 # showed wrong for a car on a slope, so watch its rate on a new city.
 python scripts/fuse_sites.py runs/richmond                      # = --apply-pose auto -> flat
 python scripts/fuse_sites.py runs/richmond --apply-pose road    # opt-in, withheld as default
+# GSV PARTIAL POSE (#116, a study; docs/gsv-partial-pose-study.md): a fraction of the stored
+# tilt, fit on a seeded half (seed 116), scored on the other half against off / full / mirror
+# and a |tilt|-bucket shuffled control, re-associated per arm, with the inventory referee and
+# GT survivorship. VERDICT: FAIL on the recall clause only -> no `partial` mode, GSV stays flat.
+python scripts/gsv_partial_pose.py fit && python scripts/gsv_partial_pose.py score \
+    --benchmark-root ../RampNet/benchmark && python scripts/gsv_partial_pose.py verdict
 
 # CAMERA HEIGHT (issues #40, #79). fuse_sites.py DEFAULTS to `--camera-height-m auto` (#79):
 # GSV panos get a per-rig height by capture year from the run's own depth-measured heights
@@ -832,7 +838,11 @@ agreement. **That does not mean the equirects are gravity-rectified** (corrected
 store serve the same pixels, and the full pose overshoots because the car rides the road, so
 the local ground shares most of the tilt. What leaks into placement is a fraction of it
 (roughly 0.15-0.25 of the pitch term, 0.4-0.55 of the roll term, scratch measurements on
-#113); a partial pose is untested against a control, so the default stays flat. Two
+#113). #116's pre-registered test (`scripts/gsv_partial_pose.py`,
+docs/gsv-partial-pose-study.md) confirmed that fraction held out (pooled 0.18 pitch / 0.38 roll
+at `auto`): it tightens re-associated sites 5-11% on the median, beats a magnitude-matched
+shuffled pose and the inventories agree -- but it FAILED the recall clause (Bend, 2 of 157
+ramps on the half split), so there is no `partial` mode and the default stays flat. Two
 consequences outside fusion: a detection's `pano_y` is in the image's frame while a human PS
 label's is off by about 0.9 of the tilt at its bearing (measured on 1,704 Gainesville
 crowd/detection pairs, #113), so an AI-vs-human pixel comparison mixes two frames. At
