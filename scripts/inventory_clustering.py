@@ -18,13 +18,23 @@ Arms: `ps @ t` (per region where the city has a server, else citywide), `ps_city
 the sensitivity row that places the PS clusters at the mean of their members' server
 positions instead.
 
+Vancouver (issue #56) is scored under the same metrics but from the SERVER's own labels
+(SERVER_LABELS): the frozen label pull and the deployed clusters give `deployed`, `ps @ t`
+on the server's positions, `fusion_server` and `fusion_server+attach`, each placed at the
+mean of its labels' server positions (the server's frame; no run needed) with a raycast
+sensitivity row per fuse frame. Those are the confirmatory rows of the #56 pre-registration;
+the synthesized arms above, run on the rebuilt store run, are exploratory there and say so
+in the `scope` column. The verdict command still reads Bend and Gainesville only.
+
 Network: one GET of the Gainesville server's /v3/api/streets (cached under
-runs/gainesville/inventory_clustering/streets.geojson), for regions. Nothing is written to
-any server; Gainesville is read-only. Needs pandas/scipy/haversine/shapely, as
+runs/gainesville/inventory_clustering/streets.geojson), for regions; Vancouver's streets
+are the pull eval_ps_clustering.py made (copied beside the report). Nothing is written to
+any server; every server is read-only. Needs pandas/scipy/haversine/shapely, as
 eval_ps_clustering.py does (analysis-only, not in requirements.txt).
 
 Usage:
     python scripts/inventory_clustering.py score bend gainesville
+    python scripts/inventory_clustering.py score vancouver      # #56, descriptive
     python scripts/inventory_clustering.py verdict
 """
 import argparse
@@ -49,8 +59,19 @@ from scipy.spatial import cKDTree  # noqa: E402
 
 OUT_NAME = 'inventory_clustering'
 POOLED = REPO_ROOT / 'runs' / '_pooled' / OUT_NAME
-SERVERS = {'gainesville': 'https://sidewalk-gainesville.cs.washington.edu'}
-CITIES = ('bend', 'gainesville')
+SERVERS = {'gainesville': 'https://sidewalk-gainesville.cs.washington.edu',
+           'vancouver': 'https://sidewalk-vancouver.cs.washington.edu'}
+CITIES = ('bend', 'gainesville', 'vancouver')
+# #56: a city whose AI labels are live and whose run was rebuilt from the pano store. The
+# confirmatory arms come from the server's labels (paths under runs/<city>/); the label
+# pull is the provenance gate's frozen one, the clusters the eval_ps_clustering pull.
+SERVER_LABELS = {
+    'vancouver': {'labels': 'provenance_gate/raw_labels.geojson',
+                  'clusters': 'ps_clustering_eval/clusters.geojson',
+                  'ai_user': '51b0b927-3c8a-45b2-93de-bd878d1e5cf4',
+                  'tier': 0.55},   # the tier the deployed labels went live at
+}
+FRAMES_BY_CITY = {'vancouver': ('auto', 2.6, geo.PER_PANO)}   # per-pano: store-bound depth
 DECIDING_CITY = 'gainesville'   # not a RampNet training city
 GUARD_CITY = 'bend'             # a training city, with the larger inventory
 
@@ -221,7 +242,114 @@ def placed_clusters(clusters, det_pos):
     return out
 
 
-def score_city(city, tiers=TIERS, frames=FRAMES, radii=RADII_M):
+def server_placed(clusters, server_pos, fr):
+    """[(centroid or None, member positions)] with every position a label's SERVER
+    lat/lng (projected into fr): the arm as the server holds it, no run involved."""
+    out = []
+    for c in clusters:
+        pts = [fr.to_enu(*server_pos[lab]) for lab in c.label_ids if lab in server_pos]
+        cen = (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)) \
+            if pts else None
+        out.append((cen, pts))
+    return out
+
+
+def score_server_arms(city, cfg, inventory, results_path, frames, radii, rows, lines):
+    """The #56 confirmatory arms, from the server's own labels: `deployed` (the clusters as
+    served), `ps @ t` and `ps_citywide @ 7.5 m` (the PS rule re-run on the server's
+    positions, AI labels, per the labels' own region), and per fuse frame `fusion_server`
+    and `fusion_server+attach`. Every cluster is placed at the mean of its labels' server
+    positions (`placement: server`); `deployed`, `ps @ 7.5 m` and `fusion_server` also get a
+    `placement: raycast` sensitivity row per frame (the Part 2 common frame, over the
+    members the rebuilt run maps). The visible pool is the run's panos, as for every arm."""
+    run_dir = REPO_ROOT / 'runs' / city
+    labels_path, clusters_path = run_dir / cfg['labels'], run_dir / cfg['clusters']
+    labels, _bad = epc.load_labels(labels_path)
+    labels = labels[labels.label_type == 'CurbRamp'].reset_index(drop=True)
+    server_clusters = epc.load_server_clusters(clusters_path)
+    det_of, _amb, _dup = epc.label_to_detection(results_path, labels)
+    ai = labels[labels.user_id.astype(str) == cfg['ai_user']].reset_index(drop=True)
+    server_pos = {int(r.label_id): (r.lat, r.lng) for r in labels.itertuples(index=False)}
+    lines += ['', '## Server-label arms (#56 confirmatory)', '',
+              epc.provenance(labels_path, len(labels)),
+              epc.provenance(clusters_path, len(server_clusters)),
+              f"- {len(ai)} labels of the AI account, {sum(1 for lab in ai.label_id if lab in det_of)} "
+              'of them map pixel-exactly to a stored detection of the rebuilt run (the rest '
+              'are placed only at their server position); '
+              f'{len(labels) - len(ai)} human labels are in `deployed` and `fusion_server` '
+              'but not in `ps @ t`, as in eval_ps_clustering.py']
+    t_kms = [t / 1000.0 for t in THRESHOLDS_M]
+    parts = epc.ps_partition(ai, t_kms, per_region=True)
+    city_part = epc.ps_partition(ai, [epc.PS_THRESHOLD_KM], per_region=False)[epc.PS_THRESHOLD_KM]
+    fixed = {'deployed': epc.clusters_from_server(server_clusters, det_of)}
+    for t_m, t_km in zip(THRESHOLDS_M, t_kms):
+        fixed[f'ps @ {t_m:g} m'] = epc.clusters_from_assignment(ai, parts[t_km], det_of)
+    fixed['ps_citywide @ 7.5 m'] = epc.clusters_from_assignment(ai, city_part, det_of)
+    tier = cfg['tier']
+    for frame in frames:
+        try:
+            panos, _skip, height, auto = fs.load_at_height(results_path, frame)
+        except ValueError as e:
+            raise SystemExit(str(e))
+        params = fs.FuseParams(camera_height_m=height, min_confidence=tier,
+                               mask_rig=False, apply_pose=fs.POSE_OFF)
+        dets, fr, _drops = fs.project(panos, params)
+        det_pos = {(d.pano_id, d.det_index): (d.e, d.n) for d in dets}
+        inv_xy = np.array([fr.to_enu(lat, lng) for _k, lat, lng, _p in inventory])
+        pool = visible_pool(inv_xy, np.array([fr.to_enu(p.lat, p.lng) for p in panos]))
+        run_by_id = {p.pano_id: p for p in panos}
+        srv_panos, st = epc.server_panos(labels, det_of, run_by_id, ai_user=cfg['ai_user'],
+                                         unmapped_confidence=tier)
+        srv_sites, srv_frame, _s3 = fs.fuse(srv_panos, replace(params, min_confidence=0.0,
+                                                               floor=0.0))
+        srv_cl, _n1 = epc.clusters_from_server_sites(srv_sites, srv_panos, st['label_of'])
+        att, attached = epc.attach_unplaceable(srv_sites, srv_panos, srv_frame,
+                                               label_of=st['label_of'])
+        arms = dict(fixed)
+        arms['fusion_server'] = srv_cl
+        arms['fusion_server+attach'] = att
+        table = []
+        for name, cl in arms.items():
+            n_labels = sum(c.n_labels for c in cl)
+            variants = [('server', server_placed(cl, server_pos, fr))]
+            if name in ('deployed', PS_ARM, 'fusion_server'):
+                variants.append(('raycast', placed_clusters(epc.place(cl, det_pos), det_pos)))
+            for placement, placed in variants:
+                if placement == 'server' and name in fixed and frame != frames[0]:
+                    continue      # frame-free: written once, under the first frame
+                by_r = {}
+                for r in radii:
+                    m = inventory_metrics(placed, inv_xy, pool, r)
+                    by_r[r] = {'city': city, 'tier': tier,
+                               'frame': '-' if (placement == 'server' and name in fixed)
+                               else str(frame), 'arm': name, 'r': r, 'n_labels': n_labels,
+                               'placement': placement, 'scope': 'confirmatory', **m}
+                    rows.append(by_r[r])
+                table.append((by_r[PRIMARY_RADIUS_M], by_r))
+        lines += ['', f'### {fs.frame_label(frame)} frame (fusion_server association; '
+                  'server-placed rows of the fixed arms are written once)', '',
+                  f'- visible pool: {int(pool.sum())} of {len(inventory)} inventory ramps '
+                  f'within {POOL_RADIUS_M:g} m of one of {len(panos)} panos',
+                  f"- fusion_server input: {st['ai_labels']} mapped AI + {st['ai_unmapped']} "
+                  f"unmapped AI (at {tier:g}) + {st['human_labels']} human labels on "
+                  f"{len(srv_panos)} panos ({st['inverted']} positioned by inversion); "
+                  f'{len(attached)} labels attached by bearing']
+        lines += fs.height_resolution_lines(frame, panos, params, auto)
+        lines += ['', '| arm | placement | clusters | labels | placed | covered r3 / r5 / r8 '
+                  '| split r5 | extra/covered r5 | merge r5 (k/n) | clusters/covered r5 |',
+                  '|---|---|---:|---:|---:|---|---|---:|---|---:|']
+        for p, by_r in table:
+            lines.append(
+                f"| {p['arm']} | {p['placement']} | {p['n_clusters']} | {p['n_labels']} | "
+                f"{p['n_placed']} | "
+                + ' / '.join(f"{by_r[r]['covered_rate']:.3f}" for r in radii) + ' | '
+                f"{p['split_rate']:.3f} ({p['split']}/{p['covered']}) | "
+                f"{p['extra_per_covered']:.3f} | {p['merge_rate']:.3f} "
+                f"({p['merge_k']}/{p['merge_n']}) | {p['clusters_per_covered']:.2f} |")
+
+
+def score_city(city, tiers=TIERS, frames=None, radii=RADII_M):
+    frames = tuple(frames) if frames else FRAMES_BY_CITY.get(city, FRAMES)
     run_dir = REPO_ROOT / 'runs' / city
     out = run_dir / OUT_NAME
     out.mkdir(parents=True, exist_ok=True)
@@ -229,6 +357,7 @@ def score_city(city, tiers=TIERS, frames=FRAMES, radii=RADII_M):
     inventory, record = ioracle.load_inventory(city)
     streets_path = streets_for(city, out)
     streets = epc.load_streets(streets_path) if streets_path else []
+    server_cfg = SERVER_LABELS.get(city)
     lines = [f'# {city}: label clustering vs the city curb-ramp inventory (#106 Part 2)', '',
              f"- inventory: {len(inventory)} kept ramps ({record.get('keep', {}).get('where_equivalent', '')}) "
              f"of {record.get('layer_total')}, `{record.get('file')}` sha256 "
@@ -239,6 +368,11 @@ def score_city(city, tiers=TIERS, frames=FRAMES, radii=RADII_M):
               'insert rule); ' + epc.streets_provenance(streets_path, streets)[2:])
              if streets else '- regions: none (no server), so per-region == citywide']
     rows = []
+    if server_cfg:
+        score_server_arms(city, server_cfg, inventory, results_path, frames, radii, rows,
+                          lines)
+        lines += ['', '## Synthesized arms from the rebuilt run (#56: EXPLORATORY here, '
+                  'never the deployed labels\' fusion)']
     for tier in tiers:
         labels, det_of = epc.synthesize_labels(results_path, tier, mask_rig=True)
         if streets:
@@ -290,7 +424,10 @@ def score_city(city, tiers=TIERS, frames=FRAMES, radii=RADII_M):
                 for r in radii:
                     m = inventory_metrics(cl, inv_xy, pool, r)
                     rows.append({'city': city, 'tier': tier, 'frame': str(frame), 'arm': name,
-                                 'r': r, 'n_labels': n_labels[name], **m})
+                                 'r': r, 'n_labels': n_labels[name],
+                                 **({'placement': 'raycast' if name != f'{PS_ARM} (server centroid)'
+                                     else 'server', 'scope': 'exploratory'} if server_cfg
+                                    else {}), **m})
             lines += ['', f'## tier {tier:g}, {fs.frame_label(frame)} frame', '',
                       f'- visible pool: {int(pool.sum())} of {len(inventory)} inventory ramps '
                       f'within {POOL_RADIUS_M:g} m of one of {len(panos)} panos '
@@ -304,7 +441,8 @@ def score_city(city, tiers=TIERS, frames=FRAMES, radii=RADII_M):
                       '|---|---:|---:|---:|---|---|---:|---|---:|']
             for name in arms:
                 by_r = {row['r']: row for row in rows if row['tier'] == tier
-                        and row['frame'] == str(frame) and row['arm'] == name}
+                        and row['frame'] == str(frame) and row['arm'] == name
+                        and row.get('scope', 'exploratory') == 'exploratory'}
                 p = by_r[PRIMARY_RADIUS_M]
                 lines.append(
                     f"| {name} | {p['n_clusters']} | {p['n_labels']} | {p['n_placed']} | "
@@ -370,7 +508,9 @@ def main(argv=None):
     s.add_argument('cities', nargs='*', default=list(CITIES))
     s.add_argument('--tier', type=float, nargs='+', default=list(TIERS))
     s.add_argument('--radius', type=float, nargs='+', default=list(RADII_M))
-    s.add_argument('--frame', type=fs.fuse_camera_height_arg, nargs='+', default=list(FRAMES))
+    s.add_argument('--frame', type=fs.fuse_camera_height_arg, nargs='+', default=None,
+                   help=f'fuse frames (default {FRAMES}, or FRAMES_BY_CITY for a city named '
+                        'there)')
     sub.add_parser('verdict')
     args = ap.parse_args(argv)
     if args.cmd == 'score':
