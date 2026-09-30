@@ -29,7 +29,9 @@ Put your name in the "Review notes" panel. Export downloads `assignments.json`; 
 `--rater jonf`; the export is then `assignments__jonf.json` and the scorer needs
 `--assignments assignments__jonf.json`.)
 
-**Rater B (pilot, every unit seeded with its `rater_b_seed`: 15 fusion / 15 deployed):**
+**Re-review = "rater B" (single rater, protocol Amendment 2).** Start it ≥ 7 days after each
+unit's first-pass completion, and do not open the first pass meanwhile. Use `<name>` = `jonf-retest`.
+Each unit is seeded with its `rater_b_seed` (15 fusion / 15 deployed):
 ```
 python scripts/cluster_review_gallery.py benchmark/vancouver/cluster_review --pilot \
     --rater <name> --role b --seed-arm auto --out benchmark/vancouver/cluster_review/gallery/<name>
@@ -170,7 +172,7 @@ python scripts/export_cluster_review.py vancouver --run-dir ../sal-vancouver/run
 ## What is left for Jon
 
 1. Read RUBRICS §6 / the protocol; if OK, post `224-preregistration-comment.md` on #224.
-2. Review the 30 pilot units as rater A; recruit rater B for the same 30 with `--role b`.
+2. Review the 30 pilot units as rater A. After ≥ 7 days, re-review the same 30 as `--rater jonf-retest --role b` (Amendment 2: single rater, intra-rater agreement).
 3. Run the agreement CLI (pilot rule: pairwise ≥ 0.90 and κ ≥ 0.6) and score; revise rubric to v2
    before the full pass if the pilot fails.
 4. Decide on the Esri imagery licence for a lab tool, the #56 headline correction, and the PR stack.

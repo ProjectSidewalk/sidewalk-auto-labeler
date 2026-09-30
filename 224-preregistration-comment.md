@@ -14,8 +14,14 @@ Eligible only inside the area and ≤ 20 m from an open PS street.
 
 **Draw.** Seed 224; 20 units per stratum, 3 of them from no-label units (15%); ≥ 60 m between any
 two unit centres across strata; no top-ups. Pilot = 30 units (8 / 7 / 8 / 7) by sha1(corner_id),
-4 no-label, all double-rated; the second rater's seed alternates fusion / deployed in hash order.
+4 no-label, all double-rated; the double-rated pass's seed alternates fusion / deployed in hash order.
 Full pass: 20% of the rest double-rated the same way.
+
+**One rater (Amendment 2).** There is a single rater for now. "Double-rated" means the same rater
+re-reviews the unit ≥ 7 days later, blind to the first pass, seeded with its alternate arm. The
+agreement below is therefore **intra-rater** (test-retest), not inter-rater. The first pass is
+seeded `deployed`, so any anchoring favours the baseline, and a PASS is conservative with respect
+to it. The Vancouver inventory calibration is the only check independent of the rater.
 
 **Rubric v1.** A dual-direction apron is two ramps (#116 box rule); a driveway is not a ramp; an
 unlabelled ramp is one `uncovered` point at the ramp; `unsure` abstains from every metric; a unit
@@ -38,7 +44,7 @@ Pooled and by stratum; arms paired per ramp (fixed / broken / both / neither).
 split lower by ≥ 0.05 AND merge not higher by > 0.01 AND coverage not lower by > 0.01 → PASS, else
 NOT ESTABLISHED. `deployed`, `fusion_server` and `ps @ 10 / 12.5 / 15 m` reported alongside.
 
-**Agreement.** Pairwise same-ramp agreement over label pairs both raters put in ramps (Wilson CI;
+**Agreement (intra-rater, see above).** Pairwise same-ramp agreement over label pairs both raters put in ramps (Wilson CI;
 also split by same / different seed), Cohen's κ on not_ramp vs ramp, uncovered-point counts per
 unit. Pilot proceeds if agreement ≥ 0.90 and κ ≥ 0.6 (a guess; revisable once, as rubric v2,
 before the full pass).
