@@ -35,6 +35,21 @@ pano REPRODUCES when both of these hold:
     is what every label inherits, so a band whose panos moved would arrive in a different
     frame from the base labels already live.
 
+**Coarse-cell agreement is a diagnostic, never a reproduction** (#111). RampNet's heatmap is
+a bilinear 8x upsample of a stride-32 map, so a peak can only land on residue 3 or 4 of each
+8-cell block, and when two neighbouring coarse cells are near-tied a small input change (a
+different JPEG of the same pano) moves the argmax 7-8 heatmap cells: the same ramp, decoded
+at the other cell. `--verify` therefore also reports, for every pano whose pixel keys
+differ (and whose width/height did not change), how its old and new keys pair up one-to-one
+within +/-1 coarse cell (Chebyshev, seam-wrapped): how many pairs sit in the same heatmap
+cell, one cell apart (residue 3 <-> 4), 2-6 apart (off the grid), 7-8 apart (**the flip**),
+and how many keys found no partner. That tells an operator WHY a pano failed. It does not
+change the decision: a pano still reproduces only on exact pixel keys, because
+`--write-band-file` asserts that the band file's labels at the server's tier ARE the live
+ones, and a label that moved one coarse cell is a different pixel on the server -- shipping
+the new record would insert its band beside a live label that no longer matches the file.
+A pano that agrees only within a cell is carried over from the old file like any other.
+
 `--write-band-file` then writes the file a band may actually ship from: the NEW record for
 every pano that reproduced, and the OLD record for every pano that did not. The old records
 hold nothing below the tier the server has, so their band is empty and `send_to_ps.py` skips
@@ -55,6 +70,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+import geo  # noqa: E402
 from detectors import BENCHMARK_CONFIDENCE, on_camera_rig  # noqa: E402
 from detectors.batching import BATCH_SIZE_HELP, report_detector  # noqa: E402
 
@@ -90,17 +106,53 @@ def pano_drift(old, new):
             for f in PANO_INVARIANTS if old['pano'].get(f) != new['pano'].get(f)]
 
 
+def cell_agreement(old_set, new_set, width, height):
+    """Pair two pixel-key multisets one-to-one within +/-1 coarse heatmap cell (#111).
+
+    Greedy on distance (closest pairs first; ties by key), Chebyshev in heatmap cells with
+    x wrapping at the seam, tolerance one coarse cell plus the rounding pixel. Returns
+    (pairs by geo.CELL_SHIFT_CLASSES key, unpaired old keys, unpaired new keys). A
+    DIAGNOSTIC: nothing here decides whether a pano reproduces (see the module docstring).
+
+    Example (a flip: the same ramp 7 cells over, on a 16384-wide pano):
+        >>> from collections import Counter
+        >>> cell_agreement(Counter({(1000, 4000): 1}), Counter({(1112, 4000): 1}), 16384, 8192)
+        (Counter({'flip': 1}), 0, 0)
+    """
+    tol = geo.HEATMAP_COARSE_CELL_PX + max(geo.HEATMAP_WIDTH / width,
+                                           geo.HEATMAP_HEIGHT / height)
+    olds = sorted(old_set.elements())
+    news = sorted(new_set.elements())
+    cands = sorted((geo.heatmap_cell_distance(a, b, width, height), i, j)
+                   for i, a in enumerate(olds) for j, b in enumerate(news))
+    used_old, used_new, pairs = set(), set(), Counter()
+    for dist, i, j in cands:
+        if dist > tol:
+            break
+        if i in used_old or j in used_new:
+            continue
+        used_old.add(i)
+        used_new.add(j)
+        pairs[geo.cell_shift_class(dist)] += 1
+    return pairs, len(olds) - len(used_old), len(news) - len(used_new)
+
+
 def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None):
     """Compare the new file to the old one at `floor`.
 
     Returns (summary, mismatches, carry_over) where `carry_over` is the set of pano ids
-    that did NOT reproduce - the ids a band file must take from the old file.
+    that did NOT reproduce - the ids a band file must take from the old file. A pano
+    reproduces only on exact pixel keys; summary['coarse_cell'] is the #111 diagnostic over
+    the panos whose keys differ (cell_agreement), and never moves a pano into or out of
+    carry_over.
     """
     new_by_id = {r['pano']['panorama_id']: r for r in read_records(new_path)}
     summary = {'old_panos': 0, 'new_panos': len(new_by_id), 'missing': 0, 'exact': 0,
                'mismatch': 0, 'pano_drift': 0, 'old_labels': 0}
     if band_floor is not None:
         summary['band_labels'] = 0
+    cells = {'panos': 0, 'panos_agree_within_cell': 0, 'pairs': Counter(),
+             'unpaired_old': 0, 'unpaired_new': 0}
     mismatches = []
     carry_over = set()
     for old in read_records(old_path):
@@ -134,6 +186,16 @@ def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None):
         if new_set != old_set:
             summary['mismatch'] += 1
             mismatches.append((pid, sorted(old_set - new_set), sorted(new_set - old_set)))
+            w, h = old['pano']['width'], old['pano']['height']
+            if (new['pano']['width'], new['pano']['height']) == (w, h):
+                pairs, lone_old, lone_new = cell_agreement(old_set, new_set, w, h)
+                cells['panos'] += 1
+                cells['panos_agree_within_cell'] += not (lone_old or lone_new)
+                cells['pairs'].update(pairs)
+                cells['unpaired_old'] += lone_old
+                cells['unpaired_new'] += lone_new
+    cells['pairs'] = {k: cells['pairs'][k] for k, _, _ in geo.CELL_SHIFT_CLASSES}
+    summary['coarse_cell'] = cells
     return summary, mismatches, carry_over
 
 
@@ -398,6 +460,12 @@ def main_cli(argv=None):
         print(json.dumps(summary, indent=2))
         for pid, only_old, only_new in mismatches[:10]:
             print(f"  {pid}: old-only {only_old} new-only {only_new}")
+        cc = summary['coarse_cell']
+        if cc['panos']:
+            print(f"coarse-cell diagnostic (#111; exact pixels still decide): of {cc['panos']} "
+                  f"pano(s) whose keys differ, {cc['panos_agree_within_cell']} agree within +/-1 "
+                  f"coarse cell; {cc['pairs']['flip']} key(s) moved 7-8 heatmap cells (an "
+                  f"adjacent-coarse-cell flip), {cc['pairs']['grid_neighbour']} moved 1 cell.")
         if summary['missing']:
             print(f"{summary['missing']} pano(s) of {old_path.name} are absent from "
                   f"{out_path.name}: finish the re-inference first.")

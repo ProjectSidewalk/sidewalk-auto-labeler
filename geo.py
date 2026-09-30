@@ -15,7 +15,7 @@ Two coordinate models coexist deliberately:
   10 m separation 15 km from the frame origin the error is centimeters.
 """
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import depth as depthlib
 
@@ -58,9 +58,56 @@ SIGMA_PER_P10_P90 = depthlib.SIGMA_PER_P10_P90
 # Opt-in; see docs/mapillary-camera-height.md for the evidence and the verdict.
 PER_RIG = 'per-rig'
 
-# RampNet's heatmap is 1024x512 over the full equirect, so detections are quantized
-# to that grid — and both axes step by the same angle: 2*pi/1024 == pi/512 rad/px.
+# RampNet's heatmap is 1024x512 over the full equirect, and both axes step by the same
+# angle: 2*pi/1024 == pi/512 rad/px. That is the unit sigma_peak_px is stated in -- but it
+# is NOT the quantum of a detection's position (issue #111): the head upsamples a stride-32
+# (64x128) map 8x bilinearly, a bilinear surface peaks only at its coarse sample points, so
+# an argmax lands on hi-res columns/rows 3 or 4 mod 8 (measured on every run; see
+# docs/heatmap-grid.md). The real quantum is HEATMAP_COARSE_CELL_PX hi-res cells.
 RAD_PER_HEATMAP_PX = math.pi / 512.0
+HEATMAP_COARSE_CELL_PX = 8
+# 1-sigma of a uniform error over one coarse cell (+/-4 hi-res px): 8/sqrt(12) = 2.309 px.
+# The honest quantization term for an integer argmax on the upsampled map (#111).
+SIGMA_PEAK_COARSE_CELL_PX = HEATMAP_COARSE_CELL_PX / math.sqrt(12.0)
+# ErrorModel's default: 1.0, KEPT by #111's pre-registered rule, which 2.31 failed in one of
+# ten cells (Sao Paulo at 2.6 m: world recall -1.6 pts against a 1.3-pt binomial SE; the
+# other nine within noise, gate and residual rejections down 16-58% on GSV). So 1.0 is
+# known to be optimistic -- it is below the quantization alone -- but it is what every
+# published table used, and a change moves recall; pass --sigma-peak-px (fuse_sites,
+# eval_sites) or FuseParams.sigma_peak_px for 2.31. The measured residual that should
+# replace both waits on the sub-cell decode study (RampNet#221). docs/heatmap-grid.md.
+SIGMA_PEAK_PX_DEFAULT = 1.0
+HEATMAP_WIDTH, HEATMAP_HEIGHT = 1024, 512
+# How far a re-decoded detection moved, in heatmap cells (Chebyshev, rounded): the classes
+# the reproduction checks report (#111). 1 = residue 3 <-> 4, the same coarse cell; 7-8 =
+# the neighbouring coarse cell of a near-tied pair (the flip mode); 2-6 should not occur
+# for an argmax on the bilinear grid.
+CELL_SHIFT_CLASSES = (('same_cell', 0, 0), ('grid_neighbour', 1, 1), ('off_grid', 2, 6),
+                      ('flip', 7, 8), ('beyond', 9, math.inf))
+
+
+def heatmap_cell_distance(a, b, width, height):
+    """Chebyshev distance between two native-pixel positions (x, y) of one pano, in
+    heatmap cells, with x wrapping at the seam.
+
+    Example:
+        >>> heatmap_cell_distance((0, 4000), (16384 - 112, 4000), 16384, 8192)
+        7.0
+    """
+    dx = abs(a[0] - b[0]) % width
+    dx = min(dx, width - dx)
+    return max(dx * HEATMAP_WIDTH / width, abs(a[1] - b[1]) * HEATMAP_HEIGHT / height)
+
+
+def cell_shift_class(cells):
+    """The CELL_SHIFT_CLASSES key for a distance in heatmap cells (rounded).
+
+    Example:
+        >>> [cell_shift_class(c) for c in (0.06, 1.0, 7.0, 8.0, 16.0)]
+        ['same_cell', 'grid_neighbour', 'flip', 'flip', 'beyond']
+    """
+    c = round(cells)
+    return next(k for k, lo, hi in CELL_SHIFT_CLASSES if lo <= c <= hi)
 
 
 def norm_deg(a):
@@ -371,10 +418,13 @@ def road_relative_pitch_roll(pitch_deg, roll_deg, heading_deg, grade_deg,
 class ErrorModel:
     """1-sigma inputs for the ground-point covariance.
 
-    sigma_peak_px is heatmap-peak localization jitter in heatmap pixels; the
-    angular quantum is RAD_PER_HEATMAP_PX on both axes. GPS sigma enters the ENU
-    covariance isotropically (it moves the ray origin, not the ray)."""
-    sigma_peak_px: float = 1.0
+    sigma_peak_px is heatmap-peak localization error in heatmap pixels (one pixel is
+    RAD_PER_HEATMAP_PX on both axes). GPS sigma enters the ENU covariance isotropically
+    (it moves the ray origin, not the ray).
+
+    SIGMA_PEAK_PX_DEFAULT says which value it defaults to and why (#111).
+    """
+    sigma_peak_px: float = SIGMA_PEAK_PX_DEFAULT
     sigma_pitch_rad: float = math.radians(0.3)
     sigma_heading_rad: float = math.radians(0.5)
     sigma_height_m: float = 0.15
@@ -400,8 +450,20 @@ MAPILLARY_ERRORS = ErrorModel(sigma_pitch_rad=math.radians(1.5),
 CROWDSOURCED_SOURCES = ('mapillary', 'panoramax')
 
 
-def error_model_for(source):
-    return MAPILLARY_ERRORS if source in CROWDSOURCED_SOURCES else GSV_ERRORS
+def error_model_for(source, sigma_peak_px=None):
+    """The source's ErrorModel, with sigma_peak_px overridden when one is given (#111: the
+    peak term is a property of the detector's heatmap, the same for every source).
+
+    Example:
+        >>> error_model_for('launch', sigma_peak_px=2.5).sigma_peak_px
+        2.5
+        >>> error_model_for('mapillary', sigma_peak_px=2.5).sigma_gps_m
+        3.0
+    """
+    errors = MAPILLARY_ERRORS if source in CROWDSOURCED_SOURCES else GSV_ERRORS
+    if sigma_peak_px is not None and sigma_peak_px != errors.sigma_peak_px:
+        errors = replace(errors, sigma_peak_px=sigma_peak_px)
+    return errors
 
 
 def camera_height_for(pose, errors=None, camera_height=DEFAULT_CAMERA_HEIGHT_M):

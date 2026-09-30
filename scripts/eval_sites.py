@@ -146,7 +146,7 @@ def build_gt(verdict_panos, bundle_ops, run_panos_by_id, params, frame):
     for pid, entry, run_pano, ops, in_pool in judged_gt_panos(
             verdict_panos, bundle_ops, run_panos_by_id, counts, warnings):
         pose = fs.pano_pose(run_pano, params.apply_pose)
-        errors = geo.error_model_for(run_pano.source)
+        errors = geo.error_model_for(run_pano.source, params.sigma_peak_px)
 
         def place(x, y, kind):
             g = geo.detection_ground_point(
@@ -389,11 +389,12 @@ def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
                    'min_confidence': params.min_confidence,
                    'max_range_m': params.max_range_m,
                    'camera_height_m': params.camera_height_m,
-                   'apply_pose': params.apply_pose},
+                   'apply_pose': params.apply_pose,
+                   'sigma_peak_px': params.sigma_peak_px},
         'counts': counts, 'warnings': warnings,
         'fuse': {k: fuse_stats[k] for k in
                  ('n_panos', 'n_projected', 'n_sites', 'n_operational_sites',
-                  'n_multi_pano_sites')},
+                  'n_multi_pano_sites', 'rejections')},
         'n_pool_ramps': n_pool,
         'world_recall': world_recalled / n_pool if n_pool else None,
         'world_recall_ci': wilson(world_recalled, n_pool),
@@ -894,7 +895,9 @@ def format_report(city, r):
         f"(match radius {r['params']['match_radius_m']} m, "
         f"GT merge {r['params']['gt_merge_m']} m, "
         f"camera height {r['params']['camera_height_m']}, "
-        f"pose {r['params']['apply_pose']})",
+        f"pose {r['params']['apply_pose']}"
+        + ('' if r['params'].get('sigma_peak_px') is None
+           else f", sigma_peak_px {r['params']['sigma_peak_px']}") + ")",
         f"run: {r['fuse']['n_panos']} panos -> {r['fuse']['n_sites']} sites "
         f"({r['fuse']['n_operational_sites']} operational, "
         f"{r['fuse']['n_multi_pano_sites']} multi-pano)",
@@ -1088,9 +1091,15 @@ def main():
     ap.add_argument('--vintage-ablation', action='store_true',
                     help='re-fuse at capture-delta windows 0/18/36/none and '
                          'compare world P/R (the #27 open question)')
+    ap.add_argument('--sigma-peak-px', type=float, default=None,
+                    help='heatmap-peak 1-sigma for fusion, heatmap px (#111; default '
+                         'geo.SIGMA_PEAK_PX_DEFAULT). A non-default value needs --out')
     ap.add_argument('--out', type=Path, default=None,
                     help='output dir (default runs/<city>/fusion_eval)')
     args = ap.parse_args()
+    if args.sigma_peak_px is not None and args.out is None:
+        ap.error('--sigma-peak-px changes the fusion covariance; pass --out so the default '
+                 'fusion_eval/ report is not overwritten')
 
     if args.camera_height_m != geo.DEFAULT_CAMERA_HEIGHT_M and args.out is None:
         ap.error('--camera-height-m other than the default changes the scoring frame; '
@@ -1112,7 +1121,7 @@ def main():
     # the same convention as the tilt CSVs, so re-running must still reproduce it.
     params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
                            camera_height_m=args.camera_height_m,
-                           apply_pose=args.apply_pose)
+                           apply_pose=args.apply_pose, sigma_peak_px=args.sigma_peak_px)
     if args.pose_precondition:
         rows, info = pose_precondition(verdict_panos, bundle_ops, run_panos,
                                        replace(params, apply_pose=fs.POSE_OFF),

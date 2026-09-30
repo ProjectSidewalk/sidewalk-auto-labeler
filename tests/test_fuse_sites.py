@@ -664,3 +664,29 @@ def test_auto_is_the_cli_default_only(tmp_path):
     fs.main([str(tmp_path), '--camera-height-m', '2.6', '--out', str(tmp_path / 'f.jsonl')])
     fixed = json.loads((tmp_path / 'f_meta.json').read_text(encoding='utf-8'))
     assert fixed['camera_heights'] == {'fixed_m': 2.6, 'panos': 12}
+
+
+def test_sigma_peak_px_widens_the_covariance_and_is_counted_in_rejections():
+    """#111: the peak term is overridable per fuse (FuseParams.sigma_peak_px / the
+    --sigma-peak-px flag), and fuse() says why a detection opened a new site."""
+    panos = [make_pano('p1', 0, -10, [(0, 0, 0.9)]),
+             make_pano('p2', 0, 10, [(3.9, 0, 0.9)])]
+    base, _, _ = fs.project(panos, fs.FuseParams())
+    wide, _, _ = fs.project(panos, fs.FuseParams(
+        sigma_peak_px=geo.SIGMA_PEAK_COARSE_CELL_PX))
+    assert all(w.cov[0] > b.cov[0] and w.cov[2] > b.cov[2] for b, w in zip(base, wide))
+    assert fs.FuseParams().sigma_peak_px is None          # None = geo's default
+    assert geo.GSV_ERRORS.sigma_peak_px == geo.SIGMA_PEAK_PX_DEFAULT
+
+    _, _, stats = fs.fuse(panos, fs.FuseParams())
+    assert stats['rejections'] == {'chi2_gate': 0, 'residual': 1}   # the 3.9 m split
+    far = [make_pano('p1', 0, -10, [(0, 0, 0.9)]),
+           make_pano('p2', 0, 10, [(7.0, 0, 0.9)])]           # in the 8 m cap, off the gate
+    _, _, stats = fs.fuse(far, fs.FuseParams())
+    assert stats['rejections'] == {'chi2_gate': 1, 'residual': 0}
+
+
+def test_sigma_peak_px_flag_reaches_the_fuse():
+    args = fs.build_parser().parse_args(['runs/x', '--sigma-peak-px', '2.31'])
+    assert args.sigma_peak_px == 2.31
+    assert fs.build_parser().parse_args(['runs/x']).sigma_peak_px is None
