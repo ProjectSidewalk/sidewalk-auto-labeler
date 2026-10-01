@@ -527,11 +527,15 @@ python scripts/depth_at_detection.py figures       # also copies aggregates to d
 # depth puts a floor almost EVERYWHERE (98% within 25 m), so P(WALK|ROAD | depth surface) 0.90 is a BASE
 # RATE (marginal 0.88; a 180-deg-rotated / mirrored depth null gives 0.89) -- always quote (A) beside its
 # null. Signal lives in the walls: P(STRUCTURE | depth wall) 0.66 vs 0.42/0.47 null; kappa 0.25 vs 0.17/0.19.
-# "Depth draws the ground through objects" holds (95% of OBJECT pixels on a floor, = the null: no object-
-# shaped holes). The segmenter class at the peak pixel is NO FP filter (False 2/42 vs True 43/770); the
-# Sidewalk plane sits 0.02 m above the road (no curb step in GSV depth). Trap: the 2048 px direct arm's
-# Curb Cut loss was RESOLUTION; at 4096 px the direct equirect keeps Curb Cut but labels 6-15% of the road
-# under the car SKY. Tile (or full-res + mask the nadir).
+# "Depth draws the ground through objects" holds against the scrambled-geometry NULL (95% of OBJECT pixels
+# on a floor vs 94% null: no object-shaped holes; do not argue it from a lift over the nadir-heavy marginal).
+# The segmenter class at the peak pixel is NO FP filter (False 2/42 vs True 43/770). GSV depth shows no
+# ~0.15 m curb step, at most a few cm (0.022 m above the LOCAL reference plane; 0.042 m road-referenced,
+# exploratory). Trap: the 2048 px direct arm's Curb Cut loss was RESOLUTION; at 4096 px the direct equirect
+# keeps Curb Cut but labels the nadir FILL under the car SKY -- a city/rig-dependent failure (-80..-70 deg:
+# Bend 0.000, Paterson 0.110, Sao Paulo 0.097, Gainesville 0.247). Tile (or full-res + mask the nadir).
+# Inputs not in git (benchmark JPEGs, depth payloads, results.jsonl) live in the makelab2 run archive;
+# sample.csv / inputs.json hold their sha256. `check-numbers` re-reads every quoted number (exit 1 on drift).
 python scripts/footway_segmentation.py sample --run-root <runs> --benchmark-root ../RampNet/benchmark
 python scripts/footway_segmentation.py tiles --benchmark-root ../RampNet/benchmark --workers 8
 python scripts/footway_segmentation.py tiles --benchmark-root ../RampNet/benchmark --direct-width 4096
@@ -541,6 +545,7 @@ python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/di
 python scripts/footway_segmentation.py stitch  --run-root <runs> --benchmark-root ../RampNet/benchmark
 python scripts/footway_segmentation.py compare --run-root <runs> --benchmark-root ../RampNet/benchmark
 python scripts/footway_segmentation.py examples --run-root <runs> --benchmark-root ../RampNet/benchmark  # example panels
+python scripts/footway_segmentation.py check-numbers   # every quoted number vs its committed file; exit 1 on drift
 python scripts/footway_segmentation.py figures   # COMMITTED files only: byte-reproducible figures + data/numbers.csv
 #   (every quoted number re-read from its committed file and checked) -- no GPU, network or work/ needed
 

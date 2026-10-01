@@ -1,13 +1,15 @@
 city,family,idx,pano_id,component_px,depth_class,marker_px,range_flat_2p6_m,seg_class,x,y
-sao_paulo,car,0,a70PDmeTUAplnAAszg96rQ,6597,floor,160.0;120.0,4.65603,Car,0.71582,0.662109
-paterson,car,1,5M-GzTlVe-lrOqHmypJqTA,17335,ground,160.0;120.0,1.24929,Car,0.495117,0.857422
-sao_paulo,bus_truck,2,NoadtY-SJzlUAlm7E74VLw,5480,floor,160.0;120.0,6.86541,Bus,0.297852,0.615234
-sao_paulo,bus_truck,3,9e52qBoSx6RlPRP2VHBTqA,778,floor,160.0;120.0,10.6568,Truck,0.915039,0.576172
-sao_paulo,person,4,Nn8w6mmD-cbG_XScCiIjwA,307,ground,160.0;120.0,5.58566,Person,0.586914,0.638672
+sao_paulo,car,0,a70PDmeTUAplnAAszg96rQ,2706,floor,160.0;120.0,7.12832,Car,0.700195,0.611328
+paterson,car,1,WX-82gCn8WVM76EBN-JjlQ,3501,ground,160.0;120.0,7.12832,Car,0.745117,0.611328
+sao_paulo,bus_truck,2,NoadtY-SJzlUAlm7E74VLw,3330,floor,160.0;120.0,8.03552,Bus,0.299805,0.599609
+sao_paulo,bus_truck,3,9e52qBoSx6RlPRP2VHBTqA,591,floor,160.0;120.0,9.17579,Truck,0.913086,0.587891
+sao_paulo,person,4,vsYI9YRnGs7H2rchsFS44A,232,floor,160.0;120.0,6.86541,Person,0.395508,0.615234
 sao_paulo,person,5,7O-o_5mVjT3KdC0SV0shUw,154,floor,160.0;120.0,9.62455,Person,0.694336,0.583984
-gainesville,vegetation,6,GJ9IMVsb4ULLwoTYEUCZtA,3281,floor,160.0;120.0,10.6568,Vegetation,0.749023,0.576172
-bend,vegetation,7,A5AVKFhm7unr9Rs55aQ1Tw,3390,floor,160.0;120.0,9.17579,Vegetation,0.69043,0.587891
-sao_paulo,camera_car,8,NoadtY-SJzlUAlm7E74VLw,3202,ground,160.0;120.0,3.20805,Ego Vehicle,0.827148,0.716797
-gainesville,camera_car,9,TsU9TS4hpMHXVwv-YIrvCQ,7032,floor,160.0;120.0,2.1072,Ego Vehicle,0.424805,0.783203
-gainesville,pole,10,s7wxqo3wnK-LD6bUkCRGzA,282,ground,160.0;120.0,8.38548,Utility Pole,0.612305,0.595703
-sao_paulo,pole,11,-pcHlrGDC4hPPRHVxU3W3Q,198,floor,160.0;120.0,8.76429,Utility Pole,0.62793,0.591797
+gainesville,vegetation,6,MTDJakccuk6hQfnZ3QEjxQ,2381,ground,160.0;120.0,7.71113,Vegetation,0.311523,0.603516
+bend,vegetation,7,87nWq0hrTZLm2_UXRgPhZQ,2480,ground,160.0;120.0,8.76429,Vegetation,0.250977,0.591797
+paterson,pole,8,qL5hz8oXZM0g4pKxGR3Yyw,192,floor,160.0;120.0,7.71113,Utility Pole,0.774414,0.603516
+sao_paulo,pole,9,-pcHlrGDC4hPPRHVxU3W3Q,163,floor,160.0;120.0,8.03552,Utility Pole,0.62793,0.599609
+sao_paulo,not_on_floor,10,a70PDmeTUAplnAAszg96rQ,445,non_horizontal,160.0;120.0,11.2548,Car,0.78418,0.572266
+sao_paulo,not_on_floor,11,4n8b3OMdbJZgeJXz_TxNBA,533,non_horizontal,160.0;120.0,10.6568,Vegetation,0.827148,0.576172
+sao_paulo,not_on_floor,12,dZHjPLWAOhyUatavJJEPzA,426,non_horizontal,160.0;120.0,9.62455,Vegetation,0.182617,0.583984
+sao_paulo,not_on_floor,13,p3WPC3r3OZij0pZr8jyR-A,967,non_horizontal,160.0;120.0,9.62455,Vegetation,0.750977,0.583984

@@ -47,4 +47,28 @@ det_class_agree_direct,0.684164,"detections.csv: True + False + missed, share se
 det_group_agree_direct4096,0.958005,"detections.csv: True + False + missed, share seg_group == direct4096_group"
 det_class_agree_direct4096,0.84252,"detections.csv: True + False + missed, share seg_class == direct4096_class"
 det_n_true_false_missed,1143,detections.csv: rows with gt_group in true/false/missed
+n_unsure,47,detections.csv: count gt_group=unsure
+n_duplicate,4,detections.csv: count gt_group=duplicate
+n_missed,331,detections.csv: count gt_group=missed
+n_unsure_missed,162,detections.csv: count gt_group=unsure_missed
+n_band_0p30,140,detections.csv: count gt_group=band_0p30
+gt_panos_total,485,sample_counts.csv: sum gt_panos
+excluded_not_measured,69,sample_counts.csv: sum (gt_panos - n_sample)
+unseen_below_horizon_share,0.114075,StitchGeometry (pure geometry): share of below-horizon grid pixels no tile sees
+false_wilson_width_pts,14.4744,verdict.json: 100 * (false_hi - false_lo)
+curb_cut_true_wilson_lo,0.24121,verdict.json: exploratory_curb_cut.tiled_true.lo
+curb_cut_true_wilson_hi,0.303916,verdict.json: exploratory_curb_cut.tiled_true.hi
+curb_cut_false_wilson_lo,0.02459,verdict.json: exploratory_curb_cut.tiled_false.lo
+curb_cut_false_wilson_hi,0.190097,verdict.json: exploratory_curb_cut.tiled_false.hi
+walkroad_given_surface_0-5,0.966328,"agreement.csv: city=pooled, range_bin=0-5, surface rows, (n_WALK + n_ROAD) / seen"
+walkroad_given_surface_5-10,0.797928,"agreement.csv: city=pooled, range_bin=5-10, surface rows, (n_WALK + n_ROAD) / seen"
+walkroad_given_surface_10-15,0.626838,"agreement.csv: city=pooled, range_bin=10-15, surface rows, (n_WALK + n_ROAD) / seen"
+walkroad_given_surface_15-25,0.495618,"agreement.csv: city=pooled, range_bin=15-25, surface rows, (n_WALK + n_ROAD) / seen"
+walkroad_given_surface_beyond,0.287166,"agreement.csv: city=pooled, range_bin=beyond, surface rows, (n_WALK + n_ROAD) / seen"
+false_group_share_WALK,0.785714,"detections.csv: gt_group=false, share seg_group=WALK"
+false_group_share_ROAD,0.166667,"detections.csv: gt_group=false, share seg_group=ROAD"
+object_off_floor_le25m,0.052636,"headline.csv (pooled, le25m, pixels, correct): 1 - p_surface_given_object"
+pixels_off_floor_le25m,0.017132,"headline.csv (pooled, le25m, pixels, correct): 1 - p_surface"
+car_components_near_nadir,9,"examples/objects_family_stats.csv: family=car, centroid_y_gt_0.75"
+car_components_total,336,"examples/objects_family_stats.csv: family=car, panos_with_component"
 band_non_surface_share,0.107143,"detections.csv: gt_group=band_0p30, share seg_group not in WALK/ROAD"
