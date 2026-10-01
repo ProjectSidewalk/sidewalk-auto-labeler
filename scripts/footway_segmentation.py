@@ -2070,6 +2070,17 @@ OBJECT_BAND_M = (5.0, 15.0)          # examples come from the 5-15 m flat-range 
                                      # and clear of the camera car and the nadir fill
 OBJECT_OFF_FLOOR_N, OBJECT_TOP_OFF = 4, 20
 CONTEXT_W, CONTEXT_H = 640, 320
+# Example-selection rules added for the published sheets (privacy, legibility):
+EX_MAX_COVERAGE = 0.70        # the object may cover at most 70% of its crop, so the reader can
+                              # see what it is (a crop that is all van side shows nothing)
+PERSON_MAX_HEIGHT = 0.40      # person family: the component spans < 40% of the crop height ...
+PERSON_MIN_RANGE_M = 8.0      # ... and sits >= 8 m away: a small standing/walking pedestrian,
+                              # never a close-range portrait
+# Skipped by inspection of the committed panels; the next pick in rank is used instead. Applied
+# to every example sheet (fig. 2, fig. 6b, fig. 8) and recorded in examples/skipped.csv.
+EX_SKIP = {('sao_paulo', '7O-o_5mVjT3KdC0SV0shUw'): 'seated individual centred in crop',
+           ('sao_paulo', '4n8b3OMdbJZgeJXz_TxNBA'): 'seated individual centred in crop',
+           ('sao_paulo', '_zoPpzbkTA4aS166T26J_Q'): 'seated individual centred in crop'}
 CURB_EXAMPLES, CURB_TOP, CURB_MIN_EX_PX = 6, 30, 200
 SKY_EXAMPLES, SKY_TOP, SKY_MAX_LAT_DEG = 6, 20, -40.0
 GALLERY_CATEGORIES = [
@@ -2189,6 +2200,23 @@ def context_window(city, pid, x, y, args):
     return img, rect
 
 
+def crop_geometry(comp, obj_grid, ph, pw, row, col):
+    """(height share of the crop, coverage of the crop) for the CROP_W_NORM x CROP_H_NORM
+    window an example uses: the component's height (payload grid) as a share of the crop
+    height, and the share of the window's grid pixels the segmenter calls OBJECT at all (so a
+    crop that is all van side reads ~1.0)."""
+    rr, _ = np.nonzero(comp)
+    height = ((rr.max() - rr.min() + 1) / ph) / CROP_H_NORM
+    y = (row + 0.5) / ph
+    y0 = min(max(0.0, y - CROP_H_NORM / 2), 1.0 - CROP_H_NORM)
+    gh, gw = obj_grid.shape
+    r_lo, r_hi = int(y0 * gh), int((y0 + CROP_H_NORM) * gh)
+    half = int(round(CROP_W_NORM * gw / 2))
+    gc = int((col + 0.5) / pw * gw)
+    cols = np.arange(gc - half, gc + half) % gw
+    return float(height), float(obj_grid[r_lo:r_hi][:, cols].mean())
+
+
 def band_rows_mask(rows, ph, lo_m, hi_m):
     """Payload rows (below the horizon) whose flat-raycast range at 2.6 m is in [lo, hi)."""
     out = []
@@ -2219,6 +2247,7 @@ def cmd_examples(args):
                                c['lab'].shape)
         surf = np.isin(c['dcls'], surf_ids)
         obj = c['scls'] == SEG_GROUPS.index(OBJECT)
+        obj_grid = table_seg[c['tiled']] == SEG_GROUPS.index(OBJECT)
         # how often a family's largest on-floor component within 25 m sits near the nadir
         # (the camera car's own body labelled Car/Truck/Bus is the suspected case)
         for key, names in OBJECT_EXAMPLE_CLASSES:
@@ -2231,15 +2260,19 @@ def cmd_examples(args):
             hit = largest_component_point(surf & band & fam)
             if hit:
                 size, rr, cc, comp = hit
+                hgt, cov = crop_geometry(comp, obj_grid, ph, c['pw'], int(c['rows'][rr]), cc)
                 cand[f'obj_{key}'].append(dict(
                     city=city, pano_id=pid, size=size, row=int(c['rows'][rr]), col=cc,
+                    height_share=hgt, coverage=cov,
                     seg_class=Counter(c['lab'][comp].tolist()).most_common(1)[0][0],
                     depth_class=Counter(c['dcls'][comp].tolist()).most_common(1)[0][0]))
         hit = largest_component_point(obj & ~surf & band)
         if hit:
             size, rr, cc, comp = hit
+            hgt, cov = crop_geometry(comp, obj_grid, ph, c['pw'], int(c['rows'][rr]), cc)
             cand['obj_offfloor'].append(dict(
                 city=city, pano_id=pid, size=size, row=int(c['rows'][rr]), col=cc,
+                height_share=hgt, coverage=cov,
                 seg_class=Counter(c['lab'][comp].tolist()).most_common(1)[0][0],
                 depth_class=Counter(c['dcls'][comp].tolist()).most_common(1)[0][0]))
         d4 = np.asarray(Image.open(wd / 'direct4096_labels' / city / f'{pid}.png'))
@@ -2257,17 +2290,47 @@ def cmd_examples(args):
         if n % 100 == 0:
             print(f'  examples: scanned {n}/{len(sample)}', flush=True)
 
-    def draw(key, top, k):
-        pool = sorted(cand[key], key=lambda e: (-e['size'], e['city'], e['pano_id']))[:top]
-        return random.Random(f'{SEED}:{key}').sample(pool, min(k, len(pool)))
+    skipped = []
+
+    def draw(key, top, k, ok=lambda e: True, used=None, sheet=''):
+        """The first k candidates that pass `ok`, the skip list and (with `used`) one example
+        per pano, in a seeded random order of the top `top` by size, then in rank order."""
+        ranked = sorted(cand[key], key=lambda e: (-e['size'], e['city'], e['pano_id']))
+        order = random.Random(f'{SEED}:{key}').sample(ranked[:top], min(top, len(ranked))) \
+            + ranked[top:]
+        out_ = []
+        for e in order:
+            if len(out_) == k:
+                break
+            uid = (e['city'], e['pano_id'])
+            if uid in EX_SKIP:
+                skipped.append({'sheet': sheet, 'set': key, 'city': e['city'],
+                                'pano_id': e['pano_id'], 'reason': EX_SKIP[uid]})
+                continue
+            if (used is not None and uid in used) or not ok(e):
+                continue
+            out_.append(e)
+            if used is not None:
+                used.add(uid)
+        return out_
+
+    def legible(e):
+        return e['coverage'] < EX_MAX_COVERAGE
+
+    def small_pedestrian(e):
+        return legible(e) and e['height_share'] < PERSON_MAX_HEIGHT and \
+            (range_from_y((e['row'] + 0.5) / 256) or 0) >= PERSON_MIN_RANGE_M
 
     out = {}
-    # 1. objects in the 5-15 m band: on a depth floor (2 per family) and NOT on one (4)
+    # 1. objects in the 5-15 m band: on a depth floor (2 per family) and NOT on one (4);
+    #    one example per pano across the sheet
     rows = []
+    used = set()
     picks = [(key, e) for key, _ in OBJECT_EXAMPLE_CLASSES
-             for e in draw(f'obj_{key}', OBJECT_TOP, OBJECT_PER_CLASS)]
+             for e in draw(f'obj_{key}', OBJECT_TOP, OBJECT_PER_CLASS,
+                           small_pedestrian if key == 'person' else legible, used, 'fig2')]
     picks += [('not_on_floor', e) for e in draw('obj_offfloor', OBJECT_TOP_OFF,
-                                                  OBJECT_OFF_FLOOR_N)]
+                                                  OBJECT_OFF_FLOOR_N, legible, used, 'fig2')]
     for key, e in picks:
         c = pano_context(args, e['city'], e['pano_id'], wd, table_seg)
         x, y = (e['col'] + 0.5) / c['pw'], (e['row'] + 0.5) / c['ph']
@@ -2283,12 +2346,14 @@ def cmd_examples(args):
                      'seg_class': id2label[e['seg_class']],
                      'depth_class': DEPTH_CLASSES[e['depth_class']],
                      'range_flat_2p6_m': range_from_y(y),
+                     'height_share_of_crop': e['height_share'],
+                     'coverage_of_crop': e['coverage'],
                      'marker_px': f'{mk[0]:.1f};{mk[1]:.1f}'})
     out['objects'] = rows
     out['objects_family_stats'] = [{'family': k, **v} for k, v in sorted(fam_stats.items())]
     # 2. the 4096 px direct arm's SKY under the car, with a wide context strip
     rows = []
-    for e in draw('sky', SKY_TOP, SKY_EXAMPLES):
+    for e in draw('sky', SKY_TOP, SKY_EXAMPLES, sheet='fig6b'):
         c = pano_context(args, e['city'], e['pano_id'], wd, table_seg)
         d4 = np.asarray(Image.open(wd / 'direct4096_labels' / e['city'] / f"{e['pano_id']}.png"))
         x, y = (e['col'] + 0.5) / GRID_W, (e['row'] + 0.5) / GRID_H
@@ -2307,7 +2372,7 @@ def cmd_examples(args):
     out['sky'] = rows
     # 3. the disagreement gallery (gallery_candidates; near-nadir rows excluded)
     rows = []
-    for p in gallery_candidates(args):
+    for p in gallery_candidates(args, skipped):
         img, xn, yn, mk = crop_window(p['city'], p['pano_id'], p['x'], p['y'], args)
         i = len(rows)
         save_panel(img, EX_DIR / 'disagreement' / f'{i:02d}_crop.jpg')
@@ -2322,6 +2387,8 @@ def cmd_examples(args):
             t / 'pano.jpg', quality=85, optimize=True)
     Image.open(wd / 'stitched' / r['city'] / f"{r['pano_id']}.png").save(t / 'stitched.png')
     out['tiling'] = [{'idx': 0, 'city': r['city'], 'pano_id': r['pano_id']}]
+    out['skipped'] = skipped or [{'sheet': '', 'set': '', 'city': '', 'pano_id': '',
+                                  'reason': ''}]
     for name, rows in out.items():
         write_csv(EX_DIR / f'{name}.csv', rows,
                   sorted({k for row in rows for k in row},
@@ -2340,7 +2407,7 @@ def range_from_y(y):
     return flat_range(fs.pano_pose(pano, fs.POSE_OFF), y)
 
 
-def gallery_candidates(args):
+def gallery_candidates(args, skipped=None):
     """Fixed-rule disagreement picks: for each pixel category, rank panos by the size of
     the category's largest 8-connected component within 25 m (payload grid), take the top
     GALLERY_TOP_PANOS and draw GALLERY_PER_CATEGORY with random.Random(SEED); the point
@@ -2378,7 +2445,18 @@ def gallery_candidates(args):
     for cat, _ in GALLERY_CATEGORIES[:3]:
         top = sorted(cands[cat], key=lambda e: (-e['size'], e['city'], e['pano_id']))
         top = top[:GALLERY_TOP_PANOS]
-        chosen = random.Random(SEED).sample(top, min(GALLERY_PER_CATEGORY, len(top)))
+        order = random.Random(SEED).sample(top, len(top))
+        chosen = []
+        for e in order:
+            if len(chosen) == GALLERY_PER_CATEGORY:
+                break
+            if (e['city'], e['pano_id']) in EX_SKIP:
+                if skipped is not None:
+                    skipped.append({'sheet': 'fig8', 'set': cat, 'city': e['city'],
+                                    'pano_id': e['pano_id'],
+                                    'reason': EX_SKIP[(e['city'], e['pano_id'])]})
+                continue
+            chosen.append(e)
         picks += [{'category': cat, **e} for e in chosen]
     dets = [d for d in read_csv(pooled_dir(args.out_root) / 'detections.csv')
             if d['kind'] == 'det' and d['gt_group'] != 'band_0p30'
@@ -2636,6 +2714,11 @@ def boot_share(rows, pred, seed=SEED, n=BOOT_N):
             float(np.percentile(draws, 97.5)))
 
 
+def n_skipped(sheet):
+    """How many picks of a sheet the privacy skip list replaced (examples/skipped.csv)."""
+    return sum(r['sheet'] == sheet for r in read_csv(EX_DIR / 'skipped.csv'))
+
+
 def fig_objects(plt, fig_dir):
     ex = read_csv(EX_DIR / 'objects.csv')
     on = [e for e in ex if e['family'] != 'not_on_floor']
@@ -2646,7 +2729,7 @@ def fig_objects(plt, fig_dir):
     nrow = nrow_on + nrow_off + 1
     fig = plt.figure(figsize=(12, 1.62 * nrow + 2.4))
     gs = fig.add_gridspec(nrow, 3 * ncol, wspace=0.03, hspace=0.1, left=0.01, right=0.99,
-                          top=0.89, bottom=0.11,
+                          top=0.872, bottom=0.11,
                           height_ratios=[1] * nrow_on + [0.32] + [1] * nrow_off)
     short = {dad.GROUND: 'ground', dad.FLOOR: 'floor', FLOOR_STANDIN: 'stand-in floor',
              dad.NON_HORIZONTAL: 'a wall plane', dad.HORIZONTAL_NONFLOOR: 'an overhang',
@@ -2675,11 +2758,14 @@ def fig_objects(plt, fig_dir):
     _suptitle(fig, 'Examples of objects on a depth floor plane, and of the minority that are '
               'not. The rate against its null is fig. 1, not this sheet')
     _note(fig, 0.01, 0.935, 'Rule (fixed, seed 47): objects within the 5-15 m flat-range band '
-          '(clear of the camera car and the nadir fill). Top rows: per family (car, bus/truck, '
-          'person, vegetation, pole), 2 panos drawn from the 10 with the largest component of '
-          'that family ON a depth floor plane. Bottom rows: 4 panos drawn from the 20 with the '
-          'largest OBJECT component NOT on a floor plane. The ring is the component pixel '
-          'nearest its centroid; crops are 36 x 27 deg.')
+          '(clear of the camera car and the nadir fill), in a seeded order of the top 10 (top '
+          'rows, per family: car, bus/truck, person, vegetation, pole; component ON a depth floor '
+          'plane) or top 20 (bottom rows: OBJECT component NOT on a floor plane), then rank. A '
+          'pick must leave the crop less than 70% OBJECT, use a pano not already on the sheet, '
+          'and for people show a small standing or moving pedestrian (< 40% of the crop height, '
+          f'>= 8 m). {n_skipped("fig2")} picks skipped by the stated privacy rule (seated '
+          'individual centred in the crop; examples/skipped.csv); next in rank used. The ring is '
+          'the component pixel nearest its centroid; crops are 36 x 27 deg.')
     _class_legend(fig, {g: GROUP_COLORS[g] for g in SEG_GROUPS if g != NONE},
                   'segmenter group (middle panels)', 0.045)
     _class_legend(fig, DEPTH_LEGEND, 'depth class (right panels; its own palette)', 0.0)
@@ -2966,7 +3052,8 @@ def fig_trap(plt, pd, data, fig_dir):
           'the 20 with the most pixels below -40 deg that the tiled arm calls ROAD and the '
           '4096 px arm SKY; crop centred on the largest such component. Left: a 180 deg wide '
           'context strip from the horizon to the nadir, the red box marking the crop. "ROAD" '
-          'here is the tiled arm\'s call, not ground truth.')
+          'here is the tiled arm\'s call, not ground truth. '
+          f'{n_skipped("fig6b")} picks skipped by the stated privacy rule.')
     _class_legend(fig, {g: GROUP_COLORS[g] for g in SEG_GROUPS if g != NONE},
                   'segmenter group', 0.0)
     paths += _save(fig, fig_dir, 'fig6b_sky_examples', svg=False, photo=True)
@@ -3082,7 +3169,8 @@ def fig_gallery(plt, fig_dir):
                  fontsize=12.5, fontweight='bold')
     _note(fig, 0.07, 0.9, 'Rule: per category, 6 panos drawn (seed 47) from the 20 with the '
              'largest within-25 m component above the near-nadir rows (y <= 0.75); row 4: 6 of the 45 detections >= 0.55 the segmenter '
-             'calls non-surface (seed 47).', fontsize=8.5, color=INK2)
+             f'calls non-surface (seed 47). {n_skipped("fig8")} picks skipped by the stated '
+             'privacy rule.', fontsize=8.5, color=INK2)
     paths = _save(fig, fig_dir, 'fig8_disagreement_gallery', svg=False, photo=True)
     plt.close(fig)
     return paths, {}

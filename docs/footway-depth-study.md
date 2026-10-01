@@ -359,19 +359,27 @@ the share is ≥ 0.05 and the row has ≥ 10,000 pixels. Rows under 10,000 pixel
 `no_plane` is a single pixel and `horizontal_nonfloor` 916. The null shown is the 180° rotation. Data:
 `data/fig3_where_signal.csv`.
 
-![Contact sheet in two parts. Top: ten objects in the 5-15 m band (cars, a bus, a truck, a traffic barrel the
-segmenter labels Person, a seated person, vegetation and poles), each shown as photo, segmenter overlay and depth
-overlay, all on a depth floor or ground plane. Bottom: four counter-examples (a van and three hedges) where the
-OBJECT pixels sit on a depth wall plane instead.](figures/footway-depth/fig2_objects_on_floor.jpg)
+![Contact sheet in two parts. Top: ten objects in the 5-15 m band (two parked cars, a truck, a bus, two people
+walking behind a car, a cyclist, shrubs and two utility poles), each shown as photo, segmenter overlay and depth
+overlay, all on a depth floor, ground or stand-in plane. Bottom: four counter-examples (two hedges and two cars)
+whose OBJECT pixels sit on a depth wall plane instead.](figures/footway-depth/fig2_objects_on_floor.jpg)
 
 *Figure 2. Examples of both outcomes. Most objects sit on a depth floor plane, and a minority sit on a wall
 plane; the rate against its null is fig. 1, not this sheet.* The selection rule is fixed, with seed 47.
 - **Band:** only objects in the 5–15 m flat-range band are eligible, which keeps the sheet clear of the camera car
   and the nadir fill.
-- **On-floor rows:** for each family (car, bus/truck, person, vegetation, pole), 2 panos drawn from the 10 with
-  the largest component of that family ON a depth floor plane.
-- **Counter-example rows:** 4 panos drawn from the 20 with the largest OBJECT component NOT on a floor plane.
-- **Labels:** each crop's label is the segmenter's own majority class; one "Person" is a traffic barrel.
+- **Order:** candidates are taken in a seeded order of the top 10 by component size (on-floor rows, per family:
+  car, bus/truck, person, vegetation, pole) or the top 20 (counter-example rows, OBJECT component NOT on a floor
+  plane), then in rank order.
+- **What a pick must satisfy:**
+  - the crop is less than 70% OBJECT, so the reader can see what the object is;
+  - the pano is not already on the sheet;
+  - for the person family, the person is a small standing or moving pedestrian (< 40% of the crop height,
+    ≥ 8 m away).
+- **Privacy skips:** 3 picks were skipped by the stated privacy rule (a seated individual centred in the crop;
+  listed in `examples/skipped.csv`, a skip list that applies to every example sheet), and the next in rank was
+  used.
+- **Labels:** each crop's label is the segmenter's own majority class.
 - **Palette:** depth overlays use their own palette (violet / red / lavender / charcoal), so they never share a
   colour with the segmenter's groups.
 
@@ -521,7 +529,8 @@ mostly in SKY pink, labelled 69% to 97%. Five of the six are from Gainesville or
 *Figure 6b. At matched resolution, the 4096 px equirect paints the nadir fill under the car as SKY. The
 pixels are featureless, so "ROAD" is the tiled arm's call, not ground truth.*
 - **Selection rule** (fixed, seed 47): 6 panos drawn from the 20 with the most pixels below −40° that the tiled
-  arm calls ROAD and the 4096 px arm SKY. Each crop is centred on the largest such component.
+  arm calls ROAD and the 4096 px arm SKY. Each crop is centred on the largest such component. The privacy skip list skipped 0
+  picks on this sheet.
 - **Context strip:** the left panel of each row places the crop within the lower half of the panorama.
 
 Data: `examples/sky.csv`.
@@ -568,7 +577,8 @@ depth floor. Row 3: sloped sidewalks that depth calls a wall. Row 4: verdict-Tru
 grass or a pole.](figures/footway-depth/fig8_disagreement_gallery.jpg)
 
 *Figure 8. Where depth and the segmenter disagree: objects on the floor, see-through fences, sloped pavement, and
-peak pixels just off the ramp.* The selection rule is stated above (fixed, seed 47). Data:
+peak pixels just off the ramp.* The selection rule is stated above (fixed, seed 47). The privacy skip list skipped 0
+picks on this sheet. Data:
 `examples/disagreement.csv`.
 
 1. **Depth surface, segmenter OBJECT.** Parked cars, a palm, a trailer and a trash can. Depth draws its plane
@@ -654,7 +664,7 @@ re-run.
 | 6 | `python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/direct4096 --out runs/_pooled/footway/work/direct4096_labels --target 1024x512 --fp16 --batch-size 1` | **GPU** (5.7 GiB) | `work/direct4096_labels/` | 9.6 min (0.72 img/s) |
 | 7 | `python scripts/footway_segmentation.py stitch --run-root <runs> --benchmark-root ../RampNet/benchmark` | CPU | `work/stitched/` | 2.5 min |
 | 8 | `python scripts/footway_segmentation.py compare --run-root <runs> --benchmark-root ../RampNet/benchmark` (runs `verdict` too) | CPU | every CSV / JSON / report under `runs/<city>/footway/` and `runs/_pooled/footway/` (committed) | 2.2 min |
-| 9 | `python scripts/footway_segmentation.py examples --run-root <runs> --benchmark-root ../RampNet/benchmark` | CPU; untracked `work/` + JPEGs | `docs/figures/footway-depth/examples/` (panels + CSVs, 1.40 MB, committed) | 2.0 min |
+| 9 | `python scripts/footway_segmentation.py examples --run-root <runs> --benchmark-root ../RampNet/benchmark` | CPU; untracked `work/` + JPEGs | `docs/figures/footway-depth/examples/` (panels + CSVs, 1.44 MB, committed) | 2.0 min |
 | 10 | `python scripts/footway_segmentation.py figures` | **committed files only**; no GPU, no network, no `work/` | every figure, `data/*.csv`, `data/numbers.csv`, `data/derived_numbers.csv`, `data/figures_manifest.json`; exits 1 on any number mismatch | 30 s |
 | 11 | `python scripts/footway_segmentation.py check-numbers` | committed files only | `data/numbers.csv`, `data/derived_numbers.csv`; exits 1 on any mismatch | 3 s |
 
