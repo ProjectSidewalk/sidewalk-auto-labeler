@@ -2290,8 +2290,11 @@ def _save(fig, out_dir, stem, svg=True, photo=False):
         fig.savefig(p, dpi=200, metadata={'Software': None})
         paths.append(p)
     if svg:
+        import io
         p = out_dir / f'{stem}.svg'
-        fig.savefig(p, metadata={'Date': None, 'Creator': None})
+        buf = io.BytesIO()     # bytes, so the SVG is LF on every platform (the blob is LF)
+        fig.savefig(buf, format='svg', metadata={'Date': None, 'Creator': None})
+        p.write_bytes(buf.getvalue())
         paths.append(p)
     return paths
 
