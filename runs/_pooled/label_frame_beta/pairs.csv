@@ -1,4 +1,5 @@
 label_uid,city,pano_id,era,vouched,pose_source,t_pitch_deg,t_roll_deg,t_deg,diff_deg,confidence
+amsterdam:1125,amsterdam,D_HxFGuxdbfDiMw8yiFDJA,mid,1,xml,-1.3855,0.2108,-1.1747,8.2836,0.7133
 amsterdam:1128,amsterdam,fkd3MjmKKJSWIoAdmTJLqg,mid,1,xml,1.7016,0.9095,2.6111,3.9112,0.6231
 amsterdam:1178,amsterdam,52hxcgdxexCASW5mLpQtOQ,mid,1,xml,1.3151,0.8316,2.1467,2.6806,0.5538
 amsterdam:133,amsterdam,AYJXNzDu4FBUFU2OfmEmEA,mid,1,xml,3.2932,0.7665,4.0597,3.2520,0.8544
@@ -14,6 +15,7 @@ amsterdam:418,amsterdam,6NM26qxxXMTuh314D8L9Og,mid,1,xml,1.0866,-0.0058,1.0809,2
 amsterdam:419,amsterdam,6NM26qxxXMTuh314D8L9Og,mid,1,xml,0.7298,-0.0284,0.7014,1.5162,0.8286
 amsterdam:421,amsterdam,6NM26qxxXMTuh314D8L9Og,mid,1,xml,-1.0888,0.0053,-1.0835,1.5382,0.6949
 amsterdam:527,amsterdam,-KM4mp_co3oXUI2PcMHgMQ,mid,1,xml,-0.0211,-0.3331,-0.3542,-0.7909,0.6118
+amsterdam:529,amsterdam,-KM4mp_co3oXUI2PcMHgMQ,mid,1,xml,-0.0133,-0.3332,-0.3465,8.0421,0.6118
 amsterdam:673,amsterdam,LHxLaFyA5AOSkOpIoOyKsA,mid,1,xml,0.9011,-0.7111,0.1900,-0.6152,0.9013
 amsterdam:778,amsterdam,wR6-X06rgknIKWiJlbcXbw,mid,1,xml,0.6428,-1.3151,-0.6723,0.4598,0.8162
 amsterdam:792,amsterdam,fP5we7M-UbACFe0r8rZJWQ,mid,1,xml,2.5312,-0.1185,2.4127,3.9112,0.5967
@@ -60,11 +62,13 @@ auckland:347,auckland,9AtWAmBlz9wzd5_wYoRGlA,mid,1,npz,-0.4219,-0.5188,-0.9407,-
 auckland:3795,auckland,k5l0x4fonap7vvOZXyMJLg,mid,1,npz,0.1231,1.7728,1.8960,3.7794,0.8581
 auckland:387,auckland,I_gywO81CUbm0l6tgXbwww,mid,1,npz,-0.2922,1.0759,0.7837,0.6373,0.9238
 auckland:391,auckland,I_gywO81CUbm0l6tgXbwww,mid,1,npz,-0.1769,-1.5350,-1.7119,-0.9887,0.8931
+auckland:404,auckland,Ib_-8RYFlZJPXUi9gUKV1g,mid,1,npz,4.2529,-0.3967,3.8562,6.7457,0.8684
 auckland:406,auckland,yU_DfkFZK8VdpsVFdVszmg,mid,1,npz,-0.2899,3.2996,3.0097,4.5043,0.8859
 auckland:408,auckland,yU_DfkFZK8VdpsVFdVszmg,mid,1,npz,-0.2668,3.4114,3.1445,1.1425,0.8859
 auckland:413,auckland,yU_DfkFZK8VdpsVFdVszmg,mid,1,npz,0.0763,-3.9315,-3.8552,-3.2299,0.9734
 auckland:414,auckland,eBlpPtyNknYEQ-3AEbQ2iw,mid,1,npz,-0.3275,-2.3664,-2.6939,-1.5819,0.6294
 auckland:431,auckland,LvYQ95yyslDb3cjXXw903A,mid,1,npz,1.1186,-3.2881,-2.1695,-1.6039,0.6917
+auckland:434,auckland,LvYQ95yyslDb3cjXXw903A,mid,1,npz,2.3566,1.9986,4.3552,6.1744,0.9808
 auckland:435,auckland,LvYQ95yyslDb3cjXXw903A,mid,1,npz,1.5968,2.9587,4.5555,3.9991,0.8519
 auckland:436,auckland,LvYQ95yyslDb3cjXXw903A,mid,1,npz,-1.9822,2.5630,0.5808,1.8896,0.9518
 auckland:450,auckland,i4_Gq1J7rX4ZuA_BJjm-sA,mid,1,npz,0.3552,-1.0168,-0.6617,0.3736,0.5871
@@ -137,6 +141,7 @@ burnaby:12078,burnaby,sKEAwhfXbxFn7ZW5zxKfkg,post179,1,npz,0.0601,0.0536,0.1137,
 burnaby:12087,burnaby,sKEAwhfXbxFn7ZW5zxKfkg,post179,1,npz,0.0776,0.0253,0.1029,0.9228,0.6920
 burnaby:12091,burnaby,sKEAwhfXbxFn7ZW5zxKfkg,post179,1,npz,0.0796,-0.0186,0.0611,0.7250,0.9041
 burnaby:12101,burnaby,AkViyE9FSNvirHcvnd9OLw,post179,1,npz,-0.3298,1.5345,1.2046,1.5821,0.9393
+burnaby:1211,burnaby,MrUWoRABBoQL-vFvGTG7UQ,post179,1,npz,0.1209,-4.1391,-4.0182,-7.3168,0.9067
 burnaby:12111,burnaby,ED7cfStnS2JcD69me5Hp0A,post179,1,npz,-1.2273,0.1403,-1.0870,-1.8930,0.5886
 burnaby:12119,burnaby,ED7cfStnS2JcD69me5Hp0A,post179,1,npz,-0.2753,0.8490,0.5737,0.8384,0.8781
 burnaby:12121,burnaby,Zll_eiCESBuey7k6dR-fyQ,post179,1,npz,2.9542,-0.8059,2.1482,4.0431,0.8986
@@ -389,6 +394,7 @@ burnaby:5603,burnaby,v_547N5lJCWPOi36KWuHJQ,post179,1,npz,4.2065,0.9403,5.1468,5
 burnaby:5625,burnaby,be-uOQE1v6OqMEKanvI4Ow,post179,1,npz,0.3233,-3.0137,-2.6904,-4.5162,0.9547
 burnaby:5651,burnaby,E8VuJKVeFhpJX4nYRBrY9g,post179,1,npz,0.7855,0.2236,1.0092,-0.1537,0.6561
 burnaby:5705,burnaby,Dgf9BJEkyRLRSyPxxiykCA,post179,1,npz,-0.8754,1.0119,0.1365,-0.2163,0.9506
+burnaby:5774,burnaby,Qoqz-rmNOClhIxGFA75jdg,post179,1,npz,0.1836,5.6564,5.8400,6.8556,0.9419
 burnaby:6022,burnaby,D5tnqESRk2unAtcaQ5KNfw,post179,1,npz,0.6993,0.5493,1.2486,-1.2963,0.8411
 burnaby:6104,burnaby,EMEoKQ5C4dhcIGUqWo8_wQ,post179,1,npz,-0.3629,1.0022,0.6393,0.7911,0.9414
 burnaby:6107,burnaby,EMEoKQ5C4dhcIGUqWo8_wQ,post179,1,npz,-0.3300,-1.3573,-1.6873,-1.4281,0.9409
@@ -593,6 +599,7 @@ cdmx:33106,cdmx,1NC-OlhuLXRFW4bpnNkOeg,mid,1,xml,0.0118,0.9556,0.9674,4.5043,0.9
 cdmx:3311,cdmx,f967NzrmSPdIdwcO6gs4Qg,legacy,1,xml,-0.0525,0.5753,0.5229,-0.0001,0.9538
 cdmx:33170,cdmx,MpQn8UyLcYyb1CeY9Yg_mg,mid,1,xml,-0.5632,0.7975,0.2343,-0.5932,0.9215
 cdmx:33197,cdmx,YaMgzitoYMGoHMNAo1mc5Q,mid,1,xml,0.0913,1.0081,1.0994,0.3516,0.8497
+cdmx:33198,cdmx,kPIB44Gme810d0q0yBRVTA,mid,1,xml,0.4394,1.0304,1.4698,9.2066,0.5996
 cdmx:33199,cdmx,kPIB44Gme810d0q0yBRVTA,mid,1,xml,0.7338,0.5286,1.2624,1.2086,0.8805
 cdmx:33215,cdmx,E_Y4FFUPvzufELixE1y26g,mid,1,xml,-0.1635,0.2237,0.0602,0.5712,0.7165
 cdmx:333,cdmx,vVwb9cBXaAr3tGmW5r62tA,legacy,1,xml,0.1874,0.2454,0.4328,-2.2852,0.8536
@@ -990,6 +997,7 @@ chicago-il:10554,chicago-il,UDqKn9WzCohOQ68qlcgAHQ,mid,1,xml,0.1342,-0.1264,0.00
 chicago-il:10558,chicago-il,UDqKn9WzCohOQ68qlcgAHQ,mid,1,xml,-0.7087,-0.0862,-0.7950,-1.1866,0.6669
 chicago-il:10567,chicago-il,A36bUfZJdwf286MN_7NTww,mid,1,xml,0.6248,-0.0950,0.5297,0.8790,0.9036
 chicago-il:10568,chicago-il,A36bUfZJdwf286MN_7NTww,mid,1,xml,0.5117,-0.1648,0.3469,0.7252,0.9612
+chicago-il:1058,chicago-il,cmCIZFAIwCieAqHsN_16JQ,mid,1,xml,3.9978,-0.1713,3.8264,6.3821,0.7631
 chicago-il:10588,chicago-il,jlFOhg6lmAq72hNs6SriOA,mid,1,xml,-0.4385,0.0374,-0.4011,1.1866,0.6763
 chicago-il:1059,chicago-il,C-A3jPmjdQ68eDTbHY0u8w,mid,1,xml,0.0416,-1.4808,-1.4392,0.1537,0.7396
 chicago-il:10596,chicago-il,hTzrQUBDh154zwh3I9ZLdA,mid,1,xml,-0.5211,-0.6258,-1.1469,0.1099,0.9188
@@ -1330,6 +1338,7 @@ chicago-il:172912,chicago-il,c0V1StaFGLa5ge39i8i7OQ,post179,1,npz,-0.4981,1.1705
 chicago-il:172983,chicago-il,EIcMX2G3k2g-wl5iqPui0A,post179,1,npz,-0.2130,-0.3322,-0.5452,-1.5820,0.8919
 chicago-il:173083,chicago-il,TFtzjdxeIoEURF8EHDCbrg,post179,1,npz,-0.6133,0.7063,0.0929,-1.1425,0.9184
 chicago-il:1732,chicago-il,m-eATPMGHGOqbmVgpsmEaQ,mid,1,xml,1.0505,-0.7446,0.3060,0.7032,0.7472
+chicago-il:1733,chicago-il,m-eATPMGHGOqbmVgpsmEaQ,mid,1,xml,1.0733,-0.7094,0.3639,7.9761,0.7472
 chicago-il:1736,chicago-il,OOBS-DP5E5yaK9exA9SZ2Q,mid,1,xml,-0.2631,-0.1114,-0.3745,-3.1640,0.9124
 chicago-il:1738,chicago-il,m-eATPMGHGOqbmVgpsmEaQ,mid,1,xml,-0.0523,1.3106,1.2583,2.2631,0.9093
 chicago-il:174,chicago-il,GwSSYH5Qn97SaUP3CmovrQ,mid,1,xml,0.3145,0.3555,0.6700,1.2525,0.9399
@@ -1733,6 +1742,7 @@ chicago-il:3333,chicago-il,xMhIYEG8VNgkdmQ-mOKVlA,mid,1,xml,1.4833,-0.4567,1.026
 chicago-il:3334,chicago-il,xMhIYEG8VNgkdmQ-mOKVlA,mid,1,xml,1.1168,-0.7077,0.4091,-0.3515,0.9514
 chicago-il:3347,chicago-il,EF26SlEuiIH6CfXQ424piA,mid,1,xml,-0.1332,0.6195,0.4863,-1.5600,0.8555
 chicago-il:3373,chicago-il,H0PYa4goR8B9s4veTM7w5w,mid,1,xml,0.4988,0.6562,1.1550,-0.2857,0.7782
+chicago-il:3388,chicago-il,Sm7A_EggOdusv1TlpLyHrg,mid,1,xml,0.1926,-1.2628,-1.0702,-7.6684,0.9007
 chicago-il:3394,chicago-il,sacKXporS2UeudQp1DkwfQ,mid,1,xml,-0.3925,-0.7841,-1.1766,-2.5927,0.9093
 chicago-il:3398,chicago-il,T72bmjvPcvDMhL5jsA_4uA,mid,1,xml,-0.0327,0.3713,0.3385,0.6151,0.9171
 chicago-il:3399,chicago-il,T72bmjvPcvDMhL5jsA_4uA,mid,1,xml,-0.0379,0.2874,0.2495,0.7909,0.9596
@@ -1864,6 +1874,7 @@ chicago-il:4699,chicago-il,ufTaMDKgOWTLR0rJkYjDZg,mid,1,xml,0.1961,-0.9006,-0.70
 chicago-il:4705,chicago-il,ufTaMDKgOWTLR0rJkYjDZg,mid,1,xml,0.2627,0.8862,1.1490,-0.9667,0.9317
 chicago-il:4706,chicago-il,ufTaMDKgOWTLR0rJkYjDZg,mid,1,xml,0.6645,0.6879,1.3524,2.3290,0.8272
 chicago-il:4710,chicago-il,Hz_k9D8ppJ9aEnYUjPpHBQ,mid,1,xml,-0.1911,0.0103,-0.1807,0.7911,0.8317
+chicago-il:4711,chicago-il,Hz_k9D8ppJ9aEnYUjPpHBQ,mid,1,xml,-0.1988,0.0103,-0.1885,-8.8988,0.8317
 chicago-il:4738,chicago-il,jaBFQbushQW-2U2YZ9A0TQ,mid,1,xml,-0.2378,0.5432,0.3055,-0.9887,0.8680
 chicago-il:4740,chicago-il,LDv0facdt2zZfN2QsYS8IA,mid,1,xml,-0.2626,0.6408,0.3782,-0.7250,0.8769
 chicago-il:4744,chicago-il,xu6hyWirYHTXHA8sru8cVg,mid,1,xml,0.0703,0.5046,0.5749,-1.1645,0.7854
@@ -1977,6 +1988,7 @@ chicago-il:5637,chicago-il,vMaVo41kuBag9Bsc0Agf0A,mid,1,xml,0.1674,0.6998,0.8672
 chicago-il:56475,chicago-il,edwMV5KRvCoaj8bDhnQH_w,post179,1,npz,0.1585,-0.2113,-0.0527,-0.3515,0.9902
 chicago-il:5648,chicago-il,IW8xzYjFBFWmI78QpLdymA,mid,1,xml,0.4220,-0.4175,0.0044,0.5714,0.8896
 chicago-il:5659,chicago-il,_PROnUt_GIL7qGQhU-vPHQ,mid,1,xml,-0.6206,-1.1804,-1.8010,0.7252,0.8924
+chicago-il:5660,chicago-il,_PROnUt_GIL7qGQhU-vPHQ,mid,1,xml,-0.5993,-1.2398,-1.8391,-8.9648,0.8924
 chicago-il:5680,chicago-il,1aSYsJ4i3gIofx2Uw-IAKQ,mid,1,xml,0.6112,3.1214,3.7326,3.0982,0.9366
 chicago-il:569,chicago-il,w9SyCuzOUsiMQFH0QgpIIA,mid,1,xml,-0.8277,-0.0544,-0.8821,-0.1100,0.8971
 chicago-il:573,chicago-il,VzcH3xHQ-k8EhWHwBc8_Zw,mid,1,xml,0.1368,0.0282,0.1651,0.0001,0.8874
@@ -2264,6 +2276,7 @@ chicago-il:8369,chicago-il,pppmhfAaTgpsc-VZ-BOgZA,mid,1,xml,0.1792,2.0220,2.2012
 chicago-il:837,chicago-il,R7hWKUpFiHEZYYsY3pIlbQ,mid,1,xml,-0.3063,-0.3037,-0.6100,0.4057,0.9818
 chicago-il:8373,chicago-il,yQUzO6eeAGEc6xsD0gsDHQ,mid,1,xml,-0.6944,1.4192,0.7248,1.6041,0.8985
 chicago-il:8377,chicago-il,yQUzO6eeAGEc6xsD0gsDHQ,mid,1,xml,-0.5053,-2.2042,-2.7095,-2.8126,0.9257
+chicago-il:8378,chicago-il,yQUzO6eeAGEc6xsD0gsDHQ,mid,1,xml,-0.5124,-2.1835,-2.6959,-7.9542,0.9257
 chicago-il:8381,chicago-il,Agqehl039VmoB5Cig6AN3w,mid,1,xml,1.3366,-0.6310,0.7056,1.9996,0.7998
 chicago-il:8383,chicago-il,Agqehl039VmoB5Cig6AN3w,mid,1,xml,0.9023,0.8549,1.7571,1.3404,0.7232
 chicago-il:8389,chicago-il,pTgSUjnhKaBnJqLuAH9ADA,mid,1,xml,0.0401,-0.4580,-0.4179,0.2418,0.8121
@@ -2329,6 +2342,7 @@ chicago-il:9,chicago-il,pMph48Z6Xz2hexFJ7q3d_Q,mid,1,xml,-0.5213,-0.2145,-0.7358
 chicago-il:9035,chicago-il,Ks-IbGDCMhU7CAX-LUOJWA,mid,1,xml,0.5477,0.9628,1.5104,-0.8788,0.7331
 chicago-il:904,chicago-il,Dae-YmugU9YraTO2ZrsxhA,mid,1,xml,0.2525,-0.9444,-0.6919,0.1978,0.7551
 chicago-il:9045,chicago-il,vObl8-Lsxps4V5bUf_nxWw,mid,1,xml,0.1814,0.0483,0.2297,0.5274,0.8899
+chicago-il:9047,chicago-il,vObl8-Lsxps4V5bUf_nxWw,mid,1,xml,0.1851,0.0469,0.2320,-6.1742,0.8899
 chicago-il:9048,chicago-il,DSOvYa9qCyU9CerqcYPRog,mid,1,xml,0.1320,0.1840,0.3161,-0.5273,0.8989
 chicago-il:9049,chicago-il,DSOvYa9qCyU9CerqcYPRog,mid,1,xml,0.2533,0.1058,0.3592,-0.7250,0.9144
 chicago-il:9050,chicago-il,DSOvYa9qCyU9CerqcYPRog,mid,1,xml,0.2558,-0.1029,0.1529,-1.2743,0.9159
@@ -2350,6 +2364,7 @@ chicago-il:9178,chicago-il,NCPNFu6XdeuT3gWQTMfRGA,mid,1,xml,0.5977,1.2214,1.8192
 chicago-il:9183,chicago-il,NCPNFu6XdeuT3gWQTMfRGA,mid,1,xml,0.0393,-1.7060,-1.6667,-2.4828,0.8991
 chicago-il:9184,chicago-il,NCPNFu6XdeuT3gWQTMfRGA,mid,1,xml,-0.3357,-1.5707,-1.9065,-1.9775,0.9314
 chicago-il:9186,chicago-il,c2_k8Zdw6tvTH5uv57t2OA,mid,1,xml,0.0715,-0.2772,-0.2058,0.8131,0.8660
+chicago-il:9190,chicago-il,ZwnG1RMsCmAFiBSQ7iyQVQ,mid,1,xml,-0.1665,-1.7289,-1.8954,-9.2944,0.8897
 chicago-il:9197,chicago-il,mmb2w9HZF43d6LTPrgDzqA,mid,1,xml,0.2940,-0.8874,-0.5934,-0.4613,0.9214
 chicago-il:9202,chicago-il,yitWKnt1POblUQx7yY5hzQ,mid,1,xml,0.0076,-1.8117,-1.8040,-0.6591,0.9915
 chicago-il:921,chicago-il,dYHZD3Tb88u07W4n1kYQeg,mid,1,xml,0.4448,0.1265,0.5713,0.0440,0.9275
@@ -2386,6 +2401,7 @@ chicago-il:9383,chicago-il,PmwvFe-wRvH-z41sr2wmUw,mid,1,xml,0.0238,-0.2261,-0.20
 chicago-il:939,chicago-il,_iC0-_BSQX5t5C60DQiiIg,mid,1,xml,-0.0007,0.6841,0.6834,2.3730,0.9676
 chicago-il:9398,chicago-il,WlJKUBrkIsmMniOa6Lcjag,mid,1,xml,0.7957,0.1304,0.9261,0.9447,0.9568
 chicago-il:94,chicago-il,2hHp3sRrakJiB-N2V3ZbSw,mid,1,xml,-0.0882,-0.0475,-0.1357,0.0219,0.6481
+chicago-il:9403,chicago-il,wUHcYlUG_Ni7OhgqYU7o9A,mid,1,xml,0.4487,1.1094,1.5581,-6.1523,0.8258
 chicago-il:9407,chicago-il,aMmw5phTONSJc42OLXinEg,mid,1,xml,0.5195,-0.3155,0.2040,0.1319,0.7673
 chicago-il:94183,chicago-il,3ThhfHmSxRUmUzNhpM3QtA,post179,1,npz,0.0011,-0.9097,-0.9086,-0.2857,0.8643
 chicago-il:94566,chicago-il,o3kJDKdIzoSXwQaAQtImGQ,post179,1,npz,-0.0135,0.8836,0.8701,1.8678,0.8712
@@ -2684,6 +2700,7 @@ columbia-sc:55969,columbia-sc,FksaNlTn-M_EQO-TqOBnrA,post179,1,npz,-2.5407,0.564
 columbia-sc:56554,columbia-sc,AUMji__DBwAF66G6P9trOQ,post179,1,npz,0.7826,-2.5698,-1.7872,-0.7691,0.8151
 columbia-sc:57110,columbia-sc,EFIxb-VeoDD1nGp_H0Ia-w,post179,1,npz,0.3189,-1.3879,-1.0690,-1.4501,0.9280
 columbia-sc:57410,columbia-sc,RL3JNwyjwW4xGE3Hh_8kHg,post179,1,npz,1.5313,-0.2625,1.2689,1.1866,0.9220
+columbia-sc:57438,columbia-sc,_l7FvKscqx3YuJ-UGIvNUg,post179,1,npz,-1.3373,-6.1576,-7.4949,-7.6532,0.8559
 columbia-sc:57787,columbia-sc,uU3MeiUe_99wdr6ZERcn4w,post179,1,npz,0.1170,-0.8751,-0.7580,-1.0766,0.8416
 columbia-sc:58120,columbia-sc,j-JIzjZT8FSvexs-WPZ5AQ,post179,1,npz,2.1635,-0.9471,1.2164,1.1426,0.9445
 columbia-sc:58546,columbia-sc,u1M3JX63gR5irisaaWD2nQ,post179,1,npz,0.5204,0.4740,0.9945,1.5162,0.8892
@@ -2969,6 +2986,7 @@ columbus-oh:13632,columbus-oh,i1O8-M6lGYy7r9F1JJFzGQ,legacy,1,xml,0.1556,0.0512,
 columbus-oh:13635,columbus-oh,i1O8-M6lGYy7r9F1JJFzGQ,legacy,1,xml,0.0108,-0.1204,-0.1096,-0.2198,0.9147
 columbus-oh:1365,columbus-oh,dz58eOdEj8NUpJxA96SbdQ,legacy,1,xml,0.5350,-0.1461,0.3889,-3.4614,0.8356
 columbus-oh:13656,columbus-oh,KPHVNm5GNpZdq4T8VmkrAQ,legacy,1,xml,0.2560,-0.5150,-0.2590,-1.1425,0.9015
+columbus-oh:13662,columbus-oh,SNkSOslLnVkFqKWJg4J89w,legacy,1,xml,0.1010,-1.9289,-1.8279,-6.7895,0.9278
 columbus-oh:1368,columbus-oh,dz58eOdEj8NUpJxA96SbdQ,legacy,1,xml,0.6578,0.0599,0.7177,1.6227,0.8196
 columbus-oh:13719,columbus-oh,izEY_GlGYhTgQ7SCPVtjXg,legacy,1,xml,-0.1421,0.9502,0.8081,1.6039,0.8600
 columbus-oh:1372,columbus-oh,YAkWf-pHKNOu5SjwAnNuUw,legacy,1,xml,-0.0701,-0.0303,-0.1004,0.0812,1.0055
@@ -3604,6 +3622,8 @@ columbus-oh:22645,columbus-oh,K90b3Dtq5wHUe244unkmyg,mid,1,xml,0.5832,-1.4164,-0
 columbus-oh:227,columbus-oh,oS8peKbrc9Klg-6V3WAMeQ,legacy,1,xml,-0.1818,-0.7756,-0.9573,0.3297,0.8907
 columbus-oh:22700,columbus-oh,ECXgeByqANyDlAxDX51cqg,mid,1,xml,0.0249,0.4919,0.5168,0.2198,0.8750
 columbus-oh:22740,columbus-oh,QE-xGm7KXR9P1l8uu-qLlA,mid,1,xml,-0.3251,1.7252,1.4001,2.5487,0.8763
+columbus-oh:22741,columbus-oh,TBSGkBuvV8ioXskthEA-vw,mid,1,xml,-0.1330,0.3646,0.2315,-6.3282,0.9583
+columbus-oh:22763,columbus-oh,Omsg3OklVYs6yg6BsPrSww,mid,1,xml,0.0334,0.7737,0.8072,7.7615,0.8147
 columbus-oh:22770,columbus-oh,Jobk2k_u--s99Sg-unqE2w,mid,1,xml,2.3425,-1.5001,0.8424,-0.6591,0.9055
 columbus-oh:228,columbus-oh,oS8peKbrc9Klg-6V3WAMeQ,legacy,1,xml,-0.2835,0.7626,0.4790,0.9008,0.8001
 columbus-oh:22826,columbus-oh,ac696cYIhnBgJ6fhi4tINA,mid,1,xml,-0.8005,-0.4650,-1.2655,1.1645,0.9610
@@ -3626,6 +3646,7 @@ columbus-oh:23097,columbus-oh,t_-DCl8gDaNIavjOk33cpg,mid,1,xml,0.8944,0.4452,1.3
 columbus-oh:231,columbus-oh,z-Sj9ehJJnmvxi5M90-eOg,legacy,1,xml,-0.6769,0.6176,-0.0593,0.3295,0.9690
 columbus-oh:232,columbus-oh,z-Sj9ehJJnmvxi5M90-eOg,legacy,1,xml,-1.0993,0.3498,-0.7496,0.1977,0.8858
 columbus-oh:2325,columbus-oh,hrJd6Uic90Kv_f1eYOOWwA,legacy,1,xml,0.2463,-0.1035,0.1428,0.7843,0.8997
+columbus-oh:23295,columbus-oh,lMu2J03WrDidJnNQvyDe8A,mid,1,xml,-1.3356,-2.5883,-3.9239,-6.6526,0.7910
 columbus-oh:23300,columbus-oh,ooXm-hY_H1y04PPHiNuf8Q,mid,1,xml,-0.0907,-0.0508,-0.1415,2.1313,0.8905
 columbus-oh:23326,columbus-oh,9gDXKkvBl6RTmPJM9eMtyg,mid,1,xml,0.0450,0.7684,0.8134,0.0440,0.9345
 columbus-oh:23327,columbus-oh,9gDXKkvBl6RTmPJM9eMtyg,mid,1,xml,1.0613,0.6454,1.7067,2.0434,0.9675
@@ -3683,6 +3704,7 @@ columbus-oh:256,columbus-oh,zyljujQQUMksIb-1pcI_Ng,legacy,1,xml,1.0511,-0.6791,0
 columbus-oh:257,columbus-oh,zyljujQQUMksIb-1pcI_Ng,legacy,1,xml,0.5499,-1.3171,-0.7671,0.2976,0.9388
 columbus-oh:25853,columbus-oh,Gt1h373nWV--c4M0b2Z3Pg,mid,1,xml,-0.0767,-0.0094,-0.0861,-2.8395,0.8961
 columbus-oh:25878,columbus-oh,qzdinV-YoBUj3NZu9hiLfw,mid,1,xml,0.3286,-0.0537,0.2749,-0.1098,0.9383
+columbus-oh:261,columbus-oh,5HeHtniiWDvu5QYL0itt5A,legacy,1,xml,-0.7126,0.3535,-0.3591,7.1666,0.8341
 columbus-oh:26239,columbus-oh,h_K3ZNG379nEs5W2V9rmSg,mid,1,xml,0.0441,-2.1418,-2.0977,-2.4169,0.9451
 columbus-oh:26245,columbus-oh,EK454_InZ_w8cuh4HPGorQ,mid,1,xml,-0.0844,-0.3827,-0.4671,-0.1757,0.8454
 columbus-oh:263,columbus-oh,5HeHtniiWDvu5QYL0itt5A,legacy,1,xml,-0.7181,0.3367,-0.3814,0.6221,0.8341
@@ -3925,6 +3947,7 @@ columbus-oh:32817,columbus-oh,ASkdGuIw8pWX7WliZr9YfQ,mid,1,xml,-0.5029,-0.1898,-
 columbus-oh:32818,columbus-oh,ASkdGuIw8pWX7WliZr9YfQ,mid,1,xml,-0.2573,-0.7727,-1.0300,-1.2304,0.8720
 columbus-oh:32820,columbus-oh,CoOf1n-bQm5Mp3dqC2rzbw,mid,1,xml,0.4923,0.5636,1.0560,0.4835,0.8021
 columbus-oh:32821,columbus-oh,CoOf1n-bQm5Mp3dqC2rzbw,mid,1,xml,0.2654,0.8438,1.1092,-0.3295,0.7513
+columbus-oh:32836,columbus-oh,69eOhfsj_IwzKMqawa2rZw,mid,1,xml,2.5802,-0.2223,2.3579,6.4818,0.8909
 columbus-oh:32839,columbus-oh,_9TvKizx5O4uqw7SZVk0Tg,mid,1,xml,1.1613,-0.0033,1.1580,2.0214,0.8560
 columbus-oh:32841,columbus-oh,_9TvKizx5O4uqw7SZVk0Tg,mid,1,xml,0.5984,-0.0048,0.5936,0.7471,0.8610
 columbus-oh:32842,columbus-oh,_9TvKizx5O4uqw7SZVk0Tg,mid,1,xml,-0.8972,-0.0042,-0.9014,0.7909,0.9110
@@ -4525,6 +4548,7 @@ columbus-oh:8860,columbus-oh,BtKeBzRQWDK624_dpkxnKg,legacy,1,xml,-0.5219,0.9797,
 columbus-oh:8875,columbus-oh,lvyuBnUmgH93bOE2M3g3zQ,legacy,1,xml,-0.6297,0.8283,0.1987,1.0276,0.6391
 columbus-oh:8889,columbus-oh,QactHF0BVDngkqYZjjig5A,legacy,1,xml,-0.6418,0.2852,-0.3566,0.5139,0.7755
 columbus-oh:89,columbus-oh,_OZFtfgvyWe4BCUiK8rlCQ,legacy,1,xml,-1.1969,-0.5597,-1.7566,-1.4063,0.9718
+columbus-oh:8901,columbus-oh,ggtOyCcNO5g6UnD8w2IBwg,legacy,1,xml,-0.7510,-1.0760,-1.8270,-7.0043,0.8963
 columbus-oh:9013,columbus-oh,4RSS7A6708uFee5hC68_8w,legacy,1,xml,-0.0762,-0.2043,-0.2804,-1.8118,0.9125
 columbus-oh:9254,columbus-oh,PbJoUCenMWMEPrFsoy2gTA,legacy,1,xml,-0.1076,-0.1969,-0.3044,0.6373,0.8751
 columbus-oh:9279,columbus-oh,0_bXTXZO1cqNjm3Z2q-CMA,legacy,1,xml,0.0313,1.5555,1.5868,2.5422,0.8996
@@ -4645,6 +4669,7 @@ fort-wayne-in:24955,fort-wayne-in,DNX0qGtIB6YVPq8ep-KBhA,post179,1,npz,0.7929,-1
 fort-wayne-in:24956,fort-wayne-in,DNX0qGtIB6YVPq8ep-KBhA,post179,1,npz,1.2290,-0.7016,0.5274,0.3954,0.8914
 fort-wayne-in:24957,fort-wayne-in,DNX0qGtIB6YVPq8ep-KBhA,post179,1,npz,1.4781,0.1837,1.6618,2.8124,0.8740
 fort-wayne-in:24958,fort-wayne-in,DNX0qGtIB6YVPq8ep-KBhA,post179,1,npz,-0.6209,-1.1212,-1.7421,-2.8564,0.9553
+fort-wayne-in:24968,fort-wayne-in,6rlqMzuRz0d-bbtLqtJCDQ,post179,1,npz,-0.9336,-0.1499,-1.0835,6.3941,0.7620
 fort-wayne-in:24971,fort-wayne-in,6rlqMzuRz0d-bbtLqtJCDQ,post179,1,npz,1.0938,0.1096,1.2035,2.3072,0.9481
 fort-wayne-in:24972,fort-wayne-in,9RtCg7mnXDa43QLXVDGUIA,post179,1,npz,1.2372,-1.7181,-0.4809,-0.3954,0.9394
 fort-wayne-in:24980,fort-wayne-in,91nbVA8Kh2R46pSyw7Ryjg,post179,1,npz,-0.9129,-1.6895,-2.6024,-4.4164,0.6482
@@ -4963,6 +4988,7 @@ knox-oh:30057,knox-oh,iQ9--2CzHj6nEjJAsD6ELQ,post179,1,npz,0.8909,2.2943,3.1852,
 knox-oh:30069,knox-oh,tAY-_oqj4bFSsA2WqqCX2A,post179,1,npz,3.6065,-0.8336,2.7729,2.7247,0.7754
 knox-oh:30076,knox-oh,tAY-_oqj4bFSsA2WqqCX2A,post179,1,npz,3.8527,-0.7467,3.1060,-4.1747,0.7754
 knox-oh:30080,knox-oh,tAY-_oqj4bFSsA2WqqCX2A,post179,1,npz,4.4745,-0.4130,4.0614,3.5157,0.7970
+knox-oh:30090,knox-oh,tAY-_oqj4bFSsA2WqqCX2A,post179,1,npz,4.4592,0.4252,4.8844,6.0644,0.9277
 knox-oh:30886,knox-oh,xsGFGNmI8Q0aqmkV-Q4uLQ,post179,1,npz,-0.6086,0.1288,-0.4797,-0.1977,0.8500
 knox-oh:30895,knox-oh,NShWgK_ibCbjBIYeP-99PA,post179,1,npz,0.0705,-0.9788,-0.9083,-1.7577,0.8599
 knox-oh:30899,knox-oh,xsGFGNmI8Q0aqmkV-Q4uLQ,post179,1,npz,0.7910,-0.0691,0.7219,2.0216,0.8810
@@ -4971,6 +4997,7 @@ knox-oh:41382,knox-oh,viSbZlZBPfVksrF_4z9rYg,post179,1,npz,-1.5937,0.2998,-1.293
 la-ca:103,la-ca,Hgu4nvMQ4WK_K3z5cdhwNQ,post179,1,npz,-0.2432,-0.1147,-0.3579,0.2976,0.9564
 la-ca:107,la-ca,J0oXGfe98oorHchdFXGo8Q,post179,1,npz,1.8334,0.5586,2.3919,1.8236,0.9008
 la-ca:108,la-ca,e5uEw2hB_BkmPy8de7WxLg,post179,1,npz,1.5408,-0.7427,0.7981,-0.2416,0.7128
+la-ca:193,la-ca,UTkBCBcUexOdEt65AnC6ew,post179,1,npz,3.3613,-0.1175,3.2438,6.0863,0.8609
 la-ca:243,la-ca,GeS7UMEhGeRMC6eN3XrPlw,post179,1,npz,-0.0092,-2.0647,-2.0739,-1.4062,0.8577
 la-ca:261,la-ca,FmdbiGi-e_63lgY8KlfRwg,post179,1,npz,0.1756,1.6378,1.8134,2.8564,0.9310
 la-ca:268,la-ca,m1Vkssu-nl8ZvZPZrOt1Cw,post179,1,npz,-0.4056,2.1055,1.6999,0.7032,0.8847
@@ -5073,6 +5100,7 @@ maywood-nj:25403,maywood-nj,XJJTtiq9PCaN5rEMJ1tjXw,post179,1,npz,0.5208,0.8666,1
 maywood-nj:25404,maywood-nj,9DlydR11n10WlLsnNBXk5w,post179,1,npz,0.1654,-0.7616,-0.5962,-0.0439,0.8884
 maywood-nj:25406,maywood-nj,wJKcWFYU1F4VNXaE0bWvZw,post179,1,npz,0.8970,1.1153,2.0122,3.6036,0.9528
 maywood-nj:25412,maywood-nj,8n2Wxpp0ENTBlDp2l-oEVQ,post179,1,npz,0.0520,1.5974,1.6494,0.0880,0.9358
+maywood-nj:25422,maywood-nj,C-rcnaVRDX8ytexu3RmwPg,post179,1,npz,2.6465,1.2596,3.9061,7.4640,0.8336
 maywood-nj:25432,maywood-nj,bGV-f3rpHcmpOnGCuxdDRA,post179,1,npz,-0.8211,0.2595,-0.5615,3.0102,0.9605
 maywood-nj:25437,maywood-nj,cmRYktc8Z0yaiy1ZL44hDA,post179,1,npz,-0.2657,0.7861,0.5204,4.2457,0.9601
 maywood-nj:25440,maywood-nj,cmRYktc8Z0yaiy1ZL44hDA,post179,1,npz,-0.1845,-2.8095,-2.9940,1.3521,0.9502
@@ -5082,6 +5110,7 @@ maywood-nj:25446,maywood-nj,oORL1qzxE75Cx1A1H9vOrA,post179,1,npz,-0.0030,1.5290,
 maywood-nj:25447,maywood-nj,oORL1qzxE75Cx1A1H9vOrA,post179,1,npz,-0.0022,-1.6346,-1.6367,2.7027,0.9387
 maywood-nj:25467,maywood-nj,rYNTGpE75IdCOCei9fwdiw,post179,1,npz,-1.8891,0.9844,-0.9047,3.6509,0.9846
 maywood-nj:25469,maywood-nj,AvkK91w1ZPjCw2WDmtMnKQ,post179,1,npz,-0.2688,-0.1716,-0.4404,3.5968,0.7081
+maywood-nj:25470,maywood-nj,1vgDl9n4wDzPc1nFxXafnw,post179,1,npz,0.3564,1.7271,2.0836,9.5193,0.8912
 maywood-nj:25479,maywood-nj,qHvGb2O1bhB7KbRaYQTjcQ,post179,1,npz,0.4939,-1.5243,-1.0304,-1.1427,0.9718
 maywood-nj:25481,maywood-nj,qHvGb2O1bhB7KbRaYQTjcQ,post179,1,npz,0.7196,1.0693,1.7889,1.6260,0.9357
 maywood-nj:25482,maywood-nj,4Krf6YC07TjDMAodHLzT8Q,post179,1,npz,0.2467,-0.1099,0.1368,-0.0878,0.9505
@@ -5422,6 +5451,7 @@ newberg-or:15473,newberg-or,3HHG7m4xq4RiG4gMHDfRPw,legacy,1,xml,0.0279,-1.5962,-
 newberg-or:15550,newberg-or,3M_It6_Yzk6Tsm-PVurATg,legacy,1,xml,0.9563,0.5717,1.5280,-1.0007,0.8097
 newberg-or:15559,newberg-or,5etBoK9SxF3HhRJqRIl5ww,legacy,1,xml,0.8730,0.0178,0.8908,-2.3797,1.0007
 newberg-or:15571,newberg-or,zokvMv0mqGY8Z8VFBehulw,legacy,1,xml,0.0364,-1.2509,-1.2145,-3.1640,0.7901
+newberg-or:15611,newberg-or,2okfGSb31bxgM-fdI9bqHQ,legacy,1,xml,4.8533,1.8335,6.6868,6.1930,0.9929
 newberg-or:15620,newberg-or,V1-fiwQ5DBGDOBbFo4EFGg,legacy,1,xml,1.0766,0.9514,2.0279,1.0818,0.9788
 newberg-or:15662,newberg-or,Mskj7j81K420vf5rz1cJjw,legacy,1,xml,0.9308,0.6526,1.5833,-4.0564,0.7445
 newberg-or:15664,newberg-or,Mskj7j81K420vf5rz1cJjw,legacy,1,xml,0.9403,0.6463,1.5867,1.1900,0.7445
@@ -5577,6 +5607,7 @@ newberg-or:1826,newberg-or,K58nphBJEWZwnFmOwfTrfg,legacy,1,xml,0.0517,-0.9856,-0
 newberg-or:18310,newberg-or,Lgbj9HnXoZKo8OVHg2n6Ow,mid,1,npz,-0.0106,0.8069,0.7962,1.3793,0.7623
 newberg-or:18326,newberg-or,8fE4nGP_GRUBIRo9WLtu8A,mid,1,xml,-0.6618,0.0808,-0.5809,-0.2163,0.6599
 newberg-or:1846,newberg-or,Cu64T1IFnDS1C_8Wgvlt2g,legacy,1,xml,0.0293,-2.8810,-2.8517,2.4879,0.9113
+newberg-or:1903,newberg-or,CStun-PX4RbQeBtkNjvP1Q,legacy,1,xml,0.0016,1.2064,1.2080,6.5444,0.6062
 newberg-or:1912,newberg-or,atlSEuOIw9YKqtU7oUwBuA,legacy,1,xml,2.6256,-1.3914,1.2342,3.2182,0.8228
 newberg-or:1917,newberg-or,atlSEuOIw9YKqtU7oUwBuA,legacy,1,xml,-1.6684,-2.1251,-3.7935,-1.7577,0.9618
 newberg-or:19349,newberg-or,YZUjGLqChVJczVC5XBrusA,post179,1,npz,0.0709,-1.3057,-1.2348,-1.5600,0.9838
@@ -6445,6 +6476,7 @@ newberg-or:697,newberg-or,nc8dRsMhoBuCFIvAQLv_EA,legacy,1,xml,-0.3579,0.2534,-0.
 newberg-or:6970,newberg-or,5oOlNrTW48UEEz6IdtKeTg,legacy,1,xml,-0.0442,0.6082,0.5640,0.6221,0.9344
 newberg-or:6971,newberg-or,5oOlNrTW48UEEz6IdtKeTg,legacy,1,xml,-0.0367,-1.1467,-1.1835,0.4326,0.9395
 newberg-or:6972,newberg-or,5oOlNrTW48UEEz6IdtKeTg,legacy,1,xml,-0.0288,-1.4580,-1.4868,0.1892,0.9524
+newberg-or:6975,newberg-or,HIPAWtad-bA1Y5ugOOGeTQ,legacy,1,xml,1.5937,1.7560,3.3497,6.0306,0.8988
 newberg-or:6977,newberg-or,VaEbbTspDIDikM02ZPdRyg,legacy,1,xml,-0.0038,1.2644,1.2606,1.0007,0.9171
 newberg-or:6979,newberg-or,zUdGlZ8sU8t0MIsHVFrfoQ,legacy,1,xml,-0.1543,-0.8518,-1.0061,-1.8118,0.6809
 newberg-or:698,newberg-or,nc8dRsMhoBuCFIvAQLv_EA,legacy,1,xml,0.3738,-0.2460,0.1278,2.0554,0.8652
@@ -6593,6 +6625,7 @@ newberg-or:8064,newberg-or,wdy8Zl6tdjLjKGIPuxVGGg,legacy,1,xml,-0.7470,1.6317,0.
 newberg-or:8065,newberg-or,wdy8Zl6tdjLjKGIPuxVGGg,legacy,1,xml,-0.5374,1.7543,1.2169,1.2170,0.8857
 newberg-or:8066,newberg-or,wdy8Zl6tdjLjKGIPuxVGGg,legacy,1,xml,1.0460,-1.3550,-0.3090,-2.6502,0.8865
 newberg-or:8071,newberg-or,7PEpGsvinmQL6fpiz1KuaQ,legacy,1,xml,0.1577,-3.4468,-3.2891,-2.5151,0.9354
+newberg-or:8072,newberg-or,8MdE7QEvkF9-tl8KHs-2CQ,legacy,1,xml,-0.2532,-2.0784,-2.3316,-6.5714,0.9045
 newberg-or:8081,newberg-or,0FKybCUULU-vXDP9bA7xVg,legacy,1,xml,-0.8952,-0.8819,-1.7771,-2.8936,0.9677
 newberg-or:809,newberg-or,xJe7Kjb1_w1B2cEpOiKNSw,legacy,1,xml,0.0115,-0.4184,-0.4070,-1.0005,0.8944
 newberg-or:810,newberg-or,xJe7Kjb1_w1B2cEpOiKNSw,legacy,1,xml,0.0608,0.1569,0.2177,1.2980,0.9658
@@ -6863,6 +6896,7 @@ oradell-nj:11622,oradell-nj,tZAqSWQPUcQElypfDmLYJA,mid,1,npz,-0.4841,1.6563,1.17
 oradell-nj:11623,oradell-nj,tZAqSWQPUcQElypfDmLYJA,mid,1,npz,-0.5459,1.6133,1.0674,1.4602,0.8903
 oradell-nj:11670,oradell-nj,49cbvrRSrObGF9sIDL2Z_w,mid,1,npz,-0.5384,-0.2383,-0.7767,0.2198,0.8992
 oradell-nj:11698,oradell-nj,ALBhjrm3HczxGzFjNyIdEQ,mid,1,xml,0.4603,-0.6042,-0.1440,0.0220,0.9414
+oradell-nj:11701,oradell-nj,ALBhjrm3HczxGzFjNyIdEQ,mid,1,xml,-0.0009,0.6539,0.6530,7.1410,0.9540
 oradell-nj:11703,oradell-nj,ALBhjrm3HczxGzFjNyIdEQ,mid,1,xml,1.1493,0.1946,1.3439,1.1207,0.8766
 oradell-nj:11717,oradell-nj,Rap_HhG94-Iq3LPU8XlvVQ,mid,1,npz,1.5526,-1.3077,0.2448,2.1974,1.0056
 oradell-nj:11988,oradell-nj,xE26-6xdmicsrWioEz8asw,mid,1,npz,-1.0750,0.5692,-0.5058,0.0001,0.8596
@@ -6889,6 +6923,7 @@ oradell-nj:12538,oradell-nj,QSi-X0zwaqMR5rhs09kYig,mid,1,xml,0.0192,0.1791,0.198
 oradell-nj:12539,oradell-nj,QSi-X0zwaqMR5rhs09kYig,mid,1,xml,-0.0619,0.1057,0.0437,1.2743,0.8639
 oradell-nj:1256,oradell-nj,dcXeX6IgPcIhfqxfn0Zkow,mid,1,xml,0.2927,0.5322,0.8249,2.6147,0.9595
 oradell-nj:12563,oradell-nj,4AXUGdw6cUZIr45baPNLUg,mid,1,npz,-7.3916,-0.8434,-8.2351,-5.7348,0.7899
+oradell-nj:12566,oradell-nj,xSWQF-ZBbSvFSHU0uyMcLQ,mid,1,npz,8.1991,-0.9714,7.2278,8.9869,1.0047
 oradell-nj:12587,oradell-nj,AK0xN_YlwcXiXk9BQlcSeA,mid,1,npz,-0.0897,0.3596,0.2699,0.9229,0.9384
 oradell-nj:12588,oradell-nj,AK0xN_YlwcXiXk9BQlcSeA,mid,1,npz,0.0091,0.5835,0.5927,-0.1537,0.9305
 oradell-nj:12647,oradell-nj,bG4FoWBr0lgFvkupJTSgfw,mid,1,xml,-1.4000,-1.1443,-2.5443,-2.2191,0.9017
@@ -7118,6 +7153,7 @@ oradell-nj:3521,oradell-nj,maCJymSfWDpBnkPsWDZHlQ,mid,1,xml,-0.0518,-2.9280,-2.9
 oradell-nj:3536,oradell-nj,cg3ea-CYaNp8Mf3p082fUg,mid,1,xml,2.0237,-2.1925,-0.1688,0.1539,0.8747
 oradell-nj:3538,oradell-nj,cg3ea-CYaNp8Mf3p082fUg,mid,1,xml,2.4485,1.0200,3.4685,5.1197,0.8274
 oradell-nj:3540,oradell-nj,Vt97GiZnUV_5dfj6ZRhBvA,mid,1,xml,2.9015,0.9751,3.8766,4.4164,0.8394
+oradell-nj:3542,oradell-nj,28tGbhCsMyFUsKRs7-jp_A,mid,1,xml,2.0549,0.5847,2.6396,6.0425,0.5995
 oradell-nj:3548,oradell-nj,P2oG80YSOoGQEM11Ei9pgA,mid,1,xml,0.5763,1.4462,2.0225,2.2193,0.9653
 oradell-nj:3552,oradell-nj,P2oG80YSOoGQEM11Ei9pgA,mid,1,xml,0.6455,-0.2051,0.4404,0.9667,0.9513
 oradell-nj:3553,oradell-nj,P2oG80YSOoGQEM11Ei9pgA,mid,1,xml,0.6031,-1.1508,-0.5477,0.5933,1.0062
@@ -7187,6 +7223,7 @@ oradell-nj:4556,oradell-nj,wKcl5yL2TcoAdKexbILpHg,mid,1,xml,-0.0454,0.6981,0.652
 oradell-nj:4559,oradell-nj,wKcl5yL2TcoAdKexbILpHg,mid,1,xml,-0.0268,-1.2483,-1.2751,-1.3844,0.6420
 oradell-nj:4566,oradell-nj,wKcl5yL2TcoAdKexbILpHg,mid,1,xml,0.0367,-1.0290,-0.9923,0.0440,0.6152
 oradell-nj:4582,oradell-nj,RX1wowphHzpPPNOGFyupFw,mid,1,xml,-3.6461,1.2924,-2.3537,-1.0985,0.8624
+oradell-nj:4585,oradell-nj,3qpiK-sekiW55rT586HjIA,mid,1,xml,2.9945,1.5768,4.5713,6.8334,0.9256
 oradell-nj:4586,oradell-nj,3qpiK-sekiW55rT586HjIA,mid,1,xml,-2.3969,1.9941,-0.4028,-0.5712,0.8852
 oradell-nj:4642,oradell-nj,LrNYjRzC0RzGp0jBBdPfEg,mid,1,xml,-0.4265,0.6584,0.2319,1.2745,0.8353
 oradell-nj:4643,oradell-nj,LrNYjRzC0RzGp0jBBdPfEg,mid,1,xml,-0.1229,-2.2956,-2.4186,-3.0981,0.8251
@@ -7393,6 +7430,7 @@ oradell-nj:670,oradell-nj,sTINWB88j2v2HL8NfeNllw,mid,1,xml,0.5801,-1.0362,-0.456
 oradell-nj:671,oradell-nj,sTINWB88j2v2HL8NfeNllw,mid,1,xml,0.9095,-0.2542,0.6553,1.7359,0.8571
 oradell-nj:6710,oradell-nj,GqQZYcmLJtVdYoNW1wCpDQ,mid,1,xml,-2.0861,-0.1152,-2.2013,-0.8788,0.9193
 oradell-nj:6715,oradell-nj,9ky9X2rexogDQTZSkOoI8g,mid,1,xml,-0.8548,-1.1615,-2.0163,-2.7026,0.8702
+oradell-nj:6716,oradell-nj,9ky9X2rexogDQTZSkOoI8g,mid,1,xml,0.0594,1.6125,1.6719,7.0312,0.8285
 oradell-nj:6717,oradell-nj,OiG9lGXTTKp8rFySdpKLag,mid,1,xml,-2.0811,0.1617,-1.9195,-2.2411,0.9093
 oradell-nj:6718,oradell-nj,OiG9lGXTTKp8rFySdpKLag,mid,1,xml,2.3322,0.1418,2.4740,2.6807,0.9222
 oradell-nj:6725,oradell-nj,V-peAPS9EEYhY8tQxzduiw,mid,1,xml,0.3636,-2.0474,-1.6838,-0.9008,1.0040
@@ -7445,9 +7483,11 @@ oradell-nj:7113,oradell-nj,a8ZJUi3cHjiwDRyGfN89iQ,mid,1,xml,0.6707,0.6385,1.3093
 oradell-nj:7114,oradell-nj,ZWMnBBRzsSs2qVtlmZxciw,mid,1,xml,-2.0943,0.6546,-1.4397,-3.7572,0.9677
 oradell-nj:7115,oradell-nj,Vw2f6PqIIC16P6oua6iCgQ,mid,1,xml,-1.5872,-1.7551,-3.3424,-4.7022,0.9615
 oradell-nj:7121,oradell-nj,LazTuyKbeW3sTIsjK5nQLw,mid,1,xml,-0.9176,0.5775,-0.3401,-4.1969,0.9808
+oradell-nj:7122,oradell-nj,3gfFOciC8l1xqkdcKsJgDA,mid,1,xml,-2.4382,-0.1861,-2.6242,-6.2841,0.8735
 oradell-nj:7129,oradell-nj,zeTMFIvN2R1ddGwceq_4mA,mid,1,xml,0.8412,0.7750,1.6163,-1.0985,0.8712
 oradell-nj:7130,oradell-nj,zeTMFIvN2R1ddGwceq_4mA,mid,1,xml,0.7871,-0.7872,-0.0001,-2.6368,0.9603
 oradell-nj:7137,oradell-nj,-WB6UWO3NvXT1HgBtup5Gw,mid,1,xml,-0.3052,-2.4486,-2.7538,-4.5043,0.9080
+oradell-nj:7141,oradell-nj,YlK3MFCpBqOFYoYA9jbspA,mid,1,xml,-1.8165,0.8178,-0.9987,-6.0644,0.7686
 oradell-nj:7142,oradell-nj,YlK3MFCpBqOFYoYA9jbspA,mid,1,xml,-1.4928,-1.1068,-2.5996,-3.5155,0.8297
 oradell-nj:7147,oradell-nj,TyULFww2rAxw2eMujDvAyg,mid,1,xml,-0.5734,-0.0662,-0.6396,-3.1860,0.8251
 oradell-nj:7151,oradell-nj,Tu5MN4i-9qVTV2F-Hv7cMw,mid,1,xml,-0.6738,2.0891,1.4153,0.3244,0.8925
@@ -7462,6 +7502,8 @@ oradell-nj:7305,oradell-nj,Lyr9EwXtx8RoD6rvThIfsA,mid,1,xml,0.1261,-0.1288,-0.00
 oradell-nj:7317,oradell-nj,JRVAGNJfTJk4R892NvD-dA,mid,1,xml,-0.5089,1.3979,0.8890,1.7140,0.7647
 oradell-nj:7326,oradell-nj,awZzkczpt-3Ya6BA1ujZ5g,mid,1,xml,0.1668,-1.2398,-1.0730,-2.3949,0.8839
 oradell-nj:7329,oradell-nj,awZzkczpt-3Ya6BA1ujZ5g,mid,1,xml,-0.2847,1.1625,0.8777,0.3295,0.8553
+oradell-nj:7336,oradell-nj,mz0JtT8IzA_I6N1UHH2-MQ,mid,1,npz,-0.9232,-3.6441,-4.5673,-6.5444,0.8178
+oradell-nj:7341,oradell-nj,HlppgJke5HfDALa2hbOOWA,mid,1,xml,-1.4054,-3.3972,-4.8026,-6.8960,0.9463
 oradell-nj:7354,oradell-nj,e_O4HDMXImOmCpbNJLlj2Q,mid,1,xml,-0.8568,-0.3163,-1.1731,-3.5815,0.8983
 oradell-nj:7355,oradell-nj,e_O4HDMXImOmCpbNJLlj2Q,mid,1,xml,-0.7376,0.4818,-0.2558,-1.6259,0.6375
 oradell-nj:7356,oradell-nj,e_O4HDMXImOmCpbNJLlj2Q,mid,1,xml,0.4854,0.6683,1.1537,-0.2418,0.7111
@@ -7475,6 +7517,9 @@ oradell-nj:7384,oradell-nj,hAGVqB-7uuDDAxhEQ6Hrbw,mid,1,npz,0.3960,-0.9962,-0.60
 oradell-nj:7398,oradell-nj,N2vPfKHBm8f56GXaQoXybQ,mid,1,xml,-1.5008,-1.5298,-3.0305,-3.1861,0.9391
 oradell-nj:7421,oradell-nj,1w6_iEuJ4PUCSthCaiFq2A,mid,1,npz,-3.9397,0.2611,-3.6786,-5.1415,0.9803
 oradell-nj:7438,oradell-nj,DNsNxuldzdqRMB3PRSIU6A,mid,1,npz,0.1987,-0.5411,-0.3424,-3.2519,0.9090
+oradell-nj:7460,oradell-nj,SXxwS7nOLQz6qElb24P_kA,mid,1,npz,-4.0765,-1.9571,-6.0336,-7.6904,0.9645
+oradell-nj:7464,oradell-nj,1ABuIDf8TYLcUIsLfVPJnQ,mid,1,npz,-5.0530,0.0495,-5.0035,-6.3821,0.9444
+oradell-nj:7465,oradell-nj,zWp_XNJt6qxMroM3fmZIEQ,mid,1,npz,-0.2366,-7.8202,-8.0567,-7.9542,0.8550
 oradell-nj:7476,oradell-nj,eVOkW7CziZU4E-EViBzQ1w,mid,1,npz,6.6214,-0.4255,6.1959,5.6251,0.8180
 oradell-nj:7485,oradell-nj,WKdfC2mfcxCLK6KHbK1tJA,mid,1,npz,1.1377,-0.3158,0.8219,-1.3521,0.9002
 oradell-nj:7503,oradell-nj,sHbUpA1k_A47jHqK2SGLzg,mid,1,xml,0.6186,0.9287,1.5473,-0.7252,0.9703
@@ -7683,6 +7728,8 @@ oradell-nj:9802,oradell-nj,G5eV8x15UzVuFAfEjRYFyQ,mid,1,xml,0.3315,-2.7817,-2.45
 oradell-nj:9809,oradell-nj,G5eV8x15UzVuFAfEjRYFyQ,mid,1,xml,0.6599,0.9950,1.6549,3.7133,0.9312
 oradell-nj:9810,oradell-nj,G5eV8x15UzVuFAfEjRYFyQ,mid,1,xml,0.4435,2.4370,2.8804,3.5155,0.9675
 oradell-nj:9812,oradell-nj,2csrWHB_KXe0n6TB-LH6UA,mid,1,xml,0.3892,-0.9390,-0.5498,0.5680,0.9715
+oradell-nj:9814,oradell-nj,2csrWHB_KXe0n6TB-LH6UA,mid,1,xml,0.0277,1.1700,1.1977,8.0319,0.8145
+oradell-nj:983,oradell-nj,Ko964t_Cng7uh9vTpFmIgw,mid,1,xml,-3.4070,-0.6108,-4.0178,-6.2621,0.7588
 oradell-nj:991,oradell-nj,KnEw8qBwxtclVQt6BwvoLQ,mid,1,xml,-4.4450,-0.2871,-4.7321,-3.9989,0.7906
 oradell-nj:9919,oradell-nj,M7qsCXmx-Q2rZn_JMpz8Rw,mid,1,xml,0.7352,-0.4158,0.3195,2.3799,0.9466
 oradell-nj:9924,oradell-nj,Ut_xh27vHcGLRZO-zpbcxg,mid,1,npz,-0.3713,0.2311,-0.1402,1.8389,0.8652
@@ -7760,6 +7807,7 @@ paterson-nj:36737,paterson-nj,vq_duzwyUNIbsVHMeflsWw,post179,1,npz,0.2475,-1.644
 paterson-nj:36788,paterson-nj,K1WhLk_l0f-tEdiUroOW3g,post179,1,npz,1.1900,0.5765,1.7665,1.0985,0.8462
 paterson-nj:36875,paterson-nj,dzgGcysLIgEFyH9le7SaaA,post179,1,npz,0.8340,1.3915,2.2255,1.4063,0.8685
 paterson-nj:37200,paterson-nj,8fockW4dbG-bugPFkW37ig,post179,1,npz,-0.0927,-0.0383,-0.1310,-2.4389,0.9416
+paterson-nj:37541,paterson-nj,aDIBRuEcg4q8ZwLWMKsusg,post179,1,npz,-1.5588,-2.9486,-4.5074,-7.5146,0.9880
 paterson-nj:37682,paterson-nj,rsBBptmE2-l16MZqCDfYBg,post179,1,npz,1.5654,-0.1594,1.4060,3.2958,0.9863
 paterson-nj:38129,paterson-nj,wFy1rNsBJQGVt2rox78P5g,post179,1,npz,-0.2088,1.4825,1.2737,0.2418,0.8262
 paterson-nj:39382,paterson-nj,c1xoA05CrGvlxOZKBNtTAg,post179,1,npz,0.0423,-0.4692,-0.4268,-0.3297,0.6381
@@ -7838,11 +7886,13 @@ pittsburgh-pa:1014,pittsburgh-pa,8AmDJiXJO7SH3A5R3OPBFw,legacy,1,xml,-0.6384,0.4
 pittsburgh-pa:10177,pittsburgh-pa,qvgN0WLLw-49MtbeSNGSYw,mid,1,xml,1.5057,-1.5896,-0.0839,4.1107,0.5572
 pittsburgh-pa:10193,pittsburgh-pa,yfNwDqFmcY8dZI9bcZncPg,mid,1,xml,3.0814,-1.1920,1.8894,3.1200,0.8357
 pittsburgh-pa:10194,pittsburgh-pa,yfNwDqFmcY8dZI9bcZncPg,mid,1,xml,-0.4145,1.3411,0.9266,-0.5932,0.8924
+pittsburgh-pa:10222,pittsburgh-pa,USlKHDcFxJR7hwUPF9mXkQ,mid,1,xml,4.9392,0.5314,5.4706,6.2183,1.0061
 pittsburgh-pa:10229,pittsburgh-pa,vPbNuvUAZsWgw2sx-CjJqw,mid,1,xml,5.3133,0.2840,5.5973,5.3612,0.8995
 pittsburgh-pa:10231,pittsburgh-pa,sb_ORwLvxwerSF3BAuUanw,mid,1,xml,3.2669,0.2720,3.5388,3.8673,0.9143
 pittsburgh-pa:10242,pittsburgh-pa,qV2W8wwVL4Rzz0R-Xdq99w,mid,1,xml,1.9692,0.3128,2.2820,2.5489,0.9377
 pittsburgh-pa:10243,pittsburgh-pa,qV2W8wwVL4Rzz0R-Xdq99w,mid,1,xml,4.1590,0.1541,4.3130,5.8228,0.8787
 pittsburgh-pa:10255,pittsburgh-pa,JUtAxBW7Z-AZn_NTLkPhTA,mid,1,xml,1.1430,-0.7512,0.3918,3.2960,0.9119
+pittsburgh-pa:10264,pittsburgh-pa,2AHLF8XnlQM2ARizEqgBOw,mid,1,xml,5.6199,0.2105,5.8304,6.6578,0.9645
 pittsburgh-pa:10272,pittsburgh-pa,JUtAxBW7Z-AZn_NTLkPhTA,mid,1,xml,0.5117,0.9551,1.4668,3.9551,0.8639
 pittsburgh-pa:10276,pittsburgh-pa,fiTZhpSsmiQQBaEkKSpEAw,mid,1,xml,2.0479,-0.3503,1.6977,1.0328,0.9274
 pittsburgh-pa:10291,pittsburgh-pa,BiG67bFv-tVJJS8t6JfIEA,mid,1,xml,2.9810,-1.1980,1.7830,2.9883,1.0022
@@ -7872,6 +7922,8 @@ pittsburgh-pa:10722,pittsburgh-pa,ow6gpBlnVt3jI38XL4fNDw,mid,1,xml,-1.2734,0.086
 pittsburgh-pa:10729,pittsburgh-pa,9H-oPOC7AO1XySiiJQUVmA,mid,1,xml,4.0157,0.0245,4.0402,4.6801,0.7697
 pittsburgh-pa:10750,pittsburgh-pa,cSzu9WUKATMqH-fYqjtmNQ,mid,1,xml,1.9532,-1.3308,0.6224,-0.7470,0.9237
 pittsburgh-pa:10762,pittsburgh-pa,P_vyFB9WqLyY_JUop7Hglg,mid,1,xml,2.5796,-0.2614,2.3182,1.1646,0.8911
+pittsburgh-pa:10770,pittsburgh-pa,3hNyroDQtud_1TtRQUNQKw,mid,1,xml,8.0024,-0.0637,7.9386,6.5699,0.6879
+pittsburgh-pa:10772,pittsburgh-pa,TWM2scWnmZ4t0ZkeMqVPzg,mid,1,xml,6.7197,0.2135,6.9333,6.3282,0.9618
 pittsburgh-pa:10788,pittsburgh-pa,ouFRSKGvD5bFVLPNv07XGQ,mid,1,xml,2.7142,0.0414,2.7556,4.2188,0.9390
 pittsburgh-pa:108,pittsburgh-pa,q46QZSS5mY1rD6sagDUFPg,legacy,1,xml,0.8820,-0.5161,0.3659,-0.3297,0.8771
 pittsburgh-pa:10833,pittsburgh-pa,fHEg62KQBAHbpNK1uEIsNg,mid,1,xml,-0.1512,0.4107,0.2595,-0.8349,0.9694
@@ -7943,6 +7995,7 @@ pittsburgh-pa:12140,pittsburgh-pa,d1QMNQ1wVFqh_PZ1nsRkOA,mid,1,xml,1.6760,-2.119
 pittsburgh-pa:1218,pittsburgh-pa,NX3aVOq_jdZnTRGqgofADQ,legacy,1,xml,-3.0680,0.2033,-2.8647,3.7321,0.9105
 pittsburgh-pa:12253,pittsburgh-pa,DSA3KyFFLEkiL3V0EbiZcg,mid,1,xml,5.9215,-1.7792,4.1424,4.6143,0.7709
 pittsburgh-pa:12310,pittsburgh-pa,qwRe-iJy2C1_Obads-Oc6A,mid,1,xml,-1.7684,-0.7272,-2.4956,-2.7583,0.9302
+pittsburgh-pa:12386,pittsburgh-pa,pIbGhGqzEMYEcnnv7VG5_w,mid,1,xml,4.8614,2.0268,6.8882,6.1118,0.8580
 pittsburgh-pa:12424,pittsburgh-pa,ruLvU9HFEHWAWuZYORrk1w,mid,1,xml,-0.6312,3.2196,2.5884,2.5269,0.8998
 pittsburgh-pa:12429,pittsburgh-pa,ruLvU9HFEHWAWuZYORrk1w,mid,1,xml,-1.1468,-1.2358,-2.3825,-0.7470,1.0122
 pittsburgh-pa:12453,pittsburgh-pa,xM_Gu2SUTLQ9xpHuGFP3AQ,mid,1,xml,-5.1984,0.6531,-4.5453,-4.5704,0.8030
@@ -7951,6 +8004,7 @@ pittsburgh-pa:12550,pittsburgh-pa,8S8jXdnDHwgsFNC-EninCQ,mid,1,xml,0.4560,-2.163
 pittsburgh-pa:12559,pittsburgh-pa,mXTlbr_dJdTneWFprfCldA,mid,1,xml,-0.7063,-3.7554,-4.4617,-4.5922,0.9209
 pittsburgh-pa:12647,pittsburgh-pa,s1K1zvP4P_GPgZZc9LGa1A,mid,1,xml,0.1640,-0.6895,-0.5254,0.6373,0.7570
 pittsburgh-pa:12653,pittsburgh-pa,YHbBMp26j-JjzNH5MXOMWg,mid,1,xml,0.8201,-1.5951,-0.7750,1.2086,0.9407
+pittsburgh-pa:12674,pittsburgh-pa,0nKpkRKjX8JHAC4jrl8m_Q,mid,1,xml,-5.1180,-1.3286,-6.4466,-8.1940,0.9851
 pittsburgh-pa:12777,pittsburgh-pa,qa5dtDHbVrMNSXHRIQIJPQ,mid,1,xml,-0.3331,-1.0795,-1.4127,-1.5820,0.6365
 pittsburgh-pa:12781,pittsburgh-pa,n0lJqtj8OXkWdrVgL2gPTg,mid,1,xml,0.5753,-1.5399,-0.9645,-0.4395,0.9129
 pittsburgh-pa:12783,pittsburgh-pa,qa5dtDHbVrMNSXHRIQIJPQ,mid,1,xml,-0.8747,0.8092,-0.0655,0.1978,0.8721
@@ -7993,6 +8047,7 @@ pittsburgh-pa:13164,pittsburgh-pa,uCybrvuqYo-5CTmzEhPLwA,mid,1,xml,1.1679,-0.404
 pittsburgh-pa:13170,pittsburgh-pa,Zu08fxb02MMDkMBZAk5DMg,mid,1,xml,0.8303,2.0293,2.8597,-0.5934,0.7320
 pittsburgh-pa:13175,pittsburgh-pa,umfzgZjYQuBIslPrY5lW1Q,mid,1,xml,3.4615,-0.2619,3.1996,2.2193,0.6965
 pittsburgh-pa:132,pittsburgh-pa,mwkpIPMxlwN2AV-3K0pODg,legacy,1,xml,1.1296,-0.5973,0.5323,-2.6147,0.9037
+pittsburgh-pa:13236,pittsburgh-pa,ZBrsBwnK-lUpcbR_gGDfig,mid,1,xml,6.0105,-0.8227,5.1878,7.4049,0.9540
 pittsburgh-pa:13279,pittsburgh-pa,Zl0OYR-Lonr7v7DfToFFjg,mid,1,xml,-1.1192,-0.0448,-1.1640,0.4613,0.9386
 pittsburgh-pa:13280,pittsburgh-pa,w0o84dfoe57kN_PlDiBNTw,mid,1,xml,0.2328,-0.0727,0.1601,-1.9470,0.9118
 pittsburgh-pa:13284,pittsburgh-pa,w0o84dfoe57kN_PlDiBNTw,mid,1,xml,0.3678,0.0392,0.4071,0.6761,0.9370
@@ -8064,6 +8119,7 @@ pittsburgh-pa:14528,pittsburgh-pa,Xzkv8Vsm3Ix78lWW9dSMNg,mid,1,xml,0.8943,2.2867
 pittsburgh-pa:1453,pittsburgh-pa,lB1c8lneXRFwJjpIBBUc6Q,legacy,1,xml,0.0595,-0.7523,-0.6928,-0.3517,0.8433
 pittsburgh-pa:14531,pittsburgh-pa,zb8poYJHvbJZ3cz8-AHcOg,mid,1,xml,0.4979,0.5049,1.0028,-0.9228,0.9054
 pittsburgh-pa:14532,pittsburgh-pa,zb8poYJHvbJZ3cz8-AHcOg,mid,1,xml,-0.3567,0.6573,0.3006,-1.2743,0.9058
+pittsburgh-pa:14534,pittsburgh-pa,iczXK6uDm6HpcmAE4YT6wg,mid,1,xml,-3.7967,-1.1269,-4.9236,-6.0865,0.9122
 pittsburgh-pa:14535,pittsburgh-pa,iczXK6uDm6HpcmAE4YT6wg,mid,1,xml,3.0140,-1.2253,1.7887,1.7357,0.7090
 pittsburgh-pa:14536,pittsburgh-pa,HycRp-PCVOgiwXhzFShbOg,mid,1,xml,0.5457,0.4010,0.9467,0.3956,0.6339
 pittsburgh-pa:14537,pittsburgh-pa,HycRp-PCVOgiwXhzFShbOg,mid,1,xml,0.4930,-0.7689,-0.2758,-0.5055,0.9072
@@ -8090,6 +8146,7 @@ pittsburgh-pa:14865,pittsburgh-pa,TdyPtl8zVYzCBsfpDbUxrw,mid,1,xml,1.8083,1.3562
 pittsburgh-pa:14875,pittsburgh-pa,PTJEbpmjQwnZ01G2UH_vlA,mid,1,xml,-0.1367,0.5623,0.4256,-0.9735,0.8145
 pittsburgh-pa:14876,pittsburgh-pa,Cc_8Bc0rxb17LOpcDzq90Q,mid,1,xml,0.3174,1.5632,1.8805,-0.4056,0.8275
 pittsburgh-pa:14878,pittsburgh-pa,m3IWxm4jSyy5ZGFy3165vw,mid,1,xml,-0.0343,-1.5010,-1.5353,-1.3250,0.9419
+pittsburgh-pa:14883,pittsburgh-pa,VvPktFLZc6v-BysAkZPEIg,mid,1,xml,-2.1090,-1.4780,-3.5871,-8.4376,0.7987
 pittsburgh-pa:14887,pittsburgh-pa,fR8wVE3N1ARL5uq0J-HQaA,mid,1,xml,-0.1816,0.4596,0.2780,1.0818,0.7430
 pittsburgh-pa:14888,pittsburgh-pa,m3IWxm4jSyy5ZGFy3165vw,mid,1,xml,0.0339,-1.5413,-1.5075,-2.4338,0.7931
 pittsburgh-pa:14893,pittsburgh-pa,kQoFA_KzI7Ht37KOvixhog,mid,1,xml,-1.3246,0.8823,-0.4423,-2.3290,0.8762
@@ -8098,6 +8155,7 @@ pittsburgh-pa:14901,pittsburgh-pa,pjGLfaJ5EjFwpPSp9lJUXg,mid,1,xml,-0.8657,-0.51
 pittsburgh-pa:14902,pittsburgh-pa,pjGLfaJ5EjFwpPSp9lJUXg,mid,1,xml,-1.3744,-0.3493,-1.7237,-1.8676,0.9895
 pittsburgh-pa:14922,pittsburgh-pa,5AjwF-OmgUDJFxsVJCtuog,mid,1,xml,0.0283,0.6671,0.6954,0.1977,0.9723
 pittsburgh-pa:14939,pittsburgh-pa,G0Zh9xxkTrdBNwwc1hA92Q,mid,1,xml,1.0782,0.9401,2.0183,0.1099,0.9130
+pittsburgh-pa:14949,pittsburgh-pa,0P2QJh57CA79NFwu3P1Sow,mid,1,xml,0.0303,2.6164,2.6467,8.0641,0.9020
 pittsburgh-pa:14953,pittsburgh-pa,WAbHADKZzkD1c9mo53eWfQ,mid,1,xml,-1.1646,-0.2602,-1.4249,0.0660,0.8961
 pittsburgh-pa:14954,pittsburgh-pa,WAbHADKZzkD1c9mo53eWfQ,mid,1,xml,-1.1901,0.2507,-0.9394,-0.0878,1.0094
 pittsburgh-pa:14955,pittsburgh-pa,WAbHADKZzkD1c9mo53eWfQ,mid,1,xml,-0.7380,0.3651,-0.3729,1.0766,0.8368
@@ -8115,6 +8173,7 @@ pittsburgh-pa:15054,pittsburgh-pa,aXpDGCuKomBnFg3yBRNFrg,mid,1,xml,0.6914,-1.048
 pittsburgh-pa:15055,pittsburgh-pa,DxyQkHTZRL1sozv1YTZgNw,mid,1,xml,0.3092,-0.3061,0.0031,-2.0434,0.6021
 pittsburgh-pa:15075,pittsburgh-pa,kMXuynQ9u4hIhJ7tzoC_mg,mid,1,xml,0.2649,2.4568,2.7217,2.7247,0.8276
 pittsburgh-pa:15081,pittsburgh-pa,Srrb0_9W7T8OgZ1EXGEFXA,mid,1,xml,0.5216,-0.2049,0.3167,2.0216,0.9540
+pittsburgh-pa:15082,pittsburgh-pa,nxLdl08ZuNAdps_MFcTDLA,mid,1,xml,8.1822,0.2788,8.4610,8.1131,0.7932
 pittsburgh-pa:15097,pittsburgh-pa,WErOoWTulfQsEhI-NuHuSg,mid,1,xml,-0.5264,-0.1086,-0.6350,0.0001,0.8502
 pittsburgh-pa:15111,pittsburgh-pa,RM2-4kzhde0yY8-XdhyRhA,mid,1,xml,-5.1503,0.3012,-4.8491,-4.3945,0.9225
 pittsburgh-pa:15113,pittsburgh-pa,v1FyhcV5G9HBh70KUjoFEA,mid,1,xml,0.2616,0.6879,0.9495,-1.8456,0.9658
@@ -8140,6 +8199,8 @@ pittsburgh-pa:15159,pittsburgh-pa,detOj-jdvTZhwIZ02zkqpQ,mid,1,xml,1.0150,0.2027
 pittsburgh-pa:15160,pittsburgh-pa,detOj-jdvTZhwIZ02zkqpQ,mid,1,xml,0.9037,-1.0204,-0.1167,0.3736,0.8983
 pittsburgh-pa:15161,pittsburgh-pa,srgE0a-PmHRR8gNio_zKaw,mid,1,xml,-2.5360,0.4777,-2.0584,-4.5702,0.8609
 pittsburgh-pa:15175,pittsburgh-pa,d6c4tEdkj-NtrGZJAeTWyA,mid,1,xml,0.0946,-0.3576,-0.2630,0.3954,0.9526
+pittsburgh-pa:15192,pittsburgh-pa,FnmgBOWAMf2obj_njnh6-A,mid,1,xml,-7.8384,1.3195,-6.5189,-6.6358,0.8262
+pittsburgh-pa:15193,pittsburgh-pa,FnmgBOWAMf2obj_njnh6-A,mid,1,xml,-8.5467,0.5032,-8.0435,-7.8441,0.9410
 pittsburgh-pa:152,pittsburgh-pa,9m0Xg-mZXdsLQBzMXjnRSQ,legacy,1,xml,0.1493,2.0741,2.2234,-0.0659,0.8990
 pittsburgh-pa:15220,pittsburgh-pa,gLPrb5OW8RbpYjS9hMApkw,mid,1,xml,-1.0435,-0.3317,-1.3752,-0.7690,0.9293
 pittsburgh-pa:15229,pittsburgh-pa,Do80e6izaRVslWjboCTniQ,mid,1,xml,-0.0211,-1.2893,-1.3104,-0.3515,0.9471
@@ -8179,6 +8240,7 @@ pittsburgh-pa:15410,pittsburgh-pa,J_HkNXrfKp74umsl84mMNA,mid,1,xml,1.8410,0.0755
 pittsburgh-pa:15417,pittsburgh-pa,5dM86sPPRUGJI3EkQaGClw,mid,1,xml,-0.5510,0.5229,-0.0281,-1.1645,0.7415
 pittsburgh-pa:15426,pittsburgh-pa,BQAV5eKMdxEwFIGRRnVsBA,mid,1,xml,-2.7576,-0.5829,-3.3405,-2.6366,0.5695
 pittsburgh-pa:15427,pittsburgh-pa,BQAV5eKMdxEwFIGRRnVsBA,mid,1,xml,-2.8102,0.2485,-2.5617,-3.4057,0.6941
+pittsburgh-pa:15429,pittsburgh-pa,UO7dJBEOyESMrWx_2QDMgg,mid,1,xml,4.7252,0.6547,5.3799,6.2843,0.9009
 pittsburgh-pa:15444,pittsburgh-pa,NK-JJYgNdkrespLgCee72Q,mid,1,xml,1.1484,-0.2111,0.9373,0.6153,0.9450
 pittsburgh-pa:15446,pittsburgh-pa,2qGPOSwKknZdmoFsKticxQ,mid,1,xml,1.0743,0.0678,1.1421,1.2086,0.8890
 pittsburgh-pa:15457,pittsburgh-pa,-wmfXwTcelhjqycz52u8nw,mid,1,xml,0.3478,-0.9594,-0.6116,-1.8017,0.9660
@@ -8307,6 +8369,7 @@ pittsburgh-pa:16456,pittsburgh-pa,iexp44g8aogv85pdfacNRA,mid,1,xml,1.0273,1.0623
 pittsburgh-pa:16458,pittsburgh-pa,iexp44g8aogv85pdfacNRA,mid,1,xml,-0.3179,-1.4425,-1.7604,-4.0868,0.9546
 pittsburgh-pa:16460,pittsburgh-pa,iexp44g8aogv85pdfacNRA,mid,1,xml,0.4482,-1.4076,-0.9594,-0.5932,0.9002
 pittsburgh-pa:16464,pittsburgh-pa,nfO9DqZfJiNQ7KOOf8JTxw,mid,1,xml,0.7200,-1.0339,-0.3139,1.8896,0.9068
+pittsburgh-pa:16466,pittsburgh-pa,cXUvWktp6a9vKcD6pqau3w,mid,1,xml,0.4305,0.7329,1.1634,7.2948,0.7382
 pittsburgh-pa:16467,pittsburgh-pa,cXUvWktp6a9vKcD6pqau3w,mid,1,xml,0.0358,-0.8110,-0.7752,1.4062,0.9166
 pittsburgh-pa:16469,pittsburgh-pa,J8V3VvxZb2tsTFQ1Hf836g,mid,1,xml,1.7433,-0.7712,0.9721,1.2745,0.6797
 pittsburgh-pa:16470,pittsburgh-pa,J8V3VvxZb2tsTFQ1Hf836g,mid,1,xml,2.7397,-0.5278,2.2119,4.3285,0.8620
@@ -8332,6 +8395,7 @@ pittsburgh-pa:16509,pittsburgh-pa,r3VR2o_xisjg-dTl_OPlLg,mid,1,xml,-1.3260,-0.29
 pittsburgh-pa:16511,pittsburgh-pa,r2fWpfBedSrbiG8h6SNa2g,mid,1,xml,0.2991,0.5281,0.8272,0.0220,0.8882
 pittsburgh-pa:16516,pittsburgh-pa,0Fp-NMaXRk4sGMF_1V1ZYQ,mid,1,xml,0.1565,-0.0936,0.0629,0.1100,0.8952
 pittsburgh-pa:16518,pittsburgh-pa,0Fp-NMaXRk4sGMF_1V1ZYQ,mid,1,xml,0.5272,0.0117,0.5390,-0.0440,0.8991
+pittsburgh-pa:167,pittsburgh-pa,oQTso5D_D2w65XSCJIdEDg,legacy,1,xml,7.1778,-0.2356,6.9422,8.8769,0.9127
 pittsburgh-pa:1677,pittsburgh-pa,IAFIGHFaEnmcRMpA5Xdleg,legacy,1,xml,0.1403,-0.0795,0.0608,-0.9008,0.8817
 pittsburgh-pa:1689,pittsburgh-pa,0D-CG8l4zSAhi6W_AvytXQ,legacy,1,xml,-0.0209,-1.7742,-1.7951,-2.2631,0.7456
 pittsburgh-pa:1710,pittsburgh-pa,rfuZDkLNay4Yo1nBlqhTcw,legacy,1,xml,5.0328,3.9248,8.9576,0.3515,0.8911
@@ -8518,8 +8582,10 @@ pittsburgh-pa:3950,pittsburgh-pa,-E795-uVgLF3fb_ScWcWeA,legacy,1,xml,-0.1915,1.5
 pittsburgh-pa:4043,pittsburgh-pa,giGZN4nw8wyTWHonrFDVhQ,legacy,1,xml,-0.4136,-0.6855,-1.0991,0.0810,0.6969
 pittsburgh-pa:4076,pittsburgh-pa,EHrsbFMdudQ9R7C42oGSVA,legacy,1,xml,-1.8769,8.2653,6.3884,1.6918,0.9158
 pittsburgh-pa:4078,pittsburgh-pa,H7kZJpl7IGuYwareZCUiuA,legacy,1,xml,0.6226,-0.6068,0.0158,-1.7577,0.9245
+pittsburgh-pa:4083,pittsburgh-pa,gHcGQx6KvdOtwI62MGIDwA,legacy,1,xml,10.8423,0.5903,11.4326,6.5699,0.9269
 pittsburgh-pa:4167,pittsburgh-pa,Gm-X-7kyz3_JcPAM5EDZZQ,legacy,1,xml,2.3073,-2.1513,0.1560,-1.4062,0.8195
 pittsburgh-pa:4197,pittsburgh-pa,5y68wFqw93xRF6VO0YwCpg,legacy,1,xml,-5.1794,0.4548,-4.7246,-4.0649,0.9589
+pittsburgh-pa:42,pittsburgh-pa,LqL4sUdMsUYMQQyhONbKbQ,legacy,1,xml,-4.6095,-0.0454,-4.6549,-6.0644,0.9664
 pittsburgh-pa:43,pittsburgh-pa,W2s0jSMbgTuPTPxaM8X0jQ,legacy,1,xml,-3.9699,1.1164,-2.8535,-3.3398,0.8630
 pittsburgh-pa:4374,pittsburgh-pa,sqvLJdvB8RmEVwgXvvEwIA,legacy,1,xml,-0.1711,-0.0457,-0.2169,-2.5488,0.8726
 pittsburgh-pa:4376,pittsburgh-pa,h1rT920YVWwpVidIOhQ_oQ,legacy,1,xml,-0.1036,0.9205,0.8169,0.4176,0.8526
@@ -8650,7 +8716,9 @@ pittsburgh-pa:7991,pittsburgh-pa,6fRetC_BB4n9-k6_neV6kA,mid,1,xml,-0.4503,1.4265
 pittsburgh-pa:7995,pittsburgh-pa,6fRetC_BB4n9-k6_neV6kA,mid,1,xml,-0.7981,-0.2220,-1.0200,-0.5678,0.7602
 pittsburgh-pa:8070,pittsburgh-pa,mJUdTsiYKd4h8ncSB38Mng,mid,1,xml,0.1304,-0.1636,-0.0331,0.3077,0.9134
 pittsburgh-pa:8076,pittsburgh-pa,AE1fujSw93BGT5wA6E9AdA,mid,1,xml,-1.2674,-0.1385,-1.4059,-2.7465,0.9554
+pittsburgh-pa:8081,pittsburgh-pa,I8T3kA2dgBVYvdjTE3rK5A,mid,1,xml,-5.5857,0.9823,-4.6034,-6.0644,0.8853
 pittsburgh-pa:8082,pittsburgh-pa,54-lbCnNhS0q1KMV6Z4kXQ,mid,1,xml,-4.0069,-1.0019,-5.0088,-5.8886,0.9305
+pittsburgh-pa:8093,pittsburgh-pa,zbEUokd01oanpHZ6oI6t7g,mid,1,xml,0.4975,0.7646,1.2622,8.1130,0.5675
 pittsburgh-pa:8162,pittsburgh-pa,iX6ptcxyBqid0IFxWwD0cA,mid,1,xml,-0.4080,1.1109,0.7029,1.1866,0.8884
 pittsburgh-pa:8175,pittsburgh-pa,cUJP1GfrVkuTMooUOYGVSA,mid,1,xml,-1.9922,1.0724,-0.9197,1.8017,0.5768
 pittsburgh-pa:8200,pittsburgh-pa,bxkgH6OK9XDyUjx-OSVhQw,mid,1,xml,3.0642,0.2321,3.2963,2.2193,0.7397
@@ -8774,6 +8842,7 @@ seattle-wa:100438,seattle-wa,DNH1kgSPa6jzAv_YgHfIGA,legacy,1,xml,-0.2290,0.7967,
 seattle-wa:100441,seattle-wa,Yc21ZwCpWK3sbVM932Zi9A,legacy,1,xml,-0.5618,-0.1277,-0.6894,-0.2974,0.9470
 seattle-wa:100442,seattle-wa,Yc21ZwCpWK3sbVM932Zi9A,legacy,1,xml,-0.7115,0.0748,-0.6367,0.3787,0.9362
 seattle-wa:100445,seattle-wa,zfp3ezxLPQ1Rk8IA0S-MlQ,legacy,1,xml,-2.5135,-0.2759,-2.7895,-1.2963,1.0061
+seattle-wa:100465,seattle-wa,CG31fipgOXIwmWL88KXu9g,legacy,1,xml,-6.5649,0.3663,-6.1986,-8.9208,0.5978
 seattle-wa:100486,seattle-wa,hrW0LrLaAhG76GPN-Y0VCg,legacy,1,xml,0.4459,-0.0937,0.3522,0.9736,0.9020
 seattle-wa:100487,seattle-wa,hrW0LrLaAhG76GPN-Y0VCg,legacy,1,xml,-0.1824,-0.1720,-0.3545,0.8112,0.9841
 seattle-wa:100488,seattle-wa,hrW0LrLaAhG76GPN-Y0VCg,legacy,1,xml,-0.0615,0.1825,0.1210,0.7842,0.9192
@@ -8906,6 +8975,7 @@ seattle-wa:103958,seattle-wa,jJwvIeDFuOlgEeVTvRTfDA,legacy,1,xml,1.3267,-0.4958,
 seattle-wa:103967,seattle-wa,9ECR6A3k2ZAWD0gVtwmNkA,legacy,1,xml,-0.3467,-2.3958,-2.7425,-4.8339,0.9144
 seattle-wa:103968,seattle-wa,9ECR6A3k2ZAWD0gVtwmNkA,legacy,1,xml,-0.2677,3.6075,3.3397,3.0541,0.8257
 seattle-wa:104031,seattle-wa,zefjCxcYMLLztQ4lrxCKGA,legacy,1,xml,-0.9815,-0.3917,-1.3732,-1.8896,0.9540
+seattle-wa:104032,seattle-wa,fljbsopK8Vbxb3GA_kyowA,legacy,1,xml,8.8370,0.4161,9.2531,8.0201,0.9310
 seattle-wa:104063,seattle-wa,YsdeWZYwv9P7wSDUEXvN7Q,legacy,1,xml,-0.0159,3.3452,3.3293,1.2305,0.9512
 seattle-wa:104084,seattle-wa,YLrtxtsqLphcLNbcMMiCaw,legacy,1,xml,2.9703,-0.0522,2.9181,2.5928,0.9466
 seattle-wa:104094,seattle-wa,HSenWsBS068OiBx2KY4HPg,legacy,1,xml,0.4186,-2.9023,-2.4837,-5.4711,1.0090
@@ -9052,12 +9122,14 @@ seattle-wa:109448,seattle-wa,lYrMFRYWHsZKB0olkWqh3A,legacy,1,xml,0.4802,-0.9719,
 seattle-wa:109452,seattle-wa,cPrmqFXKq9t9UtbLZbVRcw,legacy,1,xml,0.9211,2.0861,3.0072,1.8676,0.7343
 seattle-wa:109453,seattle-wa,cPrmqFXKq9t9UtbLZbVRcw,legacy,1,xml,-0.3769,-2.7941,-3.1710,-3.6693,0.6456
 seattle-wa:109455,seattle-wa,oyV0NeYWNmnycO5FNgxmvQ,legacy,1,xml,0.3694,-2.2190,-1.8496,-3.4057,0.9894
+seattle-wa:109488,seattle-wa,c4inBHVqOYcJG1VOOJODqw,legacy,1,xml,-5.4393,-0.7968,-6.2361,-8.2836,0.9828
 seattle-wa:109555,seattle-wa,V_md5TJAbyRh1Yk6d-aAiA,legacy,1,xml,-0.0989,0.0669,-0.0320,-1.8456,0.9347
 seattle-wa:109573,seattle-wa,xhWKVJZZiwRbzG1lNP-V6A,legacy,1,xml,-0.6915,0.1026,-0.5889,-0.6371,0.9281
 seattle-wa:109632,seattle-wa,0hithoZazzmTHXai2qCeQg,legacy,1,xml,0.4180,3.1297,3.5476,4.0650,0.9621
 seattle-wa:109685,seattle-wa,3aN-TPQdqKQME8nnvoC4aA,legacy,1,xml,1.1150,1.7465,2.8615,2.0216,0.8165
 seattle-wa:109687,seattle-wa,Y3Mkb_k9wJhKS0c3mhkpbA,legacy,1,xml,0.0919,0.4037,0.4957,0.5274,0.9418
 seattle-wa:10969,seattle-wa,zfG8bl5fFvB9A1p98ARqaw,legacy,1,xml,-0.5753,0.2504,-0.3248,4.2727,0.8873
+seattle-wa:109691,seattle-wa,uGGqePT1YBbYK1ph-k_TyA,legacy,1,xml,-3.6855,-0.8133,-4.4988,-7.0092,0.9179
 seattle-wa:109704,seattle-wa,7y7aXG8-pMIGXuHbyjRz9Q,legacy,1,xml,-0.3032,0.0321,-0.2710,-1.8017,0.9799
 seattle-wa:109823,seattle-wa,HMhq4ISfmQF701s2Ni6jJQ,legacy,1,xml,-0.2886,-0.6304,-0.9190,-1.2963,0.9274
 seattle-wa:109967,seattle-wa,yRXNfY_O7Sj2vPriw9J-sg,legacy,1,xml,0.0287,2.5090,2.5377,0.2418,0.9221
@@ -9081,6 +9153,7 @@ seattle-wa:110715,seattle-wa,xQRXOZGuiBpYTWziI61XWQ,legacy,1,xml,-0.5554,-0.5125
 seattle-wa:110721,seattle-wa,GFlriX6T6wSnNyonsXfZYQ,legacy,1,xml,-0.1279,0.6212,0.4934,0.6812,0.9128
 seattle-wa:110726,seattle-wa,69f5orjiwilqCKPTwbikCg,legacy,1,xml,-0.3239,-1.8062,-2.1301,-1.0987,0.9697
 seattle-wa:110784,seattle-wa,VNb1cSmgWUnl6aHgX7AFBA,legacy,1,xml,0.0427,3.4627,3.5053,0.5680,0.9514
+seattle-wa:111000,seattle-wa,o7NcK5Hw3CAVzMjh7lo-xQ,legacy,1,xml,7.5963,-0.7754,6.8209,7.3829,0.9027
 seattle-wa:11110,seattle-wa,sg1hSoeORAusCSVRqTJGyg,legacy,1,xml,-1.1891,-0.0512,-1.2403,-1.9775,0.5643
 seattle-wa:111100,seattle-wa,NnogWe_Jkxp-9wNqwvS8Sg,legacy,1,xml,0.0034,-1.5329,-1.5294,-1.9116,0.9990
 seattle-wa:111493,seattle-wa,SpQek6Hc-LzMBtNP0jlPyg,legacy,1,xml,0.0820,-0.5487,-0.4667,-0.5712,1.0046
@@ -9169,8 +9242,10 @@ seattle-wa:117416,seattle-wa,X7VdpFFKvf1yfRjySV2e3A,legacy,1,xml,-0.4354,-1.9757
 seattle-wa:1178,seattle-wa,Rv4Qykv2Ru5AxSRJPyCfvA,legacy,1,xml,-0.3926,-1.1911,-1.5837,-1.9335,0.9792
 seattle-wa:11784,seattle-wa,RPSJm3NUI6w1XwBraz1RXg,legacy,1,xml,-0.6956,0.5877,-0.1079,1.6698,0.9220
 seattle-wa:117854,seattle-wa,l1XGNlHIK3NXciX9PFqpYg,legacy,1,xml,-1.0141,-3.6166,-4.6306,-1.8458,0.9464
+seattle-wa:117912,seattle-wa,LomxALAaOfm7ohTrjHPoBQ,legacy,1,xml,-0.0197,1.8562,1.8365,-6.3720,0.8758
 seattle-wa:117918,seattle-wa,vx8m3lYlESL0B7EQtfD3tA,legacy,1,xml,0.8128,0.4516,1.2644,-1.2304,0.9035
 seattle-wa:117963,seattle-wa,JxjxTy1YG90LBUulggn9CQ,legacy,1,xml,2.5636,0.4143,2.9779,2.1754,0.9656
+seattle-wa:118,seattle-wa,HTZEaw8gPnRj6ltd83FYaQ,legacy,1,xml,1.0862,2.8490,3.9352,6.4161,0.8078
 seattle-wa:1180,seattle-wa,428K3eLqQykyveOV_MKZsg,legacy,1,xml,0.0229,2.1291,2.1520,3.6915,0.7834
 seattle-wa:1181,seattle-wa,3gvkJeoys8zCU8oiRkTeYA,legacy,1,xml,-0.9222,0.2643,-0.6579,0.3297,0.8805
 seattle-wa:118406,seattle-wa,mo0-9n-_KktjUExWQubSUA,legacy,1,xml,0.0039,-0.0668,-0.0629,2.2193,0.7201
@@ -9211,6 +9286,7 @@ seattle-wa:120116,seattle-wa,Iz5r2_5UKzJz_VSsrXlfKg,legacy,1,xml,0.9798,3.4147,4
 seattle-wa:120117,seattle-wa,Iz5r2_5UKzJz_VSsrXlfKg,legacy,1,xml,1.1501,2.4623,3.6123,2.4610,0.9064
 seattle-wa:120119,seattle-wa,Iz5r2_5UKzJz_VSsrXlfKg,legacy,1,xml,-0.2274,-5.0678,-5.2952,-2.6586,0.9290
 seattle-wa:120123,seattle-wa,fXzPD5DKfDiu7-_jts6Xvw,legacy,1,xml,1.2292,0.2739,1.5032,-2.0214,0.6966
+seattle-wa:120147,seattle-wa,gvzBFq6ZNLq84Svv2x8log,legacy,1,xml,-3.5623,-0.1319,-3.6942,-6.8556,0.9750
 seattle-wa:120162,seattle-wa,hlqvO_nF0phTXZmFxvZgqQ,legacy,1,xml,-0.9658,-0.1325,-1.0983,-4.6801,1.0136
 seattle-wa:120198,seattle-wa,4yN8v5uUhnFiEss2rNhQdw,legacy,1,xml,0.4457,0.4544,0.9001,1.8678,0.9049
 seattle-wa:1202,seattle-wa,3BS7-mHEMDQbQ1HfbPEK5Q,legacy,1,xml,0.9760,-1.0002,-0.0243,-0.7250,0.9253
@@ -9258,7 +9334,9 @@ seattle-wa:121685,seattle-wa,oLMQ5TrR19fbUf__Cs6BwQ,legacy,1,xml,-0.0032,-0.0148
 seattle-wa:121793,seattle-wa,rWxXq-xIWuSf2Tx5_VvyUw,mid,1,xml,1.0319,0.9811,2.0130,-0.1351,0.8463
 seattle-wa:1218,seattle-wa,YA0PXYFdpLl93NCVBvJd0w,legacy,1,xml,-0.0592,-1.3504,-1.4096,-1.2084,0.9019
 seattle-wa:121818,seattle-wa,u7PZU5BAXStfMt2bBPKQtg,mid,1,xml,0.3149,-1.0682,-0.7533,-1.2086,0.8457
+seattle-wa:121892,seattle-wa,xObwiDv5SiT8VoUk8tQmAQ,mid,1,xml,-5.6333,1.0673,-4.5660,-6.4819,0.9160
 seattle-wa:121953,seattle-wa,XheJy5datxPOhcyoMXAkrA,mid,1,xml,-0.1235,-0.4295,-0.5530,-4.8779,0.9750
+seattle-wa:122083,seattle-wa,0ZREUs392qsWkZohR8MPMg,mid,1,xml,-1.3474,-2.3129,-3.6604,-6.9652,0.9021
 seattle-wa:122091,seattle-wa,uWSWvOOhDi_Fi6ZBthYvBQ,mid,1,xml,1.6420,-0.4648,1.1773,-0.7470,0.9714
 seattle-wa:122102,seattle-wa,PHauBmslXR1jX1gsaw3mjg,mid,1,xml,-1.8782,0.8681,-1.0101,-1.3842,0.9218
 seattle-wa:122103,seattle-wa,PHauBmslXR1jX1gsaw3mjg,mid,1,xml,-1.7773,-1.0087,-2.7861,-1.8676,0.9509
@@ -9281,6 +9359,7 @@ seattle-wa:122975,seattle-wa,L3sgKE2E7E9tf9V065Q4Kw,mid,1,xml,2.5375,-2.9123,-0.
 seattle-wa:1232,seattle-wa,QIyXD3LVDR8MzD37SaeYjw,legacy,1,xml,0.0402,0.4684,0.5086,0.7690,0.8469
 seattle-wa:123208,seattle-wa,GKReOzl-4HDmiXIdUxvXMQ,mid,1,xml,0.0514,-0.3197,-0.2683,-2.5927,0.9410
 seattle-wa:123212,seattle-wa,PXxw-Jee5ArV-OuDmuKItA,mid,1,xml,-0.0055,-0.1477,-0.1531,-2.6806,0.8982
+seattle-wa:123279,seattle-wa,WEkdLqKAL7AJruCPUrOiCQ,mid,1,xml,2.4753,-0.0651,2.4103,6.7016,0.8920
 seattle-wa:1233,seattle-wa,QIyXD3LVDR8MzD37SaeYjw,legacy,1,xml,0.3769,0.3229,0.6998,-0.1319,0.9844
 seattle-wa:12336,seattle-wa,BHAHQjPuq8Ah-Chb3JlTEw,legacy,1,xml,-0.6522,-0.6908,-1.3430,-2.7467,0.9098
 seattle-wa:123375,seattle-wa,oipe9ySknEUlZZMSayE-ag,mid,1,xml,-7.6306,-1.4421,-9.0728,-5.5590,0.9119
@@ -9314,6 +9393,7 @@ seattle-wa:124447,seattle-wa,rr9Q5Kb9QIcdS4BSmXFOQQ,mid,1,xml,0.0079,0.0113,0.01
 seattle-wa:124451,seattle-wa,4VVUpUQnc8U5pL4BuSuLqQ,mid,1,xml,0.8127,0.2471,1.0598,2.7467,0.9162
 seattle-wa:124476,seattle-wa,ewc9GrEdxNPeuUmPfAtMwQ,mid,1,xml,-0.9703,-0.5167,-1.4870,3.3839,0.9131
 seattle-wa:124575,seattle-wa,ghdxwIjZ3S7gWezoaIHbmQ,mid,1,xml,0.6346,-0.1647,0.4699,2.1636,0.6360
+seattle-wa:124624,seattle-wa,KF6DTT-PYNfRPj_zb_khfA,mid,1,xml,4.8611,-0.3249,4.5362,8.6573,0.9203
 seattle-wa:124672,seattle-wa,jplPUkwNezl3sJZ6v2A22A,mid,1,xml,-0.2169,0.6318,0.4149,-0.9448,0.9517
 seattle-wa:124675,seattle-wa,iLktNiiTpwdOGcruIZSX9Q,mid,1,xml,-0.4798,-2.3188,-2.7985,-2.7686,0.9593
 seattle-wa:124688,seattle-wa,rsuy05VcDuNA8X0s73dYRw,mid,1,xml,0.7588,-0.0409,0.7179,-1.3842,0.9527
@@ -9390,6 +9470,7 @@ seattle-wa:128699,seattle-wa,nwTw8G53w3Vvmbqn6eL5Dg,mid,1,xml,0.2900,-1.4706,-1.
 seattle-wa:1287,seattle-wa,YYH9cDkRPNoI1y55Clawqg,legacy,1,xml,-0.0274,0.8404,0.8130,-0.1318,0.8593
 seattle-wa:128778,seattle-wa,l8wLOQUz5MnUgSKTi5_bWQ,mid,1,xml,0.4542,-0.0782,0.3760,-2.9662,0.8615
 seattle-wa:128790,seattle-wa,mNyG6UZAyZO6xhC6tV9uyg,mid,1,xml,-0.0605,2.0306,1.9701,-0.2856,0.8825
+seattle-wa:128857,seattle-wa,TX5KENfWpac8yRk8IT7teQ,mid,1,xml,-0.0290,-4.0130,-4.0420,-6.5478,0.9108
 seattle-wa:12888,seattle-wa,Cl1MhVdATqHhklWLcEmK1Q,legacy,1,xml,-5.0637,0.0159,-5.0478,-5.1195,1.0061
 seattle-wa:1289,seattle-wa,YYH9cDkRPNoI1y55Clawqg,legacy,1,xml,0.0161,1.7013,1.7173,0.9229,0.7321
 seattle-wa:128981,seattle-wa,90lY6qne-JI51bYBckoakw,mid,1,xml,2.9507,-1.2775,1.6732,0.3956,0.6573
@@ -9408,12 +9489,14 @@ seattle-wa:129891,seattle-wa,9bwkq9WYqGKiq3LxPX49AA,mid,1,xml,-0.2154,-0.3267,-0
 seattle-wa:13000,seattle-wa,EbBZwlY11MoMS2xD9ffScA,legacy,1,xml,-0.4846,0.2553,-0.2293,-0.5053,0.9709
 seattle-wa:13011,seattle-wa,AZOeEczINVqPfFl1gnQjMw,legacy,1,xml,-3.3406,0.3590,-2.9816,-3.8451,0.9265
 seattle-wa:130194,seattle-wa,A5qgKi_Hglv2ftHon6S9dA,mid,1,xml,0.0845,-0.8698,-0.7852,-1.0548,0.9564
+seattle-wa:13025,seattle-wa,QQZrb9IkHVb5PV1u5e3sEg,legacy,1,xml,-6.6112,0.4184,-6.1928,-7.3607,0.8343
 seattle-wa:13061,seattle-wa,Y82-exiRWdjzwGDohEvZjw,legacy,1,xml,0.7325,0.4890,1.2215,1.1207,0.9177
 seattle-wa:130646,seattle-wa,TuVQHTtlEIS9rEuVYemjKA,mid,1,xml,-0.8042,-0.6455,-1.4497,-1.2745,0.8769
 seattle-wa:130706,seattle-wa,-Mlm66nvcWc3dX46BlT7dg,mid,1,xml,0.0386,-0.0610,-0.0224,0.7690,0.9413
 seattle-wa:130736,seattle-wa,coLn0PClyMaPmTaRf5OFbg,mid,1,xml,0.0549,-1.1555,-1.1006,-2.7026,0.8079
 seattle-wa:131,seattle-wa,RoOyujZ_v9GlaDgmKdclvw,legacy,1,xml,0.0373,0.5825,0.6198,1.4722,0.8131
 seattle-wa:1310,seattle-wa,T0YUnQQ99NaZWsSb4I1tFg,legacy,1,xml,0.5217,-0.4441,0.0776,-0.3954,0.8382
+seattle-wa:131211,seattle-wa,QWtanPxOp_M7ZYDkxm2zIw,mid,1,xml,3.7908,2.1834,5.9742,6.3502,0.8677
 seattle-wa:13131,seattle-wa,BbS8U78a288tYCaLQLORPQ,legacy,1,xml,-0.2204,-0.0169,-0.2373,-2.3071,0.9815
 seattle-wa:13149,seattle-wa,klnah4VfMCibwPWmsjPS_g,legacy,1,xml,0.0883,0.2663,0.3546,-0.8129,0.9311
 seattle-wa:131637,seattle-wa,ZtLX516pOvkqoZ9IS9xvrA,mid,1,xml,0.5324,-3.0359,-2.5036,-1.9337,0.9980
@@ -9479,6 +9562,7 @@ seattle-wa:133941,seattle-wa,4ryzHQqhWFS2ouy_gS2VuQ,mid,1,xml,-0.0832,-1.1882,-1
 seattle-wa:133946,seattle-wa,DOU080-uz8OsxcIL20Qe5w,mid,1,xml,-0.5415,0.3779,-0.1636,1.2306,0.9440
 seattle-wa:133958,seattle-wa,0gPSY6joku7rEcxQjTsQOA,mid,1,xml,1.1110,0.5113,1.6223,0.0440,0.8250
 seattle-wa:133959,seattle-wa,0gPSY6joku7rEcxQjTsQOA,mid,1,xml,0.9372,-0.7779,0.1592,-1.6479,0.9651
+seattle-wa:133960,seattle-wa,0W4wUWgzXHwOGmZYhVVFgQ,mid,1,xml,0.1863,-0.5355,-0.3492,-9.2944,0.9665
 seattle-wa:134,seattle-wa,RoOyujZ_v9GlaDgmKdclvw,legacy,1,xml,-0.0691,-0.5396,-0.6087,-1.2524,0.9839
 seattle-wa:134001,seattle-wa,_s87MmPzSjq4La-M-bgCrw,mid,1,xml,-0.7919,1.1689,0.3770,-0.2636,0.8878
 seattle-wa:134052,seattle-wa,RwlRk53PvRaTpvXO_aZpQw,mid,1,xml,-0.4532,-1.0704,-1.5236,-1.3622,0.9280
@@ -9614,6 +9698,7 @@ seattle-wa:13868,seattle-wa,xYZeNGrVmrc1CWdTCUBENw,legacy,1,xml,0.5722,0.0036,0.
 seattle-wa:138806,seattle-wa,xeiombExlqz53MVvJdNR9g,mid,1,xml,0.7847,0.8576,1.6423,0.3297,0.9539
 seattle-wa:13893,seattle-wa,WgQ-n1jC6xwIz8PaiZoEbg,legacy,1,xml,-0.0840,-0.0870,-0.1710,-1.2524,0.6424
 seattle-wa:138959,seattle-wa,46F6vggdFIfUtWJHl1pkdA,mid,1,xml,0.3117,-1.5229,-1.2112,-2.0434,0.9032
+seattle-wa:138968,seattle-wa,BRloZCzgSG2gPYZ-bK78jw,mid,1,xml,6.0276,0.4801,6.5077,6.1085,0.9193
 seattle-wa:138969,seattle-wa,BRloZCzgSG2gPYZ-bK78jw,mid,1,xml,5.8941,-0.6448,5.2493,4.9659,0.9309
 seattle-wa:138970,seattle-wa,BRloZCzgSG2gPYZ-bK78jw,mid,1,xml,2.6378,-1.9106,0.7273,1.6479,0.8290
 seattle-wa:139082,seattle-wa,cy-73HGuXgLPXdau2GtSkQ,mid,1,xml,-0.0001,1.0958,1.0957,-0.1537,0.9603
@@ -9688,6 +9773,7 @@ seattle-wa:141883,seattle-wa,KfFlqlIcuGCxvM2E9t_MWQ,mid,1,xml,1.3860,-1.3614,0.0
 seattle-wa:141884,seattle-wa,KfFlqlIcuGCxvM2E9t_MWQ,mid,1,xml,-1.3607,-1.3748,-2.7356,-1.4283,0.9371
 seattle-wa:141888,seattle-wa,BklgCjCq6uh3uZL9FeE5XQ,mid,1,xml,-1.7663,-1.9999,-3.7661,-2.5707,0.8237
 seattle-wa:141959,seattle-wa,GAKcq_rs8xp7bH9axGWe9g,mid,1,xml,1.6237,-0.8521,0.7716,0.7691,0.9634
+seattle-wa:141993,seattle-wa,0lOC1jLGuVjZxZb5aHoTKw,mid,1,xml,-4.4869,-2.6208,-7.1077,-7.7123,0.8920
 seattle-wa:142015,seattle-wa,-oGBix0CaeAEH-DuZIX9Hw,mid,1,xml,-0.1042,-0.4572,-0.5615,0.4835,0.9183
 seattle-wa:142018,seattle-wa,idkzq-wtU2npGTMOFJIDoA,mid,1,xml,1.6029,0.1605,1.7634,1.5162,0.8888
 seattle-wa:142068,seattle-wa,rtXwV1YU7I8t2a8v2b7XoA,mid,1,xml,0.1154,0.5388,0.6542,-1.7138,0.9541
@@ -9696,11 +9782,13 @@ seattle-wa:142155,seattle-wa,ESRDMZ_AgyHZKo3Pa19lCA,mid,1,xml,-1.2428,-0.7397,-1
 seattle-wa:142158,seattle-wa,SyE1WvKVFqmhsEclgX7rTw,mid,1,xml,0.1798,-2.0742,-1.8944,-1.5819,0.9003
 seattle-wa:142176,seattle-wa,kHKhbetPOMoWONrX6fuNHw,mid,1,xml,0.1469,-2.0746,-1.9278,0.7470,0.9068
 seattle-wa:142283,seattle-wa,BVPge6Yg0xrCmvcFi_-ESg,mid,1,xml,-1.1088,1.5405,0.4317,-0.3954,0.9508
+seattle-wa:1424,seattle-wa,fG8IfgmxxrrbToWxg1L50Q,legacy,1,xml,-2.1209,-0.9606,-3.0815,-8.2179,0.7941
 seattle-wa:142406,seattle-wa,-eDu7QXFWWNdA9xyuf1sLA,mid,1,xml,0.0521,-0.2678,-0.2156,-0.0660,0.9551
 seattle-wa:142454,seattle-wa,VuoN5JnTLD4kQ-mo4mILYw,mid,1,xml,-2.6467,0.0221,-2.6246,-4.4164,0.9204
 seattle-wa:1425,seattle-wa,fG8IfgmxxrrbToWxg1L50Q,legacy,1,xml,-2.0733,-0.9856,-3.0588,-0.7252,0.7941
 seattle-wa:142526,seattle-wa,N8590vuD7m7T6Xb2ak3BYw,mid,1,xml,1.7005,-0.6889,1.0116,-1.6699,0.9395
 seattle-wa:142529,seattle-wa,0Hvd83JtJGgUw43In579lA,mid,1,xml,-0.0851,-0.3877,-0.4728,0.9447,0.9738
+seattle-wa:142538,seattle-wa,40uDhLtrncu1W5OhNuP3LA,mid,1,xml,-1.2163,-0.6974,-1.9138,-6.3940,0.9690
 seattle-wa:142616,seattle-wa,vXJqxw6PASau04-_9TN0yA,mid,1,xml,-1.7854,0.3432,-1.4423,-4.8998,0.9343
 seattle-wa:142694,seattle-wa,fAy8YImutT3zMx-5hyBnSw,mid,1,xml,0.3476,0.0498,0.3973,-0.7909,0.6076
 seattle-wa:142722,seattle-wa,DLbMktU9h2-HcoApsh8DrA,mid,1,xml,-1.2820,-1.5064,-2.7884,-1.3842,0.8599
@@ -9844,6 +9932,7 @@ seattle-wa:147647,seattle-wa,zr4DcnnFxfmsN9Xr3NpkcA,mid,1,xml,0.4195,0.6985,1.11
 seattle-wa:147654,seattle-wa,ON11LFWPcPYaIcst3G84mQ,mid,1,xml,0.8032,-0.7053,0.0979,-1.4062,0.9028
 seattle-wa:147666,seattle-wa,4ozb-7WywUdH7ZApIxtq8Q,mid,1,xml,-0.6695,-0.4876,-1.1572,0.5055,0.8864
 seattle-wa:147667,seattle-wa,4ozb-7WywUdH7ZApIxtq8Q,mid,1,xml,-0.1193,-0.5410,-0.6603,1.2963,0.9121
+seattle-wa:147696,seattle-wa,k3uczP1MEcWTQHapEGNz0Q,mid,1,xml,0.4933,4.1600,4.6533,7.4268,0.8634
 seattle-wa:1477,seattle-wa,qrw2wMkBc27edCAXbwwlJA,legacy,1,xml,-0.0117,-0.4917,-0.5034,0.4615,0.5658
 seattle-wa:147730,seattle-wa,-4WWadJ-bI6v09RRlAwcbQ,mid,1,xml,-0.1693,0.0150,-0.1543,-0.3295,0.9682
 seattle-wa:14789,seattle-wa,dIeP_rz_FLf_SeOrSE9NlQ,legacy,1,xml,-0.4341,0.4594,0.0253,-1.6699,0.9489
@@ -9947,6 +10036,7 @@ seattle-wa:150919,seattle-wa,GudgUYn8zMXTde5GFwKe6A,mid,1,xml,1.5118,0.1681,1.68
 seattle-wa:150920,seattle-wa,GudgUYn8zMXTde5GFwKe6A,mid,1,xml,0.1025,0.1917,0.2941,0.0220,0.8218
 seattle-wa:150921,seattle-wa,GudgUYn8zMXTde5GFwKe6A,mid,1,xml,-2.5789,0.1097,-2.4692,-1.8458,1.0146
 seattle-wa:150964,seattle-wa,Dx5o3lw06vwuypDf6XbM5A,mid,1,xml,-2.1010,4.2098,2.1089,2.7247,0.8792
+seattle-wa:150967,seattle-wa,HC0dnlwoQsfNxQV9Hl17sQ,mid,1,xml,-2.0502,-4.4613,-6.5115,-7.0092,0.7720
 seattle-wa:150969,seattle-wa,HC0dnlwoQsfNxQV9Hl17sQ,mid,1,xml,1.9551,-4.8849,-2.9298,-2.0214,0.9328
 seattle-wa:150971,seattle-wa,7krpawdVpQXwdloB5nNY_Q,mid,1,xml,0.0825,-0.9592,-0.8766,-0.3295,0.9073
 seattle-wa:150972,seattle-wa,7krpawdVpQXwdloB5nNY_Q,mid,1,xml,0.0673,1.4780,1.5453,1.0328,0.9297
@@ -9969,6 +10059,7 @@ seattle-wa:151283,seattle-wa,1Q33X0666eePaGqJ2MOvDg,mid,1,xml,-0.6267,-0.2448,-0
 seattle-wa:15135,seattle-wa,15OZjQD4EMVZVNJEgNU98g,legacy,1,xml,1.0192,0.1277,1.1469,0.5494,0.7360
 seattle-wa:151353,seattle-wa,myLWf61OKpPUPMLkHZCUIw,mid,1,xml,0.9331,0.1066,1.0398,0.9449,0.9588
 seattle-wa:15136,seattle-wa,15OZjQD4EMVZVNJEgNU98g,legacy,1,xml,0.8420,0.1957,1.0377,0.5274,0.8805
+seattle-wa:151439,seattle-wa,qlUuFr_GDJaLAxIMbDyaJA,mid,1,xml,-0.3431,6.6760,6.3328,6.0576,0.9036
 seattle-wa:151622,seattle-wa,nt8kVWIIJdWYguhjag9riA,mid,1,xml,-0.1302,0.3509,0.2206,-0.3517,0.7935
 seattle-wa:151780,seattle-wa,b34hVdtkMqsK4YOXv-bVrA,mid,1,xml,-0.5075,0.2311,-0.2764,-3.7573,0.9151
 seattle-wa:151827,seattle-wa,d0S_63tb9_23Q9ymTle7Tw,mid,1,xml,-0.6666,0.9815,0.3150,-0.5932,0.9286
@@ -10056,6 +10147,8 @@ seattle-wa:156630,seattle-wa,-6fI3u73l1vhHaQGfBwfbA,mid,1,xml,0.9178,-0.4281,0.4
 seattle-wa:156648,seattle-wa,j_rL_c7TCvsTnOHKAUHJGA,mid,1,xml,-0.6150,-0.1035,-0.7185,-3.1200,0.7479
 seattle-wa:156727,seattle-wa,S4HVQJFYzo3CjnihnnvHFA,mid,1,xml,2.9911,0.3719,3.3629,2.0216,0.9283
 seattle-wa:15674,seattle-wa,EKzzfQSF8OdYyELAx3V_aQ,legacy,1,xml,2.1534,0.1963,2.3497,2.0435,0.9840
+seattle-wa:156763,seattle-wa,5PtJLIYkz0TS05U5TjlH0g,mid,1,xml,-4.1497,-0.7098,-4.8595,-6.6137,0.6741
+seattle-wa:156945,seattle-wa,a3uCTbR4eAGEDCJsaSsnsQ,mid,1,xml,0.7233,-2.0766,-1.3533,-6.6137,0.9569
 seattle-wa:157003,seattle-wa,7-GLfmyP7b60fhvK7sH-MQ,mid,1,xml,1.9611,-0.5022,1.4589,0.7909,0.8949
 seattle-wa:157007,seattle-wa,p8ijA1KcJfLpTEyoonFKnA,mid,1,xml,1.0328,1.0615,2.0942,1.0548,0.9633
 seattle-wa:157104,seattle-wa,gVNrWGOkZMuFLJkGaqHjgw,mid,1,xml,-0.2161,-0.6616,-0.8778,0.9669,0.9563
@@ -10073,6 +10166,7 @@ seattle-wa:157484,seattle-wa,P30NwwDh3-RBfxbeimbrQw,mid,1,xml,-1.4650,-0.5319,-1
 seattle-wa:157540,seattle-wa,9mEno1NXg3bag0HUwhyOsA,mid,1,xml,-0.2138,-1.0168,-1.2306,-0.0221,0.9865
 seattle-wa:15762,seattle-wa,v5qMzSRorq2TUu-GmIoKIw,legacy,1,xml,-0.2079,-0.5694,-0.7773,-1.6479,0.9095
 seattle-wa:157641,seattle-wa,MLsavTUwscIdsQjx683gqw,mid,1,xml,0.2238,1.1108,1.3346,-0.5712,0.8963
+seattle-wa:157642,seattle-wa,MLsavTUwscIdsQjx683gqw,mid,1,xml,-3.4139,-0.8402,-4.2541,-6.9872,0.8150
 seattle-wa:157656,seattle-wa,wAzZnk991SpsZMH65catjg,mid,1,xml,-0.1664,0.3828,0.2164,0.0660,0.9263
 seattle-wa:157677,seattle-wa,fDHCDC01tSaSntil9yIvGQ,mid,1,xml,-0.5507,-0.7033,-1.2540,-1.5160,0.9260
 seattle-wa:157684,seattle-wa,E2h_t8gOKtxKax86R-5F8w,mid,1,xml,0.2225,2.1707,2.3932,2.0875,0.9348
@@ -10100,6 +10194,7 @@ seattle-wa:158106,seattle-wa,n0OcXyrdv9mwoHGgqBvF2A,mid,1,xml,1.1600,0.9671,2.12
 seattle-wa:15811,seattle-wa,-xbGgev1EEjdvnLLI4pMSg,legacy,1,xml,0.1165,-1.1390,-1.0224,-0.1977,0.8219
 seattle-wa:158172,seattle-wa,8s7ej1W_cI9Y6SwnDFBO2g,mid,1,xml,0.3855,-0.0980,0.2875,-1.0107,1.0002
 seattle-wa:158201,seattle-wa,SR4rlVWVJGLu1Z_A_7KHaA,mid,1,xml,0.0896,-1.3973,-1.3077,-0.9447,0.8477
+seattle-wa:158300,seattle-wa,qxl4ixAay6k_-n29UExK5g,mid,1,xml,1.3271,-2.7379,-1.4108,-6.1658,0.8715
 seattle-wa:158318,seattle-wa,9WqNDt51Er50wVzH8cbRVQ,mid,1,xml,1.4286,0.1916,1.6202,3.0543,0.9498
 seattle-wa:158454,seattle-wa,hAMSEFwZRNH8LNNAYvWhmA,mid,1,xml,-0.3918,-1.2188,-1.6105,-2.7685,0.8980
 seattle-wa:158514,seattle-wa,m_f-PEmmiUKMjNdB77rR3A,mid,1,xml,-0.0317,0.2627,0.2310,-0.8569,0.8745
@@ -10167,6 +10262,8 @@ seattle-wa:162179,seattle-wa,jTLwjZSKW78XxMZkuMKU8Q,mid,1,xml,0.3478,-0.1972,0.1
 seattle-wa:162292,seattle-wa,zbtwThn4Dz-DigPz7i-teQ,mid,1,xml,0.3804,-0.6815,-0.3011,-0.0658,0.9468
 seattle-wa:162336,seattle-wa,holU29kYwiQ_AiJbhOOiIA,mid,1,xml,0.0221,0.1861,0.2083,-5.2514,0.9193
 seattle-wa:162413,seattle-wa,-vRdZcYgA5L_WUbqb7cQ6g,mid,1,xml,-3.7643,-2.3602,-6.1245,-5.0756,0.8846
+seattle-wa:162432,seattle-wa,nlZDHhZ51xDfSznVZBTUVg,mid,1,xml,2.8686,4.1411,7.0098,6.4820,0.9200
+seattle-wa:162434,seattle-wa,nlZDHhZ51xDfSznVZBTUVg,mid,1,xml,3.5904,3.5291,7.1195,8.5033,0.9488
 seattle-wa:162445,seattle-wa,v51tN4OIpYovqWrGVgECDA,mid,1,xml,-0.0879,-0.3870,-0.4750,0.3297,0.9704
 seattle-wa:162447,seattle-wa,qbTZWKmOieHxDQIwJn9nuQ,mid,1,xml,-1.0315,0.3352,-0.6963,-0.1098,0.9792
 seattle-wa:162448,seattle-wa,qbTZWKmOieHxDQIwJn9nuQ,mid,1,xml,-1.4033,0.2482,-1.1551,-1.6479,0.9176
@@ -10183,6 +10280,7 @@ seattle-wa:162599,seattle-wa,r_RmmFybpEoUC1RHtRSRkA,mid,1,xml,0.5620,-0.9371,-0.
 seattle-wa:162644,seattle-wa,X7pMO9jaxb1vMmypJpM39Q,mid,1,xml,-1.1252,-0.0179,-1.1431,-2.6586,0.8789
 seattle-wa:162669,seattle-wa,6sEWL55b6QNJptsoYOhrbg,mid,1,xml,-0.1939,5.4018,5.2079,3.3619,0.7414
 seattle-wa:162743,seattle-wa,pBxKLusVsPMvdXuPruSJuA,mid,1,xml,0.2285,-0.0986,0.1300,1.4942,1.0125
+seattle-wa:162797,seattle-wa,1fEhnuixi8ieMt3JuVvZUw,mid,1,xml,-0.2601,-5.0710,-5.3312,-6.1928,0.9882
 seattle-wa:162830,seattle-wa,uakfh1IC8UGSLbpjqM9M3A,mid,1,xml,-0.0044,-2.1479,-2.1524,-3.2738,0.8848
 seattle-wa:162834,seattle-wa,t-V6YejnWXh_wdOdaCS0pQ,mid,1,xml,-1.0317,-1.4386,-2.4703,-3.6913,0.9100
 seattle-wa:162964,seattle-wa,4RU83C8uxVV-KNZIvehv3w,mid,1,xml,0.9866,-0.2529,0.7337,-0.0878,0.8982
@@ -10251,6 +10349,7 @@ seattle-wa:166262,seattle-wa,dR4We2vmX-X9DF3gVWzWeQ,mid,1,xml,-1.8232,1.8262,0.0
 seattle-wa:16638,seattle-wa,9f8ijiH88cChEWeixp-ptQ,legacy,1,xml,0.0808,0.4026,0.4834,0.1319,0.8348
 seattle-wa:166498,seattle-wa,lgdsuWCNgcPYtKDCD8LosA,mid,1,xml,-0.0041,3.2470,3.2429,4.7022,0.9660
 seattle-wa:166627,seattle-wa,3LwVsU39cM3GtSdu4uT50Q,mid,1,xml,-1.1817,0.4527,-0.7290,0.1757,0.9556
+seattle-wa:16666,seattle-wa,R9v6VPhrBEMiwOAiK6f5_A,legacy,1,xml,0.0539,0.3042,0.3580,-9.1627,0.7726
 seattle-wa:166764,seattle-wa,D-alnx30eYIYr_mCQqrAfw,mid,1,xml,2.2171,0.1595,2.3765,2.1094,0.9449
 seattle-wa:166779,seattle-wa,Wol1cnRzS4A-apq26Wg88A,mid,1,xml,2.1320,-0.5369,1.5951,1.4503,0.9693
 seattle-wa:166811,seattle-wa,fuivxPcnq30hOTSvD_7j4g,mid,1,xml,-0.3519,1.0108,0.6589,-0.2416,0.8793
@@ -10318,6 +10417,7 @@ seattle-wa:170107,seattle-wa,TDmrjx3nidKiVYk880NUsQ,mid,1,xml,0.3572,0.7920,1.14
 seattle-wa:170109,seattle-wa,TDmrjx3nidKiVYk880NUsQ,mid,1,xml,0.8024,0.4432,1.2456,1.9557,0.9000
 seattle-wa:170117,seattle-wa,TDmrjx3nidKiVYk880NUsQ,mid,1,xml,0.8382,-0.3839,0.4543,-1.7358,0.8612
 seattle-wa:170176,seattle-wa,MUPLUYOCoyiBqy7TpV_Ejw,mid,1,xml,0.4857,0.4440,0.9297,-1.4332,0.9421
+seattle-wa:170276,seattle-wa,qud1egrvfNVW7yNHpxBuvA,mid,1,xml,-0.3515,-6.4240,-6.7754,-6.7896,0.9267
 seattle-wa:170338,seattle-wa,7zsS36W3sIOT-Xl9FOOpIQ,mid,1,xml,0.8573,0.0820,0.9392,0.1977,0.8964
 seattle-wa:170347,seattle-wa,R7xxAogAT3fZ4rHwGCZgXg,mid,1,xml,-0.3704,-1.2244,-1.5948,0.0880,0.9319
 seattle-wa:170369,seattle-wa,G99DGp1pGtZYmLReg0X99A,mid,1,xml,-0.5110,0.0939,-0.4171,2.5929,0.9387
@@ -10345,6 +10445,7 @@ seattle-wa:171133,seattle-wa,X22T6T-QnSCy_dUOReTZ6A,mid,1,xml,-0.3896,0.6944,0.3
 seattle-wa:171177,seattle-wa,lq6iSdYHGSJ6mRRqEQanBw,mid,1,xml,0.1227,0.2181,0.3407,0.9229,0.6211
 seattle-wa:171204,seattle-wa,IFP3UWduieKyaB8_oEvTsw,mid,1,xml,-0.2587,1.1451,0.8864,-0.1318,0.8992
 seattle-wa:17123,seattle-wa,7oUB1IKm6gm5yTmXh8nOlg,legacy,1,xml,-0.2903,1.6980,1.4077,4.2408,0.8817
+seattle-wa:171246,seattle-wa,HTaKeJB2iomMdZGXqr3L-Q,mid,1,xml,3.6898,1.6843,5.3740,7.0313,0.7163
 seattle-wa:171257,seattle-wa,8Mz-Q2DClTqgvFKbjgzMtw,mid,1,xml,-0.2303,-0.7334,-0.9637,-2.4828,0.9604
 seattle-wa:171455,seattle-wa,vyY6Un161ND-cMHkRJyrHA,mid,1,xml,2.1581,-0.2927,1.8655,2.2851,0.9191
 seattle-wa:171456,seattle-wa,vyY6Un161ND-cMHkRJyrHA,mid,1,xml,0.4185,-0.9377,-0.5192,-0.4174,0.9717
@@ -10410,6 +10511,7 @@ seattle-wa:175606,seattle-wa,GJMkUO0fJq4rvoViBhNlbg,mid,1,xml,-0.0424,1.7809,1.7
 seattle-wa:175609,seattle-wa,nyMlnI9gJVRkvDkZoZ0gOQ,mid,1,xml,-2.0948,-0.6790,-2.7738,-3.9330,0.7477
 seattle-wa:175722,seattle-wa,d55oqbkaFTos36TEN1pRYQ,mid,1,xml,-0.6364,-1.5970,-2.2334,-2.2851,0.9674
 seattle-wa:175745,seattle-wa,1eLGNcsvUWbqAxqhHq1p-Q,mid,1,xml,0.9931,-0.8097,0.1834,0.4615,0.9147
+seattle-wa:175965,seattle-wa,W0BR6vXmZTjjZ2D9fdEiqQ,mid,1,xml,0.2638,3.7603,4.0241,6.7235,0.9457
 seattle-wa:175975,seattle-wa,wGSdr7y3fNmvVT-PKjrh_Q,mid,1,xml,0.1820,2.4506,2.6326,3.7353,0.7072
 seattle-wa:176018,seattle-wa,S0QD384O6NKaWsjPBdAEHQ,mid,1,xml,1.4499,-3.4910,-2.0412,-1.4941,0.9699
 seattle-wa:176032,seattle-wa,DFkFgm2FGgyZ8dDZ3eP4UA,mid,1,xml,0.0304,-0.2053,-0.1750,1.0768,0.9072
@@ -10444,6 +10546,7 @@ seattle-wa:177912,seattle-wa,MLfKoRoHkArVzBt4KKWggg,mid,1,xml,0.5115,-2.1731,-1.
 seattle-wa:177982,seattle-wa,tleUaLfbutKSn9MhRgD14A,mid,1,xml,0.4644,1.6084,2.0728,1.3184,0.9789
 seattle-wa:178087,seattle-wa,oYnmZO36JagrlN-HNs_Wxg,mid,1,xml,0.4051,0.0639,0.4691,0.7472,0.8128
 seattle-wa:17815,seattle-wa,cIoARStASzfs8y6Jpbwr8Q,legacy,1,xml,0.7840,-0.8371,-0.0531,-1.3183,0.9265
+seattle-wa:178160,seattle-wa,pco10DSvb2CW9KuBS9ASew,mid,1,xml,1.0409,2.9363,3.9772,6.2182,0.9553
 seattle-wa:178233,seattle-wa,LipQfGrlz9btNu5SY0HGFA,mid,1,xml,-0.0211,0.8742,0.8531,2.1973,0.7711
 seattle-wa:17826,seattle-wa,9FimWteIdNXJZjWLZmBJ5Q,legacy,1,xml,0.1168,-0.6257,-0.5088,0.9449,0.9627
 seattle-wa:178343,seattle-wa,04RWj1bYl9x_5n1bB3Xzdg,mid,1,xml,-0.8027,-2.0991,-2.9018,-4.5263,0.8806
@@ -10569,6 +10672,7 @@ seattle-wa:182385,seattle-wa,UMVRUHH6S7l0amkPrB6YzA,mid,1,xml,-0.0330,-1.2040,-1
 seattle-wa:182479,seattle-wa,k8kSVMX5bRnpxOkNMgH1ow,mid,1,xml,-1.6795,-0.2107,-1.8902,-1.1864,0.9880
 seattle-wa:182549,seattle-wa,UkypE3qxDQCC1i84S-56hA,mid,1,xml,0.9810,0.2587,1.2397,2.1314,0.9200
 seattle-wa:182569,seattle-wa,zFvZ-8MMTKN5ouWtogqoDQ,mid,1,xml,-0.0020,-0.3375,-0.3395,-1.0766,0.9673
+seattle-wa:18260,seattle-wa,gHCXI56TfdqB3QIMzX76Ag,legacy,1,xml,-4.7082,0.3618,-4.3464,-8.0419,0.8012
 seattle-wa:18266,seattle-wa,-3U8A-IJ0SPGQd379GCfMA,legacy,1,xml,0.1759,-1.5572,-1.3813,-1.9996,0.9202
 seattle-wa:182689,seattle-wa,IwPLN3qFX4MKjdLbvsQExg,mid,1,xml,-3.1921,0.0365,-3.1556,-3.1861,0.9718
 seattle-wa:18276,seattle-wa,u4p4FRmPC__PnZqVF2-nxQ,legacy,1,xml,-0.1715,-0.5634,-0.7349,-0.2857,0.8246
@@ -10601,6 +10705,7 @@ seattle-wa:183877,seattle-wa,cmn0Ddcbv8z7GN3AO-oYPw,mid,1,xml,-0.0402,0.1785,0.1
 seattle-wa:183878,seattle-wa,cmn0Ddcbv8z7GN3AO-oYPw,mid,1,xml,-0.0140,-0.3591,-0.3731,-0.9008,0.8370
 seattle-wa:183881,seattle-wa,cmn0Ddcbv8z7GN3AO-oYPw,mid,1,xml,0.0432,0.1209,0.1641,0.3075,0.6432
 seattle-wa:183928,seattle-wa,Q2UTux0IfhGT2JzEwji2YQ,mid,1,xml,-0.0924,-0.9410,-1.0334,0.9887,0.8744
+seattle-wa:183929,seattle-wa,Q2UTux0IfhGT2JzEwji2YQ,mid,1,xml,-0.0646,-0.9495,-1.0141,-9.7340,0.8744
 seattle-wa:183935,seattle-wa,PlM-3netAkmv8UplehlrkA,mid,1,xml,-1.1649,0.4616,-0.7033,-0.5712,0.9424
 seattle-wa:183936,seattle-wa,PlM-3netAkmv8UplehlrkA,mid,1,xml,0.2176,0.7378,0.9554,0.6592,0.7865
 seattle-wa:183937,seattle-wa,PlM-3netAkmv8UplehlrkA,mid,1,xml,1.1582,0.4658,1.6240,1.8458,0.9264
@@ -10728,6 +10833,7 @@ seattle-wa:188009,seattle-wa,c8T-ZFh2sB_hf8ptIls3pQ,mid,1,xml,-0.6951,-0.6277,-1
 seattle-wa:18803,seattle-wa,jWUwBZslpsuL2pqe2Rqw4g,legacy,1,xml,0.4123,0.7292,1.1415,-0.4174,0.9508
 seattle-wa:18806,seattle-wa,kJCbGtq4pxF1e5JIy0umBQ,legacy,1,xml,-1.1699,0.8142,-0.3557,-0.7911,0.9453
 seattle-wa:188125,seattle-wa,cxMpEYEYrjA4wq8ztaemmQ,mid,1,xml,0.6846,1.5562,2.2408,2.1973,0.7731
+seattle-wa:188129,seattle-wa,QWtanPxOp_M7ZYDkxm2zIw,mid,1,xml,3.8806,2.0750,5.9556,7.2730,0.8677
 seattle-wa:188138,seattle-wa,irmFnJqi2h14DcD4wL3sLg,mid,1,xml,0.4416,0.1481,0.5896,0.6371,0.7724
 seattle-wa:188140,seattle-wa,FUdKvlGbdj7eg7pXBLZu2g,mid,1,xml,0.0427,-0.2372,-0.1945,0.4395,0.8876
 seattle-wa:18823,seattle-wa,V7fLqxsZp-LfGn74qV42ow,legacy,1,xml,1.1142,-1.0871,0.0271,-0.7031,0.8723
@@ -10803,6 +10909,7 @@ seattle-wa:190724,seattle-wa,c5rJW-svOlBtklhpTtCN0g,mid,1,xml,4.0242,-1.4111,2.6
 seattle-wa:190728,seattle-wa,WZEgl2R_zmMkX2NYNtN-IA,mid,1,xml,0.1494,-1.6737,-1.5243,-2.4391,0.9468
 seattle-wa:190736,seattle-wa,V_MURli4tKN2Owe_93Dcdw,mid,1,xml,-0.4119,0.1547,-0.2572,-1.5600,0.9359
 seattle-wa:190764,seattle-wa,E2T6T1o9t6p6idEh30vXqQ,mid,1,xml,-6.2854,0.0901,-6.1953,-4.8778,0.8988
+seattle-wa:190774,seattle-wa,BPYBShE9oNqhaaxVx-_aHw,mid,1,xml,4.5180,1.5419,6.0599,6.9872,0.8208
 seattle-wa:190796,seattle-wa,ftOcpBTmPuXsMeeiJRgv-A,mid,1,xml,2.1596,-2.0014,0.1583,0.4835,0.9862
 seattle-wa:190800,seattle-wa,kEJUpvvY3DR_ZJKV6Jrd9A,mid,1,xml,1.8130,0.2143,2.0273,-0.2636,0.9123
 seattle-wa:190803,seattle-wa,kEJUpvvY3DR_ZJKV6Jrd9A,mid,1,xml,0.2181,0.5311,0.7493,0.7691,0.9408
@@ -10927,6 +11034,7 @@ seattle-wa:193294,seattle-wa,XkZBUOOyndujClOvTwbtIA,mid,1,xml,-0.3166,-0.1184,-0
 seattle-wa:193296,seattle-wa,XkZBUOOyndujClOvTwbtIA,mid,1,xml,-0.0240,-0.2578,-0.2818,-2.0654,0.9720
 seattle-wa:193467,seattle-wa,zalvrxSGEPtF6m_-fYpTbw,mid,1,xml,1.0713,-0.2151,0.8562,1.2441,0.9494
 seattle-wa:193475,seattle-wa,Dn7Y4GDwvVnXJ6P3Vylh6A,mid,1,xml,0.0360,-0.8961,-0.8601,-1.9116,0.9049
+seattle-wa:193491,seattle-wa,sc8dLxgvyBVImK3BxN4WJA,mid,1,xml,-0.0158,1.1296,1.1138,-9.1407,0.9410
 seattle-wa:193494,seattle-wa,Vd7LiBAJXkh0yDNbLN_hEw,mid,1,xml,0.4152,0.0917,0.5069,1.5382,0.9304
 seattle-wa:193499,seattle-wa,oUvabt67dYYXO9y0-aZTaQ,mid,1,xml,-3.9860,0.6467,-3.3394,-3.4277,0.9187
 seattle-wa:193505,seattle-wa,BsojJrEVV0xMbopnKQAp_w,mid,1,xml,-2.9616,0.7445,-2.2172,-2.1093,0.9606
@@ -10947,6 +11055,7 @@ seattle-wa:193940,seattle-wa,pHKIUUnX8YVwZvkGg_Zn5A,mid,1,xml,-0.3310,1.2876,0.9
 seattle-wa:193949,seattle-wa,NtfvxfUad7fHcMkRwxKBwg,mid,1,xml,-0.3064,0.5851,0.2787,-1.4721,0.9610
 seattle-wa:19398,seattle-wa,HVwndQm3o3u4UEcYrEU9uQ,legacy,1,xml,-0.7441,0.0655,-0.6786,-0.6371,0.8051
 seattle-wa:193981,seattle-wa,yOaJcl8xtVW-kouxKuPAhQ,mid,1,xml,1.6046,0.9433,2.5478,1.2305,0.9473
+seattle-wa:193987,seattle-wa,PC95_Pe7Ed2ULst-NTkBIg,mid,1,xml,5.2690,-0.0228,5.2461,7.3609,0.9401
 seattle-wa:194003,seattle-wa,D52bQbRRtZOM1PrQi3bHWw,mid,1,xml,-0.1415,0.3918,0.2503,0.9889,0.7317
 seattle-wa:19413,seattle-wa,wFzxpB8CVInVfn6RsUZ3KA,legacy,1,xml,0.0048,0.1826,0.1873,-2.5488,0.9144
 seattle-wa:194134,seattle-wa,5DDIbcOn4WHXja70HxCjqQ,mid,1,xml,0.8183,-1.2898,-0.4715,-0.7472,0.8661
@@ -10975,6 +11084,7 @@ seattle-wa:194323,seattle-wa,FT-XkaOoh0U0WTUofEso3Q,mid,1,xml,0.8859,0.6833,1.56
 seattle-wa:19433,seattle-wa,BODwyHjZIZhFRdob1FXdZg,legacy,1,xml,-0.4706,-2.3358,-2.8065,-3.4059,0.9379
 seattle-wa:194330,seattle-wa,iPlBy2q20uuR2UJo8kt9Jw,mid,1,xml,1.2503,-1.4051,-0.1548,-2.9443,0.9370
 seattle-wa:194332,seattle-wa,iPlBy2q20uuR2UJo8kt9Jw,mid,1,xml,-0.8883,2.6095,1.7212,0.5273,0.9736
+seattle-wa:19434,seattle-wa,BODwyHjZIZhFRdob1FXdZg,legacy,1,xml,-0.4815,-2.3232,-2.8047,-7.1412,0.9379
 seattle-wa:194340,seattle-wa,2sKUSZq1AJECvk8Pw2_onQ,mid,1,xml,-3.1578,-0.6235,-3.7813,-5.1415,0.9188
 seattle-wa:194400,seattle-wa,2sZWOvV9jHuXIYe76jWwJg,mid,1,xml,0.7192,-0.6815,0.0378,-2.2192,0.9203
 seattle-wa:194466,seattle-wa,kHqPINUaEx1SlErLMVVGeg,mid,1,xml,0.5950,-0.0622,0.5328,1.9335,0.9122
@@ -10984,6 +11094,7 @@ seattle-wa:194475,seattle-wa,GFiaMjNzmLURKsbXRz7XZA,mid,1,xml,1.6246,0.0085,1.63
 seattle-wa:194476,seattle-wa,GFiaMjNzmLURKsbXRz7XZA,mid,1,xml,0.9356,-0.0134,0.9222,0.6153,0.9667
 seattle-wa:194477,seattle-wa,GFiaMjNzmLURKsbXRz7XZA,mid,1,xml,0.5596,-0.0147,0.5449,1.4063,0.9491
 seattle-wa:194520,seattle-wa,OesNXJOPHPgZTa_VIhgbYg,mid,1,xml,0.0754,1.5911,1.6665,0.8790,1.0066
+seattle-wa:194569,seattle-wa,iJmq-rdgCnKQ-nyURV6kuw,mid,1,xml,-9.8853,0.3795,-9.5057,-9.2943,0.7447
 seattle-wa:19459,seattle-wa,8mKjzRrEK8v8rQG-rNJbFA,legacy,1,xml,-0.0484,-1.0059,-1.0543,-1.1205,0.9979
 seattle-wa:19460,seattle-wa,trLxUNyN32h2ue6NyfvmhA,legacy,1,xml,0.1723,-1.0919,-0.9196,-1.2963,0.9219
 seattle-wa:194600,seattle-wa,PHPzJ_zOBjs-6oeZhiSbGw,mid,1,xml,-2.2738,0.1779,-2.0959,-1.9775,1.0023
@@ -11011,6 +11122,8 @@ seattle-wa:195175,seattle-wa,pNKcGgb0Ns-plC0n7JoNzA,mid,1,xml,-0.8627,0.2459,-0.
 seattle-wa:195176,seattle-wa,pNKcGgb0Ns-plC0n7JoNzA,mid,1,xml,-0.9639,-0.0288,-0.9927,0.3736,0.9364
 seattle-wa:195218,seattle-wa,eGpGNZ4sB7Ifkm7XNMT5kg,mid,1,xml,0.2730,-0.5427,-0.2698,0.4176,0.9361
 seattle-wa:195221,seattle-wa,z6D4FfIfbFSUoXm3z217qQ,mid,1,xml,1.8176,0.0407,1.8582,1.7579,0.9829
+seattle-wa:195234,seattle-wa,gOggc10Xvv-4uWoySnDtrA,mid,1,xml,-1.0426,-6.3156,-7.3581,-7.5147,0.7705
+seattle-wa:195241,seattle-wa,zUdU_JHJut0TLvl-Z9pHjw,mid,1,xml,2.3650,4.1680,6.5329,6.2401,0.8813
 seattle-wa:19525,seattle-wa,50YafYh_1okVXITqKdgNEg,legacy,1,xml,0.1292,-0.3633,-0.2341,1.1207,0.7692
 seattle-wa:195276,seattle-wa,eo82B3BcREiB69cRhtndlg,mid,1,xml,-0.9290,2.9304,2.0013,3.0103,0.7842
 seattle-wa:195304,seattle-wa,W_vZJmFR9Vjyh-BRgjT-aw,mid,1,xml,0.1302,1.5937,1.7240,1.1207,1.0049
@@ -11093,6 +11206,7 @@ seattle-wa:201175,seattle-wa,FJ6qL7c6dFCBQCCqWcqjAA,mid,1,xml,-0.5983,-2.8492,-3
 seattle-wa:20119,seattle-wa,1PxQtOLF9c0kn1uwznBRlQ,legacy,1,xml,-0.4057,-1.6797,-2.0854,-2.0875,0.9523
 seattle-wa:201354,seattle-wa,fCpQdhlBTDExYCLEWJzbJQ,mid,1,xml,0.4477,-0.1163,0.3314,-0.7690,0.9925
 seattle-wa:20141,seattle-wa,yl62pWja7TdPFsEUipZ_fA,legacy,1,xml,0.5151,1.1836,1.6988,1.4501,0.9331
+seattle-wa:20143,seattle-wa,yl62pWja7TdPFsEUipZ_fA,legacy,1,xml,0.5187,1.1764,1.6951,-8.7892,0.9331
 seattle-wa:201502,seattle-wa,NNkyw81Qi9pNgmsY-IY-0w,mid,1,xml,0.0360,1.4698,1.5058,1.4722,0.9185
 seattle-wa:201898,seattle-wa,xvdl_qDKevBGJVlzPdfNHQ,mid,1,xml,0.1323,0.7217,0.8540,1.8238,0.6903
 seattle-wa:202051,seattle-wa,SchG4fXUr4ykCf8kZpsnPQ,mid,1,xml,-0.3285,-1.9067,-2.2353,-0.8569,1.0021
@@ -11158,6 +11272,7 @@ seattle-wa:206582,seattle-wa,LTvQBDmkbQseQwKuHMaqRw,mid,1,xml,2.4720,-0.5355,1.9
 seattle-wa:206731,seattle-wa,ko7IcIICjOECRIpdgw7qzQ,mid,1,xml,-2.1502,1.0484,-1.1018,-2.3070,0.8695
 seattle-wa:206843,seattle-wa,VaeXKGg3Js8Vyxtftoa_Tg,mid,1,xml,-0.3127,0.1293,-0.1834,-0.2197,1.0003
 seattle-wa:206911,seattle-wa,EAKCVppqkJ_VnB7wgRwNIA,mid,1,xml,-0.1297,0.4743,0.3446,0.5934,0.9849
+seattle-wa:206920,seattle-wa,nhwhDn3koxM3YN7YbUeVlA,mid,1,xml,0.1692,-3.4974,-3.3282,-6.5258,0.9099
 seattle-wa:206921,seattle-wa,nhwhDn3koxM3YN7YbUeVlA,mid,1,xml,-0.1632,-3.5345,-3.6977,-5.3393,0.8907
 seattle-wa:206923,seattle-wa,nhwhDn3koxM3YN7YbUeVlA,mid,1,xml,0.3280,1.3990,1.7270,-4.1967,0.9446
 seattle-wa:20701,seattle-wa,Kr-PPTuJBYIoDZLzJUPRRA,legacy,1,xml,1.5734,1.1582,2.7316,1.8458,0.9622
@@ -11183,6 +11298,8 @@ seattle-wa:208169,seattle-wa,J_4uapaiJQA-c9eEhw8lmw,mid,1,xml,0.5377,-0.2992,0.2
 seattle-wa:208171,seattle-wa,J_4uapaiJQA-c9eEhw8lmw,mid,1,xml,0.7637,-0.1062,0.6575,2.1314,0.9821
 seattle-wa:208173,seattle-wa,pny94uMwMTveoX9DwguyKw,mid,1,xml,-1.9491,1.3599,-0.5891,0.1977,0.9273
 seattle-wa:208174,seattle-wa,pny94uMwMTveoX9DwguyKw,mid,1,xml,2.3122,1.2815,3.5937,3.2740,0.8464
+seattle-wa:208176,seattle-wa,pny94uMwMTveoX9DwguyKw,mid,1,xml,3.6139,0.7813,4.3952,6.3062,0.8708
+seattle-wa:208177,seattle-wa,pny94uMwMTveoX9DwguyKw,mid,1,xml,4.0569,0.3947,4.4517,6.0645,0.9064
 seattle-wa:208178,seattle-wa,pny94uMwMTveoX9DwguyKw,mid,1,xml,-2.6156,-1.2010,-3.8166,-5.0536,0.8227
 seattle-wa:208179,seattle-wa,wQV1hLtTKlGw99lHNiYjMg,mid,1,xml,1.6262,-1.4479,0.1783,1.6698,0.8835
 seattle-wa:208180,seattle-wa,bEscMraP2d4z7V85eDqSkw,mid,1,xml,0.1150,1.2290,1.3441,3.2081,0.7311
@@ -11205,6 +11322,7 @@ seattle-wa:208383,seattle-wa,N-TaEcyg4FGuvKxnG2FMdA,mid,1,xml,-1.0624,-0.8876,-1
 seattle-wa:208390,seattle-wa,N46TzcJ1nHoaz9FPFtgA8w,mid,1,xml,-0.3945,1.0663,0.6718,0.7252,0.8954
 seattle-wa:208392,seattle-wa,ZSr6Sr_kx-TSp8HBMN8I_g,mid,1,xml,0.2184,0.4126,0.6310,0.7909,0.9981
 seattle-wa:208580,seattle-wa,eloiaq6X4dD5OgxZr2Yxng,mid,1,xml,-0.6150,0.1617,-0.4532,-0.1353,0.9957
+seattle-wa:208920,seattle-wa,gLE9bowkPyB365sKx2PE1Q,mid,1,xml,-1.9707,-0.4465,-2.4172,-7.1410,0.7516
 seattle-wa:208924,seattle-wa,gLE9bowkPyB365sKx2PE1Q,mid,1,xml,-2.5461,0.3030,-2.2431,-3.3839,0.9063
 seattle-wa:208971,seattle-wa,sapifbAYAEFdaijv6zL6Fg,mid,1,xml,0.2929,-1.8780,-1.5850,-1.9996,0.9405
 seattle-wa:209002,seattle-wa,MsjpjIQoE0dx6s9bkomqrA,mid,1,xml,0.3427,-1.2104,-0.8677,-3.0541,0.9688
@@ -11324,6 +11442,7 @@ seattle-wa:22545,seattle-wa,XPr5-Ur1jTUP3UppFWpq9Q,legacy,1,xml,-1.0259,0.4075,-
 seattle-wa:22549,seattle-wa,XPr5-Ur1jTUP3UppFWpq9Q,legacy,1,xml,0.7052,-0.6892,0.0160,0.4615,0.8502
 seattle-wa:22607,seattle-wa,MG_i9fF2SpoPp31x6Kuqjw,legacy,1,xml,0.7295,0.3971,1.1267,2.6772,0.9297
 seattle-wa:22639,seattle-wa,fFvl5F2l6FYixM7_kAR0VQ,legacy,1,xml,-0.2503,0.6691,0.4188,2.1906,0.9298
+seattle-wa:226450,seattle-wa,F5kLh3O9d_l2ehGHwLBPVQ,mid,1,npz,-0.0275,-7.9935,-8.0210,-9.5580,0.9581
 seattle-wa:226915,seattle-wa,uxDfK5Q96yjKKCyFWVIXzw,mid,1,npz,-0.2580,2.2268,1.9689,0.4615,0.9355
 seattle-wa:22699,seattle-wa,QjzCO96OSnUoe0cUXOUF1Q,legacy,1,xml,0.2293,-0.7034,-0.4741,-1.9115,0.8628
 seattle-wa:227098,seattle-wa,o49Zn7s9pvVtmcDoxzT3gA,mid,1,npz,1.4365,1.0644,2.5010,2.2851,0.9784
@@ -11332,6 +11451,7 @@ seattle-wa:227167,seattle-wa,jxVdEQpzDeaciABpmvDoLg,mid,1,xml,3.8195,-0.2411,3.5
 seattle-wa:227168,seattle-wa,jxVdEQpzDeaciABpmvDoLg,mid,1,xml,2.9798,0.2727,3.2525,3.2958,0.8854
 seattle-wa:2284,seattle-wa,uaPNb4UuGxXXvQx4sUEf4g,legacy,1,xml,1.2199,0.6891,1.9090,-1.3842,0.9030
 seattle-wa:22883,seattle-wa,eY4r455LNDrK2adFQxi76A,legacy,1,xml,-0.4516,-0.2478,-0.6994,-2.2631,0.9508
+seattle-wa:228847,seattle-wa,hra4Lte3lrlIkgxqISdqEQ,mid,1,npz,5.2013,2.0635,7.2648,8.7450,0.7689
 seattle-wa:22921,seattle-wa,k4uiwZ06kSHKBwZw_xIVEg,legacy,1,xml,0.0317,-3.1956,-3.1639,-1.6918,0.9557
 seattle-wa:229293,seattle-wa,Xpm0gAPZK8o8rP604PBYzw,mid,1,xml,0.3177,-0.2215,0.0961,-0.4835,0.9466
 seattle-wa:2296,seattle-wa,C1tpNsu1e9mDb7MtLpCQEA,legacy,1,xml,0.1413,-2.8344,-2.6931,-4.1747,1.0147
@@ -11424,6 +11544,7 @@ seattle-wa:23695,seattle-wa,TBFLxLQmpR52ysB7erSVVA,legacy,1,xml,-0.1536,2.4682,2
 seattle-wa:237,seattle-wa,mADzhX_EbNX-almFPPDqZQ,legacy,1,xml,-0.3697,1.1567,0.7870,2.7025,0.9437
 seattle-wa:237098,seattle-wa,AgZVpv4UEdisZS_wDepsjw,mid,1,xml,0.8227,-0.4913,0.3315,1.5955,0.9101
 seattle-wa:237185,seattle-wa,FkiRYurKjSl1MPvgVtqoGQ,mid,1,npz,-1.3804,0.1093,-1.2711,-2.4389,0.9035
+seattle-wa:237459,seattle-wa,nP05GHk3rOtDh14Exa1v5w,mid,1,npz,-0.5821,-4.3354,-4.9174,-6.9653,0.9035
 seattle-wa:237729,seattle-wa,lhX_yKV7sD5o9krF_9qZkA,mid,1,npz,0.9743,-2.6138,-1.6395,-1.9115,0.9446
 seattle-wa:2379,seattle-wa,__SLw3Foz9cgJSNQKDloTg,legacy,1,xml,-1.7267,1.2000,-0.5267,0.4395,0.8998
 seattle-wa:238413,seattle-wa,XII4YtQ5fegsfY_hoPbZFw,mid,1,npz,-1.7177,-0.1071,-1.8247,-2.4828,0.9070
@@ -11440,6 +11561,7 @@ seattle-wa:239827,seattle-wa,U9DjprYDfhTcPTmyZJiC_A,post179,1,npz,-0.1194,-0.197
 seattle-wa:2400,seattle-wa,nDCnmCi5MmC8RD3W4K6QOg,legacy,1,xml,0.4374,-0.0589,0.3785,-0.3075,0.9420
 seattle-wa:240288,seattle-wa,11-p3t-PLkzecjHbXUC-Yw,post179,1,npz,1.7279,-0.2579,1.4700,2.0434,0.8145
 seattle-wa:240301,seattle-wa,U9DjprYDfhTcPTmyZJiC_A,post179,1,npz,-0.1262,-0.1890,-0.3153,2.1973,0.9146
+seattle-wa:240773,seattle-wa,d5SR3_Ua8kWHznyV3xFkAQ,post179,1,npz,5.7549,0.8128,6.5677,8.4814,0.9261
 seattle-wa:240777,seattle-wa,7uGejz2kiLPPVk1TcO0Vag,post179,1,npz,0.7779,5.0801,5.8580,3.4937,0.9752
 seattle-wa:240778,seattle-wa,7uGejz2kiLPPVk1TcO0Vag,post179,1,npz,1.7494,2.3519,4.1012,4.9218,0.9236
 seattle-wa:240826,seattle-wa,DTUNsrUXUpJltNCAFjeToA,post179,1,npz,0.8697,0.1342,1.0039,2.8564,0.8935
@@ -11480,6 +11602,7 @@ seattle-wa:24632,seattle-wa,wnKYRQAaOdYS4zYOLEc-ig,legacy,1,xml,0.1306,0.9538,1.
 seattle-wa:24637,seattle-wa,xWzL8fW0nMaGNwB4lQbQWw,legacy,1,xml,-0.2484,-0.5260,-0.7744,-2.4169,1.0022
 seattle-wa:246416,seattle-wa,-SOuIzRwNXRje1eZbTfJfw,post179,1,npz,-1.0132,-0.5926,-1.6058,-2.2851,0.8896
 seattle-wa:24648,seattle-wa,4ZDHQLYkeXsVSxMoephmjA,legacy,1,xml,1.1511,0.6355,1.7865,1.3624,1.0095
+seattle-wa:24649,seattle-wa,4ZDHQLYkeXsVSxMoephmjA,legacy,1,xml,1.0475,0.7395,1.7871,8.0640,0.7133
 seattle-wa:246630,seattle-wa,5meeXGeHSx3lhInfcYKlrA,post179,1,npz,1.3018,0.2736,1.5754,2.1972,0.9842
 seattle-wa:246760,seattle-wa,ep4r3nGMleVzOPv2JtanZw,post179,1,npz,0.2343,-0.1415,0.0928,0.4174,0.9476
 seattle-wa:246772,seattle-wa,gTirlrL0H5SHYC1EDplAqQ,post179,1,npz,-0.4750,-0.7838,-1.2588,-0.0001,0.9343
@@ -11494,6 +11617,7 @@ seattle-wa:249242,seattle-wa,Xpm0gAPZK8o8rP604PBYzw,post179,1,xml,0.4513,0.1632,
 seattle-wa:24929,seattle-wa,iz_irrCL8uOLmYc75xagng,legacy,1,xml,0.8910,0.9466,1.8376,2.4171,0.8190
 seattle-wa:249322,seattle-wa,XrCip38Ob5uo_ugkcR4HRg,post179,1,npz,0.6378,0.9045,1.5423,1.2086,0.9433
 seattle-wa:24936,seattle-wa,1VvWAE3fhzAKJwKTac_Ccw,legacy,1,xml,1.0054,-2.0438,-1.0385,-1.8897,1.0017
+seattle-wa:2495,seattle-wa,3qB4FlB6BCXtDadOMqvpvg,legacy,1,xml,6.9512,0.6445,7.5957,7.4049,0.8844
 seattle-wa:24950,seattle-wa,LL5vauX8jc6QqyzqgpDjPQ,legacy,1,xml,-0.0556,0.9965,0.9409,0.4835,0.9407
 seattle-wa:24955,seattle-wa,LL5vauX8jc6QqyzqgpDjPQ,legacy,1,xml,0.0784,-0.9804,-0.9021,-0.5492,0.8017
 seattle-wa:24984,seattle-wa,AyO_4ZV21PIjcTFBrxm4tA,legacy,1,xml,4.7619,-1.8275,2.9344,2.1534,0.8567
@@ -11543,6 +11667,7 @@ seattle-wa:25704,seattle-wa,MoT3Yzuf0d_82dV0d5elFg,legacy,1,xml,0.8160,-0.5292,0
 seattle-wa:25724,seattle-wa,9qFb3bWAW2j4mmxo_4Co5Q,legacy,1,xml,-0.3538,-0.2375,-0.5913,0.4395,0.8990
 seattle-wa:257280,seattle-wa,AGHNCvPS0QpKGXfPHJbRGg,post179,1,npz,-0.0567,-1.0955,-1.1522,-0.6591,0.8679
 seattle-wa:25741,seattle-wa,GoIsrO9KjFVzWWlAVYMxjQ,legacy,1,xml,-1.7809,-0.9829,-2.7638,-3.1640,0.9419
+seattle-wa:25748,seattle-wa,DbIl0kFp1sBd1VOrez1iYQ,legacy,1,xml,-5.1569,-0.9401,-6.0970,-6.5260,0.9074
 seattle-wa:25760,seattle-wa,Kps5a0DmBtCPbOINdaOwpg,legacy,1,xml,-2.4036,-2.6622,-5.0658,-3.9330,0.9020
 seattle-wa:25761,seattle-wa,JzH23VmnoCW20-b7KU592g,legacy,1,xml,-0.4758,-1.6267,-2.1025,-2.3510,0.9373
 seattle-wa:25762,seattle-wa,KvSOAkRnCXmLAulzEa2nUg,legacy,1,xml,-1.8604,-0.7887,-2.6491,-1.1864,0.9756
@@ -11659,6 +11784,7 @@ seattle-wa:271298,seattle-wa,QZcELSq9tzR-Sjd1ruF7hw,post179,1,xml,0.5794,0.7763,
 seattle-wa:27166,seattle-wa,xHArivKhZTatkqGcknU_jw,legacy,1,xml,0.1739,-1.4953,-1.3213,-1.5162,0.9603
 seattle-wa:27234,seattle-wa,DtdUKUhz5vjMOLnsZQxgHA,legacy,1,xml,-0.0812,-0.3441,-0.4253,-0.5055,0.8698
 seattle-wa:273252,seattle-wa,_-6NSkcgmQn8Jy5oMwqbiw,post179,1,xml,-0.0823,-0.3030,-0.3853,0.6373,0.7600
+seattle-wa:2733,seattle-wa,ZtIERSEszzc5rLWy_-1esA,legacy,1,xml,6.1471,1.7649,7.9120,6.8995,0.9707
 seattle-wa:273417,seattle-wa,tCtV6YMbVzajSnyB5aLM_A,post179,1,npz,-0.0048,-0.1178,-0.1226,-0.3734,0.9476
 seattle-wa:273521,seattle-wa,wKlODHg_ChTB4zLKw2HXEg,post179,1,npz,0.3201,-0.0560,0.2640,-4.8119,0.6846
 seattle-wa:27356,seattle-wa,MTxqGTAwYuwFlQxl385cnA,legacy,1,xml,-0.0863,0.3708,0.2845,1.1427,0.9242
@@ -11684,8 +11810,10 @@ seattle-wa:279132,seattle-wa,lN9NJkMmHty1pgY9LqSn0g,post179,1,npz,1.4580,-0.6873
 seattle-wa:2796,seattle-wa,D8bz3n8ehAvHsAB3rUDgXg,legacy,1,xml,-0.3517,-0.8894,-1.2412,-0.8790,0.6626
 seattle-wa:279642,seattle-wa,Ld2CapwHcNRqg56XaxyX8Q,post179,1,npz,1.4327,-2.9342,-1.5015,-2.8785,0.9809
 seattle-wa:279643,seattle-wa,Ld2CapwHcNRqg56XaxyX8Q,post179,1,npz,1.5265,2.3409,3.8674,1.0108,0.8887
+seattle-wa:279655,seattle-wa,D9cIIXrZ8oekfhLTFsAH_Q,post179,1,npz,-7.8150,-0.5758,-8.3908,-9.2726,0.9203
 seattle-wa:279679,seattle-wa,48ipx9HmxzLiTGcTOsTWFA,post179,1,npz,-0.9011,-1.0593,-1.9604,-1.2084,0.8272
 seattle-wa:279686,seattle-wa,48ipx9HmxzLiTGcTOsTWFA,post179,1,npz,0.2662,1.3575,1.6237,1.7579,0.9314
+seattle-wa:279832,seattle-wa,6_6fsRW-wqB-GigMv0JA6A,post179,1,xml,-0.0218,-4.4395,-4.4613,-6.2740,0.9685
 seattle-wa:27988,seattle-wa,KdBwKGZDtzulkcexSai_0w,legacy,1,xml,1.2983,-0.1442,1.1541,0.2198,0.6425
 seattle-wa:280001,seattle-wa,7WO9v6DQxpEybSNL_zx9Rg,post179,1,npz,0.2226,0.7642,0.9868,0.3956,0.8656
 seattle-wa:28016,seattle-wa,epQbsqLRGcsNJy5NFmPPVA,legacy,1,xml,0.0899,-0.8773,-0.7873,-1.7577,0.9221
@@ -12095,6 +12223,7 @@ seattle-wa:3972,seattle-wa,3R87r96ML_uFOu7IC3Y6Vg,legacy,1,xml,-0.3818,-1.3041,-
 seattle-wa:39728,seattle-wa,rEooFXmziGQmg_j8rLOIbQ,legacy,1,xml,-0.0027,-3.5638,-3.5664,-4.8559,0.9924
 seattle-wa:399,seattle-wa,hxvyzDJJpysNtJUSqylkmA,legacy,1,xml,-2.5670,1.1968,-1.3702,-0.3954,0.9245
 seattle-wa:39961,seattle-wa,OkEhCuBP_kjnFECrKJMvzg,legacy,1,xml,-0.0718,-2.0179,-2.0897,-1.9116,0.8271
+seattle-wa:39965,seattle-wa,Eu7QVJRhELI2dOP0fL8tFQ,legacy,1,xml,0.3213,-8.7576,-8.4363,-9.0865,0.6534
 seattle-wa:39978,seattle-wa,Er-2txHobTYknfp0QgaSSg,legacy,1,xml,0.0494,-1.0237,-0.9744,-1.4063,0.8785
 seattle-wa:39981,seattle-wa,ca3YTDCj9KxaX2ey5UpW6w,legacy,1,xml,-0.0527,0.4846,0.4319,-3.5595,0.9839
 seattle-wa:40034,seattle-wa,8D927OYPGcAsHkCeg34qXA,legacy,1,xml,-0.1281,1.0611,0.9330,-1.1865,0.8588
@@ -12110,6 +12239,7 @@ seattle-wa:40195,seattle-wa,8SR9yy5wj0r97M7VF3hGDg,legacy,1,xml,1.1417,0.5542,1.
 seattle-wa:4025,seattle-wa,ZOzRPOVcNqJ0T-M4f5zm2A,legacy,1,xml,1.4014,-0.6383,0.7630,1.1426,1.0056
 seattle-wa:4026,seattle-wa,ZOzRPOVcNqJ0T-M4f5zm2A,legacy,1,xml,-1.8389,-0.3611,-2.2000,-2.4389,0.9652
 seattle-wa:4027,seattle-wa,beLMrsImJf56aWHZ8tTTcg,legacy,1,xml,-0.2704,1.1929,0.9225,1.0766,0.8994
+seattle-wa:40277,seattle-wa,PmRA1PkTaf25o79LL257uA,legacy,1,xml,-8.8360,-0.0797,-8.9157,-7.5587,0.7951
 seattle-wa:40289,seattle-wa,dBMJPtKlhQcQSUimm1gRPg,legacy,1,xml,-0.0987,0.8572,0.7584,-0.5714,0.8914
 seattle-wa:40298,seattle-wa,kF54Iz70IN6v69lASmgZQA,legacy,1,xml,-5.8642,1.1894,-4.6749,-5.8666,0.8576
 seattle-wa:4031,seattle-wa,beLMrsImJf56aWHZ8tTTcg,legacy,1,xml,1.1226,-0.5159,0.6068,0.3077,0.9046
@@ -12355,6 +12485,7 @@ seattle-wa:4826,seattle-wa,nOD_DRhUM2Z56TIo7R476g,legacy,1,xml,3.8783,0.8291,4.7
 seattle-wa:48260,seattle-wa,d5WG9LQxLLViawCNMc4pLA,legacy,1,xml,0.6914,-0.1473,0.5441,0.9228,0.9437
 seattle-wa:48304,seattle-wa,WlgpC9RmCTfgvhRZ3kxmEg,legacy,1,xml,-0.4451,2.2510,1.8060,0.7030,0.9731
 seattle-wa:484,seattle-wa,gp_qMztZRvfzZ3kaiHSgjg,legacy,1,xml,0.2961,-1.2872,-0.9911,0.6593,0.7119
+seattle-wa:4845,seattle-wa,nJOmnRGzM8A1bIYuAnvYow,legacy,1,xml,-1.7050,0.5638,-1.1412,-7.6244,0.9544
 seattle-wa:4846,seattle-wa,nJOmnRGzM8A1bIYuAnvYow,legacy,1,xml,-0.9095,-0.6265,-1.5360,-4.2187,0.6070
 seattle-wa:485,seattle-wa,gp_qMztZRvfzZ3kaiHSgjg,legacy,1,xml,0.4255,-1.2133,-0.7878,0.4615,0.7016
 seattle-wa:4855,seattle-wa,fiXrkAzVbH_R3ZG6Wgileg,legacy,1,xml,0.1660,-1.7014,-1.5354,-2.6586,0.9649
@@ -12365,6 +12496,7 @@ seattle-wa:48988,seattle-wa,tHt981MesyRqK70xcHadtQ,legacy,1,xml,-0.2285,-1.1468,
 seattle-wa:4899,seattle-wa,Y39chimwehGypalFmo983Q,legacy,1,xml,0.5161,1.0417,1.5577,0.6373,1.0000
 seattle-wa:48993,seattle-wa,q72mU9WJAbrjLDA3g7QgJw,legacy,1,xml,-1.4713,0.1741,-1.2972,-0.8351,0.9165
 seattle-wa:49099,seattle-wa,h_rbrFvnG_rMC8fLeGybvw,legacy,1,xml,1.3490,-0.6357,0.7133,1.1205,0.9149
+seattle-wa:49126,seattle-wa,Og9g5IQ0hUui4DADzmTC8A,legacy,1,xml,-0.1062,-5.7907,-5.8968,-6.3282,1.0041
 seattle-wa:49137,seattle-wa,4dxjAWcF8o75f4PCiqKYyg,legacy,1,xml,-0.9885,0.0415,-0.9470,0.3075,0.9110
 seattle-wa:4918,seattle-wa,ZETZSp5vlGymGoW7i6XbTA,legacy,1,xml,1.1348,-1.9426,-0.8078,-0.4174,0.9183
 seattle-wa:49283,seattle-wa,TLbR_wq1jkKzR87xVq1iIQ,legacy,1,xml,0.2259,-1.3823,-1.1564,-1.7358,0.9467
@@ -12377,9 +12509,11 @@ seattle-wa:49603,seattle-wa,MskqTDXGbF2D77GsdyMQtg,legacy,1,xml,-0.2510,1.2980,1
 seattle-wa:49644,seattle-wa,BIM7Nkhy5CGkt4ixHfXfKQ,legacy,1,xml,0.6329,1.7422,2.3751,3.2299,0.9491
 seattle-wa:49677,seattle-wa,sZEV-lxSP-hfsLge0xz_CQ,legacy,1,xml,-0.1881,-0.5991,-0.7871,-1.1646,0.9490
 seattle-wa:49808,seattle-wa,QaU315N62yaYdkmr_DCaEw,legacy,1,xml,-1.0372,-0.5699,-1.6071,-3.6474,0.9739
+seattle-wa:4984,seattle-wa,k0nClf7mkv0Yo2K4c1FdOw,legacy,1,xml,0.4608,1.2335,1.6944,8.7672,0.9237
 seattle-wa:49862,seattle-wa,iCvWzKICLlSpyftJVf0zBQ,legacy,1,xml,-1.0534,-0.2262,-1.2796,-1.5160,0.9331
 seattle-wa:49914,seattle-wa,Bfxy82eYs_M8I1KAGP4CHw,legacy,1,xml,0.1833,-1.2911,-1.1079,-0.3515,0.8935
 seattle-wa:49916,seattle-wa,zXZXGXbm1SuIYXruHyBR4Q,legacy,1,xml,0.1864,1.0517,1.2381,2.1972,0.8690
+seattle-wa:49949,seattle-wa,tlmt7O8rXCHcONwkDaAAUw,legacy,1,xml,-8.9934,-0.9043,-9.8977,-8.5035,0.6795
 seattle-wa:50000,seattle-wa,Kwv5ZQ2AZXUffY5BcBe-Mw,legacy,1,xml,3.2483,-1.3737,1.8746,0.5492,0.8494
 seattle-wa:50113,seattle-wa,Haeikdj68wHf5XZRxJPDfA,legacy,1,xml,-0.0142,0.3909,0.3767,-0.3075,0.8002
 seattle-wa:50182,seattle-wa,6_oQ324EI_UeyEDKcLJcDA,legacy,1,xml,0.3004,-0.7474,-0.4470,-1.4503,0.6107
@@ -12418,6 +12552,7 @@ seattle-wa:5222,seattle-wa,Ak65gAzYa3OJgNEzqWnSEA,legacy,1,xml,3.2077,-3.5319,-0
 seattle-wa:5234,seattle-wa,nc5E19M0aRNOiFfsTC7y_g,legacy,1,xml,-0.0384,-1.3404,-1.3788,-1.0546,0.8672
 seattle-wa:52349,seattle-wa,aLuKrCUicf32FEm0sLXpRw,legacy,1,xml,-0.0119,-2.2088,-2.2207,-1.8238,0.9125
 seattle-wa:524,seattle-wa,fuYW1uGYLzBBwmPI90m_aA,legacy,1,xml,-0.1942,-0.1093,-0.3035,-2.7027,0.9561
+seattle-wa:52438,seattle-wa,EX5R0aT6XAZwW31lhUjftA,legacy,1,xml,4.2312,2.4333,6.6645,6.1389,0.9569
 seattle-wa:525,seattle-wa,fuYW1uGYLzBBwmPI90m_aA,legacy,1,xml,-0.3466,0.0312,-0.3154,-0.1100,0.9329
 seattle-wa:52526,seattle-wa,dDlygoKF6rQE7l5kdvwhDg,legacy,1,xml,0.4854,-0.8632,-0.3778,-0.5712,0.9568
 seattle-wa:526,seattle-wa,fuYW1uGYLzBBwmPI90m_aA,legacy,1,xml,-0.3244,0.0543,-0.2701,-0.7470,0.8284
@@ -12474,6 +12609,7 @@ seattle-wa:53655,seattle-wa,GROMS-vB-Ax5XPEDKqKUJA,legacy,1,xml,1.1633,0.3949,1.
 seattle-wa:53676,seattle-wa,5J4e5AEQJwbDKBC0j9ArRg,legacy,1,xml,-0.0970,-1.2223,-1.3193,-0.5934,0.8937
 seattle-wa:53715,seattle-wa,5rwkTqh5iUIrnz2DvjUyGw,legacy,1,xml,0.2545,-1.3833,-1.1289,-1.6700,0.8614
 seattle-wa:53724,seattle-wa,JwpYbUq2uUsBUfX8WtRAGw,legacy,1,xml,1.5775,0.8105,2.3880,3.8233,0.7898
+seattle-wa:53730,seattle-wa,KOZaoogmYGFWm1-JmNXjSg,legacy,1,xml,1.2102,1.5759,2.7862,9.3604,0.7818
 seattle-wa:53771,seattle-wa,uf2ucezMnhoVYSFCl5jNAQ,legacy,1,xml,0.0074,-0.0726,-0.0652,-1.1865,0.8571
 seattle-wa:53833,seattle-wa,hRFmrv9bHNmtQTZSsCzHvA,legacy,1,xml,1.4475,-0.1925,1.2549,0.8570,0.8984
 seattle-wa:53834,seattle-wa,hRFmrv9bHNmtQTZSsCzHvA,legacy,1,xml,1.6448,0.1231,1.7680,3.0982,0.8437
@@ -12512,6 +12648,7 @@ seattle-wa:55907,seattle-wa,8TpsZ-q0eLMUb-Sf1Gea0g,legacy,1,xml,-0.3630,-0.6281,
 seattle-wa:5596,seattle-wa,9nhsLqBIpDDkl4V9QCL20g,legacy,1,xml,0.4567,-0.4038,0.0528,0.3297,0.9293
 seattle-wa:5597,seattle-wa,9nhsLqBIpDDkl4V9QCL20g,legacy,1,xml,0.1927,-0.4233,-0.2306,0.3297,0.9757
 seattle-wa:5605,seattle-wa,cE0Wyi_5yLarW3TtZ9aemw,legacy,1,xml,2.0259,-1.7976,0.2283,-5.9107,0.9500
+seattle-wa:56106,seattle-wa,t3A3s-Kj6lzJ6tc9lAK2yw,legacy,1,xml,0.0489,-2.7449,-2.6960,-7.0312,0.9184
 seattle-wa:5612,seattle-wa,ZdFD4aCWW9BzUczhR_cYcg,legacy,1,xml,0.0855,-2.5789,-2.4934,-2.6147,1.0130
 seattle-wa:5613,seattle-wa,ZdFD4aCWW9BzUczhR_cYcg,legacy,1,xml,0.1345,-1.8474,-1.7129,-2.8344,0.9986
 seattle-wa:5629,seattle-wa,q7m-bkWfeWaobed8AuSM-g,legacy,1,xml,2.6602,0.8122,3.4724,4.2848,0.9248
@@ -12546,6 +12683,7 @@ seattle-wa:5795,seattle-wa,MroI6_J8-T-pzXOzshqqPA,legacy,1,xml,2.4863,0.0346,2.5
 seattle-wa:5798,seattle-wa,zlaPSYL2DLJVRvA578p87Q,legacy,1,xml,2.8665,0.2136,3.0801,-4.1749,0.9410
 seattle-wa:5800,seattle-wa,kxMuTcPlFapZR9ngI789jQ,legacy,1,xml,-0.4270,-0.5149,-0.9419,-0.3736,0.9786
 seattle-wa:58234,seattle-wa,CXsU-K39wqOvaaXqYn_KFg,legacy,1,xml,-1.0867,0.1603,-0.9263,-0.2638,0.9104
+seattle-wa:58449,seattle-wa,_4z7YUE14xA0cYqHiP4q1Q,legacy,1,xml,4.3742,0.8665,5.2407,6.5479,0.5933
 seattle-wa:58653,seattle-wa,97S9NnmusZHZxoEsgk5ifw,legacy,1,xml,0.8068,-0.3197,0.4871,0.3736,0.9359
 seattle-wa:58659,seattle-wa,3vjvE5IfbsOvld7Zvjjzow,legacy,1,xml,0.3363,0.2119,0.5482,0.4175,0.9381
 seattle-wa:58670,seattle-wa,R0BikOKxKTky65L492ByCQ,legacy,1,xml,-0.0082,-0.0086,-0.0168,-1.5380,0.8508
@@ -12621,6 +12759,7 @@ seattle-wa:62000,seattle-wa,N1eOZle_yB5A7ysbHVUp0w,legacy,1,xml,-1.5016,0.1558,-
 seattle-wa:62006,seattle-wa,DZtNLMujFH9H_DLoZ3ueXQ,legacy,1,xml,-0.3114,-1.6779,-1.9893,-1.7359,0.8419
 seattle-wa:62081,seattle-wa,KE4NsJnVTD1K72KapUNVJA,legacy,1,xml,-2.3346,1.0743,-1.2603,-2.1313,0.9558
 seattle-wa:62121,seattle-wa,n7JCdSPHJ1rmlzkN9mSgXg,legacy,1,xml,-2.2515,1.3819,-0.8696,-4.2728,0.8929
+seattle-wa:62292,seattle-wa,dPJCzp4NfKO6502_o3x2VQ,legacy,1,xml,-2.9200,0.9900,-1.9300,-8.6132,0.9226
 seattle-wa:62318,seattle-wa,XPENvUe5-ZWw6uQCB5H0gQ,legacy,1,xml,0.1708,0.6950,0.8658,0.8570,0.9338
 seattle-wa:62328,seattle-wa,VEkCi9SY8tCflrlESzUUMg,legacy,1,xml,0.1167,1.1369,1.2535,-0.1098,0.8709
 seattle-wa:62598,seattle-wa,p1gnw-_JsKeM4JnkUdhZEQ,legacy,1,xml,1.7491,-0.0409,1.7082,3.8013,1.0021
@@ -12639,6 +12778,7 @@ seattle-wa:63650,seattle-wa,MohTnF4zxXKGkLBcTl5d8g,legacy,1,xml,0.2450,-0.5100,-
 seattle-wa:63662,seattle-wa,VUfZ8RK27pf75B2dITJutQ,legacy,1,xml,-0.0551,-0.2370,-0.2920,-3.7573,0.9531
 seattle-wa:63681,seattle-wa,YykdBgCgCjKlmRe3Llw8pg,legacy,1,xml,-2.1799,-0.3298,-2.5097,-4.1529,0.9447
 seattle-wa:63731,seattle-wa,XAfiuWwj2YM5Mr8OTjFi2A,legacy,1,xml,0.3517,0.8570,1.2087,1.8678,0.8426
+seattle-wa:63926,seattle-wa,2NRQ8GJCFikYdxc5E8eoyQ,legacy,1,xml,8.0634,-0.0093,8.0541,6.7237,0.8151
 seattle-wa:6393,seattle-wa,7yFtTKHfF7o-FwZLqXkG7w,legacy,1,xml,-0.0480,-0.8517,-0.8997,-2.2191,0.7676
 seattle-wa:63975,seattle-wa,bl1ktnehWLsrhasoSM_cow,legacy,1,xml,0.2560,-3.2881,-3.0321,-4.3505,0.9274
 seattle-wa:64253,seattle-wa,vRP7Pue9cItho75XV7ySMg,legacy,1,xml,0.7870,-2.0048,-1.2178,-1.0326,0.7232
@@ -12670,6 +12810,7 @@ seattle-wa:6550,seattle-wa,BAQxWy6hEKmY6Y-TiZCl0g,legacy,1,xml,0.8069,0.8291,1.6
 seattle-wa:6559,seattle-wa,ltVDrYKwq-qneP9fwqhM2g,legacy,1,xml,-0.0030,0.0012,-0.0018,-0.8349,0.9491
 seattle-wa:656,seattle-wa,WoQQ5Drr4c7oTYtoYoYUpQ,legacy,1,xml,1.4712,2.0936,3.5648,1.5601,0.8847
 seattle-wa:6560,seattle-wa,ltVDrYKwq-qneP9fwqhM2g,legacy,1,xml,-0.0026,-0.0510,-0.0536,-2.5048,0.8730
+seattle-wa:6561,seattle-wa,sp0-DcyK5wj8CykctLTujg,legacy,1,xml,8.3349,-0.1160,8.2189,8.8551,0.9642
 seattle-wa:6563,seattle-wa,nyYR5ZH98WCw-MQ_s0k6AQ,legacy,1,xml,2.7341,0.5370,3.2711,2.2193,0.9816
 seattle-wa:657,seattle-wa,WoQQ5Drr4c7oTYtoYoYUpQ,legacy,1,xml,-1.0438,-2.4679,-3.5117,-5.2075,0.9570
 seattle-wa:663,seattle-wa,_FYg_SosgQnGpdZWIzZOLQ,legacy,1,xml,-0.1430,1.3813,1.2382,1.4501,0.7956
@@ -12720,6 +12861,7 @@ seattle-wa:68149,seattle-wa,5Io9LJpWr1FrQrkufkPp3Q,legacy,1,xml,1.2234,-0.3511,0
 seattle-wa:68157,seattle-wa,faucAZXIIWt67fp8wHs5pw,legacy,1,xml,-0.2639,-2.5858,-2.8496,-3.5816,0.9964
 seattle-wa:68161,seattle-wa,faucAZXIIWt67fp8wHs5pw,legacy,1,xml,0.3678,1.9771,2.3449,2.4169,0.9051
 seattle-wa:68170,seattle-wa,3WS9z55KDnn8AToyZg2qIg,legacy,1,xml,0.2893,-0.4043,-0.1149,-1.6918,0.9266
+seattle-wa:68240,seattle-wa,pfxv5R9vTazGFbJYWGnF8A,legacy,1,xml,-0.5471,-2.3994,-2.9465,-6.6137,0.9412
 seattle-wa:68321,seattle-wa,OY_RmYNc22azMQ1rRoijYQ,legacy,1,xml,-1.4982,-1.0892,-2.5875,-3.5597,0.9425
 seattle-wa:6839,seattle-wa,XtIsWnf4OVw3uGqWdFoFuw,legacy,1,xml,0.9664,0.4104,1.3768,2.3730,0.8832
 seattle-wa:68442,seattle-wa,QuLPe1Ow_qmURpyyuB80Vg,legacy,1,xml,-0.7276,1.2271,0.4995,-2.2851,0.9207
@@ -12844,6 +12986,7 @@ seattle-wa:72018,seattle-wa,jvUFIavzaVneK1S6fdOz4Q,legacy,1,xml,-0.1835,0.0891,-
 seattle-wa:72021,seattle-wa,jvUFIavzaVneK1S6fdOz4Q,legacy,1,xml,0.3479,-0.0769,0.2711,-0.5274,0.9698
 seattle-wa:72260,seattle-wa,yjmAyUX_ToW9lgjlBIkOQw,legacy,1,xml,-0.2470,-1.4931,-1.7402,-1.8896,0.9588
 seattle-wa:72274,seattle-wa,20YfTj9Y875gAV8K22twJw,legacy,1,xml,0.7667,0.1371,0.9038,-2.3730,0.9123
+seattle-wa:72303,seattle-wa,nZLPWLz4Ekk2QRh6fZRJQw,legacy,1,xml,3.4789,0.5041,3.9830,8.5914,0.8286
 seattle-wa:72482,seattle-wa,K_WWeSZup9JxQ4Cc0O5RDA,legacy,1,xml,0.2508,0.7494,1.0002,2.0655,0.9446
 seattle-wa:72491,seattle-wa,UTIQPsQYJ84gUe00xEs6zQ,legacy,1,xml,-3.0288,-0.5101,-3.5389,-3.0103,0.9967
 seattle-wa:72527,seattle-wa,TvTouLnjENN8lt7cFHnZQQ,legacy,1,xml,-0.7367,0.3435,-0.3932,0.2196,0.8411
@@ -13030,6 +13173,7 @@ seattle-wa:81317,seattle-wa,HBmseBVvIN008HPJOwx27Q,legacy,1,xml,1.5876,0.0406,1.
 seattle-wa:81373,seattle-wa,4OfN-ixNj14-17btZV7i_Q,legacy,1,xml,-0.1007,-1.5649,-1.6657,-2.8936,0.9238
 seattle-wa:814,seattle-wa,Vyy9fUxkiJSxcJElurKAHA,legacy,1,xml,0.4479,1.0549,1.5027,2.5269,0.8486
 seattle-wa:8143,seattle-wa,HTTQ99phjiolLzTpA-LDDQ,legacy,1,xml,-0.3799,0.2781,-0.1018,-0.3735,1.0292
+seattle-wa:81497,seattle-wa,A52lYPaos7XSL2qNWUYPsQ,legacy,1,xml,-7.8769,0.7071,-7.1698,-6.9215,0.8023
 seattle-wa:815,seattle-wa,Vyy9fUxkiJSxcJElurKAHA,legacy,1,xml,0.1856,1.7980,1.9836,1.5382,0.9379
 seattle-wa:81510,seattle-wa,58cJsbvIG5I1tyyyQv3rKw,legacy,1,xml,1.3926,-0.9359,0.4567,0.0660,0.8741
 seattle-wa:816,seattle-wa,Vyy9fUxkiJSxcJElurKAHA,legacy,1,xml,-0.2275,1.7355,1.5079,2.0435,0.8286
@@ -13112,6 +13256,7 @@ seattle-wa:86847,seattle-wa,myNCB725-JgVCeDp1ThMgw,legacy,1,xml,0.0871,2.6778,2.
 seattle-wa:87005,seattle-wa,1rE2f3ckWfJx4TTu-pW7Jw,legacy,1,xml,-0.6522,-0.5920,-1.2442,-0.3295,0.8894
 seattle-wa:8701,seattle-wa,j_PNeVKSTu4EKOIIbsdbJA,legacy,1,xml,-0.4346,-2.3515,-2.7861,-2.3951,0.9756
 seattle-wa:87010,seattle-wa,tz3uzIOq7HZM_nFtzSZ_7g,legacy,1,xml,0.5606,-0.0983,0.4623,-3.1420,1.0031
+seattle-wa:87207,seattle-wa,-tqfvimpGWsG2CQwizGiNw,legacy,1,xml,0.3059,0.9137,1.2197,-7.3388,0.9115
 seattle-wa:87213,seattle-wa,NwUDwi_T_Frh4vgR56CnWw,legacy,1,xml,0.4148,1.0502,1.4650,-1.4501,0.9476
 seattle-wa:87216,seattle-wa,C_URMirfy3yfk6DMSDeU9w,legacy,1,xml,0.4689,-2.0796,-1.6107,-3.1642,0.8250
 seattle-wa:873,seattle-wa,dBThEy4NAUekmhMfPRK0DQ,legacy,1,xml,0.0830,-1.5404,-1.4574,-0.5932,0.9588
@@ -13148,6 +13293,7 @@ seattle-wa:900,seattle-wa,2BcncBnwUvviwVbBqMVaVQ,legacy,1,xml,-0.2422,0.7097,0.4
 seattle-wa:9002,seattle-wa,nOVcxpejzl93fmj45VyVow,legacy,1,xml,1.5514,0.3136,1.8650,2.8565,0.9434
 seattle-wa:90056,seattle-wa,LqV5AkjxMi6s39WO1i6rjg,legacy,1,xml,-0.0893,0.3299,0.2406,0.7032,1.0161
 seattle-wa:90338,seattle-wa,-DVH0UABq5nCFvjF86P0-Q,legacy,1,xml,-0.5863,-0.2615,-0.8478,-3.9110,0.9164
+seattle-wa:90347,seattle-wa,3j5GfYbgMdz0oSUA4taD_A,legacy,1,xml,3.0125,3.9077,6.9202,6.1659,0.9180
 seattle-wa:90354,seattle-wa,s8blVxUdX2xjDkNFKeKHDw,legacy,1,xml,-0.3908,-0.2221,-0.6129,-1.1645,0.9471
 seattle-wa:90371,seattle-wa,oI60cnsLhkG3MF7HB2uUGg,legacy,1,xml,1.1679,0.3680,1.5359,-0.4835,0.9358
 seattle-wa:90573,seattle-wa,-IiSfhcZQtf37s7bL5M7yQ,legacy,1,xml,-2.2465,1.6664,-0.5801,-0.7030,0.5677
@@ -13203,6 +13349,7 @@ seattle-wa:95418,seattle-wa,PgH5zzcHNCMkUmXOvf3X9A,legacy,1,xml,0.0222,-1.3548,-
 seattle-wa:95419,seattle-wa,PgH5zzcHNCMkUmXOvf3X9A,legacy,1,xml,0.0266,-0.8202,-0.7936,-0.5055,0.8779
 seattle-wa:95420,seattle-wa,PgH5zzcHNCMkUmXOvf3X9A,legacy,1,xml,0.0286,0.2603,0.2889,0.8129,0.9741
 seattle-wa:95421,seattle-wa,PgH5zzcHNCMkUmXOvf3X9A,legacy,1,xml,0.0229,1.2887,1.3116,2.0655,0.9248
+seattle-wa:95426,seattle-wa,4FyrJF3coNWGafPcC42yeg,legacy,1,xml,4.7442,0.8047,5.5489,6.1964,0.9520
 seattle-wa:95427,seattle-wa,4FyrJF3coNWGafPcC42yeg,legacy,1,xml,3.1100,-1.3853,1.7248,1.0987,0.8645
 seattle-wa:95428,seattle-wa,rMCwDPO44YdeL85SPrLOmA,legacy,1,xml,-0.2144,-0.7243,-0.9387,0.0439,0.9631
 seattle-wa:95429,seattle-wa,rMCwDPO44YdeL85SPrLOmA,legacy,1,xml,0.4102,-0.6890,-0.2788,0.0880,0.9671
@@ -13270,6 +13417,7 @@ seattle-wa:96504,seattle-wa,R_NK44SRln2deIIVY5HViQ,legacy,1,xml,0.9058,-0.2859,0
 seattle-wa:96518,seattle-wa,D6HN96N7uDKFrQgQsGf8OQ,legacy,1,xml,-0.5194,0.8323,0.3129,-0.3954,0.7176
 seattle-wa:96520,seattle-wa,D6HN96N7uDKFrQgQsGf8OQ,legacy,1,xml,-0.3950,-2.9450,-3.3399,-4.7241,0.8580
 seattle-wa:96678,seattle-wa,Xr9xC6fHq94uO9UtgEZMVQ,legacy,1,xml,-5.1979,0.3468,-4.8512,-5.9224,0.7831
+seattle-wa:96680,seattle-wa,Xr9xC6fHq94uO9UtgEZMVQ,legacy,1,xml,-7.8366,-0.1214,-7.9580,-7.8426,0.9025
 seattle-wa:96681,seattle-wa,nze6EqlSMCm7RMPGOGN4Ug,legacy,1,xml,2.2273,-0.8773,1.3500,2.3528,0.8757
 seattle-wa:96688,seattle-wa,dlDQyznM5kdT5FODDUtt7w,legacy,1,xml,-0.0163,1.1500,1.1338,-0.4835,0.8522
 seattle-wa:96691,seattle-wa,dlDQyznM5kdT5FODDUtt7w,legacy,1,xml,-0.0308,-1.1083,-1.1391,-1.2304,0.8979
@@ -13294,10 +13442,13 @@ seattle-wa:96865,seattle-wa,yEoA_UX_RW65yIyDlhd4mw,legacy,1,xml,1.3500,-0.1485,1
 seattle-wa:96866,seattle-wa,yEoA_UX_RW65yIyDlhd4mw,legacy,1,xml,0.8585,0.5299,1.3884,1.1646,0.9513
 seattle-wa:96969,seattle-wa,cc4KaBS-Tl9cgbj_-E8oWQ,legacy,1,xml,4.0681,0.0008,4.0689,2.2852,0.8884
 seattle-wa:96970,seattle-wa,cc4KaBS-Tl9cgbj_-E8oWQ,legacy,1,xml,2.1962,-0.1010,2.0952,0.1757,0.9347
+seattle-wa:96971,seattle-wa,PvyKueEfOAIc9ysmtuuBKw,legacy,1,xml,7.2081,-0.0855,7.1226,7.2071,0.6775
+seattle-wa:96972,seattle-wa,PvyKueEfOAIc9ysmtuuBKw,legacy,1,xml,6.2226,0.1743,6.3969,7.5585,0.9617
 seattle-wa:96973,seattle-wa,dVsvSjm3BcelTiOi_qViLA,legacy,1,xml,2.1769,0.1426,2.3195,3.8014,0.9228
 seattle-wa:96974,seattle-wa,M28ECCvAnJy2M4XmGrqR-Q,legacy,1,xml,2.5519,1.1037,3.6555,3.5596,0.8935
 seattle-wa:96975,seattle-wa,M28ECCvAnJy2M4XmGrqR-Q,legacy,1,xml,3.3283,-0.5253,2.8030,3.8014,0.9020
 seattle-wa:96976,seattle-wa,lwRXHiw3nc8X4LcD1xs-gg,legacy,1,xml,5.2824,-0.6335,4.6489,5.9547,0.8016
+seattle-wa:96977,seattle-wa,lwRXHiw3nc8X4LcD1xs-gg,legacy,1,xml,6.0400,0.2182,6.2581,6.3500,0.6543
 seattle-wa:96978,seattle-wa,TnGjx-7gook-CpW9cAN7Lg,legacy,1,xml,1.9256,0.3004,2.2260,3.0103,0.9382
 seattle-wa:96987,seattle-wa,EKtrcsSmS5hti5UR2xNTSw,legacy,1,xml,1.6964,-1.7532,-0.0568,1.9117,0.7677
 seattle-wa:96989,seattle-wa,RDq-wRLsryDAoZQYp9zueA,legacy,1,xml,-2.2052,-0.4443,-2.6495,-2.1313,0.9224
@@ -13367,18 +13518,22 @@ seattle-wa:97978,seattle-wa,LJMp__Wxc4BT-JHG9WTp3Q,legacy,1,xml,0.6218,-1.0350,-
 seattle-wa:97983,seattle-wa,aFwdtYZkJt5OAd9eTsfz8g,legacy,1,xml,-1.0626,-0.1089,-1.1715,-1.6040,1.0085
 seattle-wa:97990,seattle-wa,6ElNJXTQUPIXWAhFPbL2xw,legacy,1,xml,0.5413,0.4184,0.9596,-0.2636,0.9567
 seattle-wa:98000,seattle-wa,l-1-oLos8HzcPGkVBWeTfA,legacy,1,xml,0.1155,1.2578,1.3733,1.6918,0.8333
+seattle-wa:98081,seattle-wa,DIeZNSZF11DHYFn0sSxfcw,legacy,1,xml,6.0664,0.9888,7.0552,6.9654,0.9081
 seattle-wa:98082,seattle-wa,DIeZNSZF11DHYFn0sSxfcw,legacy,1,xml,5.5443,-1.5140,4.0303,3.0103,0.8527
+seattle-wa:98083,seattle-wa,CvzNnspw-yKRGGW5-WwfIA,legacy,1,xml,1.0651,-5.3621,-4.2971,-6.5478,0.9509
 seattle-wa:98085,seattle-wa,qtyHZpSA8dxH18ZKxPOWLw,legacy,1,xml,0.0313,-2.3917,-2.3604,-2.4610,0.8817
 seattle-wa:98089,seattle-wa,n-mh6bzh5QPMDI2kHDWmoA,legacy,1,xml,-0.5354,0.3754,-0.1600,0.6221,0.9943
 seattle-wa:98090,seattle-wa,n-mh6bzh5QPMDI2kHDWmoA,legacy,1,xml,-0.2486,0.3882,0.1396,1.1087,0.8874
 seattle-wa:98102,seattle-wa,lr9MPntPKksn9P2LioXdBQ,legacy,1,xml,-0.6347,0.4363,-0.1983,-2.3071,0.9436
 seattle-wa:9811,seattle-wa,shwq1BaysaBDMkqNdGfNwA,legacy,1,xml,-0.1881,0.2760,0.0879,0.0880,1.0004
+seattle-wa:98123,seattle-wa,bn3jUPjHJygD4-nEZGq6ng,legacy,1,xml,-8.1027,0.2299,-7.8728,-8.7013,1.0020
 seattle-wa:98127,seattle-wa,XyywlP8-AffFSNOqxMOKgQ,legacy,1,xml,-0.2606,0.5894,0.3289,-0.9448,0.9386
 seattle-wa:98144,seattle-wa,oGb-iE_Uym7tf_dEKdsuTw,legacy,1,xml,0.3533,-3.2008,-2.8475,-2.6808,0.9231
 seattle-wa:98146,seattle-wa,oGb-iE_Uym7tf_dEKdsuTw,legacy,1,xml,-0.0932,-3.2159,-3.3091,-4.9658,0.7698
 seattle-wa:98147,seattle-wa,1kyMenHK6OkbOe_YqGuYrA,legacy,1,xml,-0.7500,2.1010,1.3510,0.5054,0.9459
 seattle-wa:9815,seattle-wa,4okCrLPP67kE9CJ7YxQSjg,legacy,1,xml,-0.1012,0.1631,0.0619,-1.6039,0.9533
 seattle-wa:98158,seattle-wa,sO5BdcA7zr6r6VQAtjyx2w,legacy,1,xml,-2.1244,1.3251,-0.7993,-2.0654,0.9302
+seattle-wa:98160,seattle-wa,PvyKueEfOAIc9ysmtuuBKw,legacy,1,xml,6.0563,0.1842,6.2404,7.2948,0.9617
 seattle-wa:98195,seattle-wa,_s80KOyGs0NM-KGIUwDAAA,legacy,1,xml,1.4596,-0.2051,1.2545,0.3297,1.0003
 seattle-wa:98198,seattle-wa,oqCreQVAApaJWTsJua-R8A,legacy,1,xml,-0.5931,-4.1299,-4.7231,-5.2953,0.9585
 seattle-wa:98201,seattle-wa,oqCreQVAApaJWTsJua-R8A,legacy,1,xml,-0.7860,-3.9640,-4.7500,-4.2187,0.7044
@@ -13386,6 +13541,7 @@ seattle-wa:98202,seattle-wa,3PFfdmDL4icNexg-eHZV8Q,legacy,1,xml,-0.6135,-0.4439,
 seattle-wa:98214,seattle-wa,_34yU997By2QkIfEW4C_AQ,legacy,1,xml,0.0242,-0.7288,-0.7046,-1.1865,0.9190
 seattle-wa:98215,seattle-wa,SVFVvJyKkovhZFkB0AEhZg,legacy,1,xml,0.4488,1.7383,2.1871,1.6480,0.9195
 seattle-wa:98216,seattle-wa,SVFVvJyKkovhZFkB0AEhZg,legacy,1,xml,1.9643,-0.5249,1.4394,1.8238,0.9129
+seattle-wa:98217,seattle-wa,OqFKXzSCLf3GK50PciSzfQ,legacy,1,xml,8.4482,1.1287,9.5769,8.9430,0.9320
 seattle-wa:9823,seattle-wa,4okCrLPP67kE9CJ7YxQSjg,legacy,1,xml,0.1454,0.1432,0.2885,-1.4062,0.8860
 seattle-wa:98232,seattle-wa,8-fBQKTXOgxHPk92hE6G-A,legacy,1,xml,1.1715,-0.8665,0.3050,-0.7250,0.9085
 seattle-wa:98233,seattle-wa,8-fBQKTXOgxHPk92hE6G-A,legacy,1,xml,-2.1222,0.6431,-1.4792,-2.4389,0.6756
@@ -13439,6 +13595,7 @@ seattle-wa:99115,seattle-wa,NkE-H9wul95zw3NS-RHwAA,legacy,1,xml,0.8934,-0.8612,0
 seattle-wa:99123,seattle-wa,6zkkywi4Ww3CKqcHLT-coQ,legacy,1,xml,-0.1770,-2.3802,-2.5573,-2.1752,0.9701
 seattle-wa:99193,seattle-wa,ih4s35lVCZGmFWThF1rrUQ,legacy,1,xml,1.0303,-0.2573,0.7729,1.9337,0.9460
 seattle-wa:99197,seattle-wa,ih4s35lVCZGmFWThF1rrUQ,legacy,1,xml,1.1236,0.2324,1.3559,-0.0878,0.9743
+seattle-wa:99199,seattle-wa,JscuUUEhcaW6qIqGN1Z7pA,legacy,1,xml,-5.1159,-0.4161,-5.5319,-6.6576,0.9146
 seattle-wa:99205,seattle-wa,ebX9xn853l3gLrd8AMo0Ng,legacy,1,xml,-1.8706,0.2763,-1.5942,-1.6039,0.9442
 seattle-wa:99209,seattle-wa,ebX9xn853l3gLrd8AMo0Ng,legacy,1,xml,1.4964,-0.4234,1.0729,1.2965,0.9365
 seattle-wa:99215,seattle-wa,Y0d2EXrWw4Ua5_jNPrAITw,legacy,1,xml,0.4155,0.1635,0.5790,1.0766,0.8912
@@ -13448,6 +13605,7 @@ seattle-wa:99274,seattle-wa,YnKT_HdAwWtkHF2glLFhaQ,legacy,1,xml,-0.7639,0.6104,-
 seattle-wa:99290,seattle-wa,YX28LQVpKmhng40eK0mdww,legacy,1,xml,0.0036,-1.2892,-1.2855,-0.8569,0.9249
 seattle-wa:99291,seattle-wa,YX28LQVpKmhng40eK0mdww,legacy,1,xml,-0.0060,-1.0284,-1.0344,-0.6152,0.9421
 seattle-wa:9930,seattle-wa,zU0Pgu0s_pFAwgXNk2tGqQ,legacy,1,xml,-0.0545,1.0083,0.9538,2.5489,0.9773
+seattle-wa:99317,seattle-wa,Y6cL0q-MaaOLj9y5rPSiiQ,legacy,1,xml,7.1800,0.7462,7.9261,7.6685,0.8270
 seattle-wa:99330,seattle-wa,3jwtuGbk2DsyEostxobV5g,legacy,1,xml,1.0695,-0.5575,0.5120,1.4281,0.9357
 seattle-wa:99332,seattle-wa,2g94llQanf89zxUnPNYN9A,legacy,1,xml,-0.2918,1.3431,1.0512,1.0766,0.8759
 seattle-wa:99334,seattle-wa,77Xi7or30NJkaSdln3JldA,legacy,1,xml,0.1418,0.7534,0.8952,1.3404,1.0081
@@ -13473,6 +13631,7 @@ seattle-wa:99743,seattle-wa,6qsyF8Cr0J9AmTjRrAqVHg,legacy,1,xml,-1.2726,0.8972,-
 seattle-wa:99797,seattle-wa,Uqpyy0ZUvF45A748LOOuvw,legacy,1,xml,-0.2702,0.6189,0.3487,0.7471,0.9069
 seattle-wa:99826,seattle-wa,_n6bLf82t8-kD2zrV8JRPQ,legacy,1,xml,0.0772,-0.7189,-0.6417,-1.0546,0.8037
 seattle-wa:99838,seattle-wa,yHjMqqckObKGAfkpm9i3ug,legacy,1,xml,-1.3471,-1.3771,-2.7242,-2.0873,0.9217
+seattle-wa:99854,seattle-wa,HC0dnlwoQsfNxQV9Hl17sQ,legacy,1,xml,1.7603,5.6025,7.3628,7.6685,0.9350
 seattle-wa:99856,seattle-wa,HC0dnlwoQsfNxQV9Hl17sQ,legacy,1,xml,1.9422,-4.9379,-2.9957,-1.7357,0.9328
 seattle-wa:99862,seattle-wa,HwIVuZM4sh0ynY_XTw9cew,legacy,1,xml,1.0863,0.5765,1.6628,1.5821,0.8833
 seattle-wa:9989,seattle-wa,6xe4ejUweIQJXbi_iAstSw,legacy,1,xml,-0.1382,0.4014,0.2632,0.9889,0.9420
@@ -13482,6 +13641,7 @@ seattle-wa:99905,seattle-wa,baMr2tqgQaa3XfWNMMcLUw,legacy,1,xml,-0.8117,-0.6846,
 seattle-wa:99908,seattle-wa,baMr2tqgQaa3XfWNMMcLUw,legacy,1,xml,0.1159,-1.3310,-1.2150,-3.3398,0.8686
 seattle-wa:99945,seattle-wa,z2v535-8X542mHkdvM2f3g,legacy,1,xml,-1.1282,-5.5648,-6.6930,-5.0976,0.9262
 seattle-wa:99954,seattle-wa,idrQNsZcCqX29AtwI1DQUA,legacy,1,xml,-1.3865,1.2468,-0.1398,-0.1977,0.8665
+seattle-wa:99963,seattle-wa,3XtAWnJLuL0Vdyu5AN9yUg,legacy,1,xml,4.4146,1.0809,5.4955,6.8334,0.7990
 spgg:10262,spgg,ipnUju6vHQiRY7Pw6j7ZCQ,legacy,1,xml,0.0992,1.7192,1.8184,1.0108,0.8947
 spgg:10321,spgg,aM3_H_azMGkzKJCKCTXnAA,legacy,1,xml,1.4567,0.2098,1.6666,0.4057,0.7827
 spgg:10415,spgg,MLfJkcWqRaeJBxpQnQVJ1w,legacy,1,xml,-0.8879,1.9934,1.1055,0.2856,0.9128
@@ -13505,6 +13665,7 @@ spgg:15098,spgg,tomw04eXXYNJ_Qv8dQSiYA,legacy,1,xml,-2.1821,-0.8913,-3.0734,-3.1
 spgg:15101,spgg,tomw04eXXYNJ_Qv8dQSiYA,legacy,1,xml,0.8327,1.2305,2.0631,2.0214,0.9627
 spgg:15172,spgg,n047t7iWihv2jTHs0cpKDA,legacy,1,xml,-0.5597,-1.0694,-1.6291,-2.2986,0.5931
 spgg:15180,spgg,zXoyCmDsRU9muM7Muvacqw,legacy,1,xml,-0.3849,-0.3011,-0.6860,2.2717,0.6957
+spgg:15236,spgg,ljzmDXDpNQ1GPINgkCyeRA,legacy,1,xml,-0.5023,1.0730,0.5707,-6.4161,0.8698
 spgg:15854,spgg,IhjJ9BHIcEBjUF5U_ZKNzA,legacy,1,xml,1.1081,-2.3044,-1.1963,1.0546,0.9047
 spgg:16189,spgg,rEdP4Ia4XR1Mo85pKHgQ7Q,legacy,1,xml,0.6780,0.7317,1.4097,3.9770,0.8535
 spgg:16199,spgg,daTwQE7sXZoC0OcDP0-Zuw,legacy,1,xml,1.7774,-0.1551,1.6223,2.7686,0.6371
@@ -13605,6 +13766,7 @@ spgg:56555,spgg,37wuyPy6pqV6IYgRknvnGA,mid,1,xml,-0.7872,1.2779,0.4906,-2.9443,0
 spgg:56590,spgg,1yPV3zuIjMl7j479aQ-2PA,mid,1,xml,0.1554,-4.0625,-3.9072,-3.7048,0.7255
 spgg:56659,spgg,r58p1c3tik0kBIPVAodQ_A,mid,1,xml,-0.5378,0.4818,-0.0560,-1.7797,0.8445
 spgg:56673,spgg,fEHqgEAROKGEQt3oEWYw2A,mid,1,xml,-3.0100,0.0661,-2.9438,-5.2953,0.6983
+spgg:56805,spgg,07TCLKasaP94AxSvN3LpLw,mid,1,xml,-0.0247,1.6516,1.6269,-7.6244,0.8297
 spgg:56854,spgg,sOlR6UZyfcRr_cKbezj2Dg,mid,1,xml,-1.2326,-1.3204,-2.5530,-3.3178,0.7814
 spgg:57005,spgg,edCAzNVnDxV8RqkaVrGXRQ,mid,1,xml,0.1277,2.4705,2.5982,2.9003,0.7466
 spgg:57010,spgg,QxX4Dyeiy8nxePjde6Ar8g,mid,1,xml,2.0524,-0.0664,1.9860,1.2745,0.8994
@@ -13612,6 +13774,7 @@ spgg:57416,spgg,7Osotw28JboGE9gCxt5bOg,mid,1,xml,-4.3757,1.4410,-2.9347,-2.6806,
 spgg:58015,spgg,kqI7bUA_MmY69m-a2k0eMw,mid,1,xml,1.7258,-0.2317,1.4941,-0.4833,0.6058
 spgg:58203,spgg,8GQJQqBymGcHlCSd2l9v6Q,mid,1,xml,-2.2740,-2.2102,-4.4841,-4.6801,0.9655
 spgg:5902,spgg,CJeQvbUeiI4K6uucaIaKKA,legacy,1,xml,4.7650,0.1274,4.8923,3.9112,0.7840
+spgg:59948,spgg,f_hFbyCa8F1OId-L_NEKMA,mid,1,xml,0.1339,-5.4641,-5.3302,-6.1388,0.6949
 spgg:60219,spgg,FaKu8XTsOK6Xfzku-H9KnQ,mid,1,xml,-2.1916,0.0246,-2.1670,-1.2441,0.6715
 spgg:6048,spgg,NOUZWQ6a6JzfhusF-BL10w,legacy,1,xml,0.4840,0.6189,1.1029,-0.9449,0.8477
 spgg:60999,spgg,XnhvwUs2_GqT0Fvl0zVKhA,mid,1,xml,-0.0692,1.8695,1.8002,2.8785,0.7662
@@ -13867,7 +14030,9 @@ st-louis-mo:46015,st-louis-mo,mIvbvBnH1AwYYAOa6vRU7A,post179,1,npz,1.1602,0.3120
 st-louis-mo:46046,st-louis-mo,RcTwhATGko68X94v9e074Q,post179,1,npz,0.3542,1.2314,1.5856,3.0323,0.9223
 st-louis-mo:46243,st-louis-mo,KJwWAwW8B1t_4oKdfpmL6w,post179,1,npz,0.2259,0.1827,0.4086,1.7797,0.9593
 st-louis-mo:4655,st-louis-mo,g4ncwAKxYhC3TkX8waUzWg,post179,1,npz,0.0078,-0.6273,-0.6195,-0.2435,0.8420
+st-louis-mo:46827,st-louis-mo,VqHCUsL12V6bxF1B2xF48A,post179,1,npz,1.6771,1.5623,3.2394,8.6793,0.8677
 st-louis-mo:47020,st-louis-mo,gCzRHxMxjWJKJ8f9MdEQJw,post179,1,npz,-0.0150,-1.5036,-1.5186,-0.8351,0.9294
+st-louis-mo:48110,st-louis-mo,vuBmmEYhBiVZEvJB3VysDg,post179,1,npz,0.0283,1.9828,2.0111,6.3502,0.9323
 st-louis-mo:4819,st-louis-mo,zd-ATzLkjCViRzm1pRtYgQ,post179,1,npz,-0.3041,0.1745,-0.1297,-1.5380,0.9593
 st-louis-mo:48348,st-louis-mo,cmCsMtVZeWDlJDzhM27tcA,post179,1,npz,1.3068,0.1171,1.4239,4.1969,0.9398
 st-louis-mo:4875,st-louis-mo,ru4eZruTCM_IztUcNklTKQ,post179,1,npz,-0.2496,0.0293,-0.2203,-1.4062,0.8952
@@ -14060,6 +14225,7 @@ teaneck-nj:16096,teaneck-nj,GWuIbo1_9FJ9TrAxoOZJ-w,post179,1,npz,0.4018,3.5167,3
 teaneck-nj:16122,teaneck-nj,_j7sTmnGd5-Xw46L32hg9g,post179,1,npz,0.2763,-0.1119,0.1644,0.1977,0.8384
 teaneck-nj:16250,teaneck-nj,ehbFwdsYITE6jZC08sRm5Q,post179,1,npz,-2.5827,0.1532,-2.4295,1.0328,0.9469
 teaneck-nj:16449,teaneck-nj,aoiF5i1DUp5rpdBgn5sA5Q,post179,1,npz,-0.3805,1.4087,1.0282,1.1646,0.6864
+teaneck-nj:1651,teaneck-nj,7vx-azesTt7R1GqqMswJbw,post179,1,npz,-0.3771,-3.0587,-3.4358,-7.0971,0.8957
 teaneck-nj:16518,teaneck-nj,vxmLclcP_VrAvjkxgMVmvQ,post179,1,npz,-0.9650,-1.7139,-2.6788,-1.0326,0.9345
 teaneck-nj:1655,teaneck-nj,20EmocnlnsfvhQqBsPuy6w,post179,1,npz,-1.0420,-0.2350,-1.2770,-2.0214,0.9019
 teaneck-nj:1657,teaneck-nj,20EmocnlnsfvhQqBsPuy6w,post179,1,npz,-0.4303,-0.3620,-0.7923,-0.9228,0.8505
@@ -14091,6 +14257,8 @@ teaneck-nj:1819,teaneck-nj,EqUqlS8Ef4EoUA-xsBDwUw,post179,1,npz,0.1615,-1.5416,-
 teaneck-nj:18201,teaneck-nj,FRb9N9lghzN29AsNL6ymoA,post179,1,npz,-0.1718,-0.4358,-0.6076,-1.7797,0.9507
 teaneck-nj:1830,teaneck-nj,6fIp1rSfif5QNTjiLtZCaw,post179,1,npz,-0.1996,0.2957,0.0962,1.8677,1.0103
 teaneck-nj:1832,teaneck-nj,6fIp1rSfif5QNTjiLtZCaw,post179,1,npz,0.3530,0.2791,0.6321,2.4830,1.0082
+teaneck-nj:18451,teaneck-nj,qRisdj9tqm_Od3UQOIafSw,post179,1,npz,0.1782,1.0961,1.2743,6.9872,0.8814
+teaneck-nj:18461,teaneck-nj,iy1R98fbxOIwq-SpZjS4sQ,post179,1,npz,0.4560,2.1738,2.6298,6.3940,0.8631
 teaneck-nj:18525,teaneck-nj,QIFSEZ7RwVjqkzmxlBKThQ,post179,1,npz,0.3477,-1.0601,-0.7124,2.4390,0.7587
 teaneck-nj:19021,teaneck-nj,vWFb-NAbxf9ZrTkCIRUV9A,post179,1,npz,-0.0498,-0.9908,-1.0405,2.8124,0.9517
 teaneck-nj:19023,teaneck-nj,vWFb-NAbxf9ZrTkCIRUV9A,post179,1,npz,0.0596,-0.7926,-0.7330,4.0868,0.8973
@@ -14125,6 +14293,7 @@ teaneck-nj:20376,teaneck-nj,87M4-6uWK1TA3gwWStqvIw,post179,1,npz,0.5627,0.4084,0
 teaneck-nj:2042,teaneck-nj,qvmrpNWp7OA4TK2aucctsA,post179,1,npz,1.6545,-1.8085,-0.1540,-1.1427,0.8438
 teaneck-nj:20424,teaneck-nj,M17bXNF8rQ85pAwOO3GAYA,post179,1,npz,-0.6443,-1.1133,-1.7576,0.9888,0.8912
 teaneck-nj:20572,teaneck-nj,ZR_alHogqFmmECmvF9W46g,post179,1,npz,-0.4456,0.0966,-0.3490,3.4936,0.9284
+teaneck-nj:20573,teaneck-nj,ZR_alHogqFmmECmvF9W46g,post179,1,npz,0.2415,0.1113,0.3529,6.2843,0.9016
 teaneck-nj:20574,teaneck-nj,ZR_alHogqFmmECmvF9W46g,post179,1,npz,0.7190,0.0488,0.7678,5.0316,1.0089
 teaneck-nj:2063,teaneck-nj,_WwTSq55rOdJKAHH-Srh5g,post179,1,npz,-1.4420,-0.2926,-1.7346,-1.8456,0.8806
 teaneck-nj:20777,teaneck-nj,XynXbQvXpTexHXXyU_Nylw,post179,1,npz,-1.1284,0.7018,-0.4266,3.2740,0.8268
@@ -14147,6 +14316,7 @@ teaneck-nj:22082,teaneck-nj,wxbYhOxnzbyGIUSPF7JYAQ,post179,1,npz,0.4501,-0.5247,
 teaneck-nj:22256,teaneck-nj,_E3BrckdA3SNJWXXbCuUow,post179,1,npz,0.4723,-0.9560,-0.4837,-1.4282,0.9033
 teaneck-nj:22297,teaneck-nj,BAtVyY9HQS4Y-wft3jae3g,post179,1,npz,0.0127,0.2034,0.2161,0.4833,0.9940
 teaneck-nj:22359,teaneck-nj,0rBft3Dt94cV8H8uunlcyw,post179,1,npz,0.2288,-0.0264,0.2024,-1.3183,0.9045
+teaneck-nj:22481,teaneck-nj,iGnxFlFt3tALobjB0D6EZQ,post179,1,npz,2.2688,0.4336,2.7024,6.4601,0.6360
 teaneck-nj:22552,teaneck-nj,QEt_XrnqvMgg2pk448kAyg,post179,1,npz,-1.0749,-0.4871,-1.5620,2.4608,0.9238
 teaneck-nj:22601,teaneck-nj,J3TSZ2ZfE7AQ658A_a_ZCg,post179,1,npz,-2.0800,0.4462,-1.6338,2.2851,0.8112
 teaneck-nj:22701,teaneck-nj,sI_kdbWQKgJLEtOFYy5WBQ,post179,1,npz,-0.4716,-0.0932,-0.5648,3.3399,0.9185
@@ -14328,8 +14498,10 @@ teaneck-nj:6562,teaneck-nj,3gwtBIyeoehg7-MmXmajlA,post179,1,npz,0.5000,0.3610,0.
 teaneck-nj:6699,teaneck-nj,_P-V8u8t39FgFQUO1QW6zw,post179,1,npz,-0.3009,0.4874,0.1865,3.6695,0.9220
 teaneck-nj:6705,teaneck-nj,_P-V8u8t39FgFQUO1QW6zw,post179,1,npz,-0.5935,-0.3909,-0.9844,0.8131,0.7474
 teaneck-nj:6768,teaneck-nj,n6k2_hFFT6J0yWd_qMnflg,post179,1,npz,0.1800,-0.3659,-0.1860,4.1527,0.9171
+teaneck-nj:6830,teaneck-nj,ehbFwdsYITE6jZC08sRm5Q,post179,1,npz,2.8512,0.0418,2.8931,7.1632,0.8741
 teaneck-nj:6897,teaneck-nj,zP45pBvMDKo7GrAisQI95g,post179,1,npz,-0.5487,-0.5469,-1.0955,2.0435,0.9216
 teaneck-nj:6932,teaneck-nj,keoc-KS-CnJb09zC_7LhFg,post179,1,npz,1.2146,-0.8521,0.3626,4.0431,0.9857
+teaneck-nj:6952,teaneck-nj,AyrneQHR7kJo0_GtJiLimg,post179,1,npz,0.3035,2.3719,2.6754,6.0425,0.9824
 teaneck-nj:6983,teaneck-nj,DddCPadxCsAlPkvkSfc2ew,post179,1,npz,0.0215,0.2836,0.3051,4.4384,0.9118
 teaneck-nj:7006,teaneck-nj,dUDeKgpUBDyyZtGpH5l3bg,post179,1,npz,0.6804,0.7668,1.4473,5.2296,0.9075
 teaneck-nj:7310,teaneck-nj,qAJL-0s1X11WBUUxYZrZRw,post179,1,npz,-0.2475,-0.3958,-0.6433,2.3292,0.9142
@@ -14343,10 +14515,12 @@ teaneck-nj:7472,teaneck-nj,hTDcVr2cJsXOOxKY8HOyEQ,post179,1,npz,1.0745,-0.1656,0
 teaneck-nj:7627,teaneck-nj,Op_BS8OO5LHMiJ4VGau9QA,post179,1,npz,0.2723,0.3667,0.6391,1.2084,0.7996
 teaneck-nj:7714,teaneck-nj,L4lOTwKNzeHAtCqaHnJUTQ,post179,1,npz,0.1534,-0.0343,0.1190,-0.0660,0.8891
 teaneck-nj:7834,teaneck-nj,HylUy-uZzYsM_R5cCt8WZA,post179,1,npz,-0.3799,-0.1577,-0.5376,2.1094,0.8711
+teaneck-nj:7848,teaneck-nj,larwQAyLkyavFLZMQWhDpQ,post179,1,npz,-0.0156,1.0174,1.0018,6.7237,0.9222
 teaneck-nj:7928,teaneck-nj,rrs0N7QBQmmTnegFq2gvzA,post179,1,npz,-0.9730,-0.9542,-1.9271,-2.6147,0.9370
 teaneck-nj:7940,teaneck-nj,yzO1oIrAogINID5hgtpvTQ,post179,1,npz,0.0560,-0.1588,-0.1028,0.5714,0.9905
 teaneck-nj:8,teaneck-nj,DsCvWstZYz9JL81V9NloOQ,post179,1,npz,0.6672,0.3987,1.0659,2.1634,0.9235
 teaneck-nj:8002,teaneck-nj,wkmsPhCL0ElQNn06zE69Aw,post179,1,npz,-0.1448,-0.4642,-0.6090,2.9444,0.9385
+teaneck-nj:8036,teaneck-nj,mt1XgbUjI4aAoH4v3fyFvQ,post179,1,npz,0.9413,0.4718,1.4131,6.9874,0.9145
 teaneck-nj:8078,teaneck-nj,xIZ4WvtWGCYR2LD4EC1M5w,post179,1,npz,-0.0160,-1.7338,-1.7498,-3.1420,0.9235
 teaneck-nj:8090,teaneck-nj,ry7OGErr6kWAyqOZJMX6KA,post179,1,npz,-3.3921,0.1938,-3.1983,-2.9664,0.8801
 teaneck-nj:8096,teaneck-nj,asIAMoPUZHsCLJQTbY1F3g,post179,1,npz,1.5917,0.7270,2.3187,1.9337,0.8272
@@ -14458,6 +14632,7 @@ tucson-az:29379,tucson-az,JpLpbCNiQoDprE1L9Ji3ZQ,post179,1,npz,0.0388,0.4301,0.4
 tucson-az:29388,tucson-az,hIMJ_VOffzWqlefixPaRkg,post179,1,npz,-0.1124,-0.5249,-0.6372,0.3734,0.6585
 tucson-az:29399,tucson-az,M9flhDXVJyAeTCG8fZ_1Ig,post179,1,npz,-0.8297,-1.0293,-1.8590,-1.2525,0.7724
 tucson-az:29403,tucson-az,M9flhDXVJyAeTCG8fZ_1Ig,post179,1,npz,1.2153,-0.5566,0.6587,0.5494,0.9448
+tucson-az:29409,tucson-az,XzZyUTRCIi6te5nCxvz2zg,post179,1,npz,0.4574,2.5700,3.0274,6.7237,0.8921
 tucson-az:29418,tucson-az,WqyYGbWKen06OTvItwlcWw,post179,1,npz,0.2970,0.1852,0.4822,1.1427,0.8855
 tucson-az:29420,tucson-az,0eilxpILPOVbUKi9oy082g,post179,1,npz,-0.2482,-0.0778,-0.3260,-0.4833,0.8360
 tucson-az:29422,tucson-az,0eilxpILPOVbUKi9oy082g,post179,1,npz,-0.4869,0.0575,-0.4294,-0.6151,0.9457
@@ -14639,6 +14814,7 @@ waltham-ma:25055,waltham-ma,UVLWqXAfqIDKivGu7wkoTQ,post179,1,npz,-0.1056,1.2211,
 waltham-ma:25071,waltham-ma,-d0gDd6mMN9ySOlgHZXtzQ,post179,1,npz,-0.0041,-0.2028,-0.2069,0.4175,0.9372
 waltham-ma:25073,waltham-ma,-d0gDd6mMN9ySOlgHZXtzQ,post179,1,npz,-0.2392,-0.1222,-0.3614,0.5714,0.9100
 waltham-ma:25101,waltham-ma,KQ0IFVt688d3x9lKMcjIaw,post179,1,npz,-0.5558,0.2347,-0.3212,-1.3403,0.8688
+waltham-ma:25102,waltham-ma,96IO_JbMY7eU3oLCDyDPrg,post179,1,npz,-0.5314,1.3255,0.7941,7.8222,0.5933
 waltham-ma:25147,waltham-ma,hZ_osPdwAHDdRjzPBPINGw,post179,1,npz,-0.9992,0.0565,-0.9426,0.5274,0.8679
 waltham-ma:25151,waltham-ma,hZ_osPdwAHDdRjzPBPINGw,post179,1,npz,1.2593,0.0094,1.2687,-0.3295,0.9445
 waltham-ma:25171,waltham-ma,70hxqbiXivPILAShzvNSDA,post179,1,npz,0.7808,-0.3515,0.4293,0.8790,0.8818
@@ -14690,6 +14866,7 @@ waltham-ma:26967,waltham-ma,hZ_osPdwAHDdRjzPBPINGw,post179,1,npz,1.0347,-0.0530,
 waltham-ma:27001,waltham-ma,fQM9F0HaDdjCoGPsm_tdlQ,post179,1,npz,-0.7001,0.3894,-0.3106,-2.0654,0.8945
 waltham-ma:27004,waltham-ma,a8kQaInVjxZshVCGR6xprA,post179,1,npz,0.1103,0.6720,0.7823,0.6811,0.9466
 waltham-ma:27010,waltham-ma,a8kQaInVjxZshVCGR6xprA,post179,1,npz,-0.0418,1.3219,1.2801,1.0766,0.8218
+waltham-ma:27557,waltham-ma,XlOGKXVP7dLtkXvlmxcxjw,post179,1,npz,0.3681,0.9161,1.2842,6.0424,0.5911
 waltham-ma:27670,waltham-ma,r70baf-QNz_HIEAxd7QvqQ,post179,1,npz,-0.0029,-1.1890,-1.1919,-1.8676,0.6343
 west-chester-pa:24935,west-chester-pa,0DvsBV9jb0N0eEVDb1b8iw,post179,1,npz,1.1215,0.4395,1.5610,1.9555,0.9082
 west-chester-pa:24964,west-chester-pa,e-BRnpYAJ8aFQPn834CG1g,post179,1,npz,-1.6256,-0.5276,-2.1531,-1.3624,0.9278

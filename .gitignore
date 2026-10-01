@@ -65,6 +65,14 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/label_frame_beta/
 !runs/*/label_frame_beta/report.md
 !runs/*/label_frame_beta/*.csv
+# The vouched-pool run's own inputs and outputs, so it can be re-scored without a GPU and
+# re-run from git: the pano list, the detections (3.4 MB, 2.8 GPU-hours), their meta, and the
+# runner + log that made them. The pano-tools CSVs stay out: they are pinned by commit+sha256.
+!runs/_pooled/label_frame_beta/pool_ids.txt
+!runs/_pooled/label_frame_beta/pool_detections.jsonl
+!runs/_pooled/label_frame_beta/pool_detections.jsonl.meta.json
+!runs/_pooled/label_frame_beta/pool_detect.py
+!runs/_pooled/label_frame_beta/pool_detect.log
 # Post-submission coverage check (scripts/coverage_check.py, issue #46): the report and its
 # gap lists (missing.csv, fallback.csv) are tracked. The three API pulls are NOT — the report
 # carries each one's url, fetch time, sha256 and row count instead.
