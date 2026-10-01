@@ -162,6 +162,9 @@ python scripts/gsv_partial_pose.py consistency paterson --benchmark-root ../Ramp
 python scripts/gsv_partial_pose.py confirm vancouver --benchmark-root ../RampNet/benchmark
 python scripts/gsv_partial_pose.py confirm laurens_gsv --exploratory \
     --benchmark-root ../RampNet/benchmark     # the dry run; outputs labelled EXPLORATORY
+python scripts/gsv_partial_pose_figures.py [--refresh]   # addendum figures 5-9 (PNG 200 dpi +
+#   SVG, byte-reproducible) from docs/figures/gsv-partial-pose/data/addendum_*; --refresh
+#   recomputes that data (site examples re-fuse runs/paterson; simulations seed 116; no network)
 
 # CAMERA HEIGHT (issues #40, #79). fuse_sites.py DEFAULTS to `--camera-height-m auto` (#79):
 # GSV panos get a per-rig height by capture year from the run's own depth-measured heights
