@@ -324,6 +324,34 @@ python scripts/harvest_depth.py runs/vancouver --from-store <store> [--check-sto
 # depth/index.csv beside results.jsonl; the report prints how many panos had a height.
 python scripts/agree_rate.py gainesville --server https://sidewalk-gainesville.cs.washington.edu
 
+# LABEL-FRAME BETA (issue #113). GSV equirects are rig-frame, so a detection's row is in the
+# image's frame while a human PS label's pano_y is off by beta x T(b), T = pitch cos b +
+# roll sin b (streetlevel's sign). Fits beta from labels paired with the nearest detection on
+# the SAME pano (3 deg of bearing, 4/6/10/15 deg of elevation; pano-clustered SEs; rig-masked).
+# The elevation window is a BIAS, not just noise: centred on diff 0 it truncates large shifts
+# and reads low (6 deg: pool 0.863), so every fit also runs centred on T (reads high) and the
+# two bracket beta; they meet by 10 deg, which is the headline. `run` pulls the city's labels
+# once (read-only GET, cached, --refresh re-pulls) and reads pose + detections from
+# results.jsonl; it REFUSES when > 1% of labels sit within 1 px of a stored detection (an AI
+# account's labels pair with themselves at diff 0) unless --exclude-user names it. `pool` reads
+# sidewalk-panorama-tools' vouched pool + pose scan (pinned by commit + sha256 in POOL_INPUTS)
+# and a detections file made over those store panos; it is rebuilt end to end by `pool-ids`
+# (the sorted pano list, reproduces pool_ids.txt byte for byte) -> `pool-detect` (GPU, ~2.8 h
+# on the A40; writes model + commit + ids sha256 into .meta.json) -> `pool`. pool_ids.txt, the
+# detections file, its meta, the original runner and its log are tracked under
+# runs/_pooled/label_frame_beta/; the API pull and the pano-tools CSVs are not.
+# Results (10 deg): Gainesville 0.951 (SE 0.022); pool 0.902, legacy 0.881 / mid 0.909 /
+# post179 0.943. The era gap is the POSE RECORD's, not the label era's: on the 3,518 pairs whose
+# pano has both an XML and an npz pose, beta is 0.884 under XML and 0.953 under npz. Pose error
+# attenuates beta, so all of these are lower bounds. NOT a placement coefficient (#116).
+python scripts/label_frame_beta.py run gainesville --server https://sidewalk-gainesville.cs.washington.edu
+python scripts/label_frame_beta.py pool-ids --pool <tilt-jm-pool.csv.gz> --pose <tilt-pose-jm.csv.gz> \
+    --out runs/_pooled/label_frame_beta/pool_ids.txt
+python scripts/label_frame_beta.py pool-detect --ids runs/_pooled/label_frame_beta/pool_ids.txt \
+    --store /projects/makeabilitylab/sidewalk_panos/Panoramas --out <pool_detections.jsonl>
+python scripts/label_frame_beta.py pool --pool <tilt-jm-pool.csv.gz> --pose <tilt-pose-jm.csv.gz> \
+    --detections runs/_pooled/label_frame_beta/pool_detections.jsonl   # -> runs/_pooled/label_frame_beta/
+
 # Precision of positives mined from multi-view consensus (RampNet#158 step 1 /
 # RampNet#102): for each site with >=3 operational panos and each judged benchmark pano
 # nearby that is NOT one of its members (membership is the only test a real miner can
