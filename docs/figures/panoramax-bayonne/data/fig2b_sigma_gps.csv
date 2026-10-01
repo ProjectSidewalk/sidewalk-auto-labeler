@@ -1,7 +1,8 @@
-run,n_sites,sigma_gps_chi2_1_m,lo,hi,n_boot,model_sigma_gps_m
-bayonne,281,2.1553,2.0572,2.2558,200,3.0
-richmond,945,1.1059,1.0547,1.1629,200,3.0
-clovis,1135,0.8102,0.7466,0.8675,200,3.0
-laurens,109,1.7446,1.6131,1.863,200,3.0
-annapolis,2727,0.7444,0.7075,0.7842,200,3.0
-morgantown,1171,0.8045,0.7391,0.8676,200,3.0
+run,subset,rig,gopro_max,n_sites,sigma_gps_chi2_1_m,lo,hi,n_boot,model_sigma_gps_m
+bayonne,all,Max,1,281,2.1553,2.0572,2.2558,200,3.0
+richmond,all,GoPro Max+iSTAR Pulsar+none,0,945,1.1059,1.0547,1.1629,200,3.0
+clovis,all,Fusion+GoPro Fusion FS1.04.01.80.00,0,1135,0.8102,0.7466,0.8675,200,3.0
+laurens,all,GoPro Max,1,109,1.7446,1.6131,1.863,200,3.0
+annapolis,all,Trimble MX7+Trimble mx7,0,2727,0.7444,0.7075,0.7842,200,3.0
+morgantown,all,GoPro Max,1,1171,0.8045,0.7391,0.8676,200,3.0
+richmond,GoPro Max,GoPro Max,1,208,1.8061,1.6635,1.9243,200,3.0

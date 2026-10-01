@@ -267,7 +267,8 @@ def seq_mates(seqs, i):
 
 def pose_group(pano):
     """'tilt' (pitch/roll reported and not both zero), 'zeros' (reported as 0/0) or
-    'absent' -- the three Panoramax populations #57 measured (22% / 6% / 72%)."""
+    'absent' -- the three Panoramax populations (six-city sample on #57: 22% / 6% / 72%;
+    Bayonne's run: 36.8% / 21.2% / 42.0%)."""
     pitch, roll = pano.camera_pitch, pano.camera_roll
     if pitch is None or roll is None:
         return 'absent'
