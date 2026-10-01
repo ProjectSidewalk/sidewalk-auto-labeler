@@ -162,7 +162,7 @@ python scripts/gsv_partial_pose.py consistency paterson --benchmark-root ../Ramp
 python scripts/gsv_partial_pose.py confirm vancouver --benchmark-root ../RampNet/benchmark
 python scripts/gsv_partial_pose.py confirm laurens_gsv --exploratory \
     --benchmark-root ../RampNet/benchmark     # the dry run; outputs labelled EXPLORATORY
-python scripts/gsv_partial_pose_figures.py [--refresh]   # addendum figures 5-9 (PNG 200 dpi +
+python scripts/gsv_partial_pose_figures.py [--refresh]   # addendum figures 5-7, 9 (PNG 200 dpi +
 #   SVG, byte-reproducible) from docs/figures/gsv-partial-pose/data/addendum_*; --refresh
 #   recomputes that data (site examples re-fuse runs/paterson; simulations seed 116; no network)
 

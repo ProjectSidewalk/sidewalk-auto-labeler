@@ -339,33 +339,59 @@ mirror is worst, and `fixed-113` is the best median.
 ## Addendum 2026-09-30: opt-in wiring and the confirmatory run
 
 This addendum was written after the verdict. It does not change the verdict or any table
-above. Figures 5-9 and the replication record were added on 2026-10-01.
+above. Figures 5-7 and 9, Table 8 and the replication record were added on 2026-10-01
+and revised after an independent replication audit the same day.
 
 > **Key takeaways**
 >
-> 1. **Production's `--apply-pose partial` is the study's arm.** On Paterson's TEST half at
->    `auto`, the pooled constants give a median / p90 pair distance of 1.591 / 3.604 m.
->    The two fitted arms give 1.587 / 3.604 and 1.588 / 3.604 m, against off's 1.736 /
->    3.883 m and the shuffle's 1.758 / 4.030 m (Figure 5; `consistency_pairs.csv`, columns
->    `median_m`, `p90_m`).
-> 2. **The pool-sized recall bar is looser than the 1.0-pt bar it replaces at every n.**
+> 0. **Opt-in only.** `auto` still raycasts GSV flat. The confirmatory city (Vancouver) has
+>    no RampNet verdicts yet, so the confirmatory run has not happened.
+> 1. **Production's `--apply-pose partial` is the study's arm.**
+>    - At `auto`, on Paterson's TEST half, the pooled constants give a median / p90 pair
+>      distance of 1.591 / 3.604 m. The two fitted arms give 1.587 / 3.604 and
+>      1.588 / 3.604 m.
+>    - Off gives 1.736 / 3.883 m and the shuffle 1.758 / 4.030 m.
+>    - Production minus the city fit is +0.004 m on the median, with a 95% site-bootstrap
+>      CI of [-0.006, +0.009] m.
+>    - At 2.6 m the production arm's p90 is 4.5499 m, +0.0065 m against off, with a CI of
+>      [-0.062, +0.070] m.
+>
+>    Sources: Figure 5; `consistency_pairs.csv`, columns `median_m` and `p90_m`;
+>    `figures/gsv-partial-pose/data/addendum_consistency_bootstrap.csv`.
+> 2. **Partial places every view; the full pose does not.** Paterson's TEST half has 970
+>    sites with >= 4 operational views on distinct panos.
+>    - The partial pose and off place every view of all 970.
+>    - The full pose leaves a view unplaced on 169 of them (17%), including the 5 most
+>      tilted.
+>    - The mirror leaves a view unplaced on 3.
+>
+>    Source: Figure 7B; `figures/gsv-partial-pose/data/addendum_site_candidates.csv`, columns `placed_<arm>` and
+>    `n_views`.
+> 3. **The pool-sized recall bar is looser than the 1.0-pt bar it replaces at every n.**
 >    Bend's half split (n = 157, L = 2) fails the old bar of 2 and passes the new bar of 5
->    (Figure 6 left; `figures/gsv-partial-pose/data/addendum_loss_bar.csv`, columns `k_star`,
+>    (Figure 6A; `figures/gsv-partial-pose/data/addendum_loss_bar.csv`, columns `k_star`,
 >    `fixed_1pt_fail_at`).
-> 3. **The frozen clause (ii) is weak and fails too often under churn.** It catches a
+> 4. **The frozen clause (ii) is weak and fails too often under churn.** It catches a
 >    real 2% loss 20.8% of the time at n = 157, and fails 18.0% of the time when ramps
->    churn 3% lost / 2% gained at n = 300 (Figure 6 right;
->    `figures/gsv-partial-pose/data/addendum_power_table.csv`, column `p_fail_rule`). The discordant-pairs sign test
+>    churn 3% lost / 2% gained at n = 300 (Figure 6B;
+>    `figures/gsv-partial-pose/data/addendum_power_table.csv`, column `p_fail_rule`). Even
+>    at zero net loss (2% lost / 2% gained) it exceeds 0.05 at n = 70, 80, 120 and 130
+>    (peak 0.076). The discordant-pairs sign test
 >    stays at or under 0.037 at a 2% / 2% null, and has power 0.72 against a 2% loss at
->    n = 300 (`figures/gsv-partial-pose/data/addendum_power.csv`, column `p_fail_sign`). Which to use is Jon's
+>    n = 300 (Figure 6C; `figures/gsv-partial-pose/data/addendum_power.csv`, column `p_fail_sign`). Which to use is Jon's
 >    pre-data call.
-> 4. **Site by site, the effect is mixed.** The pose slides each ground point along its
->    own ray. On the three most-tilted Paterson sites, the partial pose tightens two
->    (median member spread 4.02 -> 3.42 m and 1.65 -> 0.95 m) and loosens one
->    (2.13 -> 2.33 m). The full pose overshoots to 5.12 m on site 3. That is why #116
->    scores thousands of pairs (Figure 7; `figures/gsv-partial-pose/data/addendum_site_examples.csv`).
-> 5. **A store-built city is not scored until one sign mapping is verified against
->    streetlevel.** The laurens_gsv dry run records `not_required` (Figure 8;
+> 5. **Site by site, the effect is mixed.** The pose slides each ground point along its own
+>    ray. Median member spread, off -> partial:
+>    - On the 3 most-tilted of the 799 sites every arm places: 4.02 -> 3.42 m,
+>      2.13 -> 2.33 m and 1.65 -> 0.95 m. The full pose beats partial on two of those
+>      (3.96 and 1.39 m) and overshoots on the third (5.12 m).
+>    - On the 3 most-tilted of all 970: 2.13 -> 4.69 m, 1.65 -> 1.11 m and
+>      1.97 -> 1.64 m. The full pose drops views on all three.
+>
+>    That is why #116 scores thousands of pairs (Figure 7;
+>    `figures/gsv-partial-pose/data/addendum_site_examples.csv`).
+> 6. **A store-built city is not scored until exactly one sign mapping is verified against
+>    streetlevel.** The laurens_gsv dry run records `not_required` (Table 8;
 >    `store_pose_gate.json`, key `status`).
 
 ### Wiring (opt-in; the default is unchanged)
@@ -415,9 +441,11 @@ Within-site pair distance, reassoc (median / p90, m), with off-pool recall at 2.
   0.003-0.004 m above both.
 - **At 2.6 m:** the pooled arm uses constants fit at `auto`. Its pitch fraction is 0.183
   against 0.15 for the 2.6 m fits. It has the best median (2.168 m). Its p90 is 4.5499 m,
-  **+0.0065 m against off** (4.5434 m) and 0.004-0.006 m above the two fitted arms.
+  **+0.0065 m against off** (4.5434 m; 95% site-bootstrap CI [-0.062, +0.070] m), and
+  0.004-0.006 m above the two fitted arms.
 - **The 2.6 m pooled row sits on a slightly different pair set.** It is scored on 10,447
-  of the 10,457 common pairs: the larger pitch term pushes 10 rays past the 25 m cap, and
+  of the 10,457 common pairs: the larger pitch term leaves 10 pairs unplaced (a member
+  past the 25 m cap; `pairs_unplaced`), and
   each arm's median and p90 are taken over the pairs it places. Clause (i) inherits the
   same survivorship, in #116 and in the confirmatory rule. A pre-data amendment scoring
   (i) only on pairs that off, partial and the shuffle all place (equal `pairs_scored`)
@@ -426,43 +454,77 @@ Within-site pair distance, reassoc (median / p90, m), with off-pool recall at 2.
 
 Files: `runs/paterson/partial_pose/consistency{.md,_pairs.csv,_gt.csv}`.
 
-![Two bar panels, median and p90 within-site pair distance minus off, for camera height
-auto and 2.6 m. In each group the hatched orange shuffled control is right of zero, the
+![Two bar panels, median and p90 within-site pair distance minus off, with 95%
+site-bootstrap whiskers and the value and CI written on each bar, for camera height auto
+(top) and 2.6 m (bottom). The hatched orange shuffled control is at or right of zero. The
 three partial arms (city fit blue, LOCO violet, production pooled green) are left of zero
-and nearly identical, and the mirror (pink) is far right of zero. At 2.6 m the p90 bars of
-the partial arms are near zero.](figures/gsv-partial-pose/fig5_consistency.png)
+on the median with overlapping CIs, and the mirror (pink) is far right of zero. At 2.6 m
+the partial arms' p90 changes are +0.001 to +0.006 m with CIs spanning zero. Under each
+group, production minus each fitted arm is given with its CI.](figures/gsv-partial-pose/fig5_consistency.png)
 
 *Figure 5. Does production's `--apply-pose partial` place members like the study's fitted
-arms? Yes. At `auto`, all three partial arms cut the median by 0.145-0.149 m and the p90
-by 0.278 m against off, and they agree within 0.004 m. The shuffled control is looser
-than off, and the mirror is looser still. Paterson TEST half, re-associated per arm.
-Data: `figures/gsv-partial-pose/data/addendum_consistency_pairs.csv` ([SVG](figures/gsv-partial-pose/fig5_consistency.svg)).*
+arms? Yes.*
+- *At `auto`, all three partial arms cut the median by 0.145-0.149 m and the p90 by
+  0.278 m against off. Every CI excludes zero.*
+- *Production and the city fit differ by +0.004 m on the median, CI [-0.006, +0.009] m.
+  That is what "agree within 0.004 m" rests on.*
+- *The shuffled control is no better than off on the median (CI [-0.011, +0.045] m) and
+  worse on the p90. The mirror is worse still.*
+- *At 2.6 m, the partial arms' p90 sits within +0.001 to +0.006 m of off, with CIs about
+  ±0.07 m.*
 
-### What a fraction of the tilt does: three real sites
+*Paterson TEST half, re-associated per arm, on #116's common pairs. CIs come from 1,000
+resamples of off's sites with replacement (seed 116), shared across arms so the
+differences are paired; the point estimates reproduce the committed rows (asserted).
+Data: `figures/gsv-partial-pose/data/addendum_consistency_pairs.csv`, `figures/gsv-partial-pose/data/addendum_consistency_bootstrap.csv`
+([SVG](figures/gsv-partial-pose/fig5_consistency.svg)).*
 
-The examples were chosen by a rule fixed before drawing:
-- **Pool:** Paterson's TEST half at `auto`, with association frozen from off. A site
-  qualifies when it has >= 4 operational views on distinct panos and every arm places
-  every view (799 sites).
-- **Pick:** the 3 sites with the largest mean member |tilt|. Ties go by seed 116.
+### What a fraction of the tilt does: real sites
 
-![Six panels. Top row: plan views of three Paterson sites, with four cameras each
-labelled by its |tilt| (1.2-13.1 deg) and grey rays to the site. Bottom row: each view's
-ground point under off (grey dot), partial (green plus), full pose (aqua diamond) and
-mirror (pink x), with rings at each arm's member centroid and a box of median member
-spreads. Partial tightens site 1 (4.02 to 3.42 m) and site 3 (1.65 to 0.95 m) and
-loosens site 2 (2.13 to 2.33 m); the full pose throws site 3's points 4-9 m out (5.12 m).](figures/gsv-partial-pose/fig7_site_examples.png)
+The examples were chosen by a rule fixed before drawing. The pool is Paterson's TEST half
+at `auto`, with association frozen from off. A **candidate** is a site with >= 4
+operational views on distinct panos; there are 970.
 
-*Figure 7. What does a fraction of the tilt do to real multi-view sites? It slides each
-ground point along that view's own ray: forward or back, never sideways. On the three
-most-tilted Paterson sites:*
-- *Partial tightens two sites (spread 4.02 -> 3.42 m and 1.65 -> 0.95 m) and loosens one
-  (2.13 -> 2.33 m).*
-- *The full pose overshoots on site 3 (5.12 m).*
-- *The mirror loosens two of the three.*
+Every candidate is placed under four arms: off, partial (production), full and mirror.
+- Off and partial place every view of all 970.
+- The full pose leaves at least one view unplaced (> 25 m) on **169** (17%).
+- The mirror leaves at least one view unplaced on 3.
+
+The figure has two rows, each the 3 candidates with the largest mean member |tilt| (ties
+by seed 116):
+- **Row A** draws from the **799 sites every arm places in full**. This is the selection
+  the first version of this figure used.
+- **Row B** draws from **all 970**. Its 3 sites (656, 2216, 623) are among the 5 most
+  tilted, and the full pose drops at least one view on each of those 5.
+
+Per-site counts are in `figures/gsv-partial-pose/data/addendum_site_candidates.csv`.
+
+![Two rows of three plan-view panels. Each panel shows one site's four views as ground
+points under off (grey dot, dotted centroid ring), partial (green plus, dashed ring), full
+pose (aqua diamond, solid ring) and mirror (pink x, dash-dot ring), with grey ray guides
+and a box of median member spreads.
+Row A (sites 5373, 691, 212): partial tightens 5373 (4.02 to 3.42 m) and 212 (1.65 to
+0.95 m) and loosens 691 (2.13 to 2.33 m). The full pose is tighter than partial on 5373
+(3.96 m) and 691 (1.39 m). On 212 it moves two of the four points by about 8 m and spreads
+the site to 5.12 m.
+Row B (sites 656, 2216, 623; mean tilt 6.6-7.7 deg): hollow aqua diamonds mark the views
+the full pose cannot place (2, 1 and 1 of 4). Partial spreads 656 from 2.13 to 4.69 m and
+tightens 2216 (1.65 to 1.11 m) and 623 (1.97 to 1.64 m).](figures/gsv-partial-pose/fig7_site_examples.png)
+
+*Figure 7. What does a fraction of the tilt do to real multi-view sites, and what does the
+full pose do on the most-tilted ones? The pose slides each ground point along that view's
+own ray, forward or back, never sideways.*
+- *Row A, the 3 most-tilted of the 799 sites every arm places: partial tightens two
+  sites and loosens one. The full pose beats partial on two of the three (site 5373:
+  3.96 vs 3.42 m; site 691: 1.39 vs 2.33 m) and overshoots on the third (5.12 m).*
+- *Row B, the 3 most-tilted of all 970: the full pose cannot place every view on any of
+  them. Partial places all, tightening two and loosening one (656: 2.13 -> 4.69 m).*
 
 *Single sites are noisy, which is why every decision in #116 is scored on thousands of
-pairs. Data: `figures/gsv-partial-pose/data/addendum_site_examples.csv` ([SVG](figures/gsv-partial-pose/fig7_site_examples.svg)).*
+pairs. Rule: TEST half, `auto`, association frozen from off, >= 4 operational views on
+distinct panos, ranked by mean member |tilt|, ties by seed 116. Data:
+`figures/gsv-partial-pose/data/addendum_site_examples.csv` (column `set`) and `figures/gsv-partial-pose/data/addendum_site_candidates.csv`
+([SVG](figures/gsv-partial-pose/fig7_site_examples.svg)).*
 
 ### Confirmatory run (pre-registered)
 
@@ -530,6 +592,7 @@ test is valid under churn, and it could be paired with a point bar on L. Changin
 a pre-data decision for Jon; the frozen rule stays as posted until he makes it.
 
 ```python
+import sys; sys.path.insert(0, 'scripts')   # run from the repo root
 import numpy as np, gsv_partial_pose as g
 rng = np.random.default_rng(116)
 def p_fail(n, lost, gained, reps=200_000):
@@ -541,22 +604,31 @@ p_fail(157, .02, 0), p_fail(300, .02, 0), p_fail(157, .01, 0), p_fail(300, .03, 
 The five cells are committed as `figures/gsv-partial-pose/data/addendum_power_table.csv`, written by
 `scripts/gsv_partial_pose_figures.py --refresh` with exactly this snippet's draw order.
 
-![Two panels. Left: k*(n) as a blue step rising from 3 at n = 50 to 14 at n = 800,
-always above the dashed grey step of the fixed 1.0-pt rule; a red dot marks Bend at
-n = 157, L = 2, which fails the old bar and passes the new one. Right: probability that
-clause (ii) fails against n for five scenarios. Solid lines are the frozen rule and dotted
-lines the sign test. The 1% null stays at 0.01-0.05, the 2% loss rises from 0.08 to
-0.77, 3% loss reaches 0.99, 3%/2% churn sits at 0.10-0.22 well above the 0.05 line, and
-2%/2% churn stays mostly below 0.05, peaking at 0.076 at n = 80.](figures/gsv-partial-pose/fig6_loss_bar.png)
+![Three panels. A: k*(n) as a blue step rising from 3 at n = 50 to 14 at n = 800,
+always above the dashed grey step of the fixed 1.0-pt rule; a black dot marks Bend at
+n = 157, L = 2, which fails the old bar and passes the new one. B: the frozen rule's
+probability of failing against n, log scale, for five scenarios: blue lines for 1%, 2%
+and 3% loss with no gains (light to dark), a solid red line for 3% lost / 2% gained churn
+and a dashed red line for 2% / 2% churn. The 1% null stays at 0.01-0.05, the 2% loss
+rises from 0.08 to 0.77, 3% loss reaches 0.99, 3%/2% churn sits at 0.10-0.22, and 2%/2%
+churn crosses 0.05 at n = 70-130 (peak 0.076). C: the same scenarios under the
+discordant-pairs sign test. 2%/2% churn stays at or under 0.037, the 2% loss reaches 0.72
+by n = 300, and the 1% and 3%/2% curves rise towards 0.9 and 0.3.](figures/gsv-partial-pose/fig6_loss_bar.png)
 
-*Figure 6. What does the pool-sized recall clause demand, and how often does it fail?*
-- *Left: it demands a larger net loss than the 1.0-pt rule at every n, so Bend's two
-  ramps pass.*
-- *Right: against a real 2% loss it fails only 22% of the time at n = 160. Under 3% / 2%
-  churn, a net 1% that the frozen rule treats as its null, it fails 10-22% of the time
-  (18% at n = 300), not 5%.*
-- *The sign test (dotted) treats any net loss as a loss: its size is the 2% / 2% curve,
-  at or under 0.037. Its power against a 2% loss is 0.72 at n = 300.*
+*Figure 6. What does the pool-sized recall clause demand, how often does it fail, and how
+does the sign-test alternative compare?*
+- *A: it demands a larger net loss than the 1.0-pt rule at every n, so Bend's two ramps
+  pass.*
+- *B, the frozen rule:*
+  - *Against a real 2% loss it fails only 22% of the time at n = 160.*
+  - *Under 3% / 2% churn, a net 1% the rule treats as its null, it fails 10-22% of the
+    time (18% at n = 300), not 5%.*
+  - *Even at zero net loss (2% / 2%) it exceeds 0.05 at n = 70, 80, 120 and 130 (peak
+    0.076).*
+- *C, the sign test, which treats any net loss as a loss:*
+  - *Its size is the 2% / 2% curve, at or under 0.037.*
+  - *Its power against a 2% loss is 0.72 at n = 300.*
+  - *It also flags a net 1%, as it is built to.*
 
 *20,000 draws per point, seed 116. Data: `figures/gsv-partial-pose/data/addendum_loss_bar.csv` and
 `figures/gsv-partial-pose/data/addendum_power.csv` ([SVG](figures/gsv-partial-pose/fig6_loss_bar.svg)).*
@@ -574,8 +646,8 @@ runs a **store-pose gate** before it scores such a city:
   makes; no imagery is fetched.
 - Compare the PS angles with streetlevel's under each of the four sign mappings, after
   folding into [-180, 180).
-- **Pass** only when one mapping agrees within 0.1 deg on both angles for >= 95% of at
-  least 50 comparable panos. The PS null-roll share and the unwrapped-roll share are
+- **Pass** only when exactly one mapping agrees within 0.1 deg on both angles for >= 95%
+  of at least 50 comparable panos (Amendment 2; two mappings over the bar is a fail). The PS null-roll share and the unwrapped-roll share are
   reported beside it.
 
 On a pass, `confirm` applies that mapping and marks the blocks `ps_store:pose_verified`,
@@ -588,14 +660,27 @@ plain `fuse_sites --apply-pose partial` on a store-built run (Vancouver) still r
 every `ps_store` pano flat. Any later PR that makes `partial` a default must persist or
 apply the gate's mapping first.
 
-![A table of the four sign mappings (+1,+1), (+1,-1), (-1,+1), (-1,-1), each with how the
-PS angles are compared with streetlevel's and what it means. Beside it, the pass rule.
-Below, the laurens_gsv record: NOT_REQUIRED, 0 store-built panos of 2,137.](figures/gsv-partial-pose/fig8_store_gate.png)
+*Table 8. When may a store-built city's pose be used? Only after exactly one of the four
+sign mappings agrees with streetlevel.*
 
-*Figure 8. When may a store-built city's pose be used? Only after exactly one of the four
-sign mappings agrees with streetlevel within 0.1 deg on >= 95% of >= 50 sampled panos.
-Data: `figures/gsv-partial-pose/data/addendum_store_gate_laurens_gsv.json`
-([SVG](figures/gsv-partial-pose/fig8_store_gate.svg)).*
+| mapping (pitch, roll) | PS angles compared with streetlevel's as | meaning |
+|---|---|---|
+| (+1, +1) | PS pitch, PS roll | same convention as streetlevel |
+| (+1, -1) | PS pitch, -PS roll | roll sign flipped |
+| (-1, +1) | -PS pitch, PS roll | pitch sign flipped |
+| (-1, -1) | -PS pitch, -PS roll | both flipped |
+
+The gate works as follows:
+- **Sample:** seeded (seed 116), up to 200 store panos. Streetlevel metadata only; no
+  imagery.
+- **Pass:** exactly one mapping agrees within 0.1 deg on both angles for >= 95% of >= 50
+  comparable panos. Then the mapping is applied in memory and the panos are posed.
+- **Fail:** two mappings over the bar, too few comparable panos, or no network. `confirm`
+  then refuses to score the city.
+
+Recorded so far: the laurens_gsv dry run reads `not_required`, with 0 store-built panos
+of 2,137. Data: `figures/gsv-partial-pose/data/addendum_store_gate_laurens_gsv.json` (keys `status`, `store_panos`,
+`run_panos`). This replaces an earlier rendered-table figure, which nothing linked to.
 
 **Frozen knobs (review of PR #123).** `confirm` refuses:
 - `--seed` other than 116 without `--exploratory` (a re-seeded exploratory run writes to
@@ -617,20 +702,33 @@ clauses:
   -0.034 m and its p90 -0.050 m.
 
 Laurens's own whole-run k is 0.33 / 0.52 (SE 0.07 / 0.06, in-sample). Against its #116
-TRAIN-half fit of 0.42 / 0.36 (SE 0.10 / 0.09), pitch reads lower and roll higher, each
-by about 1-1.5 combined SEs. Almost all of its fit rows are 2024 panos, so the vintage
+TRAIN-half fit of 0.42 / 0.36 (SE 0.10 / 0.09):
+- Pitch reads lower, by 0.80 combined SEs.
+- Roll reads higher, by 1.53 combined SEs.
+
+The frozen constants fall outside laurens_gsv's own whole-run 95% CI on both axes: the
+pitch lower bound is 0.197 > 0.183, and the roll lower bound is 0.402 > 0.382. Almost all of its fit rows are 2024 panos, so the vintage
 split says nothing yet.
 
 The (iv) referee does not depend on the confirm city, so its `auto` numbers above are
 already known. The pre-registration says so.
 
-![Two dot plots, k_pitch and k_roll with 95% intervals, for laurens_gsv all years (0.33,
-0.52) and 2024 (0.33, 0.52), and a 2021 row with too few rows to fit. Dashed lines mark
-the frozen 0.183 and 0.382, and dotted lines the #116 TRAIN-half fit (0.42, 0.36).](figures/gsv-partial-pose/fig9_vintage_k.png)
+![Two dot plots of k_pitch and k_roll with 95% intervals. Rows:
+- laurens_gsv whole run, all years: 0.33 [0.20, 0.46] and 0.52 [0.40, 0.64];
+- 2024: the same;
+- 2021: too few rows to fit;
+- its #116 TRAIN-half fit, in grey: 0.42 [0.23, 0.62] and 0.36 [0.18, 0.53].
+Dashed lines mark the frozen 0.183 and 0.382; both sit just outside the whole-run
+intervals.](figures/gsv-partial-pose/fig9_vintage_k.png)
 
-*Figure 9. EXPLORATORY: does the leaked fraction differ by capture vintage? This cannot
-be told here. laurens_gsv is one vintage (2024: 290 of 293 fit panos) and in-sample. The
-confirmatory run reports this table for Vancouver and never scores it. Data:
+*Figure 9. EXPLORATORY: does the leaked fraction differ by capture vintage? This cannot be
+told here. laurens_gsv is one vintage (2024: 290 of 293 fit panos), and the fit is
+in-sample.*
+
+*Its whole-run 95% CI excludes the frozen constants on both axes. Its #116 TRAIN-half fit,
+drawn with its own CI, does not, and the two fits differ by 0.80 (pitch) and 1.53 (roll)
+combined SEs. That is a reason to report k per city and vintage, as the confirmatory run
+does; it scores none of it. Data:
 `figures/gsv-partial-pose/data/addendum_vintage_k_laurens_gsv.csv` ([SVG](figures/gsv-partial-pose/fig9_vintage_k.svg)).*
 
 ### Replication
@@ -652,9 +750,17 @@ confirmatory run reports this table for Vancouver and never scores it. Data:
 | 1 | `python scripts/gsv_partial_pose.py consistency paterson` | 61 s |
 | 2 | `python scripts/gsv_partial_pose.py confirm laurens_gsv --exploratory` | 82 s |
 | 3 | `python scripts/gsv_partial_pose.py loss-bar` | < 1 s |
-| 4 | `python scripts/gsv_partial_pose_figures.py --refresh` | 17 s |
-| 4' | `python scripts/gsv_partial_pose_figures.py` (redraw from committed data only) | 13 s |
+| 4 | `python scripts/gsv_partial_pose_figures.py --refresh` | 54 s |
+| 4' | `python scripts/gsv_partial_pose_figures.py` (redraw from committed data only) | 6 s |
 
+- **Environment** (read from the env that produced every committed file):
+  - Python 3.12.13, matplotlib 3.11.2 (FreeType 2.14.3), numpy 2.5.1, pandas 3.0.6, on
+    Windows 11.
+  - Byte-identical PNG/SVG holds for that matplotlib / FreeType / platform. Other versions
+    give visually identical figures that are not byte-identical; the data CSVs do not
+    depend on matplotlib.
+  - matplotlib is deliberately not in `requirements.txt`, because it is analysis-only.
+    `gsv_partial_pose_figures.py` says so and exits when it is missing.
 - **GPU:** none needed.
 - **Network:** none, except the store-pose gate. For a store-built city it fetches up to
   200 panos' streetlevel METADATA (the call main.py makes; no imagery). It does not run
@@ -665,7 +771,14 @@ confirmatory run reports this table for Vancouver and never scores it. Data:
   ids salted with a constant).
 
 **Inputs (sha256).** Run inputs are not committed. They are read in place from
-`runs/<city>/`:
+`runs/<city>/`.
+
+**Data availability.** The hashed `results.jsonl`, `depth/index.csv` and
+`inventory.geojson` copies are gitignored run artifacts. They are kept with the lab's run
+archive (makelab2 `/projects/makeabilitylab/sidewalk-auto-labeler/runs/<city>/`) and in
+the maintainers' checkouts, and are available on request. A fresh `main.py` run or a fresh
+inventory fetch is expected to differ, because imagery coverage and city inventories
+change over time; that is why the hashes are recorded.
 
 | file | sha256 |
 |---|---|
@@ -693,7 +806,8 @@ confirmatory run reports this table for Vancouver and never scores it. Data:
   - `runs/laurens_gsv/partial_pose/confirm_exploratory_auto/*` (CSVs, `verdict.md`,
     `store_pose_gate.json`)
   - `figures/gsv-partial-pose/data/addendum_*` (figure data)
-  - `figures/gsv-partial-pose/fig5-fig9` `.png` (200 dpi) and `.svg`
+  - `figures/gsv-partial-pose/fig5`, `fig6`, `fig7`, `fig9`: `.png` (200 dpi) and `.svg`
+    (Table 8 is markdown)
 - **Regenerated, nothing committed:** `loss-bar`'s printed table, which is identical to
   `figures/gsv-partial-pose/data/addendum_loss_bar.csv`.
 - **Figures 1-4** are the #121 figures, drawn by `gsv_partial_pose.py figures` in the same
@@ -724,7 +838,14 @@ in the #116 pre-registration, amendment and figures comments:
 | laurens vintage k 0.33 / 0.52 | same dir, vintage_k.csv | vintage=all / 2024 | k_pitch, k_roll, se_pitch, se_roll, n_rows, n_panos |
 | store gate: not_required, 0 of 2,137 | same dir, store_pose_gate.json | — | status, store_panos, run_panos |
 | gate rule 0.1 deg, 95%, 50, 200 | scripts/gsv_partial_pose.py | GATE_TOL_DEG, GATE_MIN_AGREE, GATE_MIN_COMPARED, GATE_SAMPLE | — |
-| site examples 4.02->3.42, 2.13->2.33, 1.65->0.95; full 5.12; 799 sites | figures/gsv-partial-pose/data/addendum_site_examples.csv | rank = 1-3 | median pairwise distance of `<arm>_e`, `<arm>_n` over the rank's rows; candidates |
+| site examples, row A: 4.02->3.42, 2.13->2.33, 1.65->0.95; full 3.96 / 1.39 / 5.12 | figures/gsv-partial-pose/data/addendum_site_examples.csv | set=every_arm, rank = 1-3 | median pairwise distance of `<arm>_e`, `<arm>_n` over the rank's rows |
+| site examples, row B: 2.13->4.69, 1.65->1.11, 1.97->1.64; full drops 2/1/1 of 4 | same | set=most_tilted, rank = 1-3 | same; blank `full_e` = unplaced |
+| 970 candidates; 799 placed by every arm; full drops on 169 (17%), mirror on 3, off and partial on 0; the 5 most tilted (656, 2216, 623, 1198, 2529; 7.67-5.96 deg) | figures/gsv-partial-pose/data/addendum_site_candidates.csv | all rows (sorted by mean_tilt_deg) | n_views, placed_off, placed_partial-pooled, placed_full, placed_partial-mirror, every_arm_places_all, mean_tilt_deg |
+| fig5 CIs, e.g. production - city fit +0.004 [-0.006, +0.009]; 2.6 m p90 +0.0065 [-0.062, +0.070]; shuffle median [-0.011, +0.045] | figures/gsv-partial-pose/data/addendum_consistency_bootstrap.csv | height, arm, minus, stat | point, ci_lo, ci_hi |
+| 2.6 m pooled: 10 pairs unplaced, p90 4.5499 vs off 4.5434 | runs/paterson/partial_pose/consistency_pairs.csv | height=2.6, arm=partial-pooled / off | pairs_unplaced, p90_m |
+| 2%/2% churn above 0.05 at n = 70, 80, 120, 130 (peak 0.076) | figures/gsv-partial-pose/data/addendum_power.csv | scenario=churn: 2% lost, 2% gained | p_fail_rule |
+| laurens 0.80 / 1.53 combined SEs; frozen outside CI (0.197, 0.402) | figures/gsv-partial-pose/data/addendum_vintage_k_laurens_gsv.csv (vintage=all) and runs/_pooled/partial_pose/coefficients.csv (city=laurens_gsv) | — | (k_a - k_b) / sqrt(se_a^2 + se_b^2); k - 1.96 se |
+| environment versions | this section | — | — |
 
 ## Limits
 
@@ -751,7 +872,7 @@ python scripts/gsv_partial_pose.py consistency paterson --benchmark-root ../Ramp
 python scripts/gsv_partial_pose.py loss-bar
 python scripts/gsv_partial_pose.py confirm laurens_gsv --exploratory --benchmark-root ../RampNet/benchmark
 python scripts/gsv_partial_pose.py confirm vancouver --benchmark-root ../RampNet/benchmark  # when its GT lands
-python scripts/gsv_partial_pose_figures.py --refresh      # figures 5-9 + data/addendum_* (17 s)
+python scripts/gsv_partial_pose_figures.py --refresh      # figures 5-7, 9 + data/addendum_* (54 s)
 ```
 
 Inputs are read in place: `runs/<city>/results.jsonl`, `runs/<city>/depth/index.csv` (for
