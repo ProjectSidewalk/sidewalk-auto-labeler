@@ -545,6 +545,38 @@ python scripts/depth_at_detection.py gt            # reads ../RampNet/benchmark
 python scripts/depth_at_detection.py verdict
 python scripts/depth_at_detection.py figures       # also copies aggregates to docs/figures/depth-at-detection/data/
 
+# FOOTWAY: SEGMENTER vs DEPTH (issue #47 step 2) -- a STUDY, not production; docs/footway-depth-study.md.
+# 416 judged GSV benchmark panos with a `measured` payload; Mask2Former Swin-L Mapillary Vistas (pinned
+# revision; processor resize OFF; torch + transformers deliberately NOT in requirements.txt, only `segment`
+# needs them) on 16 PERSPECTIVE TILES per pano (90 deg, 1024 px, 8 headings x pitch 0/-35), voted back onto
+# a 1024x512 image-frame grid. Depth classes, the plane lookup and offset_local are IMPORTED from
+# depth_at_detection.py. Tiles + label maps stay in the untracked runs/_pooled/footway/work/ (sha256 in
+# masks_manifest.json). Measured 2026-09-30, corrected on review of #124 the same day: below the horizon
+# depth puts a floor almost EVERYWHERE (98% within 25 m), so P(WALK|ROAD | depth surface) 0.90 is a BASE
+# RATE (marginal 0.88; a 180-deg-rotated / mirrored depth null gives 0.89) -- always quote (A) beside its
+# null. Signal lives in the walls: P(STRUCTURE | depth wall) 0.66 vs 0.42/0.47 null; kappa 0.25 vs 0.17/0.19.
+# "Depth draws the ground through objects" holds against the scrambled-geometry NULL (95% of OBJECT pixels
+# on a floor vs 94% null: no object-shaped holes; do not argue it from a lift over the nadir-heavy marginal).
+# The segmenter class at the peak pixel is NO FP filter (False 2/42 vs True 43/770). GSV depth shows no
+# ~0.15 m curb step, at most a few cm (0.022 m above the LOCAL reference plane; 0.042 m road-referenced,
+# exploratory). Trap: the 2048 px direct arm's Curb Cut loss was RESOLUTION; at 4096 px the direct equirect
+# keeps Curb Cut but labels the nadir FILL under the car SKY -- a city/rig-dependent failure (-80..-70 deg:
+# Bend 0.000, Paterson 0.110, Sao Paulo 0.097, Gainesville 0.247). Tile (or full-res + mask the nadir).
+# Inputs not in git (benchmark JPEGs, depth payloads, results.jsonl) live in the makelab2 run archive;
+# sample.csv / inputs.json hold their sha256. `check-numbers` re-reads every quoted number (exit 1 on drift).
+python scripts/footway_segmentation.py sample --run-root <runs> --benchmark-root ../RampNet/benchmark
+python scripts/footway_segmentation.py tiles --benchmark-root ../RampNet/benchmark --workers 8
+python scripts/footway_segmentation.py tiles --benchmark-root ../RampNet/benchmark --direct-width 4096
+python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/tiles     --out runs/_pooled/footway/work/tile_labels --fp16 --batch-size 2          # GPU; ~19 min on a 3070
+python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/direct     --out runs/_pooled/footway/work/direct_labels --target 1024x512 --fp16 --batch-size 1
+python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/direct4096     --out runs/_pooled/footway/work/direct4096_labels --target 1024x512 --fp16 --batch-size 1   # 5.7 GiB
+python scripts/footway_segmentation.py stitch  --run-root <runs> --benchmark-root ../RampNet/benchmark
+python scripts/footway_segmentation.py compare --run-root <runs> --benchmark-root ../RampNet/benchmark
+python scripts/footway_segmentation.py examples --run-root <runs> --benchmark-root ../RampNet/benchmark  # example panels
+python scripts/footway_segmentation.py check-numbers   # every quoted number vs its committed file; exit 1 on drift
+python scripts/footway_segmentation.py figures   # COMMITTED files only: byte-reproducible figures + data/numbers.csv
+#   (every quoted number re-read from its committed file and checked) -- no GPU, network or work/ needed
+
 # POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
 # remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no
 # internet egress) and send_to_ps.py REFUSES a Mapillary file whose position_check.json is
