@@ -414,6 +414,40 @@ def road_relative_pitch_roll(pitch_deg, roll_deg, heading_deg, grade_deg,
             roll_deg + grade_deg * math.sin(phi))
 
 
+# GSV partial pose (#116). GSV equirects are in the capture rig's frame (#113), but the
+# car rides the road, so only a FRACTION of the stored tilt is a placement error. These are
+# the leaked fractions (k_pitch, k_roll) fitted by #116's pre-registered study: the pooled
+# fit over the five GSV cities' TRAIN halves, tier 0.30, at the production `auto` height
+# (pano-clustered SE 0.008 / 0.012; the 2.6 m fit is 0.147 / 0.404). Frozen here as the
+# constants `fuse_sites --apply-pose partial` applies and #116's confirmatory run scores;
+# refit (and re-register) if the height default changes. Source rows:
+# runs/_pooled/partial_pose/coefficients.csv (scope pooled, height auto, tier 0.3);
+# write-up docs/gsv-partial-pose-study.md. GSV only: they were fit on GSV rigs.
+PARTIAL_POSE_K_GSV = (0.183, 0.382)
+
+
+def partial_pitch_roll(pitch_deg, roll_deg, k_pitch=PARTIAL_POSE_K_GSV[0],
+                       k_roll=PARTIAL_POSE_K_GSV[1]):
+    """The (pitch_deg, roll_deg) _world_ray takes for a stored GSV (pitch, roll) under
+    leak fractions (k_pitch, k_roll) -- #116's arm (`scripts/gsv_partial_pose.py` imports
+    this as its `arm_pose`, so the study measures exactly what fusion applies).
+
+    Streetlevel's pitch > 0 is nose DOWN while _world_ray's raises the view axis, so the
+    pitch term flips sign; GSV roll already has Project Sidewalk's sign. Both angles are
+    first folded into [-180, 180) (GSV stores roll unwrapped: 359.4 means -0.6), which is
+    a no-op on angles already folded.
+
+    Example:
+        >>> partial_pitch_roll(2.0, -1.0, 1.0, 1.0)      # the full pose
+        (-2.0, -1.0)
+        >>> partial_pitch_roll(2.0, -1.0, 0.25, 0.5)     # #113's partial arm
+        (-0.5, -0.5)
+        >>> [round(v, 6) for v in partial_pitch_roll(1.0, 359.4, 0.25, 0.5)]
+        [-0.25, -0.3]
+    """
+    return -k_pitch * norm_deg(pitch_deg), k_roll * norm_deg(roll_deg)
+
+
 @dataclass(frozen=True)
 class ErrorModel:
     """1-sigma inputs for the ground-point covariance.
@@ -565,7 +599,10 @@ def _world_ray(pose, phi, theta):
     arithmetic on the angle does. Numbers on #113. The pre-registered partial-pose
     study (#116, docs/gsv-partial-pose-study.md) confirmed a fraction (~0.18 pitch,
     ~0.38 roll) out of sample and against a shuffled control, but failed its recall
-    clause, so fusion still passes apply_pose=False for GSV.
+    clause, so the DEFAULT still raycasts GSV flat. The fraction is available opt-in as
+    `fuse_sites --apply-pose partial`, which feeds this function
+    partial_pitch_roll(camera_pitch, camera_roll) with the frozen PARTIAL_POSE_K_GSV,
+    pending #116's pre-registered confirmatory run.
     """
     psi = math.radians(pose.heading_deg)
     alpha = math.radians(pose.pitch_deg)

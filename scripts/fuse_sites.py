@@ -38,7 +38,9 @@ Mapillary's SfM altitude profile, is subtracted first -- see sequence_grades), o
 default `auto`, which today resolves to off for EVERY source: road-relative was withheld
 for Mapillary by the #42 shuffled-grade control (AUTO_ROAD_SOURCES says why;
 docs/mapillary-tilt-study.md section 10 has the measurement). GSV is measured to want
-`off` (applying its full pose loosens every city; geo._world_ray, #113). For
+`off` (applying its full pose loosens every city; geo._world_ray, #113); `partial`
+(OPT-IN, GSV only) applies the leaked fraction of it that #116 measured
+(geo.PARTIAL_POSE_K_GSV), pending #116's pre-registered confirmatory run. For
 Mapillary, blocks written since #42 carry pitch/roll and older ones get them derived here
 from source_metadata, so no run needs rewriting to be fused posed. sites_meta.json's
 `pose` block counts which panos were posed and, under `road`, how many had no usable
@@ -101,8 +103,10 @@ from detectors import (DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE,  # noqa:
 POSE_OFF = 'off'          # flat raycast in the pano frame
 POSE_GRAVITY = 'gravity'  # rotate by the stored pitch/roll (gravity-relative)
 POSE_ROAD = 'road'        # ...minus the sequence's road grade where there is one
+POSE_PARTIAL = 'partial'  # GSV only: the leaked FRACTION of the stored pitch/roll (#116;
+                          # geo.partial_pitch_roll with geo.PARTIAL_POSE_K_GSV). OPT-IN
 POSE_AUTO = 'auto'        # the default: POSE_ROAD for AUTO_ROAD_SOURCES, POSE_OFF otherwise
-POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
+POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD, POSE_PARTIAL)
 # Sources `auto` fuses road-relative: NONE, for now. Road-relative passed the first #42
 # rule for Mapillary (at the 25 m cap, on one site set and one GT set, it cut p90 and
 # median GT-to-site distance against the flat raycast in all five cities), but FAILED the
@@ -116,8 +120,10 @@ POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
 # applying its full pose loosens every city (geo._world_ray, #52). Its equirects are
 # rig-frame, not gravity-rectified (#113). A partial pose (~0.18 pitch, ~0.38 roll)
 # tightens held-out sites and beats a magnitude-matched shuffle, but FAILED #116's
-# pre-registered recall clause (Bend, 2 of 157 ramps), so there is no `partial` mode
-# (docs/gsv-partial-pose-study.md). Panoramax:
+# pre-registered recall clause (Bend, 2 of 157 ramps), so `auto` does not apply it; since
+# the #116 follow-up it is OPT-IN as `--apply-pose partial` (the frozen pooled constants
+# geo.PARTIAL_POSE_K_GSV), pending the pre-registered confirmatory run
+# (`gsv_partial_pose.py confirm`; docs/gsv-partial-pose-study.md). Panoramax:
 # optional pers:pitch/roll, convention unmeasured (#57).
 # #51 re-ran the same control with a road grade that never saw the SfM (USGS 3DEP DEM,
 # --grade-source dem) and it FAILED again, on (i) and (ii) (docs/dem-grade-study.md): the
@@ -140,6 +146,22 @@ UNGRADED_POSE_WARNINGS = {
            'rays by the full pose loosened every city (#52, #113)',
     'panoramax': "Panoramax's pitch/roll convention is unmeasured (#57)",
 }
+# --apply-pose partial's fractions were fit on GSV rigs only (#116): every other source's
+# panos raycast flat under it, and fuse_sites.py says so once per run.
+PARTIAL_POSE_NON_GSV_WARNING = ('the #116 fractions were fit on GSV rigs only, so these '
+                                'raycast flat under `partial`')
+# A pano block rebuilt from the Project Sidewalk pano store (scripts/detect_from_store.py)
+# carries source None and the PS pano row's camera_pitch/camera_roll, whose convention
+# against streetlevel's (the angles the #116 fractions were fit on) is UNVERIFIED -- a sign
+# flip would turn `partial` into the mirror arm. So `partial` raycasts these flat, and says
+# so, unless the block has been re-labelled STORE_POSE_VERIFIED_DETAIL by a check that
+# compared them with streetlevel's on the same pano ids (gsv_partial_pose.store_pose_gate)
+# and mapped them into streetlevel's convention.
+STORE_SOURCE_DETAIL = 'ps_store'
+STORE_POSE_VERIFIED_DETAIL = 'ps_store:pose_verified'
+PARTIAL_POSE_STORE_WARNING = ("their pitch/roll are the PS pano row's, whose convention "
+                              "against streetlevel's is unverified, so they raycast flat "
+                              'under `partial` (gsv_partial_pose.store_pose_gate verifies it)')
 
 # Consecutive frames of one sequence within this time gap and horizontal distance define
 # a local direction of travel and, through the SfM altitude, a road grade. The bounds are
@@ -223,6 +245,7 @@ class SlimPano:
     height_group: str | None = None              # camera_heights.json group (#53, per-rig)
     height_table: dict | None = None             # ...and that table's provenance (shared)
     height_from_index: bool = False              # height read from depth/index.csv (#47)
+    source_detail: str | None = None             # e.g. 'ps_store' for a store-built block
 
     def pose_fields(self, **overrides):
         """The pano-block fields geo.pano_pose reads, with any of them overridden."""
@@ -407,10 +430,20 @@ def sequence_grades(frames):
 
 
 def pose_mode_for(pano, mode):
-    """The mode a pano is actually raycast under: POSE_AUTO resolves by source."""
+    """The mode a pano is actually raycast under: POSE_AUTO resolves by source, and
+    POSE_PARTIAL applies to GSV panos only (every other source raycasts flat under it) --
+    and not to a store-built GSV block whose pose convention is unverified
+    (STORE_SOURCE_DETAIL; see there)."""
     if mode == POSE_AUTO:
         return POSE_ROAD if pano.source in AUTO_ROAD_SOURCES else POSE_OFF
+    if mode == POSE_PARTIAL and (source_kind(pano.source) != 'gsv'
+                                 or _unverified_store(pano)):
+        return POSE_OFF
     return mode
+
+
+def _unverified_store(pano):
+    return getattr(pano, 'source_detail', None) == STORE_SOURCE_DETAIL
 
 
 def pano_pose(pano, mode):
@@ -420,10 +453,18 @@ def pano_pose(pano, mode):
     back WITHOUT pitch/roll, so the raycast is flat whatever apply_pose the caller passes
     geo. Under POSE_ROAD a posed pano with a sequence grade gets its pitch/roll re-expressed
     relative to the road (geo.road_relative_pitch_roll); without a grade it keeps the
-    gravity-relative angles -- the fallback sites_meta.json counts."""
+    gravity-relative angles -- the fallback sites_meta.json counts. Under POSE_PARTIAL a
+    GSV pano with both angles stored gets the frozen #116 fraction of them
+    (geo.partial_pitch_roll with geo.PARTIAL_POSE_K_GSV); one missing either angle, and
+    every non-GSV pano, raycasts flat."""
     mode = pose_mode_for(pano, mode)
-    if mode == POSE_OFF:
+    if mode == POSE_OFF or (mode == POSE_PARTIAL and (pano.camera_pitch is None
+                                                      or pano.camera_roll is None)):
         return geo.pano_pose(pano.pose_fields(camera_pitch=None, camera_roll=None))
+    if mode == POSE_PARTIAL:
+        pitch, roll = geo.partial_pitch_roll(float(pano.camera_pitch), float(pano.camera_roll),
+                                             *geo.PARTIAL_POSE_K_GSV)
+        return geo.pano_pose(pano.pose_fields(camera_pitch=pitch, camera_roll=roll))
     if mode == POSE_ROAD and pano.grade_deg is not None \
             and pano.camera_pitch is not None and pano.camera_roll is not None:
         pitch, roll = geo.road_relative_pitch_roll(
@@ -435,13 +476,20 @@ def pano_pose(pano, mode):
 
 def pose_counts(panos, params):
     """Where the run's panos got their pose and how each was raycast: `flat`,
-    `gravity`, `road_relative`, or `gravity_fallback` -- a pano road mode wanted to
-    correct but whose sequence gave no grade. sites_meta.json records it because that
+    `gravity`, `road_relative`, `gravity_fallback` -- a pano road mode wanted to
+    correct but whose sequence gave no grade -- or `partial` (#116: a GSV pano given the
+    frozen fraction of its stored pose; `partial_coefficients` records which, and is
+    None under every other mode). `store_unverified_flat` counts store-built GSV panos
+    that `partial` left flat because their pose convention is unverified. sites_meta.json records it because that
     fallback is the convention the #42 study found WRONG for a vehicle rig on a slope,
     so its rate has to be visible rather than silent."""
     counts = {'mode': params.apply_pose, 'panos': len(panos), 'posed': 0,
               'derived_from_source_metadata': 0, 'flat': 0, 'gravity': 0,
-              'road_relative': 0, 'gravity_fallback': 0,
+              'road_relative': 0, 'gravity_fallback': 0, 'partial': 0,
+              'store_unverified_flat': 0,
+              'partial_coefficients': (
+                  dict(zip(('k_pitch', 'k_roll'), geo.PARTIAL_POSE_K_GSV))
+                  if params.apply_pose == POSE_PARTIAL else None),
               # #51: which grade road mode subtracts, and on how many panos load_results
               # replaced the SfM grade with it (0 under `sfm`; a mismatch is the tell)
               'grade_source': params.grade_source,
@@ -451,11 +499,16 @@ def pose_counts(panos, params):
         posed = p.camera_pitch is not None and p.camera_roll is not None
         counts['posed'] += posed
         counts['derived_from_source_metadata'] += p.pose_origin == 'source_metadata'
+        if (params.apply_pose == POSE_PARTIAL and posed and _unverified_store(p)
+                and source_kind(p.source) == 'gsv'):
+            counts['store_unverified_flat'] += 1
         mode = pose_mode_for(p, params.apply_pose)
         if not posed or mode == POSE_OFF:
             counts['flat'] += 1
         elif mode == POSE_GRAVITY:
             counts['gravity'] += 1
+        elif mode == POSE_PARTIAL:
+            counts['partial'] += 1
         elif p.grade_deg is not None:
             counts['road_relative'] += 1
         else:
@@ -465,7 +518,27 @@ def pose_counts(panos, params):
 
 def pose_source_warnings(panos, mode):
     """Warnings (strings) for an explicit --apply-pose gravity/road over panos it was not
-    measured for: GSV and Panoramax. Empty for off/auto, and for all-Mapillary runs."""
+    measured for: GSV and Panoramax; and for --apply-pose partial over any non-GSV pano
+    (one line for the run: its fractions were fit on GSV rigs, so those raycast flat).
+    Empty for off/auto, for gravity/road on all-Mapillary runs, and for partial on
+    all-GSV runs."""
+    if mode == POSE_PARTIAL:
+        kinds, store = {}, 0
+        for p in panos:
+            kind = source_kind(p.source)
+            if kind != 'gsv':
+                kinds[kind] = kinds.get(kind, 0) + 1
+            elif _unverified_store(p):
+                store += 1
+        out = []
+        if kinds:
+            what = ', '.join(f'{n} {kind}' for kind, n in sorted(kinds.items()))
+            out.append(f'WARNING: --apply-pose partial on {what} pano(s): '
+                       f'{PARTIAL_POSE_NON_GSV_WARNING}')
+        if store:
+            out.append(f'WARNING: --apply-pose partial on {store} store-built GSV pano(s): '
+                       f'{PARTIAL_POSE_STORE_WARNING}')
+        return out
     if mode not in (POSE_GRAVITY, POSE_ROAD):
         return []
     counts = {}
@@ -754,7 +827,7 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
                 camera_height_m=height, camera_height_spread_m=spread,
                 ground_tilt_deg=tilt, pose_origin=origin,
                 sequence_id=p.get('sequence_id') or meta.get('sequence'),
-                height_from_index=from_index))
+                height_from_index=from_index, source_detail=p.get('source_detail')))
             frames.append((len(panos) - 1, p.get('sequence_id'), meta.get('captured_at'),
                            p['lat'], p['lng'], meta.get('computed_altitude')))
     for i, (grade, bearing) in sequence_grades(frames).items():
@@ -1207,12 +1280,15 @@ def build_parser():
     # A value is REQUIRED (no nargs='?'): an optional value would swallow the positional
     # run directory in `--apply-pose runs/x`, and a bare flag would have to guess a mode.
     ap.add_argument('--apply-pose', choices=POSE_MODES, default=FuseParams.apply_pose,
-                    metavar='{off,auto,gravity,road}',
+                    metavar='{off,auto,gravity,road,partial}',
                     help='rotate rays by camera pose: auto (the default; currently off for '
                          'every source -- the #42 shuffled-grade control withheld road for '
                          'Mapillary, see AUTO_ROAD_SOURCES), off (flat raycast), gravity '
-                         "(stored pitch/roll), or road (minus the sequence's road grade). "
-                         'Measured to hurt on GSV -- see the --pose-ablation report')
+                         "(stored pitch/roll), road (minus the sequence's road grade), or "
+                         'partial (GSV only, OPT-IN: the frozen #116 fraction '
+                         f'{geo.PARTIAL_POSE_K_GSV[0]} pitch / {geo.PARTIAL_POSE_K_GSV[1]} roll '
+                         'of the stored pose; other sources flat). The full pose is measured '
+                         'to hurt on GSV -- see the --pose-ablation report')
     ap.add_argument('--grade-source', choices=GRADE_SOURCES, default=GRADE_SFM,
                     help='where --apply-pose road takes the road grade from: sfm (the '
                          "default; the sequence's SfM altitude), sfm-smoothed or dem "

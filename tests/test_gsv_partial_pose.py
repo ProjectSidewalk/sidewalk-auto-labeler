@@ -179,3 +179,126 @@ def test_pano_crop_wraps_the_seam_and_centres_the_mark(tmp_path):
     assert arr[:, 1, 2].mean() > 150 and arr[:, w - 2, 0].mean() > 150   # blue then red
     assert abs(mark_row - arr.shape[0] / 2) <= 1
     assert gpp.pano_crop(tmp_path, 'missing', 0.5, 0.5) is None
+
+
+# --- #116 follow-up: production's `partial` and the confirmatory rule -------------------
+
+def test_study_arm_is_productions_partial_pose():
+    rng = random.Random(7)
+    panos = [_pano(f'p{i}', pitch=rng.uniform(-4, 4), roll=rng.uniform(-3, 3) % 360)
+             for i in range(50)] + [_pano('none', pitch=None), _pano('half', roll=None)]
+    assert gpp.arm_pose is geo.partial_pitch_roll
+    assert gpp.production_pose_mismatches(panos) == []
+
+
+def test_recall_loss_bar_is_the_exact_binomial_tail():
+    def tail(n, k, p=0.01):
+        return sum(math.comb(n, j) * p ** j * (1 - p) ** (n - j) for j in range(k, n + 1))
+    for n in (50, 100, 157, 200, 300, 500, 800):
+        k = gpp.recall_loss_bar(n)
+        assert tail(n, k) <= 0.05 < tail(n, k - 1)
+    assert [gpp.recall_loss_bar(n) for n in (100, 157, 200, 300, 500)] == [4, 5, 6, 7, 10]
+    table = gpp.recall_loss_bar_table()
+    assert table[0][0] == 50 and table[-1][1] == 800
+    assert all(a[1] + 1 == b[0] and a[2] < b[2] for a, b in zip(table, table[1:]))
+
+
+def _confirm_rows(n_pairs=1000, lost=0, gained=0, pool=157):
+    pairs = [{'frame': gpp.FRAME_REASSOC, 'arm': a, 'pairs_scored': str(n_pairs),
+              'median_m': m, 'p90_m': p}
+             for a, m, p in ((gpp.ARM_OFF, '2.0', '4.0'), (gpp.ARM_PARTIAL, '1.9', '3.9'),
+                             (gpp.ARM_SHUFFLED, '2.1', '4.1'))]
+    gt = [{'arm': gpp.ARM_OFF, 'off_pool_ramps': str(pool), 'gt_marks_unplaceable': '5',
+           'lost_vs_off_2p5m': '0', 'gained_vs_off_2p5m': '0'},
+          {'arm': gpp.ARM_PARTIAL, 'off_pool_ramps': str(pool), 'gt_marks_unplaceable': '5',
+           'lost_vs_off_2p5m': str(lost), 'gained_vs_off_2p5m': str(gained)}]
+    inv = [{'city': c, 'frame': gpp.FRAME_FROZEN, 'arm': a, 'radius_m': '5.0000',
+            'median_m': '1.0', 'p90_m': '2.0'}
+           for c in gpp.INVENTORY_CITIES for a in (gpp.ARM_OFF, gpp.ARM_PARTIAL)]
+    return pairs, gt, inv
+
+
+def test_confirm_verdict_sizes_the_recall_clause_to_the_pool():
+    # Bend's #116 half split (2 lost, 0 gained of 157) clears the pool-sized bar (k* = 5)
+    assert gpp.confirm_verdict(*_confirm_rows(lost=2))[0] == 'PASS'
+    assert gpp.confirm_verdict(*_confirm_rows(lost=6, gained=2))[0] == 'PASS'   # L = 4
+    out, state, _ = gpp.confirm_verdict(*_confirm_rows(lost=7, gained=2))       # L = 5
+    assert out == 'FAIL' and state['ii'] is False
+    # too few pairs to score (i): inconclusive, never a pass
+    assert gpp.confirm_verdict(*_confirm_rows(n_pairs=499))[0] == 'INCONCLUSIVE'
+    assert gpp.confirm_verdict(*_confirm_rows(pool=49))[0] == 'INCONCLUSIVE'
+    # ...but n < 50 only turns a PASS into INCONCLUSIVE: a (ii) FAIL there stands (k* = 2)
+    out, state, _ = gpp.confirm_verdict(*_confirm_rows(pool=30, lost=2))
+    assert gpp.recall_loss_bar(30) == 2 and out == 'FAIL' and state['ii'] is False
+    # a FAIL anywhere beats an inconclusive
+    assert gpp.confirm_verdict(*_confirm_rows(n_pairs=499, lost=9))[0] == 'FAIL'
+
+
+def test_confirm_refuses_train_cities_paths_and_unfrozen_seeds():
+    import pytest
+    for city in ('bend', 'Bend', 'LAURENS_GSV'):
+        with pytest.raises(SystemExit, match='train set'):
+            gpp.main(['confirm', city])
+    for city in ('../bend', 'runs/vancouver', 'a\\b', 'C:x'):
+        with pytest.raises(SystemExit, match='not a city name'):
+            gpp.main(['confirm', city, '--exploratory'])
+    with pytest.raises(SystemExit, match='seed 116'):
+        gpp.main(['confirm', 'vancouver', '--seed', '7'])
+    gpp.check_confirm_city('vancouver', False, gpp.SEED)          # the pre-registered call
+    gpp.check_confirm_city('bend', True, 7)                       # exploratory may re-seed
+
+
+def _store_pano(pid, pitch, roll):
+    from dataclasses import replace
+    return replace(_pano(pid, pitch=pitch, roll=roll), source='',
+                   source_detail=fs.STORE_SOURCE_DETAIL)
+
+
+def _gate(panos, fetch):
+    return gpp.store_pose_gate(panos, fetch=fetch, spacing_s=0)
+
+
+def test_store_pose_gate_finds_the_mapping_or_refuses():
+    rng = random.Random(5)
+    truth = {f's{i}': (rng.uniform(-3, 3), rng.uniform(-3, 3)) for i in range(120)}
+    # PS rows hold streetlevel's pitch and the NEGATED roll, unwrapped; 10% null roll
+    panos = [_store_pano(k, p, None if i % 10 == 0 else (-r) % 360)
+             for i, (k, (p, r)) in enumerate(sorted(truth.items()))]
+    g = _gate(panos, lambda pid: truth[pid])
+    assert g['status'] == 'pass' and g['mapping'] == [1, -1]
+    assert g['ps_null_roll_share'] == pytest_approx(0.1)
+    mapped = gpp.apply_store_mapping(panos, g['mapping'])
+    assert all(q.source_detail == fs.STORE_POSE_VERIFIED_DETAIL for q in mapped)
+    assert gpp.production_pose_mismatches(mapped) == []
+    pose = fs.pano_pose(mapped[1], fs.POSE_PARTIAL)
+    want = geo.partial_pitch_roll(*truth[mapped[1].pano_id])
+    assert (pose.pitch_deg, pose.roll_deg) == pytest_approx(want)
+    # unrelated angles: no mapping agrees -> fail; no network -> skipped; GSV-built: not needed
+    assert _gate(panos, lambda pid: (rng.uniform(-3, 3), rng.uniform(-3, 3)))['status'] == 'fail'
+
+    def offline(pid):
+        raise OSError('no network')
+    assert _gate(panos, offline)['status'] == 'skipped'
+    assert _gate([_pano('g')], offline)['status'] == 'not_required'
+    # too few comparable panos fails even when they all agree
+    assert _gate(panos[:30], lambda pid: truth[pid])['status'] == 'fail'
+    # angles all within the tolerance of zero: every mapping clears the bar -> not unique
+    flat = [_store_pano(f'z{i}', 0.01 * (i % 5), 0.02) for i in range(80)]
+    g = _gate(flat, lambda pid: (0.0, 0.0))
+    assert g['status'] == 'fail' and len(g['mappings_over_bar']) == 4
+    assert 'not identified' in g['reason'] and 'mapping' not in g
+
+
+def pytest_approx(v):
+    import pytest
+    return pytest.approx(v)
+
+
+def test_consistency_rows_reproduce_the_committed_116_outputs():
+    """The committed consistency run (production's `partial` beside the #116 arms on
+    Paterson's TEST half) must reproduce every committed #116 row, column for column."""
+    from pathlib import Path
+    d = Path(gpp.REPO_ROOT) / 'runs' / 'paterson' / gpp.OUT_NAME
+    for new, old in (('consistency_pairs.csv', 'pairs.csv'), ('consistency_gt.csv', 'gt.csv')):
+        n, bad = gpp.consistency_mismatches(gpp.read_csv(d / new), gpp.read_csv(d / old))
+        assert n == 16 and bad == []

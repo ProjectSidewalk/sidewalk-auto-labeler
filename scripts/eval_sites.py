@@ -1115,6 +1115,8 @@ def main():
             args.city, args.benchmark_root, run_dir, args.camera_height_m)
     except ValueError as e:        # no table, one measured on another file, or a GSV run
         sys.exit(str(e))
+    for warning in fs.pose_source_warnings(run_panos, args.apply_pose):
+        print(warning, file=sys.stderr)
     # Fusion at the BENCHMARK threshold, not the production operating point: the bundle's
     # verdicts and the committed reports are keyed to it (detectors/__init__.py).
     # mask_rig=False alongside the pinned tier: runs/<city>/fusion_eval/ is git-tracked by
