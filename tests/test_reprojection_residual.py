@@ -415,3 +415,10 @@ def test_sigma_gps_fit_recovers_a_wider_position_scatter():
     assert rr.pooled_chi2_dof(wide) > 1.3
     got = rr.sigma_gps_for_target(wide)
     assert got == pytest.approx(math.hypot(3.0, 3.0), abs=0.4)
+
+
+def test_seq_mates_classifies_site_mates_by_sequence():
+    assert rr.seq_mates(['a', 'a', 'a'], 1) == 'all_same'
+    assert rr.seq_mates(['a', 'a', 'b'], 0) == 'some'
+    assert rr.seq_mates(['a', 'b', 'c'], 2) == 'none'
+    assert rr.seq_mates([None, 'b', 'c'], 0) == 'unknown'

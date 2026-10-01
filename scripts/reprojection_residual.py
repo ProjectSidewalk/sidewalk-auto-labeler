@@ -247,6 +247,24 @@ def loo_chi2(v, heldout, lam_i):
     return w[0] * de * de + 2.0 * w[1] * de * dn + w[2] * dn * dn
 
 
+def seq_mates(seqs, i):
+    """How view i's site-mates relate to its capture sequence: 'all_same' (every other
+    view of the site is from i's sequence), 'none' (no other view is), 'some', or
+    'unknown' when i has no sequence id. The #57 review's test of whether position error
+    shared within a sequence cancels in the leave-one-out residual.
+
+    Example:
+        >>> seq_mates(['a', 'a', 'b'], 0), seq_mates(['a', 'a', 'a'], 1)
+        ('some', 'all_same')
+        >>> seq_mates(['a', 'b', 'c'], 2), seq_mates([None, 'b', 'c'], 0)
+        ('none', 'unknown')
+    """
+    if seqs[i] is None:
+        return 'unknown'
+    same = [s == seqs[i] for j, s in enumerate(seqs) if j != i]
+    return 'all_same' if all(same) else 'none' if not any(same) else 'some'
+
+
 def pose_group(pano):
     """'tilt' (pitch/roll reported and not both zero), 'zeros' (reported as 0/0) or
     'absent' -- the three Panoramax populations #57 measured (22% / 6% / 72%)."""
@@ -301,11 +319,13 @@ def pooled_chi2_dof(sites, heights=None, sigma_pitch_rad=None, sigma_gps_m=None)
 def sigma_pitch_for_unit_chi2(sites, heights, hi_deg=15.0, target=1.0):
     """The sigma_pitch (deg) that brings pooled chi2/dof to `target` (1 for a model whose
     every term the leave-one-out residual can see) with every other sigma fixed, by
-    bisection (chi2/dof falls monotonically as sigma_pitch grows). None when even
+    bisection (chi2/dof falls as sigma_pitch grows -- in practice, not by
+    construction: the held-out positions re-weight as the sigmas change). None when even
     sigma_pitch = 0 leaves chi2/dof <= target (the model is already loose without it),
-    and '>hi' when hi_deg is not enough. A target below 1 is the calibrated reading
-    when part of the model is invisible to the instrument -- e.g. GPS error shared by
-    every view of a site from one sequence (docs/panoramax-bayonne.md)."""
+    and '>hi' when hi_deg is not enough. A target below 1 reads a run against a
+    reference run's level rather than against the instrument's own calibration -- e.g.
+    when a sigma deliberately stands for more than the between-view scatter the
+    leave-one-out can see (absolute position error; docs/panoramax-bayonne.md)."""
     f = lambda deg: pooled_chi2_dof(sites, heights, math.radians(deg))
     if f(0.0) is None or f(0.0) <= target:
         return None
@@ -460,7 +480,8 @@ def gtfree_rows(city, height_label, sites, frame, by_id, camera_height, rigs=Non
         design = scale_design(views, ['all'] * len(views), ['all'])
         newest = max((fs._months(v.capture_date) for v in views
                       if fs._months(v.capture_date) is not None), default=None)
-        for v, ((he, hn), lam_i), cols in zip(views, loo, design):
+        seqs = [getattr(by_id[v.pano_id], 'sequence_id', None) for v in views]
+        for i, (v, ((he, hn), lam_i), cols) in enumerate(zip(views, loo, design)):
             de, dn = v.e - he, v.n - hn
             along, cross = along_cross(de, dn, v.bearing_deg)
             g_along, g_cross = along_cross(cols[0][0], cols[0][1], v.bearing_deg)
@@ -496,6 +517,8 @@ def gtfree_rows(city, height_label, sites, frame, by_id, camera_height, rigs=Non
                 'chi2': _r(loo_chi2(v, (he, hn), lam_i)),
                 'pose_group': pose_group(by_id[v.pano_id]),
                 'camera_model': (rigs or {}).get(v.pano_id) or 'unknown',
+                'seq_mates': seq_mates(seqs, i),
+                'site_n_sequences': len({q for q in seqs if q is not None}) or None,
             })
     return rows
 
@@ -861,6 +884,8 @@ def summarize_rows(rows, keys):
     aal = [abs(a) for a in along]
     acr = [abs(r['cross_m']) for r in rows]
     chi2 = [r['chi2'] for r in rows if r.get('chi2') is not None]
+    per_site = {r['site_id']: (r['n_views'], r.get('site_n_sequences')) for r in rows}
+    site_seqs = [q for _, q in per_site.values() if q is not None]
     return {**keys, 'n_views': len(rows), 'n_sites': len({r['site_id'] for r in rows}),
             'n_projected': len(px),
             'px_p50': _r(pct(px, 50), 3), 'px_p90': _r(pct(px, 90), 3),
@@ -874,7 +899,10 @@ def summarize_rows(rows, keys):
             # median(chi2) / 1.3863 (the chi-square(2) median), which a few far-tail views
             # cannot move
             'chi2_dof': _r(sum(chi2) / (2.0 * len(chi2)), 3) if chi2 else None,
-            'chi2_dof_median': _r(pct(chi2, 50) / CHI2_2_MEDIAN, 3) if chi2 else None}
+            'chi2_dof_median': _r(pct(chi2, 50) / CHI2_2_MEDIAN, 3) if chi2 else None,
+            # site make-up: views and distinct capture sequences per site (medians)
+            'site_views_p50': pct([v for v, _ in per_site.values()], 50),
+            'site_sequences_p50': pct(site_seqs, 50)}
 
 
 def _bucket_order(val):
@@ -895,7 +923,8 @@ def breakdowns(rows):
                     ('delta_months', lambda r: es._vintage_bucket(r['delta_months'])),
                     ('n_views', lambda r: _views_bucket(r['n_views'])),
                     ('camera_model', lambda r: r.get('camera_model') or 'unknown'),
-                    ('pose_group', lambda r: r.get('pose_group') or 'unknown')):
+                    ('pose_group', lambda r: r.get('pose_group') or 'unknown'),
+                    ('seq_mates', lambda r: r.get('seq_mates') or 'unknown')):
         groups = {}
         for r in rows:
             groups.setdefault(fn(r), []).append(r)

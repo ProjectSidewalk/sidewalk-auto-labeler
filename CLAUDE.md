@@ -35,28 +35,36 @@ python main.py example_geojson/richmond.geojson --name richmond --source mapilla
 
 # ...or on Panoramax (federated open imagery, no token; coverage is mostly France today)
 python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
-# PANORAMAX MEASURED (issue #57 part 1; docs/panoramax-bayonne.md). Bayonne ran in full at
-# --thin-spacing 10 (rule: 10 m if the scan-only estimate > 16 h; it printed 21.1 h at 5 m):
-# 73,161 in-area pictures -> 28,634 thinned -> 28,524 processed, 0 failed, 6.7 h on the A40.
-# 104 of the 110 skips are GoPro MAX2 uploads whose `hd` image is a vertically CROPPED equirect
-# (declared 7680x3840, served 7680x2940) -- correctly skipped, not recovered. 0.135 detections
-# per pano at 0.55 (Richmond 1.05) -- unexplained until GT. The municipal rig burns a white logo
-# band from y 0.791 (dip 52.4 deg), inside the nadir mask (2 of 10,011 stored detections there).
+# PANORAMAX MEASURED (issue #57 part 1; docs/panoramax-bayonne.md, corrected after the PR #125
+# review). Bayonne ran in full at --thin-spacing 10 (rule: 10 m if the scan-only estimate > 16 h;
+# it printed 21.1 h at 5 m; the manifest does not record the spacing -- #126): 73,161 in-area
+# pictures -> 28,634 thinned -> 28,524 processed, 0 failed, 6.7 h on the A40. 104 of the 110
+# skips are GoPro MAX2 uploads whose `hd` image is a vertically CROPPED equirect (declared
+# 7680x3840, served 7680x2940) -- correctly skipped; 3 more are unexplained (#127: the decode
+# catch caches any exception as permanent). 0.135 detections per pano at 0.55 -- INSIDE the
+# Mapillary range (Clovis 0.123 ... Richmond 1.048), worth GT, not anomalous. The municipal rig
+# burns a white logo band from y 0.791 (dip 52.4 deg), inside the nadir mask (2 of 10,011).
 # ERROR MODEL: the leave-one-out residual gained a normalized form (`chi2` = r'S^-1 r, S = the
-# view's cov_en + the held-out solution's covariance; `--fit-sigma-pitch TARGET` also solves
-# sigma_pitch and sigma_gps for a chi2/dof target). MAPILLARY_ERRORS reads chi2/dof 0.18-0.43 on
-# the five Mapillary runs (its 3 m GPS term is invisible to a leave-one-out when a site's views
-# share their position error), so the pre-registered rule was re-anchored on Richmond (0.269)
-# before Bayonne was read. Bayonne: 0.580 at 0.55 (0.584 at 0.30), m p50 3.66 vs Richmond 1.95
-# -> TOO TIGHT. No sigma_pitch <= 15 deg fixes it: the residual is flat in range (position
-# error, not tilt or heading); exploratory sigma_gps ~4.7 m matches Richmond. NOT adopted --
-# error_model_for('panoramax') is still MAPILLARY_ERRORS until GT (eval_sites) and a 5 m run.
-# Pose: applying pers:pitch/roll LOOSENS same-site spread in every sign convention (real-tilt
-# members p90 7.6 -> 10.0-11.3 m), so Panoramax stays flat. GT: the RampNet bundle (125 panos,
-# 5 top / 95 random / 25 empty, reconcile 1:1) awaits review; scripts/run_census.py is the census.
+# view's cov_en + the held-out solution's covariance; `seq_mates` / `pose_group` / rig
+# breakdowns; `--fit-sigma-pitch TARGET` solves sigma_pitch and sigma_gps for a chi2/dof
+# target). MAPILLARY_ERRORS reads 0.18-0.43 on the five Mapillary runs, so the rule was
+# re-anchored on Richmond (0.269) before Bayonne was read -- but NOT because shared
+# same-sequence error cancels (Richmond reads the opposite way, 0.404 all-same vs 0.286 none):
+# its 3 m sigma_gps is ~2.7x Richmond's leave-one-out-calibrated between-view scatter (1.11 m;
+# Bayonne 2.16 m). Bayonne: 0.580 (median form 0.582), m p50 3.66 -> TOO TIGHT under the
+# amended rule, but MARGINAL (bar 0.538, CI 0.539-0.618) and rig-confounded: Mapillary GoPro
+# Max views read 0.43-0.50 (Richmond's 0.499, median form 0.453), so it cannot be separated
+# from a single-consumer-rig effect. The excess is position (near-constant +1.2-2.2 m over
+# Richmond across range bins, chi2/dof flat by range, k 1.087 vs 1.055), not pitch: no
+# sigma_pitch <= 15 deg fixes it. NOTHING adopted -- error_model_for('panoramax') stays
+# MAPILLARY_ERRORS until GT (eval_sites) and a 5 m run. Pose: pers:pitch/roll LOOSENS the
+# same-site spread in every sign convention (real-tilt p90 7.58 -> 9.45-11.27 m at 0.55), so
+# Panoramax stays flat. GT: the RampNet bundle (125 panos, reconcile 1:1) awaits review.
 python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
-python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse \
-    --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
+python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse     --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
+python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bayonne_figures.py figures
+#   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~45 min, no GPU/network);
+#   examples: network -> data/examples/; figures: committed data only, byte-reproducible
 
 # GSV runs end with a gap-fill phase (issue #32): link-target panos the run's own
 # records reference but the tile scan never enumerated (coverage churn) are fetched
