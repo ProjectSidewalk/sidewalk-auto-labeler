@@ -1,433 +1,433 @@
-city,pano_id,kind,det_index,x,y,confidence,gt_group,seg_group,seg_class,direct_group,direct_class,depth_class,plane_tilt_deg,offset_local_m,range_flat_2p6_m,on_camera_rig
-paterson,0-zmUwLwl5ENJgqxheDklQ,det,0,0.925781,0.583984,0.912294,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.19255,,9.62455,0
-paterson,0-zmUwLwl5ENJgqxheDklQ,det,1,0.12793,0.570312,0.710148,true,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.234274,11.5783,0
-paterson,0-zmUwLwl5ENJgqxheDklQ,det,2,0.964844,0.523438,0.569982,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.4571,-0.135708,35.2473,0
-paterson,0-zmUwLwl5ENJgqxheDklQ,det,3,0.0585938,0.537109,0.567226,true,ROAD,Road,ROAD,Road,floor,2.74424,-0.136296,22.2007,0
-paterson,0-zmUwLwl5ENJgqxheDklQ,missed,0,0.125394,0.588422,,missed,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.124355,9.11778,0
-paterson,0-zmUwLwl5ENJgqxheDklQ,missed,1,0.0494109,0.531041,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,5.26879,-0.0315612,26.5771,0
-paterson,0-zmUwLwl5ENJgqxheDklQ,missed,2,0.917678,0.568847,,missed,WALK,Crosswalk - Plain,WALK,Crosswalk - Plain,ground,1.19255,,11.8329,0
-paterson,0-zmUwLwl5ENJgqxheDklQ,missed,3,0.975817,0.528078,,unsure_missed,WALK,Sidewalk,WALK,Curb Cut,floor,1.4571,-0.226767,29.3989,0
-paterson,0Drku25sOlOlWGiVf7uetw,det,0,0.542969,0.554688,0.925599,true,OTHER,Terrain,OTHER,Terrain,floor_standin,0,0.48551,14.9842,0
-paterson,0Drku25sOlOlWGiVf7uetw,det,1,0.15918,0.583984,0.897758,true,WALK,Curb Cut,WALK,Curb Cut,ground,2.37273,,9.62455,0
-paterson,0Drku25sOlOlWGiVf7uetw,det,2,0.566406,0.568359,0.887648,true,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.346079,11.92,0
-paterson,0Drku25sOlOlWGiVf7uetw,det,3,0.863281,0.601562,0.875872,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.94652,-0.0854388,7.87031,0
-paterson,0Drku25sOlOlWGiVf7uetw,det,4,0.182617,0.583984,0.869027,true,ROAD,Road,WALK,Curb Cut,ground,2.37273,,9.62455,0
-paterson,0Drku25sOlOlWGiVf7uetw,det,5,0.401367,0.554688,0.831325,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.371695,14.9842,0
-paterson,0Drku25sOlOlWGiVf7uetw,det,6,0.894531,0.601562,0.77164,true,WALK,Sidewalk,WALK,Curb Cut,ground,2.37273,,7.87031,0
-paterson,0Drku25sOlOlWGiVf7uetw,det,7,0.416992,0.568359,0.691888,true,ROAD,Road,ROAD,Road,floor_standin,0,0.302911,11.92,0
-paterson,0fCPhcB0ZF3dHQ7nEIWABA,det,0,0.980469,0.554688,0.914233,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.19473,0.0321898,14.9842,0
-paterson,0fCPhcB0ZF3dHQ7nEIWABA,det,1,0.291992,0.583984,0.911496,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.84833,0.135446,9.62455,0
-paterson,0s94i47Wdggc9cHmBjEe8w,det,0,0.0888672,0.554688,0.880589,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,,14.9842,0
-paterson,0s94i47Wdggc9cHmBjEe8w,det,1,0.933594,0.554688,0.878618,true,ROAD,Road,WALK,Sidewalk,floor,2.42059,-0.174583,14.9842,0
-paterson,0s94i47Wdggc9cHmBjEe8w,det,2,0.0498047,0.523438,0.558731,true,STRUCTURE,Building,STRUCTURE,Building,floor_standin,0,0.0514311,35.2473,0
-paterson,0s94i47Wdggc9cHmBjEe8w,det,3,0.97168,0.523438,0.316865,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,4.65997,0.126162,35.2473,0
-paterson,0s94i47Wdggc9cHmBjEe8w,missed,0,0.083623,0.566855,,missed,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,,12.1966,0
-paterson,0s94i47Wdggc9cHmBjEe8w,missed,1,0.936006,0.569328,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,4.80367,0.194719,11.7482,0
-paterson,0s94i47Wdggc9cHmBjEe8w,missed,2,0.963358,0.52879,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.42059,-0.310882,28.6682,0
-paterson,0s94i47Wdggc9cHmBjEe8w,missed,3,0.973672,0.527481,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.42059,-0.248908,30.0405,0
-paterson,0uNeulmg68uHO_WKDIuqZw,det,0,0.28418,0.630859,0.915284,true,WALK,Sidewalk,WALK,Sidewalk,ground,0.887132,,5.96402,0
-paterson,0uNeulmg68uHO_WKDIuqZw,det,1,0.487305,0.554688,0.376863,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,0.989129,-0.0780581,14.9842,0
-paterson,0uNeulmg68uHO_WKDIuqZw,det,2,0.854492,0.599609,0.318901,band_0p30,OBJECT,Car,OBJECT,Car,floor,2.85629,0.0435699,8.03552,0
-paterson,1FJQJxlHdC_TzHOH9ynMFw,det,0,0.549805,0.523438,0.846017,true,OBJECT,Person,OBJECT,Bicycle,floor,1.14535,0.0551443,35.2473,0
-paterson,1FJQJxlHdC_TzHOH9ynMFw,det,1,0.699219,0.615234,0.807078,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.14535,0.0140089,6.86541,0
-paterson,1FJQJxlHdC_TzHOH9ynMFw,det,2,0.28418,0.554688,0.798622,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.846035,-0.026602,14.9842,0
-paterson,1FJQJxlHdC_TzHOH9ynMFw,det,3,0.416992,0.523438,0.769399,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.846035,-0.132825,35.2473,0
-paterson,1FJQJxlHdC_TzHOH9ynMFw,missed,0,0.266664,0.568712,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.846035,-0.0100974,11.857,0
-paterson,1FJQJxlHdC_TzHOH9ynMFw,missed,1,0.409638,0.526919,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.846035,-0.115159,30.6707,0
-paterson,1FJQJxlHdC_TzHOH9ynMFw,missed,2,0.538544,0.527109,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.14535,0.0349083,30.4545,0
-paterson,1FJQJxlHdC_TzHOH9ynMFw,missed,3,0.677172,0.584747,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,3.02705,0.0316655,9.53371,0
-paterson,21Gw_VuYrSK42PCF32UGUw,det,0,0.535156,0.539062,0.903849,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.09361,0.170049,21.0802,0
-paterson,21Gw_VuYrSK42PCF32UGUw,det,1,0.69043,0.599609,0.864258,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.09361,0.0708009,8.03552,0
-paterson,21Gw_VuYrSK42PCF32UGUw,det,2,0.713867,0.615234,0.821492,true,WALK,Sidewalk,WALK,Curb Cut,floor,1.09361,0.0513637,6.86541,0
-paterson,21Gw_VuYrSK42PCF32UGUw,det,3,0.378906,0.523438,0.775713,true,OTHER,Terrain,OTHER,Terrain,floor,0.336882,0.0874947,35.2473,0
-paterson,21Gw_VuYrSK42PCF32UGUw,det,4,0.253906,0.568359,0.738812,true,WALK,Sidewalk,WALK,Curb Cut,ground,0.20463,,11.92,0
-paterson,21Gw_VuYrSK42PCF32UGUw,det,5,0.238281,0.568359,0.720657,true,WALK,Sidewalk,WALK,Curb Cut,ground,0.20463,,11.92,0
-paterson,21Gw_VuYrSK42PCF32UGUw,missed,0,0.38771,0.532937,,missed,WALK,Curb Cut,WALK,Sidewalk,ground,0.20463,,25.0375,0
-paterson,21Gw_VuYrSK42PCF32UGUw,missed,1,0.544412,0.540386,,missed,WALK,Sidewalk,WALK,Curb,floor,1.09361,0.17312,20.3824,0
-paterson,2lovLRC7Pv6S94tMW3mDug,det,0,0.441406,0.507812,0.967371,true,OTHER,Terrain,WALK,Sidewalk,floor,4.78098,0.0662506,105.912,0
-paterson,2lovLRC7Pv6S94tMW3mDug,det,1,0.31543,0.570312,0.895549,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.28122,0.0921883,11.5783,0
-paterson,2lovLRC7Pv6S94tMW3mDug,det,2,0.667969,0.585938,0.87488,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.15504,,9.39519,0
-paterson,2lovLRC7Pv6S94tMW3mDug,det,3,0.549805,0.507812,0.845814,true,STRUCTURE,Wall,STRUCTURE,Fence,horizontal_nonfloor,11.4421,,105.912,0
-paterson,2lovLRC7Pv6S94tMW3mDug,missed,0,0.323178,0.558149,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.28122,0.120022,14.0739,0
-paterson,2lovLRC7Pv6S94tMW3mDug,missed,1,0.433414,0.513805,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,3.24631,0.214678,59.914,0
-paterson,2lovLRC7Pv6S94tMW3mDug,missed,2,0.539194,0.512993,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,3.24631,0.240785,63.6627,0
-paterson,2lovLRC7Pv6S94tMW3mDug,missed,3,0.656202,0.567951,,missed,WALK,Sidewalk,WALK,Sidewalk,ground,1.15504,,11.9938,0
-paterson,3BTAarqIRrxbpFHUFJhtSQ,det,0,0.152344,0.552734,0.864085,true,WALK,Sidewalk,WALK,Curb Cut,floor,1.41361,-0.107074,15.55,0
-paterson,3BTAarqIRrxbpFHUFJhtSQ,det,1,0.457031,0.552734,0.796938,true,WALK,Curb Cut,WALK,Curb,floor,1.0911,-0.0797026,15.55,0
-paterson,3BTAarqIRrxbpFHUFJhtSQ,det,2,0.277344,0.537109,0.559703,unsure,ROAD,Road,ROAD,Road,ground,0.820676,,22.2007,0
-paterson,3BTAarqIRrxbpFHUFJhtSQ,det,3,0.72168,0.679688,0.396793,band_0p30,WALK,Curb Cut,WALK,Curb Cut,ground,0.820676,,4.10585,0
-paterson,3BTAarqIRrxbpFHUFJhtSQ,missed,0,0.441714,0.54725,,missed,WALK,Curb Cut,WALK,Curb,floor,0.634582,0.000489865,17.3866,0
-paterson,3BTAarqIRrxbpFHUFJhtSQ,missed,1,0.703838,0.694647,,missed,WALK,Curb Cut,WALK,Curb Cut,ground,0.820676,,3.70817,0
-paterson,3Tw1W-lv133l2efDeoEAYQ,det,0,0.416992,0.523438,0.886943,true,ROAD,Road,ROAD,Lane Marking - General,floor,4.20002,0.190925,35.2473,0
-paterson,3Tw1W-lv133l2efDeoEAYQ,det,1,0.535156,0.523438,0.80237,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,1.49331,-0.0765786,35.2473,0
-paterson,3Tw1W-lv133l2efDeoEAYQ,missed,0,0.448663,0.514793,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.755629,-0.284037,55.9058,0
-paterson,3Tw1W-lv133l2efDeoEAYQ,missed,1,0.461346,0.513341,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.49331,-0.340316,61.9995,0
-paterson,3Tw1W-lv133l2efDeoEAYQ,missed,2,0.513397,0.510305,,unsure_missed,OTHER,Terrain,ROAD,Road,floor,3.59134,-0.143925,80.2852,0
-paterson,3Tw1W-lv133l2efDeoEAYQ,missed,3,0.522193,0.510392,,missed,WALK,Sidewalk,OTHER,Terrain,floor,3.59134,-0.166329,79.6112,0
-paterson,3Tw1W-lv133l2efDeoEAYQ,missed,4,0.543495,0.52467,,unsure_missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - General,floor,1.49331,0.00646435,33.4795,0
-paterson,3dq9TqRXzopD0yvztHg8rg,det,0,0.988281,0.523438,0.918965,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.31997,0.334358,35.2473,0
-paterson,3dq9TqRXzopD0yvztHg8rg,det,1,0.933594,0.599609,0.857847,true,WALK,Curb Cut,WALK,Sidewalk,floor,1.48174,-0.0925475,8.03552,0
-paterson,3dq9TqRXzopD0yvztHg8rg,det,2,0.166992,0.568359,0.842011,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.0791294,-0.0602947,11.92,0
-paterson,3dq9TqRXzopD0yvztHg8rg,missed,0,0.158568,0.55874,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,0.0791294,-0.0808711,13.9291,0
-paterson,3dq9TqRXzopD0yvztHg8rg,missed,1,0.937909,0.579157,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,1.31997,-0.0270441,10.2388,0
-paterson,3dq9TqRXzopD0yvztHg8rg,missed,2,0.997933,0.528875,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.31997,0.291754,28.5834,0
-paterson,4cXVf74zyKLTQLiQtBObww,det,0,0.0507812,0.537109,0.823223,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.03571,-0.265348,22.2007,0
-paterson,4cXVf74zyKLTQLiQtBObww,det,1,0.174805,0.523438,0.782205,true,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor,1.03571,-0.105633,35.2473,0
-paterson,4cXVf74zyKLTQLiQtBObww,det,2,0.831055,0.617188,0.684217,true,WALK,Curb Cut,WALK,Sidewalk,floor,1.28588,0.000607184,6.74025,0
-paterson,4cXVf74zyKLTQLiQtBObww,det,3,0.785156,0.646484,0.440729,band_0p30,WALK,Curb Cut,WALK,Curb Cut,floor,1.28588,-0.0380953,5.24521,0
-paterson,4cXVf74zyKLTQLiQtBObww,missed,0,0.0582171,0.531364,,missed,WALK,Sidewalk,WALK,Curb Cut,floor,1.03571,-0.308271,26.302,0
-paterson,4cXVf74zyKLTQLiQtBObww,missed,1,0.184778,0.524323,,missed,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor,1.03571,-0.0716436,33.9596,0
-paterson,4cXVf74zyKLTQLiQtBObww,missed,2,0.786551,0.645189,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,1.28588,-0.0365994,5.29929,0
-paterson,5M-GzTlVe-lrOqHmypJqTA,det,0,0.542969,0.537109,0.715961,true,OBJECT,Pole,OBJECT,Pole,floor,0.624323,-0.260813,22.2007,0
-paterson,5M-GzTlVe-lrOqHmypJqTA,det,1,0.425781,0.537109,0.457702,band_0p30,WALK,Sidewalk,OBJECT,Car,floor_standin,0,-0.0607016,22.2007,0
-paterson,5M-GzTlVe-lrOqHmypJqTA,missed,0,0.430189,0.536328,,unsure_missed,WALK,Sidewalk,OBJECT,Car,floor_standin,0,-0.0818674,22.6822,0
-paterson,5PJhqjhMTDTN_54DwP35Xw,det,0,0.0585938,0.552734,0.702419,true,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.120522,15.55,0
-paterson,5PJhqjhMTDTN_54DwP35Xw,missed,0,0.038712,0.534706,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.303216,23.7519,0
-paterson,60amgEGA1TEcbtRBTtxUTg,det,0,0.53418,0.523438,0.916808,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.75349,-0.642272,35.2473,0
-paterson,60amgEGA1TEcbtRBTtxUTg,det,1,0.56543,0.570312,0.818677,true,WALK,Sidewalk,WALK,Curb Cut,floor,4.39302,0.049396,11.5783,0
-paterson,75T9ZXImSNQMpkN794zWRQ,det,0,0.238281,0.570312,0.794571,unsure,WALK,Sidewalk,WALK,Sidewalk,ground,3.01844,,11.5783,0
-paterson,7ZSHYN4Na-esoxvqvTzjwQ,det,0,0.0507812,0.539062,0.910455,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.138195,21.0802,0
-paterson,7ZSHYN4Na-esoxvqvTzjwQ,det,1,0.949219,0.554688,0.90463,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.0575674,14.9842,0
-paterson,7ZSHYN4Na-esoxvqvTzjwQ,det,2,0.182617,0.630859,0.903511,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.63091,-0.0281223,5.96402,0
-paterson,7ZSHYN4Na-esoxvqvTzjwQ,det,3,0.838867,0.630859,0.834527,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0994386,5.96402,0
-paterson,7ZSHYN4Na-esoxvqvTzjwQ,missed,0,0.848296,0.60778,,missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.202248,7.38291,0
-paterson,7ZSHYN4Na-esoxvqvTzjwQ,missed,1,0.966801,0.550583,,missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0307862,16.2235,0
-paterson,80E3CRwZRxGtczZCQX3JNg,det,0,0.549805,0.554688,0.893112,true,WALK,Curb Cut,WALK,Sidewalk,ground,1.51852,,14.9842,0
-paterson,8_b_fPkaKLKL1NpmMe3OMQ,det,0,0.964844,0.552734,0.558856,unsure,WALK,Sidewalk,WALK,Sidewalk,floor,0.200769,0.00543495,15.55,0
-paterson,8_b_fPkaKLKL1NpmMe3OMQ,missed,0,0.0397475,0.521115,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.61519,-0.0134201,39.1382,0
-paterson,8_b_fPkaKLKL1NpmMe3OMQ,missed,1,0.0529414,0.532763,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.25383,-0.0025085,25.1715,0
-paterson,9AZrydWz7yu5OFJmBXIzDg,det,0,0.526367,0.521484,1.03462,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.08787,0.406552,38.4628,0
-paterson,9AZrydWz7yu5OFJmBXIzDg,det,1,0.808594,0.601562,0.952168,true,WALK,Curb Cut,WALK,Curb Cut,ground,0.73887,,7.87031,0
-paterson,9AZrydWz7yu5OFJmBXIzDg,det,2,0.355469,0.554688,0.922789,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.08787,0.00847333,14.9842,0
-paterson,AYBFFp06z_3m70ETRK2Jtw,det,0,0.112305,0.552734,0.730501,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.71726,0.00770485,15.55,0
-paterson,AYBFFp06z_3m70ETRK2Jtw,missed,0,0.295744,0.567426,,missed,WALK,Sidewalk,WALK,Sidewalk,ground,3.68616,,12.0902,0
-paterson,AhV3GKVFnENcHwhG45WN2g,det,0,0.237305,0.615234,0.91618,true,WALK,Sidewalk,WALK,Curb Cut,floor,1.2921,-0.0318998,6.86541,0
-paterson,AhV3GKVFnENcHwhG45WN2g,det,1,0.56543,0.552734,0.901645,true,WALK,Curb,WALK,Sidewalk,floor,1.63051,-0.111498,15.55,0
-paterson,AhV3GKVFnENcHwhG45WN2g,det,2,0.277344,0.599609,0.875565,true,OBJECT,Utility Pole,OBJECT,Utility Pole,floor,1.2921,-0.0392154,8.03552,0
-paterson,AhV3GKVFnENcHwhG45WN2g,det,3,0.62793,0.539062,0.867046,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.533025,-0.0370578,21.0802,0
-paterson,AhV3GKVFnENcHwhG45WN2g,det,4,0.769531,0.615234,0.862787,true,WALK,Sidewalk,WALK,Sidewalk,floor,6.78024,-0.0233786,6.86541,0
-paterson,AhV3GKVFnENcHwhG45WN2g,det,5,0.44043,0.552734,0.832867,duplicate,ROAD,Lane Marking - General,ROAD,Road,floor,0.794508,0.0751178,15.55,0
-paterson,AhV3GKVFnENcHwhG45WN2g,det,6,0.589844,0.554688,0.768555,unsure,WALK,Curb,WALK,Curb Cut,floor,1.63051,-0.0876024,14.9842,0
-paterson,AhV3GKVFnENcHwhG45WN2g,det,7,0.410156,0.552734,0.692441,true,WALK,Crosswalk - Plain,WALK,Curb Cut,floor,1.933,0.0589392,15.55,0
-paterson,AhV3GKVFnENcHwhG45WN2g,det,8,0.479492,0.539062,0.615998,false,ROAD,Road,ROAD,Road,floor,1.933,0.093767,21.0802,0
-paterson,AhV3GKVFnENcHwhG45WN2g,det,9,0.745117,0.554688,0.582836,true,WALK,Sidewalk,OBJECT,Pole,floor,1.49606,0.165337,14.9842,0
-paterson,BjV06xLkvfHDCTJMA5WK6Q,det,0,0.105469,0.539062,0.891351,true,ROAD,Road,WALK,Sidewalk,floor,1.60985,0.557793,21.0802,0
-paterson,BjV06xLkvfHDCTJMA5WK6Q,det,1,0.957031,0.523438,0.54494,band_0p30,OTHER,Terrain,OTHER,Terrain,floor,3.36668,-0.27013,35.2473,0
-paterson,BjV06xLkvfHDCTJMA5WK6Q,missed,0,0.0587949,0.527105,,missed,WALK,Sidewalk,WALK,Curb Cut,floor,0.676375,0.730689,30.4595,0
-paterson,BvnpSlTjHxKyBiX5tQ02Mg,det,0,0.948242,0.568359,0.994418,true,WALK,Sidewalk,WALK,Sidewalk,ground,0.906118,,11.92,0
-paterson,BvnpSlTjHxKyBiX5tQ02Mg,det,1,0.893555,0.570312,0.94043,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.3663,0.0127172,11.5783,0
-paterson,BvnpSlTjHxKyBiX5tQ02Mg,det,2,0.291992,0.568359,0.932273,true,WALK,Curb Cut,WALK,Curb Cut,ground,0.906118,,11.92,0
-paterson,BvnpSlTjHxKyBiX5tQ02Mg,det,3,0.698242,0.615234,0.823201,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.463938,0.0517252,6.86541,0
-paterson,BvnpSlTjHxKyBiX5tQ02Mg,det,4,0.666992,0.617188,0.723255,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.463938,0.0466169,6.74025,0
-paterson,BwpJfUUUcWanSPtttY4KJw,det,0,0.556641,0.521484,1.00277,true,OTHER,Terrain,OTHER,Terrain,floor,4.31965,0.162432,38.4628,0
-paterson,BwpJfUUUcWanSPtttY4KJw,det,1,0.40918,0.537109,0.920263,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.86551,0.0999596,22.2007,0
-paterson,BwpJfUUUcWanSPtttY4KJw,det,2,0.246094,0.583984,0.910458,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.86551,0.116841,9.62455,0
-paterson,BwpJfUUUcWanSPtttY4KJw,det,3,0.706055,0.601562,0.899831,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.9031,0.0330166,7.87031,0
-paterson,BwpJfUUUcWanSPtttY4KJw,det,4,0.276367,0.568359,0.881607,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.86551,0.156222,11.92,0
-paterson,BwpJfUUUcWanSPtttY4KJw,det,5,0.53418,0.523438,0.784665,true,WALK,Sidewalk,WALK,Sidewalk,floor,4.31965,0.117324,35.2473,0
-paterson,BwpJfUUUcWanSPtttY4KJw,det,6,0.761719,0.648438,0.694885,true,WALK,Curb Cut,WALK,Curb Cut,ground,1.66236,,5.16531,0
-paterson,BwpJfUUUcWanSPtttY4KJw,missed,0,0.426667,0.537879,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,2.03278,0.0738413,21.7456,0
-paterson,C-d-iXNcQ_LYqEup9COaOA,det,0,0.0742188,0.537109,0.738033,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.709967,0.109175,22.2007,0
-paterson,C-d-iXNcQ_LYqEup9COaOA,det,1,0.0429688,0.523438,0.332904,band_0p30,WALK,Curb Cut,ROAD,Road,floor,0.709967,0.820983,35.2473,0
-paterson,C-d-iXNcQ_LYqEup9COaOA,missed,0,0.0400189,0.522944,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.709967,0.872192,36.008,0
-paterson,DjvAQ4p-Q78PR-6ohIs5kA,det,0,0.15918,0.568359,0.983872,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.04922,0.000378799,11.92,0
-paterson,DjvAQ4p-Q78PR-6ohIs5kA,det,1,0.0820312,0.539062,0.838625,true,WALK,Curb Cut,ROAD,Road,floor,1.39704,-0.0732254,21.0802,0
-paterson,DjvAQ4p-Q78PR-6ohIs5kA,det,2,0.963867,0.521484,0.738634,true,ROAD,Road,WALK,Curb Cut,floor,2.92897,-0.0854657,38.4628,0
-paterson,DjvAQ4p-Q78PR-6ohIs5kA,det,3,0.0664062,0.537109,0.734802,true,WALK,Curb Cut,WALK,Curb Cut,floor,2.82099,0.0066678,22.2007,0
-paterson,EIUNEZz3tbipOJ72-2dQzg,det,0,0.956055,0.539062,0.859065,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.55518,0.181186,21.0802,0
-paterson,EIUNEZz3tbipOJ72-2dQzg,missed,0,0.911698,0.587303,,missed,ROAD,Road,ROAD,Road,floor,3.55518,0.0130963,9.24076,0
-paterson,G7_klPoeLoxXAdoW6affDA,det,0,0.831055,0.599609,0.909887,true,WALK,Sidewalk,WALK,Sidewalk,floor,5.14769,0.0462878,8.03552,0
-paterson,G7_klPoeLoxXAdoW6affDA,det,1,0.214844,0.568359,0.908867,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.7863,0.0621811,11.92,0
-paterson,GBSPMaXXCAqOdrozYcHR3w,det,0,0.605469,0.552734,0.875092,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.85382,-0.108593,15.55,0
-paterson,GBSPMaXXCAqOdrozYcHR3w,missed,0,0.56069,0.526668,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.80992,-0.0167438,30.9613,0
-paterson,HFYowXmV7u1c0TMp-p_pgQ,det,0,0.457031,0.537109,0.731488,true,OBJECT,Utility Pole,OBJECT,Pole,floor,1.49972,0.00909576,22.2007,0
-paterson,HFYowXmV7u1c0TMp-p_pgQ,det,1,0.53418,0.523438,0.642561,true,WALK,Curb Cut,WALK,Sidewalk,floor,2.60639,0.282249,35.2473,0
-paterson,HFYowXmV7u1c0TMp-p_pgQ,missed,0,0.449232,0.532554,,missed,ROAD,Road,ROAD,Road,floor,1.49972,0.0342398,25.3338,0
-paterson,HFYowXmV7u1c0TMp-p_pgQ,missed,1,0.465766,0.520934,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.60639,0.133603,39.4762,0
-paterson,HFYowXmV7u1c0TMp-p_pgQ,missed,2,0.473543,0.519864,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,2.60639,0.140831,41.6093,0
-paterson,HHjmf0kWHmcwWAOfg7b4tw,det,0,0.410156,0.539062,0.962645,true,ROAD,Road,ROAD,Road,floor_standin,0,0.585109,21.0802,0
-paterson,HHjmf0kWHmcwWAOfg7b4tw,det,1,0.550781,0.552734,0.70356,true,OBJECT,Pole,OTHER,Terrain,floor,0.941076,0.143864,15.55,0
-paterson,IXCSjRuAqY4_iyOU_2rxeQ,det,0,0.527344,0.539062,0.640942,true,WALK,Curb,ROAD,Road,floor,4.97291,-0.340271,21.0802,0
-paterson,IXCSjRuAqY4_iyOU_2rxeQ,missed,0,0.524055,0.527609,,missed,WALK,Curb Cut,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.235005,29.901,0
-paterson,IXCSjRuAqY4_iyOU_2rxeQ,missed,1,0.517694,0.527438,,missed,WALK,Curb Cut,ROAD,Road,floor_standin,0,0.335314,30.0882,0
-paterson,IXCSjRuAqY4_iyOU_2rxeQ,missed,2,0.460251,0.529502,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.277196,27.972,0
-paterson,IXCSjRuAqY4_iyOU_2rxeQ,missed,3,0.452075,0.538486,,unsure_missed,OBJECT,Car,OBJECT,Car,floor_standin,0,0.214872,21.3991,0
-paterson,L8lyOJwUI8j3Mk_cV-R80Q,det,0,0.0732422,0.539062,0.939157,true,OBJECT,Fire Hydrant,OTHER,Terrain,floor_standin,0,0.28512,21.0802,0
-paterson,L8lyOJwUI8j3Mk_cV-R80Q,det,1,0.143555,0.583984,0.912895,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0762316,9.62455,0
-paterson,L8lyOJwUI8j3Mk_cV-R80Q,det,2,0.941406,0.539062,0.893976,true,OTHER,Terrain,OTHER,Terrain,floor_standin,0,0.0452456,21.0802,0
-paterson,NqOWmuzYX0M4vXF6ioTD7Q,det,0,0.0351562,0.521484,1.00949,true,OTHER,Terrain,OTHER,Terrain,floor,1.85688,-0.0715803,38.4628,0
-paterson,NqOWmuzYX0M4vXF6ioTD7Q,det,1,0.175781,0.568359,0.897077,true,WALK,Curb Cut,WALK,Sidewalk,floor,0.444994,0.153986,11.92,0
-paterson,OhdI54JArKc1UopNZiFoZg,det,0,0.135742,0.552734,0.892977,true,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.287611,15.55,0
-paterson,OhdI54JArKc1UopNZiFoZg,det,1,0.916992,0.552734,0.648234,true,WALK,Curb Cut,WALK,Curb Cut,ground,1.48727,,15.55,0
-paterson,OhdI54JArKc1UopNZiFoZg,missed,0,0.927526,0.536337,,unsure_missed,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,floor,1.58152,0.0437922,22.6767,0
-paterson,PM92O1ji0i42GTuhT_ll5A,det,0,0.730469,0.552734,0.884925,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.85983,0.241574,15.55,0
-paterson,PM92O1ji0i42GTuhT_ll5A,det,1,0.416992,0.537109,0.845332,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.145891,22.2007,0
-paterson,PM92O1ji0i42GTuhT_ll5A,det,2,0.621094,0.568359,0.46494,band_0p30,ROAD,Road,ROAD,Lane Marking - Crosswalk,floor,3.50867,-0.685854,11.92,0
-paterson,PM92O1ji0i42GTuhT_ll5A,det,3,0.550781,0.537109,0.351432,band_0p30,ROAD,Road,ROAD,Road,floor_standin,0,0.0934389,22.2007,0
-paterson,PM92O1ji0i42GTuhT_ll5A,missed,0,0.552616,0.529671,,missed,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.140778,27.812,0
-paterson,PS-Atz2shq5v6QtlJs6OlA,det,0,0.441406,0.523438,0.976335,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.8848,-0.779162,35.2473,0
-paterson,PS-Atz2shq5v6QtlJs6OlA,det,1,0.924805,0.539062,0.8903,true,WALK,Curb Cut,WALK,Curb Cut,floor,3.54077,0.0733838,21.0802,0
-paterson,PS-Atz2shq5v6QtlJs6OlA,det,2,0.183594,0.648438,0.824178,true,WALK,Curb Cut,WALK,Sidewalk,ground,0.396635,,5.16531,0
-paterson,PS-Atz2shq5v6QtlJs6OlA,det,3,0.0341797,0.539062,0.80814,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.19713,0.0438215,21.0802,0
-paterson,PS-Atz2shq5v6QtlJs6OlA,det,4,0.0195312,0.539062,0.784466,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.19713,0.0444425,21.0802,0
-paterson,PS-Atz2shq5v6QtlJs6OlA,det,5,0.777344,0.585938,0.776675,true,WALK,Sidewalk,WALK,Sidewalk,floor,5.2689,0.153959,9.39519,0
-paterson,PS-Atz2shq5v6QtlJs6OlA,det,6,0.167969,0.617188,0.737225,true,WALK,Curb Cut,WALK,Sidewalk,ground,0.396635,,6.74025,0
-paterson,PS-Atz2shq5v6QtlJs6OlA,det,7,0.753906,0.617188,0.729934,true,WALK,Curb Cut,WALK,Sidewalk,floor,1.1525,0.0503033,6.74025,0
-paterson,PS-Atz2shq5v6QtlJs6OlA,det,8,0.402344,0.554688,0.718645,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.659975,0.0467324,14.9842,0
-paterson,PS-Atz2shq5v6QtlJs6OlA,missed,0,0.910822,0.539948,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,3.54077,0.0795866,20.608,0
-paterson,Q5D74UJFt5D2PVhGxRh1sw,det,0,0.34668,0.568359,0.92044,true,WALK,Curb Cut,WALK,Curb Cut,ground,0.822581,,11.92,0
-paterson,Q5D74UJFt5D2PVhGxRh1sw,det,1,0.558594,0.539062,0.918702,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.704711,0.0898079,21.0802,0
-paterson,Q5D74UJFt5D2PVhGxRh1sw,det,2,0.628906,0.583984,0.909829,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.88941,-0.567389,9.62455,0
-paterson,Q5D74UJFt5D2PVhGxRh1sw,det,3,0.410156,0.537109,0.904016,true,WALK,Sidewalk,WALK,Curb Cut,floor,2.96187,0.120267,22.2007,0
-paterson,R9WHDEVRAq5IdtLkLFhL_A,det,0,0.738281,0.646484,0.913524,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.06386,-0.0217573,5.24521,0
-paterson,R9WHDEVRAq5IdtLkLFhL_A,det,1,0.925781,0.554688,0.907647,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.04143,0.0747092,14.9842,0
-paterson,RGAxlzGeyK3ncjFZ9VXpBA,det,0,0.12793,0.554688,0.848767,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.04773,-0.133965,14.9842,0
-paterson,RGAxlzGeyK3ncjFZ9VXpBA,det,1,0.924805,0.568359,0.837893,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.54738,,11.92,0
-paterson,RGAxlzGeyK3ncjFZ9VXpBA,missed,0,0.0683347,0.52702,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.336882,-0.0370122,30.5561,0
-paterson,RGAxlzGeyK3ncjFZ9VXpBA,missed,1,0.123491,0.547138,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.04773,-0.192449,17.4285,0
-paterson,RGAxlzGeyK3ncjFZ9VXpBA,missed,2,0.922845,0.551568,,missed,ROAD,Road,ROAD,Road,floor,0.753295,-0.00626545,15.9081,0
-paterson,RGAxlzGeyK3ncjFZ9VXpBA,missed,3,0.969104,0.527338,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.866375,-0.162919,30.1983,0
-paterson,RGAxlzGeyK3ncjFZ9VXpBA,missed,4,0.982563,0.525762,,unsure_missed,WALK,Curb,WALK,Sidewalk,floor,0.962662,-0.0555315,32.0551,0
-paterson,S06PQMrwEby-_62F0U4Oww,missed,0,0.970348,0.542059,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.95765,0.14126,19.5626,0
-paterson,TFX8xO7By2dnr_cYK59_Gw,det,0,0.0341797,0.537109,0.855727,true,ROAD,Road,ROAD,Road,floor,0.785841,0.00518542,22.2007,0
-paterson,TFX8xO7By2dnr_cYK59_Gw,det,1,0.963867,0.539062,0.679561,unsure,WALK,Sidewalk,WALK,Sidewalk,floor,2.4912,0.975344,21.0802,0
-paterson,TFX8xO7By2dnr_cYK59_Gw,det,2,0.0664062,0.568359,0.350543,band_0p30,STRUCTURE,Fence,STRUCTURE,Fence,floor,5.95177,-0.0733817,11.92,0
-paterson,TFX8xO7By2dnr_cYK59_Gw,missed,0,0.0756383,0.555492,,unsure_missed,STRUCTURE,Fence,STRUCTURE,Fence,floor_standin,0,0.185419,14.7625,0
-paterson,TO2IeKCGXF_kk9hxE-_Nkg,det,0,0.549805,0.523438,0.551539,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,1.20382,0.252104,35.2473,0
-paterson,TO2IeKCGXF_kk9hxE-_Nkg,det,1,0.425781,0.523438,0.418288,band_0p30,ROAD,Lane Marking - Crosswalk,ROAD,Road,floor,2.77834,-0.0397879,35.2473,0
-paterson,TO2IeKCGXF_kk9hxE-_Nkg,missed,0,0.531759,0.510966,,unsure_missed,WALK,Curb Cut,WALK,Sidewalk,floor,1.20382,0.823468,75.4413,0
-paterson,TO2IeKCGXF_kk9hxE-_Nkg,missed,1,0.464511,0.51141,,unsure_missed,WALK,Curb Cut,WALK,Sidewalk,floor,0.909137,-0.173649,72.5015,0
-paterson,Tyc7Xoi2Qu6tNrHVre2kNA,det,0,0.643555,0.570312,0.687318,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.24105,0.0204891,11.5783,0
-paterson,Tyc7Xoi2Qu6tNrHVre2kNA,det,1,0.924805,0.539062,0.350221,band_0p30,WALK,Curb,OBJECT,Vegetation,floor_standin,0,0.624905,21.0802,0
-paterson,U6iQcIYtWc0Xbflaeshkdg,det,0,0.588867,0.552734,0.872991,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.88917,0.315801,15.55,0
-paterson,U6iQcIYtWc0Xbflaeshkdg,missed,0,0.393038,0.528965,,unsure_missed,WALK,Curb,WALK,Curb,floor,2.51653,0.551102,28.4936,0
-paterson,UOMaPWpm2CRHbfqMgY_hbQ,det,0,0.112305,0.539062,0.865078,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.20366,0.0361435,21.0802,0
-paterson,UOMaPWpm2CRHbfqMgY_hbQ,det,1,0.917969,0.568359,0.859623,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.20366,0.490435,11.92,0
-paterson,UOMaPWpm2CRHbfqMgY_hbQ,missed,0,0.969028,0.528089,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,2.23248,-0.199245,29.3877,0
-paterson,UOMaPWpm2CRHbfqMgY_hbQ,missed,1,0.915378,0.551658,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.20366,0.673044,15.8801,0
-paterson,Uh1qGHtgaFQVFpiBQyeN8Q,det,0,0.269531,0.539062,0.957499,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.05747,0.199794,21.0802,0
-paterson,Uh1qGHtgaFQVFpiBQyeN8Q,missed,0,0.387907,0.528838,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,8.49366,0.0889831,28.6202,0
-paterson,WNiUHjkafGBEnMc0nc4wkQ,det,0,0.0742188,0.539062,0.98393,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.96593,-0.00127917,21.0802,0
-paterson,WNiUHjkafGBEnMc0nc4wkQ,det,1,0.948242,0.539062,0.930168,true,ROAD,Road,ROAD,Road,ground,0.337462,,21.0802,0
-paterson,WNiUHjkafGBEnMc0nc4wkQ,missed,0,0.0402982,0.518016,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.8358,-0.0721341,45.8876,0
-paterson,WNiUHjkafGBEnMc0nc4wkQ,missed,1,0.941928,0.542824,,missed,ROAD,Road,WALK,Sidewalk,ground,0.337462,,19.2089,0
-paterson,WNiUHjkafGBEnMc0nc4wkQ,missed,2,0.964985,0.518465,,missed,WALK,Sidewalk,STRUCTURE,Fence,floor,2.44809,0.0834799,44.7699,0
-paterson,WNiUHjkafGBEnMc0nc4wkQ,missed,3,0.973666,0.518241,,missed,WALK,Sidewalk,OTHER,Terrain,floor,2.44809,0.0579022,45.3215,0
-paterson,WoAP6tTVMjKMFEwdCi7YaQ,det,0,0.105469,0.539062,0.797424,true,ROAD,Road,ROAD,Road,ground,1.32426,,21.0802,0
-paterson,WoAP6tTVMjKMFEwdCi7YaQ,det,1,0.0585938,0.523438,0.785009,true,OTHER,Terrain,OTHER,Terrain,floor,0.20463,0.360644,35.2473,0
-paterson,X3ppzLhvsS7aGu9Lv8GdBA,det,0,0.0888672,0.570312,0.832518,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.16197,0.0822375,11.5783,0
-paterson,XRsv_X3jYvAM1BPI-oQJUg,det,0,0.0576172,0.523438,0.806668,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.81301,0.048556,35.2473,0
-paterson,XRsv_X3jYvAM1BPI-oQJUg,missed,0,0.0426096,0.529745,,missed,WALK,Curb Cut,WALK,Curb,floor,1.14141,0.00523107,27.742,0
-paterson,Xs3lDDc1o50wJmW9eGx_WA,det,0,0.260742,0.615234,0.918161,true,WALK,Curb Cut,WALK,Curb Cut,floor,2.59518,0.0290663,6.86541,0
-paterson,Xs3lDDc1o50wJmW9eGx_WA,det,1,0.0976562,0.554688,0.910979,true,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.257852,14.9842,0
-paterson,Xs3lDDc1o50wJmW9eGx_WA,det,2,0.791992,0.630859,0.890039,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.49384,,5.96402,0
-paterson,Xs3lDDc1o50wJmW9eGx_WA,det,3,0.737305,0.664062,0.884038,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.49384,,4.58964,0
-paterson,Xs3lDDc1o50wJmW9eGx_WA,det,4,0.94043,0.552734,0.799378,true,WALK,Curb Cut,ROAD,Road,floor,3.7691,0.345695,15.55,0
-paterson,Xs3lDDc1o50wJmW9eGx_WA,det,5,0.0810547,0.552734,0.729929,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.226604,15.55,0
-paterson,Xs3lDDc1o50wJmW9eGx_WA,missed,0,0.232338,0.596984,,missed,OBJECT,Car,OBJECT,Car,floor_standin,0,0.0722596,8.26767,0
-paterson,Xs3lDDc1o50wJmW9eGx_WA,missed,1,0.96227,0.549591,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,3.7691,0.355235,16.5535,0
-paterson,Yg0X7I5adOM5rem7YVbwAg,det,0,0.956055,0.537109,0.60759,true,ROAD,Road,ROAD,Lane Marking - Crosswalk,floor,1.9701,0.126298,22.2007,0
-paterson,Z929dNP7sDp8cU6sjIeKAw,det,0,0.308594,0.615234,0.993346,true,WALK,Curb Cut,WALK,Sidewalk,floor,1.52226,0.00170626,6.86541,0
-paterson,Z929dNP7sDp8cU6sjIeKAw,det,1,0.660156,0.632812,0.951151,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.76658,0.0404528,5.86551,0
-paterson,Z929dNP7sDp8cU6sjIeKAw,det,2,0.550781,0.539062,0.890298,true,WALK,Sidewalk,WALK,Sidewalk,floor,6.32592,0.0477807,21.0802,0
-paterson,Z929dNP7sDp8cU6sjIeKAw,det,3,0.424805,0.539062,0.808901,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.04622,-0.0609045,21.0802,0
-paterson,Z929dNP7sDp8cU6sjIeKAw,det,4,0.441406,0.539062,0.777896,true,WALK,Sidewalk,WALK,Curb Cut,floor,2.04622,-0.139637,21.0802,0
-paterson,Z929dNP7sDp8cU6sjIeKAw,missed,0,0.330101,0.583939,,missed,ROAD,Road,ROAD,Road,floor,1.52226,0.326082,9.62995,0
-paterson,Z929dNP7sDp8cU6sjIeKAw,missed,1,0.535719,0.539868,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.5267,-0.0329391,20.6498,0
-paterson,Z929dNP7sDp8cU6sjIeKAw,missed,2,0.648889,0.588788,,missed,ROAD,Road,ROAD,Road,floor,1.76658,0.225343,9.07815,0
-paterson,ZcGyifqcyvUwLtCYGTr3oA,det,0,0.916992,0.539062,0.894419,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.64008,0.297492,21.0802,0
-paterson,ZcGyifqcyvUwLtCYGTr3oA,det,1,0.0273438,0.539062,0.884398,true,WALK,Sidewalk,WALK,Sidewalk,ground,0.761818,,21.0802,0
-paterson,ZcGyifqcyvUwLtCYGTr3oA,det,2,0.128906,0.615234,0.859973,true,WALK,Curb Cut,WALK,Sidewalk,ground,0.761818,,6.86541,0
-paterson,ZcGyifqcyvUwLtCYGTr3oA,det,3,0.824219,0.601562,0.827757,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.49842,0.0995228,7.87031,0
-paterson,ZcGyifqcyvUwLtCYGTr3oA,missed,0,0.123478,0.590367,,missed,WALK,Sidewalk,WALK,Sidewalk,ground,0.761818,,8.91091,0
-paterson,ZcGyifqcyvUwLtCYGTr3oA,missed,1,0.0370501,0.54299,,missed,WALK,Curb Cut,WALK,Curb Cut,ground,0.761818,,19.1339,0
-paterson,ZcGyifqcyvUwLtCYGTr3oA,missed,2,0.834868,0.592262,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.49842,0.115313,8.71757,0
-paterson,ZcGyifqcyvUwLtCYGTr3oA,missed,3,0.927472,0.539448,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.64008,0.250314,20.8719,0
-paterson,Zu314hB3XfshUEt2hsd0RQ,det,0,0.338867,0.568359,0.984627,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.25099,0.672129,11.92,0
-paterson,Zu314hB3XfshUEt2hsd0RQ,det,1,0.949219,0.523438,0.426158,band_0p30,ROAD,Road,ROAD,Road,floor,3.1132,0.34306,35.2473,0
-paterson,Zu314hB3XfshUEt2hsd0RQ,missed,0,0.889697,0.63404,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,6.21634,-0.334726,5.80496,0
-paterson,_FfdhRGlkbTABymQR3t1_A,det,0,0.371094,0.554688,0.9239,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.744147,0.246719,14.9842,0
-paterson,_FfdhRGlkbTABymQR3t1_A,det,1,0.613281,0.554688,0.87887,true,WALK,Curb Cut,WALK,Sidewalk,floor,3.22968,0.126352,14.9842,0
-paterson,_FfdhRGlkbTABymQR3t1_A,det,2,0.557617,0.523438,0.490397,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,1.67199,0.0957844,35.2473,0
-paterson,_FfdhRGlkbTABymQR3t1_A,det,3,0.448242,0.523438,0.488931,band_0p30,WALK,Sidewalk,WALK,Sidewalk,floor,6.15867,0.231998,35.2473,0
-paterson,_FfdhRGlkbTABymQR3t1_A,missed,0,0.534813,0.526181,,missed,WALK,Curb,WALK,Curb,floor,0.744147,0.0729158,31.5392,0
-paterson,_FfdhRGlkbTABymQR3t1_A,missed,1,0.557116,0.527233,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.67199,0.0557903,30.3159,0
-paterson,_FfdhRGlkbTABymQR3t1_A,missed,2,0.453366,0.528628,,missed,WALK,Sidewalk,WALK,Curb,floor,6.45598,0.063942,28.8309,0
-paterson,aZxwqPZnkC3sv5dTZOEomA,det,0,0.378906,0.539062,0.915945,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.54636,0.0332996,21.0802,0
-paterson,aZxwqPZnkC3sv5dTZOEomA,det,1,0.550781,0.570312,0.894117,true,WALK,Sidewalk,WALK,Sidewalk,ground,3.75572,,11.5783,0
-paterson,aZxwqPZnkC3sv5dTZOEomA,det,2,0.44043,0.521484,0.802868,true,WALK,Curb Cut,WALK,Sidewalk,floor,1.54636,0.0604528,38.4628,0
-paterson,aZxwqPZnkC3sv5dTZOEomA,missed,0,0.383047,0.551455,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,1.54636,0.0136506,15.9438,0
-paterson,aon4zuny7-LGeKV7JympCw,det,0,0.299805,0.646484,0.940907,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.56135,0.0233831,5.24521,0
-paterson,aon4zuny7-LGeKV7JympCw,det,1,0.707031,0.630859,0.91358,true,WALK,Curb Cut,WALK,Sidewalk,floor,1.71349,0.0815288,5.96402,0
-paterson,aon4zuny7-LGeKV7JympCw,det,2,0.441406,0.554688,0.907395,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.129983,14.9842,0
-paterson,aon4zuny7-LGeKV7JympCw,det,3,0.558594,0.568359,0.683518,true,ROAD,Road,ROAD,Road,floor_standin,0,0.150422,11.92,0
-paterson,as5xCAJAYMT35sgs0rx2_w,det,0,0.541992,0.523438,0.976107,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.77982,0.120626,35.2473,0
-paterson,as5xCAJAYMT35sgs0rx2_w,det,1,0.324219,0.570312,0.873542,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.77982,0.0157071,11.5783,0
-paterson,as5xCAJAYMT35sgs0rx2_w,det,2,0.635742,0.599609,0.798288,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.52713,,8.03552,0
-paterson,as5xCAJAYMT35sgs0rx2_w,det,3,0.424805,0.523438,0.70942,true,OTHER,Terrain,STRUCTURE,Fence,floor,5.30858,-0.00349712,35.2473,0
-paterson,as5xCAJAYMT35sgs0rx2_w,missed,0,0.33585,0.565398,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.77982,0.0181368,12.4764,0
-paterson,as5xCAJAYMT35sgs0rx2_w,missed,1,0.435886,0.529933,,missed,WALK,Sidewalk,WALK,Sidewalk,ground,1.52713,,27.5672,0
-paterson,as5xCAJAYMT35sgs0rx2_w,missed,2,0.534672,0.526364,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.77982,0.111328,31.3201,0
-paterson,as5xCAJAYMT35sgs0rx2_w,missed,3,0.628773,0.574165,,missed,WALK,Sidewalk,WALK,Sidewalk,ground,1.52713,,10.9564,0
-paterson,bfc5Mq-kfwj29vGpOPKS2A,det,0,0.964844,0.523438,0.9712,true,OTHER,Terrain,WALK,Sidewalk,floor,4.022,0.100161,35.2473,0
-paterson,bfc5Mq-kfwj29vGpOPKS2A,det,1,0.910156,0.599609,0.699374,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.56156,0.0679577,8.03552,0
-paterson,bfc5Mq-kfwj29vGpOPKS2A,det,2,0.0576172,0.539062,0.636128,true,ROAD,Road,ROAD,Road,floor,3.23858,0.0273461,21.0802,0
-paterson,bfc5Mq-kfwj29vGpOPKS2A,det,3,0.12793,0.585938,0.538612,band_0p30,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,-0.00808364,9.39519,0
-paterson,bfc5Mq-kfwj29vGpOPKS2A,missed,0,0.125786,0.585848,,missed,ROAD,Road,ROAD,Road,floor_standin,0,-0.0109563,9.40553,0
-paterson,bfc5Mq-kfwj29vGpOPKS2A,missed,1,0.138564,0.61464,,missed,WALK,Curb,WALK,Curb,floor_standin,0,-0.0134042,6.90433,0
-paterson,bfc5Mq-kfwj29vGpOPKS2A,missed,2,0.903045,0.57991,,missed,ROAD,Road,WALK,Curb,floor,3.56156,0.145501,10.1383,0
-paterson,bfc5Mq-kfwj29vGpOPKS2A,missed,3,0.0663889,0.538081,,unsure_missed,WALK,Sidewalk,WALK,Curb Cut,floor,3.23858,0.0355795,21.6291,0
-paterson,bwpW8jgnlIbAQC0HRy99JA,det,0,0.22168,0.568359,0.924714,true,WALK,Curb Cut,WALK,Sidewalk,ground,0.311533,,11.92,0
-paterson,bwpW8jgnlIbAQC0HRy99JA,det,1,0.800781,0.585938,0.908359,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.02507,-0.0125,9.39519,0
-paterson,bwpW8jgnlIbAQC0HRy99JA,det,2,0.0810547,0.537109,0.841938,true,WALK,Curb Cut,WALK,Curb Cut,floor,0.635198,-0.0201436,22.2007,0
-paterson,bwpW8jgnlIbAQC0HRy99JA,det,3,0.941406,0.539062,0.462245,band_0p30,WALK,Curb Cut,WALK,Curb Cut,floor,1.02507,-0.181842,21.0802,0
-paterson,bwpW8jgnlIbAQC0HRy99JA,missed,0,0.0712177,0.533934,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.635198,-0.00677963,24.2961,0
-paterson,bwpW8jgnlIbAQC0HRy99JA,missed,1,0.931128,0.540058,,missed,WALK,Curb Cut,WALK,Crosswalk - Plain,floor,1.02507,-0.174592,20.551,0
-paterson,bwpW8jgnlIbAQC0HRy99JA,missed,2,0.947598,0.539159,,missed,WALK,Curb Cut,ROAD,Road,floor,1.02507,-0.181081,21.0275,0
-paterson,bxdL0Guz_zm-8O1E1Gn78A,det,0,0.0966797,0.523438,0.703551,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.3429,0.0880608,35.2473,0
-paterson,bxdL0Guz_zm-8O1E1Gn78A,det,1,0.933594,0.537109,0.581752,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.48911,-0.0357869,22.2007,0
-paterson,bxdL0Guz_zm-8O1E1Gn78A,missed,0,0.967084,0.51993,,missed,ROAD,Lane Marking - Crosswalk,ROAD,Road,floor,2.74745,-0.659388,41.4716,0
-paterson,bxdL0Guz_zm-8O1E1Gn78A,missed,1,0.973033,0.513653,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.02029,0.00502601,60.5781,0
-paterson,cuFkPrv4UsqzeJCdibl1FQ,det,0,0.56543,0.554688,0.907336,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.0934,0.260309,14.9842,0
-paterson,cuFkPrv4UsqzeJCdibl1FQ,det,1,0.433594,0.537109,0.320111,band_0p30,ROAD,Road,ROAD,Lane Marking - General,floor_standin,0,0.34245,22.2007,0
-paterson,cuFkPrv4UsqzeJCdibl1FQ,missed,0,0.469903,0.530104,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,1.467,-0.00733439,27.4097,0
-paterson,eGWz6exPVDlv_S_DowBPfA,det,0,0.933594,0.554688,0.622066,unsure,WALK,Sidewalk,WALK,Sidewalk,ground,1.03967,,14.9842,0
-paterson,eGWz6exPVDlv_S_DowBPfA,det,1,0.0742188,0.552734,0.511827,band_0p30,WALK,Sidewalk,OTHER,Terrain,ground,1.03967,,15.55,0
-paterson,eGWz6exPVDlv_S_DowBPfA,missed,0,0.0427148,0.525374,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.02679,-0.0376749,32.5466,0
-paterson,eGWz6exPVDlv_S_DowBPfA,missed,1,0.0747141,0.558673,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,ground,1.03967,,13.9452,0
-paterson,eIw8Y1zl7qgUW6bTPzk3gA,det,0,0.893555,0.568359,0.937094,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.42065,0.076952,11.92,0
-paterson,eIw8Y1zl7qgUW6bTPzk3gA,det,1,0.0898438,0.570312,0.866097,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.31269,0.18443,11.5783,0
-paterson,eIw8Y1zl7qgUW6bTPzk3gA,det,2,0.0273438,0.523438,0.812914,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.74507,0.0883928,35.2473,0
-paterson,eIw8Y1zl7qgUW6bTPzk3gA,missed,0,0.0342333,0.52959,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,2.84035,-0.279805,27.888,0
-paterson,eIw8Y1zl7qgUW6bTPzk3gA,missed,1,0.0947741,0.55908,,missed,ROAD,Road,ROAD,Road,floor,1.31269,0.244819,13.847,0
-paterson,fGd6JE4qvoG1uOVvOjBBmg,det,0,0.230469,0.568359,0.909427,true,WALK,Sidewalk,WALK,Curb Cut,floor,1.17719,-0.0175376,11.92,0
-paterson,fGd6JE4qvoG1uOVvOjBBmg,det,1,0.206055,0.583984,0.885098,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.17719,-0.00249912,9.62455,0
-paterson,fGd6JE4qvoG1uOVvOjBBmg,det,2,0.683594,0.632812,0.863342,true,WALK,Curb Cut,WALK,Curb Cut,ground,0.425206,,5.86551,0
-paterson,fGd6JE4qvoG1uOVvOjBBmg,det,3,0.385742,0.523438,0.854612,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.63856,0.0892056,35.2473,0
-paterson,fGd6JE4qvoG1uOVvOjBBmg,det,4,0.510742,0.537109,0.832679,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,1.41527,-0.0918859,22.2007,0
-paterson,fGd6JE4qvoG1uOVvOjBBmg,missed,0,0.372023,0.530494,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,2.63856,0.0226614,27.0571,0
-paterson,fGd6JE4qvoG1uOVvOjBBmg,missed,1,0.500519,0.528215,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.52507,0.0290401,29.2551,0
-paterson,fGd6JE4qvoG1uOVvOjBBmg,missed,2,0.722424,0.660707,,missed,WALK,Curb Cut,WALK,Curb Cut,ground,0.425206,,4.7046,0
-paterson,fSQ5B3z1vT-Ym1-siL8iOA,det,0,0.558594,0.554688,0.921778,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.966921,0.140776,14.9842,0
-paterson,fSQ5B3z1vT-Ym1-siL8iOA,det,1,0.394531,0.552734,0.763211,true,WALK,Curb Cut,WALK,Curb Cut,floor,2.81007,0.109436,15.55,0
-paterson,fSQ5B3z1vT-Ym1-siL8iOA,det,2,0.213867,0.568359,0.684471,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.75625,-0.0668129,11.92,0
-paterson,fSQ5B3z1vT-Ym1-siL8iOA,missed,0,0.187617,0.565198,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.75625,-0.0943138,12.5156,0
-paterson,fSQ5B3z1vT-Ym1-siL8iOA,missed,1,0.38285,0.551455,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,2.81007,0.0893659,15.9437,0
-paterson,gZ3Acgi38PrzOVBkW-Il4Q,det,0,0.893555,0.599609,0.904797,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.30776,,8.03552,0
-paterson,gZ3Acgi38PrzOVBkW-Il4Q,missed,0,0.990703,0.534039,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.836499,0.225807,24.2204,0
-paterson,hMx_5PxQtlixa9LRSNnKFQ,det,0,0.237305,0.583984,0.971973,true,WALK,Sidewalk,WALK,Sidewalk,ground,2.84407,,9.62455,0
-paterson,hMx_5PxQtlixa9LRSNnKFQ,det,1,0.0820312,0.523438,0.912715,true,WALK,Sidewalk,WALK,Sidewalk,ground,2.84407,,35.2473,0
-paterson,hMx_5PxQtlixa9LRSNnKFQ,det,2,0.832031,0.662109,0.870329,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.03802,0.0255432,4.65603,0
-paterson,hV6LwTvkCzyX_vQF3ZG5qQ,det,0,0.597656,0.585938,0.88624,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.33025,-0.0168287,9.39519,0
-paterson,hV6LwTvkCzyX_vQF3ZG5qQ,det,1,0.269531,0.554688,0.836749,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.653493,14.9842,0
-paterson,hV6LwTvkCzyX_vQF3ZG5qQ,missed,0,0.264027,0.553978,,missed,ROAD,Lane Marking - General,ROAD,Road,floor_standin,0,0.676305,15.185,0
-paterson,hV6LwTvkCzyX_vQF3ZG5qQ,missed,1,0.219339,0.549692,,missed,WALK,Curb Cut,WALK,Curb,floor_standin,0,0.818622,16.5192,0
-paterson,hV6LwTvkCzyX_vQF3ZG5qQ,missed,2,0.495206,0.519236,,missed,WALK,Curb Cut,WALK,Curb,floor,4.40713,0.0160542,42.9715,0
-paterson,hV6LwTvkCzyX_vQF3ZG5qQ,missed,3,0.322696,0.542367,,unsure_missed,ROAD,Lane Marking - Crosswalk,WALK,Curb,floor_standin,0,0.660914,19.4187,0
-paterson,hvegP5rTGyRrsRQb3h-rog,det,0,0.19043,0.554688,0.919274,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.01914,,14.9842,0
-paterson,hvegP5rTGyRrsRQb3h-rog,det,1,0.354492,0.539062,0.879943,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.64639,0.0524247,21.0802,0
-paterson,iPgLrrQ5XDrWWlTXzI5MLQ,det,0,0.980469,0.523438,0.907675,true,WALK,Sidewalk,WALK,Sidewalk,ground,3.38443,,35.2473,0
-paterson,iPgLrrQ5XDrWWlTXzI5MLQ,det,1,0.25293,0.615234,0.877503,true,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.184684,6.86541,0
-paterson,iPgLrrQ5XDrWWlTXzI5MLQ,det,2,0.230469,0.599609,0.850707,true,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.19342,8.03552,0
-paterson,iPgLrrQ5XDrWWlTXzI5MLQ,det,3,0.871094,0.632812,0.807,true,WALK,Curb Cut,WALK,Curb Cut,ground,3.38443,,5.86551,0
-paterson,iPgLrrQ5XDrWWlTXzI5MLQ,det,4,0.854492,0.679688,0.615261,true,WALK,Curb Cut,WALK,Curb Cut,ground,3.38443,,4.10585,0
-paterson,iPgLrrQ5XDrWWlTXzI5MLQ,missed,0,0.990701,0.528969,,missed,WALK,Sidewalk,WALK,Sidewalk,ground,3.38443,,28.4899,0
-paterson,ijlwBkjXDfD2wCO_jSjCGA,det,0,0.0742188,0.539062,0.859666,true,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor,0,0.0776287,21.0802,0
-paterson,ijlwBkjXDfD2wCO_jSjCGA,det,1,0.941406,0.537109,0.836705,true,ROAD,Road,ROAD,Lane Marking - Crosswalk,floor,0.879378,0.112555,22.2007,0
-paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,0,0.0503061,0.525415,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,1.51012,-0.0153348,32.4948,0
-paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,1,0.0378998,0.524751,,unsure_missed,OTHER,Terrain,WALK,Curb,floor,0.828035,-0.0188393,33.3697,0
-paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,2,0.085423,0.537465,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.40388,-0.0445428,21.988,0
-paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,3,0.925578,0.53847,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,0.879378,-0.531364,21.4083,0
-paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,4,0.954077,0.525819,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,0.879378,1.01974,31.9842,0
-paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,5,0.968355,0.525004,,unsure_missed,WALK,Curb,WALK,Curb,floor,0.879378,-0.411169,33.031,0
-paterson,ixm9RoZTI443YB7QoJ6nLQ,det,0,0.574219,0.539062,0.94119,true,WALK,Crosswalk - Plain,ROAD,Road,floor,0.388158,-0.0759342,21.0802,0
-paterson,ixm9RoZTI443YB7QoJ6nLQ,det,1,0.424805,0.539062,0.918533,true,WALK,Crosswalk - Plain,ROAD,Road,floor,2.88615,0.0223194,21.0802,0
-paterson,ixm9RoZTI443YB7QoJ6nLQ,det,2,0.457031,0.523438,0.335393,band_0p30,WALK,Curb Cut,WALK,Curb Cut,floor,1.34901,0.0770634,35.2473,0
-paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,0,0.456715,0.523845,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,floor,1.34901,0.0639509,34.6429,0
-paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,1,0.466036,0.522234,,unsure_missed,WALK,Curb Cut,WALK,Sidewalk,floor,1.67526,0.0436979,37.1623,0
-paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,2,0.532413,0.520882,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,floor,1.67526,-0.150823,39.576,0
-paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,3,0.544229,0.521344,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.34901,0.00209695,38.7163,0
-paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,4,0.574052,0.55215,,missed,WALK,Sidewalk,WALK,Curb Cut,ground,0.867504,,15.7276,0
-paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,5,0.426575,0.556173,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,2.78902,,14.5799,0
-paterson,jpunVR46zc0yifTPUihF2A,det,0,0.371094,0.568359,0.995045,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,-0.0321371,11.92,0
-paterson,jpunVR46zc0yifTPUihF2A,det,1,0.581055,0.583984,0.964396,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.059468,9.62455,0
-paterson,jpunVR46zc0yifTPUihF2A,missed,0,0.449083,0.53678,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.204311,22.4011,0
-paterson,jtPd8YX0gkDeQe6dq9mk4A,det,0,0.40918,0.537109,0.921898,true,WALK,Curb Cut,WALK,Curb,floor,1.87878,0.037052,22.2007,0
-paterson,jtPd8YX0gkDeQe6dq9mk4A,det,1,0.566406,0.539062,0.881335,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.53582,0.650018,21.0802,0
-paterson,jtPd8YX0gkDeQe6dq9mk4A,missed,0,0.456143,0.515478,,missed,WALK,Curb Cut,WALK,Curb,floor,1.61143,-0.0461249,53.4294,0
-paterson,jtPd8YX0gkDeQe6dq9mk4A,missed,1,0.521925,0.513416,,missed,WALK,Sidewalk,WALK,Curb,floor,2.24236,0.040693,61.6524,0
-paterson,jtPd8YX0gkDeQe6dq9mk4A,missed,2,0.5342,0.514418,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,2.24236,0.026528,57.3605,0
-paterson,jtPd8YX0gkDeQe6dq9mk4A,missed,3,0.570623,0.53346,,missed,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,floor,1.53582,0.847925,24.6429,0
-paterson,k3ipUDBk_fu7EXSVSNGaig,det,0,0.316406,0.570312,0.891647,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.53898,-0.130305,11.5783,0
-paterson,k3ipUDBk_fu7EXSVSNGaig,det,1,0.651367,0.585938,0.867217,true,WALK,Sidewalk,WALK,Sidewalk,floor,4.06043,0.0320796,9.39519,0
-paterson,k3ipUDBk_fu7EXSVSNGaig,det,2,0.557617,0.537109,0.820794,true,ROAD,Lane Marking - Crosswalk,WALK,Curb Cut,floor,2.19802,-0.0800708,22.2007,0
-paterson,k3ipUDBk_fu7EXSVSNGaig,det,3,0.425781,0.537109,0.735265,true,WALK,Curb Cut,WALK,Curb Cut,floor,1.31997,-0.0316446,22.2007,0
-paterson,k3ipUDBk_fu7EXSVSNGaig,missed,0,0.420246,0.535156,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.31997,-0.0316933,23.445,0
-paterson,k3ipUDBk_fu7EXSVSNGaig,missed,1,0.543192,0.532318,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,3.79194,0.0735155,25.5205,0
-paterson,k3ipUDBk_fu7EXSVSNGaig,missed,2,0.335354,0.566162,,missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,2.53898,-0.142255,12.3282,0
-paterson,k3ipUDBk_fu7EXSVSNGaig,missed,3,0.648285,0.564136,,missed,ROAD,Road,ROAD,Lane Marking - Crosswalk,floor,4.06043,0.1362,12.7288,0
-paterson,kJpIgjL0BDI74K-jbGnbow,det,0,0.979492,0.523438,0.609617,true,WALK,Sidewalk,WALK,Sidewalk,floor,4.82893,0.228703,35.2473,0
-paterson,kJpIgjL0BDI74K-jbGnbow,det,1,0.0419922,0.523438,0.424399,band_0p30,OTHER,Terrain,OTHER,Terrain,floor,0.887573,-0.0302947,35.2473,0
-paterson,kJpIgjL0BDI74K-jbGnbow,missed,0,0.944352,0.551844,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.15059,0.150399,15.8219,0
-paterson,lswzBhE0aaemfGKiH3fIYA,det,0,0.674805,0.523438,0.975301,true,WALK,Sidewalk,WALK,Sidewalk,floor,4.1329,-0.0854975,35.2473,0
-paterson,lswzBhE0aaemfGKiH3fIYA,missed,0,0.768243,0.530569,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,1.09325,0.0405673,26.9903,0
-paterson,nqA7oH-86S2CmsGA9hyVtA,det,0,0.0976562,0.537109,0.95571,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.394657,-0.0661559,22.2007,0
-paterson,nqA7oH-86S2CmsGA9hyVtA,det,1,0.808594,0.539062,0.897135,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.62801,0.139119,21.0802,0
-paterson,nqA7oH-86S2CmsGA9hyVtA,det,2,0.791992,0.552734,0.894637,true,ROAD,Road,WALK,Curb Cut,floor,0.951416,0.136488,15.55,0
-paterson,nqA7oH-86S2CmsGA9hyVtA,det,3,0.683594,0.599609,0.826181,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.949769,0.0572453,8.03552,0
-paterson,nqA7oH-86S2CmsGA9hyVtA,det,4,0.277344,0.617188,0.713035,true,WALK,Sidewalk,WALK,Sidewalk,ground,0.974581,,6.74025,0
-paterson,nqA7oH-86S2CmsGA9hyVtA,det,5,0.979492,0.539062,0.698357,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.62152,0.38022,21.0802,0
-paterson,nqA7oH-86S2CmsGA9hyVtA,det,6,0.183594,0.568359,0.687875,false,WALK,Sidewalk,WALK,Sidewalk,ground,0.974581,,11.92,0
-paterson,nqA7oH-86S2CmsGA9hyVtA,det,7,0.917969,0.537109,0.651682,false,ROAD,Road,ROAD,Road,floor,1.93016,-0.129418,22.2007,0
-paterson,nqA7oH-86S2CmsGA9hyVtA,det,8,0.160156,0.523438,0.628393,true,WALK,Sidewalk,WALK,Sidewalk,floor,5.80573,0.170747,35.2473,0
-paterson,q10dxfl-oC7RkRFUVKU_RA,det,0,0.44043,0.523438,0.811582,true,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor,2.5688,0.0518249,35.2473,0
-paterson,q10dxfl-oC7RkRFUVKU_RA,missed,0,0.4311,0.521461,,missed,WALK,Crosswalk - Plain,WALK,Sidewalk,floor,2.5688,0.0256389,38.5044,0
-paterson,qL5hz8oXZM0g4pKxGR3Yyw,det,0,0.331055,0.585938,0.931754,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.4662,,9.39519,0
-paterson,qL5hz8oXZM0g4pKxGR3Yyw,det,1,0.542969,0.554688,0.908521,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.0973266,14.9842,0
-paterson,qL5hz8oXZM0g4pKxGR3Yyw,det,2,0.432617,0.554688,0.788374,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.161803,14.9842,0
-paterson,qL5hz8oXZM0g4pKxGR3Yyw,det,3,0.636719,0.630859,0.712096,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.4662,,5.96402,0
-paterson,qL5hz8oXZM0g4pKxGR3Yyw,missed,0,0.526313,0.551566,,missed,WALK,Curb Cut,WALK,Curb,floor_standin,0,0.137588,15.9089,0
-paterson,qL5hz8oXZM0g4pKxGR3Yyw,missed,1,0.626367,0.596905,,missed,WALK,Curb Cut,WALK,Curb,ground,1.4662,,8.27488,0
-paterson,sZDQ4gAO200kPfWhz1st9g,det,0,0.957031,0.537109,0.895375,true,WALK,Curb Cut,WALK,Curb Cut,floor,3.41868,-0.507654,22.2007,0
-paterson,sZDQ4gAO200kPfWhz1st9g,det,1,0.90918,0.570312,0.84681,false,WALK,Sidewalk,WALK,Sidewalk,floor,4.88776,-0.135711,11.5783,0
-paterson,sZDQ4gAO200kPfWhz1st9g,det,2,0.0654297,0.568359,0.464329,band_0p30,WALK,Curb Cut,WALK,Curb Cut,floor,1.65788,-0.0459729,11.92,0
-paterson,sZDQ4gAO200kPfWhz1st9g,missed,0,0.97694,0.537377,,missed,WALK,Curb,WALK,Curb,floor_standin,0,0.126984,22.0401,0
-paterson,sZDQ4gAO200kPfWhz1st9g,missed,1,0.0337731,0.540578,,missed,OBJECT,Vegetation,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.216702,20.2849,0
-paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,0,0.198242,0.599609,0.984059,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.52123,0.137556,8.03552,0
-paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,1,0.839844,0.646484,0.965194,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.44821,,5.24521,0
-paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,2,0.386719,0.554688,0.901549,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.184386,14.9842,0
-paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,3,0.410156,0.554688,0.885345,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.203029,14.9842,0
-paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,4,0.230469,0.599609,0.877227,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.52123,0.0948592,8.03552,0
-paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,5,0.769531,0.630859,0.860587,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.44821,,5.96402,0
-paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,6,0.605469,0.554688,0.785305,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.45172,0.0374993,14.9842,0
-paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,7,0.558594,0.568359,0.740899,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.0836341,11.92,0
-paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,8,0.574219,0.568359,0.725851,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.0653133,11.92,0
-paterson,vRVQrenH_9eL4n4O4Gp_oQ,det,0,0.535156,0.537109,0.750353,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.56247,0.147819,22.2007,0
-paterson,vRVQrenH_9eL4n4O4Gp_oQ,det,1,0.417969,0.539062,0.383565,band_0p30,ROAD,Lane Marking - General,WALK,Crosswalk - Plain,floor_standin,0,-0.372185,21.0802,0
-paterson,vRVQrenH_9eL4n4O4Gp_oQ,missed,0,0.523729,0.522146,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.56247,0.639933,37.3093,0
-paterson,vRVQrenH_9eL4n4O4Gp_oQ,missed,1,0.413422,0.540249,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.185352,20.4524,0
-paterson,vRVQrenH_9eL4n4O4Gp_oQ,missed,2,0.453891,0.527203,,unsure_missed,ROAD,Road,ROAD,Road,floor_standin,0,1.1168,30.3492,0
-paterson,vRVQrenH_9eL4n4O4Gp_oQ,missed,3,0.539009,0.533884,,missed,WALK,Sidewalk,WALK,Crosswalk - Plain,floor,2.56247,0.179962,24.3324,0
-paterson,wNcM5HCEQeGv8ndYe9HMmw,det,0,0.612305,0.583984,0.981028,true,WALK,Sidewalk,WALK,Sidewalk,ground,1.48675,,9.62455,0
-paterson,wNcM5HCEQeGv8ndYe9HMmw,det,1,0.417969,0.552734,0.764962,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.197125,15.55,0
-paterson,wVWZk8xcqrpV0l1CKpK45w,det,0,0.292969,0.570312,0.779199,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.37974,0.170626,11.5783,0
-paterson,wVWZk8xcqrpV0l1CKpK45w,det,1,0.0966797,0.554688,0.630362,true,WALK,Curb Cut,WALK,Curb,floor,0.402025,0.0195014,14.9842,0
-paterson,y8Q6XDfEoPt5K6ONqi406w,det,0,0.75293,0.599609,0.90755,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.15059,0.0659432,8.03552,0
-paterson,y8Q6XDfEoPt5K6ONqi406w,det,1,0.886719,0.583984,0.87774,true,WALK,Sidewalk,WALK,Sidewalk,floor,0.911716,-0.187392,9.62455,0
-paterson,y8Q6XDfEoPt5K6ONqi406w,det,2,0.557617,0.537109,0.829935,false,WALK,Sidewalk,WALK,Sidewalk,floor,3.92221,0.178898,22.2007,0
-paterson,yc2j9hm9FtM1LXTmsXTcWA,det,0,0.260742,0.537109,0.819196,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.9884,-0.0644685,22.2007,0
-paterson,yc2j9hm9FtM1LXTmsXTcWA,missed,0,0.330936,0.524519,,missed,WALK,Curb Cut,WALK,Sidewalk,floor,1.71555,-0.0511205,33.6874,0
-paterson,yd34YwObnIjHhBZvTmK3UQ,det,0,0.0351562,0.537109,0.367409,band_0p30,ROAD,Road,ROAD,Road,floor_standin,0,0.172125,22.2007,0
-paterson,zB7_9mtLQuVbRyZrttlMXg,det,0,0.0664062,0.552734,0.902853,true,WALK,Sidewalk,WALK,Sidewalk,floor,4.73727,-0.456764,15.55,0
-paterson,zB7_9mtLQuVbRyZrttlMXg,det,1,0.0341797,0.523438,0.705114,true,WALK,Sidewalk,WALK,Sidewalk,floor,2.45471,0.124694,35.2473,0
-paterson,zB7_9mtLQuVbRyZrttlMXg,missed,0,0.0264348,0.526455,,missed,WALK,Sidewalk,WALK,Sidewalk,floor,2.45471,-0.00772152,31.2113,0
-paterson,zB7_9mtLQuVbRyZrttlMXg,missed,1,0.0760404,0.547688,,missed,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,floor,2.93718,0.0600382,17.2244,0
-paterson,zB7_9mtLQuVbRyZrttlMXg,missed,2,0.966682,0.524214,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,0.409261,-0.393889,34.1127,0
-paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,0,0.932617,0.554688,0.910109,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.43177,0.173602,14.9842,0
-paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,1,0.956055,0.554688,0.877325,true,WALK,Sidewalk,WALK,Sidewalk,floor,3.43177,0.0956569,14.9842,0
-paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,2,0.316406,0.615234,0.870862,true,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.160019,6.86541,0
-paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,3,0.666992,0.664062,0.804522,true,WALK,Sidewalk,WALK,Sidewalk,floor,1.92346,-0.0652955,4.58964,0
-paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,4,0.713867,0.648438,0.802347,true,WALK,Sidewalk,WALK,Sidewalk,floor,4.54515,0.0294841,5.16531,0
-paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,5,0.105469,0.568359,0.801813,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.317028,11.92,0
-paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,6,0.292969,0.601562,0.704828,true,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.226032,7.87031,0
-paterson,zzWJ9LWjpfDZLBT7W8o8zw,missed,0,0.0907576,0.565051,,missed,WALK,Curb Cut,WALK,Curb Cut,floor,3.28855,0.0315777,12.5449,0
+city,pano_id,kind,det_index,x,y,confidence,gt_group,seg_group,seg_class,direct_group,direct_class,direct4096_group,direct4096_class,depth_class,plane_tilt_deg,offset_local_m,range_flat_2p6_m,on_camera_rig
+paterson,0-zmUwLwl5ENJgqxheDklQ,det,0,0.925781,0.583984,0.912294,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.19255,,9.62455,0
+paterson,0-zmUwLwl5ENJgqxheDklQ,det,1,0.12793,0.570312,0.710148,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.234274,11.5783,0
+paterson,0-zmUwLwl5ENJgqxheDklQ,det,2,0.964844,0.523438,0.569982,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.4571,-0.135708,35.2473,0
+paterson,0-zmUwLwl5ENJgqxheDklQ,det,3,0.0585938,0.537109,0.567226,true,ROAD,Road,ROAD,Road,ROAD,Road,floor,2.74424,-0.136296,22.2007,0
+paterson,0-zmUwLwl5ENJgqxheDklQ,missed,0,0.125394,0.588422,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.124355,9.11778,0
+paterson,0-zmUwLwl5ENJgqxheDklQ,missed,1,0.0494109,0.531041,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,5.26879,-0.0315612,26.5771,0
+paterson,0-zmUwLwl5ENJgqxheDklQ,missed,2,0.917678,0.568847,,missed,WALK,Crosswalk - Plain,WALK,Crosswalk - Plain,WALK,Curb Cut,ground,1.19255,,11.8329,0
+paterson,0-zmUwLwl5ENJgqxheDklQ,missed,3,0.975817,0.528078,,unsure_missed,WALK,Sidewalk,WALK,Curb Cut,WALK,Curb Cut,floor,1.4571,-0.226767,29.3989,0
+paterson,0Drku25sOlOlWGiVf7uetw,det,0,0.542969,0.554688,0.925599,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor_standin,0,0.48551,14.9842,0
+paterson,0Drku25sOlOlWGiVf7uetw,det,1,0.15918,0.583984,0.897758,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,2.37273,,9.62455,0
+paterson,0Drku25sOlOlWGiVf7uetw,det,2,0.566406,0.568359,0.887648,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.346079,11.92,0
+paterson,0Drku25sOlOlWGiVf7uetw,det,3,0.863281,0.601562,0.875872,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.94652,-0.0854388,7.87031,0
+paterson,0Drku25sOlOlWGiVf7uetw,det,4,0.182617,0.583984,0.869027,true,ROAD,Road,WALK,Curb Cut,ROAD,Road,ground,2.37273,,9.62455,0
+paterson,0Drku25sOlOlWGiVf7uetw,det,5,0.401367,0.554688,0.831325,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.371695,14.9842,0
+paterson,0Drku25sOlOlWGiVf7uetw,det,6,0.894531,0.601562,0.77164,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,ground,2.37273,,7.87031,0
+paterson,0Drku25sOlOlWGiVf7uetw,det,7,0.416992,0.568359,0.691888,true,ROAD,Road,ROAD,Road,ROAD,Road,floor_standin,0,0.302911,11.92,0
+paterson,0fCPhcB0ZF3dHQ7nEIWABA,det,0,0.980469,0.554688,0.914233,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.19473,0.0321898,14.9842,0
+paterson,0fCPhcB0ZF3dHQ7nEIWABA,det,1,0.291992,0.583984,0.911496,true,WALK,Sidewalk,WALK,Sidewalk,ROAD,Manhole,floor,1.84833,0.135446,9.62455,0
+paterson,0s94i47Wdggc9cHmBjEe8w,det,0,0.0888672,0.554688,0.880589,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,,14.9842,0
+paterson,0s94i47Wdggc9cHmBjEe8w,det,1,0.933594,0.554688,0.878618,true,ROAD,Road,WALK,Sidewalk,ROAD,Road,floor,2.42059,-0.174583,14.9842,0
+paterson,0s94i47Wdggc9cHmBjEe8w,det,2,0.0498047,0.523438,0.558731,true,STRUCTURE,Building,STRUCTURE,Building,STRUCTURE,Building,floor_standin,0,0.0514311,35.2473,0
+paterson,0s94i47Wdggc9cHmBjEe8w,det,3,0.97168,0.523438,0.316865,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,4.65997,0.126162,35.2473,0
+paterson,0s94i47Wdggc9cHmBjEe8w,missed,0,0.083623,0.566855,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,,12.1966,0
+paterson,0s94i47Wdggc9cHmBjEe8w,missed,1,0.936006,0.569328,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,4.80367,0.194719,11.7482,0
+paterson,0s94i47Wdggc9cHmBjEe8w,missed,2,0.963358,0.52879,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.42059,-0.310882,28.6682,0
+paterson,0s94i47Wdggc9cHmBjEe8w,missed,3,0.973672,0.527481,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.42059,-0.248908,30.0405,0
+paterson,0uNeulmg68uHO_WKDIuqZw,det,0,0.28418,0.630859,0.915284,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,ground,0.887132,,5.96402,0
+paterson,0uNeulmg68uHO_WKDIuqZw,det,1,0.487305,0.554688,0.376863,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.989129,-0.0780581,14.9842,0
+paterson,0uNeulmg68uHO_WKDIuqZw,det,2,0.854492,0.599609,0.318901,band_0p30,OBJECT,Car,OBJECT,Car,OBJECT,Car,floor,2.85629,0.0435699,8.03552,0
+paterson,1FJQJxlHdC_TzHOH9ynMFw,det,0,0.549805,0.523438,0.846017,true,OBJECT,Person,OBJECT,Bicycle,OBJECT,Person,floor,1.14535,0.0551443,35.2473,0
+paterson,1FJQJxlHdC_TzHOH9ynMFw,det,1,0.699219,0.615234,0.807078,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.14535,0.0140089,6.86541,0
+paterson,1FJQJxlHdC_TzHOH9ynMFw,det,2,0.28418,0.554688,0.798622,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,0.846035,-0.026602,14.9842,0
+paterson,1FJQJxlHdC_TzHOH9ynMFw,det,3,0.416992,0.523438,0.769399,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.846035,-0.132825,35.2473,0
+paterson,1FJQJxlHdC_TzHOH9ynMFw,missed,0,0.266664,0.568712,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,0.846035,-0.0100974,11.857,0
+paterson,1FJQJxlHdC_TzHOH9ynMFw,missed,1,0.409638,0.526919,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.846035,-0.115159,30.6707,0
+paterson,1FJQJxlHdC_TzHOH9ynMFw,missed,2,0.538544,0.527109,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.14535,0.0349083,30.4545,0
+paterson,1FJQJxlHdC_TzHOH9ynMFw,missed,3,0.677172,0.584747,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.02705,0.0316655,9.53371,0
+paterson,21Gw_VuYrSK42PCF32UGUw,det,0,0.535156,0.539062,0.903849,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.09361,0.170049,21.0802,0
+paterson,21Gw_VuYrSK42PCF32UGUw,det,1,0.69043,0.599609,0.864258,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.09361,0.0708009,8.03552,0
+paterson,21Gw_VuYrSK42PCF32UGUw,det,2,0.713867,0.615234,0.821492,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor,1.09361,0.0513637,6.86541,0
+paterson,21Gw_VuYrSK42PCF32UGUw,det,3,0.378906,0.523438,0.775713,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,0.336882,0.0874947,35.2473,0
+paterson,21Gw_VuYrSK42PCF32UGUw,det,4,0.253906,0.568359,0.738812,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,ground,0.20463,,11.92,0
+paterson,21Gw_VuYrSK42PCF32UGUw,det,5,0.238281,0.568359,0.720657,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,ground,0.20463,,11.92,0
+paterson,21Gw_VuYrSK42PCF32UGUw,missed,0,0.38771,0.532937,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,ground,0.20463,,25.0375,0
+paterson,21Gw_VuYrSK42PCF32UGUw,missed,1,0.544412,0.540386,,missed,WALK,Sidewalk,WALK,Curb,WALK,Sidewalk,floor,1.09361,0.17312,20.3824,0
+paterson,2lovLRC7Pv6S94tMW3mDug,det,0,0.441406,0.507812,0.967371,true,OTHER,Terrain,WALK,Sidewalk,WALK,Sidewalk,floor,4.78098,0.0662506,105.912,0
+paterson,2lovLRC7Pv6S94tMW3mDug,det,1,0.31543,0.570312,0.895549,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,2.28122,0.0921883,11.5783,0
+paterson,2lovLRC7Pv6S94tMW3mDug,det,2,0.667969,0.585938,0.87488,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,ground,1.15504,,9.39519,0
+paterson,2lovLRC7Pv6S94tMW3mDug,det,3,0.549805,0.507812,0.845814,true,STRUCTURE,Wall,STRUCTURE,Fence,STRUCTURE,Wall,horizontal_nonfloor,11.4421,,105.912,0
+paterson,2lovLRC7Pv6S94tMW3mDug,missed,0,0.323178,0.558149,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.28122,0.120022,14.0739,0
+paterson,2lovLRC7Pv6S94tMW3mDug,missed,1,0.433414,0.513805,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.24631,0.214678,59.914,0
+paterson,2lovLRC7Pv6S94tMW3mDug,missed,2,0.539194,0.512993,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.24631,0.240785,63.6627,0
+paterson,2lovLRC7Pv6S94tMW3mDug,missed,3,0.656202,0.567951,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.15504,,11.9938,0
+paterson,3BTAarqIRrxbpFHUFJhtSQ,det,0,0.152344,0.552734,0.864085,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Curb Cut,floor,1.41361,-0.107074,15.55,0
+paterson,3BTAarqIRrxbpFHUFJhtSQ,det,1,0.457031,0.552734,0.796938,true,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,floor,1.0911,-0.0797026,15.55,0
+paterson,3BTAarqIRrxbpFHUFJhtSQ,det,2,0.277344,0.537109,0.559703,unsure,ROAD,Road,ROAD,Road,ROAD,Road,ground,0.820676,,22.2007,0
+paterson,3BTAarqIRrxbpFHUFJhtSQ,det,3,0.72168,0.679688,0.396793,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.820676,,4.10585,0
+paterson,3BTAarqIRrxbpFHUFJhtSQ,missed,0,0.441714,0.54725,,missed,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,floor,0.634582,0.000489865,17.3866,0
+paterson,3BTAarqIRrxbpFHUFJhtSQ,missed,1,0.703838,0.694647,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.820676,,3.70817,0
+paterson,3Tw1W-lv133l2efDeoEAYQ,det,0,0.416992,0.523438,0.886943,true,ROAD,Road,ROAD,Lane Marking - General,ROAD,Road,floor,4.20002,0.190925,35.2473,0
+paterson,3Tw1W-lv133l2efDeoEAYQ,det,1,0.535156,0.523438,0.80237,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,1.49331,-0.0765786,35.2473,0
+paterson,3Tw1W-lv133l2efDeoEAYQ,missed,0,0.448663,0.514793,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.755629,-0.284037,55.9058,0
+paterson,3Tw1W-lv133l2efDeoEAYQ,missed,1,0.461346,0.513341,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.49331,-0.340316,61.9995,0
+paterson,3Tw1W-lv133l2efDeoEAYQ,missed,2,0.513397,0.510305,,unsure_missed,OTHER,Terrain,ROAD,Road,OTHER,Terrain,floor,3.59134,-0.143925,80.2852,0
+paterson,3Tw1W-lv133l2efDeoEAYQ,missed,3,0.522193,0.510392,,missed,WALK,Sidewalk,OTHER,Terrain,WALK,Sidewalk,floor,3.59134,-0.166329,79.6112,0
+paterson,3Tw1W-lv133l2efDeoEAYQ,missed,4,0.543495,0.52467,,unsure_missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - General,ROAD,Road,floor,1.49331,0.00646435,33.4795,0
+paterson,3dq9TqRXzopD0yvztHg8rg,det,0,0.988281,0.523438,0.918965,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.31997,0.334358,35.2473,0
+paterson,3dq9TqRXzopD0yvztHg8rg,det,1,0.933594,0.599609,0.857847,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.48174,-0.0925475,8.03552,0
+paterson,3dq9TqRXzopD0yvztHg8rg,det,2,0.166992,0.568359,0.842011,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.0791294,-0.0602947,11.92,0
+paterson,3dq9TqRXzopD0yvztHg8rg,missed,0,0.158568,0.55874,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,0.0791294,-0.0808711,13.9291,0
+paterson,3dq9TqRXzopD0yvztHg8rg,missed,1,0.937909,0.579157,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.31997,-0.0270441,10.2388,0
+paterson,3dq9TqRXzopD0yvztHg8rg,missed,2,0.997933,0.528875,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.31997,0.291754,28.5834,0
+paterson,4cXVf74zyKLTQLiQtBObww,det,0,0.0507812,0.537109,0.823223,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.03571,-0.265348,22.2007,0
+paterson,4cXVf74zyKLTQLiQtBObww,det,1,0.174805,0.523438,0.782205,true,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,floor,1.03571,-0.105633,35.2473,0
+paterson,4cXVf74zyKLTQLiQtBObww,det,2,0.831055,0.617188,0.684217,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.28588,0.000607184,6.74025,0
+paterson,4cXVf74zyKLTQLiQtBObww,det,3,0.785156,0.646484,0.440729,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.28588,-0.0380953,5.24521,0
+paterson,4cXVf74zyKLTQLiQtBObww,missed,0,0.0582171,0.531364,,missed,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor,1.03571,-0.308271,26.302,0
+paterson,4cXVf74zyKLTQLiQtBObww,missed,1,0.184778,0.524323,,missed,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,WALK,Curb Cut,floor,1.03571,-0.0716436,33.9596,0
+paterson,4cXVf74zyKLTQLiQtBObww,missed,2,0.786551,0.645189,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.28588,-0.0365994,5.29929,0
+paterson,5M-GzTlVe-lrOqHmypJqTA,det,0,0.542969,0.537109,0.715961,true,OBJECT,Pole,OBJECT,Pole,OBJECT,Pole,floor,0.624323,-0.260813,22.2007,0
+paterson,5M-GzTlVe-lrOqHmypJqTA,det,1,0.425781,0.537109,0.457702,band_0p30,WALK,Sidewalk,OBJECT,Car,WALK,Sidewalk,floor_standin,0,-0.0607016,22.2007,0
+paterson,5M-GzTlVe-lrOqHmypJqTA,missed,0,0.430189,0.536328,,unsure_missed,WALK,Sidewalk,OBJECT,Car,WALK,Sidewalk,floor_standin,0,-0.0818674,22.6822,0
+paterson,5PJhqjhMTDTN_54DwP35Xw,det,0,0.0585938,0.552734,0.702419,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.120522,15.55,0
+paterson,5PJhqjhMTDTN_54DwP35Xw,missed,0,0.038712,0.534706,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.303216,23.7519,0
+paterson,60amgEGA1TEcbtRBTtxUTg,det,0,0.53418,0.523438,0.916808,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.75349,-0.642272,35.2473,0
+paterson,60amgEGA1TEcbtRBTtxUTg,det,1,0.56543,0.570312,0.818677,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor,4.39302,0.049396,11.5783,0
+paterson,75T9ZXImSNQMpkN794zWRQ,det,0,0.238281,0.570312,0.794571,unsure,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,3.01844,,11.5783,0
+paterson,7ZSHYN4Na-esoxvqvTzjwQ,det,0,0.0507812,0.539062,0.910455,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.138195,21.0802,0
+paterson,7ZSHYN4Na-esoxvqvTzjwQ,det,1,0.949219,0.554688,0.90463,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.0575674,14.9842,0
+paterson,7ZSHYN4Na-esoxvqvTzjwQ,det,2,0.182617,0.630859,0.903511,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.63091,-0.0281223,5.96402,0
+paterson,7ZSHYN4Na-esoxvqvTzjwQ,det,3,0.838867,0.630859,0.834527,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.0994386,5.96402,0
+paterson,7ZSHYN4Na-esoxvqvTzjwQ,missed,0,0.848296,0.60778,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.202248,7.38291,0
+paterson,7ZSHYN4Na-esoxvqvTzjwQ,missed,1,0.966801,0.550583,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0307862,16.2235,0
+paterson,80E3CRwZRxGtczZCQX3JNg,det,0,0.549805,0.554688,0.893112,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,ground,1.51852,,14.9842,0
+paterson,8_b_fPkaKLKL1NpmMe3OMQ,det,0,0.964844,0.552734,0.558856,unsure,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.200769,0.00543495,15.55,0
+paterson,8_b_fPkaKLKL1NpmMe3OMQ,missed,0,0.0397475,0.521115,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.61519,-0.0134201,39.1382,0
+paterson,8_b_fPkaKLKL1NpmMe3OMQ,missed,1,0.0529414,0.532763,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.25383,-0.0025085,25.1715,0
+paterson,9AZrydWz7yu5OFJmBXIzDg,det,0,0.526367,0.521484,1.03462,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.08787,0.406552,38.4628,0
+paterson,9AZrydWz7yu5OFJmBXIzDg,det,1,0.808594,0.601562,0.952168,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.73887,,7.87031,0
+paterson,9AZrydWz7yu5OFJmBXIzDg,det,2,0.355469,0.554688,0.922789,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,1.08787,0.00847333,14.9842,0
+paterson,AYBFFp06z_3m70ETRK2Jtw,det,0,0.112305,0.552734,0.730501,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.71726,0.00770485,15.55,0
+paterson,AYBFFp06z_3m70ETRK2Jtw,missed,0,0.295744,0.567426,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,3.68616,,12.0902,0
+paterson,AhV3GKVFnENcHwhG45WN2g,det,0,0.237305,0.615234,0.91618,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor,1.2921,-0.0318998,6.86541,0
+paterson,AhV3GKVFnENcHwhG45WN2g,det,1,0.56543,0.552734,0.901645,true,WALK,Curb,WALK,Sidewalk,WALK,Curb,floor,1.63051,-0.111498,15.55,0
+paterson,AhV3GKVFnENcHwhG45WN2g,det,2,0.277344,0.599609,0.875565,true,OBJECT,Utility Pole,OBJECT,Utility Pole,OBJECT,Utility Pole,floor,1.2921,-0.0392154,8.03552,0
+paterson,AhV3GKVFnENcHwhG45WN2g,det,3,0.62793,0.539062,0.867046,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.533025,-0.0370578,21.0802,0
+paterson,AhV3GKVFnENcHwhG45WN2g,det,4,0.769531,0.615234,0.862787,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,6.78024,-0.0233786,6.86541,0
+paterson,AhV3GKVFnENcHwhG45WN2g,det,5,0.44043,0.552734,0.832867,duplicate,ROAD,Lane Marking - General,ROAD,Road,ROAD,Lane Marking - General,floor,0.794508,0.0751178,15.55,0
+paterson,AhV3GKVFnENcHwhG45WN2g,det,6,0.589844,0.554688,0.768555,unsure,WALK,Curb,WALK,Curb Cut,WALK,Curb,floor,1.63051,-0.0876024,14.9842,0
+paterson,AhV3GKVFnENcHwhG45WN2g,det,7,0.410156,0.552734,0.692441,true,WALK,Crosswalk - Plain,WALK,Curb Cut,WALK,Crosswalk - Plain,floor,1.933,0.0589392,15.55,0
+paterson,AhV3GKVFnENcHwhG45WN2g,det,8,0.479492,0.539062,0.615998,false,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.933,0.093767,21.0802,0
+paterson,AhV3GKVFnENcHwhG45WN2g,det,9,0.745117,0.554688,0.582836,true,WALK,Sidewalk,OBJECT,Pole,WALK,Sidewalk,floor,1.49606,0.165337,14.9842,0
+paterson,BjV06xLkvfHDCTJMA5WK6Q,det,0,0.105469,0.539062,0.891351,true,ROAD,Road,WALK,Sidewalk,WALK,Crosswalk - Plain,floor,1.60985,0.557793,21.0802,0
+paterson,BjV06xLkvfHDCTJMA5WK6Q,det,1,0.957031,0.523438,0.54494,band_0p30,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,3.36668,-0.27013,35.2473,0
+paterson,BjV06xLkvfHDCTJMA5WK6Q,missed,0,0.0587949,0.527105,,missed,WALK,Sidewalk,WALK,Curb Cut,WALK,Curb Cut,floor,0.676375,0.730689,30.4595,0
+paterson,BvnpSlTjHxKyBiX5tQ02Mg,det,0,0.948242,0.568359,0.994418,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,0.906118,,11.92,0
+paterson,BvnpSlTjHxKyBiX5tQ02Mg,det,1,0.893555,0.570312,0.94043,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.3663,0.0127172,11.5783,0
+paterson,BvnpSlTjHxKyBiX5tQ02Mg,det,2,0.291992,0.568359,0.932273,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.906118,,11.92,0
+paterson,BvnpSlTjHxKyBiX5tQ02Mg,det,3,0.698242,0.615234,0.823201,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,0.463938,0.0517252,6.86541,0
+paterson,BvnpSlTjHxKyBiX5tQ02Mg,det,4,0.666992,0.617188,0.723255,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.463938,0.0466169,6.74025,0
+paterson,BwpJfUUUcWanSPtttY4KJw,det,0,0.556641,0.521484,1.00277,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,4.31965,0.162432,38.4628,0
+paterson,BwpJfUUUcWanSPtttY4KJw,det,1,0.40918,0.537109,0.920263,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.86551,0.0999596,22.2007,0
+paterson,BwpJfUUUcWanSPtttY4KJw,det,2,0.246094,0.583984,0.910458,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.86551,0.116841,9.62455,0
+paterson,BwpJfUUUcWanSPtttY4KJw,det,3,0.706055,0.601562,0.899831,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.9031,0.0330166,7.87031,0
+paterson,BwpJfUUUcWanSPtttY4KJw,det,4,0.276367,0.568359,0.881607,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.86551,0.156222,11.92,0
+paterson,BwpJfUUUcWanSPtttY4KJw,det,5,0.53418,0.523438,0.784665,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,4.31965,0.117324,35.2473,0
+paterson,BwpJfUUUcWanSPtttY4KJw,det,6,0.761719,0.648438,0.694885,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,1.66236,,5.16531,0
+paterson,BwpJfUUUcWanSPtttY4KJw,missed,0,0.426667,0.537879,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,2.03278,0.0738413,21.7456,0
+paterson,C-d-iXNcQ_LYqEup9COaOA,det,0,0.0742188,0.537109,0.738033,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.709967,0.109175,22.2007,0
+paterson,C-d-iXNcQ_LYqEup9COaOA,det,1,0.0429688,0.523438,0.332904,band_0p30,WALK,Curb Cut,ROAD,Road,WALK,Curb Cut,floor,0.709967,0.820983,35.2473,0
+paterson,C-d-iXNcQ_LYqEup9COaOA,missed,0,0.0400189,0.522944,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.709967,0.872192,36.008,0
+paterson,DjvAQ4p-Q78PR-6ohIs5kA,det,0,0.15918,0.568359,0.983872,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.04922,0.000378799,11.92,0
+paterson,DjvAQ4p-Q78PR-6ohIs5kA,det,1,0.0820312,0.539062,0.838625,true,WALK,Curb Cut,ROAD,Road,WALK,Curb Cut,floor,1.39704,-0.0732254,21.0802,0
+paterson,DjvAQ4p-Q78PR-6ohIs5kA,det,2,0.963867,0.521484,0.738634,true,ROAD,Road,WALK,Curb Cut,ROAD,Road,floor,2.92897,-0.0854657,38.4628,0
+paterson,DjvAQ4p-Q78PR-6ohIs5kA,det,3,0.0664062,0.537109,0.734802,true,WALK,Curb Cut,WALK,Curb Cut,ROAD,Road,floor,2.82099,0.0066678,22.2007,0
+paterson,EIUNEZz3tbipOJ72-2dQzg,det,0,0.956055,0.539062,0.859065,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.55518,0.181186,21.0802,0
+paterson,EIUNEZz3tbipOJ72-2dQzg,missed,0,0.911698,0.587303,,missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,3.55518,0.0130963,9.24076,0
+paterson,G7_klPoeLoxXAdoW6affDA,det,0,0.831055,0.599609,0.909887,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,5.14769,0.0462878,8.03552,0
+paterson,G7_klPoeLoxXAdoW6affDA,det,1,0.214844,0.568359,0.908867,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.7863,0.0621811,11.92,0
+paterson,GBSPMaXXCAqOdrozYcHR3w,det,0,0.605469,0.552734,0.875092,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.85382,-0.108593,15.55,0
+paterson,GBSPMaXXCAqOdrozYcHR3w,missed,0,0.56069,0.526668,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.80992,-0.0167438,30.9613,0
+paterson,HFYowXmV7u1c0TMp-p_pgQ,det,0,0.457031,0.537109,0.731488,true,OBJECT,Utility Pole,OBJECT,Pole,OBJECT,Utility Pole,floor,1.49972,0.00909576,22.2007,0
+paterson,HFYowXmV7u1c0TMp-p_pgQ,det,1,0.53418,0.523438,0.642561,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor,2.60639,0.282249,35.2473,0
+paterson,HFYowXmV7u1c0TMp-p_pgQ,missed,0,0.449232,0.532554,,missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.49972,0.0342398,25.3338,0
+paterson,HFYowXmV7u1c0TMp-p_pgQ,missed,1,0.465766,0.520934,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.60639,0.133603,39.4762,0
+paterson,HFYowXmV7u1c0TMp-p_pgQ,missed,2,0.473543,0.519864,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Sidewalk,floor,2.60639,0.140831,41.6093,0
+paterson,HHjmf0kWHmcwWAOfg7b4tw,det,0,0.410156,0.539062,0.962645,true,ROAD,Road,ROAD,Road,ROAD,Road,floor_standin,0,0.585109,21.0802,0
+paterson,HHjmf0kWHmcwWAOfg7b4tw,det,1,0.550781,0.552734,0.70356,true,OBJECT,Pole,OTHER,Terrain,OBJECT,Pole,floor,0.941076,0.143864,15.55,0
+paterson,IXCSjRuAqY4_iyOU_2rxeQ,det,0,0.527344,0.539062,0.640942,true,WALK,Curb,ROAD,Road,WALK,Curb,floor,4.97291,-0.340271,21.0802,0
+paterson,IXCSjRuAqY4_iyOU_2rxeQ,missed,0,0.524055,0.527609,,missed,WALK,Curb Cut,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.235005,29.901,0
+paterson,IXCSjRuAqY4_iyOU_2rxeQ,missed,1,0.517694,0.527438,,missed,WALK,Curb Cut,ROAD,Road,WALK,Curb Cut,floor_standin,0,0.335314,30.0882,0
+paterson,IXCSjRuAqY4_iyOU_2rxeQ,missed,2,0.460251,0.529502,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.277196,27.972,0
+paterson,IXCSjRuAqY4_iyOU_2rxeQ,missed,3,0.452075,0.538486,,unsure_missed,OBJECT,Car,OBJECT,Car,OBJECT,Car,floor_standin,0,0.214872,21.3991,0
+paterson,L8lyOJwUI8j3Mk_cV-R80Q,det,0,0.0732422,0.539062,0.939157,true,OBJECT,Fire Hydrant,OTHER,Terrain,OBJECT,Fire Hydrant,floor_standin,0,0.28512,21.0802,0
+paterson,L8lyOJwUI8j3Mk_cV-R80Q,det,1,0.143555,0.583984,0.912895,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0762316,9.62455,0
+paterson,L8lyOJwUI8j3Mk_cV-R80Q,det,2,0.941406,0.539062,0.893976,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor_standin,0,0.0452456,21.0802,0
+paterson,NqOWmuzYX0M4vXF6ioTD7Q,det,0,0.0351562,0.521484,1.00949,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,1.85688,-0.0715803,38.4628,0
+paterson,NqOWmuzYX0M4vXF6ioTD7Q,det,1,0.175781,0.568359,0.897077,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,0.444994,0.153986,11.92,0
+paterson,OhdI54JArKc1UopNZiFoZg,det,0,0.135742,0.552734,0.892977,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.287611,15.55,0
+paterson,OhdI54JArKc1UopNZiFoZg,det,1,0.916992,0.552734,0.648234,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,1.48727,,15.55,0
+paterson,OhdI54JArKc1UopNZiFoZg,missed,0,0.927526,0.536337,,unsure_missed,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor,1.58152,0.0437922,22.6767,0
+paterson,PM92O1ji0i42GTuhT_ll5A,det,0,0.730469,0.552734,0.884925,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.85983,0.241574,15.55,0
+paterson,PM92O1ji0i42GTuhT_ll5A,det,1,0.416992,0.537109,0.845332,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.145891,22.2007,0
+paterson,PM92O1ji0i42GTuhT_ll5A,det,2,0.621094,0.568359,0.46494,band_0p30,ROAD,Road,ROAD,Lane Marking - Crosswalk,WALK,Curb Cut,floor,3.50867,-0.685854,11.92,0
+paterson,PM92O1ji0i42GTuhT_ll5A,det,3,0.550781,0.537109,0.351432,band_0p30,ROAD,Road,ROAD,Road,ROAD,Road,floor_standin,0,0.0934389,22.2007,0
+paterson,PM92O1ji0i42GTuhT_ll5A,missed,0,0.552616,0.529671,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.140778,27.812,0
+paterson,PS-Atz2shq5v6QtlJs6OlA,det,0,0.441406,0.523438,0.976335,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.8848,-0.779162,35.2473,0
+paterson,PS-Atz2shq5v6QtlJs6OlA,det,1,0.924805,0.539062,0.8903,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,3.54077,0.0733838,21.0802,0
+paterson,PS-Atz2shq5v6QtlJs6OlA,det,2,0.183594,0.648438,0.824178,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,0.396635,,5.16531,0
+paterson,PS-Atz2shq5v6QtlJs6OlA,det,3,0.0341797,0.539062,0.80814,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.19713,0.0438215,21.0802,0
+paterson,PS-Atz2shq5v6QtlJs6OlA,det,4,0.0195312,0.539062,0.784466,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.19713,0.0444425,21.0802,0
+paterson,PS-Atz2shq5v6QtlJs6OlA,det,5,0.777344,0.585938,0.776675,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,5.2689,0.153959,9.39519,0
+paterson,PS-Atz2shq5v6QtlJs6OlA,det,6,0.167969,0.617188,0.737225,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,0.396635,,6.74025,0
+paterson,PS-Atz2shq5v6QtlJs6OlA,det,7,0.753906,0.617188,0.729934,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.1525,0.0503033,6.74025,0
+paterson,PS-Atz2shq5v6QtlJs6OlA,det,8,0.402344,0.554688,0.718645,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.659975,0.0467324,14.9842,0
+paterson,PS-Atz2shq5v6QtlJs6OlA,missed,0,0.910822,0.539948,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,3.54077,0.0795866,20.608,0
+paterson,Q5D74UJFt5D2PVhGxRh1sw,det,0,0.34668,0.568359,0.92044,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.822581,,11.92,0
+paterson,Q5D74UJFt5D2PVhGxRh1sw,det,1,0.558594,0.539062,0.918702,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.704711,0.0898079,21.0802,0
+paterson,Q5D74UJFt5D2PVhGxRh1sw,det,2,0.628906,0.583984,0.909829,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.88941,-0.567389,9.62455,0
+paterson,Q5D74UJFt5D2PVhGxRh1sw,det,3,0.410156,0.537109,0.904016,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor,2.96187,0.120267,22.2007,0
+paterson,R9WHDEVRAq5IdtLkLFhL_A,det,0,0.738281,0.646484,0.913524,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.06386,-0.0217573,5.24521,0
+paterson,R9WHDEVRAq5IdtLkLFhL_A,det,1,0.925781,0.554688,0.907647,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.04143,0.0747092,14.9842,0
+paterson,RGAxlzGeyK3ncjFZ9VXpBA,det,0,0.12793,0.554688,0.848767,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.04773,-0.133965,14.9842,0
+paterson,RGAxlzGeyK3ncjFZ9VXpBA,det,1,0.924805,0.568359,0.837893,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.54738,,11.92,0
+paterson,RGAxlzGeyK3ncjFZ9VXpBA,missed,0,0.0683347,0.52702,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.336882,-0.0370122,30.5561,0
+paterson,RGAxlzGeyK3ncjFZ9VXpBA,missed,1,0.123491,0.547138,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.04773,-0.192449,17.4285,0
+paterson,RGAxlzGeyK3ncjFZ9VXpBA,missed,2,0.922845,0.551568,,missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,0.753295,-0.00626545,15.9081,0
+paterson,RGAxlzGeyK3ncjFZ9VXpBA,missed,3,0.969104,0.527338,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.866375,-0.162919,30.1983,0
+paterson,RGAxlzGeyK3ncjFZ9VXpBA,missed,4,0.982563,0.525762,,unsure_missed,WALK,Curb,WALK,Sidewalk,WALK,Sidewalk,floor,0.962662,-0.0555315,32.0551,0
+paterson,S06PQMrwEby-_62F0U4Oww,missed,0,0.970348,0.542059,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.95765,0.14126,19.5626,0
+paterson,TFX8xO7By2dnr_cYK59_Gw,det,0,0.0341797,0.537109,0.855727,true,ROAD,Road,ROAD,Road,ROAD,Road,floor,0.785841,0.00518542,22.2007,0
+paterson,TFX8xO7By2dnr_cYK59_Gw,det,1,0.963867,0.539062,0.679561,unsure,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.4912,0.975344,21.0802,0
+paterson,TFX8xO7By2dnr_cYK59_Gw,det,2,0.0664062,0.568359,0.350543,band_0p30,STRUCTURE,Fence,STRUCTURE,Fence,STRUCTURE,Fence,floor,5.95177,-0.0733817,11.92,0
+paterson,TFX8xO7By2dnr_cYK59_Gw,missed,0,0.0756383,0.555492,,unsure_missed,STRUCTURE,Fence,STRUCTURE,Fence,STRUCTURE,Fence,floor_standin,0,0.185419,14.7625,0
+paterson,TO2IeKCGXF_kk9hxE-_Nkg,det,0,0.549805,0.523438,0.551539,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,1.20382,0.252104,35.2473,0
+paterson,TO2IeKCGXF_kk9hxE-_Nkg,det,1,0.425781,0.523438,0.418288,band_0p30,ROAD,Lane Marking - Crosswalk,ROAD,Road,ROAD,Lane Marking - Crosswalk,floor,2.77834,-0.0397879,35.2473,0
+paterson,TO2IeKCGXF_kk9hxE-_Nkg,missed,0,0.531759,0.510966,,unsure_missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor,1.20382,0.823468,75.4413,0
+paterson,TO2IeKCGXF_kk9hxE-_Nkg,missed,1,0.464511,0.51141,,unsure_missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,0.909137,-0.173649,72.5015,0
+paterson,Tyc7Xoi2Qu6tNrHVre2kNA,det,0,0.643555,0.570312,0.687318,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.24105,0.0204891,11.5783,0
+paterson,Tyc7Xoi2Qu6tNrHVre2kNA,det,1,0.924805,0.539062,0.350221,band_0p30,WALK,Curb,OBJECT,Vegetation,WALK,Curb,floor_standin,0,0.624905,21.0802,0
+paterson,U6iQcIYtWc0Xbflaeshkdg,det,0,0.588867,0.552734,0.872991,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.88917,0.315801,15.55,0
+paterson,U6iQcIYtWc0Xbflaeshkdg,missed,0,0.393038,0.528965,,unsure_missed,WALK,Curb,WALK,Curb,WALK,Curb,floor,2.51653,0.551102,28.4936,0
+paterson,UOMaPWpm2CRHbfqMgY_hbQ,det,0,0.112305,0.539062,0.865078,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.20366,0.0361435,21.0802,0
+paterson,UOMaPWpm2CRHbfqMgY_hbQ,det,1,0.917969,0.568359,0.859623,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.20366,0.490435,11.92,0
+paterson,UOMaPWpm2CRHbfqMgY_hbQ,missed,0,0.969028,0.528089,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,2.23248,-0.199245,29.3877,0
+paterson,UOMaPWpm2CRHbfqMgY_hbQ,missed,1,0.915378,0.551658,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.20366,0.673044,15.8801,0
+paterson,Uh1qGHtgaFQVFpiBQyeN8Q,det,0,0.269531,0.539062,0.957499,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.05747,0.199794,21.0802,0
+paterson,Uh1qGHtgaFQVFpiBQyeN8Q,missed,0,0.387907,0.528838,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,8.49366,0.0889831,28.6202,0
+paterson,WNiUHjkafGBEnMc0nc4wkQ,det,0,0.0742188,0.539062,0.98393,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.96593,-0.00127917,21.0802,0
+paterson,WNiUHjkafGBEnMc0nc4wkQ,det,1,0.948242,0.539062,0.930168,true,ROAD,Road,ROAD,Road,ROAD,Road,ground,0.337462,,21.0802,0
+paterson,WNiUHjkafGBEnMc0nc4wkQ,missed,0,0.0402982,0.518016,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.8358,-0.0721341,45.8876,0
+paterson,WNiUHjkafGBEnMc0nc4wkQ,missed,1,0.941928,0.542824,,missed,ROAD,Road,WALK,Sidewalk,WALK,Sidewalk,ground,0.337462,,19.2089,0
+paterson,WNiUHjkafGBEnMc0nc4wkQ,missed,2,0.964985,0.518465,,missed,WALK,Sidewalk,STRUCTURE,Fence,WALK,Sidewalk,floor,2.44809,0.0834799,44.7699,0
+paterson,WNiUHjkafGBEnMc0nc4wkQ,missed,3,0.973666,0.518241,,missed,WALK,Sidewalk,OTHER,Terrain,WALK,Sidewalk,floor,2.44809,0.0579022,45.3215,0
+paterson,WoAP6tTVMjKMFEwdCi7YaQ,det,0,0.105469,0.539062,0.797424,true,ROAD,Road,ROAD,Road,ROAD,Road,ground,1.32426,,21.0802,0
+paterson,WoAP6tTVMjKMFEwdCi7YaQ,det,1,0.0585938,0.523438,0.785009,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,0.20463,0.360644,35.2473,0
+paterson,X3ppzLhvsS7aGu9Lv8GdBA,det,0,0.0888672,0.570312,0.832518,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.16197,0.0822375,11.5783,0
+paterson,XRsv_X3jYvAM1BPI-oQJUg,det,0,0.0576172,0.523438,0.806668,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.81301,0.048556,35.2473,0
+paterson,XRsv_X3jYvAM1BPI-oQJUg,missed,0,0.0426096,0.529745,,missed,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,floor,1.14141,0.00523107,27.742,0
+paterson,Xs3lDDc1o50wJmW9eGx_WA,det,0,0.260742,0.615234,0.918161,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Sidewalk,floor,2.59518,0.0290663,6.86541,0
+paterson,Xs3lDDc1o50wJmW9eGx_WA,det,1,0.0976562,0.554688,0.910979,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.257852,14.9842,0
+paterson,Xs3lDDc1o50wJmW9eGx_WA,det,2,0.791992,0.630859,0.890039,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.49384,,5.96402,0
+paterson,Xs3lDDc1o50wJmW9eGx_WA,det,3,0.737305,0.664062,0.884038,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.49384,,4.58964,0
+paterson,Xs3lDDc1o50wJmW9eGx_WA,det,4,0.94043,0.552734,0.799378,true,WALK,Curb Cut,ROAD,Road,WALK,Curb Cut,floor,3.7691,0.345695,15.55,0
+paterson,Xs3lDDc1o50wJmW9eGx_WA,det,5,0.0810547,0.552734,0.729929,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.226604,15.55,0
+paterson,Xs3lDDc1o50wJmW9eGx_WA,missed,0,0.232338,0.596984,,missed,OBJECT,Car,OBJECT,Car,OBJECT,Car,floor_standin,0,0.0722596,8.26767,0
+paterson,Xs3lDDc1o50wJmW9eGx_WA,missed,1,0.96227,0.549591,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.7691,0.355235,16.5535,0
+paterson,Yg0X7I5adOM5rem7YVbwAg,det,0,0.956055,0.537109,0.60759,true,ROAD,Road,ROAD,Lane Marking - Crosswalk,ROAD,Road,floor,1.9701,0.126298,22.2007,0
+paterson,Z929dNP7sDp8cU6sjIeKAw,det,0,0.308594,0.615234,0.993346,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.52226,0.00170626,6.86541,0
+paterson,Z929dNP7sDp8cU6sjIeKAw,det,1,0.660156,0.632812,0.951151,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.76658,0.0404528,5.86551,0
+paterson,Z929dNP7sDp8cU6sjIeKAw,det,2,0.550781,0.539062,0.890298,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,6.32592,0.0477807,21.0802,0
+paterson,Z929dNP7sDp8cU6sjIeKAw,det,3,0.424805,0.539062,0.808901,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.04622,-0.0609045,21.0802,0
+paterson,Z929dNP7sDp8cU6sjIeKAw,det,4,0.441406,0.539062,0.777896,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor,2.04622,-0.139637,21.0802,0
+paterson,Z929dNP7sDp8cU6sjIeKAw,missed,0,0.330101,0.583939,,missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.52226,0.326082,9.62995,0
+paterson,Z929dNP7sDp8cU6sjIeKAw,missed,1,0.535719,0.539868,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.5267,-0.0329391,20.6498,0
+paterson,Z929dNP7sDp8cU6sjIeKAw,missed,2,0.648889,0.588788,,missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.76658,0.225343,9.07815,0
+paterson,ZcGyifqcyvUwLtCYGTr3oA,det,0,0.916992,0.539062,0.894419,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.64008,0.297492,21.0802,0
+paterson,ZcGyifqcyvUwLtCYGTr3oA,det,1,0.0273438,0.539062,0.884398,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,0.761818,,21.0802,0
+paterson,ZcGyifqcyvUwLtCYGTr3oA,det,2,0.128906,0.615234,0.859973,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,0.761818,,6.86541,0
+paterson,ZcGyifqcyvUwLtCYGTr3oA,det,3,0.824219,0.601562,0.827757,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.49842,0.0995228,7.87031,0
+paterson,ZcGyifqcyvUwLtCYGTr3oA,missed,0,0.123478,0.590367,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,ground,0.761818,,8.91091,0
+paterson,ZcGyifqcyvUwLtCYGTr3oA,missed,1,0.0370501,0.54299,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.761818,,19.1339,0
+paterson,ZcGyifqcyvUwLtCYGTr3oA,missed,2,0.834868,0.592262,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.49842,0.115313,8.71757,0
+paterson,ZcGyifqcyvUwLtCYGTr3oA,missed,3,0.927472,0.539448,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.64008,0.250314,20.8719,0
+paterson,Zu314hB3XfshUEt2hsd0RQ,det,0,0.338867,0.568359,0.984627,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,2.25099,0.672129,11.92,0
+paterson,Zu314hB3XfshUEt2hsd0RQ,det,1,0.949219,0.523438,0.426158,band_0p30,ROAD,Road,ROAD,Road,ROAD,Road,floor,3.1132,0.34306,35.2473,0
+paterson,Zu314hB3XfshUEt2hsd0RQ,missed,0,0.889697,0.63404,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,6.21634,-0.334726,5.80496,0
+paterson,_FfdhRGlkbTABymQR3t1_A,det,0,0.371094,0.554688,0.9239,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.744147,0.246719,14.9842,0
+paterson,_FfdhRGlkbTABymQR3t1_A,det,1,0.613281,0.554688,0.87887,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor,3.22968,0.126352,14.9842,0
+paterson,_FfdhRGlkbTABymQR3t1_A,det,2,0.557617,0.523438,0.490397,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.67199,0.0957844,35.2473,0
+paterson,_FfdhRGlkbTABymQR3t1_A,det,3,0.448242,0.523438,0.488931,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,6.15867,0.231998,35.2473,0
+paterson,_FfdhRGlkbTABymQR3t1_A,missed,0,0.534813,0.526181,,missed,WALK,Curb,WALK,Curb,WALK,Curb,floor,0.744147,0.0729158,31.5392,0
+paterson,_FfdhRGlkbTABymQR3t1_A,missed,1,0.557116,0.527233,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.67199,0.0557903,30.3159,0
+paterson,_FfdhRGlkbTABymQR3t1_A,missed,2,0.453366,0.528628,,missed,WALK,Sidewalk,WALK,Curb,WALK,Curb Cut,floor,6.45598,0.063942,28.8309,0
+paterson,aZxwqPZnkC3sv5dTZOEomA,det,0,0.378906,0.539062,0.915945,true,WALK,Sidewalk,WALK,Sidewalk,ROAD,Road,floor,1.54636,0.0332996,21.0802,0
+paterson,aZxwqPZnkC3sv5dTZOEomA,det,1,0.550781,0.570312,0.894117,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,3.75572,,11.5783,0
+paterson,aZxwqPZnkC3sv5dTZOEomA,det,2,0.44043,0.521484,0.802868,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.54636,0.0604528,38.4628,0
+paterson,aZxwqPZnkC3sv5dTZOEomA,missed,0,0.383047,0.551455,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.54636,0.0136506,15.9438,0
+paterson,aon4zuny7-LGeKV7JympCw,det,0,0.299805,0.646484,0.940907,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,1.56135,0.0233831,5.24521,0
+paterson,aon4zuny7-LGeKV7JympCw,det,1,0.707031,0.630859,0.91358,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.71349,0.0815288,5.96402,0
+paterson,aon4zuny7-LGeKV7JympCw,det,2,0.441406,0.554688,0.907395,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.129983,14.9842,0
+paterson,aon4zuny7-LGeKV7JympCw,det,3,0.558594,0.568359,0.683518,true,ROAD,Road,ROAD,Road,ROAD,Road,floor_standin,0,0.150422,11.92,0
+paterson,as5xCAJAYMT35sgs0rx2_w,det,0,0.541992,0.523438,0.976107,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.77982,0.120626,35.2473,0
+paterson,as5xCAJAYMT35sgs0rx2_w,det,1,0.324219,0.570312,0.873542,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.77982,0.0157071,11.5783,0
+paterson,as5xCAJAYMT35sgs0rx2_w,det,2,0.635742,0.599609,0.798288,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.52713,,8.03552,0
+paterson,as5xCAJAYMT35sgs0rx2_w,det,3,0.424805,0.523438,0.70942,true,OTHER,Terrain,STRUCTURE,Fence,OTHER,Terrain,floor,5.30858,-0.00349712,35.2473,0
+paterson,as5xCAJAYMT35sgs0rx2_w,missed,0,0.33585,0.565398,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.77982,0.0181368,12.4764,0
+paterson,as5xCAJAYMT35sgs0rx2_w,missed,1,0.435886,0.529933,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.52713,,27.5672,0
+paterson,as5xCAJAYMT35sgs0rx2_w,missed,2,0.534672,0.526364,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.77982,0.111328,31.3201,0
+paterson,as5xCAJAYMT35sgs0rx2_w,missed,3,0.628773,0.574165,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.52713,,10.9564,0
+paterson,bfc5Mq-kfwj29vGpOPKS2A,det,0,0.964844,0.523438,0.9712,true,OTHER,Terrain,WALK,Sidewalk,OTHER,Terrain,floor,4.022,0.100161,35.2473,0
+paterson,bfc5Mq-kfwj29vGpOPKS2A,det,1,0.910156,0.599609,0.699374,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.56156,0.0679577,8.03552,0
+paterson,bfc5Mq-kfwj29vGpOPKS2A,det,2,0.0576172,0.539062,0.636128,true,ROAD,Road,ROAD,Road,ROAD,Road,floor,3.23858,0.0273461,21.0802,0
+paterson,bfc5Mq-kfwj29vGpOPKS2A,det,3,0.12793,0.585938,0.538612,band_0p30,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,-0.00808364,9.39519,0
+paterson,bfc5Mq-kfwj29vGpOPKS2A,missed,0,0.125786,0.585848,,missed,ROAD,Road,ROAD,Road,ROAD,Road,floor_standin,0,-0.0109563,9.40553,0
+paterson,bfc5Mq-kfwj29vGpOPKS2A,missed,1,0.138564,0.61464,,missed,WALK,Curb,WALK,Curb,WALK,Curb,floor_standin,0,-0.0134042,6.90433,0
+paterson,bfc5Mq-kfwj29vGpOPKS2A,missed,2,0.903045,0.57991,,missed,ROAD,Road,WALK,Curb,WALK,Curb Cut,floor,3.56156,0.145501,10.1383,0
+paterson,bfc5Mq-kfwj29vGpOPKS2A,missed,3,0.0663889,0.538081,,unsure_missed,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor,3.23858,0.0355795,21.6291,0
+paterson,bwpW8jgnlIbAQC0HRy99JA,det,0,0.22168,0.568359,0.924714,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,ground,0.311533,,11.92,0
+paterson,bwpW8jgnlIbAQC0HRy99JA,det,1,0.800781,0.585938,0.908359,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,1.02507,-0.0125,9.39519,0
+paterson,bwpW8jgnlIbAQC0HRy99JA,det,2,0.0810547,0.537109,0.841938,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,0.635198,-0.0201436,22.2007,0
+paterson,bwpW8jgnlIbAQC0HRy99JA,det,3,0.941406,0.539062,0.462245,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.02507,-0.181842,21.0802,0
+paterson,bwpW8jgnlIbAQC0HRy99JA,missed,0,0.0712177,0.533934,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.635198,-0.00677963,24.2961,0
+paterson,bwpW8jgnlIbAQC0HRy99JA,missed,1,0.931128,0.540058,,missed,WALK,Curb Cut,WALK,Crosswalk - Plain,WALK,Sidewalk,floor,1.02507,-0.174592,20.551,0
+paterson,bwpW8jgnlIbAQC0HRy99JA,missed,2,0.947598,0.539159,,missed,WALK,Curb Cut,ROAD,Road,WALK,Curb Cut,floor,1.02507,-0.181081,21.0275,0
+paterson,bxdL0Guz_zm-8O1E1Gn78A,det,0,0.0966797,0.523438,0.703551,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.3429,0.0880608,35.2473,0
+paterson,bxdL0Guz_zm-8O1E1Gn78A,det,1,0.933594,0.537109,0.581752,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.48911,-0.0357869,22.2007,0
+paterson,bxdL0Guz_zm-8O1E1Gn78A,missed,0,0.967084,0.51993,,missed,ROAD,Lane Marking - Crosswalk,ROAD,Road,WALK,Curb Cut,floor,2.74745,-0.659388,41.4716,0
+paterson,bxdL0Guz_zm-8O1E1Gn78A,missed,1,0.973033,0.513653,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.02029,0.00502601,60.5781,0
+paterson,cuFkPrv4UsqzeJCdibl1FQ,det,0,0.56543,0.554688,0.907336,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.0934,0.260309,14.9842,0
+paterson,cuFkPrv4UsqzeJCdibl1FQ,det,1,0.433594,0.537109,0.320111,band_0p30,ROAD,Road,ROAD,Lane Marking - General,ROAD,Road,floor_standin,0,0.34245,22.2007,0
+paterson,cuFkPrv4UsqzeJCdibl1FQ,missed,0,0.469903,0.530104,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.467,-0.00733439,27.4097,0
+paterson,eGWz6exPVDlv_S_DowBPfA,det,0,0.933594,0.554688,0.622066,unsure,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.03967,,14.9842,0
+paterson,eGWz6exPVDlv_S_DowBPfA,det,1,0.0742188,0.552734,0.511827,band_0p30,WALK,Sidewalk,OTHER,Terrain,WALK,Sidewalk,ground,1.03967,,15.55,0
+paterson,eGWz6exPVDlv_S_DowBPfA,missed,0,0.0427148,0.525374,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.02679,-0.0376749,32.5466,0
+paterson,eGWz6exPVDlv_S_DowBPfA,missed,1,0.0747141,0.558673,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,1.03967,,13.9452,0
+paterson,eIw8Y1zl7qgUW6bTPzk3gA,det,0,0.893555,0.568359,0.937094,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.42065,0.076952,11.92,0
+paterson,eIw8Y1zl7qgUW6bTPzk3gA,det,1,0.0898438,0.570312,0.866097,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.31269,0.18443,11.5783,0
+paterson,eIw8Y1zl7qgUW6bTPzk3gA,det,2,0.0273438,0.523438,0.812914,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.74507,0.0883928,35.2473,0
+paterson,eIw8Y1zl7qgUW6bTPzk3gA,missed,0,0.0342333,0.52959,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor,2.84035,-0.279805,27.888,0
+paterson,eIw8Y1zl7qgUW6bTPzk3gA,missed,1,0.0947741,0.55908,,missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.31269,0.244819,13.847,0
+paterson,fGd6JE4qvoG1uOVvOjBBmg,det,0,0.230469,0.568359,0.909427,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Curb Cut,floor,1.17719,-0.0175376,11.92,0
+paterson,fGd6JE4qvoG1uOVvOjBBmg,det,1,0.206055,0.583984,0.885098,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.17719,-0.00249912,9.62455,0
+paterson,fGd6JE4qvoG1uOVvOjBBmg,det,2,0.683594,0.632812,0.863342,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.425206,,5.86551,0
+paterson,fGd6JE4qvoG1uOVvOjBBmg,det,3,0.385742,0.523438,0.854612,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.63856,0.0892056,35.2473,0
+paterson,fGd6JE4qvoG1uOVvOjBBmg,det,4,0.510742,0.537109,0.832679,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,1.41527,-0.0918859,22.2007,0
+paterson,fGd6JE4qvoG1uOVvOjBBmg,missed,0,0.372023,0.530494,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,2.63856,0.0226614,27.0571,0
+paterson,fGd6JE4qvoG1uOVvOjBBmg,missed,1,0.500519,0.528215,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.52507,0.0290401,29.2551,0
+paterson,fGd6JE4qvoG1uOVvOjBBmg,missed,2,0.722424,0.660707,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.425206,,4.7046,0
+paterson,fSQ5B3z1vT-Ym1-siL8iOA,det,0,0.558594,0.554688,0.921778,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.966921,0.140776,14.9842,0
+paterson,fSQ5B3z1vT-Ym1-siL8iOA,det,1,0.394531,0.552734,0.763211,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,2.81007,0.109436,15.55,0
+paterson,fSQ5B3z1vT-Ym1-siL8iOA,det,2,0.213867,0.568359,0.684471,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.75625,-0.0668129,11.92,0
+paterson,fSQ5B3z1vT-Ym1-siL8iOA,missed,0,0.187617,0.565198,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.75625,-0.0943138,12.5156,0
+paterson,fSQ5B3z1vT-Ym1-siL8iOA,missed,1,0.38285,0.551455,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,2.81007,0.0893659,15.9437,0
+paterson,gZ3Acgi38PrzOVBkW-Il4Q,det,0,0.893555,0.599609,0.904797,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.30776,,8.03552,0
+paterson,gZ3Acgi38PrzOVBkW-Il4Q,missed,0,0.990703,0.534039,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.836499,0.225807,24.2204,0
+paterson,hMx_5PxQtlixa9LRSNnKFQ,det,0,0.237305,0.583984,0.971973,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,2.84407,,9.62455,0
+paterson,hMx_5PxQtlixa9LRSNnKFQ,det,1,0.0820312,0.523438,0.912715,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,2.84407,,35.2473,0
+paterson,hMx_5PxQtlixa9LRSNnKFQ,det,2,0.832031,0.662109,0.870329,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,3.03802,0.0255432,4.65603,0
+paterson,hV6LwTvkCzyX_vQF3ZG5qQ,det,0,0.597656,0.585938,0.88624,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.33025,-0.0168287,9.39519,0
+paterson,hV6LwTvkCzyX_vQF3ZG5qQ,det,1,0.269531,0.554688,0.836749,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.653493,14.9842,0
+paterson,hV6LwTvkCzyX_vQF3ZG5qQ,missed,0,0.264027,0.553978,,missed,ROAD,Lane Marking - General,ROAD,Road,ROAD,Lane Marking - General,floor_standin,0,0.676305,15.185,0
+paterson,hV6LwTvkCzyX_vQF3ZG5qQ,missed,1,0.219339,0.549692,,missed,WALK,Curb Cut,WALK,Curb,WALK,Sidewalk,floor_standin,0,0.818622,16.5192,0
+paterson,hV6LwTvkCzyX_vQF3ZG5qQ,missed,2,0.495206,0.519236,,missed,WALK,Curb Cut,WALK,Curb,WALK,Sidewalk,floor,4.40713,0.0160542,42.9715,0
+paterson,hV6LwTvkCzyX_vQF3ZG5qQ,missed,3,0.322696,0.542367,,unsure_missed,ROAD,Lane Marking - Crosswalk,WALK,Curb,ROAD,Lane Marking - General,floor_standin,0,0.660914,19.4187,0
+paterson,hvegP5rTGyRrsRQb3h-rog,det,0,0.19043,0.554688,0.919274,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.01914,,14.9842,0
+paterson,hvegP5rTGyRrsRQb3h-rog,det,1,0.354492,0.539062,0.879943,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.64639,0.0524247,21.0802,0
+paterson,iPgLrrQ5XDrWWlTXzI5MLQ,det,0,0.980469,0.523438,0.907675,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,3.38443,,35.2473,0
+paterson,iPgLrrQ5XDrWWlTXzI5MLQ,det,1,0.25293,0.615234,0.877503,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.184684,6.86541,0
+paterson,iPgLrrQ5XDrWWlTXzI5MLQ,det,2,0.230469,0.599609,0.850707,true,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.19342,8.03552,0
+paterson,iPgLrrQ5XDrWWlTXzI5MLQ,det,3,0.871094,0.632812,0.807,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,3.38443,,5.86551,0
+paterson,iPgLrrQ5XDrWWlTXzI5MLQ,det,4,0.854492,0.679688,0.615261,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,3.38443,,4.10585,0
+paterson,iPgLrrQ5XDrWWlTXzI5MLQ,missed,0,0.990701,0.528969,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,3.38443,,28.4899,0
+paterson,ijlwBkjXDfD2wCO_jSjCGA,det,0,0.0742188,0.539062,0.859666,true,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,floor,0,0.0776287,21.0802,0
+paterson,ijlwBkjXDfD2wCO_jSjCGA,det,1,0.941406,0.537109,0.836705,true,ROAD,Road,ROAD,Lane Marking - Crosswalk,ROAD,Road,floor,0.879378,0.112555,22.2007,0
+paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,0,0.0503061,0.525415,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.51012,-0.0153348,32.4948,0
+paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,1,0.0378998,0.524751,,unsure_missed,OTHER,Terrain,WALK,Curb,OTHER,Terrain,floor,0.828035,-0.0188393,33.3697,0
+paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,2,0.085423,0.537465,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.40388,-0.0445428,21.988,0
+paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,3,0.925578,0.53847,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,floor,0.879378,-0.531364,21.4083,0
+paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,4,0.954077,0.525819,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,0.879378,1.01974,31.9842,0
+paterson,ijlwBkjXDfD2wCO_jSjCGA,missed,5,0.968355,0.525004,,unsure_missed,WALK,Curb,WALK,Curb,OTHER,Terrain,floor,0.879378,-0.411169,33.031,0
+paterson,ixm9RoZTI443YB7QoJ6nLQ,det,0,0.574219,0.539062,0.94119,true,WALK,Crosswalk - Plain,ROAD,Road,WALK,Crosswalk - Plain,floor,0.388158,-0.0759342,21.0802,0
+paterson,ixm9RoZTI443YB7QoJ6nLQ,det,1,0.424805,0.539062,0.918533,true,WALK,Crosswalk - Plain,ROAD,Road,WALK,Crosswalk - Plain,floor,2.88615,0.0223194,21.0802,0
+paterson,ixm9RoZTI443YB7QoJ6nLQ,det,2,0.457031,0.523438,0.335393,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.34901,0.0770634,35.2473,0
+paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,0,0.456715,0.523845,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.34901,0.0639509,34.6429,0
+paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,1,0.466036,0.522234,,unsure_missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor,1.67526,0.0436979,37.1623,0
+paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,2,0.532413,0.520882,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.67526,-0.150823,39.576,0
+paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,3,0.544229,0.521344,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.34901,0.00209695,38.7163,0
+paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,4,0.574052,0.55215,,missed,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,ground,0.867504,,15.7276,0
+paterson,ixm9RoZTI443YB7QoJ6nLQ,missed,5,0.426575,0.556173,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,2.78902,,14.5799,0
+paterson,jpunVR46zc0yifTPUihF2A,det,0,0.371094,0.568359,0.995045,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,-0.0321371,11.92,0
+paterson,jpunVR46zc0yifTPUihF2A,det,1,0.581055,0.583984,0.964396,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.059468,9.62455,0
+paterson,jpunVR46zc0yifTPUihF2A,missed,0,0.449083,0.53678,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.204311,22.4011,0
+paterson,jtPd8YX0gkDeQe6dq9mk4A,det,0,0.40918,0.537109,0.921898,true,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,floor,1.87878,0.037052,22.2007,0
+paterson,jtPd8YX0gkDeQe6dq9mk4A,det,1,0.566406,0.539062,0.881335,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.53582,0.650018,21.0802,0
+paterson,jtPd8YX0gkDeQe6dq9mk4A,missed,0,0.456143,0.515478,,missed,WALK,Curb Cut,WALK,Curb,WALK,Sidewalk,floor,1.61143,-0.0461249,53.4294,0
+paterson,jtPd8YX0gkDeQe6dq9mk4A,missed,1,0.521925,0.513416,,missed,WALK,Sidewalk,WALK,Curb,WALK,Sidewalk,floor,2.24236,0.040693,61.6524,0
+paterson,jtPd8YX0gkDeQe6dq9mk4A,missed,2,0.5342,0.514418,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,2.24236,0.026528,57.3605,0
+paterson,jtPd8YX0gkDeQe6dq9mk4A,missed,3,0.570623,0.53346,,missed,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,ROAD,Road,floor,1.53582,0.847925,24.6429,0
+paterson,k3ipUDBk_fu7EXSVSNGaig,det,0,0.316406,0.570312,0.891647,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.53898,-0.130305,11.5783,0
+paterson,k3ipUDBk_fu7EXSVSNGaig,det,1,0.651367,0.585938,0.867217,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,4.06043,0.0320796,9.39519,0
+paterson,k3ipUDBk_fu7EXSVSNGaig,det,2,0.557617,0.537109,0.820794,true,ROAD,Lane Marking - Crosswalk,WALK,Curb Cut,ROAD,Lane Marking - Crosswalk,floor,2.19802,-0.0800708,22.2007,0
+paterson,k3ipUDBk_fu7EXSVSNGaig,det,3,0.425781,0.537109,0.735265,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.31997,-0.0316446,22.2007,0
+paterson,k3ipUDBk_fu7EXSVSNGaig,missed,0,0.420246,0.535156,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.31997,-0.0316933,23.445,0
+paterson,k3ipUDBk_fu7EXSVSNGaig,missed,1,0.543192,0.532318,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.79194,0.0735155,25.5205,0
+paterson,k3ipUDBk_fu7EXSVSNGaig,missed,2,0.335354,0.566162,,missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,2.53898,-0.142255,12.3282,0
+paterson,k3ipUDBk_fu7EXSVSNGaig,missed,3,0.648285,0.564136,,missed,ROAD,Road,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,4.06043,0.1362,12.7288,0
+paterson,kJpIgjL0BDI74K-jbGnbow,det,0,0.979492,0.523438,0.609617,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,4.82893,0.228703,35.2473,0
+paterson,kJpIgjL0BDI74K-jbGnbow,det,1,0.0419922,0.523438,0.424399,band_0p30,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,0.887573,-0.0302947,35.2473,0
+paterson,kJpIgjL0BDI74K-jbGnbow,missed,0,0.944352,0.551844,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.15059,0.150399,15.8219,0
+paterson,lswzBhE0aaemfGKiH3fIYA,det,0,0.674805,0.523438,0.975301,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,4.1329,-0.0854975,35.2473,0
+paterson,lswzBhE0aaemfGKiH3fIYA,missed,0,0.768243,0.530569,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.09325,0.0405673,26.9903,0
+paterson,nqA7oH-86S2CmsGA9hyVtA,det,0,0.0976562,0.537109,0.95571,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.394657,-0.0661559,22.2007,0
+paterson,nqA7oH-86S2CmsGA9hyVtA,det,1,0.808594,0.539062,0.897135,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.62801,0.139119,21.0802,0
+paterson,nqA7oH-86S2CmsGA9hyVtA,det,2,0.791992,0.552734,0.894637,true,ROAD,Road,WALK,Curb Cut,ROAD,Road,floor,0.951416,0.136488,15.55,0
+paterson,nqA7oH-86S2CmsGA9hyVtA,det,3,0.683594,0.599609,0.826181,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.949769,0.0572453,8.03552,0
+paterson,nqA7oH-86S2CmsGA9hyVtA,det,4,0.277344,0.617188,0.713035,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,0.974581,,6.74025,0
+paterson,nqA7oH-86S2CmsGA9hyVtA,det,5,0.979492,0.539062,0.698357,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.62152,0.38022,21.0802,0
+paterson,nqA7oH-86S2CmsGA9hyVtA,det,6,0.183594,0.568359,0.687875,false,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,0.974581,,11.92,0
+paterson,nqA7oH-86S2CmsGA9hyVtA,det,7,0.917969,0.537109,0.651682,false,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.93016,-0.129418,22.2007,0
+paterson,nqA7oH-86S2CmsGA9hyVtA,det,8,0.160156,0.523438,0.628393,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,5.80573,0.170747,35.2473,0
+paterson,q10dxfl-oC7RkRFUVKU_RA,det,0,0.44043,0.523438,0.811582,true,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,floor,2.5688,0.0518249,35.2473,0
+paterson,q10dxfl-oC7RkRFUVKU_RA,missed,0,0.4311,0.521461,,missed,WALK,Crosswalk - Plain,WALK,Sidewalk,WALK,Crosswalk - Plain,floor,2.5688,0.0256389,38.5044,0
+paterson,qL5hz8oXZM0g4pKxGR3Yyw,det,0,0.331055,0.585938,0.931754,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.4662,,9.39519,0
+paterson,qL5hz8oXZM0g4pKxGR3Yyw,det,1,0.542969,0.554688,0.908521,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.0973266,14.9842,0
+paterson,qL5hz8oXZM0g4pKxGR3Yyw,det,2,0.432617,0.554688,0.788374,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Sidewalk,floor_standin,0,0.161803,14.9842,0
+paterson,qL5hz8oXZM0g4pKxGR3Yyw,det,3,0.636719,0.630859,0.712096,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.4662,,5.96402,0
+paterson,qL5hz8oXZM0g4pKxGR3Yyw,missed,0,0.526313,0.551566,,missed,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,floor_standin,0,0.137588,15.9089,0
+paterson,qL5hz8oXZM0g4pKxGR3Yyw,missed,1,0.626367,0.596905,,missed,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,ground,1.4662,,8.27488,0
+paterson,sZDQ4gAO200kPfWhz1st9g,det,0,0.957031,0.537109,0.895375,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,3.41868,-0.507654,22.2007,0
+paterson,sZDQ4gAO200kPfWhz1st9g,det,1,0.90918,0.570312,0.84681,false,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,4.88776,-0.135711,11.5783,0
+paterson,sZDQ4gAO200kPfWhz1st9g,det,2,0.0654297,0.568359,0.464329,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.65788,-0.0459729,11.92,0
+paterson,sZDQ4gAO200kPfWhz1st9g,missed,0,0.97694,0.537377,,missed,WALK,Curb,WALK,Curb,WALK,Curb,floor_standin,0,0.126984,22.0401,0
+paterson,sZDQ4gAO200kPfWhz1st9g,missed,1,0.0337731,0.540578,,missed,OBJECT,Vegetation,ROAD,Lane Marking - Crosswalk,OBJECT,Vegetation,floor_standin,0,0.216702,20.2849,0
+paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,0,0.198242,0.599609,0.984059,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.52123,0.137556,8.03552,0
+paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,1,0.839844,0.646484,0.965194,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,ground,1.44821,,5.24521,0
+paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,2,0.386719,0.554688,0.901549,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.184386,14.9842,0
+paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,3,0.410156,0.554688,0.885345,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.203029,14.9842,0
+paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,4,0.230469,0.599609,0.877227,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.52123,0.0948592,8.03552,0
+paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,5,0.769531,0.630859,0.860587,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.44821,,5.96402,0
+paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,6,0.605469,0.554688,0.785305,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.45172,0.0374993,14.9842,0
+paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,7,0.558594,0.568359,0.740899,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.0836341,11.92,0
+paterson,tekhQ4HQ9pcOqs_kGGpGaw,det,8,0.574219,0.568359,0.725851,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.0653133,11.92,0
+paterson,vRVQrenH_9eL4n4O4Gp_oQ,det,0,0.535156,0.537109,0.750353,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.56247,0.147819,22.2007,0
+paterson,vRVQrenH_9eL4n4O4Gp_oQ,det,1,0.417969,0.539062,0.383565,band_0p30,ROAD,Lane Marking - General,WALK,Crosswalk - Plain,WALK,Crosswalk - Plain,floor_standin,0,-0.372185,21.0802,0
+paterson,vRVQrenH_9eL4n4O4Gp_oQ,missed,0,0.523729,0.522146,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.56247,0.639933,37.3093,0
+paterson,vRVQrenH_9eL4n4O4Gp_oQ,missed,1,0.413422,0.540249,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb,floor_standin,0,0.185352,20.4524,0
+paterson,vRVQrenH_9eL4n4O4Gp_oQ,missed,2,0.453891,0.527203,,unsure_missed,ROAD,Road,ROAD,Road,ROAD,Lane Marking - General,floor_standin,0,1.1168,30.3492,0
+paterson,vRVQrenH_9eL4n4O4Gp_oQ,missed,3,0.539009,0.533884,,missed,WALK,Sidewalk,WALK,Crosswalk - Plain,WALK,Crosswalk - Plain,floor,2.56247,0.179962,24.3324,0
+paterson,wNcM5HCEQeGv8ndYe9HMmw,det,0,0.612305,0.583984,0.981028,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.48675,,9.62455,0
+paterson,wNcM5HCEQeGv8ndYe9HMmw,det,1,0.417969,0.552734,0.764962,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.197125,15.55,0
+paterson,wVWZk8xcqrpV0l1CKpK45w,det,0,0.292969,0.570312,0.779199,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.37974,0.170626,11.5783,0
+paterson,wVWZk8xcqrpV0l1CKpK45w,det,1,0.0966797,0.554688,0.630362,true,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,floor,0.402025,0.0195014,14.9842,0
+paterson,y8Q6XDfEoPt5K6ONqi406w,det,0,0.75293,0.599609,0.90755,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.15059,0.0659432,8.03552,0
+paterson,y8Q6XDfEoPt5K6ONqi406w,det,1,0.886719,0.583984,0.87774,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.911716,-0.187392,9.62455,0
+paterson,y8Q6XDfEoPt5K6ONqi406w,det,2,0.557617,0.537109,0.829935,false,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.92221,0.178898,22.2007,0
+paterson,yc2j9hm9FtM1LXTmsXTcWA,det,0,0.260742,0.537109,0.819196,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.9884,-0.0644685,22.2007,0
+paterson,yc2j9hm9FtM1LXTmsXTcWA,missed,0,0.330936,0.524519,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor,1.71555,-0.0511205,33.6874,0
+paterson,yd34YwObnIjHhBZvTmK3UQ,det,0,0.0351562,0.537109,0.367409,band_0p30,ROAD,Road,ROAD,Road,ROAD,Road,floor_standin,0,0.172125,22.2007,0
+paterson,zB7_9mtLQuVbRyZrttlMXg,det,0,0.0664062,0.552734,0.902853,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,4.73727,-0.456764,15.55,0
+paterson,zB7_9mtLQuVbRyZrttlMXg,det,1,0.0341797,0.523438,0.705114,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.45471,0.124694,35.2473,0
+paterson,zB7_9mtLQuVbRyZrttlMXg,missed,0,0.0264348,0.526455,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.45471,-0.00772152,31.2113,0
+paterson,zB7_9mtLQuVbRyZrttlMXg,missed,1,0.0760404,0.547688,,missed,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,WALK,Curb Cut,floor,2.93718,0.0600382,17.2244,0
+paterson,zB7_9mtLQuVbRyZrttlMXg,missed,2,0.966682,0.524214,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,0.409261,-0.393889,34.1127,0
+paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,0,0.932617,0.554688,0.910109,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.43177,0.173602,14.9842,0
+paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,1,0.956055,0.554688,0.877325,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.43177,0.0956569,14.9842,0
+paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,2,0.316406,0.615234,0.870862,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.160019,6.86541,0
+paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,3,0.666992,0.664062,0.804522,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.92346,-0.0652955,4.58964,0
+paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,4,0.713867,0.648438,0.802347,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,4.54515,0.0294841,5.16531,0
+paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,5,0.105469,0.568359,0.801813,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.317028,11.92,0
+paterson,zzWJ9LWjpfDZLBT7W8o8zw,det,6,0.292969,0.601562,0.704828,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.226032,7.87031,0
+paterson,zzWJ9LWjpfDZLBT7W8o8zw,missed,0,0.0907576,0.565051,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,3.28855,0.0315777,12.5449,0

@@ -107,3 +107,66 @@ def test_verdict_boundaries():
     assert v['rule_c'] == 'NOT SUPPORTED' or v['false_lo'] > v['true_hi']
     assert fw.verdict(700, 70, 42, 30)['underpowered'] is True           # n=42 CI ~0.27 wide
     assert fw.verdict(700, 70, 4000, 3000)['underpowered'] is False
+
+
+def test_compare_pano_pins_grid_payload_indexing_and_reference():
+    """A 512x256 synthetic payload (the real size) with a raised floor patch at an
+    asymmetric image column, and a label map with Sidewalk exactly over it: the patch must
+    land in floor x WALK (and in floor x ROAD under the mirrored null), and the curb rows
+    must read ~+0.15 m against a ROAD-labelled, non-stand-in reference."""
+    import depth
+    import depth_at_detection as dad
+    import fuse_sites as fs
+    from test_depth import build_payload, tilted_ground
+
+    pw, ph = 512, 256
+    ground = tilted_ground(0.1, bearing=35.0, height=2.5)
+    patch = tilted_ground(0.05, bearing=80.0, height=2.35)
+    idx = [depth.SKY] * (pw * ph)
+    for r in range(ph // 2, ph):
+        for c in range(pw):
+            idx[r * pw + c] = 1
+    rows, cols = range(150, 170), range(100, 140)
+    for r in rows:
+        for c in cols:
+            idx[r * pw + c] = 2
+    pix = dad.PayloadIndex(depth.parse(build_payload(pw, ph, [(0, 0, 1, 1), ground, patch],
+                                                     idx)))
+    names = list(fw.COLLAPSE)
+    tiled = np.full((fw.GRID_H, fw.GRID_W), names.index('Sky'), dtype=np.uint8)
+    tiled[fw.GRID_H // 2:] = names.index('Road')
+    tiled[300:340, 200:280] = names.index('Sidewalk')
+    pano = fs.SlimPano(pano_id='t', lat=0.0, lng=0.0, camera_heading=0.0, camera_pitch=None,
+                       camera_roll=None, capture_date=None, source='launch', detections=[])
+    ctx = fw.new_ctx()
+    row, curb = fw.compare_pano(pix, pano, tiled, {a: tiled for a in fw.DIRECT_ARMS}, names,
+                                fw.collapse_table(dict(enumerate(names))), ctx)
+    floor, gnd = fw.DEPTH_CLASSES.index(dad.FLOOR), fw.DEPTH_CLASSES.index(dad.GROUND)
+    walk, road = fw.SEG_GROUPS.index(fw.WALK), fw.SEG_GROUPS.index(fw.ROAD)
+    assert ctx['agree'][floor, walk].sum() == len(rows) * len(cols)
+    assert ctx['agree'][gnd, walk].sum() == 0
+    assert ctx['agree_mirror'][floor, walk].sum() == 0          # patch mirrored off the label
+    assert ctx['agree_mirror'][floor, road].sum() == len(rows) * len(cols)
+    sw = [c for c in curb if c['group'] == 'sidewalk']
+    assert len(sw) == len(rows) * len(cols)
+    assert all(c['ref_group'] == fw.ROAD and not c['standin_ref'] for c in sw)
+    assert np.median([c['offset_local_m'] for c in sw]) == pytest.approx(0.15, abs=0.02)
+    ind = fw.payload_indices(pix.payload)
+    assert fw.reference_plane(pix, ind, 169, 120, 1) is pix.payload.planes[1]
+    assert fw.reference_plane(pix, ind, 169, 120, None) is None
+
+
+def test_kappa_and_headline_lift():
+    m = np.zeros((len(fw.DEPTH_CLASSES), len(fw.SEG_GROUPS)))
+    s, wall = fw.DEPTH_CLASSES.index('ground'), fw.DEPTH_CLASSES.index('non_horizontal')
+    m[s, fw.SEG_GROUPS.index(fw.ROAD)] = 90
+    m[wall, fw.SEG_GROUPS.index(fw.STRUCTURE)] = 10
+    h = fw.headline_stats(m)
+    assert h['kappa'] == pytest.approx(1.0)
+    assert h['lift_walkroad_given_surface'] == pytest.approx(1 / 0.9)
+    m2 = np.zeros_like(m)                       # independent: kappa 0
+    m2[s, fw.SEG_GROUPS.index(fw.ROAD)] = 81
+    m2[s, fw.SEG_GROUPS.index(fw.STRUCTURE)] = 9
+    m2[wall, fw.SEG_GROUPS.index(fw.ROAD)] = 9
+    m2[wall, fw.SEG_GROUPS.index(fw.STRUCTURE)] = 1
+    assert fw.headline_stats(m2)['kappa'] == pytest.approx(0.0, abs=1e-12)
