@@ -402,3 +402,16 @@ def test_pose_group_splits_tilt_zeros_absent():
     assert rr.pose_group(replace(pano, camera_pitch=None, camera_roll=None)) == 'absent'
     assert rr.pose_group(replace(pano, camera_pitch=0.0, camera_roll=0.0)) == 'zeros'
     assert rr.pose_group(replace(pano, camera_pitch=-3.2, camera_roll=0.0)) == 'tilt'
+
+
+def test_sigma_gps_fit_recovers_a_wider_position_scatter():
+    """#57: views scattered with the model's own pitch but 3 m more position error per
+    axis read too tight, and the GPS fit hands back ~hypot(3, 3) m."""
+    sites = _noisy_views(2000, sigma_pitch_true_deg=1.5)
+    import random
+    rng = random.Random(1)
+    wide = [replace(sv, views=[replace(v, e=v.e + rng.gauss(0, 3.0), n=v.n + rng.gauss(0, 3.0))
+                               for v in sv.views]) for sv in sites]
+    assert rr.pooled_chi2_dof(wide) > 1.3
+    got = rr.sigma_gps_for_target(wide)
+    assert got == pytest.approx(math.hypot(3.0, 3.0), abs=0.4)

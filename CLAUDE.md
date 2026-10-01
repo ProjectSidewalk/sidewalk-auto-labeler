@@ -35,6 +35,28 @@ python main.py example_geojson/richmond.geojson --name richmond --source mapilla
 
 # ...or on Panoramax (federated open imagery, no token; coverage is mostly France today)
 python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
+# PANORAMAX MEASURED (issue #57 part 1; docs/panoramax-bayonne.md). Bayonne ran in full at
+# --thin-spacing 10 (rule: 10 m if the scan-only estimate > 16 h; it printed 21.1 h at 5 m):
+# 73,161 in-area pictures -> 28,634 thinned -> 28,524 processed, 0 failed, 6.7 h on the A40.
+# 104 of the 110 skips are GoPro MAX2 uploads whose `hd` image is a vertically CROPPED equirect
+# (declared 7680x3840, served 7680x2940) -- correctly skipped, not recovered. 0.135 detections
+# per pano at 0.55 (Richmond 1.05) -- unexplained until GT. The municipal rig burns a white logo
+# band from y 0.791 (dip 52.4 deg), inside the nadir mask (2 of 10,011 stored detections there).
+# ERROR MODEL: the leave-one-out residual gained a normalized form (`chi2` = r'S^-1 r, S = the
+# view's cov_en + the held-out solution's covariance; `--fit-sigma-pitch TARGET` also solves
+# sigma_pitch and sigma_gps for a chi2/dof target). MAPILLARY_ERRORS reads chi2/dof 0.18-0.43 on
+# the five Mapillary runs (its 3 m GPS term is invisible to a leave-one-out when a site's views
+# share their position error), so the pre-registered rule was re-anchored on Richmond (0.269)
+# before Bayonne was read. Bayonne: 0.580 at 0.55 (0.584 at 0.30), m p50 3.66 vs Richmond 1.95
+# -> TOO TIGHT. No sigma_pitch <= 15 deg fixes it: the residual is flat in range (position
+# error, not tilt or heading); exploratory sigma_gps ~4.7 m matches Richmond. NOT adopted --
+# error_model_for('panoramax') is still MAPILLARY_ERRORS until GT (eval_sites) and a 5 m run.
+# Pose: applying pers:pitch/roll LOOSENS same-site spread in every sign convention (real-tilt
+# members p90 7.6 -> 10.0-11.3 m), so Panoramax stays flat. GT: the RampNet bundle (125 panos,
+# 5 top / 95 random / 25 empty, reconcile 1:1) awaits review; scripts/run_census.py is the census.
+python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
+python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse \
+    --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
 
 # GSV runs end with a gap-fill phase (issue #32): link-target panos the run's own
 # records reference but the tile scan never enumerated (coverage churn) are fetched

@@ -270,10 +270,18 @@ def with_sigma_pitch(v, sigma_pitch_rad, camera_height):
     return replace(v, cov=g.cov_en(old.sigma_gps_m), sigma_along_m=math.sqrt(max(sa2, 0.0)))
 
 
-def pooled_chi2_dof(sites, heights=None, sigma_pitch_rad=None):
+def with_sigma_gps(v, sigma_gps_m):
+    """The view with its covariance rebuilt under another (isotropic) sigma_gps, every
+    other sigma and the association fixed."""
+    g = geo.GroundEstimate(0.0, 0.0, v.range_m, v.bearing_deg, v.sigma_along_m,
+                           v.sigma_cross_m)
+    return replace(v, cov=g.cov_en(sigma_gps_m))
+
+
+def pooled_chi2_dof(sites, heights=None, sigma_pitch_rad=None, sigma_gps_m=None):
     """Pooled leave-one-out chi2 / dof over every site with >= MIN_VIEWS views; with
-    sigma_pitch_rad, under that sigma_pitch instead of the error model's (heights:
-    {pano_id: camera height the view was raycast at})."""
+    sigma_pitch_rad (or sigma_gps_m), under that sigma instead of the error model's
+    (heights: {pano_id: camera height the view was raycast at})."""
     total, n = 0.0, 0
     for sv in sites:
         views = sv.views
@@ -282,26 +290,48 @@ def pooled_chi2_dof(sites, heights=None, sigma_pitch_rad=None):
         if sigma_pitch_rad is not None:
             views = [with_sigma_pitch(v, sigma_pitch_rad, heights[v.pano_id])
                      for v in views]
+        if sigma_gps_m is not None:
+            views = [with_sigma_gps(v, sigma_gps_m) for v in views]
         for v, (held, lam_i) in zip(views, leave_one_out(views)):
             total += loo_chi2(v, held, lam_i)
             n += 1
     return None if not n else total / (2.0 * n)
 
 
-def sigma_pitch_for_unit_chi2(sites, heights, hi_deg=15.0):
-    """The sigma_pitch (deg) that brings pooled chi2/dof to 1 with every other sigma
-    fixed, by bisection (chi2/dof falls monotonically as sigma_pitch grows). None when
-    even sigma_pitch = 0 leaves chi2/dof <= 1 (the model is already loose without it),
-    and '>hi' when hi_deg is not enough."""
+def sigma_pitch_for_unit_chi2(sites, heights, hi_deg=15.0, target=1.0):
+    """The sigma_pitch (deg) that brings pooled chi2/dof to `target` (1 for a model whose
+    every term the leave-one-out residual can see) with every other sigma fixed, by
+    bisection (chi2/dof falls monotonically as sigma_pitch grows). None when even
+    sigma_pitch = 0 leaves chi2/dof <= target (the model is already loose without it),
+    and '>hi' when hi_deg is not enough. A target below 1 is the calibrated reading
+    when part of the model is invisible to the instrument -- e.g. GPS error shared by
+    every view of a site from one sequence (docs/panoramax-bayonne.md)."""
     f = lambda deg: pooled_chi2_dof(sites, heights, math.radians(deg))
-    if f(0.0) is None or f(0.0) <= 1.0:
+    if f(0.0) is None or f(0.0) <= target:
         return None
-    if f(hi_deg) > 1.0:
+    if f(hi_deg) > target:
         return f'>{hi_deg:g}'
     lo, hi = 0.0, hi_deg
     for _ in range(30):
         mid = 0.5 * (lo + hi)
-        lo, hi = (mid, hi) if f(mid) > 1.0 else (lo, mid)
+        lo, hi = (mid, hi) if f(mid) > target else (lo, mid)
+    return round(0.5 * (lo + hi), 3)
+
+
+def sigma_gps_for_target(sites, target=1.0, hi_m=15.0):
+    """The sigma_gps (m) that brings pooled chi2/dof to `target` with every other sigma
+    fixed (#57, exploratory: when the residual is flat in range, position error -- not
+    pitch -- is the term that is off). Same bisection and return conventions as
+    sigma_pitch_for_unit_chi2."""
+    f = lambda m: pooled_chi2_dof(sites, sigma_gps_m=m)
+    if f(0.0) is None or f(0.0) <= target:
+        return None
+    if f(hi_m) > target:
+        return f'>{hi_m:g}'
+    lo, hi = 0.0, hi_m
+    for _ in range(30):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if f(mid) > target else (lo, mid)
     return round(0.5 * (lo + hi), 3)
 
 
@@ -1276,10 +1306,10 @@ def city_report(city, provenance, summaries, slopes, gt_rows_summary, gt_counts)
         lines.append(f'- **{label}**: {prov}')
     lines += ['', '## GT-free (leave one view out, sites with >= 3 operational views)', '',
               '| height | views | sites | px p50 | px p90 | m p50 | m p90 | along median m '
-              '| chi2/dof | chi2/dof (median) | sigma_pitch at chi2/dof 1 (deg) |',
+              '| chi2/dof | chi2/dof (median) | sigma_pitch at the chi2/dof target (deg) |',
               '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|']
     for s in summaries:
-        sp = s.get('sigma_pitch_deg_at_chi2_1')
+        sp = s.get('sigma_pitch_deg_at_chi2_target')
         lines.append(f"| {s['height_model']} | {s['n_views']} | {s['n_sites']} | "
                      f"{_fmt(s['px_p50'])} | {_fmt(s['px_p90'])} | {_fmt(s['dist_m_p50'])} | "
                      f"{_fmt(s['dist_m_p90'])} | {_fmt(s['along_m_median'])} | "
@@ -1319,11 +1349,11 @@ def load_rigs(results_path):
 
 
 def run_city(city, run_dir, heights, benchmark_root, split, force_refuse=False,
-             min_confidence=BENCHMARK_CONFIDENCE, fit_sigma_pitch=False):
+             min_confidence=BENCHMARK_CONFIDENCE, fit_sigma_pitch=None):
     """Everything for one run. Returns a dict of row lists + report text.
 
-    fit_sigma_pitch adds sigma_pitch_for_unit_chi2 to the summary row (#57): a few
-    dozen leave-one-out passes over the sites, so it is opt-in."""
+    fit_sigma_pitch (a chi2/dof target, or None) adds sigma_pitch_for_unit_chi2 to the
+    summary row (#57): a few dozen leave-one-out passes over the sites, so it is opt-in."""
     need_heights = any(h == geo.PER_PANO for h in heights)
     panos, _skipped = fs.load_results(run_dir / 'results.jsonl', read_heights=need_heights)
     by_id = {p.pano_id: p for p in panos}
@@ -1349,9 +1379,13 @@ def run_city(city, run_dir, heights, benchmark_root, split, force_refuse=False,
         result['views'] += rows
         summary = summarize_rows(rows, {'city': city, 'height_model': label,
                                         'min_confidence': min_confidence})
-        if fit_sigma_pitch:
+        if fit_sigma_pitch is not None:
             used = {r['pano_id']: r['camera_height_m'] for r in rows}
-            summary['sigma_pitch_deg_at_chi2_1'] = sigma_pitch_for_unit_chi2(sites, used)
+            summary['chi2_target'] = fit_sigma_pitch
+            summary['sigma_pitch_deg_at_chi2_target'] = sigma_pitch_for_unit_chi2(
+                sites, used, target=fit_sigma_pitch)
+            summary['sigma_gps_m_at_chi2_target'] = sigma_gps_for_target(
+                sites, target=fit_sigma_pitch)
         result['summary'].append(summary)
         result['breakdown'] += breakdowns(rows)
         result['slopes'] += scale_table(city, label, sites, rows)
@@ -1392,9 +1426,10 @@ def main():
     ap.add_argument('--min-confidence', type=float, default=BENCHMARK_CONFIDENCE,
                     help='fusion tier (default the benchmark tier, 0.55, which GT joins '
                          'need; any other value writes reprojection_t<tier>/ dirs)')
-    ap.add_argument('--fit-sigma-pitch', action='store_true',
-                    help='also report the sigma_pitch that brings pooled chi2/dof to 1 '
-                         '(#57; every other sigma fixed)')
+    ap.add_argument('--fit-sigma-pitch', type=float, nargs='?', const=1.0, default=None,
+                    metavar='TARGET',
+                    help='also report the sigma_pitch that brings pooled chi2/dof to '
+                         'TARGET (default 1; #57; every other sigma fixed)')
     args = ap.parse_args()
     sub = ('reprojection' if args.min_confidence == BENCHMARK_CONFIDENCE
            else f'reprojection_t{args.min_confidence:g}')
