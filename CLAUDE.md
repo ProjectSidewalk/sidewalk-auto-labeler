@@ -56,7 +56,7 @@ python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
 # populations read 0.18-0.50 (Richmond's GoPro Max views 0.499, Laurens 0.431, Morgantown 0.177),
 # and Bayonne sites are small (3 views / 2 sequences vs Richmond's 7 / 4, 10 m thinning), so it
 # cannot be separated from a single-consumer-rig or site-size effect. The excess is ACROSS the ray
-# (rig-matched vs Richmond's GoPro Max: along-ray +0.4..-0.9 m, cross-ray a flat +0.8-1.0 m), not
+# (vs Richmond's GoPro Max views re-solved alone: along-ray +0.5..-0.5 m, cross-ray +0.6-1.0 m), not
 # pitch: no sigma_pitch <= 15 deg fixes it. Calibrated sigma_gps: Bayonne 2.16 m vs Richmond 1.11,
 # Richmond GoPro Max 1.81, Laurens 1.74, Morgantown 0.80. NOTHING adopted -- error_model_for(
 # 'panoramax') stays MAPILLARY_ERRORS until GT (eval_sites) and a 5 m run. Pose: pers:pitch/roll

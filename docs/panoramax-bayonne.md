@@ -39,9 +39,10 @@ must be qualified
 > 2. **The excess is across the ray, not along it, so it is not tilt.**
 >    - Against all of Richmond, Bayonne's residual is a near-constant +1.2 to +2.2 m in
 >      every range bin.
->    - Against Richmond's GoPro Max views (rig-matched), the along-ray excess vanishes
->      (+0.4 to −0.9 m). A flat **+0.8 to +1.0 m across the ray** remains: position,
->      with some heading error possible.
+>    - Against Richmond's GoPro Max views, re-solved from GoPro Max views only
+>      (rig-matched), there is no consistent along-ray excess (+0.5 / −0.2 / −0.5 /
+>      +0.2 m by range bin). A **+0.6 to +1.0 m excess across the ray** remains:
+>      position, with some heading error possible.
 >    - The leave-one-out-calibrated `sigma_gps` is 2.16 m, against 1.11 m for Richmond
 >      overall. Against the GoPro Max populations it is 1.81 m (Richmond's GoPro Max
 >      views), 1.74 m (Laurens) and 0.80 m (Morgantown). All of them sit under
@@ -86,7 +87,7 @@ pre-thinning count ([#126](https://github.com/ProjectSidewalk/sidewalk-auto-labe
 
 - **104** are GoPro **MAX2** uploads on the OSM-FR instance. Each declares 7680x3840 but
   serves a 7680x2940, vertically cropped `hd` image. The 2:1 check rejects them, which is
-  correct ([Figure 7c](figures/panoramax-bayonne/fig7c_max2_skip.png)).
+  correct ([Figure 7c](figures/panoramax-bayonne/fig7c_max2_skip.jpg)).
 - **3** have no `view:azimuth`, which is also correct.
 - **3** IGN panos (`139d37d3-…`, `1f8be062-…`, `2c902fc4-…`) have metadata and pixels
   that are fine today. main.py does not log per-pano skip reasons, and two causes fit:
@@ -114,7 +115,7 @@ The six runs at 0.55 ([Figure 5](figures/panoramax-bayonne/fig5_detections.png))
 0.123, **Bayonne 0.135**, Laurens 0.158, Morgantown 0.203, Annapolis 0.548, Richmond 1.048.
 Bayonne is inside the Mapillary range.
 
-[Figure 7d](figures/panoramax-bayonne/fig7d_crops.png) zooms in on 12 bundle detections.
+[Figure 7d](figures/panoramax-bayonne/fig7d_crops.jpg) zooms in on 12 bundle detections.
 They are lowered kerbs at crossings, and one tactile strip. Whether French kerb lowerings
 are under-detected is still a question for ground truth. Four of the five comparators
 predate the storage floor, so their 0.30 tier is their 0.55 tier.
@@ -125,7 +126,7 @@ the rig mask (`NADIR_MASK_DEG` = 49°, y ≥ 0.772).
 
 - Detections in the band: **2 of 10,011** at 0.30 and **0 of 3,861** at 0.55.
 - Detections on the rig (dip ≥ 49°): 9 at 0.30, 1 at 0.55.
-- [Figure 7a](figures/panoramax-bayonne/fig7a_contact_sheet.png) shows the band and the
+- [Figure 7a](figures/panoramax-bayonne/fig7a_contact_sheet.jpg) shows the band and the
   mask line. One random pano carries a different, green band from another producer.
 
 **Position check** (`runs/bayonne/position_check.json`): median cross-track to OSM
@@ -205,8 +206,9 @@ cancellation either way (`views_per_site_p50` in the CSV):
 
 The share of same-site view pairs that come from one sequence (`data/fig3_pair_share.csv`)
 is 0.19 in Richmond, 0.36 in Annapolis, 0.37 in Bayonne, 0.40 in Laurens, 0.47 in
-Morgantown and 0.49 in Clovis. It is not a minority everywhere. The Richmond and
-Annapolis shares were measured before the amendment and not disclosed then.
+Morgantown and 0.49 in Clovis. It is below half in every run (0.19-0.49), but well
+above Richmond's 0.19 elsewhere. The Richmond and Annapolis shares were measured before
+the amendment and not disclosed then.
 
 So the rule stands, but the stated reason for it is replaced by measured numbers. The
 `sigma_gps` that brings chi²/dof to **1** (`data/fig2b_sigma_gps.csv`) is:
@@ -262,9 +264,16 @@ and its metre clause fails.
 - **The metre excess is roughly constant across range bins.** Against all of Richmond it
   is +2.2 / +1.6 / +1.2 / +1.8 m (0-8 / 8-12 / 12-18 / 18-25 m). A pitch error would
   grow with range.
-- **Rig-matched, the excess sits across the ray.** Against Richmond's GoPro Max views,
-  the along-ray difference is +0.4 / −0.3 / −0.9 / −0.1 m, while the cross-ray excess is
-  a flat +0.8 / +0.8 / +1.0 / +0.9 m.
+- **Rig-matched, the excess sits across the ray.** The reference is Richmond's GoPro
+  Max views re-solved from GoPro Max views only (`_rig_sites`), so each is held out
+  against GoPro Max mates, as Bayonne's are. Against it, the along-ray difference is
+  +0.5 / −0.2 / −0.5 / +0.2 m, while the cross-ray excess is +0.6 / +0.8 / +1.0 / +0.7 m.
+  - Bins hold 128-346 views.
+  - An earlier version only filtered the mixed-rig solution, so those views were held
+    out against mostly iSTAR Pulsar mates. It read along +0.4 / −0.3 / −0.9 / −0.1 and
+    cross +0.8 / +0.8 / +1.0 / +0.9.
+  - Re-solving narrows the cross-ray gap at the two outer bins and removes the along-ray
+    deficit at long range. The reading is unchanged.
   - A range-independent cross-ray offset is camera position.
   - Heading error would grow with range: the cross-ray part grows only 1.66 to 1.95 m over
     a ~16 m span, which bounds heading at about 1° or less.
@@ -390,7 +399,7 @@ at 1.90 panos/s.
 | 9 | `python scripts/panoramax_bayonne_figures.py examples` → `data/examples/` (7a thumbnails; 7c, the first cropped-MAX2 skip by pano id) | net | 1 min |
 | 10 | `python scripts/export_benchmark.py runs/bayonne/results.jsonl --bundle D:/Git/labeler-wt/bayonne-bundle --sample 100 --empty-sample 25` | net | 1.5 min |
 | 11 | `python scripts/panoramax_bayonne_figures.py crops` → `data/examples/crops/` + `crops.csv` (from the bundle) | — | 10 s |
-| 12 | `python scripts/panoramax_bayonne_figures.py figures` → `fig*.png` (+ `.svg` for figures 1-5 and 7b) | — | 30 s |
+| 12 | `python scripts/panoramax_bayonne_figures.py figures` → `fig*.png` / `.jpg` (+ `.svg` for figures 1-5 and 7b) | — | 30 s |
 | 13 | on makelab2, `bayonne_archive.sh`: `export_benchmark.py runs/bayonne/results.jsonl --out runs/bayonne/panos` | net | 4.2 h |
 
 - **Step 2** must keep `--thin-spacing 10`. The manifest does not record it (#126); the
@@ -398,10 +407,12 @@ at 1.90 panos/s.
 - **Step 5's** `bayonne_report.md` copies under `data/reprojection*/` are that step's
   per-city `report.md`, copied by hand.
 - **Step 12** reads only the committed `data/`. It is byte-reproducible for the listed
-  versions: it was run twice and every PNG and SVG hashed identical. SVGs are written
+  versions: it was run twice and every PNG, JPEG and SVG hashed identical. SVGs are written
   with LF line endings, and `.gitattributes` keeps them LF.
-- **Figure formats.** The photo and map figures (6, 7a, 7c, 7d) are PNG only, at 200 dpi
-  with an adaptive 256-colour palette. An SVG would embed the photos a second time.
+- **Figure formats.** Figures 1-5 and 7b are PNG + SVG. The map (6) is PNG with a
+  deterministic 256-colour palette. The photo figures (7a, 7c, 7d) are quality-92 JPEGs
+  (4:4:4) rendered from the same 200 dpi raster: a palette posterised the photos, and an
+  SVG would embed them a second time.
 
 **Committed vs regenerated.**
 
@@ -447,12 +458,12 @@ at 1.90 panos/s.
 | # | question it answers | file |
 |---|---|---|
 | 1 | Is Bayonne outside the Richmond-anchored band? Marginally: 8% over the bar, 1.16x Richmond's GoPro Max views (CIs just separate). | [fig1_verdict](figures/panoramax-bayonne/fig1_verdict.png) |
-| 2 | Tilt or position? Rig-matched, the excess is a flat 0.8-1.0 m across the ray. Scatter is 2x Richmond's and 1.2x its and Laurens' GoPro Max views. | [fig2_position](figures/panoramax-bayonne/fig2_position.png) |
+| 2 | Tilt or position? Rig-matched (re-solved), the excess is 0.6-1.0 m across the ray. Scatter is 2x Richmond's and 1.2x its and Laurens' GoPro Max views. | [fig2_position](figures/panoramax-bayonne/fig2_position.png) |
 | 3 | Does same-sequence error cancel? Not established: the anchor reads the opposite way. | [fig3_seqsplit](figures/panoramax-bayonne/fig3_seqsplit.png) |
 | 4 | Apply the reported pose? No: every sign convention loosens. | [fig4_pose](figures/panoramax-bayonne/fig4_pose.png) |
 | 5 | Is the detection rate anomalous? No: it is inside the Mapillary range. | [fig5_detections](figures/panoramax-bayonne/fig5_detections.png) |
 | 6 | What did the run cover? Census and map. | [fig6_census](figures/panoramax-bayonne/fig6_census.png) |
-| 7a-d | What do the panos, a site, a MAX2 skip and the detections themselves look like? | [7a](figures/panoramax-bayonne/fig7a_contact_sheet.png), [7b](figures/panoramax-bayonne/fig7b_site_plan.png), [7c](figures/panoramax-bayonne/fig7c_max2_skip.png), [7d](figures/panoramax-bayonne/fig7d_crops.png) |
+| 7a-d | What do the panos, a site, a MAX2 skip and the detections themselves look like? | [7a](figures/panoramax-bayonne/fig7a_contact_sheet.jpg), [7b](figures/panoramax-bayonne/fig7b_site_plan.png), [7c](figures/panoramax-bayonne/fig7c_max2_skip.jpg), [7d](figures/panoramax-bayonne/fig7d_crops.jpg) |
 
 **Colour key across figures:** blue is Bayonne, orange is a GoPro Max population, and
 grey is other or mixed rigs.
@@ -467,9 +478,9 @@ Alt text, in order:
 1. Dot plot of chi²/dof and median residual for eight rows. Bayonne at 0.58 sits just
    above the shaded 0.13-0.54 band. Richmond's GoPro Max views (0.50) and Laurens (0.43)
    sit just inside it, Morgantown (GoPro Max) at 0.18, and other rigs near 0.2.
-2. Three line panels by range: Bayonne, all of Richmond, and Richmond's GoPro Max views.
-   Bayonne tracks Richmond's GoPro Max along the ray but sits about 0.9 m above it across
-   the ray. A dot plot shows calibrated `sigma_gps` from 0.74 m (Annapolis) to 2.16 m
+2. Three line panels by range: Bayonne, all of Richmond, and Richmond's GoPro Max views
+   re-solved on their own. Bayonne tracks Richmond's GoPro Max along the ray but sits
+   0.6-1.0 m above it across the ray. A dot plot shows calibrated `sigma_gps` from 0.74 m (Annapolis) to 2.16 m
    (Bayonne), with the GoPro Max populations at 0.80, 1.74 and 1.81 m, all left of the
    3 m line.
 3. Paired dots per run: chi²/dof for held-out views whose site-mates are all from the

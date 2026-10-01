@@ -212,10 +212,16 @@ def cmd_data(args):
         _write('fig1_verdict.csv', fig1)
 
     # fig2a: residual by range bin -- Bayonne, Richmond (all views) and Richmond's GoPro
-    # Max views (the rig-matched reference)
+    # Max views RE-SOLVED on their own (_rig_sites: each held out against GoPro Max mates
+    # only, as Bayonne's are), the rig-matched reference
     fig2a = []
     for c, subset in ((CITY, 'all'), ('richmond', 'all'), ('richmond', 'GoPro Max')):
-        rows = [r for r in loaded[c][4] if subset == 'all' or r['camera_model'] == subset]
+        if subset == 'all':
+            rows = loaded[c][4]
+        else:
+            _, by_id, sites, frame, _, rigs = loaded[c]
+            rows = rr.gtfree_rows(c, '2.6m', _rig_sites(sites, rigs, subset), frame, by_id,
+                                  HEIGHT, rigs)
         for b in RANGE_BINS:
             grp = [r for r in rows if rr._range_bucket(r['range_m']) == b]
             point, ci = _boot(grp, _stats)
@@ -620,12 +626,24 @@ def _style():
     return plt
 
 
-def _save(fig, name, svg=True, svg_dpi=72, quantize=False):
+def _save(fig, name, svg=True, svg_dpi=72, quantize=False, jpeg=False):
     """PNG (200 dpi) + SVG, with no timestamps. The SVG goes through a buffer and is
     written with '\n' line endings, so it is byte-identical across platforms (the repo's
     .gitattributes keeps *.svg as LF). Photo figures pass svg=False: an SVG would embed the
     photos a second time. Rasterized artists (the 28k-point map) go in at svg_dpi."""
     OUT.mkdir(parents=True, exist_ok=True)
+    if jpeg:
+        # photo figures: a 256-colour palette posterises the photos, so these go out as a
+        # quality-92 JPEG (4:4:4) rendered from the same 200 dpi raster; PIL's encoder is
+        # deterministic for fixed input and settings
+        from PIL import Image
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=200, bbox_inches='tight',
+                    metadata={'Software': None})
+        Image.open(io.BytesIO(buf.getvalue())).convert('RGB').save(
+            OUT / f'{name}.jpg', quality=92, subsampling=0)
+        print(f'wrote {OUT / name}.jpg')
+        return
     if quantize:
         # photo/dense figures: an adaptive 256-colour palette (median cut, Floyd-Steinberg),
         # deterministic, a third of the size of a truecolour PNG
@@ -728,7 +746,7 @@ def fig2(plt):
     gs = fig.add_gridspec(2, 3, height_ratios=[1, 0.95], hspace=0.45)
     x = list(range(len(RANGE_BINS)))
     series = ((CITY, 'all', BLUE, 'Bayonne'), ('richmond', 'all', MUTED, 'Richmond, all'),
-              ('richmond', 'GoPro Max', ORANGE, 'Richmond, GoPro Max'))
+              ('richmond', 'GoPro Max', ORANGE, 'Richmond, GoPro Max (re-solved)'))
     for k, (key, title) in enumerate((('m_p50', 'total |residual|'),
                                       ('along_p50', '|along-ray|'),
                                       ('cross_p50', '|cross-ray|'))):
@@ -776,7 +794,7 @@ def fig2(plt):
     ax.set_xlabel('sigma_gps that brings leave-one-out chi²/dof to 1, every other sigma '
                   'fixed (m; 95% CI, 200 site resamples). Orange: GoPro Max populations')
     ax.set_title('Calibrated between-view position scatter (sites re-solved per population)')
-    fig.suptitle('Figure 2. Tilt or position? Rig-matched, the excess is a flat 0.8-1.0 m across '
+    fig.suptitle('Figure 2. Tilt or position? Rig-matched, the excess is a flat 0.6-1.0 m across '
                  'the ray; scatter 2x Richmond\'s, 1.2x its and Laurens\' GoPro Max views',
                  x=0.01, ha='left', fontsize=11.5, fontweight='bold')
     _save(fig, 'fig2_position')
@@ -814,7 +832,7 @@ def fig3(plt):
                               label='no site-mate from its sequence')],
               loc='upper center', fontsize=8.5, bbox_to_anchor=(0.45, -0.13), ncol=2)
     ax.set_xlabel('leave-one-out chi²/dof of the held-out views (95% site-bootstrap CI). '
-                  'The two groups also differ in site size.')
+                  'In Richmond and Annapolis the two groups also differ in site size.')
     ax.set_xlim(0, 1.25)
     ax.set_xticks([0, 0.2, 0.4, 0.6, 0.8])
     ax.set_title('Figure 3. Does same-sequence error cancel in the leave-one-out? Not '
@@ -1003,7 +1021,7 @@ def fig7(plt):
              '(etalab-2.0 = Licence Ouverte / Etalab 2.0; CC-BY-SA-4.0).', fontsize=8.5,
              color=INK2)
     fig.subplots_adjust(left=0.01, right=0.99, top=0.92, bottom=0.02)
-    _save(fig, 'fig7a_contact_sheet', svg=False, quantize=True)
+    _save(fig, 'fig7a_contact_sheet', svg=False, jpeg=True)
 
     site = _read('fig7b_site.csv')
     s = next(r for r in site if r['kind'] == 'site')
@@ -1061,7 +1079,7 @@ def fig7(plt):
     ax.text(0, dh + 260, f"Imagery: © {m['producer']} via Panoramax "
             f"(panoramax.openstreetmap.fr), {m['license']}", fontsize=8, color=INK2)
     fig.tight_layout()
-    _save(fig, 'fig7c_max2_skip', svg=False, quantize=True)
+    _save(fig, 'fig7c_max2_skip', svg=False, jpeg=True)
     fig7d(plt)
 
 
@@ -1090,7 +1108,7 @@ def fig7d(plt):
                  '(seed 57), zoomed to 20° x 15°',
                  x=0.01, ha='left', fontsize=11.5, fontweight='bold')
     fig.subplots_adjust(left=0.01, right=0.99, top=0.9, bottom=0.1)
-    _save(fig, 'fig7d_crops', svg=False, quantize=True)
+    _save(fig, 'fig7d_crops', svg=False, jpeg=True)
 
 
 def cmd_figures(_args):

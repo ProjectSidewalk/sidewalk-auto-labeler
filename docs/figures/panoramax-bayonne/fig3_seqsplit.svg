@@ -113,7 +113,7 @@ L 552.0331 21.558281
      </g>
     </g>
     <g id="text_6">
-     <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #52514e" x="479.77875" y="317.753297" transform="rotate(-0 479.77875 317.753297)">leave-one-out chi²/dof of the held-out views (95% site-bootstrap CI). The two groups also differ in site size.</text>
+     <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #52514e" x="479.77875" y="317.753297" transform="rotate(-0 479.77875 317.753297)">leave-one-out chi²/dof of the held-out views (95% site-bootstrap CI). In Richmond and Annapolis the two groups also differ in site size.</text>
     </g>
    </g>
    <g id="matplotlib.axis_2">
