@@ -540,7 +540,9 @@ python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/di
 python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/direct4096     --out runs/_pooled/footway/work/direct4096_labels --target 1024x512 --fp16 --batch-size 1   # 5.7 GiB
 python scripts/footway_segmentation.py stitch  --run-root <runs> --benchmark-root ../RampNet/benchmark
 python scripts/footway_segmentation.py compare --run-root <runs> --benchmark-root ../RampNet/benchmark
-python scripts/footway_segmentation.py figures --run-root <runs> --benchmark-root ../RampNet/benchmark
+python scripts/footway_segmentation.py examples --run-root <runs> --benchmark-root ../RampNet/benchmark  # example panels
+python scripts/footway_segmentation.py figures   # COMMITTED files only: byte-reproducible figures + data/numbers.csv
+#   (every quoted number re-read from its committed file and checked) -- no GPU, network or work/ needed
 
 # POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
 # remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no

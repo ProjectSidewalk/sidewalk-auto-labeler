@@ -7,7 +7,7 @@ plane ~camera-height below". Disagreement is the interesting output either way.*
 **Date:** 2026-09-30, revised the same day after review of
 [#124](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/124) (§9). **Branch:** `footway-depth-47`.
 
-**Reproduce:** `scripts/footway_segmentation.py` produces every number and figure below (§8).
+**Reproduce:** `scripts/footway_segmentation.py` produces every number and figure below; the full replication recipe, input hashes and versions are in §8.
 
 **Tests:** `tests/test_footway_segmentation.py`, pure functions only; the model is never loaded. It covers:
 - the equirect/perspective tile mapping round trip, seam wrap, and the render-then-stitch recovery of a
@@ -29,6 +29,29 @@ readings before any GT-conditioned number was computed.
 
 **Builds on:** step 1, [docs/depth-at-detection-study.md](depth-at-detection-study.md). Its depth classes, plane
 lookup and `offset_local` are imported, not reimplemented.
+
+> **Key takeaways**
+>
+> 1. **Surface "agreement" between GSV depth and the segmenter is a base rate, not evidence.** P(WALK or ROAD | depth
+>    surface) is 0.897 against a marginal of 0.884, and a scrambled-depth null gives 0.894 / 0.895 (fig. 1;
+>    `data/headline.csv` columns `p_walkroad_given_surface`, `p_walkroad`, rows `city=pooled, range=le25m,
+>    weighting=pixels`, `depth_arm=correct/yaw180/mirror`).
+> 2. **The instruments do agree where depth is informative, on the walls.** P(STRUCTURE | depth wall) is 0.661
+>    against 0.415 / 0.470 under the nulls, and kappa is 0.250 against 0.169 / 0.188 (figs. 1 and 3;
+>    `headline.csv` `p_structure_given_wall`, `kappa`; `data/fig3_where_signal.csv` `lift`).
+> 3. **Depth draws the ground through objects.** 94.7% of segmenter-OBJECT pixels within 25 m sit on a depth floor
+>    plane, the same rate as a scrambled-depth null (93.5%), so depth has no object-shaped holes (figs. 1 and 2;
+>    `headline.csv` `p_surface_given_object`; `examples/objects.csv`).
+> 4. **Neither instrument is a false-positive filter at the peak pixel, and GSV depth has no curb step.** 2 of 42
+>    verdict-False detections are off WALK/ROAD, against 43 of 770 True (registered (C): NOT SUPPORTED). The
+>    sidewalk plane sits 0.022 m [0.014, 0.030] above the road (figs. 4 and 5; `data/verdict.json`
+>    `tiers.0.55.*`, `curb_height`; `data/curb_height.csv` `median_of_pano_medians`).
+> 5. **Feeding the equirect directly fails at the nadir, not at the ramps.** At the tiles' resolution the direct
+>    arm keeps Curb Cut (0.301 vs 0.271 tiled), but it labels 12% of the road under the car as SKY at
+>    −80..−70° (fig. 6; `data/detection_classes.csv` `share_curb_cut`; `data/trap.csv` `direct4096_share_SKY`).
+>
+> Every number in this document, the PR body, the CLAUDE.md block and the #47 comments is re-read from a
+> committed file by `figures` (`data/numbers.csv`, 204 checks, 0 mismatches; §10).
 
 ## 0. Summary
 
@@ -183,6 +206,16 @@ fp16 on the local RTX 3070 (torch 2.8.0+cu126, transformers 5.12.1).
 
   Both are read out on the same grid and compared over the pixels the tiled arm sees.
 
+![Three stacked panels for one Bend panorama: the equirect image with the 16 tile outlines drawn on it (blue for
+pitch 0, orange for pitch -35); a coverage map showing how many tiles see each pixel, with the zenith above +43 deg and
+the nadir below -79 deg in red; and the stitched label map in the collapsed classes.](figures/footway-depth/fig7_tiling.jpg)
+
+*Figure 7. The tiling covers everything from +43° down to −79°, and the stitched map is what every later number is
+read from.* (a) The first pano of `sample.csv` with the 16 tile footprints. (b) The number of tiles that see each
+grid pixel; red = none (the `NONE` label). (c) The stitched, collapsed label map. The geometry is computed by the
+same functions the tests pin (`tile_pixel_dirs`, `StitchGeometry`). Data: `examples/tiling.csv`,
+`examples/tiling/`.
+
 ### 4.3 Class collapse
 
 `COLLAPSE` in the script maps every Vistas name explicitly; an unmapped name refuses.
@@ -237,7 +270,7 @@ Under this partition an object standing on a depth floor plane counts *against* 
 
 ## 5. Findings
 
-### 5.1 RQ-A: agreement, against its base rate (`headline.csv`, `agreement.csv`; figs. 1–2)
+### 5.1 RQ-A: agreement, against its base rate (`headline.csv`, `agreement.csv`, `pano_counts_le25m.csv`; figs. 1–3)
 
 Pooled, within 25 m unless noted. NULL columns use pixel weighting.
 
@@ -279,14 +312,41 @@ Per city, within 25 m (correct / yaw180 / mirror):
   per city it sits within ~0.02 of the null either way, and bend's 0.957 is just below its 0.966 / 0.963), with a
   lift of 0.96 over the floor's marginal. Depth's floor runs under objects as if they were not there: it "draws the
   ground through objects", the issue's premise. OBJECT is 5.5% of the modelled surface within 25 m (7.1%
-  solid-angle weighted), rising with range from 2% at 0–5 m to 24% at 15–25 m (fig. 2). That share is what a
+  solid-angle weighted), rising with range from 2% at 0–5 m to 24% at 15–25 m (`data/derived_numbers.csv`). That share is what a
   segmenter adds.
 
-![fig1](figures/footway-depth/fig1_agreement.png)
+![Grouped bars for four statistics within 25 m, pooled: P(WALK or ROAD given depth surface), P(STRUCTURE given
+depth wall), P(depth surface given OBJECT) and Cohen's kappa. Each group shows the measured value in blue beside two
+gray null bars, with a dashed marginal line and bootstrap whiskers. Only the wall statistic and kappa stand clear of
+the nulls. A second row repeats the four statistics per city as dot-and-interval plots.](figures/footway-depth/fig1_base_rate.png)
 
-![fig2](figures/footway-depth/fig2_by_range.png)
+*Figure 1. Surface "agreement" is a base rate: scrambling depth's geometry leaves it unchanged, and only the walls
+and kappa carry signal.* The bars show the pooled pixel statistic within 25 m. Whiskers are 95% pano-bootstrap
+intervals (1,000 resamples, seed 47; the pano is the unit, because pixels inside a pano are not independent).
+Dashed lines are the marginal each conditional must be read against. Bottom row: per city. Data:
+`data/fig1_base_rate.csv` (point estimate and interval per scope, arm and statistic), from
+`runs/_pooled/footway/pano_counts_le25m.csv`.
 
-The matrix rows (fig. 1, all ranges):
+![Two heatmaps side by side of depth plane class (rows) against segmenter group (columns), row-normalised, within
+25 m. The left (measured) panel annotates each sizeable cell with its lift over the right panel, a 180-degree
+rotated depth null. Only the non_horizontal row's STRUCTURE cell rises clearly, at x1.59.](figures/footway-depth/fig3_where_signal.png)
+
+*Figure 3. The signal sits in the wall row; the floor rows barely move against the null.* These are row shares
+over below-horizon pixels within 25 m, pooled. Left cells carry the lift over the 180°-rotated null, shown where
+the share is ≥ 0.05 and the row has ≥ 10,000 pixels. Within 25 m, `no_plane` is a single pixel and
+`horizontal_nonfloor` 916. Data: `data/fig3_where_signal.csv`.
+
+![Contact sheet of 12 examples, each three panels wide: the photo crop, the segmenter overlay and the depth plane
+class overlay, with a red ring at the same point. Cars, a bus, a truck, people, vegetation, the camera car and poles
+are labelled OBJECT by the segmenter but sit on a depth floor or ground plane.](figures/footway-depth/fig2_objects_on_floor.jpg)
+
+*Figure 2. Depth draws the ground through objects: under each OBJECT the segmenter finds, depth reports a floor
+plane.* Selection rule (fixed, seed 47): for each of six OBJECT families (car; bus/truck; person; vegetation; camera
+car; pole), the 2 panos drawn from the 10 with the largest within-25 m component of that family on a depth floor
+plane. The ring is the component pixel nearest its centroid. Each crop is a 36°x27° equirect window. Data:
+`examples/objects.csv`; panels in `examples/objects/`.
+
+The matrix rows (`agreement.csv`, all ranges):
 - **The dominant ground plane** is 87% ROAD and 7% WALK.
 - **Secondary floor planes** are 66% ROAD, 12% WALK and 12% OBJECT. WALK makes up a larger share of secondary
   floors than of the dominant plane (11.8% vs 6.9% of seen pixels). In absolute terms, though, the sidewalk is
@@ -296,10 +356,10 @@ The matrix rows (fig. 1, all ranges):
 - **Steep planes** are 67% STRUCTURE.
 
 Where depth reports a wall and the segmenter a sidewalk (15% of wall pixels within 25 m, about half the nulls'
-28–34%), the fixed-rule gallery (§5.5, row 3) shows mostly **steeply sloped pavement**: São Paulo's sloped
+28–34%), the fixed-rule gallery (fig. 8, row 3) shows mostly **steeply sloped pavement**: São Paulo's sloped
 sidewalks, driveway aprons, a curb face.
 
-### 5.2 RQ-B: curb height (`curb_height.csv`; per-pano medians in `runs/_pooled/footway/curb_pano_medians.csv`, fig. 3)
+### 5.2 RQ-B: curb height (`curb_height.csv`; per-pano medians in `runs/_pooled/footway/curb_pano_medians.csv`; figs. 4, 4b)
 
 | reading | panos | median of pano medians [95% CI] | pixel p10 / median / p90 | share in [0.05, 0.30) |
 |---|---:|---|---|---:|
@@ -312,7 +372,22 @@ sidewalks, driveway aprons, a curb face.
 Positive means above the road. Per city, the registered Sidewalk reading is bend 0.031, paterson 0.024, gainesville
 0.020 and São Paulo 0.009. **Reading: not consistent with ~0.15 m.**
 
-![fig3](figures/footway-depth/fig3_curb_height.png)
+![Step histograms of per-pano median height above the local road: Sidewalk in blue and the Road control in orange.
+Both peak near zero, with medians 0.022 m and 0.008 m marked by vertical lines and narrow CI bands. The claimed curb
+band from 0.05 to 0.30 m is shaded, with a dashed line at 0.15 m.](figures/footway-depth/fig4_curb_height.png)
+
+*Figure 4. GSV depth carries no curb step: the sidewalk plane sits 0.022 m above the road, far below the claimed
+[0.05, 0.30) m band.* These are histograms of per-pano medians (stand-ins excluded, within 25 m). The vertical line
+and shading mark the median of pano medians and its 95% order-statistic CI. Data:
+`runs/_pooled/footway/curb_pano_medians.csv`, `data/curb_height.csv`.
+
+![Six example pairs, each a photo crop of sidewalk and the same crop with the depth plane class overlaid, with the
+single-pixel offset written in the corner: +0.058, -0.070, +0.199, -0.109, -0.183 and +0.050 m.](figures/footway-depth/fig4b_curb_examples.jpg)
+
+*Figure 4b. Single sidewalk pixels on their own floor plane read centimetres above or below the road, scattered by
+±0.2 m. The reading therefore uses per-pano medians.* Selection rule (fixed, seed 47): 6 panos drawn from the 30
+with the most Sidewalk-on-measured-floor pixels within 25 m. The ring is the pixel nearest the largest component's
+centroid that has a non-stand-in local reference. Data: `examples/curb.csv`.
 
 What the median does and does not cover:
 - **It covers only sidewalk on a secondary plane.** Sidewalk pixels on the dominant plane, shared with the road,
@@ -327,7 +402,7 @@ What the median does and does not cover:
 Sidewalk offsets do sit in the curb band more often than the road control's (34% vs 23%), so there is a faint
 step. But no reading puts the typical sidewalk plane near 0.15 m.
 
-### 5.3 RQ-C: at the detection (`runs/_pooled/footway/detections.csv`, `detection_classes.csv`, `verdict.json`, fig. 4)
+### 5.3 RQ-C: at the detection (`runs/_pooled/footway/detections.csv`, `detection_classes.csv`, `verdict.json`, fig. 5)
 
 | group | n | non-surface share [Wilson 95%] | WALK | ROAD |
 |---|---:|---|---:|---:|
@@ -344,7 +419,15 @@ step. But no reading puts the typical sidewalk plane near 0.15 m.
 **(C') 0.944 of True detections are on WALK or ROAD** (bend 0.955, paterson 0.930, gainesville 0.924, São Paulo
 0.975).
 
-![fig4](figures/footway-depth/fig4_detections.png)
+![Three panels. Left: the non-surface share with Wilson intervals for verdict True (0.056), verdict False (0.048)
+and missed marks (0.030), with a red dashed line marking the registered bar of True + 20 points, far to the right of
+every point. Middle: stacked bars of segmenter groups, mostly WALK, for the three groups. Right, labelled
+exploratory: Curb Cut share with Wilson intervals, True 0.271, False 0.071, missed 0.254.](figures/footway-depth/fig5_fp_rule.png)
+
+*Figure 5. The segmenter class at the peak pixel is no false-positive filter: the 42 false positives are footway
+too.* Left: the registered reading (C) with the pre-registered 20-point bar drawn. Middle: the segmenter group at
+the pixel. Right: the post hoc Curb Cut share, labelled exploratory. All intervals are Wilson 95%. Data:
+`data/fig5_fp_rule.csv`, from `runs/_pooled/footway/detections.csv`.
 
 **What the false positives are.** They sit on the footway: Sidewalk 25, Curb 5, Curb Cut 3. Seven more are
 ROAD-group (Road 5, Catch Basin 1, Manhole 1). They are driveway cuts, ramp-like curb transitions and paving
@@ -354,7 +437,7 @@ changes. A surface-class filter cannot remove them.
 - True: floor 500, ground 143, stand-in floor 122, steep 4, overhang 1.
 - False: floor 26, stand-in 10, ground 5, steep 1.
 
-### 5.4 RQ-D: the trap (`trap.csv`, fig. 5)
+### 5.4 RQ-D: the trap (`trap.csv`, `trap_pano.csv`; figs. 6, 6b)
 
 Agreement with the tiled arm is on the collapsed group, over the pixels the tiled arm sees. Shares also exclude
 `NONE`, which was corrected on review.
@@ -369,7 +452,23 @@ Agreement with the tiled arm is on the collapsed group, over the pixels the tile
 | 0..10° | 0.962 | 0.983 | 0.944 | 0.975 |
 | +20..+40° | 0.99 | 1.00 | 0.99 | 1.00 |
 
-![fig5](figures/footway-depth/fig5_trap.png)
+![Left: bars of the Curb Cut share under verdict-True detections and under missed marks for the 2048 px direct arm
+(0.18, 0.13), the tiled arm (0.27, 0.25) and the 4096 px direct arm (0.30, 0.27), with Wilson intervals. Right:
+agreement with the tiled arm by latitude band for both direct arms, interior solid and seam dashed, with bootstrap
+bands. The 4096 px arm falls to 0.86 (interior) and 0.82 (seam) at the nadir, while the 2048 px arm stays near 0.95.](figures/footway-depth/fig6_resolution_projection.png)
+
+*Figure 6. Resolution, not projection, caused the Curb Cut loss; at matched resolution the equirect instead fails
+at the nadir.* Left (post hoc): Curb Cut at the detection, Wilson 95%. Right (registered): agreement with the tiled
+arm by latitude band, with 95% pano-bootstrap bands (1,000 resamples, seed 47). Data:
+`data/fig6_resolution_projection.csv`, from `runs/_pooled/footway/trap_pano.csv` and `detections.csv`.
+
+![Six example triplets from the nadir under the car: the photo crop of grey road, the tiled overlay in ROAD orange,
+and the 4096 px direct overlay almost entirely in SKY pink, each labelled with the share of road below -40 degrees
+that the 4096 px arm calls SKY (69% to 97%).](figures/footway-depth/fig6b_sky_examples.jpg)
+
+*Figure 6b. At matched resolution, the 4096 px equirect paints the road under the car as SKY.* Selection rule
+(fixed, seed 47): 6 panos drawn from the 20 with the most pixels below −40° that the tiled arm calls ROAD and the
+4096 px arm SKY. Each crop is centred on the largest such component. Data: `examples/sky.csv`.
 
 **Projection vs resolution.**
 - **At matched angular resolution the projection failure shows at the nadir, as the issue predicted.** The 4096 px
@@ -395,14 +494,21 @@ The fine-class loss reported first was resolution, not projection. Fed at full r
 Cut at the detections, 98% of which lie between −2° and −36° (full range −49° to +4°), where the projection distortion is small. The projection
 cost shows up at the nadir instead.
 
-### 5.5 The disagreement gallery (`gallery.csv`, fig. 6)
+### 5.5 The disagreement gallery (`examples/disagreement.csv`, fig. 8)
 
 **Selection rule** (fixed, seed 47):
 - For each of three pixel categories, panos are ranked by the size of the category's largest 8-connected component
   within 25 m. Six are drawn from the top 20, each marked at the component pixel nearest its centroid.
 - The fourth row is six draws from all 45 detections at ≥ 0.55 that the segmenter calls non-surface.
 
-![fig6](figures/footway-depth/fig6_gallery.jpg)
+![A 4 by 6 contact sheet of photo crops with a red ring and in-image labels naming the depth class and segmenter
+class. Row 1: objects on a depth floor (vegetation, a bus, a car, the camera car). Row 2: fences and walls on a depth
+floor. Row 3: sloped sidewalks that depth calls a wall. Row 4: verdict-True detections whose peak pixel lands on
+grass or a pole.](figures/footway-depth/fig8_disagreement_gallery.jpg)
+
+*Figure 8. Where depth and the segmenter disagree: objects on the floor, see-through fences, sloped pavement, and
+peak pixels just off the ramp.* The selection rule is stated above (fixed, seed 47). Data:
+`examples/disagreement.csv`.
 
 1. **Depth surface, segmenter OBJECT.** A bus, a hedge, a parked car's body, a barrier, and the camera car's own
    nadir patch in two cells. Depth draws its plane through each. Ego Vehicle is 6.2% of this category within 25 m,
@@ -459,29 +565,75 @@ nothing here measures crop quality.
 5. **For stage 3's metric term,** take ground-contact range from depth. Do not rely on depth for heights under
    ~0.3 m.
 
-## 8. Reproducibility
+## 8. Replication
 
-```
-python scripts/footway_segmentation.py sample   --run-root <runs> --benchmark-root ../RampNet/benchmark
-python scripts/footway_segmentation.py tiles    --benchmark-root ../RampNet/benchmark --workers 8          # ~14 min
-python scripts/footway_segmentation.py tiles    --benchmark-root ../RampNet/benchmark --workers 8 --direct-width 4096
-W=runs/_pooled/footway/work
-python scripts/footway_segmentation.py segment --in $W/tiles --out $W/tile_labels --fp16 --batch-size 2      # ~19 min on a 3070
-python scripts/footway_segmentation.py segment --in $W/direct --out $W/direct_labels --target 1024x512 --fp16 --batch-size 1
-python scripts/footway_segmentation.py segment --in $W/direct4096 --out $W/direct4096_labels --target 1024x512 --fp16 --batch-size 1   # ~10 min, 5.7 GiB
-python scripts/footway_segmentation.py stitch   --run-root <runs> --benchmark-root ../RampNet/benchmark
-python scripts/footway_segmentation.py compare  --run-root <runs> --benchmark-root ../RampNet/benchmark
-python scripts/footway_segmentation.py figures  --run-root <runs> --benchmark-root ../RampNet/benchmark [--fig-dir DIR]
-```
+**From raw inputs to every table and figure, in order.** `<runs>` is the run tree holding the four GSV cities'
+`results.jsonl` and `depth/` payloads; on the original machine that is `D:/Git/sidewalk-auto-labeler/runs`.
 
-- **Dependencies.** `segment` needs torch and transformers, deliberately not in requirements.txt.
-- **Work files.** Tiles and label maps live in `runs/_pooled/footway/work/` and are untracked.
-  `runs/_pooled/footway/masks_manifest.json` records the model revision, the runtime, the provenance notes and every
-  label map's sha256.
-- **Tracked once.** The three large tables live only in `runs/_pooled/footway/`: `detections.csv`,
-  `curb_pano_medians.csv` and `masks_manifest.json`. `docs/figures/footway-depth/data/` holds the small aggregates.
-- **`verdict` and `figures`** read `runs/_pooled/footway/` and print which directory they read.
-- **`compare`** refuses if any sampled pano no longer passes the GT join.
+| # | command | needs | output | runtime here |
+|---|---|---|---|---|
+| 1 | `python scripts/footway_segmentation.py sample --run-root <runs> --benchmark-root ../RampNet/benchmark` | CPU | `runs/_pooled/footway/sample.csv`, `sample_counts.csv` (committed) | 38 s |
+| 2 | `python scripts/footway_segmentation.py tiles --benchmark-root ../RampNet/benchmark --workers 8` | CPU | `work/tiles/` (6,656 JPEGs), `work/direct/` (416), untracked | 14 min |
+| 3 | `python scripts/footway_segmentation.py tiles --benchmark-root ../RampNet/benchmark --workers 8 --direct-width 4096` | CPU | `work/direct4096/`, untracked | 2.4 min |
+| 4 | `python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/tiles --out runs/_pooled/footway/work/tile_labels --fp16 --batch-size 2` | **GPU**; network once (model download) | `work/tile_labels/` + `segment_manifest.json` | 19 min (5.9 img/s) |
+| 5 | `python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/direct --out runs/_pooled/footway/work/direct_labels --target 1024x512 --fp16 --batch-size 1` | **GPU** | `work/direct_labels/` | 2.3 min (3.0 img/s) |
+| 6 | `python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/direct4096 --out runs/_pooled/footway/work/direct4096_labels --target 1024x512 --fp16 --batch-size 1` | **GPU** (5.7 GiB) | `work/direct4096_labels/` | 9.6 min (0.72 img/s) |
+| 7 | `python scripts/footway_segmentation.py stitch --run-root <runs> --benchmark-root ../RampNet/benchmark` | CPU | `work/stitched/` | 2.5 min |
+| 8 | `python scripts/footway_segmentation.py compare --run-root <runs> --benchmark-root ../RampNet/benchmark` (runs `verdict` too) | CPU | every CSV / JSON / report under `runs/<city>/footway/` and `runs/_pooled/footway/` (committed) | 2.2 min |
+| 9 | `python scripts/footway_segmentation.py examples --run-root <runs> --benchmark-root ../RampNet/benchmark` | CPU; untracked `work/` + JPEGs | `docs/figures/footway-depth/examples/` (panels + CSVs, 1.4 MB, committed) | 2.0 min |
+| 10 | `python scripts/footway_segmentation.py figures` | **committed files only**; no GPU, no network, no `work/` | every figure, `data/*.csv`, `data/numbers.csv`, `data/derived_numbers.csv`, `data/figures_manifest.json` | 19 s |
+
+- **Byte-reproducible figures.** Step 10 reads only committed files and drops every timestamp: PNG `Software`, SVG
+  `Date`/`Creator`, a fixed `svg.hashsalt`, and seeded bootstraps. Two consecutive runs gave identical sha256 for
+  all 15 outputs (recorded in `data/figures_manifest.json`).
+- **Committed vs regenerated.** Committed:
+  - `runs/_pooled/footway/`: sample, per-pano and per-detection tables, reports, `verdict.json`, `inputs.json`
+    and `masks_manifest.json`;
+  - `runs/<city>/footway/`;
+  - `docs/figures/footway-depth/`: figures, `data/` and `examples/`.
+
+  Regenerated and untracked: `runs/_pooled/footway/work/` (tiles and label maps; every label map's sha256 is in
+  `masks_manifest.json`).
+- **Steps needing neither GPU nor network:** 1–3 and 7–10. Steps 4–6 need a CUDA GPU, and network access the
+  first time, to fetch the pinned model.
+- **Seeds:** 47 everywhere. That covers the curb pixel subsample (`random.Random('47:<pano_id>')`), every example
+  rule (`random.Random('47:<set>')`, or `random.Random(47)` for the disagreement gallery), and the bootstraps
+  (`numpy.random.default_rng(47)`, 1,000 resamples).
+- **Model:** `facebook/mask2former-swin-large-mapillary-vistas-semantic` at revision
+  `4772b6bf101d91f2534c106dc524d906aeb3c68a`, fp16, processor resize off. The Vistas id order is pinned in the
+  script (`VISTAS_V12_ORDER`), and `examples` asserts it.
+- **Environment, read from the env that ran it:**
+  - Python 3.12.13, torch 2.8.0+cu126, transformers 5.12.1, Pillow 12.3.0, numpy 2.5.1, scipy 1.18.0,
+    matplotlib 3.11.2.
+  - GPU: NVIDIA GeForce RTX 3070 (8 GB, driver 591.86), Windows 11.
+  - torch and transformers are needed only by `segment` and are deliberately not in requirements.txt.
+- **Provenance notes.** All 6,656 tile maps come from batch-2 forwards (§4.1). The notes are carried in
+  `masks_manifest.json`.
+
+**Inputs (sha256).** `runs/_pooled/footway/inputs.json` records the same hashes, written by `compare`. The per-pano
+JPEG and depth-payload hashes are in `sample.csv`.
+
+| input | sha256 |
+|---|---|
+| bend `results.jsonl` | `1307faa8041acbbf4cba78fd53979e2215511b8371c018f427c356f6b0e26153` |
+| paterson `results.jsonl` | `651226f9f1e66d60fc8504423e7400730aad649e20a4a448d25bd4e5c620a2a8` |
+| gainesville `results.jsonl` | `9f4a57f35d24715856d4464dbc0950febbf20de810ec9653432f339a5ab857e8` |
+| sao_paulo `results.jsonl` | `54348f367dfa3ecb9cde587d106d493d729fb5e5744687e3f38d1c9f1549bf7f` |
+| bend `depth/index.csv` (recorded; not read: payloads are read per pano) | `a4ae7d3743ca11b8e3ccce652009dcc57309dbd410ea8c90e57b4c3d044b448d` |
+| paterson `depth/index.csv` | `06e878e2d77e60dbf2652d8e7b31ca8763d0aa49876d02c9e67338a2e90ebfa1` |
+| gainesville `depth/index.csv` | `02ad2a5d87e2d45a2fb5eb6e3b4215546f07a8425ea7032a49e9cf8b2f67c527` |
+| sao_paulo `depth/index.csv` | `46315eb54fbb14c17669be6a08f6c3ec1d7560f8c7d8864a8c600a147438aa09` |
+| RampNet bend `verdicts.json` / `records.jsonl` | `9d9835db27f66c1904fcfd4fc87b06f26638a3c033ef10936387db40feb84b05` / `c17c2503b22cf78f8c38ebefa445f2709845550bacd84dff75fa5e9e1616b29a` |
+| RampNet paterson | `5e43c54389eb9ea1d8daf0a075e562e27eb6b484dfcb3397cb6f438619365dad` / `363dba08d49d60ce9d9322115c89b27f450b35cd74598f127b261ab321979096` |
+| RampNet gainesville | `776ddb2ca1a5a72fb9b27965ae8e5727d6fecc8bf4cc56b2ac94543c6cfad1e4` / `f59e73db5c95017b30d8687eb4e14bccfc10f516bf98fbcb13e502185607c8fc` |
+| RampNet sao_paulo | `dbe32bcc8f8d87b3caedcc54597b6547720d98202abe149fb707dd560aa0db4c` / `c483538442d84a6e29b765d9e897253e833839f240d36af84dc82c69ed1c6b90` |
+| RampNet commit | `6c252bbac30343da7fcebb57e6310ff82f54d708` |
+| `runs/_pooled/footway/masks_manifest.json` | `d4d7d651476165ce9731ff933cdd1b799fc2864366241cfd429d7d4d7c1ec8cb` |
+| `runs/_pooled/footway/sample.csv` | `9ea7f0e02a1c5e65392af34e795a723e6e06e210820ccb5a6c19fcf64701dd12` |
+
+- **Guards.** `compare` refuses if any sampled pano no longer passes the GT join. `verdict` and `figures` print
+  which directory they read. `figures` refuses nothing, but prints every quoted number that no longer matches
+  (`data/numbers.csv` `status`).
 
 ## 9. Corrections on review (2026-09-30)
 
@@ -516,3 +668,216 @@ readings, which reproduce byte for byte. It found the following, and all of it i
    - The large tables are tracked once.
    - Outputs are written with LF line endings.
    - The batch-4 tile maps were redone at batch 2.
+
+## 10. Where each number lives
+
+Every number quoted in this document, the PR body, the CLAUDE.md block and the #47 comments, with the committed file, row and column it comes from. `figures` regenerates this list as `data/numbers.csv` and checks each value at the quoted rounding. Last run: 204 numbers, 0 mismatches.
+
+Files: `headline.csv`, `curb_height.csv`, `detection_classes.csv`, `trap.csv`, `verdict.json` and `sample_counts.csv` are in `runs/_pooled/footway/`, with copies in `docs/figures/footway-depth/data/`. `derived_numbers.csv` is in `data/`; it holds numbers that are a formula over committed files, and each row carries its formula. Percentages in the text are the fractions below.
+
+| quoted | file | row | column | value |
+|---:|---|---|---|---:|
+| 0.897 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad_given_surface` | 0.896958 |
+| 0.894 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_walkroad_given_surface` | 0.893784 |
+| 0.895 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=mirror | `p_walkroad_given_surface` | 0.89475 |
+| 0.884 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad` | 0.884216 |
+| 0.983 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_surface` | 0.982868 |
+| 1.01 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `lift_walkroad_given_surface` | 1.01441 |
+| 0.997 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_surface_given_walkroad` | 0.997031 |
+| 0.863 | `headline.csv` | city=pooled, range=le25m, weighting=solid_angle, depth_arm=correct | `p_walkroad_given_surface` | 0.862858 |
+| 0.845 | `headline.csv` | city=pooled, range=le25m, weighting=solid_angle, depth_arm=correct | `p_walkroad` | 0.845257 |
+| 0.917 | `headline.csv` | city=pooled, range=le25m, weighting=per_pano_median, depth_arm=correct | `p_walkroad_given_surface` | 0.917351 |
+| 0.904 | `headline.csv` | city=pooled, range=le25m, weighting=per_pano_median, depth_arm=correct | `p_walkroad` | 0.903899 |
+| 0.71 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `share_0_5m_of_le25m_px` | 0.713433 |
+| 0.661 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_structure_given_wall` | 0.661394 |
+| 0.415 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_structure_given_wall` | 0.415146 |
+| 0.470 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=mirror | `p_structure_given_wall` | 0.469654 |
+| 0.023 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_structure` | 0.0230326 |
+| 29 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `lift_structure_given_wall` | 28.7155 |
+| 0.250 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `kappa` | 0.249886 |
+| 0.169 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=yaw180 | `kappa` | 0.169121 |
+| 0.188 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=mirror | `kappa` | 0.18828 |
+| 0.097 | `headline.csv` | city=pooled, range=le25m, weighting=per_pano_median, depth_arm=correct | `kappa` | 0.0972365 |
+| 0.430 | `headline.csv` | city=pooled, range=all, weighting=pixels, depth_arm=correct | `kappa` | 0.429845 |
+| 0.341 | `headline.csv` | city=pooled, range=all, weighting=pixels, depth_arm=yaw180 | `kappa` | 0.341014 |
+| 0.364 | `headline.csv` | city=pooled, range=all, weighting=pixels, depth_arm=mirror | `kappa` | 0.363594 |
+| 0.947 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_surface_given_object` | 0.947364 |
+| 0.935 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_surface_given_object` | 0.935343 |
+| 0.936 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=mirror | `p_surface_given_object` | 0.935681 |
+| 0.944 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_surface_given_object_excl_ego` | 0.944151 |
+| 0.96 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `lift_surface_given_object` | 0.963877 |
+| 0.062 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `ego_share_of_surface_object` | 0.0619377 |
+| 0.055 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_object_given_surface` | 0.0546315 |
+| 0.051 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_object_given_surface_excl_ego` | 0.0512478 |
+| 0.071 | `headline.csv` | city=pooled, range=le25m, weighting=solid_angle, depth_arm=correct | `p_object_given_surface` | 0.0711377 |
+| 0.153 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad_given_wall` | 0.153066 |
+| 0.336 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_walkroad_given_wall` | 0.335974 |
+| 0.280 | `headline.csv` | city=pooled, range=le25m, weighting=pixels, depth_arm=mirror | `p_walkroad_given_wall` | 0.279671 |
+| 0.871 | `headline.csv` | city=pooled, range=all, weighting=pixels, depth_arm=correct | `p_walkroad_given_surface` | 0.870654 |
+| 0.826 | `headline.csv` | city=pooled, range=all, weighting=pixels, depth_arm=correct | `p_walkroad` | 0.826335 |
+| 0.070 | `headline.csv` | city=pooled, range=all, weighting=pixels, depth_arm=correct | `p_object_given_surface` | 0.070157 |
+| 0.804 | `headline.csv` | city=pooled, range=all, weighting=pixels, depth_arm=correct | `p_surface_given_object` | 0.804358 |
+| 0.674 | `headline.csv` | city=pooled, range=all, weighting=pixels, depth_arm=correct | `p_structure_given_wall` | 0.674046 |
+| 0.022 | `curb_height.csv` | city=pooled, group=sidewalk, reading=measured | `median_of_pano_medians` | 0.0215624 |
+| 0.014 | `curb_height.csv` | city=pooled, group=sidewalk, reading=measured | `median_lo` | 0.0144774 |
+| 0.030 | `curb_height.csv` | city=pooled, group=sidewalk, reading=measured | `median_hi` | 0.0299256 |
+| 399 | `curb_height.csv` | city=pooled, group=sidewalk, reading=measured | `n_panos` | 399 |
+| 0.339 | `curb_height.csv` | city=pooled, group=sidewalk, reading=measured | `share_in_claim_band` | 0.338766 |
+| 0.033 | `curb_height.csv` | city=pooled, group=sidewalk, reading=with_standins | `median_of_pano_medians` | 0.0332609 |
+| 0.042 | `curb_height.csv` | city=pooled, group=sidewalk, reading=measured_ref_road | `median_of_pano_medians` | 0.0424041 |
+| 0.021 | `curb_height.csv` | city=pooled, group=walk, reading=measured | `median_of_pano_medians` | 0.0208638 |
+| 0.008 | `curb_height.csv` | city=pooled, group=road, reading=measured | `median_of_pano_medians` | 0.00794625 |
+| 0.234 | `curb_height.csv` | city=pooled, group=road, reading=measured | `share_in_claim_band` | 0.233894 |
+| 0.031 | `curb_height.csv` | city=bend, group=sidewalk, reading=measured | `median_of_pano_medians` | 0.0305415 |
+| 0.024 | `curb_height.csv` | city=paterson, group=sidewalk, reading=measured | `median_of_pano_medians` | 0.0243227 |
+| 0.020 | `curb_height.csv` | city=gainesville, group=sidewalk, reading=measured | `median_of_pano_medians` | 0.0196867 |
+| 0.009 | `curb_height.csv` | city=sao_paulo, group=sidewalk, reading=measured | `median_of_pano_medians` | 0.00934119 |
+| 2 | `verdict.json` | - | `tiers.0.55.false_non_surface` | 2 |
+| 42 | `verdict.json` | - | `tiers.0.55.false_n` | 42 |
+| 0.048 | `verdict.json` | - | `tiers.0.55.false_share` | 0.047619 |
+| 0.013 | `verdict.json` | - | `tiers.0.55.false_lo` | 0.0131572 |
+| 0.158 | `verdict.json` | - | `tiers.0.55.false_hi` | 0.157901 |
+| 43 | `verdict.json` | - | `tiers.0.55.true_non_surface` | 43 |
+| 770 | `verdict.json` | - | `tiers.0.55.true_n` | 770 |
+| 0.056 | `verdict.json` | - | `tiers.0.55.true_share` | 0.0558442 |
+| 0.042 | `verdict.json` | - | `tiers.0.55.true_lo` | 0.0417209 |
+| 0.074 | `verdict.json` | - | `tiers.0.55.true_hi` | 0.0743772 |
+| 0.944 | `verdict.json` | - | `tiers.0.55.surface_reading.share` | 0.944156 |
+| 727 | `verdict.json` | - | `tiers.0.55.surface_reading.true_on_walkroad` | 727 |
+| 0.030 | `detection_classes.csv` | city=pooled, group=missed, arm=tiled | `share_non_surface` | 0.0302115 |
+| 0.271 | `detection_classes.csv` | city=pooled, group=true, arm=tiled | `share_curb_cut` | 0.271429 |
+| 0.071 | `detection_classes.csv` | city=pooled, group=false, arm=tiled | `share_curb_cut` | 0.0714286 |
+| 0.254 | `detection_classes.csv` | city=pooled, group=missed, arm=tiled | `share_curb_cut` | 0.253776 |
+| 0.179 | `detection_classes.csv` | city=pooled, group=true, arm=direct | `share_curb_cut` | 0.179221 |
+| 0.130 | `detection_classes.csv` | city=pooled, group=missed, arm=direct | `share_curb_cut` | 0.129909 |
+| 0.301 | `detection_classes.csv` | city=pooled, group=true, arm=direct4096 | `share_curb_cut` | 0.301299 |
+| 0.269 | `detection_classes.csv` | city=pooled, group=missed, arm=direct4096 | `share_curb_cut` | 0.268882 |
+| 0.119 | `detection_classes.csv` | city=pooled, group=false, arm=direct4096 | `share_curb_cut` | 0.119048 |
+| 0.957 | `trap.csv` | city=pooled, lat_band_deg=-80..-70, band=interior | `agreement_direct` | 0.956784 |
+| 0.856 | `trap.csv` | city=pooled, lat_band_deg=-80..-70, band=interior | `agreement_direct4096` | 0.855679 |
+| 0.948 | `trap.csv` | city=pooled, lat_band_deg=-80..-70, band=seam | `agreement_direct` | 0.948197 |
+| 0.819 | `trap.csv` | city=pooled, lat_band_deg=-80..-70, band=seam | `agreement_direct4096` | 0.818679 |
+| 0.907 | `trap.csv` | city=pooled, lat_band_deg=-10..0, band=seam | `agreement_direct` | 0.906929 |
+| 0.919 | `trap.csv` | city=pooled, lat_band_deg=-10..0, band=interior | `agreement_direct` | 0.918653 |
+| 0.959 | `trap.csv` | city=pooled, lat_band_deg=-10..0, band=interior | `agreement_direct4096` | 0.959366 |
+| 0.12 | `trap.csv` | city=pooled, lat_band_deg=-80..-70, band=interior | `direct4096_share_SKY` | 0.119991 |
+| 0.15 | `trap.csv` | city=pooled, lat_band_deg=-80..-70, band=seam | `direct4096_share_SKY` | 0.146264 |
+| 0.06 | `trap.csv` | city=pooled, lat_band_deg=-50..-40, band=interior | `direct4096_share_SKY` | 0.0642953 |
+| 0.08 | `trap.csv` | city=pooled, lat_band_deg=-50..-40, band=seam | `direct4096_share_SKY` | 0.0822902 |
+| 0.95 | `trap.csv` | city=pooled, lat_band_deg=-20..-10, band=seam | `tiled_share_ROAD` | 0.948836 |
+| 0.44 | `trap.csv` | city=pooled, lat_band_deg=-20..-10, band=interior | `tiled_share_ROAD` | 0.441171 |
+| 90 | `sample_counts.csv` | city=bend | `n_sample` | 90 |
+| 113 | `sample_counts.csv` | city=paterson | `n_sample` | 113 |
+| 112 | `sample_counts.csv` | city=gainesville | `n_sample` | 112 |
+| 101 | `sample_counts.csv` | city=sao_paulo | `n_sample` | 101 |
+| 0.906 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad_given_surface` | 0.906431 |
+| 0.905 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_walkroad_given_surface` | 0.905043 |
+| 0.905 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=mirror | `p_walkroad_given_surface` | 0.905233 |
+| 0.902 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad` | 0.902405 |
+| 0.957 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=correct | `p_surface_given_object` | 0.95739 |
+| 0.966 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_surface_given_object` | 0.965509 |
+| 0.963 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=mirror | `p_surface_given_object` | 0.963288 |
+| 0.488 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=correct | `p_structure_given_wall` | 0.488458 |
+| 0.209 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_structure_given_wall` | 0.208825 |
+| 0.222 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=mirror | `p_structure_given_wall` | 0.222498 |
+| 0.104 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=correct | `kappa` | 0.103606 |
+| 0.053 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=yaw180 | `kappa` | 0.0529467 |
+| 0.057 | `headline.csv` | city=bend, range=le25m, weighting=pixels, depth_arm=mirror | `kappa` | 0.0567275 |
+| 0.905 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad_given_surface` | 0.905211 |
+| 0.902 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_walkroad_given_surface` | 0.902184 |
+| 0.903 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=mirror | `p_walkroad_given_surface` | 0.903316 |
+| 0.892 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad` | 0.892118 |
+| 0.955 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=correct | `p_surface_given_object` | 0.95494 |
+| 0.941 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_surface_given_object` | 0.940604 |
+| 0.946 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=mirror | `p_surface_given_object` | 0.945611 |
+| 0.674 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=correct | `p_structure_given_wall` | 0.674159 |
+| 0.403 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_structure_given_wall` | 0.403134 |
+| 0.486 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=mirror | `p_structure_given_wall` | 0.486484 |
+| 0.225 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=correct | `kappa` | 0.224529 |
+| 0.146 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=yaw180 | `kappa` | 0.146448 |
+| 0.170 | `headline.csv` | city=paterson, range=le25m, weighting=pixels, depth_arm=mirror | `kappa` | 0.169909 |
+| 0.882 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad_given_surface` | 0.881623 |
+| 0.881 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_walkroad_given_surface` | 0.880575 |
+| 0.881 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=mirror | `p_walkroad_given_surface` | 0.880952 |
+| 0.878 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad` | 0.878477 |
+| 0.966 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=correct | `p_surface_given_object` | 0.965568 |
+| 0.960 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_surface_given_object` | 0.959865 |
+| 0.955 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=mirror | `p_surface_given_object` | 0.955332 |
+| 0.553 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=correct | `p_structure_given_wall` | 0.553287 |
+| 0.174 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_structure_given_wall` | 0.174417 |
+| 0.216 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=mirror | `p_structure_given_wall` | 0.215795 |
+| 0.117 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=correct | `kappa` | 0.117087 |
+| 0.055 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=yaw180 | `kappa` | 0.0547912 |
+| 0.065 | `headline.csv` | city=gainesville, range=le25m, weighting=pixels, depth_arm=mirror | `kappa` | 0.0652774 |
+| 0.896 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad_given_surface` | 0.896395 |
+| 0.889 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_walkroad_given_surface` | 0.888948 |
+| 0.891 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=mirror | `p_walkroad_given_surface` | 0.89112 |
+| 0.866 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=correct | `p_walkroad` | 0.865532 |
+| 0.929 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=correct | `p_surface_given_object` | 0.929034 |
+| 0.907 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_surface_given_object` | 0.907338 |
+| 0.907 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=mirror | `p_surface_given_object` | 0.906939 |
+| 0.684 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=correct | `p_structure_given_wall` | 0.683716 |
+| 0.466 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=yaw180 | `p_structure_given_wall` | 0.465804 |
+| 0.512 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=mirror | `p_structure_given_wall` | 0.512496 |
+| 0.341 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=correct | `kappa` | 0.341231 |
+| 0.242 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=yaw180 | `kappa` | 0.24191 |
+| 0.266 | `headline.csv` | city=sao_paulo, range=le25m, weighting=pixels, depth_arm=mirror | `kappa` | 0.2658 |
+| 500 | `derived_numbers.csv` | name=det_true_depth_floor | `value` | 500 |
+| 143 | `derived_numbers.csv` | name=det_true_depth_ground | `value` | 143 |
+| 122 | `derived_numbers.csv` | name=det_true_depth_floor_standin | `value` | 122 |
+| 4 | `derived_numbers.csv` | name=det_true_depth_non_horizontal | `value` | 4 |
+| 1 | `derived_numbers.csv` | name=det_true_depth_horizontal_nonfloor | `value` | 1 |
+| 26 | `derived_numbers.csv` | name=det_false_depth_floor | `value` | 26 |
+| 10 | `derived_numbers.csv` | name=det_false_depth_floor_standin | `value` | 10 |
+| 5 | `derived_numbers.csv` | name=det_false_depth_ground | `value` | 5 |
+| 1 | `derived_numbers.csv` | name=det_false_depth_non_horizontal | `value` | 1 |
+| 25 | `derived_numbers.csv` | name=false_seg_Sidewalk | `value` | 25 |
+| 5 | `derived_numbers.csv` | name=false_seg_Curb | `value` | 5 |
+| 3 | `derived_numbers.csv` | name=false_seg_Curb Cut | `value` | 3 |
+| 5 | `derived_numbers.csv` | name=false_seg_Road | `value` | 5 |
+| 1 | `derived_numbers.csv` | name=false_seg_Catch Basin | `value` | 1 |
+| 1 | `derived_numbers.csv` | name=false_seg_Manhole | `value` | 1 |
+| 33 | `derived_numbers.csv` | name=false_group_WALK | `value` | 33 |
+| 7 | `derived_numbers.csv` | name=false_group_ROAD | `value` | 7 |
+| 0.97 | `derived_numbers.csv` | name=walk_px_millions_ground | `value` | 0.970004 |
+| 1.03 | `derived_numbers.csv` | name=walk_px_millions_secondary | `value` | 1.03193 |
+| 0.91 | `derived_numbers.csv` | name=walk_px_millions_floor | `value` | 0.913435 |
+| 0.12 | `derived_numbers.csv` | name=walk_px_millions_floor_standin | `value` | 0.118497 |
+| 0.069 | `derived_numbers.csv` | name=walk_share_of_seen_ground | `value` | 0.068997 |
+| 0.118 | `derived_numbers.csv` | name=walk_share_of_seen_floor | `value` | 0.117569 |
+| 0.02 | `derived_numbers.csv` | name=object_share_of_surface_0-5 | `value` | 0.0218299 |
+| 0.24 | `derived_numbers.csv` | name=object_share_of_surface_15-25 | `value` | 0.243274 |
+| 0.505 | `derived_numbers.csv` | name=sidewalk_on_dominant_pixel_pooled | `value` | 0.504796 |
+| 0.27 | `derived_numbers.csv` | name=sidewalk_on_dominant_pano_median | `value` | 0.273399 |
+| 410 | `derived_numbers.csv` | name=sidewalk_on_dominant_n_panos | `value` | 410 |
+| -2 | `derived_numbers.csv` | name=det_lat_p99_deg | `value` | -2.46538 |
+| -36 | `derived_numbers.csv` | name=det_lat_p01_deg | `value` | -36.0102 |
+| -49 | `derived_numbers.csv` | name=det_lat_min_deg | `value` | -49.1454 |
+| 4 | `derived_numbers.csv` | name=det_lat_max_deg | `value` | 4.21884 |
+| 0.955 | `derived_numbers.csv` | name=true_on_walkroad_bend | `value` | 0.954545 |
+| 0.930 | `derived_numbers.csv` | name=true_on_walkroad_paterson | `value` | 0.930328 |
+| 0.924 | `derived_numbers.csv` | name=true_on_walkroad_gainesville | `value` | 0.923977 |
+| 0.975 | `derived_numbers.csv` | name=true_on_walkroad_sao_paulo | `value` | 0.974522 |
+| 0.896 | `derived_numbers.csv` | name=det_group_agree_direct | `value` | 0.895888 |
+| 0.684 | `derived_numbers.csv` | name=det_class_agree_direct | `value` | 0.684164 |
+| 0.958 | `derived_numbers.csv` | name=det_group_agree_direct4096 | `value` | 0.958005 |
+| 0.843 | `derived_numbers.csv` | name=det_class_agree_direct4096 | `value` | 0.84252 |
+| 1143 | `derived_numbers.csv` | name=det_n_true_false_missed | `value` | 1143 |
+| 1 | `verdict.json` | - | `tiers.0.55.per_city.bend.false_non_surface` | 1 |
+| 7 | `verdict.json` | - | `tiers.0.55.per_city.bend.false_n` | 7 |
+| 0 | `verdict.json` | - | `tiers.0.55.per_city.gainesville.false_non_surface` | 0 |
+| 9 | `verdict.json` | - | `tiers.0.55.per_city.gainesville.false_n` | 9 |
+| 0 | `verdict.json` | - | `tiers.0.55.per_city.paterson.false_non_surface` | 0 |
+| 5 | `verdict.json` | - | `tiers.0.55.per_city.paterson.false_n` | 5 |
+| 1 | `verdict.json` | - | `tiers.0.55.per_city.sao_paulo.false_non_surface` | 1 |
+| 21 | `verdict.json` | - | `tiers.0.55.per_city.sao_paulo.false_n` | 21 |
+| 0.024 | `detection_classes.csv` | city=pooled, group=false, arm=direct | `share_curb_cut` | 0.0238095 |
+| 0.191 | `detection_classes.csv` | city=pooled, group=unsure_missed, arm=tiled | `share_curb_cut` | 0.191358 |
+| 0.056 | `detection_classes.csv` | city=pooled, group=unsure_missed, arm=tiled | `share_non_surface` | 0.0555556 |
+| 0.870 | `detection_classes.csv` | city=pooled, group=true, arm=tiled | `share_WALK` | 0.87013 |
+| 0.786 | `detection_classes.csv` | city=pooled, group=false, arm=tiled | `share_WALK` | 0.785714 |
+| 0.167 | `detection_classes.csv` | city=pooled, group=false, arm=tiled | `share_ROAD` | 0.166667 |
+| 0.825 | `detection_classes.csv` | city=pooled, group=missed, arm=tiled | `share_WALK` | 0.824773 |
+| 0.145 | `detection_classes.csv` | city=pooled, group=missed, arm=tiled | `share_ROAD` | 0.145015 |
+| 0.074 | `detection_classes.csv` | city=pooled, group=true, arm=tiled | `share_ROAD` | 0.074026 |
+| 0.107 | `derived_numbers.csv` | name=band_non_surface_share | `value` | 0.107143 |

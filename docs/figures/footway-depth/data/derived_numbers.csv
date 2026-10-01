@@ -1,0 +1,50 @@
+name,value,formula
+det_true_depth_ground,143,"detections.csv: gt_group=true, count depth_class=ground"
+det_true_depth_floor,500,"detections.csv: gt_group=true, count depth_class=floor"
+det_true_depth_floor_standin,122,"detections.csv: gt_group=true, count depth_class=floor_standin"
+det_true_depth_horizontal_nonfloor,1,"detections.csv: gt_group=true, count depth_class=horizontal_nonfloor"
+det_true_depth_non_horizontal,4,"detections.csv: gt_group=true, count depth_class=non_horizontal"
+det_true_depth_no_plane,0,"detections.csv: gt_group=true, count depth_class=no_plane"
+det_false_depth_ground,5,"detections.csv: gt_group=false, count depth_class=ground"
+det_false_depth_floor,26,"detections.csv: gt_group=false, count depth_class=floor"
+det_false_depth_floor_standin,10,"detections.csv: gt_group=false, count depth_class=floor_standin"
+det_false_depth_horizontal_nonfloor,0,"detections.csv: gt_group=false, count depth_class=horizontal_nonfloor"
+det_false_depth_non_horizontal,1,"detections.csv: gt_group=false, count depth_class=non_horizontal"
+det_false_depth_no_plane,0,"detections.csv: gt_group=false, count depth_class=no_plane"
+false_seg_Sidewalk,25,"detections.csv: gt_group=false, count seg_class=Sidewalk"
+false_seg_Curb,5,"detections.csv: gt_group=false, count seg_class=Curb"
+false_seg_Curb Cut,3,"detections.csv: gt_group=false, count seg_class=Curb Cut"
+false_seg_Road,5,"detections.csv: gt_group=false, count seg_class=Road"
+false_seg_Catch Basin,1,"detections.csv: gt_group=false, count seg_class=Catch Basin"
+false_seg_Manhole,1,"detections.csv: gt_group=false, count seg_class=Manhole"
+false_group_WALK,33,"detections.csv: gt_group=false, count seg_group=WALK"
+false_group_ROAD,7,"detections.csv: gt_group=false, count seg_group=ROAD"
+walk_px_millions_ground,0.970004,"agreement.csv: city=pooled, range_bin=all, depth_class=ground, n_WALK / 1e6"
+walk_share_of_seen_ground,0.068997,"agreement.csv: same row, n_WALK / (n_px - n_NONE)"
+walk_px_millions_floor,0.913435,"agreement.csv: city=pooled, range_bin=all, depth_class=floor, n_WALK / 1e6"
+walk_share_of_seen_floor,0.117569,"agreement.csv: same row, n_WALK / (n_px - n_NONE)"
+walk_px_millions_floor_standin,0.118497,"agreement.csv: city=pooled, range_bin=all, depth_class=floor_standin, n_WALK / 1e6"
+walk_share_of_seen_floor_standin,0.110169,"agreement.csv: same row, n_WALK / (n_px - n_NONE)"
+walk_px_millions_secondary,1.03193,agreement.csv: floor + floor_standin n_WALK / 1e6
+object_share_of_surface_0-5,0.0218299,"agreement.csv: city=pooled, range_bin=0-5, surface rows, n_OBJECT / seen"
+object_share_of_surface_5-10,0.104468,"agreement.csv: city=pooled, range_bin=5-10, surface rows, n_OBJECT / seen"
+object_share_of_surface_10-15,0.17478,"agreement.csv: city=pooled, range_bin=10-15, surface rows, n_OBJECT / seen"
+object_share_of_surface_15-25,0.243274,"agreement.csv: city=pooled, range_bin=15-25, surface rows, n_OBJECT / seen"
+object_share_of_surface_beyond,0.414552,"agreement.csv: city=pooled, range_bin=beyond, surface rows, n_OBJECT / seen"
+sidewalk_on_dominant_pixel_pooled,0.504796,panos.csv (pooled): sum n_sidewalk_ground_px / sum n_sidewalk_px
+sidewalk_on_dominant_pano_median,0.273399,panos.csv (pooled): median over panos with n_sidewalk_px > 0 of the ratio
+sidewalk_on_dominant_n_panos,410,panos.csv: panos with n_sidewalk_px > 0
+det_lat_p01_deg,-36.0102,"detections.csv: True + False + missed, (0.5 - y) * 180, 1st percentile"
+det_lat_p99_deg,-2.46538,... 99th percentile
+det_lat_min_deg,-49.1454,... minimum
+det_lat_max_deg,4.21884,... maximum
+true_on_walkroad_bend,0.954545,"detections.csv: city=bend, gt_group=true, share seg_group in WALK/ROAD"
+true_on_walkroad_paterson,0.930328,"detections.csv: city=paterson, gt_group=true, share seg_group in WALK/ROAD"
+true_on_walkroad_gainesville,0.923977,"detections.csv: city=gainesville, gt_group=true, share seg_group in WALK/ROAD"
+true_on_walkroad_sao_paulo,0.974522,"detections.csv: city=sao_paulo, gt_group=true, share seg_group in WALK/ROAD"
+det_group_agree_direct,0.895888,"detections.csv: True + False + missed, share seg_group == direct_group"
+det_class_agree_direct,0.684164,"detections.csv: True + False + missed, share seg_class == direct_class"
+det_group_agree_direct4096,0.958005,"detections.csv: True + False + missed, share seg_group == direct4096_group"
+det_class_agree_direct4096,0.84252,"detections.csv: True + False + missed, share seg_class == direct4096_class"
+det_n_true_false_missed,1143,detections.csv: rows with gt_group in true/false/missed
+band_non_surface_share,0.107143,"detections.csv: gt_group=band_0p30, share seg_group not in WALK/ROAD"

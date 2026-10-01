@@ -62,7 +62,8 @@ so when they are missing):
     python scripts/footway_segmentation.py stitch   # -> <work>/stitched/
     python scripts/footway_segmentation.py compare  # -> runs/<city>/footway/, runs/_pooled/footway/
     python scripts/footway_segmentation.py verdict
-    python scripts/footway_segmentation.py figures  # -> docs/figures/footway-depth/
+    python scripts/footway_segmentation.py examples  # fixed-rule example panels (needs work/)
+    python scripts/footway_segmentation.py figures   # committed files only -> docs/figures/footway-depth/
 
 `<work>` defaults to runs/_pooled/footway/work/ (untracked: tiles, label maps). The
 reports and CSVs under runs/<city>/footway/ and runs/_pooled/footway/ are tracked, with
@@ -1090,6 +1091,48 @@ DET_FIELDS = ['city', 'pano_id', 'kind', 'det_index', 'x', 'y', 'confidence', 'g
 DET_ARMS = (('tiled', 'seg'),) + tuple((a, a) for a in DIRECT_ARMS)
 
 
+ARM_KEYS = (('correct', 'agree'),) + tuple((a, f'agree_{a}') for a in NULL_ARMS)
+
+
+def pano_count_row(city, pid, c):
+    """One pano's within-25 m (depth class x seen segmenter group) counts for every (A)
+    arm: the unit `figures` bootstraps over (pixels inside a pano are not independent)."""
+    near = slice(0, len(RANGE_BINS))
+    row = {'city': city, 'pano_id': pid}
+    for arm, key in ARM_KEYS:
+        m = c[key][:, :, near].sum(axis=2)
+        for di, d in enumerate(DEPTH_CLASSES):
+            for gi, g in enumerate(SEG_GROUPS):
+                if g != NONE:
+                    row[f'{arm}__{d}__{g}'] = int(m[di, gi])
+    return row
+
+
+def matrix_from_row(row, arm):
+    """Inverse of pano_count_row for one arm: a (DEPTH_CLASSES x SEG_GROUPS) array, NONE
+    column zero."""
+    m = np.zeros((len(DEPTH_CLASSES), len(SEG_GROUPS)))
+    for di, d in enumerate(DEPTH_CLASSES):
+        for gi, g in enumerate(SEG_GROUPS):
+            if g != NONE:
+                m[di, gi] = float(row[f'{arm}__{d}__{g}'])
+    return m
+
+
+def trap_pano_rows(city, pid, c):
+    """One pano's trap counts per latitude band x (interior, seam) with any seen pixel."""
+    out = []
+    for bi, b in enumerate(LAT_BANDS):
+        for si, sname in enumerate(('interior', 'seam')):
+            n = int(c['trap_seen'][bi, si])
+            if n:
+                out.append({'city': city, 'pano_id': pid, 'lat_band_deg': f'{b}..{b + 10}',
+                            'band': sname, 'n_seen_px': n,
+                            **{f'n_agree_{a}': int(c[f'trap_agree_{a}'][bi, si])
+                               for a in DIRECT_ARMS}})
+    return out
+
+
 def cmd_compare(args):
     wd = work_dir(args)
     manifest = json.loads((wd / 'tile_labels' / 'segment_manifest.json').read_text(
@@ -1103,6 +1146,7 @@ def cmd_compare(args):
         by_city[r['city']].append(r['pano_id'])
     pooled = new_ctx()
     pooled_det, pooled_curb, pooled_pano = [], {}, []
+    pano_counts, trap_pano = [], []
     head_all, agree_all, trap_all, curb_all = [], [], [], []
     for city in args.cities:
         verdicts, bundle_ops, by_id = load_city(city, args)
@@ -1125,6 +1169,8 @@ def cmd_compare(args):
                                       c1)
             add_ctx(ctx, c1)
             pano_rows.append({'city': city, 'pano_id': pid, **prow})
+            pano_counts.append(pano_count_row(city, pid, c1))
+            trap_pano.extend(trap_pano_rows(city, pid, c1))
             curb_by_pano[f'{city}:{pid}'] = curb
             pose = fs.pano_pose(run_pano, fs.POSE_OFF)
             for it in detection_items(city, pid, entry, run_pano, ops):
@@ -1181,9 +1227,12 @@ def cmd_compare(args):
     write_csv(pd / 'curb_pano_medians.csv', curb_pano_medians(pooled_curb))
     write_csv(pd / 'headline.csv', head_all)
     write_csv(pd / 'panos.csv', pooled_pano)
+    write_csv(pd / 'pano_counts_le25m.csv', pano_counts)
+    write_csv(pd / 'trap_pano.csv', trap_pano)
     write_csv(pd / 'detections.csv', pooled_det, DET_FIELDS)
     write_csv(pd / 'detection_classes.csv', detection_class_rows(pooled_det))
     write_masks_manifest(args, wd, sample)
+    write_inputs_manifest(args, pd)
     v = cmd_verdict(args)
     write_reports(args, head_all, curb_all, trap_all, v)
 
@@ -1250,6 +1299,36 @@ def write_masks_manifest(args, wd, sample):
         man[f'{arm}_notes'] = d.get('notes', [])
     write_text(pooled_dir(args.out_root) / 'masks_manifest.json',
                json.dumps(man, indent=1, sort_keys=True))
+
+
+def write_inputs_manifest(args, pd):
+    """runs/_pooled/footway/inputs.json: the sha256 of every input `compare` reads (per city
+    results.jsonl and the RampNet bundle's verdicts.json + records.jsonl; depth/index.csv is
+    recorded but NOT read -- payloads are hashed per pano in sample.csv), the RampNet commit,
+    the masks manifest, and the analysis environment."""
+    import platform
+    import subprocess
+    import scipy
+    out = {'cities': {}, 'environment': {
+        'python': platform.python_version(), 'numpy': np.__version__,
+        'pillow': Image.__version__, 'scipy': scipy.__version__}}
+    for city in args.cities:
+        rd, bd = args.run_root / city, args.benchmark_root / city
+        out['cities'][city] = {
+            'results.jsonl': sha256_file(rd / 'results.jsonl'),
+            'depth/index.csv (not read)': sha256_file(rd / 'depth' / 'index.csv')
+            if (rd / 'depth' / 'index.csv').exists() else None,
+            'rampnet verdicts.json': sha256_file(bd / 'verdicts.json'),
+            'rampnet records.jsonl': sha256_file(bd / 'records.jsonl')}
+    try:
+        out['rampnet_commit'] = subprocess.run(
+            ['git', '-C', str(args.benchmark_root), 'rev-parse', 'HEAD'], capture_output=True,
+            text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        out['rampnet_commit'] = None
+    out['sample.csv'] = sha256_file(pd / 'sample.csv')
+    out['masks_manifest.json'] = sha256_file(pd / 'masks_manifest.json')
+    write_text(pd / 'inputs.json', json.dumps(out, indent=1, sort_keys=True))
 
 
 # --- verdict -----------------------------------------------------------------------------
@@ -1448,11 +1527,418 @@ def write_reports(args, head_all, curb_all, trap_all, v):
 
 # --- figures -----------------------------------------------------------------------------
 
-# Categorical slots in fixed order (the dataviz reference palette); NONE is neutral gray.
+# --- where each number lives (checked by `figures`) -------------------------------------
+#
+# Every number quoted in docs/footway-depth-study.md, the PR body, the CLAUDE.md block and
+# the #47 comments, with the committed file, row selector and column it comes from. `figures`
+# re-reads each one, rounds it the way it is quoted, and writes data/numbers.csv with a
+# `status` column; a mismatch is printed. Selectors: headline.csv rows are keyed by
+# (city, range, weighting, depth_arm); curb_height.csv by (city, group, reading);
+# detection_classes.csv by (city, group, arm); trap.csv by (city, lat_band_deg, band);
+# verdict.json by a dotted path; sample_counts.csv by city.
+
+def _H(city, rng, w, arm):
+    return ('headline.csv', {'city': city, 'range': rng, 'weighting': w, 'depth_arm': arm})
+
+
+_POOL25 = 'pooled', 'le25m'
+QUOTED = [
+    # (A) pooled, within 25 m
+    ('0.897', _H(*_POOL25, 'pixels', 'correct'), 'p_walkroad_given_surface', 3),
+    ('0.894', _H(*_POOL25, 'pixels', 'yaw180'), 'p_walkroad_given_surface', 3),
+    ('0.895', _H(*_POOL25, 'pixels', 'mirror'), 'p_walkroad_given_surface', 3),
+    ('0.884', _H(*_POOL25, 'pixels', 'correct'), 'p_walkroad', 3),
+    ('0.983', _H(*_POOL25, 'pixels', 'correct'), 'p_surface', 3),
+    ('1.01', _H(*_POOL25, 'pixels', 'correct'), 'lift_walkroad_given_surface', 2),
+    ('0.997', _H(*_POOL25, 'pixels', 'correct'), 'p_surface_given_walkroad', 3),
+    ('0.863', _H(*_POOL25, 'solid_angle', 'correct'), 'p_walkroad_given_surface', 3),
+    ('0.845', _H(*_POOL25, 'solid_angle', 'correct'), 'p_walkroad', 3),
+    ('0.917', _H(*_POOL25, 'per_pano_median', 'correct'), 'p_walkroad_given_surface', 3),
+    ('0.904', _H(*_POOL25, 'per_pano_median', 'correct'), 'p_walkroad', 3),
+    ('0.71', _H(*_POOL25, 'pixels', 'correct'), 'share_0_5m_of_le25m_px', 2),
+    ('0.661', _H(*_POOL25, 'pixels', 'correct'), 'p_structure_given_wall', 3),
+    ('0.415', _H(*_POOL25, 'pixels', 'yaw180'), 'p_structure_given_wall', 3),
+    ('0.470', _H(*_POOL25, 'pixels', 'mirror'), 'p_structure_given_wall', 3),
+    ('0.023', _H(*_POOL25, 'pixels', 'correct'), 'p_structure', 3),
+    ('29', _H(*_POOL25, 'pixels', 'correct'), 'lift_structure_given_wall', 0),
+    ('0.250', _H(*_POOL25, 'pixels', 'correct'), 'kappa', 3),
+    ('0.169', _H(*_POOL25, 'pixels', 'yaw180'), 'kappa', 3),
+    ('0.188', _H(*_POOL25, 'pixels', 'mirror'), 'kappa', 3),
+    ('0.097', _H(*_POOL25, 'per_pano_median', 'correct'), 'kappa', 3),
+    ('0.430', _H('pooled', 'all', 'pixels', 'correct'), 'kappa', 3),
+    ('0.341', _H('pooled', 'all', 'pixels', 'yaw180'), 'kappa', 3),
+    ('0.364', _H('pooled', 'all', 'pixels', 'mirror'), 'kappa', 3),
+    ('0.947', _H(*_POOL25, 'pixels', 'correct'), 'p_surface_given_object', 3),
+    ('0.935', _H(*_POOL25, 'pixels', 'yaw180'), 'p_surface_given_object', 3),
+    ('0.936', _H(*_POOL25, 'pixels', 'mirror'), 'p_surface_given_object', 3),
+    ('0.944', _H(*_POOL25, 'pixels', 'correct'), 'p_surface_given_object_excl_ego', 3),
+    ('0.96', _H(*_POOL25, 'pixels', 'correct'), 'lift_surface_given_object', 2),
+    ('0.062', _H(*_POOL25, 'pixels', 'correct'), 'ego_share_of_surface_object', 3),
+    ('0.055', _H(*_POOL25, 'pixels', 'correct'), 'p_object_given_surface', 3),
+    ('0.051', _H(*_POOL25, 'pixels', 'correct'), 'p_object_given_surface_excl_ego', 3),
+    ('0.071', _H(*_POOL25, 'solid_angle', 'correct'), 'p_object_given_surface', 3),
+    ('0.153', _H(*_POOL25, 'pixels', 'correct'), 'p_walkroad_given_wall', 3),
+    ('0.336', _H(*_POOL25, 'pixels', 'yaw180'), 'p_walkroad_given_wall', 3),
+    ('0.280', _H(*_POOL25, 'pixels', 'mirror'), 'p_walkroad_given_wall', 3),
+    ('0.871', _H('pooled', 'all', 'pixels', 'correct'), 'p_walkroad_given_surface', 3),
+    ('0.826', _H('pooled', 'all', 'pixels', 'correct'), 'p_walkroad', 3),
+    ('0.070', _H('pooled', 'all', 'pixels', 'correct'), 'p_object_given_surface', 3),
+    ('0.804', _H('pooled', 'all', 'pixels', 'correct'), 'p_surface_given_object', 3),
+    ('0.674', _H('pooled', 'all', 'pixels', 'correct'), 'p_structure_given_wall', 3),
+    # (B)
+    ('0.022', ('curb_height.csv', {'city': 'pooled', 'group': 'sidewalk', 'reading': 'measured'}),
+     'median_of_pano_medians', 3),
+    ('0.014', ('curb_height.csv', {'city': 'pooled', 'group': 'sidewalk', 'reading': 'measured'}),
+     'median_lo', 3),
+    ('0.030', ('curb_height.csv', {'city': 'pooled', 'group': 'sidewalk', 'reading': 'measured'}),
+     'median_hi', 3),
+    ('399', ('curb_height.csv', {'city': 'pooled', 'group': 'sidewalk', 'reading': 'measured'}),
+     'n_panos', 0),
+    ('0.339', ('curb_height.csv', {'city': 'pooled', 'group': 'sidewalk', 'reading': 'measured'}),
+     'share_in_claim_band', 3),
+    ('0.033', ('curb_height.csv', {'city': 'pooled', 'group': 'sidewalk',
+                                   'reading': 'with_standins'}), 'median_of_pano_medians', 3),
+    ('0.042', ('curb_height.csv', {'city': 'pooled', 'group': 'sidewalk',
+                                   'reading': 'measured_ref_road'}), 'median_of_pano_medians', 3),
+    ('0.021', ('curb_height.csv', {'city': 'pooled', 'group': 'walk', 'reading': 'measured'}),
+     'median_of_pano_medians', 3),
+    ('0.008', ('curb_height.csv', {'city': 'pooled', 'group': 'road', 'reading': 'measured'}),
+     'median_of_pano_medians', 3),
+    ('0.234', ('curb_height.csv', {'city': 'pooled', 'group': 'road', 'reading': 'measured'}),
+     'share_in_claim_band', 3),
+    ('0.031', ('curb_height.csv', {'city': 'bend', 'group': 'sidewalk', 'reading': 'measured'}),
+     'median_of_pano_medians', 3),
+    ('0.024', ('curb_height.csv', {'city': 'paterson', 'group': 'sidewalk',
+                                   'reading': 'measured'}), 'median_of_pano_medians', 3),
+    ('0.020', ('curb_height.csv', {'city': 'gainesville', 'group': 'sidewalk',
+                                   'reading': 'measured'}), 'median_of_pano_medians', 3),
+    ('0.009', ('curb_height.csv', {'city': 'sao_paulo', 'group': 'sidewalk',
+                                   'reading': 'measured'}), 'median_of_pano_medians', 3),
+    # (C), (C')
+    ('2', ('verdict.json', {}), 'tiers.0.55.false_non_surface', 0),
+    ('42', ('verdict.json', {}), 'tiers.0.55.false_n', 0),
+    ('0.048', ('verdict.json', {}), 'tiers.0.55.false_share', 3),
+    ('0.013', ('verdict.json', {}), 'tiers.0.55.false_lo', 3),
+    ('0.158', ('verdict.json', {}), 'tiers.0.55.false_hi', 3),
+    ('43', ('verdict.json', {}), 'tiers.0.55.true_non_surface', 0),
+    ('770', ('verdict.json', {}), 'tiers.0.55.true_n', 0),
+    ('0.056', ('verdict.json', {}), 'tiers.0.55.true_share', 3),
+    ('0.042', ('verdict.json', {}), 'tiers.0.55.true_lo', 3),
+    ('0.074', ('verdict.json', {}), 'tiers.0.55.true_hi', 3),
+    ('0.944', ('verdict.json', {}), 'tiers.0.55.surface_reading.share', 3),
+    ('727', ('verdict.json', {}), 'tiers.0.55.surface_reading.true_on_walkroad', 0),
+    ('0.030', ('detection_classes.csv', {'city': 'pooled', 'group': 'missed', 'arm': 'tiled'}),
+     'share_non_surface', 3),
+    # Curb Cut at the pixel (post hoc)
+    ('0.271', ('detection_classes.csv', {'city': 'pooled', 'group': 'true', 'arm': 'tiled'}),
+     'share_curb_cut', 3),
+    ('0.071', ('detection_classes.csv', {'city': 'pooled', 'group': 'false', 'arm': 'tiled'}),
+     'share_curb_cut', 3),
+    ('0.254', ('detection_classes.csv', {'city': 'pooled', 'group': 'missed', 'arm': 'tiled'}),
+     'share_curb_cut', 3),
+    ('0.179', ('detection_classes.csv', {'city': 'pooled', 'group': 'true', 'arm': 'direct'}),
+     'share_curb_cut', 3),
+    ('0.130', ('detection_classes.csv', {'city': 'pooled', 'group': 'missed', 'arm': 'direct'}),
+     'share_curb_cut', 3),
+    ('0.301', ('detection_classes.csv', {'city': 'pooled', 'group': 'true', 'arm': 'direct4096'}),
+     'share_curb_cut', 3),
+    ('0.269', ('detection_classes.csv', {'city': 'pooled', 'group': 'missed',
+                                         'arm': 'direct4096'}), 'share_curb_cut', 3),
+    ('0.119', ('detection_classes.csv', {'city': 'pooled', 'group': 'false',
+                                         'arm': 'direct4096'}), 'share_curb_cut', 3),
+    # the trap
+    ('0.957', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-80..-70', 'band': 'interior'}),
+     'agreement_direct', 3),
+    ('0.856', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-80..-70', 'band': 'interior'}),
+     'agreement_direct4096', 3),
+    ('0.948', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-80..-70', 'band': 'seam'}),
+     'agreement_direct', 3),
+    ('0.819', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-80..-70', 'band': 'seam'}),
+     'agreement_direct4096', 3),
+    ('0.907', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-10..0', 'band': 'seam'}),
+     'agreement_direct', 3),
+    ('0.919', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-10..0', 'band': 'interior'}),
+     'agreement_direct', 3),
+    ('0.959', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-10..0', 'band': 'interior'}),
+     'agreement_direct4096', 3),
+    ('0.12', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-80..-70', 'band': 'interior'}),
+     'direct4096_share_SKY', 2),
+    ('0.15', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-80..-70', 'band': 'seam'}),
+     'direct4096_share_SKY', 2),
+    ('0.06', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-50..-40', 'band': 'interior'}),
+     'direct4096_share_SKY', 2),
+    ('0.08', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-50..-40', 'band': 'seam'}),
+     'direct4096_share_SKY', 2),
+    ('0.95', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-20..-10', 'band': 'seam'}),
+     'tiled_share_ROAD', 2),
+    ('0.44', ('trap.csv', {'city': 'pooled', 'lat_band_deg': '-20..-10', 'band': 'interior'}),
+     'tiled_share_ROAD', 2),
+    # sample
+    ('90', ('sample_counts.csv', {'city': 'bend'}), 'n_sample', 0),
+    ('113', ('sample_counts.csv', {'city': 'paterson'}), 'n_sample', 0),
+    ('112', ('sample_counts.csv', {'city': 'gainesville'}), 'n_sample', 0),
+    ('101', ('sample_counts.csv', {'city': 'sao_paulo'}), 'n_sample', 0),
+]
+# the per-city (A) table, within 25 m: (correct, yaw180, mirror) per statistic
+_CITY_TABLE = {
+    'bend': {'p_walkroad_given_surface': ('0.906', '0.905', '0.905'), 'p_walkroad': ('0.902',),
+             'p_surface_given_object': ('0.957', '0.966', '0.963'),
+             'p_structure_given_wall': ('0.488', '0.209', '0.222'),
+             'kappa': ('0.104', '0.053', '0.057')},
+    'paterson': {'p_walkroad_given_surface': ('0.905', '0.902', '0.903'),
+                 'p_walkroad': ('0.892',),
+                 'p_surface_given_object': ('0.955', '0.941', '0.946'),
+                 'p_structure_given_wall': ('0.674', '0.403', '0.486'),
+                 'kappa': ('0.225', '0.146', '0.170')},
+    'gainesville': {'p_walkroad_given_surface': ('0.882', '0.881', '0.881'),
+                    'p_walkroad': ('0.878',),
+                    'p_surface_given_object': ('0.966', '0.960', '0.955'),
+                    'p_structure_given_wall': ('0.553', '0.174', '0.216'),
+                    'kappa': ('0.117', '0.055', '0.065')},
+    'sao_paulo': {'p_walkroad_given_surface': ('0.896', '0.889', '0.891'),
+                  'p_walkroad': ('0.866',),
+                  'p_surface_given_object': ('0.929', '0.907', '0.907'),
+                  'p_structure_given_wall': ('0.684', '0.466', '0.512'),
+                  'kappa': ('0.341', '0.242', '0.266')}}
+for _c, _stats in _CITY_TABLE.items():
+    for _k, _vals in _stats.items():
+        for _arm, _v in zip(('correct', 'yaw180', 'mirror'), _vals):
+            QUOTED.append((_v, _H(_c, 'le25m', 'pixels', _arm), _k, 3))
+
+
+def derived_numbers(pd):
+    """Numbers the write-up quotes that are not a single CSV cell, each recomputed here from
+    committed files with its formula written beside it (data/derived_numbers.csv)."""
+    dets = read_csv(pd / 'detections.csv')
+    agree = read_csv(pd / 'agreement.csv')
+    panos = read_csv(pd / 'panos.csv')
+    out = []
+
+    def add(name, value, formula):
+        out.append({'name': name, 'value': value, 'formula': formula})
+    for g in ('true', 'false'):
+        gi = [d for d in dets if d['gt_group'] == g]
+        c = Counter(d['depth_class'] for d in gi)
+        for k in DEPTH_CLASSES:
+            add(f'det_{g}_depth_{k}', c[k], f"detections.csv: gt_group={g}, count depth_class={k}")
+    f = [d for d in dets if d['gt_group'] == 'false']
+    c = Counter(d['seg_class'] for d in f)
+    for k in ('Sidewalk', 'Curb', 'Curb Cut', 'Road', 'Catch Basin', 'Manhole'):
+        add(f'false_seg_{k}', c[k], f"detections.csv: gt_group=false, count seg_class={k}")
+    for grp in (WALK, ROAD):
+        add(f'false_group_{grp}', sum(d['seg_group'] == grp for d in f),
+            f'detections.csv: gt_group=false, count seg_group={grp}')
+    rows = {r['depth_class']: r for r in agree if r['city'] == 'pooled' and r['range_bin'] == 'all'}
+
+    def seen(r):
+        return float(r['n_px']) - float(r['n_NONE'])
+    for dc in (dad.GROUND, dad.FLOOR, FLOOR_STANDIN):
+        add(f'walk_px_millions_{dc}', float(rows[dc]['n_WALK']) / 1e6,
+            f'agreement.csv: city=pooled, range_bin=all, depth_class={dc}, n_WALK / 1e6')
+        add(f'walk_share_of_seen_{dc}', float(rows[dc]['n_WALK']) / seen(rows[dc]),
+            f'agreement.csv: same row, n_WALK / (n_px - n_NONE)')
+    add('walk_px_millions_secondary', (float(rows[dad.FLOOR]['n_WALK'])
+                                       + float(rows[FLOOR_STANDIN]['n_WALK'])) / 1e6,
+        'agreement.csv: floor + floor_standin n_WALK / 1e6')
+    for rl in RANGE_LABELS:
+        rr = [r for r in agree if r['city'] == 'pooled' and r['range_bin'] == rl
+              and r['depth_class'] in DEPTH_SURFACE]
+        tot = sum(seen(r) for r in rr)
+        add(f'object_share_of_surface_{rl}', sum(float(r['n_OBJECT']) for r in rr) / tot,
+            f'agreement.csv: city=pooled, range_bin={rl}, surface rows, n_OBJECT / seen')
+    sw = [(int(r['n_sidewalk_ground_px']), int(r['n_sidewalk_px'])) for r in panos
+          if int(r['n_sidewalk_px']) > 0]
+    add('sidewalk_on_dominant_pixel_pooled', sum(a for a, _ in sw) / sum(b for _, b in sw),
+        'panos.csv (pooled): sum n_sidewalk_ground_px / sum n_sidewalk_px')
+    add('sidewalk_on_dominant_pano_median', float(np.median([a / b for a, b in sw])),
+        'panos.csv (pooled): median over panos with n_sidewalk_px > 0 of the ratio')
+    add('sidewalk_on_dominant_n_panos', len(sw), 'panos.csv: panos with n_sidewalk_px > 0')
+    lats = np.array([(0.5 - float(d['y'])) * 180 for d in dets
+                     if d['gt_group'] in ('true', 'false', 'missed')])
+    add('det_lat_p01_deg', float(np.percentile(lats, 1)),
+        'detections.csv: True + False + missed, (0.5 - y) * 180, 1st percentile')
+    add('det_lat_p99_deg', float(np.percentile(lats, 99)), '... 99th percentile')
+    add('det_lat_min_deg', float(lats.min()), '... minimum')
+    add('det_lat_max_deg', float(lats.max()), '... maximum')
+    for city in DEFAULT_CITIES:
+        t = [d for d in dets if d['gt_group'] == 'true' and d['city'] == city]
+        add(f'true_on_walkroad_{city}', sum(d['seg_group'] in SURFACE_GROUPS for d in t) / len(t),
+            f'detections.csv: city={city}, gt_group=true, share seg_group in WALK/ROAD')
+    x = [d for d in dets if d['gt_group'] in ('true', 'false', 'missed')]
+    for arm in DIRECT_ARMS:
+        add(f'det_group_agree_{arm}', sum(d['seg_group'] == d[f'{arm}_group'] for d in x) / len(x),
+            f'detections.csv: True + False + missed, share seg_group == {arm}_group')
+        add(f'det_class_agree_{arm}', sum(d['seg_class'] == d[f'{arm}_class'] for d in x) / len(x),
+            f'detections.csv: True + False + missed, share seg_class == {arm}_class')
+    add('det_n_true_false_missed', len(x), 'detections.csv: rows with gt_group in true/false/missed')
+    b = [d for d in dets if d['gt_group'] == 'band_0p30']
+    add('band_non_surface_share', sum(d['seg_group'] not in SURFACE_GROUPS for d in b) / len(b),
+        'detections.csv: gt_group=band_0p30, share seg_group not in WALK/ROAD')
+    return out
+
+def _D(name):
+    return ('derived_numbers.csv', {'name': name})
+
+
+QUOTED += [
+    ('500', _D('det_true_depth_floor'), 'value', 0),
+    ('143', _D('det_true_depth_ground'), 'value', 0),
+    ('122', _D('det_true_depth_floor_standin'), 'value', 0),
+    ('4', _D('det_true_depth_non_horizontal'), 'value', 0),
+    ('1', _D('det_true_depth_horizontal_nonfloor'), 'value', 0),
+    ('26', _D('det_false_depth_floor'), 'value', 0),
+    ('10', _D('det_false_depth_floor_standin'), 'value', 0),
+    ('5', _D('det_false_depth_ground'), 'value', 0),
+    ('1', _D('det_false_depth_non_horizontal'), 'value', 0),
+    ('25', _D('false_seg_Sidewalk'), 'value', 0),
+    ('5', _D('false_seg_Curb'), 'value', 0),
+    ('3', _D('false_seg_Curb Cut'), 'value', 0),
+    ('5', _D('false_seg_Road'), 'value', 0),
+    ('1', _D('false_seg_Catch Basin'), 'value', 0),
+    ('1', _D('false_seg_Manhole'), 'value', 0),
+    ('33', _D('false_group_WALK'), 'value', 0),
+    ('7', _D('false_group_ROAD'), 'value', 0),
+    ('0.97', _D('walk_px_millions_ground'), 'value', 2),
+    ('1.03', _D('walk_px_millions_secondary'), 'value', 2),
+    ('0.91', _D('walk_px_millions_floor'), 'value', 2),
+    ('0.12', _D('walk_px_millions_floor_standin'), 'value', 2),
+    ('0.069', _D('walk_share_of_seen_ground'), 'value', 3),
+    ('0.118', _D('walk_share_of_seen_floor'), 'value', 3),
+    ('0.02', _D('object_share_of_surface_0-5'), 'value', 2),
+    ('0.24', _D('object_share_of_surface_15-25'), 'value', 2),
+    ('0.505', _D('sidewalk_on_dominant_pixel_pooled'), 'value', 3),
+    ('0.27', _D('sidewalk_on_dominant_pano_median'), 'value', 2),
+    ('410', _D('sidewalk_on_dominant_n_panos'), 'value', 0),
+    ('-2', _D('det_lat_p99_deg'), 'value', 0),
+    ('-36', _D('det_lat_p01_deg'), 'value', 0),
+    ('-49', _D('det_lat_min_deg'), 'value', 0),
+    ('4', _D('det_lat_max_deg'), 'value', 0),
+    ('0.955', _D('true_on_walkroad_bend'), 'value', 3),
+    ('0.930', _D('true_on_walkroad_paterson'), 'value', 3),
+    ('0.924', _D('true_on_walkroad_gainesville'), 'value', 3),
+    ('0.975', _D('true_on_walkroad_sao_paulo'), 'value', 3),
+    ('0.896', _D('det_group_agree_direct'), 'value', 3),
+    ('0.684', _D('det_class_agree_direct'), 'value', 3),
+    ('0.958', _D('det_group_agree_direct4096'), 'value', 3),
+    ('0.843', _D('det_class_agree_direct4096'), 'value', 3),
+    ('1143', _D('det_n_true_false_missed'), 'value', 0),
+    ('1', ('verdict.json', {}), 'tiers.0.55.per_city.bend.false_non_surface', 0),
+    ('7', ('verdict.json', {}), 'tiers.0.55.per_city.bend.false_n', 0),
+    ('0', ('verdict.json', {}), 'tiers.0.55.per_city.gainesville.false_non_surface', 0),
+    ('9', ('verdict.json', {}), 'tiers.0.55.per_city.gainesville.false_n', 0),
+    ('0', ('verdict.json', {}), 'tiers.0.55.per_city.paterson.false_non_surface', 0),
+    ('5', ('verdict.json', {}), 'tiers.0.55.per_city.paterson.false_n', 0),
+    ('1', ('verdict.json', {}), 'tiers.0.55.per_city.sao_paulo.false_non_surface', 0),
+    ('21', ('verdict.json', {}), 'tiers.0.55.per_city.sao_paulo.false_n', 0),
+    ('0.024', ('detection_classes.csv', {'city': 'pooled', 'group': 'false', 'arm': 'direct'}),
+     'share_curb_cut', 3),
+    ('0.191', ('detection_classes.csv', {'city': 'pooled', 'group': 'unsure_missed',
+                                         'arm': 'tiled'}), 'share_curb_cut', 3),
+    ('0.056', ('detection_classes.csv', {'city': 'pooled', 'group': 'unsure_missed',
+                                         'arm': 'tiled'}), 'share_non_surface', 3),
+    ('0.870', ('detection_classes.csv', {'city': 'pooled', 'group': 'true', 'arm': 'tiled'}),
+     'share_WALK', 3),
+    ('0.786', ('detection_classes.csv', {'city': 'pooled', 'group': 'false', 'arm': 'tiled'}),
+     'share_WALK', 3),
+    ('0.167', ('detection_classes.csv', {'city': 'pooled', 'group': 'false', 'arm': 'tiled'}),
+     'share_ROAD', 3),
+    ('0.825', ('detection_classes.csv', {'city': 'pooled', 'group': 'missed', 'arm': 'tiled'}),
+     'share_WALK', 3),
+    ('0.145', ('detection_classes.csv', {'city': 'pooled', 'group': 'missed', 'arm': 'tiled'}),
+     'share_ROAD', 3),
+    ('0.074', ('detection_classes.csv', {'city': 'pooled', 'group': 'true', 'arm': 'tiled'}),
+     'share_ROAD', 3),
+    ('0.107', _D('band_non_surface_share'), 'value', 3),
+]
+
+
+def check_numbers(pd, data):
+    """Resolve every QUOTED number against the committed files; one row per number."""
+    cache = {}
+
+    def load(name):
+        if name not in cache:
+            path = (data if name in ('derived_numbers.csv',) else
+                    pd if (pd / name).exists() else data) / name
+            cache[name] = (json.loads(path.read_text(encoding='utf-8'))
+                           if name.endswith('.json') else read_csv(path))
+        return cache[name]
+    out = []
+    for quoted, (name, sel), col, nd in QUOTED:
+        src = load(name)
+        if name.endswith('.json'):
+            v = src
+            for part in col.replace('0.55', '0_55').split('.'):
+                v = v['0.55' if part == '0_55' else part]
+            row_desc = '-'
+        else:
+            hits = [r for r in src if all(r.get(k) == v for k, v in sel.items())]
+            v = hits[0][col.removeprefix('1-')] if len(hits) == 1 else None
+            row_desc = ', '.join(f'{k}={v}' for k, v in sel.items())
+        actual = None if v in (None, '') else float(v)
+        if col.startswith('1-') and actual is not None:
+            actual = 1.0 - actual
+        ok = actual is not None and round(actual, nd) == round(float(quoted), nd)
+        out.append({'quoted': quoted, 'file': name, 'row': row_desc, 'column': col,
+                    'value': actual, 'rounding': nd, 'status': 'ok' if ok else 'MISMATCH'})
+    return out
+
+
+VISTAS_V12_ORDER = [
+    'Bird', 'Ground Animal', 'Curb', 'Fence', 'Guard Rail', 'Barrier', 'Wall', 'Bike Lane',
+    'Crosswalk - Plain', 'Curb Cut', 'Parking', 'Pedestrian Area', 'Rail Track', 'Road',
+    'Service Lane', 'Sidewalk', 'Bridge', 'Building', 'Tunnel', 'Person', 'Bicyclist',
+    'Motorcyclist', 'Other Rider', 'Lane Marking - Crosswalk', 'Lane Marking - General',
+    'Mountain', 'Sand', 'Sky', 'Snow', 'Terrain', 'Vegetation', 'Water', 'Banner', 'Bench',
+    'Bike Rack', 'Billboard', 'Catch Basin', 'CCTV Camera', 'Fire Hydrant', 'Junction Box',
+    'Mailbox', 'Manhole', 'Phone Booth', 'Pothole', 'Street Light', 'Pole',
+    'Traffic Sign Frame', 'Utility Pole', 'Traffic Light', 'Traffic Sign (Back)',
+    'Traffic Sign (Front)', 'Trash Can', 'Bicycle', 'Boat', 'Bus', 'Car', 'Caravan',
+    'Motorcycle', 'On Rails', 'Other Vehicle', 'Trailer', 'Truck', 'Wheeled Slow', 'Car Mount',
+    'Ego Vehicle']   # model.config.id2label at MODEL_REVISION; cmd_examples asserts the match
+
+
+# --- examples and figures ----------------------------------------------------------------
+#
+# Two steps, so that every figure is byte-reproducible from COMMITTED files alone:
+#   `examples` (needs the untracked work/ label maps, the payloads and the benchmark JPEGs;
+#   no GPU, no network) selects every example by a fixed, stated rule and seed and writes
+#   small JPEG panels + one CSV per set under docs/figures/footway-depth/examples/;
+#   `figures` reads only committed CSVs (docs/figures/footway-depth/data/ and
+#   runs/_pooled/footway/) and those panels, and writes every figure (PNG 200 dpi + SVG for
+#   charts; JPEG 200 dpi for photographic contact sheets) plus data/figures_manifest.json
+#   (sha256 of every output) and data/numbers.csv (every quoted number, checked).
+
+# Categorical slots in fixed order (the dataviz reference palette, validated: adjacent CVD
+# dE >= 9.1, normal-vision >= 19.6; three slots sit below 3:1 on white, so every chart carries
+# visible labels and a CSV beside it). NONE is neutral gray.
 GROUP_COLORS = {WALK: '#2a78d6', ROAD: '#eb6834', OBJECT: '#1baf7a', STRUCTURE: '#eda100',
                 SKY: '#e87ba4', OTHER: '#008300', NONE: '#b0aea5'}
-CITY_COLORS = {'bend': '#2a78d6', 'paterson': '#eb6834', 'gainesville': '#1baf7a',
-               'sao_paulo': '#4a3aa7', 'pooled': '#0b0b0b'}
+DEPTH_COLORS = {dad.GROUND: '#2a78d6', dad.FLOOR: '#1baf7a', FLOOR_STANDIN: '#eda100',
+                dad.HORIZONTAL_NONFLOOR: '#e87ba4', dad.NON_HORIZONTAL: '#4a3aa7',
+                dad.NO_PLANE: '#e34948'}
+ARM_STYLE = {'correct': dict(color='#2a78d6', label='measured (correct geometry)'),
+             'yaw180': dict(color='#8a8880', label='null: depth rotated 180 deg'),
+             'mirror': dict(color='#c3c2b7', hatch='///', label='null: depth mirrored')}
+DIRECT_STYLE = {'direct': dict(color='#2a78d6', label='direct equirect, 2048 px (5.7 px/deg)'),
+                'tiled': dict(color='#0b0b0b', label='tiled (registered, 11.4 px/deg)'),
+                'direct4096': dict(color='#eb6834', label='direct equirect, 4096 px (11.4 px/deg)')}
+CITY_LABEL = {'bend': 'Bend', 'paterson': 'Paterson', 'gainesville': 'Gainesville',
+              'sao_paulo': 'São Paulo', 'pooled': 'pooled'}
+INK, INK2, GRID_INK, SURFACE_BG = '#0b0b0b', '#52514e', '#e4e3dd', '#fcfcfb'
+EX_DIR = FIG_DIR / 'examples'
+PANEL_W, PANEL_H = 320, 240
+CROP_W_NORM, CROP_H_NORM = 0.1, 0.15          # a 36 x 27 deg equirect window
+BOOT_N = 1000
+
+OBJECT_EXAMPLE_CLASSES = [('car', ('Car',)), ('bus_truck', ('Bus', 'Truck', 'Other Vehicle')),
+                          ('person', ('Person', 'Bicyclist', 'Motorcyclist')),
+                          ('vegetation', ('Vegetation',)),
+                          ('camera_car', ('Ego Vehicle', 'Car Mount')),
+                          ('pole', ('Pole', 'Utility Pole', 'Street Light'))]
+OBJECT_PER_CLASS, OBJECT_TOP = 2, 10
+CURB_EXAMPLES, CURB_TOP, CURB_MIN_EX_PX = 6, 30, 200
+SKY_EXAMPLES, SKY_TOP, SKY_MAX_LAT_DEG = 6, 20, -40.0
 GALLERY_CATEGORIES = [
     ('surface_object', 'depth surface,\nsegmenter OBJECT'),
     ('surface_structure', 'depth surface,\nsegmenter STRUCTURE'),
@@ -1463,13 +1949,249 @@ GALLERY_PER_CATEGORY = 6
 GALLERY_TOP_PANOS = 20
 
 
+def _hex_rgb(h):
+    return np.array([int(h[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float64)
+
+
+def crop_window(city, pid, x, y, args):
+    """(panel RGB array, xn grid, yn grid, marker px): a CROP_W_NORM x CROP_H_NORM equirect
+    window centred on (x, y) at native resolution, wrapping across the seam, resized to
+    PANEL_W x PANEL_H; xn/yn are the image-frame coordinates of every panel pixel centre."""
+    y0 = min(max(0.0, y - CROP_H_NORM / 2), 1.0 - CROP_H_NORM)
+    x0 = x - CROP_W_NORM / 2
+    with Image.open(args.benchmark_root / city / 'panos' / f'{pid}.jpg') as im:
+        W, H = im.size
+        left, top = int(round(x0 * W)), int(round(y0 * H))
+        w, h = int(round(CROP_W_NORM * W)), int(round(CROP_H_NORM * H))
+        canvas = Image.new('RGB', (w, h))
+        pos = 0
+        while pos < w:
+            src = (left + pos) % W
+            take = min(w - pos, W - src)
+            canvas.paste(im.crop((src, top, src + take, top + h)), (pos, 0))
+            pos += take
+    img = np.asarray(canvas.convert('RGB').resize((PANEL_W, PANEL_H), Image.LANCZOS))
+    jj, ii = np.meshgrid(np.arange(PANEL_W), np.arange(PANEL_H))
+    xn = np.mod(x0 + (jj + 0.5) / PANEL_W * CROP_W_NORM, 1.0)
+    yn = y0 + (ii + 0.5) / PANEL_H * CROP_H_NORM
+    return img, xn, yn, (PANEL_W / 2, (y - y0) / CROP_H_NORM * PANEL_H)
+
+
+def overlay(img, classes, colors, alpha=0.55):
+    """Blend a per-pixel class-colour layer over the panel."""
+    layer = np.stack([_hex_rgb(colors[c]) for c in classes.ravel()]).reshape(img.shape)
+    return np.clip(img * (1 - alpha) + layer * alpha, 0, 255).astype(np.uint8)
+
+
+def seg_panel(img, xn, yn, labels, table_seg):
+    g = table_seg[labels[np.minimum((yn * GRID_H).astype(int), GRID_H - 1),
+                         np.minimum((xn * GRID_W).astype(int), GRID_W - 1)]]
+    return overlay(img, np.array(SEG_GROUPS, dtype=object)[g], GROUP_COLORS)
+
+
+def depth_panel(img, xn, yn, pix, dtab):
+    ind = payload_indices(pix.payload)
+    ph, pw = ind.shape
+    d = dtab[ind[np.minimum((yn * ph).astype(int), ph - 1),
+                 np.minimum((xn * pw).astype(int), pw - 1)]]
+    return overlay(img, np.array(DEPTH_CLASSES, dtype=object)[d], DEPTH_COLORS)
+
+
+def save_panel(arr, path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(arr).save(path, quality=85, optimize=True)
+
+
+def largest_component_point(mask):
+    """(size, row, col) of the mask's largest 8-connected component and its pixel nearest
+    the component centroid; None for an empty mask."""
+    from scipy import ndimage
+    comp, n = ndimage.label(mask, structure=np.ones((3, 3)))
+    if not n:
+        return None
+    sizes = np.bincount(comp.ravel())[1:]
+    k = int(np.argmax(sizes)) + 1
+    rr, cc = np.nonzero(comp == k)
+    i = int(np.argmin((rr - rr.mean()) ** 2 + (cc - cc.mean()) ** 2))
+    return int(sizes[k - 1]), int(rr[i]), int(cc[i]), comp == k
+
+
+def pano_context(args, city, pid, wd, table_seg):
+    pix = dad.PayloadIndex(dad.read_payload(payload_path(args.run_root, city, pid)))
+    ph, pw = pix.payload.height, pix.payload.width
+    ind = payload_indices(pix.payload)
+    dtab = depth_class_table(pix)
+    rows, grow, gcol = grid_rows_cols(ph, pw)
+    tiled = np.asarray(Image.open(wd / 'stitched' / city / f'{pid}.png'))
+    lab = tiled[grow][:, gcol]
+    yv = (grow + 0.5) / GRID_H
+    min_dip = math.atan2(geo.DEFAULT_CAMERA_HEIGHT_M, geo.DEFAULT_MAX_RANGE_M)
+    near = np.broadcast_to(((yv - 0.5) * math.pi > min_dip)[:, None], lab.shape)
+    return {'pix': pix, 'ind': ind, 'dtab': dtab, 'rows': rows, 'tiled': tiled, 'lab': lab,
+            'scls': table_seg[lab], 'dcls': dtab[ind[rows]], 'near': near, 'pw': pw, 'ph': ph}
+
+
+def cmd_examples(args):
+    """Select and render every example panel by a fixed rule and seed (module docstring)."""
+    wd = work_dir(args)
+    man = json.loads((wd / 'tile_labels' / 'segment_manifest.json').read_text(
+        encoding='utf-8'))
+    id2label = {int(k): v for k, v in man['id2label'].items()}
+    fine_names = [id2label[i] for i in range(len(id2label))]
+    assert fine_names == VISTAS_V12_ORDER, 'the model id order changed: update VISTAS_V12_ORDER'
+    table_seg = collapse_table(id2label)
+    surf_ids = [DEPTH_CLASSES.index(c) for c in DEPTH_SURFACE]
+    sample = read_sample(args)
+    cand = defaultdict(list)
+    for n, r in enumerate(sample, 1):
+        city, pid = r['city'], r['pano_id']
+        c = pano_context(args, city, pid, wd, table_seg)
+        surf = np.isin(c['dcls'], surf_ids) & c['near']
+        for key, names in OBJECT_EXAMPLE_CLASSES:
+            hit = largest_component_point(surf & np.isin(c['lab'], [fine_names.index(x)
+                                                                    for x in names]))
+            if hit:
+                size, rr, cc, comp = hit
+                cand[f'obj_{key}'].append(dict(
+                    city=city, pano_id=pid, size=size, row=int(c['rows'][rr]), col=cc,
+                    seg_class=Counter(c['lab'][comp].tolist()).most_common(1)[0][0],
+                    depth_class=Counter(c['dcls'][comp].tolist()).most_common(1)[0][0]))
+        sw = (c['lab'] == fine_names.index('Sidewalk')) & c['near'] & \
+            (c['dcls'] == DEPTH_CLASSES.index(dad.FLOOR))
+        if sw.sum() >= CURB_MIN_EX_PX:
+            hit = largest_component_point(sw)
+            cand['curb'].append(dict(city=city, pano_id=pid, size=int(sw.sum()), comp=None,
+                                     row=int(c['rows'][hit[1]]), col=hit[2], mask=hit[3]))
+        d4 = np.asarray(Image.open(wd / 'direct4096_labels' / city / f'{pid}.png'))
+        lat = 90.0 - (np.arange(GRID_H) + 0.5) / GRID_H * 180.0
+        low = np.broadcast_to((lat < SKY_MAX_LAT_DEG)[:, None], d4.shape)
+        sky = low & (table_seg[c['tiled']] == SEG_GROUPS.index(ROAD)) & \
+            (table_seg[d4] == SEG_GROUPS.index(SKY))
+        hit = largest_component_point(sky)
+        if hit:
+            cand['sky'].append(dict(city=city, pano_id=pid, size=int(sky.sum()), row=hit[1],
+                                    col=hit[2],
+                                    share_low_road_as_sky=float(sky.sum() / max(1, (
+                                        low & (table_seg[c['tiled']] == SEG_GROUPS.index(
+                                            ROAD))).sum()))))
+        if n % 100 == 0:
+            print(f'  examples: scanned {n}/{len(sample)}', flush=True)
+
+    def draw(key, top, k):
+        pool = sorted(cand[key], key=lambda e: (-e['size'], e['city'], e['pano_id']))[:top]
+        return random.Random(f'{SEED}:{key}').sample(pool, min(k, len(pool)))
+
+    out = {}
+    # 1. objects on a depth floor plane: two per class family
+    rows = []
+    for key, names in OBJECT_EXAMPLE_CLASSES:
+        for e in draw(f'obj_{key}', OBJECT_TOP, OBJECT_PER_CLASS):
+            c = pano_context(args, e['city'], e['pano_id'], wd, table_seg)
+            x, y = (e['col'] + 0.5) / c['pw'], (e['row'] + 0.5) / c['ph']
+            img, xn, yn, mk = crop_window(e['city'], e['pano_id'], x, y, args)
+            i = len(rows)
+            save_panel(img, EX_DIR / 'objects' / f'{i:02d}_crop.jpg')
+            save_panel(seg_panel(img, xn, yn, c['tiled'], table_seg),
+                       EX_DIR / 'objects' / f'{i:02d}_seg.jpg')
+            save_panel(depth_panel(img, xn, yn, c['pix'], c['dtab']),
+                       EX_DIR / 'objects' / f'{i:02d}_depth.jpg')
+            rng_m = flat_range(fs.pano_pose(None, fs.POSE_OFF), y) if False else \
+                range_from_y(y)
+            rows.append({'idx': i, 'family': key, 'city': e['city'],
+                         'pano_id': e['pano_id'], 'x': x, 'y': y,
+                         'component_px': e['size'], 'seg_class': id2label[e['seg_class']],
+                         'depth_class': DEPTH_CLASSES[e['depth_class']],
+                         'range_flat_2p6_m': rng_m, 'marker_px': f'{mk[0]:.1f};{mk[1]:.1f}'})
+    out['objects'] = rows
+    # 2. curb: sidewalk on a measured secondary floor plane, the offset at one pixel
+    rows = []
+    for e in draw('curb', CURB_TOP, CURB_EXAMPLES):
+        c = pano_context(args, e['city'], e['pano_id'], wd, table_seg)
+        rr, cc = np.nonzero(e['mask'])
+        r0 = int(np.searchsorted(c['rows'], e['row']))
+        order = np.argsort((rr - r0) ** 2 + (cc - e['col']) ** 2, kind='stable')
+        pick = None
+        for j in order:
+            r, col = int(c['rows'][rr[j]]), int(cc[j])
+            x, y = (col + 0.5) / c['pw'], (r + 0.5) / c['ph']
+            cls, f = depth_class_at(c['pix'], x, y)
+            ref = reference_plane(c['pix'], c['ind'], r, col, f.get('rows_to_ref'))
+            if f.get('offset_local_m') is not None and cls == dad.FLOOR and \
+                    not depthlib.is_standin(ref):
+                pick = (x, y, f)
+                break
+        if pick is None:
+            continue
+        x, y, f = pick
+        img, xn, yn, mk = crop_window(e['city'], e['pano_id'], x, y, args)
+        i = len(rows)
+        save_panel(img, EX_DIR / 'curb' / f'{i:02d}_crop.jpg')
+        save_panel(depth_panel(img, xn, yn, c['pix'], c['dtab']),
+                   EX_DIR / 'curb' / f'{i:02d}_depth.jpg')
+        rows.append({'idx': i, 'city': e['city'], 'pano_id': e['pano_id'], 'x': x, 'y': y,
+                     'sidewalk_floor_px': e['size'], 'offset_local_m': f['offset_local_m'],
+                     'rows_to_ref': f.get('rows_to_ref'),
+                     'range_flat_2p6_m': range_from_y(y),
+                     'marker_px': f'{mk[0]:.1f};{mk[1]:.1f}'})
+    out['curb'] = rows
+    # 3. the 4096 px direct arm's SKY under the car
+    rows = []
+    for e in draw('sky', SKY_TOP, SKY_EXAMPLES):
+        c = pano_context(args, e['city'], e['pano_id'], wd, table_seg)
+        d4 = np.asarray(Image.open(wd / 'direct4096_labels' / e['city'] / f"{e['pano_id']}.png"))
+        x, y = (e['col'] + 0.5) / GRID_W, (e['row'] + 0.5) / GRID_H
+        img, xn, yn, mk = crop_window(e['city'], e['pano_id'], x, y, args)
+        i = len(rows)
+        save_panel(img, EX_DIR / 'sky' / f'{i:02d}_crop.jpg')
+        save_panel(seg_panel(img, xn, yn, c['tiled'], table_seg),
+                   EX_DIR / 'sky' / f'{i:02d}_tiled.jpg')
+        save_panel(seg_panel(img, xn, yn, d4, table_seg), EX_DIR / 'sky' / f'{i:02d}_d4096.jpg')
+        rows.append({'idx': i, 'city': e['city'], 'pano_id': e['pano_id'], 'x': x, 'y': y,
+                     'road_as_sky_px': e['size'],
+                     'share_low_road_as_sky': e['share_low_road_as_sky'],
+                     'marker_px': f'{mk[0]:.1f};{mk[1]:.1f}'})
+    out['sky'] = rows
+    # 4. the disagreement gallery (the earlier fixed rule, gallery_candidates)
+    rows = []
+    for p in gallery_candidates(args):
+        img, xn, yn, mk = crop_window(p['city'], p['pano_id'], p['x'], p['y'], args)
+        i = len(rows)
+        save_panel(img, EX_DIR / 'disagreement' / f'{i:02d}_crop.jpg')
+        rows.append({'idx': i, **p, 'marker_px': f'{mk[0]:.1f};{mk[1]:.1f}'})
+    out['disagreement'] = rows
+    # 5. the tiling figure's pano: the first row of sample.csv
+    r = sample[0]
+    t = EX_DIR / 'tiling'
+    t.mkdir(parents=True, exist_ok=True)
+    with Image.open(args.benchmark_root / r['city'] / 'panos' / f"{r['pano_id']}.jpg") as im:
+        im.convert('RGB').resize((GRID_W, GRID_H), Image.LANCZOS).save(
+            t / 'pano.jpg', quality=85, optimize=True)
+    Image.open(wd / 'stitched' / r['city'] / f"{r['pano_id']}.png").save(t / 'stitched.png')
+    out['tiling'] = [{'idx': 0, 'city': r['city'], 'pano_id': r['pano_id']}]
+    for name, rows in out.items():
+        write_csv(EX_DIR / f'{name}.csv', rows,
+                  sorted({k for row in rows for k in row},
+                         key=lambda k: (k not in ('idx', 'family', 'category', 'city',
+                                                  'pano_id'), k)))
+    size = sum(p.stat().st_size for p in EX_DIR.rglob('*') if p.is_file())
+    print(f'examples: {sum(len(v) for v in out.values())} examples, '
+          f'{size / 2**20:.2f} MiB -> {EX_DIR}')
+
+
+def range_from_y(y):
+    """Flat-raycast horizontal range at 2.6 m for an image row (geo; the range does not
+    depend on heading or position), None beyond 25 m or at the horizon."""
+    pano = fs.SlimPano(pano_id='-', lat=0.0, lng=0.0, camera_heading=0.0, camera_pitch=None,
+                       camera_roll=None, capture_date=None, source='launch', detections=[])
+    return flat_range(fs.pano_pose(pano, fs.POSE_OFF), y)
+
+
 def gallery_candidates(args):
-    """Fixed-rule gallery picks: for each pixel category, rank panos by the size of the
-    category's largest 8-connected component within 25 m (payload grid), take the top
+    """Fixed-rule disagreement picks: for each pixel category, rank panos by the size of
+    the category's largest 8-connected component within 25 m (payload grid), take the top
     GALLERY_TOP_PANOS and draw GALLERY_PER_CATEGORY with random.Random(SEED); the point
     is the component pixel nearest its centroid. Detections: every >= 0.55 detection
     whose tiled group is non-surface, drawn the same way. Needs the untracked work/."""
-    from scipy import ndimage
     wd = work_dir(args)
     man = json.loads((wd / 'tile_labels' / 'segment_manifest.json').read_text(
         encoding='utf-8'))
@@ -1477,43 +2199,31 @@ def gallery_candidates(args):
     table_seg = collapse_table(id2label)
     cands = defaultdict(list)
     surf_ids = [DEPTH_CLASSES.index(c) for c in DEPTH_SURFACE]
-    min_dip = math.atan2(geo.DEFAULT_CAMERA_HEIGHT_M, geo.DEFAULT_MAX_RANGE_M)
     for r in read_sample(args):
         city, pid = r['city'], r['pano_id']
-        pix = dad.PayloadIndex(dad.read_payload(payload_path(args.run_root, city, pid)))
-        ph, pw = pix.payload.height, pix.payload.width
-        ind = payload_indices(pix.payload)
-        rows = np.arange(ph // 2, ph)
-        dcls = depth_class_table(pix)[ind[rows]]
-        tiled = np.asarray(Image.open(wd / 'stitched' / city / f'{pid}.png'))
-        lab = tiled[rows * (GRID_H // ph)][:, np.arange(pw) * (GRID_W // pw)]
-        scls = table_seg[lab]
-        yv = (rows * (GRID_H // ph) + 0.5) / GRID_H
-        near = np.broadcast_to(((yv - 0.5) * math.pi > min_dip)[:, None], dcls.shape)
+        c = pano_context(args, city, pid, wd, table_seg)
+        dcls, scls, lab, near = c['dcls'], c['scls'], c['lab'], c['near']
         surf = np.isin(dcls, surf_ids)
         masks = {'surface_object': surf & (scls == SEG_GROUPS.index(OBJECT)),
                  'surface_structure': surf & (scls == SEG_GROUPS.index(STRUCTURE)),
                  'wall_walkroad': (dcls == DEPTH_CLASSES.index(dad.NON_HORIZONTAL))
                  & np.isin(scls, [SEG_GROUPS.index(WALK), SEG_GROUPS.index(ROAD)])}
         for cat, m in masks.items():
-            comp, n = ndimage.label(m & near, structure=np.ones((3, 3)))
-            if not n:
+            hit = largest_component_point(m & near)
+            if not hit:
                 continue
-            sizes = np.bincount(comp.ravel())[1:]
-            k = int(np.argmax(sizes)) + 1
-            rr, cc = np.nonzero(comp == k)
-            i = int(np.argmin((rr - rr.mean()) ** 2 + (cc - cc.mean()) ** 2))
-            r0, c0 = int(rows[rr[i]]), int(cc[i])
-            cands[cat].append({'city': city, 'pano_id': pid, 'size': int(sizes[k - 1]),
-                               'x': (c0 + 0.5) / pw, 'y': (r0 + 0.5) / ph,
-                               'depth': DEPTH_CLASSES[dcls[rr[i], cc[i]]],
-                               'seg': id2label.get(int(lab[rr[i], cc[i]]), 'NONE')})
+            size, rr, cc, _ = hit
+            cands[cat].append({'city': city, 'pano_id': pid, 'size': size,
+                               'x': (cc + 0.5) / c['pw'],
+                               'y': (int(c['rows'][rr]) + 0.5) / c['ph'],
+                               'depth': DEPTH_CLASSES[dcls[rr, cc]],
+                               'seg': id2label.get(int(lab[rr, cc]), 'NONE')})
     picks = []
     for cat, _ in GALLERY_CATEGORIES[:3]:
-        top = sorted(cands[cat], key=lambda c: (-c['size'], c['city'], c['pano_id']))
+        top = sorted(cands[cat], key=lambda e: (-e['size'], e['city'], e['pano_id']))
         top = top[:GALLERY_TOP_PANOS]
         chosen = random.Random(SEED).sample(top, min(GALLERY_PER_CATEGORY, len(top)))
-        picks += [{'category': cat, **c} for c in chosen]
+        picks += [{'category': cat, **e} for e in chosen]
     dets = [d for d in read_csv(pooled_dir(args.out_root) / 'detections.csv')
             if d['kind'] == 'det' and d['gt_group'] != 'band_0p30'
             and d['seg_group'] not in SURFACE_GROUPS]
@@ -1526,23 +2236,631 @@ def gallery_candidates(args):
     return picks
 
 
-def crop_at(city, pid, x, y, args, w=1600, h=1200):
-    """A native-resolution window centred on (x, y), wrapping across the seam.
-    Returns (400x300 image, marker x, marker y)."""
-    with Image.open(args.benchmark_root / city / 'panos' / f'{pid}.jpg') as im:
-        W, H = im.size
-        cx, cy = int(x * W), int(y * H)
-        top = min(max(0, cy - h // 2), H - h)
-        left = cx - w // 2
-        canvas = Image.new('RGB', (w, h))
-        pos = 0
-        while pos < w:
-            src = (left + pos) % W
-            take = min(w - pos, W - src)
-            canvas.paste(im.crop((src, top, src + take, top + h)), (pos, 0))
-            pos += take
-        return (canvas.resize((400, 300), Image.LANCZOS), (w // 2) * 400 / w,
-                (cy - top) * 300 / h)
+# --- figures (committed inputs only) -----------------------------------------------------
+
+def _boot_stats(rows, arm, keys, seed=SEED, n=BOOT_N):
+    """(point, lo, hi) per key of headline_stats over the panos in `rows` (pano bootstrap,
+    95% percentile interval): pixels inside one pano are not independent, so the pano is
+    the resampling unit."""
+    mats = np.stack([matrix_from_row(r, arm) for r in rows])
+    point = headline_stats(mats.sum(axis=0))
+    rng = np.random.default_rng(seed)
+    draws = defaultdict(list)
+    for _ in range(n):
+        st = headline_stats(mats[rng.integers(0, len(rows), len(rows))].sum(axis=0))
+        for k in keys:
+            if st[k] is not None:
+                draws[k].append(st[k])
+    return {k: (point[k], float(np.percentile(draws[k], 2.5)),
+                float(np.percentile(draws[k], 97.5))) for k in keys}
+
+
+def _suptitle(fig, text, x=0.01, ha='left', fontsize=12.5, fontweight='bold', **kw):
+    import textwrap
+    fig.suptitle(textwrap.fill(text, 96), x=x, ha=ha, fontsize=fontsize,
+                 fontweight=fontweight, **kw)
+
+
+def _note(fig, x, y, text, fontsize=8.5, color=INK2, **kw):
+    import textwrap
+    fig.text(x, y, textwrap.fill(text, 165), fontsize=fontsize, color=color, va='top', **kw)
+
+
+def _style(plt):
+    plt.rcParams.update({
+        'font.size': 10, 'axes.titlesize': 11, 'axes.labelsize': 10, 'legend.fontsize': 9,
+        'xtick.labelsize': 9, 'ytick.labelsize': 9, 'axes.spines.top': False,
+        'axes.spines.right': False, 'axes.edgecolor': INK2, 'axes.labelcolor': INK,
+        'xtick.color': INK2, 'ytick.color': INK2, 'text.color': INK,
+        'figure.facecolor': 'white', 'axes.facecolor': 'white',
+        'svg.hashsalt': 'footway47', 'svg.fonttype': 'path', 'path.simplify': False,
+        'font.family': 'DejaVu Sans'})
+
+
+def _save(fig, out_dir, stem, svg=True, photo=False):
+    """PNG (charts) or JPEG (photographic sheets) at 200 dpi, plus SVG for charts; metadata
+    that would carry a timestamp or version is dropped so the bytes are reproducible."""
+    paths = []
+    if photo:
+        p = out_dir / f'{stem}.jpg'
+        fig.savefig(p, dpi=200, pil_kwargs={'quality': 88, 'optimize': True})
+        paths.append(p)
+    else:
+        p = out_dir / f'{stem}.png'
+        fig.savefig(p, dpi=200, metadata={'Software': None})
+        paths.append(p)
+    if svg:
+        p = out_dir / f'{stem}.svg'
+        fig.savefig(p, metadata={'Date': None, 'Creator': None})
+        paths.append(p)
+    return paths
+
+
+def _panel(ax, path):
+    ax.imshow(np.asarray(Image.open(path)))
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+
+
+def _tag(ax, text, loc='top'):
+    """A label written INSIDE the image panel (white box, dark ink)."""
+    y, va = (0.03, 'bottom') if loc == 'bottom' else (0.97, 'top')
+    ax.text(0.03, y, text, transform=ax.transAxes, ha='left', va=va, fontsize=7.5, color=INK,
+            bbox=dict(boxstyle='round,pad=0.25', fc='white', ec='none', alpha=0.85))
+
+
+def _marker(ax, mk):
+    x, y = (float(v) for v in mk.split(';'))
+    ax.plot([x], [y], marker='o', ms=12, mfc='none', mec='white', mew=2.6)
+    ax.plot([x], [y], marker='o', ms=12, mfc='none', mec='#e34948', mew=1.3)
+
+
+def _class_legend(fig, colors, title, y, x0=0.02):
+    from matplotlib.patches import Patch
+    handles = [Patch(fc=c, ec='none', label=k) for k, c in colors.items()]
+    fig.legend(handles=handles, loc='lower left', bbox_to_anchor=(x0, y), ncol=len(handles),
+               frameon=False, title=title, title_fontsize=9, fontsize=8.5,
+               handlelength=1.2, columnspacing=1.0, alignment='left')
+
+
+def wilson_err(k, n):
+    lo, hi = es.wilson(k, n)
+    p = k / n if n else 0.0
+    return p, p - lo, hi - p, lo, hi
+
+
+def fig_base_rate(plt, pd, fig_dir):
+    counts = read_csv(pd / 'pano_counts_le25m.csv')
+    stats = [('p_walkroad_given_surface', 'P(WALK or ROAD |\ndepth surface)', 'p_walkroad'),
+             ('p_structure_given_wall', 'P(STRUCTURE |\ndepth wall)', 'p_structure'),
+             ('p_surface_given_object', 'P(depth surface |\nOBJECT)', 'p_surface'),
+             ('kappa', "Cohen's kappa\n(surface / vertical / unmodelled)", None)]
+    keys = [k for k, _, _ in stats] + [m for _, _, m in stats if m]
+    arms = ('correct', 'yaw180', 'mirror')
+    pooled = {a: _boot_stats(counts, a, keys) for a in arms}
+    cities = DEFAULT_CITIES
+    per_city = {c: {a: _boot_stats([r for r in counts if r['city'] == c], a, keys)
+                    for a in arms} for c in cities}
+    rows_out = []
+    for scope, res in [('pooled', pooled)] + [(c, per_city[c]) for c in cities]:
+        for a in arms:
+            for k in keys:
+                p, lo, hi = res[a][k]
+                rows_out.append({'scope': scope, 'arm': a, 'statistic': k, 'value': p,
+                                 'boot_lo': lo, 'boot_hi': hi})
+    fig = plt.figure(figsize=(12, 8.2))
+    gs = fig.add_gridspec(2, 4, height_ratios=[1.35, 1], hspace=0.62, wspace=0.32,
+                          left=0.08, right=0.98, top=0.8, bottom=0.11)
+    ax = fig.add_subplot(gs[0, :])
+    width = 0.26
+    for si, (k, label, marg) in enumerate(stats):
+        for ai, a in enumerate(arms):
+            p, lo, hi = pooled[a][k]
+            st = ARM_STYLE[a]
+            ax.bar(si + (ai - 1) * width, p, width * 0.92, color=st['color'],
+                   hatch=st.get('hatch'), edgecolor='white', linewidth=1.5,
+                   label=st['label'] if si == 0 else None)
+            ax.errorbar(si + (ai - 1) * width, p, yerr=[[p - lo], [hi - p]], fmt='none',
+                        ecolor=INK, elinewidth=1.2, capsize=3)
+            if a == 'correct':
+                ax.text(si + (ai - 1) * width, p / 2, f'{p:.3f}', ha='center', va='center',
+                        fontsize=11, fontweight='bold', color='white', rotation=90)
+        if marg:
+            m = pooled['correct'][marg][0]
+            ax.plot([si - 1.6 * width, si + 1.6 * width], [m, m], color=INK, lw=1.6,
+                    ls=(0, (4, 2)), label='marginal (base rate)' if si == 0 else None)
+    ax.set_xticks(range(len(stats)), [lab for _, lab, _ in stats])
+    ax.set_ylim(0, 1.12)
+    ax.set_ylabel('value, within 25 m (pooled, 416 panos)')
+    ax.grid(axis='y', color=GRID_INK, lw=0.8)
+    ax.set_axisbelow(True)
+    ax.legend(loc='lower left', bbox_to_anchor=(0.0, 1.0), ncol=4, frameon=False)
+    _suptitle(fig, 'Surface "agreement" is a base rate: scrambling depth leaves it unchanged; '
+                 'only the walls (and kappa) carry signal', x=0.07, ha='left', fontsize=12.5,
+                 fontweight='bold')
+    for si, (k, label, marg) in enumerate(stats):
+        a2 = fig.add_subplot(gs[1, si])
+        for ci, c in enumerate(cities):
+            for ai, a in enumerate(arms):
+                p, lo, hi = per_city[c][a][k]
+                yy = ci + (ai - 1) * 0.22
+                a2.plot([lo, hi], [yy, yy], color=ARM_STYLE[a]['color'] if a != 'mirror'
+                        else '#a8a69e', lw=2)
+                a2.plot([p], [yy], 'o', ms=6, color=ARM_STYLE[a]['color'] if a != 'mirror'
+                        else '#a8a69e', mec='white', mew=1)
+            if marg:
+                m = per_city[c]['correct'][marg][0]
+                a2.plot([m, m], [ci - 0.4, ci + 0.4], color=INK, lw=1.4, ls=(0, (3, 2)))
+        a2.set_yticks(range(len(cities)), [CITY_LABEL[c] for c in cities])
+        a2.invert_yaxis()
+        a2.set_title("Cohen's kappa" if k == 'kappa' else label.replace('\n', ' '),
+                     fontsize=9.5)
+        a2.grid(axis='x', color=GRID_INK, lw=0.8)
+        a2.set_axisbelow(True)
+    _note(fig, 0.08, 0.05, 'Bars and dots: pooled pixel statistic; whiskers: 95% pano-bootstrap '
+             f'interval ({BOOT_N} resamples, seed {SEED}). Dashed: the marginal the '
+             'conditional should be read against. Bottom row: per city (blue measured, '
+             'grays the two nulls).', fontsize=8.5, color=INK2)
+    paths = _save(fig, fig_dir, 'fig1_base_rate')
+    plt.close(fig)
+    return paths, {'fig1_base_rate.csv': rows_out}
+
+
+def fig_objects(plt, fig_dir):
+    ex = read_csv(EX_DIR / 'objects.csv')
+    n = len(ex)
+    ncol = 2
+    nrow = (n + ncol - 1) // ncol
+    fig, axes = plt.subplots(nrow, 3 * ncol, figsize=(12, 1.55 * nrow + 1.6),
+                             gridspec_kw=dict(wspace=0.03, hspace=0.08, left=0.01,
+                                              right=0.99, top=0.86, bottom=0.13))
+    for i, e in enumerate(ex):
+        r, c0 = i // ncol, 3 * (i % ncol)
+        stem = EX_DIR / 'objects' / f"{int(e['idx']):02d}"
+        for j, (suffix, tag) in enumerate((('crop', None), ('seg', 'segmenter'),
+                                           ('depth', 'depth plane class'))):
+            ax = axes[r, c0 + j]
+            _panel(ax, f'{stem}_{suffix}.jpg')
+            _marker(ax, e['marker_px'])
+            if j == 0:
+                rng = e['range_flat_2p6_m']
+                _tag(ax, f"{e['seg_class']} on depth {e['depth_class']}"
+                     + (f", {float(rng):.0f} m" if rng else ''))
+                _tag(ax, f"{e['city']}:{e['pano_id'][:11]}", loc='bottom')
+            else:
+                _tag(ax, tag)
+    for ax in axes.ravel()[n * 3:]:
+        ax.axis('off')
+    _suptitle(fig, 'Depth draws the ground through objects: under every OBJECT the segmenter '
+                 'finds, depth reports a floor plane', x=0.01, ha='left', fontsize=12.5,
+                 fontweight='bold')
+    _note(fig, 0.01, 0.905, 'Rule: for each of six OBJECT families, the 2 panos drawn (seed 47) '
+             'from the 10 with the largest within-25 m component of that family on a depth '
+             'floor plane; red ring = the component pixel nearest its centroid.',
+             fontsize=8.5, color=INK2)
+    _class_legend(fig, {g: GROUP_COLORS[g] for g in SEG_GROUPS if g != NONE},
+                  'segmenter group (middle panels)', 0.05)
+    _class_legend(fig, DEPTH_COLORS, 'depth plane class (right panels)', 0.0)
+    paths = _save(fig, fig_dir, 'fig2_objects_on_floor', svg=False, photo=True)
+    plt.close(fig)
+    return paths, {}
+
+
+def fig_matrix(plt, pd, fig_dir):
+    counts = read_csv(pd / 'pano_counts_le25m.csv')
+    groups = [g for g in SEG_GROUPS if g != NONE]
+    mats = {a: sum(matrix_from_row(r, a) for r in counts) for a in ('correct', 'yaw180')}
+    share = {a: m[:, :len(groups)] / np.maximum(1, m[:, :len(groups)].sum(axis=1,
+                                                                          keepdims=True))
+             for a, m in mats.items()}
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8), gridspec_kw=dict(wspace=0.62,
+                                                                        left=0.17, right=0.98,
+                                                                        top=0.8, bottom=0.14))
+    out_rows = []
+    for ax, a, title in ((axes[0], 'correct', 'measured'),
+                         (axes[1], 'yaw180', 'null: depth rotated 180 deg')):
+        ax.imshow(share[a], cmap='Blues', vmin=0, vmax=1, aspect='auto')
+        for i in range(share[a].shape[0]):
+            for j in range(share[a].shape[1]):
+                v = share[a][i, j]
+                txt = f'{v:.2f}'
+                if a == 'correct':
+                    nv = share['yaw180'][i, j]
+                    lift = v / nv if nv > 0 else None
+                    if lift is not None and v >= 0.05 and mats['correct'][i].sum() >= 10000:
+                        txt += f'\nx{lift:.2f}'
+                    out_rows.append({'depth_class': DEPTH_CLASSES[i], 'group': groups[j],
+                                     'share_correct': v, 'share_yaw180': nv,
+                                     'lift': lift, 'n_correct': mats['correct'][i, j]})
+                ax.text(j, i, txt, ha='center', va='center', fontsize=8,
+                        color='white' if v > 0.55 else INK)
+        ax.set_xticks(range(len(groups)), groups, fontsize=8.5)
+        ax.set_yticks(range(len(DEPTH_CLASSES)),
+                      [f'{d} (n={int(mats[a][i].sum()):,})' for i, d in enumerate(DEPTH_CLASSES)],
+                      fontsize=8.5)
+        ax.set_title(title, fontsize=10.5)
+        ax.set_xlabel('segmenter group (tiled arm)')
+        for sp in ax.spines.values():
+            sp.set_visible(False)
+    _suptitle(fig, 'Where the signal is: the wall row (STRUCTURE x1.6 over the null); the floor '
+                 'rows barely move', x=0.01, ha='left', fontsize=12.5, fontweight='bold')
+    _note(fig, 0.01, 0.88, 'Row shares over below-horizon pixels within 25 m, pooled 416 panos; '
+             'left cells also show the lift over the null (where the share >= 0.05 and the row has >= 10,000 pixels).',
+             fontsize=8.5, color=INK2)
+    paths = _save(fig, fig_dir, 'fig3_where_signal')
+    plt.close(fig)
+    return paths, {'fig3_where_signal.csv': out_rows}
+
+
+def fig_curb(plt, pd, data, fig_dir):
+    med = read_csv(pd / 'curb_pano_medians.csv')
+    summ = {(r['group'], r['reading']): r for r in read_csv(data / 'curb_height.csv')
+            if r['city'] == 'pooled'}
+    fig, ax = plt.subplots(figsize=(12, 5.2))
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.8, bottom=0.27)
+    bins = np.arange(-0.30, 0.41, 0.02)
+    ax.axvspan(*CLAIM_BAND_M, color='#efeee9', zorder=0)
+    ax.text(0.24, 0.5, 'claimed curb band\n[0.05, 0.30) m', transform=ax.get_xaxis_transform(),
+            ha='center', va='center', fontsize=9.5, color=INK2)
+    for g, col, lab in (('sidewalk', GROUP_COLORS[WALK], 'Sidewalk on a secondary floor plane'),
+                        ('road', GROUP_COLORS[ROAD], 'Road on a secondary floor plane (control)')):
+        v = [float(r['median_offset_m']) for r in med
+             if r['group'] == g and r['reading'] == 'measured']
+        s = summ[(g, 'measured')]
+        m, lo, hi = (float(s[k]) for k in ('median_of_pano_medians', 'median_lo', 'median_hi'))
+        ax.hist(np.clip(v, bins[0], bins[-1] - 1e-9), bins=bins, histtype='step', lw=2,
+                color=col, label=f'{lab} ({len(v)} panos): median of pano medians '
+                                 f'{m:.3f} m [{lo:.3f}, {hi:.3f}]; '
+                                 f'{float(s["share_in_claim_band"]):.0%} of pixel offsets in band')
+        ax.axvspan(lo, hi, color=col, alpha=0.25, lw=0)
+        ax.axvline(m, color=col, lw=1.5)
+    ax.axvline(0.15, color=INK, lw=1.2, ls=(0, (4, 2)))
+    ax.text(0.152, 0.62, 'the quoted\n~0.15 m', transform=ax.get_xaxis_transform(),
+            fontsize=9, color=INK)
+    ax.set_xlabel('per-pano median height above the local road, offset_local (m); '
+                  'stand-ins excluded; within 25 m')
+    ax.set_ylabel('panos')
+    ax.legend(frameon=False, loc='upper left', bbox_to_anchor=(0.0, -0.17), fontsize=9)
+    _suptitle(fig, 'GSV depth carries no curb step: the sidewalk plane sits 0.02 m above the '
+                 'road, far below the claimed band', x=0.07, ha='left', fontsize=12.5,
+                 fontweight='bold')
+    _note(fig, 0.07, 0.885, 'Vertical line and shading: median of per-pano medians and its 95% '
+             'order-statistic CI. Values outside [-0.30, 0.40] are drawn in the end bins.',
+             fontsize=8.5, color=INK2)
+    paths = _save(fig, fig_dir, 'fig4_curb_height')
+    plt.close(fig)
+    ex = read_csv(EX_DIR / 'curb.csv')
+    fig, axes = plt.subplots(2, 2 * 3, figsize=(12, 3.9),
+                             gridspec_kw=dict(wspace=0.03, hspace=0.08, left=0.01, right=0.99,
+                                              top=0.74, bottom=0.17))
+    for i, e in enumerate(ex):
+        r, c0 = i // 3, 2 * (i % 3)
+        stem = EX_DIR / 'curb' / f"{int(e['idx']):02d}"
+        _panel(axes[r, c0], f'{stem}_crop.jpg')
+        _panel(axes[r, c0 + 1], f'{stem}_depth.jpg')
+        for ax in axes[r, c0:c0 + 2]:
+            _marker(ax, e['marker_px'])
+        _tag(axes[r, c0], f"offset {float(e['offset_local_m']):+.3f} m")
+        _tag(axes[r, c0], f"{e['city']}:{e['pano_id'][:11]}", loc='bottom')
+        _tag(axes[r, c0 + 1], 'depth plane class')
+    for ax in axes.ravel()[len(ex) * 2:]:
+        ax.axis('off')
+    _suptitle(fig, 'Sidewalk on its own floor plane: the measured step above the road is '
+                 'centimetres', x=0.01, ha='left', fontsize=12.5, fontweight='bold')
+    _note(fig, 0.01, 0.87, 'Rule: 6 panos drawn (seed 47) from the 30 with the most '
+             'Sidewalk-on-measured-floor pixels within 25 m; the ring is the pixel nearest the '
+             'largest component\'s centroid with a non-stand-in local reference. Single-pixel '
+             'offsets scatter by +-0.2 m; the reading uses per-pano medians (fig. 4).',
+             fontsize=8.5, color=INK2)
+    _class_legend(fig, DEPTH_COLORS, 'depth plane class', 0.0)
+    paths += _save(fig, fig_dir, 'fig4b_curb_examples', svg=False, photo=True)
+    plt.close(fig)
+    return paths, {}
+
+
+def fig_fp(plt, pd, fig_dir):
+    dets = read_csv(pd / 'detections.csv')
+    groups = [('true', 'verdict True'), ('false', 'verdict False'),
+              ('missed', 'missed mark')]
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4.5),
+                             gridspec_kw=dict(wspace=0.5, width_ratios=[1.1, 1.3, 1.1],
+                                              left=0.09, right=0.97, top=0.78, bottom=0.27))
+    out_rows = []
+    ax = axes[0]
+    for i, (g, lab) in enumerate(groups):
+        gi = [d for d in dets if d['gt_group'] == g]
+        k = sum(d['seg_group'] not in SURFACE_GROUPS for d in gi)
+        p, el, eh, lo, hi = wilson_err(k, len(gi))
+        ax.errorbar([p], [i], xerr=[[el], [eh]], fmt='o', ms=8, color=GROUP_COLORS[WALK],
+                    ecolor=INK, capsize=4, mec='white', mew=1)
+        ax.text(hi + 0.01, i, f'{k}/{len(gi)} = {p:.3f}', va='center', fontsize=9)
+        out_rows.append({'panel': 'non_surface', 'group': g, 'k': k, 'n': len(gi), 'share': p,
+                         'wilson_lo': lo, 'wilson_hi': hi})
+    t_share = out_rows[0]['share']
+    ax.axvline(t_share + RULE_C_MARGIN, color='#e34948', lw=1.6, ls=(0, (4, 2)))
+    ax.text(t_share + RULE_C_MARGIN + 0.005, 2.45, 'registered bar:\nTrue + 20 pts', fontsize=8.5,
+            color=INK, va='bottom')
+    ax.set_yticks(range(len(groups)), [lab for _, lab in groups])
+    ax.invert_yaxis()
+    ax.set_xlim(0, 0.42)
+    ax.set_ylim(2.6, -0.6)
+    ax.set_xlabel('share NOT on WALK or ROAD (Wilson 95%)')
+    ax.set_title('(C) registered: NOT SUPPORTED', fontsize=10.5)
+    ax.grid(axis='x', color=GRID_INK, lw=0.8)
+    ax = axes[1]
+    for i, (g, lab) in enumerate(groups):
+        gi = [d for d in dets if d['gt_group'] == g]
+        c = Counter(d['seg_group'] for d in gi)
+        left = 0.0
+        for grp in SEG_GROUPS:
+            w = c[grp] / len(gi)
+            if w:
+                ax.barh(i, w, left=left, color=GROUP_COLORS[grp], height=0.6,
+                        edgecolor='white', lw=2, label=grp if i == 0 or grp not in c else None)
+                if w >= 0.06:
+                    ax.text(left + w / 2, i, f'{w:.2f}', ha='center', va='center', fontsize=8.5,
+                            color='white' if grp in (WALK, OBJECT) else INK)
+            left += w
+            out_rows.append({'panel': 'groups', 'group': g, 'seg_group': grp, 'k': c[grp],
+                             'n': len(gi), 'share': w})
+    handles, labels = axes[1].get_legend_handles_labels()
+    seen = dict(zip(labels, handles))
+    ax.legend([seen[k] for k in SEG_GROUPS if k in seen], [k for k in SEG_GROUPS if k in seen],
+              ncol=3, frameon=False, fontsize=8.5, loc='upper center',
+              bbox_to_anchor=(0.5, -0.17))
+    ax.set_yticks(range(len(groups)), [lab for _, lab in groups])
+    ax.invert_yaxis()
+    ax.set_xlim(0, 1)
+    ax.set_xlabel('segmenter group at the pixel (tiled)')
+    ax = axes[2]
+    for i, (g, lab) in enumerate(groups):
+        gi = [d for d in dets if d['gt_group'] == g]
+        k = sum(d['seg_class'] == 'Curb Cut' for d in gi)
+        p, el, eh, lo, hi = wilson_err(k, len(gi))
+        ax.errorbar([p], [i], xerr=[[el], [eh]], fmt='D', ms=7, color=GROUP_COLORS[OBJECT],
+                    ecolor=INK, capsize=4, mec='white', mew=1)
+        ax.text(hi + 0.01, i, f'{p:.3f}', va='center', fontsize=9)
+        out_rows.append({'panel': 'curb_cut_exploratory', 'group': g, 'k': k, 'n': len(gi),
+                         'share': p, 'wilson_lo': lo, 'wilson_hi': hi})
+    ax.set_yticks(range(len(groups)), [lab for _, lab in groups])
+    ax.invert_yaxis()
+    ax.set_xlim(0, 0.45)
+    ax.set_xlabel('share on Vistas Curb Cut (Wilson 95%)')
+    ax.set_title('EXPLORATORY (post hoc):\nCurb Cut at the pixel', fontsize=10.5,
+                 color='#c0392b')
+    ax.grid(axis='x', color=GRID_INK, lw=0.8)
+    _suptitle(fig, 'The segmenter class at the peak pixel is no false-positive filter: '
+                 'the 42 false positives are footway too', x=0.01, ha='left', fontsize=12.5,
+                 fontweight='bold')
+    paths = _save(fig, fig_dir, 'fig5_fp_rule')
+    plt.close(fig)
+    return paths, {'fig5_fp_rule.csv': out_rows}
+
+
+def fig_trap(plt, pd, fig_dir):
+    dets = read_csv(pd / 'detections.csv')
+    tp = read_csv(pd / 'trap_pano.csv')
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8),
+                             gridspec_kw=dict(wspace=0.28, width_ratios=[1, 1.5], left=0.07,
+                                              right=0.98, top=0.76, bottom=0.13))
+    out_rows = []
+    ax = axes[0]
+    arms = [('direct', 'direct_class'), ('tiled', 'seg_class'),
+            ('direct4096', 'direct4096_class')]
+    for gi_, (g, lab) in enumerate((('true', 'under verdict-True\ndetections'),
+                                    ('missed', 'under missed marks'))):
+        rows = [d for d in dets if d['gt_group'] == g]
+        for ai, (arm, col) in enumerate(arms):
+            k = sum(d[col] == 'Curb Cut' for d in rows)
+            p, el, eh, lo, hi = wilson_err(k, len(rows))
+            x = gi_ + (ai - 1) * 0.25
+            ax.bar(x, p, 0.23, color=DIRECT_STYLE[arm]['color'], edgecolor='white', lw=1.5,
+                   label=DIRECT_STYLE[arm]['label'] if gi_ == 0 else None)
+            ax.errorbar(x, p, yerr=[[el], [eh]], fmt='none', ecolor=INK, capsize=3)
+            ax.text(x, hi + 0.01, f'{p:.2f}', ha='center', fontsize=9)
+            out_rows.append({'panel': 'curb_cut', 'group': g, 'arm': arm, 'k': k,
+                             'n': len(rows), 'share': p, 'wilson_lo': lo, 'wilson_hi': hi})
+    ax.set_xticks([0, 1], ['under verdict-True\ndetections', 'under missed marks'])
+    ax.set_ylabel('share on Vistas `Curb Cut` (Wilson 95%)')
+    ax.set_ylim(0, 0.52)
+    ax.set_title('Curb Cut at the detection (post hoc)', fontsize=10.5)
+    ax.legend(frameon=False, fontsize=8, loc='upper left')
+    ax.grid(axis='y', color=GRID_INK, lw=0.8)
+    ax.set_axisbelow(True)
+    ax = axes[1]
+    bands = [b for b in LAT_BANDS if any(r['lat_band_deg'] == f'{b}..{b + 10}' for r in tp)]
+    rng = np.random.default_rng(SEED)
+    pids = sorted({(r['city'], r['pano_id']) for r in tp})
+    idx = {p: i for i, p in enumerate(pids)}
+    for arm in DIRECT_ARMS:
+        for band, ls in (('interior', '-'), ('seam', (0, (4, 2)))):
+            seen = np.zeros((len(pids), len(bands)))
+            agree = np.zeros_like(seen)
+            for r in tp:
+                if r['band'] != band:
+                    continue
+                bi = bands.index(int(r['lat_band_deg'].split('..')[0]))
+                i = idx[(r['city'], r['pano_id'])]
+                seen[i, bi] = float(r['n_seen_px'])
+                agree[i, bi] = float(r[f'n_agree_{arm}'])
+            pt = agree.sum(0) / np.maximum(1, seen.sum(0))
+            boots = []
+            for _ in range(BOOT_N):
+                s = rng.integers(0, len(pids), len(pids))
+                boots.append(agree[s].sum(0) / np.maximum(1, seen[s].sum(0)))
+            lo, hi = np.percentile(boots, [2.5, 97.5], axis=0)
+            xs = np.array(bands) + 5
+            col = DIRECT_STYLE[arm]['color']
+            ax.fill_between(xs, lo, hi, color=col, alpha=0.15, lw=0)
+            ax.plot(xs, pt, ls=ls, color=col, lw=2, marker='o', ms=4,
+                    label=f"{'2048' if arm == 'direct' else '4096'} px, {band}")
+            for b, v, l_, h_ in zip(bands, pt, lo, hi):
+                out_rows.append({'panel': 'agreement', 'arm': arm, 'band': band,
+                                 'lat_band_deg': f'{b}..{b + 10}', 'agreement': v,
+                                 'boot_lo': l_, 'boot_hi': h_})
+    v = next(r['agreement'] for r in out_rows if r.get('arm') == 'direct4096'
+             and r.get('band') == 'interior' and r.get('lat_band_deg') == '-80..-70')
+    ax.annotate(f'4096 px at the nadir: {v:.2f}\n(the road under the car read as SKY)',
+                xy=(-75, v), xytext=(-62, 0.81), fontsize=9,
+                arrowprops=dict(arrowstyle='->', color=INK, lw=1))
+    ax.axvline(0, color=INK2, lw=1, ls=':')
+    ax.set_xlabel('latitude band centre (deg; 0 = horizon, negative = below)')
+    ax.set_ylabel('share of pixels where the direct arm\nagrees with the tiled arm (group)')
+    ax.set_ylim(0.78, 1.005)
+    ax.grid(axis='y', color=GRID_INK, lw=0.8)
+    ax.legend(frameon=False, fontsize=8, loc='lower right', ncol=2)
+    ax.set_title('Agreement with the tiled arm by latitude band (registered)', fontsize=10.5)
+    _suptitle(fig, 'Resolution vs projection: the Curb Cut loss was resolution; at matched '
+                 'resolution the equirect fails at the nadir', x=0.01, ha='left',
+                 fontsize=12.5, fontweight='bold')
+    _note(fig, 0.01, 0.87, f'Bands: 95% pano-bootstrap intervals ({BOOT_N} resamples, seed '
+             f'{SEED}). Seam = within {SEAM_HALF_WIDTH * 360:.0f} deg of x = 0/1, straight '
+             'behind the car (mostly road), so seam vs interior compares content as well as the '
+             'wrap.', fontsize=8.5, color=INK2)
+    paths = _save(fig, fig_dir, 'fig6_resolution_projection')
+    plt.close(fig)
+    ex = read_csv(EX_DIR / 'sky.csv')
+    fig, axes = plt.subplots(2, 9, figsize=(12, 3.2),
+                             gridspec_kw=dict(wspace=0.03, hspace=0.06, left=0.01, right=0.99,
+                                              top=0.7, bottom=0.17))
+    for i, e in enumerate(ex):
+        r, c0 = i // 3, 3 * (i % 3)
+        stem = EX_DIR / 'sky' / f"{int(e['idx']):02d}"
+        for j, (suf, tag) in enumerate((('crop', None), ('tiled', 'tiled'),
+                                         ('d4096', 'direct 4096'))):
+            ax = axes[r, c0 + j]
+            _panel(ax, f'{stem}_{suf}.jpg')
+            if tag:
+                _tag(ax, tag)
+        _tag(axes[r, c0], f"{float(e['share_low_road_as_sky']):.0%} of road\nbelow -40 deg as SKY")
+    _suptitle(fig, 'The projection trap at matched resolution: the 4096 px equirect paints the '
+                 'road under the car as SKY', x=0.01, ha='left', fontsize=12.5,
+                 fontweight='bold')
+    _note(fig, 0.01, 0.82, 'Rule: 6 panos drawn (seed 47) from the 20 with the most pixels below '
+             '-40 deg that the tiled arm calls ROAD and the 4096 px arm SKY; crop centred on the '
+             'largest such component. The crops show the featureless road under the car: the tiled '
+             'arm reads it as ROAD, the 4096 px equirect as SKY.', fontsize=8.5, color=INK2)
+    _class_legend(fig, {g: GROUP_COLORS[g] for g in SEG_GROUPS if g != NONE},
+                  'segmenter group', 0.0)
+    paths += _save(fig, fig_dir, 'fig6b_sky_examples', svg=False, photo=True)
+    plt.close(fig)
+    return paths, {'fig6_resolution_projection.csv': out_rows}
+
+
+def tile_outline(heading, pitch, n=64):
+    """(x_norm, y_norm) along a tile's border, split where it wraps across the seam."""
+    e = np.linspace(0, TILE_SIZE - 1, n)
+    border = np.concatenate([np.stack([e, np.zeros(n)], 1), np.stack([np.full(n, TILE_SIZE - 1), e], 1),
+                             np.stack([e[::-1], np.full(n, TILE_SIZE - 1)], 1),
+                             np.stack([np.zeros(n), e[::-1]], 1)])
+    d = tile_pixel_dirs(heading, pitch)[border[:, 1].astype(int), border[:, 0].astype(int)]
+    x, y = dirs_to_equirect(d)
+    segs, cur = [], [(x[0], y[0])]
+    for a, b, c, dd in zip(x[:-1], y[:-1], x[1:], y[1:]):
+        if abs(c - a) > 0.5:
+            segs.append(cur)
+            cur = []
+        cur.append((c, dd))
+    segs.append(cur)
+    return segs
+
+
+def fig_tiling(plt, fig_dir):
+    from matplotlib.colors import ListedColormap
+    meta = read_csv(EX_DIR / 'tiling.csv')[0]
+    pano = np.asarray(Image.open(EX_DIR / 'tiling' / 'pano.jpg'))
+    lab = np.asarray(Image.open(EX_DIR / 'tiling' / 'stitched.png'))
+    geom = StitchGeometry()
+    fig, axes = plt.subplots(3, 1, figsize=(12, 15.2),
+                             gridspec_kw=dict(hspace=0.22, left=0.1, right=0.98, top=0.92,
+                                              bottom=0.05))
+    ax = axes[0]
+    ax.imshow(pano, extent=(0, 1, 1, 0), aspect='auto')
+    for name, h, p in tile_specs():
+        col = '#2a78d6' if p == 0 else '#eb6834'
+        for seg in tile_outline(h, p):
+            if len(seg) > 1:
+                xs, ys = zip(*seg)
+                ax.plot(xs, ys, color='white', lw=3)
+                ax.plot(xs, ys, color=col, lw=1.6)
+    ax.plot([], [], color='#2a78d6', lw=2, label='8 tiles at pitch 0 deg')
+    ax.plot([], [], color='#eb6834', lw=2, label='8 tiles at pitch -35 deg')
+    ax.legend(loc='upper right', frameon=True, framealpha=0.9, fontsize=9)
+    ax.set_title(f"(a) {meta['city']}:{meta['pano_id']} with the 16 perspective tile "
+                 'footprints (90 deg FOV, 1024 px each)', fontsize=10.5, loc='left')
+    ax = axes[1]
+    cov = geom.n_cover
+    cmap = ListedColormap(['#e34948'] + [plt.get_cmap('Blues')(0.25 + 0.75 * i / 5)
+                                         for i in range(1, 6)])
+    ax.imshow(np.minimum(cov, 5), cmap=cmap, vmin=-0.5, vmax=5.5, extent=(0, 1, 1, 0),
+              aspect='auto', interpolation='nearest')
+    ax.text(0.5, 0.06, f'unseen zenith (above ~+43 deg)', ha='center', color='white',
+            fontsize=10, fontweight='bold')
+    ax.text(0.5, 0.975, 'unseen nadir (below ~-79 deg, within ~0.5 m of the car)', ha='center',
+            color='white', fontsize=10, fontweight='bold', va='bottom')
+    from matplotlib.patches import Patch
+    ax.legend(handles=[Patch(fc='#e34948', label='no tile (NONE)')] +
+              [Patch(fc=cmap(i), label=f'{i} tile' + ('s' if i > 1 else '') +
+                     (' or more' if i == 5 else '')) for i in range(1, 6)],
+              loc='center right', fontsize=8.5, framealpha=0.9)
+    ax.set_title('(b) How many tiles see each grid pixel (vote weight); red = no tile',
+                 fontsize=10.5, loc='left')
+    ax = axes[2]
+    # the stitched map holds Vistas ids; VISTAS_V12_ORDER is the pinned model's id order
+    table = collapse_table(dict(enumerate(VISTAS_V12_ORDER)))
+    rgb = np.stack([_hex_rgb(GROUP_COLORS[SEG_GROUPS[t]]) for t in range(len(SEG_GROUPS))])
+    ax.imshow(rgb[table[lab]].astype(np.uint8), extent=(0, 1, 1, 0), aspect='auto',
+              interpolation='nearest')
+    ax.set_title('(c) Stitched label map on the 1024x512 grid (collapsed groups)', fontsize=10.5,
+                 loc='left')
+    from matplotlib.patches import Patch as P2
+    ax.legend(handles=[P2(fc=GROUP_COLORS[k], label=k) for k in SEG_GROUPS], ncol=7,
+              loc='upper center', bbox_to_anchor=(0.5, -0.06), frameon=False, fontsize=9)
+    for a in axes:
+        a.set_xticks([0, 0.25, 0.5, 0.75, 1], ['0 (seam)', '0.25', '0.5 (heading)', '0.75',
+                                               '1 (seam)'])
+        a.set_yticks([0, 0.5, 1], ['+90', '0 (horizon)', '-90'])
+        a.set_ylabel('latitude (deg)')
+    _suptitle(fig, 'The tiling: 16 perspective tiles cover everything from +43 to -79 deg, and '
+                 'their votes are stitched back onto the equirect', x=0.1, ha='left',
+                 fontsize=12.5, fontweight='bold')
+    paths = _save(fig, fig_dir, 'fig7_tiling', svg=False, photo=True)
+    plt.close(fig)
+    return paths, {}
+
+
+def fig_gallery(plt, fig_dir):
+    ex = read_csv(EX_DIR / 'disagreement.csv')
+    nc = GALLERY_PER_CATEGORY
+    fig, axes = plt.subplots(len(GALLERY_CATEGORIES), nc, figsize=(12, 8.6),
+                             gridspec_kw=dict(wspace=0.03, hspace=0.1, left=0.07, right=0.995,
+                                              top=0.86, bottom=0.01))
+    for ci, (cat, title) in enumerate(GALLERY_CATEGORIES):
+        cp = [e for e in ex if e['category'] == cat]
+        for k in range(nc):
+            ax = axes[ci, k]
+            if k >= len(cp):
+                ax.axis('off')
+                continue
+            e = cp[k]
+            _panel(ax, EX_DIR / 'disagreement' / f"{int(e['idx']):02d}_crop.jpg")
+            _marker(ax, e['marker_px'])
+            v = f" [{e['verdict']}]" if e.get('verdict') else ''
+            _tag(ax, f"depth {e['depth']}\nseg {e['seg']}{v}")
+            _tag(ax, f"{e['city']}:{e['pano_id'][:11]}", loc='bottom')
+            if k == 0:
+                ax.set_ylabel(title, fontsize=9)
+    _suptitle(fig, 'Where depth and the segmenter disagree: objects on the floor, fences, '
+                 'sloped pavement, and peak pixels off the ramp', x=0.07, ha='left',
+                 fontsize=12.5, fontweight='bold')
+    _note(fig, 0.07, 0.9, 'Rule: per category, 6 panos drawn (seed 47) from the 20 with the '
+             'largest within-25 m component; row 4: 6 of the 45 detections >= 0.55 the segmenter '
+             'calls non-surface (seed 47).', fontsize=8.5, color=INK2)
+    paths = _save(fig, fig_dir, 'fig8_disagreement_gallery', svg=False, photo=True)
+    plt.close(fig)
+    return paths, {}
 
 
 def cmd_figures(args):
@@ -1553,173 +2871,40 @@ def cmd_figures(args):
     fig_dir = args.fig_dir
     data = fig_dir / 'data'
     data.mkdir(parents=True, exist_ok=True)
-    # Small aggregates are copied beside the figures; the three large tables
-    # (detections.csv, curb_pano_medians.csv, masks_manifest.json) are tracked ONCE, in
-    # runs/_pooled/footway/, and read from there.
+    # Small aggregates are copied beside the figures; the large per-row tables are tracked
+    # ONCE, in runs/_pooled/footway/, and read from there.
     for name in ('agreement.csv', 'headline.csv', 'curb_height.csv', 'trap.csv',
                  'detection_classes.csv', 'verdict.json', 'sample_counts.csv'):
         if (pd / name).exists():
             (data / name).write_bytes((pd / name).read_bytes())
-    print(f'figures: reading {pd} -> {fig_dir}')
-    plt.rcParams.update({'font.size': 9, 'axes.spines.top': False,
-                         'axes.spines.right': False, 'axes.edgecolor': '#52514e',
-                         'axes.labelcolor': '#0b0b0b', 'xtick.color': '#52514e',
-                         'ytick.color': '#52514e'})
-    agree = read_csv(data / 'agreement.csv')
-    groups = [g for g in SEG_GROUPS if g != NONE]
-    # fig1: pooled depth x segmenter matrix, row shares over pixels a tile sees
-    rows = [r for r in agree if r['city'] == 'pooled' and r['range_bin'] == 'all']
-    m = np.array([[float(r[f'n_{g}']) for g in groups] for r in rows])
-    share = m / np.maximum(1, m.sum(axis=1, keepdims=True))
-    fig, ax = plt.subplots(figsize=(7.4, 3.6))
-    ax.imshow(share, cmap='Blues', vmin=0, vmax=1, aspect='auto')
-    for i in range(share.shape[0]):
-        for j in range(share.shape[1]):
-            ax.text(j, i, f'{share[i, j]:.2f}', ha='center', va='center', fontsize=8,
-                    color='#ffffff' if share[i, j] > 0.55 else '#0b0b0b')
-    ax.set_xticks(range(len(groups)), groups)
-    ax.set_yticks(range(len(rows)), [f"{r['depth_class']}  (n={int(m[i].sum()):,})"
-                                     for i, r in enumerate(rows)])
-    ax.set_xlabel('segmenter group (tiled arm)')
-    ax.set_title('Depth class vs segmenter group, below-horizon pixels (row shares)', fontsize=9)
-    for sp in ax.spines.values():
-        sp.set_visible(False)
-    fig.tight_layout()
-    fig.savefig(fig_dir / 'fig1_agreement.png', dpi=150)
-    plt.close(fig)
-    # fig2: by range bin, two panels (one measure each)
-    fig, axes = plt.subplots(1, 2, figsize=(8.4, 3.2), sharex=True)
-    for city in DEFAULT_CITIES + ['pooled']:
-        pw_, po_ = [], []
-        for rl in RANGE_LABELS:
-            rr = [r for r in agree if r['city'] == city and r['range_bin'] == rl
-                  and r['depth_class'] in DEPTH_SURFACE]
-            tot = sum(float(r[f'n_{g}']) for r in rr for g in groups)
-            pw_.append(sum(float(r['n_WALK']) + float(r['n_ROAD']) for r in rr) / tot
-                       if tot else np.nan)
-            po_.append(sum(float(r['n_OBJECT']) for r in rr) / tot if tot else np.nan)
-        kw = dict(color=CITY_COLORS[city], lw=2.5 if city == 'pooled' else 1.5,
-                  marker='o', ms=4, label=city)
-        axes[0].plot(RANGE_LABELS, pw_, **kw)
-        axes[1].plot(RANGE_LABELS, po_, **kw)
-    axes[0].set_title('P(WALK or ROAD | depth surface)', fontsize=9)
-    axes[1].set_title('P(OBJECT | depth surface)', fontsize=9)
-    for ax in axes:
-        ax.set_xlabel('flat-raycast range at 2.6 m (m)')
-        ax.set_ylim(0, 1)
-        ax.grid(axis='y', color='#e4e3dd', lw=0.8)
-    axes[1].legend(frameon=False, fontsize=8)
-    fig.tight_layout()
-    fig.savefig(fig_dir / 'fig2_by_range.png', dpi=150)
-    plt.close(fig)
-    # fig3: curb height, per-pano medians
-    ph = read_csv(pd / 'curb_pano_medians.csv')
-    fig, ax = plt.subplots(figsize=(6.6, 3.2))
-    bins = np.arange(-0.4, 0.61, 0.02)
-    ax.axvspan(*CLAIM_BAND_M, color='#efeee9', zorder=0, label='claim band [0.05, 0.30)')
-    for g, col, lab in (('sidewalk', '#2a78d6', 'Sidewalk pixels on a floor plane'),
-                        ('road', '#eb6834', 'Road pixels on a floor plane (control)')):
-        v = [float(r['median_offset_m']) for r in ph
-             if r['group'] == g and r['reading'] == 'measured']
-        ax.hist(np.clip(v, bins[0], bins[-1]), bins=bins, histtype='step', lw=2,
-                color=col, label=f'{lab}, n={len(v)} panos')
-    ax.axvline(0.15, color='#52514e', lw=1, ls='--')
-    ax.set_xlabel('per-pano median height above the local road (m), stand-ins excluded')
-    ax.set_ylabel('panos')
-    ax.legend(frameon=False, fontsize=8, loc='upper left')
-    fig.tight_layout()
-    fig.savefig(fig_dir / 'fig3_curb_height.png', dpi=150)
-    plt.close(fig)
-    # fig4: segmenter group at the detection / mark, pooled, tiled arm
-    order = [('true', 'verdict True'), ('false', 'verdict False'),
-             ('missed', 'missed mark'), ('band_0p30', '0.30-0.55 band')]
-    dets = read_csv(pd / 'detections.csv')
-    fig, ax = plt.subplots(figsize=(7.4, 2.9))
-    for i, (g, lab) in enumerate(order):
-        gi = [d for d in dets if d['gt_group'] == g]
-        c = Counter(d['seg_group'] for d in gi)
-        left = 0.0
-        for grp in SEG_GROUPS:
-            w = c[grp] / len(gi) if gi else 0
-            if w:
-                ax.barh(i, w, left=left, color=GROUP_COLORS[grp], height=0.6,
-                        edgecolor='#fcfcfb', lw=1.5, label=grp)
-            left += w
-        ax.text(1.01, i, f'n={len(gi)}', va='center', fontsize=8, color='#52514e')
-    ax.set_yticks(range(len(order)), [lab for _, lab in order])
-    ax.invert_yaxis()
-    ax.set_xlim(0, 1)
-    ax.set_xlabel('share by segmenter group at the pixel (tiled arm)')
-    handles, labels_ = ax.get_legend_handles_labels()
-    seen = dict(zip(labels_, handles))
-    ax.legend([seen[k] for k in SEG_GROUPS if k in seen],
-              [k for k in SEG_GROUPS if k in seen], ncol=7, frameon=False, fontsize=7,
-              loc='lower center', bbox_to_anchor=(0.5, 1.0))
-    fig.tight_layout()
-    fig.savefig(fig_dir / 'fig4_detections.png', dpi=150)
-    plt.close(fig)
-    # fig5: the trap -- tiled vs direct agreement by latitude band
-    tr = [r for r in read_csv(data / 'trap.csv') if r['city'] == 'pooled']
-    fig, ax = plt.subplots(figsize=(6.6, 3.2))
-    for arm, band, col, ls in (('direct', 'interior', '#2a78d6', '-'),
-                               ('direct', 'seam', '#eb6834', '-'),
-                               ('direct4096', 'interior', '#2a78d6', '--'),
-                               ('direct4096', 'seam', '#eb6834', '--')):
-        pts = [(int(r['lat_band_deg'].split('..')[0]) + 5, float(r[f'agreement_{arm}']))
-               for r in tr if r['band'] == band and r[f'agreement_{arm}'] not in ('', None)]
-        ax.plot([p[0] for p in pts], [p[1] for p in pts], marker='o', ms=3.5, lw=1.8,
-                ls=ls, color=col, label=f"{'2048' if arm == 'direct' else '4096'} px, {band}"
-                + (f' (within {SEAM_HALF_WIDTH * 360:.0f} deg of the seam)'
-                   if band == 'seam' else ''))
-    ax.axvline(0, color='#52514e', lw=1, ls='--')
-    ax.set_xlabel('latitude band centre (deg; 0 = horizon, negative = below)')
-    ax.set_ylabel('share of pixels where\ntiled group = direct group')
-    ax.set_ylim(0.8, 1)
-    ax.grid(axis='y', color='#e4e3dd', lw=0.8)
-    ax.legend(frameon=False, fontsize=7, loc='lower right')
-    fig.tight_layout()
-    fig.savefig(fig_dir / 'fig5_trap.png', dpi=150)
-    plt.close(fig)
-    # fig6: the disagreement gallery (needs work/ + the benchmark JPEGs)
-    if not (work_dir(args) / 'stitched').exists():
-        print('figures: no work/stitched -- gallery skipped')
-        return
-    picks = gallery_candidates(args)
-    write_csv(data / 'gallery.csv', picks,
-              ['category', 'city', 'pano_id', 'size', 'x', 'y', 'depth', 'seg', 'verdict'])
-    nc = GALLERY_PER_CATEGORY
-    fig, axes = plt.subplots(len(GALLERY_CATEGORIES), nc,
-                             figsize=(2.6 * nc, 2.4 * len(GALLERY_CATEGORIES)))
-    for ci, (cat, title) in enumerate(GALLERY_CATEGORIES):
-        cp = [p for p in picks if p['category'] == cat]
-        for k in range(nc):
-            ax = axes[ci, k]
-            ax.set_xticks([])
-            ax.set_yticks([])
-            for sp in ax.spines.values():
-                sp.set_visible(False)
-            if k == 0:
-                ax.set_ylabel(title, fontsize=7.5)
-            if k >= len(cp):
-                continue
-            p = cp[k]
-            img, mx, my = crop_at(p['city'], p['pano_id'], p['x'], p['y'], args)
-            ax.imshow(img)
-            ax.plot([mx], [my], marker='o', ms=12, mfc='none', mec='#ffffff', mew=2.5)
-            ax.plot([mx], [my], marker='o', ms=12, mfc='none', mec='#e34948', mew=1.2)
-            extra = f" [{p['verdict']}]" if p.get('verdict') else ''
-            ax.set_title(f"{p['city']}:{p['pano_id'][:11]}\ndepth {p['depth']} | "
-                         f"seg {p['seg']}{extra}", fontsize=6.5)
-    fig.tight_layout()
-    fig.savefig(fig_dir / 'fig6_gallery.jpg', dpi=110, pil_kwargs={'quality': 85})
-    plt.close(fig)
-    print(f'figures -> {fig_dir}')
+    print(f'figures: reading {pd} and {EX_DIR} -> {fig_dir}')
+    _style(plt)
+    outputs, tables = [], {}
+    for fn in (lambda: fig_base_rate(plt, pd, fig_dir), lambda: fig_objects(plt, fig_dir),
+               lambda: fig_matrix(plt, pd, fig_dir), lambda: fig_curb(plt, pd, data, fig_dir),
+               lambda: fig_fp(plt, pd, fig_dir), lambda: fig_trap(plt, pd, fig_dir),
+               lambda: fig_tiling(plt, fig_dir), lambda: fig_gallery(plt, fig_dir)):
+        paths, t = fn()
+        outputs += paths
+        tables.update(t)
+    for name, rows in tables.items():
+        write_csv(data / name, rows, list(dict.fromkeys(k for r in rows for k in r)))
+    write_csv(data / 'derived_numbers.csv', derived_numbers(pd))
+    nums = check_numbers(pd, data)
+    write_csv(data / 'numbers.csv', nums)
+    bad = [n for n in nums if n['status'] != 'ok']
+    man = {str(p.relative_to(fig_dir)).replace('\\', '/'): sha256_file(p)
+           for p in sorted(outputs)}
+    write_text(data / 'figures_manifest.json', json.dumps(man, indent=1, sort_keys=True))
+    print(f'figures: {len(outputs)} files; numbers checked {len(nums)}, mismatched {len(bad)}')
+    for b in bad:
+        print('  MISMATCH', b)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('command', choices=['sample', 'tiles', 'segment', 'stitch', 'compare',
-                                        'verdict', 'figures'])
+                                        'verdict', 'examples', 'figures'])
     ap.add_argument('cities', nargs='*', default=DEFAULT_CITIES)
     ap.add_argument('--run-root', type=Path, default=REPO_ROOT / 'runs')
     ap.add_argument('--out-root', type=Path, default=REPO_ROOT / 'runs')
@@ -1747,7 +2932,7 @@ def main():
     args = ap.parse_args()
     {'sample': cmd_sample, 'tiles': cmd_tiles, 'segment': cmd_segment,
      'stitch': cmd_stitch, 'compare': cmd_compare, 'verdict': cmd_verdict,
-     'figures': cmd_figures}[args.command](args)
+     'examples': cmd_examples, 'figures': cmd_figures}[args.command](args)
 
 
 if __name__ == '__main__':
