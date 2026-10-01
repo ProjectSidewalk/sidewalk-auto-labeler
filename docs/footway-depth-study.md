@@ -273,9 +273,10 @@ Per city, within 25 m (correct / yaw180 / mirror):
 - **The pooled pixels are nadir-heavy.** 71% of within-25 m pixels lie in the 0–5 m bin, mostly road under the car.
   That is why the solid-angle and per-pano columns are shown beside the pooled one.
 - **The walls carry the signal.** Depth's steep planes are segmenter STRUCTURE 66% of the time, against 42–47% when
-  the depth geometry is scrambled. Kappa sits 0.06–0.08 above the nulls in the pool and in every city. The
+  the depth geometry is scrambled. Kappa sits 0.05–0.10 above the nulls in the pool and in every city. The
   agreement is real but weak, and it lives in the few non-floor pixels.
-- **Depth does not exclude objects.** P(depth surface | OBJECT) is at or above its null (0.947 vs 0.935), with a
+- **Depth does not exclude objects.** P(depth surface | OBJECT) is at or above its null in the pool (0.947 vs 0.935;
+  per city it sits within ~0.02 of the null either way, and bend's 0.957 is just below its 0.966 / 0.963), with a
   lift of 0.96 over the floor's marginal. Depth's floor runs under objects as if they were not there: it "draws the
   ground through objects", the issue's premise. OBJECT is 5.5% of the modelled surface within 25 m (7.1%
   solid-angle weighted), rising with range from 2% at 0–5 m to 24% at 15–25 m (fig. 2). That share is what a
@@ -372,10 +373,11 @@ Agreement with the tiled arm is on the collapsed group, over the pixels the tile
 
 **Projection vs resolution.**
 - **At matched angular resolution the projection failure shows at the nadir, as the issue predicted.** The 4096 px
-  direct arm labels 12% of the road at −80..−70° as **SKY** (15% in the seam band), still 6–8% at −50..−40°. The
-  dominant pixel disagreement is tiled `Road` → direct `Sky`.
-- **The 2048 arm hides this.** It reads the nadir as road (0.95), because at half the resolution the stretched
-  nadir is a featureless grey band either way.
+  direct arm labels 12% of the road at −80..−70° as **SKY** (15% in the seam band), still 6–8% at −50..−40° (`trap.csv`, `direct4096_share_SKY`).
+  That the largest single disagreement pair is tiled `Road` → direct `Sky` comes from an uncommitted check over
+  every 4th pano's −70..−51° rows; it is not in a committed CSV.
+- **The 2048 arm hides this.** It reads the nadir as road (0.95). Why is speculation: perhaps at half the
+  resolution the stretched nadir is a featureless grey band either way.
 - **Near the horizon, resolution matters more than projection.** The 4096 arm agrees better than the 2048 arm there.
 - **The registered seam-vs-interior split cannot isolate the wrap.** The seam band is straight behind the car: 95%
   ROAD at −20..−10°, against 44% in the interior. The first version's "the model handles the wrap" claim is
@@ -390,7 +392,7 @@ Agreement with the tiled arm is on the collapsed group, over the pixels the tile
 | direct 4096 | 0.958 / 0.843 | 0.301 | 0.119 | 0.269 |
 
 The fine-class loss reported first was resolution, not projection. Fed at full resolution, the equirect keeps Curb
-Cut at the detections, which lie between −2° and −36°, where the projection distortion is small. The projection
+Cut at the detections, 98% of which lie between −2° and −36° (full range −49° to +4°), where the projection distortion is small. The projection
 cost shows up at the nadir instead.
 
 ### 5.5 The disagreement gallery (`gallery.csv`, fig. 6)
