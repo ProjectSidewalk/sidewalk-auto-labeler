@@ -447,8 +447,12 @@ software stack the GPU pass is expected to reproduce bit for bit; across machine
 can flip a within-cell 1-px tie (the 0.002 px above) or move a peak across a tier.
 
 **Cost.** Free compute. GPU wall-clock on the shared A40: bundles 1,491 s for 1,499 panos
-(manual_gold 836 s); laurens_gsv 4,739 s for 2,137 native 16k panos (JPEG decode bound);
-laurens 7,277 s for 4,495 Mapillary panos; perturbed box splits 812 s for 499 panos. CPU steps: a few minutes on the desktop.
+(manual_gold 836 s); laurens_gsv 4,739 s for 2,137 native 16k panos;
+laurens 7,277 s for 4,495 Mapillary panos; perturbed box splits 812 s for 499 panos. Image decoding
+ran in 4 threads beside the forward pass, and time in the forward pass was within 5% of wall-clock
+in every pass; the A40 was shared with other jobs for most of the day, so 0.8-2.2 s per pano
+reflects that sharing, not the model (0.78 s on an idle A40, CLAUDE.md batch-size note). CPU
+steps: a few minutes on the desktop. Total about 4.0 GPU-hours (upper bound; GPU share unmeasured).
 
 ### 4.8 Where each number lives
 
