@@ -42,7 +42,22 @@ if str(REPO_ROOT) not in sys.path:
 
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
-from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, DECODE_ARGMAX  # noqa: E402
+
+
+def require_argmax(run_panos, run_dir):
+    """Refuse (ValueError) a run whose records were not written under the argmax decode.
+
+    Every RampNet bundle was exported from, and judged on, argmax positions, and the drift
+    gate (judged_gt_panos) compares positions exactly; a gaussian run (#111) would have every
+    GT pano read as drifted and be scored on nothing, silently. A gaussian run is scored
+    against its argmax twin from the SAME forward pass by scripts/subcell_decode.py world,
+    which re-keys the bundle to that pass's peaks."""
+    other = sorted({p.decode for p in run_panos} - {DECODE_ARGMAX})
+    if other:
+        raise ValueError(f'{run_dir}: records were written under the {", ".join(other)} peak '
+                         f'decode; the RampNet bundles are keyed to argmax positions (#111). '
+                         f'Score it with scripts/subcell_decode.py world instead.')
 
 
 def wilson(k, n, z=1.96):
@@ -1044,6 +1059,7 @@ def load_city_files(city, benchmark_root, run_dir, read_heights=True, height_tab
     verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
     run_panos, skipped = fs.load_results(run_dir / 'results.jsonl',
                                          read_heights=read_heights, height_table=height_table)
+    require_argmax(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos
 
 
@@ -1059,6 +1075,7 @@ def load_city_at_height(city, benchmark_root, run_dir, camera_height, read_heigh
     verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
     run_panos, _skipped, height, auto = fs.load_at_height(
         run_dir / 'results.jsonl', camera_height, read_heights=read_heights)
+    require_argmax(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos, height, auto
 
 
