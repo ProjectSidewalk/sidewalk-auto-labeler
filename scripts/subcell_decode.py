@@ -927,6 +927,165 @@ def cmd_stability(args):
     write_rows(args.out / 'decode_stability_hist.csv', hist_rows)
 
 
+# --------------------------------------------------------------------------------------- #
+# Figures (docs/heatmap-grid.md section 4), from the committed CSVs only: no GPU, no network
+# --------------------------------------------------------------------------------------- #
+FIG_DIR = REPO_ROOT / 'docs' / 'figures' / 'heatmap-grid'
+SPLIT_LABEL = {'manual_gold': 'manual_gold (GSV, independent)', 'annapolis': 'annapolis (Mapillary)',
+               'paterson': 'paterson (GSV)', 'richmond': 'richmond (Mapillary)',
+               'sao_paulo': 'sao_paulo (GSV)', 'pooled:boxes4': 'pooled, 4 box splits',
+               'pooled:all5': 'pooled, all 5'}
+
+
+def _csv(name):
+    import csv
+    with open(DATA_DIR / name, encoding='utf-8') as f:
+        return list(csv.DictReader(f))
+
+
+def _f(v):
+    return None if v in (None, '') else float(v)
+
+
+def fig_residual(plt):
+    """Q: does the gaussian decode, run through THIS repo's detector, land nearer the box
+    centres than argmax, and does it reproduce RampNet's numbers?"""
+    import heatmap_grid as hg
+    rows = _csv('decode_residual.csv')
+    splits = [s for s in SPLIT_LABEL if any(r['split'] == s for r in rows)]
+    get = {(r['split'], r['path'], r['decode']): r for r in rows}
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.5, 3.9), sharey=True,
+                                   gridspec_kw={'width_ratios': [1.25, 1]})
+    y = list(range(len(splits)))[::-1]
+    for yi, s in zip(y, splits):
+        a, g = get[(s, 'labeler', 'argmax')], get[(s, 'labeler', 'gaussian')]
+        ax1.plot([_f(a['mean_px']), _f(g['mean_px'])], [yi, yi], color=hg.C_GRID, lw=2.5,
+                 zorder=1, solid_capstyle='round')
+        ax1.scatter(_f(a['mean_px']), yi, s=48, color=hg.C_ORANGE, zorder=3,
+                    edgecolor='#fcfcfb', linewidth=1.5)
+        ax1.scatter(_f(g['mean_px']), yi, s=48, color=hg.C_BLUE, zorder=3,
+                    edgecolor='#fcfcfb', linewidth=1.5)
+        ra, rg = get.get((s, 'rampnet', 'argmax')), get.get((s, 'rampnet', 'gaussian'))
+        for r, c in ((ra, hg.C_ORANGE), (rg, hg.C_BLUE)):
+            if r and r.get('published_mean_px'):
+                ax1.scatter(_f(r['published_mean_px']), yi + 0.28, marker='v', s=26,
+                            facecolor='none', edgecolor=c, linewidth=1.1, zorder=3)
+        d = (_f(g['d_mean_px']), _f(g['d_mean_px_lo']), _f(g['d_mean_px_hi']))
+        ax2.plot([d[1], d[2]], [yi, yi], color=hg.C_BLUE, lw=2, solid_capstyle='round')
+        ax2.scatter(d[0], yi, s=40, color=hg.C_BLUE, zorder=3, edgecolor='#fcfcfb')
+        ax2.text(max(d[2], 0.02) + 0.04, yi, f'{d[0]:+.2f} px  (n {int(g["pairs"]):,})',
+                 va='center', fontsize=7.5, color=hg.C_INK2)
+    ax1.set_yticks(y)
+    ax1.set_yticklabels([SPLIT_LABEL[s] for s in splits], fontsize=8)
+    ax1.set_xlabel('mean distance to the box centre (heatmap px; 1 px = 0.35 deg)',
+                   color=hg.C_INK2, fontsize=8.5)
+    ax1.set_title('Argmax (orange) and gaussian (blue), labeler detector\n'
+                  'open triangles: RampNet#221 published values', fontsize=9.5,
+                  color=hg.C_INK, loc='left')
+    hg._style(ax1, grid_axis='x')
+    ax2.axvline(0, color=hg.C_INK2, lw=0.8)
+    ax2.set_xlabel('gaussian minus argmax, paired (px), 95% pano-cluster CI',
+                   color=hg.C_INK2, fontsize=8.5)
+    ax2.set_title('Change per pair', fontsize=9.5, color=hg.C_INK, loc='left')
+    lo = min(_f(get[(s, 'labeler', 'gaussian')]['d_mean_px_lo']) for s in splits)
+    ax2.set_xlim(min(lo, -1.2) - 0.1, 1.0)
+    hg._style(ax2, grid_axis='x')
+    fig.suptitle('The sub-cell decode moves detections toward the box centres on all five '
+                 'splits; the CI excludes zero on four (same peaks, same scores)', fontsize=11,
+                 color=hg.C_INK, x=0.01, ha='left')
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    return fig
+
+
+def fig_stability(plt):
+    """Q: under a small input change, does the same peak keep its position? (the
+    reproduction rule for a gaussian campaign)"""
+    import heatmap_grid as hg
+    rows = _csv('decode_stability_hist.csv')
+    bins = []
+    for r in rows:
+        k = (_f(r['shift_lo_px']), _f(r['shift_hi_px']))
+        if k not in bins:
+            bins.append(k)
+    tot = {m: sum(int(r[m]) for r in rows) for m in ('argmax', 'gaussian')}
+    share = {m: [sum(int(r[m]) for r in rows if (_f(r['shift_lo_px']), _f(r['shift_hi_px'])) == b)
+                 / tot[m] for b in bins] for m in ('argmax', 'gaussian')}
+    labels = [f'{lo:g}-{hi:g}' if lo else f'<{hi:g}' for lo, hi in bins]
+    fig, ax = plt.subplots(figsize=(8.5, 3.6))
+    x = range(len(bins))
+    wdt = 0.38
+    for off, m, c in ((-wdt / 2 - 0.01, 'argmax', hg.C_ORANGE), (wdt / 2 + 0.01, 'gaussian', hg.C_BLUE)):
+        ax.bar([i + off for i in x], [100 * v for v in share[m]], width=wdt, color=c,
+               label=f'{m} (n {tot[m]:,} paired peaks)')
+        for i, v in zip(x, share[m]):
+            if v >= 0.005:
+                ax.text(i + off, 100 * v + 1, f'{100 * v:.0f}', ha='center', fontsize=7,
+                        color=hg.C_INK2)
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(labels, fontsize=8)
+    ax.set_xlabel('how far the same peak moved, original vs 0.75x + JPEG q90 copy '
+                  '(heatmap px, Chebyshev)', color=hg.C_INK2, fontsize=8.5)
+    ax.set_ylabel('% of paired peaks', color=hg.C_INK2, fontsize=8.5)
+    ax.legend(frameon=False, fontsize=8, loc='upper right')
+    hg._style(ax)
+    fig.suptitle('Argmax moves in whole grid steps (0, 1 or a 7-8 px flip); '
+                 'the gaussian position moves continuously', fontsize=10.5, color=hg.C_INK,
+                 x=0.01, ha='left')
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    return fig
+
+
+def fig_world(plt):
+    """Q: does the decode tighten multi-view fusion? Frozen association, paired by view."""
+    import heatmap_grid as hg
+    rows = []
+    for p in sorted(DATA_DIR.glob('decode_world_pair_*.csv')):
+        rows += _csv(p.name)
+    fig, axes = plt.subplots(1, 2, figsize=(11, 2.9), sharey=True)
+    y = list(range(len(rows)))[::-1]
+    for ax, key, title in ((axes[0], 'd_loo_px_mean', 'leave-one-out residual (heatmap px)'),
+                           (axes[1], 'd_chi2_dof_mean', 'site chi2 / dof')):
+        for yi, r in zip(y, rows):
+            o, lo, hi = _f(r[key]), _f(r[f'{key}_lo']), _f(r[f'{key}_hi'])
+            ax.plot([lo, hi], [yi, yi], color=hg.C_BLUE, lw=2, solid_capstyle='round')
+            ax.scatter(o, yi, s=40, color=hg.C_BLUE, zorder=3, edgecolor='#fcfcfb')
+            base = _f(r[key.replace('d_', '').replace('_mean', '') + '_mean_argmax'])
+            ax.text(hi, yi + 0.22, f'{o:+.3f} (argmax mean {base:.2f})', fontsize=7,
+                    color=hg.C_INK2, ha='right')
+        ax.axvline(0, color=hg.C_INK2, lw=0.8)
+        ax.set_title(f'Gaussian minus argmax: {title}', fontsize=9.5, color=hg.C_INK,
+                     loc='left')
+        ax.set_xlabel('paired difference, 95% site-cluster CI', color=hg.C_INK2, fontsize=8.5)
+        hg._style(ax, grid_axis='x')
+    axes[0].set_yticks(y)
+    axes[0].set_yticklabels([f"{r['city']} @ {r['height']} ({int(r['sites'])} sites, "
+                             f"{int(r['views'])} views)" for r in rows], fontsize=8)
+    fig.suptitle('Same forward pass, same sites, each member re-placed at its gaussian '
+                 'position', fontsize=10.5, color=hg.C_INK, x=0.01, ha='left')
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    return fig
+
+
+def cmd_figures(args):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({'font.family': 'DejaVu Sans', 'figure.facecolor': '#fcfcfb',
+                         'axes.facecolor': '#fcfcfb', 'savefig.facecolor': '#fcfcfb',
+                         'svg.hashsalt': 'decode111'})
+    for name, fn, need in (('decode_residual', fig_residual, 'decode_residual.csv'),
+                           ('decode_stability', fig_stability, 'decode_stability_hist.csv'),
+                           ('decode_world', fig_world, 'decode_world_pair_laurens_gsv.csv')):
+        if need and not (DATA_DIR / need).exists():
+            print(f'no data/{need}: skipped {name}', file=sys.stderr)
+            continue
+        fig = fn(plt)
+        fig.savefig(FIG_DIR / f'{name}.png', dpi=args.dpi, metadata={'Software': None})
+        fig.savefig(FIG_DIR / f'{name}.svg', metadata={'Date': None, 'Creator': None})
+        plt.close(fig)
+        print(f'wrote {FIG_DIR / name}.png/.svg')
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -983,9 +1142,13 @@ def main(argv=None):
                    help='holding decode_<split>.jsonl and decode_<split>_perturbed.jsonl')
     p.add_argument('--out', type=Path, default=DATA_DIR)
 
+    p = sub.add_parser('figures', help='redraw the decode figures from the committed CSVs')
+    p.add_argument('--dpi', type=int, default=200)
+
     args = ap.parse_args(argv)
     {'detect': cmd_detect, 'residual': cmd_residual, 'world': cmd_world,
-     'sigma-table': cmd_sigma_table, 'stability': cmd_stability}[args.cmd](args)
+     'sigma-table': cmd_sigma_table, 'stability': cmd_stability,
+     'figures': cmd_figures}[args.cmd](args)
 
 
 if __name__ == '__main__':
