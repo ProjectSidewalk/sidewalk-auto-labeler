@@ -212,6 +212,21 @@ python scripts/eval_sites.py paterson --vintage-ablation
 python scripts/heatmap_grid.py grid paterson bend gainesville sao_paulo richmond
 python scripts/heatmap_grid.py sigma paterson bend gainesville sao_paulo richmond
 python scripts/eval_sites.py paterson --sigma-peak-px 2.31 --out /tmp/eval_s231   # one cell
+# SUB-CELL DECODE (#111 decode half, docs/heatmap-grid.md section 4). OPT-IN, default argmax:
+# `main.py --decode gaussian` / `reinfer.py --decode` place each peak by RampNet#221's rule
+# (detectors/decode.py; detectors/rampnet_subcell.py is RampNet's subcell.py VERBATIM, hash-pinned
+# by tests/test_decode.py -- vendored because the Hub package does not ship it yet). Same peaks,
+# same scores; only (x, y) move, <= half a coarse cell. A run is BOUND to its decode (manifest
+# `detection_decode`), gaussian records carry "detection_decode": "gaussian" (argmax records carry
+# nothing, so they are byte-identical to before), and fuse_sites / reinfer --verify /
+# --write-band-file / send_to_ps.py refuse a mix (--allow-mixed-decode, recorded); eval_sites and
+# provenance_gate refuse a non-argmax run (bundles and live labels are argmax). A gaussian
+# campaign beside live argmax labels is a whole-city frame change and Jon's call.
+# The measurement: one forward pass, both decodes (GPU `detect`), then CPU steps.
+python scripts/subcell_decode.py residual --decode-dir <dir> --rampnet-root ../RampNet
+python scripts/subcell_decode.py sigma-table paterson bend gainesville sao_paulo richmond --sigma 4.24 3.67
+python scripts/subcell_decode.py world laurens_gsv --split laurens_gsv --results runs/laurens_gsv/results.jsonl     --decode-file decode_laurens_gsv.jsonl --work-dir /tmp/w
+python scripts/subcell_decode.py figures
 
 # Leave-one-view-out REPROJECTION RESIDUAL (issue #36; findings in
 # docs/reprojection-residual.md). GT-free: for every site with >= 3 operational views,
@@ -756,8 +771,9 @@ returns 403 for anonymous callers since ~June 2026; streetlevel handles the requ
 format (and must stay ≥ 0.12.10 for the same reason).
 
 **`detectors/curb_ramp.py`** wraps the `projectsidewalk/rampnet-model` HuggingFace model
-(loaded with `trust_remote_code=True`). It outputs a heatmap; `peak_local_max` extracts peaks
-down to the **storage floor** (`DETECTION_STORAGE_FLOOR=0.1`, top-50 per pano), NOT the
+(loaded with `trust_remote_code=True`). It outputs a heatmap; `detectors/decode.py`'s
+`peak_local_max` extracts peaks (placed at the argmax pixel by default, or by the opt-in
+`gaussian` sub-cell decode, #111) down to the **storage floor** (`DETECTION_STORAGE_FLOOR=0.1`, top-50 per pano), NOT the
 decision threshold. The two-threshold contract lives in `detectors/__init__.py` (torch-free,
 importable everywhere): results.jsonl deliberately stores sub-threshold candidates as raw
 material for multi-view fusion (#27), and everything that *acts* on detections filters at
@@ -869,8 +885,10 @@ uniform quantization alone is 8/sqrt(12) = 2.31 px. 2.31 failed #111's pre-regis
 rule in one of ten cells (Sao Paulo at 2.6 m: world recall -1.6 pts, SE 1.3; precision
 unchanged everywhere; gate/residual rejections down 16-58% on GSV), so the default stayed 1.0
 and `--sigma-peak-px` (fuse_sites, eval_sites; `FuseParams.sigma_peak_px`) opts in. **Every
-published fusion/clustering/residual table used 1.0.** The measured residual that should
-replace both waits on the sub-cell decode study (RampNet#221); docs/heatmap-grid.md. GSV camera pitch/roll are deliberately NOT applied: the
+published fusion/clustering/residual table used 1.0.** The MEASURED residual (#111 decode half,
+residual to box centres, bias removed, an upper bound): 4.24 px argmax / 3.79 px gaussian on
+manual_gold; at 4.24 (and 3.67) the same ten cells fail in Sao Paulo at both heights, so the
+default still stays 1.0; docs/heatmap-grid.md section 4. GSV camera pitch/roll are deliberately NOT applied: the
 `--pose-ablation` experiment measured that applying the full pose loosens multi-view
 agreement. **That does not mean the equirects are gravity-rectified** (corrected 2026-09-29,
 #113): they are in the rig's frame (sidewalk-panorama-tools#158), streetlevel and the PS pano
