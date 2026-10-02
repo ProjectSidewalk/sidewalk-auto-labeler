@@ -275,3 +275,29 @@ def test_provenance_gate_refuses_a_gaussian_arm(tmp_path):
     rec.pop('detection_decode')
     f.write_text(json.dumps(rec) + '\n', encoding='utf-8')
     assert pg.load_run(f) == {'p': (16384, 8192, [])}
+
+
+# --- the committed measurement re-derives from the committed data ----------------------
+
+def _rederive(tmp_path, argv, names):
+    import subcell_decode as sd
+    sd.main(argv + ['--out', str(tmp_path)])
+    for n in names:
+        assert (tmp_path / n).read_bytes() == (sd.DATA_DIR / n).read_bytes(), n
+
+
+def test_stability_csvs_rederive(tmp_path):
+    _rederive(tmp_path, ['stability', 'annapolis', 'paterson', 'richmond', 'sao_paulo'],
+              ['decode_stability.csv', 'decode_stability_hist.csv'])
+
+
+RAMPNET = REPO.parent / 'RampNet'
+
+
+@pytest.mark.skipif(not (RAMPNET / 'manual_labels').exists() or
+                    not (RAMPNET / 'benchmark' / 'paterson' / 'boxes.json').exists(),
+                    reason='needs a RampNet checkout beside this repo (benchmark GT)')
+def test_residual_csvs_rederive(tmp_path):
+    _rederive(tmp_path, ['residual', '--rampnet-root', str(RAMPNET)],
+              ['decode_residual.csv', 'decode_sigma.csv', 'decode_agreement.csv',
+               'decode_inputs.csv'])

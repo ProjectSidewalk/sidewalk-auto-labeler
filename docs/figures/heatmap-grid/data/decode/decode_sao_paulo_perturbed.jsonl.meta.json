@@ -1,0 +1,38 @@
+{
+ "ids_from": "/homes/gws/jonf/decode111/ids_sao_paulo.txt",
+ "max_peaks": 50,
+ "model": {
+  "api_version": "1.0.0",
+  "model_id": "rampnet-model@606a11956743",
+  "model_repo": "projectsidewalk/rampnet-model",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+  "model_training_date": "08-21-2025"
+ },
+ "panos_dir": "/homes/gws/jonf/RampNet/benchmark/sao_paulo/panos",
+ "passes": [
+  {
+   "forward_s": 201.0,
+   "host": "makelab2.cs.washington.edu",
+   "panos": 125,
+   "started": "2026-10-02T20:35:38Z",
+   "wall_s": 205.4,
+   "workers": 4
+  }
+ ],
+ "perturb": {
+  "jpeg_quality": 90,
+  "scale": 0.75
+ },
+ "rampnet_subcell_commit": "cf7aecdbce53f72028663ab21a73fc0354255865",
+ "rn_floor": 0.3,
+ "software": {
+  "numpy": "2.5.3",
+  "pillow": "12.3.0",
+  "scikit-image": "0.26.0",
+  "torch": "2.14.0+cu130",
+  "torchvision": "0.29.0",
+  "transformers": "5.12.1"
+ },
+ "source_resize": null,
+ "storage_floor": 0.1
+}

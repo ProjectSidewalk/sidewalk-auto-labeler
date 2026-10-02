@@ -223,9 +223,9 @@ python scripts/eval_sites.py paterson --sigma-peak-px 2.31 --out /tmp/eval_s231 
 # provenance_gate refuse a non-argmax run (bundles and live labels are argmax). A gaussian
 # campaign beside live argmax labels is a whole-city frame change and Jon's call.
 # The measurement: one forward pass, both decodes (GPU `detect`), then CPU steps.
-python scripts/subcell_decode.py residual --decode-dir <dir> --rampnet-root ../RampNet
+python scripts/subcell_decode.py residual --rampnet-root ../RampNet   # reads the committed decode/ outputs
 python scripts/subcell_decode.py sigma-table paterson bend gainesville sao_paulo richmond --sigma 4.24 3.67
-python scripts/subcell_decode.py world laurens_gsv --split laurens_gsv --results runs/laurens_gsv/results.jsonl     --decode-file decode_laurens_gsv.jsonl --work-dir /tmp/w
+python scripts/subcell_decode.py world laurens_gsv --split laurens_gsv --results runs/laurens_gsv/results.jsonl     --decode-file docs/figures/heatmap-grid/data/decode/decode_laurens_gsv.jsonl.gz --work-dir /tmp/w
 python scripts/subcell_decode.py figures
 
 # Leave-one-view-out REPROJECTION RESIDUAL (issue #36; findings in

@@ -173,10 +173,37 @@ def sha256_file(path):
     return h.hexdigest()
 
 
+#: The committed ``detect`` outputs (gzip -n of each decode_<name>.jsonl, plus its
+#: .meta.json): every CPU number in docs/heatmap-grid.md section 4 re-derives from these.
+DECODE_DIR = DATA_DIR / 'decode'
+
+
+def _open(path):
+    import gzip
+    path = Path(path)
+    return (gzip.open(path, 'rt', encoding='utf-8') if path.suffix == '.gz'
+            else open(path, encoding='utf-8'))
+
+
+def decode_path(decode_dir, name):
+    """decode_<name>.jsonl in ``decode_dir``, or its committed .gz."""
+    p = Path(decode_dir) / f'decode_{name}.jsonl'
+    return p if p.exists() else p.with_name(p.name + '.gz')
+
+
+def content_sha256(path):
+    """sha256 of a decode file's CONTENT (decompressed), so a .jsonl and its .gz agree."""
+    h = hashlib.sha256()
+    with _open(path) as f:
+        for line in f:
+            h.update(line.encode('utf-8'))
+    return h.hexdigest()
+
+
 def load_decode_file(path):
-    """{pano_id: line} from a ``detect`` output."""
+    """{pano_id: line} from a ``detect`` output (.jsonl or .jsonl.gz)."""
     out = {}
-    with open(path, encoding='utf-8') as f:
+    with _open(path) as f:
         for line in f:
             if line.strip():
                 rec = json.loads(line)
@@ -392,13 +419,13 @@ def cmd_residual(args):
     out_rows, sigma_rows, agree_rows, inputs = [], [], [], []
     pooled = {'rampnet': {'boxes4': [], 'all5': []}, 'labeler': {'boxes4': [], 'all5': []}}
     for split in BUNDLE_SPLITS:
-        path = args.decode_dir / f'decode_{split}.jsonl'
+        path = decode_path(args.decode_dir, split)
         if not path.exists():
             print(f'{split}: no {path}, skipped', file=sys.stderr)
             continue
         recs = load_decode_file(path)
         inputs.append({'input': f'decode_{split}.jsonl', 'panos': len(recs),
-                       'sha256': sha256_file(path)})
+                       'sha256': content_sha256(path)})
         gts = ground_truth(args.rampnet_root, split)
         missing = sorted(set(bundle_ids(args.rampnet_root, split)) - set(recs))
         if missing:
@@ -804,7 +831,7 @@ def cmd_world(args):
                          params, rng)
         pair_rows.append({'city': args.city, 'height': h, **pr, **{f'rekey_{k}': _r(v) if
                           isinstance(v, float) else v for k, v in rk.items()},
-                          'decode_file_sha256': sha256_file(args.decode_file),
+                          'decode_file_sha256': content_sha256(args.decode_file),
                           'results_sha256': sha256_file(args.results)})
         print(f"  h={h:<4} frozen association: {pr.get('sites')} sites / {pr.get('views')} "
               f"views; d LOO px {pr.get('d_loo_px_mean')} [{pr.get('d_loo_px_mean_lo')}, "
@@ -889,8 +916,9 @@ def cmd_stability(args):
     import numpy as np
     rows, hist_rows = [], []
     for split in args.splits:
-        orig = load_decode_file(args.decode_dir / f'decode_{split}.jsonl')
-        pert = load_decode_file(args.decode_dir / f'decode_{split}_perturbed.jsonl')
+        po, pp = decode_path(args.decode_dir, split), decode_path(args.decode_dir,
+                                                                    f'{split}_perturbed')
+        orig, pert = load_decode_file(po), load_decode_file(pp)
         pairs, un_o, un_p = [], 0, 0
         for pid in sorted(set(orig) & set(pert)):
             p, uo, up = stability_pairs(orig[pid], pert[pid])
@@ -902,6 +930,7 @@ def cmd_stability(args):
         flip = a >= 6.5
         rows.append({'split': split, 'panos': len(set(orig) & set(pert)), 'pairs': len(pairs),
                      'unpaired_orig': un_o, 'unpaired_perturbed': un_p,
+                     'orig_sha256': content_sha256(po), 'perturbed_sha256': content_sha256(pp),
                      'argmax_same_px': int((a < 0.5).sum()),
                      'argmax_flip_7_8': int(flip.sum()),
                      'argmax_flip_share': _r(flip.mean()),
@@ -1017,22 +1046,27 @@ def fig_stability(plt):
     x = range(len(bins))
     wdt = 0.38
     for off, m, c in ((-wdt / 2 - 0.01, 'argmax', hg.C_ORANGE), (wdt / 2 + 0.01, 'gaussian', hg.C_BLUE)):
-        ax.bar([i + off for i in x], [100 * v for v in share[m]], width=wdt, color=c,
-               label=f'{m} (n {tot[m]:,} paired peaks)')
-        for i, v in zip(x, share[m]):
-            if v >= 0.005:
-                ax.text(i + off, 100 * v + 1, f'{100 * v:.0f}', ha='center', fontsize=7,
+        counts = [round(v * tot[m]) for v in share[m]]
+        ax.bar([i + off for i in x], counts, width=wdt, color=c,
+               label=f'{m} (n {tot[m]:,} paired peaks, 4 box splits)')
+        for i, n in zip(x, counts):
+            if n:
+                ax.text(i + off, n * 1.25, f'{n:,}', ha='center', fontsize=7,
                         color=hg.C_INK2)
+    ax.set_yscale('log')
+    ax.set_ylim(0.7, max(tot.values()) * 4)
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels, fontsize=8)
     ax.set_xlabel('how far the same peak moved, original vs 0.75x + JPEG q90 copy '
                   '(heatmap px, Chebyshev)', color=hg.C_INK2, fontsize=8.5)
-    ax.set_ylabel('% of paired peaks', color=hg.C_INK2, fontsize=8.5)
+    ax.set_ylabel('paired peaks (log scale)', color=hg.C_INK2, fontsize=8.5)
     ax.legend(frameon=False, fontsize=8, loc='upper right')
     hg._style(ax)
-    fig.suptitle('Argmax moves in whole grid steps (0, 1 or a 7-8 px flip); '
-                 'the gaussian position moves continuously', fontsize=10.5, color=hg.C_INK,
-                 x=0.01, ha='left')
+    flips = sum(round(v * tot['argmax']) for (lo, _), v in zip(bins, share['argmax'])
+                if lo >= 6.5)
+    fig.suptitle(f'{flips} argmax peaks ({100 * flips / tot["argmax"]:.1f}%) flip 7-8 px; '
+                 'no gaussian position moves more than 6.5 px', fontsize=10.5,
+                 color=hg.C_INK, x=0.01, ha='left')
     fig.tight_layout(rect=(0, 0, 1, 0.93))
     return fig
 
@@ -1114,8 +1148,9 @@ def main(argv=None):
 
     rampnet_default = REPO_ROOT.parent / 'RampNet'
     p = sub.add_parser('residual', help='CPU: paired residual to box centres, both paths')
-    p.add_argument('--decode-dir', type=Path, required=True,
-                   help='directory holding decode_<split>.jsonl from `detect`')
+    p.add_argument('--decode-dir', type=Path, default=DECODE_DIR,
+                   help='directory holding decode_<split>.jsonl[.gz] from `detect` '
+                        '(default: the committed outputs)')
     p.add_argument('--rampnet-root', type=Path, default=rampnet_default,
                    help='RampNet at main: benchmark/, manual_labels/ and '
                         'analysis_out/subcell_decode_221/results.json')
@@ -1146,8 +1181,9 @@ def main(argv=None):
     p = sub.add_parser('stability', help='CPU: the same peak in a pano and its perturbed '
                                          'copy, both decodes')
     p.add_argument('splits', nargs='+')
-    p.add_argument('--decode-dir', type=Path, required=True,
-                   help='holding decode_<split>.jsonl and decode_<split>_perturbed.jsonl')
+    p.add_argument('--decode-dir', type=Path, default=DECODE_DIR,
+                   help='holding decode_<split>.jsonl[.gz] and decode_<split>_perturbed.jsonl[.gz] '
+                        '(default: the committed outputs)')
     p.add_argument('--out', type=Path, default=DATA_DIR)
 
     p = sub.add_parser('figures', help='redraw the decode figures from the committed CSVs')
