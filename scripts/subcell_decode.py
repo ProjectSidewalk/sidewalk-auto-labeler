@@ -803,7 +803,9 @@ def cmd_world(args):
         pr = frozen_pair(fused[dec.ARGMAX][0], panos_a, panos_g, fused[dec.ARGMAX][1],
                          params, rng)
         pair_rows.append({'city': args.city, 'height': h, **pr, **{f'rekey_{k}': _r(v) if
-                          isinstance(v, float) else v for k, v in rk.items()}})
+                          isinstance(v, float) else v for k, v in rk.items()},
+                          'decode_file_sha256': sha256_file(args.decode_file),
+                          'results_sha256': sha256_file(args.results)})
         print(f"  h={h:<4} frozen association: {pr.get('sites')} sites / {pr.get('views')} "
               f"views; d LOO px {pr.get('d_loo_px_mean')} [{pr.get('d_loo_px_mean_lo')}, "
               f"{pr.get('d_loo_px_mean_hi')}]  d chi2/dof {pr.get('d_chi2_dof_mean')} "
@@ -1041,28 +1043,32 @@ def fig_world(plt):
     rows = []
     for p in sorted(DATA_DIR.glob('decode_world_pair_*.csv')):
         rows += _csv(p.name)
-    fig, axes = plt.subplots(1, 2, figsize=(11, 2.9), sharey=True)
+    fig, axes = plt.subplots(1, 3, figsize=(13.5, 3.3), sharey=True)
     y = list(range(len(rows)))[::-1]
-    for ax, key, title in ((axes[0], 'd_loo_px_mean', 'leave-one-out residual (heatmap px)'),
-                           (axes[1], 'd_chi2_dof_mean', 'site chi2 / dof')):
+    for ax, key, base_key, title in (
+            (axes[0], 'd_loo_m_mean', 'loo_m_mean_argmax', 'leave-one-out residual (m)'),
+            (axes[1], 'd_loo_px_mean', 'loo_px_mean_argmax', 'leave-one-out residual (px)'),
+            (axes[2], 'd_chi2_dof_mean', 'chi2_dof_mean_argmax', 'site chi2 / dof')):
         for yi, r in zip(y, rows):
             o, lo, hi = _f(r[key]), _f(r[f'{key}_lo']), _f(r[f'{key}_hi'])
             ax.plot([lo, hi], [yi, yi], color=hg.C_BLUE, lw=2, solid_capstyle='round')
             ax.scatter(o, yi, s=40, color=hg.C_BLUE, zorder=3, edgecolor='#fcfcfb')
-            base = _f(r[key.replace('d_', '').replace('_mean', '') + '_mean_argmax'])
-            ax.text(hi, yi + 0.22, f'{o:+.3f} (argmax mean {base:.2f})', fontsize=7,
-                    color=hg.C_INK2, ha='right')
+            ax.text(o, yi - 0.3, f'{o:+.3f} (argmax mean {_f(r[base_key]):.2f})', fontsize=7,
+                    color=hg.C_INK2, ha='center')
         ax.axvline(0, color=hg.C_INK2, lw=0.8)
-        ax.set_title(f'Gaussian minus argmax: {title}', fontsize=9.5, color=hg.C_INK,
-                     loc='left')
-        ax.set_xlabel('paired difference, 95% site-cluster CI', color=hg.C_INK2, fontsize=8.5)
+        ax.set_ylim(-0.7, len(rows) - 0.5)
+        ax.set_title(title, fontsize=9.5, color=hg.C_INK, loc='left')
+        ax.set_xlabel('gaussian minus argmax, 95% site-cluster CI', color=hg.C_INK2,
+                      fontsize=8.5)
         hg._style(ax, grid_axis='x')
     axes[0].set_yticks(y)
-    axes[0].set_yticklabels([f"{r['city']} @ {r['height']} ({int(r['sites'])} sites, "
+    city = {'laurens': 'laurens (Mapillary)', 'laurens_gsv': 'laurens_gsv (GSV)'}
+    axes[0].set_yticklabels([f"{city.get(r['city'], r['city'])} @ {r['height']}{'' if r['height'] == 'auto' else ' m'}\n({int(r['sites'])} sites, "
                              f"{int(r['views'])} views)" for r in rows], fontsize=8)
-    fig.suptitle('Same forward pass, same sites, each member re-placed at its gaussian '
-                 'position', fontsize=10.5, color=hg.C_INK, x=0.01, ha='left')
-    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    fig.suptitle('Frozen association: each member re-placed at its gaussian position (same '
+                 'forward pass). Left of zero = views agree better', fontsize=10.5,
+                 color=hg.C_INK, x=0.01, ha='left')
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
     return fig
 
 
