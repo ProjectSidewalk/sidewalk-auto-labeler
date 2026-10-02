@@ -5,31 +5,17 @@ import torch
 from transformers import AutoModel
 import numpy as np
 from torchvision import transforms
-from skimage.feature import peak_local_max
 
-from detectors import (DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO, MODEL_REPO,
-                       load_with_offline_fallback, provenance_for_loaded_model)
+from detectors import MODEL_REPO, load_with_offline_fallback, provenance_for_loaded_model
 from detectors.batching import DEFAULT_BATCH_WAIT_S, Batcher, ForwardStats
+# The peak decode lives in the torch-free detectors.decode (#111); re-exported here because
+# callers have always imported it from this module.
+from detectors.decode import DECODES, DEFAULT_DECODE, detections_from_heatmap  # noqa: F401
 
 # The model's fixed input size (rampnet_model.PANO_INPUT_SIZE) and ImageNet normalization.
 INPUT_SIZE = (2048, 4096)
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
-
-
-def detections_from_heatmap(heatmap):
-    """Heatmap peaks -> normalized ``[(x, y, confidence), ...]``, highest first.
-
-    Peaks are stored down to the storage floor; the operational threshold is applied by
-    consumers, not here (see detectors/__init__.py). num_peaks keeps the highest-intensity
-    peaks, so the >= OPERATIONAL_CONFIDENCE set is unaffected by the lower floor. This is
-    per image whether or not the forward pass was batched.
-    """
-    peaks = peak_local_max(np.clip(heatmap, 0, 1), min_distance=10,
-                           threshold_abs=DETECTION_STORAGE_FLOOR,
-                           num_peaks=MAX_PEAKS_PER_PANO)
-    return [(float(c / heatmap.shape[1]), float(r / heatmap.shape[0]), float(heatmap[r][c]))
-            for r, c in peaks]
 
 
 def _cached_snapshot_file():
@@ -81,9 +67,14 @@ class CurbRampDetector:
     """
 
     def __init__(self, allow_unknown_revision=False, batch_size=1,
-                 batch_wait_s=DEFAULT_BATCH_WAIT_S):
+                 batch_wait_s=DEFAULT_BATCH_WAIT_S, decode=DEFAULT_DECODE):
         if batch_size < 1:
             raise ValueError('batch_size must be >= 1')
+        if decode not in DECODES:
+            raise ValueError(f'decode must be one of {DECODES}, got {decode!r}')
+        # Where detect() places each peak (detectors.decode, #111). Bound per run in
+        # manifest.json by the callers; argmax is the default and what every live label used.
+        self.decode = decode
         # Serializes device work: concurrent full-resolution forward passes would exhaust
         # GPU memory. With batching, only the consumer thread takes it.
         self._inference_lock = threading.Lock()
@@ -128,8 +119,9 @@ class CurbRampDetector:
         return heatmap
 
     def detect(self, pil_image):
-        """Normalized ``[(x, y, confidence), ...]`` for one pano, down to the storage floor."""
-        return detections_from_heatmap(self.heatmap(pil_image))
+        """Normalized ``[(x, y, confidence), ...]`` for one pano, down to the storage floor,
+        placed by ``self.decode``."""
+        return detections_from_heatmap(self.heatmap(pil_image), self.decode)
 
     def _forward_batch(self, tensors):
         """One forward over stacked tensors -> one 512x1024 heatmap per input, in order.
