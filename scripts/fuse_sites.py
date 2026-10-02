@@ -1298,10 +1298,10 @@ def main(argv=None):
               file=sys.stderr if 'reason' in auto and auto['gsv_panos'] else sys.stdout)
 
     if args.pose_ablation:
-        print(pose_ablation_report(panos, params))
+        print(pose_ablation_report(panos, params, args.allow_mixed_decode))
         return
     if args.implied_height:
-        print(implied_height_report(panos, params))
+        print(implied_height_report(panos, params, args.allow_mixed_decode))
         return
 
     sites, frame, stats = fuse(panos, params, allow_mixed_decode=args.allow_mixed_decode)
@@ -1318,7 +1318,7 @@ def main(argv=None):
     print(f'wrote {out} and {meta}')
 
 
-def pose_ablation_report(panos, params):
+def pose_ablation_report(panos, params, allow_mixed_decode=False):
     """Empirically lock the pitch/roll sign convention (issue #27 stage 2).
 
     Association is frozen from a pose-OFF fuse; each member's ground point is
@@ -1338,7 +1338,8 @@ def pose_ablation_report(panos, params):
     """
     from dataclasses import replace
 
-    sites, frame, _ = fuse(panos, replace(params, apply_pose=POSE_OFF))
+    sites, frame, _ = fuse(panos, replace(params, apply_pose=POSE_OFF),
+                           allow_mixed_decode=allow_mixed_decode)
     by_id = {p.pano_id: p for p in panos}
     groups = []
     for site in sites:
@@ -1451,7 +1452,7 @@ def _median(values):
     return (v[n // 2] + v[(n - 1) // 2]) / 2.0
 
 
-def implied_height_report(panos, params):
+def implied_height_report(panos, params, allow_mixed_decode=False):
     """Measured vs imagery-implied camera height, by capture year (#40).
 
     The implied height is independent of the height model only per pair; which pairs
@@ -1462,7 +1463,7 @@ def implied_height_report(panos, params):
     `per-pano`, iterate on a scale instead (docs/camera-height-study.md does, by
     monkeypatching; the self-consistent scale was 1.06-1.16 by city).
     """
-    sites, frame, _ = fuse(panos, params)
+    sites, frame, _ = fuse(panos, params, allow_mixed_decode=allow_mixed_decode)
     by_id = {p.pano_id: p for p in panos}
     implied = {pid: _median(hs) for pid, hs in implied_heights(sites, frame, by_id).items()}
     if not implied:

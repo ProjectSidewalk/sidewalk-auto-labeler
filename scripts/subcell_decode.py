@@ -387,6 +387,29 @@ def size_split(rows, decode):
     return out
 
 
+def rampnet_inputs(rampnet_root):
+    """The RampNet files ``residual`` reads, as (relative path, content sha256) rows. The
+    manual_gold labels are one digest over the label files the bundle uses (name, then bytes,
+    in sorted order). Recorded in decode_inputs.csv, so a re-run can prove it read the same
+    GT and the same published report (RampNet main 459ea9e)."""
+    root = Path(rampnet_root)
+    rows = []
+    for rel in [str(RAMPNET_RESULTS).replace('\\', '/')] + [
+            f'benchmark/{s}/{f}' for s in BUNDLE_SPLITS
+            for f in (('records.jsonl',) if s == 'manual_gold' else ('records.jsonl', 'boxes.json'))]:
+        path = root / rel
+        rows.append((rel, sha256_file(path) if path.exists() else None))
+    ids = set(bundle_ids(root, 'manual_gold')) if (root / 'benchmark' / 'manual_gold'
+                                                    / 'records.jsonl').exists() else set()
+    h = hashlib.sha256()
+    labels = sorted((root / 'manual_labels').glob('*.txt')) if ids else []
+    for txt in labels:
+        if txt.stem in ids:
+            h.update(txt.name.encode() + b'\0' + txt.read_bytes())
+    rows.append(('manual_labels/*.txt (manual_gold ids)', h.hexdigest() if labels else None))
+    return rows
+
+
 def rampnet_published(rampnet_root):
     """{split: {decode: {mean_px, median_px, mean_deg, sd_x_px, sd_y_px}, 'pairs': n}} from
     RampNet's committed #221 report, or {} if it is not under rampnet_root."""
@@ -415,6 +438,10 @@ def cmd_residual(args):
     measured sigma per axis."""
     import numpy as np
     rng = np.random.default_rng(SEED)
+    if not (Path(args.rampnet_root) / RAMPNET_RESULTS).exists():
+        raise SystemExit(f'{args.rampnet_root} has no {RAMPNET_RESULTS.as_posix()}: residual '
+                         'compares against RampNet#221\'s published report, which is on RampNet '
+                         'main from 459ea9e. Point --rampnet-root at such a checkout.')
     published = rampnet_published(args.rampnet_root)
     out_rows, sigma_rows, agree_rows, inputs = [], [], [], []
     pooled = {'rampnet': {'boxes4': [], 'all5': []}, 'labeler': {'boxes4': [], 'all5': []}}
@@ -451,6 +478,8 @@ def cmd_residual(args):
     write_rows(args.out / 'decode_residual.csv', out_rows)
     write_rows(args.out / 'decode_sigma.csv', sigma_rows)
     write_rows(args.out / 'decode_agreement.csv', agree_rows)
+    inputs += [{'input': f'rampnet:{rel}', 'panos': None, 'sha256': sha}
+               for rel, sha in rampnet_inputs(args.rampnet_root)]
     write_rows(args.out / 'decode_inputs.csv', inputs)
     for r in out_rows:
         pub = ('' if r.get('published_mean_px') is None else
