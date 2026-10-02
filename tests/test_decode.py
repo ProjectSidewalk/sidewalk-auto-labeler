@@ -262,3 +262,16 @@ def test_send_to_ps_decode_guard(tmp_path):
         encoding='utf-8')
     with pytest.raises(ValueError, match='frame change'):
         sp.check_detection_decode(g)
+
+
+def test_provenance_gate_refuses_a_gaussian_arm(tmp_path):
+    import provenance_gate as pg
+    rec = {'detections': [], 'detection_decode': 'gaussian',
+           'pano': {'panorama_id': 'p', 'width': 16384, 'height': 8192}}
+    f = tmp_path / 'results.jsonl'
+    f.write_text(json.dumps(rec) + '\n', encoding='utf-8')
+    with pytest.raises(SystemExit, match='placed by argmax'):
+        pg.load_run(f)
+    rec.pop('detection_decode')
+    f.write_text(json.dumps(rec) + '\n', encoding='utf-8')
+    assert pg.load_run(f) == {'p': (16384, 8192, [])}

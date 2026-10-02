@@ -105,7 +105,7 @@ for _p in (REPO_ROOT / 'scripts', REPO_ROOT):
         sys.path.insert(0, str(_p))
 
 import geo  # noqa: E402  (stdlib-only)
-from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, DECODE_ARGMAX, record_decode  # noqa: E402
 
 # ---- Pre-registered (issue #56; amended after the PR #96 review, before any Vancouver ----
 # ---- number existed). Do not tune these after seeing a city's numbers.               ----
@@ -240,6 +240,15 @@ def load_run(results_path):
             if not line.strip():
                 continue
             rec = json.loads(line)
+            if record_decode(rec) != DECODE_ARGMAX:
+                # The labels the gate checks were placed by argmax; a gaussian arm sits up to
+                # half a coarse cell off every one of them, so the distance classes below
+                # would describe the decode, not the reproduction (#111; docs/heatmap-grid.md
+                # restates the classes for a gaussian-vs-gaussian comparison).
+                raise SystemExit(f"{results_path}: records written under the "
+                                 f"'{record_decode(rec)}' peak decode; the provenance gate "
+                                 f"compares against live labels placed by argmax. Rebuild the "
+                                 f"arm with --decode argmax.")
             p = rec['pano']
             w, h = int(p['width']), int(p['height'])
             dets = [(round(d['x_normalized'] * w), round(d['y_normalized'] * h),

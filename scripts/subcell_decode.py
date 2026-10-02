@@ -606,7 +606,7 @@ def rekey_bundle(verdict_panos, bundle_ops, panos_a, panos_g):
             counts['moved_beyond_tol'] += 1
             continue
         counts['kept'] += 1
-        counts['max_shift_px'] = max(counts['max_shift_px'], max(d for _, d in pair.values()))
+        counts['max_shift_px'] = max([counts['max_shift_px']] + [d for _, d in pair.values()])
         e = dict(entry)
         e['dets'] = [entry['dets'][pair[b][0]] for b in range(len(new))]
         verdicts[pid] = e
@@ -841,7 +841,7 @@ def cmd_sigma_table(args):
         for c in cmp:
             verdicts.append({'candidate_sigma_px': sigma,
                              **{k: _r(v) if isinstance(v, float) else v for k, v in c.items()}})
-        print(f"sigma {sigma}: {'all ten cells within the #111 rule' if adopt else 'fails the #111 rule in ' + str(sum(not c['pass'] for c in cmp)) + ' cell(s)'}")
+        print(f"sigma {sigma}: {('all ' + str(len(cmp)) + ' cells within the #111 rule') if adopt else 'fails the #111 rule in ' + str(sum(not c['pass'] for c in cmp)) + ' cell(s)'}")
     write_rows(args.out / 'decode_sigma_table_verdict.csv', verdicts)
 
 
