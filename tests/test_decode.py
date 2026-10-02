@@ -119,9 +119,16 @@ def test_gaussian_equals_rampnet_detect_peaks():
     mine = dec.detections_from_heatmap(h, 'gaussian')
     rn = sc.detect_peaks(h, detectors.DETECTION_STORAGE_FLOOR, decode='gaussian', clip=True,
                          exclude_border=True)
-    rn_xy = {(round(c / 1024, 12), round(r / 512, 12)) for r, c, _ in rn}
-    for x, y, _ in mine:
-        assert (round(x, 12), round(y, 12)) in rn_xy
+    rn_xy = [(round(c / 1024, 12), round(r / 512, 12)) for r, c, _ in rn]
+    argmax = dec.detections_from_heatmap(h, 'argmax')
+    fallbacks = 0
+    for (x, y, _), (ax, ay, _) in zip(mine, argmax):
+        if (round(x, 12), round(y, 12)) not in rn_xy:
+            # the one sanctioned difference: a collision on the clipped 1.3 plateau, where
+            # RampNet emits a duplicate position and the labeler keeps the argmax pixel
+            assert (x, y) == (ax, ay)
+            fallbacks += 1
+    assert fallbacks == len(rn_xy) - len(set(rn_xy))
 
 
 @needs_skimage
@@ -130,6 +137,25 @@ def test_gaussian_refuses_a_clipped_heatmap():
     with pytest.raises(ValueError, match='not an exact'):
         dec.detections_from_heatmap(h, 'gaussian')
     assert dec.detections_from_heatmap(h, 'argmax')       # argmax never needs the coarse map
+
+
+@needs_skimage
+def test_clipped_plateau_peaks_do_not_collide():
+    """A coarse Gaussian of amplitude 1.5 clips to a flat top that peak_local_max splits into
+    several peaks; they all climb to one coarse maximum (review M3). The first keeps its
+    gaussian position, the rest fall back to their argmax pixels: no duplicate labels."""
+    h = sc.upsample(gaussian_map([(30.3, 60.8, 1.5)])).astype(np.float32)
+    a = dec.detections_from_heatmap(h, 'argmax')
+    g = dec.detections_from_heatmap(h, 'gaussian')
+    assert len(a) >= 2
+    raw = sc.refine_peaks(h, np.array([(round(y * 512), round(x * 1024)) for x, y, _ in a]),
+                          method='gaussian')
+    assert len({tuple(p) for p in raw}) < len(raw)          # RampNet's rule collides here
+    assert len({(x, y) for x, y, _ in g}) == len(g)         # the labeler's does not
+    assert g[0][:2] == pytest.approx(tuple(raw[0]))
+    assert [d[2] for d in g] == [d[2] for d in a]
+    for d, e in zip(g[1:], a[1:]):
+        assert d[:2] == e[:2] or d[:2] == pytest.approx(tuple(raw[g.index(d)]))
 
 
 @needs_skimage

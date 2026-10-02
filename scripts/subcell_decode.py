@@ -830,7 +830,7 @@ def cmd_world(args):
         params = fs.FuseParams(min_confidence=dec_benchmark(), mask_rig=False,
                                camera_height_m=res_a, apply_pose=fs.POSE_OFF,
                                sigma_peak_px=args.sigma_peak_px)
-        fused = {}
+        fused, recovered = {}, {}
         for m, panos, ops in ((dec.ARGMAX, panos_a, ops_a), (dec.GAUSSIAN, panos_g, ops_g)):
             sites, frame, fstats = fs.fuse(panos, params)
             fused[m] = (sites, frame)
@@ -838,6 +838,7 @@ def cmd_world(args):
             points, _ov, _c, _w = es.build_gt(verdicts, ops, {p.pano_id: p for p in panos},
                                               params, frame)
             pool = [x for x in es.merge_gt_points(points, 2.5) if x.in_pool]
+            recovered[m] = recovered_keys(pool, sites)
             p, b = r['precision'], r['buckets']
             row = {'city': args.city, 'split': args.split, 'height': h,
                    'height_resolved': str(auto_a.get('resolved')) if auto_a else str(res_a),
@@ -858,16 +859,56 @@ def cmd_world(args):
                   f"LOO px med {row['loo_px_median']}  frag5 {row['frag5_share']}", flush=True)
         pr = frozen_pair(fused[dec.ARGMAX][0], panos_a, panos_g, fused[dec.ARGMAX][1],
                          params, rng)
-        pair_rows.append({'city': args.city, 'height': h, **pr, **{f'rekey_{k}': _r(v) if
-                          isinstance(v, float) else v for k, v in rk.items()},
-                          'decode_file_sha256': content_sha256(args.decode_file),
-                          'results_sha256': sha256_file(args.results)})
+        row = {'city': args.city, 'height': h, **pr, **{f'rekey_{k}': _r(v) if
+               isinstance(v, float) else v for k, v in rk.items()},
+               **discordance(recovered), 'decode_file_sha256': content_sha256(args.decode_file),
+               'results_sha256': sha256_file(args.results),
+               'depth_index_sha256': sha256_file(depth_index) if depth_index.exists() else ''}
+        check_inputs(args.out / f'decode_world_pair_{args.city}.csv', ('city', 'height'), row,
+                     args.allow_input_mismatch)
+        pair_rows.append(row)
         print(f"  h={h:<4} frozen association: {pr.get('sites')} sites / {pr.get('views')} "
               f"views; d LOO px {pr.get('d_loo_px_mean')} [{pr.get('d_loo_px_mean_lo')}, "
               f"{pr.get('d_loo_px_mean_hi')}]  d chi2/dof {pr.get('d_chi2_dof_mean')} "
               f"[{pr.get('d_chi2_dof_mean_lo')}, {pr.get('d_chi2_dof_mean_hi')}]", flush=True)
     write_rows(args.out / f'decode_world_{args.city}.csv', world_rows)
     write_rows(args.out / f'decode_world_pair_{args.city}.csv', pair_rows)
+
+
+def recovered_keys(pool, sites, match_m=5.0):
+    """(all, recovered) keys of the pool ramps that can respond to the decode at all: those
+    with no verdict-true detection in their own view (a self-detected ramp counts as recalled
+    wherever it is placed). Such a ramp is made of reviewer-placed missed marks only, whose
+    world points do not depend on the decode, so its key is the same in both arms."""
+    import eval_sites as es
+    op = [x for x in sites if x.n_operational > 0]
+    matched = es.match_one_to_one(pool, op, match_m)
+    keys, rec = set(), set()
+    for i, ramp in enumerate(pool):
+        if ramp.self_detected:
+            continue
+        k = tuple(sorted((p.pano_id, round(p.e, 2), round(p.n, 2)) for p in ramp.points))
+        keys.add(k)
+        if i in matched:
+            rec.add(k)
+    return keys, rec
+
+
+def discordance(recovered):
+    """Paired read of world recall (review S6): of the ramps that can respond (not
+    self-detected, present in both arms), how many only one arm recovers, with the exact
+    two-sided sign-test p-value. The unpaired binomial SE ignores that both arms score the
+    same ramps."""
+    from math import comb
+    (ka, ra), (kg, rg) = recovered[dec.ARGMAX], recovered[dec.GAUSSIAN]
+    common = ka & kg
+    gained = len((rg - ra) & common)
+    lost = len((ra - rg) & common)
+    n = gained + lost
+    p = min(1.0, 2 * sum(comb(n, i) for i in range(min(gained, lost) + 1)) / 2 ** n) if n else 1.0
+    return {'responding_ramps': len(common), 'only_in_one_arm': len(ka ^ kg),
+            'recovered_both': len(ra & rg & common), 'gained_gaussian': gained,
+            'lost_gaussian': lost, 'sign_test_p': _r(p)}
 
 
 def dec_benchmark():
@@ -878,6 +919,38 @@ def dec_benchmark():
 # --------------------------------------------------------------------------------------- #
 # CPU: PR #120's ten-cell table with a measured sigma_peak_px
 # --------------------------------------------------------------------------------------- #
+def run_input_shas(run_dir):
+    """sha256 of the gitignored inputs a fuse reads from runs/<city>/: results.jsonl and,
+    when present, depth/index.csv (it sets GSV's `auto` height). '' for an absent file."""
+    out = {}
+    for key, rel in (('results_sha256', 'results.jsonl'),
+                     ('depth_index_sha256', 'depth/index.csv')):
+        path = Path(run_dir) / rel
+        out[key] = sha256_file(path) if path.exists() else ''
+    return out
+
+
+def check_inputs(committed_csv, key_cols, row, allow):
+    """Refuse (SystemExit) when the committed CSV recorded other input hashes for this row's
+    key: the run would silently describe different inputs than the committed numbers.
+    `allow` (--allow-input-mismatch) downgrades it to a warning."""
+    import csv
+    if not committed_csv.exists():
+        return
+    with open(committed_csv, encoding='utf-8') as f:
+        for old in csv.DictReader(f):
+            if all(str(old.get(k)) == str(row[k]) for k in key_cols):
+                for col in ('results_sha256', 'depth_index_sha256'):
+                    if old.get(col) and old[col] != row[col]:
+                        msg = (f'{"/".join(str(row[k]) for k in key_cols)}: {col} is '
+                               f'{row[col][:12] or "absent"}, the committed '
+                               f'{committed_csv.name} was made from {old[col][:12]}')
+                        if not allow:
+                            raise SystemExit(msg + ' (--allow-input-mismatch to run anyway)')
+                        print('WARNING: ' + msg, file=sys.stderr)
+                return
+
+
 def cmd_sigma_table(args):
     import heatmap_grid as hg
     import fuse_sites as fs
@@ -887,7 +960,11 @@ def cmd_sigma_table(args):
             height = fs.fuse_camera_height_arg(h)
             for sigma in [hg.SIGMAS[0]] + args.sigma:
                 row = hg.score(city, args.benchmark_root, args.runs_root / city, height, sigma)
-                rows.append({k: _r(v) if isinstance(v, float) else v for k, v in row.items()})
+                row = {k: _r(v) if isinstance(v, float) else v for k, v in row.items()}
+                row.update(run_input_shas(args.runs_root / city))
+                check_inputs(DATA_DIR / 'decode_sigma_table.csv', ('city', 'height'), row,
+                             args.allow_input_mismatch)
+                rows.append(row)
                 print(f"{city:<12} h={h:<5} sigma={sigma:<5} R {row['world_recall']:.4f}  "
                       f"P {row['world_precision']:.4f}  sites {row['n_sites']:,}  gate-rej "
                       f"{row['chi2_gate_rejections']:,}  resid-rej {row['residual_rejections']:,}",
@@ -1198,6 +1275,9 @@ def main(argv=None):
     p.add_argument('--heights', nargs='+', default=list(WORLD_HEIGHTS))
     p.add_argument('--sigma-peak-px', type=float, default=None)
     p.add_argument('--out', type=Path, default=DATA_DIR)
+    p.add_argument('--allow-input-mismatch', action='store_true',
+                   help='run even if results.jsonl / depth/index.csv differ from the hashes '
+                        'the committed CSV recorded')
 
     p = sub.add_parser('sigma-table', help="CPU: PR #120's ten cells at a measured sigma")
     p.add_argument('cities', nargs='+')
@@ -1206,6 +1286,9 @@ def main(argv=None):
     p.add_argument('--benchmark-root', type=Path, default=rampnet_default / 'benchmark')
     p.add_argument('--heights', nargs='+', default=['2.6', 'auto'])
     p.add_argument('--out', type=Path, default=DATA_DIR)
+    p.add_argument('--allow-input-mismatch', action='store_true',
+                   help='run even if a city\'s results.jsonl / depth/index.csv differ from '
+                        'the hashes the committed CSV recorded')
 
     p = sub.add_parser('stability', help='CPU: the same peak in a pano and its perturbed '
                                          'copy, both decodes')

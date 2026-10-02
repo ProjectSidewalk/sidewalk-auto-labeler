@@ -6,16 +6,20 @@ with the upsample). A bilinear surface peaks only at its coarse sample points, s
 integer argmax lands on hi-res pixel 3 or 4 mod 8 and every stored position is quantized to
 one coarse cell (8 heatmap px, 2.8 deg). docs/heatmap-grid.md measures that on every run.
 
-Two decodes, selected per run (``--decode`` on main.py / reinfer.py / detect_from_store.py,
-bound in manifest.json):
+Two decodes, selected per run (``--decode`` on main.py and reinfer.py, bound in
+manifest.json; detect_from_store.py stays argmax, because a store run exists to reproduce the
+live argmax labels):
 
 - ``argmax`` (the default, and what every live label and published table used): the pixel
   ``peak_local_max`` returns. Bit-identical to the extractor this repo has always run
   (pinned in tests/test_decode.py against the pre-#111 code on stored heatmaps).
 - ``gaussian``: RampNet's sub-cell rule (RampNet#221). The SAME peaks with the SAME scores,
   in the same order; only (x, y) move, by the log-parabola vertex of each peak's 3x3 coarse
-  neighbourhood (at most half a coarse cell per axis, after re-anchoring a peak whose argmax
-  a diagonal neighbour pulled into the next cell). On RampNet's manual_gold it lowers the
+  neighbourhood. That is at most half a coarse cell from the coarse centre, but a peak whose
+  argmax a diagonal neighbour pulled into the next cell is re-anchored first, so the move
+  from the argmax pixel is not bounded by half a cell: over the 14,817 committed peaks
+  (docs/figures/heatmap-grid/data/decode/) the median is 1.5 heatmap px per axis, the p99 3.5
+  px, and 3 peaks moved more than 4.5 px (max 8.7 px). On RampNet's manual_gold it lowers the
   mean distance to independent box centres from 5.08 to 4.35 heatmap px.
 
 The gaussian rule is RampNet's own code, carried verbatim in ``detectors/rampnet_subcell.py``
@@ -59,8 +63,9 @@ RAMPNET_SUBCELL_SHA256 = 'b0712dfe98fc6012ddfd22f149dc1ece7917d74b21a10276ff83de
 
 # The peak finder every decode shares (unchanged since #27): peaks on clip(h, 0, 1) down to
 # the storage floor, at most MAX_PEAKS_PER_PANO, skimage's default exclude_border (peaks
-# within min_distance of the edge are dropped -- RampNet#132 calls that a defect; the
-# labeler keeps it, because changing it moves stored detections).
+# within min_distance of the edge are dropped, including along the 360-degree seam --
+# RampNet#132 calls that a defect, and for the labeler it is sidewalk-auto-labeler#130; it is
+# kept here, because changing it moves stored detections).
 MIN_DISTANCE = 10
 
 
@@ -96,6 +101,14 @@ def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None):
     ``decode`` picks where each peak is placed (module docstring); the peaks, their order and
     their confidences (the raw heatmap value at the argmax pixel) are the same under every
     decode. ``coarse`` may pass the 64x128 map when the caller already has it.
+
+    Collisions (gaussian only). Several peaks that peak_local_max returns on one clipped
+    plateau (a flat top above 1, at least MIN_DISTANCE apart) all climb to the same coarse
+    maximum and would decode to the IDENTICAL position: duplicate labels on the server. The
+    first (highest-scoring) keeps its gaussian position; every later one that lands exactly on
+    an earlier position keeps its argmax pixel instead, so positions stay distinct and no
+    peak is dropped. Measured rate: 0 of the 14,817 committed peaks (the highest confidence
+    there is 1.04); the case is pinned on a synthetic map in tests/test_decode.py.
     """
     if decode not in DECODES:
         raise ValueError(f'unknown decode {decode!r}; known: {", ".join(DECODES)}')
@@ -105,8 +118,14 @@ def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None):
                 for r, c in peaks]
     coarse = check_exact_upsample(heatmap, coarse)
     xy = sc.refine_peaks(heatmap, peaks, method=decode, coarse=coarse)
-    return [(float(x), float(y), float(heatmap[r][c]))
-            for (x, y), (r, c) in zip(xy, peaks)]
+    out, seen = [], set()
+    for (x, y), (r, c) in zip(xy, peaks):
+        x, y = float(x), float(y)
+        if (x, y) in seen:      # a collision (docstring): fall back to this peak's argmax
+            x, y = float(c / heatmap.shape[1]), float(r / heatmap.shape[0])
+        seen.add((x, y))
+        out.append((x, y, float(heatmap[r][c])))
+    return out
 
 
 def detections_both(heatmap):

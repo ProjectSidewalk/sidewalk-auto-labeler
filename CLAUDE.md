@@ -216,11 +216,15 @@ python scripts/eval_sites.py paterson --sigma-peak-px 2.31 --out /tmp/eval_s231 
 # `main.py --decode gaussian` / `reinfer.py --decode` place each peak by RampNet#221's rule
 # (detectors/decode.py; detectors/rampnet_subcell.py is RampNet's subcell.py VERBATIM, hash-pinned
 # by tests/test_decode.py -- vendored because the Hub package does not ship it yet). Same peaks,
-# same scores; only (x, y) move, <= half a coarse cell. A run is BOUND to its decode (manifest
-# `detection_decode`), gaussian records carry "detection_decode": "gaussian" (argmax records carry
-# nothing, so they are byte-identical to before), and fuse_sites / reinfer --verify /
+# same scores; only (x, y) move: median 1.5 heatmap px per axis, p99 3.5, max 8.7 measured (a
+# re-anchored peak can move about one coarse cell). A run is BOUND to its decode (manifest
+# `detection_decode`), gaussian records carry "detection_decode": "gaussian" (argmax records and
+# submission records are byte-identical to before; manifests and sites_meta gain the key), and
+# fuse_sites / reinfer --verify /
 # --write-band-file / send_to_ps.py refuse a mix (--allow-mixed-decode, recorded); eval_sites and
-# provenance_gate refuse a non-argmax run (bundles and live labels are argmax). A gaussian
+# provenance_gate (and agree_rate, site_explorer, gsv_partial_pose, mapillary_tilt) refuse a
+# non-argmax run (bundles and live labels are argmax), so a gaussian city has no provenance
+# gate yet. A mixed send under --allow-mixed-decode records the full mix. A gaussian
 # campaign beside live argmax labels is a whole-city frame change and Jon's call.
 # The measurement: one forward pass, both decodes (GPU `detect`), then CPU steps.
 python scripts/subcell_decode.py residual --rampnet-root ../RampNet   # reads the committed decode/ outputs

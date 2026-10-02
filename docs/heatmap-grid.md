@@ -179,7 +179,8 @@ section ports it as an **opt-in** and measures it through this repo's detector. 
    positions.** One forward pass per bundle pano through `CurbRampDetector` on makelab2, RampNet's
    extraction applied to that heatmap: every split's argmax and gaussian mean residual equals
    RampNet's published value to the third decimal, except manual_gold argmax (5.082 vs 5.080, the
-   1-px cross-machine tie RampNet already names). On every peak both paths return, the labeler's
+   1-px cross-machine tie RampNet already names) and, through it, the all-5 pool (5.172 vs 5.170
+   argmax, 4.472 vs 4.473 gaussian). On every peak both paths return, the labeler's
    gaussian position equals RampNet's `detect_peaks` exactly. (Figure 4, `decode_residual.csv`,
    `decode_agreement.csv`.)
 2. **Through the labeler path the decode moves detections 0.73 px nearer the box centre on
@@ -190,7 +191,7 @@ section ports it as an **opt-in** and measures it through this repo's detector. 
    At the measured value PR #120's ten-cell table fails the #111 rule in the same cell 2.31 px
    failed, Sao Paulo, now at both heights (world recall -1.6 pts, 4 of 255 ramps). The default
    stays 1.0. (`decode_sigma.csv`, `decode_sigma_table*.csv`.)
-4. **In world space the decode buys nothing measurable at the operating level.** One forward pass, both decodes, fused and scored as `eval_sites.py` does. World precision is identical; world recall moves by 0.2-1.2 pts, inside its binomial noise, and down rather than up in all three cells. With the association frozen, the decode tightens Laurens GSV sites at 2.6 m (leave-one-out residual -0.18 m [-0.28, -0.07], chi2/dof -0.07) but not at `auto`, and it makes Laurens Mapillary sites slightly looser (+0.87 px [+0.49, +1.28], chi2/dof +0.02).
+4. **In world space, at the benchmark tier (0.55), the decode buys nothing measurable.** One forward pass, both decodes, fused and scored as `eval_sites.py` does. The instrument that can see a sub-cell move is the frozen-association leave-one-out residual: it tightens Laurens GSV sites at 2.6 m (-0.18 m [-0.28, -0.07], chi2/dof -0.07) but not at `auto`, the GSV production height, and not in pixels, and it makes Laurens Mapillary sites slightly looser (+0.87 px [+0.49, +1.28], chi2/dof +0.02). World precision and recall are nearly blind to it by construction (4.4); paired, the ramps one arm recovers and the other does not are 6 gained / 9 lost on Laurens Mapillary (sign test p 0.61) and 0 / 0 and 1 / 2 on Laurens GSV. The production tier (0.30) was not run.
    (Figure 5, `decode_world_*.csv`.)
 5. **The decode removes the 7-8 px flip from reproduction.** Between a pano and a resampled copy (0.75x + JPEG q90), 44 of 1,204 paired argmax peaks (3.7%) jump 7-8 heatmap px to the neighbouring coarse cell. Under the gaussian decode no paired peak moves more than 5.4 px; 99% move under 2.5 px.
    (Figure 6, `decode_stability*.csv`.)
@@ -213,8 +214,13 @@ section ports it as an **opt-in** and measures it through this repo's detector. 
   `rampnet_subcell.py` (the re-export is Jon's). To update: copy the file verbatim and change
   both constants.
 - **The decode is bound wherever runs combine.** A record written under `gaussian` carries
-  `"detection_decode": "gaussian"`; argmax records carry nothing, so argmax output is
-  byte-identical to before and every older line reads as argmax (`detectors.record_decode`).
+  `"detection_decode": "gaussian"`; argmax records carry nothing, so every argmax
+  `results.jsonl` record and every argmax `*.submission.json` is byte-identical to before (the
+  latter pinned against origin/main's output in `tests/test_decode_guards.py`), and every older
+  line reads as argmax (`detectors.record_decode`). Two run artifacts that no code hashes do
+  change for argmax runs: a new run's `manifest.json` gains `"detection_decode": "argmax"` (so
+  does a pre-#111 manifest whose `results.jsonl` is absent or empty, e.g. a scan-only dir), and
+  every `sites_meta.json` gains `detection_decode`.
   - `main.py --decode {argmax,gaussian}` (default argmax): the run directory is bound to its
     decode (`manifest.json` `detection_decode`; a pre-#111 manifest over existing records is
     argmax), and a resume or gap fill under the other decode is refused.
@@ -229,12 +235,20 @@ section ports it as an **opt-in** and measures it through this repo's detector. 
     otherwise drop every GT pano silently. A gaussian run is scored with
     `scripts/subcell_decode.py world` (4.4).
   - `scripts/provenance_gate.py` refuses a non-argmax arm: the live labels it checks were
-    placed by argmax.
+    placed by argmax. So a city that receives a gaussian campaign has **no provenance gate**
+    until one is built (4.5).
+  - The research scorers that do their own bundle join (`agree_rate.py`, `site_explorer.py`,
+    `gsv_partial_pose.py`, `mapillary_tilt.py`) refuse a non-argmax run the same way
+    (`eval_sites.require_argmax`).
   - `send_to_ps.py` refuses a file that mixes decodes, and a file whose decode differs from any
     campaign already recorded beside it (`*.submission.json`; a record without
-    `detection_decode` was sent before #111 and is argmax). `--allow-mixed-decode` overrides and
-    the submission record keeps the reason. A non-argmax campaign's record says
-    `detection_decode`. Nothing else in `send_to_ps.py` changed.
+    `detection_decode` was sent before #111 and is argmax). `--allow-mixed-decode` overrides; the
+    record then keeps the reason and the full mix (`"detection_decode": {"argmax": 2,
+    "gaussian": 1}`), and any record holding a mix or an override counts as differing from every
+    single-decode file, so a later argmax campaign beside it is refused too. A non-argmax
+    campaign's record says `detection_decode`. The guard is per directory, like
+    `check_live_positions`: it sees only campaigns recorded beside the file (every `runs/<name>/`
+    here is one city). Nothing else in `send_to_ps.py` changed.
 
 ### 4.2 Agreement with RampNet, through this repo's detector
 
@@ -259,8 +273,9 @@ same pairs, pano-cluster bootstrap (2,000 reps, seed 111).
 The labeler path differs from RampNet's only in its peak finder: `exclude_border` (skimage's
 default) drops peaks within 10 heatmap px of the edge, including the 360-degree seam. That is
 43 peaks over the five splits (34 on manual_gold) and 22 pairs. RampNet#132 calls that drop a
-defect; the labeler keeps it here because changing it moves stored detections, and it is
-outside #111. On every peak both paths return, the two gaussian positions are identical
+defect, and for the labeler it is filed as
+[#130](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/130); it is kept here
+because changing it moves stored detections, and it is outside #111. On every peak both paths return, the two gaussian positions are identical
 (`decode_agreement.csv`, max difference 0.0 px).
 
 ![Two panels over seven rows (five benchmark splits and two pools). Left: mean distance to the box centre under argmax (orange) and the gaussian decode (blue), labeler detector, with RampNet's published values as open triangles that sit on top of the dots; the blue dot is left of the orange one on every row, from 0.19 px on annapolis to 0.79 px on paterson. Right: the paired change with its 95% CI; every interval lies left of zero except annapolis, which spans -0.64 to +0.24.](figures/heatmap-grid/decode_residual.png)
@@ -363,7 +378,38 @@ Frozen association (sites with >= 3 operational views from the argmax fuse; ever
 *Figure 5. Frozen association: each multi-view site's members re-placed at their gaussian
 positions. A negative value means the decode made the views agree better.*
 
-**Reading.** The decode does not buy anything measurable in fusion at the benchmark tier. The one gain, Laurens GSV at 2.6 m in metres and chi2/dof, does not hold at `auto` (the production height for GSV), and in pixels it is zero. On Laurens Mapillary the decode makes the views agree slightly worse: +0.87 px on a leave-one-out residual whose mean is 28 px, i.e. 3%. That matches RampNet#221, where the Mapillary split (annapolis) was the one whose x axis did not improve. The scale explains the null: the decode moves a view by at most half a coarse cell, while the views of a site disagree by 7.7 px (GSV) to 28 px (Mapillary) on average, dominated by camera height, pose and position error. World recall moves 0.2-1.2 pts in each cell (Laurens Mapillary 69 -> 66 ramps recovered from other views, of 235), against a binomial SE of 3-4 pts, so it is noise; world precision and the judged sites are identical. Caveats: two cities, one of each source; the GT `det` points are the detections themselves, so each arm places them at its own positions (the pool differs by one ramp); and on Laurens GSV 22 of 86 judged panos drop out of the re-keyed bundle (20 change their >= 0.55 count between the original zoom-3 pixels and the native archive, 2 move further than a coarse cell), on Laurens Mapillary none.
+**What each measure can see.** World precision is membership-based (verdicts on a site's
+members), and a GT ramp seen by a verdict-true detection in its own view counts as recalled
+wherever that detection lands; the GT `det` points are the detections themselves, placed by each
+arm's own decode. So P and R can respond to the decode only through association, and only for
+pool ramps that are not self-detected (46-47 of 107-109 on Laurens GSV, 140 of 235 on Laurens
+Mapillary). They are read paired, ramp by ramp (`decode_world_pair_<city>.csv`:
+`responding_ramps`, `gained_gaussian`, `lost_gaussian`, `sign_test_p`):
+
+| city | height | ramps that can respond | recovered by both | gaussian only | argmax only | sign test p |
+|---|---|---:|---:|---:|---:|---:|
+| laurens (Mapillary) | 2.6 | 140 | 60 | 6 | 9 | 0.6072 |
+| laurens_gsv (GSV) | 2.6 | 46 | 26 | 0 | 0 | 1.0 |
+| laurens_gsv (GSV) | auto | 47 | 24 | 1 | 2 | 1.0 |
+
+The leave-one-out residual and chi2/dof under frozen association are the instruments that can see
+a sub-cell move, and they carry the reading.
+
+**Reading.** The decode does not buy anything measurable in fusion at the benchmark tier. The one
+gain, Laurens GSV at 2.6 m in metres and chi2/dof, does not hold at `auto` (the production height
+for GSV), and in pixels it is zero. On Laurens Mapillary the decode makes the views agree slightly
+worse: +0.87 px on a leave-one-out residual whose mean is 28 px, i.e. 3%. RampNet#221's two
+Mapillary splits disagree on the x axis, so they neither predict nor explain this: annapolis's x
+spread did not improve (SD x +0.05 [-0.35, +0.41], labeler path) and richmond's did (-0.39
+[-0.60, -0.15]). The scale explains the null: the decode moves a view by 1.5 heatmap px per axis
+at the median, while the views of a site disagree by 7.7 px (GSV) to 28 px (Mapillary) on
+average, dominated by camera height, pose and position error. Paired, world recall changes by 0
+to 3 ramps net, none of them distinguishable from noise (table above); world precision and the
+judged sites are identical. Caveats: two cities, one of each source, at the benchmark tier only;
+the GT `det` points move with each arm (the pool differs by one ramp, and 1 responding ramp on
+Laurens GSV is keyed in one arm only); and on Laurens GSV 22 of 86 judged panos drop out of the
+re-keyed bundle (20 change their >= 0.55 count between the original zoom-3 pixels and the native
+archive, 2 move further than a coarse cell), on Laurens Mapillary none.
 
 ### 4.5 Reproduction rules for a gaussian campaign
 
@@ -380,12 +426,32 @@ Section 3's distance classes (same cell 0, grid neighbour 1, off-grid 2-6, flip 
 
 *Figure 6. Under a small input change the argmax either stays or jumps a whole coarse cell; the gaussian position moves a fraction of a pixel, and the peaks that flipped under argmax move about 0.2-1.4 px under gaussian, because a near-tie decodes to a point between the two tied cells whichever of them wins.*
 
-**Restated classes for a gaussian campaign:** `< 0.5 px` (same), `0.5-2.5 px` (sub-cell jitter, 11.4% of pairs here), `2.5-6.5 px` (0.4%), `>= 6.5 px` (none observed: under gaussian this is not the same peak position). The +/-1 coarse-cell tolerance of the provenance gate and of `reinfer.py --verify`'s diagnostic covers all of it, and is not changed. Two things are unchanged on purpose: `reinfer.py --verify` still decides band eligibility on EXACT pixel keys (but note what that means for a gaussian campaign: argmax returned the identical heatmap pixel for 92% of the paired peaks above, while a gaussian position moved a median 0.1-0.3 heatmap px, which is 2-5 native px on a 16k pano. Exact native keys would therefore rarely reproduce, and `--write-band-file` would carry most panos over: a gaussian campaign's later band has to come from the same forward pass as its base, or the band rule has to be restated. That is listed as a decision, not changed here), and the provenance gate refuses a gaussian arm outright (its labels are argmax). `--rule pixel-96` and the coarse-cell rule run exactly as before on argmax files, so PR #108's and PR #120's reports reproduce. This was one perturbation on 499 panos, not the Vancouver store run; the store run's 11.3% flip rate was not re-measured under the decode.
+**Proposed classes for a gaussian campaign (not implemented):** `< 0.5 px` (same), `0.5-2.5 px`
+(sub-cell jitter, 11.4% of pairs here), `2.5-6.5 px` (0.4%), `>= 6.5 px` (none observed: under
+gaussian this is not the same peak position). **Nothing uses them today.**
+`scripts/provenance_gate.py` refuses every non-argmax arm, because the live labels it checks were
+placed by argmax, so a city that receives a gaussian campaign has no provenance gate until a
+gate that reads the campaign's decode is built (listed as a decision in the PR). The coarse-cell
+tolerance would cover every shift measured here, but that is an observation about these 1,204
+pairs, not a rule anyone runs. `--rule pixel-96` and the coarse-cell rule run exactly as before
+on argmax files, so PR #108's and PR #120's reports reproduce.
+
+`reinfer.py --verify` still decides band eligibility on EXACT pixel keys, and that matters for a
+gaussian campaign: argmax returned the identical heatmap pixel for 92% of the paired peaks above,
+while a gaussian position moved a median 0.09-0.28 heatmap px. On the two GSV splits (16,384 px
+wide panos) that is about 1.5-2 native px; on the Mapillary splits it depends on each pano's
+width. Exact native keys would therefore rarely reproduce, and `--write-band-file` would carry
+most panos over: a gaussian campaign's later band has to come from the same forward pass as its
+base, or the band rule has to be restated. That is listed as a decision, not changed here. This
+was one perturbation on 499 panos, not the Vancouver store run; the store run's 11.3% flip rate
+was not re-measured under the decode.
 
 ### 4.6 Rollout (restated from the #111 issue)
 
 Live labels never move: PS places a label once, at insert. A gaussian campaign in a city whose
-live labels are argmax is a **frame change** of up to half a coarse cell (1.4 deg) per label,
+live labels are argmax is a **frame change** of 1.5 heatmap px per axis at the median, p99 3.5 px,
+and up to about one coarse cell for a re-anchored peak (max 8.7 px, 3.1 deg; 3 of 14,817 committed
+peaks moved more than 4.5 px),
 the same kind of decision as the Richmond reposition (`--reposition-live-city`). It is per
 city and Jon's. The guards in 4.1 make it impossible to drift into one: a gaussian band or
 gap-fill cannot be appended to, verified against, fused with or sent beside an argmax campaign
@@ -401,15 +467,43 @@ resolution from RampNet's Hub benchmark imagery (as RampNet#221 section 8 fetche
 there against `imagery_manifest.json`); and the native archives of laurens_gsv and laurens on
 makelab2 (`/projects/makeabilitylab/sidewalk-auto-labeler/runs/<city>/panos`, not published),
 whose `results.jsonl` sha256 are `83f49aae...` (laurens_gsv) and `16c5a348...` (laurens), equal
-to the copies in `runs/` (`results.jsonl` is gitignored; it supplies the pano blocks for the
-world step). **The `detect` outputs are committed**: `figures/heatmap-grid/data/decode/` holds
-each `decode_<name>.jsonl` gzipped (`gzip -n`, 1.4 MB in all) with its `.meta.json` (model
-revision, software versions, host, wall-clock). Every CPU step reads them by default, so every
-number in this section re-derives without a GPU; the content sha256 of each is in
-`decode_inputs.csv`, `decode_world_pair_<city>.csv` and `decode_stability.csv`.
-`tests/test_decode.py` re-derives the stability CSVs (always) and the residual CSVs (when a
-RampNet checkout sits beside this repo) byte for byte. The 64x128 coarse maps are on makelab2
-only (`/homes/gws/jonf/decode111/coarse/`); each line carries its map's sha256.
+to the copies in `runs/`. **The `detect` outputs are committed**: `figures/heatmap-grid/data/decode/`
+holds each `decode_<name>.jsonl` gzipped (`gzip -n`, 1.4 MB in all) with its `.meta.json` (model
+revision, software versions, host, wall-clock); the CPU steps read them by default.
+
+**What re-derives from the repo alone, and what does not.**
+
+- From committed data only (no GPU, no network, nothing outside the repo): the stability CSVs
+  and Figure 6 (`tests/test_decode.py` re-derives them byte for byte on every run), and
+  Figures 4-5 from the committed CSVs.
+- With a RampNet checkout whose files match main `459ea9e` (sibling `../RampNet`, or
+  `RAMPNET_ROOT`): the residual, sigma and agreement CSVs. `decode_inputs.csv` records the content
+  sha256 of every RampNet file `residual` reads, `residual` refuses a RampNet root without the
+  published report, and the re-derivation test skips (saying why) unless the checkout matches.
+- **Not from the repo alone**: the ten-cell table (4.3) and the world tables (4.4) also read
+  gitignored run files. Each is named here with its sha256 (also in `decode_sigma_table.csv` and
+  `decode_world_pair_<city>.csv`), and `sigma-table` / `world` refuse to run when a file present
+  on disk has another hash than the committed CSV recorded (`--allow-input-mismatch` overrides).
+  They live in the run directories (`runs/<city>/` of Jon's desktop checkout) and, for the two
+  Laurens runs, in the makelab2 archive beside the panos; none is published.
+
+| file (gitignored) | used by | sha256 |
+|---|---|---|
+| `runs/paterson/results.jsonl` | ten-cell table (4.3) | `651226f9f1e6...` |
+| `runs/paterson/depth/index.csv` | ten-cell table, `auto` | `06e878e2d77e...` |
+| `runs/bend/results.jsonl` | ten-cell table (4.3) | `1307faa8041a...` |
+| `runs/bend/depth/index.csv` | ten-cell table, `auto` | `a4ae7d3743ca...` |
+| `runs/gainesville/results.jsonl` | ten-cell table (4.3) | `9f4a57f35d24...` |
+| `runs/gainesville/depth/index.csv` | ten-cell table, `auto` | `02ad2a5d87e2...` |
+| `runs/sao_paulo/results.jsonl` | ten-cell table (4.3) | `54348f367dfa...` |
+| `runs/sao_paulo/depth/index.csv` | ten-cell table, `auto` | `46315eb54fbb...` |
+| `runs/richmond/results.jsonl` | ten-cell table (4.3) | `109e7645ebf5...` |
+| `runs/laurens_gsv/results.jsonl` | world (4.4), pano blocks | `83f49aaecac1...` |
+| `runs/laurens_gsv/depth/index.csv` | world, `auto` height | `74e56eb5514e...` |
+| `runs/laurens/results.jsonl` | world (4.4), pano blocks | `16c5a348b739...` |
+
+The 64x128 coarse maps are on makelab2 only (`/homes/gws/jonf/decode111/coarse/`); each line of
+a `decode_<name>.jsonl` carries its map's sha256.
 
 As run (2026-10-02, makelab2, one A40 shared with other jobs, torch 2.14.0+cu130, transformers
 5.12.1, Python 3.12; branch `subcell-decode-111` at `f74ded9` for the original passes and
@@ -461,9 +555,9 @@ steps: a few minutes on the desktop. Total about 4.0 GPU-hours (upper bound; GPU
 | residual table, reproduction | `data/decode_residual.csv` | `mean_px`, `published_mean_px`, `d_mean_px*` (path `rampnet` / `labeler`) | `residual` |
 | gaussian agreement with RampNet | `data/decode_agreement.csv` | `max_gaussian_diff_px`, `only_*` | `residual` |
 | measured sigma | `data/decode_sigma.csv` | `sd_*`, `robust_sd_*`, `size_*` | `residual` |
-| ten cells at 4.24 / 3.67 | `data/decode_sigma_table.csv`, `decode_sigma_table_verdict.csv` | `world_recall`, `pass` | `sigma-table` |
+| ten cells at 4.24 / 3.67 | `data/decode_sigma_table.csv`, `decode_sigma_table_verdict.csv` | `world_recall`, `pass`, input sha256 | `sigma-table` |
 | world, re-associated | `data/decode_world_<city>.csv` | one row per height x decode | `world` |
-| world, frozen association | `data/decode_world_pair_<city>.csv` | `d_loo_*`, `d_chi2_dof_*`, `rekey_*` | `world` |
+| world, frozen association and paired recall | `data/decode_world_pair_<city>.csv` | `d_loo_*`, `d_chi2_dof_*`, `responding_ramps`, `gained_gaussian`, `lost_gaussian`, `sign_test_p`, `rekey_*`, input sha256 | `world` |
 | reproduction under perturbation | `data/decode_stability.csv`, `decode_stability_hist.csv` | shift columns | `stability` |
 | inputs | `data/decode_inputs.csv` | sha256 of each `detect` output read | `residual` |
 
@@ -477,3 +571,5 @@ steps: a few minutes on the desktop. Total about 4.0 GPU-hours (upper bound; GPU
 - **No flip TTA**: the labeler runs single pass, and so does everything here.
 - **`detect_from_store.py` has no `--decode`**: a store run exists to reproduce live (argmax)
   labels.
+- **No provenance gate for a gaussian campaign.** The gate refuses non-argmax arms; the classes
+  in 4.5 are a proposal that nothing runs.

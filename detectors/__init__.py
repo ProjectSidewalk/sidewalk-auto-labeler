@@ -110,13 +110,15 @@ def on_camera_rig(y_normalized: float) -> bool:
 #
 # Where each heatmap peak is placed: `argmax` (the pixel peak_local_max returns; every live
 # label and published table) or `gaussian` (RampNet#221's sub-cell rule; detectors.decode).
-# The two are different frames for the same peaks: positions differ by up to half a coarse
-# heatmap cell (4 px, 1.4 deg) per axis, and PS places a label once, at insert. So a run is
-# bound to one decode (manifest.json `detection_decode`, enforced on resume), every line
+# The two are different frames for the same peaks: positions differ by 1.5 heatmap px per
+# axis at the median (p99 3.5 px; a re-anchored peak can move about one coarse cell, 8.7 px
+# measured; docs/heatmap-grid.md section 4), and PS places a label once, at insert. So a run
+# is bound to one decode (manifest.json `detection_decode`, enforced on resume), every line
 # written under a non-default decode says so, and everything that combines files -- fusion,
 # reinfer --verify / --write-band-file, send_to_ps.py -- refuses a mix without an explicit
-# flag. The marker is written ONLY on non-argmax lines, so argmax output is byte-identical
-# to before #111 and every older line reads as argmax.
+# flag. The marker is written ONLY on non-argmax lines, so argmax results.jsonl records are
+# byte-identical to before #111 and every older line reads as argmax (manifest.json and
+# sites_meta.json do gain a `detection_decode` key).
 DECODE_ARGMAX = 'argmax'
 DECODE_GAUSSIAN = 'gaussian'
 DECODES = (DECODE_ARGMAX, DECODE_GAUSSIAN)

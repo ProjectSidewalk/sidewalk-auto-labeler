@@ -241,10 +241,11 @@ def load_run(results_path):
                 continue
             rec = json.loads(line)
             if record_decode(rec) != DECODE_ARGMAX:
-                # The labels the gate checks were placed by argmax; a gaussian arm sits up to
-                # half a coarse cell off every one of them, so the distance classes below
-                # would describe the decode, not the reproduction (#111; docs/heatmap-grid.md
-                # restates the classes for a gaussian-vs-gaussian comparison).
+                # The labels the gate checks were placed by argmax; a gaussian arm sits a
+                # sub-cell offset (median 1.5 heatmap px) off every one of them, so the
+                # distance classes below would describe the decode, not the reproduction.
+                # There is no gate for a gaussian campaign yet: docs/heatmap-grid.md 4.5
+                # proposes classes for one, and building it is a decision left open (#111).
                 raise SystemExit(f"{results_path}: records written under the "
                                  f"'{record_decode(rec)}' peak decode; the provenance gate "
                                  f"compares against live labels placed by argmax. Rebuild the "
