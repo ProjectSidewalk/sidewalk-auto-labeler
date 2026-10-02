@@ -60,11 +60,15 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/agree_rate/
 !runs/*/agree_rate/report.md
 !runs/*/agree_rate/*.csv
-# Label-frame beta (scripts/label_frame_beta.py, issue #113): same rule. The report and
-# CSVs are tracked; the API pull is not, and the report carries its url, fetch time and sha256.
+# Label-frame beta (scripts/label_frame_beta.py, issue #113): the report and CSVs are
+# tracked. Unlike the rule above, Gainesville's API pull (5.2 MB) is tracked too: the live
+# API cannot return the same snapshot later, so without it the committed result could not
+# be re-scored from git. The report's url, fetch time and sha256 tie it back.
 !runs/*/label_frame_beta/
 !runs/*/label_frame_beta/report.md
 !runs/*/label_frame_beta/*.csv
+!runs/gainesville/label_frame_beta/raw_labels_CurbRamp.geojson
+!runs/gainesville/label_frame_beta/raw_labels_CurbRamp.geojson.source.json
 # The vouched-pool run's own inputs and outputs, so it can be re-scored without a GPU and
 # re-run from git: the pano list, the detections (3.4 MB, 2.8 GPU-hours), their meta, and the
 # runner + log that made them. The pano-tools CSVs stay out: they are pinned by commit+sha256.
