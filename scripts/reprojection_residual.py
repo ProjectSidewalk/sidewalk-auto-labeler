@@ -110,6 +110,7 @@ MIN_GROUP_ROWS = 30              # a capture year with fewer member rows joins '
 # RampNet#101's instrument: full-site along-ray residual on range, site fixed effects,
 # sites with >= MIN_VIEWS refit members whose ranges span at least this much.
 RN101_MIN_SPAN_M = 4.0
+CHI2_2_MEDIAN = 2.0 * math.log(2.0)   # median of a chi-square with 2 dof
 
 
 # --- Views and the information-form algebra ------------------------------------------
@@ -225,6 +226,136 @@ def leave_one_out(views):
     return out
 
 
+def loo_chi2(v, heldout, lam_i):
+    """Normalized leave-one-out residual (issue #57): r^T S^-1 r with 2 dof, where r is
+    the view's own ground point minus the held-out position and S the covariance the
+    error model predicts for that difference -- the view's own cov_en plus the held-out
+    solution's, Lambda_{-i}^{-1} (independent: the view is not in Lambda_{-i}). Pooled
+    over views, chi2 / (2 n) is 1 when the model's sigmas are right, > 1 when they are
+    too tight. Association truncates the tail (chi-square gate, 8 m cap), so the pooled
+    value is a floor.
+
+    Example:
+        >>> v = View('p', 0, 0.5, 0.6, 0.9, 1.0, 0.0, (1.0, 0.0, 1.0), 10.0, 0.0,
+        ...          'x', None)
+        >>> loo_chi2(v, (0.0, 0.0), (1.0, 0.0, 1.0))   # r = (1, 0), S = 2 I
+        0.5
+    """
+    s = geo.sym2_add(v.cov, geo.sym2_inv(lam_i))
+    de, dn = v.e - heldout[0], v.n - heldout[1]
+    w = geo.sym2_inv(s)
+    return w[0] * de * de + 2.0 * w[1] * de * dn + w[2] * dn * dn
+
+
+def seq_mates(seqs, i):
+    """How view i's site-mates relate to its capture sequence: 'all_same' (every other
+    view of the site is from i's sequence), 'none' (no other view is), 'some', or
+    'unknown' when i has no sequence id. The #57 review's test of whether position error
+    shared within a sequence cancels in the leave-one-out residual.
+
+    Example:
+        >>> seq_mates(['a', 'a', 'b'], 0), seq_mates(['a', 'a', 'a'], 1)
+        ('some', 'all_same')
+        >>> seq_mates(['a', 'b', 'c'], 2), seq_mates([None, 'b', 'c'], 0)
+        ('none', 'unknown')
+    """
+    if seqs[i] is None:
+        return 'unknown'
+    same = [s == seqs[i] for j, s in enumerate(seqs) if j != i]
+    return 'all_same' if all(same) else 'none' if not any(same) else 'some'
+
+
+def pose_group(pano):
+    """'tilt' (pitch/roll reported and not both zero), 'zeros' (reported as 0/0) or
+    'absent' -- the three Panoramax populations (six-city sample on #57: 22% / 6% / 72%;
+    Bayonne's run: 36.8% / 21.2% / 42.0%)."""
+    pitch, roll = pano.camera_pitch, pano.camera_roll
+    if pitch is None or roll is None:
+        return 'absent'
+    return 'zeros' if float(pitch) == 0.0 and float(roll) == 0.0 else 'tilt'
+
+
+def with_sigma_pitch(v, sigma_pitch_rad, camera_height):
+    """The view with its covariance rebuilt under another sigma_pitch, everything else
+    (peak, heading, height, GPS sigmas; the association) fixed. Pitch enters only the
+    along-ray sigma, through |dd/d(delta)| = (h^2 + d^2)/h (geo.detection_ground_point),
+    so the new along variance is the stored one plus that factor squared times the
+    change in sigma_pitch^2."""
+    old = geo.error_model_for(v.source)
+    k = (camera_height ** 2 + v.range_m ** 2) / camera_height
+    sa2 = v.sigma_along_m ** 2 + k * k * (sigma_pitch_rad ** 2 - old.sigma_pitch_rad ** 2)
+    g = geo.GroundEstimate(0.0, 0.0, v.range_m, v.bearing_deg, math.sqrt(max(sa2, 0.0)),
+                           v.sigma_cross_m)
+    return replace(v, cov=g.cov_en(old.sigma_gps_m), sigma_along_m=math.sqrt(max(sa2, 0.0)))
+
+
+def with_sigma_gps(v, sigma_gps_m):
+    """The view with its covariance rebuilt under another (isotropic) sigma_gps, every
+    other sigma and the association fixed."""
+    g = geo.GroundEstimate(0.0, 0.0, v.range_m, v.bearing_deg, v.sigma_along_m,
+                           v.sigma_cross_m)
+    return replace(v, cov=g.cov_en(sigma_gps_m))
+
+
+def pooled_chi2_dof(sites, heights=None, sigma_pitch_rad=None, sigma_gps_m=None):
+    """Pooled leave-one-out chi2 / dof over every site with >= MIN_VIEWS views; with
+    sigma_pitch_rad (or sigma_gps_m), under that sigma instead of the error model's
+    (heights: {pano_id: camera height the view was raycast at})."""
+    total, n = 0.0, 0
+    for sv in sites:
+        views = sv.views
+        if len(views) < MIN_VIEWS:
+            continue
+        if sigma_pitch_rad is not None:
+            views = [with_sigma_pitch(v, sigma_pitch_rad, heights[v.pano_id])
+                     for v in views]
+        if sigma_gps_m is not None:
+            views = [with_sigma_gps(v, sigma_gps_m) for v in views]
+        for v, (held, lam_i) in zip(views, leave_one_out(views)):
+            total += loo_chi2(v, held, lam_i)
+            n += 1
+    return None if not n else total / (2.0 * n)
+
+
+def sigma_pitch_for_unit_chi2(sites, heights, hi_deg=15.0, target=1.0):
+    """The sigma_pitch (deg) that brings pooled chi2/dof to `target` (1 for a model whose
+    every term the leave-one-out residual can see) with every other sigma fixed, by
+    bisection (chi2/dof falls as sigma_pitch grows -- in practice, not by
+    construction: the held-out positions re-weight as the sigmas change). None when even
+    sigma_pitch = 0 leaves chi2/dof <= target (the model is already loose without it),
+    and '>hi' when hi_deg is not enough. A target below 1 reads a run against a
+    reference run's level rather than against the instrument's own calibration -- e.g.
+    when a sigma deliberately stands for more than the between-view scatter the
+    leave-one-out can see (absolute position error; docs/panoramax-bayonne.md)."""
+    f = lambda deg: pooled_chi2_dof(sites, heights, math.radians(deg))
+    if f(0.0) is None or f(0.0) <= target:
+        return None
+    if f(hi_deg) > target:
+        return f'>{hi_deg:g}'
+    lo, hi = 0.0, hi_deg
+    for _ in range(30):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if f(mid) > target else (lo, mid)
+    return round(0.5 * (lo + hi), 3)
+
+
+def sigma_gps_for_target(sites, target=1.0, hi_m=15.0):
+    """The sigma_gps (m) that brings pooled chi2/dof to `target` with every other sigma
+    fixed (#57, exploratory: when the residual is flat in range, position error -- not
+    pitch -- is the term that is off). Same bisection and return conventions as
+    sigma_pitch_for_unit_chi2."""
+    f = lambda m: pooled_chi2_dof(sites, sigma_gps_m=m)
+    if f(0.0) is None or f(0.0) <= target:
+        return None
+    if f(hi_m) > target:
+        return f'>{hi_m:g}'
+    lo, hi = 0.0, hi_m
+    for _ in range(30):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if f(mid) > target else (lo, mid)
+    return round(0.5 * (lo + hi), 3)
+
+
 def scale_design(views, groups, group_names):
     """For each view i, the columns D_i[g] (2-vectors) of the range-scale identity
 
@@ -336,10 +467,11 @@ def _year(capture_date):
     return (capture_date or '')[:4] or 'unknown'
 
 
-def gtfree_rows(city, height_label, sites, frame, by_id, camera_height):
+def gtfree_rows(city, height_label, sites, frame, by_id, camera_height, rigs=None):
     """One row per (site with >= MIN_VIEWS views, held-out view). Each row also carries
     the pooled scale regressor (g_along, g_cross) and the site's id so the fit can
-    cluster by site."""
+    cluster by site, and (#57) the normalized residual `chi2` (loo_chi2), the pano's
+    pose group and its rig (`rigs`: {pano_id: camera_model}, from results.jsonl)."""
     rows = []
     for sv in sites:
         views = sv.views
@@ -349,7 +481,8 @@ def gtfree_rows(city, height_label, sites, frame, by_id, camera_height):
         design = scale_design(views, ['all'] * len(views), ['all'])
         newest = max((fs._months(v.capture_date) for v in views
                       if fs._months(v.capture_date) is not None), default=None)
-        for v, ((he, hn), _), cols in zip(views, loo, design):
+        seqs = [getattr(by_id[v.pano_id], 'sequence_id', None) for v in views]
+        for i, (v, ((he, hn), lam_i), cols) in enumerate(zip(views, loo, design)):
             de, dn = v.e - he, v.n - hn
             along, cross = along_cross(de, dn, v.bearing_deg)
             g_along, g_cross = along_cross(cols[0][0], cols[0][1], v.bearing_deg)
@@ -382,6 +515,11 @@ def gtfree_rows(city, height_label, sites, frame, by_id, camera_height):
                 'res_e': de, 'res_n': dn,
                 'g_along': _r(g_along), 'g_cross': _r(g_cross),
                 'g_e': cols[0][0], 'g_n': cols[0][1],
+                'chi2': _r(loo_chi2(v, (he, hn), lam_i)),
+                'pose_group': pose_group(by_id[v.pano_id]),
+                'camera_model': (rigs or {}).get(v.pano_id) or 'unknown',
+                'seq_mates': seq_mates(seqs, i),
+                'site_n_sequences': len({q for q in seqs if q is not None}) or None,
             })
     return rows
 
@@ -746,6 +884,9 @@ def summarize_rows(rows, keys):
     along = [r['along_m'] for r in rows]
     aal = [abs(a) for a in along]
     acr = [abs(r['cross_m']) for r in rows]
+    chi2 = [r['chi2'] for r in rows if r.get('chi2') is not None]
+    per_site = {r['site_id']: (r['n_views'], r.get('site_n_sequences')) for r in rows}
+    site_seqs = [q for _, q in per_site.values() if q is not None]
     return {**keys, 'n_views': len(rows), 'n_sites': len({r['site_id'] for r in rows}),
             'n_projected': len(px),
             'px_p50': _r(pct(px, 50), 3), 'px_p90': _r(pct(px, 90), 3),
@@ -754,7 +895,15 @@ def summarize_rows(rows, keys):
             'dist_m_p50': _r(pct(dist, 50), 3), 'dist_m_p90': _r(pct(dist, 90), 3),
             'along_m_median': _r(pct(along, 50), 3),
             'abs_along_m_p50': _r(pct(aal, 50), 3), 'abs_along_m_p90': _r(pct(aal, 90), 3),
-            'abs_cross_m_p50': _r(pct(acr, 50), 3), 'abs_cross_m_p90': _r(pct(acr, 90), 3)}
+            'abs_cross_m_p50': _r(pct(acr, 50), 3), 'abs_cross_m_p90': _r(pct(acr, 90), 3),
+            # #57: pooled chi2/dof (2 dof per held-out view) and the median's version,
+            # median(chi2) / 1.3863 (the chi-square(2) median), which a few far-tail views
+            # cannot move
+            'chi2_dof': _r(sum(chi2) / (2.0 * len(chi2)), 3) if chi2 else None,
+            'chi2_dof_median': _r(pct(chi2, 50) / CHI2_2_MEDIAN, 3) if chi2 else None,
+            # site make-up: views and distinct capture sequences per site (medians)
+            'site_views_p50': pct([v for v, _ in per_site.values()], 50),
+            'site_sequences_p50': pct(site_seqs, 50)}
 
 
 def _bucket_order(val):
@@ -773,7 +922,10 @@ def breakdowns(rows):
     for dim, fn in (('range_m', lambda r: _range_bucket(r['range_m'])),
                     ('source', lambda r: r['source'] or 'unknown'),
                     ('delta_months', lambda r: es._vintage_bucket(r['delta_months'])),
-                    ('n_views', lambda r: _views_bucket(r['n_views']))):
+                    ('n_views', lambda r: _views_bucket(r['n_views'])),
+                    ('camera_model', lambda r: r.get('camera_model') or 'unknown'),
+                    ('pose_group', lambda r: r.get('pose_group') or 'unknown'),
+                    ('seq_mates', lambda r: r.get('seq_mates') or 'unknown')):
         groups = {}
         for r in rows:
             groups.setdefault(fn(r), []).append(r)
@@ -1095,7 +1247,8 @@ def height_label(h):
     return geo.PER_PANO if h == geo.PER_PANO else f'{float(h):g}m'
 
 
-def sites_for(run_dir, panos, camera_height, force_refuse):
+def sites_for(run_dir, panos, camera_height, force_refuse,
+              min_confidence=BENCHMARK_CONFIDENCE):
     """Sites to score under a camera-height model: sites.jsonl when it was fused with
     this model at the benchmark tier (every one on disk is: 2.6 m, 0.55), else an
     in-memory re-fuse with those same parameters. Returns (sites, frame, params,
@@ -1103,14 +1256,14 @@ def sites_for(run_dir, panos, camera_height, force_refuse):
     # apply_pose pinned OFF, as every script that reproduces a committed artifact does:
     # the pixel projections (geo.ground_point_to_pano) invert only the flat raycast, so a
     # rotating mode would put a GT row's metres and pixels in two frames (#85).
-    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+    params = fs.FuseParams(min_confidence=min_confidence, mask_rig=False,
                            camera_height_m=camera_height, apply_pose=fs.POSE_OFF)
     if not force_refuse:
         disk = load_sites_json(run_dir)
         if disk is not None:
             svs, frame, p, worst = disk
             same = (p.get('camera_height_m') == camera_height
-                    and p.get('min_confidence') == BENCHMARK_CONFIDENCE
+                    and p.get('min_confidence') == min_confidence
                     and not p.get('mask_rig', False)
                     and not fused_gsv_per_rig(run_dir)
                     and fused_flat(p.get('apply_pose'), meta_pose(run_dir)))
@@ -1129,7 +1282,7 @@ def sites_for(run_dir, panos, camera_height, force_refuse):
     sites, frame, _ = fs.fuse(panos, params)
     return ([views_from_site(s) for s in sites], frame, params,
             f're-fused in memory (fuse_sites.fuse, height {camera_height}, tier '
-            f'{BENCHMARK_CONFIDENCE}, mask_rig off)')
+            f'{min_confidence}, mask_rig off)')
 
 
 def load_split(benchmark_root, split):
@@ -1182,12 +1335,16 @@ def city_report(city, provenance, summaries, slopes, gt_rows_summary, gt_counts)
     for label, prov in provenance.items():
         lines.append(f'- **{label}**: {prov}')
     lines += ['', '## GT-free (leave one view out, sites with >= 3 operational views)', '',
-              '| height | views | sites | px p50 | px p90 | m p50 | m p90 | along median m |',
-              '|---|---:|---:|---:|---:|---:|---:|---:|']
+              '| height | views | sites | px p50 | px p90 | m p50 | m p90 | along median m '
+              '| chi2/dof | chi2/dof (median) | sigma_pitch at the chi2/dof target (deg) |',
+              '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|']
     for s in summaries:
+        sp = s.get('sigma_pitch_deg_at_chi2_target')
         lines.append(f"| {s['height_model']} | {s['n_views']} | {s['n_sites']} | "
                      f"{_fmt(s['px_p50'])} | {_fmt(s['px_p90'])} | {_fmt(s['dist_m_p50'])} | "
-                     f"{_fmt(s['dist_m_p90'])} | {_fmt(s['along_m_median'])} |")
+                     f"{_fmt(s['dist_m_p90'])} | {_fmt(s['along_m_median'])} | "
+                     f"{_fmt(s.get('chi2_dof'))} | {_fmt(s.get('chi2_dof_median'))} | "
+                     f"{sp if isinstance(sp, str) else _fmt(sp)} |")
     lines += ['', '## Range scale', '',
               '| height | capture year | views | naive slope | scale s (±1.96 se) | '
               'implied k |', '|---|---|---:|---:|---:|---:|']
@@ -1210,12 +1367,31 @@ def city_report(city, provenance, summaries, slopes, gt_rows_summary, gt_counts)
     return '\n'.join(lines) + '\n'
 
 
-def run_city(city, run_dir, heights, benchmark_root, split, force_refuse=False):
-    """Everything for one run. Returns a dict of row lists + report text."""
+def load_rigs(results_path):
+    """{pano_id: camera_model} from results.jsonl (fuse_sites' SlimPano drops it)."""
+    rigs = {}
+    with open(results_path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                pano = json.loads(line)['pano']
+                rigs[pano['panorama_id']] = pano.get('camera_model')
+    return rigs
+
+
+def run_city(city, run_dir, heights, benchmark_root, split, force_refuse=False,
+             min_confidence=BENCHMARK_CONFIDENCE, fit_sigma_pitch=None):
+    """Everything for one run. Returns a dict of row lists + report text.
+
+    fit_sigma_pitch (a chi2/dof target, or None) adds sigma_pitch_for_unit_chi2 to the
+    summary row (#57): a few dozen leave-one-out passes over the sites, so it is opt-in."""
     need_heights = any(h == geo.PER_PANO for h in heights)
     panos, _skipped = fs.load_results(run_dir / 'results.jsonl', read_heights=need_heights)
     by_id = {p.pano_id: p for p in panos}
-    split_data = load_split(benchmark_root, split) if benchmark_root else None
+    rigs = load_rigs(run_dir / 'results.jsonl')
+    # GT joins are keyed to the benchmark tier the bundles were exported and judged at;
+    # another tier would silently re-key them, so the GT-anchored half runs only there.
+    split_data = (load_split(benchmark_root, split)
+                  if benchmark_root and min_confidence == BENCHMARK_CONFIDENCE else None)
     result = {'views': [], 'summary': [], 'breakdown': [], 'slopes': [], 'gt': [],
               'gt_summary': [], 'gt_counts': {}, 'provenance': {}, 'warnings': []}
     for h in heights:
@@ -1223,14 +1399,24 @@ def run_city(city, run_dir, heights, benchmark_root, split, force_refuse=False):
         if h == geo.PER_PANO and not any(p.camera_height_m is not None for p in panos):
             result['provenance'][label] = 'skipped: no pano in this run has a measured height'
             continue
-        sites, frame, params, prov = sites_for(run_dir, panos, h, force_refuse)
+        sites, frame, params, prov = sites_for(run_dir, panos, h, force_refuse,
+                                               min_confidence)
         if h == geo.PER_PANO:
             measured = sum(1 for p in panos if p.camera_height_m is not None)
             prov += f'; {measured}/{len(panos)} panos measured, rest at 2.6 m'
         result['provenance'][label] = prov
-        rows = gtfree_rows(city, label, sites, frame, by_id, h)
+        rows = gtfree_rows(city, label, sites, frame, by_id, h, rigs)
         result['views'] += rows
-        result['summary'].append(summarize_rows(rows, {'city': city, 'height_model': label}))
+        summary = summarize_rows(rows, {'city': city, 'height_model': label,
+                                        'min_confidence': min_confidence})
+        if fit_sigma_pitch is not None:
+            used = {r['pano_id']: r['camera_height_m'] for r in rows}
+            summary['chi2_target'] = fit_sigma_pitch
+            summary['sigma_pitch_deg_at_chi2_target'] = sigma_pitch_for_unit_chi2(
+                sites, used, target=fit_sigma_pitch)
+            summary['sigma_gps_m_at_chi2_target'] = sigma_gps_for_target(
+                sites, target=fit_sigma_pitch)
+        result['summary'].append(summary)
         result['breakdown'] += breakdowns(rows)
         result['slopes'] += scale_table(city, label, sites, rows)
         if split_data is not None:
@@ -1267,7 +1453,16 @@ def main():
                     help='always re-fuse in memory instead of reading sites.jsonl')
     ap.add_argument('--publish', type=Path, default=None,
                     help='also copy the aggregate CSVs here (the committed copies)')
+    ap.add_argument('--min-confidence', type=float, default=BENCHMARK_CONFIDENCE,
+                    help='fusion tier (default the benchmark tier, 0.55, which GT joins '
+                         'need; any other value writes reprojection_t<tier>/ dirs)')
+    ap.add_argument('--fit-sigma-pitch', type=float, nargs='?', const=1.0, default=None,
+                    metavar='TARGET',
+                    help='also report the sigma_pitch that brings pooled chi2/dof to '
+                         'TARGET (default 1; #57; every other sigma fixed)')
     args = ap.parse_args()
+    sub = ('reprojection' if args.min_confidence == BENCHMARK_CONFIDENCE
+           else f'reprojection_t{args.min_confidence:g}')
 
     splits = dict(DEFAULT_SPLITS)
     for s in args.split:
@@ -1282,8 +1477,9 @@ def main():
             continue
         print(f'{city}: scoring ...', flush=True)
         r = run_city(city, run_dir, args.camera_height_m, args.benchmark_root,
-                     splits.get(city, city), args.refuse)
-        out = args.out_root / city / 'reprojection'
+                     splits.get(city, city), args.refuse, args.min_confidence,
+                     args.fit_sigma_pitch)
+        out = args.out_root / city / sub
         write_csv(out / 'views.csv', [{k: v for k, v in row.items()
                                        if k not in PER_VIEW_DROP} for row in r['views']])
         write_csv(out / 'gt_anchored.csv', r['gt'])
@@ -1309,7 +1505,7 @@ def main():
             agg['gt_summary'] += gt_summary(
                 [row for row in all_gt if row['height_model'] == label
                  and row['city'] in pp_cities], 'ALL_PER_PANO_CITIES', label)
-    summ = args.out_root / '_summary' / 'reprojection'
+    summ = args.out_root / '_summary' / sub
     names = {'summary': 'gtfree_summary.csv', 'breakdown': 'gtfree_breakdown.csv',
              'slopes': 'range_slope.csv', 'gt_summary': 'gt_anchored_summary.csv'}
     for k, name in names.items():
