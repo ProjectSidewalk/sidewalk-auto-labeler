@@ -1083,9 +1083,7 @@ def cmd_figures(args):
         fig.savefig(FIG_DIR / f'{name}.png', dpi=args.dpi, metadata={'Software': None})
         svg = FIG_DIR / f'{name}.svg'
         fig.savefig(svg, metadata={'Date': None, 'Creator': None})
-        svg.write_bytes(svg.read_bytes().replace(b'
-', b'
-'))   # LF on every platform
+        svg.write_bytes(svg.read_bytes().replace(b'\r\n', b'\n'))   # LF on every platform
         plt.close(fig)
         print(f'wrote {FIG_DIR / name}.png/.svg')
 
