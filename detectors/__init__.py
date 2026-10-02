@@ -106,6 +106,77 @@ def on_camera_rig(y_normalized: float) -> bool:
     return y_normalized > NADIR_MASK_Y
 
 
+# --- The peak decode a record was written under (issue #111) -------------------------
+#
+# Where each heatmap peak is placed: `argmax` (the pixel peak_local_max returns; every live
+# label and published table) or `gaussian` (RampNet#221's sub-cell rule; detectors.decode).
+# The two are different frames for the same peaks: positions differ by up to half a coarse
+# heatmap cell (4 px, 1.4 deg) per axis, and PS places a label once, at insert. So a run is
+# bound to one decode (manifest.json `detection_decode`, enforced on resume), every line
+# written under a non-default decode says so, and everything that combines files -- fusion,
+# reinfer --verify / --write-band-file, send_to_ps.py -- refuses a mix without an explicit
+# flag. The marker is written ONLY on non-argmax lines, so argmax output is byte-identical
+# to before #111 and every older line reads as argmax.
+DECODE_ARGMAX = 'argmax'
+DECODE_GAUSSIAN = 'gaussian'
+DECODES = (DECODE_ARGMAX, DECODE_GAUSSIAN)
+DEFAULT_DECODE = DECODE_ARGMAX
+RECORD_DECODE_KEY = 'detection_decode'
+
+
+def record_decode(record) -> str:
+    """The decode a results.jsonl record was written under (absent key = argmax).
+
+        >>> record_decode({'detections': []}), record_decode({'detection_decode': 'gaussian'})
+        ('argmax', 'gaussian')
+    """
+    return record.get(RECORD_DECODE_KEY, DECODE_ARGMAX)
+
+
+def decodes_in_file(path):
+    """Counter of record_decode over every parseable line of a results file.
+
+    Example (a file of argmax lines with one gaussian line appended):
+        >>> import json, tempfile, os
+        >>> p = tempfile.NamedTemporaryFile('w', suffix='.jsonl', delete=False)
+        >>> _ = p.write(json.dumps({'detections': []}) + '\\n'
+        ...             + json.dumps({'detections': [], 'detection_decode': 'gaussian'}) + '\\n')
+        >>> p.close(); sorted(decodes_in_file(p.name).items()); os.unlink(p.name)
+        [('argmax', 1), ('gaussian', 1)]
+    """
+    import json
+    from collections import Counter
+    out = Counter()
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                try:
+                    out[record_decode(json.loads(line))] += 1
+                except (ValueError, AttributeError):
+                    continue
+    return out
+
+
+def single_decode(counts, what, allow_mixed=False):
+    """The one decode in a decodes_in_file Counter; ValueError on a mix unless allow_mixed
+    (then the most common one, so a caller can still label its output). An empty file reads
+    as argmax.
+
+        >>> from collections import Counter
+        >>> single_decode(Counter({'gaussian': 3}), 'x')
+        'gaussian'
+        >>> single_decode(Counter({'argmax': 2, 'gaussian': 1}), 'x', allow_mixed=True)
+        'argmax'
+    """
+    if len(counts) > 1 and not allow_mixed:
+        mix = ', '.join(f'{k}: {v}' for k, v in sorted(counts.items()))
+        raise ValueError(
+            f'{what} mixes peak decodes ({mix}): argmax and gaussian place the same peaks up '
+            f'to half a coarse heatmap cell apart, so combining them is a frame change '
+            f'(issue #111). Keep each decode in its own file / run.')
+    return counts.most_common(1)[0][0] if counts else DECODE_ARGMAX
+
+
 # --- Model provenance (issues #39, #6) -----------------------------------------------
 #
 # Every JSONL line and every manifest run entry says which weights produced it, and Project

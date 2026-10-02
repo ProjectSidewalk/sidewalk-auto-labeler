@@ -57,6 +57,15 @@ them without a POST. That gives the file one property, which is asserted before 
 on disk: **its labels at and above the server's tier are exactly the ones already live**. A
 derived `<band file>.submission.json` therefore describes a real campaign, and the ordinary
 band guard applies with no override.
+
+**The peak decode** (#111). A re-inference uses the run's own decode (manifest.json
+`detection_decode`, argmax when absent) unless `--decode` says otherwise, and an existing
+`--out` file is bound to the decode its records carry. `--verify` refuses to compare files
+written under different decodes (every sub-cell position differs from its argmax pixel, so
+nothing would reproduce and the coarse-cell diagnostic would describe the decode, not the
+model) unless `--allow-mixed-decode` asks for that comparison as a diagnostic; and
+`--write-band-file` refuses a mix outright, because a band file holding gaussian records over
+an argmax base would ship its band in a second frame.
 """
 import argparse
 import json
@@ -71,7 +80,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import geo  # noqa: E402
-from detectors import BENCHMARK_CONFIDENCE, on_camera_rig  # noqa: E402
+from detectors import (BENCHMARK_CONFIDENCE, DECODES, DEFAULT_DECODE,  # noqa: E402
+                       decodes_in_file, on_camera_rig, single_decode)
 from detectors.batching import BATCH_SIZE_HELP, report_detector  # noqa: E402
 
 # The pano fields a band must not change: the first two set the pixel key PS stores, the
@@ -345,8 +355,35 @@ def select_todo(run_dir, done, ids=None):
     return [(pid, *positions[pid]) for pid in ids if pid not in done]
 
 
-def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1):
+def run_decode(manifest):
+    """The decode a run was detected with (absent key = argmax, every pre-#111 run)."""
+    return manifest.get('detection_decode', DEFAULT_DECODE)
+
+
+def resolve_decode(manifest, out_path, decode=None):
+    """The decode a re-inference into ``out_path`` uses: ``decode`` if given, else the run's.
+    Refuses (SystemExit) when ``out_path`` already holds records of another decode -- a
+    resume must not put two frames in one file."""
+    decode = decode or run_decode(manifest)
+    if Path(out_path).exists():
+        try:
+            have = single_decode(decodes_in_file(out_path), Path(out_path).name)
+        except ValueError as e:
+            raise SystemExit(str(e))
+        if Path(out_path).stat().st_size and have != decode:
+            raise SystemExit(f"{Path(out_path).name} already holds '{have}' records; this "
+                             f"re-inference would append '{decode}' ones (issue #111). Use "
+                             f"another --out, or --decode {have}.")
+    return decode
+
+
+def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1, decode=None):
     manifest = json.loads((run_dir / 'manifest.json').read_text(encoding='utf-8'))
+    decode = resolve_decode(manifest, out_path, decode)
+    if decode != run_decode(manifest):
+        print(f"NOTE: {run_dir.name} was detected with the '{run_decode(manifest)}' decode; "
+              f"this re-inference uses '{decode}' (#111). --verify will refuse the pair "
+              f"without --allow-mixed-decode.")
     source_name = manifest.get('imagery_source') or manifest.get('source') or 'gsv'
     if ids is not None and source_name != 'gsv':
         raise SystemExit(f"--ids re-runs panos through the GSV path; {run_dir.name} is a "
@@ -363,7 +400,7 @@ def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1):
     from detectors import ModelProvenanceError
     try:
         # refuses an unknown revision (issue #39); batch_size > 1 batches forwards (#2)
-        main.curb_ramp_detector = CurbRampDetector(batch_size=batch_size)
+        main.curb_ramp_detector = CurbRampDetector(batch_size=batch_size, decode=decode)
     except ModelProvenanceError as e:
         raise SystemExit(str(e))
     provenance = main.curb_ramp_detector.provenance
@@ -374,7 +411,8 @@ def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1):
     if bound and bound != provenance['model_revision']:
         print(f"WARNING: {run_dir.name} was made with revision {bound[:12]}; re-inferring "
               f"with {provenance['model_revision'][:12]}. --verify will show what moved.")
-    print(f"-> Model: {provenance['model_id']} (trained {provenance['model_training_date']})")
+    print(f"-> Model: {provenance['model_id']} (trained {provenance['model_training_date']}), "
+          f"decode {decode}")
 
     cache_path = Path(f"{out_path}.processed")
     done = set()
@@ -430,6 +468,12 @@ def main_cli(argv=None):
                     help='fetch threads (default main.PROCESSING_CONCURRENCY)')
     ap.add_argument('--batch-size', type=int, default=1, help=BATCH_SIZE_HELP)
     ap.add_argument('--limit', type=int, default=None, help='re-infer at most this many panos')
+    ap.add_argument('--decode', choices=DECODES, default=None,
+                    help="peak decode for the re-inference (#111; default: the run's own, "
+                         "manifest.json detection_decode, argmax when absent)")
+    ap.add_argument('--allow-mixed-decode', action='store_true',
+                    help='with --verify: compare files written under different decodes, as a '
+                         'diagnostic only (never with --write-band-file)')
     ap.add_argument('--ids', type=Path, default=None, metavar='FILE',
                     help='re-infer exactly these pano ids (one per line, each with a record in '
                          'results.jsonl) through the GSV path into --out, which is required. '
@@ -454,6 +498,21 @@ def main_cli(argv=None):
         old_path = args.run_dir / 'results.jsonl'
         tier = server_tier(send_to_ps.load_submission_record(
             send_to_ps.submission_record_path(old_path)))
+        try:
+            old_dec = single_decode(decodes_in_file(old_path), old_path.name)
+            new_dec = single_decode(decodes_in_file(out_path), out_path.name)
+        except ValueError as e:
+            raise SystemExit(str(e))
+        if old_dec != new_dec:
+            what = (f"{old_path.name} is '{old_dec}' and {out_path.name} is '{new_dec}' "
+                    f"(issue #111): the decode moves every peak, so the pair cannot reproduce")
+            if args.write_band_file is not None:
+                raise SystemExit(f"{what}, and a band file built from it would ship its band in "
+                                 f"another frame than the live labels. Re-infer with --decode "
+                                 f"{old_dec}.")
+            if not args.allow_mixed_decode:
+                raise SystemExit(f"{what}. --allow-mixed-decode compares them as a diagnostic.")
+            print(f"WARNING (--allow-mixed-decode): {what}.")
         summary, mismatches, carry_over = verify(old_path, out_path, floor=tier,
                                                  band_floor=args.band_floor)
         summary['tier'] = tier
@@ -504,7 +563,8 @@ def main_cli(argv=None):
 
     import main  # noqa: E402
     reinfer(args.run_dir, out_path, args.workers or main.PROCESSING_CONCURRENCY, args.limit,
-            None if args.ids is None else read_id_list(args.ids), batch_size=args.batch_size)
+            None if args.ids is None else read_id_list(args.ids), batch_size=args.batch_size,
+            decode=args.decode)
 
 
 if __name__ == '__main__':

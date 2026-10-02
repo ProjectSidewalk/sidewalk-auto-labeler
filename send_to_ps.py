@@ -34,7 +34,8 @@ import requests
 from dotenv import load_dotenv
 
 import position_check
-from detectors import OPERATIONAL_CONFIDENCE, on_camera_rig
+from detectors import (DECODE_ARGMAX, OPERATIONAL_CONFIDENCE, decodes_in_file,
+                       on_camera_rig, single_decode)
 
 # Local secrets (e.g. PS_INTERNAL_API_KEY) from ./.env; real env vars win.
 load_dotenv()
@@ -923,6 +924,40 @@ def check_store_built(input_file: Path) -> None:
             f"(--allow-store-file overrides)")
 
 
+def check_detection_decode(input_file: Path) -> str:
+    """The file's peak decode (#111); ValueError when it mixes decodes, or when another
+    campaign recorded in the same run directory went out under a different one.
+
+    argmax and gaussian place the same peaks up to half a coarse heatmap cell (1.4 deg)
+    apart, and PS places a label once, at insert. A file mixing the two would send part of a
+    city in each frame; a gaussian campaign beside argmax campaigns that are already live is a
+    frame change for the whole city -- the same kind of decision as `--reposition-live-city`,
+    per city and deliberate. Every `*.submission.json` in the directory is read: a record
+    without `detection_decode` was sent before #111 and is argmax. Overridden only with
+    --allow-mixed-decode, which the submission record then shows.
+    """
+    decode = single_decode(decodes_in_file(input_file), input_file.name)
+    others = {}
+    for record_path in sorted(input_file.parent.glob('*.submission.json')):
+        if record_path == submission_record_path(str(input_file)):
+            continue
+        try:
+            record = json.loads(record_path.read_text(encoding='utf-8'))
+        except ValueError:
+            continue    # unreadable records are refused by load_submission_record itself
+        if isinstance(record, dict) and record.get('endpoints'):
+            others[record_path.name] = record.get('detection_decode', DECODE_ARGMAX)
+    differ = {name: d for name, d in others.items() if d != decode}
+    if differ:
+        named = ', '.join(f'{name} ({d})' for name, d in sorted(differ.items()))
+        raise ValueError(
+            f"{input_file.name} was detected with the '{decode}' peak decode, but campaigns "
+            f"already recorded beside it went out under another: {named}. Their labels are "
+            f"live in that frame, so this is a whole-city frame change (#111; "
+            f"docs/heatmap-grid.md). (--allow-mixed-decode overrides)")
+    return decode
+
+
 def check_model_provenance(input_file: Path) -> None:
     """Refuse (ValueError) a file holding any record whose model training date is null.
 
@@ -1139,7 +1174,9 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
                             min_confidence: float, previous: Dict[str, Any],
                             check: Optional[Dict[str, Any]] = None,
                             max_confidence: Optional[float] = None,
-                            live_override: Optional[str] = None) -> None:
+                            live_override: Optional[str] = None,
+                            decode: str = DECODE_ARGMAX,
+                            decode_override: Optional[str] = None) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
     One entry per endpoint - a campaign legitimately hits a test instance before prod, and
@@ -1240,6 +1277,14 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         "total_bytes": total_bytes,
         "endpoints": states,
     }
+    # The peak decode the file's labels were placed under (#111). Written only when it is not
+    # argmax, so argmax records are unchanged and every record without the key reads as argmax.
+    if decode != DECODE_ARGMAX:
+        record["detection_decode"] = decode
+    if decode_override is not None:
+        record["mixed_decode_override"] = {"reason": decode_override, "at_utc": now}
+    elif previous.get("mixed_decode_override"):
+        record["mixed_decode_override"] = previous["mixed_decode_override"]
     # Written whole-or-not-at-all: a crash mid-write would leave a truncated file, and an
     # unreadable record refuses the next run (load_submission_record). LF regardless of
     # platform, since the file is committed.
@@ -1262,6 +1307,7 @@ def process_jsonl_file(
     max_confidence: Optional[float] = None,
     reposition_live_city: bool = False,
     allow_store_file: bool = False,
+    allow_mixed_decode: bool = False,
 ) -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending
@@ -1295,6 +1341,8 @@ def process_jsonl_file(
             ``check_live_positions``). A whole-city decision.
         allow_store_file: Submit a file rebuilt from the Project Sidewalk pano store (see
             ``check_store_built``), whose labels are the city's live ones.
+        allow_mixed_decode: Submit a file that mixes peak decodes, or whose decode differs
+            from campaigns already recorded beside it (see ``check_detection_decode``).
     """
     input_file = Path(file_path)
 
@@ -1319,6 +1367,20 @@ def process_jsonl_file(
             if not allow_store_file:
                 raise
             print(f"WARNING (--allow-store-file): {e}")
+
+    # One peak decode per file and per city (issue #111). Dry runs are exempt; the override
+    # downgrades the refusal to a warning and is recorded.
+    decode, decode_override = DECODE_ARGMAX, None
+    if not dry_run:
+        try:
+            decode = check_detection_decode(input_file)
+        except ValueError as e:
+            if not allow_mixed_decode:
+                raise
+            print(f"WARNING (--allow-mixed-decode): {e}")
+            decode = single_decode(decodes_in_file(input_file), input_file.name,
+                                   allow_mixed=True)
+            decode_override = str(e)
 
     # Load resume state: line numbers that already got a 200 on a previous run (or, for a
     # band campaign, lines already handled by that band - sent, or empty and skipped).
@@ -1487,7 +1549,7 @@ def process_jsonl_file(
         write_submission_record(record_path, input_file, digest, total_lines, total_bytes,
                                 load_submitted_lines(sidecar_path), endpoint_url,
                                 min_confidence, previous_record, position_state,
-                                max_confidence, live_override)
+                                max_confidence, live_override, decode, decode_override)
         record_written = True
 
     # Print summary.
@@ -1573,6 +1635,12 @@ def main() -> None:
              "a file through; the reason is written into the submission record."
     )
     parser.add_argument(
+        "--allow-mixed-decode", action="store_true",
+        help="Submit a file that mixes argmax and gaussian peak decodes, or whose decode "
+             "differs from campaigns already recorded in the same run directory (issue #111). "
+             "A frame change for the city's live labels; recorded in the submission record."
+    )
+    parser.add_argument(
         "--allow-store-file",
         action="store_true",
         help="Submit a file rebuilt from the Project Sidewalk pano store "
@@ -1644,7 +1712,8 @@ def main() -> None:
         process_jsonl_file(args.jsonl_file, args.endpoint, api_key, args.dry_run,
                            args.min_confidence, args.limit, args.ignore_submission_guard,
                            args.ignore_position_check, args.max_confidence,
-                           args.reposition_live_city, args.allow_store_file)
+                           args.reposition_live_city, args.allow_store_file,
+                           args.allow_mixed_decode)
     except ValueError as e:
         raise SystemExit(f"Error: {e}")
 

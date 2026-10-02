@@ -43,19 +43,12 @@ Example::
 """
 import numpy as np
 
-from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO
+# The decode names, the record marker and the file-level checks are stdlib-only and live in
+# detectors/__init__.py beside the rest of the detection contract; re-exported here.
+from detectors import (DECODE_ARGMAX as ARGMAX, DECODE_GAUSSIAN as GAUSSIAN,  # noqa: F401
+                       DECODES, DEFAULT_DECODE, DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO,
+                       RECORD_DECODE_KEY, record_decode)
 from detectors import rampnet_subcell as sc
-
-ARGMAX = 'argmax'
-GAUSSIAN = 'gaussian'
-#: The decodes a run may use. ``argmax`` is the default everywhere (#111: the default does
-#: not change in the PR that adds ``gaussian``; that rollout is a per-city decision).
-DECODES = (ARGMAX, GAUSSIAN)
-DEFAULT_DECODE = ARGMAX
-#: The JSONL record key that marks a non-default decode. Written ONLY on lines whose decode
-#: is not argmax, so argmax runs stay byte-identical and every line written before #111
-#: (no key) reads as argmax. See record_decode().
-RECORD_DECODE_KEY = 'detection_decode'
 
 #: Provenance of the vendored ``detectors/rampnet_subcell.py``: RampNet's ``rampnet/subcell.py``
 #: at this commit (the last one to touch it; identical at RampNet main 459ea9e, 2026-10-02),
@@ -122,13 +115,3 @@ def detections_both(heatmap):
     can flip between passes). Element k of both lists is the same peak."""
     return {ARGMAX: detections_from_heatmap(heatmap, ARGMAX),
             GAUSSIAN: detections_from_heatmap(heatmap, GAUSSIAN)}
-
-
-def record_decode(record):
-    """The decode a results.jsonl record was written under: its RECORD_DECODE_KEY, or
-    ``argmax`` when absent (every line before #111, and every argmax line since).
-
-        >>> record_decode({'detections': []}), record_decode({'detection_decode': 'gaussian'})
-        ('argmax', 'gaussian')
-    """
-    return record.get(RECORD_DECODE_KEY, ARGMAX)
