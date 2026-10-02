@@ -70,10 +70,15 @@ def test_argmax_is_the_legacy_extractor_on_stored_heatmaps():
     for pid in maps.files:
         h = sc.upsample(maps[pid].astype(np.float64)).astype(np.float32)
         got = dec.detections_from_heatmap(h, 'argmax')
-        assert got == legacy_detections_from_heatmap(h)
-        assert [[round(v, 9) for v in d] for d in got] == expected[pid]['argmax']
+        assert got == legacy_detections_from_heatmap(h)          # bit-identical, any platform
+        # against the committed outputs: pixels exact, values to float noise (BLAS differs
+        # by platform in the last bits of the rebuilt heatmap)
+        px = lambda ds: [(round(d[0] * 1024), round(d[1] * 512)) for d in ds]  # noqa: E731
+        assert px(got) == px(expected[pid]['argmax'])
         g = dec.detections_from_heatmap(h, 'gaussian')
-        assert [[round(v, 9) for v in d] for d in g] == expected[pid]['gaussian']
+        assert len(g) == len(expected[pid]['gaussian'])
+        for d, e in zip(g + got, expected[pid]['gaussian'] + expected[pid]['argmax']):
+            assert d == pytest.approx(e, abs=1e-6)
 
 
 def test_gaussian_keeps_peaks_scores_and_order():
