@@ -87,6 +87,7 @@ def cmd_detect(args):
     from PIL import Image
     from detectors.curb_ramp import CurbRampDetector
     import floor_infer_archive as fia
+    import heatmap_grid as hg
     Image.MAX_IMAGE_PIXELS = None
     ids = read_ids(args.ids) if args.ids else results_ids(args.results)
     if args.limit:
@@ -106,6 +107,8 @@ def cmd_detect(args):
         size = img.size
         if args.source_resize and img.size != SOURCE_SIZE:
             img = img.resize(SOURCE_SIZE, Image.BILINEAR)
+        if args.perturb:
+            img = hg._resample(img)     # PR #120's store-JPEG stand-in: 0.75x + JPEG q90
         h = det.heatmap(img)
         return pano_line(pid, h, size, args.coarse_dir)
 
@@ -130,6 +133,8 @@ def cmd_detect(args):
                  'panos_dir': str(args.panos_dir),
                  'ids_from': str(args.ids or args.results),
                  'source_resize': list(SOURCE_SIZE) if args.source_resize else None,
+                 'perturb': ({'scale': hg.RESAMPLE_SCALE, 'jpeg_quality': 90}
+                             if args.perturb else None),
                  'storage_floor': dec.DETECTION_STORAGE_FLOOR,
                  'max_peaks': dec.MAX_PEAKS_PER_PANO, 'rn_floor': RN_FLOOR})
     stats = det.stats()
@@ -840,6 +845,88 @@ def cmd_sigma_table(args):
     write_rows(args.out / 'decode_sigma_table_verdict.csv', verdicts)
 
 
+# --------------------------------------------------------------------------------------- #
+# CPU: reproduction under a perturbation, both decodes (the #111 reproduction rules)
+# --------------------------------------------------------------------------------------- #
+#: Pairing window for one peak seen in two passes: 1.5 coarse cells, Chebyshev, on the
+#: argmax positions (wide enough for the 7-8 px flip, narrow enough that neighbouring ramps,
+#: which peak_local_max keeps >= 10 px apart, rarely pair across).
+PAIR_TOL_PX = 12.0
+SHIFT_EDGES = (0.5, 1.5, 2.5, 4.5, 6.5, 8.5, PAIR_TOL_PX + 0.5)
+
+
+def cheb_px(a, b):
+    return max(abs(fold((a[0] - b[0]) * HM_W, HM_W)), abs((a[1] - b[1]) * HM_H))
+
+
+def stability_pairs(orig, pert, floor=FLOOR):
+    """One-to-one pairs of a pano's peaks between two passes (argmax positions, closest
+    first, within PAIR_TOL_PX), each with its shift under argmax and under gaussian."""
+    a = [(i, d) for i, d in enumerate(orig['argmax']) if d[2] >= floor]
+    b = [(j, d) for j, d in enumerate(pert['argmax']) if d[2] >= floor]
+    cands = sorted((cheb_px(da, db), i, j) for i, da in a for j, db in b)
+    used_i, used_j, out = set(), set(), []
+    for dist, i, j in cands:
+        if dist > PAIR_TOL_PX:
+            break
+        if i in used_i or j in used_j:
+            continue
+        used_i.add(i)
+        used_j.add(j)
+        out.append((dist, cheb_px(orig['gaussian'][i], pert['gaussian'][j]),
+                    min(orig['argmax'][i][2], pert['argmax'][j][2])))
+    return out, len(a) - len(used_i), len(b) - len(used_j)
+
+
+def cmd_stability(args):
+    """How far the SAME peak moves between a pano and its perturbed copy (0.75x + JPEG q90,
+    the store-run stand-in), under each decode. The argmax moves in whole grid steps (0, 1
+    or 7-8 px: a near-tie flip); the gaussian decode should move a flipped peak only by the
+    distance between the two cells' sub-cell estimates. The output restates the provenance
+    gate's distance classes for a gaussian campaign."""
+    import numpy as np
+    rows, hist_rows = [], []
+    for split in args.splits:
+        orig = load_decode_file(args.decode_dir / f'decode_{split}.jsonl')
+        pert = load_decode_file(args.decode_dir / f'decode_{split}_perturbed.jsonl')
+        pairs, un_o, un_p = [], 0, 0
+        for pid in sorted(set(orig) & set(pert)):
+            p, uo, up = stability_pairs(orig[pid], pert[pid])
+            pairs += p
+            un_o += uo
+            un_p += up
+        a = np.array([p[0] for p in pairs])
+        g = np.array([p[1] for p in pairs])
+        flip = a >= 6.5
+        rows.append({'split': split, 'panos': len(set(orig) & set(pert)), 'pairs': len(pairs),
+                     'unpaired_orig': un_o, 'unpaired_perturbed': un_p,
+                     'argmax_same_px': int((a < 0.5).sum()),
+                     'argmax_flip_7_8': int(flip.sum()),
+                     'argmax_flip_share': _r(flip.mean()),
+                     'gaussian_median_shift_px': _r(np.median(g)),
+                     'gaussian_p90_shift_px': _r(np.percentile(g, 90)),
+                     'gaussian_p99_shift_px': _r(np.percentile(g, 99)),
+                     'gaussian_max_shift_px': _r(g.max()),
+                     'gaussian_shift_ge_6_5_share': _r((g >= 6.5).mean()),
+                     'gaussian_median_shift_on_argmax_flips': _r(np.median(g[flip]))
+                     if flip.any() else None,
+                     'gaussian_p90_shift_on_argmax_flips': _r(np.percentile(g[flip], 90))
+                     if flip.any() else None})
+        lo = 0.0
+        for hi in SHIFT_EDGES:
+            hist_rows.append({'split': split, 'shift_lo_px': lo, 'shift_hi_px': hi,
+                              'argmax': int(((a >= lo) & (a < hi)).sum()),
+                              'gaussian': int(((g >= lo) & (g < hi)).sum())})
+            lo = hi
+        r = rows[-1]
+        print(f"{split:<12} pairs {r['pairs']:>4}  argmax flips {r['argmax_flip_7_8']} "
+              f"({r['argmax_flip_share']})  gaussian shift median {r['gaussian_median_shift_px']} "
+              f"p99 {r['gaussian_p99_shift_px']} max {r['gaussian_max_shift_px']}; on the flips "
+              f"median {r['gaussian_median_shift_on_argmax_flips']}")
+    write_rows(args.out / 'decode_stability.csv', rows)
+    write_rows(args.out / 'decode_stability_hist.csv', hist_rows)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -852,6 +939,9 @@ def main(argv=None):
     p.add_argument('--coarse-dir', type=Path, default=None)
     p.add_argument('--source-resize', action='store_true',
                    help='resize to 4096x2048 (PIL bilinear) first, as sources/ do')
+    p.add_argument('--perturb', action='store_true',
+                   help="resample each image 0.75x + JPEG q90 first (heatmap_grid._resample, "
+                        "PR #120's perturbation): the stability arm")
     p.add_argument('--workers', type=int, default=4, help='image-decode threads')
     p.add_argument('--limit', type=int, default=0)
 
@@ -886,9 +976,16 @@ def main(argv=None):
     p.add_argument('--heights', nargs='+', default=['2.6', 'auto'])
     p.add_argument('--out', type=Path, default=DATA_DIR)
 
+    p = sub.add_parser('stability', help='CPU: the same peak in a pano and its perturbed '
+                                         'copy, both decodes')
+    p.add_argument('splits', nargs='+')
+    p.add_argument('--decode-dir', type=Path, required=True,
+                   help='holding decode_<split>.jsonl and decode_<split>_perturbed.jsonl')
+    p.add_argument('--out', type=Path, default=DATA_DIR)
+
     args = ap.parse_args(argv)
     {'detect': cmd_detect, 'residual': cmd_residual, 'world': cmd_world,
-     'sigma-table': cmd_sigma_table}[args.cmd](args)
+     'sigma-table': cmd_sigma_table, 'stability': cmd_stability}[args.cmd](args)
 
 
 if __name__ == '__main__':
