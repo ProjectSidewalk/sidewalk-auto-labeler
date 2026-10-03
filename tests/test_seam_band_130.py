@@ -86,7 +86,7 @@ def test_check_peaks_summary_on_synthetic_maps(tmp_path):
     assert t['panos_with_seam_gain'] == 2 and t['straddle_pairs'] == 1
     assert t['keep_peaks'] - t['exclude_peaks'] == t['gained']
     assert s['arms']['laurens']['tiers']['0.55']['seam_gained'] == 3
-    assert s['arms']['laurens']['geometric_expectation'] == pytest.approx(20 / 1024, abs=1e-6)
+    assert s['arms']['laurens']['geometric_expectation'] == pytest.approx(2 / 128, abs=1e-6)
 
     # the archive frame counts every pano, including the one the run does not reproduce
     arch = sb.main(['peaks', 'laurens', '--results', str(run / 'results.jsonl'),
@@ -104,19 +104,27 @@ def _site(sid, members, n_operational):
 
 
 def test_classify_view_split_promoted_new():
-    """Joining a stored operational member is a lost VIEW; stored support whose exclude site
-    was operational is a SPLIT; support that was only support is a PROMOTION; no stored
-    member is a NEW site; a detection that did not fuse is absent."""
+    """Joining the exclude run's operational site is a VIEW; support whose exclude site's
+    continuation is another keep site is a SPLIT, and so is the half of a straddling pair
+    that pulls an operational member out of an existing site (review S2), while the half
+    left in the bigger part is the VIEW; support that was only support is a PROMOTION; no stored member is a NEW site; a
+    detection that did not fuse is absent."""
     ex = [_site(0, [('a', 0, True), ('b', 0, False)], 1),     # operational in exclude
-          _site(1, [('c', 0, False)], 0)]                     # support only in exclude
+          _site(1, [('c', 0, False)], 0),                     # support only in exclude
+          _site(2, [('h', 0, True), ('i', 0, True), ('j', 0, False)], 2)]
     kp = [_site(0, [('a', 0, True), ('g1', 1, True)], 2),
           _site(1, [('c', 0, False), ('g2', 1, True)], 1),
           _site(2, [('g3', 1, True), ('g4', 1, True)], 2),
-          _site(3, [('b', 0, False), ('g6', 1, True)], 1)]
-    got = sb.classify([('g1', 1), ('g2', 1), ('g3', 1), ('g4', 1), ('g5', 1), ('g6', 1)],
-                      ex, kp)
+          _site(3, [('b', 0, False), ('g6', 1, True)], 1),
+          # the straddle case: site 2 of the exclude run splits; h stays with g7, i and j
+          # go with g8, the other half of g7's seam pair (same pano, so cannot-linked)
+          _site(4, [('h', 0, True), ('g7', 1, True)], 2),
+          _site(5, [('i', 0, True), ('j', 0, False), ('g8', 2, True)], 2)]
+    got = sb.classify([('g1', 1), ('g2', 1), ('g3', 1), ('g4', 1), ('g5', 1), ('g6', 1),
+                       ('g7', 1), ('g8', 2)], ex, kp)
     assert got == {('g1', 1): 'view', ('g2', 1): 'promoted', ('g3', 1): 'new',
-                   ('g4', 1): 'new', ('g6', 1): 'split'}
+                   ('g4', 1): 'new', ('g6', 1): 'split', ('g7', 1): 'view',
+                   ('g8', 2): 'split'}
 
 
 def test_gt_verdicts_wrap_the_seam():

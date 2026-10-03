@@ -53,7 +53,7 @@ def require_argmax(run_panos, run_dir):
     GT pano read as drifted and be scored on nothing, silently. A gaussian run is scored
     against its argmax twin from the SAME forward pass by scripts/subcell_decode.py world,
     which re-keys the bundle to that pass's peaks."""
-    other = sorted({p.decode for p in run_panos} - {DECODE_ARGMAX})
+    other = sorted({getattr(p, 'decode', DECODE_ARGMAX) for p in run_panos} - {DECODE_ARGMAX})
     if other:
         raise ValueError(f'{run_dir}: records were written under the {", ".join(other)} peak '
                          f'decode; the RampNet bundles are keyed to argmax positions (#111). '
@@ -68,7 +68,7 @@ def require_exclude_border(run_panos, run_dir):
     exactly, so a `keep` run would drop every GT pano that gained a seam peak as 'drifted'
     and be scored on the rest, silently. scripts/seam_band_130.py world scores the gained
     seam peaks against the bundle directly."""
-    other = sorted({p.border for p in run_panos} - {BORDER_EXCLUDE})
+    other = sorted({getattr(p, 'border', BORDER_EXCLUDE) for p in run_panos} - {BORDER_EXCLUDE})
     if other:
         raise ValueError(f'{run_dir}: records were found under the {", ".join(other)} peak '
                          f'border rule; the RampNet bundles were exported from exclude runs '
@@ -134,7 +134,14 @@ def judged_gt_panos(verdict_panos, bundle_ops, run_panos_by_id, counts, warnings
     operational detections drifted from the frozen bundle, or when the verdict list
     does not line up with them — the three ways a verdict can end up attached to a
     detection the reviewer never saw.
+
+    It also refuses (ValueError, at the first iteration) a run that is not in the bundle frame
+    -- argmax decode, exclude border (require_bundle_frame) -- so every scorer that reads
+    verdicts through here is guarded, including the ones that never call the guard themselves
+    (mapillary_height, reprojection_residual, gsv_ground_plane, depth_at_detection; #131
+    review M5, the border twin of #129's N2).
     """
+    require_bundle_frame(run_panos_by_id.values(), 'the run')
     for pid in sorted(verdict_panos):
         entry = verdict_panos[pid]
         run_pano = run_panos_by_id.get(pid)

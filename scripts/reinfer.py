@@ -340,6 +340,12 @@ def write_derived_record(old_path, band_path, tier):
                          "tier": tier},
         "endpoints": endpoints,
     }
+    # The band file's border rule (#130), as send_to_ps writes it: only when it is not plain
+    # exclude, so a derived record over a keep campaign cannot read back as exclude to the
+    # city-wide guard (#131 review M5; the decode twin is #129's N4).
+    border = single_border(borders_in_file(band_path), band_path.name)
+    if border != DEFAULT_BORDER:
+        record["detection_border"] = border
     tmp_path = record_path.with_name(record_path.name + '.tmp')
     with open(tmp_path, 'w', encoding='utf-8', newline='\n') as f:
         json.dump(record, f, indent=2)

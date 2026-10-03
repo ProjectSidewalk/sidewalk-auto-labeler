@@ -457,3 +457,78 @@ def test_transform_record_drops_the_border_marker():
     except (KeyError, TypeError) as e:   # transform_pano wants more fields than this stub
         pytest.skip(f'pano stub too thin for transform_pano: {e}')
     assert 'detection_border' not in out
+
+
+def test_mapillary_tilt_load_run_carries_the_border(tmp_path, monkeypatch):
+    """#131 review M6: mapillary_tilt builds its own SlimPanos; drop the border kwarg and a
+    keep run would be scored against exclude bundles silently."""
+    import mapillary_tilt as mt
+    run = tmp_path / 'runs' / 'x'
+    run.mkdir(parents=True)
+    rec = _rec(border='keep')
+    rec['pano'].update({'source': 'mapillary', 'source_metadata': {
+        'computed_rotation': [0.0, 0.0, 0.0], 'compass_angle': 0.0,
+        'computed_compass_angle': 0.0}})
+    (run / 'results.jsonl').write_text(json.dumps(rec) + '\n', encoding='utf-8')
+    monkeypatch.setattr(mt, 'REPO_ROOT', tmp_path)
+    with pytest.raises(SystemExit, match='exclude runs'):
+        mt.load_run('x')
+
+
+def test_judged_gt_panos_guards_every_scorer():
+    """#131 review M5: scorers that read verdicts through es.judged_gt_panos without calling
+    the guard themselves (mapillary_height, reprojection_residual, gsv_ground_plane,
+    depth_at_detection) are refused a keep or gaussian run there."""
+    import eval_sites as es
+    import fuse_sites as fs
+    keep = fs.SlimPano('p', 0.0, 0.0, 0.0, None, None, None, 'launch', [], border='keep')
+    with pytest.raises(ValueError, match='exported from exclude runs'):
+        list(es.judged_gt_panos({}, {}, {'p': keep}, es.gt_counts(), []))
+    gauss = fs.SlimPano('p', 0.0, 0.0, 0.0, None, None, None, 'launch', [], decode='gaussian')
+    with pytest.raises(ValueError, match='keyed to argmax'):
+        list(es.judged_gt_panos({}, {}, {'p': gauss}, es.gt_counts(), []))
+
+
+@pytest.mark.parametrize('script', ['agree_rate.py', 'site_explorer.py', 'gsv_partial_pose.py',
+                                    'mapillary_tilt.py'])
+def test_bundle_scorers_call_the_frame_guard(script):
+    """agree_rate and site_explorer guard inside long CLI paths that need network or a full
+    run to reach; this pins that their guard is the one that checks the border too, and
+    that none of them still calls the decode-only require_argmax."""
+    src = (REPO / 'scripts' / script).read_text(encoding='utf-8')
+    assert 'es.require_bundle_frame(' in src
+    assert 'es.require_argmax(' not in src
+
+
+def test_reinfer_derived_record_carries_the_border(tmp_path):
+    """#131 review M5: a band file's derived submission record says keep when the band file
+    is keep, so the city-wide guard cannot read it as exclude."""
+    import reinfer
+    old = tmp_path / 'results.jsonl'
+    old.write_text(_line(border='keep', dets=((0.5, 0.6, 0.9),)), encoding='utf-8')
+    band = tmp_path / 'results.band.jsonl'
+    band.write_text(old.read_text(encoding='utf-8'), encoding='utf-8')
+    url = 'https://ps.example/ai/submitLabelsOnPano'
+    (tmp_path / 'results.jsonl.submission.json').write_text(json.dumps(
+        {'input_file': 'results.jsonl', 'sha256': 'x', 'total_lines': 1,
+         'detection_border': 'keep',
+         'endpoints': {url: {'submitted_lines': 1, 'labels_submitted': 1,
+                             'min_confidence': 0.55, 'rig_masked': True}}}),
+        encoding='utf-8')
+    record_path, _ = reinfer.write_derived_record(old, band, 0.55)
+    assert json.loads(record_path.read_text(encoding='utf-8'))['detection_border'] == 'keep'
+
+
+SEAM_DATA = REPO / 'docs' / 'figures' / 'seam-band-130' / 'data'
+
+
+@pytest.mark.skipif(not SEAM_DATA.exists(), reason='no committed seam-band data')
+def test_committed_seam_data_is_lf_and_lost_nothing():
+    """#131 review S5: every committed data file is LF (summary.json hashes their bytes, and
+    .gitattributes pins eol=lf), and the plan's assertion: keep never loses an exclude peak."""
+    for f in sorted(SEAM_DATA.iterdir()):
+        assert b'\r' not in f.read_bytes(), f.name
+    for f in sorted(SEAM_DATA.glob('*_counts.json')):
+        c = json.loads(f.read_text(encoding='utf-8'))
+        assert c['lost_peaks'] == 0 and c['panos_at_peak_cap'] == 0, f.name
+    assert 'eol=lf' in (REPO / '.gitattributes').read_text(encoding='utf-8')

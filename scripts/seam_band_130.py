@@ -102,12 +102,20 @@ STRICT_TOL = 1e-6
 GATE = 0.99
 #: RampNet's benchmark match radius, normalized x units (scripts/agree_rate.PANO_RADIUS).
 GT_RADIUS = 0.022
-#: World-step fusion: the camera height the committed Laurens sites_meta.json files used
-#: (runs/laurens{,_gsv}/sites_meta.json: camera_height_m 2.6), at the operating point.
+#: World-step fusion: the camera height the earlier Laurens fusions used (camera_height_m 2.6
+#: in runs/laurens{,_gsv}/sites_meta.json -- local run state, gitignored, so a replicator
+#: reads the value from <stem>_world.json instead), at the operating point.
 WORLD_HEIGHT_M = 2.6
 SEAM_EDGES = ('left', 'right')
-#: Columns in the seam band: PEAK_MIN_DISTANCE on each side of the 1024-column heatmap.
-SEAM_COLUMNS = 2 * PEAK_MIN_DISTANCE
+#: Where a seam-band peak can sit. The band is PEAK_MIN_DISTANCE (10) heatmap columns on each
+#: side of the seam, but the heatmap is an exact x8 bilinear upsample of the 64x128 coarse map,
+#: so its maxima sit only at coarse-cell centres (columns 8c+3 / 8c+4) or on the clamped edge
+#: plateaus (columns 0-3 and 1020-1023). The nearest interior centres, 11/12 and 1011/1012,
+#: lie outside [0, 10) and [1014, 1024), so the band holds exactly coarse columns 0 and 127:
+#: under a uniform azimuth the expected share is 2/128 = 1.5625% (5.6 degrees), not 20/1024
+#: (#131 review S3; every gained peak in the committed *_gained.csv is at column 0 or 1020).
+SEAM_COARSE_COLUMNS = 2
+COARSE_W = HM_W // 8
 
 
 def rnd(v, nd=7):
@@ -194,7 +202,8 @@ def write_json(path, obj):
         f.write(dump_json(obj))
 
 
-def work_dir(arm, results):
+def work_dir(results):
+    """Untracked outputs live beside the results file they were derived from."""
     return Path(results).parent / 'seam_band_130'
 
 
@@ -223,7 +232,7 @@ def diagnose(stored, rebuilt):
     shared = [abs(sa[k] - sb[k]) for k in sa.keys() & sb.keys()]
     return (int(keys(stored, 0.30) == keys(rebuilt, 0.30)),
             int(keys(stored, 0.55) == keys(rebuilt, 0.55)),
-            rnd(max(shared), 6) if shared else '')
+            rnd(max(shared), 9) if shared else '')
 
 
 def cmd_check(args):
@@ -242,6 +251,7 @@ def cmd_check(args):
                     d = json.loads(line)
                     decode_ref[str(d['pano_id'])] = d
     rows, n_ok, n_ref_ok, n_ref, n_sha_ok, n_strict = [], 0, 0, 0, 0, 0
+    max_ref_d = 0.0
     for pid, rec in recs.items():
         c32, sha = load_coarse(args.coarse_dir, pid)
         stored = stored_detections(rec)
@@ -249,21 +259,24 @@ def cmd_check(args):
         n_strict += strict
         n_ok += ok
         ref = decode_ref.get(pid)
-        ref_ok = ''
+        ref_ok, ref_d = '', ''
         if ref is not None:
             n_ref += 1
             n_sha_ok += ref.get('coarse_sha256') == sha
             # the #111 pass's own exclude-argmax peaks, from the ORIGINAL float32 heatmap
             ref_ok = int(same_detections([tuple(d) for d in ref['argmax']], rebuilt))
             n_ref_ok += ref_ok
+            ref_d = diagnose([tuple(d) for d in ref['argmax']], rebuilt)[2]
+            if ref_d != '':
+                max_ref_d = max(max_ref_d, ref_d)
         rows.append([pid, sha, int(ok), len([d for d in stored if d[2] >= floor]),
                      len([d for d in rebuilt if d[2] >= floor]), ref_ok,
-                     *diagnose(stored, rebuilt), int(strict)])
+                     *diagnose(stored, rebuilt), int(strict), ref_d])
     rows.sort()
     out = Path(args.data_dir) / f'{args.arm}_check.csv'
     write_csv(out, ['pano_id', 'coarse_sha256', 'reproduces', 'n_stored', 'n_rebuilt',
                     'rebuild_matches_detect_pass', 'keys_match_030', 'keys_match_055',
-                    'max_dscore_shared', 'reproduces_1e6'], rows)
+                    'max_dscore_shared', 'reproduces_1e6', 'max_dscore_detect_pass'], rows)
     n = len(rows)
     report = {'arm': args.arm, 'panos': n, 'reproduce': n_ok,
               'rate': rnd(n_ok / n, 6) if n else None, 'gate': GATE,
@@ -271,10 +284,11 @@ def cmd_check(args):
               'score_tol': SCORE_TOL, 'reproduce_at_1e6': n_strict,
               'detect_pass_panos': n_ref, 'detect_pass_coarse_sha_match': n_sha_ok,
               'rebuild_matches_detect_pass': n_ref_ok,
+              'rebuild_max_dscore_detect_pass': max_ref_d,
               'results_sha256': sha256_file(args.results),
               'check_csv_sha256': sha256_file(out),
               'wall_s': round(time.perf_counter() - t0, 1)}
-    wd = work_dir(args.arm, args.results)
+    wd = work_dir(args.results)
     wd.mkdir(parents=True, exist_ok=True)
     (wd / 'check.json').write_text(dump_json(report), encoding='utf-8', newline='')
     print(dump_json(report), end='')
@@ -357,7 +371,7 @@ def cmd_peaks(args):
     recs = read_results(args.results)
     check = {r['pano_id']: r for r in read_csv(Path(args.data_dir) / f'{args.arm}_check.csv')}
     stem = stem_of(args.arm, args.frame)
-    wd = work_dir(args.arm, args.results)
+    wd = work_dir(args.results)
     wd.mkdir(parents=True, exist_ok=True)
     peaks_path = wd / f'peaks.{args.frame}.jsonl'
     rows, straddles = [], []
@@ -448,40 +462,59 @@ def site_index(sites):
 
 
 def classify(gained_keys, sites_ex, sites_kp):
-    """{(pano_id, det_index): class} for each gained detection that fused, by the site it
-    joined in the keep fusion:
+    """{(pano_id, det_index): class} for each gained detection that fused, by the site S it
+    joined in the keep fusion. Let M be S's stored (non-gained) members and E the exclude-run
+    sites that held them and were operational.
 
-    - 'view': that site holds a stored OPERATIONAL member -- a ramp the exclude run already
-      had as an operational site; the gained peak is one more view of it.
-    - 'promoted': no stored operational member, but stored sub-threshold support whose
-      exclude-run sites were all non-operational -- the gained peak lifts support the run
-      had into an operational site (a ramp lost at the operating point).
-    - 'split': no stored operational member; its stored support belonged, in the exclude
-      run, to a site that WAS operational. The gained peak opened a second operational site
-      beside an existing one (greedy association is order-dependent, and the new peak
-      changes the order) -- a duplicate of a ramp the run had, or a neighbouring ramp.
-    - 'new': no stored member at all -- a site the exclude run does not have.
+    - 'new': M is empty -- a site the exclude run does not have.
+    - 'promoted': E is empty -- S's stored members were only sub-threshold support in the
+      exclude run, and the gained peak makes an operational site of them (a ramp lost at the
+      operating point).
+    - 'view' / 'split': each site in E has one CONTINUATION in the keep fusion -- the keep
+      site holding most of its stored operational members (ties: the lowest site id). If S
+      is the continuation of a site in E, the gained peak is one more view of a ramp the
+      exclude run had ('view'). If not, S is a second operational site beside that ramp's
+      continuation ('split') -- a duplicate of it, or a neighbouring ramp. A split happens
+      when the gained peak's same-pano partner (the other half of a seam-straddling pair) or
+      the changed greedy order keeps it out of the existing site and it takes stored members
+      with it (#131 review S2: on pano 1466581971069523 the left half of a straddling pair
+      took one operational and one support member out of an operational site, leaving two
+      operational sites for one ramp; the right half, still in the bigger site, is the view).
 
-    A gained detection that did not fuse (dropped by projection: above the horizon, beyond
-    the range cap, or on the camera rig) is absent and reads as 'not_projected'.
+    A gained detection that did not fuse (dropped by projection: below the horizon beyond the
+    range cap, or on the camera rig) is absent and reads as 'not_projected'.
     """
     ex_idx, kp_idx = site_index(sites_ex), site_index(sites_kp)
     gained = set(gained_keys)
+
+    def continuation(e):
+        votes = Counter()
+        for d, _ in e.members:
+            other = kp_idx.get((str(d.pano_id), d.det_index))
+            if d.operational and other is not None:
+                votes[other.id] += 1
+        if not votes:
+            return None
+        best = min(votes, key=lambda sid: (-votes[sid], sid))
+        return next(s for s in sites_kp if s.id == best)
+
     out = {}
     for k in gained_keys:
         site = kp_idx.get(k)
         if site is None:
             continue
-        stored = [(d, (str(d.pano_id), d.det_index)) for d, _ in site.members
+        stored = [(str(d.pano_id), d.det_index) for d, _ in site.members
                   if (str(d.pano_id), d.det_index) not in gained]
         if not stored:
             out[k] = 'new'
-        elif any(d.operational for d, _ in stored):
-            out[k] = 'view'
-        elif any(ex_idx[m].n_operational for _, m in stored if m in ex_idx):
-            out[k] = 'split'
-        else:
+            continue
+        ex_ops = {ex_idx[m].id: ex_idx[m] for m in stored
+                  if m in ex_idx and ex_idx[m].n_operational}
+        if not ex_ops:
             out[k] = 'promoted'
+            continue
+        out[k] = 'view' if any(continuation(e) is site for e in ex_ops.values()) \
+            else 'split'
     return out
 
 
@@ -509,7 +542,8 @@ def gt_verdicts(gained_pts, entry, bundle_dets):
 
 
 WORLD_CLASSES = ('view', 'split', 'promoted', 'new', 'not_projected')
-WORLD_HEADER = ['pano_id', 'x', 'y', 'score', 'edge', 'world_class', 'bundle_pano', 'gt']
+WORLD_HEADER = ['pano_id', 'x', 'y', 'score', 'edge', 'world_class', 'bundle_pano', 'gt',
+                'straddle_pair']
 
 
 def cmd_world(args):
@@ -518,17 +552,18 @@ def cmd_world(args):
     t0 = time.perf_counter()
     results = Path(args.results)
     stem = stem_of(args.arm, args.frame)
-    wd = work_dir(args.arm, results)
+    wd = work_dir(results)
     wd.mkdir(parents=True, exist_ok=True)
     counts = json.loads((Path(args.data_dir) / f'{stem}_counts.json').read_text(encoding='utf-8'))
     if args.peaks and Path(args.peaks).exists() \
             and sha256_file(args.peaks) != counts['peaks_jsonl_sha256']:
         raise SystemExit(f'{args.peaks} is not the peaks file {stem}_counts.json records')
     gained = read_gained(stem, args.data_dir)
-    by_pano = {}
+    by_pano, strad = {}, {}
     for r in gained:
         by_pano.setdefault(r['pano_id'], []).append(
             (float(r['x']), float(r['y']), float(r['score'])))
+        strad[(r['pano_id'], len(by_pano[r['pano_id']]) - 1)] = r['straddle_pair']
     base = None
     exclude_path = results
     if args.frame == 'archive':
@@ -580,7 +615,7 @@ def cmd_world(args):
         j = idx - n_stored[pid]
         rows.append([pid, rnd(x), rnd(y), rnd(c), border_band_edge(x, y) or 'none',
                      cls.get((pid, idx), 'not_projected'), int(pid in verdicts),
-                     per_pano_gt[pid][j] if pid in per_pano_gt else ''])
+                     per_pano_gt[pid][j] if pid in per_pano_gt else '', strad[(pid, j)]])
     write_csv(Path(args.data_dir) / f'{stem}_world.csv', WORLD_HEADER, rows)
     info = {'arm': args.arm, 'frame': args.frame,
             'fuse_params': {k: v for k, v in sorted(vars(params).items())},
@@ -601,19 +636,8 @@ def cmd_world(args):
 # c. summary (and e. verify): every table, from the committed files alone
 # --------------------------------------------------------------------------------------- #
 
-def wilson(k, n, z=1.96):
-    """Wilson score interval (the form eval_sites.wilson and RampNet use)."""
-    import math
-    if n == 0:
-        return (0.0, 1.0)
-    p = k / n
-    denom = 1 + z * z / n
-    center = (p + z * z / (2 * n)) / denom
-    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
-    return (max(0.0, center - half), min(1.0, center + half))
-
-
 def share(k, n):
+    from eval_sites import wilson     # the repo's one Wilson interval
     lo, hi = wilson(k, n)
     return {'k': k, 'n': n, 'rate': rnd(k / n, 6) if n else None,
             'ci95': [rnd(lo, 6), rnd(hi, 6)]}
@@ -651,7 +675,7 @@ def arm_summary(check_rows, gained_rows, counts, world_rows, world_info):
             'gained_in_straddle_pairs': sum(1 for r in g if r['straddle_pair'] == '1'),
         }
     out['tiers'] = tiers
-    out['geometric_expectation'] = rnd(SEAM_COLUMNS / HM_W, 6)
+    out['geometric_expectation'] = rnd(SEAM_COARSE_COLUMNS / COARSE_W, 6)
     if world_info is not None:
         w = {}
         for edges, name in ((SEAM_EDGES, 'seam'), (('top', 'bottom'), 'top_bottom')):
@@ -660,6 +684,12 @@ def arm_summary(check_rows, gained_rows, counts, world_rows, world_info):
                        **{c: sum(1 for r in rows if r['world_class'] == c)
                           for c in WORLD_CLASSES}}
         seam_rows = [r for r in world_rows if r['edge'] in SEAM_EDGES]
+        # Seam-straddling pairs (both halves >= 0.30) whose two halves BOTH fused: the
+        # same-pano cannot-link keeps them apart, so each such pair makes two sites for one
+        # ramp unless one half lands in a site the other could not join anyway.
+        proj = Counter(r['pano_id'] for r in seam_rows
+                       if r.get('straddle_pair') == '1' and r['world_class'] != 'not_projected')
+        w['straddle_pairs_projected'] = sum(1 for n in proj.values() if n >= 2)
         on_bundle = [r for r in seam_rows if r['bundle_pano'] == '1']
         gt = Counter(r['gt'] for r in on_bundle)
         judged = gt['tp'] + gt['fp'] + gt['dup']
