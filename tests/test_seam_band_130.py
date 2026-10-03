@@ -97,23 +97,26 @@ def test_check_peaks_summary_on_synthetic_maps(tmp_path):
 
 
 def _site(sid, members, n_operational):
+    """members: (pano_id, det_index, operational)."""
     return SimpleNamespace(id=sid, n_operational=n_operational,
-                           members=[(SimpleNamespace(pano_id=p, det_index=i), True)
-                                    for p, i in members])
+                           members=[(SimpleNamespace(pano_id=p, det_index=i, operational=o), True)
+                                    for p, i, o in members])
 
 
-def test_classify_view_promoted_new():
-    """A gained detection that joins a site the exclude run had as operational is a lost
-    VIEW; one whose stored partners were only sub-threshold support is a PROMOTION; one with
-    no stored partner seeded a NEW site; one that did not fuse is absent."""
-    ex = [_site(0, [('a', 0), ('b', 0)], 1),            # operational in exclude
-          _site(1, [('c', 0)], 0)]                      # support only in exclude
-    kp = [_site(0, [('a', 0), ('b', 0), ('g1', 1)], 2),
-          _site(1, [('c', 0), ('g2', 1)], 1),
-          _site(2, [('g3', 1), ('g4', 1)], 2)]
-    got = sb.classify([('g1', 1), ('g2', 1), ('g3', 1), ('g4', 1), ('g5', 1)], ex, kp)
+def test_classify_view_split_promoted_new():
+    """Joining a stored operational member is a lost VIEW; stored support whose exclude site
+    was operational is a SPLIT; support that was only support is a PROMOTION; no stored
+    member is a NEW site; a detection that did not fuse is absent."""
+    ex = [_site(0, [('a', 0, True), ('b', 0, False)], 1),     # operational in exclude
+          _site(1, [('c', 0, False)], 0)]                     # support only in exclude
+    kp = [_site(0, [('a', 0, True), ('g1', 1, True)], 2),
+          _site(1, [('c', 0, False), ('g2', 1, True)], 1),
+          _site(2, [('g3', 1, True), ('g4', 1, True)], 2),
+          _site(3, [('b', 0, False), ('g6', 1, True)], 1)]
+    got = sb.classify([('g1', 1), ('g2', 1), ('g3', 1), ('g4', 1), ('g5', 1), ('g6', 1)],
+                      ex, kp)
     assert got == {('g1', 1): 'view', ('g2', 1): 'promoted', ('g3', 1): 'new',
-                   ('g4', 1): 'new'}
+                   ('g4', 1): 'new', ('g6', 1): 'split'}
 
 
 def test_gt_verdicts_wrap_the_seam():

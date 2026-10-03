@@ -243,6 +243,12 @@ python scripts/subcell_decode.py figures
 # provenance_gate refuse a keep run (bundles and live labels are exclude). detect_from_store.py
 # stays exclude. RULE: a NEW city may use --border keep from its first run; an EXISTING city only
 # under a new --name, and shipping it beside live exclude labels is Jon's call.
+# The measurement (Laurens, both arms; CPU): `check`/`peaks` on makelab2 where the #111 coarse maps
+# live, then `world` anywhere; `verify` re-derives summary.json from the committed data, no network.
+python scripts/seam_band_130.py check laurens --results runs/laurens/results.jsonl --coarse-dir /homes/gws/jonf/decode111/coarse/laurens
+python scripts/seam_band_130.py peaks laurens --results runs/laurens/results.jsonl --coarse-dir /homes/gws/jonf/decode111/coarse/laurens
+python scripts/seam_band_130.py world laurens --results runs/laurens/results.jsonl --peaks runs/laurens/seam_band_130/peaks.run.jsonl
+python scripts/seam_band_130.py summary && python scripts/seam_band_130.py verify
 
 # Leave-one-view-out REPROJECTION RESIDUAL (issue #36; findings in
 # docs/reprojection-residual.md). GT-free: for every site with >= 3 operational views,

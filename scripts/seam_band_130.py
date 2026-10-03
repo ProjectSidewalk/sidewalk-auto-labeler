@@ -448,15 +448,22 @@ def site_index(sites):
 
 
 def classify(gained_keys, sites_ex, sites_kp):
-    """{(pano_id, det_index): class} for each gained detection that fused.
+    """{(pano_id, det_index): class} for each gained detection that fused, by the site it
+    joined in the keep fusion:
 
-    'view': its keep site holds stored members, at least one of whose exclude-run sites was
-    already operational (a lost view of a ramp the run had). 'promoted': stored members
-    exist but none of their exclude sites was operational (the gained peak lifts
-    sub-threshold support to an operational site). 'new': its keep site holds no stored
-    member (it seeded a site the exclude run does not have). A gained detection that did not
-    fuse (dropped by projection: horizon, range, rig mask) is absent and reads as
-    'not_projected'.
+    - 'view': that site holds a stored OPERATIONAL member -- a ramp the exclude run already
+      had as an operational site; the gained peak is one more view of it.
+    - 'promoted': no stored operational member, but stored sub-threshold support whose
+      exclude-run sites were all non-operational -- the gained peak lifts support the run
+      had into an operational site (a ramp lost at the operating point).
+    - 'split': no stored operational member; its stored support belonged, in the exclude
+      run, to a site that WAS operational. The gained peak opened a second operational site
+      beside an existing one (greedy association is order-dependent, and the new peak
+      changes the order) -- a duplicate of a ramp the run had, or a neighbouring ramp.
+    - 'new': no stored member at all -- a site the exclude run does not have.
+
+    A gained detection that did not fuse (dropped by projection: above the horizon, beyond
+    the range cap, or on the camera rig) is absent and reads as 'not_projected'.
     """
     ex_idx, kp_idx = site_index(sites_ex), site_index(sites_kp)
     gained = set(gained_keys)
@@ -465,13 +472,16 @@ def classify(gained_keys, sites_ex, sites_kp):
         site = kp_idx.get(k)
         if site is None:
             continue
-        stored = [(str(d.pano_id), d.det_index) for d, _ in site.members
+        stored = [(d, (str(d.pano_id), d.det_index)) for d, _ in site.members
                   if (str(d.pano_id), d.det_index) not in gained]
         if not stored:
             out[k] = 'new'
-            continue
-        ex_sites = {ex_idx[m].id: ex_idx[m] for m in stored if m in ex_idx}
-        out[k] = 'view' if any(s.n_operational for s in ex_sites.values()) else 'promoted'
+        elif any(d.operational for d, _ in stored):
+            out[k] = 'view'
+        elif any(ex_idx[m].n_operational for _, m in stored if m in ex_idx):
+            out[k] = 'split'
+        else:
+            out[k] = 'promoted'
     return out
 
 
@@ -498,6 +508,7 @@ def gt_verdicts(gained_pts, entry, bundle_dets):
     return out
 
 
+WORLD_CLASSES = ('view', 'split', 'promoted', 'new', 'not_projected')
 WORLD_HEADER = ['pano_id', 'x', 'y', 'score', 'edge', 'world_class', 'bundle_pano', 'gt']
 
 
@@ -647,7 +658,7 @@ def arm_summary(check_rows, gained_rows, counts, world_rows, world_info):
             rows = [r for r in world_rows if r['edge'] in edges]
             w[name] = {'peaks': len(rows),
                        **{c: sum(1 for r in rows if r['world_class'] == c)
-                          for c in ('view', 'promoted', 'new', 'not_projected')}}
+                          for c in WORLD_CLASSES}}
         seam_rows = [r for r in world_rows if r['edge'] in SEAM_EDGES]
         on_bundle = [r for r in seam_rows if r['bundle_pano'] == '1']
         gt = Counter(r['gt'] for r in on_bundle)
@@ -723,31 +734,32 @@ def render_tables(s):
     buf = io.StringIO()
     cols = list(s['arms']) + ['pooled']
     blocks = {**s['arms'], 'pooled': s['pooled']}
-    buf.write('| arm | panos | reproduce | tier | exclude peaks | keep peaks | gained | '
+    buf.write('| arm | panos counted | tier | exclude peaks | keep peaks | gained | '
               'gained / keep [95% CI] | seam (L/R) | top/bottom | panos w/ seam gain | '
-              'straddle pairs |\n|' + '---|' * 12 + '\n')
+              'straddle pairs |\n|' + '---|' * 11 + '\n')
     for a in cols:
         b = blocks[a]
         for t, r in b['tiers'].items():
             g = r['gained_share_of_keep']
-            buf.write(f"| {a} | {b['panos']} | {b['panos_reproduce']} | {t} | "
+            buf.write(f"| {a} | {b['panos_counted']} | {t} | "
                       f"{r['exclude_peaks']} | {r['keep_peaks']} | {r['gained']} | "
                       f"{100 * (g['rate'] or 0):.2f}% [{100 * g['ci95'][0]:.2f}, "
                       f"{100 * g['ci95'][1]:.2f}] | {r['seam_gained']} ({r['seam_left']}/"
                       f"{r['seam_right']}) | {r['top_bottom_gained']} | "
                       f"{r['panos_with_seam_gain']} | {r['straddle_pairs']} |\n")
-    if all('world' in blocks[a] for a in cols):
-        buf.write('\n| arm | seam peaks >= 0.30 | lost view | promoted | new site | '
-                  'not projected | operational sites exclude -> keep |\n|' + '---|' * 7 + '\n')
-        for a in cols:
+    wcols = [a for a in cols if 'world' in blocks[a]]
+    if wcols:
+        buf.write('\n| arm | seam peaks >= 0.30 | lost view | split | promoted | new site | '
+                  'not projected | operational sites exclude -> keep |\n|' + '---|' * 8 + '\n')
+        for a in wcols:
             w = blocks[a]['world']
-            buf.write(f"| {a} | {w['seam']['peaks']} | {w['seam']['view']} | "
+            buf.write(f"| {a} | {w['seam']['peaks']} | {w['seam']['view']} | {w['seam']['split']} | "
                       f"{w['seam']['promoted']} | {w['seam']['new']} | "
                       f"{w['seam']['not_projected']} | {w['operational_sites']['exclude']} -> "
                       f"{w['operational_sites']['keep']} ({w['operational_site_change']:+d}) |\n")
         buf.write('\n| arm | seam peaks on bundle panos | tp | dup | fp | unjudged | '
                   'precision |\n|' + '---|' * 7 + '\n')
-        for a in cols:
+        for a in wcols:
             g = blocks[a]['world']['gt']
             p = g['precision']
             ptxt = ('not quoted (< 10 judged)' if p is None else
