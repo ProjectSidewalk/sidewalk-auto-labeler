@@ -53,7 +53,8 @@ from detectors import (DECODE_ARGMAX as ARGMAX, DECODE_GAUSSIAN as GAUSSIAN,  # 
                        DECODES, DEFAULT_DECODE, DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO,
                        RECORD_DECODE_KEY, record_decode,
                        BORDER_EXCLUDE as EXCLUDE, BORDER_KEEP as KEEP, BORDERS,
-                       DEFAULT_BORDER, RECORD_BORDER_KEY, record_border)
+                       DEFAULT_BORDER, PEAK_MIN_DISTANCE, RECORD_BORDER_KEY,
+                       border_band_edge, record_border)
 from detectors import rampnet_subcell as sc
 
 #: Provenance of the vendored ``detectors/rampnet_subcell.py``: RampNet's ``rampnet/subcell.py``
@@ -71,7 +72,7 @@ RAMPNET_SUBCELL_SHA256 = 'b0712dfe98fc6012ddfd22f149dc1ece7917d74b21a10276ff83de
 # #130, and `--border keep` (RampNet's rule: exclude_border=False, no NMS across the seam)
 # is the opt-in fix. The default stays `exclude`, because changing it adds stored detections
 # that the live labels do not have (docs/seam-band-130.md measures how many).
-MIN_DISTANCE = 10
+MIN_DISTANCE = PEAK_MIN_DISTANCE    # 10; detectors.border_band_edge measures the band with it
 
 
 def _peaks(heatmap, border=DEFAULT_BORDER):

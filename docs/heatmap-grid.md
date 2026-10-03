@@ -283,6 +283,16 @@ because changing it moves stored detections, and it is outside #111. On every pe
 *Figure 4. Same peaks, same scores, positions moved by the decode. The labeler's detector
 reproduces RampNet#221's table, and its own decode (labeler peak finder) gives the same changes.*
 
+#### Seam band (#130)
+
+The 43 peaks above are the seam band. Since
+[#130](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/130) the peak finder
+has a second opt-in beside `--decode`: `--border keep` (main.py, reinfer.py) is RampNet's rule
+(`exclude_border=False`, no NMS across the seam), bound in the manifest
+(`detection_border`) and refused in a mix exactly like the decode. The default stays
+`exclude`. What the band costs on both Laurens arms, and whether its peaks are lost ramps or
+only lost views, is in [seam-band-130.md](seam-band-130.md).
+
 ### 4.3 A measured `sigma_peak_px`
 
 `decode_sigma.csv`: the residual's SD per axis with the bias removed, labeler path.

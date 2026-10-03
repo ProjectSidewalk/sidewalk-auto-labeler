@@ -34,8 +34,9 @@ import requests
 from dotenv import load_dotenv
 
 import position_check
-from detectors import (DECODE_ARGMAX, OPERATIONAL_CONFIDENCE, decodes_in_file,
-                       on_camera_rig, single_decode)
+from detectors import (BORDER_EXCLUDE, DECODE_ARGMAX, OPERATIONAL_CONFIDENCE,
+                       borders_in_file, decodes_in_file, on_camera_rig, single_border,
+                       single_decode)
 
 # Local secrets (e.g. PS_INTERNAL_API_KEY) from ./.env; real env vars win.
 load_dotenv()
@@ -993,6 +994,66 @@ def check_detection_decode(input_file: Path) -> str:
     return decode
 
 
+def border_record_value(counts) -> Any:
+    """What a submission record stores under `detection_border` (#130): the rule's name when
+    the file holds one rule, else the full mix as {rule: records} (decode_record_value's twin).
+
+        >>> from collections import Counter
+        >>> border_record_value(Counter({'exclude': 2, 'keep': 1}))
+        {'exclude': 2, 'keep': 1}
+        >>> border_record_value(Counter({'keep': 3})), border_record_value(Counter())
+        ('keep', 'exclude')
+    """
+    if len(counts) > 1:
+        return dict(sorted(counts.items()))
+    return next(iter(counts)) if counts else BORDER_EXCLUDE
+
+
+def recorded_border(record: Dict[str, Any]) -> str:
+    """The border rule a submission record says its labels were found under, as one string:
+    `detection_border` when it names one, 'mixed' when it holds a mix or the campaign was sent
+    under --allow-mixed-border, and 'exclude' when the key is absent (every record written
+    before #130, and every exclude campaign since)."""
+    value = record.get('detection_border', BORDER_EXCLUDE)
+    if isinstance(value, dict) or record.get('mixed_border_override'):
+        return 'mixed'
+    return value
+
+
+def check_detection_border(input_file: Path) -> str:
+    """The file's peak border rule (#130); ValueError when it mixes rules, or when another
+    campaign recorded in the same directory went out under a different one (or a mix).
+
+    `keep` stores the seam-band peaks (within 10 heatmap px of the 360-degree seam, about 7
+    degrees of azimuth) that `exclude` drops, and PS places a label once, at insert. A `keep`
+    campaign beside `exclude` campaigns that are already live adds seam-band labels to a city
+    whose other labels were never looked for there -- for a re-run of the same panos, often
+    beside a live neighbouring view of the same ramp. That is a whole-city decision, made the
+    same way as check_detection_decode's, per directory, overridden only with
+    --allow-mixed-border, which the submission record then shows.
+    """
+    border = single_border(borders_in_file(input_file), input_file.name)
+    others = {}
+    for record_path in sorted(input_file.parent.glob('*.submission.json')):
+        if record_path == submission_record_path(str(input_file)):
+            continue
+        try:
+            record = json.loads(record_path.read_text(encoding='utf-8'))
+        except ValueError:
+            continue    # unreadable records are refused by load_submission_record itself
+        if isinstance(record, dict) and record.get('endpoints'):
+            others[record_path.name] = recorded_border(record)
+    differ = {name: b for name, b in others.items() if b != border}
+    if differ:
+        named = ', '.join(f'{name} ({b})' for name, b in sorted(differ.items()))
+        raise ValueError(
+            f"{input_file.name} was detected with the '{border}' peak border rule, but "
+            f"campaigns already recorded beside it went out under another: {named}. Their "
+            f"labels are live without (or with) the seam band, so this is a whole-city frame "
+            f"change (#130; docs/seam-band-130.md). (--allow-mixed-border overrides)")
+    return border
+
+
 def check_model_provenance(input_file: Path) -> None:
     """Refuse (ValueError) a file holding any record whose model training date is null.
 
@@ -1211,7 +1272,9 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
                             max_confidence: Optional[float] = None,
                             live_override: Optional[str] = None,
                             decode: Any = DECODE_ARGMAX,
-                            decode_override: Optional[str] = None) -> None:
+                            decode_override: Optional[str] = None,
+                            border: Any = BORDER_EXCLUDE,
+                            border_override: Optional[str] = None) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
     One entry per endpoint - a campaign legitimately hits a test instance before prod, and
@@ -1321,6 +1384,14 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         record["mixed_decode_override"] = {"reason": decode_override, "at_utc": now}
     elif previous.get("mixed_decode_override"):
         record["mixed_decode_override"] = previous["mixed_decode_override"]
+    # The border rule (#130; border_record_value), the same way: written only when it is not
+    # plain exclude, so exclude records stay byte-identical to before #130.
+    if border != BORDER_EXCLUDE:
+        record["detection_border"] = border
+    if border_override is not None:
+        record["mixed_border_override"] = {"reason": border_override, "at_utc": now}
+    elif previous.get("mixed_border_override"):
+        record["mixed_border_override"] = previous["mixed_border_override"]
     # Written whole-or-not-at-all: a crash mid-write would leave a truncated file, and an
     # unreadable record refuses the next run (load_submission_record). LF regardless of
     # platform, since the file is committed.
@@ -1344,6 +1415,7 @@ def process_jsonl_file(
     reposition_live_city: bool = False,
     allow_store_file: bool = False,
     allow_mixed_decode: bool = False,
+    allow_mixed_border: bool = False,
 ) -> None:
     """
     Process a JSONL file containing detections from main.py by reading each line and sending
@@ -1379,6 +1451,7 @@ def process_jsonl_file(
             ``check_store_built``), whose labels are the city's live ones.
         allow_mixed_decode: Submit a file that mixes peak decodes, or whose decode differs
             from campaigns already recorded beside it (see ``check_detection_decode``).
+        allow_mixed_border: The same for peak border rules (see ``check_detection_border``).
     """
     input_file = Path(file_path)
 
@@ -1417,6 +1490,18 @@ def process_jsonl_file(
             print(f"WARNING (--allow-mixed-decode): {e}")
             decode = decode_record_value(decodes_in_file(input_file))
             decode_override = str(e)
+
+    # One peak border rule per file and per run directory (issue #130), the same way.
+    border, border_override = BORDER_EXCLUDE, None
+    if not dry_run:
+        try:
+            border = check_detection_border(input_file)
+        except ValueError as e:
+            if not allow_mixed_border:
+                raise
+            print(f"WARNING (--allow-mixed-border): {e}")
+            border = border_record_value(borders_in_file(input_file))
+            border_override = str(e)
 
     # Load resume state: line numbers that already got a 200 on a previous run (or, for a
     # band campaign, lines already handled by that band - sent, or empty and skipped).
@@ -1585,7 +1670,8 @@ def process_jsonl_file(
         write_submission_record(record_path, input_file, digest, total_lines, total_bytes,
                                 load_submitted_lines(sidecar_path), endpoint_url,
                                 min_confidence, previous_record, position_state,
-                                max_confidence, live_override, decode, decode_override)
+                                max_confidence, live_override, decode, decode_override,
+                                border, border_override)
         record_written = True
 
     # Print summary.
@@ -1677,6 +1763,13 @@ def main() -> None:
              "A frame change for the city's live labels; recorded in the submission record."
     )
     parser.add_argument(
+        "--allow-mixed-border", action="store_true",
+        help="Submit a file that mixes the exclude and keep peak border rules, or whose rule "
+             "differs from campaigns already recorded in the same run directory (issue #130). "
+             "Adds or omits seam-band labels relative to the city's live ones; recorded in the "
+             "submission record."
+    )
+    parser.add_argument(
         "--allow-store-file",
         action="store_true",
         help="Submit a file rebuilt from the Project Sidewalk pano store "
@@ -1749,7 +1842,7 @@ def main() -> None:
                            args.min_confidence, args.limit, args.ignore_submission_guard,
                            args.ignore_position_check, args.max_confidence,
                            args.reposition_live_city, args.allow_store_file,
-                           args.allow_mixed_decode)
+                           args.allow_mixed_decode, args.allow_mixed_border)
     except ValueError as e:
         raise SystemExit(f"Error: {e}")
 

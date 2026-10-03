@@ -204,6 +204,41 @@ DEFAULT_BORDER = BORDER_EXCLUDE
 RECORD_BORDER_KEY = 'detection_border'
 
 
+#: The peak finder's min_distance (detectors.decode.MIN_DISTANCE), and so the width in heatmap
+#: px of the band `exclude` blanks along every edge: skimage zeroes rows/columns
+#: [0, 10) and [size - 10, size) before looking for maxima.
+PEAK_MIN_DISTANCE = 10
+#: The heatmap the band is measured on (RampNet's pano head output).
+PEAK_HEATMAP_SHAPE = (512, 1024)
+
+
+def border_band_edge(x_normalized, y_normalized):
+    """Which edge band of the 512x1024 heatmap a detection lies in, or None.
+
+    'top' / 'bottom' (zenith / nadir rows) take priority over 'left' / 'right' (the 360-degree
+    seam), so a corner peak is never counted as seam loss. The position is snapped to the
+    heatmap pixel it came from (round(x * 1024), round(y * 512)), which is exact for argmax
+    and within half a coarse cell for a sub-cell decode.
+
+        >>> border_band_edge(0.0, 0.5), border_band_edge(1014 / 1024, 0.5)
+        ('left', 'right')
+        >>> border_band_edge(0.5, 0.5), border_band_edge(0.0, 0.0), border_band_edge(0.3, 505 / 512)
+        (None, 'top', 'bottom')
+    """
+    h, w = PEAK_HEATMAP_SHAPE
+    d = PEAK_MIN_DISTANCE
+    r, c = round(y_normalized * h), round(x_normalized * w) % w
+    if r < d:
+        return 'top'
+    if r >= h - d:
+        return 'bottom'
+    if c < d:
+        return 'left'
+    if c >= w - d:
+        return 'right'
+    return None
+
+
 def record_border(record) -> str:
     """The border rule a results.jsonl record was written under (absent key = exclude).
 
