@@ -185,6 +185,20 @@ def check_pano(c32, stored, floor):
     return same_detections(want, got), rebuilt
 
 
+def diagnose(stored, rebuilt):
+    """Why a pano does not reproduce (diagnostic columns only; `reproduces` decides):
+    whether the pixel-key multisets agree among peaks >= 0.30 and >= 0.55 (scores ignored),
+    and the largest score difference over pixel keys present on both sides."""
+    def keys(ds, t):
+        return sorted(key(x, y) for x, y, c in ds if c >= t)
+    sa = {key(x, y): c for x, y, c in stored}
+    sb = {key(x, y): c for x, y, c in rebuilt}
+    shared = [abs(sa[k] - sb[k]) for k in sa.keys() & sb.keys()]
+    return (int(keys(stored, 0.30) == keys(rebuilt, 0.30)),
+            int(keys(stored, 0.55) == keys(rebuilt, 0.55)),
+            rnd(max(shared), 6) if shared else '')
+
+
 def cmd_check(args):
     t0 = time.perf_counter()
     recs = read_results(args.results)
@@ -215,11 +229,13 @@ def cmd_check(args):
             ref_ok = int(same_detections([tuple(d) for d in ref['argmax']], rebuilt))
             n_ref_ok += ref_ok
         rows.append([pid, sha, int(ok), len([d for d in stored if d[2] >= floor]),
-                     len([d for d in rebuilt if d[2] >= floor]), ref_ok])
+                     len([d for d in rebuilt if d[2] >= floor]), ref_ok,
+                     *diagnose(stored, rebuilt)])
     rows.sort()
     out = Path(args.data_dir) / f'{args.arm}_check.csv'
     write_csv(out, ['pano_id', 'coarse_sha256', 'reproduces', 'n_stored', 'n_rebuilt',
-                    'rebuild_matches_detect_pass'], rows)
+                    'rebuild_matches_detect_pass', 'keys_match_030', 'keys_match_055',
+                    'max_dscore_shared'], rows)
     n = len(rows)
     report = {'arm': args.arm, 'panos': n, 'reproduce': n_ok,
               'rate': rnd(n_ok / n, 6) if n else None, 'gate': GATE,
