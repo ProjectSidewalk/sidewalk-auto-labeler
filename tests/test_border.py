@@ -475,22 +475,20 @@ def test_mapillary_tilt_load_run_carries_the_border(tmp_path, monkeypatch):
         mt.load_run('x')
 
 
-def test_judged_gt_panos_guards_every_scorer():
-    """#131 review M5: scorers that read verdicts through es.judged_gt_panos without calling
-    the guard themselves (mapillary_height, reprojection_residual, gsv_ground_plane,
-    depth_at_detection) are refused a keep or gaussian run there."""
+def test_judged_gt_panos_leaves_the_frame_to_its_callers():
+    """#131 re-review N1: subcell_decode.py world scores a gaussian arm through
+    es.judged_gt_panos against a bundle it re-keyed to that arm, so the guard must NOT sit
+    inside it; the scorers that use the published bundle call require_bundle_frame
+    themselves (pinned below)."""
     import eval_sites as es
     import fuse_sites as fs
-    keep = fs.SlimPano('p', 0.0, 0.0, 0.0, None, None, None, 'launch', [], border='keep')
-    with pytest.raises(ValueError, match='exported from exclude runs'):
-        list(es.judged_gt_panos({}, {}, {'p': keep}, es.gt_counts(), []))
     gauss = fs.SlimPano('p', 0.0, 0.0, 0.0, None, None, None, 'launch', [], decode='gaussian')
-    with pytest.raises(ValueError, match='keyed to argmax'):
-        list(es.judged_gt_panos({}, {}, {'p': gauss}, es.gt_counts(), []))
+    assert list(es.judged_gt_panos({}, {}, {'p': gauss}, es.gt_counts(), [])) == []
 
 
 @pytest.mark.parametrize('script', ['agree_rate.py', 'site_explorer.py', 'gsv_partial_pose.py',
-                                    'mapillary_tilt.py'])
+                                    'mapillary_tilt.py', 'mapillary_height.py',
+                                    'reprojection_residual.py', 'gsv_ground_plane.py'])
 def test_bundle_scorers_call_the_frame_guard(script):
     """agree_rate and site_explorer guard inside long CLI paths that need network or a full
     run to reach; this pins that their guard is the one that checks the border too, and
@@ -532,3 +530,58 @@ def test_committed_seam_data_is_lf_and_lost_nothing():
         c = json.loads(f.read_text(encoding='utf-8'))
         assert c['lost_peaks'] == 0 and c['panos_at_peak_cap'] == 0, f.name
     assert 'eol=lf' in (REPO / '.gitattributes').read_text(encoding='utf-8')
+
+
+def test_subcell_world_scores_a_gaussian_arm(tmp_path):
+    """#131 re-review N1: scripts/subcell_decode.py world -- #129's sanctioned way to score a
+    gaussian run -- sends the gaussian arm through es.evaluate_city / es.build_gt against a
+    bundle it re-keyed to that arm. A bundle-frame guard inside eval_sites' shared scorer
+    broke it; this runs its scoring path end to end on synthetic data (CPU, no network)."""
+    import csv
+    import subcell_decode as scd
+    pids = ['p1', 'p2', 'p3']
+    results, decode, records = [], [], []
+    for k, pid in enumerate(pids):
+        pano = {'panorama_id': pid, 'lat': 42.85 + 0.0001 * k, 'lng': -94.85,
+                'camera_heading': 0.0, 'width': 16384, 'height': 8192, 'source': 'launch',
+                'capture_date': '2024-05'}
+        det = [0.5, 0.6, 0.9]
+        results.append({'detections': [], 'pano': pano})
+        decode.append({'pano_id': pid, 'argmax': [det], 'gaussian': [[0.5005, 0.6004, 0.9]]})
+        records.append({'detections': [{'x_normalized': 0.5, 'y_normalized': 0.6,
+                                        'confidence': 0.9}], 'pano': pano})
+    run = tmp_path / 'runs' / 'x'
+    run.mkdir(parents=True)
+    (run / 'results.jsonl').write_text(''.join(json.dumps(r) + '\n' for r in results),
+                                       encoding='utf-8')
+    dfile = tmp_path / 'decode_x.jsonl'
+    dfile.write_text(''.join(json.dumps(d) + '\n' for d in decode), encoding='utf-8')
+    split = tmp_path / 'bench' / 'x'
+    split.mkdir(parents=True)
+    (split / 'records.jsonl').write_text(''.join(json.dumps(r) + '\n' for r in records),
+                                         encoding='utf-8')
+    (split / 'verdicts.json').write_text(json.dumps({'panos': {
+        pid: {'group': 'random', 'dets': [True], 'missed': [], 'no_missed': True}
+        for pid in pids}}), encoding='utf-8')
+    out = tmp_path / 'out'
+    scd.main(['world', 'x', '--split', 'x', '--results', str(run / 'results.jsonl'),
+              '--decode-file', str(dfile), '--work-dir', str(tmp_path / 'w'),
+              '--benchmark-root', str(tmp_path / 'bench'), '--heights', '2.6',
+              '--out', str(out)])
+    with open(out / 'decode_world_x.csv', newline='', encoding='utf-8') as f:
+        rows = list(csv.DictReader(f))
+    assert sorted(r['decode'] for r in rows) == ['argmax', 'gaussian']
+    assert all(r['gt_panos_kept'] == '3' for r in rows)
+
+
+def test_campaign_records_warns_on_a_corrupt_sibling(tmp_path, capsys):
+    """#131 re-review N2: a sibling record that cannot be read is skipped, and said so."""
+    import send_to_ps as sp
+    me = tmp_path / 'runs' / 'a' / 'results.jsonl'
+    me.parent.mkdir(parents=True)
+    me.write_text(_line(), encoding='utf-8')
+    bad = tmp_path / 'runs' / 'b' / 'results.jsonl.submission.json'
+    bad.parent.mkdir()
+    bad.write_text('{not json', encoding='utf-8')
+    assert sp.campaign_records(me, 'https://ps.example/ai/submitLabelsOnPano') == {}
+    assert 'skipped unreadable submission record' in capsys.readouterr().err

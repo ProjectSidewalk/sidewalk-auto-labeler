@@ -135,13 +135,12 @@ def judged_gt_panos(verdict_panos, bundle_ops, run_panos_by_id, counts, warnings
     does not line up with them — the three ways a verdict can end up attached to a
     detection the reviewer never saw.
 
-    It also refuses (ValueError, at the first iteration) a run that is not in the bundle frame
-    -- argmax decode, exclude border (require_bundle_frame) -- so every scorer that reads
-    verdicts through here is guarded, including the ones that never call the guard themselves
-    (mapillary_height, reprojection_residual, gsv_ground_plane, depth_at_detection; #131
-    review M5, the border twin of #129's N2).
+    It does NOT check the bundle frame (require_bundle_frame) itself: scripts/subcell_decode.py
+    world deliberately scores a gaussian arm through here against a bundle it has re-keyed to
+    that arm (#131 re-review N1). Callers that score a run against the bundle as published call
+    require_bundle_frame first -- load_city_files / load_city_at_height do, and so do
+    mapillary_height, reprojection_residual and gsv_ground_plane, which load their own panos.
     """
-    require_bundle_frame(run_panos_by_id.values(), 'the run')
     for pid in sorted(verdict_panos):
         entry = verdict_panos[pid]
         run_pano = run_panos_by_id.get(pid)

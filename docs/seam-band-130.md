@@ -234,6 +234,9 @@ These are the numbers to decide on. None of these is decided here.
    - `send_to_ps.py` refuses a `keep` file without `--allow-mixed-border` when a live `exclude`
      campaign on the same endpoint is recorded in the same run directory or in a sibling
      `runs/*/` directory. So a re-run under a new `--name` is caught.
+   - The guard keys on the endpoint, not the city's area. That holds because production runs
+     one server per city; a shared dev or localhost host would make one city's campaign block
+     another's. A sibling record that can't be read is skipped with a warning on stderr.
    - `reinfer.py --write-band-file` refuses the mix outright.
    - At Laurens (Mapillary, run frame), a re-run would add about 1 operational ramp and 2
      near-duplicate sites per 4,500 panos.

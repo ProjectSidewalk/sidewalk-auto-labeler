@@ -23,6 +23,7 @@ import ipaddress
 import json
 import os
 import socket
+import sys
 import time
 from contextlib import nullcontext
 from datetime import datetime, timezone
@@ -961,8 +962,12 @@ def campaign_records(input_file: Path, endpoint_url: Optional[str] = None) -> Di
     known -- each `*.submission.json` in a SIBLING run directory (`runs/*/`) that records a
     campaign on the same endpoint.
 
-    The sibling scan is what makes the guards per CITY rather than per directory. One PS
-    server is one city, and the documented way to re-run a live city under a new rule is a
+    The sibling scan is what makes the guards per CITY rather than per directory, with one
+    assumption: it keys on the ENDPOINT, not on the city's area. In production one PS server
+    is one city (its own host), so they coincide; a shared host -- a dev or localhost server
+    that several cities are tested against -- would make one city's campaign block another's
+    (override with the --allow-mixed-* flag). A sibling record that cannot be read is skipped
+    with a warning on stderr. One PS server is one city, and the documented way to re-run a live city under a new rule is a
     new `--name`, i.e. a new `runs/<name>/` directory, so a directory-only guard never sees
     the campaigns it exists to protect (#131 review S1: a keep file in runs/laurens_keep/ went
     out beside the live exclude campaign in runs/laurens/ with no override). Names of
@@ -983,8 +988,14 @@ def campaign_records(input_file: Path, endpoint_url: Optional[str] = None) -> Di
     def read(record_path):
         try:
             record = json.loads(record_path.read_text(encoding='utf-8'))
-        except (ValueError, OSError):
-            return None     # unreadable records are refused by load_submission_record itself
+        except (ValueError, OSError) as e:
+            # Skipped, not fatal: this file's OWN record is refused by load_submission_record
+            # when unreadable, but a neighbour's corrupt record must not block every other
+            # campaign in the city. Said out loud, because a skipped record is a campaign the
+            # guard cannot see.
+            print(f"WARNING: frame guard skipped unreadable submission record {record_path} "
+                  f"({e})", file=sys.stderr)
+            return None
         return record if isinstance(record, dict) and record.get('endpoints') else None
 
     for record_path in sorted(input_file.parent.glob('*.submission.json')):
