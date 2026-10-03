@@ -798,7 +798,7 @@ def main():
               'many panos had a measured height.', file=sys.stderr)
     run_panos, n_unplaceable = fs.load_results(results_path, read_heights=True)
     try:   # the bundles it adjudicates against, and the crowd frame, are argmax (#111)
-        es.require_argmax(run_panos, results_path)
+        es.require_bundle_frame(run_panos, results_path)
     except ValueError as e:
         raise SystemExit(str(e))
     run_by_id = {p.pano_id: p for p in run_panos}

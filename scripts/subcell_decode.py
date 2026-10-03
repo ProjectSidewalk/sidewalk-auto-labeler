@@ -615,6 +615,9 @@ def arm_files(results_path, decode_path, work_dir):
                 out['detections'] = [{'x_normalized': x, 'y_normalized': y, 'confidence': c}
                                      for x, y, c in d[m]]
                 out.pop(dec.RECORD_DECODE_KEY, None)
+                # the pass's peaks were found under the default border rule (#130), whatever
+                # rule the run's own record was written under
+                out.pop(dec.RECORD_BORDER_KEY, None)
                 if m != dec.ARGMAX:
                     out[dec.RECORD_DECODE_KEY] = m
                 fo.write(json.dumps(out) + '\n')

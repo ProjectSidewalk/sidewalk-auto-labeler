@@ -734,7 +734,7 @@ def main():
     print('fusing {} ...'.format(args.city))
     run_panos, _ = fs.load_results(run_dir / 'results.jsonl')
     try:   # the verdicts it overlays were judged on argmax positions (#111)
-        es.require_argmax(run_panos, run_dir)
+        es.require_bundle_frame(run_panos, run_dir)
     except ValueError as e:
         raise SystemExit(str(e))
     # Deliberately the OPERATING POINT (FuseParams' default), not the benchmark tier: this

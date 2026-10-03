@@ -961,6 +961,7 @@ def cmd_eval(args):
         normals = arm_normals(meas)
         verdict_panos, bundle_ops = mt.load_gt_files(city, args.benchmark_root)
         panos, _ = fs.load_results(args.run_root / city / 'results.jsonl', read_heights=False)
+        es.require_bundle_frame(panos, city)   # scored against the bundle as published
         for arm in EVAL_ARMS:
             ps_ = arm_panos(panos, normals, arm)
             params = eval_params(arm)

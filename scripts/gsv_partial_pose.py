@@ -337,7 +337,7 @@ def load_city(city, height, runs_root):
                          'harvested depth heights; refusing to resolve it to 2.6 m silently')
     panos, _skipped, fuse_height, _auto = fs.load_at_height(path, height)
     try:   # scored against argmax-keyed bundles (#111)
-        es.require_argmax(panos, path.parent)
+        es.require_bundle_frame(panos, path.parent)
     except ValueError as e:
         raise SystemExit(str(e))
     return panos, fuse_height
