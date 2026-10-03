@@ -80,13 +80,20 @@ def test_check_peaks_summary_on_synthetic_maps(tmp_path):
     # both decodes recorded, same peaks
     assert len(sb.read_csv(data / 'laurens_gained.csv')) == 2 * len(gained)
 
-    s = sb.build_summary(data, arms=('laurens',))
+    s = sb.build_summary(data, arms=('laurens',), pool=('laurens',))
     t = s['arms']['laurens']['tiers']['0.3']
     assert t['seam_gained'] == 3 and t['top_bottom_gained'] == 1 and t['gained'] == 4
     assert t['panos_with_seam_gain'] == 2 and t['straddle_pairs'] == 1
     assert t['keep_peaks'] - t['exclude_peaks'] == t['gained']
     assert s['arms']['laurens']['tiers']['0.55']['seam_gained'] == 3
     assert s['arms']['laurens']['geometric_expectation'] == pytest.approx(20 / 1024, abs=1e-6)
+
+    # the archive frame counts every pano, including the one the run does not reproduce
+    arch = sb.main(['peaks', 'laurens', '--results', str(run / 'results.jsonl'),
+                    '--coarse-dir', str(cdir), '--data-dir', str(data), '--frame', 'archive'])
+    assert arch['panos_counted'] == 4 and arch['frame'] == 'archive'
+    assert (data / 'laurens_archive_gained.csv').exists()
+    assert (run / 'seam_band_130' / 'peaks.archive.jsonl').exists()
 
 
 def _site(sid, members, n_operational):

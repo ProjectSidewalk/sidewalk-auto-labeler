@@ -61,6 +61,25 @@ from detectors import (BORDER_EXCLUDE, BORDER_KEEP, DECODE_ARGMAX,  # noqa: E402
                        PEAK_MIN_DISTANCE, RECORD_BORDER_KEY, border_band_edge)
 
 ARMS = ('laurens', 'laurens_gsv')
+#: Two frames a count can be taken in. `run`: only panos whose stored detections the rebuilt
+#: heatmap reproduces (check), so every peak is the run's own. `archive`: every pano, both
+#: rules from the #111 pass's heatmap of the archived pano -- a valid paired exclude/keep
+#: comparison of the SAME heatmap, but not the run's detections. GSV needs it: its archive is
+#: a native-resolution re-fetch of panos the run saw as zoom-3 tiles, and the only GSV panos
+#: that reproduce are the ones with no peak at all (docs/seam-band-130.md section 2).
+FRAMES = ('run', 'archive')
+#: The data-file stems the summary reads, and the two it pools: Mapillary in the run frame
+#: (99.9% of panos reproduce) and GSV in the archive frame.
+STEMS = ('laurens', 'laurens_gsv', 'laurens_gsv_archive')
+POOL = ('laurens', 'laurens_gsv_archive')
+
+
+def stem_of(arm, frame):
+    return arm if frame == 'run' else f'{arm}_{frame}'
+
+
+def arm_of(stem):
+    return stem[:-len('_archive')] if stem.endswith('_archive') else stem
 #: The RampNet benchmark split each arm's judged bundle lives under.
 BUNDLE_OF = {'laurens': 'laurens_mapillary', 'laurens_gsv': 'laurens_gsv'}
 DATA_DIR = REPO_ROOT / 'docs' / 'figures' / 'seam-band-130' / 'data'
@@ -337,9 +356,10 @@ def cmd_peaks(args):
     t0 = time.perf_counter()
     recs = read_results(args.results)
     check = {r['pano_id']: r for r in read_csv(Path(args.data_dir) / f'{args.arm}_check.csv')}
+    stem = stem_of(args.arm, args.frame)
     wd = work_dir(args.arm, args.results)
     wd.mkdir(parents=True, exist_ok=True)
-    peaks_path = wd / 'peaks.jsonl'
+    peaks_path = wd / f'peaks.{args.frame}.jsonl'
     rows, straddles = [], []
     exclude_counts = Counter()
     keep_counts = Counter()
@@ -347,7 +367,7 @@ def cmd_peaks(args):
     with open(peaks_path, 'w', newline='', encoding='utf-8') as fp:
         for pid in sorted(recs):
             row = check.get(pid)
-            if row is None or row['reproduces'] != '1':
+            if row is None or (args.frame == 'run' and row['reproduces'] != '1'):
                 continue
             c32, sha = load_coarse(args.coarse_dir, pid)
             if sha != row['coarse_sha256']:
@@ -367,15 +387,15 @@ def cmd_peaks(args):
                                  **{b: {m: [[rnd(v) for v in d] for d in ds]
                                         for m, ds in r.items()}
                                     for b, r in rules.items()}}) + '\n')
-    gained_csv = Path(args.data_dir) / f'{args.arm}_gained.csv'
+    gained_csv = Path(args.data_dir) / f'{stem}_gained.csv'
     write_csv(gained_csv, GAINED_HEADER, rows)
-    counts = {'arm': args.arm, 'panos_counted': n_used,
+    counts = {'arm': args.arm, 'frame': args.frame, 'panos_counted': n_used,
               'exclude_peaks': {k: exclude_counts[k] for k in map(str, THRESHOLDS)},
               'keep_peaks': {k: keep_counts[k] for k in map(str, THRESHOLDS)},
               'lost_peaks': lost_total, 'panos_at_peak_cap': capped,
               'straddle_pairs': sorted([list(s) for s in straddles]),
               'peaks_jsonl_sha256': sha256_file(peaks_path)}
-    write_json(Path(args.data_dir) / f'{args.arm}_counts.json', counts)
+    write_json(Path(args.data_dir) / f'{stem}_counts.json', counts)
     if lost_total:
         print(f'WARNING: {lost_total} exclude peak(s) absent under keep (num_peaks cap)')
     print(dump_json({**counts, 'straddle_pairs': len(straddles),
@@ -391,10 +411,14 @@ def read_gained(arm, data_dir=DATA_DIR, decode=DECODE_ARGMAX):
     return [r for r in read_csv(Path(data_dir) / f'{arm}_gained.csv') if r['decode'] == decode]
 
 
-def write_keep_file(results, gained_by_pano, out):
+def write_keep_file(results, gained_by_pano, out, base=None, border=BORDER_KEEP):
     """The run's own records with each pano's gained peaks APPENDED to its stored detections
     (so every stored detection keeps its det_index and the two files differ only by the
-    band), and detection_border: keep on every record. Pano blocks untouched."""
+    band), and detection_border: keep on every record. Pano blocks untouched.
+
+    ``base`` ({pano_id: [(x, y, c), ...]}, archive frame) replaces each record's stored
+    detections first; with an empty ``gained_by_pano`` and border=exclude that writes the
+    archive frame's exclude file."""
     n_added = 0
     with open(results, encoding='utf-8') as f, \
             open(out, 'w', newline='\n', encoding='utf-8') as fo:
@@ -404,10 +428,16 @@ def write_keep_file(results, gained_by_pano, out):
             rec = json.loads(line)
             pid = str(rec['pano']['panorama_id'])
             add = gained_by_pano.get(pid, [])
-            rec['detections'] = list(rec.get('detections', [])) + [
+            stored = rec.get('detections', [])
+            if base is not None:
+                stored = [{'x_normalized': x, 'y_normalized': y, 'confidence': c}
+                          for x, y, c in base[pid]]
+            rec['detections'] = list(stored) + [
                 {'x_normalized': x, 'y_normalized': y, 'confidence': c} for x, y, c in add]
             n_added += len(add)
-            rec[RECORD_BORDER_KEY] = BORDER_KEEP
+            rec.pop(RECORD_BORDER_KEY, None)
+            if border != BORDER_EXCLUDE:
+                rec[RECORD_BORDER_KEY] = border
             fo.write(json.dumps(rec) + '\n')
     return n_added
 
@@ -476,28 +506,44 @@ def cmd_world(args):
     import fuse_sites as fs
     t0 = time.perf_counter()
     results = Path(args.results)
+    stem = stem_of(args.arm, args.frame)
     wd = work_dir(args.arm, results)
     wd.mkdir(parents=True, exist_ok=True)
-    counts = json.loads((Path(args.data_dir) / f'{args.arm}_counts.json').read_text(encoding='utf-8'))
+    counts = json.loads((Path(args.data_dir) / f'{stem}_counts.json').read_text(encoding='utf-8'))
     if args.peaks and Path(args.peaks).exists() \
             and sha256_file(args.peaks) != counts['peaks_jsonl_sha256']:
-        raise SystemExit(f'{args.peaks} is not the peaks.jsonl {args.arm}_counts.json records')
-    gained = read_gained(args.arm, args.data_dir)
+        raise SystemExit(f'{args.peaks} is not the peaks file {stem}_counts.json records')
+    gained = read_gained(stem, args.data_dir)
     by_pano = {}
     for r in gained:
         by_pano.setdefault(r['pano_id'], []).append(
             (float(r['x']), float(r['y']), float(r['score'])))
-    keep_path = wd / 'results.keep.jsonl'
-    n_added = write_keep_file(results, by_pano, keep_path)
+    base = None
+    exclude_path = results
+    if args.frame == 'archive':
+        # both files from the #111 pass: its exclude peaks, then the same + the band
+        if not (args.peaks and Path(args.peaks).exists()):
+            raise SystemExit('--frame archive needs --peaks (peaks.archive.jsonl)')
+        base = {}
+        with open(args.peaks, encoding='utf-8') as f:
+            for line in f:
+                if line.strip():
+                    d = json.loads(line)
+                    base[d['pano_id']] = [tuple(v) for v in d[BORDER_EXCLUDE][DECODE_ARGMAX]]
+        exclude_path = wd / 'results.exclude.archive.jsonl'
+        write_keep_file(results, {}, exclude_path, base=base, border=BORDER_EXCLUDE)
+    keep_path = wd / f'results.keep.{args.frame}.jsonl'
+    n_added = write_keep_file(results, by_pano, keep_path, base=base)
 
     params = fs.FuseParams(min_confidence=OPERATING, camera_height_m=WORLD_HEIGHT_M)
-    panos_ex, _, _, _ = fs.load_at_height(results, WORLD_HEIGHT_M)
+    panos_ex, _, _, _ = fs.load_at_height(exclude_path, WORLD_HEIGHT_M)
     panos_kp, _, _, _ = fs.load_at_height(keep_path, WORLD_HEIGHT_M)
     sites_ex, _, stats_ex = fs.fuse(panos_ex, params)
     sites_kp, _, stats_kp = fs.fuse(panos_kp, params)
 
     # the gained detections' det_index in the keep file: after the stored ones, in order
-    n_stored = {pid: len(rec.get('detections', [])) for pid, rec in read_results(results).items()}
+    n_stored = {pid: len(rec.get('detections', []))
+                for pid, rec in read_results(exclude_path).items()}
     gkeys, gpts = [], []
     for pid in sorted(by_pano):
         for j, pt in enumerate(by_pano[pid]):
@@ -524,8 +570,8 @@ def cmd_world(args):
         rows.append([pid, rnd(x), rnd(y), rnd(c), border_band_edge(x, y) or 'none',
                      cls.get((pid, idx), 'not_projected'), int(pid in verdicts),
                      per_pano_gt[pid][j] if pid in per_pano_gt else ''])
-    write_csv(Path(args.data_dir) / f'{args.arm}_world.csv', WORLD_HEADER, rows)
-    info = {'arm': args.arm,
+    write_csv(Path(args.data_dir) / f'{stem}_world.csv', WORLD_HEADER, rows)
+    info = {'arm': args.arm, 'frame': args.frame,
             'fuse_params': {k: v for k, v in sorted(vars(params).items())},
             'gained_peaks_added': n_added,
             'operational_sites': {'exclude': stats_ex['n_operational_sites'],
@@ -535,7 +581,7 @@ def cmd_world(args):
             'bundle': ({'split': BUNDLE_OF[args.arm], 'verdicts_sha256': sha256_file(vpath),
                         'records_sha256': sha256_file(rpath), 'panos': len(verdicts)}
                        if vpath.exists() else None)}
-    write_json(Path(args.data_dir) / f'{args.arm}_world.json', info)
+    write_json(Path(args.data_dir) / f'{stem}_world.json', info)
     print(dump_json({**info, 'wall_s': round(time.perf_counter() - t0, 1)}), end='')
     return info
 
@@ -638,25 +684,27 @@ def sum_world(ws):
                                   for k in ('exclude', 'keep')}}
 
 
-def build_summary(data_dir=DATA_DIR, arms=ARMS):
+def build_summary(data_dir=DATA_DIR, arms=STEMS, pool=POOL):
     data_dir = Path(data_dir)
     per = {}
-    parts = []
+    parts = {}
     for arm in arms:
-        check = read_csv(data_dir / f'{arm}_check.csv')
+        check = read_csv(data_dir / f'{arm_of(arm)}_check.csv')
         gained = read_csv(data_dir / f'{arm}_gained.csv')
         counts = json.loads((data_dir / f'{arm}_counts.json').read_text(encoding='utf-8'))
         wpath = data_dir / f'{arm}_world.json'
         winfo = json.loads(wpath.read_text(encoding='utf-8')) if wpath.exists() else None
         world = read_csv(data_dir / f'{arm}_world.csv') if winfo is not None else []
         per[arm] = arm_summary(check, gained, counts, world, winfo)
-        parts.append((check, gained, counts, world, winfo))
-    pooled = arm_summary([r for p in parts for r in p[0]], [r for p in parts for r in p[1]],
-                         sum_counts([p[2] for p in parts]), [r for p in parts for r in p[3]],
-                         sum_world([p[4] for p in parts]))
+        parts[arm] = (check, gained, counts, world, winfo)
+    pp = [parts[a] for a in pool if a in parts]
+    pooled = arm_summary([r for p in pp for r in p[0]], [r for p in pp for r in p[1]],
+                         sum_counts([p[2] for p in pp]), [r for p in pp for r in p[3]],
+                         sum_world([p[4] for p in pp]))
     inputs = {f.name: sha256_file(f) for f in sorted(data_dir.glob('*'))
               if f.name != SUMMARY.name and f.suffix in ('.csv', '.json')}
-    return {'issue': 130, 'arms': per, 'pooled': pooled, 'inputs_sha256': inputs,
+    return {'issue': 130, 'arms': per, 'pooled': pooled, 'pooled_from': list(pool),
+            'inputs_sha256': inputs,
             'thresholds': list(THRESHOLDS), 'operating_point': OPERATING,
             'gt_radius': GT_RADIUS, 'world_camera_height_m': WORLD_HEIGHT_M}
 
@@ -728,6 +776,8 @@ def build_parser():
         p.add_argument('arm', choices=ARMS)
         p.add_argument('--results', type=Path, required=True)
         p.add_argument('--coarse-dir', type=Path, required=True)
+        if name == 'peaks':
+            p.add_argument('--frame', choices=FRAMES, default='run')
         if name == 'check':
             p.add_argument('--decode-file', type=Path, default=None,
                            help="the #111 detect pass's decode_<arm>.jsonl: also checks the "
@@ -736,6 +786,7 @@ def build_parser():
     p.add_argument('arm', choices=ARMS)
     p.add_argument('--results', type=Path, required=True)
     p.add_argument('--peaks', type=Path, default=None)
+    p.add_argument('--frame', choices=FRAMES, default='run')
     p.add_argument('--benchmark-root', type=Path, default=REPO_ROOT.parent / 'RampNet' /
                    'benchmark')
     for name in ('summary', 'verify'):
