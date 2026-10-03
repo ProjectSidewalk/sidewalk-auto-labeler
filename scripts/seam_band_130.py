@@ -69,8 +69,16 @@ HM_H, HM_W = 512, 1024
 #: Thresholds the summary reports: the storage floor, the operating point, the benchmark tier.
 THRESHOLDS = (DETECTION_STORAGE_FLOOR, 0.30, 0.55)
 OPERATING = 0.30
-#: Score tolerance for the instrument check (float32 rebuild noise is ~1e-7).
-SCORE_TOL = 1e-6
+#: Score tolerance for the instrument check. The plan's was 1e-6 (float32 rebuild noise is
+#: ~1e-7), and it failed on the Mapillary arm for a reason that is not the instrument: on
+#: every pano that missed it, the pixel keys are identical and the scores differ by at most
+#: 6.4e-5 (median 8e-6) -- the original run and the #111 detect pass ran the same weights on
+#: different GPU / software stacks, and float32 kernels are not bit-identical across them.
+#: 1e-4 is above that spread and four orders below any threshold used here; the strict
+#: 1e-6 result is kept beside it in <arm>_check.csv (`reproduces_1e6`). docs/seam-band-130.md
+#: section 2 has the numbers.
+SCORE_TOL = 1e-4
+STRICT_TOL = 1e-6
 #: The instrument gate: share of panos whose stored detections the rebuild reproduces.
 GATE = 0.99
 #: RampNet's benchmark match radius, normalized x units (scripts/agree_rate.PANO_RADIUS).
@@ -182,7 +190,7 @@ def check_pano(c32, stored, floor):
     rebuilt = dec.detections_from_heatmap(h, DECODE_ARGMAX, border=BORDER_EXCLUDE)
     want = [d for d in stored if d[2] >= floor]
     got = [d for d in rebuilt if d[2] >= floor]
-    return same_detections(want, got), rebuilt
+    return same_detections(want, got), same_detections(want, got, STRICT_TOL), rebuilt
 
 
 def diagnose(stored, rebuilt):
@@ -214,11 +222,12 @@ def cmd_check(args):
                 if line.strip():
                     d = json.loads(line)
                     decode_ref[str(d['pano_id'])] = d
-    rows, n_ok, n_ref_ok, n_ref, n_sha_ok = [], 0, 0, 0, 0
+    rows, n_ok, n_ref_ok, n_ref, n_sha_ok, n_strict = [], 0, 0, 0, 0, 0
     for pid, rec in recs.items():
         c32, sha = load_coarse(args.coarse_dir, pid)
         stored = stored_detections(rec)
-        ok, rebuilt = check_pano(c32, stored, floor)
+        ok, strict, rebuilt = check_pano(c32, stored, floor)
+        n_strict += strict
         n_ok += ok
         ref = decode_ref.get(pid)
         ref_ok = ''
@@ -230,16 +239,17 @@ def cmd_check(args):
             n_ref_ok += ref_ok
         rows.append([pid, sha, int(ok), len([d for d in stored if d[2] >= floor]),
                      len([d for d in rebuilt if d[2] >= floor]), ref_ok,
-                     *diagnose(stored, rebuilt)])
+                     *diagnose(stored, rebuilt), int(strict)])
     rows.sort()
     out = Path(args.data_dir) / f'{args.arm}_check.csv'
     write_csv(out, ['pano_id', 'coarse_sha256', 'reproduces', 'n_stored', 'n_rebuilt',
                     'rebuild_matches_detect_pass', 'keys_match_030', 'keys_match_055',
-                    'max_dscore_shared'], rows)
+                    'max_dscore_shared', 'reproduces_1e6'], rows)
     n = len(rows)
     report = {'arm': args.arm, 'panos': n, 'reproduce': n_ok,
               'rate': rnd(n_ok / n, 6) if n else None, 'gate': GATE,
               'passes_gate': bool(n and n_ok / n >= GATE), 'storage_floor': floor,
+              'score_tol': SCORE_TOL, 'reproduce_at_1e6': n_strict,
               'detect_pass_panos': n_ref, 'detect_pass_coarse_sha_match': n_sha_ok,
               'rebuild_matches_detect_pass': n_ref_ok,
               'results_sha256': sha256_file(args.results),
