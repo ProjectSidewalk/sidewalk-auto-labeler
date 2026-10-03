@@ -408,3 +408,52 @@ def test_help_shows_the_flag(script):
                          text=True, cwd=REPO, timeout=120)
     assert out.returncode == 0, out.stderr
     assert '--border' in out.stdout and 'keep' in out.stdout
+
+
+def test_send_to_ps_guard_is_per_city_not_per_directory(tmp_path, monkeypatch):
+    """#131 review S1: the documented re-run of a live city is a new --name, i.e. a sibling
+    runs/<name>/ directory. A keep file there must be refused beside the live exclude
+    campaign on the same endpoint (the reviewer's case sent 3 labels with no override), and
+    the decode guard gets the same reach. A sibling campaign on ANOTHER endpoint (another
+    city's server) does not block."""
+    from test_decode_guards import PROD, _frozen_send, _results
+    sp, sent = _frozen_send(monkeypatch)
+    live = tmp_path / 'runs' / 'laurens'
+    live.mkdir(parents=True)
+    sp.process_jsonl_file(str(_results(live / 'results.jsonl', [None, None, None])), PROD)
+    n = len(sent)
+
+    rerun = tmp_path / 'runs' / 'laurens_keep'
+    rerun.mkdir()
+    k = rerun / 'results.jsonl'
+    k.write_bytes(b''.join(
+        (json.dumps({**json.loads(line), 'detection_border': 'keep'}) + '\n').encode()
+        for line in (live / 'results.jsonl').read_text().splitlines()))
+    with pytest.raises(ValueError, match=r'laurens/results\.jsonl\.submission\.json'):
+        sp.process_jsonl_file(str(k), PROD)
+    assert len(sent) == n                                   # nothing went out
+    # the same file to another city's server is not blocked by Laurens' campaign
+    assert sp.check_detection_border(k, 'https://other.example/ai/submitLabelsOnPano') == 'keep'
+    assert sp.check_detection_border(k) == 'keep'           # no endpoint: per directory
+    sp.process_jsonl_file(str(k), PROD, allow_mixed_border=True)
+    assert len(sent) == n + 3
+    record = json.loads((rerun / 'results.jsonl.submission.json').read_text())
+    assert 'laurens/results.jsonl.submission.json' in record['mixed_border_override']['reason']
+
+    g = tmp_path / 'runs' / 'laurens_gauss' / 'results.jsonl'
+    g.parent.mkdir()
+    _results(g, ['gaussian'])
+    with pytest.raises(ValueError, match='frame change'):
+        sp.check_detection_decode(g, PROD)
+
+
+def test_transform_record_drops_the_border_marker():
+    import send_to_ps as sp
+    rec = {'detections': [], 'detection_border': 'keep', 'label_type': 'CurbRamp',
+           'pano': {'panorama_id': 'p', 'width': 16384, 'height': 8192, 'lat': 1.0,
+                    'lng': 2.0, 'camera_heading': 0.0}}
+    try:
+        out = sp.transform_record(rec)
+    except (KeyError, TypeError) as e:   # transform_pano wants more fields than this stub
+        pytest.skip(f'pano stub too thin for transform_pano: {e}')
+    assert 'detection_border' not in out

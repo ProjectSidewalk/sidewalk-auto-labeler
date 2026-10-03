@@ -239,6 +239,9 @@ def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_C
         and not (mask_rig and on_camera_rig(detection['y_normalized']))
     ]
     modified_data.pop('detections', None)
+    # Run-state markers, not part of the server's payload (#130). (detection_decode is the
+    # same kind of key; dropping it is #129's to do, review N4.)
+    modified_data.pop('detection_border', None)
     return modified_data
 
 
@@ -952,7 +955,55 @@ def recorded_decode(record: Dict[str, Any]) -> str:
     return value
 
 
-def check_detection_decode(input_file: Path) -> str:
+def campaign_records(input_file: Path, endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    """Every OTHER campaign the frame guards (decode #111, border #130) compare a file with,
+    as {name: record}: each `*.submission.json` beside the file, plus -- when the endpoint is
+    known -- each `*.submission.json` in a SIBLING run directory (`runs/*/`) that records a
+    campaign on the same endpoint.
+
+    The sibling scan is what makes the guards per CITY rather than per directory. One PS
+    server is one city, and the documented way to re-run a live city under a new rule is a
+    new `--name`, i.e. a new `runs/<name>/` directory, so a directory-only guard never sees
+    the campaigns it exists to protect (#131 review S1: a keep file in runs/laurens_keep/ went
+    out beside the live exclude campaign in runs/laurens/ with no override). Names of
+    sibling records are `<dir>/<file>`. Siblings are scanned only when the file sits in a
+    `runs/<name>/` directory, the layout main.py writes; a record written outside a runs tree
+    is still invisible, as it is to check_live_positions.
+
+    Example::
+
+        >>> campaign_records(Path('runs/laurens_keep/results.jsonl'),
+        ...                  'https://sidewalk-laurens.cs.washington.edu/ai/submitLabelsOnPano')
+        ... # doctest: +SKIP
+        {'laurens/results.jsonl.submission.json': {...}}
+    """
+    own = submission_record_path(str(input_file))
+    out = {}
+
+    def read(record_path):
+        try:
+            record = json.loads(record_path.read_text(encoding='utf-8'))
+        except (ValueError, OSError):
+            return None     # unreadable records are refused by load_submission_record itself
+        return record if isinstance(record, dict) and record.get('endpoints') else None
+
+    for record_path in sorted(input_file.parent.glob('*.submission.json')):
+        if record_path != own and (record := read(record_path)) is not None:
+            out[record_path.name] = record
+    if endpoint_url is not None and input_file.parent.parent.name == 'runs':
+        endpoint = canonical_endpoint(endpoint_url)
+        here = input_file.parent.resolve()
+        for record_path in sorted(input_file.parent.parent.glob('*/*.submission.json')):
+            if record_path.parent.resolve() == here:
+                continue
+            record = read(record_path)
+            if record is not None and endpoint in {canonical_endpoint(u)
+                                                   for u in record['endpoints']}:
+                out[f'{record_path.parent.name}/{record_path.name}'] = record
+    return out
+
+
+def check_detection_decode(input_file: Path, endpoint_url: Optional[str] = None) -> str:
     """The file's peak decode (#111); ValueError when it mixes decodes, or when another
     campaign recorded in the same directory went out under a different one (or a mix).
 
@@ -967,22 +1018,14 @@ def check_detection_decode(input_file: Path) -> str:
     from every single-decode file. Overridden only with --allow-mixed-decode, which the
     submission record then shows.
 
-    The guard is per DIRECTORY, not per city: like check_live_positions, it sees only the
-    campaigns recorded beside this file. Every run directory in this repo is one city
-    (runs/<name>/), so they coincide, but a campaign whose record was moved or written
-    elsewhere is invisible to it.
+    Which campaigns are compared (campaign_records): those beside this file, and -- given
+    ``endpoint_url`` -- those in sibling run directories on the same endpoint, so a re-run of
+    a live city under a new `--name` is caught (#130 / #131 review S1). Without the endpoint
+    the guard is per directory, as it was before #130.
     """
     decode = single_decode(decodes_in_file(input_file), input_file.name)
-    others = {}
-    for record_path in sorted(input_file.parent.glob('*.submission.json')):
-        if record_path == submission_record_path(str(input_file)):
-            continue
-        try:
-            record = json.loads(record_path.read_text(encoding='utf-8'))
-        except ValueError:
-            continue    # unreadable records are refused by load_submission_record itself
-        if isinstance(record, dict) and record.get('endpoints'):
-            others[record_path.name] = recorded_decode(record)
+    others = {name: recorded_decode(record)
+              for name, record in campaign_records(input_file, endpoint_url).items()}
     differ = {name: d for name, d in others.items() if d != decode}
     if differ:
         named = ', '.join(f'{name} ({d})' for name, d in sorted(differ.items()))
@@ -1020,29 +1063,24 @@ def recorded_border(record: Dict[str, Any]) -> str:
     return value
 
 
-def check_detection_border(input_file: Path) -> str:
+def check_detection_border(input_file: Path, endpoint_url: Optional[str] = None) -> str:
     """The file's peak border rule (#130); ValueError when it mixes rules, or when another
     campaign recorded in the same directory went out under a different one (or a mix).
 
-    `keep` stores the seam-band peaks (within 10 heatmap px of the 360-degree seam, about 7
-    degrees of azimuth) that `exclude` drops, and PS places a label once, at insert. A `keep`
+    `keep` stores the seam-band peaks (within 10 heatmap px of the 360-degree seam; on the
+    model's exact x8 upsample that is coarse columns 0 and 127, 5.6 degrees) that `exclude`
+    drops, and PS places a label once, at insert. A `keep`
     campaign beside `exclude` campaigns that are already live adds seam-band labels to a city
     whose other labels were never looked for there -- for a re-run of the same panos, often
     beside a live neighbouring view of the same ramp. That is a whole-city decision, made the
-    same way as check_detection_decode's, per directory, overridden only with
+    same way as check_detection_decode's and over the same campaigns (campaign_records: this
+    directory, plus sibling run directories on the same endpoint -- the documented re-run of
+    a live city is a new `--name`, i.e. a sibling directory), overridden only with
     --allow-mixed-border, which the submission record then shows.
     """
     border = single_border(borders_in_file(input_file), input_file.name)
-    others = {}
-    for record_path in sorted(input_file.parent.glob('*.submission.json')):
-        if record_path == submission_record_path(str(input_file)):
-            continue
-        try:
-            record = json.loads(record_path.read_text(encoding='utf-8'))
-        except ValueError:
-            continue    # unreadable records are refused by load_submission_record itself
-        if isinstance(record, dict) and record.get('endpoints'):
-            others[record_path.name] = recorded_border(record)
+    others = {name: recorded_border(record)
+              for name, record in campaign_records(input_file, endpoint_url).items()}
     differ = {name: b for name, b in others.items() if b != border}
     if differ:
         named = ', '.join(f'{name} ({b})' for name, b in sorted(differ.items()))
@@ -1483,7 +1521,7 @@ def process_jsonl_file(
     decode, decode_override = DECODE_ARGMAX, None
     if not dry_run:
         try:
-            decode = check_detection_decode(input_file)
+            decode = check_detection_decode(input_file, endpoint_url)
         except ValueError as e:
             if not allow_mixed_decode:
                 raise
@@ -1495,7 +1533,7 @@ def process_jsonl_file(
     border, border_override = BORDER_EXCLUDE, None
     if not dry_run:
         try:
-            border = check_detection_border(input_file)
+            border = check_detection_border(input_file, endpoint_url)
         except ValueError as e:
             if not allow_mixed_border:
                 raise
