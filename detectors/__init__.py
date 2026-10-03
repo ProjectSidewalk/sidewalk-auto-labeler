@@ -179,6 +179,83 @@ def single_decode(counts, what, allow_mixed=False):
     return counts.most_common(1)[0][0] if counts else DECODE_ARGMAX
 
 
+# --- The border rule a record was written under (issue #130) --------------------------
+#
+# Whether the peak finder keeps peaks within MIN_DISTANCE (10 heatmap px) of the heatmap's
+# edge. `exclude` is skimage's default and what every live label and published table used:
+# peak_local_max(exclude_border=True) drops every such peak, and the left and right edges of
+# an equirectangular heatmap are the 360-degree seam, so about 7 degrees of azimuth (20 of
+# 1024 columns, 2% of the circle) never produces a detection. `keep` is RampNet's rule since
+# RampNet#132 (RampNet f4c71c8; rampnet/subcell.py detect_peaks): exclude_border=False and
+# nothing else -- no NMS across the seam, so a ramp straddling it can yield one peak at
+# x = 0 and another at x = 1023 (docs/seam-band-130.md counts how often).
+#
+# Same contract as the decode above: a run is bound to one rule (manifest.json
+# `detection_border`, enforced on resume), every line written under `keep` says so, and
+# everything that combines files refuses a mix without an explicit flag. `keep` adds peaks
+# (it never moves one), but those peaks are labels the live `exclude` campaigns never had,
+# so a `keep` campaign in an `exclude` city is a frame change of the same kind. The marker
+# is written ONLY on `keep` lines, so `exclude` records stay byte-identical to before #130
+# and every older line reads as `exclude`.
+BORDER_EXCLUDE = 'exclude'
+BORDER_KEEP = 'keep'
+BORDERS = (BORDER_EXCLUDE, BORDER_KEEP)
+DEFAULT_BORDER = BORDER_EXCLUDE
+RECORD_BORDER_KEY = 'detection_border'
+
+
+def record_border(record) -> str:
+    """The border rule a results.jsonl record was written under (absent key = exclude).
+
+        >>> record_border({'detections': []}), record_border({'detection_border': 'keep'})
+        ('exclude', 'keep')
+    """
+    return record.get(RECORD_BORDER_KEY, BORDER_EXCLUDE)
+
+
+def borders_in_file(path):
+    """Counter of record_border over every parseable line of a results file (the border
+    twin of decodes_in_file).
+
+        >>> import json, tempfile, os
+        >>> p = tempfile.NamedTemporaryFile('w', suffix='.jsonl', delete=False)
+        >>> _ = p.write(json.dumps({'detections': []}) + '\\n'
+        ...             + json.dumps({'detections': [], 'detection_border': 'keep'}) + '\\n')
+        >>> p.close(); sorted(borders_in_file(p.name).items()); os.unlink(p.name)
+        [('exclude', 1), ('keep', 1)]
+    """
+    import json
+    from collections import Counter
+    out = Counter()
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                try:
+                    out[record_border(json.loads(line))] += 1
+                except (ValueError, AttributeError):
+                    continue
+    return out
+
+
+def single_border(counts, what, allow_mixed=False):
+    """The one border rule in a borders_in_file Counter; ValueError on a mix unless
+    allow_mixed (then the most common one). An empty file reads as exclude.
+
+        >>> from collections import Counter
+        >>> single_border(Counter({'keep': 3}), 'x')
+        'keep'
+        >>> single_border(Counter({'exclude': 2, 'keep': 1}), 'x', allow_mixed=True)
+        'exclude'
+    """
+    if len(counts) > 1 and not allow_mixed:
+        mix = ', '.join(f'{k}: {v}' for k, v in sorted(counts.items()))
+        raise ValueError(
+            f'{what} mixes peak border rules ({mix}): keep stores the seam-band peaks that '
+            f'exclude drops, so combining them puts part of the file in a different frame '
+            f'(issue #130). Keep each border rule in its own file / run.')
+    return counts.most_common(1)[0][0] if counts else BORDER_EXCLUDE
+
+
 # --- Model provenance (issues #39, #6) -----------------------------------------------
 #
 # Every JSONL line and every manifest run entry says which weights produced it, and Project

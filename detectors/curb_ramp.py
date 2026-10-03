@@ -10,7 +10,8 @@ from detectors import MODEL_REPO, load_with_offline_fallback, provenance_for_loa
 from detectors.batching import DEFAULT_BATCH_WAIT_S, Batcher, ForwardStats
 # The peak decode lives in the torch-free detectors.decode (#111); re-exported here because
 # callers have always imported it from this module.
-from detectors.decode import DECODES, DEFAULT_DECODE, detections_from_heatmap  # noqa: F401
+from detectors.decode import (BORDERS, DECODES, DEFAULT_BORDER, DEFAULT_DECODE,  # noqa: F401
+                              detections_from_heatmap)
 
 # The model's fixed input size (rampnet_model.PANO_INPUT_SIZE) and ImageNet normalization.
 INPUT_SIZE = (2048, 4096)
@@ -67,14 +68,20 @@ class CurbRampDetector:
     """
 
     def __init__(self, allow_unknown_revision=False, batch_size=1,
-                 batch_wait_s=DEFAULT_BATCH_WAIT_S, decode=DEFAULT_DECODE):
+                 batch_wait_s=DEFAULT_BATCH_WAIT_S, decode=DEFAULT_DECODE,
+                 border=DEFAULT_BORDER):
         if batch_size < 1:
             raise ValueError('batch_size must be >= 1')
         if decode not in DECODES:
             raise ValueError(f'decode must be one of {DECODES}, got {decode!r}')
+        if border not in BORDERS:
+            raise ValueError(f'border must be one of {BORDERS}, got {border!r}')
         # Where detect() places each peak (detectors.decode, #111). Bound per run in
         # manifest.json by the callers; argmax is the default and what every live label used.
         self.decode = decode
+        # Whether detect() keeps peaks beside the heatmap edge, the 360-degree seam included
+        # (#130). Bound per run like the decode; `exclude` is the default and every live label.
+        self.border = border
         # Serializes device work: concurrent full-resolution forward passes would exhaust
         # GPU memory. With batching, only the consumer thread takes it.
         self._inference_lock = threading.Lock()
@@ -120,8 +127,9 @@ class CurbRampDetector:
 
     def detect(self, pil_image):
         """Normalized ``[(x, y, confidence), ...]`` for one pano, down to the storage floor,
-        placed by ``self.decode``."""
-        return detections_from_heatmap(self.heatmap(pil_image), self.decode)
+        placed by ``self.decode``, edge peaks kept or dropped by ``self.border``."""
+        return detections_from_heatmap(self.heatmap(pil_image), self.decode,
+                                       border=self.border)
 
     def _forward_batch(self, tensors):
         """One forward over stacked tensors -> one 512x1024 heatmap per input, in order.

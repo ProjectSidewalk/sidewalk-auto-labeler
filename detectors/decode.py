@@ -51,7 +51,9 @@ import numpy as np
 # detectors/__init__.py beside the rest of the detection contract; re-exported here.
 from detectors import (DECODE_ARGMAX as ARGMAX, DECODE_GAUSSIAN as GAUSSIAN,  # noqa: F401
                        DECODES, DEFAULT_DECODE, DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO,
-                       RECORD_DECODE_KEY, record_decode)
+                       RECORD_DECODE_KEY, record_decode,
+                       BORDER_EXCLUDE as EXCLUDE, BORDER_KEEP as KEEP, BORDERS,
+                       DEFAULT_BORDER, RECORD_BORDER_KEY, record_border)
 from detectors import rampnet_subcell as sc
 
 #: Provenance of the vendored ``detectors/rampnet_subcell.py``: RampNet's ``rampnet/subcell.py``
@@ -62,18 +64,30 @@ RAMPNET_SUBCELL_COMMIT = 'cf7aecdbce53f72028663ab21a73fc0354255865'
 RAMPNET_SUBCELL_SHA256 = 'b0712dfe98fc6012ddfd22f149dc1ece7917d74b21a10276ff83dec0e9a2ad8e'
 
 # The peak finder every decode shares (unchanged since #27): peaks on clip(h, 0, 1) down to
-# the storage floor, at most MAX_PEAKS_PER_PANO, skimage's default exclude_border (peaks
-# within min_distance of the edge are dropped, including along the 360-degree seam --
-# RampNet#132 calls that a defect, and for the labeler it is sidewalk-auto-labeler#130; it is
-# kept here, because changing it moves stored detections).
+# the storage floor, at most MAX_PEAKS_PER_PANO, at least MIN_DISTANCE apart. Under the
+# default border rule (`exclude`, skimage's default exclude_border=True) every peak within
+# MIN_DISTANCE of an edge is also dropped -- including along the 360-degree seam, a 20-column
+# (7-degree) blind band on every pano. RampNet#132 calls that a defect; for the labeler it is
+# #130, and `--border keep` (RampNet's rule: exclude_border=False, no NMS across the seam)
+# is the opt-in fix. The default stays `exclude`, because changing it adds stored detections
+# that the live labels do not have (docs/seam-band-130.md measures how many).
 MIN_DISTANCE = 10
 
 
-def _peaks(heatmap):
+def _peaks(heatmap, border=DEFAULT_BORDER):
+    """(row, col) peaks of clip(heatmap, 0, 1), highest first, under a border rule.
+
+    ``exclude``: skimage's default, peaks within MIN_DISTANCE of any edge dropped (every live
+    label). ``keep``: ``exclude_border=False``, exactly RampNet's detect_peaks since RampNet#132
+    -- edge peaks kept, NMS NOT wrapped across the seam (a seam-straddling ramp can give one
+    peak in column 0-9 and another in column 1014-1023, as it does in RampNet)."""
     from skimage.feature import peak_local_max
+    if border not in BORDERS:
+        raise ValueError(f'unknown border rule {border!r}; known: {", ".join(BORDERS)}')
     return peak_local_max(np.clip(heatmap, 0, 1), min_distance=MIN_DISTANCE,
                           threshold_abs=DETECTION_STORAGE_FLOOR,
-                          num_peaks=MAX_PEAKS_PER_PANO)
+                          num_peaks=MAX_PEAKS_PER_PANO,
+                          exclude_border=(border == EXCLUDE))
 
 
 def check_exact_upsample(heatmap, coarse=None):
@@ -90,7 +104,7 @@ def check_exact_upsample(heatmap, coarse=None):
     return coarse
 
 
-def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None):
+def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None, border=DEFAULT_BORDER):
     """Heatmap peaks -> normalized ``[(x, y, confidence), ...]``, highest first.
 
     Peaks are stored down to the storage floor; the operational threshold is applied by
@@ -102,6 +116,12 @@ def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None):
     their confidences (the raw heatmap value at the argmax pixel) are the same under every
     decode. ``coarse`` may pass the 64x128 map when the caller already has it.
 
+    ``border`` picks which peaks are found at all (#130; ``_peaks``): ``exclude`` (default,
+    every live label) drops peaks within MIN_DISTANCE of an edge, ``keep`` returns them. An
+    edge peak's gaussian decode is RampNet's own: the 3x3 coarse neighbourhood is NaN off
+    the map and that axis gets no sub-cell offset (rampnet_subcell._axis), so a peak in
+    coarse column 0 stays at the column-0 centre in x (pinned in tests/test_border.py).
+
     Collisions (gaussian only). Several peaks that peak_local_max returns on one clipped
     plateau (a flat top above 1, at least MIN_DISTANCE apart) all climb to the same coarse
     maximum and would decode to the IDENTICAL position: duplicate labels on the server. The
@@ -112,7 +132,7 @@ def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None):
     """
     if decode not in DECODES:
         raise ValueError(f'unknown decode {decode!r}; known: {", ".join(DECODES)}')
-    peaks = _peaks(heatmap)
+    peaks = _peaks(heatmap, border)
     if decode == ARGMAX or not len(peaks):
         return [(float(c / heatmap.shape[1]), float(r / heatmap.shape[0]), float(heatmap[r][c]))
                 for r, c in peaks]
@@ -128,9 +148,9 @@ def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None):
     return out
 
 
-def detections_both(heatmap):
+def detections_both(heatmap, border=DEFAULT_BORDER):
     """``{'argmax': [...], 'gaussian': [...]}`` from ONE heatmap: the paired comparison #111
     needs (one forward pass, two decodes -- never two inference runs, whose near-tied cells
     can flip between passes). Element k of both lists is the same peak."""
-    return {ARGMAX: detections_from_heatmap(heatmap, ARGMAX),
-            GAUSSIAN: detections_from_heatmap(heatmap, GAUSSIAN)}
+    return {ARGMAX: detections_from_heatmap(heatmap, ARGMAX, border=border),
+            GAUSSIAN: detections_from_heatmap(heatmap, GAUSSIAN, border=border)}
