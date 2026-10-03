@@ -68,7 +68,8 @@ RAMPNET_SUBCELL_SHA256 = 'b0712dfe98fc6012ddfd22f149dc1ece7917d74b21a10276ff83de
 # the storage floor, at most MAX_PEAKS_PER_PANO, at least MIN_DISTANCE apart. Under the
 # default border rule (`exclude`, skimage's default exclude_border=True) every peak within
 # MIN_DISTANCE of an edge is also dropped -- including along the 360-degree seam, a 20-column
-# (7-degree) blind band on every pano. RampNet#132 calls that a defect; for the labeler it is
+# band that on the exact x8 upsample holds coarse columns 0 and 127 (5.6 degrees), blind on
+# every pano. RampNet#132 calls that a defect; for the labeler it is
 # #130, and `--border keep` (RampNet's rule: exclude_border=False, no NMS across the seam)
 # is the opt-in fix. The default stays `exclude`, because changing it adds stored detections
 # that the live labels do not have (docs/seam-band-130.md measures how many).
@@ -81,7 +82,11 @@ def _peaks(heatmap, border=DEFAULT_BORDER):
     ``exclude``: skimage's default, peaks within MIN_DISTANCE of any edge dropped (every live
     label). ``keep``: ``exclude_border=False``, exactly RampNet's detect_peaks since RampNet#132
     -- edge peaks kept, NMS NOT wrapped across the seam (a seam-straddling ramp can give one
-    peak in column 0-9 and another in column 1014-1023, as it does in RampNet)."""
+    peak in column 0-9 and another in column 1014-1023, as it does in RampNet). Two
+    differences from RampNet predate #130 and hold under both rules: this finder keeps at
+    most MAX_PEAKS_PER_PANO (50) peaks (RampNet has no cap; no Laurens pano reached it), and
+    detections_from_heatmap scores a peak by the RAW heatmap value where RampNet's
+    detect_peaks(clip=True) reports the clipped one (they differ only above 1.0)."""
     from skimage.feature import peak_local_max
     if border not in BORDERS:
         raise ValueError(f'unknown border rule {border!r}; known: {", ".join(BORDERS)}')

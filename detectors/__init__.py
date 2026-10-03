@@ -184,8 +184,10 @@ def single_decode(counts, what, allow_mixed=False):
 # Whether the peak finder keeps peaks within MIN_DISTANCE (10 heatmap px) of the heatmap's
 # edge. `exclude` is skimage's default and what every live label and published table used:
 # peak_local_max(exclude_border=True) drops every such peak, and the left and right edges of
-# an equirectangular heatmap are the 360-degree seam, so about 7 degrees of azimuth (20 of
-# 1024 columns, 2% of the circle) never produces a detection. `keep` is RampNet's rule since
+# an equirectangular heatmap are the 360-degree seam, so the 20 columns beside it never produce
+# a detection. On the model's exact x8 bilinear upsample, maxima sit only at coarse-cell
+# centres or on the clamped edge plateaus, so that band holds exactly coarse columns 0 and 127:
+# 5.6 degrees of azimuth, 2/128 = 1.56% of the circle (docs/seam-band-130.md section 3). `keep` is RampNet's rule since
 # RampNet#132 (RampNet f4c71c8; rampnet/subcell.py detect_peaks): exclude_border=False and
 # nothing else -- no NMS across the seam, so a ramp straddling it can yield one peak at
 # x = 0 and another at x = 1023 (docs/seam-band-130.md counts how often).

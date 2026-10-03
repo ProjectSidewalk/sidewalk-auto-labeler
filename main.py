@@ -1167,8 +1167,8 @@ def main():
     parser.add_argument(
         "--border", choices=BORDERS, default=DEFAULT_BORDER,
         help="Whether peaks within 10 heatmap px of the heatmap edge are kept (issue #130): "
-             "'exclude' (default; every live label) drops them, which leaves a 7-degree blind "
-             "band at the 360-degree seam; 'keep' is RampNet's rule (opt-in). The run "
+             "'exclude' (default; every live label) drops them, which leaves a 5.6-degree "
+             "blind band (coarse columns 0 and 127) at the 360-degree seam; 'keep' is RampNet's rule (opt-in). The run "
              "directory is bound to its rule (manifest.json detection_border) and 'keep' "
              "records carry it. A new city may use 'keep' from its first run; an existing "
              "city only under a new --name (docs/seam-band-130.md)."

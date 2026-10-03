@@ -285,7 +285,8 @@ reproduces RampNet#221's table, and its own decode (labeler peak finder) gives t
 
 #### Seam band (#130)
 
-The 43 peaks above are the seam band. Since
+The 43 peaks above are the border band: peaks within 10 heatmap px of any edge, of which the
+360-degree seam (left and right edges) is the part that can hold a ramp. Since
 [#130](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/130) the peak finder
 has a second opt-in beside `--decode`: `--border keep` (main.py, reinfer.py) is RampNet's rule
 (`exclude_border=False`, no NMS across the seam), bound in the manifest

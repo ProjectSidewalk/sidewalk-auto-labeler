@@ -1,7 +1,7 @@
 {
  "arms": {
   "laurens": {
-   "geometric_expectation": 0.019531,
+   "geometric_expectation": 0.015625,
    "lost_peaks": 0,
    "panos": 4495,
    "panos_at_peak_cap": 0,
@@ -130,9 +130,10 @@
      "not_projected": 4,
      "peaks": 15,
      "promoted": 1,
-     "split": 1,
-     "view": 9
+     "split": 2,
+     "view": 8
     },
+    "straddle_pairs_projected": 1,
     "top_bottom": {
      "new": 0,
      "not_projected": 0,
@@ -144,7 +145,7 @@
    }
   },
   "laurens_gsv": {
-   "geometric_expectation": 0.019531,
+   "geometric_expectation": 0.015625,
    "lost_peaks": 0,
    "panos": 2137,
    "panos_at_peak_cap": 0,
@@ -256,7 +257,7 @@
    }
   },
   "laurens_gsv_archive": {
-   "geometric_expectation": 0.019531,
+   "geometric_expectation": 0.015625,
    "lost_peaks": 0,
    "panos": 2137,
    "panos_at_peak_cap": 0,
@@ -388,6 +389,7 @@
      "split": 0,
      "view": 0
     },
+    "straddle_pairs_projected": 0,
     "top_bottom": {
      "new": 0,
      "not_projected": 0,
@@ -401,23 +403,23 @@
  },
  "gt_radius": 0.022,
  "inputs_sha256": {
-  "laurens_check.csv": "b9cd4504d127df5aa1e00d12bb89abcb6a065ad7daa953fdf4ab8d790a997875",
+  "laurens_check.csv": "a4b044d7d551eb2c0a2a7ffff8c75820003ca30c6d99cc308bd75641145e8aff",
   "laurens_counts.json": "ff155d5133044324901e669f322c45ca960099a1daf079157c42182bc8a097d7",
   "laurens_gained.csv": "1eabc571c3984cbd182a1277e7d4d835f6a444c097d3d3066ac26c814478f512",
   "laurens_gsv_archive_counts.json": "44646d19d888c69637193e87e0eb68e757f85ce1200c5b8ca5e92c84342ef147",
   "laurens_gsv_archive_gained.csv": "22c376e5e475e21aae0b23a3049493d32f907929bfd9f05104e70b00b54c8e3b",
-  "laurens_gsv_archive_world.csv": "1c29c14b41fcb21870dd50612a93873f40b35b510d156d4e6e5a92f0701e81d0",
+  "laurens_gsv_archive_world.csv": "ccec4bee185778fe1cae7824826213872f4a5beec140b0ac97db294e05726d70",
   "laurens_gsv_archive_world.json": "2912eb5fe0c82c85cf6a07b02cfe36ba503de8249d0b0d62f56d12463390d41f",
-  "laurens_gsv_check.csv": "afa70f4de62a8bb29d4996a2668b2c7a2c4a6efb4c34e2d97cda8e96e17d2cd4",
+  "laurens_gsv_check.csv": "92636d773aa45de127432dca69e03c85b4d82972713e1515419802db84f9ba25",
   "laurens_gsv_counts.json": "3d604cfc54ff6faeca91a90b17ec16eb65f2b33bc45b406e835bb2d14f4389ce",
   "laurens_gsv_gained.csv": "fb5980d0040b92f0d6fc4f09fc1b772bdbeae0551af2b3e50629803dd3373789",
-  "laurens_world.csv": "115a0e79beba3c4d013a0650256b28461df69281d1f0a601f87906e00b4cd437",
+  "laurens_world.csv": "8cd0b4ca85a7621822999425453cac0b1720baa80c6cc9950ed925838c74975a",
   "laurens_world.json": "be05bd443e440d07fa94d486847311a619bfb45649de0a9464dfaf3c88145b24"
  },
  "issue": 130,
  "operating_point": 0.3,
  "pooled": {
-  "geometric_expectation": 0.019531,
+  "geometric_expectation": 0.015625,
   "lost_peaks": 0,
   "panos": 6632,
   "panos_at_peak_cap": 0,
@@ -546,9 +548,10 @@
     "not_projected": 5,
     "peaks": 17,
     "promoted": 1,
-    "split": 1,
-    "view": 9
+    "split": 2,
+    "view": 8
    },
+   "straddle_pairs_projected": 1,
    "top_bottom": {
     "new": 0,
     "not_projected": 0,
