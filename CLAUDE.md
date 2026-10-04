@@ -469,7 +469,10 @@ python scripts/label_frame_beta.py pool --pool <tilt-jm-pool.csv.gz> --pose <til
 # into a different site) as correct, because a miner cannot filter those out and the
 # labels it ships for them are right. A verdict-FALSE detection at the site counts as a
 # false positive under both (the reviewer looked there and said no). No GPU, no network;
-# writes runs/<city>/mined_precision/{report.md,candidates.csv} — one CSV row per
+# writes runs/<city>/mined_precision/{report.md,candidates.csv} (at 2.6 m; any other
+# height writes mined_precision_<frame>/, e.g. _auto or _h2.20, like eval_ps_clustering;
+# a pooled run over mixed heights names each, _h2.60+h2.20+...; a --placement run adds
+# _placed-<label or placement file stem>) — one CSV row per
 # candidate, always carrying the nearest GT point and its distance (`within_match` says
 # whether it adjudicated), which is how the localization hypothesis gets tested.
 # --radius may not exceed the 25 m ground-raycast range: past it no GT mark can be
