@@ -62,9 +62,14 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/agree_rate/*.csv
 # Server-side validations + one auditor vs the AI (scripts/server_agree_check.py): report and
 # CSVs tracked; the four API pulls are NOT -- the report carries url, fetch time, sha256, count.
+# Except Laurens's (2.4 MB, as #113 tracked Gainesville's): its auditor numbers went to
+# RampNet#158 and the live server moves within the hour, so the pull is the only way to
+# re-score them from git. Richmond (22 MB) and Vancouver (84 MB) stay untracked.
 !runs/*/server_agree/
 !runs/*/server_agree/report.md
 !runs/*/server_agree/*.csv
+!runs/laurens/server_agree/*.geojson
+!runs/laurens/server_agree/*.geojson.source.json
 # Label-frame beta (scripts/label_frame_beta.py, issue #113): the report and CSVs are
 # tracked. Unlike the rule above, Gainesville's API pull (5.2 MB) is tracked too: the live
 # API cannot return the same snapshot later, so without it the committed result could not
