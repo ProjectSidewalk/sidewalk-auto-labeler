@@ -372,13 +372,17 @@ def test_placement_raycast_uses_the_same_height_frame_as_the_gt_marks():
         assert r['shift_m'] == pytest.approx(0.0, abs=1e-6)
 
 
-@pytest.mark.parametrize('heights, name', [
-    ([2.6], 'mined_precision'),
-    ([2.6, 2.6], 'mined_precision'),
-    (['auto'], 'mined_precision_auto'),
-    (['per-pano', 'per-pano'], 'mined_precision_per-pano'),
-    ([2.2], 'mined_precision_h2.20'),
-    ([2.6, 2.2, 'auto'], 'mined_precision_h2.60+h2.20+auto'),
+@pytest.mark.parametrize('heights, placement, name', [
+    ([2.6], None, 'mined_precision'),
+    ([2.6, 2.6], None, 'mined_precision'),
+    (['auto'], None, 'mined_precision_auto'),
+    (['per-pano', 'per-pano'], None, 'mined_precision_per-pano'),
+    ([2.2], None, 'mined_precision_h2.20'),
+    ([2.6, 2.2, 'auto'], None, 'mined_precision_h2.60+h2.20+auto'),
+    # a placement arm gets its own dir, so it never overwrites the flat run in its frame
+    ([2.6], 'segmenter', 'mined_precision_placed-segmenter'),
+    (['auto'], 'segmenter', 'mined_precision_auto_placed-segmenter'),
+    ([2.6, 2.2], 'seg', 'mined_precision_h2.60+h2.20_placed-seg'),
 ])
-def test_default_dir_names_the_frame_so_frames_never_overwrite(heights, name):
-    assert mp.default_dir_name(heights) == name
+def test_default_dir_names_the_frame_so_frames_never_overwrite(heights, placement, name):
+    assert mp.default_dir_name(heights, placement) == name

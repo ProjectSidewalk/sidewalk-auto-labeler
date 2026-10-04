@@ -55,6 +55,7 @@ Usage:
 import argparse
 import csv
 import math
+import re
 import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -767,11 +768,14 @@ def format_report(city, r):
     return '\n'.join(lines)
 
 
-def default_dir_name(heights):
+def default_dir_name(heights, placement=None):
     """Default output-dir name for the camera heights a report was scored at, so a
     report in one frame never overwrites another (the rule eval_ps_clustering uses):
     `mined_precision` at the default 2.6 m, else fuse_sites.frame_suffix appended.
     `heights` is one per city; a pooled report over mixed heights names them all.
+    `placement` names an image-placement arm (--placement-label, else the placement
+    file's stem); it is appended as `_placed-<name>`, so a placement run never
+    overwrites the flat run in the same frame.
 
     Example:
         >>> default_dir_name([2.6])
@@ -780,12 +784,18 @@ def default_dir_name(heights):
         'mined_precision_auto'
         >>> default_dir_name([2.6, 2.2])
         'mined_precision_h2.60+h2.20'
+        >>> default_dir_name([2.6], placement='seg')
+        'mined_precision_placed-seg'
     """
     suffixes = [fs.frame_suffix(h) for h in heights]
     if len(set(suffixes)) == 1:
-        return 'mined_precision' + suffixes[0]
-    return 'mined_precision_' + '+'.join(
-        s.lstrip('_') or f'h{geo.DEFAULT_CAMERA_HEIGHT_M:.2f}' for s in suffixes)
+        name = 'mined_precision' + suffixes[0]
+    else:
+        name = 'mined_precision_' + '+'.join(
+            s.lstrip('_') or f'h{geo.DEFAULT_CAMERA_HEIGHT_M:.2f}' for s in suffixes)
+    if placement:      # a free-text label: keep it one safe path component
+        name += '_placed-' + re.sub(r'[^A-Za-z0-9._+-]+', '-', str(placement)).strip('-')
+    return name
 
 
 
@@ -897,8 +907,10 @@ def main():
                     help='output dir (default runs/<city>/mined_precision, and '
                          'runs/_pooled/mined_precision for the pooled report; a '
                          'height other than 2.6 m appends its frame, e.g. '
-                         'mined_precision_auto or mined_precision_h2.20, so one '
-                         'frame never overwrites another)')
+                         'mined_precision_auto or mined_precision_h2.20, and a '
+                         '--placement run appends _placed-<--placement-label, else '
+                         'the placement file stem>, so neither a frame nor a '
+                         'placement arm ever overwrites another)')
     args = ap.parse_args()
 
     cities = args.city
@@ -918,6 +930,8 @@ def main():
         return geo.DEFAULT_CAMERA_HEIGHT_M if mode is None else mode
 
     placement = read_placement(args.placement) if args.placement else None
+    placement_name = ((args.placement_label or args.placement.stem)
+                      if args.placement else None)
     per_city, out_dirs = [], []
     for city, mode in zip(cities, city_modes):
         run_dir = args.run_dir or args.runs_root / city
@@ -956,7 +970,8 @@ def main():
         report_text = format_report(city, result)
         print(report_text)
         out_dir = (args.out / city if args.out and len(cities) > 1
-                   else args.out or run_dir / default_dir_name([height_of(mode)]))
+                   else args.out or run_dir / default_dir_name([height_of(mode)],
+                                                               placement_name))
         write_outputs(out_dir, report_text, cands, result['sources'], result['placement'])
         out_dirs.append(out_dir)
         per_city.append((result, cands))
@@ -976,7 +991,7 @@ def main():
         print('\n\n' + text)
         pooled_dir = (args.out / '_pooled' if args.out
                       else args.runs_root / '_pooled' / default_dir_name(
-                          [height_of(m) for m in city_modes]))
+                          [height_of(m) for m in city_modes], placement_name))
         write_outputs(pooled_dir, text, pooled_cands, pooled['sources'],
                       pooled['placement'])
         out_dirs.append(pooled_dir)
