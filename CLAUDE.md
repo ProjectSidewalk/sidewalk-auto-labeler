@@ -376,8 +376,8 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 # fusion_server+attach = one pre-declared bearing rule for unplaceable labels (15-60 m along
 # the ray, 3 m perpendicular; never tune it on GT). Pooled (10 cities; Budapest excluded --
 # its local file is partial): the server rule fragments ~2x fusion (frag 5 m 0.24 vs 0.12) at
-# level coverage (0.872 vs 0.876); a 12.5 m cut matches fusion's fragmentation but costs 3.7
-# pts coverage -- no constant fixes it. Unplaceable labels are real ramps (0.96 precision) and
+# level coverage (0.872 vs 0.876); a 12.5 m cut gets most of the way to fusion's fragmentation
+# (0.15 vs 0.12) but costs 3.8 pts coverage -- no constant fixes it. Unplaceable labels are real ramps (0.96 precision) and
 # 93% attach. Part 2 (city inventories, pre-registered on #106): NOT ESTABLISHED -- fusion's
 # split advantage in Gainesville holds at `auto` and reverses at 2.6 m (Gainesville alone:
 # it holds at 2.6 m in Bend and in the Part 1 pool); Bend misses the 5-pt split bar.

@@ -416,7 +416,16 @@ evaluation arm only and changes no SidewalkWebpage code.
   with them. A pano with no label within 15 m falls back to the run's block, and one with
   neither is left out, but its labels still become singleton clusters. The report counts
   each case, and it warns when an inverted position sits more than 1 m from the run's
-  block.
+  block. Two refinements (2026-10-04, #107 review pass): the AI account's labels are
+  inverted when a pano has any, and the other accounts' only when it has none, because a
+  human label keeps the lat/lng it was inserted at. On Laurens that is a pano position the
+  server no longer holds: human-only inversion sits a median 8.7 m from the live block on
+  70 panos (AI-only: 0.000 m, the placement gate), and mixed into the median it moved 57 of
+  695 panos and cost Laurens' `fusion_server` 5 ramps of coverage (0.769 -> 0.748); with AI
+  first it is back at 0.769 (183/238), and 17 human-only panos still warn. Richmond does not
+  move. **Offline** there is nothing to invert against: the synthesized labels were placed
+  *from* the run's block, so that block is the server's position by construction and is
+  used directly (inverting it back only added its own error, p90 0.24-0.33 m).
 - **Frame:** the scoring frame, like every other labeler arm. Height fields, peak decode and
   border rule are copied from the run's pano when there is one, so fuse's mixed-decode guard
   (#111) sees the run's real values. A pano only humans labeled takes the run's single
