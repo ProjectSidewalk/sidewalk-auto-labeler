@@ -422,9 +422,11 @@ Richmond (Mapillary; 2026-09-21 pull), 2.6 m frame, 5 m match radius:
 | fusion | 1570 | 0.909 (230) | 0.16 (38) | 24/3/3 |
 | fusion_server | 3030 | 0.909 (230) | 0.17 (44) | 24/3/3 |
 
-- **Server-only data matches fusion on every scored metric to within one ramp:** coverage
-  230 vs 230 of 253, frag 5 m 0.17 vs 0.16 (44 vs 38 extra fragments, against the deployed
-  0.47 / 132), the same dual-ramp split, and precision equal to the deployed 0.964. The
+- **Server-only data matches fusion on coverage and the dual split, and is close on
+  fragmentation:** coverage 230 vs 230 of 253, the same dual-ramp split; frag 5 m 0.17 vs 0.16
+  (40 vs 36 ramps fragmented, 44 vs 38 extra fragments), frag 3 m 15 vs 14, both far below the
+  deployed 0.47 / 132. Precision equals *deployed*'s 0.964, not fusion's 0.959, because both
+  score every live label. The
   partitions are close but not identical: 1,485 of `fusion_server`'s 1,589 clusters with AI
   members are, member for member, clusters of `fusion`. Of the 3,721 labeled panos, 3,057
   are positioned by inversion and 661 from the run's block. 3 have neither: they are
