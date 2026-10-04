@@ -794,3 +794,19 @@ def test_sigma_peak_px_flag_reaches_the_fuse():
     args = fs.build_parser().parse_args(['runs/x', '--sigma-peak-px', '2.31'])
     assert args.sigma_peak_px == 2.31
     assert fs.build_parser().parse_args(['runs/x']).sigma_peak_px is None
+
+
+def test_pose_ablation_same_site_table_scores_one_site_set():
+    """#57: the same-site table keeps a group only if every convention places every
+    member within the cap. A 0/0 pose is identical under every sign, so with only 0/0
+    poses every convention reads the same, and the real-tilt subset is empty."""
+    from dataclasses import replace as dc_replace
+    panos = [dc_replace(make_pano(pid, pe, pn, [(0, 0, 0.9)], source='panoramax'),
+                        camera_pitch=0.0, camera_roll=0.0)
+             for pid, pe, pn in (('p1', -10, 0), ('p2', 10, 0), ('p3', 0, -10))]
+    text = fs.pose_ablation_report(panos, fs.FuseParams())
+    table = text.split('same-site set, posed members (incl. 0/0): ')[1]
+    assert table.startswith('1 of 1 groups placed by every convention within 25 m')
+    medians = {line.split()[-3] for line in table.split('\n')[2:8]}
+    assert len(medians) == 1
+    assert 'same-site set, real-tilt members only: 0 of 0 groups' in text

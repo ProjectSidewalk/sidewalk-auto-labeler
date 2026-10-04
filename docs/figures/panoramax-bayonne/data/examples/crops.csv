@@ -1,0 +1,13 @@
+selection,rank,pano_id,det_index,x,y,confidence,capture_date,producer,license,privacy_skip,range_m,crop_cx,crop_cy
+top,0,34f476a5-9364-4d22-87ea-d656133529b2,0,0.8477,0.5859,0.989,2026-04,sig_bayonne,etalab-2.0,,9.4,0.4983,0.5
+top,1,e0849d9a-64a6-4426-b398-7d00e8ad17c4,0,0.168,0.6016,0.97,2024-04,sig_bayonne,etalab-2.0,,7.9,0.4984,0.5021
+top,2,6d0d3dba-c9be-488f-a6e3-4d4cb2a8f909,0,0.3945,0.5391,0.961,2025-09,sig_bayonne,etalab-2.0,,21.1,0.5016,0.5021
+top,3,49e70c7d-f373-471d-aca0-b5be9e83f9e4,0,0.9092,0.5391,0.951,2026-04,sig_bayonne,etalab-2.0,,21.1,0.5008,0.5
+top,4,34f476a5-9364-4d22-87ea-d656133529b2,1,0.6523,0.584,0.935,2026-04,sig_bayonne,etalab-2.0,,9.6,0.4983,0.4989
+top,5,34f476a5-9364-4d22-87ea-d656133529b2,2,0.1055,0.5547,0.932,2026-04,sig_bayonne,etalab-2.0,,15.0,0.4983,0.5
+random,0,cc057703-e556-4769-a99d-c32e5bcabb55,1,0.8242,0.6797,0.656,2026-04,sig_bayonne,etalab-2.0,,4.1,0.4983,0.5
+random,1,48d7a7fe-3b57-4eeb-ae3b-a82229f49bf5,2,0.332,0.5996,0.67,2026-04,sig_bayonne,etalab-2.0,,8.0,0.4983,0.4989
+random,2,cc057703-e556-4769-a99d-c32e5bcabb55,0,0.3232,0.5703,0.816,2026-04,sig_bayonne,etalab-2.0,,11.6,0.5008,0.5
+random,3,dca64d90-0ebb-41df-900d-f89c03bffbeb,1,0.1914,0.5859,0.64,2025-02,sig_bayonne,etalab-2.0,,9.4,0.5016,0.4979
+random,4,47e29c76-15f1-462a-a34c-db9d49ce800a,2,0.1279,0.5371,0.645,2026-04,sig_bayonne,etalab-2.0,,22.2,0.5008,0.4989
+random,5,d90cbe9d-0c77-4a43-aab6-d5dd9c52897c,0,0.8711,0.5703,0.725,2026-04,sig_bayonne,etalab-2.0,,11.6,0.4983,0.5

@@ -1433,19 +1433,7 @@ def pose_ablation_report(panos, params, allow_mixed_decode=False, allow_mixed_bo
     while reading like a statement about the run. A subset drawn by "which rig wrote a
     pose" is not a random one, so the header says so out loud.
     """
-    from dataclasses import replace
-
-    sites, frame, _ = fuse(panos, replace(params, apply_pose=POSE_OFF),
-                           allow_mixed_decode=allow_mixed_decode,
-                           allow_mixed_border=allow_mixed_border)
-    by_id = {p.pano_id: p for p in panos}
-    groups = []
-    for site in sites:
-        ms = [d for d, _ in site.members
-              if d.operational and by_id[d.pano_id].camera_pitch is not None
-              and by_id[d.pano_id].camera_roll is not None]
-        if len(ms) >= 2:
-            groups.append(ms)
+    groups, by_id, frame = posed_groups(panos, params, allow_mixed_decode, allow_mixed_border)
     if not groups:
         return 'no multi-view sites with pitch/roll poses — nothing to ablate'
 
@@ -1458,9 +1446,7 @@ def pose_ablation_report(panos, params, allow_mixed_decode=False, allow_mixed_bo
             '  ⚠ mixed population — the table below describes only the posed panos, '
             'which are\n    self-selected by capture rig, not a random sample of the run.')
 
-    conventions = [('off (no pose)', None), ('+pitch +roll', (1, 1)),
-                   ('+pitch -roll', (1, -1)), ('-pitch +roll', (-1, 1)),
-                   ('-pitch -roll', (-1, -1)), ('+pitch  0', (1, 0))]
+    conventions = POSE_CONVENTIONS
     lines = coverage + [f'{len(groups)} frozen multi-view sites '
              f'({sum(len(g) for g in groups)} members); '
              'within-site pairwise member distance (m):',
@@ -1502,7 +1488,105 @@ def pose_ablation_report(panos, params, allow_mixed_decode=False, allow_mixed_bo
         mean = sum(dists) / len(dists)
         lines.append(f'{name:>14}  {mean:7.3f}  {dists[len(dists) // 2]:7.3f}  '
                      f'{len(dists):7d}')
+    lines += ['', *pose_ablation_same_sites(groups, by_id, frame, params, conventions)]
     return '\n'.join(lines)
+
+
+POSE_CONVENTIONS = [('off (no pose)', None), ('+pitch +roll', (1, 1)),
+                    ('+pitch -roll', (1, -1)), ('-pitch +roll', (-1, 1)),
+                    ('-pitch -roll', (-1, -1)), ('+pitch  0', (1, 0))]
+SAME_SITE_SUBSETS = (('posed members (incl. 0/0)', lambda p: True),
+                     ('real-tilt members only',
+                      lambda p: float(p.camera_pitch) != 0.0 or float(p.camera_roll) != 0.0))
+
+
+def posed_groups(panos, params, allow_mixed_decode=False, allow_mixed_border=False):
+    """(groups, by_id, frame): the operational members of each pose-OFF site whose pano
+    carries pitch+roll, for every site with >= 2 of them -- the ablation's frozen
+    association. allow_mixed_decode / allow_mixed_border pass through to fuse (#111, #130)."""
+    from dataclasses import replace
+    sites, frame, _ = fuse(panos, replace(params, apply_pose=POSE_OFF),
+                           allow_mixed_decode=allow_mixed_decode,
+                           allow_mixed_border=allow_mixed_border)
+    by_id = {p.pano_id: p for p in panos}
+    groups = []
+    for site in sites:
+        ms = [d for d, _ in site.members
+              if d.operational and by_id[d.pano_id].camera_pitch is not None
+              and by_id[d.pano_id].camera_roll is not None]
+        if len(ms) >= 2:
+            groups.append(ms)
+    return groups, by_id, frame
+
+
+def same_site_spreads(groups, by_id, frame, params, conventions, keep):
+    """(kept, candidates, {convention: [per-group list of pairwise distances]}) on ONE
+    site set: a group (restricted to members `keep` accepts, >= 2 of them) counts only
+    if every convention places every member within params.max_range_m. Per-group lists
+    keep the group structure, so a caller can bootstrap over sites."""
+    subset = [[d for d in ms if keep(by_id[d.pano_id])] for ms in groups]
+    subset = [ms for ms in subset if len(ms) >= 2]
+    out = {name: [] for name, _ in conventions}
+    kept = 0
+    for ms in subset:
+        per = {}
+        for name, signs in conventions:
+            row = []
+            for d in ms:
+                p = by_id[d.pano_id]
+                if signs is None:
+                    pose = geo.pano_pose(p.pose_fields(camera_pitch=None, camera_roll=None))
+                else:
+                    pose = geo.pano_pose(p.pose_fields(
+                        camera_pitch=signs[0] * p.camera_pitch,
+                        camera_roll=signs[1] * p.camera_roll))
+                g = geo.detection_ground_point(
+                    pose, d.x, d.y, camera_height=params.camera_height_m,
+                    max_range_m=params.max_range_m,
+                    errors=geo.error_model_for(p.source, params.sigma_peak_px))
+                if g is None:
+                    break
+                row.append(frame.to_enu(g.lat, g.lng))
+            else:
+                per[name] = row
+                continue
+            break
+        if len(per) != len(conventions):
+            continue
+        kept += 1
+        for name, row in per.items():
+            out[name].append([math.hypot(row[i][0] - row[j][0], row[i][1] - row[j][1])
+                              for i in range(len(row)) for j in range(i + 1, len(row))])
+    return kept, len(subset), out
+
+
+def pose_ablation_same_sites(groups, by_id, frame, params, conventions):
+    """The ablation re-read on ONE site set at the production range cap (issue #57).
+
+    The table above lets each convention drop a whole group when one member's ray
+    misses the ground, and runs uncapped, so its rows are different subsets and its
+    tail charges a convention for rays production drops. Here a group counts only if
+    EVERY convention places EVERY member within params.max_range_m, and the pairwise
+    spread is read as a median and a p90 -- twice: over all posed members, and over
+    members whose pose is a real tilt (a 0/0 pose is identical under every sign, so
+    it only dilutes the contrast)."""
+    out = []
+    for label, keep in SAME_SITE_SUBSETS:
+        kept, n_subset, per_group = same_site_spreads(groups, by_id, frame, params,
+                                                      conventions, keep)
+        out += [f'same-site set, {label}: {kept} of {n_subset} groups placed by every '
+                f'convention within {params.max_range_m:g} m; pairwise distance (m):',
+                f'{"convention":>14}  {"median":>7}  {"p90":>7}  {"pairs":>7}']
+        for name, _ in conventions:
+            dists = sorted(x for g in per_group[name] for x in g)
+            if not dists:
+                out.append(f'{name:>14}  {"—":>7}  {"—":>7}  {0:7d}')
+                continue
+            p90 = dists[min(len(dists) - 1, max(0, math.ceil(len(dists) * 0.9) - 1))]
+            out.append(f'{name:>14}  {dists[len(dists) // 2]:7.3f}  {p90:7.3f}  '
+                       f'{len(dists):7d}')
+        out.append('')
+    return out
 
 
 IMPLIED_MIN_ANGLE_DEG = 30.0   # below this two bearings barely constrain a range

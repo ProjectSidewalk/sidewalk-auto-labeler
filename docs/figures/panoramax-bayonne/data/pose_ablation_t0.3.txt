@@ -1,0 +1,30 @@
+pose coverage: 16543/28524 panos carry pitch+roll (58%)
+  ⚠ mixed population — the table below describes only the posed panos, which are
+    self-selected by capture rig, not a random sample of the run.
+889 frozen multi-view sites (2272 members); within-site pairwise member distance (m):
+    convention     mean   median    pairs
+ off (no pose)    5.085    4.984     2118
+  +pitch +roll    7.209    5.665     2118
+  +pitch -roll    8.398    5.802     2026
+  -pitch +roll    7.599    5.801     2056
+  -pitch -roll    8.047    5.879     2070
+     +pitch  0    7.251    5.596     2106
+
+same-site set, posed members (incl. 0/0): 561 of 889 groups placed by every convention within 25 m; pairwise distance (m):
+    convention   median      p90    pairs
+ off (no pose)    4.716    7.817     1215
+  +pitch +roll    5.142    9.918     1215
+  +pitch -roll    5.061    9.723     1215
+  -pitch +roll    5.076    9.018     1215
+  -pitch -roll    5.129    9.109     1215
+     +pitch  0    4.936    8.983     1215
+
+same-site set, real-tilt members only: 249 of 523 groups placed by every convention within 25 m; pairwise distance (m):
+    convention   median      p90    pairs
+ off (no pose)    4.448    7.491      392
+  +pitch +roll    5.621   11.636      392
+  +pitch -roll    5.069   11.190      392
+  -pitch +roll    5.543   10.528      392
+  -pitch -roll    5.575   10.025      392
+     +pitch  0    4.923   10.057      392
+
