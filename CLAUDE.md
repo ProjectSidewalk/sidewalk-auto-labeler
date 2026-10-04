@@ -355,6 +355,9 @@ python scripts/reprojection_residual.py bend paterson gainesville sao_paulo rich
 # It also takes per-pano / auto / per-rig (#56), resolved by fuse_sites.load_at_height -- the one
 # resolver fuse_sites, eval_sites and mined_precision share -- into ps_clustering_eval_<mode>/;
 # the report says how many panos fell back to 2.6 m (Richmond, Mapillary: all of them).
+# The committed Richmond reports are PINNED to the cached 2026-09-21 pull (--labels/--clusters):
+# a fresh pull now holds ~3.4k band labels from results.band.jsonl and the 72 posfix3seq panos'
+# raw-GPS labels, so against results.jsonl it refuses (unmapped AI labels) -- correct behaviour.
 python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond.cs.washington.edu
 # BEYOND RICHMOND (#106; docs/ps-clustering-eval.md "Beyond Richmond" + "City-inventory
 # scoring"). --offline scores a city with NO server: one label per stored detection >= the
@@ -378,7 +381,9 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 # it holds at 2.6 m in Bend and in the Part 1 pool); Bend misses the 5-pt split bar.
 # Five runs (bend clovis morgantown annapolis richmond) predate the storage floor: their 0.30
 # tier IS their 0.55 tier. The pooled driver is resumable (results, streets and verdicts
-# sha256 + SCORER_VERSION; bump SCORER_VERSION by hand when a number can move).
+# sha256 + SCORER_VERSION; bump SCORER_VERSION by hand when a number can move), pulls each
+# city's streets once, and REFUSES (exit 1, pooled outputs untouched) when any cell is
+# missing or stale, unless --allow-partial.
 python scripts/eval_ps_clustering.py bend --offline                      # -> ..._offline_t0.55/
 python scripts/eval_ps_clustering.py laurens --split laurens_mapillary --results \
     runs/laurens/results.raw.jsonl --min-confidence 0.3 --mask-rig --offline-check \

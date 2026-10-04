@@ -40,6 +40,14 @@ placement, or the merge criterion.
   and no pixel key is ambiguous), so cluster membership can be scored against per-detection
   verdicts. The exact pull is identified by url, timestamp and sha256 at the top of each
   committed report.
+- **The live Richmond reports are pinned to that 2026-09-21 pull** (the cached
+  `raw_labels.geojson` / `clusters.geojson`, passed with `--labels` / `--clusters`). A
+  fresh pull no longer maps to `results.jsonl`: the server now also holds about 3.4k
+  0.30-0.55 band labels submitted from `results.band.jsonl`, and the 72 posfix3seq panos'
+  labels re-inserted at raw GPS. Those band labels belong to the AI account but match no
+  stored detection, so the run refuses (`unmapped_ai > 0`), and the all-label placement gate
+  would FAIL on the repositioned panos. Both are correct behaviour; scoring a current pull
+  needs the band file as `--results` and the repositioned panos accounted for.
 - **Deployed clusters.** `/v3/api/labelClusters?includeRawLabels=true`, same pull: 2,156
   clusters covering 9,634 labels (5 labels unclustered).
 - **Clustering code.** `scripts/label_clustering.py` from SidewalkWebpage `develop` at
