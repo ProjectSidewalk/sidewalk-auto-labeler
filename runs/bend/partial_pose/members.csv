@@ -1,0 +1,17 @@
+city,height,arm,op_members,unplaceable,unplaceable_vs_off
+bend,auto,off,25780,881,0
+bend,auto,partial,25780,882,1
+bend,auto,partial-loco,25780,884,3
+bend,auto,partial-shuffled,25780,887,6
+bend,auto,partial-loco-shuffled,25780,902,21
+bend,auto,full,25780,1242,361
+bend,auto,partial-mirror,25780,900,19
+bend,auto,fixed-113,25780,888,7
+bend,2.6,off,25780,881,0
+bend,2.6,partial,25780,886,5
+bend,2.6,partial-loco,25780,893,12
+bend,2.6,partial-shuffled,25780,904,23
+bend,2.6,partial-loco-shuffled,25780,929,48
+bend,2.6,full,25780,1508,627
+bend,2.6,partial-mirror,25780,933,52
+bend,2.6,fixed-113,25780,924,43

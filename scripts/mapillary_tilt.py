@@ -75,7 +75,7 @@ for p in (str(REPO_ROOT / 'scripts'), str(REPO_ROOT)):
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
-from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, record_border, record_decode  # noqa: E402
 
 # Benchmark split name -> run directory name, where they differ.
 BENCHMARK_OF = {'laurens': 'laurens_mapillary'}
@@ -200,8 +200,13 @@ def load_run(city, floor=None):
                 capture_date=p.get('capture_date'), source=p.get('source') or '',
                 detections=[(i, d['x_normalized'], d['y_normalized'], d['confidence'])
                             for i, d in enumerate(rec.get('detections', []))
-                            if floor is None or d['confidence'] >= floor]))
+                            if floor is None or d['confidence'] >= floor],
+                decode=record_decode(rec), border=record_border(rec)))
     add_sequence_grade(poses)
+    try:   # every study here is scored against argmax-keyed bundles (#111)
+        es.require_bundle_frame(panos, path.parent)
+    except ValueError as e:
+        raise SystemExit(str(e))
     return panos, poses, no_rotation
 
 
@@ -691,6 +696,7 @@ def cmd_precondition(args):
         verdict_panos, bundle_ops = load_gt_files(bench, args.benchmark_root)
         panos, _ = fs.load_results(REPO_ROOT / 'runs' / city / 'results.jsonl',
                                    read_heights=False)
+        es.require_bundle_frame(panos, city)
         rows, info = es.pose_precondition(verdict_panos, bundle_ops, panos, base)
         print(es.format_precondition(bench, rows, info))
         for r in rows:
@@ -719,6 +725,7 @@ def _precondition_dem(args):
         verdict_panos, bundle_ops = load_gt_files(bench, args.benchmark_root)
         results = REPO_ROOT / 'runs' / city / 'results.jsonl'
         panos, _ = fs.load_results(results, read_heights=False)
+        es.require_bundle_frame(panos, results)
         graded = {src: fs.load_results(results, read_heights=False, grade_source=src)[0]
                   for src in (fs.GRADE_DEM, fs.GRADE_SFM_SMOOTHED)}
         rows, info = es.pose_precondition(verdict_panos, bundle_ops, panos, base,

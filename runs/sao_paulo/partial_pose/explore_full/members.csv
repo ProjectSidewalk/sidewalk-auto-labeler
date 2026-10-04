@@ -1,0 +1,11 @@
+city,height,arm,op_members,unplaceable,unplaceable_vs_off
+sao_paulo,auto,off,27338,1682,0
+sao_paulo,auto,partial-loco,27338,1663,-19
+sao_paulo,auto,partial-loco-shuffled,27338,1712,30
+sao_paulo,auto,full,27338,1924,242
+sao_paulo,auto,fixed-113,27338,1659,-23
+sao_paulo,2.6,off,27338,1682,0
+sao_paulo,2.6,partial-loco,27338,1729,47
+sao_paulo,2.6,partial-loco-shuffled,27338,1770,88
+sao_paulo,2.6,full,27338,2314,632
+sao_paulo,2.6,fixed-113,27338,1773,91

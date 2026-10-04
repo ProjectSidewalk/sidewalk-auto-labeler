@@ -35,6 +35,21 @@ pano REPRODUCES when both of these hold:
     is what every label inherits, so a band whose panos moved would arrive in a different
     frame from the base labels already live.
 
+**Coarse-cell agreement is a diagnostic, never a reproduction** (#111). RampNet's heatmap is
+a bilinear 8x upsample of a stride-32 map, so a peak can only land on residue 3 or 4 of each
+8-cell block, and when two neighbouring coarse cells are near-tied a small input change (a
+different JPEG of the same pano) moves the argmax 7-8 heatmap cells: the same ramp, decoded
+at the other cell. `--verify` therefore also reports, for every pano whose pixel keys
+differ (and whose width/height did not change), how its old and new keys pair up one-to-one
+within +/-1 coarse cell (Chebyshev, seam-wrapped): how many pairs sit in the same heatmap
+cell, one cell apart (residue 3 <-> 4), 2-6 apart (off the grid), 7-8 apart (**the flip**),
+and how many keys found no partner. That tells an operator WHY a pano failed. It does not
+change the decision: a pano still reproduces only on exact pixel keys, because
+`--write-band-file` asserts that the band file's labels at the server's tier ARE the live
+ones, and a label that moved one coarse cell is a different pixel on the server -- shipping
+the new record would insert its band beside a live label that no longer matches the file.
+A pano that agrees only within a cell is carried over from the old file like any other.
+
 `--write-band-file` then writes the file a band may actually ship from: the NEW record for
 every pano that reproduced, and the OLD record for every pano that did not. The old records
 hold nothing below the tier the server has, so their band is empty and `send_to_ps.py` skips
@@ -42,6 +57,23 @@ them without a POST. That gives the file one property, which is asserted before 
 on disk: **its labels at and above the server's tier are exactly the ones already live**. A
 derived `<band file>.submission.json` therefore describes a real campaign, and the ordinary
 band guard applies with no override.
+
+**The peak decode** (#111). A re-inference uses the run's own decode (manifest.json
+`detection_decode`, argmax when absent) unless `--decode` says otherwise, and an existing
+`--out` file is bound to the decode its records carry. `--verify` refuses to compare files
+written under different decodes (every sub-cell position differs from its argmax pixel, so
+nothing would reproduce and the coarse-cell diagnostic would describe the decode, not the
+model) unless `--allow-mixed-decode` asks for that comparison as a diagnostic; and
+`--write-band-file` refuses a mix outright, because a band file holding gaussian records over
+an argmax base would ship its band in a second frame.
+
+**The border rule** (#130), the same way. A re-inference uses the run's own rule (manifest.json
+`detection_border`, `exclude` when absent) unless `--border` says otherwise; an existing
+`--out` is bound to the rule its records carry; `--verify` refuses an `exclude`/`keep` pair
+unless `--allow-mixed-border` asks for it as a diagnostic, and `--write-band-file` refuses it
+outright -- a `keep` record shipped beside `exclude` live labels would add its seam-band
+labels in the band. Under the diagnostic, `--verify` says how many differing pixel keys lie
+in the 10-px border band (seam, zenith, nadir), i.e. are the border rule rather than the model.
 """
 import argparse
 import json
@@ -55,7 +87,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from detectors import BENCHMARK_CONFIDENCE, on_camera_rig  # noqa: E402
+import geo  # noqa: E402
+from detectors import (BENCHMARK_CONFIDENCE, BORDERS, DECODES, DEFAULT_BORDER,  # noqa: E402
+                       DEFAULT_DECODE, border_band_edge, borders_in_file, decodes_in_file,
+                       on_camera_rig, single_border, single_decode)
 from detectors.batching import BATCH_SIZE_HELP, report_detector  # noqa: E402
 
 # The pano fields a band must not change: the first two set the pixel key PS stores, the
@@ -90,17 +125,54 @@ def pano_drift(old, new):
             for f in PANO_INVARIANTS if old['pano'].get(f) != new['pano'].get(f)]
 
 
+def cell_agreement(old_set, new_set, width, height):
+    """Pair two pixel-key multisets one-to-one within +/-1 coarse heatmap cell (#111).
+
+    Greedy on distance (closest pairs first; ties by key), Chebyshev in heatmap cells with
+    x wrapping at the seam, tolerance one coarse cell plus the rounding pixel. Returns
+    (pairs by geo.CELL_SHIFT_CLASSES key, unpaired old keys, unpaired new keys). A
+    DIAGNOSTIC: nothing here decides whether a pano reproduces (see the module docstring).
+
+    Example (a flip: the same ramp 7 cells over, on a 16384-wide pano):
+        >>> from collections import Counter
+        >>> cell_agreement(Counter({(1000, 4000): 1}), Counter({(1112, 4000): 1}), 16384, 8192)
+        (Counter({'flip': 1}), 0, 0)
+    """
+    tol = geo.HEATMAP_COARSE_CELL_PX + max(geo.HEATMAP_WIDTH / width,
+                                           geo.HEATMAP_HEIGHT / height)
+    olds = sorted(old_set.elements())
+    news = sorted(new_set.elements())
+    cands = sorted((geo.heatmap_cell_distance(a, b, width, height), i, j)
+                   for i, a in enumerate(olds) for j, b in enumerate(news))
+    used_old, used_new, pairs = set(), set(), Counter()
+    for dist, i, j in cands:
+        if dist > tol:
+            break
+        if i in used_old or j in used_new:
+            continue
+        used_old.add(i)
+        used_new.add(j)
+        pairs[geo.cell_shift_class(dist)] += 1
+    return pairs, len(olds) - len(used_old), len(news) - len(used_new)
+
+
 def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None):
     """Compare the new file to the old one at `floor`.
 
     Returns (summary, mismatches, carry_over) where `carry_over` is the set of pano ids
-    that did NOT reproduce - the ids a band file must take from the old file.
+    that did NOT reproduce - the ids a band file must take from the old file. A pano
+    reproduces only on exact pixel keys; summary['coarse_cell'] is the #111 diagnostic over
+    the panos whose keys differ (cell_agreement), and never moves a pano into or out of
+    carry_over.
     """
     new_by_id = {r['pano']['panorama_id']: r for r in read_records(new_path)}
     summary = {'old_panos': 0, 'new_panos': len(new_by_id), 'missing': 0, 'exact': 0,
                'mismatch': 0, 'pano_drift': 0, 'old_labels': 0}
     if band_floor is not None:
         summary['band_labels'] = 0
+    cells = {'panos': 0, 'panos_agree_within_cell': 0, 'pairs': Counter(),
+             'unpaired_old': 0, 'unpaired_new': 0}
+    band = {'panos_only_in_band': 0, 'keys_old': 0, 'keys_new': 0}
     mismatches = []
     carry_over = set()
     for old in read_records(old_path):
@@ -134,6 +206,27 @@ def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None):
         if new_set != old_set:
             summary['mismatch'] += 1
             mismatches.append((pid, sorted(old_set - new_set), sorted(new_set - old_set)))
+            w, h = old['pano']['width'], old['pano']['height']
+            # #130 diagnostic: differing keys inside the 10-px border band are what the
+            # border rule changes; a pano whose every differing key is there differs by
+            # the rule alone.
+            only_old, only_new = old_set - new_set, new_set - old_set
+            in_band = lambda k: border_band_edge(k[0] / w, k[1] / h) is not None  # noqa: E731
+            n_old = sum(n for k, n in only_old.items() if in_band(k))
+            n_new = sum(n for k, n in only_new.items() if in_band(k))
+            band['keys_old'] += n_old
+            band['keys_new'] += n_new
+            band['panos_only_in_band'] += (n_old + n_new) == sum((only_old + only_new).values())
+            if (new['pano']['width'], new['pano']['height']) == (w, h):
+                pairs, lone_old, lone_new = cell_agreement(old_set, new_set, w, h)
+                cells['panos'] += 1
+                cells['panos_agree_within_cell'] += not (lone_old or lone_new)
+                cells['pairs'].update(pairs)
+                cells['unpaired_old'] += lone_old
+                cells['unpaired_new'] += lone_new
+    cells['pairs'] = {k: cells['pairs'][k] for k, _, _ in geo.CELL_SHIFT_CLASSES}
+    summary['coarse_cell'] = cells
+    summary['border_band'] = band
     return summary, mismatches, carry_over
 
 
@@ -247,6 +340,12 @@ def write_derived_record(old_path, band_path, tier):
                          "tier": tier},
         "endpoints": endpoints,
     }
+    # The band file's border rule (#130), as send_to_ps writes it: only when it is not plain
+    # exclude, so a derived record over a keep campaign cannot read back as exclude to the
+    # city-wide guard (#131 review M5; the decode twin is #129's N4).
+    border = single_border(borders_in_file(band_path), band_path.name)
+    if border != DEFAULT_BORDER:
+        record["detection_border"] = border
     tmp_path = record_path.with_name(record_path.name + '.tmp')
     with open(tmp_path, 'w', encoding='utf-8', newline='\n') as f:
         json.dump(record, f, indent=2)
@@ -283,8 +382,62 @@ def select_todo(run_dir, done, ids=None):
     return [(pid, *positions[pid]) for pid in ids if pid not in done]
 
 
-def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1):
+def run_decode(manifest):
+    """The decode a run was detected with (absent key = argmax, every pre-#111 run)."""
+    return manifest.get('detection_decode', DEFAULT_DECODE)
+
+
+def resolve_decode(manifest, out_path, decode=None):
+    """The decode a re-inference into ``out_path`` uses: ``decode`` if given, else the run's.
+    Refuses (SystemExit) when ``out_path`` already holds records of another decode -- a
+    resume must not put two frames in one file."""
+    decode = decode or run_decode(manifest)
+    if Path(out_path).exists():
+        try:
+            have = single_decode(decodes_in_file(out_path), Path(out_path).name)
+        except ValueError as e:
+            raise SystemExit(str(e))
+        if Path(out_path).stat().st_size and have != decode:
+            raise SystemExit(f"{Path(out_path).name} already holds '{have}' records; this "
+                             f"re-inference would append '{decode}' ones (issue #111). Use "
+                             f"another --out, or --decode {have}.")
+    return decode
+
+
+def run_border(manifest):
+    """The border rule a run was detected with (absent key = exclude, every pre-#130 run)."""
+    return manifest.get('detection_border', DEFAULT_BORDER)
+
+
+def resolve_border(manifest, out_path, border=None):
+    """The border rule a re-inference into ``out_path`` uses: ``border`` if given, else the
+    run's. Refuses (SystemExit) when ``out_path`` already holds records of the other rule."""
+    border = border or run_border(manifest)
+    if Path(out_path).exists():
+        try:
+            have = single_border(borders_in_file(out_path), Path(out_path).name)
+        except ValueError as e:
+            raise SystemExit(str(e))
+        if Path(out_path).stat().st_size and have != border:
+            raise SystemExit(f"{Path(out_path).name} already holds '{have}' records; this "
+                             f"re-inference would append '{border}' ones (issue #130). Use "
+                             f"another --out, or --border {have}.")
+    return border
+
+
+def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1, decode=None,
+            border=None):
     manifest = json.loads((run_dir / 'manifest.json').read_text(encoding='utf-8'))
+    decode = resolve_decode(manifest, out_path, decode)
+    border = resolve_border(manifest, out_path, border)
+    if border != run_border(manifest):
+        print(f"NOTE: {run_dir.name} was detected with the '{run_border(manifest)}' border "
+              f"rule; this re-inference uses '{border}' (#130). --verify will refuse the pair "
+              f"without --allow-mixed-border.")
+    if decode != run_decode(manifest):
+        print(f"NOTE: {run_dir.name} was detected with the '{run_decode(manifest)}' decode; "
+              f"this re-inference uses '{decode}' (#111). --verify will refuse the pair "
+              f"without --allow-mixed-decode.")
     source_name = manifest.get('imagery_source') or manifest.get('source') or 'gsv'
     if ids is not None and source_name != 'gsv':
         raise SystemExit(f"--ids re-runs panos through the GSV path; {run_dir.name} is a "
@@ -301,7 +454,8 @@ def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1):
     from detectors import ModelProvenanceError
     try:
         # refuses an unknown revision (issue #39); batch_size > 1 batches forwards (#2)
-        main.curb_ramp_detector = CurbRampDetector(batch_size=batch_size)
+        main.curb_ramp_detector = CurbRampDetector(batch_size=batch_size, decode=decode,
+                                                   border=border)
     except ModelProvenanceError as e:
         raise SystemExit(str(e))
     provenance = main.curb_ramp_detector.provenance
@@ -312,7 +466,8 @@ def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1):
     if bound and bound != provenance['model_revision']:
         print(f"WARNING: {run_dir.name} was made with revision {bound[:12]}; re-inferring "
               f"with {provenance['model_revision'][:12]}. --verify will show what moved.")
-    print(f"-> Model: {provenance['model_id']} (trained {provenance['model_training_date']})")
+    print(f"-> Model: {provenance['model_id']} (trained {provenance['model_training_date']}), "
+          f"decode {decode}, border {border}")
 
     cache_path = Path(f"{out_path}.processed")
     done = set()
@@ -368,6 +523,18 @@ def main_cli(argv=None):
                     help='fetch threads (default main.PROCESSING_CONCURRENCY)')
     ap.add_argument('--batch-size', type=int, default=1, help=BATCH_SIZE_HELP)
     ap.add_argument('--limit', type=int, default=None, help='re-infer at most this many panos')
+    ap.add_argument('--decode', choices=DECODES, default=None,
+                    help="peak decode for the re-inference (#111; default: the run's own, "
+                         "manifest.json detection_decode, argmax when absent)")
+    ap.add_argument('--allow-mixed-decode', action='store_true',
+                    help='with --verify: compare files written under different decodes, as a '
+                         'diagnostic only (never with --write-band-file)')
+    ap.add_argument('--border', choices=BORDERS, default=None,
+                    help="peak border rule for the re-inference (#130; default: the run's own, "
+                         "manifest.json detection_border, exclude when absent)")
+    ap.add_argument('--allow-mixed-border', action='store_true',
+                    help='with --verify: compare an exclude file with a keep file, as a '
+                         'diagnostic only (never with --write-band-file)')
     ap.add_argument('--ids', type=Path, default=None, metavar='FILE',
                     help='re-infer exactly these pano ids (one per line, each with a record in '
                          'results.jsonl) through the GSV path into --out, which is required. '
@@ -392,12 +559,55 @@ def main_cli(argv=None):
         old_path = args.run_dir / 'results.jsonl'
         tier = server_tier(send_to_ps.load_submission_record(
             send_to_ps.submission_record_path(old_path)))
+        try:
+            old_dec = single_decode(decodes_in_file(old_path), old_path.name)
+            new_dec = single_decode(decodes_in_file(out_path), out_path.name)
+        except ValueError as e:
+            raise SystemExit(str(e))
+        if old_dec != new_dec:
+            what = (f"{old_path.name} is '{old_dec}' and {out_path.name} is '{new_dec}' "
+                    f"(issue #111): the decode moves every peak, so the pair cannot reproduce")
+            if args.write_band_file is not None:
+                raise SystemExit(f"{what}, and a band file built from it would ship its band in "
+                                 f"another frame than the live labels. Re-infer with --decode "
+                                 f"{old_dec}.")
+            if not args.allow_mixed_decode:
+                raise SystemExit(f"{what}. --allow-mixed-decode compares them as a diagnostic.")
+            print(f"WARNING (--allow-mixed-decode): {what}.")
+        try:
+            old_bor = single_border(borders_in_file(old_path), old_path.name)
+            new_bor = single_border(borders_in_file(out_path), out_path.name)
+        except ValueError as e:
+            raise SystemExit(str(e))
+        if old_bor != new_bor:
+            what = (f"{old_path.name} is '{old_bor}' and {out_path.name} is '{new_bor}' "
+                    f"(issue #130): the border rule adds or drops every seam-band peak")
+            if args.write_band_file is not None:
+                raise SystemExit(f"{what}, and a band file built from it would ship seam-band "
+                                 f"labels the live campaign never had. Re-infer with --border "
+                                 f"{old_bor}.")
+            if not args.allow_mixed_border:
+                raise SystemExit(f"{what}. --allow-mixed-border compares them as a diagnostic.")
+            print(f"WARNING (--allow-mixed-border): {what}.")
         summary, mismatches, carry_over = verify(old_path, out_path, floor=tier,
                                                  band_floor=args.band_floor)
         summary['tier'] = tier
         print(json.dumps(summary, indent=2))
         for pid, only_old, only_new in mismatches[:10]:
             print(f"  {pid}: old-only {only_old} new-only {only_new}")
+        cc = summary['coarse_cell']
+        if cc['panos']:
+            print(f"coarse-cell diagnostic (#111; exact pixels still decide): of {cc['panos']} "
+                  f"pano(s) whose keys differ, {cc['panos_agree_within_cell']} agree within +/-1 "
+                  f"coarse cell; {cc['pairs']['flip']} key(s) moved 7-8 heatmap cells (an "
+                  f"adjacent-coarse-cell flip), {cc['pairs']['grid_neighbour']} moved 1 cell.")
+        bb = summary['border_band']
+        if bb['keys_old'] or bb['keys_new']:
+            print(f"border-band diagnostic (#130; exact pixels still decide): {bb['keys_old']} "
+                  f"old-only and {bb['keys_new']} new-only key(s) lie in the 10-px border band "
+                  f"(the 360-degree seam band, or the zenith/nadir rows); "
+                  f"{bb['panos_only_in_band']} pano(s) differ ONLY there -- the border rule, "
+                  f"not the model.")
         if summary['missing']:
             print(f"{summary['missing']} pano(s) of {old_path.name} are absent from "
                   f"{out_path.name}: finish the re-inference first.")
@@ -436,7 +646,8 @@ def main_cli(argv=None):
 
     import main  # noqa: E402
     reinfer(args.run_dir, out_path, args.workers or main.PROCESSING_CONCURRENCY, args.limit,
-            None if args.ids is None else read_id_list(args.ids), batch_size=args.batch_size)
+            None if args.ids is None else read_id_list(args.ids), batch_size=args.batch_size,
+            decode=args.decode, border=args.border)
 
 
 if __name__ == '__main__':
