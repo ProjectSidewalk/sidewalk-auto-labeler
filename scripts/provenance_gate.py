@@ -39,7 +39,11 @@ would have read it as a different pipeline. The amended rule has two arms and tw
     `scripts/reinfer.py --ids` -- on a seeded subset of labeled panos that still resolve
     (CONTROL_SIZE = 200, CONTROL_SEED = 56). The same join at +/-1 px on the control's
     panos must reach >= PASS_SHARE. Threshold flips between the arms (labels matched under
-    S but not Z, and vice versa, on the control's panos) are reported.
+    S but not Z, and vice versa, on the control's panos) are reported. Every pano in the
+    control file must be one of the drawn ids (<out>/control_ids.txt, or --control-ids),
+    else the gate refuses; the report says how many drawn panos the control holds, since
+    a drawn pano reinfer.py could not fetch (e.g. no longer served by id) is simply absent,
+    and the Z share is then over the panos that survived, not over the draw.
   * Coverage floor (UNDETERMINED otherwise). No pano may be pending -- every selected id is
     processed or cached-skipped -- AND joinable labels must be >= COVERAGE_FLOOR (0.95) of
     the AI labels whose pano has a store JPEG. The metadata-404 set
@@ -494,7 +498,8 @@ def rule_lines(rule):
     """The report's statement of the Arm S / Arm Z tolerances under `rule`."""
     if rule == RULE_PIXEL_96:
         return [
-            '## Rule (pre-registered; amended after the PR #96 review, before any Vancouver number)',
+            f'## Rule (`{RULE_PIXEL_96}`: pre-registered; amended after the PR #96 review, before any '
+            'Vancouver number)',
             '',
             f'- **Arm S, store usability:** a label matches when a stored detection >= {TIER} lies '
             f'within +/-(W/{HEATMAP_WIDTH} + {STORE_SLACK_PX}) px in x and +/-(H/{HEATMAP_HEIGHT} + '
@@ -503,7 +508,9 @@ def rule_lines(rule):
             f'is reported, never gated.',
             f'- **Arm Z, pipeline identity (with --control):** the same join at +/-{TOLERANCE_PX} px on a '
             f'zoom-3 control file ({CONTROL_SIZE} seeded labeled panos, seed {CONTROL_SEED}, via '
-            f'`reinfer.py --ids`); passes iff >= {PASS_SHARE}.']
+            f'`reinfer.py --ids`); passes iff >= {PASS_SHARE}.',
+            f'- `--rule {RULE_PIXEL_96}` reproduces this report; the default, `--rule {RULE_COARSE_CELL}` '
+            f'(#111), writes the exploratory coarse-cell reading instead.']
     return [
         f'## Rule (`{RULE_COARSE_CELL}`: amended for #111 on 2026-09-30, after the Vancouver gate '
         f'had run under `{RULE_PIXEL_96}`)', '',
@@ -520,6 +527,35 @@ def rule_lines(rule):
         f'`--rule {RULE_PIXEL_96}` reproduces the previous rule.']
 
 
+def shown_path(path):
+    """`path` for the report: relative to the repo root when it lies inside it, else as
+    given (a relative path stays relative), so no machine's absolute path is committed."""
+    try:
+        return Path(path).resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return Path(path).as_posix()
+
+
+def check_control_ids(control_run, ids_path):
+    """Arm Z's control file against the draw: every control pano must be a drawn id, else
+    SystemExit. Returns {'drawn', 'present', 'absent'} counts for the report."""
+    if not ids_path.exists():
+        raise SystemExit(f'{ids_path} does not exist: Arm Z is checked against the drawn ids '
+                         f'(--draw-control, or --control-ids)')
+    drawn = set(ids_path.read_text(encoding='utf-8').split())
+    stray = sorted(set(control_run) - drawn)
+    if stray:
+        raise SystemExit(f'{len(stray)} control pano(s) are not in {ids_path}, e.g. '
+                         f'{", ".join(stray[:5])}: the control must be made from the drawn ids')
+    present = len(drawn & set(control_run))
+    return {'drawn': len(drawn), 'present': present, 'absent': len(drawn) - present}
+
+
+def draw_line(c):
+    return (f"{c['present']:,} of the {c['drawn']:,} drawn panos are in the control file; "
+            f"{c['absent']:,} absent (reinfer.py wrote no record, e.g. no longer served by id)")
+
+
 def class_table(res):
     """Matched labels by the Chebyshev distance (heatmap cells) of their detection."""
     n = res['matched']
@@ -532,7 +568,7 @@ def class_table(res):
 
 def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
            control=None, control_path=None, arms=None, size_mismatch=None,
-           rule=RULE_COARSE_CELL, exploratory=None):
+           rule=RULE_COARSE_CELL, exploratory=None, control_draw=None):
     v, d = _verdict_for(res, cov, control)
     pct = lambda n, t: f'{n:,} ({100 * n / t:.2f}%)' if t else f'{n:,}'  # noqa: E731
     fmt = lambda x: 'n/a' if x is None else f'{x:.4f}'  # noqa: E731
@@ -569,12 +605,14 @@ def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
         f'- Labels: {pull_line}',
         f'- AI account: `{ai_user}` ({users[ai_user]:,} CurbRamp labels); every account: ' +
         ', '.join(f'`{u}` {c:,}' for u, c in users.most_common()),
-        f'- Run: `{results_path.as_posix()}`, {n_run:,} panos, sha256 '
+        f'- Run: `{shown_path(results_path)}`, {n_run:,} panos, sha256 '
         f'`{hashlib.sha256(results_path.read_bytes()).hexdigest()}`',
     ]
     if control_path is not None:
-        lines.append(f'- Control: `{control_path.as_posix()}`, sha256 '
+        lines.append(f'- Control: `{shown_path(control_path)}`, sha256 '
                      f'`{hashlib.sha256(control_path.read_bytes()).hexdigest()}`')
+        if control_draw is not None:
+            lines.append(f'- Control panos: {draw_line(control_draw)}')
     lines += [
         f'- Generated {datetime.now(timezone.utc).isoformat(timespec="seconds")}', '',
         '## Coverage', '',
@@ -619,6 +657,9 @@ def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
     if control is not None:
         lines += [
             '## Arm Z (control)', '',
+            *([f'- Panos: {draw_line(control_draw)}. The Arm Z share is over the panos present '
+               f'only, so it is conditioned on whatever removed the absent ones.']
+              if control_draw is not None else []),
             f'- Joinable labels on the control\'s panos: {control["joinable"]:,}; matched '
             f'under Arm Z: {pct(control["matched"], control["joinable"])}; within '
             f'+/-{TOLERANCE_PX} px: {pct(control["within_1px"], control["joinable"])}',
@@ -641,7 +682,7 @@ def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
 
 def write_unmatched(path, city, rows):
     with open(path, 'w', newline='', encoding='utf-8') as f:
-        w = csv.DictWriter(f, fieldnames=UNMATCHED_FIELDS)
+        w = csv.DictWriter(f, fieldnames=UNMATCHED_FIELDS, lineterminator='\n')
         w.writeheader()
         for r in sorted(rows, key=lambda r: r['label_id']):
             w.writerow({'label_uid': f"{city}:{r['label_id']}", **r})
@@ -666,6 +707,9 @@ def main(argv=None):
                     help=f'write <out>/{CONTROL_IDS_FILE}: N (default {CONTROL_SIZE}) AI-labeled '
                          f'panos of the run, seed --control-seed, then stop')
     ap.add_argument('--control-seed', type=int, default=CONTROL_SEED)
+    ap.add_argument('--control-ids', type=Path, metavar='IDS',
+                    help=f'the drawn control ids --control is checked against (default '
+                         f'<out>/{CONTROL_IDS_FILE})')
     ap.add_argument('--rule', choices=sorted(RULES), default=RULE_COARSE_CELL,
                     help=f'match tolerances: {RULE_COARSE_CELL} (the default since #111: both arms '
                          f'+/-1 coarse heatmap cell) or {RULE_PIXEL_96} (the rule the Vancouver '
@@ -718,18 +762,19 @@ def main(argv=None):
     selected, skips = load_selection(run_dir)
     res = join(labels, run, selected, skips, tolerance=tol_s)
     cov = coverage(labels, run, selected, skips)
-    control = arms = None
+    control = arms = control_draw = None
     if args.control is not None:
         if not args.control.exists():
             raise SystemExit(f'{args.control} does not exist')
         control_run = load_run(args.control)
+        control_draw = check_control_ids(control_run, args.control_ids or out / CONTROL_IDS_FILE)
         control_labels = [lab for lab in labels if lab['pano_id'] in control_run]
         control = join(control_labels, control_run, tolerance=tol_z)
         arms = compare_arms(res, control, labels, control_run)
     report = render(args.city, res, cov, ai_user, users, pull_record(labels_path), results_path,
                     len(run), control, args.control, arms, native_size_mismatches(run_dir),
-                    rule=args.rule, exploratory=args.exploratory)
-    (out / 'report.md').write_text(report, encoding='utf-8')
+                    rule=args.rule, exploratory=args.exploratory, control_draw=control_draw)
+    (out / 'report.md').write_text(report, encoding='utf-8', newline='\n')
     write_unmatched(out / 'unmatched.csv', args.city, res['unmatched'])
     v, d = _verdict_for(res, cov, control)
     tail = (d['reason'] if v == 'UNDETERMINED' else
