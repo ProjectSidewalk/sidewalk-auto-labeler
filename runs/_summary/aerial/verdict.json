@@ -16,6 +16,12 @@
    "bend @ 2.6": 3.674,
    "paterson @ auto": 3.409,
    "paterson @ 2.6": 4.575
+  },
+  "displaced_px_p50": {
+   "bend @ auto": 9.573,
+   "bend @ 2.6": 9.862,
+   "paterson @ auto": 5.196,
+   "paterson @ 2.6": 6.021
   }
  },
  "Q3": {
@@ -55,8 +61,7 @@
     ],
     "why": [
      "bend: frag 5 m -0.003 (needs <= -0.03)",
-     "paterson: frag 5 m +0.014 (needs <= -0.03)",
-     "paterson: dual -0.010"
+     "paterson: frag 5 m +0.014 (needs <= -0.03)"
     ]
    },
    "ps @ 7.5 m / merge-at-anchor": {

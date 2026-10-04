@@ -14,7 +14,8 @@ number existed:
   project    Q2  projection: sidewalk/crosswalk polygon edges projected into each judged pano
                  (geo.ground_point_to_pano at `auto` and 2.6 m) vs the reviewer's box centre
                  (Paterson; Bend has no boxes, so its verdict-true peaks and missed clicks),
-                 in 1024x512 heatmap px. Also renders a 20-pano gallery per city (untracked;
+                 in 1024x512 heatmap px, beside a displaced-mark chance row (the same mark
+                 moved 40 px left or right in the same pano). Also renders a 20-pano gallery per city (untracked;
                  pixels are cut from ../RampNet/benchmark/<city>/panos).
   anchors    Q3  corner anchors (where a crosswalk polygon meets a sidewalk polygon, plus
                  the network's crosswalk endpoints) used to snap or merge clusters of the
@@ -22,6 +23,9 @@ number existed:
                  with eval_ps_clustering.score on the same GT pool.
   precision  Q4  operational detections on judged panos: share whose ground point is > 2 m
                  from every walkable polygon, by verdict, with a pano-cluster bootstrap.
+  tiles          audit an archived tile list (tiles.csv on makelab2): verify its digest
+                 against tile2net.json and list blank (byte-identical) tiles -> tile_audit.json
+                 + blank_tiles.csv, which `gt` reads to tell imagery holes from model misses.
   verdict        the pre-registered reading of the four (committed before the run).
   figures        docs/figures/aerial-sidewalks/*.png (matplotlib).
 
@@ -43,6 +47,7 @@ Usage:
     python scripts/aerial_sidewalks.py project bend paterson --run-root ... [--gallery]
     python scripts/aerial_sidewalks.py anchors bend paterson --run-root ...
     python scripts/aerial_sidewalks.py precision bend paterson --run-root ...
+    python scripts/aerial_sidewalks.py tiles bend --tiles-csv <archive>/bend/aerial/tiles_cob2019/tiles.csv
     python scripts/aerial_sidewalks.py verdict
     python scripts/aerial_sidewalks.py figures
 """
@@ -86,6 +91,8 @@ CHANCE_SHIFT_M = 10.0           # displaced-point chance floor (descriptive, nev
 CHANCE_SEED = 104
 Q2_HEIGHTS = ('auto', 2.6)
 Q2_SAMPLE_M = 0.2               # polygon-boundary sampling step before projection
+Q2_DISPLACE_PX = 40.0           # chance row: each mark moved this many heatmap px (14 deg) ...
+Q2_DISPLACE_SEED = 104          # ... left or right, the side seeded per mark (descriptive only)
 HEATMAP_W, HEATMAP_H = 1024, 512
 GALLERY_PANOS = 20
 GALLERY_SEED = 104
@@ -260,15 +267,40 @@ def sample_boundary(polygons, step_m=Q2_SAMPLE_M):
     return runs
 
 
-def heatmap_offset(x_ref, y_ref, x, y):
-    """(dx, dy) in 1024x512 heatmap px from a reference to a point, x wrapped at the seam.
+def edge_px(samples, x, y):
+    """Nearest projected edge sample to a mark at normalized (x, y), in 1024x512 heatmap px:
+    (distance, dx, dy), where dx/dy = sample minus mark and x wraps at the seam. Nones when
+    the pano has no edge sample in range.
 
     Example:
-        >>> heatmap_offset(0.999, 0.5, 0.001, 0.5)
-        (2.048, 0.0)
+        >>> edge_px(np.array([[0.001, 0.5], [0.5, 0.6]]), 0.999, 0.5)
+        (2.048, 2.048, 0.0)
+        >>> edge_px(np.zeros((0, 2)), 0.5, 0.5)
+        (None, None, None)
     """
-    dx = ((x - x_ref + 0.5) % 1.0 - 0.5) * HEATMAP_W
-    return round(dx, 6), round((y - y_ref) * HEATMAP_H, 6)
+    if not len(samples):
+        return None, None, None
+    dx = ((samples[:, 0] - x + 0.5) % 1.0 - 0.5) * HEATMAP_W
+    dy = (samples[:, 1] - y) * HEATMAP_H
+    dd = np.hypot(dx, dy)
+    k = int(np.argmin(dd))
+    return round(float(dd[k]), 3), round(float(dx[k]), 3), round(float(dy[k]), 3)
+
+
+def displaced_x(pano_id, ref, x, shift_px=Q2_DISPLACE_PX, seed=Q2_DISPLACE_SEED):
+    """The Q2 chance mark: x moved shift_px heatmap px left or right (wrapped), the side
+    drawn from a hash of (seed, pano, mark) so it does not depend on iteration order.
+
+    Example:
+        >>> d = displaced_x('p', 'det:0', 0.5)
+        >>> round(abs(d - 0.5) * HEATMAP_W, 6)
+        40.0
+        >>> displaced_x('p', 'det:0', 0.5) == d
+        True
+    """
+    h = hashlib.sha256(f'{seed}:{pano_id}:{ref}'.encode()).digest()
+    sign = 1.0 if h[0] % 2 == 0 else -1.0
+    return (x + sign * shift_px / HEATMAP_W) % 1.0
 
 
 def bootstrap_gap(groups, n=BOOTSTRAP_N, seed=BOOTSTRAP_SEED):
@@ -344,9 +376,11 @@ def q3_verdict(rows):
             if not ok:
                 why.append(f'scored in {cities}, the rule needs {list(CITIES)}')
             for r in cells:
-                d_frag = r['frag5'] - r['base_frag5']
-                d_cov = r['coverage'] - r['base_coverage']
-                d_dual = (r['dual'] - r['base_dual']) if r['dual'] is not None \
+                # rounded: the inputs are 4-decimal shares, so an exact 1-pt drop must read
+                # as -0.01, not -0.010000000000000009 (which would fail the tolerance)
+                d_frag = round(r['frag5'] - r['base_frag5'], 9)
+                d_cov = round(r['coverage'] - r['base_coverage'], 9)
+                d_dual = round(r['dual'] - r['base_dual'], 9) if r['dual'] is not None \
                     and r['base_dual'] is not None else 0.0
                 if d_frag > -Q3_FRAG_CUT:
                     ok = False
@@ -409,14 +443,27 @@ def load_aerial(city):
     if not poly_path.exists():
         raise SystemExit(f'{city}: no {poly_path}')
     want = record.get('polygons_geojson_sha256')
-    if want and sha256_file(poly_path) != want:
+    if not want:
+        raise SystemExit(f'{city}: tile2net.json records no polygons_geojson_sha256')
+    if sha256_file(poly_path) != want:
         raise SystemExit(f'{city}: {poly_path.name} does not match the sha256 in tile2net.json')
     by_class = {}
     for ft in json.loads(poly_path.read_text(encoding='utf-8'))['features']:
         by_class.setdefault(ft['properties']['f_type'], []).append(shape(ft['geometry']))
     ends = []
     net_path = d / 'network.geojson'
+    want_net = record.get('network_geojson_sha256')
+    if want_net and not net_path.exists():
+        # without it the Q3 anchors silently fall back to polygon contacts (Paterson 5,815 ->
+        # 3,853), so a missing copy is an error, never a quieter result
+        raise SystemExit(f'{city}: tile2net.json records a network but {net_path} is missing -- '
+                         'copy it from the archive (docs/aerial-sidewalk-study.md, Reproduce)')
     if net_path.exists():
+        if not want_net:
+            raise SystemExit(f'{city}: {net_path.name} is present but tile2net.json records no '
+                             'network_geojson_sha256 to bind it')
+        if sha256_file(net_path) != want_net:
+            raise SystemExit(f'{city}: {net_path.name} does not match the sha256 in tile2net.json')
         for ft in json.loads(net_path.read_text(encoding='utf-8'))['features']:
             if ft['properties'].get('f_type') != CROSSWALK:
                 continue
@@ -601,17 +648,19 @@ def inventory_rows(c, args):
     record = json.loads((src / 'inventory.json').read_text(encoding='utf-8'))
     ioracle.check_cache(src / 'inventory.geojson', record)
     feats = json.loads((src / 'inventory.geojson').read_text(encoding='utf-8'))['features']
-    pts = [(k, f['geometry']['coordinates'][1], f['geometry']['coordinates'][0], None)
+    pts = [(k, f['geometry']['coordinates'][1], f['geometry']['coordinates'][0],
+            f.get('properties') or {})
            for k, f in enumerate(ioracle.kept(feats, ioracle.INVENTORIES[c.name]))]
     area = ioracle.load_area(args.run_root / c.name)
     from shapely.geometry import Point
     from shapely.prepared import prep
     pa = prep(area)
-    inside = [(lat, lng) for _k, lat, lng, _p in pts if pa.covers(Point(lng, lat))]
+    inside = [(lat, lng, pr) for _k, lat, lng, pr in pts if pa.covers(Point(lng, lat))]
     ee, nn = enu_array(c.frame, [p[1] for p in inside], [p[0] for p in inside])
     xy = list(zip(ee, nn))
     cov = in_coverage(c, xy)
     xy = [p for p, k in zip(xy, cov) if k]
+    kept_in = [p for p, k in zip(inside, cov) if k]          # (lat, lng, properties), as xy
     surf = c.surfaces[SURFACE]
     d = surf.distance(xy)
     ch = surf.distance(chance_points(xy))
@@ -623,12 +672,147 @@ def inventory_rows(c, args):
     vis = dist_pano <= 20.0
     rows = [distance_summary('inventory_all', c.name, d, ch),
             distance_summary('inventory_visible_pool', c.name, d[vis], ch[vis])]
+    # Descriptive, never gated (#109 review S2): is a far ramp a model miss, an imagery
+    # hole, or a ramp built after the flight? (1) by the inventory's InstallDate against
+    # the imagery year; (2) inside / outside Tile2Net inputs that hold no polygon at all.
+    img_year = int(str(c.record['imagery_date'])[:4])
+    yrs = np.array([install_year(pr) or 0 for _lat, _lng, pr in kept_in])
+    for label, m in (('inventory_installed_before_imagery', (yrs > 0) & (yrs < img_year)),
+                     ('inventory_installed_imagery_year', yrs == img_year),
+                     ('inventory_installed_after_imagery', yrs > img_year),
+                     ('inventory_install_date_unknown', yrs == 0)):
+        rows.append(distance_summary(label, c.name, d[m], ch[m]))
+    empty = input_holes(c, [(lng, lat) for lat, lng, _pr in kept_in], d, yrs, img_year)
+    if empty is not None:
+        rows += [distance_summary('inventory_in_empty_inputs', c.name, d[empty], ch[empty]),
+                 distance_summary('inventory_excl_empty_inputs', c.name, d[~empty],
+                                  ch[~empty])]
     hist = np.histogram(np.minimum(d, 20.0), bins=np.arange(0, 20.5, 0.5))[0]
     write_csv(out_dir(c.name) / 'inventory_distance_hist.csv',
               [{'bin_lo_m': round(0.5 * i, 1), 'count': int(v)} for i, v in enumerate(hist)])
     for r in rows:
         r['n_outside_coverage'] = int(len(inside) - len(xy))
     return rows
+
+
+def install_year(props):
+    """Year of an inventory ramp's InstallDate (epoch ms, UTC), or None when it is missing
+    or the 1900-01-01 placeholder the City of Bend uses for an unknown date.
+
+    Example:
+        >>> install_year({'InstallDate': 1598918400000}), install_year({'InstallDate': -2208988800000})
+        (2020, None)
+    """
+    import datetime as dt
+    ms = props.get('InstallDate')
+    if ms is None:
+        return None
+    y = (dt.datetime(1970, 1, 1) + dt.timedelta(milliseconds=ms)).year
+    return y if y > 1900 else None
+
+
+def tile_bounds(x, y, z):
+    """(west, south, east, north) of slippy tile (x, y) at zoom z.
+
+    Example:
+        >>> [round(v, 4) for v in tile_bounds(0, 0, 1)]
+        [-180.0, 0.0, 0.0, 85.0511]
+    """
+    def lng(xx):
+        return xx / 2 ** z * 360.0 - 180.0
+
+    def lat(yy):
+        return math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * yy / 2 ** z))))
+    return lng(x), lat(y + 1), lng(x + 1), lat(y)
+
+
+def input_holes(c, lnglat, d, yrs, img_year):
+    """Which inventory ramps sit in a Tile2Net input (one stitched step x step block of z19
+    tiles, on Tile2Net's own grid, tile2net.json `tile2net_grid`) that holds no polygon of
+    ANY class, road included. Returns a bool mask aligned with `lnglat` (None without a
+    recorded grid) and writes holes.json + holes.csv. Also counts ramps on blank tiles
+    (blank_tiles.csv, written by `tiles`) and on grid tiles that were never fetched.
+
+    A polygon is tested against the whole input's box, so a large road polygon that only
+    clips an input's edge makes it non-empty: the count is a lower bound on empty inputs.
+    """
+    from aerial_fetch_tiles import lnglat_to_tile
+    from shapely.geometry import box
+    grid = c.record.get('tile2net_grid')
+    if not grid:
+        return None
+    z, step = c.record['zoom'], c.record['stitch_step']
+    gx0, gx1 = grid['x_range']
+    gy0, gy1 = grid['y_range']
+    fetched = c.record.get('fetch') or {}
+    fx = fetched.get('x_range', grid['x_range'])
+    fy = fetched.get('y_range', grid['y_range'])
+    blank_path = out_dir(c.name) / 'blank_tiles.csv'
+    blank = {(int(r['x']), int(r['y'])) for r in read_csv(blank_path)} \
+        if blank_path.exists() else None
+    tiles = [lnglat_to_tile(lng, lat, z) for lng, lat in lnglat]
+    in_grid = np.array([gx0 <= x <= gx1 and gy0 <= y <= gy1 for x, y in tiles], dtype=bool)
+    unfetched = np.array([bool(g) and not (fx[0] <= x <= fx[1] and fy[0] <= y <= fy[1])
+                          for (x, y), g in zip(tiles, in_grid)], dtype=bool)
+    inputs = [((x - gx0) // step, (y - gy0) // step) if g else None
+              for (x, y), g in zip(tiles, in_grid)]
+
+    def input_box(key):
+        x0, y0 = gx0 + key[0] * step, gy0 + key[1] * step
+        w, _s, _e, n = tile_bounds(x0, y0, z)
+        _w, s_, e, _n = tile_bounds(x0 + step - 1, y0 + step - 1, z)
+        return x0, y0, (w, s_, e, n)
+
+    every = Surface([g for v in c.classes_enu.values() for g in v])
+    is_empty = {}
+    for key in sorted({k for k in inputs if k is not None}):
+        _x0, _y0, (w, s_, e, n) = input_box(key)
+        cell = to_frame(box(w, s_, e, n), c.frame)
+        is_empty[key] = every.tree is None or not len(
+            every.tree.query(cell, predicate='intersects'))
+    mask = np.array([k is not None and is_empty[k] for k in inputs], dtype=bool)
+    on_blank = np.array([blank is not None and t in blank for t in tiles], dtype=bool)
+    rows = []
+    for key in sorted(k for k, v in is_empty.items() if v):
+        idx = [i for i, k in enumerate(inputs) if k == key]
+        x0, y0, (w, s_, e, n) = input_box(key)
+        rows.append({'input_i': key[0], 'input_j': key[1], 'tile_x0': x0, 'tile_y0': y0,
+                     'lat': round((n + s_) / 2, 6), 'lng': round((w + e) / 2, 6),
+                     'n_ramps': len(idx),
+                     'n_installed_after_imagery': int(sum(yrs[i] > img_year for i in idx)),
+                     'n_installed_before_imagery': int(sum(0 < yrs[i] < img_year for i in idx)),
+                     'n_blank_tiles': None if blank is None else sum(
+                         (x0 + i, y0 + j) in blank for i in range(step) for j in range(step))})
+    write_csv(out_dir(c.name) / 'holes.csv', rows,
+              ['input_i', 'input_j', 'tile_x0', 'tile_y0', 'lat', 'lng', 'n_ramps',
+               'n_installed_after_imagery', 'n_installed_before_imagery', 'n_blank_tiles'])
+    far = d > Q1_USABLE_WITHIN_M
+    summary = {
+        'what': 'inventory ramps in coverage vs Tile2Net inputs (descriptive, never gated)',
+        'n_inventory': int(len(tiles)), 'imagery_year': img_year,
+        'tile2net_grid': grid, 'stitch_step': step,
+        'n_inputs_with_ramps': len(is_empty),
+        'n_empty_inputs_with_ramps': int(sum(is_empty.values())),
+        'ramps_in_empty_inputs': int(mask.sum()),
+        'ramps_in_empty_inputs_installed_after_imagery': int((mask & (yrs > img_year)).sum()),
+        'ramps_in_empty_inputs_installed_before_imagery': int(
+            (mask & (yrs > 0) & (yrs < img_year)).sum()),
+        'ramps_in_empty_inputs_installed_imagery_year': int((mask & (yrs == img_year)).sum()),
+        'ramps_in_empty_inputs_install_unknown': int((mask & (yrs == 0)).sum()),
+        'ramps_beyond_2m': int(far.sum()),
+        'ramps_beyond_2m_in_empty_inputs': int((far & mask).sum()),
+        'ramps_beyond_2m_installed_after_imagery': int((far & (yrs > img_year)).sum()),
+        'blank_tiles_audited': blank is not None,
+        'n_blank_tiles': None if blank is None else len(blank),
+        'ramps_on_blank_tiles': None if blank is None else int(on_blank.sum()),
+        'empty_inputs_with_a_blank_tile': None if blank is None else sum(
+            1 for r in rows if r['n_blank_tiles']),
+        'ramps_outside_tile2net_grid': int((~in_grid).sum()),
+        'ramps_on_grid_tiles_never_fetched': int(unfetched.sum()),
+    }
+    (out_dir(c.name) / 'holes.json').write_text(json.dumps(summary, indent=1) + '\n',
+                                                encoding='utf-8')
+    return mask
 
 
 def write_report_q1(c, summary, counts):
@@ -648,7 +832,13 @@ def write_report_q1(c, summary, counts):
     lines += ['', 'Distances are to the nearest sidewalk or crosswalk polygon (0 = inside) '
               'unless the set says walkable (adds footpath) or sidewalk_only. `chance` = the '
               f'same points displaced {CHANCE_SHIFT_M:g} m in a seeded random direction, a '
-              'floor for how much of the city the polygons cover (descriptive, never gated).']
+              'floor for how much of the city the polygons cover (descriptive, never gated).',
+              '', '`inventory_installed_*` split the inventory by its InstallDate against the '
+              'imagery year (unknown = missing or the 1900-01-01 placeholder). '
+              '`inventory_in_empty_inputs` = ramps inside a Tile2Net input (one stitched block '
+              'of z19 tiles) that holds no polygon of any class, road included; holes.json and '
+              'holes.csv break those down, with the blank-tile audit from `tiles`. All '
+              'descriptive: the rule reads `inventory_all` only.']
     (out_dir(c.name) / 'report_q1.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
@@ -734,15 +924,9 @@ def cmd_project(args):
                 for _pid, kind, key, x, y in by_pano[pid]:
                     row = {'city': city, 'pano_id': pid, 'ref_kind': kind, 'ref': key,
                            'height': hname, 'x': round(x, 6), 'y': round(y, 6)}
-                    if len(samples):
-                        dx = ((samples[:, 0] - x + 0.5) % 1.0 - 0.5) * HEATMAP_W
-                        dy = (samples[:, 1] - y) * HEATMAP_H
-                        dd = np.hypot(dx, dy)
-                        k = int(np.argmin(dd))
-                        row.update(px=round(float(dd[k]), 3), dx_px=round(float(dx[k]), 3),
-                                   dy_px=round(float(dy[k]), 3))
-                    else:
-                        row.update(px=None, dx_px=None, dy_px=None)
+                    px, dx, dy = edge_px(samples, x, y)
+                    row.update(px=px, dx_px=dx, dy_px=dy,
+                               px_displaced=edge_px(samples, displaced_x(pid, key, x), y)[0])
                     g = geo.detection_ground_point(pose, x, y, camera_height=h)
                     if g is None:
                         row.update(world_dist_m=None, on_surface=None)
@@ -754,7 +938,7 @@ def cmd_project(args):
                     rows.append(row)
         write_csv(out_dir(city) / 'projection.csv', rows,
                   ['city', 'pano_id', 'ref_kind', 'ref', 'height', 'x', 'y', 'px', 'dx_px',
-                   'dy_px', 'world_dist_m', 'on_surface', 'range_m'])
+                   'dy_px', 'px_displaced', 'world_dist_m', 'on_surface', 'range_m'])
         summ = []
         for hname in heights:
             for kind in ('all', 'box', 'peak', 'missed'):
@@ -763,12 +947,19 @@ def cmd_project(args):
                 if not sel:
                     continue
                 px = [r['px'] for r in sel if r['px'] is not None]
+                ch = [r['px_displaced'] for r in sel if r['px_displaced'] is not None]
+                p50, c50 = _q(px, 0.5), _q(ch, 0.5)
                 summ.append({'city': city, 'height': hname, 'ref_kind': kind, 'n': len(sel),
-                             'n_with_edge': len(px), 'px_p50': _q(px, 0.5),
+                             'n_with_edge': len(px), 'px_p50': p50,
                              'px_p90': _q(px, 0.9),
                              'dx_px_p50': _q([r['dx_px'] for r in sel if r['dx_px'] is not None], .5),
                              'dy_px_p50': _q([r['dy_px'] for r in sel if r['dy_px'] is not None], .5),
                              'share_px_le_5': round(sum(p <= 5 for p in px) / len(px), 4) if px else None,
+                             'displaced_px_p50': c50, 'displaced_px_p90': _q(ch, 0.9),
+                             'displaced_share_px_le_5': round(
+                                 sum(p <= 5 for p in ch) / len(ch), 4) if ch else None,
+                             'p50_minus_displaced': round(p50 - c50, 3)
+                             if p50 is not None and c50 is not None else None,
                              'world_dist_p50': _q([r['world_dist_m'] for r in sel], 0.5),
                              'on_surface_share': round(
                                  sum(1 for r in sel if r['on_surface']) /
@@ -790,18 +981,29 @@ def write_report_q2(c, summ, n_panos, n_outside=0):
     lines += [f'- {n_panos} judged panos with at least one reference mark and their whole '
               f'25 m disk inside the Tile2Net coverage ({n_outside} more left out)', '',
               '| height | reference | n | with an edge in range | px p50 | px p90 | '
-              'dx p50 | dy p50 | share <= 5 px | world dist p50 (m) | ref on surface |',
-              '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|']
+              'dx p50 | dy p50 | share <= 5 px | displaced px p50 / p90 | displaced share <= 5 px '
+              '| p50 minus displaced | world dist p50 (m) | ref on surface |',
+              '|---|---|---:|---:|---:|---:|---:|---:|---:|---|---:|---:|---:|---:|']
     for s in summ:
         lines.append(f"| {s['height']} | {s['ref_kind']} | {s['n']} | {s['n_with_edge']} | "
                      f"{s['px_p50']} | {s['px_p90']} | {s['dx_px_p50']} | {s['dy_px_p50']} | "
-                     f"{s['share_px_le_5']} | {s['world_dist_p50']} | {s['on_surface_share']} |")
+                     f"{s['share_px_le_5']} | {s['displaced_px_p50']} / {s['displaced_px_p90']} | "
+                     f"{s['displaced_share_px_le_5']} | {s['p50_minus_displaced']} | "
+                     f"{s['world_dist_p50']} | {s['on_surface_share']} |")
     lines += ['', 'px = distance in 1024x512 heatmap pixels (the grid RampNet predicts on; '
               '1 px = 0.35 deg) from the reference to the nearest projected sidewalk/crosswalk '
               'boundary sample (every 0.2 m, within the 25 m raycast cap); dx/dy = that '
-              'nearest sample minus the reference (dy > 0 = the edge projects lower, i.e. '
-              'nearer). It mixes mask error with projection error (height, heading, GPS) '
-              'by construction. `box` = the reviewer\'s extent-box centre (Paterson only), '
+              'nearest sample minus the reference (dy > 0 = the edge projects lower in the '
+              'pano than the mark, i.e. at a larger dip below the horizon). `with an edge in '
+              'range` = marks whose pano has at least one projected edge sample; px, dx, dy and '
+              'the shares are over those marks only (the rest have no sidewalk/crosswalk polygon '
+              'within 25 m of the pano). `displaced` = the chance floor: the same mark '
+              f'moved {Q2_DISPLACE_PX:g} px left or right (side seeded per mark) in the same pano, '
+              'measured against the same edges. Because the metric is a NEAREST-edge distance, '
+              'any height that packs the projected edges closer together lowers both rows, so '
+              'compare heights on `p50 minus displaced`, not on px p50 alone. It mixes mask error '
+              'with projection error (height, heading, GPS) by construction. `box` = the '
+              'reviewer\'s extent-box centre (Paterson only), '
               '`peak` = a verdict-true detection with no box, `missed` = a missed-ramp click. '
               'world dist = the reference raycast at that height, metres to the nearest '
               'polygon (0 inside).']
@@ -905,7 +1107,6 @@ def anchor_clusters(clusters, anchors, radius_m=ANCHOR_RADIUS_M):
     """
     import copy
     from scipy.spatial import cKDTree
-    placed = [c for c in clusters if c.e is not None]
     tree = cKDTree(np.asarray(anchors)) if len(anchors) else None
     anchored, groups, merged = [], {}, []
     for c in clusters:
@@ -933,7 +1134,6 @@ def anchor_clusters(clusters, anchors, radius_m=ANCHOR_RADIUS_M):
         m.n_labels = sum(c.n_labels for c in g)
         m.label_ids = [x for c in g for x in getattr(c, 'label_ids', [])]
         merged.append(m)
-    del placed
     return anchored, merged
 
 
@@ -1143,6 +1343,57 @@ def cmd_precision(args):
         write_csv(out_dir(r['city']) / 'q4.csv', [r])
 
 
+# ============================================================ tiles (archive audit)
+
+def tiles_digest(rows):
+    """aerial_fetch_tiles.py's manifest digest over (x, y, sha256) rows sorted by (x, y).
+
+    Example:
+        >>> tiles_digest([(1, 0, 'b'), (0, 5, 'a')])[:12]
+        'cf9c74ca4bae'
+    """
+    return hashlib.sha256('\n'.join(f'{x},{y},{h}' for x, y, h in sorted(rows)).encode()
+                          ).hexdigest()
+
+
+def cmd_tiles(args):
+    """Audit one city's archived tile list: its digest must match tile2net.json, and every
+    tile whose bytes repeat elsewhere (a real aerial tile never does; a blank no-data tile
+    does) is listed in blank_tiles.csv. tile_audit.json summarizes. No pixels are read."""
+    from collections import Counter
+    city = args.city
+    record = json.loads((REPO_ROOT / 'runs' / city / OUT_NAME / 'tile2net.json')
+                        .read_text(encoding='utf-8'))
+    want = (record.get('fetch') or record.get('tiles') or {}).get('tiles_sha256')
+    if not want:
+        raise SystemExit(f'{city}: tile2net.json records no tiles_sha256 to verify against')
+    rows = [(int(r['x']), int(r['y']), int(r['bytes']), r['sha256'])
+            for r in read_csv(args.tiles_csv)]
+    got = tiles_digest([(x, y, h) for x, y, _b, h in rows])
+    if got != want:
+        raise SystemExit(f'{city}: {args.tiles_csv} digests to {got}, tile2net.json says {want}')
+    counts = Counter(h for *_r, h in rows)
+    blank = sorted((x, y, b, h) for x, y, b, h in rows if counts[h] > 1)
+    write_csv(out_dir(city) / 'blank_tiles.csv',
+              [{'x': x, 'y': y, 'bytes': b, 'sha256_12': h[:12]} for x, y, b, h in blank],
+              ['x', 'y', 'bytes', 'sha256_12'])
+    real = [b for _x, _y, b, h in rows if counts[h] == 1]
+    audit = {'city': city, 'tiles_csv_sha256': sha256_file(args.tiles_csv),
+             'n_tiles': len(rows), 'tiles_sha256': got, 'digest_matches_tile2net_json': True,
+             'duplicate_hashes': [{'sha256': h, 'n_tiles': n,
+                                   'bytes': next(b for _x, _y, b, hh in rows if hh == h)}
+                                  for h, n in sorted(counts.items()) if n > 1],
+             'n_blank_tiles': len(blank),
+             'x_range': [min(r[0] for r in rows), max(r[0] for r in rows)],
+             'y_range': [min(r[1] for r in rows), max(r[1] for r in rows)],
+             'non_blank_bytes_min': min(real) if real else None,
+             'non_blank_bytes_p50': sorted(real)[len(real) // 2] if real else None}
+    (out_dir(city) / 'tile_audit.json').write_text(json.dumps(audit, indent=1) + '\n',
+                                                   encoding='utf-8')
+    print(f'{city}: {len(rows)} tiles, digest verified, {len(blank)} blank '
+          f'({len(audit["duplicate_hashes"])} repeated hashes)')
+
+
 # ============================================================ verdict
 
 def _num(v):
@@ -1166,7 +1417,10 @@ def cmd_verdict(args):
     q2 = read_csv(SUMMARY / 'q2.csv')
     out['Q2'] = {'answer': 'DESCRIPTIVE (no gate pre-registered)',
                  'px_p50': {f"{r['city']} @ {r['height']}": _num(r['px_p50'])
-                            for r in q2 if r['ref_kind'] == 'all'}}
+                            for r in q2 if r['ref_kind'] == 'all'},
+                 'displaced_px_p50': {f"{r['city']} @ {r['height']}":
+                                      _num(r['displaced_px_p50'])
+                                      for r in q2 if r['ref_kind'] == 'all'}}
     q3 = [{k: _num(v) for k, v in r.items()} for r in read_csv(SUMMARY / 'q3.csv')
           if r['arm'] != 'base']
     label, detail = q3_verdict(q3)
@@ -1226,12 +1480,17 @@ def cmd_figures(args):
         p = REPO_ROOT / 'runs' / city / OUT_NAME / 'projection.csv'
         if not p.exists():
             continue
+        rows = read_csv(p)
         for hname, ls in (('auto', '-'), ('2.6', '--')):
-            px = np.sort([float(r['px']) for r in read_csv(p)
-                          if r['height'] == hname and r['px']])
+            px = np.sort([float(r['px']) for r in rows if r['height'] == hname and r['px']])
             if len(px):
                 ax.step(px, np.arange(1, len(px) + 1) / len(px), where='post', ls=ls,
                         color=colors[city], label=f'{city} @ {hname}')
+        ch = np.sort([float(r['px_displaced']) for r in rows
+                      if r['height'] == 'auto' and r['px_displaced']])
+        if len(ch):
+            ax.step(ch, np.arange(1, len(ch) + 1) / len(ch), where='post', ls=':',
+                    color=colors[city], label=f'{city} @ auto, marks displaced 40 px')
     ax.set_xlim(0, 40)
     ax.set_xlabel('reference mark to nearest projected edge (1024x512 heatmap px)')
     ax.set_ylabel('cumulative share')
@@ -1298,6 +1557,10 @@ def build_parser():
         if name == 'project':
             p.add_argument('--gallery', action='store_true',
                            help='also render the 20-pano HTML gallery (untracked)')
+    p = sub.add_parser('tiles')
+    p.add_argument('city', choices=CITIES)
+    p.add_argument('--tiles-csv', type=Path, required=True,
+                   help="the archive's tiles.csv (x,y,status,bytes,sha256), copied locally")
     sub.add_parser('verdict')
     sub.add_parser('figures')
     return ap
@@ -1306,7 +1569,8 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(argv)
     {'gt': cmd_gt, 'project': cmd_project, 'anchors': cmd_anchors,
-     'precision': cmd_precision, 'verdict': cmd_verdict, 'figures': cmd_figures}[args.cmd](args)
+     'precision': cmd_precision, 'tiles': cmd_tiles, 'verdict': cmd_verdict,
+     'figures': cmd_figures}[args.cmd](args)
 
 
 if __name__ == '__main__':

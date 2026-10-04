@@ -120,10 +120,13 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/depth/store.json
 # Aerial sidewalk study (scripts/aerial_sidewalks.py, issue #104; write-up in
 # docs/aerial-sidewalk-study.md): the Tile2Net provenance record (tile source, zoom, commit,
-# runtime, tile count, polygon sha256), the reports and the CSVs are tracked. The polygons
+# runtime, tile count, polygon sha256), the tile audit (tile_audit.json, blank_tiles.csv), the
+# hole breakdown (holes.json, holes.csv), the reports and the CSVs are tracked. The polygons
 # and network themselves (polygons.geojson, network.geojson) and the gallery (pixels) are NOT.
 !runs/*/aerial/
 !runs/*/aerial/tile2net.json
+!runs/*/aerial/tile_audit.json
+!runs/*/aerial/holes.json
 !runs/*/aerial/report*.md
 !runs/*/aerial/*.csv
 !runs/_summary/

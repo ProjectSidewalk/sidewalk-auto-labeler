@@ -21,5 +21,13 @@
 | gt_all_sidewalk_only | 298 | 0.3054 | 0.557 | 0.6275 | 0.6711 | 0.618 | 17.897 | 7.333 / 34.449 |  | 0 |
 | inventory_all | 12504 | 0.4636 | 0.6666 | 0.7029 | 0.7258 | 0.083 | 30.919 | 12.845 / 122.244 | 0.2169 | 0 |
 | inventory_visible_pool | 12065 | 0.4739 | 0.682 | 0.7194 | 0.7429 | 0.056 | 21.002 | 11.869 / 89.819 | 0.2217 | 0 |
+| inventory_installed_before_imagery | 8789 | 0.5873 | 0.8277 | 0.8593 | 0.877 | 0.0 | 5.511 | 7.018 / 29.93 | 0.2628 | 0 |
+| inventory_installed_imagery_year | 383 | 0.3473 | 0.5352 | 0.6005 | 0.6371 | 0.649 | 35.92 | 12.289 / 71.02 | 0.1462 | 0 |
+| inventory_installed_after_imagery | 2653 | 0.098 | 0.176 | 0.225 | 0.2612 | 15.443 | 162.323 | 24.688 / 188.218 | 0.0874 | 0 |
+| inventory_install_date_unknown | 679 | 0.3564 | 0.5714 | 0.6038 | 0.6333 | 0.5 | 19.918 | 11.201 / 44.957 | 0.1679 | 0 |
+| inventory_in_empty_inputs | 278 | 0.0 | 0.0 | 0.0 | 0.0 | 198.909 | 359.02 | 198.909 / 359.02 | 0.0 | 0 |
+| inventory_excl_empty_inputs | 12226 | 0.4742 | 0.6817 | 0.7189 | 0.7423 | 0.056 | 20.975 | 11.874 / 74.414 | 0.2218 | 0 |
 
 Distances are to the nearest sidewalk or crosswalk polygon (0 = inside) unless the set says walkable (adds footpath) or sidewalk_only. `chance` = the same points displaced 10 m in a seeded random direction, a floor for how much of the city the polygons cover (descriptive, never gated).
+
+`inventory_installed_*` split the inventory by its InstallDate against the imagery year (unknown = missing or the 1900-01-01 placeholder). `inventory_in_empty_inputs` = ramps inside a Tile2Net input (one stitched block of z19 tiles) that holds no polygon of any class, road included; holes.json and holes.csv break those down, with the blank-tile audit from `tiles`. All descriptive: the rule reads `inventory_all` only.

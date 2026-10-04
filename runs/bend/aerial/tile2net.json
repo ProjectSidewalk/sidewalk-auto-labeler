@@ -5,12 +5,22 @@
  "tile2net_commit": "c737a4e8c8b907ee3c80739673c67140ce95483d",
  "tile2net_repo": "https://github.com/VIDA-NYU/tile2net",
  "checkpoints": [
-  "satellite_2021.pth",
-  "hrnetv2_w48_imagenet_pretrained.pth"
+  {
+   "file": "satellite_2021.pth",
+   "bytes": 578433769,
+   "sha256": "745f8c099e98f112a152aedba493f61fb6d80c1761e5866f936eb5f361c7ab4d"
+  },
+  {
+   "file": "hrnetv2_w48_imagenet_pretrained.pth",
+   "bytes": 310643500,
+   "sha256": "0efec102d97f2ef58f0e258b2c3076b3704b93ffc2b73f64c8da5462c0037ef8"
+  }
  ],
+ "checkpoints_note": "downloaded by Tile2Net 0.5.0 on first use into ~/.cache/tile2net/weights/ on makelab2; sha256 taken there 2026-10-04 (the commit pins a download URL, not the bytes)",
  "tile_source": "City of Bend 2019 orthoimagery (ArcGIS Online tile cache), fetched by scripts/aerial_fetch_tiles.py and passed with --input",
  "tile_source_url": "https://tiles.arcgis.com/tiles/JisFYcK2mIVg9ueP/arcgis/rest/services/City_of_Bend_2019_Imagery/MapServer",
  "imagery_date": "2019",
+ "imagery_terms": "City of Bend 2019 orthoimagery, a public ArcGIS Online tile service published by the City of Bend, OR, read without a login. No licence was recorded with the fetch; cited and used for analysis only. Only derived polygons (untracked, sha256 here) and statistics are kept in the repo; the tiles stay on the makelab2 archive and are not redistributed.",
  "deviation": "Tile2Net's Oregon source is commented out upstream ('SSL issues'), and the Oregon Statewide Imagery Program server (imagery.oregonexplorer.info, OSIP_2022_WM) presented a TLS certificate that expired 2026-09-26; fetching it unverified was not done. Bend's GSV panos are mostly 2024 (84%): a ~5-year imagery gap.",
  "fetch": {
   "n_tiles": 52480,
@@ -33,6 +43,19 @@
  "zoom": 19,
  "base_tilesize": 256,
  "stitch_step": 4,
+ "tile2net_grid": {
+  "x_range": [
+   85368,
+   85571
+  ],
+  "y_range": [
+   190390,
+   190645
+  ],
+  "n_tiles": 52224,
+  "from": "<archive>/bend/aerial/bend/tiles/bend_256_info.csv",
+  "note": "Tile2Net's own z19 grid for --input: the fetched range shifted by one tile: its west column (x 85367) and north row (y 190389) are not in it, and its south row (y 190645) was never fetched; 3,264 stitched inputs (51 x 64), all inferred"
+ },
  "bbox_wgs84": [
   -121.382433,
   43.999063,
@@ -53,7 +76,7 @@
  "runtime_s_to_polygons": 1194,
  "network": "FAILED: Tile2Net's pedestrian-network step raised centerline.exceptions.TooFewRidgesError in pednet.create_crosswalk (2026-09-28T17:52:53-07:00) after the polygons were written. Bend has polygons only; its Q3 anchors come from polygon contacts alone (Paterson is also scored that way as a sensitivity).",
  "archive": "makelab2:/projects/makeabilitylab/sidewalk-auto-labeler/runs/bend/aerial/",
- "converter": "t2n_convert.py (f_type + geometry, EPSG:4326, 7-decimal coordinates)",
+ "converter": "scripts/t2n_convert.py (run in the tile2net venv: f_type + geometry, EPSG:4326, 7-decimal coordinates)",
  "vram_note": "Three short runs WITHOUT --deterministic (Boston example, two 1 km2 Paterson pilots, ~50 s each, 2026-09-28 16:04-16:10 PT) peaked at ~34 GB VRAM from cudnn benchmark probing while another job held ~9 GB, leaving ~3 GB free on the shared A40 (below the 20 GB-free rule). Every run that produced results used --deterministic: 1.4 GB peak.",
  "polygons_parquet_sha256": "581402b51db313ec8fe3efafe6b17ca6714f49405cb3d6404a761374d0e8ccd7",
  "polygons_geojson_sha256": "fce788012b8c7b4d9df3146a47c018006fa359e34e5ec647c8c27ae3f8109e5a",
