@@ -95,8 +95,10 @@ if str(REPO_ROOT) not in sys.path:
 
 import depth as depthlib  # noqa: E402
 import geo  # noqa: E402
-from detectors import (DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE,  # noqa: E402
-                       on_camera_rig)
+from detectors import (BORDER_EXCLUDE, DECODE_ARGMAX, DETECTION_STORAGE_FLOOR,  # noqa: E402
+                       OPERATIONAL_CONFIDENCE, on_camera_rig, record_border, record_decode,
+                       single_border, single_decode)
+from collections import Counter  # noqa: E402
 
 # How fusion rotates rays by camera pose (issue #42). The value is recorded in
 # sites_meta.json's params, so a sites file always says which frame it is in.
@@ -246,6 +248,8 @@ class SlimPano:
     height_table: dict | None = None             # ...and that table's provenance (shared)
     height_from_index: bool = False              # height read from depth/index.csv (#47)
     source_detail: str | None = None             # e.g. 'ps_store' for a store-built block
+    decode: str = DECODE_ARGMAX                  # the record's peak decode (#111)
+    border: str = BORDER_EXCLUDE                 # the record's peak border rule (#130)
 
     def pose_fields(self, **overrides):
         """The pano-block fields geo.pano_pose reads, with any of them overridden."""
@@ -763,7 +767,8 @@ def apply_height_table(panos, table_path, results_path):
 
 
 def load_results(path, depth_index=None, read_heights=True, height_table=None,
-                 grade_source=GRADE_SFM, grades_path=None):
+                 grade_source=GRADE_SFM, grades_path=None, allow_mixed_decode=False,
+                 allow_mixed_border=False):
     """Stream results.jsonl into SlimPanos, discarding links/history/metadata.
     Records without a position or heading can't be raycast and are dropped
     (counted by the caller via the skipped list).
@@ -788,7 +793,13 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
     fallback pose_counts already counts.
 
     height_table (#53): a camera_heights.json path, for a PER_RIG fuse -- the heights
-    come from it instead (apply_height_table; it refuses a mismatched file or a GSV run)."""
+    come from it instead (apply_height_table; it refuses a mismatched file or a GSV run).
+
+    Peak decode (#111): each SlimPano carries its record's decode (detectors.record_decode),
+    and a file mixing argmax and gaussian records raises ValueError unless
+    allow_mixed_decode -- the two place the same peaks in different frames. Likewise the
+    border rule (#130; detectors.record_border): a file mixing `exclude` and `keep` records
+    raises unless allow_mixed_border."""
     path = Path(path)
     index = load_depth_index(depth_index or path.parent / 'depth' / 'index.csv') \
         if read_heights else {}
@@ -827,9 +838,12 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
                 camera_height_m=height, camera_height_spread_m=spread,
                 ground_tilt_deg=tilt, pose_origin=origin,
                 sequence_id=p.get('sequence_id') or meta.get('sequence'),
-                height_from_index=from_index, source_detail=p.get('source_detail')))
+                height_from_index=from_index, source_detail=p.get('source_detail'),
+                decode=record_decode(rec), border=record_border(rec)))
             frames.append((len(panos) - 1, p.get('sequence_id'), meta.get('captured_at'),
                            p['lat'], p['lng'], meta.get('computed_altitude')))
+    single_decode(Counter(p.decode for p in panos), path.name, allow_mixed_decode)
+    single_border(Counter(p.border for p in panos), path.name, allow_mixed_border)
     for i, (grade, bearing) in sequence_grades(frames).items():
         panos[i].grade_deg, panos[i].travel_bearing_deg = grade, bearing
         panos[i].grade_origin = GRADE_SFM
@@ -917,9 +931,15 @@ def project(panos, params):
     return dets, frame, drops
 
 
-def fuse(panos, params):
+def fuse(panos, params, allow_mixed_decode=False, allow_mixed_border=False):
     """Associate projected detections into sites. Deterministic: input order never
-    matters (canonical sort; best-candidate tiebreak on (D2, site id))."""
+    matters (canonical sort; best-candidate tiebreak on (D2, site id)).
+
+    Panos written under different peak decodes (#111) are refused (ValueError) unless
+    allow_mixed_decode: a caller that assembles panos from two files gets the same guard
+    load_results applies to one. The same for border rules (#130) and allow_mixed_border."""
+    single_decode(Counter(p.decode for p in panos), 'the panos to fuse', allow_mixed_decode)
+    single_border(Counter(p.border for p in panos), 'the panos to fuse', allow_mixed_border)
     dets, frame, drops = project(panos, params)
     dets.sort(key=lambda d: (-d.conf, d.pano_id, d.det_index))
     grid = geo.GridIndex(params.max_match_m)
@@ -1042,7 +1062,7 @@ def height_table_path(camera_height, results_path, height_table=None):
 
 def load_at_height(results_path, camera_height, *, depth_index=None, height_table=None,
                    read_heights=None, resolve_auto=True, grade_source=GRADE_SFM,
-                   grades_path=None):
+                   grades_path=None, allow_mixed_decode=False, allow_mixed_border=False):
     """Load results.jsonl and resolve a --camera-height-m value in ONE place (#56).
 
     fuse_sites' CLI, eval_sites, eval_ps_clustering and mined_precision all load through
@@ -1072,7 +1092,9 @@ def load_at_height(results_path, camera_height, *, depth_index=None, height_tabl
     table = height_table_path(camera_height, results_path, height_table)
     panos, skipped = load_results(results_path, depth_index, read_heights=read_heights,
                                   height_table=table, grade_source=grade_source,
-                                  grades_path=grades_path)
+                                  grades_path=grades_path,
+                                  allow_mixed_decode=allow_mixed_decode,
+                                  allow_mixed_border=allow_mixed_border)
     if camera_height != HEIGHT_AUTO:
         return panos, skipped, camera_height, None
     if not resolve_auto:
@@ -1251,6 +1273,14 @@ def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('run', help='run directory (with results.jsonl) or a jsonl path')
     ap.add_argument('--floor', type=float, default=DETECTION_STORAGE_FLOOR)
+    ap.add_argument('--allow-mixed-decode', action='store_true',
+                    help='fuse a file whose records mix argmax and gaussian peak decodes '
+                         '(#111; refused by default: the two are different frames). '
+                         'sites_meta.json then records the mix')
+    ap.add_argument('--allow-mixed-border', action='store_true',
+                    help='fuse a file whose records mix the exclude and keep peak border '
+                         'rules (#130; refused by default: keep adds the seam-band peaks '
+                         'exclude drops). sites_meta.json then records the mix')
     ap.add_argument('--min-confidence', type=float, default=OPERATIONAL_CONFIDENCE)
     ap.add_argument('--max-range-m', type=float, default=geo.DEFAULT_MAX_RANGE_M)
     ap.add_argument('--gate-chi2', type=float, default=FuseParams.gate_chi2)
@@ -1341,7 +1371,9 @@ def main(argv=None):
             read_heights=(args.camera_height_m in (geo.PER_PANO, HEIGHT_AUTO)
                           or args.implied_height),
             resolve_auto=resolve,
-            grade_source=args.grade_source, grades_path=args.grades)
+            grade_source=args.grade_source, grades_path=args.grades,
+            allow_mixed_decode=args.allow_mixed_decode,
+            allow_mixed_border=args.allow_mixed_border)
     except ValueError as e:
         sys.exit(str(e))
     if skipped:
@@ -1356,15 +1388,26 @@ def main(argv=None):
               file=sys.stderr if 'reason' in auto and auto['gsv_panos'] else sys.stdout)
 
     if args.pose_ablation:
-        print(pose_ablation_report(panos, params))
+        print(pose_ablation_report(panos, params, args.allow_mixed_decode,
+                                   args.allow_mixed_border))
         return
     if args.implied_height:
-        print(implied_height_report(panos, params))
+        print(implied_height_report(panos, params, args.allow_mixed_decode,
+                                    args.allow_mixed_border))
         return
 
-    sites, frame, stats = fuse(panos, params)
+    sites, frame, stats = fuse(panos, params, allow_mixed_decode=args.allow_mixed_decode,
+                               allow_mixed_border=args.allow_mixed_border)
     if auto is not None:
         stats['camera_heights'] = resolved_height_counts(panos, params, auto)
+    # Which frame the sites are in (#111): the decode every member's record was written under.
+    decodes = Counter(p.decode for p in panos)
+    stats['detection_decode'] = (single_decode(decodes, jsonl.name) if len(decodes) == 1
+                                 else dict(sorted(decodes.items())))
+    # ...and whether those records kept the seam-band peaks (#130).
+    borders = Counter(p.border for p in panos)
+    stats['detection_border'] = (single_border(borders, jsonl.name) if len(borders) == 1
+                                 else dict(sorted(borders.items())))
     out = args.out or jsonl.parent / 'sites.jsonl'
     meta = out.with_name(out.stem + '_meta.json')
     write_sites(sites, frame, stats, params, out, meta)
@@ -1372,7 +1415,7 @@ def main(argv=None):
     print(f'wrote {out} and {meta}')
 
 
-def pose_ablation_report(panos, params):
+def pose_ablation_report(panos, params, allow_mixed_decode=False, allow_mixed_border=False):
     """Empirically lock the pitch/roll sign convention (issue #27 stage 2).
 
     Association is frozen from a pose-OFF fuse; each member's ground point is
@@ -1392,7 +1435,9 @@ def pose_ablation_report(panos, params):
     """
     from dataclasses import replace
 
-    sites, frame, _ = fuse(panos, replace(params, apply_pose=POSE_OFF))
+    sites, frame, _ = fuse(panos, replace(params, apply_pose=POSE_OFF),
+                           allow_mixed_decode=allow_mixed_decode,
+                           allow_mixed_border=allow_mixed_border)
     by_id = {p.pano_id: p for p in panos}
     groups = []
     for site in sites:
@@ -1505,7 +1550,7 @@ def _median(values):
     return (v[n // 2] + v[(n - 1) // 2]) / 2.0
 
 
-def implied_height_report(panos, params):
+def implied_height_report(panos, params, allow_mixed_decode=False, allow_mixed_border=False):
     """Measured vs imagery-implied camera height, by capture year (#40).
 
     The implied height is independent of the height model only per pair; which pairs
@@ -1516,7 +1561,8 @@ def implied_height_report(panos, params):
     `per-pano`, iterate on a scale instead (docs/camera-height-study.md does, by
     monkeypatching; the self-consistent scale was 1.06-1.16 by city).
     """
-    sites, frame, _ = fuse(panos, params)
+    sites, frame, _ = fuse(panos, params, allow_mixed_decode=allow_mixed_decode,
+                           allow_mixed_border=allow_mixed_border)
     by_id = {p.pano_id: p for p in panos}
     implied = {pid: _median(hs) for pid, hs in implied_heights(sites, frame, by_id).items()}
     if not implied:

@@ -245,6 +245,45 @@ python scripts/eval_sites.py paterson --vintage-ablation
 python scripts/heatmap_grid.py grid paterson bend gainesville sao_paulo richmond
 python scripts/heatmap_grid.py sigma paterson bend gainesville sao_paulo richmond
 python scripts/eval_sites.py paterson --sigma-peak-px 2.31 --out /tmp/eval_s231   # one cell
+# SUB-CELL DECODE (#111 decode half, docs/heatmap-grid.md section 4). OPT-IN, default argmax:
+# `main.py --decode gaussian` / `reinfer.py --decode` place each peak by RampNet#221's rule
+# (detectors/decode.py; detectors/rampnet_subcell.py is RampNet's subcell.py VERBATIM, hash-pinned
+# by tests/test_decode.py -- vendored because the Hub package does not ship it yet). Same peaks,
+# same scores; only (x, y) move: median 1.5 heatmap px per axis, p99 3.5, max 8.7 measured (a
+# re-anchored peak can move about one coarse cell). A run is BOUND to its decode (manifest
+# `detection_decode`), gaussian records carry "detection_decode": "gaussian" (argmax records and
+# submission records are byte-identical to before; manifests and sites_meta gain the key), and
+# fuse_sites / reinfer --verify /
+# --write-band-file / send_to_ps.py refuse a mix (--allow-mixed-decode, recorded); eval_sites and
+# provenance_gate (and agree_rate, site_explorer, gsv_partial_pose, mapillary_tilt) refuse a
+# non-argmax run (bundles and live labels are argmax), so a gaussian city has no provenance
+# gate yet. A mixed send under --allow-mixed-decode records the full mix. A gaussian
+# campaign beside live argmax labels is a whole-city frame change and Jon's call.
+# The measurement: one forward pass, both decodes (GPU `detect`), then CPU steps.
+python scripts/subcell_decode.py residual --rampnet-root ../RampNet   # reads the committed decode/ outputs
+python scripts/subcell_decode.py sigma-table paterson bend gainesville sao_paulo richmond --sigma 4.24 3.67
+python scripts/subcell_decode.py world laurens_gsv --split laurens_gsv --results runs/laurens_gsv/results.jsonl     --decode-file docs/figures/heatmap-grid/data/decode/decode_laurens_gsv.jsonl.gz --work-dir /tmp/w
+python scripts/subcell_decode.py figures
+# SEAM BAND (#130; docs/seam-band-130.md). OPT-IN, default exclude: the peak finder drops every
+# peak within 10 heatmap px of the heatmap edge (skimage's exclude_border default), so the 20
+# columns at the 360-degree seam -- coarse columns 0 and 127 of the exact x8 upsample, 5.6 deg of
+# azimuth -- never yield a detection. `main.py --border keep`
+# / `reinfer.py --border keep` use RampNet's rule instead (exclude_border=False, NO NMS across the
+# seam, so a straddling ramp can give two peaks). Bound exactly like the decode: manifest
+# `detection_border`, keep records carry "detection_border": "keep" (exclude records and
+# submission records byte-identical), fuse_sites / reinfer --verify / send_to_ps.py refuse a mix
+# (--allow-mixed-border, recorded; send_to_ps also reads sibling runs/*/ campaigns on the same
+# endpoint, so a re-run under a new --name is caught), --write-band-file refuses it outright, and eval_sites (via
+# es.require_bundle_frame: agree_rate, site_explorer, gsv_partial_pose, mapillary_tilt) and
+# provenance_gate refuse a keep run (bundles and live labels are exclude). detect_from_store.py
+# stays exclude. RULE: a NEW city may use --border keep from its first run; an EXISTING city only
+# under a new --name, and shipping it beside live exclude labels is Jon's call.
+# The measurement (Laurens, both arms; CPU): `check`/`peaks` on makelab2 where the #111 coarse maps
+# live, then `world` anywhere; `verify` re-derives summary.json from the committed data, no network.
+python scripts/seam_band_130.py check laurens --results runs/laurens/results.jsonl --coarse-dir /homes/gws/jonf/decode111/coarse/laurens
+python scripts/seam_band_130.py peaks laurens --results runs/laurens/results.jsonl --coarse-dir /homes/gws/jonf/decode111/coarse/laurens
+python scripts/seam_band_130.py world laurens --results runs/laurens/results.jsonl --peaks runs/laurens/seam_band_130/peaks.run.jsonl
+python scripts/seam_band_130.py summary && python scripts/seam_band_130.py verify
 
 # Leave-one-view-out REPROJECTION RESIDUAL (issue #36; findings in
 # docs/reprojection-residual.md). GT-free: for every site with >= 3 operational views,
@@ -356,6 +395,34 @@ python scripts/harvest_depth.py runs/vancouver --from-store <store> [--check-sto
 # (both are printed, plus the "shadowed" count). The per-pano ablation needs the untracked
 # depth/index.csv beside results.jsonl; the report prints how many panos had a height.
 python scripts/agree_rate.py gainesville --server https://sidewalk-gainesville.cs.washington.edu
+
+# LABEL-FRAME BETA (issue #113). GSV equirects are rig-frame, so a detection's row is in the
+# image's frame while a human PS label's pano_y is off by beta x T(b), T = pitch cos b +
+# roll sin b (streetlevel's sign). Fits beta from labels paired with the nearest detection on
+# the SAME pano (3 deg of bearing, 4/6/10/15 deg of elevation; pano-clustered SEs; rig-masked).
+# The elevation window is a BIAS, not just noise: centred on diff 0 it truncates large shifts
+# and reads low (6 deg: pool 0.863), so every fit also runs centred on T (reads high) and the
+# two bracket beta; they meet by 10 deg, which is the headline. `run` pulls the city's labels
+# once (read-only GET, cached, --refresh re-pulls) and reads pose + detections from
+# results.jsonl; it REFUSES when > 1% of labels sit within 1 px of a stored detection (an AI
+# account's labels pair with themselves at diff 0) unless --exclude-user names it. `pool` reads
+# sidewalk-panorama-tools' vouched pool + pose scan (pinned by commit + sha256 in POOL_INPUTS)
+# and a detections file made over those store panos; it is rebuilt end to end by `pool-ids`
+# (the sorted pano list, reproduces pool_ids.txt byte for byte) -> `pool-detect` (GPU, ~2.8 h
+# on the A40; writes model + commit + ids sha256 into .meta.json) -> `pool`. pool_ids.txt, the
+# detections file, its meta, the original runner and its log are tracked under
+# runs/_pooled/label_frame_beta/; the API pull and the pano-tools CSVs are not.
+# Results (10 deg): Gainesville 0.951 (SE 0.022); pool 0.902, legacy 0.881 / mid 0.909 /
+# post179 0.943. The era gap is the POSE RECORD's, not the label era's: on the 3,518 pairs whose
+# pano has both an XML and an npz pose, beta is 0.884 under XML and 0.953 under npz. Pose error
+# attenuates beta, so all of these are lower bounds. NOT a placement coefficient (#116).
+python scripts/label_frame_beta.py run gainesville --server https://sidewalk-gainesville.cs.washington.edu
+python scripts/label_frame_beta.py pool-ids --pool <tilt-jm-pool.csv.gz> --pose <tilt-pose-jm.csv.gz> \
+    --out runs/_pooled/label_frame_beta/pool_ids.txt
+python scripts/label_frame_beta.py pool-detect --ids runs/_pooled/label_frame_beta/pool_ids.txt \
+    --store /projects/makeabilitylab/sidewalk_panos/Panoramas --out <pool_detections.jsonl>
+python scripts/label_frame_beta.py pool --pool <tilt-jm-pool.csv.gz> --pose <tilt-pose-jm.csv.gz> \
+    --detections runs/_pooled/label_frame_beta/pool_detections.jsonl   # -> runs/_pooled/label_frame_beta/
 
 # Precision of positives mined from multi-view consensus (RampNet#158 step 1 /
 # RampNet#102): for each site with >=3 operational panos and each judged benchmark pano
@@ -761,8 +828,9 @@ returns 403 for anonymous callers since ~June 2026; streetlevel handles the requ
 format (and must stay ≥ 0.12.10 for the same reason).
 
 **`detectors/curb_ramp.py`** wraps the `projectsidewalk/rampnet-model` HuggingFace model
-(loaded with `trust_remote_code=True`). It outputs a heatmap; `peak_local_max` extracts peaks
-down to the **storage floor** (`DETECTION_STORAGE_FLOOR=0.1`, top-50 per pano), NOT the
+(loaded with `trust_remote_code=True`). It outputs a heatmap; `detectors/decode.py`'s
+`peak_local_max` extracts peaks (placed at the argmax pixel by default, or by the opt-in
+`gaussian` sub-cell decode, #111) down to the **storage floor** (`DETECTION_STORAGE_FLOOR=0.1`, top-50 per pano), NOT the
 decision threshold. The two-threshold contract lives in `detectors/__init__.py` (torch-free,
 importable everywhere): results.jsonl deliberately stores sub-threshold candidates as raw
 material for multi-view fusion (#27), and everything that *acts* on detections filters at
@@ -874,8 +942,10 @@ uniform quantization alone is 8/sqrt(12) = 2.31 px. 2.31 failed #111's pre-regis
 rule in one of ten cells (Sao Paulo at 2.6 m: world recall -1.6 pts, SE 1.3; precision
 unchanged everywhere; gate/residual rejections down 16-58% on GSV), so the default stayed 1.0
 and `--sigma-peak-px` (fuse_sites, eval_sites; `FuseParams.sigma_peak_px`) opts in. **Every
-published fusion/clustering/residual table used 1.0.** The measured residual that should
-replace both waits on the sub-cell decode study (RampNet#221); docs/heatmap-grid.md. GSV camera pitch/roll are deliberately NOT applied: the
+published fusion/clustering/residual table used 1.0.** The MEASURED residual (#111 decode half,
+residual to box centres, bias removed, an upper bound): 4.24 px argmax / 3.79 px gaussian on
+manual_gold; at 4.24 (and 3.67) the same ten cells fail in Sao Paulo at both heights, so the
+default still stays 1.0; docs/heatmap-grid.md section 4. GSV camera pitch/roll are deliberately NOT applied: the
 `--pose-ablation` experiment measured that applying the full pose loosens multi-view
 agreement. **That does not mean the equirects are gravity-rectified** (corrected 2026-09-29,
 #113): they are in the rig's frame (sidewalk-panorama-tools#158), streetlevel and the PS pano
