@@ -1,0 +1,13 @@
+city,site_id,pano_id,range_m,bearing_deg,x_norm,y_norm,n_op_panos,best_conf,bucket,nearest_gt_kind,nearest_gt_m,within_match
+bend,10987,X3HUl4G0JyP3fwNYcFAXVw,4.43,70.24,0.74027,0.65950,3,0.84329,tp,missed,1.42,1
+bend,8966,rQtHh0Wai-D1FvbvqBlWdw,6.42,355.77,0.30849,0.60777,5,0.89646,tp,missed,0.28,1
+bend,4631,BfLStXTTg1-0FjTrZcvYWg,9.78,55.06,0.68404,0.56642,3,0.94711,tp,missed,0.52,1
+bend,7316,Noi7DhIT3xbCjA2Ip4QOyg,10.43,21.79,0.61901,0.56467,4,0.91917,tp,missed,0.78,1
+bend,1390,dUy9p1NputrGH7SFDmbCpg,11.44,110.24,0.58239,0.56390,5,0.98698,already_detected,det,4.59,1
+bend,10167,cqb7v_2KGHMeSy8VpvkcDQ,11.57,292.23,0.56227,0.56503,4,0.87065,fp,det,13.02,0
+bend,114,62TiKmlmxt_xn_68w1lgAw,12.15,130.57,0.61434,0.56097,4,1.01772,tp,missed,1.29,1
+bend,410,PX5zU_2KkKO0Gr4FiSe9aw,13.32,208.53,0.31727,0.55446,4,1.00663,already_detected,det,3.59,1
+bend,8401,rQtHh0Wai-D1FvbvqBlWdw,13.57,244.53,0.99949,0.55257,5,0.90521,tp,missed,0.54,1
+bend,4202,ukV9s59lkyu-xEjUdK7CmQ,14.14,154.38,0.15858,0.55790,4,0.95146,tp,missed,0.90,1
+bend,9356,rQtHh0Wai-D1FvbvqBlWdw,14.32,298.15,0.14841,0.54986,4,0.88935,unsure,unsure,0.69,1
+bend,2464,yJmMJeV6PD3UZlAmm4cmWg,14.47,204.01,0.52117,0.55658,6,0.97064,already_detected,det,4.03,1

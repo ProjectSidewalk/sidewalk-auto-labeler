@@ -1,0 +1,25 @@
+category,city,idx,pano_id,depth,marker_px,seg,size,verdict,x,y
+surface_object,paterson,0,5M-GzTlVe-lrOqHmypJqTA,ground,160.0;120.0,Car,4827,,0.698242,0.666016
+surface_object,gainesville,1,6-tNVth5ck0axWmPuKpiXg,ground,160.0;120.0,Vegetation,7240,,0.256836,0.626953
+surface_object,bend,2,0SgaioiGd5Yi_5wc6m-nJg,floor,160.0;120.0,Trailer,4804,,0.772461,0.607422
+surface_object,paterson,3,wNcM5HCEQeGv8ndYe9HMmw,ground,160.0;120.0,Car,4668,,0.735352,0.654297
+surface_object,sao_paulo,4,S2IuBk3pE9q76j1Z4hQC8A,floor,160.0;120.0,Trash Can,4865,,0.670898,0.634766
+surface_object,sao_paulo,5,FRKJomHWa7nYfbmGJRNuvA,floor,160.0;120.0,Car,6842,,0.719727,0.642578
+surface_structure,paterson,6,0-zmUwLwl5ENJgqxheDklQ,floor,160.0;120.0,Fence,2110,,0.739258,0.564453
+surface_structure,sao_paulo,7,52VthEdI90oCcFRLa9Wy5g,floor,160.0;120.0,Tunnel,6024,,0.768555,0.623047
+surface_structure,sao_paulo,8,GnxqQAq5GVonmVKfcMcr6w,ground,160.0;120.0,Wall,2006,,0.786133,0.568359
+surface_structure,bend,9,X3HUl4G0JyP3fwNYcFAXVw,floor_standin,160.0;120.0,Fence,1809,,0.764648,0.564453
+surface_structure,gainesville,10,oyTDvou4dK-Hm3v-cIaToQ,ground,160.0;120.0,Fence,2163,,0.772461,0.572266
+surface_structure,paterson,11,60amgEGA1TEcbtRBTtxUTg,floor,160.0;120.0,Wall,4513,,0.25293,0.642578
+wall_walkroad,bend,12,5U3KS0M2Y8w3qsDGGV610g,non_horizontal,160.0;120.0,Sidewalk,399,,0.670898,0.591797
+wall_walkroad,paterson,13,ATosj02dIzTybtsR5ecUPA,non_horizontal,160.0;120.0,Road,1674,,0.47168,0.673828
+wall_walkroad,sao_paulo,14,vsYI9YRnGs7H2rchsFS44A,non_horizontal,160.0;120.0,Sidewalk,380,,0.709961,0.552734
+wall_walkroad,sao_paulo,15,JAwR7rGXLysrpeYgTzkLCQ,non_horizontal,160.0;120.0,Sidewalk,347,,0.194336,0.591797
+wall_walkroad,sao_paulo,16,MTKGGsTjIZqzb5CJ4L_zKw,non_horizontal,160.0;120.0,Sidewalk,409,,0.217773,0.587891
+wall_walkroad,paterson,17,Tyc7Xoi2Qu6tNrHVre2kNA,non_horizontal,160.0;120.0,Curb,606,,0.262695,0.619141
+det_non_surface,gainesville,18,q2yX7pwQF7_3SFGxEqlDHQ,floor,160.0;120.0,Pole,,true,0.253906,0.523438
+det_non_surface,bend,19,Jv7Zl2erbO_g10pRN-IS_Q,floor_standin,160.0;120.0,Terrain,,true,0.0898438,0.554688
+det_non_surface,paterson,20,2lovLRC7Pv6S94tMW3mDug,floor,160.0;120.0,Terrain,,true,0.441406,0.507812
+det_non_surface,paterson,21,L8lyOJwUI8j3Mk_cV-R80Q,floor_standin,160.0;120.0,Terrain,,true,0.941406,0.539062
+det_non_surface,paterson,22,5M-GzTlVe-lrOqHmypJqTA,floor,160.0;120.0,Pole,,true,0.542969,0.537109
+det_non_surface,paterson,23,NqOWmuzYX0M4vXF6ioTD7Q,floor,160.0;120.0,Terrain,,true,0.0351562,0.521484

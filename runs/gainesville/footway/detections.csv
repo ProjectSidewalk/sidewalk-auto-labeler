@@ -1,0 +1,341 @@
+city,pano_id,kind,det_index,x,y,confidence,gt_group,seg_group,seg_class,direct_group,direct_class,direct4096_group,direct4096_class,depth_class,plane_tilt_deg,offset_local_m,range_flat_2p6_m,on_camera_rig
+gainesville,-FMeOe5iGG-5JFxSF0lxaQ,det,0,0.425781,0.523438,0.610808,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ground,1.48279,,35.2473,0
+gainesville,-FMeOe5iGG-5JFxSF0lxaQ,missed,0,0.446625,0.508315,,unsure_missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.7472,-0.057762,99.5033,0
+gainesville,-zi5tN6Qyyeq8B1mczYfOg,det,0,0.237305,0.599609,0.918099,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.13401,-0.135851,8.03552,0
+gainesville,-zi5tN6Qyyeq8B1mczYfOg,det,1,0.878906,0.648438,0.831939,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,1.04997,,5.16531,0
+gainesville,-zi5tN6Qyyeq8B1mczYfOg,det,2,0.0898438,0.523438,0.479124,band_0p30,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,1.42615,0.104656,35.2473,0
+gainesville,1n-U7MQVuboJf00fwh9UBg,det,0,0.870117,0.554688,0.826766,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.3541,0.0960329,14.9842,0
+gainesville,1n-U7MQVuboJf00fwh9UBg,missed,0,0.284385,0.52485,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.15301,0.181743,33.2365,0
+gainesville,1n-U7MQVuboJf00fwh9UBg,missed,1,0.305455,0.527374,,missed,WALK,Crosswalk - Plain,ROAD,Road,ROAD,Road,floor,2.30758,-0.0143909,30.1589,0
+gainesville,1n-U7MQVuboJf00fwh9UBg,missed,2,0.193695,0.528182,,unsure_missed,ROAD,Road,ROAD,Road,ROAD,Road,floor_standin,0,0.232233,29.2899,0
+gainesville,1n-U7MQVuboJf00fwh9UBg,missed,3,0.88271,0.533829,,unsure_missed,WALK,Sidewalk,WALK,Curb,WALK,Sidewalk,floor,2.3541,0.250147,24.3723,0
+gainesville,1n-U7MQVuboJf00fwh9UBg,missed,4,0.94068,0.523962,,unsure_missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.54497,-0.130787,34.4723,0
+gainesville,1n-U7MQVuboJf00fwh9UBg,missed,5,0.962679,0.522495,,unsure_missed,WALK,Curb Cut,ROAD,Road,ROAD,Road,floor_standin,0,0.0326277,36.7296,0
+gainesville,21qHYEKoNSGw9O3wF_dvBg,det,0,0.932617,0.539062,0.75608,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.3653,-0.152491,21.0802,0
+gainesville,21qHYEKoNSGw9O3wF_dvBg,det,1,0.253906,0.523438,0.441024,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.89734,0.371194,35.2473,0
+gainesville,2ZG41STPUADAWUJD-Rc4sA,det,0,0.0585938,0.539062,0.564085,true,ROAD,Road,WALK,Sidewalk,ROAD,Road,floor,1.21241,0.0798002,21.0802,0
+gainesville,2ZG41STPUADAWUJD-Rc4sA,det,1,0.94043,0.539062,0.382933,band_0p30,WALK,Sidewalk,WALK,Crosswalk - Plain,WALK,Sidewalk,floor,1.21241,0.0509514,21.0802,0
+gainesville,2ZG41STPUADAWUJD-Rc4sA,missed,0,0.0439487,0.524596,,unsure_missed,WALK,Sidewalk,OTHER,Terrain,WALK,Sidewalk,floor,0.431147,0.0539333,33.5807,0
+gainesville,2ZG41STPUADAWUJD-Rc4sA,missed,1,0.961391,0.523389,,missed,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor,1.68957,0.00331088,35.3207,0
+gainesville,2xfTrO6eZbF0hKmvjGzN0A,det,0,0.916992,0.601562,0.704925,false,ROAD,Road,ROAD,Road,ROAD,Road,floor,3.26003,-0.00235057,7.87031,0
+gainesville,3CbLaqDP3N3z64brBrC0eA,det,0,0.0732422,0.554688,0.716525,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.82861,0.0493068,14.9842,0
+gainesville,3CbLaqDP3N3z64brBrC0eA,det,1,0.791992,0.648438,0.686656,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,2.90488,,5.16531,0
+gainesville,3CbLaqDP3N3z64brBrC0eA,det,2,0.0976562,0.539062,0.614156,unsure,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.73325,0.00275239,21.0802,0
+gainesville,3CbLaqDP3N3z64brBrC0eA,det,3,0.682617,0.630859,0.362673,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,2.90488,,5.96402,0
+gainesville,4My9h4mmpjE82U1up3jWOA,det,0,0.667969,0.554688,0.891068,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.34305,-0.0216743,14.9842,0
+gainesville,4My9h4mmpjE82U1up3jWOA,det,1,0.332031,0.539062,0.74571,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.3219,0.025103,21.0802,0
+gainesville,4My9h4mmpjE82U1up3jWOA,det,2,0.885742,0.539062,0.74438,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.34305,-0.345596,21.0802,0
+gainesville,4My9h4mmpjE82U1up3jWOA,det,3,0.620117,0.568359,0.725314,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.3219,0.113918,11.92,0
+gainesville,4My9h4mmpjE82U1up3jWOA,det,4,0.932617,0.539062,0.704389,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,1.34305,-0.378899,21.0802,0
+gainesville,4My9h4mmpjE82U1up3jWOA,det,5,0.307617,0.537109,0.668231,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,0.638271,-0.130667,22.2007,0
+gainesville,4My9h4mmpjE82U1up3jWOA,det,6,0.121094,0.537109,0.653006,true,WALK,Crosswalk - Plain,WALK,Curb Cut,WALK,Crosswalk - Plain,floor,1.05795,0.0174425,22.2007,0
+gainesville,4My9h4mmpjE82U1up3jWOA,det,7,0.910156,0.539062,0.626464,duplicate,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.34305,-0.366322,21.0802,0
+gainesville,4My9h4mmpjE82U1up3jWOA,det,8,0.777344,0.552734,0.483461,band_0p30,WALK,Curb,ROAD,Catch Basin,WALK,Curb,floor,1.34305,-0.169165,15.55,0
+gainesville,4My9h4mmpjE82U1up3jWOA,missed,0,0.142976,0.534959,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.05795,0.0159846,23.5785,0
+gainesville,5vEoUj3H3aRkW-2h1B0JAQ,det,0,0.503906,0.523438,0.890391,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.79504,0.0542041,35.2473,0
+gainesville,5vEoUj3H3aRkW-2h1B0JAQ,det,1,0.643555,0.648438,0.80214,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,1.43981,,5.16531,0
+gainesville,5vEoUj3H3aRkW-2h1B0JAQ,det,2,0.0576172,0.554688,0.569404,unsure,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.04717,0.0592311,14.9842,0
+gainesville,6-tNVth5ck0axWmPuKpiXg,det,0,0.957031,0.570312,0.646246,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.14448,-0.0421808,11.5783,0
+gainesville,6-tNVth5ck0axWmPuKpiXg,missed,0,0.0331515,0.571311,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,2.14448,0.0446684,11.4108,0
+gainesville,6-tNVth5ck0axWmPuKpiXg,missed,1,0.0731313,0.558889,,unsure_missed,WALK,Sidewalk,ROAD,Road,WALK,Sidewalk,floor,2.14448,0.022168,13.893,0
+gainesville,65kxFTBgmbOPUQbC612rdg,det,0,0.277344,0.632812,0.991004,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0158495,5.86551,0
+gainesville,65kxFTBgmbOPUQbC612rdg,det,1,0.582031,0.539062,0.96759,true,WALK,Curb,WALK,Sidewalk,WALK,Curb,floor,2.55321,0.0524655,21.0802,0
+gainesville,65kxFTBgmbOPUQbC612rdg,det,2,0.682617,0.583984,0.96647,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.87607,0.125499,9.62455,0
+gainesville,65kxFTBgmbOPUQbC612rdg,det,3,0.324219,0.570312,0.959498,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor_standin,0,0.08328,11.5783,0
+gainesville,65kxFTBgmbOPUQbC612rdg,det,4,0.417969,0.552734,0.913491,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.0880354,15.55,0
+gainesville,65kxFTBgmbOPUQbC612rdg,det,5,0.457031,0.539062,0.847359,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor_standin,0,0.0934603,21.0802,0
+gainesville,65kxFTBgmbOPUQbC612rdg,det,6,0.729492,0.646484,0.808941,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.87607,0.118926,5.24521,0
+gainesville,65kxFTBgmbOPUQbC612rdg,det,7,0.542969,0.539062,0.592607,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor_standin,0,0.0868507,21.0802,0
+gainesville,6HfrzDBSveHUN1NpGsF31Q,missed,0,0.526278,0.5148,,missed,WALK,Sidewalk,ROAD,Road,ROAD,Road,ground,0.913431,,55.8801,0
+gainesville,6HfrzDBSveHUN1NpGsF31Q,missed,1,0.55789,0.536426,,missed,ROAD,Road,ROAD,Road,ROAD,Road,ground,0.913431,,22.6211,0
+gainesville,6KnaArlg4nGEGAGNkIw9NA,det,0,0.957031,0.570312,0.945089,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.35526,0.00213013,11.5783,0
+gainesville,6KnaArlg4nGEGAGNkIw9NA,det,1,0.0742188,0.539062,0.859712,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,3.42028,-0.230534,21.0802,0
+gainesville,6KnaArlg4nGEGAGNkIw9NA,det,2,0.698242,0.568359,0.836421,true,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor_standin,0,0.060788,11.92,0
+gainesville,6KnaArlg4nGEGAGNkIw9NA,det,3,0.643555,0.554688,0.592528,true,WALK,Curb Cut,ROAD,Road,WALK,Sidewalk,floor_standin,0,0.0798686,14.9842,0
+gainesville,6mZXrVGoxQ2H1k8Jx2OZHA,det,0,0.84668,0.585938,0.644621,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.487386,-0.0522023,9.39519,0
+gainesville,7dme7qsPcOTglSlmpGp9Rw,det,0,0.457031,0.539062,0.72766,false,WALK,Curb Cut,ROAD,Parking,WALK,Curb Cut,floor,2.4923,0.397583,21.0802,0
+gainesville,82y6sIvPm-_shG58klusgw,det,0,0.964844,0.554688,0.783698,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,2.88724,0.0331216,14.9842,0
+gainesville,82y6sIvPm-_shG58klusgw,missed,0,0.983838,0.529215,,missed,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor,2.57542,0.12071,28.2482,0
+gainesville,89lilp2BlhppxL-oQ0gLNg,det,0,0.199219,0.539062,1.00225,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.690122,-0.076742,21.0802,0
+gainesville,89lilp2BlhppxL-oQ0gLNg,det,1,0.957031,0.552734,0.895081,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,1.37899,0.115578,15.55,0
+gainesville,89lilp2BlhppxL-oQ0gLNg,det,2,0.300781,0.539062,0.876072,true,WALK,Curb,WALK,Curb,WALK,Sidewalk,floor,0.690122,-0.0450577,21.0802,0
+gainesville,89lilp2BlhppxL-oQ0gLNg,det,3,0.854492,0.554688,0.871471,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.37899,0.0710491,14.9842,0
+gainesville,89lilp2BlhppxL-oQ0gLNg,det,4,0.53418,0.552734,0.867292,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,0.306467,,15.55,0
+gainesville,89lilp2BlhppxL-oQ0gLNg,det,5,0.120117,0.539062,0.797467,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.37899,0.0215573,21.0802,0
+gainesville,89lilp2BlhppxL-oQ0gLNg,det,6,0.652344,0.568359,0.583206,true,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,ground,0.306467,,11.92,0
+gainesville,89lilp2BlhppxL-oQ0gLNg,det,7,0.378906,0.539062,0.561056,true,WALK,Sidewalk,OTHER,Terrain,WALK,Sidewalk,floor,1.07538,-0.0720469,21.0802,0
+gainesville,89lilp2BlhppxL-oQ0gLNg,det,8,0.760742,0.552734,0.303784,band_0p30,ROAD,Manhole,WALK,Curb,ROAD,Manhole,ground,0.306467,,15.55,0
+gainesville,9D-oOS00uSg18nvfm8t9zQ,det,0,0.0664062,0.539062,0.911288,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.26393,0.0168532,21.0802,0
+gainesville,9D-oOS00uSg18nvfm8t9zQ,det,1,0.269531,0.585938,0.829389,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.38931,,9.39519,0
+gainesville,9D-oOS00uSg18nvfm8t9zQ,det,2,0.933594,0.554688,0.785553,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,3.81203,0.0624643,14.9842,0
+gainesville,9D-oOS00uSg18nvfm8t9zQ,det,3,0.957031,0.552734,0.766087,duplicate,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,3.81203,0.103467,15.55,0
+gainesville,9D-oOS00uSg18nvfm8t9zQ,det,4,0.72168,0.617188,0.711479,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.70914,0.0253125,6.74025,0
+gainesville,9D-oOS00uSg18nvfm8t9zQ,det,5,0.105469,0.539062,0.439258,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.26393,0.019259,21.0802,0
+gainesville,9D-oOS00uSg18nvfm8t9zQ,det,6,0.238281,0.570312,0.402433,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.38931,,11.5783,0
+gainesville,9QF3VpTsXpZei70YvA-H6w,det,0,0.863281,0.568359,0.623264,false,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,0.972168,,11.92,0
+gainesville,9QF3VpTsXpZei70YvA-H6w,det,1,0.949219,0.537109,0.569832,unsure,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.14859,0.0565259,22.2007,0
+gainesville,9tS6faHm3jFdOth84XlbEQ,det,0,0.206055,0.568359,0.985081,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.860256,0.0939164,11.92,0
+gainesville,9tS6faHm3jFdOth84XlbEQ,det,1,0.90918,0.583984,0.952847,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.648007,,9.62455,0
+gainesville,9tS6faHm3jFdOth84XlbEQ,det,2,0.838867,0.583984,0.901913,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb,ground,0.648007,,9.62455,0
+gainesville,9tS6faHm3jFdOth84XlbEQ,det,3,0.34668,0.554688,0.894436,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.860256,0.0877004,14.9842,0
+gainesville,9tS6faHm3jFdOth84XlbEQ,det,4,0.121094,0.583984,0.863639,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,0.860256,0.00798031,9.62455,0
+gainesville,9tS6faHm3jFdOth84XlbEQ,det,5,0.402344,0.554688,0.772064,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.860256,0.0102532,14.9842,0
+gainesville,9tS6faHm3jFdOth84XlbEQ,det,6,0.557617,0.570312,0.746277,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,0.648007,,11.5783,0
+gainesville,9tS6faHm3jFdOth84XlbEQ,det,7,0.651367,0.568359,0.655256,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,0.648007,,11.92,0
+gainesville,A44roYJy6tdzAK9yLNS_qQ,det,0,0.135742,0.554688,0.652641,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.28024,,14.9842,0
+gainesville,A44roYJy6tdzAK9yLNS_qQ,missed,0,0.205657,0.573434,,missed,ROAD,Catch Basin,ROAD,Manhole,ROAD,Catch Basin,ground,1.28024,,11.0693,0
+gainesville,BtYzecFoq3-H5qaGzBh4iw,det,0,0.53418,0.537109,0.565709,true,OTHER,Terrain,WALK,Sidewalk,WALK,Sidewalk,floor,4.88724,0.000191762,22.2007,0
+gainesville,BtYzecFoq3-H5qaGzBh4iw,missed,0,0.514146,0.513618,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,5.51043,0.00757223,60.7348,0
+gainesville,BzXolOMX-XSEGwyXQpIsrA,det,0,0.370117,0.552734,0.917044,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.89414,-0.0863501,15.55,0
+gainesville,BzXolOMX-XSEGwyXQpIsrA,det,1,0.581055,0.552734,0.834949,true,ROAD,Catch Basin,WALK,Sidewalk,ROAD,Catch Basin,ground,1.6957,,15.55,0
+gainesville,BzXolOMX-XSEGwyXQpIsrA,det,2,0.535156,0.523438,0.789214,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Sidewalk,floor,2.88466,0.0116628,35.2473,0
+gainesville,BzXolOMX-XSEGwyXQpIsrA,det,3,0.441406,0.523438,0.524898,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.53799,0.38085,35.2473,0
+gainesville,BzXolOMX-XSEGwyXQpIsrA,missed,0,0.435152,0.524949,,missed,WALK,Sidewalk,WALK,Curb Cut,WALK,Curb Cut,floor,1.53799,0.370661,33.1033,0
+gainesville,CabndIEXzzs5FAENnrsEug,det,0,0.901367,0.539062,0.894621,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.49973,0.0431489,21.0802,0
+gainesville,CabndIEXzzs5FAENnrsEug,missed,0,0.954806,0.516702,,missed,WALK,Sidewalk,ROAD,Road,WALK,Curb Cut,floor_standin,0,-0.764161,49.5064,0
+gainesville,DXKg24FIKMrGUX6ilHn5Ew,det,0,0.917969,0.568359,0.565247,false,WALK,Curb,WALK,Curb,WALK,Sidewalk,floor,2.28096,0.00677183,11.92,0
+gainesville,DXKg24FIKMrGUX6ilHn5Ew,det,1,0.128906,0.583984,0.405596,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,3.25588,-0.0237647,9.62455,0
+gainesville,DXKg24FIKMrGUX6ilHn5Ew,missed,0,0.126522,0.58364,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,3.25588,-0.0221451,9.66611,0
+gainesville,DXKg24FIKMrGUX6ilHn5Ew,missed,1,0.0440262,0.530456,,missed,WALK,Sidewalk,WALK,Curb,WALK,Sidewalk,floor,0.792288,0.0124247,27.0912,0
+gainesville,EhBhDcmWUDV5CaBKoAqi0A,det,0,0.0117188,0.523438,0.939219,true,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,4.67261,-0.297949,35.2473,0
+gainesville,EhBhDcmWUDV5CaBKoAqi0A,det,1,0.0742188,0.537109,0.481964,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,non_horizontal,88.1337,,22.2007,0
+gainesville,EhBhDcmWUDV5CaBKoAqi0A,det,2,0.566406,0.583984,0.423755,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,2.76527,0.457533,9.62455,0
+gainesville,EhBhDcmWUDV5CaBKoAqi0A,missed,0,0.0796176,0.531913,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,non_horizontal,88.1337,,25.8464,0
+gainesville,EhBhDcmWUDV5CaBKoAqi0A,missed,1,0.383177,0.56848,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.238952,11.8983,0
+gainesville,EhBhDcmWUDV5CaBKoAqi0A,missed,2,0.471415,0.541322,,unsure_missed,ROAD,Road,ROAD,Road,ROAD,Road,floor_standin,0,0.0445901,19.9157,0
+gainesville,EhBhDcmWUDV5CaBKoAqi0A,missed,3,0.557608,0.540552,,unsure_missed,ROAD,Road,WALK,Curb Cut,ROAD,Road,floor,2.01848,-0.0522309,20.2982,0
+gainesville,G7ttNgjW4KU9LJVeD1Ivdg,det,0,0.253906,0.570312,0.944805,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.47618,0.0426631,11.5783,0
+gainesville,G7ttNgjW4KU9LJVeD1Ivdg,det,1,0.331055,0.537109,0.720555,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.47618,0.120628,22.2007,0
+gainesville,G7ttNgjW4KU9LJVeD1Ivdg,det,2,0.535156,0.568359,0.551343,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.21386,-0.0794896,11.92,0
+gainesville,GRTC3zOCFSc8QMIrAtwtzw,det,0,0.386719,0.554688,0.928087,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.00347,0.99981,14.9842,0
+gainesville,GRTC3zOCFSc8QMIrAtwtzw,det,1,0.566406,0.583984,0.769921,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.00347,1.12609,9.62455,0
+gainesville,GRTC3zOCFSc8QMIrAtwtzw,det,2,0.425781,0.537109,0.579403,true,WALK,Crosswalk - Plain,ROAD,Road,WALK,Crosswalk - Plain,floor,1.00347,0.936091,22.2007,0
+gainesville,GRTC3zOCFSc8QMIrAtwtzw,det,3,0.59668,0.554688,0.409843,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.47441,0.0567123,14.9842,0
+gainesville,GRTC3zOCFSc8QMIrAtwtzw,missed,0,0.553863,0.528754,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.00347,1.05682,28.704,0
+gainesville,GRTC3zOCFSc8QMIrAtwtzw,missed,1,0.59769,0.551698,,missed,WALK,Sidewalk,WALK,Curb,ROAD,Road,floor,2.47441,0.0610048,15.8675,0
+gainesville,GhbzPi4bva0g3AlMDcioOg,det,0,0.291992,0.554688,0.696536,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.33548,-0.0825575,14.9842,0
+gainesville,GhbzPi4bva0g3AlMDcioOg,det,1,0.370117,0.539062,0.59168,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,5.22187,0.0233297,21.0802,0
+gainesville,HLLOIKVLXvOkBCREUvcBzg,det,0,0.0976562,0.568359,0.976637,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.83888,0.25819,11.92,0
+gainesville,HLLOIKVLXvOkBCREUvcBzg,det,1,0.94043,0.570312,0.798041,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.00542,-0.122813,11.5783,0
+gainesville,HLLOIKVLXvOkBCREUvcBzg,missed,0,0.041123,0.529697,,missed,WALK,Sidewalk,ROAD,Road,WALK,Sidewalk,floor,1.32957,-0.0618846,27.7875,0
+gainesville,HLLOIKVLXvOkBCREUvcBzg,missed,1,0.96908,0.533855,,missed,WALK,Sidewalk,WALK,Curb,WALK,Sidewalk,floor,1.32957,-0.116194,24.353,0
+gainesville,HoOapW5g53qbEFjLA7yv3Q,det,0,0.449219,0.552734,0.939887,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,2.66102,,15.55,0
+gainesville,HoOapW5g53qbEFjLA7yv3Q,det,1,0.644531,0.570312,0.914862,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,2.66102,,11.5783,0
+gainesville,HoOapW5g53qbEFjLA7yv3Q,missed,0,0.543832,0.518656,,missed,WALK,Sidewalk,WALK,Curb,WALK,Curb,ground,2.66102,,44.3116,0
+gainesville,HoOapW5g53qbEFjLA7yv3Q,missed,1,0.496452,0.515335,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,2.66102,,53.9255,0
+gainesville,ICUoYVV_dXvc9W3ge2PnWg,det,0,0.666992,0.552734,0.941149,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.87004,-0.239141,15.55,0
+gainesville,ICUoYVV_dXvc9W3ge2PnWg,det,1,0.355469,0.539062,0.826736,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.90906,0.0404065,21.0802,0
+gainesville,ICUoYVV_dXvc9W3ge2PnWg,missed,0,0.557292,0.520833,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.84648,-0.126414,39.6682,0
+gainesville,Idfm_UDnRFcD78ZVeNnhVg,det,0,0.636719,0.585938,0.811352,true,ROAD,Manhole,ROAD,Catch Basin,ROAD,Manhole,ground,2.10989,,9.39519,0
+gainesville,Idfm_UDnRFcD78ZVeNnhVg,det,1,0.22168,0.537109,0.6769,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,0.840699,0.0179074,22.2007,0
+gainesville,Idfm_UDnRFcD78ZVeNnhVg,det,2,0.557617,0.539062,0.390745,band_0p30,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.90238,-0.0746412,21.0802,0
+gainesville,Idfm_UDnRFcD78ZVeNnhVg,missed,0,0.325264,0.529647,,unsure_missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.80048,-0.0712291,27.8341,0
+gainesville,Idfm_UDnRFcD78ZVeNnhVg,missed,1,0.555953,0.537245,,missed,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,floor,1.90238,-0.0781482,22.1191,0
+gainesville,Idfm_UDnRFcD78ZVeNnhVg,missed,2,0.523941,0.513969,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.90238,-0.186749,59.2089,0
+gainesville,Idfm_UDnRFcD78ZVeNnhVg,missed,3,0.533188,0.517311,,unsure_missed,ROAD,Road,WALK,Sidewalk,ROAD,Road,floor,1.90238,-0.154779,47.7618,0
+gainesville,JlYp0BtvGCVeIqBady7pGg,det,0,0.581055,0.583984,0.638318,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.87972,,9.62455,0
+gainesville,JlYp0BtvGCVeIqBady7pGg,det,1,0.308594,0.537109,0.335526,band_0p30,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,1.22876,0.0498333,22.2007,0
+gainesville,JlYp0BtvGCVeIqBady7pGg,missed,0,0.523622,0.525203,,missed,WALK,Curb Cut,ROAD,Road,ROAD,Road,ground,1.87972,,32.7689,0
+gainesville,K732QTWoB9RZwrfSmw7RYA,det,0,0.182617,0.570312,0.952655,true,WALK,Sidewalk,ROAD,Road,WALK,Sidewalk,floor,0.929359,-0.00378842,11.5783,0
+gainesville,K732QTWoB9RZwrfSmw7RYA,det,1,0.292969,0.583984,0.889251,true,WALK,Curb,WALK,Curb,WALK,Curb,floor,0.929359,-0.0510333,9.62455,0
+gainesville,K732QTWoB9RZwrfSmw7RYA,det,2,0.94043,0.537109,0.848916,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.54522,0.0587958,22.2007,0
+gainesville,K732QTWoB9RZwrfSmw7RYA,det,3,0.871094,0.568359,0.765742,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.54522,0.0523533,11.92,0
+gainesville,KEwb17BzIjKVur60MpItuA,det,0,0.339844,0.539062,0.973585,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.02246,0.00364441,21.0802,0
+gainesville,KEwb17BzIjKVur60MpItuA,det,1,0.557617,0.554688,0.892575,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,2.72189,,14.9842,0
+gainesville,KEwb17BzIjKVur60MpItuA,missed,0,0.414945,0.520171,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.12631,0.221836,40.974,0
+gainesville,KEwb17BzIjKVur60MpItuA,missed,1,0.528219,0.51063,,missed,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,floor,1.61568,-0.0850944,77.8299,0
+gainesville,KEwb17BzIjKVur60MpItuA,missed,2,0.560995,0.525576,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.24191,-0.0155955,32.2891,0
+gainesville,KEwb17BzIjKVur60MpItuA,missed,3,0.168249,0.554651,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,7.14691,0.0916853,14.9944,0
+gainesville,KEwb17BzIjKVur60MpItuA,missed,4,0.0606025,0.531777,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.312287,25.9573,0
+gainesville,KbZFzQai9wfXijoQDscWFw,det,0,0.597656,0.568359,0.899847,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,1.46219,,11.92,0
+gainesville,KbZFzQai9wfXijoQDscWFw,det,1,0.557617,0.523438,0.450756,band_0p30,WALK,Sidewalk,ROAD,Road,WALK,Sidewalk,floor,1.85393,0.00603222,35.2473,0
+gainesville,KbZFzQai9wfXijoQDscWFw,det,2,0.410156,0.554688,0.414623,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.62666,0.024342,14.9842,0
+gainesville,KbZFzQai9wfXijoQDscWFw,missed,0,0.414545,0.554849,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,1.62666,0.0240704,14.9393,0
+gainesville,KbZFzQai9wfXijoQDscWFw,missed,1,0.551057,0.524239,,missed,WALK,Curb Cut,ROAD,Road,WALK,Curb Cut,floor,1.85393,0.00197003,34.0775,0
+gainesville,KbZFzQai9wfXijoQDscWFw,missed,2,0.473189,0.519594,,missed,WALK,Curb,WALK,Curb,WALK,Curb,floor,1.79395,0.0291308,42.1853,0
+gainesville,KbZFzQai9wfXijoQDscWFw,missed,3,0.527599,0.518842,,missed,WALK,Curb,OTHER,Terrain,WALK,Curb,floor,1.79395,0.034667,43.8725,0
+gainesville,KqZzM0v2PbaoxQmq6wk3Xw,det,0,0.932617,0.568359,0.60573,true,WALK,Curb Cut,WALK,Curb Cut,ROAD,Road,ground,0.812529,,11.92,0
+gainesville,KqZzM0v2PbaoxQmq6wk3Xw,det,1,0.105469,0.554688,0.464103,band_0p30,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,ground,0.812529,,14.9842,0
+gainesville,KqZzM0v2PbaoxQmq6wk3Xw,missed,0,0.103571,0.553518,,missed,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,ground,0.812529,,15.318,0
+gainesville,LDICnJgAhCSszYwolm8JRA,det,0,0.0507812,0.570312,0.581284,unsure,WALK,Curb,WALK,Curb,WALK,Curb,floor,3.14417,0.0374549,11.5783,0
+gainesville,LDICnJgAhCSszYwolm8JRA,det,1,0.949219,0.552734,0.52036,band_0p30,ROAD,Road,ROAD,Road,ROAD,Road,floor,3.14417,0.00372184,15.55,0
+gainesville,LDICnJgAhCSszYwolm8JRA,det,2,0.0341797,0.539062,0.473479,band_0p30,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor,3.14417,0.0761667,21.0802,0
+gainesville,LDICnJgAhCSszYwolm8JRA,missed,0,0.909325,0.594402,,missed,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,floor,2.61629,0.0776139,8.50824,0
+gainesville,LDICnJgAhCSszYwolm8JRA,missed,1,0.886465,0.562121,,unsure_missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,2.61629,0.118662,13.1529,0
+gainesville,LLc383eAyneHduBTInH9nw,det,0,0.582031,0.521484,0.643133,true,WALK,Curb,ROAD,Lane Marking - General,WALK,Curb,floor,1.62233,0.553586,38.4628,0
+gainesville,LLc383eAyneHduBTInH9nw,missed,0,0.542056,0.509251,,unsure_missed,OTHER,Terrain,ROAD,Road,WALK,Sidewalk,ground,0.903956,,89.4409,0
+gainesville,MTDJakccuk6hQfnZ3QEjxQ,det,0,0.558594,0.523438,0.573303,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.44276,0.165221,35.2473,0
+gainesville,MTDJakccuk6hQfnZ3QEjxQ,missed,0,0.535805,0.509068,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,floor,0.98576,0.373624,91.2395,0
+gainesville,Mm5gyUYqmJmjeGopC1IgKg,det,0,0.410156,0.552734,0.909571,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.11452,0.196477,15.55,0
+gainesville,Mm5gyUYqmJmjeGopC1IgKg,missed,0,0.546667,0.543535,,missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.69731,-0.0413431,18.8913,0
+gainesville,Mm5gyUYqmJmjeGopC1IgKg,missed,1,0.425628,0.525978,,missed,ROAD,Road,ROAD,Road,WALK,Sidewalk,floor,3.64508,0.115755,31.7875,0
+gainesville,Mm5gyUYqmJmjeGopC1IgKg,missed,2,0.51082,0.530155,,missed,WALK,Curb,OTHER,Terrain,WALK,Curb,floor,1.22253,0.108138,27.3625,0
+gainesville,PSS2iz32Sj0nE2ILJ6i8rA,det,0,0.324219,0.523438,0.940046,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,6.47941,0.0547218,35.2473,0
+gainesville,PSS2iz32Sj0nE2ILJ6i8rA,det,1,0.941406,0.539062,0.789625,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.0324,-0.129442,21.0802,0
+gainesville,PSS2iz32Sj0nE2ILJ6i8rA,det,2,0.612305,0.568359,0.359362,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.15691,-0.110316,11.92,0
+gainesville,PSS2iz32Sj0nE2ILJ6i8rA,det,3,0.371094,0.523438,0.34443,band_0p30,ROAD,Road,ROAD,Road,OBJECT,Barrier,floor,3.31948,0.328414,35.2473,0
+gainesville,PSS2iz32Sj0nE2ILJ6i8rA,missed,0,0.394045,0.521886,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,2.46379,0.00431773,37.755,0
+gainesville,PSS2iz32Sj0nE2ILJ6i8rA,missed,1,0.626263,0.567778,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor,1.15691,-0.112343,12.0255,0
+gainesville,P_bUUx5CIFcylFd9UAZRug,det,0,0.738281,0.585938,0.571374,false,ROAD,Catch Basin,ROAD,Catch Basin,ROAD,Catch Basin,floor,2.2093,0.183764,9.39519,0
+gainesville,P_bUUx5CIFcylFd9UAZRug,det,1,0.222656,0.554688,0.469803,band_0p30,OTHER,Terrain,OTHER,Terrain,OTHER,Terrain,floor_standin,0,0.102068,14.9842,0
+gainesville,SxMVl_DRQndQkQAvu9a01Q,det,0,0.956055,0.552734,0.905307,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.958588,,15.55,0
+gainesville,SxMVl_DRQndQkQAvu9a01Q,det,1,0.675781,0.615234,0.784955,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.49331,0.0687763,6.86541,0
+gainesville,TsU9TS4hpMHXVwv-YIrvCQ,det,0,0.59668,0.568359,0.931576,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.52251,-0.0792633,11.92,0
+gainesville,TsU9TS4hpMHXVwv-YIrvCQ,det,1,0.519531,0.507812,0.425855,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.59178,0.05215,105.912,0
+gainesville,TsU9TS4hpMHXVwv-YIrvCQ,missed,0,0.52131,0.511494,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.59178,0.0483057,71.9711,0
+gainesville,TsU9TS4hpMHXVwv-YIrvCQ,missed,1,0.27882,0.52276,,missed,OTHER,Terrain,OTHER,Terrain,WALK,Sidewalk,floor,1.20122,0.0193161,36.3006,0
+gainesville,UPTPPrW6iUFocod220aq8g,det,0,0.488281,0.523438,0.959399,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.54129,-0.00743219,35.2473,0
+gainesville,UPTPPrW6iUFocod220aq8g,det,1,0.652344,0.617188,0.699937,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,ground,1.83707,,6.74025,0
+gainesville,UrwK5NxGtb1p1lGv2EIgdg,det,0,0.332031,0.537109,0.823379,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.371,-0.0637575,22.2007,0
+gainesville,UrwK5NxGtb1p1lGv2EIgdg,det,1,0.604492,0.552734,0.545168,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,2.23852,,15.55,0
+gainesville,UrwK5NxGtb1p1lGv2EIgdg,missed,0,0.593921,0.555019,,missed,WALK,Curb,WALK,Curb,WALK,Curb,ground,2.23852,,14.8922,0
+gainesville,V1ze8IkgvM7tXueCGVfzbw,det,0,0.183594,0.585938,0.881583,true,ROAD,Catch Basin,ROAD,Catch Basin,WALK,Curb Cut,floor,1.76214,-0.0953158,9.39519,0
+gainesville,V1ze8IkgvM7tXueCGVfzbw,det,1,0.785156,0.617188,0.877535,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,0.943568,0.03593,6.74025,0
+gainesville,VYsAOBkJ-7hdoDBIOhr-nQ,det,0,0.402344,0.568359,0.796325,false,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.0348875,11.92,0
+gainesville,X45JWReulQB2gYvNrbUKGA,det,0,0.541992,0.523438,0.762685,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.49881,0.281592,35.2473,0
+gainesville,X45JWReulQB2gYvNrbUKGA,det,1,0.628906,0.554688,0.635897,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,1.81445,,14.9842,0
+gainesville,XRcpuzY4BC5AypmNXaQuyQ,det,0,0.449219,0.554688,0.860507,true,WALK,Sidewalk,WALK,Curb,WALK,Sidewalk,floor,3.14149,0.0546126,14.9842,0
+gainesville,XWhHaUuheK2ypAkTt10B8A,det,0,0.417969,0.539062,0.897509,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,0.982181,-0.0847839,21.0802,0
+gainesville,XWhHaUuheK2ypAkTt10B8A,det,1,0.34668,0.554688,0.771513,true,WALK,Curb,WALK,Curb,ROAD,Road,floor,0.982181,-0.147872,14.9842,0
+gainesville,XWhHaUuheK2ypAkTt10B8A,det,2,0.143555,0.585938,0.392773,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.982181,-0.107272,9.39519,0
+gainesville,XWhHaUuheK2ypAkTt10B8A,missed,0,0.929293,0.609798,,unsure_missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,0.27052,,7.23618,0
+gainesville,XWhHaUuheK2ypAkTt10B8A,missed,1,0.144242,0.600101,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,0.982181,-0.0858921,7.99334,0
+gainesville,XuX3LCIaNmEI9FSBenjToA,det,0,0.722656,0.632812,0.88861,true,ROAD,Manhole,WALK,Sidewalk,WALK,Curb Cut,ground,1.84441,,5.86551,0
+gainesville,XuX3LCIaNmEI9FSBenjToA,det,1,0.206055,0.568359,0.396968,band_0p30,ROAD,Catch Basin,WALK,Curb,ROAD,Catch Basin,ground,1.84441,,11.92,0
+gainesville,XuX3LCIaNmEI9FSBenjToA,missed,0,0.19829,0.578527,,missed,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,ground,1.84441,,10.3245,0
+gainesville,XuX3LCIaNmEI9FSBenjToA,missed,1,0.371633,0.541733,,missed,ROAD,Road,ROAD,Road,WALK,Curb,ground,1.84441,,19.7174,0
+gainesville,YDTr8LXPDt5ieA8MA6ZXLA,det,0,0.871094,0.554688,0.86015,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.78377,0.1759,14.9842,0
+gainesville,YDTr8LXPDt5ieA8MA6ZXLA,det,1,0.566406,0.537109,0.561848,true,ROAD,Lane Marking - General,ROAD,Lane Marking - General,ROAD,Lane Marking - General,ground,1.00794,,22.2007,0
+gainesville,YckCrqJ_I8sBF8wU5FpITw,det,0,0.0976562,0.523438,0.6922,true,ROAD,Lane Marking - Crosswalk,ROAD,Parking,ROAD,Lane Marking - Crosswalk,floor,1.60572,0.270787,35.2473,0
+gainesville,Z0pMjC8iJ6EDQzsBBrr_5Q,det,0,0.37793,0.601562,0.919111,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.59569,,7.87031,0
+gainesville,Z0pMjC8iJ6EDQzsBBrr_5Q,det,1,0.574219,0.630859,0.840211,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.59569,,5.96402,0
+gainesville,_2GSllZzac7Zfd02VoVgCA,det,0,0.956055,0.539062,0.674423,true,WALK,Curb,WALK,Curb,WALK,Sidewalk,floor,1.96413,-0.0426486,21.0802,0
+gainesville,_2GSllZzac7Zfd02VoVgCA,missed,0,0.0769912,0.533604,,missed,WALK,Curb,WALK,Curb,WALK,Curb Cut,floor,1.96413,-0.121614,24.5368,0
+gainesville,b-azHLq5uJSlywVqKYbgHA,det,0,0.160156,0.615234,0.915445,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor_standin,0,0.119767,6.86541,0
+gainesville,b-azHLq5uJSlywVqKYbgHA,det,1,0.0654297,0.554688,0.651278,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor,0.79031,0.0285895,14.9842,0
+gainesville,b-azHLq5uJSlywVqKYbgHA,det,2,0.97168,0.539062,0.504867,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.90906,-0.270124,21.0802,0
+gainesville,bcNsOc7RlDm9L9VmIGXYpg,det,0,0.31543,0.554688,0.966209,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.48919,-0.194782,14.9842,0
+gainesville,bcNsOc7RlDm9L9VmIGXYpg,det,1,0.964844,0.554688,0.620106,true,ROAD,Road,ROAD,Road,ROAD,Road,floor,2.30274,-0.0265798,14.9842,0
+gainesville,bcNsOc7RlDm9L9VmIGXYpg,det,2,0.0742188,0.583984,0.568578,false,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.34134,-0.041267,9.62455,0
+gainesville,bcNsOc7RlDm9L9VmIGXYpg,det,3,0.19043,0.585938,0.548408,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.48919,-0.152929,9.39519,0
+gainesville,bcNsOc7RlDm9L9VmIGXYpg,missed,0,0.71224,0.604927,,missed,WALK,Sidewalk,WALK,Sidewalk,ROAD,Manhole,ground,1.67281,,7.59967,0
+gainesville,dVrNCxUTFAfeyVNMXQ1LTw,det,0,0.25293,0.554688,0.609105,true,ROAD,Road,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.15036,14.9842,0
+gainesville,dVrNCxUTFAfeyVNMXQ1LTw,det,1,0.760742,0.570312,0.466792,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,2.97137,0.188959,11.5783,0
+gainesville,dVrNCxUTFAfeyVNMXQ1LTw,missed,0,0.213366,0.55171,,missed,ROAD,Road,ROAD,Road,ROAD,Road,floor_standin,0,0.253566,15.8636,0
+gainesville,dVrNCxUTFAfeyVNMXQ1LTw,missed,1,0.608889,0.659091,,missed,WALK,Sidewalk,OTHER,Terrain,WALK,Sidewalk,floor,2.97137,0.0548153,4.76154,0
+gainesville,dVrNCxUTFAfeyVNMXQ1LTw,missed,2,0.762704,0.577284,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,2.97137,0.173423,10.4974,0
+gainesville,dVrNCxUTFAfeyVNMXQ1LTw,missed,3,0.917265,0.534875,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.22008,0.0767107,23.6357,0
+gainesville,dXNmCM3bRYfsvQ7xPivHaw,det,0,0.557617,0.554688,0.941924,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.401484,14.9842,0
+gainesville,dXNmCM3bRYfsvQ7xPivHaw,det,1,0.120117,0.552734,0.872147,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.19599,-0.649662,15.55,0
+gainesville,dXNmCM3bRYfsvQ7xPivHaw,det,2,0.980469,0.523438,0.601603,true,OBJECT,Fire Hydrant,OBJECT,Person,OBJECT,Fire Hydrant,floor,1.37459,0.185861,35.2473,0
+gainesville,dXNmCM3bRYfsvQ7xPivHaw,det,3,0.605469,0.552734,0.365496,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.526558,15.55,0
+gainesville,dXNmCM3bRYfsvQ7xPivHaw,det,4,0.246094,0.552734,0.314774,band_0p30,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.50467,0.0190687,15.55,0
+gainesville,dXNmCM3bRYfsvQ7xPivHaw,missed,0,0.769074,0.557119,,missed,WALK,Curb Cut,ROAD,Road,WALK,Curb Cut,floor_standin,0,0.265443,14.3334,0
+gainesville,fOc-SxUHjTYKCGN83egiYA,det,0,0.924805,0.554688,0.882591,true,WALK,Curb Cut,ROAD,Bike Lane,WALK,Curb Cut,floor,2.02825,0.062518,14.9842,0
+gainesville,fOc-SxUHjTYKCGN83egiYA,missed,0,0.981792,0.521963,,unsure_missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,0.225554,0.128442,37.6214,0
+gainesville,fOc-SxUHjTYKCGN83egiYA,missed,1,0.316766,0.52774,,unsure_missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,1.06606,0.0737442,29.7592,0
+gainesville,fOc-SxUHjTYKCGN83egiYA,missed,2,0.175529,0.527192,,unsure_missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,floor,1.06606,0.00308655,30.3615,0
+gainesville,g7ZWUQeOp1Kl0LrWi0qrWw,det,0,0.573242,0.539062,0.842847,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.751,0.139188,21.0802,0
+gainesville,g7ZWUQeOp1Kl0LrWi0qrWw,missed,0,0.530581,0.516212,,missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,1.48028,-0.063773,51.0044,0
+gainesville,g8Jd1uL_FE_9eave1z2OpA,det,0,0.285156,0.552734,0.45109,band_0p30,WALK,Curb Cut,OTHER,Terrain,WALK,Curb Cut,floor,0.874692,0.020871,15.55,0
+gainesville,g8Jd1uL_FE_9eave1z2OpA,missed,0,0.289419,0.551992,,missed,WALK,Sidewalk,OTHER,Terrain,WALK,Sidewalk,floor,0.874692,0.0238684,15.7763,0
+gainesville,g8Jd1uL_FE_9eave1z2OpA,missed,1,0.329293,0.586364,,unsure_missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.65162,,9.3465,0
+gainesville,g8Jd1uL_FE_9eave1z2OpA,missed,2,0.40202,0.63,,unsure_missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,1.65162,,6.00825,0
+gainesville,g8Jd1uL_FE_9eave1z2OpA,missed,3,0.650505,0.596061,,missed,ROAD,Road,ROAD,Road,ROAD,Lane Marking - Crosswalk,ground,1.65162,,8.35231,0
+gainesville,hlYnMGBEa12Ajij0iL7yxg,det,0,0.136719,0.570312,0.81258,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,0.716552,-0.0455121,11.5783,0
+gainesville,hlYnMGBEa12Ajij0iL7yxg,missed,0,0.0457135,0.545538,,missed,WALK,Crosswalk - Plain,ROAD,Road,WALK,Crosswalk - Plain,floor,1.19419,-0.0216295,18.05,0
+gainesville,ipoVm9spHhQGCMROwSdmmA,det,0,0.902344,0.554688,0.832185,true,WALK,Curb,WALK,Curb,WALK,Curb Cut,ground,1.07009,,14.9842,0
+gainesville,ipoVm9spHhQGCMROwSdmmA,det,1,0.527344,0.537109,0.444462,band_0p30,WALK,Curb,WALK,Curb,WALK,Curb Cut,floor,2.63485,-0.384781,22.2007,0
+gainesville,ipoVm9spHhQGCMROwSdmmA,det,2,0.425781,0.537109,0.365324,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor_standin,0,0.155948,22.2007,0
+gainesville,ipoVm9spHhQGCMROwSdmmA,missed,0,0.843702,0.58517,,missed,ROAD,Road,ROAD,Road,WALK,Curb Cut,ground,1.07009,,9.48407,0
+gainesville,jE7jfpgpMn1zP3_DMdvMTg,det,0,0.948242,0.552734,0.806277,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.70835,0.139982,15.55,0
+gainesville,jE7jfpgpMn1zP3_DMdvMTg,det,1,0.769531,0.615234,0.733003,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,0.903523,-0.00315484,6.86541,0
+gainesville,jL3wxV95A0lO2xKUQukpIg,det,0,0.53418,0.537109,0.72887,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,2.26986,,22.2007,0
+gainesville,jL3wxV95A0lO2xKUQukpIg,det,1,0.456055,0.537109,0.338568,band_0p30,ROAD,Road,ROAD,Road,ROAD,Road,ground,2.26986,,22.2007,0
+gainesville,jL3wxV95A0lO2xKUQukpIg,missed,0,0.452802,0.544208,,missed,WALK,Curb,WALK,Curb,WALK,Curb,ground,2.26986,,18.6,0
+gainesville,jL3wxV95A0lO2xKUQukpIg,missed,1,0.429241,0.537424,,missed,OTHER,Terrain,WALK,Sidewalk,OTHER,Terrain,ground,2.26986,,22.0125,0
+gainesville,jL3wxV95A0lO2xKUQukpIg,missed,2,0.453533,0.526327,,unsure_missed,WALK,Curb Cut,OTHER,Terrain,WALK,Curb Cut,ground,2.26986,,31.3633,0
+gainesville,jL3wxV95A0lO2xKUQukpIg,missed,3,0.539673,0.521422,,missed,ROAD,Lane Marking - General,ROAD,Road,ROAD,Lane Marking - General,ground,2.26986,,38.5748,0
+gainesville,jL3wxV95A0lO2xKUQukpIg,missed,4,0.523398,0.514804,,unsure_missed,WALK,Sidewalk,ROAD,Road,WALK,Sidewalk,floor,2.65188,0.0424518,55.8625,0
+gainesville,kU1NFVXyUkQzaPpROkDVNg,det,0,0.737305,0.570312,0.91346,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,0.268341,,11.5783,0
+gainesville,kU1NFVXyUkQzaPpROkDVNg,det,1,0.582031,0.523438,0.783093,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.930411,0.0433712,35.2473,0
+gainesville,kU1NFVXyUkQzaPpROkDVNg,det,2,0.285156,0.552734,0.742355,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.930411,-0.0345225,15.55,0
+gainesville,kU1NFVXyUkQzaPpROkDVNg,missed,0,0.391702,0.531639,,missed,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,ROAD,Lane Marking - Crosswalk,floor,0.930411,-0.129137,26.0719,0
+gainesville,ki1YlBoTB-ARFE17nF4PPg,det,0,0.362305,0.583984,1.00176,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.807213,,9.62455,0
+gainesville,ki1YlBoTB-ARFE17nF4PPg,det,1,0.449219,0.523438,0.783299,true,OBJECT,Pole,OTHER,Terrain,OBJECT,Pole,floor,1.23083,0.169113,35.2473,0
+gainesville,ki1YlBoTB-ARFE17nF4PPg,det,2,0.62793,0.599609,0.727197,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.836031,0.0472234,8.03552,0
+gainesville,ki1YlBoTB-ARFE17nF4PPg,det,3,0.53418,0.523438,0.561754,true,STRUCTURE,Wall,STRUCTURE,Wall,STRUCTURE,Wall,floor,0.836031,0.142916,35.2473,0
+gainesville,kjXjoHf2E-tZuI7RwMPgsw,det,0,0.863281,0.568359,0.784766,true,OTHER,Terrain,WALK,Sidewalk,OTHER,Terrain,floor,3.73717,0.0420149,11.92,0
+gainesville,kjXjoHf2E-tZuI7RwMPgsw,det,1,0.183594,0.554688,0.764808,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.84547,-0.336616,14.9842,0
+gainesville,kjXjoHf2E-tZuI7RwMPgsw,det,2,0.963867,0.523438,0.539674,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.56277,0.112123,35.2473,0
+gainesville,kjXjoHf2E-tZuI7RwMPgsw,missed,0,0.0774068,0.536892,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.49606,0.232735,22.3329,0
+gainesville,kjXjoHf2E-tZuI7RwMPgsw,missed,1,0.949424,0.535739,,missed,ROAD,Road,ROAD,Road,WALK,Curb,floor,1.49606,0.107997,23.0596,0
+gainesville,kozsgHrge4ofusqK2D_Hlw,det,0,0.581055,0.537109,0.787665,true,OTHER,Terrain,WALK,Sidewalk,OTHER,Terrain,floor,1.7637,0.00404161,22.2007,0
+gainesville,kozsgHrge4ofusqK2D_Hlw,det,1,0.362305,0.570312,0.387052,band_0p30,WALK,Crosswalk - Plain,OBJECT,Barrier,OBJECT,Barrier,floor,1.86404,-0.0318694,11.5783,0
+gainesville,kozsgHrge4ofusqK2D_Hlw,missed,0,0.538098,0.512868,,missed,WALK,Crosswalk - Plain,ROAD,Lane Marking - General,WALK,Crosswalk - Plain,floor,1.7637,0.116282,64.2785,0
+gainesville,ld_LKRyg3hte-YCeFY3avQ,det,0,0.932617,0.552734,0.757504,unsure,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,5.58072,0.00895106,15.55,0
+gainesville,ld_LKRyg3hte-YCeFY3avQ,missed,0,0.923652,0.539045,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,5.58072,0.154284,21.0897,0
+gainesville,ld_LKRyg3hte-YCeFY3avQ,missed,1,0.979285,0.533951,,missed,WALK,Curb,WALK,Curb,WALK,Curb,ground,1.79602,,24.284,0
+gainesville,mMSFxX8cKDjvaOmsrguJEA,det,0,0.34668,0.539062,0.75222,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.35089,0.108444,21.0802,0
+gainesville,orMHYZcfpk4vTLLG6ciKUA,det,0,0.299805,0.539062,0.884609,true,WALK,Sidewalk,ROAD,Road,WALK,Curb Cut,floor_standin,0,0.218762,21.0802,0
+gainesville,orMHYZcfpk4vTLLG6ciKUA,det,1,0.933594,0.554688,0.850697,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.47929,0.125259,14.9842,0
+gainesville,orMHYZcfpk4vTLLG6ciKUA,det,2,0.683594,0.615234,0.737353,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,0.634582,,6.86541,0
+gainesville,orMHYZcfpk4vTLLG6ciKUA,missed,0,0.378205,0.534572,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor_standin,0,0.170944,23.8447,0
+gainesville,oyTDvou4dK-Hm3v-cIaToQ,det,0,0.371094,0.583984,0.585794,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,2.06213,,9.62455,0
+gainesville,oyTDvou4dK-Hm3v-cIaToQ,missed,0,0.570505,0.593636,,missed,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,ground,2.06213,,8.58208,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,det,0,0.324219,0.601562,0.878897,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,4.22503,-0.0860759,7.87031,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,det,1,0.566406,0.539062,0.767962,true,WALK,Curb Cut,WALK,Crosswalk - Plain,WALK,Curb Cut,floor,2.3551,0.0395923,21.0802,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,det,2,0.120117,0.583984,0.725531,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,0.965908,,9.62455,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,det,3,0.69043,0.646484,0.660874,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.205584,0.0392519,5.24521,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,det,4,0.0429688,0.537109,0.615689,true,WALK,Sidewalk,ROAD,Road,WALK,Curb Cut,ground,0.965908,,22.2007,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,det,5,0.53418,0.537109,0.614296,true,ROAD,Road,ROAD,Road,ROAD,Road,floor,2.3551,0.120603,22.2007,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,det,6,0.416992,0.539062,0.510483,band_0p30,WALK,Sidewalk,ROAD,Lane Marking - Crosswalk,WALK,Sidewalk,floor,3.62283,0.351836,21.0802,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,det,7,0.463867,0.537109,0.417811,band_0p30,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.27518,-0.0656753,22.2007,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,det,8,0.604492,0.539062,0.393329,band_0p30,ROAD,Road,ROAD,Road,ROAD,Road,floor,2.40875,0.234681,21.0802,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,missed,0,0.413737,0.546768,,missed,WALK,Curb Cut,WALK,Crosswalk - Plain,WALK,Curb,floor,3.62283,0.23008,17.5686,0
+gainesville,pM_zjaOL4jt8_niIC0EU2Q,missed,1,0.462314,0.533124,,missed,WALK,Sidewalk,WALK,Curb,WALK,Sidewalk,floor,1.27518,-0.0914196,24.8948,0
+gainesville,q2yX7pwQF7_3SFGxEqlDHQ,det,0,0.738281,0.568359,0.811376,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.53672,-8.24996e-05,11.92,0
+gainesville,q2yX7pwQF7_3SFGxEqlDHQ,det,1,0.253906,0.523438,0.800069,true,OBJECT,Pole,WALK,Sidewalk,OBJECT,Pole,floor,1.10358,0.0426866,35.2473,0
+gainesville,q2yX7pwQF7_3SFGxEqlDHQ,missed,0,0.269582,0.526453,,missed,WALK,Curb,WALK,Curb,WALK,Curb,floor,1.23654,0.0895977,31.2143,0
+gainesville,q2yX7pwQF7_3SFGxEqlDHQ,missed,1,0.419404,0.50828,,unsure_missed,OTHER,Terrain,ROAD,Road,WALK,Sidewalk,floor,0.742304,-0.390954,99.9254,0
+gainesville,q2yX7pwQF7_3SFGxEqlDHQ,missed,2,0.543317,0.510652,,missed,WALK,Sidewalk,ROAD,Road,WALK,Curb Cut,floor,0.94812,0.0276069,77.6652,0
+gainesville,qAP6awcZVDK19stGxM31jQ,det,0,0.980469,0.537109,0.580943,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.4899,-0.0876094,22.2007,0
+gainesville,qAP6awcZVDK19stGxM31jQ,missed,0,0.373737,0.705152,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.97883,,3.45944,0
+gainesville,r2EDHivQkQoWWelu3IZOxg,det,0,0.59668,0.552734,1.01356,true,WALK,Sidewalk,WALK,Curb,WALK,Curb,floor,3.23047,0.0973828,15.55,0
+gainesville,r2EDHivQkQoWWelu3IZOxg,det,1,0.362305,0.539062,0.991978,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.07283,-0.0395824,21.0802,0
+gainesville,r2EDHivQkQoWWelu3IZOxg,det,2,0.549805,0.552734,0.934969,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.55622,0.00975128,15.55,0
+gainesville,r2EDHivQkQoWWelu3IZOxg,det,3,0.707031,0.599609,0.915003,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.74428,0.00579276,8.03552,0
+gainesville,r2EDHivQkQoWWelu3IZOxg,det,4,0.432617,0.554688,0.891274,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.07283,-0.0204639,14.9842,0
+gainesville,r2EDHivQkQoWWelu3IZOxg,det,5,0.808594,0.630859,0.837651,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Curb Cut,floor,1.56798,-0.0472064,5.96402,0
+gainesville,r2EDHivQkQoWWelu3IZOxg,det,6,0.15918,0.632812,0.803386,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.35393,-0.0473453,5.86551,0
+gainesville,r2EDHivQkQoWWelu3IZOxg,det,7,0.253906,0.583984,0.722581,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.49868,,9.62455,0
+gainesville,r2EDHivQkQoWWelu3IZOxg,det,8,0.269531,0.599609,0.656598,false,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.49868,,8.03552,0
+gainesville,rFa5e9WO2AombOfKxw1GzA,det,0,0.745117,0.617188,0.935199,true,WALK,Curb Cut,WALK,Sidewalk,WALK,Sidewalk,ground,1.87179,,6.74025,0
+gainesville,rFa5e9WO2AombOfKxw1GzA,det,1,0.916992,0.570312,0.911027,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.10989,-0.0083021,11.5783,0
+gainesville,rFa5e9WO2AombOfKxw1GzA,det,2,0.0820312,0.568359,0.901795,true,ROAD,Road,ROAD,Road,ROAD,Road,floor,2.10989,-0.0160984,11.92,0
+gainesville,rFa5e9WO2AombOfKxw1GzA,det,3,0.253906,0.583984,0.888285,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Curb Cut,ground,1.87179,,9.62455,0
+gainesville,s7wxqo3wnK-LD6bUkCRGzA,det,0,0.518555,0.523438,0.567441,false,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,5.12965,0.278801,35.2473,0
+gainesville,s7wxqo3wnK-LD6bUkCRGzA,det,1,0.457031,0.523438,0.39354,band_0p30,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.99519,-0.110404,35.2473,0
+gainesville,s7wxqo3wnK-LD6bUkCRGzA,det,2,0.987305,0.539062,0.318857,band_0p30,WALK,Curb,OTHER,Terrain,WALK,Curb,floor,6.8802,-0.420071,21.0802,0
+gainesville,sIW4u-Mq7TORFHbsswcCzQ,det,0,0.902344,0.568359,0.992694,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.618972,0.0576132,11.92,0
+gainesville,sIW4u-Mq7TORFHbsswcCzQ,missed,0,0.129406,0.5436,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,0.469806,-0.0183489,18.863,0
+gainesville,smIcY196GPbaTpEbjkA7aA,det,0,0.464844,0.523438,0.939385,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,3.85026,0.0676755,35.2473,0
+gainesville,smIcY196GPbaTpEbjkA7aA,det,1,0.0966797,0.539062,0.373588,band_0p30,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,floor,1.35075,0.0540062,21.0802,0
+gainesville,smIcY196GPbaTpEbjkA7aA,det,2,0.175781,0.552734,0.364471,band_0p30,ROAD,Road,ROAD,Road,ROAD,Road,floor,2.02632,0.053107,15.55,0
+gainesville,smIcY196GPbaTpEbjkA7aA,missed,0,0.093092,0.540685,,missed,WALK,Sidewalk,WALK,Curb,WALK,Sidewalk,floor,1.35075,0.0533142,20.2311,0
+gainesville,smIcY196GPbaTpEbjkA7aA,missed,1,0.178182,0.555657,,missed,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,2.02632,0.0468237,14.718,0
+gainesville,smIcY196GPbaTpEbjkA7aA,missed,2,0.53242,0.531123,,unsure_missed,ROAD,Road,ROAD,Road,ROAD,Road,floor,1.12187,0.0188749,26.5069,0
+gainesville,tD8uJ0wHWy0RNPwb73S7Og,det,0,0.62793,0.539062,0.914544,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,1.74395,,21.0802,0
+gainesville,tD8uJ0wHWy0RNPwb73S7Og,det,1,0.78418,0.539062,0.735783,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,4.87411,0.22557,21.0802,0
+gainesville,taAM_J38w0t7x9p1iOGptw,det,0,0.948242,0.554688,0.722101,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Sidewalk,ground,0.612936,,14.9842,0
+gainesville,vbW2W3-AE2tr1NJYHCuHgw,det,0,0.166992,0.554688,0.658981,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,ground,1.97179,,14.9842,0
+gainesville,vbW2W3-AE2tr1NJYHCuHgw,det,1,0.0351562,0.537109,0.407236,band_0p30,WALK,Curb,ROAD,Road,WALK,Curb,floor,1.00891,0.0813651,22.2007,0
+gainesville,vbW2W3-AE2tr1NJYHCuHgw,missed,0,0.738586,0.691414,,missed,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,1.97179,,3.78946,0
+gainesville,wwbkgmoKv4MS5sMy3PGhqA,det,0,0.65918,0.537109,0.608435,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.644981,0.0221869,22.2007,0
+gainesville,wwbkgmoKv4MS5sMy3PGhqA,missed,0,0.598935,0.520835,,missed,WALK,Sidewalk,WALK,Curb Cut,WALK,Sidewalk,floor,1.27825,-0.0109334,39.666,0
+gainesville,xExZyWexGcwGNf5LNhQBRg,det,0,0.386719,0.537109,0.876269,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,1.85625,-0.0894505,22.2007,0
+gainesville,xMY6EkmbN9OZqwHeC_S7Zg,det,0,0.792969,0.630859,0.761278,true,WALK,Sidewalk,WALK,Sidewalk,WALK,Sidewalk,floor,0.882487,0.0535201,5.96402,0
+gainesville,xMY6EkmbN9OZqwHeC_S7Zg,det,1,0.44043,0.615234,0.33503,band_0p30,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,ground,2.48837,,6.86541,0
+gainesville,xMY6EkmbN9OZqwHeC_S7Zg,missed,0,0.388283,0.607374,,missed,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,ground,2.48837,,7.41312,0
+gainesville,yQOkeKGLo1dFuhOO7BFRFg,det,0,0.636719,0.568359,0.909617,true,WALK,Curb Cut,WALK,Curb,WALK,Curb Cut,ground,2.22061,,11.92,0
+gainesville,yQOkeKGLo1dFuhOO7BFRFg,det,1,0.824219,0.599609,0.797031,true,WALK,Curb Cut,WALK,Curb Cut,WALK,Curb Cut,floor,1.54775,0.0651739,8.03552,0

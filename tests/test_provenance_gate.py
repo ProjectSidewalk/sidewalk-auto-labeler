@@ -42,6 +42,11 @@ def test_rule_constants_are_pre_registered():
     assert (pg.CONTROL_SIZE, pg.CONTROL_SEED) == (200, 56)
     assert pg.store_tolerance(16384, 8192) == (17, 17)
     assert pg.exact_tolerance(16384, 8192) == (1, 1)
+    # #111: both arms +/-1 coarse cell (8 heatmap cells) + the rounding pixel
+    assert (pg.COARSE_CELL, pg.COARSE_CELLS) == (8, 1)
+    assert pg.coarse_tolerance(16384, 8192) == (129, 129)
+    assert pg.RULES[pg.RULE_COARSE_CELL] == (pg.coarse_tolerance, pg.coarse_tolerance)
+    assert pg.RULES[pg.RULE_PIXEL_96] == (pg.store_tolerance, pg.exact_tolerance)
 
 
 def test_skip_reasons_match_the_runner():
@@ -244,6 +249,31 @@ def test_cli_control_arm_and_draw(tmp_path, capsys):
     report = (out / "report.md").read_text(encoding="utf-8")
     assert "**Verdict: STOP** -- failing: Arm Z (pipeline identity)." in report
     assert "| S only | 1 |" in report and "| both | 1 |" in report
+    assert "2 of the 2 drawn panos are in the control file; 0 absent" in report
+
+
+def test_control_is_checked_against_the_draw(tmp_path):
+    """S4 of the PR #108 review: a control pano outside control_ids.txt refuses, a drawn pano
+    the control lacks is reported as absent, and the report is LF with no absolute path."""
+    run_dir = _run(tmp_path, [("P1", [_det(1000, 4000, 0.9)]), ("P2", [_det(3000, 3000, 0.9)])])
+    labels_path = _labels(tmp_path, [("P1", 1000, 4000, AI), ("P2", 3000, 3000, AI)])
+    out = tmp_path / "gate"
+    base = ["city", "--run-dir", str(run_dir), "--labels", str(labels_path), "--out", str(out)]
+    control = tmp_path / "control.jsonl"
+    control.write_text(json.dumps({"detections": [_det(1000, 4000, 0.9)], "pano": {
+        "panorama_id": "P1", "width": W, "height": H}}) + "\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="does not exist"):
+        pg.main(base + ["--control", str(control)])          # no draw to check against
+    out.mkdir(exist_ok=True)
+    (out / pg.CONTROL_IDS_FILE).write_text("P2\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="1 control pano"):
+        pg.main(base + ["--control", str(control)])          # P1 was never drawn
+    (out / pg.CONTROL_IDS_FILE).write_text("P1\nP2\n", encoding="utf-8")
+    assert pg.main(base + ["--control", str(control)]) == 0
+    raw = (out / "report.md").read_bytes()
+    assert b"\r\n" not in raw and b"\r\n" not in (out / "unmatched.csv").read_bytes()
+    assert b"1 of the 2 drawn panos are in the control file; 1 absent" in raw
+    assert pg.shown_path(pg.REPO_ROOT / "runs" / "x" / "results.jsonl") == "runs/x/results.jsonl"
 
 
 def test_cli_undetermined_while_panos_are_pending(tmp_path):
@@ -255,3 +285,47 @@ def test_cli_undetermined_while_panos_are_pending(tmp_path):
     assert code == 2
     assert "UNDETERMINED** -- 1 selected pano(s) still pending" in \
         (tmp_path / "g" / "report.md").read_text(encoding="utf-8")
+
+
+def test_coarse_cell_rule_matches_a_flip_and_names_it(tmp_path):
+    """#111: a detection 7 heatmap cells away (112 px at 16 px/cell) is the same ramp at the
+    neighbouring coarse cell. The coarse-cell rule matches it and counts it as a flip; the
+    #96 rule missed it. 10 cells away is outside one coarse cell and still misses."""
+    run_dir = _run(tmp_path, [
+        ("P1", [_det(1112, 4000, 0.9)]),               # flip: 7 cells in x
+        ("P2", [_det(16384 - 56, 4000 + 128, 0.9)]),   # over the seam: 3.5 cells x, 8 cells y
+        ("P3", [_det(3016, 3000, 0.9)]),               # grid neighbour: 1 cell
+        ("P4", [_det(5160, 3000, 0.9)]),               # 10 cells: no match
+    ])
+    labels, _, _ = pg.load_ai_labels(_labels(tmp_path, [
+        ("P1", 1000, 4000, AI), ("P2", 0, 4000, AI), ("P3", 3000, 3000, AI),
+        ("P4", 5000, 3000, AI)]))
+    run = pg.load_run(run_dir / "results.jsonl")
+    res = pg.join(labels, run, tolerance=pg.coarse_tolerance)
+    assert res["matched"] == 3
+    assert res["match_classes"] == {"flip": 2, "grid_neighbour": 1}
+    assert res["buckets"] == {"<= 2 coarse cells": 1}
+    assert pg.join(labels, run, tolerance=pg.store_tolerance)["matched"] == 1
+
+
+def test_shared_claims_are_counted(tmp_path):
+    """Two labels at different pixels within one coarse cell of the same detection."""
+    run_dir = _run(tmp_path, [("P1", [_det(1000, 4000, 0.9)])])
+    labels, _, _ = pg.load_ai_labels(_labels(tmp_path, [("P1", 1000, 4000, AI),
+                                                         ("P1", 1100, 4000, AI)]))
+    res = pg.join(labels, pg.load_run(run_dir / "results.jsonl"), tolerance=pg.coarse_tolerance)
+    assert res["matched"] == 2 and res["shared_claims"] == 1
+
+
+def test_cli_rule_flag_reproduces_the_96_rule(tmp_path, capsys):
+    run_dir = _run(tmp_path, [("P1", [_det(1112, 4000, 0.9)])])
+    labels_path = _labels(tmp_path, [("P1", 1000, 4000, AI)])
+    base = ["city", "--run-dir", str(run_dir), "--labels", str(labels_path),
+            "--out", str(tmp_path / "g")]
+    assert pg.main(base) == 0                                # coarse-cell: a flip matches
+    report = (tmp_path / "g" / "report.md").read_text(encoding="utf-8")
+    assert "`coarse-cell`" in report and "| adjacent-coarse-cell flip (7-8) | 1 |" in report
+    assert "1 of 1 matches are adjacent-coarse-cell flips" in capsys.readouterr().out
+    assert pg.main(base + ["--rule", "pixel-96", "--exploratory", "a check"]) == 1
+    report = (tmp_path / "g" / "report.md").read_text(encoding="utf-8")
+    assert "amended after the PR #96 review" in report and "**Exploratory:** a check" in report

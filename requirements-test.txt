@@ -11,3 +11,4 @@ requests
 shapely
 streetlevel
 tqdm
+scikit-image

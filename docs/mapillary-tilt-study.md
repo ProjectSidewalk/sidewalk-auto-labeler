@@ -14,6 +14,11 @@ PS's roll sign (so **every roll value in §5 and the committed per-pano CSVs has
 the code produces today**), and fusion can apply the tilt road-relative (`--apply-pose road`). The p90
 precondition §6 asked for passed in all five cities, but a pre-registered **shuffled-grade control then
 failed** (§10.5), so the road-relative *default* is withheld: fusion still raycasts Mapillary flat by default.
+**Corrected 2026-09-29** ([#113](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/113)): §1's
+aside that "streetlevel's GSV equirectangulars are already gravity-rectified" is wrong. They are in the rig's
+frame; the #27 ablation showed only that the *full* pose loosens agreement. Nothing measured in this study
+changes, but GSV is no longer a contrast case: it shows the same pattern as the car-mounted Mapillary rigs in
+§5.3, where the local road shares most of the camera's tilt.
 
 ## 0. Summary
 
