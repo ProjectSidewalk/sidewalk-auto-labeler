@@ -1,0 +1,2140 @@
+{
+ "by_stratum": {
+  "arterial": {
+   "captures_per_unit": {
+    "0.0": 0,
+    "0.25": 1,
+    "0.5": 10,
+    "0.75": 12,
+    "1.0": 26
+   },
+   "earliest": {
+    "0.0": 2007,
+    "0.25": 2007,
+    "0.5": 2007,
+    "0.75": 2007,
+    "1.0": 2025
+   },
+   "span_years": {
+    "0.0": 0,
+    "0.25": 17,
+    "0.5": 19,
+    "0.75": 19,
+    "1.0": 19
+   },
+   "units": 67
+  },
+  "residential": {
+   "captures_per_unit": {
+    "0.0": 0,
+    "0.25": 1,
+    "0.5": 4,
+    "0.75": 6,
+    "1.0": 11
+   },
+   "earliest": {
+    "0.0": 2007,
+    "0.25": 2007,
+    "0.5": 2007,
+    "0.75": 2012,
+    "1.0": 2024
+   },
+   "span_years": {
+    "0.0": 0,
+    "0.25": 11,
+    "0.5": 15,
+    "0.75": 17,
+    "1.0": 19
+   },
+   "units": 66
+  },
+  "signalised": {
+   "captures_per_unit": {
+    "0.0": 1,
+    "0.25": 12,
+    "0.5": 15,
+    "0.75": 18,
+    "1.0": 25
+   },
+   "earliest": {
+    "0.0": 2007,
+    "0.25": 2007,
+    "0.5": 2007,
+    "0.75": 2007,
+    "1.0": 2024
+   },
+   "span_years": {
+    "0.0": 0,
+    "0.25": 17,
+    "0.5": 19,
+    "0.75": 19,
+    "1.0": 19
+   },
+   "units": 67
+  }
+ },
+ "cache_sha256": "9ef15aacbd46533f0398137f4247e84ee3d69b8bc3da6c75ede04c7c9e75471a",
+ "captures_per_corner": {
+  "0.0": 0,
+  "0.25": 4,
+  "0.5": 10,
+  "0.75": 14,
+  "1.0": 26
+ },
+ "captures_per_unit": {
+  "0.0": 0,
+  "0.25": 3,
+  "0.5": 10,
+  "0.75": 13,
+  "1.0": 26
+ },
+ "captures_per_unit_gsv_only": {
+  "0.0": 0,
+  "0.25": 3,
+  "0.5": 10,
+  "0.75": 13,
+  "1.0": 26
+ },
+ "earliest_year_unit": {
+  "0.0": 2007,
+  "0.25": 2007,
+  "0.5": 2007,
+  "0.75": 2007,
+  "1.0": 2025
+ },
+ "extrapolated_hist_full_pass_by_pano": 74070,
+ "extrapolated_hist_full_pass_by_unit": 73256,
+ "fetched_this_invocation": 0,
+ "finished_at": "2026-10-04T17:27:09+00:00",
+ "hist_per_queried_pano": 4.012,
+ "n_hist_distinct": 5248,
+ "n_panos": 1308,
+ "panos_near_any_unit": 18461,
+ "per_unit": [
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 12,
+   "n_hist": 22,
+   "n_panos": 5,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47282521"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 10,
+   "n_panos": 4,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n3993169614"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 8,
+   "n_captures_gsv": 8,
+   "n_hist": 17,
+   "n_panos": 6,
+   "span_years": 17,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47309433"
+  },
+  {
+   "earliest": 2012,
+   "n_captures": 8,
+   "n_captures_gsv": 8,
+   "n_hist": 15,
+   "n_panos": 5,
+   "span_years": 12,
+   "type": "signalised",
+   "unit": "vancouver:sig:n3559864525"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 20,
+   "n_panos": 5,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n3993169612"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 18,
+   "n_captures_gsv": 18,
+   "n_hist": 45,
+   "n_panos": 14,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47223704"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 33,
+   "n_panos": 9,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47225354"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 25,
+   "n_captures_gsv": 23,
+   "n_hist": 41,
+   "n_panos": 13,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47191569"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 63,
+   "n_panos": 14,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47403502"
+  },
+  {
+   "earliest": 2018,
+   "n_captures": 1,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 1,
+   "span_years": 0,
+   "type": "signalised",
+   "unit": "vancouver:sig:n1642453673"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 19,
+   "n_captures_gsv": 19,
+   "n_hist": 120,
+   "n_panos": 27,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n3902464389"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 14,
+   "n_panos": 7,
+   "span_years": 17,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47225358"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 14,
+   "n_captures_gsv": 14,
+   "n_hist": 63,
+   "n_panos": 12,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47259462"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 19,
+   "n_captures_gsv": 19,
+   "n_hist": 57,
+   "n_panos": 12,
+   "span_years": 17,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47250720"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 57,
+   "n_panos": 9,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47296475"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 17,
+   "n_captures_gsv": 17,
+   "n_hist": 62,
+   "n_panos": 8,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n1323318751"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 64,
+   "n_panos": 7,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47302419"
+  },
+  {
+   "earliest": 2011,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 4,
+   "n_panos": 1,
+   "span_years": 15,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47242679"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 18,
+   "n_captures_gsv": 18,
+   "n_hist": 50,
+   "n_panos": 9,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47236770"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 12,
+   "n_hist": 42,
+   "n_panos": 10,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47307724"
+  },
+  {
+   "earliest": 2023,
+   "n_captures": 2,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 5,
+   "span_years": 0,
+   "type": "signalised",
+   "unit": "vancouver:sig:n441985883"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 24,
+   "n_captures_gsv": 24,
+   "n_hist": 102,
+   "n_panos": 17,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47236767"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 14,
+   "n_captures_gsv": 14,
+   "n_hist": 62,
+   "n_panos": 16,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n1280556609"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 14,
+   "n_captures_gsv": 14,
+   "n_hist": 15,
+   "n_panos": 9,
+   "span_years": 17,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47225368"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 14,
+   "n_captures_gsv": 14,
+   "n_hist": 24,
+   "n_panos": 6,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47226616"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 21,
+   "n_captures_gsv": 21,
+   "n_hist": 87,
+   "n_panos": 15,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47270790"
+  },
+  {
+   "earliest": 2011,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 33,
+   "n_panos": 11,
+   "span_years": 13,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47199741"
+  },
+  {
+   "earliest": 2024,
+   "n_captures": 1,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 2,
+   "span_years": 0,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47270841"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 17,
+   "n_captures_gsv": 17,
+   "n_hist": 51,
+   "n_panos": 10,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47346952"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 22,
+   "n_captures_gsv": 22,
+   "n_hist": 126,
+   "n_panos": 15,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47236853"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 15,
+   "n_captures_gsv": 15,
+   "n_hist": 73,
+   "n_panos": 12,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47290808"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 14,
+   "n_captures_gsv": 14,
+   "n_hist": 41,
+   "n_panos": 9,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47266945"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 49,
+   "n_panos": 8,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47331225"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 64,
+   "n_panos": 20,
+   "span_years": 16,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47249648"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 20,
+   "n_captures_gsv": 20,
+   "n_hist": 46,
+   "n_panos": 7,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47250604"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 11,
+   "n_hist": 17,
+   "n_panos": 11,
+   "span_years": 17,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47225350"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 14,
+   "n_captures_gsv": 14,
+   "n_hist": 44,
+   "n_panos": 10,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47296462"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 12,
+   "n_panos": 9,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47218163"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 12,
+   "n_hist": 42,
+   "n_panos": 13,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47216214"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 24,
+   "n_captures_gsv": 24,
+   "n_hist": 77,
+   "n_panos": 8,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47340284"
+  },
+  {
+   "earliest": 2011,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 21,
+   "n_panos": 5,
+   "span_years": 13,
+   "type": "signalised",
+   "unit": "vancouver:sig:n618195772"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 27,
+   "n_panos": 4,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n2991648147"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 23,
+   "n_captures_gsv": 23,
+   "n_hist": 41,
+   "n_panos": 15,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47311043"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 10,
+   "n_panos": 8,
+   "span_years": 17,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47250679"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 17,
+   "n_captures_gsv": 17,
+   "n_hist": 41,
+   "n_panos": 6,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47245051"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 20,
+   "n_captures_gsv": 20,
+   "n_hist": 64,
+   "n_panos": 15,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n1209638471"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 15,
+   "n_captures_gsv": 15,
+   "n_hist": 62,
+   "n_panos": 11,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47225347"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 14,
+   "n_captures_gsv": 14,
+   "n_hist": 52,
+   "n_panos": 15,
+   "span_years": 17,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47266952"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 15,
+   "n_captures_gsv": 15,
+   "n_hist": 36,
+   "n_panos": 14,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47296435"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 20,
+   "n_captures_gsv": 20,
+   "n_hist": 61,
+   "n_panos": 7,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47352322"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 17,
+   "n_captures_gsv": 17,
+   "n_hist": 54,
+   "n_panos": 10,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47267784"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 28,
+   "n_panos": 9,
+   "span_years": 17,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47295442"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 23,
+   "n_captures_gsv": 23,
+   "n_hist": 95,
+   "n_panos": 17,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47260803"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 21,
+   "n_captures_gsv": 21,
+   "n_hist": 44,
+   "n_panos": 4,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n1327794532"
+  },
+  {
+   "earliest": 2011,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 22,
+   "n_panos": 9,
+   "span_years": 15,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47252393"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 41,
+   "n_panos": 7,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47232117"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 63,
+   "n_panos": 14,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47293938"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 14,
+   "n_captures_gsv": 14,
+   "n_hist": 17,
+   "n_panos": 7,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47266006"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 22,
+   "n_captures_gsv": 22,
+   "n_hist": 76,
+   "n_panos": 14,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47309368"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 82,
+   "n_panos": 12,
+   "span_years": 17,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47225264"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 51,
+   "n_panos": 8,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47226332"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 12,
+   "n_panos": 11,
+   "span_years": 18,
+   "type": "signalised",
+   "unit": "vancouver:sig:n249208576"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 22,
+   "n_captures_gsv": 21,
+   "n_hist": 66,
+   "n_panos": 20,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47214762"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 95,
+   "n_panos": 17,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47247965"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 24,
+   "n_captures_gsv": 24,
+   "n_hist": 92,
+   "n_panos": 24,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47279882"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 12,
+   "n_hist": 16,
+   "n_panos": 7,
+   "span_years": 19,
+   "type": "signalised",
+   "unit": "vancouver:sig:n1755284880"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 12,
+   "n_hist": 52,
+   "n_panos": 10,
+   "span_years": 17,
+   "type": "signalised",
+   "unit": "vancouver:sig:n47236473"
+  },
+  {
+   "earliest": 2014,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 8,
+   "n_panos": 2,
+   "span_years": 12,
+   "type": "arterial",
+   "unit": "vancouver:art:n3907700433"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 7,
+   "n_captures_gsv": 7,
+   "n_hist": 12,
+   "n_panos": 2,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n1789091323"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n47331236"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 65,
+   "n_panos": 12,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47263632"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n47346161"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 9,
+   "n_panos": 1,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n4677799795"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 7,
+   "n_captures_gsv": 7,
+   "n_hist": 8,
+   "n_panos": 2,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47240411"
+  },
+  {
+   "earliest": 2024,
+   "n_captures": 1,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 3,
+   "span_years": 0,
+   "type": "arterial",
+   "unit": "vancouver:art:n1265771766"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n47276972"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 17,
+   "n_captures_gsv": 17,
+   "n_hist": 30,
+   "n_panos": 5,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47306280"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 9,
+   "n_captures_gsv": 9,
+   "n_hist": 8,
+   "n_panos": 1,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47334111"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n47213486"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n1270550417"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 19,
+   "n_panos": 4,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47303475"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n1327846251"
+  },
+  {
+   "earliest": 2025,
+   "n_captures": 1,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 4,
+   "span_years": 0,
+   "type": "arterial",
+   "unit": "vancouver:art:n47280338"
+  },
+  {
+   "earliest": 2023,
+   "n_captures": 1,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 1,
+   "span_years": 0,
+   "type": "arterial",
+   "unit": "vancouver:art:n47342408"
+  },
+  {
+   "earliest": 2009,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 19,
+   "n_panos": 8,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47370154"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 54,
+   "n_panos": 8,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47225377"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 55,
+   "n_panos": 6,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47270766"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 22,
+   "n_panos": 7,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47226327"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 12,
+   "n_hist": 30,
+   "n_panos": 8,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47287610"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 31,
+   "n_panos": 8,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47313904"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 72,
+   "n_panos": 12,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47279093"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 10,
+   "n_hist": 22,
+   "n_panos": 9,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47228904"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 20,
+   "n_captures_gsv": 20,
+   "n_hist": 79,
+   "n_panos": 12,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47323840"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 44,
+   "n_panos": 8,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47251358"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 24,
+   "n_panos": 15,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n6797394734"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n3694670454"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 37,
+   "n_panos": 9,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47252457"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 47,
+   "n_panos": 11,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47330355"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n47207508"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 12,
+   "n_hist": 35,
+   "n_panos": 8,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47228882"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 19,
+   "n_panos": 6,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47271268"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 30,
+   "n_panos": 6,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47259480"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 41,
+   "n_panos": 10,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n3315237895"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 4,
+   "n_captures_gsv": 4,
+   "n_hist": 2,
+   "n_panos": 5,
+   "span_years": 15,
+   "type": "arterial",
+   "unit": "vancouver:art:n47226121"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 12,
+   "n_hist": 26,
+   "n_panos": 7,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47258825"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n47352941"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n47381369"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 16,
+   "n_captures_gsv": 16,
+   "n_hist": 24,
+   "n_panos": 6,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n1375295744"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 9,
+   "n_captures_gsv": 9,
+   "n_hist": 49,
+   "n_panos": 9,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47302352"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n1756300696"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 26,
+   "n_captures_gsv": 26,
+   "n_hist": 109,
+   "n_panos": 9,
+   "span_years": 18,
+   "type": "arterial",
+   "unit": "vancouver:art:n1327794582"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 9,
+   "n_captures_gsv": 9,
+   "n_hist": 21,
+   "n_panos": 6,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47295439"
+  },
+  {
+   "earliest": 2016,
+   "n_captures": 4,
+   "n_captures_gsv": 4,
+   "n_hist": 4,
+   "n_panos": 7,
+   "span_years": 8,
+   "type": "arterial",
+   "unit": "vancouver:art:n1547903258"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 31,
+   "n_panos": 8,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47279172"
+  },
+  {
+   "earliest": 2024,
+   "n_captures": 1,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 1,
+   "span_years": 0,
+   "type": "arterial",
+   "unit": "vancouver:art:n47396630"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 13,
+   "n_captures_gsv": 13,
+   "n_hist": 46,
+   "n_panos": 6,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47349035"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n1223310718"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 8,
+   "n_captures_gsv": 8,
+   "n_hist": 7,
+   "n_panos": 4,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47308284"
+  },
+  {
+   "earliest": 2011,
+   "n_captures": 15,
+   "n_captures_gsv": 15,
+   "n_hist": 27,
+   "n_panos": 11,
+   "span_years": 15,
+   "type": "arterial",
+   "unit": "vancouver:art:n1634685247"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 22,
+   "n_panos": 5,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47266734"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 32,
+   "n_panos": 8,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47349047"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 8,
+   "n_captures_gsv": 8,
+   "n_hist": 34,
+   "n_panos": 8,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47360694"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n13090709646"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 39,
+   "n_panos": 8,
+   "span_years": 17,
+   "type": "arterial",
+   "unit": "vancouver:art:n47287584"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 52,
+   "n_panos": 8,
+   "span_years": 16,
+   "type": "arterial",
+   "unit": "vancouver:art:n10876854435"
+  },
+  {
+   "earliest": 2023,
+   "n_captures": 1,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 1,
+   "span_years": 0,
+   "type": "arterial",
+   "unit": "vancouver:art:n47270330"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 8,
+   "n_captures_gsv": 8,
+   "n_hist": 33,
+   "n_panos": 9,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47367534"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 12,
+   "n_hist": 39,
+   "n_panos": 6,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47266261"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 12,
+   "n_captures_gsv": 12,
+   "n_hist": 31,
+   "n_panos": 3,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n8526869858"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n47374836"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "arterial",
+   "unit": "vancouver:art:n47279153"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 9,
+   "n_captures_gsv": 9,
+   "n_hist": 8,
+   "n_panos": 3,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n13059332169"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 15,
+   "n_captures_gsv": 15,
+   "n_hist": 31,
+   "n_panos": 6,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n1614603515"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 14,
+   "n_captures_gsv": 14,
+   "n_hist": 41,
+   "n_panos": 6,
+   "span_years": 19,
+   "type": "arterial",
+   "unit": "vancouver:art:n47212167"
+  },
+  {
+   "earliest": 2012,
+   "n_captures": 3,
+   "n_captures_gsv": 3,
+   "n_hist": 4,
+   "n_panos": 3,
+   "span_years": 11,
+   "type": "residential",
+   "unit": "vancouver:res:n47242431"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 49,
+   "n_panos": 10,
+   "span_years": 19,
+   "type": "residential",
+   "unit": "vancouver:res:n47276456"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 4,
+   "n_panos": 1,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n47288652"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 14,
+   "n_panos": 7,
+   "span_years": 19,
+   "type": "residential",
+   "unit": "vancouver:res:n47234025"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 9,
+   "n_captures_gsv": 9,
+   "n_hist": 19,
+   "n_panos": 6,
+   "span_years": 17,
+   "type": "residential",
+   "unit": "vancouver:res:n47209933"
+  },
+  {
+   "earliest": 2014,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 5,
+   "n_panos": 8,
+   "span_years": 10,
+   "type": "residential",
+   "unit": "vancouver:res:n47221625"
+  },
+  {
+   "earliest": 2011,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 24,
+   "n_panos": 8,
+   "span_years": 15,
+   "type": "residential",
+   "unit": "vancouver:res:n47309712"
+  },
+  {
+   "earliest": 2022,
+   "n_captures": 1,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 2,
+   "span_years": 0,
+   "type": "residential",
+   "unit": "vancouver:res:n47207281"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 4,
+   "n_panos": 1,
+   "span_years": 17,
+   "type": "residential",
+   "unit": "vancouver:res:n47276844"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47340118"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 4,
+   "n_panos": 2,
+   "span_years": 19,
+   "type": "residential",
+   "unit": "vancouver:res:n47337408"
+  },
+  {
+   "earliest": 2012,
+   "n_captures": 8,
+   "n_captures_gsv": 8,
+   "n_hist": 22,
+   "n_panos": 5,
+   "span_years": 14,
+   "type": "residential",
+   "unit": "vancouver:res:n47241522"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47386593"
+  },
+  {
+   "earliest": 2012,
+   "n_captures": 3,
+   "n_captures_gsv": 3,
+   "n_hist": 9,
+   "n_panos": 6,
+   "span_years": 10,
+   "type": "residential",
+   "unit": "vancouver:res:n47219890"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47218206"
+  },
+  {
+   "earliest": 2014,
+   "n_captures": 1,
+   "n_captures_gsv": 1,
+   "n_hist": 0,
+   "n_panos": 3,
+   "span_years": 0,
+   "type": "residential",
+   "unit": "vancouver:res:n47299025"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 4,
+   "n_captures_gsv": 4,
+   "n_hist": 9,
+   "n_panos": 4,
+   "span_years": 15,
+   "type": "residential",
+   "unit": "vancouver:res:n47209296"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47250827"
+  },
+  {
+   "earliest": 2011,
+   "n_captures": 4,
+   "n_captures_gsv": 4,
+   "n_hist": 3,
+   "n_panos": 1,
+   "span_years": 12,
+   "type": "residential",
+   "unit": "vancouver:res:n47215571"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 6,
+   "n_captures_gsv": 6,
+   "n_hist": 5,
+   "n_panos": 2,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n47207274"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47394174"
+  },
+  {
+   "earliest": 2012,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 17,
+   "n_panos": 6,
+   "span_years": 14,
+   "type": "residential",
+   "unit": "vancouver:res:n47337309"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 6,
+   "n_captures_gsv": 6,
+   "n_hist": 18,
+   "n_panos": 6,
+   "span_years": 17,
+   "type": "residential",
+   "unit": "vancouver:res:n47276830"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 11,
+   "n_captures_gsv": 11,
+   "n_hist": 37,
+   "n_panos": 10,
+   "span_years": 19,
+   "type": "residential",
+   "unit": "vancouver:res:n47210027"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 6,
+   "n_captures_gsv": 6,
+   "n_hist": 23,
+   "n_panos": 9,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n47267187"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 6,
+   "n_captures_gsv": 6,
+   "n_hist": 14,
+   "n_panos": 5,
+   "span_years": 17,
+   "type": "residential",
+   "unit": "vancouver:res:n47337376"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 15,
+   "n_panos": 7,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n47267215"
+  },
+  {
+   "earliest": 2023,
+   "n_captures": 2,
+   "n_captures_gsv": 2,
+   "n_hist": 0,
+   "n_panos": 6,
+   "span_years": 1,
+   "type": "residential",
+   "unit": "vancouver:res:n8593117140"
+  },
+  {
+   "earliest": 2011,
+   "n_captures": 3,
+   "n_captures_gsv": 3,
+   "n_hist": 2,
+   "n_panos": 2,
+   "span_years": 12,
+   "type": "residential",
+   "unit": "vancouver:res:n47255313"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 3,
+   "n_captures_gsv": 3,
+   "n_hist": 4,
+   "n_panos": 6,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n47290441"
+  },
+  {
+   "earliest": 2023,
+   "n_captures": 1,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 1,
+   "span_years": 0,
+   "type": "residential",
+   "unit": "vancouver:res:n6797369872"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 6,
+   "n_captures_gsv": 6,
+   "n_hist": 25,
+   "n_panos": 9,
+   "span_years": 19,
+   "type": "residential",
+   "unit": "vancouver:res:n47323254"
+  },
+  {
+   "earliest": 2011,
+   "n_captures": 6,
+   "n_captures_gsv": 6,
+   "n_hist": 13,
+   "n_panos": 7,
+   "span_years": 15,
+   "type": "residential",
+   "unit": "vancouver:res:n3397714252"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47324288"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 4,
+   "n_captures_gsv": 4,
+   "n_hist": 8,
+   "n_panos": 5,
+   "span_years": 19,
+   "type": "residential",
+   "unit": "vancouver:res:n47259062"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47285163"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 15,
+   "n_panos": 7,
+   "span_years": 19,
+   "type": "residential",
+   "unit": "vancouver:res:n47284578"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 7,
+   "n_captures_gsv": 7,
+   "n_hist": 36,
+   "n_panos": 9,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n47337520"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47360191"
+  },
+  {
+   "earliest": 2023,
+   "n_captures": 1,
+   "n_captures_gsv": 1,
+   "n_hist": 0,
+   "n_panos": 6,
+   "span_years": 0,
+   "type": "residential",
+   "unit": "vancouver:res:n1326714710"
+  },
+  {
+   "earliest": 2022,
+   "n_captures": 1,
+   "n_captures_gsv": 1,
+   "n_hist": 0,
+   "n_panos": 1,
+   "span_years": 0,
+   "type": "residential",
+   "unit": "vancouver:res:n47222285"
+  },
+  {
+   "earliest": 2021,
+   "n_captures": 2,
+   "n_captures_gsv": 2,
+   "n_hist": 1,
+   "n_panos": 5,
+   "span_years": 5,
+   "type": "residential",
+   "unit": "vancouver:res:n6465888251"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47321401"
+  },
+  {
+   "earliest": 2023,
+   "n_captures": 2,
+   "n_captures_gsv": 2,
+   "n_hist": 1,
+   "n_panos": 4,
+   "span_years": 3,
+   "type": "residential",
+   "unit": "vancouver:res:n47307393"
+  },
+  {
+   "earliest": 2012,
+   "n_captures": 4,
+   "n_captures_gsv": 4,
+   "n_hist": 6,
+   "n_panos": 4,
+   "span_years": 11,
+   "type": "residential",
+   "unit": "vancouver:res:n47263456"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47343866"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47357126"
+  },
+  {
+   "earliest": 2012,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 20,
+   "n_panos": 9,
+   "span_years": 14,
+   "type": "residential",
+   "unit": "vancouver:res:n47370046"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 21,
+   "n_panos": 6,
+   "span_years": 15,
+   "type": "residential",
+   "unit": "vancouver:res:n47386267"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 4,
+   "n_captures_gsv": 4,
+   "n_hist": 6,
+   "n_panos": 4,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n47411431"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 10,
+   "n_captures_gsv": 10,
+   "n_hist": 39,
+   "n_panos": 10,
+   "span_years": 17,
+   "type": "residential",
+   "unit": "vancouver:res:n47207370"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47262600"
+  },
+  {
+   "earliest": 2024,
+   "n_captures": 1,
+   "n_captures_gsv": 1,
+   "n_hist": 0,
+   "n_panos": 9,
+   "span_years": 0,
+   "type": "residential",
+   "unit": "vancouver:res:n4880395451"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47260779"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 13,
+   "n_panos": 5,
+   "span_years": 19,
+   "type": "residential",
+   "unit": "vancouver:res:n47213478"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47288828"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 4,
+   "n_captures_gsv": 4,
+   "n_hist": 24,
+   "n_panos": 8,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n1326714606"
+  },
+  {
+   "earliest": 2012,
+   "n_captures": 6,
+   "n_captures_gsv": 6,
+   "n_hist": 24,
+   "n_panos": 8,
+   "span_years": 14,
+   "type": "residential",
+   "unit": "vancouver:res:n47260793"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 7,
+   "n_captures_gsv": 7,
+   "n_hist": 20,
+   "n_panos": 9,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n47304734"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 12,
+   "n_panos": 7,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n47263657"
+  },
+  {
+   "earliest": 2012,
+   "n_captures": 4,
+   "n_captures_gsv": 4,
+   "n_hist": 5,
+   "n_panos": 5,
+   "span_years": 11,
+   "type": "residential",
+   "unit": "vancouver:res:n47318233"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 8,
+   "n_captures_gsv": 8,
+   "n_hist": 33,
+   "n_panos": 9,
+   "span_years": 19,
+   "type": "residential",
+   "unit": "vancouver:res:n47288275"
+  },
+  {
+   "earliest": null,
+   "n_captures": 0,
+   "n_captures_gsv": 0,
+   "n_hist": 0,
+   "n_panos": 0,
+   "span_years": null,
+   "type": "residential",
+   "unit": "vancouver:res:n47332410"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 4,
+   "n_panos": 1,
+   "span_years": 15,
+   "type": "residential",
+   "unit": "vancouver:res:n47288855"
+  },
+  {
+   "earliest": 2007,
+   "n_captures": 6,
+   "n_captures_gsv": 6,
+   "n_hist": 13,
+   "n_panos": 6,
+   "span_years": 16,
+   "type": "residential",
+   "unit": "vancouver:res:n47346139"
+  },
+  {
+   "earliest": 2011,
+   "n_captures": 5,
+   "n_captures_gsv": 5,
+   "n_hist": 5,
+   "n_panos": 2,
+   "span_years": 13,
+   "type": "residential",
+   "unit": "vancouver:res:n47155767"
+  }
+ ],
+ "sample_n": {
+  "arterial": 67,
+  "residential": 66,
+  "signalised": 67
+ },
+ "sample_seed": 238,
+ "sleep_s": 0.25,
+ "span_years_unit": {
+  "0.0": 0,
+  "0.25": 15,
+  "0.5": 18,
+  "0.75": 19,
+  "1.0": 19
+ },
+ "status": {
+  "not_found": 478,
+  "ok": 830
+ },
+ "stopped_on_error": null,
+ "units_with_no_pano": 30,
+ "units_with_panos_none_served": 10,
+ "wall_clock_history_s": [
+  701.2
+ ],
+ "wall_clock_s": 0.1
+}

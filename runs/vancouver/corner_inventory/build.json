@@ -1,0 +1,132 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_inventory/1",
+ "city": "vancouver",
+ "built_at": "2026-10-04T17:27:03+00:00",
+ "inputs": {
+  "results": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\results.jsonl",
+   "sha256": "7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28"
+  },
+  "osm": {
+   "path": "..\\..\\sal-cluster-review\\runs\\vancouver\\cluster_review\\osm.json",
+   "sha256": "58ce83ffa4b8eea199d7017b53fe125079e2cfa2f3d5181f9e22d61bc0c2a030"
+  },
+  "sites": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\sites.jsonl",
+   "sha256": "9d1fc51ac2867d6247bdf2e0b1c6b5c9fccbbf9a566771f0222bb2728055c914"
+  },
+  "sites_meta": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\sites_meta.json",
+   "sha256": "5a72734079b30710343b8dda2e391145be0721114509015dc963d69e7d873678"
+  },
+  "clusters": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\ps_clustering_eval\\clusters.geojson",
+   "sha256": "d8a1e7065e2cf97ff7da0ab50eba7e754b2ac67c4286ecbc8d528f8ff6bec1c3"
+  },
+  "raw_labels": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\provenance_gate\\raw_labels.geojson",
+   "sha256": "57c31c73dc75a6139b2694fdc5e7c0823bf0d0504348f1e1f38d3681b713098d"
+  },
+  "streets": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\ps_clustering_eval\\streets.geojson",
+   "sha256": "0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4"
+  },
+  "area": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\area.geojson",
+   "sha256": "c7dd888fe84fefdf9e08b46d5441282d51e05c2cc1724e46114bfdb5355437a9"
+  },
+  "inventory": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\inventory_oracle\\inventory.geojson",
+   "sha256": "c4d2497995f7b6261333c3859a668348cd62a36367593cef2dfdfa6b7e020d87"
+  },
+  "inventory_record": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\inventory_oracle\\inventory.json",
+   "sha256": "3f9d2917b4b39dbe535d4ffd34d2aecfc55c50916b935536b1d05f4dee1801fe"
+  },
+  "store_selection": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\store_selection.json",
+   "sha256": "5409a89b2ef945721cedcb80bf231edf97ce81ade99614c7ce69c23019afdd9f"
+  },
+  "store_sampled_ids": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\store_sampled_ids.txt",
+   "sha256": "4a38c466b680ebf9bb6bd85899264f9e0672a0507aeb72aa85558ca07cbb48da"
+  },
+  "units224": {
+   "path": "..\\..\\RampNet\\benchmark\\vancouver\\cluster_review\\corners.jsonl",
+   "sha256": "4c862a4039ca65b23b0ec02d44901d1354a6dbbac0fb07877b9d9f4204c23ca3"
+  }
+ },
+ "exporter": {
+  "file": "scripts/export_cluster_review.py",
+  "git_sha": "5b21cd9b00d9b00a2b8f9ab5345591eb599182b2"
+ },
+ "tool_git_sha": "8058b2fd5f842db3cdaf78803f438d1cae5568c2",
+ "frame": {
+  "lat0": 45.63445921605165,
+  "lng0": -122.58367302583142,
+  "n_labels": 64847
+ },
+ "params": {
+  "leg_probe_m": 20.0,
+  "leg_stub_min_m": 5.0,
+  "leg_merge_deg": 30.0,
+  "corner_offset_m": 12.0,
+  "wide_sector_deg": 150.0,
+  "obs_m": 25.0,
+  "obs_near_m": 15.0,
+  "window_m": 30.0,
+  "min_confidence": 0.3
+ },
+ "candidates": {
+  "street_ways": 16588,
+  "intersection_nodes": 10492,
+  "intersection_units": 9509,
+  "signal_nodes": 2447,
+  "midblock_points": 46835,
+  "outside_area": 28437,
+  "off_ps_street": 6144,
+  "grade_separated": 422,
+  "grade_separated_by_stratum": {
+   "signalised": 19,
+   "arterial": 35,
+   "residential": 4,
+   "mid_block": 364
+  },
+  "grade_separated_ways": {
+   "bridge": 466,
+   "layer_above": 196,
+   "street_tunnel": 6,
+   "covered": 235
+  },
+  "eligible": {
+   "signalised": 284,
+   "arterial": 1497,
+   "residential": 2648,
+   "mid_block": 16912
+  }
+ },
+ "counts": {
+  "panos": 28830,
+  "operational_sites": 17650,
+  "clusters": 18684,
+  "inventory_points": 17440,
+  "units": 21341,
+  "units224": 80
+ },
+ "steps": [
+  {
+   "step": "units",
+   "seconds": 12.8
+  },
+  {
+   "step": "load",
+   "seconds": 2.0
+  },
+  {
+   "step": "describe",
+   "seconds": 1.2,
+   "note": "21341 units"
+  }
+ ],
+ "seconds": 17.5
+}
