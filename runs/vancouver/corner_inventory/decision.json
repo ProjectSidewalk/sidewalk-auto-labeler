@@ -1,0 +1,51 @@
+{
+ "n_absent": 84,
+ "clean": 46,
+ "precision": 0.5476,
+ "ci": [
+  0.4414,
+  0.6496
+ ],
+ "outcome": "FAIL: triage the false absences (detector miss vs observability) first",
+ "no_available_read": 0.8929,
+ "selection": {
+  "absent_units_by_pano_kind": {
+   "sampled-unlabeled": {
+    "units": 29,
+    "only_sampled_panos": 29,
+    "RMV/NA only": 18,
+    "clean (no point)": 9,
+    "false (Available)": 2
+   },
+   "labeled only": {
+    "units": 55,
+    "only_sampled_panos": 0,
+    "clean (no point)": 37,
+    "RMV/NA only": 11,
+    "false (Available)": 7
+   }
+  },
+  "run_panos": 28830,
+  "run_panos_with_det_ge_tier": 26930,
+  "tier": 0.55,
+  "sampled_unlabeled_in_selection": 300,
+  "sampled_unlabeled_in_run": 300,
+  "sampled_unlabeled_within_25m_of_a_unit": 51,
+  "unit_state_by_pano_kind": {
+   "absent | labeled panos only": 55,
+   "absent | sampled-unlabeled pano within 25 m": 29,
+   "present | labeled panos only": 2845,
+   "present | no pano within 25 m": 25,
+   "present | sampled-unlabeled pano within 25 m": 22,
+   "unobservable | no pano within 25 m": 1453
+  },
+  "unobservable_units_nearest_pano_m": {
+   "0.0": 25.12,
+   "0.25": 27.5,
+   "0.5": 31.09,
+   "0.75": 34.09,
+   "1.0": 36.98
+  },
+  "unobservable_units_with_no_pano_within_37m": 1345
+ }
+}

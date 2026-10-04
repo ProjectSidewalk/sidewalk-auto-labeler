@@ -285,6 +285,24 @@ python scripts/inventory_clustering.py score bend gainesville && python scripts/
 # RampNet's cluster_review_gallery.py writes an assignments file.
 python scripts/export_cluster_review.py vancouver --run-dir ../sal-vancouver/runs/vancouver     --bundle ../RampNet/benchmark/vancouver/cluster_review [--no-crops] [--skip-aerial]
 python scripts/cluster_review_score.py vancouver --run-dir ../sal-vancouver/runs/vancouver     --bundle ../RampNet/benchmark/vancouver/cluster_review    # -> runs/vancouver/cluster_review/score/
+# CORNER INVENTORY (RampNet#238; protocol + results docs/corner-inventory.md). Every eligible
+# #224 unit (no sampling; OSM functions imported from export_cluster_review.py, eligible counts
+# asserted against the exporter's), legs walked out to 20 m; oneway same-name carriageways
+# (within 90 deg) and *_link slip lanes (within 60 deg) merge by OSM tags, then any legs within
+# 30 deg chain (angle alone left divided-road medians as corners -- review B1), corners =
+# sectors between legs; state per unit / corner = present (operational fused site, or deployed
+# cluster) > absent (a run pano within 25 m of the corner point) > unobservable. CAUTION: a
+# store-built run holds the LABELED panos (+ a 300-pano unlabeled sample), so "observed" is
+# conditioned on a label having been made nearby -- read every absence number with that.
+# `census` makes one streetlevel metadata request per pano (no image), cached with fetch time.
+python scripts/corner_inventory.py build --run-dir ../sal-vancouver/runs/vancouver \
+    --osm ../sal-cluster-review/runs/vancouver/cluster_review/osm.json \
+    --units224 ../RampNet/benchmark/vancouver/cluster_review/corners.jsonl \
+    --out runs/vancouver/corner_inventory
+python scripts/corner_inventory.py score --out runs/vancouver/corner_inventory
+python scripts/corner_inventory.py census --out runs/vancouver/corner_inventory   # network
+python scripts/corner_inventory.py score-assignments --out runs/vancouver/corner_inventory \
+    --assignments ../RampNet/benchmark/vancouver/cluster_review/assignments.json
 # Vancouver split examples (#56): ramps one arm splits and another does not, drawn on Esri
 # aerial tiles at SERVER placement (every cluster placed) -> docs/figures/vancouver-splits/
 python scripts/split_figures.py            # --rebuild recomputes the cached partitions
