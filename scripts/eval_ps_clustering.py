@@ -387,7 +387,7 @@ def invert_camera_position(rows, server_height=SERVER_CAMERA_HEIGHT_M):
 
 
 def server_panos(labels, det_of, run_by_id, ai_user, decode=DECODE_ARGMAX,
-                 border=BORDER_EXCLUDE):
+                 border=BORDER_EXCLUDE, invert=True):
     """SlimPanos built from the server's labels, for fuse_sites to associate: the
     partition the server would compute if its clustering were fusion. What each field
     comes from, and why the server has it:
@@ -408,6 +408,10 @@ def server_panos(labels, det_of, run_by_id, ai_user, decode=DECODE_ARGMAX,
       block only when no label is close enough to invert. The run's block is NOT
       pano_data's once a pano has been repositioned (Richmond's posfix3seq panos are live
       at raw GPS while results.jsonl holds SfM), so it is the fallback, not the source.
+      With invert=False (offline: the synthesized labels were placed FROM the run's pano
+      block, so that block is the server's position by construction) the run's block is
+      used wherever there is one, and inversion only for a pano with no run pano --
+      inverting there would add only the inversion's own error (p90 0.24-0.33 m).
     - camera height fields, decode, border: copied from the run pano when there is one,
       so this arm raycasts in the same frame as every other labeler arm and fuse's
       mixed-decode / mixed-border guards see the run's real values (#111, #130); a pano
@@ -462,7 +466,7 @@ def server_panos(labels, det_of, run_by_id, ai_user, decode=DECODE_ARGMAX,
                 stats['human_labels'] += 1
             stats['label_of'][(pano_id, dets[-1][0])] = r['label_id']
         head = rows[0]
-        inv = invert_camera_position(rows)
+        inv = invert_camera_position(rows) if invert or run is None else None
         if inv is not None:
             lat, lng, _n = inv
             stats['inverted'] += 1
@@ -1678,7 +1682,8 @@ def run(args):
     srv_panos, srv_stats = server_panos(
         labels, det_of, run_by_id, ai_user,
         decode=fs.single_decode(Counter(p.decode for p in run_panos), 'results.jsonl'),
-        border=fs.single_border(Counter(p.border for p in run_panos), 'results.jsonl'))
+        border=fs.single_border(Counter(p.border for p in run_panos), 'results.jsonl'),
+        invert=not args.offline)
     srv_params = replace(params, min_confidence=0.0, floor=0.0)
     srv_sites, srv_frame, _s3 = fs.fuse(srv_panos, srv_params)
     srv_clusters, srv_singletons = clusters_from_server_sites(
@@ -1846,8 +1851,9 @@ def run(args):
         f"{srv_stats['human_labels']} human labels on "
         f"{len(srv_panos) + srv_stats['unplaceable']} panos ({srv_stats['inverted']} "
         f"positioned by inverting their labels, {srv_stats['run_position']} from the run's "
-        f"pano block (no label within {INVERT_MAX_RANGE_M:g} m to invert), "
-        f"{srv_stats['unplaceable']} with neither, whose {srv_stats['unplaceable_labels']} "
+        + ("pano block (offline: the block the labels were placed from), " if args.offline
+           else f"pano block (no label within {INVERT_MAX_RANGE_M:g} m to invert), ")
+        + f"{srv_stats['unplaceable']} with neither, whose {srv_stats['unplaceable_labels']} "
         f'labels are singleton clusters); {srv_singletons} labels the raycast cannot place '
         '(range cap, horizon) are singleton clusters; '
         f'{same_as_fusion} of its {len(srv_sets)} clusters with AI members are, member '

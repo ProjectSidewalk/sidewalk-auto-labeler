@@ -99,6 +99,10 @@ def test_position_is_the_servers_not_the_runs():
     panos, stats = epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai')
     assert geo.haversine_m(panos[0].lat, panos[0].lng, LAT0, LNG0) < 0.05
     assert stats['inverted_far'] == 1
+    # offline (invert=False) the run's block IS the server's position: no inversion
+    panos, stats = epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai', invert=False)
+    assert (panos[0].lat, panos[0].lng) == (run.lat, run.lng)
+    assert (stats['run_position'], stats['inverted']) == (1, 0)
 
 
 def test_run_position_only_when_nothing_inverts():

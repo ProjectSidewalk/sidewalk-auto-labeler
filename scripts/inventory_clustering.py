@@ -281,7 +281,8 @@ def score_city(city, tiers=TIERS, frames=FRAMES, radii=RADII_M):
             srv_panos, srv_st = epc.server_panos(
                 labels, det_of, run_by_id, epc.OFFLINE_USER,
                 decode=fs.single_decode(Counter(p.decode for p in panos), results_path.name),
-                border=fs.single_border(Counter(p.border for p in panos), results_path.name))
+                border=fs.single_border(Counter(p.border for p in panos), results_path.name),
+                invert=False)
             srv_sites, srv_frame, _s3 = fs.fuse(srv_panos, replace(params, min_confidence=0.0,
                                                                    floor=0.0))
             att, attached = epc.attach_unplaceable(
