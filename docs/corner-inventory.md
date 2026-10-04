@@ -226,9 +226,49 @@ re-derived. The superseded values are listed here so they stay visible.
     - Corners went from 14,901 to 14,391. Legs per unit went from {1: 3, 2: 180, 3: 2,770,
       4: 1,286, 5–8: 190} to {1: 3, 2: 273, 3: 2,778, 4: 1,368, 5: 6, 6: 1}.
     - The units that went from 3 legs to 2, checked by hand on six, are slip-lane merges
-      (`*_link` + a through road) and split oneway pairs of one street (teardrop islands).
+      (`*_link` + a through road) and split oneway pairs of one street (teardrop islands); see
+      "Known over-merges" below for the kinds a full sweep found.
   - **Tests:** a 4-leg cross with one divided arterial whose carriageways are 14 m apart gives
     4 corners, not 6; a slip lane joins its parent leg.
+  - **Known over-merges (re-review, kept as a limitation; the rule was not changed).** The
+    six hand-checked 3→2 units above are not the only kind of merge. A sweep of all 4,429 units
+    under the current build found four kinds of over-merge. This was a scratch script that re-ran
+    `leg_bearings` + `merge_legs` per unit and asserted the committed legs; it is not committed.
+    - **Two ends of a loop or circle road.** The pair rule joins two oneway walks of one named
+      road 60–90° apart. 16 units change leg count between a 60° and a 90° pair cap.
+      - `res:n958722944` (Northeast 34th Way): walks at 35° and 121° give legs [78, 258]; it was
+        a 3-leg T.
+      - `res:n1253177406` (East 38th Loop): [83, 181, 250] → [83, 215].
+      - `res:n1245728425` (Officers Row): [21, 109, 192] → [65, 192].
+      - `art:n47278105`: 4 legs → [86, 269].
+    - **Interchange ramp terminals taken by the `*_link` rule.** Here the link is the crossing
+      approach, not a slip lane beside its parent. 42 link walks have their nearest non-link walk
+      30–60° away, so they merge only because of the 60° link cap. Of the 8 multi-node signalised
+      units that now have 2 legs, five are such terminals:
+      - `sig:n249208576`: [69, 119, 252, 308] → [89, 289];
+      - `sig:n697467152`: [129, 171, 320] → [150, 320];
+      - `sig:n1723250519`: 6 legs → [142, 325];
+      - `sig:n3993169612`: [70, 108, 238, 301] → [89, 269];
+      - `sig:n47266006` (East 39th St): links at 45° and 110° both joined the 77° leg;
+        [45, 77, 110, 257] → [77, 257].
+    - **Chaining past 90°.** In `sig:n47250613` (Fourth Plain × Ward × 147th, 4 nodes), the
+      Fourth Plain walks at 148°, 189° and 240° pair one after another and the links join them:
+      6 legs → [9, 190].
+    - **Links shift a leg's bearing.** The circular mean includes the link walk. In
+      `art:n47196196`, the South Garrison walk at 214° and a `tertiary_link` at 265° become one
+      leg at 239°, which moves a sector boundary by about 25°.
+    - **Two more of the 8 two-leg multi-node signalised units:**
+      - `sig:n441985883` (a median crossover on SE 164th Ave) is a correct 2.
+      - `sig:n47282521` (Lincoln × W Fourth Plain, 4 nodes) was already 2 legs under the old
+        rule, because its nodes sit beyond the 20 m probe and Lincoln Avenue's legs are mostly
+        lost. That is a known gap for wide multi-node units, not a regression.
+    - **Scale:** about 20–60 of the 4,429 units. Unit-level numbers and the decision do not use
+      sectors and are untouched. The corner tables were not re-derived under a tighter rule.
+    - **Candidate tighter rule (follow-up, not applied):**
+      - pair only mutually nearest walks, with a cap of about 60°;
+      - merge a `*_link` walk only when its far end rejoins a leg of the same unit (a true slip
+        lane), and never a `motorway_link`;
+      - take each leg's bearing from its non-link walks only.
 - **A2. Internal paths through shape nodes (review S3).** A walk that reached another node of
   the same unit through degree-2 shape nodes ended as a stub leg. The Definitions say internal
   edges are skipped; only direct edges were. Such walks now give no leg. A test covers it.
