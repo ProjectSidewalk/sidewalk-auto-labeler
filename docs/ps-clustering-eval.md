@@ -1209,8 +1209,9 @@ The raycast rows place only clusters with a label the rebuilt run maps. `fusion_
 leaves 3,810 of its clusters unplaced there, against 1,524 for `ps @ 7.5 m`, so the
 all-label raycast ratio (0.46x) mixes the frame with which clusters survive placement. It is
 not a test of Part 1's claim and is not quoted as one. The deployed partition is the most
-fragmented arm in both frames (0.196 server / 0.255 raycast against 0.138 / 0.200 for a
-fresh `ps @ 7.5 m`), which is (a) seen from the inventory. Merge rises from the PS rule to
+fragmented arm in the raycast frame (0.255 against 0.200 for a fresh `ps @ 7.5 m`) and more
+fragmented than a fresh `ps @ 7.5 m` in the server frame too (0.196 against 0.138), though
+there `fusion_server` reads higher still (0.201); this is (a) seen from the inventory. Merge rises from the PS rule to
 fusion in every block (the Bend trade-off). The split figures in
 `docs/figures/vancouver-splits/` illustrate the server-frame rows.
 
