@@ -69,10 +69,13 @@ Usage:
         --server https://sidewalk-laurens.cs.washington.edu    # streets, for regions only
     # a live city with NO RampNet GT whose run was rebuilt from the pano store (#56): the
     # GT columns read n/a; the AI account is named so its labels the rebuilt run does not
-    # reproduce pixel-exactly still count as AI; the label pull is the gate's frozen one
+    # reproduce pixel-exactly still count as AI; every input is a frozen pull passed by
+    # path (no --server, so nothing can be re-pulled)
     python scripts/eval_ps_clustering.py vancouver --no-gt --ai-user <ai user_id> \
-        --labels runs/vancouver/provenance_gate/raw_labels.geojson --offline-check \
-        --server https://sidewalk-vancouver.cs.washington.edu --ps-script <label_clustering.py>
+        --labels runs/vancouver/provenance_gate/raw_labels.geojson \
+        --clusters runs/vancouver/ps_clustering_eval/clusters.geojson \
+        --streets runs/vancouver/ps_clustering_eval/streets.geojson \
+        --offline-check --ps-script <label_clustering.py>
 """
 import argparse
 import csv
@@ -226,6 +229,7 @@ def load_labels(path):
                      'camera_heading': q.get('camera_heading'),
                      'pano_source': q.get('pano_source'),
                      'image_capture_date': q.get('image_capture_date'),
+                     'time_created': q.get('time_created'),
                      # read only by validation_precision (#56 metric (c))
                      'human_agree': votes[0], 'human_disagree': votes[1],
                      'human_unsure': votes[2], 'correct': q.get('correct')})
@@ -274,7 +278,7 @@ def load_server_clusters(path):
         q = ft['properties']
         lng, lat = ft['geometry']['coordinates']
         out.append({'id': q['label_cluster_id'], 'label_ids': list(q['label_ids']),
-                    'lat': lat, 'lng': lng})
+                    'lat': lat, 'lng': lng, 'region_id': q.get('region_id')})
     return out
 
 
@@ -462,8 +466,9 @@ def server_panos(labels, det_of, run_by_id, ai_user, decode=DECODE_ARGMAX,
       block only when no label is close enough to invert. The run's block is NOT
       pano_data's once a pano has been repositioned (Richmond's posfix3seq panos are live
       at raw GPS while results.jsonl holds SfM), so it is the fallback, not the source.
-      The AI account's labels are inverted when the pano has any (the placement check
-      validates exactly those), and the other accounts' only when it has none: a human
+      The AI account's labels are inverted first (the placement check validates exactly
+      those); only when none of them is close enough to invert, or the pano has none, are
+      all its labels inverted, and only then the run's block. A human
       label keeps the lat/lng it was inserted at, which on Laurens is a pano position the
       server no longer holds (human-only inversion sits a median 8.7 m from the live block
       on 70 panos, AI-only 0.000 m), so mixed into the median it moved 57 of 695 panos.
@@ -533,8 +538,12 @@ def server_panos(labels, det_of, run_by_id, ai_user, decode=DECODE_ARGMAX,
             stats['label_of'][(pano_id, dets[-1][0])] = r['label_id']
         head = rows[0]
         ai_rows = [r for r in rows if str(r['user_id']) == str(ai_user)]
-        inv = (invert_camera_position(ai_rows or rows) if invert or run is None
-               else None)
+        inv = None
+        if invert or run is None:
+            # the AI labels first; all labels before the run's block (#107 re-review M1)
+            inv = invert_camera_position(ai_rows) if ai_rows else None
+            if inv is None and len(ai_rows) < len(rows):
+                inv = invert_camera_position(rows)
         if inv is not None:
             lat, lng, _n = inv
             stats['inverted'] += 1
@@ -748,6 +757,97 @@ def ps_verbatim(labels, ps_script):
         raise SystemExit(f'{int((assignment < 0).sum())} labels were never assigned '
                          'a cluster by the verbatim script')
     return assignment, mod.THRESHOLDS['CurbRamp']
+
+
+DIAG_SPAN_M = 7.5        # the CurbRamp threshold: a fresh complete-linkage cut never spans more
+DIAG_GEOMETRY_M = 1.0    # a cluster geometry this far from its members' mean is stale
+
+
+def deployed_diagnostics(server_clusters, labels, repro, ps_script=None, on_server=None):
+    """What a deployed partition that ps_repro does not reproduce looks like (#56 (a)).
+    Every figure is computed from the two pulls, at the labels' CURRENT positions:
+
+    - `span_over`: deployed clusters whose members span more than DIAG_SPAN_M (max pairwise
+      haversine); complete linkage at that threshold cannot produce one, so each is a
+      cluster computed from positions the labels no longer hold;
+    - `geom_off` / `geom_n` / `geom_max_m`: cluster geometries more than DIAG_GEOMETRY_M from
+      the mean of their members' current positions, of the clusters with a member in the
+      pull, and the largest such distance;
+    - `multi`: label ids that sit in more than one deployed cluster;
+    - `differ` / `subset`: deployed clusters that ps_repro does not reproduce, and of them
+      the PROPER subsets of one ps_repro cluster (the deployed table is the more
+      fragmented one there);
+    - `subset_time_split`: of those subsets, the ones whose labels were all created before
+      or all after every other label of their ps_repro cluster (a clustering run between
+      two submissions would leave exactly this);
+    - `by_cluster_region` (needs ps_script and on_server): the verbatim script re-run with
+      each label in the region of the deployed cluster holding it instead of its own, as
+      (identical, deployed clusters) -- a region reassignment since clustering would show
+      here.
+
+    Example:
+        A deployed cluster {1, 2} whose fresh twin is {1, 2, 3} is a proper subset; if
+        labels 1 and 2 were created on 09-18 and label 3 on 09-20, it is time-split.
+    """
+    pos = {int(r.label_id): (float(r.lat), float(r.lng)) for r in labels.itertuples(index=False)}
+    born = {}
+    if 'time_created' in labels.columns:      # mixed UTC offsets (DST): compare in UTC
+        t = pd.to_datetime(labels.time_created, utc=True, errors='coerce', format='ISO8601')
+        born = {int(lab): v for lab, v in zip(labels.label_id, t) if not pd.isna(v)}
+    out = {'n_deployed': len(server_clusters), 'span_over': 0, 'geom_off': 0, 'geom_n': 0,
+           'geom_max_m': 0.0}
+    seen = Counter()
+    for sc in server_clusters:
+        seen.update(sc['label_ids'])
+        pts = [pos[lab] for lab in sc['label_ids'] if lab in pos]
+        if not pts:
+            continue
+        span = max((geo.haversine_m(*a, *b) for i, a in enumerate(pts) for b in pts[i + 1:]),
+                   default=0.0)
+        out['span_over'] += span > DIAG_SPAN_M
+        lat = sum(p[0] for p in pts) / len(pts)
+        lng = sum(p[1] for p in pts) / len(pts)
+        d = geo.haversine_m(lat, lng, sc['lat'], sc['lng'])
+        out['geom_n'] += 1
+        out['geom_off'] += d > DIAG_GEOMETRY_M
+        out['geom_max_m'] = max(out['geom_max_m'], d)
+    out['multi'] = sum(1 for n in seen.values() if n > 1)
+    repro_sets = [frozenset(c.label_ids) for c in repro]
+    of_label = {lab: k for k, s in enumerate(repro_sets) for lab in s}
+    repro_set_index = set(repro_sets)
+    differ = subset = time_split = 0
+    for sc in server_clusters:
+        dset = frozenset(sc['label_ids'])
+        if dset in repro_set_index:
+            continue
+        differ += 1
+        owners = {of_label.get(lab) for lab in dset}
+        if len(owners) != 1 or None in owners:
+            continue
+        fresh = repro_sets[owners.pop()]
+        if not dset < fresh:
+            continue
+        subset += 1
+        inside = [born.get(lab) for lab in dset]
+        outside = [born.get(lab) for lab in fresh - dset]
+        if born and None not in inside and None not in outside:
+            if max(inside) < min(outside) or max(outside) < min(inside):
+                time_split += 1
+    out.update(differ=differ, subset=subset, subset_time_split=time_split)
+    if ps_script is not None and on_server is not None:
+        region_of = {}
+        for sc in server_clusters:
+            for lab in sc['label_ids']:
+                region_of.setdefault(lab, sc['region_id'])
+        moved = on_server.copy()
+        moved['region_id'] = [region_of.get(lab, rid) for lab, rid in
+                              zip(moved.label_id, moved.region_id)]
+        assign, _t = ps_verbatim(moved, ps_script)
+        k, n, _off = partition_agreement(
+            clusters_from_server(server_clusters, {}),
+            clusters_from_assignment(moved, assign, {}))
+        out['by_cluster_region'] = (k, n)
+    return out
 
 
 def partition_agreement(a, b):
@@ -1790,6 +1890,7 @@ def run(args):
 
     checks = []
     deployed = None
+    diag = None
     if not args.offline:
         # arm: deployed
         deployed = place(clusters_from_server(server_clusters, det_of), det_pos)
@@ -1829,6 +1930,9 @@ def run(args):
             k2, n2, off2 = partition_agreement(repro, vec_clusters)
             checks.append(f'vectorized PS distance reproduces the script: {k2}/{n2} '
                           f'clusters identical ({off2} labels differ)')
+            if k < n:
+                diag = deployed_diagnostics(server_clusters, labels, repro,
+                                            args.ps_script, on_server)
 
     # arms: ps @ t (server positions, per region) and ps_citywide @ 7.5
     t_kms = [t / 1000.0 for t in args.thresholds_m]
@@ -2031,6 +2135,27 @@ def run(args):
     if not args.offline and not args.ps_script:
         checks.insert(0, 'ps_repro skipped (no --ps-script)')
     lines += [f'- {c}' for c in checks]
+    if diag is not None:
+        bcr = diag.get('by_cluster_region')
+        lines += ['', '## Deployed-partition diagnostics (#56 (a))', '',
+                  'Printed when ps_repro does not reproduce every deployed cluster. All at the '
+                  "labels' CURRENT positions in the pull (eval_ps_clustering."
+                  'deployed_diagnostics has the definitions).', '',
+                  f"- deployed clusters spanning more than {DIAG_SPAN_M:g} m (a fresh "
+                  f"complete-linkage cut cannot): {diag['span_over']} of {diag['n_deployed']} "
+                  f"({diag['span_over'] / diag['n_deployed']:.1%})",
+                  f"- cluster geometries more than {DIAG_GEOMETRY_M:g} m from their members' "
+                  f"mean: {diag['geom_off']} of {diag['geom_n']} "
+                  f"({diag['geom_off'] / diag['geom_n']:.1%}); max {diag['geom_max_m']:.1f} m",
+                  f"- labels in more than one deployed cluster: {diag['multi']}",
+                  f"- deployed clusters ps_repro does not reproduce: {diag['differ']}; proper "
+                  f"subsets of one ps_repro cluster: {diag['subset']}; of those, created "
+                  'all before or all after the rest of their ps_repro cluster: '
+                  f"{diag['subset_time_split']}"]
+        if bcr:
+            lines.append(f'- verbatim script with each label in its deployed cluster\'s region '
+                         f'instead of its own: {bcr[0]}/{bcr[1]} deployed clusters identical '
+                         f'({bcr[0] / bcr[1]:.3f})')
 
     def check_line(text, ok):
         return f'- {"" if ok else "warning: "}{text}'
@@ -2184,6 +2309,17 @@ def run(args):
                      + ' | '.join(fmt(nr['near'].get(rr)) for rr in NEAR_RADII_M)
                      + f" | {npl['n_pos']} | "
                      + ' | '.join(fmt(npl['near'].get(rr)) for rr in NEAR_RADII_M) + ' |')
+    ps75 = results.get(f'ps @ {PS_THRESHOLD_KM * 1000:g} m')
+    if args.no_gt and ps75 and 'fusion_server' in results:
+        a = results['fusion_server']['near']['near'].get(5.0)
+        b = ps75['near']['near'].get(5.0)
+        if a is not None and b:
+            # the #56 pre-registration (Vancouver, the one --no-gt city) made this the
+            # confirmatory fragmentation test and stated the expected direction
+            lines += ['', 'Pre-registered reading (#56 metric (b), the confirmatory test of '
+                      "Part 1's fragmentation claim): expected fusion_server near 5 m about "
+                      f'half of ps @ 7.5 m; read {a:.3f} vs {b:.3f} (ratio {a / b:.2f}), '
+                      + ('as expected.' if a <= 0.6 * b else 'not the expected halving.')]
     if verdicts:
         n_true = sum(v is True for v in verdicts.values())
         n_false = sum(v is False for v in verdicts.values())

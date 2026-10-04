@@ -268,3 +268,16 @@ def test_ai_labels_set_the_position_when_the_pano_has_any():
     panos, stats = epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai')
     assert geo.haversine_m(panos[0].lat, panos[0].lng, LAT0, LNG0) < 0.05
     assert stats['inverted_far'] == 0
+
+
+def test_all_labels_invert_before_the_run_block():
+    # #107 re-review M1: the pano's one AI label is near the horizon (beyond the inversion
+    # range) and a human label is close; the human label sets the position, not the run's
+    # block (which is ~11 m off here).
+    run = fs.SlimPano('p', LAT0 + 0.0001, LNG0, 0.0, None, None, '2025-06', 'gsv',
+                      [(0, 0.5, 0.515, 0.7)])
+    labels = pd.DataFrame([_label(10, 'p', 0.5, 0.515, 0.0),
+                           _label(11, 'p', 0.30, 0.62, 0.0, user='h')])
+    panos, stats = epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai')
+    assert geo.haversine_m(panos[0].lat, panos[0].lng, LAT0, LNG0) < 0.05
+    assert (stats['inverted'], stats['run_position']) == (1, 0)

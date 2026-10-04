@@ -23,6 +23,7 @@ import math
 import pickle
 import random
 import sys
+from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
@@ -72,11 +73,15 @@ def build_state():
     params = fs.FuseParams(camera_height_m=height, min_confidence=cfg['tier'],
                            mask_rig=False, apply_pose=fs.POSE_OFF)
     _dets, fr, _ = fs.project(panos, params)
-    srv_panos, st = epc.server_panos(labels, det_of, {p.pano_id: p for p in panos},
-                                     ai_user=cfg['ai_user'], unmapped_confidence=cfg['tier'])
+    srv_panos, st = epc.server_panos(
+        labels, det_of, {p.pano_id: p for p in panos}, cfg['ai_user'],
+        decode=fs.single_decode(Counter(p.decode for p in panos), results.name),
+        border=fs.single_border(Counter(p.border for p in panos), results.name),
+        unmapped_confidence=cfg['tier'])
     sites, sfr, _ = fs.fuse(srv_panos, replace(params, min_confidence=0.0, floor=0.0))
-    arms['fusion+attach'], _att = epc.attach_unplaceable(sites, srv_panos, sfr,
-                                                         label_of=st['label_of'])
+    arms['fusion+attach'], _att = epc.attach_unplaceable(
+        sites, srv_panos, sfr, mask_rig=params.mask_rig,
+        unpositioned=st['unplaceable_label_ids'], label_of=st['label_of'])
 
     inv_xy = np.array([fr.to_enu(lat, lng) for _k, lat, lng, _p in inventory])
     pool = ic.visible_pool(inv_xy, np.array([fr.to_enu(p.lat, p.lng) for p in panos]))
