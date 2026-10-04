@@ -1,0 +1,17 @@
+{
+ "verdict": "NOT ESTABLISHED",
+ "reasons": [
+  "gainesville auto: split 0.311 -> 0.211 (-0.100), merge 0.009 -> 0.017 (+0.008), covered 0.864 -> 0.863 (-0.001) -- meets the rule",
+  "gainesville 2.6: split 0.288 -> 0.331 (+0.043), merge 0.024 -> 0.016 (-0.008), covered 0.833 -> 0.851 (+0.018) -- REVERSES",
+  "bend auto: split 0.093 -> 0.048 (-0.046), merge 0.016 -> 0.031 (+0.015), covered 0.896 -> 0.897 (+0.001) -- does NOT meet it",
+  "bend 2.6: split 0.098 -> 0.048 (-0.049), merge 0.020 -> 0.034 (+0.013), covered 0.893 -> 0.897 (+0.003) -- REVERSES"
+ ],
+ "rule": {
+  "radius_m": 5.0,
+  "tier": 0.3,
+  "frame": "auto",
+  "split_drop": 0.05,
+  "merge_rise": 0.01,
+  "covered_drop": 0.01
+ }
+}

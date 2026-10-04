@@ -99,6 +99,10 @@ def test_position_is_the_servers_not_the_runs():
     panos, stats = epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai')
     assert geo.haversine_m(panos[0].lat, panos[0].lng, LAT0, LNG0) < 0.05
     assert stats['inverted_far'] == 1
+    # offline (invert=False) the run's block IS the server's position: no inversion
+    panos, stats = epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai', invert=False)
+    assert (panos[0].lat, panos[0].lng) == (run.lat, run.lng)
+    assert (stats['run_position'], stats['inverted']) == (1, 0)
 
 
 def test_run_position_only_when_nothing_inverts():
@@ -183,3 +187,17 @@ def test_wilson_interval():
     assert (round(lo, 2), round(hi, 2)) == (0.65, 0.94)   # scipy binomtest's Wilson
     assert epc.wilson(0, 0) is None
     assert epc.precision_ci_text(0, 0) == 'n/a'
+
+
+def test_ai_labels_set_the_position_when_the_pano_has_any():
+    # Two human labels inserted from a stale pano position ~11 m north (Laurens) would
+    # out-vote the one AI label in a median; the AI label's inversion wins.
+    stale = (LAT0 + 0.0001, LNG0)
+    run = fs.SlimPano('p', LAT0, LNG0, 30.0, None, None, '2025-06', 'gsv',
+                      [(0, 0.40, 0.62, 0.81)])
+    labels = pd.DataFrame([_label(10, 'p', 0.40, 0.62, 30.0),
+                           _label(11, 'p', 0.70, 0.58, 30.0, stale, user='h'),
+                           _label(12, 'p', 0.20, 0.60, 30.0, stale, user='h')])
+    panos, stats = epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai')
+    assert geo.haversine_m(panos[0].lat, panos[0].lng, LAT0, LNG0) < 0.05
+    assert stats['inverted_far'] == 0

@@ -1090,9 +1090,13 @@ def load_city_files(city, benchmark_root, run_dir, read_heights=True, height_tab
     return verdict_panos, bundle_ops, run_panos
 
 
-def load_city_at_height(city, benchmark_root, run_dir, camera_height, read_heights=None):
+def load_city_at_height(city, benchmark_root, run_dir, camera_height, read_heights=None,
+                        results_path=None):
     """load_city_files with the run's camera height resolved by fs.load_at_height, the one
     resolver fuse_sites, eval_sites, eval_ps_clustering and mined_precision share (#56).
+
+    `results_path` reads another results file of the run instead of results.jsonl (Laurens
+    went live from results.raw.jsonl; #106).
 
     Returns (verdict_panos, bundle_ops, run_panos, height, auto): pass `height` as
     FuseParams.camera_height_m, and `auto` (None unless `camera_height` was auto) to
@@ -1101,7 +1105,8 @@ def load_city_at_height(city, benchmark_root, run_dir, camera_height, read_heigh
     """
     verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
     run_panos, _skipped, height, auto = fs.load_at_height(
-        run_dir / 'results.jsonl', camera_height, read_heights=read_heights)
+        Path(results_path) if results_path else run_dir / 'results.jsonl', camera_height,
+        read_heights=read_heights)
     require_bundle_frame(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos, height, auto
 
