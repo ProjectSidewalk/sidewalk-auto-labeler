@@ -9,6 +9,22 @@
  "outcome": "FAIL: triage the false absences (detector miss vs observability) first",
  "no_available_read": 0.8929,
  "selection": {
+  "absent_units_by_pano_kind": {
+   "sampled-unlabeled": {
+    "units": 29,
+    "only_sampled_panos": 29,
+    "RMV/NA only": 18,
+    "clean (no point)": 9,
+    "false (Available)": 2
+   },
+   "labeled only": {
+    "units": 55,
+    "only_sampled_panos": 0,
+    "clean (no point)": 37,
+    "RMV/NA only": 11,
+    "false (Available)": 7
+   }
+  },
   "run_panos": 28830,
   "run_panos_with_det_ge_tier": 26930,
   "tier": 0.55,

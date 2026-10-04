@@ -196,34 +196,114 @@ neighbouring windows overlap.
   inventory classes sit at absent units and corners, and a "how the pano set was selected"
   diagnostic (below). Neither changes a definition or the rule.
 
-## RESULTS (Vancouver, WA; computed 2026-10-04 after the protocol above was committed and posted)
+## Amendments after review (2026-10-04, after the first RESULTS were published)
+
+An independent review of the PR
+([review](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/132#pullrequestreview-5407384626))
+found that the leg rule did not do what the Definitions above say. Each finding below was
+reproduced against the code before it was fixed. The protocol text above is left as written;
+these amendments override it where they conflict. Unit-level numbers and the decision
+computation do not use sectors and did not move. Every corner-level number in RESULTS was
+re-derived. The superseded values are listed here so they stay visible.
+
+- **A1. Divided roads (review B1).** The Definitions promise that "the two carriageways of a
+  divided road ... are one leg". With a 20 m probe and a 30° merge, two carriageways only merge
+  when their centrelines are less than 2·20·tan 15° ≈ 10.7 m apart. Most divided arterials are
+  wider than that, so the median between them became a ~35° "corner" that was almost always
+  called absent. Reproduced: `vancouver:sig:n47223902` had legs [1, 73, 109, 181, 253, 288];
+  73/109 and 253/288 are the West Mill Plain Blvd carriageways, both `oneway=yes`.
+  - **New rule** (`merge_legs`), applied before the 30° chaining. Each raw walk carries the tags
+    of its first edge out of the unit.
+    - (a) A `oneway`, non-`_link` walk joins the nearest other `oneway`, non-`_link` walk with
+      the same `name` (or, when both are unnamed, the same `ref`) within `LEG_PAIR_DEG = 90°`.
+      These are the two halves of one divided road, whatever the median width. 90° keeps the
+      two directions of a road through the junction (~180° apart) separate.
+    - (b) A `*_link` walk joins the nearest non-link walk within `LEG_LINK_DEG = 60°`. This is
+      the slip lane the Definitions already promised to merge.
+  - **Effect:**
+    - Sectors < 45° fell from 466 to 53.
+    - Among multi-node signalised units, 4 legs is now the most common count (77 of 110).
+    - Corners went from 14,901 to 14,391. Legs per unit went from {1: 3, 2: 180, 3: 2,770,
+      4: 1,286, 5–8: 190} to {1: 3, 2: 273, 3: 2,778, 4: 1,368, 5: 6, 6: 1}.
+    - The units that went from 3 legs to 2, checked by hand on six, are slip-lane merges
+      (`*_link` + a through road) and split oneway pairs of one street (teardrop islands).
+  - **Tests:** a 4-leg cross with one divided arterial whose carriageways are 14 m apart gives
+    4 corners, not 6; a slip lane joins its parent leg.
+- **A2. Internal paths through shape nodes (review S3).** A walk that reached another node of
+  the same unit through degree-2 shape nodes ended as a stub leg. The Definitions say internal
+  edges are skipped; only direct edges were. Such walks now give no leg. A test covers it.
+- **A3. The census changed after it ran (review S4).** Both changes were made to the summary
+  only; no response was re-fetched.
+  - In 6e0f5a5, "captures" grew from the served current + historical panos to also include the
+    run's own capture date of every pano. The reason: 36.5% of the panos are no longer served,
+    and their capture is still a capture.
+  - In 8058b2f, the extrapolation ratio moved from distinct historical ids per *served* pano to
+    per *queried* pano, because a full pass would also meet the ~36% unserved ids. Both figures:
+    - per queried pano: 5,248 / 1,308 × 18,461 ≈ **74,070** (the one quoted);
+    - per served pano: 5,248 / 830 × 18,461 ≈ **116,727** (emitted by the script before 8058b2f).
+  - After review, the captures quantiles leave out units and corners with no run pano within
+    25 m (30 of 200 units, 104 of 656 corners), which are counted separately. `census.json`
+    `wall_clock_s` is now the network time (701.2 s), not the last cache-only re-run.
+- **A4. Order (review S5).** The census ran before the experiment-1 decision existed. It is step 1
+  of experiment 2, it needs no GPU, and the issue's milestones list it (5) before the decision
+  (6). The issue body also says experiment 2 comes after experiment 1 passes, so the issue
+  contradicts itself here. Its result does not depend on the decision.
+- **A5. Panos are not assigned to corners by bearing (review M7).** The Definitions list panos
+  among the things assigned to a corner by bearing. The code, and the Observed definition, use
+  distance to the corner point. Observed is what holds.
+- **A6. `NA` with no `RAMPTYPE` (review S2).** Reading this as "the city records no ramp here"
+  is an inference from the field values (`inventory_oracle.py` notes), not documented by the
+  city; "Not Available" could also mean not surveyed. Everything below is worded as that
+  inference.
+- **A7. Smaller fixes.**
+  - `build.json` records absolute input paths, so `score` and `census` work from any cwd.
+    Before this change, re-running them only worked from the cwd that `build` ran in.
+  - `frame` is rounded to 9 decimals.
+  - The tool sha is the last commit touching `corner_inventory.py`, plus a dirty flag.
+  - `score-assignments` refuses a `rubric_version` other than 1 and, with `--snapshot`, a
+    `snapshot_sha256` other than the bundle's. It counts, rather than drops, ramps and uncovered
+    points more than 30 m out at corner level.
+  - `census --cache-only` refuses to fetch.
+
+**Open question (review M2, not acted on).** "No longer served" is the same share in every
+capture year (2024 captures 218/567, pre-2020 57/140, per the review), so 36.5% reads as id churn
+rather than imagery age. Status code 2 is never retried. Re-querying ~50 not-served ids once
+would rule out transient code-2 answers; this has not been done.
+
+## RESULTS (Vancouver, WA; first computed 2026-10-04 after the protocol was posted; corner level re-derived after the amendments above)
 
 Everything below comes from `runs/vancouver/corner_inventory/` (tracked: `report.md`,
 `counts.csv`, `decision.json`, `false_absences.csv`, `gaps.csv`, `corners_224_*.csv`,
-`build.json`, `census/census.json`), produced by `scripts/corner_inventory.py@8058b2f`
-with the exporter at `export_cluster_review.py@5b21cd9`. Shares carry Wilson 95% intervals.
-Input sha256s are in `build.json` and at the top of `report.md`; the two asserted ones are
-`results.jsonl` `7fdf4005…9f28` and `osm.json` `58ce83ff…c2a030`.
+`build.json`, `census/census.json`), produced by `scripts/corner_inventory.py` at the commit
+recorded in `build.json` (`tool_git_sha`, `tool_dirty: false`), with the exporter at
+`export_cluster_review.py@5b21cd9`. Shares carry Wilson 95% intervals. Input sha256s are in
+`build.json` and at the top of `report.md`. The two asserted ones are `results.jsonl`
+`7fdf4005…9f28` and `osm.json` `58ce83ff…c2a030`.
 
-**Caveats that travel with every number here:** one city, one rig (GSV); the inventory's
-completeness is unknown; the run is the PS pano store **selected on labels** (next section), not
-every GSV pano; an OSM corner is not always a legal crossing; neighbouring and mid-block windows
-overlap.
+**Caveats that travel with every number here:**
+- one city, one rig (GSV);
+- the inventory's completeness is unknown;
+- the run is the PS pano store **selected on labels** (next section), not every GSV pano;
+- an OSM corner is not always a legal crossing;
+- neighbouring and mid-block windows overlap.
 
 ### Units
 
-4,429 eligible intersection units (signalised 284, arterial 1,497, residential 2,648; the build
-reproduces the exporter's `eligible` counts exactly), 14,901 corners (3,068 wider than 150°),
-16,912 mid-block points. Legs per unit: 3 legs 2,770; 4 legs 1,286; 2 legs 180; 5–8 legs 190;
-1 leg 3. Wall-clock: build 17.5 s, score about 2 s (CPU, desktop).
+- 4,429 eligible intersection units (signalised 284, arterial 1,497, residential 2,648). The
+  build reproduces the exporter's `eligible` counts exactly.
+- 14,391 corners, 3,177 of them wider than 150°.
+- 16,912 mid-block points.
+- Legs per unit: 3 legs 2,778; 4 legs 1,368; 2 legs 273; 5–6 legs 7; 1 leg 3.
+- Wall-clock: build 16.6 s, score 2.2 s (CPU, desktop).
 
 ### The run's pano set is selected on the outcome
 
-This finding governs every absence number. `detect_from_store.py` built the run from the panos
-that carry a deployed CurbRamp label (28,881 ids) plus a seeded sample of 300 unlabeled store
-panos (`store_selection.json`). In the run, 26,930 of 28,830 panos have a detection >= 0.55. So
-"observed" here mostly means "a label was made in a pano near this corner", and a corner with no
-ramp in view of any pano tends to have no pano in the run at all.
+This finding governs every absence number.
+- `detect_from_store.py` built the run from the panos that carry a deployed CurbRamp label
+  (28,881 ids), plus a seeded sample of 300 unlabeled store panos (`store_selection.json`).
+- In the run, 26,930 of 28,830 panos have a detection >= 0.55.
+- So "observed" here mostly means "a label was made in a pano near this corner". A corner with no
+  ramp in view of any pano tends to have no pano in the run at all.
 
 | unit state (fusion, primary) | panos within 25 m | units |
 |---|---|---:|
@@ -231,13 +311,14 @@ ramp in view of any pano tends to have no pano in the run at all.
 | present | a sampled-unlabeled pano within 25 m | 22 |
 | present | no pano within 25 m | 25 |
 | absent | labeled panos only | 55 |
-| absent | a sampled-unlabeled pano within 25 m | 29 |
+| absent | sampled-unlabeled panos only | 29 |
 | unobservable | no pano within 25 m | 1,453 |
 
-29 of the 84 absent units are seen through the 300-pano random sample (51 of those 300 panos lie
-within 25 m of an intersection unit centre). 11 of the 12 no-label #224 units are unobservable in
-this run (`corners_224_units.csv`), so the 12 no-label units cannot do the triage the decision
-rule names, not on this run's panos.
+- All 29 of these absent units have *only* sampled-unlabeled panos within 25 m, so they are
+  reached only through the 300 random panos.
+- 51 of those 300 panos lie within 25 m of an intersection unit centre.
+- 11 of the 12 no-label #224 units are unobservable in this run (`corners_224_units.csv`). On this
+  run's panos, the 12 no-label units cannot do the triage the decision rule names.
 
 ### City sentence (primary observability)
 
@@ -252,16 +333,21 @@ rule names, not on this run's panos.
 
 | stratum | arm | corners | present | absent | unobservable |
 |---|---|---:|---|---|---|
-| signalised | fusion | 1,254 | 0.783 [0.759, 0.805] | 0.208 [0.187, 0.231] | 0.009 [0.005, 0.016] |
-| arterial | fusion | 4,976 | 0.578 [0.564, 0.591] | 0.179 [0.169, 0.190] | 0.243 [0.231, 0.255] |
-| residential | fusion | 8,671 | 0.432 [0.422, 0.442] | 0.161 [0.154, 0.169] | 0.407 [0.397, 0.417] |
-| intersections | fusion | 14,901 | 0.510 [0.502, 0.518] | 0.171 [0.165, 0.177] | 0.319 [0.311, 0.326] |
-| intersections | deployed | 14,901 | 0.496 [0.488, 0.504] | 0.185 [0.179, 0.192] | 0.319 [0.311, 0.326] |
-| intersections, sectors <= 150° | fusion | 11,833 | 0.579 [0.570, 0.588] | 0.128 [0.122, 0.134] | 0.294 [0.286, 0.302] |
+| signalised | fusion | 1,004 | 0.946 [0.930, 0.959] | 0.043 [0.032, 0.057] | 0.011 [0.006, 0.020] |
+| arterial | fusion | 4,743 | 0.603 [0.589, 0.617] | 0.154 [0.144, 0.164] | 0.244 [0.232, 0.256] |
+| residential | fusion | 8,644 | 0.432 [0.422, 0.443] | 0.161 [0.153, 0.168] | 0.407 [0.397, 0.418] |
+| intersections | fusion | 14,391 | 0.524 [0.516, 0.532] | 0.150 [0.144, 0.156] | 0.326 [0.318, 0.333] |
+| intersections | deployed | 14,391 | 0.508 [0.500, 0.516] | 0.167 [0.161, 0.173] | 0.326 [0.318, 0.333] |
+| intersections, sectors <= 150° | fusion | 11,214 | 0.599 [0.590, 0.608] | 0.099 [0.094, 0.105] | 0.302 [0.294, 0.311] |
 
-Read these with the selection effect above: the unobservable share is mostly "no label was made
+Superseded corner rows (before amendment A1): signalised 0.783 / 0.208 / 0.009 over 1,254
+corners, arterial 0.578 / 0.179 / 0.243, residential 0.432 / 0.161 / 0.407; pooled fusion
+0.510 / 0.171 / 0.319 over 14,901, deployed 0.496 / 0.185 / 0.319; sectors <= 150° 0.579 /
+0.128 / 0.294 over 11,833. Most of the signalised "absent" corners were median slivers.
+
+Read these with the selection effect above. The unobservable share is mostly "no label was made
 nearby", so it is not a statement about GSV coverage in Vancouver, and the absent share is a
-floor. Per-stratum deployed-arm rows and the observability variants are in `report.md`; the two
+floor. Per-stratum deployed-arm rows and the observability variants are in `report.md`. The two
 arms agree to within 0.002 on every unit-level share of the pooled intersections.
 
 ### Recall against the `Available` inventory
@@ -270,12 +356,13 @@ arms agree to within 0.002 on every unit-level share of the pooled intersections
 |---|---|---:|---|---|---|
 | unit | fusion | 2,617 | 0.971 [0.964, 0.977] | 0.003 [0.002, 0.007] | 0.025 [0.020, 0.032] |
 | unit | deployed | 2,617 | 0.971 [0.964, 0.977] | 0.003 [0.002, 0.006] | 0.026 [0.020, 0.032] |
-| corner | fusion | 6,810 | 0.958 [0.953, 0.962] | 0.026 [0.023, 0.031] | 0.016 [0.013, 0.019] |
-| corner | deployed | 6,810 | 0.943 [0.937, 0.948] | 0.041 [0.037, 0.046] | 0.016 [0.013, 0.019] |
+| corner | fusion | 6,778 | 0.958 [0.953, 0.962] | 0.026 [0.022, 0.030] | 0.016 [0.013, 0.020] |
+| corner | deployed | 6,778 | 0.943 [0.937, 0.948] | 0.040 [0.036, 0.045] | 0.017 [0.014, 0.020] |
 
-Signalised units: 274 of 274 with an `Available` ramp are called present (fusion). This recall is
-inflated by the same selection: a unit with an inventory ramp is in the run largely because a
-label was made there.
+(Superseded: corner row n = 6,810, same shares to 3 decimals within 0.001.) Signalised units:
+274 of 274 with an `Available` ramp are called present (fusion). This recall is inflated by the
+same selection: a unit with an inventory ramp is in the run largely because a label was made
+there.
 
 ### Absence precision and the decision
 
@@ -283,31 +370,52 @@ label was made there.
 |---|---|---:|---|---|---|---|
 | unit | fusion | 84 | **0.548 [0.441, 0.650]** | 0.107 [0.057, 0.191] | 0.345 [0.252, 0.452] | 0.893 [0.809, 0.943] |
 | unit | deployed | 81 | 0.519 [0.411, 0.624] | 0.099 [0.051, 0.183] | 0.383 [0.284, 0.492] | 0.901 [0.817, 0.949] |
-| corner | fusion | 2,552 | 0.641 [0.622, 0.659] | 0.071 [0.061, 0.081] | 0.289 [0.272, 0.307] | 0.929 [0.919, 0.939] |
-| corner | deployed | 2,762 | 0.598 [0.580, 0.616] | 0.102 [0.091, 0.114] | 0.300 [0.283, 0.318] | 0.898 [0.886, 0.909] |
+| corner | fusion | 2,160 | 0.579 [0.558, 0.599] | 0.081 [0.070, 0.093] | 0.340 [0.321, 0.361] | 0.919 [0.907, 0.930] |
+| corner | deployed | 2,397 | 0.542 [0.522, 0.561] | 0.114 [0.102, 0.128] | 0.344 [0.325, 0.363] | 0.886 [0.872, 0.898] |
 
-What the inventory holds at the 84 absent units: nothing at 46; `NA` with no `RAMPTYPE` (the
-city's own record of a corner without a ramp) at 32; `Available` at 9 (3 units hold both). All 29
-"RMV/NA only" units are `NA_noramp` units. At corner level, of 2,552 absent corners 1,635 hold
-nothing, 728 hold `NA_noramp`, 180 hold `Available`.
+Superseded corner rows (before A1):
+- fusion: 2,552 absent, clean 0.641, false 0.071, no-Available 0.929;
+- deployed: 2,762 absent, clean 0.598, no-Available 0.898;
+- signalised fusion: 261 absent, clean 0.908. That 0.908 was almost all median slivers; the
+  re-derived signalised corner read is 43 absent, clean 0.512 [0.368, 0.654], false 0.279.
 
-**Decision: FAIL as written.** Clean-read absence precision, unit level, fusion arm, primary
-observability, intersections pooled = 46/84 = 0.548 (Wilson [0.441, 0.650]), below 0.90.
-Experiment 2 is not unblocked by this rule. The second read (absent with no `Available` point) is
-75/84 = 0.893 [0.809, 0.943], also below 0.90, so the outcome does not hinge on how `NA` is read.
-Per stratum (fusion, unit level, clean read): signalised 2/2, arterial 29/39 = 0.744,
-residential 15/43 = 0.349.
+What the inventory holds at the 84 absent units:
+- nothing at 46;
+- `NA` with no `RAMPTYPE` at 32 (amendment A6: we read this as the city recording no ramp, an
+  inference from the field values, not documented);
+- `Available` at 9 (3 units hold both).
 
-What this FAIL does and does not say about the detector:
+All 29 "RMV/NA only" units are `NA_noramp` units. At corner level, of 2,160 absent corners 1,250
+hold nothing, 726 hold `NA_noramp` and 175 hold `Available`.
 
-- n = 84 absent units, a third of them reached only through the 300 random unlabeled panos. The
-  absent set is shaped by how the run was selected, so 0.548 is not a city-wide absence precision.
-- The clean read is low mostly because the city has an `NA_noramp` record at 29 of the absent
-  units, i.e. the city agrees there is no ramp. Against the city's records where it has one, the
-  absences agree 29 times and disagree 9 times.
-- The 9 false absences (`false_absences.csv`, unit and corner rows, with pano ids and inventory
-  ids): 8 of the 9 units have exactly one pano within 25 m, and in 7 the nearest pano is 17–25 m
-  away. They look like observability-edge cases; nobody has looked at them yet.
+How the 84 absent units were observed, by bucket:
+
+| observed through | units | clean | RMV/NA only | false (Available) |
+|---|---:|---:|---:|---:|
+| labeled panos only | 55 | 37 | 11 | 7 |
+| sampled-unlabeled panos only | 29 | 9 | 18 | 2 |
+
+**Decision: FAIL as written; on this run the absence read is not decidable.**
+- **The rule as pre-registered.** Clean-read absence precision, unit level, fusion arm, primary
+  observability, intersections pooled = 46/84 = 0.548 (Wilson [0.441, 0.650]). That is below
+  0.90, so the rule fails and experiment 2 is not unblocked by it. That outcome stays on record.
+- **Why it does not settle the question.**
+  - The clean-read shortfall comes mostly from `NA_noramp` records, which the protocol comment
+    flagged before scoring as plausibly supporting an absence. 18 of the 29 such units are the
+    absent units reached only through the 300 random panos.
+  - The second read (absent with no `Available` point) is 75/84 = 0.893. Its Wilson interval
+    [0.809, 0.943] contains 0.90, and one more clean unit (76/84 = 0.905) would pass.
+  - On the deployed arm the same read is 0.901 [0.817, 0.949], which passes.
+  - n = 84 units, selected by how the run was built.
+- So 0.548 is not a city-wide absence precision, and neither read separates the detector from
+  0.90 here. Per stratum (fusion, unit level, clean read): signalised 2/2, arterial 29/39 =
+  0.744, residential 15/43 = 0.349.
+
+The 9 false absences (`false_absences.csv`, unit and corner rows, with pano ids and inventory ids):
+- 8 of the 9 units have exactly one pano within 25 m. In 6 of those 8 the pano is 17–25 m away;
+  the other two are at 9.8 m and 7.3 m.
+- The ninth unit has two panos, the nearest at 21.3 m.
+- They look mostly like observability-edge cases. Nobody has looked at them yet.
 
 Observability sensitivity (fusion, intersections pooled, unit level): requiring >= 2 panos leaves
 10 absent units (7 clean, 1 false); requiring a pano within 15 m leaves 27 (15 clean, 2 false).
@@ -315,50 +423,69 @@ Observability sensitivity (fusion, intersections pooled, unit level): requiring 
 ### Inventory gaps
 
 Present with no inventory point of any status (fusion, primary): 116 units (signalised 4,
-arterial 39, residential 73) and 440 corners, listed in `gaps.csv` with site ids and the pano ids
-of their operational members. Deployed arm: 121 units, 424 corners. None has been looked at; a
-gallery is needed before calling any of them a city omission.
+arterial 39, residential 73) and 412 corners, listed in `gaps.csv` with site ids and the pano ids
+of their operational members. Deployed arm: 121 units, 365 corners. (Superseded corner counts:
+440 fusion, 424 deployed.) None has been looked at; a gallery is needed before calling any of
+them a city omission.
 
 ### #224 hook
 
-`corners_224_units.csv` and `corners_224_corners.csv` (from `corners_224.jsonl`, untracked) hold
-our states for the 80 #224 units; all 80 match a unit of the full build (intersections by node
-ids, mid-block by position). `score-assignments` is tested end to end on a synthetic
-`assignments.json`; no real ratings exist yet. Command once `assignments.json` exists:
-`python scripts/corner_inventory.py score-assignments --assignments
-../RampNet/benchmark/vancouver/cluster_review/assignments.json --out
-runs/vancouver/corner_inventory` (needs `build` run first; writes `assignments_score/`).
+- `corners_224_units.csv` and `corners_224_corners.csv` (from `corners_224.jsonl`, untracked)
+  hold our states for the 80 #224 units.
+- All 80 match a unit of the full build: intersections by node ids, mid-block by position.
+- `score-assignments` is tested end to end on a synthetic `assignments.json`. No real ratings
+  exist yet.
+- Command once `assignments.json` exists (run `build` first; writes `assignments_score/`):
 
-### GSV history census (experiment 2, step 1)
+```
+python scripts/corner_inventory.py score-assignments \
+    --assignments ../RampNet/benchmark/vancouver/cluster_review/assignments.json \
+    --snapshot ../RampNet/benchmark/vancouver/cluster_review/snapshot.json \
+    --out runs/vancouver/corner_inventory
+```
 
-200 units (signalised 67, arterial 67, residential 66; seed 238), 1,308 run panos within 25 m
-of them, one metadata request each, no images. **Wall-clock 701.2 s** for the 1,308 requests
-(0.25 s sleep between them, desktop on a home connection), no errors, no early stop. Response
-cache sha256 `9ef15aacbd46533f0398137f4247e84ee3d69b8bc3da6c75ede04c7c9e75471a`
-(`census/census.json`; the cache itself is untracked).
+### GSV history census (experiment 2, step 1; see amendments A3, A4)
 
+200 units (signalised 67, arterial 67, residential 66; seed 238) and the 1,308 run panos within
+25 m of them, one metadata request each, no images.
+- **Wall-clock 701.2 s** for the 1,308 requests (0.25 s sleep between them, from the Windows
+  desktop). No errors, no early stop.
+- Response cache sha256 `9ef15aacbd46533f0398137f4247e84ee3d69b8bc3da6c75ede04c7c9e75471a`
+  (`census/census.json`; the cache itself is untracked). The summary was recomputed from the
+  cache with `--cache-only`; nothing was re-fetched.
+
+Findings:
 - **478 of 1,308 panos (36.5%) are no longer served** (status code 2); 830 are. This is the #56
-  observation (store panos that no longer resolve on GSV) again. Those panos contribute their own
-  capture date and no history.
-- Captures per unit (distinct year-months over the run's capture dates and the served current and
-  historical panos): median 10, IQR 3–13, max 26. Per corner: median 10, IQR 4–14. Median per unit
-  by stratum: signalised 15, arterial 10, residential 4.
+  observation (store panos that no longer resolve on GSV) again; see the M2 open question above.
+  Those panos contribute their own capture date and no history.
+- Captures (distinct year-months over the run's capture dates and the served current and
+  historical panos):
+  - per unit, over the 170 units with >= 1 run pano within 25 m: median 11, IQR 5–14, max 26;
+  - per corner, over the 552 corners with >= 1: median 11, IQR 5–14;
+  - median per unit by stratum: signalised 15, arterial 11, residential 5.
 - Earliest capture year per unit: 2007 at the median and at the 75th percentile. Span: median 18
   years, IQR 15–19.
-- 30 of the 200 sampled units have no run pano within 25 m; 10 more have panos of which none is
+- 30 of the 200 sampled units have no run pano within 25 m. 10 more have panos of which none is
   still served.
-- 5,248 distinct historical panos in the sample that are not already in the run: 4.01 per queried
-  pano. **Extrapolation, stated as one:** a full pass over every eligible intersection unit would
+- 5,248 distinct historical panos in the sample are not already in the run: 4.01 per queried pano.
+- **Extrapolation, stated as one:** a full pass over every eligible intersection unit would
   process about 74,000 historical panos (4.01 × the 18,461 run panos within 25 m of an eligible
-  unit = 74,070; the per-unit, per-stratum route gives 73,256 and is an upper bound because
-  neighbouring windows share panos). The census reaches history only through panos still served,
-  and not at all at corners with no run pano.
+  unit = 74,070).
+  - The per-unit, per-stratum route gives 73,256. It is an upper bound, because neighbouring
+    windows share panos.
+  - The per-*served*-pano ratio gives 116,727 (amendment A3).
+  - The census reaches history only through panos still served, and not at all at corners with no
+    run pano.
+
+(Superseded census quantiles, which included the no-pano units: captures per unit median 10, IQR
+3–13; per corner median 10, IQR 4–14; residential median 4, arterial 10.)
 
 ### What would make the absence read decisive (not done here)
 
 1. Run the detector on panos chosen by position rather than by label (the rest of the PS store,
-   or current GSV coverage) at the 1,453 unobservable units, so that "observed" stops depending on
-   a label having been made. CPU metadata first, then GPU on the panos that turn out to exist.
+   or current GSV coverage) at the 1,453 unobservable units, so that "observed" stops depending
+   on a label having been made. Do the CPU metadata pass first, then GPU on the panos that turn
+   out to exist.
 2. Look at the 9 false-absence units and a sample of the 46 clean absences in a gallery.
 3. Decide how `NA_noramp` is read: the rule as written counts it against an absence.
 
@@ -375,6 +502,8 @@ python scripts/corner_inventory.py build --run-dir ../sal-vancouver/runs/vancouv
     --out runs/vancouver/corner_inventory          # asserts results.jsonl + osm.json sha256
 python scripts/corner_inventory.py score --out runs/vancouver/corner_inventory
 python scripts/corner_inventory.py census --out runs/vancouver/corner_inventory   # network, ~12 min
+# ...or, from an existing response cache, with no network:
+python scripts/corner_inventory.py census --cache-only --out runs/vancouver/corner_inventory
 ```
 
 `osm.json` and `results.jsonl` are not public files: they live in the lab's working copies
@@ -382,3 +511,7 @@ python scripts/corner_inventory.py census --out runs/vancouver/corner_inventory 
 `snapshot.json`, but a new fetch will not match the asserted sha256; the run's results are
 #56's). The census cache is untracked; `census.json` carries its sha256, and a re-run fetches
 GSV metadata as of that day, so the not-served share and the history will drift.
+
+`build.json` stores absolute input paths, so `score` and `census` can be run from any cwd once
+`build` has run. The committed run was built from `D:\Git\labeler-wt\corner238` with
+`../../sal-vancouver/...`; the commands above assume a checkout beside `sal-vancouver`.

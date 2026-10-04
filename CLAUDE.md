@@ -287,7 +287,9 @@ python scripts/export_cluster_review.py vancouver --run-dir ../sal-vancouver/run
 python scripts/cluster_review_score.py vancouver --run-dir ../sal-vancouver/runs/vancouver     --bundle ../RampNet/benchmark/vancouver/cluster_review    # -> runs/vancouver/cluster_review/score/
 # CORNER INVENTORY (RampNet#238; protocol + results docs/corner-inventory.md). Every eligible
 # #224 unit (no sampling; OSM functions imported from export_cluster_review.py, eligible counts
-# asserted against the exporter's), legs walked out to 20 m and merged within 30 deg, corners =
+# asserted against the exporter's), legs walked out to 20 m; oneway same-name carriageways
+# (within 90 deg) and *_link slip lanes (within 60 deg) merge by OSM tags, then any legs within
+# 30 deg chain (angle alone left divided-road medians as corners -- review B1), corners =
 # sectors between legs; state per unit / corner = present (operational fused site, or deployed
 # cluster) > absent (a run pano within 25 m of the corner point) > unobservable. CAUTION: a
 # store-built run holds the LABELED panos (+ a 300-pano unlabeled sample), so "observed" is

@@ -2,10 +2,10 @@
  "by_stratum": {
   "arterial": {
    "captures_per_unit": {
-    "0.0": 0,
-    "0.25": 1,
-    "0.5": 10,
-    "0.75": 12,
+    "0.0": 1,
+    "0.25": 9,
+    "0.5": 11,
+    "0.75": 13,
     "1.0": 26
    },
    "earliest": {
@@ -26,9 +26,9 @@
   },
   "residential": {
    "captures_per_unit": {
-    "0.0": 0,
-    "0.25": 1,
-    "0.5": 4,
+    "0.0": 1,
+    "0.25": 3,
+    "0.5": 5,
     "0.75": 6,
     "1.0": 11
    },
@@ -75,26 +75,28 @@
  },
  "cache_sha256": "9ef15aacbd46533f0398137f4247e84ee3d69b8bc3da6c75ede04c7c9e75471a",
  "captures_per_corner": {
-  "0.0": 0,
-  "0.25": 4,
-  "0.5": 10,
+  "0.0": 1,
+  "0.25": 5,
+  "0.5": 11,
   "0.75": 14,
   "1.0": 26
  },
  "captures_per_unit": {
-  "0.0": 0,
-  "0.25": 3,
-  "0.5": 10,
-  "0.75": 13,
+  "0.0": 1,
+  "0.25": 5,
+  "0.5": 11,
+  "0.75": 14,
   "1.0": 26
  },
  "captures_per_unit_gsv_only": {
   "0.0": 0,
-  "0.25": 3,
-  "0.5": 10,
-  "0.75": 13,
+  "0.25": 5,
+  "0.5": 11,
+  "0.75": 14,
   "1.0": 26
  },
+ "corners": 656,
+ "corners_with_no_pano": 104,
  "earliest_year_unit": {
   "0.0": 2007,
   "0.25": 2007,
@@ -105,7 +107,7 @@
  "extrapolated_hist_full_pass_by_pano": 74070,
  "extrapolated_hist_full_pass_by_unit": 73256,
  "fetched_this_invocation": 0,
- "finished_at": "2026-10-04T17:27:09+00:00",
+ "finished_at": "2026-10-04T17:48:13+00:00",
  "hist_per_queried_pano": 4.012,
  "n_hist_distinct": 5248,
  "n_panos": 1308,
@@ -2136,5 +2138,6 @@
  "wall_clock_history_s": [
   701.2
  ],
- "wall_clock_s": 0.1
+ "wall_clock_s": 701.2,
+ "wall_clock_this_invocation_s": 0.1
 }
