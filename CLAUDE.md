@@ -708,6 +708,44 @@ python scripts/depth_at_detection.py gt            # reads ../RampNet/benchmark
 python scripts/depth_at_detection.py verdict
 python scripts/depth_at_detection.py figures       # also copies aggregates to docs/figures/depth-at-detection/data/
 
+# AERIAL SIDEWALKS (issue #104) -- a STUDY, not production: Tile2Net (VIDA-NYU/tile2net, BSD-3;
+# Hosseini et al., CEUS 2023) sidewalk/crosswalk/road/footpath polygons from aerial tiles, scored
+# against the run under rules pre-registered on #104 (q1/q3/q4_verdict in the script); write-up
+# in docs/aerial-sidewalk-study.md. Tile2Net runs in its OWN venv on makelab2 (never a pipeline
+# dependency) with `--deterministic` -- without it cudnn benchmark probing peaks at ~34 GB VRAM on
+# the shared A40 (1.4 GB with it). Paterson uses Tile2Net's `nj` source (2020 orthos); Oregon is
+# NOT supported upstream (and OSIP's cert expired 2026-09-26), so Bend's tiles are the City of
+# Bend 2019 orthos fetched by scripts/aerial_fetch_tiles.py (stdlib, TLS verified) and fed through
+# `tile2net generate --input <dir>/z/x/y.png`. Outputs archived on makelab2 under
+# /projects/makeabilitylab/sidewalk-auto-labeler/runs/<city>/aerial/; the GeoJSON exports
+# (polygons.geojson, network.geojson) are copied untracked into runs/<city>/aerial/, bound by
+# sha256 in the tracked tile2net.json (source, date, URL, terms, zoom, commit, checkpoint sha256s,
+# Tile2Net's tile grid, runtime, tile count). load_aerial REFUSES a recorded network.geojson that is
+# missing or altered (without it Paterson's Q3 anchors silently drop 5,815 -> 3,853).
+# scripts/t2n_convert.py is the GeoParquet -> GeoJSON converter (runs in the tile2net venv; its
+# 7-decimal rounding is what polygons_geojson_sha256 binds).
+# --run-root reads results.jsonl / depth index / inventory_oracle / ps_streets.geojson from another
+# checkout as data; outputs always go to THIS checkout's runs/<city>/aerial/ + runs/_summary/aerial/.
+# Needs numpy + shapely (+ pandas/scipy/haversine for `anchors`, Pillow for --gallery, matplotlib
+# for `figures`). Bend is a RampNet TRAINING city: every Bend GT/detection number says so.
+python scripts/aerial_sidewalks.py tiles bend --tiles-csv <copy of archive tiles.csv>  # tile audit
+python scripts/aerial_sidewalks.py gt bend paterson --run-root <runs>        # Q1 mask vs GT + Bend inventory
+python scripts/aerial_sidewalks.py project bend paterson --run-root <runs> --gallery   # Q2 (+ untracked gallery)
+python scripts/aerial_sidewalks.py anchors bend paterson --run-root <runs>   # Q3 corner anchors vs frag
+python scripts/aerial_sidewalks.py precision bend paterson --run-root <runs> # Q4 off-surface by verdict
+python scripts/aerial_sidewalks.py verdict && python scripts/aerial_sidewalks.py figures
+# VERDICT (2026-09-28): Q1 NOT USABLE (Bend inventory 0.703 within 2 m vs the 0.90 bar -- polygons
+# are MISSING, not misplaced; Paterson GT 0.913); Q2 median 3.4 px (Paterson, auto) against a 5.2 px
+# displaced-mark chance floor; Q3 NO (snapping merges nothing, merging at crosswalk anchors fuses
+# dual ramps); Q4 NOT ESTABLISHED (17 False pooled < 30; Bend's mask misses 30% of true ramps).
+# Bend's network step crashed (centerline TooFewRidgesError) after writing polygons.
+# REVIEW FIXES (PR #109): Q2's nearest-edge metric favours LOWER heights for any point (denser
+# edges), so `auto` beating 2.6 m is mostly that: of Paterson's 1.17 px lead only 0.34 px survives
+# the displaced-mark chance row, and none at the box centres. It is NOT evidence for #79's heights;
+# compare heights on `p50_minus_displaced` in q2.csv. Q1's missing Bend polygons are mostly NEWER
+# than the 2019 flight: 55% of ramps > 2 m away were installed 2020+ (inventory InstallDate), the
+# 25 Tile2Net inputs with no polygon at all hold 278 ramps (274 installed after 2019), and none of
+# the 1,565 blank tiles (tile_audit.json) is under a ramp. Pre-2019 ramps still read 0.859 < 0.90.
 # FOOTWAY: SEGMENTER vs DEPTH (issue #47 step 2) -- a STUDY, not production; docs/footway-depth-study.md.
 # 416 judged GSV benchmark panos with a `measured` payload; Mask2Former Swin-L Mapillary Vistas (pinned
 # revision; processor resize OFF; torch + transformers deliberately NOT in requirements.txt, only `segment`

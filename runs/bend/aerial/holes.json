@@ -1,0 +1,35 @@
+{
+ "what": "inventory ramps in coverage vs Tile2Net inputs (descriptive, never gated)",
+ "n_inventory": 12504,
+ "imagery_year": 2019,
+ "tile2net_grid": {
+  "x_range": [
+   85368,
+   85571
+  ],
+  "y_range": [
+   190390,
+   190645
+  ],
+  "n_tiles": 52224,
+  "from": "<archive>/bend/aerial/bend/tiles/bend_256_info.csv",
+  "note": "Tile2Net's own z19 grid for --input: the fetched range shifted by one tile: its west column (x 85367) and north row (y 190389) are not in it, and its south row (y 190645) was never fetched; 3,264 stitched inputs (51 x 64), all inferred"
+ },
+ "stitch_step": 4,
+ "n_inputs_with_ramps": 1153,
+ "n_empty_inputs_with_ramps": 25,
+ "ramps_in_empty_inputs": 278,
+ "ramps_in_empty_inputs_installed_after_imagery": 274,
+ "ramps_in_empty_inputs_installed_before_imagery": 0,
+ "ramps_in_empty_inputs_installed_imagery_year": 4,
+ "ramps_in_empty_inputs_install_unknown": 0,
+ "ramps_beyond_2m": 3715,
+ "ramps_beyond_2m_in_empty_inputs": 278,
+ "ramps_beyond_2m_installed_after_imagery": 2056,
+ "blank_tiles_audited": true,
+ "n_blank_tiles": 1565,
+ "ramps_on_blank_tiles": 0,
+ "empty_inputs_with_a_blank_tile": 0,
+ "ramps_outside_tile2net_grid": 0,
+ "ramps_on_grid_tiles_never_fetched": 0
+}

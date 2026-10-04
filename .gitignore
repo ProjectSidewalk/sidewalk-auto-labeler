@@ -163,6 +163,21 @@ runs/*/server_agree/as_served/
 # live frame check's result. The index itself stays untracked, as for a harvest.
 !runs/*/depth/
 !runs/*/depth/store.json
+# Aerial sidewalk study (scripts/aerial_sidewalks.py, issue #104; write-up in
+# docs/aerial-sidewalk-study.md): the Tile2Net provenance record (tile source, zoom, commit,
+# runtime, tile count, polygon sha256), the tile audit (tile_audit.json, blank_tiles.csv), the
+# hole breakdown (holes.json, holes.csv), the reports and the CSVs are tracked. The polygons
+# and network themselves (polygons.geojson, network.geojson) and the gallery (pixels) are NOT.
+!runs/*/aerial/
+!runs/*/aerial/tile2net.json
+!runs/*/aerial/tile_audit.json
+!runs/*/aerial/holes.json
+!runs/*/aerial/report*.md
+!runs/*/aerial/*.csv
+!runs/_summary/
+!runs/_summary/aerial/
+!runs/_summary/aerial/*.csv
+!runs/_summary/aerial/verdict.json
 # RampNet#158 phase 2: placement arms' per-candidate predictions (copied from RampNet's
 # analysis_out/mined_placement_158/predictions/), the input to mined_precision.py --placement.
 !docs/figures/mined-precision/data/placement/*.jsonl
