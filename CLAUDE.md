@@ -35,6 +35,40 @@ python main.py example_geojson/richmond.geojson --name richmond --source mapilla
 
 # ...or on Panoramax (federated open imagery, no token; coverage is mostly France today)
 python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
+# PANORAMAX MEASURED (issue #57 part 1; docs/panoramax-bayonne.md, corrected after two PR #125
+# reviews). Bayonne ran in full at --thin-spacing 10 (rule: 10 m if the scan-only estimate > 16 h;
+# it printed 21.1 h at 5 m; the manifest does not record the spacing -- #126): 73,161 in-area
+# pictures -> 28,634 thinned -> 28,524 processed, 0 failed, 6.7 h on the A40. 104 of the 110
+# skips are GoPro MAX2 uploads whose `hd` image is a vertically CROPPED equirect (declared
+# 7680x3840, served 7680x2940) -- correctly skipped; 3 more are unexplained (#127: truncated body
+# or transient 404). 0.135 detections per pano at 0.55 -- INSIDE the Mapillary range (Clovis
+# 0.123 ... Richmond 1.048), worth GT, not anomalous. The municipal rig burns a white logo band
+# from y 0.791 (dip 52.4 deg), inside the nadir mask (2 of 10,011 stored detections there).
+# ERROR MODEL: the leave-one-out residual gained a normalized form (`chi2` = r'S^-1 r, S = the
+# view's cov_en + the held-out solution's covariance; `seq_mates` / `pose_group` / rig
+# breakdowns; `--fit-sigma-pitch TARGET` solves sigma_pitch and sigma_gps for a chi2/dof
+# target). MAPILLARY_ERRORS reads 0.18-0.43 on the five Mapillary runs, so the rule was
+# re-anchored on Richmond (0.269) before Bayonne was read. The amendment's stated mechanism
+# (shared same-sequence error cancels) is NOT ESTABLISHED: Richmond reads the opposite way.
+# What is measured: its 3 m sigma_gps is ~2.7x Richmond's leave-one-out-calibrated between-view
+# scatter (1.11 m). Bayonne: 0.580 [0.539, 0.618] (median form 0.582), m p50 3.66 -> TOO TIGHT
+# under the amended rule, but MARGINAL (bar 0.538) and confounded: Mapillary GoPro Max
+# populations read 0.18-0.50 (Richmond's GoPro Max views 0.499, Laurens 0.431, Morgantown 0.177),
+# and Bayonne sites are small (3 views / 2 sequences vs Richmond's 7 / 4, 10 m thinning), so it
+# cannot be separated from a single-consumer-rig or site-size effect. The excess is ACROSS the ray
+# (vs Richmond's GoPro Max views re-solved alone: along-ray +0.5..-0.5 m, cross-ray +0.6-1.0 m), not
+# pitch: no sigma_pitch <= 15 deg fixes it. Calibrated sigma_gps: Bayonne 2.16 m vs Richmond 1.11,
+# Richmond GoPro Max 1.81, Laurens 1.74, Morgantown 0.80. NOTHING adopted -- error_model_for(
+# 'panoramax') stays MAPILLARY_ERRORS until GT (eval_sites) and a 5 m run. Pose: pers:pitch/roll
+# LOOSENS the same-site spread in every sign convention (real-tilt p90 7.58 -> 9.45-11.27 m at
+# 0.55), so Panoramax stays flat. GT: the RampNet bundle (125 panos, reconcile 1:1) awaits review.
+python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
+python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse \
+    --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
+python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bayonne_figures.py figures
+#   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~45 min, no GPU/network; --only
+#   for parts); skips / examples: network; crops: from the RampNet bundle; figures: committed
+#   data only, byte-reproducible (PNG + LF SVG)
 
 # GSV runs end with a gap-fill phase (issue #32): link-target panos the run's own
 # records reference but the tile scan never enumerated (coverage churn) are fetched
@@ -110,14 +144,24 @@ python scripts/depth_standin.py measure     # old vs new -> runs/_summary/depth_
 # no network); writes runs/<name>/sites.jsonl + sites_meta.json.
 python scripts/fuse_sites.py runs/paterson
 # ...--pose-ablation reports within-site spread per pitch/roll sign convention
-# instead (the experiment that showed GSV equirects are already gravity-rectified).
-# --apply-pose {auto,off,gravity,road} (issue #42). The DEFAULT is `auto`, which today is FLAT
+# instead (the experiment behind GSV's flat default: the FULL pose loosens every city. It
+# does NOT show the equirects are gravity-rectified -- they are rig-frame, #113).
+# --apply-pose {auto,off,gravity,road,partial} (issues #42, #116). The DEFAULT is `auto`, which today is FLAT
 # for every source: road-relative (pitch/roll minus the sequence's SfM road grade) passed the
 # first #42 rule but FAILED the pre-registered shuffled-grade control (study section 10.5), so
 # the road-frame default is withheld (fuse_sites.AUTO_ROAD_SOURCES = ()); GSV is flat on
 # evidence (#52). `road` is opt-in. The flag takes an explicit value (`--apply-pose road`;
 # a bare `--apply-pose` is an error), and gravity/road on a run holding GSV or Panoramax
 # panos warns on stderr (GSV has no grade; Panoramax's convention is unmeasured).
+# `partial` (#116 follow-up; OPT-IN, GSV only) feeds the ray the frozen leaked fraction of the
+# stored pose: geo.partial_pitch_roll with geo.PARTIAL_POSE_K_GSV = (0.183 pitch, 0.382 roll),
+# #116's pooled `auto` fit, i.e. (-0.183 x pitch, +0.382 x roll). A GSV pano missing either
+# angle, every Mapillary/Panoramax pano, and every store-built GSV block (source_detail
+# `ps_store`: the PS row's pose convention is unverified) raycasts flat, with one stderr
+# warning per kind; sites_meta.json's `pose` block counts `partial`, `store_unverified_flat`
+# and records `partial_coefficients`. eval_sites.py --apply-pose takes it too
+# (fs.POSE_MODES) and prints the same warnings. `auto` is
+# NOT changed: that waits on #116's pre-registered confirmatory run (below).
 # A Mapillary run from before #42 needs no
 # rewrite: load_results derives the pose from source_metadata. sites_meta.json's `pose`
 # block counts flat / gravity / road_relative / gravity_fallback panos -- the fallback (no
@@ -125,6 +169,36 @@ python scripts/fuse_sites.py runs/paterson
 # showed wrong for a car on a slope, so watch its rate on a new city.
 python scripts/fuse_sites.py runs/richmond                      # = --apply-pose auto -> flat
 python scripts/fuse_sites.py runs/richmond --apply-pose road    # opt-in, withheld as default
+# GSV PARTIAL POSE (#116, a study; docs/gsv-partial-pose-study.md): a fraction of the stored
+# tilt, fit on a seeded half (seed 116), scored on the other half against off / full / mirror
+# and a |tilt|-bucket shuffled control, re-associated per arm, with the inventory referee and
+# GT survivorship. VERDICT: FAIL on the recall clause only -> GSV's DEFAULT stays flat; the
+# fraction is wired as opt-in `--apply-pose partial` (above). The study's arm_pose IS
+# geo.partial_pitch_roll, so the study measures what fusion applies.
+python scripts/gsv_partial_pose.py fit && python scripts/gsv_partial_pose.py score \
+    --benchmark-root ../RampNet/benchmark && python scripts/gsv_partial_pose.py verdict
+python scripts/gsv_partial_pose.py consistency paterson --benchmark-root ../RampNet/benchmark
+#   production's `partial` beside the study arms on the TEST half (reported; gates nothing)
+# CONFIRMATORY RUN (pre-registered on #116, 2026-09-30; constants and rule frozen there):
+# the first GSV benchmark city with verdicts #116 never saw (Vancouver when its GT lands),
+# whole run, arms off / partial / partial-shuffled / mirror; clauses (i), (iii), (iv) as
+# #116, and (ii) sized to the pool: FAIL iff lost - gained >= k*(n), the smallest k with
+# P(Binomial(n, 0.01) >= k) <= 0.05 (n = off-pool ramps at 2.5 m; below n = 50 a FAIL
+# stands and a pass becomes INCONCLUSIVE; `loss-bar` prints the table; its power and its size
+# under churn are in the doc addendum). A #116 train city (any case), a path-like name, or
+# --seed != 116 is refused without --exploratory. A STORE-BUILT city (detect_from_store.py;
+# Vancouver) must first pass the store-pose gate: PS-row pitch/roll vs streetlevel's on a
+# seeded sample of the same ids (metadata only; network), one sign mapping agreeing within
+# 0.1 deg on >= 95% of >= 50 panos -> the mapping is applied; fail or no network refuses.
+# `--apply-pose partial` itself raycasts `ps_store` panos flat (warned, counted): the gate's
+# mapping is applied in confirm's memory only and is NOT persisted, so a later default-switch
+# PR must persist or apply it first.
+python scripts/gsv_partial_pose.py confirm vancouver --benchmark-root ../RampNet/benchmark
+python scripts/gsv_partial_pose.py confirm laurens_gsv --exploratory \
+    --benchmark-root ../RampNet/benchmark     # the dry run; outputs labelled EXPLORATORY
+python scripts/gsv_partial_pose_figures.py [--refresh]   # addendum figures 5-7, 9 (PNG 200 dpi +
+#   SVG, byte-reproducible) from docs/figures/gsv-partial-pose/data/addendum_*; --refresh
+#   recomputes that data (site examples re-fuse runs/paterson; simulations seed 116; no network)
 
 # CAMERA HEIGHT (issues #40, #79). fuse_sites.py DEFAULTS to `--camera-height-m auto` (#79):
 # GSV panos get a per-rig height by capture year from the run's own depth-measured heights
@@ -197,6 +271,54 @@ python scripts/height_gap.py sweep richmond --group gopro/max --sequences  # + s
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
 
+# HEATMAP GRID (issue #111; docs/heatmap-grid.md). RampNet's heatmap is an 8x bilinear upsample
+# of a stride-32 map, so every detection sits on residue 3/4 of an 8-cell block. `grid` is the
+# census per run and tier; `sigma` re-fuses at the benchmark tier with sigma_peak_px 1.0 vs 2.31
+# (one coarse cell's uniform quantization) at 2.6 m and auto and applies the pre-registered rule
+# (verdict: KEEP 1.0). Writes docs/figures/heatmap-grid/data/. No GPU, no network.
+python scripts/heatmap_grid.py grid paterson bend gainesville sao_paulo richmond
+python scripts/heatmap_grid.py sigma paterson bend gainesville sao_paulo richmond
+python scripts/eval_sites.py paterson --sigma-peak-px 2.31 --out /tmp/eval_s231   # one cell
+# SUB-CELL DECODE (#111 decode half, docs/heatmap-grid.md section 4). OPT-IN, default argmax:
+# `main.py --decode gaussian` / `reinfer.py --decode` place each peak by RampNet#221's rule
+# (detectors/decode.py; detectors/rampnet_subcell.py is RampNet's subcell.py VERBATIM, hash-pinned
+# by tests/test_decode.py -- vendored because the Hub package does not ship it yet). Same peaks,
+# same scores; only (x, y) move: median 1.5 heatmap px per axis, p99 3.5, max 8.7 measured (a
+# re-anchored peak can move about one coarse cell). A run is BOUND to its decode (manifest
+# `detection_decode`), gaussian records carry "detection_decode": "gaussian" (argmax records and
+# submission records are byte-identical to before; manifests and sites_meta gain the key), and
+# fuse_sites / reinfer --verify /
+# --write-band-file / send_to_ps.py refuse a mix (--allow-mixed-decode, recorded); eval_sites and
+# provenance_gate (and agree_rate, site_explorer, gsv_partial_pose, mapillary_tilt) refuse a
+# non-argmax run (bundles and live labels are argmax), so a gaussian city has no provenance
+# gate yet. A mixed send under --allow-mixed-decode records the full mix. A gaussian
+# campaign beside live argmax labels is a whole-city frame change and Jon's call.
+# The measurement: one forward pass, both decodes (GPU `detect`), then CPU steps.
+python scripts/subcell_decode.py residual --rampnet-root ../RampNet   # reads the committed decode/ outputs
+python scripts/subcell_decode.py sigma-table paterson bend gainesville sao_paulo richmond --sigma 4.24 3.67
+python scripts/subcell_decode.py world laurens_gsv --split laurens_gsv --results runs/laurens_gsv/results.jsonl     --decode-file docs/figures/heatmap-grid/data/decode/decode_laurens_gsv.jsonl.gz --work-dir /tmp/w
+python scripts/subcell_decode.py figures
+# SEAM BAND (#130; docs/seam-band-130.md). OPT-IN, default exclude: the peak finder drops every
+# peak within 10 heatmap px of the heatmap edge (skimage's exclude_border default), so the 20
+# columns at the 360-degree seam -- coarse columns 0 and 127 of the exact x8 upsample, 5.6 deg of
+# azimuth -- never yield a detection. `main.py --border keep`
+# / `reinfer.py --border keep` use RampNet's rule instead (exclude_border=False, NO NMS across the
+# seam, so a straddling ramp can give two peaks). Bound exactly like the decode: manifest
+# `detection_border`, keep records carry "detection_border": "keep" (exclude records and
+# submission records byte-identical), fuse_sites / reinfer --verify / send_to_ps.py refuse a mix
+# (--allow-mixed-border, recorded; send_to_ps also reads sibling runs/*/ campaigns on the same
+# endpoint, so a re-run under a new --name is caught), --write-band-file refuses it outright, and eval_sites (via
+# es.require_bundle_frame: agree_rate, site_explorer, gsv_partial_pose, mapillary_tilt) and
+# provenance_gate refuse a keep run (bundles and live labels are exclude). detect_from_store.py
+# stays exclude. RULE: a NEW city may use --border keep from its first run; an EXISTING city only
+# under a new --name, and shipping it beside live exclude labels is Jon's call.
+# The measurement (Laurens, both arms; CPU): `check`/`peaks` on makelab2 where the #111 coarse maps
+# live, then `world` anywhere; `verify` re-derives summary.json from the committed data, no network.
+python scripts/seam_band_130.py check laurens --results runs/laurens/results.jsonl --coarse-dir /homes/gws/jonf/decode111/coarse/laurens
+python scripts/seam_band_130.py peaks laurens --results runs/laurens/results.jsonl --coarse-dir /homes/gws/jonf/decode111/coarse/laurens
+python scripts/seam_band_130.py world laurens --results runs/laurens/results.jsonl --peaks runs/laurens/seam_band_130/peaks.run.jsonl
+python scripts/seam_band_130.py summary && python scripts/seam_band_130.py verify
+
 # Leave-one-view-out REPROJECTION RESIDUAL (issue #36; findings in
 # docs/reprojection-residual.md). GT-free: for every site with >= 3 operational views,
 # drop each view, re-solve the site from the rest (an information-form subtraction) and
@@ -250,13 +372,22 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 # A store-built run is fenced off both ways: main.py refuses a manifest with `pixels`, the
 # runner refuses a run dir main.py wrote, and send_to_ps.py refuses the file (its labels are the
 # live ones; --allow-store-file overrides).
-# provenance_gate.py then checks that the rebuilt run can stand in for the deployed one. Rule
-# AMENDED after the PR #96 review, before any Vancouver number: Arm S (always) = a >= 0.55
-# detection within +/-(W/1024+1) x, +/-(H/512+1) y, >= 0.98 of joinable labels (exact_share at
-# +/-1 px reported, not gated); Arm Z (optional, --control) = a zoom-3 control on 200 seeded
-# labeled panos (--draw-control, then reinfer.py --ids) at +/-1 px, >= 0.98; UNDETERMINED
-# unless nothing is pending and joinable >= 0.95 of labels with a store JPEG; STOP if unclaimed
-# tier detections on labeled panos exceed 0.02 x joinable. harvest_depth.py --from-store indexes
+# provenance_gate.py then checks that the rebuilt run can stand in for the deployed one. The
+# match rule is in COARSE heatmap cells since #111 (2026-09-30; `--rule coarse-cell`, the
+# default): Arm S (always, the store run) and Arm Z (optional, --control: a zoom-3 control on
+# 200 seeded labeled panos via --draw-control then reinfer.py --ids) each match a label when a
+# >= 0.55 detection lies within +/-1 coarse cell = +/-(8W/1024+1) x, +/-(8H/512+1) y
+# (Chebyshev, seam-wrapped), >= 0.98 of joinable labels (exact_share at +/-1 px reported, not
+# gated). Why cells: RampNet's heatmap is an 8x bilinear upsample of a stride-32 map, so every
+# detection sits on residue 3/4 of an 8-cell block and a near-tie flips the argmax 7-8 cells on
+# a small input change; the report counts matches by distance class and names that flip.
+# `--rule pixel-96` reproduces the rule PR #108's Vancouver report ran under (Arm S
+# +/-(W/1024+1) px, Arm Z +/-1 px; amended after the PR #96 review, before any Vancouver
+# number). UNDETERMINED unless nothing is pending and joinable >= 0.95 of labels with a store
+# JPEG; STOP if unclaimed tier detections on labeled panos exceed 0.02 x joinable (unchanged).
+# Vancouver under the coarse-cell rule (exploratory, #111; the #56 decision stands): still STOP
+# -- S 0.930 (11.3% of its matches are flips; 4,268 of 4,477 misses are sub-0.55 at the spot),
+# Z 0.987 passes, P 0.029 fails; docs/heatmap-grid.md. harvest_depth.py --from-store indexes
 # pano-tools' v3 .depth.npz in place (same index.csv schema; --check-store-frame N draws until
 # N panos are checked against live payloads in the image frame and records the result in
 # depth/store.json -- a mirrored index array fails, a payload Google has revised since reads
@@ -299,6 +430,34 @@ python scripts/harvest_depth.py runs/vancouver --from-store <store> [--check-sto
 # depth/index.csv beside results.jsonl; the report prints how many panos had a height.
 python scripts/agree_rate.py gainesville --server https://sidewalk-gainesville.cs.washington.edu
 
+# LABEL-FRAME BETA (issue #113). GSV equirects are rig-frame, so a detection's row is in the
+# image's frame while a human PS label's pano_y is off by beta x T(b), T = pitch cos b +
+# roll sin b (streetlevel's sign). Fits beta from labels paired with the nearest detection on
+# the SAME pano (3 deg of bearing, 4/6/10/15 deg of elevation; pano-clustered SEs; rig-masked).
+# The elevation window is a BIAS, not just noise: centred on diff 0 it truncates large shifts
+# and reads low (6 deg: pool 0.863), so every fit also runs centred on T (reads high) and the
+# two bracket beta; they meet by 10 deg, which is the headline. `run` pulls the city's labels
+# once (read-only GET, cached, --refresh re-pulls) and reads pose + detections from
+# results.jsonl; it REFUSES when > 1% of labels sit within 1 px of a stored detection (an AI
+# account's labels pair with themselves at diff 0) unless --exclude-user names it. `pool` reads
+# sidewalk-panorama-tools' vouched pool + pose scan (pinned by commit + sha256 in POOL_INPUTS)
+# and a detections file made over those store panos; it is rebuilt end to end by `pool-ids`
+# (the sorted pano list, reproduces pool_ids.txt byte for byte) -> `pool-detect` (GPU, ~2.8 h
+# on the A40; writes model + commit + ids sha256 into .meta.json) -> `pool`. pool_ids.txt, the
+# detections file, its meta, the original runner and its log are tracked under
+# runs/_pooled/label_frame_beta/; the API pull and the pano-tools CSVs are not.
+# Results (10 deg): Gainesville 0.951 (SE 0.022); pool 0.902, legacy 0.881 / mid 0.909 /
+# post179 0.943. The era gap is the POSE RECORD's, not the label era's: on the 3,518 pairs whose
+# pano has both an XML and an npz pose, beta is 0.884 under XML and 0.953 under npz. Pose error
+# attenuates beta, so all of these are lower bounds. NOT a placement coefficient (#116).
+python scripts/label_frame_beta.py run gainesville --server https://sidewalk-gainesville.cs.washington.edu
+python scripts/label_frame_beta.py pool-ids --pool <tilt-jm-pool.csv.gz> --pose <tilt-pose-jm.csv.gz> \
+    --out runs/_pooled/label_frame_beta/pool_ids.txt
+python scripts/label_frame_beta.py pool-detect --ids runs/_pooled/label_frame_beta/pool_ids.txt \
+    --store /projects/makeabilitylab/sidewalk_panos/Panoramas --out <pool_detections.jsonl>
+python scripts/label_frame_beta.py pool --pool <tilt-jm-pool.csv.gz> --pose <tilt-pose-jm.csv.gz> \
+    --detections runs/_pooled/label_frame_beta/pool_detections.jsonl   # -> runs/_pooled/label_frame_beta/
+
 # Precision of positives mined from multi-view consensus (RampNet#158 step 1 /
 # RampNet#102): for each site with >=3 operational panos and each judged benchmark pano
 # nearby that is NOT one of its members (membership is the only test a real miner can
@@ -334,6 +493,49 @@ python scripts/mined_precision.py paterson --camera-height 2.2 --radius 10 15 20
 python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo
 python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
     --camera-height 2.6 2.2 2.2 2.2 2.2   # richmond has no measured height; GSV does
+# STEP 2 (RampNet#158, 2026-09-29; docs/mined-precision.md): the same check under
+# per-rig/per-pano and auto heights on inputs frozen to step 1 (the 2026-09-21 gap fills
+# are cut off; hashes in docs/figures/mined-precision/data/inputs.json). GSV's point
+# estimates move from drop into visibility on both denominators, NOT decisively (each CI
+# crosses a band edge); richmond cannot move (per-rig applies 2.6 m, #89).
+# mined_precision_compare.py lays several --out dirs side by side (per city, range band,
+# pooled, pooled GSV) from their candidates.csv, with mined_precision's own tallies.
+python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
+    --camera-height per-rig per-pano per-pano per-pano per-pano --out /tmp/mp/perrig_perpano
+python scripts/mined_precision_compare.py --cities richmond paterson bend gainesville \
+    sao_paulo --mapillary richmond --arm a=/tmp/mp/h2.6 --arm b=/tmp/mp/perrig_perpano
+# PHASE 2 (image-based placement; docs/mined-precision.md). --emit-sources writes, per
+# candidate, the source view the pre-registered SOURCE RULE picks (nearest member camera;
+# nothing GT-derived). RampNet's scripts/analysis/mined_placement_158.py runs a #48
+# placement arm on those pairs; --placement FILE then adjudicates the placed pixel on the
+# SAME candidates (paired), and --paired-base in the compare tool gives fixed/broken counts.
+# Under the pre-registered 5 m world match, roma_local moves 9 richmond false positives
+# into already_detected (9 / 0) - but that does NOT show it places the SITE's ramp: the
+# post hoc attribution below finds 6 of the 9 land on a detection of ANOTHER multi-pano
+# site 5.4-11 m away (>= 2 demonstrably a different ramp), and on GSV it turns 7 true hard
+# positives into already_detected. Nothing helps on GSV. See docs/mined-precision.md.
+python scripts/mined_precision.py richmond paterson bend gainesville sao_paulo \
+    --camera-height per-rig per-pano per-pano per-pano per-pano --out /tmp/mp/roma_local \
+    --placement docs/figures/mined-precision/data/placement/roma_local.jsonl
+# POST HOC (after review): which fused site does each changed candidate's adjudicating
+# detection belong to? own site (impossible by construction) / another multi-pano site /
+# singleton / none, plus a strict all-mined sensitivity; --verify refuses unless every
+# recomputed bucket equals the committed run's.
+python scripts/mined_placement_attribution.py richmond paterson bend gainesville sao_paulo \
+    --runs-root $FROZEN --camera-height per-rig per-pano per-pano per-pano per-pano \
+    --arm roma_local=docs/figures/mined-precision/data/placement/roma_local.jsonl \
+    --verify docs/figures/mined-precision/data/frozen --mapillary richmond
+# STEP 3 (peak-anchored targets; docs/mined-precision.md). floor_infer_archive.py re-runs
+# RampNet at the 0.1 storage floor on a pinned run's ARCHIVED panos (pano blocks untouched)
+# and gates it (--check: >= 95% of panos reproduce their >= 0.55 detections; bend FAILED,
+# 0.70). peak_anchor.py turns an anchor into a --placement file: emit the strongest
+# [0.1, 0.55) peak within the 0.022 benchmark radius, or not at all (emit: false leaves both
+# denominators). --own-site is a secondary read (other_site = closer to another fused site).
+python scripts/floor_infer_archive.py --results $A/richmond/results.jsonl --panos $A/richmond/panos \
+    --ids docs/figures/mined-precision/data/step3/richmond_ids.txt --out richmond.floor.jsonl
+python scripts/peak_anchor.py --sources-root docs/figures/mined-precision/data/frozen/perrig_perpano \
+    --cities richmond paterson gainesville sao_paulo --runs-root $FROZEN \
+    --peaks richmond=docs/figures/mined-precision/data/step3/richmond.floor.jsonl --out /tmp/peak_flat.jsonl
 
 # Eyeball the fusion: one HTML card per site with a crop from every member view,
 # a plan view (cameras/rays/error ellipses/fused 1-sigma) and the RampNet verdict.
@@ -450,6 +652,38 @@ python scripts/depth_at_detection.py measure       # ~53k panos, multiprocess; -
 python scripts/depth_at_detection.py gt            # reads ../RampNet/benchmark
 python scripts/depth_at_detection.py verdict
 python scripts/depth_at_detection.py figures       # also copies aggregates to docs/figures/depth-at-detection/data/
+
+# FOOTWAY: SEGMENTER vs DEPTH (issue #47 step 2) -- a STUDY, not production; docs/footway-depth-study.md.
+# 416 judged GSV benchmark panos with a `measured` payload; Mask2Former Swin-L Mapillary Vistas (pinned
+# revision; processor resize OFF; torch + transformers deliberately NOT in requirements.txt, only `segment`
+# needs them) on 16 PERSPECTIVE TILES per pano (90 deg, 1024 px, 8 headings x pitch 0/-35), voted back onto
+# a 1024x512 image-frame grid. Depth classes, the plane lookup and offset_local are IMPORTED from
+# depth_at_detection.py. Tiles + label maps stay in the untracked runs/_pooled/footway/work/ (sha256 in
+# masks_manifest.json). Measured 2026-09-30, corrected on review of #124 the same day: below the horizon
+# depth puts a floor almost EVERYWHERE (98% within 25 m), so P(WALK|ROAD | depth surface) 0.90 is a BASE
+# RATE (marginal 0.88; a 180-deg-rotated / mirrored depth null gives 0.89) -- always quote (A) beside its
+# null. Signal lives in the walls: P(STRUCTURE | depth wall) 0.66 vs 0.42/0.47 null; kappa 0.25 vs 0.17/0.19.
+# "Depth draws the ground through objects" holds against the scrambled-geometry NULL (95% of OBJECT pixels
+# on a floor vs 94% null: no object-shaped holes; do not argue it from a lift over the nadir-heavy marginal).
+# The segmenter class at the peak pixel is NO FP filter (False 2/42 vs True 43/770). GSV depth shows no
+# ~0.15 m curb step, at most a few cm (0.022 m above the LOCAL reference plane; 0.042 m road-referenced,
+# exploratory). Trap: the 2048 px direct arm's Curb Cut loss was RESOLUTION; at 4096 px the direct equirect
+# keeps Curb Cut but labels the nadir FILL under the car SKY -- a city/rig-dependent failure (-80..-70 deg:
+# Bend 0.000, Paterson 0.110, Sao Paulo 0.097, Gainesville 0.247). Tile (or full-res + mask the nadir).
+# Inputs not in git (benchmark JPEGs, depth payloads, results.jsonl) live in the makelab2 run archive;
+# sample.csv / inputs.json hold their sha256. `check-numbers` re-reads every quoted number (exit 1 on drift).
+python scripts/footway_segmentation.py sample --run-root <runs> --benchmark-root ../RampNet/benchmark
+python scripts/footway_segmentation.py tiles --benchmark-root ../RampNet/benchmark --workers 8
+python scripts/footway_segmentation.py tiles --benchmark-root ../RampNet/benchmark --direct-width 4096
+python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/tiles     --out runs/_pooled/footway/work/tile_labels --fp16 --batch-size 2          # GPU; ~19 min on a 3070
+python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/direct     --out runs/_pooled/footway/work/direct_labels --target 1024x512 --fp16 --batch-size 1
+python scripts/footway_segmentation.py segment --in runs/_pooled/footway/work/direct4096     --out runs/_pooled/footway/work/direct4096_labels --target 1024x512 --fp16 --batch-size 1   # 5.7 GiB
+python scripts/footway_segmentation.py stitch  --run-root <runs> --benchmark-root ../RampNet/benchmark
+python scripts/footway_segmentation.py compare --run-root <runs> --benchmark-root ../RampNet/benchmark
+python scripts/footway_segmentation.py examples --run-root <runs> --benchmark-root ../RampNet/benchmark  # example panels
+python scripts/footway_segmentation.py check-numbers   # every quoted number vs its committed file; exit 1 on drift
+python scripts/footway_segmentation.py figures   # COMMITTED files only: byte-reproducible figures + data/numbers.csv
+#   (every quoted number re-read from its committed file and checked) -- no GPU, network or work/ needed
 
 # POSITION CHECK (SidewalkWebpage#5361) — a STANDARD part of the pipeline, not a step to
 # remember: main.py runs it at the end of every run (--no-position-check skips it, e.g. no
@@ -628,7 +862,18 @@ on top of the decoded panos the pool already holds. Every pass ends with a `dete
 for the fetch-cheap re-inference paths, since `main.py` is network-bound. Batched and unbatched
 heatmaps agree (the opt-in `RAMPNET_EQUIVALENCE=1|full pytest
 tests/test_curb_ramp_batching_equivalence.py -s` check, CPU, needs the cached weights and
-../RampNet bundle panos).
+../RampNet bundle panos). **Measured on makelab2's A40 (2026-09-30, issue #2): batching buys
+nothing, so the default stays 1.** Same 300 Vancouver store panos, `detect_from_store.py
+--workers 16`, GPU otherwise idle, two passes per size: batch 1 / 4 / 8 ran at 1.273-1.279 /
+1.275-1.279 / 1.270-1.279 panos/s, with forward time 99% of wall at every size (~0.78 s per
+image) -- one 4096x2048 forward already holds the GPU at ~100% utilization, so there is no
+idle time for a batch to fill. Peak VRAM was 5.8 / 22.9 / 40.1-44.6 GB: batch 4 OOMs beside
+~28 GB of other jobs, and batch 8 leaves no room for anything. Host RSS ~23 GB at every size
+(the 16 workers decoding 13-16k store JPEGs). Batch 1 reproduced the deployed Vancouver run
+exactly; batched passes matched it at every detection >= 0.30, with confidence drift <= 6e-5
+and 2 of 300 panos differing only below 0.14 (a peak crossing the 0.1 storage floor, a
+plateau peak moving one heatmap row). Revisit only for a smaller input or a lighter model.
+Figure: `docs/figures/batch-size/batch_size_a40.png` (redraw with its `make_figure.py`).
 
 **Run directories / resumability:** all per-area state lives in `runs/<name>/` —
 `results.jsonl`, the resume cache (`already_processed.txt`), `manifest.json` (geometry hash,
@@ -651,8 +896,9 @@ returns 403 for anonymous callers since ~June 2026; streetlevel handles the requ
 format (and must stay ≥ 0.12.10 for the same reason).
 
 **`detectors/curb_ramp.py`** wraps the `projectsidewalk/rampnet-model` HuggingFace model
-(loaded with `trust_remote_code=True`). It outputs a heatmap; `peak_local_max` extracts peaks
-down to the **storage floor** (`DETECTION_STORAGE_FLOOR=0.1`, top-50 per pano), NOT the
+(loaded with `trust_remote_code=True`). It outputs a heatmap; `detectors/decode.py`'s
+`peak_local_max` extracts peaks (placed at the argmax pixel by default, or by the opt-in
+`gaussian` sub-cell decode, #111) down to the **storage floor** (`DETECTION_STORAGE_FLOOR=0.1`, top-50 per pano), NOT the
 decision threshold. The two-threshold contract lives in `detectors/__init__.py` (torch-free,
 importable everywhere): results.jsonl deliberately stores sub-threshold candidates as raw
 material for multi-view fusion (#27), and everything that *acts* on detections filters at
@@ -741,6 +987,14 @@ live ones, and derives `results.band.jsonl.submission.json` from the old campaig
 what lets the ordinary band guard pass with **no override**. Ship from `results.band.jsonl`,
 never from `results.f01.jsonl`.
 
+`--verify` also prints a **coarse-cell diagnostic** (#111): for every pano whose pixel keys
+differ, how old and new keys pair one-to-one within +/-1 coarse heatmap cell (same cell, 3<->4
+neighbour, off-grid, and the 7-8-cell **flip** of a near-tied pair). It explains a mismatch; it
+never excuses one. Band eligibility stays EXACT pixel keys on purpose: a label that moved a
+cell is a different pixel on the server, so a pano that agrees only within a cell is carried
+over from the old file like any other, and the band file's labels at the tier stay exactly the
+live ones.
+
 **Multi-view fusion (`geo.py`, `scripts/fuse_sites.py`, `scripts/eval_sites.py`)** —
 issue #27 stages 2–3, a post-processing layer between detection and submission.
 `geo.py` (repo root, stdlib-only, torch/numpy-free like `detectors/__init__.py`) is the
@@ -748,10 +1002,38 @@ single home for geodesy: haversine + the declustering grid (imported back by
 `export_benchmark.py`), a `LocalFrame` ENU tangent plane, and the ground raycast
 `detection_ground_point` — flat-ground intersection at a camera height (2.6 m unless the
 caller asks otherwise; the fuse_sites CLI's `auto` default is per-rig for GSV, #79) with
-closed-form anisotropic error from the 1024×512 heatmap quantization, **dropping** (never
-clamping) rays beyond 25 m. GSV camera pitch/roll are deliberately NOT applied: the
-`--pose-ablation` experiment measured that streetlevel's GSV equirects are already
-gravity-rectified (details in `geo._world_ray`'s docstring). Mapillary's are available
+closed-form anisotropic error (`geo.ErrorModel`), **dropping** (never clamping) rays beyond
+25 m. Its peak term `sigma_peak_px` defaults to **1.0 heatmap px**, which is optimistic: the
+heatmap is an 8x bilinear upsample of a stride-32 map, so detections are quantized to 8-px
+coarse cells (#111; `scripts/heatmap_grid.py grid`: >= 99.8% on residue 3/4 in every run), whose
+uniform quantization alone is 8/sqrt(12) = 2.31 px. 2.31 failed #111's pre-registered adoption
+rule in one of ten cells (Sao Paulo at 2.6 m: world recall -1.6 pts, SE 1.3; precision
+unchanged everywhere; gate/residual rejections down 16-58% on GSV), so the default stayed 1.0
+and `--sigma-peak-px` (fuse_sites, eval_sites; `FuseParams.sigma_peak_px`) opts in. **Every
+published fusion/clustering/residual table used 1.0.** The MEASURED residual (#111 decode half,
+residual to box centres, bias removed, an upper bound): 4.24 px argmax / 3.79 px gaussian on
+manual_gold; at 4.24 (and 3.67) the same ten cells fail in Sao Paulo at both heights, so the
+default still stays 1.0; docs/heatmap-grid.md section 4. GSV camera pitch/roll are deliberately NOT applied: the
+`--pose-ablation` experiment measured that applying the full pose loosens multi-view
+agreement. **That does not mean the equirects are gravity-rectified** (corrected 2026-09-29,
+#113): they are in the rig's frame (sidewalk-panorama-tools#158), streetlevel and the PS pano
+store serve the same pixels, and the full pose overshoots because the car rides the road, so
+the local ground shares most of the tilt. What leaks into placement is a fraction of it
+(roughly 0.15-0.25 of the pitch term, 0.4-0.55 of the roll term, scratch measurements on
+#113). #116's pre-registered test (`scripts/gsv_partial_pose.py`,
+docs/gsv-partial-pose-study.md) confirmed that fraction held out (pooled 0.18 pitch / 0.38 roll
+at `auto`): it tightens re-associated sites 5-11% on the median, beats a magnitude-matched
+shuffled pose and the inventories agree -- but it FAILED the recall clause (Bend, 2 of 157
+ramps on the half split), so the DEFAULT stays flat; the fraction is opt-in as
+`--apply-pose partial` (geo.PARTIAL_POSE_K_GSV, frozen) pending the pre-registered
+confirmatory run (`gsv_partial_pose.py confirm`). Two
+consequences outside fusion: a detection's `pano_y` is in the image's frame while a human PS
+label's is off by about 0.9 of the tilt at its bearing (measured on 1,704 Gainesville
+crowd/detection pairs, #113), so an AI-vs-human pixel comparison mixes two frames. At
+Gainesville's tilts that moves `agree_rate.py`'s pano-frame rate by only 0.2-0.3 points (its
+radius is 7.9 deg), but it matters wherever the tolerance is tight or the tilt large. And
+streetlevel's pitch > 0 is nose DOWN, with GSV
+`camera_roll` stored unwrapped (359.4 = -0.6). Details in `geo._world_ray`'s docstring. Mapillary's are available
 (`--apply-pose road`) but NOT applied by default either: the #42 shuffled-grade control withheld
 it (see the rig-tilt paragraph below).
 `fuse_sites.py` associates a

@@ -1,0 +1,5 @@
+city,gt_panos,judged,n_sample,n_warnings,no_pool,partial,payload_degenerate,payload_implausible,payload_measured,payload_synthetic_ground,placeable,skipped,unplaceable,unsure_missed
+bend,110,110,90,0,0,0,,,90,20,0,0,0,0
+paterson,125,125,113,0,0,0,2,,113,10,0,0,0,0
+gainesville,125,125,112,0,0,0,,1,112,12,0,0,0,0
+sao_paulo,125,125,101,0,0,0,,,101,24,0,0,0,0

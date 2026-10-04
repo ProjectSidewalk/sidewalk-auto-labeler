@@ -1,0 +1,11 @@
+city,height,arm,gt_panos_judged,gt_marks,gt_marks_unplaceable,off_pool_ramps,recall_off_pool_2p5m,recall_off_pool_5m,gt_common_ramps,gt_to_site_median_m,gt_to_site_p90_m,gt_to_site_mean_m,lost_vs_off_2p5m,gained_vs_off_2p5m
+paterson,auto,off,125,395,72,323,0.9040,0.9628,284,0.8185,2.4920,1.1311,0,0
+paterson,auto,partial-loco,125,395,67,323,0.9164,0.9598,284,0.7773,2.2598,0.9999,2,6
+paterson,auto,partial-loco-shuffled,125,395,68,323,0.9102,0.9443,284,0.7995,2.4101,1.1446,1,3
+paterson,auto,full,125,395,57,323,0.8762,0.9226,284,0.8938,2.5449,1.1448,20,11
+paterson,auto,fixed-113,125,395,63,323,0.9226,0.9567,284,0.7505,2.0581,0.9756,4,10
+paterson,2.6,off,125,395,91,304,0.8783,0.9605,257,1.1032,3.0519,1.3813,0,0
+paterson,2.6,partial-loco,125,395,89,304,0.8947,0.9638,257,1.0667,2.7614,1.3402,1,6
+paterson,2.6,partial-loco-shuffled,125,395,90,304,0.8783,0.9605,257,1.1357,2.9788,1.4167,4,4
+paterson,2.6,full,125,395,83,304,0.8158,0.8914,257,1.1330,3.2772,1.4473,26,7
+paterson,2.6,fixed-113,125,395,90,304,0.8947,0.9638,257,1.0473,2.8341,1.3346,2,7

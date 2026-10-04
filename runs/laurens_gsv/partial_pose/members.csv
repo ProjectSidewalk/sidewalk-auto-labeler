@@ -1,0 +1,17 @@
+city,height,arm,op_members,unplaceable,unplaceable_vs_off
+laurens_gsv,auto,off,427,27,0
+laurens_gsv,auto,partial,427,26,-1
+laurens_gsv,auto,partial-loco,427,27,0
+laurens_gsv,auto,partial-shuffled,427,27,0
+laurens_gsv,auto,partial-loco-shuffled,427,27,0
+laurens_gsv,auto,full,427,23,-4
+laurens_gsv,auto,partial-mirror,427,27,0
+laurens_gsv,auto,fixed-113,427,27,0
+laurens_gsv,2.6,off,427,27,0
+laurens_gsv,2.6,partial,427,27,0
+laurens_gsv,2.6,partial-loco,427,27,0
+laurens_gsv,2.6,partial-shuffled,427,28,1
+laurens_gsv,2.6,partial-loco-shuffled,427,27,0
+laurens_gsv,2.6,full,427,30,3
+laurens_gsv,2.6,partial-mirror,427,29,2
+laurens_gsv,2.6,fixed-113,427,27,0

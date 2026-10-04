@@ -1,0 +1,189 @@
+{
+ "what": "POST HOC (RampNet#158 step-3 review of sidewalk-auto-labeler#112): the 20 zoom-3 heatmaps behind the hm_* columns of step3/posthoc_exclusion.csv and the zoom-3 section of posthoc_exclusion.md. One float32 512x1024 array per GSV target pano, written by scripts/step3_exclusion_diag.py --heatmap (np.save of CurbRampDetector.heatmap on the pano re-fetched at zoom 3 via panorama.fetch_panorama) on 2026-09-29, desktop CPU, torch 2.12.1+cu126, transformers 5.12.1, rampnet-model@606a11956743.",
+ "where": "makelab2 /homes/gws/jonf/mined158/hm_zoom3/<pano_id>.z3.npy (copied 2026-09-29; remote sha256 verified equal to this manifest)",
+ "published": false,
+ "regenerate": "Without these files, regenerating the hm_* columns means re-fetching the 20 panos from Google's unofficial GSV endpoints and re-running the model; a re-fetch is not guaranteed to give byte-identical heatmaps, so it can only be checked through the hm_reproduces / hm_same_peak_set columns, not against these hashes.",
+ "guard": "step3_exclusion_diag.py refuses to write into the committed data/ dir unless --heatmap points at a directory holding exactly these files with these sha256s.",
+ "files": {
+  "0s94i47Wdggc9cHmBjEe8w.z3.npy": {
+   "sha256": "58d7bb15b11ba8824533b75c5d9e713dc2f4c357ab428b7295e1e86b93507561",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "3BTAarqIRrxbpFHUFJhtSQ.z3.npy": {
+   "sha256": "f1bf2293afb025a9a633b81ca6ca89a9975a8a604d553f76a0f340f9b5a20dd3",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "3dq9TqRXzopD0yvztHg8rg.z3.npy": {
+   "sha256": "64e06b6c30af52ace53c00d4086c26227c1c72d7d062c0e4ef1a9e9a1aa2b1cb",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "E2-oeApmq0sW_GDdLFbnCQ.z3.npy": {
+   "sha256": "66d361e106e6b3f6fcdbaf1b6494817afe5e7b4fb17d4ad2a20c20994506f30d",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "H2cEJygbNd56-362PsICjA.z3.npy": {
+   "sha256": "51a1bf28215bc2606045d68baaa88660e0afb961b20a415379e864b7e1ecf755",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "NiIR-hk3d6gP7qp4s1BM4w.z3.npy": {
+   "sha256": "c20c1e56dc04065a20ee189a2587cc89b35e508c00158ba343acd3db86dd08b5",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "RGAxlzGeyK3ncjFZ9VXpBA.z3.npy": {
+   "sha256": "d2b3bcd6ffcb61582e70012c7ecfed8901595865e63ae09ba2d18070635f7654",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "S2IuBk3pE9q76j1Z4hQC8A.z3.npy": {
+   "sha256": "57e80e926620422415a3708a1bd179fc58954eb63bfe07a242f6fb7691a6f3d4",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "UOMaPWpm2CRHbfqMgY_hbQ.z3.npy": {
+   "sha256": "e2f595e186d34fe9ad43f7530bd882d42c662b154c3df86452a501450d09646d",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "Z929dNP7sDp8cU6sjIeKAw.z3.npy": {
+   "sha256": "08892614ae0db5c1f18d0983499bd5964aeabd6887c17f43504cf2b6b13eb5b8",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "ZcGyifqcyvUwLtCYGTr3oA.z3.npy": {
+   "sha256": "1f31da5def8cec9467dae81b73fb74c04ad2017174e7dc91e7912dd27d42b119",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "Zu314hB3XfshUEt2hsd0RQ.z3.npy": {
+   "sha256": "7d68e44e1d0f5bb403a3d544a11b86eeb0a7d1935010d4e8e4ab264e40e3d78a",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "aZxwqPZnkC3sv5dTZOEomA.z3.npy": {
+   "sha256": "b7a95477e3607602bc7ab4d57813f72756e6be03e25db3e965952074935f929d",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "as5xCAJAYMT35sgs0rx2_w.z3.npy": {
+   "sha256": "7086fc573625078a9874d545ec383aeaec11421b7d531b84c2084a9bcef19fcf",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "dVrNCxUTFAfeyVNMXQ1LTw.z3.npy": {
+   "sha256": "d9baf016d2c4c2361a64b80ade5e69609cfd381dc5f3a8363b2079fc9d55d659",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "eIw8Y1zl7qgUW6bTPzk3gA.z3.npy": {
+   "sha256": "87ad3912b36fa53fd97770b253d371c07f503358a2b4e1bbce693ed0297c373f",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "ixm9RoZTI443YB7QoJ6nLQ.z3.npy": {
+   "sha256": "eeff9fc4e9eb9b9992d1b19f722f1db10fb347f0c1884fd2e69b56c732aa4610",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "k3ipUDBk_fu7EXSVSNGaig.z3.npy": {
+   "sha256": "4984c58bb2cdffe73ce262e08a12f7c589e6ac192165fabe7dd9b4c439f9fcd4",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "lASBXjG5VnksPRJajz2FKw.z3.npy": {
+   "sha256": "138c43c5da804abf8a53a89bc34d919a06f3e1daacf6102be0c2ef4239a5eb1e",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  },
+  "zB7_9mtLQuVbRyZrttlMXg.z3.npy": {
+   "sha256": "7bd8626b9bb765073a91a9b6a959c934b5f3feede3fd3472dd4249dc38075e0a",
+   "bytes": 2097280,
+   "dtype": "float32",
+   "shape": [
+    512,
+    1024
+   ]
+  }
+ }
+}

@@ -1,0 +1,37 @@
+{
+ "ids_from": "/projects/makeabilitylab/sidewalk-auto-labeler/runs/laurens/results.jsonl",
+ "max_peaks": 50,
+ "model": {
+  "api_version": "1.0.0",
+  "model_id": "rampnet-model@606a11956743",
+  "model_repo": "projectsidewalk/rampnet-model",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+  "model_training_date": "08-21-2025"
+ },
+ "panos_dir": "/projects/makeabilitylab/sidewalk-auto-labeler/runs/laurens/panos",
+ "passes": [
+  {
+   "forward_s": 7276.184,
+   "host": "makelab2.cs.washington.edu",
+   "panos": 4495,
+   "started": "2026-10-02T18:21:54Z",
+   "wall_s": 7277.2,
+   "workers": 4
+  }
+ ],
+ "rampnet_subcell_commit": "cf7aecdbce53f72028663ab21a73fc0354255865",
+ "rn_floor": 0.3,
+ "software": {
+  "numpy": "2.5.3",
+  "pillow": "12.3.0",
+  "scikit-image": "0.26.0",
+  "torch": "2.14.0+cu130",
+  "torchvision": "0.29.0",
+  "transformers": "5.12.1"
+ },
+ "source_resize": [
+  4096,
+  2048
+ ],
+ "storage_floor": 0.1
+}
