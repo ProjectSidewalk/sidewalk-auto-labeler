@@ -58,6 +58,11 @@ EXPECTED_ELIGIBLE = {'vancouver': {'signalised': 284, 'arterial': 1497, 'residen
 LEG_PROBE_M = 20.0
 LEG_STUB_MIN_M = 5.0
 LEG_MERGE_DEG = 30.0
+# Amendment after review (B1): divided roads and slip lanes are merged by OSM tags, not by
+# angle alone (30 deg at a 20 m probe only merges carriageways < ~10.7 m apart).
+LEG_PAIR_DEG = 90.0     # two oneway, same-name (or same-ref) legs within this are one road
+LEG_LINK_DEG = 60.0     # a *_link leg joins the nearest non-link leg within this
+ONEWAY_VALUES = frozenset({'yes', '1', '-1', 'true', 'reverse'})
 CORNER_OFFSET_M = 12.0
 WIDE_SECTOR_DEG = 150.0
 OBS_NEAR_M = 15.0
@@ -91,6 +96,18 @@ def git_sha(path=None):
         return subprocess.run(args, capture_output=True, text=True, timeout=30).stdout.strip()
     except Exception:  # pragma: no cover
         return 'unknown'
+
+
+def tool_version():
+    """{'git_sha': last commit touching this file, 'dirty': uncommitted edits to it}."""
+    me = Path(__file__).resolve()
+    try:
+        st = subprocess.run(['git', '-C', str(REPO_ROOT), 'status', '--porcelain', '--',
+                             str(me)], capture_output=True, text=True, timeout=30).stdout
+        dirty = bool(st.strip())
+    except Exception:  # pragma: no cover
+        dirty = None
+    return {'git_sha': git_sha(me), 'dirty': dirty}
 
 
 def wilson(k, n, z=1.96):
@@ -177,12 +194,27 @@ def street_graph(ways):
     return adj, pos
 
 
+def street_edge_tags(ways):
+    """{(a, b): tags} for every consecutive node pair of every street way (both
+    directions; the first way seen wins)."""
+    out = {}
+    for w in ways:
+        ids = w['nodes']
+        for a, b in zip(ids, ids[1:]):
+            out.setdefault((a, b), w.get('tags') or {})
+            out.setdefault((b, a), w.get('tags') or {})
+    return out
+
+
 def leg_bearings(node_ids, centre_en, adj, pos_en, probe_m=LEG_PROBE_M,
-                 stub_min_m=LEG_STUB_MIN_M):
+                 stub_min_m=LEG_STUB_MIN_M, edge_tags=None):
     """Raw leg bearings (deg) of a unit: every edge from a unit node to a node outside
     the unit, walked outward through degree-2 nodes until it leaves a probe_m circle about
     centre_en (bearing to the interpolated exit point), or stops inside it at a dead end
-    or another intersection (bearing to the stop, kept when >= stub_min_m out)."""
+    or another intersection (bearing to the stop, kept when >= stub_min_m out). A walk
+    that comes back to a node of the same unit is internal and gives no leg (S3).
+    With edge_tags, returns [{'bearing', 'highway', 'name', 'ref', 'oneway'}] (tags of
+    the first edge out of the unit) instead of bare bearings."""
     unit = set(node_ids)
     ce, cn = centre_en
     out = []
@@ -196,19 +228,30 @@ def leg_bearings(node_ids, centre_en, adj, pos_en, probe_m=LEG_PROBE_M,
                 continue
             prev, cur = u, v0
             seen = {u}
+            tags = (edge_tags or {}).get((u, v0)) or {}
+
+            def leg(b, tags=tags):
+                if edge_tags is None:
+                    return b
+                return {'bearing': b, 'highway': tags.get('highway') or '',
+                        'name': tags.get('name') or '', 'ref': tags.get('ref') or '',
+                        'oneway': str(tags.get('oneway') or '').strip().lower()
+                        in ONEWAY_VALUES}
             while True:
                 if dist(cur) >= probe_m:
                     (pe, pn), (qe, qn) = pos_en[prev], pos_en[cur]
                     d0, d1 = math.hypot(pe - ce, pn - cn), math.hypot(qe - ce, qn - cn)
                     t = 1.0 if d1 == d0 else max(0.0, min(1.0, (probe_m - d0) / (d1 - d0)))
                     xe, xn = pe + (qe - pe) * t, pn + (qn - pn) * t
-                    out.append(bearing_deg(xe - ce, xn - cn))
+                    out.append(leg(bearing_deg(xe - ce, xn - cn)))
+                    break
+                if cur in unit:          # an internal path through shape nodes (S3)
                     break
                 nbrs = adj.get(cur, set()) - {prev}
-                if len(adj.get(cur, ())) != 2 or cur in seen or not nbrs or cur in unit:
+                if len(adj.get(cur, ())) != 2 or cur in seen or not nbrs:
                     if dist(cur) >= stub_min_m:
                         e, n = pos_en[cur]
-                        out.append(bearing_deg(e - ce, n - cn))
+                        out.append(leg(bearing_deg(e - ce, n - cn)))
                     break
                 seen.add(cur)
                 prev, cur = cur, next(iter(nbrs))
@@ -238,6 +281,64 @@ def merge_bearings(bearings, merge_deg=LEG_MERGE_DEG):
             legs.append(circ_mean(group))
             group = []
     return sorted(round(b, 6) % 360.0 for b in legs)
+
+
+def merge_legs(walks, merge_deg=LEG_MERGE_DEG, pair_deg=LEG_PAIR_DEG,
+               link_deg=LEG_LINK_DEG):
+    """Leg bearings from tagged walks (leg_bearings(..., edge_tags=...)), ascending.
+
+    Amendment after review (B1). Union-find over the raw walks:
+      1. carriageways: a oneway, non-link walk joins the nearest other oneway, non-link walk
+         with the same name (or, both unnamed, the same ref) within pair_deg -- the two
+         halves of a divided road, whatever the median width;
+      2. slip lanes: a *_link walk joins the nearest non-link walk within link_deg;
+      3. angle: walks closer than merge_deg chain together (the original rule).
+    Each group is one leg at the circular mean of its bearings.
+
+    >>> merge_legs([{'bearing': 73, 'highway': 'secondary', 'name': 'A', 'ref': '',
+    ...              'oneway': True},
+    ...             {'bearing': 109, 'highway': 'secondary', 'name': 'A', 'ref': '',
+    ...              'oneway': True}])
+    [91.0]
+    """
+    n = len(walks)
+    if n == 0:
+        return []
+    parent = list(range(n))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i, j):
+        a, b = find(i), find(j)
+        if a != b:
+            parent[max(a, b)] = min(a, b)
+
+    def is_link(w):
+        return w['highway'].endswith('_link')
+
+    def road_key(w):
+        return ('n', w['name']) if w['name'] else (('r', w['ref']) if w['ref'] else None)
+    for i, w in enumerate(walks):
+        if w['oneway'] and not is_link(w) and road_key(w):
+            best = min(((ang_diff(w['bearing'], v['bearing']), j) for j, v in enumerate(walks)
+                        if j != i and v['oneway'] and not is_link(v)
+                        and road_key(v) == road_key(w)), default=None)
+            if best and best[0] <= pair_deg:
+                union(i, best[1])
+        if is_link(w):
+            best = min(((ang_diff(w['bearing'], v['bearing']), j) for j, v in enumerate(walks)
+                        if not is_link(v)), default=None)
+            if best and best[0] <= link_deg:
+                union(i, best[1])
+    groups = {}
+    for i in range(n):
+        groups.setdefault(find(i), []).append(walks[i]['bearing'])
+    means = [circ_mean(g) for g in groups.values()]
+    return merge_bearings(means, merge_deg)
 
 
 def corner_sectors(legs):
@@ -477,7 +578,7 @@ def cmd_build(args):
     inputs = {}
 
     def rec_input(name, path):
-        inputs[name] = {'path': str(path), 'sha256': sha256_file(path)}
+        inputs[name] = {'path': str(Path(path).resolve()), 'sha256': sha256_file(path)}
         return inputs[name]['sha256']
     if rec_input('results', run_dir / 'results.jsonl') != RESULTS_SHA256[city]:
         raise SystemExit('results.jsonl sha256 mismatch')
@@ -521,6 +622,7 @@ def cmd_build(args):
                          f'{EXPECTED_ELIGIBLE[city]}')
     ways = ecr.street_ways(payload)
     adj, pos = street_graph(ways)
+    etags = street_edge_tags(ways)
     pos_en = {k: fr.to_enu(*v) for k, v in pos.items()}
     steps.append({'step': 'units', 'seconds': round(time.time() - t, 1)})
 
@@ -549,7 +651,8 @@ def cmd_build(args):
         if c['type'] == 'mid_block':
             records.append(describe_unit(base, centre, [], idx, obs_m, corners=False))
         else:
-            legs = merge_bearings(leg_bearings(c['node_ids'], centre, adj, pos_en))
+            legs = merge_legs(leg_bearings(c['node_ids'], centre, adj, pos_en,
+                                           edge_tags=etags))
             records.append(describe_unit(base, centre, legs, idx, obs_m))
     steps.append({'step': 'describe', 'seconds': round(time.time() - t, 1),
                   'note': f'{len(records)} units'})
@@ -575,7 +678,8 @@ def cmd_build(args):
             else:
                 base['matches_build'] = unit_key(line) \
                     if tuple(sorted(line['node_ids'])) in elig else None
-                legs = merge_bearings(leg_bearings(line['node_ids'], centre, adj, pos_en))
+                legs = merge_legs(leg_bearings(line['node_ids'], centre, adj, pos_en,
+                                               edge_tags=etags))
                 r = describe_unit(base, centre, legs, idx, obs_m)
             u224.append(r)
         write_jsonl_lf(out / 'corners_224.jsonl', u224)
@@ -583,10 +687,13 @@ def cmd_build(args):
     build = {'schema': SCHEMA, 'city': city, 'built_at': utc_now(), 'inputs': inputs,
              'exporter': {'file': 'scripts/export_cluster_review.py',
                           'git_sha': git_sha('scripts/export_cluster_review.py')},
-             'tool_git_sha': git_sha(),
-             'frame': {'lat0': fr.lat0, 'lng0': fr.lng0, 'n_labels': n_lab},
+             'tool_git_sha': tool_version()['git_sha'],
+             'tool_dirty': tool_version()['dirty'],
+             'frame': {'lat0': round(fr.lat0, 9), 'lng0': round(fr.lng0, 9),
+                       'n_labels': n_lab},
              'params': {'leg_probe_m': LEG_PROBE_M, 'leg_stub_min_m': LEG_STUB_MIN_M,
-                        'leg_merge_deg': LEG_MERGE_DEG, 'corner_offset_m': CORNER_OFFSET_M,
+                        'leg_merge_deg': LEG_MERGE_DEG, 'leg_pair_deg': LEG_PAIR_DEG,
+                        'leg_link_deg': LEG_LINK_DEG, 'corner_offset_m': CORNER_OFFSET_M,
                         'wide_sector_deg': WIDE_SECTOR_DEG, 'obs_m': obs_m,
                         'obs_near_m': OBS_NEAR_M, 'window_m': ecr.WINDOW_M,
                         'min_confidence': meta['params']['min_confidence']},
@@ -827,7 +934,23 @@ def selection_diagnostics(records, build, tier=0.55):
         cross[k] = cross.get(k, 0) + 1
     unobs = [r['nearest_pano_m'] for r in ints if r['state']['fusion/primary'] == 'unobservable'
              and r['nearest_pano_m'] is not None]
-    return {'run_panos': n_runs, 'run_panos_with_det_ge_tier': n_det, 'tier': tier,
+    # S1: the absence buckets split by how the absent unit was observed
+    absent_split = {}
+    for r in ints:
+        if r['state']['fusion/primary'] != 'absent':
+            continue
+        kind = ('sampled-unlabeled' if any(p in sampled for p in r['pano_ids_25'])
+                else 'labeled only')
+        ic = r['inv_counts']
+        b = ('false (Available)' if ic['Available'] else
+             'clean (no point)' if not any(ic.values()) else 'RMV/NA only')
+        d = absent_split.setdefault(kind, {'units': 0, 'only_sampled_panos': 0})
+        d['units'] += 1
+        d[b] = d.get(b, 0) + 1
+        if all(p in sampled for p in r['pano_ids_25']):
+            d['only_sampled_panos'] += 1
+    return {'absent_units_by_pano_kind': absent_split,
+            'run_panos': n_runs, 'run_panos_with_det_ge_tier': n_det, 'tier': tier,
             'sampled_unlabeled_in_selection': len(sampled),
             'sampled_unlabeled_in_run': len(sampled & run_ids),
             'sampled_unlabeled_within_25m_of_a_unit': len(near_sampled),
@@ -897,7 +1020,8 @@ def cmd_score(args):
     for r in ints:
         leg_hist[r['n_legs']] = leg_hist.get(r['n_legs'], 0) + 1
     L = [f"# {build['city']}: corner inventory (RampNet#238)", '',
-         f"Built {build['built_at']} by `scripts/corner_inventory.py@{build['tool_git_sha']}`; "
+         f"Built {build['built_at']} by `scripts/corner_inventory.py@{build['tool_git_sha']}`"
+         f"{' (DIRTY)' if build.get('tool_dirty') else ''}; "
          f"exporter `export_cluster_review.py@{build['exporter']['git_sha']}`. Protocol: "
          'docs/corner-inventory.md.', '', '## Inputs', '']
     for k, v in build['inputs'].items():
@@ -942,6 +1066,13 @@ def cmd_score(args):
         for k, n in diag['unit_state_by_pano_kind'].items():
             a, b = k.split(' | ')
             L.append(f'| {a} | {b} | {n} |')
+        L += ['', '| absent units (fusion, primary) observed through | units | of them only '
+              'sampled panos within 25 m | clean (no point) | RMV/NA only | false (Available) |',
+              '|---|---:|---:|---:|---:|---:|']
+        for kind, d in sorted(diag['absent_units_by_pano_kind'].items()):
+            L.append(f"| {kind} | {d['units']} | {d['only_sampled_panos']} | "
+                     f"{d.get('clean (no point)', 0)} | {d.get('RMV/NA only', 0)} | "
+                     f"{d.get('false (Available)', 0)} |")
         dec['selection'] = diag
     L += ['', f"Inventory-gap corners (fusion, primary): {len(gaps)} rows in gaps.csv.", '',
           f"Build {build['seconds']} s; score {round(time.time() - t0, 1)} s.", '']
@@ -968,6 +1099,7 @@ def score_assignments(units, assignments, fr=None):
     rows = []
     conf = {}
     excluded = {'not_in_units': [], 'incomplete': [], 'cant_judge': []}
+    outside = {'ramps': 0, 'uncovered': 0}
     for cid in sorted(assignments.get('corners', {})):
         a = assignments['corners'][cid]
         if cid not in by_id:
@@ -997,6 +1129,7 @@ def score_assignments(units, assignments, fr=None):
                 for p in pts:
                     e, n = frame.to_enu(p['lat'], p['lng'])
                     if math.hypot(e - ce, n - cn) > ecr.WINDOW_M:
+                        outside['ramps' if kind == 0 else 'uncovered'] += 1
                         continue
                     per[sector_index(bearing_deg(e - ce, n - cn), secs)][kind].append(p)
             for c, (rp, up) in zip(u['corners'], per):
@@ -1015,7 +1148,8 @@ def score_assignments(units, assignments, fr=None):
                 ours = r[f'ours_{a}_{v}']
                 d.setdefault(ours, {}).setdefault(r['rater'], 0)
                 d[ours][r['rater']] += 1
-    summary = {'confusion': conf, 'excluded': excluded}
+    summary = {'confusion': conf, 'excluded': excluded,
+               'outside_window_at_corner_level': outside}
     reads = {}
     for k, levels in conf.items():
         for level, m in levels.items():
@@ -1037,6 +1171,16 @@ def cmd_score_assignments(args):
     assignments = json.loads(Path(args.assignments).read_text(encoding='utf-8'))
     if assignments.get('schema') != 'rampnet.cluster_review/1':
         raise SystemExit(f"unexpected schema {assignments.get('schema')!r}")
+    if assignments.get('rubric_version') != 1:
+        raise SystemExit(f"unexpected rubric_version {assignments.get('rubric_version')!r}")
+    if args.snapshot:
+        snap = json.loads(Path(args.snapshot).read_text(encoding='utf-8'))
+        want = snap['labels']['sha256']
+        if assignments.get('snapshot_sha256') != want:
+            raise SystemExit(f"snapshot_sha256 {assignments.get('snapshot_sha256')!r} is not "
+                             f"the bundle's {want!r}")
+    else:
+        print('WARNING: no --snapshot given; snapshot_sha256 not checked')
     rows, summary = score_assignments(units, assignments)
     dest = Path(args.dest) if args.dest else out / 'assignments_score'
     fields = ['unit', 'type', 'corner', 'rater', 'n_ramps', 'n_uncovered',
@@ -1115,6 +1259,9 @@ def cmd_census(args):
     fetched = 0
     stop_err = None
     consecutive_err = 0
+    missing = [p for p in panos if not (cache / f'{p}.json').exists()]
+    if missing and args.cache_only:
+        raise SystemExit(f'--cache-only: {len(missing)} panos are not cached')
     for i, pid in enumerate(panos):
         path = cache / f'{pid}.json'
         if path.exists():
@@ -1154,7 +1301,8 @@ def cmd_census(args):
                 run_dates[p['panorama_id']] = p.get('capture_date')
     summary = census_summary(sample, info, records, run_dates)
     summary.update({'sample_seed': CENSUS_SEED, 'sample_n': CENSUS_N, 'n_panos': len(panos),
-                    'fetched_this_invocation': fetched, 'wall_clock_s': round(wall, 1),
+                    'fetched_this_invocation': fetched,
+                    'wall_clock_this_invocation_s': round(wall, 1),
                     'stopped_on_error': stop_err, 'cache_sha256': h.hexdigest(),
                     'sleep_s': CENSUS_SLEEP_S, 'finished_at': utc_now()})
     prev = cdir / 'census.json'
@@ -1164,6 +1312,8 @@ def cmd_census(args):
     summary.setdefault('wall_clock_history_s', [])
     summary['wall_clock_history_s'] = [w for w in summary['wall_clock_history_s'] if w] + \
         ([round(wall, 1)] if fetched else [])
+    # the network cost: the sum over the invocations that fetched (a cache-only re-run adds 0)
+    summary['wall_clock_s'] = round(sum(summary['wall_clock_history_s']), 1)
     write_text_lf(prev, json.dumps(summary, indent=1, sort_keys=True) + '\n')
     print(json.dumps({k: v for k, v in summary.items() if k != 'per_unit'}, indent=1))
     return summary
@@ -1221,7 +1371,7 @@ def census_summary(sample, info, records, run_dates=None):
         for c in r['corners']:
             cy, _ = caps(c['pano_ids_25'])
             cyears = sorted(int(y[:4]) for y in cy)
-            per_corner.append({'n_captures': len(cy),
+            per_corner.append({'n_captures': len(cy), 'n_panos': len(c['pano_ids_25']),
                                'earliest': cyears[0] if cyears else None,
                                'span_years': (cyears[-1] - cyears[0]) if cyears else None})
     ratio = len(hist_ids) / len(info) if info else None      # per QUERIED pano
@@ -1230,7 +1380,8 @@ def census_summary(sample, info, records, run_dates=None):
     for s in INTERSECTION_STRATA:
         us = [u for u in per_unit if u['type'] == s]
         by_stratum[s] = {'units': len(us),
-                         'captures_per_unit': quant([u['n_captures'] for u in us]),
+                         'captures_per_unit': quant([u['n_captures'] for u in us
+                                                     if u['n_panos']]),
                          'earliest': quant([u['earliest'] for u in us if u['earliest']]),
                          'span_years': quant([u['span_years'] for u in us
                                               if u['span_years'] is not None])}
@@ -1248,9 +1399,14 @@ def census_summary(sample, info, records, run_dates=None):
                 (sum(u['n_hist'] for u in per_unit if u['type'] == st)
                  / max(1, sum(1 for u in per_unit if u['type'] == st)))
                 * sum(1 for r in records if r['type'] == st) for st in INTERSECTION_STRATA)),
-            'captures_per_unit': quant([u['n_captures'] for u in per_unit]),
-            'captures_per_unit_gsv_only': quant([u['n_captures_gsv'] for u in per_unit]),
-            'captures_per_corner': quant([c['n_captures'] for c in per_corner]),
+            # quantiles over units / corners with >= 1 run pano within 25 m; the units and
+            # corners with none are counted separately (they have no capture by definition)
+            'captures_per_unit': quant([u['n_captures'] for u in per_unit if u['n_panos']]),
+            'captures_per_unit_gsv_only': quant([u['n_captures_gsv'] for u in per_unit
+                                                 if u['n_panos']]),
+            'captures_per_corner': quant([c['n_captures'] for c in per_corner if c['n_panos']]),
+            'corners_with_no_pano': sum(1 for c in per_corner if not c['n_panos']),
+            'corners': len(per_corner),
             'earliest_year_unit': quant([u['earliest'] for u in per_unit if u['earliest']]),
             'span_years_unit': quant([u['span_years'] for u in per_unit
                                       if u['span_years'] is not None]),
@@ -1275,11 +1431,15 @@ def main(argv=None):
     s.add_argument('--out', required=True)
     c = sub.add_parser('census')
     c.add_argument('--out', required=True)
+    c.add_argument('--cache-only', action='store_true',
+                   help='refuse to fetch: recompute the summary from the cached responses')
     a = sub.add_parser('score-assignments')
     a.add_argument('--assignments', required=True)
     a.add_argument('--out', required=True)
     a.add_argument('--units', help='corners_224.jsonl (default <out>/corners_224.jsonl)')
     a.add_argument('--dest', help='output dir (default <out>/assignments_score)')
+    a.add_argument('--snapshot', help="the bundle's snapshot.json; assignments.json's "
+                   'snapshot_sha256 must equal its labels sha256')
     args = ap.parse_args(argv)
     return {'build': cmd_build, 'score': cmd_score, 'census': cmd_census,
             'score-assignments': cmd_score_assignments}[args.cmd](args)

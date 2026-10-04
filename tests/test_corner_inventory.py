@@ -278,22 +278,31 @@ def test_score_assignments_cli_end_to_end(tmp_path):
     u = ci.describe_unit(dict(UNIT, unit='vancouver:res:000001'), (0.0, 0.0), LEGS4, idx, 25.0)
     ci.write_jsonl_lf(tmp_path / 'corners_224.jsonl', [u])
     ne_lat, ne_lng = ll(6, 6)
+    far_lat, far_lng = ll(0, 40)
     a = {'schema': 'rampnet.cluster_review/1', 'rater': 'synthetic', 'role': 'a',
+         'rubric_version': 1, 'snapshot_sha256': 'abc',
          'corners': {'vancouver:res:000001': {
-             'labels': {'1': 'r1'}, 'complete': True, 'uncovered': [],
+             'labels': {'1': 'r1'}, 'complete': True,
+             'uncovered': [{'lat': far_lat, 'lng': far_lng, 'unsure': False}],
              'ramps': {'r1': {'lat': ne_lat, 'lng': ne_lng, 'placed': False}}}}}
     (tmp_path / 'assignments.json').write_text(json.dumps(a), encoding='utf-8')
+    (tmp_path / 'snapshot.json').write_text(json.dumps({'labels': {'sha256': 'abc'}}),
+                                            encoding='utf-8')
     rows, summary = ci.main(['score-assignments', '--assignments',
-                             str(tmp_path / 'assignments.json'), '--out', str(tmp_path)])
+                             str(tmp_path / 'assignments.json'), '--out', str(tmp_path),
+                             '--snapshot', str(tmp_path / 'snapshot.json')])
     assert (tmp_path / 'assignments_score' / 'rows.csv').exists()
     s = json.loads((tmp_path / 'assignments_score' / 'summary.json').read_text())
     assert s['reads']['fusion/primary/unit']['recall_vs_rater'] == [1, 1]
     assert s['reads']['fusion/primary/corner']['absence_precision'] == [3, 3]
-    bad = dict(a, schema='nope')
-    (tmp_path / 'bad.json').write_text(json.dumps(bad), encoding='utf-8')
-    with pytest.raises(SystemExit):
-        ci.main(['score-assignments', '--assignments', str(tmp_path / 'bad.json'),
-                 '--out', str(tmp_path)])
+    # the uncovered point 40 m out counts for the unit, and is counted (not lost) at corners
+    assert s['outside_window_at_corner_level'] == {'ramps': 0, 'uncovered': 1}
+    for bad in (dict(a, schema='nope'), dict(a, rubric_version=2),
+                dict(a, snapshot_sha256='other')):
+        (tmp_path / 'bad.json').write_text(json.dumps(bad), encoding='utf-8')
+        with pytest.raises(SystemExit):
+            ci.main(['score-assignments', '--assignments', str(tmp_path / 'bad.json'),
+                     '--out', str(tmp_path), '--snapshot', str(tmp_path / 'snapshot.json')])
 
 
 def test_census_summary_counts_history_and_run_dates():
@@ -309,3 +318,51 @@ def test_census_summary_counts_history_and_run_dates():
     assert u['earliest'] == 2014 and u['span_years'] == 10
     assert s['n_hist_distinct'] == 2 and s['status'] == {'ok': 1, 'not_found': 1}
     assert s['units_with_panos_none_served'] == 0
+
+
+def tagged(ways, nodes, centre):
+    adj, pos = ci.street_graph(ways)
+    pos = {k: FR.to_enu(*v) for k, v in pos.items()}
+    return ci.leg_bearings(nodes, centre, adj, pos, edge_tags=ci.street_edge_tags(ways))
+
+
+def test_divided_arterial_cross_has_four_corners_not_six():
+    # an east-west divided road (two oneway carriageways 14 m apart, same name) crossing a
+    # north-south street: unit nodes A (0, 7) and B (0, -7), merged; centre (0, 0)
+    def w(wid, hw, pts, ids, **tags):
+        d = way(wid, hw, pts, ids)
+        d['tags'].update(tags)
+        return d
+    ways = [w(1, 'secondary', [(-100, 7), (0, 7), (100, 7)], [11, 1, 12], name='Main',
+              oneway='yes'),
+            w(2, 'secondary', [(100, -7), (0, -7), (-100, -7)], [13, 2, 14], name='Main',
+              oneway='yes'),
+            w(3, 'residential', [(0, 100), (0, 7), (0, -7), (0, -100)], [15, 1, 2, 16],
+              name='Cross')]
+    walks = tagged(ways, [1, 2], (0.0, 0.0))
+    assert len(walks) == 6
+    # the original rule keeps the carriageways apart (about 41 deg at the 20 m probe)
+    assert len(ci.merge_bearings([x['bearing'] for x in walks])) == 6
+    legs = ci.merge_legs(walks)
+    assert [round(b) for b in legs] == [0, 90, 180, 270]
+    assert len(ci.corner_sectors(legs)) == 4
+
+
+def test_slip_lane_joins_its_parent_leg():
+    walks = [{'bearing': b, 'highway': hw, 'name': '', 'ref': '', 'oneway': hw.endswith('_link')}
+             for b, hw in ((0, 'primary'), (50, 'primary_link'), (90, 'primary'),
+                           (180, 'primary'), (270, 'primary'))]
+    assert len(ci.merge_legs(walks)) == 4
+
+
+def test_internal_path_through_shape_node_is_not_a_leg():
+    # unit nodes 2 (-6, 0) and 3 (6, 0) joined by a way through shape node 9 (0, 4);
+    # real legs: SW, N from node 2; NE, S from node 3
+    ways = [way(1, 'residential', [(-60, -80), (-6, 0)], [1, 2]),
+            way(2, 'residential', [(-6, 0), (0, 4), (6, 0)], [2, 9, 3]),
+            way(3, 'residential', [(6, 0), (66, 80)], [3, 4]),
+            way(4, 'residential', [(-6, 0), (-6, 100)], [2, 5]),
+            way(5, 'residential', [(6, 0), (6, -100)], [3, 6])]
+    walks = tagged(ways, [2, 3], (0.0, 0.0))
+    assert len(walks) == 4
+    assert len(ci.merge_legs(walks)) == 4
