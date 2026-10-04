@@ -385,49 +385,89 @@ The `fusion` arm runs on the labeler's `results.jsonl`, which the server does no
 holds**, the partition the server would compute if its clustering were fusion. It is an
 evaluation arm only and changes no SidewalkWebpage code.
 
-- **Labels:** every live CurbRamp label, AI and human, at its stored pixel. All of them are
-  operational: they are live.
+- **Labels:** every live CurbRamp label, AI and human, at its stored pixel; never a run
+  detection the server has no label for. All of them are operational: they are live. A label
+  is AI when its account is the one that submitted the run. An AI-account label that maps to
+  no stored detection in `results.jsonl` (a band submitted from `results.band.jsonl`, a
+  re-inferred campaign) makes the run refuse rather than enter as human. Two live labels on
+  one stored detection (a re-submitted campaign) are two detections; only the first carries
+  the run's index, so it is scored once, and the report checks that every label id is in
+  exactly one cluster.
 - **Confidence:** AI labels take their detection's confidence, which the server stores in
   `label_ai_info`. Human labels get 1.0, so they seed sites first.
-- **Camera:** heading from the label row. The position is `pano_data`'s: the run's pano
-  block for a pano the labeler submitted, else inverted from that pano's labels. The server
-  placed each label with a flat raycast at 2.341 m, so the camera is the label minus that
-  offset. Only labels within 15 m are used, and the median is taken.
-- **Frame:** the scoring frame, like every other labeler arm (height fields are copied from
-  the run's pano when there is one).
+- **Camera:** heading from the label row. The position is **inverted from the pano's own
+  labels**. The server placed each label with a flat raycast at 2.341 m, so the camera is
+  the label minus that offset. Only labels within 15 m are used, and the median is taken.
+  Inversion is used rather than the run's pano block, because the block stops being
+  `pano_data`'s once a pano is repositioned: Richmond's 72 posfix3seq panos are live at raw
+  GPS (since 2026-09-24) while `results.jsonl` holds SfM, a median 4.3 m apart. Inversion
+  is also used rather than `position_check.live_positions`, which describes the server
+  *today*: on the 2026-09-21 pull, the 27 posfix3seq panos that can be inverted sit a median
+  0.01 m from SfM and 4.8 m from raw, so today's records would put them in the wrong
+  frame for that pull. Inversion reads the same pull as the labels, so it cannot disagree
+  with them. A pano with no label within 15 m falls back to the run's block, and one with
+  neither is left out, but its labels still become singleton clusters. The report counts
+  each case, and it warns when an inverted position sits more than 1 m from the run's
+  block.
+- **Frame:** the scoring frame, like every other labeler arm. Height fields, peak decode and
+  border rule are copied from the run's pano when there is one, so fuse's mixed-decode guard
+  (#111) sees the run's real values. A pano only humans labeled takes the run's single
+  decode.
 
 Richmond (Mapillary; 2026-09-21 pull), 2.6 m frame, 5 m match radius:
 
 | arm | clusters | coverage | frag 5 m (extra) | dual both/one/neither |
 |---|---:|---|---|---|
-| deployed | 2156 | 0.917 | 0.47 (132) | 23/4/3 |
-| fusion | 1570 | 0.909 | 0.16 (38) | 24/3/3 |
-| fusion_server | 3025 | 0.913 | 0.17 (44) | 24/3/3 |
+| deployed | 2156 | 0.917 (232) | 0.47 (132) | 23/4/3 |
+| fusion | 1570 | 0.909 (230) | 0.16 (38) | 24/3/3 |
+| fusion_server | 3030 | 0.909 (230) | 0.17 (44) | 24/3/3 |
 
-- **Server-only data loses nothing.** 1,521 of `fusion_server`'s 1,587 clusters with AI
-  members are, member for member, clusters of `fusion`. Fragmentation stays at fusion's level
-  (0.17 vs 0.16, against the deployed 0.47), coverage and dual-ramp separation are unchanged,
-  and precision equals the deployed 0.964. Inverting camera positions is accurate: over the
-  3,024 panos where both are known, the inverted position is a median 0.01 m and a p90
-  0.20 m from the run's.
+- **Server-only data matches fusion on every scored metric to within one ramp:** coverage
+  230 vs 230 of 253, frag 5 m 0.17 vs 0.16 (44 vs 38 extra fragments, against the deployed
+  0.47 / 132), the same dual-ramp split, and precision equal to the deployed 0.964. The
+  partitions are close but not identical: 1,485 of `fusion_server`'s 1,589 clusters with AI
+  members are, member for member, clusters of `fusion`. Of the 3,721 labeled panos, 3,057
+  are positioned by inversion and 661 from the run's block. 3 have neither: they are
+  human-only panos whose 3 labels are singletons. Inversion is accurate. Over the 3,024 panos
+  where both positions are known (mostly AI labels), the inverted position is a median
+  0.010 m and a p90 0.20 m from the run's. From human labels alone, over the 12 run panos
+  that have them, it is a median 0.007 m, a p90 0.07 m and a max 0.54 m.
 - **The open design question is the labels fusion cannot place.** 1,434 of 9,639 labels (15%)
-  lie beyond the 25 m raycast cap or at the horizon; no site holds them, so the arm makes
-  each one a singleton cluster, which is where 3,025 clusters against 1,587 placed ones comes
-  from. They are unscored (no raycast position), so the scores above are unaffected. A server
-  still has to put them somewhere. Candidates: attach by bearing to a site their ray passes
-  near, fall back to the PS distance rule on the server's own lat/lng, or leave them
-  unclustered. That choice needs its own measurement, which the scorer cannot give today
+  lie beyond the 25 m raycast cap or at the horizon. No site holds them, so the arm makes
+  each one a singleton cluster. That is why there are 3,030 clusters: 1,593 sites (1,589
+  with AI members), plus 1,434 singletons, plus the 3 unpositioned labels. Every one of the
+  9,639 labels is in exactly one cluster. The singletons are unscored (no raycast
+  position), so the scores above do not depend on them. A server still has to put them
+  somewhere. The candidates are: attach each to a site its ray passes near (by bearing),
+  fall back to the PS distance rule on the server's own lat/lng, or leave them
+  unclustered. That choice needs its own measurement, which the scorer cannot give today,
   because it places clusters by raycast.
+
+The numbers above were updated on 2026-10-04, after the PR #105 review. Two changes moved
+them, both to the `fusion_server` row only:
+
+- Cameras are now inverted from the labels. Before, they came from the run's block.
+- The 3 labels on unpositioned panos are now singletons. Before, they were dropped.
+
+| | clusters | placed | labels | coverage | small-cluster pool |
+|---|---:|---:|---:|---|---|
+| before | 3,025 | 1,587 | 9,636 | 231 | 21/25 |
+| after | 3,030 | 1,589 | 9,639 | 230 | 20/24 |
+
+The member-for-member match with `fusion` went from 1,521 to 1,485.
 
 **Is a small cluster a false positive?** The report's "Precision by cluster size" section
 answers this per partition, against RampNet verdicts (Richmond, 2.6 m):
 
 - **Unplaceable labels are not false positives:** 27/27 judged true (Wilson 95% CI
-  0.88-1.00). They sit just below the horizon (median y 0.523): real ramps too far for the
-  flat raycast. So the fix for them is association (e.g. by bearing), not rejection.
-- **Placed clusters of 1-2 labels are weaker:** under `fusion_server`, 11/13 and 10/12
-  (pooled 21/25 = 0.84, CI 0.65-0.94), against 189/194 = 0.974 for 3+ (Fisher p = 0.011);
-  `deployed` shows the same shape. With 25 judged labels this is a thin sample. Read it as
+  0.88-1.00). They sit just below the horizon: the median y is 0.523 (the report's
+  `median y` column). These are real ramps, too far for the flat raycast. So the fix for
+  them is association (e.g. by bearing), not rejection.
+- **Placed clusters of 1-2 labels are weaker:** under `fusion_server`, 11/13 and 9/11
+  (pooled 20/24 = 0.83, CI 0.64-0.93), against 190/195 = 0.974 for 3+ (Fisher p = 0.010).
+  `deployed` shows the same shape: 22/26 vs 188/193, p = 0.013. Its one placeable AI label
+  that no server cluster holds is bucketed `unclustered`, not as a cluster of 1. With 24
+  judged labels this is a thin sample. Read it as
   validation priority, not a filter: most small clusters are still real ramps, and under
   the recall-first policy a false positive costs one validation while a dropped ramp is
   never seen again. Vancouver's run will add a GSV city with far more labels.
