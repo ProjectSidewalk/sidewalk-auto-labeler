@@ -47,6 +47,27 @@ def test_instrument_check_matches_operational_sets_within_one_cell():
     assert fia.reproduces([_d(0.9995, 0.6, 0.8)], [_d(0.0, 0.6, 0.8)])      # seam
 
 
+def test_whole_run_ids_and_order_independent_digest(tmp_path):
+    import json
+    res = tmp_path / 'results.jsonl'
+    res.write_text(''.join(json.dumps({'pano': {'panorama_id': p}, 'detections': []}) + '\n'
+                           for p in ('b', 'a', 'c')), encoding='utf-8')
+    assert fia.all_ids(res) == ['b', 'a', 'c']
+    one, two = tmp_path / 'one.jsonl', tmp_path / 'two.jsonl'
+    rows = [json.dumps({'pano': {'panorama_id': p}, 'detections': []}) + '\n' for p in 'abc']
+    one.write_text(''.join(rows), encoding='utf-8')
+    two.write_text(''.join(reversed(rows)), encoding='utf-8')
+    assert fia.canonical_sha256(one) == fia.canonical_sha256(two)
+
+
+def test_same_peaks_compares_full_sets():
+    a = [(0.5, 0.6, 0.3), (0.2, 0.55, 0.12)]
+    assert fia.same_peaks(a, [(0.2, 0.55, 0.1205), (0.5 + 1 / 1024, 0.6, 0.3)])
+    assert not fia.same_peaks(a, [(0.5, 0.6, 0.3)])                      # count
+    assert not fia.same_peaks(a, [(0.5, 0.6, 0.3), (0.2, 0.55, 0.15)])   # conf
+    assert not fia.same_peaks(a, [(0.5, 0.6, 0.3), (0.2 + 2 / 1024, 0.55, 0.12)])
+
+
 # ---- review of sidewalk-auto-labeler#112 (2026-09-29): three planted faults stayed green ----
 
 def test_rule_counts_a_peak_at_exactly_the_benchmark_threshold_as_operational():
