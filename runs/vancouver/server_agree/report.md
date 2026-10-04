@@ -15,13 +15,16 @@ Tool: `scripts/server_agree_check.py`. Every number is relative to this pull.
 
 ## 1. Human validations of the AI's CurbRamp labels
 
-Per label, the majority of human Agree vs Disagree votes; PS's own AI validator is excluded, so this is people judging the model, not a model judging a model. Precision = agreed / (agreed + disagreed).
+Per label, the majority of human Agree vs Disagree votes; PS's own AI validator is excluded, so this is people judging the model, not a model judging a model. Precision = agreed / (agreed + disagreed). **Not a random sample:** labels reach validators through PS's validation queue, so this is the precision of the labels that were shown, and it speaks for the rest only as far as the queue is representative of them.
 
 | AI labels | human-validated | agreed | disagreed | tie / unsure only | precision [95% Wilson] |
 |---:|---:|---:|---:|---:|---:|
 | 64814 | 2911 | 2713 | 81 | 117 | 0.971 [0.964, 0.977] |
 
-- Human votes per AI label: 0 votes 61903, 1 vote 2883, 2 votes 28, 3+ votes 0.
+- Human votes on AI labels: 2939 in all. Per label: 0 votes 61903, 1 vote 2883, 2 votes 28, 3+ votes 0.
 - AI-validator votes on AI labels: 0.
 - Human validators: 19. Top: `549187e0…` 1572, `c9b7327d…` 500, `7ed1205b…` 320, `5ecf68e9…` 152, `81b72179…` 100. **When one account cast most of the votes, this is one rater's precision read, not a crowd's.**
+- **Per cluster** (the label rate counts a ramp seen from k panos k times; a cluster's status is the majority of its AI labels' human statuses). The server leaves labels already marked incorrect out of its clustering: 81 AI labels sit outside every cluster, 81 of them disagreed. So its 18679 clusters as served read high: agreed 2503, disagreed 0, precision 2503/2503 = 1.000 [0.998, 1.000]. **With those labels put back** (7.5 m single linkage to any AI label; 18645 groups): agreed 2487, disagreed 74, neither 16084, precision **2487/2561 = 0.971 [0.964, 0.977]**.
+
+Confidence tier: not split (no `--results` run file given), so the precision above pools every live AI label, whatever tier it was sent at.
 
