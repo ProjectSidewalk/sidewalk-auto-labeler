@@ -1,0 +1,5 @@
+city,split,height,height_resolved,decode,sigma_peak_px,gt_panos_kept,gt_panos_judged,n_pool,world_recall,recovered_other_view,union_lift,tp,fp,world_precision,n_sites,chi2_gate_rejections,residual_rejections,n_operational_sites,n_multi_pano_sites,chi2_dof_median,chi2_dof_mean,loo_views,loo_m_median,loo_m_p90,loo_px_median,loo_px_p90,frag5_sites,frag5_share,gt_frag5_ramps
+laurens_gsv,laurens_gsv,2.6,2.6,argmax,,64,86,108,0.8148,27,0.25,61,6,0.9104,484,65,18,178,170,0.5421,0.6346,281,1.0707,3.3387,5.5445,16.7449,53,0.2978,23
+laurens_gsv,laurens_gsv,2.6,2.6,gaussian,,64,86,107,0.8131,26,0.243,61,6,0.9104,471,64,12,175,171,0.4088,0.5359,282,0.9515,2.7141,5.6196,17.2936,55,0.3143,23
+laurens_gsv,laurens_gsv,auto,gsv-per-rig,argmax,,64,86,109,0.8073,27,0.2477,61,6,0.9104,487,72,17,175,168,0.5359,0.7373,284,1.0745,3.0739,6.3423,16.9757,44,0.2514,22
+laurens_gsv,laurens_gsv,auto,gsv-per-rig,gaussian,,64,86,108,0.7963,25,0.2315,61,6,0.9104,480,71,14,174,168,0.4541,0.6232,293,1.019,2.9234,6.2809,21.6376,48,0.2759,21

@@ -30,7 +30,7 @@ Project Sidewalk's placement estimator.
 | **gainesville** | **yes** | City of Gainesville Public Works, layer 3 `CurbRamp`: `services2.arcgis.com/Zzhtlau4ccHkQgTu/.../PublicWorksInfrastructure_AGO/FeatureServer/3` (item `817b0156f40a4cb8a1ccdb88510d6dce`; mirrored on dataGNV as "ADA Ramps" `3um4-3vb3`, Public Domain) | 7,248 / 3,246 / 3,208 with `LIFECYCLE = 'Active'` |
 | paterson | no | Passaic County ArcGIS (`gis.passaiccountynj.org`, 76 hosted services: parks, facilities, parcels, one pedestrian-bridges layer); NJDOT open-data portal and its ArcGIS Online org (road LRS, `NJ_Sidewalks` polylines, crash data, no ramp layer); NJGIN hub; ArcGIS Online item search "Paterson" (nothing). The city has no GIS portal. | — |
 | sao_paulo | no | GeoSampa WFS (`wfs.geosampa.prefeitura.sp.gov.br`, 483 layers): `calcada` is sidewalk polygons with width and slope per segment, no ramp geometry; `acessibilidade_smped` is 972 establishments holding an accessibility seal, not ramps; no `rampa`/`rebaixamento` layer. | — |
-| vancouver (#56) | yes (fetched, not scored) | City of Vancouver, WA hosted layer "Curb Ramps": `services.arcgis.com/oNvpY90qsPDizwkN/.../COV_TransCurbRamp/FeatureServer/0` (item `3cd0fa9717b34934a9a0f0645fae4839`), which replaces the old `PublicWorks/transSidewalkPUB/MapServer/0` proxy (16,960 points per #56; "Service ... not started" since 2026-09-06). Fetched 2026-09-28. Not scored: the #56 provenance gate stopped the run it would be scored against. | 17,614 / 17,612 / 11,355 with `STATUS = 'Available'` (`NA` = a corner without a ramp) |
+| vancouver (#56) | yes (fetched; scored in [PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118)) | City of Vancouver, WA hosted layer "Curb Ramps": `services.arcgis.com/oNvpY90qsPDizwkN/.../COV_TransCurbRamp/FeatureServer/0` (item `3cd0fa9717b34934a9a0f0645fae4839`), which replaces the old `PublicWorks/transSidewalkPUB/MapServer/0` proxy (16,960 points per #56; "Service ... not started" since 2026-09-06). Fetched 2026-09-28. The #56 provenance gate stopped the rebuilt run; under the scope amended on #56 on 2026-09-29 the layer is scored against the server-label arms in [PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118), not by this oracle. | 17,614 / 17,440 / 11,355 with `STATUS = 'Available'` (`NA` = a corner without a ramp) |
 
 The exact pull (url, query, fetch time, sha256, byte length, counts, field histograms) is
 in each city's tracked `runs/<city>/inventory_oracle/inventory.json`. The geojson itself
@@ -388,5 +388,6 @@ remains the route to an oracle there.
 - [RampNet#101](https://github.com/ProjectSidewalk/RampNet/issues/101): the along/range
   column is a direct, external measurement of its range scale `k` per vintage.
 - #56 / [SidewalkWebpage#4706](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/4706):
-  Vancouver's replacement layer is registered and fetched (2026-09-28); scoring waits on the
-  #56 provenance gate.
+  Vancouver's replacement layer is registered and fetched (2026-09-28). The #56 provenance gate
+  stopped the rebuilt run; under the scope amended on 2026-09-29 the layer is scored against the
+  server-label arms in [PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118).

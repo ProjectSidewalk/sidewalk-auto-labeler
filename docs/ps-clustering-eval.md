@@ -40,6 +40,14 @@ placement, or the merge criterion.
   and no pixel key is ambiguous), so cluster membership can be scored against per-detection
   verdicts. The exact pull is identified by url, timestamp and sha256 at the top of each
   committed report.
+- **The live Richmond reports are pinned to that 2026-09-21 pull** (the cached
+  `raw_labels.geojson` / `clusters.geojson`, passed with `--labels` / `--clusters`). A
+  fresh pull no longer maps to `results.jsonl`: the server now also holds about 3.4k
+  0.30-0.55 band labels submitted from `results.band.jsonl`, and the 72 posfix3seq panos'
+  labels re-inserted at raw GPS. Those band labels belong to the AI account but match no
+  stored detection, so the run refuses (`unmapped_ai > 0`), and the all-label placement gate
+  would FAIL on the repositioned panos. Both are correct behaviour; scoring a current pull
+  needs the band file as `--results` and the repositioned panos accounted for.
 - **Deployed clusters.** `/v3/api/labelClusters?includeRawLabels=true`, same pull: 2,156
   clusters covering 9,634 labels (5 labels unclustered).
 - **Clustering code.** `scripts/label_clustering.py` from SidewalkWebpage `develop` at
@@ -385,49 +393,100 @@ The `fusion` arm runs on the labeler's `results.jsonl`, which the server does no
 holds**, the partition the server would compute if its clustering were fusion. It is an
 evaluation arm only and changes no SidewalkWebpage code.
 
-- **Labels:** every live CurbRamp label, AI and human, at its stored pixel. All of them are
-  operational: they are live.
+- **Labels:** every live CurbRamp label, AI and human, at its stored pixel; never a run
+  detection the server has no label for. All of them are operational: they are live. A label
+  is AI when its account is the one that submitted the run. An AI-account label that maps to
+  no stored detection in `results.jsonl` (a band submitted from `results.band.jsonl`, a
+  re-inferred campaign) makes the run refuse rather than enter as human. Two live labels on
+  one stored detection (a re-submitted campaign) are two detections; only the first carries
+  the run's index, so it is scored once, and the report checks that every label id is in
+  exactly one cluster.
 - **Confidence:** AI labels take their detection's confidence, which the server stores in
   `label_ai_info`. Human labels get 1.0, so they seed sites first.
-- **Camera:** heading from the label row. The position is `pano_data`'s: the run's pano
-  block for a pano the labeler submitted, else inverted from that pano's labels. The server
-  placed each label with a flat raycast at 2.341 m, so the camera is the label minus that
-  offset. Only labels within 15 m are used, and the median is taken.
-- **Frame:** the scoring frame, like every other labeler arm (height fields are copied from
-  the run's pano when there is one).
+- **Camera:** heading from the label row. The position is **inverted from the pano's own
+  labels**. The server placed each label with a flat raycast at 2.341 m, so the camera is
+  the label minus that offset. Only labels within 15 m are used, and the median is taken.
+  Inversion is used rather than the run's pano block, because the block stops being
+  `pano_data`'s once a pano is repositioned: Richmond's 72 posfix3seq panos are live at raw
+  GPS (since 2026-09-24) while `results.jsonl` holds SfM, a median 4.3 m apart. Inversion
+  is also used rather than `position_check.live_positions`, which describes the server
+  *today*: on the 2026-09-21 pull, the 27 posfix3seq panos that can be inverted sit a median
+  0.01 m from SfM and 4.8 m from raw, so today's records would put them in the wrong
+  frame for that pull. Inversion reads the same pull as the labels, so it cannot disagree
+  with them. A pano with no label within 15 m falls back to the run's block, and one with
+  neither is left out, but its labels still become singleton clusters. The report counts
+  each case, and it warns when an inverted position sits more than 1 m from the run's
+  block. Two refinements (2026-10-04, #107 review pass): the AI account's labels are
+  inverted when a pano has any, and the other accounts' only when it has none, because a
+  human label keeps the lat/lng it was inserted at. On Laurens that is a pano position the
+  server no longer holds: human-only inversion sits a median 8.7 m from the live block on
+  70 panos (AI-only: 0.000 m, the placement gate), and mixed into the median it moved 57 of
+  695 panos and cost Laurens' `fusion_server` 5 ramps of coverage (0.769 -> 0.748); with AI
+  first it is back at 0.769 (183/238), and 17 human-only panos still warn. Richmond does not
+  move. **Offline** there is nothing to invert against: the synthesized labels were placed
+  *from* the run's block, so that block is the server's position by construction and is
+  used directly (inverting it back only added its own error, p90 0.24-0.33 m).
+- **Frame:** the scoring frame, like every other labeler arm. Height fields, peak decode and
+  border rule are copied from the run's pano when there is one, so fuse's mixed-decode guard
+  (#111) sees the run's real values. A pano only humans labeled takes the run's single
+  decode.
 
 Richmond (Mapillary; 2026-09-21 pull), 2.6 m frame, 5 m match radius:
 
 | arm | clusters | coverage | frag 5 m (extra) | dual both/one/neither |
 |---|---:|---|---|---|
-| deployed | 2156 | 0.917 | 0.47 (132) | 23/4/3 |
-| fusion | 1570 | 0.909 | 0.16 (38) | 24/3/3 |
-| fusion_server | 3025 | 0.913 | 0.17 (44) | 24/3/3 |
+| deployed | 2156 | 0.917 (232) | 0.47 (132) | 23/4/3 |
+| fusion | 1570 | 0.909 (230) | 0.16 (38) | 24/3/3 |
+| fusion_server | 3030 | 0.909 (230) | 0.17 (44) | 24/3/3 |
 
-- **Server-only data loses nothing.** 1,521 of `fusion_server`'s 1,587 clusters with AI
-  members are, member for member, clusters of `fusion`. Fragmentation stays at fusion's level
-  (0.17 vs 0.16, against the deployed 0.47), coverage and dual-ramp separation are unchanged,
-  and precision equals the deployed 0.964. Inverting camera positions is accurate: over the
-  3,024 panos where both are known, the inverted position is a median 0.01 m and a p90
-  0.20 m from the run's.
+- **Server-only data matches fusion on coverage and the dual split, and is close on
+  fragmentation:** coverage 230 vs 230 of 253, the same dual-ramp split; frag 5 m 0.17 vs 0.16
+  (40 vs 36 ramps fragmented, 44 vs 38 extra fragments), frag 3 m 15 vs 14, both far below the
+  deployed 0.47 / 132. Precision equals *deployed*'s 0.964, not fusion's 0.959, because both
+  score every live label. The
+  partitions are close but not identical: 1,485 of `fusion_server`'s 1,589 clusters with AI
+  members are, member for member, clusters of `fusion`. Of the 3,721 labeled panos, 3,057
+  are positioned by inversion and 661 from the run's block. 3 have neither: they are
+  human-only panos whose 3 labels are singletons. Inversion is accurate. Over the 3,024 panos
+  where both positions are known (mostly AI labels), the inverted position is a median
+  0.010 m and a p90 0.20 m from the run's. From human labels alone, over the 12 run panos
+  that have them, it is a median 0.007 m, a p90 0.07 m and a max 0.54 m.
 - **The open design question is the labels fusion cannot place.** 1,434 of 9,639 labels (15%)
-  lie beyond the 25 m raycast cap or at the horizon; no site holds them, so the arm makes
-  each one a singleton cluster, which is where 3,025 clusters against 1,587 placed ones comes
-  from. They are unscored (no raycast position), so the scores above are unaffected. A server
-  still has to put them somewhere. Candidates: attach by bearing to a site their ray passes
-  near, fall back to the PS distance rule on the server's own lat/lng, or leave them
-  unclustered. That choice needs its own measurement, which the scorer cannot give today
+  lie beyond the 25 m raycast cap or at the horizon. No site holds them, so the arm makes
+  each one a singleton cluster. That is why there are 3,030 clusters: 1,593 sites (1,589
+  with AI members), plus 1,434 singletons, plus the 3 unpositioned labels. Every one of the
+  9,639 labels is in exactly one cluster. The singletons are unscored (no raycast
+  position), so the scores above do not depend on them. A server still has to put them
+  somewhere. The candidates are: attach each to a site its ray passes near (by bearing),
+  fall back to the PS distance rule on the server's own lat/lng, or leave them
+  unclustered. That choice needs its own measurement, which the scorer cannot give today,
   because it places clusters by raycast.
+
+The numbers above were updated on 2026-10-04, after the PR #105 review. Two changes moved
+them, both to the `fusion_server` row only:
+
+- Cameras are now inverted from the labels. Before, they came from the run's block.
+- The 3 labels on unpositioned panos are now singletons. Before, they were dropped.
+
+| | clusters | placed | labels | coverage | small-cluster pool |
+|---|---:|---:|---:|---|---|
+| before | 3,025 | 1,587 | 9,636 | 231 | 21/25 |
+| after | 3,030 | 1,589 | 9,639 | 230 | 20/24 |
+
+The member-for-member match with `fusion` went from 1,521 to 1,485.
 
 **Is a small cluster a false positive?** The report's "Precision by cluster size" section
 answers this per partition, against RampNet verdicts (Richmond, 2.6 m):
 
 - **Unplaceable labels are not false positives:** 27/27 judged true (Wilson 95% CI
-  0.88-1.00). They sit just below the horizon (median y 0.523): real ramps too far for the
-  flat raycast. So the fix for them is association (e.g. by bearing), not rejection.
-- **Placed clusters of 1-2 labels are weaker:** under `fusion_server`, 11/13 and 10/12
-  (pooled 21/25 = 0.84, CI 0.65-0.94), against 189/194 = 0.974 for 3+ (Fisher p = 0.011);
-  `deployed` shows the same shape. With 25 judged labels this is a thin sample. Read it as
+  0.88-1.00). They sit just below the horizon: the median y is 0.523 (the report's
+  `median y` column). These are real ramps, too far for the flat raycast. So the fix for
+  them is association (e.g. by bearing), not rejection.
+- **Placed clusters of 1-2 labels are weaker:** under `fusion_server`, 11/13 and 9/11
+  (pooled 20/24 = 0.83, CI 0.64-0.93), against 190/195 = 0.974 for 3+ (Fisher p = 0.010).
+  `deployed` shows the same shape: 22/26 vs 188/193, p = 0.013. Its one placeable AI label
+  that no server cluster holds is bucketed `unclustered`, not as a cluster of 1. With 24
+  judged labels this is a thin sample. Read it as
   validation priority, not a filter: most small clusters are still real ramps, and under
   the recall-first policy a false positive costs one validation while a dropped ramp is
   never seen again. Vancouver's run will add a GSV city with far more labels.
@@ -480,7 +539,10 @@ with pano-tools' `<id>.depth.npz` beside each JPEG), and
    **`send_to_ps.py` refuses the file**: its >= 0.55 detections are the labels already live,
    and PS is insert-only ([SidewalkWebpage#5382](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/5382)).
    `--allow-store-file` overrides that; nothing in this runbook needs it.
-4. **Provenance gate**: `python scripts/provenance_gate.py vancouver`. The rule below was
+4. **Provenance gate**: `python scripts/provenance_gate.py vancouver --rule pixel-96`. The rule
+   below is `--rule pixel-96`; since [#111](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/111) (2026-09-30) the
+   script's default is `--rule coarse-cell`, which matches within one coarse heatmap cell and is
+   exploratory for Vancouver (`docs/heatmap-grid.md`). The rule below was
    **amended after review ([PR #96](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/96)),
    before any Vancouver number existed**. The first version, PASS iff >= 0.98 of joinable labels
    match within +/-1 px, would have made a STOP from resampling alone likely. The 2025 run
@@ -498,7 +560,8 @@ with pano-tools' `<id>.depth.npz` beside each JPEG), and
      run with seed 56 into `provenance_gate/control_ids.txt` (tracked). Then
      `python scripts/reinfer.py runs/vancouver --ids runs/vancouver/provenance_gate/control_ids.txt --out runs/vancouver/control_zoom3.jsonl`
      re-detects them through the 2025 path, zoom-3 pixels via `panorama.fetch_panorama`. A pano
-     gone from GSV is skipped there. Finally, `python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl`.
+     gone from GSV is skipped there, so the gate refuses a control pano that is not in
+     `control_ids.txt` and reports how many drawn panos the control holds. Finally, `python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl`.
      Z passes iff >= 0.98 of the labels on the control's panos match at +/-1 px. Threshold
      flips between the arms (labels matched under S but not Z, and vice versa) are reported.
    - **Coverage floor.** The gate is UNDETERMINED unless no selected pano is pending (every id
@@ -511,7 +574,8 @@ with pano-tools' `<id>.depth.npz` beside each JPEG), and
      the store.
    - **Verdict.** PASS only if S passes, precision passes, and (when a control is given) Z
      passes. Otherwise STOP, naming the failing arm. UNDETERMINED takes precedence over STOP.
-     On STOP or UNDETERMINED, nothing below runs.
+     On STOP or UNDETERMINED, nothing below runs. (For Vancouver this was amended on
+     2026-09-29, after the STOP and before any score: see "What followed" in Step 2.)
 5. **Depth**: `python scripts/harvest_depth.py runs/vancouver --from-store $STORE --check-store-frame 5`
    draws in a seeded order until five panos have been **checked**. A pano gone from GSV does
    not count, and the draw is capped at 4N + 10 live requests. The result is written into
@@ -573,256 +637,6 @@ spread across the id space.
 
 Heights on those five, for the record: 2.323, 2.199, 1.823 and 2.389 m measured, plus one
 2.5 m stand-in ground.
-
-## Step 2: Vancouver (run 2026-09-28): the gate stopped, then an amended scope was scored
-
-Issue [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56). The runbook above
-was followed through step 4. **The gate returned STOP, so the deployed-partition scoring (step 7)
-was not run and no clustering metric was pre-registered.** Depth, fusion and the benchmark bundle
-do not depend on the gate, so they were run.
-
-**The run.** On makelab2 (A40), `detect_from_store.py` finished on 2026-09-28: 28,830 panos, 0
-failed, 351 cached `jpg_missing`. That covers the 28,881 labeled panos plus 300 seeded unlabeled
-ones, 29,181 selected ids in all. There were 0 metadata 404s and 0 native-size mismatches. The
-run was copied home with sha256 verified on both ends (results.jsonl `7fdf4005…9f28`).
-
-**The gate** (`runs/vancouver/provenance_gate/report.md`, rule unchanged). The labels were pulled
-fresh on 2026-09-28T23:01Z: 64,847 CurbRamp features, 64,814 of them from the AI account on
-28,881 panos, and 64,006 of those joinable.
-
-| check | value | rule | result |
-|---|---:|---|---|
-| Arm S share | 0.8252 (52,819 / 64,006) | >= 0.98 | fail |
-| exact_share (+/-1 px) | 0.7385 | -- | -- |
-| coverage | 1.0000 | >= 0.95 | pass |
-| unclaimed tier detections / joinable | 0.1316 (8,424) | <= 0.02 | fail |
-
-**What the misses are.** This diagnostic is not part of the rule. Of the 11,187 unmatched labels:
-
-- 3,502 are threshold flips: a stored detection sits within tolerance, but below 0.55.
-- 7,679 have no detection within 64 px. **7,339 of these sit exactly 7 heatmap cells from a
-  stored detection** (Chebyshev distance). 6,170 of them are axis-aligned, spread about evenly over
-  the four directions.
-- No miss lies between 2 and 6 cells. Widening the tolerance from 1 to 6 cells adds 4 labels. At
-  8 cells, Arm S would read 0.9301 at >= 0.55 and 0.9967 at any stored confidence.
-- The rate is flat across capture years (0.81-0.84), pano widths and label days, and no global
-  heading shift fits.
-
-Re-running the model on one far-miss pano (`-65GoVmwedYvlbgkb8nAgA`) shows the mechanism. The
-heatmap has an **8-cell plateau** at 0.91 (row 307, columns 236-243). `peak_local_max` keeps one
-pixel of it: column 236 today, and column 243 for the 2025 label. The unclaimed detections are the
-other ends of the same plateaus. So the STOP comes mostly from the model's output, not from the
-store, and a +/-1-cell rule cannot be met by any rebuild that perturbs the input pixels.
-
-A second, rare mode also exists. On about 19 panos, every label is moved by one linear horizontal
-map, for example x2025 = (x - 0.125)/0.875 on `qWxSMzkdRIaDQegUsxsY2w`. On those panos the live
-labels are probably misplaced.
-
-What would unblock scoring is a decision, not a re-run:
-
-- Arm Z (the zoom-3 control) would show whether the 2025 pipeline itself reproduces at +/-1 px.
-- Or a post-hoc amendment could match on a label's plateau.
-
-**Depth** (`runs/vancouver/depth/store.json`, tracked). The frame check found 5 of 5 store
-artifacts identical to the live payloads, with 0 revised. The index covers 18,473 of 28,830 run
-panos:
-
-- 13,572 have a measured height (47.1% of the run). The median is 2.356 m (p25 2.268, p75 2.417).
-- 4,890 have a stand-in ground and 11 are degenerate.
-- 8,952 panos are `unavailable` in pano-tools' ledger, and 1,405 had no artifact yet (the depth
-  phase was still running).
-
-Under `per-pano`, 15,258 panos (52.9%) therefore fall back to 2.6 m.
-
-**Fusion** (`fuse_sites.py`; `sites_meta.json` untracked). Every capture year's depth median is
-above the 2.1 m cut (2.24-2.43 m), so `auto` puts **all 28,830 panos at 2.5 m**. The low 2025-26
-rig is absent: the labels were made in 2025-09, and the 2025 captures here (497 panos) read
-2.362 m.
-
-| capture year | panos | measured | median (m) |
-|---|---:|---:|---:|
-| 2011-2018 (seven years) | 3,036 | 153 | 2.24-2.43 |
-| 2019 | 1,663 | 968 | 2.324 |
-| 2021 | 926 | 506 | 2.370 |
-| 2022 | 3,434 | 1,624 | 2.354 |
-| 2023 | 8,653 | 4,562 | 2.366 |
-| 2024 | 10,621 | 5,482 | 2.349 |
-| 2025 | 497 | 277 | 2.362 |
-
-| frame | sites | operational | multi-pano |
-|---|---:|---:|---:|
-| auto (2.5 m) | 24,080 | 17,650 | 15,769 |
-| 2.6 m | 23,925 | 17,551 | 15,609 |
-| per-pano | 24,612 | 18,094 | 15,896 |
-
-**Benchmark bundle.** It sits on makelab2 at
-`/projects/makeabilitylab/sidewalk-auto-labeler/runs/vancouver/benchmark/`: 125 panos (top 5,
-random 95, empty 25), with native JPEGs copied from the store. The reconcile reads OK, 125/125
-into `index.csv`. The pixels are not committed. The bundle's README notes two caveats: Portland
-(the same metro) was in RampNet's Stage-1 training, and the gate stopped.
-
-**City inventory.** The City's hosted `COV_TransCurbRamp` layer replaces the dead proxy (see
-`docs/placement-oracle.md`). It was fetched on 2026-09-28: 11,355 in-area ramps with
-`STATUS = 'Available'`. It was scored under the amended scope below.
-
-### Scoring under the amended scope (2026-09-29)
-
-Jon decided to score (2026-09-29) under an amended scope, pre-registered as the last comment
-on [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56) before any
-number was computed: the gate's STOP comes from the heatmap grid (#111), which affects only
-the arms built from the rebuilt run's detections, so **the arms built from the server's own
-labels are confirmatory** (`deployed`, `ps @ t` on server positions, `fusion_server`,
-`fusion_server+attach`; metrics (a)-(d) and inventory placement), and **everything built
-from the rebuilt run's detections is exploratory** (`fusion` at auto / 2.6 m / per-pano, the
-offline synthesis at 0.55 and 0.30), never to be quoted as the deployed labels' fusion. The
-gate verdict stands as recorded and was not re-scored. No GT exists, so there is no coverage
-or recall column; Vancouver is confirmatory for Part 1's fragmentation claim only.
-
-**Inputs, pulled once.** Labels: the gate's frozen `provenance_gate/raw_labels.geojson`
-(64,847 CurbRamp features, sha256 `57c31c73…3098d`, 2026-09-28T23:01Z). Deployed clusters:
-`ps_clustering_eval/clusters.geojson` (18,684 clusters over 64,918 memberships, sha256
-`d8a1e706…c1c3`, 2026-09-30T01:39Z). Streets: `ps_clustering_eval/streets.geojson` (12,567
-features, sha256 `0d7ce797…f8b4`, 2026-09-30T01:39Z; copied beside the inventory report so it
-is pulled once). Inventory: `COV_TransCurbRamp`, 11,355 kept (sha256 in `inventory.json`).
-Tier 0.55 (what went live). **No `--mask-rig`**: Vancouver's rig labels were never
-soft-deleted, so the server holds them and the arms score what it holds. Outputs:
-`runs/vancouver/ps_clustering_eval{,_auto,_per-pano,_offline_t0.55,_offline_t0.3}/` and
-`runs/vancouver/inventory_clustering/` (report.md, arms.csv, validation_precision.csv
-tracked; the pulls not). Scorer 106.2 with two additions that move no existing number
-(Richmond re-scored cell for cell from its cached pulls): `--no-gt`, and `--ai-user`.
-
-**One deviation, forced by the data.** The scorer identifies an AI label by a pixel-exact
-match to a stored detection, which is every AI label when the run is the one that was
-submitted. Here 50,252 of the AI account's 64,814 labels match the rebuilt run; 14,562
-(22.5%) do not, for the plateau reason the gate found. `--ai-user` names the account, so all
-64,814 are AI labels in every server-label arm; the 14,562 unmapped ones are never placeable
-by the raycast and enter `fusion_server` at the tier (0.55, the lowest confidence the server
-can hold; the feed does not carry `label_ai_info`). The raycast-frame rows below therefore
-place only the mapped 77.5%, and the server-frame rows place every label.
-
-**(a) Verbatim reproduction: 0.765, not the expected >= 0.98, and the shortfall is the
-server's state, not the harness.** `ps_repro` (SidewalkWebpage `label_clustering.py` at
-`origin/develop` 0062ed0, per region, on the labels the server has clustered) reproduces
-14,300 of 18,684 deployed clusters (15,431 labels in clusters that differ); the vectorized
-partition reproduces the script 17,412 / 17,414. Richmond and Laurens were 1.000 on the same
-check. What differs is the deployed table itself: 276 deployed clusters (1.5%) span more
-than 7.5 m at the labels' CURRENT positions, which complete linkage at 7.5 m cannot
-produce; 19.6% of cluster geometries sit > 1 m from the mean of their current members
-(max 11.1 m); 154 labels sit in two clusters; and 2,896 of the 4,384 disagreeing clusters
-are proper subsets of one `ps_repro` cluster (deployed is the more fragmented). Grouping by
-the cluster's region instead of the label's changes nothing (0.759), and submission-time
-batching separates only 929 of the 2,896 subsets. The server re-clusters a region only when
-its label MEMBERSHIP changes (`ClusteringSessionTable.getRegionsToCluster`), so a label
-position recomputed after the September 2025 clustering never triggers a re-run. That is the
-reading most consistent with all four symptoms; it is not proven here. `ps_repro` is what
-the server would serve after a full re-cluster, and `ps @ 7.5 m` (the vectorized twin) is
-the arm the tables below compare against.
-
-**(b) Fragmentation proxy (GT-free).** Share of an arm's clusters with another cluster of
-the same arm within r, clusters at the mean of their labels' server positions:
-
-| arm | clusters | labels | clusters / 1,000 labels | near 5 m | near 7.5 m | near 12.5 m | placeable-member clusters only, near 5 m |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| deployed | 18,684 | 64,918 | 287.8 | 0.352 | 0.583 | 0.799 | 0.338 |
-| ps_repro | 17,414 | 64,764 | 268.9 | 0.274 | 0.516 | 0.771 | 0.277 |
-| ps @ 5 m | 21,049 | 64,814 | 324.8 | 0.439 | 0.678 | 0.842 | 0.426 |
-| ps @ 7.5 m | 17,451 | 64,814 | 269.2 | 0.274 | 0.515 | 0.769 | 0.276 |
-| ps @ 10 m | 16,034 | 64,814 | 247.4 | 0.260 | 0.445 | 0.723 | 0.260 |
-| ps @ 12.5 m | 15,421 | 64,814 | 237.9 | 0.262 | 0.431 | 0.693 | 0.262 |
-| ps_citywide @ 7.5 m | 17,310 | 64,814 | 267.1 | 0.261 | 0.506 | 0.765 | 0.264 |
-| fusion_server (2.6 m) | 18,373 | 64,806 | 283.5 | 0.419 | 0.579 | 0.783 | 0.282 |
-| fusion_server+attach (2.6 m) | 16,057 | 64,767 | 247.9 | 0.309 | 0.469 | 0.725 | 0.280 |
-| fusion_server (auto) | 18,414 | 64,806 | 284.1 | 0.406 | 0.578 | 0.785 | 0.264 |
-| fusion_server+attach (auto) | 16,101 | 64,767 | 248.6 | 0.292 | 0.466 | 0.728 | 0.263 |
-
-The proxy does not show the Part 1 halving: `fusion_server` reads higher than `ps @ 7.5 m`
-on all clusters (its 2,369 unplaceable labels are singletons at their server position,
-beside the site they could not join) and equal on the post-hoc placeable-member read
-(0.282 against 0.276). A calibration on Richmond, re-scored into scratch from its cached
-pulls, shows the same: placeable-member near 5 m is 0.414 (deployed), 0.409 (`ps @ 7.5 m`)
-and 0.427 (`fusion_server`) where the GT `frag` is 0.47 against 0.17. **The proxy measures
-how many clusters have a neighbour, and most neighbours are other ramps of the same
-corner, so it is not a fragmentation measure**; the inventory split rate below is.
-
-**(c) Validation-based precision, human votes.** The frozen pull holds 2,911 AI labels with
-a human vote: 2,713 true, 81 false, 117 tie/unsure, so the label-level anchor is **0.971**
-[0.96, 0.98] (the pre-registration quoted 2,553 / 2,632 from a 09-28 22:26Z server read;
-the pull is 35 min younger and holds more votes). The feed's `correct` agrees with the human
-majority on every one here (2,713 / 81), because Vancouver's AI validator cast only 10 of
-2,950 votes. **`deployed` holds no false label at all: the server clusters only labels not
-marked incorrect (`labelsForApiQuery`), and all 81 human-false labels are among the 83
-labels in no cluster.** So (c) on `deployed` is 0 by construction, and the informative rows
-are the re-clustered arms, which hold every label:
-
-| arm | cluster of 1: any false | cluster of 2 | cluster of 3+ |
-|---|---|---|---|
-| ps @ 7.5 m | 0.243 (41 / 169) | 0.062 (15 / 243) | 0.011 (25 / 2,253) |
-| fusion_server (2.6 m) | 0.175 (46 / 263) | 0.092 (18 / 195) | 0.009 (19 / 2,192) |
-| fusion_server+attach (2.6 m) | 0.281 (45 / 160) | 0.083 (17 / 194) | 0.008 (21 / 2,275) |
-
-(share of clusters holding a validated label that hold one voted false, count in
-parentheses; `validation_precision.csv` has every arm.) A false label sits in a singleton
-24% of the time and in a 3+ cluster 1% of the time, whichever rule made the cluster: the
-Richmond size-precision pattern, on 6.7x the labels.
-
-**(d) Deployed vs offline partition: 0.733**, on the eligible clusters. `--offline-check`:
-placement of the 64,006 live AI labels the file can re-place is exact (median 0, p90 0) with
-one label at 0.550 m, so the 0.5 m gate reads FAIL on that one label (the scorer exits 1;
-the report is complete). 46,257 of 60,104 synthesized labels match a live AI label by pixel,
-18,557 live AI labels have no twin (the gate's finding again); of the 6,956 deployed
-clusters whose labels are all AI and all synthesized, 5,099 are reproduced label for label
-(0.733; 0.733 with the 31 live human labels added). Richmond read 0.996 and Laurens 0.945,
-but the ceiling here is (a): `ps_repro` itself reproduces only 0.765 of `deployed`.
-
-**Inventory placement (the fragmentation read; `inventory_clustering.py score vancouver`).**
-Visible pool 10,685 of 11,355 ramps within 20 m of one of the run's 28,830 panos; r = 5 m.
-Confirmatory rows, from the server's labels:
-
-| arm | placement | frame | clusters | placed | covered r5 | split r5 | extra / covered | merge r5 |
-|---|---|---|---:|---:|---:|---:|---:|---:|
-| deployed | server | - | 18,684 | 18,684 | 0.903 | 0.196 | 0.219 | 0.020 |
-| ps @ 7.5 m | server | - | 17,451 | 17,451 | 0.902 | 0.138 | 0.145 | 0.019 |
-| ps_citywide @ 7.5 m | server | - | 17,310 | 17,310 | 0.901 | 0.127 | 0.133 | 0.020 |
-| fusion_server | server | auto | 18,414 | 18,414 | 0.900 | 0.199 | 0.238 | 0.040 |
-| fusion_server+attach | server | auto | 16,101 | 16,101 | 0.896 | 0.118 | 0.127 | 0.041 |
-| deployed | raycast | auto | 18,684 | 16,790 | 0.877 | 0.255 | 0.304 | 0.014 |
-| ps @ 7.5 m | raycast | auto | 17,451 | 15,927 | 0.878 | 0.200 | 0.223 | 0.014 |
-| fusion_server | raycast | auto | 18,414 | 14,657 | 0.874 | 0.091 | 0.095 | 0.025 |
-| fusion_server | raycast | 2.6 m | 18,373 | 14,651 | 0.873 | 0.088 | 0.092 | 0.029 |
-| fusion_server | raycast | per-pano | 18,766 | 14,949 | 0.876 | 0.098 | 0.108 | 0.026 |
-
-(`ps @ 7.5 m` raycast: 0.208 at 2.6 m, 0.195 per-pano; `fusion_server+attach` server:
-0.125 at 2.6 m, 0.129 per-pano; `deployed` raycast 0.262 / 0.249.) Coverage is flat
-across arms (0.90 server-placed, 0.87-0.88 raycast-placed), as in Part 1.
-
-**Does Vancouver confirm Part 1's fragmentation claim?** In the Part 2 common frame
-(raycast placement), yes, at about the Part 1 ratio: `fusion_server` splits 0.091 of
-covered ramps against 0.200 for `ps @ 7.5 m` (0.45x; 0.088 / 0.208 at 2.6 m, 0.098 / 0.195
-per-pano) and 0.255 for `deployed`. But that frame places only the members the rebuilt run
-maps, and `fusion_server`'s unplaceable labels drop out of it. In the server frame, which
-places every label, `fusion_server` alone splits MORE than `ps @ 7.5 m` (0.199 against
-0.138: the 2,369 unplaceable singletons), and `fusion_server+attach` brings it to 0.118,
-below `ps @ 7.5 m` by 2 points, not half. Merge rises either way (0.019 to 0.040 server,
-0.014 to 0.025 raycast): the Bend trade-off. So the read is: **the halving holds where the
-labels can be placed; the labels the raycast cannot place are what stands between
-`fusion_server` and that number on a live server, and the bearing rule recovers most, not
-all, of it.** The deployed partition itself is the most fragmented arm (0.196 server /
-0.255 raycast against 0.138 / 0.200 for a fresh `ps @ 7.5 m`), which is the (a) staleness
-seen from the inventory.
-
-**Exploratory (rebuilt-run detections; never the deployed labels' fusion).** Offline
-synthesis at 0.55: 60,094 labels, `ps @ 7.5 m` 16,200 clusters against `fusion` 14,820
-(2.6 m); at 0.30: 73,478 labels, 20,205 against 17,551. Inventory split at r = 5 m, auto
-frame: 0.55 `ps @ 7.5 m` 0.174 vs `fusion` 0.077 (0.44x), 0.30 0.274 vs 0.126 (0.46x);
-2.6 m 0.182 / 0.074 and 0.286 / 0.119; per-pano 0.169 / 0.088 and 0.268 / 0.136. Merge
-0.021 to 0.033 (0.55, auto). Coverage flat (0.895-0.897 at 0.55, 0.926-0.928 at 0.30). This
-is Part 1's pattern, on the run's own detections, where every cluster is placeable; it
-says what fusion would do on a fresh Vancouver run, not what it would do on the deployed
-labels. `fusion` alone: auto 14,869 clusters (256 per 1,000 labels), 2.6 m 14,824, per-pano
-15,196.
-
-**Pooled driver.** `clustering_eval_pooled.py` is unchanged: it pools GT-based columns
-(coverage, frag, precision), none of which exist for Vancouver.
 
 ## Beyond Richmond (issue #106, Part 1)
 
@@ -1079,3 +893,286 @@ Caveats (from the issue). `missed` = 1 - covered is an upper bound, since occlus
 construction since capture are in it. Bend was a RampNet training city. Gainesville was read
 only: no submission, no re-detection. Vancouver's inventory is down, so two cities is all
 there is.
+
+## Step 2: Vancouver (run 2026-09-28): the gate stopped, then an amended scope was scored
+
+Issue [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56). The runbook above
+was followed through step 4. **The gate returned STOP, and Arm Z, run after it, failed too.** Depth,
+fusion and the benchmark bundle do not depend on the gate, so they were run. On 2026-09-29 the
+scope was amended on #56, before any score was computed (see "What followed" below): the scoring
+of the server-label arms is in [PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118), not here.
+
+**The run.** On makelab2 (A40), `detect_from_store.py` finished on 2026-09-28: 28,830 panos, 0
+failed, 351 cached `jpg_missing`. That covers the 28,881 labeled panos plus 300 seeded unlabeled
+ones, 29,181 selected ids in all. There were 0 metadata 404s and 0 native-size mismatches. The
+run was copied home with sha256 verified on both ends (results.jsonl `7fdf4005…9f28`).
+
+**The gate** (`runs/vancouver/provenance_gate/report.md`, rule unchanged, `--rule pixel-96`). The
+labels were pulled fresh on 2026-09-28T23:01Z: 64,847 CurbRamp features, 64,814 of them from the
+AI account on 28,881 panos, and 64,006 of those joinable.
+
+| check | value | rule | result |
+|---|---:|---|---|
+| Arm S share | 0.8252 (52,819 / 64,006) | >= 0.98 | fail |
+| exact_share (+/-1 px) | 0.7385 | -- | -- |
+| Arm Z share (zoom-3 control, +/-1 px) | 0.9632 (288 / 299), on 141 of the 200 drawn panos | >= 0.98 | fail |
+| coverage | 1.0000 | >= 0.95 | pass |
+| unclaimed tier detections / joinable | 0.1316 (8,424) | <= 0.02 | fail |
+
+To reproduce the report from its untracked inputs (`results.jsonl`, `control_zoom3.jsonl`,
+`provenance_gate/raw_labels.geojson`; each sha256 is in the report):
+
+```bash
+python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl --rule pixel-96
+```
+
+Without `--rule pixel-96`, the script's default since #111 (`coarse-cell`) writes a different,
+exploratory reading into the same path: S 0.9301, Z 0.9866 (pass), P 0.0288, still STOP
+(`docs/heatmap-grid.md`).
+
+**Arm Z** (run 2026-09-28, after the gate, rule unchanged). 200 labeled panos drawn with seed 56
+(`provenance_gate/control_ids.txt`) were re-detected through the 2025 path, zoom-3 GSV pixels via
+`reinfer.py --ids`. **141 were written; the other 59 (29.5%) are no longer served by id**, so the
+Z share is over the panos that survived on GSV, a non-random subset (#56 measured survival by
+capture year). 288 of the 299 labels on them match at +/-1 px: 0.9632, below 0.98. On those
+panos 247 labels match under both arms, 7 only under S, 41 only under Z and 4 under neither.
+Plateau end-flips (exactly 7 cells) are 3 of 299 in Z, against 33 of 299 from the store.
+
+**What the misses are.** This diagnostic is not part of the rule. Of the 11,187 unmatched labels:
+
+- 3,502 are threshold flips: a stored detection sits within tolerance, but below 0.55.
+- 7,679 have no detection within 64 px. **7,339 of these sit exactly 7 heatmap cells from a
+  stored detection** (Chebyshev distance). 6,170 of them are axis-aligned: (+7, 0) 1,877,
+  (-7, 0) 1,875, (0, +7) 1,283, (0, -7) 1,135. The two horizontal directions are even; the
+  vertical ones are about a third smaller.
+- Almost no miss lies between 1 and 6 cells: widening the tolerance from 1 to 2 cells adds 3
+  labels, and from 2 to 6 cells 1 more (0.8252 to 0.8253). At 7 cells Arm S would read 0.9285, at
+  8 cells 0.9301 at >= 0.55 and 0.9967 at any stored confidence.
+- The rate is flat across capture years (0.81-0.84), pano widths and label days, and no global
+  heading shift fits.
+
+Re-running the model on one far-miss pano (`-65GoVmwedYvlbgkb8nAgA`) shows the mechanism. The
+heatmap has an **8-cell plateau** at 0.91 (row 307, columns 236-243). `peak_local_max` keeps one
+pixel of it: column 236 today, and column 243 for the 2025 label. The unclaimed detections are the
+other ends of the same plateaus. So the STOP comes mostly from the model's output, not from the
+store, and a +/-1-cell rule cannot be met by any rebuild that perturbs the input pixels.
+
+A second, rare pattern also appeared. On about 19 panos, every label looked moved by one linear
+horizontal map, for example x2025 = (x - 0.125)/0.875 on `qWxSMzkdRIaDQegUsxsY2w`. Re-fetching all
+19 from GSV after Arm Z showed it is **mostly a store-vs-GSV pixel difference**, not misplaced
+labels: 13 are still served, and 12 of those 13 reproduce every label at +/-1 px from fresh zoom-3
+pixels and fail only from the store. One, `qWxSMzkdRIaDQegUsxsY2w`, is displaced against both (0 of
+6 from fresh GSV, whose detections agree with the store run's to within a cell), so for that pano
+the 2025 input differed from both today's GSV and the store. Most of the 19 were fitted with the
+smallest shrink the fit allows, so some may be plateau flips the fit mislabelled.
+
+**What followed (2026-09-29, on #56).** The scope was amended before any score was computed. The
+STOP's cause is the heatmap grid ([#111](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/111)), which touches
+only the arms built from the rebuilt run's detections; the arms built from the server's own labels
+(`deployed`, `ps@t`, `fusion_server`, `fusion_server+attach`) and the inventory never depended on
+the gate. Those are pre-registered on #56 and scored in [PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118),
+with the rebuilt run's own arms reported there as exploratory. The gate verdict above stands as
+recorded and is not re-scored under any other tolerance; the coarse-cell re-read for #111 is
+exploratory (`docs/heatmap-grid.md`).
+
+**Depth** (`runs/vancouver/depth/store.json`, tracked). The frame check found 5 of 5 store
+artifacts identical to the live payloads, with 0 revised. The index covers 18,473 of 28,830 run
+panos:
+
+- 13,572 have a measured height (47.1% of the run). The median is 2.356 m (p25 2.268, p75 2.417).
+- 4,890 have a stand-in ground and 11 are degenerate.
+- 8,952 panos are `unavailable` in pano-tools' ledger, and 1,405 had no artifact yet (the depth
+  phase was still running).
+
+Under `per-pano`, 15,258 panos (52.9%) therefore fall back to 2.6 m.
+
+**Fusion** (`fuse_sites.py`; `sites_meta.json` untracked). Every capture year's depth median is
+above the 2.1 m cut (2.24-2.43 m), so `auto` puts **all 28,830 panos at 2.5 m**. The low 2025-26
+rig is absent: the labels were made in 2025-09, and the 2025 captures here (497 panos) read
+2.362 m.
+
+| capture year | panos | measured | median (m) |
+|---|---:|---:|---:|
+| 2011-2018 (seven years) | 3,036 | 153 | 2.24-2.43 |
+| 2019 | 1,663 | 968 | 2.324 |
+| 2021 | 926 | 506 | 2.370 |
+| 2022 | 3,434 | 1,624 | 2.354 |
+| 2023 | 8,653 | 4,562 | 2.366 |
+| 2024 | 10,621 | 5,482 | 2.349 |
+| 2025 | 497 | 277 | 2.362 |
+
+| frame | sites | operational | multi-pano |
+|---|---:|---:|---:|
+| auto (2.5 m) | 24,080 | 17,650 | 15,769 |
+| 2.6 m | 23,925 | 17,551 | 15,609 |
+| per-pano | 24,612 | 18,094 | 15,896 |
+
+**Benchmark bundle.** It sits on makelab2 at
+`/projects/makeabilitylab/sidewalk-auto-labeler/runs/vancouver/benchmark/`: 125 panos (top 5,
+random 95, empty 25), with native JPEGs copied from the store. The reconcile reads OK, 125/125
+into `index.csv`. The pixels are not committed. The bundle's README notes two caveats: Portland
+(the same metro) was in RampNet's Stage-1 training, and the gate stopped.
+
+**City inventory.** The City's hosted `COV_TransCurbRamp` layer replaces the dead proxy (see
+`docs/placement-oracle.md`). It was fetched on 2026-09-28: 11,355 in-area ramps with
+`STATUS = 'Available'`. It was scored under the amended scope below, in
+[PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118).
+
+### Scoring under the amended scope (2026-09-29)
+
+Jon decided to score (2026-09-29) under an amended scope, pre-registered as the last comment
+on [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56) before any
+number was computed: the gate's STOP comes from the heatmap grid (#111), which affects only
+the arms built from the rebuilt run's detections, so **the arms built from the server's own
+labels are confirmatory** (`deployed`, `ps @ t` on server positions, `fusion_server`,
+`fusion_server+attach`; metrics (a)-(d) and inventory placement), and **everything built
+from the rebuilt run's detections is exploratory** (`fusion` at auto / 2.6 m / per-pano, the
+offline synthesis at 0.55 and 0.30), never to be quoted as the deployed labels' fusion. The
+gate verdict stands as recorded and was not re-scored. No GT exists, so there is no coverage
+or recall column; Vancouver is confirmatory for Part 1's fragmentation claim only.
+
+**Inputs, pulled once.** Labels: the gate's frozen `provenance_gate/raw_labels.geojson`
+(64,847 CurbRamp features, sha256 `57c31c73…3098d`, 2026-09-28T23:01Z). Deployed clusters:
+`ps_clustering_eval/clusters.geojson` (18,684 clusters over 64,918 memberships, sha256
+`d8a1e706…c1c3`, 2026-09-30T01:39Z). Streets: `ps_clustering_eval/streets.geojson` (12,567
+features, sha256 `0d7ce797…f8b4`, 2026-09-30T01:39Z; copied beside the inventory report so it
+is pulled once). Inventory: `COV_TransCurbRamp`, 11,355 kept (sha256 in `inventory.json`).
+Tier 0.55 (what went live). **No `--mask-rig`**: Vancouver's rig labels were never
+soft-deleted, so the server holds them and the arms score what it holds. Outputs:
+`runs/vancouver/ps_clustering_eval{,_auto,_per-pano,_offline_t0.55,_offline_t0.3}/` and
+`runs/vancouver/inventory_clustering/` (report.md, arms.csv, validation_precision.csv
+tracked; the pulls not). Scorer 106.2 with two additions that move no existing number
+(Richmond re-scored cell for cell from its cached pulls): `--no-gt`, and `--ai-user`.
+
+**One deviation, forced by the data.** The scorer identifies an AI label by a pixel-exact
+match to a stored detection, which is every AI label when the run is the one that was
+submitted. Here 50,252 of the AI account's 64,814 labels match the rebuilt run; 14,562
+(22.5%) do not, for the plateau reason the gate found. `--ai-user` names the account, so all
+64,814 are AI labels in every server-label arm; the 14,562 unmapped ones are never placeable
+by the raycast and enter `fusion_server` at the tier (0.55, the lowest confidence the server
+can hold; the feed does not carry `label_ai_info`). The raycast-frame rows below therefore
+place only the mapped 77.5%, and the server-frame rows place every label.
+
+**(a) Verbatim reproduction: 0.765, not the expected >= 0.98, and the shortfall is the
+server's state, not the harness.** `ps_repro` (SidewalkWebpage `label_clustering.py` at
+`origin/develop` 0062ed0, per region, on the labels the server has clustered) reproduces
+14,300 of 18,684 deployed clusters (15,431 labels in clusters that differ); the vectorized
+partition reproduces the script 17,412 / 17,414. Richmond and Laurens were 1.000 on the same
+check. What differs is the deployed table itself: 276 deployed clusters (1.5%) span more
+than 7.5 m at the labels' CURRENT positions, which complete linkage at 7.5 m cannot
+produce; 19.6% of cluster geometries sit > 1 m from the mean of their current members
+(max 11.1 m); 154 labels sit in two clusters; and 2,896 of the 4,384 disagreeing clusters
+are proper subsets of one `ps_repro` cluster (deployed is the more fragmented). Grouping by
+the cluster's region instead of the label's changes nothing (0.759), and submission-time
+batching separates only 929 of the 2,896 subsets. The server re-clusters a region only when
+its label MEMBERSHIP changes (`ClusteringSessionTable.getRegionsToCluster`), so a label
+position recomputed after the September 2025 clustering never triggers a re-run. That is the
+reading most consistent with all four symptoms; it is not proven here. `ps_repro` is what
+the server would serve after a full re-cluster, and `ps @ 7.5 m` (the vectorized twin) is
+the arm the tables below compare against.
+
+**(b) Fragmentation proxy (GT-free).** Share of an arm's clusters with another cluster of
+the same arm within r, clusters at the mean of their labels' server positions:
+
+| arm | clusters | labels | clusters / 1,000 labels | near 5 m | near 7.5 m | near 12.5 m | placeable-member clusters only, near 5 m |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| deployed | 18,684 | 64,918 | 287.8 | 0.352 | 0.583 | 0.799 | 0.338 |
+| ps_repro | 17,414 | 64,764 | 268.9 | 0.274 | 0.516 | 0.771 | 0.277 |
+| ps @ 5 m | 21,049 | 64,814 | 324.8 | 0.439 | 0.678 | 0.842 | 0.426 |
+| ps @ 7.5 m | 17,451 | 64,814 | 269.2 | 0.274 | 0.515 | 0.769 | 0.276 |
+| ps @ 10 m | 16,034 | 64,814 | 247.4 | 0.260 | 0.445 | 0.723 | 0.260 |
+| ps @ 12.5 m | 15,421 | 64,814 | 237.9 | 0.262 | 0.431 | 0.693 | 0.262 |
+| ps_citywide @ 7.5 m | 17,310 | 64,814 | 267.1 | 0.261 | 0.506 | 0.765 | 0.264 |
+| fusion_server (2.6 m) | 18,373 | 64,806 | 283.5 | 0.419 | 0.579 | 0.783 | 0.282 |
+| fusion_server+attach (2.6 m) | 16,057 | 64,767 | 247.9 | 0.309 | 0.469 | 0.725 | 0.280 |
+| fusion_server (auto) | 18,414 | 64,806 | 284.1 | 0.406 | 0.578 | 0.785 | 0.264 |
+| fusion_server+attach (auto) | 16,101 | 64,767 | 248.6 | 0.292 | 0.466 | 0.728 | 0.263 |
+
+The proxy does not show the Part 1 halving: `fusion_server` reads higher than `ps @ 7.5 m`
+on all clusters (its 2,369 unplaceable labels are singletons at their server position,
+beside the site they could not join) and equal on the post-hoc placeable-member read
+(0.282 against 0.276). A calibration on Richmond, re-scored into scratch from its cached
+pulls, shows the same: placeable-member near 5 m is 0.414 (deployed), 0.409 (`ps @ 7.5 m`)
+and 0.427 (`fusion_server`) where the GT `frag` is 0.47 against 0.17. **The proxy measures
+how many clusters have a neighbour, and most neighbours are other ramps of the same
+corner, so it is not a fragmentation measure**; the inventory split rate below is.
+
+**(c) Validation-based precision, human votes.** The frozen pull holds 2,911 AI labels with
+a human vote: 2,713 true, 81 false, 117 tie/unsure, so the label-level anchor is **0.971**
+[0.96, 0.98] (the pre-registration quoted 2,553 / 2,632 from a 09-28 22:26Z server read;
+the pull is 35 min younger and holds more votes). The feed's `correct` agrees with the human
+majority on every one here (2,713 / 81), because Vancouver's AI validator cast only 10 of
+2,950 votes. **`deployed` holds no false label at all: the server clusters only labels not
+marked incorrect (`labelsForApiQuery`), and all 81 human-false labels are among the 83
+labels in no cluster.** So (c) on `deployed` is 0 by construction, and the informative rows
+are the re-clustered arms, which hold every label:
+
+| arm | cluster of 1: any false | cluster of 2 | cluster of 3+ |
+|---|---|---|---|
+| ps @ 7.5 m | 0.243 (41 / 169) | 0.062 (15 / 243) | 0.011 (25 / 2,253) |
+| fusion_server (2.6 m) | 0.175 (46 / 263) | 0.092 (18 / 195) | 0.009 (19 / 2,192) |
+| fusion_server+attach (2.6 m) | 0.281 (45 / 160) | 0.083 (17 / 194) | 0.008 (21 / 2,275) |
+
+(share of clusters holding a validated label that hold one voted false, count in
+parentheses; `validation_precision.csv` has every arm.) A false label sits in a singleton
+24% of the time and in a 3+ cluster 1% of the time, whichever rule made the cluster: the
+Richmond size-precision pattern, on 6.7x the labels.
+
+**(d) Deployed vs offline partition: 0.733**, on the eligible clusters. `--offline-check`:
+placement of the 64,006 live AI labels the file can re-place is exact (median 0, p90 0) with
+one label at 0.550 m, so the 0.5 m gate reads FAIL on that one label (the scorer exits 1;
+the report is complete). 46,257 of 60,104 synthesized labels match a live AI label by pixel,
+18,557 live AI labels have no twin (the gate's finding again); of the 6,956 deployed
+clusters whose labels are all AI and all synthesized, 5,099 are reproduced label for label
+(0.733; 0.733 with the 31 live human labels added). Richmond read 0.996 and Laurens 0.945,
+but the ceiling here is (a): `ps_repro` itself reproduces only 0.765 of `deployed`.
+
+**Inventory placement (the fragmentation read; `inventory_clustering.py score vancouver`).**
+Visible pool 10,685 of 11,355 ramps within 20 m of one of the run's 28,830 panos; r = 5 m.
+Confirmatory rows, from the server's labels:
+
+| arm | placement | frame | clusters | placed | covered r5 | split r5 | extra / covered | merge r5 |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| deployed | server | - | 18,684 | 18,684 | 0.903 | 0.196 | 0.219 | 0.020 |
+| ps @ 7.5 m | server | - | 17,451 | 17,451 | 0.902 | 0.138 | 0.145 | 0.019 |
+| ps_citywide @ 7.5 m | server | - | 17,310 | 17,310 | 0.901 | 0.127 | 0.133 | 0.020 |
+| fusion_server | server | auto | 18,414 | 18,414 | 0.900 | 0.199 | 0.238 | 0.040 |
+| fusion_server+attach | server | auto | 16,101 | 16,101 | 0.896 | 0.118 | 0.127 | 0.041 |
+| deployed | raycast | auto | 18,684 | 16,790 | 0.877 | 0.255 | 0.304 | 0.014 |
+| ps @ 7.5 m | raycast | auto | 17,451 | 15,927 | 0.878 | 0.200 | 0.223 | 0.014 |
+| fusion_server | raycast | auto | 18,414 | 14,657 | 0.874 | 0.091 | 0.095 | 0.025 |
+| fusion_server | raycast | 2.6 m | 18,373 | 14,651 | 0.873 | 0.088 | 0.092 | 0.029 |
+| fusion_server | raycast | per-pano | 18,766 | 14,949 | 0.876 | 0.098 | 0.108 | 0.026 |
+
+(`ps @ 7.5 m` raycast: 0.208 at 2.6 m, 0.195 per-pano; `fusion_server+attach` server:
+0.125 at 2.6 m, 0.129 per-pano; `deployed` raycast 0.262 / 0.249.) Coverage is flat
+across arms (0.90 server-placed, 0.87-0.88 raycast-placed), as in Part 1.
+
+**Does Vancouver confirm Part 1's fragmentation claim?** In the Part 2 common frame
+(raycast placement), yes, at about the Part 1 ratio: `fusion_server` splits 0.091 of
+covered ramps against 0.200 for `ps @ 7.5 m` (0.45x; 0.088 / 0.208 at 2.6 m, 0.098 / 0.195
+per-pano) and 0.255 for `deployed`. But that frame places only the members the rebuilt run
+maps, and `fusion_server`'s unplaceable labels drop out of it. In the server frame, which
+places every label, `fusion_server` alone splits MORE than `ps @ 7.5 m` (0.199 against
+0.138: the 2,369 unplaceable singletons), and `fusion_server+attach` brings it to 0.118,
+below `ps @ 7.5 m` by 2 points, not half. Merge rises either way (0.019 to 0.040 server,
+0.014 to 0.025 raycast): the Bend trade-off. So the read is: **the halving holds where the
+labels can be placed; the labels the raycast cannot place are what stands between
+`fusion_server` and that number on a live server, and the bearing rule recovers most, not
+all, of it.** The deployed partition itself is the most fragmented arm (0.196 server /
+0.255 raycast against 0.138 / 0.200 for a fresh `ps @ 7.5 m`), which is the (a) staleness
+seen from the inventory.
+
+**Exploratory (rebuilt-run detections; never the deployed labels' fusion).** Offline
+synthesis at 0.55: 60,094 labels, `ps @ 7.5 m` 16,200 clusters against `fusion` 14,820
+(2.6 m); at 0.30: 73,478 labels, 20,205 against 17,551. Inventory split at r = 5 m, auto
+frame: 0.55 `ps @ 7.5 m` 0.174 vs `fusion` 0.077 (0.44x), 0.30 0.274 vs 0.126 (0.46x);
+2.6 m 0.182 / 0.074 and 0.286 / 0.119; per-pano 0.169 / 0.088 and 0.268 / 0.136. Merge
+0.021 to 0.033 (0.55, auto). Coverage flat (0.895-0.897 at 0.55, 0.926-0.928 at 0.30). This
+is Part 1's pattern, on the run's own detections, where every cluster is placeable; it
+says what fusion would do on a fresh Vancouver run, not what it would do on the deployed
+labels. `fusion` alone: auto 14,869 clusters (256 per 1,000 labels), 2.6 m 14,824, per-pano
+15,196.
+
+**Pooled driver.** `clustering_eval_pooled.py` is unchanged: it pools GT-based columns
+(coverage, frag, precision), none of which exist for Vancouver.

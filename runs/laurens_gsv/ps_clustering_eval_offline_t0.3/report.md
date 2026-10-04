@@ -1,16 +1,16 @@
 # laurens_gsv: PS label clustering vs RampNet GT (offline)
 
 mode: offline -- 865 labels synthesized from `results.jsonl`, one per stored detection >= 0.3 (0 on the camera rig left out), each placed where the server would place it (ps_placement: the server's estimator at 2.341 m); no server labels or clusters, so `deployed` and `ps_repro` do not exist here
-scorer 106.2; results `results.jsonl` sha256 `83f49aaecac1b37cf05f6687ac350694681832229f33107b42142437f43338e7`
+scorer 106.3; results `results.jsonl` sha256 `83f49aaecac1b37cf05f6687ac350694681832229f33107b42142437f43338e7`
 inputs: streets sha256 `ced8bab31b6335b8c700d6cea5f014bbc851598a66ef5f6f765dff828d493ef4`; verdicts sha256 `0f4608abcd6d380d388d668c4b2e48ebece2b058f8f934ab3b889d12ae9974e3`
 raycast camera height 2.6 m; fusion arm at --min-confidence 0.3
 GT: 86 judged panos -> 195 placeable points -> 190 ramps (5 cross-pano merges), 190 in the recall pool; raycast placed 1541 of 1656 detections (drops {'below_floor': 0, 'on_rig': 0, 'horizon': 0, 'out_of_range': 115})
 
 ## Data provenance
 
-- results file `D:\Git\sidewalk-auto-labeler\runs\laurens_gsv\results.jsonl`: sha256 `83f49aaecac1b37cf05f6687ac350694681832229f33107b42142437f43338e7`
+- results file `runs/laurens_gsv/results.jsonl`: sha256 `83f49aaecac1b37cf05f6687ac350694681832229f33107b42142437f43338e7`
 - 0 ambiguous pixel keys in `results.jsonl` (two stored detections round to one pixel); offline labels map to their detection directly, and the pixel-key map agrees on 865 of 865
-- `ps_streets.geojson`: 169 features, sha256 `ced8bab31b6335b8c700d6cea5f014bbc851598a66ef5f6f765dff828d493ef4`, 2026-09-28T17:22:15+00:00 (0.2 days old at run time), from https://sidewalk-laurens.cs.washington.edu/v3/api/streets?filetype=geojson; 168 open streets kept (the server snaps to open streets only)
+- `ps_streets.geojson`: 169 features, sha256 `ced8bab31b6335b8c700d6cea5f014bbc851598a66ef5f6f765dff828d493ef4`, 2026-09-28T17:22:15+00:00 (6.1 days old at run time), from https://sidewalk-laurens.cs.washington.edu/v3/api/streets?filetype=geojson; 168 open streets kept (the server snaps to open streets only)
 - regions: every synthesized label takes the region of the street nearest its server position, as the server assigns it at insert; 0 labels were equidistant from streets in two regions (lowest street_edge_id taken)
 - PS partitions are blocked (single-linkage components at the widest threshold + 0.5 m): 77 blocks, largest 39 labels
 
@@ -18,8 +18,10 @@ GT: 86 judged panos -> 195 placeable points -> 190 ramps (5 cross-pano merges), 
 
 - fusion arm vs ps_* arms cover the same labels: 825 fusion members vs 825 placeable server labels; 0 of 825 placeable operational detections have no label on the server (should be 0; they are excluded from the scatter below)
 - fusion_refit at 2.6 m vs runs/laurens_gsv/fusion_eval/report.md (published in the 2.6 m frame): precision 0.931, recall (union) 0.942, dual 21/6/0
-- fusion_server input: 865 AI + 0 human labels on 351 panos (351 positioned from the run's pano block, 0 inverted from their labels, 0 unplaceable and left out); 40 labels the raycast cannot place (range cap, horizon) are singleton clusters; 264 of its 264 clusters with AI members are, member for member, a cluster of the `fusion` arm
-- camera-position inversion (for panos only humans labeled) vs the run's position, over 293 panos in both: median 0.01 m, p90 0.20 m
+- fusion_server input: 865 AI (by account; 0 share a detection with another AI label) + 0 human labels on 351 panos (0 positioned by inverting their labels, 351 from the run's pano block (offline: the block the labels were placed from), 0 with neither, whose 0 labels are singleton clusters); 40 labels the raycast cannot place (range cap, horizon) are singleton clusters; 264 of its 264 clusters with AI members are, member for member, a cluster of the `fusion` arm
+- every server label is in exactly one fusion_server cluster: 865 label ids, 865 distinct, of 865 labels
+- inverted camera positions more than 1 m from the run's pano block (a pano live somewhere other than results.jsonl says, e.g. repositioned): 0 of 0 (should be 0 for a pull taken before any reposition)
+- camera-position inversion vs the run's position, over 293 panos in both (all labels, mostly AI): median 0.011 m, p90 0.20 m; from human labels only, over 0 panos: median n/a m, p90 n/a m, max n/a m
 - same-pano pairs inside one cluster (must be 0 under the cannot-link): 0 in every arm
 
 ## Arms (match radius 5 m, GT merge 2.5 m)
@@ -74,22 +76,22 @@ Largest pairwise member distance over 150 fusion sites with >= 3 placeable membe
 
 ## Precision by cluster size
 
-Is a small cluster a false positive? Each AI label is bucketed by the size (labels) of the cluster holding it, or as `unplaceable` when the raycast cannot place it (beyond the range cap, or at/above the horizon); fusion cannot associate those, so they are the singletons of `fusion_server`, and the same bucket is split out of `ps @ 7.5 m` for comparison. Precision is T / (T + F) over labels on judged panos (RampNet verdicts, benchmark tier), with a Wilson 95% interval.
+Is a small cluster a false positive? Each AI label is bucketed by the size (labels) of the cluster holding it, or as `unplaceable` when the raycast cannot place it (beyond the range cap, or at/above the horizon); fusion cannot associate those, so they are the singletons of `fusion_server`, and the same bucket is split out of `ps @ 7.5 m` for comparison. Precision is T / (T + F) over labels on judged panos (RampNet verdicts, benchmark tier), with a Wilson 95% interval. Median y is the stored detection's y_normalized (0.5 = the horizon). `unclustered` (a placeable label no cluster of that partition holds) is shown only when non-empty.
 
-| partition | bucket | AI labels | median conf | judged | precision [95% CI] | T | F | neither |
-|---|---|---:|---:|---:|---|---:|---:|---:|
-| ps @ 7.5 m | unplaceable | 40 | 0.49 | 3 | 1.000 [0.44, 1.00] | 3 | 0 | 0 |
-| ps @ 7.5 m | cluster of 1 | 47 | 0.44 | 10 | 0.600 [0.31, 0.83] | 6 | 4 | 0 |
-| ps @ 7.5 m | cluster of 2 | 114 | 0.51 | 17 | 0.938 [0.72, 0.99] | 15 | 1 | 1 |
-| ps @ 7.5 m | cluster of 3+ | 664 | 0.63 | 91 | 0.967 [0.91, 0.99] | 87 | 3 | 1 |
-| fusion_server | unplaceable | 40 | 0.49 | 3 | 1.000 [0.44, 1.00] | 3 | 0 | 0 |
-| fusion_server | cluster of 1 | 75 | 0.46 | 10 | 0.600 [0.31, 0.83] | 6 | 4 | 0 |
-| fusion_server | cluster of 2 | 78 | 0.46 | 15 | 0.857 [0.60, 0.96] | 12 | 2 | 1 |
-| fusion_server | cluster of 3+ | 672 | 0.63 | 93 | 0.978 [0.92, 0.99] | 90 | 2 | 1 |
-| fusion_server+attach | unplaceable | 40 | 0.49 | 3 | 1.000 [0.44, 1.00] | 3 | 0 | 0 |
-| fusion_server+attach | cluster of 1 | 72 | 0.46 | 10 | 0.600 [0.31, 0.83] | 6 | 4 | 0 |
-| fusion_server+attach | cluster of 2 | 73 | 0.46 | 15 | 0.857 [0.60, 0.96] | 12 | 2 | 1 |
-| fusion_server+attach | cluster of 3+ | 680 | 0.63 | 93 | 0.978 [0.92, 0.99] | 90 | 2 | 1 |
+| partition | bucket | AI labels | median conf | median y | judged | precision [95% CI] | T | F | neither |
+|---|---|---:|---:|---:|---:|---|---:|---:|---:|
+| ps @ 7.5 m | unplaceable | 40 | 0.49 | 0.523 | 3 | 1.000 [0.44, 1.00] | 3 | 0 | 0 |
+| ps @ 7.5 m | cluster of 1 | 47 | 0.44 | 0.553 | 10 | 0.600 [0.31, 0.83] | 6 | 4 | 0 |
+| ps @ 7.5 m | cluster of 2 | 114 | 0.51 | 0.555 | 17 | 0.938 [0.72, 0.99] | 15 | 1 | 1 |
+| ps @ 7.5 m | cluster of 3+ | 664 | 0.63 | 0.570 | 91 | 0.967 [0.91, 0.99] | 87 | 3 | 1 |
+| fusion_server | unplaceable | 40 | 0.49 | 0.523 | 3 | 1.000 [0.44, 1.00] | 3 | 0 | 0 |
+| fusion_server | cluster of 1 | 75 | 0.46 | 0.555 | 10 | 0.600 [0.31, 0.83] | 6 | 4 | 0 |
+| fusion_server | cluster of 2 | 78 | 0.46 | 0.568 | 15 | 0.857 [0.60, 0.96] | 12 | 2 | 1 |
+| fusion_server | cluster of 3+ | 672 | 0.63 | 0.568 | 93 | 0.978 [0.92, 0.99] | 90 | 2 | 1 |
+| fusion_server+attach | unplaceable | 40 | 0.49 | 0.523 | 3 | 1.000 [0.44, 1.00] | 3 | 0 | 0 |
+| fusion_server+attach | cluster of 1 | 72 | 0.46 | 0.555 | 10 | 0.600 [0.31, 0.83] | 6 | 4 | 0 |
+| fusion_server+attach | cluster of 2 | 73 | 0.46 | 0.568 | 15 | 0.857 [0.60, 0.96] | 12 | 2 | 1 |
+| fusion_server+attach | cluster of 3+ | 680 | 0.63 | 0.568 | 93 | 0.978 [0.92, 0.99] | 90 | 2 | 1 |
 
 ## Unplaceable labels: attach by bearing (`fusion_server+attach`)
 

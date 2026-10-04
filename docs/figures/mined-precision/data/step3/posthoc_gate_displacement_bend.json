@@ -1,0 +1,16 @@
+{
+ "what": "POST HOC (RampNet#158 step-3 review): pinned operational detections vs the nearest floor-pass peak (step3_gate_diag.py displacement)",
+ "results_sha256": "1307faa8041acbbf4cba78fd53979e2215511b8371c018f427c356f6b0e26153",
+ "floor_sha256": "f88c73e72dac16138ad142db8d3b50e59bae6c2359f62cf5a069ba7f5224a5e2",
+ "city": "bend",
+ "operational_detections": 265,
+ "same_cell": 208,
+ "same_cell_and_confidence": 0,
+ "within_one_cell": 238,
+ "dconf_median": 0.020251,
+ "dconf_max": 0.29196,
+ "archive_image_sizes": {
+  "13312x6656": 9,
+  "16384x8192": 101
+ }
+}

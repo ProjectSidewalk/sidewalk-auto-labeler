@@ -1,0 +1,5 @@
+city,height,exploratory,arm,unplaceable,unplaceable_vs_off
+laurens_gsv,auto,True,off,40,0
+laurens_gsv,auto,True,partial,40,0
+laurens_gsv,auto,True,partial-shuffled,40,0
+laurens_gsv,auto,True,partial-mirror,40,0

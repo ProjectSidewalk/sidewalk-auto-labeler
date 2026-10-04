@@ -41,6 +41,7 @@ import argparse
 import csv
 import json
 import sys
+from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
@@ -411,10 +412,16 @@ def score_city(city, tiers=TIERS, frames=None, radii=RADII_M):
             fusion_clusters = epc.clusters_from_sites(sites, False)
             arms[FUSION_ARM] = placed_clusters(fusion_clusters, det_pos)
             run_by_id = {p.pano_id: p for p in panos}
-            srv_panos, _st = epc.server_panos(labels, det_of, run_by_id)
+            srv_panos, srv_st = epc.server_panos(
+                labels, det_of, run_by_id, epc.OFFLINE_USER,
+                decode=fs.single_decode(Counter(p.decode for p in panos), results_path.name),
+                border=fs.single_border(Counter(p.border for p in panos), results_path.name),
+                invert=False)
             srv_sites, srv_frame, _s3 = fs.fuse(srv_panos, replace(params, min_confidence=0.0,
                                                                    floor=0.0))
-            att, attached = epc.attach_unplaceable(srv_sites, srv_panos, srv_frame)
+            att, attached = epc.attach_unplaceable(
+                srv_sites, srv_panos, srv_frame, mask_rig=params.mask_rig,
+                unpositioned=srv_st['unplaceable_label_ids'], label_of=srv_st['label_of'])
             arms['fusion_server+attach'] = placed_clusters(epc.place(att, det_pos), det_pos)
             n_labels = {name: sum(len(c.members) for c in cl) for name, cl in ps_clusters.items()}
             n_labels[f'{PS_ARM} (server centroid)'] = n_labels[PS_ARM]
@@ -457,9 +464,9 @@ def score_city(city, tiers=TIERS, frames=None, radii=RADII_M):
               'ramps. Every cluster is placed at the mean of its members\' raycast positions '
               'in the frame named, except the `(server centroid)` row. Rule and read: '
               'docs/ps-clustering-eval.md, "City-inventory scoring".']
-    (out / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    (out / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
     with open(out / 'arms.csv', 'w', newline='', encoding='utf-8') as f:
-        w = csv.DictWriter(f, list(rows[0].keys()))
+        w = csv.DictWriter(f, list(rows[0].keys()), lineterminator='\n')
         w.writeheader()
         w.writerows(rows)
     print('\n'.join(lines))
@@ -491,12 +498,14 @@ def cmd_verdict():
             lines.append(f"| {r['city']} | {float(r['tier']):g} | {r['frame']} | {r['arm']} | "
                          f"{float(r['covered_rate']):.3f} | {float(r['split_rate']):.3f} | "
                          f"{float(r['merge_rate']):.3f} | {r['n_clusters']} |")
-    (POOLED / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    (POOLED / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8',
+                                      newline='\n')
     (POOLED / 'verdict.json').write_text(json.dumps(
         {'verdict': v, 'reasons': reasons, 'rule': {
             'radius_m': PRIMARY_RADIUS_M, 'tier': PRIMARY_TIER, 'frame': PRIMARY_FRAME,
             'split_drop': RULE_SPLIT_DROP, 'merge_rise': RULE_MERGE_RISE,
-            'covered_drop': RULE_COVERED_DROP}}, indent=1) + '\n', encoding='utf-8')
+            'covered_drop': RULE_COVERED_DROP}}, indent=1) + '\n', encoding='utf-8',
+        newline='\n')
     print('\n'.join(lines))
     return v
 
