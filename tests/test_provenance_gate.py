@@ -249,6 +249,31 @@ def test_cli_control_arm_and_draw(tmp_path, capsys):
     report = (out / "report.md").read_text(encoding="utf-8")
     assert "**Verdict: STOP** -- failing: Arm Z (pipeline identity)." in report
     assert "| S only | 1 |" in report and "| both | 1 |" in report
+    assert "2 of the 2 drawn panos are in the control file; 0 absent" in report
+
+
+def test_control_is_checked_against_the_draw(tmp_path):
+    """S4 of the PR #108 review: a control pano outside control_ids.txt refuses, a drawn pano
+    the control lacks is reported as absent, and the report is LF with no absolute path."""
+    run_dir = _run(tmp_path, [("P1", [_det(1000, 4000, 0.9)]), ("P2", [_det(3000, 3000, 0.9)])])
+    labels_path = _labels(tmp_path, [("P1", 1000, 4000, AI), ("P2", 3000, 3000, AI)])
+    out = tmp_path / "gate"
+    base = ["city", "--run-dir", str(run_dir), "--labels", str(labels_path), "--out", str(out)]
+    control = tmp_path / "control.jsonl"
+    control.write_text(json.dumps({"detections": [_det(1000, 4000, 0.9)], "pano": {
+        "panorama_id": "P1", "width": W, "height": H}}) + "\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="does not exist"):
+        pg.main(base + ["--control", str(control)])          # no draw to check against
+    out.mkdir(exist_ok=True)
+    (out / pg.CONTROL_IDS_FILE).write_text("P2\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="1 control pano"):
+        pg.main(base + ["--control", str(control)])          # P1 was never drawn
+    (out / pg.CONTROL_IDS_FILE).write_text("P1\nP2\n", encoding="utf-8")
+    assert pg.main(base + ["--control", str(control)]) == 0
+    raw = (out / "report.md").read_bytes()
+    assert b"\r\n" not in raw and b"\r\n" not in (out / "unmatched.csv").read_bytes()
+    assert b"1 of the 2 drawn panos are in the control file; 1 absent" in raw
+    assert pg.shown_path(pg.REPO_ROOT / "runs" / "x" / "results.jsonl") == "runs/x/results.jsonl"
 
 
 def test_cli_undetermined_while_panos_are_pending(tmp_path):
