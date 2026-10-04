@@ -68,9 +68,9 @@ fusion,cluster of 3+,0,0,0,0,0,0
 fusion_refit,cluster of 1,0,0,0,0,0,0
 fusion_refit,cluster of 2,0,0,0,0,0,0
 fusion_refit,cluster of 3+,0,0,0,0,0,0
-fusion_server,cluster of 1,6053,263,46,46,263,46
-fusion_server,cluster of 2,2265,195,18,18,201,18
-fusion_server,cluster of 3+,10055,2192,19,17,2460,19
-fusion_server+attach,cluster of 1,3622,160,45,45,160,45
-fusion_server+attach,cluster of 2,2265,194,17,17,200,17
-fusion_server+attach,cluster of 3+,10170,2275,21,17,2563,21
+fusion_server,cluster of 1,6115,263,45,45,263,45
+fusion_server,cluster of 2,2259,195,19,19,201,19
+fusion_server,cluster of 3+,10050,2183,17,16,2448,17
+fusion_server+attach,cluster of 1,3677,159,44,44,159,44
+fusion_server+attach,cluster of 2,2270,197,18,18,203,18
+fusion_server+attach,cluster of 3+,10162,2265,19,16,2550,19

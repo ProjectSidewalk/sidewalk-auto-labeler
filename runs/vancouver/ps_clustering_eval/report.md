@@ -1,31 +1,43 @@
 # vancouver: PS label clustering vs RampNet GT
 
 labels: 64847 CurbRamp on the server, 50252 map to stored detections (AI), 14595 do not (14562 of them the AI account's, kept as AI by --ai-user; 33 human); 18684 server clusters over 64918 labels
-scorer 106.2; results `results.jsonl` sha256 `7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28`
+scorer 106.3; results `results.jsonl` sha256 `7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28`
 inputs: streets sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`; verdicts sha256 `none`
 raycast camera height 2.6 m; fusion arm at --min-confidence 0.55
 GT: none (--no-gt), so coverage, recall, frag, dual, coherence and GT precision read n/a below; GT: 0 judged panos -> 0 placeable points -> 0 ramps (0 cross-pano merges), 0 in the recall pool; raycast placed 85514 of 92067 detections (drops {'below_floor': 0, 'on_rig': 0, 'horizon': 13, 'out_of_range': 6540})
 
 ## Data provenance
 
-- `raw_labels.geojson`: 64847 features, sha256 `57c31c73dc75a6139b2694fdc5e7c0823bf0d0504348f1e1f38d3681b713098d`, 2026-09-28T23:01:58+00:00 (1.1 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
-- `clusters.geojson`: 18684 features, sha256 `d8a1e7065e2cf97ff7da0ab50eba7e754b2ac67c4286ecbc8d528f8ff6bec1c3`, 2026-09-30T01:39:55+00:00 (0.0 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
+- `raw_labels.geojson`: 64847 features, sha256 `57c31c73dc75a6139b2694fdc5e7c0823bf0d0504348f1e1f38d3681b713098d`, 2026-09-28T23:01:58+00:00 (5.9 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
+- `clusters.geojson`: 18684 features, sha256 `d8a1e7065e2cf97ff7da0ab50eba7e754b2ac67c4286ecbc8d528f8ff6bec1c3`, 2026-09-30T01:39:55+00:00 (4.8 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
 - labels by account: 51b0b927-3c8a-45b2-93de-bd878d1e5cf4 (AI) 64814, c6030d8f-9163-498b-a102-d147a27b8c44 7, f34410b6-90d2-4176-a590-f371b75ab4c5 6, de9a2eb6-52e3-4854-b488-b970c5c1c567 5, aab0b9c1-bffc-4884-9c76-365762503a95 5, fb9b61d7-c613-454e-82de-63722f6baa2a 5, 71a31933-61d9-4474-b0d0-1d41f7aba0ac 2, 964eb6f2-da36-4a4f-bb95-aa99ff6eae6f 2, 0ff4a61a-8f80-4ef9-a5f5-1c85d8917e0d 1
 - 0 labels dropped before clustering (null lng or lng > 360), matching label_clustering.clean_label_data
 - 0 ambiguous pixel keys in results.jsonl (two stored detections round to one pixel; those keys are left unmapped)
 - 1058 server labels share a pixel with another label and so map to the same stored detection (a re-submitted campaign does this)
-- `streets.geojson`: 12567 features, sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`, 2026-09-30T01:39:49+00:00 (0.0 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/streets?filetype=geojson; 11783 open streets kept (the server snaps to open streets only)
+- `streets.geojson`: 12567 features, sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`, 2026-09-30T01:39:49+00:00 (4.8 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/streets?filetype=geojson; 11783 open streets kept (the server snaps to open streets only)
 - PS partitions are blocked (single-linkage components at the widest threshold + 0.5 m): 6009 blocks, largest 127 labels
 
 ## Validation checks
 
 - ps_repro reproduces deployed: 14300/18684 clusters identical (15431 labels in clusters that differ); script threshold 0.0075 km
 - vectorized PS distance reproduces the script: 17412/17414 clusters identical (7 labels differ)
-- warning: every label that maps to a stored detection belongs to one account (51b0b927-3c8a-45b2-93de-bd878d1e5cf4); 14562 of that account's labels did not map (should be 0)
+
+## Deployed-partition diagnostics (#56 (a))
+
+Printed when ps_repro does not reproduce every deployed cluster. All at the labels' CURRENT positions in the pull (eval_ps_clustering.deployed_diagnostics has the definitions).
+
+- deployed clusters spanning more than 7.5 m (a fresh complete-linkage cut cannot): 276 of 18684 (1.5%)
+- cluster geometries more than 1 m from their members' mean: 3665 of 18684 (19.6%); max 11.1 m
+- labels in more than one deployed cluster: 154
+- deployed clusters ps_repro does not reproduce: 4384; proper subsets of one ps_repro cluster: 2896; of those, created all before or all after the rest of their ps_repro cluster: 929
+- verbatim script with each label in its deployed cluster's region instead of its own: 14175/18684 deployed clusters identical (0.759)
+- every label that maps to a stored detection belongs to one account (51b0b927-3c8a-45b2-93de-bd878d1e5cf4); 14562 of that account's labels did not map (--ai-user: kept as AI, unplaceable, at the tier)
 - warning: fusion arm vs ps_* arms cover the same labels: 57982 fusion members vs 48373 placeable server labels; 13338 of 57982 placeable operational detections have no label on the server (should be 0; they are excluded from the scatter below)
 - fusion_refit at 2.6 m vs runs/vancouver/fusion_eval/report.md (published in the 2.6 m frame): precision n/a, recall (union) n/a, dual 0/0/0
-- fusion_server input: 50252 AI + 33 human labels on 28862 panos (28530 positioned from the run's pano block, 332 inverted from their labels, 32 unplaceable and left out); 2369 labels the raycast cannot place (range cap, horizon) are singleton clusters; 5410 of its 14651 clusters with AI members are, member for member, a cluster of the `fusion` arm
-- camera-position inversion (for panos only humans labeled) vs the run's position, over 24910 panos in both: median 0.01 m, p90 0.20 m
+- fusion_server input: 50252 AI (by account; 1058 share a detection with another AI label) + 14562 unmapped AI (--ai-user, at 0.55) + 33 human labels on 28894 panos (25242 positioned by inverting their labels, 3620 from the run's pano block (no label within 15 m to invert), 32 with neither, whose 41 labels are singleton clusters); 2369 labels the raycast cannot place (range cap, horizon) are singleton clusters; 5247 of its 14341 clusters with AI members are, member for member, a cluster of the `fusion` arm
+- every server label is in exactly one fusion_server cluster: 64847 label ids, 64847 distinct, of 64847 labels
+- inverted camera positions more than 1 m from the run's pano block (a pano live somewhere other than results.jsonl says, e.g. repositioned): 0 of 25242 (should be 0 for a pull taken before any reposition)
+- camera-position inversion vs the run's position, over 24910 panos in both (all labels, mostly AI): median 0.010 m, p90 0.20 m; from human labels only, over 3 panos: median 0.006 m, p90 0.02 m, max 0.02 m
 - same-pano pairs inside one cluster (must be 0 under the cannot-link): 0 in every arm
 
 ## Arms (match radius 5 m, GT merge 2.5 m)
@@ -55,8 +67,8 @@ GT: none (--no-gt), so coverage, recall, frag, dual, coherence and GT precision 
 | ps_raycast @ 15 m | 13286 | 13286 | 48373 | 3.64 | n/a (0/0) | n/a (0/0) | 0 | n/a | 0/0/0 | n/a (0) | n/a (0) | 0/0/0 | n/a / n/a / 0 |
 | fusion | 14824 | 14824 | 57982 | 3.91 | n/a (0/0) | n/a (0/0) | 0 | n/a | 0/0/0 | n/a (0) | n/a (0) | 0/0/0 | n/a / n/a / 0 |
 | fusion_refit | 14824 | 14824 | 57982 | 3.91 | n/a (0/0) | n/a (0/0) | 0 | n/a | 0/0/0 | n/a (0) | n/a (0) | 0/0/0 | n/a / n/a / 0 |
-| fusion_server | 18373 | 14651 | 64806 | 3.53 | n/a (0/0) | n/a (0/0) | 0 | n/a | 0/0/0 | n/a (0) | n/a (0) | 0/0/0 | n/a / n/a / 0 |
-| fusion_server+attach | 16057 | 14651 | 64767 | 4.03 | n/a (0/0) | n/a (0/0) | 0 | n/a | 0/0/0 | n/a (0) | n/a (0) | 0/0/0 | n/a / n/a / 0 |
+| fusion_server | 18424 | 14341 | 64847 | 3.52 | n/a (0/0) | n/a (0/0) | 0 | n/a | 0/0/0 | n/a (0) | n/a (0) | 0/0/0 | n/a / n/a / 0 |
+| fusion_server+attach | 16109 | 14341 | 64847 | 4.03 | n/a (0/0) | n/a (0/0) | 0 | n/a | 0/0/0 | n/a (0) | n/a (0) | 0/0/0 | n/a / n/a / 0 |
 
 **coverage** = pool GT ramps with a cluster of this arm within the match radius, matched one-to-one — the metric RQ2a asks for, and the only recall-shaped one that responds to the partition. **no cluster** = ramps counted as recalled by the union metric although no cluster is within the radius (`eval_sites`' `self_detected_without_site`). **recall (union)** = `eval_sites`' definition, which counts a self-detected ramp as recovered whether or not any cluster landed on it; 0 of this run's 0 pool ramps are self-detected, so most of it is constant across arms and it is kept only to tie back to `fusion_eval/report.md`. **frag** = share of covered GT ramps with at least one extra cluster within r that is not the one-to-one match of any GT ramp (total extras in parentheses). **coherence** = distance from a self-detected GT ramp to the centroid of the cluster holding that label.
 
@@ -115,8 +127,10 @@ Share of an arm's placed clusters with ANOTHER cluster of the same arm within r,
 | ps_raycast @ 15 m | 13286 | 48373 | 274.7 | server | 13286 | 0.233 | 0.369 | 0.627 | 13286 | 0.233 | 0.369 | 0.627 |
 | fusion | 14824 | 57982 | 255.7 | raycast | 14824 | 0.229 | 0.424 | 0.629 | 14824 | 0.229 | 0.424 | 0.629 |
 | fusion_refit | 14824 | 57982 | 255.7 | raycast | 14824 | 0.230 | 0.425 | 0.635 | 14824 | 0.230 | 0.425 | 0.635 |
-| fusion_server | 18373 | 64806 | 283.5 | server | 18373 | 0.419 | 0.579 | 0.783 | 14651 | 0.282 | 0.437 | 0.695 |
-| fusion_server+attach | 16057 | 64767 | 247.9 | server | 16057 | 0.309 | 0.469 | 0.725 | 14651 | 0.280 | 0.438 | 0.704 |
+| fusion_server | 18424 | 64847 | 284.1 | server | 18424 | 0.420 | 0.581 | 0.785 | 14654 | 0.280 | 0.437 | 0.696 |
+| fusion_server+attach | 16109 | 64847 | 248.4 | server | 16109 | 0.310 | 0.472 | 0.728 | 14654 | 0.278 | 0.438 | 0.705 |
+
+Pre-registered reading (#56 metric (b), the confirmatory test of Part 1's fragmentation claim): expected fusion_server near 5 m about half of ps @ 7.5 m; read 0.420 vs 0.274 (ratio 1.53), not the expected halving.
 
 ## Validation-based precision, human votes (#56 metric (c))
 
@@ -124,6 +138,7 @@ A label's verdict is the majority of its HUMAN Agree / Disagree votes (`validati
 
 - labels with a human vote: 2912 (2714 true, 81 false, 117 tie/unsure); AI labels among them: 2911 (2713 true, 81 false) -> label-level precision 0.971 [0.96, 0.98]
 - the feed's own `correct` over the AI labels (reported apart; it includes PS's AI validator where one votes): 2713 true, 81 false, 62020 null
+- labels in no deployed cluster: 83, of them 81 of the 81 voted false (the server clusters only labels not marked incorrect)
 
 | arm | bucket | clusters | with a validated label | any false | all false | validated labels | false labels |
 |---|---|---:|---:|---|---|---:|---:|
@@ -136,41 +151,42 @@ A label's verdict is the majority of its HUMAN Agree / Disagree votes (`validati
 | ps_citywide @ 7.5 m | cluster of 1 | 3563 | 165 | 0.248 (41) | 0.248 (41) | 165 | 41 |
 | ps_citywide @ 7.5 m | cluster of 2 | 2905 | 239 | 0.063 (15) | 0.063 (15) | 246 | 15 |
 | ps_citywide @ 7.5 m | cluster of 3+ | 10842 | 2261 | 0.011 (25) | 0.010 (23) | 2500 | 25 |
-| fusion_server | cluster of 1 | 6053 | 263 | 0.175 (46) | 0.175 (46) | 263 | 46 |
-| fusion_server | cluster of 2 | 2265 | 195 | 0.092 (18) | 0.092 (18) | 201 | 18 |
-| fusion_server | cluster of 3+ | 10055 | 2192 | 0.009 (19) | 0.008 (17) | 2460 | 19 |
-| fusion_server+attach | cluster of 1 | 3622 | 160 | 0.281 (45) | 0.281 (45) | 160 | 45 |
-| fusion_server+attach | cluster of 2 | 2265 | 194 | 0.088 (17) | 0.088 (17) | 200 | 17 |
-| fusion_server+attach | cluster of 3+ | 10170 | 2275 | 0.009 (21) | 0.007 (17) | 2563 | 21 |
+| fusion_server | cluster of 1 | 6115 | 263 | 0.171 (45) | 0.171 (45) | 263 | 45 |
+| fusion_server | cluster of 2 | 2259 | 195 | 0.097 (19) | 0.097 (19) | 201 | 19 |
+| fusion_server | cluster of 3+ | 10050 | 2183 | 0.008 (17) | 0.007 (16) | 2448 | 17 |
+| fusion_server+attach | cluster of 1 | 3677 | 159 | 0.277 (44) | 0.277 (44) | 159 | 44 |
+| fusion_server+attach | cluster of 2 | 2270 | 197 | 0.091 (18) | 0.091 (18) | 203 | 18 |
+| fusion_server+attach | cluster of 3+ | 10162 | 2265 | 0.008 (19) | 0.007 (16) | 2550 | 19 |
 | fusion | cluster of 1 | 0 | 0 | n/a | n/a | 0 | 0 |
 | fusion | cluster of 2 | 0 | 0 | n/a | n/a | 0 | 0 |
 | fusion | cluster of 3+ | 0 | 0 | n/a | n/a | 0 | 0 |
 
 ## Precision by cluster size
 
-Is a small cluster a false positive? Each AI label is bucketed by the size (labels) of the cluster holding it, or as `unplaceable` when the raycast cannot place it (beyond the range cap, or at/above the horizon); fusion cannot associate those, so they are the singletons of `fusion_server`, and the same bucket is split out of `deployed` for comparison. Precision is T / (T + F) over labels on judged panos (RampNet verdicts, benchmark tier), with a Wilson 95% interval.
+Is a small cluster a false positive? Each AI label is bucketed by the size (labels) of the cluster holding it, or as `unplaceable` when the raycast cannot place it (beyond the range cap, or at/above the horizon); fusion cannot associate those, so they are the singletons of `fusion_server`, and the same bucket is split out of `deployed` for comparison. Precision is T / (T + F) over labels on judged panos (RampNet verdicts, benchmark tier), with a Wilson 95% interval. Median y is the stored detection's y_normalized (0.5 = the horizon). `unclustered` (a placeable label no cluster of that partition holds) is shown only when non-empty.
 
-| partition | bucket | AI labels | median conf | judged | precision [95% CI] | T | F | neither |
-|---|---|---:|---:|---:|---|---:|---:|---:|
-| deployed | unplaceable | 1879 | 0.73 | 0 | n/a | 0 | 0 | 0 |
-| deployed | cluster of 1 | 2883 | 0.69 | 0 | n/a | 0 | 0 | 0 |
-| deployed | cluster of 2 | 4817 | 0.79 | 0 | n/a | 0 | 0 | 0 |
-| deployed | cluster of 3+ | 40673 | 0.88 | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | unplaceable | 1879 | 0.73 | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | cluster of 1 | 2593 | 0.71 | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | cluster of 2 | 3348 | 0.79 | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | cluster of 3+ | 42432 | 0.87 | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | unplaceable | 1879 | 0.73 | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | cluster of 1 | 2516 | 0.71 | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | cluster of 2 | 3256 | 0.79 | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | cluster of 3+ | 42601 | 0.87 | 0 | n/a | 0 | 0 | 0 |
+| partition | bucket | AI labels | median conf | median y | judged | precision [95% CI] | T | F | neither |
+|---|---|---:|---:|---:|---:|---|---:|---:|---:|
+| deployed | unplaceable | 1879 | 0.73 | n/a | 0 | n/a | 0 | 0 | 0 |
+| deployed | unclustered | 58 | 0.65 | n/a | 0 | n/a | 0 | 0 | 0 |
+| deployed | cluster of 1 | 2825 | 0.69 | n/a | 0 | n/a | 0 | 0 | 0 |
+| deployed | cluster of 2 | 4817 | 0.79 | n/a | 0 | n/a | 0 | 0 | 0 |
+| deployed | cluster of 3+ | 40673 | 0.88 | n/a | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | unplaceable | 1879 | 0.73 | n/a | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | cluster of 1 | 2595 | 0.71 | n/a | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | cluster of 2 | 3326 | 0.79 | n/a | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | cluster of 3+ | 42452 | 0.87 | n/a | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | unplaceable | 1879 | 0.73 | n/a | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | cluster of 1 | 2517 | 0.70 | n/a | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | cluster of 2 | 3251 | 0.79 | n/a | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | cluster of 3+ | 42605 | 0.87 | n/a | 0 | n/a | 0 | 0 | 0 |
 
 ## Unplaceable labels: attach by bearing (`fusion_server+attach`)
 
 One rule, fixed before any result and not tuned on GT (issue #106): a label the raycast cannot place joins the placed `fusion_server` site nearest along its bearing ray, if one lies 15-60 m ahead and within 3 m of the ray and holds no label from the same pano; it does not move the site. Otherwise it stays a singleton.
 
-- unplaceable labels: 2369; attached 2277 (0.96)
-- clusters: 18373 (`fusion_server`) -> 16057 (`fusion_server+attach`)
+- unplaceable labels: 2369; attached 2315 (0.98)
+- clusters: 18424 (`fusion_server`) -> 16109 (`fusion_server+attach`)
 - sanity (not a metric): 0 unplaceable labels are on judged panos; 0 of them attached (0 judged true), 0 to a site holding a verdict-true member (de-clustered benchmark panos rarely see each other, so most sites hold no judged member at all)
 
 ## Offline server arm vs this server (`--offline-check`)
