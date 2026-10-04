@@ -74,7 +74,7 @@ def test_server_panos_keep_ai_indices_and_seed_human_labels():
     assert stats == {'inverted': 2, 'run_position': 0, 'unplaceable': 0,
                      'unplaceable_labels': 0, 'unplaceable_label_ids': [],
                      'human_labels': 2, 'ai_labels': 2, 'ai_duplicate': 0,
-                     'inverted_far': 0}
+                     'ai_unmapped': 0, 'inverted_far': 0}
 
 
 def test_run_decode_reaches_the_fuse_guard():
@@ -124,6 +124,34 @@ def test_ai_account_label_without_a_detection_refuses():
                            _label(11, 'p', 0.70, 0.58, 30.0)])      # AI, unmapped
     with pytest.raises(ValueError, match='maps to no stored detection'):
         epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai')
+
+
+def test_ai_user_keeps_unmapped_ai_labels_as_ai():
+    # #56 (--ai-user): on a run rebuilt from the pano store a deployed AI label the run
+    # does not reproduce pixel-exactly is still an AI label -- at the tier, in its own
+    # index band, never a human label seeding sites at 1.0, and never refused
+    run = fs.SlimPano('p', LAT0, LNG0, 30.0, None, None, '2025-06', 'gsv',
+                      [(0, 0.40, 0.62, 0.81)])
+    labels = pd.DataFrame([_label(10, 'p', 0.40, 0.62, 30.0),
+                           _label(11, 'p', 0.70, 0.58, 30.0),          # AI, unmapped
+                           _label(14, 'p', 0.40, 0.62, 30.0),          # AI, same pixel as 10
+                           _label(12, 'p', 0.55, 0.60, 30.0, user='human')])
+    det_of = {10: ('p', 0), 14: ('p', 0)}
+    panos, stats = epc.server_panos(labels, det_of, {'p': run}, 'ai',
+                                    unmapped_confidence=0.55)
+    dets = {i: c for i, _x, _y, c in panos[0].detections}
+    assert dets == {0: 0.81, epc.DUPLICATE_DET_BASE: 0.81, epc.AI_UNMAPPED_BASE: 0.55,
+                    epc.HUMAN_DET_BASE: epc.HUMAN_CONFIDENCE}
+    assert (stats['ai_labels'], stats['ai_duplicate'], stats['ai_unmapped'],
+            stats['human_labels']) == (2, 1, 1, 1)
+    # one to one: every label id once, under four distinct keys
+    assert sorted(stats['label_of'].values()) == [10, 11, 12, 14]
+    assert stats['label_of'][('p', epc.AI_UNMAPPED_BASE)] == 11
+    sites, _frame, _stats = fs.fuse(panos, SERVER_PARAMS)
+    clusters, _n = epc.clusters_from_server_sites(sites, panos, (), stats['label_of'])
+    ids = [lab for c in clusters for lab in c.label_ids]
+    assert sorted(ids) == [10, 11, 12, 14]                     # each label exactly once
+    assert sorted(m for c in clusters for m in c.members) == [('p', 0)]   # scored once
 
 
 def test_two_labels_on_one_pixel_are_two_entries():
@@ -189,6 +217,45 @@ def test_wilson_interval():
     assert epc.precision_ci_text(0, 0) == 'n/a'
 
 
+def test_human_votes_and_label_verdicts_ignore_the_ai_validator():
+    assert epc.human_votes([{'validation': 'Agree', 'validator_type': 'Human'},
+                            {'validation': 'Disagree', 'validator_type': 'AI'},
+                            {'validation': 'Unsure', 'validator_type': 'Human'}]) == (1, 0, 1)
+    assert epc.human_votes(None) == (0, 0, 0)
+    labels = pd.DataFrame([{'label_id': 1, 'human_agree': 2, 'human_disagree': 0, 'human_unsure': 0},
+                           {'label_id': 2, 'human_agree': 0, 'human_disagree': 1, 'human_unsure': 0},
+                           {'label_id': 3, 'human_agree': 1, 'human_disagree': 1, 'human_unsure': 0},
+                           {'label_id': 4, 'human_agree': 0, 'human_disagree': 0, 'human_unsure': 0}])
+    assert epc.label_verdicts(labels) == {1: True, 2: False, 3: None}
+
+
+def test_validation_precision_by_cluster_size():
+    clusters = [epc.Cluster(0, [], 2, label_ids=[1, 2]),      # one true, one false
+                epc.Cluster(1, [], 1, label_ids=[3]),         # validated true
+                epc.Cluster(2, [], 1, label_ids=[4]),         # no vote
+                epc.Cluster(3, [], 3, label_ids=[5, 6, 7])]   # all false
+    verdicts = {1: True, 2: False, 3: True, 5: False, 6: False, 7: False}
+    rows = {r['bucket']: r for r in epc.validation_precision(clusters, verdicts)}
+    assert (rows['cluster of 1']['clusters'], rows['cluster of 1']['n'],
+            rows['cluster of 1']['any_false']) == (2, 1, 0)
+    assert (rows['cluster of 2']['n'], rows['cluster of 2']['any_false'],
+            rows['cluster of 2']['all_false'], rows['cluster of 2']['labels_validated'],
+            rows['cluster of 2']['labels_false']) == (1, 1, 0, 2, 1)
+    assert (rows['cluster of 3+']['any_false'], rows['cluster of 3+']['all_false']) == (1, 1)
+
+
+def test_near_cluster_rate_counts_neighbours_within_r():
+    frame = geo.LocalFrame(LAT0, LNG0)
+    # three clusters at 0, 4 and 30 m north of the origin, positioned by their labels
+    server_pos = {k: frame.to_latlng(0.0, n) for k, n in ((1, 0.0), (2, 4.0), (3, 30.0))}
+    clusters = [epc.Cluster(k, [], 1, label_ids=[k]) for k in (1, 2, 3)]
+    r = epc.near_cluster_rate(clusters, server_pos, frame, radii=(5.0, 12.5, 40.0))
+    assert r['frame'] == 'server' and r['n_pos'] == 3
+    assert [round(r['near'][x], 3) for x in (5.0, 12.5, 40.0)] == [0.667, 0.667, 1.0]
+    assert r['per_1000_labels'] == 1000.0
+    # a run-only cluster (no label ids) sits at its raycast position instead
+    ray = [epc.Cluster(9, [], 1, e=0.0, n=100.0)]
+    assert epc.near_cluster_rate(clusters + ray, server_pos, frame)['frame'] == 'mixed'
 def test_ai_labels_set_the_position_when_the_pano_has_any():
     # Two human labels inserted from a stale pano position ~11 m north (Laurens) would
     # out-vote the one AI label in a median; the AI label's inversion wins.
@@ -201,3 +268,16 @@ def test_ai_labels_set_the_position_when_the_pano_has_any():
     panos, stats = epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai')
     assert geo.haversine_m(panos[0].lat, panos[0].lng, LAT0, LNG0) < 0.05
     assert stats['inverted_far'] == 0
+
+
+def test_all_labels_invert_before_the_run_block():
+    # #107 re-review M1: the pano's one AI label is near the horizon (beyond the inversion
+    # range) and a human label is close; the human label sets the position, not the run's
+    # block (which is ~11 m off here).
+    run = fs.SlimPano('p', LAT0 + 0.0001, LNG0, 0.0, None, None, '2025-06', 'gsv',
+                      [(0, 0.5, 0.515, 0.7)])
+    labels = pd.DataFrame([_label(10, 'p', 0.5, 0.515, 0.0),
+                           _label(11, 'p', 0.30, 0.62, 0.0, user='h')])
+    panos, stats = epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai')
+    assert geo.haversine_m(panos[0].lat, panos[0].lng, LAT0, LNG0) < 0.05
+    assert (stats['inverted'], stats['run_position']) == (1, 0)

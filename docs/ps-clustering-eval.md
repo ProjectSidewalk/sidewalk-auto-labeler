@@ -894,7 +894,7 @@ construction since capture are in it. Bend was a RampNet training city. Gainesvi
 only: no submission, no re-detection. Vancouver's inventory is down, so two cities is all
 there is.
 
-## Step 2: Vancouver (run 2026-09-28): the provenance gate returned STOP
+## Step 2: Vancouver (run 2026-09-28): the gate stopped, then an amended scope was scored
 
 Issue [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56). The runbook above
 was followed through step 4. **The gate returned STOP, and Arm Z, run after it, failed too.** Depth,
@@ -1015,5 +1015,263 @@ into `index.csv`. The pixels are not committed. The bundle's README notes two ca
 
 **City inventory.** The City's hosted `COV_TransCurbRamp` layer replaces the dead proxy (see
 `docs/placement-oracle.md`). It was fetched on 2026-09-28: 11,355 in-area ramps with
-`STATUS = 'Available'`. It is not scored in this step: under the amended scope it is scored
-against the server-label arms in [PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118).
+`STATUS = 'Available'`. It was scored under the amended scope below, in
+[PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118).
+
+### Scoring under the amended scope (2026-09-29; corrected 2026-10-04)
+
+Jon decided to score (2026-09-29) under an amended scope, pre-registered as the last comment
+on [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56) before any
+number was computed. The gate's STOP comes from the heatmap grid (#111), which affects only
+the arms built from the rebuilt run's detections. So the arms built from the server's own
+labels (`deployed`, `ps @ t` on server positions, `fusion_server`, `fusion_server+attach`)
+carry metrics (a)-(d), and everything built from the rebuilt run's detections is
+exploratory (`fusion` at auto / 2.6 m / per-pano, the offline synthesis at 0.55 and 0.30).
+Vancouver is confirmatory for Part 1's fragmentation claim only, and the pre-registration
+names the test: metric (b), the near-cluster proxy, with the expected direction
+"`fusion_server` fragmentation at 5 m about half of `ps@7.5`". It also says "(c), (d) and the
+inventory are descriptive here". The gate verdict stands as recorded and was not re-scored.
+No GT exists, so there is no coverage or recall column.
+
+**Pre-registered result: fusion did not halve fragmentation on the pre-registered proxy; it
+read more.** At 5 m, `fusion_server` has another cluster within reach for 0.420 of its
+clusters against 0.274 for `ps @ 7.5 m` (ratio 1.53; 0.408 / 0.274 in the `auto` frame,
+0.426 / 0.274 per-pano). The expected direction was about half. Everything below that
+bears on fragmentation is descriptive or post hoc, and none of it replaces this result.
+
+**This section was corrected on 2026-10-04** after the
+[#118 review](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118#pullrequestreview-5407479509).
+The first version dropped the proxy and answered the fragmentation question from the
+inventory split rate, which the pre-registration called descriptive. That switch is withdrawn
+(see "Deviations" below). The re-run also takes #105's label map, which puts each of the
+1,058 labels that share a pixel with another label in exactly one cluster; the numbers that
+moved are listed in the PR thread.
+
+**Inputs, pulled once.** Labels: the gate's frozen `provenance_gate/raw_labels.geojson`
+(64,847 CurbRamp features, sha256 `57c31c73…3098d`, 2026-09-28T23:01Z). Deployed clusters:
+`ps_clustering_eval/clusters.geojson` (18,684 clusters over 64,918 memberships, sha256
+`d8a1e706…c1c3`, 2026-09-30T01:39Z). Streets: `ps_clustering_eval/streets.geojson` (12,567
+features, sha256 `0d7ce797…f8b4`, 2026-09-30T01:39Z). Every report reads these files by path,
+so every report records the same streets sha256. `inventory_clustering.py` reads the same
+streets file and refuses if it is absent. Inventory: `COV_TransCurbRamp`, 11,355 kept (sha256
+in `inventory.json`). Tier 0.55 (what went live). **No `--mask-rig`**: Vancouver's rig labels
+were never soft-deleted, so the server holds them and the arms score what it holds. Scorer
+106.3.
+
+#### Deviations from the pre-registration
+
+1. **`--ai-user` (forced by the data).** The scorer identifies an AI label by a pixel-exact
+   match to a stored detection. Here 50,252 of the AI account's 64,814 labels match the
+   rebuilt run; 14,562 (22.5%) do not, for the plateau reason the gate found. `--ai-user`
+   names the account, so all 64,814 are AI labels in every server-label arm. The 14,562
+   unmapped ones are never placeable by the raycast and enter `fusion_server` at the tier
+   (0.55, the lowest confidence the server can hold; the feed does not carry
+   `label_ai_info`). Without the flag the scorer refuses such labels.
+2. **The label-level anchor** is 2,911 human-voted AI labels in the frozen pull, not the
+   2,632 quoted in the pre-registration from an earlier server read.
+3. **The fragmentation read was switched, then withdrawn.** After (b) came out against
+   Part 1, the first version of this section called the proxy uninformative (from a post-hoc
+   Richmond calibration) and answered the fragmentation question from the inventory split
+   rate. That was a post-hoc change of the confirmatory metric. It is withdrawn: (b) is the
+   result, and the inventory is reported below as descriptive, in both placement frames.
+4. **Post hoc, labelled so:** the placeable-member column of the (b) table, the Richmond
+   calibration of the proxy, the deployed-partition diagnostics under (a), and the
+   matched-label-set inventory table. None of them is a confirmatory test.
+
+#### (a) Verbatim reproduction: 0.765, not the expected >= 0.98
+
+`ps_repro` (SidewalkWebpage `label_clustering.py` at `origin/develop` 0062ed0, per region, on
+the labels the server has clustered) reproduces 14,300 of 18,684 deployed clusters (15,431
+labels in clusters that differ). The vectorized partition reproduces the script 17,412 /
+17,414. Richmond and Laurens were 1.000 on the same check. What differs is the deployed
+table itself (the `Deployed-partition diagnostics` section of
+`runs/vancouver/ps_clustering_eval/report.md`, at the labels' current positions):
+
+- 276 deployed clusters (1.5%) span more than 7.5 m, which complete linkage at 7.5 m cannot
+  produce;
+- 3,665 cluster geometries (19.6%) sit more than 1 m from the mean of their current members
+  (max 11.1 m);
+- 154 labels sit in two clusters;
+- 2,896 of the 4,384 clusters `ps_repro` does not reproduce are proper subsets of one
+  `ps_repro` cluster (deployed is the more fragmented one there), and 929 of those 2,896
+  were created all before or all after the rest of their fresh cluster;
+- running the script with each label in its deployed cluster's region instead of its own
+  reproduces 14,175 / 18,684 (0.759), so regions do not explain it.
+
+The server re-clusters a region only when its label MEMBERSHIP changes
+(`ClusteringSessionTable.getRegionsToCluster`), so a label position recomputed after the
+September 2025 clustering never triggers a re-run. That is the reading most consistent with
+these symptoms; it is not proven here. `ps @ 7.5 m` (the vectorized twin of `ps_repro`) is
+what the tables below compare against.
+
+#### (b) Fragmentation proxy (the confirmatory test)
+
+Share of an arm's clusters with another cluster of the same arm within r, clusters at the
+mean of their labels' server positions. 2.6 m frame for the fusion arms, from
+`runs/vancouver/ps_clustering_eval/arms.csv` (`near5`, `near7_5`, `near12_5`,
+`per_1000_labels`, `nearp5`); the `auto` and `per-pano` reports have the same table.
+
+| arm | clusters | labels | clusters / 1,000 labels | near 5 m | near 7.5 m | near 12.5 m | placeable-member clusters, near 5 m (post hoc) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| deployed | 18,684 | 64,918 | 287.8 | 0.352 | 0.583 | 0.799 | 0.338 |
+| ps_repro | 17,414 | 64,764 | 268.9 | 0.274 | 0.516 | 0.771 | 0.277 |
+| ps @ 5 m | 21,049 | 64,814 | 324.8 | 0.439 | 0.678 | 0.842 | 0.426 |
+| ps @ 7.5 m | 17,451 | 64,814 | 269.2 | 0.274 | 0.515 | 0.769 | 0.276 |
+| ps @ 10 m | 16,034 | 64,814 | 247.4 | 0.260 | 0.445 | 0.723 | 0.260 |
+| ps @ 12.5 m | 15,421 | 64,814 | 237.9 | 0.262 | 0.431 | 0.693 | 0.262 |
+| ps_citywide @ 7.5 m | 17,310 | 64,814 | 267.1 | 0.261 | 0.506 | 0.765 | 0.264 |
+| fusion_server (2.6 m) | 18,424 | 64,847 | 284.1 | **0.420** | 0.581 | 0.785 | 0.280 |
+| fusion_server+attach (2.6 m) | 16,109 | 64,847 | 248.4 | 0.310 | 0.472 | 0.728 | 0.278 |
+| fusion_server (auto) | 18,484 | 64,847 | 285.0 | 0.408 | 0.581 | 0.787 | 0.263 |
+| fusion_server+attach (auto) | 16,171 | 64,847 | 249.4 | 0.294 | 0.471 | 0.730 | 0.262 |
+
+`fusion_server` reads higher than `ps @ 7.5 m` at every radius. Its 2,369 labels the
+raycast cannot place are singletons at their server position, beside the site they could
+not join, and those count as near pairs. That is part of what the arm does on a live server,
+not an artifact to remove. On the post-hoc placeable-member read the two are level (0.280
+against 0.276).
+
+What the proxy tracks, read post hoc on Richmond, where GT exists
+(`runs/richmond/ps_clustering_eval/arms.csv`, columns `nearp5` and `frag5_with_extra` /
+`frag3_ramps`): placeable-member near 5 m is 0.414 (`deployed`), 0.409 (`ps @ 7.5 m`) and
+0.425 (`fusion_server`), where GT `frag` at 5 m is 0.47 (109 / 232), 0.47 (108 / 231) and
+0.17 (40 / 230). On Richmond the proxy does not follow `frag`: most neighbours are other
+ramps of the same corner. That is a reason to read (b) with care. It does not change what
+(b) found.
+
+#### (c) Validation-based precision, human votes (descriptive)
+
+The frozen pull holds 2,911 AI labels with a human vote: 2,713 true, 81 false, 117
+tie/unsure, so the label-level anchor is **0.971** [0.96, 0.98]. The feed's `correct` reads the
+same over the AI labels (2,713 true, 81 false). **`deployed` holds no false label at all.** The server clusters only
+labels not marked incorrect (`labelsForApiQuery`), and all 81 human-false labels are among
+the 83 labels in no cluster. So (c) on `deployed` is 0 by construction, and the informative
+rows are the re-clustered arms, which hold every label (2.6 m, from
+`runs/vancouver/ps_clustering_eval/validation_precision.csv`):
+
+| arm | cluster of 1: any false | cluster of 2 | cluster of 3+ |
+|---|---|---|---|
+| ps @ 7.5 m | 0.243 (41 / 169) | 0.062 (15 / 243) | 0.011 (25 / 2,253) |
+| fusion_server (2.6 m) | 0.171 (45 / 263) | 0.097 (19 / 195) | 0.008 (17 / 2,183) |
+| fusion_server+attach (2.6 m) | 0.277 (44 / 159) | 0.091 (18 / 197) | 0.008 (19 / 2,265) |
+
+(Share of clusters holding a validated label that hold one voted false; counts in
+parentheses.) A false label sits in a singleton about a quarter of the time and in a 3+
+cluster about 1% of the time, whichever rule made the cluster: the Richmond size-precision
+pattern, on 6.7x the labels. Every label is in exactly one cluster of each arm now
+(64,847 label ids, 64,847 distinct), so these 81 false labels are counted once.
+
+#### (d) Deployed vs offline partition: 0.733 (descriptive)
+
+`--offline-check`: placement of the 64,006 live AI labels the file can re-place is exact
+(median 0, p90 0) with one label at 0.550 m, so the 0.5 m gate reads FAIL on that one label
+(the scorer exits 1; the report is complete). 46,257 of 60,104 synthesized labels match a
+live AI label by pixel; 18,557 live AI labels have no twin (the gate's finding again). Of the
+6,956 deployed clusters whose labels are all AI and all synthesized, 5,099 are reproduced
+label for label (0.733). Richmond read 0.996 and Laurens 0.945, but the ceiling here is (a):
+`ps_repro` itself reproduces only 0.765 of `deployed`.
+
+#### Inventory placement (descriptive; `inventory_clustering.py score vancouver`)
+
+Visible pool 10,685 of 11,355 ramps within 20 m of one of the run's 28,830 panos; r = 5 m.
+The split rate depends on the placement frame, and which arm reads lower depends on it too.
+The table below is the `label_set: mapped` block of
+`runs/vancouver/inventory_clustering/report.md` (`auto` frame): every arm on the same labels
+(the 50,252 AI labels the rebuilt run maps, plus the 33 human labels), placed both ways.
+
+| arm (same label set) | split, raycast placement | split, server placement | merge (raycast / server) |
+|---|---:|---:|---|
+| ps @ 7.5 m | 0.163 (1,518 / 9,285) | 0.098 (905 / 9,257) | 0.020 / 0.019 |
+| fusion_server | 0.090 (840 / 9,332) | 0.160 (1,483 / 9,256) | 0.024 / 0.031 |
+| fusion_server+attach | 0.090 (840 / 9,332) | 0.093 (861 / 9,212) | 0.024 / 0.032 |
+
+Each arm reads lowest in the frame it clusters in. The PS rule clusters on server
+positions; fusion clusters on raycast positions. Coverage is flat (0.87 in both frames), so
+the inventory cannot pick between the frames here. The 2.6 m and per-pano blocks show the
+same pattern (raycast 0.172 / 0.085 and 0.160 / 0.098; server 0.098 / 0.166 and 0.098 /
+0.169 for `ps @ 7.5 m` / `fusion_server`).
+
+On all labels (`label_set: all`; the arms as the server would hold them, unmapped labels
+included):
+
+| arm | placement | frame | clusters | placed | covered r5 | split r5 | merge r5 |
+|---|---|---|---:|---:|---:|---:|---:|
+| deployed | server | - | 18,684 | 18,684 | 0.903 | 0.196 | 0.020 |
+| ps @ 7.5 m | server | - | 17,451 | 17,451 | 0.902 | 0.138 | 0.019 |
+| ps_citywide @ 7.5 m | server | - | 17,310 | 17,310 | 0.901 | 0.127 | 0.020 |
+| fusion_server | server | auto | 18,484 | 18,484 | 0.900 | 0.201 | 0.039 |
+| fusion_server+attach | server | auto | 16,171 | 16,171 | 0.897 | 0.120 | 0.041 |
+| deployed | raycast | auto | 18,684 | 16,790 | 0.877 | 0.255 | 0.014 |
+| ps @ 7.5 m | raycast | auto | 17,451 | 15,927 | 0.878 | 0.200 | 0.014 |
+| fusion_server | raycast | auto | 18,484 | 14,674 | 0.874 | 0.092 | 0.024 |
+
+The raycast rows place only clusters with a label the rebuilt run maps. `fusion_server`
+leaves 3,810 of its clusters unplaced there, against 1,524 for `ps @ 7.5 m`, so the
+all-label raycast ratio (0.46x) mixes the frame with which clusters survive placement. It is
+not a test of Part 1's claim and is not quoted as one. The deployed partition is the most
+fragmented arm in the raycast frame (0.255 against 0.200 for a fresh `ps @ 7.5 m`) and more
+fragmented than a fresh `ps @ 7.5 m` in the server frame too (0.196 against 0.138), though
+there `fusion_server` reads higher still (0.201); this is (a) seen from the inventory. Merge rises from the PS rule to
+fusion in every block (the Bend trade-off). The split figures in
+`docs/figures/vancouver-splits/` illustrate the server-frame rows.
+
+#### Exploratory (rebuilt-run detections; never the deployed labels' fusion)
+
+Offline synthesis at 0.55: 60,094 labels, `ps @ 7.5 m` 16,200 clusters against `fusion`
+14,820 (2.6 m); at 0.30: 73,478 labels, 20,205 against 17,551. Inventory split at r = 5 m,
+`auto` frame, both arms placed by raycast: 0.55 `ps @ 7.5 m` 0.174 vs `fusion` 0.077
+(0.44x), 0.30 0.274 vs 0.126 (0.46x); 2.6 m 0.182 / 0.074 and 0.286 / 0.119; per-pano 0.169 /
+0.088 and 0.268 / 0.136. Merge 0.021 to 0.033 (0.55, auto). Coverage flat (0.895-0.897 at
+0.55, 0.926-0.928 at 0.30). This is Part 1's pattern on the run's own detections, in the
+frame fusion clusters in. `fusion` holds fewer labels than `ps @ 7.5 m` (57,972 against
+60,094 at 0.55), because labels the raycast cannot place leave fusion and stay in the PS
+partition. It says what fusion would do on a fresh Vancouver run, not what it would do on
+the deployed labels. `fusion` alone: auto 14,869 clusters (256 per 1,000 labels), 2.6 m
+14,824, per-pano 15,196.
+
+**Pooled driver.** `clustering_eval_pooled.py` is unchanged: it pools GT-based columns
+(coverage, frag, precision), none of which exist for Vancouver.
+
+#### Replication
+
+All inputs are the frozen, untracked pulls named above plus `runs/vancouver/results.jsonl`
+(sha256 `7fdf4005…9f28`), its depth index (per-pano) and the inventory. No command contacts a
+Project Sidewalk server: every pull is passed by path, with no `--server`. `<SW>` is a
+SidewalkWebpage checkout at `origin/develop` 0062ed0.
+
+```bash
+V=runs/vancouver; P=$V/ps_clustering_eval
+LIVE="vancouver --no-gt --ai-user 51b0b927-3c8a-45b2-93de-bd878d1e5cf4 \
+  --labels $V/provenance_gate/raw_labels.geojson --clusters $P/clusters.geojson \
+  --streets $P/streets.geojson --offline-check --ps-script <SW>/scripts/label_clustering.py"
+python scripts/eval_ps_clustering.py $LIVE                              # -> ps_clustering_eval/
+python scripts/eval_ps_clustering.py $LIVE --camera-height-m auto       # -> ps_clustering_eval_auto/
+python scripts/eval_ps_clustering.py $LIVE --camera-height-m per-pano   # -> ps_clustering_eval_per-pano/
+python scripts/eval_ps_clustering.py vancouver --offline --no-gt --min-confidence 0.55 \
+  --streets $P/streets.geojson                                          # -> ..._offline_t0.55/
+python scripts/eval_ps_clustering.py vancouver --offline --no-gt --min-confidence 0.3 \
+  --streets $P/streets.geojson                                          # -> ..._offline_t0.3/
+python scripts/inventory_clustering.py score vancouver                  # -> inventory_clustering/
+python scripts/split_figures.py --rebuild                               # -> docs/figures/vancouver-splits/
+# the Richmond calibration, from its 2026-09-21 pulls
+R=runs/richmond/ps_clustering_eval
+python scripts/eval_ps_clustering.py richmond --labels $R/raw_labels.geojson \
+  --clusters $R/clusters.geojson --streets $R/streets.geojson --offline-check \
+  --ps-script <SW>/scripts/label_clustering.py
+```
+
+The three live Vancouver runs exit 1 on the documented 0.550 m placement label; their
+reports are complete. Wall time is about 15 minutes each on a desktop CPU.
+
+Where each number lives:
+
+| number | file | where |
+|---|---|---|
+| (a) 0.765, 17,412 / 17,414 | `runs/vancouver/ps_clustering_eval/report.md` | Validation checks |
+| (a) 276, 19.6% / 11.1 m, 154, 4,384 / 2,896 / 929, 0.759 | same | Deployed-partition diagnostics |
+| (b) the table and the pre-registered reading | `runs/vancouver/ps_clustering_eval{,_auto,_per-pano}/arms.csv`, `report.md` | `near*`, `nearp*`, `per_1000_labels`; "Pre-registered reading" line |
+| (b) Richmond calibration | `runs/richmond/ps_clustering_eval/arms.csv` | `nearp5`, `frag5_with_extra`, `frag3_ramps` |
+| (c) anchor and size table | `runs/vancouver/ps_clustering_eval/report.md`, `validation_precision.csv` | Validation-based precision |
+| (d) 0.733, 0.550 m | `runs/vancouver/ps_clustering_eval/report.md` | Offline server arm |
+| inventory, both tables | `runs/vancouver/inventory_clustering/arms.csv`, `report.md` | `label_set` `mapped` / `all`, `scope: descriptive` |
+| exploratory | `runs/vancouver/inventory_clustering/arms.csv` (`scope: exploratory`), `runs/vancouver/ps_clustering_eval_offline_t0.{55,3}/` | |

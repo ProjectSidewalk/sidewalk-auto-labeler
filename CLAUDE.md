@@ -393,6 +393,35 @@ python scripts/eval_ps_clustering.py laurens --split laurens_mapillary --results
 python scripts/clustering_eval_pooled.py            # every (city, tier, frame) cell, then pool
 python scripts/clustering_eval_pooled.py --pool-only   # -> runs/_pooled/ps_clustering_eval/
 python scripts/inventory_clustering.py score bend gainesville && python scripts/inventory_clustering.py verdict
+# Vancouver split examples (#56): ramps one arm splits and another does not, drawn on Esri
+# aerial tiles at SERVER placement (every cluster placed) -> docs/figures/vancouver-splits/
+python scripts/split_figures.py            # --rebuild recomputes the cached partitions
+# VANCOUVER (#56, scored under the amended scope pre-registered on #56; docs "Step 2"). No
+# RampNet GT and a run rebuilt from the pano store that the gate STOPPED (heatmap plateaus,
+# #111), so the confirmatory arms are the server's own labels only: deployed, ps@t on server
+# positions, fusion_server, +attach. The CONFIRMATORY fragmentation test is metric (b), the
+# near-cluster proxy (share of clusters with another cluster within 5/7.5/12.5 m; SERVER
+# frame for arms with label ids), and it came out against Part 1: fusion_server read MORE
+# near pairs than ps @ 7.5 m, not half. The inventory split is DESCRIPTIVE there and
+# frame-dependent (each arm reads best in the frame it clusters in; the `label_set: mapped`
+# rows of inventory_clustering/report.md compare the frames on one label set) -- never quote
+# it as the confirmatory answer. `--no-gt` skips the GT join; `--ai-user` names the AI account
+# so the 22% of its labels the rebuilt run does not reproduce pixel-exactly still count as AI
+# (never placeable; they enter fusion_server at the tier; an error with --offline). Without it
+# such labels are refused (#105). Other GT-free output: partition agreement (ps_repro +
+# --offline-check), the deployed-partition diagnostics, validation-based precision by cluster
+# size from HUMAN votes (validation_precision.csv). Inputs are FROZEN: the gate's
+# raw_labels.geojson, clusters + streets pulled once into ps_clustering_eval/; pass them by
+# path and never --server/--refresh (a missing pull is a stop, not a re-pull). No --mask-rig:
+# the rig labels are live. `--offline` at 0.55 / 0.30 and the fusion arms at auto / 2.6 /
+# per-pano are EXPLORATORY (rebuilt-run detections). A bare `inventory_clustering.py score`
+# scores Bend + Gainesville only; Vancouver only when named, and it reads
+# ps_clustering_eval/streets.geojson (refuses if absent). Replication block in the doc.
+V=runs/vancouver; P=$V/ps_clustering_eval
+python scripts/eval_ps_clustering.py vancouver --no-gt --ai-user 51b0b927-3c8a-45b2-93de-bd878d1e5cf4     --labels $V/provenance_gate/raw_labels.geojson --clusters $P/clusters.geojson     --streets $P/streets.geojson --offline-check --ps-script <SW 0062ed0>/scripts/label_clustering.py
+#   ...the same with --camera-height-m auto / per-pano -> ps_clustering_eval_{auto,per-pano}/
+python scripts/eval_ps_clustering.py vancouver --offline --no-gt --min-confidence 0.3     --streets $P/streets.geojson      # exploratory; and at 0.55
+python scripts/inventory_clustering.py score vancouver                # descriptive, no verdict
 
 # A RUN REBUILT FROM THE PANO STORE (issue #56; runbook in docs/ps-clustering-eval.md, "Step 2").
 # For a city whose results.jsonl was not kept and whose panos have partly left GSV (Vancouver).
