@@ -55,6 +55,7 @@ Usage:
 import argparse
 import csv
 import math
+import re
 import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -767,6 +768,37 @@ def format_report(city, r):
     return '\n'.join(lines)
 
 
+def default_dir_name(heights, placement=None):
+    """Default output-dir name for the camera heights a report was scored at, so a
+    report in one frame never overwrites another (the rule eval_ps_clustering uses):
+    `mined_precision` at the default 2.6 m, else fuse_sites.frame_suffix appended.
+    `heights` is one per city; a pooled report over mixed heights names them all.
+    `placement` names an image-placement arm (--placement-label, else the placement
+    file's stem); it is appended as `_placed-<name>`, so a placement run never
+    overwrites the flat run in the same frame.
+
+    Example:
+        >>> default_dir_name([2.6])
+        'mined_precision'
+        >>> default_dir_name(['auto', 'auto'])
+        'mined_precision_auto'
+        >>> default_dir_name([2.6, 2.2])
+        'mined_precision_h2.60+h2.20'
+        >>> default_dir_name([2.6], placement='seg')
+        'mined_precision_placed-seg'
+    """
+    suffixes = [fs.frame_suffix(h) for h in heights]
+    if len(set(suffixes)) == 1:
+        name = 'mined_precision' + suffixes[0]
+    else:
+        name = 'mined_precision_' + '+'.join(
+            s.lstrip('_') or f'h{geo.DEFAULT_CAMERA_HEIGHT_M:.2f}' for s in suffixes)
+    if placement:      # a free-text label: keep it one safe path component
+        name += '_placed-' + re.sub(r'[^A-Za-z0-9._+-]+', '-', str(placement)).strip('-')
+    return name
+
+
+
 def placement_line(r):
     """One report line summarising an image-placement run (phase 2)."""
     rows = r['placement']
@@ -873,7 +905,12 @@ def main():
                     help='name of the placement arm, for the report')
     ap.add_argument('--out', type=Path, default=None,
                     help='output dir (default runs/<city>/mined_precision, and '
-                         'runs/_pooled/mined_precision for the pooled report)')
+                         'runs/_pooled/mined_precision for the pooled report; a '
+                         'height other than 2.6 m appends its frame, e.g. '
+                         'mined_precision_auto or mined_precision_h2.20, and a '
+                         '--placement run appends _placed-<--placement-label, else '
+                         'the placement file stem>, so neither a frame nor a '
+                         'placement arm ever overwrites another)')
     args = ap.parse_args()
 
     cities = args.city
@@ -885,20 +922,26 @@ def main():
         ap.error(f'--camera-height takes one value or one per city '
                  f'({len(cities)} named), got {len(heights)}.')
 
+    city_modes = [None if heights is None
+                  else heights[i] if len(heights) > 1 else heights[0]
+                  for i in range(len(cities))]
+
+    def height_of(mode):
+        return geo.DEFAULT_CAMERA_HEIGHT_M if mode is None else mode
+
     placement = read_placement(args.placement) if args.placement else None
+    placement_name = ((args.placement_label or args.placement.stem)
+                      if args.placement else None)
     per_city, out_dirs = [], []
-    for i, city in enumerate(cities):
+    for city, mode in zip(cities, city_modes):
         run_dir = args.run_dir or args.runs_root / city
-        mode = (None if heights is None
-                else heights[i] if len(heights) > 1 else heights[0])
         try:
             # read_heights=True for a numeric height too, as before #56. The heights go
             # unused there (geo.camera_height_for); what it keeps is the refusal of a
             # pre-#47 depth index, which eval_ps_clustering no longer applies at a number
             verdict_panos, bundle_ops, run_panos, height, auto = es.load_city_at_height(
                 city, args.benchmark_root, run_dir,
-                geo.DEFAULT_CAMERA_HEIGHT_M if mode is None else mode,
-                read_heights=True)
+                height_of(mode), read_heights=True)
         except ValueError as exc:      # per-rig without a table, or on a GSV run
             ap.error(str(exc))
         except FileNotFoundError as exc:
@@ -927,7 +970,8 @@ def main():
         report_text = format_report(city, result)
         print(report_text)
         out_dir = (args.out / city if args.out and len(cities) > 1
-                   else args.out or run_dir / 'mined_precision')
+                   else args.out or run_dir / default_dir_name([height_of(mode)],
+                                                               placement_name))
         write_outputs(out_dir, report_text, cands, result['sources'], result['placement'])
         out_dirs.append(out_dir)
         per_city.append((result, cands))
@@ -946,7 +990,8 @@ def main():
         text = format_report('pooled over ' + ', '.join(cities), pooled)
         print('\n\n' + text)
         pooled_dir = (args.out / '_pooled' if args.out
-                      else args.runs_root / '_pooled' / 'mined_precision')
+                      else args.runs_root / '_pooled' / default_dir_name(
+                          [height_of(m) for m in city_modes], placement_name))
         write_outputs(pooled_dir, text, pooled_cands, pooled['sources'],
                       pooled['placement'])
         out_dirs.append(pooled_dir)

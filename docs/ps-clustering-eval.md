@@ -430,9 +430,11 @@ Richmond (Mapillary; 2026-09-21 pull), 2.6 m frame, 5 m match radius:
 | fusion | 1570 | 0.909 (230) | 0.16 (38) | 24/3/3 |
 | fusion_server | 3030 | 0.909 (230) | 0.17 (44) | 24/3/3 |
 
-- **Server-only data matches fusion on every scored metric to within one ramp:** coverage
-  230 vs 230 of 253, frag 5 m 0.17 vs 0.16 (44 vs 38 extra fragments, against the deployed
-  0.47 / 132), the same dual-ramp split, and precision equal to the deployed 0.964. The
+- **Server-only data matches fusion on coverage and the dual split, and is close on
+  fragmentation:** coverage 230 vs 230 of 253, the same dual-ramp split; frag 5 m 0.17 vs 0.16
+  (40 vs 36 ramps fragmented, 44 vs 38 extra fragments), frag 3 m 15 vs 14, both far below the
+  deployed 0.47 / 132. Precision equals *deployed*'s 0.964, not fusion's 0.959, because both
+  score every live label. The
   partitions are close but not identical: 1,485 of `fusion_server`'s 1,589 clusters with AI
   members are, member for member, clusters of `fusion`. Of the 3,721 labeled panos, 3,057
   are positioned by inversion and 661 from the run's block. 3 have neither: they are
@@ -528,7 +530,10 @@ with pano-tools' `<id>.depth.npz` beside each JPEG), and
    **`send_to_ps.py` refuses the file**: its >= 0.55 detections are the labels already live,
    and PS is insert-only ([SidewalkWebpage#5382](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/5382)).
    `--allow-store-file` overrides that; nothing in this runbook needs it.
-4. **Provenance gate**: `python scripts/provenance_gate.py vancouver`. The rule below was
+4. **Provenance gate**: `python scripts/provenance_gate.py vancouver --rule pixel-96`. The rule
+   below is `--rule pixel-96`; since [#111](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/111) (2026-09-30) the
+   script's default is `--rule coarse-cell`, which matches within one coarse heatmap cell and is
+   exploratory for Vancouver (`docs/heatmap-grid.md`). The rule below was
    **amended after review ([PR #96](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/96)),
    before any Vancouver number existed**. The first version, PASS iff >= 0.98 of joinable labels
    match within +/-1 px, would have made a STOP from resampling alone likely. The 2025 run
@@ -546,7 +551,8 @@ with pano-tools' `<id>.depth.npz` beside each JPEG), and
      run with seed 56 into `provenance_gate/control_ids.txt` (tracked). Then
      `python scripts/reinfer.py runs/vancouver --ids runs/vancouver/provenance_gate/control_ids.txt --out runs/vancouver/control_zoom3.jsonl`
      re-detects them through the 2025 path, zoom-3 pixels via `panorama.fetch_panorama`. A pano
-     gone from GSV is skipped there. Finally, `python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl`.
+     gone from GSV is skipped there, so the gate refuses a control pano that is not in
+     `control_ids.txt` and reports how many drawn panos the control holds. Finally, `python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl`.
      Z passes iff >= 0.98 of the labels on the control's panos match at +/-1 px. Threshold
      flips between the arms (labels matched under S but not Z, and vice versa) are reported.
    - **Coverage floor.** The gate is UNDETERMINED unless no selected pano is pending (every id
@@ -559,7 +565,8 @@ with pano-tools' `<id>.depth.npz` beside each JPEG), and
      the store.
    - **Verdict.** PASS only if S passes, precision passes, and (when a control is given) Z
      passes. Otherwise STOP, naming the failing arm. UNDETERMINED takes precedence over STOP.
-     On STOP or UNDETERMINED, nothing below runs.
+     On STOP or UNDETERMINED, nothing below runs. (For Vancouver this was amended on
+     2026-09-29, after the STOP and before any score: see "What followed" in Step 2.)
 5. **Depth**: `python scripts/harvest_depth.py runs/vancouver --from-store $STORE --check-store-frame 5`
    draws in a seeded order until five panos have been **checked**. A pano gone from GSV does
    not count, and the draw is capped at 4N + 10 live requests. The result is written into
@@ -877,3 +884,127 @@ Caveats (from the issue). `missed` = 1 - covered is an upper bound, since occlus
 construction since capture are in it. Bend was a RampNet training city. Gainesville was read
 only: no submission, no re-detection. Vancouver's inventory is down, so two cities is all
 there is.
+
+## Step 2: Vancouver (run 2026-09-28): the provenance gate returned STOP
+
+Issue [#56](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/56). The runbook above
+was followed through step 4. **The gate returned STOP, and Arm Z, run after it, failed too.** Depth,
+fusion and the benchmark bundle do not depend on the gate, so they were run. On 2026-09-29 the
+scope was amended on #56, before any score was computed (see "What followed" below): the scoring
+of the server-label arms is in [PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118), not here.
+
+**The run.** On makelab2 (A40), `detect_from_store.py` finished on 2026-09-28: 28,830 panos, 0
+failed, 351 cached `jpg_missing`. That covers the 28,881 labeled panos plus 300 seeded unlabeled
+ones, 29,181 selected ids in all. There were 0 metadata 404s and 0 native-size mismatches. The
+run was copied home with sha256 verified on both ends (results.jsonl `7fdf4005…9f28`).
+
+**The gate** (`runs/vancouver/provenance_gate/report.md`, rule unchanged, `--rule pixel-96`). The
+labels were pulled fresh on 2026-09-28T23:01Z: 64,847 CurbRamp features, 64,814 of them from the
+AI account on 28,881 panos, and 64,006 of those joinable.
+
+| check | value | rule | result |
+|---|---:|---|---|
+| Arm S share | 0.8252 (52,819 / 64,006) | >= 0.98 | fail |
+| exact_share (+/-1 px) | 0.7385 | -- | -- |
+| Arm Z share (zoom-3 control, +/-1 px) | 0.9632 (288 / 299), on 141 of the 200 drawn panos | >= 0.98 | fail |
+| coverage | 1.0000 | >= 0.95 | pass |
+| unclaimed tier detections / joinable | 0.1316 (8,424) | <= 0.02 | fail |
+
+To reproduce the report from its untracked inputs (`results.jsonl`, `control_zoom3.jsonl`,
+`provenance_gate/raw_labels.geojson`; each sha256 is in the report):
+
+```bash
+python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl --rule pixel-96
+```
+
+Without `--rule pixel-96`, the script's default since #111 (`coarse-cell`) writes a different,
+exploratory reading into the same path: S 0.9301, Z 0.9866 (pass), P 0.0288, still STOP
+(`docs/heatmap-grid.md`).
+
+**Arm Z** (run 2026-09-28, after the gate, rule unchanged). 200 labeled panos drawn with seed 56
+(`provenance_gate/control_ids.txt`) were re-detected through the 2025 path, zoom-3 GSV pixels via
+`reinfer.py --ids`. **141 were written; the other 59 (29.5%) are no longer served by id**, so the
+Z share is over the panos that survived on GSV, a non-random subset (#56 measured survival by
+capture year). 288 of the 299 labels on them match at +/-1 px: 0.9632, below 0.98. On those
+panos 247 labels match under both arms, 7 only under S, 41 only under Z and 4 under neither.
+Plateau end-flips (exactly 7 cells) are 3 of 299 in Z, against 33 of 299 from the store.
+
+**What the misses are.** This diagnostic is not part of the rule. Of the 11,187 unmatched labels:
+
+- 3,502 are threshold flips: a stored detection sits within tolerance, but below 0.55.
+- 7,679 have no detection within 64 px. **7,339 of these sit exactly 7 heatmap cells from a
+  stored detection** (Chebyshev distance). 6,170 of them are axis-aligned: (+7, 0) 1,877,
+  (-7, 0) 1,875, (0, +7) 1,283, (0, -7) 1,135. The two horizontal directions are even; the
+  vertical ones are about a third smaller.
+- Almost no miss lies between 1 and 6 cells: widening the tolerance from 1 to 2 cells adds 3
+  labels, and from 2 to 6 cells 1 more (0.8252 to 0.8253). At 7 cells Arm S would read 0.9285, at
+  8 cells 0.9301 at >= 0.55 and 0.9967 at any stored confidence.
+- The rate is flat across capture years (0.81-0.84), pano widths and label days, and no global
+  heading shift fits.
+
+Re-running the model on one far-miss pano (`-65GoVmwedYvlbgkb8nAgA`) shows the mechanism. The
+heatmap has an **8-cell plateau** at 0.91 (row 307, columns 236-243). `peak_local_max` keeps one
+pixel of it: column 236 today, and column 243 for the 2025 label. The unclaimed detections are the
+other ends of the same plateaus. So the STOP comes mostly from the model's output, not from the
+store, and a +/-1-cell rule cannot be met by any rebuild that perturbs the input pixels.
+
+A second, rare pattern also appeared. On about 19 panos, every label looked moved by one linear
+horizontal map, for example x2025 = (x - 0.125)/0.875 on `qWxSMzkdRIaDQegUsxsY2w`. Re-fetching all
+19 from GSV after Arm Z showed it is **mostly a store-vs-GSV pixel difference**, not misplaced
+labels: 13 are still served, and 12 of those 13 reproduce every label at +/-1 px from fresh zoom-3
+pixels and fail only from the store. One, `qWxSMzkdRIaDQegUsxsY2w`, is displaced against both (0 of
+6 from fresh GSV, whose detections agree with the store run's to within a cell), so for that pano
+the 2025 input differed from both today's GSV and the store. Most of the 19 were fitted with the
+smallest shrink the fit allows, so some may be plateau flips the fit mislabelled.
+
+**What followed (2026-09-29, on #56).** The scope was amended before any score was computed. The
+STOP's cause is the heatmap grid ([#111](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/111)), which touches
+only the arms built from the rebuilt run's detections; the arms built from the server's own labels
+(`deployed`, `ps@t`, `fusion_server`, `fusion_server+attach`) and the inventory never depended on
+the gate. Those are pre-registered on #56 and scored in [PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118),
+with the rebuilt run's own arms reported there as exploratory. The gate verdict above stands as
+recorded and is not re-scored under any other tolerance; the coarse-cell re-read for #111 is
+exploratory (`docs/heatmap-grid.md`).
+
+**Depth** (`runs/vancouver/depth/store.json`, tracked). The frame check found 5 of 5 store
+artifacts identical to the live payloads, with 0 revised. The index covers 18,473 of 28,830 run
+panos:
+
+- 13,572 have a measured height (47.1% of the run). The median is 2.356 m (p25 2.268, p75 2.417).
+- 4,890 have a stand-in ground and 11 are degenerate.
+- 8,952 panos are `unavailable` in pano-tools' ledger, and 1,405 had no artifact yet (the depth
+  phase was still running).
+
+Under `per-pano`, 15,258 panos (52.9%) therefore fall back to 2.6 m.
+
+**Fusion** (`fuse_sites.py`; `sites_meta.json` untracked). Every capture year's depth median is
+above the 2.1 m cut (2.24-2.43 m), so `auto` puts **all 28,830 panos at 2.5 m**. The low 2025-26
+rig is absent: the labels were made in 2025-09, and the 2025 captures here (497 panos) read
+2.362 m.
+
+| capture year | panos | measured | median (m) |
+|---|---:|---:|---:|
+| 2011-2018 (seven years) | 3,036 | 153 | 2.24-2.43 |
+| 2019 | 1,663 | 968 | 2.324 |
+| 2021 | 926 | 506 | 2.370 |
+| 2022 | 3,434 | 1,624 | 2.354 |
+| 2023 | 8,653 | 4,562 | 2.366 |
+| 2024 | 10,621 | 5,482 | 2.349 |
+| 2025 | 497 | 277 | 2.362 |
+
+| frame | sites | operational | multi-pano |
+|---|---:|---:|---:|
+| auto (2.5 m) | 24,080 | 17,650 | 15,769 |
+| 2.6 m | 23,925 | 17,551 | 15,609 |
+| per-pano | 24,612 | 18,094 | 15,896 |
+
+**Benchmark bundle.** It sits on makelab2 at
+`/projects/makeabilitylab/sidewalk-auto-labeler/runs/vancouver/benchmark/`: 125 panos (top 5,
+random 95, empty 25), with native JPEGs copied from the store. The reconcile reads OK, 125/125
+into `index.csv`. The pixels are not committed. The bundle's README notes two caveats: Portland
+(the same metro) was in RampNet's Stage-1 training, and the gate stopped.
+
+**City inventory.** The City's hosted `COV_TransCurbRamp` layer replaces the dead proxy (see
+`docs/placement-oracle.md`). It was fetched on 2026-09-28: 11,355 in-area ramps with
+`STATUS = 'Available'`. It is not scored in this step: under the amended scope it is scored
+against the server-label arms in [PR #118](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/118).

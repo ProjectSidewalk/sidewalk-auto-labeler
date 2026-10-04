@@ -238,7 +238,9 @@ python scripts/height_qc.py
 # >= 50 measured panos that are >= 50% of it (else 2.5 m) -- replaces (c), which gave thinly
 # measured old vintages 2.0 m. (d) PASSES and is selected, and is now fuse_sites.py's
 # default (`auto`); the oracle scores the production function itself.
-# Network only in `fetch` (the two ArcGIS hosts); a cached pull is reused (refused if
+# Network only in `fetch` (the registry's three ArcGIS hosts -- Vancouver's is the generic
+# services.arcgis.com, shared by every ArcGIS Online org, but the layer path is fixed by the
+# registry); a cached pull is reused (refused if
 # area.geojson's bbox changed), --refresh re-pulls it. `score --pool-anchor frame --out
 # <dir>` is the rule-3 anchoring sensitivity, never read by verdict.
 python scripts/inventory_oracle.py fetch bend gainesville vancouver
@@ -418,7 +420,12 @@ python scripts/inventory_clustering.py score bend gainesville && python scripts/
 # a small input change; the report counts matches by distance class and names that flip.
 # `--rule pixel-96` reproduces the rule PR #108's Vancouver report ran under (Arm S
 # +/-(W/1024+1) px, Arm Z +/-1 px; amended after the PR #96 review, before any Vancouver
-# number). UNDETERMINED unless nothing is pending and joinable >= 0.95 of labels with a store
+# number); PR #108's committed report is reproduced by `provenance_gate.py vancouver --control
+# runs/vancouver/control_zoom3.jsonl --rule pixel-96` -- without the flag the same path is
+# overwritten with the coarse-cell reading. --control refuses a control pano not in
+# control_ids.txt (--control-ids), and the report says how many drawn panos the control holds
+# (Vancouver: 141 of 200; the other 59 are no longer served by id, so Z is conditioned on
+# survival). UNDETERMINED unless nothing is pending and joinable >= 0.95 of labels with a store
 # JPEG; STOP if unclaimed tier detections on labeled panos exceed 0.02 x joinable (unchanged).
 # Vancouver under the coarse-cell rule (exploratory, #111; the #56 decision stands): still STOP
 # -- S 0.930 (11.3% of its matches are flips; 4,268 of 4,477 misses are sub-0.55 at the spot),
@@ -440,7 +447,7 @@ python scripts/provenance_gate.py vancouver
 python scripts/provenance_gate.py vancouver --draw-control     # optional Arm Z, then:
 python scripts/reinfer.py runs/vancouver --ids runs/vancouver/provenance_gate/control_ids.txt \
     --out runs/vancouver/control_zoom3.jsonl
-python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl
+python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl --rule pixel-96
 python scripts/harvest_depth.py runs/vancouver --from-store <store> [--check-store-frame 5]
 
 # AI-vs-crowd AGREE RATE (issue #31 goal 2; write-up in docs/agree-rate-gainesville.md).
@@ -464,6 +471,18 @@ python scripts/harvest_depth.py runs/vancouver --from-store <store> [--check-sto
 # (both are printed, plus the "shadowed" count). The per-pano ablation needs the untracked
 # depth/index.csv beside results.jsonl; the report prints how many panos had a height.
 python scripts/agree_rate.py gainesville --server https://sidewalk-gainesville.cs.washington.edu
+
+# SERVER-SIDE READ (PR #119; write-up in docs/server-agree-check.md). Server feeds only, no run
+# dir: (1) human-validation precision of the live AI CurbRamp labels, per label AND per cluster
+# (the served clusters omit labels already marked incorrect, so labels are put back within 7.5 m
+# first, approximating the server's complete linkage; never quote the served-cluster rate), and
+# by tier with --results (joined on send_to_ps's pixel); (2) one auditor (--human auto = the human with the most CurbRamp
+# labels) vs the AI. Headline = one-to-one vs AI clusters, quoted with its chance floor; any-
+# cluster is coverage, never the headline. Validations come through PS's queue, not a random
+# sample. Pulls cached in runs/<city>/server_agree/ (Laurens's tracked); as-served pulls go
+# only to the untracked as_served/ subdir, the tracked copy is always redacted, and an unredacted
+# pull at a tracked path is refused.
+python scripts/server_agree_check.py laurens --human auto --results runs/laurens/results.raw.jsonl
 
 # LABEL-FRAME BETA (issue #113). GSV equirects are rig-frame, so a detection's row is in the
 # image's frame while a human PS label's pano_y is off by beta x T(b), T = pitch cos b +
@@ -504,7 +523,10 @@ python scripts/label_frame_beta.py pool --pool <tilt-jm-pool.csv.gz> --pose <til
 # into a different site) as correct, because a miner cannot filter those out and the
 # labels it ships for them are right. A verdict-FALSE detection at the site counts as a
 # false positive under both (the reviewer looked there and said no). No GPU, no network;
-# writes runs/<city>/mined_precision/{report.md,candidates.csv} — one CSV row per
+# writes runs/<city>/mined_precision/{report.md,candidates.csv} (at 2.6 m; any other
+# height writes mined_precision_<frame>/, e.g. _auto or _h2.20, like eval_ps_clustering;
+# a pooled run over mixed heights names each, _h2.60+h2.20+...; a --placement run adds
+# _placed-<label or placement file stem>) — one CSV row per
 # candidate, always carrying the nearest GT point and its distance (`within_match` says
 # whether it adjudicated), which is how the localization hypothesis gets tested.
 # --radius may not exceed the 25 m ground-raycast range: past it no GT mark can be
