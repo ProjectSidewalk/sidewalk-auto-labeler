@@ -2,7 +2,7 @@
 
 Every cell is `scripts/eval_ps_clustering.py --offline`: one label per stored detection at the tier (rig-masked), placed where the server would place it (ps_placement, the server's estimator at 2.341 m), regions from the city server's street network where one exists (else one region, so `ps @ t` == `ps_citywide`). Scored against RampNet GT at the 5 m match radius; every cluster at the mean of its members' raycast positions in the named frame. Pooled rows sum counts over cities, never rates. Per-city reports: `runs/<run>/ps_clustering_eval_offline<frame>_t<tier>/report.md`.
 
-scorer 106.2. Excluded: `budapest_district5` (partial local file: runs/budapest_district5/results.jsonl holds 300 of the 18,183 panos the run processed, and 2 of the 125 benchmark panos (the full file was never copied back here)).
+scorer 106.3. Excluded: `budapest_district5` (partial local file: runs/budapest_district5/results.jsonl holds 300 of the 18,183 panos the run processed, and 2 of the 125 benchmark panos (the full file was never copied back here)).
 Bend was a RampNet training city: its rows measure clustering, not detector generalization.
 
 **Columns.** coverage = pool GT ramps with a cluster within 5 m (one-to-one); frag r = share of covered ramps with an extra cluster within r that is no GT ramp's match; dual = same-pano GT pairs < 5 m apart, both / one / neither matched to distinct clusters; precision = clusters with a judged member, TP if any member is verdict-true; prec. size k = per-label precision bucketed by the size of the label's cluster, `unplaceable` = labels the raycast cannot place. `fusion_server+attach` has the same coverage, frag, dual and coherence as `fusion_server` (its attached labels have no raycast position); cluster count, size buckets and cluster-level precision can move (attaching a judged-true singleton to a site that is already TP removes one TP cluster).
@@ -209,7 +209,7 @@ The 0.30-0.55 band is unjudged: precision counts only judged (>= 0.55) labels, w
 | laurens_gsv | fusion | 264 | 3.12 | 0.937 (178/190) | 0.04 | 0.09 | 21/6/0 | 0.931 (108/8) | 0.60 (6/10) | 0.86 (12/14) | 0.98 (90/92) | 1.00 (3/3) |
 | laurens_gsv | fusion_server | 304 | 2.85 | 0.937 (178/190) | 0.04 | 0.09 | 21/6/0 | 0.933 (111/8) | 0.60 (6/10) | 0.86 (12/14) | 0.98 (90/92) | 1.00 (3/3) |
 | laurens_gsv | fusion_server+attach | 265 | 3.26 | 0.937 (178/190) | 0.04 | 0.09 | 21/6/0 | 0.932 (110/8) | 0.60 (6/10) | 0.86 (12/14) | 0.98 (90/92) | 1.00 (3/3) |
-| laurens | deployed | 671 | 2.55 | 0.807 (192/238) | 0.05 | 0.28 | 32/20/0 | 0.960 (97/4) | 0.50 (11/22) | 1.00 (19/19) | 1.00 (67/67) | n/a (0/0) |
+| laurens | deployed | 671 | 2.55 | 0.807 (192/238) | 0.05 | 0.28 | 32/20/0 | 0.960 (97/4) | 0.73 (11/15) | 1.00 (19/19) | 1.00 (67/67) | n/a (0/0) |
 | laurens | ps @ 7.5 m | 657 | 2.40 | 0.794 (189/238) | 0.03 | 0.26 | 32/17/3 | 0.898 (97/11) | 0.62 (10/16) | 0.86 (25/29) | 0.98 (62/63) | n/a (0/0) |
 | laurens | ps_citywide @ 7.5 m | 657 | 2.40 | 0.794 (189/238) | 0.03 | 0.26 | 32/17/3 | 0.898 (97/11) | 0.62 (10/16) | 0.86 (25/29) | 0.98 (62/63) | n/a (0/0) |
 | laurens | ps @ 12.5 m | 503 | 3.13 | 0.702 (167/238) | 0.01 | 0.10 | 22/26/4 | 0.897 (96/11) | 0.40 (4/10) | 0.80 (16/20) | 0.99 (77/78) | n/a (0/0) |
