@@ -42,7 +42,43 @@ if str(REPO_ROOT) not in sys.path:
 
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
-from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, DECODE_ARGMAX  # noqa: E402
+
+
+def require_argmax(run_panos, run_dir):
+    """Refuse (ValueError) a run whose records were not written under the argmax decode.
+
+    Every RampNet bundle was exported from, and judged on, argmax positions, and the drift
+    gate (judged_gt_panos) compares positions exactly; a gaussian run (#111) would have every
+    GT pano read as drifted and be scored on nothing, silently. A gaussian run is scored
+    against its argmax twin from the SAME forward pass by scripts/subcell_decode.py world,
+    which re-keys the bundle to that pass's peaks."""
+    other = sorted({getattr(p, 'decode', DECODE_ARGMAX) for p in run_panos} - {DECODE_ARGMAX})
+    if other:
+        raise ValueError(f'{run_dir}: records were written under the {", ".join(other)} peak '
+                         f'decode; the RampNet bundles are keyed to argmax positions (#111). '
+                         f'Score it with scripts/subcell_decode.py world instead.')
+
+
+def require_exclude_border(run_panos, run_dir):
+    """Refuse (ValueError) a run whose records were found under the `keep` border rule.
+
+    Every RampNet bundle was exported from `exclude` runs (#130: the seam band was never
+    stored), and the drift gate compares a pano's >= 0.55 detections with the bundle's
+    exactly, so a `keep` run would drop every GT pano that gained a seam peak as 'drifted'
+    and be scored on the rest, silently. scripts/seam_band_130.py world scores the gained
+    seam peaks against the bundle directly."""
+    other = sorted({getattr(p, 'border', BORDER_EXCLUDE) for p in run_panos} - {BORDER_EXCLUDE})
+    if other:
+        raise ValueError(f'{run_dir}: records were found under the {", ".join(other)} peak '
+                         f'border rule; the RampNet bundles were exported from exclude runs '
+                         f'(#130). Score the seam band with scripts/seam_band_130.py world.')
+
+
+def require_bundle_frame(run_panos, run_dir):
+    """Both bundle-frame guards: argmax decode (#111) and exclude border rule (#130)."""
+    require_argmax(run_panos, run_dir)
+    require_exclude_border(run_panos, run_dir)
 
 
 def wilson(k, n, z=1.96):
@@ -98,6 +134,12 @@ def judged_gt_panos(verdict_panos, bundle_ops, run_panos_by_id, counts, warnings
     operational detections drifted from the frozen bundle, or when the verdict list
     does not line up with them — the three ways a verdict can end up attached to a
     detection the reviewer never saw.
+
+    It does NOT check the bundle frame (require_bundle_frame) itself: scripts/subcell_decode.py
+    world deliberately scores a gaussian arm through here against a bundle it has re-keyed to
+    that arm (#131 re-review N1). Callers that score a run against the bundle as published call
+    require_bundle_frame first -- load_city_files / load_city_at_height do, and so do
+    mapillary_height, reprojection_residual and gsv_ground_plane, which load their own panos.
     """
     for pid in sorted(verdict_panos):
         entry = verdict_panos[pid]
@@ -146,7 +188,7 @@ def build_gt(verdict_panos, bundle_ops, run_panos_by_id, params, frame):
     for pid, entry, run_pano, ops, in_pool in judged_gt_panos(
             verdict_panos, bundle_ops, run_panos_by_id, counts, warnings):
         pose = fs.pano_pose(run_pano, params.apply_pose)
-        errors = geo.error_model_for(run_pano.source)
+        errors = geo.error_model_for(run_pano.source, params.sigma_peak_px)
 
         def place(x, y, kind):
             g = geo.detection_ground_point(
@@ -389,11 +431,12 @@ def evaluate_city(verdict_panos, bundle_ops, run_panos, params,
                    'min_confidence': params.min_confidence,
                    'max_range_m': params.max_range_m,
                    'camera_height_m': params.camera_height_m,
-                   'apply_pose': params.apply_pose},
+                   'apply_pose': params.apply_pose,
+                   'sigma_peak_px': params.sigma_peak_px},
         'counts': counts, 'warnings': warnings,
         'fuse': {k: fuse_stats[k] for k in
                  ('n_panos', 'n_projected', 'n_sites', 'n_operational_sites',
-                  'n_multi_pano_sites')},
+                  'n_multi_pano_sites', 'rejections')},
         'n_pool_ramps': n_pool,
         'world_recall': world_recalled / n_pool if n_pool else None,
         'world_recall_ci': wilson(world_recalled, n_pool),
@@ -894,7 +937,9 @@ def format_report(city, r):
         f"(match radius {r['params']['match_radius_m']} m, "
         f"GT merge {r['params']['gt_merge_m']} m, "
         f"camera height {r['params']['camera_height_m']}, "
-        f"pose {r['params']['apply_pose']})",
+        f"pose {r['params']['apply_pose']}"
+        + ('' if r['params'].get('sigma_peak_px') is None
+           else f", sigma_peak_px {r['params']['sigma_peak_px']}") + ")",
         f"run: {r['fuse']['n_panos']} panos -> {r['fuse']['n_sites']} sites "
         f"({r['fuse']['n_operational_sites']} operational, "
         f"{r['fuse']['n_multi_pano_sites']} multi-pano)",
@@ -1041,6 +1086,7 @@ def load_city_files(city, benchmark_root, run_dir, read_heights=True, height_tab
     verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
     run_panos, skipped = fs.load_results(run_dir / 'results.jsonl',
                                          read_heights=read_heights, height_table=height_table)
+    require_bundle_frame(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos
 
 
@@ -1061,6 +1107,7 @@ def load_city_at_height(city, benchmark_root, run_dir, camera_height, read_heigh
     run_panos, _skipped, height, auto = fs.load_at_height(
         Path(results_path) if results_path else run_dir / 'results.jsonl', camera_height,
         read_heights=read_heights)
+    require_bundle_frame(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos, height, auto
 
 
@@ -1093,9 +1140,15 @@ def main():
     ap.add_argument('--vintage-ablation', action='store_true',
                     help='re-fuse at capture-delta windows 0/18/36/none and '
                          'compare world P/R (the #27 open question)')
+    ap.add_argument('--sigma-peak-px', type=float, default=None,
+                    help='heatmap-peak 1-sigma for fusion, heatmap px (#111; default '
+                         'geo.SIGMA_PEAK_PX_DEFAULT). A non-default value needs --out')
     ap.add_argument('--out', type=Path, default=None,
                     help='output dir (default runs/<city>/fusion_eval)')
     args = ap.parse_args()
+    if args.sigma_peak_px is not None and args.out is None:
+        ap.error('--sigma-peak-px changes the fusion covariance; pass --out so the default '
+                 'fusion_eval/ report is not overwritten')
 
     if args.camera_height_m != geo.DEFAULT_CAMERA_HEIGHT_M and args.out is None:
         ap.error('--camera-height-m other than the default changes the scoring frame; '
@@ -1111,13 +1164,15 @@ def main():
             args.city, args.benchmark_root, run_dir, args.camera_height_m)
     except ValueError as e:        # no table, one measured on another file, or a GSV run
         sys.exit(str(e))
+    for warning in fs.pose_source_warnings(run_panos, args.apply_pose):
+        print(warning, file=sys.stderr)
     # Fusion at the BENCHMARK threshold, not the production operating point: the bundle's
     # verdicts and the committed reports are keyed to it (detectors/__init__.py).
     # mask_rig=False alongside the pinned tier: runs/<city>/fusion_eval/ is git-tracked by
     # the same convention as the tilt CSVs, so re-running must still reproduce it.
     params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
                            camera_height_m=args.camera_height_m,
-                           apply_pose=args.apply_pose)
+                           apply_pose=args.apply_pose, sigma_peak_px=args.sigma_peak_px)
     if args.pose_precondition:
         rows, info = pose_precondition(verdict_panos, bundle_ops, run_panos,
                                        replace(params, apply_pose=fs.POSE_OFF),

@@ -1,0 +1,72 @@
+== waiting for pid 3605  2026-09-29T22:05:54Z
+== start 2026-09-29T22:28:54Z
+0 done, 13171 to do
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/380 [00:00<?, ?it/s]Loading weights: 100%|██████████| 380/380 [00:00<00:00, 16368.35it/s]
+200/13171  errors 0  1.29 panos/s
+400/13171  errors 0  1.30 panos/s
+600/13171  errors 0  1.30 panos/s
+800/13171  errors 0  1.30 panos/s
+1000/13171  errors 0  1.30 panos/s
+1200/13171  errors 0  1.30 panos/s
+1400/13171  errors 0  1.31 panos/s
+1600/13171  errors 0  1.31 panos/s
+1800/13171  errors 0  1.31 panos/s
+2000/13171  errors 0  1.31 panos/s
+2200/13171  errors 0  1.31 panos/s
+2400/13171  errors 0  1.31 panos/s
+2600/13171  errors 0  1.31 panos/s
+2800/13171  errors 0  1.31 panos/s
+3000/13171  errors 0  1.31 panos/s
+3200/13171  errors 0  1.31 panos/s
+3400/13171  errors 0  1.31 panos/s
+3600/13171  errors 0  1.31 panos/s
+3800/13171  errors 0  1.31 panos/s
+4000/13171  errors 0  1.31 panos/s
+4200/13171  errors 0  1.31 panos/s
+4400/13171  errors 0  1.31 panos/s
+4600/13171  errors 0  1.31 panos/s
+4800/13171  errors 0  1.31 panos/s
+5000/13171  errors 0  1.31 panos/s
+5200/13171  errors 0  1.31 panos/s
+5400/13171  errors 0  1.31 panos/s
+5600/13171  errors 0  1.31 panos/s
+5800/13171  errors 0  1.31 panos/s
+6000/13171  errors 0  1.31 panos/s
+6200/13171  errors 0  1.31 panos/s
+6400/13171  errors 0  1.31 panos/s
+6600/13171  errors 0  1.31 panos/s
+6800/13171  errors 0  1.31 panos/s
+7000/13171  errors 0  1.31 panos/s
+7200/13171  errors 0  1.31 panos/s
+7400/13171  errors 0  1.31 panos/s
+7600/13171  errors 0  1.31 panos/s
+7800/13171  errors 0  1.31 panos/s
+8000/13171  errors 0  1.31 panos/s
+8200/13171  errors 0  1.31 panos/s
+8400/13171  errors 0  1.31 panos/s
+8600/13171  errors 0  1.31 panos/s
+8800/13171  errors 0  1.31 panos/s
+9000/13171  errors 0  1.31 panos/s
+9200/13171  errors 0  1.31 panos/s
+9400/13171  errors 0  1.31 panos/s
+9600/13171  errors 0  1.31 panos/s
+9800/13171  errors 0  1.31 panos/s
+10000/13171  errors 0  1.31 panos/s
+10200/13171  errors 0  1.31 panos/s
+10400/13171  errors 0  1.31 panos/s
+10600/13171  errors 0  1.31 panos/s
+10800/13171  errors 0  1.31 panos/s
+11000/13171  errors 0  1.31 panos/s
+11200/13171  errors 0  1.31 panos/s
+11400/13171  errors 0  1.31 panos/s
+11600/13171  errors 0  1.31 panos/s
+11800/13171  errors 0  1.31 panos/s
+12000/13171  errors 0  1.31 panos/s
+12200/13171  errors 0  1.31 panos/s
+12400/13171  errors 0  1.31 panos/s
+12600/13171  errors 0  1.31 panos/s
+12800/13171  errors 0  1.31 panos/s
+13000/13171  errors 0  1.31 panos/s
+finished: 13171 written, 0 errors, 10057 s
+== exit 0 2026-09-30T01:16:46Z

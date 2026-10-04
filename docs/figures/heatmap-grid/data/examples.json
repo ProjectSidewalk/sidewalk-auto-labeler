@@ -1,0 +1,30 @@
+{
+  "city": "richmond",
+  "model_id": "rampnet-model@606a11956743",
+  "resample": {
+    "scale": 0.75,
+    "jpeg_quality": 90
+  },
+  "crop_half_heatmap_px": 32,
+  "clean": {
+    "pano_id": "1002881108606016",
+    "copyright": "\u00a9 vukmercd23 / Mapillary (CC BY-SA 4.0)",
+    "col": 443,
+    "row": 260,
+    "confidence": 0.9134
+  },
+  "flip": {
+    "pano_id": "1041352537628655",
+    "copyright": "\u00a9 HKocen / Mapillary (CC BY-SA 4.0)",
+    "original": {
+      "col": 804,
+      "row": 323,
+      "confidence": 0.697
+    },
+    "resampled": {
+      "col": 811,
+      "row": 316,
+      "confidence": 0.6978
+    }
+  }
+}

@@ -1,0 +1,5 @@
+split,panos,pairs,unpaired_orig,unpaired_perturbed,orig_sha256,perturbed_sha256,argmax_same_px,argmax_flip_7_8,argmax_flip_share,gaussian_median_shift_px,gaussian_p90_shift_px,gaussian_p99_shift_px,gaussian_max_shift_px,gaussian_shift_ge_6_5_share,gaussian_median_shift_on_argmax_flips,gaussian_p90_shift_on_argmax_flips
+annapolis,125,261,9,6,7d4d20ea6e28b16431bf89d503ca727c37021c356b4f3441ca7203dbe2158c83,973203aefe33adc28f524c7bfe4512459fbde43df2c9f2b41327632b9efc1563,225,16,0.0613,0.2848,0.9059,2.4569,3.315,0.0,1.3501,2.5548
+paterson,125,307,2,0,d5cde78ffbcb601c06cd12ba7f0d4995fdda616fce00ce3221af2f22650691db,b08bf2c1bebbd36845478782163daf2ca496cec90f975877afbcc2bdd6fae1d6,297,7,0.0228,0.0921,0.2544,0.5796,1.3339,0.0,0.2084,0.3797
+richmond,124,319,5,7,cc056c5398a668da8f9026e2e27cdce7eedafbb6e5add5124dadeaf0dfa3de0b,0b500afff33e07ee293b4d63671c435ec113bea6a05a7a00517bc503c81b94af,287,13,0.0408,0.1619,0.6758,2.1149,5.4478,0.0,0.6832,2.361
+sao_paulo,125,317,3,2,0a1d7e6ce334ba514a9d47aae1b714a386c7956ad775cc6e9dadcb7f9e3807f7,8be6ba8c42f8c37c7e0a2d25ab274bf1d6bef2affc7a3dbd2cea766d920925d7,303,8,0.0252,0.1272,0.4244,1.451,2.7213,0.0,0.4592,1.8514

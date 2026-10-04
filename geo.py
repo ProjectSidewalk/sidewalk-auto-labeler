@@ -15,7 +15,7 @@ Two coordinate models coexist deliberately:
   10 m separation 15 km from the frame origin the error is centimeters.
 """
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import depth as depthlib
 
@@ -58,9 +58,56 @@ SIGMA_PER_P10_P90 = depthlib.SIGMA_PER_P10_P90
 # Opt-in; see docs/mapillary-camera-height.md for the evidence and the verdict.
 PER_RIG = 'per-rig'
 
-# RampNet's heatmap is 1024x512 over the full equirect, so detections are quantized
-# to that grid — and both axes step by the same angle: 2*pi/1024 == pi/512 rad/px.
+# RampNet's heatmap is 1024x512 over the full equirect, and both axes step by the same
+# angle: 2*pi/1024 == pi/512 rad/px. That is the unit sigma_peak_px is stated in -- but it
+# is NOT the quantum of a detection's position (issue #111): the head upsamples a stride-32
+# (64x128) map 8x bilinearly, a bilinear surface peaks only at its coarse sample points, so
+# an argmax lands on hi-res columns/rows 3 or 4 mod 8 (measured on every run; see
+# docs/heatmap-grid.md). The real quantum is HEATMAP_COARSE_CELL_PX hi-res cells.
 RAD_PER_HEATMAP_PX = math.pi / 512.0
+HEATMAP_COARSE_CELL_PX = 8
+# 1-sigma of a uniform error over one coarse cell (+/-4 hi-res px): 8/sqrt(12) = 2.309 px.
+# The honest quantization term for an integer argmax on the upsampled map (#111).
+SIGMA_PEAK_COARSE_CELL_PX = HEATMAP_COARSE_CELL_PX / math.sqrt(12.0)
+# ErrorModel's default: 1.0, KEPT by #111's pre-registered rule, which 2.31 failed in one of
+# ten cells (Sao Paulo at 2.6 m: world recall -1.6 pts against a 1.3-pt binomial SE; the
+# other nine within noise, gate and residual rejections down 16-58% on GSV). So 1.0 is
+# known to be optimistic -- it is below the quantization alone -- but it is what every
+# published table used, and a change moves recall; pass --sigma-peak-px (fuse_sites,
+# eval_sites) or FuseParams.sigma_peak_px for 2.31. The measured residual that should
+# replace both waits on the sub-cell decode study (RampNet#221). docs/heatmap-grid.md.
+SIGMA_PEAK_PX_DEFAULT = 1.0
+HEATMAP_WIDTH, HEATMAP_HEIGHT = 1024, 512
+# How far a re-decoded detection moved, in heatmap cells (Chebyshev, rounded): the classes
+# the reproduction checks report (#111). 1 = residue 3 <-> 4, the same coarse cell; 7-8 =
+# the neighbouring coarse cell of a near-tied pair (the flip mode); 2-6 should not occur
+# for an argmax on the bilinear grid.
+CELL_SHIFT_CLASSES = (('same_cell', 0, 0), ('grid_neighbour', 1, 1), ('off_grid', 2, 6),
+                      ('flip', 7, 8), ('beyond', 9, math.inf))
+
+
+def heatmap_cell_distance(a, b, width, height):
+    """Chebyshev distance between two native-pixel positions (x, y) of one pano, in
+    heatmap cells, with x wrapping at the seam.
+
+    Example:
+        >>> heatmap_cell_distance((0, 4000), (16384 - 112, 4000), 16384, 8192)
+        7.0
+    """
+    dx = abs(a[0] - b[0]) % width
+    dx = min(dx, width - dx)
+    return max(dx * HEATMAP_WIDTH / width, abs(a[1] - b[1]) * HEATMAP_HEIGHT / height)
+
+
+def cell_shift_class(cells):
+    """The CELL_SHIFT_CLASSES key for a distance in heatmap cells (rounded).
+
+    Example:
+        >>> [cell_shift_class(c) for c in (0.06, 1.0, 7.0, 8.0, 16.0)]
+        ['same_cell', 'grid_neighbour', 'flip', 'flip', 'beyond']
+    """
+    c = round(cells)
+    return next(k for k, lo, hi in CELL_SHIFT_CLASSES if lo <= c <= hi)
 
 
 def norm_deg(a):
@@ -367,14 +414,51 @@ def road_relative_pitch_roll(pitch_deg, roll_deg, heading_deg, grade_deg,
             roll_deg + grade_deg * math.sin(phi))
 
 
+# GSV partial pose (#116). GSV equirects are in the capture rig's frame (#113), but the
+# car rides the road, so only a FRACTION of the stored tilt is a placement error. These are
+# the leaked fractions (k_pitch, k_roll) fitted by #116's pre-registered study: the pooled
+# fit over the five GSV cities' TRAIN halves, tier 0.30, at the production `auto` height
+# (pano-clustered SE 0.008 / 0.012; the 2.6 m fit is 0.147 / 0.404). Frozen here as the
+# constants `fuse_sites --apply-pose partial` applies and #116's confirmatory run scores;
+# refit (and re-register) if the height default changes. Source rows:
+# runs/_pooled/partial_pose/coefficients.csv (scope pooled, height auto, tier 0.3);
+# write-up docs/gsv-partial-pose-study.md. GSV only: they were fit on GSV rigs.
+PARTIAL_POSE_K_GSV = (0.183, 0.382)
+
+
+def partial_pitch_roll(pitch_deg, roll_deg, k_pitch=PARTIAL_POSE_K_GSV[0],
+                       k_roll=PARTIAL_POSE_K_GSV[1]):
+    """The (pitch_deg, roll_deg) _world_ray takes for a stored GSV (pitch, roll) under
+    leak fractions (k_pitch, k_roll) -- #116's arm (`scripts/gsv_partial_pose.py` imports
+    this as its `arm_pose`, so the study measures exactly what fusion applies).
+
+    Streetlevel's pitch > 0 is nose DOWN while _world_ray's raises the view axis, so the
+    pitch term flips sign; GSV roll already has Project Sidewalk's sign. Both angles are
+    first folded into [-180, 180) (GSV stores roll unwrapped: 359.4 means -0.6), which is
+    a no-op on angles already folded.
+
+    Example:
+        >>> partial_pitch_roll(2.0, -1.0, 1.0, 1.0)      # the full pose
+        (-2.0, -1.0)
+        >>> partial_pitch_roll(2.0, -1.0, 0.25, 0.5)     # #113's partial arm
+        (-0.5, -0.5)
+        >>> [round(v, 6) for v in partial_pitch_roll(1.0, 359.4, 0.25, 0.5)]
+        [-0.25, -0.3]
+    """
+    return -k_pitch * norm_deg(pitch_deg), k_roll * norm_deg(roll_deg)
+
+
 @dataclass(frozen=True)
 class ErrorModel:
     """1-sigma inputs for the ground-point covariance.
 
-    sigma_peak_px is heatmap-peak localization jitter in heatmap pixels; the
-    angular quantum is RAD_PER_HEATMAP_PX on both axes. GPS sigma enters the ENU
-    covariance isotropically (it moves the ray origin, not the ray)."""
-    sigma_peak_px: float = 1.0
+    sigma_peak_px is heatmap-peak localization error in heatmap pixels (one pixel is
+    RAD_PER_HEATMAP_PX on both axes). GPS sigma enters the ENU covariance isotropically
+    (it moves the ray origin, not the ray).
+
+    SIGMA_PEAK_PX_DEFAULT says which value it defaults to and why (#111).
+    """
+    sigma_peak_px: float = SIGMA_PEAK_PX_DEFAULT
     sigma_pitch_rad: float = math.radians(0.3)
     sigma_heading_rad: float = math.radians(0.5)
     sigma_height_m: float = 0.15
@@ -400,8 +484,20 @@ MAPILLARY_ERRORS = ErrorModel(sigma_pitch_rad=math.radians(1.5),
 CROWDSOURCED_SOURCES = ('mapillary', 'panoramax')
 
 
-def error_model_for(source):
-    return MAPILLARY_ERRORS if source in CROWDSOURCED_SOURCES else GSV_ERRORS
+def error_model_for(source, sigma_peak_px=None):
+    """The source's ErrorModel, with sigma_peak_px overridden when one is given (#111: the
+    peak term is a property of the detector's heatmap, the same for every source).
+
+    Example:
+        >>> error_model_for('launch', sigma_peak_px=2.5).sigma_peak_px
+        2.5
+        >>> error_model_for('mapillary', sigma_peak_px=2.5).sigma_gps_m
+        3.0
+    """
+    errors = MAPILLARY_ERRORS if source in CROWDSOURCED_SOURCES else GSV_ERRORS
+    if sigma_peak_px is not None and sigma_peak_px != errors.sigma_peak_px:
+        errors = replace(errors, sigma_peak_px=sigma_peak_px)
+    return errors
 
 
 def camera_height_for(pose, errors=None, camera_height=DEFAULT_CAMERA_HEIGHT_M):
@@ -485,11 +581,28 @@ def _world_ray(pose, phi, theta):
     MEASURED (fuse_sites.py --pose-ablation, 2026-08-02, paterson + bend,
     ~123k within-site member pairs): applying GSV metadata pitch/roll under ANY
     sign convention LOOSENS multi-view agreement — mean pairwise member distance
-    2.61 m -> 3.9-4.7 m (paterson), 2.06 m -> 2.8-3.9 m (bend) — i.e. the
-    equirectangulars streetlevel serves are already gravity-rectified and the
-    metadata angles describe the capture rig, not the stitched pano frame. So
-    production fusion runs with apply_pose=False and this rotation exists for
-    experiments (and any future source whose imagery is NOT rectified).
+    2.61 m -> 3.9-4.7 m (paterson), 2.06 m -> 2.8-3.9 m (bend). So production
+    fusion runs with apply_pose=False and this rotation exists for experiments.
+
+    CORRECTED 2026-09-29 (issue #113): that measurement stands, but the conclusion
+    first drawn from it here -- that the equirectangulars are "already
+    gravity-rectified" -- does not. They are in the capture rig's frame
+    (sidewalk-panorama-tools#158), and the pixels streetlevel serves are the ones
+    that study measured. The ablation tried only the FULL pose, which overshoots:
+    the car rides the road, so the local ground shares most of the pitch and part
+    of the roll, and only the remainder is a placement error (a triangulation
+    regression reads roughly 0.15-0.25 of the pitch term and 0.4-0.55 of the roll
+    term, attenuated by the flat association). Two things to know before reusing
+    this function on GSV: streetlevel's pitch > 0 is nose DOWN, so the physically
+    correct input is (-camera_pitch, +camera_roll); and GSV camera_roll is stored
+    unwrapped (359.4 means -0.6), which the rotation below does not mind but any
+    arithmetic on the angle does. Numbers on #113. The pre-registered partial-pose
+    study (#116, docs/gsv-partial-pose-study.md) confirmed a fraction (~0.18 pitch,
+    ~0.38 roll) out of sample and against a shuffled control, but failed its recall
+    clause, so the DEFAULT still raycasts GSV flat. The fraction is available opt-in as
+    `fuse_sites --apply-pose partial`, which feeds this function
+    partial_pitch_roll(camera_pitch, camera_roll) with the frozen PARTIAL_POSE_K_GSV,
+    pending #116's pre-registered confirmatory run.
     """
     psi = math.radians(pose.heading_deg)
     alpha = math.radians(pose.pitch_deg)
@@ -541,8 +654,8 @@ def detection_ground_point(pose, x_norm, y_norm, *,
     column x=0.5 is the camera heading, y=0.5 is the pano-frame horizon, so
     phi = (x-0.5)*2*pi and theta = (0.5-y)*pi (positive up). apply_pose=True
     additionally rotates the direction by the pano's pitch/roll — measured to
-    HURT on GSV (see _world_ray: streetlevel's equirects are already
-    gravity-rectified), so fusion passes apply_pose=False; the flat path is
+    HURT on GSV (see _world_ray: the full pose overshoots, because the local
+    ground shares most of the rig's tilt), so fusion passes apply_pose=False; the flat path is
     also always used when the pose carries no pitch/roll (Mapillary).
 
     ``camera_height`` is a height in meters, or PER_PANO for the pano's own measured
@@ -631,7 +744,7 @@ def ground_point_to_pano(pose, lat, lng, *,
     _check_apply_pose(apply_pose)
     if apply_pose and pose.has_pitch_roll:
         raise NotImplementedError(
-            'ground_point_to_pano inverts only the flat (gravity-rectified) path; '
+            'ground_point_to_pano inverts only the flat (pose not applied) path; '
             'pass apply_pose=False, as production fusion does')
     camera_height, _ = camera_height_for(pose, camera_height=camera_height)
     e, n = LocalFrame(pose.lat, pose.lng).to_enu(lat, lng)

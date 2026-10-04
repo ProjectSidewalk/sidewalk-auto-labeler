@@ -1,0 +1,11 @@
+city,height,arm,gt_panos_judged,gt_marks,gt_marks_unplaceable,off_pool_ramps,recall_off_pool_2p5m,recall_off_pool_5m,gt_common_ramps,gt_to_site_median_m,gt_to_site_p90_m,gt_to_site_mean_m,lost_vs_off_2p5m,gained_vs_off_2p5m
+laurens_gsv,auto,off,86,220,24,193,0.9067,0.9430,172,0.8591,2.4616,1.0689,0,0
+laurens_gsv,auto,partial-loco,86,220,23,193,0.9119,0.9378,172,0.8207,2.0617,0.9904,2,3
+laurens_gsv,auto,partial-loco-shuffled,86,220,23,193,0.9067,0.9430,172,0.7818,2.0381,0.9993,1,1
+laurens_gsv,auto,full,86,220,25,193,0.9016,0.9223,172,0.7653,2.0275,1.0106,6,5
+laurens_gsv,auto,fixed-113,86,220,22,193,0.9119,0.9378,172,0.7735,2.0691,0.9797,2,3
+laurens_gsv,2.6,off,86,220,25,190,0.8947,0.9421,172,0.7611,2.5788,1.0684,0,0
+laurens_gsv,2.6,partial-loco,86,220,25,190,0.9105,0.9474,172,0.6949,2.3803,0.9956,1,4
+laurens_gsv,2.6,partial-loco-shuffled,86,220,25,190,0.9211,0.9474,172,0.7337,2.1112,1.0055,0,5
+laurens_gsv,2.6,full,86,220,28,190,0.8789,0.9105,172,0.7388,2.5139,1.0281,9,6
+laurens_gsv,2.6,fixed-113,86,220,27,190,0.9053,0.9421,172,0.6900,2.5019,0.9995,2,4

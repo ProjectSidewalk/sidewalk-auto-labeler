@@ -4,7 +4,8 @@ physical curb-ramp sites.
 Reads a run's results.jsonl, projects every stored detection to a flat-ground
 world point (geo.detection_ground_point with anisotropic error; GSV camera
 pitch/roll deliberately NOT applied — the --pose-ablation experiment showed
-streetlevel's GSV equirects are already gravity-rectified; Mapillary pose is available
+that applying them loosens every city (the full pose overshoots; see
+geo._world_ray and issue #113); Mapillary pose is available
 but also off by default, see Camera pose below), and greedily
 associates them into sites:
 
@@ -37,7 +38,9 @@ Mapillary's SfM altitude profile, is subtracted first -- see sequence_grades), o
 default `auto`, which today resolves to off for EVERY source: road-relative was withheld
 for Mapillary by the #42 shuffled-grade control (AUTO_ROAD_SOURCES says why;
 docs/mapillary-tilt-study.md section 10 has the measurement). GSV is measured to want
-`off` (its equirects are gravity-rectified; geo._world_ray). For
+`off` (applying its full pose loosens every city; geo._world_ray, #113); `partial`
+(OPT-IN, GSV only) applies the leaked fraction of it that #116 measured
+(geo.PARTIAL_POSE_K_GSV), pending #116's pre-registered confirmatory run. For
 Mapillary, blocks written since #42 carry pitch/roll and older ones get them derived here
 from source_metadata, so no run needs rewriting to be fused posed. sites_meta.json's
 `pose` block counts which panos were posed and, under `road`, how many had no usable
@@ -92,16 +95,20 @@ if str(REPO_ROOT) not in sys.path:
 
 import depth as depthlib  # noqa: E402
 import geo  # noqa: E402
-from detectors import (DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE,  # noqa: E402
-                       on_camera_rig)
+from detectors import (BORDER_EXCLUDE, DECODE_ARGMAX, DETECTION_STORAGE_FLOOR,  # noqa: E402
+                       OPERATIONAL_CONFIDENCE, on_camera_rig, record_border, record_decode,
+                       single_border, single_decode)
+from collections import Counter  # noqa: E402
 
 # How fusion rotates rays by camera pose (issue #42). The value is recorded in
 # sites_meta.json's params, so a sites file always says which frame it is in.
 POSE_OFF = 'off'          # flat raycast in the pano frame
 POSE_GRAVITY = 'gravity'  # rotate by the stored pitch/roll (gravity-relative)
 POSE_ROAD = 'road'        # ...minus the sequence's road grade where there is one
+POSE_PARTIAL = 'partial'  # GSV only: the leaked FRACTION of the stored pitch/roll (#116;
+                          # geo.partial_pitch_roll with geo.PARTIAL_POSE_K_GSV). OPT-IN
 POSE_AUTO = 'auto'        # the default: POSE_ROAD for AUTO_ROAD_SOURCES, POSE_OFF otherwise
-POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
+POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD, POSE_PARTIAL)
 # Sources `auto` fuses road-relative: NONE, for now. Road-relative passed the first #42
 # rule for Mapillary (at the 25 m cap, on one site set and one GT set, it cut p90 and
 # median GT-to-site distance against the flat raycast in all five cities), but FAILED the
@@ -111,9 +118,15 @@ POSE_MODES = (POSE_AUTO, POSE_OFF, POSE_GRAVITY, POSE_ROAD)
 # (pitch and grade share one SfM; subtracting could cancel shared error) -- and recall on
 # the flat raycast's own GT pool fell 4.0 / 2.9 points in Richmond / Annapolis. So the
 # road-frame default is WITHHELD pending that question; `--apply-pose road` still works.
-# Put 'mapillary' back here only on a control that passes. GSV stays flat regardless: its
-# equirects are gravity-rectified and applying their pose loosens every city
-# (geo._world_ray, #52). Panoramax: optional pers:pitch/roll, convention unmeasured (#57).
+# Put 'mapillary' back here only on a control that passes. GSV stays flat regardless:
+# applying its full pose loosens every city (geo._world_ray, #52). Its equirects are
+# rig-frame, not gravity-rectified (#113). A partial pose (~0.18 pitch, ~0.38 roll)
+# tightens held-out sites and beats a magnitude-matched shuffle, but FAILED #116's
+# pre-registered recall clause (Bend, 2 of 157 ramps), so `auto` does not apply it; since
+# the #116 follow-up it is OPT-IN as `--apply-pose partial` (the frozen pooled constants
+# geo.PARTIAL_POSE_K_GSV), pending the pre-registered confirmatory run
+# (`gsv_partial_pose.py confirm`; docs/gsv-partial-pose-study.md). Panoramax:
+# optional pers:pitch/roll, convention unmeasured (#57).
 # #51 re-ran the same control with a road grade that never saw the SfM (USGS 3DEP DEM,
 # --grade-source dem) and it FAILED again, on (i) and (ii) (docs/dem-grade-study.md): the
 # DEM grade matches the SfM one in fusion, so a better grade does not change this.
@@ -131,10 +144,26 @@ AUTO_ROAD_SOURCES = ()
 # fuse_sites.py warns (stderr) when a run holds any. Matched as for site_explorer: a known
 # name, else GSV (legacy GSV records store streetlevel's raw source string, e.g. "launch").
 UNGRADED_POSE_WARNINGS = {
-    'gsv': 'GSV has no sequence grade, so `road` is 100% gravity fallback; its equirects '
-           'are already gravity-rectified and rotating them loosened every city (#52)',
+    'gsv': 'GSV has no sequence grade, so `road` is 100% gravity fallback; rotating its '
+           'rays by the full pose loosened every city (#52, #113)',
     'panoramax': "Panoramax's pitch/roll convention is unmeasured (#57)",
 }
+# --apply-pose partial's fractions were fit on GSV rigs only (#116): every other source's
+# panos raycast flat under it, and fuse_sites.py says so once per run.
+PARTIAL_POSE_NON_GSV_WARNING = ('the #116 fractions were fit on GSV rigs only, so these '
+                                'raycast flat under `partial`')
+# A pano block rebuilt from the Project Sidewalk pano store (scripts/detect_from_store.py)
+# carries source None and the PS pano row's camera_pitch/camera_roll, whose convention
+# against streetlevel's (the angles the #116 fractions were fit on) is UNVERIFIED -- a sign
+# flip would turn `partial` into the mirror arm. So `partial` raycasts these flat, and says
+# so, unless the block has been re-labelled STORE_POSE_VERIFIED_DETAIL by a check that
+# compared them with streetlevel's on the same pano ids (gsv_partial_pose.store_pose_gate)
+# and mapped them into streetlevel's convention.
+STORE_SOURCE_DETAIL = 'ps_store'
+STORE_POSE_VERIFIED_DETAIL = 'ps_store:pose_verified'
+PARTIAL_POSE_STORE_WARNING = ("their pitch/roll are the PS pano row's, whose convention "
+                              "against streetlevel's is unverified, so they raycast flat "
+                              'under `partial` (gsv_partial_pose.store_pose_gate verifies it)')
 
 # Consecutive frames of one sequence within this time gap and horizontal distance define
 # a local direction of travel and, through the SfM altitude, a road grade. The bounds are
@@ -171,6 +200,8 @@ class FuseParams:
     apply_pose: str = POSE_AUTO      # one of POSE_MODES; see AUTO_ROAD_SOURCES for what
                                      # the default does per source, and why
     sigma_scale: float = 1.0         # inflate all covariances by scale^2 (model tuning)
+    sigma_peak_px: float | None = None  # heatmap-peak 1-sigma, heatmap px (#111); None =
+                                     # geo.SIGMA_PEAK_PX_DEFAULT via the source's ErrorModel
     max_vintage_months: int | None = None  # eval-ablation only; None = no gate
     grade_source: str = GRADE_SFM    # one of GRADE_SOURCES (#51); load_results applies it,
                                      # this records it in sites_meta.json
@@ -216,6 +247,9 @@ class SlimPano:
     height_group: str | None = None              # camera_heights.json group (#53, per-rig)
     height_table: dict | None = None             # ...and that table's provenance (shared)
     height_from_index: bool = False              # height read from depth/index.csv (#47)
+    source_detail: str | None = None             # e.g. 'ps_store' for a store-built block
+    decode: str = DECODE_ARGMAX                  # the record's peak decode (#111)
+    border: str = BORDER_EXCLUDE                 # the record's peak border rule (#130)
 
     def pose_fields(self, **overrides):
         """The pano-block fields geo.pano_pose reads, with any of them overridden."""
@@ -400,10 +434,20 @@ def sequence_grades(frames):
 
 
 def pose_mode_for(pano, mode):
-    """The mode a pano is actually raycast under: POSE_AUTO resolves by source."""
+    """The mode a pano is actually raycast under: POSE_AUTO resolves by source, and
+    POSE_PARTIAL applies to GSV panos only (every other source raycasts flat under it) --
+    and not to a store-built GSV block whose pose convention is unverified
+    (STORE_SOURCE_DETAIL; see there)."""
     if mode == POSE_AUTO:
         return POSE_ROAD if pano.source in AUTO_ROAD_SOURCES else POSE_OFF
+    if mode == POSE_PARTIAL and (source_kind(pano.source) != 'gsv'
+                                 or _unverified_store(pano)):
+        return POSE_OFF
     return mode
+
+
+def _unverified_store(pano):
+    return getattr(pano, 'source_detail', None) == STORE_SOURCE_DETAIL
 
 
 def pano_pose(pano, mode):
@@ -413,10 +457,18 @@ def pano_pose(pano, mode):
     back WITHOUT pitch/roll, so the raycast is flat whatever apply_pose the caller passes
     geo. Under POSE_ROAD a posed pano with a sequence grade gets its pitch/roll re-expressed
     relative to the road (geo.road_relative_pitch_roll); without a grade it keeps the
-    gravity-relative angles -- the fallback sites_meta.json counts."""
+    gravity-relative angles -- the fallback sites_meta.json counts. Under POSE_PARTIAL a
+    GSV pano with both angles stored gets the frozen #116 fraction of them
+    (geo.partial_pitch_roll with geo.PARTIAL_POSE_K_GSV); one missing either angle, and
+    every non-GSV pano, raycasts flat."""
     mode = pose_mode_for(pano, mode)
-    if mode == POSE_OFF:
+    if mode == POSE_OFF or (mode == POSE_PARTIAL and (pano.camera_pitch is None
+                                                      or pano.camera_roll is None)):
         return geo.pano_pose(pano.pose_fields(camera_pitch=None, camera_roll=None))
+    if mode == POSE_PARTIAL:
+        pitch, roll = geo.partial_pitch_roll(float(pano.camera_pitch), float(pano.camera_roll),
+                                             *geo.PARTIAL_POSE_K_GSV)
+        return geo.pano_pose(pano.pose_fields(camera_pitch=pitch, camera_roll=roll))
     if mode == POSE_ROAD and pano.grade_deg is not None \
             and pano.camera_pitch is not None and pano.camera_roll is not None:
         pitch, roll = geo.road_relative_pitch_roll(
@@ -428,13 +480,20 @@ def pano_pose(pano, mode):
 
 def pose_counts(panos, params):
     """Where the run's panos got their pose and how each was raycast: `flat`,
-    `gravity`, `road_relative`, or `gravity_fallback` -- a pano road mode wanted to
-    correct but whose sequence gave no grade. sites_meta.json records it because that
+    `gravity`, `road_relative`, `gravity_fallback` -- a pano road mode wanted to
+    correct but whose sequence gave no grade -- or `partial` (#116: a GSV pano given the
+    frozen fraction of its stored pose; `partial_coefficients` records which, and is
+    None under every other mode). `store_unverified_flat` counts store-built GSV panos
+    that `partial` left flat because their pose convention is unverified. sites_meta.json records it because that
     fallback is the convention the #42 study found WRONG for a vehicle rig on a slope,
     so its rate has to be visible rather than silent."""
     counts = {'mode': params.apply_pose, 'panos': len(panos), 'posed': 0,
               'derived_from_source_metadata': 0, 'flat': 0, 'gravity': 0,
-              'road_relative': 0, 'gravity_fallback': 0,
+              'road_relative': 0, 'gravity_fallback': 0, 'partial': 0,
+              'store_unverified_flat': 0,
+              'partial_coefficients': (
+                  dict(zip(('k_pitch', 'k_roll'), geo.PARTIAL_POSE_K_GSV))
+                  if params.apply_pose == POSE_PARTIAL else None),
               # #51: which grade road mode subtracts, and on how many panos load_results
               # replaced the SfM grade with it (0 under `sfm`; a mismatch is the tell)
               'grade_source': params.grade_source,
@@ -444,11 +503,16 @@ def pose_counts(panos, params):
         posed = p.camera_pitch is not None and p.camera_roll is not None
         counts['posed'] += posed
         counts['derived_from_source_metadata'] += p.pose_origin == 'source_metadata'
+        if (params.apply_pose == POSE_PARTIAL and posed and _unverified_store(p)
+                and source_kind(p.source) == 'gsv'):
+            counts['store_unverified_flat'] += 1
         mode = pose_mode_for(p, params.apply_pose)
         if not posed or mode == POSE_OFF:
             counts['flat'] += 1
         elif mode == POSE_GRAVITY:
             counts['gravity'] += 1
+        elif mode == POSE_PARTIAL:
+            counts['partial'] += 1
         elif p.grade_deg is not None:
             counts['road_relative'] += 1
         else:
@@ -458,7 +522,27 @@ def pose_counts(panos, params):
 
 def pose_source_warnings(panos, mode):
     """Warnings (strings) for an explicit --apply-pose gravity/road over panos it was not
-    measured for: GSV and Panoramax. Empty for off/auto, and for all-Mapillary runs."""
+    measured for: GSV and Panoramax; and for --apply-pose partial over any non-GSV pano
+    (one line for the run: its fractions were fit on GSV rigs, so those raycast flat).
+    Empty for off/auto, for gravity/road on all-Mapillary runs, and for partial on
+    all-GSV runs."""
+    if mode == POSE_PARTIAL:
+        kinds, store = {}, 0
+        for p in panos:
+            kind = source_kind(p.source)
+            if kind != 'gsv':
+                kinds[kind] = kinds.get(kind, 0) + 1
+            elif _unverified_store(p):
+                store += 1
+        out = []
+        if kinds:
+            what = ', '.join(f'{n} {kind}' for kind, n in sorted(kinds.items()))
+            out.append(f'WARNING: --apply-pose partial on {what} pano(s): '
+                       f'{PARTIAL_POSE_NON_GSV_WARNING}')
+        if store:
+            out.append(f'WARNING: --apply-pose partial on {store} store-built GSV pano(s): '
+                       f'{PARTIAL_POSE_STORE_WARNING}')
+        return out
     if mode not in (POSE_GRAVITY, POSE_ROAD):
         return []
     counts = {}
@@ -683,7 +767,8 @@ def apply_height_table(panos, table_path, results_path):
 
 
 def load_results(path, depth_index=None, read_heights=True, height_table=None,
-                 grade_source=GRADE_SFM, grades_path=None):
+                 grade_source=GRADE_SFM, grades_path=None, allow_mixed_decode=False,
+                 allow_mixed_border=False):
     """Stream results.jsonl into SlimPanos, discarding links/history/metadata.
     Records without a position or heading can't be raycast and are dropped
     (counted by the caller via the skipped list).
@@ -708,7 +793,13 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
     fallback pose_counts already counts.
 
     height_table (#53): a camera_heights.json path, for a PER_RIG fuse -- the heights
-    come from it instead (apply_height_table; it refuses a mismatched file or a GSV run)."""
+    come from it instead (apply_height_table; it refuses a mismatched file or a GSV run).
+
+    Peak decode (#111): each SlimPano carries its record's decode (detectors.record_decode),
+    and a file mixing argmax and gaussian records raises ValueError unless
+    allow_mixed_decode -- the two place the same peaks in different frames. Likewise the
+    border rule (#130; detectors.record_border): a file mixing `exclude` and `keep` records
+    raises unless allow_mixed_border."""
     path = Path(path)
     index = load_depth_index(depth_index or path.parent / 'depth' / 'index.csv') \
         if read_heights else {}
@@ -747,9 +838,12 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
                 camera_height_m=height, camera_height_spread_m=spread,
                 ground_tilt_deg=tilt, pose_origin=origin,
                 sequence_id=p.get('sequence_id') or meta.get('sequence'),
-                height_from_index=from_index))
+                height_from_index=from_index, source_detail=p.get('source_detail'),
+                decode=record_decode(rec), border=record_border(rec)))
             frames.append((len(panos) - 1, p.get('sequence_id'), meta.get('captured_at'),
                            p['lat'], p['lng'], meta.get('computed_altitude')))
+    single_decode(Counter(p.decode for p in panos), path.name, allow_mixed_decode)
+    single_border(Counter(p.border for p in panos), path.name, allow_mixed_border)
     for i, (grade, bearing) in sequence_grades(frames).items():
         panos[i].grade_deg, panos[i].travel_bearing_deg = grade, bearing
         panos[i].grade_origin = GRADE_SFM
@@ -804,7 +898,7 @@ def project(panos, params):
     s2 = params.sigma_scale ** 2
     for p in panos:
         pose = pano_pose(p, params.apply_pose)
-        errors = geo.error_model_for(p.source)
+        errors = geo.error_model_for(p.source, params.sigma_peak_px)
         months = _months(p.capture_date)
         for i, x, y, conf in p.detections:
             if conf < params.floor:
@@ -837,9 +931,15 @@ def project(panos, params):
     return dets, frame, drops
 
 
-def fuse(panos, params):
+def fuse(panos, params, allow_mixed_decode=False, allow_mixed_border=False):
     """Associate projected detections into sites. Deterministic: input order never
-    matters (canonical sort; best-candidate tiebreak on (D2, site id))."""
+    matters (canonical sort; best-candidate tiebreak on (D2, site id)).
+
+    Panos written under different peak decodes (#111) are refused (ValueError) unless
+    allow_mixed_decode: a caller that assembles panos from two files gets the same guard
+    load_results applies to one. The same for border rules (#130) and allow_mixed_border."""
+    single_decode(Counter(p.decode for p in panos), 'the panos to fuse', allow_mixed_decode)
+    single_border(Counter(p.border for p in panos), 'the panos to fuse', allow_mixed_border)
     dets, frame, drops = project(panos, params)
     dets.sort(key=lambda d: (-d.conf, d.pano_id, d.det_index))
     grid = geo.GridIndex(params.max_match_m)
@@ -852,8 +952,14 @@ def fuse(panos, params):
         grid.add(site.e, site.n, site)
         return site
 
+    # Why a detection opened a new site instead of joining one (#111: the peak sigma feeds
+    # the gate and the residual). chi2_gate: some site passed the cap, the cannot-link and
+    # the vintage window, and none passed the gate. residual: the best site passed the gate
+    # but the refit residual would have exceeded residual_per_dof_max.
+    rejections = {'chi2_gate': 0, 'residual': 0}
     for det in dets:
         best = None
+        gated = False
         seen = set()
         for site in grid.near(det.e, det.n):
             if site.id in seen:
@@ -868,10 +974,12 @@ def fuse(panos, params):
                 continue
             d2 = geo.sym2_quadform(geo.sym2_inv(geo.sym2_add(det.cov, site.cov_p)),
                                    de, dn)
+            gated = True
             if d2 <= params.gate_chi2 and (best is None or (d2, site.id) < best[:2]):
                 best = (d2, site.id, site)
 
         if best is None:
+            rejections['chi2_gate'] += gated
             new_site(det)
             continue
         site = best[2]
@@ -879,6 +987,7 @@ def fuse(panos, params):
             # refit merge — unless it would blow up the triangulation residual
             if site.n_refit >= 1 and \
                     site.tentative_residual_per_dof(det) > params.residual_per_dof_max:
+                rejections['residual'] += 1
                 new_site(det)
                 continue
             old_key = grid.key(site.e, site.n)
@@ -893,6 +1002,7 @@ def fuse(panos, params):
              'n_sites': len(sites),
              'n_operational_sites': sum(1 for s in sites if s.n_operational),
              'n_multi_pano_sites': sum(1 for s in sites if len(s.pano_ids) > 1),
+             'rejections': rejections,
              'camera_heights': camera_height_counts(panos, params),
              'pose': pose_counts(panos, params),
              'frame_origin': {'lat0': frame.lat0, 'lng0': frame.lng0}}
@@ -952,7 +1062,7 @@ def height_table_path(camera_height, results_path, height_table=None):
 
 def load_at_height(results_path, camera_height, *, depth_index=None, height_table=None,
                    read_heights=None, resolve_auto=True, grade_source=GRADE_SFM,
-                   grades_path=None):
+                   grades_path=None, allow_mixed_decode=False, allow_mixed_border=False):
     """Load results.jsonl and resolve a --camera-height-m value in ONE place (#56).
 
     fuse_sites' CLI, eval_sites, eval_ps_clustering and mined_precision all load through
@@ -982,7 +1092,9 @@ def load_at_height(results_path, camera_height, *, depth_index=None, height_tabl
     table = height_table_path(camera_height, results_path, height_table)
     panos, skipped = load_results(results_path, depth_index, read_heights=read_heights,
                                   height_table=table, grade_source=grade_source,
-                                  grades_path=grades_path)
+                                  grades_path=grades_path,
+                                  allow_mixed_decode=allow_mixed_decode,
+                                  allow_mixed_border=allow_mixed_border)
     if camera_height != HEIGHT_AUTO:
         return panos, skipped, camera_height, None
     if not resolve_auto:
@@ -1161,6 +1273,14 @@ def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('run', help='run directory (with results.jsonl) or a jsonl path')
     ap.add_argument('--floor', type=float, default=DETECTION_STORAGE_FLOOR)
+    ap.add_argument('--allow-mixed-decode', action='store_true',
+                    help='fuse a file whose records mix argmax and gaussian peak decodes '
+                         '(#111; refused by default: the two are different frames). '
+                         'sites_meta.json then records the mix')
+    ap.add_argument('--allow-mixed-border', action='store_true',
+                    help='fuse a file whose records mix the exclude and keep peak border '
+                         'rules (#130; refused by default: keep adds the seam-band peaks '
+                         'exclude drops). sites_meta.json then records the mix')
     ap.add_argument('--min-confidence', type=float, default=OPERATIONAL_CONFIDENCE)
     ap.add_argument('--max-range-m', type=float, default=geo.DEFAULT_MAX_RANGE_M)
     ap.add_argument('--gate-chi2', type=float, default=FuseParams.gate_chi2)
@@ -1182,15 +1302,23 @@ def build_parser():
                     help='camera_heights.json for --camera-height-m per-rig '
                          '(default: beside results.jsonl)')
     ap.add_argument('--sigma-scale', type=float, default=1.0)
+    ap.add_argument('--sigma-peak-px', type=float, default=None,
+                    help='heatmap-peak 1-sigma in heatmap px (#111; default '
+                         f'geo.SIGMA_PEAK_PX_DEFAULT = {geo.SIGMA_PEAK_PX_DEFAULT}). '
+                         f'{geo.SIGMA_PEAK_COARSE_CELL_PX:.2f} is the uniform quantization of one '
+                         '8-px coarse cell; see docs/heatmap-grid.md')
     # A value is REQUIRED (no nargs='?'): an optional value would swallow the positional
     # run directory in `--apply-pose runs/x`, and a bare flag would have to guess a mode.
     ap.add_argument('--apply-pose', choices=POSE_MODES, default=FuseParams.apply_pose,
-                    metavar='{off,auto,gravity,road}',
+                    metavar='{off,auto,gravity,road,partial}',
                     help='rotate rays by camera pose: auto (the default; currently off for '
                          'every source -- the #42 shuffled-grade control withheld road for '
                          'Mapillary, see AUTO_ROAD_SOURCES), off (flat raycast), gravity '
-                         "(stored pitch/roll), or road (minus the sequence's road grade). "
-                         'Measured to hurt on GSV -- see the --pose-ablation report')
+                         "(stored pitch/roll), road (minus the sequence's road grade), or "
+                         'partial (GSV only, OPT-IN: the frozen #116 fraction '
+                         f'{geo.PARTIAL_POSE_K_GSV[0]} pitch / {geo.PARTIAL_POSE_K_GSV[1]} roll '
+                         'of the stored pose; other sources flat). The full pose is measured '
+                         'to hurt on GSV -- see the --pose-ablation report')
     ap.add_argument('--grade-source', choices=GRADE_SOURCES, default=GRADE_SFM,
                     help='where --apply-pose road takes the road grade from: sfm (the '
                          "default; the sequence's SfM altitude), sfm-smoothed or dem "
@@ -1226,7 +1354,8 @@ def main(argv=None):
         camera_height_m=(geo.DEFAULT_CAMERA_HEIGHT_M if args.camera_height_m == HEIGHT_AUTO
                          else args.camera_height_m),
         apply_pose=args.apply_pose,
-        sigma_scale=args.sigma_scale, grade_source=args.grade_source)
+        sigma_scale=args.sigma_scale, sigma_peak_px=args.sigma_peak_px,
+        grade_source=args.grade_source)
 
     if args.height_table is not None and args.camera_height_m != geo.PER_RIG:
         print('WARNING: --height-table is ignored unless --camera-height-m per-rig',
@@ -1242,7 +1371,9 @@ def main(argv=None):
             read_heights=(args.camera_height_m in (geo.PER_PANO, HEIGHT_AUTO)
                           or args.implied_height),
             resolve_auto=resolve,
-            grade_source=args.grade_source, grades_path=args.grades)
+            grade_source=args.grade_source, grades_path=args.grades,
+            allow_mixed_decode=args.allow_mixed_decode,
+            allow_mixed_border=args.allow_mixed_border)
     except ValueError as e:
         sys.exit(str(e))
     if skipped:
@@ -1257,15 +1388,26 @@ def main(argv=None):
               file=sys.stderr if 'reason' in auto and auto['gsv_panos'] else sys.stdout)
 
     if args.pose_ablation:
-        print(pose_ablation_report(panos, params))
+        print(pose_ablation_report(panos, params, args.allow_mixed_decode,
+                                   args.allow_mixed_border))
         return
     if args.implied_height:
-        print(implied_height_report(panos, params))
+        print(implied_height_report(panos, params, args.allow_mixed_decode,
+                                    args.allow_mixed_border))
         return
 
-    sites, frame, stats = fuse(panos, params)
+    sites, frame, stats = fuse(panos, params, allow_mixed_decode=args.allow_mixed_decode,
+                               allow_mixed_border=args.allow_mixed_border)
     if auto is not None:
         stats['camera_heights'] = resolved_height_counts(panos, params, auto)
+    # Which frame the sites are in (#111): the decode every member's record was written under.
+    decodes = Counter(p.decode for p in panos)
+    stats['detection_decode'] = (single_decode(decodes, jsonl.name) if len(decodes) == 1
+                                 else dict(sorted(decodes.items())))
+    # ...and whether those records kept the seam-band peaks (#130).
+    borders = Counter(p.border for p in panos)
+    stats['detection_border'] = (single_border(borders, jsonl.name) if len(borders) == 1
+                                 else dict(sorted(borders.items())))
     out = args.out or jsonl.parent / 'sites.jsonl'
     meta = out.with_name(out.stem + '_meta.json')
     write_sites(sites, frame, stats, params, out, meta)
@@ -1273,7 +1415,7 @@ def main(argv=None):
     print(f'wrote {out} and {meta}')
 
 
-def pose_ablation_report(panos, params):
+def pose_ablation_report(panos, params, allow_mixed_decode=False, allow_mixed_border=False):
     """Empirically lock the pitch/roll sign convention (issue #27 stage 2).
 
     Association is frozen from a pose-OFF fuse; each member's ground point is
@@ -1291,17 +1433,7 @@ def pose_ablation_report(panos, params):
     while reading like a statement about the run. A subset drawn by "which rig wrote a
     pose" is not a random one, so the header says so out loud.
     """
-    from dataclasses import replace
-
-    sites, frame, _ = fuse(panos, replace(params, apply_pose=POSE_OFF))
-    by_id = {p.pano_id: p for p in panos}
-    groups = []
-    for site in sites:
-        ms = [d for d, _ in site.members
-              if d.operational and by_id[d.pano_id].camera_pitch is not None
-              and by_id[d.pano_id].camera_roll is not None]
-        if len(ms) >= 2:
-            groups.append(ms)
+    groups, by_id, frame = posed_groups(panos, params, allow_mixed_decode, allow_mixed_border)
     if not groups:
         return 'no multi-view sites with pitch/roll poses — nothing to ablate'
 
@@ -1314,9 +1446,7 @@ def pose_ablation_report(panos, params):
             '  ⚠ mixed population — the table below describes only the posed panos, '
             'which are\n    self-selected by capture rig, not a random sample of the run.')
 
-    conventions = [('off (no pose)', None), ('+pitch +roll', (1, 1)),
-                   ('+pitch -roll', (1, -1)), ('-pitch +roll', (-1, 1)),
-                   ('-pitch -roll', (-1, -1)), ('+pitch  0', (1, 0))]
+    conventions = POSE_CONVENTIONS
     lines = coverage + [f'{len(groups)} frozen multi-view sites '
              f'({sum(len(g) for g in groups)} members); '
              'within-site pairwise member distance (m):',
@@ -1341,7 +1471,8 @@ def pose_ablation_report(panos, params):
                 g = geo.detection_ground_point(
                     pose_cache[key], d.x, d.y,
                     camera_height=params.camera_height_m,
-                    max_range_m=math.inf, errors=geo.error_model_for(p.source))
+                    max_range_m=math.inf,
+                    errors=geo.error_model_for(p.source, params.sigma_peak_px))
                 if g is None:
                     break
                 pts.append(frame.to_enu(g.lat, g.lng))
@@ -1357,7 +1488,105 @@ def pose_ablation_report(panos, params):
         mean = sum(dists) / len(dists)
         lines.append(f'{name:>14}  {mean:7.3f}  {dists[len(dists) // 2]:7.3f}  '
                      f'{len(dists):7d}')
+    lines += ['', *pose_ablation_same_sites(groups, by_id, frame, params, conventions)]
     return '\n'.join(lines)
+
+
+POSE_CONVENTIONS = [('off (no pose)', None), ('+pitch +roll', (1, 1)),
+                    ('+pitch -roll', (1, -1)), ('-pitch +roll', (-1, 1)),
+                    ('-pitch -roll', (-1, -1)), ('+pitch  0', (1, 0))]
+SAME_SITE_SUBSETS = (('posed members (incl. 0/0)', lambda p: True),
+                     ('real-tilt members only',
+                      lambda p: float(p.camera_pitch) != 0.0 or float(p.camera_roll) != 0.0))
+
+
+def posed_groups(panos, params, allow_mixed_decode=False, allow_mixed_border=False):
+    """(groups, by_id, frame): the operational members of each pose-OFF site whose pano
+    carries pitch+roll, for every site with >= 2 of them -- the ablation's frozen
+    association. allow_mixed_decode / allow_mixed_border pass through to fuse (#111, #130)."""
+    from dataclasses import replace
+    sites, frame, _ = fuse(panos, replace(params, apply_pose=POSE_OFF),
+                           allow_mixed_decode=allow_mixed_decode,
+                           allow_mixed_border=allow_mixed_border)
+    by_id = {p.pano_id: p for p in panos}
+    groups = []
+    for site in sites:
+        ms = [d for d, _ in site.members
+              if d.operational and by_id[d.pano_id].camera_pitch is not None
+              and by_id[d.pano_id].camera_roll is not None]
+        if len(ms) >= 2:
+            groups.append(ms)
+    return groups, by_id, frame
+
+
+def same_site_spreads(groups, by_id, frame, params, conventions, keep):
+    """(kept, candidates, {convention: [per-group list of pairwise distances]}) on ONE
+    site set: a group (restricted to members `keep` accepts, >= 2 of them) counts only
+    if every convention places every member within params.max_range_m. Per-group lists
+    keep the group structure, so a caller can bootstrap over sites."""
+    subset = [[d for d in ms if keep(by_id[d.pano_id])] for ms in groups]
+    subset = [ms for ms in subset if len(ms) >= 2]
+    out = {name: [] for name, _ in conventions}
+    kept = 0
+    for ms in subset:
+        per = {}
+        for name, signs in conventions:
+            row = []
+            for d in ms:
+                p = by_id[d.pano_id]
+                if signs is None:
+                    pose = geo.pano_pose(p.pose_fields(camera_pitch=None, camera_roll=None))
+                else:
+                    pose = geo.pano_pose(p.pose_fields(
+                        camera_pitch=signs[0] * p.camera_pitch,
+                        camera_roll=signs[1] * p.camera_roll))
+                g = geo.detection_ground_point(
+                    pose, d.x, d.y, camera_height=params.camera_height_m,
+                    max_range_m=params.max_range_m,
+                    errors=geo.error_model_for(p.source, params.sigma_peak_px))
+                if g is None:
+                    break
+                row.append(frame.to_enu(g.lat, g.lng))
+            else:
+                per[name] = row
+                continue
+            break
+        if len(per) != len(conventions):
+            continue
+        kept += 1
+        for name, row in per.items():
+            out[name].append([math.hypot(row[i][0] - row[j][0], row[i][1] - row[j][1])
+                              for i in range(len(row)) for j in range(i + 1, len(row))])
+    return kept, len(subset), out
+
+
+def pose_ablation_same_sites(groups, by_id, frame, params, conventions):
+    """The ablation re-read on ONE site set at the production range cap (issue #57).
+
+    The table above lets each convention drop a whole group when one member's ray
+    misses the ground, and runs uncapped, so its rows are different subsets and its
+    tail charges a convention for rays production drops. Here a group counts only if
+    EVERY convention places EVERY member within params.max_range_m, and the pairwise
+    spread is read as a median and a p90 -- twice: over all posed members, and over
+    members whose pose is a real tilt (a 0/0 pose is identical under every sign, so
+    it only dilutes the contrast)."""
+    out = []
+    for label, keep in SAME_SITE_SUBSETS:
+        kept, n_subset, per_group = same_site_spreads(groups, by_id, frame, params,
+                                                      conventions, keep)
+        out += [f'same-site set, {label}: {kept} of {n_subset} groups placed by every '
+                f'convention within {params.max_range_m:g} m; pairwise distance (m):',
+                f'{"convention":>14}  {"median":>7}  {"p90":>7}  {"pairs":>7}']
+        for name, _ in conventions:
+            dists = sorted(x for g in per_group[name] for x in g)
+            if not dists:
+                out.append(f'{name:>14}  {"—":>7}  {"—":>7}  {0:7d}')
+                continue
+            p90 = dists[min(len(dists) - 1, max(0, math.ceil(len(dists) * 0.9) - 1))]
+            out.append(f'{name:>14}  {dists[len(dists) // 2]:7.3f}  {p90:7.3f}  '
+                       f'{len(dists):7d}')
+        out.append('')
+    return out
 
 
 IMPLIED_MIN_ANGLE_DEG = 30.0   # below this two bearings barely constrain a range
@@ -1405,7 +1634,7 @@ def _median(values):
     return (v[n // 2] + v[(n - 1) // 2]) / 2.0
 
 
-def implied_height_report(panos, params):
+def implied_height_report(panos, params, allow_mixed_decode=False, allow_mixed_border=False):
     """Measured vs imagery-implied camera height, by capture year (#40).
 
     The implied height is independent of the height model only per pair; which pairs
@@ -1416,7 +1645,8 @@ def implied_height_report(panos, params):
     `per-pano`, iterate on a scale instead (docs/camera-height-study.md does, by
     monkeypatching; the self-consistent scale was 1.06-1.16 by city).
     """
-    sites, frame, _ = fuse(panos, params)
+    sites, frame, _ = fuse(panos, params, allow_mixed_decode=allow_mixed_decode,
+                           allow_mixed_border=allow_mixed_border)
     by_id = {p.pano_id: p for p in panos}
     implied = {pid: _median(hs) for pid, hs in implied_heights(sites, frame, by_id).items()}
     if not implied:

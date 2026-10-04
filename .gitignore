@@ -60,6 +60,23 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/agree_rate/
 !runs/*/agree_rate/report.md
 !runs/*/agree_rate/*.csv
+# Label-frame beta (scripts/label_frame_beta.py, issue #113): the report and CSVs are
+# tracked. Unlike the rule above, Gainesville's API pull (5.2 MB) is tracked too: the live
+# API cannot return the same snapshot later, so without it the committed result could not
+# be re-scored from git. The report's url, fetch time and sha256 tie it back.
+!runs/*/label_frame_beta/
+!runs/*/label_frame_beta/report.md
+!runs/*/label_frame_beta/*.csv
+!runs/gainesville/label_frame_beta/raw_labels_CurbRamp.geojson
+!runs/gainesville/label_frame_beta/raw_labels_CurbRamp.geojson.source.json
+# The vouched-pool run's own inputs and outputs, so it can be re-scored without a GPU and
+# re-run from git: the pano list, the detections (3.4 MB, 2.8 GPU-hours), their meta, and the
+# runner + log that made them. The pano-tools CSVs stay out: they are pinned by commit+sha256.
+!runs/_pooled/label_frame_beta/pool_ids.txt
+!runs/_pooled/label_frame_beta/pool_detections.jsonl
+!runs/_pooled/label_frame_beta/pool_detections.jsonl.meta.json
+!runs/_pooled/label_frame_beta/pool_detect.py
+!runs/_pooled/label_frame_beta/pool_detect.log
 # Post-submission coverage check (scripts/coverage_check.py, issue #46): the report and its
 # gap lists (missing.csv, fallback.csv) are tracked. The three API pulls are NOT — the report
 # carries each one's url, fetch time, sha256 and row count instead.
@@ -99,6 +116,21 @@ runs/_summary/camera_height/estimator_validation*.csv
 # #106 Part 1): report.md is covered by the ps_clustering_eval* rule above; its two tables
 # are tracked too. The per-run street pulls (runs/<run>/ps_streets.geojson) are NOT.
 !runs/_pooled/ps_clustering_eval/*.csv
+# GSV partial pose (scripts/gsv_partial_pose.py, issue #116; write-up in
+# docs/gsv-partial-pose-study.md): per-city report + CSVs and the pooled coefficients,
+# verdict and summary are the evidence and are tracked.
+!runs/*/partial_pose/
+!runs/*/partial_pose/*.md
+!runs/*/partial_pose/*.csv
+!runs/*/partial_pose/explore_full/
+!runs/*/partial_pose/explore_full/*.md
+!runs/*/partial_pose/explore_full/*.csv
+# ...and the #116 confirmatory run (`gsv_partial_pose.py confirm`; an --exploratory run
+# writes confirm_exploratory_<height>/ and is labelled so in every file).
+!runs/*/partial_pose/confirm_*/
+!runs/*/partial_pose/confirm_*/*.md
+!runs/*/partial_pose/confirm_*/*.csv
+!runs/*/partial_pose/confirm_*/*.json
 # Provenance gate (scripts/provenance_gate.py, issue #56): does a run rebuilt from the pano
 # store reproduce the city's deployed AI labels? The report and the unmatched-label rows are
 # tracked; the label pull (raw_labels.geojson) is NOT -- the report carries its url, fetch
@@ -118,3 +150,16 @@ runs/_summary/camera_height/estimator_validation*.csv
 # live frame check's result. The index itself stays untracked, as for a harvest.
 !runs/*/depth/
 !runs/*/depth/store.json
+# RampNet#158 phase 2: placement arms' per-candidate predictions (copied from RampNet's
+# analysis_out/mined_placement_158/predictions/), the input to mined_precision.py --placement.
+!docs/figures/mined-precision/data/placement/*.jsonl
+# RampNet#158 step 3: the richmond / bend floor re-inference over judged panos (small).
+!docs/figures/mined-precision/data/step3/*.jsonl
+# Footway: segmenter vs GSV depth (scripts/footway_segmentation.py, issue #47 step 2; write-up
+# in docs/footway-depth-study.md): per-city and pooled reports, CSVs, the verdict and the
+# label-map manifest are tracked. The tiles and label maps (runs/_pooled/footway/work/) are
+# NOT -- masks_manifest.json carries the model revision and every label map's sha256.
+!runs/*/footway/
+!runs/*/footway/report.md
+!runs/*/footway/*.csv
+!runs/*/footway/*.json
