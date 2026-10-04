@@ -408,6 +408,11 @@ def server_panos(labels, det_of, run_by_id, ai_user, decode=DECODE_ARGMAX,
       block only when no label is close enough to invert. The run's block is NOT
       pano_data's once a pano has been repositioned (Richmond's posfix3seq panos are live
       at raw GPS while results.jsonl holds SfM), so it is the fallback, not the source.
+      The AI account's labels are inverted when the pano has any (the placement check
+      validates exactly those), and the other accounts' only when it has none: a human
+      label keeps the lat/lng it was inserted at, which on Laurens is a pano position the
+      server no longer holds (human-only inversion sits a median 8.7 m from the live block
+      on 70 panos, AI-only 0.000 m), so mixed into the median it moved 57 of 695 panos.
       With invert=False (offline: the synthesized labels were placed FROM the run's pano
       block, so that block is the server's position by construction) the run's block is
       used wherever there is one, and inversion only for a pano with no run pano --
@@ -466,7 +471,9 @@ def server_panos(labels, det_of, run_by_id, ai_user, decode=DECODE_ARGMAX,
                 stats['human_labels'] += 1
             stats['label_of'][(pano_id, dets[-1][0])] = r['label_id']
         head = rows[0]
-        inv = invert_camera_position(rows) if invert or run is None else None
+        ai_rows = [r for r in rows if str(r['user_id']) == str(ai_user)]
+        inv = (invert_camera_position(ai_rows or rows) if invert or run is None
+               else None)
         if inv is not None:
             lat, lng, _n = inv
             stats['inverted'] += 1
