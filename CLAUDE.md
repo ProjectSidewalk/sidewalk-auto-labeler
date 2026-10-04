@@ -238,7 +238,9 @@ python scripts/height_qc.py
 # >= 50 measured panos that are >= 50% of it (else 2.5 m) -- replaces (c), which gave thinly
 # measured old vintages 2.0 m. (d) PASSES and is selected, and is now fuse_sites.py's
 # default (`auto`); the oracle scores the production function itself.
-# Network only in `fetch` (the two ArcGIS hosts); a cached pull is reused (refused if
+# Network only in `fetch` (the registry's three ArcGIS hosts -- Vancouver's is the generic
+# services.arcgis.com, shared by every ArcGIS Online org, but the layer path is fixed by the
+# registry); a cached pull is reused (refused if
 # area.geojson's bbox changed), --refresh re-pulls it. `score --pool-anchor frame --out
 # <dir>` is the rule-3 anchoring sensitivity, never read by verdict.
 python scripts/inventory_oracle.py fetch bend gainesville vancouver
@@ -383,7 +385,12 @@ python scripts/eval_ps_clustering.py richmond --server https://sidewalk-richmond
 # a small input change; the report counts matches by distance class and names that flip.
 # `--rule pixel-96` reproduces the rule PR #108's Vancouver report ran under (Arm S
 # +/-(W/1024+1) px, Arm Z +/-1 px; amended after the PR #96 review, before any Vancouver
-# number). UNDETERMINED unless nothing is pending and joinable >= 0.95 of labels with a store
+# number); PR #108's committed report is reproduced by `provenance_gate.py vancouver --control
+# runs/vancouver/control_zoom3.jsonl --rule pixel-96` -- without the flag the same path is
+# overwritten with the coarse-cell reading. --control refuses a control pano not in
+# control_ids.txt (--control-ids), and the report says how many drawn panos the control holds
+# (Vancouver: 141 of 200; the other 59 are no longer served by id, so Z is conditioned on
+# survival). UNDETERMINED unless nothing is pending and joinable >= 0.95 of labels with a store
 # JPEG; STOP if unclaimed tier detections on labeled panos exceed 0.02 x joinable (unchanged).
 # Vancouver under the coarse-cell rule (exploratory, #111; the #56 decision stands): still STOP
 # -- S 0.930 (11.3% of its matches are flips; 4,268 of 4,477 misses are sub-0.55 at the spot),
@@ -405,7 +412,7 @@ python scripts/provenance_gate.py vancouver
 python scripts/provenance_gate.py vancouver --draw-control     # optional Arm Z, then:
 python scripts/reinfer.py runs/vancouver --ids runs/vancouver/provenance_gate/control_ids.txt \
     --out runs/vancouver/control_zoom3.jsonl
-python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl
+python scripts/provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl --rule pixel-96
 python scripts/harvest_depth.py runs/vancouver --from-store <store> [--check-store-frame 5]
 
 # AI-vs-crowd AGREE RATE (issue #31 goal 2; write-up in docs/agree-rate-gainesville.md).
