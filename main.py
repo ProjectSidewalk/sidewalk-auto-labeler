@@ -39,7 +39,9 @@ from tqdm import tqdm
 
 import depth as depthlib
 import position_check
-from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO, ModelProvenanceError
+from detectors import (BORDER_EXCLUDE, BORDERS, DECODE_ARGMAX, DECODES, DEFAULT_BORDER,
+                       DEFAULT_DECODE, DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO,
+                       RECORD_BORDER_KEY, RECORD_DECODE_KEY, ModelProvenanceError)
 from detectors.batching import BATCH_SIZE_HELP, report_detector
 from sources import get_source, SOURCE_NAMES
 
@@ -332,7 +334,11 @@ def _process(pano_id, fetch):
             'status': 'success',
             'pano_id': pano_id,
             'pano': fetched['pano'],
-            'detections': detections
+            'detections': detections,
+            # where the detector placed the peaks (#111); build_output_line marks non-argmax
+            'decode': getattr(curb_ramp_detector, 'decode', DEFAULT_DECODE),
+            # whether it kept the seam-band peaks (#130); build_output_line marks `keep`
+            'border': getattr(curb_ramp_detector, 'border', DEFAULT_BORDER),
         }
     except Exception as e:
         return {'status': 'failure', 'pano_id': pano_id, 'reason': str(e)}
@@ -384,8 +390,14 @@ def build_output_line(result, provenance):
     never a literal (issue #39). model_id / model_training_date / api_version are the
     three keys Project Sidewalk stores per label; model_repo and model_revision (the
     full 40-hex SHA) ride along for everything else and are ignored by the server.
+
+    A record whose peaks were placed by a decode other than argmax (#111; ``result['decode']``)
+    carries ``detection_decode``. Argmax records do not, so they are byte-identical to every
+    line written before the key existed (detectors.record_decode reads absent as argmax).
+    Likewise a record found under the `keep` border rule (#130; ``result['border']``) carries
+    ``detection_border``, and an `exclude` record does not.
     """
-    return {
+    line = {
         "detections": [
             {
                 "x_normalized": x_normalized,
@@ -401,6 +413,13 @@ def build_output_line(result, provenance):
         "model_revision": provenance['model_revision'],
         "pano": result['pano'],
     }
+    decode = result.get('decode', DECODE_ARGMAX)
+    if decode != DECODE_ARGMAX:
+        line[RECORD_DECODE_KEY] = decode
+    border = result.get('border', BORDER_EXCLUDE)
+    if border != BORDER_EXCLUDE:
+        line[RECORD_BORDER_KEY] = border
+    return line
 
 def save_manifest(manifest_path, manifest):
     with open(manifest_path, 'w') as f:
@@ -478,8 +497,69 @@ def bind_model(manifest, provenance, run_name):
     manifest.update(manifest_model_block(provenance))
     return True
 
+def bind_decode(manifest, decode, run_dir):
+    """
+    Binds a run directory to one peak decode (issue #111), the way it is bound to one model
+    revision: argmax and gaussian place the same peaks up to half a coarse heatmap cell
+    apart, so a resume or gap fill under the other decode would append a second frame to one
+    results.jsonl. Exits on a mismatch; returns True when the manifest changed (first
+    binding) so the caller saves it.
+
+    A manifest without `detection_decode` predates #111 or was created by --scan-only.
+    If the run already holds records, they were written by argmax (the only decode before
+    #111), so it is bound to argmax and only an argmax resume passes -- without rewriting the
+    manifest. A run with no records yet is bound to whatever decode this run uses.
+    """
+    bound = manifest.get('detection_decode')
+    if bound is None:
+        results = run_dir / 'results.jsonl'
+        if results.exists() and results.stat().st_size > 0:
+            bound = DECODE_ARGMAX
+        else:
+            manifest['detection_decode'] = decode
+            return True
+    if bound != decode:
+        sys.exit(
+            f"❌ Run '{run_dir.name}' was detected with the '{bound}' peak decode, not "
+            f"'{decode}'.\n"
+            f"   Appending would put two position frames in one results.jsonl (issue #111).\n"
+            f"   Use a new --name for this decode, or pass --decode {bound}."
+        )
+    return False
+
+def bind_border(manifest, border, run_dir):
+    """
+    Binds a run directory to one peak border rule (issue #130), the way bind_decode binds
+    the decode: `keep` stores the seam-band peaks that `exclude` drops, so a resume or gap
+    fill under the other rule would put panos found two ways in one results.jsonl. Exits on
+    a mismatch; returns True when the manifest changed (first binding) so the caller saves it.
+
+    A manifest without `detection_border` predates #130 or was created by --scan-only. If
+    the run already holds records, they were written under `exclude` (the only rule before
+    #130), so it is bound to `exclude` and only an `exclude` resume passes -- without
+    rewriting the manifest. A run with no records yet is bound to whatever rule this run uses.
+    """
+    bound = manifest.get('detection_border')
+    if bound is None:
+        results = run_dir / 'results.jsonl'
+        if results.exists() and results.stat().st_size > 0:
+            bound = BORDER_EXCLUDE
+        else:
+            manifest['detection_border'] = border
+            return True
+    if bound != border:
+        sys.exit(
+            f"❌ Run '{run_dir.name}' was detected with the '{bound}' peak border rule, not "
+            f"'{border}'.\n"
+            f"   Appending would mix panos with and without seam-band peaks in one "
+            f"results.jsonl (issue #130).\n"
+            f"   Use a new --name for this border rule, or pass --border {bound}."
+        )
+    return False
+
 def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_name,
-                         position_field=None, input_geojson_type=None, provenance=None):
+                         position_field=None, input_geojson_type=None, provenance=None,
+                         decode=None, border=None):
     """
     Creates or validates the run directory (runs/<name>/), which holds all per-area
     state: results.jsonl, already_processed.txt, manifest.json, and a copy of the
@@ -488,8 +568,10 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     so that a renamed/edited geojson or a --source change can't silently fork or
     corrupt the run's state. A Mapillary run is likewise bound to one position field
     (`position_field`, recorded as `mapillary_position`; manifests predating it are 'sfm'),
-    and every run to one model revision once a detector has run in it (see bind_model).
-    `provenance` is None for --scan-only, which loads no model and so binds none.
+    and every run to one model revision once a detector has run in it (see bind_model),
+    and to one peak decode (`decode`, see bind_decode) and border rule (`border`, see
+    bind_border). `provenance`, `decode` and `border` are None for --scan-only, which loads
+    no model and so binds none.
 
     `geojson_data` is the extracted bare geometry (see extract_geometry), which is what
     area.geojson stores; `input_geojson_type` is the wrapper the file came in, recorded
@@ -543,7 +625,12 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
                 f"   Appending would mix confidence semantics in one results.jsonl.\n"
                 f"   Use a new --name for this area (or run the code version that matches)."
             )
-        if provenance is not None and bind_model(manifest, provenance, run_dir.name):
+        changed = provenance is not None and bind_model(manifest, provenance, run_dir.name)
+        if decode is not None and bind_decode(manifest, decode, run_dir):
+            changed = True
+        if border is not None and bind_border(manifest, border, run_dir):
+            changed = True
+        if changed:
             save_manifest(manifest_path, manifest)
         return manifest
 
@@ -557,6 +644,8 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
         **(manifest_model_block(provenance) if provenance is not None else {}),
         'detection_storage_floor': DETECTION_STORAGE_FLOOR,
         'max_peaks_per_pano': MAX_PEAKS_PER_PANO,
+        **({'detection_decode': decode} if decode is not None else {}),
+        **({'detection_border': border} if border is not None else {}),
         'streetlevel_version': pkg_version('streetlevel'),
         'runs': [],
     }
@@ -760,7 +849,8 @@ def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None, prove
 
 def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thin_spacing=None,
                 gap_fill=True, gap_fill_only=False, position_field=None, check_positions=True,
-                reuse_scan=False, provenance=None):
+                reuse_scan=False, provenance=None, decode=DEFAULT_DECODE,
+                border=DEFAULT_BORDER):
     """
     Finds and processes all panoramas from the given imagery source within a GeoJSON
     area, writing all per-area state to runs/<run_name>/.
@@ -776,7 +866,9 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     loads it instead of rescanning when it matches this area, source and zoom and had
     no failed tiles (see SCAN_CACHE_FILE for why this is opt-in).
     `provenance` is the loaded detector's model block (None only for scan_only): it is
-    written into every record and binds the run directory to one model revision.
+    written into every record and binds the run directory to one model revision. `decode`
+    is the detector's peak decode (#111) and `border` its border rule (#130), both bound
+    the same way.
     """
     require_provenance(provenance, scan_only)
     print("--- Sidewalk Auto-Labeler ---")
@@ -797,7 +889,9 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source.NAME,
                                     position_field=position_field,
                                     input_geojson_type=input_geojson_type,
-                                    provenance=None if scan_only else provenance)
+                                    provenance=None if scan_only else provenance,
+                                    decode=None if scan_only else decode,
+                                    border=None if scan_only else border)
     manifest_path = run_dir / "manifest.json"
     output_jsonl_file = run_dir / "results.jsonl"
     cache_file = run_dir / "already_processed.txt"
@@ -1062,6 +1156,23 @@ def main():
              "until the revision is added to the table. For trying a new checkpoint, never for "
              "a submission run."
     )
+    parser.add_argument(
+        "--decode", choices=DECODES, default=DEFAULT_DECODE,
+        help="Where each heatmap peak is placed (issue #111): 'argmax' (default; every live "
+             "label and published table) or 'gaussian' (RampNet#221's sub-cell rule, opt-in). "
+             "The run directory is bound to its decode (manifest.json detection_decode) and "
+             "non-argmax records carry it. A gaussian campaign in a city whose live labels are "
+             "argmax is a frame change -- see docs/heatmap-grid.md before using it for one."
+    )
+    parser.add_argument(
+        "--border", choices=BORDERS, default=DEFAULT_BORDER,
+        help="Whether peaks within 10 heatmap px of the heatmap edge are kept (issue #130): "
+             "'exclude' (default; every live label) drops them, which leaves a 5.6-degree "
+             "blind band (coarse columns 0 and 127) at the 360-degree seam; 'keep' is RampNet's rule (opt-in). The run "
+             "directory is bound to its rule (manifest.json detection_border) and 'keep' "
+             "records carry it. A new city may use 'keep' from its first run; an existing "
+             "city only under a new --name (docs/seam-band-130.md)."
+    )
     gap_group = parser.add_mutually_exclusive_group()
     gap_group.add_argument(
         "--no-gap-fill", action="store_true",
@@ -1099,7 +1210,7 @@ def main():
         try:
             curb_ramp_detector = CurbRampDetector(
                 allow_unknown_revision=args.allow_unknown_model_revision,
-                batch_size=args.batch_size)
+                batch_size=args.batch_size, decode=args.decode, border=args.border)
         except ModelProvenanceError as e:
             sys.exit(f"❌ {e}")
         provenance = curb_ramp_detector.provenance
@@ -1116,7 +1227,8 @@ def main():
                     args.limit, args.thin_spacing,
                     gap_fill=not args.no_gap_fill, gap_fill_only=args.gap_fill_only,
                     position_field=position_field, check_positions=not args.no_position_check,
-                    reuse_scan=args.reuse_scan, provenance=provenance)
+                    reuse_scan=args.reuse_scan, provenance=provenance, decode=args.decode,
+                    border=args.border)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:
