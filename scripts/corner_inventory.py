@@ -1224,8 +1224,7 @@ def census_summary(sample, info, records, run_dates=None):
             per_corner.append({'n_captures': len(cy),
                                'earliest': cyears[0] if cyears else None,
                                'span_years': (cyears[-1] - cyears[0]) if cyears else None})
-    ok = [p for p, v in info.items() if v['status'] == 'ok']
-    ratio = len(hist_ids) / len(ok) if ok else None
+    ratio = len(hist_ids) / len(info) if info else None      # per QUERIED pano
     all_near = {p for r in records if r['type'] in INTERSECTION_STRATA for p in r['pano_ids_25']}
     by_stratum = {}
     for s in INTERSECTION_STRATA:
@@ -1236,9 +1235,19 @@ def census_summary(sample, info, records, run_dates=None):
                          'span_years': quant([u['span_years'] for u in us
                                               if u['span_years'] is not None])}
     return {'status': status, 'n_hist_distinct': len(hist_ids),
-            'hist_per_ok_pano': None if ratio is None else round(ratio, 3),
+            'hist_per_queried_pano': None if ratio is None else round(ratio, 3),
             'panos_near_any_unit': len(all_near),
-            'extrapolated_hist_full_pass': None if ratio is None else round(ratio * len(all_near)),
+            # extrapolation 1: distinct historical ids per queried pano x every run pano
+            # within 25 m of an eligible intersection unit. Low if neighbouring sampled panos
+            # share history less than the city does (they are spread out), high otherwise.
+            'extrapolated_hist_full_pass_by_pano': None if ratio is None
+            else round(ratio * len(all_near)),
+            # extrapolation 2: mean distinct historical ids per sampled unit, per stratum, x
+            # eligible units in the stratum. An upper bound: neighbouring windows share panos.
+            'extrapolated_hist_full_pass_by_unit': round(sum(
+                (sum(u['n_hist'] for u in per_unit if u['type'] == st)
+                 / max(1, sum(1 for u in per_unit if u['type'] == st)))
+                * sum(1 for r in records if r['type'] == st) for st in INTERSECTION_STRATA)),
             'captures_per_unit': quant([u['n_captures'] for u in per_unit]),
             'captures_per_unit_gsv_only': quant([u['n_captures_gsv'] for u in per_unit]),
             'captures_per_corner': quant([c['n_captures'] for c in per_corner]),
