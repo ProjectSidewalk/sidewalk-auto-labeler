@@ -112,13 +112,22 @@ python scripts/fuse_sites.py runs/paterson
 # ...--pose-ablation reports within-site spread per pitch/roll sign convention
 # instead (the experiment behind GSV's flat default: the FULL pose loosens every city. It
 # does NOT show the equirects are gravity-rectified -- they are rig-frame, #113).
-# --apply-pose {auto,off,gravity,road} (issue #42). The DEFAULT is `auto`, which today is FLAT
+# --apply-pose {auto,off,gravity,road,partial} (issues #42, #116). The DEFAULT is `auto`, which today is FLAT
 # for every source: road-relative (pitch/roll minus the sequence's SfM road grade) passed the
 # first #42 rule but FAILED the pre-registered shuffled-grade control (study section 10.5), so
 # the road-frame default is withheld (fuse_sites.AUTO_ROAD_SOURCES = ()); GSV is flat on
 # evidence (#52). `road` is opt-in. The flag takes an explicit value (`--apply-pose road`;
 # a bare `--apply-pose` is an error), and gravity/road on a run holding GSV or Panoramax
 # panos warns on stderr (GSV has no grade; Panoramax's convention is unmeasured).
+# `partial` (#116 follow-up; OPT-IN, GSV only) feeds the ray the frozen leaked fraction of the
+# stored pose: geo.partial_pitch_roll with geo.PARTIAL_POSE_K_GSV = (0.183 pitch, 0.382 roll),
+# #116's pooled `auto` fit, i.e. (-0.183 x pitch, +0.382 x roll). A GSV pano missing either
+# angle, every Mapillary/Panoramax pano, and every store-built GSV block (source_detail
+# `ps_store`: the PS row's pose convention is unverified) raycasts flat, with one stderr
+# warning per kind; sites_meta.json's `pose` block counts `partial`, `store_unverified_flat`
+# and records `partial_coefficients`. eval_sites.py --apply-pose takes it too
+# (fs.POSE_MODES) and prints the same warnings. `auto` is
+# NOT changed: that waits on #116's pre-registered confirmatory run (below).
 # A Mapillary run from before #42 needs no
 # rewrite: load_results derives the pose from source_metadata. sites_meta.json's `pose`
 # block counts flat / gravity / road_relative / gravity_fallback panos -- the fallback (no
@@ -129,9 +138,33 @@ python scripts/fuse_sites.py runs/richmond --apply-pose road    # opt-in, withhe
 # GSV PARTIAL POSE (#116, a study; docs/gsv-partial-pose-study.md): a fraction of the stored
 # tilt, fit on a seeded half (seed 116), scored on the other half against off / full / mirror
 # and a |tilt|-bucket shuffled control, re-associated per arm, with the inventory referee and
-# GT survivorship. VERDICT: FAIL on the recall clause only -> no `partial` mode, GSV stays flat.
+# GT survivorship. VERDICT: FAIL on the recall clause only -> GSV's DEFAULT stays flat; the
+# fraction is wired as opt-in `--apply-pose partial` (above). The study's arm_pose IS
+# geo.partial_pitch_roll, so the study measures what fusion applies.
 python scripts/gsv_partial_pose.py fit && python scripts/gsv_partial_pose.py score \
     --benchmark-root ../RampNet/benchmark && python scripts/gsv_partial_pose.py verdict
+python scripts/gsv_partial_pose.py consistency paterson --benchmark-root ../RampNet/benchmark
+#   production's `partial` beside the study arms on the TEST half (reported; gates nothing)
+# CONFIRMATORY RUN (pre-registered on #116, 2026-09-30; constants and rule frozen there):
+# the first GSV benchmark city with verdicts #116 never saw (Vancouver when its GT lands),
+# whole run, arms off / partial / partial-shuffled / mirror; clauses (i), (iii), (iv) as
+# #116, and (ii) sized to the pool: FAIL iff lost - gained >= k*(n), the smallest k with
+# P(Binomial(n, 0.01) >= k) <= 0.05 (n = off-pool ramps at 2.5 m; below n = 50 a FAIL
+# stands and a pass becomes INCONCLUSIVE; `loss-bar` prints the table; its power and its size
+# under churn are in the doc addendum). A #116 train city (any case), a path-like name, or
+# --seed != 116 is refused without --exploratory. A STORE-BUILT city (detect_from_store.py;
+# Vancouver) must first pass the store-pose gate: PS-row pitch/roll vs streetlevel's on a
+# seeded sample of the same ids (metadata only; network), one sign mapping agreeing within
+# 0.1 deg on >= 95% of >= 50 panos -> the mapping is applied; fail or no network refuses.
+# `--apply-pose partial` itself raycasts `ps_store` panos flat (warned, counted): the gate's
+# mapping is applied in confirm's memory only and is NOT persisted, so a later default-switch
+# PR must persist or apply it first.
+python scripts/gsv_partial_pose.py confirm vancouver --benchmark-root ../RampNet/benchmark
+python scripts/gsv_partial_pose.py confirm laurens_gsv --exploratory \
+    --benchmark-root ../RampNet/benchmark     # the dry run; outputs labelled EXPLORATORY
+python scripts/gsv_partial_pose_figures.py [--refresh]   # addendum figures 5-7, 9 (PNG 200 dpi +
+#   SVG, byte-reproducible) from docs/figures/gsv-partial-pose/data/addendum_*; --refresh
+#   recomputes that data (site examples re-fuse runs/paterson; simulations seed 116; no network)
 
 # CAMERA HEIGHT (issues #40, #79). fuse_sites.py DEFAULTS to `--camera-height-m auto` (#79):
 # GSV panos get a per-rig height by capture year from the run's own depth-measured heights
@@ -923,7 +956,9 @@ the local ground shares most of the tilt. What leaks into placement is a fractio
 docs/gsv-partial-pose-study.md) confirmed that fraction held out (pooled 0.18 pitch / 0.38 roll
 at `auto`): it tightens re-associated sites 5-11% on the median, beats a magnitude-matched
 shuffled pose and the inventories agree -- but it FAILED the recall clause (Bend, 2 of 157
-ramps on the half split), so there is no `partial` mode and the default stays flat. Two
+ramps on the half split), so the DEFAULT stays flat; the fraction is opt-in as
+`--apply-pose partial` (geo.PARTIAL_POSE_K_GSV, frozen) pending the pre-registered
+confirmatory run (`gsv_partial_pose.py confirm`). Two
 consequences outside fusion: a detection's `pano_y` is in the image's frame while a human PS
 label's is off by about 0.9 of the tilt at its bearing (measured on 1,704 Gainesville
 crowd/detection pairs, #113), so an AI-vs-human pixel comparison mixes two frames. At
