@@ -42,6 +42,12 @@ refuses a run dir that main.py already wrote records into, so the two never appe
 file. send_to_ps.py refuses a store-built file (it would re-insert the city's live labels)
 unless --allow-store-file is given.
 
+The detector always runs with the defaults, the argmax decode (#111) and the `exclude`
+border rule (#130), and this runner has no flag for either: a store run exists to
+reproduce the city's LIVE labels, and every live label was placed by argmax and found under
+`exclude` (the seam band dropped). `keep` would add seam-band peaks the live labels never
+had, so the store run would no longer be a reproduction.
+
 Deterministic skips are cached and logged with their reason in `store_skipped.jsonl`:
 `jpg_missing` (no JPEG in the store), `metadata_404_null_field_or_no_file`, the metadata
 endpoint's 404 -- which does NOT mean "no backup": the server answers 404 unless its file

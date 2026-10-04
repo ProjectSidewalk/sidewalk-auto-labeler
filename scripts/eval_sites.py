@@ -42,7 +42,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
-from detectors import BENCHMARK_CONFIDENCE, DECODE_ARGMAX  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, DECODE_ARGMAX  # noqa: E402
 
 
 def require_argmax(run_panos, run_dir):
@@ -53,11 +53,32 @@ def require_argmax(run_panos, run_dir):
     GT pano read as drifted and be scored on nothing, silently. A gaussian run is scored
     against its argmax twin from the SAME forward pass by scripts/subcell_decode.py world,
     which re-keys the bundle to that pass's peaks."""
-    other = sorted({p.decode for p in run_panos} - {DECODE_ARGMAX})
+    other = sorted({getattr(p, 'decode', DECODE_ARGMAX) for p in run_panos} - {DECODE_ARGMAX})
     if other:
         raise ValueError(f'{run_dir}: records were written under the {", ".join(other)} peak '
                          f'decode; the RampNet bundles are keyed to argmax positions (#111). '
                          f'Score it with scripts/subcell_decode.py world instead.')
+
+
+def require_exclude_border(run_panos, run_dir):
+    """Refuse (ValueError) a run whose records were found under the `keep` border rule.
+
+    Every RampNet bundle was exported from `exclude` runs (#130: the seam band was never
+    stored), and the drift gate compares a pano's >= 0.55 detections with the bundle's
+    exactly, so a `keep` run would drop every GT pano that gained a seam peak as 'drifted'
+    and be scored on the rest, silently. scripts/seam_band_130.py world scores the gained
+    seam peaks against the bundle directly."""
+    other = sorted({getattr(p, 'border', BORDER_EXCLUDE) for p in run_panos} - {BORDER_EXCLUDE})
+    if other:
+        raise ValueError(f'{run_dir}: records were found under the {", ".join(other)} peak '
+                         f'border rule; the RampNet bundles were exported from exclude runs '
+                         f'(#130). Score the seam band with scripts/seam_band_130.py world.')
+
+
+def require_bundle_frame(run_panos, run_dir):
+    """Both bundle-frame guards: argmax decode (#111) and exclude border rule (#130)."""
+    require_argmax(run_panos, run_dir)
+    require_exclude_border(run_panos, run_dir)
 
 
 def wilson(k, n, z=1.96):
@@ -113,6 +134,12 @@ def judged_gt_panos(verdict_panos, bundle_ops, run_panos_by_id, counts, warnings
     operational detections drifted from the frozen bundle, or when the verdict list
     does not line up with them — the three ways a verdict can end up attached to a
     detection the reviewer never saw.
+
+    It does NOT check the bundle frame (require_bundle_frame) itself: scripts/subcell_decode.py
+    world deliberately scores a gaussian arm through here against a bundle it has re-keyed to
+    that arm (#131 re-review N1). Callers that score a run against the bundle as published call
+    require_bundle_frame first -- load_city_files / load_city_at_height do, and so do
+    mapillary_height, reprojection_residual and gsv_ground_plane, which load their own panos.
     """
     for pid in sorted(verdict_panos):
         entry = verdict_panos[pid]
@@ -1059,7 +1086,7 @@ def load_city_files(city, benchmark_root, run_dir, read_heights=True, height_tab
     verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
     run_panos, skipped = fs.load_results(run_dir / 'results.jsonl',
                                          read_heights=read_heights, height_table=height_table)
-    require_argmax(run_panos, run_dir)
+    require_bundle_frame(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos
 
 
@@ -1075,7 +1102,7 @@ def load_city_at_height(city, benchmark_root, run_dir, camera_height, read_heigh
     verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
     run_panos, _skipped, height, auto = fs.load_at_height(
         run_dir / 'results.jsonl', camera_height, read_heights=read_heights)
-    require_argmax(run_panos, run_dir)
+    require_bundle_frame(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos, height, auto
 
 

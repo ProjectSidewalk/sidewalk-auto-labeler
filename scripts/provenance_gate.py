@@ -105,7 +105,8 @@ for _p in (REPO_ROOT / 'scripts', REPO_ROOT):
         sys.path.insert(0, str(_p))
 
 import geo  # noqa: E402  (stdlib-only)
-from detectors import BENCHMARK_CONFIDENCE, DECODE_ARGMAX, record_decode  # noqa: E402
+from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, DECODE_ARGMAX,  # noqa: E402
+                       record_border, record_decode)
 
 # ---- Pre-registered (issue #56; amended after the PR #96 review, before any Vancouver ----
 # ---- number existed). Do not tune these after seeing a city's numbers.               ----
@@ -250,6 +251,14 @@ def load_run(results_path):
                                  f"'{record_decode(rec)}' peak decode; the provenance gate "
                                  f"compares against live labels placed by argmax. Rebuild the "
                                  f"arm with --decode argmax.")
+            if record_border(rec) != BORDER_EXCLUDE:
+                # Same reason (#130): the live labels were found under `exclude`, so a `keep`
+                # arm's seam-band peaks would read as labels the server lacks -- the border
+                # rule, not the reproduction.
+                raise SystemExit(f"{results_path}: records found under the "
+                                 f"'{record_border(rec)}' peak border rule; the provenance gate "
+                                 f"compares against live labels found under exclude. Rebuild "
+                                 f"the arm with --border exclude.")
             p = rec['pano']
             w, h = int(p['width']), int(p['height'])
             dets = [(round(d['x_normalized'] * w), round(d['y_normalized'] * h),

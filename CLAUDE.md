@@ -231,6 +231,26 @@ python scripts/subcell_decode.py residual --rampnet-root ../RampNet   # reads th
 python scripts/subcell_decode.py sigma-table paterson bend gainesville sao_paulo richmond --sigma 4.24 3.67
 python scripts/subcell_decode.py world laurens_gsv --split laurens_gsv --results runs/laurens_gsv/results.jsonl     --decode-file docs/figures/heatmap-grid/data/decode/decode_laurens_gsv.jsonl.gz --work-dir /tmp/w
 python scripts/subcell_decode.py figures
+# SEAM BAND (#130; docs/seam-band-130.md). OPT-IN, default exclude: the peak finder drops every
+# peak within 10 heatmap px of the heatmap edge (skimage's exclude_border default), so the 20
+# columns at the 360-degree seam -- coarse columns 0 and 127 of the exact x8 upsample, 5.6 deg of
+# azimuth -- never yield a detection. `main.py --border keep`
+# / `reinfer.py --border keep` use RampNet's rule instead (exclude_border=False, NO NMS across the
+# seam, so a straddling ramp can give two peaks). Bound exactly like the decode: manifest
+# `detection_border`, keep records carry "detection_border": "keep" (exclude records and
+# submission records byte-identical), fuse_sites / reinfer --verify / send_to_ps.py refuse a mix
+# (--allow-mixed-border, recorded; send_to_ps also reads sibling runs/*/ campaigns on the same
+# endpoint, so a re-run under a new --name is caught), --write-band-file refuses it outright, and eval_sites (via
+# es.require_bundle_frame: agree_rate, site_explorer, gsv_partial_pose, mapillary_tilt) and
+# provenance_gate refuse a keep run (bundles and live labels are exclude). detect_from_store.py
+# stays exclude. RULE: a NEW city may use --border keep from its first run; an EXISTING city only
+# under a new --name, and shipping it beside live exclude labels is Jon's call.
+# The measurement (Laurens, both arms; CPU): `check`/`peaks` on makelab2 where the #111 coarse maps
+# live, then `world` anywhere; `verify` re-derives summary.json from the committed data, no network.
+python scripts/seam_band_130.py check laurens --results runs/laurens/results.jsonl --coarse-dir /homes/gws/jonf/decode111/coarse/laurens
+python scripts/seam_band_130.py peaks laurens --results runs/laurens/results.jsonl --coarse-dir /homes/gws/jonf/decode111/coarse/laurens
+python scripts/seam_band_130.py world laurens --results runs/laurens/results.jsonl --peaks runs/laurens/seam_band_130/peaks.run.jsonl
+python scripts/seam_band_130.py summary && python scripts/seam_band_130.py verify
 
 # Leave-one-view-out REPROJECTION RESIDUAL (issue #36; findings in
 # docs/reprojection-residual.md). GT-free: for every site with >= 3 operational views,
