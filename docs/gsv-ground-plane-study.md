@@ -13,6 +13,30 @@ computed, and commit `f7226e8` put the reading into code (`verdict()`) before th
 changed afterwards. The arms added on review (§4.4) are exploratory, sit on their own site set and do not
 enter the verdict.
 
+> **Correction, 2026-09-29 ([#113](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/113)): GSV's
+> equirectangulars are not gravity-rectified.** The text below is left as written; this block says what changes.
+>
+> - **What was wrong.** §1 takes from the #27 pose ablation that "streetlevel's GSV equirectangulars are
+>   gravity-rectified ... the camera frame is the gravity frame, and the depth plane gives the road". The
+>   ablation showed only that applying the *full* metadata pose loosens multi-view agreement.
+>   [sidewalk-panorama-tools#158](https://github.com/ProjectSidewalk/sidewalk-panorama-tools/pull/158) measured
+>   that the tiles lean with the rig, and that the planes are expressed in the rig's frame too; #113 measured
+>   that the pixels this repo detects on are the same ones.
+> - **What stands.** Every measurement: no arm tried here beats the flat raycast, and the verdict stays
+>   UNDERCUT. Finding 3 (the normal is noisy per pano) and the practical conclusion (keep GSV at
+>   `apply_pose=False`, no ground-plane term) are unchanged.
+> - **What must be re-read.** Wherever the text says "gravity frame" or "gravity-rectified" (§0 item 4, §1, §4.4's
+>   `off`, §6), read "the image's frame, which is the rig's". The plane's slope in that frame is the ground's
+>   tilt *relative to the rig*, not relative to gravity, so §4.1's rig-attitude check ("a gravity-frame ground
+>   normal should track them with slope ±1") and §5.1's cross-slope-on-roll slopes describe how far the
+>   reconstruction's ground departs from the rig's own attitude. The crown reading of §5.1 and the explanation
+>   offered in §6 rest on the old premise and are not re-derived here.
+> - **Why flat still wins.** The car rides the road, so the local ground shares most of the rig's tilt. On #113 a
+>   triangulation regression reads about 0.15–0.25 of the pitch term and 0.4–0.55 of the roll term as
+>   placement error (attenuated by the flat association), and a *partial* pose beats flat by 2–10% on the
+>   median where the full pose loses. Those arms are in-sample with no shuffled control; a pre-registered
+>   study is the follow-up.
+>
 > **Correction, 2026-09-25 ([#80](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/80)): every
 > cross-slope sign in this study is inverted.** The text below is left as written; this block says what changes.
 >

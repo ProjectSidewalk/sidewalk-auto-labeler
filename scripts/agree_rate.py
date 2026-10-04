@@ -797,6 +797,10 @@ def main():
               'and falls back to the default for every other pano; the report prints how '
               'many panos had a measured height.', file=sys.stderr)
     run_panos, n_unplaceable = fs.load_results(results_path, read_heights=True)
+    try:   # the bundles it adjudicates against, and the crowd frame, are argmax (#111)
+        es.require_bundle_frame(run_panos, results_path)
+    except ValueError as e:
+        raise SystemExit(str(e))
     run_by_id = {p.pano_id: p for p in run_panos}
     n_measured = sum(1 for p in run_panos if p.camera_height_m is not None)
     print(f'per-pano heights: {n_measured} of {len(run_panos)} panos have a measured '

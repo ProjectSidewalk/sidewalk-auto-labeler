@@ -305,3 +305,21 @@ def test_road_relative_undoes_the_cross_slope_a_vehicle_camera_inherits():
     assert geo.road_relative_pitch_roll(pose['pitch_deg'], pose['roll_deg'],
                                         pose['heading_deg'], 4.0, 120.0) == \
         (pytest.approx(0.0, abs=1e-9), pytest.approx(0.0, abs=1e-9))
+
+
+def test_heatmap_grid_constants_and_cell_distance():
+    """#111: the coarse cell is 8 heatmap px; its uniform quantization is 8/sqrt(12)."""
+    assert geo.HEATMAP_COARSE_CELL_PX == 8
+    assert abs(geo.SIGMA_PEAK_COARSE_CELL_PX - 2.3094) < 1e-4
+    # Chebyshev, x wrapping at the seam, in heatmap cells of a 16384x8192 pano (16 px each)
+    assert geo.heatmap_cell_distance((0, 4000), (16384 - 112, 4000), 16384, 8192) == 7.0
+    assert geo.heatmap_cell_distance((100, 100), (116, 228), 16384, 8192) == 8.0
+    assert [geo.cell_shift_class(c) for c in (0.0, 0.9, 3.0, 7.2, 8.4, 9.0)] == \
+        ['same_cell', 'grid_neighbour', 'off_grid', 'flip', 'flip', 'beyond']
+
+
+def test_error_model_for_overrides_only_the_peak_term():
+    gsv = geo.error_model_for('launch', sigma_peak_px=2.31)
+    assert gsv.sigma_peak_px == 2.31 and gsv.sigma_gps_m == geo.GSV_ERRORS.sigma_gps_m
+    assert geo.error_model_for('launch') is geo.GSV_ERRORS
+    assert geo.error_model_for('mapillary', 2.31).sigma_gps_m == geo.MAPILLARY_ERRORS.sigma_gps_m

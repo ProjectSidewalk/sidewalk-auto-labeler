@@ -1,0 +1,2 @@
+city,site_id,pano_id,range_m,bearing_deg,x_norm,y_norm,n_op_panos,best_conf,bucket,nearest_gt_kind,nearest_gt_m,within_match
+paterson,4854,PM92O1ji0i42GTuhT_ll5A,12.37,25.56,0.62323,0.55254,4,0.88481,fp,det,7.82,0

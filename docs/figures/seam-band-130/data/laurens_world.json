@@ -1,0 +1,35 @@
+{
+ "arm": "laurens",
+ "bundle": {
+  "panos": 94,
+  "records_sha256": "99ca1ceb46c5b76749e5b4ce3c0d589420b536d54233a70faad9efed17603252",
+  "split": "laurens_mapillary",
+  "verdicts_sha256": "0fb67c5d6da90827049c30f17ce5150ff4b24c5ae605a3f047b0b1d6255ad49e"
+ },
+ "frame": "run",
+ "fuse_params": {
+  "apply_pose": "auto",
+  "camera_height_m": 2.6,
+  "floor": 0.1,
+  "gate_chi2": 9.21,
+  "grade_source": "sfm",
+  "mask_rig": true,
+  "max_match_m": 8.0,
+  "max_range_m": 25.0,
+  "max_vintage_months": null,
+  "min_confidence": 0.3,
+  "residual_per_dof_max": 3.0,
+  "sigma_peak_px": null,
+  "sigma_scale": 1.0
+ },
+ "gained_peaks_added": 97,
+ "operational_sites": {
+  "exclude": 330,
+  "keep": 333
+ },
+ "results_sha256": "16c5a348b739274bf8e7623b63551da5245547d0ca4e5a52956fd2413b4fe213",
+ "sites": {
+  "exclude": 813,
+  "keep": 839
+ }
+}

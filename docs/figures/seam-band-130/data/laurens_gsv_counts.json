@@ -1,0 +1,19 @@
+{
+ "arm": "laurens_gsv",
+ "exclude_peaks": {
+  "0.1": 0,
+  "0.3": 0,
+  "0.55": 0
+ },
+ "frame": "run",
+ "keep_peaks": {
+  "0.1": 5,
+  "0.3": 0,
+  "0.55": 0
+ },
+ "lost_peaks": 0,
+ "panos_at_peak_cap": 0,
+ "panos_counted": 1423,
+ "peaks_jsonl_sha256": "0ecfc42dc8345e3ba4429f7f5e0845b5b17a8dab46c9fb6846ad01f8ded8cbb0",
+ "straddle_pairs": []
+}
