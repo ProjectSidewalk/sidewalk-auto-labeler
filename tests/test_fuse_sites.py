@@ -330,7 +330,7 @@ def test_auto_leaves_the_pose_ablation_and_implied_height_at_the_constant(tmp_pa
     seen = {}
 
     def spy(name):
-        def report(panos, params):
+        def report(panos, params, allow_mixed_decode=False):
             seen[name] = (params.camera_height_m, {p.camera_height_m for p in panos})
             return ''
         return report
