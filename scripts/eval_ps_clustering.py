@@ -1018,7 +1018,8 @@ def synthesize_labels(results_path, min_confidence, mask_rig=True):
     Example:
         One record at (47.0, -122.0), heading 0, width 4096, with one detection at
         x = 0.5, y = 0.6 and confidence 0.7 gives one label at pano_x 2048, pano_y 1229,
-        due north of the camera, ~12.9 m out (18 degrees down at 2.341 m).
+        due north of the camera, ~7.20 m out (18.02 degrees down at 2.341 m:
+        2.341 / tan 18.02).
     """
     rows, det_of = [], {}
     with open(results_path, encoding='utf-8') as f:
@@ -1353,7 +1354,16 @@ def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
 
 # Bumped by hand whenever a change moves any number the reports print; the pooled driver
 # (clustering_eval_pooled.py) re-runs a cell whose report records another version.
-SCORER_VERSION = '106.2'
+SCORER_VERSION = '106.3'
+
+
+def repo_relative(path):
+    """`path` as POSIX relative to the repo root, so a committed report names no machine's
+    checkout; a path outside the repo prints as its file name."""
+    try:
+        return Path(path).resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return Path(path).name
 
 
 def input_stamp(streets_path, verdicts_path):
@@ -1756,7 +1766,7 @@ def run(args):
     # ---- report
     lines += ['', '## Data provenance', '']
     if args.offline:
-        lines += [f'- results file `{results_path}`: sha256 `{results_sha}`',
+        lines += [f'- results file `{repo_relative(results_path)}`: sha256 `{results_sha}`',
                   f'- {n_ambiguous} ambiguous pixel keys in `{results_path.name}` (two '
                   'stored detections round to one pixel); offline labels map to their '
                   f'detection directly, and the pixel-key map agrees on {n_pix_same} of '
