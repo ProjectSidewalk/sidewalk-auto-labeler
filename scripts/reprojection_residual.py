@@ -1023,6 +1023,7 @@ def gt_anchored_rows(city, height_label, verdict_panos, bundle_ops, boxes, run_p
     for sv in op_sites:
         grid.add(sv.e, sv.n, sv)
     rows = []
+    es.require_bundle_frame(by_id.values(), 'the run')   # bundle as published (#111, #130)
     for pid, entry, run_pano, ops, _in_pool in es.judged_gt_panos(
             verdict_panos, bundle_ops, by_id, counts, warnings):
         # The judged pano is raycast in the frame its sites were fused in: resolve the

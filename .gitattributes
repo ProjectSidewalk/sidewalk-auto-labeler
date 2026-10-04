@@ -1,1 +1,4 @@
 *.svg text eol=lf
+# Byte-compared files: scripts/seam_band_130.py verify hashes every file in this directory
+# (summary.json inputs_sha256), so a CRLF checkout must not rewrite them (#131 review S5).
+docs/figures/seam-band-130/data/** text eol=lf
