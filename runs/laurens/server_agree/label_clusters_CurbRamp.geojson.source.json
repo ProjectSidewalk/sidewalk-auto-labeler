@@ -1,0 +1,7 @@
+{
+ "url": "https://sidewalk-laurens.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&filetype=geojson",
+ "n_features": 671,
+ "fetched_at": "2026-09-30T15:07:18+00:00",
+ "sha256_as_served": "daec411c1768e9457c1d3aca630eecd437aaa25f071a0ac0691c051bdbb72cce",
+ "redacted": "human user ids cut to 8 hex chars + \"-redacted\" (scripts/server_agree_check.py --redact-users)"
+}

@@ -1,0 +1,7 @@
+{
+ "url": "https://sidewalk-laurens.cs.washington.edu/v3/api/rawLabels?labelType=NoCurbRamp&filetype=geojson",
+ "n_features": 57,
+ "fetched_at": "2026-09-30T15:07:17+00:00",
+ "sha256_as_served": "58414153b9e199e195e3525286bf915def3aff7858dda52d666edc8ba5b304fd",
+ "redacted": "human user ids cut to 8 hex chars + \"-redacted\" (scripts/server_agree_check.py --redact-users)"
+}

@@ -1,0 +1,7 @@
+{
+ "url": "https://sidewalk-laurens.cs.washington.edu/v3/api/streets?filetype=geojson",
+ "n_features": 169,
+ "fetched_at": "2026-09-30T15:07:18+00:00",
+ "sha256_as_served": "3306464dc453d9eff138bd120ae721e6e0bd1105e3555ef93060eaa9bbd61599",
+ "redacted": "human user ids cut to 8 hex chars + \"-redacted\" (scripts/server_agree_check.py --redact-users)"
+}
