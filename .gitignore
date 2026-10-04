@@ -130,3 +130,19 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/cluster_review/score/
 !runs/*/cluster_review/score/report.md
 !runs/*/cluster_review/score/*.csv
+# Corner-level ramp inventory (scripts/corner_inventory.py, RampNet#238; protocol and results
+# in docs/corner-inventory.md): the report, the scored counts, the decision, the triage lists
+# (false absences, inventory gaps), the #224 units' states and the census summary are tracked.
+# corners_full.jsonl / units.csv / corners.csv (tens of MB) and the census response cache are
+# NOT -- build.json carries every input's sha256 and census.json the cache's.
+!runs/*/corner_inventory/
+!runs/*/corner_inventory/report.md
+!runs/*/corner_inventory/build.json
+!runs/*/corner_inventory/decision.json
+!runs/*/corner_inventory/counts.csv
+!runs/*/corner_inventory/false_absences.csv
+!runs/*/corner_inventory/gaps.csv
+!runs/*/corner_inventory/corners_224_units.csv
+!runs/*/corner_inventory/corners_224_corners.csv
+!runs/*/corner_inventory/census/
+!runs/*/corner_inventory/census/census.json

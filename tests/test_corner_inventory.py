@@ -209,8 +209,11 @@ def test_score_assignments_synthetic():
     reads = summary['reads']
     assert reads['fusion/primary/unit']['absence_precision'] == [1, 1]
     assert reads['fusion/primary/corner']['absence_precision'] == [6, 7]
-    assert summary['excluded']['not_in_units'] == ['vancouver:res:000003'] or \
-        summary['excluded']['cant_judge'] == ['vancouver:res:000003']
+    assert summary['excluded']['not_in_units'] == ['vancouver:res:000003']
+    # a can't-judge unit that IS one of ours is excluded as such, not scored
+    u3 = dict(u2, unit='vancouver:res:000003')
+    _rows, s3 = ci.score_assignments([u, u2, u3], assignments)
+    assert s3['excluded']['cant_judge'] == ['vancouver:res:000003']
 
 
 def test_census_fetch_policy():
@@ -268,3 +271,41 @@ def test_smoke_vancouver(tmp_path):
     dec = ci.main(['score', '--out', str(tmp_path)])
     assert dec['n_absent'] >= 0
     assert json.loads((tmp_path / 'build.json').read_text())['counts']['units'] > 0
+
+
+def test_score_assignments_cli_end_to_end(tmp_path):
+    idx = make_idx(panos=[(0, 0, 'p0')], sites=[(6, 6, site(1))])
+    u = ci.describe_unit(dict(UNIT, unit='vancouver:res:000001'), (0.0, 0.0), LEGS4, idx, 25.0)
+    ci.write_jsonl_lf(tmp_path / 'corners_224.jsonl', [u])
+    ne_lat, ne_lng = ll(6, 6)
+    a = {'schema': 'rampnet.cluster_review/1', 'rater': 'synthetic', 'role': 'a',
+         'corners': {'vancouver:res:000001': {
+             'labels': {'1': 'r1'}, 'complete': True, 'uncovered': [],
+             'ramps': {'r1': {'lat': ne_lat, 'lng': ne_lng, 'placed': False}}}}}
+    (tmp_path / 'assignments.json').write_text(json.dumps(a), encoding='utf-8')
+    rows, summary = ci.main(['score-assignments', '--assignments',
+                             str(tmp_path / 'assignments.json'), '--out', str(tmp_path)])
+    assert (tmp_path / 'assignments_score' / 'rows.csv').exists()
+    s = json.loads((tmp_path / 'assignments_score' / 'summary.json').read_text())
+    assert s['reads']['fusion/primary/unit']['recall_vs_rater'] == [1, 1]
+    assert s['reads']['fusion/primary/corner']['absence_precision'] == [3, 3]
+    bad = dict(a, schema='nope')
+    (tmp_path / 'bad.json').write_text(json.dumps(bad), encoding='utf-8')
+    with pytest.raises(SystemExit):
+        ci.main(['score-assignments', '--assignments', str(tmp_path / 'bad.json'),
+                 '--out', str(tmp_path)])
+
+
+def test_census_summary_counts_history_and_run_dates():
+    rec = {'unit': 'u1', 'type': 'residential', 'pano_ids_25': ['a', 'b'],
+           'corners': [{'pano_ids_25': ['a']}, {'pano_ids_25': ['b']}]}
+    info = {'a': {'status': 'ok', 'error': None, 'current': '2024-05',
+                  'hist': [('h1', '2014-06'), ('h2', '2019-07'), ('b', '2018-01')]},
+            'b': {'status': 'not_found', 'error': None, 'current': None, 'hist': []}}
+    s = ci.census_summary([rec], info, [rec], run_dates={'a': '2024-05', 'b': '2018-01'})
+    u = s['per_unit'][0]
+    # captures: 2024-05, 2014-06, 2019-07, 2018-01; b is a run pano, so not "historical"
+    assert u['n_captures'] == 4 and u['n_hist'] == 2 and u['n_captures_gsv'] == 4
+    assert u['earliest'] == 2014 and u['span_years'] == 10
+    assert s['n_hist_distinct'] == 2 and s['status'] == {'ok': 1, 'not_found': 1}
+    assert s['units_with_panos_none_served'] == 0

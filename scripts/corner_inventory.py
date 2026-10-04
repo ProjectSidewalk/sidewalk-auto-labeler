@@ -1135,7 +1135,14 @@ def cmd_census(args):
     h = hashlib.sha256()
     for pid in sorted(info):
         h.update((cache / f'{pid}.json').read_bytes())
-    summary = census_summary(sample, info, records)
+    build = json.loads((out / 'build.json').read_text(encoding='utf-8'))
+    run_dates = {}
+    with open(build['inputs']['results']['path'], encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                p = json.loads(line)['pano']
+                run_dates[p['panorama_id']] = p.get('capture_date')
+    summary = census_summary(sample, info, records, run_dates)
     summary.update({'sample_seed': CENSUS_SEED, 'sample_n': CENSUS_N, 'n_panos': len(panos),
                     'fetched_this_invocation': fetched, 'wall_clock_s': round(wall, 1),
                     'stopped_on_error': stop_err, 'cache_sha256': h.hexdigest(),
@@ -1159,13 +1166,17 @@ def quant(xs, ps=(0.0, 0.25, 0.5, 0.75, 1.0)):
     return {str(p): xs[min(len(xs) - 1, int(round(p * (len(xs) - 1))))] for p in ps}
 
 
-def census_summary(sample, info, records):
-    """Captures per unit / corner (distinct year-months over current + historical panos),
-    earliest year, span, and the historical-pano count, with the full-pass extrapolation."""
+def census_summary(sample, info, records, run_dates=None):
+    """Captures per unit / corner (distinct year-months over the run's own capture dates +
+    every GSV-served current and historical pano), earliest year, span, and the
+    historical-pano count (ids not already in the run), with the full-pass extrapolation.
+    `n_captures_gsv` counts only what the endpoint served (a pano it no longer serves
+    contributes its run capture date to `n_captures` and nothing else)."""
+    run_dates = run_dates or {}
     status = {}
     for v in info.values():
         status[v['status']] = status.get(v['status'], 0) + 1
-    current_ids = set(info)
+    current_ids = set(info) | set(run_dates)
     hist_ids = {}
     for pid, v in info.items():
         for hid, ym in v['hist']:
@@ -1173,10 +1184,12 @@ def census_summary(sample, info, records):
                 hist_ids[hid] = ym
     per_unit, per_corner = [], []
 
-    def caps(pids):
+    def caps(pids, gsv_only=False):
         yms = set()
         hs = set()
         for p in pids:
+            if run_dates.get(p) and not gsv_only:
+                yms.add(run_dates[p])
             v = info.get(p)
             if not v or v['status'] != 'ok':
                 continue
@@ -1184,13 +1197,15 @@ def census_summary(sample, info, records):
                 yms.add(v['current'])
             for hid, ym in v['hist']:
                 yms.add(ym)
-                hs.add(hid)
+                if hid not in current_ids:
+                    hs.add(hid)
         return yms, hs
     for r in sample:
         yms, hs = caps(r['pano_ids_25'])
         years = sorted(int(y[:4]) for y in yms)
         per_unit.append({'unit': r['unit'], 'type': r['type'], 'n_panos': len(r['pano_ids_25']),
                          'n_captures': len(yms), 'n_hist': len(hs),
+                         'n_captures_gsv': len(caps(r['pano_ids_25'], gsv_only=True)[0]),
                          'earliest': years[0] if years else None,
                          'span_years': (years[-1] - years[0]) if years else None})
         for c in r['corners']:
@@ -1215,11 +1230,14 @@ def census_summary(sample, info, records):
             'panos_near_any_unit': len(all_near),
             'extrapolated_hist_full_pass': None if ratio is None else round(ratio * len(all_near)),
             'captures_per_unit': quant([u['n_captures'] for u in per_unit]),
+            'captures_per_unit_gsv_only': quant([u['n_captures_gsv'] for u in per_unit]),
             'captures_per_corner': quant([c['n_captures'] for c in per_corner]),
             'earliest_year_unit': quant([u['earliest'] for u in per_unit if u['earliest']]),
             'span_years_unit': quant([u['span_years'] for u in per_unit
                                       if u['span_years'] is not None]),
-            'units_with_no_ok_pano': sum(1 for u in per_unit if u['n_captures'] == 0),
+            'units_with_no_pano': sum(1 for u in per_unit if u['n_panos'] == 0),
+            'units_with_panos_none_served': sum(1 for u in per_unit if u['n_panos'] > 0
+                                                and u['n_captures_gsv'] == 0),
             'by_stratum': by_stratum, 'per_unit': per_unit}
 
 
