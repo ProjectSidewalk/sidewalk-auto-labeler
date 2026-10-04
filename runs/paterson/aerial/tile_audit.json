@@ -1,0 +1,19 @@
+{
+ "city": "paterson",
+ "tiles_csv_sha256": "f82e30049cab5c8edf09925de1819b3effba89e6be128156edae93c6affc2888",
+ "n_tiles": 12064,
+ "tiles_sha256": "91a67cf914fe767052a657168c391f8462412156a30228152f9e644ba70a8629",
+ "digest_matches_tile2net_json": true,
+ "duplicate_hashes": [],
+ "n_blank_tiles": 0,
+ "x_range": [
+  154073,
+  154188
+ ],
+ "y_range": [
+  196681,
+  196784
+ ],
+ "non_blank_bytes_min": 3407,
+ "non_blank_bytes_p50": 12675
+}
