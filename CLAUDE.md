@@ -432,12 +432,14 @@ python scripts/agree_rate.py gainesville --server https://sidewalk-gainesville.c
 
 # SERVER-SIDE READ (PR #119; write-up in docs/server-agree-check.md). Server feeds only, no run
 # dir: (1) human-validation precision of the live AI CurbRamp labels, per label AND per cluster
-# (the served clusters omit labels already marked incorrect, so labels are put back by 7.5 m
-# single linkage first; never quote the served-cluster rate), and by tier with --results (joined
-# on send_to_ps's pixel); (2) one auditor (--human auto = the human with the most CurbRamp
+# (the served clusters omit labels already marked incorrect, so labels are put back within 7.5 m
+# first, approximating the server's complete linkage; never quote the served-cluster rate), and
+# by tier with --results (joined on send_to_ps's pixel); (2) one auditor (--human auto = the human with the most CurbRamp
 # labels) vs the AI. Headline = one-to-one vs AI clusters, quoted with its chance floor; any-
 # cluster is coverage, never the headline. Validations come through PS's queue, not a random
-# sample. Pulls cached in runs/<city>/server_agree/ (Laurens's tracked, ids --redact-users'd).
+# sample. Pulls cached in runs/<city>/server_agree/ (Laurens's tracked); as-served pulls go
+# only to the untracked as_served/ subdir, the tracked copy is always redacted, and an unredacted
+# pull at a tracked path is refused.
 python scripts/server_agree_check.py laurens --human auto --results runs/laurens/results.raw.jsonl
 
 # LABEL-FRAME BETA (issue #113). GSV equirects are rig-frame, so a detection's row is in the

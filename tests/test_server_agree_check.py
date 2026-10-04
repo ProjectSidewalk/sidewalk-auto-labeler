@@ -112,3 +112,44 @@ def test_label_tier_joins_on_send_to_ps_pixel_rounding(tmp_path):
     assert sac.label_tier({'pano_id': 'p1', 'pano_x': 100, 'pano_y': 250}, keys) == '>= 0.55'
     assert sac.label_tier({'pano_id': 'p1', 'pano_x': 300, 'pano_y': 250}, keys) == '0.30-0.55'
     assert sac.label_tier({'pano_id': 'p1', 'pano_x': 301, 'pano_y': 250}, keys) == 'not joined'
+
+
+HUMAN_UUID = b'549187e0-1111-2222-3333-444455556666'
+
+
+def _pull(path, user):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = {'type': 'FeatureCollection', 'features': [
+        {'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [0, 0]},
+         'properties': {'label_id': 1, 'user_id': user}},
+        {'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [0, 0]},
+         'properties': {'label_id': 2, 'user_id': AI}}]}
+    path.write_bytes(json.dumps(body).encode())
+    (path.parent / (path.name + '.source.json')).write_text(
+        json.dumps({'url': 'https://example.invalid/x', 'n_features': 2,
+                    'fetched_at': '2026-09-30T15:07:17+00:00'}), encoding='utf-8')
+
+
+def test_pull_lands_redacted_by_default_with_served_sha(tmp_path, monkeypatch):
+    """A pull reaches the output dir only as a redacted copy; the as-served body stays in
+    as_served/ and its sha256 is recorded."""
+    import hashlib
+    monkeypatch.setattr(sac, 'git_ignored', lambda p: False)   # a tracked path
+    raw = tmp_path / sac.AS_SERVED / sac.FILES['CurbRamp']
+    _pull(raw, HUMAN_UUID.decode())   # cached, so fetch() does not touch the network
+    dest = sac.materialize(tmp_path, 'CurbRamp', 'https://example.invalid/x', AI)
+    body = dest.read_bytes()
+    assert HUMAN_UUID not in body and b'549187e0-redacted' in body and AI.encode() in body
+    meta = json.loads((tmp_path / (dest.name + '.source.json')).read_text(encoding='utf-8'))
+    assert meta['sha256_as_served'] == hashlib.sha256(raw.read_bytes()).hexdigest()
+    assert HUMAN_UUID in raw.read_bytes()
+
+
+def test_unredacted_pull_at_tracked_path_is_refused(tmp_path, monkeypatch):
+    import pytest
+    _pull(tmp_path / sac.FILES['CurbRamp'], HUMAN_UUID.decode())
+    monkeypatch.setattr(sac, 'git_ignored', lambda p: False)
+    with pytest.raises(SystemExit, match='full human user ids at a path git would track'):
+        sac.materialize(tmp_path, 'CurbRamp', 'https://example.invalid/x', AI)
+    monkeypatch.setattr(sac, 'git_ignored', lambda p: True)   # an untracked local cache
+    sac.materialize(tmp_path, 'CurbRamp', 'https://example.invalid/x', AI)

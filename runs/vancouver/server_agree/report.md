@@ -24,7 +24,8 @@ Per label, the majority of human Agree vs Disagree votes; PS's own AI validator 
 - Human votes on AI labels: 2939 in all. Per label: 0 votes 61903, 1 vote 2883, 2 votes 28, 3+ votes 0.
 - AI-validator votes on AI labels: 0.
 - Human validators: 19. Top: `549187e0…` 1572, `c9b7327d…` 500, `7ed1205b…` 320, `5ecf68e9…` 152, `81b72179…` 100. **When one account cast most of the votes, this is one rater's precision read, not a crowd's.**
-- **Per cluster** (the label rate counts a ramp seen from k panos k times; a cluster's status is the majority of its AI labels' human statuses). The server leaves labels already marked incorrect out of its clustering: 81 AI labels sit outside every cluster, 81 of them disagreed. So its 18679 clusters as served read high: agreed 2503, disagreed 0, precision 2503/2503 = 1.000 [0.998, 1.000]. **With those labels put back** (7.5 m single linkage to any AI label; 18645 groups): agreed 2487, disagreed 74, neither 16084, precision **2487/2561 = 0.971 [0.964, 0.977]**.
+- **Per cluster** (the label rate counts a ramp seen from k panos k times; a cluster's status is the majority of its AI labels' human statuses). The server leaves labels already marked incorrect out of its clustering: 81 AI labels sit outside every cluster, 81 of them disagreed. So its 18679 clusters as served read high: agreed 2503, disagreed 0, precision 2503/2503 = 1.000 [0.998, 1.000]. **With those labels put back** (each joined to any AI label within 7.5 m, a single-linkage approximation of the server's 7.5 m complete linkage; 18645 groups): agreed 2487, disagreed 74, neither 16084, precision **2487/2561 = 0.971 [0.964, 0.977]**.
+- 154 label ids appear in more than one served cluster; the put-back unions clusters that share a label, so they count as one group there.
 
 Confidence tier: not split (no `--results` run file given), so the precision above pools every live AI label, whatever tier it was sent at.
 

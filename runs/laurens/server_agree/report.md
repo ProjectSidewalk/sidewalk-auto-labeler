@@ -28,7 +28,7 @@ Per label, the majority of human Agree vs Disagree votes; PS's own AI validator 
 - Human votes on AI labels: 1112 in all. Per label: 0 votes 463, 1 vote 1112, 2 votes 0, 3+ votes 0.
 - AI-validator votes on AI labels: 0.
 - Human validators: 2. Top: `549187e0…` 1111, `f813a0b6…` 1. **When one account cast most of the votes, this is one rater's precision read, not a crowd's.**
-- **Per cluster** (the label rate counts a ramp seen from k panos k times; a cluster's status is the majority of its AI labels' human statuses). The server leaves labels already marked incorrect out of its clustering: 84 AI labels sit outside every cluster, 84 of them disagreed. So its 639 clusters as served read high: agreed 516, disagreed 10, precision 516/526 = 0.981 [0.965, 0.990]. **With those labels put back** (7.5 m single linkage to any AI label; 650 groups): agreed 491, disagreed 53, neither 106, precision **491/544 = 0.903 [0.875, 0.925]**.
+- **Per cluster** (the label rate counts a ramp seen from k panos k times; a cluster's status is the majority of its AI labels' human statuses). The server leaves labels already marked incorrect out of its clustering: 84 AI labels sit outside every cluster, 84 of them disagreed. So its 639 clusters as served read high: agreed 516, disagreed 10, precision 516/526 = 0.981 [0.965, 0.990]. **With those labels put back** (each joined to any AI label within 7.5 m, a single-linkage approximation of the server's 7.5 m complete linkage; 650 groups): agreed 491, disagreed 53, neither 106, precision **491/544 = 0.903 [0.875, 0.925]**.
 
 ### 1b. By confidence tier
 
@@ -48,7 +48,7 @@ Auditor chosen by rule (`--human auto`): the human user with the most CurbRamp l
 
 ### 2a. Human → AI: share of the human's CurbRamp labels the AI also has
 
-Three matchers, because they disagree and the truth sits between the two one-to-one rows. **Headline: one-to-one vs AI clusters** (agree_rate's matcher: greedy by distance, d ≤ r, a cluster credits at most one label). It is strict where the server's 7.5 m single linkage merged two ramps at a corner into one cluster. One-to-one vs raw AI labels is lenient the other way, since a ramp has several AI views. `any` lets one cluster credit several labels (paired corner ramps), so it is coverage, not agreement. **Chance** = the same matcher after every human label is moved 25 m in a random direction (seed 31, as agree_rate.chance_floor): what street-bound density alone would match.
+Three matchers, because they disagree and the truth sits between the two one-to-one rows. **Headline: one-to-one vs AI clusters** (agree_rate's matcher: greedy by distance, d ≤ r, a cluster credits at most one label). It is strict where the server's 7.5 m complete linkage merged two ramps at a corner into one cluster. One-to-one vs raw AI labels is lenient the other way, since a ramp has several AI views. `any` lets one cluster credit several labels (paired corner ramps), so it is coverage, not agreement. **Chance** = the same matcher after every human label is moved 25 m in a random direction (seed 31, as agree_rate.chance_floor): what street-bound density alone would match.
 
 | reading | 5 m | 7.5 m | 10 m |
 |---|---:|---:|---:|

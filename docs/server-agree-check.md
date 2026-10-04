@@ -46,8 +46,10 @@ outside a cluster is a disagreed one: 84 in Laurens, 49 in Richmond, 81 in Vanco
 rejected ramp mostly has no cluster, and per-cluster precision over the served clusters
 reads high: 0.981 in Laurens (10 disagreed clusters, validated after the last re-cluster),
 and 1.000 in Richmond and Vancouver. The per-cluster column above puts those labels back
-first, by 7.5 m single linkage to any AI label (the server's threshold, without its
-per-region split), and that is the figure to quote.
+first, each joined to any AI label within 7.5 m (the server's threshold, without its
+per-region split). That join is single linkage, where the server's own clustering is
+complete linkage, so it approximates what the server would have built. That is the figure
+to quote.
 
 **By confidence tier** (each label joined to its stored detection on pano id and the pixel
 send_to_ps.py sent; label level). Both Mapillary cities hold the 0.30-0.55 band (#20) on top
@@ -88,7 +90,7 @@ At 5 / 10 m the headline reads 0.583 / 0.778. Over seeds 1-20 the 7.5 m chance f
 ranges 0.22-0.29 (one-to-one vs clusters) and 0.24-0.33 (any).
 
 - **One-to-one vs clusters** credits each server cluster to at most one auditor label. It
-  is strict where the server's 7.5 m single linkage merged two ramps at a corner into one
+  is strict where the server's 7.5 m complete linkage merged two ramps at a corner into one
   cluster, which happens at corners where two ramps sit a few metres apart.
 - **One-to-one vs raw AI labels** is lenient the other way, because one ramp has several AI
   views.
@@ -145,8 +147,10 @@ python scripts/server_agree_check.py vancouver
 The four pulls are cached in `runs/<city>/server_agree/` and reused; `--refresh` takes a
 new snapshot, and the servers move (Laurens changed between two pulls an hour apart on
 2026-09-30, while the auditor was working). **Laurens's pulls are tracked in git**, so its
-numbers re-score from a clone. Human user ids in them are cut to 8 characters
-(`--redact-users`). No number depends on the full id, and each sidecar keeps the served
-sha256. Richmond (22 MB) and Vancouver (84 MB) are not tracked. The tier split also needs
+numbers re-score from a clone. Redaction is the default, not a flag: a pull as served goes
+only into the untracked `as_served/` subdir, the output dir gets a copy with human user ids
+cut to 8 characters, and an unredacted pull at a path git would track is refused. No number
+depends on the full id, and each sidecar keeps the served sha256. Richmond (22 MB) and
+Vancouver (84 MB) are not tracked. The tier split also needs
 the run files (`--results`), which are not tracked; the report records each one's sha256.
 Offline test: `tests/test_server_agree_check.py`.

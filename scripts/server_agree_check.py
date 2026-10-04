@@ -26,7 +26,7 @@ Two sections:
    snapshot (ties broken on user_id), so a replicator re-derives the same account from the
    pull and no full id needs to be written down. The AI labels a ramp from every pano that
    sees it; a human auditor labels it once. So the comparison is in world space, at
-   several radii, against the server's *clusters* (its own 7.5 m single linkage) and
+   several radii, against the server's *clusters* (its own 7.5 m complete linkage) and
    against the raw AI labels.
    - human -> AI: share of the human's CurbRamp labels the AI also has. The HEADLINE is
      one-to-one against AI clusters (agree_rate's matcher: greedy by distance, d <= r, a
@@ -79,6 +79,7 @@ import json
 import math
 import random
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -229,36 +230,87 @@ UUID_RE = re.compile(rb'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 REDACTED_SUFFIX = '-redacted'
 
 
-def redact_users(paths, ai_user):
-    """Rewrite cached pulls in place with every human user id cut to its first 8 hex
-    characters + '-redacted' (the AI account's id, already in this file, is kept).
+AS_SERVED = 'as_served'   # subdir of the output dir: the pulls exactly as served (untracked)
+REDACTION_NOTE = (f'human user ids cut to 8 hex chars + "{REDACTED_SUFFIX}" '
+                  f'(scripts/server_agree_check.py; the pull as served stays in {AS_SERVED}/, '
+                  'untracked)')
 
-    This is what lets a pull be committed: every number here depends only on which labels
-    share an account, never on the full id, so the report re-renders identically, and its
-    8-character ids are the ones it always printed. Refuses if two ids would collide. The
-    served file's sha256 is kept in the sidecar as `sha256_as_served`, beside its url and
-    fetch time, so the redacted copy stays tied to what the server sent. Idempotent.
-    """
+
+def human_ids(raw, ai_user):
+    """Full user ids in `raw` (bytes) other than the AI account's."""
     ai = ai_user.encode()
-    for path in paths:
-        side = path.parent / (path.name + '.source.json')
-        meta = json.loads(side.read_text(encoding='utf-8')) if side.exists() else {}
-        raw = path.read_bytes()
-        ids = {m for m in UUID_RE.findall(raw) if m != ai}
-        if not ids:
-            continue
-        short = collections.Counter(i[:8] for i in ids)
-        if any(v > 1 for v in short.values()):
-            sys.exit(f'{path.name}: two user ids share an 8-character prefix; not redacting')
-        meta.setdefault('sha256_as_served', hashlib.sha256(raw).hexdigest())
-        meta['redacted'] = (f'human user ids cut to 8 hex chars + "{REDACTED_SUFFIX}" '
-                            '(scripts/server_agree_check.py --redact-users)')
-        out = UUID_RE.sub(lambda m: m.group(0) if m.group(0) == ai
-                          else m.group(0)[:8] + REDACTED_SUFFIX.encode(), raw)
-        tmp = path.with_name(path.name + '.part')
-        tmp.write_bytes(out)
-        tmp.replace(path)
-        side.write_text(json.dumps(meta, indent=1) + '\n', encoding='utf-8', newline='\n')
+    return {m for m in UUID_RE.findall(raw) if m != ai}
+
+
+def git_ignored(path):
+    """True only when git says `path` is ignored. Anything else (tracked or trackable, not
+    a repository, no git) reads False, so the redaction guard fails safe."""
+    try:
+        r = subprocess.run(['git', '-C', str(path.parent), 'check-ignore', '-q', str(path)],
+                           capture_output=True)
+    except OSError:
+        return False
+    return r.returncode == 0
+
+
+def publish_redacted(raw_path, dest, ai_user):
+    """Write `dest` as `raw_path` (a pull as served) with every human user id cut to its
+    first 8 hex characters + '-redacted' (the AI account's id, already in this file, is
+    kept), and its sidecar as the pull's, plus `sha256_as_served`.
+
+    This is what lets a pull sit at a tracked path: every number here depends only on which
+    labels share an account, never on the full id, so the report re-renders identically,
+    and its 8-character ids are the ones it always printed. Refuses, writing nothing, if
+    two ids would collide. The served file's sha256 stays in the sidecar beside its url and
+    fetch time, so the redacted copy is tied to what the server sent.
+    """
+    side = raw_path.parent / (raw_path.name + '.source.json')
+    meta = json.loads(side.read_text(encoding='utf-8')) if side.exists() else {}
+    raw = raw_path.read_bytes()
+    short = collections.Counter(i[:8] for i in human_ids(raw, ai_user))
+    if any(v > 1 for v in short.values()):
+        sys.exit(f'{raw_path.name}: two user ids share an 8-character prefix; not redacting, '
+                 f'and not writing {dest}')
+    ai = ai_user.encode()
+    out = UUID_RE.sub(lambda m: m.group(0) if m.group(0) == ai
+                      else m.group(0)[:8] + REDACTED_SUFFIX.encode(), raw)
+    meta['sha256_as_served'] = hashlib.sha256(raw).hexdigest()
+    meta['redacted'] = REDACTION_NOTE
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_name(dest.name + '.part')
+    tmp.write_bytes(out)
+    tmp.replace(dest)
+    (dest.parent / (dest.name + '.source.json')).write_text(
+        json.dumps(meta, indent=1) + '\n', encoding='utf-8', newline='\n')
+
+
+def check_redacted(path, ai_user):
+    """Refuse a pull that holds full human user ids at a path git would track."""
+    if git_ignored(path):
+        return
+    if human_ids(path.read_bytes(), ai_user):
+        sys.exit(f'{path}: full human user ids at a path git would track; refusing to use it. '
+                 f'Move it into {path.parent / AS_SERVED} (untracked) and re-run: the script '
+                 'then writes the redacted copy here.')
+
+
+def materialize(out, key, url, ai_user, refresh=False):
+    """The pull for `key`, at its tracked path `out/<file>`, redacted.
+
+    The body as served is fetched into `out/as_served/` only (cached there like any pull),
+    and what lands at `out/<file>` is always publish_redacted's copy, so redaction is not
+    a choice. A file already at `out/<file>` is reused (the frozen snapshot) but checked:
+    one with full human ids at a path git does not ignore is refused (a pull written by an
+    older version of this script; Richmond's and Vancouver's local caches are git-ignored
+    and read as they are).
+    """
+    dest = out / FILES[key]
+    if refresh or not dest.exists():
+        raw = out / AS_SERVED / FILES[key]
+        fetch(url, raw, refresh=refresh)
+        publish_redacted(raw, dest, ai_user)
+    check_redacted(dest, ai_user)
+    return dest
 
 
 def own_vote(label, user):
@@ -335,10 +387,12 @@ def cluster_statuses(clusters, ai_labels, ai_user, link_m=7.5):
     server leaves labels already marked incorrect out of its clustering (measured on all
     three pulls: every AI label outside a cluster has `correct` false), so a ramp the
     validator rejected mostly has no cluster at all and per-cluster precision reads high.
-    The second reading puts those labels back: single linkage at link_m (the server's
-    CurbRamp threshold) between each unclustered AI label and any AI label, served
-    clusters taken as given. It ignores the server's per-region split, so it approximates
-    what the server would have built had it kept them.
+    The second reading puts those labels back: each unclustered AI label is joined to
+    every AI label within link_m (the server's CurbRamp threshold), served clusters taken
+    as given. That join is single linkage (one loose label can bridge two served
+    clusters) where the server's own clustering is complete linkage, and it ignores the
+    server's per-region split, so it approximates what the server would have built had it
+    kept them.
     """
     st = {q['label_id']: human_status(q.get('validations'), ai_user) for q in ai_labels}
     served, parent = {}, {}
@@ -435,9 +489,15 @@ def validations_section(ai_labels, ai_user, clusters=(), tiers=None):
                  f'{n_loose} AI labels sit outside every cluster, {loose_dis} of them '
                  f'disagreed. So its {len(served)} clusters as served read high: agreed {sa}, '
                  f'disagreed {sd}, precision {rate(sa, sa + sd)}. **With those labels put back** '
-                 f'(7.5 m single linkage to any AI label; {len(regrouped)} groups): agreed {ca}, '
+                 f'(each joined to any AI label within 7.5 m, a single-linkage approximation '
+                 f"of the server's 7.5 m complete linkage; {len(regrouped)} groups): agreed {ca}, "
                  f'disagreed {cd}, neither {len(regrouped) - ca - cd}, precision '
                  f'**{rate(ca, ca + cd)}**.')
+        seen = collections.Counter(i for c in clusters for i in set(c.get('label_ids') or ()))
+        shared = sum(1 for v in seen.values() if v > 1)
+        if shared:
+            L.append(f'- {shared} label ids appear in more than one served cluster; the put-back '
+                     'unions clusters that share a label, so they count as one group there.')
     L.append('')
     by_tier = None
     if tiers is not None:
@@ -539,7 +599,7 @@ def human_section(cr, ncr, clusters, streets, human, ai_user, out_dir, city='cit
           'Three matchers, because they disagree and the truth sits between the two one-to-one '
           'rows. **Headline: one-to-one vs AI clusters** (agree_rate\'s matcher: greedy by '
           'distance, d ≤ r, a cluster credits at most one label). It is strict where the '
-          'server\'s 7.5 m single linkage merged two ramps at a corner into one cluster. '
+          'server\'s 7.5 m complete linkage merged two ramps at a corner into one cluster. '
           'One-to-one vs raw AI labels is lenient the other way, since a ramp has several AI '
           'views. `any` lets one cluster credit several labels (paired corner ramps), so it is '
           'coverage, not agreement. **Chance** = the same matcher after every human label is '
@@ -686,21 +746,16 @@ def main():
                          'confidence tier (repeatable; read only)')
     ap.add_argument('--out', type=Path, help='output dir (default runs/<city>/server_agree)')
     ap.add_argument('--base-url', help='override https://sidewalk-<city>.cs.washington.edu')
-    ap.add_argument('--refresh', action='store_true', help='re-pull the four feeds')
-    ap.add_argument('--redact-users', action='store_true',
-                    help='cut human user ids in the cached pulls to 8 characters, in place, so '
-                         'the pulls can be committed (numbers unchanged)')
+    ap.add_argument('--refresh', action='store_true',
+                    help='re-pull the four feeds (as served into as_served/, untracked; the '
+                         'output dir gets the copies with human user ids redacted)')
     args = ap.parse_args()
 
     out = args.out or (REPO_ROOT / 'runs' / args.city / 'server_agree')
     out.mkdir(parents=True, exist_ok=True)
     base = args.base_url or f'https://sidewalk-{args.city}.cs.washington.edu'
-    paths = {}
-    for key, rel in API.items():
-        paths[key] = out / FILES[key]
-        fetch(base + rel, paths[key], refresh=args.refresh)
-    if args.redact_users:
-        redact_users(list(paths.values()), args.ai)
+    paths = {key: materialize(out, key, base + rel, args.ai, refresh=args.refresh)
+             for key, rel in API.items()}
 
     cr, d1 = load_features(paths['CurbRamp'])
     ncr, d2 = load_features(paths['NoCurbRamp'])
