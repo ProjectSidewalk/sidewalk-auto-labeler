@@ -430,6 +430,16 @@ python scripts/harvest_depth.py runs/vancouver --from-store <store> [--check-sto
 # depth/index.csv beside results.jsonl; the report prints how many panos had a height.
 python scripts/agree_rate.py gainesville --server https://sidewalk-gainesville.cs.washington.edu
 
+# SERVER-SIDE READ (PR #119; write-up in docs/server-agree-check.md). Server feeds only, no run
+# dir: (1) human-validation precision of the live AI CurbRamp labels, per label AND per cluster
+# (the served clusters omit labels already marked incorrect, so labels are put back by 7.5 m
+# single linkage first; never quote the served-cluster rate), and by tier with --results (joined
+# on send_to_ps's pixel); (2) one auditor (--human auto = the human with the most CurbRamp
+# labels) vs the AI. Headline = one-to-one vs AI clusters, quoted with its chance floor; any-
+# cluster is coverage, never the headline. Validations come through PS's queue, not a random
+# sample. Pulls cached in runs/<city>/server_agree/ (Laurens's tracked, ids --redact-users'd).
+python scripts/server_agree_check.py laurens --human auto --results runs/laurens/results.raw.jsonl
+
 # LABEL-FRAME BETA (issue #113). GSV equirects are rig-frame, so a detection's row is in the
 # image's frame while a human PS label's pano_y is off by beta x T(b), T = pitch cos b +
 # roll sin b (streetlevel's sign). Fits beta from labels paired with the nearest detection on
