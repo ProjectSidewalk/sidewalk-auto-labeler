@@ -917,6 +917,16 @@ def cmd_score(args):
           f"(Wilson 95% {dec['ci']}); threshold {DECISION_THRESHOLD}. **{dec['outcome']}**. "
           f"Second read (absent with no `Available` point, not the rule): "
           f"{dec.get('no_available_read')}.", '', '## Tables', ''] + render_tables(rows)
+    L += ['', '### What the inventory holds at absent units / corners (fusion, primary, '
+          'intersections pooled)', '',
+          '| level | absent | ' + ' | '.join(f'with {c}' for c in INV_CLASSES) + ' | none |',
+          '|---|---:|' + '---:|' * (len(INV_CLASSES) + 1)]
+    for level in ('unit', 'corner'):
+        ab = [x for x in items_for(records, level, INTERSECTION_STRATA)
+              if x['state']['fusion/primary'] == 'absent']
+        L.append(f'| {level} | {len(ab)} | ' + ' | '.join(
+            str(sum(1 for x in ab if x['inv_counts'][c] > 0)) for c in INV_CLASSES) +
+            f" | {sum(1 for x in ab if not any(x['inv_counts'].values()))} |")
     diag = selection_diagnostics(records, build)
     if diag:
         L += ['', '### How the pano set was selected (store-built run)', '',
