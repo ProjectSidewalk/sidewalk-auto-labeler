@@ -264,6 +264,23 @@ def placed_clusters(clusters, det_pos):
     return out
 
 
+def raycast_placed(clusters, det_of, det_pos):
+    """[(centroid or None, member positions)] with every label of a cluster at the raycast
+    position of the stored detection it maps to (det_of), the same rule for every
+    server-label arm. Placing by label rather than by Cluster.members matters where two
+    live labels share one detection (Vancouver: 1,058): the PS rule's cannot-link and
+    fusion_server's both keep such twins in separate clusters, but only the first twin
+    is a fusion_server member, so member placement would drop the second from that arm
+    alone and spare it a split the PS arms are charged."""
+    out = []
+    for c in clusters:
+        pts = [det_pos[det_of[lab]] for lab in c.label_ids
+               if lab in det_of and det_of[lab] in det_pos]
+        cen = (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))             if pts else None
+        out.append((cen, pts))
+    return out
+
+
 def server_placed(clusters, server_pos, fr):
     """[(centroid or None, member positions)] with every position a label's SERVER
     lat/lng (projected into fr): the arm as the server holds it, no run involved."""
@@ -366,7 +383,7 @@ def score_server_arms(city, cfg, inventory, results_path, frames, radii, rows, l
             n_labels = sum(c.n_labels for c in cl)
             variants = [('server', server_placed(cl, server_pos, fr))]
             if name in ('deployed', PS_ARM, 'fusion_server'):
-                variants.append(('raycast', placed_clusters(epc.place(cl, det_pos), det_pos)))
+                variants.append(('raycast', raycast_placed(cl, det_of, det_pos)))
             for placement, placed in variants:
                 if placement == 'server' and name in fixed and frame != frames[0]:
                     continue      # frame-free: written once, under the first frame
@@ -387,7 +404,7 @@ def score_server_arms(city, cfg, inventory, results_path, frames, radii, rows, l
         for name, cl in matched_arms.items():
             n_labels = sum(c.n_labels for c in cl)
             for placement, placed in (
-                    ('raycast', placed_clusters(epc.place(cl, det_pos), det_pos)),
+                    ('raycast', raycast_placed(cl, det_of, det_pos)),
                     ('server', server_placed(cl, server_pos, fr))):
                 for r in radii:
                     m = inventory_metrics(placed, inv_xy, pool, r)

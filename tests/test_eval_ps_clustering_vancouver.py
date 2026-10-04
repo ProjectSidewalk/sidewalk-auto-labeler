@@ -180,3 +180,15 @@ def test_inventory_score_city_runs_both_server_panos_calls(tmp_path, monkeypatch
     assert ('synthesized', 'fusion_server+attach', 'raycast') in sets
     report = (city / 'inventory_clustering' / 'report.md').read_text(encoding='utf-8')
     assert 'Same label set' in report and '1 unmapped AI (at 0.55)' in report
+
+
+def test_raycast_placed_places_a_shared_detection_twin():
+    # labels 1 and 2 share stored detection ('a', 0); fusion_server makes 2 a non-member
+    # (DUPLICATE_DET_BASE), so member placement would drop it -- label placement does not
+    det_of = {1: ('a', 0), 2: ('a', 0), 3: ('a', 1)}
+    det_pos = {('a', 0): (1.0, 2.0)}                    # detection 1 is not raycastable
+    clusters = [epc.Cluster(0, [('a', 0)], 1, label_ids=[1]),
+                epc.Cluster(1, [], 1, label_ids=[2]),
+                epc.Cluster(2, [], 1, label_ids=[3])]
+    (c0, _), (c1, _), (c2, _) = ic.raycast_placed(clusters, det_of, det_pos)
+    assert c0 == c1 == (1.0, 2.0) and c2 is None

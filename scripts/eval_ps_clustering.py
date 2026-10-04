@@ -2087,9 +2087,13 @@ def run(args):
         # makes every unplaceable label a singleton at its server position, which sits
         # beside the site it could not join, so the all-clusters proxy counts those as
         # near pairs (Richmond: 0.76 against a GT frag of 0.17). Post hoc (not in the #56
-        # pre-registration), reported beside it, never instead of it.
+        # pre-registration), reported beside it, never instead of it. Placeable is read
+        # by LABEL (det_of) where a cluster has label ids, so a second label on a shared
+        # detection -- a fusion_server non-member -- counts the same in every arm.
         results[name]['near_placed'] = near_cluster_rate(
-            [c for c in cl if any(m in det_pos for m in c.members)], server_pos, frame)
+            [c for c in cl if (any(det_of.get(lab) in det_pos for lab in c.label_ids)
+                               if c.label_ids else any(m in det_pos for m in c.members))],
+            server_pos, frame)
         results[name]['validation'] = validation_precision(cl, verdicts)
 
     ocheck = None
@@ -2310,7 +2314,7 @@ def run(args):
                      + f" | {npl['n_pos']} | "
                      + ' | '.join(fmt(npl['near'].get(rr)) for rr in NEAR_RADII_M) + ' |')
     ps75 = results.get(f'ps @ {PS_THRESHOLD_KM * 1000:g} m')
-    if args.no_gt and ps75 and 'fusion_server' in results:
+    if args.no_gt and not args.offline and ps75 and 'fusion_server' in results:
         a = results['fusion_server']['near']['near'].get(5.0)
         b = ps75['near']['near'].get(5.0)
         if a is not None and b:
@@ -2321,6 +2325,8 @@ def run(args):
                       f'half of ps @ 7.5 m; read {a:.3f} vs {b:.3f} (ratio {a / b:.2f}), '
                       + ('as expected.' if a <= 0.6 * b else 'not the expected halving.')]
     if verdicts:
+        in_deployed = {lab for c in server_clusters or () for lab in c['label_ids']}
+        unclustered_ids = [lab for lab in labels.label_id if lab not in in_deployed]
         n_true = sum(v is True for v in verdicts.values())
         n_false = sum(v is False for v in verdicts.values())
         n_none = len(verdicts) - n_true - n_false
@@ -2345,6 +2351,10 @@ def run(args):
                   f'includes PS\'s AI validator where one votes): '
                   f'{int((corr == True).sum())} true, {int((corr == False).sum())} false, '  # noqa: E712
                   f'{int(corr.isna().sum())} null',
+                  *([f'- labels in no deployed cluster: {len(unclustered_ids)}, of them '
+                     f'{sum(verdicts.get(int(lab)) is False for lab in unclustered_ids)} of '
+                     f'the {n_false} voted false (the server clusters only labels not marked '
+                     'incorrect)'] if server_clusters else []),
                   '',
                   '| arm | bucket | clusters | with a validated label | any false | '
                   'all false | validated labels | false labels |',
@@ -2359,7 +2369,7 @@ def run(args):
                              f"| {share} | {share_all} | {row['labels_validated']} | "
                              f"{row['labels_false']} |")
         with open(out / 'validation_precision.csv', 'w', newline='', encoding='utf-8') as f:
-            w = csv.writer(f)
+            w = csv.writer(f, lineterminator='\n')
             w.writerow(['arm', 'bucket', 'clusters', 'n_validated_clusters', 'any_false',
                         'all_false', 'labels_validated', 'labels_false'])
             for name, r in results.items():
