@@ -117,12 +117,12 @@ def test_keep_is_rampnets_rule_and_does_not_wrap_nms():
 @needs_skimage
 def test_unknown_border_is_refused():
     with pytest.raises(ValueError, match='unknown border'):
-        dec.detections_from_heatmap(edge_heatmap(), border='wrap')
+        dec.detections_from_heatmap(edge_heatmap(), border='mirror')
 
 
 def test_border_constants():
     assert detectors.DEFAULT_BORDER == detectors.BORDER_EXCLUDE == 'exclude'
-    assert detectors.BORDERS == ('exclude', 'keep')
+    assert detectors.BORDERS == ('exclude', 'keep', 'wrap')
     assert detectors.RECORD_BORDER_KEY == 'detection_border'
 
 

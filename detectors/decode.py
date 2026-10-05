@@ -52,7 +52,8 @@ import numpy as np
 from detectors import (DECODE_ARGMAX as ARGMAX, DECODE_GAUSSIAN as GAUSSIAN,  # noqa: F401
                        DECODES, DEFAULT_DECODE, DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO,
                        RECORD_DECODE_KEY, record_decode,
-                       BORDER_EXCLUDE as EXCLUDE, BORDER_KEEP as KEEP, BORDERS,
+                       BORDER_EXCLUDE as EXCLUDE, BORDER_KEEP as KEEP,
+                       BORDER_WRAP as WRAP, BORDERS,
                        DEFAULT_BORDER, PEAK_MIN_DISTANCE, RECORD_BORDER_KEY,
                        border_band_edge, record_border)
 from detectors import rampnet_subcell as sc
@@ -71,8 +72,10 @@ RAMPNET_SUBCELL_SHA256 = 'b0712dfe98fc6012ddfd22f149dc1ece7917d74b21a10276ff83de
 # band that on the exact x8 upsample holds coarse columns 0 and 127 (5.6 degrees), blind on
 # every pano. RampNet#132 calls that a defect; for the labeler it is
 # #130, and `--border keep` (RampNet's rule: exclude_border=False, no NMS across the seam)
-# is the opt-in fix. The default stays `exclude`, because changing it adds stored detections
-# that the live labels do not have (docs/seam-band-130.md measures how many).
+# is the opt-in fix; `--border wrap` (this repo's rule) adds NMS across the seam, by running
+# the finder on the heatmap padded circularly by MIN_DISTANCE columns. The default stays
+# `exclude`, because changing it adds stored detections that the live labels do not have
+# (docs/seam-band-130.md measures how many; section 9 estimates `wrap`).
 MIN_DISTANCE = PEAK_MIN_DISTANCE    # 10; detectors.border_band_edge measures the band with it
 
 
@@ -86,14 +89,49 @@ def _peaks(heatmap, border=DEFAULT_BORDER):
     differences from RampNet predate #130 and hold under both rules: this finder keeps at
     most MAX_PEAKS_PER_PANO (50) peaks (RampNet has no cap; no Laurens pano reached it), and
     detections_from_heatmap scores a peak by the RAW heatmap value where RampNet's
-    detect_peaks(clip=True) reports the clipped one (they differ only above 1.0)."""
+    detect_peaks(clip=True) reports the clipped one (they differ only above 1.0).
+
+    ``wrap`` (this repo's rule, #130 follow-up): the heatmap as a cylinder. The finder runs on
+    clip(h, 0, 1) padded circularly by MIN_DISTANCE columns on each side (rows are not
+    padded: zenith and nadir are not neighbours), and the pad copies are dropped afterwards.
+    skimage finds a peak as ``image == maximum_filter(image, 2d+1)`` and then spaces them
+    greedily in descending intensity, so both steps see across the seam: of a ramp that
+    straddles it, only the stronger half is a local maximum, and the weaker one is never a
+    candidate. Every column of the unpadded map gets its full 21-column window, so the
+    candidate set is exactly the cylinder's; a pad copy can only suppress a candidate of
+    EQUAL value, so the result differs from an ideal cylinder only in which of two tied peaks
+    survives. Pinned (tests/test_border_wrap.py): on an equal-valued plateau straddling the
+    seam, the survivor is the copy that comes first in row-major order of the PADDED frame --
+    the right-edge half (its left-pad copy is at padded column < MIN_DISTANCE) -- so a tie
+    keeps the peak at column 1014-1023. Interior peaks (10 <= col < 1014) and their order are
+    those of ``keep``; as sets, exclude <= wrap <= keep (while the 50-peak cap does not
+    bind). The cap is applied after the pad copies are dropped, to the highest 50.
+
+        >>> from detectors import rampnet_subcell as sc
+        >>> yy, xx = np.mgrid[0:64, 0:128]
+        >>> g = lambda cx, a: a * np.exp(-((yy - 25) ** 2 + (xx - cx) ** 2) / 3.125)
+        >>> h = sc.upsample(g(0, 0.8) + g(127, 0.75))       # one ramp across the seam
+        >>> len(_peaks(h, 'keep')), [int(c) for _, c in _peaks(h, 'wrap')]
+        (2, [0])
+    """
     from skimage.feature import peak_local_max
     if border not in BORDERS:
         raise ValueError(f'unknown border rule {border!r}; known: {", ".join(BORDERS)}')
-    return peak_local_max(np.clip(heatmap, 0, 1), min_distance=MIN_DISTANCE,
-                          threshold_abs=DETECTION_STORAGE_FLOOR,
-                          num_peaks=MAX_PEAKS_PER_PANO,
-                          exclude_border=(border == EXCLUDE))
+    if border != WRAP:
+        return peak_local_max(np.clip(heatmap, 0, 1), min_distance=MIN_DISTANCE,
+                              threshold_abs=DETECTION_STORAGE_FLOOR,
+                              num_peaks=MAX_PEAKS_PER_PANO,
+                              exclude_border=(border == EXCLUDE))
+    d = MIN_DISTANCE
+    h = np.clip(heatmap, 0, 1)
+    width = h.shape[1]
+    padded = np.concatenate([h[:, -d:], h, h[:, :d]], axis=1)      # circular pad, x only
+    # No num_peaks here: the cap must not count pad copies, so it is applied below.
+    peaks = peak_local_max(padded, min_distance=d, threshold_abs=DETECTION_STORAGE_FLOOR,
+                           exclude_border=False)
+    peaks = peaks[(peaks[:, 1] >= d) & (peaks[:, 1] < d + width)]   # drop the pad copies
+    peaks[:, 1] -= d
+    return peaks[:MAX_PEAKS_PER_PANO]
 
 
 def check_exact_upsample(heatmap, coarse=None):
@@ -123,10 +161,15 @@ def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None, border=
     decode. ``coarse`` may pass the 64x128 map when the caller already has it.
 
     ``border`` picks which peaks are found at all (#130; ``_peaks``): ``exclude`` (default,
-    every live label) drops peaks within MIN_DISTANCE of an edge, ``keep`` returns them. An
-    edge peak's gaussian decode is RampNet's own: the 3x3 coarse neighbourhood is NaN off
-    the map and that axis gets no sub-cell offset (rampnet_subcell._axis), so a peak in
-    coarse column 0 stays at the column-0 centre in x (pinned in tests/test_border.py).
+    every live label) drops peaks within MIN_DISTANCE of an edge, ``keep`` returns them, and
+    ``wrap`` returns them with NMS across the seam. Under ``keep`` an edge peak's gaussian
+    decode is RampNet's own: the 3x3 coarse neighbourhood is NaN off the map and that axis
+    gets no sub-cell offset (rampnet_subcell._axis), so a peak in coarse column 0 stays at
+    the column-0 centre in x (pinned in tests/test_border.py). Under ``wrap`` the coarse
+    neighbourhood is cyclic in x too (``refine_peaks(wrap_x=True)``), so a seam peak gets a
+    sub-cell offset and may land either side of the seam; refine_peaks reduces x modulo the
+    width, so it stays in [0, 1). That is a choice inside the double opt-in (wrap +
+    gaussian), reversible by passing wrap_x=False.
 
     Collisions (gaussian only). Several peaks that peak_local_max returns on one clipped
     plateau (a flat top above 1, at least MIN_DISTANCE apart) all climb to the same coarse
@@ -143,7 +186,8 @@ def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None, border=
         return [(float(c / heatmap.shape[1]), float(r / heatmap.shape[0]), float(heatmap[r][c]))
                 for r, c in peaks]
     coarse = check_exact_upsample(heatmap, coarse)
-    xy = sc.refine_peaks(heatmap, peaks, method=decode, coarse=coarse)
+    xy = sc.refine_peaks(heatmap, peaks, method=decode, coarse=coarse,
+                         wrap_x=(border == WRAP))
     out, seen = [], set()
     for (x, y), (r, c) in zip(xy, peaks):
         x, y = float(x), float(y)

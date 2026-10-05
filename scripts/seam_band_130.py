@@ -675,6 +675,7 @@ def arm_summary(check_rows, gained_rows, counts, world_rows, world_info):
             'gained_in_straddle_pairs': sum(1 for r in g if r['straddle_pair'] == '1'),
         }
     out['tiers'] = tiers
+    out['wrap_estimate'] = wrap_tiers(tiers)
     out['geometric_expectation'] = rnd(SEAM_COARSE_COLUMNS / COARSE_W, 6)
     if world_info is not None:
         w = {}
@@ -703,7 +704,56 @@ def arm_summary(check_rows, gained_rows, counts, world_rows, world_info):
         w['operational_site_change'] = (world_info['operational_sites']['keep']
                                         - world_info['operational_sites']['exclude'])
         out['world'] = w
+        out['wrap_estimate']['world'] = wrap_world(seam_rows, w['operational_sites']['keep'])
     return out
+
+
+# `--border wrap` (#130 follow-up; docs/seam-band-130.md section 9), estimated to FIRST
+# ORDER from the committed keep data, without the coarse maps: under wrap each
+# seam-straddling pair loses its weaker half (it is no longer a local maximum on the
+# cylinder); interior peaks are keep's (decode._peaks). What these files cannot see: a seam
+# peak is also suppressed under wrap by a higher NON-peak pixel across the seam (the flank of
+# a peak more than 10 px away), and they hold peaks, not pixels. wrap never adds a peak keep
+# lacks, so `gained_under_wrap` is an upper bound and the duplicate-site count a lower bound
+# on what wrap removes. A direct measurement runs both_rules with a wrap arm on the makelab2
+# coarse maps.
+
+def wrap_tiers(tiers):
+    """Per tier: a straddling pair costs wrap one gained peak at tier t exactly when its
+    weaker half is >= t (the pair counts in `straddle_pairs` there); below that the weaker
+    half was never counted. Both halves of a pair are always gained (both are in the seam
+    band, which exclude blanks), so the arithmetic is on gained and keep alike."""
+    out = {}
+    for t, r in tiers.items():
+        pairs = r['straddle_pairs']
+        out[t] = {'pairs_both_halves_at_or_above_t': pairs,
+                  'gained_under_wrap': r['gained'] - pairs,
+                  'wrap_peaks': r['keep_peaks'] - pairs,
+                  'gained_share_of_wrap': share(r['gained'] - pairs, r['keep_peaks'] - pairs)}
+    return out
+
+
+def wrap_world(seam_rows, keep_sites):
+    """At the operating point (the world CSV holds gained seam peaks >= 0.30): the sites
+    wrap would not create. A pano holding two projected straddle rows is a pair whose halves
+    both fused; wrap drops the weaker one, and if that half made a site of its own (split /
+    promoted / new) the site goes with it. The Laurens Mapillary case is pano
+    1466581971069523 (0.708 joined a site as a view, 0.666 split off as a second one)."""
+    by_pano = {}
+    for r in seam_rows:
+        if r.get('straddle_pair') == '1':
+            by_pano.setdefault(r['pano_id'], []).append(r)
+    second = 0
+    for rows in by_pano.values():
+        proj = [r for r in rows if r['world_class'] != 'not_projected']
+        if len(proj) >= 2:
+            weaker = min(proj, key=lambda r: float(r['score']))
+            second += weaker['world_class'] in ('split', 'promoted', 'new')
+    return {'straddle_halves_fused_as_second_site': second,
+            'straddle_rows_not_projected': sum(1 for rows in by_pano.values() for r in rows
+                                               if r['world_class'] == 'not_projected'),
+            'operational_sites_keep': keep_sites,
+            'operational_sites_wrap_estimate': keep_sites - second}
 
 
 def sum_counts(cs):
@@ -777,6 +827,21 @@ def render_tables(s):
                       f"{100 * g['ci95'][1]:.2f}] | {r['seam_gained']} ({r['seam_left']}/"
                       f"{r['seam_right']}) | {r['top_bottom_gained']} | "
                       f"{r['panos_with_seam_gain']} | {r['straddle_pairs']} |\n")
+    buf.write('\n| arm | tier | keep gained | straddle pairs (both halves >= tier) | '
+              'wrap gained (est.) | wrap gained / wrap peaks [95% CI] | operational sites '
+              'keep -> wrap (est.) |\n|' + '---|' * 7 + '\n')
+    for a in cols:
+        we = blocks[a]['wrap_estimate']
+        ww = we.get('world')
+        for t, r in blocks[a]['tiers'].items():
+            e = we[t]
+            g = e['gained_share_of_wrap']
+            gtxt = ('-' if g['rate'] is None else f"{100 * g['rate']:.2f}% "
+                    f"[{100 * g['ci95'][0]:.2f}, {100 * g['ci95'][1]:.2f}]")
+            stxt = (f"{ww['operational_sites_keep']} -> {ww['operational_sites_wrap_estimate']}"
+                    if ww is not None and float(t) == OPERATING else '')
+            buf.write(f"| {a} | {t} | {r['gained']} | {e['pairs_both_halves_at_or_above_t']} | "
+                      f"{e['gained_under_wrap']} | {gtxt} | {stxt} |\n")
     wcols = [a for a in cols if 'world' in blocks[a]]
     if wcols:
         buf.write('\n| arm | seam peaks >= 0.30 | lost view | split | promoted | new site | '

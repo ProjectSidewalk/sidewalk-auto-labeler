@@ -1170,7 +1170,9 @@ def main():
              "'exclude' (default; every live label) drops them, which leaves a 5.6-degree "
              "blind band (coarse columns 0 and 127) at the 360-degree seam; 'keep' is RampNet's rule (opt-in). The run "
              "directory is bound to its rule (manifest.json detection_border) and 'keep' "
-             "records carry it. A new city may use 'keep' from its first run; an existing "
+             "records carry it. 'wrap' keeps them and suppresses the weaker half of a "
+             "seam-straddling pair (this repo's rule, opt-in; its records carry it too). "
+             "A new city may use 'keep' from its first run; an existing "
              "city only under a new --name (docs/seam-band-130.md)."
     )
     gap_group = parser.add_mutually_exclusive_group()

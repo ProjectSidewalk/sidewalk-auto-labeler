@@ -305,7 +305,11 @@ python scripts/subcell_decode.py figures
 # columns at the 360-degree seam -- coarse columns 0 and 127 of the exact x8 upsample, 5.6 deg of
 # azimuth -- never yield a detection. `main.py --border keep`
 # / `reinfer.py --border keep` use RampNet's rule instead (exclude_border=False, NO NMS across the
-# seam, so a straddling ramp can give two peaks). Bound exactly like the decode: manifest
+# seam, so a straddling ramp can give two peaks). `--border wrap` (#130 follow-up) is keep plus NMS
+# wrapped across the seam (circular pad by 10 px), this repo's own rule: one peak per straddling
+# ramp; bound and guarded like keep, a frame of its own (keep/wrap mixes are refused too);
+# estimated on the committed Laurens data to remove 3 of keep's 15 gained peaks at 0.30 and the
+# one duplicate site (seam-band-130.md section 9). Bound exactly like the decode: manifest
 # `detection_border`, keep records carry "detection_border": "keep" (exclude records and
 # submission records byte-identical), fuse_sites / reinfer --verify / send_to_ps.py refuse a mix
 # (--allow-mixed-border, recorded; send_to_ps also reads sibling runs/*/ campaigns on the same
