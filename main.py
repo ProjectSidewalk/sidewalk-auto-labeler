@@ -557,9 +557,87 @@ def bind_border(manifest, border, run_dir):
         )
     return False
 
+# Manifest key holding the thinning spacing a run directory is bound to (issue #126).
+THIN_SPACING_KEY = 'thin_spacing_m'
+
+# load_or_init_run_dir's "do not bind the thinning spacing" default. A sentinel, not None,
+# because None is itself a bound value: "this source has no thinning hook" (GSV).
+UNBOUND = object()
+
+def resolve_thin_spacing(source, thin_spacing):
+    """The grid spacing (m) this run thins at: None for a source with no thin_panos hook
+    (GSV), 0 when --thin-spacing 0 disabled it, else the flag or the source's default.
+    This is the value recorded in manifest.json and bound on resume (#126).
+
+        >>> class S: THIN_CELL_METERS = 5
+        >>> S.thin_panos = staticmethod(lambda p, m: p)
+        >>> resolve_thin_spacing(S, None), resolve_thin_spacing(S, 10), resolve_thin_spacing(S, 0)
+        (5, 10, 0)
+        >>> resolve_thin_spacing(object(), 10) is None
+        True
+    """
+    if not hasattr(source, 'thin_panos'):
+        return None
+    if thin_spacing is None:
+        return source.THIN_CELL_METERS
+    return thin_spacing
+
+def _describe_spacing(spacing):
+    """A thinning spacing as a person reads it in a refusal or note."""
+    if spacing is None:
+        return "no thinning (source has no hook)"
+    if spacing == 0:
+        return "0 (disabled)"
+    return f"{spacing} m"
+
+def bind_thin_spacing(manifest, spacing, run_dir):
+    """
+    Binds a run directory to one thinning spacing (#126), the way bind_decode binds the
+    decode: a resume at another spacing appends a different population (a 5 m resume over a
+    10 m run adds the in-between cells; a 10 m resume over a 5 m run leaves the dense panos
+    in place), and nothing in results.jsonl can tell the two apart afterwards. Exits on a
+    mismatch; returns True when the manifest changed so the caller saves it.
+
+    `spacing` is resolve_thin_spacing's value: None (no thinning hook), 0 (disabled) or metres.
+    A manifest without the key predates #126 or was made by --scan-only. Unlike the decode and
+    border, the value that produced existing records is NOT known from the code (Bayonne ran at
+    10 m, the Mapillary cities at the 5 m default, Richmond's first pass before thinning
+    existed), so a run with records resumes ONCE with a note and is bound to THIS resume's
+    spacing, recording `thin_spacing_bound_on_resume` (UTC) so the manifest shows the value was
+    inferred, not recorded at the time -- the #39 pattern (bind_model). A run with no records is
+    bound silently. So is a run whose source has no thinning hook (spacing None): the source
+    binding already fixes the source, and a hookless source has never thinned, so there the
+    legacy value IS known.
+    """
+    if THIN_SPACING_KEY in manifest:
+        bound = manifest[THIN_SPACING_KEY]
+        if bound != spacing:
+            hint = (f"pass --thin-spacing {bound}" if bound is not None
+                    else "run it with its own source")
+            sys.exit(
+                f"❌ Run '{run_dir.name}' was thinned at {_describe_spacing(bound)} "
+                f"(manifest {THIN_SPACING_KEY}), not {_describe_spacing(spacing)}.\n"
+                f"   Appending would mix two pano densities in one results.jsonl (issue #126).\n"
+                f"   Use a new --name for this spacing, or {hint}."
+            )
+        return False
+    results = run_dir / 'results.jsonl'
+    if spacing is not None and results.exists() and results.stat().st_size > 0:
+        with open(results, 'rb') as f:
+            n_records = sum(1 for line in f if line.strip())
+        print(f"ℹ️  Run '{run_dir.name}' predates thin-spacing binding (issue #126): its manifest "
+              f"does not say what\n    spacing its {n_records} existing records were thinned at. "
+              f"Binding it to this run's {_describe_spacing(spacing)} from\n    here on (recorded "
+              f"once as {THIN_SPACING_KEY} + thin_spacing_bound_on_resume). If the original\n    "
+              f"run used another spacing, stop and use a new --name instead.")
+        manifest['thin_spacing_bound_on_resume'] = datetime.now(timezone.utc).isoformat(
+            timespec='seconds')
+    manifest[THIN_SPACING_KEY] = spacing
+    return True
+
 def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_name,
                          position_field=None, input_geojson_type=None, provenance=None,
-                         decode=None, border=None):
+                         decode=None, border=None, thin_spacing=UNBOUND):
     """
     Creates or validates the run directory (runs/<name>/), which holds all per-area
     state: results.jsonl, already_processed.txt, manifest.json, and a copy of the
@@ -569,9 +647,11 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     corrupt the run's state. A Mapillary run is likewise bound to one position field
     (`position_field`, recorded as `mapillary_position`; manifests predating it are 'sfm'),
     and every run to one model revision once a detector has run in it (see bind_model),
-    and to one peak decode (`decode`, see bind_decode) and border rule (`border`, see
-    bind_border). `provenance`, `decode` and `border` are None for --scan-only, which loads
-    no model and so binds none.
+    and to one peak decode (`decode`, see bind_decode), border rule (`border`, see
+    bind_border), and thinning spacing (`thin_spacing`, see bind_thin_spacing).
+    `provenance`, `decode` and `border` are None for --scan-only, which loads no model and
+    so binds none; `thin_spacing` is UNBOUND (the default) for --scan-only and
+    --gap-fill-only, since None is itself a bound value there ("no thinning hook").
 
     `geojson_data` is the extracted bare geometry (see extract_geometry), which is what
     area.geojson stores; `input_geojson_type` is the wrapper the file came in, recorded
@@ -630,6 +710,8 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
             changed = True
         if border is not None and bind_border(manifest, border, run_dir):
             changed = True
+        if thin_spacing is not UNBOUND and bind_thin_spacing(manifest, thin_spacing, run_dir):
+            changed = True
         if changed:
             save_manifest(manifest_path, manifest)
         return manifest
@@ -646,6 +728,7 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
         'max_peaks_per_pano': MAX_PEAKS_PER_PANO,
         **({'detection_decode': decode} if decode is not None else {}),
         **({'detection_border': border} if border is not None else {}),
+        **({THIN_SPACING_KEY: thin_spacing} if thin_spacing is not UNBOUND else {}),
         'streetlevel_version': pkg_version('streetlevel'),
         'runs': [],
     }
@@ -657,7 +740,7 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     return manifest
 
 def record_run(manifest_path, manifest, started_at, found, success, skipped, failed, phase=None,
-                scan=None, provenance=None):
+                scan=None, provenance=None, thinning=None):
     """
     Appends one entry to the manifest's run history. In a phase='gap_fill' entry,
     'panos_found_in_area' holds the dangling link targets attempted (their in-area
@@ -667,6 +750,11 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
     `scan` (main pass only) is merged into the entry: `scan` is 'fresh' or 'reused'
     (--reuse-scan), with `scan_scanned_at` and `scan_age_hours`, so a run whose pano
     list came from an old scan says how old.
+
+    `thinning` (main pass only, issue #126) is merged the same way: `thin_spacing_m`
+    (resolve_thin_spacing's value; null for a source with no thinning hook) and
+    `panos_before_thinning` (the in-area count before thinning, so equal to
+    `panos_found_in_area` when nothing was thinned). Gap-fill entries carry neither.
     """
     entry = {
         'started_at': started_at,
@@ -680,6 +768,8 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
         entry['phase'] = phase
     if scan:
         entry.update(scan)
+    if thinning:
+        entry.update(thinning)
     if provenance is not None:
         entry['model'] = manifest_model_block(provenance)
     manifest['runs'].append(entry)
@@ -871,6 +961,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     the same way.
     """
     require_provenance(provenance, scan_only)
+    # Resolved before anything is scanned, so a spacing refusal costs no network (#126).
+    spacing = resolve_thin_spacing(source, thin_spacing)
     print("--- Sidewalk Auto-Labeler ---")
 
     # 1. Load GeoJSON and set up the run directory
@@ -891,7 +983,9 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
                                     input_geojson_type=input_geojson_type,
                                     provenance=None if scan_only else provenance,
                                     decode=None if scan_only else decode,
-                                    border=None if scan_only else border)
+                                    border=None if scan_only else border,
+                                    thin_spacing=UNBOUND if (scan_only or gap_fill_only)
+                                    else spacing)
     manifest_path = run_dir / "manifest.json"
     output_jsonl_file = run_dir / "results.jsonl"
     cache_file = run_dir / "already_processed.txt"
@@ -972,9 +1066,10 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
         scan_record = {'scan': 'fresh', 'scan_scanned_at': scanned_at, 'scan_age_hours': 0.0}
 
     # Optional per-source spatial thinning (e.g. Mapillary's near-duplicate coverage).
-    if hasattr(source, 'thin_panos') and all_panos_in_area and thin_spacing != 0:
-        spacing = thin_spacing or source.THIN_CELL_METERS
-        found_before_thinning = len(all_panos_in_area)
+    # `spacing` is None for a source with no hook and 0 when --thin-spacing 0 disabled it.
+    found_before_thinning = len(all_panos_in_area)
+    thinning_record = {'thin_spacing_m': spacing, 'panos_before_thinning': found_before_thinning}
+    if spacing and all_panos_in_area:
         all_panos_in_area = source.thin_panos(all_panos_in_area, spacing)
         print(f"-> Spatial thinning: {found_before_thinning} → {len(all_panos_in_area)} panos "
               f"(best per ~{spacing} m grid cell).")
@@ -1007,7 +1102,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     if not panos_to_process_ids:
         print("🎉 No new panoramas to process.")
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), 0, 0, 0,
-                   scan=scan_record, provenance=provenance)
+                   scan=scan_record, provenance=provenance, thinning=thinning_record)
     else:
         processing_tasks = [
             (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1])
@@ -1032,7 +1127,7 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
                     pbar.update(1)
 
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), success_count, skip_count, fail_count,
-                   scan=scan_record, provenance=provenance)
+                   scan=scan_record, provenance=provenance, thinning=thinning_record)
 
     # 5. Close the link graph (issue #32): fetch in-area panos the new records
     # reference but the scan never enumerated (mostly coverage churn). Done promptly,
@@ -1109,7 +1204,9 @@ def main():
         "--thin-spacing", type=int, default=None, metavar="METERS",
         help="Spatial thinning grid size in meters for sources with near-duplicate "
              "coverage (default: the source's own, e.g. Mapillary 5 m); 0 disables "
-             "thinning. No effect on sources without a thinning hook (GSV)."
+             "thinning. No effect on sources without a thinning hook (GSV). "
+             "Recorded in manifest.json (thin_spacing_m) and bound: a resume at another "
+             "spacing is refused (issue #126). Use a new --name to re-thin an area."
     )
     parser.add_argument(
         "--mapillary-position", choices=("sfm", "raw"), default="sfm",
@@ -1188,6 +1285,8 @@ def main():
 
     if args.batch_size < 1:
         parser.error("--batch-size must be >= 1")
+    if args.thin_spacing is not None and args.thin_spacing < 0:
+        parser.error("--thin-spacing must be >= 0 (0 disables thinning)")
     PROCESSING_CONCURRENCY = args.processing_concurrency
     COVERAGE_API_CONCURRENCY = args.coverage_concurrency
 
