@@ -267,11 +267,17 @@ def _download_image(url):
     - A 404 on the asset is not: the `hd` URL is plain and unsigned (unlike Mapillary's
       signed, expiring thumbnail), so a 404 means the instance no longer serves those
       pixels. Retrying cannot fix it.
-    - Neither can a decode failure. Bytes that arrived intact and are not a readable
-      image — a truncated upload, a decompression bomb past PIL's ceiling — will not
-      become one on the fourth try, and the old bare `except Exception` around the whole
-      body sent them back around the loop and then left them uncached, so every future
-      run of the area re-downloaded the same unreadable megabytes.
+    - Neither can a decode failure on complete bytes. Bytes that arrived whole and that
+      PIL cannot read (sources.mapillary.decode_failure_is_permanent) — garbage, a
+      decompression bomb past PIL's ceiling — will not become an image on the fourth
+      try, so they are a permanent skip on the first attempt.
+    - A body that did NOT arrive whole is retryable and never cached (#127): a byte count
+      other than its Content-Length (sources.mapillary.body_is_complete), or PIL's
+      truncated-file OSError ("image file is truncated" / "Truncated File Read"). So is
+      any non-decode exception raised while decoding, e.g. a MemoryError under load.
+      Before #127 every one of these was cached as a skip, so a transfer cut short lost
+      the pano for good. The rule is shared with Mapillary; only the 404 differs, for the
+      reason above.
     """
     for attempt in range(ATTEMPTS):
         try:
@@ -280,15 +286,21 @@ def _download_image(url):
                 return None, True
             response.raise_for_status()
             payload = response.content
+            if not _mapillary.body_is_complete(response):
+                raise ValueError(f"short body: Content-Length "
+                                 f"{response.headers.get('Content-Length')}, got {len(payload)} bytes")
+            # Past this point the whole body is in hand, so a permanent decode failure is
+            # about the bytes; a truncation or any other exception is retried.
+            try:
+                image = Image.open(BytesIO(payload)).convert('RGB')
+            except Exception as e:
+                if _mapillary.decode_failure_is_permanent(e):
+                    return None, True
+                raise
         except Exception:
             if attempt < ATTEMPTS - 1:
                 time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
             continue
-        # Past this point the bytes are in hand, so a failure is about the bytes.
-        try:
-            image = Image.open(BytesIO(payload)).convert('RGB')
-        except Exception:
-            return None, True
         original_size = image.size
         if image.size != TARGET_SIZE:
             image = image.resize(TARGET_SIZE, Image.BILINEAR)

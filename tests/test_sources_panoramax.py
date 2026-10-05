@@ -261,6 +261,7 @@ def test_download_image_separates_decode_failure_from_network_failure(monkeypatc
             if status >= 400:
                 raise RuntimeError(f"HTTP {status}")
         return SimpleNamespace(status_code=status, content=body,
+                               headers={"Content-Length": str(len(body))},
                                raise_for_status=raise_for_status)
 
     monkeypatch.setattr(panoramax.time, "sleep", lambda s: None)
@@ -288,6 +289,93 @@ def test_download_image_separates_decode_failure_from_network_failure(monkeypatc
     monkeypatch.setattr(panoramax.requests, "get", boom)
     assert panoramax._download_image("u") == (None, False)
     assert len(calls) == panoramax.ATTEMPTS
+
+
+def _jpeg(size=(200, 100), noisy=False):
+    """A real JPEG. A flat image compresses to ~1 KB, almost all header, so cutting it in half
+    lands in the header segments; a noisy one is mostly scan data, like a real panorama."""
+    import random
+    from io import BytesIO
+    from PIL import Image
+    if noisy:
+        rng = random.Random(0)
+        image = Image.frombytes("RGB", size, bytes(rng.getrandbits(8) for _ in range(size[0] * size[1] * 3)))
+    else:
+        image = Image.new("RGB", size)
+    buf = BytesIO()
+    image.save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+def _asset_response(status, body, headers=None):
+    """A requests.Response stand-in whose Content-Length matches the body unless overridden."""
+    def raise_for_status():
+        if status >= 400:
+            raise RuntimeError(f"HTTP {status}")
+    return SimpleNamespace(status_code=status, content=body,
+                           headers={"Content-Length": str(len(body)), **(headers or {})},
+                           raise_for_status=raise_for_status)
+
+
+def _serve_asset(monkeypatch, response):
+    calls = []
+    monkeypatch.setattr(panoramax.time, "sleep", lambda s: None)
+    monkeypatch.setattr(panoramax.requests, "get",
+                        lambda url, **kw: calls.append(url) or response)
+    return calls
+
+
+def test_download_image_short_body_is_retryable(monkeypatch):
+    # Fewer bytes than the server declared: the transfer was cut, the pixels were not. (#127)
+    calls = _serve_asset(monkeypatch, _asset_response(
+        200, b"\xff\xd8\xff", headers={"Content-Length": "100000"}))
+    assert panoramax._download_image("u") == (None, False)
+    assert len(calls) == panoramax.ATTEMPTS
+
+
+@pytest.mark.parametrize("noisy, message", [
+    (True, "image file is truncated"),   # cut inside scan data -- what a real panorama hits
+    (False, "Truncated File Read"),      # cut inside the header segments of a tiny file
+])
+def test_download_image_truncated_jpeg_is_retryable(monkeypatch, noisy, message):
+    # The body is self-consistent (Content-Length == len) but ends early -- the urllib3 1.x /
+    # mis-declared-length case. PIL calls it an OSError, which used to be a cached skip. (#127)
+    from io import BytesIO
+    from PIL import Image
+    whole = _jpeg((400, 200), noisy=True) if noisy else _jpeg()
+    body = whole[: len(whole) // 2]
+    # Documents the Pillow behaviour the rule relies on: if a future Pillow words it
+    # differently, this is the line that says why the test changed.
+    with pytest.raises(OSError, match=message):
+        Image.open(BytesIO(body)).convert("RGB")
+    calls = _serve_asset(monkeypatch, _asset_response(200, body))
+    assert panoramax._download_image("u") == (None, False)
+    assert len(calls) == panoramax.ATTEMPTS
+
+
+def test_download_image_memory_error_during_decode_is_retryable(monkeypatch):
+    calls = _serve_asset(monkeypatch, _asset_response(200, _jpeg()))
+
+    def oom(*args, **kwargs):
+        raise MemoryError()
+    monkeypatch.setattr(panoramax.Image, "open", oom)
+    assert panoramax._download_image("u") == (None, False)
+    assert len(calls) == panoramax.ATTEMPTS
+
+
+def test_download_image_complete_non_image_bytes_stay_permanent(monkeypatch):
+    calls = _serve_asset(monkeypatch, _asset_response(200, b"not a jpeg"))
+    assert panoramax._download_image("u") == (None, True)
+    assert len(calls) == 1
+
+
+def test_download_image_success_with_matching_length(monkeypatch):
+    calls = _serve_asset(monkeypatch, _asset_response(200, _jpeg()))
+    (image, original_size), permanent = panoramax._download_image("u")
+    assert permanent is False
+    assert original_size == (200, 100)
+    assert image.size == panoramax.TARGET_SIZE
+    assert len(calls) == 1
 
 
 def test_fetch_item_404_is_gone_without_retrying(monkeypatch):

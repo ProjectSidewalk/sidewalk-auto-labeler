@@ -931,7 +931,9 @@ The pipeline is two stages run by two separate entry points:
 misconfiguration). `fetch_pano` distinguishes deterministic `skipped` (cached, never
 retried — indoor GSV panos, non-360 or non-2:1 Mapillary images, incomplete metadata,
 image bytes that arrived but do not decode — only PIL's "these bytes are not an image"
-errors count, so a `MemoryError` mid-decode stays retryable) from retryable `failure` (left
+errors count, so a `MemoryError` mid-decode, a body shorter than its `Content-Length`, and
+PIL's truncated-file `OSError` all stay retryable (#127; both rules shared by Mapillary and
+Panoramax via `sources.mapillary.decode_failure_is_permanent` / `body_is_complete`)) from retryable `failure` (left
 uncached — network/HTTP errors, and a 200 whose Content-Type is not `image/*`). An image **404 differs by source on purpose**: Mapillary's
 `thumb_original_url` is signed and expires, so a 404 there is transient (`failure`);
 Panoramax's `hd` URL is plain, so a 404 there means the pixels are gone (`skipped`).

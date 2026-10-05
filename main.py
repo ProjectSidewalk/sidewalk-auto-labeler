@@ -375,6 +375,9 @@ def handle_result(result, f_cache, f_jsonl, provenance):
     if result['status'] == 'skipped':
         # Deterministic skips (indoor pano, non-360 image, incomplete metadata,
         # gap-fill target outside the area): cache so they aren't refetched every run.
+        # Logged, so a skip that should have been a retryable failure is diagnosable (#127).
+        print(f"  -> Skipped {result['pano_id']} (cached, never retried): "
+              f"{result.get('reason', 'Unknown')}")
         f_cache.write(f"{result['pano_id']}\n")
         f_cache.flush()
         return 'skipped'

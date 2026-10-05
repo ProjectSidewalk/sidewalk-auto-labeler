@@ -311,11 +311,62 @@ def _fetch_image_metadata(image_id):
 
 
 # Decode errors that describe the bytes themselves, so a retry cannot fix them.
-# UnidentifiedImageError is an OSError subclass (listed for the reader); OSError also
-# covers a truncated file; SyntaxError is what PIL raises for some malformed headers;
-# DecompressionBombError is a plain Exception subclass, not an OSError.
+# UnidentifiedImageError is an OSError subclass (listed for the reader); SyntaxError is
+# what PIL raises for some malformed headers; DecompressionBombError is a plain Exception
+# subclass, not an OSError. OSError is broad on purpose -- but PIL ALSO reports a
+# truncated body as an OSError, which decode_failure_is_permanent carves back out.
 PERMANENT_DECODE_ERRORS = (UnidentifiedImageError, OSError, SyntaxError,
                            Image.DecompressionBombError)
+
+# The two messages PIL raises for a body that ends early (issue #127), lowercased. Measured
+# on Pillow 12.3.0: a cut inside the JPEG's entropy-coded scan data raises
+# "image file is truncated (N bytes not processed)" (PIL.ImageFile.load, triggered by
+# .convert('RGB')); a cut inside the header segments, which only a tiny file realistically
+# hits, raises "Truncated File Read" (PIL.ImageFile._safe_read, inside Image.open). Both
+# describe the TRANSFER, not the bytes the server holds, so both are retryable -- unlike
+# every other member of PERMANENT_DECODE_ERRORS.
+TRUNCATED_DECODE_MESSAGES = ('image file is truncated', 'truncated file read')
+
+
+def decode_failure_is_permanent(exc) -> bool:
+    """True when a decode exception says the bytes themselves are not an image (main.py
+    caches the pano as a skip); False for PIL's truncation OSError or anything outside
+    PERMANENT_DECODE_ERRORS (a MemoryError under load), which are retried like a network
+    failure and never cached (#127). Shared by the Mapillary and Panoramax downloads.
+
+        >>> decode_failure_is_permanent(OSError('image file is truncated (12 bytes not processed)'))
+        False
+        >>> decode_failure_is_permanent(UnidentifiedImageError('cannot identify image file'))
+        True
+        >>> decode_failure_is_permanent(MemoryError())
+        False
+    """
+    if not isinstance(exc, PERMANENT_DECODE_ERRORS):
+        return False
+    message = str(exc).lower()
+    return not any(m in message for m in TRUNCATED_DECODE_MESSAGES)
+
+
+def body_is_complete(response) -> bool:
+    """False when the server declared a Content-Length and a different number of bytes
+    arrived (#127). urllib3 >= 2 already raises on a short read before this is reached;
+    this covers urllib3 1.x and a server that mis-declares the length. An absent or
+    unparseable header reads as complete. Shared by the Mapillary and Panoramax downloads.
+
+    Content-Length counts the bytes on the wire, so a Content-Encoding'd (gzip) body
+    decodes to a different length; image assets are not served encoded, and an encoded
+    response is treated as complete rather than guessed at.
+    """
+    headers = response.headers or {}
+    if headers.get('Content-Encoding'):
+        return True
+    declared = headers.get('Content-Length')
+    if declared is None:
+        return True
+    try:
+        return int(declared) == len(response.content)
+    except (TypeError, ValueError):
+        return True
 
 
 def _download_image(url):
@@ -329,14 +380,17 @@ def _download_image(url):
     - Network/HTTP failures are retryable and return (None, False) after ATTEMPTS tries.
     - A 200 whose Content-Type is not `image/*` (an HTML error or interstitial page
       served with a 200) is also retryable: that says nothing about the image.
-    - A decode failure is not. Bytes that arrived intact and are not a readable image (a
-      truncated upload, a decompression bomb past PIL's ceiling) will not become one on
-      the next try, so it returns (None, True) on the first attempt, never re-looped.
-      Before this split, one bare `except Exception` sent such a pano back around the
-      loop and then left it uncached, so every run of the area re-downloaded it.
-      Only PERMANENT_DECODE_ERRORS count: anything else raised while decoding (a
-      MemoryError under load, say) is about this process, not the bytes, so it is
-      retried like a network failure and never cached.
+    - So is a body that did not arrive whole (#127): a byte count other than its
+      Content-Length (body_is_complete), or PIL's truncated-file OSError. Both describe
+      the transfer, not the image.
+    - A decode failure on complete bytes is not. Bytes that arrived whole and are not a
+      readable image (garbage, a decompression bomb past PIL's ceiling) will not become
+      one on the next try, so it returns (None, True) on the first attempt, never
+      re-looped. Before this split, one bare `except Exception` sent such a pano back
+      around the loop and then left it uncached, so every run of the area re-downloaded
+      it. Only decode_failure_is_permanent errors count: anything else raised while
+      decoding (a MemoryError under load, say) is about this process, not the bytes, so
+      it is retried like a network failure and never cached.
 
     A 404 deliberately stays RETRYABLE here, unlike in the Panoramax template, which
     treats a 404 on its plain, unsigned `hd` URL as the pixels being gone. This URL is
@@ -354,12 +408,17 @@ def _download_image(url):
             if content_type and not content_type.lower().startswith('image/'):
                 raise ValueError(f"non-image Content-Type {content_type!r}")
             payload = response.content
-            # Past this point the bytes are in hand, so a PERMANENT_DECODE_ERRORS failure
-            # is about the bytes; any other exception falls through and is retried.
+            if not body_is_complete(response):
+                raise ValueError(f"short body: Content-Length "
+                                 f"{response.headers.get('Content-Length')}, got {len(payload)} bytes")
+            # Past this point the whole body is in hand, so a permanent decode failure is
+            # about the bytes; a truncation or any other exception is retried.
             try:
                 image = Image.open(BytesIO(payload)).convert('RGB')
-            except PERMANENT_DECODE_ERRORS:
-                return None, True
+            except Exception as e:
+                if decode_failure_is_permanent(e):
+                    return None, True
+                raise
         except Exception:
             if attempt < ATTEMPTS - 1:
                 time.sleep(2 * (attempt + 1) + random.uniform(0, 1))

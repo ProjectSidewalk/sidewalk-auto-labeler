@@ -299,12 +299,14 @@ def _fake_image_get(monkeypatch, respond):
     return calls
 
 
-def _response(status, content=b"", content_type="image/jpeg"):
+def _response(status, content=b"", content_type="image/jpeg", content_length=None):
+    """Content-Length defaults to len(content); pass content_length to mis-declare it."""
     def raise_for_status():
         if status >= 400:
             raise mapillary.requests.HTTPError(f"{status}")
+    declared = str(len(content)) if content_length is None else content_length
     return SimpleNamespace(status_code=status, content=content,
-                           headers={"Content-Type": content_type},
+                           headers={"Content-Type": content_type, "Content-Length": declared},
                            raise_for_status=raise_for_status)
 
 
@@ -375,3 +377,58 @@ def test_download_image_network_error_then_bad_bytes_is_permanent_after_two(monk
     calls = _fake_image_get(monkeypatch, respond)
     assert mapillary._download_image("https://example.test/signed.jpg") == (None, True)
     assert len(calls) == 2
+
+
+def _noisy_jpeg_bytes():
+    """Mostly scan data, like a real panorama (a flat image is almost all header)."""
+    import random
+    from io import BytesIO
+    from PIL import Image
+    rng = random.Random(0)
+    image = Image.frombytes("RGB", (400, 200), bytes(rng.getrandbits(8) for _ in range(400 * 200 * 3)))
+    buf = BytesIO()
+    image.save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize("whole", [_jpeg_bytes, _noisy_jpeg_bytes])
+def test_download_image_truncated_jpeg_is_retryable(monkeypatch, whole):
+    # Length-consistent but cut short: PIL's truncation OSError is about the transfer. (#127)
+    data = whole()
+    calls = _fake_image_get(monkeypatch, lambda n: _response(200, data[: len(data) // 2]))
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
+
+
+def test_download_image_content_length_mismatch_is_retryable(monkeypatch):
+    calls = _fake_image_get(
+        monkeypatch, lambda n: _response(200, _jpeg_bytes(), content_length="999999"))
+    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert len(calls) == mapillary.ATTEMPTS
+
+
+@pytest.mark.parametrize("exc, permanent", [
+    (OSError("image file is truncated (12 bytes not processed)"), False),
+    (OSError("Truncated File Read"), False),
+    (OSError("broken data stream when reading image file"), True),
+    (mapillary.UnidentifiedImageError("cannot identify image file"), True),
+    (SyntaxError("not a JPEG file"), True),
+    (mapillary.Image.DecompressionBombError("too many pixels"), True),
+    (MemoryError(), False),
+    (ValueError("anything else"), False),
+])
+def test_decode_failure_is_permanent(exc, permanent):
+    assert mapillary.decode_failure_is_permanent(exc) is permanent
+
+
+@pytest.mark.parametrize("headers, content, complete", [
+    ({}, b"abc", True),                                          # no header: nothing to check
+    (None, b"abc", True),
+    ({"Content-Length": "3"}, b"abc", True),
+    ({"Content-Length": "10"}, b"abc", False),                   # short
+    ({"Content-Length": "2"}, b"abc", False),                    # long
+    ({"Content-Length": "lots"}, b"abc", True),                  # unparseable
+    ({"Content-Length": "10", "Content-Encoding": "gzip"}, b"abc", True),  # wire != decoded
+])
+def test_body_is_complete(headers, content, complete):
+    assert mapillary.body_is_complete(SimpleNamespace(headers=headers, content=content)) is complete

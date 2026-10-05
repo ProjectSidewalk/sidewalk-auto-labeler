@@ -509,3 +509,25 @@ def test_invalid_features_are_refused_cleanly_not_with_a_geos_traceback(tmp_path
     with pytest.raises(SystemExit) as exc:
         main.run_labeler(str(path), "bad", source=None, scan_only=True)
     assert "could not be dissolved" in str(exc.value.code)
+
+
+def test_handle_result_logs_and_caches_a_skip_but_not_a_failure(tmp_path, capsys):
+    # A skip is cached forever, so it is logged with its reason: a skip that should have been
+    # a retryable failure (#127) is otherwise invisible in a run's output.
+    cache, jsonl = tmp_path / "already_processed.txt", tmp_path / "results.jsonl"
+    with open(cache, "w") as f_cache, open(jsonl, "w") as f_jsonl:
+        outcome = main.handle_result(
+            {"status": "skipped", "pano_id": "p1", "reason": "Image asset is gone"},
+            f_cache, f_jsonl, make_provenance())
+        assert outcome == "skipped"
+        out = capsys.readouterr().out
+        assert "p1" in out and "Image asset is gone" in out
+
+        outcome = main.handle_result(
+            {"status": "failure", "pano_id": "p2", "reason": "Image download failed"},
+            f_cache, f_jsonl, make_provenance())
+        assert outcome == "failed"
+        out = capsys.readouterr().out
+        assert "p2" in out and "Will retry" in out
+    assert cache.read_text().splitlines() == ["p1"]
+    assert jsonl.read_text() == ""
