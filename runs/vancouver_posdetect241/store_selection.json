@@ -1,0 +1,14 @@
+{
+  "input_ids_sha256": "b232962344cc8ae56ad0a1feec9858ef0c2b6e9c967e4edc7dbf8069b895ce8a",
+  "n_input_ids": 10337,
+  "sample_unlabeled": 0,
+  "seed": 0,
+  "store": "/projects/makeabilitylab/sidewalk_panos/Panoramas/vancouver-wa",
+  "layout": "sharded",
+  "server": "https://sidewalk-vancouver.cs.washington.edu",
+  "ids_sha256": "b232962344cc8ae56ad0a1feec9858ef0c2b6e9c967e4edc7dbf8069b895ce8a",
+  "n_ids": 10337,
+  "n_sampled_unlabeled": 0,
+  "sampled_ids_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "selected_at": "2026-10-05T12:50:39+00:00"
+}

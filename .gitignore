@@ -166,3 +166,4 @@ runs/_summary/camera_height/estimator_validation*.csv
 # the position-selected detection run itself: its id list is the selection's (tracked above)
 !runs/vancouver_posdetect241/store_ids.txt
 !runs/vancouver_posdetect241/sites_meta.json
+!runs/vancouver_posdetect241_gsv/sites_meta.json
