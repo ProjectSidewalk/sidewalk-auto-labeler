@@ -1,0 +1,48 @@
+{
+ "by_type": {
+  "arterial": {
+   "selected": 2872,
+   "units": 382,
+   "with_selected": 380
+  },
+  "residential": {
+   "selected": 7521,
+   "units": 1068,
+   "with_selected": 1060
+  },
+  "signalised": {
+   "selected": 44,
+   "units": 3,
+   "with_selected": 3
+  }
+ },
+ "inputs": {
+  "build": {
+   "corners_full_sha256": "722e7b6e962db6070c22b42d3de073661b20d285c1bd53a3b1e214edb6499614",
+   "path": "runs/vancouver/corner_inventory"
+  },
+  "ps_panos": {
+   "fetched_at": "2026-10-05T12:49:41+00:00",
+   "n": 142623,
+   "sha256": "77ea8a3e51abfecda439a4b89286988d50968a27fdbd7a8d7ec40f17f6b16b45",
+   "url": "https://sidewalk-vancouver.cs.washington.edu/adminapi/panos"
+  },
+  "results": {
+   "sha256": "7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28"
+  },
+  "store_ids": {
+   "n": 139278,
+   "path": "runs/vancouver/corner_posdetect241/cache/store_jpg_ids.txt",
+   "sha256": "dbc9d976b206dadc66dac355b3459924f1e84e154d4f1b5c4eaf8f64398b390a"
+  }
+ },
+ "radius_m": 25.0,
+ "schema": "sidewalk-auto-labeler.corner_posdetect/1",
+ "selected_ids": 10337,
+ "selected_ids_sha256": "b232962344cc8ae56ad0a1feec9858ef0c2b6e9c967e4edc7dbf8069b895ce8a",
+ "units": 1453,
+ "units_no_ps_pano_within_radius": 4,
+ "units_only_no_jpg": 6,
+ "units_with_run_pano_by_ps_position": 0,
+ "units_with_selected": 1443
+}

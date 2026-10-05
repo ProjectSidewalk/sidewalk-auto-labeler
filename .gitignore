@@ -146,3 +146,23 @@ runs/_summary/camera_height/estimator_validation*.csv
 !runs/*/corner_inventory/corners_224_corners.csv
 !runs/*/corner_inventory/census/
 !runs/*/corner_inventory/census/census.json
+# Position-selected panos at the corner inventory's unobservable units (scripts/
+# corner_posdetect.py, RampNet#241; amendment A8 of docs/corner-inventory.md). The selection
+# (ids, per-unit table, its inputs' sha256s) and the comparison are tracked; the PS pano list
+# and the store id list under cache/ are NOT (selection.json carries their sha256s). The
+# re-built inventory with the new run merged in is tracked like corner_inventory/.
+!runs/*/corner_posdetect241/
+!runs/*/corner_posdetect241/select/
+!runs/*/corner_posdetect241/select/*
+!runs/*/corner_posdetect241/compare/
+!runs/*/corner_posdetect241/compare/*
+!runs/*/corner_inventory_posdetect241/
+!runs/*/corner_inventory_posdetect241/report.md
+!runs/*/corner_inventory_posdetect241/build.json
+!runs/*/corner_inventory_posdetect241/decision.json
+!runs/*/corner_inventory_posdetect241/counts.csv
+!runs/*/corner_inventory_posdetect241/false_absences.csv
+!runs/*/corner_inventory_posdetect241/gaps.csv
+# the position-selected detection run itself: its id list is the selection's (tracked above)
+!runs/vancouver_posdetect241/store_ids.txt
+!runs/vancouver_posdetect241/sites_meta.json
