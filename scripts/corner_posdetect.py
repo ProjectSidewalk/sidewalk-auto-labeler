@@ -191,7 +191,8 @@ def cmd_select(args):
     results = build['inputs']['results']['path']
     run_ids = run_pano_ids(results)
     radius = args.radius_m if args.radius_m is not None else build['params']['obs_m']
-    skips = read_skips(args.store_skips) if args.store_skips else None
+    skips = (read_skips(args.store_skips) if (args.store_skips or args.gsv_fallback)
+             else None)
     rows, chosen = select(records, build, ps_panos, store_ids, run_ids, radius, skips)
     sdir = out / 'select'
     fields = ['unit', 'type', 'lat', 'lng', 'n_ps_panos', 'n_in_run', 'n_no_jpg', 'n_selected',
@@ -535,6 +536,9 @@ def main(argv=None):
     s.add_argument('--store-skips', action='append', default=[],
                    help="the new run's store_skipped.jsonl, after its metadata pass; "
                         'writes gsv_area.geojson for the units left with no usable store pano')
+    s.add_argument('--gsv-fallback', action='store_true',
+                   help='write gsv_area.geojson even with no --store-skips (the metadata '
+                        'pass skipped nothing, so it wrote no store_skipped.jsonl)')
     c = sub.add_parser('compare')
     c.add_argument('--old', required=True, help='the original build dir')
     c.add_argument('--new', required=True, help='the build dir with --extra-run')

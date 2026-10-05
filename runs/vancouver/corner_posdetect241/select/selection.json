@@ -40,7 +40,25 @@
  "schema": "sidewalk-auto-labeler.corner_posdetect/1",
  "selected_ids": 10337,
  "selected_ids_sha256": "b232962344cc8ae56ad0a1feec9858ef0c2b6e9c967e4edc7dbf8069b895ce8a",
+ "store_skips": {
+  "n_selected_skipped": 0,
+  "paths": [],
+  "reasons": {},
+  "sha256": []
+ },
  "units": 1453,
+ "units_for_gsv": [
+  "vancouver:res:n47225948",
+  "vancouver:res:n47236186",
+  "vancouver:res:n47385371",
+  "vancouver:res:n1326714720",
+  "vancouver:res:n3784186894",
+  "vancouver:res:n3784186964",
+  "vancouver:res:n3788306130",
+  "vancouver:res:n4600722929",
+  "vancouver:art:n6505406622",
+  "vancouver:art:n13059332205"
+ ],
  "units_no_ps_pano_within_radius": 4,
  "units_only_no_jpg": 6,
  "units_with_run_pano_by_ps_position": 0,
