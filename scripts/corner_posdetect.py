@@ -371,8 +371,10 @@ def year_hist(dates):
     return dict(sorted(out.items()))
 
 
-def compare(old, new, old_build, new_build, base_dates):
-    """Everything `compare` writes, as one dict (no timestamps, no absolute paths)."""
+def compare(old, new, old_build, new_build, base_dates, capture=None, signal=None):
+    """Everything `compare` writes, as one dict (no timestamps, no absolute paths).
+    `capture` ({pano_id: 'YYYY-MM'} over every run) adds the install-date read; `signal`
+    (selection_signal) is recorded as given."""
     if [r['unit'] for r in old] != [r['unit'] for r in new]:
         raise SystemExit('old and new builds hold different units')
     fr = build_frame(new_build)
@@ -433,7 +435,91 @@ def compare(old, new, old_build, new_build, base_dates):
     # added panos that sit within 25 m of a target unit centre by their record position
     res['target_units_with_added_pano_within_obs_m'] = sum(
         1 for r in tgt_units if any(p in added_ids for p in r['pano_ids_25']))
+    # review S1: recall against `Available` at the target units, both arms, with Wilson CIs
+    av = [r for r in tgt_units if r['inv_counts']['Available'] > 0]
+    res['target_recall_available'] = {
+        a: {'n': len(av), **{s: sum(1 for r in av if r['state'][f'{a}/primary'] == s)
+                             for s in ci.STATES},
+            **_share('present', sum(1 for r in av if r['state'][f'{a}/primary'] == 'present'),
+                     len(av))}
+        for a in ci.ARMS}
+    # review S4: the fusion-arm split by what the inventory holds, so the NA_noramp
+    # agreement is read against its baseline (units with no inventory point at all)
+    split = {}
+    for r in tgt_units:
+        d = split.setdefault(inv_kind(r['inv_counts']), {s: 0 for s in ci.STATES})
+        d[r['state'][KEY]] += 1
+    for d in split.values():
+        n = d['absent'] + d['present']
+        d['absent_share_of_observed'] = round(d['absent'] / n, 4) if n else None
+    res['target_states_by_inventory'] = dict(sorted(split.items()))
+    # review S2: is the newest pano within 25 m older than the ramp's install date?
+    if capture is not None:
+        rows, summ = install_dating(av, capture)
+        res['available_targets_dating'] = summ
+        res['_dating_rows'] = rows
+    if signal is not None:
+        res['selection_signal'] = signal
     return res
+
+
+def inv_kind(inv_counts):
+    """'Available' / 'NA_noramp_only' / 'none' / 'other': what the inventory holds."""
+    if inv_counts.get('Available', 0):
+        return 'Available'
+    tot = sum(inv_counts.values())
+    if not tot:
+        return 'none'
+    return 'NA_noramp_only' if inv_counts.get('NA_noramp', 0) == tot else 'other'
+
+
+def install_dating(units, capture):
+    """Per unit with an `Available` point: the newest capture ('YYYY-MM') of the panos within
+    25 m, the latest `INSTDATE` ('YYYY-MM') of its `Available` points, and whether the newest
+    capture is from a strictly earlier month than that install (the pixels may predate the
+    ramp). Returns (rows, {arm state: {'units', 'dated', 'newest_pano_predates_install'}})
+    over the fusion arm."""
+    rows, summ = [], {}
+    for r in units:
+        caps = [capture[p] for p in r['pano_ids_25'] if capture.get(p)]
+        inst = [str(x['instdate'])[:7] for x in r['inventory']
+                if x['class'] == 'Available' and x.get('instdate')]
+        newest = max(caps) if caps else None
+        latest = max(inst) if inst else None
+        pre = None if newest is None or latest is None else newest < latest
+        st = r['state'][KEY]
+        rows.append({'unit': r['unit'], 'type': r['type'], 'state_fusion': st,
+                     'state_deployed': r['state']['deployed/primary'],
+                     'n_panos_25': r['n_panos_25'], 'newest_capture': newest,
+                     'latest_instdate': latest,
+                     'newest_pano_predates_install': '' if pre is None else int(pre)})
+        d = summ.setdefault(st, {'units': 0, 'dated': 0, 'newest_pano_predates_install': 0})
+        d['units'] += 1
+        d['dated'] += pre is not None
+        d['newest_pano_predates_install'] += bool(pre)
+    return rows, dict(sorted(summ.items()))
+
+
+def has_tier(d, tier=ci.DEPLOYED_TIER):
+    return any(x['confidence'] >= tier for x in d.get('detections') or ())
+
+
+def selection_signal(build, base_records, sampled_ids, tier=ci.DEPLOYED_TIER):
+    """How often a pano carries a detection >= tier: in each extra run, and in the base
+    run's seeded sample of unlabeled store panos (#56's random control). Review S1: the
+    added store panos carry no deployed label, so a rate near the control's says the 0.55
+    detector already fired nothing on them."""
+    out = {'tier': tier, 'extra_runs': {}}
+    for k, v in build['inputs'].items():
+        if k.startswith('extra:') and k.endswith(':results'):
+            recs = ci.read_jsonl(v['path'])
+            out['extra_runs'][k.split(':')[1]] = {
+                'panos': len(recs), 'with_detection_ge_tier': sum(has_tier(d) for d in recs)}
+    if sampled_ids:
+        ctl = [d for d in base_records if d['pano']['panorama_id'] in sampled_ids]
+        out['base_sampled_unlabeled'] = {'panos': len(ctl),
+                                         'with_detection_ge_tier': sum(has_tier(d) for d in ctl)}
+    return out
 
 
 def render(res):
@@ -477,6 +563,35 @@ def render(res):
         L.append(f"| {r['subset']} | {r['stratum']} | {r['build']} | {r['read']} | "
                  f"{r['n_absent']} | {r['clean']} | {fmt(r, 'clean')} | {r['no_available']} | "
                  f"{fmt(r, 'no_available')} |")
+    sig = res.get('selection_signal')
+    if sig:
+        L += ['', f"## Selection signal (panos with a detection >= {sig['tier']})", '']
+        for name, d in sorted(sig['extra_runs'].items()):
+            L.append(f"- {name}: {d['with_detection_ge_tier']} of {d['panos']}")
+        if 'base_sampled_unlabeled' in sig:
+            d = sig['base_sampled_unlabeled']
+            L.append(f"- #56 seeded unlabeled store sample: {d['with_detection_ge_tier']} of "
+                     f"{d['panos']}")
+    L += ['', '## Recall against `Available` at the target units', '',
+          '| arm | units | present | absent | unobservable | present share [95% CI] |',
+          '|---|---:|---:|---:|---:|---|']
+    for a, d in res['target_recall_available'].items():
+        L.append(f"| {a} | {d['n']} | {d['present']} | {d['absent']} | {d['unobservable']} | "
+                 f"{fmt(d, 'present')} |")
+    L += ['', '## Target units by what the inventory holds (fusion arm)', '',
+          '| inventory | present | absent | unobservable | absent share of observed |',
+          '|---|---:|---:|---:|---:|']
+    for k, d in res['target_states_by_inventory'].items():
+        L.append(f"| {k} | {d['present']} | {d['absent']} | {d['unobservable']} | "
+                 f"{d['absent_share_of_observed']} |")
+    if 'available_targets_dating' in res:
+        L += ['', '## Install date vs newest pano within 25 m (target units with an '
+              '`Available` point, fusion arm)', '',
+              '| state | units | with INSTDATE and a dated pano | newest pano predates install |',
+              '|---|---:|---:|---:|']
+        for k, d in res['available_targets_dating'].items():
+            L.append(f"| {k} | {d['units']} | {d['dated']} | "
+                     f"{d['newest_pano_predates_install']} |")
     L += ['', '## Capture years', '', '| year | added panos | #56 run panos |',
           '|---|---:|---:|']
     years = sorted(set(res['capture_years_added']) | set(res['capture_years_base']))
@@ -497,10 +612,18 @@ def cmd_compare(args):
         raise SystemExit(f'{new_dir}: build.json has no extra_runs')
     if ob['inputs']['results']['sha256'] != nb['inputs']['results']['sha256']:
         raise SystemExit('old and new builds use different base runs')
-    base_dates = [p.get('capture_date') for p in
-                  (json.loads(line)['pano'] for line in
-                   open(nb['inputs']['results']['path'], encoding='utf-8') if line.strip())]
-    res = compare(old, new, ob, nb, base_dates)
+    base = [json.loads(line) for line in
+            open(nb['inputs']['results']['path'], encoding='utf-8') if line.strip()]
+    base_dates = [d['pano'].get('capture_date') for d in base]
+    capture = {d['pano']['panorama_id']: d['pano'].get('capture_date') for d in base}
+    capture.update({p['panorama_id']: p.get('capture_date') for p in extra_panos(nb)})
+    sampled = None
+    if 'store_sampled_ids' in nb['inputs']:
+        sampled = set(Path(nb['inputs']['store_sampled_ids']['path'])
+                      .read_text(encoding='utf-8').split())
+    signal = selection_signal(nb, base, sampled)
+    res = compare(old, new, ob, nb, base_dates, capture, signal)
+    dating_rows = res.pop('_dating_rows', [])
     res['inputs'] = {'old_corners_full_sha256': ci.sha256_file(old_dir / 'corners_full.jsonl'),
                      'new_corners_full_sha256': ci.sha256_file(new_dir / 'corners_full.jsonl'),
                      **{k: v['sha256'] for k, v in nb['inputs'].items()
@@ -512,6 +635,10 @@ def cmd_compare(args):
               'clean_hi', 'no_available', 'no_available_p', 'no_available_lo',
               'no_available_hi']
     ci.write_csv_lf(out / 'reads.csv', fields, res['reads'])
+    ci.write_csv_lf(out / 'available_targets_dating.csv',
+                    ['unit', 'type', 'state_fusion', 'state_deployed', 'n_panos_25',
+                     'newest_capture', 'latest_instdate', 'newest_pano_predates_install'],
+                    dating_rows)
     ci.write_text_lf(out / 'report.md', render(res))
     print(render(res))
     return res

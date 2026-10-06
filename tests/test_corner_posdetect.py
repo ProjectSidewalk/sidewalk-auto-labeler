@@ -210,3 +210,37 @@ def test_compare_end_to_end_is_byte_stable(tmp_path):
     for name in ('compare.json', 'transitions.csv', 'reads.csv', 'report.md'):
         a, b = (outs[0] / name).read_bytes(), (outs[1] / name).read_bytes()
         assert a == b and b'\r\n' not in a
+
+
+def test_extra_run_guard_covers_every_fusion_param(tmp_path):
+    base = {'params': dict(BASE_META['params'], gate_chi2=9.21)}
+    d = tmp_path / 'r'
+    write_run(d, [('a', 0, 0, None)], [], params={'gate_chi2': 4.0})
+    with pytest.raises(SystemExit, match='gate_chi2'):
+        ci.load_extra_run(d, base, [])
+    # camera height alone may differ
+    d2 = tmp_path / 'r2'
+    write_run(d2, [('a', 0, 0, None)], [], params={'gate_chi2': 9.21, 'camera_height_m': 2.0})
+    assert ci.load_extra_run(d2, base, [])[3]['camera_height_m'] == 2.0
+
+
+def test_inv_kind_and_install_dating():
+    assert cp.inv_kind(EMPTY) == 'none'
+    assert cp.inv_kind(dict(EMPTY, NA_noramp=2)) == 'NA_noramp_only'
+    assert cp.inv_kind(dict(EMPTY, NA_noramp=1, RMV=1)) == 'other'
+    assert cp.inv_kind(dict(EMPTY, Available=1, NA_noramp=1)) == 'Available'
+    u = unit_rec('a', 0, 0, 'absent', inv={'Available': 1})
+    u.update(pano_ids_25=['p1', 'p2', 'p3'], n_panos_25=3,
+             inventory=[{'class': 'Available', 'instdate': '2023-06-02'},
+                        {'class': 'NA_noramp', 'instdate': '2025-01-01'}])
+    v = dict(u, unit='b', inventory=[{'class': 'Available', 'instdate': None}])
+    w = dict(u, unit='c', state=dict(u['state'], **{cp.KEY: 'present'}),
+             inventory=[{'class': 'Available', 'instdate': '2023-05-30'}])
+    cap = {'p1': '2022-11', 'p2': '2023-05', 'p3': None}
+    rows, summ = cp.install_dating([u, v, w], cap)
+    assert rows[0]['newest_capture'] == '2023-05' and rows[0]['latest_instdate'] == '2023-06'
+    assert rows[0]['newest_pano_predates_install'] == 1
+    assert rows[1]['newest_pano_predates_install'] == ''
+    assert rows[2]['newest_pano_predates_install'] == 0       # same month: not "before"
+    assert summ == {'absent': {'units': 2, 'dated': 1, 'newest_pano_predates_install': 1},
+                    'present': {'units': 1, 'dated': 1, 'newest_pano_predates_install': 0}}
