@@ -693,6 +693,7 @@ def viewer_unit(it, rel, aerial_dates=None):
                          'wide': c['wide'], 'lat': c['lat'], 'lng': c['lng'],
                          'views': [{'pano_id': v['pano_id'], 'date': v['capture_date'],
                                     'dist_m': v['dist_m'], 'cam': v['cam'],
+                                    'heading': v['bearing_deg'],
                                     'crop': rel + v['crop']} for v in c['views']]}
                         for c in it['corners']]}
 

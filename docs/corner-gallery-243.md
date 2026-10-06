@@ -134,6 +134,39 @@ carry different dates (2025-12-30 here), so the zoom matters.
 To revise later, re-run `render`: it prefills from the verdicts file. A second rater uses their
 own `--rater` name and file. Agreement is computed with `--a jonf --b <name>`.
 
+## Changes made during the jonf pass (2026-10-06)
+
+Jon rated 28 of 95 units, exported (committed as the partial `verdicts__jonf.json`,
+`f0f467b`), and asked for these. None changes `items.jsonl`, the images or the rubric text
+(the scorer checks the rubric text, so a mid-pass edit would mix two definitions).
+
+- **Absence reasons after the reveal are not a re-adjudication.** `b` / `n` (and the reason
+  radios) now work on a completed unit without reopening it. A reasons-only change sets
+  `kinds_after_inventory`, not `edited_after_inventory`; the page re-flags older saved state
+  on load, and the scorer measures "verdict edited" from the data (blind vs final verdicts),
+  so the one partial-file unit flagged edited for adding reasons only
+  (`vancouver:res:n3372672500`) now reads as a reasons-only change. In the blind read, a
+  reason added after the reveal fills a corner whose verdict was absent both before and after
+  and had no blind reason; the report counts these separately. They never enter
+  present/absent. Why this is acceptable: whether a sidewalk reaches the corner is read off
+  the imagery, and the inventory shown at the reveal carries no sidewalk information.
+  **Why it was needed:** the `b` / `n` keys were only announced to screen readers and listed
+  in the help panel, and Jon found them around unit 24, so 32 of 37 absent `NA` corners in
+  the partial file had no reason.
+- **Visible prompt after `a`**: "Add why (optional): b ... n ...".
+- **Complete button renamed** "Done: lock ratings (c)" with a one-line hint, because it was
+  unclear that it had to be pressed once per unit.
+- **Street View link** in the enlarged crop: the same pano at the same heading, for when the
+  crop framing is too tight to judge (Jon's notes on `art:n47331236`, `res:n47231852`,
+  `sig:n1642453647`). It is the pinned pano, but Google serves it, so a rating that relied on
+  it should say so in the unit note.
+- **Rubric clarification (no rubric text change):** a curb cut where a shared-use path or
+  trail meets the street serves pedestrians and counts as **present**. A feature that is for
+  bikes only is **can't tell**, with a note. Raised by Jon's notes on `art:n47270030` (a
+  bike-style ramp) and `art:n47190958` (a path with a seamless transition to the street).
+  Units rated before this clarification keep their verdicts; check those two notes when
+  adjudicating.
+
 ## Scoring (`scripts/corner_gallery_score.py`)
 
 Scoring uses the **blind** verdicts of every unit that has them. They are frozen at a unit's

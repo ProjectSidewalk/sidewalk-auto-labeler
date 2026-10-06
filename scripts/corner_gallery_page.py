@@ -30,7 +30,7 @@ function emptyUnit(u) {
   const corners = {};
   for (const c of u.corners) corners[c.k] = {verdict: null, absent_kind: null};
   return {corners: corners, blind: null, complete: false, elapsed_s: 0, note: '',
-          seen: false, inventory_seen: false, edited_after_inventory: false};
+          seen: false, inventory_seen: false, edited_after_inventory: false, kinds_after_inventory: false};
 }
 function copyCorners(cs) {
   const out = {};
@@ -42,7 +42,19 @@ function fromFile(f) {
   return {corners: copyCorners(f.corners), blind: f.blind ? copyCorners(f.blind) : null,
           complete: !!f.complete, elapsed_s: f.elapsed_s || 0, note: f.note || '',
           seen: true, inventory_seen: !!f.inventory_seen,
-          edited_after_inventory: !!f.edited_after_inventory};
+          edited_after_inventory: !!f.edited_after_inventory, kinds_after_inventory: !!f.kinds_after_inventory};
+}
+function verdictsOnly(cs) { const o = {}; for (const k in (cs || {})) o[k] = (cs[k] || {}).verdict || null; return JSON.stringify(o); }
+function kindsOnly(cs) { const o = {}; for (const k in (cs || {})) o[k] = (cs[k] || {}).absent_kind || null; return JSON.stringify(o); }
+// A post-reveal edit that changed only the reasons (absent_kind), never a verdict, is not a
+// re-adjudication: re-flag it kinds_after_inventory. Applied on load, so state saved before
+// the flag existed is corrected too.
+function normaliseEditFlags(s) {
+  if (s && s.edited_after_inventory && s.blind && verdictsOnly(s.blind) === verdictsOnly(s.corners)) {
+    s.edited_after_inventory = false;
+    s.kinds_after_inventory = kindsOnly(s.blind) !== kindsOnly(s.corners);
+  }
+  if (s && s.kinds_after_inventory === undefined) s.kinds_after_inventory = false;
 }
 function sameUnit(s, f) {
   return JSON.stringify(copyCorners(s.corners)) === JSON.stringify(copyCorners(f.corners)) &&
@@ -61,6 +73,7 @@ function bootstrapState(INITIAL, local, UNITS, ITEMS_SHA) {
       prefilled++;
     }
   }
+  for (const id in state) normaliseEditFlags(state[id]);
   for (const u of UNITS) {
     const s = state[u.id];
     if (!s) { state[u.id] = emptyUnit(u); continue; }
@@ -170,6 +183,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   .inv .late{color:#8a4b00;font-weight:600}
   #unitnote{width:100%;box-sizing:border-box;font:13px sans-serif;padding:5px}
   #completebtn{font-size:15px;padding:6px 16px;margin:6px 0}
+  .hint{display:block;font-size:12px;color:#555;margin:-2px 0 6px}
   #notes{background:#eef4ff;border:1px solid #9db8e8;border-radius:8px;padding:8px 12px;margin:0 0 10px;font-size:13px}
   #notes summary{cursor:pointer;font-weight:bold;color:#24457f}
   #notes input,#notes textarea,#notes select{font:13px sans-serif;padding:3px 6px}
@@ -218,7 +232,7 @@ HTML_TEMPLATE = r"""<!doctype html>
     <div id="aerialwrap"><img id="aerial" alt=""><svg id="plan" role="img" aria-labelledby="plantitle"><title id="plantitle">Aerial plan</title></svg></div>
     <div id="aerialdate"></div>
     <div id="attrib"></div>
-    <button id="completebtn"></button>
+    <button id="completebtn"></button> <span id="completehint" class="hint"></span>
     <p><label for="unitnote">Note on this unit (optional; say why for any can't tell)</label>
       <textarea id="unitnote" rows="3"></textarea></p>
     <p class="meta">Corner markers: number = corner; fill and the letter under it: green P present,
@@ -328,10 +342,10 @@ function rated(u) { const s = state[u.id]; return u.corners.filter(c => s.corner
 function go(d) { idx = (idx + d + UNITS.length) % UNITS.length; active = 0; last = null; renderUnit(); }
 function goTo(i) { idx = i; active = 0; last = null; renderUnit(); }
 function pick(ci) { active = ci; last = null; refresh(); scrollActive(); say('Corner ' + cur().corners[ci].corner + ' active'); }
-function touched() {
+function touched(kindOnly) {
   const s = S();
   s.seen = true;
-  if (s.inventory_seen) s.edited_after_inventory = true;
+  if (s.inventory_seen) { if (kindOnly) s.kinds_after_inventory = true; else s.edited_after_inventory = true; }
 }
 function setVerdict(ci, v) {
   const u = cur(), s = S(), c = u.corners[ci];
@@ -343,11 +357,12 @@ function setVerdict(ci, v) {
   if (v !== 'absent') e.absent_kind = null;
   save(); refresh();
   say('Corner ' + c.corner + ': ' + VLABEL[v]);
+  if (v === 'absent') flashNotice('Corner ' + c.corner + ' absent. Add why (optional): b = sidewalk and curb, no ramp · n = no sidewalk');
 }
 function setKind(ci, kind) {
   const u = cur(), s = S(), c = u.corners[ci];
-  if (!c || s.complete || s.corners[c.k].verdict !== 'absent') return;
-  touched();
+  if (!c || s.corners[c.k].verdict !== 'absent') return;   // allowed on a complete unit: reasons only
+  touched(true);
   s.corners[c.k].absent_kind = kind || null;
   save(); refresh();
 }
@@ -463,8 +478,8 @@ function renderUnit() {
       '</div>' +
       '<div class="akind" id="ak-' + ci + '" role="radiogroup" aria-label="Kind of absence, corner ' + c.corner + '">Absent because (optional): ' +
       Object.keys(AKIND).map(k => '<label><input type="radio" name="ak-' + ci + '" value="' + k + '"' + (e.absent_kind === k ? ' checked' : '') +
-        (s.complete ? ' disabled' : '') + '> ' + AKIND[k] + ' <kbd>' + (k === 'no_sidewalk' ? 'n' : 'b') + '</kbd></label>').join('') +
-      '<label><input type="radio" name="ak-' + ci + '" value=""' + (!e.absent_kind ? ' checked' : '') + (s.complete ? ' disabled' : '') + '> not specified</label></div>' +
+'> ' + AKIND[k] + ' <kbd>' + (k === 'no_sidewalk' ? 'n' : 'b') + '</kbd></label>').join('') +
+      '<label><input type="radio" name="ak-' + ci + '" value=""' + (!e.absent_kind ? ' checked' : '') + '> not specified</label></div>' +
       (s.complete ? invHtml(u, c) : '') + '</fieldset>';
   }).join('');
   right.querySelectorAll('input[name^="v-"]').forEach(el => el.addEventListener('change', () => {
@@ -489,11 +504,15 @@ function refresh() {
     fs.querySelectorAll('input[name="ak-' + ci + '"]').forEach(el => { el.checked = el.value === (e.absent_kind || ''); });
   });
   const cb = document.getElementById('completebtn');
-  cb.textContent = s.complete ? 'Reopen unit (c)' : 'Complete unit and show the inventory (c)';
+  cb.textContent = s.complete ? 'Reopen unit to change verdicts (c)' : 'Done: lock ratings (c)';
+  document.getElementById('completehint').textContent = s.complete
+    ? 'Ratings locked; the city inventory is shown. Reasons (b / n) can still be added.'
+    : 'Locks this unit’s ratings, then shows the city inventory. Then go to Next.';
   const done = UNITS.filter(x => state[x.id].complete).length;
   document.getElementById('progress').textContent = done + ' of ' + UNITS.length + ' units complete · this unit ' +
     rated(u) + '/' + u.corners.length + ' corners rated' + (s.complete ? ' · complete' : '') +
-    (s.edited_after_inventory ? ' · edited after the inventory was shown' : '');
+    (s.edited_after_inventory ? ' · verdict edited after the inventory was shown' : '') +
+    (s.kinds_after_inventory ? ' · reasons added after the inventory was shown' : '');
   const sel = document.getElementById('unitsel');
   sel.innerHTML = UNITS.map((x, i) => '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' +
     (state[x.id].complete ? '✓ ' : '· ') + (i + 1) + ' ' + esc(x.id) + '</option>').join('');
@@ -571,6 +590,8 @@ function openLightbox(ci, vi) {
   const el = document.getElementById('lb');
   el.innerHTML = '<div class="big"><img src="' + esc(v.crop) + '" alt="Corner ' + c.corner + ', view ' + (vi + 1) + ', enlarged"><div class="cap">Corner ' + c.corner +
     ' · view ' + (vi + 1) + ' of ' + c.views.length + ' · captured ' + esc(v.date || '?') + ' · ' + v.dist_m.toFixed(1) + ' m · pano ' + esc(v.pano_id) +
+    ' · <a target="_blank" rel="noopener" href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;pano=' + encodeURIComponent(v.pano_id) +
+    '&amp;heading=' + Math.round(v.heading) + '&amp;pitch=-20&amp;fov=90">open this pano in Street View</a> (same pano, to look around)' +
     '<br>Esc or click outside: close · ←/→: other views</div></div>' +
     (c.views.length > 1 ? '<div class="side">' + c.views.map((w, i) => '<img data-vi="' + i + '" class="' + (i === vi ? 'on' : '') + '" src="' + esc(w.crop) + '" alt="view ' + (i + 1) + '">').join('') + '</div>' : '') +
     '<button id="lbclose" style="position:fixed;top:12px;right:16px">Close</button>';
@@ -579,6 +600,7 @@ function openLightbox(ci, vi) {
 }
 function closeLightbox() { document.getElementById('lb').style.display = 'none'; const b = lb && lb.back; lb = null; if (b && b.focus) b.focus(); }
 document.getElementById('lb').addEventListener('click', ev => {
+  if (ev.target.closest('a')) return;   // the Street View link opens a tab, keeps the crop open
   const t = ev.target.closest('[data-vi]');
   if (t && lb) { openLightbox(lb.ci, +t.dataset.vi); return; }
   if (ev.target.id === 'lbclose' || !ev.target.closest('.big img')) closeLightbox();
@@ -644,7 +666,7 @@ document.addEventListener('keydown', ev => {
   else if (k === 'k') pick((active - 1 + u.corners.length) % u.corners.length);
   else if ('patbn'.includes(k)) {
     const s = S();
-    if (s.complete) { say('Reopen the unit (c) before changing a verdict.'); alert('This unit is complete. Reopen it first (c or the Reopen button).'); }
+    if (s.complete && !'bn'.includes(k)) { say('Reopen the unit (c) before changing a verdict.'); alert('This unit is complete. Reopen it first (c or the Reopen button). Reasons (b / n) can be changed without reopening.'); }
     else {
       const plan = planKey(u.corners.map(c => s.corners[c.k].verdict), active, last, k);
       if (plan.op === 'refuse') { say(plan.msg); flashNotice(plan.msg); }
@@ -672,7 +694,7 @@ function exportUnit(u, s) {
   return {type: u.type, corners: copyCorners(s.corners), blind: s.blind ? copyCorners(s.blind) : null,
           complete: !!s.complete, elapsed_s: Math.round(s.elapsed_s * 10) / 10,
           note: (s.note || '').trim(), inventory_seen: !!s.inventory_seen,
-          edited_after_inventory: !!s.edited_after_inventory};
+          edited_after_inventory: !!s.edited_after_inventory, kinds_after_inventory: !!s.kinds_after_inventory};
 }
 document.getElementById('export').onclick = () => {
   const open = UNITS.filter(u => !state[u.id].complete && rated(u));

@@ -141,6 +141,18 @@ def _check_corner_map(cid, what, m, keys, problems, need_all):
             problems.append(f'{cid}: {what} corner {k} has absent_kind with verdict {v!r}')
 
 
+def _verdicts(m):
+    return {k: (e or {}).get('verdict') for k, e in m.items()}
+
+
+def verdict_edited(u):
+    """Whether a verdict (not just a reason) changed after the reveal. Measured from the
+    data, not the flag: exports made before kinds_after_inventory existed flagged a
+    reasons-only change as edited_after_inventory."""
+    b, c = u.get('blind'), u.get('corners')
+    return isinstance(b, dict) and isinstance(c, dict) and _verdicts(b) != _verdicts(c)
+
+
 def _norm(m):
     return {k: ((e or {}).get('verdict'), (e or {}).get('absent_kind')) for k, e in m.items()}
 
@@ -174,7 +186,7 @@ def validate(verdicts, items, items_sha, rubric=None):
             continue
         keys = {str(c['corner']) for c in it['corners']}
         complete = u.get('complete')
-        for flag in ('complete', 'inventory_seen', 'edited_after_inventory'):
+        for flag in ('complete', 'inventory_seen', 'edited_after_inventory', 'kinds_after_inventory'):
             if flag in u and not isinstance(u[flag], bool):
                 problems.append(f'{cid}: {flag} {u[flag]!r} is not a boolean')
         _check_corner_map(cid, 'corners', u.get('corners'), keys, problems, bool(complete))
@@ -187,12 +199,16 @@ def validate(verdicts, items, items_sha, rubric=None):
         if u.get('edited_after_inventory') and not u.get('inventory_seen'):
             problems.append(f'{cid}: edited_after_inventory without inventory_seen')
         # the page freezes blind at the first completion and flags any later edit, so final
-        # verdicts that differ from blind without the flag mean the file was altered
+        # verdicts that differ from blind without the flag mean the file was altered. A
+        # reasons-only change (absent_kind) carries its own flag, kinds_after_inventory.
         b, c = u.get('blind'), u.get('corners')
-        if isinstance(b, dict) and isinstance(c, dict) and \
-                not u.get('edited_after_inventory') and _norm(b) != _norm(c):
-            problems.append(f'{cid}: final verdicts differ from blind but '
-                            f'edited_after_inventory is false')
+        if isinstance(b, dict) and isinstance(c, dict) and not u.get('edited_after_inventory'):
+            if _verdicts(b) != _verdicts(c):
+                problems.append(f'{cid}: final verdicts differ from blind but '
+                                f'edited_after_inventory is false')
+            elif _norm(b) != _norm(c) and not u.get('kinds_after_inventory'):
+                problems.append(f'{cid}: absence reasons differ from blind but '
+                                f'kinds_after_inventory is false')
         e = u.get('elapsed_s', 0)
         if not isinstance(e, (int, float)) or e < 0:
             problems.append(f'{cid}: elapsed_s {e!r}')
@@ -217,8 +233,28 @@ def verdict_map(u, which='blind'):
 
 
 def kind_map(u, which='blind'):
-    m = u.get(which) if which == 'blind' else u.get('corners')
-    return {k: (e or {}).get('absent_kind') for k, e in (m or {}).items()}
+    """{corner: absent_kind}. In the blind read a reason added after the reveal is used
+    where the corner's verdict was not changed (absent both times) and the blind read has
+    none: whether a sidewalk reaches the corner is read off the imagery, and the reason
+    never enters the present/absent scoring. kinds_from_after counts how many."""
+    if which != 'blind':
+        return {k: (e or {}).get('absent_kind') for k, e in (u.get('corners') or {}).items()}
+    out = {}
+    fin = u.get('corners') or {}
+    for k, e in (u.get('blind') or {}).items():
+        kind = (e or {}).get('absent_kind')
+        f = fin.get(k) or {}
+        if kind is None and (e or {}).get('verdict') == 'absent' and f.get('verdict') == 'absent':
+            kind = f.get('absent_kind')
+        out[k] = kind
+    return out
+
+
+def kinds_from_after(u):
+    b, fin = u.get('blind') or {}, u.get('corners') or {}
+    return sum(1 for k, e in b.items() if (e or {}).get('verdict') == 'absent'
+               and not (e or {}).get('absent_kind') and (fin.get(k) or {}).get('verdict') == 'absent'
+               and (fin.get(k) or {}).get('absent_kind'))
 
 
 def classify_false_absence(item, verdicts):
@@ -276,8 +312,9 @@ def score_rater(items, verdicts, snapshot, which='blind'):
            'complete': sum(1 for i in items if (units.get(i['unit']) or {}).get('complete')),
            'reopened_with_blind': sum(1 for i in items if (units.get(i['unit']) or {}).get('blind')
                                       is not None and not units[i['unit']].get('complete')),
-           'edited_after_inventory': sum(1 for u in done.values()
-                                         if u.get('edited_after_inventory')),
+           'edited_after_inventory': sum(1 for u in done.values() if verdict_edited(u)),
+           'kinds_after_inventory': sum(1 for u in done.values() if kinds_from_after(u)),
+           'kinds_from_after_corners': sum(kinds_from_after(u) for u in done.values()),
            'parts': {}}
     rows = []
     for part in ('false_absence', 'na_noramp', 'clean'):
@@ -406,7 +443,10 @@ def render_report(snapshot, items, results, problems, agree=None):
             continue
         lines += [f"{b['complete']} of {b['units']} units complete; {b['scored']} with blind "
                   f"verdicts ({b['reopened_with_blind']} reopened and not completed again); "
-                  f"{b['edited_after_inventory']} edited after the inventory was shown.", '']
+                  f"{b['edited_after_inventory']} with a verdict changed after the inventory was "
+                  f"shown; {b['kinds_after_inventory']} with absence reasons added after it "
+                  f"({b['kinds_from_after_corners']} corners; counted in the kinds of absence, "
+                  f"never in present/absent).", '']
         na, fa, cl = b['parts']['na_noramp'], b['parts']['false_absence'], b['parts']['clean']
         lines += ['### `NA` with no `RAMPTYPE`: does the city mean "no ramp"?', '',
                   f"- Units rated absent at every corner, of units decided: "

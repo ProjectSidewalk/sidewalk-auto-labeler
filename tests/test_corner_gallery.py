@@ -482,3 +482,49 @@ def test_committed_bundle_is_consistent():
     for i in items:
         for c in i['corners']:
             assert cg.newest_date(c['views']) == (c['newest_available'] or ''), (i['unit'], c['corner'])
+
+
+# ------------------------------------------------------------------ reasons after the reveal
+
+def test_reasons_added_after_reveal_are_not_a_reedit():
+    """Adding b / n after the reveal leaves the verdicts alone: it carries its own flag
+    (kinds_after_inventory), validates, is not counted as a verdict edit, and its reasons
+    are counted in the kinds of absence of the blind read."""
+    items = [item('n0', 'na_noramp', {0: ('NA_noramp', None)})]
+    u = unit_verdicts(['absent'] * 3, {0: 'no_sidewalk'}, blind=['absent'] * 3)
+    v = vfile({'n0': u})
+    assert any('kinds_after_inventory is false' in x for x in cs.validate(v, items, 'S'))
+    u['kinds_after_inventory'] = True
+    assert cs.validate(v, items, 'S') == []
+    b = cs.score_rater(items, v, {}, 'blind')
+    assert b['edited_after_inventory'] == 0 and b['kinds_after_inventory'] == 1
+    assert b['kinds_from_after_corners'] == 1
+    assert b['parts']['na_noramp']['absent_kinds']['no_sidewalk'] == 1
+    # an older export flagged the same change as a verdict edit: measured from the data
+    u['kinds_after_inventory'] = False
+    u['edited_after_inventory'] = True
+    assert cs.validate(v, items, 'S') == []
+    assert cs.score_rater(items, v, {}, 'blind')['edited_after_inventory'] == 0
+    # a reason is never taken from after the reveal for a corner whose verdict changed
+    w = unit_verdicts(['absent', 'absent', 'absent'], {0: 'no_sidewalk'},
+                      blind=['present', 'absent', 'absent'], edited=True)
+    assert cs.kind_map(w, 'blind')['0'] is None and cs.kinds_from_after(w) == 0
+
+
+@pytest.mark.skipif(NODE is None, reason='node not installed')
+def test_bootstrap_reflags_reason_only_edits(tmp_path):
+    units = [{'id': 'u1', 'corners': [{'k': '0'}]}, {'id': 'u2', 'corners': [{'k': '0'}]}]
+    blind = {'0': {'verdict': 'absent', 'absent_kind': None}}
+    local = {'u1': {'corners': {'0': {'verdict': 'absent', 'absent_kind': 'curb_no_ramp'}}, 'blind': blind,
+                    'complete': True, 'seen': True, 'inventory_seen': True, 'edited_after_inventory': True},
+             'u2': {'corners': {'0': {'verdict': 'present', 'absent_kind': None}}, 'blind': blind,
+                    'complete': True, 'seen': True, 'inventory_seen': True, 'edited_after_inventory': True}}
+    js = cgp.STATE_BOOTSTRAP_JS + f"""
+const r = bootstrapState(null, {json.dumps(local)}, {json.dumps(units)}, 'S');
+console.log(JSON.stringify(r.state));
+"""
+    p = tmp_path / 'r.js'
+    p.write_text(js, encoding='utf-8')
+    st = json.loads(subprocess.run([NODE, str(p)], capture_output=True, text=True, check=True).stdout)
+    assert st['u1']['edited_after_inventory'] is False and st['u1']['kinds_after_inventory'] is True
+    assert st['u2']['edited_after_inventory'] is True       # a verdict changed: stays a re-edit
