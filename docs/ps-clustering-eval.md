@@ -4,7 +4,10 @@
 below after the run, and **revised 2026-09-21 after code review** — the metric the protocol
 called world recall could barely see the thing under test, so everything is rescored on a
 strict coverage metric and one conclusion changed. Companion tool:
-`scripts/eval_ps_clustering.py`. Server-side issue:
+`scripts/eval_ps_clustering.py`; its pure scoring (the scorer, the report rows, the
+fragmentation proxy, precision by cluster size, the camera-position inversion) lives in
+`scripts/clustering_metrics.py`, which needs no pandas or scipy and so is CI-tested (#133).
+Server-side issue:
 [SidewalkWebpage#4706](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/4706).
 
 ## Study goal
@@ -410,17 +413,24 @@ evaluation arm only and changes no SidewalkWebpage code.
   `pano_data`'s once a pano is repositioned: Richmond's 72 posfix3seq panos are live at raw
   GPS (since 2026-09-24) while `results.jsonl` holds SfM, a median 4.3 m apart. Inversion
   is also used rather than `position_check.live_positions`, which describes the server
-  *today*: on the 2026-09-21 pull, the 27 posfix3seq panos that can be inverted sit a median
-  0.01 m from SfM and 4.8 m from raw, so today's records would put them in the wrong
-  frame for that pull. Inversion reads the same pull as the labels, so it cannot disagree
+  *today*: on the 2026-09-21 pull, of the 36 posfix3seq panos that carry labels, 26 invert
+  from their AI labels, 1 more (`1274401617620443`, its one AI label past the 15 m cap)
+  inverts from its human labels, and the other 9 take the run block; all 36 sit within
+  0.33 m of SfM and a median 4.8 m from raw, so today's records would put them in the
+  wrong frame for that pull. Inversion reads the same pull as the labels, so it cannot disagree
   with them. A pano with no label within 15 m falls back to the run's block, and one with
   neither is left out, but its labels still become singleton clusters. The report counts
   each case, and it warns when an inverted position sits more than 1 m from the run's
-  block. Two refinements (2026-10-04, #107 review pass): the AI account's labels are
+  block. The report also checks the fallback panos against the position they were live at
+  when the pull was taken (campaign records as of the pull's fetch time), so a pull taken
+  after a reposition cannot silently keep them at the run's block (#133; 0 of 661 fallback
+  panos on Richmond's 2026-09-21 pull, 9 of them posfix3seq panos, and 0 of 74 on Laurens'
+  2026-09-28 pull). Two refinements (2026-10-04, #107 review pass): the AI account's labels are
   inverted when a pano has any, and the other accounts' only when it has none, because a
   human label keeps the lat/lng it was inserted at. On Laurens that is a pano position the
   server no longer holds: human-only inversion sits a median 8.7 m from the live block on
-  70 panos (AI-only: 0.000 m, the placement gate), and mixed into the median it moved 57 of
+  70 panos (AI-only inversion: median 0.01 m, p90 0.19 m, none over 1 m; the 0.000 m
+  elsewhere in this doc is the forward placement check, a different measurement), and mixed into the median it moved 57 of
   695 panos and cost Laurens' `fusion_server` 5 ramps of coverage (0.769 -> 0.748); with AI
   first it is back at 0.769 (183/238), and 17 human-only panos still warn. Richmond does not
   move. **Offline** there is nothing to invert against: the synthesized labels were placed
@@ -936,7 +946,8 @@ exploratory reading into the same path: S 0.9301, Z 0.9866 (pass), P 0.0288, sti
 Z share is over the panos that survived on GSV, a non-random subset (#56 measured survival by
 capture year). 288 of the 299 labels on them match at +/-1 px: 0.9632, below 0.98. On those
 panos 247 labels match under both arms, 7 only under S, 41 only under Z and 4 under neither.
-Plateau end-flips (exactly 7 cells) are 3 of 299 in Z, against 33 of 299 from the store.
+Plateau end-flips (exactly 7 cells) are 3 of 299 in Z, against 33 of 299 from the store
+(nearest stored detection at any confidence; 29 at >= 0.55).
 
 **What the misses are.** This diagnostic is not part of the rule. Of the 11,187 unmatched labels:
 
@@ -1177,7 +1188,8 @@ Visible pool 10,685 of 11,355 ramps within 20 m of one of the run's 28,830 panos
 The split rate depends on the placement frame, and which arm reads lower depends on it too.
 The table below is the `label_set: mapped` block of
 `runs/vancouver/inventory_clustering/report.md` (`auto` frame): every arm on the same labels
-(the 50,252 AI labels the rebuilt run maps, plus the 33 human labels), placed both ways.
+(the 50,252 AI labels the rebuilt run maps, plus the 33 human labels), placed both ways
+(`ps @ 7.5 m` never holds the humans: 50,252 labels against 50,285 in the two fusion arms).
 
 | arm (same label set) | split, raycast placement | split, server placement | merge (raycast / server) |
 |---|---:|---:|---|

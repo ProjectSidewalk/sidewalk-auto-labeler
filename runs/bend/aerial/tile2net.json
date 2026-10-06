@@ -20,7 +20,7 @@
  "tile_source": "City of Bend 2019 orthoimagery (ArcGIS Online tile cache), fetched by scripts/aerial_fetch_tiles.py and passed with --input",
  "tile_source_url": "https://tiles.arcgis.com/tiles/JisFYcK2mIVg9ueP/arcgis/rest/services/City_of_Bend_2019_Imagery/MapServer",
  "imagery_date": "2019",
- "imagery_terms": "City of Bend 2019 orthoimagery, a public ArcGIS Online tile service published by the City of Bend, OR, read without a login. No licence was recorded with the fetch; cited and used for analysis only. Only derived polygons (untracked, sha256 here) and statistics are kept in the repo; the tiles stay on the makelab2 archive and are not redistributed.",
+ "imagery_terms": "City of Bend 2019 orthoimagery, a public ArcGIS Online tile service published by the City of Bend, OR, read without a login. The service's published terms were not reviewed at fetch time (follow-up: record the City of Bend ArcGIS Online item's stated terms before any derived polygon leaves the archive); cited and used for analysis only. Only derived polygons (untracked, sha256 here) and statistics are kept in the repo; the tiles stay on the makelab2 archive and are not redistributed.",
  "deviation": "Tile2Net's Oregon source is commented out upstream ('SSL issues'), and the Oregon Statewide Imagery Program server (imagery.oregonexplorer.info, OSIP_2022_WM) presented a TLS certificate that expired 2026-09-26; fetching it unverified was not done. Bend's GSV panos are mostly 2024 (84%): a ~5-year imagery gap.",
  "fetch": {
   "n_tiles": 52480,

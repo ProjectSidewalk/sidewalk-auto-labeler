@@ -20,7 +20,7 @@
  "tile_source": "nj (Tile2Net built-in NewJersey source)",
  "tile_source_url": "https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer",
  "imagery_date": "2020",
- "imagery_terms": "NJ Orthos Natural 2020, a public NJ Office of GIS map service (maps.nj.gov), read without a login through Tile2Net's built-in `nj` source. No licence was recorded with the fetch; cited and used for analysis only. Only derived polygons (untracked, sha256 here) and statistics are kept in the repo; the tiles stay on the makelab2 archive and are not redistributed.",
+ "imagery_terms": "NJ Orthos Natural 2020, a public NJ Office of GIS map service (maps.nj.gov), read without a login through Tile2Net's built-in `nj` source. The service's published terms were not reviewed at fetch time (follow-up: record the NJ OGIS service page's stated terms before any derived polygon leaves the archive); cited and used for analysis only. Only derived polygons (untracked, sha256 here) and statistics are kept in the repo; the tiles stay on the makelab2 archive and are not redistributed.",
  "zoom": 19,
  "base_tilesize": 256,
  "stitch_step": 4,

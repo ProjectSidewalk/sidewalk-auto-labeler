@@ -347,6 +347,9 @@ python scripts/reprojection_residual.py bend paterson gainesville sao_paulo rich
 # `no cluster` column beside it. Needs THREE packages the pipeline does not
 # (`pip install pandas scipy haversine`; the script says so if they are missing) —
 # deliberately not in requirements.txt, since this is an analysis tool, not the pipeline.
+# The pure scoring (`score`, `near_cluster_rate`, `size_precision`, `wilson`, the inversion,
+# the report rows) lives in `scripts/clustering_metrics.py`, pandas/scipy-free, so CI covers
+# it (#133); `eval_ps_clustering.py` re-exports every name.
 # --ps-script points at SidewalkWebpage/scripts/label_clustering.py for the
 # verbatim-reproduction check. The two API pulls are cached in the output dir and REUSED on
 # a re-run (the run prints how old they are) — pass --refresh to re-pull, since the server

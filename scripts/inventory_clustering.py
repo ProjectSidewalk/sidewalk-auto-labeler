@@ -276,7 +276,8 @@ def raycast_placed(clusters, det_of, det_pos):
     for c in clusters:
         pts = [det_pos[det_of[lab]] for lab in c.label_ids
                if lab in det_of and det_of[lab] in det_pos]
-        cen = (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))             if pts else None
+        cen = (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)) \
+            if pts else None
         out.append((cen, pts))
     return out
 

@@ -383,6 +383,12 @@ def test_placement_raycast_uses_the_same_height_frame_as_the_gt_marks():
     ([2.6], 'segmenter', 'mined_precision_placed-segmenter'),
     (['auto'], 'segmenter', 'mined_precision_auto_placed-segmenter'),
     ([2.6, 2.2], 'seg', 'mined_precision_h2.60+h2.20_placed-seg'),
+    # #133: Windows drops a trailing dot from a dir name, so `seg.` must not differ from
+    # `seg` only by it; a label with nothing usable left still gets a non-empty suffix
+    ([2.6], 'seg.', 'mined_precision_placed-seg'),
+    ([2.6], 'seg..', 'mined_precision_placed-seg'),
+    ([2.6], '***', 'mined_precision_placed-unnamed'),
+    ([2.6], '-.-', 'mined_precision_placed-unnamed'),
 ])
 def test_default_dir_names_the_frame_so_frames_never_overwrite(heights, placement, name):
     assert mp.default_dir_name(heights, placement) == name
