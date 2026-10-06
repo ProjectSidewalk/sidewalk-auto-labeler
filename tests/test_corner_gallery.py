@@ -438,6 +438,8 @@ active = 0; last = null; step('b');         // the rater picks corner 0 (absent)
 v = [null, null]; active = 0; last = null; step('a'); step('n');
 // N6: b on a present corner is refused
 v = ['present', null]; active = 0; last = null; step('b');
+// re-review S1: b on the LAST corner must not lift the all-rated guard (p p a b p)
+v = [null, null, null]; active = 0; last = null; step('p'); step('p'); step('a'); step('b'); step('p');
 console.log(JSON.stringify(out));
 """
     p = tmp_path / 'k.js'
@@ -452,6 +454,9 @@ console.log(JSON.stringify(out));
     assert out[7][:4] == ['a', 'verdict', 0, 1]
     assert out[8] == ['kind', 0, 'no_sidewalk']
     assert out[10][:2] == ['b', 'refuse']
+    # re-review S1: the stray p after a, b on the last corner is refused; corner 2 stays absent
+    assert out[-2][:2] == ['b', 'kind'] and out[-1][:2] == ['p', 'refuse']
+    assert out[-1][4] == ['present', 'present', 'absent']
 
 
 # ------------------------------------------------------------------ committed bundle

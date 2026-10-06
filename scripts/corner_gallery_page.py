@@ -108,7 +108,7 @@ function planKey(verdicts, active, last, key) {
     const t = last && last.verdict === 'absent' ? last.ci : (verdicts[active] === 'absent' ? active : -1);
     if (t < 0) return {op: 'refuse', active: active, last: last,
                        msg: 'b and n describe an absent corner; this corner is not rated absent.'};
-    return {op: 'kind', ci: t, value: K[key], active: active, last: null};
+    return {op: 'kind', ci: t, value: K[key], active: active, last: last && last.ci === active ? last : null};
   }
   return {op: 'none', active: active, last: last};
 }
