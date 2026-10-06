@@ -122,8 +122,11 @@ own `--rater` name and file. Agreement is computed with `--a jonf --b <name>`.
 
 ## Scoring (`scripts/corner_gallery_score.py`)
 
-Scoring uses complete units only and their **blind** verdicts. The final verdicts are reported
-as a sensitivity read. The unit outcome is:
+Scoring uses the **blind** verdicts of every unit that has them. They are frozen at a unit's
+first completion, so a unit that was completed, reopened and not completed again is still
+scored on them (the first version dropped such units). The final verdicts, from complete units
+only, are reported as a sensitivity read. Agreement between two raters uses the units where
+both have blind verdicts. The unit outcome is:
 - **present** if any corner is present;
 - **absent** if every corner is absent;
 - **undetermined** otherwise (no corner present, at least one can't tell).

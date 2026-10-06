@@ -300,7 +300,25 @@ def test_incomplete_units_are_not_scored():
     items = [item('c0', 'clean')]
     v = vfile({'c0': unit_verdicts(['absent', None, None], complete=False)})
     assert cs.validate(v, items, 'S') == []
-    assert cs.score_rater(items, v, {}, 'blind')['parts']['clean']['complete'] == 0
+    assert cs.score_rater(items, v, {}, 'blind')['parts']['clean']['scored'] == 0
+
+
+def test_reopened_unit_keeps_its_blind_read():
+    """S5: completed (blind frozen), reopened, edited and not completed again: the blind read
+    still scores it; the final read does not."""
+    items = [item('c0', 'clean'), item('c1', 'clean')]
+    reopened = unit_verdicts(['present', 'absent', 'absent'], blind=['absent'] * 3, edited=True)
+    reopened['complete'] = False
+    v = vfile({'c0': reopened, 'c1': unit_verdicts(['absent'] * 3)})
+    assert cs.validate(v, items, 'S') == []
+    b = cs.score_rater(items, v, {}, 'blind')
+    assert b['scored'] == 2 and b['complete'] == 1 and b['reopened_with_blind'] == 1
+    assert b['parts']['clean']['outcomes']['absent'] == 2
+    f = cs.score_rater(items, v, {}, 'final')
+    assert f['scored'] == 1 and f['parts']['clean']['outcomes'] == {'present': 0, 'absent': 1,
+                                                                    'undetermined': 0}
+    vb = vfile({'c0': reopened, 'c1': unit_verdicts(['absent'] * 3)})
+    assert cs.agreement(items, v, vb)['units_both_blind'] == 2
 
 
 def test_agreement_and_kappa():
@@ -308,7 +326,7 @@ def test_agreement_and_kappa():
     va = vfile({'a': unit_verdicts(['absent'] * 3), 'b': unit_verdicts(['present', 'absent', 'absent'])})
     vb = vfile({'a': unit_verdicts(['absent'] * 3), 'b': unit_verdicts(['absent'] * 3)})
     ag = cs.agreement(items, va, vb)
-    assert ag['units_both_complete'] == 2 and ag['corners'] == 6
+    assert ag['units_both_blind'] == 2 and ag['corners'] == 6
     assert ag['corner_agree']['k'] == 5
     assert ag['unit_outcome_agree']['k'] == 1
     assert cs.cohen_kappa([('a', 'a')] * 3, cats=('a', 'b')) is None

@@ -607,8 +607,12 @@ function exportUnit(u, s) {
           edited_after_inventory: !!s.edited_after_inventory};
 }
 document.getElementById('export').onclick = () => {
-  const open = UNITS.filter(u => state[u.id].seen && !state[u.id].complete && rated(u)).length;
-  if (open && !confirm(open + ' unit(s) have verdicts but are not complete; the scorer ignores them. Export anyway?')) return;
+  const open = UNITS.filter(u => !state[u.id].complete && rated(u));
+  const never = open.filter(u => !state[u.id].blind).length, reopened = open.length - never;
+  const warn = [];
+  if (never) warn.push(never + ' unit(s) have verdicts but were never completed: they are not scored at all.');
+  if (reopened) warn.push(reopened + ' unit(s) were reopened and not completed again: their blind verdicts are scored, their later edits are not.');
+  if (warn.length && !confirm(warn.join('\n') + '\nExport anyway?')) return;
   saveNotes();
   const out = {schema: SCHEMA, city: CITY, items_sha256: ITEMS_SHA, rater: RATER,
                rubric_version: RUBRIC_VERSION, rubric: RUBRIC, exported_at: new Date().toISOString()};

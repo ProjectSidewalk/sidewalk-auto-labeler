@@ -4,8 +4,9 @@ Reads a bundle written by scripts/corner_gallery.py (items.jsonl, snapshot.json)
 ``verdicts__<rater>.json`` beside it. CPU only, stdlib only, no network.
 
 Scoring reads each unit's **blind** verdicts (those given before the city inventory was
-shown); complete units only. The final verdicts are reported beside them as a sensitivity
-read. Unit outcome, from the corner verdicts:
+shown), from every unit that has them: a unit completed once and then reopened keeps its
+blind verdicts and is scored on them. The final verdicts are reported beside them as a
+sensitivity read, from complete units only. Unit outcome, from the corner verdicts:
 
   present        at least one corner rated present
   absent         every corner rated absent
@@ -242,13 +243,23 @@ def fa_dating(item):
     return out
 
 
+def scorable(u, which='blind'):
+    """Whether a unit enters a read: the blind read takes every unit with blind verdicts
+    (frozen at the first completion, so a reopened unit still has them); the final read
+    takes complete units only."""
+    u = u or {}
+    return u.get('blind') is not None if which == 'blind' else bool(u.get('complete'))
+
+
 def score_rater(items, verdicts, snapshot, which='blind'):
-    """The per-rater report (dict) on complete units, from the blind (default) or final
-    verdicts."""
+    """The per-rater report (dict) from the blind (default) or final verdicts; see scorable
+    for which units enter each read."""
     units = verdicts.get('units') or {}
-    done = {i['unit']: units[i['unit']] for i in items
-            if (units.get(i['unit']) or {}).get('complete')}
-    out = {'which': which, 'complete': len(done), 'units': len(items),
+    done = {i['unit']: units[i['unit']] for i in items if scorable(units.get(i['unit']), which)}
+    out = {'which': which, 'scored': len(done), 'units': len(items),
+           'complete': sum(1 for i in items if (units.get(i['unit']) or {}).get('complete')),
+           'reopened_with_blind': sum(1 for i in items if (units.get(i['unit']) or {}).get('blind')
+                                      is not None and not units[i['unit']].get('complete')),
            'edited_after_inventory': sum(1 for u in done.values()
                                          if u.get('edited_after_inventory')),
            'parts': {}}
@@ -273,7 +284,7 @@ def score_rater(items, verdicts, snapshot, which='blind'):
                     corner[v] += 1
                 if v == 'absent':
                     kinds[km.get(k) or 'unspecified'] += 1
-        p = {'n': len(its), 'complete': len(dn), 'outcomes': oc,
+        p = {'n': len(its), 'scored': len(dn), 'outcomes': oc,
              'unit_absent_share': share(oc['absent'], oc['absent'] + oc['present']),
              'unit_absent_conservative': share(oc['absent'], len(dn)),
              'corner_verdicts': corner,
@@ -345,8 +356,7 @@ def cohen_kappa(pairs, cats=VERDICTS):
 
 def agreement(items, va, vb):
     ua, ub = va.get('units') or {}, vb.get('units') or {}
-    both = [i for i in items if (ua.get(i['unit']) or {}).get('complete')
-            and (ub.get(i['unit']) or {}).get('complete')]
+    both = [i for i in items if scorable(ua.get(i['unit'])) and scorable(ub.get(i['unit']))]
     pairs, unit_pairs = [], []
     for i in both:
         a, b = verdict_map(ua[i['unit']]), verdict_map(ub[i['unit']])
@@ -354,7 +364,7 @@ def agreement(items, va, vb):
             k = str(c['corner'])
             pairs.append((a.get(k), b.get(k)))
         unit_pairs.append((outcome(a), outcome(b)))
-    return {'units_both_complete': len(both), 'corners': len(pairs),
+    return {'units_both_blind': len(both), 'corners': len(pairs),
             'corner_agree': share(sum(1 for a, b in pairs if a == b), len(pairs)),
             'corner_kappa': cohen_kappa(pairs),
             'unit_outcome_agree': share(sum(1 for a, b in unit_pairs if a == b), len(unit_pairs)),
@@ -366,8 +376,8 @@ def agreement(items, va, vb):
 def render_report(snapshot, items, results, problems, agree=None):
     lines = ['# Corner present/absent gallery (RampNet#243): scores', '',
              f"Items sha256 `{snapshot['items_sha256']}`, seed {snapshot['seed']}. Scored on the "
-             'blind verdicts (given before the city inventory was shown); complete units only. '
-             'The final verdicts are the sensitivity read. Definitions: the docstring of '
+             'blind verdicts (given before the city inventory was shown), every unit that has '
+             'them; the final verdicts, complete units only, are the sensitivity read. Definitions: the docstring of '
              '`scripts/corner_gallery_score.py`.', '']
     if not results:
         lines.append('No verdicts file yet: nothing has been rated.')
@@ -378,14 +388,15 @@ def render_report(snapshot, items, results, problems, agree=None):
             lines += [f'**INVALID ({len(problems[rater])} problems); not scored.**', '']
             lines += [f'- {p}' for p in problems[rater][:30]] + ['']
             continue
-        lines += [f"{b['complete']} of {b['units']} units complete; "
+        lines += [f"{b['complete']} of {b['units']} units complete; {b['scored']} with blind "
+                  f"verdicts ({b['reopened_with_blind']} reopened and not completed again); "
                   f"{b['edited_after_inventory']} edited after the inventory was shown.", '']
         na, fa, cl = b['parts']['na_noramp'], b['parts']['false_absence'], b['parts']['clean']
         lines += ['### `NA` with no `RAMPTYPE`: does the city mean "no ramp"?', '',
                   f"- Units rated absent at every corner, of units decided: "
                   f"**{fmt(na['unit_absent_share'])}** (blind); final "
                   f"{fmt(f['parts']['na_noramp']['unit_absent_share'])}.",
-                  f"- Outcomes: {na['outcomes']} of {na['complete']} complete "
+                  f"- Outcomes: {na['outcomes']} of {na['scored']} scored "
                   f"(population {snapshot['populations']['na_noramp']}, sample {na['n']}). "
                   f"Conservative (undetermined counted against): "
                   f"{fmt(na['unit_absent_conservative'])}.",
@@ -420,7 +431,7 @@ def render_report(snapshot, items, results, problems, agree=None):
         lines.append('')
     if agree:
         lines += [f"## Agreement `{agree['a']}` vs `{agree['b']}`", '',
-                  f"{agree['units_both_complete']} units both complete, {agree['corners']} "
+                  f"{agree['units_both_blind']} units with blind verdicts from both, {agree['corners']} "
                   f"corners. Corner agreement {fmt(agree['corner_agree'])}, kappa "
                   f"{agree['corner_kappa']}. Unit outcome agreement "
                   f"{fmt(agree['unit_outcome_agree'])}, kappa {agree['unit_outcome_kappa']}.", '']
@@ -447,7 +458,8 @@ def main(argv=None):
                           'final': score_rater(items, v, snapshot, 'final')}
         print(f"verdicts__{rater}.json: "
               f"{'valid' if not problems[rater] else f'{len(problems[rater])} problem(s)'}; "
-              f"{results[rater]['blind']['complete']} complete units")
+              f"{results[rater]['blind']['complete']} complete units, "
+              f"{results[rater]['blind']['scored']} with blind verdicts")
         for p in problems[rater][:10]:
             print('  ' + p)
     agree = None
