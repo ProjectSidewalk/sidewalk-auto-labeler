@@ -1,0 +1,8 @@
+spacing_m,panos_kept,gpu_hours,sites_retained,sites_retained_random_mean,sites_total,robust_retained,robust_retained_random_mean,robust_total,sites_2plus_views,sites_2plus_views_random_mean
+0,1320,0.55,119,119.0,119,76,76.0,76,86,86.0
+2.5,487,0.2,110,91.0,119,75,73.1,76,67,65.6
+5,363,0.15,103,83.2,119,73,70.2,76,62,58.9
+7.5,284,0.12,91,76.5,119,69,66.8,76,56,53.4
+10,230,0.1,85,72.0,119,66,63.6,76,53,47.7
+15,169,0.07,75,64.3,119,62,58.1,76,44,39.5
+20,131,0.05,68,58.2,119,58,53.4,76,42,34.0
