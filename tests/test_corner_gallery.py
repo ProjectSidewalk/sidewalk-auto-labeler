@@ -110,6 +110,14 @@ def test_inventory_position_resolves_duplicate_ids_by_position():
     assert cg.inventory_position(inv, 'CR1', 'NA_noramp', LAT0, LNG0) == near
     assert cg.inventory_position(inv, 'CR1', 'Available', LAT0, LNG0) == (None, None)
     assert cg.inventory_position(inv, 'CR9', 'Available', LAT0, LNG0) == (None, None)
+    # N8: two same-id same-class points inside the window are ambiguous; co-located is fine
+    twin = FR.to_latlng(-8, 3)
+    with pytest.raises(ValueError, match='ambiguous'):
+        cg.inventory_position({'CR2': [(near[0], near[1], 'NA_noramp'),
+                                       (twin[0], twin[1], 'NA_noramp')]}, 'CR2', 'NA_noramp',
+                              LAT0, LNG0)
+    assert cg.inventory_position({'CR3': [(near[0], near[1], 'NA_noramp')] * 2}, 'CR3',
+                                 'NA_noramp', LAT0, LNG0) == near
 
 
 def full_record(unit='vancouver:res:n1'):

@@ -307,15 +307,25 @@ def load_inventory(path):
 
 def inventory_position(inv, uid, cls, lat0, lng0, window_m=WINDOW_M):
     """(lat, lng) of the point with this UNITID and class nearest (lat0, lng0), which must be
-    inside the window (+1 m); (None, None) when there is none."""
-    best = None
+    inside the window (+1 m); (None, None) when there is none. Two points with this id and
+    class inside the window more than 1 m apart are ambiguous, and raise ValueError rather
+    than silently picking one twin (none in the Vancouver bundle: the repeated ids there have
+    their other copy 10-19 km away)."""
+    hits = []
     for lat, lng, c in inv.get(uid, []):
         if c != cls:
             continue
         d = geo.haversine_m(lat0, lng0, lat, lng)
-        if d <= window_m + 1.0 and (best is None or d < best[0]):
-            best = (d, lat, lng)
-    return (best[1], best[2]) if best else (None, None)
+        if d <= window_m + 1.0:
+            hits.append((d, lat, lng))
+    if not hits:
+        return (None, None)
+    hits.sort()
+    for _d, lat, lng in hits[1:]:
+        if geo.haversine_m(hits[0][1], hits[0][2], lat, lng) > 1.0:
+            raise ValueError(f'{uid} ({cls}): {len(hits)} points within {window_m + 1:g} m of '
+                             f'({lat0}, {lng0}); the position join is ambiguous')
+    return (hits[0][1], hits[0][2])
 
 
 # ------------------------------------------------------------------------------- items
