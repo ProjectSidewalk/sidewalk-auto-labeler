@@ -12,13 +12,13 @@ GT: none (--no-gt), so coverage, recall, frag, dual, coherence and GT precision 
 
 ## Data provenance
 
-- `raw_labels.geojson`: 64847 features, sha256 `57c31c73dc75a6139b2694fdc5e7c0823bf0d0504348f1e1f38d3681b713098d`, 2026-09-28T23:01:58+00:00 (5.9 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
-- `clusters.geojson`: 18684 features, sha256 `d8a1e7065e2cf97ff7da0ab50eba7e754b2ac67c4286ecbc8d528f8ff6bec1c3`, 2026-09-30T01:39:55+00:00 (4.8 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
+- `raw_labels.geojson`: 64847 features, sha256 `57c31c73dc75a6139b2694fdc5e7c0823bf0d0504348f1e1f38d3681b713098d`, 2026-09-28T23:01:58+00:00 (7.3 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
+- `clusters.geojson`: 18684 features, sha256 `d8a1e7065e2cf97ff7da0ab50eba7e754b2ac67c4286ecbc8d528f8ff6bec1c3`, 2026-09-30T01:39:55+00:00 (6.2 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
 - labels by account: 51b0b927-3c8a-45b2-93de-bd878d1e5cf4 (AI) 64814, c6030d8f-9163-498b-a102-d147a27b8c44 7, f34410b6-90d2-4176-a590-f371b75ab4c5 6, de9a2eb6-52e3-4854-b488-b970c5c1c567 5, aab0b9c1-bffc-4884-9c76-365762503a95 5, fb9b61d7-c613-454e-82de-63722f6baa2a 5, 71a31933-61d9-4474-b0d0-1d41f7aba0ac 2, 964eb6f2-da36-4a4f-bb95-aa99ff6eae6f 2, 0ff4a61a-8f80-4ef9-a5f5-1c85d8917e0d 1
 - 0 labels dropped before clustering (null lng or lng > 360), matching label_clustering.clean_label_data
 - 0 ambiguous pixel keys in results.jsonl (two stored detections round to one pixel; those keys are left unmapped)
 - 1058 server labels share a pixel with another label and so map to the same stored detection (a re-submitted campaign does this)
-- `streets.geojson`: 12567 features, sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`, 2026-09-30T01:39:49+00:00 (4.8 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/streets?filetype=geojson; 11783 open streets kept (the server snaps to open streets only)
+- `streets.geojson`: 12567 features, sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`, 2026-09-30T01:39:49+00:00 (6.2 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/streets?filetype=geojson; 11783 open streets kept (the server snaps to open streets only)
 - PS partitions are blocked (single-linkage components at the widest threshold + 0.5 m): 6009 blocks, largest 127 labels
 
 ## Validation checks
@@ -171,19 +171,19 @@ Is a small cluster a false positive? Each AI label is bucketed by the size (labe
 
 | partition | bucket | AI labels | median conf | median y | judged | precision [95% CI] | T | F | neither |
 |---|---|---:|---:|---:|---:|---|---:|---:|---:|
-| deployed | unplaceable | 1852 | 0.73 | n/a | 0 | n/a | 0 | 0 | 0 |
-| deployed | unclustered | 58 | 0.65 | n/a | 0 | n/a | 0 | 0 | 0 |
-| deployed | cluster of 1 | 2825 | 0.69 | n/a | 0 | n/a | 0 | 0 | 0 |
-| deployed | cluster of 2 | 4822 | 0.79 | n/a | 0 | n/a | 0 | 0 | 0 |
-| deployed | cluster of 3+ | 40695 | 0.88 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | unplaceable | 1852 | 0.73 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | cluster of 1 | 2787 | 0.70 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | cluster of 2 | 3514 | 0.79 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | cluster of 3+ | 42099 | 0.87 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | unplaceable | 1852 | 0.73 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | cluster of 1 | 2705 | 0.70 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | cluster of 2 | 3438 | 0.79 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | cluster of 3+ | 42257 | 0.87 | n/a | 0 | n/a | 0 | 0 | 0 |
+| deployed | unplaceable | 1852 | 0.73 | 0.523 | 0 | n/a | 0 | 0 | 0 |
+| deployed | unclustered | 58 | 0.65 | 0.570 | 0 | n/a | 0 | 0 | 0 |
+| deployed | cluster of 1 | 2825 | 0.69 | 0.555 | 0 | n/a | 0 | 0 | 0 |
+| deployed | cluster of 2 | 4822 | 0.79 | 0.568 | 0 | n/a | 0 | 0 | 0 |
+| deployed | cluster of 3+ | 40695 | 0.88 | 0.568 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | unplaceable | 1852 | 0.73 | 0.523 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | cluster of 1 | 2787 | 0.70 | 0.568 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | cluster of 2 | 3514 | 0.79 | 0.570 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | cluster of 3+ | 42099 | 0.87 | 0.568 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | unplaceable | 1852 | 0.73 | 0.523 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | cluster of 1 | 2705 | 0.70 | 0.568 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | cluster of 2 | 3438 | 0.79 | 0.570 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | cluster of 3+ | 42257 | 0.87 | 0.568 | 0 | n/a | 0 | 0 | 0 |
 
 ## Unplaceable labels: attach by bearing (`fusion_server+attach`)
 

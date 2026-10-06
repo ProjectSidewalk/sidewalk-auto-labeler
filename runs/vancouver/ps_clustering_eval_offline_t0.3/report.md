@@ -10,7 +10,7 @@ GT: none (--no-gt), so coverage, recall, frag, dual, coherence and GT precision 
 
 - results file `runs/vancouver/results.jsonl`: sha256 `7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28`
 - 0 ambiguous pixel keys in `results.jsonl` (two stored detections round to one pixel); offline labels map to their detection directly, and the pixel-key map agrees on 73478 of 73478
-- `streets.geojson`: 12567 features, sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`, 2026-09-30T01:39:49+00:00 (4.8 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/streets?filetype=geojson; 11783 open streets kept (the server snaps to open streets only)
+- `streets.geojson`: 12567 features, sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`, 2026-09-30T01:39:49+00:00 (6.1 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/streets?filetype=geojson; 11783 open streets kept (the server snaps to open streets only)
 - regions: every synthesized label takes the region of the street nearest its server position, as the server assigns it at insert; 0 labels were equidistant from streets in two regions (lowest street_edge_id taken)
 - PS partitions are blocked (single-linkage components at the widest threshold + 0.5 m): 5892 blocks, largest 165 labels
 
@@ -110,18 +110,18 @@ Is a small cluster a false positive? Each AI label is bucketed by the size (labe
 
 | partition | bucket | AI labels | median conf | median y | judged | precision [95% CI] | T | F | neither |
 |---|---|---:|---:|---:|---:|---|---:|---:|---:|
-| ps @ 7.5 m | unplaceable | 3666 | 0.60 | n/a | 0 | n/a | 0 | 0 | 0 |
-| ps @ 7.5 m | cluster of 1 | 4055 | 0.56 | n/a | 0 | n/a | 0 | 0 | 0 |
-| ps @ 7.5 m | cluster of 2 | 6474 | 0.70 | n/a | 0 | n/a | 0 | 0 | 0 |
-| ps @ 7.5 m | cluster of 3+ | 59283 | 0.85 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | unplaceable | 3666 | 0.60 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | cluster of 1 | 4474 | 0.55 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | cluster of 2 | 4504 | 0.69 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server | cluster of 3+ | 60834 | 0.85 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | unplaceable | 3666 | 0.60 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | cluster of 1 | 4260 | 0.55 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | cluster of 2 | 4431 | 0.68 | n/a | 0 | n/a | 0 | 0 | 0 |
-| fusion_server+attach | cluster of 3+ | 61121 | 0.85 | n/a | 0 | n/a | 0 | 0 | 0 |
+| ps @ 7.5 m | unplaceable | 3666 | 0.60 | 0.523 | 0 | n/a | 0 | 0 | 0 |
+| ps @ 7.5 m | cluster of 1 | 4055 | 0.56 | 0.568 | 0 | n/a | 0 | 0 | 0 |
+| ps @ 7.5 m | cluster of 2 | 6474 | 0.70 | 0.568 | 0 | n/a | 0 | 0 | 0 |
+| ps @ 7.5 m | cluster of 3+ | 59283 | 0.85 | 0.568 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | unplaceable | 3666 | 0.60 | 0.523 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | cluster of 1 | 4474 | 0.55 | 0.570 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | cluster of 2 | 4504 | 0.69 | 0.570 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server | cluster of 3+ | 60834 | 0.85 | 0.568 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | unplaceable | 3666 | 0.60 | 0.523 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | cluster of 1 | 4260 | 0.55 | 0.570 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | cluster of 2 | 4431 | 0.68 | 0.570 | 0 | n/a | 0 | 0 | 0 |
+| fusion_server+attach | cluster of 3+ | 61121 | 0.85 | 0.568 | 0 | n/a | 0 | 0 | 0 |
 
 ## Unplaceable labels: attach by bearing (`fusion_server+attach`)
 
