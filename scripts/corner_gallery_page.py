@@ -137,18 +137,22 @@ HTML_TEMPLATE = r"""<!doctype html>
   #aerialwrap{position:relative;width:var(--aw);height:var(--aw);background:#222;border-radius:6px;overflow:hidden}
   #aerialwrap img,#aerialwrap svg{position:absolute;left:0;top:0;width:100%;height:100%}
   #attrib{font-size:11px;color:#555;margin:3px 0 8px}
-  #right{flex:1;min-width:320px;display:flex;flex-direction:column;gap:10px}
+  #right{flex:1;min-width:320px;display:flex;flex-direction:column;gap:16px;padding:8px 10px 8px 6px}
   fieldset.corner{background:#fff;border:1px solid #ccc;border-left:8px solid #bbb;border-radius:6px;
                   padding:6px 10px 8px;margin:0}
-  fieldset.corner.active{box-shadow:0 0 0 4px var(--acc);background:#eef5ff}
+  fieldset.corner.active{border-color:var(--acc);border-width:4px 4px 4px 8px;padding:3px 7px 5px;background:#eef5ff}
   .keys{display:none;font-size:12px;font-weight:700;color:#fff;background:var(--acc);border-radius:10px;padding:1px 8px;margin-left:6px}
   fieldset.corner.active .keys{display:inline}
+  fieldset.corner.hl{outline:3px dashed #e0a800;outline-offset:2px}
+  .view.hl{border-color:#e0a800}
+  #plan [data-ci],#plan [data-vi]{cursor:pointer}
+  #plan .cam.hl circle{stroke:var(--acc);stroke-width:3}
   #keymsg{display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:30;background:#1d1d1f;
           color:#fff;padding:8px 16px;border-radius:8px;font-size:14px}
   fieldset.corner.v-present{border-left-color:var(--ok)}
   fieldset.corner.v-absent{border-left-color:var(--no)}
   fieldset.corner.v-cant_tell{border-left-color:var(--ct)}
-  legend{font-size:14px;font-weight:600;padding:0 4px}
+  legend{font-size:14px;font-weight:600;padding:2px 8px;line-height:1.6}
   legend .meta{font-weight:normal}
   .views{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}
   .view{padding:0;border:2px solid transparent;border-radius:4px;background:#eee;cursor:zoom-in;text-align:left}
@@ -216,7 +220,7 @@ HTML_TEMPLATE = r"""<!doctype html>
     <p><label for="unitnote">Note on this unit (optional; say why for any can't tell)</label>
       <textarea id="unitnote" rows="3"></textarea></p>
     <p class="meta">Corner markers: number = corner; fill and the letter under it: green P present,
-      red A absent, grey ? can't tell, white not yet rated; blue ring = the corner the keys act on. Dots with dashed lines =
+      red A absent, grey ? can't tell, white not yet rated; blue ring = the active corner (click a corner to make it active). Dots with dashed lines =
       the cameras of that corner's crops. Squares (after completion only) = city inventory
       points: A Available, N NA with no RAMPTYPE, T NA with a RAMPTYPE, R RMV, X Expired/Removed,
       ? other.</p>
@@ -229,8 +233,10 @@ HTML_TEMPLATE = r"""<!doctype html>
   <b>Keys</b> (not while typing in a text box)<br>
   <kbd>1</kbd>-<kbd>9</kbd> pick the corner the keys act on ·
   <kbd>j</kbd>/<kbd>k</kbd> next / previous corner<br>
+  Mouse: click a numbered corner on the aerial to make it active; click a yellow camera
+  dot to enlarge that crop. Hovering either highlights its match in the side panel.<br>
   <kbd>p</kbd> present · <kbd>a</kbd> absent · <kbd>t</kbd> can't tell: each rates the active
-  corner (blue, marked "keys act here"), then the next unrated corner becomes active.<br>
+  corner (blue, tagged "active"), then the next unrated corner becomes active.<br>
   Optional, right after <kbd>a</kbd>: <kbd>b</kbd> sidewalk and curb, no ramp · <kbd>n</kbd> no
   sidewalk at the corner. They describe the corner just rated absent, even though the next
   corner is already active. Once every corner is rated, pick a corner before changing one.<br>
@@ -443,7 +449,7 @@ function renderUnit() {
     return '<fieldset class="corner" id="corner-' + ci + '" data-ci="' + ci + '">' +
       '<legend>Corner ' + c.corner + ' <span class="meta">bearings ' + Math.round(c.start_deg) + '° to ' + Math.round(end) +
       '°, ' + Math.round(c.width_deg) + '° wide' + (c.wide ? ' (wide: often the far side of a T)' : '') + '</span> ' +
-      '<span class="badge" id="vb-' + ci + '"></span><span class="keys">&#9654; keys act here</span></legend>' +
+      '<span class="badge" id="vb-' + ci + '"></span><span class="keys">&#9654; active: p / a / t rate this corner</span></legend>' +
       '<div class="views">' + views + '</div>' +
       '<div class="choices" role="radiogroup" aria-label="Verdict for corner ' + c.corner + '">' +
       VERDICTS.map(v => '<label><input type="radio" name="v-' + ci + '" value="' + v + '"' + (e.verdict === v ? ' checked' : '') +
@@ -500,7 +506,10 @@ function drawPlan() {
   if (ac) for (const [vi, v] of ac.views.entries()) {
     const p = toImg(u, v.cam.lat, v.cam.lng), q = toImg(u, ac.lat, ac.lng);
     out.push('<line x1="' + p[0] + '" y1="' + p[1] + '" x2="' + q[0] + '" y2="' + q[1] + '" stroke="#ffd400" stroke-width="1.5" stroke-dasharray="4 3"/>');
-    out.push('<circle cx="' + p[0] + '" cy="' + p[1] + '" r="6" fill="#ffd400" stroke="#000"/><text x="' + (p[0] + 8) + '" y="' + (p[1] + 4) + '" font-size="12" fill="#ffd400" stroke="#000" stroke-width=".4">' + (vi + 1) + '</text>');
+    out.push('<g class="cam" data-vi="' + vi + '"><title>Crop ' + (vi + 1) + ' (' + esc(v.date || '?') + ', ' + v.dist_m.toFixed(1) + ' m): click to enlarge</title>' +
+             '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="7" fill="#ffd400" stroke="#000"/>' +
+             '<rect x="' + (p[0] + 8) + '" y="' + (p[1] - 9) + '" width="16" height="18" rx="4" fill="#000" fill-opacity=".65"/>' +
+             '<text x="' + (p[0] + 16) + '" y="' + (p[1] + 5) + '" font-size="13" font-weight="bold" text-anchor="middle" fill="#ffd400">' + (vi + 1) + '</text></g>');
   }
   if (s.complete) for (const c of u.corners) for (const p of inventoryOf(u, c)) {
     if (p.lat == null) continue;
@@ -510,14 +519,42 @@ function drawPlan() {
   }
   u.corners.forEach((c, ci) => {
     const q = toImg(u, c.lat, c.lng), v = s.corners[c.k].verdict;
-    out.push('<circle cx="' + q[0] + '" cy="' + q[1] + '" r="12" fill="' + (v ? VCOL[v] : '#fff') + '" stroke="' + (ci === active ? '#0b63ce' : '#000') + '" stroke-width="' + (ci === active ? 5 : 1.5) + '"/>' +
+    out.push('<g data-ci="' + ci + '"><title>Corner ' + c.corner + (v ? ': ' + VLABEL[v] : '') + ' (click to make active)</title>' +
+             '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="12" fill="' + (v ? VCOL[v] : '#fff') + '" stroke="' + (ci === active ? '#0b63ce' : '#000') + '" stroke-width="' + (ci === active ? 5 : 1.5) + '"/>' +
              '<text x="' + q[0] + '" y="' + (q[1] + 5) + '" font-size="14" font-weight="bold" text-anchor="middle" fill="' + (v ? '#fff' : '#000') + '">' + c.corner + '</text>' +
              // the verdict as a letter too, so the marker does not rely on colour alone
              (v ? '<text x="' + q[0] + '" y="' + (q[1] + 27) + '" font-size="12" font-weight="bold" text-anchor="middle" fill="#fff" stroke="#000" stroke-width="3" paint-order="stroke">' +
-                  VLETTER[v] + '</text>' : ''));
+                  VLETTER[v] + '</text>' : '') + '</g>');
   });
   svg.innerHTML = out.join('');
 }
+
+// --- aerial <-> side panel: click to act, hover to highlight the match ----------------------
+function hlClear() { document.querySelectorAll('.hl').forEach(el => el.classList.remove('hl')); }
+function hlFor(t) {
+  hlClear();
+  if (!t) return;
+  if (t.dataset.ci != null) { const fs = document.getElementById('corner-' + t.dataset.ci); if (fs) fs.classList.add('hl'); }
+  else if (t.dataset.vi != null) {
+    t.classList.add('hl');
+    const b = document.querySelector('#corner-' + active + ' .view[data-vi="' + t.dataset.vi + '"]');
+    if (b) b.classList.add('hl');
+  }
+}
+const planEl = document.getElementById('plan');
+planEl.addEventListener('mouseover', ev => hlFor(ev.target.closest('[data-ci],[data-vi]')));
+planEl.addEventListener('mouseleave', hlClear);
+planEl.addEventListener('click', ev => {
+  const t = ev.target.closest('[data-ci],[data-vi]');
+  if (!t) return;
+  if (t.dataset.ci != null) pick(+t.dataset.ci);
+  else openLightbox(active, +t.dataset.vi);
+});
+document.getElementById('right').addEventListener('mouseover', ev => {
+  const b = ev.target.closest('.view');
+  document.querySelectorAll('#plan .cam.hl').forEach(el => el.classList.remove('hl'));
+  if (b && +b.dataset.ci === active) { const g = planEl.querySelector('.cam[data-vi="' + b.dataset.vi + '"]'); if (g) g.classList.add('hl'); }
+});
 
 // --- enlarged crop -------------------------------------------------------------------------
 let lb = null;
