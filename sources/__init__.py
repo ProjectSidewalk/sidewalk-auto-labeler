@@ -16,7 +16,10 @@ Each source module provides the same interface, consumed by main.py:
   {'status': 'success', 'pano': <JSONL pano dict>, 'image': <PIL image>} or
   {'status': 'skipped'|'failure', 'reason': str}. 'skipped' is deterministic
   (main.py caches it so it's never retried); 'failure' is retryable (left
-  uncached so the next run retries it).
+  uncached so the next run retries it). When in doubt, a failure: a wrong skip
+  loses a pano for good, a wrong failure costs a request per resume. An HTTP 404
+  is source-specific -- Mapillary's image 404 (expired signed URL) and every
+  Panoramax 404 (catalog or image; young, flaky infrastructure) are failures.
 - provenance_fields(...) (by convention, called from each source's own
   build_pano_record): the shared provenance keys every pano block carries --
   camera_make, camera_model, camera_type, source_metadata (None when unknown) plus
