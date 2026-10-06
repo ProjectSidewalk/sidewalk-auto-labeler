@@ -75,6 +75,18 @@ def test_no_gt_with_ai_user_scores_every_label_once(tmp_path):
     assert (tmp_path / 'out' / 'validation_precision.csv').exists()
 
 
+def test_precision_by_size_prints_median_y(tmp_path):
+    """The size table's median y comes from the stored detections' y (it read n/a while a
+    second size_precision call without ys overwrote the first)."""
+    epc.main(_toy_city(tmp_path) + ['--ai-user', AI])
+    report = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    section = report.split('## Precision by cluster size', 1)[1].split('\n## ', 1)[0]
+    rows = [x for x in section.splitlines() if x.startswith('| fusion_server | ')]
+    assert rows
+    medians_y = [x.split(' | ')[4] for x in rows]
+    assert any(m != 'n/a' for m in medians_y), rows
+
+
 def test_unmapped_ai_without_ai_user_is_refused(tmp_path):
     with pytest.raises(SystemExit, match='map to no stored detection'):
         epc.main(_toy_city(tmp_path))

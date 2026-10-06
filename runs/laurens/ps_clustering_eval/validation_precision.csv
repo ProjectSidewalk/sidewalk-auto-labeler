@@ -1,0 +1,76 @@
+arm,bucket,clusters,n_validated_clusters,any_false,all_false,labels_validated,labels_false
+deployed,cluster of 1,211,106,0,0,106,0
+deployed,cluster of 2,204,168,0,0,247,0
+deployed,cluster of 3+,256,243,0,0,655,0
+ps_repro,cluster of 1,211,106,0,0,106,0
+ps_repro,cluster of 2,204,168,0,0,247,0
+ps_repro,cluster of 3+,256,243,0,0,655,0
+ps @ 2.5 m,cluster of 1,835,568,64,64,568,64
+ps @ 2.5 m,cluster of 2,256,240,16,8,373,19
+ps @ 2.5 m,cluster of 3+,68,65,1,0,150,1
+ps @ 5 m,cluster of 1,371,237,39,39,237,39
+ps @ 5 m,cluster of 2,261,238,25,19,373,34
+ps @ 5 m,cluster of 3+,185,181,9,1,481,11
+ps @ 7.5 m,cluster of 1,230,144,30,30,144,30
+ps @ 7.5 m,cluster of 2,208,191,21,18,293,29
+ps @ 7.5 m,cluster of 3+,219,216,16,4,654,25
+ps @ 10 m,cluster of 1,176,107,28,28,107,28
+ps @ 10 m,cluster of 2,147,132,16,15,202,22
+ps @ 10 m,cluster of 3+,245,242,19,6,782,34
+ps @ 12.5 m,cluster of 1,138,86,25,25,86,25
+ps @ 12.5 m,cluster of 2,122,109,17,16,164,23
+ps @ 12.5 m,cluster of 3+,243,242,18,6,841,36
+ps @ 15 m,cluster of 1,117,72,23,23,72,23
+ps @ 15 m,cluster of 2,101,88,18,17,134,25
+ps @ 15 m,cluster of 3+,247,247,18,6,885,36
+ps_citywide @ 7.5 m,cluster of 1,230,144,30,30,144,30
+ps_citywide @ 7.5 m,cluster of 2,208,191,21,18,293,29
+ps_citywide @ 7.5 m,cluster of 3+,219,216,16,4,654,25
+ps_placeable @ 2.5 m,cluster of 1,824,563,65,65,563,65
+ps_placeable @ 2.5 m,cluster of 2,254,236,15,7,367,18
+ps_placeable @ 2.5 m,cluster of 3+,62,59,1,0,139,1
+ps_placeable @ 5 m,cluster of 1,373,239,40,40,239,40
+ps_placeable @ 5 m,cluster of 2,255,233,23,18,369,32
+ps_placeable @ 5 m,cluster of 3+,179,175,10,1,461,12
+ps_placeable @ 7.5 m,cluster of 1,227,144,30,30,144,30
+ps_placeable @ 7.5 m,cluster of 2,198,182,19,16,280,27
+ps_placeable @ 7.5 m,cluster of 3+,219,216,17,5,645,27
+ps_placeable @ 10 m,cluster of 1,175,108,28,28,108,28
+ps_placeable @ 10 m,cluster of 2,150,135,16,15,206,22
+ps_placeable @ 10 m,cluster of 3+,241,238,19,6,755,34
+ps_placeable @ 12.5 m,cluster of 1,137,87,25,25,87,25
+ps_placeable @ 12.5 m,cluster of 2,124,111,17,16,167,23
+ps_placeable @ 12.5 m,cluster of 3+,242,241,18,6,815,36
+ps_placeable @ 15 m,cluster of 1,115,72,23,23,72,23
+ps_placeable @ 15 m,cluster of 2,101,88,18,17,132,25
+ps_placeable @ 15 m,cluster of 3+,247,247,18,6,865,36
+ps_raycast @ 2.5 m,cluster of 1,779,531,61,61,531,61
+ps_raycast @ 2.5 m,cluster of 2,278,255,15,10,389,21
+ps_raycast @ 2.5 m,cluster of 3+,63,63,2,0,149,2
+ps_raycast @ 5 m,cluster of 1,343,228,39,39,228,39
+ps_raycast @ 5 m,cluster of 2,255,235,20,19,360,32
+ps_raycast @ 5 m,cluster of 3+,192,186,10,1,481,13
+ps_raycast @ 7.5 m,cluster of 1,218,135,34,34,135,34
+ps_raycast @ 7.5 m,cluster of 2,178,163,14,13,252,21
+ps_raycast @ 7.5 m,cluster of 3+,240,236,17,5,682,29
+ps_raycast @ 10 m,cluster of 1,159,99,27,27,99,27
+ps_raycast @ 10 m,cluster of 2,132,121,16,15,185,23
+ps_raycast @ 10 m,cluster of 3+,256,253,18,4,785,34
+ps_raycast @ 12.5 m,cluster of 1,123,74,25,25,74,25
+ps_raycast @ 12.5 m,cluster of 2,114,102,17,16,153,24
+ps_raycast @ 12.5 m,cluster of 3+,247,246,18,4,842,35
+ps_raycast @ 15 m,cluster of 1,106,63,23,23,63,23
+ps_raycast @ 15 m,cluster of 2,88,77,17,16,116,24
+ps_raycast @ 15 m,cluster of 3+,243,242,19,5,890,37
+fusion,cluster of 1,0,0,0,0,0,0
+fusion,cluster of 2,0,0,0,0,0,0
+fusion,cluster of 3+,0,0,0,0,0,0
+fusion_refit,cluster of 1,0,0,0,0,0,0
+fusion_refit,cluster of 2,0,0,0,0,0,0
+fusion_refit,cluster of 3+,0,0,0,0,0,0
+fusion_server,cluster of 1,249,137,32,32,137,32
+fusion_server,cluster of 2,152,121,14,13,176,20
+fusion_server,cluster of 3+,264,246,16,5,779,32
+fusion_server+attach,cluster of 1,212,116,32,32,116,32
+fusion_server+attach,cluster of 2,152,120,14,13,175,20
+fusion_server+attach,cluster of 3+,268,250,16,5,801,32

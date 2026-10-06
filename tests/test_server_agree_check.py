@@ -2,6 +2,7 @@
 synthetic city. Offline; no feed is fetched."""
 import csv
 import json
+from pathlib import Path
 
 import server_agree_check as sac
 
@@ -153,3 +154,15 @@ def test_unredacted_pull_at_tracked_path_is_refused(tmp_path, monkeypatch):
         sac.materialize(tmp_path, 'CurbRamp', 'https://example.invalid/x', AI)
     monkeypatch.setattr(sac, 'git_ignored', lambda p: True)   # an untracked local cache
     sac.materialize(tmp_path, 'CurbRamp', 'https://example.invalid/x', AI)
+
+
+def test_committed_sidecars_carry_the_current_redaction_note():
+    # #133: the Laurens sidecars named a `--redact-users` flag that no longer exists.
+    # Every redacted pull's sidecar must carry the note publish_redacted writes today.
+    root = Path(__file__).resolve().parents[1]
+    sides = sorted(root.glob('runs/*/server_agree/*.source.json'))
+    redacted = {p: json.loads(p.read_text(encoding='utf-8')) for p in sides}
+    redacted = {p: m for p, m in redacted.items() if 'redacted' in m}
+    assert redacted, 'no redacted server_agree sidecar found (the Laurens ones are tracked)'
+    for p, meta in redacted.items():
+        assert meta['redacted'] == sac.REDACTION_NOTE, p

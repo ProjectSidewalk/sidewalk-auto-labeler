@@ -786,6 +786,10 @@ def default_dir_name(heights, placement=None):
         'mined_precision_h2.60+h2.20'
         >>> default_dir_name([2.6], placement='seg')
         'mined_precision_placed-seg'
+        >>> default_dir_name([2.6], placement='seg.')
+        'mined_precision_placed-seg'
+        >>> default_dir_name([2.6], placement='***')
+        'mined_precision_placed-unnamed'
     """
     suffixes = [fs.frame_suffix(h) for h in heights]
     if len(set(suffixes)) == 1:
@@ -794,9 +798,12 @@ def default_dir_name(heights, placement=None):
         name = 'mined_precision_' + '+'.join(
             s.lstrip('_') or f'h{geo.DEFAULT_CAMERA_HEIGHT_M:.2f}' for s in suffixes)
     if placement:      # a free-text label: keep it one safe path component
-        name += '_placed-' + re.sub(r'[^A-Za-z0-9._+-]+', '-', str(placement)).strip('-')
+        # A trailing dot is stripped too: Windows drops it from a directory name, so
+        # `seg.` and `seg` would otherwise share one folder (#133). A label with nothing
+        # usable left still gets a suffix, never a bare `_placed-`.
+        label = re.sub(r'[^A-Za-z0-9._+-]+', '-', str(placement)).strip('-.')
+        name += '_placed-' + (label or 'unnamed')
     return name
-
 
 
 def placement_line(r):
