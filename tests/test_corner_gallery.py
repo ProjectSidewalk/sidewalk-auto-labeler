@@ -337,6 +337,44 @@ console.log(JSON.stringify({{r: r, ig: ig}}));
     assert ig['state']['u1']['corners']['0']['verdict'] is None
 
 
+@pytest.mark.skipif(NODE is None, reason='node not installed')
+def test_plan_key_absent_then_next_key_advances(tmp_path):
+    """B2 of the review: after `a`, p / a / t rate the NEXT corner; b / n still describe the
+    corner just rated absent; once all are rated, a further verdict key is refused."""
+    js = cgp.KEYS_JS + """
+const out = [];
+let v = [null, null, null], active = 0, last = null;
+function step(k) {
+  const r = planKey(v, active, last, k);
+  if (r.op === 'verdict') v[r.ci] = r.value;
+  if (r.op === 'kind') out.push(['kind', r.ci, r.value]);
+  active = r.active; last = r.last;
+  out.push([k, r.op, r.ci === undefined ? null : r.ci, active, v.slice()]);
+}
+step('a'); step('p'); step('b');           // b with no absent corner just rated: refused
+step('t');                                  // all rated now, active stays on corner 2
+step('p');                                  // refused: would overwrite corner 2
+active = 0; last = null; step('b');         // the rater picks corner 0 (absent): b applies
+// a then b: b goes to the absent corner although the next corner is active
+v = [null, null]; active = 0; last = null; step('a'); step('n');
+// N6: b on a present corner is refused
+v = ['present', null]; active = 0; last = null; step('b');
+console.log(JSON.stringify(out));
+"""
+    p = tmp_path / 'k.js'
+    p.write_text(js, encoding='utf-8')
+    out = json.loads(subprocess.run([NODE, str(p)], capture_output=True, text=True, check=True).stdout)
+    assert out[0] == ['a', 'verdict', 0, 1, ['absent', None, None]]
+    assert out[1] == ['p', 'verdict', 1, 2, ['absent', 'present', None]]   # not corner 0
+    assert out[2][:2] == ['b', 'refuse']
+    assert out[3] == ['t', 'verdict', 2, 2, ['absent', 'present', 'cant_tell']]
+    assert out[4][:2] == ['p', 'refuse'] and out[4][4][2] == 'cant_tell'
+    assert out[5] == ['kind', 0, 'curb_no_ramp'] and out[6][:2] == ['b', 'kind']
+    assert out[7][:4] == ['a', 'verdict', 0, 1]
+    assert out[8] == ['kind', 0, 'no_sidewalk']
+    assert out[10][:2] == ['b', 'refuse']
+
+
 # ------------------------------------------------------------------ committed bundle
 
 @pytest.mark.skipif(not (BUNDLE / 'snapshot.json').exists(), reason='bundle not built')

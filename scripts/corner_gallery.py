@@ -586,9 +586,10 @@ def load_prefill(bundle, rater, items_sha):
 
 
 def build_html(units, items_sha, rater, initial, attribution):
-    from corner_gallery_page import HTML_TEMPLATE, STATE_BOOTSTRAP_JS
+    from corner_gallery_page import HTML_TEMPLATE, KEYS_JS, STATE_BOOTSTRAP_JS
     return (HTML_TEMPLATE
             .replace('__STATE_BOOTSTRAP__', STATE_BOOTSTRAP_JS)
+            .replace('__KEYS__', KEYS_JS)
             .replace('__UNITS__', json.dumps(units))
             .replace('__ITEMS_SHA__', json.dumps(items_sha))
             .replace('__CITY__', json.dumps(CITY))

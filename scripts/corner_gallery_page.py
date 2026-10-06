@@ -75,6 +75,45 @@ function bootstrapState(INITIAL, local, UNITS, ITEMS_SHA) {
 }
 """
 
+# The verdict keys, as a pure function so tests can run it under node (RampNet#243 review B2).
+# verdicts: one verdict (or null) per corner, in display order; active: the corner the keys
+# act on; last: {ci, verdict} set by the immediately preceding verdict key, else null (any
+# corner pick, unit change, click or completion clears it). Rules:
+#   * p / a / t rate the active corner, then the next unrated corner becomes active -- after
+#     `a` too, so a following p / a / t can never land on the corner just rated absent;
+#   * b / n qualify the corner just rated absent (last), else the active corner if it is
+#     absent; otherwise the key is refused with a message (nothing moves);
+#   * when every corner is rated, active stays on the corner just rated, and a further
+#     p / a / t there is refused until the rater picks a corner (1-9, j, k, click).
+KEYS_JS = r"""
+function nextUnratedIdx(verdicts, from) {
+  for (let d = 1; d <= verdicts.length; d++) {
+    const i = (from + d) % verdicts.length;
+    if (!verdicts[i]) return i;
+  }
+  return -1;
+}
+function planKey(verdicts, active, last, key) {
+  const V = {p: 'present', a: 'absent', t: 'cant_tell'}, K = {b: 'curb_no_ramp', n: 'no_sidewalk'};
+  if (key in V) {
+    if (last && last.ci === active)
+      return {op: 'refuse', active: active, last: last,
+              msg: 'Every corner is rated. Pick a corner (1-9, j, k) to change one, or press c to complete.'};
+    const vs = verdicts.slice(); vs[active] = V[key];
+    const nx = nextUnratedIdx(vs, active);
+    return {op: 'verdict', ci: active, value: V[key], active: nx >= 0 ? nx : active,
+            last: {ci: active, verdict: V[key]}};
+  }
+  if (key in K) {
+    const t = last && last.verdict === 'absent' ? last.ci : (verdicts[active] === 'absent' ? active : -1);
+    if (t < 0) return {op: 'refuse', active: active, last: last,
+                       msg: 'b and n describe an absent corner; this corner is not rated absent.'};
+    return {op: 'kind', ci: t, value: K[key], active: active, last: null};
+  }
+  return {op: 'none', active: active, last: last};
+}
+"""
+
 HTML_TEMPLATE = r"""<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
@@ -101,7 +140,11 @@ HTML_TEMPLATE = r"""<!doctype html>
   #right{flex:1;min-width:320px;display:flex;flex-direction:column;gap:10px}
   fieldset.corner{background:#fff;border:1px solid #ccc;border-left:8px solid #bbb;border-radius:6px;
                   padding:6px 10px 8px;margin:0}
-  fieldset.corner.active{box-shadow:0 0 0 3px var(--acc)}
+  fieldset.corner.active{box-shadow:0 0 0 4px var(--acc);background:#eef5ff}
+  .keys{display:none;font-size:12px;font-weight:700;color:#fff;background:var(--acc);border-radius:10px;padding:1px 8px;margin-left:6px}
+  fieldset.corner.active .keys{display:inline}
+  #keymsg{display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:30;background:#1d1d1f;
+          color:#fff;padding:8px 16px;border-radius:8px;font-size:14px}
   fieldset.corner.v-present{border-left-color:var(--ok)}
   fieldset.corner.v-absent{border-left-color:var(--no)}
   fieldset.corner.v-cant_tell{border-left-color:var(--ct)}
@@ -164,6 +207,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 </nav>
 <h1 id="title" style="margin:4px 0 8px;font-size:17px"></h1>
 <div id="live" class="sr" aria-live="polite"></div>
+<div id="keymsg" aria-hidden="true"></div>
 <div id="main">
   <section id="left" aria-label="Aerial and unit controls">
     <div id="aerialwrap"><img id="aerial" alt=""><svg id="plan" role="img" aria-labelledby="plantitle"><title id="plantitle">Aerial plan</title></svg></div>
@@ -185,9 +229,11 @@ HTML_TEMPLATE = r"""<!doctype html>
   <b>Keys</b> (not while typing in a text box)<br>
   <kbd>1</kbd>-<kbd>9</kbd> pick the corner the keys act on ·
   <kbd>j</kbd>/<kbd>k</kbd> next / previous corner<br>
-  <kbd>p</kbd> present · <kbd>a</kbd> absent · <kbd>t</kbd> can't tell (then the next unrated
-  corner becomes active) · after absent: <kbd>b</kbd> sidewalk and curb, no ramp ·
-  <kbd>n</kbd> no sidewalk at the corner<br>
+  <kbd>p</kbd> present · <kbd>a</kbd> absent · <kbd>t</kbd> can't tell: each rates the active
+  corner (blue, marked "keys act here"), then the next unrated corner becomes active.<br>
+  Optional, right after <kbd>a</kbd>: <kbd>b</kbd> sidewalk and curb, no ramp · <kbd>n</kbd> no
+  sidewalk at the corner. They describe the corner just rated absent, even though the next
+  corner is already active. Once every corner is rated, pick a corner before changing one.<br>
   <kbd>c</kbd> complete / reopen the unit (shows the city inventory) ·
   <kbd>&#8592;</kbd>/<kbd>&#8594;</kbd> units · <kbd>Enter</kbd> on a crop or a click: enlarge
   (<kbd>&#8592;</kbd>/<kbd>&#8594;</kbd> step, <kbd>Esc</kbd> close) · <kbd>?</kbd> this panel<br><br>
@@ -219,6 +265,7 @@ const INVTEXT = {Available: 'Available', NA_noramp: 'NA, no RAMPTYPE', NA_typed:
                  RMV: 'RMV', 'Expired/Removed': 'Expired/Removed', other: 'other status'};
 
 __STATE_BOOTSTRAP__
+__KEYS__
 
 function loadLocal() { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch (e) { return {}; } }
 const boot = bootstrapState(INITIAL, loadLocal(), UNITS, ITEMS_SHA);
@@ -264,13 +311,14 @@ function pxPerMetre(u) {
 }
 
 // --- navigation and edits ----------------------------------------------------------------
-let idx = 0, active = 0;
+let idx = 0, active = 0, last = null;   // last: set by the preceding verdict key (planKey)
 try { const i = parseInt(localStorage.getItem(ISTORE), 10); if (i >= 0 && i < UNITS.length) idx = i; } catch (e) {}
 function cur() { return UNITS[idx]; }
 function S() { return state[cur().id]; }
 function rated(u) { const s = state[u.id]; return u.corners.filter(c => s.corners[c.k].verdict).length; }
-function go(d) { idx = (idx + d + UNITS.length) % UNITS.length; active = 0; renderUnit(); }
-function goTo(i) { idx = i; active = 0; renderUnit(); }
+function go(d) { idx = (idx + d + UNITS.length) % UNITS.length; active = 0; last = null; renderUnit(); }
+function goTo(i) { idx = i; active = 0; last = null; renderUnit(); }
+function pick(ci) { active = ci; last = null; refresh(); scrollActive(); say('Corner ' + cur().corners[ci].corner + ' active'); }
 function touched() {
   const s = S();
   s.seen = true;
@@ -294,13 +342,11 @@ function setKind(ci, kind) {
   s.corners[c.k].absent_kind = kind || null;
   save(); refresh();
 }
-function nextUnrated() {
-  const u = cur(), s = S();
-  for (let d = 1; d <= u.corners.length; d++) {
-    const i = (active + d) % u.corners.length;
-    if (!s.corners[u.corners[i].k].verdict) return i;
-  }
-  return active;
+let flashT = null;
+function flashNotice(t) {
+  const el = document.getElementById('keymsg');
+  el.textContent = t; el.style.display = '';
+  clearTimeout(flashT); flashT = setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 function toggleComplete() {
   const u = cur(), s = S();
@@ -316,6 +362,7 @@ function toggleComplete() {
     s.complete = false;
     say('Unit reopened.');
   }
+  last = null;
   save(); renderUnit();
 }
 
@@ -372,7 +419,7 @@ function renderUnit() {
     return '<fieldset class="corner" id="corner-' + ci + '" data-ci="' + ci + '">' +
       '<legend>Corner ' + c.corner + ' <span class="meta">bearings ' + Math.round(c.start_deg) + '° to ' + Math.round(end) +
       '°, ' + Math.round(c.width_deg) + '° wide' + (c.wide ? ' (wide: often the far side of a T)' : '') + '</span> ' +
-      '<span class="badge" id="vb-' + ci + '"></span></legend>' +
+      '<span class="badge" id="vb-' + ci + '"></span><span class="keys">&#9654; keys act here</span></legend>' +
       '<div class="views">' + views + '</div>' +
       '<div class="choices" role="radiogroup" aria-label="Verdict for corner ' + c.corner + '">' +
       VERDICTS.map(v => '<label><input type="radio" name="v-' + ci + '" value="' + v + '"' + (e.verdict === v ? ' checked' : '') +
@@ -385,11 +432,11 @@ function renderUnit() {
       (s.complete ? invHtml(u, c) : '') + '</fieldset>';
   }).join('');
   right.querySelectorAll('input[name^="v-"]').forEach(el => el.addEventListener('change', () => {
-    const ci = +el.name.slice(2); active = ci; setVerdict(ci, el.value);
+    const ci = +el.name.slice(2); active = ci; last = null; setVerdict(ci, el.value);
   }));
   right.querySelectorAll('input[name^="ak-"]').forEach(el => el.addEventListener('change', () => setKind(+el.name.slice(3), el.value)));
-  right.querySelectorAll('fieldset.corner').forEach(el => el.addEventListener('focusin', () => { active = +el.dataset.ci; refresh(); }));
-  right.querySelectorAll('fieldset.corner').forEach(el => el.addEventListener('mousedown', () => { active = +el.dataset.ci; refresh(); }));
+  right.querySelectorAll('fieldset.corner').forEach(el => el.addEventListener('focusin', () => { if (active !== +el.dataset.ci) { active = +el.dataset.ci; last = null; refresh(); } }));
+  right.querySelectorAll('fieldset.corner').forEach(el => el.addEventListener('mousedown', () => { active = +el.dataset.ci; last = null; refresh(); }));
   right.querySelectorAll('.view').forEach(el => el.addEventListener('click', () => openLightbox(+el.dataset.ci, +el.dataset.vi)));
   refresh();
 }
@@ -501,14 +548,27 @@ document.addEventListener('keydown', ev => {
   if (k === 'Escape') { toggleHelp(false); return; }
   if (k === 'ArrowLeft' && tag !== 'input') go(-1);
   else if (k === 'ArrowRight' && tag !== 'input') go(1);
-  else if (k >= '1' && k <= '9') { if (+k - 1 < u.corners.length) { active = +k - 1; refresh(); scrollActive(); } }
-  else if (k === 'j') { active = (active + 1) % u.corners.length; refresh(); scrollActive(); }
-  else if (k === 'k') { active = (active - 1 + u.corners.length) % u.corners.length; refresh(); scrollActive(); }
-  else if (k === 'p' || k === 'a' || k === 't') {
-    setVerdict(active, {p: 'present', a: 'absent', t: 'cant_tell'}[k]);
-    if (k !== 'a' && !S().complete) { active = nextUnrated(); refresh(); scrollActive(); }
+  else if (k >= '1' && k <= '9') { if (+k - 1 < u.corners.length) pick(+k - 1); }
+  else if (k === 'j') pick((active + 1) % u.corners.length);
+  else if (k === 'k') pick((active - 1 + u.corners.length) % u.corners.length);
+  else if ('patbn'.includes(k)) {
+    const s = S();
+    if (s.complete) { say('Reopen the unit (c) before changing a verdict.'); alert('This unit is complete. Reopen it first (c or the Reopen button).'); }
+    else {
+      const plan = planKey(u.corners.map(c => s.corners[c.k].verdict), active, last, k);
+      if (plan.op === 'refuse') { say(plan.msg); flashNotice(plan.msg); }
+      else if (plan.op === 'verdict') {
+        setVerdict(plan.ci, plan.value);
+        active = plan.active; last = plan.last; refresh(); scrollActive();
+        if (plan.active !== plan.ci) say('Corner ' + u.corners[plan.ci].corner + ': ' + VLABEL[plan.value] +
+          (plan.value === 'absent' ? ' (b or n now adds why). ' : '. ') + 'Corner ' + u.corners[plan.active].corner + ' active.');
+      } else if (plan.op === 'kind') {
+        setKind(plan.ci, plan.value);
+        last = plan.last; refresh();
+        say('Corner ' + u.corners[plan.ci].corner + ': absent, ' + AKIND[plan.value]);
+      }
+    }
   }
-  else if (k === 'b' || k === 'n') { setKind(active, k === 'b' ? 'curb_no_ramp' : 'no_sidewalk'); if (!S().complete) { active = nextUnrated(); refresh(); scrollActive(); } }
   else if (k === 'c') toggleComplete();
   else if (k === '?') toggleHelp();
   else return;

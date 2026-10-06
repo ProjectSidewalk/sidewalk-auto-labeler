@@ -90,8 +90,17 @@ python scripts/corner_gallery.py render --bundle runs/vancouver/corner_gallery24
 1. Open `runs/vancouver/corner_gallery243/gallery/jonf/index.html` in a browser. The aerials
    and crops are git-ignored. They are in this worktree, and `build` remakes them.
 2. Rate each corner with the radio buttons or the keys: `p` present, `a` absent, `t` can't tell.
-   After `a`, `b` means sidewalk and curb, no ramp, and `n` means no sidewalk at the corner. `1`-`9` or `j`/`k`
-   pick the corner. Click or press Enter on a crop to enlarge it.
+   Each key rates the active corner (blue outline, tinted, marked "keys act here") and then
+   moves to the next unrated corner, `a` included. Right after `a`, the optional `b` (sidewalk
+   and curb, no ramp) or `n` (no sidewalk at the corner) describes the corner just rated
+   absent. Once every corner is rated, a further verdict key is refused until you pick a
+   corner with `1`-`9`, `j`/`k` or a click, so a verdict is never overwritten by accident.
+   Click or press Enter on a crop to enlarge it.
+
+   (The first version kept `a` on the same corner so that `b`/`n` could follow; a `p` typed
+   next then silently overwrote the absent verdict. The review of PR #141 caught this before
+   any rating. The key logic is `KEYS_JS` in `scripts/corner_gallery_page.py`, tested under
+   node.)
 3. Press `c` (or the button) to complete the unit. That shows the inventory.
 4. Continue with `→` or "Next to do". Work is saved in the browser as you go.
 5. Press **Export**, and save the download as
