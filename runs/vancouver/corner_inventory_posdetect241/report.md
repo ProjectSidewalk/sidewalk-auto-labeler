@@ -1,6 +1,6 @@
 # vancouver: corner inventory (RampNet#238)
 
-Built 2026-10-05T15:49:20+00:00 by `scripts/corner_inventory.py@9c8f4794567f69a692f66eb408c5d87431bff214`; exporter `export_cluster_review.py@5b21cd9b00d9b00a2b8f9ab5345591eb599182b2`. Protocol: docs/corner-inventory.md.
+Built 2026-10-06T04:34:16+00:00 by `scripts/corner_inventory.py@fd115a53d1872a6d4306735ffeb1881ff6eff8b0`; exporter `export_cluster_review.py@5b21cd9b00d9b00a2b8f9ab5345591eb599182b2`. Protocol: docs/corner-inventory.md.
 
 ## Inputs
 
@@ -19,10 +19,10 @@ Built 2026-10-05T15:49:20+00:00 by `scripts/corner_inventory.py@9c8f4794567f69a6
 - units224: `D:\Git\RampNet\benchmark\vancouver\cluster_review\corners.jsonl` sha256 `4c862a4039ca65b23b0ec02d44901d1354a6dbbac0fb07877b9d9f4204c23ca3`
 - extra:vancouver_posdetect241:results: `D:\Git\labeler-wt\posdetect241\runs\vancouver_posdetect241\results.jsonl` sha256 `69f46b26110df05d1ef52a4431c4b230ceb157941b212fd3d553fd64bb86bf0e`
 - extra:vancouver_posdetect241:sites: `D:\Git\labeler-wt\posdetect241\runs\vancouver_posdetect241\sites.jsonl` sha256 `d38c6fa08f9774de842c77c72ad51346daebb918270c90b319b662bd8534320b`
-- extra:vancouver_posdetect241:sites_meta: `D:\Git\labeler-wt\posdetect241\runs\vancouver_posdetect241\sites_meta.json` sha256 `ce4eadec1db56a826ca85845a7594bd84e70851ac497dc896a1ce29d3d3cad0c`
+- extra:vancouver_posdetect241:sites_meta: `D:\Git\labeler-wt\posdetect241\runs\vancouver_posdetect241\sites_meta.json` sha256 `5408f770ebe84943faf1048a9b8978fe0700997e0ea57b699110c2a5b6e626b9`
 - extra:vancouver_posdetect241_gsv:results: `D:\Git\labeler-wt\posdetect241\runs\vancouver_posdetect241_gsv\results.jsonl` sha256 `953716d1d7f32f2680c101fb9a4d7ab0933939459704fbc62375042768ca57b2`
 - extra:vancouver_posdetect241_gsv:sites: `D:\Git\labeler-wt\posdetect241\runs\vancouver_posdetect241_gsv\sites.jsonl` sha256 `df0dec5c6c9456248a7ee1aee7c4e3e7c4c50643780a5105dd7451b3e7e7614d`
-- extra:vancouver_posdetect241_gsv:sites_meta: `D:\Git\labeler-wt\posdetect241\runs\vancouver_posdetect241_gsv\sites_meta.json` sha256 `3d5a1e7a04de6d972a08e87a8b5e060ac7c9811ca506aae2e7951e4da0f86099`
+- extra:vancouver_posdetect241_gsv:sites_meta: `D:\Git\labeler-wt\posdetect241\runs\vancouver_posdetect241_gsv\sites_meta.json` sha256 `ddae3b0e42d10dd89441cd3e6fff8925ad2e1cc42fb4e3cc388c67c9534a321d`
 
 ## Units
 
@@ -185,4 +185,4 @@ Absence precision, clean read, unit level, fusion arm, primary observability, in
 
 Inventory-gap corners (fusion, primary): 482 rows in gaps.csv.
 
-Build 18.3 s; score 2.8 s.
+Build 19.2 s; score 3.3 s.
