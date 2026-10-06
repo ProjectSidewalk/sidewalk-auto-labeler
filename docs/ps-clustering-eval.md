@@ -433,8 +433,10 @@ evaluation arm only and changes no SidewalkWebpage code.
   server no longer holds: human-only inversion sits a median 8.7 m from the live block on
   70 panos (AI-only inversion: median 0.01 m, p90 0.19 m, none over 1 m; the 0.000 m
   elsewhere in this doc is the forward placement check, a different measurement), and mixed into the median it moved 57 of
-  695 panos and cost Laurens' `fusion_server` 5 ramps of coverage (0.769 -> 0.748); with AI
-  first it is back at 0.769 (183/238), and 17 human-only panos still warn. Richmond does not
+  695 panos and cost Laurens' `fusion_server` 5 ramps of coverage (0.769 -> 0.748). With AI
+  first, and a pano with no AI label inverted from all its labels before the run block, it
+  reads 0.765 (182/238; re-scored 2026-10-05 in #139, after the all-labels step moved one
+  more pano off the run block), and 18 panos still warn. Richmond does not
   move. **Offline** there is nothing to invert against: the synthesized labels were placed
   *from* the run's block, so that block is the server's position by construction and is
   used directly (inverting it back only added its own error, p90 0.24-0.33 m).
