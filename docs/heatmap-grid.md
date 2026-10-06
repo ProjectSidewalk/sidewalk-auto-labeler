@@ -292,7 +292,9 @@ has a second opt-in beside `--decode`: `--border keep` (main.py, reinfer.py) is 
 (`exclude_border=False`, no NMS across the seam), bound in the manifest
 (`detection_border`) and refused in a mix exactly like the decode. The default stays
 `exclude`. What the band costs on both Laurens arms, and whether its peaks are lost ramps or
-only lost views, is in [seam-band-130.md](seam-band-130.md).
+only lost views, is in [seam-band-130.md](seam-band-130.md). A third opt-in, `--border wrap`, is `keep`
+plus NMS wrapped across the seam (this repo's rule; one peak per straddling ramp), estimated in
+section 9 of that doc.
 
 ### 4.3 A measured `sigma_peak_px`
 

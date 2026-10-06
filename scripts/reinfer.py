@@ -530,7 +530,8 @@ def main_cli(argv=None):
                     help='with --verify: compare files written under different decodes, as a '
                          'diagnostic only (never with --write-band-file)')
     ap.add_argument('--border', choices=BORDERS, default=None,
-                    help="peak border rule for the re-inference (#130; default: the run's own, "
+                    help="peak border rule for the re-inference (#130: exclude, keep = RampNet's, "
+                         "or wrap = keep plus NMS across the seam; default: the run's own, "
                          "manifest.json detection_border, exclude when absent)")
     ap.add_argument('--allow-mixed-border', action='store_true',
                     help='with --verify: compare an exclude file with a keep file, as a '

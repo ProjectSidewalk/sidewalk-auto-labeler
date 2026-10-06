@@ -262,13 +262,15 @@ def fetch_pano(pano_id, lat, lon):
     if _compass_angle(meta) is None:
         return {'status': 'skipped', 'reason': 'No compass angle'}
 
-    image, undecodable = _download_image(meta['thumb_original_url'])
+    image, undecodable, detail = _download_image(meta['thumb_original_url'])
     if undecodable:
         # The bytes arrived and are not an image: deterministic, so cache it as skipped
         # rather than re-downloading the same unreadable megabytes on every future run.
-        return {'status': 'skipped', 'reason': 'Undecodable image bytes'}
+        return {'status': 'skipped', 'reason': detail or 'Undecodable image bytes'}
     if image is None:
-        return {'status': 'failure', 'reason': 'Failed to download equirectangular image'}
+        return {'status': 'failure',
+                'reason': 'Failed to download equirectangular image'
+                          + (f' ({detail})' if detail else '')}
 
     return {'status': 'success', 'pano': build_pano_record(pano_id, lat, lon, meta), 'image': image}
 
@@ -311,32 +313,105 @@ def _fetch_image_metadata(image_id):
 
 
 # Decode errors that describe the bytes themselves, so a retry cannot fix them.
-# UnidentifiedImageError is an OSError subclass (listed for the reader); OSError also
-# covers a truncated file; SyntaxError is what PIL raises for some malformed headers;
-# DecompressionBombError is a plain Exception subclass, not an OSError.
+# UnidentifiedImageError is an OSError subclass (listed for the reader); SyntaxError is
+# what PIL raises for some malformed headers; DecompressionBombError is a plain Exception
+# subclass, not an OSError. OSError is broad on purpose -- but PIL ALSO reports a
+# truncated body as an OSError, which decode_failure_is_permanent carves back out.
 PERMANENT_DECODE_ERRORS = (UnidentifiedImageError, OSError, SyntaxError,
                            Image.DecompressionBombError)
 
+# The two messages PIL raises for a body that ends early (issue #127), lowercased. Measured
+# on Pillow 12.3.0: a cut inside the JPEG's entropy-coded scan data raises
+# "image file is truncated (N bytes not processed)" (PIL.ImageFile.load, triggered by
+# .convert('RGB')); a cut inside the header segments, which only a tiny file realistically
+# hits, raises "Truncated File Read" (PIL.ImageFile._safe_read, inside Image.open). Both
+# describe the TRANSFER, not the bytes the server holds, so both are retryable -- unlike
+# every other member of PERMANENT_DECODE_ERRORS.
+TRUNCATED_DECODE_MESSAGES = ('image file is truncated', 'truncated file read')
+
+
+def decode_failure_is_permanent(exc) -> bool:
+    """True when a decode exception says the bytes themselves are not an image (main.py
+    caches the pano as a skip); False for PIL's truncation OSError or anything outside
+    PERMANENT_DECODE_ERRORS (a MemoryError under load), which are retried like a network
+    failure and never cached (#127). Shared by the Mapillary and Panoramax downloads.
+
+        >>> decode_failure_is_permanent(OSError('image file is truncated (12 bytes not processed)'))
+        False
+        >>> decode_failure_is_permanent(UnidentifiedImageError('cannot identify image file'))
+        True
+        >>> decode_failure_is_permanent(MemoryError())
+        False
+    """
+    if not isinstance(exc, PERMANENT_DECODE_ERRORS):
+        return False
+    message = str(exc).lower()
+    return not any(m in message for m in TRUNCATED_DECODE_MESSAGES)
+
+
+def describe_exception(exc, limit=200) -> str:
+    """One-line text for a failure reason: `Type: message`, cut at `limit` chars. requests'
+    HTTPError message ends in " for url: <url>"; that tail is dropped, because a Mapillary
+    URL is signed (its token does not belong in a run log) and the pano id is already on
+    the line. Shared by the Mapillary and Panoramax downloads (#127).
+
+        >>> describe_exception(OSError('image file is truncated (12 bytes not processed)'))
+        'OSError: image file is truncated (12 bytes not processed)'
+        >>> describe_exception(ValueError('503 Server Error: Busy for url: https://x/y?sig=abc'))
+        'ValueError: 503 Server Error: Busy'
+    """
+    message = str(exc).split(' for url: ', 1)[0]
+    text = f"{type(exc).__name__}: {message}" if message else type(exc).__name__
+    return text if len(text) <= limit else text[: limit - 3] + '...'
+
+
+def body_is_complete(response) -> bool:
+    """False when the server declared a Content-Length and a different number of bytes
+    arrived (#127). urllib3 >= 2 already raises on a short read before this is reached;
+    this covers urllib3 1.x and a server that mis-declares the length. An absent or
+    unparseable header reads as complete. Shared by the Mapillary and Panoramax downloads.
+
+    Content-Length counts the bytes on the wire, so a Content-Encoding'd (gzip) body
+    decodes to a different length; image assets are not served encoded, and an encoded
+    response is treated as complete rather than guessed at.
+    """
+    headers = response.headers or {}
+    if headers.get('Content-Encoding'):
+        return True
+    declared = headers.get('Content-Length')
+    if declared is None:
+        return True
+    try:
+        return int(declared) == len(response.content)
+    except (TypeError, ValueError):
+        return True
+
 
 def _download_image(url):
-    """(image, permanent) for one image's signed thumbnail, normalized to the detector's
-    4096x2048.
+    """(image, permanent, detail) for one image's signed thumbnail, normalized to the
+    detector's 4096x2048. `detail` is None on success and otherwise says why it failed
+    (the decode error, or the LAST attempt's exception), so the run log can tell a
+    server-side truncation from a flaky network (#127).
 
     Splits the two failure kinds main.py treats differently — it caches a deterministic
     `skipped` forever and retries a `failure` on every future run — the same split
     sources/panoramax.py's _download_image draws (issue #57, part 2):
 
-    - Network/HTTP failures are retryable and return (None, False) after ATTEMPTS tries.
+    - Network/HTTP failures are retryable and return (None, False, last error) after
+      ATTEMPTS tries.
     - A 200 whose Content-Type is not `image/*` (an HTML error or interstitial page
       served with a 200) is also retryable: that says nothing about the image.
-    - A decode failure is not. Bytes that arrived intact and are not a readable image (a
-      truncated upload, a decompression bomb past PIL's ceiling) will not become one on
-      the next try, so it returns (None, True) on the first attempt, never re-looped.
-      Before this split, one bare `except Exception` sent such a pano back around the
-      loop and then left it uncached, so every run of the area re-downloaded it.
-      Only PERMANENT_DECODE_ERRORS count: anything else raised while decoding (a
-      MemoryError under load, say) is about this process, not the bytes, so it is
-      retried like a network failure and never cached.
+    - So is a body that did not arrive whole (#127): a byte count other than its
+      Content-Length (body_is_complete), or PIL's truncated-file OSError. Both describe
+      the transfer, not the image.
+    - A decode failure on complete bytes is not. Bytes that arrived whole and are not a
+      readable image (garbage, a decompression bomb past PIL's ceiling) will not become
+      one on the next try, so it returns (None, True, reason) on the first attempt, never
+      re-looped. Before this split, one bare `except Exception` sent such a pano back
+      around the loop and then left it uncached, so every run of the area re-downloaded
+      it. Only decode_failure_is_permanent errors count: anything else raised while
+      decoding (a MemoryError under load, say) is about this process, not the bytes, so
+      it is retried like a network failure and never cached.
 
     A 404 deliberately stays RETRYABLE here, unlike in the Panoramax template, which
     treats a 404 on its plain, unsigned `hd` URL as the pixels being gone. This URL is
@@ -346,6 +421,7 @@ def _download_image(url):
     metadata call (fetch_image_metadata's `gone`), not by this download. Do not "fix"
     this to match Panoramax: it would permanently cache live panos as skipped.
     """
+    last_error = None
     for attempt in range(ATTEMPTS):
         try:
             response = requests.get(url, timeout=120)
@@ -354,20 +430,26 @@ def _download_image(url):
             if content_type and not content_type.lower().startswith('image/'):
                 raise ValueError(f"non-image Content-Type {content_type!r}")
             payload = response.content
-            # Past this point the bytes are in hand, so a PERMANENT_DECODE_ERRORS failure
-            # is about the bytes; any other exception falls through and is retried.
+            if not body_is_complete(response):
+                raise ValueError(f"short body: Content-Length "
+                                 f"{response.headers.get('Content-Length')}, got {len(payload)} bytes")
+            # Past this point the whole body is in hand, so a permanent decode failure is
+            # about the bytes; a truncation or any other exception is retried.
             try:
                 image = Image.open(BytesIO(payload)).convert('RGB')
-            except PERMANENT_DECODE_ERRORS:
-                return None, True
-        except Exception:
+            except Exception as e:
+                if decode_failure_is_permanent(e):
+                    return None, True, f"Undecodable image bytes ({describe_exception(e)})"
+                raise
+        except Exception as e:
+            last_error = describe_exception(e)
             if attempt < ATTEMPTS - 1:
                 time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
             continue
         if image.size != TARGET_SIZE:
             image = image.resize(TARGET_SIZE, Image.BILINEAR)
-        return image, False
-    return None, False
+        return image, False, None
+    return None, False, last_error
 
 
 def build_pano_record(pano_id, lat, lon, meta):

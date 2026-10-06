@@ -1278,9 +1278,9 @@ def build_parser():
                          '(#111; refused by default: the two are different frames). '
                          'sites_meta.json then records the mix')
     ap.add_argument('--allow-mixed-border', action='store_true',
-                    help='fuse a file whose records mix the exclude and keep peak border '
-                         'rules (#130; refused by default: keep adds the seam-band peaks '
-                         'exclude drops). sites_meta.json then records the mix')
+                    help='fuse a file whose records mix peak border rules (exclude / keep / '
+                         'wrap; #130; refused by default: the rules differ in which seam-band '
+                         'peaks they store). sites_meta.json then records the mix')
     ap.add_argument('--min-confidence', type=float, default=OPERATIONAL_CONFIDENCE)
     ap.add_argument('--max-range-m', type=float, default=geo.DEFAULT_MAX_RANGE_M)
     ap.add_argument('--gate-chi2', type=float, default=FuseParams.gate_chi2)

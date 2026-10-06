@@ -197,11 +197,20 @@ def single_decode(counts, what, allow_mixed=False):
 # everything that combines files refuses a mix without an explicit flag. `keep` adds peaks
 # (it never moves one), but those peaks are labels the live `exclude` campaigns never had,
 # so a `keep` campaign in an `exclude` city is a frame change of the same kind. The marker
-# is written ONLY on `keep` lines, so `exclude` records stay byte-identical to before #130
-# and every older line reads as `exclude`.
+# is written ONLY on non-`exclude` lines, so `exclude` records stay byte-identical to before
+# #130 and every older line reads as `exclude`.
+#
+# `wrap` (this repo's rule, not RampNet's; #130 follow-up): edge peaks kept AND non-maximum
+# suppression wrapped across the seam -- the same peak finder with the heatmap's x axis
+# cyclic (detectors/decode._cylinder_peaks), so one ramp straddling the seam gives one peak
+# (the stronger half). It is a frame of its own, distinct from `keep`, which stores both
+# halves: as sets of peaks, exclude <= wrap <= keep when no exact (clipped) ties are
+# involved, and every guard that refuses an exclude/keep
+# mix refuses a keep/wrap or exclude/wrap mix the same way (docs/seam-band-130.md section 9).
 BORDER_EXCLUDE = 'exclude'
 BORDER_KEEP = 'keep'
-BORDERS = (BORDER_EXCLUDE, BORDER_KEEP)
+BORDER_WRAP = 'wrap'
+BORDERS = (BORDER_EXCLUDE, BORDER_KEEP, BORDER_WRAP)
 DEFAULT_BORDER = BORDER_EXCLUDE
 RECORD_BORDER_KEY = 'detection_border'
 
@@ -287,9 +296,9 @@ def single_border(counts, what, allow_mixed=False):
     if len(counts) > 1 and not allow_mixed:
         mix = ', '.join(f'{k}: {v}' for k, v in sorted(counts.items()))
         raise ValueError(
-            f'{what} mixes peak border rules ({mix}): keep stores the seam-band peaks that '
-            f'exclude drops, so combining them puts part of the file in a different frame '
-            f'(issue #130). Keep each border rule in its own file / run.')
+            f'{what} mixes peak border rules ({mix}): the rules differ in which seam-band '
+            f'peaks they store, so combining them puts part of the file in a different '
+            f'frame (issue #130). Keep each border rule in its own file / run.')
     return counts.most_common(1)[0][0] if counts else BORDER_EXCLUDE
 
 

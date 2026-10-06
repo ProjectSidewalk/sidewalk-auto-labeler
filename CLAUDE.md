@@ -37,7 +37,9 @@ python main.py example_geojson/richmond.geojson --name richmond --source mapilla
 python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
 # PANORAMAX MEASURED (issue #57 part 1; docs/panoramax-bayonne.md, corrected after two PR #125
 # reviews). Bayonne ran in full at --thin-spacing 10 (rule: 10 m if the scan-only estimate > 16 h;
-# it printed 21.1 h at 5 m; the manifest does not record the spacing -- #126): 73,161 in-area
+# it printed 21.1 h at 5 m; the manifest did not record the spacing at the time; since #126 every
+# main-pass run entry records `thin_spacing_m` + `panos_before_thinning` and the run dir is bound
+# to the spacing (Bayonne's manifest predates it -- see the backfill decision on the #126 PR)): 73,161 in-area
 # pictures -> 28,634 thinned -> 28,524 processed, 0 failed, 6.7 h on the A40. 104 of the 110
 # skips are GoPro MAX2 uploads whose `hd` image is a vertically CROPPED equirect (declared
 # 7680x3840, served 7680x2940) -- correctly skipped; 3 more are unexplained (#127: truncated body
@@ -305,7 +307,12 @@ python scripts/subcell_decode.py figures
 # columns at the 360-degree seam -- coarse columns 0 and 127 of the exact x8 upsample, 5.6 deg of
 # azimuth -- never yield a detection. `main.py --border keep`
 # / `reinfer.py --border keep` use RampNet's rule instead (exclude_border=False, NO NMS across the
-# seam, so a straddling ramp can give two peaks). Bound exactly like the decode: manifest
+# seam, so a straddling ramp can give two peaks). `--border wrap` (#130 follow-up) is keep plus NMS
+# wrapped across the seam (skimage's finder re-implemented on a cylinder, decode._cylinder_peaks;
+# tested against a brute-force cylinder incl. clipped ties), this repo's own rule: one peak per
+# straddling ramp; bound and guarded like keep, a frame of its own (keep/wrap mixes are refused too);
+# estimated on the committed Laurens data to remove 3 of keep's 15 gained peaks at 0.30 and the
+# one duplicate site (seam-band-130.md section 9). Bound exactly like the decode: manifest
 # `detection_border`, keep records carry "detection_border": "keep" (exclude records and
 # submission records byte-identical), fuse_sites / reinfer --verify / send_to_ps.py refuse a mix
 # (--allow-mixed-border, recorded; send_to_ps also reads sibling runs/*/ campaigns on the same
@@ -934,7 +941,9 @@ The pipeline is two stages run by two separate entry points:
 misconfiguration). `fetch_pano` distinguishes deterministic `skipped` (cached, never
 retried — indoor GSV panos, non-360 or non-2:1 Mapillary images, incomplete metadata,
 image bytes that arrived but do not decode — only PIL's "these bytes are not an image"
-errors count, so a `MemoryError` mid-decode stays retryable) from retryable `failure` (left
+errors count, so a `MemoryError` mid-decode, a body shorter than its `Content-Length`, and
+PIL's truncated-file `OSError` all stay retryable (#127; both rules shared by Mapillary and
+Panoramax via `sources.mapillary.decode_failure_is_permanent` / `body_is_complete`)) from retryable `failure` (left
 uncached — network/HTTP errors, and a 200 whose Content-Type is not `image/*`). An image **404 differs by source on purpose**: Mapillary's
 `thumb_original_url` is signed and expires, so a 404 there is transient (`failure`);
 Panoramax's `hd` URL is plain, so a 404 there means the pixels are gone (`skipped`).
@@ -1007,7 +1016,11 @@ geometry used), and `scan.json` (the last coverage scan, gitignored; see step 2)
 resumable — re-running skips cached panos, and failed panos are intentionally left out of the
 cache so they retry next run. A run directory is bound to one geometry and one imagery
 source: rerunning a name with an edited geojson or a different `--source` is refused
-(checked against the manifest) instead of silently forking state. The manifest also records
+(checked against the manifest) instead of silently forking state; and, for sources that thin
+(Mapillary, Panoramax), to one `--thin-spacing` (`thin_spacing_m`, #126; `0` = disabled,
+`null` = no thinning hook); a manifest from before the key is bound on its first resume
+with a one-time note, since the value that made its records is not knowable from the code.
+The manifest also records
 `detection_storage_floor`; resuming a run whose stored floor differs from the current code's
 is refused for the same reason (legacy manifests read as 0.55 — those runs stored only
 operational detections).
