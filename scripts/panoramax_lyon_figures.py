@@ -7,6 +7,9 @@ Two subcommands, so that what needs the run files and what needs neither stay ap
                  slice --limit would pick (first N sorted ids of the 10 m set). No
                  network, no GPU; scan.json is gitignored, so this is the one step that
                  needs a local scan.
+    rig-producers  runs/lyon/results.jsonl -> data/rig_producer_detections.csv
+                 Detections per pano per (rig, year, producer) group of >= 200 panos;
+                 separates rig from operator. No network, no GPU.
     figures      committed CSVs only -> fig1_rig_rates, fig2_years as PNG (200 dpi) +
                  SVG. Reads data/scan_years.csv, data/census/{lyon,bayonne}/
                  rig_detections.csv + years.csv, and the six-run reference rates
@@ -16,6 +19,7 @@ Two subcommands, so that what needs the run files and what needs neither stay ap
 
 Usage:
     python scripts/panoramax_lyon_figures.py census-scan
+    python scripts/panoramax_lyon_figures.py rig-producers
     python scripts/panoramax_lyon_figures.py figures
 """
 import argparse
@@ -80,6 +84,43 @@ def census_scan(scan_path):
         w.writerow(['total', *(len(s) for s in sets.values())])
     print(f'wrote {DATA / "scan_years.csv"} (scanned_at {scan["scanned_at"]}, '
           f'{scan["pano_count"]} panos, failed_tiles {scan["failed_tiles"]})')
+
+
+# =================================================================== rig-producers
+def rig_producers(results_path, min_panos=200):
+    """Detections per pano per (rig, capture year, producer) for groups >= min_panos.
+
+    In Lyon a rig is mostly one operator's (ecartip drives most GoPro Max 2026 panos,
+    the Metropole the Ladybug), so a per-rig rate is also a per-operator rate; this
+    table is how far the two can be pulled apart. Reads the uncommitted results.jsonl.
+    """
+    from detectors import BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE
+    tiers = (OPERATIONAL_CONFIDENCE, BENCHMARK_CONFIDENCE)
+    n, dets, seqs = Counter(), {t: Counter() for t in tiers}, {}
+    with open(results_path, encoding='utf-8') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            p = rec['pano']
+            key = (p.get('camera_make'), p.get('camera_model'),
+                   f"{p.get('width')}x{p.get('height')}",
+                   (p.get('capture_date') or '')[:4] or 'unknown', p.get('copyright'))
+            n[key] += 1
+            seqs.setdefault(key, set()).add(p.get('sequence_id'))
+            for t in tiers:
+                dets[t][key] += sum(d['confidence'] >= t for d in rec.get('detections') or [])
+    DATA.mkdir(parents=True, exist_ok=True)
+    with open(DATA / 'rig_producer_detections.csv', 'w', newline='\n', encoding='utf-8') as f:
+        w = csv.writer(f, lineterminator='\n')
+        w.writerow(['camera_make', 'camera_model', 'dimensions', 'capture_year', 'producer',
+                    'panos', 'sequences',
+                    *(f'detections_per_pano_{t:g}' for t in tiers)])
+        for key, k in sorted(n.items(), key=lambda kv: (-kv[1], str(kv[0]))):
+            if k >= min_panos:
+                w.writerow([*key, k, len(seqs[key]),
+                            *(round(dets[t][key] / k, 3) for t in tiers)])
+    print(f'wrote {DATA / "rig_producer_detections.csv"}')
 
 
 # ========================================================================= figures
@@ -226,10 +267,14 @@ def main():
     sub = ap.add_subparsers(dest='cmd', required=True)
     cs = sub.add_parser('census-scan')
     cs.add_argument('--scan', default=str(REPO_ROOT / 'runs' / 'lyon' / 'scan.json'))
+    rp = sub.add_parser('rig-producers')
+    rp.add_argument('--results', default=str(REPO_ROOT / 'runs' / 'lyon' / 'results.jsonl'))
     sub.add_parser('figures')
     args = ap.parse_args()
     if args.cmd == 'census-scan':
         census_scan(args.scan)
+    elif args.cmd == 'rig-producers':
+        rig_producers(args.results)
     else:
         plt = _style()
         fig1_rig_rates(plt)

@@ -71,6 +71,14 @@ python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bay
 #   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~45 min, no GPU/network; --only
 #   for parts); skips / examples: network; crops: from the RampNet bundle; figures: committed
 #   data only, byte-reproducible (PNG + LF SVG)
+# LYON (RampNet#159 training-only Panoramax city; docs/panoramax-lyon.md). Slice 1 ran on makelab2's
+# A40 from a separate worktree (~/sal-lyon): --reuse-scan --thin-spacing 10 --limit 40000, i.e. the
+# first 40,000 of the 10 m set's sorted UUIDv4 ids (a uniform subset); runs/lyon is BOUND to 10 m, so a
+# later slice repeats the same command and --limit continues past what is processed. run_census.py's
+# rig_detections.csv gives detections per pano per (make, model, dimensions, capture year) at both
+# tiers -- the per-rig diagnostic Bayonne lacked. No GT bundle (train-or-evaluate rule), no submission.
+python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon --band-y 0.79
+python scripts/panoramax_lyon_figures.py figures    # committed CSVs only; census-scan needs scan.json
 
 # GSV runs end with a gap-fill phase (issue #32): link-target panos the run's own
 # records reference but the tile scan never enumerated (coverage churn) are fetched

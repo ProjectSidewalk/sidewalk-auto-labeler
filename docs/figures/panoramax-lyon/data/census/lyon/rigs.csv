@@ -1,0 +1,17 @@
+camera_make,camera_model,dimensions,panos,share
+GoPro,Max,5760x2880,22539,0.5638
+Point Grey Research,Ladybug,8192x4096,8439,0.2111
+,,8192x4096,6052,0.1514
+Kandao,QooCam 3,11136x5568,885,0.0221
+RICOH,THETA S,5376x2688,524,0.0131
+Arashi Vision,insta360 x3,5952x2976,479,0.012
+,,10560x5280,367,0.0092
+Garmin,VIRB 360,5640x2820,273,0.0068
+GoPro,MAX2,7680x3840,191,0.0048
+Arashi Vision,insta360 x5,7680x3840,120,0.003
+GoPro,Max,4096x2048,53,0.0013
+Arashi Vision,insta360 x5,11904x5952,17,0.0004
+Kandao,Qoocam 3 Ultra,7680x3840,12,0.0003
+Arashi Vision,insta360 oners,6528x3264,12,0.0003
+FLIR Systems Inc.,Ladybug,8192x4096,10,0.0003
+GoPro,,5760x2880,2,0.0001

@@ -1,0 +1,27 @@
+camera_make,camera_model,dimensions,capture_year,producer,panos,sequences,detections_per_pano_0.3,detections_per_pano_0.55
+GoPro,Max,5760x2880,2026,ecartip,10944,350,1.352,0.633
+Point Grey Research,Ladybug,8192x4096,2022,grand lyon,5434,161,0.703,0.299
+GoPro,Max,5760x2880,2025,ecartip,2500,177,0.654,0.263
+,,8192x4096,2020,grand lyon,2177,37,0.765,0.392
+Point Grey Research,Ladybug,8192x4096,2020,grand lyon,1788,140,0.855,0.265
+GoPro,Max,5760x2880,2026,ign_ddc_dtce_np,1439,19,0.862,0.387
+,,8192x4096,2021,grand-lyon,1390,44,0.451,0.163
+GoPro,Max,5760x2880,2026,ign_ddc_dtce_fa,1302,35,0.546,0.224
+GoPro,Max,5760x2880,2023,mike en gyroroue,1064,158,1.125,0.626
+Point Grey Research,Ladybug,8192x4096,2021,grand lyon,1054,67,0.525,0.19
+,,8192x4096,2023,grand-lyon,1016,35,0.433,0.177
+GoPro,Max,5760x2880,2025,trucbidule,959,36,0.796,0.362
+Kandao,QooCam 3,11136x5568,2026,luppano,885,12,0.911,0.443
+GoPro,Max,5760x2880,2025,nuxper_np,781,100,0.832,0.38
+,,8192x4096,2022,grand lyon,777,38,0.317,0.138
+GoPro,Max,5760x2880,2025,ign_ddc_dtce_np,705,9,0.63,0.285
+,,8192x4096,2021,grand lyon,692,23,1.351,0.711
+GoPro,Max,5760x2880,2024,mike en gyroroue,622,44,0.111,0.059
+Arashi Vision,insta360 x3,5952x2976,2026,bpeel,472,16,0.816,0.371
+RICOH,THETA S,5376x2688,2025,luppano,458,20,0.356,0.118
+GoPro,Max,5760x2880,2025,ign_ddc_dtce_fa,436,27,0.388,0.174
+GoPro,Max,5760x2880,2026,luppano,369,7,0.802,0.36
+,,10560x5280,2025,veloroutelavoiebleue,367,2,0.324,0.153
+GoPro,Max,5760x2880,2023,olimago,322,20,0.801,0.342
+Garmin,VIRB 360,5640x2820,2018,geovelo,273,11,0.282,0.121
+GoPro,Max,5760x2880,2026,trucbidule,265,6,0.691,0.343
