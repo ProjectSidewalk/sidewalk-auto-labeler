@@ -2,8 +2,10 @@
  "schema": "sidewalk-auto-labeler.corner_gallery.snapshot/1",
  "city": "vancouver",
  "issue": "RampNet#243",
- "built_at": "2026-10-06T15:57:51+00:00",
- "tool_git_sha": "6c5baffdbcc8a8aae8712f7ea15c2874f2aefb1c",
+ "built_at": "2026-10-06T16:01:47+00:00",
+ "tool_git_sha": "d7e974cbf29ef64d51dc5ae2da469d57dfd56223",
+ "tool_git_dirty": false,
+ "python": "3.12.10",
  "seed": 243,
  "n_na": 40,
  "n_clean": 20,
@@ -216,35 +218,35 @@
  "items_sha256": "bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459",
  "inputs": {
   "build_json": {
-   "path": "D:\\Git\\labeler-wt\\gallery243\\runs\\vancouver\\corner_inventory_posdetect241\\build.json",
+   "path": "runs/vancouver/corner_inventory_posdetect241/build.json",
    "sha256": "b0d8fcdd4b37473ec4a439668d1c6d1ebf88e46d23e35e28ac6096ea9395afac"
   },
   "corners_full": {
-   "path": "D:\\Git\\labeler-wt\\posdetect241\\runs\\vancouver\\corner_inventory_posdetect241\\corners_full.jsonl",
+   "path": "../posdetect241/runs/vancouver/corner_inventory_posdetect241/corners_full.jsonl",
    "sha256": "ec20606098d0e8b34113b4b328e57d3737b7669d01a37f1d6d722faab4681f8d"
   },
   "targets": {
-   "path": "D:\\Git\\labeler-wt\\gallery243\\runs\\vancouver\\corner_posdetect241\\select\\units.csv",
+   "path": "runs/vancouver/corner_posdetect241/select/units.csv",
    "sha256": "671565c26d984f968844878f52dd708286db4b98c204952faaab14418f45db2c"
   },
   "false_absences": {
-   "path": "D:\\Git\\labeler-wt\\gallery243\\runs\\vancouver\\corner_inventory_posdetect241\\false_absences.csv",
+   "path": "runs/vancouver/corner_inventory_posdetect241/false_absences.csv",
    "sha256": "623077677901638aab6f640615f402b9deb9306b6587eaa122095b9c80aa2cc7"
   },
   "inventory": {
-   "path": "D:\\Git\\sal-vancouver\\runs\\vancouver\\inventory_oracle\\inventory.geojson",
+   "path": "../../sal-vancouver/runs/vancouver/inventory_oracle/inventory.geojson",
    "sha256": "c4d2497995f7b6261333c3859a668348cd62a36367593cef2dfdfa6b7e020d87"
   },
   "results": {
-   "path": "D:\\Git\\sal-vancouver\\runs\\vancouver\\results.jsonl",
+   "path": "../../sal-vancouver/runs/vancouver/results.jsonl",
    "sha256": "7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28"
   },
   "extra:vancouver_posdetect241:results": {
-   "path": "D:\\Git\\labeler-wt\\posdetect241\\runs\\vancouver_posdetect241\\results.jsonl",
+   "path": "../posdetect241/runs/vancouver_posdetect241/results.jsonl",
    "sha256": "69f46b26110df05d1ef52a4431c4b230ceb157941b212fd3d553fd64bb86bf0e"
   },
   "extra:vancouver_posdetect241_gsv:results": {
-   "path": "D:\\Git\\labeler-wt\\posdetect241\\runs\\vancouver_posdetect241_gsv\\results.jsonl",
+   "path": "../posdetect241/runs/vancouver_posdetect241_gsv/results.jsonl",
    "sha256": "953716d1d7f32f2680c101fb9a4d7ab0933939459704fbc62375042768ca57b2"
   }
  },
@@ -272,5 +274,5 @@
   "n_aerial": 95,
   "n_crop": 813
  },
- "seconds": 3.7
+ "seconds": 3.6
 }

@@ -1,6 +1,9 @@
 # Corner present/absent gallery (RampNet#243)
 
-**Status (2026-10-05): built, not rated.** One rater (Jon) will rate it. The page and the
+**Status (2026-10-06): built, not rated; the item list is final.** Rebuilt after the review
+of PR #141 (crop choice now always includes the newest capture, B1): same seed, units and
+order, items.jsonl sha256 `bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459`
+(was `8e5f881b...7bdc1d`). One rater (Jon) will rate it. The page and the
 scorer are built so a second rater can repeat the pass later with their own file.
 Issue: [RampNet#243](https://github.com/ProjectSidewalk/RampNet/issues/243). It follows
 amendment A8 of [`corner-inventory.md`](corner-inventory.md) (RampNet#241).
