@@ -262,13 +262,15 @@ def fetch_pano(pano_id, lat, lon):
     if _compass_angle(meta) is None:
         return {'status': 'skipped', 'reason': 'No compass angle'}
 
-    image, undecodable = _download_image(meta['thumb_original_url'])
+    image, undecodable, detail = _download_image(meta['thumb_original_url'])
     if undecodable:
         # The bytes arrived and are not an image: deterministic, so cache it as skipped
         # rather than re-downloading the same unreadable megabytes on every future run.
-        return {'status': 'skipped', 'reason': 'Undecodable image bytes'}
+        return {'status': 'skipped', 'reason': detail or 'Undecodable image bytes'}
     if image is None:
-        return {'status': 'failure', 'reason': 'Failed to download equirectangular image'}
+        return {'status': 'failure',
+                'reason': 'Failed to download equirectangular image'
+                          + (f' ({detail})' if detail else '')}
 
     return {'status': 'success', 'pano': build_pano_record(pano_id, lat, lon, meta), 'image': image}
 
@@ -347,6 +349,22 @@ def decode_failure_is_permanent(exc) -> bool:
     return not any(m in message for m in TRUNCATED_DECODE_MESSAGES)
 
 
+def describe_exception(exc, limit=200) -> str:
+    """One-line text for a failure reason: `Type: message`, cut at `limit` chars. requests'
+    HTTPError message ends in " for url: <url>"; that tail is dropped, because a Mapillary
+    URL is signed (its token does not belong in a run log) and the pano id is already on
+    the line. Shared by the Mapillary and Panoramax downloads (#127).
+
+        >>> describe_exception(OSError('image file is truncated (12 bytes not processed)'))
+        'OSError: image file is truncated (12 bytes not processed)'
+        >>> describe_exception(ValueError('503 Server Error: Busy for url: https://x/y?sig=abc'))
+        'ValueError: 503 Server Error: Busy'
+    """
+    message = str(exc).split(' for url: ', 1)[0]
+    text = f"{type(exc).__name__}: {message}" if message else type(exc).__name__
+    return text if len(text) <= limit else text[: limit - 3] + '...'
+
+
 def body_is_complete(response) -> bool:
     """False when the server declared a Content-Length and a different number of bytes
     arrived (#127). urllib3 >= 2 already raises on a short read before this is reached;
@@ -370,14 +388,17 @@ def body_is_complete(response) -> bool:
 
 
 def _download_image(url):
-    """(image, permanent) for one image's signed thumbnail, normalized to the detector's
-    4096x2048.
+    """(image, permanent, detail) for one image's signed thumbnail, normalized to the
+    detector's 4096x2048. `detail` is None on success and otherwise says why it failed
+    (the decode error, or the LAST attempt's exception), so the run log can tell a
+    server-side truncation from a flaky network (#127).
 
     Splits the two failure kinds main.py treats differently — it caches a deterministic
     `skipped` forever and retries a `failure` on every future run — the same split
     sources/panoramax.py's _download_image draws (issue #57, part 2):
 
-    - Network/HTTP failures are retryable and return (None, False) after ATTEMPTS tries.
+    - Network/HTTP failures are retryable and return (None, False, last error) after
+      ATTEMPTS tries.
     - A 200 whose Content-Type is not `image/*` (an HTML error or interstitial page
       served with a 200) is also retryable: that says nothing about the image.
     - So is a body that did not arrive whole (#127): a byte count other than its
@@ -385,7 +406,7 @@ def _download_image(url):
       the transfer, not the image.
     - A decode failure on complete bytes is not. Bytes that arrived whole and are not a
       readable image (garbage, a decompression bomb past PIL's ceiling) will not become
-      one on the next try, so it returns (None, True) on the first attempt, never
+      one on the next try, so it returns (None, True, reason) on the first attempt, never
       re-looped. Before this split, one bare `except Exception` sent such a pano back
       around the loop and then left it uncached, so every run of the area re-downloaded
       it. Only decode_failure_is_permanent errors count: anything else raised while
@@ -400,6 +421,7 @@ def _download_image(url):
     metadata call (fetch_image_metadata's `gone`), not by this download. Do not "fix"
     this to match Panoramax: it would permanently cache live panos as skipped.
     """
+    last_error = None
     for attempt in range(ATTEMPTS):
         try:
             response = requests.get(url, timeout=120)
@@ -417,16 +439,17 @@ def _download_image(url):
                 image = Image.open(BytesIO(payload)).convert('RGB')
             except Exception as e:
                 if decode_failure_is_permanent(e):
-                    return None, True
+                    return None, True, f"Undecodable image bytes ({describe_exception(e)})"
                 raise
-        except Exception:
+        except Exception as e:
+            last_error = describe_exception(e)
             if attempt < ATTEMPTS - 1:
                 time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
             continue
         if image.size != TARGET_SIZE:
             image = image.resize(TARGET_SIZE, Image.BILINEAR)
-        return image, False
-    return None, False
+        return image, False, None
+    return None, False, last_error
 
 
 def build_pano_record(pano_id, lat, lon, meta):

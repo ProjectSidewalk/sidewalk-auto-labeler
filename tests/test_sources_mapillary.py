@@ -115,7 +115,7 @@ def test_thin_panos_spacing_is_tunable():
 
 def _patch_fetch(monkeypatch, meta, image="IMAGE", gone=False, undecodable=False):
     monkeypatch.setattr(mapillary, "fetch_image_metadata", lambda image_id: (meta, gone))
-    monkeypatch.setattr(mapillary, "_download_image", lambda url: (image, undecodable))
+    monkeypatch.setattr(mapillary, "_download_image", lambda url: (image, undecodable, None))
 
 
 def test_fetch_pano_success_record_contract(monkeypatch):
@@ -320,7 +320,7 @@ def _jpeg_bytes():
 
 def test_download_image_non_image_bytes_are_permanent_after_one_request(monkeypatch):
     calls = _fake_image_get(monkeypatch, lambda n: _response(200, b"<html>not a jpeg</html>"))
-    assert mapillary._download_image("https://example.test/signed.jpg") == (None, True)
+    assert mapillary._download_image("https://example.test/signed.jpg")[:2] == (None, True)
     assert len(calls) == 1                       # decode failures are never re-looped
 
 
@@ -328,7 +328,7 @@ def test_download_image_connection_error_is_retryable_after_all_attempts(monkeyp
     def respond(n):
         raise OSError("connection reset")
     calls = _fake_image_get(monkeypatch, respond)
-    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert mapillary._download_image("https://example.test/signed.jpg")[:2] == (None, False)
     assert len(calls) == mapillary.ATTEMPTS
 
 
@@ -336,13 +336,13 @@ def test_download_image_404_is_retryable_because_the_url_is_signed(monkeypatch):
     # Unlike Panoramax's plain hd URL, a 404 on an expiring signed URL is transient:
     # it must come back as a retryable failure, not a cached skip.
     calls = _fake_image_get(monkeypatch, lambda n: _response(404))
-    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert mapillary._download_image("https://example.test/signed.jpg")[:2] == (None, False)
     assert len(calls) == mapillary.ATTEMPTS
 
 
 def test_download_image_success_normalizes_to_detector_size(monkeypatch):
     calls = _fake_image_get(monkeypatch, lambda n: _response(200, _jpeg_bytes()))
-    image, permanent = mapillary._download_image("https://example.test/signed.jpg")
+    image, permanent, _ = mapillary._download_image("https://example.test/signed.jpg")
     assert permanent is False
     assert image.size == mapillary.TARGET_SIZE
     assert len(calls) == 1
@@ -356,7 +356,7 @@ def test_download_image_memory_error_during_decode_stays_retryable(monkeypatch):
     def oom(*args, **kwargs):
         raise MemoryError()
     monkeypatch.setattr(mapillary.Image, "open", oom)
-    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert mapillary._download_image("https://example.test/signed.jpg")[:2] == (None, False)
     assert len(calls) == mapillary.ATTEMPTS
 
 
@@ -364,7 +364,7 @@ def test_download_image_non_image_content_type_is_retryable(monkeypatch):
     # An HTML error page served with a 200 says nothing about the image itself.
     calls = _fake_image_get(
         monkeypatch, lambda n: _response(200, b"<html>busy</html>", content_type="text/html"))
-    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert mapillary._download_image("https://example.test/signed.jpg")[:2] == (None, False)
     assert len(calls) == mapillary.ATTEMPTS
 
 
@@ -375,7 +375,7 @@ def test_download_image_network_error_then_bad_bytes_is_permanent_after_two(monk
             raise OSError("connection reset")
         return _response(200, b"not a jpeg")
     calls = _fake_image_get(monkeypatch, respond)
-    assert mapillary._download_image("https://example.test/signed.jpg") == (None, True)
+    assert mapillary._download_image("https://example.test/signed.jpg")[:2] == (None, True)
     assert len(calls) == 2
 
 
@@ -396,14 +396,14 @@ def test_download_image_truncated_jpeg_is_retryable(monkeypatch, whole):
     # Length-consistent but cut short: PIL's truncation OSError is about the transfer. (#127)
     data = whole()
     calls = _fake_image_get(monkeypatch, lambda n: _response(200, data[: len(data) // 2]))
-    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert mapillary._download_image("https://example.test/signed.jpg")[:2] == (None, False)
     assert len(calls) == mapillary.ATTEMPTS
 
 
 def test_download_image_content_length_mismatch_is_retryable(monkeypatch):
     calls = _fake_image_get(
         monkeypatch, lambda n: _response(200, _jpeg_bytes(), content_length="999999"))
-    assert mapillary._download_image("https://example.test/signed.jpg") == (None, False)
+    assert mapillary._download_image("https://example.test/signed.jpg")[:2] == (None, False)
     assert len(calls) == mapillary.ATTEMPTS
 
 
@@ -432,3 +432,37 @@ def test_decode_failure_is_permanent(exc, permanent):
 ])
 def test_body_is_complete(headers, content, complete):
     assert mapillary.body_is_complete(SimpleNamespace(headers=headers, content=content)) is complete
+
+
+def test_download_image_detail_names_the_failure(monkeypatch):
+    # (image, permanent, detail): detail is what fetch_pano logs (#127).
+    calls = _fake_image_get(monkeypatch, lambda n: _response(200, b"<html>not a jpeg</html>"))
+    image, permanent, detail = mapillary._download_image("https://example.test/signed.jpg")
+    assert (image, permanent) == (None, True)
+    assert detail.startswith("Undecodable image bytes (UnidentifiedImageError: ")
+
+    # A 404 on the signed URL: retryable, and the signed URL never reaches the log.
+    _fake_image_get(monkeypatch, lambda n: _response(404))
+    _, permanent, detail = mapillary._download_image("https://example.test/signed.jpg?sig=SECRET")
+    assert permanent is False
+    assert detail == "HTTPError: 404"
+
+    _fake_image_get(monkeypatch, lambda n: _response(200, _jpeg_bytes()))
+    assert mapillary._download_image("https://example.test/signed.jpg")[1:] == (False, None)
+
+
+def test_fetch_pano_failure_reason_carries_the_last_error(monkeypatch):
+    monkeypatch.setattr(mapillary, "fetch_image_metadata", lambda image_id: (make_meta(), False))
+    _fake_image_get(monkeypatch, lambda n: _response(200, _jpeg_bytes(), content_length="999999"))
+    result = mapillary.fetch_pano("123456", 0.0, 0.0)
+    assert result["status"] == "failure"
+    assert result["reason"].startswith(
+        "Failed to download equirectangular image (ValueError: short body: Content-Length 999999")
+
+
+def test_describe_exception_drops_the_url_and_caps_the_length():
+    e = mapillary.requests.HTTPError("403 Client Error: Forbidden for url: https://x/y?oh=TOKEN")
+    assert mapillary.describe_exception(e) == "HTTPError: 403 Client Error: Forbidden"
+    assert mapillary.describe_exception(MemoryError()) == "MemoryError"
+    long = mapillary.describe_exception(ValueError("x" * 500))
+    assert len(long) == 200 and long.endswith("...")

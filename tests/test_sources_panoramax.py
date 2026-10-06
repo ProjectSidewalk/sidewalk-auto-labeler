@@ -118,7 +118,7 @@ def test_thin_panos_newest_capture_wins_then_pixel_density():
 def _patch_fetch(monkeypatch, item, image=("IMAGE", (5760, 2880)), gone=False,
                  undecodable=False):
     monkeypatch.setattr(panoramax, "fetch_item", lambda picture_id: (item, gone))
-    monkeypatch.setattr(panoramax, "_download_image", lambda url: (image, undecodable))
+    monkeypatch.setattr(panoramax, "_download_image", lambda url: (image, undecodable, None))
 
 
 def test_fetch_pano_success_record_contract(monkeypatch):
@@ -193,7 +193,7 @@ def test_fetch_pano_uses_geovisio_image_when_the_hd_asset_is_missing(monkeypatch
     seen = []
     monkeypatch.setattr(panoramax, "fetch_item", lambda pid: (make_item(**{"assets.hd": None}), False))
     monkeypatch.setattr(panoramax, "_download_image",
-                        lambda url: seen.append(url) or (("IMAGE", (5760, 2880)), False))
+                        lambda url: seen.append(url) or (("IMAGE", (5760, 2880)), False, None))
     assert panoramax.fetch_pano("x", 0.0, 0.0)["status"] == "success"
     assert seen == ["https://panoramax.openstreetmap.fr/images/4a/c3/b7f9.jpg"]
 
@@ -269,14 +269,14 @@ def test_download_image_separates_decode_failure_from_network_failure(monkeypatc
     # Not an image: one request, permanent.
     monkeypatch.setattr(panoramax.requests, "get",
                         lambda url, **kw: calls.append(url) or answer(200, b"not a jpeg"))
-    assert panoramax._download_image("u") == (None, True)
+    assert panoramax._download_image("u")[:2] == (None, True)
     assert len(calls) == 1
 
     # A 404 on the plain, unsigned asset URL is equally permanent.
     calls.clear()
     monkeypatch.setattr(panoramax.requests, "get",
                         lambda url, **kw: calls.append(url) or answer(404, b""))
-    assert panoramax._download_image("u") == (None, True)
+    assert panoramax._download_image("u")[:2] == (None, True)
     assert len(calls) == 1
 
     # A network error is not: retried, then reported as retryable.
@@ -287,7 +287,7 @@ def test_download_image_separates_decode_failure_from_network_failure(monkeypatc
         raise OSError("connection reset")
 
     monkeypatch.setattr(panoramax.requests, "get", boom)
-    assert panoramax._download_image("u") == (None, False)
+    assert panoramax._download_image("u")[:2] == (None, False)
     assert len(calls) == panoramax.ATTEMPTS
 
 
@@ -329,7 +329,7 @@ def test_download_image_short_body_is_retryable(monkeypatch):
     # Fewer bytes than the server declared: the transfer was cut, the pixels were not. (#127)
     calls = _serve_asset(monkeypatch, _asset_response(
         200, b"\xff\xd8\xff", headers={"Content-Length": "100000"}))
-    assert panoramax._download_image("u") == (None, False)
+    assert panoramax._download_image("u")[:2] == (None, False)
     assert len(calls) == panoramax.ATTEMPTS
 
 
@@ -349,7 +349,7 @@ def test_download_image_truncated_jpeg_is_retryable(monkeypatch, noisy, message)
     with pytest.raises(OSError, match=message):
         Image.open(BytesIO(body)).convert("RGB")
     calls = _serve_asset(monkeypatch, _asset_response(200, body))
-    assert panoramax._download_image("u") == (None, False)
+    assert panoramax._download_image("u")[:2] == (None, False)
     assert len(calls) == panoramax.ATTEMPTS
 
 
@@ -359,19 +359,19 @@ def test_download_image_memory_error_during_decode_is_retryable(monkeypatch):
     def oom(*args, **kwargs):
         raise MemoryError()
     monkeypatch.setattr(panoramax.Image, "open", oom)
-    assert panoramax._download_image("u") == (None, False)
+    assert panoramax._download_image("u")[:2] == (None, False)
     assert len(calls) == panoramax.ATTEMPTS
 
 
 def test_download_image_complete_non_image_bytes_stay_permanent(monkeypatch):
     calls = _serve_asset(monkeypatch, _asset_response(200, b"not a jpeg"))
-    assert panoramax._download_image("u") == (None, True)
+    assert panoramax._download_image("u")[:2] == (None, True)
     assert len(calls) == 1
 
 
 def test_download_image_success_with_matching_length(monkeypatch):
     calls = _serve_asset(monkeypatch, _asset_response(200, _jpeg()))
-    (image, original_size), permanent = panoramax._download_image("u")
+    (image, original_size), permanent, _ = panoramax._download_image("u")
     assert permanent is False
     assert original_size == (200, 100)
     assert image.size == panoramax.TARGET_SIZE
@@ -470,3 +470,45 @@ def test_api_url_env_override_points_at_a_single_instance(monkeypatch):
         status_code=404, json=lambda: {}, raise_for_status=lambda: None))
     panoramax.fetch_item("abc")
     assert seen == ["https://pano.locus.sbs/api/pictures/abc"]
+
+
+def test_fetch_pano_skip_reasons_separate_a_gone_asset_from_undecodable_bytes(monkeypatch):
+    # Distinct reasons, so a run log can count 404 skips apart from decode skips (#127's
+    # transient-404 question). The 404 itself stays a permanent skip.
+    monkeypatch.setattr(panoramax, "fetch_item", lambda picture_id: (make_item(), False))
+    monkeypatch.setattr(panoramax.time, "sleep", lambda s: None)
+
+    monkeypatch.setattr(panoramax.requests, "get", lambda url, **kw: _asset_response(404, b""))
+    result = panoramax.fetch_pano("x", 0.0, 0.0)
+    assert result == {"status": "skipped", "reason": "Image asset is gone (HTTP 404)"}
+
+    monkeypatch.setattr(panoramax.requests, "get",
+                        lambda url, **kw: _asset_response(200, b"not a jpeg"))
+    result = panoramax.fetch_pano("x", 0.0, 0.0)
+    assert result["status"] == "skipped"
+    assert result["reason"].startswith("Undecodable image bytes (UnidentifiedImageError: ")
+
+
+def test_fetch_pano_failure_reason_carries_the_last_error(monkeypatch):
+    # A server-side truncation must read apart from a flaky network in the log.
+    monkeypatch.setattr(panoramax, "fetch_item", lambda picture_id: (make_item(), False))
+    monkeypatch.setattr(panoramax.time, "sleep", lambda s: None)
+    whole = _jpeg((400, 200), noisy=True)
+    monkeypatch.setattr(panoramax.requests, "get",
+                        lambda url, **kw: _asset_response(200, whole[: len(whole) // 2]))
+    result = panoramax.fetch_pano("x", 0.0, 0.0)
+    assert result["status"] == "failure"
+    assert result["reason"].startswith(
+        "Failed to download equirectangular image (OSError: image file is truncated")
+
+    monkeypatch.setattr(panoramax.requests, "get", lambda url, **kw: _asset_response(
+        200, b"\xff\xd8\xff", headers={"Content-Length": "100000"}))
+    result = panoramax.fetch_pano("x", 0.0, 0.0)
+    assert result == {"status": "failure", "reason": "Failed to download equirectangular image "
+                      "(ValueError: short body: Content-Length 100000, got 3 bytes)"}
+
+    def reset(url, **kw):
+        raise OSError("connection reset")
+    monkeypatch.setattr(panoramax.requests, "get", reset)
+    assert panoramax.fetch_pano("x", 0.0, 0.0)["reason"] == \
+        "Failed to download equirectangular image (OSError: connection reset)"
