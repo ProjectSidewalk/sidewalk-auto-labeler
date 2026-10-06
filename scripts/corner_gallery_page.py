@@ -275,6 +275,7 @@ const RUBRIC = __RUBRIC_JSON__;
 const SCHEMA = __SCHEMA__;
 const INITIAL = __INITIAL__;            // an existing verdicts file, or null
 const ATTRIBUTION = __ATTRIBUTION__;
+const PS_HOST = __PS_HOST__;
 const FILE_NAME = __FILE_NAME__;
 const STORE = 'cornergallery243:' + CITY + ':' + RATER + ':' + ITEMS_SHA;
 const NSTORE = STORE + ':notes', ISTORE = STORE + ':idx';
@@ -590,13 +591,23 @@ function openLightbox(ci, vi) {
   const el = document.getElementById('lb');
   el.innerHTML = '<div class="big"><img src="' + esc(v.crop) + '" alt="Corner ' + c.corner + ', view ' + (vi + 1) + ', enlarged"><div class="cap">Corner ' + c.corner +
     ' · view ' + (vi + 1) + ' of ' + c.views.length + ' · captured ' + esc(v.date || '?') + ' · ' + v.dist_m.toFixed(1) + ' m · pano ' + esc(v.pano_id) +
-    ' · <a target="_blank" rel="noopener" href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;pano=' + encodeURIComponent(v.pano_id) +
-    '&amp;heading=' + Math.round(v.heading) + '&amp;pitch=-20&amp;fov=90">open this pano in Street View</a> (same pano, to look around)' +
+    '<br>Look around in: ' + panoLinks(v) +
     '<br>Esc or click outside: close · ←/→: other views</div></div>' +
     (c.views.length > 1 ? '<div class="side">' + c.views.map((w, i) => '<img data-vi="' + i + '" class="' + (i === vi ? 'on' : '') + '" src="' + esc(w.crop) + '" alt="view ' + (i + 1) + '">').join('') + '</div>' : '') +
     '<button id="lbclose" style="position:fixed;top:12px;right:16px">Close</button>';
   el.style.display = 'flex';
   document.getElementById('lbclose').focus();
+}
+// Links to the same pano at the same heading, for when a crop is framed too tight. Project
+// Sidewalk Explore serves its cached copy when Google has expired the pano (about 1 in 6 here,
+// probed 2026-10-06); Google's own viewer uses the URL form Maps itself writes.
+function panoLinks(v) {
+  const h = Math.round(v.heading), id = encodeURIComponent(v.pano_id);
+  const ps = PS_HOST + '/explore?lat=' + v.cam.lat + '&amp;lng=' + v.cam.lng + '&amp;panoId=' + id +
+             '&amp;heading=' + h + '&amp;pitch=-20';
+  const g = 'https://www.google.com/maps/@' + v.cam.lat + ',' + v.cam.lng + ',3a,90y,' + h + 'h,70t/data=!3m4!1e1!3m2!1s' + id + '!2e0';
+  return '<a target="_blank" rel="noopener" href="' + ps + '">Project Sidewalk Explore</a> (has expired panos) · ' +
+         '<a target="_blank" rel="noopener" href="' + g + '">Google Street View</a>';
 }
 function closeLightbox() { document.getElementById('lb').style.display = 'none'; const b = lb && lb.back; lb = null; if (b && b.focus) b.focus(); }
 document.getElementById('lb').addEventListener('click', ev => {

@@ -725,6 +725,7 @@ def build_html(units, items_sha, rater, initial, attribution):
             .replace('__SCHEMA__', json.dumps(VERDICTS_SCHEMA))
             .replace('__INITIAL__', json.dumps(initial))
             .replace('__ATTRIBUTION__', json.dumps(attribution))
+            .replace('__PS_HOST__', json.dumps(PS_HOST))
             .replace('__FILE_NAME__', json.dumps(rater_file_name(rater))))
 
 
@@ -760,6 +761,9 @@ def cmd_render(args):
     return 0
 
 
+# The Project Sidewalk deployment for CITY: its Explore page shows a pano by id, from PS's own
+# cached copy when Google has expired it (the enlarged crop links there).
+PS_HOST = 'https://sidewalk-vancouver.cs.washington.edu'
 ESRI_IDENTIFY = ('https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/'
                  'identify')
 AERIAL_DATES_FILE = 'aerial_dates.json'

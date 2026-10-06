@@ -177,10 +177,17 @@ Jon rated 28 of 95 units, exported (committed as the partial `verdicts__jonf.jso
 - **Visible prompt after `a`**: "Add why (optional): b ... n ...".
 - **Complete button renamed** "Done: lock ratings (c)" with a one-line hint, because it was
   unclear that it had to be pressed once per unit.
-- **Street View link** in the enlarged crop: the same pano at the same heading, for when the
-  crop framing is too tight to judge (Jon's notes on `art:n47331236`, `res:n47231852`,
-  `sig:n1642453647`). It is the pinned pano, but Google serves it, so a rating that relied on
-  it should say so in the unit note.
+- **Look-around links** in the enlarged crop, both to the same pano at the same heading, for
+  when the crop framing is too tight to judge (Jon's notes on `art:n47331236`,
+  `res:n47231852`, `sig:n1642453647`): **Project Sidewalk Explore**
+  (`/explore?lat&lng&panoId&heading&pitch`), which serves PS's cached copy when Google has
+  expired the pano, and **Google Street View** (the `@lat,lng,3a,...,/data=!3m4!1e1!3m2!1s<pano>`
+  form). A first version linked only Google's `api=1&map_action=pano` URL and Jon got "No
+  street view imagery available here". Probed 2026-10-06: 4 of 24 sampled panos return a
+  blank tile from Google (expired), and all 4 have a PS backup (`/backupImage/<pano>/metadata`
+  200); the backup image itself needs a signed URL, so Explore is the way in. Opening Explore
+  as a logged-in user starts an address drop-in there. Either way the view is served live, so
+  a rating that relied on it should say so in the unit note.
 - **Rubric clarification (no rubric text change):** a curb cut where a shared-use path or
   trail meets the street serves pedestrians and counts as **present**. A feature that is for
   bikes only is **can't tell**, with a note. Raised by Jon's notes on `art:n47270030` (a
