@@ -141,8 +141,10 @@ def _check_corner_map(cid, what, m, keys, problems, need_all):
             problems.append(f'{cid}: {what} corner {k} has absent_kind with verdict {v!r}')
 
 
-def validate(verdicts, items, items_sha):
-    """Every reason the file cannot be scored, as strings (empty = valid)."""
+def validate(verdicts, items, items_sha, rubric=None):
+    """Every reason the file cannot be scored, as strings (empty = valid). rubric: the bundle's
+    rubric text (snapshot.json); when given, the file's rubric must be that exact text, so an
+    edit to the rubric without a version bump cannot mix two definitions silently."""
     problems = []
     if verdicts.get('schema') != SCHEMA:
         problems.append(f"schema {verdicts.get('schema')!r}, expected {SCHEMA!r}")
@@ -154,6 +156,9 @@ def validate(verdicts, items, items_sha):
                         f'{RUBRIC_VERSION}')
     if not isinstance(verdicts.get('rubric'), str) or not verdicts['rubric'].strip():
         problems.append('the rubric text is missing (it travels in the verdicts file)')
+    elif rubric is not None and verdicts['rubric'] != rubric:
+        problems.append('the rubric text differs from the bundle rubric (snapshot.json): the page '
+                        'was rendered with another rubric')
     if not isinstance(verdicts.get('rater'), str) or not re.fullmatch(r'[A-Za-z0-9_.-]+',
                                                                      verdicts.get('rater') or ''):
         problems.append(f"rater {verdicts.get('rater')!r}")
@@ -451,7 +456,7 @@ def main(argv=None):
         raise SystemExit('items.jsonl does not match snapshot.json')
     problems, results = {}, {}
     for rater, v in files.items():
-        problems[rater] = validate(v, items, items_sha)
+        problems[rater] = validate(v, items, items_sha, snapshot.get('rubric'))
         if v.get('rater') != rater:
             problems[rater].append(f"file name says rater {rater!r}, the file {v.get('rater')!r}")
         results[rater] = {'blind': score_rater(items, v, snapshot, 'blind'),

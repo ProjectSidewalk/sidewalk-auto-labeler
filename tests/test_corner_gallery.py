@@ -253,6 +253,9 @@ def test_validate_refusals():
     for frag in ('items_sha256', 'rubric text', 'u9: not a unit', 'corner 1 has no verdict',
                  'absent_kind with verdict', 'inventory_seen is false'):
         assert frag in p, frag
+    assert cs.validate(good, items, 'S', rubric=cg.RUBRIC) == []
+    assert any('rubric text differs' in x
+               for x in cs.validate(good, items, 'S', rubric=cg.RUBRIC + 'edited'))
     nob = vfile({'u1': dict(unit_verdicts(['absent'] * 3), blind=None)})
     assert any('no blind' in x for x in cs.validate(nob, items, 'S'))
 
