@@ -64,7 +64,7 @@
     "rule": "paired-unsigned-v1 (issue #62)",
     "panos_not_near_a_street": 4027
   },
-  "thin_spacing_m": 10,
+  "thin_spacing_m": 5,
   "thin_spacing_backfilled": {
     "at": "2026-10-05",
     "how": "by hand (issue #126 follow-up), not by main.py; no thin_spacing_bound_on_resume because no resume has bound it",
@@ -74,5 +74,13 @@
       "scan.json (73,161 panos, the reused scan) re-thinned with sources.panoramax.thin_panos at 10 m gives exactly the 28,634 ids in already_processed.txt (set-equal); at 5 m it gives 50,528",
       "docs/panoramax-bayonne.md: command used --thin-spacing 10 (pre-stated rule: 10 m when the scan-only estimate exceeds 16 h; it printed 21.1 h)"
     ]
+  },
+  "thin_spacing_changed": {
+    "at": "2026-10-06",
+    "from_m": 10,
+    "to_m": 5,
+    "how": "by hand (issue #147), not by main.py",
+    "why": "thinning experiment (PR #144): on a Bayonne sub-area 10 m keeps 81% of robust sites at 0.30 vs 99% at 5 m",
+    "effect": "runs[2] processed the 10 m set; the following resume appends the 5 m cells it lacks. Re-thinning the same reused scan.json (73,161 panos) gives a 10 m set (28,634) that is an exact subset of the 5 m set (50,528), so the finished results.jsonl is exactly the 5 m population, not a mix"
   }
 }
