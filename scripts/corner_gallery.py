@@ -52,6 +52,7 @@ import hashlib
 import json
 import math
 import os
+import platform
 import random
 import re
 import sys
@@ -163,6 +164,32 @@ def git_sha():
                               text=True, check=True).stdout.strip()
     except Exception:  # pragma: no cover
         return None
+
+
+def git_dirty():
+    """True when tracked files differ from HEAD (so tool_git_sha alone does not pin the code);
+    None when git is unavailable."""
+    import subprocess
+    try:
+        out = subprocess.run(['git', 'status', '--porcelain', '--untracked-files=no'],
+                             cwd=REPO_ROOT, capture_output=True, text=True, check=True).stdout
+        return bool(out.strip())
+    except Exception:  # pragma: no cover
+        return None
+
+
+def portable_path(path):
+    """A path relative to the repo root, '/'-separated, so snapshot.json does not record one
+    machine's absolute layout; absolute only when it is on another drive.
+
+    >>> portable_path(REPO_ROOT / 'runs' / 'x.json')
+    'runs/x.json'
+    """
+    p = Path(path).resolve()
+    try:
+        return os.path.relpath(p, REPO_ROOT).replace(os.sep, '/')
+    except ValueError:
+        return p.as_posix()
 
 
 # ---------------------------------------------------------------------------- sampling
@@ -513,7 +540,7 @@ def cmd_build(args):
         h = sha256_file(path)
         if want and h != want:
             raise SystemExit(f'{path}: sha256 {h[:12]} is not the recorded {want[:12]}')
-        inputs[name] = {'path': str(Path(path).resolve()), 'sha256': h}
+        inputs[name] = {'path': portable_path(path), 'sha256': h}
 
     def recorded(name):
         p = Path(build['inputs'][name]['path'])
@@ -572,7 +599,10 @@ def cmd_build(args):
     import split_figures as sf
     snapshot = {
         'schema': SNAPSHOT_SCHEMA, 'city': CITY, 'issue': 'RampNet#243',
-        'built_at': utc_now(), 'tool_git_sha': git_sha(), 'seed': args.seed,
+        'built_at': utc_now(), 'tool_git_sha': git_sha(), 'tool_git_dirty': git_dirty(),
+        # random.sample's draw is stable across CPython 3 releases for a given seed, but
+        # record the interpreter anyway so a different draw can be traced
+        'python': platform.python_version(), 'seed': args.seed,
         'n_na': args.n_na, 'n_clean': args.n_clean, 'arm_state': ARM_STATE,
         'populations': sizes, 'draw': drawn, 'review_order': order,
         'items_sha256': sha256_file(items_path), 'inputs': inputs,

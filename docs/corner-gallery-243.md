@@ -162,7 +162,11 @@ both have blind verdicts. The unit outcome is:
 - a verdict outside the three values, or an `absent_kind` without `absent`;
 - a complete unit with an unrated corner or without blind verdicts;
 - a complete unit whose `inventory_seen` is false;
-- a negative `elapsed_s`.
+- a negative `elapsed_s`;
+- a rubric text other than the bundle's (`snapshot.json`), so an edit without a version bump
+  cannot mix two definitions;
+- final verdicts that differ from the blind ones while `edited_after_inventory` is false (the
+  page sets that flag on any edit after the reveal, so this means the file was altered).
 
 ## Which `NA` read is primary
 

@@ -141,6 +141,10 @@ def _check_corner_map(cid, what, m, keys, problems, need_all):
             problems.append(f'{cid}: {what} corner {k} has absent_kind with verdict {v!r}')
 
 
+def _norm(m):
+    return {k: ((e or {}).get('verdict'), (e or {}).get('absent_kind')) for k, e in m.items()}
+
+
 def validate(verdicts, items, items_sha, rubric=None):
     """Every reason the file cannot be scored, as strings (empty = valid). rubric: the bundle's
     rubric text (snapshot.json); when given, the file's rubric must be that exact text, so an
@@ -182,6 +186,13 @@ def validate(verdicts, items, items_sha, rubric=None):
             problems.append(f'{cid}: complete but inventory_seen is false')
         if u.get('edited_after_inventory') and not u.get('inventory_seen'):
             problems.append(f'{cid}: edited_after_inventory without inventory_seen')
+        # the page freezes blind at the first completion and flags any later edit, so final
+        # verdicts that differ from blind without the flag mean the file was altered
+        b, c = u.get('blind'), u.get('corners')
+        if isinstance(b, dict) and isinstance(c, dict) and \
+                not u.get('edited_after_inventory') and _norm(b) != _norm(c):
+            problems.append(f'{cid}: final verdicts differ from blind but '
+                            f'edited_after_inventory is false')
         e = u.get('elapsed_s', 0)
         if not isinstance(e, (int, float)) or e < 0:
             problems.append(f'{cid}: elapsed_s {e!r}')

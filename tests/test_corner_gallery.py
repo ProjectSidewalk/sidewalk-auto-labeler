@@ -264,6 +264,12 @@ def test_validate_refusals():
     assert cs.validate(good, items, 'S', rubric=cg.RUBRIC) == []
     assert any('rubric text differs' in x
                for x in cs.validate(good, items, 'S', rubric=cg.RUBRIC + 'edited'))
+    # N10: final differs from blind with no edited_after_inventory flag -> altered file
+    unflagged = vfile({'u1': unit_verdicts(['present', 'absent', 'absent'], blind=['absent'] * 3)})
+    assert any('edited_after_inventory is false' in x for x in cs.validate(unflagged, items, 'S'))
+    unflagged['units']['u1']['edited_after_inventory'] = True
+    assert cs.validate(unflagged, items, 'S') == []
+    assert cg.portable_path(cg.REPO_ROOT / 'runs' / 'x.json') == 'runs/x.json'
     nob = vfile({'u1': dict(unit_verdicts(['absent'] * 3), blind=None)})
     assert any('no blind' in x for x in cs.validate(nob, items, 'S'))
 
