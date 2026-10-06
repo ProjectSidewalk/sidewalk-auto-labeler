@@ -533,8 +533,9 @@ def bind_decode(manifest, decode, run_dir):
 def bind_border(manifest, border, run_dir):
     """
     Binds a run directory to one peak border rule (issue #130), the way bind_decode binds
-    the decode: `keep` stores the seam-band peaks that `exclude` drops, so a resume or gap
-    fill under the other rule would put panos found two ways in one results.jsonl. Exits on
+    the decode: the rules (exclude / keep / wrap) differ in which seam-band peaks they
+    store, so a resume or gap fill under another rule would put panos found two ways in one
+    results.jsonl. Exits on
     a mismatch; returns True when the manifest changed (first binding) so the caller saves it.
 
     A manifest without `detection_border` predates #130 or was created by --scan-only. If
@@ -1274,7 +1275,9 @@ def main():
              "'exclude' (default; every live label) drops them, which leaves a 5.6-degree "
              "blind band (coarse columns 0 and 127) at the 360-degree seam; 'keep' is RampNet's rule (opt-in). The run "
              "directory is bound to its rule (manifest.json detection_border) and 'keep' "
-             "records carry it. A new city may use 'keep' from its first run; an existing "
+             "records carry it. 'wrap' keeps them and suppresses the weaker half of a "
+             "seam-straddling pair (this repo's rule, opt-in; its records carry it too). "
+             "A new city may use 'keep' from its first run; an existing "
              "city only under a new --name (docs/seam-band-130.md)."
     )
     gap_group = parser.add_mutually_exclusive_group()

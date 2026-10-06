@@ -1087,7 +1087,9 @@ def check_detection_border(input_file: Path, endpoint_url: Optional[str] = None)
     same way as check_detection_decode's and over the same campaigns (campaign_records: this
     directory, plus sibling run directories on the same endpoint -- the documented re-run of
     a live city is a new `--name`, i.e. a sibling directory), overridden only with
-    --allow-mixed-border, which the submission record then shows.
+    --allow-mixed-border, which the submission record then shows. `wrap` (keep plus NMS
+    across the seam) is a rule of its own: it differs from both others in which seam-band
+    labels exist, so it is refused beside either, by the same string comparison.
     """
     border = single_border(borders_in_file(input_file), input_file.name)
     others = {name: recorded_border(record)
@@ -1098,8 +1100,9 @@ def check_detection_border(input_file: Path, endpoint_url: Optional[str] = None)
         raise ValueError(
             f"{input_file.name} was detected with the '{border}' peak border rule, but "
             f"campaigns already recorded beside it went out under another: {named}. Their "
-            f"labels are live without (or with) the seam band, so this is a whole-city frame "
-            f"change (#130; docs/seam-band-130.md). (--allow-mixed-border overrides)")
+            f"labels are live under another seam rule, which stores the seam band "
+            f"differently, so this is a whole-city frame change (#130; "
+            f"docs/seam-band-130.md). (--allow-mixed-border overrides)")
     return border
 
 
@@ -1813,7 +1816,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--allow-mixed-border", action="store_true",
-        help="Submit a file that mixes the exclude and keep peak border rules, or whose rule "
+        help="Submit a file that mixes peak border rules (exclude / keep / wrap), or whose rule "
              "differs from campaigns already recorded in the same run directory (issue #130). "
              "Adds or omits seam-band labels relative to the city's live ones; recorded in the "
              "submission record."
