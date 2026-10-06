@@ -142,6 +142,60 @@
      "split": 0,
      "view": 0
     }
+   },
+   "wrap_estimate": {
+    "0.1": {
+     "gained_share_of_wrap": {
+      "ci95": [
+       0.012465,
+       0.018812
+      ],
+      "k": 89,
+      "n": 5810,
+      "rate": 0.015318
+     },
+     "gained_under_wrap": 89,
+     "pairs_both_halves_at_or_above_t": 8,
+     "suppressed_under_wrap": 8,
+     "wrap_peaks": 5810
+    },
+    "0.3": {
+     "gained_share_of_wrap": {
+      "ci95": [
+       0.003945,
+       0.012002
+      ],
+      "k": 12,
+      "n": 1742,
+      "rate": 0.006889
+     },
+     "gained_under_wrap": 12,
+     "pairs_both_halves_at_or_above_t": 3,
+     "suppressed_under_wrap": 3,
+     "wrap_peaks": 1742
+    },
+    "0.55": {
+     "gained_share_of_wrap": {
+      "ci95": [
+       0.000774,
+       0.010227
+      ],
+      "k": 2,
+      "n": 709,
+      "rate": 0.002821
+     },
+     "gained_under_wrap": 2,
+     "pairs_both_halves_at_or_above_t": 1,
+     "suppressed_under_wrap": 1,
+     "wrap_peaks": 709
+    },
+    "world": {
+     "operational_sites_keep": 333,
+     "operational_sites_wrap_estimate": 332,
+     "straddle_halves_fused_as_second_site": 1,
+     "straddle_rows_not_projected": 4,
+     "world_rows_suppressed": 3
+    }
    }
   },
   "laurens_gsv": {
@@ -253,6 +307,53 @@
      },
      "straddle_pairs": 0,
      "top_bottom_gained": 0
+    }
+   },
+   "wrap_estimate": {
+    "0.1": {
+     "gained_share_of_wrap": {
+      "ci95": [
+       0.565509,
+       1.0
+      ],
+      "k": 5,
+      "n": 5,
+      "rate": 1.0
+     },
+     "gained_under_wrap": 5,
+     "pairs_both_halves_at_or_above_t": 0,
+     "suppressed_under_wrap": 0,
+     "wrap_peaks": 5
+    },
+    "0.3": {
+     "gained_share_of_wrap": {
+      "ci95": [
+       0.0,
+       1.0
+      ],
+      "k": 0,
+      "n": 0,
+      "rate": null
+     },
+     "gained_under_wrap": 0,
+     "pairs_both_halves_at_or_above_t": 0,
+     "suppressed_under_wrap": 0,
+     "wrap_peaks": 0
+    },
+    "0.55": {
+     "gained_share_of_wrap": {
+      "ci95": [
+       0.0,
+       1.0
+      ],
+      "k": 0,
+      "n": 0,
+      "rate": null
+     },
+     "gained_under_wrap": 0,
+     "pairs_both_halves_at_or_above_t": 0,
+     "suppressed_under_wrap": 0,
+     "wrap_peaks": 0
     }
    }
   },
@@ -397,6 +498,60 @@
      "promoted": 0,
      "split": 0,
      "view": 0
+    }
+   },
+   "wrap_estimate": {
+    "0.1": {
+     "gained_share_of_wrap": {
+      "ci95": [
+       0.002929,
+       0.010538
+      ],
+      "k": 9,
+      "n": 1618,
+      "rate": 0.005562
+     },
+     "gained_under_wrap": 9,
+     "pairs_both_halves_at_or_above_t": 1,
+     "suppressed_under_wrap": 1,
+     "wrap_peaks": 1618
+    },
+    "0.3": {
+     "gained_share_of_wrap": {
+      "ci95": [
+       0.000646,
+       0.008548
+      ],
+      "k": 2,
+      "n": 849,
+      "rate": 0.002356
+     },
+     "gained_under_wrap": 2,
+     "pairs_both_halves_at_or_above_t": 0,
+     "suppressed_under_wrap": 0,
+     "wrap_peaks": 849
+    },
+    "0.55": {
+     "gained_share_of_wrap": {
+      "ci95": [
+       0.000392,
+       0.012479
+      ],
+      "k": 1,
+      "n": 450,
+      "rate": 0.002222
+     },
+     "gained_under_wrap": 1,
+     "pairs_both_halves_at_or_above_t": 0,
+     "suppressed_under_wrap": 0,
+     "wrap_peaks": 450
+    },
+    "world": {
+     "operational_sites_keep": 255,
+     "operational_sites_wrap_estimate": 255,
+     "straddle_halves_fused_as_second_site": 0,
+     "straddle_rows_not_projected": 0,
+     "world_rows_suppressed": 0
     }
    }
   }
@@ -559,6 +714,60 @@
     "promoted": 0,
     "split": 0,
     "view": 0
+   }
+  },
+  "wrap_estimate": {
+   "0.1": {
+    "gained_share_of_wrap": {
+     "ci95": [
+      0.010839,
+      0.016051
+     ],
+     "k": 98,
+     "n": 7428,
+     "rate": 0.013193
+    },
+    "gained_under_wrap": 98,
+    "pairs_both_halves_at_or_above_t": 9,
+    "suppressed_under_wrap": 9,
+    "wrap_peaks": 7428
+   },
+   "0.3": {
+    "gained_share_of_wrap": {
+     "ci95": [
+      0.003221,
+      0.00905
+     ],
+     "k": 14,
+     "n": 2591,
+     "rate": 0.005403
+    },
+    "gained_under_wrap": 14,
+    "pairs_both_halves_at_or_above_t": 3,
+    "suppressed_under_wrap": 3,
+    "wrap_peaks": 2591
+   },
+   "0.55": {
+    "gained_share_of_wrap": {
+     "ci95": [
+      0.000881,
+      0.007583
+     ],
+     "k": 3,
+     "n": 1159,
+     "rate": 0.002588
+    },
+    "gained_under_wrap": 3,
+    "pairs_both_halves_at_or_above_t": 1,
+    "suppressed_under_wrap": 1,
+    "wrap_peaks": 1159
+   },
+   "world": {
+    "operational_sites_keep": 588,
+    "operational_sites_wrap_estimate": 587,
+    "straddle_halves_fused_as_second_site": 1,
+    "straddle_rows_not_projected": 4,
+    "world_rows_suppressed": 3
    }
   }
  },

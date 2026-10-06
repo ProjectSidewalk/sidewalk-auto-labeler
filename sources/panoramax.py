@@ -209,12 +209,14 @@ def fetch_pano(pano_id, lat, lon):
         return {'status': 'skipped',
                 'reason': f'Not a full 360x180 equirectangular ({declared[0]}x{declared[1]})'}
 
-    downloaded, undecodable = _download_image(url)
+    downloaded, undecodable, detail = _download_image(url)
     if undecodable:
         return {'status': 'skipped',
-                'reason': 'Image asset is gone or not a decodable image'}
+                'reason': detail or 'Image asset is gone or not a decodable image'}
     if downloaded is None:
-        return {'status': 'failure', 'reason': 'Failed to download equirectangular image'}
+        return {'status': 'failure',
+                'reason': 'Failed to download equirectangular image'
+                          + (f' ({detail})' if detail else '')}
     image, (width, height) = downloaded
     if not _is_equirectangular(width, height):
         return {'status': 'skipped',
@@ -258,42 +260,61 @@ def fetch_item(picture_id):
 
 
 def _download_image(url):
-    """((image, (original_width, original_height)), permanent) for one picture's asset.
+    """((image, (original_width, original_height)), permanent, detail) for one picture's
+    asset. `detail` is None on success and otherwise the reason to log: a gone asset and
+    undecodable bytes get DIFFERENT skip reasons (so a run log can say how many skips were
+    404s -- the open transient-404 question on #127), and a retryable failure carries the
+    last attempt's exception, so a server-side truncation reads apart from a flaky network.
 
     Splits the two failure kinds the retry loop used to conflate, for the same reason
     fetch_item does: main.py caches a deterministic skip and retries a failure forever.
 
-    - Network/HTTP failures are retryable and return (None, False) after ATTEMPTS tries.
+    - Network/HTTP failures are retryable and return (None, False, last error) after
+      ATTEMPTS tries.
     - A 404 on the asset is not: the `hd` URL is plain and unsigned (unlike Mapillary's
       signed, expiring thumbnail), so a 404 means the instance no longer serves those
       pixels. Retrying cannot fix it.
-    - Neither can a decode failure. Bytes that arrived intact and are not a readable
-      image — a truncated upload, a decompression bomb past PIL's ceiling — will not
-      become one on the fourth try, and the old bare `except Exception` around the whole
-      body sent them back around the loop and then left them uncached, so every future
-      run of the area re-downloaded the same unreadable megabytes.
+    - Neither can a decode failure on complete bytes. Bytes that arrived whole and that
+      PIL cannot read (sources.mapillary.decode_failure_is_permanent) — garbage, a
+      decompression bomb past PIL's ceiling — will not become an image on the fourth
+      try, so they are a permanent skip on the first attempt.
+    - A body that did NOT arrive whole is retryable and never cached (#127): a byte count
+      other than its Content-Length (sources.mapillary.body_is_complete), or PIL's
+      truncated-file OSError ("image file is truncated" / "Truncated File Read"). So is
+      any non-decode exception raised while decoding, e.g. a MemoryError under load.
+      Before #127 every one of these was cached as a skip, so a transfer cut short lost
+      the pano for good. The rule is shared with Mapillary; only the 404 differs, for the
+      reason above.
     """
+    last_error = None
     for attempt in range(ATTEMPTS):
         try:
             response = requests.get(url, headers=_headers(), timeout=180)
             if response.status_code in GONE_STATUSES:
-                return None, True
+                return None, True, f"Image asset is gone (HTTP {response.status_code})"
             response.raise_for_status()
             payload = response.content
-        except Exception:
+            if not _mapillary.body_is_complete(response):
+                raise ValueError(f"short body: Content-Length "
+                                 f"{response.headers.get('Content-Length')}, got {len(payload)} bytes")
+            # Past this point the whole body is in hand, so a permanent decode failure is
+            # about the bytes; a truncation or any other exception is retried.
+            try:
+                image = Image.open(BytesIO(payload)).convert('RGB')
+            except Exception as e:
+                if _mapillary.decode_failure_is_permanent(e):
+                    return None, True, f"Undecodable image bytes ({_mapillary.describe_exception(e)})"
+                raise
+        except Exception as e:
+            last_error = _mapillary.describe_exception(e)
             if attempt < ATTEMPTS - 1:
                 time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
             continue
-        # Past this point the bytes are in hand, so a failure is about the bytes.
-        try:
-            image = Image.open(BytesIO(payload)).convert('RGB')
-        except Exception:
-            return None, True
         original_size = image.size
         if image.size != TARGET_SIZE:
             image = image.resize(TARGET_SIZE, Image.BILINEAR)
-        return (image, original_size), False
-    return None, False
+        return (image, original_size), False, None
+    return None, False, last_error
 
 
 def provenance_fields(item):

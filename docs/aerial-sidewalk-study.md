@@ -266,7 +266,10 @@ days earlier. Fetching it without certificate verification was not done.
 | Bend | City of Bend 2019 imagery (`tiles.arcgis.com/tiles/JisFYcK2mIVg9ueP/.../City_of_Bend_2019_Imagery/MapServer`) | 2019 | standard z19 slippy tiles fetched by `scripts/aerial_fetch_tiles.py` (TLS verified, 4 workers), then `tile2net generate --input` | per tile at fetch (`fetch.tiles_sha256`) |
 
 **Terms.** Both are public government map services, read without a login: NJ Office of
-GIS for Paterson, City of Bend, OR for Bend. No licence was recorded with either fetch.
+GIS for Paterson, City of Bend, OR for Bend. The services' published terms were not reviewed
+at fetch time (follow-up: record each service's stated terms -- the NJ OGIS service page for the
+2020 orthos, the City of Bend ArcGIS Online item for the 2019 cache -- before any derived
+polygon leaves the archive).
 Both are cited and used for analysis only (`imagery_terms` in `tile2net.json`). The tiles
 stay on the makelab2 archive and are not redistributed. The repo keeps only derived
 statistics, and the derived polygons stay untracked, bound by sha256.

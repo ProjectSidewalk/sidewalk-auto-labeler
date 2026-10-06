@@ -61,7 +61,8 @@ def require_argmax(run_panos, run_dir):
 
 
 def require_exclude_border(run_panos, run_dir):
-    """Refuse (ValueError) a run whose records were found under the `keep` border rule.
+    """Refuse (ValueError) a run whose records were found under a non-`exclude` border rule
+    (`keep` or `wrap`).
 
     Every RampNet bundle was exported from `exclude` runs (#130: the seam band was never
     stored), and the drift gate compares a pano's >= 0.55 detections with the bundle's

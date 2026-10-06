@@ -37,7 +37,9 @@ python main.py example_geojson/richmond.geojson --name richmond --source mapilla
 python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
 # PANORAMAX MEASURED (issue #57 part 1; docs/panoramax-bayonne.md, corrected after two PR #125
 # reviews). Bayonne ran in full at --thin-spacing 10 (rule: 10 m if the scan-only estimate > 16 h;
-# it printed 21.1 h at 5 m; the manifest does not record the spacing -- #126): 73,161 in-area
+# it printed 21.1 h at 5 m; the manifest did not record the spacing at the time; since #126 every
+# main-pass run entry records `thin_spacing_m` + `panos_before_thinning` and the run dir is bound
+# to the spacing (Bayonne's manifest predates it -- see the backfill decision on the #126 PR)): 73,161 in-area
 # pictures -> 28,634 thinned -> 28,524 processed, 0 failed, 6.7 h on the A40. 104 of the 110
 # skips are GoPro MAX2 uploads whose `hd` image is a vertically CROPPED equirect (declared
 # 7680x3840, served 7680x2940) -- correctly skipped; 3 more are unexplained (#127: truncated body
@@ -69,6 +71,14 @@ python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bay
 #   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~45 min, no GPU/network; --only
 #   for parts); skips / examples: network; crops: from the RampNet bundle; figures: committed
 #   data only, byte-reproducible (PNG + LF SVG)
+# LYON (RampNet#159 training-only Panoramax city; docs/panoramax-lyon.md). Slice 1 ran on makelab2's
+# A40 from a separate worktree (~/sal-lyon): --reuse-scan --thin-spacing 10 --limit 40000, i.e. the
+# first 40,000 of the 10 m set's sorted UUIDv4 ids (a uniform subset); runs/lyon is BOUND to 10 m, so a
+# later slice repeats the same command and --limit continues past what is processed. run_census.py's
+# rig_detections.csv gives detections per pano per (make, model, dimensions, capture year) at both
+# tiers -- the per-rig diagnostic Bayonne lacked. No GT bundle (train-or-evaluate rule), no submission.
+python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon --band-y 0.79
+python scripts/panoramax_lyon_figures.py figures    # committed CSVs only; census-scan needs scan.json
 
 # GSV runs end with a gap-fill phase (issue #32): link-target panos the run's own
 # records reference but the tile scan never enumerated (coverage churn) are fetched
@@ -305,7 +315,12 @@ python scripts/subcell_decode.py figures
 # columns at the 360-degree seam -- coarse columns 0 and 127 of the exact x8 upsample, 5.6 deg of
 # azimuth -- never yield a detection. `main.py --border keep`
 # / `reinfer.py --border keep` use RampNet's rule instead (exclude_border=False, NO NMS across the
-# seam, so a straddling ramp can give two peaks). Bound exactly like the decode: manifest
+# seam, so a straddling ramp can give two peaks). `--border wrap` (#130 follow-up) is keep plus NMS
+# wrapped across the seam (skimage's finder re-implemented on a cylinder, decode._cylinder_peaks;
+# tested against a brute-force cylinder incl. clipped ties), this repo's own rule: one peak per
+# straddling ramp; bound and guarded like keep, a frame of its own (keep/wrap mixes are refused too);
+# estimated on the committed Laurens data to remove 3 of keep's 15 gained peaks at 0.30 and the
+# one duplicate site (seam-band-130.md section 9). Bound exactly like the decode: manifest
 # `detection_border`, keep records carry "detection_border": "keep" (exclude records and
 # submission records byte-identical), fuse_sites / reinfer --verify / send_to_ps.py refuse a mix
 # (--allow-mixed-border, recorded; send_to_ps also reads sibling runs/*/ campaigns on the same
@@ -347,6 +362,9 @@ python scripts/reprojection_residual.py bend paterson gainesville sao_paulo rich
 # `no cluster` column beside it. Needs THREE packages the pipeline does not
 # (`pip install pandas scipy haversine`; the script says so if they are missing) —
 # deliberately not in requirements.txt, since this is an analysis tool, not the pipeline.
+# The pure scoring (`score`, `near_cluster_rate`, `size_precision`, `wilson`, the inversion,
+# the report rows) lives in `scripts/clustering_metrics.py`, pandas/scipy-free, so CI covers
+# it (#133); `eval_ps_clustering.py` re-exports every name.
 # --ps-script points at SidewalkWebpage/scripts/label_clustering.py for the
 # verbatim-reproduction check. The two API pulls are cached in the output dir and REUSED on
 # a re-run (the run prints how old they are) — pass --refresh to re-pull, since the server
@@ -458,7 +476,12 @@ python scripts/inventory_clustering.py score vancouver                # descript
 # JPEG; STOP if unclaimed tier detections on labeled panos exceed 0.02 x joinable (unchanged).
 # Vancouver under the coarse-cell rule (exploratory, #111; the #56 decision stands): still STOP
 # -- S 0.930 (11.3% of its matches are flips; 4,268 of 4,477 misses are sub-0.55 at the spot),
-# Z 0.987 passes, P 0.029 fails; docs/heatmap-grid.md. harvest_depth.py --from-store indexes
+# Z 0.987 passes, P 0.029 fails; docs/heatmap-grid.md. Both checks now say WHY a miss did not
+# reproduce (#111 item 3; diagnostics, never a rule): the gate's unmatched.csv carries
+# `miss_class` (below_tier_in_tolerance / tier_flip / below_tier_flip / beyond / ...; pixel-96
+# exposes the tier classes, coarse-cell cannot), and reinfer.py --verify classes each
+# non-reproducing pano (threshold / flip / off_grid / jitter / new_or_lost / border_band_only /
+# pano_drift; --mismatch-csv PATH for the rows). harvest_depth.py --from-store indexes
 # pano-tools' v3 .depth.npz in place (same index.csv schema; --check-store-frame N draws until
 # N panos are checked against live payloads in the image frame and records the result in
 # depth/store.json -- a mirrored index array fails, a payload Google has revised since reads
@@ -931,7 +954,9 @@ The pipeline is two stages run by two separate entry points:
 misconfiguration). `fetch_pano` distinguishes deterministic `skipped` (cached, never
 retried — indoor GSV panos, non-360 or non-2:1 Mapillary images, incomplete metadata,
 image bytes that arrived but do not decode — only PIL's "these bytes are not an image"
-errors count, so a `MemoryError` mid-decode stays retryable) from retryable `failure` (left
+errors count, so a `MemoryError` mid-decode, a body shorter than its `Content-Length`, and
+PIL's truncated-file `OSError` all stay retryable (#127; both rules shared by Mapillary and
+Panoramax via `sources.mapillary.decode_failure_is_permanent` / `body_is_complete`)) from retryable `failure` (left
 uncached — network/HTTP errors, and a 200 whose Content-Type is not `image/*`). An image **404 differs by source on purpose**: Mapillary's
 `thumb_original_url` is signed and expires, so a 404 there is transient (`failure`);
 Panoramax's `hd` URL is plain, so a 404 there means the pixels are gone (`skipped`).
@@ -1004,7 +1029,11 @@ geometry used), and `scan.json` (the last coverage scan, gitignored; see step 2)
 resumable — re-running skips cached panos, and failed panos are intentionally left out of the
 cache so they retry next run. A run directory is bound to one geometry and one imagery
 source: rerunning a name with an edited geojson or a different `--source` is refused
-(checked against the manifest) instead of silently forking state. The manifest also records
+(checked against the manifest) instead of silently forking state; and, for sources that thin
+(Mapillary, Panoramax), to one `--thin-spacing` (`thin_spacing_m`, #126; `0` = disabled,
+`null` = no thinning hook); a manifest from before the key is bound on its first resume
+with a one-time note, since the value that made its records is not knowable from the code.
+The manifest also records
 `detection_storage_floor`; resuming a run whose stored floor differs from the current code's
 is refused for the same reason (legacy manifests read as 0.55 — those runs stored only
 operational detections).

@@ -2,6 +2,8 @@
 
 eval_ps_clustering needs pandas/scipy/haversine, which are analysis-only and not in
 requirements-test.txt, so this file skips where they are missing (CI)."""
+import json
+
 import pytest
 
 pytest.importorskip('pandas')
@@ -74,7 +76,7 @@ def test_server_panos_keep_ai_indices_and_seed_human_labels():
     assert stats == {'inverted': 2, 'run_position': 0, 'unplaceable': 0,
                      'unplaceable_labels': 0, 'unplaceable_label_ids': [],
                      'human_labels': 2, 'ai_labels': 2, 'ai_duplicate': 0,
-                     'ai_unmapped': 0, 'inverted_far': 0}
+                     'ai_unmapped': 0, 'inverted_far': 0, 'run_position_ids': []}
 
 
 def test_run_decode_reaches_the_fuse_guard():
@@ -113,6 +115,7 @@ def test_run_position_only_when_nothing_inverts():
                                     {10: ('p', 0)}, {'p': run}, 'ai')
     assert (panos[0].lat, panos[0].lng) == (LAT0, LNG0)
     assert (stats['run_position'], stats['inverted']) == (1, 0)
+    assert stats['run_position_ids'] == ['p']
 
 
 def test_ai_account_label_without_a_detection_refuses():
@@ -256,6 +259,8 @@ def test_near_cluster_rate_counts_neighbours_within_r():
     # a run-only cluster (no label ids) sits at its raycast position instead
     ray = [epc.Cluster(9, [], 1, e=0.0, n=100.0)]
     assert epc.near_cluster_rate(clusters + ray, server_pos, frame)['frame'] == 'mixed'
+
+
 def test_ai_labels_set_the_position_when_the_pano_has_any():
     # Two human labels inserted from a stale pano position ~11 m north (Laurens) would
     # out-vote the one AI label in a median; the AI label's inversion wins.
@@ -281,3 +286,111 @@ def test_all_labels_invert_before_the_run_block():
     panos, stats = epc.server_panos(labels, {10: ('p', 0)}, {'p': run}, 'ai')
     assert geo.haversine_m(panos[0].lat, panos[0].lng, LAT0, LNG0) < 0.05
     assert (stats['inverted'], stats['run_position']) == (1, 0)
+
+
+def test_grid_search_matches_ckdtree():
+    # #133 moved score's and near_cluster_rate's cKDTree prefilters to a grid in
+    # clustering_metrics; scipy is present here, so check them against the tree itself
+    import random
+    import numpy as np
+    from scipy.spatial import cKDTree
+    rng = random.Random(1330)
+    pts = [(rng.uniform(-80, 80), rng.uniform(-80, 80)) for _ in range(400)]
+    pts += [(k * 5.0, 0.0) for k in range(-4, 5)] + [(3.0, 3.0), (3.0, 3.0)]
+    centres = [(rng.uniform(-80, 80), rng.uniform(-80, 80)) for _ in range(60)]
+    tree = cKDTree(np.array(pts))
+    for r in (2.5, 5.0, 7.5, 12.5):
+        hit = set()
+        for lst in tree.query_ball_point(np.array(centres), r):
+            hit.update(lst)
+        assert epc.within_reach(pts, centres, r) == hit
+        pairs = tree.query_pairs(r, output_type='ndarray')
+        assert epc.with_neighbour(pts, r) == (set(pairs[:, 0].tolist())
+                                              | set(pairs[:, 1].tolist()))
+
+
+def test_inversion_check_reads_one_account_or_the_others():
+    # the AI label inverts to the run's block; the human one was inserted from a pano
+    # position ~11 m north, so only the all-label and human-only reads see that
+    run = fs.SlimPano('p', LAT0, LNG0, 30.0, None, None, '2025-06', 'gsv', [])
+    stale = (LAT0 + 0.0001, LNG0)
+    labels = pd.DataFrame([_label(10, 'p', 0.40, 0.62, 30.0),
+                           _label(11, 'p', 0.70, 0.58, 30.0, stale, user='h')])
+    ai = epc.inversion_check(labels, {'p': run}, only_user='ai')
+    human = epc.inversion_check(labels, {'p': run}, exclude_user='ai')
+    every = epc.inversion_check(labels, {'p': run})
+    assert ai[0] < 0.05 and human[0] > 10.0 and 0.05 < every[0] < human[0]
+
+
+def _pull(tmp_path, fetched_at, host='https://ps.example'):
+    path = tmp_path / 'raw_labels.geojson'
+    path.write_text('{}', encoding='utf-8')
+    (tmp_path / 'raw_labels.geojson.source.json').write_text(json.dumps(
+        {'url': host + epc.API_LABELS, 'fetched_at': fetched_at}), encoding='utf-8')
+    return path
+
+
+def _campaign(run_dir, name, positions, at,
+              endpoint='https://ps.example/ai/submitLabelsOnPano'):
+    """A results file and a submission record shaped as position_check.campaigns_for
+    reads it (cf. runs/richmond/*.submission.json, shrunk to the fields it reads)."""
+    (run_dir / name).write_text(''.join(
+        json.dumps({'pano': {'panorama_id': p, 'lat': ll[0], 'lng': ll[1]}}) + '\n'
+        for p, ll in positions.items()), encoding='utf-8')
+    (run_dir / (name + '.submission.json')).write_text(json.dumps(
+        {'input_file': name, 'total_lines': len(positions), 'endpoints': {endpoint: {
+            'submitted_lines': len(positions), 'labels_submitted': 1,
+            'min_confidence': 0.55, 'last_submission_utc': at}}}), encoding='utf-8')
+
+
+def test_fallback_check_reads_the_campaigns_live_when_the_pull_was_taken(tmp_path):
+    # #133 (#105 re-review Minor 1): a pano positioned from the run's block (nothing to
+    # invert) is checked against where the server held it when the pull was taken
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    sfm, raw = (LAT0, LNG0), (LAT0 + 0.00004, LNG0)          # ~4.4 m apart
+    _campaign(run_dir, 'results.jsonl', {'p': sfm}, '2026-09-05T01:39:04Z')
+    _campaign(run_dir, 'results.fix.jsonl', {'p': raw}, '2026-09-24T13:30:56Z')
+    run = {'p': fs.SlimPano('p', *sfm, 0.0, None, None, '2025-06', 'gsv', [])}
+    before = _pull(tmp_path, '2026-09-21T13:34:28+00:00')    # predates the reposition
+    assert epc.fallback_check(run_dir, before, ['p'], run) == ([], [], None)
+    after = _pull(tmp_path, '2026-09-28T17:09:50+00:00')
+    assert epc.fallback_check(run_dir, after, ['p'], run) == (['p'], [], None)
+    # no records beside the run, or a pull with no fetch record: cannot be told
+    bare = tmp_path / 'bare'
+    bare.mkdir()
+    assert epc.fallback_check(bare, after, ['p'], run)[0] is None
+    (tmp_path / 'raw_labels.geojson.source.json').unlink()
+    assert epc.fallback_check(run_dir, after, ['p'], run)[2] == \
+        'the pull records no url or fetch time'
+
+
+def test_fallback_check_with_a_band_after_the_pull(tmp_path):
+    # #139 review S1, the reviewer's case: base first sent 09-05, a band on 09-22 (which
+    # bumps the base entry's last_submission_utc to 09-22), a pull on 09-10. The base was
+    # live at the pull, so the pano is checked -- not left "unknown" behind a passing line.
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    ep = 'https://ps.example/ai/submitLabelsOnPano'
+    (run_dir / 'results.jsonl').write_text(json.dumps(
+        {'pano': {'panorama_id': 'p', 'lat': LAT0, 'lng': LNG0}}) + '\n', encoding='utf-8')
+    (run_dir / 'results.jsonl.submission.json').write_text(json.dumps(
+        {'input_file': 'results.jsonl', 'total_lines': 1, 'endpoints': {ep: {
+            'submitted_lines': 1, 'labels_submitted': 2, 'min_confidence': 0.3,
+            'first_submission_utc': '2026-09-05T01:05:03Z',
+            'last_submission_utc': '2026-09-22T19:03:45Z',
+            'bands': {'0.3-0.55': {'submitted_lines': 1, 'labels_submitted': 1,
+                                   'first_submission_utc': '2026-09-22T19:03:45Z',
+                                   'last_submission_utc': '2026-09-22T19:03:45Z'}}}}}),
+        encoding='utf-8')
+    run = {'p': fs.SlimPano('p', LAT0, LNG0, 0.0, None, None, '2025-06', 'gsv', [])}
+    pull = _pull(tmp_path, '2026-09-10T00:00:00+00:00')
+    moved, unknown, reason = epc.fallback_check(run_dir, pull, ['p'], run)
+    assert (moved, unknown, reason) == ([], [], None)
+    assert epc.fallback_line(moved, unknown, 1, reason).endswith('hold): 0 of 1')
+    # a pull before the base began: nothing was live, so the line is undetermined, not a pass
+    early = _pull(tmp_path, '2026-09-01T00:00:00+00:00')
+    moved, unknown, reason = epc.fallback_check(run_dir, early, ['p'], run)
+    assert unknown == ['p']
+    line = epc.fallback_line(moved, unknown, 1, reason)
+    assert line.startswith('- warning: ') and 'undetermined: 1 of 1' in line

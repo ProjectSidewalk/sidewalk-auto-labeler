@@ -1,7 +1,7 @@
 # gainesville: PS label clustering vs RampNet GT (offline)
 
 mode: offline -- 15573 labels synthesized from `results.jsonl`, one per stored detection >= 0.55 (1 on the camera rig left out), each placed where the server would place it (ps_placement: the server's estimator at 2.341 m); no server labels or clusters, so `deployed` and `ps_repro` do not exist here
-scorer 106.3; results `results.jsonl` sha256 `9f4a57f35d24715856d4464dbc0950febbf20de810ec9653432f339a5ab857e8`
+scorer 106.4; results `results.jsonl` sha256 `9f4a57f35d24715856d4464dbc0950febbf20de810ec9653432f339a5ab857e8`
 inputs: streets sha256 `39b778bb4a85bb8a3fa42f89adfff9ffc2b0615be403534b3bab3dd03b602ed3`; verdicts sha256 `776ddb2ca1a5a72fb9b27965ae8e5727d6fecc8bf4cc56b2ac94543c6cfad1e4`
 raycast camera height 2.6 m; fusion arm at --min-confidence 0.55
 GT: 125 judged panos -> 219 placeable points -> 219 ramps (0 cross-pano merges), 219 in the recall pool; raycast placed 37056 of 43871 detections (drops {'below_floor': 0, 'on_rig': 35, 'horizon': 23, 'out_of_range': 6757})
@@ -10,7 +10,7 @@ GT: 125 judged panos -> 219 placeable points -> 219 ramps (0 cross-pano merges),
 
 - results file `runs/gainesville/results.jsonl`: sha256 `9f4a57f35d24715856d4464dbc0950febbf20de810ec9653432f339a5ab857e8`
 - 0 ambiguous pixel keys in `results.jsonl` (two stored detections round to one pixel); offline labels map to their detection directly, and the pixel-key map agrees on 15573 of 15573
-- `ps_streets.geojson`: 27448 features, sha256 `39b778bb4a85bb8a3fa42f89adfff9ffc2b0615be403534b3bab3dd03b602ed3`, 2026-09-28T17:25:58+00:00 (6.1 days old at run time), from https://sidewalk-gainesville.cs.washington.edu/v3/api/streets?filetype=geojson; 6480 open streets kept (the server snaps to open streets only)
+- `ps_streets.geojson`: 27448 features, sha256 `39b778bb4a85bb8a3fa42f89adfff9ffc2b0615be403534b3bab3dd03b602ed3`, 2026-09-28T17:25:58+00:00 (7.5 days old at run time), from https://sidewalk-gainesville.cs.washington.edu/v3/api/streets?filetype=geojson; 6480 open streets kept (the server snaps to open streets only)
 - regions: every synthesized label takes the region of the street nearest its server position, as the server assigns it at insert; 0 labels were equidistant from streets in two regions (lowest street_edge_id taken)
 - PS partitions are blocked (single-linkage components at the widest threshold + 0.5 m): 2154 blocks, largest 61 labels
 
@@ -21,7 +21,8 @@ GT: 125 judged panos -> 219 placeable points -> 219 ramps (0 cross-pano merges),
 - fusion_server input: 15573 AI (by account; 0 share a detection with another AI label) + 0 human labels on 8430 panos (0 positioned by inverting their labels, 8430 from the run's pano block (offline: the block the labels were placed from), 0 with neither, whose 0 labels are singleton clusters); 1419 labels the raycast cannot place (range cap, horizon) are singleton clusters; 6252 of its 6252 clusters with AI members are, member for member, a cluster of the `fusion` arm
 - every server label is in exactly one fusion_server cluster: 15573 label ids, 15573 distinct, of 15573 labels
 - inverted camera positions more than 1 m from the run's pano block (a pano live somewhere other than results.jsonl says, e.g. repositioned): 0 of 0 (should be 0 for a pull taken before any reposition)
-- camera-position inversion vs the run's position, over 6419 panos in both (all labels, mostly AI): median 0.012 m, p90 0.33 m; from human labels only, over 0 panos: median n/a m, p90 n/a m, max n/a m
+- run-block fallback panos whose live position at the pull's fetch time differs from the run's block by more than 1 m (labels placed from a position this file does not hold): n/a (offline: the labels were placed from the run's block)
+- camera-position inversion vs the run's position: from the AI account's labels (the arm's rule), over 6419 panos: median 0.012 m, p90 0.33 m; from all labels (the #105 method), over 6419 panos: median 0.012 m, p90 0.33 m; from human labels only, over 0 panos: median n/a m, p90 n/a m, max n/a m
 - same-pano pairs inside one cluster (must be 0 under the cannot-link): 0 in every arm
 
 ## Arms (match radius 5 m, GT merge 2.5 m)
@@ -73,6 +74,36 @@ Largest pairwise member distance over 2056 fusion sites with >= 3 placeable memb
 | 5 | 0.877 | 36/192 | 5/9 | 0.913 | 40/200 | 6/9 |
 | 7.5 | 0.963 | 33/211 | 9/9 | 0.954 | 40/209 | 8/9 |
 | 10 | 0.977 | 33/214 | 9/9 | 0.982 | 38/215 | 9/9 |
+
+## Fragmentation proxy, GT-free (#56 metric (b))
+
+Share of an arm's placed clusters with ANOTHER cluster of the same arm within r, and clusters per 1,000 labels. Clusters that carry label ids sit at the mean of their labels' SERVER positions (the server's own frame, no run needed); the run-only `fusion` arms sit at their raycast position. Two clusters of one ramp read as a near pair, and so do two real ramps of one corner, so this is a proxy for `frag`, not the same quantity. The `all clusters` columns are the pre-registered read; `placeable-member clusters` (post hoc) drop the clusters no member of which the raycast can place -- fusion_server leaves every such label a singleton beside the site it could not join, and those singletons dominate the all-clusters read.
+
+| arm | clusters | labels | clusters / 1,000 labels | frame | all clusters | near 5 m | near 7.5 m | near 12.5 m | placeable-member clusters | near 5 m | near 7.5 m | near 12.5 m |
+|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| ps @ 2.5 m | 8901 | 15573 | 571.6 | server | 8901 | 0.760 | 0.847 | 0.915 | 8278 | 0.744 | 0.829 | 0.905 |
+| ps @ 5 m | 6065 | 15573 | 389.5 | server | 6065 | 0.379 | 0.615 | 0.802 | 5780 | 0.372 | 0.589 | 0.783 |
+| ps @ 7.5 m | 5091 | 15573 | 326.9 | server | 5091 | 0.218 | 0.423 | 0.708 | 4948 | 0.220 | 0.412 | 0.694 |
+| ps @ 10 m | 4737 | 15573 | 304.2 | server | 4737 | 0.206 | 0.357 | 0.653 | 4648 | 0.205 | 0.354 | 0.645 |
+| ps @ 12.5 m | 4562 | 15573 | 292.9 | server | 4562 | 0.199 | 0.341 | 0.623 | 4502 | 0.197 | 0.338 | 0.619 |
+| ps @ 15 m | 4449 | 15573 | 285.7 | server | 4449 | 0.196 | 0.337 | 0.609 | 4395 | 0.194 | 0.334 | 0.605 |
+| ps_citywide @ 7.5 m | 4955 | 15573 | 318.2 | server | 4955 | 0.177 | 0.385 | 0.689 | 4822 | 0.181 | 0.376 | 0.676 |
+| ps_placeable @ 2.5 m | 8191 | 14154 | 578.7 | server | 8191 | 0.739 | 0.825 | 0.903 | 8191 | 0.739 | 0.825 | 0.903 |
+| ps_placeable @ 5 m | 5693 | 14154 | 402.2 | server | 5693 | 0.350 | 0.575 | 0.775 | 5693 | 0.350 | 0.575 | 0.775 |
+| ps_placeable @ 7.5 m | 4870 | 14154 | 344.1 | server | 4870 | 0.214 | 0.388 | 0.679 | 4870 | 0.214 | 0.388 | 0.679 |
+| ps_placeable @ 10 m | 4591 | 14154 | 324.4 | server | 4591 | 0.205 | 0.340 | 0.630 | 4591 | 0.205 | 0.340 | 0.630 |
+| ps_placeable @ 12.5 m | 4449 | 14154 | 314.3 | server | 4449 | 0.197 | 0.325 | 0.603 | 4449 | 0.197 | 0.325 | 0.603 |
+| ps_placeable @ 15 m | 4333 | 14154 | 306.1 | server | 4333 | 0.188 | 0.316 | 0.587 | 4333 | 0.188 | 0.316 | 0.587 |
+| ps_raycast @ 2.5 m | 9746 | 14154 | 688.6 | server | 9746 | 0.829 | 0.880 | 0.932 | 9746 | 0.829 | 0.880 | 0.932 |
+| ps_raycast @ 5 m | 6984 | 14154 | 493.4 | server | 6984 | 0.646 | 0.746 | 0.862 | 6984 | 0.646 | 0.746 | 0.862 |
+| ps_raycast @ 7.5 m | 5642 | 14154 | 398.6 | server | 5642 | 0.453 | 0.595 | 0.782 | 5642 | 0.453 | 0.595 | 0.782 |
+| ps_raycast @ 10 m | 4873 | 14154 | 344.3 | server | 4873 | 0.292 | 0.443 | 0.689 | 4873 | 0.292 | 0.443 | 0.689 |
+| ps_raycast @ 12.5 m | 4521 | 14154 | 319.4 | server | 4521 | 0.219 | 0.354 | 0.631 | 4521 | 0.219 | 0.354 | 0.631 |
+| ps_raycast @ 15 m | 4371 | 14154 | 308.8 | server | 4371 | 0.201 | 0.329 | 0.603 | 4371 | 0.201 | 0.329 | 0.603 |
+| fusion | 6252 | 14154 | 441.7 | raycast | 6252 | 0.224 | 0.549 | 0.809 | 6252 | 0.224 | 0.549 | 0.809 |
+| fusion_refit | 6252 | 14154 | 441.7 | raycast | 6252 | 0.262 | 0.560 | 0.813 | 6252 | 0.262 | 0.560 | 0.813 |
+| fusion_server | 7671 | 15573 | 492.6 | server | 7671 | 0.665 | 0.765 | 0.877 | 6252 | 0.553 | 0.678 | 0.827 |
+| fusion_server+attach | 6347 | 15573 | 407.6 | server | 6347 | 0.556 | 0.682 | 0.830 | 6252 | 0.552 | 0.677 | 0.828 |
 
 ## Precision by cluster size
 
