@@ -1150,7 +1150,7 @@ def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
 
 # Bumped by hand whenever a change moves any number the reports print; the pooled driver
 # (clustering_eval_pooled.py) re-runs a cell whose report records another version.
-SCORER_VERSION = '106.3'
+SCORER_VERSION = '106.4'
 
 
 def repo_relative(path):
@@ -1606,7 +1606,6 @@ def run(args):
     server_pos = {int(r.label_id): (r.lat, r.lng) for r in labels.itertuples(index=False)}
     verdicts = label_verdicts(labels) if 'human_agree' in labels.columns else {}
     for name, cl in partitions.items():
-        results[name]['size'] = size_precision(cl, det_of, det_pos, gt[3], run_conf)
         results[name]['near'] = near_cluster_rate(cl, server_pos, frame)
         # ...and over the clusters holding a member the raycast can place: fusion_server
         # makes every unplaceable label a singleton at its server position, which sits
