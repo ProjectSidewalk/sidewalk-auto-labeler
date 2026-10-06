@@ -134,6 +134,27 @@ carry different dates (2025-12-30 here), so the zoom matters.
 To revise later, re-run `render`: it prefills from the verdicts file. A second rater uses their
 own `--rater` name and file. Agreement is computed with `--a jonf --b <name>`.
 
+### Rating on another machine
+
+The images (95 aerials + 813 crops, ~44 MB) are git-ignored. A copy of exactly the files in
+`images.sha256` is on makelab2 (private, not published):
+`/homes/gws/jonf/rampnet_share/corner_gallery243/corner_gallery243_images.tgz`
+(sha256 `572b6bbc79a633dc6559e5fc1be314c3085b8dee1b3d82a35292aa79c9aa61eb`).
+
+```
+git fetch origin && git checkout corner-gallery-243 && git pull
+scp makelab2:/homes/gws/jonf/rampnet_share/corner_gallery243/corner_gallery243_images.tgz .
+tar -xzf corner_gallery243_images.tgz -C runs/vancouver/corner_gallery243
+python scripts/corner_gallery.py check  --bundle runs/vancouver/corner_gallery243   # must say OK
+python scripts/corner_gallery.py render --bundle runs/vancouver/corner_gallery243 --rater jonf
+```
+
+`render` prefills the page from the committed `verdicts__jonf.json`, so the ratings carry
+over. Progress lives in the browser until Export: **export and commit before switching
+machines**, or the other machine starts from the last committed file. On a machine that has
+already rated in its browser, a unit worked on locally wins over the file and the page
+reports the conflict.
+
 ## Changes made during the jonf pass (2026-10-06)
 
 Jon rated 28 of 95 units, exported (committed as the partial `verdicts__jonf.json`,
