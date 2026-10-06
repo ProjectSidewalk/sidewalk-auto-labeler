@@ -36,8 +36,9 @@ tests them:
 >    at 0.30) and by 15-20% in Richmond (51 -> 41, 62 -> 53).
 > 5. **A1 holds past ~8 m, not below it.** The per-pano detection rate peaks at 4-8 m and
 >    falls 2-5x by 16-20 m. The 0-4 m bin is *lower* than 4-8 m.
-> 6. **A3 splits by source.** In Richmond, `thin_panos` keeps 10-20 more sites than a random
->    same-size selection. In Bayonne it keeps 5-19 *fewer*. On robust sites the two are
+> 6. **A3 splits by source.** At 5 and 10 m, `thin_panos` keeps 10-20 more sites than a
+>    random same-size selection in Richmond (at 7.5, 15 and 20 m: 6-9 more at 0.55, 10-15
+>    at 0.30). In Bayonne it keeps 5-19 *fewer* at 5 and 10 m. On robust sites the two are
 >    within a few sites of each other in both cities, so the Bayonne deficit is mostly in
 >    sites seen from one or two panos. Not entirely: at 0.30 and 10 m, `thin_panos` also
 >    trails random by 3.6 robust sites (77 vs 80.6) and by 9.2 sites seen from 2+ panos
