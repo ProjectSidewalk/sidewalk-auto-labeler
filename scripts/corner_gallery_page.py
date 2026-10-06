@@ -215,8 +215,8 @@ HTML_TEMPLATE = r"""<!doctype html>
     <button id="completebtn"></button>
     <p><label for="unitnote">Note on this unit (optional; say why for any can't tell)</label>
       <textarea id="unitnote" rows="3"></textarea></p>
-    <p class="meta">Corner markers: number = corner; fill: green present, red absent, grey can't
-      tell, white not yet rated; blue ring = the corner the keys act on. Dots with dashed lines =
+    <p class="meta">Corner markers: number = corner; fill and the letter under it: green P present,
+      red A absent, grey ? can't tell, white not yet rated; blue ring = the corner the keys act on. Dots with dashed lines =
       the cameras of that corner's crops. Squares (after completion only) = city inventory
       points: A Available, N NA with no RAMPTYPE, T NA with a RAMPTYPE, R RMV, X Expired/Removed,
       ? other.</p>
@@ -224,7 +224,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   <section id="right" aria-label="Corners"></section>
 </div>
 <div id="lb" role="dialog" aria-modal="true" aria-label="Enlarged crop"></div>
-<div id="help" role="dialog" aria-label="Rubric and keys">
+<div id="help" role="dialog" aria-modal="true" aria-label="Rubric and keys">
   <button id="helpclose" style="float:right">Close</button>
   <b>Keys</b> (not while typing in a text box)<br>
   <kbd>1</kbd>-<kbd>9</kbd> pick the corner the keys act on ·
@@ -259,6 +259,7 @@ const NSTORE = STORE + ':notes', ISTORE = STORE + ':idx';
 const VERDICTS = ['present', 'absent', 'cant_tell'];
 const VLABEL = {present: 'Present', absent: 'Absent', cant_tell: "Can't tell"};
 const AKIND = {curb_no_ramp: 'sidewalk and curb, no ramp', no_sidewalk: 'no sidewalk at the corner'};
+const VLETTER = {present: 'P', absent: 'A', cant_tell: '?'};
 const VCOL = {present: '#1a7f37', absent: '#b42318', cant_tell: '#5c6670'};
 const INVTAG = {Available: 'A', NA_noramp: 'N', NA_typed: 'T', RMV: 'R', 'Expired/Removed': 'X', other: '?'};
 const INVTEXT = {Available: 'Available', NA_noramp: 'NA, no RAMPTYPE', NA_typed: 'NA with a RAMPTYPE',
@@ -510,7 +511,10 @@ function drawPlan() {
   u.corners.forEach((c, ci) => {
     const q = toImg(u, c.lat, c.lng), v = s.corners[c.k].verdict;
     out.push('<circle cx="' + q[0] + '" cy="' + q[1] + '" r="12" fill="' + (v ? VCOL[v] : '#fff') + '" stroke="' + (ci === active ? '#0b63ce' : '#000') + '" stroke-width="' + (ci === active ? 5 : 1.5) + '"/>' +
-             '<text x="' + q[0] + '" y="' + (q[1] + 5) + '" font-size="14" font-weight="bold" text-anchor="middle" fill="' + (v ? '#fff' : '#000') + '">' + c.corner + '</text>');
+             '<text x="' + q[0] + '" y="' + (q[1] + 5) + '" font-size="14" font-weight="bold" text-anchor="middle" fill="' + (v ? '#fff' : '#000') + '">' + c.corner + '</text>' +
+             // the verdict as a letter too, so the marker does not rely on colour alone
+             (v ? '<text x="' + q[0] + '" y="' + (q[1] + 27) + '" font-size="12" font-weight="bold" text-anchor="middle" fill="#fff" stroke="#000" stroke-width="3" paint-order="stroke">' +
+                  VLETTER[v] + '</text>' : ''));
   });
   svg.innerHTML = out.join('');
 }
@@ -547,18 +551,39 @@ document.getElementById('nexttodo').onclick = () => {
 document.getElementById('unitsel').onchange = ev => goTo(+ev.target.value);
 document.getElementById('completebtn').onclick = () => toggleComplete();
 document.getElementById('unitnote').addEventListener('input', ev => { S().note = ev.target.value; S().seen = true; save(); });
+function helpOpen() { return document.getElementById('help').style.display === 'block'; }
 function toggleHelp(show) {
-  const h = document.getElementById('help'), on = show === undefined ? h.style.display !== 'block' : show;
+  const h = document.getElementById('help'), was = helpOpen(), on = show === undefined ? !was : show;
   h.style.display = on ? 'block' : 'none';
   document.getElementById('helpbtn').setAttribute('aria-expanded', String(on));
   if (on) document.getElementById('helpclose').focus();
+  else if (was) document.getElementById('helpbtn').focus();     // return focus where it came from
+}
+// keep Tab inside an open dialog (help panel or enlarged crop)
+function trapTab(ev, box) {
+  const f = [...box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter(el => !el.disabled && el.offsetParent !== null);
+  if (!f.length) { ev.preventDefault(); return; }
+  const first = f[0], lastEl = f[f.length - 1];
+  if (!box.contains(document.activeElement)) { ev.preventDefault(); first.focus(); }
+  else if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); lastEl.focus(); }
+  else if (!ev.shiftKey && document.activeElement === lastEl) { ev.preventDefault(); first.focus(); }
 }
 document.getElementById('helpbtn').onclick = () => toggleHelp();
 document.getElementById('helpclose').onclick = () => toggleHelp(false);
 document.addEventListener('keydown', ev => {
   const t = ev.target, tag = (t.tagName || '').toLowerCase();
+  if (ev.key === 'Tab') {
+    if (lb) trapTab(ev, document.getElementById('lb'));
+    else if (helpOpen()) trapTab(ev, document.getElementById('help'));
+    return;
+  }
   if (tag === 'textarea' || tag === 'select' || (tag === 'input' && t.type !== 'radio')) return;
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (helpOpen() && !lb) {             // the help panel is modal: no key acts on the unit behind it
+    if (ev.key === 'Escape' || ev.key === '?') { toggleHelp(false); ev.preventDefault(); }
+    return;
+  }
   if (lb) {
     const n = cur().corners[lb.ci].views.length;
     if (ev.key === 'Escape') closeLightbox();
