@@ -80,8 +80,10 @@ must be qualified
 10 m. The estimate printed 21.1 h for 50,528 panos at 1.5 s/pano, so the run used 10 m.
 
 The A40 then ran at 0.85 s/pano, so 5 m would have taken about 12 h; the estimate's
-constant is an RTX 3070 figure. `manifest.json` records neither the spacing nor the
-pre-thinning count ([#126](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/126)).
+constant is an RTX 3070 figure. `manifest.json` recorded neither at the time;
+[#126](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/126) added
+`thin_spacing_m` and `panos_before_thinning` to every run entry (the Bayonne manifest predates
+it; its values are 10 m and 73,161).
 
 **Skips (110, all cached; `data/skips.csv`).**
 
@@ -402,8 +404,8 @@ at 1.90 panos/s.
 | 12 | `python scripts/panoramax_bayonne_figures.py figures` → `fig*.png` / `.jpg` (+ `.svg` for figures 1-5 and 7b) | — | 30 s |
 | 13 | on makelab2, `bayonne_archive.sh`: `export_benchmark.py runs/bayonne/results.jsonl --out runs/bayonne/panos` | net | 4.2 h |
 
-- **Step 2** must keep `--thin-spacing 10`. The manifest does not record it (#126); the
-  run log does.
+- **Step 2** must keep `--thin-spacing 10`. The manifest predates #126's `thin_spacing_m`; a
+  resume at any other spacing is now refused once the manifest is bound.
 - **Step 5's** `bayonne_report.md` copies under `data/reprojection*/` are that step's
   per-city `report.md`, copied by hand.
 - **Step 12** reads only the committed `data/`. It is byte-reproducible for the listed
