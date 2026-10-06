@@ -193,3 +193,9 @@ runs/*/server_agree/as_served/
 !runs/*/footway/report.md
 !runs/*/footway/*.csv
 !runs/*/footway/*.json
+# Thinning experiment (scripts/thinning_experiment.py; write-up in docs/thinning-experiment.md):
+# the per-run report and its two CSVs are tracked; the un-thinned results.jsonl and scan.json
+# they are computed from are not (the report records their pano counts).
+!runs/*/thinning_experiment*/
+!runs/*/thinning_experiment*/report.md
+!runs/*/thinning_experiment*/*.csv

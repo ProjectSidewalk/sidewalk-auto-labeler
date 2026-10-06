@@ -1,0 +1,50 @@
+{
+  "run_name": "thinexp_bayonne",
+  "created_at": "2026-10-06T04:59:45+00:00",
+  "source_geojson": "example_geojson/bayonne_thinexp.geojson",
+  "area_hash": "a36ccc14cf36431ec00a60dae7611a1513e8c557a0820496b47a8aa6143be59e",
+  "input_geojson_type": "Polygon",
+  "imagery_source": "panoramax",
+  "detection_storage_floor": 0.1,
+  "max_peaks_per_pano": 50,
+  "streetlevel_version": "0.12.10",
+  "runs": [
+    {
+      "started_at": "2026-10-06T05:33:30+00:00",
+      "finished_at": "2026-10-06T07:08:44+00:00",
+      "panos_found_in_area": 3880,
+      "processed": 3880,
+      "skipped": 0,
+      "failed": 0,
+      "scan": "reused",
+      "scan_scanned_at": "2026-10-06T04:59:45+00:00",
+      "scan_age_hours": 0.6,
+      "thin_spacing_m": 0,
+      "panos_before_thinning": 3880,
+      "model": {
+        "model_repo": "projectsidewalk/rampnet-model",
+        "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+        "model_id": "rampnet-model@606a11956743",
+        "model_training_date": "08-21-2025",
+        "api_version": "1.0.0"
+      }
+    }
+  ],
+  "model_repo": "projectsidewalk/rampnet-model",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+  "model_id": "rampnet-model@606a11956743",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0",
+  "detection_decode": "argmax",
+  "detection_border": "exclude",
+  "thin_spacing_m": 0,
+  "position_check": {
+    "checked_at": "2026-10-06T07:08:48Z",
+    "results_sha256": "e05e1afe1b3cd72fc04d13e7aab51c87d3289886c7cb667d20ed47c8a932a911",
+    "submitted_field": null,
+    "flagged": 0,
+    "both_off": 0,
+    "rule": "paired-unsigned-v1 (issue #62)",
+    "panos_not_near_a_street": 831
+  }
+}
