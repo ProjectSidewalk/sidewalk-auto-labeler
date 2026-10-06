@@ -296,7 +296,7 @@ def fetch_crops_remote(job, crops_dir, helper, host, remote_root,
     script = '\n'.join([
         'set -eu',
         'STAGE="{}"'.format(stage),
-        'rm -rf "$STAGE" "$STAGE.tar.gz"',
+        'rm -rf "$STAGE" "$STAGE.tar.gz" || true',
         'mkdir -p "$STAGE/crops"',
         "cat > \"$STAGE/job.json\" <<'JOB_EOF'",
         payload,
@@ -307,7 +307,9 @@ def fetch_crops_remote(job, crops_dir, helper, host, remote_root,
         '"{}/.venv/bin/python" "$STAGE/crop.py" "$STAGE/job.json" '
         '"$STAGE/crops"'.format(remote_root),
         'tar -czf "$STAGE.tar.gz" -C "$STAGE/crops" .',
-        'rm -rf "$STAGE"',
+        # NFS can leave a transient .nfs* file behind, so `rm -rf` fails with "Directory
+        # not empty" after the tarball is already made; that must not fail the job.
+        'rm -rf "$STAGE" || true',
         'echo TARBALL_READY',
         '',
     ])
