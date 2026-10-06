@@ -149,6 +149,32 @@ def test_build_item_views_and_inventory():
     assert jobs['results'][0]['path'] == 'p1/p1.jpg'
 
 
+def test_image_manifest_and_check(tmp_path):
+    """S4: every shown image is hashed, and check catches a changed, missing or unlisted one."""
+    it = cg.build_item(full_record(), 'clean', {
+        'p1': {'lat': LAT0, 'lng': LNG0 - 0.0001, 'heading': 0.0, 'capture_date': '2023-05',
+               'run': 'results'}}, {})
+    files = cg.shown_images([it])
+    assert files == ['aerial/vancouver_res_n1.jpg', 'crops/vancouver_res_n1_c0_p1.jpg',
+                     'crops/vancouver_res_n1_c1_p1.jpg']
+    for n, f in enumerate(files):
+        (tmp_path / f).parent.mkdir(exist_ok=True)
+        (tmp_path / f).write_bytes(bytes([n]) * 10)
+    meta = cg.write_image_manifest(tmp_path, [it])
+    assert meta['n_aerial'] == 1 and meta['n_crop'] == 2
+    snap = {'images': meta}
+    assert cg.check_images(tmp_path, snap, [it]) == []
+    (tmp_path / files[1]).write_bytes(b'other pixels')
+    (tmp_path / files[2]).unlink()
+    it['corners'][0]['views'].append(dict(it['corners'][0]['views'][0], crop='crops/new.jpg'))
+    p = '\n'.join(cg.check_images(tmp_path, snap, [it]))
+    assert 'c0_p1.jpg: sha256 differs' in p and 'c1_p1.jpg: missing' in p
+    assert 'crops/new.jpg: shown to the rater but not in the manifest' in p
+    (tmp_path / cg.IMAGES_MANIFEST).write_text('x', encoding='utf-8')
+    assert any('not the one snapshot.json recorded' in x for x in cg.check_images(tmp_path, snap, [it]))
+    assert cg.check_images(tmp_path, {}, [it])[0].startswith('snapshot.json has no image manifest')
+
+
 # ------------------------------------------------------------------------------ scoring
 
 def item(unit, part, inv=None, views_date='2023-05'):
@@ -406,6 +432,12 @@ def test_committed_bundle_is_consistent():
     assert {p: len(v) for p, v in parts.items()} == {'false_absence': 35, 'na_noramp': 40, 'clean': 20}
     assert [i['unit'] for i in items] == cg.review_order([i['unit'] for i in items])
     assert all(c['views'] for i in items for c in i['corners'])
+    # S4: the image manifest is committed and is the one snapshot.json recorded
+    man = (BUNDLE / snap['images']['manifest']).read_bytes()
+    assert hashlib.sha256(man).hexdigest() == snap['images']['manifest_sha256']
+    listed = [line.split('  ', 1)[1] for line in man.decode().splitlines()]
+    assert listed == cg.shown_images(items)
+    assert snap['images']['n_aerial'] == len(items)
     # B1: every corner shows the newest capture date in its candidate pool
     for i in items:
         for c in i['corners']:

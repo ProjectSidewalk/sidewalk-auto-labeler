@@ -382,6 +382,69 @@ def crop_jobs(items, bundle):
     return out
 
 
+IMAGES_MANIFEST = 'images.sha256'
+
+
+def shown_images(items):
+    """Every image the rater sees, as bundle-relative paths: each unit's aerial and every
+    view's crop, sorted."""
+    out = set()
+    for it in items:
+        out.add(it['aerial']['file'])
+        for c in it['corners']:
+            out.update(v['crop'] for v in c['views'])
+    return sorted(out)
+
+
+def write_image_manifest(bundle, items):
+    """Write <bundle>/images.sha256 (``sha256sum`` format, so ``sha256sum -c images.sha256``
+    works from the bundle dir) over the images on disk; return the snapshot block. The aerials
+    and crops are git-ignored and Esri imagery changes over time, so this is what proves a
+    rebuild or a second rater's copy shows the same pixels (review S4)."""
+    rows = [(sha256_file(Path(bundle) / f), f) for f in shown_images(items)
+            if (Path(bundle) / f).exists()]
+    text = ''.join(f'{h}  {f}\n' for h, f in rows)
+    write_text_lf(Path(bundle) / IMAGES_MANIFEST, text)
+    return {'manifest': IMAGES_MANIFEST,
+            'manifest_sha256': hashlib.sha256(text.encode()).hexdigest(),
+            'n_aerial': sum(1 for _h, f in rows if f.startswith('aerial/')),
+            'n_crop': sum(1 for _h, f in rows if f.startswith('crops/'))}
+
+
+def check_images(bundle, snapshot, items):
+    """Every reason the images on disk are not the ones the manifest recorded (empty = ok):
+    the manifest itself altered, an image the items reference but the manifest lacks, a
+    listed image missing or with another sha256."""
+    bundle = Path(bundle)
+    meta = snapshot.get('images')
+    if not meta:
+        return ['snapshot.json has no image manifest (built before review S4): rebuild']
+    mpath = bundle / meta['manifest']
+    if not mpath.exists():
+        return [f'{mpath} is missing']
+    text = mpath.read_text(encoding='utf-8')
+    problems = []
+    if hashlib.sha256(text.encode()).hexdigest() != meta['manifest_sha256']:
+        problems.append(f'{meta["manifest"]} is not the one snapshot.json recorded')
+    listed = {}
+    for line in text.splitlines():
+        h, sep, f = line.partition('  ')
+        if not sep or not re.fullmatch(r'[0-9a-f]{64}', h):
+            problems.append(f'{meta["manifest"]}: malformed line {line[:60]!r}')
+            continue
+        listed[f] = h
+    for f in shown_images(items):
+        if f not in listed:
+            problems.append(f'{f}: shown to the rater but not in the manifest')
+    for f, h in sorted(listed.items()):
+        p = bundle / f
+        if not p.exists():
+            problems.append(f'{f}: missing')
+        elif sha256_file(p) != h:
+            problems.append(f'{f}: sha256 differs from the manifest')
+    return problems
+
+
 def write_report(bundle, snapshot, items, missing):
     parts = snapshot['draw']
     lines = [
@@ -546,6 +609,7 @@ def cmd_build(args):
     missing = {v['crop'] for it in items for c in it['corners'] for v in c['views']
                if not (bundle / v['crop']).exists()}
     snapshot['crops_missing'] = sorted(missing)
+    snapshot['images'] = write_image_manifest(bundle, items)
     snapshot['seconds'] = round(time.time() - t0, 1)
     write_text_lf(bundle / 'snapshot.json', json.dumps(snapshot, indent=1) + '\n')
     write_report(bundle, snapshot, items, missing)
@@ -628,6 +692,12 @@ def cmd_render(args):
     if items_sha != snapshot['items_sha256']:
         raise SystemExit('items.jsonl does not match snapshot.json')
     items = read_jsonl(bundle / 'items.jsonl')
+    problems = check_images(bundle, snapshot, items)
+    if problems:
+        print('\n'.join(problems[:20]))
+        if not args.allow_image_drift:
+            raise SystemExit(f'{len(problems)} image problem(s): the rater would not see the '
+                             f'recorded images (pass --allow-image-drift to render anyway)')
     out = Path(args.out) if args.out else bundle / 'gallery' / args.rater
     out.mkdir(parents=True, exist_ok=True)
     rel = os.path.relpath(bundle.resolve(), out.resolve()).replace(os.sep, '/') + '/'
@@ -644,6 +714,22 @@ def cmd_render(args):
     print(f"Gallery: {out / 'index.html'}")
     print(f'Open it, rate, Export, and save the download as {bundle / rater_file_name(args.rater)}')
     return 0
+
+
+def cmd_check(args):
+    bundle = Path(args.bundle)
+    snapshot = json.loads((bundle / 'snapshot.json').read_text(encoding='utf-8'))
+    items_sha = sha256_file(bundle / 'items.jsonl')
+    problems = [] if items_sha == snapshot['items_sha256'] else \
+        [f'items.jsonl sha256 {items_sha[:12]} is not the recorded {snapshot["items_sha256"][:12]}']
+    problems += check_images(bundle, snapshot, read_jsonl(bundle / 'items.jsonl'))
+    for p in problems:
+        print(p)
+    meta = snapshot.get('images') or {}
+    print(f"{'OK' if not problems else 'FAILED'}: items.jsonl and "
+          f"{meta.get('n_aerial', 0)} aerials + {meta.get('n_crop', 0)} crops against "
+          f"{meta.get('manifest', IMAGES_MANIFEST)}")
+    return 1 if problems else 0
 
 
 def main(argv=None):
@@ -679,8 +765,13 @@ def main(argv=None):
     r.add_argument('--bundle', type=Path, required=True)
     r.add_argument('--rater', required=True, help='exports verdicts__<rater>.json')
     r.add_argument('--out', type=Path, default=None, help='default <bundle>/gallery/<rater>')
+    r.add_argument('--allow-image-drift', action='store_true',
+                   help='render even if the images differ from images.sha256')
+    k = sub.add_parser('check', help='verify items.jsonl and every shown image against the '
+                                     'recorded sha256s')
+    k.add_argument('--bundle', type=Path, required=True)
     args = ap.parse_args(argv)
-    return {'build': cmd_build, 'render': cmd_render}[args.cmd](args)
+    return {'build': cmd_build, 'render': cmd_render, 'check': cmd_check}[args.cmd](args)
 
 
 if __name__ == '__main__':

@@ -203,8 +203,24 @@ python scripts/corner_gallery_score.py runs/vancouver/corner_gallery243
 ```
 
 `build` cuts the crops on makelab2 from the PS store (`--local-panos` cuts them from a local
-sharded copy). It never re-samples an existing `items.jsonl` with a different unit list. The
-tracked files are `items.jsonl`, `snapshot.json`, `report.md`, `verdicts__*.json` and
-`score/`. `runs/**` is git-ignored, so they were added with `git add -f`. A `.gitignore` rule
+sharded copy). It never re-samples an existing `items.jsonl` with a different unit list.
+
+**Image manifest.** The aerials and crops are git-ignored, and Esri World Imagery changes over
+time, so a rebuild or a second rater's copy could show different pixels without anyone
+noticing. `build` therefore writes `images.sha256` (sha256sum format) over every aerial and
+crop the page shows, taken from the files on disk, and records its sha256 and counts in
+`snapshot.json` (`images`). The committed manifest was taken from the exact files Jon rates
+(95 aerials, 813 crops). Verify a copy with
+
+```
+python scripts/corner_gallery.py check --bundle runs/vancouver/corner_gallery243
+# or, from the bundle dir: sha256sum -c images.sha256
+```
+
+`render` runs the same check and refuses to write a page over images that differ
+(`--allow-image-drift` overrides, for looking only).
+
+The tracked files are `items.jsonl`, `snapshot.json`, `images.sha256`, `report.md`,
+`verdicts__*.json` and `score/`. `runs/**` is git-ignored, so they were added with `git add -f`. A `.gitignore` rule
 can replace that once labeler PR #135 merges. The aerials, crops, tile cache and `gallery/`
 stay local.

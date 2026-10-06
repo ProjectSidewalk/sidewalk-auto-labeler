@@ -2,8 +2,8 @@
  "schema": "sidewalk-auto-labeler.corner_gallery.snapshot/1",
  "city": "vancouver",
  "issue": "RampNet#243",
- "built_at": "2026-10-06T15:53:05+00:00",
- "tool_git_sha": "c90e9db7239f9cf28637cf2129faf020232cf1c4",
+ "built_at": "2026-10-06T15:57:51+00:00",
+ "tool_git_sha": "6c5baffdbcc8a8aae8712f7ea15c2874f2aefb1c",
  "seed": 243,
  "n_na": 40,
  "n_clean": 20,
@@ -266,5 +266,11 @@
  "rubric_version": 1,
  "rubric": "Rubric v1 (RampNet#243). Rate every corner of the unit from the crops and the aerial.\n\nThe unit is an OSM intersection. Its legs (white lines on the aerial) split it into corners,\nnumbered clockwise from north. A corner is the sector between two adjacent legs; its marker\non the aerial and the orange ring in each crop is the corner point, 12 m from the centre\nalong the sector's bisector. A ramp can sit several metres from that point; judge the whole\ncorner of the sector (the curb return and the crossings that land on it), not the point.\n\npresent   at least one curb ramp serving pedestrians at this corner is visible: a cut in the\n          curb with a sloped walking surface down to street level, of any type (perpendicular,\n          parallel, diagonal at the apex, blended / depressed corner). A diagonal ramp counts\n          for the corner whose sector holds it.\nabsent    the corner is visible well enough to judge and has no curb ramp. Say which, when\n          you can: `curb_no_ramp` (a sidewalk reaches the corner and the curb there has no\n          cut), or `no_sidewalk` (no sidewalk reaches the corner, so there is nothing to ramp\n          from: a lawn, gravel or a shoulder to the street edge, with or without a curb).\n          A driveway apron is not a curb ramp.\ncant_tell the corner cannot be judged: hidden by vehicles, vegetation or shadow; out of\n          frame; too far or blurred; under construction; or the sector is not a real street\n          corner (an OSM artifact, a parking lot). Say why in the unit note.\n\nUse the newest crop that shows the corner clearly. If crops of different years disagree\n(a ramp appears in a later year), rate what the newest clear crop shows and say so in the\nnote. The city inventory is shown only after the unit is completed; the verdicts given\nbefore that are kept as `blind` and are what is scored. Changing a verdict after the\nreveal is allowed, is recorded (`edited_after_inventory`), and is never scored as blind.\n",
  "crops_missing": [],
- "seconds": 2.8
+ "images": {
+  "manifest": "images.sha256",
+  "manifest_sha256": "86c081fe9c7349a72df215d488ef3d710309e5a9e39fe1cb6d358956af0e81a3",
+  "n_aerial": 95,
+  "n_crop": 813
+ },
+ "seconds": 3.7
 }
