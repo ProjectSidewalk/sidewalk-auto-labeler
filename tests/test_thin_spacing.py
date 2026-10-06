@@ -57,11 +57,20 @@ def test_legacy_run_with_records_binds_once_with_a_note(tmp_path, capsys):
     out = capsys.readouterr().out
     assert out.count("predates thin-spacing binding") == 1
     assert "3 existing records" in out and "10 m" in out
+    assert "saved to manifest.json now" in out and "removing those two keys" in out
     assert m["thin_spacing_m"] == 10 and "thin_spacing_bound_on_resume" in m
     assert main.bind_thin_spacing(m, 10, tmp_path) is False
     assert capsys.readouterr().out == ""
     with pytest.raises(SystemExit, match="--thin-spacing 10"):
         main.bind_thin_spacing(m, 5, tmp_path)
+
+
+def test_whitespace_only_results_bind_silently(tmp_path, capsys):
+    (tmp_path / "results.jsonl").write_text("\n\n", encoding="utf-8")
+    m = {}
+    assert main.bind_thin_spacing(m, 10, tmp_path) is True
+    assert capsys.readouterr().out == ""
+    assert m == {"thin_spacing_m": 10}
 
 
 def test_legacy_hookless_run_binds_silently(tmp_path, capsys):
@@ -145,3 +154,78 @@ def test_negative_thin_spacing_is_a_usage_error():
     out = _main_py("x.geojson", "--thin-spacing", "-1", "--scan-only")
     assert out.returncode == 2
     assert "thin-spacing" in out.stderr
+
+
+# --- run_labeler wiring (PR #136 review) -------------------------------------------------
+# A fake thinning source over one zoom-14 tile; already_processed.txt is pre-filled with every
+# pano the thinning keeps, so the main pass takes the "no new panoramas" branch and nothing
+# is fetched. No gap fill (no fetch_pano_by_id), no position check: no network.
+
+WIRING_ZOOM = 14
+FAKE_PANOS = {f"p{i}": (37.5 + i * 1e-5, -77.4) for i in range(6)}
+KEPT = sorted(FAKE_PANOS)[:2]
+
+
+def _thinning_source(calls):
+    def fetch_panos_for_tile(x, y, area_shape):
+        calls.append((x, y))
+        return dict(FAKE_PANOS)
+
+    def thin_panos(panos, cell_meters):
+        calls.append(("thin", cell_meters))
+        return {k: v for k, v in panos.items() if k in KEPT}
+
+    return SimpleNamespace(NAME="fake", COVERAGE_TILE_ZOOM=WIRING_ZOOM, THIN_CELL_METERS=5,
+                           fetch_panos_for_tile=fetch_panos_for_tile, thin_panos=thin_panos)
+
+
+def _area(tmp_path):
+    x, y = main.latlon_to_tile(37.5, -77.4, WIRING_ZOOM)
+    west, south, east, north = main.tile_lonlat_bounds(x, y, WIRING_ZOOM)
+    w, s, e, n = (west + (east - west) / 4, south + (north - south) / 4,
+                  east - (east - west) / 4, north - (north - south) / 4)
+    path = tmp_path / "t.geojson"
+    path.write_text(json.dumps({"type": "Polygon",
+                                "coordinates": [[[w, s], [e, s], [e, n], [w, n], [w, s]]]}))
+    return path
+
+
+def _run(tmp_path, calls, **kw):
+    main.run_labeler(str(_area(tmp_path)), "t", _thinning_source(calls), check_positions=False,
+                     **kw)
+    return json.loads((tmp_path / "runs" / "t" / "manifest.json").read_text(encoding="utf-8"))
+
+
+def test_run_labeler_binds_and_records_on_the_no_new_panos_branch(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run = tmp_path / "runs" / "t"
+    run.mkdir(parents=True)
+    (run / "already_processed.txt").write_text("".join(f"{k}\n" for k in KEPT))
+    calls = []
+    m = _run(tmp_path, calls, thin_spacing=7, provenance=make_provenance())
+    assert ("thin", 7) in calls
+    assert m["thin_spacing_m"] == 7                         # bound (not UNBOUND)
+    (entry,) = m["runs"]
+    assert entry["processed"] == 0                          # the "no new panoramas" branch
+    assert entry["thin_spacing_m"] == 7
+    assert entry["panos_before_thinning"] == len(FAKE_PANOS)
+    assert entry["panos_found_in_area"] == len(KEPT)
+
+    # A resume at another spacing is refused before any tile is requested.
+    calls.clear()
+    with pytest.raises(SystemExit, match="thin_spacing_m"):
+        _run(tmp_path, calls, thin_spacing=5, provenance=make_provenance())
+    assert calls == []
+
+
+def test_run_labeler_scan_only_binds_nothing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    calls = []
+    m = _run(tmp_path, calls, thin_spacing=7, scan_only=True)
+    assert "thin_spacing_m" not in m and m["runs"] == []
+    # ...and does not refuse a dir bound at another spacing.
+    run = tmp_path / "runs" / "t"
+    bound = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
+    bound["thin_spacing_m"] = 10
+    (run / "manifest.json").write_text(json.dumps(bound), encoding="utf-8")
+    assert _run(tmp_path, calls, thin_spacing=7, scan_only=True)["thin_spacing_m"] == 10

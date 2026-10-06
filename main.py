@@ -622,14 +622,18 @@ def bind_thin_spacing(manifest, spacing, run_dir):
             )
         return False
     results = run_dir / 'results.jsonl'
+    n_records = 0
     if spacing is not None and results.exists() and results.stat().st_size > 0:
         with open(results, 'rb') as f:
             n_records = sum(1 for line in f if line.strip())
+    if n_records:  # a whitespace-only file holds no records: bound silently, like an empty one
         print(f"ℹ️  Run '{run_dir.name}' predates thin-spacing binding (issue #126): its manifest "
               f"does not say what\n    spacing its {n_records} existing records were thinned at. "
-              f"Binding it to this run's {_describe_spacing(spacing)} from\n    here on (recorded "
-              f"once as {THIN_SPACING_KEY} + thin_spacing_bound_on_resume). If the original\n    "
-              f"run used another spacing, stop and use a new --name instead.")
+              f"Binding it to this run's {_describe_spacing(spacing)} from here on;\n    the "
+              f"binding is saved to manifest.json now ({THIN_SPACING_KEY} + "
+              f"thin_spacing_bound_on_resume).\n    If the original run used another spacing, "
+              f"stop: re-running at the correct spacing means first\n    removing those two "
+              f"keys from manifest.json (or use a new --name instead).")
         manifest['thin_spacing_bound_on_resume'] = datetime.now(timezone.utc).isoformat(
             timespec='seconds')
     manifest[THIN_SPACING_KEY] = spacing
