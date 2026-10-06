@@ -468,7 +468,12 @@ python scripts/inventory_clustering.py score vancouver                # descript
 # JPEG; STOP if unclaimed tier detections on labeled panos exceed 0.02 x joinable (unchanged).
 # Vancouver under the coarse-cell rule (exploratory, #111; the #56 decision stands): still STOP
 # -- S 0.930 (11.3% of its matches are flips; 4,268 of 4,477 misses are sub-0.55 at the spot),
-# Z 0.987 passes, P 0.029 fails; docs/heatmap-grid.md. harvest_depth.py --from-store indexes
+# Z 0.987 passes, P 0.029 fails; docs/heatmap-grid.md. Both checks now say WHY a miss did not
+# reproduce (#111 item 3; diagnostics, never a rule): the gate's unmatched.csv carries
+# `miss_class` (below_tier_in_tolerance / tier_flip / below_tier_flip / beyond / ...; pixel-96
+# exposes the tier classes, coarse-cell cannot), and reinfer.py --verify classes each
+# non-reproducing pano (threshold / flip / off_grid / jitter / new_or_lost / border_band_only /
+# pano_drift; --mismatch-csv PATH for the rows). harvest_depth.py --from-store indexes
 # pano-tools' v3 .depth.npz in place (same index.csv schema; --check-store-frame N draws until
 # N panos are checked against live payloads in the image frame and records the result in
 # depth/store.json -- a mirrored index array fails, a payload Google has revised since reads

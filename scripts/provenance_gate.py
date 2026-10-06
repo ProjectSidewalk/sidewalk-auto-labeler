@@ -80,6 +80,10 @@ What the report carries besides the verdict, all diagnostics that never move it:
     distance and confidence), histogrammed in heatmap cells; rows in unmatched.csv (keyed
     by `label_uid` = `<city>:<label_id>`, since a label_id is per city);
   - threshold flips: a detection within tolerance but below 0.55;
+  - why each unmatched label did not reproduce (#111 item 3; MISS_CLASSES, `miss_class` in
+    unmatched.csv): confidence crossed the tier at the right spot, a tier detection one
+    cell / off-grid / one coarse cell (the flip) away, a below-tier detection that also
+    moved, or nothing within 8 heatmap cells. Arm Z gets the same table;
   - labels whose pano disagrees with the run on width/height, and the run's own count of
     store JPEGs whose native size differs from the server's (manifest run entries);
   - duplicate label keys: PS is insert-only, so a label can be live twice on the same
@@ -153,9 +157,38 @@ MATCH_CLASSES = {'same_cell': 'same heatmap cell (0)',
                  'grid_neighbour': 'grid neighbour (1: residue 3 <-> 4)',
                  'off_grid': 'off-grid shift (2-6)', 'flip': 'adjacent-coarse-cell flip (7-8)',
                  'beyond': 'further (> 8)'}
+# Why an unmatched label did not reproduce (#111 item 3). A DIAGNOSTIC: it never gates and
+# never moves a match. Precedence is top to bottom (the first that applies). Distances are
+# Chebyshev heatmap cells (geo.heatmap_cell_distance), "within 8 cells" is <= MISS_CELLS
+# unrounded, and the tier_/below_tier_ suffix is geo.cell_shift_class of that distance.
+# Under --rule coarse-cell every detection within 8 cells is inside the tolerance, so only
+# dims_differ / no_detection / below_tier_in_tolerance / beyond can occur there; the tier_*
+# and below_tier_shift/flip classes are what pixel-96's tighter tolerances expose.
+MISS_CELLS = 8
+MISS_CLASSES = {
+    'dims_differ': 'label and run disagree on the pano size',
+    'no_detection': 'no stored detection on the pano',
+    'below_tier_in_tolerance': f'a stored detection < {TIER} inside the tolerance: position '
+                               f'reproduced, confidence crossed the tier',
+    # same_cell needs a tolerance under one heatmap cell: Arm Z under pixel-96 (+/-1 px) only
+    'tier_same_cell': f'a >= {TIER} detection in the same heatmap cell but outside the '
+                      f'tolerance (pixel-96 Arm Z only: more than 1 px off)',
+    'tier_grid_neighbour': f'a >= {TIER} detection 1 cell away, outside the tolerance (pixel-96 only)',
+    'tier_off_grid': f'a >= {TIER} detection 2-6 cells away, outside the tolerance (pixel-96 only)',
+    'tier_flip': f'a >= {TIER} detection 7-8 cells away: the adjacent-coarse-cell flip '
+                 f'(pixel-96 only)',
+    'below_tier_shift': f'nearest detection within 8 cells is < {TIER} and 0-6 cells away, '
+                        f'outside the tolerance',
+    'below_tier_flip': f'nearest detection within 8 cells is < {TIER} and 7-8 cells away: '
+                       f'flipped AND below the tier',
+    'beyond': 'nothing at any confidence within 8 heatmap cells: genuinely missing at this spot',
+}
 UNMATCHED_FIELDS = ['label_uid', 'label_id', 'pano_id', 'pano_x', 'pano_y', 'run_width',
                     'run_height', 'label_width', 'label_height', 'reason',
-                    'nearest_px', 'nearest_confidence', 'nearest_at_tier_px']
+                    'nearest_px', 'nearest_confidence', 'nearest_at_tier_px',
+                    # #111 item 3, appended so the 13 columns above keep their place
+                    'nearest_cells', 'nearest_class', 'nearest_tier_cells',
+                    'nearest_tier_class', 'miss_class']
 ARM_NAMES = {'S': 'Arm S (store usability)', 'Z': 'Arm Z (pipeline identity)',
              'P': 'precision (unclaimed detections)'}
 
@@ -342,6 +375,43 @@ def _within(pt, det, w, tol):
     return _dx(pt[0], det[0], w) <= tol[0] and abs(pt[1] - det[1]) <= tol[1]
 
 
+def miss_class(dims_differ, near_cells, near_tier_cells, sub_tier):
+    """Why an unmatched label did not reproduce: a MISS_CLASSES key (#111 item 3).
+
+    `near_cells` / `near_tier_cells`: Chebyshev heatmap cells to the nearest stored
+    detection at any confidence / at the tier (None when there is none); `sub_tier`: a
+    below-tier detection lies inside the arm's tolerance. A diagnostic only.
+
+    "Nearest" is the straight-line (Euclidean px) nearest detection, as in the existing
+    `nearest_px` column; its Chebyshev distance is what is compared with MISS_CELLS. Under
+    pixel-96 a Chebyshev-nearer detection inside 8 cells could be passed over (the label
+    then reads `beyond`); re-classifying Vancouver with Chebyshev-nearest detections changed
+    0 labels in any arm (PR #142 review). The exactly-8-cell boundary counts as within.
+
+    Example:
+        >>> miss_class(False, 7.0, 7.0, False)         # the flip, at the tier
+        'tier_flip'
+        >>> miss_class(False, 2.0, None, True)          # position there, confidence not
+        'below_tier_in_tolerance'
+        >>> miss_class(False, 7.0, 12.0, False)         # flipped and below the tier
+        'below_tier_flip'
+        >>> miss_class(False, 9.5, 9.5, False)
+        'beyond'
+    """
+    if dims_differ:
+        return 'dims_differ'
+    if near_cells is None:
+        return 'no_detection'
+    if sub_tier:
+        return 'below_tier_in_tolerance'
+    if near_tier_cells is not None and near_tier_cells <= MISS_CELLS:
+        return 'tier_' + geo.cell_shift_class(near_tier_cells)
+    if near_cells <= MISS_CELLS:
+        # No tier detection within 8 cells, so the nearest detection is below the tier.
+        return 'below_tier_flip' if geo.cell_shift_class(near_cells) == 'flip' else 'below_tier_shift'
+    return 'beyond'
+
+
 def join(labels, run, selected=None, skips=None, tolerance=store_tolerance):
     """Score every AI label against the run under `tolerance` ((W, H) -> (tx, ty)).
     Returns a dict of tallies and rows; see the module docstring for what each diagnostic
@@ -351,7 +421,8 @@ def join(labels, run, selected=None, skips=None, tolerance=store_tolerance):
     out = {'joinable': 0, 'matched': 0, 'within_1px': 0, 'on_pixel': 0, 'sub_tier': 0,
            'dims_differ': 0, 'not_in_run': Counter(), 'unmatched': [], 'buckets': Counter(),
            'panos': Counter(), 'unlabeled_dets': {'labeled_panos': 0, 'unlabeled_panos': 0},
-           'matched_ids': set(), 'match_classes': Counter(), 'shared_claims': 0}
+           'matched_ids': set(), 'match_classes': Counter(), 'shared_claims': 0,
+           'miss_classes': Counter()}
     claims = defaultdict(set)    # (pano, detection index) -> distinct label pixels claiming it
     keys = Counter((lab['pano_id'], lab['pano_x'], lab['pano_y']) for lab in labels)
     out['duplicate_keys'] = sum(1 for n in keys.values() if n > 1)
@@ -417,13 +488,25 @@ def join(labels, run, selected=None, skips=None, tolerance=store_tolerance):
                       'no detection on the pano' if near is None else
                       'below tier within tolerance' if sub_tier else
                       'no detection within tolerance')
+            near_cells = None if near is None else geo.heatmap_cell_distance(pt, near, w, h)
+            near_tier_cells = (None if near_tier is None
+                               else geo.heatmap_cell_distance(pt, near_tier, w, h))
+            why = miss_class(dims_differ, near_cells, near_tier_cells, sub_tier)
+            out['miss_classes'][why] += 1
             out['unmatched'].append({
                 'label_id': lab['label_id'], 'pano_id': pid, 'pano_x': pt[0], 'pano_y': pt[1],
                 'run_width': w, 'run_height': h, 'label_width': lab.get('pano_width'),
                 'label_height': lab.get('pano_height'), 'reason': reason,
                 'nearest_px': None if dist is None else round(dist, 2),
                 'nearest_confidence': None if near is None else round(near[2], 6),
-                'nearest_at_tier_px': None if near_tier is None else round(_dist(pt, near_tier, w), 2)})
+                'nearest_at_tier_px': None if near_tier is None else round(_dist(pt, near_tier, w), 2),
+                'nearest_cells': None if near_cells is None else round(near_cells, 2),
+                'nearest_class': None if near_cells is None else geo.cell_shift_class(near_cells),
+                'nearest_tier_cells': (None if near_tier_cells is None
+                                       else round(near_tier_cells, 2)),
+                'nearest_tier_class': (None if near_tier_cells is None
+                                       else geo.cell_shift_class(near_tier_cells)),
+                'miss_class': why})
         out['panos']['all matched' if n_ok == len(labs) else 'none matched' if n_ok == 0
                      else 'partly matched'] += 1
 
@@ -566,6 +649,26 @@ def class_table(res):
     return rows
 
 
+def miss_table(res):
+    """Unmatched labels by why they did not reproduce (MISS_CLASSES; #111 item 3)."""
+    n = len(res['unmatched'])
+    rows = ['| miss class | labels | share of unmatched |', '|---|---:|---:|']
+    for key in MISS_CLASSES:
+        k = res['miss_classes'][key]
+        rows.append(f'| `{key}` | {k:,} | {k / n:.4f} |' if n else f'| `{key}` | 0 | n/a |')
+    return rows
+
+
+MISS_NOTE = ('Definitions, first that applies: ' +
+             '; '.join(f'`{k}` = {v}' for k, v in MISS_CLASSES.items()) +
+             '. Cells are Chebyshev heatmap cells, unrounded for "within 8", rounded for the '
+             'class. Under the coarse-cell rule every detection within 8 cells is inside the '
+             'tolerance, so only `dims_differ`, `no_detection`, `below_tier_in_tolerance` and '
+             '`beyond` can occur; the `tier_*` and `below_tier_shift`/`below_tier_flip` classes '
+             'are what pixel-96 exposes. A diagnostic: it never gates. Per label: the '
+             '`miss_class` column of unmatched.csv.')
+
+
 def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
            control=None, control_path=None, arms=None, size_mismatch=None,
            rule=RULE_COARSE_CELL, exploratory=None, control_draw=None):
@@ -649,6 +752,8 @@ def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
         *[f'| {name} | {res["buckets"][name]:,} |'
           for name in [n for _, n in DISTANCE_BUCKETS] + ['no detection on the pano']],
         '', f'A heatmap cell is W/{HEATMAP_WIDTH} px (16 px on a 16384-wide pano).', '',
+        '### Unmatched labels: why not reproduced (#111 item 3)', '',
+        *miss_table(res), '', MISS_NOTE, '',
         f'## Detections >= {TIER} that no label claims (under Arm S)', '',
         f'- on panos carrying AI labels (gated by P): {res["unlabeled_dets"]["labeled_panos"]:,}',
         f'- on panos carrying none (e.g. the sampled empty stratum; not gated): '
@@ -666,6 +771,8 @@ def render(city, res, cov, ai_user, users, pull_line, results_path, n_run,
             f'- Unmatched: {len(control["unmatched"]):,}; threshold flips within tolerance: '
             f'{control["sub_tier"]:,}', '',
             *class_table(control), '',
+            '### Arm Z unmatched labels: why not reproduced (#111 item 3)', '',
+            *miss_table(control), '',
             '| on the control\'s panos | labels |', '|---|---:|',
             *[f'| {k} | {arms[k]:,} |' for k in ('both', 'S only', 'Z only', 'neither')],
             '', '`S only`: matched under Arm S on the store run but not under Arm Z on the '
@@ -786,6 +893,9 @@ def main(argv=None):
           f'adjacent-coarse-cell flips' + ('' if control is None else
                                            f'; Arm Z: {control["match_classes"][flip]:,} of '
                                            f'{control["matched"]:,}'))
+    mc = res['miss_classes']
+    print(f'  misses: {mc["below_tier_in_tolerance"]:,} below tier in tolerance, '
+          f'{mc["tier_flip"]:,} tier flips, {mc["beyond"]:,} beyond (Arm S)')
     return {'PASS': 0, 'STOP': 1}.get(v, 2)
 
 
