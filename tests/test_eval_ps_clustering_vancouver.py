@@ -75,6 +75,22 @@ def test_no_gt_with_ai_user_scores_every_label_once(tmp_path):
     assert (tmp_path / 'out' / 'validation_precision.csv').exists()
 
 
+def test_size_table_carries_median_y(tmp_path):
+    """The size table's `median y` must be filled from the stored detections. run()
+    once recomputed `size` a second time without the y lookup, so every row read n/a."""
+    epc.main(_toy_city(tmp_path) + ['--ai-user', AI])
+    report = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    section = report.split('## Precision by cluster size', 1)[1].split('\n## ', 1)[0]
+    lines = [x for x in section.splitlines() if x.startswith('|')]
+    header = [c.strip() for c in lines[0].split('|')[1:-1]]
+    i_n, i_y = header.index('AI labels'), header.index('median y')
+    rows = [[c.strip() for c in x.split('|')[1:-1]] for x in lines[2:]]
+    filled = [r for r in rows if int(r[i_n])]
+    assert filled, section
+    for cells in filled:
+        assert 0.0 < float(cells[i_y]) < 1.0, cells
+
+
 def test_unmapped_ai_without_ai_user_is_refused(tmp_path):
     with pytest.raises(SystemExit, match='map to no stored detection'):
         epc.main(_toy_city(tmp_path))
