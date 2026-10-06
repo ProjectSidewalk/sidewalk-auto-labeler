@@ -429,3 +429,17 @@ def test_report_adds_only_new_lines(tmp_path, capsys):
     lines = capsys.readouterr().out.splitlines()
     assert lines[1] == "  Arm S: 0 of 2 matches are adjacent-coarse-cell flips"
     assert lines[2] == "  misses: 1 below tier in tolerance, 1 tier flips, 1 beyond (Arm S)"
+
+
+def test_exactly_eight_cells_is_within_the_miss_window(tmp_path):
+    """The window is <= 8 cells unrounded: 8.0 is a flip, just past it is beyond."""
+    assert pg.miss_class(False, 8.0, 8.0, False) == "tier_flip"
+    assert pg.miss_class(False, 8.0, None, False) == "below_tier_flip"
+    assert pg.miss_class(False, 8.01, 8.01, False) == "beyond"
+    run_dir = _run(tmp_path, [("T", [_det(1128, 4000, 0.9)]),     # 128 px = 8.0 cells
+                              ("S", [_det(1000, 4128, 0.4)])])
+    labels, _, _ = pg.load_ai_labels(_labels(tmp_path, [("T", 1000, 4000, AI),
+                                                        ("S", 1000, 4000, AI)]))
+    res = pg.join(labels, pg.load_run(run_dir / "results.jsonl"), tolerance=pg.store_tolerance)
+    assert {r["pano_id"]: r["miss_class"] for r in res["unmatched"]} == {
+        "T": "tier_flip", "S": "below_tier_flip"}

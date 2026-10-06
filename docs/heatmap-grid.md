@@ -199,8 +199,10 @@ gets the same table in the report (`pixel-96`: 4 grid-neighbour, 3 flip, 2 below
 1 below tier in tolerance, 1 beyond, of 11).
 
 `reinfer.py --verify` classes each carried-over pano, first that applies: `pano_drift`,
-`border_band_only` (the #130 diagnostic), `new_or_lost` (a tier key with nothing stored
-within one coarse cell on the other side), `threshold` (each unpaired tier key has a
+`border_band_only` (the #130 diagnostic), `new_or_lost` (an unpaired tier key with no below-tier
+detection within one coarse cell on the other side and no tier key left there to pair with;
+a tier detection already paired with another key, e.g. two peaks merged into one, may still
+sit nearby), `threshold` (each unpaired tier key has a
 below-tier detection within a coarse cell on the other side), `flip`, `off_grid`, `jitter`.
 The classes go in `summary['mismatch_classes']`, with `summary['key_classes']` pooling the
 unpaired keys (`threshold_down` / `threshold_up` / `vanished` / `appeared`), and

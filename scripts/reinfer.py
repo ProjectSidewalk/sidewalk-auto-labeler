@@ -53,8 +53,8 @@ A pano that agrees only within a cell is carried over from the old file like any
 **Why each pano did not reproduce** (#111 item 3), also a diagnostic only:
 summary['mismatch_classes'] gives every carried-over pano one class, first that applies --
 `pano_drift` (a PANO_INVARIANTS field changed), `border_band_only` (the #130 diagnostic below),
-`new_or_lost` (a tier key with no stored detection at any confidence within one coarse cell
-on the other side), `threshold` (every unpaired tier key has a below-tier detection there:
+`new_or_lost` (an unpaired tier key with no BELOW-tier detection within one coarse cell on
+the other side, and no tier key left there to pair with), `threshold` (every unpaired tier key has a below-tier detection there:
 the confidence crossed the tier, the position did not move), `flip` (a pair moved 7-8
 heatmap cells), `off_grid` (2-6), `jitter` (0-1). summary['key_classes'] pools the unpaired
 tier keys (`threshold_down` / `threshold_up` / `vanished` / `appeared`), and
@@ -214,8 +214,10 @@ def classify_mismatch(old, new, floor, border_only=False):
 
     `old`/`new`: the two records; `floor`: the tier compared at; `border_only`: the #130
     diagnostic found every differing key in the 10-px border band. Precedence: `pano_drift`
-    (a PANO_INVARIANTS field changed) > `border_band_only` > `new_or_lost` (a tier key with
-    no stored detection at ANY confidence within one coarse cell on the other side) >
+    (a PANO_INVARIANTS field changed) > `border_band_only` > `new_or_lost` (an unpaired tier key
+    with no BELOW-tier detection within one coarse cell on the other side, and no tier key
+    left there to pair with: a tier detection already paired with another key may still sit
+    nearby, e.g. two old peaks that merged into one) >
     `threshold` (every unpaired tier key has a below-tier partner there: the confidence
     crossed the tier) > `flip` (a pair moved 7-8 heatmap cells) > `off_grid` (2-6) >
     `jitter` (every pair 0-1 cells). The counts are the cell_pairs classes (`pairs_*`) and

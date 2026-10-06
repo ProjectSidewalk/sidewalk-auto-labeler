@@ -382,6 +382,12 @@ def miss_class(dims_differ, near_cells, near_tier_cells, sub_tier):
     detection at any confidence / at the tier (None when there is none); `sub_tier`: a
     below-tier detection lies inside the arm's tolerance. A diagnostic only.
 
+    "Nearest" is the straight-line (Euclidean px) nearest detection, as in the existing
+    `nearest_px` column; its Chebyshev distance is what is compared with MISS_CELLS. Under
+    pixel-96 a Chebyshev-nearer detection inside 8 cells could be passed over (the label
+    then reads `beyond`); re-classifying Vancouver with Chebyshev-nearest detections changed
+    0 labels in any arm (PR #142 review). The exactly-8-cell boundary counts as within.
+
     Example:
         >>> miss_class(False, 7.0, 7.0, False)         # the flip, at the tier
         'tier_flip'
