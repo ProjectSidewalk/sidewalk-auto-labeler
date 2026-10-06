@@ -557,16 +557,34 @@ def cmd_build(args):
 
 # ------------------------------------------------------------------------------ render
 
+REVEAL_DIR = 'reveal'
+
+
+def reveal_file(unit):
+    """The unit's reveal script, relative to the gallery dir."""
+    return f'{REVEAL_DIR}/{safe_name(unit)}.js'
+
+
+def reveal_script(it):
+    """The city inventory of one unit as a classic script the page inserts only when the unit
+    is completed (review S3): ``revealInventory(<unit>, {<corner key>: [points]});``. A
+    <script> tag, not fetch(), because fetch() of a file:// URL is refused by Chrome."""
+    data = {str(c['corner']): c['inventory'] for c in it['corners']}
+    return (f'revealInventory({json.dumps(it["unit"])}, '
+            f'{json.dumps(data, sort_keys=True, separators=(",", ":"))});\n')
+
+
 def viewer_unit(it, rel):
     """The per-unit payload the page needs; paths relative to the gallery dir. The part is
-    deliberately left out: the rater never sees which population a unit came from."""
+    deliberately left out: the rater never sees which population a unit came from. So is the
+    city inventory (status, RAMPTYPE, INSTDATE, positions): it lives in reveal/<unit>.js and is
+    loaded only at completion (review S3)."""
     return {'id': it['unit'], 'type': it['type'], 'centre': it['centre'],
-            'window_m': it['window_m'], 'legs': it['legs'],
+            'window_m': it['window_m'], 'legs': it['legs'], 'reveal': reveal_file(it['unit']),
             'aerial': dict(it['aerial'], file=rel + it['aerial']['file']),
             'corners': [{'k': str(c['corner']), 'corner': c['corner'],
                          'start_deg': c['start_deg'], 'width_deg': c['width_deg'],
                          'wide': c['wide'], 'lat': c['lat'], 'lng': c['lng'],
-                         'inventory': c['inventory'],
                          'views': [{'pano_id': v['pano_id'], 'date': v['capture_date'],
                                     'dist_m': v['dist_m'], 'cam': v['cam'],
                                     'crop': rel + v['crop']} for v in c['views']]}
@@ -618,6 +636,9 @@ def cmd_render(args):
         print(msg)
     html = build_html([viewer_unit(i, rel) for i in items], items_sha, args.rater, initial,
                       snapshot['aerial']['attribution'])
+    (out / REVEAL_DIR).mkdir(exist_ok=True)
+    for i in items:
+        write_text_lf(out / reveal_file(i['unit']), reveal_script(i))
     write_text_lf(out / 'index.html', html)
     print(f"{len(items)} units, {sum(len(i['corners']) for i in items)} corners")
     print(f"Gallery: {out / 'index.html'}")

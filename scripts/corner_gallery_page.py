@@ -385,12 +385,34 @@ document.addEventListener('visibilitychange', () => { lastTick = performance.now
 window.addEventListener('pagehide', () => save());
 
 // --- rendering ---------------------------------------------------------------------------
+// --- the city inventory, loaded only at completion (review S3) ----------------------------
+// It is NOT in this page: render writes it to reveal/<unit>.js, and loadReveal inserts that
+// script the first time a complete unit is shown. Until then nothing in the page (source,
+// devtools) holds a status, RAMPTYPE, INSTDATE or position.
+const REVEAL = {}, REVEAL_PENDING = {};
+function revealInventory(id, data) {
+  REVEAL[id] = data;
+  if (UNITS.length && cur().id === id && S().complete) renderUnit();
+}
+function loadReveal(u) {
+  if (REVEAL[u.id] || REVEAL_PENDING[u.id]) return;
+  REVEAL_PENDING[u.id] = true;
+  const el = document.createElement('script');
+  el.src = u.reveal;
+  el.onerror = () => { REVEAL[u.id] = {loadError: true}; if (cur().id === u.id) renderUnit(); };
+  document.head.appendChild(el);
+}
+function inventoryOf(u, c) { const d = REVEAL[u.id]; return d && !d.loadError ? (d[c.k] || []) : []; }
 function newestDate(c) { return c.views.map(v => v.date || '').sort().pop() || ''; }
 function invHtml(u, c) {
-  if (!c.inventory.length) return '<div class="inv">City inventory: no point in this corner.</div>';
+  const d = REVEAL[u.id];
+  if (!d) return '<div class="inv">Loading the city inventory&#8230;</div>';
+  if (d.loadError) return '<div class="inv"><b>The inventory file ' + esc(u.reveal) + ' could not be loaded.</b> Re-run render.</div>';
+  const inv = inventoryOf(u, c);
+  if (!inv.length) return '<div class="inv">City inventory: no point in this corner.</div>';
   const newest = newestDate(c);
   return '<div class="inv">City inventory in this corner:<ul style="margin:2px 0 0 18px;padding:0">' +
-    c.inventory.map(p => {
+    inv.map(p => {
       const late = p.instdate && newest && p.instdate.slice(0, 7) > newest;
       return '<li>' + esc(p.unit_id) + ': <b>' + esc(INVTEXT[p.class] || p.class) + '</b>' +
         (p.ramptype ? ', ' + esc(p.ramptype) : '') + (p.instdate ? ', installed ' + esc(p.instdate) : '') +
@@ -401,6 +423,7 @@ function invHtml(u, c) {
 function renderUnit() {
   const u = cur(), s = S();
   try { localStorage.setItem(ISTORE, String(idx)); } catch (e) {}
+  if (s.complete) loadReveal(u);
   document.getElementById('title').textContent = 'Unit ' + (idx + 1) + ' of ' + UNITS.length + ': ' + u.id +
     ' (' + u.type + ', ' + u.corners.length + ' corner' + (u.corners.length > 1 ? 's' : '') + ')';
   document.getElementById('aerial').src = u.aerial.file;
@@ -478,7 +501,7 @@ function drawPlan() {
     out.push('<line x1="' + p[0] + '" y1="' + p[1] + '" x2="' + q[0] + '" y2="' + q[1] + '" stroke="#ffd400" stroke-width="1.5" stroke-dasharray="4 3"/>');
     out.push('<circle cx="' + p[0] + '" cy="' + p[1] + '" r="6" fill="#ffd400" stroke="#000"/><text x="' + (p[0] + 8) + '" y="' + (p[1] + 4) + '" font-size="12" fill="#ffd400" stroke="#000" stroke-width=".4">' + (vi + 1) + '</text>');
   }
-  if (s.complete) for (const c of u.corners) for (const p of c.inventory) {
+  if (s.complete) for (const c of u.corners) for (const p of inventoryOf(u, c)) {
     if (p.lat == null) continue;
     const q = toImg(u, p.lat, p.lng);
     out.push('<rect x="' + (q[0] - 8) + '" y="' + (q[1] - 8) + '" width="16" height="16" fill="#fff" stroke="#000" stroke-width="1.5"><title>' + esc(p.unit_id + ' ' + (INVTEXT[p.class] || p.class)) + '</title></rect>' +

@@ -59,7 +59,16 @@ the gallery says nothing about its part. The page never receives the part.
   `items.jsonl`, and the build test asserts that the newest crop shown equals it.
 - Each crop's capture date and distance, and the camera position on the aerial.
 
-The city inventory points are hidden until the unit is completed. Then they appear as squares
+The city inventory points are hidden until the unit is completed. They are not in the page
+at all: `render` writes each unit's inventory to `gallery/<rater>/reveal/<unit>.js`, and the
+page inserts that script only when the unit is completed (a `<script>` tag, because Chrome
+refuses `fetch()` of a `file://` URL). So view-source or devtools on the page before the reveal
+shows no status, `RAMPTYPE`, `INSTDATE` or position. **What this does not do:** the reveal
+files sit beside the page, and `items.jsonl` holds the same inventory, so a rater who opens
+those files can still read it. Blindness rests on the rater not opening the bundle's files,
+which is a much smaller ask than never opening devtools; it is not enforced. (The first
+version embedded the inventory in the page; the review of PR #141 caught it before any rating.)
+After the reveal the points appear as squares
 on the aerial and as a list per corner: status, `RAMPTYPE`, install date, and a flag when the
 install month is later than the newest crop of that corner. The verdicts given at the first
 completion are frozen as `blind`. A change after the reveal is allowed. It is recorded as

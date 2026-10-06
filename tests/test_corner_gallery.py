@@ -204,7 +204,8 @@ def test_false_absence_dating_uses_shown_and_records_available():
     it = item('u', 'false_absence', {0: ('Available', '2022-03-01')}, views_date='2014-08')
     it['corners'][0]['newest_available'] = '2021-12'
     # judged on the 2014 crop: the 2022 install is after it, so built-after-imagery
-    assert cs.classify_false_absence(it, {'0': 'absent', '1': 'absent', '2': 'absent'}) ==         'artifact_built_after_imagery'
+    verdicts = {'0': 'absent', '1': 'absent', '2': 'absent'}
+    assert cs.classify_false_absence(it, verdicts) == 'artifact_built_after_imagery'
     d = cs.fa_dating(it)
     assert d == {'0': {'newest_shown': '2014-08', 'newest_available': '2021-12',
                        'instdates': ['2022-03']}}
@@ -294,6 +295,10 @@ def test_render_has_no_placeholders_and_no_part():
     html = cg.build_html([cg.viewer_unit(it, '../../')], 'S' * 64, 'jonf', None, 'Imagery: Esri')
     assert '__' not in html.replace('verdicts__', '')
     assert 'na_noramp' not in html                       # the part is never sent to the page
+    # S3: no inventory in the page before the reveal (status, RAMPTYPE, INSTDATE, ids)
+    for leak in ('2025-09-12', 'PERP', 'CR1', '"instdate"', '"ramptype"', '"inventory"'):
+        assert leak not in html, leak
+    assert '"reveal": "reveal/vancouver_res_n1.js"' in html
     assert '"verdicts__jonf.json"' in html
     assert cg.RUBRIC.splitlines()[0] in html
     with pytest.raises(ValueError):
@@ -301,6 +306,19 @@ def test_render_has_no_placeholders_and_no_part():
 
 
 NODE = shutil.which('node')
+
+
+@pytest.mark.skipif(shutil.which('node') is None, reason='node not installed')
+def test_reveal_script_delivers_inventory(tmp_path):
+    it = cg.build_item(full_record(), 'false_absence', {}, {})
+    js = ("let got = null; function revealInventory(id, d) { got = [id, d]; }\n" +
+          cg.reveal_script(it) + "console.log(JSON.stringify(got));\n")
+    p = tmp_path / 'r.js'
+    p.write_text(js, encoding='utf-8')
+    got = json.loads(subprocess.run([shutil.which('node'), str(p)], capture_output=True, text=True,
+                                    check=True).stdout)
+    assert got[0] == 'vancouver:res:n1'
+    assert got[1]['0'][0]['instdate'] == '2025-09-12' and got[1]['1'] == []
 
 
 @pytest.mark.skipif(NODE is None, reason='node not installed')
