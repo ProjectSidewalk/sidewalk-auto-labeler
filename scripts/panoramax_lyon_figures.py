@@ -90,13 +90,22 @@ def census_scan(scan_path):
 def rig_producers(results_path, min_panos=200):
     """Detections per pano per (rig, capture year, producer) for groups >= min_panos.
 
-    In Lyon a rig is mostly one operator's (ecartip drives most GoPro Max 2026 panos,
-    the Metropole the Ladybug), so a per-rig rate is also a per-operator rate; this
-    table is how far the two can be pulled apart. Reads the uncommitted results.jsonl.
+    In Lyon a camera model is mostly one operator's (ecartip drives most GoPro Max 2026
+    panos, the Metropole the 8192x4096 Ladybug), so a per-camera rate is also a
+    per-operator rate; this table is how far the two can be pulled apart. Besides the
+    rates it carries, at the benchmark tier, the raw detection count (so a group's rate
+    without one producer is a subtraction), the count on the camera rig
+    (detectors.on_camera_rig), the share above the horizon (y < 0.5) and the median dip
+    of the below-horizon detections in degrees -- the mount-geometry signal (a higher
+    camera sees a ramp at a given distance at a steeper dip) -- and the share of panos
+    whose reported pitch and roll are both exactly 0 (pose not levelled, or not known). Rates include on-rig
+    detections, as detections.csv does. Reads the uncommitted results.jsonl.
     """
-    from detectors import BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE
+    import statistics
+    from detectors import BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE, on_camera_rig
     tiers = (OPERATIONAL_CONFIDENCE, BENCHMARK_CONFIDENCE)
     n, dets, seqs = Counter(), {t: Counter() for t in tiers}, {}
+    on_rig, above, dips, zeros = Counter(), Counter(), {}, Counter()
     with open(results_path, encoding='utf-8') as f:
         for line in f:
             if not line.strip():
@@ -108,18 +117,36 @@ def rig_producers(results_path, min_panos=200):
                    (p.get('capture_date') or '')[:4] or 'unknown', p.get('copyright'))
             n[key] += 1
             seqs.setdefault(key, set()).add(p.get('sequence_id'))
+            zeros[key] += (p.get('camera_pitch') == 0 and p.get('camera_roll') == 0)
             for t in tiers:
                 dets[t][key] += sum(d['confidence'] >= t for d in rec.get('detections') or [])
+            for d in rec.get('detections') or []:
+                if d['confidence'] < BENCHMARK_CONFIDENCE:
+                    continue
+                y = d['y_normalized']
+                on_rig[key] += on_camera_rig(y)
+                if y < 0.5:
+                    above[key] += 1
+                else:
+                    dips.setdefault(key, []).append((y - 0.5) * 180.0)
     DATA.mkdir(parents=True, exist_ok=True)
+    b = f'{BENCHMARK_CONFIDENCE:g}'
     with open(DATA / 'rig_producer_detections.csv', 'w', newline='\n', encoding='utf-8') as f:
         w = csv.writer(f, lineterminator='\n')
         w.writerow(['camera_make', 'camera_model', 'dimensions', 'capture_year', 'producer',
                     'panos', 'sequences',
-                    *(f'detections_per_pano_{t:g}' for t in tiers)])
+                    *(f'detections_per_pano_{t:g}' for t in tiers),
+                    f'detections_{b}', f'on_rig_{b}', f'above_horizon_share_{b}',
+                    f'median_dip_deg_below_horizon_{b}', 'pose_zeros_share'])
         for key, k in sorted(n.items(), key=lambda kv: (-kv[1], str(kv[0]))):
             if k >= min_panos:
+                kb = dets[BENCHMARK_CONFIDENCE][key]
+                dip = dips.get(key)
                 w.writerow([*key, k, len(seqs[key]),
-                            *(round(dets[t][key] / k, 3) for t in tiers)])
+                            *(round(dets[t][key] / k, 3) for t in tiers),
+                            kb, on_rig[key], round(above[key] / kb, 4) if kb else '',
+                            round(statistics.median(dip), 1) if dip else '',
+                            round(zeros[key] / k, 4)])
     print(f'wrote {DATA / "rig_producer_detections.csv"}')
 
 
@@ -204,7 +231,7 @@ def fig1_rig_rates(plt):
     axes[0].legend(handles=[Patch(color=BLUE, label='at 0.55 (benchmark tier)'),
                             Patch(color=BLUE_LIGHT, label='at 0.30 (operational tier)')],
                    loc='lower right', fontsize=8)
-    fig.suptitle('Detections per pano by rig and capture year: Lyon slice vs Bayonne',
+    fig.suptitle('Detections per pano by camera model and capture year: Lyon slice vs Bayonne',
                  x=0.01, ha='left', fontweight='bold', fontsize=12)
     fig.tight_layout()
     _save(fig, 'fig1_rig_rates')

@@ -20,16 +20,32 @@ This is **slice 1**: 40,000 of the 86,942 panos in the 10 m set. It is not "Lyon
 >    pano at 0.55 and 0.869 at 0.30 over 39,975 panos. Bayonne read 0.135 / 0.351.
 >    Among the six earlier runs, only Annapolis (0.548) and Richmond (1.048) are higher.
 >    *Figure 1; `data/census/lyon/detections.csv` `detections_per_pano`.*
-> 2. **The same rig reads 3-4x higher in Lyon than in Bayonne, so the rig does not explain
->    Bayonne's low rate.** GoPro Max 5760x2880 reads 0.558 per pano in Lyon in 2026
->    (14,328 panos) and 0.547 in 2023. In Bayonne the same camera reads 0.104-0.156.
->    *Figure 1; `data/census/{lyon,bayonne}/rig_detections.csv` `detections_per_pano_0.55`.*
-> 3. **Within one rig and one year, the operator moves the rate about 3x.** GoPro Max 2026
->    reads 0.633 for ecartip (10,944 panos, 350 sequences), 0.387 for ign_ddc_dtce_np and
->    0.224 for ign_ddc_dtce_fa. The Métropole's 8192x4096 Ladybug campaign reads
->    0.138-0.392 by year. Rig, operator, vintage and district are confounded, and nothing
->    here is a recall claim: there is no GT.
->    *`data/rig_producer_detections.csv` `detections_per_pano_0.55`.*
+> 2. **The camera model does not explain Bayonne's low rate, but the gap is about 2x, not
+>    3-4x.** GoPro Max 5760x2880 2026 reads 0.558 per pano in Lyon against 0.134 in
+>    Bayonne. 76% of that Lyon group is one operator, ecartip (0.633). Without ecartip it
+>    reads **0.317** (1,072 detections on 3,384 panos), still **2.4x** Bayonne.
+>    - 2025 without ecartip reads 0.302, 2.0x Bayonne's 0.149.
+>    - 2024 is level: 0.107 vs 0.104.
+>    - 2023's 0.547 is 70% one contributor (mike en gyroroue), who reads 0.059 in 2024.
+>
+>    *Figure 1; `data/census/{lyon,bayonne}/rig_detections.csv` `detections_0.55`, `panos`,
+>    minus the ecartip rows' `detections_0.55`, `panos` in
+>    `data/rig_producer_detections.csv`.*
+> 3. **Within one camera model and one year, the operator moves the rate about 3x.**
+>    - GoPro Max 2026 reads 0.633 for ecartip (10,944 panos, 350 sequences), 0.387 for
+>      ign_ddc_dtce_np and 0.224 for ign_ddc_dtce_fa.
+>    - The candidates are route and district, and **mount** (camera height). ecartip's
+>      below-horizon detections sit at a median dip of 18.3°, against 12.3° for both IGN
+>      accounts. At a fixed ramp distance that is the geometry of a higher camera.
+>    - It is not rig false positives: the rig mask removes 17 of ecartip's 6,930 detections.
+>    - District alone is as large. The Métropole's make-less 8192x4096 campaign in 2021 reads
+>      **0.711** under the `grand lyon` account (692 panos) and **0.163** under `grand-lyon`
+>      (1,390 panos): one campaign, one year, two spellings.
+>    - Camera model, operator, mount, vintage and district are confounded, and nothing here
+>      is a recall claim: there is no GT.
+>
+>    *`data/rig_producer_detections.csv` `detections_per_pano_0.55`, `on_rig_0.55`,
+>    `median_dip_deg_below_horizon_0.55`.*
 > 4. **Thinning favours the newest captures.** 2026 is 19% of the raw scan, but 40% of the
 >    10 m set and of the slice. The slice's year mix matches the 10 m set's to within a
 >    point, so it is a fair sample of what a full 10 m run would process.
@@ -88,16 +104,17 @@ under `~/sal-lyon`, and later slices run there.
 
 - **Rig:** GoPro Max 5760x2880 56.4%. Point Grey Ladybug 8192x4096 21.1%. Make-less
   8192x4096 15.1% (Grand Lyon, the same Métropole campaign; see the pixel look below).
-  Then Kandao QooCam 3 2.2%, RICOH THETA S 1.3%, insta360 x3 1.2%, and a tail of nine
-  other models.
+  Then Kandao QooCam 3 2.2%, RICOH THETA S 1.3%, insta360 x3 1.2%, and a tail of other
+  models (`rigs.csv`).
 - **GoPro MAX2:** 191 panos at 7680x3840 were *processed*. In Bayonne, 104 MAX2 uploads
   served a vertically cropped `hd` image and were skipped. Lyon's MAX2 uploads pass the
   2:1 check.
 - **Capture year:** 2026 40.3%, 2025 16.9%, 2022 15.5%, 2020 10.1%, 2021 8.0%,
-  2023 6.6%, 2024 1.9%, ≤ 2019 0.7%.
+  2023 6.6%, 2024 1.9%, ≤ 2019 0.8%.
 - **Producer:** ecartip 33.7% and Grand Lyon 36.2% (two spellings, `grand lyon` and
-  `grand-lyon`), both on the IGN instance under Etalab 2.0. 30 accounts in all, some on
-  the OSM-FR instance under CC BY-SA 4.0.
+  `grand-lyon`), both on the IGN instance under Etalab 2.0. The slice holds 29 producer
+  names (28 with the two Grand Lyon spellings merged), some on the OSM-FR instance under
+  CC BY-SA 4.0. The 30 accounts in the 2026-09-04 census were counted over the whole city.
 - **Pose:** absent 54.5%, reported as exactly 0/0 40.1%, real tilt 5.4%. Bayonne's real
   tilt share was 36.8%.
 
@@ -112,7 +129,16 @@ results:
 
 There is no logo band like Bayonne's. Detections in the bottom band (y ≥ 0.79) are 4 of
 15,617 at 0.55 and 91 of 34,726 at 0.30. On-rig detections (dip ≥ 49°) are 31 and 242
-(0.20% / 0.70%). `send_to_ps.transform_record` masks those anyway.
+(0.20% / 0.70%). `send_to_ps.transform_record` masks those anyway. **Every rate in this
+report includes on-rig detections**, as `detections.csv` does. In Lyon that moves nothing.
+
+**A fixed-pixel artifact at 0.30** (from the PR review's ad-hoc check, not a committed
+script):
+- 207 of 9,973 Grand Lyon detections at 0.30 (2.1%) sit in 1024x512 cells that repeat in
+  ≥ 5 panos of one sequence.
+- The main one is (x 0.503, y 0.756), about 46° dip, straight ahead, just above the black
+  nadir: probably the survey vehicle or mast. Others sit at the seam near the horizon.
+- None reaches 0.55. It matters only if Lyon's 0.30 tier feeds training mining.
 
 ## 2. Detections per pano by rig and capture year
 
@@ -135,35 +161,66 @@ There is no logo band like Bayonne's. Detections in the bottom band (y ≥ 0.79)
 Whole-run rates at 0.55 for the six earlier runs: Clovis 0.123, Bayonne 0.135, Laurens
 0.158, Morgantown 0.203, Annapolis 0.548, Richmond 1.048.
 
-**Operator within rig** (`data/rig_producer_detections.csv`, groups ≥ 200 panos):
+**Operator within camera model** (`data/rig_producer_detections.csv`, groups ≥ 200
+panos):
 
-| rig, year | producer | panos (sequences) | @0.55 |
-|---|---|---:|---:|
-| GoPro Max 2026 | ecartip | 10,944 (350) | 0.633 |
-| GoPro Max 2026 | ign_ddc_dtce_np | 1,439 (19) | 0.387 |
-| GoPro Max 2026 | luppano / trucbidule | 369 / 265 | 0.360 / 0.343 |
-| GoPro Max 2026 | ign_ddc_dtce_fa | 1,302 (35) | 0.224 |
-| GoPro Max 2023 | mike en gyroroue | 1,064 (158) | 0.626 |
-| GoPro Max 2024 | mike en gyroroue | 622 (44) | 0.059 |
-| Ladybug 2022 / 2020 / 2021 | grand lyon | 5,434 / 1,788 / 1,054 | 0.299 / 0.265 / 0.190 |
+| camera, year | producer | panos (sequences) | @0.55 | median dip below horizon | above horizon | pose 0/0 |
+|---|---|---:|---:|---:|---:|---:|
+| GoPro Max 2026 | ecartip | 10,944 (350) | 0.633 | 18.3° | 10.3% | 99.9% |
+| GoPro Max 2026 | ign_ddc_dtce_np | 1,439 (19) | 0.387 | 12.3° | 1.4% | 0% |
+| GoPro Max 2026 | luppano / trucbidule | 369 / 265 | 0.360 / 0.343 | 15.1° / 12.7° | 0% / 4.4% | 0% |
+| GoPro Max 2026 | ign_ddc_dtce_fa | 1,302 (35) | 0.224 | 12.3° | 1.7% | 0% |
+| GoPro Max 2025 | ecartip | 2,500 (177) | 0.263 | 20.7° | 12.3% | 100% |
+| GoPro Max 2023 | mike en gyroroue | 1,064 (158) | 0.626 | 12.3° | 1.4% | 0% |
+| GoPro Max 2024 | mike en gyroroue | 622 (44) | 0.059 | 15.1° | 0% | 0% |
+| Ladybug 2022 / 2020 / 2021 | grand lyon | 5,434 / 1,788 / 1,054 | 0.299 / 0.265 / 0.190 | 15.5° / 17.9° / 15.5° | 0.1% / 5.9% / 0% | 0% |
+| make-less 8192x4096, 2021 | grand lyon / grand-lyon | 692 / 1,390 | **0.711 / 0.163** | 15.5° / 12.7° | 0% / 3.1% | 0% |
+
+The dip medians come from detections on a coarse grid of about 2.8° steps (RampNet's
+8-cell heatmap grid). Read 12.3° vs 18.3° as two grid steps apart, not as a precise ratio.
 
 **What this can and cannot say.**
 
 - **There is no GT here.** A lower rate means fewer detections. It does not mean lower
   recall: the street may have fewer ramps, or the model may be more conservative on it.
-- **Rig, operator, vintage, district and season are confounded.**
+- **Camera model, operator, mount, vintage, district and season are confounded.**
   - One operator holds most of each large group: ecartip for GoPro Max 2026, and the
     Métropole for every 8192x4096 pano.
   - The same contributor reads 0.626 in 2023 and 0.059 in 2024. That points to where and
     how the operator drove, not to the camera.
-  - The Ladybug and make-less 8192x4096 years each cover different parts of the city.
-- **What the data does support:** a GoPro Max is not a low-rate rig on Panoramax. Lyon's
-  GoPro Max groups mostly read 0.22-0.63 against Bayonne's 0.10-0.16. Bayonne's low rate is
-  therefore a property of Bayonne's imagery or streets, and the camera model does not
-  explain it. One candidate is its single municipal operator (95% of panos) with the white
-  nadir logo band. Another is French kerb design in that town. Bayonne GT
-  ([PR #125](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/125)'s bundle)
-  is what would separate them.
+  - The Ladybug and make-less 8192x4096 years each cover different parts of the city. One
+    2021 campaign splits 0.711 vs 0.163 across two account spellings, the clearest sign
+    that district matters as much as anything here.
+- **Mount, not rig false positives.**
+  - ecartip's detections sit lower in the image: median dip 18.3° against 12.3° for the
+    IGN accounts. At a fixed distance that is a camera about 1.5x higher. That fits its
+    large roof rack, though narrower streets could also produce it.
+  - Camera height changes how many pixels a ramp covers, and so detectability. It is a
+    property of the *rig* (camera plus mount), in the sense CLAUDE.md's nadir-mask section
+    uses the word.
+  - The rig mask removes only 17 of ecartip's 6,930 detections at 0.55 (`on_rig_0.55`).
+  - The PR review found no repeated-pixel signature like Laurens' roof rack in ecartip's
+    sequences.
+- **Unexplained: ecartip's above-horizon detections.**
+  - 10.3% of ecartip's 0.55 detections sit above the horizon (y < 0.5, mostly
+    0.475-0.49), against 0-4.4% for the other GoPro Max 2026 producers and at most 9.5% in any other group (`above_horizon_share_0.55`). They cluster straight
+    ahead and behind.
+  - ecartip reports pose as exactly 0/0 on 99.9% of its panos (`pose_zeros_share`), so the
+    images may not be levelled. These could be far ramps on Lyon's slopes, or a horizon
+    offset.
+  - Without them ecartip still reads about 0.57. But a ray cast from them hits no ground,
+    so they matter for any geometric use of these panos in training or mining.
+- **What the data does support: the camera model does not explain Bayonne's low rate.**
+  - Non-ecartip GoPro Max groups in Lyon mostly read 0.17-0.39, against Bayonne's
+    0.06-0.16. The exceptions are mike en gyroroue, at 0.626 in 2023 and 0.059 in 2024.
+  - Without the dominant operator, the gap is about 2x in 2026 and 2025, and level in 2024.
+  - Operator and mount, which include camera height, are confounded with Bayonne's rate.
+    Bayonne's municipal rig (95% of panos) is also car-mounted, at a height nobody has
+    measured, and carries the white nadir logo band.
+  - Another candidate is French kerb design in that town.
+  - Bayonne GT
+    ([PR #125](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/125)'s bundle)
+    is what would separate them.
 - **No uncertainty intervals.** The rates have no CIs. Detections cluster by sequence, so a
   per-pano Poisson interval would overstate precision. Read the sequence counts beside the
   operator rows instead.
@@ -267,7 +324,10 @@ would add panos uploaded since 2026-10-06, and the manifest records `scan: fresh
 | 0.391 / 0.869 per pano; on-rig 31 / 242; in-band 4 / 91 | `data/census/lyon/detections.csv` | `detections_per_pano`, `on_rig`, `in_band` |
 | rig / year / pose / producer shares | `data/census/lyon/{rigs,years,pose,producers}.csv` | `share` |
 | per rig × year rates, Lyon and Bayonne | `data/census/{lyon,bayonne}/rig_detections.csv` | `detections_per_pano_0.55`, `detections_per_pano_0.3`, `panos` |
-| per operator rates | `data/rig_producer_detections.csv` | `detections_per_pano_0.55`, `panos`, `sequences` |
+| per operator rates; 0.711 / 0.163 | `data/rig_producer_detections.csv` | `detections_per_pano_0.55`, `panos`, `sequences` |
+| without ecartip: 0.317 (2.4x) in 2026, 0.302 in 2025 | `data/census/lyon/rig_detections.csv` minus the ecartip rows of `data/rig_producer_detections.csv` | `detections_0.55`, `panos` |
+| 17 of 6,930 on rig; dip 18.3° vs 12.3°; 10.3% above horizon; 99.9% pose 0/0 | `data/rig_producer_detections.csv` | `on_rig_0.55`, `detections_0.55`, `median_dip_deg_below_horizon_0.55`, `above_horizon_share_0.55`, `pose_zeros_share` |
+| Grand Lyon 0.30 fixed-pixel artifact (207 of 9,973) | PR #145 review, ad-hoc check | — |
 | six-run rates | `docs/figures/panoramax-bayonne/data/fig5_detections.csv` | `per_pano`, `tier = 0.55` |
 | year mix of raw / thinned / slice | `data/scan_years.csv` | `raw`, `thin_*m`, `slice_10m_first40000` |
 | 1.58 m, IQR 0.65-3.64, p95 14.18, 3,871 | `runs/lyon/position_check.json` | `fields.submitted.cross_track`, `panos_not_near_a_street` |
@@ -277,7 +337,7 @@ would add panos uploaded since 2026-10-06, and the manifest records `scan: fresh
 
 | # | question it answers | file |
 |---|---|---|
-| 1 | Does the detection rate differ by rig, and does the rig explain Bayonne? Yes, it differs by rig, and no, it does not explain Bayonne: the same GoPro Max reads 0.56 per pano in Lyon in 2026 against 0.13-0.16 in Bayonne. | [fig1_rig_rates](figures/panoramax-lyon/fig1_rig_rates.png) |
+| 1 | Does the detection rate differ by camera model and year, and does the camera model explain Bayonne? It differs, and the camera model does not explain Bayonne. GoPro Max 2026 reads 0.56 per pano in Lyon against 0.13 in Bayonne, and 0.32 (2.4x) without ecartip. | [fig1_rig_rates](figures/panoramax-lyon/fig1_rig_rates.png) |
 | 2 | Is the slice representative, and what does thinning do to the year mix? Thinning lifts 2026 from 19% to 40%, and the slice matches the 10 m set. | [fig2_years](figures/panoramax-lyon/fig2_years.png) |
 
 Alt text, in order:
@@ -309,5 +369,6 @@ Alt text, in order:
   3. Archive now, or after more slices?
   4. Confirm: no GT bundle for Lyon (the train-or-evaluate rule).
 - **For RampNet:** the operator effect (takeaway 3) suggests stratifying training samples
-  by producer as well as by rig, so that one high-yield operator (ecartip) does not
-  dominate the Lyon training set.
+  by producer as well as by camera model, so that one high-yield operator (ecartip) does
+  not dominate the Lyon training set. ecartip's above-horizon detections and unlevelled
+  pose need a look before its panos feed any geometric mining.
