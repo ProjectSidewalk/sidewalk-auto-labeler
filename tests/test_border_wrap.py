@@ -138,29 +138,172 @@ def test_pair_just_outside_the_window_keeps_both_halves():
     assert len(kp) == 3 and wr == kp
 
 
+# --- the cylinder reference: wrap must equal it exactly, ties included ------------------------
+
+def cylinder_reference(h, d=D, floor=detectors.DETECTION_STORAGE_FLOOR,
+                       cap=detectors.MAX_PEAKS_PER_PANO):
+    """An independent brute-force cylinder (no scipy, no skimage): the (2d+1)-square window
+    maximum by np.roll in x (cyclic) and edge padding in y, candidates above the floor (none
+    on a constant map), then a greedy pass over (-value, row, col) rejecting wrapped
+    Chebyshev distance < d, then the cap."""
+    rows = np.max([np.roll(h, s, axis=1) for s in range(-d, d + 1)], axis=0)
+    padded = np.pad(rows, ((d, d), (0, 0)), mode='edge')
+    m = np.max([padded[d + s:d + s + h.shape[0]] for s in range(-d, d + 1)], axis=0)
+    cand = h == m
+    if cand.all():
+        return []
+    cand &= h > floor
+    kept = []
+    for _, r, c in sorted((-float(h[r, c]), int(r), int(c)) for r, c in zip(*np.nonzero(cand))):
+        if all(max(abs(r - kr), min(abs(c - kc), h.shape[1] - abs(c - kc))) >= d
+               for kr, kc in kept):
+            kept.append((r, c))
+            if len(kept) == cap:
+                break
+    return kept
+
+
+def random_map(rng, clip_ok=True):
+    """Coarse Gaussians biased toward the seam (some wrapped across it), plus noise; with
+    clip_ok, amplitudes up to 1.5, so plateaus clip at 1.0 and make multi-way exact ties."""
+    yy, xx = np.mgrid[0:64, 0:128]
+    c = rng.normal(0, 0.02, (64, 128))
+    for _ in range(rng.integers(2, 12)):
+        cy = rng.uniform(-1, 64)
+        cx = [rng.uniform(-1.5, 2.5), rng.uniform(125, 128.5), rng.uniform(0, 128)][
+            rng.integers(3)]
+        dxx = np.abs(xx - cx)
+        dxx = np.minimum(dxx, 128 - dxx)
+        s = rng.uniform(0.8, 2.0)
+        c += rng.uniform(0.2, 1.5) * np.exp(-((yy - cy) ** 2 + dxx ** 2) / (2 * s * s))
+    h = sc.upsample(c)
+    if not clip_ok:
+        h = h / max(1.0, float(h.max()) / 0.99)
+    return h.astype(np.float32)
+
+
+def pixels(peaks):
+    return [(int(r), int(c)) for r, c in peaks]
+
+
+@needs_skimage
+def test_wrap_equals_the_cylinder_reference_on_random_maps():
+    """Review of PR 138, should-fix 1: exact, including clipped plateaus and multi-way ties."""
+    rng = np.random.default_rng(13800)
+    clipped = 0
+    for i in range(40):
+        h = random_map(rng)
+        clipped += int((h >= 1.0).sum() > 1)
+        assert pixels(dec._peaks(h, 'wrap')) == cylinder_reference(np.clip(h, 0, 1)), i
+    assert clipped >= 20                                  # the tie-heavy case is exercised
+
+
+@needs_skimage
+def test_wrap_equals_the_cylinder_reference_on_the_reviewed_cases():
+    # agy Flash's three pixels: (200, 0) must survive; keep and the cylinder both keep it.
+    h = np.zeros((512, 1024), np.float32)
+    h[200, 1013], h[200, 1023], h[200, 0] = 0.6, 0.5, 0.5
+    assert pixels(dec._peaks(h, 'wrap')) == cylinder_reference(h) == [(200, 1013), (200, 0)]
+    assert pixels(dec._peaks(h, 'keep')) == [(200, 1013), (200, 0)]
+    # A clipped Gaussian straddling the seam: one peak on the cylinder, two under keep.
+    yy, xx = np.mgrid[0:64, 0:128]
+    dxx = np.minimum(np.abs(xx - 127.5), 128 - np.abs(xx - 127.5))
+    h = sc.upsample(1.6 * np.exp(-((yy - 30) ** 2 + dxx ** 2) / (2 * 1.5 ** 2))
+                    ).astype(np.float32)
+    w = pixels(dec._peaks(h, 'wrap'))
+    assert w == cylinder_reference(np.clip(h, 0, 1))
+    assert has_wrapped_pair(dec.detections_from_heatmap(h, 'argmax', border='keep'))
+    assert all(max(abs(a[0] - b[0]), min(abs(a[1] - b[1]), W - abs(a[1] - b[1]))) >= D
+               for i, a in enumerate(w) for b in w[i + 1:])      # wrap: none closer than D
+
+
+@needs_skimage
+def test_clipped_plateau_never_leaves_two_close_peaks():
+    rng = np.random.default_rng(7)
+    for i in range(40):
+        p = pixels(dec._peaks(random_map(rng), 'wrap'))
+        for a in range(len(p)):
+            for b in range(a + 1, len(p)):
+                dx = abs(p[a][1] - p[b][1])
+                assert max(abs(p[a][0] - p[b][0]), min(dx, W - dx)) >= D, (i, p[a], p[b])
+
+
+@needs_skimage
+@pytest.mark.parametrize('dx, collapses', [(10, True), (11, False)])
+def test_the_window_is_exactly_ten_px(dx, collapses):
+    """Review minor (d): an unequal pair at wrapped |dx| = 10 collapses, at 11 it does not. A
+    window of 9 would keep both at 10; one of 11 would collapse both."""
+    h = np.zeros((512, 1024), np.float32)
+    h[200, 1018], h[200, (1018 + dx) % W] = 0.6, 0.5
+    got = pixels(dec._peaks(h, 'wrap'))
+    assert got == ([(200, 1018)] if collapses else [(200, 1018), (200, (1018 + dx) % W)])
+
+
 # --- 4-5. what wrap leaves alone, and the set relation ---------------------------------------
 
-@needs_skimage
-def test_interior_peaks_are_identical_under_all_three_rules():
-    for name, h in all_maps().items():
-        for decode in ('argmax', 'gaussian'):
-            ex, kp, wr = (dec.detections_from_heatmap(h, decode, border=b)
-                          for b in ('exclude', 'keep', 'wrap'))
-            assert interior(wr) == interior(kp), (name, decode)
-            assert interior(wr, rows=True) == interior(ex, rows=True), (name, decode)
+def near_seam_maps(clip_ok):
+    rng = np.random.default_rng(31 if clip_ok else 32)
+    return [random_map(rng, clip_ok) for _ in range(30)]
 
 
 @needs_skimage
-def test_exclude_subset_wrap_subset_keep():
+def test_off_band_peaks_are_keeps_when_nothing_ties():
+    """Peaks off the band (columns 10-1013): same pixels and scores under wrap and keep, on
+    the fixtures and on unclipped near-seam maps (no exact ties). Under exclude, the same
+    peaks off every edge band."""
+    maps = list(all_maps().values()) + near_seam_maps(clip_ok=False)
+    seam_peaks = 0
+    for i, h in enumerate(maps):
+        ex, kp, wr = (dec.detections_from_heatmap(h, 'argmax', border=b)
+                      for b in ('exclude', 'keep', 'wrap'))
+        seam_peaks += len(kp) - len(interior(kp))
+        assert interior(wr) == interior(kp), i
+        assert interior(wr, rows=True) == interior(ex, rows=True), i
+    assert seam_peaks >= 30                                # the maps do reach the seam
+
+
+@needs_skimage
+def test_gaussian_x_off_the_band_differs_only_through_the_seam():
+    """Review should-fix 2: under wrap_x=True a peak just off the band whose coarse climb
+    steps into column 0 / 127 decodes cyclically there, and a peak can collide with a seam
+    peak that now climbs across it (then it keeps its argmax pixel). Every other off-band
+    peak decodes as under keep -- and the maps here do contain the exceptions."""
+    rng = np.random.default_rng(40)
+    climbing = [random_map(rng, False) for _ in range(25)][24]   # a peak at (99, 11) climbs
+    moved = 0
+    for i, h in enumerate(near_seam_maps(clip_ok=False) + [climbing]):
+        coarse = sc.coarse_from_heatmap(h)
+        ga = dict(zip(px(dec.detections_from_heatmap(h, 'argmax', border='wrap')),
+                      dec.detections_from_heatmap(h, 'gaussian', border='wrap')))
+        gk = dict(zip(px(dec.detections_from_heatmap(h, 'argmax', border='keep')),
+                      dec.detections_from_heatmap(h, 'gaussian', border='keep')))
+        for (col, row), g in ga.items():
+            if not D <= col < W - D:
+                continue
+            assert g[2] == gk[(col, row)][2]                  # same peak, same score
+            if g == gk[(col, row)]:
+                continue
+            _, j, _ = sc.climb(coarse, row // 8, col // 8, True)
+            collided = g[:2] == (col / W, row / 512)
+            assert j in (0, 127) or collided, (i, col, row)
+            moved += 1
+    assert moved >= 1
+
+
+@needs_skimage
+def test_exclude_subset_wrap_subset_keep_when_nothing_ties():
     outcomes = {}
-    for name, h in all_maps().items():
+    maps = {**all_maps(), **{f'near_seam_{i}': h
+                             for i, h in enumerate(near_seam_maps(clip_ok=False))}}
+    for name, h in maps.items():
         ex, kp, wr = (set(px(dec.detections_from_heatmap(h, 'argmax', border=b)))
                       for b in ('exclude', 'keep', 'wrap'))
         assert ex <= wr <= kp, name
         keep_dets = dec.detections_from_heatmap(h, 'argmax', border='keep')
         outcomes[name] = ('pair' if has_wrapped_pair(keep_dets) else 'no pair', wr == kp)
-    # No pair across the seam -> nothing to suppress; with one, wrap drops exactly one half.
-    for name, (pair, equal) in outcomes.items():
+    # no pair across the seam -> nothing to suppress (fixtures and the synthetic edge map)
+    for name in list(all_maps()):
+        pair, equal = outcomes[name]
         assert equal == (pair == 'no pair'), outcomes
     assert outcomes['synthetic:straddle'] == ('pair', False)
 
@@ -168,20 +311,26 @@ def test_exclude_subset_wrap_subset_keep():
 # --- 6-7. ties and the cap -------------------------------------------------------------------
 
 @needs_skimage
-def test_equal_plateau_across_the_seam_gives_one_peak():
-    """Coarse columns 0 and 127 exactly equal in one row: keep returns both; wrap one, and the
-    survivor is the right-edge half (its left-pad copy comes first in the padded frame's
-    row-major order -- decode._peaks' docstring)."""
-    c = np.zeros((64, 128))
-    c[25, 0] = c[25, 127] = 0.9
-    c[40, 60] = 0.5
-    h = sc.upsample(c).astype(np.float32)
-    kp = dec.detections_from_heatmap(h, 'argmax', border='keep')
-    wr = dec.detections_from_heatmap(h, 'argmax', border='wrap')
-    assert len([k for k in px(kp) if k[1] == 203]) == 2
-    seam = [k for k in px(wr) if k[1] == 203]
-    assert seam == [(1020, 203)]
-    assert len(wr) == 2
+def test_tied_halves_survivor_is_first_in_row_major_order():
+    """Review minor (c): an exactly tied pair keeps the half first in row-major order: on one
+    row the left-edge half; across rows the earlier row, whichever edge it is on."""
+    def tied(left_row, right_row):
+        c = np.zeros((64, 128))
+        c[left_row, 0] = c[right_row, 127] = 0.9
+        c[40, 60] = 0.5
+        return sc.upsample(c).astype(np.float32)
+
+    def seam(h):
+        return [k for k in px(dec.detections_from_heatmap(h, 'argmax', border='wrap'))
+                if k[0] < D or k[0] >= W - D]
+    h = tied(25, 25)
+    kp = px(dec.detections_from_heatmap(h, 'argmax', border='keep'))
+    assert len([k for k in kp if k[1] == 203]) == 2
+    assert seam(h) == [(0, 203)]
+    s = seam(tied(25, 24))
+    assert len(s) == 1 and s[0][0] >= W - D                # right half, earlier row
+    s = seam(tied(24, 25))
+    assert len(s) == 1 and s[0][0] < D
 
 
 @needs_skimage
@@ -355,23 +504,30 @@ def test_help_names_wrap(script):
 # --- 10. the offline estimate in seam_band_130.summary ---------------------------------------
 
 def test_wrap_estimate_arithmetic():
+    """Review minor (a): pairs are matched by geometry, so a pair whose stronger half did not
+    project still loses its weaker half's site, and two pairs on one pano count as two."""
     import seam_band_130 as sb
-    tiers = {'0.3': {'gained': 15, 'keep_peaks': 1745, 'straddle_pairs': 3}}
-    est = sb.wrap_tiers(tiers)['0.3']
-    assert est['gained_under_wrap'] == 12 and est['wrap_peaks'] == 1742
-    assert est['gained_share_of_wrap']['k'] == 12 and est['gained_share_of_wrap']['n'] == 1742
 
-    def row(pid, score, cls):
-        return {'pano_id': pid, 'score': str(score), 'world_class': cls, 'straddle_pair': '1',
-                'edge': 'right'}
-    rows = [row('a', 0.708, 'view'), row('a', 0.666, 'split'),       # the duplicate
-            row('b', 0.49, 'not_projected'), row('b', 0.40, 'not_projected'),
-            row('c', 0.50, 'promoted'),                                  # partner < 0.30
-            row('d', 0.6, 'split'), row('d', 0.5, 'view'),               # weaker joined a view
-            {**row('e', 0.4, 'new'), 'straddle_pair': '0'}]
-    w = sb.wrap_world(rows, 333)
-    assert w == {'straddle_halves_fused_as_second_site': 1, 'straddle_rows_not_projected': 2,
-                 'operational_sites_keep': 333, 'operational_sites_wrap_estimate': 332}
+    def row(pid, col, score, cls='view', y=0.5):
+        return {'pano_id': pid, 'x': str(col / 1024), 'y': str(y), 'score': str(score),
+                'world_class': cls, 'straddle_pair': '1', 'edge': 'right' if col else 'left'}
+    rows = [row('a', 1020, 0.708, 'view'), row('a', 0, 0.666, 'split'),      # the duplicate
+            row('b', 1020, 0.49, 'not_projected'), row('b', 0, 0.40, 'not_projected'),
+            row('c', 1020, 0.50, 'promoted'),                                 # partner < floor
+            row('f', 1020, 0.70, 'not_projected'), row('f', 0, 0.45, 'new'),  # stronger unprojected
+            row('g', 1020, 0.60, 'view', 0.3), row('g', 0, 0.35, 'split', 0.3),
+            row('g', 1020, 0.55, 'view', 0.7), row('g', 0, 0.50, 'promoted', 0.7)]
+    gone = sb.wrap_suppressed(rows)
+    assert sorted(gone) == [('a', (0, 256)), ('b', (0, 256)), ('f', (0, 256)),
+                            ('g', (0, 154)), ('g', (0, 358))]
+    tiers = {'0.3': {'gained': len(rows), 'keep_peaks': 1000, 'straddle_pairs': 4}}
+    est = sb.wrap_tiers(tiers, rows)['0.3']
+    assert est['suppressed_under_wrap'] == 5 and est['gained_under_wrap'] == len(rows) - 5
+    assert est['gained_share_of_wrap']['n'] == 995
+    w = sb.wrap_world(rows, 333, rows)
+    assert w['straddle_halves_fused_as_second_site'] == 4          # a, f, and both of g
+    assert w['operational_sites_wrap_estimate'] == 329
+    assert w['straddle_rows_not_projected'] == 3
 
 
 def test_committed_wrap_estimate():

@@ -201,10 +201,11 @@ def single_decode(counts, what, allow_mixed=False):
 # #130 and every older line reads as `exclude`.
 #
 # `wrap` (this repo's rule, not RampNet's; #130 follow-up): edge peaks kept AND non-maximum
-# suppression wrapped across the seam -- the peak finder runs on the heatmap padded
-# circularly by MIN_DISTANCE columns, so one ramp straddling the seam gives one peak (the
-# stronger half). It is a frame of its own, distinct from `keep`, which stores both halves:
-# as sets of peaks, exclude <= wrap <= keep, and every guard that refuses an exclude/keep
+# suppression wrapped across the seam -- the same peak finder with the heatmap's x axis
+# cyclic (detectors/decode._cylinder_peaks), so one ramp straddling the seam gives one peak
+# (the stronger half). It is a frame of its own, distinct from `keep`, which stores both
+# halves: as sets of peaks, exclude <= wrap <= keep when no exact (clipped) ties are
+# involved, and every guard that refuses an exclude/keep
 # mix refuses a keep/wrap or exclude/wrap mix the same way (docs/seam-band-130.md section 9).
 BORDER_EXCLUDE = 'exclude'
 BORDER_KEEP = 'keep'

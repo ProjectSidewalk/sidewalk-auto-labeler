@@ -306,8 +306,9 @@ python scripts/subcell_decode.py figures
 # azimuth -- never yield a detection. `main.py --border keep`
 # / `reinfer.py --border keep` use RampNet's rule instead (exclude_border=False, NO NMS across the
 # seam, so a straddling ramp can give two peaks). `--border wrap` (#130 follow-up) is keep plus NMS
-# wrapped across the seam (circular pad by 10 px), this repo's own rule: one peak per straddling
-# ramp; bound and guarded like keep, a frame of its own (keep/wrap mixes are refused too);
+# wrapped across the seam (skimage's finder re-implemented on a cylinder, decode._cylinder_peaks;
+# tested against a brute-force cylinder incl. clipped ties), this repo's own rule: one peak per
+# straddling ramp; bound and guarded like keep, a frame of its own (keep/wrap mixes are refused too);
 # estimated on the committed Laurens data to remove 3 of keep's 15 gained peaks at 0.30 and the
 # one duplicate site (seam-band-130.md section 9). Bound exactly like the decode: manifest
 # `detection_border`, keep records carry "detection_border": "keep" (exclude records and

@@ -675,7 +675,7 @@ def arm_summary(check_rows, gained_rows, counts, world_rows, world_info):
             'gained_in_straddle_pairs': sum(1 for r in g if r['straddle_pair'] == '1'),
         }
     out['tiers'] = tiers
-    out['wrap_estimate'] = wrap_tiers(tiers)
+    out['wrap_estimate'] = wrap_tiers(tiers, arg)
     out['geometric_expectation'] = rnd(SEAM_COARSE_COLUMNS / COARSE_W, 6)
     if world_info is not None:
         w = {}
@@ -704,54 +704,92 @@ def arm_summary(check_rows, gained_rows, counts, world_rows, world_info):
         w['operational_site_change'] = (world_info['operational_sites']['keep']
                                         - world_info['operational_sites']['exclude'])
         out['world'] = w
-        out['wrap_estimate']['world'] = wrap_world(seam_rows, w['operational_sites']['keep'])
+        out['wrap_estimate']['world'] = wrap_world(seam_rows, w['operational_sites']['keep'],
+                                                   arg)
     return out
 
 
-# `--border wrap` (#130 follow-up; docs/seam-band-130.md section 9), estimated to FIRST
-# ORDER from the committed keep data, without the coarse maps: under wrap each
-# seam-straddling pair loses its weaker half (it is no longer a local maximum on the
-# cylinder); interior peaks are keep's (decode._peaks). What these files cannot see: a seam
-# peak is also suppressed under wrap by a higher NON-peak pixel across the seam (the flank of
-# a peak more than 10 px away), and they hold peaks, not pixels. wrap never adds a peak keep
-# lacks, so `gained_under_wrap` is an upper bound and the duplicate-site count a lower bound
-# on what wrap removes. A direct measurement runs both_rules with a wrap arm on the makelab2
-# coarse maps.
+# `--border wrap` (#130 follow-up; docs/seam-band-130.md section 9), estimated from the
+# committed keep data, without the coarse maps. wrap is the same finder on a cylinder
+# (decode._cylinder_peaks): a keep seam peak disappears under wrap when a strictly higher
+# pixel lies across the seam within its window, or an equal one already accepted lies within
+# < 10 px. The committed files hold the keep PEAKS, so the estimate applies that rule with
+# the other peaks as the only pixels it can see (wrap_suppressed). What it cannot see: a
+# higher NON-peak pixel across the seam (the flank of a peak more than 10 px away), which
+# also suppresses. wrap never adds a peak keep lacks when no exact ties are involved, so
+# `gained_under_wrap` is an upper bound, and the duplicate-site count a lower bound, on what
+# wrap removes -- up to exact ties. A direct measurement runs both_rules with a wrap arm on
+# the makelab2 coarse maps.
 
-def wrap_tiers(tiers):
-    """Per tier: a straddling pair costs wrap one gained peak at tier t exactly when its
-    weaker half is >= t (the pair counts in `straddle_pairs` there); below that the weaker
-    half was never counted. Both halves of a pair are always gained (both are in the seam
-    band, which exclude blanks), so the arithmetic is on gained and keep alike."""
+def wrap_suppressed(argmax_rows, d=PEAK_MIN_DISTANCE):
+    """{(pano_id, pixel key)} of the gained peaks wrap would drop, judged on the gained peaks
+    alone (every seam-straddling partner is itself a gained seam peak; an interior peak is
+    never across the seam from one). Per pano, in descending score then row-major order (the
+    finder's own order): a peak goes when a strictly higher one is within wrapped Chebyshev
+    <= d (it is then not a local maximum: the window is 2d+1 wide), or an equal one already
+    kept is within < d (the spacing pass). Pairs are thereby matched by geometry, so a pano
+    with two pairs, or a peak in two pairs, is counted peak by peak.
+
+        >>> rows = [{'pano_id': 'p', 'x': '0.0', 'y': '0.5', 'score': '0.4'},
+        ...         {'pano_id': 'p', 'x': str(1020 / 1024), 'y': '0.5', 'score': '0.6'},
+        ...         {'pano_id': 'p', 'x': str(500 / 1024), 'y': '0.5', 'score': '0.3'}]
+        >>> sorted(wrap_suppressed(rows))
+        [('p', (0, 256))]
+    """
+    by_pano = {}
+    for r in argmax_rows:
+        by_pano.setdefault(r['pano_id'], []).append(
+            (float(r['score']), key(float(r['x']), float(r['y']))))
+    out = set()
+    for pid, peaks in by_pano.items():
+        peaks.sort(key=lambda p: (-p[0], p[1][1], p[1][0]))
+        kept = []
+        for i, (sc_, (col, row)) in enumerate(peaks):
+            def near(other, limit):
+                dx = abs(other[0] - col) % HM_W
+                return max(min(dx, HM_W - dx), abs(other[1] - row)) <= limit
+            higher = any(o_sc > sc_ and near(o_k, d) for o_sc, o_k in peaks)
+            tied = any(k_sc == sc_ and near(k_k, d - 1) for k_sc, k_k in kept)
+            if higher or tied:
+                out.add((pid, (col, row)))
+            else:
+                kept.append((sc_, (col, row)))
+    return out
+
+
+def wrap_tiers(tiers, argmax_rows):
+    """Per tier, the gained peaks wrap keeps (an upper bound; see above). The plan's
+    first-order count, `straddle_pairs` (pairs whose weaker half is >= t), is kept beside it
+    as `pairs_both_halves_at_or_above_t`; on distinct scores and isolated pairs they agree."""
+    gone = wrap_suppressed(argmax_rows)
     out = {}
     for t, r in tiers.items():
-        pairs = r['straddle_pairs']
-        out[t] = {'pairs_both_halves_at_or_above_t': pairs,
-                  'gained_under_wrap': r['gained'] - pairs,
-                  'wrap_peaks': r['keep_peaks'] - pairs,
-                  'gained_share_of_wrap': share(r['gained'] - pairs, r['keep_peaks'] - pairs)}
+        dropped = sum(1 for g in argmax_rows if float(g['score']) >= float(t)
+                      and (g['pano_id'], key(float(g['x']), float(g['y']))) in gone)
+        out[t] = {'pairs_both_halves_at_or_above_t': r['straddle_pairs'],
+                  'suppressed_under_wrap': dropped,
+                  'gained_under_wrap': r['gained'] - dropped,
+                  'wrap_peaks': r['keep_peaks'] - dropped,
+                  'gained_share_of_wrap': share(r['gained'] - dropped,
+                                                r['keep_peaks'] - dropped)}
     return out
 
 
-def wrap_world(seam_rows, keep_sites):
+def wrap_world(seam_rows, keep_sites, argmax_rows):
     """At the operating point (the world CSV holds gained seam peaks >= 0.30): the sites
-    wrap would not create. A pano holding two projected straddle rows is a pair whose halves
-    both fused; wrap drops the weaker one, and if that half made a site of its own (split /
-    promoted / new) the site goes with it. The Laurens Mapillary case is pano
-    1466581971069523 (0.708 joined a site as a view, 0.666 split off as a second one)."""
-    by_pano = {}
-    for r in seam_rows:
-        if r.get('straddle_pair') == '1':
-            by_pano.setdefault(r['pano_id'], []).append(r)
-    second = 0
-    for rows in by_pano.values():
-        proj = [r for r in rows if r['world_class'] != 'not_projected']
-        if len(proj) >= 2:
-            weaker = min(proj, key=lambda r: float(r['score']))
-            second += weaker['world_class'] in ('split', 'promoted', 'new')
+    wrap would not create. Every world row that wrap_suppressed drops and that made a site of
+    its own (split / promoted / new) takes that site with it, whatever its partner did (the
+    partner may itself be unprojected). The Laurens Mapillary case is pano 1466581971069523
+    (0.708 joined a site as a view, 0.666 split off as a second one)."""
+    gone = wrap_suppressed(argmax_rows)
+    dropped = [r for r in seam_rows
+               if (r['pano_id'], key(float(r['x']), float(r['y']))) in gone]
+    second = sum(1 for r in dropped if r['world_class'] in ('split', 'promoted', 'new'))
     return {'straddle_halves_fused_as_second_site': second,
-            'straddle_rows_not_projected': sum(1 for rows in by_pano.values() for r in rows
-                                               if r['world_class'] == 'not_projected'),
+            'world_rows_suppressed': len(dropped),
+            'straddle_rows_not_projected': sum(1 for r in seam_rows
+                                               if r.get('straddle_pair') == '1'
+                                               and r['world_class'] == 'not_projected'),
             'operational_sites_keep': keep_sites,
             'operational_sites_wrap_estimate': keep_sites - second}
 

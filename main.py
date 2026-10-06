@@ -530,8 +530,9 @@ def bind_decode(manifest, decode, run_dir):
 def bind_border(manifest, border, run_dir):
     """
     Binds a run directory to one peak border rule (issue #130), the way bind_decode binds
-    the decode: `keep` stores the seam-band peaks that `exclude` drops, so a resume or gap
-    fill under the other rule would put panos found two ways in one results.jsonl. Exits on
+    the decode: the rules (exclude / keep / wrap) differ in which seam-band peaks they
+    store, so a resume or gap fill under another rule would put panos found two ways in one
+    results.jsonl. Exits on
     a mismatch; returns True when the manifest changed (first binding) so the caller saves it.
 
     A manifest without `detection_border` predates #130 or was created by --scan-only. If

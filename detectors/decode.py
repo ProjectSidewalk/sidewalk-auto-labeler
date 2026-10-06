@@ -73,7 +73,7 @@ RAMPNET_SUBCELL_SHA256 = 'b0712dfe98fc6012ddfd22f149dc1ece7917d74b21a10276ff83de
 # every pano. RampNet#132 calls that a defect; for the labeler it is
 # #130, and `--border keep` (RampNet's rule: exclude_border=False, no NMS across the seam)
 # is the opt-in fix; `--border wrap` (this repo's rule) adds NMS across the seam, by running
-# the finder on the heatmap padded circularly by MIN_DISTANCE columns. The default stays
+# the same finder on the heatmap as a cylinder (_cylinder_peaks). The default stays
 # `exclude`, because changing it adds stored detections that the live labels do not have
 # (docs/seam-band-130.md measures how many; section 9 estimates `wrap`).
 MIN_DISTANCE = PEAK_MIN_DISTANCE    # 10; detectors.border_band_edge measures the band with it
@@ -91,21 +91,32 @@ def _peaks(heatmap, border=DEFAULT_BORDER):
     detections_from_heatmap scores a peak by the RAW heatmap value where RampNet's
     detect_peaks(clip=True) reports the clipped one (they differ only above 1.0).
 
-    ``wrap`` (this repo's rule, #130 follow-up): the heatmap as a cylinder. The finder runs on
-    clip(h, 0, 1) padded circularly by MIN_DISTANCE columns on each side (rows are not
-    padded: zenith and nadir are not neighbours), and the pad copies are dropped afterwards.
-    skimage finds a peak as ``image == maximum_filter(image, 2d+1)`` and then spaces them
-    greedily in descending intensity, so both steps see across the seam: of a ramp that
-    straddles it, only the stronger half is a local maximum, and the weaker one is never a
-    candidate. Every column of the unpadded map gets its full 21-column window, so the
-    candidate set is exactly the cylinder's; a pad copy can only suppress a candidate of
-    EQUAL value, so the result differs from an ideal cylinder only in which of two tied peaks
-    survives. Pinned (tests/test_border_wrap.py): on an equal-valued plateau straddling the
-    seam, the survivor is the copy that comes first in row-major order of the PADDED frame --
-    the right-edge half (its left-pad copy is at padded column < MIN_DISTANCE) -- so a tie
-    keeps the peak at column 1014-1023. Interior peaks (10 <= col < 1014) and their order are
-    those of ``keep``; as sets, exclude <= wrap <= keep (while the 50-peak cap does not
-    bind). The cap is applied after the pad copies are dropped, to the highest 50.
+    ``wrap`` (this repo's rule, #130 follow-up): the same finder on the heatmap as a
+    cylinder, so a ramp straddling the 360-degree seam gives one peak, not two. It is
+    implemented directly, with skimage's semantics everywhere except across the seam
+    (``_cylinder_peaks``): a candidate is a pixel of clip(h, 0, 1) above the storage floor that
+    equals the maximum of its (2d+1)-square window, where the window wraps in x and is clamped
+    in y (``mode=('nearest', 'wrap')``; zenith and nadir are not neighbours); candidates are
+    taken in descending clipped value, ties in row-major order (skimage's stable sort), and
+    one is rejected when an accepted peak lies at wrapped Chebyshev distance < d (skimage's
+    ensure_spacing keeps a point at exactly d); the cap keeps the first 50.
+    tests/test_border_wrap.py checks it against an independent brute-force cylinder on random
+    maps with clipped plateaus and multi-way ties.
+
+    Relation to ``keep``. A pixel whose window does not reach the seam (columns d .. W-d-1)
+    has the same window under both rules, and two such pixels the same distance. Spacing only
+    ever separates EQUAL candidates (two candidates within d are in each other's window), so
+    when no exact ties are involved -- in practice, no plateau clipped at 1.0 -- the peaks off
+    the band are ``keep``'s, ``wrap`` only removes seam-band peaks, and as sets exclude <=
+    wrap <= keep (while the cap does not bind). Exact ties can chain through the spacing
+    pass, so on clipped maps both relations can fail (exclude <= keep fails there too, from
+    the band edge); that is the cylinder's answer, not an artefact.
+
+    Ties. Of a strictly unequal straddling pair the weaker half is not a local maximum at all.
+    Of an exactly tied pair (in practice: both halves clipped to 1.0), the survivor is the one
+    first in row-major order -- the earlier row; on the same row, the left-edge half (column
+    0-9). Because the order is on CLIPPED values, the survivor of a clipped pair can be the
+    half with the lower raw score (what detections_from_heatmap reports).
 
         >>> from detectors import rampnet_subcell as sc
         >>> yy, xx = np.mgrid[0:64, 0:128]
@@ -114,24 +125,53 @@ def _peaks(heatmap, border=DEFAULT_BORDER):
         >>> len(_peaks(h, 'keep')), [int(c) for _, c in _peaks(h, 'wrap')]
         (2, [0])
     """
-    from skimage.feature import peak_local_max
     if border not in BORDERS:
         raise ValueError(f'unknown border rule {border!r}; known: {", ".join(BORDERS)}')
-    if border != WRAP:
-        return peak_local_max(np.clip(heatmap, 0, 1), min_distance=MIN_DISTANCE,
-                              threshold_abs=DETECTION_STORAGE_FLOOR,
-                              num_peaks=MAX_PEAKS_PER_PANO,
-                              exclude_border=(border == EXCLUDE))
-    d = MIN_DISTANCE
-    h = np.clip(heatmap, 0, 1)
+    if border == WRAP:
+        return _cylinder_peaks(np.clip(heatmap, 0, 1))
+    from skimage.feature import peak_local_max
+    return peak_local_max(np.clip(heatmap, 0, 1), min_distance=MIN_DISTANCE,
+                          threshold_abs=DETECTION_STORAGE_FLOOR,
+                          num_peaks=MAX_PEAKS_PER_PANO,
+                          exclude_border=(border == EXCLUDE))
+
+
+def _cylinder_peaks(h, d=MIN_DISTANCE, floor=DETECTION_STORAGE_FLOOR, cap=MAX_PEAKS_PER_PANO):
+    """``peak_local_max(h, min_distance=d, threshold_abs=floor, num_peaks=cap,
+    exclude_border=False)`` with the x axis cyclic (the ``wrap`` rule; ``_peaks``).
+
+    Step for step what skimage 0.26 does, with the two seam-blind operations replaced:
+    ``_get_peak_mask`` (maximum filter, mode 'nearest' -> ('nearest', 'wrap'); a constant
+    image has no peak; then ``> floor``), ``_get_high_intensity_peaks`` (row-major
+    candidates, stable descending sort) and ``ensure_spacing`` (greedy, reject at Chebyshev
+    distance < d -> wrapped Chebyshev distance < d). Returns an (n, 2) int array of
+    (row, col), highest first.
+
+        >>> h = np.zeros((40, 100)); h[20, 99] = 0.6; h[20, 3] = 0.5; h[5, 50] = 0.4
+        >>> _cylinder_peaks(h).tolist()        # (20, 3) is 4 columns from (20, 99) on the cylinder
+        [[20, 99], [5, 50]]
+    """
+    from scipy import ndimage as ndi
+    size = 2 * d + 1
+    is_max = h == ndi.maximum_filter(h, size=size, mode=('nearest', 'wrap'))
+    if np.all(is_max):                       # skimage: no peak for a trivial image
+        return np.zeros((0, 2), dtype=np.intp)
+    is_max &= h > floor
+    coord = np.argwhere(is_max)              # row-major, as np.nonzero
+    coord = coord[np.argsort(-h[is_max], kind='stable')]
     width = h.shape[1]
-    padded = np.concatenate([h[:, -d:], h, h[:, :d]], axis=1)      # circular pad, x only
-    # No num_peaks here: the cap must not count pad copies, so it is applied below.
-    peaks = peak_local_max(padded, min_distance=d, threshold_abs=DETECTION_STORAGE_FLOOR,
-                           exclude_border=False)
-    peaks = peaks[(peaks[:, 1] >= d) & (peaks[:, 1] < d + width)]   # drop the pad copies
-    peaks[:, 1] -= d
-    return peaks[:MAX_PEAKS_PER_PANO]
+    kept = []
+    for r, c in coord:
+        if kept:
+            k = np.asarray(kept)
+            dx = np.abs(k[:, 1] - c)
+            dx = np.minimum(dx, width - dx)
+            if np.any(np.maximum(np.abs(k[:, 0] - r), dx) < d):
+                continue
+        kept.append((r, c))
+        if len(kept) >= cap:
+            break
+    return np.asarray(kept, dtype=np.intp).reshape(-1, 2)
 
 
 def check_exact_upsample(heatmap, coarse=None):
@@ -169,7 +209,10 @@ def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None, border=
     neighbourhood is cyclic in x too (``refine_peaks(wrap_x=True)``), so a seam peak gets a
     sub-cell offset and may land either side of the seam; refine_peaks reduces x modulo the
     width, so it stays in [0, 1). That is a choice inside the double opt-in (wrap +
-    gaussian), reversible by passing wrap_x=False.
+    gaussian), reversible by passing wrap_x=False. It also reaches a few peaks just off the
+    band: a peak in fine columns 10-15 / 1008-1013 (coarse column 1 / 126) whose coarse climb
+    steps into column 0 / 127 decodes with the cyclic neighbourhood there, so its gaussian x
+    can differ from ``keep``'s (the peak, its argmax pixel and its score do not).
 
     Collisions (gaussian only). Several peaks that peak_local_max returns on one clipped
     plateau (a flat top above 1, at least MIN_DISTANCE apart) all climb to the same coarse

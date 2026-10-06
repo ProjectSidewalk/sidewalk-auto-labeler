@@ -322,35 +322,81 @@ heatmap as a cylinder. Edge peaks are kept, as under `keep`, and a weaker peak w
 360-degree seam is suppressed, exactly as it would be anywhere else in the image. It is this
 repo's rule, not RampNet's.
 
-**The mechanism** (`detectors/decode.py::_peaks`). `clip(h, 0, 1)` is padded circularly by 10
-columns on each side (rows are not padded), `peak_local_max(exclude_border=False)` runs on the
-padded map with no peak cap, the pad copies are dropped, and the 50-peak cap is applied last.
-skimage marks a candidate where `image == maximum_filter(image, 21)` and then spaces candidates
-greedily in descending intensity. Every unpadded column gets its full 21-column window, so the
-candidate set is exactly the cylinder's: of a straddling pair, only the stronger half is a local
-maximum at all. A pad copy can suppress only a candidate of equal value, so the result differs
-from an ideal cylinder only in which of two tied peaks survives (pinned: the right-edge half).
-Consequences, pinned in `tests/test_border_wrap.py`:
+**The mechanism** (`detectors/decode.py::_cylinder_peaks`). It is skimage's
+`peak_local_max(min_distance=10, exclude_border=False)`, step for step, with the x axis cyclic:
 
-- Interior peaks (columns 10-1013) and their scores are those of `keep`, in the same order.
-- As sets of pixel keys, `exclude` ⊆ `wrap` ⊆ `keep`, while the 50-peak cap does not bind (no
-  Laurens pano reached it). A column-10-1013 pixel has the same window under all three rules,
-  and a seam-band pixel only gains neighbours under `wrap`, so `wrap` can only remove peaks
-  from `keep`, never add one.
-- `exclude` and `keep` outputs are byte-identical to before (`tests/fixtures/border_expected.json`,
-  generated from `origin/main` before the change).
-- Under `--decode gaussian`, `wrap` also makes the 3x3 coarse neighbourhood cyclic
-  (`refine_peaks(wrap_x=True)`), so a seam peak gets a sub-cell offset and may land either side
-  of the seam. `keep` keeps RampNet's `wrap_x=False`.
+1. A candidate is a pixel of `clip(h, 0, 1)` above the storage floor that equals the maximum
+   of its 21x21 window. The window wraps in x and is clamped in y
+   (`maximum_filter(mode=('nearest', 'wrap'))`), so zenith and nadir are not neighbours. A
+   constant map has no candidate, as in skimage.
+2. Candidates are taken in descending clipped value, ties in row-major order (skimage's stable
+   sort).
+3. A candidate is rejected when an accepted peak lies at wrapped Chebyshev distance < 10.
+   skimage's `ensure_spacing` also keeps a point at exactly 10.
+4. The first 50 are kept.
+
+An earlier version of this PR padded the map circularly by 10 columns and ran skimage on it.
+Review found that wrong on exact ties: pad copies were spaced independently of their real
+twins. On clipped plateaus it could keep both halves of a straddling ramp 1 px apart across
+the seam, or drop a peak that both `keep` and a cylinder keep. The direct implementation
+replaced it. `tests/test_border_wrap.py` checks it pixel for pixel against an independent
+brute-force cylinder (`np.roll` window maxima, an O(n^2) greedy pass) on random maps. Those
+maps include clipped plateaus and multi-way ties, and the test also covers both reviewed cases.
+
+**Ties.** Of a strictly unequal straddling pair, the weaker half is not a local maximum at all.
+Of an exactly tied pair (in practice, both halves clipped to 1.0), the survivor is the one
+first in row-major order:
+- across rows, the earlier row, whichever edge it is on;
+- on the same row, the left-edge half (columns 0-9).
+
+The order uses clipped values, so the survivor of a clipped pair can be the half with the
+lower raw score.
+
+**Relation to `keep` and `exclude`**, pinned in `tests/test_border_wrap.py`:
+
+- `exclude` and `keep` outputs are byte-identical to before. They are pinned against
+  `tests/fixtures/border_expected.json`, generated from `origin/main` before the change, and
+  their code path is untouched.
+- **When no exact ties are involved** (no plateau clipped at 1.0), two things hold, tested on
+  the fixtures and on unclipped near-seam random maps:
+  - The peaks off the band (columns 10-1013) are `keep`'s: same pixels, same scores.
+  - As pixel-key sets, `exclude` ⊆ `wrap` ⊆ `keep` while the 50-peak cap does not bind (no
+    Laurens pano reached it).
+- Why: a pixel whose window does not reach the seam has the same window under both rules, and
+  spacing only ever separates equal candidates (two candidates within 10 px are each in the
+  other's window).
+- **With exact ties**, ties can chain through the spacing pass, so both relations can fail on
+  clipped maps. `exclude` ⊆ `keep` fails there too, from the band edge. That is the
+  cylinder's answer, not an artefact.
+- **Gaussian decode.** Under `--decode gaussian`, `wrap` also makes the 3x3 coarse
+  neighbourhood cyclic (`refine_peaks(wrap_x=True)`). A seam peak then gets a sub-cell offset
+  and may land on either side of the seam; `keep` keeps RampNet's `wrap_x=False`. This also
+  reaches a few peaks just off the band, so for off-band peaks the claim above covers argmax
+  pixels and scores, not gaussian x. Two cases:
+  - A peak in coarse column 1 / 126 whose climb steps into column 0 / 127 decodes cyclically
+    there.
+  - A peak whose gaussian position would collide with a seam peak that now climbs across the
+    seam keeps its argmax pixel.
+
+  The review measured 16 of 4,968 such peaks on 200 random maps. A test pins both cases on a
+  map that contains one.
 
 `wrap` is a frame of its own: records carry `"detection_border": "wrap"`, runs bind it in the
 manifest, and every guard that refuses an `exclude`/`keep` mix refuses `wrap` beside either.
 
-**The estimate.** Under `wrap` each straddling pair loses its weaker half, so the committed
-`keep` data answers it to first order. A pair costs one gained peak at tier t when its weaker
-half is at or above t. At the operating point, the world CSV says whether the weaker half of a
-pair whose halves both projected had made a site of its own. From `summary.json`
-(`wrap_estimate`):
+**The estimate.** A `keep` seam peak disappears under `wrap` in two cases:
+- a strictly higher pixel lies across the seam within its window;
+- an equal one already accepted lies within < 10 px.
+
+The committed files hold `keep`'s peaks, so `seam_band_130.wrap_suppressed` applies that rule
+using the other gained peaks as the only pixels it can see. Pairs are matched by geometry, peak
+by peak, so these cases are counted correctly:
+- a pano with two pairs;
+- a peak in two pairs;
+- a pair whose stronger half did not project.
+
+At the operating point, a dropped world row that made a site of its own (split, promoted or new)
+takes that site with it. From `summary.json` (`wrap_estimate`):
 
 | arm | tier | keep gained | straddle pairs (both halves >= tier) | wrap gained (est.) | wrap gained / wrap peaks [95% CI] | operational sites keep -> wrap (est.) |
 |---|---|---|---|---|---|---|
@@ -362,24 +408,26 @@ pair whose halves both projected had made a site of its own. From `summary.json`
 | laurens_gsv_archive | 0.55 | 1 | 0 | 1 | 0.22% [0.04, 1.25] |  |
 | pooled | 0.3 | 17 | 3 | 14 | 0.54% [0.32, 0.91] | 588 -> 587 |
 
-- On Mapillary (run frame) `wrap` would keep the 1 promoted ramp and drop the duplicate site on
-  `1466581971069523`: 330 (`exclude`) -> 332 (`wrap`, est.) operational sites, where `keep`
-  makes 333.
+On the committed data, the peak-by-peak count (`suppressed_under_wrap`) equals the pair count
+in every cell: all pair scores are distinct and no peak sits in two pairs.
+
+- On Mapillary (run frame), `wrap` would keep the 1 promoted ramp and drop the duplicate site
+  on `1466581971069523`. Operational sites: 330 (`exclude`), 332 (`wrap`, est.), 333 (`keep`).
 - The other two pairs at or above 0.30 are the four unprojected peaks. `wrap` keeps one half of
   each, which still does not project.
-- **What the estimate cannot see.** It counts only suppression by the other half of a
-  straddling pair, i.e. by a `keep` PEAK across the seam. A seam peak is also suppressed under
-  `wrap` when a higher pixel that is not itself a peak (the flank of a peak more than 10 px
-  away) sits across the seam within its window. The committed files hold peaks, not pixels, so
-  that case is invisible here. The reverse cannot happen (previous paragraph: `wrap` never adds
-  a peak `keep` lacks), so the "wrap gained" column is an UPPER bound and the duplicate count a
-  lower bound on what `wrap` removes. The plan for this change also named a second-order
-  re-emergence (a peak the suppressed half had suppressed coming back); with Chebyshev windows
-  a candidate is the maximum of its own window, so spacing only ever separates equal values, and
-  that case reduces to ties.
-- A direct measurement needs the coarse maps on makelab2: `both_rules` extended with a `wrap`
-  arm, then `peaks` and `world` as in section 7 (about 4 minutes of CPU). That is listed as a
-  decision for Jon, not run here.
+- **What the estimate cannot see.** A seam peak is also suppressed under `wrap` when a higher
+  pixel that is not itself a peak sits across the seam within its window, for example the
+  flank of a peak more than 10 px away. The committed files hold peaks, not pixels.
+  - `wrap` never adds a peak that `keep` lacks when no exact ties are involved.
+  - So, **up to exact ties**, the "wrap gained" column is an upper bound, and the duplicate
+    count a lower bound, on what `wrap` removes.
+  - The committed Laurens seam peaks reach at most 0.708, so none of them is clipped.
+- The plan for this change also named a second-order re-emergence (a peak that the suppressed
+  half had suppressed coming back). Spacing only ever separates equal values, so that case
+  reduces to ties.
+- A direct measurement needs the coarse maps on makelab2: extend `both_rules` with a `wrap`
+  arm, then run `peaks` and `world` as in section 7 (about 4 minutes of CPU). It is listed as a
+  decision for Jon and was not run here.
 
-Regenerate the table with `python scripts/seam_band_130.py summary` (it prints every table in
-this doc); `verify` re-derives `summary.json` byte for byte.
+Regenerate the table with `python scripts/seam_band_130.py summary`, which prints every table in
+this doc. `verify` re-derives `summary.json` byte for byte.
