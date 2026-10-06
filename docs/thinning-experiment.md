@@ -24,7 +24,9 @@ tests them:
 >    ("robust") site is one detected from at least 3 panos at full density. Of those,
 >    5 m keeps 95-99% and 10 m keeps 81-93%: 10-18 points lower in Bayonne, 3-9 in
 >    Richmond. Over *all* sites the gap is wider:
->    Bayonne 74% vs 49% at 0.55, Richmond 82% vs 71%.
+>    Bayonne 74% vs 49% at 0.55, Richmond 82% vs 71%. "Robust" is a weaker bar on
+>    Mapillary, where 3 panos at full density can be near-duplicates ~1.5 m apart, so the
+>    Panoramax-vs-Mapillary size of that gap is approximate (see [Caveats](#caveats)).
 > 2. **5 m costs 1.6x (Richmond, Mapillary) to 2.0x (Bayonne, Panoramax) the GPU time of
 >    10 m.** Over the whole Bayonne commune the scan gives 1.76x (50,528 vs 28,634 panos).
 > 3. **Below 5 m there is almost nothing left to gain.** 2.5 m adds at most 2 robust sites
@@ -35,8 +37,11 @@ tests them:
 > 5. **A1 holds past ~8 m, not below it.** The per-pano detection rate peaks at 4-8 m and
 >    falls 2-5x by 16-20 m. The 0-4 m bin is *lower* than 4-8 m.
 > 6. **A3 splits by source.** In Richmond, `thin_panos` keeps 10-20 more sites than a random
->    same-size selection. In Bayonne it keeps 5-19 *fewer*. On robust sites the two match
->    in both cities, so the Bayonne deficit is entirely in sites seen from one or two panos.
+>    same-size selection. In Bayonne it keeps 5-19 *fewer*. On robust sites the two are
+>    within a few sites of each other in both cities, so the Bayonne deficit is mostly in
+>    sites seen from one or two panos. Not entirely: at 0.30 and 10 m, `thin_panos` also
+>    trails random by 3.6 robust sites (77 vs 80.6) and by 9.2 sites seen from 2+ panos
+>    (51 vs 60.2).
 >
 > **Recommendation: keep 5 m as the default for both sources.** Use 10 m only as a stated
 > budget fallback, as Bayonne did. Confidence is moderate: the direction is the same in
@@ -58,7 +63,8 @@ tests them:
      approximation of PS label clustering.
    - For each spacing, it applies the source's own `thin_panos` to the scan and counts:
      - sites retained (at least one member pano kept);
-     - robust sites retained (at least 3 member panos at full density);
+     - robust sites retained (at least 3 member panos at full density; on Mapillary those
+       can be near-duplicates from one pass, see [Caveats](#caveats));
      - sites still seen from 2 or more kept panos.
    - Each count is also taken for a random same-size selection (mean of 20 seeds), which
      is the A3 test.
@@ -133,6 +139,18 @@ are of the area's own total, at spacing 0.
 | 15 m | 169 | 0.07 | 56 (60%) | 47 (82%) | 35 | 75 (63%) | 62 (82%) | 44 |
 | 20 m | 131 | 0.05 | 53 (56%) | 46 (81%) | 32 | 68 (57%) | 58 (76%) | 42 |
 
+### Coverage against spacing, as figures
+
+Each panel is a share of that row's full-density count (n in the panel title). Solid
+blue circles are `thin_panos`; dashed orange squares are the random same-count mean. The
+numbers beside the 5 m and 10 m points are the `thin_panos` counts.
+
+![Ramp sites kept against thinning cell at 0.30: all, robust and 2+-view sites, thin_panos against random, Bayonne and Richmond](figures/thinning-experiment/coverage_vs_spacing_t0.3.png)
+
+The same at the 0.55 benchmark tier:
+[coverage_vs_spacing_t0.55.png](figures/thinning-experiment/coverage_vs_spacing_t0.55.png)
+(SVG beside each PNG).
+
 ### 5 m against 10 m
 
 | | Bayonne 0.55 | Bayonne 0.30 | Richmond 0.55 | Richmond 0.30 |
@@ -167,11 +185,31 @@ detection.
 | 12-16 m | 0.057 | 0.085 | 0.352 | 0.379 |
 | 16-20 m | 0.033 | 0.045 | 0.206 | 0.182 |
 
+![Per-view detection rate against camera-to-site distance, Bayonne and Richmond, at 0.30 and 0.55](figures/thinning-experiment/detection_rate_by_distance.png)
+
+(Points sit at the centre of each 4 m bin; the hatched band is the rig mask, below.)
+
 Proximity helps past ~8 m: the rate falls 2.3-2.6x by 16-20 m in Richmond and 3.8-4.6x
 in Bayonne. Under 4 m it drops again. A
 ramp almost under the camera sits steep in the frame, near the masked rig band, and its
-site centroid is placed by other, farther views. The per-view rate is 3x lower in Bayonne
-than in Richmond at every distance. This is the low Panoramax detection rate already
+site centroid is placed by other, farther views. Part of that dip is structural: the rig
+mask drops every detection more than 49° below the horizon (`NADIR_MASK_DEG`), which at
+the 2.6 m raycast height is any ground point nearer than 2.6 / tan 49° = 2.26 m. So a
+pano can detect a site in the 0-4 m bin only in the bin's outer part.
+
+The per-view rate is lower in Bayonne than in Richmond, by an amount that depends on
+distance (`distance_bins.csv`, Richmond / Bayonne):
+
+| distance | 0.55 | 0.30 |
+|---|---|---|
+| 0-4 m | 0.141 / 0.090 = 1.6x | 0.147 / 0.158 = 0.9x (Bayonne higher) |
+| 4-8 m | 0.474 / 0.152 = 3.1x | 0.469 / 0.172 = 2.7x |
+| 8-12 m | 0.433 / 0.134 = 3.2x | 0.453 / 0.134 = 3.4x |
+| 12-16 m | 0.352 / 0.057 = 6.2x | 0.379 / 0.085 = 4.5x |
+| 16-20 m | 0.206 / 0.033 = 6.2x | 0.182 / 0.045 = 4.0x |
+
+So Bayonne is ~3x lower at 4-12 m and 4-6x lower beyond 12 m. At 0-4 m the gap is small,
+and at 0.30 Bayonne is higher. This is the low Panoramax detection rate already
 noted in [docs/panoramax-bayonne.md](panoramax-bayonne.md). When each view fires that
 rarely, extra views are extra chances, which is why Bayonne gains more from 5 m.
 
@@ -188,10 +226,12 @@ rarely, extra views are extra chances, which is why Bayonne gains more from 5 m.
   several panos 1.5 m apart and leaves gaps.
 - **Bayonne.** The pictures are already spaced, so clumping costs random little. Random
   also keeps a mix of five vintages, while newest-wins keeps mostly 2026 (685 of 1,238 at
-  10 m). A ramp missed in one vintage gets another chance in a different one, so the
+  10 m, against 1,652 of 3,880 in the scan; `vintages.csv`). A ramp missed in one vintage gets another chance in a different one, so the
   vintage mix plausibly explains why random does better here.
 - **Robust sites:** the two selections are within a few sites of each other in both
-  cities.
+  cities. The largest Bayonne gap is at 0.30 and 10 m: `thin_panos` keeps 77 robust sites
+  against random's 80.6, and 51 sites seen from 2+ panos against 60.2. So the Bayonne
+  deficit is mostly, not entirely, in one- and two-view sites.
 
 Read this as a hypothesis, not a finding: a vintage-diverse selection might help a
 low-recall source, but this experiment cannot tell those extra one-view sites apart from
@@ -203,7 +243,7 @@ false positives.
 
 - On the sites that are most likely real, 10 m keeps 81-93%, while 5 m keeps 95-99% of
   what processing everything finds. The gap is 10-18 points on Panoramax and 3-9 on
-  Mapillary.
+  Mapillary (a cross-source contrast that carries the robust-site caveat below).
 - 10 m roughly halves the Panoramax sites that fusion can see twice, and cuts
   Mapillary's by 15-20%.
 - The cost of 5 m is linear and known: 1.6-2.0x the GPU time of 10 m. For a whole city
@@ -216,6 +256,8 @@ false positives.
 Bayonne's rule did. Expect it to cost 10-18% of the well-seen ramps on Panoramax and
 less on Mapillary.
 
+### Caveats
+
 Reasons this is moderate confidence, not high:
 
 - **The sites are model-derived.** This measures detection coverage, not recall, and
@@ -223,6 +265,13 @@ Reasons this is moderate confidence, not high:
   pano. In Bayonne they are lower-confidence, and the French-kerb labelling question from
   the Bayonne doc applies to them. Neither box has ground truth: Richmond's RampNet
   benchmark has 4 judged panos inside the box, and Bayonne has no bundle yet.
+- **"Robust" is a weaker bar on Mapillary.** A robust site has 3 or more member panos
+  at full density. Mapillary coverage runs ~1 pano per 1.5 m of street, so those can be
+  three near-duplicates from one pass, a few metres apart; Panoramax pictures are already
+  spaced, so 3 members there are more independent looks. The within-city 5-vs-10 m
+  comparison is unaffected (the same sites are scored at every spacing). The cross-source
+  contrast, 10-18 points lost on Panoramax against 3-9 on Mapillary, compares robust sets
+  of different strength: read its direction, not its size.
 - **Each city is one sub-area.** There are 40-95 robust sites per city and tier, so a
   difference of a few sites is noise. The 5-vs-10 m direction holds in all four
   city x tier cells. The magnitudes are not precise.
@@ -246,7 +295,8 @@ step 2. `MAPILLARY_ACCESS_TOKEN` must be in `.env` for Richmond.
 |---|---|---|---|
 | 1 | `python main.py example_geojson/bayonne_thinexp.geojson --name thinexp_bayonne --source panoramax --thin-spacing 0 --scan-only` (same for `richmond_thinexp` / `thinexp_richmond` / `--source mapillary`) | net | < 1 min |
 | 2 | `python main.py example_geojson/bayonne_thinexp.geojson --name thinexp_bayonne --source panoramax --thin-spacing 0 --reuse-scan --batch-size 1` and `python main.py example_geojson/richmond_thinexp.geojson --name thinexp_richmond --source mapillary --thin-spacing 0 --reuse-scan --batch-size 1` | GPU + net | 95 min / 34 min (RTX 3070) |
-| 3 | `python scripts/thinning_experiment.py runs/thinexp_bayonne` and `... --min-confidence 0.3` (same for `runs/thinexp_richmond`) | — | ~1 min each |
+| 3 | `python scripts/thinning_experiment.py runs/thinexp_bayonne` and `... --min-confidence 0.3` (same for `runs/thinexp_richmond`); also prints the capture-vintage mix per spacing and writes it to `vintages.csv` | scan.json + results.jsonl | ~1 min each |
+| 4 | `python scripts/thinning_experiment.py figures` | the committed CSVs only (matplotlib) | seconds |
 
 A re-run of step 1 sees today's coverage, which churns, so the counts can differ slightly.
 The committed manifests record each run's scan time and pano counts.
@@ -259,7 +309,10 @@ The committed manifests record each run's scan time and pano counts.
 | A1 detection rate by distance | `.../distance_bins.csv` | `detection_rate`, `opportunities` |
 | lost-site profile (members, confidence) | `.../sites.csv` | `member_panos`, `max_confidence`, `views_at_<s>m` (0 = lost at that spacing) |
 | raw pano counts, run rate, thinning | `runs/thinexp_<city>/manifest.json` | run entry; `thin_spacing_m` = 0 |
-| capture vintages, kept-set vintages | computed from `runs/thinexp_<city>/scan.json` (not committed) | the scan's capture field |
+| capture vintages, kept-set vintages (Bayonne: 23 capture months, 1,652 of 3,880 = 43% from 2026; 685 of 1,238 at 10 m; Richmond: 1,068 from 2024, 252 from 2025) | `.../vintages.csv` (step 3 derives it from the uncommitted `scan.json`; tier-independent, so the `_t0.3` copy is identical) | `spacing_m`, `capture_year` (`all` = the whole kept set), `panos`, `share_of_kept`, `capture_months` |
+| Richmond's 52 sequences | distinct `source_metadata.sequence` in `runs/thinexp_richmond/results.jsonl` (not committed) | — |
+| coverage-vs-spacing figures (0.30, 0.55) | `docs/figures/thinning-experiment/coverage_vs_spacing_t{0.3,0.55}.{png,svg}` | drawn from `spacing_curve.csv` by step 4 |
+| A1 figure | `docs/figures/thinning-experiment/detection_rate_by_distance.{png,svg}` | drawn from `distance_bins.csv` by step 4; the 2.26 m mask band is `2.6 / tan(NADIR_MASK_DEG)` |
 | Bayonne commune 5 m / 10 m counts, 6.7 h | [docs/panoramax-bayonne.md](panoramax-bayonne.md) | run table |
 
 `results.jsonl`, `scan.json`, `osm_streets.json` and the logs stay local, as for every run.

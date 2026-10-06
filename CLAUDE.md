@@ -30,6 +30,7 @@ python main.py example_geojson/bend.geojson --name bend --reuse-scan
 # from the run's own scan.json (offline). Measured: 5 m stays the default; 10 m is a budget
 # fallback that loses well-seen sites (10-18 pts on Panoramax, 3-9 on Mapillary).
 python scripts/thinning_experiment.py runs/thinexp_bayonne [--min-confidence 0.3]
+python scripts/thinning_experiment.py figures   # redraw docs/figures/thinning-experiment/ from the CSVs
 
 # Run the labeler over an area; all per-area state goes to runs/<name>/
 # (--name defaults to the geojson filename stem)

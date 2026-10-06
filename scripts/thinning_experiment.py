@@ -21,7 +21,12 @@ Protocol:
      only a run without one falls back to a coverage rescan):
        python scripts/thinning_experiment.py runs/thinexp
      (--min-confidence 0.3 scores the operational tier into thinning_experiment_t0.3/.)
-  4. Read runs/thinexp/thinning_experiment/report.md (+ CSVs for plotting).
+  4. Read runs/thinexp/thinning_experiment/report.md (+ CSVs; vintages.csv is the
+     capture-year mix of the scan and of each spacing's kept set).
+  5. Redraw the doc's figures from the committed CSVs only (no run data, no network):
+       python scripts/thinning_experiment.py figures
+     (--runs names the run dirs, default runs/thinexp_bayonne runs/thinexp_richmond;
+     writes PNG + SVG to docs/figures/thinning-experiment/.)
   Findings for a Bayonne and a Richmond sub-area: docs/thinning-experiment.md.
 
 Method:
@@ -47,11 +52,14 @@ model-derived, so results measure detection coverage, not true recall — valida
 a sample in RampNet (GT gallery + scorer) before leaning on precision claims.
 """
 import argparse
+import csv
+import io
 import json
 import math
 import random
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -74,6 +82,8 @@ SECONDS_PER_PANO = 1.5     # main.py's planning rate; --seconds-per-pano overrid
 METERS_PER_DEG_LAT = geo.METERS_PER_DEG_LAT
 ROBUST_MIN_PANOS = 3       # a site seen from >= this many panos at full density
 THINNABLE_SOURCES = ('mapillary', 'panoramax')  # the sources with a thin_panos hook
+FIG_DIR = REPO_ROOT / "docs" / "figures" / "thinning-experiment"
+DEFAULT_FIGURE_RUNS = ("runs/thinexp_bayonne", "runs/thinexp_richmond")
 
 
 def load_run(run_dir, min_confidence=BENCHMARK_CONFIDENCE):
@@ -170,6 +180,11 @@ def sites_retained(sites, kept_pano_ids, min_views=1):
     return sum(1 for site in sites if len(site['members'] & kept_pano_ids) >= min_views)
 
 
+def site_columns(spacings):
+    return (['site', 'lat', 'lon', 'member_panos', 'max_confidence']
+            + [f'views_at_{sp:g}m' for sp in spacings])
+
+
 def site_table(sites, scan, spacings, thin):
     """One row per ramp site: its member count at full density, its highest member
     confidence, and how many of its member panos each spacing keeps (0 = lost) — what
@@ -198,7 +213,7 @@ def spacing_curve(sites, scan, spacings, random_seeds, thin, seconds_per_pano=SE
             rand_all.append(sites_retained(sites, sample))
             rand_robust.append(sites_retained(robust, sample))
             rand_2v.append(sites_retained(sites, sample, min_views=2))
-        mean = lambda xs: round(sum(xs) / len(xs), 1)
+        mean = lambda xs: round(sum(xs) / len(xs), 1) if xs else None  # --random-seeds 0
         rows.append({
             'spacing_m': spacing,
             'panos_kept': len(kept),
@@ -235,11 +250,41 @@ def distance_bins(sites, records, opportunity_radius, bin_edges):
             for lo, hi in zip(bin_edges, bin_edges[1:])]
 
 
-def write_csv(path, rows):
+def capture_month(captured):
+    """'YYYY-MM' of a scan row's capture field: Panoramax stores an ISO string,
+    Mapillary epoch milliseconds."""
+    if isinstance(captured, (int, float)):
+        return datetime.fromtimestamp(captured / 1000, tz=timezone.utc).strftime('%Y-%m')
+    return str(captured)[:7]
+
+
+def vintage_table(scan, spacings, thin):
+    """Capture-year mix of the scan (spacing 0) and of each spacing's kept set: one
+    'all' row per spacing, then one row per year. capture_months counts distinct
+    year-months, so the 'all' row's is the number of capture months in that set."""
+    rows = []
+    for spacing in spacings:
+        kept = list(scan) if spacing == 0 else list(thin(scan, spacing))
+        months = [capture_month(scan[p][2]) for p in kept]
+        by_year = Counter(m[:4] for m in months)
+        rows.append({'spacing_m': spacing, 'capture_year': 'all', 'panos': len(kept),
+                     'share_of_kept': 1.0 if kept else None, 'capture_months': len(set(months))})
+        for year in sorted(by_year):
+            rows.append({'spacing_m': spacing, 'capture_year': year, 'panos': by_year[year],
+                         'share_of_kept': round(by_year[year] / len(kept), 3),
+                         'capture_months': len({m for m in months if m[:4] == year})})
+    return rows
+
+
+def write_csv(path, rows, columns=None):
+    """rows -> CSV (None as a blank cell). With no rows, writes the header from
+    `columns` (or an empty file), so a run with no site at the tier still writes."""
+    cols = list(rows[0].keys()) if rows else list(columns or [])
     with open(path, 'w', encoding='utf-8') as f:
-        f.write(','.join(rows[0].keys()) + '\n')
+        if cols:
+            f.write(','.join(cols) + '\n')
         for row in rows:
-            f.write(','.join(str(v) for v in row.values()) + '\n')
+            f.write(','.join('' if v is None else str(v) for v in row.values()) + '\n')
 
 
 def main():
@@ -284,7 +329,16 @@ def main():
     out_dir.mkdir(exist_ok=True)
     write_csv(out_dir / "spacing_curve.csv", curve)
     write_csv(out_dir / "distance_bins.csv", bins)
-    write_csv(out_dir / "sites.csv", site_table(sites, scan, args.spacings, source.thin_panos))
+    write_csv(out_dir / "sites.csv", site_table(sites, scan, args.spacings, source.thin_panos),
+              columns=site_columns(args.spacings))
+    vintages = vintage_table(scan, args.spacings, source.thin_panos)
+    write_csv(out_dir / "vintages.csv", vintages)
+    for row in vintages:
+        if row['capture_year'] == 'all':
+            years = {r['capture_year']: r['panos'] for r in vintages
+                     if r['spacing_m'] == row['spacing_m'] and r['capture_year'] != 'all'}
+            print(f"   vintages at {row['spacing_m']:g} m: {row['panos']} panos, "
+                  f"{row['capture_months']} capture months; by year {years}")
 
     def table(rows):
         header = '| ' + ' | '.join(rows[0].keys()) + ' |'
@@ -304,5 +358,168 @@ def main():
     print(f"-> Wrote {out_dir / 'report.md'} (+ CSVs).")
 
 
+# ---------------------------------------------------------------------------------------
+# figures: redrawn from the committed CSVs only (spacing_curve.csv, distance_bins.csv)
+
+INK, INK2, GRID, SURFACE = '#0b0b0b', '#52514e', '#e4e3df', '#ffffff'
+THIN_COLOR, RANDOM_COLOR = '#2a78d6', '#eb6834'      # validated pair (dataviz palette 1, 2)
+CITY_STYLES = (  # color + marker + dash, so identity never rests on color alone
+    dict(color='#2a78d6', marker='o', linestyle='-'),
+    dict(color='#eb6834', marker='s', linestyle='--'),
+)
+TIERS = (('0.3', '_t0.3'), ('0.55', ''))             # (label, output-dir suffix)
+
+
+def read_csv(path):
+    with open(path, encoding='utf-8', newline='') as f:
+        return list(csv.DictReader(f))
+
+
+def _num(v):
+    return float('nan') if v in ('', 'None', None) else float(v)
+
+
+def _city_label(run_dir):
+    manifest = json.loads((Path(run_dir) / "manifest.json").read_text())
+    name = Path(run_dir).name.replace('thinexp_', '').replace('_', ' ').title()
+    return f"{name} ({str(manifest.get('imagery_source', '?')).title()})"
+
+
+def _style(plt):
+    plt.rcParams.update({
+        'font.size': 10, 'axes.titlesize': 10, 'axes.labelsize': 10, 'legend.fontsize': 9,
+        'xtick.labelsize': 9, 'ytick.labelsize': 9, 'axes.spines.top': False,
+        'axes.spines.right': False, 'axes.edgecolor': INK2, 'axes.labelcolor': INK,
+        'xtick.color': INK2, 'ytick.color': INK2, 'text.color': INK,
+        'figure.facecolor': SURFACE, 'axes.facecolor': SURFACE, 'grid.color': GRID,
+        'lines.linewidth': 2, 'lines.markersize': 6, 'hatch.color': '#b5b3ad',
+        'svg.hashsalt': 'thinexp144', 'svg.fonttype': 'path', 'path.simplify': False,
+        'font.family': 'DejaVu Sans'})
+
+
+def _save(fig, out_dir, stem):
+    """PNG + SVG with timestamp/version metadata dropped, so re-runs are byte-stable."""
+    fig.savefig(out_dir / f'{stem}.png', dpi=150, metadata={'Software': None})
+    buf = io.BytesIO()   # bytes, so the SVG is LF on every platform
+    fig.savefig(buf, format='svg', metadata={'Date': None, 'Creator': None})
+    (out_dir / f'{stem}.svg').write_bytes(buf.getvalue())
+    return [out_dir / f'{stem}.png', out_dir / f'{stem}.svg']
+
+
+def figure_coverage(plt, runs, tier, suffix, out_dir):
+    """Sites kept vs spacing (% of the full-density count): rows = all / robust / 2+
+    views, columns = city; thin_panos solid circles, random same-count dashed squares."""
+    metrics = (('sites_retained', 'all sites'),
+               ('robust_retained', f'robust sites (>= {ROBUST_MIN_PANOS} panos at full density)'),
+               ('sites_2plus_views', 'sites seen from >= 2 kept panos'))
+    fig, axes = plt.subplots(len(metrics), len(runs), figsize=(4.8 * len(runs), 9.6),
+                             sharex=True, sharey=True, squeeze=False)
+    for col, run in enumerate(runs):
+        rows = read_csv(Path(run) / f"thinning_experiment{suffix}" / "spacing_curve.csv")
+        x = [_num(r['spacing_m']) for r in rows]
+        for i, (key, label) in enumerate(metrics):
+            ax = axes[i][col]
+            full = _num(rows[0][key])   # spacing 0 = full density
+            pct = lambda k: [100 * _num(r[k]) / full if full else float('nan') for r in rows]
+            thin, rand = pct(key), pct(f"{key}_random_mean")
+            for ref in (5, 10):
+                ax.axvline(ref, color=GRID, linewidth=1, zorder=0)
+            ax.plot(x, rand, color=RANDOM_COLOR, marker='s', linestyle='--',
+                    label='random selection, same pano count (mean of seeds)')
+            ax.plot(x, thin, color=THIN_COLOR, marker='o', linestyle='-',
+                    label='thin_panos (newest capture per cell)')
+            for ref in (5, 10):   # selective direct labels: the two spacings in question
+                if ref in x:
+                    j = x.index(ref)
+                    below = thin[j] < rand[j]   # keep the label off the other line
+                    ax.annotate(f"{int(_num(rows[j][key]))}", (ref, thin[j]),
+                                xytext=(5, -13 if below else 6), textcoords='offset points',
+                                fontsize=8.5, color=INK)
+            ax.set_ylim(0, 108)
+            ax.grid(axis='y', linewidth=0.6)
+            title = f"{label}, n = {int(full)}"
+            ax.set_title(f"{_city_label(run)}\n{title}" if i == 0 else title, loc='left')
+            if col == 0:
+                ax.set_ylabel('kept, % of full density')
+            if i == len(metrics) - 1:
+                ax.set_xlabel('thinning cell (m); 0 = every pano')
+                ax.set_xticks(x)
+                ax.set_xticklabels([f"{v:g}" for v in x])
+    handles, labels = axes[0][0].get_legend_handles_labels()
+    fig.legend(handles[::-1], labels[::-1], loc='upper center', ncol=2, frameon=False,
+               bbox_to_anchor=(0.5, 0.995))
+    fig.suptitle(f"Ramp sites kept vs thinning cell, detections >= {tier} "
+                 f"(labels: thin_panos count at 5 m and 10 m)", y=0.968, fontsize=11)
+    fig.tight_layout(rect=(0, 0, 1, 0.955))
+    paths = _save(fig, out_dir, f"coverage_vs_spacing_t{tier}")
+    plt.close(fig)
+    return paths
+
+
+def figure_distance(plt, runs, out_dir):
+    """A1: per-pano detection rate by camera-to-site distance, one panel per tier,
+    one line per city (color + marker + dash), with the rig-mask zone shaded."""
+    from detectors import NADIR_MASK_DEG
+    mask_m = geo.DEFAULT_CAMERA_HEIGHT_M / math.tan(math.radians(NADIR_MASK_DEG))
+    fig, axes = plt.subplots(1, len(TIERS), figsize=(10, 4.4), sharey=True, squeeze=False)
+    for k, (tier, suffix) in enumerate(TIERS):
+        ax = axes[0][k]
+        ax.axvspan(0, mask_m, facecolor='#f1f0ec', hatch='///', edgecolor='#b5b3ad',
+                   linewidth=0, zorder=0)
+        ax.text(mask_m / 2, 0.53, f"rig mask: no detection\nnearer than {mask_m:.2f} m",
+                ha='center', va='top', fontsize=7.5, color=INK2, rotation=90)
+        for c, run in enumerate(runs):
+            rows = read_csv(Path(run) / f"thinning_experiment{suffix}" / "distance_bins.csv")
+            edges = [tuple(float(v) for v in r['bin_m'].split('-')) for r in rows]
+            mids = [(lo + hi) / 2 for lo, hi in edges]
+            rate = [_num(r['detection_rate']) for r in rows]
+            ax.plot(mids, rate, label=_city_label(run), **CITY_STYLES[c % len(CITY_STYLES)])
+            ax.annotate(_city_label(run).split(' (')[0], (mids[-1], rate[-1]), xytext=(6, 0),
+                        textcoords='offset points', va='center', fontsize=8.5, color=INK)
+        ax.set_xlim(0, 24)
+        ax.set_xticks([0, 4, 8, 12, 16, 20])
+        ax.set_ylim(0, 0.55)
+        ax.grid(axis='y', linewidth=0.6)
+        ax.set_title(f"detections >= {tier}", loc='left')
+        ax.set_xlabel('camera-to-site distance (m), 4 m bins')
+        if k == 0:
+            ax.set_ylabel('share of (pano, site) pairs\nwhere the pano detected the site')
+    handles, labels = axes[0][0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper center', ncol=len(runs), frameon=False,
+               bbox_to_anchor=(0.5, 0.995))
+    fig.suptitle("A1: per-view detection rate by camera-to-site distance (pairs within 20 m)",
+                 y=0.925, fontsize=11)
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    paths = _save(fig, out_dir, "detection_rate_by_distance")
+    plt.close(fig)
+    return paths
+
+
+def figures_main(argv):
+    parser = argparse.ArgumentParser(
+        prog="thinning_experiment.py figures",
+        description="Redraw docs/figures/thinning-experiment/ from the committed CSVs only.")
+    parser.add_argument("--runs", nargs='+', default=list(DEFAULT_FIGURE_RUNS),
+                        help="Run dirs holding thinning_experiment[_t0.3]/ (default %(default)s).")
+    parser.add_argument("--out", default=str(FIG_DIR))
+    args = parser.parse_args(argv)
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    _style(plt)
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    runs = [Path(r) if Path(r).is_absolute() else REPO_ROOT / r for r in args.runs]
+    written = []
+    for tier, suffix in TIERS:
+        written += figure_coverage(plt, runs, tier, suffix, out_dir)
+    written += figure_distance(plt, runs, out_dir)
+    for path in written:
+        print(f"-> {path.relative_to(REPO_ROOT) if path.is_relative_to(REPO_ROOT) else path}")
+
+
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:2] == ['figures']:
+        figures_main(sys.argv[2:])
+    else:
+        main()
