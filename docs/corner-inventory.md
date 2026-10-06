@@ -789,3 +789,12 @@ The two detection runs' `results.jsonl` are not public files, as with #56's. A r
 2 can differ, because the store grows and the GSV scan returns whatever coverage exists that
 day. Step 3 is deterministic from the two `results.jsonl` files, whose sha256s are above.
 The store pass's metadata cache is kept on makelab2 as `~/posdetect241_store_metadata.tgz`.
+
+## Follow-up: rating gallery for the `NA` read and the 35 false absences (RampNet#243)
+
+[RampNet#243](https://github.com/ProjectSidewalk/RampNet/issues/243) rates 95 absent units per
+corner (present / absent / can't tell): the 35 false absences at the #241 targets, 40 of the
+944 `NA`-no-`RAMPTYPE` units and 20 of the 333 clean units (seed 243). Protocol, how to rate
+and the scoring rules: [`corner-gallery-243.md`](corner-gallery-243.md). Bundle:
+`runs/vancouver/corner_gallery243/`. Nothing in this document changes until the ratings are
+scored; the `NA` read stays open until then.

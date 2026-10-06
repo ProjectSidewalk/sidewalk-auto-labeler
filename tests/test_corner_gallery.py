@@ -178,13 +178,13 @@ def test_false_absence_classes(vs, inst, cls):
 
 def test_validate_refusals():
     items = [item('u1', 'clean')]
-    good = vfile({'u1': unit_verdicts(['absent', 'absent', 'present'], {0: 'no_curb'})})
+    good = vfile({'u1': unit_verdicts(['absent', 'absent', 'present'], {0: 'no_sidewalk'})})
     assert cs.validate(good, items, 'S') == []
     bad = vfile({'u1': unit_verdicts(['absent', None, 'present'])}, sha='X')
     bad['rubric'] = ''
     bad['units']['u9'] = unit_verdicts(['absent'])
-    bad['units']['u1']['corners']['0']['absent_kind'] = 'no_curb'
-    bad['units']['u1']['corners']['2']['absent_kind'] = 'no_curb'
+    bad['units']['u1']['corners']['0']['absent_kind'] = 'no_sidewalk'
+    bad['units']['u1']['corners']['2']['absent_kind'] = 'no_sidewalk'
     bad['units']['u1']['inventory_seen'] = False
     p = '\n'.join(cs.validate(bad, items, 'S'))
     for frag in ('items_sha256', 'rubric text', 'u9: not a unit', 'corner 1 has no verdict',
@@ -199,7 +199,7 @@ def test_score_parts_blind_vs_final_and_stratified():
              [item(f'c{i}', 'clean') for i in range(2)] +
              [item('f0', 'false_absence', {1: ('Available', '2019-01-01')}),
               item('f1', 'false_absence', {1: ('Available', '2019-01-01')})])
-    units = {'n0': unit_verdicts(['absent'] * 3, {0: 'no_curb'}),
+    units = {'n0': unit_verdicts(['absent'] * 3, {0: 'no_sidewalk'}),
              'n1': unit_verdicts(['absent'] * 3, {0: 'curb_no_ramp'}),
              'n2': unit_verdicts(['present', 'absent', 'absent']),
              'n3': unit_verdicts(['cant_tell', 'absent', 'absent']),
@@ -215,7 +215,7 @@ def test_score_parts_blind_vs_final_and_stratified():
     assert na['unit_absent_share']['k'] == 2 and na['unit_absent_share']['n'] == 3
     assert na['unit_absent_conservative']['n'] == 4
     assert na['corner_verdicts'] == {'present': 1, 'absent': 2, 'cant_tell': 1}  # NA corners only
-    assert na['absent_kinds'] == {'curb_no_ramp': 1, 'no_curb': 1, 'unspecified': 0}
+    assert na['absent_kinds'] == {'curb_no_ramp': 1, 'no_sidewalk': 1, 'unspecified': 0}
     assert b['parts']['clean']['unit_absent_share']['k'] == 2
     fa = b['parts']['false_absence']
     assert fa['classes']['miss_at_inventory_corner'] == 1
@@ -272,7 +272,7 @@ def test_bootstrap_state_under_node(tmp_path):
     units = [{'id': 'u1', 'corners': [{'k': '0'}, {'k': '1'}]},
              {'id': 'u2', 'corners': [{'k': '0'}]}, {'id': 'u3', 'corners': [{'k': '0'}]}]
     initial = {'items_sha256': 'S', 'units': {
-        'u1': {'corners': {'0': {'verdict': 'absent', 'absent_kind': 'no_curb'},
+        'u1': {'corners': {'0': {'verdict': 'absent', 'absent_kind': 'no_sidewalk'},
                            '1': {'verdict': 'present', 'absent_kind': None}},
                'blind': {'0': {'verdict': 'absent'}, '1': {'verdict': 'present'}},
                'complete': True, 'inventory_seen': True},
@@ -292,7 +292,7 @@ console.log(JSON.stringify({{r: r, ig: ig}}));
     out = json.loads(subprocess.run([NODE, str(p)], capture_output=True, text=True, check=True).stdout)
     r, ig = out['r'], out['ig']
     assert r['prefilled'] == 3 and r['conflicts'] == ['u2'] and r['reopened'] == 1
-    assert r['state']['u1']['corners']['0'] == {'verdict': 'absent', 'absent_kind': 'no_curb'}
+    assert r['state']['u1']['corners']['0'] == {'verdict': 'absent', 'absent_kind': 'no_sidewalk'}
     assert r['state']['u1']['complete'] is True
     assert r['state']['u2']['corners']['0']['verdict'] == 'absent'        # local work wins
     assert '9' not in r['state']['u3']['corners'] and r['state']['u3']['complete'] is False

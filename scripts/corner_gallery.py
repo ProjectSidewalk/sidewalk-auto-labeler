@@ -104,8 +104,9 @@ present   at least one curb ramp serving pedestrians at this corner is visible: 
           parallel, diagonal at the apex, blended / depressed corner). A diagonal ramp counts
           for the corner whose sector holds it.
 absent    the corner is visible well enough to judge and has no curb ramp. Say which, when
-          you can: `curb_no_ramp` (a raised curb with no cut), or `no_curb` (no curb or
-          sidewalk to ramp from, e.g. a gravel shoulder or a lawn to the street edge).
+          you can: `curb_no_ramp` (a sidewalk reaches the corner and the curb there has no
+          cut), or `no_sidewalk` (no sidewalk reaches the corner, so there is nothing to ramp
+          from: a lawn, gravel or a shoulder to the street edge, with or without a curb).
           A driveway apron is not a curb ramp.
 cant_tell the corner cannot be judged: hidden by vehicles, vegetation or shadow; out of
           frame; too far or blurred; under construction; or the sector is not a real street

@@ -186,8 +186,8 @@ HTML_TEMPLATE = r"""<!doctype html>
   <kbd>1</kbd>-<kbd>9</kbd> pick the corner the keys act on ·
   <kbd>j</kbd>/<kbd>k</kbd> next / previous corner<br>
   <kbd>p</kbd> present · <kbd>a</kbd> absent · <kbd>t</kbd> can't tell (then the next unrated
-  corner becomes active) · after absent: <kbd>b</kbd> curb, no ramp · <kbd>n</kbd> no curb or
-  sidewalk<br>
+  corner becomes active) · after absent: <kbd>b</kbd> sidewalk and curb, no ramp ·
+  <kbd>n</kbd> no sidewalk at the corner<br>
   <kbd>c</kbd> complete / reopen the unit (shows the city inventory) ·
   <kbd>&#8592;</kbd>/<kbd>&#8594;</kbd> units · <kbd>Enter</kbd> on a crop or a click: enlarge
   (<kbd>&#8592;</kbd>/<kbd>&#8594;</kbd> step, <kbd>Esc</kbd> close) · <kbd>?</kbd> this panel<br><br>
@@ -212,7 +212,7 @@ const STORE = 'cornergallery243:' + CITY + ':' + RATER + ':' + ITEMS_SHA;
 const NSTORE = STORE + ':notes', ISTORE = STORE + ':idx';
 const VERDICTS = ['present', 'absent', 'cant_tell'];
 const VLABEL = {present: 'Present', absent: 'Absent', cant_tell: "Can't tell"};
-const AKIND = {curb_no_ramp: 'curb, no ramp', no_curb: 'no curb or sidewalk'};
+const AKIND = {curb_no_ramp: 'sidewalk and curb, no ramp', no_sidewalk: 'no sidewalk at the corner'};
 const VCOL = {present: '#1a7f37', absent: '#b42318', cant_tell: '#5c6670'};
 const INVTAG = {Available: 'A', NA_noramp: 'N', NA_typed: 'T', RMV: 'R', 'Expired/Removed': 'X', other: '?'};
 const INVTEXT = {Available: 'Available', NA_noramp: 'NA, no RAMPTYPE', NA_typed: 'NA with a RAMPTYPE',
@@ -380,7 +380,7 @@ function renderUnit() {
       '</div>' +
       '<div class="akind" id="ak-' + ci + '" role="radiogroup" aria-label="Kind of absence, corner ' + c.corner + '">Absent because (optional): ' +
       Object.keys(AKIND).map(k => '<label><input type="radio" name="ak-' + ci + '" value="' + k + '"' + (e.absent_kind === k ? ' checked' : '') +
-        (s.complete ? ' disabled' : '') + '> ' + AKIND[k] + ' <kbd>' + (k === 'no_curb' ? 'n' : 'b') + '</kbd></label>').join('') +
+        (s.complete ? ' disabled' : '') + '> ' + AKIND[k] + ' <kbd>' + (k === 'no_sidewalk' ? 'n' : 'b') + '</kbd></label>').join('') +
       '<label><input type="radio" name="ak-' + ci + '" value=""' + (!e.absent_kind ? ' checked' : '') + (s.complete ? ' disabled' : '') + '> not specified</label></div>' +
       (s.complete ? invHtml(u, c) : '') + '</fieldset>';
   }).join('');
@@ -508,7 +508,7 @@ document.addEventListener('keydown', ev => {
     setVerdict(active, {p: 'present', a: 'absent', t: 'cant_tell'}[k]);
     if (k !== 'a' && !S().complete) { active = nextUnrated(); refresh(); scrollActive(); }
   }
-  else if (k === 'b' || k === 'n') { setKind(active, k === 'b' ? 'curb_no_ramp' : 'no_curb'); if (!S().complete) { active = nextUnrated(); refresh(); scrollActive(); } }
+  else if (k === 'b' || k === 'n') { setKind(active, k === 'b' ? 'curb_no_ramp' : 'no_sidewalk'); if (!S().complete) { active = nextUnrated(); refresh(); scrollActive(); } }
   else if (k === 'c') toggleComplete();
   else if (k === '?') toggleHelp();
   else return;

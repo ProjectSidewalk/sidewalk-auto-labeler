@@ -57,7 +57,7 @@ for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
 SCHEMA = 'sidewalk-auto-labeler.corner_gallery/1'
 RUBRIC_VERSION = 1
 VERDICTS = ('present', 'absent', 'cant_tell')
-ABSENT_KINDS = ('curb_no_ramp', 'no_curb')
+ABSENT_KINDS = ('curb_no_ramp', 'no_sidewalk')
 OUTCOMES = ('present', 'absent', 'undetermined')
 FA_CLASSES = ('miss_at_inventory_corner', 'miss_elsewhere', 'artifact_built_after_imagery',
               'artifact_inventory_or_geometry', 'undetermined')
