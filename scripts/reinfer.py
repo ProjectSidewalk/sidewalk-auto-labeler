@@ -50,6 +50,16 @@ ones, and a label that moved one coarse cell is a different pixel on the server 
 the new record would insert its band beside a live label that no longer matches the file.
 A pano that agrees only within a cell is carried over from the old file like any other.
 
+**Why each pano did not reproduce** (#111 item 3), also a diagnostic only:
+summary['mismatch_classes'] gives every carried-over pano one class, first that applies --
+`pano_drift` (a PANO_INVARIANTS field changed), `border_band_only` (the #130 diagnostic below),
+`new_or_lost` (a tier key with no stored detection at any confidence within one coarse cell
+on the other side), `threshold` (every unpaired tier key has a below-tier detection there:
+the confidence crossed the tier, the position did not move), `flip` (a pair moved 7-8
+heatmap cells), `off_grid` (2-6), `jitter` (0-1). summary['key_classes'] pools the unpaired
+tier keys (`threshold_down` / `threshold_up` / `vanished` / `appeared`), and
+`--mismatch-csv PATH` writes one row per pano.
+
 `--write-band-file` then writes the file a band may actually ship from: the NEW record for
 every pano that reproduced, and the OLD record for every pano that did not. The old records
 hold nothing below the tier the server has, so their band is empty and `send_to_ps.py` skips
@@ -125,6 +135,45 @@ def pano_drift(old, new):
             for f in PANO_INVARIANTS if old['pano'].get(f) != new['pano'].get(f)]
 
 
+def coarse_cell_tolerance(width, height):
+    """One coarse heatmap cell plus the rounding pixel, in heatmap cells (#111)."""
+    return geo.HEATMAP_COARSE_CELL_PX + max(geo.HEATMAP_WIDTH / width,
+                                            geo.HEATMAP_HEIGHT / height)
+
+
+def cell_pairs(old_set, new_set, width, height):
+    """Pair two pixel-key multisets one-to-one within +/-1 coarse heatmap cell (#111).
+
+    Greedy on distance (closest pairs first; ties by key), Chebyshev in heatmap cells with
+    x wrapping at the seam, tolerance one coarse cell plus the rounding pixel. Returns
+    (pairs, unpaired_old, unpaired_new): `pairs` a list of (old key, new key,
+    geo.CELL_SHIFT_CLASSES key), the other two lists of the keys left without a partner
+    (with multiplicity). `cell_agreement` is the pooled view of the same pairing.
+
+    Example (a flip, and an old key with nothing near it):
+        >>> from collections import Counter
+        >>> cell_pairs(Counter({(1000, 4000): 1, (9000, 4000): 1}),
+        ...            Counter({(1112, 4000): 1}), 16384, 8192)
+        ([((1000, 4000), (1112, 4000), 'flip')], [(9000, 4000)], [])
+    """
+    tol = coarse_cell_tolerance(width, height)
+    olds = sorted(old_set.elements())
+    news = sorted(new_set.elements())
+    cands = sorted((geo.heatmap_cell_distance(a, b, width, height), i, j)
+                   for i, a in enumerate(olds) for j, b in enumerate(news))
+    used_old, used_new, pairs = set(), set(), []
+    for dist, i, j in cands:
+        if dist > tol:
+            break
+        if i in used_old or j in used_new:
+            continue
+        used_old.add(i)
+        used_new.add(j)
+        pairs.append((olds[i], news[j], geo.cell_shift_class(dist)))
+    return (pairs, [k for i, k in enumerate(olds) if i not in used_old],
+            [k for j, k in enumerate(news) if j not in used_new])
+
+
 def cell_agreement(old_set, new_set, width, height):
     """Pair two pixel-key multisets one-to-one within +/-1 coarse heatmap cell (#111).
 
@@ -138,33 +187,95 @@ def cell_agreement(old_set, new_set, width, height):
         >>> cell_agreement(Counter({(1000, 4000): 1}), Counter({(1112, 4000): 1}), 16384, 8192)
         (Counter({'flip': 1}), 0, 0)
     """
-    tol = geo.HEATMAP_COARSE_CELL_PX + max(geo.HEATMAP_WIDTH / width,
-                                           geo.HEATMAP_HEIGHT / height)
-    olds = sorted(old_set.elements())
-    news = sorted(new_set.elements())
-    cands = sorted((geo.heatmap_cell_distance(a, b, width, height), i, j)
-                   for i, a in enumerate(olds) for j, b in enumerate(news))
-    used_old, used_new, pairs = set(), set(), Counter()
-    for dist, i, j in cands:
-        if dist > tol:
-            break
-        if i in used_old or j in used_new:
-            continue
-        used_old.add(i)
-        used_new.add(j)
-        pairs[geo.cell_shift_class(dist)] += 1
-    return pairs, len(olds) - len(used_old), len(news) - len(used_new)
+    pairs, lone_old, lone_new = cell_pairs(old_set, new_set, width, height)
+    return Counter(cls for _, _, cls in pairs), len(lone_old), len(lone_new)
 
 
-def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None):
+# Why a pano did not reproduce under --verify (#111 item 3): first that applies. A
+# DIAGNOSTIC, like the coarse-cell pairing it builds on; it never moves a pano into or out of
+# carry_over.
+MISMATCH_CLASSES = ('pano_drift', 'border_band_only', 'new_or_lost', 'threshold', 'flip',
+                    'off_grid', 'jitter')
+# Per unpaired tier key: did a stored detection on the other side sit within one coarse cell
+# below the tier (the confidence crossed it), or is there nothing there?
+KEY_CLASSES = ('threshold_down', 'threshold_up', 'vanished', 'appeared')
+MISMATCH_FIELDS = ['pano_id', 'mismatch_class', 'pairs_same_cell', 'pairs_grid_neighbour',
+                   'pairs_off_grid', 'pairs_flip', 'threshold_down', 'threshold_up',
+                   'vanished', 'appeared', 'drift_fields']
+
+
+def _near_any(key, others, width, height):
+    tol = coarse_cell_tolerance(width, height)
+    return any(geo.heatmap_cell_distance(key, o, width, height) <= tol for o in others)
+
+
+def classify_mismatch(old, new, floor, border_only=False):
+    """(pano class, per-pano counts) for a pano that did not reproduce (#111 item 3).
+
+    `old`/`new`: the two records; `floor`: the tier compared at; `border_only`: the #130
+    diagnostic found every differing key in the 10-px border band. Precedence: `pano_drift`
+    (a PANO_INVARIANTS field changed) > `border_band_only` > `new_or_lost` (a tier key with
+    no stored detection at ANY confidence within one coarse cell on the other side) >
+    `threshold` (every unpaired tier key has a below-tier partner there: the confidence
+    crossed the tier) > `flip` (a pair moved 7-8 heatmap cells) > `off_grid` (2-6) >
+    `jitter` (every pair 0-1 cells). The counts are the cell_pairs classes (`pairs_*`) and
+    the four KEY_CLASSES; empty for `pano_drift`, whose keys live in another frame.
+
+    Example (the Richmond case: an old 0.550011 peak re-infers at 0.549993):
+        >>> rec = lambda c: {'pano': {'width': 4096, 'height': 2048},
+        ...                  'detections': [{'x_normalized': 0.5, 'y_normalized': 0.7,
+        ...                                  'confidence': c}]}
+        >>> cls, n = classify_mismatch(rec(0.550011), rec(0.549993), 0.55)
+        >>> cls, n['threshold_down'], n['vanished']
+        ('threshold', 1, 0)
+    """
+    counts = {}
+    if pano_drift(old, new):
+        return 'pano_drift', counts
+    w, h = old['pano']['width'], old['pano']['height']
+    old_t, new_t = pixel_set(old, floor), pixel_set(new, floor)
+    # every stored detection (the storage floor is 0.1) that is NOT at the tier
+    old_sub, new_sub = pixel_set(old, 0.0) - old_t, pixel_set(new, 0.0) - new_t
+    pairs, lone_old, lone_new = cell_pairs(old_t, new_t, w, h)
+    for _, _, cls in pairs:
+        counts[f'pairs_{cls}'] = counts.get(f'pairs_{cls}', 0) + 1
+    for key in KEY_CLASSES:
+        counts[key] = 0
+    for k in lone_old:
+        counts['threshold_down' if _near_any(k, new_sub, w, h) else 'vanished'] += 1
+    for k in lone_new:
+        counts['threshold_up' if _near_any(k, old_sub, w, h) else 'appeared'] += 1
+    # ('beyond' pairs need the tolerance to reach 9 cells, i.e. a pano under 2048 px wide;
+    # such a pair would read as jitter here)
+    shifts = {cls for _, _, cls in pairs}
+    if border_only:
+        cls = 'border_band_only'
+    elif counts['vanished'] or counts['appeared']:
+        cls = 'new_or_lost'
+    elif counts['threshold_down'] or counts['threshold_up']:
+        cls = 'threshold'
+    elif 'flip' in shifts:
+        cls = 'flip'
+    elif 'off_grid' in shifts:
+        cls = 'off_grid'
+    else:
+        cls = 'jitter'
+    return cls, counts
+
+
+def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None, rows=None):
     """Compare the new file to the old one at `floor`.
 
     Returns (summary, mismatches, carry_over) where `carry_over` is the set of pano ids
     that did NOT reproduce - the ids a band file must take from the old file. A pano
     reproduces only on exact pixel keys; summary['coarse_cell'] is the #111 diagnostic over
     the panos whose keys differ (cell_agreement), and never moves a pano into or out of
-    carry_over.
+    carry_over. summary['mismatch_classes'] / ['key_classes'] say WHY each carried-over pano
+    did not reproduce (classify_mismatch; #111 item 3), and when `rows` is a list one
+    MISMATCH_FIELDS dict per carried-over pano is appended to it (--mismatch-csv).
     """
+    miss = Counter()
+    keys = Counter()
     new_by_id = {r['pano']['panorama_id']: r for r in read_records(new_path)}
     summary = {'old_panos': 0, 'new_panos': len(new_by_id), 'missing': 0, 'exact': 0,
                'mismatch': 0, 'pano_drift': 0, 'old_labels': 0}
@@ -200,6 +311,7 @@ def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None):
                     and not on_camera_rig(d['y_normalized']))
             continue
         carry_over.add(pid)
+        border_only = False
         if drift:
             summary['pano_drift'] += 1
             mismatches.append((pid, [f"{f}: {o!r} -> {n!r}" for f, o, n in drift], []))
@@ -216,7 +328,8 @@ def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None):
             n_new = sum(n for k, n in only_new.items() if in_band(k))
             band['keys_old'] += n_old
             band['keys_new'] += n_new
-            band['panos_only_in_band'] += (n_old + n_new) == sum((only_old + only_new).values())
+            border_only = (n_old + n_new) == sum((only_old + only_new).values())
+            band['panos_only_in_band'] += border_only
             if (new['pano']['width'], new['pano']['height']) == (w, h):
                 pairs, lone_old, lone_new = cell_agreement(old_set, new_set, w, h)
                 cells['panos'] += 1
@@ -224,10 +337,31 @@ def verify(old_path, new_path, floor=BENCHMARK_CONFIDENCE, band_floor=None):
                 cells['pairs'].update(pairs)
                 cells['unpaired_old'] += lone_old
                 cells['unpaired_new'] += lone_new
+        # #111 item 3: why this pano did not reproduce (a diagnostic; carry_over is decided)
+        cls, counts = classify_mismatch(old, new, floor, border_only)
+        miss[cls] += 1
+        keys.update({k: counts[k] for k in KEY_CLASSES if k in counts})
+        if rows is not None:
+            rows.append({'pano_id': pid, 'mismatch_class': cls,
+                         **{f: counts.get(f, 0 if counts else '') for f in MISMATCH_FIELDS[2:-1]},
+                         'drift_fields': ';'.join(f for f, _, _ in drift)})
     cells['pairs'] = {k: cells['pairs'][k] for k, _, _ in geo.CELL_SHIFT_CLASSES}
     summary['coarse_cell'] = cells
     summary['border_band'] = band
+    summary['mismatch_classes'] = {k: miss[k] for k in MISMATCH_CLASSES}
+    summary['key_classes'] = {k: keys[k] for k in KEY_CLASSES}
     return summary, mismatches, carry_over
+
+
+def write_mismatch_csv(path, rows):
+    """--mismatch-csv: one MISMATCH_FIELDS row per pano that did not reproduce, by pano id.
+    The pairs_* and key columns are empty for a `pano_drift` pano (not paired)."""
+    import csv
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        w = csv.DictWriter(f, fieldnames=MISMATCH_FIELDS, lineterminator='\n')
+        w.writeheader()
+        for r in sorted(rows, key=lambda r: str(r['pano_id'])):
+            w.writerow(r)
 
 
 def server_tier(record, default=BENCHMARK_CONFIDENCE):
@@ -541,8 +675,14 @@ def main_cli(argv=None):
                          'results.jsonl) through the GSV path into --out, which is required. '
                          'Issue #56: the provenance gate\'s zoom-3 control arm '
                          '(provenance_gate.py --draw-control writes the file)')
+    ap.add_argument('--mismatch-csv', type=Path, default=None, metavar='PATH',
+                    help='with --verify: write one row per pano that did not reproduce, with '
+                         'why (#111 item 3: threshold / flip / off_grid / jitter / '
+                         'new_or_lost / border_band_only / pano_drift); a diagnostic')
     args = ap.parse_args(argv)
 
+    if args.mismatch_csv is not None and not args.verify:
+        ap.error('--mismatch-csv requires --verify')
     if args.batch_size < 1:
         ap.error('--batch-size must be >= 1')
     if args.ids is not None:
@@ -590,8 +730,11 @@ def main_cli(argv=None):
             if not args.allow_mixed_border:
                 raise SystemExit(f"{what}. --allow-mixed-border compares them as a diagnostic.")
             print(f"WARNING (--allow-mixed-border): {what}.")
+        mismatch_rows = []
         summary, mismatches, carry_over = verify(old_path, out_path, floor=tier,
-                                                 band_floor=args.band_floor)
+                                                 band_floor=args.band_floor, rows=mismatch_rows)
+        if args.mismatch_csv is not None:
+            write_mismatch_csv(args.mismatch_csv, mismatch_rows)
         summary['tier'] = tier
         print(json.dumps(summary, indent=2))
         for pid, only_old, only_new in mismatches[:10]:
@@ -602,6 +745,12 @@ def main_cli(argv=None):
                   f"pano(s) whose keys differ, {cc['panos_agree_within_cell']} agree within +/-1 "
                   f"coarse cell; {cc['pairs']['flip']} key(s) moved 7-8 heatmap cells (an "
                   f"adjacent-coarse-cell flip), {cc['pairs']['grid_neighbour']} moved 1 cell.")
+        if carry_over:
+            mc, kc = summary['mismatch_classes'], summary['key_classes']
+            print("why not reproduced (#111 item 3; a diagnostic): " +
+                  ", ".join(f"{mc[k]} {k}" for k in MISMATCH_CLASSES) + " pano(s)")
+            print("  unpaired tier keys: " + ", ".join(f"{kc[k]} {k}" for k in KEY_CLASSES) +
+                  (f" (per pano: {args.mismatch_csv})" if args.mismatch_csv is not None else ""))
         bb = summary['border_band']
         if bb['keys_old'] or bb['keys_new']:
             print(f"border-band diagnostic (#130; exact pixels still decide): {bb['keys_old']} "

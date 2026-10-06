@@ -329,3 +329,103 @@ def test_cli_rule_flag_reproduces_the_96_rule(tmp_path, capsys):
     assert pg.main(base + ["--rule", "pixel-96", "--exploratory", "a check"]) == 1
     report = (tmp_path / "g" / "report.md").read_text(encoding="utf-8")
     assert "amended after the PR #96 review" in report and "**Exploratory:** a check" in report
+
+
+# --- why each unmatched label did not reproduce (#111 item 3) --------------------------------
+
+_MISS_PANOS = [                                    # label at (1000, 4000) on each; 16 px/cell
+    ("A", [_det(1000, 4000, 0.40)]),               # below tier, on the spot
+    ("B", [_det(1112, 4000, 0.9)]),                # tier, 7 cells: the flip
+    ("C", [_det(1016, 4000, 0.9)]),                # tier, 1 cell
+    ("D", [_det(1112, 4000, 0.4)]),                # below tier AND 7 cells
+    ("E", [_det(1064, 4000, 0.4)]),                # below tier, 4 cells
+    ("F", [_det(1000 + 9 * 16 + 8, 4000, 0.9)]),   # 9.5 cells: outside every tolerance
+    ("G", []),                                     # nothing stored
+    ("H", [_det(1000, 4000, 0.9)], (W // 2, H)),   # run and label disagree on the size
+    ("I", [_det(1048, 4000, 0.9)]),                # tier, 3 cells: off the grid
+    ("J", [_det(1004, 4000, 0.9)]),                # tier, same cell, 4 px
+]
+
+
+def _miss_join(tmp_path, tolerance):
+    run_dir = _run(tmp_path, _MISS_PANOS)
+    labels, _, _ = pg.load_ai_labels(_labels(tmp_path, [(p[0], 1000, 4000, AI)
+                                                        for p in _MISS_PANOS]))
+    res = pg.join(labels, pg.load_run(run_dir / "results.jsonl"), tolerance=tolerance)
+    return res, {r["pano_id"]: r["miss_class"] for r in res["unmatched"]}
+
+
+def test_unmatched_labels_are_classified_by_why(tmp_path):
+    res, why = _miss_join(tmp_path, pg.coarse_tolerance)
+    assert why == {"A": "below_tier_in_tolerance", "D": "below_tier_in_tolerance",
+                   "E": "below_tier_in_tolerance", "F": "beyond", "G": "no_detection",
+                   "H": "dims_differ"}
+    # under coarse-cell nothing within 8 cells can sit outside the tolerance
+    assert not any(k.startswith(("tier_", "below_tier_s", "below_tier_f"))
+                   for k, n in res["miss_classes"].items() if n)
+    assert sum(res["miss_classes"].values()) == len(res["unmatched"])
+
+    res, why = _miss_join(tmp_path / "s", pg.store_tolerance)       # pixel-96 Arm S
+    assert why == {"A": "below_tier_in_tolerance", "B": "tier_flip", "D": "below_tier_flip",
+                   "E": "below_tier_shift", "F": "beyond", "G": "no_detection",
+                   "H": "dims_differ", "I": "tier_off_grid"}
+
+    res, why = _miss_join(tmp_path / "z", pg.exact_tolerance)       # pixel-96 Arm Z
+    assert why["C"] == "tier_grid_neighbour" and why["J"] == "tier_same_cell"
+    assert why["B"] == "tier_flip" and why["A"] == "below_tier_in_tolerance"
+    rows = {r["pano_id"]: r for r in res["unmatched"]}
+    assert (rows["B"]["nearest_tier_cells"], rows["B"]["nearest_tier_class"]) == (7.0, "flip")
+    assert (rows["E"]["nearest_cells"], rows["E"]["nearest_class"]) == (4.0, "off_grid")
+    assert rows["E"]["nearest_tier_cells"] is None and rows["G"]["nearest_cells"] is None
+    assert res["miss_classes"]["tier_flip"] == 1 and set(res["miss_classes"]) <= set(pg.MISS_CLASSES)
+
+
+def test_unmatched_csv_keeps_the_original_columns_first_and_unchanged(tmp_path):
+    assert pg.UNMATCHED_FIELDS[:13] == [
+        "label_uid", "label_id", "pano_id", "pano_x", "pano_y", "run_width", "run_height",
+        "label_width", "label_height", "reason", "nearest_px", "nearest_confidence",
+        "nearest_at_tier_px"]
+    assert pg.UNMATCHED_FIELDS[13:] == ["nearest_cells", "nearest_class", "nearest_tier_cells",
+                                        "nearest_tier_class", "miss_class"]
+    res, _ = _miss_join(tmp_path, pg.store_tolerance)
+    path = tmp_path / "u.csv"
+    pg.write_unmatched(path, "city", res["unmatched"])
+    lines = path.read_text(encoding="utf-8").splitlines()
+    # the 13 old columns, written exactly as the pre-#111-item-3 writer wrote them
+    old = tmp_path / "old.csv"
+    with open(old, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=pg.UNMATCHED_FIELDS[:13], lineterminator="\n",
+                           extrasaction="ignore")
+        w.writeheader()
+        for r in sorted(res["unmatched"], key=lambda r: r["label_id"]):
+            w.writerow({"label_uid": f"city:{r['label_id']}", **r})
+    assert [",".join(l.split(",")[:13]) for l in lines] == \
+        old.read_text(encoding="utf-8").splitlines()
+    row_b = next(r for r in csv.DictReader(lines) if r["pano_id"] == "B")
+    assert (row_b["reason"], row_b["miss_class"]) == ("no detection within tolerance", "tier_flip")
+
+
+def test_report_adds_only_new_lines(tmp_path, capsys):
+    run_dir = _run(tmp_path, _MISS_PANOS)
+    labels_path = _labels(tmp_path, [(p[0], 1000, 4000, AI) for p in _MISS_PANOS])
+    out = tmp_path / "g"
+    assert pg.main(["city", "--run-dir", str(run_dir), "--labels", str(labels_path),
+                    "--out", str(out), "--rule", "pixel-96"]) == 1
+    report = (out / "report.md").read_text(encoding="utf-8").splitlines()
+    # pre-existing lines, frozen verbatim, in their old order
+    frozen = ["| Arm S share | 0.2000 | >= 0.98 | fail |",
+              "### Matched labels: where the detection sits (heatmap cells, Chebyshev; #111)",
+              "### Unmatched labels: nearest stored detection (any confidence)",
+              "| distance | labels |",
+              "A heatmap cell is W/1024 px (16 px on a 16384-wide pano).",
+              "## Detections >= 0.55 that no label claims (under Arm S)"]
+    at = [report.index(l) for l in frozen]
+    assert at == sorted(at)
+    new = report.index("### Unmatched labels: why not reproduced (#111 item 3)")
+    assert at[4] < new < at[5]
+    assert "| `tier_flip` | 1 | 0.1250 |" in report
+    # between the old cell line and the old next section only the new block was inserted
+    assert report[at[4] + 1] == "" and report[at[4] + 2] == report[new]
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[1] == "  Arm S: 0 of 2 matches are adjacent-coarse-cell flips"
+    assert lines[2] == "  misses: 1 below tier in tolerance, 1 tier flips, 1 beyond (Arm S)"

@@ -166,6 +166,48 @@ new keys are paired one-to-one within +/-1 coarse cell and counted by class, fli
 It explains a mismatch and never moves a pano out of `carry_over` (pinned in
 `tests/test_reinfer.py`).
 
+**Why each miss did not reproduce (#111 item 3, 2026-10-05; diagnostics only).** Both checks
+now give every miss a class; no rule, verdict or existing report line moved. In the gate, each
+unmatched label gets a `miss_class`, first that applies: `dims_differ`, `no_detection`,
+`below_tier_in_tolerance` (a detection below 0.55 inside the tolerance: the position
+reproduced, the confidence did not), `tier_same_cell` / `tier_grid_neighbour` /
+`tier_off_grid` / `tier_flip` (a detection at the tier within 8 heatmap cells but outside the
+tolerance), `below_tier_shift` / `below_tier_flip` (the nearest detection within 8 cells is
+below the tier and also moved), and `beyond` (nothing at any confidence within 8 cells).
+Under the coarse-cell rule everything within 8 cells is inside the tolerance, so only
+`dims_differ`, `no_detection`, `below_tier_in_tolerance` and `beyond` can occur; the tier and
+shift classes are what `pixel-96` exposes. On Vancouver's Arm S:
+
+| miss class | `pixel-96` | coarse-cell |
+|---|---:|---:|
+| `below_tier_in_tolerance` | 3,502 | 4,268 |
+| `tier_flip` (7-8 cells; 6,606 at exactly 7) | 6,706 | 0 |
+| `below_tier_flip` (733 at exactly 7) | 766 | 0 |
+| `tier_off_grid` | 4 | 0 |
+| `beyond` (> 8 cells) | 207 | 207 |
+| `no_detection` | 2 | 2 |
+| unmatched | 11,187 | 4,477 |
+
+The two columns account for each other. The 6,706 tier flips are exactly the 6,706 matches the
+coarse-cell rule classes as flips, and the 766 below-tier flips join the 3,502 to make its
+4,268. PR #108's "7,339 of 7,679 far misses at exactly 7 cells" is 6,606 + 733 out of
+6,706 + 766 + 207. Under the coarse-cell rule, then, 95% of the store run's misses are a
+confidence that crossed 0.55 at the right spot, and 207 (4.6%) have nothing within 8 cells.
+`unmatched.csv` gains `nearest_cells`, `nearest_class`, `nearest_tier_cells`,
+`nearest_tier_class` and `miss_class` after its original 13 columns, which are unchanged. Arm Z
+gets the same table in the report (`pixel-96`: 4 grid-neighbour, 3 flip, 2 below-tier shift,
+1 below tier in tolerance, 1 beyond, of 11).
+
+`reinfer.py --verify` classes each carried-over pano, first that applies: `pano_drift`,
+`border_band_only` (the #130 diagnostic), `new_or_lost` (a tier key with nothing stored
+within one coarse cell on the other side), `threshold` (each unpaired tier key has a
+below-tier detection within a coarse cell on the other side), `flip`, `off_grid`, `jitter`.
+The classes go in `summary['mismatch_classes']`, with `summary['key_classes']` pooling the
+unpaired keys (`threshold_down` / `threshold_up` / `vanished` / `appeared`), and
+`--mismatch-csv PATH` writes one row per pano. Richmond's re-inference (`results.f01.jsonl`
+against the live 0.55 campaign) carries over 2 of 9,091 panos: one `threshold` (the 0.550011
+-> 0.549993 peak, a `threshold_down`) and one `flip`. Neither is `new_or_lost`.
+
 ## 4. The sub-cell decode (decode half, 2026-10-02)
 
 RampNet#221 landed a sub-cell decode (`rampnet/subcell.py`, RampNet PRs 226 / 229 / 233). This
@@ -573,6 +615,9 @@ steps: a few minutes on the desktop. Total about 4.0 GPU-hours (upper bound; GPU
 | world, frozen association and paired recall | `data/decode_world_pair_<city>.csv` | `d_loo_*`, `d_chi2_dof_*`, `responding_ramps`, `gained_gaussian`, `lost_gaussian`, `sign_test_p`, `rekey_*`, input sha256 | `world` |
 | reproduction under perturbation | `data/decode_stability.csv`, `decode_stability_hist.csv` | shift columns | `stability` |
 | inputs | `data/decode_inputs.csv` | sha256 of each `detect` output read | `residual` |
+| Vancouver miss classes, `pixel-96` (§3) | `runs/vancouver/provenance_gate/report.md`, `unmatched.csv` | "why not reproduced" tables; `miss_class`, `nearest_cells`, `nearest_tier_cells` | `provenance_gate.py vancouver --control runs/vancouver/control_zoom3.jsonl --rule pixel-96` |
+| Vancouver miss classes, coarse-cell (§3) | not committed (the default-rule report, re-run) | same | the same command without `--rule` |
+| Richmond `--verify` classes (§3) | not committed (stdout) | `mismatch_classes`, `key_classes`; `--mismatch-csv` rows | `reinfer.py runs/richmond --verify --band-floor 0.30` |
 
 ### 4.9 What was not done
 

@@ -426,3 +426,101 @@ def test_cell_agreement_pairs_one_to_one_and_leaves_the_rest_unpaired():
     new = Counter({(1016, 4000): 1, (9000, 4000): 1})         # one neighbour, one far
     pairs, lone_old, lone_new = reinfer.cell_agreement(old, new, 16384, 8192)
     assert pairs == {"grid_neighbour": 1} and (lone_old, lone_new) == (1, 1)
+
+
+# --- why a pano did not reproduce (#111 item 3) ----------------------------------------------
+
+def test_cell_pairs_reports_which_keys_paired_and_cell_agreement_is_unchanged():
+    from collections import Counter
+    old = Counter({(1000, 4000): 1, (5000, 4000): 1, (7000, 4000): 1})
+    new = Counter({(1016, 4000): 1, (9000, 4000): 1, (7112, 4000): 1})
+    pairs, lone_old, lone_new = reinfer.cell_pairs(old, new, 16384, 8192)
+    assert pairs == [((1000, 4000), (1016, 4000), "grid_neighbour"),
+                     ((7000, 4000), (7112, 4000), "flip")]
+    assert (lone_old, lone_new) == ([(5000, 4000)], [(9000, 4000)])
+    assert reinfer.cell_agreement(old, new, 16384, 8192) == (
+        Counter({"grid_neighbour": 1, "flip": 1}), 1, 1)
+
+
+def _px(px):
+    return px / 16384
+
+
+def test_mismatch_classes_threshold_flip_jitter_and_appeared(tmp_path):
+    x0 = _px(1000)
+    old_recs = [_record([_det(0.550011, x=x0)], "T"),                 # slips under the tier
+                _record([_det(0.9, x=x0)], "F"),                      # moves 7 cells
+                _record([_det(0.9, x=x0)], "J"),                      # moves 1 cell
+                _record([_det(0.9, x=x0)], "N"),                      # gains a far peak
+                _record([_det(0.9, x=x0)], "D"),                      # the pano moved
+                _record([_det(0.9, x=x0)], "X")]                      # reproduces
+    new_recs = [_record([_det(0.549993, x=x0)], "T"),
+                _record([_det(0.9, x=_px(1112))], "F"),
+                _record([_det(0.9, x=_px(1016))], "J"),
+                _record([_det(0.9, x=x0), _det(0.8, x=_px(9000))], "N"),
+                _record([_det(0.9, x=x0)], "D", lat=37.6),
+                _record([_det(0.9, x=x0)], "X")]
+    old, new = _old_and_new(tmp_path, old_recs, new_recs)
+    rows = []
+    summary, mismatches, carry = reinfer.verify(old, new, floor=0.55, rows=rows)
+    assert summary["mismatch_classes"] == {"pano_drift": 1, "border_band_only": 0,
+                                           "new_or_lost": 1, "threshold": 1, "flip": 1,
+                                           "off_grid": 0, "jitter": 1}
+    assert summary["key_classes"] == {"threshold_down": 1, "threshold_up": 0, "vanished": 0,
+                                      "appeared": 1}
+    # nothing the decision reads moved: the same verify without rows gives the same answer
+    base, base_mm, base_carry = reinfer.verify(old, new, floor=0.55)
+    assert carry == base_carry == {"T", "F", "J", "N", "D"}
+    assert mismatches == base_mm and base == summary
+    assert (summary["exact"], summary["mismatch"], summary["pano_drift"]) == (1, 4, 1)
+    assert summary["coarse_cell"]["pairs"]["flip"] == 1
+    assert list(summary)[:8] == ["old_panos", "new_panos", "missing", "exact", "mismatch",
+                                 "pano_drift", "old_labels", "coarse_cell"]
+    by_id = {r["pano_id"]: r for r in rows}
+    assert by_id["D"]["drift_fields"] == "lat" and by_id["D"]["pairs_flip"] == ""
+    assert (by_id["F"]["pairs_flip"], by_id["T"]["threshold_down"]) == (1, 1)
+
+
+def test_threshold_up_and_vanished_are_told_apart():
+    rec = lambda dets: _record(dets)  # noqa: E731
+    x0 = _px(1000)
+    # a below-tier old peak that rises over the tier: threshold, not new
+    cls, n = reinfer.classify_mismatch(rec([_det(0.5, x=x0)]), rec([_det(0.6, x=_px(1016))]), 0.55)
+    assert (cls, n["threshold_up"], n["appeared"]) == ("threshold", 1, 0)
+    # a tier peak with nothing at all on the other side: lost
+    cls, n = reinfer.classify_mismatch(rec([_det(0.9, x=x0)]), rec([_det(0.4, x=_px(5000))]), 0.55)
+    assert (cls, n["vanished"], n["threshold_down"]) == ("new_or_lost", 1, 0)
+    # a 3-cell move above the tier
+    cls, _ = reinfer.classify_mismatch(rec([_det(0.9, x=x0)]), rec([_det(0.9, x=_px(1048))]), 0.55)
+    assert cls == "off_grid"
+    # the border rule wins over everything but drift
+    cls, _ = reinfer.classify_mismatch(rec([_det(0.9, x=x0)]), rec([]), 0.55, border_only=True)
+    assert cls == "border_band_only"
+
+
+def test_mismatch_csv_is_written_with_verify(tmp_path, capsys):
+    run = tmp_path / "run"
+    run.mkdir()
+    x0 = _px(1000)
+    old, new = _old_and_new(run, [_record([_det(0.9, x=x0)], "F"), _record([_det(0.9)], "X")],
+                            [_record([_det(0.9, x=_px(1112))], "F"), _record([_det(0.9)], "X")])
+    out = tmp_path / "m.csv"
+    with pytest.raises(SystemExit):
+        reinfer.main_cli([str(run), "--verify", "--mismatch-csv", str(out)])
+    assert out.read_text(encoding="utf-8").splitlines() == [
+        ",".join(reinfer.MISMATCH_FIELDS), "F,flip,0,0,0,1,0,0,0,0,"]
+    printed = capsys.readouterr().out
+    assert "0 pano_drift, 0 border_band_only, 0 new_or_lost, 0 threshold, 1 flip" in printed
+    assert printed.index("coarse-cell diagnostic") < printed.index("why not reproduced")
+    with pytest.raises(SystemExit):
+        reinfer.main_cli([str(run), "--mismatch-csv", str(out)])     # needs --verify
+
+
+def test_a_pano_differing_only_in_the_border_band_is_classed_so(tmp_path):
+    """#130 x #111 item 3: a seam-band peak that appears is the border rule, not new."""
+    old, new = _old_and_new(tmp_path, [_record([_det(0.9)], "B")],
+                            [_record([_det(0.9), _det(0.9, x=2 / 1024)], "B")])
+    summary, _, carry = reinfer.verify(old, new, floor=0.55)
+    assert carry == {"B"} and summary["border_band"]["panos_only_in_band"] == 1
+    assert summary["mismatch_classes"]["border_band_only"] == 1
+    assert summary["mismatch_classes"]["new_or_lost"] == 0

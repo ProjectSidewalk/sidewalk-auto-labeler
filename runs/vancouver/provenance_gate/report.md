@@ -27,7 +27,7 @@
 - Run: `runs/vancouver/results.jsonl`, 28,830 panos, sha256 `7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28`
 - Control: `runs/vancouver/control_zoom3.jsonl`, sha256 `748734afa2a2057e3eeb678f973e3787981addd13d7b7a3b22ccdac63caba2f7`
 - Control panos: 141 of the 200 drawn panos are in the control file; 59 absent (reinfer.py wrote no record, e.g. no longer served by id)
-- Generated 2026-10-04T18:10:59+00:00
+- Generated 2026-10-06T04:55:34+00:00
 
 ## Coverage
 
@@ -79,6 +79,23 @@ A flip (7-8 cells) is the same ramp decoded at the neighbouring coarse cell of a
 
 A heatmap cell is W/1024 px (16 px on a 16384-wide pano).
 
+### Unmatched labels: why not reproduced (#111 item 3)
+
+| miss class | labels | share of unmatched |
+|---|---:|---:|
+| `dims_differ` | 0 | 0.0000 |
+| `no_detection` | 2 | 0.0002 |
+| `below_tier_in_tolerance` | 3,502 | 0.3130 |
+| `tier_same_cell` | 0 | 0.0000 |
+| `tier_grid_neighbour` | 0 | 0.0000 |
+| `tier_off_grid` | 4 | 0.0004 |
+| `tier_flip` | 6,706 | 0.5994 |
+| `below_tier_shift` | 0 | 0.0000 |
+| `below_tier_flip` | 766 | 0.0685 |
+| `beyond` | 207 | 0.0185 |
+
+Definitions, first that applies: `dims_differ` = label and run disagree on the pano size; `no_detection` = no stored detection on the pano; `below_tier_in_tolerance` = a stored detection < 0.55 inside the tolerance: position reproduced, confidence crossed the tier; `tier_same_cell` = a >= 0.55 detection in the same heatmap cell but outside the tolerance (pixel-96 Arm Z only: more than 1 px off); `tier_grid_neighbour` = a >= 0.55 detection 1 cell away, outside the tolerance (pixel-96 only); `tier_off_grid` = a >= 0.55 detection 2-6 cells away, outside the tolerance (pixel-96 only); `tier_flip` = a >= 0.55 detection 7-8 cells away: the adjacent-coarse-cell flip (pixel-96 only); `below_tier_shift` = nearest detection within 8 cells is < 0.55 and 0-6 cells away, outside the tolerance; `below_tier_flip` = nearest detection within 8 cells is < 0.55 and 7-8 cells away: flipped AND below the tier; `beyond` = nothing at any confidence within 8 heatmap cells: genuinely missing at this spot. Cells are Chebyshev heatmap cells, unrounded for "within 8", rounded for the class. Under the coarse-cell rule every detection within 8 cells is inside the tolerance, so only `dims_differ`, `no_detection`, `below_tier_in_tolerance` and `beyond` can occur; the `tier_*` and `below_tier_shift`/`below_tier_flip` classes are what pixel-96 exposes. A diagnostic: it never gates. Per label: the `miss_class` column of unmatched.csv.
+
 ## Detections >= 0.55 that no label claims (under Arm S)
 
 - on panos carrying AI labels (gated by P): 8,424
@@ -97,6 +114,21 @@ A heatmap cell is W/1024 px (16 px on a 16384-wide pano).
 | off-grid shift (2-6) | 0 | 0.0000 |
 | adjacent-coarse-cell flip (7-8) | 0 | 0.0000 |
 | further (> 8) | 0 | 0.0000 |
+
+### Arm Z unmatched labels: why not reproduced (#111 item 3)
+
+| miss class | labels | share of unmatched |
+|---|---:|---:|
+| `dims_differ` | 0 | 0.0000 |
+| `no_detection` | 0 | 0.0000 |
+| `below_tier_in_tolerance` | 1 | 0.0909 |
+| `tier_same_cell` | 0 | 0.0000 |
+| `tier_grid_neighbour` | 4 | 0.3636 |
+| `tier_off_grid` | 0 | 0.0000 |
+| `tier_flip` | 3 | 0.2727 |
+| `below_tier_shift` | 2 | 0.1818 |
+| `below_tier_flip` | 0 | 0.0000 |
+| `beyond` | 1 | 0.0909 |
 
 | on the control's panos | labels |
 |---|---:|
