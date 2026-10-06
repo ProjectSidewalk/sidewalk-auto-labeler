@@ -2,8 +2,8 @@
  "schema": "sidewalk-auto-labeler.corner_gallery.snapshot/1",
  "city": "vancouver",
  "issue": "RampNet#243",
- "built_at": "2026-10-06T04:42:50+00:00",
- "tool_git_sha": "c0b53ab611fa1c6e7de80f35fe039bf928b808a9",
+ "built_at": "2026-10-06T15:53:05+00:00",
+ "tool_git_sha": "c90e9db7239f9cf28637cf2129faf020232cf1c4",
  "seed": 243,
  "n_na": 40,
  "n_clean": 20,
@@ -213,7 +213,7 @@
   "vancouver:res:n3642857970",
   "vancouver:res:n47300698"
  ],
- "items_sha256": "8e5f881bc5b6c9904ef9232ed080be9dcd423113200892bebd1c44798a7bdc1d",
+ "items_sha256": "bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459",
  "inputs": {
   "build_json": {
    "path": "D:\\Git\\labeler-wt\\gallery243\\runs\\vancouver\\corner_inventory_posdetect241\\build.json",
@@ -252,6 +252,7 @@
   "per_corner": 3,
   "min_m": 3.0,
   "max_m": 40.0,
+  "rule": "one slot for the newest capture date among the candidates within max_m (nearest such pano), the rest nearest first among those >= min_m, nearer ones only to top up (choose_views; RampNet#243 B1)",
   "camera_height_m": 2.5,
   "crop_fov_deg": 60,
   "crop_px": 448,
@@ -265,5 +266,5 @@
  "rubric_version": 1,
  "rubric": "Rubric v1 (RampNet#243). Rate every corner of the unit from the crops and the aerial.\n\nThe unit is an OSM intersection. Its legs (white lines on the aerial) split it into corners,\nnumbered clockwise from north. A corner is the sector between two adjacent legs; its marker\non the aerial and the orange ring in each crop is the corner point, 12 m from the centre\nalong the sector's bisector. A ramp can sit several metres from that point; judge the whole\ncorner of the sector (the curb return and the crossings that land on it), not the point.\n\npresent   at least one curb ramp serving pedestrians at this corner is visible: a cut in the\n          curb with a sloped walking surface down to street level, of any type (perpendicular,\n          parallel, diagonal at the apex, blended / depressed corner). A diagonal ramp counts\n          for the corner whose sector holds it.\nabsent    the corner is visible well enough to judge and has no curb ramp. Say which, when\n          you can: `curb_no_ramp` (a sidewalk reaches the corner and the curb there has no\n          cut), or `no_sidewalk` (no sidewalk reaches the corner, so there is nothing to ramp\n          from: a lawn, gravel or a shoulder to the street edge, with or without a curb).\n          A driveway apron is not a curb ramp.\ncant_tell the corner cannot be judged: hidden by vehicles, vegetation or shadow; out of\n          frame; too far or blurred; under construction; or the sector is not a real street\n          corner (an OSM artifact, a parking lot). Say why in the unit note.\n\nUse the newest crop that shows the corner clearly. If crops of different years disagree\n(a ramp appears in a later year), rate what the newest clear crop shows and say so in the\nnote. The city inventory is shown only after the unit is completed; the verdicts given\nbefore that are kept as `blind` and are what is scored. Changing a verdict after the\nreveal is allowed, is recorded (`edited_after_inventory`), and is never scored as blind.\n",
  "crops_missing": [],
- "seconds": 6.8
+ "seconds": 2.8
 }

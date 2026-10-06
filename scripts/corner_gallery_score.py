@@ -23,8 +23,12 @@ Reported per rater:
                    miss_elsewhere             no such corner present, another corner present
                    artifact_built_after_imagery  no corner present; every inventory corner
                                               absent; every `Available` point there has an
-                                              INSTDATE (month) later than the newest crop of
-                                              its corner
+                                              INSTDATE (month) later than the newest crop
+                                              SHOWN at its corner (the imagery the rater
+                                              judged; since review B1 the build always shows
+                                              the newest capture in the candidate pool, and
+                                              each corner's `newest_available` is reported
+                                              beside it in `dating`)
                    artifact_inventory_or_geometry  no corner present; every inventory corner
                                               absent; otherwise
                    undetermined               no corner present; an inventory corner can't tell
@@ -222,6 +226,22 @@ def classify_false_absence(item, verdicts):
     return 'artifact_built_after_imagery' if late else 'artifact_inventory_or_geometry'
 
 
+def fa_dating(item):
+    """{corner key: {newest_shown, newest_available, instdates}} at the corners holding an
+    `Available` point: the imagery the rater judged vs the newest the build had."""
+    out = {}
+    for c in item['corners']:
+        if not c['inv_counts'].get('Available', 0):
+            continue
+        out[str(c['corner'])] = {
+            'newest_shown': max((v.get('capture_date') or '' for v in c['views']), default='')
+            or None,
+            'newest_available': c.get('newest_available'),
+            'instdates': sorted((p.get('instdate') or '')[:7] for p in c['inventory']
+                                if p['class'] == 'Available')}
+    return out
+
+
 def score_rater(items, verdicts, snapshot, which='blind'):
     """The per-rater report (dict) on complete units, from the blind (default) or final
     verdicts."""
@@ -261,14 +281,19 @@ def score_rater(items, verdicts, snapshot, which='blind'):
              'absent_kinds': kinds}
         if part == 'false_absence':
             cls = {c: 0 for c in FA_CLASSES}
-            per = {}
+            per, dating = {}, {}
             for i in dn:
                 c = classify_false_absence(i, verdict_map(done[i['unit']], which))
                 cls[c] += 1
                 per[i['unit']] = c
+                dating[i['unit']] = fa_dating(i)
             miss = cls['miss_at_inventory_corner'] + cls['miss_elsewhere']
             art = cls['artifact_built_after_imagery'] + cls['artifact_inventory_or_geometry']
-            p.update({'classes': cls, 'per_unit': per, 'real_misses': miss, 'artifacts': art,
+            stale = sorted(u for u, d in dating.items() for e in d.values()
+                           if (e['newest_available'] or '') > (e['newest_shown'] or ''))
+            p.update({'classes': cls, 'per_unit': per, 'dating': dating,
+                      'shown_older_than_available': stale,
+                      'real_misses': miss, 'artifacts': art,
                       'real_miss_share': share(miss, miss + art)})
         out['parts'][part] = p
     out['rows'] = rows
@@ -370,7 +395,11 @@ def render_report(snapshot, items, results, problems, agree=None):
                   f"- Classes: {fa.get('classes')}.",
                   f"- Real misses {fa.get('real_misses')}, artifacts {fa.get('artifacts')}; "
                   f"real-miss share of decided: **{fmt(fa['real_miss_share'])}** (blind); final "
-                  f"{fmt(f['parts']['false_absence']['real_miss_share'])}.", '',
+                  f"{fmt(f['parts']['false_absence']['real_miss_share'])}.",
+                  f"- Units where an inventory corner's newest crop shown is older than the "
+                  f"newest pano available to the build: "
+                  f"{len(fa.get('shown_older_than_available') or [])} (expected 0; per-corner "
+                  f"dates are under `dating` in score.json).", '',
                   '### Control: clean absences', '',
                   f"- Rated absent at every corner, of decided: **{fmt(cl['unit_absent_share'])}**"
                   f"; outcomes {cl['outcomes']}; corner level {fmt(cl['corner_absent_share'])}.",

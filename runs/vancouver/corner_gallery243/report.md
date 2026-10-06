@@ -1,6 +1,6 @@
 # Corner present/absent gallery (RampNet#243): bundle report
 
-Built 2026-10-06T04:42:50+00:00 by `scripts/corner_gallery.py` at `c0b53ab611fa1c6e7de80f35fe039bf928b808a9`. Seed **243**. Items sha256 `8e5f881bc5b6c9904ef9232ed080be9dcd423113200892bebd1c44798a7bdc1d`.
+Built 2026-10-06T15:53:05+00:00 by `scripts/corner_gallery.py` at `c90e9db7239f9cf28637cf2129faf020232cf1c4`. Seed **243**. Items sha256 `bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459`.
 
 | part | population | drawn | corners | views |
 |---|---:|---:|---:|---:|
@@ -16,7 +16,7 @@ Crops that could not be cut: 0.
 - Populations (fusion arm, primary observability, intersections): `false_absence` = absent, >= 1 `Available` point, a #241 target unit; `na_noramp` = absent, every inventory point `NA` with no `RAMPTYPE`; `clean` = absent, no inventory point. Sizes match amendment A8 (35 / 944 / 333).
 - Draw: every false absence; then one `random.Random(243)`, `rng.sample` of 40 from the sorted `na_noramp` keys, then 20 from the sorted `clean` keys.
 - Review order: sha1 of the unit key, so a unit's slot says nothing about its part. The part is not shown to the rater.
-- Views: up to 3 panos per corner, nearest first among those >= 3 m from the corner point (nearer ones only to top up), from the panos within 25 m of the unit centre or the corner point. Crops are 60 deg / 448 px squares of the equirect pano centred on the corner point, projected with a level camera at 2.5 m.
+- Views: up to 3 panos per corner from the candidates within 40 m of the corner point (taken from the panos within 25 m of the unit centre or the corner point). One slot always goes to the newest capture date among the candidates; the rest are nearest first among those >= 3 m away (nearer ones only to top up). Crops are 60 deg / 448 px squares of the equirect pano centred on the corner point, projected with a level camera at 2.5 m.
 
 ## Inputs
 

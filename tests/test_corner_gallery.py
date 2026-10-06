@@ -80,6 +80,30 @@ def test_choose_views_prefers_min_distance():
     assert [v['pano_id'] for v in cg.choose_views(c, k=5)] == ['b', 'c', 'a']   # 50 m dropped
 
 
+def test_choose_views_always_includes_the_newest_capture():
+    """B1 of the review: three near 2014 panos must not hide a farther 2021 one."""
+    c = [{'pano_id': 'a', 'dist_m': 5.0, 'capture_date': '2014-08'},
+         {'pano_id': 'b', 'dist_m': 6.0, 'capture_date': '2014-08'},
+         {'pano_id': 'c', 'dist_m': 7.0, 'capture_date': '2014-08'},
+         {'pano_id': 'd', 'dist_m': 30.0, 'capture_date': '2021-12'},
+         {'pano_id': 'e', 'dist_m': 25.0, 'capture_date': '2021-12'},
+         {'pano_id': 'z', 'dist_m': 45.0, 'capture_date': '2025-01'}]     # outside 40 m
+    got = cg.choose_views(c)
+    assert [v['pano_id'] for v in got] == ['a', 'b', 'e']    # nearest of the newest date
+    assert cg.newest_date(got) == '2021-12'
+    # the newest pano is too near (< 3 m): still shown, the rest fill by distance
+    c2 = [{'pano_id': 'n', 'dist_m': 1.0, 'capture_date': '2023-01'},
+          {'pano_id': 'a', 'dist_m': 5.0, 'capture_date': '2014-08'},
+          {'pano_id': 'b', 'dist_m': 6.0, 'capture_date': '2014-08'},
+          {'pano_id': 'c', 'dist_m': 7.0, 'capture_date': '2014-08'}]
+    assert [v['pano_id'] for v in cg.choose_views(c2)] == ['a', 'b', 'n']
+    # undated candidates count as oldest; nothing dated -> plain distance order
+    c3 = [{'pano_id': 'a', 'dist_m': 5.0, 'capture_date': None},
+          {'pano_id': 'b', 'dist_m': 9.0, 'capture_date': '2019-01'}]
+    assert [v['pano_id'] for v in cg.choose_views(c3, k=1)] == ['b']
+    assert cg.choose_views([]) == []
+
+
 def test_inventory_position_resolves_duplicate_ids_by_position():
     near, far = FR.to_latlng(5, 0), FR.to_latlng(5000, 0)
     inv = {'CR1': [(far[0], far[1], 'Available'), (near[0], near[1], 'NA_noramp')]}
@@ -174,6 +198,18 @@ def test_outcome():
 def test_false_absence_classes(vs, inst, cls):
     it = item('u', 'false_absence', {0: ('Available', inst)})
     assert cs.classify_false_absence(it, {str(k): v for k, v in enumerate(vs)}) == cls
+
+
+def test_false_absence_dating_uses_shown_and_records_available():
+    it = item('u', 'false_absence', {0: ('Available', '2022-03-01')}, views_date='2014-08')
+    it['corners'][0]['newest_available'] = '2021-12'
+    # judged on the 2014 crop: the 2022 install is after it, so built-after-imagery
+    assert cs.classify_false_absence(it, {'0': 'absent', '1': 'absent', '2': 'absent'}) ==         'artifact_built_after_imagery'
+    d = cs.fa_dating(it)
+    assert d == {'0': {'newest_shown': '2014-08', 'newest_available': '2021-12',
+                       'instdates': ['2022-03']}}
+    sc = cs.score_rater([it], vfile({'u': unit_verdicts(['absent'] * 3)}), {}, 'blind')
+    assert sc['parts']['false_absence']['shown_older_than_available'] == ['u']
 
 
 def test_validate_refusals():
@@ -314,3 +350,7 @@ def test_committed_bundle_is_consistent():
     assert {p: len(v) for p, v in parts.items()} == {'false_absence': 35, 'na_noramp': 40, 'clean': 20}
     assert [i['unit'] for i in items] == cg.review_order([i['unit'] for i in items])
     assert all(c['views'] for i in items for c in i['corners'])
+    # B1: every corner shows the newest capture date in its candidate pool
+    for i in items:
+        for c in i['corners']:
+            assert cg.newest_date(c['views']) == (c['newest_available'] or ''), (i['unit'], c['corner'])

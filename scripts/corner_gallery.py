@@ -229,15 +229,46 @@ def pano_view(cam_lat, cam_lng, heading_deg, lat, lng, camera_height_m=CAMERA_HE
             'y': round(min(y, 0.999), 6)}
 
 
+def _distance_order(cands, min_m):
+    """Nearest first among those >= min_m away, then the nearer ones, farthest of them first
+    (a pano almost on top of the corner point looks straight down)."""
+    far = sorted((c for c in cands if c['dist_m'] >= min_m), key=lambda c: (c['dist_m'], c['pano_id']))
+    near = sorted((c for c in cands if c['dist_m'] < min_m), key=lambda c: (-c['dist_m'], c['pano_id']))
+    return far + near
+
+
+def newest_date(cands):
+    """The newest capture_date among cands ('' when none is dated). Dates are 'YYYY-MM'
+    strings, so string order is time order."""
+    return max((c.get('capture_date') or '' for c in cands), default='')
+
+
 def choose_views(cands, k=VIEWS_PER_CORNER, min_m=MIN_VIEW_M, max_m=MAX_VIEW_M):
-    """The k views to show for a corner: nearest first among those >= min_m away, topped up
-    with nearer ones only when fewer than k qualify. cands: dicts with dist_m and pano_id."""
-    ok = sorted((c for c in cands if c['dist_m'] <= max_m),
-                key=lambda c: (c['dist_m'], c['pano_id']))
-    far = [c for c in ok if c['dist_m'] >= min_m]
-    near = [c for c in ok if c['dist_m'] < min_m]
-    near.sort(key=lambda c: (-c['dist_m'], c['pano_id']))
-    return (far + near)[:k]
+    """The k views to show for a corner, capture-date aware (RampNet#243 review, B1).
+
+    Among the candidates within max_m of the corner point, slot 1 goes to the newest capture
+    date: of the panos carrying that date, the first in distance order (nearest >= min_m,
+    else the farthest of the nearer ones). The other k - 1 slots are filled in distance order
+    from the rest. So the newest imagery in the pool is always shown, and the rubric's "use
+    the newest crop that shows the corner clearly" is always possible. The returned list is in
+    distance order; a view's capture date is on its caption. cands: dicts with dist_m, pano_id
+    and capture_date.
+
+    >>> c = [{'pano_id': 'a', 'dist_m': 5, 'capture_date': '2014-08'},
+    ...      {'pano_id': 'b', 'dist_m': 6, 'capture_date': '2014-08'},
+    ...      {'pano_id': 'c', 'dist_m': 7, 'capture_date': '2014-08'},
+    ...      {'pano_id': 'd', 'dist_m': 30, 'capture_date': '2021-12'}]
+    >>> [v['pano_id'] for v in choose_views(c)]
+    ['a', 'b', 'd']
+    """
+    ok = _distance_order([c for c in cands if c['dist_m'] <= max_m], min_m)
+    if not ok:
+        return []
+    newest = newest_date(ok)
+    first = next(c for c in ok if (c.get('capture_date') or '') == newest)
+    rest = [c for c in ok if c is not first][:k - 1]
+    chosen = {id(c) for c in rest} | {id(first)}
+    return [c for c in ok if id(c) in chosen]
 
 
 # ----------------------------------------------------------------------------- loading
@@ -309,12 +340,16 @@ def build_item(rec, part, panos, inv_pos):
                       'cam': {'lat': round(p['lat'], 7), 'lng': round(p['lng'], 7)}})
             cands.append(v)
         views = choose_views(cands)
+        pool = [v for v in cands if v['dist_m'] <= MAX_VIEW_M]
         for v in views:
             v['crop'] = f"crops/{safe_name(unit)}_c{c['corner']}_{v['pano_id']}.jpg"
         corners.append({
             'corner': c['corner'], 'start_deg': c['start_deg'], 'width_deg': c['width_deg'],
             'wide': c['wide'], 'lat': c['lat'], 'lng': c['lng'],
             'n_panos_25': c['n_panos_25'], 'views': views,
+            # the newest capture date among every candidate within MAX_VIEW_M, shown or not;
+            # choose_views always shows one pano of this date (B1 of the review)
+            'newest_available': newest_date(pool) or None, 'n_candidates': len(pool),
             'inv_counts': c['inv_counts'],
             'inventory': [dict(x, **dict(zip(('lat', 'lng'), inventory_position(
                 inv_pos, x['unit_id'], x['class'], rec['lat'], rec['lng']))))
@@ -377,9 +412,11 @@ def write_report(bundle, snapshot, items, missing):
               f"{snapshot['n_clean']} from the sorted `clean` keys.",
               '- Review order: sha1 of the unit key, so a unit\'s slot says nothing about '
               'its part. The part is not shown to the rater.',
-              f"- Views: up to {VIEWS_PER_CORNER} panos per corner, nearest first among "
-              f"those >= {MIN_VIEW_M:g} m from the corner point (nearer ones only to top up), "
-              f"from the panos within 25 m of the unit centre or the corner point. Crops are "
+              f"- Views: up to {VIEWS_PER_CORNER} panos per corner from the candidates within "
+              f"{MAX_VIEW_M:g} m of the corner point (taken from the panos within 25 m of the "
+              f"unit centre or the corner point). One slot always goes to the newest capture "
+              f"date among the candidates; the rest are nearest first among those >= "
+              f"{MIN_VIEW_M:g} m away (nearer ones only to top up). Crops are "
               f"{CROP_FOV_DEG} deg / {CROP_PX} px squares of the equirect pano centred on the "
               f"corner point, projected with a level camera at {CAMERA_HEIGHT_M} m.", '',
               '## Inputs', '', '| input | sha256 |', '|---|---|']
@@ -467,6 +504,9 @@ def cmd_build(args):
         'populations': sizes, 'draw': drawn, 'review_order': order,
         'items_sha256': sha256_file(items_path), 'inputs': inputs,
         'views': {'per_corner': VIEWS_PER_CORNER, 'min_m': MIN_VIEW_M, 'max_m': MAX_VIEW_M,
+                  'rule': 'one slot for the newest capture date among the candidates within '
+                          'max_m (nearest such pano), the rest nearest first among those >= '
+                          'min_m, nearer ones only to top up (choose_views; RampNet#243 B1)',
                   'camera_height_m': CAMERA_HEIGHT_M, 'crop_fov_deg': CROP_FOV_DEG,
                   'crop_px': CROP_PX, 'store': f'makelab2 {STORE}'},
         'aerial': {'source': 'Esri World Imagery', 'url_template': sf.TILE_URL,

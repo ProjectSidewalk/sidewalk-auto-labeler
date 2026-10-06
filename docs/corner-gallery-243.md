@@ -45,10 +45,18 @@ the gallery says nothing about its part. The page never receives the part.
 - A north-up Esri aerial, about 70 m across, with the 30 m window and the unit's legs.
 - Each corner's marker at its corner point (12 m out along the sector bisector), numbered.
 - Up to 3 crops per corner. Each crop is a 60 deg square of the equirect pano, centred on the
-  corner point with an orange ring. Views are the nearest panos at least 3 m from the corner
-  point. Nearer panos are used only to top up. Candidates are all panos within 25 m of the
-  unit centre or the corner point. The projection assumes a level camera at 2.5 m, the fixed
-  height of the #241 fusion.
+  corner point with an orange ring. Candidates are the panos within 25 m of the unit centre
+  or the corner point that are within 40 m of the corner point. **One slot always goes to the
+  newest capture date among the candidates** (the nearest pano of that date). The other slots
+  are the nearest panos at least 3 m from the corner point; nearer panos are used only to top
+  up. The projection assumes a level camera at 2.5 m, the fixed height of the #241 fusion.
+
+  The first build chose by distance only. The review of PR #141 found that this hid a newer
+  pano at 24 of 281 corners (13 false-absence corners, 9 `na_noramp`, 2 clean), for example
+  `vancouver:art:n47270030` corner 0: three 2014-08 crops shown, a 2021-12 pano in the pool.
+  The rule above was adopted before any rating, and all 24 corners now show their newest
+  pano. Each corner records `newest_available` (the newest capture date in its pool) in
+  `items.jsonl`, and the build test asserts that the newest crop shown equals it.
 - Each crop's capture date and distance, and the camera position on the aerial.
 
 The city inventory points are hidden until the unit is completed. Then they appear as squares
@@ -110,7 +118,9 @@ as a sensitivity read. The unit outcome is:
   - `miss_at_inventory_corner`: a corner holding an `Available` point is present;
   - `miss_elsewhere`: another corner is present;
   - `artifact_built_after_imagery`: no corner is present, every inventory corner is absent,
-    and every `Available` point there was installed (by month) after the newest crop;
+    and every `Available` point there was installed (by month) after the newest crop shown
+    at its corner. The scorer also reports each such corner's `newest_available` beside it
+    (`dating` in `score.json`) and flags any corner where the two differ;
   - `artifact_inventory_or_geometry`: no corner is present and every inventory corner is
     absent, in any other case;
   - `undetermined`.
@@ -146,8 +156,9 @@ as a sensitivity read. The unit outcome is:
   degrees; the crops are 60 deg wide for that reason.
 - The `artifact_built_after_imagery` class compares months. An `INSTDATE` can be a record
   date rather than a build date.
-- The rated imagery is the newest crop shown. The #241 panos are mostly 2022-2024; the
-  inventory can be newer.
+- The rated imagery is the newest crop shown, which is the newest capture in the 40 m pool.
+  It is not necessarily the newest imagery that exists: GSV can hold a newer pano that no
+  #56 or #241 run enumerated. The #241 panos are mostly 2022-2024; the inventory can be newer.
 
 ## Caveats
 
