@@ -1,0 +1,7 @@
+{
+ "url": "https://sidewalk-vancouver.cs.washington.edu/adminapi/panos",
+ "fetched_at": "2026-10-05T12:49:41+00:00",
+ "sha256": "77ea8a3e51abfecda439a4b89286988d50968a27fdbd7a8d7ec40f17f6b16b45",
+ "n_panos": 142623,
+ "path": "cache/adminapi_panos.json"
+}

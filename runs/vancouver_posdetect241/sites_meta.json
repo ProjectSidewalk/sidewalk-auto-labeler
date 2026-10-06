@@ -1,0 +1,47 @@
+{
+  "params": {
+    "floor": 0.1,
+    "min_confidence": 0.3,
+    "mask_rig": true,
+    "max_range_m": 25.0,
+    "gate_chi2": 9.21,
+    "max_match_m": 8.0,
+    "residual_per_dof_max": 3.0,
+    "camera_height_m": 2.5,
+    "apply_pose": "auto",
+    "sigma_scale": 1.0,
+    "max_vintage_months": null,
+    "grade_source": "sfm"
+  },
+  "n_panos": 10337,
+  "n_projected": 2169,
+  "drops": {
+    "below_floor": 0,
+    "on_rig": 1,
+    "horizon": 1,
+    "out_of_range": 113
+  },
+  "n_sites": 1475,
+  "n_operational_sites": 269,
+  "n_multi_pano_sites": 427,
+  "camera_heights": {
+    "fixed_m": 2.5,
+    "panos": 10337
+  },
+  "pose": {
+    "mode": "auto",
+    "panos": 10337,
+    "posed": 0,
+    "derived_from_source_metadata": 0,
+    "flat": 10337,
+    "gravity": 0,
+    "road_relative": 0,
+    "gravity_fallback": 0,
+    "grade_source": "sfm",
+    "grade_replaced": 0
+  },
+  "frame_origin": {
+    "lat0": 45.63368856966527,
+    "lng0": -122.58289100302962
+  }
+}

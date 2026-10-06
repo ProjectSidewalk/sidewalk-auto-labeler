@@ -76,6 +76,13 @@ CENSUS_SEED = 238
 CENSUS_N = {'signalised': 67, 'arterial': 67, 'residential': 66}
 CENSUS_SLEEP_S = 0.25
 DECISION_THRESHOLD = 0.90
+# RampNet#241: a run added with `build --extra-run` (panos chosen by position, never
+# submitted) has no server clusters. Its deployed arm is emulated: a fused site of that run
+# with a member detection at or above the tier that went live counts as a deployed point.
+DEPLOYED_TIER = 0.55
+# sites_meta params an extra run may differ from the base run in (recorded); every other
+# `params` key must be equal (review S3: the guard covers all of them, not a hand-picked list)
+EXTRA_RUN_FREE_PARAMS = ('camera_height_m',)
 
 
 # ------------------------------------------------------------------------- helpers
@@ -525,6 +532,47 @@ def load_panos(results_path):
     return out
 
 
+def load_extra_run(run_dir, base_meta, base_pano_ids, tier=DEPLOYED_TIER):
+    """(panos, operational sites, emulated deployed points, record) of a run added with
+    `build --extra-run` (RampNet#241). Site ids are prefixed with the run dir's name so they
+    cannot collide with the base run's. Refuses a run that shares a pano with the base run
+    (it would be counted twice) or whose fusion params differ from the base run's in
+    anything but EXTRA_RUN_FREE_PARAMS.
+
+    The deployed arm is emulated (DEPLOYED_TIER): the run's panos were never submitted, so
+    no server cluster exists for them; a site with a member >= tier stands in for one."""
+    run_dir = Path(run_dir)
+    name = run_dir.resolve().name
+    meta = json.loads((run_dir / 'sites_meta.json').read_text(encoding='utf-8'))
+    keys = sorted((set(meta['params']) | set(base_meta['params'])) - set(EXTRA_RUN_FREE_PARAMS))
+    diff = [k for k in keys if meta['params'].get(k) != base_meta['params'].get(k)]
+    if diff:
+        raise SystemExit(f'{run_dir}: sites_meta params {diff} differ from the base run')
+    panos = load_panos(run_dir / 'results.jsonl')
+    shared = sorted({p[2] for p in panos} & set(base_pano_ids))
+    if shared:
+        raise SystemExit(f'{run_dir}: {len(shared)} pano(s) already in the base run, '
+                         f'e.g. {shared[:3]}')
+    thr = meta['params']['min_confidence']
+    sites, deployed = [], []
+    with open(run_dir / 'sites.jsonl', encoding='utf-8') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            s = json.loads(line)
+            if s.get('n_operational', 0) < 1:
+                continue
+            ops = sorted({m['pano_id'] for m in s['members'] if m['confidence'] >= thr})
+            sid = f"{name}:{s['site_id']}"
+            sites.append((s['lat'], s['lng'], {'site_id': sid, 'op_panos': ops}))
+            if any(m['confidence'] >= tier for m in s['members']):
+                deployed.append((s['lat'], s['lng'], f"{name}:s{s['site_id']}"))
+    rec = {'name': name, 'n_panos': len(panos), 'n_operational_sites': len(sites),
+           'n_deployed_emulated': len(deployed), 'deployed_tier': tier,
+           'camera_height_m': meta['params'].get('camera_height_m')}
+    return panos, sites, deployed, rec
+
+
 def load_clusters(path):
     feats = json.loads(Path(path).read_text(encoding='utf-8'))['features']
     return [(f['geometry']['coordinates'][1], f['geometry']['coordinates'][0],
@@ -604,6 +652,12 @@ def cmd_build(args):
         raise SystemExit('inventory.geojson does not match inventory.json')
     if args.units224:
         rec_input('units224', Path(args.units224))
+    extra_dirs = [Path(d) for d in (getattr(args, 'extra_run', None) or [])]
+    for d in extra_dirs:
+        nm = d.resolve().name
+        for name, rel in (('results', 'results.jsonl'), ('sites', 'sites.jsonl'),
+                          ('sites_meta', 'sites_meta.json')):
+            rec_input(f'extra:{nm}:{name}', d / rel)
     steps = []
 
     t = time.time()
@@ -631,6 +685,13 @@ def cmd_build(args):
     obs_m = float(meta['params']['max_range_m'])
     panos = load_panos(run_dir / 'results.jsonl')
     clusters = load_clusters(run_dir / 'ps_clustering_eval/clusters.geojson')
+    extra_recs = []
+    for d in extra_dirs:
+        e_panos, e_sites, e_dep, e_rec = load_extra_run(d, meta, [p[2] for p in panos])
+        panos += e_panos
+        meta_sites += e_sites
+        clusters += e_dep
+        extra_recs.append(e_rec)
     inv_feats = json.loads((run_dir / 'inventory_oracle/inventory.geojson')
                            .read_text(encoding='utf-8'))['features']
     inv_items = [(f['geometry']['coordinates'][1], f['geometry']['coordinates'][0],
@@ -702,6 +763,8 @@ def cmd_build(args):
                         'clusters': len(clusters), 'inventory_points': len(inv_items),
                         'units': len(records), 'units224': len(u224)},
              'steps': steps, 'seconds': round(time.time() - t0, 1)}
+    if extra_recs:
+        build['extra_runs'] = extra_recs
     (out / 'build.json').write_text(json.dumps(build, indent=1) + '\n', encoding='utf-8',
                                     newline='\n')
     print(f"built {len(records)} units ({build['seconds']} s) -> {out}")
@@ -913,6 +976,11 @@ def selection_diagnostics(records, build, tier=0.55):
         return None
     sampled = set(Path(inputs['store_sampled_ids']['path']).read_text(encoding='utf-8')
                   .split())
+    # RampNet#241: panos added with --extra-run were chosen by position
+    extra = set()
+    for k, v in inputs.items():
+        if k.startswith('extra:') and k.endswith(':results'):
+            extra |= {p[2] for p in load_panos(v['path'])}
     n_runs, n_det = 0, 0
     run_ids = set()
     with open(inputs['results']['path'], encoding='utf-8') as f:
@@ -929,7 +997,9 @@ def selection_diagnostics(records, build, tier=0.55):
     cross = {}
     for r in ints:
         k = (r['state']['fusion/primary'],
-             'sampled-unlabeled pano within 25 m' if any(p in sampled for p in r['pano_ids_25'])
+             'position-selected pano within 25 m' if any(p in extra for p in r['pano_ids_25'])
+             else 'sampled-unlabeled pano within 25 m'
+             if any(p in sampled for p in r['pano_ids_25'])
              else 'labeled panos only' if r['pano_ids_25'] else 'no pano within 25 m')
         cross[k] = cross.get(k, 0) + 1
     unobs = [r['nearest_pano_m'] for r in ints if r['state']['fusion/primary'] == 'unobservable'
@@ -939,7 +1009,8 @@ def selection_diagnostics(records, build, tier=0.55):
     for r in ints:
         if r['state']['fusion/primary'] != 'absent':
             continue
-        kind = ('sampled-unlabeled' if any(p in sampled for p in r['pano_ids_25'])
+        kind = ('position-selected' if any(p in extra for p in r['pano_ids_25'])
+                else 'sampled-unlabeled' if any(p in sampled for p in r['pano_ids_25'])
                 else 'labeled only')
         ic = r['inv_counts']
         b = ('false (Available)' if ic['Available'] else
@@ -1427,6 +1498,11 @@ def main(argv=None):
     b.add_argument('--osm', required=True)
     b.add_argument('--units224')
     b.add_argument('--out', required=True)
+    b.add_argument('--extra-run', action='append', default=[], metavar='RUN_DIR',
+                   help='RampNet#241: also count the panos of RUN_DIR as observed and its '
+                        'operational fused sites as present (results.jsonl + sites.jsonl + '
+                        'sites_meta.json); its deployed arm is emulated at DEPLOYED_TIER. '
+                        'Repeatable.')
     s = sub.add_parser('score')
     s.add_argument('--out', required=True)
     c = sub.add_parser('census')
