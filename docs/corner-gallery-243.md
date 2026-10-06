@@ -96,8 +96,19 @@ is a new file, not a mode of the #224 tool. A unit-level "can't judge" is not ne
 ## How to rate
 
 ```
+python scripts/corner_gallery.py aerial-dates --bundle runs/vancouver/corner_gallery243   # optional, network
 python scripts/corner_gallery.py render --bundle runs/vancouver/corner_gallery243 --rater jonf
 ```
+
+`aerial-dates` writes `aerial_dates.json` (committed): the capture date Esri's imagery
+metadata gives for each aerial, at zoom 20 (the 15 cm layer), sampled at the window centre
+and its four corners. Queried 2026-10-06, the day after the tiles were fetched: 81 units
+2025-09-19, 12 units 2025-04-14, 2 units 2025-06-08, and one unit
+(`vancouver:art:n13090709646`) spans two dates. It is Esri's metadata for its *current*
+release, not frozen with the tiles, so a republish between tile fetch and query would make a
+date wrong; re-querying later can drift for the same reason. The page shows the date under
+the aerial; without the file it says the date is unknown. The coarser layers (zoom 12-19)
+carry different dates (2025-12-30 here), so the zoom matters.
 
 1. Open `runs/vancouver/corner_gallery243/gallery/jonf/index.html` in a browser. The aerials
    and crops are git-ignored. They are in this worktree, and `build` remakes them.

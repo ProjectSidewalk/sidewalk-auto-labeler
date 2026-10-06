@@ -136,6 +136,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   #left{flex:0 0 auto;width:var(--aw);position:sticky;top:6px}
   #aerialwrap{position:relative;width:var(--aw);height:var(--aw);background:#222;border-radius:6px;overflow:hidden}
   #aerialwrap img,#aerialwrap svg{position:absolute;left:0;top:0;width:100%;height:100%}
+  #aerialdate{font-size:13px;font-weight:600;margin:4px 0 0}
   #attrib{font-size:11px;color:#555;margin:3px 0 8px}
   #right{flex:1;min-width:320px;display:flex;flex-direction:column;gap:16px;padding:8px 10px 8px 6px}
   fieldset.corner{background:#fff;border:1px solid #ccc;border-left:8px solid #bbb;border-radius:6px;
@@ -215,6 +216,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 <div id="main">
   <section id="left" aria-label="Aerial and unit controls">
     <div id="aerialwrap"><img id="aerial" alt=""><svg id="plan" role="img" aria-labelledby="plantitle"><title id="plantitle">Aerial plan</title></svg></div>
+    <div id="aerialdate"></div>
     <div id="attrib"></div>
     <button id="completebtn"></button>
     <p><label for="unitnote">Note on this unit (optional; say why for any can't tell)</label>
@@ -434,6 +436,10 @@ function renderUnit() {
   document.getElementById('title').textContent = 'Unit ' + (idx + 1) + ' of ' + UNITS.length + ': ' + u.id +
     ' (' + u.type + ', ' + u.corners.length + ' corner' + (u.corners.length > 1 ? 's' : '') + ')';
   document.getElementById('aerial').src = u.aerial.file;
+  const ad = u.aerial.dates || [];
+  document.getElementById('aerialdate').textContent = ad.length
+    ? 'Aerial captured ' + (ad.length > 1 ? ad[0] + ' to ' + ad[ad.length - 1] + ' (mosaic)' : ad[0])
+    : 'Aerial capture date unknown';
   document.getElementById('aerial').alt = 'Aerial image of ' + u.id + ', north up, about 70 m across';
   document.getElementById('unitnote').value = s.note || '';
   const right = document.getElementById('right');

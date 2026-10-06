@@ -30,6 +30,7 @@ given before that reveal are frozen as `blind`; the scorer reads `blind`.
 
 Two subcommands:
 
+  aerial-dates  look up each aerial's capture date in Esri's imagery metadata -> <bundle>/aerial_dates.json
   build   sample, write <bundle>/items.jsonl + snapshot.json + report.md, make the aerials
           (Esri tiles, cached) and the crops (makelab2 PS store, or --local-panos)
   render  write <bundle>/gallery/<rater>/index.html; Export downloads verdicts__<rater>.json
@@ -678,14 +679,15 @@ def reveal_script(it):
             f'{json.dumps(data, sort_keys=True, separators=(",", ":"))});\n')
 
 
-def viewer_unit(it, rel):
+def viewer_unit(it, rel, aerial_dates=None):
     """The per-unit payload the page needs; paths relative to the gallery dir. The part is
     deliberately left out: the rater never sees which population a unit came from. So is the
     city inventory (status, RAMPTYPE, INSTDATE, positions): it lives in reveal/<unit>.js and is
     loaded only at completion (review S3)."""
     return {'id': it['unit'], 'type': it['type'], 'centre': it['centre'],
             'window_m': it['window_m'], 'legs': it['legs'], 'reveal': reveal_file(it['unit']),
-            'aerial': dict(it['aerial'], file=rel + it['aerial']['file']),
+            'aerial': dict(it['aerial'], file=rel + it['aerial']['file'],
+                           dates=(aerial_dates or {}).get(it['unit'], [])),
             'corners': [{'k': str(c['corner']), 'corner': c['corner'],
                          'start_deg': c['start_deg'], 'width_deg': c['width_deg'],
                          'wide': c['wide'], 'lat': c['lat'], 'lng': c['lng'],
@@ -744,7 +746,8 @@ def cmd_render(args):
     initial, msg = load_prefill(bundle, args.rater, items_sha)
     if msg:
         print(msg)
-    html = build_html([viewer_unit(i, rel) for i in items], items_sha, args.rater, initial,
+    adates = load_aerial_dates(bundle, items_sha)
+    html = build_html([viewer_unit(i, rel, adates) for i in items], items_sha, args.rater, initial,
                       snapshot['aerial']['attribution'])
     (out / REVEAL_DIR).mkdir(exist_ok=True)
     for i in items:
@@ -754,6 +757,90 @@ def cmd_render(args):
     print(f"Gallery: {out / 'index.html'}")
     print(f'Open it, rate, Export, and save the download as {bundle / rater_file_name(args.rater)}')
     return 0
+
+
+ESRI_IDENTIFY = ('https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/'
+                 'identify')
+AERIAL_DATES_FILE = 'aerial_dates.json'
+
+
+def esri_metadata_at(lat, lng, zoom, timeout=30):
+    """The Esri World Imagery metadata record that is drawn at `zoom` at one point, or None.
+
+    The service returns one "<res> Resolution Metadata" layer per resolution band; the one
+    whose MinMapLevel..MaxMapLevel covers the zoom is what the tile showed. At zoom 20 that is
+    usually the 15 cm layer, whose date can differ from the coarser layers' by months.
+    """
+    import urllib.parse
+    import urllib.request
+    d = 0.0005
+    q = urllib.parse.urlencode({
+        'geometry': f'{lng},{lat}', 'geometryType': 'esriGeometryPoint', 'sr': 4326,
+        'layers': 'all', 'tolerance': 1, 'returnGeometry': 'false', 'f': 'json',
+        'mapExtent': f'{lng - d},{lat - d},{lng + d},{lat + d}', 'imageDisplay': '512,512,96'})
+    with urllib.request.urlopen(f'{ESRI_IDENTIFY}?{q}', timeout=timeout) as r:
+        res = json.loads(r.read().decode('utf-8'))['results']
+    for r in res:
+        a = r['attributes']
+        if not r['layerName'].endswith('Resolution Metadata'):
+            continue
+        try:
+            lo, hi = int(a['MinMapLevel']), int(a['MaxMapLevel'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        date = a.get('SRC_DATE2')
+        if lo <= zoom <= hi and date and date != 'Null':
+            m, dd, y = (int(x) for x in date.split('/'))
+            return {'date': f'{y:04d}-{m:02d}-{dd:02d}', 'layer': r['layerName'],
+                    'release': a.get('ReleaseName'), 'source': a.get('SRC_DESC') or a.get('NICE_DESC')}
+    return None
+
+
+def cmd_aerial_dates(args):
+    """Capture date(s) of every aerial: Esri's metadata at the window centre and its four
+    corners, since one 70 m window can straddle two mosaic patches. The metadata describes
+    Esri's CURRENT release; the tiles were fetched at build time (snapshot.json), so a
+    republish between the two would make the date wrong for the pinned image."""
+    bundle = Path(args.bundle)
+    items = read_jsonl(bundle / 'items.jsonl')
+    out = {}
+    for n, it in enumerate(items, 1):
+        bb, z = it['aerial']['bbox'], it['aerial']['zoom']
+        pts = [(it['centre']['lat'], it['centre']['lng'])] + [
+            (la, lo) for la in (bb['south'], bb['north']) for lo in (bb['west'], bb['east'])]
+        recs = []
+        for la, lo in pts:
+            recs.append(esri_metadata_at(la, lo, z))
+            time.sleep(args.pause)
+        dates = sorted({r['date'] for r in recs if r})
+        out[it['unit']] = {'centre': recs[0], 'dates': dates,
+                           'n_points': len(pts), 'n_found': sum(1 for r in recs if r)}
+        if n % 10 == 0:
+            print(f'{n}/{len(items)}')
+    doc = {'service': ESRI_IDENTIFY, 'queried_at': utc_now(),
+           'items_sha256': sha256_file(bundle / 'items.jsonl'),
+           'note': "Esri's metadata for its current release, not frozen with the tiles; the "
+                   'tiles were fetched at build time. dates = distinct capture dates over the '
+                   'window centre and its four corners.',
+           'units': out}
+    write_text_lf(bundle / AERIAL_DATES_FILE, json.dumps(doc, indent=1, sort_keys=True) + '\n')
+    nd = sum(1 for v in out.values() if not v['dates'])
+    nm = sum(1 for v in out.values() if len(v['dates']) > 1)
+    print(f'{len(out)} units: {nd} with no date, {nm} spanning more than one date -> '
+          f'{bundle / AERIAL_DATES_FILE}')
+    return 0
+
+
+def load_aerial_dates(bundle, items_sha):
+    """{unit: [dates]} from aerial_dates.json, or {} when absent or made on another item list."""
+    path = Path(bundle) / AERIAL_DATES_FILE
+    if not path.exists():
+        return {}
+    doc = json.loads(path.read_text(encoding='utf-8'))
+    if doc.get('items_sha256') != items_sha:
+        print(f'NOT using {path}: made on another items.jsonl')
+        return {}
+    return {u: v['dates'] for u, v in doc['units'].items()}
 
 
 def cmd_check(args):
@@ -807,11 +894,15 @@ def main(argv=None):
     r.add_argument('--out', type=Path, default=None, help='default <bundle>/gallery/<rater>')
     r.add_argument('--allow-image-drift', action='store_true',
                    help='render even if the images differ from images.sha256')
+    a = sub.add_parser('aerial-dates', help="look up each aerial's capture date (Esri metadata)")
+    a.add_argument('--bundle', type=Path, required=True)
+    a.add_argument('--pause', type=float, default=0.1, help='seconds between requests')
     k = sub.add_parser('check', help='verify items.jsonl and every shown image against the '
                                      'recorded sha256s')
     k.add_argument('--bundle', type=Path, required=True)
     args = ap.parse_args(argv)
-    return {'build': cmd_build, 'render': cmd_render, 'check': cmd_check}[args.cmd](args)
+    return {'build': cmd_build, 'render': cmd_render, 'check': cmd_check,
+            'aerial-dates': cmd_aerial_dates}[args.cmd](args)
 
 
 if __name__ == '__main__':

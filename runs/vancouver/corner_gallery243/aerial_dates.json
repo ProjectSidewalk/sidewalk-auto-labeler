@@ -1,0 +1,1244 @@
+{
+ "items_sha256": "bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459",
+ "note": "Esri's metadata for its current release, not frozen with the tiles; the tiles were fetched at build time. dates = distinct capture dates over the window centre and its four corners.",
+ "queried_at": "2026-10-06T16:48:39+00:00",
+ "service": "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/identify",
+ "units": {
+  "vancouver:art:n1215066991": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n12783988563": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n13059332216": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n13090709646": {
+   "centre": {
+    "date": "2025-06-08",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG04"
+   },
+   "dates": [
+    "2025-06-08",
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n1375008444": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n1466256854": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n1547961037": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n1614603561": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n1634536176": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n1803133375": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n3627781133": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n3629347257": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n3639899149": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n3694670454": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n3699326114": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n4612512437": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47190958": {
+   "centre": {
+    "date": "2025-06-08",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG04"
+   },
+   "dates": [
+    "2025-06-08"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47231069": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47244995": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47245437": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47245550": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47270030": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47282622": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47290563": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47308718": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47325352": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47331236": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47335720": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47337266": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47340212": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:art:n47345153": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n12444613588": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n13090709554": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n13538954649": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n1637998595": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n2623620122": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n3372672500": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n3642857970": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n3699326241": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n4598685562": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n4602349091": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47208364": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47215596": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47219489": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47225933": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47231852": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47231855": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47232326": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47234866": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47236184": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47236718": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47237304": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47240587": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47240880": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47249862": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47258942": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47259775": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47261571": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47263718": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47267448": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47270098": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47278131": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47281487": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47286143": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47287760": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47287936": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47288787": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47288915": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47289129": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47299669": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47300698": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47302452": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47303605": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47305361": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47307691": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47311369": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47318252": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47318468": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47332188": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47334787": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47342337": {
+   "centre": {
+    "date": "2025-04-14",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "WV03"
+   },
+   "dates": [
+    "2025-04-14"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47355183": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47362725": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47368067": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47370116": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47380807": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47384235": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47387262": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47397103": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47397759": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n47406308": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n7010814367": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n958722944": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:res:n959123136": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  },
+  "vancouver:sig:n1642453647": {
+   "centre": {
+    "date": "2025-09-19",
+    "layer": "15cm Resolution Metadata",
+    "release": "Raster Basemaps 2025.R12",
+    "source": "LG02"
+   },
+   "dates": [
+    "2025-09-19"
+   ],
+   "n_found": 5,
+   "n_points": 5
+  }
+ }
+}
