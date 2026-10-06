@@ -8,13 +8,13 @@ GT: 124 judged panos -> 253 placeable points -> 253 ramps (0 cross-pano merges),
 
 ## Data provenance
 
-- `raw_labels.geojson`: 9639 features, sha256 `17bde58ca3d678099195923781cf9846f5dc237dc1fd8e897417d4658087a058`, 2026-09-21T13:34:28+00:00 (13.3 days old at run time), from https://sidewalk-richmond.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
-- `clusters.geojson`: 2156 features, sha256 `3f7ca04dfc67c32950f8a14150c54ff6c3cb2485b069c60b7554072e30641fd0`, 2026-09-21T13:34:28+00:00 (13.3 days old at run time), from https://sidewalk-richmond.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
+- `raw_labels.geojson`: 9639 features, sha256 `17bde58ca3d678099195923781cf9846f5dc237dc1fd8e897417d4658087a058`, 2026-09-21T13:34:28+00:00 (14.5 days old at run time), from https://sidewalk-richmond.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
+- `clusters.geojson`: 2156 features, sha256 `3f7ca04dfc67c32950f8a14150c54ff6c3cb2485b069c60b7554072e30641fd0`, 2026-09-21T13:34:28+00:00 (14.5 days old at run time), from https://sidewalk-richmond.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
 - labels by account: 51b0b927-3c8a-45b2-93de-bd878d1e5cf4 (AI) 9526, 549187e0-82c9-4014-a48d-31f18083d575 81, 18b26a38-24ab-402d-a64e-158fc0bb8a8a 30, 61460b3e-712d-4732-9044-924c4c1fc221 2
 - 0 labels dropped before clustering (null lng or lng > 360), matching label_clustering.clean_label_data
 - 0 ambiguous pixel keys in results.jsonl (two stored detections round to one pixel; those keys are left unmapped)
 - 0 server labels share a pixel with another label and so map to the same stored detection (a re-submitted campaign does this)
-- `streets.geojson`: 16365 features, sha256 `02f3e0061c16ecda5d6ba5523f25bbff5999d758061cb75dd408edb732f92206`, 2026-09-28T17:07:50+00:00 (6.1 days old at run time), from https://sidewalk-richmond.cs.washington.edu/v3/api/streets?filetype=geojson; 704 open streets kept (the server snaps to open streets only)
+- `streets.geojson`: 16365 features, sha256 `02f3e0061c16ecda5d6ba5523f25bbff5999d758061cb75dd408edb732f92206`, 2026-09-28T17:07:50+00:00 (7.3 days old at run time), from https://sidewalk-richmond.cs.washington.edu/v3/api/streets?filetype=geojson; 704 open streets kept (the server snaps to open streets only)
 - PS partitions are blocked (single-linkage components at the widest threshold + 0.5 m): 406 blocks, largest 141 labels
 
 ## Validation checks
@@ -27,7 +27,8 @@ GT: 124 judged panos -> 253 placeable points -> 253 ramps (0 cross-pano merges),
 - fusion_server input: 9526 AI (by account; 0 share a detection with another AI label) + 113 human labels on 3721 panos (3057 positioned by inverting their labels, 661 from the run's pano block (no label within 15 m to invert), 3 with neither, whose 3 labels are singleton clusters); 1434 labels the raycast cannot place (range cap, horizon) are singleton clusters; 1485 of its 1589 clusters with AI members are, member for member, a cluster of the `fusion` arm
 - every server label is in exactly one fusion_server cluster: 9639 label ids, 9639 distinct, of 9639 labels
 - inverted camera positions more than 1 m from the run's pano block (a pano live somewhere other than results.jsonl says, e.g. repositioned): 0 of 3057 (should be 0 for a pull taken before any reposition)
-- camera-position inversion vs the run's position, over 3024 panos in both (all labels, mostly AI): median 0.010 m, p90 0.20 m; from human labels only, over 12 panos: median 0.007 m, p90 0.07 m, max 0.54 m
+- run-block fallback panos whose live position at the pull's fetch time differs from the run's block by more than 1 m (labels placed from a position this file does not hold): 0 of 661
+- camera-position inversion vs the run's position: from the AI account's labels (the arm's rule), over 3023 panos: median 0.010 m, p90 0.20 m; from all labels (the #105 method), over 3024 panos: median 0.010 m, p90 0.20 m; from human labels only, over 12 panos: median 0.007 m, p90 0.07 m, max 0.54 m
 - same-pano pairs inside one cluster (must be 0 under the cannot-link): 0 in every arm
 
 ## Arms (match radius 5 m, GT merge 2.5 m)

@@ -10,7 +10,7 @@ GT: none (--no-gt), so coverage, recall, frag, dual, coherence and GT precision 
 
 - results file `runs/vancouver/results.jsonl`: sha256 `7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28`
 - 0 ambiguous pixel keys in `results.jsonl` (two stored detections round to one pixel); offline labels map to their detection directly, and the pixel-key map agrees on 60094 of 60094
-- `streets.geojson`: 12567 features, sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`, 2026-09-30T01:39:49+00:00 (4.8 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/streets?filetype=geojson; 11783 open streets kept (the server snaps to open streets only)
+- `streets.geojson`: 12567 features, sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`, 2026-09-30T01:39:49+00:00 (6.0 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/streets?filetype=geojson; 11783 open streets kept (the server snaps to open streets only)
 - regions: every synthesized label takes the region of the street nearest its server position, as the server assigns it at insert; 0 labels were equidistant from streets in two regions (lowest street_edge_id taken)
 - PS partitions are blocked (single-linkage components at the widest threshold + 0.5 m): 5677 blocks, largest 124 labels
 
@@ -21,7 +21,8 @@ GT: none (--no-gt), so coverage, recall, frag, dual, coherence and GT precision 
 - fusion_server input: 60094 AI (by account; 0 share a detection with another AI label) + 0 human labels on 26928 panos (0 positioned by inverting their labels, 26928 from the run's pano block (offline: the block the labels were placed from), 0 with neither, whose 0 labels are singleton clusters); 2122 labels the raycast cannot place (range cap, horizon) are singleton clusters; 14820 of its 14820 clusters with AI members are, member for member, a cluster of the `fusion` arm
 - every server label is in exactly one fusion_server cluster: 60094 label ids, 60094 distinct, of 60094 labels
 - inverted camera positions more than 1 m from the run's pano block (a pano live somewhere other than results.jsonl says, e.g. repositioned): 0 of 0 (should be 0 for a pull taken before any reposition)
-- camera-position inversion vs the run's position, over 23829 panos in both (all labels, mostly AI): median 0.010 m, p90 0.20 m; from human labels only, over 0 panos: median n/a m, p90 n/a m, max n/a m
+- run-block fallback panos whose live position at the pull's fetch time differs from the run's block by more than 1 m (labels placed from a position this file does not hold): n/a (offline: the labels were placed from the run's block)
+- camera-position inversion vs the run's position: from the AI account's labels (the arm's rule), over 23829 panos: median 0.010 m, p90 0.20 m; from all labels (the #105 method), over 23829 panos: median 0.010 m, p90 0.20 m; from human labels only, over 0 panos: median n/a m, p90 n/a m, max n/a m
 - same-pano pairs inside one cluster (must be 0 under the cannot-link): 0 in every arm
 
 ## Arms (match radius 5 m, GT merge 2.5 m)
