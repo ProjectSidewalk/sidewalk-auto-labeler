@@ -1,0 +1,19 @@
+--- Sidewalk Auto-Labeler ---
+
+-> Loading GeoJSON from example_geojson/lyon.geojson...
+-> Run directory: runs\lyon
+-> Imagery source: panoramax
+-> Area hash: c7749e32980ee3bcadf240e98fa6033721de6e1fe4d639d6d36fb019b3c75a0d
+-> Found 0 already processed panoramas in cache.
+-> 99 of 168 bbox tiles are within 50 m of the area.
+-> Scanning 99 coverage tiles using 100 concurrent workers...
+-> Spatial thinning: 381295 → 174525 panos (best per ~5 m grid cell).
+
+--- Processing Summary ---
+Total panoramas found in area: 174525
+Already processed (skipped):   0
+New panoramas to process:      174525
+--------------------------
+
+Scan only — no panoramas processed, nothing recorded in the manifest; the scan is saved to runs\lyon\scan.json for a later --reuse-scan.
+Estimated full-run time: ~72.7 h at 1.5 s/pano (single GPU; measure your machine's rate on a smoke run first).
