@@ -413,13 +413,13 @@ def _download_image(url):
       decoding (a MemoryError under load, say) is about this process, not the bytes, so
       it is retried like a network failure and never cached.
 
-    A 404 deliberately stays RETRYABLE here, unlike in the Panoramax template, which
-    treats a 404 on its plain, unsigned `hd` URL as the pixels being gone. This URL is
+    A 404 deliberately stays RETRYABLE here (as it now does in the Panoramax source too,
+    since 2026-10-05, though for a different reason: flaky young infrastructure). This URL is
     `thumb_original_url`, which is signed and expires: a 404 on it means the signature
     lapsed, which is transient by construction — the next run fetches fresh metadata and
     a fresh URL. Whether the image itself still exists is answered by the Graph API
     metadata call (fetch_image_metadata's `gone`), not by this download. Do not "fix"
-    this to match Panoramax: it would permanently cache live panos as skipped.
+    this into a cached skip: it would permanently cache live panos as skipped.
     """
     last_error = None
     for attempt in range(ATTEMPTS):

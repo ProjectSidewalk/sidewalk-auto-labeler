@@ -58,8 +58,14 @@ ATTEMPTS = 3
 
 # The catalog answers 404 for a picture id it doesn't know (deleted by its uploader, an
 # instance that left the federation, or never valid) — verified live for both a
-# well-formed unknown UUID and a malformed id. Retrying never helps, so it's a
-# deterministic skip; anything else is treated as transient.
+# well-formed unknown UUID and a malformed id. A 404 is not retried within one call (it is
+# one request, and the next one would say the same), but fetch_pano reports it as a
+# RETRYABLE failure, never a cached skip: Panoramax's infrastructure is young and a
+# federated instance can drop out and come back, so a 404 today is not proof the pixels
+# are gone for good (Jon's call, 2026-10-05, reversing #137's permanent skip). The same
+# holds for a 404 on the image asset itself (_download_image). The cost of a picture
+# that really is gone is one request per resume, forever — cheap, and it keeps the
+# decision reversible. export_benchmark.py still reads fetch_item's `gone` as GONE.
 GONE_STATUSES = (404,)
 
 # A full 360x180 equirectangular is exactly 2:1 (same reasoning as the Mapillary source:
@@ -181,7 +187,9 @@ def fetch_pano(pano_id, lat, lon):
     """
     item, gone = fetch_item(pano_id)
     if gone:
-        return {'status': 'skipped', 'reason': 'Picture no longer exists on Panoramax'}
+        # Retryable, not a cached skip — see GONE_STATUSES.
+        return {'status': 'failure',
+                'reason': 'Picture not found on Panoramax (HTTP 404; retried next run)'}
     if item is None:
         return {'status': 'failure', 'reason': 'STAC item unavailable (transient?)'}
     props = item.get('properties') or {}
@@ -212,7 +220,7 @@ def fetch_pano(pano_id, lat, lon):
     downloaded, undecodable, detail = _download_image(url)
     if undecodable:
         return {'status': 'skipped',
-                'reason': detail or 'Image asset is gone or not a decodable image'}
+                'reason': detail or 'Image asset is not a decodable image'}
     if downloaded is None:
         return {'status': 'failure',
                 'reason': 'Failed to download equirectangular image'
@@ -261,20 +269,24 @@ def fetch_item(picture_id):
 
 def _download_image(url):
     """((image, (original_width, original_height)), permanent, detail) for one picture's
-    asset. `detail` is None on success and otherwise the reason to log: a gone asset and
-    undecodable bytes get DIFFERENT skip reasons (so a run log can say how many skips were
-    404s -- the open transient-404 question on #127), and a retryable failure carries the
-    last attempt's exception, so a server-side truncation reads apart from a flaky network.
+    asset. `detail` is None on success and otherwise the reason to log: an asset 404 has
+    its own failure reason (so a run log can count them -- the transient-404 question on
+    #127), undecodable bytes their own skip reason, and any other retryable failure carries
+    the last attempt's exception, so a server-side truncation reads apart from a flaky
+    network.
 
     Splits the two failure kinds the retry loop used to conflate, for the same reason
     fetch_item does: main.py caches a deterministic skip and retries a failure forever.
 
     - Network/HTTP failures are retryable and return (None, False, last error) after
       ATTEMPTS tries.
-    - A 404 on the asset is not: the `hd` URL is plain and unsigned (unlike Mapillary's
-      signed, expiring thumbnail), so a 404 means the instance no longer serves those
-      pixels. Retrying cannot fix it.
-    - Neither can a decode failure on complete bytes. Bytes that arrived whole and that
+    - A 404 on the asset returns (None, False, "Image asset HTTP 404") after ONE request:
+      retryable on the next run, but not hammered within this one. The `hd` URL is plain
+      and unsigned (unlike Mapillary's signed, expiring thumbnail), so #137 read a 404 as
+      "pixels gone" and cached it; reversed 2026-10-05 because Panoramax instances are
+      young and flaky (see GONE_STATUSES). A picture that really is gone costs one request
+      per resume.
+    - A decode failure on complete bytes is permanent. Bytes that arrived whole and that
       PIL cannot read (sources.mapillary.decode_failure_is_permanent) — garbage, a
       decompression bomb past PIL's ceiling — will not become an image on the fourth
       try, so they are a permanent skip on the first attempt.
@@ -283,15 +295,16 @@ def _download_image(url):
       truncated-file OSError ("image file is truncated" / "Truncated File Read"). So is
       any non-decode exception raised while decoding, e.g. a MemoryError under load.
       Before #127 every one of these was cached as a skip, so a transfer cut short lost
-      the pano for good. The rule is shared with Mapillary; only the 404 differs, for the
-      reason above.
+      the pano for good. The rule is shared with Mapillary; only the 404 differs: Mapillary
+      retries it within the call (its signed URL may have expired), Panoramax returns it
+      after one request. Both leave it uncached.
     """
     last_error = None
     for attempt in range(ATTEMPTS):
         try:
             response = requests.get(url, headers=_headers(), timeout=180)
             if response.status_code in GONE_STATUSES:
-                return None, True, f"Image asset is gone (HTTP {response.status_code})"
+                return None, False, f"Image asset HTTP {response.status_code}"
             response.raise_for_status()
             payload = response.content
             if not _mapillary.body_is_complete(response):

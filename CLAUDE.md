@@ -39,11 +39,12 @@ python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
 # reviews). Bayonne ran in full at --thin-spacing 10 (rule: 10 m if the scan-only estimate > 16 h;
 # it printed 21.1 h at 5 m; the manifest did not record the spacing at the time; since #126 every
 # main-pass run entry records `thin_spacing_m` + `panos_before_thinning` and the run dir is bound
-# to the spacing (Bayonne's manifest predates it -- see the backfill decision on the #126 PR)): 73,161 in-area
+# to the spacing (Bayonne's manifest predates it and was BACKFILLED by hand to 10 m, marked
+# `thin_spacing_backfilled`: run.log + a re-thin of scan.json reproduce the cache exactly)): 73,161 in-area
 # pictures -> 28,634 thinned -> 28,524 processed, 0 failed, 6.7 h on the A40. 104 of the 110
 # skips are GoPro MAX2 uploads whose `hd` image is a vertically CROPPED equirect (declared
 # 7680x3840, served 7680x2940) -- correctly skipped; 3 more are unexplained (#127: truncated body
-# or transient 404). 0.135 detections per pano at 0.55 -- INSIDE the Mapillary range (Clovis
+# or transient 404; both are retryable now, and those 3 were removed from the local cache). 0.135 detections per pano at 0.55 -- INSIDE the Mapillary range (Clovis
 # 0.123 ... Richmond 1.048), worth GT, not anomalous. The municipal rig burns a white logo band
 # from y 0.791 (dip 52.4 deg), inside the nadir mask (2 of 10,011 stored detections there).
 # ERROR MODEL: the leave-one-out residual gained a normalized form (`chi2` = r'S^-1 r, S = the
@@ -941,9 +942,16 @@ image bytes that arrived but do not decode — only PIL's "these bytes are not a
 errors count, so a `MemoryError` mid-decode, a body shorter than its `Content-Length`, and
 PIL's truncated-file `OSError` all stay retryable (#127; both rules shared by Mapillary and
 Panoramax via `sources.mapillary.decode_failure_is_permanent` / `body_is_complete`)) from retryable `failure` (left
-uncached — network/HTTP errors, and a 200 whose Content-Type is not `image/*`). An image **404 differs by source on purpose**: Mapillary's
-`thumb_original_url` is signed and expires, so a 404 there is transient (`failure`);
-Panoramax's `hd` URL is plain, so a 404 there means the pixels are gone (`skipped`).
+uncached — network/HTTP errors, and a 200 whose Content-Type is not `image/*`). An image **404
+is a retryable `failure` in both sources**, for different reasons: Mapillary's
+`thumb_original_url` is signed and expires, so a 404 there is a lapsed signature (retried
+within the call, then left uncached); Panoramax's `hd` URL is plain, but its infrastructure is
+young and flaky, so a 404 is NOT read as the pixels being gone (Jon, 2026-10-05, reversing
+#137). Panoramax also treats a **catalog** (STAC item) 404 the same way — Mapillary's Graph
+API 400/404 is still a cached skip. A Panoramax 404 costs one request per pano (not retried
+within the call), so a picture that really is gone is re-requested on every resume, forever:
+cheap, and deliberate. Each has its own reason (`Image asset HTTP 404`, `Picture not found on
+Panoramax (HTTP 404; ...)`) so a run log can count them.
 - **gsv** (default): z17 coverage tiles + metadata/imagery via streetlevel; the original
   pipeline behavior, including panorama.py below.
 - **mapillary**: z14 vector coverage tiles (`mly1_public`, MVT `image` layer — carries

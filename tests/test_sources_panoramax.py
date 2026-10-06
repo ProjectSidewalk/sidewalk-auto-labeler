@@ -228,10 +228,12 @@ def test_fetch_pano_skips_a_download_that_is_not_2_to_1(monkeypatch):
     assert result["status"] == "skipped" and "5760x2000" in result["reason"]
 
 
-def test_fetch_pano_deleted_picture_is_skipped_not_retried(monkeypatch):
+def test_fetch_pano_catalog_404_is_retryable_not_cached(monkeypatch):
+    # Jon 2026-10-05: Panoramax is young and flaky, so a catalog 404 is a failure (left
+    # uncached, retried next run), not a skip. Its reason stays distinct for the run log.
     _patch_fetch(monkeypatch, None, gone=True)
     result = panoramax.fetch_pano("x", 0.0, 0.0)
-    assert result["status"] == "skipped" and "no longer exists" in result["reason"]
+    assert result["status"] == "failure" and "HTTP 404" in result["reason"]
 
 
 def test_fetch_pano_transient_metadata_failure_is_retryable(monkeypatch):
@@ -245,7 +247,7 @@ def test_fetch_pano_download_failure_is_retryable(monkeypatch):
 
 
 def test_fetch_pano_undecodable_asset_is_skipped_not_retried(monkeypatch):
-    # Bytes that arrived and are not a readable image (or a 404 on the unsigned hd URL)
+    # Bytes that arrived and are not a readable image
     # will not become one on a later run — caching the skip is what stops the area
     # re-downloading the same dead megabytes forever.
     _patch_fetch(monkeypatch, make_item(), image=None, undecodable=True)
@@ -272,11 +274,11 @@ def test_download_image_separates_decode_failure_from_network_failure(monkeypatc
     assert panoramax._download_image("u")[:2] == (None, True)
     assert len(calls) == 1
 
-    # A 404 on the plain, unsigned asset URL is equally permanent.
+    # A 404 on the asset is retryable (next run), but costs one request, not ATTEMPTS.
     calls.clear()
     monkeypatch.setattr(panoramax.requests, "get",
                         lambda url, **kw: calls.append(url) or answer(404, b""))
-    assert panoramax._download_image("u")[:2] == (None, True)
+    assert panoramax._download_image("u") == (None, False, "Image asset HTTP 404")
     assert len(calls) == 1
 
     # A network error is not: retried, then reported as retryable.
@@ -472,15 +474,17 @@ def test_api_url_env_override_points_at_a_single_instance(monkeypatch):
     assert seen == ["https://pano.locus.sbs/api/pictures/abc"]
 
 
-def test_fetch_pano_skip_reasons_separate_a_gone_asset_from_undecodable_bytes(monkeypatch):
-    # Distinct reasons, so a run log can count 404 skips apart from decode skips (#127's
-    # transient-404 question). The 404 itself stays a permanent skip.
+def test_fetch_pano_separates_an_asset_404_from_undecodable_bytes(monkeypatch):
+    # Distinct reasons, so a run log can count 404s apart from decode skips (#127's
+    # transient-404 question). Since 2026-10-05 the 404 is a retryable failure, never a
+    # cached skip; undecodable bytes stay a skip.
     monkeypatch.setattr(panoramax, "fetch_item", lambda picture_id: (make_item(), False))
     monkeypatch.setattr(panoramax.time, "sleep", lambda s: None)
 
     monkeypatch.setattr(panoramax.requests, "get", lambda url, **kw: _asset_response(404, b""))
     result = panoramax.fetch_pano("x", 0.0, 0.0)
-    assert result == {"status": "skipped", "reason": "Image asset is gone (HTTP 404)"}
+    assert result == {"status": "failure",
+                      "reason": "Failed to download equirectangular image (Image asset HTTP 404)"}
 
     monkeypatch.setattr(panoramax.requests, "get",
                         lambda url, **kw: _asset_response(200, b"not a jpeg"))
