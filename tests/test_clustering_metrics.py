@@ -213,3 +213,46 @@ def test_live_position_as_of_a_pull(tmp_path):
     # another endpoint holds nothing
     assert cm.live_positions_as_of(tmp_path, 'https://other/x', '2026-10-01T00:00:00Z') \
         == ({}, [])
+
+
+def test_a_band_sent_after_the_pull_does_not_hide_its_base(tmp_path):
+    # #139 review S1. send_to_ps.write_submission_record moves the BASE entry's
+    # last_submission_utc to the band's time, so a base first sent 09-05 with a band on
+    # 09-22 reads "last 09-22". A 09-10 pull saw the base live: it must be cut on
+    # first_submission_utc, not dropped (which left every pano "unknown").
+    sfm = {'a': (LAT0, LNG0), 'b': (LAT0 + 0.001, LNG0)}
+    results = tmp_path / 'results.band.jsonl'
+    _results(results, sfm)
+    (tmp_path / 'results.band.jsonl.submission.json').write_text(json.dumps(
+        {'input_file': results.name, 'total_lines': 2, 'endpoints': {ENDPOINT: {
+            'submitted_lines': 2, 'labels_submitted': 5, 'min_confidence': 0.3,
+            'first_submission_utc': '2026-09-05T01:05:03Z',
+            'last_submission_utc': '2026-09-22T19:03:45Z',          # bumped by the band
+            'bands': {'0.3-0.55': {'submitted_lines': 2, 'labels_submitted': 2,
+                                   'first_submission_utc': '2026-09-22T19:03:45Z',
+                                   'last_submission_utc': '2026-09-22T19:03:45Z'}}}}}),
+        encoding='utf-8')
+    live, problems = cm.live_positions_as_of(tmp_path, ENDPOINT, '2026-09-10T00:00:00Z')
+    assert problems == [] and live == sfm
+    assert cm.fallback_moved(['a', 'b'], sfm, live) == ([], [])
+    # before the base began, nothing was live
+    assert cm.live_positions_as_of(tmp_path, ENDPOINT, '2026-09-01T00:00:00Z') == ({}, [])
+
+
+def test_a_record_without_first_submission_falls_back_to_last(tmp_path):
+    # _record writes no first_submission_utc (records from before the field)
+    _results(tmp_path / 'results.jsonl', {'a': (LAT0, LNG0)})
+    _record(tmp_path / 'results.jsonl', '2026-09-05T01:39:04Z', 1)
+    assert cm.live_positions_as_of(tmp_path, ENDPOINT, '2026-09-05T01:00:00Z') == ({}, [])
+    assert cm.live_positions_as_of(tmp_path, ENDPOINT, '2026-09-05T02:00:00Z')[0] \
+        == {'a': (LAT0, LNG0)}
+
+
+def test_unreadable_timestamps_are_problems_never_errors(tmp_path):
+    assert cm._utc('not a time') is None and cm._utc(None) is None
+    _results(tmp_path / 'results.jsonl', {'a': (LAT0, LNG0)})
+    _record(tmp_path / 'results.jsonl', 'garbled', 1)
+    live, problems = cm.live_positions_as_of(tmp_path, ENDPOINT, '2026-09-21T00:00:00Z')
+    assert live == {} and len(problems) == 1 and 'garbled' in problems[0]
+    live, problems = cm.live_positions_as_of(tmp_path, ENDPOINT, 'whenever')
+    assert live == {} and 'whenever' in problems[-1]

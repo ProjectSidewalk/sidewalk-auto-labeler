@@ -20,6 +20,7 @@ Example:
     3.0
 """
 import importlib.util
+import json
 import math
 import sys
 from dataclasses import dataclass, field
@@ -270,22 +271,51 @@ LIVE_POSITION_TOL_M = 1.0
 
 def _position_check():
     """The repo-root position_check module. Loaded by path, because scripts/ holds a shim
-    of the same name that `import position_check` would find first from a script."""
+    of the same name that `import position_check` would find first from a script. It is
+    registered in sys.modules only once it has loaded, so a failed load leaves nothing
+    half-initialised behind."""
     mod = sys.modules.get('position_check')
     if mod is not None and hasattr(mod, 'campaigns_for'):
         return mod
     spec = importlib.util.spec_from_file_location('position_check',
                                                   REPO_ROOT / 'position_check.py')
     mod = importlib.util.module_from_spec(spec)
-    sys.modules['position_check'] = mod
     spec.loader.exec_module(mod)
+    sys.modules['position_check'] = mod
     return mod
 
 
 def _utc(stamp):
-    """An ISO 8601 timestamp ('...Z' or '+00:00') as an aware UTC datetime."""
-    t = datetime.fromisoformat(stamp.replace('Z', '+00:00'))
+    """An ISO 8601 timestamp ('...Z' or '+00:00') as an aware UTC datetime, or None when
+    it is missing or cannot be parsed (never raises: a bad stamp is "unknown").
+
+    Example:
+        >>> _utc('2026-09-21T13:34:28Z').isoformat()
+        '2026-09-21T13:34:28+00:00'
+        >>> _utc('yesterday') is None
+        True
+    """
+    if not stamp or not isinstance(stamp, str):
+        return None
+    try:
+        t = datetime.fromisoformat(stamp.replace('Z', '+00:00'))
+    except ValueError:
+        return None
     return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+
+
+def _campaign_start(directory, endpoint, campaign, cache):
+    """When a campaign (one of position_check.campaigns_for's) began sending: its
+    record's `first_submission_utc` for that part (the base entry, or its band), else the
+    campaign's `at` (its last submission) for a record that predates the field."""
+    name = campaign['record']
+    if name not in cache:
+        with open(Path(directory) / name, encoding='utf-8') as f:
+            cache[name] = json.load(f)
+    state = cache[name]['endpoints'].get(endpoint) or {}
+    part = state if campaign['band'] is None else (state.get('bands') or {}).get(
+        campaign['band'], {})
+    return part.get('first_submission_utc') or campaign['at']
 
 
 def live_positions_as_of(directory, endpoint, as_of):
@@ -293,35 +323,54 @@ def live_positions_as_of(directory, endpoint, as_of):
     `directory`: ({panorama_id: (lat, lng)}, [problems]).
 
     position_check.live_positions' rule -- newest campaign wins, per pano -- restricted to
-    the campaigns whose `last_submission_utc` is at or before `as_of` (a pull's
-    `fetched_at`), so it describes the server the pull saw, not the server today. A
-    campaign with no timestamp counts as before any time (live_positions sorts it oldest).
-    Two campaigns with the same timestamp that disagree on a pano are a problem, as there.
-    position_check.campaigns_for's own problems (a record whose results file or partial
-    sidecar is missing) are passed through unfiltered: they carry no timestamp, so the
-    caller has to treat any problem as "cannot tell".
+    the campaigns that had BEGUN by `as_of` (a pull's `fetched_at`), so it describes the
+    server the pull saw, not the server today. A campaign is cut and ordered on its
+    `first_submission_utc` (its `last_submission_utc` when the record has no first), not
+    on its last: send_to_ps.write_submission_record moves a base campaign's
+    `last_submission_utc` to the time of a band sent on top of it, so cutting on the last
+    one would drop a base that was live long before the pull (#139 review S1). A campaign
+    still running at `as_of` is counted whole; the records cannot say which of its panos
+    had been sent by then. A campaign with no timestamp counts as before any time
+    (live_positions sorts it oldest); one whose timestamp cannot be parsed, or an
+    unparsable `as_of`, is a problem. Two campaigns that started at the same time and
+    disagree on a pano are a problem, as in live_positions. position_check.campaigns_for's
+    own problems (a record whose results file or partial sidecar is missing) are passed
+    through unfiltered: they carry no timestamp, so the caller has to treat any problem as
+    "cannot tell".
 
     Example:
         A pano sent at SfM on 09-05 and re-sent at raw GPS on 09-24 is at SfM as of a
-        09-21 pull, and at raw as of a 09-28 one.
+        09-21 pull, and at raw as of a 09-28 one -- and a band sent on 09-22 over the
+        09-05 campaign does not hide the 09-05 positions from a 09-10 pull.
     """
     pc = _position_check()
     campaigns, problems = pc.campaigns_for(directory, endpoint)
+    problems = list(problems)
     cutoff = _utc(as_of)
-    kept = [c for c in campaigns if not c['at'] or _utc(c['at']) <= cutoff]
+    if cutoff is None:
+        return {}, problems + [f'the pull time {as_of!r} cannot be read']
+    oldest = datetime.min.replace(tzinfo=timezone.utc)
+    kept, cache = [], {}
+    for c in campaigns:
+        start = _campaign_start(directory, endpoint, c, cache)
+        when = _utc(start)
+        if start and when is None:
+            problems.append(f"{c['campaign']}: its submission time {start!r} cannot be read")
+            continue
+        when = when or oldest
+        if when <= cutoff:
+            kept.append((when, c))
     live, at, tied = {}, {}, set()
-    for c in sorted(kept, key=lambda c: _utc(c['at']) if c['at']
-                    else datetime.min.replace(tzinfo=timezone.utc)):
-        lines = c['line_numbers']
-        for pid, ll in pc.pano_positions_by_id(c['path'], lines).items():
-            if pid in live and at[pid] == c['at'] and not pc.same_position(live[pid], ll):
+    for when, c in sorted(kept, key=lambda wc: wc[0]):
+        for pid, ll in pc.pano_positions_by_id(c['path'], c['line_numbers']).items():
+            if pid in live and at[pid] == when and not pc.same_position(live[pid], ll):
                 tied.add(pid)
-            elif pid in live and at[pid] != c['at']:
+            elif pid in live and at[pid] != when:
                 tied.discard(pid)       # strictly newer: an earlier tie is superseded
-            live[pid], at[pid] = ll, c['at']
+            live[pid], at[pid] = ll, when
     if tied:
-        problems = problems + [f'{len(tied)} pano(s) were sent at different coordinates by '
-                               'campaigns recorded at the same time']
+        problems.append(f'{len(tied)} pano(s) were sent at different coordinates by '
+                        'campaigns that started at the same time')
     return live, problems
 
 
@@ -367,7 +416,6 @@ def human_votes(validations):
         d += kind == 'Disagree'
         u += kind == 'Unsure'
     return a, d, u
-
 
 
 # ------------------------------------------------------------------------- scoring
@@ -530,6 +578,7 @@ TABLE_HEADER = (
     "frag 3 m (extra) | frag 5 m (extra) | dual both/one/neither "
     "| coherence med / p90 / >5 m |\n"
     "|---|---:|---:|---:|---:|---|---|---:|---|---|---|---|---|---|")
+
 
 def table_legend(results):
     """The legend under the arms table. The self-detected / pool counts are read

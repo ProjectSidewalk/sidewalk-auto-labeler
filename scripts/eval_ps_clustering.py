@@ -523,6 +523,30 @@ def fallback_check(run_dir, labels_path, pano_ids, run_by_id):
     return moved, unknown, None
 
 
+def fallback_line(moved, unknown, n_fallback, reason):
+    """The report line for fallback_check's result. It passes only when every fallback
+    pano was checked and none moved: a pano no campaign had sent by the pull's fetch time
+    has no live position to compare with, so any such pano makes the line `undetermined`
+    and a warning, never a pass (#139 review S1).
+
+    Example:
+        >>> fallback_line([], ['a'], 3, None).split(': ', 1)[0]
+        '- warning'
+        >>> fallback_line([], [], 3, None).endswith('hold): 0 of 3')
+        True
+    """
+    text = ("run-block fallback panos whose live position at the pull's fetch time "
+            f"differs from the run's block by more than {LIVE_POSITION_TOL_M:g} m "
+            '(labels placed from a position this file does not hold): ')
+    if moved is None:
+        return f'- {text}n/a ({reason})'
+    if unknown:
+        return (f'- warning: {text}undetermined: {len(unknown)} of {n_fallback} were sent '
+                'by no campaign as of the pull, so not checked; '
+                f'{len(moved)} of the other {n_fallback - len(unknown)} moved')
+    return f"- {'' if not moved else 'warning: '}{text}{len(moved)} of {n_fallback}"
+
+
 # ---------------------------------------------------------------- the PS algorithm
 
 def ps_linkage(sub):
@@ -1729,16 +1753,7 @@ def run(args):
         'taken before any reposition)', srv_stats['inverted_far'] == 0))
     # #133: the panos positioned from the run's block, against the position each was live
     # at when the pull was taken (inverted_far above sees inverted panos only)
-    fb_text = ("run-block fallback panos whose live position at the pull's fetch time "
-               f"differs from the run's block by more than {LIVE_POSITION_TOL_M:g} m "
-               '(labels placed from a position this file does not hold): ')
-    if fb_moved is None:
-        lines.append(f'- {fb_text}n/a ({fb_reason})')
-    else:
-        lines.append(check_line(
-            f"{fb_text}{len(fb_moved)} of {srv_stats['run_position']}"
-            + (f' ({len(fb_unknown)} sent by no campaign as of the pull, so not checked)'
-               if fb_unknown else ''), not fb_moved))
+    lines.append(fallback_line(fb_moved, fb_unknown, srv_stats['run_position'], fb_reason))
     lines.append(
         f"- camera-position inversion vs the run's position: from the AI account's labels "
         f"(the arm's rule), over {len(inv_err_ai)} panos: median "

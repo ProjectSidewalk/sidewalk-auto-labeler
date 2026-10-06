@@ -363,3 +363,34 @@ def test_fallback_check_reads_the_campaigns_live_when_the_pull_was_taken(tmp_pat
     (tmp_path / 'raw_labels.geojson.source.json').unlink()
     assert epc.fallback_check(run_dir, after, ['p'], run)[2] == \
         'the pull records no url or fetch time'
+
+
+def test_fallback_check_with_a_band_after_the_pull(tmp_path):
+    # #139 review S1, the reviewer's case: base first sent 09-05, a band on 09-22 (which
+    # bumps the base entry's last_submission_utc to 09-22), a pull on 09-10. The base was
+    # live at the pull, so the pano is checked -- not left "unknown" behind a passing line.
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    ep = 'https://ps.example/ai/submitLabelsOnPano'
+    (run_dir / 'results.jsonl').write_text(json.dumps(
+        {'pano': {'panorama_id': 'p', 'lat': LAT0, 'lng': LNG0}}) + '\n', encoding='utf-8')
+    (run_dir / 'results.jsonl.submission.json').write_text(json.dumps(
+        {'input_file': 'results.jsonl', 'total_lines': 1, 'endpoints': {ep: {
+            'submitted_lines': 1, 'labels_submitted': 2, 'min_confidence': 0.3,
+            'first_submission_utc': '2026-09-05T01:05:03Z',
+            'last_submission_utc': '2026-09-22T19:03:45Z',
+            'bands': {'0.3-0.55': {'submitted_lines': 1, 'labels_submitted': 1,
+                                   'first_submission_utc': '2026-09-22T19:03:45Z',
+                                   'last_submission_utc': '2026-09-22T19:03:45Z'}}}}}),
+        encoding='utf-8')
+    run = {'p': fs.SlimPano('p', LAT0, LNG0, 0.0, None, None, '2025-06', 'gsv', [])}
+    pull = _pull(tmp_path, '2026-09-10T00:00:00+00:00')
+    moved, unknown, reason = epc.fallback_check(run_dir, pull, ['p'], run)
+    assert (moved, unknown, reason) == ([], [], None)
+    assert epc.fallback_line(moved, unknown, 1, reason).endswith('hold): 0 of 1')
+    # a pull before the base began: nothing was live, so the line is undetermined, not a pass
+    early = _pull(tmp_path, '2026-09-01T00:00:00+00:00')
+    moved, unknown, reason = epc.fallback_check(run_dir, early, ['p'], run)
+    assert unknown == ['p']
+    line = epc.fallback_line(moved, unknown, 1, reason)
+    assert line.startswith('- warning: ') and 'undetermined: 1 of 1' in line

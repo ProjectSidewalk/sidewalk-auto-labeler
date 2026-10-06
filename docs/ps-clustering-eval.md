@@ -422,8 +422,10 @@ evaluation arm only and changes no SidewalkWebpage code.
   neither is left out, but its labels still become singleton clusters. The report counts
   each case, and it warns when an inverted position sits more than 1 m from the run's
   block. The report also checks the fallback panos against the position they were live at
-  when the pull was taken (campaign records as of the pull's fetch time), so a pull taken
-  after a reposition cannot silently keep them at the run's block (#133; 0 of 661 fallback
+  when the pull was taken (campaign records as of the pull's fetch time, each campaign cut
+  on its first submission, since a band bumps its base campaign's last one), so a pull taken
+  after a reposition cannot silently keep them at the run's block; a fallback pano no
+  campaign had sent by then makes the line `undetermined`, never a pass (#133; 0 of 661 fallback
   panos on Richmond's 2026-09-21 pull, 9 of them posfix3seq panos, and 0 of 74 on Laurens'
   2026-09-28 pull). Two refinements (2026-10-04, #107 review pass): the AI account's labels are
   inverted when a pano has any, and the other accounts' only when it has none, because a
