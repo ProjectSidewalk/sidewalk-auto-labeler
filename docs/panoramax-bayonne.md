@@ -110,7 +110,9 @@ re-thinning the reused `scan.json` at 10 m reproduces the 28,634 ids of
   infrastructure is young and a 404 may be transient. A picture that really is gone is
   re-requested once per resume, forever, which is cheap. These 3 ids were removed from the
   local `already_processed.txt` (backup `already_processed.txt.bak-2026-10-05`), so the
-  next resume retries them; the 107 explained skips stay cached.
+  next resume retries them; the 107 explained skips stay cached. Whether any 404 cached
+  as a skip before that change was still in a local cache was checked on 2026-10-06:
+  none remain (the 110 here are classified in `data/skips.csv`).
 
 No HTTP 429 or 5xx failures occurred on either instance.
 

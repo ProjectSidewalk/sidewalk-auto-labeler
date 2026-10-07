@@ -248,10 +248,13 @@ def image_url(item):
 def fetch_item(picture_id):
     """(STAC item, gone) for one picture.
 
-    `gone` is True only when the catalog positively says it has no such picture (404),
-    which no amount of retrying will fix, so the retry loop short-circuits. A transient
-    failure (network, 5xx) returns (None, False) after ATTEMPTS tries — the same
-    "source decayed" vs "our fetch failed" distinction the Mapillary source draws.
+    `gone` is True only when the catalog positively says it has no such picture (404).
+    That answer comes after ONE request: the in-call retry loop short-circuits, since a
+    second request in the same call would say the same thing. export_benchmark.py counts
+    it as GONE (listed in its decayed.txt), but fetch_pano reports it as a RETRYABLE
+    failure, never a cached skip (see GONE_STATUSES), so the next resume asks again.
+    A transient failure (network, 5xx) returns (None, False) after ATTEMPTS tries — the
+    same "source decayed" vs "our fetch failed" distinction the Mapillary source draws.
     """
     url = f'{api_url()}/pictures/{picture_id}'
     for attempt in range(ATTEMPTS):
