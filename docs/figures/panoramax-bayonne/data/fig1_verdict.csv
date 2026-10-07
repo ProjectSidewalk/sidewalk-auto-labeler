@@ -1,5 +1,5 @@
 run,subset,rig,gopro_max,n_views,n_sites,chi2_dof,chi2_dof_median,m_p50,chi2_dof_lo,chi2_dof_median_lo,m_p50_lo,chi2_dof_hi,chi2_dof_median_hi,m_p50_hi
-bayonne,all,Max,1,1039,281,0.5799,0.5823,3.6641,0.539,0.5218,3.4336,0.6175,0.6465,3.854
+bayonne,all,Max,1,3626,793,0.5556,0.5595,3.4428,0.5357,0.5291,3.3344,0.5755,0.5878,3.547
 richmond,all,GoPro Max+iSTAR Pulsar+none,0,7235,945,0.2686,0.1812,1.95,0.2567,0.171,1.8858,0.2818,0.1922,2.0179
 richmond,GoPro Max,GoPro Max,1,1301,472,0.4993,0.4529,3.1342,0.4671,0.4167,2.9593,0.5319,0.5032,3.3092
 richmond,iSTAR Pulsar,iSTAR Pulsar,0,5230,813,0.1942,0.1358,1.689,0.1844,0.1261,1.622,0.2052,0.1451,1.7556

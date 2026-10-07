@@ -54,28 +54,33 @@ python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
 # re-anchored on Richmond (0.269) before Bayonne was read. The amendment's stated mechanism
 # (shared same-sequence error cancels) is NOT ESTABLISHED: Richmond reads the opposite way.
 # What is measured: its 3 m sigma_gps is ~2.7x Richmond's leave-one-out-calibrated between-view
-# scatter (1.11 m). Bayonne: 0.580 [0.539, 0.618] (median form 0.582), m p50 3.66 -> TOO TIGHT
-# under the amended rule, but MARGINAL (bar 0.538) and confounded: Mapillary GoPro Max
-# populations read 0.18-0.50 (Richmond's GoPro Max views 0.499, Laurens 0.431, Morgantown 0.177),
-# and Bayonne sites are small (3 views / 2 sequences vs Richmond's 7 / 4, 10 m thinning), so it
-# cannot be separated from a single-consumer-rig or site-size effect. The excess is ACROSS the ray
-# (vs Richmond's GoPro Max views re-solved alone: along-ray +0.5..-0.5 m, cross-ray +0.6-1.0 m), not
-# pitch: no sigma_pitch <= 15 deg fixes it. Calibrated sigma_gps: Bayonne 2.16 m vs Richmond 1.11,
-# Richmond GoPro Max 1.81, Laurens 1.74, Morgantown 0.80. NOTHING adopted -- error_model_for(
-# 'panoramax') stays MAPILLARY_ERRORS until GT (eval_sites) and a 5 m run. Pose: pers:pitch/roll
-# LOOSENS the same-site spread in every sign convention (real-tilt p90 7.58 -> 9.45-11.27 m at
-# 0.55), so Panoramax stays flat. GT: the RampNet bundle (125 panos, reconcile 1:1) awaits review.
+# scatter (1.11 m). Bayonne, MEASURED ON THE 5 m RUN (#147; doc s2 keeps a 10 m vs 5 m table):
+# 0.556 [0.536, 0.576] (median form 0.559), m p50 3.44 -> still TOO TIGHT under the amended rule
+# on the point estimate, but only 3% over the 0.538 bar and the CI now INCLUDES it (10 m: 0.580
+# [0.539, 0.618], 8% over). Rig confound stands: Mapillary GoPro Max populations read 0.18-0.50
+# (Richmond's GoPro Max views 0.499, Laurens 0.431, Morgantown 0.177; Bayonne 1.11x Richmond's).
+# The site-size confound mostly went away: sites grew 3 -> 4 views, chi2/dof fell only 0.024, and
+# within the run there is no trend by site size (0.549 / 0.535 / 0.579). The excess is ACROSS the
+# ray (vs Richmond's GoPro Max views re-solved alone: along-ray +0.2..-0.5 m, cross-ray +0.6-0.8 m),
+# not pitch: no sigma_pitch <= 15 deg fixes it. Calibrated sigma_gps: Bayonne 2.10 m vs Richmond
+# 1.11, Richmond GoPro Max 1.81, Laurens 1.74, Morgantown 0.80. NOTHING adopted -- error_model_for(
+# 'panoramax') stays MAPILLARY_ERRORS; GT (eval_sites) or a second Panoramax city decides. Pose:
+# pers:pitch/roll LOOSENS the same-site spread in every sign convention (real-tilt p90 7.56 ->
+# 9.85-13.20 m at 0.55, 225 groups), so Panoramax stays flat. GT: the RampNet bundle (125 panos,
+# sampled from the 10 m run, reconcile 1:1) awaits review.
 # DENSIFIED TO 5 m (#147, 2026-10-06; doc s1.1): manifest rebound 10 -> 5 by hand
 # (`thin_spacing_changed`), resumed on Hyak with --reuse-scan --thin-spacing 5 -> 50,528 thinned,
 # 21,885 new processed / 12 MAX2 skips / 0 failed; runs/bayonne now holds 50,409 panos (0.148 per
-# pano at 0.55, census in data/census_5m/). Everything above (error model, figures) is the 10 m run.
+# pano at 0.55, census in data/census_5m/). The error model and Figures 1-6/7b are the 5 m run;
+# skips.csv, Figures 7a/7c/7d and the bundle stay on the 10 m run (redrawing them needs network).
 python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
 python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse \
     --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
 python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bayonne_figures.py figures
-#   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~45 min, no GPU/network; --only
-#   for parts); skips / examples: network; crops: from the RampNet bundle; figures: committed
-#   data only, byte-reproducible (PNG + LF SVG)
+#   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~55 min, no GPU/network,
+#   byte-reproducible; --only for parts, refused without `inputs` if a run file's hash moved);
+#   skips / examples: network; crops: from the RampNet bundle; figures: committed data only,
+#   byte-reproducible (PNG + LF SVG)
 # LYON (RampNet#159 training-only Panoramax city; docs/panoramax-lyon.md). Slice 1 ran on makelab2's
 # A40 from a separate worktree (~/sal-lyon): --reuse-scan --thin-spacing 10 --limit 40000, i.e. the
 # first 40,000 of the 10 m set's sorted UUIDv4 ids (a uniform subset); runs/lyon is BOUND to 10 m, so a

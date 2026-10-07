@@ -1,8 +1,8 @@
 run,seq_mates,n_views,share_of_views,chi2_dof,chi2_dof_lo,chi2_dof_hi,chi2_dof_median,m_p50,views_per_site_p50,site_views_p50,site_sequences_p50
-bayonne,all_same,189,0.1819,0.4233,0.3476,0.4994,0.3733,2.9875,3,,
-bayonne,some,520,0.5005,0.5508,0.4996,0.6063,0.5614,3.5382,4.0,,
-bayonne,none,330,0.3176,0.7155,0.6434,0.7883,0.8322,4.1716,3.0,,
-bayonne,site_makeup,1039,,,,,,,,3,2
+bayonne,all_same,403,0.1111,0.4183,0.359,0.4782,0.336,2.8429,3,,
+bayonne,some,2066,0.5698,0.517,0.4908,0.5433,0.5143,3.2193,5.0,,
+bayonne,none,1157,0.3191,0.6723,0.6396,0.7063,0.7459,4.0011,4,,
+bayonne,site_makeup,3626,,,,,,,,4,2
 richmond,all_same,299,0.0413,0.4042,0.3459,0.4714,0.3437,2.6896,4,,
 richmond,some,4808,0.6645,0.2525,0.2391,0.267,0.1624,1.8121,10.0,,
 richmond,none,2128,0.2941,0.2858,0.2685,0.305,0.2093,2.1684,8.0,,
