@@ -158,7 +158,11 @@ submitted 04:32 UTC), with `sal_lyon_thinexp.sbatch`.
 - **Position check:** A and B ran it at the end of the job. C's Overpass query failed
   (HTTP 504), so it was re-run locally with
   `python scripts/position_check.py runs/thinexp_lyon_c --report`, as #144 did for
-  Richmond; C's manifest therefore has no `position_check` block. Panoramax is never gated.
+  Richmond. Panoramax is never gated. The Overpass failure also ended C's job non-zero
+  (Slurm state FAILED; A and B COMPLETED) and left its manifest without even the
+  `position_check` error note: `position_check` raises `SystemExit` when every mirror
+  fails, and `main.run_position_check` caught only `Exception`. The detections were
+  already on disk. Fixed in the #156 review (main.py now catches `SystemExit` there too).
 - The box rates are below the canonical slice 2's 2.505 panos/s on the same partition.
   Short jobs on shared nodes spend proportionally more time on image fetches; the
   densify estimate is given at both rates.

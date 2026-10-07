@@ -837,7 +837,9 @@ def run_position_check(run_dir, manifest_path, manifest):
             result = existing
         else:
             result = position_check.run_check(run_dir)
-    except Exception as e:  # network, Overpass, a malformed line — never fail the run here
+    # SystemExit too: position_check is also a CLI, and fetch_streets raises SystemExit when
+    # every Overpass mirror fails (a 504 ended box C's job of #148 as FAILED this way).
+    except (Exception, SystemExit) as e:  # network, Overpass, a malformed line — never fail the run here
         print(f"⚠ Position check did not run ({e}). The detections are safe; run it by hand: "
               f"python scripts/position_check.py {run_dir.as_posix()} --report")
         manifest['position_check'] = {'checked_at': checked_at, 'error': str(e)}
