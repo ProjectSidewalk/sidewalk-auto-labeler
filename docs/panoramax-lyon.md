@@ -14,6 +14,11 @@ diagnostic. Its rate was low but in range: 0.135 per pano at 0.55, against Richm
 
 This is **slice 1**: 40,000 of the 86,942 panos in the 10 m set. It is not "Lyon".
 
+**Update 2026-10-07:** the whole 10 m set has since finished (86,889 processed). Sections
+0-6 below still describe slice 1 and its committed data; the completed run is in
+[section 7](#7-full-10-m-run-completed-2026-10-06), and whether to densify it to 5 m is
+[docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md) (#148).
+
 > **Key takeaways**
 >
 > 1. **Lyon's slice detects about 3x Bayonne's rate.** It reads **0.391** detections per
@@ -372,3 +377,60 @@ Alt text, in order:
   by producer as well as by camera model, so that one high-yield operator (ecartip) does
   not dominate the Lyon training set. ecartip's above-horizon detections and unlevelled
   pose need a look before its panos feed any geometric mining.
+
+## 7. Full 10 m run (completed 2026-10-06)
+
+The remaining 46,942 panos of the 10 m set ran on Hyak, not makelab2: job **41472534**
+(`ckpt-g2`, one L40S, `sal_lyon_ckpt.sbatch` in a plain clone of main at `8490974`),
+`main.py example_geojson/lyon.geojson --name lyon --source panoramax --reuse-scan --thin-spacing 10`
+with no `--limit`, on the same 2026-10-06 04:46 UTC scan. The run dir there
+(`/gscratch/makelab/jfroehli/sidewalk-auto-labeler/repo-main/runs/lyon`) is canonical; the
+makelab2 `~/sal-lyon` copy holds slice 1 only.
+
+| | slice 1 (makelab2 A40) | slice 2 (Hyak L40S, job 41472534) | whole 10 m set |
+|---|---:|---:|---:|
+| processed | 39,975 | 46,914 | **86,889** of 86,942 |
+| skipped | 25 | 28 | 53 (0.06%) |
+| failed | 0 | 0 | 0 |
+| wall time (UTC) | 10-06 04:49-13:42 | 10-06 16:12-21:24 | |
+| rate (`detector:` line) | 1.251 panos/s | **2.505** panos/s (18,436 s in forward over 18,728 s) | |
+
+- **Skips:** 52 `No heading (view:azimuth)` and one `Not a full 360x180 equirectangular
+  (12416x2096)` (a vertically cropped `hd`, like Bayonne's MAX2 uploads). All are cached,
+  never retried. `run2.log` lists each id.
+- **Detections, whole set:** **0.390** per pano at 0.55 (33,872) and 0.867 at 0.30 (75,372);
+  on rig 66 / 549. Slice 1 read 0.391 / 0.869, so the slice was a fair sample.
+  *`docs/figures/panoramax-lyon/data/census/lyon_full/detections.csv`.*
+- **Mix, whole set:** GoPro Max 5760x2880 56.4%, Ladybug 8192x4096 21.1%, make-less
+  8192x4096 15.1%; 2026 40.5%; ecartip 33.7%, Grand Lyon 36.1% (both spellings). The
+  operator reading of section 2 holds: ecartip GoPro Max 2026 reads 0.640 per pano at 0.55
+  (23,776 panos, 360 sequences), ign_ddc_dtce_np 0.392, ign_ddc_dtce_fa 0.228.
+  *`data/census/lyon_full/{rigs,years,producers,rig_detections}.csv`,
+  `data/full/rig_producer_detections.csv`.*
+- **Position check:** median cross-track 1.58 m (IQR 0.65-3.61, p95 13.98; 78,506 panos
+  scored), 8,383 panos more than 30 m from a street, `flagged` 0.
+  *`runs/lyon/position_check.json`.*
+
+The census CSVs went to `data/census/lyon_full/` and `data/full/`, not over slice 1's, so
+every number in sections 0-6 still reads from the files it names. `census/lyon_full/` was
+written with [PR #150](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/150)'s
+`run_census.py` (email-shaped producer names masked); this branch carries none of #150's
+code.
+
+| file | sha256 |
+|---|---|
+| `runs/lyon/results.jsonl` (86,889 lines; Hyak and local, verified equal) | `6e8a11739a75eac1db85cd971323d95283d7f40c8cad98cc59ec4b8f907578e8` |
+| `runs/lyon/scan.json` (unchanged since slice 1) | `20339fea38e9476e089977de29cccb52c8d3e8497c4f1377d21d4175ea93561b` |
+| `runs/lyon/already_processed.txt` (86,942 ids) | `816fa4c98a59216d6309a30197e95533efd7757fef67edcedad1db867fd614ac` |
+| `runs/lyon/manifest.json` (committed) | `c566a75a835de83b32b14f17788edd4fc3ed064b33f0daf525ca5c6efd2b36c0` |
+| `runs/lyon/run2.log` (Hyak `lyon_41472534.log`, not committed) | `ced0ff777cd4150402169036cbb6a2aedeaf44b2b882068c39eb2ac595cd0c73` |
+
+Regenerate the two tables (no network, no GPU, ~1 min each):
+
+```
+python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon_full --band-y 0.79   # with #150's run_census.py
+python scripts/panoramax_lyon_figures.py rig-producers --out docs/figures/panoramax-lyon/data/full
+```
+
+Section 6's "remaining slices" is done. The native-res archive (#146) now covers 86,889
+panos, and the 5 m question is [docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md).

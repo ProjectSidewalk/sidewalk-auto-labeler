@@ -8,6 +8,7 @@ Two subcommands, so that what needs the run files and what needs neither stay ap
                  network, no GPU; scan.json is gitignored, so this is the one step that
                  needs a local scan.
     rig-producers  runs/lyon/results.jsonl -> data/rig_producer_detections.csv
+                 (--out data/full for the completed 10 m run, docs section 7)
                  Detections per pano per (rig, year, producer) group of >= 200 panos;
                  separates rig from operator. No network, no GPU.
     figures      committed CSVs only -> fig1_rig_rates, fig2_years as PNG (200 dpi) +
@@ -87,7 +88,7 @@ def census_scan(scan_path):
 
 
 # =================================================================== rig-producers
-def rig_producers(results_path, min_panos=200):
+def rig_producers(results_path, min_panos=200, out_dir=DATA):
     """Detections per pano per (rig, capture year, producer) for groups >= min_panos.
 
     In Lyon a camera model is mostly one operator's (ecartip drives most GoPro Max 2026
@@ -129,9 +130,10 @@ def rig_producers(results_path, min_panos=200):
                     above[key] += 1
                 else:
                     dips.setdefault(key, []).append((y - 0.5) * 180.0)
-    DATA.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     b = f'{BENCHMARK_CONFIDENCE:g}'
-    with open(DATA / 'rig_producer_detections.csv', 'w', newline='\n', encoding='utf-8') as f:
+    with open(out_dir / 'rig_producer_detections.csv', 'w', newline='\n', encoding='utf-8') as f:
         w = csv.writer(f, lineterminator='\n')
         w.writerow(['camera_make', 'camera_model', 'dimensions', 'capture_year', 'producer',
                     'panos', 'sequences',
@@ -147,7 +149,7 @@ def rig_producers(results_path, min_panos=200):
                             kb, on_rig[key], round(above[key] / kb, 4) if kb else '',
                             round(statistics.median(dip), 1) if dip else '',
                             round(zeros[key] / k, 4)])
-    print(f'wrote {DATA / "rig_producer_detections.csv"}')
+    print(f'wrote {out_dir / "rig_producer_detections.csv"}')
 
 
 # ========================================================================= figures
@@ -296,12 +298,14 @@ def main():
     cs.add_argument('--scan', default=str(REPO_ROOT / 'runs' / 'lyon' / 'scan.json'))
     rp = sub.add_parser('rig-producers')
     rp.add_argument('--results', default=str(REPO_ROOT / 'runs' / 'lyon' / 'results.jsonl'))
+    rp.add_argument('--out', default=str(DATA),
+                    help='output dir (default the slice-1 data dir; the full 10 m run writes data/full/)')
     sub.add_parser('figures')
     args = ap.parse_args()
     if args.cmd == 'census-scan':
         census_scan(args.scan)
     elif args.cmd == 'rig-producers':
-        rig_producers(args.results)
+        rig_producers(args.results, out_dir=args.out)
     else:
         plt = _style()
         fig1_rig_rates(plt)
