@@ -72,6 +72,10 @@ python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
 # 'panoramax') stays MAPILLARY_ERRORS until GT (eval_sites) and a 5 m run. Pose: pers:pitch/roll
 # LOOSENS the same-site spread in every sign convention (real-tilt p90 7.58 -> 9.45-11.27 m at
 # 0.55), so Panoramax stays flat. GT: the RampNet bundle (125 panos, reconcile 1:1) awaits review.
+# DENSIFIED TO 5 m (#147, 2026-10-06; doc s1.1): manifest rebound 10 -> 5 by hand
+# (`thin_spacing_changed`), resumed on Hyak with --reuse-scan --thin-spacing 5 -> 50,528 thinned,
+# 21,885 new processed / 12 MAX2 skips / 0 failed; runs/bayonne now holds 50,409 panos (0.148 per
+# pano at 0.55, census in data/census_5m/). Everything above (error model, figures) is the 10 m run.
 python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
 python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse \
     --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too

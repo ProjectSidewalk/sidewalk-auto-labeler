@@ -46,6 +46,26 @@
         "model_training_date": "08-21-2025",
         "api_version": "1.0.0"
       }
+    },
+    {
+      "started_at": "2026-10-06T16:45:21+00:00",
+      "finished_at": "2026-10-06T19:11:02+00:00",
+      "panos_found_in_area": 50528,
+      "processed": 21885,
+      "skipped": 12,
+      "failed": 0,
+      "scan": "reused",
+      "scan_scanned_at": "2026-09-30T22:56:20+00:00",
+      "scan_age_hours": 137.8,
+      "thin_spacing_m": 5,
+      "panos_before_thinning": 73161,
+      "model": {
+        "model_repo": "projectsidewalk/rampnet-model",
+        "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+        "model_id": "rampnet-model@606a11956743",
+        "model_training_date": "08-21-2025",
+        "api_version": "1.0.0"
+      }
     }
   ],
   "legacy_model_provenance": {
@@ -56,15 +76,15 @@
   "model_repo": "projectsidewalk/rampnet-model",
   "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
   "position_check": {
-    "checked_at": "2026-10-01T05:39:36Z",
-    "results_sha256": "4f38ff528d4445b21eb02e99427e0ba3c88dfb5c940cc4702a283182e379b4b3",
+    "checked_at": "2026-10-06T19:11:08Z",
+    "results_sha256": "cb03768cc4cefd0bcb9792e18ff339ad798e43fd3e560deee431387796d6eeef",
     "submitted_field": null,
     "flagged": 0,
     "both_off": 0,
     "rule": "paired-unsigned-v1 (issue #62)",
-    "panos_not_near_a_street": 4027
+    "panos_not_near_a_street": 6113
   },
-  "thin_spacing_m": 10,
+  "thin_spacing_m": 5,
   "thin_spacing_backfilled": {
     "at": "2026-10-05",
     "how": "by hand (issue #126 follow-up), not by main.py; no thin_spacing_bound_on_resume because no resume has bound it",
@@ -74,5 +94,13 @@
       "scan.json (73,161 panos, the reused scan) re-thinned with sources.panoramax.thin_panos at 10 m gives exactly the 28,634 ids in already_processed.txt (set-equal); at 5 m it gives 50,528",
       "docs/panoramax-bayonne.md: command used --thin-spacing 10 (pre-stated rule: 10 m when the scan-only estimate exceeds 16 h; it printed 21.1 h)"
     ]
+  },
+  "thin_spacing_changed": {
+    "at": "2026-10-06",
+    "from_m": 10,
+    "to_m": 5,
+    "how": "by hand (issue #147), not by main.py",
+    "why": "thinning experiment (PR #144): on a Bayonne sub-area 10 m keeps 81% of robust sites at 0.30 vs 99% at 5 m",
+    "effect": "runs[2] processed the 10 m set; the following resume appends the 5 m cells it lacks. Re-thinning the same reused scan.json (73,161 panos) gives a 10 m set (28,634) that is an exact subset of the 5 m set (50,528), so the finished results.jsonl is exactly the 5 m population, not a mix"
   }
 }
