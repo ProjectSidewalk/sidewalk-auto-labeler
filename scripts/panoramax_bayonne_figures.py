@@ -166,7 +166,38 @@ def _write(name, rows):
     print(f'wrote {DATA / name} ({len(rows)} rows)')
 
 
-DATA_PARTS = ('inputs', 'fig1', 'fig2a', 'fig2b', 'fig3', 'pairs', 'fig4', 'fig5', 'fig6',
+def _refuse_changed_inputs(run_root):
+    """Exits when a partial `data --only ...` run would read run files other than the ones
+    the committed data/inputs.csv certifies.
+
+    Without the `inputs` part, inputs.csv is not rewritten, so a part regenerated from a
+    changed run would sit beside parts from the old one under the old hashes. That is a
+    live case: runs/bayonne was densified from 10 m to 5 m (#147) after every committed
+    CSV was made, so `data --only fig5` would put a 5 m fig5 beside a 10 m fig1-fig4.
+    A run whose --only includes `inputs` (or a full `data` run) rewrites inputs.csv and is
+    not checked.
+    """
+    path = DATA / 'inputs.csv'
+    if not path.exists():
+        return
+    with open(path, newline='', encoding='utf-8') as f:
+        rows = list(csv.DictReader(f))
+    changed = []
+    for row in rows:
+        rel = Path(row['file'])
+        local = run_root / rel.relative_to('runs') if rel.parts[0] == 'runs' else run_root / rel
+        actual = _sha256(local) if local.exists() else 'missing'
+        if actual != row['sha256']:
+            changed.append(f"   {row['file']}: inputs.csv {row['sha256'][:12]}..., "
+                           f"now {actual[:12]}{'...' if actual != 'missing' else ''}")
+    if changed:
+        sys.exit("❌ --only without `inputs`, but these run files differ from data/inputs.csv:\n"
+                 + "\n".join(changed)
+                 + "\n   Regenerating only some parts would mix two runs under the old hashes.\n"
+                   "   Re-run every part (omit --only) so inputs.csv and every CSV move together.")
+
+
+DATA_PARTS = ('inputs','fig1', 'fig2a', 'fig2b', 'fig3', 'pairs', 'fig4', 'fig5', 'fig6',
               'fig7b')
 
 
@@ -178,6 +209,8 @@ def cmd_data(args):
     run_root = args.run_root
     cities = (CITY,) + COMPARATORS
     parts = set(args.only or DATA_PARTS)
+    if 'inputs' not in parts:
+        _refuse_changed_inputs(run_root)
     loaded = {c: _load_city(run_root, c, BENCHMARK_CONFIDENCE) for c in cities}
 
     if 'inputs' in parts:
