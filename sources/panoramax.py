@@ -253,8 +253,9 @@ def fetch_item(picture_id):
     second request in the same call would say the same thing. export_benchmark.py counts
     it as GONE (listed in its decayed.txt), but fetch_pano reports it as a RETRYABLE
     failure, never a cached skip (see GONE_STATUSES), so the next resume asks again.
-    A transient failure (network, 5xx) returns (None, False) after ATTEMPTS tries — the
-    same "source decayed" vs "our fetch failed" distinction the Mapillary source draws.
+    Any other failure (network, 5xx, any non-404 HTTP error such as 403/429, an
+    unparseable body) returns (None, False) after ATTEMPTS tries — the same "source
+    decayed" vs "our fetch failed" distinction the Mapillary source draws.
     """
     url = f'{api_url()}/pictures/{picture_id}'
     for attempt in range(ATTEMPTS):
