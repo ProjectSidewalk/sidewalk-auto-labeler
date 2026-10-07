@@ -16,8 +16,9 @@ This is **slice 1**: 40,000 of the 86,942 panos in the 10 m set. It is not "Lyon
 
 **Update 2026-10-07:** the whole 10 m set has since finished (86,889 processed). Sections
 0-6 below still describe slice 1 and its committed data; the completed run is in
-[section 7](#7-full-10-m-run-completed-2026-10-06), and whether to densify it to 5 m is
-[docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md) (#148).
+[section 7](#7-full-10-m-run-completed-2026-10-06). The 5 m evidence is
+[docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md) (#148); Jon decided on
+2026-10-07 to densify Lyon to 5 m.
 
 > **Key takeaways**
 >
@@ -438,4 +439,5 @@ with an email-shaped producer name. It regenerates byte for byte with #150's ver
 (checked in the #156 review). `rig-producers` masks the same way since that review.
 
 Section 6's "remaining slices" is done. The native-res archive (#146) now covers 86,889
-panos, and the 5 m question is [docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md).
+panos. Jon decided on 2026-10-07 to densify to 5 m on the evidence in
+[docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md).

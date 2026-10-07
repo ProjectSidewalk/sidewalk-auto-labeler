@@ -39,11 +39,10 @@ unchanged, on three Lyon sub-areas. **Nothing in production changes.**
 >    processed, every detection lands on the same pixel and confidences differ by at most
 >    0.00007.
 >
-> **Recommendation (for Jon to decide): densify Lyon to 5 m if the training plan wants
-> multi-view mining or vintage diversity; stay at 10 m if RampNet#159's per-producer caps
-> would discard most of the added panos anyway.** The coverage evidence is clear and
-> matches Bayonne; whether the extra panos are worth ~10-17 GPU-hours depends on what the
-> training set does with old Métropole imagery (section 6).
+> **Decision (Jon, 2026-10-07): densify Lyon to full 5 m.** The densify run is being
+> launched separately on Hyak. **Open follow-up:** most of what 5 m adds is the
+> Métropole's 2020-2022 imagery, so how RampNet#159's per-producer caps treat those panos
+> in a training sample is still to be settled (section 6).
 
 ## 1. Densify cost, from the scan alone (no GPU)
 
@@ -110,6 +109,12 @@ read from the canonical 10 m run's producer mix inside each box. Each was then s
    10% is cancelled and not blindly retried.
 4. **Time box:** if the jobs have not finished ~6 h after submission, what is done is
    written up and the PR stays a draft.
+
+*Correction (2026-10-07, #156 review; the rule above is left as frozen):* rule 2's "on the
+scan committed here" overstates it. `scan.json` is gitignored, so `691fd8f` commits the box
+geojsons and the raw counts, not the scans; the scan hashes appear only after the run
+(section 8). The processed sets do match what was pre-registered: each manifest's
+`panos_before_thinning` equals the count in the table above, with `scan: reused`.
 
 **Analysis (unchanged from #144).** `scripts/thinning_experiment.py runs/thinexp_lyon_<x>`
 at 0.55 and with `--min-confidence 0.3`: 7.5 m greedy sites from flat 2.6 m raycasts, rig
@@ -312,7 +317,11 @@ Every box pano outside the canonical set is an edge cell, as expected. The box r
 reproduce the canonical detections pixel for pixel. The confidence differences are GPU
 float noise: slice 1 ran on an A40, slice 2 and the boxes on L40S nodes.
 
-## 6. Recommendation (for Jon; the call is his)
+## 6. Decision: 5 m (Jon, 2026-10-07)
+
+**Jon decided on 2026-10-07 to densify Lyon to full 5 m**, after the results below. The
+densify is a separate Hyak job and is not part of this PR. The analysis that went into
+the decision, as written before it:
 
 **The coverage evidence favours 5 m for Lyon, as it did for Bayonne.** 10 m loses 8-22
 points of robust sites, and roughly half the multi-view sites in two of the three boxes.
@@ -330,9 +339,15 @@ does not change that.
 - **Cost:** +87,583 panos, ~9.7 h on ckpt at slice 2's rate (14-17 h at the box rates),
   and the native-res archive (#146) roughly doubles.
 
-If Jon densifies, the subset property makes it a pure addition. Either rebind `runs/lyon`
-to 5 m (the #147 pattern) or start a new run name; either way, none of the 86,889
-processed panos is redone.
+The subset property makes the densify a pure addition: none of the 86,889 processed panos
+is redone. The 87,583 count and the hours are for `--reuse-scan` on the 2026-10-06 scan; a
+fresh scan will differ by coverage churn.
+
+**Open follow-up (not settled by the decision):** 53-93% of the added panos per box are
+the Grand Lyon Métropole account's 2020-2022 campaigns. Whether RampNet#159's
+per-producer caps keep or discard most of them in a training sample, and whether
+old-only sites (section 4) should be treated differently for anything that places a ramp
+in today's street, is still open.
 
 ## 7. Caveats
 
@@ -410,7 +425,7 @@ The Hyak and local copies were hashed on both sides and agree. The model is
 
 | file | question it answers |
 |---|---|
-| [coverage_vs_spacing_t0.3](figures/thinning-experiment-lyon/coverage_vs_spacing_t0.3.png) (and `_t0.55`) | How much does each spacing keep, against a random draw of the same size? 10 m drops robust sites to 77-87% in Lyon, as in Bayonne. |
+| [coverage_vs_spacing_t0.3](figures/thinning-experiment-lyon/coverage_vs_spacing_t0.3.png) (and `_t0.55`) | How much does each spacing keep, against a random draw of the same size? At 0.30, 10 m keeps 77-85% of robust sites in Lyon (76-87% over both tiers), as in Bayonne. |
 | [detection_rate_by_distance](figures/thinning-experiment-lyon/detection_rate_by_distance.png) | Does a closer camera detect more? Yes in every box, and Lyon fires 1.2-4.6x Bayonne's rate. |
 
 Alt text, in order:
