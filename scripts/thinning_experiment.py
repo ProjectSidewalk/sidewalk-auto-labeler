@@ -57,6 +57,7 @@ import io
 import json
 import math
 import random
+import re
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -84,6 +85,23 @@ ROBUST_MIN_PANOS = 3       # a site seen from >= this many panos at full density
 THINNABLE_SOURCES = ('mapillary', 'panoramax')  # the sources with a thin_panos hook
 FIG_DIR = REPO_ROOT / "docs" / "figures" / "thinning-experiment"
 DEFAULT_FIGURE_RUNS = ("runs/thinexp_bayonne", "runs/thinexp_richmond")
+
+
+# Same rule as #150's run_census.mask_producer (issue #149): Panoramax serves producer
+# names publicly and some accounts use an email address as theirs, so a committed table
+# never republishes one. TODO: import run_census.mask_producer once #150 is on main.
+EMAIL_RE = re.compile(r'[^@\s]+@[^@\s]+\.[^@\s]+')
+
+
+def mask_producer(name):
+    """Mask a wholly email-shaped producer name to its first character; pass the rest.
+
+        >>> mask_producer('jane.doe@example.org'), mask_producer('grand lyon')
+        ('j***@***', 'grand lyon')
+    """
+    if isinstance(name, str) and EMAIL_RE.fullmatch(name.strip()):
+        return name.strip()[0] + '***@***'
+    return name
 
 
 def load_run(run_dir, min_confidence=BENCHMARK_CONFIDENCE):
@@ -366,6 +384,8 @@ THIN_COLOR, RANDOM_COLOR = '#2a78d6', '#eb6834'      # validated pair (dataviz p
 CITY_STYLES = (  # color + marker + dash, so identity never rests on color alone
     dict(color='#2a78d6', marker='o', linestyle='-'),
     dict(color='#eb6834', marker='s', linestyle='--'),
+    dict(color='#1f9e73', marker='^', linestyle='-.'),
+    dict(color='#7a5bc4', marker='D', linestyle=':'),
 )
 TIERS = (('0.3', '_t0.3'), ('0.55', ''))             # (label, output-dir suffix)
 
@@ -474,8 +494,9 @@ def figure_distance(plt, runs, out_dir):
             mids = [(lo + hi) / 2 for lo, hi in edges]
             rate = [_num(r['detection_rate']) for r in rows]
             ax.plot(mids, rate, label=_city_label(run), **CITY_STYLES[c % len(CITY_STYLES)])
-            ax.annotate(_city_label(run).split(' (')[0], (mids[-1], rate[-1]), xytext=(6, 0),
-                        textcoords='offset points', va='center', fontsize=8.5, color=INK)
+            if len(runs) <= 2:   # with more runs the end labels collide; the legend carries them
+                ax.annotate(_city_label(run).split(' (')[0], (mids[-1], rate[-1]), xytext=(6, 0),
+                            textcoords='offset points', va='center', fontsize=8.5, color=INK)
         ax.set_xlim(0, 24)
         ax.set_xticks([0, 4, 8, 12, 16, 20])
         ax.set_ylim(0, 0.55)
@@ -518,8 +539,287 @@ def figures_main(argv):
         print(f"-> {path.relative_to(REPO_ROOT) if path.is_relative_to(REPO_ROOT) else path}")
 
 
+# ---------------------------------------------------------------------------------------
+# subset: what densifying a finished thinned run would cost, from its scan.json alone
+
+def subset_tables(scan, thin, from_m, to_m, spacings, panos_per_second):
+    """Pano counts per spacing, the densify set (kept at `to_m` but not at `from_m`), and
+    its capture-year mix. thin_panos is a grid rule, so a finer cell need not keep every
+    pano a coarser one kept; `missing_from_finer` counts the ones it does not (they would
+    stay processed but sit outside the finer set).
+
+    Example (a run thinned at 10 m, asking what 5 m would add at 2.5 panos/s):
+        >>> cost, years = subset_tables(scan, panoramax.thin_panos, 10, 5, [0, 5, 10], 2.5)
+        >>> {r['metric']: r['value'] for r in cost}['panos_added']   # doctest: +SKIP
+    """
+    kept = {sp: set(scan) if sp == 0 else set(thin(scan, sp)) for sp in sorted(set(spacings) | {from_m, to_m})}
+    added = kept[to_m] - kept[from_m]
+    missing = kept[from_m] - kept[to_m]
+    cost = [{'metric': f'panos_at_{sp:g}m' if sp else 'panos_raw', 'value': len(kept[sp])}
+            for sp in sorted(kept)]
+    cost += [
+        {'metric': f'missing_from_finer ({from_m:g} m kept, {to_m:g} m not)', 'value': len(missing)},
+        {'metric': 'panos_added', 'value': len(added)},
+        {'metric': 'panos_per_second', 'value': panos_per_second},
+        {'metric': 'hours_added', 'value': round(len(added) / panos_per_second / 3600, 2)},
+    ]
+    sets = {'raw': kept[0], f'thin_{from_m:g}m': kept[from_m], f'thin_{to_m:g}m': kept[to_m],
+            'added': added}
+    by_year = {name: Counter(capture_month(scan[p][2])[:4] for p in s) for name, s in sets.items()}
+    years = sorted(set().union(*by_year.values()))
+    rows = []
+    for y in years:
+        row = {'capture_year': y}
+        for name, c in by_year.items():
+            row[name] = c[y]
+        row['added_share'] = round(by_year['added'][y] / len(added), 3) if added else ''
+        rows.append(row)
+    return cost, rows
+
+
+def subset_main(argv):
+    parser = argparse.ArgumentParser(
+        prog="thinning_experiment.py subset",
+        description="Offline densify cost of a thinned Mapillary/Panoramax run, from its own "
+                    "scan.json: pano counts per spacing, the set a finer spacing would add, its "
+                    "GPU hours at a measured rate, and its capture-year mix. No GPU, no network.")
+    parser.add_argument("run_dir", help="Run dir holding manifest.json + scan.json.")
+    parser.add_argument("--from", dest="from_m", type=float, default=10.0,
+                        help="Spacing the run was thinned at (default %(default)s).")
+    parser.add_argument("--to", dest="to_m", type=float, default=5.0,
+                        help="Finer spacing to densify to (default %(default)s).")
+    parser.add_argument("--spacings", type=float, nargs='+', default=[0, 5, 10, 20])
+    parser.add_argument("--panos-per-second", type=float, required=True,
+                        help="Measured detection rate (the run's last `detector:` line).")
+    parser.add_argument("--out", required=True, help="Directory for densify_cost.csv + densify_years.csv.")
+    args = parser.parse_args(argv)
+    run_dir = Path(args.run_dir)
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    source_name = manifest.get('imagery_source')
+    if source_name not in THINNABLE_SOURCES:
+        sys.exit(f"{run_dir} is a {source_name!r} run; only {THINNABLE_SOURCES} thin.")
+    scan = load_scan(run_dir, source_name)
+    if scan is None:
+        sys.exit(f"{run_dir} has no usable scan.json (missing, other source, or failed tiles).")
+    cost, years = subset_tables(scan, get_source(source_name).thin_panos, args.from_m,
+                                args.to_m, args.spacings, args.panos_per_second)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    for name, rows in (('densify_cost.csv', cost), ('densify_years.csv', years)):
+        with open(out / name, 'w', encoding='utf-8', newline='\n') as f:
+            w = csv.writer(f, lineterminator='\n')
+            w.writerow(list(rows[0].keys()))
+            for row in rows:
+                w.writerow(list(row.values()))
+    for row in cost:
+        print(f"   {row['metric']}: {row['value']}")
+    print(f"-> Wrote {out / 'densify_cost.csv'} and densify_years.csv")
+
+
+# ---------------------------------------------------------------------------------------
+# crosscheck: a sub-area run against the city's canonical thinned run
+
+def crosscheck_rows(box_scan, box_records, canonical_ids, canonical_records, thin, spacing,
+                    edge_m=None):
+    """Two sanity checks of an un-thinned sub-area run against the city's thinned run.
+
+    1. The sub-area's own `spacing` kept set should sit inside the canonical processed set,
+       except where a grid cell is cut by the box edge (its newest pano can lie outside the
+       box, so the box keeps another one). `edge_m(pano_id)` -> metres to the box edge,
+       when given, counts how many of the outside ones sit within one cell of it.
+    2. Panos both runs processed should carry the same detections: the same pixel set
+       (x, y at the storage floor) and confidences that differ only by GPU float noise.
+    """
+    kept = set(thin(box_scan, spacing))
+    outside = kept - canonical_ids
+    near_edge = sum(1 for p in outside if edge_m(p) <= spacing * math.sqrt(2)) if edge_m else None
+    box = {r['pano']['panorama_id']: r['detections'] for r in box_records}
+    shared = [p for p in box if p in canonical_records]
+    same_pixels, max_diff = 0, 0.0
+    for p in shared:
+        a = sorted((d['x_normalized'], d['y_normalized'], d['confidence']) for d in box[p])
+        b = sorted((d['x_normalized'], d['y_normalized'], d['confidence']) for d in canonical_records[p])
+        if [t[:2] for t in a] == [t[:2] for t in b]:
+            same_pixels += 1
+            max_diff = max([max_diff] + [abs(x[2] - y[2]) for x, y in zip(a, b)])
+    return [
+        {'metric': f'box_kept_at_{spacing:g}m', 'value': len(kept)},
+        {'metric': f'box_kept_at_{spacing:g}m_not_in_canonical', 'value': len(outside)},
+        {'metric': 'of_which_within_one_cell_diagonal_of_box_edge', 'value': near_edge},
+        {'metric': 'panos_in_both_runs', 'value': len(shared)},
+        {'metric': 'panos_with_identical_detection_pixels', 'value': same_pixels},
+        {'metric': 'max_confidence_difference_on_identical_pixels', 'value': f'{max_diff:.6f}'},
+    ]
+
+
+def producer_rows(box_scan, box_records, thin, coarse, fine, tiers):
+    """Per producer (pano `copyright`): panos in the box's `coarse` kept set and in the set
+    `fine` adds over it, with detections per processed pano at each tier in both. This is
+    who the extra panos of a finer spacing belong to, and how often their views fire.
+    Skipped panos are counted in `panos_*` (thinning kept them) but have no record."""
+    sets = {'coarse': set(thin(box_scan, coarse))}
+    sets['added'] = set(thin(box_scan, fine)) - sets['coarse']
+    rec = {r['pano']['panorama_id']: r for r in box_records}
+    tally = defaultdict(lambda: defaultdict(int))
+    for name, ids in sets.items():
+        for p in ids:
+            r = rec.get(p)
+            producer = mask_producer(r['pano'].get('copyright') if r else None) or '(skipped or unnamed)'
+            t = tally[producer]
+            t[f'panos_{name}'] += 1
+            if r:
+                t[f'processed_{name}'] += 1
+                for tier in tiers:
+                    t[f'det_{tier:g}_{name}'] += sum(d['confidence'] >= tier and not on_camera_rig(d['y_normalized'])
+                                                    for d in r['detections'])
+    rows = []
+    for producer, t in sorted(tally.items(), key=lambda kv: -(kv[1]['panos_coarse'] + kv[1]['panos_added'])):
+        row = {'producer': producer, f'panos_{coarse:g}m': t['panos_coarse'],
+               f'panos_added_by_{fine:g}m': t['panos_added']}
+        for name, label in (('coarse', f'{coarse:g}m'), ('added', f'added_by_{fine:g}m')):
+            for tier in tiers:
+                n = t[f'processed_{name}']
+                row[f'det_per_pano_{tier:g}_{label}'] = round(t[f'det_{tier:g}_{name}'] / n, 3) if n else ''
+        rows.append(row)
+    return rows
+
+
+def crosscheck_main(argv):
+    parser = argparse.ArgumentParser(
+        prog="thinning_experiment.py crosscheck",
+        description="Sanity-check an un-thinned sub-area run against the city's canonical "
+                    "thinned run; writes <box>/thinning_experiment/crosscheck.csv, plus "
+                    "producers.csv: who owns the panos half the spacing would add.")
+    parser.add_argument("box_run", help="The un-thinned sub-area run dir.")
+    parser.add_argument("--canonical", required=True, help="The city's thinned run dir.")
+    parser.add_argument("--spacing", type=float, required=True, help="The canonical run's spacing.")
+    args = parser.parse_args(argv)
+    box_dir, canon_dir = Path(args.box_run), Path(args.canonical)
+    source_name = json.loads((box_dir / "manifest.json").read_text())['imagery_source']
+    box_scan = load_scan(box_dir, source_name)
+    with open(box_dir / "results.jsonl", encoding='utf-8') as f:
+        box_records = [json.loads(line) for line in f if line.strip()]
+    # The processed set, skips included: a cached skip was still "kept" by thinning.
+    canonical_ids = set((canon_dir / "already_processed.txt").read_text().split())
+    wanted = {r['pano']['panorama_id'] for r in box_records}
+    canonical_records = {}
+    with open(canon_dir / "results.jsonl", encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                rec = json.loads(line)
+                if rec['pano']['panorama_id'] in wanted:
+                    canonical_records[rec['pano']['panorama_id']] = rec['detections']
+    from shapely.geometry import Point
+    edge = shape(json.loads((box_dir / "area.geojson").read_text())).boundary
+
+    def edge_m(pano_id):
+        lat, lon = box_scan[pano_id][0], box_scan[pano_id][1]
+        nearest = edge.interpolate(edge.project(Point(lon, lat)))
+        return meters_between((lat, lon), (nearest.y, nearest.x))
+
+    rows = crosscheck_rows(box_scan, box_records, canonical_ids, canonical_records,
+                           get_source(source_name).thin_panos, args.spacing, edge_m)
+    out = box_dir / "thinning_experiment"
+    out.mkdir(exist_ok=True)
+    with open(out / "crosscheck.csv", 'w', encoding='utf-8', newline='\n') as f:
+        w = csv.writer(f, lineterminator='\n')
+        w.writerow(['metric', 'value'])
+        for row in rows:
+            w.writerow([row['metric'], row['value']])
+            print(f"   {row['metric']}: {row['value']}")
+    print(f"-> Wrote {out / 'crosscheck.csv'}")
+    # Who the 5 m extra panos belong to (5 m and 10 m being the question in #148).
+    from detectors import OPERATIONAL_CONFIDENCE
+    prows = producer_rows(box_scan, box_records, get_source(source_name).thin_panos,
+                          args.spacing, args.spacing / 2, (OPERATIONAL_CONFIDENCE, BENCHMARK_CONFIDENCE))
+    with open(out / "producers.csv", 'w', encoding='utf-8', newline='\n') as f:
+        w = csv.writer(f, lineterminator='\n')
+        w.writerow(list(prows[0].keys()))
+        for row in prows:
+            w.writerow(list(row.values()))
+    print(f"-> Wrote {out / 'producers.csv'}")
+
+
+# ---------------------------------------------------------------------------------------
+# lost-vintage: are the robust sites a coarser spacing loses seen only in older imagery?
+
+def lost_vintage_rows(sites, scan, thin, fine, coarse, through_year):
+    """Robust sites split by what `fine` and `coarse` keep, each with how many are
+    *old-only* (no member pano captured after `through_year`). The `kept_at_coarse` row
+    is the base rate: a box whose coverage is mostly old reads old-only everywhere, so a
+    lost-site share means something only next to it.
+
+    Example (#148: what 10 m loses that 5 m keeps, old-only = nothing newer than 2024):
+        >>> rows = lost_vintage_rows(sites, scan, panoramax.thin_panos, 5, 10, 2024)  # doctest: +SKIP
+        >>> {r['set']: (r['sites'], r['old_only']) for r in rows}['lost_fine_to_coarse']  # doctest: +SKIP
+        (31, 15)
+    """
+    robust = [s for s in sites if len(s['members']) >= ROBUST_MIN_PANOS]
+    kept_fine, kept_coarse = set(thin(scan, fine)), set(thin(scan, coarse))
+
+    def old_only(site):
+        return max(int(capture_month(scan[p][2])[:4]) for p in site['members']) <= through_year
+
+    sets = {
+        'robust_all': robust,
+        f'kept_at_{coarse:g}m': [s for s in robust if s['members'] & kept_coarse],
+        # Kept at the finer spacing, lost at the coarser one: what densifying buys back.
+        'lost_fine_to_coarse': [s for s in robust if s['members'] & kept_fine
+                                and not s['members'] & kept_coarse],
+        # Lost at the coarser spacing against full density.
+        'lost_full_to_coarse': [s for s in robust if not s['members'] & kept_coarse],
+    }
+    rows = []
+    for name, group in sets.items():
+        n_old = sum(map(old_only, group))
+        rows.append({'set': name, 'fine_m': f'{fine:g}', 'coarse_m': f'{coarse:g}', 'through_year': through_year,
+                     'sites': len(group), 'old_only': n_old,
+                     'old_only_share': round(n_old / len(group), 3) if group else ''})
+    return rows
+
+
+def lost_vintage_main(argv):
+    parser = argparse.ArgumentParser(
+        prog="thinning_experiment.py lost-vintage",
+        description="Robust sites a coarser spacing loses, and how many of them were seen only "
+                    "in imagery captured through --through-year, beside the same share among the "
+                    "sites the coarser spacing keeps (the base rate). Writes lost_vintage.csv into "
+                    "the tier's thinning_experiment dir. No GPU, no network.")
+    parser.add_argument("run_dir", help="Run directory of an UN-thinned Mapillary or Panoramax run.")
+    parser.add_argument("--fine", type=float, default=5.0)
+    parser.add_argument("--coarse", type=float, default=10.0)
+    parser.add_argument("--through-year", type=int, default=2024,
+                        help="A site is old-only when no member pano is newer than this year.")
+    parser.add_argument("--min-confidence", type=float, default=BENCHMARK_CONFIDENCE)
+    parser.add_argument("--cluster-radius", type=float, default=7.5)
+    args = parser.parse_args(argv)
+    run_dir, records, _area, source, source_name = load_run(args.run_dir, args.min_confidence)
+    scan = load_scan(run_dir, source_name)
+    if scan is None:
+        sys.exit(f"{run_dir} has no usable scan.json.")
+    sites = cluster_detections(records, args.cluster_radius)
+    rows = lost_vintage_rows(sites, scan, source.thin_panos, args.fine, args.coarse,
+                             args.through_year)
+    suffix = '' if args.min_confidence == BENCHMARK_CONFIDENCE else f"_t{args.min_confidence:g}"
+    out = run_dir / f"thinning_experiment{suffix}"
+    out.mkdir(exist_ok=True)
+    with open(out / "lost_vintage.csv", 'w', encoding='utf-8', newline='\n') as f:
+        w = csv.writer(f, lineterminator='\n')
+        w.writerow(list(rows[0].keys()))
+        for row in rows:
+            w.writerow(list(row.values()))
+            print(f"   {row['set']}: {row['sites']} sites, {row['old_only']} old-only")
+    print(f"-> Wrote {out / 'lost_vintage.csv'}")
+
+
 if __name__ == "__main__":
     if sys.argv[1:2] == ['figures']:
         figures_main(sys.argv[2:])
+    elif sys.argv[1:2] == ['subset']:
+        subset_main(sys.argv[2:])
+    elif sys.argv[1:2] == ['crosscheck']:
+        crosscheck_main(sys.argv[2:])
+    elif sys.argv[1:2] == ['lost-vintage']:
+        lost_vintage_main(sys.argv[2:])
     else:
         main()
