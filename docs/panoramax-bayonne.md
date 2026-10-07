@@ -477,7 +477,10 @@ done.
   changed by hand from the 10 m backfill in `c096987`, recorded in `thin_spacing_changed`), so
   any resume must pass `--thin-spacing 5` (the default) and a 10 m resume is refused. Steps
   4-12 below were run on the 10 m run's `results.jsonl` (`data/inputs.csv`); re-running them
-  now reads the 5 m file and gives different numbers. Step 6's 5 m output is `data/census_5m/`.
+  now reads the 5 m file and gives different numbers. `data --only <part>` (without `inputs`)
+  refuses while a run file's sha256 differs from `data/inputs.csv`, so one panel cannot be
+  refreshed from the 5 m run beside 10 m ones; re-run all parts. Step 6's 5 m output is
+  `data/census_5m/`.
 - **Step 5's** `bayonne_report.md` copies under `data/reprojection*/` are that step's
   per-city `report.md`, copied by hand.
 - **Step 12** reads only the committed `data/`. It is byte-reproducible for the listed
@@ -504,8 +507,8 @@ done.
 
 | number | file | column / row |
 |---|---|---|
-| 73,161 / 28,634 / 28,524 / 110 / 0 | `runs/bayonne/manifest.json` (`runs[-1]`) and `run.log` | `panos_found_in_area`, `processed`, `skipped`, `failed`; 73,161 from `scan.log` |
-| 6.7 h, 1.18 panos/s, 24,062 s | `run.log` | last `detector:` line; `started_at`/`finished_at` in the manifest |
+| 73,161 / 28,634 / 28,524 / 110 / 0 | `runs/bayonne/manifest.json` (`runs[2]`, the 10 m pass; `runs[-1]` is now the 5 m resume) and `run.log` | `panos_found_in_area`, `processed`, `skipped`, `failed`; 73,161 from `scan.log` |
+| 6.7 h, 1.18 panos/s, 24,062 s | `run.log` | last `detector:` line; `started_at`/`finished_at` in the manifest's `runs[2]` |
 | 21.1 h estimate, 50,528 | `scan.log` | — |
 | 104 / 3 / 3 skips | `data/skips.csv` | `reason` |
 | rig / year / pose / producer shares | `data/census/{rigs,years,pose,producers}.csv` | `share` |
