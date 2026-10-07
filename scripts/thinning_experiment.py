@@ -722,6 +722,78 @@ def crosscheck_main(argv):
     print(f"-> Wrote {out / 'producers.csv'}")
 
 
+# ---------------------------------------------------------------------------------------
+# lost-vintage: are the robust sites a coarser spacing loses seen only in older imagery?
+
+def lost_vintage_rows(sites, scan, thin, fine, coarse, through_year):
+    """Robust sites split by what `fine` and `coarse` keep, each with how many are
+    *old-only* (no member pano captured after `through_year`). The `kept_at_coarse` row
+    is the base rate: a box whose coverage is mostly old reads old-only everywhere, so a
+    lost-site share means something only next to it.
+
+    Example (#148: what 10 m loses that 5 m keeps, old-only = nothing newer than 2024):
+        >>> rows = lost_vintage_rows(sites, scan, panoramax.thin_panos, 5, 10, 2024)  # doctest: +SKIP
+        >>> {r['set']: (r['sites'], r['old_only']) for r in rows}['lost_fine_to_coarse']  # doctest: +SKIP
+        (31, 15)
+    """
+    robust = [s for s in sites if len(s['members']) >= ROBUST_MIN_PANOS]
+    kept_fine, kept_coarse = set(thin(scan, fine)), set(thin(scan, coarse))
+
+    def old_only(site):
+        return max(int(capture_month(scan[p][2])[:4]) for p in site['members']) <= through_year
+
+    sets = {
+        'robust_all': robust,
+        f'kept_at_{coarse:g}m': [s for s in robust if s['members'] & kept_coarse],
+        # Kept at the finer spacing, lost at the coarser one: what densifying buys back.
+        'lost_fine_to_coarse': [s for s in robust if s['members'] & kept_fine
+                                and not s['members'] & kept_coarse],
+        # Lost at the coarser spacing against full density.
+        'lost_full_to_coarse': [s for s in robust if not s['members'] & kept_coarse],
+    }
+    rows = []
+    for name, group in sets.items():
+        n_old = sum(map(old_only, group))
+        rows.append({'set': name, 'fine_m': f'{fine:g}', 'coarse_m': f'{coarse:g}', 'through_year': through_year,
+                     'sites': len(group), 'old_only': n_old,
+                     'old_only_share': round(n_old / len(group), 3) if group else ''})
+    return rows
+
+
+def lost_vintage_main(argv):
+    parser = argparse.ArgumentParser(
+        prog="thinning_experiment.py lost-vintage",
+        description="Robust sites a coarser spacing loses, and how many of them were seen only "
+                    "in imagery captured through --through-year, beside the same share among the "
+                    "sites the coarser spacing keeps (the base rate). Writes lost_vintage.csv into "
+                    "the tier's thinning_experiment dir. No GPU, no network.")
+    parser.add_argument("run_dir", help="Run directory of an UN-thinned Mapillary or Panoramax run.")
+    parser.add_argument("--fine", type=float, default=5.0)
+    parser.add_argument("--coarse", type=float, default=10.0)
+    parser.add_argument("--through-year", type=int, default=2024,
+                        help="A site is old-only when no member pano is newer than this year.")
+    parser.add_argument("--min-confidence", type=float, default=BENCHMARK_CONFIDENCE)
+    parser.add_argument("--cluster-radius", type=float, default=7.5)
+    args = parser.parse_args(argv)
+    run_dir, records, _area, source, source_name = load_run(args.run_dir, args.min_confidence)
+    scan = load_scan(run_dir, source_name)
+    if scan is None:
+        sys.exit(f"{run_dir} has no usable scan.json.")
+    sites = cluster_detections(records, args.cluster_radius)
+    rows = lost_vintage_rows(sites, scan, source.thin_panos, args.fine, args.coarse,
+                             args.through_year)
+    suffix = '' if args.min_confidence == BENCHMARK_CONFIDENCE else f"_t{args.min_confidence:g}"
+    out = run_dir / f"thinning_experiment{suffix}"
+    out.mkdir(exist_ok=True)
+    with open(out / "lost_vintage.csv", 'w', encoding='utf-8', newline='\n') as f:
+        w = csv.writer(f, lineterminator='\n')
+        w.writerow(list(rows[0].keys()))
+        for row in rows:
+            w.writerow(list(row.values()))
+            print(f"   {row['set']}: {row['sites']} sites, {row['old_only']} old-only")
+    print(f"-> Wrote {out / 'lost_vintage.csv'}")
+
+
 if __name__ == "__main__":
     if sys.argv[1:2] == ['figures']:
         figures_main(sys.argv[2:])
@@ -729,5 +801,7 @@ if __name__ == "__main__":
         subset_main(sys.argv[2:])
     elif sys.argv[1:2] == ['crosscheck']:
         crosscheck_main(sys.argv[2:])
+    elif sys.argv[1:2] == ['lost-vintage']:
+        lost_vintage_main(sys.argv[2:])
     else:
         main()

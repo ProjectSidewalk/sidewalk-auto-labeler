@@ -26,8 +26,11 @@ unchanged, on three Lyon sub-areas. **Nothing in production changes.**
 > 4. **Much of what 5 m adds is older imagery.** Newest-wins already gave 10 m the newest
 >    pano of each cell; the extra 5 m panos are mostly earlier captures (2026 is 41% of the
 >    10 m set, 18% of the added set), owned mostly by the Grand Lyon Métropole account
->    (53-93% of the added panos per box). Of the robust sites 10 m loses at 0.30, 55 of 99
->    were never detected from a pano newer than 2024.
+>    (53-93% of the added panos per box). Of the robust sites 5 m keeps and 10 m loses at
+>    0.30, 48% / 93% / 35% (A / B / C) were never detected from a pano newer than 2024,
+>    against 15% / 68% / 11% of the robust sites 10 m keeps. The enrichment is real in A
+>    and C at 0.30, but box B is old-only almost everywhere, and at 0.55 box A reverses
+>    (15% lost vs 21% kept); `lost_vintage.csv`.
 > 5. **Unlike Bayonne, newest-wins beats a random same-size draw in every Lyon box**, by
 >    24-105 sites, and by up to 30 robust sites in box A, where the raw scan is 75% dense
 >    2020 Ladybug coverage that a random draw clumps on.
@@ -234,12 +237,23 @@ are not a low-yield tail. What they are is older. Across the city, 2026 is 41% o
 10 m set and 18% of the added set (section 1), and in the boxes most added panos come
 from the Métropole's 2020-2022 campaigns.
 
-**Robust sites lost at 10 m are often seen only in older imagery** (an ad-hoc check, not a
-committed script: the script's own `load_run` / `cluster_detections` at 0.30, then the
-capture years of each lost robust site's members). Of the 31 / 28 / 40 robust sites that
-10 m loses in A / B / C, **15 / 26 / 14** were never detected from a pano newer than 2024.
-That is the vintage confound #144 flagged: a ramp seen only in 2020 imagery may since have
-been rebuilt or removed. For **training** that hardly matters (the pixels still show a
+**Robust sites lost at 10 m are more often seen only in older imagery, against a base
+rate that varies by box** (`python scripts/thinning_experiment.py lost-vintage runs/thinexp_lyon_<x> [--min-confidence 0.3]`
+-> `lost_vintage.csv`; old-only = no member pano newer than 2024; "lost" = kept at 5 m,
+lost at 10 m):
+
+| | A 0.30 | B 0.30 | C 0.30 | A 0.55 | B 0.55 | C 0.55 |
+|---|---|---|---|---|---|---|
+| robust sites kept at 10 m, old-only | 25 of 166 (15%) | 152 of 225 (68%) | 18 of 161 (11%) | 23 of 107 (21%) | 132 of 179 (74%) | 7 of 94 (7%) |
+| robust sites lost 5 m -> 10 m, old-only | **15 of 31 (48%)** | **26 of 28 (93%)** | **14 of 40 (35%)** | 3 of 20 (15%) | 14 of 16 (88%) | 13 of 27 (48%) |
+
+At 0.30 the lost sites are about 3x as often old-only as the kept ones in A and C; box
+B's 93% is mostly its base rate (the box is Métropole 2020-21 coverage). At 0.55 box A
+reverses, on 20 sites. So the pooled "55 of 99" this section quoted before review
+overstated the effect; read it per box. (Against full density instead of 5 m, 10 m loses
+37 / 40 / 48 robust sites at 0.30, 17 / 38 / 19 of them old-only: the `lost_full_to_coarse`
+row.) Where it holds, it is the vintage confound #144 flagged: a ramp seen only in 2020
+imagery may since have been rebuilt or removed. For **training** that hardly matters (the pixels still show a
 ramp); for anything that places the ramp in today's street, it does.
 
 ### A1: detection rate by camera-to-site distance
@@ -322,8 +336,9 @@ processed panos is redone.
   measures precision. Lyon is training-only (RampNet#159), so no Lyon GT will exist.
 - **Three boxes, 12,546 raw panos, 123-265 robust sites each.** The direction holds in all
   six box x tier cells; the magnitudes are approximate.
-- **Vintage confound** (section 4): about half the robust sites 10 m loses were seen only
-  in pre-2025 imagery.
+- **Vintage confound** (section 4): at 0.30, 35-93% of the robust sites 10 m loses were
+  seen only in pre-2025 imagery, against 11-68% of those it keeps; not consistent at 0.55
+  in box A.
 - **Box C's 88 skips** understate its coverage slightly at every spacing.
 - **Placement approximations**, as in #144: flat 2.6 m raycast, no pose (ecartip's panos
   report pose as exactly 0/0), 7.5 m greedy clustering.
@@ -342,6 +357,7 @@ Run from the repo root. Steps 2-3 need the network, and step 3 a GPU.
 | 4 | `python scripts/position_check.py runs/thinexp_lyon_c --report` (only because C's in-job Overpass call failed) | net | 1 min |
 | 5 | `python scripts/thinning_experiment.py runs/thinexp_lyon_<x>` and `... --min-confidence 0.3` | scan.json + results.jsonl | ~1 min each |
 | 6 | `python scripts/thinning_experiment.py crosscheck runs/thinexp_lyon_<x> --canonical runs/lyon --spacing 10` | box + canonical results.jsonl | ~1 min each |
+| 6b | `python scripts/thinning_experiment.py lost-vintage runs/thinexp_lyon_<x>` and `... --min-confidence 0.3` | scan.json + results.jsonl | ~1 min each |
 | 7 | `python scripts/thinning_experiment.py figures --runs runs/thinexp_lyon_a runs/thinexp_lyon_b runs/thinexp_lyon_c runs/thinexp_bayonne --out docs/figures/thinning-experiment-lyon` (never the default `--out`, which is #144's) | the committed CSVs only | seconds |
 
 `sal_lyon_thinexp.sbatch` lives on Hyak beside `sal_lyon_ckpt.sbatch`
@@ -382,7 +398,7 @@ The Hyak and local copies were hashed on both sides and agree. The model is
 | box vintages (box A raw 75% 2020) | `.../vintages.csv` | `spacing_m`, `capture_year`, `share_of_kept` |
 | sanity checks | `runs/thinexp_lyon_<x>/thinning_experiment/crosscheck.csv` | `metric`, `value` |
 | added-pano owners and rates | `runs/thinexp_lyon_<x>/thinning_experiment/producers.csv` | `panos_added_by_5m`, `det_per_pano_0.3_*` |
-| 15 / 26 / 14 robust sites seen only before 2025 | ad-hoc check (section 4), not committed | — |
+| old-only shares of lost and kept robust sites (section 4) | `runs/thinexp_lyon_<x>/thinning_experiment[_t0.3]/lost_vintage.csv` | `set`, `sites`, `old_only`, `old_only_share` |
 | Bayonne columns | `runs/thinexp_bayonne/thinning_experiment[_t0.3]/` (#144) | as above |
 | 2.505 panos/s | `runs/lyon/run2.log` last `detector:` line (Hyak `lyon_41472534.log`) | — |
 
