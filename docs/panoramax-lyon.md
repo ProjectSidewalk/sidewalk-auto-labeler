@@ -428,9 +428,14 @@ code.
 Regenerate the two tables (no network, no GPU, ~1 min each):
 
 ```
-python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon_full --band-y 0.79   # with #150's run_census.py
+python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon_full --band-y 0.79
 python scripts/panoramax_lyon_figures.py rig-producers --out docs/figures/panoramax-lyon/data/full
 ```
+
+**Run the first command only once #150 is on main.** This branch's `run_census.py` is
+main's unmasked one, so running it here would overwrite the masked `lyon_full/producers.csv`
+with an email-shaped producer name. It regenerates byte for byte with #150's version
+(checked in the #156 review). `rig-producers` masks the same way since that review.
 
 Section 6's "remaining slices" is done. The native-res archive (#146) now covers 86,889
 panos, and the 5 m question is [docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md).

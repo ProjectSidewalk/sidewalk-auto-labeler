@@ -57,6 +57,7 @@ import io
 import json
 import math
 import random
+import re
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -84,6 +85,23 @@ ROBUST_MIN_PANOS = 3       # a site seen from >= this many panos at full density
 THINNABLE_SOURCES = ('mapillary', 'panoramax')  # the sources with a thin_panos hook
 FIG_DIR = REPO_ROOT / "docs" / "figures" / "thinning-experiment"
 DEFAULT_FIGURE_RUNS = ("runs/thinexp_bayonne", "runs/thinexp_richmond")
+
+
+# Same rule as #150's run_census.mask_producer (issue #149): Panoramax serves producer
+# names publicly and some accounts use an email address as theirs, so a committed table
+# never republishes one. TODO: import run_census.mask_producer once #150 is on main.
+EMAIL_RE = re.compile(r'[^@\s]+@[^@\s]+\.[^@\s]+')
+
+
+def mask_producer(name):
+    """Mask a wholly email-shaped producer name to its first character; pass the rest.
+
+        >>> mask_producer('jane.doe@example.org'), mask_producer('grand lyon')
+        ('j***@***', 'grand lyon')
+    """
+    if isinstance(name, str) and EMAIL_RE.fullmatch(name.strip()):
+        return name.strip()[0] + '***@***'
+    return name
 
 
 def load_run(run_dir, min_confidence=BENCHMARK_CONFIDENCE):
@@ -646,7 +664,7 @@ def producer_rows(box_scan, box_records, thin, coarse, fine, tiers):
     for name, ids in sets.items():
         for p in ids:
             r = rec.get(p)
-            producer = (r['pano'].get('copyright') if r else None) or '(skipped or unnamed)'
+            producer = mask_producer(r['pano'].get('copyright') if r else None) or '(skipped or unnamed)'
             t = tally[producer]
             t[f'panos_{name}'] += 1
             if r:
