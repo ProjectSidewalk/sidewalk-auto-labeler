@@ -126,14 +126,6 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     failed = json.load(open(manifest_path))["position_check"]
     assert "Overpass" in failed["error"] and "checked_at" in failed
 
-    # The real Overpass failure is a SystemExit (position_check is also a CLI), which
-    # `except Exception` would let through and end the run non-zero.
-    def overpass_down(rd):
-        raise SystemExit("Overpass query failed on every endpoint: HTTP Error 504")
-    monkeypatch.setattr(position_check, "run_check", overpass_down)
-    assert main.run_position_check(run_dir, manifest_path, manifest) is None
-    assert "504" in json.load(open(manifest_path))["position_check"]["error"]
-
     # Idempotent: a check already pinned to the current results.jsonl (hash + report on
     # disk) is reused, so a no-op resume never rewrites the two git-tracked outputs.
     results = run_dir / "results.jsonl"

@@ -167,7 +167,7 @@ submitted 04:32 UTC), with `sal_lyon_thinexp.sbatch`.
   (Slurm state FAILED; A and B COMPLETED) and left its manifest without even the
   `position_check` error note: `position_check` raises `SystemExit` when every mirror
   fails, and `main.run_position_check` caught only `Exception`. The detections were
-  already on disk. Fixed in the #156 review (main.py now catches `SystemExit` there too).
+  already on disk. Fixed separately in #157 (main.py now catches `SystemExit` there too).
 - The box rates are below the canonical slice 2's 2.505 panos/s on the same partition.
   Short jobs on shared nodes spend proportionally more time on image fetches; the
   densify estimate is given at both rates.
