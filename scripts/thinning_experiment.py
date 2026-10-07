@@ -476,8 +476,9 @@ def figure_distance(plt, runs, out_dir):
             mids = [(lo + hi) / 2 for lo, hi in edges]
             rate = [_num(r['detection_rate']) for r in rows]
             ax.plot(mids, rate, label=_city_label(run), **CITY_STYLES[c % len(CITY_STYLES)])
-            ax.annotate(_city_label(run).split(' (')[0], (mids[-1], rate[-1]), xytext=(6, 0),
-                        textcoords='offset points', va='center', fontsize=8.5, color=INK)
+            if len(runs) <= 2:   # with more runs the end labels collide; the legend carries them
+                ax.annotate(_city_label(run).split(' (')[0], (mids[-1], rate[-1]), xytext=(6, 0),
+                            textcoords='offset points', va='center', fontsize=8.5, color=INK)
         ax.set_xlim(0, 24)
         ax.set_xticks([0, 4, 8, 12, 16, 20])
         ax.set_ylim(0, 0.55)
@@ -597,10 +598,136 @@ def subset_main(argv):
     print(f"-> Wrote {out / 'densify_cost.csv'} and densify_years.csv")
 
 
+# ---------------------------------------------------------------------------------------
+# crosscheck: a sub-area run against the city's canonical thinned run
+
+def crosscheck_rows(box_scan, box_records, canonical_ids, canonical_records, thin, spacing,
+                    edge_m=None):
+    """Two sanity checks of an un-thinned sub-area run against the city's thinned run.
+
+    1. The sub-area's own `spacing` kept set should sit inside the canonical processed set,
+       except where a grid cell is cut by the box edge (its newest pano can lie outside the
+       box, so the box keeps another one). `edge_m(pano_id)` -> metres to the box edge,
+       when given, counts how many of the outside ones sit within one cell of it.
+    2. Panos both runs processed should carry the same detections: the same pixel set
+       (x, y at the storage floor) and confidences that differ only by GPU float noise.
+    """
+    kept = set(thin(box_scan, spacing))
+    outside = kept - canonical_ids
+    near_edge = sum(1 for p in outside if edge_m(p) <= spacing * math.sqrt(2)) if edge_m else None
+    box = {r['pano']['panorama_id']: r['detections'] for r in box_records}
+    shared = [p for p in box if p in canonical_records]
+    same_pixels, max_diff = 0, 0.0
+    for p in shared:
+        a = sorted((d['x_normalized'], d['y_normalized'], d['confidence']) for d in box[p])
+        b = sorted((d['x_normalized'], d['y_normalized'], d['confidence']) for d in canonical_records[p])
+        if [t[:2] for t in a] == [t[:2] for t in b]:
+            same_pixels += 1
+            max_diff = max([max_diff] + [abs(x[2] - y[2]) for x, y in zip(a, b)])
+    return [
+        {'metric': f'box_kept_at_{spacing:g}m', 'value': len(kept)},
+        {'metric': f'box_kept_at_{spacing:g}m_not_in_canonical', 'value': len(outside)},
+        {'metric': 'of_which_within_one_cell_diagonal_of_box_edge', 'value': near_edge},
+        {'metric': 'panos_in_both_runs', 'value': len(shared)},
+        {'metric': 'panos_with_identical_detection_pixels', 'value': same_pixels},
+        {'metric': 'max_confidence_difference_on_identical_pixels', 'value': f'{max_diff:.6f}'},
+    ]
+
+
+def producer_rows(box_scan, box_records, thin, coarse, fine, tiers):
+    """Per producer (pano `copyright`): panos in the box's `coarse` kept set and in the set
+    `fine` adds over it, with detections per processed pano at each tier in both. This is
+    who the extra panos of a finer spacing belong to, and how often their views fire.
+    Skipped panos are counted in `panos_*` (thinning kept them) but have no record."""
+    sets = {'coarse': set(thin(box_scan, coarse))}
+    sets['added'] = set(thin(box_scan, fine)) - sets['coarse']
+    rec = {r['pano']['panorama_id']: r for r in box_records}
+    tally = defaultdict(lambda: defaultdict(int))
+    for name, ids in sets.items():
+        for p in ids:
+            r = rec.get(p)
+            producer = (r['pano'].get('copyright') if r else None) or '(skipped or unnamed)'
+            t = tally[producer]
+            t[f'panos_{name}'] += 1
+            if r:
+                t[f'processed_{name}'] += 1
+                for tier in tiers:
+                    t[f'det_{tier:g}_{name}'] += sum(d['confidence'] >= tier and not on_camera_rig(d['y_normalized'])
+                                                    for d in r['detections'])
+    rows = []
+    for producer, t in sorted(tally.items(), key=lambda kv: -(kv[1]['panos_coarse'] + kv[1]['panos_added'])):
+        row = {'producer': producer, f'panos_{coarse:g}m': t['panos_coarse'],
+               f'panos_added_by_{fine:g}m': t['panos_added']}
+        for name, label in (('coarse', f'{coarse:g}m'), ('added', f'added_by_{fine:g}m')):
+            for tier in tiers:
+                n = t[f'processed_{name}']
+                row[f'det_per_pano_{tier:g}_{label}'] = round(t[f'det_{tier:g}_{name}'] / n, 3) if n else ''
+        rows.append(row)
+    return rows
+
+
+def crosscheck_main(argv):
+    parser = argparse.ArgumentParser(
+        prog="thinning_experiment.py crosscheck",
+        description="Sanity-check an un-thinned sub-area run against the city's canonical "
+                    "thinned run; writes <box>/thinning_experiment/crosscheck.csv, plus "
+                    "producers.csv: who owns the panos half the spacing would add.")
+    parser.add_argument("box_run", help="The un-thinned sub-area run dir.")
+    parser.add_argument("--canonical", required=True, help="The city's thinned run dir.")
+    parser.add_argument("--spacing", type=float, required=True, help="The canonical run's spacing.")
+    args = parser.parse_args(argv)
+    box_dir, canon_dir = Path(args.box_run), Path(args.canonical)
+    source_name = json.loads((box_dir / "manifest.json").read_text())['imagery_source']
+    box_scan = load_scan(box_dir, source_name)
+    with open(box_dir / "results.jsonl", encoding='utf-8') as f:
+        box_records = [json.loads(line) for line in f if line.strip()]
+    # The processed set, skips included: a cached skip was still "kept" by thinning.
+    canonical_ids = set((canon_dir / "already_processed.txt").read_text().split())
+    wanted = {r['pano']['panorama_id'] for r in box_records}
+    canonical_records = {}
+    with open(canon_dir / "results.jsonl", encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                rec = json.loads(line)
+                if rec['pano']['panorama_id'] in wanted:
+                    canonical_records[rec['pano']['panorama_id']] = rec['detections']
+    from shapely.geometry import Point
+    edge = shape(json.loads((box_dir / "area.geojson").read_text())).boundary
+
+    def edge_m(pano_id):
+        lat, lon = box_scan[pano_id][0], box_scan[pano_id][1]
+        nearest = edge.interpolate(edge.project(Point(lon, lat)))
+        return meters_between((lat, lon), (nearest.y, nearest.x))
+
+    rows = crosscheck_rows(box_scan, box_records, canonical_ids, canonical_records,
+                           get_source(source_name).thin_panos, args.spacing, edge_m)
+    out = box_dir / "thinning_experiment"
+    out.mkdir(exist_ok=True)
+    with open(out / "crosscheck.csv", 'w', encoding='utf-8', newline='\n') as f:
+        w = csv.writer(f, lineterminator='\n')
+        w.writerow(['metric', 'value'])
+        for row in rows:
+            w.writerow([row['metric'], row['value']])
+            print(f"   {row['metric']}: {row['value']}")
+    print(f"-> Wrote {out / 'crosscheck.csv'}")
+    # Who the 5 m extra panos belong to (5 m and 10 m being the question in #148).
+    from detectors import OPERATIONAL_CONFIDENCE
+    prows = producer_rows(box_scan, box_records, get_source(source_name).thin_panos,
+                          args.spacing, args.spacing / 2, (OPERATIONAL_CONFIDENCE, BENCHMARK_CONFIDENCE))
+    with open(out / "producers.csv", 'w', encoding='utf-8', newline='\n') as f:
+        w = csv.writer(f, lineterminator='\n')
+        w.writerow(list(prows[0].keys()))
+        for row in prows:
+            w.writerow(list(row.values()))
+    print(f"-> Wrote {out / 'producers.csv'}")
+
+
 if __name__ == "__main__":
     if sys.argv[1:2] == ['figures']:
         figures_main(sys.argv[2:])
     elif sys.argv[1:2] == ['subset']:
         subset_main(sys.argv[2:])
+    elif sys.argv[1:2] == ['crosscheck']:
+        crosscheck_main(sys.argv[2:])
     else:
         main()

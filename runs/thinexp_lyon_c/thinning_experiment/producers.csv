@@ -1,0 +1,12 @@
+producer,panos_10m,panos_added_by_5m,det_per_pano_0.3_10m,det_per_pano_0.55_10m,det_per_pano_0.3_added_by_5m,det_per_pano_0.55_added_by_5m
+ecartip,338,157,1.432,0.79,1.745,0.994
+grand lyon,172,285,0.773,0.424,1.067,0.632
+grand-lyon,38,168,0.553,0.342,0.738,0.339
+ign_ddc_dtce_fa,70,76,0.714,0.457,1.145,0.711
+ign_ddc_dtce_np,25,42,0.44,0.32,1.595,1.071
+trucbidule,35,14,0.657,0.2,1.571,0.786
+mike en gyroroue,23,19,0.565,0.174,1.316,0.737
+(skipped or unnamed),16,14,,,,
+geovelo,1,12,1.0,0.0,1.167,0.5
+ign_ddc_dtce_vv,2,5,0.0,0.0,0.0,0.0
+luppano,6,0,0.167,0.0,,
