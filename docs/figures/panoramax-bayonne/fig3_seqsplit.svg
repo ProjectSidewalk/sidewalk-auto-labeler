@@ -209,7 +209,7 @@ L 737.83 40.606751
       </g>
      </g>
      <g id="text_12">
-      <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #52514e" x="214.7275" y="43.836087" transform="rotate(-0 214.7275 43.836087)">Bayonne (Panoramax)  (3 views / 2 seq. per site)</text>
+      <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #52514e" x="214.7275" y="43.836087" transform="rotate(-0 214.7275 43.836087)">Bayonne (Panoramax)  (4 views / 2 seq. per site)</text>
      </g>
     </g>
    </g>
@@ -264,13 +264,13 @@ L 347.65651 93.391668
 " clip-path="url(#p717f3b4596)" style="fill: none; stroke: #52514e; stroke-opacity: 0.6; stroke-width: 1.2; stroke-linecap: square"/>
    </g>
    <g id="line2d_33">
-    <path d="M 365.245283 33.721762 
-L 427.920771 33.721762 
+    <path d="M 369.952138 33.721762 
+L 419.167672 33.721762 
 " clip-path="url(#p717f3b4596)" style="fill: none; stroke: #2a78d6; stroke-width: 1.2; stroke-linecap: square"/>
    </g>
    <g id="line2d_34">
-    <path d="M 487.375779 47.49174 
-L 547.202381 47.49174 
+    <path d="M 485.806827 47.49174 
+L 513.346057 47.49174 
 " clip-path="url(#p717f3b4596)" style="fill: none; stroke: #2a78d6; stroke-opacity: 0.6; stroke-width: 1.2; stroke-linecap: square"/>
    </g>
    <g id="patch_3">
@@ -384,7 +384,7 @@ z
 " style="stroke: #fcfcfb; stroke-width: 1.5"/>
     </defs>
     <g clip-path="url(#p717f3b4596)">
-     <use xlink:href="#m76340066ab" x="396.500451" y="33.721762" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 1.5"/>
+     <use xlink:href="#m76340066ab" x="394.436041" y="33.721762" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 1.5"/>
     </g>
    </g>
    <g id="line2d_46">
@@ -397,11 +397,11 @@ z
 " style="stroke: #2a78d6; stroke-width: 2; stroke-linejoin: miter"/>
     </defs>
     <g clip-path="url(#p717f3b4596)">
-     <use xlink:href="#mf971eb1266" x="517.144571" y="47.49174" style="fill: #fcfcfb; stroke: #2a78d6; stroke-width: 2; stroke-linejoin: miter"/>
+     <use xlink:href="#mf971eb1266" x="499.308069" y="47.49174" style="fill: #fcfcfb; stroke: #2a78d6; stroke-width: 2; stroke-linejoin: miter"/>
     </g>
    </g>
    <g id="text_18">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #52514e" x="732.668975" y="42.815091" transform="rotate(-0 732.668975 42.815091)">n 189 / 330: predicted</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #52514e" x="732.668975" y="42.815091" transform="rotate(-0 732.668975 42.815091)">n 403 / 1157: predicted</text>
    </g>
    <g id="text_19">
     <text style="font-weight: 700; font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="221.7275" y="15.558281" transform="rotate(-0 221.7275 15.558281)">Figure 3. Does same-sequence error cancel in the leave-one-out? Not established: Richmond, the anchor, reads the opposite way</text>

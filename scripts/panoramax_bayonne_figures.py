@@ -765,8 +765,8 @@ def fig1(plt):
                Line2D([], [], marker='o', ls='', color=MUTED, ms=8,
                       label='Mapillary, other rigs / mixed')]
     b.legend(handles=handles, loc='lower right', fontsize=8.5, bbox_to_anchor=(1.0, 0.08))
-    fig.suptitle('Figure 1. Is Bayonne outside the Richmond-anchored band? Marginally: 8% '
-                 'over the bar, 1.16x Richmond\'s GoPro Max views (CIs just separate)',
+    fig.suptitle('Figure 1. Is Bayonne outside the Richmond-anchored band? Barely: 3% over '
+                 'the bar, inside its CI; 1.11x Richmond\'s GoPro Max views (CIs just separate)',
                  x=0.01, ha='left', fontsize=11.5, fontweight='bold')
     fig.tight_layout()
     _save(fig, 'fig1_verdict')
@@ -827,8 +827,8 @@ def fig2(plt):
     ax.set_xlabel('sigma_gps that brings leave-one-out chi²/dof to 1, every other sigma '
                   'fixed (m; 95% CI, 200 site resamples). Orange: GoPro Max populations')
     ax.set_title('Calibrated between-view position scatter (sites re-solved per population)')
-    fig.suptitle('Figure 2. Tilt or position? Rig-matched, the excess is a flat 0.6-1.0 m across '
-                 'the ray; scatter 2x Richmond\'s, 1.2x its and Laurens\' GoPro Max views',
+    fig.suptitle('Figure 2. Tilt or position? Rig-matched, the excess is a flat 0.6-0.8 m across '
+                 'the ray; scatter 1.9x Richmond\'s, 1.2x its and Laurens\' GoPro Max views',
                  x=0.01, ha='left', fontsize=11.5, fontweight='bold')
     _save(fig, 'fig2_position')
 
@@ -927,9 +927,9 @@ def fig5(plt):
 
 
 def fig6(plt):
-    years = _read('census/years.csv')
-    rigs = _read('census/rigs.csv')
-    pose = _read('census/pose.csv')
+    years = _read('census_5m/years.csv')
+    rigs = _read('census_5m/rigs.csv')
+    pose = _read('census_5m/pose.csv')
     pos = _read('fig6_positions.csv')
     streets = _read('fig6_streets.csv')
     with open(REPO_ROOT / 'runs' / CITY / 'area.geojson', encoding='utf-8') as f:
@@ -988,11 +988,11 @@ def fig6(plt):
     km = 1.0 / (111.32 * coslat)   # 1 km in degrees of longitude
     ax.plot([x0, x0 + km], [y0, y0], color=INK, lw=2.5, solid_capstyle='butt')
     ax.text(x0 + km / 2, y0 + 0.0012, '1 km', ha='center', fontsize=8.5, color=INK)
-    ax.set_title(f'D. {len(pos):,} thinned panos (10 m) over the commune polygon')
+    ax.set_title(f'D. {len(pos):,} thinned panos (5 m) over the commune polygon')
     ax.text(1.0, -0.02, CREDIT_OSM, transform=ax.transAxes, ha='right', va='top',
             fontsize=7.5, color=INK2)
     fig.suptitle('Figure 6. What did Bayonne\'s run cover? 2024-26 GoPro Max panos from one '
-                 'municipal account, 42% without pose, on the street at a 1.54 m median',
+                 'municipal account, 43% without pose, on the street at a 1.58 m median',
                  x=0.01, ha='left', fontsize=11.5, fontweight='bold')
     _save(fig, 'fig6_census', svg=False, quantize=True)
 
@@ -1048,7 +1048,7 @@ def fig7(plt):
              'detections ≥ 0.55, labelled with their stored confidence (a heatmap peak value, '
              'which can exceed 1).', fontsize=8.5, color=INK2)
     fig.suptitle('Figure 7a. What do Bayonne panos and their 0.55 detections look like? '
-                 '4 highest-confidence + 4 random (seed 57)', x=0.01, ha='left',
+                 '4 highest-confidence + 4 random (seed 57; drawn from the 10 m run)', x=0.01, ha='left',
                  fontsize=11.5, fontweight='bold')
     fig.text(0.01, -0.075, 'Imagery via Panoramax: producer and licence per panel '
              '(etalab-2.0 = Licence Ouverte / Etalab 2.0; CC-BY-SA-4.0).', fontsize=8.5,
@@ -1106,8 +1106,8 @@ def fig7(plt):
     ax.set_xticks([])
     ax.set_yticks([])
     ax.grid(False)
-    ax.set_title(f"Figure 7c. Why were 104 GoPro MAX2 uploads skipped? The served image "
-                 f"is cropped vertically ({m['pano_id'][:8]}; first such skip by id)",
+    ax.set_title(f"Figure 7c. Why were GoPro MAX2 uploads skipped (104 at 10 m, 116 at 5 m)? The "
+                 f"served image is cropped vertically ({m['pano_id'][:8]}; first such skip by id)",
                  fontsize=11)
     ax.text(0, dh + 260, f"Imagery: © {m['producer']} via Panoramax "
             f"(panoramax.openstreetmap.fr), {m['license']}", fontsize=8, color=INK2)

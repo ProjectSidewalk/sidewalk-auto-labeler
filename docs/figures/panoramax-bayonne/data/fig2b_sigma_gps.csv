@@ -1,5 +1,5 @@
 run,subset,rig,gopro_max,n_sites,sigma_gps_chi2_1_m,lo,hi,n_boot,model_sigma_gps_m
-bayonne,all,Max,1,281,2.1553,2.0572,2.2558,200,3.0
+bayonne,all,Max,1,793,2.1044,2.0551,2.1525,200,3.0
 richmond,all,GoPro Max+iSTAR Pulsar+none,0,945,1.1059,1.0547,1.1629,200,3.0
 clovis,all,Fusion+GoPro Fusion FS1.04.01.80.00,0,1135,0.8102,0.7466,0.8675,200,3.0
 laurens,all,GoPro Max,1,109,1.7446,1.6131,1.863,200,3.0
