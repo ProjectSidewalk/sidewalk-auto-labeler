@@ -366,6 +366,8 @@ THIN_COLOR, RANDOM_COLOR = '#2a78d6', '#eb6834'      # validated pair (dataviz p
 CITY_STYLES = (  # color + marker + dash, so identity never rests on color alone
     dict(color='#2a78d6', marker='o', linestyle='-'),
     dict(color='#eb6834', marker='s', linestyle='--'),
+    dict(color='#1f9e73', marker='^', linestyle='-.'),
+    dict(color='#7a5bc4', marker='D', linestyle=':'),
 )
 TIERS = (('0.3', '_t0.3'), ('0.55', ''))             # (label, output-dir suffix)
 
@@ -518,8 +520,87 @@ def figures_main(argv):
         print(f"-> {path.relative_to(REPO_ROOT) if path.is_relative_to(REPO_ROOT) else path}")
 
 
+# ---------------------------------------------------------------------------------------
+# subset: what densifying a finished thinned run would cost, from its scan.json alone
+
+def subset_tables(scan, thin, from_m, to_m, spacings, panos_per_second):
+    """Pano counts per spacing, the densify set (kept at `to_m` but not at `from_m`), and
+    its capture-year mix. thin_panos is a grid rule, so a finer cell need not keep every
+    pano a coarser one kept; `missing_from_finer` counts the ones it does not (they would
+    stay processed but sit outside the finer set).
+
+    Example (a run thinned at 10 m, asking what 5 m would add at 2.5 panos/s):
+        >>> cost, years = subset_tables(scan, panoramax.thin_panos, 10, 5, [0, 5, 10], 2.5)
+        >>> {r['metric']: r['value'] for r in cost}['panos_added']   # doctest: +SKIP
+    """
+    kept = {sp: set(scan) if sp == 0 else set(thin(scan, sp)) for sp in sorted(set(spacings) | {from_m, to_m})}
+    added = kept[to_m] - kept[from_m]
+    missing = kept[from_m] - kept[to_m]
+    cost = [{'metric': f'panos_at_{sp:g}m' if sp else 'panos_raw', 'value': len(kept[sp])}
+            for sp in sorted(kept)]
+    cost += [
+        {'metric': f'missing_from_finer ({from_m:g} m kept, {to_m:g} m not)', 'value': len(missing)},
+        {'metric': 'panos_added', 'value': len(added)},
+        {'metric': 'panos_per_second', 'value': panos_per_second},
+        {'metric': 'hours_added', 'value': round(len(added) / panos_per_second / 3600, 2)},
+    ]
+    sets = {'raw': kept[0], f'thin_{from_m:g}m': kept[from_m], f'thin_{to_m:g}m': kept[to_m],
+            'added': added}
+    by_year = {name: Counter(capture_month(scan[p][2])[:4] for p in s) for name, s in sets.items()}
+    years = sorted(set().union(*by_year.values()))
+    rows = []
+    for y in years:
+        row = {'capture_year': y}
+        for name, c in by_year.items():
+            row[name] = c[y]
+        row['added_share'] = round(by_year['added'][y] / len(added), 3) if added else ''
+        rows.append(row)
+    return cost, rows
+
+
+def subset_main(argv):
+    parser = argparse.ArgumentParser(
+        prog="thinning_experiment.py subset",
+        description="Offline densify cost of a thinned Mapillary/Panoramax run, from its own "
+                    "scan.json: pano counts per spacing, the set a finer spacing would add, its "
+                    "GPU hours at a measured rate, and its capture-year mix. No GPU, no network.")
+    parser.add_argument("run_dir", help="Run dir holding manifest.json + scan.json.")
+    parser.add_argument("--from", dest="from_m", type=float, default=10.0,
+                        help="Spacing the run was thinned at (default %(default)s).")
+    parser.add_argument("--to", dest="to_m", type=float, default=5.0,
+                        help="Finer spacing to densify to (default %(default)s).")
+    parser.add_argument("--spacings", type=float, nargs='+', default=[0, 5, 10, 20])
+    parser.add_argument("--panos-per-second", type=float, required=True,
+                        help="Measured detection rate (the run's last `detector:` line).")
+    parser.add_argument("--out", required=True, help="Directory for densify_cost.csv + densify_years.csv.")
+    args = parser.parse_args(argv)
+    run_dir = Path(args.run_dir)
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    source_name = manifest.get('imagery_source')
+    if source_name not in THINNABLE_SOURCES:
+        sys.exit(f"{run_dir} is a {source_name!r} run; only {THINNABLE_SOURCES} thin.")
+    scan = load_scan(run_dir, source_name)
+    if scan is None:
+        sys.exit(f"{run_dir} has no usable scan.json (missing, other source, or failed tiles).")
+    cost, years = subset_tables(scan, get_source(source_name).thin_panos, args.from_m,
+                                args.to_m, args.spacings, args.panos_per_second)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    for name, rows in (('densify_cost.csv', cost), ('densify_years.csv', years)):
+        with open(out / name, 'w', encoding='utf-8', newline='\n') as f:
+            w = csv.writer(f, lineterminator='\n')
+            w.writerow(list(rows[0].keys()))
+            for row in rows:
+                w.writerow(list(row.values()))
+    for row in cost:
+        print(f"   {row['metric']}: {row['value']}")
+    print(f"-> Wrote {out / 'densify_cost.csv'} and densify_years.csv")
+
+
 if __name__ == "__main__":
     if sys.argv[1:2] == ['figures']:
         figures_main(sys.argv[2:])
+    elif sys.argv[1:2] == ['subset']:
+        subset_main(sys.argv[2:])
     else:
         main()
