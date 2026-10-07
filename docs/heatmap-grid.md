@@ -5,6 +5,7 @@ Issue [#111](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/111
 before any number was measured. Section 4 is the decode half (2026-10-02, PR #129): RampNet#221's
 sub-cell decode ported as an opt-in (`--decode gaussian`; the default stays argmax) and measured
 through this repo's detector, in world space and under a perturbation.
+Section 5 (2026-10-06, #151 question 2) explains the four Vancouver `tier_off_grid` misses.
 
 ## 1. The grid, on every local run
 
@@ -149,7 +150,8 @@ reopen it. Full report: [`figures/heatmap-grid/vancouver_gate_coarse_cell.md`](f
 | verdict | STOP (S, Z, P) | STOP (S, P) | |
 
 Of Arm S's 59,529 matches, 79.4% are on the same heatmap cell, 9.3% are grid neighbours,
-11.3% are flips, and 4 are off-grid. The coarse-cell rule accounts for the flips, and Arm Z
+11.3% are flips, and 4 are off-grid (clipped-plateau tie-breaks, not a crack in the 8-cell
+model: section 5). The coarse-cell rule accounts for the flips, and Arm Z
 (the same pipeline a year later) then passes. The store run still fails, but no longer
 because of position: 4,268 of its 4,477 remaining misses have a detection **below 0.55
 within one coarse cell**. Resampling moved the confidence across the tier. The 0.55 tier
@@ -633,3 +635,201 @@ steps: a few minutes on the desktop. Total about 4.0 GPU-hours (upper bound; GPU
   labels.
 - **No provenance gate for a gaussian campaign.** The gate refuses non-argmax arms; the classes
   in 4.5 are a proposal that nothing runs.
+
+## 5. The four off-grid misses (#151 question 2, 2026-10-06)
+
+[#151](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/151) question 2 asked why
+four of Vancouver's Arm S misses are `tier_off_grid` under `pixel-96` (section 3): the nearest
+tier detection sits 2-6 heatmap cells from the label, which the 8-cell model says an argmax
+cannot do. Read-only: no re-inference, no rule moved, question 1 untouched.
+
+### Key takeaways
+
+1. **All four are clipped-plateau tie-breaks, not off-grid peaks.** `detectors/decode.py` finds
+   peaks on `np.clip(heatmap, 0, 1)` (`_peaks`, line 133). A peak whose raw value exceeds 1.0
+   becomes a flat top of exactly equal pixels, and skimage keeps the first of them in row-major
+   order (the `_peaks` docstring, line 100). That pixel lies on the bilinear ramp *before* the
+   knot (the coarse sample at residue 3.5), not at it. [RampNet#221](https://github.com/ProjectSidewalk/RampNet/issues/221)
+   found the same: every off-grid peak there is "a plateau: a clipped top (score > 1) or column 0".
+2. **In every case the off-grid pixel is the raster-earlier of the pair**, and the other side sits
+   on the knot of the same coarse peak. Two are on the store side (store confidence 1.0023 and
+   1.0108). Two are on the label side: the deployed run's heatmap is gone, but the store detection
+   sits on-grid in the same peak at 1.0005 and 0.9926, so the deployed peak very likely sat just
+   above 1.0 where the store peak sat just below (inferred).
+3. **The census agrees everywhere it can be checked.** Of 380,199 stored detections in 16 runs,
+   306 are off-grid and 305 of them have a raw confidence >= 1.0. The one exception is a Paterson
+   detection at 0.5734, which is unexplained (not chased). The 14,817 committed decode peaks have
+   47 off-grid, all >= 1.0. Vancouver's 64,814 AI labels have 46 off-grid. Labels carry no
+   confidence, but their residue pairs have the same shape.
+4. **Only 4 reach `tier_off_grid` because a residue-2 edge stays inside `pixel-96`'s tolerance.**
+   Residue 2 is 1 heatmap cell from the knot pixel (16 px at 16,384 wide, inside the +/-17 px
+   tolerance), so most plateau edges match or count as grid neighbours. Only an edge at residue
+   1, 0 or 7 (2, 3 or 4 cells) facing an on-knot counterpart escapes. Under the coarse-cell rule
+   all four match. **The 8-cell model stands; the exception is the clip.**
+
+### 5.1 The four rows
+
+Heatmap position = pano_x x 1024 / W, pano_y x 512 / H; "res" = (col mod 8, row mod 8); grid =
+residue 3 or 4 on both axes. Store detection = the nearest >= 0.55 detection on the pano, chosen as
+the gate chooses it. (`data/offgrid_misses_151.csv`)
+
+| label | pano (W) | label (col,row) res | store det (col,row) res | store conf | cells | coarse cell | off-grid side |
+|---|---|---|---|---:|---:|---|---|
+| vancouver:41404 | 3D7H_0hWV__hkFGabgP8Cg (13,312) | (659,299) (3,3) | (660,297) (4,1) | 1.0023 | 2 | same (row 37) | store |
+| vancouver:62190 | ZNRoYWSnhKcpBym1atqw6g (16,384) | (55,275) (7,3) | (59,275) (3,3) | 1.0005 | 4 | adjacent (cols 6/7) | label |
+| vancouver:63918 | a9dx8XEQKwwyjMrTdht-Aw (16,384) | (915,291) (3,3) | (915,289) (3,1) | 1.0108 | 2 | same (row 36) | store |
+| vancouver:85767 | vyHKP3WGD_JO9OEXQGhnqw (16,384) | (433,283) (1,3) | (435,283) (3,3) | 0.9926 | 2 | same (col 54) | label |
+
+vancouver:62190's "adjacent" is bookkeeping. Column 55 is residue 7 of cell 6 (`col // 8`), but
+it is the ramp up to cell 7's knot at 59.5, the same peak the store detection sits on. The
+offgrid subcommand recomputes the class from the run, and its four labels are the four the
+committed `unmatched.csv` lists as `tier_off_grid`.
+
+### 5.2 Census
+
+Off-grid = residue not 3/4 on at least one axis. (`data/offgrid_census.csv`, one row per input
+with its sha256 and residue-pair histogram.)
+
+| input | peaks | off-grid | off-grid with raw conf >= 1.0 | lowest off-grid conf |
+|---|---:|---:|---:|---:|
+| Vancouver store run (`runs/vancouver/results.jsonl`) | 92,067 | 32 | 32 | 1.00022 |
+| 15 local runs (`runs/*/results.jsonl`) | 288,132 | 274 | 273 | 0.5734 (next: 1.000001) |
+| committed decode peaks (`data/decode/decode_*.jsonl.gz`, argmax, 13 files) | 14,817 | 47 | 47 | 1.000005 |
+| Vancouver AI labels (`raw_labels.geojson`, AI account) | 64,814 | 46 | n/a | n/a |
+
+Per local run, the off-grid counts are annapolis 49, bayonne 1, bend 116, clovis 2, gainesville 5,
+laurens 1, morgantown 7, paterson 58 (57 >= 1.0), richmond 19 and sao_paulo 16. The five others
+have 0: the three smoke runs, budapest_district5 and laurens_gsv.
+
+Residue pairs (x,y):
+
+| input | pairs |
+|---|---|
+| Vancouver store run | (3,2) x13, (2,3) x9, (4,2) x4, (3,1) x3, (1,3), (2,2), (4,1) |
+| Vancouver AI labels | (3,2) x21, (2,3) x10, (4,2) x6, (3,1) x3, (1,3) x2, (2,4) x2, (2,2), (7,3) |
+
+In the Vancouver store run the off axis is always residue 1 or 2. Across every results file the
+off axis takes residue 0, 1 or 2 (just before the knot, in its own cell), 7, or 6 (the previous
+cell, ramping up to the next knot). Residue 5 never occurs on either axis, the y residue is never
+5 or 6, and x residue 6 occurs twice, both in Paterson; one of the two is the exception. Every off
+axis therefore sits on the raster-earlier side of a knot, where a tie-break that takes the first
+pixel in row-major order would put it.
+
+The exception is Paterson pano `UFGbN-uEeAgV9LKrgJSpGQ`, heatmap (470,260), residues (6,4), at
+0.5734. It is not a clip, so the clip does not explain it, and it was not chased.
+
+One AI label, vancouver:45956, is off-grid at a non-integer heatmap position (307.08, 281.85),
+because its pano is 3,328 px wide, not a multiple of 1024. It is rounded to the nearest heatmap
+pixel. 514 AI labels in all sit on such panos, all rounded the same way. Its pano is not in the
+store run.
+
+**Where every off-grid peak's counterpart sits** (`data/offgrid_fate_151.csv`; rounded Chebyshev
+heatmap cells, store detection to the nearest AI label, AI label to the nearest detection of any
+confidence):
+
+| side | 0 cells | 1 cell | 2 cells | 4 cells | pano not in run |
+|---|---:|---:|---:|---:|---:|
+| 32 off-grid store detections | 9 | 21 | 2 | 0 | 0 |
+| 46 off-grid AI labels | 9 | 34 | 1 | 1 | 1 |
+
+In 9 pairs both runs clipped the same plateau and broke the tie at the same pixel. Most of the
+rest are one cell apart, inside either rule's tolerance. The four at 2 or 4 cells are the four misses.
+
+### 5.3 Mechanism
+
+RampNet's heatmap is an exact bilinear 8x upsample of the 64x128 coarse map (section 1). Along a
+row through a coarse peak, the surface rises linearly to the knot at 8k + 3.5 and falls linearly
+after it. When the knot's value is above 1.0, `np.clip(heatmap, 0, 1)` flattens every pixel within
+(knot - 1.0) / slope of it to exactly 1.0. All of those pixels pass `peak_local_max`'s
+maximum-filter test. skimage then sorts candidates with a stable descending sort, so the tie goes
+to the first in row-major order: the topmost row, then the leftmost column of the plateau. How
+far before the knot that pixel sits depends only on how far above 1.0 the peak is and how steep
+the ramp is. `heatmap_grid.plateau_demo` shows it through the production decoder:
+
+- `DEMO_COL`: knots c6 = 0.99 and c7 = 1.015 on the peak row. The plateau runs from column 55 to
+  the knot, and the argmax is column 55 (residue 7), row 275 (residue 3). This is
+  vancouver:62190's shape.
+- `DEMO_ROW`: knots r35 = 0.97 and r36 = 1.015. The argmax is row 289 (residue 1), column 483
+  (residue 3). This is the store side of vancouver:41404 and vancouver:63918.
+- The same map scaled below 1.0 stays on the knot.
+
+All three are pinned in `tests/test_heatmap_grid.py`. Confidence is the raw (unclipped) heatmap
+value (decode.py scores a peak by `heatmap[r][c]`), which is why the census can see the clip.
+This is the case RampNet#221 names, and `decode.py`'s own docstring documents the tie order.
+
+### 5.4 Hypotheses ruled out
+
+| hypothesis | verdict |
+|---|---|
+| 1. clipped-plateau tie-break | **confirmed** (5.1-5.3) |
+| 2. seam or edge plateau (the `wrap` / column-0 case) | none of the four is within 10 columns of the seam (columns 55, 433, 659, 915) |
+| 3. dims differ or a re-fetched pano | `dims_differ` = 0 in the gate report; every one has the run's W x H |
+| 4. a human edit, or a label not born from a detection | all four are from the AI account, have no validations, and sit at canvas (360, 240) of a 720x480 canvas, the automatic placement |
+| 5. a sub-cell (gaussian) decode on one side | the gate refuses any non-argmax arm (`provenance_gate.load_run`), and the deployed campaign predates `--decode` |
+
+### 5.5 Census discrepancies against the plan
+
+The plan's numbers came from the planner's own read-only pass. Two differ here, and neither
+changes a conclusion:
+
+- **Local runs: 274 off-grid (273 >= 1.0) here, 327 (326) in the plan.** The 15
+  `runs/*/results.jsonl` files give 274. The plan's 327 is exactly 274 + 32 (the Vancouver store
+  run) + 21 off-grid peaks counted again from derived copies of the same panos: Richmond's
+  `results.band.jsonl` or `results.f01.jsonl` (19 each, the same 19 peaks) and Laurens'
+  `results.raw.jsonl` and `results.check.jsonl` (1 each, the same peak). That decomposition is
+  inferred, not confirmed with the planner. Deduplicated, the census here is the one to quote:
+  306 of 380,199 including Vancouver.
+- **Decode peaks: 47 off-grid here, 46 in the plan.** The one most likely missing from the plan is
+  in `decode_annapolis_perturbed`, pano 299861069631715 at (579,274). Its raw value is
+  1.0000045, and RampNet's own extraction (`rn_argmax`) reports it clipped to exactly 1.0, so a
+  strict "> 1" test on that column drops it. All 47 are >= 1.0 raw.
+
+Everything else matches the plan exactly: the four rows, Vancouver's 92,067 / 32 / min 1.0002,
+the 64,814 labels with 46 off-grid and the same residue-pair histogram, vancouver:45956, the
+Paterson exception, and no y residue 5 or 6.
+
+### 5.6 Replication
+
+No GPU, no network, about a minute on the desktop. The Vancouver run and its labels are not
+committed: `runs/vancouver/results.jsonl` (sha256 `7fdf4005...79f28`) and
+`runs/vancouver/provenance_gate/raw_labels.geojson` (sha256 `57c31c73...3098d`). Both hashes are in
+the gate's `report.md`. `unmatched.csv` is committed (sha256 `5e8b94d3...370ec8`). The sha256 of
+every census input is in `offgrid_census.csv`. Pass the AI account's user id on the command line;
+it is not written anywhere.
+
+```bash
+python scripts/heatmap_grid.py offgrid \
+    --results annapolis bayonne bend bend-smoke budapest_district5 clovis gainesville laurens \
+              laurens_gsv morgantown paterson paterson-smoke richmond sao_paulo sao_paulo_smoke \
+              runs/vancouver/results.jsonl \
+    --decode docs/figures/heatmap-grid/data/decode/decode_*.jsonl.gz \
+    --labels runs/vancouver/provenance_gate/raw_labels.geojson --labels-user <ai user_id> \
+    --unmatched runs/vancouver/provenance_gate/unmatched.csv
+# writes data/offgrid_census.csv, offgrid_misses_151.csv, offgrid_fate_151.csv; prints the
+# below-1.0 exception, the off-grid non-integer label and the two plateau demos
+pytest tests/test_heatmap_grid.py      # the demos (need scikit-image) + offgrid_misses
+```
+
+### 5.7 Where each number lives
+
+| number | file | column(s) | produced by |
+|---|---|---|---|
+| the four rows (5.1) | `data/offgrid_misses_151.csv` | all | `offgrid --unmatched` |
+| census, residue pairs, lowest conf, input sha256 (5.2) | `data/offgrid_census.csv` | `n`, `off_grid`, `off_grid_conf_ge_1`, `off_grid_conf_lt_1`, `min_conf_off_grid`, `residue_pairs_x_y`, `sha256` | `offgrid --results --decode --labels` |
+| non-integer label positions (5.2) | `data/offgrid_census.csv` (labels row) | `non_integer_positions`, `off_grid_non_integer` | the same |
+| the Paterson exception (5.2) | stdout | "off-grid below 1.0" line | the same |
+| counterpart distances (5.2) | `data/offgrid_fate_151.csv` | `side`, `cells_to_nearest_counterpart`, `n` | `offgrid --labels --unmatched` |
+| plateau demos (5.3) | `tests/test_heatmap_grid.py`; stdout | `DEMO_COL`, `DEMO_ROW` | `plateau_demo` |
+| `dims_differ` = 0, sha256 of the run and labels (5.4, 5.6) | `runs/vancouver/provenance_gate/report.md` | "Labels whose pano width/height differ", inputs | `provenance_gate.py` (unchanged) |
+
+### 5.8 What was not done
+
+- **No re-inference.** The Vancouver pixels are not local, so the deployed run's heatmap for the
+  two label-side cases cannot be inspected. "The deployed peak clipped" is inferred from the
+  store detection's on-grid position and its confidence near 1.0.
+- **No rule, gate, report or `unmatched.csv` changed.** `provenance_gate.py` is untouched, and
+  #151 question 1 is not addressed here.
+- **The Paterson exception** (0.5734, residues (6,4)) is reported, not explained.
+- **No change to the decoder.** Whether to break plateau ties at the knot (for example, by
+  ranking candidates on the raw heatmap) is a decoder decision and is not proposed here. Doing so
+  would move live-label pixels, which section 3's exact-key reproduction depends on.

@@ -297,6 +297,9 @@ python scripts/eval_sites.py paterson --vintage-ablation
 # (one coarse cell's uniform quantization) at 2.6 m and auto and applies the pre-registered rule
 # (verdict: KEEP 1.0). Writes docs/figures/heatmap-grid/data/. No GPU, no network.
 python scripts/heatmap_grid.py grid paterson bend gainesville sao_paulo richmond
+# ...the rare off-grid peak is a clipped plateau (#151 q2; doc section 5): decode.py finds peaks on
+# clip(heatmap, 0, 1), so a peak > 1.0 is a flat top and its raster-first pixel wins. `offgrid` is the census
+python scripts/heatmap_grid.py offgrid --results <runs...> --labels <raw_labels.geojson> --labels-user <ai user_id> --unmatched runs/vancouver/provenance_gate/unmatched.csv
 python scripts/heatmap_grid.py sigma paterson bend gainesville sao_paulo richmond
 python scripts/eval_sites.py paterson --sigma-peak-px 2.31 --out /tmp/eval_s231   # one cell
 # SUB-CELL DECODE (#111 decode half, docs/heatmap-grid.md section 4). OPT-IN, default argmax:

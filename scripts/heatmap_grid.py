@@ -25,6 +25,15 @@ Two more draw the figures in docs/heatmap-grid.md (docs/figures/heatmap-grid/*.p
     # 4. no GPU, no network: draw every figure from the committed data
     python scripts/heatmap_grid.py figures
 
+A fifth asks why a few peaks are off the grid at all (#151 question 2). No GPU, no network:
+
+    # 5. census of off-grid peaks (residue not 3/4) in runs, AI labels and decode files, plus
+    #    the gate's tier_off_grid misses next to their nearest tier detection. The answer is
+    #    the clip: decode.py finds peaks on clip(heatmap, 0, 1), so a peak above 1.0 is a flat
+    #    top and the raster-first pixel of it wins (`plateau_demo`)
+    python scripts/heatmap_grid.py offgrid --results <run or results.jsonl> ... \
+        --labels <raw_labels.geojson> --labels-user <ai user_id> --unmatched <unmatched.csv>
+
 `sigma` fuses exactly as eval_sites.py does (tier 0.55, rig mask off, pose off) and reads
 ../RampNet/benchmark/<city> as data. Outputs land in docs/figures/heatmap-grid/data/
 (grid.csv, sigma_peak.csv), which docs/heatmap-grid.md cites.
@@ -219,6 +228,334 @@ def cmd_sigma(args):
               f"  resid {c['residual_rejections_rise']:+.1%}  -> {'pass' if c['pass'] else 'FAIL'}")
     print(f"verdict: {'ADOPT' if adopt else 'KEEP'} sigma_peak_px {SIGMAS[1]} "
           f"{'as the default' if adopt else '(default stays ' + str(SIGMAS[0]) + ')'}")
+
+
+# ---- off-grid peaks: the clipped plateau (#151 question 2) -------------------------------
+def on_grid(rx, ry):
+    """Both residues where a bilinear-8x argmax can land (module docstring).
+
+    Example:
+        >>> on_grid(3, 4), on_grid(7, 3)
+        (True, False)
+    """
+    return rx in GRID_RESIDUES and ry in GRID_RESIDUES
+
+
+def _sha256(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for block in iter(lambda: f.read(1 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _pairs_text(pairs):
+    """'rx,ry:n;...' most common first (ties by residue), for one CSV cell.
+
+    Example:
+        >>> _pairs_text(Counter({(3, 2): 2, (2, 3): 2, (7, 3): 1}))
+        '2,3:2;3,2:2;7,3:1'
+    """
+    return ';'.join(f'{rx},{ry}:{n}' for (rx, ry), n in
+                    sorted(pairs.items(), key=lambda kv: (-kv[1], kv[0])))
+
+
+def offgrid_peaks(peaks):
+    """Census of (heatmap col, heatmap row, confidence) peaks; confidence may be None.
+
+    Returns {'n', 'off_grid', 'off_grid_conf_ge_1', 'min_conf_off_grid', 'pairs',
+    'below_1': [(col, row, rx, ry, conf, key)], 'non_integer', 'off_grid_non_integer'} where
+    key is whatever the caller passed as the 4th element (a pano id). A non-integer position
+    (a label on a pano whose width is not a multiple of 1024) is rounded to the nearest heatmap
+    pixel and counted in 'non_integer'; the off-grid ones are listed in 'off_grid_non_integer'.
+
+    Example:
+        >>> c = offgrid_peaks([(259, 131, 0.9, 'a'), (55, 275, 1.01, 'b'), (470, 260, 0.57, 'c')])
+        >>> c['n'], c['off_grid'], c['off_grid_conf_ge_1'], _pairs_text(c['pairs'])
+        (3, 2, 1, '6,4:1;7,3:1')
+        >>> c['below_1']
+        [(470, 260, 6, 4, 0.57, 'c')]
+    """
+    out = {'n': 0, 'off_grid': 0, 'off_grid_conf_ge_1': 0, 'min_conf_off_grid': None,
+           'pairs': Counter(), 'below_1': [], 'non_integer': 0, 'off_grid_non_integer': []}
+    for col, row, conf, key in peaks:
+        out['n'] += 1
+        c, r = round(col), round(row)
+        exact = abs(c - col) <= 1e-6 and abs(r - row) <= 1e-6
+        out['non_integer'] += not exact
+        rx, ry = c % CELL, r % CELL
+        if on_grid(rx, ry):
+            continue
+        out['off_grid'] += 1
+        if not exact:
+            out['off_grid_non_integer'].append((key, col, row))
+        out['pairs'][(rx, ry)] += 1
+        if conf is None:
+            continue
+        if conf >= 1.0:
+            out['off_grid_conf_ge_1'] += 1
+        else:
+            out['below_1'].append((c, r, rx, ry, conf, key))
+        m = out['min_conf_off_grid']
+        out['min_conf_off_grid'] = conf if m is None else min(m, conf)
+    return out
+
+
+def _results_peaks(path):
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            pid = rec['pano']['panorama_id']
+            for d in rec.get('detections', []):
+                yield (d['x_normalized'] * HEATMAP_W, d['y_normalized'] * HEATMAP_H,
+                       d['confidence'], pid)
+
+
+def _decode_peaks(path):
+    """The argmax peaks of a committed decode file (subcell_decode.py; 4.7)."""
+    import gzip
+    with gzip.open(path, 'rt', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                rec = json.loads(line)
+                for x, y, conf in rec['argmax']:
+                    yield x * HEATMAP_W, y * HEATMAP_H, conf, rec['pano_id']
+
+
+def _label_peaks(path, user):
+    """AI labels' heatmap positions: pano_x * 1024 / W, pano_y * 512 / H (no confidence)."""
+    with open(path, encoding='utf-8') as f:
+        feats = json.load(f)['features']
+    for ft in feats:
+        q = ft.get('properties') or {}
+        if q.get('label_type', 'CurbRamp') != 'CurbRamp' or str(q.get('user_id')) != user:
+            continue
+        w, h = int(q['pano_width']), int(q['pano_height'])
+        yield (int(q['pano_x']) * HEATMAP_W / w, int(q['pano_y']) * HEATMAP_H / h, None,
+               f"label {q['label_id']}")
+
+
+def _shown(path):
+    """A census row's input name: the run directory and the file, never a local path.
+
+    Example:
+        >>> _shown(Path('D:/x/runs/vancouver/provenance_gate/unmatched.csv'))
+        'vancouver/provenance_gate/unmatched.csv'
+        >>> _shown(Path('D:/x/runs/paterson/results.jsonl'))
+        'paterson/results.jsonl'
+    """
+    parts = path.parts[-3:] if path.parent.name == 'provenance_gate' else path.parts[-2:]
+    return '/'.join(parts)
+
+
+def census_row(kind, path, c):
+    return {'input': _shown(path), 'kind': kind, 'n': c['n'], 'off_grid': c['off_grid'],
+            'off_grid_conf_ge_1': '' if kind == 'labels' else c['off_grid_conf_ge_1'],
+            'off_grid_conf_lt_1': '' if kind == 'labels' else len(c['below_1']),
+            'min_conf_off_grid': ('' if c['min_conf_off_grid'] is None
+                                  else round(c['min_conf_off_grid'], 6)),
+            'residue_pairs_x_y': _pairs_text(c['pairs']),
+            'non_integer_positions': c['non_integer'],
+            'off_grid_non_integer': len(c['off_grid_non_integer']),
+            'sha256': _sha256(path)}
+
+
+def _heat(px, size, n):
+    """A native pixel on the n-wide heatmap axis (exact for W a multiple of 1024)."""
+    v = px * n / size
+    return round(v) if abs(v - round(v)) < 1e-6 else v
+
+
+def offgrid_misses(unmatched_path, results_path, city):
+    """The gate's tier_off_grid rows: an unmatched label whose nearest >= tier detection
+    (nearest in native px, seam-wrapped, as provenance_gate.join picks it) sits 2-6 heatmap
+    cells away (geo.cell_shift_class, Chebyshev). Works on an unmatched.csv with or without
+    the #111 `miss_class` column; recomputes the class from the run either way."""
+    import provenance_gate as pg
+    run = pg.load_run(results_path)
+    out = []
+    with open(unmatched_path, encoding='utf-8') as f:
+        for u in csv.DictReader(f):
+            if u.get('reason') != 'no detection within tolerance' or u['pano_id'] not in run:
+                continue
+            w, h, dets = run[u['pano_id']]
+            pt = (int(u['pano_x']), int(u['pano_y']))
+            tier = [d for d in dets if d[2] >= pg.TIER]
+            if not tier:
+                continue
+            det = min(tier, key=lambda d: pg._dist(pt, d, w))
+            cells = geo.heatmap_cell_distance(pt, det, w, h)
+            if geo.cell_shift_class(cells) != 'off_grid':
+                continue
+            lc, lr = _heat(pt[0], w, HEATMAP_W), _heat(pt[1], h, HEATMAP_H)
+            dc, dr = _heat(det[0], w, HEATMAP_W), _heat(det[1], h, HEATMAP_H)
+            l_on, d_on = on_grid(lc % CELL, lr % CELL), on_grid(dc % CELL, dr % CELL)
+            lcell, dcell = (lc // CELL, lr // CELL), (dc // CELL, dr // CELL)
+            gap = max(abs(lcell[0] - dcell[0]), abs(lcell[1] - dcell[1]))
+            off = (lr, lc) if not l_on else (dr, dc) if not d_on else None
+            out.append({
+                'label_uid': f"{city}:{u['label_id']}", 'pano_id': u['pano_id'],
+                'pano_width': w, 'label_col': lc, 'label_row': lr,
+                'label_residue': f'{lc % CELL},{lr % CELL}', 'det_col': dc, 'det_row': dr,
+                'det_residue': f'{dc % CELL},{dr % CELL}', 'det_confidence': round(det[2], 6),
+                'cells_chebyshev': round(cells, 2),
+                'coarse_cells': {0: 'same', 1: 'adjacent'}.get(gap, f'{gap} apart'),
+                'off_grid_side': ('label' if not l_on else '') + ('+' if not (l_on or d_on) else '')
+                                 + ('store' if not d_on else ''),
+                'off_grid_is_raster_earlier': (None if off is None else
+                                               off == min((lr, lc), (dr, dc)))})
+    return out
+
+
+def offgrid_fate(results_path, labels_path, user):
+    """Where every off-grid peak's counterpart sits: for each off-grid store detection the
+    nearest AI label on its pano, and for each off-grid AI label the nearest stored detection
+    (any confidence), in rounded Chebyshev heatmap cells. Rows {side, cells, n}; cells is
+    'pano not in run' / 'no counterpart' when there is nothing to measure against."""
+    import provenance_gate as pg
+    run = pg.load_run(results_path)
+    labels, _, _ = pg.load_ai_labels(labels_path, user)
+    by_pano = {}
+    for lab in labels:
+        by_pano.setdefault(lab['pano_id'], []).append((lab['pano_x'], lab['pano_y']))
+
+    def off(pt, w, h):
+        return not on_grid(round(pt[0] * HEATMAP_W / w) % CELL, round(pt[1] * HEATMAP_H / h) % CELL)
+
+    def cells_to(pt, others, w, h):
+        near = min(others, key=lambda o: pg._dist(pt, o, w), default=None)
+        return ('no counterpart' if near is None
+                else round(geo.heatmap_cell_distance(pt, near, w, h)))
+    fate = Counter()
+    for pid, (w, h, dets) in run.items():
+        for d in dets:
+            if off(d, w, h):
+                fate[('store detection', cells_to(d, by_pano.get(pid, []), w, h))] += 1
+    for lab in labels:
+        pt = (lab['pano_x'], lab['pano_y'])
+        if lab['pano_id'] not in run:
+            w, h = int(lab['pano_width']), int(lab['pano_height'])
+            if off(pt, w, h):
+                fate[('AI label', 'pano not in run')] += 1
+            continue
+        w, h, dets = run[lab['pano_id']]
+        if off(pt, w, h):
+            fate[('AI label', cells_to(pt, dets, w, h))] += 1
+    return [{'side': s, 'cells_to_nearest_counterpart': c, 'n': n}
+            for (s, c), n in sorted(fate.items(), key=lambda kv: (kv[0][0], str(kv[0][1])))]
+
+
+def plateau_demo(row_knots, col_knots, row0, col0):
+    """The mechanism on a synthetic map: argmax of a coarse peak whose top clips at 1.0.
+
+    The 64x128 coarse map is separable, A(row) * B(col): `row_knots` and `col_knots` are the
+    coarse values from coarse row `row0` / column `col0` on (zero elsewhere), and the map is
+    upsampled exactly as RampNet's head does (rampnet_subcell.upsample, bilinear 8x,
+    align_corners=False). Returns the strongest argmax detection's heatmap (col, row) and
+    the raw value there, through the production decoder (decode.detections_from_heatmap).
+
+    A peak above 1.0 makes a flat top on clip(h, 0, 1); skimage keeps the raster-first pixel
+    of it, which sits on the bilinear ramp BEFORE the knot (residue 0-2 of the knot's own cell,
+    or 5-7 of the previous one), not on the knot (residue 3/4). Example (not a doctest: it
+    needs scikit-image; tests/test_heatmap_grid.py pins it under needs_skimage):
+
+        plateau_demo(**DEMO_COL)[:2]  ->  (55, 275): column residue 7, row residue 3
+    """
+    import numpy as np
+    from detectors import rampnet_subcell as sc
+    from detectors.decode import detections_from_heatmap
+    a, b = np.zeros(HEATMAP_H // CELL), np.zeros(HEATMAP_W // CELL)
+    a[row0:row0 + len(row_knots)] = row_knots
+    b[col0:col0 + len(col_knots)] = col_knots
+    h = sc.upsample(np.outer(a, b))
+    x, y, conf = detections_from_heatmap(h, 'argmax')[0]
+    return round(x * HEATMAP_W), round(y * HEATMAP_H), conf
+
+
+# Effective knots on the peak row/column. The separable map's neighbouring row/column (0.5)
+# scales the knot to 15/16 + 1/32 = 0.96875 at the two hi-res pixels around it, so dividing
+# by 0.96875 puts the stated value on the peak row itself.
+DEMO_COL = {'row_knots': [0.5, 1.0, 0.5], 'col_knots': [0.99 / 0.96875, 1.015 / 0.96875],
+            'row0': 33, 'col0': 6}      # c6 = 0.99, c7 = 1.015 -> col 55 (residue 7), row 275
+DEMO_ROW = {'row_knots': [0.97 / 0.96875, 1.015 / 0.96875], 'col_knots': [0.5, 1.0, 0.5],
+            'row0': 35, 'col0': 59}     # r35 = 0.97, r36 = 1.015 -> row 289 (residue 1), col 483
+
+
+def cmd_offgrid(args):
+    rows, below = [], []
+    for spec in args.results:
+        p = Path(spec)
+        path = p if p.suffix == '.jsonl' else args.runs_root / spec / 'results.jsonl'
+        if not path.exists():
+            print(f'{spec}: no {path}, skipped', file=sys.stderr)
+            continue
+        c = offgrid_peaks(_results_peaks(path))
+        rows.append(census_row('results', path, c))
+        below += [(_shown(path),) + b for b in c['below_1']]
+    for path in args.decode:
+        c = offgrid_peaks(_decode_peaks(path))
+        rows.append(census_row('decode', path, c))
+        below += [(_shown(path),) + b for b in c['below_1']]
+    non_integer = []
+    if args.labels:
+        if not args.labels_user:
+            sys.exit('--labels needs --labels-user (the AI account)')
+        c = offgrid_peaks(_label_peaks(args.labels, args.labels_user))
+        rows.append(census_row('labels', args.labels, c))
+        non_integer = c['off_grid_non_integer']
+    print(f"{'input':<44} {'kind':<8} {'n':>8} {'off':>5} {'>=1.0':>6} {'min conf':>9}  "
+          f"residue pairs (x,y)")
+    for r in rows:
+        print(f"{r['input']:<44} {r['kind']:<8} {r['n']:>8,} {r['off_grid']:>5} "
+              f"{r['off_grid_conf_ge_1']!s:>6} {r['min_conf_off_grid']!s:>9}  "
+              f"{r['residue_pairs_x_y']}")
+    tot = [r for r in rows if r['kind'] == 'results']
+    if tot:
+        print(f"results files: {sum(r['n'] for r in tot):,} detections, "
+              f"{sum(r['off_grid'] for r in tot)} off-grid, "
+              f"{sum(r['off_grid_conf_ge_1'] for r in tot)} with confidence >= 1.0")
+    for b in below:
+        print(f'off-grid below 1.0 (unexplained by the clip): {b[0]} pano {b[6]} heatmap '
+              f'({b[1]},{b[2]}) residues ({b[3]},{b[4]}) confidence {b[5]:.4f}')
+    for key, col, row in non_integer:
+        print(f'off-grid at a non-integer heatmap position (pano width not a multiple of '
+              f'1024; rounded): {key} ({col:.2f},{row:.2f})')
+    if args.out_census:
+        write_csv(args.out / 'offgrid_census.csv', rows)
+    if args.unmatched:
+        results = args.unmatched_results or args.unmatched.parent.parent / 'results.jsonl'
+        city = args.city or args.unmatched.parent.parent.name
+        misses = offgrid_misses(args.unmatched, results, city)
+        print(f'\ntier_off_grid misses in {_shown(args.unmatched)} (against {_shown(results)}):')
+        for m in misses:
+            print(f"  {m['label_uid']:<16} label ({m['label_col']},{m['label_row']}) "
+                  f"res {m['label_residue']}  det ({m['det_col']},{m['det_row']}) res "
+                  f"{m['det_residue']} conf {m['det_confidence']:.4f}  coarse {m['coarse_cells']}"
+                  f"  off-grid: {m['off_grid_side']}, raster-earlier "
+                  f"{m['off_grid_is_raster_earlier']}")
+        with open(args.unmatched, encoding='utf-8') as f:
+            listed = {f"{city}:{u['label_id']}" for u in csv.DictReader(f)
+                      if u.get('miss_class') == 'tier_off_grid'}
+        if listed:      # an unmatched.csv from after #111 item 3 carries the gate's own class
+            found = {m['label_uid'] for m in misses}
+            print(f"  the CSV's miss_class column lists {len(listed)} tier_off_grid: "
+                  f"{'the same labels' if listed == found else 'DIFFERENT labels: ' + str(sorted(listed ^ found))}")
+        write_csv(args.out / 'offgrid_misses_151.csv', misses)
+        if args.labels:
+            fate = offgrid_fate(results, args.labels, args.labels_user)
+            print('\noff-grid peaks: Chebyshev heatmap cells to the nearest counterpart '
+                  '(store detection -> nearest AI label; AI label -> nearest detection, any '
+                  'confidence)')
+            for f in fate:
+                print(f"  {f['side']:<16} {f['cells_to_nearest_counterpart']!s:>16}  {f['n']}")
+            write_csv(args.out / 'offgrid_fate_151.csv', fate)
+    for name, demo in (('column', DEMO_COL), ('row', DEMO_ROW)):
+        col, row, conf = plateau_demo(**demo)
+        print(f'plateau demo ({name}): argmax at heatmap ({col},{row}), residues '
+              f'({col % CELL},{row % CELL}), raw value {conf:.4f}')
 
 
 def write_csv(path, rows):
@@ -622,9 +959,24 @@ def main(argv=None):
     p.add_argument('--max-panos', type=int, default=80)
     p = sub.add_parser('figures')
     p.add_argument('--dpi', type=int, default=100)
+    p = sub.add_parser('offgrid')
+    p.add_argument('--results', nargs='*', default=[],
+                   help='run names (runs/<name>/results.jsonl) or results .jsonl paths')
+    p.add_argument('--decode', nargs='*', type=Path, default=[],
+                   help='committed decode_*.jsonl.gz files (their argmax peaks)')
+    p.add_argument('--labels', type=Path, help='a rawLabels geojson')
+    p.add_argument('--labels-user', help='the AI account whose labels to census')
+    p.add_argument('--unmatched', type=Path, help="a provenance gate's unmatched.csv")
+    p.add_argument('--unmatched-results', type=Path,
+                   help='the run it was gated against (default: ../results.jsonl beside it)')
+    p.add_argument('--city', help='label_uid prefix (default: the run directory name)')
+    p.add_argument('--no-census-csv', dest='out_census', action='store_false',
+                   help='print the census but do not write offgrid_census.csv')
+    p.add_argument('--runs-root', type=Path, default=REPO_ROOT / 'runs')
+    p.add_argument('--out', type=Path, default=OUT_DIR)
     args = ap.parse_args(argv)
     {'grid': cmd_grid, 'sigma': cmd_sigma, 'examples': cmd_examples,
-     'figures': cmd_figures}[args.cmd](args)
+     'figures': cmd_figures, 'offgrid': cmd_offgrid}[args.cmd](args)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,5 @@
+label_uid,pano_id,pano_width,label_col,label_row,label_residue,det_col,det_row,det_residue,det_confidence,cells_chebyshev,coarse_cells,off_grid_side,off_grid_is_raster_earlier
+vancouver:41404,3D7H_0hWV__hkFGabgP8Cg,13312,659,299,"3,3",660,297,"4,1",1.002263,2.0,same,store,True
+vancouver:62190,ZNRoYWSnhKcpBym1atqw6g,16384,55,275,"7,3",59,275,"3,3",1.000512,4.0,adjacent,label,True
+vancouver:63918,a9dx8XEQKwwyjMrTdht-Aw,16384,915,291,"3,3",915,289,"3,1",1.010833,2.0,same,store,True
+vancouver:85767,vyHKP3WGD_JO9OEXQGhnqw,16384,433,283,"1,3",435,283,"3,3",0.992599,2.0,same,label,True
