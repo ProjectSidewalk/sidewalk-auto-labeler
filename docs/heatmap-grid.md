@@ -666,7 +666,7 @@ the mechanism is tested on real heatmaps of the committed decode peaks instead (
    1.0108). Two are on the label side: the deployed run's heatmap is gone, but the store detection
    sits on-grid in the same peak at 1.0005 and 0.9926, so the deployed peak very likely sat just
    above 1.0 where the store peak sat just below (inferred).
-3. **The census agrees everywhere it can be checked, with one counterexample.** Of 380,199
+3. **The census agrees everywhere it can be checked, and its one exception is a float32 tie.** Of 380,199
    stored detections in 16 runs, 306 are off-grid and 305 of them have a raw confidence >= 1.0.
    The clip is close to necessary: 1 of 377,186 detections below 1.0 is off-grid. It is far
    from sufficient: of the 3,013 detections at >= 1.0, only 305 (10%) are off-grid
@@ -675,15 +675,16 @@ the mechanism is tested on real heatmaps of the committed decode peaks instead (
    not its top. So the off-grid share is highest just above 1.0 (12-13%) and falls to 6% above
    1.02. The 14,817 committed decode peaks have 47 off-grid, all >= 1.0. Vancouver's 64,814
    AI labels have 46 off-grid. Labels carry no confidence, but their residue pairs have the same
-   shape. The one exception, a Paterson detection at 0.5734, is a genuine counterexample, and
-   the clip cannot produce it (5.2).
+   shape. The one exception, a Paterson detection at 0.5734, is not a clip. Its two knots were
+   tied to within float32 rounding, and the rounding picked a pixel between them (5.2). It is
+   not a bug, and nothing else in the census is affected.
 4. **Only 4 reach `tier_off_grid`, because most plateau edges stay inside `pixel-96`'s
    tolerance.** Residue 2 is 1 heatmap px from the residue-3 knot pixel (16 px at 16,384 wide,
    inside the +/-17 px tolerance), so most edges match or count as grid neighbours. A pair
    escapes when the edge is 2 or more heatmap px from its counterpart. That happens with an
    edge at residue 1, 0 or 7 facing either knot pixel, or a residue-2 edge facing a
    counterpart on the residue-4 knot pixel. Under the coarse-cell rule all four match. **The
-   8-cell model stands for everything but the clip and the one Paterson peak.**
+   8-cell model stands for everything but the clip and one float32 near-tie.**
 
 ### 5.1 The four rows
 
@@ -733,14 +734,60 @@ cell, ramping up to the next knot). Residue 5 never occurs on either axis, the y
 axis therefore sits on the raster-earlier side of a knot, where a tie-break that takes the first
 pixel in row-major order would put it.
 
-The exception is Paterson pano `UFGbN-uEeAgV9LKrgJSpGQ`, heatmap (470,260), residues (6,4), at
-0.5734. It is not a clip, and no tie-break of an exact upsample produces it either. Along row 260
-the surface is linear between the knots at 467.5 and 475.5. Column 470 can therefore be the
-maximum of its window only if those two coarse values are exactly equal. Even then the flat run
-starts at the residue-4 knot pixel, 468, and the raster-first rule would keep 468, not 470.
-So it is a counterexample to the 8-cell model, not an edge case of the clip. Its record carries
-the pre-#39 `model_id` (`rampnet-model`, no revision), so an older code path or a heatmap that
-was not an exact upsample is the likelier cause. Its pixels are not local and it was not chased.
+**The exception: a float32 near-tie (2026-10-07).** The exception is Paterson pano
+`UFGbN-uEeAgV9LKrgJSpGQ`, heatmap (470,260), residues (6,4), at 0.5734. It is not a clip. In
+exact arithmetic no tie-break of an exact upsample produces it either. Along row 260 the surface
+is linear between the knot pixels 468 and 475, so column 470 can win only if the two knots are
+exactly equal, and then the raster-first rule keeps 468. The heatmap is not computed exactly,
+though. The head upsamples its 256 channels and *then* applies the 1x1 conv, so every pixel is a
+256-term float32 dot product. That carries roughly 1e-7 of rounding noise. When the two knots
+differ by less than about 1e-6, the ramp between them is flatter than that noise, and the
+largest rounding error picks the peak, which can be any pixel of the ramp.
+
+`offgrid-tie` tests that directly. It re-fetches the pano the way production does (zoom 3,
+4096x2048; capture date 2020-11 and 16,384 x 8,192, both as stored) and re-runs the model on the
+desktop RTX 3070 at model `606a1195`. Then it re-runs only the head's last two layers on the
+captured coarse features, forcing the knot gap to eps, and decodes each result with the
+production decoder.
+
+| check | result |
+|---|---|
+| fresh peak (the other two stored peaks re-decode at the same pixel) | **(468,260)**, residue (4,4), 0.57373: on the grid |
+| fresh knots 468 / 475 on row 260 | 0.573726 / 0.573198, gap 5.3e-4. The stored peak sits on the ramp between them |
+| stored vs fresh confidence, the other two peaks | 0.78089 vs 0.78005; 0.54943 vs 0.55510 (drift 8e-4 to 6e-3: Hyak L40S in July vs this desktop) |
+| head re-run on the captured features | bit-identical to the model's heatmap |
+| float32 sweep: eps in +/-1e-6 (101 steps) x 21 maps (the unperturbed one and 20 copies with 1e-3 relative drift around the knots) | 405 of 2,121 decodes off-grid, all with \|gap\| <= 1.0e-6, on columns 469-474 |
+| ... at exactly the stored pixel (470,260) | **8** (seeds 2, 3, 4 and 15) |
+| ... share off-grid by \|gap\| | 65% below 1e-7; 37% at 1-3e-7; 16% at 3-6e-7; 1.5% at 6e-7 to 1e-6; 0% above |
+| the same sweep in float64 | 0 of 2,121 off-grid |
+
+So the stored pixel is what this model's float32 head produces when those two knots are tied to
+within about 1e-6. The July run's input and GPU differed from today's by about 1e-3 at this pano's
+other peaks, which is more than the 5.3e-4 gap today. A tie that close is a coincidence, which fits
+1 occurrence in 377,186 detections below 1.0. The July heatmap is gone, so the exact pixel cannot be
+reproduced byte for byte. What the sweep shows is that this pixel is reachable by that mechanism
+and by no other tested one.
+
+The hypotheses the brief named, checked against this pano:
+
+- **Model revision.** Ruled out. The record's pre-#39 `model_id` was written in July from HF
+  main `606a1195` (main since 2026-07-24), whose weights are value-identical to the paper weights
+  (`detectors.KNOWN_REVISIONS`). It is not needed anyway: the fresh run's own float32 head reaches
+  the pixel.
+- **Preprocessing, decoder or code path.** Ruled out. `panorama.py` and the detector's
+  preprocess and peak call were the same in July (`git show 5252779:detectors/curb_ramp.py`):
+  zoom 3, then `peak_local_max(np.clip(h, 0, 1), min_distance=10)`.
+- **Resize or aspect.** Ruled out. The pano is natively 2:1 at every zoom, and zoom 3 is already
+  4096x2048, so nothing was resized.
+- **Imagery changed.** No evidence. The capture date and dimensions match the stored record, and
+  two of the three peaks re-decode at the same pixel.
+- **Seam or border.** Ruled out. Column 470 is far from both.
+- **A float edge case of the upsample.** Confirmed, though the rounding is in the 1x1 conv that
+  follows the upsample, not in `align_corners`.
+- **A bug.** None. The two knots are tied to the precision float32 can tell apart, so the true peak is
+  ambiguous there. The stored pixel is between them, 2 px from one and 5 from the other, inside
+  one coarse cell. Its confidence is the same as either knot's to within 1e-6. No stored
+  detection needs correcting, and the decoder needs no change.
 
 One AI label, vancouver:45956, is off-grid at a non-integer heatmap position (307.08, 281.85),
 because its pano is 3,328 px wide, not a multiple of 1024. It is rounded to the nearest heatmap
@@ -874,6 +921,11 @@ python scripts/heatmap_grid.py offgrid \
 # records the model revision and software) and offgrid_plateau_example.json
 python scripts/heatmap_grid.py offgrid-heatmaps
 
+# GPU, about 6 min on an RTX 3070: the Paterson near-tie (5.2). Fetches the one pano on first
+# use (one metadata request + its zoom-3 tiles, cached in runs/paterson/offgrid_tie/, gitignored),
+# reads runs/paterson/results.jsonl; writes offgrid_tie_{fresh,row,sweep}.csv + offgrid_tie.meta.json
+python scripts/heatmap_grid.py offgrid-tie
+
 python scripts/heatmap_grid.py figures   # no GPU: offgrid_plateau.png from the example json
 pytest tests/test_heatmap_grid.py        # skimage's tie order, plateau_check, the demos, misses
 ```
@@ -888,6 +940,10 @@ pytest tests/test_heatmap_grid.py        # skimage's tie order, plateau_check, t
 | off-grid share by stored confidence (takeaway 3) | `data/offgrid_by_conf.csv` | `confidence`, `peaks`, `off_grid`, `off_grid_share` | the same |
 | non-integer label positions (5.2) | `data/offgrid_census.csv` (labels row) | `non_integer_positions`, `off_grid_non_integer` | the same |
 | the Paterson exception (5.2) | stdout | "off-grid below 1.0" line | the same |
+| Paterson: stored vs fresh peaks (5.2) | `data/offgrid_tie_fresh.csv` | `stored_*`, `fresh_*` | `offgrid-tie` |
+| Paterson: the fresh row 466-477 and its knots (5.2) | `data/offgrid_tie_row.csv` | `col`, `fresh_raw`, `on_grid` | the same |
+| Paterson: the float32 / float64 sweep, 405 / 0 off-grid, 8 at (470,260) (5.2) | `data/offgrid_tie_sweep.csv` | `dtype`, `seed`, `eps`, `gap_actual`, `col`, `row`, `on_grid` | the same |
+| Paterson: the pano PNG's sha256, model, GPU, software (5.2) | `data/offgrid_tie.meta.json` | all | the same |
 | counterpart distances (5.2) | `data/offgrid_fate_151.csv` | `side`, `cells_to_nearest_counterpart`, `n` | `offgrid --labels --unmatched` |
 | plateau demos (5.3) | `tests/test_heatmap_grid.py`; stdout | `DEMO_COL`, `DEMO_ROW` | `plateau_demo` |
 | the real-heatmap table: 47 / 46 / 46 / 46 / 46 / 46, plateau 2-28 px (5.3) | `data/offgrid_heatmaps.csv` | `status`, `clipped`, `raster_first`, `raw_max_on_grid`, `plateau_px`, `raw`, `committed_conf` | `offgrid-heatmaps` |
@@ -908,8 +964,10 @@ pytest tests/test_heatmap_grid.py        # skimage's tie order, plateau_check, t
   move every clipped peak's stored pixel.
 - **No rule, gate, report or `unmatched.csv` changed.** `provenance_gate.py` is untouched, and
   #151 question 1 is not addressed here.
-- **The Paterson exception** (0.5734, residues (6,4)) is a counterexample, and the clip does
-  not explain it (5.2). It is reported, not chased.
+- **The Paterson exception** (0.5734, residues (6,4)) is explained by a float32 near-tie, not
+  by the clip (5.2). The July heatmap is gone, so the stored pixel is shown to be reachable, not
+  reproduced byte for byte. How often a near-tie decides the pixel elsewhere was not measured.
+  The census bounds it at 1 below 1.0, and above 1.0 the clip dominates.
 - **No change to the decoder.** Whether to break plateau ties at the knot (for example, by
   ranking candidates on the raw heatmap) is a decoder decision and is not proposed here. Doing so
   would move live-label pixels, which section 3's exact-key reproduction depends on.

@@ -1,0 +1,49 @@
+{
+ "pano": "paterson:UFGbN-uEeAgV9LKrgJSpGQ",
+ "stored_px": [
+  470,
+  260
+ ],
+ "stored_record": {
+  "model_id": "rampnet-model",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0"
+ },
+ "stored_pano": {
+  "capture_date": "2020-11",
+  "width": 16384,
+  "height": 8192
+ },
+ "pano_png_sha256": "5b256d265ca659aa17c1311f584604492a9e3dbe1945f5b9e3eec158d24456cc",
+ "head_tail_bit_identical": true,
+ "knots": [
+  468,
+  475
+ ],
+ "fresh_knot_gap": -0.0005285739898681641,
+ "sweep": {
+  "eps": [
+   -1e-06,
+   1e-06,
+   101
+  ],
+  "seeds": 20,
+  "drift": 0.001,
+  "generator_seed": 151
+ },
+ "model": {
+  "model_repo": "projectsidewalk/rampnet-model",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+  "model_id": "rampnet-model@606a11956743",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0"
+ },
+ "device": "cuda",
+ "cudnn_allow_tf32": true,
+ "software": {
+  "scikit-image": "0.26.0",
+  "numpy": "2.5.1",
+  "torch": "2.8.0+cu126",
+  "pillow": "12.3.0"
+ }
+}
