@@ -51,3 +51,14 @@ def test_rig_detections_split_by_rig_and_year():
     assert by_key[('Point Grey', 'Ladybug', '8192x4096', '2022')] == [1, 2, 2.0, 1, 1.0,
                                                                       2, 2.0, 1, 1.0]
     assert rows[0][:4] == ['GoPro', 'MAX', '5760x2880', '2024']   # largest group first
+
+
+def test_email_shaped_producer_is_masked():
+    assert rc.mask_producer('jane.doe@example.org') == 'j***@***'
+    assert rc.mask_producer(' jane@example.org ') == 'j***@***'
+    for keep in ('Ville de Lyon', 'IGN', None, 'contact at example.org', 'a@b'):
+        assert rc.mask_producer(keep) == keep
+    rec = _rec('MAX', '2024-05', None, None, [])
+    rec['pano']['copyright'] = 'jane.doe@example.org'
+    c = rc.census([rec])
+    assert list(c['producers']) == [('j***@***', 'panoramax.ign.fr', 'etalab-2.0')]
