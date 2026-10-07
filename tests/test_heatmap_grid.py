@@ -34,6 +34,31 @@ needs_skimage = pytest.mark.skipif(importlib.util.find_spec("skimage") is None,
 
 
 @needs_skimage
+def test_peak_local_max_keeps_the_row_major_first_pixel_of_a_clipped_plateau():
+    # The library behaviour the whole explanation rests on (scikit-image is unpinned):
+    # candidates come in np.nonzero (row-major) order, a stable descending sort keeps that
+    # order among ties, and ensure_spacing keeps the first. The raw top (30, 31) loses to the
+    # plateau's first pixel because every pixel of the plateau clips to exactly 1.0.
+    import numpy as np
+    from detectors.decode import _peaks
+    h = np.zeros((64, 64), dtype=np.float32)
+    h[30, 28:35] = 1.01
+    h[31, 25:32] = 1.02
+    h[30, 31] = 1.2
+    assert _peaks(h).tolist() == [[30, 28]]
+
+
+def test_plateau_check_on_a_synthetic_plateau():
+    import numpy as np
+    h = np.zeros((64, 64), dtype=np.float32)
+    h[30, 26:35] = [0.95, 0.99, 1.001, 1.01, 1.03, 1.05, 1.03, 1.0, 0.98]   # top at col 31
+    r = hg.plateau_check(h, 28, 30)
+    assert r["clipped"] and r["plateau_px"] == 6 and r["raster_first"]
+    assert (r["raw_max_col"], r["raw_max_row"]) == (31, 30)
+    assert not hg.plateau_check(h, 27, 30)["clipped"]
+
+
+@needs_skimage
 def test_plateau_demo_column_residue_7():
     # c6 = 0.99, c7 = 1.015 on the peak row: the top above 1.0 clips flat from column 55 to
     # the knot (59.5), and the raster-first pixel of the plateau wins -- residue 7 of cell 6,

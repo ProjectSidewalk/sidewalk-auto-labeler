@@ -25,14 +25,24 @@ Two more draw the figures in docs/heatmap-grid.md (docs/figures/heatmap-grid/*.p
     # 4. no GPU, no network: draw every figure from the committed data
     python scripts/heatmap_grid.py figures
 
-A fifth asks why a few peaks are off the grid at all (#151 question 2). No GPU, no network:
+Two more ask why a few peaks are off the grid at all (#151 question 2):
 
-    # 5. census of off-grid peaks (residue not 3/4) in runs, AI labels and decode files, plus
-    #    the gate's tier_off_grid misses next to their nearest tier detection. The answer is
-    #    the clip: decode.py finds peaks on clip(heatmap, 0, 1), so a peak above 1.0 is a flat
-    #    top and the raster-first pixel of it wins (`plateau_demo`)
+    # 5. no GPU, no network: census of off-grid peaks (residue not 3/4) in runs, AI labels
+    #    and decode files, the off-grid share by stored confidence (the denominator), and the
+    #    gate's tier_off_grid misses next to their nearest tier detection. The answer is the
+    #    clip: decode.py finds peaks on clip(heatmap, 0, 1), so a peak above 1.0 is a flat top
+    #    and the raster-first pixel of it wins (`plateau_demo`). Prints only unless --out.
     python scripts/heatmap_grid.py offgrid --results <run or results.jsonl> ... \
-        --labels <raw_labels.geojson> --labels-user <ai user_id> --unmatched <unmatched.csv>
+        --decode 'docs/figures/heatmap-grid/data/decode/decode_*.jsonl.gz' \
+        --labels <raw_labels.geojson> --labels-user <ai user_id> --unmatched <unmatched.csv> \
+        --out docs/figures/heatmap-grid/data
+
+    # 6. GPU, offline: the same mechanism on REAL heatmaps. Re-runs RampNet on the local
+    #    ../RampNet/benchmark panos of every off-grid committed decode peak and checks the
+    #    kept pixel is the row-major-first pixel of its clip == 1.0 plateau and the plateau's
+    #    raw top is on residue 3/4 (`plateau_check`). Writes offgrid_heatmaps.csv and the
+    #    figure's example crop; `figures` then draws offgrid_plateau.png from it.
+    python scripts/heatmap_grid.py offgrid-heatmaps
 
 `sigma` fuses exactly as eval_sites.py does (tier 0.55, rig mask off, pose off) and reads
 ../RampNet/benchmark/<city> as data. Outputs land in docs/figures/heatmap-grid/data/
@@ -261,12 +271,32 @@ def _pairs_text(pairs):
                     sorted(pairs.items(), key=lambda kv: (-kv[1], kv[0])))
 
 
+#: Confidence bins for the denominator table (offgrid_by_conf.csv): below the clip, then
+#: how far above 1.0 the stored (raw) value is.
+CONF_BINS = ((0.99, '< 0.99'), (1.0, '0.99-1.000'), (1.002, '1.000-1.002'),
+             (1.005, '1.002-1.005'), (1.01, '1.005-1.01'), (1.02, '1.01-1.02'),
+             (math.inf, '>= 1.02'))
+
+
+def conf_bin(conf):
+    """The CONF_BINS label of a confidence (upper edges exclusive).
+
+    Example:
+        >>> conf_bin(0.5), conf_bin(1.0), conf_bin(1.0019), conf_bin(1.3)
+        ('< 0.99', '1.000-1.002', '1.000-1.002', '>= 1.02')
+    """
+    return next(label for edge, label in CONF_BINS if conf < edge)
+
+
 def offgrid_peaks(peaks):
     """Census of (heatmap col, heatmap row, confidence) peaks; confidence may be None.
 
     Returns {'n', 'off_grid', 'off_grid_conf_ge_1', 'min_conf_off_grid', 'pairs',
-    'below_1': [(col, row, rx, ry, conf, key)], 'non_integer', 'off_grid_non_integer'} where
-    key is whatever the caller passed as the 4th element (a pano id). A non-integer position
+    'below_1': [(col, row, rx, ry, conf, key)], 'non_integer', 'off_grid_non_integer',
+    'conf_ge_1', 'by_conf': Counter((bin label, off-grid?))} where 'conf_ge_1' counts EVERY
+    peak at >= 1.0 (the denominator: most clipped peaks stay on the grid) and bins are
+    CONF_BINS; key is
+    whatever the caller passed as the 4th element (a pano id). A non-integer position
     (a label on a pano whose width is not a multiple of 1024) is rounded to the nearest heatmap
     pixel and counted in 'non_integer'; the off-grid ones are listed in 'off_grid_non_integer'.
 
@@ -276,15 +306,21 @@ def offgrid_peaks(peaks):
         (3, 2, 1, '6,4:1;7,3:1')
         >>> c['below_1']
         [(470, 260, 6, 4, 0.57, 'c')]
+        >>> c['conf_ge_1'], c['by_conf'][('1.01-1.02', True)], c['by_conf'][('< 0.99', False)]
+        (1, 1, 1)
     """
     out = {'n': 0, 'off_grid': 0, 'off_grid_conf_ge_1': 0, 'min_conf_off_grid': None,
-           'pairs': Counter(), 'below_1': [], 'non_integer': 0, 'off_grid_non_integer': []}
+           'pairs': Counter(), 'below_1': [], 'non_integer': 0, 'off_grid_non_integer': [],
+           'conf_ge_1': 0, 'by_conf': Counter()}
     for col, row, conf, key in peaks:
         out['n'] += 1
         c, r = round(col), round(row)
         exact = abs(c - col) <= 1e-6 and abs(r - row) <= 1e-6
         out['non_integer'] += not exact
         rx, ry = c % CELL, r % CELL
+        if conf is not None:
+            out['conf_ge_1'] += conf >= 1.0
+            out['by_conf'][(conf_bin(conf), not on_grid(rx, ry))] += 1
         if on_grid(rx, ry):
             continue
         out['off_grid'] += 1
@@ -353,6 +389,7 @@ def _shown(path):
 
 def census_row(kind, path, c):
     return {'input': _shown(path), 'kind': kind, 'n': c['n'], 'off_grid': c['off_grid'],
+            'conf_ge_1': '' if kind == 'labels' else c['conf_ge_1'],
             'off_grid_conf_ge_1': '' if kind == 'labels' else c['off_grid_conf_ge_1'],
             'off_grid_conf_lt_1': '' if kind == 'labels' else len(c['below_1']),
             'min_conf_off_grid': ('' if c['min_conf_off_grid'] is None
@@ -484,8 +521,52 @@ DEMO_ROW = {'row_knots': [0.97 / 0.96875, 1.015 / 0.96875], 'col_knots': [0.5, 1
             'row0': 35, 'col0': 59}     # r35 = 0.97, r36 = 1.015 -> row 289 (residue 1), col 483
 
 
+def _expand(paths):
+    """Sorted paths, with any glob pattern expanded here rather than by the shell.
+
+    PowerShell passes `decode_*.jsonl.gz` through literally, and bash and PowerShell order
+    an expansion differently; sorting by name makes the census CSV's row order the same on
+    both.
+    """
+    out = []
+    for p in paths:
+        p = Path(p)
+        if any(ch in p.name for ch in '*?['):
+            hits = sorted(p.parent.glob(p.name))
+            if not hits:
+                sys.exit(f'{p}: the pattern matches no file')
+            out += hits
+        else:
+            out.append(p)
+    return sorted(out, key=lambda q: q.name)
+
+
+def _skimage_version():
+    try:
+        import skimage
+        return skimage.__version__
+    except ImportError:
+        return None
+
+
+def by_conf_rows(counts):
+    """Pooled Counter((bin, off-grid?)) -> rows in CONF_BINS order (offgrid_by_conf.csv).
+
+    Example:
+        >>> by_conf_rows(Counter({('< 0.99', False): 9, ('< 0.99', True): 1}))[0]
+        {'confidence': '< 0.99', 'peaks': 10, 'off_grid': 1, 'off_grid_share': 0.1}
+    """
+    rows = []
+    for _, label in CONF_BINS:
+        n_off, n_on = counts[(label, True)], counts[(label, False)]
+        n = n_off + n_on
+        rows.append({'confidence': label, 'peaks': n, 'off_grid': n_off,
+                     'off_grid_share': round(n_off / n, 4) if n else ''})
+    return rows
+
+
 def cmd_offgrid(args):
-    rows, below = [], []
+    rows, below, pooled = [], [], Counter()
     for spec in args.results:
         p = Path(spec)
         path = p if p.suffix == '.jsonl' else args.runs_root / spec / 'results.jsonl'
@@ -495,7 +576,8 @@ def cmd_offgrid(args):
         c = offgrid_peaks(_results_peaks(path))
         rows.append(census_row('results', path, c))
         below += [(_shown(path),) + b for b in c['below_1']]
-    for path in args.decode:
+        pooled += c['by_conf']
+    for path in _expand(args.decode):
         c = offgrid_peaks(_decode_peaks(path))
         rows.append(census_row('decode', path, c))
         below += [(_shown(path),) + b for b in c['below_1']]
@@ -513,18 +595,27 @@ def cmd_offgrid(args):
               f"{r['off_grid_conf_ge_1']!s:>6} {r['min_conf_off_grid']!s:>9}  "
               f"{r['residue_pairs_x_y']}")
     tot = [r for r in rows if r['kind'] == 'results']
+    by_conf = by_conf_rows(pooled)
     if tot:
         print(f"results files: {sum(r['n'] for r in tot):,} detections, "
               f"{sum(r['off_grid'] for r in tot)} off-grid, "
-              f"{sum(r['off_grid_conf_ge_1'] for r in tot)} with confidence >= 1.0")
+              f"{sum(r['off_grid_conf_ge_1'] for r in tot)} of them with confidence >= 1.0; "
+              f"{sum(r['conf_ge_1'] for r in tot):,} detections in all at >= 1.0")
+        print('off-grid share by stored confidence (results files pooled):')
+        for b in by_conf:
+            print(f"  {b['confidence']:<12} {b['peaks']:>8,} peaks  {b['off_grid']:>4} off-grid"
+                  f"  share {b['off_grid_share']}")
     for b in below:
         print(f'off-grid below 1.0 (unexplained by the clip): {b[0]} pano {b[6]} heatmap '
               f'({b[1]},{b[2]}) residues ({b[3]},{b[4]}) confidence {b[5]:.4f}')
     for key, col, row in non_integer:
         print(f'off-grid at a non-integer heatmap position (pano width not a multiple of '
               f'1024; rounded): {key} ({col:.2f},{row:.2f})')
-    if args.out_census:
-        write_csv(args.out / 'offgrid_census.csv', rows)
+    out = args.out
+    if out:
+        write_csv(out / 'offgrid_census.csv', rows)
+        if tot:
+            write_csv(out / 'offgrid_by_conf.csv', by_conf)
     if args.unmatched:
         results = args.unmatched_results or args.unmatched.parent.parent / 'results.jsonl'
         city = args.city or args.unmatched.parent.parent.name
@@ -543,7 +634,8 @@ def cmd_offgrid(args):
             found = {m['label_uid'] for m in misses}
             print(f"  the CSV's miss_class column lists {len(listed)} tier_off_grid: "
                   f"{'the same labels' if listed == found else 'DIFFERENT labels: ' + str(sorted(listed ^ found))}")
-        write_csv(args.out / 'offgrid_misses_151.csv', misses)
+        if out:
+            write_csv(out / 'offgrid_misses_151.csv', misses)
         if args.labels:
             fate = offgrid_fate(results, args.labels, args.labels_user)
             print('\noff-grid peaks: Chebyshev heatmap cells to the nearest counterpart '
@@ -551,11 +643,141 @@ def cmd_offgrid(args):
                   'confidence)')
             for f in fate:
                 print(f"  {f['side']:<16} {f['cells_to_nearest_counterpart']!s:>16}  {f['n']}")
-            write_csv(args.out / 'offgrid_fate_151.csv', fate)
+            if out:
+                write_csv(out / 'offgrid_fate_151.csv', fate)
+    if not out:
+        print('(nothing written: pass --out docs/figures/heatmap-grid/data to regenerate the '
+              'committed CSVs)')
+    print(f'scikit-image {_skimage_version()} (its peak_local_max tie order is pinned in '
+          'tests/test_heatmap_grid.py)')
     for name, demo in (('column', DEMO_COL), ('row', DEMO_ROW)):
         col, row, conf = plateau_demo(**demo)
         print(f'plateau demo ({name}): argmax at heatmap ({col},{row}), residues '
               f'({col % CELL},{row % CELL}), raw value {conf:.4f}')
+
+
+# ---- the plateau on REAL heatmaps (#151 q2, PR #155 review) ------------------------------
+PLATEAU_EXAMPLE_HALF = 12          # heatmap px each side of the example's knot (3 coarse cells)
+
+
+def plateau_check(h, col, row):
+    """Test one argmax peak of a RAW heatmap against the clipped-plateau mechanism.
+
+    Returns {'raw': the raw value at (row, col), 'clipped': raw >= 1.0, 'plateau_px': size of
+    the 8-connected component of clip(h, 0, 1) == 1.0 holding the pixel (0 when not clipped),
+    'raster_first': the pixel is that component's first in row-major order (the one
+    skimage's stable descending sort reaches first), 'raw_max_col', 'raw_max_row': the
+    component's raw argmax (the knot under the plateau), 'raw_max_on_grid'}.
+
+    Example (a 1-D plateau on row 5; columns 5-8 clip to 1.0, column 7 is the raw top):
+        >>> import numpy as np
+        >>> h = np.zeros((16, 16), dtype=np.float32); h[5, 4:9] = [0.99, 1.002, 1.01, 1.02, 1.0]
+        >>> r = plateau_check(h, 5, 5)
+        >>> r['clipped'], r['plateau_px'], r['raster_first'], (r['raw_max_col'], r['raw_max_row'])
+        (True, 4, True, (7, 5))
+    """
+    import numpy as np
+    from scipy import ndimage as ndi
+    raw = float(h[row, col])
+    out = {'raw': raw, 'clipped': raw >= 1.0, 'plateau_px': 0, 'raster_first': None,
+           'raw_max_col': None, 'raw_max_row': None, 'raw_max_on_grid': None}
+    if raw < 1.0:
+        return out
+    lab, _ = ndi.label(np.clip(h, 0, 1) == 1.0, structure=np.ones((3, 3)))
+    comp = lab == lab[row, col]
+    rr, cc = np.nonzero(comp)                 # row-major, as skimage's candidate list
+    k = int(np.argmax(np.where(comp, h, -np.inf)))
+    mr, mc = divmod(k, h.shape[1])
+    out.update(plateau_px=int(comp.sum()), raster_first=(int(rr[0]), int(cc[0])) == (row, col),
+               raw_max_col=mc, raw_max_row=mr, raw_max_on_grid=on_grid(mc % CELL, mr % CELL))
+    return out
+
+
+def cmd_offgrid_heatmaps(args):
+    """GPU: re-run RampNet on the local panos of every off-grid committed decode peak and test
+    the mechanism on the real heatmap (plateau_check). Writes offgrid_heatmaps.csv, the
+    example crop offgrid_plateau_example.json and offgrid_heatmaps.meta.json."""
+    import gzip
+    import numpy as np
+    import torch
+    from PIL import Image
+    from detectors.curb_ramp import CurbRampDetector
+    from detectors.decode import detections_from_heatmap
+    Image.MAX_IMAGE_PIXELS = None
+    todo, metas = {}, {}                       # (split, pano) -> [(col, row, conf)]
+    for path in _expand(args.decode):
+        split = path.name[len('decode_'):-len('.jsonl.gz')]
+        meta_path = path.with_name(path.name[:-len('.gz')] + '.meta.json')
+        metas[split] = json.loads(meta_path.read_text(encoding='utf-8'))
+        with gzip.open(path, 'rt', encoding='utf-8') as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                for x, y, conf in rec['argmax']:
+                    col, row = round(x * HEATMAP_W), round(y * HEATMAP_H)
+                    if not on_grid(col % CELL, row % CELL):
+                        todo.setdefault((split, rec['pano_id']), []).append((col, row, conf))
+    det = CurbRampDetector()
+    rows, example = [], None
+    for (split, pid), peaks in sorted(todo.items()):
+        meta = metas[split]
+        pano = args.benchmark_root / split.replace('_perturbed', '') / 'panos' / f'{pid}.jpg'
+        base = {'split': split, 'pano_id': pid}
+        if not pano.exists():
+            rows += [{**base, 'col': c, 'row': r, 'residue': f'{c % CELL},{r % CELL}',
+                      'committed_conf': round(conf, 6), 'status': 'pano not local'}
+                     for c, r, conf in peaks]
+            print(f'{split:<22} {pid}: pano not local', flush=True)
+            continue
+        img = Image.open(pano).convert('RGB')
+        if meta.get('source_resize') and img.size != tuple(meta['source_resize']):
+            img = img.resize(tuple(meta['source_resize']), Image.BILINEAR)
+        if meta.get('perturb'):
+            img = _resample(img)
+        h = det.heatmap(img)
+        fresh = {_heat_px(d) for d in detections_from_heatmap(h, 'argmax')}
+        for c, r, conf in peaks:
+            chk = plateau_check(h, c, r)
+            row = {**base, 'col': c, 'row': r, 'residue': f'{c % CELL},{r % CELL}',
+                   'committed_conf': round(conf, 6),
+                   'status': 'reproduced' if (c, r) in fresh else 'not reproduced',
+                   'raw': round(chk['raw'], 6), 'clipped': chk['clipped'],
+                   'plateau_px': chk['plateau_px'], 'raster_first': chk['raster_first'],
+                   'raw_max_col': chk['raw_max_col'], 'raw_max_row': chk['raw_max_row'],
+                   'raw_max_residue': ('' if chk['raw_max_col'] is None else
+                                       f"{chk['raw_max_col'] % CELL},{chk['raw_max_row'] % CELL}"),
+                   'raw_max_on_grid': chk['raw_max_on_grid']}
+            rows.append(row)
+            # The figure's example: the widest reproduced plateau (first in sorted order on a tie).
+            if (row['status'] == 'reproduced' and chk['clipped']
+                    and (example is None or chk['plateau_px'] > example['plateau_px'])):
+                hw = PLATEAU_EXAMPLE_HALF
+                cy, cx = chk['raw_max_row'], chk['raw_max_col']
+                example = {**row, 'origin_col_row': [cx - hw, cy - hw],
+                           'raw_crop': np.round(h[cy - hw:cy + hw, cx - hw:cx + hw]
+                                                .astype(float), 6).tolist()}
+        print(f'{split:<22} {pid}: {len(peaks)} off-grid peak(s)', flush=True)
+    rep = [r for r in rows if r['status'] != 'pano not local']
+    ok = [r for r in rep if r['status'] == 'reproduced']
+    print(f'\n{len(rows)} off-grid decode peaks; {len(rows) - len(rep)} pano not local; '
+          f'{len(ok)} of {len(rep)} reproduced on this machine')
+    for key, label in (('clipped', 'raw >= 1.0 at the chosen pixel'),
+                       ('raster_first', 'row-major-first pixel of its clip == 1.0 plateau'),
+                       ('raw_max_on_grid', 'raw top of that plateau on residue 3/4')):
+        print(f'  {label}: {sum(1 for r in ok if r[key] is True)} of {len(ok)}')
+    write_csv(args.out / 'offgrid_heatmaps.csv', rows)
+    if example:
+        (args.out / 'offgrid_plateau_example.json').write_text(
+            json.dumps(example) + '\n', encoding='utf-8', newline='\n')
+        print(f"wrote {args.out / 'offgrid_plateau_example.json'}")
+    meta = {'model': det.provenance, 'device': str(det.DEVICE),
+            'software': {'scikit-image': _skimage_version(), 'numpy': np.__version__,
+                         'torch': torch.__version__, 'pillow': Image.__version__},
+            'panos_from': '../RampNet/benchmark/<split without _perturbed>/panos (local)'}
+    (args.out / 'offgrid_heatmaps.meta.json').write_text(json.dumps(meta, indent=1) + '\n',
+                                                         encoding='utf-8', newline='\n')
+    det.close()
 
 
 def write_csv(path, rows):
@@ -922,6 +1144,71 @@ def fig_sigma(plt):
     return fig
 
 
+def fig_offgrid(plt):
+    """A real clipped plateau (#151 q2): the raw heatmap around the widest reproduced off-grid
+    decode peak, the clip == 1.0 plateau, the raster-first pixel skimage keeps and the raw top."""
+    import numpy as np
+    ex = json.loads((FIG_DIR / 'data' / 'offgrid_plateau_example.json').read_text(encoding='utf-8'))
+    a = np.asarray(ex['raw_crop'])
+    ox, oy = ex['origin_col_row']
+    pc, pr = ex['col'] - ox, ex['row'] - oy                 # chosen pixel, crop coordinates
+    mc, mr = ex['raw_max_col'] - ox, ex['raw_max_row'] - oy  # raw top of the plateau
+    knots = [k - 0.5 for k in range(a.shape[1] + 1) if (ox + k - 0.5) % CELL == 3.5]
+    knots_y = [k - 0.5 for k in range(a.shape[0] + 1) if (oy + k - 0.5) % CELL == 3.5]
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.4), gridspec_kw={'width_ratios': [1, 1.35]})
+    ax = axes[0]
+    ext = (ox - 0.5, ox + a.shape[1] - 0.5, oy + a.shape[0] - 0.5, oy - 0.5)
+    im = ax.imshow(a, cmap='Greys', vmin=max(0.0, float(a.min())), vmax=float(a.max()),
+                   extent=ext, interpolation='nearest')
+    ax.contour(np.arange(ox, ox + a.shape[1]), np.arange(oy, oy + a.shape[0]),
+               (a >= 1.0).astype(float), levels=[0.5], colors=[C_ORANGE], linewidths=1.4)
+    for k in knots:
+        ax.axvline(ox + k, color=C_BLUE, linewidth=0.6, linestyle=':')
+    for k in knots_y:
+        ax.axhline(oy + k, color=C_BLUE, linewidth=0.6, linestyle=':')
+    ax.scatter([ex['col']], [ex['row']], marker='s', s=60, facecolor='none',
+               edgecolor=C_ORANGE, linewidth=1.8, zorder=4,
+               label=f"kept: ({ex['col']},{ex['row']}), residue ({ex['residue']})")
+    ax.scatter([ex['raw_max_col']], [ex['raw_max_row']], marker='o', s=40, color=C_BLUE,
+               zorder=4, label=f"raw top: ({ex['raw_max_col']},{ex['raw_max_row']}), "
+                               f"residue ({ex['raw_max_residue']})")
+    ax.set_xlabel('heatmap column', color=C_INK2, fontsize=9)
+    ax.set_ylabel('heatmap row', color=C_INK2, fontsize=9)
+    ax.tick_params(colors=C_MUTED, labelcolor=C_INK2, labelsize=8)
+    ax.legend(fontsize=7.5, loc='lower left', frameon=True, framealpha=0.9)
+    ax.set_title(f"Raw heatmap; orange = clipped plateau ({ex['plateau_px']} px)",
+                 fontsize=10, color=C_INK, loc='left')
+    cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+    cb.ax.tick_params(labelsize=7, colors=C_MUTED, labelcolor=C_INK2)
+    ax = axes[1]
+    cols = np.arange(ox, ox + a.shape[1])
+    for r, color, name in ((pr, C_ORANGE, f"row {ex['row']} (the kept pixel's)"),
+                           (mr, C_BLUE, f"row {ex['raw_max_row']} (the raw top's)")):
+        ax.plot(cols, a[r], marker='o', markersize=3, color=color, linewidth=1.2, label=name)
+    ax.axhline(1.0, color=C_INK2, linewidth=0.9, linestyle='--')
+    ax.text(cols[0], 1.0, ' clip at 1.0', va='bottom', fontsize=7.5, color=C_INK2)
+    for k in knots:
+        ax.axvline(ox + k, color=C_BLUE, linewidth=0.6, linestyle=':')
+    ax.scatter([ex['col']], [a[pr, pc]], marker='s', s=70, facecolor='none',
+               edgecolor=C_ORANGE, linewidth=1.8, zorder=4)
+    ax.scatter([ex['raw_max_col']], [a[mr, mc]], marker='o', s=45, color=C_BLUE, zorder=4)
+    lo = float(min(a[pr].min(), a[mr].min()))
+    ax.set_ylim(max(lo, 1.0 - 4 * (float(a.max()) - 1.0)), float(a.max()) + 0.012)
+    ax.set_xlabel('heatmap column (dotted: coarse knots at 8k + 3.5)', color=C_INK2,
+                  fontsize=9)
+    ax.set_ylabel('raw heatmap value', color=C_INK2, fontsize=9)
+    ax.legend(fontsize=7.5, loc='lower center')
+    ax.set_title('Above the dashed line every pixel clips to 1.0;\n'
+                 'skimage keeps the first in row-major order', fontsize=9.5, color=C_INK,
+                 loc='left')
+    _style(ax)
+    fig.suptitle(f"A real clipped plateau: {ex['split'].replace('_', ' ')} pano "
+                 f"{ex['pano_id']}, re-run on this repo's detector", fontsize=11, color=C_INK,
+                 x=0.01, ha='left')
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    return fig
+
+
 def cmd_figures(args):
     import matplotlib
     matplotlib.use('Agg')
@@ -934,6 +1221,11 @@ def cmd_figures(args):
     else:
         print('no data/examples.json: run `examples` first (GPU) for heatmap_crop.png',
               file=sys.stderr)
+    if (FIG_DIR / 'data' / 'offgrid_plateau_example.json').exists():
+        todo.append(('offgrid_plateau.png', fig_offgrid))
+    else:
+        print('no data/offgrid_plateau_example.json: run `offgrid-heatmaps` first (GPU) for '
+              'offgrid_plateau.png', file=sys.stderr)
     for name, fn in todo:
         fig = fn(plt)
         fig.savefig(FIG_DIR / name, dpi=args.dpi)
@@ -970,13 +1262,21 @@ def main(argv=None):
     p.add_argument('--unmatched-results', type=Path,
                    help='the run it was gated against (default: ../results.jsonl beside it)')
     p.add_argument('--city', help='label_uid prefix (default: the run directory name)')
-    p.add_argument('--no-census-csv', dest='out_census', action='store_false',
-                   help='print the census but do not write offgrid_census.csv')
     p.add_argument('--runs-root', type=Path, default=REPO_ROOT / 'runs')
+    p.add_argument('--out', type=Path, default=None,
+                   help='write the CSVs here (default: print only; the committed copies live '
+                        'in docs/figures/heatmap-grid/data, so a partial run cannot '
+                        'overwrite them by accident)')
+    p = sub.add_parser('offgrid-heatmaps')
+    p.add_argument('--decode', nargs='+', type=Path,
+                   default=[OUT_DIR / 'decode' / 'decode_*.jsonl.gz'])
+    p.add_argument('--benchmark-root', type=Path,
+                   default=REPO_ROOT.parent / 'RampNet' / 'benchmark')
     p.add_argument('--out', type=Path, default=OUT_DIR)
     args = ap.parse_args(argv)
     {'grid': cmd_grid, 'sigma': cmd_sigma, 'examples': cmd_examples,
-     'figures': cmd_figures, 'offgrid': cmd_offgrid}[args.cmd](args)
+     'figures': cmd_figures, 'offgrid': cmd_offgrid,
+     'offgrid-heatmaps': cmd_offgrid_heatmaps}[args.cmd](args)
 
 
 if __name__ == '__main__':
