@@ -90,6 +90,9 @@ python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bay
 # tiers -- the per-rig diagnostic Bayonne lacked. No GT bundle (train-or-evaluate rule), no submission.
 python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon --band-y 0.79
 python scripts/panoramax_lyon_figures.py figures    # committed CSVs only; census-scan needs scan.json
+# DENSIFIED TO 5 m 2026-10-07 (#148 decision, #159; Hyak job 41504145): runs/lyon is now BOUND to 5 m,
+# 174,405 processed of 174,525 (120 skips, all but one no view:azimuth); sections 1-7 of the doc stay
+# the 10 m evidence, section 8 + data/census/lyon_5m/ + data/full_5m/ are the 5 m run.
 
 # GSV runs end with a gap-fill phase (issue #32): link-target panos the run's own
 # records reference but the tile scan never enumerated (coverage churn) are fetched
