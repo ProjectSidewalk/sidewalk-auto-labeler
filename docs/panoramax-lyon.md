@@ -438,8 +438,8 @@ main's unmasked one, so running it here would overwrite the masked `lyon_full/pr
 with an email-shaped producer name. It regenerates byte for byte with #150's version
 (checked in the #156 review). `rig-producers` masks the same way since that review.
 
-Section 6's "remaining slices" is done. The native-res archive (#146) now covers 86,889
-panos. Jon decided on 2026-10-07 to densify to 5 m on the evidence in
+Section 6's "remaining slices" is done. The native-res archive (#146) had not been
+started when this section was written (corrected 2026-10-07; see section 8). Jon decided on 2026-10-07 to densify to 5 m on the evidence in
 [docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md).
 
 ## 8. Densify to 5 m (completed 2026-10-07)
@@ -531,5 +531,9 @@ python scripts/panoramax_lyon_figures.py rig-producers --out docs/figures/panora
 | mix shares | `data/census/lyon_5m/{rigs,years,producers}.csv` | `share` |
 | 1.45 m, IQR 0.60-3.26, p95 12.72, 14,547 | `runs/lyon/position_check.json` | `fields.submitted.cross_track`, `panos_not_near_a_street` |
 
-The native-res archive on makelab2 (#146) covers the 86,889 panos of the 10 m set. The
-87,516 added panos are archived next, as a follow-up step under #159.
+**Archive.** No Lyon archive existed on makelab2 when the densify finished; section 7's
+earlier line saying #146 covered the 10 m set was wrong. So #146 and #159's archive step
+are one pass over all 174,405 panos, into
+`/projects/makeabilitylab/sidewalk-auto-labeler/runs/lyon/panos/` with one reconcile and
+one `index.csv` (export_benchmark.py archive mode, `lyon_archive.sh` beside it). Its
+result is recorded on #146 and #159.
