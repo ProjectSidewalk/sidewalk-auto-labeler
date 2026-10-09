@@ -14,7 +14,7 @@
   "max_peaks_per_pano": 50,
   "detection_decode": "argmax",
   "detection_border": "exclude",
-  "thin_spacing_m": 10,
+  "thin_spacing_m": 5,
   "streetlevel_version": "0.12.10",
   "runs": [
     {
@@ -56,15 +56,43 @@
         "model_training_date": "08-21-2025",
         "api_version": "1.0.0"
       }
+    },
+    {
+      "started_at": "2026-10-07T20:52:05+00:00",
+      "finished_at": "2026-10-07T23:42:09+00:00",
+      "panos_found_in_area": 174525,
+      "processed": 25698,
+      "skipped": 9,
+      "failed": 0,
+      "scan": "reused",
+      "scan_scanned_at": "2026-10-06T04:46:02+00:00",
+      "scan_age_hours": 40.1,
+      "thin_spacing_m": 5,
+      "panos_before_thinning": 381295,
+      "model": {
+        "model_repo": "projectsidewalk/rampnet-model",
+        "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+        "model_id": "rampnet-model@606a11956743",
+        "model_training_date": "08-21-2025",
+        "api_version": "1.0.0"
+      }
     }
   ],
   "position_check": {
-    "checked_at": "2026-10-06T21:24:27Z",
-    "results_sha256": "6e8a11739a75eac1db85cd971323d95283d7f40c8cad98cc59ec4b8f907578e8",
+    "checked_at": "2026-10-07T23:42:27Z",
+    "results_sha256": "60e688b28b62f85e71f51c603dc1b6f4ff020348220c6cc7955891dcfef061ef",
     "submitted_field": null,
     "flagged": 0,
     "both_off": 0,
     "rule": "paired-unsigned-v1 (issue #62)",
-    "panos_not_near_a_street": 8383
+    "panos_not_near_a_street": 14547
+  },
+  "thin_spacing_changed": {
+    "at": "2026-10-07",
+    "from_m": 10,
+    "to_m": 5,
+    "how": "by hand (issue #148), not by main.py; same procedure as Bayonne (#147, PR #154)",
+    "why": "Jon's decision 2026-10-07 on #148 (evidence: PR #156; thinning experiment PR #144)",
+    "effect": "runs[0] and runs[1] processed the 10 m set; the following resume appends the 5 m cells it lacks. Re-thinning the same reused scan.json (381,295 panos, scanned 2026-10-06T04:46:02Z) with sources.panoramax.thin_panos gives a 10 m set (86,942) set-equal to already_processed.txt and an exact subset of the 5 m set (174,525), so the finished results.jsonl is exactly the 5 m population, not a mix (87,583 panos to add). 10 m state backed up to runs/lyon.bak-10m-2026-10-07/ on Hyak"
   }
 }

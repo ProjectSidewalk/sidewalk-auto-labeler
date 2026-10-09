@@ -438,6 +438,108 @@ main's unmasked one, so running it here would overwrite the masked `lyon_full/pr
 with an email-shaped producer name. It regenerates byte for byte with #150's version
 (checked in the #156 review). `rig-producers` masks the same way since that review.
 
-Section 6's "remaining slices" is done. The native-res archive (#146) now covers 86,889
-panos. Jon decided on 2026-10-07 to densify to 5 m on the evidence in
+Section 6's "remaining slices" is done. The native-res archive (#146) had not been
+started when this section was written (corrected 2026-10-07; see section 8). Jon decided on 2026-10-07 to densify to 5 m on the evidence in
 [docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md).
+
+## 8. Densify to 5 m (completed 2026-10-07)
+
+Jon's decision of 2026-10-07 (evidence: [docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md),
+#148) was carried out in place, the way Bayonne was (#147, PR #154). Re-thinning the same
+reused `scan.json` at 5 m gives 174,525 panos, and the 10 m set (86,942) is an exact subset
+of it, so a resume at `--thin-spacing 5` appends exactly the 87,583 missing cells. The run
+dir's binding was moved from 10 m to 5 m by hand first; the manifest's
+`thin_spacing_changed` block records how and why. The 10 m files were backed up beside the
+run dir (`runs/lyon.bak-10m-2026-10-07/`, with `SHA256SUMS`) before the job started.
+Tracked in #159.
+
+Hyak job **41504145** (`ckpt-g2`, one L40S, `sal_lyon_densify_ckpt.sbatch`, plain clone
+of main at `fd08b8f`):
+`main.py example_geojson/lyon.geojson --name lyon --source panoramax --reuse-scan --thin-spacing 5`,
+no `--limit`. It was requeued once, which `ckpt` does:
+
+| | attempt 1 | attempt 2 (resume) | densify total |
+|---|---:|---:|---:|
+| wall time (UTC) | 10-07 12:38-20:45, requeued | 10-07 20:48-23:42 | |
+| added to the cache | 61,876 | 25,707 | **87,583** |
+| processed | 61,818 | 25,698 | **87,516** |
+| skipped | 58 | 9 | 67 |
+| failed | see below | 0 | 0 |
+| rate (`detector:` line) | not printed | **2.512** panos/s | |
+
+- **Attempt 1 left no `runs[]` entry and no Final Report.** A requeued job is killed, so
+  `main.py` never wrote its manifest entry. Its per-pano stdout lines were lost too; they
+  were still buffered, while tqdm on stderr was not. `runs[2]` therefore records only
+  attempt 2 (25,698 processed / 9 skipped). The attempt-1 column above is counted from the
+  files: lines and cache ids added between the 10 m backup and the restart's
+  `Already processed (skipped): 148818`. tqdm had counted 75,988 completions at the
+  requeue, against 61,876 cached. The difference is retryable failures, which `main.py`
+  never caches; their reasons went with the lost stdout. Attempt 2 retried every one of
+  them with 0 failures.
+- **Skips: all 67 are `No heading (view:azimuth)`.** 9 are in the log. The other 58 were
+  re-derived on 2026-10-07 from each live STAC item, applying `fetch_pano`'s metadata
+  checks in order; all 58 lack `view:azimuth`. Over the whole 5 m set that is 120 skips
+  (0.07%): 119 no heading and the one cropped `hd` from section 7.
+- **Checks.** `results.jsonl` has 174,405 lines and 174,405 unique `panorama_id`s, none
+  unparseable. `already_processed.txt` holds 174,525 unique ids. Every results id is in
+  it, and the 120 extra ids are exactly the skips. The end-of-run position check reads
+  0 flagged. Its `results_sha256` equals the file's, so the check covers the final file.
+- **Detections, whole 5 m set:** **0.424** per pano at 0.55 (73,925) and 0.940 at 0.30
+  (163,987); on rig 141 / 1,061. The 87,516 added panos alone read 0.458 / 1.013, above
+  the 10 m set's 0.390 / 0.867. The cause is the mix the densify adds. *`data/census/lyon_5m/detections.csv`.*
+- **Mix, whole 5 m set:** the densify adds mostly the Métropole's older imagery. Grand
+  Lyon (both spellings) is 49.4% of panos, up from 36.1%. ecartip falls to 26.1% (from
+  33.7%). Capture years 2020-22 are 44.7% (from 33.6%), and 2026 is 29.5% (from 40.5%).
+  By rig: GoPro Max 5760x2880 45.0%, Ladybug 8192x4096 30.4%, make-less 8192x4096 19.0%.
+  *`data/census/lyon_5m/{rigs,years,producers,rig_detections}.csv`,
+  `data/full_5m/rig_producer_detections.csv`.* One producer name is email-shaped and is
+  masked (`j***@***`, 66 panos), per #150.
+- **Position check:** median cross-track 1.45 m (IQR 0.60-3.26, p95 12.72; 159,858 panos
+  scored). 14,547 panos are more than 30 m from a street, and `flagged` is 0.
+  *`runs/lyon/position_check.json`.*
+
+RampNet#159's per-producer caps may limit how many of the added Grand Lyon panos train.
+That is a training-side question, and it does not block this run.
+
+| file | sha256 |
+|---|---|
+| `runs/lyon/results.jsonl` (174,405 lines; Hyak and local, verified equal) | `60e688b28b62f85e71f51c603dc1b6f4ff020348220c6cc7955891dcfef061ef` |
+| `runs/lyon/already_processed.txt` (174,525 ids) | `6ae9cafc04bdb3f8d0b69b3565eb83655038aa0448acf46c57ad110a942c29fa` |
+| `runs/lyon/scan.json` (unchanged since slice 1) | `20339fea38e9476e089977de29cccb52c8d3e8497c4f1377d21d4175ea93561b` |
+| `runs/lyon/osm_streets.json` (cached, not committed) | `92915232b3ea34162882dac7df899545e9352281c2ee51e48bac13847c5fe8da` |
+| `runs/lyon/manifest.json` (committed) | `f4b50585b5b5b5d73431acdf0d19f0a095e661d8316c6f0d07890353f7b3f4fa` |
+| `runs/lyon/position_check.json` (committed) | `47feda1bfa95246d44d945be05bbff56e9fd625244fbf4a91d40e65b44e626c2` |
+| `runs/lyon/position_report.html` (committed) | `b94b6a718ed331e92f04baa1d8c893b3d5f412018865928f8e3a2635b764fe9c` |
+| `runs/lyon/run3.log` (Hyak `lyon_densify_41504145.log`, not committed) | `22defce1410b303c1a20cb09ffeab1655f89cc3694e8254e20314755aefdcc94` |
+
+Sections 1-7 and their files still describe the 10 m run. `data/census/lyon_full/` and
+`data/full/` are kept as section 7's evidence. Regenerate the 5 m tables with no network
+and no GPU, about 1 min each. The census step needs #150's `run_census.py`, as in section 7:
+
+```
+python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon_5m --band-y 0.79
+python scripts/panoramax_lyon_figures.py rig-producers --out docs/figures/panoramax-lyon/data/full_5m
+```
+
+| number | file | column / row |
+|---|---|---|
+| 174,525 found, 25,698 / 9 / 0 for attempt 2, 2.512 panos/s | `runs/lyon/manifest.json` `runs[2]`; `run3.log` last `detector:` line | `panos_found_in_area`, `processed`, `skipped`, `failed` |
+| 61,876 / 61,818 / 58 for attempt 1; 75,988 at requeue | `run3.log` (`Already processed (skipped): 148818`, last tqdm line before `CANCELLED ... DUE TO JOB REQUEUE`); line and cache counts against the 10 m backup | — |
+| 67 skips, all `view:azimuth` | `data/full_5m/densify_skips.csv` (`source` = `log` for 9, `api` for 58, re-derived 2026-10-07) | `reason` |
+| 0.424 / 0.940 per pano; on rig 141 / 1,061 | `data/census/lyon_5m/detections.csv` | `detections_per_pano`, `on_rig` |
+| 0.458 / 1.013 for the added panos | `results.jsonl` lines 86,890 onward, counted at 0.55 / 0.30 | — |
+| mix shares | `data/census/lyon_5m/{rigs,years,producers}.csv` | `share` |
+| 1.45 m, IQR 0.60-3.26, p95 12.72, 14,547 | `runs/lyon/position_check.json` | `fields.submitted.cross_track`, `panos_not_near_a_street` |
+
+**Archive (done 2026-10-09).** No Lyon archive existed on makelab2 when the densify
+finished; section 7's earlier line saying #146 covered the 10 m set was wrong. So #146 and
+#159's archive step became one pass over all 174,405 panos, into
+`/projects/makeabilitylab/sidewalk-auto-labeler/runs/lyon/panos/` (export_benchmark.py archive
+mode via `lyon_archive.sh` beside it; `results.jsonl` staged there, same sha256). Pass 1
+(2026-10-08T00:18Z to 10-09T09:34Z, about 1.6 panos/s) fetched 174,240 and failed 165, all
+transient: 131 `STAC item unavailable`, 24 storage read timeouts, 6 HTTP 502, 4 dropped
+connections. It ended rc=1. One re-run fetched all 165 with 0 failed and reconciled
+**174,405 archived + verified, 0 missing, STATUS OK** (rc=0 at 2026-10-09T09:36:29Z). The
+archive is 691 GB. `index.csv` has 174,406 lines (header + one row per pano), sha256
+`1c87baba05d56a9ef5c6038f6b1dfa45e06f905750c4ab64db15cc90054bad46`. `fetch.log` beside it
+lists every failed id.
