@@ -531,9 +531,15 @@ python scripts/panoramax_lyon_figures.py rig-producers --out docs/figures/panora
 | mix shares | `data/census/lyon_5m/{rigs,years,producers}.csv` | `share` |
 | 1.45 m, IQR 0.60-3.26, p95 12.72, 14,547 | `runs/lyon/position_check.json` | `fields.submitted.cross_track`, `panos_not_near_a_street` |
 
-**Archive.** No Lyon archive existed on makelab2 when the densify finished; section 7's
-earlier line saying #146 covered the 10 m set was wrong. So #146 and #159's archive step
-are one pass over all 174,405 panos, into
-`/projects/makeabilitylab/sidewalk-auto-labeler/runs/lyon/panos/` with one reconcile and
-one `index.csv` (export_benchmark.py archive mode, `lyon_archive.sh` beside it). Its
-result is recorded on #146 and #159.
+**Archive (done 2026-10-09).** No Lyon archive existed on makelab2 when the densify
+finished; section 7's earlier line saying #146 covered the 10 m set was wrong. So #146 and
+#159's archive step became one pass over all 174,405 panos, into
+`/projects/makeabilitylab/sidewalk-auto-labeler/runs/lyon/panos/` (export_benchmark.py archive
+mode via `lyon_archive.sh` beside it; `results.jsonl` staged there, same sha256). Pass 1
+(2026-10-08T00:18Z to 10-09T09:34Z, about 1.6 panos/s) fetched 174,240 and failed 165, all
+transient: 131 `STAC item unavailable`, 24 storage read timeouts, 6 HTTP 502, 4 dropped
+connections. It ended rc=1. One re-run fetched all 165 with 0 failed and reconciled
+**174,405 archived + verified, 0 missing, STATUS OK** (rc=0 at 2026-10-09T09:36:29Z). The
+archive is 691 GB. `index.csv` has 174,406 lines (header + one row per pano), sha256
+`1c87baba05d56a9ef5c6038f6b1dfa45e06f905750c4ab64db15cc90054bad46`. `fetch.log` beside it
+lists every failed id.
