@@ -202,7 +202,8 @@ python main.py example_geojson/<city>.geojson --name <city>
 > not inherit your login shell's environment:
 >
 > ```bash
-> export MAPILLARY_ACCESS_TOKEN=...   # or `set -a; . "$WORKDIR/repo/.env"; set +a`
+> export MAPILLARY_ACCESS_TOKEN=...   # or skip this: main.py loads ./.env itself (never `. .env`
+>                                     # in bash -- the unquoted MLY|id|hash token parses as a pipe)
 > ```
 >
 > …and point the preflight at the host the run actually talks to, since
@@ -516,7 +517,7 @@ differences under ~2 m are reported as undecidable and are not a reason to repos
 | Job fails writing output, or the whole lab's jobs start failing | Shared scratch quota (1 TB / 1M files) is near its ceiling | Archive to the lab file server and clean up; never archive imagery on the cluster |
 | Files vanish between cluster sessions | `/tmp` is node-local and login nodes are load-balanced | Stage to shared group scratch, never `/tmp` |
 | GPU util ~100% but power well under cap on the lab box | Time-slicing with `sidewalk-ai-api` | Nothing to do; let it run |
-| Mapillary run exits immediately on the cluster | Slurm doesn't inherit your login shell, so `MAPILLARY_ACCESS_TOKEN` is unset | Export it in the sbatch, or source `.env` there |
+| Mapillary run exits immediately on the cluster | Slurm doesn't inherit your login shell, so `MAPILLARY_ACCESS_TOKEN` is unset | Export it in the sbatch, or put `.env` in the checkout and let `main.py` load it (sourcing it in bash breaks on the `|` in the token) |
 | `send_to_ps.py` returns `401` | No API key sent | Set `PS_INTERNAL_API_KEY` to *that instance's* `INTERNAL_API_KEY`; keys are per-instance |
 | `send_to_ps.py` refuses to run before sending | A key is set and the remote `--endpoint` is `http://` | Use `https://`; the guard exists so a mistyped URL can't leak the key |
 | `send_to_ps.py` refuses: sidecar lines "went to" another endpoint | The `.submitted` sidecar is endpoint-agnostic — an earlier staging run claimed those lines, and sending only the remainder would leave them off the live city | Move `<file>.submitted` aside (e.g. `.submitted.staging`) so production starts from line 1; the per-endpoint record keeps the staging count |
