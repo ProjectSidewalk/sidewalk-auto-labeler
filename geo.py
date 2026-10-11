@@ -184,14 +184,29 @@ class LatLngSpacingIndex:
     benchmark sample.)
     """
 
-    def __init__(self, min_spacing):
+    def __init__(self, min_spacing, ref_lat=None):
         self.s = max(min_spacing, 1e-9)
         self.cells = {}
+        self._clat = self.s / METERS_PER_DEG_LAT
+        self._clng = None
+        if ref_lat is not None:
+            self._set_ref(ref_lat)
+
+    def _set_ref(self, lat):
+        # One longitude cell size for the whole index, from a reference latitude. Sizing
+        # the cell with each point's own cos(lat) put nearby points on different grids:
+        # at Juneau (58.3 N, 134.4 W) the longitude index is ~264,000 cells from the
+        # meridian and a 30 m change in latitude shifted it by ~2 cells, past the 3x3
+        # neighbourhood far_enough searches, so pairs 16-28 m apart were never compared
+        # (RampNet#250). The 2% margin keeps every cell at least min_spacing wide across
+        # a city-sized area, where cos(lat) drifts by well under that.
+        cos_ref = max(0.01, math.cos(math.radians(lat)))
+        self._clng = 1.02 * self.s / (METERS_PER_DEG_LAT * cos_ref)
 
     def _key(self, lat, lng):
-        clat = self.s / METERS_PER_DEG_LAT
-        clng = self.s / (METERS_PER_DEG_LAT * max(0.01, math.cos(math.radians(lat))))
-        return (math.floor(lat / clat), math.floor(lng / clng))
+        if self._clng is None:
+            self._set_ref(lat)
+        return (math.floor(lat / self._clat), math.floor(lng / self._clng))
 
     def far_enough(self, lat, lng):
         kx, ky = self._key(lat, lng)
