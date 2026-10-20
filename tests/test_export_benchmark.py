@@ -241,25 +241,41 @@ def test_allocate_is_proportional_with_a_floor():
     assert eb.allocate(10, {"a": 5, "b": 0}, 3) == {"a": 5}
 
 
-def test_allocate_never_exceeds_a_group_and_reports_overshoot_by_floors():
+def test_allocate_never_exceeds_a_group():
     alloc = eb.allocate(30, {"a": 100, "b": 4}, 10)
     assert alloc == {"a": 26, "b": 4} and sum(alloc.values()) == 30
-    # Floors alone exceed the total: every group keeps its floor (the caller reports it).
-    assert eb.allocate(10, {"a": 100, "b": 100, "c": 100}, 5) == {"a": 5, "b": 5, "c": 5}
+    # Floors that exactly fill the total are fine.
+    assert eb.allocate(15, {"a": 100, "b": 100, "c": 100}, 5) == {"a": 5, "b": 5, "c": 5}
+
+
+def test_allocate_refuses_floors_that_would_grow_the_sample():
+    # Review of #167, finding 1: floors above the target used to be returned silently,
+    # so --group-min 40 over four groups drew 160 random panos for a target of 140.
+    import pytest
+    with pytest.raises(ValueError, match="need 15 picks"):
+        eb.allocate(10, {"a": 100, "b": 100, "c": 100}, 5)
+
+
+def test_allocate_zero_target_draws_nothing():
+    assert eb.allocate(0, {"a": 10, "b": 10}, 3) == {"a": 0, "b": 0}
+    assert eb.allocate(-1, {"a": 10}, 3) == {"a": 0}
 
 
 def test_allocate_sums_to_total_on_many_shapes():
     import random
+    import pytest
     rng = random.Random(3)
     for _ in range(200):
         sizes = {f"g{i}": rng.randint(0, 400) for i in range(rng.randint(1, 7))}
         total, minimum = rng.randint(0, 300), rng.randint(0, 30)
+        if total > 0 and sum(min(minimum, n) for n in sizes.values()) > total:
+            with pytest.raises(ValueError):
+                eb.allocate(total, sizes, minimum)
+            continue
         alloc = eb.allocate(total, sizes, minimum)
         assert all(0 <= n <= sizes[g] for g, n in alloc.items())
-        assert all(n >= min(minimum, sizes[g]) for g, n in alloc.items())
-        floors = sum(min(minimum, n) for n in sizes.values())
-        if floors < total:
-            assert sum(alloc.values()) == min(total, sum(sizes.values()))
+        assert total <= 0 or all(n >= min(minimum, sizes[g]) for g, n in alloc.items())
+        assert sum(alloc.values()) == min(total, sum(sizes.values()))
 
 
 def test_choose_panos_stratified_gives_every_group_its_floor():
@@ -311,14 +327,23 @@ def test_choose_panos_stratified_is_seed_reproducible():
     recs = _rig_city()
     stratum_of = eb.make_stratum_of(["camera_model", "copyright"], GROUP_MAP)
     pick = lambda seed: [r["pano"]["panorama_id"] for r, _ in eb.choose_panos(
-        recs, 40, 6, seed, top_n=3, stratum_of=stratum_of, group_min=8)]
+        recs, 40, 6, seed, top_n=3, stratum_of=stratum_of, group_min=8, empty_group_min=2)]
     assert pick(5) == pick(5)
     assert pick(5) != pick(6)
 
 
-# The first 8 ids of choose_panos(_rig_city(), 30, 5, seed=2) as drawn by origin/main at
-# 533eaf0, before the stratified option existed (the whole draw matched, not only these).
-PRE_CHANGE_FIRST_8 = ['gra1', 'gra2', 'gra7', 'gra8', 'gra11', 'eca41', 'eca145', 'gra41']
+# choose_panos(_rig_city(), 30, 5, seed=2) as drawn by origin/main at 533eaf0, before the
+# stratified option existed: every (id, group), in order.
+PRE_CHANGE_DRAW = [["gra1", "top"], ["gra2", "top"], ["gra7", "top"], ["gra8", "top"], ["gra11", "top"],
+    ["eca41", "random"], ["eca145", "random"], ["gra41", "random"], ["eca121",
+    "random"], ["gra187", "random"], ["gra154", "random"], ["gra242", "random"],
+    ["gra241", "random"], ["gra149", "random"], ["gra83", "random"], ["gra203",
+    "random"], ["gra100", "random"], ["eca139", "random"], ["gra265", "random"],
+    ["lup2", "random"], ["gra292", "random"], ["gra46", "random"], ["gra119", "random"],
+    ["gra116", "random"], ["gra91", "random"], ["eca34", "random"], ["gra172",
+    "random"], ["eca74", "random"], ["gra295", "random"], ["gra218", "random"],
+    ["eca126", "empty"], ["gra132", "empty"], ["gra39", "empty"], ["eca18", "empty"],
+    ["gra237", "empty"]]
 
 
 def test_choose_panos_default_is_unchanged_by_the_stratified_option():
@@ -330,8 +355,8 @@ def test_choose_panos_default_is_unchanged_by_the_stratified_option():
     assert [(r["pano"]["panorama_id"], g) for r, g in a] == \
            [(r["pano"]["panorama_id"], g) for r, g in b]
     assert not any("benchmark_stratum" in r for r, _ in a)
-    # Pinned against the pre-change draw (recomputed with the code before this option).
-    assert [r["pano"]["panorama_id"] for r, _ in a][:8] == PRE_CHANGE_FIRST_8
+    # Pinned against the whole pre-change draw (recomputed with the code before this option).
+    assert [[r["pano"]["panorama_id"], g] for r, g in a] == PRE_CHANGE_DRAW
 
 
 def test_write_bundle_records_stratified_writes_strata_and_lower_tier(tmp_path):
@@ -373,6 +398,39 @@ def test_write_bundle_records_default_sample_json_has_no_new_keys(tmp_path):
                          "seed", "min_spacing_m", "min_confidence", "selected", "groups"}
     rows = (tmp_path / "b" / "records.jsonl").read_text(encoding="utf-8")
     assert "benchmark_stratum" not in rows
+
+
+def test_write_bundle_records_refuses_a_mistyped_group_key(tmp_path):
+    # Review of #167, finding 2: a key no record carries read as '' everywhere and
+    # silently collapsed the draw into one stratum.
+    import pytest
+    results = tmp_path / "results.jsonl"
+    _write_results(results, _rig_city())
+    with pytest.raises(ValueError, match="camera_modle"):
+        eb.write_bundle_records(results, tmp_path / "b", 20, 5, seed=0, min_spacing=30,
+                                group_keys=["camera_modle", "copyright"])
+    assert not (tmp_path / "b" / "records.jsonl").exists()
+
+
+def test_write_bundle_records_refuses_a_record_tier_below_the_storage_floor(tmp_path):
+    import pytest
+    results = tmp_path / "results.jsonl"
+    _write_results(results, _rig_city())
+    with pytest.raises(ValueError, match="storage floor"):
+        eb.write_bundle_records(results, tmp_path / "b", 20, 5, seed=0, min_spacing=30,
+                                record_confidence=eb.DETECTION_STORAGE_FLOOR / 2)
+
+
+def test_stratified_floors_above_the_target_refuse_rather_than_grow(tmp_path):
+    import pytest
+    results = tmp_path / "results.jsonl"
+    _write_results(results, _rig_city())
+    gmap = tmp_path / "map.json"
+    gmap.write_text(json.dumps(GROUP_MAP), encoding="utf-8")
+    with pytest.raises(ValueError, match="floors need"):
+        eb.write_bundle_records(results, tmp_path / "b", 20, 5, seed=0, min_spacing=30,
+                                top_n=2, group_keys=["camera_model", "copyright"],
+                                group_map=eb.load_group_map(gmap), group_min=10)
 
 
 def test_write_bundle_records_refuses_a_record_tier_above_the_benchmark(tmp_path):

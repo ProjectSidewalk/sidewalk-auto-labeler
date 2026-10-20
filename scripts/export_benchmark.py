@@ -32,8 +32,12 @@ rather than because the source dropped it (re-run to finish those).
 
     # stratified by rig x producer (RampNet #159/#263, the Lyon label audit): the random
     # and empty strata are split across the groups --group-map names, proportional to
-    # each pool with a floor per group; records also show the 0.30 tier for review
-    python scripts/export_benchmark.py runs/lyon/results.jsonl --bundle <dir> \n        --sample 150 --empty-sample 25 --top 10 --seed 159 \n        --group-key camera_model --group-key copyright --group-map group_map.json \n        --group-min 20 --empty-group-min 3 --record-confidence 0.30
+    # each pool with a floor per group (--record-confidence 0.30 would also show the
+    # 0.30 tier for review; the Lyon bundle keeps the 0.55 default)
+    python scripts/export_benchmark.py runs/lyon/results.jsonl --bundle <dir> \
+        --sample 175 --empty-sample 25 --top 5 --seed 159 \
+        --group-key camera_model --group-key copyright --group-map group_map.json \
+        --group-min 30 --empty-group-min 3
 
     # existing bundle (writes panos/ next to records.jsonl):
     python scripts/export_benchmark.py D:/Git/RampNet/benchmark/richmond
@@ -63,7 +67,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 load_dotenv(REPO_ROOT / ".env")
 
-from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, DETECTION_STORAGE_FLOOR  # noqa: E402
 from geo import haversine_m as _haversine_m, LatLngSpacingIndex as _SpatialIndex  # noqa: E402
 from sources import mapillary  # noqa: E402
 from sources import panoramax  # noqa: E402
@@ -152,6 +156,16 @@ def load_group_map(path):
     return [tuple(p) for p in pairs]
 
 
+def check_group_keys(records, keys):
+    """Refuse a group key that no record's pano block carries.
+
+    A mistyped key reads as '' on every record, so every pano would land in one stratum
+    and the draw would silently be unstratified."""
+    missing = [k for k in keys if not any(k in r['pano'] for r in records)]
+    if missing:
+        raise ValueError(f"group key(s) {missing} appear in no record's pano block")
+
+
 def make_stratum_of(keys, group_map=None):
     """A ``record -> stratum name`` function for `keys` and an optional group map.
 
@@ -177,16 +191,25 @@ def allocate(total, sizes, minimum):
 
     Every group gets at least ``min(minimum, size)`` and never more than its size; what
     is left is shared in proportion to size by largest remainder, ties broken by name, so
-    the result is deterministic. If the floors alone reach `total`, every group gets
-    its floor and the sum can exceed `total` (the caller reports it).
+    the result is deterministic and sums to ``min(total, sum(sizes))``. A `total` of 0 or
+    less gives every group 0. Floors that alone exceed `total` raise ValueError naming
+    the numbers: they would grow the sample past what was asked for.
 
     Example:
         >>> allocate(100, {'a': 900, 'b': 90, 'c': 10}, 20)
         {'a': 70, 'b': 20, 'c': 10}
+        >>> allocate(0, {'a': 900, 'b': 90}, 20)
+        {'a': 0, 'b': 0}
     """
     sizes = {g: n for g, n in sizes.items() if n > 0}
+    if total <= 0:
+        return {g: 0 for g in sorted(sizes)}
     floors = {g: min(minimum, n) for g, n in sizes.items()}
-    if sum(floors.values()) >= total:
+    if sum(floors.values()) > total:
+        raise ValueError(
+            f"the per-group floors need {sum(floors.values())} picks ({len(floors)} groups, "
+            f"floor {minimum}) but the target is {total}: raise the target or lower the floor")
+    if sum(floors.values()) == total:
         return dict(sorted(floors.items()))
     fixed, open_ = {}, set(sizes)
     while open_:
@@ -360,6 +383,9 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
         raise ValueError(f"record_confidence {record_confidence} is above the benchmark "
                          f"threshold {BENCHMARK_CONFIDENCE}: 'random' panos could carry no "
                          f"detection")
+    if record_confidence < DETECTION_STORAGE_FLOOR:
+        raise ValueError(f"record_confidence {record_confidence} is below the storage floor "
+                         f"{DETECTION_STORAGE_FLOOR}: results.jsonl holds no peaks that low")
     with open(results_path, encoding="utf-8") as f:
         records = [json.loads(line) for line in f if line.strip()]
     # results.jsonl stores candidate peaks down to a storage floor below the operational
@@ -367,11 +393,10 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
     # ("with detections" vs "empty") and the records RampNet's GT tooling reads — is
     # defined over operational detections only. A lower record_confidence widens only
     # what records.jsonl shows the reviewer, never the strata.
-    shown = {}
-    if record_confidence < BENCHMARK_CONFIDENCE:
-        shown = {r['pano']['panorama_id']: [d for d in r['detections']
-                                            if d['confidence'] >= record_confidence]
-                 for r in records}
+    if group_keys:
+        check_group_keys(records, group_keys)
+    raw = {r['pano']['panorama_id']: r['detections'] for r in records} \
+        if record_confidence < BENCHMARK_CONFIDENCE else {}
     records = [{**r, 'detections': [d for d in r['detections']
                                     if d['confidence'] >= BENCHMARK_CONFIDENCE]}
                for r in records]
@@ -381,8 +406,9 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
                           stratum_of=stratum_of, group_min=group_min,
                           empty_group_min=empty_group_min, report=report)
     chosen.sort(key=lambda rg: rg[0]['pano']['panorama_id'])
-    if shown:
-        chosen = [({**rec, 'detections': shown[rec['pano']['panorama_id']]}, group)
+    if raw:        # the lower tier, for the chosen records only
+        chosen = [({**rec, 'detections': [d for d in raw[rec['pano']['panorama_id']]
+                                          if d['confidence'] >= record_confidence]}, group)
                   for rec, group in chosen]
 
     with open(records_path, "w", encoding="utf-8", newline="\n") as f:  # LF on every platform
@@ -402,6 +428,9 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
         meta["stratified"] = {"group_keys": list(group_keys),
                               "group_map": [list(p) for p in group_map or ()],
                               "group_min": group_min, "empty_group_min": empty_group_min,
+                              "spread_order": "strata in name order, one shared spacing "
+                                              "index: an earlier name claims contested "
+                                              "ground first",
                               "strata": report["strata"]}
     (bundle_dir / "sample.json").write_text(json.dumps(meta, indent=2) + "\n",
                                             encoding="utf-8", newline="\n")
@@ -626,12 +655,15 @@ def main():
             sys.exit("--bundle takes a run's results.jsonl as SOURCE, not a directory")
         if args.group_map and not args.group_key:
             sys.exit("--group-map needs at least one --group-key")
-        records_path = write_bundle_records(
-            src, args.bundle, args.sample, args.empty_sample, args.seed, args.min_spacing,
-            top_n=args.top, group_keys=args.group_key,
-            group_map=load_group_map(args.group_map) if args.group_map else None,
-            group_min=args.group_min, empty_group_min=args.empty_group_min,
-            record_confidence=args.record_confidence)
+        try:
+            records_path = write_bundle_records(
+                src, args.bundle, args.sample, args.empty_sample, args.seed, args.min_spacing,
+                top_n=args.top, group_keys=args.group_key,
+                group_map=load_group_map(args.group_map) if args.group_map else None,
+                group_min=args.group_min, empty_group_min=args.empty_group_min,
+                record_confidence=args.record_confidence)
+        except ValueError as e:
+            sys.exit(f"export_benchmark: {e}")
         panos_dir = args.out or (args.bundle / "panos")
         if args.records_only:
             return
