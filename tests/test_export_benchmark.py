@@ -178,6 +178,212 @@ def test_write_bundle_records_never_resamples_an_existing_bundle(tmp_path):
     assert again == first and again.read_text(encoding="utf-8") == before
 
 
+# --- stratified sampling (--group-key; RampNet #159/#263) ------------------------------
+
+def _rig_record(pid, n_dets, model, producer, lat, lng):
+    rec = _record(pid, n_dets, lat=lat, lng=lng)
+    rec["pano"].update(camera_model=model, copyright=producer)
+    return rec
+
+
+def _rig_city(seed=0):
+    """A synthetic city: three rig x producer groups of very different size, panos on a
+    ~110 m grid so 30 m spacing never binds, about a third of each group empty."""
+    import random
+    rng = random.Random(seed)
+    recs, k = [], 0
+    for model, producer, n in (("Ladybug", "grand lyon", 300), ("Max", "ecartip", 150),
+                               ("THETA S", "luppano", 30)):
+        for i in range(n):
+            lat, lng = 45.0 + 0.001 * (k // 60), 4.8 + 0.0014 * (k % 60)
+            recs.append(_rig_record(f"{producer[:3]}{i}", 0 if i % 3 == 0 else
+                                    rng.randint(1, 4), model, producer, lat, lng))
+            k += 1
+    return recs
+
+
+GROUP_MAP = [["Ladybug|grand lyon", "grand_lyon"], ["Max|*", "gopro_max"],
+             ["*", "other_cameras"]]
+
+
+def test_group_label_joins_keys_and_reads_missing_as_empty():
+    rec = _rig_record("A", 1, None, "grand lyon", 45.0, 4.8)
+    assert eb.group_label(rec, ["camera_model", "copyright"]) == "|grand lyon"
+    assert eb.group_label(rec, ["copyright"]) == "grand lyon"
+
+
+def test_group_map_first_match_wins_and_unmatched_keeps_raw_label(tmp_path):
+    path = tmp_path / "map.json"
+    path.write_text(json.dumps([["Max|ecartip", "ecartip"], ["Max|*", "other_max"]]),
+                    encoding="utf-8")
+    stratum_of = eb.make_stratum_of(["camera_model", "copyright"], eb.load_group_map(path))
+    rec = lambda m, p: _rig_record("A", 1, m, p, 45.0, 4.8)
+    assert stratum_of(rec("Max", "ecartip")) == "ecartip"
+    assert stratum_of(rec("Max", "trucbidule")) == "other_max"
+    assert stratum_of(rec("Ladybug", "grand lyon")) == "Ladybug|grand lyon"   # never pooled
+    assert stratum_of(rec("max", "ecartip")) == "max|ecartip"   # case-sensitive everywhere
+
+
+def test_load_group_map_rejects_a_dict(tmp_path):
+    import pytest
+    path = tmp_path / "map.json"
+    path.write_text(json.dumps({"Max|*": "gopro"}), encoding="utf-8")
+    with pytest.raises(ValueError):
+        eb.load_group_map(path)
+
+
+def test_allocate_is_proportional_with_a_floor():
+    assert eb.allocate(100, {"a": 900, "b": 90, "c": 10}, 20) == {"a": 70, "b": 20, "c": 10}
+    # Without floors binding it is plain largest remainder, and sums to the total.
+    alloc = eb.allocate(10, {"a": 50, "b": 30, "c": 20}, 0)
+    assert alloc == {"a": 5, "b": 3, "c": 2}
+    # Empty groups get nothing and do not appear.
+    assert eb.allocate(10, {"a": 5, "b": 0}, 3) == {"a": 5}
+
+
+def test_allocate_never_exceeds_a_group_and_reports_overshoot_by_floors():
+    alloc = eb.allocate(30, {"a": 100, "b": 4}, 10)
+    assert alloc == {"a": 26, "b": 4} and sum(alloc.values()) == 30
+    # Floors alone exceed the total: every group keeps its floor (the caller reports it).
+    assert eb.allocate(10, {"a": 100, "b": 100, "c": 100}, 5) == {"a": 5, "b": 5, "c": 5}
+
+
+def test_allocate_sums_to_total_on_many_shapes():
+    import random
+    rng = random.Random(3)
+    for _ in range(200):
+        sizes = {f"g{i}": rng.randint(0, 400) for i in range(rng.randint(1, 7))}
+        total, minimum = rng.randint(0, 300), rng.randint(0, 30)
+        alloc = eb.allocate(total, sizes, minimum)
+        assert all(0 <= n <= sizes[g] for g, n in alloc.items())
+        assert all(n >= min(minimum, sizes[g]) for g, n in alloc.items())
+        floors = sum(min(minimum, n) for n in sizes.values())
+        if floors < total:
+            assert sum(alloc.values()) == min(total, sum(sizes.values()))
+
+
+def test_choose_panos_stratified_gives_every_group_its_floor():
+    recs = _rig_city()
+    report = {}
+    stratum_of = eb.make_stratum_of(["camera_model", "copyright"], GROUP_MAP)
+    chosen = eb.choose_panos(recs, sample=70, empty_sample=9, seed=1, top_n=4,
+                             stratum_of=stratum_of, group_min=12, empty_group_min=3,
+                             report=report)
+    by = {}
+    for rec, grp in chosen:
+        by.setdefault((rec["benchmark_stratum"], grp), 0)
+        by[(rec["benchmark_stratum"], grp)] += 1
+    # The small group (20 detection panos) still gets its floor of 12 random panos.
+    assert by[("other_cameras", "random")] == 12
+    assert sum(n for (s, g), n in by.items() if g == "random") == 70 - 4
+    assert sum(n for (s, g), n in by.items() if g == "top") == 4
+    assert all(by[(s, "empty")] >= 3 for s in ("grand_lyon", "gopro_max", "other_cameras"))
+    assert sum(n for (s, g), n in by.items() if g == "empty") == 9
+    # The bigger group gets the bigger share of the rest.
+    assert by[("grand_lyon", "random")] > by[("gopro_max", "random")]
+    # The report agrees with what was drawn.
+    for s, row in report["strata"].items():
+        assert row["random"] == by.get((s, "random"), 0)
+        assert row["empty"] == by.get((s, "empty"), 0)
+        assert row["random"] == row["random_target"]
+    # Every record is tagged and no pano appears twice.
+    pids = [r["pano"]["panorama_id"] for r, _ in chosen]
+    assert len(pids) == len(set(pids))
+    assert all(r["benchmark_stratum"] == stratum_of(r) for r, _ in chosen)
+
+
+def test_choose_panos_stratified_keeps_spacing_across_groups():
+    # Two groups sharing one corner: only one pano there can be drawn, whatever its group.
+    recs = [_rig_record(f"L{j}", 2, "Ladybug", "grand lyon", 45.0 + 0.00002 * j, 4.8)
+            for j in range(5)]
+    recs += [_rig_record(f"M{j}", 2, "Max", "ecartip", 45.00001 + 0.00002 * j, 4.8)
+             for j in range(5)]
+    recs += [_rig_record(f"F{k}", 1, "Max", "ecartip", 45.0 + 0.01 * (k + 1), 4.8)
+             for k in range(5)]
+    chosen = eb.choose_panos(recs, 20, 0, seed=0, min_spacing=30, top_n=0,
+                             stratum_of=eb.make_stratum_of(["copyright"]), group_min=5)
+    assert _pairwise_min_m(chosen) >= 30 - 1e-6
+    corner = [r for r, _ in chosen if r["pano"]["panorama_id"][0] in "LM"]
+    assert len(corner) == 1
+
+
+def test_choose_panos_stratified_is_seed_reproducible():
+    recs = _rig_city()
+    stratum_of = eb.make_stratum_of(["camera_model", "copyright"], GROUP_MAP)
+    pick = lambda seed: [r["pano"]["panorama_id"] for r, _ in eb.choose_panos(
+        recs, 40, 6, seed, top_n=3, stratum_of=stratum_of, group_min=8)]
+    assert pick(5) == pick(5)
+    assert pick(5) != pick(6)
+
+
+# The first 8 ids of choose_panos(_rig_city(), 30, 5, seed=2) as drawn by origin/main at
+# 533eaf0, before the stratified option existed (the whole draw matched, not only these).
+PRE_CHANGE_FIRST_8 = ['gra1', 'gra2', 'gra7', 'gra8', 'gra11', 'eca41', 'eca145', 'gra41']
+
+
+def test_choose_panos_default_is_unchanged_by_the_stratified_option():
+    # Default arguments must draw exactly what they drew before the option existed; the
+    # unstratified call and an explicit stratum_of=None agree, and nothing is tagged.
+    recs = _rig_city()
+    a = eb.choose_panos(recs, 30, 5, seed=2)
+    b = eb.choose_panos(recs, 30, 5, seed=2, stratum_of=None, top_n=eb.TOP_N_BY_COUNT)
+    assert [(r["pano"]["panorama_id"], g) for r, g in a] == \
+           [(r["pano"]["panorama_id"], g) for r, g in b]
+    assert not any("benchmark_stratum" in r for r, _ in a)
+    # Pinned against the pre-change draw (recomputed with the code before this option).
+    assert [r["pano"]["panorama_id"] for r, _ in a][:8] == PRE_CHANGE_FIRST_8
+
+
+def test_write_bundle_records_stratified_writes_strata_and_lower_tier(tmp_path):
+    results = tmp_path / "results.jsonl"
+    recs = _rig_city()
+    # Give one Ladybug pano a 0.40 peak next to its 0.9 one, and one empty pano a lone
+    # 0.40 peak: the strata are still decided at 0.55.
+    recs[1]["detections"].append({"x_normalized": 0.7, "y_normalized": 0.6,
+                                  "confidence": 0.40})
+    recs[0]["detections"] = [{"x_normalized": 0.3, "y_normalized": 0.6, "confidence": 0.40}]
+    _write_results(results, recs)
+    gmap = tmp_path / "map.json"
+    gmap.write_text(json.dumps(GROUP_MAP), encoding="utf-8")
+    bundle = tmp_path / "bundle"
+    records_path = eb.write_bundle_records(
+        results, bundle, sample=60, empty_sample=9, seed=0, min_spacing=30, top_n=3,
+        group_keys=["camera_model", "copyright"], group_map=eb.load_group_map(gmap),
+        group_min=10, empty_group_min=3, record_confidence=0.30)
+    rows = [json.loads(l) for l in records_path.read_text(encoding="utf-8").splitlines()]
+    assert {r["benchmark_stratum"] for r in rows} == {"grand_lyon", "gopro_max",
+                                                       "other_cameras"}
+    assert all(d["confidence"] >= 0.30 for r in rows for d in r["detections"])
+    for r in rows:      # strata at 0.55, whatever the lower tier shows
+        n55 = sum(d["confidence"] >= eb.BENCHMARK_CONFIDENCE for d in r["detections"])
+        assert (n55 == 0) == (r["benchmark_group"] == "empty")
+    meta = json.loads((bundle / "sample.json").read_text(encoding="utf-8"))
+    assert meta["record_confidence"] == 0.30 and meta["top_n"] == 3
+    st = meta["stratified"]
+    assert st["group_keys"] == ["camera_model", "copyright"] and st["group_map"] == GROUP_MAP
+    assert sum(row["random"] for row in st["strata"].values()) == meta["groups"]["random"]
+
+
+def test_write_bundle_records_default_sample_json_has_no_new_keys(tmp_path):
+    results = tmp_path / "results.jsonl"
+    _write_results(results, _rig_city())
+    eb.write_bundle_records(results, tmp_path / "b", 20, 5, seed=0, min_spacing=30)
+    meta = json.loads((tmp_path / "b" / "sample.json").read_text(encoding="utf-8"))
+    assert set(meta) == {"source_records", "source_record_count", "sample", "empty_sample",
+                         "seed", "min_spacing_m", "min_confidence", "selected", "groups"}
+    rows = (tmp_path / "b" / "records.jsonl").read_text(encoding="utf-8")
+    assert "benchmark_stratum" not in rows
+
+
+def test_write_bundle_records_refuses_a_record_tier_above_the_benchmark(tmp_path):
+    import pytest
+    results = tmp_path / "results.jsonl"
+    _write_results(results, _rig_city())
+    with pytest.raises(ValueError):
+        eb.write_bundle_records(results, tmp_path / "b", 20, 5, seed=0, min_spacing=30,
+                                record_confidence=0.9)
+
+
 # --- reconcile -------------------------------------------------------------------------
 
 def _archive(tmp_path, panos, dirname="panos"):
