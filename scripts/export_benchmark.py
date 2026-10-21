@@ -30,6 +30,15 @@ rather than because the source dropped it (re-run to finish those).
     python scripts/export_benchmark.py runs/clovis/results.jsonl \
         --bundle D:/Git/RampNet/benchmark/clovis --sample 100 --empty-sample 25
 
+    # stratified by rig x producer (RampNet #159/#263, the Lyon label audit): the random
+    # and empty strata are split across the groups --group-map names, proportional to
+    # each pool with a floor per group (--record-confidence 0.30 would also show the
+    # 0.30 tier for review; the Lyon bundle keeps the 0.55 default)
+    python scripts/export_benchmark.py runs/lyon/results.jsonl --bundle <dir> \
+        --sample 175 --empty-sample 25 --top 5 --seed 159 \
+        --group-key camera_model --group-key copyright --group-map group_map.json \
+        --group-min 30 --empty-group-min 3
+
     # existing bundle (writes panos/ next to records.jsonl):
     python scripts/export_benchmark.py D:/Git/RampNet/benchmark/richmond
 
@@ -41,8 +50,10 @@ Needs MAPILLARY_ACCESS_TOKEN (from ./.env) for Mapillary panos.
 """
 import argparse
 import csv
+import fnmatch
 import hashlib
 import json
+import math
 import random
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -56,7 +67,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 load_dotenv(REPO_ROOT / ".env")
 
-from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, DETECTION_STORAGE_FLOOR  # noqa: E402
 from geo import haversine_m as _haversine_m, LatLngSpacingIndex as _SpatialIndex  # noqa: E402
 from sources import mapillary  # noqa: E402
 from sources import panoramax  # noqa: E402
@@ -71,6 +82,14 @@ TOP_N_BY_COUNT = 5     # the densest panos are always included (group "top")
 # by correlated duplicates. Tunable per city/imagery via --min-spacing; deliberately
 # well above the Mapillary thinning spacing (~5 m) since that's coverage, not sampling.
 DEFAULT_MIN_SPACING_M = 30
+
+# Stratified sampling by a record attribute (--group-key; RampNet #159/#263, the Lyon
+# label audit). The random and empty strata are split across groups such as camera
+# model x producer, proportional to each group's pool but never below these floors, so
+# a small group still gets enough panos to say something about on its own.
+DEFAULT_GROUP_MIN = 20
+DEFAULT_EMPTY_GROUP_MIN = 3
+GROUP_SEP = "|"
 
 
 # --- Sampling: which panos become the benchmark ---------------------------------------
@@ -104,13 +123,171 @@ def _spread(candidates, k, index, min_spacing):
     return picked, rejected
 
 
-def choose_panos(records, sample, empty_sample, seed, min_spacing=DEFAULT_MIN_SPACING_M):
+def group_label(record, keys):
+    """The raw group label of a record: its pano block's values for `keys`, joined by '|'.
+
+    A missing or null value reads as the empty string, so a camera with no EXIF model
+    still lands in a well-defined group.
+
+    Example:
+        >>> group_label({'pano': {'camera_model': 'Max', 'copyright': 'ecartip'}},
+        ...             ['camera_model', 'copyright'])
+        'Max|ecartip'
+        >>> group_label({'pano': {'camera_model': None}}, ['camera_model', 'copyright'])
+        '|'
+    """
+    p = record['pano']
+    return GROUP_SEP.join('' if p.get(k) is None else str(p.get(k)) for k in keys)
+
+
+def load_group_map(path):
+    """Read a group map: a JSON list of ``[pattern, stratum]`` pairs, first match wins.
+
+    Patterns are shell-style (``fnmatch``, case-sensitive) and match the raw label from
+    :func:`group_label`, e.g. ``["Max|ecartip", "ecartip_gopro_max"]``,
+    ``["Max|*", "other_gopro_max"]``, ``["*", "other_cameras"]``.
+    """
+    with open(path, encoding="utf-8") as f:
+        pairs = json.load(f)
+    if not isinstance(pairs, list) or not all(
+            isinstance(p, list) and len(p) == 2 and all(isinstance(x, str) for x in p)
+            for p in pairs):
+        raise ValueError(f"{path}: a group map is a JSON list of [pattern, stratum] pairs")
+    return [tuple(p) for p in pairs]
+
+
+def check_group_keys(records, keys):
+    """Refuse a group key that no record's pano block carries.
+
+    A mistyped key reads as '' on every record, so every pano would land in one stratum
+    and the draw would silently be unstratified."""
+    missing = [k for k in keys if not any(k in r['pano'] for r in records)]
+    if missing:
+        raise ValueError(f"group key(s) {missing} appear in no record's pano block")
+
+
+def make_stratum_of(keys, group_map=None):
+    """A ``record -> stratum name`` function for `keys` and an optional group map.
+
+    Without a map the stratum is the raw label. With one, the first pattern that matches
+    the raw label names the stratum; a label no pattern matches keeps its raw label, so
+    nothing is silently pooled.
+    """
+    keys = list(keys)
+    if not keys:
+        raise ValueError("stratified sampling needs at least one group key")
+
+    def stratum_of(record):
+        label = group_label(record, keys)
+        for pattern, name in group_map or ():
+            if fnmatch.fnmatchcase(label, pattern):
+                return name
+        return label
+    return stratum_of
+
+
+def allocate(total, sizes, minimum):
+    """Split `total` picks across groups, proportional to `sizes`, with a floor.
+
+    Every group gets at least ``min(minimum, size)`` and never more than its size; what
+    is left is shared in proportion to size by largest remainder, ties broken by name, so
+    the result is deterministic and sums to ``min(total, sum(sizes))``. A `total` of 0 or
+    less gives every group 0. Floors that alone exceed `total` raise ValueError naming
+    the numbers: they would grow the sample past what was asked for.
+
+    Example:
+        >>> allocate(100, {'a': 900, 'b': 90, 'c': 10}, 20)
+        {'a': 70, 'b': 20, 'c': 10}
+        >>> allocate(0, {'a': 900, 'b': 90}, 20)
+        {'a': 0, 'b': 0}
+    """
+    sizes = {g: n for g, n in sizes.items() if n > 0}
+    if total <= 0:
+        return {g: 0 for g in sorted(sizes)}
+    floors = {g: min(minimum, n) for g, n in sizes.items()}
+    if sum(floors.values()) > total:
+        raise ValueError(
+            f"the per-group floors need {sum(floors.values())} picks ({len(floors)} groups, "
+            f"floor {minimum}) but the target is {total}: raise the target or lower the floor")
+    if sum(floors.values()) == total:
+        return dict(sorted(floors.items()))
+    fixed, open_ = {}, set(sizes)
+    while open_:
+        budget = total - sum(fixed.values())
+        weight = sum(sizes[g] for g in open_)
+        quota = {g: budget * sizes[g] / weight for g in open_}
+        pinned = {g: floors[g] for g in open_ if quota[g] < floors[g]}
+        pinned.update({g: sizes[g] for g in open_ if quota[g] > sizes[g]})
+        if pinned:
+            fixed.update(pinned)
+            open_ -= set(pinned)
+            continue
+        base = {g: math.floor(quota[g]) for g in open_}
+        spare = budget - sum(base.values())
+        for g in sorted(open_, key=lambda g: (-(quota[g] - base[g]), g))[:spare]:
+            base[g] += 1
+        fixed.update(base)
+        break
+    return dict(sorted(fixed.items()))
+
+
+def _choose_grouped(with_det, without_det, rng, index, top, sample, empty_sample,
+                    min_spacing, stratum_of, group_min, empty_group_min, report):
+    """The random and empty strata, allocated across groups (see :func:`choose_panos`)."""
+    top_ids = {r['pano']['panorama_id'] for r in top}
+    rest = [r for r in with_det if r['pano']['panorama_id'] not in top_ids]
+    rng.shuffle(rest)
+    empties = list(without_det)
+    rng.shuffle(empties)
+
+    def by_group(recs):
+        out = {}
+        for r in recs:                       # keeps the shuffled order within a group
+            out.setdefault(stratum_of(r), []).append(r)
+        return out
+
+    pools = {'random': by_group(rest), 'empty': by_group(empties)}
+    targets = {'random': allocate(max(0, sample - len(top)),
+                                  {g: len(v) for g, v in pools['random'].items()}, group_min),
+               'empty': allocate(empty_sample,
+                                 {g: len(v) for g, v in pools['empty'].items()},
+                                 empty_group_min)}
+    picked = {'random': [], 'empty': []}
+    for kind in ('random', 'empty'):
+        for g, want in targets[kind].items():
+            got, rejected = _spread(pools[kind][g], want, index, min_spacing)
+            picked[kind] += [(r, g) for r in got]
+            if len(got) < want:              # no silent caps
+                why = "spacing" if rejected else "pool"
+                print(f"  stratum {g!r}: kept {len(got)}/{want} {kind} panos ({why}).")
+    if report is not None:
+        top_strata = [stratum_of(r) for r in top]
+        report['strata'] = {g: {
+            'pool_with_detections': len(pools['random'].get(g, ())),
+            'pool_empty': len(pools['empty'].get(g, ())),
+            'top': top_strata.count(g),
+            'random_target': targets['random'].get(g, 0),
+            'random': sum(1 for _, gg in picked['random'] if gg == g),
+            'empty_target': targets['empty'].get(g, 0),
+            'empty': sum(1 for _, gg in picked['empty'] if gg == g)}
+            for g in sorted(set(pools['random']) | set(pools['empty']) | set(top_strata))}
+
+    def tag(r, g):
+        return {**r, 'benchmark_stratum': g}
+    return ([(tag(r, stratum_of(r)), 'top') for r in top]
+            + [(tag(r, g), 'random') for r, g in picked['random']]
+            + [(tag(r, g), 'empty') for r, g in picked['empty']])
+
+
+def choose_panos(records, sample, empty_sample, seed, min_spacing=DEFAULT_MIN_SPACING_M,
+                 *, top_n=TOP_N_BY_COUNT, stratum_of=None, group_min=DEFAULT_GROUP_MIN,
+                 empty_group_min=DEFAULT_EMPTY_GROUP_MIN, report=None):
     """Return [(record, group)] for a spatially de-clustered validation sample.
 
     Three strata, all held at least `min_spacing` metres apart — *across* strata as
     well as within — so a reviewer never judges the same physical ramps twice and
     the precision/recall estimate isn't inflated by correlated duplicates:
-      - 'top':    the densest *distinct* intersections (up to TOP_N_BY_COUNT) — a
+      - 'top':    the densest *distinct* intersections (up to `top_n`) — a
                   dense-scene stress test, excluded from unbiased scoring.
       - 'random': a spatially spread sample of panos with detections.
       - 'empty':  a spatially spread sample of zero-detection panos (for recall).
@@ -118,6 +295,20 @@ def choose_panos(records, sample, empty_sample, seed, min_spacing=DEFAULT_MIN_SP
     Deterministic given `seed`. `min_spacing=0` disables spacing (the original pure
     random behaviour). Records without lat/lng are included unconstrained. The method
     is city-agnostic by design — it's meant to seed every city's ground-truth set.
+
+    Stratified mode (``stratum_of``, a ``record -> name`` function such as
+    :func:`make_stratum_of` builds): 'top' is drawn exactly as above, then the 'random'
+    and 'empty' targets are split across strata with :func:`allocate` (proportional to
+    each stratum's pool, at least ``group_min`` / ``empty_group_min`` each), and each
+    stratum is spread in turn, in name order, against the same spacing index. Returned
+    records are shallow copies carrying ``benchmark_stratum``; ``report``, if given, is
+    filled with the per-stratum pools, targets and picks. Without ``stratum_of`` the
+    draw is the unstratified one, unchanged.
+
+    Example (stratified, the shape of the Lyon audit):
+        stratum_of = make_stratum_of(['camera_model', 'copyright'], group_map)
+        chosen = choose_panos(records, 150, 25, seed=159, top_n=10,
+                              stratum_of=stratum_of, group_min=20)
     """
     rng = random.Random(seed)
     with_det = [r for r in records if r['detections']]
@@ -126,7 +317,11 @@ def choose_panos(records, sample, empty_sample, seed, min_spacing=DEFAULT_MIN_SP
 
     # top: densest first, but only one pano per distinct location.
     by_density = sorted(with_det, key=lambda r: len(r['detections']), reverse=True)
-    top, _ = _spread(by_density, TOP_N_BY_COUNT, index, min_spacing)
+    top, _ = _spread(by_density, top_n, index, min_spacing)
+    if stratum_of is not None:
+        return _choose_grouped(with_det, without_det, rng, index, top, sample,
+                               empty_sample, min_spacing, stratum_of, group_min,
+                               empty_group_min, report)
     top_ids = {r['pano']['panorama_id'] for r in top}
 
     # random: spread across the remaining detection panos.
@@ -153,12 +348,24 @@ def choose_panos(records, sample, empty_sample, seed, min_spacing=DEFAULT_MIN_SP
             + [(r, 'empty') for r in empty_sel])
 
 
-def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, min_spacing):
+def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, min_spacing,
+                         *, top_n=TOP_N_BY_COUNT, group_keys=(), group_map=None,
+                         group_min=DEFAULT_GROUP_MIN, empty_group_min=DEFAULT_EMPTY_GROUP_MIN,
+                         record_confidence=BENCHMARK_CONFIDENCE):
     """Sample `results_path` into `bundle_dir`/records.jsonl and return that path.
 
     Each record keeps its Stage-1 shape plus `benchmark_group` (the sampling stratum),
     so the bundle carries its own strata — RampNet's labeler/scorer doesn't have to
     recover them from a verdicts file that doesn't exist yet for a fresh city.
+
+    With `group_keys` the draw is stratified (see :func:`choose_panos`): every record
+    also carries `benchmark_stratum`, and sample.json records the keys, the map and the
+    per-stratum pools, targets and picks. `record_confidence` below the benchmark
+    threshold keeps the detections down to it in records.jsonl (for a review that also
+    judges a lower tier, e.g. 0.30), while the strata stay defined at the benchmark
+    threshold: "random" still means a detection at 0.55, "empty" none at 0.55.
+    `top_n` sets the size of the 'top' stratum. Every one of these defaults to the
+    unstratified behaviour, and sample.json only gains keys for a non-default setting.
 
     An existing records.jsonl is never re-sampled: once a reviewer has judged a bundle,
     silently changing which panos are in it would invalidate their verdicts. Delete the
@@ -172,17 +379,37 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
               f"(sampling flags ignored; delete it to re-sample).")
         return records_path
 
+    if record_confidence > BENCHMARK_CONFIDENCE:
+        raise ValueError(f"record_confidence {record_confidence} is above the benchmark "
+                         f"threshold {BENCHMARK_CONFIDENCE}: 'random' panos could carry no "
+                         f"detection")
+    if record_confidence < DETECTION_STORAGE_FLOOR:
+        raise ValueError(f"record_confidence {record_confidence} is below the storage floor "
+                         f"{DETECTION_STORAGE_FLOOR}: results.jsonl holds no peaks that low")
     with open(results_path, encoding="utf-8") as f:
         records = [json.loads(line) for line in f if line.strip()]
     # results.jsonl stores candidate peaks down to a storage floor below the operational
     # threshold (detectors/__init__.py); the benchmark contract — the sampling strata
     # ("with detections" vs "empty") and the records RampNet's GT tooling reads — is
-    # defined over operational detections only.
+    # defined over operational detections only. A lower record_confidence widens only
+    # what records.jsonl shows the reviewer, never the strata.
+    if group_keys:
+        check_group_keys(records, group_keys)
+    raw = {r['pano']['panorama_id']: r['detections'] for r in records} \
+        if record_confidence < BENCHMARK_CONFIDENCE else {}
     records = [{**r, 'detections': [d for d in r['detections']
                                     if d['confidence'] >= BENCHMARK_CONFIDENCE]}
                for r in records]
-    chosen = choose_panos(records, sample, empty_sample, seed, min_spacing)
+    report = {}
+    stratum_of = make_stratum_of(group_keys, group_map) if group_keys else None
+    chosen = choose_panos(records, sample, empty_sample, seed, min_spacing, top_n=top_n,
+                          stratum_of=stratum_of, group_min=group_min,
+                          empty_group_min=empty_group_min, report=report)
     chosen.sort(key=lambda rg: rg[0]['pano']['panorama_id'])
+    if raw:        # the lower tier, for the chosen records only
+        chosen = [({**rec, 'detections': [d for d in raw[rec['pano']['panorama_id']]
+                                          if d['confidence'] >= record_confidence]}, group)
+                  for rec, group in chosen]
 
     with open(records_path, "w", encoding="utf-8", newline="\n") as f:  # LF on every platform
         for rec, group in chosen:
@@ -193,10 +420,26 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
             "sample": sample, "empty_sample": empty_sample, "seed": seed,
             "min_spacing_m": min_spacing, "min_confidence": BENCHMARK_CONFIDENCE,
             "selected": len(chosen), "groups": groups}
+    if top_n != TOP_N_BY_COUNT:
+        meta["top_n"] = top_n
+    if record_confidence != BENCHMARK_CONFIDENCE:
+        meta["record_confidence"] = record_confidence
+    if stratum_of is not None:
+        meta["stratified"] = {"group_keys": list(group_keys),
+                              "group_map": [list(p) for p in group_map or ()],
+                              "group_min": group_min, "empty_group_min": empty_group_min,
+                              "spread_order": "strata in name order, one shared spacing "
+                                              "index: an earlier name claims contested "
+                                              "ground first",
+                              "strata": report["strata"]}
     (bundle_dir / "sample.json").write_text(json.dumps(meta, indent=2) + "\n",
                                             encoding="utf-8", newline="\n")
     print(f"Sampled {len(chosen)} of {len(records)} panos -> {records_path} "
           f"(top {groups['top']} / random {groups['random']} / empty {groups['empty']})")
+    for g, row in (report.get("strata") or {}).items():
+        print(f"  {g}: top {row['top']} / random {row['random']} of {row['random_target']} "
+              f"/ empty {row['empty']} of {row['empty_target']} "
+              f"(pools {row['pool_with_detections']} / {row['pool_empty']})")
     return records_path
 
 
@@ -379,6 +622,26 @@ def main():
     ap.add_argument("--min-spacing", type=float, default=DEFAULT_MIN_SPACING_M,
                     help="With --bundle: min metres between sampled panos "
                          "(default: %(default)s; 0 disables).")
+    ap.add_argument("--top", type=int, default=TOP_N_BY_COUNT,
+                    help="With --bundle: size of the 'top' (densest) stratum "
+                         "(default: %(default)s).")
+    ap.add_argument("--group-key", action="append", default=[],
+                    help="With --bundle: stratify the random and empty strata by this "
+                         "field of the pano block (repeatable, e.g. --group-key camera_model "
+                         "--group-key copyright). Default: no stratification.")
+    ap.add_argument("--group-map", type=Path,
+                    help="With --group-key: JSON list of [pattern, stratum] pairs that "
+                         "names and merges raw groups ('Max|ecartip'); first match wins.")
+    ap.add_argument("--group-min", type=int, default=DEFAULT_GROUP_MIN,
+                    help="With --group-key: minimum random panos per stratum "
+                         "(default: %(default)s).")
+    ap.add_argument("--empty-group-min", type=int, default=DEFAULT_EMPTY_GROUP_MIN,
+                    help="With --group-key: minimum empty panos per stratum "
+                         "(default: %(default)s).")
+    ap.add_argument("--record-confidence", type=float, default=BENCHMARK_CONFIDENCE,
+                    help="With --bundle: keep detections down to this confidence in "
+                         "records.jsonl (strata stay defined at the benchmark threshold; "
+                         "default: %(default)s).")
     ap.add_argument("--records-only", action="store_true",
                     help="With --bundle: write records.jsonl and stop — no fetch, no "
                          "reconcile. For sourcing the pixels elsewhere (e.g. copying the "
@@ -390,8 +653,17 @@ def main():
     if args.bundle:
         if src.is_dir():
             sys.exit("--bundle takes a run's results.jsonl as SOURCE, not a directory")
-        records_path = write_bundle_records(src, args.bundle, args.sample, args.empty_sample,
-                                            args.seed, args.min_spacing)
+        if args.group_map and not args.group_key:
+            sys.exit("--group-map needs at least one --group-key")
+        try:
+            records_path = write_bundle_records(
+                src, args.bundle, args.sample, args.empty_sample, args.seed, args.min_spacing,
+                top_n=args.top, group_keys=args.group_key,
+                group_map=load_group_map(args.group_map) if args.group_map else None,
+                group_min=args.group_min, empty_group_min=args.empty_group_min,
+                record_confidence=args.record_confidence)
+        except ValueError as e:
+            sys.exit(f"export_benchmark: {e}")
         panos_dir = args.out or (args.bundle / "panos")
         if args.records_only:
             return
