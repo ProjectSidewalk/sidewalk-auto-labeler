@@ -20,7 +20,10 @@ opencv-python
 pillow
 python-dotenv  # loads MAPILLARY_ACCESS_TOKEN / PS_INTERNAL_API_KEY from ./.env
 requests
-scikit-image
+# scikit-image: pin it. When a heatmap peak is clipped flat, peak_local_max keeps the
+# first plateau pixel in row-major order (candidates built row-major, stable sort), so
+# the stored pixel of every clipped peak depends on its tie order (#151, PR #155).
+scikit-image==0.26.0
 shapely
 # streetlevel parses undocumented GSV endpoints; pin it since behavior can change across
 # versions. NOTE: 0.12.4 is broken against Google's current metadata endpoint
