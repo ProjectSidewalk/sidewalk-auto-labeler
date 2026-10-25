@@ -1,0 +1,5 @@
+set,fine_m,coarse_m,through_year,sites,old_only,old_only_share
+robust_all,5,10,2024,265,190,0.717
+kept_at_10m,5,10,2024,225,152,0.676
+lost_fine_to_coarse,5,10,2024,28,26,0.929
+lost_full_to_coarse,5,10,2024,40,38,0.95

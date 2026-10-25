@@ -8,6 +8,7 @@ Two subcommands, so that what needs the run files and what needs neither stay ap
                  network, no GPU; scan.json is gitignored, so this is the one step that
                  needs a local scan.
     rig-producers  runs/lyon/results.jsonl -> data/rig_producer_detections.csv
+                 (--out data/full for the completed 10 m run, docs section 7)
                  Detections per pano per (rig, year, producer) group of >= 200 panos;
                  separates rig from operator. No network, no GPU.
     figures      committed CSVs only -> fig1_rig_rates, fig2_years as PNG (200 dpi) +
@@ -26,6 +27,7 @@ import argparse
 import csv
 import io
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -41,6 +43,23 @@ REFERENCE = REPO_ROOT / 'docs' / 'figures' / 'panoramax-bayonne' / 'data' / 'fig
 SPACINGS = (5, 10, 20)
 SLICE_SPACING, SLICE_LIMIT = 10, 40000     # the pre-registered slice (doc section 1)
 MIN_GROUP_PANOS = 200                      # rig x year groups smaller than this are not drawn
+
+
+# Same rule as #150's run_census.mask_producer (issue #149): Panoramax serves producer
+# names publicly and some accounts use an email address as theirs, so a committed table
+# never republishes one. TODO: import run_census.mask_producer once #150 is on main.
+EMAIL_RE = re.compile(r'[^@\s]+@[^@\s]+\.[^@\s]+')
+
+
+def mask_producer(name):
+    """Mask a wholly email-shaped producer name to its first character; pass the rest.
+
+        >>> mask_producer('jane.doe@example.org'), mask_producer('grand lyon')
+        ('j***@***', 'grand lyon')
+    """
+    if isinstance(name, str) and EMAIL_RE.fullmatch(name.strip()):
+        return name.strip()[0] + '***@***'
+    return name
 
 # dataviz reference palette, light mode (same tokens as panoramax_bayonne_figures.py)
 SURFACE, INK, INK2, MUTED, GRID = '#fcfcfb', '#0b0b0b', '#52514e', '#898781', '#e1e0d9'
@@ -87,7 +106,7 @@ def census_scan(scan_path):
 
 
 # =================================================================== rig-producers
-def rig_producers(results_path, min_panos=200):
+def rig_producers(results_path, min_panos=200, out_dir=DATA):
     """Detections per pano per (rig, capture year, producer) for groups >= min_panos.
 
     In Lyon a camera model is mostly one operator's (ecartip drives most GoPro Max 2026
@@ -114,7 +133,7 @@ def rig_producers(results_path, min_panos=200):
             p = rec['pano']
             key = (p.get('camera_make'), p.get('camera_model'),
                    f"{p.get('width')}x{p.get('height')}",
-                   (p.get('capture_date') or '')[:4] or 'unknown', p.get('copyright'))
+                   (p.get('capture_date') or '')[:4] or 'unknown', mask_producer(p.get('copyright')))
             n[key] += 1
             seqs.setdefault(key, set()).add(p.get('sequence_id'))
             zeros[key] += (p.get('camera_pitch') == 0 and p.get('camera_roll') == 0)
@@ -129,9 +148,10 @@ def rig_producers(results_path, min_panos=200):
                     above[key] += 1
                 else:
                     dips.setdefault(key, []).append((y - 0.5) * 180.0)
-    DATA.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     b = f'{BENCHMARK_CONFIDENCE:g}'
-    with open(DATA / 'rig_producer_detections.csv', 'w', newline='\n', encoding='utf-8') as f:
+    with open(out_dir / 'rig_producer_detections.csv', 'w', newline='\n', encoding='utf-8') as f:
         w = csv.writer(f, lineterminator='\n')
         w.writerow(['camera_make', 'camera_model', 'dimensions', 'capture_year', 'producer',
                     'panos', 'sequences',
@@ -147,7 +167,7 @@ def rig_producers(results_path, min_panos=200):
                             kb, on_rig[key], round(above[key] / kb, 4) if kb else '',
                             round(statistics.median(dip), 1) if dip else '',
                             round(zeros[key] / k, 4)])
-    print(f'wrote {DATA / "rig_producer_detections.csv"}')
+    print(f'wrote {out_dir / "rig_producer_detections.csv"}')
 
 
 # ========================================================================= figures
@@ -296,12 +316,14 @@ def main():
     cs.add_argument('--scan', default=str(REPO_ROOT / 'runs' / 'lyon' / 'scan.json'))
     rp = sub.add_parser('rig-producers')
     rp.add_argument('--results', default=str(REPO_ROOT / 'runs' / 'lyon' / 'results.jsonl'))
+    rp.add_argument('--out', default=str(DATA),
+                    help='output dir (default the slice-1 data dir; the full 10 m run writes data/full/)')
     sub.add_parser('figures')
     args = ap.parse_args()
     if args.cmd == 'census-scan':
         census_scan(args.scan)
     elif args.cmd == 'rig-producers':
-        rig_producers(args.results)
+        rig_producers(args.results, out_dir=args.out)
     else:
         plt = _style()
         fig1_rig_rates(plt)

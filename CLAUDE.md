@@ -31,6 +31,9 @@ python main.py example_geojson/bend.geojson --name bend --reuse-scan
 # fallback that loses well-seen sites (10-18 pts on Panoramax, 3-9 on Mapillary).
 python scripts/thinning_experiment.py runs/thinexp_bayonne [--min-confidence 0.3]
 python scripts/thinning_experiment.py figures   # redraw docs/figures/thinning-experiment/ from the CSVs
+# Lyon (#148, docs/thinning-experiment-lyon.md): three boxes thinexp_lyon_{a,b,c}; `subset` = offline
+# densify cost of a thinned run, `crosscheck` = a box vs the canonical run; figures --out docs/figures/thinning-experiment-lyon
+python scripts/thinning_experiment.py subset runs/lyon --from 10 --to 5 --panos-per-second 2.505 --out docs/figures/thinning-experiment-lyon/data
 
 # Run the labeler over an area; all per-area state goes to runs/<name>/
 # (--name defaults to the geojson filename stem)
