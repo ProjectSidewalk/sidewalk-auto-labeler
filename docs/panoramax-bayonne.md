@@ -3,6 +3,13 @@
 Issue [#57](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/57), part 1.
 Part 2 of the issue was PR #70.
 
+> **Which run each part measures.** The run was densified from 10 m to 5 m thinning on
+> 2026-10-06 ([#147](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/147),
+> §1.1); `runs/bayonne/` now holds the 5 m run (50,409 panos). Sections 2-3, the key
+> takeaways, every figure, and `data/inputs.csv` (results sha256 `4f38ff52…`) were measured
+> on the **10 m run** (28,524 panos) and have not been re-run. §1's table, census and
+> position check are also the 10 m run's; the 5 m numbers are in §1.1.
+
 Panoramax is the federated open imagery commons. `sources/panoramax.py` shipped in PR #49
 and had only a 12-pano smoke test behind it. This document covers three things:
 
@@ -78,6 +85,8 @@ must be qualified
 **Thinning decision.** The rule was stated before the scan: use the source default of
 5 m (every Mapillary run's density) unless the scan-only estimate exceeded 16 h, else
 10 m. The estimate printed 21.1 h for 50,528 panos at 1.5 s/pano, so the run used 10 m.
+The run was later densified to 5 m (§1.1): the thinning experiment (PR #144) found that on
+a Bayonne sub-area 10 m keeps 81% of robust sites at 0.30 against 99% at 5 m.
 
 The A40 then ran at 0.85 s/pano, so 5 m would have taken about 12 h; the estimate's
 constant is an RTX 3070 figure. `manifest.json` recorded neither at the time;
@@ -110,7 +119,11 @@ re-thinning the reused `scan.json` at 10 m reproduces the 28,634 ids of
   infrastructure is young and a 404 may be transient. A picture that really is gone is
   re-requested once per resume, forever, which is cheap. These 3 ids were removed from the
   local `already_processed.txt` (backup `already_processed.txt.bak-2026-10-05`), so the
-  next resume retries them; the 107 explained skips stay cached.
+  next resume retries them; the 107 explained skips stay cached. The 5 m resume (§1.1)
+  retried all 3 and processed them.
+
+After the 5 m resume the cache holds **119** skips: the 107 deterministic ones above and 12
+new GoPro MAX2 cropped-`hd` skips among the added cells. No cached 404 skip remains.
 
 No HTTP 429 or 5xx failures occurred on either instance.
 
@@ -141,12 +154,52 @@ the rig mask (`NADIR_MASK_DEG` = 49°, y ≥ 0.772).
 - [Figure 7a](figures/panoramax-bayonne/fig7a_contact_sheet.jpg) shows the band and the
   mask line. One random pano carries a different, green band from another producer.
 
-**Position check** (`runs/bayonne/position_check.json`): median cross-track to OSM
+**Position check** (10 m run; `runs/bayonne/position_check.json` as of commit `c096987`,
+since overwritten by the 5 m check in §1.1): median cross-track to OSM
 centerlines **1.54 m**, IQR 0.70-3.13 m. That is at the metric's ~1.75 m floor. Panoramax
 serves one position per pano, so the check reports and never gates.
 
 4,027 panos (14%) sit more than 30 m from any street of the queried classes (orange in
 Figure 6D). What they are (paths, squares, parks) was not verified.
+
+## 1.1 Densify to 5 m ([#147](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/147))
+
+The run directory was rebound from 10 m to 5 m by hand (commit `c096987`; the manifest's
+`thin_spacing_changed` block records the date, 10 → 5, why and how) and resumed on Hyak.
+The resume reused the 2026-09-30 scan on purpose: re-thinning the same `scan.json` gives a
+10 m set (28,634) that is an exact subset of the 5 m set (50,528), so the finished
+`results.jsonl` is exactly the 5 m population and none of the 10 m work was redone. Panos
+added to Panoramax after 2026-09-30 are not in the run.
+
+| | |
+|---|---|
+| where | Hyak `ckpt-g2`, 1x NVIDIA L40S, 16 CPUs, 64 GB; Slurm job 41473672 (`sal_bayonne_ckpt.sbatch`, `--requeue`); not preempted |
+| command | `main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --reuse-scan --thin-spacing 5` (batch 1, default concurrency), repo at `c096987` |
+| scan | reused, 2026-09-30T22:56:20Z (137.8 h old): 73,161 in-area 360 pictures |
+| thinning | 5 m: **50,528** panos; 28,631 already cached, **21,897** new |
+| processed / skipped / failed | **21,885** / 12 / **0** in one pass |
+| skips | all 12 are GoPro MAX2 cropped-`hd` uploads (7680x2940), cached as deterministic; the 3 retried ids (`139d37d3-…`, `1f8be062-…`, `2c902fc4-…`) were processed |
+| wall time | 2.4 h (16:45:21 → 19:11:02 UTC); 2.50 panos/s (8,726 s in forward) |
+| model | `rampnet-model@606a11956743` |
+| `results.jsonl` | **50,409** lines, 50,409 unique `panorama_id`s; sha256 `cb03768cc4cefd0bcb9792e18ff339ad798e43fd3e560deee431387796d6eeef` |
+| cache | 50,528 ids = 50,409 processed + 119 skips (107 from the 10 m pass + 12) |
+| position check | 50,409 panos, **0 flagged** (Panoramax reports, never gates); median cross-track **1.58 m**, IQR 0.72-3.23 m; **6,113** panos (12%) not within 30 m of a street |
+
+The position check re-run locally from the cached `osm_streets.json` reproduced the run's
+own `position_check.json` exactly (only `checked_at` differed).
+
+**Census at 5 m** (`data/census_5m/`, same command as step 6 with `--out …/census_5m`; the
+10 m census in `data/census/` is kept as the evidence for §1):
+
+| tier | panos with a detection | detections | per pano | on rig | in logo band |
+|---|---:|---:|---:|---:|---:|
+| 0.30 | 11,895 (23.6%) | 19,206 | **0.381** | 15 | 2 |
+| 0.55 | 5,624 (11.2%) | 7,449 | **0.148** | 1 | 0 |
+
+At 0.55 the rate moves from 0.135 (10 m) to 0.148 (5 m), still inside the Mapillary range of
+takeaway 5. Rig, year, pose and producer shares move by at most 1.6 points (GoPro Max 99.9%;
+2026 54.4%; pose absent 43.3%, tilt 37.0%, 0/0 19.7%; `sig_bayonne` 96.5%). No producer name
+in the census is email-shaped.
 
 ## 2. Does `MAPILLARY_ERRORS` fit Panoramax?
 
@@ -373,6 +426,11 @@ The archive is complete on makelab2 under
 `runs/bayonne_archive.done` reads `rc=0 2026-10-01T10:01:18Z`. The archive took 4 h 10 m
 at 1.90 panos/s.
 
+**After the 5 m densify (§1.1) the archive covers 28,524 of 50,409 panos.** It holds the 10 m
+run's `results.jsonl`, not the 5 m one. Archiving the 21,885 added panos (about 3 h at the
+rate above; `export_benchmark.py` is resumable) is **a decision for Jon** and has not been
+done.
+
 ## 5. Replication
 
 **Inputs** (`data/inputs.csv`, written by the `data` step):
@@ -402,7 +460,8 @@ at 1.90 panos/s.
 |---|---|---|---|
 | 1 | `python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --scan-only` | net | 6 s |
 | 2 | `python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --reuse-scan --thin-spacing 10` (ends with the position check; Overpass) | GPU + net | 6.7 h |
-| 3 | `python scripts/position_check.py runs/bayonne --report` (only to redo step 2's check) | net (cached after) | < 1 min |
+| 2b | on Hyak `ckpt-g2` (L40S), after the hand rebind in `c096987`: `python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --reuse-scan --thin-spacing 5` (§1.1; resumes step 2's run, ends with the position check) | GPU + net | 2.4 h |
+| 3 | `python scripts/position_check.py runs/bayonne --report` (only to redo step 2b's check) | net (cached after) | < 1 min |
 | 4 | `python scripts/fuse_sites.py runs/bayonne --pose-ablation --min-confidence 0.55 > docs/figures/panoramax-bayonne/data/pose_ablation_t0.55.txt` (and `0.3` → `…_t0.3.txt`) | — | 1 s |
 | 5 | `python scripts/reprojection_residual.py bayonne richmond clovis laurens annapolis morgantown --camera-height-m 2.6 --refuse --fit-sigma-pitch 0.269 --benchmark-root /nonexistent [--min-confidence 0.3] --publish docs/figures/panoramax-bayonne/data/reprojection[_t0.3]` | — | ~1.5 min per tier |
 | 6 | `python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79` | — | 10 s |
@@ -414,9 +473,14 @@ at 1.90 panos/s.
 | 12 | `python scripts/panoramax_bayonne_figures.py figures` → `fig*.png` / `.jpg` (+ `.svg` for figures 1-5 and 7b) | — | 30 s |
 | 13 | on makelab2, `bayonne_archive.sh`: `export_benchmark.py runs/bayonne/results.jsonl --out runs/bayonne/panos` | net | 4.2 h |
 
-- **Step 2** must keep `--thin-spacing 10`. The manifest predates #126's `thin_spacing_m` but
-  was backfilled to 10 m, so a resume at any other spacing (the 5 m default included) is
-  refused.
+- **Steps 2 / 2b.** The run directory is now bound to **5 m** (top-level `thin_spacing_m`,
+  changed by hand from the 10 m backfill in `c096987`, recorded in `thin_spacing_changed`), so
+  any resume must pass `--thin-spacing 5` (the default) and a 10 m resume is refused. Steps
+  4-12 below were run on the 10 m run's `results.jsonl` (`data/inputs.csv`); re-running them
+  now reads the 5 m file and gives different numbers. `data --only <part>` (without `inputs`)
+  refuses while a run file's sha256 differs from `data/inputs.csv`, so one panel cannot be
+  refreshed from the 5 m run beside 10 m ones; re-run all parts. Step 6's 5 m output is
+  `data/census_5m/`.
 - **Step 5's** `bayonne_report.md` copies under `data/reprojection*/` are that step's
   per-city `report.md`, copied by hand.
 - **Step 12** reads only the committed `data/`. It is byte-reproducible for the listed
@@ -443,14 +507,19 @@ at 1.90 panos/s.
 
 | number | file | column / row |
 |---|---|---|
-| 73,161 / 28,634 / 28,524 / 110 / 0 | `runs/bayonne/manifest.json` (`runs[-1]`) and `run.log` | `panos_found_in_area`, `processed`, `skipped`, `failed`; 73,161 from `scan.log` |
-| 6.7 h, 1.18 panos/s, 24,062 s | `run.log` | last `detector:` line; `started_at`/`finished_at` in the manifest |
+| 73,161 / 28,634 / 28,524 / 110 / 0 | `runs/bayonne/manifest.json` (`runs[2]`, the 10 m pass; `runs[-1]` is now the 5 m resume) and `run.log` | `panos_found_in_area`, `processed`, `skipped`, `failed`; 73,161 from `scan.log` |
+| 6.7 h, 1.18 panos/s, 24,062 s | `run.log` | last `detector:` line; `started_at`/`finished_at` in the manifest's `runs[2]` |
 | 21.1 h estimate, 50,528 | `scan.log` | — |
 | 104 / 3 / 3 skips | `data/skips.csv` | `reason` |
 | rig / year / pose / producer shares | `data/census/{rigs,years,pose,producers}.csv` | `share` |
 | 0.135 / 0.351 per pano; 2 of 10,011, 0 of 3,861 in band; 9 / 1 on rig | `data/census/detections.csv` | `detections_per_pano`, `in_band`, `on_rig` |
 | detections per pano, six runs | `data/fig5_detections.csv` | `per_pano` by `run`, `tier` |
-| 1.54 m, IQR 0.70-3.13, 4,027 | `runs/bayonne/position_check.json` | `fields.submitted.cross_track`, `panos_not_near_a_street` |
+| 1.54 m, IQR 0.70-3.13, 4,027 (10 m) | `runs/bayonne/position_check.json` at commit `c096987` | `fields.submitted.cross_track`, `panos_not_near_a_street` |
+| 5 m: 73,161 / 50,528 / 21,885 / 12 / 0; reused scan, 137.8 h old; started/finished | `runs/bayonne/manifest.json` (`runs[3]`) and `run_densify_41473672.log` (untracked) | `panos_before_thinning`, `panos_found_in_area`, `processed`, `skipped`, `failed`, `scan`, `scan_age_hours`, `thin_spacing_m`, `started_at`/`finished_at` |
+| 5 m: 28,631 cached / 21,897 new; 2.50 panos/s, 8,726 s | `run_densify_41473672.log` | `Processing Summary`; last `detector:` line |
+| 5 m: 10 m → 5 m rebind | `runs/bayonne/manifest.json` | `thin_spacing_m`, `thin_spacing_changed` |
+| 5 m: 50,409 panos, 0 flagged, 1.58 m, IQR 0.72-3.23, 6,113 | `runs/bayonne/position_check.json` (and `manifest.json` `position_check`) | `panos`, `flagged_sequences`, `fields.submitted.cross_track`, `panos_not_near_a_street` |
+| 5 m: 0.381 / 0.148 per pano; 15 / 1 on rig; 2 / 0 in band; shares | `data/census_5m/{detections,rigs,years,pose,producers}.csv` | `detections_per_pano`, `on_rig`, `in_band`, `share` |
 | chi²/dof, median form, m p50 (+ CIs), incl. rig-matched rows | `data/fig1_verdict.csv` | `chi2_dof`, `chi2_dof_median`, `m_p50`, `*_lo`/`*_hi` by `run`, `subset` |
 | 0.584 / 3.70 at 0.30 | `data/reprojection_t0.3/gtfree_summary.csv` | `bayonne` row |
 | `sigma_pitch` > 15°, `sigma_gps` 4.70 m at target 0.269 | `data/reprojection/gtfree_summary.csv` | `sigma_pitch_deg_at_chi2_target`, `sigma_gps_m_at_chi2_target` |
@@ -514,8 +583,10 @@ Alt text, in order:
 ## 6. What remains
 
 - **Ground truth.** Review the bundle in RampNet, then run `eval_sites.py bayonne`.
-- **Position scatter.** Re-measure at 5 m thinning, or in a second Panoramax city, before
-  Panoramax gets its own `ErrorModel`.
+- **Position scatter.** Re-measure on the 5 m run (§1.1; it now exists, steps 4-12 have not
+  been re-run on it), or in a second Panoramax city, before Panoramax gets its own
+  `ErrorModel`.
+- **Archive** the 21,885 panos the 5 m densify added (§4), if Jon decides to.
 - **Follow-ups:** [#126](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/126)
   (record and bind `--thin-spacing`) and
   [#127](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/127) (the
