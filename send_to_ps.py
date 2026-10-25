@@ -231,7 +231,11 @@ def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_C
     modified_data['pano'] = transform_pano(data['pano'])
     modified_data['labels'] = [
         {
-            "pano_x": round(detection['x_normalized'] * modified_data['pano']['width']),
+            # Modulo width: x is cyclic, and a sub-cell decode under --border wrap can
+            # store x just below 1.0, which would round to width -- one past the last
+            # column. A no-op for every argmax record (x <= 1023/1024).
+            "pano_x": round(detection['x_normalized'] * modified_data['pano']['width'])
+                      % modified_data['pano']['width'],
             "pano_y": round(detection['y_normalized'] * modified_data['pano']['height']),
             "confidence": detection['confidence']
         } for detection in data['detections']

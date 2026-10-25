@@ -39,6 +39,16 @@ def test_transform_record_rounds_to_int_pixels():
     assert label["pano_x"] == round(0.333333 * 16384)
 
 
+def test_transform_record_wraps_x_at_the_seam():
+    # A sub-cell decode under --border wrap can store x just below 1.0; it must map to
+    # column 0, never to width (one past the last column). Argmax x stays unchanged.
+    payload = send_to_ps.transform_record(_record([
+        {"x_normalized": 0.99998, "y_normalized": 0.5, "confidence": 0.6},
+        {"x_normalized": 1023 / 1024, "y_normalized": 0.5, "confidence": 0.6}]))
+    xs = [label["pano_x"] for label in payload["labels"]]
+    assert xs == [0, 16368]
+
+
 def test_transform_record_zero_detections():
     payload = send_to_ps.transform_record(_record([]))
     assert payload["labels"] == [] and "detections" not in payload

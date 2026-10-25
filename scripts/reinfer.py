@@ -125,7 +125,7 @@ def pixel_set(record, floor):
     catches it, which is the place that can carry the pano over.
     """
     w, h = record['pano']['width'], record['pano']['height']
-    return Counter((round(d['x_normalized'] * w), round(d['y_normalized'] * h))
+    return Counter((round(d['x_normalized'] * w) % w, round(d['y_normalized'] * h))  # x cyclic, as send_to_ps
                    for d in record['detections'] if d['confidence'] >= floor)
 
 
