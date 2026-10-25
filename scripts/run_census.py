@@ -11,7 +11,8 @@ Tables (CSV + report.md under --out):
     years.csv      panos per capture year
     pose.csv       panos per pose group: tilt (pitch/roll reported, not both 0), zeros
                    (reported 0/0), absent -- the Panoramax mixture #57 measured
-    producers.csv  panos per producer (`copyright`), instance and license
+    producers.csv  panos per producer (`copyright`), instance and license; an
+                   email-shaped producer name is masked (mask_producer, issue #149)
     detections.csv detections per pano at each tier, and the share of them on the
                    camera rig (detectors.on_camera_rig, dip >= NADIR_MASK_DEG) and
                    inside a nadir band y >= --band-y (default 0.8, the bottom 20% of
@@ -28,6 +29,7 @@ Usage:
 import argparse
 import csv
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -40,6 +42,26 @@ from detectors import (BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE,  # noqa: E4
                        on_camera_rig)
 
 TIERS = (OPERATIONAL_CONFIDENCE, BENCHMARK_CONFIDENCE)
+
+EMAIL_RE = re.compile(r'[^@\s]+@[^@\s]+\.[^@\s]+')
+
+
+def mask_producer(name):
+    """Mask an email-shaped producer name so a census never republishes one (issue #149).
+
+    Panoramax serves the producer name publicly, and some accounts use an email address
+    as theirs. Only a name that is wholly email-shaped is masked, to its first character;
+    every other name (including None) passes through unchanged.
+
+    Example:
+        >>> mask_producer('jane.doe@example.org')
+        'j***@***'
+        >>> mask_producer('Ville de Lyon')
+        'Ville de Lyon'
+    """
+    if isinstance(name, str) and EMAIL_RE.fullmatch(name.strip()):
+        return name.strip()[0] + '***@***'
+    return name
 
 
 def pose_group(pano):
@@ -77,7 +99,7 @@ def census(lines, band_y=0.8):
         c['years'][year] += 1
         c['rig_years'][(*rig, year)] += 1
         c['pose'][pose_group(p)] += 1
-        c['producers'][(p.get('copyright'), p.get('panoramax_instance'),
+        c['producers'][(mask_producer(p.get('copyright')), p.get('panoramax_instance'),
                         p.get('license'))] += 1
         for t in TIERS:
             ds = [d for d in rec.get('detections') or [] if d['confidence'] >= t]
