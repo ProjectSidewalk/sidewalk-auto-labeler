@@ -522,8 +522,9 @@ def _band_bounds(key):
 def campaigns_for(directory, endpoint, exclude=()):
     """Every campaign the submission records in `directory` hold for `endpoint`:
     ([{campaign, path, at, line_numbers, min_confidence, lines, labels, select_min,
-    select_max, rig_masked, band, record}], [problems]). `band` is the band key, None for
-    the base entry; `record` is the submission record's file name.
+    select_max, rig_masked, band, label_type, record}], [problems]). `band` is the band key,
+    None for the base entry; `label_type` is None except for a multi-type file's per-type
+    campaigns (below); `record` is the submission record's file name.
 
     A campaign is a record's base entry plus each of its `bands`: all lines when it holds
     `submitted_lines == total_lines`, else exactly the lines of its sidecar
@@ -544,6 +545,12 @@ def campaigns_for(directory, endpoint, exclude=()):
         campaign at exactly its ceiling), else the recorded value; select_max is None.
     `rig_masked` absent means unmasked: the record gained the flag with the mask, so a
     campaign without it predates the mask and shipped rig labels.
+
+    A multi-type file's endpoint entry (issue #168, send_to_ps.write_submission_record)
+    carries `types` instead of a whole-line campaign: each `types[T]` is a campaign of its
+    own over `<file>.type-<T>.submitted`, sent at `[types[T].min_confidence, None)` with
+    `label_type` T. A line with only some types sent is in some type's sidecar, so its pano
+    counts as placed.
     """
     directory = Path(directory)
     campaigns, problems = [], []
@@ -566,11 +573,19 @@ def campaigns_for(directory, endpoint, exclude=()):
         bands = sorted((state.get('bands') or {}).items())
         base_min = max([recorded_min] + [hi for hi in (_band_bounds(key)[1] for key, _ in bands)
                                          if hi is not None])
-        parts = [(None, state, Path(f'{results}.submitted'), (base_min, None))]
-        parts += [(key, band, Path(f'{results}.band-{key}.submitted'), _band_bounds(key))
-                  for key, band in bands]
-        for band_key, part, sidecar, (select_min, select_max) in parts:
-            suffix = '' if band_key is None else f' (band {band_key})'
+        if 'types' in state:
+            # A multi-type file (issue #168): each label type is a campaign of its own, with
+            # its own sidecar and floor, and there is no whole-line campaign. A pano is live
+            # once ANY type was sent for it, so a half-sent line still places its pano.
+            parts = [(None, part, Path(f'{results}.type-{label_type}.submitted'),
+                      (float(part.get('min_confidence', 0.0)), None), label_type)
+                     for label_type, part in sorted(state['types'].items())]
+        else:
+            parts = [(None, state, Path(f'{results}.submitted'), (base_min, None), None)]
+            parts += [(key, band, Path(f'{results}.band-{key}.submitted'), _band_bounds(key),
+                       None) for key, band in bands]
+        for band_key, part, sidecar, (select_min, select_max), label_type in parts:
+            suffix = ('' if band_key is None else f' (band {band_key})') +                      ('' if label_type is None else f' (type {label_type})')
             n = int(part.get('submitted_lines') or 0)
             if n <= 0:
                 continue
@@ -589,7 +604,8 @@ def campaigns_for(directory, endpoint, exclude=()):
                               'lines': n, 'labels': part.get('labels_submitted', labels),
                               'select_min': select_min, 'select_max': select_max,
                               'rig_masked': bool(part.get('rig_masked', False)),
-                              'band': band_key, 'record': rec_path.name})
+                              'band': band_key, 'label_type': label_type,
+                              'record': rec_path.name})
     return campaigns, problems
 
 

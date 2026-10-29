@@ -700,6 +700,17 @@ def main_cli(argv=None):
     if args.verify:
         import send_to_ps
         old_path = args.run_dir / 'results.jsonl'
+        if args.write_band_file is not None:
+            # send_to_ps.py refuses a band on a multi-type file (issue #168), so a band file
+            # built from one could never ship; say so before re-reading anything.
+            for path in (old_path, out_path):
+                types = send_to_ps.file_label_types(path) if path.exists() else []
+                if len(types) > 1:
+                    raise SystemExit(
+                        f"{path.name} holds several label types ({', '.join(types)}); "
+                        f"--write-band-file is refused on a multi-type file. Bands exist for "
+                        f"the legacy CurbRamp cities that went live at 0.55 before the "
+                        f"operating point moved to 0.30 (issue #20).")
         tier = server_tier(send_to_ps.load_submission_record(
             send_to_ps.submission_record_path(old_path)))
         try:
