@@ -586,6 +586,8 @@ def reinfer(run_dir, out_path, workers, limit, ids=None, batch_size=1, decode=No
     source = get_source(source_name)
     if source_name == 'mapillary':
         source.POSITION_FIELD = manifest.get('mapillary_position', 'sfm')
+    if source_name == 'panoramax':   # the asset the run read (#161); pre-#161 runs are hd
+        source.IMAGE_ASSET = manifest.get(source.MANIFEST_ASSET_KEY, 'hd')
     source.prepare()
     from detectors import ModelProvenanceError
     try:
