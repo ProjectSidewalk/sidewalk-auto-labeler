@@ -1,0 +1,54 @@
+{
+  "drawn": {
+    "detection|Arashi Vision insta360 x3": 31,
+    "detection|Arashi Vision insta360 x5": 30,
+    "detection|Garmin VIRB 360": 30,
+    "detection|GoPro MAX2": 30,
+    "detection|GoPro Max": 154,
+    "detection|Kandao QooCam 3": 32,
+    "detection|Point Grey Research Ladybug": 96,
+    "detection|RICOH THETA S": 30,
+    "detection|unknown unknown": 67,
+    "empty|GoPro Max": 43,
+    "empty|Kandao QooCam 3": 1,
+    "empty|Point Grey Research Ladybug": 32,
+    "empty|RICOH THETA S": 1,
+    "empty|unknown unknown": 23
+  },
+  "min_per_rig": 30,
+  "n_detection": 500,
+  "n_empty": 100,
+  "pools": {
+    "detection": {
+      "Arashi Vision insta360 oners": 2,
+      "Arashi Vision insta360 x3": 515,
+      "Arashi Vision insta360 x5": 118,
+      "Garmin VIRB 360": 304,
+      "GoPro MAX2": 111,
+      "GoPro Max": 35391,
+      "Kandao QooCam 3": 752,
+      "Kandao Qoocam 3 Ultra": 15,
+      "Point Grey Research Ladybug": 19204,
+      "RICOH THETA S": 311,
+      "unknown unknown": 10978
+    },
+    "empty": {
+      "Arashi Vision insta360 oners": 40,
+      "Arashi Vision insta360 x3": 831,
+      "Arashi Vision insta360 x5": 262,
+      "FLIR Systems Inc. Ladybug": 34,
+      "Garmin VIRB 360": 978,
+      "GoPro MAX2": 375,
+      "GoPro Max": 43378,
+      "GoPro unknown": 10,
+      "Kandao QooCam 3": 1374,
+      "Kandao Qoocam 3 Ultra": 51,
+      "Point Grey Research Ladybug": 33884,
+      "RICOH THETA S": 1204,
+      "unknown unknown": 24283
+    }
+  },
+  "records": 174405,
+  "results_sha256": "60e688b28b62f85e71f51c603dc1b6f4ff020348220c6cc7955891dcfef061ef",
+  "seed": 161
+}
