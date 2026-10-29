@@ -475,10 +475,13 @@ def fetch_native(pano_id, source, out_path):
                 return GONE, "picture no longer exists on Panoramax"
             if item is None:
                 return ERROR, "STAC item unavailable"
-            url = panoramax.image_url(item)
+            # The native archive is the HD original by definition, whatever asset the run
+            # detected on (#161): never let it silently become the SD derivative.
+            url = panoramax.image_url(item, asset="hd")
             if not url:
                 return GONE, "item carries no hd asset"
-            resp = requests.get(url, headers={"User-Agent": panoramax.USER_AGENT}, timeout=180)
+            # Paced by the source's picture limiter (1/s, #161) like the run itself.
+            resp = panoramax._get(url, "picture", timeout=180)
             resp.raise_for_status()
             part.write_bytes(resp.content)              # the original upload, no resize
         else:  # gsv

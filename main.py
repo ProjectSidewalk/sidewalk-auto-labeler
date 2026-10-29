@@ -747,6 +747,51 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     save_manifest(manifest_path, manifest)
     return manifest
 
+def bind_source_settings(manifest, source, run_dir):
+    """
+    Binds a run directory to the settings a source declares in its optional
+    manifest_bindings() hook (issue #161: Panoramax's `panoramax_asset`), the way bind_decode
+    binds the decode: a resume under another value would mix two kinds of record in one
+    results.jsonl. Exits on a mismatch; returns True when the manifest changed so the
+    caller saves it.
+
+    A key absent from the manifest predates the hook or was made by --scan-only. If the run
+    already holds records they were made under the source's LEGACY_MANIFEST_BINDINGS value
+    (Panoramax: hd, the only asset before #161), so only that value resumes -- without
+    rewriting the manifest. A run with no records is bound to this run's value.
+    """
+    hook = getattr(source, 'manifest_bindings', None)
+    if hook is None:
+        return False
+    legacy = getattr(source, 'LEGACY_MANIFEST_BINDINGS', {})
+    flags = getattr(source, 'MANIFEST_BINDING_FLAGS', {})
+    results = run_dir / 'results.jsonl'
+    has_records = results.exists() and results.stat().st_size > 0
+    changed = False
+    for key, value in hook().items():
+        bound = manifest.get(key)
+        if bound is None:
+            if has_records and key in legacy:
+                bound = legacy[key]
+            else:
+                manifest[key] = value
+                changed = True
+                continue
+        if bound != value:
+            hint = (f"pass {flags[key]} {bound} for this run" if key in flags
+                    else "pass the run's own setting")
+            sys.exit(
+                f"❌ Run '{run_dir.name}' was made with {key} '{bound}', not '{value}'.\n"
+                f"   Appending would mix two kinds of record in one results.jsonl (issue #161).\n"
+                f"   Use a new --name for this setting (never a resume), or {hint}."
+            )
+    return changed
+
+def source_run_record(source):
+    """The source's optional run_record() hook (issue #161), merged into the run entry."""
+    hook = getattr(source, 'run_record', None)
+    return hook() if hook is not None else {}
+
 def record_run(manifest_path, manifest, started_at, found, success, skipped, failed, phase=None,
                 scan=None, provenance=None, thinning=None):
     """
@@ -995,6 +1040,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
                                     thin_spacing=UNBOUND if (scan_only or gap_fill_only)
                                     else spacing)
     manifest_path = run_dir / "manifest.json"
+    if not scan_only and bind_source_settings(manifest, source, run_dir):   # #161
+        save_manifest(manifest_path, manifest)
     output_jsonl_file = run_dir / "results.jsonl"
     cache_file = run_dir / "already_processed.txt"
 
@@ -1097,11 +1144,17 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     if scan_only:
         # ~1.5 s/pano is the measured single-GPU steady state (RTX 3070, concurrency 10+);
         # downloads overlap but inference is serialized, so the GPU sets the rate.
-        est_hours = len(panos_to_process_ids) * 1.5 / 3600
+        # A source that paces its downloads (Panoramax: 1 picture/s, #161) sets a floor.
+        floor = getattr(source, 'min_seconds_per_pano', lambda: 0.0)()
+        per_pano = max(1.5, floor)
+        est_hours = len(panos_to_process_ids) * per_pano / 3600
         print(f"Scan only — no panoramas processed, nothing recorded in the manifest; "
               f"the scan is saved to {scan_cache_file} for a later --reuse-scan.")
-        print(f"Estimated full-run time: ~{est_hours:.1f} h at 1.5 s/pano "
+        print(f"Estimated full-run time: ~{est_hours:.1f} h at {per_pano:g} s/pano "
               f"(single GPU; measure your machine's rate on a smoke run first).")
+        if floor:
+            print(f"Download floor alone: ~{len(panos_to_process_ids) * floor / 3600:.1f} h at "
+                  f"{floor:g} s/pano (the source's pacing; the run can never beat it).")
         return
 
     # 4. Process new panoramas
@@ -1109,6 +1162,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
 
     if not panos_to_process_ids:
         print("🎉 No new panoramas to process.")
+        scan_record.update(source_run_record(source),   # #161
+                           processing_concurrency=PROCESSING_CONCURRENCY)
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), 0, 0, 0,
                    scan=scan_record, provenance=provenance, thinning=thinning_record)
     else:
@@ -1116,6 +1171,9 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
             (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1])
             for pid in panos_to_process_ids
         ]
+        hint = getattr(source, 'queue_hint', None)   # batched metadata (#161)
+        if hint is not None:
+            hint(panos_to_process_ids)
 
         with open(cache_file, 'a') as f_cache, \
              open(output_jsonl_file, 'a') as f_jsonl, \
@@ -1134,6 +1192,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
                         fail_count += 1
                     pbar.update(1)
 
+        scan_record.update(source_run_record(source),   # #161
+                           processing_concurrency=PROCESSING_CONCURRENCY)
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), success_count, skip_count, fail_count,
                    scan=scan_record, provenance=provenance, thinning=thinning_record)
 
@@ -1226,6 +1286,14 @@ def main():
              "manifest; a run is bound to one field. Ignored for other sources."
     )
     parser.add_argument(
+        "--panoramax-asset", choices=("hd", "sd"), default="hd",
+        help="Which Panoramax asset is downloaded and detected on (issue #161): 'hd' (the "
+             "original upload; default) or 'sd' (the 2048-px-wide derivative). Records keep "
+             "the sensor pixel frame either way; see docs/panoramax-asset-study.md. Bound in "
+             "the manifest (panoramax_asset): a resume under the other asset is refused. "
+             "Ignored for other sources."
+    )
+    parser.add_argument(
         "--limit", type=int,
         help="Process at most N new panoramas this run (for smoke tests and rate "
              "measurement); the rest stay uncached and process on a later run. The "
@@ -1308,6 +1376,14 @@ def main():
     if args.source == "mapillary":
         position_field = args.mapillary_position
         source.POSITION_FIELD = position_field
+    if args.source == "panoramax":
+        source.IMAGE_ASSET = args.panoramax_asset
+    # A source paced server-side caps the pool (#161); set here so gap fill inherits it.
+    cap = getattr(source, 'MAX_PROCESSING_CONCURRENCY', None)
+    if cap is not None and PROCESSING_CONCURRENCY > cap:
+        print(f"-> Processing concurrency capped at {cap} for source '{args.source}' "
+              f"(asked for {PROCESSING_CONCURRENCY}; its downloads are rate-limited).")
+        PROCESSING_CONCURRENCY = cap
 
     # Initialize detectors (skipped for a scan: importing torch + loading the model takes a while).
     # Construction resolves the model's provenance and refuses an unknown revision (issue #39)

@@ -199,3 +199,10 @@ runs/*/server_agree/as_served/
 !runs/*/thinning_experiment*/
 !runs/*/thinning_experiment*/report.md
 !runs/*/thinning_experiment*/*.csv
+# Panoramax SD-vs-HD asset study (scripts/panoramax_asset_study.py, issue #161; write-up in
+# docs/panoramax-asset-study.md): sample, per-pano/per-rig/summary CSVs, the verdict and the
+# three arms' detections are tracked. The pixels (HD archive copies, SD assets) are NOT.
+!runs/_summary/panoramax_asset/
+!runs/_summary/panoramax_asset/*.csv
+!runs/_summary/panoramax_asset/*.json
+!runs/_summary/panoramax_asset/detections.jsonl
