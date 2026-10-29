@@ -60,7 +60,11 @@ def test_resynthesis_round_trips():
             assert da[0] == db[0] and da[3] == db[3]
             assert da[1] == pytest.approx(db[1], abs=1e-9)
             assert da[2] == pytest.approx(db[2], abs=1e-9)
-    assert hg.planted_sites(syn)[0] == pytest.approx(truth)
+    # Per key: pytest 9.2 refuses approx() over a dict whose values are tuples.
+    replanted = hg.planted_sites(syn)[0]
+    assert replanted.keys() == truth.keys()
+    for key, site in truth.items():
+        assert replanted[key] == pytest.approx(site)
 
 
 def test_offset_biases_both_instruments_alike():
