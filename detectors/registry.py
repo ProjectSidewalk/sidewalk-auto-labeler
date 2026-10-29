@@ -148,12 +148,12 @@ def provenance_for(record, label_type):
     """The model provenance of ``label_type``'s detections on this record.
 
     ``record['models'][label_type]`` when the line has a models map, else the line-level
-    model_* keys (a pre-#168 or CurbRamp-only line). A multi-type line whose models map lacks
-    the type raises KeyError rather than reporting another type's model.
+    model_* keys (a pre-#168 or CurbRamp-only line); only PROVENANCE_KEYS, never a type's
+    decode/border markers. A multi-type line whose models map lacks the type raises KeyError
+    rather than reporting another type's model.
     """
-    if 'models' in record:
-        return dict(record['models'][label_type])
-    return {k: record.get(k) for k in PROVENANCE_KEYS}
+    src = record['models'][label_type] if 'models' in record else record
+    return {k: src.get(k) for k in PROVENANCE_KEYS}
 
 
 def require_curb_ramp_only(record, what):
@@ -165,3 +165,13 @@ def require_curb_ramp_only(record, what):
         raise ValueError(
             f'{what}: record ran label types {types}; this tool scores CurbRamp-only '
             f'results (#168: not yet taught to filter by type)')
+
+
+def require_curb_ramp_file(path, what):
+    """require_curb_ramp_only over every record of a results file (one json parse per line).
+    Returns None; raises ValueError naming the first record that ran another type set."""
+    import json
+    with open(path, encoding='utf-8') as f:
+        for n, line in enumerate(f, 1):
+            if line.strip():
+                require_curb_ramp_only(json.loads(line), f'{what} ({path}, line {n})')

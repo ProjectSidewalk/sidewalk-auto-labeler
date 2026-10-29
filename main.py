@@ -43,6 +43,7 @@ from detectors import (BORDER_EXCLUDE, BORDERS, DECODE_ARGMAX, DECODES, DEFAULT_
                        DEFAULT_DECODE, DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO,
                        RECORD_BORDER_KEY, RECORD_DECODE_KEY, ModelProvenanceError)
 from detectors.batching import BATCH_SIZE_HELP, report_detector
+from detectors import registry
 from sources import get_source, SOURCE_NAMES
 
 # Local secrets (e.g. MAPILLARY_ACCESS_TOKEN) from ./.env; real env vars win.
@@ -57,6 +58,39 @@ PROCESSING_CONCURRENCY = 50
 # Model provenance (model_id, model_training_date, api_version, model_repo, model_revision)
 # is not declared here: CurbRampDetector resolves it from the snapshot it loaded (issue #39)
 # and main() passes its `provenance` dict down to every writer. See detectors/__init__.py.
+
+# The loaded detectors, {label_type: detector} (issue #168; detectors/registry.py). main()
+# fills it from --types. `curb_ramp_detector` is kept as the CurbRamp entry because
+# scripts/reinfer.py and scripts/detect_from_store.py set it directly; _process runs both.
+detectors = {}
+curb_ramp_detector = None
+
+
+def _loaded_detectors():
+    """{label_type: detector} for _process: main.detectors, with main.curb_ramp_detector as
+    the CurbRamp entry when a script set it directly."""
+    out = dict(detectors)
+    if curb_ramp_detector is not None:
+        out[registry.CURB_RAMP] = curb_ramp_detector
+    return out
+
+
+def provenance_map(provenance):
+    """{label_type: provenance} from either a type map or one detector's provenance dict
+    (every pre-#168 caller passes CurbRampDetector.provenance, which this reads as CurbRamp's).
+
+        >>> provenance_map({'model_revision': 'abc'})
+        {'CurbRamp': {'model_revision': 'abc'}}
+    """
+    if 'model_revision' in provenance or 'model_id' in provenance:
+        return {registry.CURB_RAMP: provenance}
+    return dict(provenance)
+
+
+def primary_type(label_types):
+    """The type whose provenance a record's and a manifest's top-level model_* keys carry:
+    CurbRamp when it ran, else the first type (#168). Legacy readers see this one."""
+    return registry.CURB_RAMP if registry.CURB_RAMP in label_types else sorted(label_types)[0]
 
 
 def latlon_to_tile(lat_deg, lon_deg, zoom):
@@ -327,19 +361,36 @@ def _process(pano_id, fetch):
         if fetched['status'] != 'success':
             return {'status': fetched['status'], 'pano_id': pano_id, 'reason': fetched.get('reason', 'Unknown')}
 
-        # The detector returns the list of center points and confidence: [[x, y, confidence], ...] or an empty list [].
-        detections = curb_ramp_detector.detect(fetched['image'])
+        dets = _loaded_detectors()
+        markers = None
+        if registry.is_legacy_type_set(dets):
+            # The detector returns the list of center points and confidence: [[x, y, confidence], ...] or an empty list [].
+            primary = dets[registry.CURB_RAMP]
+            detections = primary.detect(fetched['image'])
+        else:
+            # Several detectors (#168): run each on the same image and tag every detection
+            # with its type, as (x, y, confidence, label_type); build_output_line writes it.
+            detections = [(x, y, c, t) for t in sorted(dets)
+                          for x, y, c in dets[t].detect(fetched['image'])]
+            primary = dets[primary_type(dets)]
+            markers = {t: {RECORD_DECODE_KEY: getattr(d, 'decode', DEFAULT_DECODE),
+                           RECORD_BORDER_KEY: getattr(d, 'border', DEFAULT_BORDER)}
+                       for t, d in dets.items()}
 
-        return {
+        result = {
             'status': 'success',
             'pano_id': pano_id,
             'pano': fetched['pano'],
             'detections': detections,
             # where the detector placed the peaks (#111); build_output_line marks non-argmax
-            'decode': getattr(curb_ramp_detector, 'decode', DEFAULT_DECODE),
+            'decode': getattr(primary, 'decode', DEFAULT_DECODE),
             # whether it kept the seam-band peaks (#130); build_output_line marks `keep`
-            'border': getattr(curb_ramp_detector, 'border', DEFAULT_BORDER),
+            'border': getattr(primary, 'border', DEFAULT_BORDER),
         }
+        if markers is not None:
+            result['label_types'] = sorted(dets)
+            result['type_markers'] = markers
+        return result
     except Exception as e:
         return {'status': 'failure', 'pano_id': pano_id, 'reason': str(e)}
 
@@ -390,7 +441,10 @@ def build_output_line(result, provenance):
     plus model provenance around the source-built 'pano' block.
 
     `provenance` is CurbRampDetector.provenance — resolved from the loaded snapshot,
-    never a literal (issue #39). model_id / model_training_date / api_version are the
+    never a literal (issue #39) — or a {label_type: provenance} map of every detector that
+    ran (#168; see provenance_map). A run whose types are exactly {CurbRamp} writes the
+    pre-#168 line below with no new key, whichever form it is handed; any other set is
+    written by _multitype_line. model_id / model_training_date / api_version are the
     three keys Project Sidewalk stores per label; model_repo and model_revision (the
     full 40-hex SHA) ride along for everything else and are ignored by the server.
 
@@ -400,13 +454,17 @@ def build_output_line(result, provenance):
     Likewise a record found under the `keep` border rule (#130; ``result['border']``) carries
     ``detection_border``, and an `exclude` record does not.
     """
+    pmap = provenance_map(provenance)
+    if not registry.is_legacy_type_set(pmap):
+        return _multitype_line(result, pmap)
+    provenance = pmap[registry.CURB_RAMP]
     line = {
         "detections": [
             {
                 "x_normalized": x_normalized,
                 "y_normalized": y_normalized,
                 "confidence": confidence
-            } for x_normalized, y_normalized, confidence in result['detections']
+            } for x_normalized, y_normalized, confidence in (d[:3] for d in result['detections'])
         ],
         "label_type": "CurbRamp",
         "model_id": provenance['model_id'],
@@ -424,11 +482,65 @@ def build_output_line(result, provenance):
         line[RECORD_BORDER_KEY] = border
     return line
 
+def _multitype_line(result, pmap):
+    """The #168 record for a run of any type set other than {CurbRamp}.
+
+    Every detection carries `label_type`; `label_types` (sorted) lists the detectors that
+    RAN, so an empty line still says what it was checked for; line-level `label_type` is the
+    type iff one ran (never derived from the detections); `models` holds each type's
+    provenance, and the line-level model_* keys repeat primary_type's so a legacy reader sees
+    one coherent model. The line-level detection_decode / detection_border markers describe
+    the CurbRamp detector, under the same absent-means-default rule as a legacy line; every
+    other type's decode and border always ride inside its models[T] entry.
+    """
+    types = sorted(pmap)
+    if sorted(result.get('label_types', types)) != types:
+        raise ValueError(f"result ran {result.get('label_types')} but provenance covers {types}")
+    detections = []
+    for d in result['detections']:
+        if len(d) != 4 or d[3] not in pmap:
+            raise ValueError(f'detection {d!r} is not tagged with one of {types}')
+        detections.append({"x_normalized": d[0], "y_normalized": d[1], "confidence": d[2],
+                           "label_type": d[3]})
+    markers = result.get('type_markers', {})
+    models = {}
+    for t in types:
+        block = {k: pmap[t][k] for k in registry.PROVENANCE_KEYS}
+        if t != registry.CURB_RAMP:
+            block[RECORD_DECODE_KEY] = markers.get(t, {}).get(RECORD_DECODE_KEY, DEFAULT_DECODE)
+            block[RECORD_BORDER_KEY] = markers.get(t, {}).get(RECORD_BORDER_KEY, DEFAULT_BORDER)
+        models[t] = block
+    primary = pmap[primary_type(types)]
+    line = {
+        "detections": detections,
+        "label_type": types[0] if len(types) == 1 else None,
+        "label_types": types,
+        "models": models,
+        **{k: primary[k] for k in registry.PROVENANCE_KEYS},
+        "pano": result['pano'],
+    }
+    if registry.CURB_RAMP in types:
+        if result.get('decode', DECODE_ARGMAX) != DECODE_ARGMAX:
+            line[RECORD_DECODE_KEY] = result['decode']
+        if result.get('border', BORDER_EXCLUDE) != BORDER_EXCLUDE:
+            line[RECORD_BORDER_KEY] = result['border']
+    return line
+
 def save_manifest(manifest_path, manifest):
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
 
 LEGACY_PROVENANCE_KEYS = ('model_id', 'model_training_date', 'api_version')
+
+def _manifest_model_blocks(provenance):
+    """A new manifest's model keys (#168): primary_type's block at top level, `label_types`,
+    and -- only for a run whose types are not {CurbRamp} -- a `models` map of every type's."""
+    pmap = provenance_map(provenance)
+    out = dict(manifest_model_block(pmap[primary_type(pmap)]))
+    out['label_types'] = sorted(pmap)
+    if not registry.is_legacy_type_set(pmap):
+        out['models'] = {t: manifest_model_block(p) for t, p in sorted(pmap.items())}
+    return out
 
 def manifest_model_block(provenance):
     """The model block a manifest records (top level and per run entry): the detector's
@@ -499,6 +611,63 @@ def bind_model(manifest, provenance, run_name):
         manifest['legacy_model_provenance'] = legacy
     manifest.update(manifest_model_block(provenance))
     return True
+
+def bind_label_types(manifest, label_types, run_dir):
+    """
+    Binds a run directory to one set of label types (issue #168), the way bind_decode binds
+    the decode: a resume under another set would append panos checked for different things
+    to one results.jsonl, and a pano's record_types is the only record of what it was
+    checked for. Exits on a mismatch; returns True when the manifest changed.
+
+    A manifest without `label_types` predates #168 or was made by --scan-only. If the run
+    already holds records, they are CurbRamp records (the only type before #168), so it is
+    bound to ['CurbRamp'] without rewriting the manifest. A run with no records yet is bound
+    to this run's set.
+    """
+    label_types = sorted(label_types)
+    bound = manifest.get('label_types')
+    if bound is None:
+        results = run_dir / 'results.jsonl'
+        if results.exists() and results.stat().st_size > 0:
+            bound = [registry.CURB_RAMP]
+        else:
+            manifest['label_types'] = label_types
+            return True
+    if sorted(bound) != label_types:
+        sys.exit(
+            f"❌ Run '{run_dir.name}' detects label types {', '.join(sorted(bound))}, not "
+            f"{', '.join(label_types)}.\n"
+            f"   Appending would mix panos checked for different types in one results.jsonl "
+            f"(issue #168).\n"
+            f"   Use a new --name for this type set (never a resume), or pass "
+            f"--types {','.join(sorted(bound))}."
+        )
+    return False
+
+def bind_models(manifest, pmap, run_name):
+    """
+    Binds every type's model revision (issue #168) in the manifest's `models` map, beside
+    the top-level model block bind_model keeps for primary_type. Written only for a run whose
+    type set is not {CurbRamp}, so a CurbRamp-only manifest is unchanged. Exits on a
+    revision mismatch for any type; returns True when the manifest changed.
+    """
+    if registry.is_legacy_type_set(pmap):
+        return False
+    models = manifest.setdefault('models', {})
+    changed = False
+    for t, prov in sorted(pmap.items()):
+        bound = models.get(t, {}).get('model_revision')
+        if bound is None:
+            models[t] = manifest_model_block(prov)
+            changed = True
+        elif bound != prov['model_revision']:
+            sys.exit(
+                f"❌ Run '{run_name}' produced its {t} detections with revision {bound[:12]}…, "
+                f"but the loaded {t} model is revision {prov['model_revision'][:12]}….\n"
+                f"   Appending would mix two models' {t} detections in one results.jsonl.\n"
+                f"   Use a new --name for this model (or load the revision the run was made with)."
+            )
+    return changed
 
 def bind_decode(manifest, decode, run_dir):
     """
@@ -713,7 +882,12 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
                 f"   Appending would mix confidence semantics in one results.jsonl.\n"
                 f"   Use a new --name for this area (or run the code version that matches)."
             )
-        changed = provenance is not None and bind_model(manifest, provenance, run_dir.name)
+        changed = False
+        if provenance is not None:  # the type set and every model bind wherever records are written (#168)
+            pmap = provenance_map(provenance)
+            changed = bind_label_types(manifest, pmap, run_dir)
+            changed = bind_model(manifest, pmap[primary_type(pmap)], run_dir.name) or changed
+            changed = bind_models(manifest, pmap, run_dir.name) or changed
         if decode is not None and bind_decode(manifest, decode, run_dir):
             changed = True
         if border is not None and bind_border(manifest, border, run_dir):
@@ -731,7 +905,7 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
         'area_hash': area_hash,
         'input_geojson_type': input_geojson_type,
         'imagery_source': source_name,
-        **(manifest_model_block(provenance) if provenance is not None else {}),
+        **(_manifest_model_blocks(provenance) if provenance is not None else {}),
         'detection_storage_floor': DETECTION_STORAGE_FLOOR,
         'max_peaks_per_pano': MAX_PEAKS_PER_PANO,
         **({'detection_decode': decode} if decode is not None else {}),
@@ -779,7 +953,10 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
     if thinning:
         entry.update(thinning)
     if provenance is not None:
-        entry['model'] = manifest_model_block(provenance)
+        pmap = provenance_map(provenance)
+        entry['model'] = manifest_model_block(pmap[primary_type(pmap)])
+        if not registry.is_legacy_type_set(pmap):
+            entry['models'] = {t: manifest_model_block(p) for t, p in sorted(pmap.items())}
     manifest['runs'].append(entry)
     save_manifest(manifest_path, manifest)
 
@@ -1172,6 +1349,13 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
         run_position_check(run_dir, manifest_path, manifest)
 
 
+def parse_types_arg(value):
+    """argparse `type=` for --types: registry.parse_types, as a parser error listing SPECS."""
+    try:
+        return registry.parse_types(value)
+    except registry.UnknownLabelTypeError as e:
+        raise argparse.ArgumentTypeError(str(e)) from None
+
 def main():
     global PROCESSING_CONCURRENCY, COVERAGE_API_CONCURRENCY
 
@@ -1280,6 +1464,13 @@ def main():
              "A new city may use 'keep' from its first run; an existing "
              "city only under a new --name (docs/seam-band-130.md)."
     )
+    parser.add_argument(
+        "--types", type=parse_types_arg, default=[registry.CURB_RAMP], metavar="TYPES",
+        help="Comma list of label types to detect (issue #168; default: CurbRamp). Known: "
+             + ", ".join(sorted(registry.SPECS)) + ". The run directory is bound to its type "
+             "set (manifest.json label_types); a CurbRamp-only run writes the pre-#168 record "
+             "format unchanged."
+    )
     gap_group = parser.add_mutually_exclusive_group()
     gap_group.add_argument(
         "--no-gap-fill", action="store_true",
@@ -1314,21 +1505,22 @@ def main():
     # before anything is fetched or written.
     provenance = None
     if not args.scan_only:
-        from detectors.curb_ramp import CurbRampDetector
         global curb_ramp_detector
         try:
-            curb_ramp_detector = CurbRampDetector(
-                allow_unknown_revision=args.allow_unknown_model_revision,
-                batch_size=args.batch_size, decode=args.decode, border=args.border)
+            detectors.update(registry.load_detectors(
+                args.types, allow_unknown_revision=args.allow_unknown_model_revision,
+                batch_size=args.batch_size, decode=args.decode, border=args.border))
         except ModelProvenanceError as e:
             sys.exit(f"❌ {e}")
-        provenance = curb_ramp_detector.provenance
-        print(f"-> Model: {provenance['model_repo']} revision {provenance['model_revision']} "
-              f"(model_id {provenance['model_id']}, trained {provenance['model_training_date']})")
-        if provenance['model_training_date'] is None:
-            print("⚠ --allow-unknown-model-revision: this revision is not in "
-                  "detectors.KNOWN_REVISIONS; records carry a null training date and "
-                  "send_to_ps.py will refuse them.")
+        curb_ramp_detector = detectors.get(registry.CURB_RAMP)
+        provenance = {t: d.provenance for t, d in detectors.items()}
+        for t, prov in sorted(provenance.items()):
+            print(f"-> Model ({t}): {prov['model_repo']} revision {prov['model_revision']} "
+                  f"(model_id {prov['model_id']}, trained {prov['model_training_date']})")
+            if prov['model_training_date'] is None:
+                print("⚠ --allow-unknown-model-revision: this revision is not in "
+                      "detectors.KNOWN_REVISIONS; records carry a null training date and "
+                      "send_to_ps.py will refuse them.")
 
     t_run = time.perf_counter()
     try:
@@ -1344,10 +1536,12 @@ def main():
         print(f"❌ An unexpected error occurred: {e}")
         traceback.print_exc()
     finally:  # also on a refusal's sys.exit and on Ctrl-C
-        detector = globals().get('curb_ramp_detector')
-        if detector is not None:
+        loaded = _loaded_detectors()
+        for t, detector in sorted(loaded.items()):
             # Wall time here includes the coverage scan, so panos/s is the whole run's
             # rate, and `images` counts every forwarded image, failed batches included.
+            if len(loaded) > 1:
+                print(f"-> {t}:")
             report_detector(detector, time.perf_counter() - t_run, detector.stats()['images'])
             detector.close()
 

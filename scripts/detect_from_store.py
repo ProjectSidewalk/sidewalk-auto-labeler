@@ -483,6 +483,13 @@ def bind_manifest(run_dir, provenance, pixels):
     appending store records to a scanned run would mix two pixel sources in one file."""
     import main
     from importlib.metadata import version as pkg_version
+    from detectors import registry
+    # A store run detects CurbRamp only (#168): the type set is bound like the model.
+    pmap = main.provenance_map(provenance)
+    if not registry.is_legacy_type_set(pmap):
+        raise SystemExit(f'a store run detects CurbRamp only, not {", ".join(sorted(pmap))} '
+                         f'(issue #168).')
+    provenance = pmap[registry.CURB_RAMP]
     path = run_dir / 'manifest.json'
     if path.exists():
         manifest = json.loads(path.read_text(encoding='utf-8'))
@@ -503,6 +510,7 @@ def bind_manifest(run_dir, provenance, pixels):
             diff = sorted(k for k in set(bound) | set(pixels) if bound.get(k) != pixels.get(k))
             raise SystemExit(f'{run_dir.name} is bound to other pixels ({", ".join(diff)} '
                              f'differ). Use a new --run-dir.')
+        main.bind_label_types(manifest, [registry.CURB_RAMP], run_dir)
         main.bind_model(manifest, provenance, run_dir.name)
         manifest['pixels'] = pixels
         manifest.setdefault('runs', [])
@@ -512,6 +520,7 @@ def bind_manifest(run_dir, provenance, pixels):
             'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
             'imagery_source': 'gsv',
             **main.manifest_model_block(provenance),
+            'label_types': [registry.CURB_RAMP],
             'detection_storage_floor': main.DETECTION_STORAGE_FLOOR,
             'max_peaks_per_pano': main.MAX_PEAKS_PER_PANO,
             'streetlevel_version': pkg_version('streetlevel'),
