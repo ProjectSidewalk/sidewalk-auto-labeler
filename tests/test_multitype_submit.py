@@ -18,8 +18,10 @@ import pytest
 
 import coverage_check
 import position_check
+import main
 import reinfer
 import send_to_ps
+from conftest import make_provenance
 from detectors import registry
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "multitype_submit"
@@ -102,17 +104,15 @@ def _curb_model():
 
 
 def _two_type_line(n, detections):
-    """A line in the frozen #168 multi-type shape (main.build_output_line's writer rule):
-    typed detections, label_type null, label_types sorted, a models map, line-level model_*
-    = CurbRamp's. The pano block is the golden fixture's, renamed."""
+    """A two-type line written by the real writer (main.build_output_line, #168): typed
+    detections, label_type null, label_types sorted (Crosswalk < CurbRamp), a models map,
+    line-level model_* = CurbRamp's. The pano block is the golden fixture's, renamed."""
     pano = dict(_golden_line()["pano"], panorama_id=f"MT{n}", lat=44.05 + n * 1e-4)
-    line = {"detections": [{"x_normalized": x, "y_normalized": y, "confidence": c,
-                            "label_type": t} for t, x, y, c in detections],
-            "label_type": None, "label_types": ["CurbRamp", XWALK],
-            "models": {"CurbRamp": _curb_model(), XWALK: dict(XWALK_MODEL)}}
-    line.update(_curb_model())
-    line["pano"] = pano
-    return line
+    result = {"pano_id": pano["panorama_id"], "pano": pano,
+              "detections": [(x, y, c, t) for t, x, y, c in detections],
+              "label_types": sorted(["CurbRamp", XWALK])}
+    return json.loads(json.dumps(main.build_output_line(
+        result, {"CurbRamp": make_provenance(), XWALK: dict(XWALK_MODEL)})))
 
 
 def _two_type_file(tmp_path, name="results.jsonl"):
@@ -152,8 +152,8 @@ def test_two_type_file_posts_once_per_line_and_type(tmp_path, monkeypatch):
     sent = _capture(monkeypatch)
     send_to_ps.process_jsonl_file(str(path), PROD)
     assert [(p["pano"]["pano_id"], p["label_type"]) for p in sent] == [
-        ("MT1", "CurbRamp"), ("MT1", XWALK), ("MT2", "CurbRamp"), ("MT2", XWALK)]
-    curb, xwalk = sent[0], sent[1]
+        ("MT1", XWALK), ("MT1", "CurbRamp"), ("MT2", XWALK), ("MT2", "CurbRamp")]
+    xwalk, curb = sent[0], sent[1]
     # CurbRamp: 0.30, rig-masked (the y=0.95 detection is on the vehicle).
     assert curb["labels"] == [{"pano_x": 8192, "pano_y": 2048, "confidence": 0.9}]
     assert {k: curb[k] for k in registry.PROVENANCE_KEYS} == _curb_model()
@@ -204,7 +204,7 @@ def test_explicit_min_confidence_applies_to_every_type(tmp_path, monkeypatch):
     path = _two_type_file(tmp_path)
     sent = _capture(monkeypatch)
     send_to_ps.process_jsonl_file(str(path), PROD, min_confidence=0.35)
-    assert [lab["confidence"] for lab in sent[1]["labels"]] == [0.7, 0.8, 0.4]
+    assert [lab["confidence"] for lab in sent[0]["labels"]] == [0.7, 0.8, 0.4]
     state = _state(tmp_path)
     assert {t: s["min_confidence"] for t, s in state["types"].items()} == {"CurbRamp": 0.35,
                                                                          XWALK: 0.35}
@@ -243,7 +243,15 @@ def test_transform_record_without_a_type_refuses_a_multi_type_line():
     line = _two_type_line(1, [("CurbRamp", 0.5, 0.25, 0.9), (XWALK, 0.25, 0.6, 0.7)])
     with pytest.raises(ValueError, match="one label type per submission"):
         send_to_ps.transform_record(line)
-    assert [t for t, _ in send_to_ps.split_record(line)] == ["CurbRamp", XWALK]
+    assert [t for t, _ in send_to_ps.split_record(line)] == [XWALK, "CurbRamp"]
+
+
+def test_curb_ramp_decode_marker_stays_off_the_other_types_payload():
+    """Line-level detection_decode describes the CurbRamp detector (#168 writer rule)."""
+    line = _two_type_line(1, [("CurbRamp", 0.5, 0.25, 0.9), (XWALK, 0.25, 0.6, 0.7)])
+    line["detection_decode"] = "gaussian"
+    assert send_to_ps.transform_record(line, label_type="CurbRamp")["detection_decode"] == "gaussian"
+    assert "detection_decode" not in send_to_ps.transform_record(line, label_type=XWALK)
 
 
 def test_split_record_of_a_legacy_line_is_the_untyped_transform():

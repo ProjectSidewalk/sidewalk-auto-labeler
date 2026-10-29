@@ -276,6 +276,10 @@ def transform_record(data: Dict[str, Any], min_confidence: Optional[float] = Non
             modified_data.update(provenance_for(data, label_type))
             modified_data.pop('models', None)
             modified_data.pop('label_types', None)
+            if label_type != CURB_RAMP:
+                # The line-level decode marker describes the CurbRamp detector (#168); this
+                # type's own decode rides in models[T], which is not this payload's to send.
+                modified_data.pop('detection_decode', None)
     return modified_data
 
 
