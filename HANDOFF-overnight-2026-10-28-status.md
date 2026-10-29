@@ -44,3 +44,11 @@ no Project Sidewalk server was written to. Four PRs are open; CI green on all fo
   denies remote writes there for Claude).
 - The main checkout `D:\Git\sidewalk-auto-labeler` is ~188 commits behind origin/main on
   `clustering-eval-106`, with uncommitted runs/ files nobody claims. Left untouched.
+
+## Merged (2026-10-29 ~05:45 PT, by Jon's instruction)
+
+All four PRs merged with merge commits in the suggested order: #172 (72534e9), #173
+(6c86628), #170 (b1fd38f), #171 retargeted to main and merged (dbbdbac, now main's head).
+CI on dbbdbac passed. The four feature branches were deleted on origin. Worktrees
+`D:\Git\labeler-wt\{pmx161,mt168a,mt168b,pytest9}` still exist (pmx161 now sits on `main`);
+the study pixels in `pmx161-data` are untouched. Still open: posting the #161 reply.
