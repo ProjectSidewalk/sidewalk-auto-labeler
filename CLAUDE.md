@@ -1486,10 +1486,15 @@ and refuses a whole-line sidecar beside a multi-type file or a record whose shap
 match the file. `position_check.campaigns_for` yields one campaign per type, so a half-sent
 pano counts as live; `coverage_check` replays per type; `backfill_metadata`'s guard sees
 `.type-*.submitted`; every `models[T]` must be dated. **Bands are refused** on a multi-type
-file (`send_to_ps.py --max-confidence`, `reinfer.py --write-band-file`): they exist for the
-legacy CurbRamp cities. **A single-type file is unchanged**: same payloads, same
-`<file>.submitted` bytes, same record bytes, pinned against fixtures captured from main
-(`tests/test_multitype_submit.py`, `tests/fixtures/multitype_submit/`).
+file (`send_to_ps.py --max-confidence`, `reinfer.py --write-band-file`, and `reinfer.py
+--verify`, which re-runs only CurbRamp): they exist for the legacy CurbRamp cities. A
+single-type file whose lines carry `label_types` (a run of one non-CurbRamp type) is sent
+through the typed transform too, so its payload matches `split_record`. A file whose lines
+ran DIFFERENT type sets is handled (a line counts done once every type it ran is sent) but
+is not produced today: `main.py` binds one type set per run directory. **A single-type
+CurbRamp file is unchanged**: same payloads, same `<file>.submitted` bytes, same record
+bytes, pinned against fixtures captured from main (`tests/test_multitype_submit.py`,
+`tests/fixtures/multitype_submit/`, un-ignored in `.gitignore` by `!tests/fixtures/**`).
 
 ## Output format notes
 
