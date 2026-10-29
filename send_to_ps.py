@@ -25,7 +25,7 @@ import os
 import socket
 import sys
 import time
-from contextlib import nullcontext
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, Set
 from pathlib import Path
@@ -38,6 +38,8 @@ import position_check
 from detectors import (BORDER_EXCLUDE, DECODE_ARGMAX, OPERATIONAL_CONFIDENCE,
                        borders_in_file, decodes_in_file, on_camera_rig, single_border,
                        single_decode)
+from detectors.registry import (CURB_RAMP, detections_of_type, provenance_for,
+                                record_types, spec_for)
 
 # Local secrets (e.g. PS_INTERNAL_API_KEY) from ./.env; real env vars win.
 load_dotenv()
@@ -203,9 +205,9 @@ def check_source_metadata_size(payload: Dict[str, Any]) -> None:
             f"for this source (PS_GSV_SOURCE_METADATA_KEYS for GSV).")
 
 
-def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_CONFIDENCE,
+def transform_record(data: Dict[str, Any], min_confidence: Optional[float] = None,
                      max_confidence: Optional[float] = None,
-                     mask_rig: bool = True) -> Dict[str, Any]:
+                     mask_rig: bool = True, label_type: Optional[str] = None) -> Dict[str, Any]:
     """
     Convert a main.py JSONL record into the payload expected by Project Sidewalk.
 
@@ -215,7 +217,8 @@ def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_C
     (see transform_pano). results.jsonl stores candidate peaks down to a storage floor
     below the operational threshold (see detectors/__init__.py); a record whose
     detections all fall below min_confidence still submits with empty labels — it is a
-    processed "checked, nothing found" pano, not a droppable one.
+    processed "checked, nothing found" pano, not a droppable one. min_confidence None
+    means the operational threshold of the type's DetectorSpec (0.30 for CurbRamp).
 
     max_confidence (exclusive) selects a BAND instead: only detections with
     min_confidence <= c < max_confidence. That is how a city already live at one
@@ -225,8 +228,31 @@ def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_C
     mask_rig drops detections that are too steeply below the horizon to be on the street
     at all — they are on the camera vehicle (see detectors.on_camera_rig). Pass False only
     to reconstruct what a campaign that predates the mask actually sent; for anything
-    being submitted now it stays on.
+    being submitted now it stays on. It applies only to a type whose spec says the mask
+    does (DetectorSpec.mask_rig).
+
+    label_type selects ONE type's payload from a record (issue #168): the server takes one
+    labelType per AiLabelsSubmission, so a line that ran several detectors is sent as one
+    payload per type (see split_record). The payload keeps only that type's detections,
+    names that type, and carries that type's model provenance (registry.provenance_for).
+    Without it, the record must be single-type and is transformed exactly as before #168;
+    a multi-type record RAISES ValueError rather than sending every type under one name.
     """
+    if label_type is None:
+        types = record_types(data)
+        if len(types) > 1:
+            raise ValueError(
+                f"pano {(data.get('pano') or {}).get('panorama_id')} ran {types}, and Project "
+                f"Sidewalk takes one label type per submission: transform it per type "
+                f"(transform_record(..., label_type=T), or split_record), never as one.")
+        spec = spec_for(types[0])
+        detections = data['detections']
+    else:
+        spec = spec_for(label_type)
+        detections = detections_of_type(data, label_type)
+    if min_confidence is None:
+        min_confidence = spec.operational_confidence
+    mask_rig = mask_rig and spec.mask_rig
     modified_data = data.copy()
     modified_data['pano'] = transform_pano(data['pano'])
     modified_data['labels'] = [
@@ -234,7 +260,7 @@ def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_C
             "pano_x": round(detection['x_normalized'] * modified_data['pano']['width']),
             "pano_y": round(detection['y_normalized'] * modified_data['pano']['height']),
             "confidence": detection['confidence']
-        } for detection in data['detections']
+        } for detection in detections
         if detection['confidence'] >= min_confidence
         and (max_confidence is None or detection['confidence'] < max_confidence)
         and not (mask_rig and on_camera_rig(detection['y_normalized']))
@@ -243,7 +269,38 @@ def transform_record(data: Dict[str, Any], min_confidence: float = OPERATIONAL_C
     # Run-state markers, not part of the server's payload (#130). (detection_decode is the
     # same kind of key; dropping it is #129's to do, review N4.)
     modified_data.pop('detection_border', None)
+    if label_type is not None:
+        modified_data['label_type'] = label_type
+        if 'models' in data:
+            # The other types' models and the type list are the line's, not this payload's.
+            modified_data.update(provenance_for(data, label_type))
+            modified_data.pop('models', None)
+            modified_data.pop('label_types', None)
+            if label_type != CURB_RAMP:
+                # The line-level decode marker describes the CurbRamp detector (#168); this
+                # type's own decode rides in models[T], which is not this payload's to send.
+                modified_data.pop('detection_decode', None)
     return modified_data
+
+
+def split_record(data: Dict[str, Any], min_confidence: Optional[float] = None,
+                 max_confidence: Optional[float] = None, mask_rig: bool = True) -> list:
+    """[(label_type, payload)] for one record: one Project Sidewalk submission per type
+    whose detector ran on the pano (registry.record_types), in sorted type order.
+
+    A line in the pre-#168 format (no `label_types` key: every CurbRamp-only run) goes
+    through the untyped transform, so its one payload is byte for byte what it always was.
+    A type with nothing to send still gets its payload: "checked for T, nothing found" is
+    what the server records for that type on that pano.
+
+    min_confidence None means each type's own operational threshold; a value applies to
+    every type (an explicit --min-confidence wins over the per-type defaults).
+    """
+    if 'label_types' not in data:
+        return [(record_types(data)[0],
+                 transform_record(data, min_confidence, max_confidence, mask_rig))]
+    return [(t, transform_record(data, min_confidence, max_confidence, mask_rig, label_type=t))
+            for t in record_types(data)]
 
 
 def send_to_project_sidewalk(
@@ -334,6 +391,30 @@ def sidecar_path_for(file_path: str, min_confidence: float,
     if max_confidence is None:
         return Path(f"{file_path}.submitted")
     return Path(f"{file_path}.band-{band_key(min_confidence, max_confidence)}.submitted")
+
+
+def type_sidecar_path(file_path: str, label_type: str) -> Path:
+    """The resume sidecar of ONE label type of a multi-type file (issue #168):
+    `<file>.type-<T>.submitted`, plain line numbers like every other sidecar. A line is
+    finished when the sidecar of every type that ran on it holds it; a line with only some
+    types sent is half-sent, and its pano is already live (position_check.campaigns_for)."""
+    return Path(f"{file_path}.type-{label_type}.submitted")
+
+
+def file_label_types(input_file: Path) -> list:
+    """The sorted union of registry.record_types over the file's parseable lines: which
+    label types the file carries. One type means the file submits exactly as before #168
+    (one POST per line, `<file>.submitted`); several mean one POST per (line, type) and one
+    sidecar per type. A file with no parseable line reads as ['CurbRamp']."""
+    types = set()
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                try:
+                    types.update(record_types(json.loads(line)))
+                except (ValueError, AttributeError, TypeError):
+                    continue  # reported per line by the send loop
+    return sorted(types) or [CURB_RAMP]
 
 
 def hash_and_count(input_file: Path) -> tuple:
@@ -604,7 +685,8 @@ def load_submission_record(record_path: Path) -> Dict[str, Any]:
 def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set[int],
                        endpoint_url: str, min_confidence: float, input_file: Path,
                        record_path: Path, sidecar_path: Path, total_lines: int,
-                       total_bytes: int, max_confidence: Optional[float] = None) -> Optional[str]:
+                       total_bytes: int, max_confidence: Optional[float] = None,
+                       types: Optional[Dict[str, tuple]] = None) -> Optional[str]:
     """
     Refuse to submit when the resume sidecar no longer describes this file and this endpoint.
 
@@ -628,6 +710,14 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
     exactly max_confidence, on the unchanged file, and it resumes from its own sidecar
     (see check_band_state).
 
+    A MULTI-TYPE file (issue #168) passes `types` = {T: (that type's sidecar lines, its
+    min_confidence, its sidecar path)}. The file-level checks (hash, append) are the same;
+    then each type is held, against `endpoints[ep].types[T]`, to exactly the checks a
+    single-type campaign gets against `endpoints[ep]` (_check_lines_state). A whole-line
+    sidecar beside a multi-type file, a single-type file whose record has per-type entries,
+    and a multi-type file whose record has none are refused: each means the file and the
+    record describe different campaigns.
+
     Returns:
         A note to print when the file grew by a pure append, else None.
 
@@ -641,6 +731,14 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
         check_band_state(record, digest, submitted_lines, endpoint_url, min_confidence,
                          max_confidence, input_file, record_path, sidecar_path, total_lines)
         return None
+    if types is not None and submitted_lines:
+        # Checked with or without a record: the sidecar alone says lines went out whole.
+        raise ValueError(
+            f"{sidecar_path.name} holds {len(submitted_lines)} line(s), but {input_file.name} "
+            f"holds several label types, whose progress lives in one <file>.type-<T>.submitted "
+            f"per type (issue #168). A whole-line sidecar beside it means it was sent as one "
+            f"submission per line, every type under one label type; check what is live on "
+            f"that server, then move the sidecar aside. --ignore-submission-guard overrides.")
     if not record:
         return None
 
@@ -661,6 +759,43 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
 
     endpoint = canonical_endpoint(endpoint_url)
     states = record['endpoints']
+    if types is None:
+        if (states.get(endpoint) or {}).get('types'):
+            raise ValueError(
+                f"{record_path.name} records a per-type campaign to {endpoint} (issue #168), "
+                f"but {input_file.name} now holds a single label type: it is not the file that "
+                f"record describes. Restore that file, or start a new campaign under a new "
+                f"name. --ignore-submission-guard overrides.")
+        _check_lines_state(states, endpoint, submitted_lines, min_confidence, input_file,
+                           record, record_path, sidecar_path, total_lines)
+        return append_note
+
+    # A multi-type file (issue #168): every type is a campaign of its own over the same line
+    # numbers, with its own sidecar, so each is held to exactly the single-type checks.
+    # Every endpoint, not only this one: a whole-line entry on a test server says this file
+    # already went out somewhere with every type under one label type.
+    whole = sorted(url for url, st in states.items()
+                   if st.get('submitted_lines') and 'types' not in st)
+    if whole:
+        raise ValueError(
+            f"{record_path.name} records line(s) of {input_file.name} sent to "
+            f"{', '.join(whole)} WITHOUT per-type entries, but the file holds several label "
+            f"types (issue #168). Code before #168 would have sent every type there under one "
+            f"label type; check what is live on that server before going on. "
+            f"--ignore-submission-guard overrides.")
+    for label_type, (lines, confidence, path) in sorted(types.items()):
+        view = {url: (st.get('types') or {}).get(label_type) or {} for url, st in states.items()}
+        _check_lines_state(view, endpoint, lines, confidence, input_file, record, record_path,
+                           path, total_lines)
+    return append_note
+
+
+def _check_lines_state(states: Dict[str, Any], endpoint: str, submitted_lines: Set[int],
+                       min_confidence: float, input_file: Path, record: Dict[str, Any],
+                       record_path: Path, sidecar_path: Path, total_lines: int) -> None:
+    """check_resume_state's per-campaign checks: the sidecar at `sidecar_path` against
+    `states`, a {endpoint: state} view of one campaign (the endpoint entries themselves for
+    a single-type file; each endpoint's `types[T]` for type T of a multi-type one)."""
     already = states.get(endpoint, {}).get('submitted_lines', 0)
     if already > len(submitted_lines):
         # Judged against the file as it is NOW, not as the record found it: a run that was
@@ -730,8 +865,6 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
             f"one threshold's labels, and the record can only count at one. Use "
             f"--min-confidence {recorded_confidence}; {route} --ignore-submission-guard overrides."
         )
-
-    return append_note
 
 
 def check_band_state(record: Dict[str, Any], digest: str, band_lines: Set[int],
@@ -1116,6 +1249,9 @@ def check_model_provenance(input_file: Path) -> None:
     once, before any line is sent, instead of one opaque error per record. The fix is a
     KNOWN_REVISIONS row and a re-run, not an override: PS rows are permanent.
 
+    On a multi-type line every ``models[T]`` is checked as well, since each type is its own
+    POST under its own model (issue #168); `unknown` then counts (line, type) entries.
+
     Every other provenance key passes through untouched — `model_repo` and
     `model_revision` are forwarded like the rest of the record and ignored by the server's
     path-based reader — and legacy records, which carry neither, submit unchanged.
@@ -1131,7 +1267,14 @@ def check_model_provenance(input_file: Path) -> None:
                     continue  # reported per line by the send loop, as before
                 # Explicit null only: that is the one shape main.py writes for an unknown
                 # revision. (A record lacking the key predates any of this.)
-                if 'model_training_date' in record and record['model_training_date'] is None:
+                if 'models' in record:
+                    # A multi-type line (issue #168) POSTs each type under its own model, so
+                    # every models[T] must be dated, not only the one mirrored at line level.
+                    for label_type, model in sorted(record['models'].items()):
+                        if 'model_training_date' in model and model['model_training_date'] is None:
+                            unknown += 1
+                            revisions.add(f"{model.get('model_revision')} ({label_type})")
+                elif 'model_training_date' in record and record['model_training_date'] is None:
                     unknown += 1
                     revisions.add(str(record.get('model_revision')))
     if unknown:
@@ -1259,7 +1402,8 @@ def check_live_positions(input_file: Path, endpoint_url: str, trust_own_record: 
 
 
 def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float,
-                 max_confidence: Optional[float] = None, mask_rig: bool = True) -> int:
+                 max_confidence: Optional[float] = None, mask_rig: bool = True,
+                 label_type: Optional[str] = None) -> int:
     """How many labels the given lines of the JSONL submit at `min_confidence`.
 
     Recounted from the file and the sidecar rather than accumulated in memory, so the record
@@ -1269,6 +1413,9 @@ def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float
     would ship: a campaign that predates the nadir mask put rig labels on the server, and a
     recount that hides them understates what is live. Callers read it from the record's
     `rig_masked` (absent = a pre-mask campaign); see ``write_submission_record``.
+
+    `label_type` counts one type's labels of a multi-type file (issue #168; see
+    ``transform_record``); None is the single-type count it always was.
     """
     if not line_numbers:
         return 0
@@ -1277,7 +1424,7 @@ def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float
         for line_number, line in enumerate(f, 1):
             if line_number in line_numbers and line.strip():
                 labels += len(transform_record(json.loads(line), min_confidence,
-                                               max_confidence, mask_rig)['labels'])
+                                               max_confidence, mask_rig, label_type)['labels'])
     return labels
 
 
@@ -1298,7 +1445,8 @@ def _storage_floor_for(input_file: Path) -> Optional[float]:
 
 def count_band_labels_in_file(input_file: Path, min_confidence: float,
                               max_confidence: Optional[float],
-                              mask_rig: bool = True) -> int:
+                              mask_rig: bool = True,
+                              label_type: Optional[str] = None) -> int:
     """How many labels the WHOLE file holds in [min_confidence, max_confidence).
 
     Separate from ``count_labels`` because that one answers "what did these sidecar lines
@@ -1306,14 +1454,15 @@ def count_band_labels_in_file(input_file: Path, min_confidence: float,
     band has to settle before it marks a single line done (see ``check_band_state``).
 
     mask_rig=False reconstructs what a campaign sent BEFORE the nadir mask existed, which
-    is what a derived record has to match; see ``transform_record``.
+    is what a derived record has to match; see ``transform_record``. `label_type` counts
+    one type of a multi-type file, as in ``count_labels``.
     """
     labels = 0
     with open(input_file, 'r', encoding='utf-8') as f:
         for line in f:
             if line.strip():
                 labels += len(transform_record(json.loads(line), min_confidence,
-                                               max_confidence, mask_rig)['labels'])
+                                               max_confidence, mask_rig, label_type)['labels'])
     return labels
 
 
@@ -1326,7 +1475,9 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
                             decode: Any = DECODE_ARGMAX,
                             decode_override: Optional[str] = None,
                             border: Any = BORDER_EXCLUDE,
-                            border_override: Optional[str] = None) -> None:
+                            border_override: Optional[str] = None,
+                            types: Optional[Dict[str, tuple]] = None,
+                            min_confidence_from: Optional[str] = None) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
     One entry per endpoint - a campaign legitimately hits a test instance before prod, and
@@ -1335,6 +1486,16 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
     enough to commit, unlike the sidecar and the JSONL, which are gitignored run state - so
     it also answers "what did we submit to that server, and when?" long after the run
     directory is gone.
+
+    A multi-type file (issue #168) passes `types` = {T: (that type's sidecar lines, its
+    min_confidence)}: each type gets `endpoints[ep].types[T]` = {submitted_lines,
+    labels_submitted, min_confidence, rig_masked, timestamps}, the same shape a band entry
+    has, and the endpoint entry sums them: `submitted_lines` counts the lines ANY type was
+    sent for (a half-sent line's pano is live), `labels_submitted` is the sum, and
+    `min_confidence` is the lowest type's, with `min_confidence_from` saying whether an
+    explicit --min-confidence set every type ("flag") or each type's operational threshold
+    did ("per_type_default"). A single-type file writes none of these keys, so its record
+    is byte-identical to before #168.
     """
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     endpoint = canonical_endpoint(endpoint_url)
@@ -1377,6 +1538,39 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
             state["min_confidence"] = min_confidence
         state["last_submission_utc"] = now
         state["last_run_host"] = socket.gethostname()
+    elif types is not None:
+        type_states = dict(state.get('types') or {})
+        for label_type, (lines, confidence) in sorted(types.items()):
+            type_state = dict(type_states.get(label_type) or {})
+            if not lines and not type_state:
+                continue   # never sent to this endpoint: no entry, as for a band
+            # As for the base entry below: a type's first campaign records how it is sent,
+            # and a resume keeps what the record says. The mask only exists for types whose
+            # spec applies it (DetectorSpec.mask_rig).
+            masked = (spec_for(label_type).mask_rig if 'submitted_lines' not in type_state
+                      else bool(type_state.get('rig_masked', False)))
+            type_state.update({
+                "submitted_lines": len(lines),
+                "labels_submitted": count_labels(input_file, lines, confidence,
+                                                 mask_rig=masked, label_type=label_type),
+                "min_confidence": confidence,
+                "rig_masked": masked,
+                "first_submission_utc": type_state.get('first_submission_utc', now),
+                "last_submission_utc": now,
+                "last_run_host": socket.gethostname(),
+            })
+            type_states[label_type] = type_state
+        sent_any = set().union(*(lines for lines, _ in types.values()))
+        state.update({
+            "submitted_lines": len(sent_any),
+            "labels_submitted": sum(t['labels_submitted'] for t in type_states.values()),
+            "min_confidence": min(t['min_confidence'] for t in type_states.values()),
+            "min_confidence_from": min_confidence_from,
+            "first_submission_utc": state.get('first_submission_utc', now),
+            "last_submission_utc": now,
+            "last_run_host": socket.gethostname(),
+            "types": type_states,
+        })
     else:
         # A campaign that started before the nadir mask existed shipped rig labels, and they
         # are live; recounting it with the mask on would silently understate the server's
@@ -1459,7 +1653,7 @@ def process_jsonl_file(
     endpoint_url: str = DEFAULT_ENDPOINT_URL,
     api_key: Optional[str] = None,
     dry_run: bool = False,
-    min_confidence: float = OPERATIONAL_CONFIDENCE,
+    min_confidence: Optional[float] = None,
     limit: Optional[int] = None,
     ignore_guard: bool = False,
     ignore_position_check: bool = False,
@@ -1481,7 +1675,9 @@ def process_jsonl_file(
         dry_run: If True, print the transformed payloads instead of POSTing them, and do not
             record submission progress.
         min_confidence: Only detections at/above this confidence are submitted as labels
-            (see ``transform_record``).
+            (see ``transform_record``). None (the default) is the operational threshold of
+            the type's DetectorSpec (0.30 for CurbRamp); on a multi-type file each type gets
+            its own, and an explicit value applies to every type.
         limit: Stop after this many records are TOUCHED *this run*; already-submitted lines
             don't count against it, so successive capped runs walk the file. "Touched", not
             "POSTed": in band mode a record with nothing in the band is marked done without
@@ -1555,6 +1751,35 @@ def process_jsonl_file(
             border = border_record_value(borders_in_file(input_file))
             border_override = str(e)
 
+    # Which label types the file carries (issue #168). One: everything below is exactly the
+    # single-type campaign it always was. Several: one POST per (line, type), one sidecar per
+    # type, and per-type entries in the record.
+    file_types = file_label_types(input_file)
+    multi_type = len(file_types) > 1
+    if multi_type and max_confidence is not None:
+        # Refused before check_band_state, whose checks are all about ONE threshold per line.
+        raise ValueError(
+            f"{input_file.name} holds several label types ({', '.join(file_types)}); a band "
+            f"(--max-confidence) is refused on a multi-type file. Bands exist for the legacy "
+            f"CurbRamp cities that went live at 0.55 before the operating point moved to 0.30 "
+            f"(issue #20); a multi-type campaign starts at each type's own threshold.")
+    min_confidence_from = 'flag' if min_confidence is not None else 'per_type_default'
+    type_states: Optional[Dict[str, tuple]] = None
+    if multi_type:
+        type_states = {
+            t: (load_submitted_lines(type_sidecar_path(file_path, t)),
+                min_confidence if min_confidence is not None
+                else spec_for(t).operational_confidence,
+                type_sidecar_path(file_path, t))
+            for t in file_types}
+    elif min_confidence is None:
+        min_confidence = spec_for(file_types[0]).operational_confidence
+    if max_confidence is not None and not min_confidence < max_confidence:
+        # main() can only check this when --min-confidence was given; the default is resolved
+        # per type here, so the check is repeated (a dry run included) with the real value.
+        raise ValueError(f"--min-confidence {min_confidence} must be below --max-confidence "
+                         f"{max_confidence}: a band is [min, max).")
+
     # Load resume state: line numbers that already got a 200 on a previous run (or, for a
     # band campaign, lines already handled by that band - sent, or empty and skipped).
     sidecar_path = sidecar_path_for(file_path, min_confidence, max_confidence)
@@ -1575,7 +1800,7 @@ def process_jsonl_file(
             append_note = check_resume_state(previous_record, digest, submitted_lines,
                                              endpoint_url, min_confidence, input_file,
                                              record_path, sidecar_path, total_lines, total_bytes,
-                                             max_confidence)
+                                             max_confidence, type_states)
     except CampaignComplete as e:
         # Not a refusal: nothing is left to send, so stop here without POSTing and without
         # rewriting the record (which would only restate what it already says).
@@ -1632,23 +1857,58 @@ def process_jsonl_file(
         print(f"LIMIT: stopping after {limit} record(s) this run.")
     if submitted_lines:
         print(f"Resuming: {len(submitted_lines)} lines already submitted (per {sidecar_path.name}).")
+    if multi_type:
+        thresholds = (f"{min_confidence:g} for every type (--min-confidence)"
+                      if min_confidence is not None else
+                      ", ".join(f"{t} {c:g}" for t, (_, c, _) in type_states.items()))
+        print(f"Label types: {', '.join(file_types)} - one submission per (line, type); "
+              f"min confidence {thresholds}.")
+        for t, (lines, _, path) in type_states.items():
+            if lines:
+                print(f"Resuming {t}: {len(lines)} lines already submitted (per {path.name}).")
     if append_note:
         print(f"APPEND: {append_note}")
     print("-" * 50)
 
     try:
-        # A dry run records nothing, so don't create (or touch) the sidecar file.
-        with open(input_file, 'r', encoding='utf-8') as file, \
-             (nullcontext() if dry_run else open(sidecar_path, 'a', encoding='utf-8')) as f_sidecar:
+        # A dry run records nothing, so don't create (or touch) the sidecar file(s). A
+        # multi-type file writes one sidecar per type and never the whole-line one.
+        with ExitStack() as stack:
+            file = stack.enter_context(open(input_file, 'r', encoding='utf-8'))
+            if dry_run:
+                sidecars = {}
+            elif multi_type:
+                sidecars = {t: stack.enter_context(open(path, 'a', encoding='utf-8'))
+                            for t, (_, _, path) in type_states.items()}
+            else:
+                sidecars = {None: stack.enter_context(open(sidecar_path, 'a', encoding='utf-8'))}
+            f_sidecar = sidecars.get(None)
             for line_number, line in enumerate(file, 1):
                 line = line.strip()
 
-                # Skip empty lines and lines submitted on a previous run.
+                # Skip empty lines and lines submitted on a previous run. A multi-type line
+                # is done once every type in the file is in its type's sidecar.
                 if not line:
                     continue
-                if line_number in submitted_lines:
+                if not multi_type and line_number in submitted_lines:
                     skipped_count += 1
                     continue
+                if multi_type and all(line_number in lines
+                                      for lines, _, _ in type_states.values()):
+                    skipped_count += 1
+                    continue
+                if multi_type:
+                    # A line that ran fewer types than the file holds never passes the cheap
+                    # test above; read it, and skip it if every type IT ran was sent. (main.py
+                    # binds one type set per run, so such files are not written today.)
+                    try:
+                        pending = [t for t in record_types(json.loads(line))
+                                   if line_number not in type_states[t][0]]
+                    except Exception:
+                        pending = None   # reported by the parse below
+                    if pending == []:
+                        skipped_count += 1
+                        continue
 
                 # Stop once this run has touched --limit records. Checked here, after the
                 # resume skip, so a capped run always advances into unsubmitted lines.
@@ -1660,50 +1920,71 @@ def process_jsonl_file(
                 try:
                     # Parse a line of JSON and convert to the PS payload format.
                     json_data = json.loads(line)
-                    payload = transform_record(json_data, min_confidence, max_confidence)
-                    filtered_detections += len(json_data.get('detections', [])) - len(payload['labels'])
-
-                    if max_confidence is not None and not payload['labels']:
-                        # Nothing in the band for this pano: the server already has it as
-                        # "checked", so no POST - but the band's sidecar still marks the
-                        # line handled, or the band could never be recorded as complete.
-                        empty_band_count += 1
-                        if not dry_run:
-                            f_sidecar.write(f"{line_number}\n")
-                            f_sidecar.flush()
-                        continue
-
-                    # Refuse here, before any POST (and in a dry run too, so it shows up
-                    # there first): PS would 400 the whole record for its blob size.
-                    check_source_metadata_size(payload)
-
-                    if dry_run:
-                        print(json.dumps(payload, indent=2))
-                        success_count += 1
-                        continue
-
-                    # Send POST request.
-                    response = send_to_project_sidewalk(payload, endpoint_url, api_key)
-
-                    if response:
-                        success_count += 1
-                        f_sidecar.write(f"{line_number}\n")
-                        f_sidecar.flush()
+                    if multi_type:
+                        # One payload per type that ran on this pano and is not yet sent
+                        # (a resume after a half-sent line sends only the missing types).
+                        parts = [(t, transform_record(json_data, type_states[t][1], None,
+                                                      label_type=t))
+                                 for t in record_types(json_data)
+                                 if line_number not in type_states[t][0]]
                     else:
-                        error_count += 1
-                        print(f"Line {line_number}: Failed to send POST request")
-
+                        parts = [(None, transform_record(
+                            json_data, min_confidence, max_confidence,
+                            label_type=file_types[0] if 'label_types' in json_data else None))]
                 except json.JSONDecodeError as e:
                     error_count += 1
                     print(f"Line {line_number}: Invalid JSON - {e}")
-
-                except SourceMetadataTooLarge as e:
-                    error_count += 1
-                    print(f"Line {line_number}: REFUSED - {e}")
-
+                    continue
                 except Exception as e:
                     error_count += 1
                     print(f"Line {line_number}: Unexpected error - {e}")
+                    continue
+
+                for label_type, payload in parts:
+                    where = (f"Line {line_number}" if label_type is None
+                             else f"Line {line_number} ({label_type})")
+                    try:
+                        stored = (json_data.get('detections', []) if label_type is None
+                                  else detections_of_type(json_data, label_type))
+                        filtered_detections += len(stored) - len(payload['labels'])
+
+                        if max_confidence is not None and not payload['labels']:
+                            # Nothing in the band for this pano: the server already has it as
+                            # "checked", so no POST - but the band's sidecar still marks the
+                            # line handled, or the band could never be recorded as complete.
+                            empty_band_count += 1
+                            if not dry_run:
+                                f_sidecar.write(f"{line_number}\n")
+                                f_sidecar.flush()
+                            continue
+
+                        # Refuse here, before any POST (and in a dry run too, so it shows up
+                        # there first): PS would 400 the whole record for its blob size.
+                        check_source_metadata_size(payload)
+
+                        if dry_run:
+                            print(json.dumps(payload, indent=2))
+                            success_count += 1
+                            continue
+
+                        # Send POST request.
+                        response = send_to_project_sidewalk(payload, endpoint_url, api_key)
+
+                        if response:
+                            success_count += 1
+                            sidecars[label_type].write(f"{line_number}\n")
+                            sidecars[label_type].flush()
+                        else:
+                            error_count += 1
+                            print(f"{where}: Failed to send POST request")
+
+                    except SourceMetadataTooLarge as e:
+                        error_count += 1
+                        print(f"{where}: REFUSED - {e}")
+
+                    except Exception as e:
+                        error_count += 1
+                        print(f"{where}: Unexpected error - {e}")
 
     except IOError as e:
         print(f"Error reading file: {e}")
@@ -1723,17 +2004,24 @@ def process_jsonl_file(
                                 load_submitted_lines(sidecar_path), endpoint_url,
                                 min_confidence, previous_record, position_state,
                                 max_confidence, live_override, decode, decode_override,
-                                border, border_override)
+                                border, border_override,
+                                None if not multi_type else
+                                {t: (load_submitted_lines(path), confidence)
+                                 for t, (_, confidence, path) in type_states.items()},
+                                min_confidence_from if multi_type else None)
         record_written = True
 
     # Print summary.
     print("-" * 50)
     print("Interrupted." if interrupted else "Processing complete!")
-    print(f"Successfully processed:        {success_count} records")
+    unit = "submissions (one per line and type)" if multi_type else "records"
+    print(f"Successfully processed:        {success_count} {unit}")
     print(f"Skipped (already submitted):   {skipped_count} records")
-    print(f"Errors encountered:            {error_count} records")
+    print(f"Errors encountered:            {error_count} {unit}")
     if max_confidence is None:
-        print(f"Detections below --min-confidence {min_confidence} (not submitted): {filtered_detections}")
+        floor = (min_confidence if min_confidence is not None else
+                 ", ".join(f"{t} {c:g}" for t, (_, c, _) in type_states.items()))
+        print(f"Detections below --min-confidence {floor} (not submitted): {filtered_detections}")
     else:
         print(f"Band [{min_confidence}, {max_confidence}): detections outside it (not submitted): "
               f"{filtered_detections}; records with nothing in the band (not POSTed, marked "
@@ -1741,10 +2029,12 @@ def process_jsonl_file(
     if record_written:
         print(f"Submission record:             {record_path.name}")
     if limit_reached:
+        where_recorded = (sidecar_path.name if not multi_type else
+                          ", ".join(path.name for _, _, path in type_states.values()))
         print(f"Stopped at --limit {limit}. "
               + ("Dry run — nothing was recorded, so a re-run starts from this same line."
                  if dry_run else
-                 f"Re-run to continue from here ({sidecar_path.name} records what already landed)."))
+                 f"Re-run to continue from here ({where_recorded} records what already landed)."))
     if interrupted:
         raise SystemExit(130)
 
@@ -1846,11 +2136,13 @@ def main() -> None:
         help="Print transformed payloads instead of POSTing them; no progress is recorded."
     )
     parser.add_argument(
-        "--min-confidence", type=float, default=OPERATIONAL_CONFIDENCE,
-        help="Minimum detection confidence submitted as a label (default: %(default)s, the "
-             "operational threshold). results.jsonl stores candidate peaks down to a lower "
-             "storage floor for multi-view fusion; records whose detections all fall below "
-             "this still submit as 'checked, nothing found'."
+        "--min-confidence", type=float, default=None,
+        help="Minimum detection confidence submitted as a label (default: the label type's "
+             f"operational threshold, {OPERATIONAL_CONFIDENCE} for CurbRamp). results.jsonl "
+             "stores candidate peaks down to a lower storage floor for multi-view fusion; "
+             "records whose detections all fall below this still submit as 'checked, nothing "
+             "found'. On a file holding several label types (issue #168) each type defaults "
+             "to its own threshold, and a value given here applies to every type."
     )
     parser.add_argument(
         "--max-confidence", type=float, default=None,
@@ -1865,7 +2157,8 @@ def main() -> None:
 
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be at least 1.")
-    if args.max_confidence is not None and not args.min_confidence < args.max_confidence:
+    if (args.max_confidence is not None and args.min_confidence is not None
+            and not args.min_confidence < args.max_confidence):
         parser.error(f"--min-confidence {args.min_confidence} must be below --max-confidence "
                      f"{args.max_confidence}.")
 

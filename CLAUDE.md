@@ -1508,6 +1508,34 @@ adding `"total_bytes"` to the record by hand lets the normal guard do the rest (
 In practice that path is unlikely to fire: every record committed so far is Mapillary, and
 gap-fill is GSV-only (`fetch_pano_by_id`).
 
+**Several label types in one file (#168).** PS takes one `labelType` per submission, so a
+file whose lines ran several detectors (`registry.record_types` > 1 anywhere in the file) is
+sent as **one POST per (line, type)**: `transform_record(..., label_type=T)` keeps T's
+detections, names T, carries `models[T]` as the provenance and applies T's spec (operational
+threshold as the default, rig mask only if `DetectorSpec.mask_rig`); `split_record` yields the
+pairs. `transform_record` without a type **raises** on a multi-type line. Progress is one
+**per-type sidecar**, `<file>.type-<T>.submitted` (plain line numbers), never
+`<file>.submitted`; a line with only some types sent is half-sent and resumes with only the
+missing types. The record gains `endpoints[ep].types[T]` = {submitted_lines,
+labels_submitted, min_confidence, rig_masked, timestamps}, the shape of a band entry; the
+endpoint entry then counts lines ANY type was sent for (`submitted_lines`), sums the labels,
+and records the lowest type's `min_confidence` plus `min_confidence_from`: `flag` when an
+explicit `--min-confidence` set every type, `per_type_default` when each type used its own.
+`check_resume_state` holds each type to the single-type checks against its `types[T]` entry,
+and refuses a whole-line sidecar beside a multi-type file or a record whose shape does not
+match the file. `position_check.campaigns_for` yields one campaign per type, so a half-sent
+pano counts as live; `coverage_check` replays per type; `backfill_metadata`'s guard sees
+`.type-*.submitted`; every `models[T]` must be dated. **Bands are refused** on a multi-type
+file (`send_to_ps.py --max-confidence`, `reinfer.py --write-band-file`, and `reinfer.py
+--verify`, which re-runs only CurbRamp): they exist for the legacy CurbRamp cities. A
+single-type file whose lines carry `label_types` (a run of one non-CurbRamp type) is sent
+through the typed transform too, so its payload matches `split_record`. A file whose lines
+ran DIFFERENT type sets is handled (a line counts done once every type it ran is sent) but
+is not produced today: `main.py` binds one type set per run directory. **A single-type
+CurbRamp file is unchanged**: same payloads, same `<file>.submitted` bytes, same record
+bytes, pinned against fixtures captured from main (`tests/test_multitype_submit.py`,
+`tests/fixtures/multitype_submit/`, un-ignored in `.gitignore` by `!tests/fixtures/**`).
+
 ## Output format notes
 
 - The detector emits normalized coordinates; Stage 1 stores them normalized in the JSONL.

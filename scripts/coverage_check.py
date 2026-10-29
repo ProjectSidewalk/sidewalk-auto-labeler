@@ -104,6 +104,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import position_check  # noqa: E402
 import send_to_ps  # noqa: E402
+from detectors.registry import record_types  # noqa: E402
 
 SUBMIT_PATH = '/ai/submitLabelsOnPano'
 API_PANOS = '/adminapi/panos'
@@ -308,14 +309,20 @@ def expected_panos(run_dir, endpoint):
                 if not line.strip() or (c['line_numbers'] is not None and n not in c['line_numbers']):
                     continue
                 record = json.loads(line)
+                # A multi-type file's campaign is one type (issue #168), replayed as that
+                # type alone; a single-type campaign is the line's one type. Either way the
+                # type comes from the detections (registry), never the line-level field,
+                # which is null on a multi-type line.
+                label_type = c.get('label_type')
                 sent = send_to_ps.transform_record(record, c['select_min'], c['select_max'],
-                                                   mask_rig=c['rig_masked'])['labels']
+                                                   mask_rig=c['rig_masked'],
+                                                   label_type=label_type)['labels']
                 if not sent:
                     continue
                 pid = str(record['pano']['panorama_id'])
                 entry = expected[pid]
                 entry['labels'] += len(sent)
-                entry['label_types'].add(record.get('label_type') or 'CurbRamp')
+                entry['label_types'].add(label_type or record_types(record)[0])
                 entry['campaigns'].add(c['campaign'])
                 panos.add(pid)
                 labels += len(sent)

@@ -1,0 +1,17 @@
+{
+  "input_file": "results.jsonl",
+  "sha256": "bb8330efa97c48bdd849df4c26435c5f0c5cabb3aa479b13325bfc8f59e6a3a0",
+  "total_lines": 3,
+  "total_bytes": 3766,
+  "endpoints": {
+    "https://ps.example/ai/submitLabelsOnPano": {
+      "rig_masked": true,
+      "submitted_lines": 3,
+      "labels_submitted": 3,
+      "min_confidence": 0.3,
+      "first_submission_utc": "2026-10-28T12:00:00Z",
+      "last_submission_utc": "2026-10-28T12:00:00Z",
+      "last_run_host": "golden-host"
+    }
+  }
+}
