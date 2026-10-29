@@ -1528,3 +1528,48 @@ gap-fill is GSV-only (`fetch_pano_by_id`).
   Mapillary `license` key is kept as record provenance. GSV is the exception: streetlevel's
   `copyright_message` (`© 2025 Google`) is the provider's own string, stored and shown
   verbatim.
+
+## Multiple label types (#168)
+
+The plumbing for a second detector (crosswalk / NoCurbRamp, Planning#36). **No second
+detector exists yet**; the only spec is CurbRamp.
+
+- **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec(label_type, module, cls,
+  storage_floor, operational_confidence, benchmark_confidence, mask_rig)`, `SPECS`,
+  `spec_for(t)`, `parse_types`, `load_detectors(types, **kw)` (lazy import per spec). The
+  CurbRamp spec references the constants in `detectors/__init__.py`, which keep their names and
+  values; a new type brings its own thresholds (a crosswalk heatmap's floor and operating point
+  are not RampNet's). Wherever a consumer acts on a detection, it reads the thresholds and the
+  rig mask from the spec of THAT detection's type.
+- **Readers go through the helpers**, never the keys: `record_types(rec)` (the detectors that
+  RAN on the pano; `label_types`, else `[label_type or 'CurbRamp']`), `detection_type(rec, d)`
+  (the detection's own `label_type`, else the line's, else CurbRamp, and it RAISES on an
+  untyped detection in a line that ran more than one type), `provenance_for(rec, t)`
+  (`models[t]`, else the line-level `model_*`), `detections_of_type`. Every pre-#168 line reads
+  as CurbRamp.
+- **Writer rule** (`main.build_output_line`): a run whose type set is exactly `{CurbRamp}`
+  writes the pre-#168 line with **no new key** (byte-pinned: `PRE_130_LINE_SHA256` holds
+  through the registry path, `tests/test_multitype_records.py`). Any other set writes
+  per-detection `label_type`; `label_types` (sorted: what ran, so an empty line still says what
+  it was checked for); `models: {T: provenance}`; line-level `label_type` = the type iff one
+  ran, else `null` (never derived from the detections); line-level `model_*` = CurbRamp's when
+  CurbRamp ran, else `label_types[0]`'s. `detection_decode` / `detection_border` at line level
+  describe the CurbRamp detector; any other type's ride in `models[T]`. `API_VERSION` stays
+  `1.0.0`.
+- **`main.py --types CurbRamp`** (comma list; an unknown type is a parser error listing
+  SPECS). `main.detectors` is the loaded `{type: detector}`; `main.curb_ramp_detector` stays the
+  CurbRamp entry, which is what `scripts/reinfer.py` and `scripts/detect_from_store.py` set.
+- **Binding**: the manifest records `label_types` (bound like `detection_decode`: a legacy
+  manifest with records reads `['CurbRamp']` without a rewrite; bound for `--gap-fill-only`,
+  never for `--scan-only`); a mismatch is refused (new `--name`, never a resume). A non-CurbRamp
+  set also binds every type's revision in a `models` map beside the top-level model block, and
+  each run entry gains `models`. `detect_from_store.bind_manifest` binds CurbRamp or refuses.
+- **Consumers**: `fuse_sites.py --label-type` (default CurbRamp; `--floor`/`--min-confidence`
+  default to the spec; a non-CurbRamp fuse writes `sites.<type>.jsonl`; a file that never ran
+  the type is refused), `export_benchmark.py --label-type` (strata at the type's benchmark
+  tier), and `position_check`'s report points read typed detections. `agree_rate`, `eval_sites`,
+  `mined_precision` (through eval_sites' loader) and `provenance_gate` **refuse** a file whose
+  records ran anything but `{CurbRamp}`.
+- **NOT done**: per-type `FuseParams` (#168 item 4), the ranker review-order export (item 5), a
+  second detector, and submission (one POST per line and type in `send_to_ps.py`, per-type
+  sidecars, `coverage_check`) — that is the stacked PR on `multitype-submit-168`.
