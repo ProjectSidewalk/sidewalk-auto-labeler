@@ -1,8 +1,8 @@
 # Draft reply to sidewalk-auto-labeler#161 (for Jon to edit and post; NOT posted)
 
 Written as from the maintainer: no tool mentions, no legal framing. The numbers come from
-the run manifests, the archive index and PR #173's study. Check the one marked [CHECK]
-before posting, and fill in the PR link once it is merged, if you prefer to link a merge.
+the run manifests, the archive index and PR #173's study. The Bayonne dates were resolved from the run records (10 m pass merged 2026-10-04, 5 m
+densify + archive 2026-10-07). Fill in the PR link once it is merged, if you prefer to link a merge.
 
 ---
 
@@ -15,9 +15,9 @@ before running anything at this scale.
 **What we downloaded.** All of it was full-resolution (`hd`) pictures, each with one STAC
 item request, from up to 50 parallel workers and with no rate limit:
 
-- **Bayonne**: about 28,500 HD pictures for a first pass at 10 m spacing, then 50,409 for a
-  denser 5 m pass, and then the same pictures again to build our local archive of the
-  imagery we had processed [CHECK the dates: late September to early October 2026].
+- **Bayonne**: about 28,500 HD pictures for a first pass at 10 m spacing in late September,
+  about 21,900 more on 7 October to densify it to 5 m, and then, the same day, all 50,409
+  again to build our local archive of the imagery we had processed.
 - **Lyon**: 86,942 HD pictures for a first pass at 10 m spacing, another 87,583 on
   7 October to densify it to 5 m, and then, on 8 and 9 October, a full re-download of all
   174,405 pictures (at about 1.3 per second) for the archive. That last pass ran after you
