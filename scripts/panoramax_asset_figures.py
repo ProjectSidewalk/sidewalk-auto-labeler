@@ -65,9 +65,9 @@ def fig_agreement(plt):
     summary = [r for r in _read(DATA / 'summary.csv') if _f(r['tier']) == 0.3]
     rigs = [r for r in _read(DATA / 'per_rig.csv') if _f(r['tier']) == 0.3]
     names = sorted({r['rig'] for r in rigs},
-                   key=lambda n: -int(next(r['panos'] for r in rigs if r['rig'] == n)))
+                   key=lambda n: (-int(next(r['panos'] for r in rigs if r['rig'] == n)), n))
     rows = ['All sampled panos'] + names
-    fig, axes = plt.subplots(1, 2, figsize=(11, 0.42 * len(rows) + 1.6), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 0.42 * len(rows) + 1.8), sharey=True)
     for ax, metric, title in ((axes[0], 'recall', 'Recall of HD detections'),
                               (axes[1], 'precision', 'Precision against HD')):
         for k, arm in enumerate(('sd', 'sd_sim')):
@@ -86,15 +86,18 @@ def fig_agreement(plt):
                             fontsize=7.5, color=INK2, transform=ax.get_yaxis_transform())
         ax.axvline(0.95, color=INK2, ls='--', lw=1)
         ax.axvline(0.90, color=MUTED, ls=':', lw=1)
-        ax.text(0.95, -0.9, 'pooled bar 0.95', fontsize=7.5, color=INK2, ha='right')
-        ax.text(0.90, -0.9, 'rig bar 0.90 ', fontsize=7.5, color=MUTED, ha='right')
+        ax.text(0.952, -0.9, 'pooled\nbar 0.95', fontsize=7, color=INK2, ha='left',
+                va='center')
+        ax.text(0.898, -0.9, 'rig bar\n0.90', fontsize=7, color=MUTED, ha='right',
+                va='center')
         ax.set_title(title)
-        ax.set_xlim(0.6, 1.0)
+        ax.set_xlim(0.4 if metric == 'recall' else 0.6, 1.0)
         ax.set_xlabel('share at confidence >= 0.30 (rig-masked)')
     axes[0].set_yticks(range(len(rows)))
     axes[0].set_yticklabels(rows)
     axes[0].set_ylim(len(rows) - 0.4, -1.2)
-    axes[0].legend(loc='lower left', fontsize=8)
+    fig.legend(*axes[0].get_legend_handles_labels(), loc='lower center', ncol=2, fontsize=8,
+               bbox_to_anchor=(0.5, -0.04))
     fig.suptitle('Detecting on the SD derivative vs the HD original, Lyon sample (seed 161)',
                  x=0.01, ha='left', fontsize=12, fontweight='bold')
     fig.tight_layout()
@@ -202,7 +205,11 @@ def contact_sheet(data, per_kind=6):
                           transform=axes[row][1].transAxes, fontsize=7, color=INK2,
                           va='center')
     fig.suptitle('SD/HD disagreements at 0.30, seeded (161); red cross = the peak',
-                 x=0.01, ha='left', fontsize=11, fontweight='bold')
-    fig.tight_layout()
-    _save(fig, 'contact_sheet_disagreements')
+                 x=0.01, y=0.998, ha='left', fontsize=11, fontweight='bold')
+    fig.tight_layout(rect=(0, 0, 1, 0.99))
+    # PNG only: an SVG would embed the crops twice over for no gain.
+    OUT.mkdir(parents=True, exist_ok=True)
+    fig.savefig(OUT / 'contact_sheet_disagreements.png', dpi=150, bbox_inches='tight',
+                metadata={'Software': None})
+    print(f'wrote {OUT / "contact_sheet_disagreements.png"}')
     plt.close(fig)

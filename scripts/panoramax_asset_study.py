@@ -447,7 +447,7 @@ def cmd_run(args):
     with open(out_path, 'a', encoding='utf-8', newline='\n') as out:
         for r in rows:
             pid = r['panorama_id']
-            for arm in ARMS:
+            for arm in args.arms:
                 if (pid, arm) in done:
                     continue
                 src = data / ('sd' if arm == 'sd' else 'hd') / f'{pid}.jpg'
@@ -643,6 +643,9 @@ def main(argv=None):
     for name in ('fetch-sd', 'run', 'score', 'contact-sheet'):
         s = sub.add_parser(name)
         s.add_argument('--data', required=True)
+        if name == 'run':
+            s.add_argument('--arms', nargs='+', choices=ARMS, default=list(ARMS),
+                           help='arms to run this pass (resumable; default all)')
     sub.add_parser('figures')
     args = ap.parse_args(argv)
     if args.cmd == 'figures':
