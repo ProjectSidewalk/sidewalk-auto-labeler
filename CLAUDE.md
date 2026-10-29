@@ -1028,7 +1028,8 @@ Panoramax (HTTP 404; ...)`) so a run log can count them.
   `runs/_summary/panoramax_asset/search_check.csv`); an id the search leaves out falls back
   to the per-id GET, never read as gone. `MAX_PROCESSING_CONCURRENCY = 4` caps the pool.
   **The arithmetic:** at 1 picture/s a Lyon-size run (174k panos) is ~48 h of downloads and
-  Bayonne (50k) ~14 h; `--scan-only`'s estimate uses that floor. `--panoramax-asset
+  Bayonne (50k) ~14 h; `--scan-only` prints that download floor beside its usual 1.5 s/pano
+  pipeline estimate (Lyon ~73 h), and the run is bounded by the larger. `--panoramax-asset
   {hd,sd}` picks the downloaded asset. The default stays `hd` by
   docs/panoramax-asset-study.md's pre-registered rule: on 600 Lyon panos SD kept only 0.629
   of HD's 0.30 detections (precision 0.847 vs HD; bar 0.95 each; every rig failed), mostly

@@ -163,6 +163,22 @@ def main():
     fig_confidence(plt)
 
 
+def _window(img, cx, cy, r):
+    """A (2r x 2r) crop centred on (cx, cy) that keeps the peak at the centre: wrapped
+    across the 360-degree seam horizontally, padded with grey past the top/bottom edge."""
+    from PIL import Image
+    w, h = img.size
+    side = int(round(2 * r))
+    x0, y0 = int(round(cx - r)), int(round(cy - r))
+    out = Image.new('RGB', (side, side), (128, 128, 128))
+    for shift in (-w, 0, w):                       # the image and its two seam neighbours
+        left, right = max(0, x0 - shift), min(w, x0 - shift + side)
+        top, bottom = max(0, y0), min(h, y0 + side)
+        if left < right and top < bottom:
+            out.paste(img.crop((left, top, right, bottom)), (left + shift - x0, top - y0))
+    return out
+
+
 def contact_sheet(data, per_kind=6):
     """A seeded sheet of disagreements at 0.30: HD peaks SD misses (no SD peak >= 0.1
     within the radius) and SD peaks HD has nothing near, `per_kind` of each drawn with
@@ -185,10 +201,7 @@ def contact_sheet(data, per_kind=6):
         for col, arm in enumerate(('hd', 'sd')):
             img = Image.open(data / arm / f'{pid}.jpg').convert('RGB')
             w, h = img.size
-            cx, cy, r = x * w, y * h, half * w
-            crop = img.crop((int(cx - r), int(cy - r), int(cx + r), int(cy + r))) \
-                if r <= cx <= w - r else img.crop((max(0, int(cx - r)), int(cy - r),
-                                                   min(w, int(cx + r)), int(cy + r)))
+            crop = _window(img, x * w, y * h, half * w)
             ax = axes[row][col]
             ax.imshow(crop)
             ax.plot(crop.size[0] / 2, crop.size[1] / 2, marker='+', ms=14, mew=1.5,

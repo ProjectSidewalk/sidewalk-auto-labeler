@@ -138,16 +138,17 @@ PS pano store and the native-res archive all read HD whichever asset detection u
 clause 2 on recall (GoPro Max and the Ladybug on precision too). `--panoramax-asset` keeps
 `hd` as its default; `sd` stays available, bound per run.
 
-**What SD would cost.** Run on SD at 0.30, a Lyon-like city would miss about 37% of the labels
-HD ships (878 SD peaks against 1,182 HD peaks here), and about 15% of what it did ship would
-be labels HD does not make;
+**What SD would cost.** Run on SD at 0.30, a Lyon-like city would miss about 37% of the
+labels HD ships (744 of HD's 1,182 peaks matched), and it would ship 26% fewer labels in all
+(878 against 1,182), about 15% of which are labels HD does not make (878 - 744 = 134);
 lowering the threshold to win recall back trades it against precision on an image the model
 was not trained on. What it would save: 18x the bytes per picture on Panoramax's side.
 Recovering SD would need a model trained or fine-tuned at that resolution, which is a
 RampNet question, not a labeler one.
 
-**What the politeness changes buy instead.** At HD, pacing is the lever: 1 picture/s (1.71
-s/picture end to end in this study's SD fetch: 600 pictures, 0 errors, 0 pauses), one
+**What the politeness changes buy instead.** At HD, pacing is the lever: 1 picture/s (about
+1.7 s/picture end to end in this study's SD fetch: 600 pictures, 0 errors, 0 pauses;
+`fetch_meta.json`), one
 `/search` request per 100 pictures (6 metadata requests for the 600), and 4 workers instead
 of 50.
 
@@ -165,7 +166,8 @@ and its one-to-one SD partner (any SD peak >= 0.1); the diagonal is equal confid
 `figures/panoramax-asset/contact_sheet_disagreements.png` shows 6 HD-only and 6 SD-only
 peaks drawn with seed 161, each as an HD crop beside the SD crop of the same window,
 captioned with its producer and licence (Etalab-2.0 for Grand Lyon / IGN pictures, CC BY-SA
-4.0 otherwise), via Panoramax.
+4.0 otherwise), via Panoramax. Each window is +-6 degrees around the peak, wrapped across
+the seam and padded grey past the top or bottom, so the cross is always on the peak.
 
 ## 3. Replication
 
@@ -196,11 +198,13 @@ Seed 161 (sample, bootstrap, contact sheet). Model `rampnet-model@606a11956743`,
 `606a11956743f7eb328d9207769034752f6191f4`, argmax decode, `exclude` border, batch size 1.
 Python 3.12.13, torch 2.8.0+cu126, transformers 5.12.1, Pillow 12.3.0, matplotlib 3.11.2.
 Host: Windows 11 desktop, NVIDIA RTX 3070 (8 GB; peak 4,288 MiB allocated). Runtime: SD fetch
-1,037 s (600 pictures, 1.71 s each); `run` 1,711 s for hd + sd_sim (1,200 forwards) and 615 s
+1,037 s for the whole command (600 pictures, ~1.7 s each; `fetch_meta.json`); `run` 1,711 s for hd + sd_sim (1,200 forwards) and 615 s
 for sd (600), ~0.95 s per forward plus decode; `score` and `figures` take seconds.
 `figures` is byte-reproducible from the committed `summary.csv`, `per_rig.csv` and
 `detections.jsonl` (checked by running it twice). `score` reads `<data>`'s
-`detections.jsonl` (identical to the committed one) and `stored.jsonl`.
+`detections.jsonl` and `stored.jsonl`; the committed `detections.jsonl` holds the same
+detections and native sizes (content-identical) but drops the local copy's `forward_s`
+timing column, so the two files are not byte-identical.
 
 ## 4. Where each number lives
 
@@ -221,4 +225,5 @@ All under `runs/_summary/panoramax_asset/` unless noted.
 | /search vs /pictures equivalence | `search_check.csv` | `identical_block` |
 | sample strata and pools | `sample.csv`, `sample_meta.json` | `rig`, `stratum`; `pools`, `drawn` |
 | GPU, timings, peak memory | `run_meta_pass1.json` (hd, sd_sim), `run_meta_pass2.json` (sd) | |
+| SD fetch pacing and request counts | `fetch_meta.json` | `s_per_picture`, `panoramax_requests` |
 | 1,041 / 298 / 141 (figure 2's annotation) | recomputed from `detections.jsonl` by `figures` | |

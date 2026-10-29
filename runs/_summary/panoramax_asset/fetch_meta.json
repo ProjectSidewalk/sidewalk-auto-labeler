@@ -1,0 +1,30 @@
+{
+  "asset_fallbacks": 0,
+  "note": "reconstructed from the fetch-sd pass stdout of 2026-10-28 (the pass predates fetch-sd writing this file)",
+  "panoramax_asset": "hd",
+  "panoramax_rate_limits": {
+    "metadata": 1.0,
+    "picture": 1.0,
+    "tile": 5.0
+  },
+  "panoramax_requests": {
+    "metadata": {
+      "pauses": 0,
+      "per_second": 1.0,
+      "requests": 6,
+      "waited_s": 0.0
+    },
+    "picture": {
+      "pauses": 0,
+      "per_second": 1.0,
+      "requests": 600,
+      "waited_s": 0.2
+    }
+  },
+  "pictures_this_pass": 600,
+  "s_per_picture": 1.71,
+  "statuses": {
+    "ok": 600
+  },
+  "wall_s_command": 1037.4
+}

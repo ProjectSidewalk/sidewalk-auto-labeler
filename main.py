@@ -764,6 +764,7 @@ def bind_source_settings(manifest, source, run_dir):
     if hook is None:
         return False
     legacy = getattr(source, 'LEGACY_MANIFEST_BINDINGS', {})
+    flags = getattr(source, 'MANIFEST_BINDING_FLAGS', {})
     results = run_dir / 'results.jsonl'
     has_records = results.exists() and results.stat().st_size > 0
     changed = False
@@ -777,10 +778,12 @@ def bind_source_settings(manifest, source, run_dir):
                 changed = True
                 continue
         if bound != value:
+            hint = (f"pass {flags[key]} {bound} for this run" if key in flags
+                    else "pass the run's own setting")
             sys.exit(
                 f"❌ Run '{run_dir.name}' was made with {key} '{bound}', not '{value}'.\n"
                 f"   Appending would mix two kinds of record in one results.jsonl (issue #161).\n"
-                f"   Use a new --name for this setting (never a resume), or pass the run's own."
+                f"   Use a new --name for this setting (never a resume), or {hint}."
             )
     return changed
 
@@ -1148,8 +1151,10 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
         print(f"Scan only — no panoramas processed, nothing recorded in the manifest; "
               f"the scan is saved to {scan_cache_file} for a later --reuse-scan.")
         print(f"Estimated full-run time: ~{est_hours:.1f} h at {per_pano:g} s/pano "
-              + ("(the source's download pacing sets the rate)." if floor > 1.5 else
-                 "(single GPU; measure your machine's rate on a smoke run first)."))
+              f"(single GPU; measure your machine's rate on a smoke run first).")
+        if floor:
+            print(f"Download floor alone: ~{len(panos_to_process_ids) * floor / 3600:.1f} h at "
+                  f"{floor:g} s/pano (the source's pacing; the run can never beat it).")
         return
 
     # 4. Process new panoramas
@@ -1157,7 +1162,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
 
     if not panos_to_process_ids:
         print("🎉 No new panoramas to process.")
-        scan_record.update(source_run_record(source))   # #161
+        scan_record.update(source_run_record(source),   # #161
+                           processing_concurrency=PROCESSING_CONCURRENCY)
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), 0, 0, 0,
                    scan=scan_record, provenance=provenance, thinning=thinning_record)
     else:
@@ -1186,7 +1192,8 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
                         fail_count += 1
                     pbar.update(1)
 
-        scan_record.update(source_run_record(source))   # #161
+        scan_record.update(source_run_record(source),   # #161
+                           processing_concurrency=PROCESSING_CONCURRENCY)
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), success_count, skip_count, fail_count,
                    scan=scan_record, provenance=provenance, thinning=thinning_record)
 

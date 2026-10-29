@@ -150,16 +150,6 @@ def compare_pano(hd, arm, tier):
             'deltas': deltas, 'classes': classes}
 
 
-def wilson(k, n, z=1.96):
-    if n == 0:
-        return (float('nan'), float('nan'))
-    p = k / n
-    den = 1 + z * z / n
-    centre = (p + z * z / (2 * n)) / den
-    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / den
-    return (max(0.0, centre - half), min(1.0, centre + half))
-
-
 def ratio(num, den):
     return num / den if den else float('nan')
 
@@ -411,7 +401,15 @@ def cmd_fetch_sd(args):
               ['panorama_id', 'status', 'sd_url', 'bytes', 'sha256', 'sd_width', 'sd_height',
                'live_sensor'])
     print(Counter(r['status'].split(':')[0] for r in done.values()))
-    print(json.dumps(panoramax.run_record(), indent=1))
+    record = panoramax.run_record()
+    print(json.dumps(record, indent=1))
+    # Committed: the measured pacing of this pass (the "1.71 s/picture" in the doc).
+    wall = time.time() - t0
+    (OUT / 'fetch_meta.json').write_text(json.dumps(
+        {'pictures_this_pass': len(todo), 'wall_s_downloads': round(wall, 1),
+         's_per_picture': round(wall / len(todo), 3) if todo else None,
+         'statuses': dict(Counter(r['status'].split(':')[0] for r in done.values())),
+         **record}, indent=2, sort_keys=True) + '\n', encoding='utf-8', newline='\n')
 
 
 # ============================================================================ run

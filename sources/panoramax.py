@@ -112,6 +112,7 @@ IMAGE_ASSETS = ('hd', 'sd')
 IMAGE_ASSET = 'hd'
 MANIFEST_ASSET_KEY = 'panoramax_asset'
 LEGACY_MANIFEST_BINDINGS = {MANIFEST_ASSET_KEY: 'hd'}
+MANIFEST_BINDING_FLAGS = {MANIFEST_ASSET_KEY: '--panoramax-asset'}   # named in a refusal
 
 # The catalog answers 404 for a picture id it doesn't know (deleted by its uploader, an
 # instance that left the federation, or never valid) — verified live for both a
@@ -158,13 +159,27 @@ def prepare():
     answer a STAC Catalog here).
     """
     root = api_url()
-    try:
-        response = _get(root, 'metadata', timeout=30)
-        response.raise_for_status()
-        catalog = response.json()
-    except Exception as e:
+    catalog, error, overloaded = None, None, False
+    for attempt in range(ATTEMPTS):
+        try:
+            response = _get(root, 'metadata', timeout=30)   # waits out any 429/503 pause
+            overloaded = getattr(response, 'status_code', None) in OVERLOAD_STATUSES
+            response.raise_for_status()
+            catalog = response.json()
+            break
+        except Exception as e:
+            error = e
+            if attempt < ATTEMPTS - 1:
+                time.sleep(2 * (attempt + 1) + random.uniform(0, 1))
+    if catalog is None and overloaded:
+        # The root is right; the server asked us to back off. Not a configuration error.
         raise SystemExit(
-            f"\u274c Panoramax API root {root} is not reachable ({e}).\n"
+            f"\u274c Panoramax catalog {root} is overloaded (HTTP 429/503 on every attempt).\n"
+            f"   Retry later; nothing was scanned or fetched."
+        )
+    if catalog is None:
+        raise SystemExit(
+            f"\u274c Panoramax API root {root} is not reachable ({error}).\n"
             f"   Check {API_URL_ENV_VAR}, or unset it to use the federation catalog\n"
             f"   ({DEFAULT_API_URL})."
         )
@@ -356,7 +371,7 @@ def fetch_pano(pano_id, lat, lon):
         return {'status': 'skipped',
                 'reason': f'Not a full 360x180 equirectangular ({declared[0]}x{declared[1]})'}
 
-    asset = 'hd'
+    asset, fell_back = 'hd', False
     if IMAGE_ASSET == 'sd':
         sd_url = image_url(item, asset='sd')
         if sd_url and declared and len(declared) == 2:
@@ -371,7 +386,7 @@ def fetch_pano(pano_id, lat, lon):
                                                   int(declared[1]),
                                                   image_info=_image_info('sd', sd_url, size)),
                         'image': image}
-        _count_fallback()   # no usable SD for this picture: read it in HD
+        fell_back = True    # no usable SD for this picture: read it in HD (counted below)
 
     downloaded, undecodable, detail = _download_image(url)
     if undecodable:
@@ -387,6 +402,8 @@ def fetch_pano(pano_id, lat, lon):
                 'reason': f'Not a full 360x180 equirectangular ({width}x{height})'}
 
     image_info = None if IMAGE_ASSET == 'hd' else _image_info(asset, url, (width, height))
+    if fell_back:
+        _count_fallback()   # once per pano written, not per attempt
     return {'status': 'success',
             'pano': build_pano_record(pano_id, lat, lon, item, width, height,
                                       image_info=image_info),
@@ -495,7 +512,7 @@ def _hinted_item(picture_id):
             return None
         chunk = [picture_id]
         requested.add(picture_id)
-        cursor = _HINT['cursor']
+        cursor = start = _HINT['cursor']
         while cursor < len(ids) and len(chunk) < SEARCH_CHUNK:
             pid = ids[cursor]
             cursor += 1
@@ -504,6 +521,12 @@ def _hinted_item(picture_id):
                 requested.add(pid)
         _HINT['cursor'] = cursor
         found = fetch_items(chunk)
+        if found is None:
+            # The request failed: nothing was learned about the followers, so let a later
+            # miss batch them again (this one goes to the per-id GET).
+            requested.difference_update(chunk[1:])
+            _HINT['cursor'] = start
+            return None
         if not found:
             return None
         for pid in chunk[1:]:

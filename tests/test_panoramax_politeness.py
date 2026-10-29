@@ -502,3 +502,73 @@ def test_study_bootstrap_is_seeded_and_brackets_the_estimate():
     rows = [{"m": i % 3, "n": 3} for i in range(30)]
     lo, hi = study.bootstrap_ci(rows, "m", "n")
     assert lo <= 1 / 3 <= hi and (lo, hi) == study.bootstrap_ci(rows, "m", "n")
+
+
+# --- review of PR #173 ----------------------------------------------------------------
+
+def test_prepare_says_overloaded_not_misconfigured_on_429(monkeypatch):
+    clock = FakeClock()
+    lims = _limited(monkeypatch, clock)
+    monkeypatch.setattr(panoramax.time, "sleep", lambda s: None)
+    monkeypatch.setattr(panoramax.requests, "get", lambda url, **kw: _resp(
+        429, headers={"Retry-After": "7"}))
+    with pytest.raises(SystemExit) as e:
+        panoramax.prepare()
+    assert "overloaded" in str(e.value) and "PANORAMAX_API_URL" not in str(e.value)
+    assert lims["metadata"].pauses == panoramax.ATTEMPTS        # every attempt waited
+    answers = [_resp(503), _resp(200, payload={"stac_version": "1.0.0"})]
+    monkeypatch.setattr(panoramax.requests, "get", lambda url, **kw: answers.pop(0))
+    panoramax.prepare()                                          # a retry gets through
+
+
+def test_a_failed_search_lets_a_later_miss_rebatch_the_followers(monkeypatch):
+    monkeypatch.setattr(panoramax, "SEARCH_CHUNK", 3)
+    log = _search_server(monkeypatch, fail_search=True)
+    panoramax.queue_hint(["a", "b", "c"])
+    panoramax.fetch_item("a")                                   # search fails -> per-id
+    monkeypatch.setattr(panoramax, "fetch_items", lambda ids: log.append(("batch", ids)) or {
+        i: dict(make_item(), id=i) for i in ids})
+    assert panoramax.fetch_item("b")[0]["id"] == "b"
+    assert log[-1] == ("batch", ["b", "c"])                     # b, c were un-marked
+
+
+def test_refusal_names_the_flag(tmp_path, monkeypatch):
+    monkeypatch.setattr(panoramax, "IMAGE_ASSET", "sd")
+    with pytest.raises(SystemExit) as e:
+        main.bind_source_settings({"panoramax_asset": "hd"}, panoramax, _run_dir(tmp_path))
+    assert "pass --panoramax-asset hd for this run" in str(e.value)
+
+
+def test_fallback_counts_once_per_pano_written(monkeypatch):
+    monkeypatch.setattr(panoramax, "IMAGE_ASSET", "sd")
+    _patch_downloads(monkeypatch, {"sd.jpg": (None, False, "Image asset HTTP 404"),
+                                   "b7f9.jpg": (None, False, "reset")})
+    assert panoramax.fetch_pano("pid", 43.49, -1.47)["status"] == "failure"
+    assert panoramax.run_record()["asset_fallbacks"] == 0       # HD failed: nothing written
+
+
+def test_bayonne_figures_download_through_the_limiter(monkeypatch):
+    import io
+    import panoramax_bayonne_figures as bf
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 2)).save(buf, "JPEG")
+    kinds = []
+    real = panoramax.limiter
+    monkeypatch.setattr(panoramax, "limiter", lambda kind: kinds.append(kind) or real(kind))
+    monkeypatch.setattr(panoramax.requests, "get", lambda url, **kw: _resp(
+        200, content=buf.getvalue()))
+    assert bf._fetch_image("https://x/hd.jpg").size == (4, 2)
+    assert kinds == ["picture"]
+
+
+def test_contact_sheet_window_keeps_the_peak_centred():
+    from PIL import Image
+    import panoramax_asset_figures as figs
+    img = Image.new("RGB", (100, 50), (255, 0, 0))
+    img.paste((0, 0, 255), (0, 0, 10, 50))                     # blue strip at the left edge
+    win = figs._window(img, 98, 2, 6)                           # straddles seam and top
+    assert win.size == (12, 12)
+    assert win.getpixel((11, 6)) == (0, 0, 255)                 # wrapped from x = 4
+    assert win.getpixel((2, 6)) == (255, 0, 0)
+    assert win.getpixel((6, 0)) == (128, 128, 128)              # padded above the top
