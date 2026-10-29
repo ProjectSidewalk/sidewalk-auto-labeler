@@ -9,9 +9,8 @@ Timing against the issue (opened 2026-10-07 14:52Z = 07:52 PT), from memory note
 running at 12:13 PT and finished 19:13Z; the Lyon densify (Hyak job 41504145) had an ETA of
 ~22:30Z and its results.jsonl landed on the file server at 00:18Z on 8 Oct, when the Lyon
 archive started. So parts of both 7 October pulls ran after the issue was opened, and the
-draft now concedes that. [CHECK] The 7 Oct notes call the Bayonne archive "of 21,885
-panos" and later "50,409/50,409 verified": if only the 21,885 new pictures were downloaded
-(the 10 m ones already archived), say "the 21,900 new pictures" instead of "all 50,409".
+draft now concedes that. Resolved: the archive step is resumable and the 10 m set had already been archived, so the
+7 Oct archive pass fetched only the ~21,900 new pictures; the bullet says so.
 
 ---
 
@@ -25,8 +24,8 @@ before running anything at this scale.
 item request, from up to 50 parallel workers and with no rate limit:
 
 - **Bayonne**: about 28,500 HD pictures for a first pass at 10 m spacing in late September,
-  about 21,900 more on 7 October to densify it to 5 m, and then, the same day, all 50,409
-  again to build our local archive of the imagery we had processed.
+  those again in early October for a local archive of what we had processed, about 21,900 more
+  on 7 October to densify it to 5 m, and those 21,900 again the same day for the archive.
 - **Lyon**: about 87,000 HD pictures for a first pass at 10 m spacing, about 87,500 more
   on 7 October to densify it to 5 m (174,405 in all), and then, on 8 and 9 October, a
   full re-download of all 174,405 pictures (at about 1.3 per second) for the archive.

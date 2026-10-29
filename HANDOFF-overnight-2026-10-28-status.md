@@ -2,7 +2,7 @@
 
 Written by Fable 5.1 (claude-fable-5-1), session sidewalk-auto-labeler-de. Plan:
 `PLAN-overnight-2026-10-28.md` (same branch). Nothing was merged, no issue was commented on,
-no Project Sidewalk server was written to. Four PRs are open; all CI green unless noted below.
+no Project Sidewalk server was written to. Four PRs are open; CI green on all four as of 2026-10-29 ~00:30 PT. A trial merge of #173 + #170 + #171 had no conflicts and passed the suite (1,338 tests).
 
 ## PRs, in suggested merge order
 
@@ -15,18 +15,18 @@ no Project Sidewalk server was written to. Four PRs are open; all CI green unles
    manifest (old runs = hd), archive step through the limiter and always HD, study + doc.
    **Study: HD stays the default.** 600 Lyon panos, pre-registered rule: SD reproduces 0.629
    [0.597, 0.661] of HD's 0.30-tier detections (precision 0.847); every rig with ≥ 30 panos
-   fails. SD is 18x lighter. Review: see the PR's Review section.
+   fails. SD is 18x lighter. Review (Opus 5.5): no blockers, all study numbers replicated independently, fixes applied (head 840f5e1).
 3. **#170** `multitype-records-168` → main (#168 items 1, 3, 6). Registry, `--types`,
-   `label_types` binding, writer rule; CurbRamp-only runs byte-identical (hash pin).
+   `label_types` binding, writer rule; CurbRamp-only runs byte-identical (hash pin). Review: no blockers, fixes applied (head b6bc182).
 4. **#171** `multitype-submit-168` → `multitype-records-168` (#168 item 2, stacked). One POST
    per (line, type), per-type sidecars `<file>.type-<T>.submitted`, record `types[T]`;
-   single-type files byte-identical (golden fixtures captured from main before the change).
+   single-type files byte-identical (golden fixtures captured from main before the change). Review found the fixtures were gitignored (CI red); fixed, head 36cd3cd, green.
    Merge after #170 (retarget to main first if you merge #170 with branch deletion).
 
 ## Your decisions
 
 - **Post the #161 reply.** `DRAFT-161-reply.md` (this branch) is written as you, numbers
-  from the run records and the study; no tool mentions. It is three weeks overdue.
+  from the run records and the study; no tool mentions. It is three weeks overdue. All [CHECK]s are resolved; the one judgement call left in it is wording.
 - The sd/hd default is settled by the pre-registered rule (hd); nothing to decide unless you
   disagree with the rule.
 - #168 items 4–5 (per-type FuseParams, ranker review-order export) are deliberately not
