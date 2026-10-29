@@ -256,3 +256,138 @@ check of every number in A's study doc against its CSVs. Findings go to the impl
 - Merge order: A is independent; B then C (stacked).
 - Whether #168 items 4–5 (per-type FuseParams, ranker review-order export) are wanted
   before a second detector exists.
+
+
+---
+
+# Amendments after the adversarial review (Opus 5.5, 2026-10-28 ~22:00 PT)
+
+**These override anything above that conflicts.** The reviewer read `origin/main` (4993105);
+the main checkout `D:\Git\sidewalk-auto-labeler` is 188 commits behind it, so every
+implementer reads and edits code ONLY in its own worktree (created from origin/main), never
+the main checkout.
+
+## Everyone
+
+- Merge order A -> B -> C. New tests go in NEW files (`tests/test_panoramax_politeness.py`,
+  `tests/test_multitype_records.py`, `tests/test_multitype_submit.py`), not into
+  `test_main_units.py` / `test_send_to_ps.py`.
+- CLAUDE.md anchors so hunks never touch: A appends under the `- **panoramax**:` source
+  bullet; B adds a new block right after the "Output format notes" section; C adds under
+  "Stage 2 - submission".
+- `main.py` is shared by A and B. **A's main.py footprint is generic source hooks only:**
+  (a) `--panoramax-asset` handled in `main()` beside the Mapillary `POSITION_FIELD` block;
+  (b) `hint = getattr(source, 'queue_hint', None)` called once before the processing pool;
+  (c) `PROCESSING_CONCURRENCY = min(flag, getattr(source, 'MAX_PROCESSING_CONCURRENCY', flag))`
+  in `main()` so gap fill inherits it; (d) one generic `source.manifest_bindings()` ->
+  `{'panoramax_asset': 'sd'}` checked by one helper called at the END of
+  `load_or_init_run_dir` (bind like `bind_decode`: a legacy manifest that already holds
+  records is known to be `hd`; written for Panoramax manifests only); (e) one
+  `source.run_record()` dict merged into the run entry (rate limits, `asset_fallbacks`).
+  B owns everything detector-side in main.py (`_process`, `build_output_line`, detector
+  loading, `report_detector`, the types binding).
+
+## A (#161)
+
+- **Frame under `sd`:** `pano.width/height` = `sensor_array_dimensions` when present and
+  2:1; otherwise **download HD for that pano** and count it in `asset_fallbacks`. Never
+  record SD dimensions: PS's viewer (PanoramaxViewer.js:533-542) and the PS pano store
+  (pano-tools saves HD; CropRunner skips labels whose stored width differs from the JPEG's)
+  both live in the HD/sensor frame, and in this repo `agree_rate`, `reinfer.PANO_INVARIANTS`
+  and `detect_from_store` assume it. Under `hd` write **no new keys** (absent = hd, like
+  `detection_decode`), so resumed Lyon/Bayonne lines keep their shape. Under `sd`,
+  `source_metadata` gains `image_asset`, `image_url`, `image_dimensions_downloaded`.
+- `export_benchmark.fetch_native` passes `asset='hd'` explicitly (test it): the native
+  archive must never silently become SD. `scripts/reinfer.py` sets `source.IMAGE_ASSET`
+  from `manifest['panoramax_asset']` (default hd), as it does Mapillary's `POSITION_FIELD`.
+- **Cache, simplest correct form:** `queue_hint(ids)` stores the list + a cursor. `fetch_item`
+  takes ONE lock; on a miss it fetches that id plus the next <= 99 hinted, not-yet-cached ids
+  from the cursor in one `/search` call (`limit=len(chunk)`, always), advances the cursor;
+  pop on use; <= 4 chunks cached. No hint -> per-id GET (today). An id ABSENT from a search
+  result falls back to the per-id GET (never read absence as gone). Live check on ~20 ids
+  that `build_pano_record(search_item)` == `build_pano_record(pictures_item)` (minus volatile
+  keys); record the result in the PR; if they differ, normalize or do not batch.
+- **Limiter:** injectable clock/sleep; 429/503 pauses the whole KIND for
+  `min(Retry-After, 300)` s (every thread waits, not one); exhaustion is a retryable failure;
+  tiles and `prepare()` get the same handling. Per process (a makelab2 study + a local run
+  = 2/s combined; say so in CLAUDE.md). An autouse fixture in `tests/conftest.py` sets the
+  Panoramax limiters to unlimited so the 31 existing tests do not sleep. Keep
+  `fetch_item(picture_id)` and `_download_image(url)` callable with today's arguments (asset
+  as a keyword with a default) and keep calling `requests.get` so existing monkeypatches hit.
+- Arithmetic in CLAUDE.md and in `--scan-only`'s estimate: 1 picture/s means Lyon-size (174k)
+  is ~48 h of downloads, Bayonne ~14 h. `MAX_PROCESSING_CONCURRENCY = 4`.
+- **Study inputs:** the archive `index.csv` has NO rig and NO dimensions; rigs and HD dims
+  come from the archive dir's `results.jsonl` (verify it is the 5 m file: sha256 begins
+  `60e688b2`; if not, say so and use what is there, reporting its sha). Sample
+  ~500 detection-bearing (HD >= 0.30) + ~100 empty panos, seed 161, stratified by rig within
+  each. SD fetch ~600 requests at 1/s ~10 min. **Sanity gate:** the `hd` arm on archive
+  bytes must reproduce the stored detections (same revision/decode/border) or the pipeline
+  under test is not production's: stop and report if it does not.
+- **Metrics:** strict (both >= 0.30) AND lenient (HD >= 0.30 matched by SD >= storage floor
+  0.1) recall-of-HD; precision-vs-HD; matched confidence delta; instead of median px,
+  the share of matches in the same 8-px coarse cell / at 7-8 px / beyond (the heatmap is a
+  stride-8 grid; radius 0.022 is ~22.5 px, ~3 cells). `sd_sim` stays exploratory, outside
+  the rule. If `../RampNet/benchmark/lyon` holds verdicts, add an exploratory SD-vs-GT arm.
+- **Rule (final):** pooled strict recall-of-HD AND precision-vs-HD at 0.30 >= 0.95 (lower
+  95% bound reported), and a rig with >= 30 sampled panos fails only if its 95% UPPER bound
+  on either is < 0.90. Commit the pre-registration into `docs/panoramax-asset-study.md` on
+  the branch BEFORE the first scoring run (the repo's convention; this plan file does not
+  count).
+- **Doc conventions** (memory `replicable-reports-and-figures.md`): Key takeaways box;
+  Replication section (commands, sha256 of every input, seed, model id + revision, package
+  versions, host/GPU, runtime); where-each-number-lives table; a `figures` subcommand that
+  is byte-reproducible from the committed CSVs (no GPU/network; load the `dataviz` skill
+  before drawing); one seeded contact sheet of SD/HD disagreements with CC BY-SA attribution
+  on the crops. The matcher and the rule get torch-free tests.
+- **makelab2:** push the branch first; worktree there as described above; run the study
+  **detached in tmux** (`tmux new-session -d -s pmx161 ...`) and poll through the live
+  master at multi-minute intervals (a foreground `run` longer than `-TimeoutSec` returns 124
+  and would force a self-inflicted STOP); `--batch-size 1`; read the archive and its
+  `results.jsonl` in place, read-only, never write under
+  `/projects/makeabilitylab/sidewalk-auto-labeler`; `get` the outputs back and commit from
+  Windows. If any `ls` on `/homes` or `/projects` hangs: stop, report.
+
+## Contract (B and C)
+
+- Line-level `label_type` = the type iff `len(label_types) == 1`, else `null`. Never derived
+  from the detections on the line.
+- Line-level `model_*` = CurbRamp's provenance when CurbRamp is among the types, else
+  `label_types[0]`'s. `detection_decode` / `detection_border` (merged since the plan was
+  drafted; `bind_decode` / `bind_border` in main.py) describe the CurbRamp detector; another
+  type's decode/border go inside `models[T]`.
+- `detection_type` RAISES on an untyped detection in a multi-type line (never falls through
+  to CurbRamp there). `transform_record` without `label_type=` RAISES on a multi-type line.
+
+## B (#168 records)
+
+- First commit, pushed within ~30 min: `detectors/registry.py` + its tests. C waits for it.
+- Bind `label_types` with `bind_decode`'s pattern (legacy = `['CurbRamp']`, bound without a
+  manifest rewrite); bound for `--gap-fill-only` too (it writes records); `None` only for
+  `--scan-only`. Bind EVERY type's revision (`models` map in the manifest).
+  `scripts/detect_from_store.bind_manifest` binds types or refuses non-CurbRamp.
+- Golden test: extend the existing byte pin `PRE_130_LINE_SHA256` in `tests/test_border.py`
+  (it hashes `json.dumps(main.build_output_line(...))`): the same hash must hold through the
+  registry path; plus a `fuse_sites.load_results` equivalence on a fixture (legacy line vs the
+  same line through the helpers -> identical). `runs/bayonne/results.jsonl` is gitignored and
+  absent in CI, so it cannot be the golden source.
+- Consumers trimmed: only `fuse_sites` (`--label-type`), `export_benchmark` (`--label-type`)
+  and `position_check` (counts) iterate typed detections. `agree_rate`, `mined_precision`,
+  `eval_sites`, `provenance_gate` get a one-line refusal of a file whose `record_types` is
+  not `{CurbRamp}`. `coverage_check` moves to C.
+
+## C (#168 submission)
+
+- Start after B's registry commit is on `origin/multitype-records-168`; base the worktree on it.
+- **Per-type sidecars, not `N:Type` lines:** `<file>.submitted` for single-type files (today's
+  bytes), `<file>.type-<T>.submitted` (plain ints) per type for multi-type files; the record
+  gets `endpoints[ep].types[T] = {submitted_lines, labels_submitted, min_confidence,
+  rig_masked}`, mirroring `bands`. Reason: `position_check._read_sidecar` (int parsing, reached
+  by `campaigns_for` -> `live_positions` -> `send_to_ps.check_live_positions`, `reposition`,
+  `coverage_check`) would raise on `N:Type`; and a half-sent line must still count as "placed".
+- Update `position_check._read_sidecar` / `campaigns_for` / `live_positions` (a pano is
+  placed if ANY type's sidecar sent it), the `backfill_metadata.py` sidecar globs
+  (`.type-*.submitted`), `coverage_check`'s replay (per type, tag with `detection_type`),
+  `count_labels` / `count_band_labels_in_file` (per type), `check_model_provenance` (every
+  `models[T]`), and `check_resume_state`'s min_confidence comparison (per type).
+- Refuse a band on a multi-type file in `process_jsonl_file` BEFORE `check_band_state`;
+  `reinfer --write-band-file` refuses multi-type files too.
