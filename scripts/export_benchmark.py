@@ -351,16 +351,29 @@ def choose_panos(records, sample, empty_sample, seed, min_spacing=DEFAULT_MIN_SP
 
 def _of_type(record, label_type):
     """`record` with only `label_type`'s detections (#168). A CurbRamp-only record comes back
-    unchanged; one from a multi-type run gets line-level `label_type` = the bundle's type.
-    Raises ValueError for a record whose run never checked for the type."""
+    unchanged. One from a multi-type run becomes a true single-type record: label_type and
+    label_types name the bundle's type, `models` holds only its entry, the line-level model_*
+    are its provenance, and the line-level decode/border markers are its own (absent when
+    argmax/exclude, as main.py writes them). Raises ValueError for a record whose run never
+    checked for the type."""
     types = registry.record_types(record)
     if label_type not in types:
         raise ValueError(f"record {record['pano'].get('panorama_id')} ran {types}, not "
                          f"{label_type}")
     if registry.is_legacy_type_set(types):
         return record
-    return {**record, 'label_type': label_type,
-            'detections': registry.detections_of_type(record, label_type)}
+    decode, border = registry.type_markers(record, label_type)
+    out = {**record, 'detections': registry.detections_of_type(record, label_type),
+           'label_type': label_type, 'label_types': [label_type],
+           'models': {label_type: record['models'][label_type]},
+           **registry.provenance_for(record, label_type)}
+    out.pop('detection_decode', None)
+    out.pop('detection_border', None)
+    if decode != 'argmax':
+        out['detection_decode'] = decode
+    if border != 'exclude':
+        out['detection_border'] = border
+    return out
 
 
 def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, min_spacing,

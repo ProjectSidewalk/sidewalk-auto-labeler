@@ -1559,17 +1559,31 @@ detector exists yet**; the only spec is CurbRamp.
 - **`main.py --types CurbRamp`** (comma list; an unknown type is a parser error listing
   SPECS). `main.detectors` is the loaded `{type: detector}`; `main.curb_ramp_detector` stays the
   CurbRamp entry, which is what `scripts/reinfer.py` and `scripts/detect_from_store.py` set.
-- **Binding**: the manifest records `label_types` (bound like `detection_decode`: a legacy
-  manifest with records reads `['CurbRamp']` without a rewrite; bound for `--gap-fill-only`,
-  never for `--scan-only`); a mismatch is refused (new `--name`, never a resume). A non-CurbRamp
-  set also binds every type's revision in a `models` map beside the top-level model block, and
-  each run entry gains `models`. `detect_from_store.bind_manifest` binds CurbRamp or refuses.
-- **Consumers**: `fuse_sites.py --label-type` (default CurbRamp; `--floor`/`--min-confidence`
-  default to the spec; a non-CurbRamp fuse writes `sites.<type>.jsonl`; a file that never ran
-  the type is refused), `export_benchmark.py --label-type` (strata at the type's benchmark
-  tier), and `position_check`'s report points read typed detections. `agree_rate`, `eval_sites`,
-  `mined_precision` (through eval_sites' loader) and `provenance_gate` **refuse** a file whose
-  records ran anything but `{CurbRamp}`.
+  With more than one type, `load_detectors` hands every detector ONE shared `inference_lock`,
+  so forward passes never overlap on the device. One detector keeps its own lock, so a
+  CurbRamp-only run is constructed as before. The CurbRamp-only writer raises if it is handed
+  a tagged or multi-type result.
+- **Binding**: the manifest records `label_types`. It is bound like `detection_decode`:
+  - a legacy manifest with records reads `['CurbRamp']` without a rewrite;
+  - it is bound for `--gap-fill-only`, and never for `--scan-only`;
+  - a mismatch is refused (new `--name`, never a resume).
+
+  A non-CurbRamp set also binds every type's model in a `models` map beside the top-level model
+  block. `bind_model` runs on each `models[T]`, so the revision, training-date and
+  unknown-revision refusals all apply per type. Each run entry gains `models` too.
+  `detect_from_store.bind_manifest` binds CurbRamp or refuses.
+- **Consumers**:
+  - `fuse_sites.py --label-type` (default CurbRamp). `--floor`/`--min-confidence` default to
+    the spec. Each SlimPano's decode/border are that type's (`registry.type_markers`). A
+    non-CurbRamp fuse writes `sites.<type>.jsonl`. A file that never ran the type is refused.
+  - `export_benchmark.py --label-type`: strata at the type's benchmark tier. A multi-type
+    record becomes a true single-type record: `label_types`, `models`, `model_*` and the
+    markers are all that type's.
+  - `position_check`: its report points read typed detections.
+  - `agree_rate`, `eval_sites`, `mined_precision` (through eval_sites' loader) and
+    `provenance_gate` **refuse** a file whose records ran anything but `{CurbRamp}`. eval_sites
+    makes that check inside `fs.load_results`' own pass (`require_types`), so there is no
+    second scan.
 - **NOT done**: per-type `FuseParams` (#168 item 4), the ranker review-order export (item 5), a
   second detector, and submission (one POST per line and type in `send_to_ps.py`, per-type
   sidecars, `coverage_check`) — that is the stacked PR on `multitype-submit-168`.

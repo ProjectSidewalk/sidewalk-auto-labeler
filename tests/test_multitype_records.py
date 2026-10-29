@@ -245,7 +245,7 @@ def _init(run_dir, provenance):
                                      provenance=provenance)
 
 
-def test_manifest_binds_label_types_new_match_mismatch(tmp_path):
+def test_manifest_binds_label_types_new_match_mismatch(tmp_path, crosswalk_spec):
     prov = make_provenance()
     run = tmp_path / 'city'
     m = _init(run, prov)
@@ -255,7 +255,7 @@ def test_manifest_binds_label_types_new_match_mismatch(tmp_path):
         _init(run, {'CurbRamp': prov, 'Crosswalk': PROV_B})
 
 
-def test_legacy_manifest_with_records_binds_curb_ramp_without_a_rewrite(tmp_path):
+def test_legacy_manifest_with_records_binds_curb_ramp_without_a_rewrite(tmp_path, crosswalk_spec):
     prov = make_provenance()
     run = tmp_path / 'city'
     m = _init(run, prov)
@@ -274,7 +274,7 @@ def test_scan_only_binds_no_types(tmp_path):
     assert 'label_types' not in m
 
 
-def test_multi_type_manifest_binds_every_model(tmp_path):
+def test_multi_type_manifest_binds_every_model(tmp_path, crosswalk_spec):
     import main
     prov = make_provenance()
     run = tmp_path / 'city'
@@ -287,7 +287,7 @@ def test_multi_type_manifest_binds_every_model(tmp_path):
     entry = json.loads((run / 'manifest.json').read_text())['runs'][0]
     assert set(entry['models']) == {'Crosswalk', 'CurbRamp'}
     other = {**PROV_B, 'model_revision': 'c' * 40}
-    with pytest.raises(SystemExit, match='Crosswalk detections with revision'):
+    with pytest.raises(SystemExit, match='city/Crosswalk'):
         _init(run, {'CurbRamp': prov, 'Crosswalk': other})
 
 
@@ -308,7 +308,7 @@ def test_types_flag_parses_and_rejects_unknown(monkeypatch, capsys):
 
 # --- scripts/detect_from_store.bind_manifest -----------------------------------------
 
-def test_detect_from_store_binds_curb_ramp_and_refuses_other_types(tmp_path):
+def test_detect_from_store_binds_curb_ramp_and_refuses_other_types(tmp_path, crosswalk_spec):
     import detect_from_store as dfs
     prov = make_provenance()
     pixels = {'store': '/s', 'layout': 'sharded', 'server': 'https://a.example'}
@@ -369,9 +369,22 @@ def test_export_benchmark_label_type(crosswalk_spec):
     legacy = _real_legacy_line()
     two = _as_two_type(legacy)
     assert eb._of_type(legacy, 'CurbRamp') is legacy               # unchanged, byte for byte
+    # CurbRamp's line-level border marker must not survive into a Crosswalk record, and the
+    # Crosswalk decode must surface at line level
+    two['detection_border'] = 'keep'
+    two['models']['Crosswalk'] = {**PROV_B, 'detection_decode': 'gaussian',
+                                  'detection_border': 'exclude'}
     cw = eb._of_type(two, 'Crosswalk')
-    assert cw['label_type'] == 'Crosswalk'
+    assert cw['label_type'] == 'Crosswalk' and cw['label_types'] == ['Crosswalk']
     assert [d['confidence'] for d in cw['detections']] == [0.95]
+    assert list(cw['models']) == ['Crosswalk']
+    assert {k: cw[k] for k in reg.PROVENANCE_KEYS} == PROV_B
+    assert cw['detection_decode'] == 'gaussian' and 'detection_border' not in cw
+    assert reg.record_types(cw) == ['Crosswalk']
+    # ...and a CurbRamp record cut from the same line keeps CurbRamp's markers
+    cr = eb._of_type(two, 'CurbRamp')
+    assert cr['detection_border'] == 'keep' and 'detection_decode' not in cr
+    assert cr['model_id'] == legacy['model_id'] and list(cr['models']) == ['CurbRamp']
     with pytest.raises(ValueError, match='not Crosswalk'):
         eb._of_type(legacy, 'Crosswalk')
 
@@ -396,3 +409,127 @@ def test_curb_ramp_only_refusals(tmp_path):
     two = _write(tmp_path / 'b.jsonl', [_as_two_type(_real_legacy_line())])
     with pytest.raises(ValueError, match='line 1'):
         reg.require_curb_ramp_file(two, 'x')
+
+
+# --- review fixes (PR #170) -----------------------------------------------------------
+
+def test_legacy_writer_refuses_a_multi_type_result(crosswalk_spec):
+    """A tagged result handed only CurbRamp's provenance must not be written as a CurbRamp
+    line (it would relabel another type's detections)."""
+    import main
+    fake = make_process_result(detections=[(0.5, 0.25, 0.9, 'Crosswalk')])
+    with pytest.raises(ValueError, match='multi-type result'):
+        main.build_output_line(fake, make_provenance())
+    with pytest.raises(ValueError, match='multi-type result'):
+        main.build_output_line({**make_process_result(), 'label_types': ['Crosswalk', 'CurbRamp']},
+                               make_provenance())
+
+
+def test_provenance_map_refuses_a_misspelled_type():
+    import main
+    with pytest.raises(reg.UnknownLabelTypeError):
+        main.provenance_map({'Curbramp': make_provenance()})
+
+
+def test_one_detector_raising_fails_the_whole_pano(monkeypatch, crosswalk_spec, tmp_path):
+    import main
+
+    class Boom(_FakeDetector):
+        def detect(self, image):
+            raise RuntimeError('CUDA out of memory')
+
+    result = _run_process(monkeypatch, {'CurbRamp': _FakeDetector(make_provenance(), [(.5, .5, .9)]),
+                                        'Crosswalk': Boom(PROV_B, [])})
+    assert result['status'] == 'failure' and 'out of memory' in result['reason']
+    cache, jsonl = tmp_path / 'c.txt', tmp_path / 'r.jsonl'
+    with open(cache, 'w') as fc, open(jsonl, 'w') as fj:
+        assert main.handle_result(result, fc, fj, {'CurbRamp': make_provenance(),
+                                                   'Crosswalk': PROV_B}) == 'failed'
+    assert cache.read_text() == '' and jsonl.read_text() == ''   # retryable, nothing written
+
+
+def test_load_detectors_shares_one_lock_across_types(monkeypatch):
+    import sys
+    import types
+    built = []
+
+    class Fake:
+        def __init__(self, **kw):
+            built.append(kw)
+
+    mod = types.ModuleType('fake_det_mod2')
+    mod.FakeDetector = Fake
+    monkeypatch.setitem(sys.modules, 'fake_det_mod2', mod)
+    for t in ('FakeA', 'FakeB'):
+        monkeypatch.setitem(reg.SPECS, t, reg.SPECS['CurbRamp']._replace(
+            label_type=t, module='fake_det_mod2', cls='FakeDetector'))
+    reg.load_detectors(['FakeA', 'FakeB'], batch_size=1)
+    assert built[0]['inference_lock'] is built[1]['inference_lock'] is not None
+    built.clear()
+    reg.load_detectors(['FakeA'], batch_size=1)          # one type: constructed as before
+    assert built == [{'batch_size': 1}]
+
+
+def test_fuse_sites_reads_the_types_own_markers(tmp_path):
+    """A Crosswalk fuse takes its decode/border from models['Crosswalk'], never from the
+    line-level markers, which describe CurbRamp."""
+    import fuse_sites as fs
+    two = _as_two_type(_real_legacy_line())
+    two['detection_border'] = 'keep'                                  # CurbRamp's
+    two['models']['Crosswalk'] = {**PROV_B, 'detection_decode': 'gaussian',
+                                  'detection_border': 'exclude'}
+    path = _write(tmp_path / 'b.jsonl', [two])
+    cw, _ = fs.load_results(path, read_heights=False, label_type='Crosswalk')
+    cr, _ = fs.load_results(path, read_heights=False)
+    assert (cw[0].decode, cw[0].border) == ('gaussian', 'exclude')
+    assert (cr[0].decode, cr[0].border) == ('argmax', 'keep')
+
+
+def test_fuse_sites_require_types(tmp_path):
+    import fuse_sites as fs
+    legacy = _write(tmp_path / 'a.jsonl', [_real_legacy_line()])
+    two = _write(tmp_path / 'b.jsonl', [_as_two_type(_real_legacy_line())])
+    fs.load_results(legacy, read_heights=False, require_types=('CurbRamp',))
+    with pytest.raises(ValueError, match='scores'):
+        fs.load_results(two, read_heights=False, require_types=('CurbRamp',))
+
+
+def test_consumer_refusals_on_a_multi_type_file(tmp_path):
+    """agree_rate, provenance_gate and eval_sites (mined_precision's loader) refuse a
+    multi-type file and stay silent on a legacy one."""
+    import agree_rate
+    import eval_sites
+    import provenance_gate
+    legacy = _write(tmp_path / 'a.jsonl', [_real_legacy_line()])
+    two = _write(tmp_path / 'b.jsonl', [_as_two_type(_real_legacy_line())])
+    bench = tmp_path / 'bench' / 'city'
+    bench.mkdir(parents=True)
+    (bench / 'verdicts.json').write_text(json.dumps({'panos': {}}), encoding='utf-8')
+    (bench / 'records.jsonl').write_text('', encoding='utf-8')
+    for fn in (agree_rate.scan_run, provenance_gate.load_run,
+               lambda p: eval_sites.load_city_at_height('city', tmp_path / 'bench', tmp_path,
+                                                        2.6, results_path=p)):
+        fn(legacy)
+        with pytest.raises(ValueError):
+            fn(two)
+
+
+def test_gap_fill_only_binds_label_types(tmp_path, monkeypatch):
+    import types
+    import main
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'a.geojson').write_text(json.dumps(GEOM), encoding='utf-8')
+    source = types.SimpleNamespace(NAME='gsv', fetch_pano_by_id=lambda *a: None)
+    main.run_labeler('a.geojson', 'gf', source, gap_fill_only=True, check_positions=False,
+                     provenance={'CurbRamp': make_provenance()})
+    m = json.loads((tmp_path / 'runs' / 'gf' / 'manifest.json').read_text(encoding='utf-8'))
+    assert m['label_types'] == ['CurbRamp']
+
+
+def test_bind_label_types_writes_the_key_on_a_legacy_manifest_without_records(tmp_path):
+    import main
+    run = tmp_path / 'r'
+    run.mkdir()
+    manifest = {}
+    assert main.bind_label_types(manifest, ['CurbRamp'], run) is True
+    assert manifest == {'label_types': ['CurbRamp']}

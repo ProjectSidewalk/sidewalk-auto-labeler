@@ -769,7 +769,8 @@ def apply_height_table(panos, table_path, results_path):
 
 def load_results(path, depth_index=None, read_heights=True, height_table=None,
                  grade_source=GRADE_SFM, grades_path=None, allow_mixed_decode=False,
-                 allow_mixed_border=False, label_type=registry.CURB_RAMP):
+                 allow_mixed_border=False, label_type=registry.CURB_RAMP,
+                 require_types=None):
     """Stream results.jsonl into SlimPanos, discarding links/history/metadata.
     Records without a position or heading can't be raycast and are dropped
     (counted by the caller via the skipped list).
@@ -804,7 +805,10 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
 
     Label type (#168): only `label_type`'s detections are kept (registry.detection_type), each
     with its index into the record's own `detections` list, so a member still points at the
-    stored detection. A pre-#168 file is all CurbRamp, so the default reads it unchanged."""
+    stored detection. A pre-#168 file is all CurbRamp, so the default reads it unchanged.
+    Each SlimPano's decode/border are that type's (registry.type_markers). `require_types`
+    (e.g. ('CurbRamp',)) raises ValueError on a record whose record_types is any other set --
+    the refusal of tools not yet taught to filter by type, made in this same pass."""
     path = Path(path)
     index = load_depth_index(depth_index or path.parent / 'depth' / 'index.csv') \
         if read_heights else {}
@@ -815,6 +819,10 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
             if not line:
                 continue
             rec = json.loads(line)
+            if require_types is not None \
+                    and sorted(registry.record_types(rec)) != sorted(require_types):
+                raise ValueError(f'{path.name}: a record ran {registry.record_types(rec)}; this '
+                                 f'tool scores {sorted(require_types)} only (#168)')
             if label_type not in registry.record_types(rec):
                 raise ValueError(f'{path.name}: a record ran {registry.record_types(rec)}, not '
                                  f'{label_type} (#168): nothing to fuse for that type')
@@ -836,6 +844,7 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
             if origin is None and p.get('source') == 'mapillary':
                 pitch, roll = geo.mapillary_pitch_roll(meta.get('computed_rotation'))
                 origin = 'source_metadata' if pitch is not None else None
+            decode, border = registry.type_markers(rec, label_type)
             panos.append(SlimPano(
                 pano_id=p['panorama_id'], lat=p['lat'], lng=p['lng'],
                 camera_heading=p['camera_heading'],
@@ -848,7 +857,7 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
                 ground_tilt_deg=tilt, pose_origin=origin,
                 sequence_id=p.get('sequence_id') or meta.get('sequence'),
                 height_from_index=from_index, source_detail=p.get('source_detail'),
-                decode=record_decode(rec), border=record_border(rec)))
+                decode=decode, border=border))
             frames.append((len(panos) - 1, p.get('sequence_id'), meta.get('captured_at'),
                            p['lat'], p['lng'], meta.get('computed_altitude')))
     single_decode(Counter(p.decode for p in panos), path.name, allow_mixed_decode)
@@ -1072,7 +1081,7 @@ def height_table_path(camera_height, results_path, height_table=None):
 def load_at_height(results_path, camera_height, *, depth_index=None, height_table=None,
                    read_heights=None, resolve_auto=True, grade_source=GRADE_SFM,
                    grades_path=None, allow_mixed_decode=False, allow_mixed_border=False,
-                   label_type=registry.CURB_RAMP):
+                   label_type=registry.CURB_RAMP, require_types=None):
     """Load results.jsonl and resolve a --camera-height-m value in ONE place (#56).
 
     fuse_sites' CLI, eval_sites, eval_ps_clustering and mined_precision all load through
@@ -1105,7 +1114,7 @@ def load_at_height(results_path, camera_height, *, depth_index=None, height_tabl
                                   grades_path=grades_path,
                                   allow_mixed_decode=allow_mixed_decode,
                                   allow_mixed_border=allow_mixed_border,
-                                  label_type=label_type)
+                                  label_type=label_type, require_types=require_types)
     if camera_height != HEIGHT_AUTO:
         return panos, skipped, camera_height, None
     if not resolve_auto:

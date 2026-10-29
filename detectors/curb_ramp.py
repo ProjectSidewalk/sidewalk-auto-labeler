@@ -69,7 +69,7 @@ class CurbRampDetector:
 
     def __init__(self, allow_unknown_revision=False, batch_size=1,
                  batch_wait_s=DEFAULT_BATCH_WAIT_S, decode=DEFAULT_DECODE,
-                 border=DEFAULT_BORDER):
+                 border=DEFAULT_BORDER, inference_lock=None):
         if batch_size < 1:
             raise ValueError('batch_size must be >= 1')
         if decode not in DECODES:
@@ -83,8 +83,9 @@ class CurbRampDetector:
         # (#130). Bound per run like the decode; `exclude` is the default and every live label.
         self.border = border
         # Serializes device work: concurrent full-resolution forward passes would exhaust
-        # GPU memory. With batching, only the consumer thread takes it.
-        self._inference_lock = threading.Lock()
+        # GPU memory. With batching, only the consumer thread takes it. registry.load_detectors
+        # passes one lock shared by every detector of a multi-type run (#168).
+        self._inference_lock = inference_lock or threading.Lock()
         if torch.cuda.is_available():
             self.DEVICE = torch.device("cuda")
         elif torch.backends.mps.is_available():  # Apple Silicon

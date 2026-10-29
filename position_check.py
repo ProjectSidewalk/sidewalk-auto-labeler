@@ -79,7 +79,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import geo  # noqa: E402
-from detectors import OPERATIONAL_CONFIDENCE, on_camera_rig  # noqa: E402
+from detectors import on_camera_rig  # noqa: E402
 from detectors import registry  # noqa: E402
 
 OVERPASS_ENDPOINTS = (

@@ -103,8 +103,15 @@ def load_detectors(label_types, **kw):
     allow_unknown_revision / batch_size / batch_wait_s / decode / border). Each detector
     exposes ``.detect(image)``, ``.provenance``, ``.stats()`` and ``.close()``.
     """
+    types = parse_types(','.join(label_types))
+    if len(types) > 1 and 'inference_lock' not in kw:
+        # Each detector serializes its own forward passes; two detectors on 50 fetch threads
+        # would still overlap on the device. One shared lock serializes them all. A single
+        # detector keeps its own lock, so a CurbRamp-only run is constructed exactly as before.
+        import threading
+        kw = {**kw, 'inference_lock': threading.Lock()}
     out = {}
-    for t in parse_types(','.join(label_types)):
+    for t in types:
         spec = spec_for(t)
         cls = getattr(importlib.import_module(spec.module), spec.cls)
         out[t] = cls(**kw)
@@ -112,7 +119,8 @@ def load_detectors(label_types, **kw):
 
 
 def record_types(record):
-    """The label types whose detectors ran on this record's pano, sorted.
+    """The label types whose detectors ran on this record's pano, as stored (main.py writes
+    them sorted).
 
     ``record['label_types']`` when present (a #168 multi-type line), else the line's
     ``label_type`` (every pre-#168 line says 'CurbRamp'), else ['CurbRamp'].
@@ -154,6 +162,17 @@ def provenance_for(record, label_type):
     """
     src = record['models'][label_type] if 'models' in record else record
     return {k: src.get(k) for k in PROVENANCE_KEYS}
+
+
+def type_markers(record, label_type):
+    """(detection_decode, detection_border) that ``label_type``'s detections on this record were
+    found under. The line-level markers describe the CurbRamp detector (absent = argmax /
+    exclude); any other type's live in its ``models[T]`` entry (main._multitype_line)."""
+    from detectors import record_border, record_decode
+    if label_type == CURB_RAMP or 'models' not in record:
+        return record_decode(record), record_border(record)
+    m = record['models'][label_type]
+    return m.get('detection_decode', 'argmax'), m.get('detection_border', 'exclude')
 
 
 def require_curb_ramp_only(record, what):

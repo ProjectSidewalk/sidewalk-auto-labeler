@@ -84,6 +84,8 @@ def provenance_map(provenance):
     """
     if 'model_revision' in provenance or 'model_id' in provenance:
         return {registry.CURB_RAMP: provenance}
+    for t in provenance:  # a misspelled type ('Curbramp') must not pass as a new type set
+        registry.spec_for(t)
     return dict(provenance)
 
 
@@ -458,13 +460,19 @@ def build_output_line(result, provenance):
     if not registry.is_legacy_type_set(pmap):
         return _multitype_line(result, pmap)
     provenance = pmap[registry.CURB_RAMP]
+    # A result from a multi-type _process must never be written as a CurbRamp-only line: that
+    # would label another type's detections CurbRamp without a trace.
+    if list(result.get('label_types', [registry.CURB_RAMP])) != [registry.CURB_RAMP] \
+            or any(len(d) != 3 for d in result['detections']):
+        raise ValueError(f"a CurbRamp-only line got a multi-type result "
+                         f"({result.get('label_types')}, tagged detections)")
     line = {
         "detections": [
             {
                 "x_normalized": x_normalized,
                 "y_normalized": y_normalized,
                 "confidence": confidence
-            } for x_normalized, y_normalized, confidence in (d[:3] for d in result['detections'])
+            } for x_normalized, y_normalized, confidence in result['detections']
         ],
         "label_type": "CurbRamp",
         "model_id": provenance['model_id'],
@@ -612,7 +620,7 @@ def bind_model(manifest, provenance, run_name):
     manifest.update(manifest_model_block(provenance))
     return True
 
-def bind_label_types(manifest, label_types, run_dir):
+def bind_label_types(manifest, label_types, run_dir, types_flag=True):
     """
     Binds a run directory to one set of label types (issue #168), the way bind_decode binds
     the decode: a resume under another set would append panos checked for different things
@@ -639,34 +647,28 @@ def bind_label_types(manifest, label_types, run_dir):
             f"{', '.join(label_types)}.\n"
             f"   Appending would mix panos checked for different types in one results.jsonl "
             f"(issue #168).\n"
-            f"   Use a new --name for this type set (never a resume), or pass "
-            f"--types {','.join(sorted(bound))}."
+            f"   Use a new --name for this type set (never a resume)"
+            + (f", or pass --types {','.join(sorted(bound))}." if types_flag else ".")
         )
     return False
 
 def bind_models(manifest, pmap, run_name):
     """
-    Binds every type's model revision (issue #168) in the manifest's `models` map, beside
-    the top-level model block bind_model keeps for primary_type. Written only for a run whose
-    type set is not {CurbRamp}, so a CurbRamp-only manifest is unchanged. Exits on a
-    revision mismatch for any type; returns True when the manifest changed.
+    Binds every type's model (issue #168) in the manifest's `models` map, beside the
+    top-level model block bind_model keeps for primary_type, by running bind_model on each
+    `models[T]` entry. Written only for a run whose type set is not {CurbRamp}, so a
+    CurbRamp-only manifest is unchanged. Exits on any type's refusal; returns True when the
+    manifest changed.
     """
     if registry.is_legacy_type_set(pmap):
         return False
     models = manifest.setdefault('models', {})
     changed = False
     for t, prov in sorted(pmap.items()):
-        bound = models.get(t, {}).get('model_revision')
-        if bound is None:
-            models[t] = manifest_model_block(prov)
-            changed = True
-        elif bound != prov['model_revision']:
-            sys.exit(
-                f"❌ Run '{run_name}' produced its {t} detections with revision {bound[:12]}…, "
-                f"but the loaded {t} model is revision {prov['model_revision'][:12]}….\n"
-                f"   Appending would mix two models' {t} detections in one results.jsonl.\n"
-                f"   Use a new --name for this model (or load the revision the run was made with)."
-            )
+        # bind_model on the type's own sub-block: the same revision, training-date and
+        # unknown-revision refusals the top-level binding makes (#168 review).
+        sub = models.setdefault(t, {})
+        changed = bind_model(sub, prov, f'{run_name}/{t}') or changed  # refusals read "Run 'city/T'"
     return changed
 
 def bind_decode(manifest, decode, run_dir):

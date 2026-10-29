@@ -510,7 +510,7 @@ def bind_manifest(run_dir, provenance, pixels):
             diff = sorted(k for k in set(bound) | set(pixels) if bound.get(k) != pixels.get(k))
             raise SystemExit(f'{run_dir.name} is bound to other pixels ({", ".join(diff)} '
                              f'differ). Use a new --run-dir.')
-        main.bind_label_types(manifest, [registry.CURB_RAMP], run_dir)
+        main.bind_label_types(manifest, [registry.CURB_RAMP], run_dir, types_flag=False)
         main.bind_model(manifest, provenance, run_dir.name)
         manifest['pixels'] = pixels
         manifest.setdefault('runs', [])
