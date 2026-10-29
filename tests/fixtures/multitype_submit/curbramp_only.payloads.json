@@ -1,0 +1,166 @@
+[
+  {
+    "label_type": "CurbRamp",
+    "model_id": "rampnet-model@606a11956743",
+    "model_training_date": "08-21-2025",
+    "api_version": "1.0.0",
+    "model_repo": "projectsidewalk/rampnet-model",
+    "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+    "pano": {
+      "capture_date": "2021-06",
+      "width": 16384,
+      "height": 8192,
+      "tile_width": 512,
+      "tile_height": 512,
+      "lat": 44.05,
+      "lng": -121.31,
+      "camera_heading": 90.0,
+      "camera_pitch": 1.5000000000000002,
+      "camera_roll": -0.5,
+      "copyright": "\u00a9 Google",
+      "source": "gsv",
+      "history": [
+        {
+          "pano_id": "OLD1",
+          "date": "2019-08"
+        }
+      ],
+      "links": [],
+      "camera_make": null,
+      "camera_model": null,
+      "camera_type": "equirectangular",
+      "source_detail": "launch",
+      "uploader": null,
+      "source_metadata": {
+        "uploader": null,
+        "uploader_icon_url": null,
+        "upload_date": null,
+        "elevation": null,
+        "country_code": null,
+        "source_detail": "launch"
+      },
+      "camera_height_m": null,
+      "camera_height_spread_m": null,
+      "ground_tilt_deg": null,
+      "depth_planes": null,
+      "camera_height_status": "no_depth",
+      "pano_id": "GOLD1"
+    },
+    "labels": [
+      {
+        "pano_x": 8192,
+        "pano_y": 2048,
+        "confidence": 0.9
+      }
+    ]
+  },
+  {
+    "label_type": "CurbRamp",
+    "model_id": "rampnet-model@606a11956743",
+    "model_training_date": "08-21-2025",
+    "api_version": "1.0.0",
+    "model_repo": "projectsidewalk/rampnet-model",
+    "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+    "pano": {
+      "capture_date": "2021-06",
+      "width": 16384,
+      "height": 8192,
+      "tile_width": 512,
+      "tile_height": 512,
+      "lat": 44.0502,
+      "lng": -121.3101,
+      "camera_heading": 90.0,
+      "camera_pitch": 1.5000000000000002,
+      "camera_roll": -0.5,
+      "copyright": "\u00a9 Google",
+      "source": "gsv",
+      "history": [
+        {
+          "pano_id": "OLD1",
+          "date": "2019-08"
+        }
+      ],
+      "links": [],
+      "camera_make": null,
+      "camera_model": null,
+      "camera_type": "equirectangular",
+      "source_detail": "launch",
+      "uploader": null,
+      "source_metadata": {
+        "uploader": null,
+        "uploader_icon_url": null,
+        "upload_date": null,
+        "elevation": null,
+        "country_code": null,
+        "source_detail": "launch"
+      },
+      "camera_height_m": null,
+      "camera_height_spread_m": null,
+      "ground_tilt_deg": null,
+      "depth_planes": null,
+      "camera_height_status": "no_depth",
+      "pano_id": "GOLD2"
+    },
+    "labels": []
+  },
+  {
+    "label_type": "CurbRamp",
+    "model_id": "rampnet-model@606a11956743",
+    "model_training_date": "08-21-2025",
+    "api_version": "1.0.0",
+    "model_repo": "projectsidewalk/rampnet-model",
+    "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+    "pano": {
+      "capture_date": "2021-06",
+      "width": 16384,
+      "height": 8192,
+      "tile_width": 512,
+      "tile_height": 512,
+      "lat": 44.0504,
+      "lng": -121.3102,
+      "camera_heading": 90.0,
+      "camera_pitch": 1.5000000000000002,
+      "camera_roll": -0.5,
+      "copyright": "\u00a9 Google",
+      "source": "gsv",
+      "history": [
+        {
+          "pano_id": "OLD1",
+          "date": "2019-08"
+        }
+      ],
+      "links": [],
+      "camera_make": null,
+      "camera_model": null,
+      "camera_type": "equirectangular",
+      "source_detail": "launch",
+      "uploader": null,
+      "source_metadata": {
+        "uploader": null,
+        "uploader_icon_url": null,
+        "upload_date": null,
+        "elevation": null,
+        "country_code": null,
+        "source_detail": "launch"
+      },
+      "camera_height_m": null,
+      "camera_height_spread_m": null,
+      "ground_tilt_deg": null,
+      "depth_planes": null,
+      "camera_height_status": "no_depth",
+      "pano_id": "GOLD3"
+    },
+    "labels": [
+      {
+        "pano_x": 12288,
+        "pano_y": 4506,
+        "confidence": 0.31
+      },
+      {
+        "pano_x": 3277,
+        "pano_y": 4260,
+        "confidence": 0.5
+      }
+    ]
+  }
+]
