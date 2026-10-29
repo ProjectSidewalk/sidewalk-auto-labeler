@@ -68,6 +68,7 @@ sys.path.insert(0, str(REPO_ROOT))
 load_dotenv(REPO_ROOT / ".env")
 
 from detectors import BENCHMARK_CONFIDENCE, DETECTION_STORAGE_FLOOR  # noqa: E402
+from detectors import registry  # noqa: E402
 from geo import haversine_m as _haversine_m, LatLngSpacingIndex as _SpatialIndex  # noqa: E402
 from sources import mapillary  # noqa: E402
 from sources import panoramax  # noqa: E402
@@ -348,11 +349,31 @@ def choose_panos(records, sample, empty_sample, seed, min_spacing=DEFAULT_MIN_SP
             + [(r, 'empty') for r in empty_sel])
 
 
+def _of_type(record, label_type):
+    """`record` with only `label_type`'s detections (#168). A CurbRamp-only record comes back
+    unchanged; one from a multi-type run gets line-level `label_type` = the bundle's type.
+    Raises ValueError for a record whose run never checked for the type."""
+    types = registry.record_types(record)
+    if label_type not in types:
+        raise ValueError(f"record {record['pano'].get('panorama_id')} ran {types}, not "
+                         f"{label_type}")
+    if registry.is_legacy_type_set(types):
+        return record
+    return {**record, 'label_type': label_type,
+            'detections': registry.detections_of_type(record, label_type)}
+
+
 def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, min_spacing,
                          *, top_n=TOP_N_BY_COUNT, group_keys=(), group_map=None,
                          group_min=DEFAULT_GROUP_MIN, empty_group_min=DEFAULT_EMPTY_GROUP_MIN,
-                         record_confidence=BENCHMARK_CONFIDENCE):
+                         record_confidence=None, label_type=registry.CURB_RAMP):
     """Sample `results_path` into `bundle_dir`/records.jsonl and return that path.
+
+    `label_type` (#168) picks whose detections the bundle is about: only that type's are
+    kept, the strata are drawn at its spec's benchmark tier, and `record_confidence`
+    defaults to that tier. A record from a multi-type run is written with line-level
+    `label_type` set to the bundle's type; a CurbRamp bundle of a CurbRamp-only run is
+    byte-identical to before, and sample.json names the type only when it is not CurbRamp.
 
     Each record keeps its Stage-1 shape plus `benchmark_group` (the sampling stratum),
     so the bundle carries its own strata — RampNet's labeler/scorer doesn't have to
@@ -379,15 +400,19 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
               f"(sampling flags ignored; delete it to re-sample).")
         return records_path
 
-    if record_confidence > BENCHMARK_CONFIDENCE:
+    spec = registry.spec_for(label_type)
+    bench = spec.benchmark_confidence
+    if record_confidence is None:
+        record_confidence = bench
+    if record_confidence > bench:
         raise ValueError(f"record_confidence {record_confidence} is above the benchmark "
-                         f"threshold {BENCHMARK_CONFIDENCE}: 'random' panos could carry no "
+                         f"threshold {bench}: 'random' panos could carry no "
                          f"detection")
-    if record_confidence < DETECTION_STORAGE_FLOOR:
+    if record_confidence < spec.storage_floor:
         raise ValueError(f"record_confidence {record_confidence} is below the storage floor "
-                         f"{DETECTION_STORAGE_FLOOR}: results.jsonl holds no peaks that low")
+                         f"{spec.storage_floor}: results.jsonl holds no peaks that low")
     with open(results_path, encoding="utf-8") as f:
-        records = [json.loads(line) for line in f if line.strip()]
+        records = [_of_type(json.loads(line), label_type) for line in f if line.strip()]
     # results.jsonl stores candidate peaks down to a storage floor below the operational
     # threshold (detectors/__init__.py); the benchmark contract — the sampling strata
     # ("with detections" vs "empty") and the records RampNet's GT tooling reads — is
@@ -396,9 +421,9 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
     if group_keys:
         check_group_keys(records, group_keys)
     raw = {r['pano']['panorama_id']: r['detections'] for r in records} \
-        if record_confidence < BENCHMARK_CONFIDENCE else {}
+        if record_confidence < bench else {}
     records = [{**r, 'detections': [d for d in r['detections']
-                                    if d['confidence'] >= BENCHMARK_CONFIDENCE]}
+                                    if d['confidence'] >= bench]}
                for r in records]
     report = {}
     stratum_of = make_stratum_of(group_keys, group_map) if group_keys else None
@@ -418,11 +443,13 @@ def write_bundle_records(results_path, bundle_dir, sample, empty_sample, seed, m
     groups = {g: sum(1 for _, gg in chosen if gg == g) for g in ("top", "random", "empty")}
     meta = {"source_records": str(results_path), "source_record_count": len(records),
             "sample": sample, "empty_sample": empty_sample, "seed": seed,
-            "min_spacing_m": min_spacing, "min_confidence": BENCHMARK_CONFIDENCE,
+            "min_spacing_m": min_spacing, "min_confidence": bench,
             "selected": len(chosen), "groups": groups}
+    if label_type != registry.CURB_RAMP:
+        meta["label_type"] = label_type
     if top_n != TOP_N_BY_COUNT:
         meta["top_n"] = top_n
-    if record_confidence != BENCHMARK_CONFIDENCE:
+    if record_confidence != bench:
         meta["record_confidence"] = record_confidence
     if stratum_of is not None:
         meta["stratified"] = {"group_keys": list(group_keys),
@@ -638,10 +665,14 @@ def main():
     ap.add_argument("--empty-group-min", type=int, default=DEFAULT_EMPTY_GROUP_MIN,
                     help="With --group-key: minimum empty panos per stratum "
                          "(default: %(default)s).")
-    ap.add_argument("--record-confidence", type=float, default=BENCHMARK_CONFIDENCE,
+    ap.add_argument("--record-confidence", type=float, default=None,
                     help="With --bundle: keep detections down to this confidence in "
                          "records.jsonl (strata stay defined at the benchmark threshold; "
-                         "default: %(default)s).")
+                         f"default: the label type's benchmark tier, {BENCHMARK_CONFIDENCE} "
+                         "for CurbRamp).")
+    ap.add_argument("--label-type", default=registry.CURB_RAMP, choices=sorted(registry.SPECS),
+                    help="With --bundle: which label type's detections to sample and keep "
+                         "(#168; default: %(default)s); strata use that type's benchmark tier.")
     ap.add_argument("--records-only", action="store_true",
                     help="With --bundle: write records.jsonl and stop — no fetch, no "
                          "reconcile. For sourcing the pixels elsewhere (e.g. copying the "
@@ -661,7 +692,7 @@ def main():
                 top_n=args.top, group_keys=args.group_key,
                 group_map=load_group_map(args.group_map) if args.group_map else None,
                 group_min=args.group_min, empty_group_min=args.empty_group_min,
-                record_confidence=args.record_confidence)
+                record_confidence=args.record_confidence, label_type=args.label_type)
         except ValueError as e:
             sys.exit(f"export_benchmark: {e}")
         panos_dir = args.out or (args.bundle / "panos")

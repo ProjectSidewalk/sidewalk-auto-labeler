@@ -99,6 +99,7 @@ from detectors import (BORDER_EXCLUDE, DECODE_ARGMAX, DETECTION_STORAGE_FLOOR,  
                        OPERATIONAL_CONFIDENCE, on_camera_rig, record_border, record_decode,
                        single_border, single_decode)
 from collections import Counter  # noqa: E402
+from detectors import registry  # noqa: E402
 
 # How fusion rotates rays by camera pose (issue #42). The value is recorded in
 # sites_meta.json's params, so a sites file always says which frame it is in.
@@ -768,7 +769,7 @@ def apply_height_table(panos, table_path, results_path):
 
 def load_results(path, depth_index=None, read_heights=True, height_table=None,
                  grade_source=GRADE_SFM, grades_path=None, allow_mixed_decode=False,
-                 allow_mixed_border=False):
+                 allow_mixed_border=False, label_type=registry.CURB_RAMP):
     """Stream results.jsonl into SlimPanos, discarding links/history/metadata.
     Records without a position or heading can't be raycast and are dropped
     (counted by the caller via the skipped list).
@@ -799,7 +800,11 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
     and a file mixing argmax and gaussian records raises ValueError unless
     allow_mixed_decode -- the two place the same peaks in different frames. Likewise the
     border rule (#130; detectors.record_border): a file mixing `exclude` and `keep` records
-    raises unless allow_mixed_border."""
+    raises unless allow_mixed_border.
+
+    Label type (#168): only `label_type`'s detections are kept (registry.detection_type), each
+    with its index into the record's own `detections` list, so a member still points at the
+    stored detection. A pre-#168 file is all CurbRamp, so the default reads it unchanged."""
     path = Path(path)
     index = load_depth_index(depth_index or path.parent / 'depth' / 'index.csv') \
         if read_heights else {}
@@ -810,6 +815,9 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
             if not line:
                 continue
             rec = json.loads(line)
+            if label_type not in registry.record_types(rec):
+                raise ValueError(f'{path.name}: a record ran {registry.record_types(rec)}, not '
+                                 f'{label_type} (#168): nothing to fuse for that type')
             p = rec['pano']
             if p.get('lat') is None or p.get('lng') is None \
                     or p.get('camera_heading') is None:
@@ -834,7 +842,8 @@ def load_results(path, depth_index=None, read_heights=True, height_table=None,
                 camera_pitch=pitch, camera_roll=roll,
                 capture_date=p.get('capture_date'), source=p.get('source') or '',
                 detections=[(i, d['x_normalized'], d['y_normalized'], d['confidence'])
-                            for i, d in enumerate(rec.get('detections', []))],
+                            for i, d in enumerate(rec.get('detections', []))
+                            if registry.detection_type(rec, d) == label_type],
                 camera_height_m=height, camera_height_spread_m=spread,
                 ground_tilt_deg=tilt, pose_origin=origin,
                 sequence_id=p.get('sequence_id') or meta.get('sequence'),
@@ -1062,7 +1071,8 @@ def height_table_path(camera_height, results_path, height_table=None):
 
 def load_at_height(results_path, camera_height, *, depth_index=None, height_table=None,
                    read_heights=None, resolve_auto=True, grade_source=GRADE_SFM,
-                   grades_path=None, allow_mixed_decode=False, allow_mixed_border=False):
+                   grades_path=None, allow_mixed_decode=False, allow_mixed_border=False,
+                   label_type=registry.CURB_RAMP):
     """Load results.jsonl and resolve a --camera-height-m value in ONE place (#56).
 
     fuse_sites' CLI, eval_sites, eval_ps_clustering and mined_precision all load through
@@ -1094,7 +1104,8 @@ def load_at_height(results_path, camera_height, *, depth_index=None, height_tabl
                                   height_table=table, grade_source=grade_source,
                                   grades_path=grades_path,
                                   allow_mixed_decode=allow_mixed_decode,
-                                  allow_mixed_border=allow_mixed_border)
+                                  allow_mixed_border=allow_mixed_border,
+                                  label_type=label_type)
     if camera_height != HEIGHT_AUTO:
         return panos, skipped, camera_height, None
     if not resolve_auto:
@@ -1272,7 +1283,13 @@ def fuse_camera_height_arg(value):
 def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('run', help='run directory (with results.jsonl) or a jsonl path')
-    ap.add_argument('--floor', type=float, default=DETECTION_STORAGE_FLOOR)
+    ap.add_argument('--label-type', default=registry.CURB_RAMP, choices=sorted(registry.SPECS),
+                    help="which label type's detections to fuse (#168; default %(default)s). "
+                         "--floor and --min-confidence default to that type's spec, and a "
+                         'type other than CurbRamp writes sites.<type>.jsonl by default')
+    ap.add_argument('--floor', type=float, default=None,
+                    help=f"default: the label type's storage floor ({DETECTION_STORAGE_FLOOR} "
+                         f'for CurbRamp)')
     ap.add_argument('--allow-mixed-decode', action='store_true',
                     help='fuse a file whose records mix argmax and gaussian peak decodes '
                          '(#111; refused by default: the two are different frames). '
@@ -1281,7 +1298,9 @@ def build_parser():
                     help='fuse a file whose records mix peak border rules (exclude / keep / '
                          'wrap; #130; refused by default: the rules differ in which seam-band '
                          'peaks they store). sites_meta.json then records the mix')
-    ap.add_argument('--min-confidence', type=float, default=OPERATIONAL_CONFIDENCE)
+    ap.add_argument('--min-confidence', type=float, default=None,
+                    help=f"default: the label type's operational threshold "
+                         f'({OPERATIONAL_CONFIDENCE} for CurbRamp)')
     ap.add_argument('--max-range-m', type=float, default=geo.DEFAULT_MAX_RANGE_M)
     ap.add_argument('--gate-chi2', type=float, default=FuseParams.gate_chi2)
     ap.add_argument('--max-match-m', type=float, default=FuseParams.max_match_m)
@@ -1346,8 +1365,12 @@ def main(argv=None):
     jsonl = src if src.is_file() else src / 'results.jsonl'
     if not jsonl.exists():
         sys.exit(f'no results.jsonl at {jsonl}')
+    spec = registry.spec_for(args.label_type)
     params = FuseParams(
-        floor=args.floor, min_confidence=args.min_confidence,
+        floor=spec.storage_floor if args.floor is None else args.floor,
+        min_confidence=(spec.operational_confidence if args.min_confidence is None
+                        else args.min_confidence),
+        mask_rig=spec.mask_rig,
         max_range_m=args.max_range_m, gate_chi2=args.gate_chi2,
         max_match_m=args.max_match_m,
         residual_per_dof_max=args.residual_per_dof_max,
@@ -1373,7 +1396,7 @@ def main(argv=None):
             resolve_auto=resolve,
             grade_source=args.grade_source, grades_path=args.grades,
             allow_mixed_decode=args.allow_mixed_decode,
-            allow_mixed_border=args.allow_mixed_border)
+            allow_mixed_border=args.allow_mixed_border, label_type=args.label_type)
     except ValueError as e:
         sys.exit(str(e))
     if skipped:
@@ -1408,7 +1431,8 @@ def main(argv=None):
     borders = Counter(p.border for p in panos)
     stats['detection_border'] = (single_border(borders, jsonl.name) if len(borders) == 1
                                  else dict(sorted(borders.items())))
-    out = args.out or jsonl.parent / 'sites.jsonl'
+    out = args.out or jsonl.parent / ('sites.jsonl' if args.label_type == registry.CURB_RAMP
+                                      else f'sites.{args.label_type}.jsonl')
     meta = out.with_name(out.stem + '_meta.json')
     write_sites(sites, frame, stats, params, out, meta)
     print(summarize(sites, stats))

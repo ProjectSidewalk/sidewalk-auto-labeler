@@ -79,6 +79,7 @@ for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
+from detectors import registry  # noqa: E402
 from detectors import (BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE,  # noqa: E402
                        on_camera_rig)
 
@@ -307,6 +308,7 @@ def scan_run(results_path):
             if not line.strip():
                 continue
             rec = json.loads(line)
+            registry.require_curb_ramp_only(rec, 'agree_rate')  # not yet type-aware (#168)
             p = rec['pano']
             pid = p['panorama_id']
             if pid not in run:
