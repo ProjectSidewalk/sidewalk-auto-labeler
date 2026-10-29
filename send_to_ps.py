@@ -772,13 +772,16 @@ def check_resume_state(record: Dict[str, Any], digest: str, submitted_lines: Set
 
     # A multi-type file (issue #168): every type is a campaign of its own over the same line
     # numbers, with its own sidecar, so each is held to exactly the single-type checks.
-    state = states.get(endpoint) or {}
-    if state.get('submitted_lines') and 'types' not in state:
+    # Every endpoint, not only this one: a whole-line entry on a test server says this file
+    # already went out somewhere with every type under one label type.
+    whole = sorted(url for url, st in states.items()
+                   if st.get('submitted_lines') and 'types' not in st)
+    if whole:
         raise ValueError(
-            f"{record_path.name} records {state['submitted_lines']} line(s) of "
-            f"{input_file.name} sent to {endpoint} WITHOUT per-type entries, but the file holds "
-            f"several label types (issue #168). Code before #168 would have sent every type "
-            f"under one label type; check what is live on that server before going on. "
+            f"{record_path.name} records line(s) of {input_file.name} sent to "
+            f"{', '.join(whole)} WITHOUT per-type entries, but the file holds several label "
+            f"types (issue #168). Code before #168 would have sent every type there under one "
+            f"label type; check what is live on that server before going on. "
             f"--ignore-submission-guard overrides.")
     for label_type, (lines, confidence, path) in sorted(types.items()):
         view = {url: (st.get('types') or {}).get(label_type) or {} for url, st in states.items()}
@@ -1771,6 +1774,11 @@ def process_jsonl_file(
             for t in file_types}
     elif min_confidence is None:
         min_confidence = spec_for(file_types[0]).operational_confidence
+    if max_confidence is not None and not min_confidence < max_confidence:
+        # main() can only check this when --min-confidence was given; the default is resolved
+        # per type here, so the check is repeated (a dry run included) with the real value.
+        raise ValueError(f"--min-confidence {min_confidence} must be below --max-confidence "
+                         f"{max_confidence}: a band is [min, max).")
 
     # Load resume state: line numbers that already got a 200 on a previous run (or, for a
     # band campaign, lines already handled by that band - sent, or empty and skipped).
@@ -1889,6 +1897,18 @@ def process_jsonl_file(
                                       for lines, _, _ in type_states.values()):
                     skipped_count += 1
                     continue
+                if multi_type:
+                    # A line that ran fewer types than the file holds never passes the cheap
+                    # test above; read it, and skip it if every type IT ran was sent. (main.py
+                    # binds one type set per run, so such files are not written today.)
+                    try:
+                        pending = [t for t in record_types(json.loads(line))
+                                   if line_number not in type_states[t][0]]
+                    except Exception:
+                        pending = None   # reported by the parse below
+                    if pending == []:
+                        skipped_count += 1
+                        continue
 
                 # Stop once this run has touched --limit records. Checked here, after the
                 # resume skip, so a capped run always advances into unsubmitted lines.
@@ -1908,8 +1928,9 @@ def process_jsonl_file(
                                  for t in record_types(json_data)
                                  if line_number not in type_states[t][0]]
                     else:
-                        parts = [(None, transform_record(json_data, min_confidence,
-                                                         max_confidence))]
+                        parts = [(None, transform_record(
+                            json_data, min_confidence, max_confidence,
+                            label_type=file_types[0] if 'label_types' in json_data else None))]
                 except json.JSONDecodeError as e:
                     error_count += 1
                     print(f"Line {line_number}: Invalid JSON - {e}")
@@ -1993,11 +2014,14 @@ def process_jsonl_file(
     # Print summary.
     print("-" * 50)
     print("Interrupted." if interrupted else "Processing complete!")
-    print(f"Successfully processed:        {success_count} records")
+    unit = "submissions (one per line and type)" if multi_type else "records"
+    print(f"Successfully processed:        {success_count} {unit}")
     print(f"Skipped (already submitted):   {skipped_count} records")
-    print(f"Errors encountered:            {error_count} records")
+    print(f"Errors encountered:            {error_count} {unit}")
     if max_confidence is None:
-        print(f"Detections below --min-confidence {min_confidence} (not submitted): {filtered_detections}")
+        floor = (min_confidence if min_confidence is not None else
+                 ", ".join(f"{t} {c:g}" for t, (_, c, _) in type_states.items()))
+        print(f"Detections below --min-confidence {floor} (not submitted): {filtered_detections}")
     else:
         print(f"Band [{min_confidence}, {max_confidence}): detections outside it (not submitted): "
               f"{filtered_detections}; records with nothing in the band (not POSTed, marked "
@@ -2005,10 +2029,12 @@ def process_jsonl_file(
     if record_written:
         print(f"Submission record:             {record_path.name}")
     if limit_reached:
+        where_recorded = (sidecar_path.name if not multi_type else
+                          ", ".join(path.name for _, _, path in type_states.values()))
         print(f"Stopped at --limit {limit}. "
               + ("Dry run — nothing was recorded, so a re-run starts from this same line."
                  if dry_run else
-                 f"Re-run to continue from here ({sidecar_path.name} records what already landed)."))
+                 f"Re-run to continue from here ({where_recorded} records what already landed)."))
     if interrupted:
         raise SystemExit(130)
 

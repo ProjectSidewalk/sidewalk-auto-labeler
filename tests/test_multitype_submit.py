@@ -330,3 +330,124 @@ def test_a_whole_line_sidecar_beside_a_multi_type_file_is_refused(tmp_path, monk
     with pytest.raises(ValueError, match="one <file>.type-<T>.submitted per type"):
         send_to_ps.process_jsonl_file(str(path), PROD)
     assert sent == []
+
+
+# --- review follow-ups (guards on the per-type record) ------------------------------------
+
+TEST = "https://ps-test.example/ai/submitLabelsOnPano"
+
+
+def _rewrite_state(tmp_path, endpoint, edit):
+    path = tmp_path / "results.jsonl.submission.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    edit(record["endpoints"][endpoint])
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+
+def test_a_single_type_file_whose_record_has_types_is_refused(tmp_path, monkeypatch):
+    path = tmp_path / "results.jsonl"
+    shutil.copyfile(GOLDEN_JSONL, path)
+    _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    _rewrite_state(tmp_path, PROD, lambda st: st.update(types={"CurbRamp": {"submitted_lines": 3}}))
+    with pytest.raises(ValueError, match="records a per-type campaign"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+
+
+@pytest.mark.parametrize("endpoint", [PROD, TEST])
+def test_a_multi_type_file_whose_record_lacks_types_is_refused(tmp_path, monkeypatch, endpoint):
+    """Checked over EVERY endpoint: a whole-line entry on a test server means the file already
+    went out there with every type under one label type."""
+    path = _two_type_file(tmp_path)
+    _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), endpoint)
+    _rewrite_state(tmp_path, endpoint, lambda st: st.pop("types"))
+    for p in tmp_path.glob("*.type-*.submitted"):
+        p.rename(p.with_name(p.name + ".aside"))
+    sent = _capture(monkeypatch)
+    with pytest.raises(ValueError, match=f"sent to {endpoint} WITHOUT per-type entries"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+
+def test_a_pure_append_to_a_multi_type_file_resumes_and_a_repeat_is_refused(tmp_path, monkeypatch):
+    """#59 works on line numbers, so it holds for per-type sidecars exactly as for one."""
+    path = _two_type_file(tmp_path)
+    _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    submitted = path.read_bytes()
+    with open(path, "a", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(_two_type_line(3, [(XWALK, 0.5, 0.6, 0.9)])) + "\n")
+    sent = _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert [(p["pano"]["pano_id"], p["label_type"]) for p in sent] == [
+        ("MT3", XWALK), ("MT3", "CurbRamp")]
+    assert _state(tmp_path)["types"][XWALK]["submitted_lines"] == 3
+
+    with open(path, "a", encoding="utf-8", newline="\n") as f:
+        f.write(submitted.decode("utf-8").splitlines()[0] + "\n")    # MT1 again
+    sent = _capture(monkeypatch)
+    with pytest.raises(ValueError, match="the panos are not"):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+
+
+def test_test_then_prod_with_type_sidecars_left_in_place_is_refused(tmp_path, monkeypatch):
+    path = _two_type_file(tmp_path)
+    _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), TEST)
+    sent = _capture(monkeypatch)
+    with pytest.raises(ValueError, match="the rest went to " + TEST):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+    for p in tmp_path.glob("*.type-*.submitted"):     # the documented move, per type
+        p.rename(p.with_name(p.name + ".staging"))
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == 4
+
+
+def test_an_interrupt_between_two_types_resumes_with_the_missing_pair(tmp_path, monkeypatch):
+    path = _two_type_file(tmp_path)
+    ok = SimpleNamespace(status_code=200, ok=True, text="")
+    calls = []
+
+    def post(payload, url, key=None):
+        calls.append((payload["pano"]["pano_id"], payload["label_type"]))
+        if len(calls) == 2:
+            raise KeyboardInterrupt
+        return ok
+    monkeypatch.setattr(send_to_ps, "send_to_project_sidewalk", post)
+    with pytest.raises(SystemExit):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    state = _state(tmp_path)
+    assert state["types"][XWALK]["submitted_lines"] == 1 and "CurbRamp" not in state["types"]
+    sent = _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert [(p["pano"]["pano_id"], p["label_type"]) for p in sent] == [
+        ("MT1", "CurbRamp"), ("MT2", XWALK), ("MT2", "CurbRamp")]
+
+
+def test_a_single_non_curb_ramp_type_file_goes_through_the_typed_transform(tmp_path, monkeypatch):
+    """A Crosswalk-only run writes label_types; its payload is what split_record would build:
+    the type's threshold and mask, no models/label_types, no CurbRamp decode marker."""
+    pano = dict(_golden_line()["pano"], panorama_id="X1")
+    line = json.loads(json.dumps(main.build_output_line(
+        {"pano_id": "X1", "pano": pano, "label_types": [XWALK],
+         "detections": [(0.5, 0.6, 0.9, XWALK), (0.5, 0.95, 0.8, XWALK), (0.2, 0.6, 0.4, XWALK)]},
+        {XWALK: dict(XWALK_MODEL)})))
+    path = tmp_path / "results.jsonl"
+    path.write_text(json.dumps(line) + "\n", encoding="utf-8")
+    sent = _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == [send_to_ps.split_record(line)[0][1]]
+    assert [lab["confidence"] for lab in sent[0]["labels"]] == [0.9, 0.8]
+    assert not {"models", "label_types", "detection_decode"} & set(sent[0])
+    assert send_to_ps.load_submitted_lines(tmp_path / "results.jsonl.submitted") == {1}
+    assert _state(tmp_path)["min_confidence"] == 0.5 and "types" not in _state(tmp_path)
+
+
+def test_a_dry_run_band_below_the_default_floor_is_refused(tmp_path):
+    path = tmp_path / "results.jsonl"
+    shutil.copyfile(GOLDEN_JSONL, path)
+    with pytest.raises(ValueError, match="must be below --max-confidence"):
+        send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True, max_confidence=0.2)

@@ -585,7 +585,8 @@ def campaigns_for(directory, endpoint, exclude=()):
             parts += [(key, band, Path(f'{results}.band-{key}.submitted'), _band_bounds(key),
                        None) for key, band in bands]
         for band_key, part, sidecar, (select_min, select_max), label_type in parts:
-            suffix = ('' if band_key is None else f' (band {band_key})') +                      ('' if label_type is None else f' (type {label_type})')
+            suffix = (('' if band_key is None else f' (band {band_key})')
+                      + ('' if label_type is None else f' (type {label_type})'))
             n = int(part.get('submitted_lines') or 0)
             if n <= 0:
                 continue

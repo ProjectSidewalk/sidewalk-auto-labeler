@@ -700,17 +700,17 @@ def main_cli(argv=None):
     if args.verify:
         import send_to_ps
         old_path = args.run_dir / 'results.jsonl'
-        if args.write_band_file is not None:
-            # send_to_ps.py refuses a band on a multi-type file (issue #168), so a band file
-            # built from one could never ship; say so before re-reading anything.
-            for path in (old_path, out_path):
-                types = send_to_ps.file_label_types(path) if path.exists() else []
-                if len(types) > 1:
-                    raise SystemExit(
-                        f"{path.name} holds several label types ({', '.join(types)}); "
-                        f"--write-band-file is refused on a multi-type file. Bands exist for "
-                        f"the legacy CurbRamp cities that went live at 0.55 before the "
-                        f"operating point moved to 0.30 (issue #20).")
+        # reinfer re-runs the CurbRamp detector only, and send_to_ps.py refuses a band on a
+        # multi-type file (issue #168): neither the comparison nor a band file built from it
+        # would mean anything there, so say so before re-reading anything.
+        for path in (old_path, out_path):
+            types = send_to_ps.file_label_types(path) if path.exists() else []
+            if len(types) > 1:
+                raise SystemExit(
+                    f"{path.name} holds several label types ({', '.join(types)}); --verify and "
+                    f"--write-band-file are refused on a multi-type file: reinfer re-runs only "
+                    f"the CurbRamp detector, and bands exist for the legacy CurbRamp cities "
+                    f"that went live at 0.55 before the operating point moved to 0.30 (issue #20).")
         tier = server_tier(send_to_ps.load_submission_record(
             send_to_ps.submission_record_path(old_path)))
         try:
