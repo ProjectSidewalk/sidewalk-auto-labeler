@@ -6,6 +6,8 @@ __pycache__
 .env
 *.jsonl
 *.submitted
+# ...except test fixtures, which are compared byte for byte (tests/fixtures/multitype_submit).
+!tests/fixtures/**
 nohup.out
 smoke_check
 
