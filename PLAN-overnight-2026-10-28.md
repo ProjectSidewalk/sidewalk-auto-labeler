@@ -112,7 +112,14 @@ Branch `panoramax-politeness-161`, worktree `D:\Git\labeler-wt\pmx161`.
    `git pull` it first or `git fetch && git checkout panoramax-politeness-161`; the Lyon
    archive is local there under `/projects/makeabilitylab/sidewalk-auto-labeler/runs/lyon/`
    — read its `index.csv` for ids, rigs and real dimensions; verify the exact path with `ls`
-   before assuming). **makelab rules:** open ONE master first
+   before assuming). Verified 2026-10-28 21:29 PT: the A40 shows 8.7 GB used by someone else at
+   0% util (fine); `index.csv` has only `panorama_id,filename,bytes,sha256`, so rigs and real
+   dimensions come from the archive dir's own `results.jsonl` (`pano.camera_model`,
+   `pano.width/height`); the py312 checkout sits at 632e819 with dirty `runs/` files — do NOT
+   stash or pull it; instead `git -C /homes/gws/jonf/sidewalk-auto-labeler-py312 fetch origin
+   panoramax-politeness-161 && git -C ... worktree add /homes/gws/jonf/sal-pmx161
+   panoramax-politeness-161` and run with `/homes/gws/jonf/sidewalk-auto-labeler-py312/.venv/bin/python`
+   (set `PYTHONPATH` to the worktree). An SSH master is already open. **makelab rules:** open ONE master first
    (`& 'D:\Git\dotfiles\wsl-ssh.ps1' makelab2 open`), batch work into few `run`/`script`
    calls, never fan out, and **one timeout means stop: zero retries**, report. Check
    `nvidia-smi` is free before using the GPU; the archive root is also a frozen Py3.9
