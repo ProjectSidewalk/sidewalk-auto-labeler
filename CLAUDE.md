@@ -42,6 +42,16 @@ python main.py example_geojson/richmond.geojson --name richmond --source mapilla
 
 # ...or on Panoramax (federated open imagery, no token; coverage is mostly France today)
 python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
+# ...paced at 1 picture/s + 1 metadata request/s (#161; per process), pool capped at 4,
+# metadata batched 100 per /search. --panoramax-asset sd (opt-in: it loses ~37% of HD's
+# 0.30 detections, docs/panoramax-asset-study.md) reads the 2048-px derivative but records
+# the sensor frame; bound in the manifest. Talk to the maintainers before a big run.
+PANORAMAX_PICTURES_PER_SECOND=1 python main.py example_geojson/bayonne.geojson     --name bayonne_sd --source panoramax --panoramax-asset sd
+# The asset study behind the default (docs/panoramax-asset-study.md; GPU only for `run`):
+python scripts/panoramax_asset_study.py sample --results <lyon results.jsonl> --data <dir>
+python scripts/panoramax_asset_study.py fetch-sd --data <dir>     # 600 SD assets at 1/s
+python scripts/panoramax_asset_study.py run --data <dir>          # hd / sd / sd_sim arms
+python scripts/panoramax_asset_study.py score --data <dir> && python scripts/panoramax_asset_study.py figures
 # PANORAMAX MEASURED (issue #57 part 1; docs/panoramax-bayonne.md, corrected after two PR #125
 # reviews). Bayonne ran in full at --thin-spacing 10 (rule: 10 m if the scan-only estimate > 16 h;
 # it printed 21.1 h at 5 m; the manifest did not record the spacing at the time; since #126 every
@@ -1005,6 +1015,35 @@ Panoramax (HTTP 404; ...)`) so a run log can count them.
   root would otherwise read as a legitimate zero-coverage scan). Records carry `license` and `panoramax_instance`, and `copyright` is the
   producer's bare name (see the attribution note below); `source_metadata` is the
   STAC properties (EXIF included) minus the viewer's tile descriptors.
+  **Politeness (issue #161)** -- Panoramax's maintainers asked for fewer full-resolution
+  downloads and about 1/s. Every request goes through `panoramax._get(url, kind)` and a
+  per-kind token bucket (`sources/ratelimit.py`): `picture` 1/s, `metadata` 1/s, `tile` 5/s
+  (env `PANORAMAX_PICTURES_PER_SECOND` / `_METADATA_` / `_TILES_`, 0 = unlimited for a
+  private mirror; recorded per run entry as `panoramax_rate_limits` with per-kind request
+  counts). A 429/503 pauses the whole kind for min(Retry-After, 300) s. **Limits are per
+  process**: two runs (or a run plus an archive) against the same instance get 1/s EACH.
+  Metadata is batched: main.py calls the optional `queue_hint` hook with the processing
+  order, and a miss fetches that picture plus the next <= 99 in one `/search?ids=` request
+  (20 of 20 live items built identical pano blocks to `/pictures/{id}`'s, 2026-10-28,
+  `runs/_summary/panoramax_asset/search_check.csv`); an id the search leaves out falls back
+  to the per-id GET, never read as gone. `MAX_PROCESSING_CONCURRENCY = 4` caps the pool.
+  **The arithmetic:** at 1 picture/s a Lyon-size run (174k panos) is ~48 h of downloads and
+  Bayonne (50k) ~14 h; `--scan-only`'s estimate uses that floor. `--panoramax-asset
+  {hd,sd}` picks the downloaded asset. The default stays `hd` by
+  docs/panoramax-asset-study.md's pre-registered rule: on 600 Lyon panos SD kept only 0.629
+  of HD's 0.30 detections (precision 0.847 vs HD; bar 0.95 each; every rig failed), mostly
+  because SD lowers confidence (lenient recall 0.881), so don't flip it without a model
+  trained at SD resolution; under `sd` the record keeps the SENSOR frame
+  (`sensor_array_dimensions`, which PS's viewer and pano store use) and a picture without
+  2:1 sensor dims, without an `sd` asset, or whose SD 404s / is undecodable / is not 2:1 is
+  read in HD instead (`asset_fallbacks` in the run entry); `source_metadata` gains
+  `image_asset` / `image_url` / `image_dimensions_downloaded` under `sd` only, so `hd` lines
+  are unchanged. The manifest binds `panoramax_asset` (`main.bind_source_settings`, via the
+  source's `manifest_bindings()`; a pre-#161 run with records is `hd`): a resume under the
+  other asset is refused. **The native-res archive re-downloads every pano** --
+  `export_benchmark.py` always fetches HD (`asset='hd'`), now at the same 1/s, so archiving
+  Lyon is another ~48 h and another 174k full-resolution pictures; coordinate with the
+  Panoramax maintainers before any run or archive that size.
 
 Concurrency uses plain OS threads (`concurrent.futures.ThreadPoolExecutor`) — **not gevent**.
 streetlevel's sync imagery API runs an internal asyncio event loop per call (`asyncio.run` +
