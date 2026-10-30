@@ -198,12 +198,14 @@ python main.py example_geojson/<city>.geojson --name <city>
 ```
 
 > **Two lines change for a Mapillary city** (Clovis and Morgantown were both run this
-> way). Export the token — `sources/mapillary.py` hard-exits without it, and Slurm does
-> not inherit your login shell's environment:
+> way). Make the token available (export it, or keep it in the checkout's `.env`) —
+> `sources/mapillary.py` hard-exits without it, and Slurm does not inherit your login
+> shell's environment:
 >
 > ```bash
-> export MAPILLARY_ACCESS_TOKEN=...   # or skip this: main.py loads ./.env itself (never `. .env`
->                                     # in bash -- the unquoted MLY|id|hash token parses as a pipe)
+> export MAPILLARY_ACCESS_TOKEN='MLY|...'   # quoted: unquoted, the MLY|id|hash token parses as a pipe
+> # ...or skip the export: main.py loads ./.env itself. Never `. .env` in bash unless the
+> # value inside it is quoted, for the same reason.
 > ```
 >
 > …and point the preflight at the host the run actually talks to, since
