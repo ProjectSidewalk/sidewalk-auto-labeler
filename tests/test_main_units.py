@@ -517,11 +517,11 @@ def test_handle_result_logs_and_caches_a_skip_but_not_a_failure(tmp_path, capsys
     cache, jsonl = tmp_path / "already_processed.txt", tmp_path / "results.jsonl"
     with open(cache, "w") as f_cache, open(jsonl, "w") as f_jsonl:
         outcome = main.handle_result(
-            {"status": "skipped", "pano_id": "p1", "reason": "Image asset is gone"},
+            {"status": "skipped", "pano_id": "p1", "reason": "Undecodable image bytes"},
             f_cache, f_jsonl, make_provenance())
         assert outcome == "skipped"
         out = capsys.readouterr().out
-        assert "p1" in out and "Image asset is gone" in out
+        assert "p1" in out and "Undecodable image bytes" in out
 
         outcome = main.handle_result(
             {"status": "failure", "pano_id": "p2", "reason": "Image download failed"},

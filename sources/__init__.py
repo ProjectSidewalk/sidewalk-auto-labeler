@@ -16,7 +16,10 @@ Each source module provides the same interface, consumed by main.py:
   {'status': 'success', 'pano': <JSONL pano dict>, 'image': <PIL image>} or
   {'status': 'skipped'|'failure', 'reason': str}. 'skipped' is deterministic
   (main.py caches it so it's never retried); 'failure' is retryable (left
-  uncached so the next run retries it).
+  uncached so the next run retries it). When in doubt, a failure: a wrong skip
+  loses a pano for good, a wrong failure costs a request per resume. An HTTP 404
+  is source-specific -- Mapillary's image 404 (expired signed URL) and every
+  Panoramax 404 (catalog or image; young, flaky infrastructure) are failures.
 - provenance_fields(...) (by convention, called from each source's own
   build_pano_record): the shared provenance keys every pano block carries --
   camera_make, camera_model, camera_type, source_metadata (None when unknown) plus
@@ -26,6 +29,21 @@ Each source module provides the same interface, consumed by main.py:
   metadata; outside-the-area is a deterministic skip. Providing this hook enables
   main.py's post-run gap-fill phase (link-graph closure, issue #32) — only
   meaningful for sources whose pano records carry links (GSV).
+
+Optional politeness hooks (issue #161; Panoramax provides them, main.py reads each with
+getattr so a source without them behaves exactly as before):
+
+- queue_hint(ordered_pano_ids): called once, right before the processing pool, with the
+  ids about to be processed in submission order, so the source can batch its metadata
+  requests (Panoramax: /search?ids= in chunks of 100) instead of one GET per pano. A
+  source must still answer fetch_pano for an id it was not hinted.
+- MAX_PROCESSING_CONCURRENCY: an upper bound on main.py's processing pool, for a source
+  whose server-side rate limit makes more threads pointless (main.py takes the min).
+- manifest_bindings() -> {key: value}: settings a run directory is bound to, checked
+  like the decode (main.bind_source_settings). LEGACY_MANIFEST_BINDINGS = {key: value}
+  names what a pre-existing run with records was made under.
+- run_record() -> dict: merged into the manifest's run entry (pacing, request counts).
+- min_seconds_per_pano() -> float: a floor under --scan-only's runtime estimate.
 
 Modules are imported lazily so one source's dependencies (e.g. the MVT decoder
 for Mapillary) aren't required to run another.

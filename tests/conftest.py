@@ -40,6 +40,22 @@ def no_network(monkeypatch):
         monkeypatch.setattr(requests, fn, blocked)
 
 
+@pytest.fixture(autouse=True)
+def unlimited_panoramax(monkeypatch):
+    """Panoramax requests are paced at 1/s in production (issue #161); tests must never
+    sleep on that, nor inherit another test's queue_hint, asset or counters. Tests of the
+    limiter itself build their own RateLimiter with a fake clock."""
+    from sources import panoramax
+    from sources.ratelimit import RateLimiter
+    monkeypatch.setattr(panoramax, "_LIMITERS",
+                        {kind: RateLimiter(None) for kind in panoramax.RATE_DEFAULTS})
+    monkeypatch.setattr(panoramax, "IMAGE_ASSET", "hd")
+    monkeypatch.setattr(panoramax, "_COUNTERS", {"asset_fallbacks": 0})
+    panoramax.clear_hint()
+    yield
+    panoramax.clear_hint()
+
+
 def make_metadata(**overrides):
     """A minimal streetlevel-shaped metadata object accepted by main.build_output_line."""
     base = dict(

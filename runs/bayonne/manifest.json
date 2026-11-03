@@ -37,6 +37,8 @@
       "scan": "reused",
       "scan_scanned_at": "2026-09-30T22:56:20+00:00",
       "scan_age_hours": 0.0,
+      "thin_spacing_m": 10,
+      "panos_before_thinning": 73161,
       "model": {
         "model_repo": "projectsidewalk/rampnet-model",
         "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
@@ -61,5 +63,16 @@
     "both_off": 0,
     "rule": "paired-unsigned-v1 (issue #62)",
     "panos_not_near_a_street": 4027
+  },
+  "thin_spacing_m": 10,
+  "thin_spacing_backfilled": {
+    "at": "2026-10-05",
+    "how": "by hand (issue #126 follow-up), not by main.py; no thin_spacing_bound_on_resume because no resume has bound it",
+    "applies_to": "runs[2] (the 2026-09-30 main pass); the two 2026-09-04 smoke entries are left as recorded",
+    "evidence": [
+      "run.log line 12: 'Spatial thinning: 73161 -> 28634 panos (best per ~10 m grid cell)'",
+      "scan.json (73,161 panos, the reused scan) re-thinned with sources.panoramax.thin_panos at 10 m gives exactly the 28,634 ids in already_processed.txt (set-equal); at 5 m it gives 50,528",
+      "docs/panoramax-bayonne.md: command used --thin-spacing 10 (pre-stated rule: 10 m when the scan-only estimate exceeds 16 h; it printed 21.1 h)"
+    ]
   }
 }

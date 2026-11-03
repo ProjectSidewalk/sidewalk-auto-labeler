@@ -83,9 +83,13 @@ The A40 then ran at 0.85 s/pano, so 5 m would have taken about 12 h; the estimat
 constant is an RTX 3070 figure. `manifest.json` recorded neither at the time;
 [#126](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/126) added
 `thin_spacing_m` and `panos_before_thinning` to every run entry (the Bayonne manifest predates
-it; its values are 10 m and 73,161).
+it; its values are 10 m and 73,161). Those values were backfilled into `runs/bayonne/manifest.json`
+by hand on 2026-10-05 (top-level `thin_spacing_m` binds the run; `thin_spacing_backfilled`
+records the evidence): `run.log` printed `73161 → 28634 panos (best per ~10 m grid cell)`, and
+re-thinning the reused `scan.json` at 10 m reproduces the 28,634 ids of
+`already_processed.txt` exactly (5 m gives 50,528).
 
-**Skips (110, all cached; `data/skips.csv`).**
+**Skips (110, all cached at the time; `data/skips.csv`).**
 
 - **104** are GoPro **MAX2** uploads on the OSM-FR instance. Each declares 7680x3840 but
   serves a 7680x2940, vertically cropped `hd` image. The 2:1 check rejects them, which is
@@ -93,14 +97,20 @@ it; its values are 10 m and 73,161).
 - **3** have no `view:azimuth`, which is also correct.
 - **3** IGN panos (`139d37d3-…`, `1f8be062-…`, `2c902fc4-…`) have metadata and pixels
   that are fine today. main.py does not log per-pano skip reasons, and two causes fit:
-  - a transient asset 404 (the source caches a 404 as permanent);
+  - a transient asset 404 (the source cached a 404 as permanent at the time);
   - a body that arrived incomplete and failed to decode. `_download_image`'s bare
-    `except Exception` caches any decode exception as permanent.
+    `except Exception` cached any decode exception as permanent.
 
-  [#127](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/127) tracks
+  [#127](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/127) tracked
   this. Its
   [amendment](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/127#issuecomment-5934720793)
-  notes that a narrowed catch alone would not cover truncation.
+  notes that a narrowed catch alone would not cover truncation. Both causes are now
+  retryable: #137 made a truncated body a failure, and since 2026-10-05 a Panoramax 404
+  (image asset or catalog item) is a failure too, never a cached skip, because the
+  infrastructure is young and a 404 may be transient. A picture that really is gone is
+  re-requested once per resume, forever, which is cheap. These 3 ids were removed from the
+  local `already_processed.txt` (backup `already_processed.txt.bak-2026-10-05`), so the
+  next resume retries them; the 107 explained skips stay cached.
 
 No HTTP 429 or 5xx failures occurred on either instance.
 
@@ -404,8 +414,9 @@ at 1.90 panos/s.
 | 12 | `python scripts/panoramax_bayonne_figures.py figures` → `fig*.png` / `.jpg` (+ `.svg` for figures 1-5 and 7b) | — | 30 s |
 | 13 | on makelab2, `bayonne_archive.sh`: `export_benchmark.py runs/bayonne/results.jsonl --out runs/bayonne/panos` | net | 4.2 h |
 
-- **Step 2** must keep `--thin-spacing 10`. The manifest predates #126's `thin_spacing_m`; a
-  resume at any other spacing is now refused once the manifest is bound.
+- **Step 2** must keep `--thin-spacing 10`. The manifest predates #126's `thin_spacing_m` but
+  was backfilled to 10 m, so a resume at any other spacing (the 5 m default included) is
+  refused.
 - **Step 5's** `bayonne_report.md` copies under `data/reprojection*/` are that step's
   per-city `report.md`, copied by hand.
 - **Step 12** reads only the committed `data/`. It is byte-reproducible for the listed
