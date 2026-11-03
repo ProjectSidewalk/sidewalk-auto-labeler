@@ -413,6 +413,102 @@ def test_live_imagery_units_are_reported_with_and_without(tmp_path):
     assert sc['results']['jonf']['used_live_imagery'] == ['c0', 'f0']
 
 
+# ------------------------------------------------- frozen blind reads vs HEAD (review SF1)
+
+def test_blind_regressions():
+    """PR #141 final review SF1: a blind read frozen in the committed file that the new file
+    lost, removed or changed is a regression; added units, post-reveal edits and drafts are not."""
+    old = vfile({'u1': unit_verdicts(['absent'] * 3), 'u2': unit_verdicts(['present'] * 3),
+                 'd': unit_verdicts(['absent', None, None], complete=False)})
+    assert cs.blind_regressions(old, json.loads(json.dumps(old))) == []          # unchanged
+    grown = json.loads(json.dumps(old))
+    grown['units']['u3'] = unit_verdicts(['absent'] * 3)                          # new units added
+    grown['units']['u1'] = unit_verdicts(['present', 'absent', 'absent'], blind=['absent'] * 3,
+                                         edited=True)                            # edited after reveal
+    del grown['units']['d']                                                      # a draft dropped
+    assert cs.blind_regressions(old, grown) == []
+    lost = json.loads(json.dumps(old))
+    del lost['units']['u1']                                                      # missing unit
+    lost['units']['u2']['blind']['0']['verdict'] = 'absent'                      # changed blind
+    assert cs.blind_regressions(old, lost) == [
+        'u1: missing (its blind read is frozen in HEAD)',
+        'u2: its blind read differs from the one frozen in HEAD']
+    lost['units']['u2']['blind'] = None
+    assert cs.blind_regressions(old, lost)[1] == 'u2: its blind read was removed'
+
+
+GIT = shutil.which('git')
+
+
+def _git(cwd, *a):
+    subprocess.run([GIT, '-C', str(cwd), *a], check=True, capture_output=True)
+
+
+@pytest.mark.skipif(GIT is None, reason='git not installed')
+def test_score_refuses_an_export_that_lost_blind_reads_frozen_in_head(tmp_path, monkeypatch, capsys):
+    """SF1 end to end: the scorer (doc step 6, run before every commit) compares the working
+    verdicts file with HEAD's, refuses (exit 2, nothing written) when a frozen blind read is
+    missing, says the export came from a stale page, and scores with --allow-blind-change. No
+    file in HEAD yet, or no git checkout at all, scores with a note."""
+    for k, v in {'GIT_CONFIG_GLOBAL': str(tmp_path / 'empty.gitconfig'), 'GIT_CONFIG_NOSYSTEM': '1',
+                 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t', 'GIT_COMMITTER_NAME': 't',
+                 'GIT_COMMITTER_EMAIL': 't@t'}.items():
+        monkeypatch.setenv(k, v)
+    (tmp_path / 'empty.gitconfig').write_text('', encoding='utf-8')
+    bundle = tmp_path / 'repo' / 'b'
+    bundle.mkdir(parents=True)
+    items = [item('c0', 'clean'), item('c1', 'clean')]
+    (bundle / 'items.jsonl').write_text(''.join(json.dumps(i) + '\n' for i in items), encoding='utf-8')
+    sha = cs.sha256_file(bundle / 'items.jsonl')
+    (bundle / 'snapshot.json').write_text(json.dumps(
+        {'items_sha256': sha, 'seed': 243, 'rubric': cg.RUBRIC,
+         'populations': {'false_absence': 2, 'na_noramp': 40, 'clean': 20}}), encoding='utf-8')
+    vpath = bundle / 'verdicts__jonf.json'
+    full = vfile({'c0': unit_verdicts(['absent'] * 3), 'c1': unit_verdicts(['absent'] * 3)}, sha=sha)
+    vpath.write_text(json.dumps(full), encoding='utf-8')
+    assert cs.head_bytes(vpath) == (None, 'not a git checkout')
+    _git(bundle.parent, 'init', '-q')
+    assert cs.head_bytes(vpath)[1] == 'the checkout has no commit yet'
+    _git(bundle.parent, 'add', 'b/items.jsonl', 'b/snapshot.json')
+    _git(bundle.parent, 'commit', '-q', '-m', 'bundle')
+    assert cs.head_bytes(vpath)[1] == 'not in HEAD yet (first commit)'
+    assert cs.main([str(bundle)]) == 0                               # first commit: a note only
+    _git(bundle.parent, 'add', 'b/verdicts__jonf.json')
+    _git(bundle.parent, 'commit', '-q', '-m', 'verdicts')
+    assert cs.head_bytes(vpath)[0] == vpath.read_bytes()
+    assert cs.main([str(bundle)]) == 0                               # unchanged vs HEAD
+    # an export from a page rendered before c1 was committed: valid, but c1's blind read is gone
+    stale = vfile({'c0': unit_verdicts(['absent'] * 3)}, sha=sha)
+    stale['prefilled_from_sha256'] = 'a' * 64
+    vpath.write_text(json.dumps(stale), encoding='utf-8')
+    assert cs.validate(stale, items, sha, cg.RUBRIC) == []
+    shutil.rmtree(bundle / 'score')
+    capsys.readouterr()
+    assert cs.main([str(bundle)]) == 2 and not (bundle / 'score').exists()
+    err = capsys.readouterr().err
+    assert 'REFUSED: 1 blind read(s)' in err and 'c1: missing' in err and 'STALE page' in err
+    assert cs.main([str(bundle), '--allow-blind-change']) == 0
+    assert (bundle / 'score/report.md').exists()
+    # more units on top of HEAD's is the normal case and passes
+    grown = vfile({'c0': unit_verdicts(['absent'] * 3), 'c1': unit_verdicts(['absent'] * 3)}, sha=sha)
+    grown['prefilled_from_sha256'] = None
+    grown['units']['c0']['note'] = 'added later'
+    vpath.write_text(json.dumps(grown), encoding='utf-8')
+    assert cs.main([str(bundle)]) == 0
+
+
+def test_validate_accepts_prefilled_from_as_optional():
+    """SF1: exports carry prefilled_from_sha256 (null when the page had no file); files from
+    before it (Jon's committed 50 units) still validate; a malformed value does not."""
+    items = [item('u1', 'clean')]
+    v = vfile({'u1': unit_verdicts(['absent'] * 3)})
+    assert cs.validate(v, items, 'S') == []
+    for ok in (None, 'ab' * 32):
+        assert cs.validate(dict(v, prefilled_from_sha256=ok), items, 'S') == []
+    assert any('prefilled_from_sha256' in x
+               for x in cs.validate(dict(v, prefilled_from_sha256='stale'), items, 'S'))
+
+
 # --------------------------------------------------------------------------------- page
 
 def test_render_has_no_placeholders_and_no_part():
@@ -429,6 +525,10 @@ def test_render_has_no_placeholders_and_no_part():
     # review S2: the live-imagery checkbox, set by opening a look-around link, is exported
     assert 'id="liveimg"' in html and 'markLive(); return;' in html
     assert 'used_live_imagery: !!s.used_live_imagery' in html
+    # final review SF1: the export names the file the page was rendered from
+    assert 'const PREFILLED_FROM = null;' in html and 'prefilled_from_sha256: PREFILLED_FROM' in html
+    assert 'const PREFILLED_FROM = "' + 'ab' * 32 + '";' in cg.build_html(
+        [cg.viewer_unit(it, '../../')], 'S' * 64, 'jonf', None, 'Imagery: Esri', 'ab' * 32)
     with pytest.raises(ValueError):
         cg.rater_file_name('bad name')
 

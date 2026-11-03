@@ -44,6 +44,12 @@ Reported per rater:
 Given two raters (--a / --b), corner-level agreement on the blind verdicts (percent and
 Cohen's kappa over the three values) and unit-outcome agreement.
 
+Before scoring, each verdicts file is compared with its committed version (``git show
+HEAD:...``): a blind read frozen in HEAD that the working file has lost or changed refuses the
+run (exit 2, nothing written) unless ``--allow-blind-change`` is given. The usual cause is an
+Export from a stale page (rendered from an older verdicts file); re-render, reload and export
+again (PR #141 final review SF1).
+
     python scripts/corner_gallery_score.py runs/vancouver/corner_gallery243
     python scripts/corner_gallery_score.py runs/vancouver/corner_gallery243 --a jonf --b jonf-retest
 """
@@ -52,6 +58,7 @@ import hashlib
 import json
 import math
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -227,6 +234,9 @@ def validate(verdicts, items, items_sha, rubric=None):
     if not isinstance(verdicts.get('rater'), str) or not re.fullmatch(r'[A-Za-z0-9_.-]+',
                                                                      verdicts.get('rater') or ''):
         problems.append(f"rater {verdicts.get('rater')!r}")
+    pre = verdicts.get('prefilled_from_sha256')
+    if pre is not None and not (isinstance(pre, str) and re.fullmatch(r'[0-9a-f]{64}', pre)):
+        problems.append(f'prefilled_from_sha256 {pre!r} is not a sha256')
     by_id = {i['unit']: i for i in items}
     for cid, u in sorted((verdicts.get('units') or {}).items()):
         it = by_id.get(cid)
@@ -263,6 +273,87 @@ def validate(verdicts, items, items_sha, rubric=None):
         if not isinstance(e, (int, float)) or e < 0:
             problems.append(f'{cid}: elapsed_s {e!r}')
     return problems
+
+
+# ------------------------------------------------- frozen blind reads vs HEAD (review SF1)
+# The page knows the committed file only through what `render` embedded, so a page rendered
+# from an older verdicts file (a tab left open across a machine switch, or index.html reopened
+# after a pull without re-rendering) exports without the units rated elsewhere since. validate()
+# cannot see that: a file that lost units is still a valid, smaller file. The guard compares the
+# working file with HEAD's.
+
+def blind_regressions(old, new):
+    """Every blind read frozen in ``old`` (the committed verdicts file) that ``new`` lost or
+    changed, as strings (empty = none). Units added in ``new``, final verdicts edited after the
+    reveal, and drafts (no blind read) are not regressions.
+
+        >>> old = {'units': {'u1': {'blind': {'0': {'verdict': 'absent'}}}}}
+        >>> blind_regressions(old, {'units': {}})
+        ['u1: missing (its blind read is frozen in HEAD)']
+    """
+    out = []
+    new_units = (new or {}).get('units') or {}
+    for uid, e in sorted(((old or {}).get('units') or {}).items()):
+        b = (e or {}).get('blind')
+        if b is None:
+            continue
+        if uid not in new_units:
+            out.append(f'{uid}: missing (its blind read is frozen in HEAD)')
+        elif (new_units[uid] or {}).get('blind') is None:
+            out.append(f'{uid}: its blind read was removed')
+        elif new_units[uid]['blind'] != b:
+            out.append(f'{uid}: its blind read differs from the one frozen in HEAD')
+    return out
+
+
+def head_bytes(path):
+    """(bytes, None) for ``path`` as committed at HEAD, else (None, why): not a git checkout
+    (or git missing), no commit yet, or the file is not in HEAD yet (its first commit)."""
+    path = Path(path)
+
+    def git(*a):
+        return subprocess.run(['git', '-C', str(path.parent), *a], capture_output=True)
+    try:
+        r = git('rev-parse', '--is-inside-work-tree')
+    except OSError as e:
+        return None, f'git is not runnable ({e})'
+    if r.returncode != 0 or r.stdout.strip() != b'true':
+        return None, 'not a git checkout'
+    if git('rev-parse', '--verify', '-q', 'HEAD').returncode != 0:
+        return None, 'the checkout has no commit yet'
+    r = git('show', f'HEAD:./{path.name}')
+    if r.returncode != 0:
+        return None, 'not in HEAD yet (first commit)'
+    return r.stdout, None
+
+
+def check_against_head(path, verdicts):
+    """(lost, notes) for one verdicts file: ``lost`` are blind_regressions against HEAD's
+    copy; ``notes`` explain a skipped comparison, or say the export came from a stale page."""
+    name = Path(path).name
+    old_b, why = head_bytes(path)
+    if old_b is None:
+        return [], [f'{name}: {why}; no committed blind reads to compare against']
+    if old_b == Path(path).read_bytes():
+        return [], []
+    try:
+        old = json.loads(old_b.decode('utf-8'))
+    except ValueError as e:
+        return [], [f'{name}: the HEAD copy does not parse ({e}); not compared']
+    lost = blind_regressions(old, verdicts)
+    notes = []
+    if lost:
+        pre, head_sha = verdicts.get('prefilled_from_sha256'), hashlib.sha256(old_b).hexdigest()
+        if 'prefilled_from_sha256' not in verdicts:
+            notes.append('the export does not say which file its page was rendered from (a page '
+                         'rendered before prefilled_from_sha256 existed): treat it as stale')
+        elif pre != head_sha:
+            notes.append(f"this export came from a STALE page: it was rendered from "
+                         f"{'no verdicts file' if pre is None else str(pre)[:12]}, HEAD's file is "
+                         f'{head_sha[:12]}')
+        notes.append('re-run `corner_gallery.py render`, reload the page and export again (or '
+                     'pass --allow-blind-change if the change is deliberate)')
+    return lost, notes
 
 
 # ----------------------------------------------------------------------------- scoring
@@ -587,11 +678,29 @@ def main(argv=None):
     ap.add_argument('--a', default=None, help='rater A for agreement')
     ap.add_argument('--b', default=None, help='rater B for agreement')
     ap.add_argument('--out', type=Path, default=None, help='default <bundle>/score')
+    ap.add_argument('--allow-blind-change', action='store_true',
+                    help='score even though a blind read frozen in HEAD is missing or changed '
+                         'in the working verdicts file (review SF1); default: refuse')
     args = ap.parse_args(argv)
     snapshot, items, files = load_bundle(args.bundle)
     items_sha = sha256_file(Path(args.bundle) / 'items.jsonl')
     if items_sha != snapshot['items_sha256']:
         raise SystemExit('items.jsonl does not match snapshot.json')
+    refused = False
+    for rater, v in files.items():
+        path = Path(args.bundle) / f'verdicts__{rater}.json'
+        lost, notes = check_against_head(path, v)
+        if lost:
+            verb = 'ALLOWED (--allow-blind-change)' if args.allow_blind_change else 'REFUSED'
+            print(f'{path.name}: {verb}: {len(lost)} blind read(s) frozen in HEAD are missing or '
+                  f'changed:', file=sys.stderr)
+            for x in lost:
+                print('  ' + x, file=sys.stderr)
+            refused = refused or not args.allow_blind_change
+        for n in notes:
+            print(('  ' if lost else 'note: ') + n, file=sys.stderr)
+    if refused:
+        return 2
     problems, results = {}, {}
     for rater, v in files.items():
         problems[rater] = validate(v, items, items_sha, snapshot.get('rubric'))

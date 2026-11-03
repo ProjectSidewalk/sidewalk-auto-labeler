@@ -130,7 +130,16 @@ carry different dates (2025-12-30 here), so the zoom matters.
 5. Press **Export**, and save the download as
    `runs/vancouver/corner_gallery243/verdicts__jonf.json`.
 6. Run `python scripts/corner_gallery_score.py runs/vancouver/corner_gallery243`, then commit
-   the verdicts file and `score/`. `runs/**` is git-ignored, so use `git add -f` (see below).
+   the verdicts file. `runs/**` is git-ignored, so use `git add -f` (see below). `score/` is
+   written for reading and is not committed (rerun the scorer to regenerate it). The scorer
+   first compares the verdicts file with its committed version (`git show HEAD:...`) and
+   **refuses** (exit 2, nothing written) if a blind read frozen in HEAD is missing or changed:
+   an Export from a stale page drops the units rated since that page was rendered, and the
+   smaller file still validates (final review SF1 of PR #141). Re-render, reload and export
+   again; `--allow-blind-change` overrides for a deliberate change. Every export records
+   `prefilled_from_sha256`, the sha256 of the file its page was rendered from (null when there
+   was none), so the refusal can say the page was stale. Outside a git checkout, or before the
+   file's first commit, the scorer prints a note and scores.
 
 To revise later, re-run `render`: it prefills from the verdicts file. A second rater uses their
 own `--rater` name and file. Agreement is computed with `--a jonf --b <name>`.
@@ -152,7 +161,11 @@ python scripts/corner_gallery.py render --bundle runs/vancouver/corner_gallery24
 
 `render` prefills the page from the committed `verdicts__jonf.json`, so the ratings carry
 over. Progress lives in the browser until Export: **export and commit before switching
-machines**, or the other machine starts from the last committed file. On a machine that has
+machines**, or the other machine starts from the last committed file. **After every `git
+pull`, re-run `render` and reload every open tab of the page**: the page knows the file only
+as it was when `render` ran, so a tab left open across a machine switch, or an `index.html`
+reopened without re-rendering, exports without the units rated elsewhere since (the scorer
+refuses such a file; step 6). On a machine that has
 already rated in its browser, a unit worked on locally wins over the file and the page
 reports the conflict, **except the blind read**: once a unit's blind read is frozen in the
 file, it is kept (review S1 of PR #141). A browser that never completed the unit takes the

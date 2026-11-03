@@ -699,18 +699,22 @@ def viewer_unit(it, rel, aerial_dates=None):
 
 
 def load_prefill(bundle, rater, items_sha):
-    """(verdicts or None, message): a file made on another item list is not loaded."""
+    """(verdicts or None, message, sha256 of the file prefilled from or None): a file made on
+    another item list is not loaded. The sha256 travels in every export as
+    ``prefilled_from_sha256``, so the scorer can tell an export from a stale page (review SF1)."""
     path = Path(bundle) / rater_file_name(rater)
     if not path.exists():
-        return None, None
-    v = json.loads(path.read_text(encoding='utf-8'))
+        return None, None, None
+    raw = path.read_bytes()
+    v = json.loads(raw.decode('utf-8'))
     if v.get('items_sha256') != items_sha:
         return None, (f'NOT prefilled from {path}: made on items {str(v.get("items_sha256"))[:12]},'
-                      f' the bundle is {items_sha[:12]}')
-    return v, f'prefilled {len(v.get("units") or {})} units from {path} for revision'
+                      f' the bundle is {items_sha[:12]}'), None
+    return (v, f'prefilled {len(v.get("units") or {})} units from {path} for revision',
+            hashlib.sha256(raw).hexdigest())
 
 
-def build_html(units, items_sha, rater, initial, attribution):
+def build_html(units, items_sha, rater, initial, attribution, prefilled_from=None):
     from corner_gallery_page import HTML_TEMPLATE, KEYS_JS, PANO_LINKS_JS, STATE_BOOTSTRAP_JS
     return (HTML_TEMPLATE
             .replace('__STATE_BOOTSTRAP__', STATE_BOOTSTRAP_JS)
@@ -725,6 +729,7 @@ def build_html(units, items_sha, rater, initial, attribution):
             .replace('__RUBRIC_HTML__', RUBRIC.replace('&', '&amp;').replace('<', '&lt;'))
             .replace('__SCHEMA__', json.dumps(VERDICTS_SCHEMA))
             .replace('__INITIAL__', json.dumps(initial))
+            .replace('__PREFILLED_FROM__', json.dumps(prefilled_from))
             .replace('__ATTRIBUTION__', json.dumps(attribution))
             .replace('__PS_HOST__', json.dumps(PS_HOST))
             .replace('__FILE_NAME__', json.dumps(rater_file_name(rater))))
@@ -746,12 +751,12 @@ def cmd_render(args):
     out = Path(args.out) if args.out else bundle / 'gallery' / args.rater
     out.mkdir(parents=True, exist_ok=True)
     rel = os.path.relpath(bundle.resolve(), out.resolve()).replace(os.sep, '/') + '/'
-    initial, msg = load_prefill(bundle, args.rater, items_sha)
+    initial, msg, prefilled_from = load_prefill(bundle, args.rater, items_sha)
     if msg:
         print(msg)
     adates = load_aerial_dates(bundle, items_sha)
     html = build_html([viewer_unit(i, rel, adates) for i in items], items_sha, args.rater, initial,
-                      snapshot['aerial']['attribution'])
+                      snapshot['aerial']['attribution'], prefilled_from)
     (out / REVEAL_DIR).mkdir(exist_ok=True)
     for i in items:
         write_text_lf(out / reveal_file(i['unit']), reveal_script(i))

@@ -309,8 +309,9 @@ HTML_TEMPLATE = r"""<!doctype html>
   <kbd>&#8592;</kbd>/<kbd>&#8594;</kbd> units · <kbd>Enter</kbd> on a crop or a click: enlarge
   (<kbd>&#8592;</kbd>/<kbd>&#8594;</kbd> step, <kbd>Esc</kbd> close) · <kbd>?</kbd> this panel<br><br>
   State is saved in this browser as you go. <b>Export</b> downloads the verdicts file; save it
-  into the bundle under the name it suggests. Opening the page again with that file in place
-  prefills it.
+  into the bundle under the name it suggests. Re-running <code>render</code> with that file in
+  place prefills it. After every <code>git pull</code>, re-run <code>render</code> and reload this
+  tab: a page rendered from an older verdicts file exports without the units rated since.
   <pre>__RUBRIC_HTML__</pre>
 </div>
 
@@ -323,6 +324,7 @@ const RUBRIC_VERSION = __RUBRIC_V__;
 const RUBRIC = __RUBRIC_JSON__;
 const SCHEMA = __SCHEMA__;
 const INITIAL = __INITIAL__;            // an existing verdicts file, or null
+const PREFILLED_FROM = __PREFILLED_FROM__;  // sha256 of that file, or null: exported, so the scorer can spot a stale page
 const ATTRIBUTION = __ATTRIBUTION__;
 const PS_HOST = __PS_HOST__;
 const FILE_NAME = __FILE_NAME__;
@@ -770,7 +772,8 @@ document.getElementById('export').onclick = () => {
   if (warn.length && !confirm(warn.join('\n') + '\nExport anyway?')) return;
   saveNotes();
   const out = {schema: SCHEMA, city: CITY, items_sha256: ITEMS_SHA, rater: RATER,
-               rubric_version: RUBRIC_VERSION, rubric: RUBRIC, exported_at: new Date().toISOString()};
+               rubric_version: RUBRIC_VERSION, rubric: RUBRIC, exported_at: new Date().toISOString(),
+               prefilled_from_sha256: PREFILLED_FROM};
   const rn = {};
   for (const k of ['reviewer', 'reviewed_at', 'confidence', 'summary']) if (notes[k]) rn[k] = notes[k];
   if ((notes.caveats || []).length) rn.caveats = notes.caveats;
