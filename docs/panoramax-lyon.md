@@ -20,6 +20,12 @@ This is **slice 1**: 40,000 of the 86,942 panos in the 10 m set. It is not "Lyon
 [docs/thinning-experiment-lyon.md](thinning-experiment-lyon.md) (#148); Jon decided on
 2026-10-07 to densify Lyon to 5 m.
 
+**Update 2026-10-09:** the densify is done ([section 8](#8-densify-to-5-m-completed-2026-10-07)):
+174,405 panos at 5 m read **0.424** detections per pano at 0.55 (0.940 at 0.30), up from
+the 10 m set's 0.390, because the added cells are mostly the Métropole's 2020-22 imagery
+(Grand Lyon 49.4% of panos, from 36.2%; 2026 29.5%, from 40.5%). The native-res archive of
+all 174,405 finished on 2026-10-09. The takeaways below still describe slice 1.
+
 > **Key takeaways**
 >
 > 1. **Lyon's slice detects about 3x Bayonne's rate.** It reads **0.391** detections per
@@ -409,7 +415,7 @@ makelab2 `~/sal-lyon` copy holds slice 1 only.
   on rig 66 / 549. Slice 1 read 0.391 / 0.869, so the slice was a fair sample.
   *`docs/figures/panoramax-lyon/data/census/lyon_full/detections.csv`.*
 - **Mix, whole set:** GoPro Max 5760x2880 56.4%, Ladybug 8192x4096 21.1%, make-less
-  8192x4096 15.1%; 2026 40.5%; ecartip 33.7%, Grand Lyon 36.1% (both spellings). The
+  8192x4096 15.1%; 2026 40.5%; ecartip 33.7%, Grand Lyon 36.2% (both spellings). The
   operator reading of section 2 holds: ecartip GoPro Max 2026 reads 0.640 per pano at 0.55
   (23,776 panos, 360 sequences), ign_ddc_dtce_np 0.392, ign_ddc_dtce_fa 0.228.
   *`data/census/lyon_full/{rigs,years,producers,rig_detections}.csv`,
@@ -466,7 +472,12 @@ Tracked in #159.
 Hyak job **41504145** (`ckpt-g2`, one L40S, `sal_lyon_densify_ckpt.sbatch`, plain clone
 of main at `fd08b8f`):
 `main.py example_geojson/lyon.geojson --name lyon --source panoramax --reuse-scan --thin-spacing 5`,
-no `--limit`. It was requeued once, which `ckpt` does:
+no `--limit`. It was requeued once, which `ckpt` does. Source endpoint: the Panoramax
+federation, `https://api.panoramax.xyz/api` (`scan.json` `source_instance`; `scan.json` is
+not committed, its sha256 is below). Environment: model `606a1195…` (manifest `runs[2]`),
+streetlevel 0.12.10 (manifest), one NVIDIA L40S (46,068 MiB, `run3.log`). The job's Python,
+torch and Pillow versions were **not recorded**: neither `run3.log` nor the manifest carries
+them, and the Hyak environment has not been re-read since.
 
 | | attempt 1 | attempt 2 (resume) | densify total |
 |---|---:|---:|---:|
@@ -503,7 +514,7 @@ no `--limit`. It was requeued once, which `ckpt` does:
   (163,987); on rig 141 / 1,061. The 87,516 added panos alone read 0.458 / 1.013, above
   the 10 m set's 0.390 / 0.867. The cause is the mix the densify adds. *`data/census/lyon_5m/detections.csv`.*
 - **Mix, whole 5 m set:** the densify adds mostly the Métropole's older imagery. Grand
-  Lyon (both spellings) is 49.4% of panos, up from 36.1%. ecartip falls to 26.1% (from
+  Lyon (both spellings) is 49.4% of panos, up from 36.2%. ecartip falls to 26.1% (from
   33.7%). Capture years 2020-22 are 44.7% (from 33.6%), and 2026 is 29.5% (from 40.5%).
   By rig: GoPro Max 5760x2880 45.0%, Ladybug 8192x4096 30.4%, make-less 8192x4096 19.0%.
   *`data/census/lyon_5m/{rigs,years,producers,rig_detections}.csv`,
@@ -591,7 +602,7 @@ finished; section 7's earlier line saying #146 covered the 10 m set was wrong. S
 #159's archive step became one pass over all 174,405 panos, into
 `/projects/makeabilitylab/sidewalk-auto-labeler/runs/lyon/panos/` (export_benchmark.py archive
 mode via `lyon_archive.sh` beside it; `results.jsonl` staged there, same sha256). Pass 1
-(2026-10-08T00:18Z to 10-09T09:34Z, about 1.6 panos/s) fetched 174,240 and failed 165, all
+(2026-10-08T00:18Z to 10-09T09:34Z, about 1.5 panos/s: 174,405 ids in 119,760 s; pre-#161, unpaced) fetched 174,240 and failed 165, all
 transient: 131 `STAC item unavailable`, 24 storage read timeouts, 6 HTTP 502, 4 dropped
 connections. It ended rc=1. One re-run fetched all 165 with 0 failed and reconciled
 **174,405 archived + verified, 0 missing, STATUS OK** (rc=0 at 2026-10-09T09:36:29Z). The
