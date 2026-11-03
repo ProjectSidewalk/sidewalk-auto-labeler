@@ -1,0 +1,17 @@
+city,height,arm,gt_panos_judged,gt_marks,gt_marks_unplaceable,off_pool_ramps,recall_off_pool_2p5m,recall_off_pool_5m,gt_common_ramps,gt_to_site_median_m,gt_to_site_p90_m,gt_to_site_mean_m,lost_vs_off_2p5m,gained_vs_off_2p5m
+sao_paulo,auto,off,60,126,17,109,0.9083,0.9450,92,0.7596,2.5354,1.1011,0,0
+sao_paulo,auto,partial,60,126,17,109,0.9174,0.9450,92,0.8199,2.0614,1.0256,0,1
+sao_paulo,auto,partial-loco,60,126,17,109,0.9174,0.9450,92,0.8133,2.0654,1.0294,0,1
+sao_paulo,auto,partial-shuffled,60,126,16,109,0.9083,0.9266,92,0.9164,2.4067,1.1309,0,0
+sao_paulo,auto,partial-loco-shuffled,60,126,16,109,0.9083,0.9266,92,0.9450,2.4418,1.1448,0,0
+sao_paulo,auto,full,60,126,12,109,0.8899,0.8991,92,0.7894,1.9286,0.9338,6,4
+sao_paulo,auto,partial-mirror,60,126,16,109,0.8991,0.9174,92,0.8608,2.6583,1.1552,1,0
+sao_paulo,auto,fixed-113,60,126,17,109,0.9174,0.9450,92,0.8329,1.9637,1.0179,0,1
+sao_paulo,2.6,off,60,126,18,108,0.8981,0.9352,90,0.7652,2.1841,0.9961,0,0
+sao_paulo,2.6,partial,60,126,18,108,0.8889,0.9259,90,0.6867,2.4195,1.0498,2,1
+sao_paulo,2.6,partial-loco,60,126,18,108,0.8889,0.9167,90,0.6915,2.4698,0.9984,2,1
+sao_paulo,2.6,partial-shuffled,60,126,16,108,0.8889,0.9167,90,0.8052,2.7276,1.1332,1,0
+sao_paulo,2.6,partial-loco-shuffled,60,126,16,108,0.8889,0.9167,90,0.7730,2.7378,1.1314,1,0
+sao_paulo,2.6,full,60,126,13,108,0.8519,0.8796,90,0.7491,2.1145,0.9293,8,3
+sao_paulo,2.6,partial-mirror,60,126,18,108,0.8889,0.9259,90,0.7984,2.4233,1.0456,1,0
+sao_paulo,2.6,fixed-113,60,126,18,108,0.8889,0.9167,90,0.6865,2.2196,0.9880,3,2

@@ -1,0 +1,5 @@
+city,height,exploratory,arm,gt_panos_judged,gt_marks,gt_marks_unplaceable,off_pool_ramps,recall_off_pool_2p5m,recall_off_pool_5m,gt_common_ramps,gt_to_site_median_m,gt_to_site_p90_m,gt_to_site_mean_m,lost_vs_off_2p5m,gained_vs_off_2p5m
+laurens_gsv,auto,True,off,86,220,24,193,0.9067,0.9430,175,0.8738,2.3789,1.0737,0,0
+laurens_gsv,auto,True,partial,86,220,23,193,0.9119,0.9378,175,0.8254,2.0597,0.9943,2,3
+laurens_gsv,auto,True,partial-shuffled,86,220,23,193,0.9067,0.9430,175,0.7821,2.0389,1.0044,1,1
+laurens_gsv,auto,True,partial-mirror,86,220,23,193,0.8860,0.9378,175,0.9045,2.5973,1.1840,4,0

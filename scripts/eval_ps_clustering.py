@@ -69,10 +69,13 @@ Usage:
         --server https://sidewalk-laurens.cs.washington.edu    # streets, for regions only
     # a live city with NO RampNet GT whose run was rebuilt from the pano store (#56): the
     # GT columns read n/a; the AI account is named so its labels the rebuilt run does not
-    # reproduce pixel-exactly still count as AI; the label pull is the gate's frozen one
+    # reproduce pixel-exactly still count as AI; every input is a frozen pull passed by
+    # path (no --server, so nothing can be re-pulled)
     python scripts/eval_ps_clustering.py vancouver --no-gt --ai-user <ai user_id> \
-        --labels runs/vancouver/provenance_gate/raw_labels.geojson --offline-check \
-        --server https://sidewalk-vancouver.cs.washington.edu --ps-script <label_clustering.py>
+        --labels runs/vancouver/provenance_gate/raw_labels.geojson \
+        --clusters runs/vancouver/ps_clustering_eval/clusters.geojson \
+        --streets runs/vancouver/ps_clustering_eval/streets.geojson \
+        --offline-check --ps-script <label_clustering.py>
 """
 import argparse
 import csv
@@ -81,8 +84,10 @@ import importlib.util
 import json
 import math
 import sys
+import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field, replace
+from collections import Counter
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -97,7 +102,8 @@ import geo  # noqa: E402
 import ps_placement  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
-from detectors import BENCHMARK_CONFIDENCE, on_camera_rig  # noqa: E402
+from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE,  # noqa: E402
+                       DECODE_ARGMAX, on_camera_rig)
 
 try:  # analysis-only dependencies, deliberately not in requirements.txt
     import pandas as pd
@@ -112,6 +118,19 @@ except ImportError as exc:  # pragma: no cover
         f'{exc.name} is missing. This analysis tool needs three packages the '
         'pipeline does not: pip install pandas scipy haversine '
         '(haversine is the package label_clustering.py itself uses).') from exc
+
+# The pure scoring lives in clustering_metrics.py (pandas/scipy-free, so CI covers it;
+# #133). Every name is re-exported here, so `epc.<name>` keeps working for every caller.
+from clustering_metrics import (  # noqa: E402,F401
+    Cluster, place, clusters_from_server, clusters_from_sites, partition_agreement,
+    SERVER_CAMERA_HEIGHT_M, INVERT_MAX_RANGE_M, HUMAN_DET_BASE, HUMAN_CONFIDENCE,
+    DUPLICATE_DET_BASE, AI_UNMAPPED_BASE, invert_camera_position,
+    clusters_from_server_sites, LIVE_POSITION_TOL_M, live_positions_as_of,
+    fallback_moved, human_votes, score, fmt, frac, row_line, TABLE_HEADER,
+    table_legend, csv_row, near_columns, SIZE_KEYS, size_columns, SIZE_BUCKETS,
+    size_precision, NEAR_RADII_M, cluster_positions, near_cluster_rate, VAL_BUCKETS,
+    validation_precision, wilson, precision_ci_text, quantile, within_reach,
+    with_neighbour)
 
 PS_THRESHOLD_KM = 0.0075   # label_clustering.py THRESHOLDS['CurbRamp']
 API_LABELS = '/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson'
@@ -153,7 +172,8 @@ def fetch(url, dest, refresh=False):
     (dest.parent / (dest.name + '.source.json')).write_text(
         json.dumps({'url': url, 'n_features': n,
                     'fetched_at': datetime.now(timezone.utc)
-                    .isoformat(timespec='seconds')}, indent=1), encoding='utf-8')
+                    .isoformat(timespec='seconds')}, indent=1), encoding='utf-8',
+        newline='\n')
 
 
 def source_meta(path):
@@ -223,32 +243,11 @@ def load_labels(path):
                      'camera_heading': q.get('camera_heading'),
                      'pano_source': q.get('pano_source'),
                      'image_capture_date': q.get('image_capture_date'),
+                     'time_created': q.get('time_created'),
                      # read only by validation_precision (#56 metric (c))
                      'human_agree': votes[0], 'human_disagree': votes[1],
                      'human_unsure': votes[2], 'correct': q.get('correct')})
     return pd.DataFrame(rows), dropped
-
-
-def human_votes(validations):
-    """(agree, disagree, unsure) counts over a rawLabels row's `validations`, HUMAN
-    validators only. PS's own AI validator also votes there (`validator_type: AI`) and
-    dominates the feed's `correct` in some cities, so it is left out, as agree_rate.py
-    does; `correct` itself is kept on the row and reported apart.
-
-    Example:
-        >>> human_votes([{'validation': 'Agree', 'validator_type': 'Human'},
-        ...              {'validation': 'Disagree', 'validator_type': 'AI'}])
-        (1, 0, 0)
-    """
-    a = d = u = 0
-    for v in validations or ():
-        if v.get('validator_type') != 'Human':
-            continue
-        kind = v.get('validation')
-        a += kind == 'Agree'
-        d += kind == 'Disagree'
-        u += kind == 'Unsure'
-    return a, d, u
 
 
 def label_verdicts(labels):
@@ -271,7 +270,7 @@ def load_server_clusters(path):
         q = ft['properties']
         lng, lat = ft['geometry']['coordinates']
         out.append({'id': q['label_cluster_id'], 'label_ids': list(q['label_ids']),
-                    'lat': lat, 'lng': lng})
+                    'lat': lat, 'lng': lng, 'region_id': q.get('region_id')})
     return out
 
 
@@ -315,28 +314,6 @@ def label_to_detection(results_path, labels):
     return mapping, len(ambiguous), n_duplicate_labels
 
 
-# --------------------------------------------------------------------------- clusters
-
-@dataclass
-class Cluster:
-    id: int
-    members: list                    # [(pano_id, det_index)] — AI labels only
-    n_labels: int                    # every label, mapped or not (human labels too)
-    e: float | None = None
-    n: float | None = None
-    server_latlng: tuple | None = None
-    label_ids: list = field(default_factory=list)
-
-
-def place(clusters, det_pos):
-    for c in clusters:
-        pts = [det_pos[m] for m in c.members if m in det_pos]
-        if pts:
-            c.e = sum(p[0] for p in pts) / len(pts)
-            c.n = sum(p[1] for p in pts) / len(pts)
-    return clusters
-
-
 def clusters_from_assignment(labels, assignment, det_of):
     """labels: DataFrame; assignment: array of cluster ids aligned with labels rows."""
     groups = {}
@@ -349,146 +326,130 @@ def clusters_from_assignment(labels, assignment, det_of):
     return out
 
 
-def clusters_from_server(server_clusters, det_of):
-    out = []
-    for k, sc in enumerate(server_clusters):
-        out.append(Cluster(k, [det_of[lab] for lab in sc['label_ids'] if lab in det_of],
-                           len(sc['label_ids']), server_latlng=(sc['lat'], sc['lng']),
-                           label_ids=list(sc['label_ids'])))
-    return out
-
-
-def clusters_from_sites(sites, refit_position):
-    out = []
-    for s in sites:
-        members = [(d.pano_id, d.det_index) for d, _ in s.members if d.operational]
-        if not members:
-            continue
-        c = Cluster(s.id, members, len(members))
-        if refit_position:
-            c.e, c.n = s.e, s.n
-        out.append(c)
-    return out
-
-
-# ------------------------------------------------- fusion on what the server holds
-
-# The server's own placement height (SidewalkWebpage#4819): its label lat/lng are the
-# flat raycast at this height, so inverting that raycast recovers the camera position.
-SERVER_CAMERA_HEIGHT_M = 2.341219672825709
-# Only labels this close are inverted: nearer the horizon the server's bounded tail
-# departs from the flat raycast, and one such label would move a camera metres.
-INVERT_MAX_RANGE_M = 15.0
-# det_index for a human label. Stored detections are capped at 50 per pano, so this
-# never collides with a real index, and det_pos never holds it (scored by n_labels only).
-HUMAN_DET_BASE = 10000
-HUMAN_CONFIDENCE = 1.0
-# det_index for an AI label that maps to no stored detection (#56: Vancouver's deployed
-# labels were placed on heatmap plateaus the rebuilt run resolves differently, so 22% of
-# them have no pixel-exact twin). The server holds its confidence in label_ai_info, which
-# the rawLabels feed does not carry, so server_panos gives such a label the tier
-# (`unmapped_confidence`): the lowest value the server can hold. Never placeable (no
-# det_pos), like a human label, but counted as AI.
-AI_UNMAPPED_BASE = 20000
-
-
-def invert_camera_position(rows, server_height=SERVER_CAMERA_HEIGHT_M):
-    """(lat, lng, n_used) of one pano's camera, from its labels' server positions, or
-    None when no label is close enough to invert.
-
-    Each server position is the flat raycast from the camera, so the camera sits at the
-    label minus that raycast's offset (the offset depends only on heading, pixel and
-    height). The per-label estimates are combined by median.
-
-    Example:
-        A label straight ahead (x = 0.5, heading 0) and 20 degrees down at 2.34 m lies
-        ~6.4 m north of the camera, so the camera comes back ~6.4 m south of the label.
-    """
-    lats, lngs = [], []
-    for r in rows:
-        if not r['pano_width'] or not r['pano_height'] or r['camera_heading'] is None:
-            continue
-        probe = fs.SlimPano(r['pano_id'], r['lat'], r['lng'], r['camera_heading'],
-                            None, None, None, r['pano_source'] or '', [])
-        g = geo.detection_ground_point(
-            fs.pano_pose(probe, fs.POSE_OFF), r['pano_x'] / r['pano_width'],
-            r['pano_y'] / r['pano_height'], camera_height=server_height,
-            max_range_m=INVERT_MAX_RANGE_M, errors=geo.error_model_for(probe.source),
-            apply_pose=False)
-        if g is None:
-            continue
-        f = geo.LocalFrame(r['lat'], r['lng'])
-        ge, gn = f.to_enu(g.lat, g.lng)
-        lat, lng = f.to_latlng(-ge, -gn)
-        lats.append(lat)
-        lngs.append(lng)
-    if not lats:
-        return None
-    return float(np.median(lats)), float(np.median(lngs)), len(lats)
-
-
-def server_panos(labels, det_of, run_by_id, ai_user=None, unmapped_confidence=None):
+def server_panos(labels, det_of, run_by_id, ai_user, decode=DECODE_ARGMAX,
+                 border=BORDER_EXCLUDE, invert=True, unmapped_confidence=None):
     """SlimPanos built from the server's labels, for fuse_sites to associate: the
     partition the server would compute if its clustering were fusion. What each field
     comes from, and why the server has it:
 
-    - detections: every label on the pano, at its stored pixel. AI labels keep the
-      run's det_index (so the scorer places them) and their confidence, which the
-      server stores in label_ai_info; human labels get HUMAN_DET_BASE+k and
-      HUMAN_CONFIDENCE (they seed sites first).
+    - detections: every label on the pano, at its stored pixel. A label is AI when its
+      user_id is `ai_user` (the account that submitted the run): it keeps the run's
+      det_index (so the scorer places it) and its confidence, which the server stores in
+      label_ai_info. Every other account's label is human: HUMAN_DET_BASE+k at
+      HUMAN_CONFIDENCE (they seed sites first). A second AI label on a detection
+      another label already took gets DUPLICATE_DET_BASE+j at the same confidence, so
+      every label is exactly one detection. An AI-account label that maps to no
+      stored detection raises ValueError: it came from some other file (a band from
+      results.band.jsonl, a re-inferred campaign), and read as human it would enter at
+      confidence 1.0 and seed sites. The one exception is a run rebuilt from the pano
+      store (#56, `--ai-user`): with `unmapped_confidence` set, such a label gets
+      AI_UNMAPPED_BASE+m at that confidence instead (counted in `ai_unmapped`).
     - heading / source / capture date: the label row.
-    - camera position: pano_data's, which for a pano the labeler submitted is the run's
-      pano block; a pano only humans labeled is inverted from its labels.
-    - camera height fields: copied from the run pano when there is one, so this arm
-      raycasts in the same frame as every other labeler arm; otherwise unmeasured.
+    - camera position: inverted from the pano's own labels (invert_camera_position),
+      which is server-held whichever file the labels were submitted from; the run's pano
+      block only when no label is close enough to invert. The run's block is NOT
+      pano_data's once a pano has been repositioned (Richmond's posfix3seq panos are live
+      at raw GPS while results.jsonl holds SfM), so it is the fallback, not the source.
+      The AI account's labels are inverted first (the placement check validates exactly
+      those); only when none of them is close enough to invert, or the pano has none, are
+      all its labels inverted, and only then the run's block. A human
+      label keeps the lat/lng it was inserted at, which on Laurens is a pano position the
+      server no longer holds (human-only inversion sits a median 8.7 m from the live block
+      on 70 panos; AI-only inversion: median 0.01 m, p90 0.19 m, none over 1 m), so mixed
+      into the median it moved 57 of 695 panos.
+      With invert=False (offline: the synthesized labels were placed FROM the run's pano
+      block, so that block is the server's position by construction) the run's block is
+      used wherever there is one, and inversion only for a pano with no run pano --
+      inverting there would add only the inversion's own error (p90 0.24-0.33 m).
+    - camera height fields, decode, border: copied from the run pano when there is one,
+      so this arm raycasts in the same frame as every other labeler arm and fuse's
+      mixed-decode / mixed-border guards see the run's real values (#111, #130); a pano
+      only humans labeled takes the run's single `decode` / `border`.
 
-    `ai_user` (#56) names the AI account: its labels that map to no stored detection get
-    AI_UNMAPPED_BASE+k and `unmapped_confidence` instead of being read as human labels.
-    Without it every unmapped label is human, as before (Richmond and Laurens map 100%).
+    Returns (panos, stats). stats counts panos by position source (`inverted`,
+    `run_position`, `unplaceable`: no run pano and nothing to invert, left out; the
+    `run_position` panos' ids in `run_position_ids`), the labels on unplaceable panos (`unplaceable_labels`, their ids in
+    `unplaceable_label_ids`), the AI and human labels, the AI labels that shared a
+    detection (`ai_duplicate`), and `inverted_far`: inverted panos more than
+    LIVE_POSITION_TOL_M (1 m) from the run's block, i.e. panos whose live position is not the run's (a repositioned
+    sequence). stats['label_of'] maps every emitted (pano_id, det_index) to its label_id,
+    one to one: a key is never reused, so no label is dropped or counted twice.
 
-    Returns (panos, stats) where stats counts inverted and unplaceable panos, and
-    stats['label_of'] maps every (pano_id, det_index) emitted to its label_id.
+    Example:
+        A run pano with detections 0 and 3 and a third detection 5 that was never
+        submitted, plus one human label: the built pano holds 0, 3 and HUMAN_DET_BASE,
+        never 5 -- the run's detections are read only for confidences.
     """
-    stats = {'run_position': 0, 'inverted': 0, 'unplaceable': 0,
-             'human_labels': 0, 'ai_labels': 0, 'ai_unmapped': 0, 'label_of': {}}
+    stats = {'inverted': 0, 'run_position': 0, 'unplaceable': 0, 'unplaceable_labels': 0,
+             'human_labels': 0, 'ai_labels': 0, 'ai_duplicate': 0, 'ai_unmapped': 0,
+             'inverted_far': 0,
+             'label_of': {}, 'unplaceable_label_ids': [], 'run_position_ids': []}
     panos = []
     for pano_id, grp in labels.groupby('pano_id', sort=True):
         rows = grp.to_dict('records')
-        dets, k, k_ai = [], 0, 0
+        run = run_by_id.get(pano_id)
+        dets, k, j, m, used = [], 0, 0, 0, set()
         for r in rows:
             if not r['pano_width'] or not r['pano_height']:
                 continue
             x, y = r['pano_x'] / r['pano_width'], r['pano_y'] / r['pano_height']
-            ai = det_of.get(r['label_id'])
-            if ai is not None:
-                run = run_by_id.get(pano_id)
+            if str(r['user_id']) == str(ai_user):
+                ai = det_of.get(r['label_id'])
+                if ai is None and unmapped_confidence is not None:
+                    dets.append((AI_UNMAPPED_BASE + m, x, y, unmapped_confidence))
+                    m += 1
+                    stats['ai_unmapped'] += 1
+                    stats['label_of'][(pano_id, dets[-1][0])] = r['label_id']
+                    continue
+                if ai is None:
+                    raise ValueError(
+                        f"AI-account label {r['label_id']} on pano {pano_id} maps to no "
+                        'stored detection in the run file; it was submitted from another '
+                        'file, so fusion_server cannot give it a confidence')
                 conf = next((c for i, _x, _y, c in run.detections if i == ai[1]),
                             None) if run else None
-                dets.append((ai[1], x, y, HUMAN_CONFIDENCE if conf is None else conf))
+                index = ai[1]
+                if index in used:
+                    index = DUPLICATE_DET_BASE + j
+                    j += 1
+                    stats['ai_duplicate'] += 1
+                used.add(index)
+                dets.append((index, x, y, HUMAN_CONFIDENCE if conf is None else conf))
                 stats['ai_labels'] += 1
-            elif ai_user is not None and str(r['user_id']) == str(ai_user):
-                dets.append((AI_UNMAPPED_BASE + k_ai, x, y, unmapped_confidence))
-                k_ai += 1
-                stats['ai_unmapped'] += 1
             else:
                 dets.append((HUMAN_DET_BASE + k, x, y, HUMAN_CONFIDENCE))
                 k += 1
                 stats['human_labels'] += 1
-            stats['label_of'][(pano_id, dets[-1][0])] = int(r['label_id'])
-        run = run_by_id.get(pano_id)
+            stats['label_of'][(pano_id, dets[-1][0])] = r['label_id']
         head = rows[0]
-        if run is not None:
-            lat, lng = run.lat, run.lng
-            stats['run_position'] += 1
-        else:
-            inv = invert_camera_position(rows)
-            if inv is None:
-                stats['unplaceable'] += 1
-                continue
+        ai_rows = [r for r in rows if str(r['user_id']) == str(ai_user)]
+        inv = None
+        if invert or run is None:
+            # the AI labels first; all labels before the run's block (#107 re-review M1)
+            inv = invert_camera_position(ai_rows) if ai_rows else None
+            if inv is None and len(ai_rows) < len(rows):
+                inv = invert_camera_position(rows)
+        if inv is not None:
             lat, lng, _n = inv
             stats['inverted'] += 1
+            if (run is not None
+                    and geo.haversine_m(lat, lng, run.lat, run.lng) > LIVE_POSITION_TOL_M):
+                stats['inverted_far'] += 1
+        elif run is not None:
+            lat, lng = run.lat, run.lng
+            stats['run_position'] += 1
+            stats['run_position_ids'].append(pano_id)
+        else:
+            stats['unplaceable'] += 1
+            stats['unplaceable_labels'] += len(rows)
+            stats['unplaceable_label_ids'] += [r['label_id'] for r in rows]
+            for i, *_rest in dets:
+                del stats['label_of'][(pano_id, i)]
+            continue
         p = fs.SlimPano(pano_id, lat, lng, head['camera_heading'], None, None,
-                        head['image_capture_date'], head['pano_source'] or '', dets)
+                        head['image_capture_date'], head['pano_source'] or '', dets,
+                        decode=run.decode if run is not None else decode,
+                        border=run.border if run is not None else border)
         if run is not None:
             p.camera_height_m = run.camera_height_m
             p.camera_height_spread_m = run.camera_height_spread_m
@@ -500,45 +461,90 @@ def server_panos(labels, det_of, run_by_id, ai_user=None, unmapped_confidence=No
     return panos, stats
 
 
-def inversion_check(labels, run_by_id):
+def inversion_check(labels, run_by_id, exclude_user=None, only_user=None):
     """Distances (m) between the inverted and the run camera position over panos in
-    both: how far to trust inversion for the panos only humans labeled."""
+    both. With exclude_user (the AI account), only the other accounts' labels are
+    inverted: the accuracy of inversion from human labels, which is all a pano only
+    humans labeled has. With only_user (the AI account), only that account's labels are
+    inverted: the rule fusion_server applies first (server_panos), so this is the
+    inversion error the arm actually carries. Neither: every label, #105's method."""
     out = []
     for pano_id, grp in labels.groupby('pano_id', sort=True):
         run = run_by_id.get(pano_id)
         if run is None:
             continue
-        inv = invert_camera_position(grp.to_dict('records'))
+        rows = [r for r in grp.to_dict('records')
+                if (exclude_user is None or str(r['user_id']) != str(exclude_user))
+                and (only_user is None or str(r['user_id']) == str(only_user))]
+        inv = invert_camera_position(rows)
         if inv is not None:
             out.append(geo.haversine_m(inv[0], inv[1], run.lat, run.lng))
     return sorted(out)
 
 
-def clusters_from_server_sites(sites, panos=(), label_of=None):
-    """Clusters from a fusion_server fuse: every member counts toward n_labels, but only
-    AI members (a real det_index) are placeable and scoreable, as in the other arms.
+def submit_endpoint(url):
+    """The label-submission endpoint of the server a pull came from, as the submission
+    records key it.
 
-    A server has to put every label somewhere, but the raycast drops the ones it cannot
-    place (beyond the range cap, or at/above the horizon), so no site holds them. Each
-    label of `panos` that no site holds becomes a singleton cluster, and the number of
-    them is the second return value. `label_of` (server_panos' stats['label_of']) fills
-    each cluster's label_ids, which the GT-free metrics key on."""
-    label_of = label_of or {}
-    out, held = [], set()
-    for s in sites:
-        keys = [(d.pano_id, d.det_index) for d, _ in s.members]
-        held.update(keys)
-        out.append(Cluster(s.id, [k for k in keys if k[1] < HUMAN_DET_BASE], len(keys),
-                           label_ids=[label_of[k] for k in keys if k in label_of]))
-    n_singletons = 0
-    for p in panos:
-        for i, *_rest in p.detections:
-            if (p.pano_id, i) not in held:
-                key = (p.pano_id, i)
-                out.append(Cluster(len(out), [key] if i < HUMAN_DET_BASE else [], 1,
-                                   label_ids=[label_of[key]] if key in label_of else []))
-                n_singletons += 1
-    return out, n_singletons
+    Example:
+        >>> submit_endpoint('https://sidewalk-x.cs.washington.edu/v3/api/rawLabels?a=b')
+        'https://sidewalk-x.cs.washington.edu/ai/submitLabelsOnPano'
+    """
+    u = urllib.parse.urlsplit(url)
+    return f'{u.scheme}://{u.netloc}/ai/submitLabelsOnPano'
+
+
+def fallback_check(run_dir, labels_path, pano_ids, run_by_id):
+    """Are the panos fusion_server positioned from the run's block (`pano_ids`, server_panos'
+    stats['run_position_ids']) where the server held them when the pull was taken?
+
+    The block is only a fallback (no label within INVERT_MAX_RANGE_M to invert): on a pull
+    taken after a reposition (Richmond's posfix3seq panos, live at raw GPS since 2026-09-24
+    while results.jsonl holds SfM) it would sit metres from the position the labels were
+    placed from, and `inverted_far` sees inverted panos only (#105 re-review, Minor 1). The
+    live position as of the pull comes from the submission records beside the run
+    (clustering_metrics.live_positions_as_of, cut at the pull's `fetched_at`), so it reads
+    the same server state as the labels.
+
+    Returns (moved, unknown, None) -- lists of pano ids, see
+    clustering_metrics.fallback_moved -- or (None, None, reason) when it cannot be told.
+    """
+    meta = source_meta(labels_path)
+    if not meta.get('url') or not meta.get('fetched_at'):
+        return None, None, 'the pull records no url or fetch time'
+    if not any(Path(run_dir).glob('*.submission.json')):
+        return None, None, 'no submission records beside the run'
+    live, problems = live_positions_as_of(run_dir, submit_endpoint(meta['url']),
+                                          meta['fetched_at'])
+    if problems:
+        return None, None, 'campaign records incomplete: ' + '; '.join(problems)
+    moved, unknown = fallback_moved(pano_ids, {p: (run_by_id[p].lat, run_by_id[p].lng)
+                                               for p in pano_ids}, live)
+    return moved, unknown, None
+
+
+def fallback_line(moved, unknown, n_fallback, reason):
+    """The report line for fallback_check's result. It passes only when every fallback
+    pano was checked and none moved: a pano no campaign had sent by the pull's fetch time
+    has no live position to compare with, so any such pano makes the line `undetermined`
+    and a warning, never a pass (#139 review S1).
+
+    Example:
+        >>> fallback_line([], ['a'], 3, None).split(': ', 1)[0]
+        '- warning'
+        >>> fallback_line([], [], 3, None).endswith('hold): 0 of 3')
+        True
+    """
+    text = ("run-block fallback panos whose live position at the pull's fetch time "
+            f"differs from the run's block by more than {LIVE_POSITION_TOL_M:g} m "
+            '(labels placed from a position this file does not hold): ')
+    if moved is None:
+        return f'- {text}n/a ({reason})'
+    if unknown:
+        return (f'- warning: {text}undetermined: {len(unknown)} of {n_fallback} were sent '
+                'by no campaign as of the pull, so not checked; '
+                f'{len(moved)} of the other {n_fallback - len(unknown)} moved')
+    return f"- {'' if not moved else 'warning: '}{text}{len(moved)} of {n_fallback}"
 
 
 # ---------------------------------------------------------------- the PS algorithm
@@ -677,405 +683,95 @@ def ps_verbatim(labels, ps_script):
     return assignment, mod.THRESHOLDS['CurbRamp']
 
 
-def partition_agreement(a, b):
-    """How much of partition a (list of Cluster) is reproduced by b: fraction of a's
-    clusters whose label set appears verbatim in b, plus labels in disagreeing ones."""
-    sets_b = {frozenset(c.label_ids) for c in b}
-    same = [c for c in a if frozenset(c.label_ids) in sets_b]
-    off_labels = sum(c.n_labels for c in a if frozenset(c.label_ids) not in sets_b)
-    return len(same), len(a), off_labels
+DIAG_SPAN_M = 7.5        # the CurbRamp threshold: a fresh complete-linkage cut never spans more
+DIAG_GEOMETRY_M = 1.0    # a cluster geometry this far from its members' mean is stale
 
 
-# ------------------------------------------------------------------------- scoring
+def deployed_diagnostics(server_clusters, labels, repro, ps_script=None, on_server=None):
+    """What a deployed partition that ps_repro does not reproduce looks like (#56 (a)).
+    Every figure is computed from the two pulls, at the labels' CURRENT positions:
 
-def score(clusters, gt, det_pos, radius_m=5.0, frag_radii=(3.0, 5.0)):
-    ramps, pool, points, op_verdicts = gt
-    placed = [c for c in clusters if c.e is not None]
-    # Only clusters within reach of some GT ramp can match or count as a fragment, so the
-    # O(ramps x clusters) loops below run over those alone (identical results; a city of
-    # 100k clusters otherwise costs minutes per arm).
-    reach = max(radius_m, *frag_radii)
-    near = placed
-    if placed and ramps:
-        tree = cKDTree(np.array([[c.e, c.n] for c in placed]))
-        hit = set()
-        for lst in tree.query_ball_point(np.array([[r.e, r.n] for r in ramps]), reach):
-            hit.update(lst)
-        near = [placed[i] for i in sorted(hit)]
-    matched = es.match_one_to_one(pool, near, radius_m)
-    # A cluster is "somebody's match" if it matches ANY GT ramp, not only a pool
-    # one: a ramp on a pano whose missed-check was not confirmed is still a real
-    # ramp, and a cluster sitting on it is not a fragment.
-    matched_all = es.match_one_to_one(ramps, near, radius_m)
-    matched_ids = {c.id for c in matched_all.values()}
+    - `span_over`: deployed clusters whose members span more than DIAG_SPAN_M (max pairwise
+      haversine); complete linkage at that threshold cannot produce one, so each is a
+      cluster computed from positions the labels no longer hold;
+    - `geom_off` / `geom_n` / `geom_max_m`: cluster geometries more than DIAG_GEOMETRY_M from
+      the mean of their members' current positions, of the clusters with a member in the
+      pull, and the largest such distance;
+    - `multi`: label ids that sit in more than one deployed cluster;
+    - `differ` / `subset`: deployed clusters that ps_repro does not reproduce, and of them
+      the PROPER subsets of one ps_repro cluster (the deployed table is the more
+      fragmented one there);
+    - `subset_time_split`: of those subsets, the ones whose labels were all created before
+      or all after every other label of their ps_repro cluster (a clustering run between
+      two submissions would leave exactly this);
+    - `by_cluster_region` (needs ps_script and on_server): the verbatim script re-run with
+      each label in the region of the deployed cluster holding it instead of its own, as
+      (identical, deployed clusters) -- a region reassignment since clustering would show
+      here.
 
-    # Two recall-shaped numbers, deliberately both reported:
-    #  - coverage: a cluster OF THIS ARM is within radius_m. This is what RQ2a
-    #    asks and the only one of the two that responds to the partition.
-    #  - recall: eval_sites' union recall, which counts a self-detected ramp as
-    #    recovered whether or not any cluster landed on it. ~83% of Richmond's
-    #    pool is self-detected, so it is nearly constant across arms; keep it
-    #    only to tie back to fusion_eval/report.md.
-    buckets = {'self_detected': 0, 'recovered_other_view': 0, 'unmatched': 0}
-    self_detected_without_cluster = 0
-    for i, ramp in enumerate(pool):
-        if ramp.self_detected:
-            buckets['self_detected'] += 1
-            if i not in matched:
-                self_detected_without_cluster += 1
-        elif i in matched:
-            buckets['recovered_other_view'] += 1
-        else:
-            buckets['unmatched'] += 1
-
-    tp = fp = unsure = 0
-    for c in clusters:
-        vs = [op_verdicts[m] for m in c.members if m in op_verdicts]
-        if not vs:
+    Example:
+        A deployed cluster {1, 2} whose fresh twin is {1, 2, 3} is a proper subset; if
+        labels 1 and 2 were created on 09-18 and label 3 on 09-20, it is time-split.
+    """
+    pos = {int(r.label_id): (float(r.lat), float(r.lng)) for r in labels.itertuples(index=False)}
+    born = {}
+    if 'time_created' in labels.columns:      # mixed UTC offsets (DST): compare in UTC
+        t = pd.to_datetime(labels.time_created, utc=True, errors='coerce', format='ISO8601')
+        born = {int(lab): v for lab, v in zip(labels.label_id, t) if not pd.isna(v)}
+    out = {'n_deployed': len(server_clusters), 'span_over': 0, 'geom_off': 0, 'geom_n': 0,
+           'geom_max_m': 0.0}
+    seen = Counter()
+    for sc in server_clusters:
+        seen.update(sc['label_ids'])
+        pts = [pos[lab] for lab in sc['label_ids'] if lab in pos]
+        if not pts:
             continue
-        if any(v is True or v == 'duplicate' for v in vs):
-            tp += 1
-        elif any(v is False for v in vs):
-            fp += 1
-        else:
-            unsure += 1
-
-    frag = {}
-    for rf in frag_radii:
-        n_with = n_extra = 0
-        for i, _c in matched.items():
-            ramp = pool[i]
-            extra = sum(1 for o in near if o.id not in matched_ids
-                        and math.hypot(o.e - ramp.e, o.n - ramp.n) <= rf)
-            n_extra += extra
-            n_with += extra > 0
-        frag[rf] = {'ramps': len(matched), 'with_extra': n_with, 'extra': n_extra}
-
-    # dual-ramp separation, as eval_sites (f). Matched against every GT ramp for
-    # the same reason as the fragment count above, so a pair involving a non-pool
-    # ramp can still be scored as kept apart.
-    ramp_of_point = {id(pt): ri for ri, ramp in enumerate(ramps) for pt in ramp.points}
-    by_pano = {}
-    for pt in points:
-        by_pano.setdefault(pt.pano_id, []).append(pt)
-    dual = {'pairs': 0, 'both': 0, 'one': 0, 'neither': 0}
-    for pid in sorted(by_pano):
-        pts = by_pano[pid]
-        for i in range(len(pts)):
-            for j in range(i + 1, len(pts)):
-                if math.hypot(pts[i].e - pts[j].e, pts[i].n - pts[j].n) >= 5.0:
-                    continue
-                dual['pairs'] += 1
-                hits = sum(1 for pt in (pts[i], pts[j])
-                           if ramp_of_point[id(pt)] in matched_all)
-                dual['both' if hits == 2 else 'one' if hits == 1 else 'neither'] += 1
-
-    # coherence: the cluster holding the self-detection vs its own GT ramp
-    pos_key = {}
-    for m, (e, n) in det_pos.items():
-        pos_key[(m[0], round(e, 6), round(n, 6))] = m
-    cluster_of = {m: c for c in clusters for m in c.members}
-    offsets, missing = [], 0
-    for ramp in pool:
-        for pt in ramp.points:
-            if pt.kind != 'det':
-                continue
-            m = pos_key.get((pt.pano_id, round(pt.e, 6), round(pt.n, 6)))
-            c = cluster_of.get(m)
-            if c is None or c.e is None:
-                missing += 1
-                continue
-            offsets.append(math.hypot(c.e - ramp.e, c.n - ramp.n))
-    offsets.sort()
-
-    def pct(q):
-        return offsets[min(len(offsets) - 1, int(q * len(offsets)))] if offsets else None
-
-    same_pano_pairs = 0
-    for c in clusters:
-        seen = {}
-        for m in c.members:
-            seen[m[0]] = seen.get(m[0], 0) + 1
-        same_pano_pairs += sum(k * (k - 1) // 2 for k in seen.values())
-
-    n_pool = len(pool)
-    recalled = buckets['self_detected'] + buckets['recovered_other_view']
-    covered = len(matched)
-    n_labels = sum(c.n_labels for c in clusters)
-    return {
-        'n_clusters': len(clusters), 'n_placed': len(placed), 'n_labels': n_labels,
-        'labels_per_cluster': n_labels / len(clusters) if clusters else None,
-        'precision': tp / (tp + fp) if tp + fp else None,
-        'precision_ci': es.wilson(tp, tp + fp), 'tp': tp, 'fp': fp, 'unsure': unsure,
-        'coverage': covered / n_pool if n_pool else None,
-        'coverage_ci': es.wilson(covered, n_pool), 'covered': covered,
-        'n_pool': n_pool,
-        'self_detected_without_cluster': self_detected_without_cluster,
-        'recall': recalled / n_pool if n_pool else None,
-        'recall_ci': es.wilson(recalled, n_pool), 'buckets': buckets,
-        'frag': frag, 'dual': dual,
-        'coherence': {'n': len(offsets), 'median': pct(0.5), 'p90': pct(0.9),
-                      'over_5m': sum(1 for o in offsets if o > 5.0), 'missing': missing},
-        'same_pano_pairs': same_pano_pairs,
-    }
-
-
-# --------------------------------------------------------------------------- report
-
-def fmt(v, nd=3):
-    return 'n/a' if v is None else f'{v:.{nd}f}'
-
-
-def frac(f):
-    return f"{f['with_extra'] / f['ramps']:.2f}" if f['ramps'] else 'n/a'
-
-
-def row_line(name, r):
-    fr3, fr5, d, co = r['frag'][3.0], r['frag'][5.0], r['dual'], r['coherence']
-    return (f"| {name} | {r['n_clusters']} | {r['n_placed']} | {r['n_labels']} | "
-            f"{fmt(r['labels_per_cluster'], 2)} | {fmt(r['precision'])} "
-            f"({r['tp']}/{r['fp']}) | {fmt(r['coverage'])} "
-            f"({r['covered']}/{r['n_pool']}) | "
-            f"{r['self_detected_without_cluster']} | {fmt(r['recall'])} | "
-            f"{r['buckets']['self_detected']}/{r['buckets']['recovered_other_view']}/"
-            f"{r['buckets']['unmatched']} | {frac(fr3)} ({fr3['extra']}) | "
-            f"{frac(fr5)} ({fr5['extra']}) | {d['both']}/{d['one']}/{d['neither']} | "
-            f"{fmt(co['median'], 2)} / {fmt(co['p90'], 2)} / {co['over_5m']} |")
-
-
-TABLE_HEADER = (
-    "| arm | clusters | placed | labels | labels/cluster | precision (TP/FP) | "
-    "coverage | no cluster | recall (union) | self/other/unmatched | "
-    "frag 3 m (extra) | frag 5 m (extra) | dual both/one/neither "
-    "| coherence med / p90 / >5 m |\n"
-    "|---|---:|---:|---:|---:|---|---|---:|---|---|---|---|---|---|")
-
-def table_legend(results):
-    """The legend under the arms table. The self-detected / pool counts are read
-    from this run (they are frame-dependent: Richmond is 210/253 at 2.6 m and
-    210/260 at 2.341 m), never hardcoded."""
-    any_arm = next(iter(results.values()))
-    n_self = any_arm['buckets']['self_detected']
-    n_pool = any_arm['n_pool']
-    share = f'{n_self / n_pool:.0%}' if n_pool else 'most'
-    return (
-        "**coverage** = pool GT ramps with a cluster of this arm within the match "
-        "radius, matched one-to-one — the metric RQ2a asks for, and the only "
-        "recall-shaped one that responds to the partition. **no cluster** = ramps "
-        "counted as recalled by the union metric although no cluster is within the "
-        "radius (`eval_sites`' `self_detected_without_site`). **recall (union)** = "
-        "`eval_sites`' definition, which counts a self-detected ramp as recovered "
-        f"whether or not any cluster landed on it; {n_self} of this run's {n_pool} "
-        f"pool ramps are self-detected, so {share} of it is constant across arms "
-        "and it is kept only to tie back to `fusion_eval/report.md`. **frag** = "
-        "share of covered GT ramps with at least one extra cluster within r that is "
-        "not the one-to-one match of any GT ramp (total extras in parentheses). "
-        "**coherence** = distance from a self-detected GT ramp to the centroid of "
-        "the cluster holding that label.")
-
-
-def csv_row(name, r):
-    fr3, fr5, d, co = r['frag'][3.0], r['frag'][5.0], r['dual'], r['coherence']
-    return {'arm': name, 'n_clusters': r['n_clusters'], 'n_placed': r['n_placed'],
-            'n_labels': r['n_labels'], 'labels_per_cluster': r['labels_per_cluster'],
-            'precision': r['precision'], 'tp': r['tp'], 'fp': r['fp'],
-            'unsure': r['unsure'], 'coverage': r['coverage'],
-            'covered': r['covered'], 'n_pool': r['n_pool'],
-            'self_detected_without_cluster': r['self_detected_without_cluster'],
-            'recall_union': r['recall'],
-            'self_detected': r['buckets']['self_detected'],
-            'other_view': r['buckets']['recovered_other_view'],
-            'unmatched': r['buckets']['unmatched'],
-            'frag3_ramps': fr3['ramps'], 'frag3_with_extra': fr3['with_extra'],
-            'frag3_extra': fr3['extra'], 'frag5_with_extra': fr5['with_extra'],
-            'frag5_extra': fr5['extra'], 'dual_pairs': d['pairs'], 'dual_both': d['both'],
-            'dual_one': d['one'], 'dual_neither': d['neither'],
-            'coh_n': co['n'], 'coh_median': co['median'], 'coh_p90': co['p90'],
-            'coh_over_5m': co['over_5m'], 'same_pano_pairs': r['same_pano_pairs'],
-            **size_columns(r.get('size')), **near_columns(r.get('near')),
-            **near_columns(r.get('near_placed'), 'nearp')}
-
-
-def near_columns(near, prefix='near'):
-    """arms.csv columns for near_cluster_rate: near5 / near7_5 / near12_5 (share of placed
-    clusters with another cluster of the arm within r), near_n, near_frame,
-    per_1000_labels; the same under `nearp` for the placeable-member subset."""
-    if not near:
-        return {}
-    out = {f'{prefix}{r:g}'.replace('.', '_'): near['near'].get(r) for r in NEAR_RADII_M}
-    out.update({f'{prefix}_n': near['n_pos'], f'{prefix}_frame': near['frame']})
-    if prefix == 'near':
-        out['per_1000_labels'] = near['per_1000_labels']
+        span = max((geo.haversine_m(*a, *b) for i, a in enumerate(pts) for b in pts[i + 1:]),
+                   default=0.0)
+        out['span_over'] += span > DIAG_SPAN_M
+        lat = sum(p[0] for p in pts) / len(pts)
+        lng = sum(p[1] for p in pts) / len(pts)
+        d = geo.haversine_m(lat, lng, sc['lat'], sc['lng'])
+        out['geom_n'] += 1
+        out['geom_off'] += d > DIAG_GEOMETRY_M
+        out['geom_max_m'] = max(out['geom_max_m'], d)
+    out['multi'] = sum(1 for n in seen.values() if n > 1)
+    repro_sets = [frozenset(c.label_ids) for c in repro]
+    of_label = {lab: k for k, s in enumerate(repro_sets) for lab in s}
+    repro_set_index = set(repro_sets)
+    differ = subset = time_split = 0
+    for sc in server_clusters:
+        dset = frozenset(sc['label_ids'])
+        if dset in repro_set_index:
+            continue
+        differ += 1
+        owners = {of_label.get(lab) for lab in dset}
+        if len(owners) != 1 or None in owners:
+            continue
+        fresh = repro_sets[owners.pop()]
+        if not dset < fresh:
+            continue
+        subset += 1
+        inside = [born.get(lab) for lab in dset]
+        outside = [born.get(lab) for lab in fresh - dset]
+        if born and None not in inside and None not in outside:
+            if max(inside) < min(outside) or max(outside) < min(inside):
+                time_split += 1
+    out.update(differ=differ, subset=subset, subset_time_split=time_split)
+    if ps_script is not None and on_server is not None:
+        region_of = {}
+        for sc in server_clusters:
+            for lab in sc['label_ids']:
+                region_of.setdefault(lab, sc['region_id'])
+        moved = on_server.copy()
+        moved['region_id'] = [region_of.get(lab, rid) for lab, rid in
+                              zip(moved.label_id, moved.region_id)]
+        assign, _t = ps_verbatim(moved, ps_script)
+        k, n, _off = partition_agreement(
+            clusters_from_server(server_clusters, {}),
+            clusters_from_assignment(moved, assign, {}))
+        out['by_cluster_region'] = (k, n)
     return out
-
-
-SIZE_KEYS = {'unplaceable': 'sz_unpl', 'cluster of 1': 'sz_1', 'cluster of 2': 'sz_2',
-             'cluster of 3+': 'sz_3p'}
-
-
-def size_columns(rows):
-    """arms.csv columns for size_precision rows: n / judged / t / f per bucket, so a pooled
-    table can sum numerators and denominators across cities."""
-    out = {}
-    for row in rows or ():
-        k = SIZE_KEYS[row['bucket']]
-        out.update({f'{k}_n': row['n'], f'{k}_judged': row['judged'],
-                    f'{k}_t': row['t'], f'{k}_f': row['f']})
-    return out
-
-
-SIZE_BUCKETS = ('unplaceable', 'cluster of 1', 'cluster of 2', 'cluster of 3+')
-
-
-def size_precision(clusters, det_of, det_pos, verdicts, conf):
-    """Rows (one per SIZE_BUCKETS entry) of GT precision by the size of the cluster
-    holding each AI label. A label the raycast cannot place (not in det_pos) is
-    `unplaceable` whatever partition holds it. `verdicts` is build_gt's
-    (pano_id, det_index) -> verdict map; only True and False count toward precision.
-
-    Example:
-        A label alone in its cluster, judged False, lands in 'cluster of 1' with
-        t=0, f=1; one on a pano nobody judged adds to n but not to `judged`.
-    """
-    size_of = {}
-    for c in clusters:
-        for m in c.members:
-            size_of[m] = c.n_labels
-    keys = {b: [] for b in SIZE_BUCKETS}
-    for key in det_of.values():
-        if key not in det_pos:
-            keys['unplaceable'].append(key)
-        else:
-            s = size_of.get(key, 1)
-            keys['cluster of 1' if s == 1 else 'cluster of 2' if s == 2
-                 else 'cluster of 3+'].append(key)
-    rows = []
-    for b in SIZE_BUCKETS:
-        ks = keys[b]
-        v = [verdicts[k] for k in ks if k in verdicts]
-        cs = sorted(conf[k] for k in ks if k in conf)
-        rows.append({'bucket': b, 'n': len(ks), 'judged': len(v),
-                     't': sum(x is True for x in v), 'f': sum(x is False for x in v),
-                     'median_conf': quantile(cs, .5)})
-    return rows
-
-
-# --------------------------------------------- GT-free metrics (issue #56, Vancouver)
-
-NEAR_RADII_M = (5.0, 7.5, 12.5)
-
-
-def cluster_positions(clusters, server_pos, frame):
-    """(xy array, frame name) for near_cluster_rate: a cluster sits at the mean of its
-    labels' SERVER positions (`server_pos`: {label_id: (lat, lng)}, projected into
-    `frame`) when it carries label_ids with a position -- the server's own frame, which
-    needs no run -- else at its raycast position (c.e, c.n), which the `fusion` arms
-    have. Clusters with neither are left out. The name says which frame was used
-    ('server', 'raycast' or 'mixed')."""
-    xy, kinds = [], set()
-    for c in clusters:
-        pts = [server_pos[lab] for lab in c.label_ids if lab in server_pos]
-        if pts:
-            e_n = [frame.to_enu(lat, lng) for lat, lng in pts]
-            xy.append((sum(p[0] for p in e_n) / len(e_n), sum(p[1] for p in e_n) / len(e_n)))
-            kinds.add('server')
-        elif c.e is not None:
-            xy.append((c.e, c.n))
-            kinds.add('raycast')
-    name = kinds.pop() if len(kinds) == 1 else 'mixed' if kinds else 'none'
-    return np.array(xy).reshape(-1, 2), name
-
-
-def near_cluster_rate(clusters, server_pos, frame, radii=NEAR_RADII_M):
-    """The GT-free fragmentation proxy pre-registered for Vancouver (#56 metric (b)):
-    the share of an arm's placed clusters with ANOTHER cluster of the same arm within r,
-    for each r, plus clusters per 1,000 labels. Two clusters of one ramp read as a
-    near pair; so do two real ramps of one corner, which is why it is a proxy and why
-    the same arms are also scored against a city inventory.
-
-    Returns {'near': {r: share}, 'n_pos': placed clusters, 'frame': cluster_positions'
-    frame name, 'per_1000_labels': clusters per 1,000 labels of the arm}.
-
-    Example:
-        Three clusters at 0, 4 and 30 m along a line: 2 of 3 have a neighbour within
-        5 m (share 0.667), none has one within 5 m beyond those two.
-    """
-    xy, frame_name = cluster_positions(clusters, server_pos, frame)
-    near = {}
-    if len(xy) >= 2:
-        tree = cKDTree(xy)
-        for r in radii:
-            pairs = tree.query_pairs(r, output_type='ndarray')
-            with_neighbour = len(set(pairs[:, 0].tolist()) | set(pairs[:, 1].tolist()))
-            near[r] = with_neighbour / len(xy)
-    else:
-        near = {r: None for r in radii}
-    n_labels = sum(c.n_labels for c in clusters)
-    return {'near': near, 'n_pos': int(len(xy)), 'frame': frame_name,
-            'per_1000_labels': 1000.0 * len(clusters) / n_labels if n_labels else None}
-
-
-VAL_BUCKETS = ('cluster of 1', 'cluster of 2', 'cluster of 3+')
-
-
-def validation_precision(clusters, verdicts):
-    """#56 metric (c): validation-based precision by cluster size, from HUMAN votes.
-
-    `verdicts` is label_verdicts(): label_id -> True / False / None. For each size
-    bucket (labels in the cluster): clusters holding >= 1 validated label (`n`), of them
-    the clusters holding >= 1 label the humans voted FALSE (`any_false`), and the labels
-    behind them (`labels_validated`, `labels_false`). Only clusters with label_ids count
-    (every server-label arm has them; the run-only `fusion` arms do not).
-
-    Example:
-        A cluster of two labels, one voted True and one False, is one `any_false`
-        cluster of 1 validated in 'cluster of 2', with 2 validated labels, 1 false.
-    """
-    rows = {b: {'bucket': b, 'clusters': 0, 'n': 0, 'any_false': 0, 'all_false': 0,
-                'labels_validated': 0, 'labels_false': 0} for b in VAL_BUCKETS}
-    for c in clusters:
-        if not c.label_ids:
-            continue
-        b = ('cluster of 1' if c.n_labels == 1 else 'cluster of 2' if c.n_labels == 2
-             else 'cluster of 3+')
-        row = rows[b]
-        row['clusters'] += 1
-        vs = [verdicts[lab] for lab in c.label_ids if lab in verdicts]
-        if not vs:
-            continue
-        row['n'] += 1
-        row['labels_validated'] += len(vs)
-        row['labels_false'] += sum(v is False for v in vs)
-        row['any_false'] += any(v is False for v in vs)
-        row['all_false'] += all(v is False for v in vs)
-    return [rows[b] for b in VAL_BUCKETS]
-
-
-def wilson(t, n, z=1.96):
-    """Wilson score interval for t successes in n trials; None when n == 0.
-
-    Example:
-        >>> [round(x, 2) for x in wilson(27, 27)]
-        [0.88, 1.0]
-    """
-    if n == 0:
-        return None
-    p = t / n
-    d = 1 + z * z / n
-    mid = (p + z * z / (2 * n)) / d
-    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
-    return max(0.0, mid - half), min(1.0, mid + half)
-
-
-def precision_ci_text(t, f):
-    ci = wilson(t, t + f)
-    if ci is None:
-        return 'n/a'
-    return f'{t / (t + f):.3f} [{ci[0]:.2f}, {ci[1]:.2f}]'
-
-
-def quantile(xs, p):
-    return xs[min(len(xs) - 1, int(p * len(xs)))] if xs else None
 
 
 # --------------------------------------------------------- offline mode (issue #106)
@@ -1116,7 +812,8 @@ def synthesize_labels(results_path, min_confidence, mask_rig=True):
     Example:
         One record at (47.0, -122.0), heading 0, width 4096, with one detection at
         x = 0.5, y = 0.6 and confidence 0.7 gives one label at pano_x 2048, pano_y 1229,
-        due north of the camera, ~12.9 m out (18 degrees down at 2.341 m).
+        due north of the camera, ~7.20 m out (18.02 degrees down at 2.341 m:
+        2.341 / tan 18.02).
     """
     rows, det_of = [], {}
     with open(results_path, encoding='utf-8') as f:
@@ -1366,7 +1063,7 @@ ATTACH_MAX_RANGE_M = 60.0
 
 def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
                        min_range_m=ATTACH_MIN_RANGE_M, max_range_m=ATTACH_MAX_RANGE_M,
-                       mask_rig=False, label_of=None):
+                       mask_rig=False, unpositioned=(), label_of=None):
     """(clusters, attached) for the `fusion_server+attach` arm.
 
     Every label of `panos` that no site holds (clusters_from_server_sites makes these
@@ -1382,6 +1079,10 @@ def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
     Only labels the raycast dropped for the horizon or the range cap are candidates: with
     mask_rig (the fuse's FuseParams.mask_rig), a label in the rig band was dropped as
     `on_rig` -- it is on the camera vehicle, not the street -- and stays a singleton.
+
+    `unpositioned` and `label_of` are clusters_from_server_sites' (server_panos' stats):
+    the labels on panos with no position stay one singleton each, and every cluster
+    carries its label ids, so this arm holds every live label exactly once too.
 
     Returns the clusters (sites with their attachments, then the remaining singletons,
     in clusters_from_server_sites' layout, label_ids filled from `label_of` as there) and
@@ -1429,6 +1130,7 @@ def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
     extra = {}
     for key, sid in attached.items():
         extra.setdefault(sid, []).append(key)
+    label_of = label_of or {}
     out = []
     for s in sites:
         keys = [(d.pano_id, d.det_index) for d, _ in s.members] + extra.get(s.id, [])
@@ -1436,9 +1138,11 @@ def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
                            label_ids=[label_of[k] for k in keys if k in label_of]))
     for _negc, pid, i, _x, _p, _y in sorted(loose, key=lambda t: (t[1], t[2])):
         if (pid, i) not in attached:
-            key = (pid, i)
-            out.append(Cluster(len(out), [key] if i < HUMAN_DET_BASE else [], 1,
-                               label_ids=[label_of[key]] if key in label_of else []))
+            out.append(Cluster(len(out), [(pid, i)] if i < HUMAN_DET_BASE else [], 1,
+                               label_ids=[label_of[(pid, i)]] if (pid, i) in label_of
+                               else []))
+    for lab in unpositioned:
+        out.append(Cluster(len(out), [], 1, label_ids=[lab]))
     return out, attached
 
 
@@ -1446,7 +1150,16 @@ def attach_unplaceable(sites, panos, frame, perp_m=ATTACH_PERP_M,
 
 # Bumped by hand whenever a change moves any number the reports print; the pooled driver
 # (clustering_eval_pooled.py) re-runs a cell whose report records another version.
-SCORER_VERSION = '106.2'
+SCORER_VERSION = '106.4'
+
+
+def repo_relative(path):
+    """`path` as POSIX relative to the repo root, so a committed report names no machine's
+    checkout; a path outside the repo prints as its file name."""
+    try:
+        return Path(path).resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return Path(path).name
 
 
 def input_stamp(streets_path, verdicts_path):
@@ -1552,6 +1265,9 @@ def run(args):
     if args.offline and (args.labels or args.clusters or args.ps_script or args.offline_check):
         raise SystemExit('--offline synthesizes the labels: --labels, --clusters, '
                          '--ps-script and --offline-check need a live server')
+    if args.offline and args.ai_user:
+        raise SystemExit('--ai-user names the live AI account; --offline synthesizes every '
+                         'label from the run, so there is no account to name')
     split = args.split or args.city
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
     results_path = args.results or run_dir / 'results.jsonl'
@@ -1579,6 +1295,8 @@ def run(args):
             reg, n_ties = assign_regions(labels.lat, labels.lng, streets)
             labels['region_id'] = reg
         ai = labels
+        # every synthesized label is the AI account's and maps to its detection
+        ai_user, unmapped_ai = OFFLINE_USER, 0
         server_clusters = None
         n_bad_lng = n_ambiguous = n_dup_labels = 0
         pix_map, n_ambiguous, _dup = label_to_detection(results_path, labels)
@@ -1689,6 +1407,7 @@ def run(args):
 
     checks = []
     deployed = None
+    diag = None
     if not args.offline:
         # arm: deployed
         deployed = place(clusters_from_server(server_clusters, det_of), det_pos)
@@ -1728,6 +1447,9 @@ def run(args):
             k2, n2, off2 = partition_agreement(repro, vec_clusters)
             checks.append(f'vectorized PS distance reproduces the script: {k2}/{n2} '
                           f'clusters identical ({off2} labels differ)')
+            if k < n:
+                diag = deployed_diagnostics(server_clusters, labels, repro,
+                                            args.ps_script, on_server)
 
     # arms: ps @ t (server positions, per region) and ps_citywide @ 7.5
     t_kms = [t / 1000.0 for t in args.thresholds_m]
@@ -1777,24 +1499,46 @@ def run(args):
     # were fusion. Every label on the server is live, so all of them are operational.
     # Offline, "the server's labels" are the synthesized ones.
     run_by_id = {p.pano_id: p for p in run_panos}
+    # --ai-user (#56, a run rebuilt from the pano store): the account's unmapped labels
+    # are AI labels that enter at the tier; without it an unmapped label is refused
+    use_unmapped = bool(args.ai_user) and not args.offline
+    if unmapped_ai and not use_unmapped:
+        raise SystemExit(
+            f'{unmapped_ai} labels of the AI account ({ai_user}) map to no stored detection '
+            f'in {results_path}: they were submitted from another file (a band, a '
+            're-inferred campaign), so fusion_server cannot give them a confidence, and '
+            'read as human they would seed sites at 1.0. Score a pull that predates them, '
+            'or point --results at the file they came from (Laurens went live from '
+            'results.raw.jsonl).')
     srv_panos, srv_stats = server_panos(
-        labels, det_of, run_by_id, ai_user=ai_user if (not args.offline and args.ai_user)
-        else None, unmapped_confidence=args.min_confidence)
-    label_of = srv_stats['label_of']
+        labels, det_of, run_by_id, ai_user,
+        decode=fs.single_decode(Counter(p.decode for p in run_panos), 'results.jsonl'),
+        border=fs.single_border(Counter(p.border for p in run_panos), 'results.jsonl'),
+        invert=not args.offline,
+        unmapped_confidence=args.min_confidence if use_unmapped else None)
     srv_params = replace(params, min_confidence=0.0, floor=0.0)
     srv_sites, srv_frame, _s3 = fs.fuse(srv_panos, srv_params)
-    srv_clusters, srv_singletons = clusters_from_server_sites(srv_sites, srv_panos, label_of)
+    srv_clusters, srv_singletons = clusters_from_server_sites(
+        srv_sites, srv_panos, srv_stats['unplaceable_label_ids'], srv_stats['label_of'])
     add_arm('fusion_server', place(srv_clusters, det_pos))
+    inv_err_ai = inversion_check(labels, run_by_id, only_user=ai_user)
     inv_err = inversion_check(labels, run_by_id)
+    inv_err_human = inversion_check(labels, run_by_id, exclude_user=ai_user)
+    if args.offline:
+        fb_moved, fb_unknown = None, None
+        fb_reason = "offline: the labels were placed from the run's block"
+    else:
+        fb_moved, fb_unknown, fb_reason = fallback_check(
+            run_dir, labels_path, srv_stats['run_position_ids'], run_by_id)
 
     # arm: fusion_server+attach — the same sites, plus the pre-declared bearing rule for
     # the labels the raycast cannot place (attach_unplaceable). Their positions are
     # unknown to the scorer, so coverage, frag, dual and coherence cannot move; cluster
     # counts, size buckets and cluster-level precision can (attaching a judged-true
     # singleton to a site that is already TP removes one TP cluster).
-    att_clusters, attached = attach_unplaceable(srv_sites, srv_panos, srv_frame,
-                                                mask_rig=srv_params.mask_rig,
-                                                label_of=label_of)
+    att_clusters, attached = attach_unplaceable(
+        srv_sites, srv_panos, srv_frame, mask_rig=srv_params.mask_rig,
+        unpositioned=srv_stats['unplaceable_label_ids'], label_of=srv_stats['label_of'])
     add_arm('fusion_server+attach', place(att_clusters, det_pos))
     site_true = {}
     for s in srv_sites:
@@ -1854,20 +1598,26 @@ def run(args):
                                 det_pos, r_m)))
 
     run_conf = {(p.pano_id, i): c for p in run_panos for i, _x, _y, c in p.detections}
+    run_y = {(p.pano_id, i): y for p in run_panos for i, _x, y, _c in p.detections}
+    for name, cl in partitions.items():
+        results[name]['size'] = size_precision(cl, det_of, det_pos, gt[3], run_conf, run_y)
     # GT-free metrics (#56): the near-cluster proxy in the server's own frame where an
     # arm carries label ids, and validation-based precision from the human votes
     server_pos = {int(r.label_id): (r.lat, r.lng) for r in labels.itertuples(index=False)}
     verdicts = label_verdicts(labels) if 'human_agree' in labels.columns else {}
     for name, cl in partitions.items():
-        results[name]['size'] = size_precision(cl, det_of, det_pos, gt[3], run_conf)
         results[name]['near'] = near_cluster_rate(cl, server_pos, frame)
         # ...and over the clusters holding a member the raycast can place: fusion_server
         # makes every unplaceable label a singleton at its server position, which sits
         # beside the site it could not join, so the all-clusters proxy counts those as
         # near pairs (Richmond: 0.76 against a GT frag of 0.17). Post hoc (not in the #56
-        # pre-registration), reported beside it, never instead of it.
+        # pre-registration), reported beside it, never instead of it. Placeable is read
+        # by LABEL (det_of) where a cluster has label ids, so a second label on a shared
+        # detection -- a fusion_server non-member -- counts the same in every arm.
         results[name]['near_placed'] = near_cluster_rate(
-            [c for c in cl if any(m in det_pos for m in c.members)], server_pos, frame)
+            [c for c in cl if (any(det_of.get(lab) in det_pos for lab in c.label_ids)
+                               if c.label_ids else any(m in det_pos for m in c.members))],
+            server_pos, frame)
         results[name]['validation'] = validation_precision(cl, verdicts)
 
     ocheck = None
@@ -1879,7 +1629,7 @@ def run(args):
     # ---- report
     lines += ['', '## Data provenance', '']
     if args.offline:
-        lines += [f'- results file `{results_path}`: sha256 `{results_sha}`',
+        lines += [f'- results file `{repo_relative(results_path)}`: sha256 `{results_sha}`',
                   f'- {n_ambiguous} ambiguous pixel keys in `{results_path.name}` (two '
                   'stored detections round to one pixel); offline labels map to their '
                   f'detection directly, and the pixel-key map agrees on {n_pix_same} of '
@@ -1913,6 +1663,27 @@ def run(args):
     if not args.offline and not args.ps_script:
         checks.insert(0, 'ps_repro skipped (no --ps-script)')
     lines += [f'- {c}' for c in checks]
+    if diag is not None:
+        bcr = diag.get('by_cluster_region')
+        lines += ['', '## Deployed-partition diagnostics (#56 (a))', '',
+                  'Printed when ps_repro does not reproduce every deployed cluster. All at the '
+                  "labels' CURRENT positions in the pull (eval_ps_clustering."
+                  'deployed_diagnostics has the definitions).', '',
+                  f"- deployed clusters spanning more than {DIAG_SPAN_M:g} m (a fresh "
+                  f"complete-linkage cut cannot): {diag['span_over']} of {diag['n_deployed']} "
+                  f"({diag['span_over'] / diag['n_deployed']:.1%})",
+                  f"- cluster geometries more than {DIAG_GEOMETRY_M:g} m from their members' "
+                  f"mean: {diag['geom_off']} of {diag['geom_n']} "
+                  f"({diag['geom_off'] / diag['geom_n']:.1%}); max {diag['geom_max_m']:.1f} m",
+                  f"- labels in more than one deployed cluster: {diag['multi']}",
+                  f"- deployed clusters ps_repro does not reproduce: {diag['differ']}; proper "
+                  f"subsets of one ps_repro cluster: {diag['subset']}; of those, created "
+                  'all before or all after the rest of their ps_repro cluster: '
+                  f"{diag['subset_time_split']}"]
+        if bcr:
+            lines.append(f'- verbatim script with each label in its deployed cluster\'s region '
+                         f'instead of its own: {bcr[0]}/{bcr[1]} deployed clusters identical '
+                         f'({bcr[0] / bcr[1]:.3f})')
 
     def check_line(text, ok):
         return f'- {"" if ok else "warning: "}{text}'
@@ -1921,7 +1692,8 @@ def run(args):
         lines.append(check_line(
             'every label that maps to a stored detection belongs to one account '
             f'({ai_user}); {unmapped_ai} of that account\'s labels did not map '
-            '(should be 0)', unmapped_ai == 0))
+            + ('(--ai-user: kept as AI, unplaceable, at the tier)' if use_unmapped
+               else '(should be 0)'), unmapped_ai == 0 or use_unmapped))
     ps_pl = results.get(f'ps_placeable @ {args.thresholds_m[0]:g} m')
     lines.append(check_line(
         'fusion arm vs ps_* arms cover the same labels: '
@@ -1954,20 +1726,43 @@ def run(args):
                 if c.members]
     same_as_fusion = sum(1 for s in srv_sets if s in fus_sets)
     lines.append(
-        f"- fusion_server input: {srv_stats['ai_labels']} AI + "
-        + (f"{srv_stats['ai_unmapped']} unmapped AI (at {args.min_confidence:g}) + "
-           if srv_stats['ai_unmapped'] else '')
-        + f"{srv_stats['human_labels']} human labels on {len(srv_panos)} panos "
-        f"({srv_stats['run_position']} positioned from the run's pano block, "
-        f"{srv_stats['inverted']} inverted from their labels, "
-        f"{srv_stats['unplaceable']} unplaceable and left out); {srv_singletons} labels "
-        'the raycast cannot place (range cap, horizon) are singleton clusters; '
+        f"- fusion_server input: {srv_stats['ai_labels']} AI (by account; "
+        f"{srv_stats['ai_duplicate']} share a detection with another AI label) + "
+        + (f"{srv_stats['ai_unmapped']} unmapped AI (--ai-user, at {args.min_confidence:g}) + "
+           if srv_stats['ai_unmapped'] else '') +
+        f"{srv_stats['human_labels']} human labels on "
+        f"{len(srv_panos) + srv_stats['unplaceable']} panos ({srv_stats['inverted']} "
+        f"positioned by inverting their labels, {srv_stats['run_position']} from the run's "
+        + ("pano block (offline: the block the labels were placed from), " if args.offline
+           else f"pano block (no label within {INVERT_MAX_RANGE_M:g} m to invert), ")
+        + f"{srv_stats['unplaceable']} with neither, whose {srv_stats['unplaceable_labels']} "
+        f'labels are singleton clusters); {srv_singletons} labels the raycast cannot place '
+        '(range cap, horizon) are singleton clusters; '
         f'{same_as_fusion} of its {len(srv_sets)} clusters with AI members are, member '
         f"for member, a cluster of the `fusion` arm")
+    srv_ids = sorted(lab for c in srv_clusters for lab in c.label_ids)
+    lines.append(check_line(
+        f'every server label is in exactly one fusion_server cluster: {len(srv_ids)} label '
+        f'ids, {len(set(srv_ids))} distinct, of {len(labels)} labels',
+        srv_ids == sorted(labels.label_id)))
+    lines.append(check_line(
+        f"inverted camera positions more than {LIVE_POSITION_TOL_M:g} m from the run's pano "
+        f"block (a pano live somewhere other than results.jsonl says, e.g. repositioned): "
+        f"{srv_stats['inverted_far']} of {srv_stats['inverted']} (should be 0 for a pull "
+        'taken before any reposition)', srv_stats['inverted_far'] == 0))
+    # #133: the panos positioned from the run's block, against the position each was live
+    # at when the pull was taken (inverted_far above sees inverted panos only)
+    lines.append(fallback_line(fb_moved, fb_unknown, srv_stats['run_position'], fb_reason))
     lines.append(
-        f'- camera-position inversion (for panos only humans labeled) vs the run\'s '
-        f'position, over {len(inv_err)} panos in both: median '
-        f'{fmt(quantile(inv_err, .5), 2)} m, p90 {fmt(quantile(inv_err, .9), 2)} m')
+        f"- camera-position inversion vs the run's position: from the AI account's labels "
+        f"(the arm's rule), over {len(inv_err_ai)} panos: median "
+        f'{fmt(quantile(inv_err_ai, .5), 3)} m, p90 {fmt(quantile(inv_err_ai, .9), 2)} m; '
+        f'from all labels (the #105 method), over {len(inv_err)} panos: median '
+        f'{fmt(quantile(inv_err, .5), 3)} m, p90 {fmt(quantile(inv_err, .9), 2)} m; from '
+        f'human labels only, over {len(inv_err_human)} panos: median '
+        f'{fmt(quantile(inv_err_human, .5), 3)} m, p90 '
+        f'{fmt(quantile(inv_err_human, .9), 2)} m, max '
+        f'{fmt(inv_err_human[-1] if inv_err_human else None, 2)} m')
     bad = {k: v['same_pano_pairs'] for k, v in results.items() if v['same_pano_pairs']}
     lines.append('- same-pano pairs inside one cluster (must be 0 under the cannot-link): '
                  + (', '.join(f'{k} {v}' for k, v in bad.items()) if bad
@@ -2048,7 +1843,22 @@ def run(args):
                      + ' | '.join(fmt(nr['near'].get(rr)) for rr in NEAR_RADII_M)
                      + f" | {npl['n_pos']} | "
                      + ' | '.join(fmt(npl['near'].get(rr)) for rr in NEAR_RADII_M) + ' |')
+    ps75 = results.get(f'ps @ {PS_THRESHOLD_KM * 1000:g} m')
+    if args.no_gt and not args.offline and ps75 and 'fusion_server' in results:
+        a = results['fusion_server']['near']['near'].get(5.0)
+        b = ps75['near']['near'].get(5.0)
+        if a is not None and b:
+            # the #56 pre-registration (Vancouver, the one --no-gt city) made this the
+            # confirmatory fragmentation test and stated the expected direction
+            lines += ['', 'Pre-registered reading (#56 metric (b), the confirmatory test of '
+                      "Part 1's fragmentation claim): expected fusion_server near 5 m about "
+                      f'half of ps @ 7.5 m; read {a:.3f} vs {b:.3f} (ratio {a / b:.2f}), '
+                      # 0.6 is a DISPLAY cutoff for the wording, not a pre-registered test:
+                      # #56 says "about half" and states no bar; the ratio itself is the result.
+                      + ('as expected.' if a <= 0.6 * b else 'not the expected halving.')]
     if verdicts:
+        in_deployed = {lab for c in server_clusters or () for lab in c['label_ids']}
+        unclustered_ids = [lab for lab in labels.label_id if lab not in in_deployed]
         n_true = sum(v is True for v in verdicts.values())
         n_false = sum(v is False for v in verdicts.values())
         n_none = len(verdicts) - n_true - n_false
@@ -2073,6 +1883,10 @@ def run(args):
                   f'includes PS\'s AI validator where one votes): '
                   f'{int((corr == True).sum())} true, {int((corr == False).sum())} false, '  # noqa: E712
                   f'{int(corr.isna().sum())} null',
+                  *([f'- labels in no deployed cluster: {len(unclustered_ids)}, of them '
+                     f'{sum(verdicts.get(int(lab)) is False for lab in unclustered_ids)} of '
+                     f'the {n_false} voted false (the server clusters only labels not marked '
+                     'incorrect)'] if server_clusters else []),
                   '',
                   '| arm | bucket | clusters | with a validated label | any false | '
                   'all false | validated labels | false labels |',
@@ -2087,7 +1901,7 @@ def run(args):
                              f"| {share} | {share_all} | {row['labels_validated']} | "
                              f"{row['labels_false']} |")
         with open(out / 'validation_precision.csv', 'w', newline='', encoding='utf-8') as f:
-            w = csv.writer(f)
+            w = csv.writer(f, lineterminator='\n')
             w.writerow(['arm', 'bucket', 'clusters', 'n_validated_clusters', 'any_false',
                         'all_false', 'labels_validated', 'labels_false'])
             for name, r in results.items():
@@ -2103,14 +1917,19 @@ def run(args):
               'cannot associate those, so they are the singletons of `fusion_server`, and '
               f'the same bucket is split out of `{ref_name}` for comparison. Precision is '
               'T / (T + F) over labels on judged panos (RampNet verdicts, benchmark tier), '
-              'with a Wilson 95% interval.', '',
-              '| partition | bucket | AI labels | median conf | judged | precision [95% CI] '
-              '| T | F | neither |',
-              '|---|---|---:|---:|---:|---|---:|---:|---:|']
+              'with a Wilson 95% interval. Median y is the stored detection\'s '
+              'y_normalized (0.5 = the horizon). `unclustered` (a placeable label no '
+              'cluster of that partition holds) is shown only when non-empty.', '',
+              '| partition | bucket | AI labels | median conf | median y | judged | '
+              'precision [95% CI] | T | F | neither |',
+              '|---|---|---:|---:|---:|---:|---|---:|---:|---:|']
     for name in (ref_name, 'fusion_server', 'fusion_server+attach'):
         for row in results[name]['size']:
+            if row['bucket'] == 'unclustered' and not row['n']:
+                continue
             lines.append(f"| {name} | {row['bucket']} | {row['n']} | "
-                         f"{fmt(row['median_conf'], 2)} | {row['judged']} | "
+                         f"{fmt(row['median_conf'], 2)} | {fmt(row['median_y'], 3)} | "
+                         f"{row['judged']} | "
                          f"{precision_ci_text(row['t'], row['f'])} | {row['t']} | "
                          f"{row['f']} | {row['judged'] - row['t'] - row['f']} |")
 
@@ -2177,10 +1996,11 @@ def run(args):
                 'the others)' if o['eligible_h'] else '- (b+) no eligible clusters')
 
     report = '\n'.join(lines) + '\n'
-    (out / 'report.md').write_text(report, encoding='utf-8')
+    # LF on every platform, so a regeneration is byte-comparable with the committed copy
+    (out / 'report.md').write_text(report, encoding='utf-8', newline='\n')
     with open(out / 'arms.csv', 'w', newline='', encoding='utf-8') as f:
         rows = [csv_row(k, v) for k, v in results.items()]
-        w = csv.DictWriter(f, list(rows[0].keys()))
+        w = csv.DictWriter(f, list(rows[0].keys()), lineterminator='\n')
         w.writeheader()
         w.writerows(rows)
     print(report)

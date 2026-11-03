@@ -1,0 +1,6 @@
+split,peaks_both_paths,only_labeler,only_rampnet,max_gaussian_diff_px
+manual_gold,3834,0,34,0.0
+annapolis,270,0,2,0.0
+paterson,309,0,3,0.0
+richmond,324,0,4,0.0
+sao_paulo,320,0,0,0.0

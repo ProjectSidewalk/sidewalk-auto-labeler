@@ -79,6 +79,7 @@ for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
+from detectors import registry  # noqa: E402
 from detectors import (BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE,  # noqa: E402
                        on_camera_rig)
 
@@ -307,6 +308,7 @@ def scan_run(results_path):
             if not line.strip():
                 continue
             rec = json.loads(line)
+            registry.require_curb_ramp_only(rec, 'agree_rate')  # not yet type-aware (#168)
             p = rec['pano']
             pid = p['panorama_id']
             if pid not in run:
@@ -797,6 +799,10 @@ def main():
               'and falls back to the default for every other pano; the report prints how '
               'many panos had a measured height.', file=sys.stderr)
     run_panos, n_unplaceable = fs.load_results(results_path, read_heights=True)
+    try:   # the bundles it adjudicates against, and the crowd frame, are argmax (#111)
+        es.require_bundle_frame(run_panos, results_path)
+    except ValueError as e:
+        raise SystemExit(str(e))
     run_by_id = {p.pano_id: p for p in run_panos}
     n_measured = sum(1 for p in run_panos if p.camera_height_m is not None)
     print(f'per-pano heights: {n_measured} of {len(run_panos)} panos have a measured '

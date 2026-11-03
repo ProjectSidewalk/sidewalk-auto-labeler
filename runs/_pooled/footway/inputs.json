@@ -1,0 +1,37 @@
+{
+ "cities": {
+  "bend": {
+   "depth/index.csv (not read)": "a4ae7d3743ca11b8e3ccce652009dcc57309dbd410ea8c90e57b4c3d044b448d",
+   "rampnet records.jsonl": "c17c2503b22cf78f8c38ebefa445f2709845550bacd84dff75fa5e9e1616b29a",
+   "rampnet verdicts.json": "9d9835db27f66c1904fcfd4fc87b06f26638a3c033ef10936387db40feb84b05",
+   "results.jsonl": "1307faa8041acbbf4cba78fd53979e2215511b8371c018f427c356f6b0e26153"
+  },
+  "gainesville": {
+   "depth/index.csv (not read)": "02ad2a5d87e2d45a2fb5eb6e3b4215546f07a8425ea7032a49e9cf8b2f67c527",
+   "rampnet records.jsonl": "f59e73db5c95017b30d8687eb4e14bccfc10f516bf98fbcb13e502185607c8fc",
+   "rampnet verdicts.json": "776ddb2ca1a5a72fb9b27965ae8e5727d6fecc8bf4cc56b2ac94543c6cfad1e4",
+   "results.jsonl": "9f4a57f35d24715856d4464dbc0950febbf20de810ec9653432f339a5ab857e8"
+  },
+  "paterson": {
+   "depth/index.csv (not read)": "06e878e2d77e60dbf2652d8e7b31ca8763d0aa49876d02c9e67338a2e90ebfa1",
+   "rampnet records.jsonl": "363dba08d49d60ce9d9322115c89b27f450b35cd74598f127b261ab321979096",
+   "rampnet verdicts.json": "5e43c54389eb9ea1d8daf0a075e562e27eb6b484dfcb3397cb6f438619365dad",
+   "results.jsonl": "651226f9f1e66d60fc8504423e7400730aad649e20a4a448d25bd4e5c620a2a8"
+  },
+  "sao_paulo": {
+   "depth/index.csv (not read)": "46315eb54fbb14c17669be6a08f6c3ec1d7560f8c7d8864a8c600a147438aa09",
+   "rampnet records.jsonl": "c483538442d84a6e29b765d9e897253e833839f240d36af84dc82c69ed1c6b90",
+   "rampnet verdicts.json": "dbe32bcc8f8d87b3caedcc54597b6547720d98202abe149fb707dd560aa0db4c",
+   "results.jsonl": "54348f367dfa3ecb9cde587d106d493d729fb5e5744687e3f38d1c9f1549bf7f"
+  }
+ },
+ "environment": {
+  "numpy": "2.5.1",
+  "pillow": "12.3.0",
+  "python": "3.12.13",
+  "scipy": "1.18.0"
+ },
+ "masks_manifest.json": "323306cc07c2c5c06a2d22575a09707557233927966c2574af1262dca7fc801c",
+ "rampnet_commit": "6c252bbac30343da7fcebb57e6310ff82f54d708",
+ "sample.csv": "9ea7f0e02a1c5e65392af34e795a723e6e06e210820ccb5a6c19fcf64701dd12"
+}

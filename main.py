@@ -39,8 +39,11 @@ from tqdm import tqdm
 
 import depth as depthlib
 import position_check
-from detectors import DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO, ModelProvenanceError
+from detectors import (BORDER_EXCLUDE, BORDERS, DECODE_ARGMAX, DECODES, DEFAULT_BORDER,
+                       DEFAULT_DECODE, DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO,
+                       RECORD_BORDER_KEY, RECORD_DECODE_KEY, ModelProvenanceError)
 from detectors.batching import BATCH_SIZE_HELP, report_detector
+from detectors import registry
 from sources import get_source, SOURCE_NAMES
 
 # Local secrets (e.g. MAPILLARY_ACCESS_TOKEN) from ./.env; real env vars win.
@@ -55,6 +58,41 @@ PROCESSING_CONCURRENCY = 50
 # Model provenance (model_id, model_training_date, api_version, model_repo, model_revision)
 # is not declared here: CurbRampDetector resolves it from the snapshot it loaded (issue #39)
 # and main() passes its `provenance` dict down to every writer. See detectors/__init__.py.
+
+# The loaded detectors, {label_type: detector} (issue #168; detectors/registry.py). main()
+# fills it from --types. `curb_ramp_detector` is kept as the CurbRamp entry because
+# scripts/reinfer.py and scripts/detect_from_store.py set it directly; _process runs both.
+detectors = {}
+curb_ramp_detector = None
+
+
+def _loaded_detectors():
+    """{label_type: detector} for _process: main.detectors, with main.curb_ramp_detector as
+    the CurbRamp entry when a script set it directly."""
+    out = dict(detectors)
+    if curb_ramp_detector is not None:
+        out[registry.CURB_RAMP] = curb_ramp_detector
+    return out
+
+
+def provenance_map(provenance):
+    """{label_type: provenance} from either a type map or one detector's provenance dict
+    (every pre-#168 caller passes CurbRampDetector.provenance, which this reads as CurbRamp's).
+
+        >>> provenance_map({'model_revision': 'abc'})
+        {'CurbRamp': {'model_revision': 'abc'}}
+    """
+    if 'model_revision' in provenance or 'model_id' in provenance:
+        return {registry.CURB_RAMP: provenance}
+    for t in provenance:  # a misspelled type ('Curbramp') must not pass as a new type set
+        registry.spec_for(t)
+    return dict(provenance)
+
+
+def primary_type(label_types):
+    """The type whose provenance a record's and a manifest's top-level model_* keys carry:
+    CurbRamp when it ran, else the first type (#168). Legacy readers see this one."""
+    return registry.CURB_RAMP if registry.CURB_RAMP in label_types else sorted(label_types)[0]
 
 
 def latlon_to_tile(lat_deg, lon_deg, zoom):
@@ -325,15 +363,36 @@ def _process(pano_id, fetch):
         if fetched['status'] != 'success':
             return {'status': fetched['status'], 'pano_id': pano_id, 'reason': fetched.get('reason', 'Unknown')}
 
-        # The detector returns the list of center points and confidence: [[x, y, confidence], ...] or an empty list [].
-        detections = curb_ramp_detector.detect(fetched['image'])
+        dets = _loaded_detectors()
+        markers = None
+        if registry.is_legacy_type_set(dets):
+            # The detector returns the list of center points and confidence: [[x, y, confidence], ...] or an empty list [].
+            primary = dets[registry.CURB_RAMP]
+            detections = primary.detect(fetched['image'])
+        else:
+            # Several detectors (#168): run each on the same image and tag every detection
+            # with its type, as (x, y, confidence, label_type); build_output_line writes it.
+            detections = [(x, y, c, t) for t in sorted(dets)
+                          for x, y, c in dets[t].detect(fetched['image'])]
+            primary = dets[primary_type(dets)]
+            markers = {t: {RECORD_DECODE_KEY: getattr(d, 'decode', DEFAULT_DECODE),
+                           RECORD_BORDER_KEY: getattr(d, 'border', DEFAULT_BORDER)}
+                       for t, d in dets.items()}
 
-        return {
+        result = {
             'status': 'success',
             'pano_id': pano_id,
             'pano': fetched['pano'],
-            'detections': detections
+            'detections': detections,
+            # where the detector placed the peaks (#111); build_output_line marks non-argmax
+            'decode': getattr(primary, 'decode', DEFAULT_DECODE),
+            # whether it kept the seam-band peaks (#130); build_output_line marks `keep`
+            'border': getattr(primary, 'border', DEFAULT_BORDER),
         }
+        if markers is not None:
+            result['label_types'] = sorted(dets)
+            result['type_markers'] = markers
+        return result
     except Exception as e:
         return {'status': 'failure', 'pano_id': pano_id, 'reason': str(e)}
 
@@ -369,6 +428,9 @@ def handle_result(result, f_cache, f_jsonl, provenance):
     if result['status'] == 'skipped':
         # Deterministic skips (indoor pano, non-360 image, incomplete metadata,
         # gap-fill target outside the area): cache so they aren't refetched every run.
+        # Logged, so a skip that should have been a retryable failure is diagnosable (#127).
+        tqdm.write(f"  -> Skipped {result['pano_id']} (cached, never retried): "
+                   f"{result.get('reason', 'Unknown')}")
         f_cache.write(f"{result['pano_id']}\n")
         f_cache.flush()
         return 'skipped'
@@ -381,11 +443,30 @@ def build_output_line(result, provenance):
     plus model provenance around the source-built 'pano' block.
 
     `provenance` is CurbRampDetector.provenance — resolved from the loaded snapshot,
-    never a literal (issue #39). model_id / model_training_date / api_version are the
+    never a literal (issue #39) — or a {label_type: provenance} map of every detector that
+    ran (#168; see provenance_map). A run whose types are exactly {CurbRamp} writes the
+    pre-#168 line below with no new key, whichever form it is handed; any other set is
+    written by _multitype_line. model_id / model_training_date / api_version are the
     three keys Project Sidewalk stores per label; model_repo and model_revision (the
     full 40-hex SHA) ride along for everything else and are ignored by the server.
+
+    A record whose peaks were placed by a decode other than argmax (#111; ``result['decode']``)
+    carries ``detection_decode``. Argmax records do not, so they are byte-identical to every
+    line written before the key existed (detectors.record_decode reads absent as argmax).
+    Likewise a record found under the `keep` border rule (#130; ``result['border']``) carries
+    ``detection_border``, and an `exclude` record does not.
     """
-    return {
+    pmap = provenance_map(provenance)
+    if not registry.is_legacy_type_set(pmap):
+        return _multitype_line(result, pmap)
+    provenance = pmap[registry.CURB_RAMP]
+    # A result from a multi-type _process must never be written as a CurbRamp-only line: that
+    # would label another type's detections CurbRamp without a trace.
+    if list(result.get('label_types', [registry.CURB_RAMP])) != [registry.CURB_RAMP] \
+            or any(len(d) != 3 for d in result['detections']):
+        raise ValueError(f"a CurbRamp-only line got a multi-type result "
+                         f"({result.get('label_types')}, tagged detections)")
+    line = {
         "detections": [
             {
                 "x_normalized": x_normalized,
@@ -401,12 +482,73 @@ def build_output_line(result, provenance):
         "model_revision": provenance['model_revision'],
         "pano": result['pano'],
     }
+    decode = result.get('decode', DECODE_ARGMAX)
+    if decode != DECODE_ARGMAX:
+        line[RECORD_DECODE_KEY] = decode
+    border = result.get('border', BORDER_EXCLUDE)
+    if border != BORDER_EXCLUDE:
+        line[RECORD_BORDER_KEY] = border
+    return line
+
+def _multitype_line(result, pmap):
+    """The #168 record for a run of any type set other than {CurbRamp}.
+
+    Every detection carries `label_type`; `label_types` (sorted) lists the detectors that
+    RAN, so an empty line still says what it was checked for; line-level `label_type` is the
+    type iff one ran (never derived from the detections); `models` holds each type's
+    provenance, and the line-level model_* keys repeat primary_type's so a legacy reader sees
+    one coherent model. The line-level detection_decode / detection_border markers describe
+    the CurbRamp detector, under the same absent-means-default rule as a legacy line; every
+    other type's decode and border always ride inside its models[T] entry.
+    """
+    types = sorted(pmap)
+    if sorted(result.get('label_types', types)) != types:
+        raise ValueError(f"result ran {result.get('label_types')} but provenance covers {types}")
+    detections = []
+    for d in result['detections']:
+        if len(d) != 4 or d[3] not in pmap:
+            raise ValueError(f'detection {d!r} is not tagged with one of {types}')
+        detections.append({"x_normalized": d[0], "y_normalized": d[1], "confidence": d[2],
+                           "label_type": d[3]})
+    markers = result.get('type_markers', {})
+    models = {}
+    for t in types:
+        block = {k: pmap[t][k] for k in registry.PROVENANCE_KEYS}
+        if t != registry.CURB_RAMP:
+            block[RECORD_DECODE_KEY] = markers.get(t, {}).get(RECORD_DECODE_KEY, DEFAULT_DECODE)
+            block[RECORD_BORDER_KEY] = markers.get(t, {}).get(RECORD_BORDER_KEY, DEFAULT_BORDER)
+        models[t] = block
+    primary = pmap[primary_type(types)]
+    line = {
+        "detections": detections,
+        "label_type": types[0] if len(types) == 1 else None,
+        "label_types": types,
+        "models": models,
+        **{k: primary[k] for k in registry.PROVENANCE_KEYS},
+        "pano": result['pano'],
+    }
+    if registry.CURB_RAMP in types:
+        if result.get('decode', DECODE_ARGMAX) != DECODE_ARGMAX:
+            line[RECORD_DECODE_KEY] = result['decode']
+        if result.get('border', BORDER_EXCLUDE) != BORDER_EXCLUDE:
+            line[RECORD_BORDER_KEY] = result['border']
+    return line
 
 def save_manifest(manifest_path, manifest):
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
 
 LEGACY_PROVENANCE_KEYS = ('model_id', 'model_training_date', 'api_version')
+
+def _manifest_model_blocks(provenance):
+    """A new manifest's model keys (#168): primary_type's block at top level, `label_types`,
+    and -- only for a run whose types are not {CurbRamp} -- a `models` map of every type's."""
+    pmap = provenance_map(provenance)
+    out = dict(manifest_model_block(pmap[primary_type(pmap)]))
+    out['label_types'] = sorted(pmap)
+    if not registry.is_legacy_type_set(pmap):
+        out['models'] = {t: manifest_model_block(p) for t, p in sorted(pmap.items())}
+    return out
 
 def manifest_model_block(provenance):
     """The model block a manifest records (top level and per run entry): the detector's
@@ -478,8 +620,203 @@ def bind_model(manifest, provenance, run_name):
     manifest.update(manifest_model_block(provenance))
     return True
 
+def bind_label_types(manifest, label_types, run_dir, types_flag=True):
+    """
+    Binds a run directory to one set of label types (issue #168), the way bind_decode binds
+    the decode: a resume under another set would append panos checked for different things
+    to one results.jsonl, and a pano's record_types is the only record of what it was
+    checked for. Exits on a mismatch; returns True when the manifest changed.
+
+    A manifest without `label_types` predates #168 or was made by --scan-only. If the run
+    already holds records, they are CurbRamp records (the only type before #168), so it is
+    bound to ['CurbRamp'] without rewriting the manifest. A run with no records yet is bound
+    to this run's set.
+    """
+    label_types = sorted(label_types)
+    bound = manifest.get('label_types')
+    if bound is None:
+        results = run_dir / 'results.jsonl'
+        if results.exists() and results.stat().st_size > 0:
+            bound = [registry.CURB_RAMP]
+        else:
+            manifest['label_types'] = label_types
+            return True
+    if sorted(bound) != label_types:
+        sys.exit(
+            f"❌ Run '{run_dir.name}' detects label types {', '.join(sorted(bound))}, not "
+            f"{', '.join(label_types)}.\n"
+            f"   Appending would mix panos checked for different types in one results.jsonl "
+            f"(issue #168).\n"
+            f"   Use a new --name for this type set (never a resume)"
+            + (f", or pass --types {','.join(sorted(bound))}." if types_flag else ".")
+        )
+    return False
+
+def bind_models(manifest, pmap, run_name):
+    """
+    Binds every type's model (issue #168) in the manifest's `models` map, beside the
+    top-level model block bind_model keeps for primary_type, by running bind_model on each
+    `models[T]` entry. Written only for a run whose type set is not {CurbRamp}, so a
+    CurbRamp-only manifest is unchanged. Exits on any type's refusal; returns True when the
+    manifest changed.
+    """
+    if registry.is_legacy_type_set(pmap):
+        return False
+    models = manifest.setdefault('models', {})
+    changed = False
+    for t, prov in sorted(pmap.items()):
+        # bind_model on the type's own sub-block: the same revision, training-date and
+        # unknown-revision refusals the top-level binding makes (#168 review).
+        sub = models.setdefault(t, {})
+        changed = bind_model(sub, prov, f'{run_name}/{t}') or changed  # refusals read "Run 'city/T'"
+    return changed
+
+def bind_decode(manifest, decode, run_dir):
+    """
+    Binds a run directory to one peak decode (issue #111), the way it is bound to one model
+    revision: argmax and gaussian place the same peaks up to half a coarse heatmap cell
+    apart, so a resume or gap fill under the other decode would append a second frame to one
+    results.jsonl. Exits on a mismatch; returns True when the manifest changed (first
+    binding) so the caller saves it.
+
+    A manifest without `detection_decode` predates #111 or was created by --scan-only.
+    If the run already holds records, they were written by argmax (the only decode before
+    #111), so it is bound to argmax and only an argmax resume passes -- without rewriting the
+    manifest. A run with no records yet is bound to whatever decode this run uses.
+    """
+    bound = manifest.get('detection_decode')
+    if bound is None:
+        results = run_dir / 'results.jsonl'
+        if results.exists() and results.stat().st_size > 0:
+            bound = DECODE_ARGMAX
+        else:
+            manifest['detection_decode'] = decode
+            return True
+    if bound != decode:
+        sys.exit(
+            f"❌ Run '{run_dir.name}' was detected with the '{bound}' peak decode, not "
+            f"'{decode}'.\n"
+            f"   Appending would put two position frames in one results.jsonl (issue #111).\n"
+            f"   Use a new --name for this decode, or pass --decode {bound}."
+        )
+    return False
+
+def bind_border(manifest, border, run_dir):
+    """
+    Binds a run directory to one peak border rule (issue #130), the way bind_decode binds
+    the decode: the rules (exclude / keep / wrap) differ in which seam-band peaks they
+    store, so a resume or gap fill under another rule would put panos found two ways in one
+    results.jsonl. Exits on
+    a mismatch; returns True when the manifest changed (first binding) so the caller saves it.
+
+    A manifest without `detection_border` predates #130 or was created by --scan-only. If
+    the run already holds records, they were written under `exclude` (the only rule before
+    #130), so it is bound to `exclude` and only an `exclude` resume passes -- without
+    rewriting the manifest. A run with no records yet is bound to whatever rule this run uses.
+    """
+    bound = manifest.get('detection_border')
+    if bound is None:
+        results = run_dir / 'results.jsonl'
+        if results.exists() and results.stat().st_size > 0:
+            bound = BORDER_EXCLUDE
+        else:
+            manifest['detection_border'] = border
+            return True
+    if bound != border:
+        sys.exit(
+            f"❌ Run '{run_dir.name}' was detected with the '{bound}' peak border rule, not "
+            f"'{border}'.\n"
+            f"   Appending would mix panos with and without seam-band peaks in one "
+            f"results.jsonl (issue #130).\n"
+            f"   Use a new --name for this border rule, or pass --border {bound}."
+        )
+    return False
+
+# Manifest key holding the thinning spacing a run directory is bound to (issue #126).
+THIN_SPACING_KEY = 'thin_spacing_m'
+
+# load_or_init_run_dir's "do not bind the thinning spacing" default. A sentinel, not None,
+# because None is itself a bound value: "this source has no thinning hook" (GSV).
+UNBOUND = object()
+
+def resolve_thin_spacing(source, thin_spacing):
+    """The grid spacing (m) this run thins at: None for a source with no thin_panos hook
+    (GSV), 0 when --thin-spacing 0 disabled it, else the flag or the source's default.
+    This is the value recorded in manifest.json and bound on resume (#126).
+
+        >>> class S: THIN_CELL_METERS = 5
+        >>> S.thin_panos = staticmethod(lambda p, m: p)
+        >>> resolve_thin_spacing(S, None), resolve_thin_spacing(S, 10), resolve_thin_spacing(S, 0)
+        (5, 10, 0)
+        >>> resolve_thin_spacing(object(), 10) is None
+        True
+    """
+    if not hasattr(source, 'thin_panos'):
+        return None
+    if thin_spacing is None:
+        return source.THIN_CELL_METERS
+    return thin_spacing
+
+def _describe_spacing(spacing):
+    """A thinning spacing as a person reads it in a refusal or note."""
+    if spacing is None:
+        return "no thinning (source has no hook)"
+    if spacing == 0:
+        return "0 (disabled)"
+    return f"{spacing} m"
+
+def bind_thin_spacing(manifest, spacing, run_dir):
+    """
+    Binds a run directory to one thinning spacing (#126), the way bind_decode binds the
+    decode: a resume at another spacing appends a different population (a 5 m resume over a
+    10 m run adds the in-between cells; a 10 m resume over a 5 m run leaves the dense panos
+    in place), and nothing in results.jsonl can tell the two apart afterwards. Exits on a
+    mismatch; returns True when the manifest changed so the caller saves it.
+
+    `spacing` is resolve_thin_spacing's value: None (no thinning hook), 0 (disabled) or metres.
+    A manifest without the key predates #126 or was made by --scan-only. Unlike the decode and
+    border, the value that produced existing records is NOT known from the code (Bayonne ran at
+    10 m, the Mapillary cities at the 5 m default, Richmond's first pass before thinning
+    existed), so a run with records resumes ONCE with a note and is bound to THIS resume's
+    spacing, recording `thin_spacing_bound_on_resume` (UTC) so the manifest shows the value was
+    inferred, not recorded at the time -- the #39 pattern (bind_model). A run with no records is
+    bound silently. So is a run whose source has no thinning hook (spacing None): the source
+    binding already fixes the source, and a hookless source has never thinned, so there the
+    legacy value IS known.
+    """
+    if THIN_SPACING_KEY in manifest:
+        bound = manifest[THIN_SPACING_KEY]
+        if bound != spacing:
+            hint = (f"pass --thin-spacing {bound}" if bound is not None
+                    else "run it with its own source")
+            sys.exit(
+                f"❌ Run '{run_dir.name}' was thinned at {_describe_spacing(bound)} "
+                f"(manifest {THIN_SPACING_KEY}), not {_describe_spacing(spacing)}.\n"
+                f"   Appending would mix two pano densities in one results.jsonl (issue #126).\n"
+                f"   Use a new --name for this spacing, or {hint}."
+            )
+        return False
+    results = run_dir / 'results.jsonl'
+    n_records = 0
+    if spacing is not None and results.exists() and results.stat().st_size > 0:
+        with open(results, 'rb') as f:
+            n_records = sum(1 for line in f if line.strip())
+    if n_records:  # a whitespace-only file holds no records: bound silently, like an empty one
+        print(f"ℹ️  Run '{run_dir.name}' predates thin-spacing binding (issue #126): its manifest "
+              f"does not say what\n    spacing its {n_records} existing records were thinned at. "
+              f"Binding it to this run's {_describe_spacing(spacing)} from here on;\n    the "
+              f"binding is saved to manifest.json now ({THIN_SPACING_KEY} + "
+              f"thin_spacing_bound_on_resume).\n    If the original run used another spacing, "
+              f"stop: re-running at the correct spacing means first\n    removing those two "
+              f"keys from manifest.json (or use a new --name instead).")
+        manifest['thin_spacing_bound_on_resume'] = datetime.now(timezone.utc).isoformat(
+            timespec='seconds')
+    manifest[THIN_SPACING_KEY] = spacing
+    return True
+
 def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_name,
-                         position_field=None, input_geojson_type=None, provenance=None):
+                         position_field=None, input_geojson_type=None, provenance=None,
+                         decode=None, border=None, thin_spacing=UNBOUND):
     """
     Creates or validates the run directory (runs/<name>/), which holds all per-area
     state: results.jsonl, already_processed.txt, manifest.json, and a copy of the
@@ -488,8 +825,12 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     so that a renamed/edited geojson or a --source change can't silently fork or
     corrupt the run's state. A Mapillary run is likewise bound to one position field
     (`position_field`, recorded as `mapillary_position`; manifests predating it are 'sfm'),
-    and every run to one model revision once a detector has run in it (see bind_model).
-    `provenance` is None for --scan-only, which loads no model and so binds none.
+    and every run to one model revision once a detector has run in it (see bind_model),
+    and to one peak decode (`decode`, see bind_decode), border rule (`border`, see
+    bind_border), and thinning spacing (`thin_spacing`, see bind_thin_spacing).
+    `provenance`, `decode` and `border` are None for --scan-only, which loads no model and
+    so binds none; `thin_spacing` is UNBOUND (the default) for --scan-only and
+    --gap-fill-only, since None is itself a bound value there ("no thinning hook").
 
     `geojson_data` is the extracted bare geometry (see extract_geometry), which is what
     area.geojson stores; `input_geojson_type` is the wrapper the file came in, recorded
@@ -543,7 +884,19 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
                 f"   Appending would mix confidence semantics in one results.jsonl.\n"
                 f"   Use a new --name for this area (or run the code version that matches)."
             )
-        if provenance is not None and bind_model(manifest, provenance, run_dir.name):
+        changed = False
+        if provenance is not None:  # the type set and every model bind wherever records are written (#168)
+            pmap = provenance_map(provenance)
+            changed = bind_label_types(manifest, pmap, run_dir)
+            changed = bind_model(manifest, pmap[primary_type(pmap)], run_dir.name) or changed
+            changed = bind_models(manifest, pmap, run_dir.name) or changed
+        if decode is not None and bind_decode(manifest, decode, run_dir):
+            changed = True
+        if border is not None and bind_border(manifest, border, run_dir):
+            changed = True
+        if thin_spacing is not UNBOUND and bind_thin_spacing(manifest, thin_spacing, run_dir):
+            changed = True
+        if changed:
             save_manifest(manifest_path, manifest)
         return manifest
 
@@ -554,9 +907,12 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
         'area_hash': area_hash,
         'input_geojson_type': input_geojson_type,
         'imagery_source': source_name,
-        **(manifest_model_block(provenance) if provenance is not None else {}),
+        **(_manifest_model_blocks(provenance) if provenance is not None else {}),
         'detection_storage_floor': DETECTION_STORAGE_FLOOR,
         'max_peaks_per_pano': MAX_PEAKS_PER_PANO,
+        **({'detection_decode': decode} if decode is not None else {}),
+        **({'detection_border': border} if border is not None else {}),
+        **({THIN_SPACING_KEY: thin_spacing} if thin_spacing is not UNBOUND else {}),
         'streetlevel_version': pkg_version('streetlevel'),
         'runs': [],
     }
@@ -567,8 +923,53 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     save_manifest(manifest_path, manifest)
     return manifest
 
+def bind_source_settings(manifest, source, run_dir):
+    """
+    Binds a run directory to the settings a source declares in its optional
+    manifest_bindings() hook (issue #161: Panoramax's `panoramax_asset`), the way bind_decode
+    binds the decode: a resume under another value would mix two kinds of record in one
+    results.jsonl. Exits on a mismatch; returns True when the manifest changed so the
+    caller saves it.
+
+    A key absent from the manifest predates the hook or was made by --scan-only. If the run
+    already holds records they were made under the source's LEGACY_MANIFEST_BINDINGS value
+    (Panoramax: hd, the only asset before #161), so only that value resumes -- without
+    rewriting the manifest. A run with no records is bound to this run's value.
+    """
+    hook = getattr(source, 'manifest_bindings', None)
+    if hook is None:
+        return False
+    legacy = getattr(source, 'LEGACY_MANIFEST_BINDINGS', {})
+    flags = getattr(source, 'MANIFEST_BINDING_FLAGS', {})
+    results = run_dir / 'results.jsonl'
+    has_records = results.exists() and results.stat().st_size > 0
+    changed = False
+    for key, value in hook().items():
+        bound = manifest.get(key)
+        if bound is None:
+            if has_records and key in legacy:
+                bound = legacy[key]
+            else:
+                manifest[key] = value
+                changed = True
+                continue
+        if bound != value:
+            hint = (f"pass {flags[key]} {bound} for this run" if key in flags
+                    else "pass the run's own setting")
+            sys.exit(
+                f"❌ Run '{run_dir.name}' was made with {key} '{bound}', not '{value}'.\n"
+                f"   Appending would mix two kinds of record in one results.jsonl (issue #161).\n"
+                f"   Use a new --name for this setting (never a resume), or {hint}."
+            )
+    return changed
+
+def source_run_record(source):
+    """The source's optional run_record() hook (issue #161), merged into the run entry."""
+    hook = getattr(source, 'run_record', None)
+    return hook() if hook is not None else {}
+
 def record_run(manifest_path, manifest, started_at, found, success, skipped, failed, phase=None,
-                scan=None, provenance=None):
+                scan=None, provenance=None, thinning=None):
     """
     Appends one entry to the manifest's run history. In a phase='gap_fill' entry,
     'panos_found_in_area' holds the dangling link targets attempted (their in-area
@@ -578,6 +979,11 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
     `scan` (main pass only) is merged into the entry: `scan` is 'fresh' or 'reused'
     (--reuse-scan), with `scan_scanned_at` and `scan_age_hours`, so a run whose pano
     list came from an old scan says how old.
+
+    `thinning` (main pass only, issue #126) is merged the same way: `thin_spacing_m`
+    (resolve_thin_spacing's value; null for a source with no thinning hook) and
+    `panos_before_thinning` (the in-area count before thinning, so equal to
+    `panos_found_in_area` when nothing was thinned). Gap-fill entries carry neither.
     """
     entry = {
         'started_at': started_at,
@@ -591,8 +997,13 @@ def record_run(manifest_path, manifest, started_at, found, success, skipped, fai
         entry['phase'] = phase
     if scan:
         entry.update(scan)
+    if thinning:
+        entry.update(thinning)
     if provenance is not None:
-        entry['model'] = manifest_model_block(provenance)
+        pmap = provenance_map(provenance)
+        entry['model'] = manifest_model_block(pmap[primary_type(pmap)])
+        if not registry.is_legacy_type_set(pmap):
+            entry['models'] = {t: manifest_model_block(p) for t, p in sorted(pmap.items())}
     manifest['runs'].append(entry)
     save_manifest(manifest_path, manifest)
 
@@ -760,7 +1171,8 @@ def run_gap_fill(source, area_shape, run_dir, scan_only=False, limit=None, prove
 
 def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thin_spacing=None,
                 gap_fill=True, gap_fill_only=False, position_field=None, check_positions=True,
-                reuse_scan=False, provenance=None):
+                reuse_scan=False, provenance=None, decode=DEFAULT_DECODE,
+                border=DEFAULT_BORDER):
     """
     Finds and processes all panoramas from the given imagery source within a GeoJSON
     area, writing all per-area state to runs/<run_name>/.
@@ -776,9 +1188,13 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     loads it instead of rescanning when it matches this area, source and zoom and had
     no failed tiles (see SCAN_CACHE_FILE for why this is opt-in).
     `provenance` is the loaded detector's model block (None only for scan_only): it is
-    written into every record and binds the run directory to one model revision.
+    written into every record and binds the run directory to one model revision. `decode`
+    is the detector's peak decode (#111) and `border` its border rule (#130), both bound
+    the same way.
     """
     require_provenance(provenance, scan_only)
+    # Resolved before anything is scanned, so a spacing refusal costs no network (#126).
+    spacing = resolve_thin_spacing(source, thin_spacing)
     print("--- Sidewalk Auto-Labeler ---")
 
     # 1. Load GeoJSON and set up the run directory
@@ -797,8 +1213,14 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     manifest = load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source.NAME,
                                     position_field=position_field,
                                     input_geojson_type=input_geojson_type,
-                                    provenance=None if scan_only else provenance)
+                                    provenance=None if scan_only else provenance,
+                                    decode=None if scan_only else decode,
+                                    border=None if scan_only else border,
+                                    thin_spacing=UNBOUND if (scan_only or gap_fill_only)
+                                    else spacing)
     manifest_path = run_dir / "manifest.json"
+    if not scan_only and bind_source_settings(manifest, source, run_dir):   # #161
+        save_manifest(manifest_path, manifest)
     output_jsonl_file = run_dir / "results.jsonl"
     cache_file = run_dir / "already_processed.txt"
 
@@ -878,9 +1300,10 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
         scan_record = {'scan': 'fresh', 'scan_scanned_at': scanned_at, 'scan_age_hours': 0.0}
 
     # Optional per-source spatial thinning (e.g. Mapillary's near-duplicate coverage).
-    if hasattr(source, 'thin_panos') and all_panos_in_area and thin_spacing != 0:
-        spacing = thin_spacing or source.THIN_CELL_METERS
-        found_before_thinning = len(all_panos_in_area)
+    # `spacing` is None for a source with no hook and 0 when --thin-spacing 0 disabled it.
+    found_before_thinning = len(all_panos_in_area)
+    thinning_record = {'thin_spacing_m': spacing, 'panos_before_thinning': found_before_thinning}
+    if spacing and all_panos_in_area:
         all_panos_in_area = source.thin_panos(all_panos_in_area, spacing)
         print(f"-> Spatial thinning: {found_before_thinning} → {len(all_panos_in_area)} panos "
               f"(best per ~{spacing} m grid cell).")
@@ -900,11 +1323,17 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     if scan_only:
         # ~1.5 s/pano is the measured single-GPU steady state (RTX 3070, concurrency 10+);
         # downloads overlap but inference is serialized, so the GPU sets the rate.
-        est_hours = len(panos_to_process_ids) * 1.5 / 3600
+        # A source that paces its downloads (Panoramax: 1 picture/s, #161) sets a floor.
+        floor = getattr(source, 'min_seconds_per_pano', lambda: 0.0)()
+        per_pano = max(1.5, floor)
+        est_hours = len(panos_to_process_ids) * per_pano / 3600
         print(f"Scan only — no panoramas processed, nothing recorded in the manifest; "
               f"the scan is saved to {scan_cache_file} for a later --reuse-scan.")
-        print(f"Estimated full-run time: ~{est_hours:.1f} h at 1.5 s/pano "
+        print(f"Estimated full-run time: ~{est_hours:.1f} h at {per_pano:g} s/pano "
               f"(single GPU; measure your machine's rate on a smoke run first).")
+        if floor:
+            print(f"Download floor alone: ~{len(panos_to_process_ids) * floor / 3600:.1f} h at "
+                  f"{floor:g} s/pano (the source's pacing; the run can never beat it).")
         return
 
     # 4. Process new panoramas
@@ -912,13 +1341,18 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
 
     if not panos_to_process_ids:
         print("🎉 No new panoramas to process.")
+        scan_record.update(source_run_record(source),   # #161
+                           processing_concurrency=PROCESSING_CONCURRENCY)
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), 0, 0, 0,
-                   scan=scan_record, provenance=provenance)
+                   scan=scan_record, provenance=provenance, thinning=thinning_record)
     else:
         processing_tasks = [
             (pid, all_panos_in_area[pid][0], all_panos_in_area[pid][1])
             for pid in panos_to_process_ids
         ]
+        hint = getattr(source, 'queue_hint', None)   # batched metadata (#161)
+        if hint is not None:
+            hint(panos_to_process_ids)
 
         with open(cache_file, 'a') as f_cache, \
              open(output_jsonl_file, 'a') as f_jsonl, \
@@ -937,8 +1371,10 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
                         fail_count += 1
                     pbar.update(1)
 
+        scan_record.update(source_run_record(source),   # #161
+                           processing_concurrency=PROCESSING_CONCURRENCY)
         record_run(manifest_path, manifest, started_at, len(all_panos_in_area), success_count, skip_count, fail_count,
-                   scan=scan_record, provenance=provenance)
+                   scan=scan_record, provenance=provenance, thinning=thinning_record)
 
     # 5. Close the link graph (issue #32): fetch in-area panos the new records
     # reference but the scan never enumerated (mostly coverage churn). Done promptly,
@@ -974,6 +1410,13 @@ def run_labeler(geojson_path, run_name, source, scan_only=False, limit=None, thi
     if check_positions and output_jsonl_file.exists():
         run_position_check(run_dir, manifest_path, manifest)
 
+
+def parse_types_arg(value):
+    """argparse `type=` for --types: registry.parse_types, as a parser error listing SPECS."""
+    try:
+        return registry.parse_types(value)
+    except registry.UnknownLabelTypeError as e:
+        raise argparse.ArgumentTypeError(str(e)) from None
 
 def main():
     global PROCESSING_CONCURRENCY, COVERAGE_API_CONCURRENCY
@@ -1015,7 +1458,9 @@ def main():
         "--thin-spacing", type=int, default=None, metavar="METERS",
         help="Spatial thinning grid size in meters for sources with near-duplicate "
              "coverage (default: the source's own, e.g. Mapillary 5 m); 0 disables "
-             "thinning. No effect on sources without a thinning hook (GSV)."
+             "thinning. No effect on sources without a thinning hook (GSV). "
+             "Recorded in manifest.json (thin_spacing_m) and bound: a resume at another "
+             "spacing is refused (issue #126). Use a new --name to re-thin an area."
     )
     parser.add_argument(
         "--mapillary-position", choices=("sfm", "raw"), default="sfm",
@@ -1025,6 +1470,14 @@ def main():
              "check that measures this per sequence, and scripts/reposition.py switches a "
              "finished run's flagged sequences without re-detecting. Recorded in the "
              "manifest; a run is bound to one field. Ignored for other sources."
+    )
+    parser.add_argument(
+        "--panoramax-asset", choices=("hd", "sd"), default="hd",
+        help="Which Panoramax asset is downloaded and detected on (issue #161): 'hd' (the "
+             "original upload; default) or 'sd' (the 2048-px-wide derivative). Records keep "
+             "the sensor pixel frame either way; see docs/panoramax-asset-study.md. Bound in "
+             "the manifest (panoramax_asset): a resume under the other asset is refused. "
+             "Ignored for other sources."
     )
     parser.add_argument(
         "--limit", type=int,
@@ -1062,6 +1515,32 @@ def main():
              "until the revision is added to the table. For trying a new checkpoint, never for "
              "a submission run."
     )
+    parser.add_argument(
+        "--decode", choices=DECODES, default=DEFAULT_DECODE,
+        help="Where each heatmap peak is placed (issue #111): 'argmax' (default; every live "
+             "label and published table) or 'gaussian' (RampNet#221's sub-cell rule, opt-in). "
+             "The run directory is bound to its decode (manifest.json detection_decode) and "
+             "non-argmax records carry it. A gaussian campaign in a city whose live labels are "
+             "argmax is a frame change -- see docs/heatmap-grid.md before using it for one."
+    )
+    parser.add_argument(
+        "--border", choices=BORDERS, default=DEFAULT_BORDER,
+        help="Whether peaks within 10 heatmap px of the heatmap edge are kept (issue #130): "
+             "'exclude' (default; every live label) drops them, which leaves a 5.6-degree "
+             "blind band (coarse columns 0 and 127) at the 360-degree seam; 'keep' is RampNet's rule (opt-in). The run "
+             "directory is bound to its rule (manifest.json detection_border) and 'keep' "
+             "records carry it. 'wrap' keeps them and suppresses the weaker half of a "
+             "seam-straddling pair (this repo's rule, opt-in; its records carry it too). "
+             "A new city may use 'keep' from its first run; an existing "
+             "city only under a new --name (docs/seam-band-130.md)."
+    )
+    parser.add_argument(
+        "--types", type=parse_types_arg, default=[registry.CURB_RAMP], metavar="TYPES",
+        help="Comma list of label types to detect (issue #168; default: CurbRamp). Known: "
+             + ", ".join(sorted(registry.SPECS)) + ". The run directory is bound to its type "
+             "set (manifest.json label_types); a CurbRamp-only run writes the pre-#168 record "
+             "format unchanged."
+    )
     gap_group = parser.add_mutually_exclusive_group()
     gap_group.add_argument(
         "--no-gap-fill", action="store_true",
@@ -1077,6 +1556,8 @@ def main():
 
     if args.batch_size < 1:
         parser.error("--batch-size must be >= 1")
+    if args.thin_spacing is not None and args.thin_spacing < 0:
+        parser.error("--thin-spacing must be >= 0 (0 disables thinning)")
     PROCESSING_CONCURRENCY = args.processing_concurrency
     COVERAGE_API_CONCURRENCY = args.coverage_concurrency
 
@@ -1088,27 +1569,36 @@ def main():
     if args.source == "mapillary":
         position_field = args.mapillary_position
         source.POSITION_FIELD = position_field
+    if args.source == "panoramax":
+        source.IMAGE_ASSET = args.panoramax_asset
+    # A source paced server-side caps the pool (#161); set here so gap fill inherits it.
+    cap = getattr(source, 'MAX_PROCESSING_CONCURRENCY', None)
+    if cap is not None and PROCESSING_CONCURRENCY > cap:
+        print(f"-> Processing concurrency capped at {cap} for source '{args.source}' "
+              f"(asked for {PROCESSING_CONCURRENCY}; its downloads are rate-limited).")
+        PROCESSING_CONCURRENCY = cap
 
     # Initialize detectors (skipped for a scan: importing torch + loading the model takes a while).
     # Construction resolves the model's provenance and refuses an unknown revision (issue #39)
     # before anything is fetched or written.
     provenance = None
     if not args.scan_only:
-        from detectors.curb_ramp import CurbRampDetector
         global curb_ramp_detector
         try:
-            curb_ramp_detector = CurbRampDetector(
-                allow_unknown_revision=args.allow_unknown_model_revision,
-                batch_size=args.batch_size)
+            detectors.update(registry.load_detectors(
+                args.types, allow_unknown_revision=args.allow_unknown_model_revision,
+                batch_size=args.batch_size, decode=args.decode, border=args.border))
         except ModelProvenanceError as e:
             sys.exit(f"❌ {e}")
-        provenance = curb_ramp_detector.provenance
-        print(f"-> Model: {provenance['model_repo']} revision {provenance['model_revision']} "
-              f"(model_id {provenance['model_id']}, trained {provenance['model_training_date']})")
-        if provenance['model_training_date'] is None:
-            print("⚠ --allow-unknown-model-revision: this revision is not in "
-                  "detectors.KNOWN_REVISIONS; records carry a null training date and "
-                  "send_to_ps.py will refuse them.")
+        curb_ramp_detector = detectors.get(registry.CURB_RAMP)
+        provenance = {t: d.provenance for t, d in detectors.items()}
+        for t, prov in sorted(provenance.items()):
+            print(f"-> Model ({t}): {prov['model_repo']} revision {prov['model_revision']} "
+                  f"(model_id {prov['model_id']}, trained {prov['model_training_date']})")
+            if prov['model_training_date'] is None:
+                print("⚠ --allow-unknown-model-revision: this revision is not in "
+                      "detectors.KNOWN_REVISIONS; records carry a null training date and "
+                      "send_to_ps.py will refuse them.")
 
     t_run = time.perf_counter()
     try:
@@ -1116,17 +1606,20 @@ def main():
                     args.limit, args.thin_spacing,
                     gap_fill=not args.no_gap_fill, gap_fill_only=args.gap_fill_only,
                     position_field=position_field, check_positions=not args.no_position_check,
-                    reuse_scan=args.reuse_scan, provenance=provenance)
+                    reuse_scan=args.reuse_scan, provenance=provenance, decode=args.decode,
+                    border=args.border)
     except FileNotFoundError:
         print(f"❌ Error: The file '{args.geojson_file}' was not found.")
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
         traceback.print_exc()
     finally:  # also on a refusal's sys.exit and on Ctrl-C
-        detector = globals().get('curb_ramp_detector')
-        if detector is not None:
+        loaded = _loaded_detectors()
+        for t, detector in sorted(loaded.items()):
             # Wall time here includes the coverage scan, so panos/s is the whole run's
             # rate, and `images` counts every forwarded image, failed batches included.
+            if len(loaded) > 1:
+                print(f"-> {t}:")
             report_detector(detector, time.perf_counter() - t_run, detector.stats()['images'])
             detector.close()
 

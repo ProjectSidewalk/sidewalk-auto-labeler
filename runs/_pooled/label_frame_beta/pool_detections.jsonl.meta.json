@@ -1,0 +1,16 @@
+{
+  "provenance": {
+    "model_repo": "projectsidewalk/rampnet-model",
+    "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+    "model_id": "rampnet-model@606a11956743",
+    "model_training_date": "08-21-2025",
+    "api_version": "1.0.0"
+  },
+  "store": "/projects/makeabilitylab/sidewalk_panos/Panoramas",
+  "repo": "/homes/gws/jonf/sidewalk-auto-labeler-py312",
+  "labeler_commit": "660ccd5afd25daa2a46c972f1ef42263b3b36650",
+  "labeler_commit_source": "recovered afterwards from the makelab2 checkout's reflog: cloned at 660ccd5 on 2026-09-28, next moved 2026-09-30T22:55Z, after the run; the original runner (pool_detect.py, kept beside this file) did not record it",
+  "ids_sha256": "9d8131ab51e6316cefac0fe72808a737b1e2c864ff716ea02e7c55b435cff7a8",
+  "started_utc": "2026-09-29T22:28:54+00:00",
+  "finished_utc": "2026-09-30T01:16:46+00:00"
+}

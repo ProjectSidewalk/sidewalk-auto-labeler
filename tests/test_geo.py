@@ -305,3 +305,58 @@ def test_road_relative_undoes_the_cross_slope_a_vehicle_camera_inherits():
     assert geo.road_relative_pitch_roll(pose['pitch_deg'], pose['roll_deg'],
                                         pose['heading_deg'], 4.0, 120.0) == \
         (pytest.approx(0.0, abs=1e-9), pytest.approx(0.0, abs=1e-9))
+
+
+def test_heatmap_grid_constants_and_cell_distance():
+    """#111: the coarse cell is 8 heatmap px; its uniform quantization is 8/sqrt(12)."""
+    assert geo.HEATMAP_COARSE_CELL_PX == 8
+    assert abs(geo.SIGMA_PEAK_COARSE_CELL_PX - 2.3094) < 1e-4
+    # Chebyshev, x wrapping at the seam, in heatmap cells of a 16384x8192 pano (16 px each)
+    assert geo.heatmap_cell_distance((0, 4000), (16384 - 112, 4000), 16384, 8192) == 7.0
+    assert geo.heatmap_cell_distance((100, 100), (116, 228), 16384, 8192) == 8.0
+    assert [geo.cell_shift_class(c) for c in (0.0, 0.9, 3.0, 7.2, 8.4, 9.0)] == \
+        ['same_cell', 'grid_neighbour', 'off_grid', 'flip', 'flip', 'beyond']
+
+
+def test_error_model_for_overrides_only_the_peak_term():
+    gsv = geo.error_model_for('launch', sigma_peak_px=2.31)
+    assert gsv.sigma_peak_px == 2.31 and gsv.sigma_gps_m == geo.GSV_ERRORS.sigma_gps_m
+    assert geo.error_model_for('launch') is geo.GSV_ERRORS
+    assert geo.error_model_for('mapillary', 2.31).sigma_gps_m == geo.MAPILLARY_ERRORS.sigma_gps_m
+
+
+# --- LatLngSpacingIndex: the grid must agree with brute-force haversine -------------------
+
+def test_spacing_index_matches_brute_force_at_high_latitude():
+    """Regression for RampNet#250: at Juneau (58.3 N, 134.4 W) the longitude cell used to be
+    sized with each point's own cos(lat), so points 16-28 m apart landed two cells apart and
+    were never compared. Sequentially accept points and check every decision against a
+    brute-force haversine over the accepted set."""
+    import random
+    from geo import LatLngSpacingIndex, haversine_m
+    rng = random.Random(250)
+    s = 30.0
+    idx = LatLngSpacingIndex(s)
+    accepted = []
+    rejected_wrongly = accepted_wrongly = 0
+    for _ in range(3000):
+        lat = 58.3 + rng.uniform(-0.006, 0.006)      # ~1.3 km of latitude
+        lng = -134.42 + rng.uniform(-0.02, 0.02)     # ~2.3 km of longitude
+        truth = all(haversine_m(lat, lng, a, b) >= s for a, b in accepted)
+        got = idx.far_enough(lat, lng)
+        accepted_wrongly += got and not truth
+        rejected_wrongly += truth and not got
+        if got:
+            idx.add(lat, lng)
+            accepted.append((lat, lng))
+    assert accepted_wrongly == 0, f"{accepted_wrongly} points accepted inside {s} m"
+    assert rejected_wrongly == 0, f"{rejected_wrongly} points rejected outside {s} m"
+    assert len(accepted) > 100
+
+
+def test_spacing_index_juneau_pair_from_rampnet_250():
+    """The closest pair the buggy index let through (15.8 m apart, same Mapillary sequence)."""
+    from geo import LatLngSpacingIndex
+    idx = LatLngSpacingIndex(30.0)
+    idx.add(58.303391885291, -134.41809303219)
+    assert not idx.far_enough(58.30353317289, -134.41806125281)
