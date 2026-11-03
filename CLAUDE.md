@@ -42,6 +42,16 @@ python main.py example_geojson/richmond.geojson --name richmond --source mapilla
 
 # ...or on Panoramax (federated open imagery, no token; coverage is mostly France today)
 python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
+# ...paced at 1 picture/s + 1 metadata request/s (#161; per process), pool capped at 4,
+# metadata batched 100 per /search. --panoramax-asset sd (opt-in: it loses ~37% of HD's
+# 0.30 detections, docs/panoramax-asset-study.md) reads the 2048-px derivative but records
+# the sensor frame; bound in the manifest. Talk to the maintainers before a big run.
+PANORAMAX_PICTURES_PER_SECOND=1 python main.py example_geojson/bayonne.geojson     --name bayonne_sd --source panoramax --panoramax-asset sd
+# The asset study behind the default (docs/panoramax-asset-study.md; GPU only for `run`):
+python scripts/panoramax_asset_study.py sample --results <lyon results.jsonl> --data <dir>
+python scripts/panoramax_asset_study.py fetch-sd --data <dir>     # 600 SD assets at 1/s
+python scripts/panoramax_asset_study.py run --data <dir>          # hd / sd / sd_sim arms
+python scripts/panoramax_asset_study.py score --data <dir> && python scripts/panoramax_asset_study.py figures
 # PANORAMAX MEASURED (issue #57 part 1; docs/panoramax-bayonne.md, corrected after two PR #125
 # reviews). Bayonne ran in full at --thin-spacing 10 (rule: 10 m if the scan-only estimate > 16 h;
 # it printed 21.1 h at 5 m; the manifest did not record the spacing at the time; since #126 every
@@ -1012,6 +1022,36 @@ Panoramax (HTTP 404; ...)`) so a run log can count them.
   root would otherwise read as a legitimate zero-coverage scan). Records carry `license` and `panoramax_instance`, and `copyright` is the
   producer's bare name (see the attribution note below); `source_metadata` is the
   STAC properties (EXIF included) minus the viewer's tile descriptors.
+  **Politeness (issue #161)** -- Panoramax's maintainers asked for fewer full-resolution
+  downloads and about 1/s. Every request goes through `panoramax._get(url, kind)` and a
+  per-kind token bucket (`sources/ratelimit.py`): `picture` 1/s, `metadata` 1/s, `tile` 5/s
+  (env `PANORAMAX_PICTURES_PER_SECOND` / `_METADATA_` / `_TILES_`, 0 = unlimited for a
+  private mirror; recorded per run entry as `panoramax_rate_limits` with per-kind request
+  counts). A 429/503 pauses the whole kind for min(Retry-After, 300) s. **Limits are per
+  process**: two runs (or a run plus an archive) against the same instance get 1/s EACH.
+  Metadata is batched: main.py calls the optional `queue_hint` hook with the processing
+  order, and a miss fetches that picture plus the next <= 99 in one `/search?ids=` request
+  (20 of 20 live items built identical pano blocks to `/pictures/{id}`'s, 2026-10-28,
+  `runs/_summary/panoramax_asset/search_check.csv`); an id the search leaves out falls back
+  to the per-id GET, never read as gone. `MAX_PROCESSING_CONCURRENCY = 4` caps the pool.
+  **The arithmetic:** at 1 picture/s a Lyon-size run (174k panos) is ~48 h of downloads and
+  Bayonne (50k) ~14 h; `--scan-only` prints that download floor beside its usual 1.5 s/pano
+  pipeline estimate (Lyon ~73 h), and the run is bounded by the larger. `--panoramax-asset
+  {hd,sd}` picks the downloaded asset. The default stays `hd` by
+  docs/panoramax-asset-study.md's pre-registered rule: on 600 Lyon panos SD kept only 0.629
+  of HD's 0.30 detections (precision 0.847 vs HD; bar 0.95 each; every rig failed), mostly
+  because SD lowers confidence (lenient recall 0.881), so don't flip it without a model
+  trained at SD resolution; under `sd` the record keeps the SENSOR frame
+  (`sensor_array_dimensions`, which PS's viewer and pano store use) and a picture without
+  2:1 sensor dims, without an `sd` asset, or whose SD 404s / is undecodable / is not 2:1 is
+  read in HD instead (`asset_fallbacks` in the run entry); `source_metadata` gains
+  `image_asset` / `image_url` / `image_dimensions_downloaded` under `sd` only, so `hd` lines
+  are unchanged. The manifest binds `panoramax_asset` (`main.bind_source_settings`, via the
+  source's `manifest_bindings()`; a pre-#161 run with records is `hd`): a resume under the
+  other asset is refused. **The native-res archive re-downloads every pano** --
+  `export_benchmark.py` always fetches HD (`asset='hd'`), now at the same 1/s, so archiving
+  Lyon is another ~48 h and another 174k full-resolution pictures; coordinate with the
+  Panoramax maintainers before any run or archive that size.
 
 Concurrency uses plain OS threads (`concurrent.futures.ThreadPoolExecutor`) — **not gevent**.
 streetlevel's sync imagery API runs an internal asyncio event loop per call (`asyncio.run` +
@@ -1475,6 +1515,34 @@ adding `"total_bytes"` to the record by hand lets the normal guard do the rest (
 In practice that path is unlikely to fire: every record committed so far is Mapillary, and
 gap-fill is GSV-only (`fetch_pano_by_id`).
 
+**Several label types in one file (#168).** PS takes one `labelType` per submission, so a
+file whose lines ran several detectors (`registry.record_types` > 1 anywhere in the file) is
+sent as **one POST per (line, type)**: `transform_record(..., label_type=T)` keeps T's
+detections, names T, carries `models[T]` as the provenance and applies T's spec (operational
+threshold as the default, rig mask only if `DetectorSpec.mask_rig`); `split_record` yields the
+pairs. `transform_record` without a type **raises** on a multi-type line. Progress is one
+**per-type sidecar**, `<file>.type-<T>.submitted` (plain line numbers), never
+`<file>.submitted`; a line with only some types sent is half-sent and resumes with only the
+missing types. The record gains `endpoints[ep].types[T]` = {submitted_lines,
+labels_submitted, min_confidence, rig_masked, timestamps}, the shape of a band entry; the
+endpoint entry then counts lines ANY type was sent for (`submitted_lines`), sums the labels,
+and records the lowest type's `min_confidence` plus `min_confidence_from`: `flag` when an
+explicit `--min-confidence` set every type, `per_type_default` when each type used its own.
+`check_resume_state` holds each type to the single-type checks against its `types[T]` entry,
+and refuses a whole-line sidecar beside a multi-type file or a record whose shape does not
+match the file. `position_check.campaigns_for` yields one campaign per type, so a half-sent
+pano counts as live; `coverage_check` replays per type; `backfill_metadata`'s guard sees
+`.type-*.submitted`; every `models[T]` must be dated. **Bands are refused** on a multi-type
+file (`send_to_ps.py --max-confidence`, `reinfer.py --write-band-file`, and `reinfer.py
+--verify`, which re-runs only CurbRamp): they exist for the legacy CurbRamp cities. A
+single-type file whose lines carry `label_types` (a run of one non-CurbRamp type) is sent
+through the typed transform too, so its payload matches `split_record`. A file whose lines
+ran DIFFERENT type sets is handled (a line counts done once every type it ran is sent) but
+is not produced today: `main.py` binds one type set per run directory. **A single-type
+CurbRamp file is unchanged**: same payloads, same `<file>.submitted` bytes, same record
+bytes, pinned against fixtures captured from main (`tests/test_multitype_submit.py`,
+`tests/fixtures/multitype_submit/`, un-ignored in `.gitignore` by `!tests/fixtures/**`).
+
 ## Output format notes
 
 - The detector emits normalized coordinates; Stage 1 stores them normalized in the JSONL.
@@ -1535,3 +1603,62 @@ gap-fill is GSV-only (`fetch_pano_by_id`).
   Mapillary `license` key is kept as record provenance. GSV is the exception: streetlevel's
   `copyright_message` (`© 2025 Google`) is the provider's own string, stored and shown
   verbatim.
+
+## Multiple label types (#168)
+
+The plumbing for a second detector (crosswalk / NoCurbRamp, Planning#36). **No second
+detector exists yet**; the only spec is CurbRamp.
+
+- **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec(label_type, module, cls,
+  storage_floor, operational_confidence, benchmark_confidence, mask_rig)`, `SPECS`,
+  `spec_for(t)`, `parse_types`, `load_detectors(types, **kw)` (lazy import per spec). The
+  CurbRamp spec references the constants in `detectors/__init__.py`, which keep their names and
+  values; a new type brings its own thresholds (a crosswalk heatmap's floor and operating point
+  are not RampNet's). Wherever a consumer acts on a detection, it reads the thresholds and the
+  rig mask from the spec of THAT detection's type.
+- **Readers go through the helpers**, never the keys: `record_types(rec)` (the detectors that
+  RAN on the pano; `label_types`, else `[label_type or 'CurbRamp']`), `detection_type(rec, d)`
+  (the detection's own `label_type`, else the line's, else CurbRamp, and it RAISES on an
+  untyped detection in a line that ran more than one type), `provenance_for(rec, t)`
+  (`models[t]`, else the line-level `model_*`), `detections_of_type`. Every pre-#168 line reads
+  as CurbRamp.
+- **Writer rule** (`main.build_output_line`): a run whose type set is exactly `{CurbRamp}`
+  writes the pre-#168 line with **no new key** (byte-pinned: `PRE_130_LINE_SHA256` holds
+  through the registry path, `tests/test_multitype_records.py`). Any other set writes
+  per-detection `label_type`; `label_types` (sorted: what ran, so an empty line still says what
+  it was checked for); `models: {T: provenance}`; line-level `label_type` = the type iff one
+  ran, else `null` (never derived from the detections); line-level `model_*` = CurbRamp's when
+  CurbRamp ran, else `label_types[0]`'s. `detection_decode` / `detection_border` at line level
+  describe the CurbRamp detector; any other type's ride in `models[T]`. `API_VERSION` stays
+  `1.0.0`.
+- **`main.py --types CurbRamp`** (comma list; an unknown type is a parser error listing
+  SPECS). `main.detectors` is the loaded `{type: detector}`; `main.curb_ramp_detector` stays the
+  CurbRamp entry, which is what `scripts/reinfer.py` and `scripts/detect_from_store.py` set.
+  With more than one type, `load_detectors` hands every detector ONE shared `inference_lock`,
+  so forward passes never overlap on the device. One detector keeps its own lock, so a
+  CurbRamp-only run is constructed as before. The CurbRamp-only writer raises if it is handed
+  a tagged or multi-type result.
+- **Binding**: the manifest records `label_types`. It is bound like `detection_decode`:
+  - a legacy manifest with records reads `['CurbRamp']` without a rewrite;
+  - it is bound for `--gap-fill-only`, and never for `--scan-only`;
+  - a mismatch is refused (new `--name`, never a resume).
+
+  A non-CurbRamp set also binds every type's model in a `models` map beside the top-level model
+  block. `bind_model` runs on each `models[T]`, so the revision, training-date and
+  unknown-revision refusals all apply per type. Each run entry gains `models` too.
+  `detect_from_store.bind_manifest` binds CurbRamp or refuses.
+- **Consumers**:
+  - `fuse_sites.py --label-type` (default CurbRamp). `--floor`/`--min-confidence` default to
+    the spec. Each SlimPano's decode/border are that type's (`registry.type_markers`). A
+    non-CurbRamp fuse writes `sites.<type>.jsonl`. A file that never ran the type is refused.
+  - `export_benchmark.py --label-type`: strata at the type's benchmark tier. A multi-type
+    record becomes a true single-type record: `label_types`, `models`, `model_*` and the
+    markers are all that type's.
+  - `position_check`: its report points read typed detections.
+  - `agree_rate`, `eval_sites`, `mined_precision` (through eval_sites' loader) and
+    `provenance_gate` **refuse** a file whose records ran anything but `{CurbRamp}`. eval_sites
+    makes that check inside `fs.load_results`' own pass (`require_types`), so there is no
+    second scan.
+- **NOT done**: per-type `FuseParams` (#168 item 4), the ranker review-order export (item 5), a
+  second detector, and submission (one POST per line and type in `send_to_ps.py`, per-type
+  sidecars, `coverage_check`) — that is the stacked PR on `multitype-submit-168`.
