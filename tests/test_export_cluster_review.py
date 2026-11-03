@@ -322,3 +322,17 @@ def test_overpass_query_fetches_rule_6b_structures():
                  'way["layer"~"^[+]?[1-9]"]'):
         assert part in q
     assert ecr.RULE_VERSION == 2
+
+
+def test_work_dir_may_sit_inside_the_run_dir_but_not_on_an_input(tmp_path):
+    # --run-dir runs/vancouver with the default work dir runs/vancouver/cluster_review was
+    # refused (review S7): the work dir writes osm.json, tiles/ and a report copy, none of
+    # which is an input
+    run = tmp_path / 'runs' / 'vancouver'
+    inputs = [run / 'results.jsonl', run / 'provenance_gate' / 'raw_labels.geojson',
+              run / 'split_figures']
+    assert ecr.work_dir_problem(run / 'cluster_review', run, inputs) is None
+    assert ecr.work_dir_problem(tmp_path / 'elsewhere', run, inputs) is None
+    assert 'run dir itself' in ecr.work_dir_problem(run, run, inputs)
+    assert 'overlaps' in ecr.work_dir_problem(run / 'provenance_gate', run, inputs)
+    assert 'overlaps' in ecr.work_dir_problem(run / 'split_figures' / 'tiles', run, inputs)
