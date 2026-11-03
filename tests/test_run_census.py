@@ -56,6 +56,9 @@ def test_rig_detections_split_by_rig_and_year():
 def test_email_shaped_producer_is_masked():
     assert rc.mask_producer('jane.doe@example.org') == 'j***@***'
     assert rc.mask_producer(' jane@example.org ') == 'j***@***'
+    # an email embedded in a longer name is masked too (PR #150 review, S1)
+    assert rc.mask_producer('Jean Dupont <jean@ign.fr>') == 'Jean Dupont <j***@***>'
+    assert rc.mask_producer('jean@ign.fr (IGN)') == 'j***@*** (IGN)'
     for keep in ('Ville de Lyon', 'IGN', None, 'contact at example.org', 'a@b'):
         assert rc.mask_producer(keep) == keep
     rec = _rec('MAX', '2024-05', None, None, [])
