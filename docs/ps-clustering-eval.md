@@ -1294,18 +1294,62 @@ Where each number lives:
 
 ## Cluster-review GT (RampNet#224)
 
-**Status (2026-09-29): pre-registered, bundle exported, no GT yet.** Every number above that
+**Status (2026-11-03): pre-registered; bundle v2 exported 2026-09-30; no GT yet.** The arms the
+scorer rebuilds were brought in line with PR #118's changes (decode/border, unpositioned labels)
+in the 2026-11-03 merge of main, so the score report now shows 18,484 / 16,171
+`fusion_server` / `+attach` clusters and no label that fusion fails to hold; the bundle's
+`fusion` seed groups predate that rebuild (whether to re-seed is open, PR #174 review S3).
+Every number above that
 scores fragmentation depends on where a cluster is placed (the Vancouver split rates move from
 0.255 / 0.200 / 0.092 in the raycast frame to 0.196 / 0.138 / 0.201 / 0.120 at server placement;
 the Vancouver section's all-label table, after PR #118's re-score).
 RampNet#224 replaces placement with membership: reviewers correct seeded clusters one
 intersection or mid-block window at a time, producing a label -> ramp assignment on the frozen
 label pull, so every arm scores against the same answer with no radius or camera height. The
-rubric is RampNet `benchmark/RUBRICS.md` §6 and the sampling rule, schemas, metrics
-(`inventory_clustering.assignment_metrics`) and decision rule (`fusion_server+attach` vs
-`ps @ 7.5 m`, the `RULE_*` thresholds above) are pre-registered in RampNet
-`docs/cluster_review_protocol.md`. The Vancouver bundle (sampling rule v2, which drops windows over bridges or street tunnels: 80
-units, 30 pilot, 1,459 labels) is at
-RampNet `benchmark/vancouver/cluster_review/`; `scripts/cluster_review_score.py` currently writes
-a "NO GT YET" report (`runs/vancouver/cluster_review/score/report.md`). No result exists until
-the pilot has been reviewed.
+rubric is RampNet [`benchmark/RUBRICS.md`](https://github.com/ProjectSidewalk/RampNet/blob/39155d872e744378be59354676b32417b1604d65/benchmark/RUBRICS.md) §6 and the sampling
+rule, schemas, metrics (`inventory_clustering.assignment_metrics`) and decision rule
+(`fusion_server+attach` vs `ps @ 7.5 m`, the `RULE_*` thresholds above) are pre-registered in
+RampNet [`docs/cluster_review_protocol.md`](https://github.com/ProjectSidewalk/RampNet/blob/39155d872e744378be59354676b32417b1604d65/docs/cluster_review_protocol.md). The
+Vancouver bundle (sampling rule v2, which drops windows over bridges or street tunnels: 80
+units, 30 pilot, 1,459 labels) is at RampNet
+[`benchmark/vancouver/cluster_review/`](https://github.com/ProjectSidewalk/RampNet/tree/39155d872e744378be59354676b32417b1604d65/benchmark/vancouver/cluster_review); reviewers
+work in RampNet [`scripts/cluster_review_gallery.py`](https://github.com/ProjectSidewalk/RampNet/blob/39155d872e744378be59354676b32417b1604d65/scripts/cluster_review_gallery.py),
+and RampNet [`rampnet/cluster_review.py`](https://github.com/ProjectSidewalk/RampNet/blob/39155d872e744378be59354676b32417b1604d65/rampnet/cluster_review.py) validates exports and
+computes agreement. **All of these live, for now, only on RampNet branch `cluster-review-224`**
+(no PR yet); the links are pinned to its tip `39155d8`. TODO: repoint to RampNet main once that
+branch merges. `scripts/cluster_review_score.py` currently writes a "NO GT YET" report
+(`runs/vancouver/cluster_review/score/report.md`). No result exists until the pilot has been
+reviewed. The scorer heads its decision "pre-registered" only for rater A's full pass (every
+unit complete or can't judge); a pilot, a partial pass or a role-b retest is labelled
+DESCRIPTIVE.
+
+Commands (the run dir is any directory holding the Vancouver run and the frozen inputs below,
+e.g. `runs/vancouver`; the exporter's work dir defaults to `runs/vancouver/cluster_review` and may
+sit inside it):
+
+```bash
+python scripts/export_cluster_review.py vancouver --run-dir runs/vancouver \
+    --bundle ../RampNet/benchmark/vancouver/cluster_review [--no-crops] [--skip-aerial]
+python scripts/cluster_review_score.py vancouver --run-dir runs/vancouver \
+    --bundle ../RampNet/benchmark/vancouver/cluster_review   # -> runs/vancouver/cluster_review/score/
+```
+
+### Frozen inputs
+
+The bundle and the scorer bind to these files by sha256 (the scorer refuses a label pull that is
+not the snapshot's, and deployed clusters or a `results.jsonl` the bundle was not exported
+from), and none of them is git-tracked. Paths are relative to the run dir; every sha256 equals
+the bundle's `snapshot.json`. As of 2026-11-03 they exist only on local disks.
+
+| file | bytes | sha256 | what | current location |
+|---|---:|---|---|---|
+| `provenance_gate/raw_labels.geojson` | 70,935,171 | `57c31c73dc75a6139b2694fdc5e7c0823bf0d0504348f1e1f38d3681b713098d` | CurbRamp rawLabels pull, fetched 2026-09-28 23:01 UTC; the GT (`assignments.json`) binds to its sha256 | Jon's desktop, worktree `sal-vancouver` |
+| `ps_clustering_eval/clusters.geojson` | 29,681,581 | `d8a1e7065e2cf97ff7da0ab50eba7e754b2ac67c4286ecbc8d528f8ff6bec1c3` | deployed clusters (labelClusters pull, 2026-09-30) | same |
+| `results.jsonl` | 35,084,733 | `7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28` | the store-rebuilt run (#56); the fusion arms are built from it | same |
+| `ps_clustering_eval/streets.geojson` | 6,440,947 | `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4` | PS street network (2026-09-30) | same |
+| `cluster_review/osm.json` | 11,187,535 | `58ce83ffa4b8eea199d7017b53fe125079e2cfa2f3d5181f9e22d61bc0c2a030` | the Overpass payload the units were sampled from (2026-09-30 15:18 UTC); **not re-fetchable** (OSM moves) | Jon's desktop, worktree `sal-cluster-review` |
+| `inventory_oracle/inventory.geojson` | 38,491,520 | `c4d2497995f7b6261333c3859a668348cd62a36367593cef2dfdfa6b7e020d87` | city curb-ramp inventory pull (calibration; `inventory.json` beside it is tracked) | Jon's desktop, worktree `sal-vancouver` |
+
+TODO(Jon): archive to `/projects/makeabilitylab/sidewalk-auto-labeler/runs/vancouver/cluster_review/`
+on makelab2 (as `frozen_inputs/`, with a `SHA256SUMS` so `sha256sum -c SHA256SUMS` verifies a
+copy), then replace "current location" above with that path.

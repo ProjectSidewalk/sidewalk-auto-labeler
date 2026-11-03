@@ -79,8 +79,13 @@ def test_decision_rule_boundaries():
     assert ic.assignment_verdict(_arms(0.10, 0.031, 0.90))[0] == ic.NOT_ESTABLISHED
     assert ic.assignment_verdict(_arms(0.10, 0.02, 0.89))[0] == ic.PASS        # coverage -0.01
     assert ic.assignment_verdict(_arms(0.10, 0.02, 0.889))[0] == ic.NOT_ESTABLISHED
-    assert ic.assignment_verdict(_arms(None, 0.02, 0.9))[0] == ic.NO_GT
     assert ic.assignment_verdict({})[0] == ic.NO_GT
+    nothing = dict(_arms(0.10, 0.02, 0.9))
+    nothing[ic.REVIEW_ARM] = dict(nothing[ic.REVIEW_ARM], units=0)
+    assert ic.assignment_verdict(nothing)[0] == ic.NO_GT
+    # units were reviewed, but no cluster holds >= 2 ramp-assigned labels: not "no GT"
+    v, why = ic.assignment_verdict(_arms(0.10, None, 0.9))
+    assert v == ic.RATE_UNDEFINED and 'merge_rate' in why[0] and ic.REVIEW_ARM in why[0]
 
 
 def test_self_consistency_of_a_derived_assignment():
@@ -153,6 +158,11 @@ def test_scores_a_fixture_assignment(tmp_path, monkeypatch):
                      '--out', str(out)]) == 0
     text = (out / 'report.md').read_text(encoding='utf-8')
     assert '**PASS**' in text          # split 1/3 -> 0, merge 1/1 -> 1/1, coverage 3/4 both
+    # rater A (no role), every unit of the bundle complete: the pre-registered reading
+    assert '## Decision (pre-registered): **PASS**' in text and 'DESCRIPTIVE' not in text
+    assert 'arm-independent by construction' in text
+    for name in ('report.md', 'arms.csv', 'ramps.csv'):    # LF on every platform
+        assert b'\r\n' not in (out / name).read_bytes(), name
     with open(out / 'ramps.csv', newline='', encoding='utf-8') as f:
         rows = list(csv.DictReader(f))
     assert {(r['ramp'], r[ic.REVIEW_BASE], r[ic.REVIEW_ARM]) for r in rows} == \
@@ -287,3 +297,44 @@ def test_cant_judge_listed_with_its_reason(tmp_path, monkeypatch):
     assert "0 complete, 1 can't judge" in text
     assert "## Can't judge" in text and 'signalised 1' in text
     assert '| u1 | signalised | tree canopy hides the corner |' in text
+
+
+# --- pre-registered vs descriptive decision (review S6) ------------------------------------
+
+def _two_unit_bundle(tmp_path, a):
+    """_bundle's u1 plus a second, non-pilot unit u2 holding label 9."""
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)) + [9], a)
+    c1 = json.loads((bundle / 'corners.jsonl').read_text(encoding='utf-8'))
+    c1['labels'] = [lab for lab in c1['labels'] if lab['key'] != '9']
+    c2 = {'corner_id': 'u2', 'type': 'arterial', 'n_labels': 1, 'pilot': False,
+          'centre': {'lat': 45.7, 'lng': -122.7},
+          'labels': [{'key': '9', 'lat': 45.7, 'lng': -122.7, 'user_kind': 'ai'}]}
+    (bundle / 'corners.jsonl').write_text(json.dumps(c1) + '\n' + json.dumps(c2) + '\n',
+                                          encoding='utf-8')
+    return run, bundle, df
+
+
+TOY_PASS = {n: [[1, 2], [3, 4, 7], [5, 6], [9]] for n in crs.ARMS}
+TOY_PASS[ic.REVIEW_BASE] = [[1], [2], [3, 4, 7], [5], [6], [9]]
+
+
+@pytest.mark.parametrize('extra, u2, needle', [
+    ({}, U2, 'DESCRIPTIVE -- pilot: 1 of 2 units'),              # only the pilot unit done
+    ({'role': 'b'}, dict(U2, complete=True), 'DESCRIPTIVE -- role b'),
+])
+def test_decision_is_descriptive_unless_rater_a_full_pass(tmp_path, monkeypatch, extra, u2,
+                                                         needle):
+    a = _fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'}), 'u2': u2}, **extra)
+    run, bundle, df = _two_unit_bundle(tmp_path, a)
+    assert _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert needle in text and '(pre-registered): **' not in text
+
+
+def test_decision_is_pre_registered_on_a_full_pass_with_cant_judge(tmp_path, monkeypatch):
+    u2 = dict(U2, cant_judge=True, cant_judge_reason='construction')
+    a = _fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'}), 'u2': u2}, role='a')
+    run, bundle, df = _two_unit_bundle(tmp_path, a)
+    assert _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert '## Decision (pre-registered): **PASS**' in text
