@@ -1,4 +1,4 @@
-# Precision of mined hard positives (RampNet#158: steps 1, 2 and phase 2)
+# Precision of mined hard positives (RampNet#158: steps 1 to 4 and phase 2)
 
 `scripts/mined_precision.py` measures how often a label mined from multi-view consensus is
 right. A **mined label** is a strong fused site (≥ 3 operational panos) projected into a
@@ -1111,7 +1111,7 @@ has seen.
   - **Cross-check:** the step-3 review found that `results.f01.jsonl` (#20) meets the
     gate city-wide. The pass had already started, so f01 is not used in its place. It is
     compared with the pass instead: the share of panos whose full peak sets down to 0.1
-    agree (same count, same cell, |Δconf| ≤ 1e-3). The share is reported whatever it is.
+    agree (same count, each peak within one heatmap cell, |Δconf| ≤ 1e-3). The share is reported whatever it is.
     Both files are pinned by sha256.
 - **Miner.** This is step 3's `peak_flat` rule, unchanged, applied city-wide:
   - fuse the pinned run exactly as in step 3 (benchmark threshold, pose off, per-rig
@@ -1184,17 +1184,81 @@ has seen.
   test, < 0.50 drop, judged on the point estimate and the CI.
   - A label is emitted only where no ≥ 0.55 peak lies in its window, so a Yes is a ramp
     the model did not detect there. The rate therefore reads as hard-only and all-mined at
-    once (as in step 3, the two coincide by construction). The gallery cannot tell a missed
+    once (as in step 3, the two coincide by construction). *Qualified 2026-11-03 (review of
+    labeler#114, finding S2): "did not detect" holds at the benchmark tier, 0.55. Production
+    ships at 0.30, and 67 of the 100 rated labels have a peak ≥ 0.30, so production already
+    labels those pixels; see "Step 4 results".* The gallery cannot tell a missed
     ramp from a ramp detected just outside the window; that is stated beside the number.
   - The Can't-tell count and the instrument agreement are reported beside it.
 - **Publishing:** crops committed under `benchmark/mined_label_check_158/crops/`, with a
   sha256 per crop in `manifest.json`. The gallery is a local HTML file,
   `benchmark/mined_label_check_158/gallery.html`, as for the #48 GT check.
 
-### Step 4 results so far (2026-09-29): floor pass, miner and gallery built; rating pending
+### Step 4 results (2026-09-29; rated 2026-09-29 to 2026-10-04 in RampNet)
 
-**Floor pass (the pass, not f01, is the input).** The pass had already started when the
-step-3 review reported that f01 meets the gate. Per the plan, f01 is the cross-check.
+> **Key takeaways**
+>
+> 1. **The miner emits 573 rows, which are 545 distinct training targets.** Over 3,011
+>    (strong site, non-member pano) pairs within 15 m, 573 rows emit; 28 stored peaks are
+>    emitted for two sites, so they are 545 distinct (pano, x, y). Off the benchmark panos:
+>    557 rows, 531 targets. (`step4/richmond/summary.json` `emitted`;
+>    `step4/richmond/tally.json` `emitted_distinct_targets`,
+>    `emitted_distinct_targets_off_benchmark`, `emitted_targets_multi_site`.)
+> 2. **Rated precision is *build* on the point estimate and not decisive on the interval.**
+>    Jon rated 100 of the 557 in RampNet: 0.843 [0.740, 0.910] on 70 decided in pass 1,
+>    **0.855 [0.764, 0.915] on 83 decided** after pass 2, and 0.831 [0.737, 0.897] when
+>    each Yes must also lie within the 22.5 px evaluation radius of his click (83).
+>    At the 10 px training sigma it is 0.651 [0.543, 0.744], *visibility*. One rater.
+>    (RampNet `docs/mined_placement_158.md`, "Step 4"; table below.)
+> 3. **"A Yes is a ramp the model did not detect" holds at the benchmark tier only.** The
+>    rule withholds a target where a ≥ 0.55 peak sits in the window. Production ships at
+>    0.30, and 359 of the 573 emitted peaks (346 of the 557 off benchmark; 67 of the 100
+>    rated) are ≥ 0.30: production already has a label at that pixel. A miss at
+>    production's tier is 214 of 573 rows (33 of the 100 rated). (`tally.json`
+>    `emitted_ge_0_30`, `emitted_ge_0_30_off_benchmark`; the 67 is derived below.)
+> 4. **The instrument holds.** The floor pass reproduces 124 / 124 benchmark panos
+>    (the pre-set gate) and 9,090 / 9,091 city-wide; `results.f01.jsonl` agrees with it on
+>    9,086 / 9,091 full peak sets; and the miner re-run on f01 reproduces every number in
+>    `summary.json` (`step4/richmond.all.gate{124,all}.json`,
+>    `step4/richmond.f01_crosscheck.json`, `step4/richmond_f01/summary.json`).
+
+#### Step 4 result: the rating (RampNet)
+
+The gallery and its scoring live in RampNet,
+[PR 223](https://github.com/ProjectSidewalk/RampNet/pull/223) (merged 2026-10-11, merge
+commit [75a0d4c](https://github.com/ProjectSidewalk/RampNet/commit/75a0d4cfa052c3fb61aad10981e46231bee68464)).
+The write-up is RampNet `docs/mined_placement_158.md`, section "Step 4 (#158): the
+mined-label gallery". This repo does not recompute the reads; they are quoted from there.
+Sample cards only (the 10 instrument items are scored apart):
+
+| read | decided (of 100) | Can't tell | precision [95% Wilson] | RampNet section, rater file |
+|---|--:|--:|---:|---|
+| pass 1 (2026-09-29) | 70 | 30 | 0.843 [0.740, 0.910] | "Pass 1", `mined_label_check__jonf.json` |
+| pass 2, combined (2026-10-02): pass 1 with the re-cut Can't tells answered | 83 | 17 | **0.855 [0.764, 0.915]** | "Pass 2 result", `mined_label_check__jonf-p2.json` |
+| click pass (2026-10-04): a Yes counts only within the 22.5 px eval radius of the click | 83 | 17 | 0.831 [0.737, 0.897] | "Click pass result", `mined_click_check__jonf.json` |
+| click pass, within the 10 px training sigma | 83 | 17 | 0.651 [0.543, 0.744] | same |
+
+- **Against #158's rule** (≥ 0.80 build, 0.50–0.80 visibility, < 0.50 drop): every read
+  at the evaluation radius has a *build* point estimate with an interval reaching into
+  *visibility*, so it is **not decisive**. At the training sigma it reads *visibility*.
+- **Instrument items:** all 10 decided after pass 2, 9 agree with the earlier verdicts.
+  Two of the 10 instrument cards are the same pixel: `cc2fceae1` (site 321) and
+  `c9e09e456` (site 791) both ring pano 3980741912187626 at (0.5977, 0.5996), one of the
+  28 targets emitted for two sites. So the instrument is 9 distinct targets, not 10.
+  The 100 sample cards are 100 distinct targets.
+- **Tier of the rated sample** (finding S2 of the 2026-11-03 review): joining RampNet's
+  `items.json` sample cards to `step4/richmond/labels.jsonl` on (site_id, pano_id), 67 of
+  the 100 have `peak_conf` ≥ 0.30 (0–8 m 15 of 18, 8–12 m 22 of 37, 12–15 m 30 of 45). The
+  rated precision is therefore mostly about pixels production already labels; it says how
+  often the benchmark-tier miner's point is a ramp, not how many ramps production misses.
+- **Caveats** (RampNet's, repeated): one rater, who saw every card up to three times; the
+  click convention is his; 17 cards stayed Can't tell (bounds 0.71–0.88 counting them all
+  No or all Yes).
+
+#### Floor pass (the pass, not f01, is the input)
+
+The pass had already started when the step-3 review reported that f01 meets the gate.
+Per the plan, f01 is the cross-check.
 
 - **Run:** all 9,091 richmond panos on the makelab2 A40 with `--workers 6`.
   - Incarnation 1: 20:22:48Z to 20:55:14Z, 2,500 panos. It ended because makelab2 was
@@ -1203,13 +1267,15 @@ step-3 review reported that f01 meets the gate. Per the plan, f01 is the cross-c
     22:28:17Z after 1 h 24 min.
   - Total: **1.95 A40-hours**, recorded as `paid: false` in RampNet's ledger.
 - **Gate (pre-set):**
-  - **124 / 124** benchmark panos reproduce, with 267 → 267 operational detections. Pass.
+  - **124 / 124** benchmark panos reproduce, with 267 → 267 detections ≥ 0.55. Pass.
   - City-wide: 9,090 / 9,091 (`step4/richmond.all.gate{124,all}.json`).
-- **Cross-check against f01:** **9,086 / 9,091** panos have identical *full* peak sets down
-  to 0.1 (same cell, |Δconf| ≤ 1e-3; `step4/richmond.f01_crosscheck.json`).
+- **Cross-check against f01:** **9,086 / 9,091** panos have matching *full* peak sets down
+  to 0.1: same count, and a one-to-one pairing with every peak within one heatmap cell and
+  |Δconf| ≤ 1e-3 (`step4/richmond.f01_crosscheck.json`).
   - In each of the 5 that differ, one peak lands on a different cell of a flat plateau, or
     one peak sits at the 0.100 floor. Confidences agree to 1e-3.
-  - On the 124 benchmark panos the pass equals step 3's floor file exactly.
+  - On the 124 benchmark panos the pass equals step 3's floor file exactly (checked on
+    makelab2 at the time; the pass file is not in this repo).
   - About f01 itself:
     - sha256 `e81954f4…`;
     - the #20 re-inference, re-fetched from Mapillary, on Jon's desktop;
@@ -1220,43 +1286,164 @@ step-3 review reported that f01 meets the gate. Per the plan, f01 is the cross-c
   - the output, by its raw and pano-sorted sha256 (the 18 MB file stays on makelab2 and
     regenerates);
   - every input image's sha256, from the archive index. The 124 benchmark panos equal
-    RampNet's `imagery_manifest.json`;
-  - the software: torch 2.14.0+cu130, transformers 5.12.1.
+    RampNet's `imagery_manifest.json`. That sidecar predates the 2026-11-03 split of
+    `rampnet_check`: its `differ` list (8,967 ids) mixes nothing: none of the 8,967 is in
+    RampNet's richmond manifest (124 entries), so all are `not_in_manifest` and the
+    `mismatch` list is empty;
+  - the software: torch 2.14.0+cu130, transformers 5.12.1. The pass ran before the
+    detector's decode and border were pinned in `floor_infer_archive.py`; it ran at the
+    then-default argmax / `exclude`, which is what the pin now fixes.
+  - `richmond.all.floor.provenance.json` is a hand-written record of the run
+    (incarnations, GPU, workers, the f01 facts), not a command output.
 
-**Miner** (`mine_city.py`, the `peak_flat` rule unchanged; `step4/richmond/{labels.jsonl,summary.json}`):
+#### Miner
+
+`mine_city.py`, the `peak_flat` rule unchanged (`step4/richmond/{labels.jsonl,summary.json}`;
+the tier and target rows from `step4/richmond/tally.json`):
 
 | | total | 0–8 m | 8–12 m | 12–15 m |
 |---|--:|--:|--:|--:|
 | (strong site, non-member pano) pairs within 15 m | 3,011 | 746 | 1,093 | 1,172 |
-| emitted | **573** | 103 | 215 | 255 |
-| emitted, target not a benchmark pano | 557 | 98 | 209 | 250 |
+| emitted rows | **573** | 103 | 215 | 255 |
+| emitted rows, peak ≥ 0.30 (production already labels that pixel) | 359 | 73 | 141 | 145 |
+| emitted distinct targets (pano, x, y) | **545** | 102 | 209 | 249 |
+| emitted rows, target not a benchmark pano | 557 | 98 | 209 | 250 |
+| ... of which peak ≥ 0.30 | 346 | 69 | 135 | 142 |
+| ... distinct targets | 531 | 97 | 203 | 244 |
 
+- **Tiers.** "Operational" in `mine_city.py` and `peak_anchor.py` (the status
+  `operational_in_window`, the `n_op_panos` column, `operational_detections`) is the
+  benchmark tier, 0.55, as in step 3. It is not the production operating point, 0.30.
+  The ≥ 0.30 rows are the emitted peaks production would already ship.
+- **Rows vs targets.** A row is a (site, pano) pair. 28 stored peaks are emitted for two
+  sites (26 off benchmark), so 573 rows are 545 targets. 15 of those targets (13 off
+  benchmark) have their two rows in different range bands, so the per-band distinct
+  counts sum to 15 (13) more than the total.
 - **Pairs:** 3,011 equals #102's richmond yield at 15 m.
-- **Status:** 1,928 pairs have no peak in the window, 510 have an operational peak in it,
-  and 573 emit.
+- **Status:** 1,928 pairs have no peak in the window, 510 have a ≥ 0.55 peak in it, and
+  573 emit. No emitted peak is on the camera rig: the deepest is at y 0.771484, just above
+  the 49° mask (0.772222), and the `on_rig` status added on review (finding S5) changes no
+  row. 51 anchors lie in the rig zone; none emits.
 - **Spread:** the 573 labels lie on 340 sites and 498 panos.
 - **Emission rate: 19%** of pairs overall (14 / 20 / 22% by band). The rate is lowest close
-  in, where more windows hold an operational peak.
+  in, where more windows hold a ≥ 0.55 peak.
 - **Consistency check (pre-registered):** on the 124 benchmark panos, the city-wide miner
   reproduces all 59 step-3 candidate statuses, and the same 16 emitted targets with the
   same pixels.
 - **The known limitation applies:** 510 of 3,011 pairs (17%) are withheld because a
   ≥ 0.55 peak sits in the window. On a dense corner that can be a neighbouring ramp's
   detection. How many of the 510 are that case is not measured.
+- **Desktop reproduction on f01.** The pass's 18 MB output is on makelab2 only. Re-running
+  the committed miner command with `results.f01.jsonl` as `--peaks` reproduces every key
+  of `summary.json` and every count in `tally.json` (`step4/richmond_f01/summary.json`,
+  which also records the inputs' sha256, the pinned parameters and the resolved camera
+  height: 2.6 m for all 9,091 panos). Its `labels.jsonl` (gitignored) differs from the
+  pass's in one pixel (site 647, pano 1393328321775410, one of the 5 cross-check panos)
+  and in `peak_conf` on 558 rows by at most 5e-5; no status changes.
 
-**Gallery** (RampNet `scripts/analysis/mined_label_check_158.py`):
+#### Gallery (RampNet `scripts/analysis/mined_label_check_158.py`)
 
 - **Sample:** drawn by the fixed rule, 100 labels allocated 18 / 37 / 45 from
-  98 / 209 / 250.
+  98 / 209 / 250 (the off-benchmark *rows*; the sample is 100 distinct targets).
 - **Instrument items:** 10, 8 with a known Yes and 2 with a known No, drawn from step 3's
-  13 adjudicated targets.
+  13 adjudicated targets (two of the 10 share a pixel; above).
 - **Size:** 110 cards and 220 crops.
 - **Crops:** cut on makelab2 CPU in 50 s, from the archive. Manifest digest
   `bf3c00686e50e0da`.
 - **Files:**
-  - page: `benchmark/mined_label_check_158/gallery.html` (RampNet branch
-    `analysis/mined-placement-158-step4`);
-  - rater file: `analysis_out/mined_label_check_158/mined_label_check__jonf.json`,
-    verdicts empty.
-- **Scoring:** `rates` is written and tested. No precision exists until the file comes
-  back.
+  - page: `benchmark/mined_label_check_158/gallery.html` (RampNet main since PR 223);
+  - rater files: `analysis_out/mined_label_check_158/` (pass 1, pass 2, click pass).
+- **Scoring:** `rates` and `score` in RampNet; the result is the table above.
+
+#### Runtime and cost
+
+| step | where | wall-clock | GPU-h |
+|---|---|---|---|
+| floor pass, 9,091 panos (two incarnations) | makelab2 A40 (shared; checked first) | 32 min + 1 h 24 min | 1.95 |
+| gates, f01 cross-check, input sidecar | makelab2 CPU | not recorded (minutes) | 0 |
+| miner (fusion + rule over 9,091 panos), `--tally` | desktop CPU | seconds | 0 |
+| gallery build, crops, rating passes | RampNet (see its Cost table) | | 0 |
+
+`paid: false` in RampNet's `analysis_out/usage_log.jsonl`. Nothing ran on Tillicum, and
+no paid API was called.
+
+#### Reproduce (step 4)
+
+Inputs, by sha256: the pinned richmond `results.jsonl` `109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c`;
+`runs/richmond/camera_heights.json` (git-tracked) `d91cd00991a0056a5957486a52982e2e102c30864b574fefe0bc8628b6aa9ee0`;
+`step3/richmond_ids.txt` `518ac40cd6d268e079845794ae358dcc36e67b055e3e19c1f3e457d41775f114`;
+the pass output `richmond.all.floor.jsonl` `f673071f25351b2d18cd8fcf05496101a926712bb96c6f8a787b1e4b3230c65d`
+as written (`2a0f4966…` sorted by pano, `--digest`); `results.f01.jsonl`
+`e81954f4c44d02131f2da4d5f1f9314aaf8dd957811dc1e6f49079f4fcfbe0bb`. Model
+`projectsidewalk/rampnet-model@606a11956743f7eb328d9207769034752f6191f4`; software in
+`step4/richmond.all.floor.software.json`. No seed: the pass and the miner are
+deterministic (the gallery's seed, 158, is RampNet's).
+
+```bash
+DD=docs/figures/mined-precision/data
+# makelab2 A40 (NOT reproducible locally: needs the archive A=/projects/makeabilitylab/
+# sidewalk-auto-labeler/runs and the GPU). The pass, resumable; then the pre-set gate on the
+# 124 benchmark panos, the city-wide check, the f01 cross-check and the digest. The shell
+# history was not kept: these are reconstructed from the scripts and the committed names.
+python scripts/floor_infer_archive.py --results $A/richmond/results.jsonl \
+    --panos $A/richmond/panos --out richmond.all.floor.jsonl --workers 6
+python scripts/floor_infer_archive.py --results $A/richmond/results.jsonl \
+    --out richmond.all.floor.jsonl --ids $DD/step3/richmond_ids.txt \
+    --check --check-out $DD/step4/richmond.all.gate124.json
+python scripts/floor_infer_archive.py --results $A/richmond/results.jsonl \
+    --out richmond.all.floor.jsonl --check --check-out $DD/step4/richmond.all.gateall.json
+python scripts/floor_infer_archive.py --results $A/richmond/results.jsonl \
+    --out richmond.all.floor.jsonl --compare results.f01.jsonl \
+    --check-out $DD/step4/richmond.f01_crosscheck.json
+python scripts/floor_infer_archive.py --results $A/richmond/results.jsonl \
+    --out richmond.all.floor.jsonl --digest
+python scripts/floor_infer_archive.py --results $A/richmond/results.jsonl \
+    --out richmond.all.floor.jsonl --manifest --index $A/richmond/index.csv \
+    --imagery-manifest ../RampNet/benchmark/richmond/imagery_manifest.json \
+    --software-json $DD/step4/richmond.all.floor.software.json \
+    --manifest-out $DD/step4/richmond.all.floor.inputs.json
+# the miner over the pass (FROZEN/richmond holds the pinned results.jsonl and the
+# git-tracked camera_heights.json beside it): writes labels.jsonl + summary.json
+python scripts/mine_city.py --results $FROZEN/richmond/results.jsonl \
+    --peaks richmond.all.floor.jsonl --camera-height per-rig --city richmond \
+    --benchmark-ids $DD/step3/richmond_ids.txt --out $DD/step4/richmond
+
+# desktop, no GPU, no network (seconds each). The tier / target counts from the committed
+# labels, then the miner on f01 (Jon's desktop runs/richmond/, the same results.jsonl):
+python scripts/mine_city.py --tally $DD/step4/richmond/labels.jsonl   # -> richmond/tally.json
+python scripts/mine_city.py --results runs/richmond/results.jsonl \
+    --peaks runs/richmond/results.f01.jsonl --camera-height per-rig --city richmond \
+    --benchmark-ids $DD/step3/richmond_ids.txt --out $DD/step4/richmond_f01
+# richmond_f01/summary.json is committed; its labels.jsonl is gitignored. Every key of
+# step4/richmond/summary.json must come back equal, and every count of richmond/tally.json.
+```
+
+The committed `step4/richmond/summary.json` was written before the 2026-11-03 review
+added `inputs`, `params`, `camera_height_resolved_m` and the tier / target counts to the
+summary, so it lacks them; re-running the miner command above now writes them, with the
+rest unchanged. Those numbers for the pass live in `tally.json` (counts) and in
+`richmond_f01/summary.json` (inputs, parameters, heights), whose peaks input is f01.
+`tests/test_mine_city.py` checks that the tally of the committed `labels.jsonl` reproduces
+every row count in the committed `summary.json`.
+
+#### Where each number lives
+
+| number | file | key |
+|---|---|---|
+| 3,011 pairs; 746 / 1,093 / 1,172 by band | `step4/richmond/summary.json` | `pairs`, `pairs_by_band` |
+| 573 emitted; 103 / 215 / 255 | same | `emitted`, `emitted_by_band` |
+| 557 off benchmark; 16 on | same | `emitted_off_benchmark`, `emitted_on_benchmark_panos` |
+| 1,928 / 510 / 573 by status | same | `by_status` |
+| 340 sites, 498 panos | same | `emitted_sites`, `emitted_panos` |
+| 98 / 209 / 250 off benchmark by band | `step4/richmond/tally.json` | `emitted_off_benchmark_by_band` |
+| 359 (73 / 141 / 145) emitted ≥ 0.30; 346 (69 / 135 / 142) off benchmark | same | `emitted_ge_0_30*` |
+| 545 (102 / 209 / 249) distinct targets; 531 (97 / 203 / 244) off benchmark | same | `emitted_distinct_targets*` |
+| 28 (26) multi-site targets; 15 (13) in two bands | same | `emitted_targets_multi_site*`, `emitted_targets_multi_band*` |
+| resolved camera height 2.6 m × 9,091; inputs' sha256; parameters | `step4/richmond_f01/summary.json` | `camera_height_resolved_m`, `inputs`, `params` |
+| gate 124 / 124, 267 → 267 | `step4/richmond.all.gate124.json` | `reproduce`, `ops_old`, `ops_new` |
+| city-wide 9,090 / 9,091 | `step4/richmond.all.gateall.json` | `reproduce` |
+| f01 cross-check 9,086 / 9,091 | `step4/richmond.f01_crosscheck.json` | `same`, `differing` |
+| 1.95 A40-hours, incarnations | `step4/richmond.all.floor.provenance.json` | `incarnations` |
+| 124 images equal to RampNet's manifest | `step4/richmond.all.floor.inputs.json` | `rampnet_check.sha256_and_size_equal` |
+| 0.843 / 0.855 / 0.831 / 0.651 | RampNet `docs/mined_placement_158.md` | "Pass 1", "Pass 2 result", "Click pass result" |
+| 67 of the 100 rated at ≥ 0.30 | derived: RampNet `analysis_out/mined_label_check_158/items.json` non-instrument `cards` joined to `step4/richmond/labels.jsonl` on (site_id, pano_id), `peak_conf` ≥ 0.30 | |
