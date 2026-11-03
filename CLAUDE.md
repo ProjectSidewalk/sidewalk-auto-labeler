@@ -94,11 +94,14 @@ python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bay
 #   data only, byte-reproducible (PNG + LF SVG)
 # LYON (RampNet#159 training-only Panoramax city; docs/panoramax-lyon.md). Slice 1 ran on makelab2's
 # A40 from a separate worktree (~/sal-lyon): --reuse-scan --thin-spacing 10 --limit 40000, i.e. the
-# first 40,000 of the 10 m set's sorted UUIDv4 ids (a uniform subset); runs/lyon is BOUND to 10 m, so a
-# later slice repeats the same command and --limit continues past what is processed. run_census.py's
+# first 40,000 of the 10 m set's sorted UUIDv4 ids (a uniform subset); runs/lyon was bound to 10 m for the
+# slices (5 m since the densify below), and --limit continued past what was processed. run_census.py's
 # rig_detections.csv gives detections per pano per (make, model, dimensions, capture year) at both
 # tiers -- the per-rig diagnostic Bayonne lacked. No GT bundle (train-or-evaluate rule), no submission.
-python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon --band-y 0.79
+# runs/lyon/results.jsonl is now the 5 m run; slice 1 is its first 39,975 lines (10 m: 86,889), so the
+# slice-1 and 10 m tables regenerate from a head -n prefix saved as results.jsonl (doc section 8)
+head -n 39975 runs/lyon/results.jsonl > /tmp/lyon_slice1/results.jsonl   # mkdir -p first; sha256 802230ea...
+python scripts/run_census.py runs/lyon --results /tmp/lyon_slice1/results.jsonl --out docs/figures/panoramax-lyon/data/census/lyon --band-y 0.79
 python scripts/panoramax_lyon_figures.py figures    # committed CSVs only; census-scan needs scan.json
 # DENSIFIED TO 5 m 2026-10-07 (#148 decision, #159; Hyak job 41504145): runs/lyon is now BOUND to 5 m,
 # 174,405 processed of 174,525 (120 skips, all but one no view:azimuth); sections 1-7 of the doc stay

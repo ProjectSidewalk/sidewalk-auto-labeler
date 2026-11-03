@@ -278,14 +278,20 @@ Panoramax serves one position per pano, so the check reports and never gates: `f
 | 3 | `python scripts/panoramax_lyon_figures.py census-scan` → `data/scan_years.csv` | — | 5 s |
 | 4 | upload `runs/lyon/scan.json` to the GPU host; compare `sha256sum` | net | 1 min |
 | 5 | `python main.py example_geojson/lyon.geojson --name lyon --source panoramax --reuse-scan --thin-spacing 10 --limit 40000` (ends with the position check; Overpass) | GPU + net | 8 h 53 m |
-| 6 | `python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon --band-y 0.79` | — | 20 s |
+| 6 | `python scripts/run_census.py runs/lyon --results /tmp/lyon_slice1/results.jsonl --out docs/figures/panoramax-lyon/data/census/lyon --band-y 0.79` | — | 20 s |
 | 7 | `python scripts/run_census.py runs/bayonne --results <bayonne results.jsonl> --out docs/figures/panoramax-lyon/data/census/bayonne --band-y 0.79` | — | 10 s |
-| 8 | `python scripts/panoramax_lyon_figures.py rig-producers` → `data/rig_producer_detections.csv` | — | 20 s |
+| 8 | `python scripts/panoramax_lyon_figures.py rig-producers --results /tmp/lyon_slice1/results.jsonl` → `data/rig_producer_detections.csv` | — | 20 s |
 | 9 | `python scripts/panoramax_lyon_figures.py figures` → `fig1_rig_rates`, `fig2_years` (`.png` + `.svg`) | — | 5 s |
 
 - **Step 2** binds nothing: `--scan-only` records no run entry.
-- **Step 5** must keep `--thin-spacing 10`. The manifest now binds `thin_spacing_m: 10`, and
-  a resume at any other spacing is refused.
+- **Step 5** must keep `--thin-spacing 10`. The manifest bound `thin_spacing_m: 10` then,
+  and a resume at any other spacing was refused. Since section 8 `runs/lyon` binds 5 m, so
+  repeating step 5 today needs a fresh `--name`.
+- **Steps 6 and 8 read slice 1's file, not `runs/lyon/results.jsonl`.** That path now holds
+  the 5 m run (section 8), and its default would write 5 m numbers over slice 1's. Slice 1
+  is the first 39,975 lines of it, byte for byte:
+  `mkdir -p /tmp/lyon_slice1 && head -n 39975 runs/lyon/results.jsonl > /tmp/lyon_slice1/results.jsonl`
+  gives sha256 `802230ea…` (the table above). See section 8, "Regenerating sections 0-7".
 - **Step 7:** the Bayonne CSVs that already existed (`detections`, `pose`, `producers`,
   `rigs`, `years`) were compared with the committed
   `docs/figures/panoramax-bayonne/data/census/` copies. They match line for line. Python's
@@ -426,11 +432,15 @@ code.
 | `runs/lyon/manifest.json` (committed) | `c566a75a835de83b32b14f17788edd4fc3ed064b33f0daf525ca5c6efd2b36c0` |
 | `runs/lyon/run2.log` (Hyak `lyon_41472534.log`, not committed) | `ced0ff777cd4150402169036cbb6a2aedeaf44b2b882068c39eb2ac595cd0c73` |
 
-Regenerate the two tables (no network, no GPU, ~1 min each):
+Regenerate the two tables (no network, no GPU, ~1 min each). They read the 10 m file, which
+is now the first 86,889 lines of the 5 m `runs/lyon/results.jsonl` (section 8,
+"Regenerating sections 0-7"); pointing them at `runs/lyon` itself would write 5 m numbers
+over this section's:
 
 ```
-python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon_full --band-y 0.79
-python scripts/panoramax_lyon_figures.py rig-producers --out docs/figures/panoramax-lyon/data/full
+mkdir -p /tmp/lyon_10m && head -n 86889 runs/lyon/results.jsonl > /tmp/lyon_10m/results.jsonl   # sha256 6e8a1173...
+python scripts/run_census.py runs/lyon --results /tmp/lyon_10m/results.jsonl --out docs/figures/panoramax-lyon/data/census/lyon_full --band-y 0.79
+python scripts/panoramax_lyon_figures.py rig-producers --results /tmp/lyon_10m/results.jsonl --out docs/figures/panoramax-lyon/data/full
 ```
 
 **Run the first command only once #150 is on main.** This branch's `run_census.py` is
@@ -525,6 +535,24 @@ and no GPU, about 1 min each. The census step needs #150's `run_census.py`, as i
 python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon_5m --band-y 0.79
 python scripts/panoramax_lyon_figures.py rig-producers --out docs/figures/panoramax-lyon/data/full_5m
 ```
+
+**Regenerating sections 0-7.** The densify was a pure append, so the earlier inputs are
+byte prefixes of today's `runs/lyon/results.jsonl` (and the 10 m cache a prefix of today's
+`already_processed.txt`):
+
+| prefix | command | sha256 | equals |
+|---|---|---|---|
+| slice 1 | `head -n 39975 runs/lyon/results.jsonl` | `802230ea…41dc` | section 5's input |
+| 10 m set | `head -n 86889 runs/lyon/results.jsonl` | `6e8a1173…78e8` | section 7's input |
+| 10 m cache | `head -n 86942 runs/lyon/already_processed.txt` | `816fa4c9…14ac` | section 7's cache |
+
+Save each prefix as `results.jsonl` in its own directory outside `runs/lyon`, and pass it
+with `--results`, keeping `runs/lyon` as the run-dir argument: `census.md` prints both the
+run dir's name and the results file's basename, so any other name changes that one line.
+Sections 5 and 7 give the commands. Checked on 2026-11-03 from the local copy of the run:
+step 6 (with this branch's `run_census.py`, which wrote the committed unmasked
+`census/lyon/`), step 8, and section 7's two commands (`census/lyon_full/` with #150's
+`run_census.py`) each reproduce every committed file, after normalizing CRLF to LF.
 
 | number | file | column / row |
 |---|---|---|
