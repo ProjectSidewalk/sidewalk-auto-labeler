@@ -12,12 +12,21 @@ city has an inventory -- the calibration against it.
 
 Nothing is placed: an assignment scores membership. The run dir is read in place.
 
+The decision is read as pre-registered only on rater A's full pass (role a, or no role, with
+every unit of the bundle complete or can't judge); a pilot, a partial pass or a role-b file
+gets the same tables under a DESCRIPTIVE heading (decision_scope).
+
+The RampNet side (the protocol, RUBRICS.md section 6, the gallery, rampnet/cluster_review.py
+and the bundle) lives, for now, only on RampNet branch `cluster-review-224`; RAMPNET_REF pins
+the commit every link here points at. TODO: repoint to RampNet main once that branch merges.
+
 Until a reviewer has exported an assignments file this writes a "no GT yet" report and
 exits 0; it still rebuilds the arms and prints the self-consistency line (an arm scored
 against an assignment derived from itself, in memory, must give split 0 / merge 0), so
 the machinery is proven on the real bundle before any GT exists.
 
-    python scripts/cluster_review_score.py vancouver --run-dir ../sal-vancouver/runs/vancouver \
+    # --run-dir: a run dir holding the Vancouver run, e.g. runs/vancouver
+    python scripts/cluster_review_score.py vancouver --run-dir runs/vancouver \
         --bundle ../RampNet/benchmark/vancouver/cluster_review [--assignments assignments.json]
 """
 import argparse
@@ -45,6 +54,14 @@ STRATA = ('signalised', 'arterial', 'residential', 'mid_block')
 MATCH_M = 5.0
 SANITY_ARM = 'fusion_server+attach'   # a true partition (deployed can hold a label twice)
 VALUE_RE = re.compile(r'^(r\d+|not_ramp|unsure)$')
+# The RampNet commit the protocol / rubric / gallery links point at: the tip of RampNet
+# branch cluster-review-224 (no PR yet). TODO: repoint to RampNet main once that branch merges.
+RAMPNET_REF = '39155d872e744378be59354676b32417b1604d65'
+
+
+def rampnet_url(path):
+    """Permalink to `path` in RampNet at RAMPNET_REF."""
+    return f'https://github.com/ProjectSidewalk/RampNet/blob/{RAMPNET_REF}/{path}'
 
 
 def sha256_file(path):
@@ -95,6 +112,26 @@ def check_assignments(a, snapshot, corners):
         elif cj and not str(u.get('cant_judge_reason') or '').strip():
             problems.append(f'{cid}: cant_judge without a cant_judge_reason')
     return problems
+
+
+def decision_scope(a, corners):
+    """(pre_registered, why): whether the decision rule may be read as the pre-registered
+    one. The protocol reads it "on the same complete units of rater A's full pass ...
+    Pilot-only scores are descriptive", so it is pre-registered only for role a (or a file
+    with no role) in which EVERY unit of the bundle is complete or can't judge; anything
+    else (a pilot, a partial pass, a role-b retest) is descriptive, and `why` says which."""
+    role = a.get('role')
+    if role not in (None, 'a'):
+        return False, f"role {role}: the decision is read on rater A's pass"
+    units = a.get('corners') or {}
+    done = {cid for cid, u in units.items() if u.get('complete') or u.get('cant_judge') is True}
+    all_ids = {c['corner_id'] for c in corners}
+    if all_ids <= done:
+        return True, ''
+    pilot = {c['corner_id'] for c in corners if c.get('pilot')}
+    kind = 'pilot' if done and done <= pilot else 'partial pass'
+    return False, (f"{kind}: {len(all_ids & done)} of {len(all_ids)} units complete or "
+                   "can't judge")
 
 
 def cant_judge_section(a, corners_by_id):
@@ -252,8 +289,12 @@ def main(argv=None):
                          + ' (--allow-arm-mismatch overrides, and says so in the report)')
     a_path = bundle / args.assignments
     lines = [f'# {args.city}: clustering scored against cluster-review GT (RampNet#224)', '',
-             'Protocol and decision rule: RampNet docs/cluster_review_protocol.md (pre-registered); '
-             'rubric: RampNet benchmark/RUBRICS.md §6.', '',
+             'Protocol and decision rule: RampNet '
+             f"[docs/cluster_review_protocol.md]({rampnet_url('docs/cluster_review_protocol.md')}) "
+             '(pre-registered); rubric: RampNet '
+             f"[benchmark/RUBRICS.md]({rampnet_url('benchmark/RUBRICS.md')}) §6. Both live, for "
+             'now, only on RampNet branch `cluster-review-224` (links pinned to its tip '
+             f'`{RAMPNET_REF[:7]}`; TODO: repoint to RampNet main once that branch merges).', '',
              f"- bundle: `{bundle.name}` of {snapshot['city']}: {len(corners)} units "
              f"({sum(1 for c in corners if c.get('pilot'))} pilot), "
              f"{sum(c['n_labels'] for c in corners)} labels; label snapshot sha256 "
@@ -300,13 +341,14 @@ def main(argv=None):
         lines += ['', '## NO GT YET', '',
                   f'`{a_path.name}` does not exist in the bundle: no reviewer has exported an '
                   'assignment, so there is nothing to score and no number below is a result. '
-                  'Review the pilot in RampNet `scripts/cluster_review_gallery.py`, save the '
+                  'Review the pilot in RampNet `scripts/cluster_review_gallery.py` (branch '
+                  '`cluster-review-224`), save the '
                   'export into the bundle, and re-run this command.', '', f'- {sanity}']
-        (out / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+        (out / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
         for name, fields in (('arms.csv', ARM_FIELDS), ('ramps.csv', ['corner_id', 'type', 'ramp']
                                                         + list(ARMS))):
             with open(out / name, 'w', newline='', encoding='utf-8') as f:
-                csv.writer(f).writerow(fields)
+                csv.writer(f, lineterminator='\n').writerow(fields)
         print('\n'.join(lines))
         print(f'wrote {out / "report.md"} (no GT yet)')
         return 0
@@ -339,7 +381,13 @@ def main(argv=None):
             rows.append({'arm': name, 'stratum': stratum,
                          **{k: m[k] for k in ARM_FIELDS if k in m}})
     v, reasons = ic.assignment_verdict(by_arm)
-    lines += ['', f'## Decision (pre-registered): **{v}**', '']
+    if v in (ic.PASS, ic.NOT_ESTABLISHED):
+        # every arm clusters the same label set, so the coverage leg cannot differ
+        reasons = [r + ' -- coverage is arm-independent by construction (same label set)'
+                   for r in reasons]
+    pre_registered, why = decision_scope(a, corners)
+    scope = 'pre-registered' if pre_registered else f'DESCRIPTIVE -- {why}'
+    lines += ['', f'## Decision ({scope}): **{v}**', '']
     lines += [f'- {r}' for r in reasons]
     lines += ['', f'Rule: `{ic.REVIEW_ARM}` vs `{ic.REVIEW_BASE}` -- split lower by >= '
               f'{ic.RULE_SPLIT_DROP}, merge not higher by > {ic.RULE_MERGE_RISE}, coverage not '
@@ -397,16 +445,18 @@ def main(argv=None):
                          f"{fmt(im.get('merge_rate'))} | {fmt(by_arm[name]['merge_rate'])} |")
     lines += cj_lines
     lines += ['', '## Against verdicts.json', '',
-              '- not run here: RampNet `rampnet.cluster_review.verdict_consistency` does it for '
-              'cities with a benchmark bundle (Vancouver has none).']
-    (out / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+              '- not run here: RampNet `rampnet.cluster_review.verdict_consistency` '
+              f"([rampnet/cluster_review.py]({rampnet_url('rampnet/cluster_review.py')}), branch "
+              '`cluster-review-224`) does it for cities with a benchmark bundle (Vancouver has '
+              'none).']
+    (out / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
     with open(out / 'arms.csv', 'w', newline='', encoding='utf-8') as f:
-        w = csv.DictWriter(f, ARM_FIELDS)
+        w = csv.DictWriter(f, ARM_FIELDS, lineterminator='\n')
         w.writeheader()
         for r in rows:
             w.writerow({k: r.get(k) for k in ARM_FIELDS})
     with open(out / 'ramps.csv', 'w', newline='', encoding='utf-8') as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator='\n')
         w.writerow(['corner_id', 'type', 'ramp'] + list(ARMS))
         for key in sorted(by_arm[ARMS[0]]['per_ramp']):
             w.writerow([key[0], corners_by_id[key[0]]['type'], key[1]]
