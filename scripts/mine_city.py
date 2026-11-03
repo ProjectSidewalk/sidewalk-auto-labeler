@@ -54,9 +54,23 @@ def band_of(range_m):
     return f'> {BANDS[-1][1]:g} m' if range_m > BANDS[-1][1] else '0 m'
 
 
+def cli_params(height):
+    """The FuseParams the CLI mines at: step 3's frame, pinned. Benchmark tier (a bare
+    FuseParams() would follow OPERATIONAL_CONFIDENCE down to 0.30), rig mask and pose
+    off in fusion, as mined_precision.py fuses; ``height`` is load_at_height's value.
+
+        >>> p = cli_params(2.6)
+        >>> p.min_confidence, p.mask_rig, p.apply_pose, p.camera_height_m
+        (0.55, False, 'off', 2.6)
+    """
+    return fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                         apply_pose=fs.POSE_OFF, camera_height_m=height)
+
+
 def mine(run_panos, params, peaks, radius_m=15.0, min_panos=3, city='',
          benchmark_ids=frozenset()):
-    """(rows, stats). ``peaks`` = {pano_id: [(x, y, conf)]} for every run pano."""
+    """(rows, stats). ``peaks`` = {pano_id: [(x, y, conf)]} for every run pano.
+    ``params`` should be cli_params(height): the CLI's pinned frame."""
     sites, frame, fuse_stats = fs.fuse(run_panos, params)
     strong = mp.strong_sites(sites, min_panos)
     run_by_id = {p.pano_id: p for p in run_panos}
@@ -150,8 +164,7 @@ def main():
     args = ap.parse_args()
     run_panos, _skipped, height, _auto = fs.load_at_height(
         args.results, args.camera_height, read_heights=True)
-    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
-                           apply_pose=fs.POSE_OFF, camera_height_m=height)
+    params = cli_params(height)
     bench = set()
     if args.benchmark_ids:
         bench = {line.strip() for line in open(args.benchmark_ids, encoding='utf-8')
