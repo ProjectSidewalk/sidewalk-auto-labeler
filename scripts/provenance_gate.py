@@ -113,6 +113,7 @@ for _p in (REPO_ROOT / 'scripts', REPO_ROOT):
         sys.path.insert(0, str(_p))
 
 import geo  # noqa: E402  (stdlib-only)
+from detectors import registry  # noqa: E402
 from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, DECODE_ARGMAX,  # noqa: E402
                        record_border, record_decode)
 
@@ -278,6 +279,7 @@ def load_run(results_path):
             if not line.strip():
                 continue
             rec = json.loads(line)
+            registry.require_curb_ramp_only(rec, 'provenance_gate')  # not yet type-aware (#168)
             if record_decode(rec) != DECODE_ARGMAX:
                 # The labels the gate checks were placed by argmax; a gaussian arm sits a
                 # sub-cell offset (median 1.5 heatmap px) off every one of them, so the

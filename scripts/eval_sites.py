@@ -43,6 +43,11 @@ if str(REPO_ROOT) not in sys.path:
 import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 from detectors import BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, DECODE_ARGMAX  # noqa: E402
+from detectors import registry  # noqa: E402
+
+# eval_sites (and mined_precision, through load_city_at_height) score CurbRamp only: a file
+# whose records ran any other type set is refused inside fs.load_results' own pass (#168).
+CURB_RAMP_ONLY = (registry.CURB_RAMP,)
 
 
 def require_argmax(run_panos, run_dir):
@@ -1086,7 +1091,8 @@ def load_benchmark(city, benchmark_root):
 def load_city_files(city, benchmark_root, run_dir, read_heights=True, height_table=None):
     verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
     run_panos, skipped = fs.load_results(run_dir / 'results.jsonl',
-                                         read_heights=read_heights, height_table=height_table)
+                                         read_heights=read_heights, height_table=height_table,
+                                         require_types=CURB_RAMP_ONLY)
     require_bundle_frame(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos
 
@@ -1105,9 +1111,10 @@ def load_city_at_height(city, benchmark_root, run_dir, camera_height, read_heigh
     missing or mismatched per-rig table, FileNotFoundError for a missing benchmark split.
     """
     verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
+    results_path = Path(results_path) if results_path else run_dir / 'results.jsonl'
+    # eval_sites and mined_precision (which loads through here) score CurbRamp only (#168)
     run_panos, _skipped, height, auto = fs.load_at_height(
-        Path(results_path) if results_path else run_dir / 'results.jsonl', camera_height,
-        read_heights=read_heights)
+        results_path, camera_height, read_heights=read_heights, require_types=CURB_RAMP_ONLY)
     require_bundle_frame(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos, height, auto
 
