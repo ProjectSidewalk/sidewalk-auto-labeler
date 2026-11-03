@@ -417,18 +417,16 @@ def _fig7b_data(loaded):
 
 # ============================================================================ examples
 def _fetch_image(url):
-    import requests
     from PIL import Image
     from sources import panoramax as px
-    return Image.open(io.BytesIO(requests.get(url, headers=px._headers(),
-                                              timeout=180).content)).convert('RGB')
+    # Paced by the source's picture limiter (1/s, #161) like every Panoramax download.
+    return Image.open(io.BytesIO(px._get(url, 'picture', timeout=180).content)).convert('RGB')
 
 
 def cmd_skips(args):
     """data/skips.csv: why each cached skip of the run was skipped (network: one STAC item
     per id, plus the first 512 KB of the image for the served size). main.py logs no
     per-pano reasons, so this reconstructs them from today's metadata."""
-    import requests
     from PIL import Image
     from sources import panoramax as px
     run = args.run_root / CITY
@@ -456,8 +454,7 @@ def cmd_skips(args):
             row['reason'] = 'no view:azimuth'
             rows.append(row)
             continue
-        with requests.get(px.image_url(item), headers=px._headers(), timeout=180,
-                          stream=True) as r:
+        with px._get(px.image_url(item), 'picture', timeout=180, stream=True) as r:
             head = r.raw.read(512 * 1024)
         try:
             w, h = Image.open(io.BytesIO(head)).size

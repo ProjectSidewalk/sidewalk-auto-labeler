@@ -2,3 +2,6 @@
 # Byte-compared files: scripts/seam_band_130.py verify hashes every file in this directory
 # (summary.json inputs_sha256), so a CRLF checkout must not rewrite them (#131 review S5).
 docs/figures/seam-band-130/data/** text eol=lf
+# Golden fixtures captured from origin/main for #168; compared byte for byte (the JSONL's
+# sha256 is inside the expected submission record), so a CRLF checkout must not rewrite them.
+tests/fixtures/multitype_submit/** text eol=lf
