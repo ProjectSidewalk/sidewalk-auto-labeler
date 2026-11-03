@@ -167,6 +167,56 @@ def test_run_position_check_records_the_verdict_and_survives_failure(tmp_path, m
     assert calls == [run_dir]
 
 
+def test_overpass_outage_is_non_fatal_and_send_to_ps_still_refuses(tmp_path, monkeypatch):
+    """The real chain, not a stubbed run_check (PR #157 review): every Overpass mirror
+    answers 504 -> fetch_osm_streets raises SystemExit -> main.run_position_check records
+    it and returns -> send_to_ps refuses the Mapillary file (fresh run: no check; resume:
+    the old check describes a different file). Ctrl-C is never swallowed."""
+    import urllib.error
+    import position_check
+    import send_to_ps
+    run_dir = tmp_path / "city"
+    run_dir.mkdir()
+    manifest_path = run_dir / "manifest.json"
+    manifest_path.write_text(json.dumps({"runs": [], "source": "mapillary"}))
+    (run_dir / "area.geojson").write_text(json.dumps(
+        {"type": "Polygon", "coordinates": [[[0, 0], [0.01, 0], [0.01, 0.01], [0, 0.01], [0, 0]]]}))
+    results = run_dir / "results.jsonl"
+
+    def pano_line(pano_id):
+        return json.dumps({"pano": {"panorama_id": pano_id, "source": "mapillary",
+                                    "lat": 0.005, "lng": 0.005}, "detections": []}) + "\n"
+    results.write_text(pano_line("P"))
+
+    def http_504(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, 504, "Gateway Timeout", {}, None)
+    monkeypatch.setattr(position_check.urllib.request, "urlopen", http_504)
+    monkeypatch.setattr(position_check.time, "sleep", lambda s: None)
+
+    assert main.run_position_check(run_dir, manifest_path, json.loads(manifest_path.read_text())) is None
+    assert "504" in json.loads(manifest_path.read_text())["position_check"]["error"]
+    assert not (run_dir / "osm_streets.json").exists()  # a failed fetch caches nothing
+    with pytest.raises(ValueError, match="no position check"):
+        send_to_ps.check_position_state(results, position_check.file_sha256(results))
+
+    # Resume: a check pinned to the previous file, one pano appended, Overpass still down.
+    position_check.check_path_for(results).write_text(json.dumps({
+        "checked_at": "x", "results_sha256": position_check.file_sha256(results),
+        "rule": position_check.RULE, **{k: v for k, _, v in position_check.RULE_PARAMETERS},
+        "flagged_sequences": [], "both_off_sequences": [], "panos_not_near_a_street": 0}))
+    with open(results, "a") as f:
+        f.write(pano_line("Q"))
+    assert main.run_position_check(run_dir, manifest_path, json.loads(manifest_path.read_text())) is None
+    with pytest.raises(ValueError, match="different version"):
+        send_to_ps.check_position_state(results, position_check.file_sha256(results))
+
+    def ctrl_c(rd):
+        raise KeyboardInterrupt
+    monkeypatch.setattr(position_check, "run_check", ctrl_c)
+    with pytest.raises(KeyboardInterrupt):
+        main.run_position_check(run_dir, manifest_path, json.loads(manifest_path.read_text()))
+
+
 # --- Model provenance (issues #39, #6): resolved from the snapshot, refusing the unknown ---
 
 import pytest  # noqa: E402
