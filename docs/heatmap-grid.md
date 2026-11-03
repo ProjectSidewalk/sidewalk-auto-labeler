@@ -650,7 +650,7 @@ the mechanism is tested on real heatmaps of the committed decode peaks instead (
    observed, not inferred.** `detectors/decode.py` finds peaks on `np.clip(heatmap, 0, 1)`
    (`_peaks`). A peak whose raw value exceeds 1.0 becomes a flat top of exactly equal pixels.
    scikit-image's `peak_local_max` (0.26.0, the version every committed decode file and this
-   study ran; `requirements.txt` does not pin it) builds its candidates in `np.nonzero`
+   study ran; pinned in `requirements.txt` since PR 158) builds its candidates in `np.nonzero`
    (row-major) order and sorts them with `np.argsort(-intensities, kind="stable")`
    (`skimage/feature/peak.py`, `_get_high_intensity_peaks`), and then `ensure_spacing` keeps
    the first. So the first plateau pixel in row-major order wins. That pixel lies on the
@@ -959,9 +959,9 @@ pytest tests/test_heatmap_grid.py        # skimage's tie order, plateau_check, t
   inferred from the store detection's on-grid position and its confidence near 1.0. The
   mechanism itself is tested on the 46 local decode peaks (5.3), not on these four.
 - **The deployed campaign's scikit-image version is not recorded anywhere.** The labels'
-  residue histogram is consistent with the same tie order, but that is not proof. Pinning
-  `scikit-image` in `requirements.txt` is a separate decision. Changing the tie order would
-  move every clipped peak's stored pixel.
+  residue histogram is consistent with the same tie order, but that is not proof.
+  `requirements.txt` pins 0.26.0 since PR 158, so future installs keep this tie order;
+  changing it would move every clipped peak's stored pixel.
 - **No rule, gate, report or `unmatched.csv` changed.** `provenance_gate.py` is untouched, and
   #151 question 1 is not addressed here.
 - **The Paterson exception** (0.5734, residues (6,4)) is explained by a float32 near-tie, not
