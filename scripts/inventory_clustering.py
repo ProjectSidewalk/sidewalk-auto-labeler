@@ -184,6 +184,7 @@ def inventory_metrics(clusters, inv_xy, pool, r):
 NOT_RAMP, UNSURE = 'not_ramp', 'unsure'
 REVIEW_ARM, REVIEW_BASE = 'fusion_server+attach', PS_ARM   # the pre-registered comparison
 NO_GT = 'NO GT YET'
+RATE_UNDEFINED = 'UNDETERMINED (a rate is undefined)'
 
 
 def _is_ramp(v):
@@ -240,7 +241,17 @@ def assignment_metrics(arm_of, units, unit_keys=None):
     merge (strict: >= 2 ramps with >= 2 labels each), over clusters with >= 2 of them.
     validity: clusters whose in-window labels are all not_ramp / clusters touching; not_ramp
     labels / non-unsure labels the arm holds. coverage: covered / (ramps + sure uncovered).
-    Returns counts, rates (Wilson CIs) and `per_ramp` {(corner_id, ramp): n_clusters}."""
+    Returns counts, rates (Wilson CIs) and `per_ramp` {(corner_id, ramp): n_clusters}.
+
+    Only the keys in unit_keys are read, so a GT ramp ALL of whose in-window labels are left
+    out of them -- cluster_review_score.py leaves human labels out, per the protocol's
+    same-label-set rule -- counts in neither the numerator nor the denominator of coverage
+    (or of split). Moot for Vancouver (no human label in any window); a city with human
+    labels in its windows would need such ramps reported, not silently dropped.
+
+    Single-city: a label key is the bare per-city label_id, unique only inside one city's
+    bundle (the per-ramp keys carry the city through corner_id). Pooling units of several
+    cities must key labels on (city, key), as label_uid does."""
     m = dict(units=0, ramps=0, covered=0, split=0, merge_k=0, merge_strict_k=0, merge_n=0,
              clusters=0, invalid_clusters=0, labels_held=0, not_ramp_held=0,
              uncovered_sure=0)
@@ -317,12 +328,20 @@ def paired_ramp_table(per_ramp_a, per_ramp_b):
 def assignment_verdict(by_arm, arm=REVIEW_ARM, base=REVIEW_BASE):
     """The pre-registered decision rule on assignment metrics: `arm` vs `base` on the same
     units -- split lower by >= RULE_SPLIT_DROP, merge not higher by > RULE_MERGE_RISE,
-    coverage not lower by > RULE_COVERED_DROP -> PASS, else NOT ESTABLISHED; NO GT YET when
-    either rate is undefined (nothing reviewed)."""
+    coverage not lower by > RULE_COVERED_DROP -> PASS, else NOT ESTABLISHED. NO GT YET when
+    nothing was reviewed (no complete unit); RATE_UNDEFINED when units were reviewed but a
+    rate the rule reads is undefined for either arm -- e.g. merge, when no cluster holds two
+    or more ramp-assigned labels -- so the rule cannot be applied."""
     a, b = by_arm.get(arm), by_arm.get(base)
-    need = ('split_rate', 'merge_rate', 'coverage')
-    if a is None or b is None or any(a[k] is None or b[k] is None for k in need):
-        return NO_GT, ['no complete reviewed unit gives every rate for both arms']
+    need = {'split_rate': 'no ramp is covered', 'merge_rate': 'no cluster holds >= 2 '
+            'ramp-assigned labels', 'coverage': 'no ramp and no sure uncovered point'}
+    if a is None or b is None or not a.get('units', 1) or not b.get('units', 1):
+        return NO_GT, ['no complete reviewed unit: nothing to score']
+    undefined = [f'{k} of `{name}` ({why})' for name, m in ((arm, a), (base, b))
+                 for k, why in need.items() if m.get(k) is None]
+    if undefined:
+        return RATE_UNDEFINED, ['reviewed units exist, but the rule cannot be applied: '
+                                'undefined ' + '; '.join(undefined)]
     d_split = a['split_rate'] - b['split_rate']
     d_merge = a['merge_rate'] - b['merge_rate']
     d_cov = a['coverage'] - b['coverage']
