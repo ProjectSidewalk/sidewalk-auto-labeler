@@ -32,11 +32,11 @@ stay null and are counted.
     python scripts/backfill_metadata.py runs/richmond/results.jsonl --pose --out runs/richmond/results.pose.jsonl
 
 A file that has a `<file>.submission.json` or any `<file>.submitted*` /
-`<file>.band-*.submitted` resume sidecar beside it is under send_to_ps.py's guard, and
-rewriting it changes its sha256: the recorded campaign (and any band on it) would then
-refuse to resume, and its position_check.json would go stale. So --pose refuses to write
-over such a file -- in place, or as the `--out` target -- unless --rewrite-submitted says
-that is intended; a fresh `--out` leaves the input untouched and is the route for a
+`<file>.band-*.submitted` / `<file>.type-*.submitted` resume sidecar beside it is under
+send_to_ps.py's guard, and rewriting it changes its sha256: the recorded campaign (and any
+band on it) would then refuse to resume, and its position_check.json would go stale. So
+--pose refuses to write over such a file -- in place, or as the `--out` target -- unless
+--rewrite-submitted says that is intended; a fresh `--out` leaves the input untouched and is the route for a
 pano-only push (`send_to_ps.py <out> --min-confidence 2.0`, which submits no labels).
 Blank lines are copied through as blank lines, so a sidecar's line numbers still name the
 same panos after a rewrite.
@@ -62,10 +62,12 @@ WORKERS = 8
 # there; not imported, since send_to_ps pulls in the whole submission stack).
 SUBMISSION_RECORD_SUFFIX = ".submission.json"
 # ...and its resume sidecars, which name lines of the file BY NUMBER: `<file>.submitted`,
-# the `<file>.submitted.<endpoint>` copies the test->prod move leaves, and a band's
-# `<file>.band-<min>-<max>.submitted`.
+# the `<file>.submitted.<endpoint>` copies the test->prod move leaves, a band's
+# `<file>.band-<min>-<max>.submitted`, and a multi-type file's per-type
+# `<file>.type-<T>.submitted` (issue #168).
 SUBMITTED_SIDECAR_SUFFIX = ".submitted"
 BAND_SIDECAR_INFIX = ".band-"
+TYPE_SIDECAR_INFIX = ".type-"
 
 # Outcomes of the --pose pass, per line. The first two change no angle (POSE_ALREADY may
 # still stamp a missing camera_pose_source).
@@ -124,7 +126,8 @@ def iter_lines(path):
 def submission_artifacts(path):
     """Names of send_to_ps.py's campaign state beside `path`, sorted: its
     `.submission.json` record and every resume sidecar (`.submitted`, `.submitted.*`,
-    `.band-*.submitted`). Empty when there is none (or the directory does not exist)."""
+    `.band-*.submitted`, `.type-*.submitted`). Empty when there is none (or the directory
+    does not exist)."""
     path = Path(path)
     if not path.parent.is_dir():
         return []
@@ -132,7 +135,7 @@ def submission_artifacts(path):
     return sorted(q.name for q in path.parent.iterdir()
                   if q.name == name + SUBMISSION_RECORD_SUFFIX
                   or q.name.startswith(name + SUBMITTED_SIDECAR_SUFFIX)
-                  or (q.name.startswith(name + BAND_SIDECAR_INFIX)
+                  or (q.name.startswith((name + BAND_SIDECAR_INFIX, name + TYPE_SIDECAR_INFIX))
                       and q.name.endswith(SUBMITTED_SIDECAR_SUFFIX)))
 
 
