@@ -430,11 +430,16 @@ def score_rater(items, verdicts, snapshot, which='blind', exclude=()):
     if all(n for _p, _N, _k, n in strata):
         tot = sum(N for _p, N, _k, _n in strata)
         est = sum(N * k / n for _p, N, k, n in strata) / tot
-        var = sum((N / tot) ** 2 * (k / n) * (1 - k / n) / n * max(0.0, 1 - n / N)
-                  for _p, N, k, n in strata if N)
+        # per-stratum variance from the Agresti-Coull adjusted share (k + 2) / (n + 4): a
+        # stratum at k/n = 0 or 1 would otherwise contribute zero variance and the interval
+        # would come from the other strata alone (review N2)
+        var = sum((N / tot) ** 2 * ((k + 2) / (n + 4)) * (1 - (k + 2) / (n + 4)) / (n + 4)
+                  * max(0.0, 1 - n / N) for _p, N, k, n in strata if N)
         out['stratified'] = {'estimate': round(est, 4),
-                             'ci95_normal': [round(max(0.0, est - 1.96 * math.sqrt(var)), 4),
-                                             round(min(1.0, est + 1.96 * math.sqrt(var)), 4)],
+                             'ci95': [round(max(0.0, est - 1.96 * math.sqrt(var)), 4),
+                                      round(min(1.0, est + 1.96 * math.sqrt(var)), 4)],
+                             'ci_method': 'normal, Agresti-Coull-adjusted per-stratum variance, '
+                                          'finite-population corrected',
                              'covered_units': tot, 'absent_units': ABSENT_TOTAL,
                              'not_covered': ABSENT_TOTAL - tot}
     else:
@@ -495,6 +500,9 @@ def render_report(snapshot, items, results, problems, agree=None):
             lines += [f'**INVALID ({len(problems[rater])} problems); not scored.**', '']
             lines += [f'- {p}' for p in problems[rater][:30]] + ['']
             continue
+        if b['scored'] < b['units']:
+            lines += [f"**INTERIM: {b['scored']} of {b['units']} units rated.** Every share below "
+                      f"is over the rated units only.", '']
         lines += [f"{b['complete']} of {b['units']} units complete; {b['scored']} with blind "
                   f"verdicts ({b['reopened_with_blind']} reopened and not completed again); "
                   f"{b['edited_after_inventory']} with a verdict changed after the inventory was "
@@ -516,7 +524,7 @@ def render_report(snapshot, items, results, problems, agree=None):
                   f"- Reasons added after the reveal at those corners (absent before and after, "
                   f"no blind reason; can be biased by the inventory): "
                   f"{na['absent_kinds_added_after_reveal']}.", '',
-                  '### The 35 false absences', '',
+                  f"### The {fa['n']} false absences ({fa['scored']} of {fa['n']} scored)", '',
                   f"- Classes: {fa.get('classes')}.",
                   f"- Real misses {fa.get('real_misses')}, artifacts {fa.get('artifacts')}; "
                   f"real-miss share of decided: **{fmt(fa['real_miss_share'])}** (blind); final "
@@ -553,8 +561,9 @@ def render_report(snapshot, items, results, problems, agree=None):
                       f"Absence precision against the rater over the sampled strata "
                       f"({st['covered_units']} of {st['absent_units']} absent units; the other "
                       f"{st['not_covered']} are the 9 non-target false absences and 2 'other' "
-                      f"units): {st['estimate']:.3f}, normal-approximation 95% "
-                      f"[{st['ci95_normal'][0]:.3f}, {st['ci95_normal'][1]:.3f}].", '']
+                      f"units): {st['estimate']:.3f}, 95% "
+                      f"[{st['ci95'][0]:.3f}, {st['ci95'][1]:.3f}] (normal approximation with "
+                      f"Agresti-Coull-adjusted per-stratum variances).", '']
         lines += ['### Per unit', '',
                   '| unit | part | outcome (blind) | false-absence class | live imagery |',
                   '|---|---|---|---|---|']

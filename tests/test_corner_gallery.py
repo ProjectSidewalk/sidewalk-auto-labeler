@@ -314,6 +314,24 @@ def test_score_parts_blind_vs_final_and_stratified():
     assert 'Rater `jonf`' in rep and '2/3' in rep
 
 
+def test_partial_file_report_is_interim_and_ci_not_degenerate():
+    """Review N2: a partial file is marked INTERIM with the scored count, and a stratum at
+    k/n = 1 still contributes variance (the old CI was [1, 1] when every stratum was at 1)."""
+    items = ([item(f'n{i}', 'na_noramp', {0: ('NA_noramp', None)}) for i in range(3)] +
+             [item('c0', 'clean'), item('c1', 'clean'),
+              item('f0', 'false_absence', {1: ('Available', '2019-01-01')}),
+              item('f1', 'false_absence', {1: ('Available', '2019-01-01')})])
+    units = {u: unit_verdicts(['absent'] * 3) for u in ('n0', 'n1', 'c0', 'f0')}
+    snap = {'items_sha256': 'S', 'seed': 243,
+            'populations': {'false_absence': 2, 'na_noramp': 40, 'clean': 20}}
+    b = cs.score_rater(items, vfile(units), snap, 'blind')
+    st = b['stratified']
+    assert st['estimate'] == 1.0 and st['ci95'][0] < 0.95
+    rep = cs.render_report(snap, items, {'jonf': {'blind': b, 'final': b}}, {'jonf': []})
+    assert '**INTERIM: 4 of 7 units rated.**' in rep
+    assert '### The 2 false absences (1 of 2 scored)' in rep
+
+
 def test_incomplete_units_are_not_scored():
     items = [item('c0', 'clean')]
     v = vfile({'c0': unit_verdicts(['absent', None, None], complete=False)})
