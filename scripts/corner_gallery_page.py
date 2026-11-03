@@ -22,6 +22,12 @@ corner markers carry their number, the cards carry the verdict in words).
 #   * local state wins per UNIT only when the rater has worked on it in this browser (seen
 #     or complete); a unit the browser merely initialised takes the file's state, and every
 #     unit where local work shadows a differing file entry is reported;
+#   * EXCEPT the blind read, which is immutable once frozen anywhere (PR #141 review S1): when
+#     the file has a blind read, a browser that never completed the unit takes the file's
+#     entry whole (its local work was an unfinished draft from before the other machine's
+#     completion), and a browser whose own blind read differs keeps its later work but takes
+#     the file's blind, inventory_seen, and edit flags measured from the data. Both are listed
+#     in blindFromFile, so the page can say so;
 #   * every rendered unit is reconciled against its current corner keys -- a key that left
 #     is dropped, a new one is added unrated, and either reopens a complete unit;
 #   * state for units not rendered this session is kept verbatim, so Export round-trips it.
@@ -30,7 +36,8 @@ function emptyUnit(u) {
   const corners = {};
   for (const c of u.corners) corners[c.k] = {verdict: null, absent_kind: null};
   return {corners: corners, blind: null, complete: false, elapsed_s: 0, note: '',
-          seen: false, inventory_seen: false, edited_after_inventory: false, kinds_after_inventory: false};
+          seen: false, inventory_seen: false, edited_after_inventory: false, kinds_after_inventory: false,
+          used_live_imagery: false};
 }
 function copyCorners(cs) {
   const out = {};
@@ -42,7 +49,8 @@ function fromFile(f) {
   return {corners: copyCorners(f.corners), blind: f.blind ? copyCorners(f.blind) : null,
           complete: !!f.complete, elapsed_s: f.elapsed_s || 0, note: f.note || '',
           seen: true, inventory_seen: !!f.inventory_seen,
-          edited_after_inventory: !!f.edited_after_inventory, kinds_after_inventory: !!f.kinds_after_inventory};
+          edited_after_inventory: !!f.edited_after_inventory, kinds_after_inventory: !!f.kinds_after_inventory,
+          used_live_imagery: !!f.used_live_imagery};
 }
 function verdictsOnly(cs) { const o = {}; for (const k in (cs || {})) o[k] = (cs[k] || {}).verdict || null; return JSON.stringify(o); }
 function kindsOnly(cs) { const o = {}; for (const k in (cs || {})) o[k] = (cs[k] || {}).absent_kind || null; return JSON.stringify(o); }
@@ -56,19 +64,37 @@ function normaliseEditFlags(s) {
   }
   if (s && s.kinds_after_inventory === undefined) s.kinds_after_inventory = false;
 }
+function blindKey(b) { return b ? JSON.stringify(copyCorners(b)) : null; }
 function sameUnit(s, f) {
   return JSON.stringify(copyCorners(s.corners)) === JSON.stringify(copyCorners(f.corners)) &&
-         !!s.complete === !!f.complete;
+         !!s.complete === !!f.complete && blindKey(s.blind) === blindKey(f.blind);
 }
 function bootstrapState(INITIAL, local, UNITS, ITEMS_SHA) {
   const state = local || {};
   let prefilled = 0, reopened = 0, initialIgnored = false;
-  const conflicts = [];
+  const conflicts = [], blindFromFile = [];
   if (INITIAL && INITIAL.items_sha256 !== ITEMS_SHA) initialIgnored = true;
   else if (INITIAL) {
     for (const id in (INITIAL.units || {})) {
       const s = state[id], f = INITIAL.units[id];
-      if (s && (s.seen || s.complete)) { if (!sameUnit(s, f)) conflicts.push(id); continue; }
+      if (s && (s.seen || s.complete)) {
+        if (sameUnit(s, f)) continue;
+        if (f.blind && !s.blind) {
+          // completed elsewhere, never here: the local entry is a pre-completion draft
+          state[id] = fromFile(f);
+          blindFromFile.push(id);
+          continue;
+        }
+        if (f.blind && blindKey(s.blind) !== blindKey(f.blind)) {
+          s.blind = copyCorners(f.blind);
+          s.inventory_seen = true;
+          s.edited_after_inventory = !!s.edited_after_inventory || verdictsOnly(s.blind) !== verdictsOnly(s.corners);
+          s.kinds_after_inventory = !!s.kinds_after_inventory || kindsOnly(s.blind) !== kindsOnly(s.corners);
+          blindFromFile.push(id);
+        }
+        conflicts.push(id);
+        continue;
+      }
       state[id] = fromFile(f);
       prefilled++;
     }
@@ -84,7 +110,7 @@ function bootstrapState(INITIAL, local, UNITS, ITEMS_SHA) {
     if (changed) { if (s.complete) reopened++; s.complete = false; }
   }
   return {state: state, prefilled: prefilled, reopened: reopened,
-          initialIgnored: initialIgnored, conflicts: conflicts};
+          initialIgnored: initialIgnored, conflicts: conflicts, blindFromFile: blindFromFile};
 }
 """
 
@@ -299,6 +325,7 @@ function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } ca
   const bits = [];
   if (boot.initialIgnored) bits.push('<b>The verdicts file was made on another item list and was NOT loaded.</b>');
   if (boot.prefilled) bits.push(boot.prefilled + ' unit(s) prefilled from the verdicts file.');
+  if (boot.blindFromFile.length) bits.push('<b>' + boot.blindFromFile.length + ' unit(s) took the blind read frozen in the verdicts file</b> (it was completed on another machine first): ' + boot.blindFromFile.join(', ') + '.');
   if (boot.conflicts.length) bits.push('<b>' + boot.conflicts.length + ' unit(s) kept this browser&#39;s work over a different entry in the verdicts file</b>: ' + boot.conflicts.join(', ') + '. Clear this page&#39;s site data to take the file instead.');
   if (boot.reopened) bits.push('<b>' + boot.reopened + ' complete unit(s) reopened</b>: their corners changed since they were rated.');
   if (bits.length) { const n = document.getElementById('notice'); n.style.display = ''; n.innerHTML = bits.join('<br>'); }
@@ -713,6 +740,7 @@ document.getElementById('export').onclick = () => {
   const warn = [];
   if (never) warn.push(never + ' unit(s) have verdicts but were never completed: they are not scored at all.');
   if (reopened) warn.push(reopened + ' unit(s) were reopened and not completed again: their blind verdicts are scored, their later edits are not.');
+  if (boot.conflicts.length) warn.push(boot.conflicts.length + ' unit(s) differ from the verdicts file this page was opened with, and this export replaces the file\'s entry with this browser\'s (blind reads frozen in the file are kept): ' + boot.conflicts.join(', ') + '.');
   if (warn.length && !confirm(warn.join('\n') + '\nExport anyway?')) return;
   saveNotes();
   const out = {schema: SCHEMA, city: CITY, items_sha256: ITEMS_SHA, rater: RATER,

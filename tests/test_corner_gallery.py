@@ -391,7 +391,8 @@ def test_bootstrap_state_under_node(tmp_path):
                            '1': {'verdict': 'present', 'absent_kind': None}},
                'blind': {'0': {'verdict': 'absent'}, '1': {'verdict': 'present'}},
                'complete': True, 'inventory_seen': True},
-        'u2': {'corners': {'0': {'verdict': 'present'}}, 'complete': True, 'blind': {'0': {'verdict': 'present'}}},
+        # an unfinished draft in the file (no blind read): local work on it wins
+        'u2': {'corners': {'0': {'verdict': 'present'}}, 'complete': False, 'blind': None},
         'u3': {'corners': {'0': {'verdict': 'absent'}, '9': {'verdict': 'absent'}},
                'blind': {'0': {'verdict': 'absent'}, '9': {'verdict': 'absent'}}, 'complete': True},
         'gone': {'corners': {}, 'complete': False}}}
@@ -414,6 +415,43 @@ console.log(JSON.stringify({{r: r, ig: ig}}));
     assert 'gone' in r['state']                                             # kept verbatim
     assert ig['initialIgnored'] is True and ig['prefilled'] == 0
     assert ig['state']['u1']['corners']['0']['verdict'] is None
+
+
+@pytest.mark.skipif(NODE is None, reason='node not installed')
+def test_bootstrap_never_drops_a_blind_read_frozen_in_the_file(tmp_path):
+    """PR #141 review S1: X started on machine A, completed on B (blind frozen, inventory
+    shown), exported and committed; A reopens. A must take B's blind read, not keep its
+    own pre-completion draft (which would freeze a 'blind' read given after the reveal)."""
+    units = [{'id': 'X', 'corners': [{'k': '0'}, {'k': '1'}]},
+             {'id': 'Y', 'corners': [{'k': '0'}]}]
+    blind_b = {'0': {'verdict': 'absent', 'absent_kind': None},
+               '1': {'verdict': 'present', 'absent_kind': None}}
+    initial = {'items_sha256': 'S', 'units': {
+        'X': {'corners': blind_b, 'blind': blind_b, 'complete': True, 'inventory_seen': True},
+        'Y': {'corners': {'0': {'verdict': 'absent', 'absent_kind': None}},
+              'blind': {'0': {'verdict': 'absent', 'absent_kind': None}},
+              'complete': True, 'inventory_seen': True}}}
+    local = {'X': {'corners': {'0': {'verdict': 'present', 'absent_kind': None},
+                               '1': {'verdict': None, 'absent_kind': None}},
+                   'blind': None, 'complete': False, 'seen': True, 'inventory_seen': False},
+             # both machines completed Y independently, with different blind reads
+             'Y': {'corners': {'0': {'verdict': 'present', 'absent_kind': None}},
+                   'blind': {'0': {'verdict': 'present', 'absent_kind': None}},
+                   'complete': True, 'seen': True, 'inventory_seen': True}}
+    js = cgp.STATE_BOOTSTRAP_JS + f"""
+const r = bootstrapState({json.dumps(initial)}, {json.dumps(local)}, {json.dumps(units)}, 'S');
+console.log(JSON.stringify(r));
+"""
+    p = tmp_path / 's1.js'
+    p.write_text(js, encoding='utf-8')
+    r = json.loads(subprocess.run([NODE, str(p)], capture_output=True, text=True, check=True).stdout)
+    x, y = r['state']['X'], r['state']['Y']
+    assert x['blind'] == blind_b and x['inventory_seen'] is True and x['complete'] is True
+    assert x['corners'] == blind_b                     # the draft is superseded whole
+    assert y['blind'] == initial['units']['Y']['blind'] and y['inventory_seen'] is True
+    assert y['corners']['0']['verdict'] == 'present'   # later local work kept, flagged
+    assert y['edited_after_inventory'] is True
+    assert sorted(r['blindFromFile']) == ['X', 'Y'] and r['conflicts'] == ['Y']
 
 
 @pytest.mark.skipif(NODE is None, reason='node not installed')
