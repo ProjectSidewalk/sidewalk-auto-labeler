@@ -67,3 +67,48 @@ def test_verdict_rule():
     assert ic.verdict(_rows(0.20, merge_fusion=0.04))[0] == ic.NOT_ESTABLISHED
     assert ic.verdict(_rows(0.20, cov_fusion=0.88))[0] == ic.NOT_ESTABLISHED
     assert ic.verdict(_rows(0.20, split_fusion_26=0.31))[0] == ic.FRAME_DEPENDENT
+
+
+def test_server_arms_fusion_arms_hold_every_label_once(monkeypatch, tmp_path):
+    """server_arms (the arms RampNet#224's cluster review scores) on the scene of
+    test_eval_ps_clustering_server's every-label test: one AI label on pano p, one human
+    sky label on p (unplaceable by the raycast), one human label on pano z, which has no
+    run block and nothing to invert. Both fusion arms must carry every label id exactly
+    once and no empty cluster -- the slip that sent `label_of` into
+    attach_unplaceable's `unpositioned` slot left every fusion cluster empty."""
+    import pandas as pd
+
+    import fuse_sites as fs
+    import geo
+
+    epc = ic.epc
+    lat0, lng0, w, h = 37.54, -77.43, 8192, 4096
+
+    def label(label_id, pano_id, x, y, user='ai'):
+        probe = fs.SlimPano(pano_id, lat0, lng0, 0.0, None, None, None, 'gsv', [])
+        g = geo.detection_ground_point(fs.pano_pose(probe, fs.POSE_OFF), x, y,
+                                       camera_height=epc.SERVER_CAMERA_HEIGHT_M,
+                                       max_range_m=1e9, apply_pose=False)
+        return {'label_id': label_id, 'user_id': user, 'pano_id': pano_id, 'region_id': 1,
+                'lat': g.lat, 'lng': g.lng, 'pano_x': round(x * w), 'pano_y': round(y * h),
+                'label_type': 'CurbRamp', 'pano_width': w, 'pano_height': h,
+                'camera_heading': 0.0, 'pano_source': 'gsv',
+                'image_capture_date': '2025-06'}
+
+    run = fs.SlimPano('p', lat0, lng0, 0.0, None, None, '2025-06', 'gsv',
+                      [(0, 0.5, 0.62, 0.9)])
+    sky = dict(label(11, 'p', 0.5, 0.62, user='human'), pano_y=round(0.40 * h))
+    labels = pd.DataFrame([label(10, 'p', 0.5, 0.62), sky,
+                           label(12, 'z', 0.5, 0.515, user='human')])
+    monkeypatch.setattr(epc, 'load_labels', lambda path: (labels.copy(), 0))
+    monkeypatch.setattr(epc, 'load_server_clusters',
+                        lambda path: [{'label_ids': [10, 11, 12]}])
+    monkeypatch.setattr(epc, 'label_to_detection', lambda path, labs: ({10: ('p', 0)}, 0, 0))
+    monkeypatch.setattr(fs, 'load_at_height', lambda path, frame: ([run], [], 2.6, None))
+    cfg = {'labels': 'labels.geojson', 'clusters': 'clusters.geojson', 'ai_user': 'ai',
+           'tier': 0.55}
+    _labels, arms, stats = ic.server_arms(tmp_path, cfg, frame=2.6)
+    assert stats['server_panos']['unplaceable_label_ids'] == [12]
+    for name in ('fusion_server', 'fusion_server+attach'):
+        assert all(arms[name]), name
+        assert sorted(lab for c in arms[name] for lab in c) == [10, 11, 12], name
