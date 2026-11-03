@@ -19,6 +19,7 @@ import geo
 
 LAT0, LNG0 = 45.6, -122.6
 FR = geo.LocalFrame(LAT0, LNG0)
+EXPECTED_POPS = {'false_absence': 35, 'na_noramp': 944, 'clean': 333}
 EMPTY = {'Available': 0, 'NA_noramp': 0, 'NA_typed': 0, 'RMV': 0, 'Expired/Removed': 0, 'other': 0}
 BUNDLE = Path(__file__).resolve().parents[1] / 'runs/vancouver/corner_gallery243'
 
@@ -574,8 +575,9 @@ def test_committed_bundle_is_consistent():
 
 def test_reasons_added_after_reveal_are_not_a_reedit():
     """Adding b / n after the reveal leaves the verdicts alone: it carries its own flag
-    (kinds_after_inventory), validates, is not counted as a verdict edit, and its reasons
-    are counted in the kinds of absence of the blind read."""
+    (kinds_after_inventory), validates, is not counted as a verdict edit, and its reasons are
+    reported on their own row, never in the blind read's kinds of absence (review S3: the
+    revealed NA status can bias a no-sidewalk reason)."""
     items = [item('n0', 'na_noramp', {0: ('NA_noramp', None)})]
     u = unit_verdicts(['absent'] * 3, {0: 'no_sidewalk'}, blind=['absent'] * 3)
     v = vfile({'n0': u})
@@ -585,7 +587,13 @@ def test_reasons_added_after_reveal_are_not_a_reedit():
     b = cs.score_rater(items, v, {}, 'blind')
     assert b['edited_after_inventory'] == 0 and b['kinds_after_inventory'] == 1
     assert b['kinds_from_after_corners'] == 1
-    assert b['parts']['na_noramp']['absent_kinds']['no_sidewalk'] == 1
+    na = b['parts']['na_noramp']
+    assert na['absent_kinds'] == {'curb_no_ramp': 0, 'no_sidewalk': 0, 'unspecified': 1}
+    assert na['absent_kinds_added_after_reveal'] == {'curb_no_ramp': 0, 'no_sidewalk': 1}
+    assert cs.kind_map(u, 'blind')['0'] is None and cs.after_kind_map(u) == {'0': 'no_sidewalk'}
+    rep = cs.render_report({'items_sha256': 'S', 'seed': 243, 'populations': EXPECTED_POPS},
+                           items, {'jonf': {'blind': b, 'final': b}}, {'jonf': []})
+    assert "Reasons added after the reveal at those corners" in rep
     # an older export flagged the same change as a verdict edit: measured from the data
     u['kinds_after_inventory'] = False
     u['edited_after_inventory'] = True

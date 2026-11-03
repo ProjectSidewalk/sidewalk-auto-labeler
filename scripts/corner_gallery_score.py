@@ -18,7 +18,8 @@ Reported per rater:
                  as no ramp = absent / (absent + present), Wilson 95%; undetermined units
                  are counted and left out of that share, and a conservative share (absent /
                  all complete) is printed beside it. Also the corner-level read at the
-                 corners holding the `NA` points, with the kind of absence.
+                 corners holding the `NA` points, with the kind of absence (blind
+                 reasons only; reasons added after the reveal on their own row).
   false_absence  each of the 35 units as one of
                    miss_at_inventory_corner   a corner holding an `Available` point is present
                    miss_elsewhere             no such corner present, another corner present
@@ -282,28 +283,26 @@ def verdict_map(u, which='blind'):
 
 
 def kind_map(u, which='blind'):
-    """{corner: absent_kind}. In the blind read a reason added after the reveal is used
-    where the corner's verdict was not changed (absent both times) and the blind read has
-    none: whether a sidewalk reaches the corner is read off the imagery, and the reason
-    never enters the present/absent scoring. kinds_from_after counts how many."""
-    if which != 'blind':
-        return {k: (e or {}).get('absent_kind') for k, e in (u.get('corners') or {}).items()}
-    out = {}
-    fin = u.get('corners') or {}
-    for k, e in (u.get('blind') or {}).items():
-        kind = (e or {}).get('absent_kind')
-        f = fin.get(k) or {}
-        if kind is None and (e or {}).get('verdict') == 'absent' and f.get('verdict') == 'absent':
-            kind = f.get('absent_kind')
-        out[k] = kind
-    return out
+    """{corner: absent_kind}, from the read's own reasons only. In the blind read that is the
+    reasons given before the reveal: a reason added after it is reported apart
+    (after_kind_map), because the revealed inventory can bias it on exactly the NA question
+    (an `NA` with no `RAMPTYPE` invites "no sidewalk here"; PR #141 review S3)."""
+    m = u.get('blind') if which == 'blind' else u.get('corners')
+    return {k: (e or {}).get('absent_kind') for k, e in (m or {}).items()}
+
+
+def after_kind_map(u):
+    """{corner: absent_kind} for the reasons added after the reveal to a corner rated absent
+    both before and after it, with no reason in the blind read (kinds_from_after counts
+    them)."""
+    b, fin = u.get('blind') or {}, u.get('corners') or {}
+    return {k: (fin.get(k) or {}).get('absent_kind') for k, e in b.items()
+            if (e or {}).get('verdict') == 'absent' and not (e or {}).get('absent_kind')
+            and (fin.get(k) or {}).get('verdict') == 'absent' and (fin.get(k) or {}).get('absent_kind')}
 
 
 def kinds_from_after(u):
-    b, fin = u.get('blind') or {}, u.get('corners') or {}
-    return sum(1 for k, e in b.items() if (e or {}).get('verdict') == 'absent'
-               and not (e or {}).get('absent_kind') and (fin.get(k) or {}).get('verdict') == 'absent'
-               and (fin.get(k) or {}).get('absent_kind'))
+    return len(after_kind_map(u))
 
 
 def classify_false_absence(item, verdicts):
@@ -374,8 +373,10 @@ def score_rater(items, verdicts, snapshot, which='blind', exclude=()):
         oc = {o: 0 for o in OUTCOMES}
         corner = {v: 0 for v in VERDICTS}
         kinds = {k: 0 for k in ABSENT_KINDS + ('unspecified',)}
+        after = {k: 0 for k in ABSENT_KINDS}
         for i in dn:
             vm, km = verdict_map(done[i['unit']], which), kind_map(done[i['unit']], which)
+            am = after_kind_map(done[i['unit']]) if which == 'blind' else {}
             o = outcome(vm)
             oc[o] += 1
             rows.append({'unit': i['unit'], 'part': part, 'outcome': o})
@@ -388,12 +389,14 @@ def score_rater(items, verdicts, snapshot, which='blind', exclude=()):
                     corner[v] += 1
                 if v == 'absent':
                     kinds[km.get(k) or 'unspecified'] += 1
+                if am.get(k):
+                    after[am[k]] += 1
         p = {'n': len(its), 'scored': len(dn), 'outcomes': oc,
              'unit_absent_share': share(oc['absent'], oc['absent'] + oc['present']),
              'unit_absent_conservative': share(oc['absent'], len(dn)),
              'corner_verdicts': corner,
              'corner_absent_share': share(corner['absent'], corner['absent'] + corner['present']),
-             'absent_kinds': kinds}
+             'absent_kinds': kinds, 'absent_kinds_added_after_reveal': after}
         if part == 'false_absence':
             cls = {c: 0 for c in FA_CLASSES}
             per, dating = {}, {}
@@ -496,8 +499,8 @@ def render_report(snapshot, items, results, problems, agree=None):
                   f"verdicts ({b['reopened_with_blind']} reopened and not completed again); "
                   f"{b['edited_after_inventory']} with a verdict changed after the inventory was "
                   f"shown; {b['kinds_after_inventory']} with absence reasons added after it "
-                  f"({b['kinds_from_after_corners']} corners; counted in the kinds of absence, "
-                  f"never in present/absent).", '']
+                  f"({b['kinds_from_after_corners']} corners; reported on their own row, never in "
+                  f"the blind kinds of absence or in present/absent).", '']
         na, fa, cl = b['parts']['na_noramp'], b['parts']['false_absence'], b['parts']['clean']
         lines += ['### `NA` with no `RAMPTYPE`: does the city mean "no ramp"?', '',
                   f"- Units rated absent at every corner, of units decided: "
@@ -508,7 +511,11 @@ def render_report(snapshot, items, results, problems, agree=None):
                   f"Conservative (undetermined counted against): "
                   f"{fmt(na['unit_absent_conservative'])}.",
                   f"- Corners holding the `NA` points: {na['corner_verdicts']}; absent share "
-                  f"{fmt(na['corner_absent_share'])}; kinds of absence {na['absent_kinds']}.", '',
+                  f"{fmt(na['corner_absent_share'])}; kinds of absence (blind reasons only) "
+                  f"{na['absent_kinds']}.",
+                  f"- Reasons added after the reveal at those corners (absent before and after, "
+                  f"no blind reason; can be biased by the inventory): "
+                  f"{na['absent_kinds_added_after_reveal']}.", '',
                   '### The 35 false absences', '',
                   f"- Classes: {fa.get('classes')}.",
                   f"- Real misses {fa.get('real_misses')}, artifacts {fa.get('artifacts')}; "

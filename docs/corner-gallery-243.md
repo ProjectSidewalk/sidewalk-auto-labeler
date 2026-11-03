@@ -166,11 +166,14 @@ Jon rated 28 of 95 units, exported (committed as the partial `verdicts__jonf.jso
   `kinds_after_inventory`, not `edited_after_inventory`; the page re-flags older saved state
   on load, and the scorer measures "verdict edited" from the data (blind vs final verdicts),
   so the one partial-file unit flagged edited for adding reasons only
-  (`vancouver:res:n3372672500`) now reads as a reasons-only change. In the blind read, a
-  reason added after the reveal fills a corner whose verdict was absent both before and after
-  and had no blind reason; the report counts these separately. They never enter
-  present/absent. Why this is acceptable: whether a sidewalk reaches the corner is read off
-  the imagery, and the inventory shown at the reveal carries no sidewalk information.
+  (`vancouver:res:n3372672500`) now reads as a reasons-only change. A reason added after the
+  reveal (to a corner rated absent before and after, with no blind reason) is reported on its
+  own row and never enters the blind kinds of absence or present/absent. It is kept apart
+  because the reveal can bias it: the inventory has no sidewalk field, but an `NA` status
+  with no `RAMPTYPE` invites the reading "no sidewalk here", and `no_sidewalk` vs
+  `curb_no_ramp` is the corner-level evidence on what `NA` means. (The first version merged
+  these reasons into the blind kinds; review S3 of PR #141. On the 50-unit file the only such
+  unit, `res:n3372672500`, is a false absence, so no `NA` number moved.)
   **Why it was needed:** the `b` / `n` keys were only announced to screen readers and listed
   in the help panel, and Jon found them around unit 24, so 32 of 37 absent `NA` corners in
   the partial file had no reason.
