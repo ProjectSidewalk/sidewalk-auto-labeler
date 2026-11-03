@@ -27,8 +27,13 @@ the environment the pass ran in. Inference itself now also writes ``<out>.softwa
 Step 4 runs it over a WHOLE run (no ``--ids``: every pano of ``--results``, in file order)
 and gates it on the 124 benchmark panos inside that run (``--check --ids <benchmark ids>``).
 ``--workers N`` decodes JPEGs in N threads; the forward pass stays serialized
-(CurbRampDetector at batch_size 1), so every pano's peaks equal a sequential pass's and only
-the order of output lines changes. ``--digest`` prints an order-independent sha256.
+(CurbRampDetector at batch_size 1), so every pano's peaks equal a sequential pass's, and
+``pool.map`` yields in input order, so the output lines are in --ids / file order too: the
+file is line for line what ``--workers 1`` writes. ``--digest`` prints a sha256 over the
+lines sorted by pano id, which compares passes whose id lists were ordered differently.
+The detector is pinned to the argmax decode and the `exclude` border rule (every live label
+and published table; issues #111, #130), and each record's ``floor_reinfer`` block says so.
+A resumed pass drops an unterminated last line (a pass killed mid-write) before appending.
 
 Usage (makelab2, A40):
     python scripts/floor_infer_archive.py --results ARCHIVE/richmond/results.jsonl \\
@@ -54,8 +59,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from detectors import (BENCHMARK_CONFIDENCE, DETECTION_STORAGE_FLOOR,  # noqa: E402
-                       MAX_PEAKS_PER_PANO)
+from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE,  # noqa: E402
+                       DECODE_ARGMAX, DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO)
+
+#: The peak decode and border rule every floor pass runs at (pinned, not the detector's
+#: default, so a later default change cannot move a pass silently).
+DETECTOR_KWARGS = {'decode': DECODE_ARGMAX, 'border': BORDER_EXCLUDE}
 
 CELL_X, CELL_Y = 1.0 / 1024, 1.0 / 512     # one heatmap cell
 GATE = 0.95
@@ -170,9 +179,16 @@ def input_manifest(ids, floor_recs, index=None, panos=None, imagery_manifest=Non
         man = imagery_manifest['panos']
         equal = [p for p in ids if p in man and man[p]['sha256'] == images[p]['sha256']
                  and [man[p]['width'], man[p]['height']] == images[p]['image_size']]
+        # A whole-run pass covers far more panos than the benchmark manifest lists, so
+        # "absent from the manifest" (a count) is kept apart from "listed but different"
+        # (the ids, which are the real finding). Sidecars written before the 2026-11-03
+        # review of labeler#114 carry one `differ` list holding both.
+        listed = [p for p in ids if p in man]
+        eq = set(equal)
         check = {'digest': imagery_manifest.get('digest'), 'n': len(ids),
-                 'sha256_and_size_equal': len(equal),
-                 'differ': [p for p in ids if p not in set(equal)]}
+                 'in_manifest': len(listed), 'sha256_and_size_equal': len(equal),
+                 'not_in_manifest': len(ids) - len(listed),
+                 'mismatch': [p for p in listed if p not in eq]}
     return {'images': images, 'rampnet_check': check}
 
 
@@ -206,11 +222,28 @@ def cmd_manifest(args):
                         if args.software_json else software_versions()),
            **out}
     chk = out['rampnet_check']
-    print(json.dumps({'images': len(out['images']), 'rampnet_check':
-                      None if chk is None else {k: v for k, v in chk.items() if k != 'differ'}}))
+    brief = None if chk is None else {**chk, 'mismatch': len(chk['mismatch'])}
+    print(json.dumps({'images': len(out['images']), 'rampnet_check': brief}))
     Path(args.manifest_out).write_text(json.dumps(out, indent=1, sort_keys=True) + '\n',
                                        encoding='utf-8', newline='\n')
     return out
+
+
+def resume_done(out):
+    """Pano ids already in a partial ``out``. A pass killed mid-write leaves an
+    unterminated last line; it is cut off first (and said so), so the resumed pass
+    re-runs that pano and appends on a clean line instead of dying on json.loads."""
+    if not out.exists():
+        return set()
+    data = out.read_bytes()
+    if data and not data.endswith(b'\n'):
+        keep = data.rfind(b'\n') + 1
+        print(f'{out}: dropping an unterminated last line ({len(data) - keep} bytes)')
+        with open(out, 'r+b') as f:
+            f.truncate(keep)
+        data = data[:keep]
+    return {str(json.loads(line)['pano']['panorama_id'])
+            for line in data.decode('utf-8').splitlines() if line.strip()}
 
 
 def cmd_infer(args):
@@ -219,11 +252,8 @@ def cmd_infer(args):
     Image.MAX_IMAGE_PIXELS = None
     ids = _ids(args)
     recs = pinned_records(args.results, ids)
-    done = set()
-    if args.out.exists():
-        with open(args.out, encoding='utf-8') as f:
-            done = {str(json.loads(line)['pano']['panorama_id']) for line in f if line.strip()}
-    det = CurbRampDetector()
+    done = resume_done(args.out)
+    det = CurbRampDetector(**DETECTOR_KWARGS)
     todo = [pid for pid in ids if pid not in done]
     t0 = time.time()
 
@@ -239,6 +269,7 @@ def cmd_infer(args):
         rec['floor_reinfer'] = {'image': str(path), 'image_size': list(img.size),
                                 'storage_floor': DETECTION_STORAGE_FLOOR,
                                 'max_peaks': MAX_PEAKS_PER_PANO,
+                                'decode': det.decode, 'border': det.border,
                                 'model': det.provenance}
         return json.dumps(rec) + NL
 
@@ -258,8 +289,10 @@ def cmd_infer(args):
 
 
 def canonical_sha256(path):
-    """sha256 over the output's lines sorted by pano id: independent of --workers order,
-    so two passes can be compared (and a committed digest checked) whatever their order."""
+    """sha256 over the output's lines sorted by pano id: independent of line order, so
+    two passes over differently ordered id lists can be compared (and a committed digest
+    checked) whatever their order. (--workers does not reorder lines: pool.map keeps
+    input order.)"""
     with open(path, encoding='utf-8') as f:
         lines = [line.rstrip(NL) for line in f if line.strip()]
     lines.sort(key=lambda s: str(json.loads(s)['pano']['panorama_id']))
@@ -271,7 +304,8 @@ CONF_TOL = 1e-3
 
 def same_peaks(a, b, tol=CONF_TOL):
     """Full peak sets down to the floor agree: same count, and a one-to-one pairing in
-    which each peak is in the same heatmap cell (seam-wrapped) with |dconf| <= tol."""
+    which each peak lies within one heatmap cell (1/1024 in x, seam-wrapped; 1/512 in y)
+    with |dconf| <= tol."""
     if len(a) != len(b):
         return False
     left = list(b)
