@@ -475,7 +475,7 @@ no `--limit`. It was requeued once, which `ckpt` does:
 | processed | 61,818 | 25,698 | **87,516** |
 | skipped | 58 | 9 | 67 |
 | failed | see below | 0 | 0 |
-| rate (`detector:` line) | not printed | **2.512** panos/s | |
+| rate (`detector:` line; pre-#161, unpaced, not a rate to reproduce) | not printed | **2.512** panos/s | |
 
 - **Attempt 1 left no `runs[]` entry and no Final Report.** A requeued job is killed, so
   `main.py` never wrote its manifest entry. Its per-pano stdout lines were lost too; they
@@ -515,6 +515,28 @@ no `--limit`. It was requeued once, which `ckpt` does:
 
 RampNet#159's per-producer caps may limit how many of the added Grand Lyon panos train.
 That is a training-side question, and it does not block this run.
+
+**Re-running it today.** Use current main, not `fd08b8f`. That commit predates #161 /
+PR #173: it fetched from 50 threads with no pacing, two requests per pano, and so did the
+archive pass below. Panoramax's maintainers asked for about one full-resolution picture per
+second, and since PR #173 `sources/panoramax.py` paces every request: `picture` 1/s,
+`metadata` 1/s (batched, up to 100 ids per `/search` request when main.py hints the
+order), `tile` 5/s, with the pool capped at 4 threads. Every rate quoted in this doc
+(1.251, 2.505 and 2.512 panos/s for detection, about 1.5 for the archive) was measured
+before #161 and is not a rate to reproduce. At 1 picture/s:
+
+- the densify resume (87,583 panos) has a download floor of about **24 h**, and the whole
+  5 m set from scratch (174,525) about **48 h**. `--scan-only` prints this floor beside its
+  generic 1.5 s/pano pipeline estimate (about 73 h for the 5 m set); on the L40S the forward
+  pass took 0.40 s per pano (attempt 2: 10,191 s over 25,698), so the download floor binds
+  and the GPU sits idle most of the time;
+- the archive pass (174,405 pictures, plus one item GET per id, because
+  `export_benchmark.py` gives no order hint) is also about **48 h**.
+
+The limits are per process, so never run the archive and a detection run against the
+public instances at the same time: two processes get 1/s each. Never set
+`PANORAMAX_PICTURES_PER_SECOND` / `_METADATA_` / `_TILES_` to 0 (unlimited) except against
+a private mirror.
 
 | file | sha256 |
 |---|---|
@@ -556,7 +578,7 @@ step 6 (with this branch's `run_census.py`, which wrote the committed unmasked
 
 | number | file | column / row |
 |---|---|---|
-| 174,525 found, 25,698 / 9 / 0 for attempt 2, 2.512 panos/s | `runs/lyon/manifest.json` `runs[2]`; `run3.log` last `detector:` line | `panos_found_in_area`, `processed`, `skipped`, `failed` |
+| 174,525 found, 25,698 / 9 / 0 for attempt 2, 2.512 panos/s (pre-#161, unpaced) | `runs/lyon/manifest.json` `runs[2]`; `run3.log` last `detector:` line | `panos_found_in_area`, `processed`, `skipped`, `failed` |
 | 61,876 / 61,818 / 58 for attempt 1; 75,988 at requeue | `runs/lyon/manifest.json` `unrecorded_attempts[0]` (`added_to_cache`, `processed`, `skipped`); `run3.log` (`Already processed (skipped): 148818`, last tqdm line before `CANCELLED ... DUE TO JOB REQUEUE`); line and cache counts against the 10 m backup | — |
 | 67 skips, all `view:azimuth` | `data/full_5m/densify_skips.csv` (`source` = `log` for 9, `api` for 58, re-derived 2026-10-07) | `reason` |
 | 0.424 / 0.940 per pano; on rig 141 / 1,061 | `data/census/lyon_5m/detections.csv` | `detections_per_pano`, `on_rig` |
