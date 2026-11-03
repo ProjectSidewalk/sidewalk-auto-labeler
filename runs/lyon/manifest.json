@@ -94,5 +94,21 @@
     "how": "by hand (issue #148), not by main.py; same procedure as Bayonne (#147, PR #154)",
     "why": "Jon's decision 2026-10-07 on #148 (evidence: PR #156; thinning experiment PR #144)",
     "effect": "runs[0] and runs[1] processed the 10 m set; the following resume appends the 5 m cells it lacks. Re-thinning the same reused scan.json (381,295 panos, scanned 2026-10-06T04:46:02Z) with sources.panoramax.thin_panos gives a 10 m set (86,942) set-equal to already_processed.txt and an exact subset of the 5 m set (174,525), so the finished results.jsonl is exactly the 5 m population, not a mix (87,583 panos to add). 10 m state backed up to runs/lyon.bak-10m-2026-10-07/ on Hyak"
-  }
+  },
+  "unrecorded_attempts": [
+    {
+      "job": "Hyak 41504145, attempt 1 (restart_count=0)",
+      "started_at": "2026-10-07T12:38:15Z",
+      "ended_at": "2026-10-07T20:45:03Z",
+      "ended_by": "ckpt requeue (killed before main.py wrote a runs[] entry); runs[2] is attempt 2 only",
+      "thin_spacing_m": 5,
+      "added_to_cache": 61876,
+      "processed": 61818,
+      "skipped": 58,
+      "failed": null,
+      "failed_note": "not recorded: retryable failures are never cached and this attempt's stdout was lost; attempt 2 retried all of them with 0 failed",
+      "results_lines": "86890-148707 (1-based)",
+      "how_counted": "added by hand 2026-11-03 from the files: already_processed.txt lines 86943-148818 (attempt 2 began at 'Already processed (skipped): 148818' in the job log) and the results.jsonl lines holding those ids; 58 = cache ids with no results line. runs[].processed (112,587) plus this entry's 61,818 = 174,405 = results.jsonl lines. See docs/panoramax-lyon.md section 8"
+    }
+  ]
 }

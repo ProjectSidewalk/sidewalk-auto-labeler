@@ -472,7 +472,12 @@ no `--limit`. It was requeued once, which `ckpt` does:
   were still buffered, while tqdm on stderr was not. `runs[2]` therefore records only
   attempt 2 (25,698 processed / 9 skipped). The attempt-1 column above is counted from the
   files: lines and cache ids added between the 10 m backup and the restart's
-  `Already processed (skipped): 148818`. tqdm had counted 75,988 completions at the
+  `Already processed (skipped): 148818`. It is recorded by hand in the manifest's
+  `unrecorded_attempts` block (added 2026-11-03), so `runs[].processed` (112,587) plus that
+  block's 61,818 sums to the file's 174,405 lines. Re-derived from the local copy: cache
+  lines 86,943-148,818 are attempt 1's 61,876 ids, 61,818 of them on `results.jsonl` lines
+  86,890-148,707 and 58 with no line; cache lines 148,819-174,525 are attempt 2's 25,707 ids,
+  25,698 of them on lines 148,708-174,405. tqdm had counted 75,988 completions at the
   requeue, against 61,876 cached. The difference is retryable failures, which `main.py`
   never caches; their reasons went with the lost stdout. Attempt 2 retried every one of
   them with 0 failures.
@@ -507,7 +512,7 @@ That is a training-side question, and it does not block this run.
 | `runs/lyon/already_processed.txt` (174,525 ids) | `6ae9cafc04bdb3f8d0b69b3565eb83655038aa0448acf46c57ad110a942c29fa` |
 | `runs/lyon/scan.json` (unchanged since slice 1) | `20339fea38e9476e089977de29cccb52c8d3e8497c4f1377d21d4175ea93561b` |
 | `runs/lyon/osm_streets.json` (cached, not committed) | `92915232b3ea34162882dac7df899545e9352281c2ee51e48bac13847c5fe8da` |
-| `runs/lyon/manifest.json` (committed) | `f4b50585b5b5b5d73431acdf0d19f0a095e661d8316c6f0d07890353f7b3f4fa` |
+| `runs/lyon/manifest.json` (committed; `unrecorded_attempts` added 2026-11-03) | `99a154c64cefda40c3e68af4aae93979ee06cee3a6fa00ac206df2e779670cdd` |
 | `runs/lyon/position_check.json` (committed) | `47feda1bfa95246d44d945be05bbff56e9fd625244fbf4a91d40e65b44e626c2` |
 | `runs/lyon/position_report.html` (committed) | `b94b6a718ed331e92f04baa1d8c893b3d5f412018865928f8e3a2635b764fe9c` |
 | `runs/lyon/run3.log` (Hyak `lyon_densify_41504145.log`, not committed) | `22defce1410b303c1a20cb09ffeab1655f89cc3694e8254e20314755aefdcc94` |
@@ -524,7 +529,7 @@ python scripts/panoramax_lyon_figures.py rig-producers --out docs/figures/panora
 | number | file | column / row |
 |---|---|---|
 | 174,525 found, 25,698 / 9 / 0 for attempt 2, 2.512 panos/s | `runs/lyon/manifest.json` `runs[2]`; `run3.log` last `detector:` line | `panos_found_in_area`, `processed`, `skipped`, `failed` |
-| 61,876 / 61,818 / 58 for attempt 1; 75,988 at requeue | `run3.log` (`Already processed (skipped): 148818`, last tqdm line before `CANCELLED ... DUE TO JOB REQUEUE`); line and cache counts against the 10 m backup | — |
+| 61,876 / 61,818 / 58 for attempt 1; 75,988 at requeue | `runs/lyon/manifest.json` `unrecorded_attempts[0]` (`added_to_cache`, `processed`, `skipped`); `run3.log` (`Already processed (skipped): 148818`, last tqdm line before `CANCELLED ... DUE TO JOB REQUEUE`); line and cache counts against the 10 m backup | — |
 | 67 skips, all `view:azimuth` | `data/full_5m/densify_skips.csv` (`source` = `log` for 9, `api` for 58, re-derived 2026-10-07) | `reason` |
 | 0.424 / 0.940 per pano; on rig 141 / 1,061 | `data/census/lyon_5m/detections.csv` | `detections_per_pano`, `on_rig` |
 | 0.458 / 1.013 for the added panos | `results.jsonl` lines 86,890 onward, counted at 0.55 / 0.30 | — |
