@@ -159,7 +159,7 @@ def rig_detection_rows(c):
 
 def _write(path, header, rows):
     with open(path, 'w', newline='', encoding='utf-8') as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator='\n')  # LF on every OS: byte-reproducible
         w.writerow(header)
         w.writerows(rows)
 
@@ -229,7 +229,8 @@ def main():
         rates = [r[6 + 4 * i] for i in range(len(TIERS))]
         lines.append(f'| {r[0]}, {r[1]}, {r[2]} | {r[3]} | {r[4]} | '
                      + ' | '.join(str(x) for x in rates) + ' |')
-    (args.out / 'census.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    (args.out / 'census.md').write_text('\n'.join(lines) + '\n', encoding='utf-8',
+                                         newline='\n')
     print('\n'.join(lines))
 
 

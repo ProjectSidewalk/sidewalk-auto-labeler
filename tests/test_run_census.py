@@ -65,3 +65,16 @@ def test_email_shaped_producer_is_masked():
     rec['pano']['copyright'] = 'jane.doe@example.org'
     c = rc.census([rec])
     assert list(c['producers']) == [('j***@***', 'panoramax.ign.fr', 'etalab-2.0')]
+
+
+def test_outputs_are_lf_on_every_os(tmp_path, monkeypatch):
+    """The committed census is LF; a regeneration must be byte-identical (PR #150 review, N3)."""
+    import json
+    import sys
+    run = tmp_path / 'city'
+    run.mkdir()
+    (run / 'results.jsonl').write_text(json.dumps(_rec('MAX', '2024-05', None, None, [])) + '\n')
+    monkeypatch.setattr(sys, 'argv', ['run_census.py', str(run), '--out', str(tmp_path / 'out')])
+    rc.main()
+    for f in (tmp_path / 'out').iterdir():
+        assert b'\r' not in f.read_bytes(), f.name
