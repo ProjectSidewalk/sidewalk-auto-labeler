@@ -1,0 +1,49 @@
+{
+  "store": "/projects/makeabilitylab/sidewalk_panos/Panoramas/vancouver-wa",
+  "artifact": "<id[:2]>/<id>.depth.npz",
+  "producer": "sidewalk-panorama-tools depth phase (format v3)",
+  "bound_at": "2026-09-28T23:10:05+00:00",
+  "frame_check": {
+    "checked_at": "2026-09-28T23:10:05+00:00",
+    "n_requested": 5,
+    "n_checked": 5,
+    "live_requests": 5,
+    "seed": 0,
+    "identical": 5,
+    "revised": 0,
+    "mismatch": 0,
+    "ok": true,
+    "panos": [
+      {
+        "pano_id": "fVb_fz6mqMGQ2anebhylAQ",
+        "match": "identical",
+        "index_agreement": 1.0,
+        "mirrored_agreement": 0.76800537109375
+      },
+      {
+        "pano_id": "jTxzu7e8GSsIX6QObBuaQQ",
+        "match": "identical",
+        "index_agreement": 1.0,
+        "mirrored_agreement": 0.8065032958984375
+      },
+      {
+        "pano_id": "3VaSKYEF6kz9ktxA9_2JBA",
+        "match": "identical",
+        "index_agreement": 1.0,
+        "mirrored_agreement": 0.9374847412109375
+      },
+      {
+        "pano_id": "SCSWGHfjPSA3DqmSiEkgng",
+        "match": "identical",
+        "index_agreement": 1.0,
+        "mirrored_agreement": 0.73638916015625
+      },
+      {
+        "pano_id": "u1C3wmoogKtIXAD9waUpPQ",
+        "match": "identical",
+        "index_agreement": 1.0,
+        "mirrored_agreement": 0.768646240234375
+      }
+    ]
+  }
+}

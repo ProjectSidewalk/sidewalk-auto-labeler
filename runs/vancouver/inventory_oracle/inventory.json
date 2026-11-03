@@ -1,7 +1,114 @@
 {
  "city": "vancouver",
- "status": "service not started (probed 2026-09-06 and 2026-09-26)",
- "url": "https://utility.arcgis.com/usrsvcs/servers/90f910b76e3c43e0acd3cfd623a3818c/rest/services/PublicWorks/transSidewalkPUB/MapServer/0",
- "publisher": "City of Vancouver, WA",
- "note": "not fetched: the service is not answering; no scoring possible"
+ "status": "ok",
+ "url": "https://services.arcgis.com/oNvpY90qsPDizwkN/arcgis/rest/services/COV_TransCurbRamp/FeatureServer/0",
+ "portal": "https://www.arcgis.com/home/item.html?id=3cd0fa9717b34934a9a0f0645fae4839",
+ "item": "3cd0fa9717b34934a9a0f0645fae4839",
+ "publisher": "City of Vancouver, WA (CityOfVancouverGISAdmin)",
+ "terms": "public AGOL item (owner CityOfVancouverGISAdmin); licence field reads \"These are use limitations\", no explicit open licence -- cited, used for analysis",
+ "query": {
+  "where": "1=1",
+  "geometry": "envelope of area.geojson bounds",
+  "bbox_wgs84": [
+   -122.774563,
+   45.577389,
+   -122.46456,
+   45.698004
+  ],
+  "outSR": 4326,
+  "f": "geojson",
+  "paging": "resultOffset"
+ },
+ "keep": {
+  "field": "STATUS",
+  "values": [
+   "Available"
+  ],
+  "where_equivalent": "STATUS IN ('Available')"
+ },
+ "fetched_utc": "2026-09-28T23:11:26+00:00",
+ "file": "inventory.geojson",
+ "sha256": "c4d2497995f7b6261333c3859a668348cd62a36367593cef2dfdfa6b7e020d87",
+ "bytes": 38491520,
+ "layer_name": "Curb Ramps",
+ "max_record_count": 2000,
+ "page_size": 1000,
+ "pages": 18,
+ "object_id_field": "OBJECTID",
+ "last_edit_date_ms": 1790503039327,
+ "layer_total": 17614,
+ "in_bbox": 17612,
+ "in_area": 17440,
+ "kept": 11355,
+ "histograms_in_area": {
+  "STATUS": {
+   "Available": 11355,
+   "NA": 4777,
+   "RMV": 1089,
+   "None": 156,
+   "Expired/Removed": 50,
+   "FV": 8,
+   "Clarify": 2,
+   "Private": 2,
+   "CONST": 1
+  },
+  "UNITTYPE": {
+   "CURBRAMP": 17434,
+   "DIRECT": 3,
+   "Curb Ramp": 1,
+   "DIAG": 1,
+   "None": 1
+  },
+  "RAMPTYPE": {
+   "DIRECT": 5612,
+   "None": 5354,
+   "DIAG": 2108,
+   "PARA": 1995,
+   "COMB": 1401,
+   "PERP": 945,
+   "TEMP": 21,
+   "LROW": 4
+  },
+  "CORNER": {
+   "None": 15344,
+   "NE": 513,
+   "SW": 468,
+   "NW": 466,
+   "SE": 465,
+   "W": 49,
+   "S": 48,
+   "N": 46,
+   "E": 41
+  },
+  "DIRECTION": {
+   "None": 15402,
+   "W": 410,
+   "N": 404,
+   "S": 401,
+   "E": 374,
+   "SE": 127,
+   "SW": 112,
+   "NE": 109,
+   "NW": 101
+  },
+  "OWNER": {
+   "CITY": 12388,
+   "None": 4943,
+   "": 94,
+   "PRIVATE": 15
+  },
+  "MAINTBY": {
+   "None": 17398,
+   "City of Vancouver": 42
+  },
+  "DATASRC": {
+   "None": 14904,
+   "As-Built Drawing": 1837,
+   "Field Inspection": 619,
+   "Record Drawing": 75,
+   "As-Built": 2,
+   "Other": 2,
+   "E-1": 1
+  }
+ }
 }

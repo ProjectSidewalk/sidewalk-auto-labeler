@@ -1,0 +1,3 @@
+pano_id,x,y,score,edge,world_class,bundle_pano,gt,straddle_pair
+rwvcbLbf62lrkoOE4oXFfQ,0.9960938,0.5234375,0.7754757,right,not_projected,0,,0
+tM1gQR6oOHTcwLItwgD3nA,0.0,0.5390625,0.5242367,left,new,0,,1

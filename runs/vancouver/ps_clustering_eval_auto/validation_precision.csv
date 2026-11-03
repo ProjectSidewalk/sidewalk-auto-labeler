@@ -1,0 +1,76 @@
+arm,bucket,clusters,n_validated_clusters,any_false,all_false,labels_validated,labels_false
+deployed,cluster of 1,4295,145,0,0,145,0
+deployed,cluster of 2,3406,270,0,0,282,0
+deployed,cluster of 3+,10983,2196,0,0,2414,0
+ps_repro,cluster of 1,3634,128,0,0,128,0
+ps_repro,cluster of 2,2932,228,0,0,236,0
+ps_repro,cluster of 3+,10848,2231,0,0,2467,0
+ps @ 2.5 m,cluster of 1,14752,631,50,50,631,50
+ps @ 2.5 m,cluster of 2,7228,644,20,19,665,20
+ps @ 2.5 m,cluster of 3+,9081,1511,11,11,1615,11
+ps @ 5 m,cluster of 1,6192,267,43,43,267,43
+ps @ 5 m,cluster of 2,4123,344,19,19,354,19
+ps @ 5 m,cluster of 3+,10734,2093,19,17,2290,19
+ps @ 7.5 m,cluster of 1,3655,169,41,41,169,41
+ps @ 7.5 m,cluster of 2,2944,243,15,15,251,15
+ps @ 7.5 m,cluster of 3+,10852,2253,25,23,2491,25
+ps @ 10 m,cluster of 1,2728,126,40,40,126,40
+ps @ 10 m,cluster of 2,2503,205,16,16,213,16
+ps @ 10 m,cluster of 3+,10803,2310,25,22,2572,25
+ps @ 12.5 m,cluster of 1,2315,105,40,40,105,40
+ps @ 12.5 m,cluster of 2,2325,192,13,13,201,13
+ps @ 12.5 m,cluster of 3+,10781,2337,28,25,2605,28
+ps @ 15 m,cluster of 1,2056,87,36,36,87,36
+ps @ 15 m,cluster of 2,2220,190,13,13,199,13
+ps @ 15 m,cluster of 3+,10804,2353,32,29,2625,32
+ps_citywide @ 7.5 m,cluster of 1,3563,165,41,41,165,41
+ps_citywide @ 7.5 m,cluster of 2,2905,239,15,15,246,15
+ps_citywide @ 7.5 m,cluster of 3+,10842,2261,25,23,2500,25
+ps_placeable @ 2.5 m,cluster of 1,12450,536,41,41,536,41
+ps_placeable @ 2.5 m,cluster of 2,6154,560,13,12,575,13
+ps_placeable @ 2.5 m,cluster of 3+,6365,999,8,8,1061,8
+ps_placeable @ 5 m,cluster of 1,5583,232,37,37,232,37
+ps_placeable @ 5 m,cluster of 2,3768,341,12,12,352,12
+ps_placeable @ 5 m,cluster of 3+,8326,1471,13,12,1588,13
+ps_placeable @ 7.5 m,cluster of 1,3576,151,35,35,151,35
+ps_placeable @ 7.5 m,cluster of 2,2953,269,10,10,278,10
+ps_placeable @ 7.5 m,cluster of 3+,8619,1600,17,16,1743,17
+ps_placeable @ 10 m,cluster of 1,2847,116,34,34,116,34
+ps_placeable @ 10 m,cluster of 2,2640,243,11,11,251,11
+ps_placeable @ 10 m,cluster of 3+,8684,1651,17,16,1805,17
+ps_placeable @ 12.5 m,cluster of 1,2479,102,31,31,102,31
+ps_placeable @ 12.5 m,cluster of 2,2516,229,11,11,238,11
+ps_placeable @ 12.5 m,cluster of 3+,8709,1675,20,19,1832,20
+ps_placeable @ 15 m,cluster of 1,2199,90,30,30,90,30
+ps_placeable @ 15 m,cluster of 2,2401,216,11,11,225,11
+ps_placeable @ 15 m,cluster of 3+,8773,1695,21,20,1857,21
+ps_raycast @ 2.5 m,cluster of 1,10103,479,42,42,479,42
+ps_raycast @ 2.5 m,cluster of 2,5238,475,12,12,489,12
+ps_raycast @ 2.5 m,cluster of 3+,7094,1115,8,7,1204,8
+ps_raycast @ 5 m,cluster of 1,4417,189,35,35,189,35
+ps_raycast @ 5 m,cluster of 2,3139,270,13,13,278,13
+ps_raycast @ 5 m,cluster of 3+,8393,1556,14,12,1705,14
+ps_raycast @ 7.5 m,cluster of 1,3162,130,35,35,130,35
+ps_raycast @ 7.5 m,cluster of 2,2558,228,12,12,236,12
+ps_raycast @ 7.5 m,cluster of 3+,8554,1636,15,13,1806,15
+ps_raycast @ 10 m,cluster of 1,2748,114,35,35,114,35
+ps_raycast @ 10 m,cluster of 2,2415,217,11,11,225,11
+ps_raycast @ 10 m,cluster of 3+,8610,1656,16,14,1833,16
+ps_raycast @ 12.5 m,cluster of 1,2527,107,33,33,107,33
+ps_raycast @ 12.5 m,cluster of 2,2360,211,10,10,220,10
+ps_raycast @ 12.5 m,cluster of 3+,8647,1666,19,17,1845,19
+ps_raycast @ 15 m,cluster of 1,2271,94,30,30,94,30
+ps_raycast @ 15 m,cluster of 2,2302,205,11,11,214,11
+ps_raycast @ 15 m,cluster of 3+,8708,1683,21,19,1864,21
+fusion,cluster of 1,0,0,0,0,0,0
+fusion,cluster of 2,0,0,0,0,0,0
+fusion,cluster of 3+,0,0,0,0,0,0
+fusion_refit,cluster of 1,0,0,0,0,0,0
+fusion_refit,cluster of 2,0,0,0,0,0,0
+fusion_refit,cluster of 3+,0,0,0,0,0,0
+fusion_server,cluster of 1,6144,264,45,45,264,45
+fusion_server,cluster of 2,2278,194,18,18,201,18
+fusion_server,cluster of 3+,10062,2184,18,16,2447,18
+fusion_server+attach,cluster of 1,3708,162,44,44,162,44
+fusion_server+attach,cluster of 2,2289,193,17,17,200,17
+fusion_server+attach,cluster of 3+,10174,2267,20,16,2550,20

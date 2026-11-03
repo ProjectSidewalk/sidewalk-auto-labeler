@@ -1,0 +1,7 @@
+city,base,arm,n_clusters,coverage,covered,n_pool,frag5,frag5_extra,frag3,dual,dual_pairs,dual_both,precision,tp,fp,same_pano_pairs,base_frag5,base_coverage,base_dual
+paterson,fusion,base,7172,0.9443,305,323,0.1279,39,0.0656,0.85,100,85,0.9749,233,6,0,0.1279,0.9443,0.85
+paterson,fusion,anchored,7172,0.9443,305,323,0.141,43,0.059,0.85,100,85,0.9749,233,6,0,0.1279,0.9443,0.85
+paterson,fusion,merge-at-anchor,6197,0.7771,251,323,0.0757,19,0.0279,0.31,100,31,0.972,208,6,1768,0.1279,0.9443,0.85
+paterson,ps @ 7.5 m,base,8383,0.9443,305,323,0.2984,96,0.177,0.85,100,85,0.9783,271,6,0,0.2984,0.9443,0.85
+paterson,ps @ 7.5 m,anchored,8383,0.9412,304,323,0.3125,101,0.1711,0.84,100,84,0.9783,271,6,0,0.2984,0.9443,0.85
+paterson,ps @ 7.5 m,merge-at-anchor,7114,0.805,260,323,0.1423,37,0.05,0.39,100,39,0.9767,252,6,1755,0.2984,0.9443,0.85

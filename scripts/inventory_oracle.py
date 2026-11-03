@@ -138,14 +138,29 @@ INVENTORIES = {
                  'disclaimer on the service',
     },
     'vancouver': {
-        # Known (issue #56: 16,960 points), but the service has answered "Service ... not
-        # started" on every probe (2026-09-06, 2026-09-26). Not fetched: `fetch vancouver`
-        # records the status only. TODO(#56): once it answers, set status 'ok' and fill
-        # keep_field/keep_values/fields from its schema.
-        'status': 'service not started (probed 2026-09-06 and 2026-09-26)',
-        'url': 'https://utility.arcgis.com/usrsvcs/servers/90f910b76e3c43e0acd3cfd623a3818c/'
-               'rest/services/PublicWorks/transSidewalkPUB/MapServer/0',
-        'publisher': 'City of Vancouver, WA',
+        # The old proxy (utility.arcgis.com/.../PublicWorks/transSidewalkPUB/MapServer/0,
+        # 16,960 points on 2026-09-06, issue #56) answers "Service ... not started"; its
+        # AGOL item is now titled "Curb Ramps (MS) - OLD". This is the City's hosted
+        # replacement, measured 2026-09-28: 17,614 records, a newer snapshot rather than
+        # the same dataset. STATUS (domain StrPed_Status) counts that day: Available
+        # 11,498, NA ("Not Available") 4,788 -- 4,751 of them with no RAMPTYPE, i.e. a
+        # corner WITHOUT a ramp -- RMV 1,105, Expired/Removed 50, null 158, FV 8,
+        # Clarify 4, Private 2, CONST 1. Only in-place ramps are scored: STATUS
+        # 'Available'. UNITTYPE is 'CURBRAMP' on 17,608 of 17,614 rows (the shared
+        # AppurtenanceType domain); it is not a filter.
+        'status': 'ok',
+        'url': 'https://services.arcgis.com/oNvpY90qsPDizwkN/arcgis/rest/services/'
+               'COV_TransCurbRamp/FeatureServer/0',
+        'portal': 'https://www.arcgis.com/home/item.html?id=3cd0fa9717b34934a9a0f0645fae4839',
+        'item': '3cd0fa9717b34934a9a0f0645fae4839',
+        'publisher': 'City of Vancouver, WA (CityOfVancouverGISAdmin)',
+        'keep_field': 'STATUS', 'keep_values': ('Available',),
+        'fields': ('STATUS', 'UNITTYPE', 'RAMPTYPE', 'CORNER', 'DIRECTION', 'OWNER',
+                   'MAINTBY', 'DATASRC'),
+        'characterize_fields': ('RAMPTYPE', 'OWNER', 'CORNER'),
+        'terms': 'public AGOL item (owner CityOfVancouverGISAdmin); licence field reads '
+                 '"These are use limitations", no explicit open licence -- cited, used '
+                 'for analysis',
     },
 }
 # Checked, no curb-ramp inventory (2026-09-26). Recorded so the negative is reproducible.

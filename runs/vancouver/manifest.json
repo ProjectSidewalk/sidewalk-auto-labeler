@@ -4,11 +4,48 @@
   "source_geojson": "example_geojson/vancouver.geojson",
   "area_hash": "af3fd1c40ce98c3468b5891e2734a8d78dd9132f630ef8777665944cf8691674",
   "imagery_source": "gsv",
-  "model_id": "rampnet-model",
+  "model_id": "rampnet-model@606a11956743",
   "model_training_date": "08-21-2025",
   "api_version": "1.0.0",
   "detection_storage_floor": 0.1,
   "max_peaks_per_pano": 50,
   "streetlevel_version": "0.12.10",
-  "runs": []
+  "runs": [
+    {
+      "started_at": "2026-09-28T15:14:51+00:00",
+      "finished_at": "2026-09-28T21:23:55+00:00",
+      "panos_found_in_area": 28830,
+      "processed": 28830,
+      "skipped": 0,
+      "failed": 0,
+      "phase": "store",
+      "native_size_mismatch": 0,
+      "guarded_skips_refused": {},
+      "model": {
+        "model_repo": "projectsidewalk/rampnet-model",
+        "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+        "model_id": "rampnet-model@606a11956743",
+        "model_training_date": "08-21-2025",
+        "api_version": "1.0.0"
+      }
+    }
+  ],
+  "legacy_model_provenance": {
+    "model_id": "rampnet-model",
+    "model_training_date": "08-21-2025",
+    "api_version": "1.0.0"
+  },
+  "model_repo": "projectsidewalk/rampnet-model",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+  "pixels": {
+    "store": "/projects/makeabilitylab/sidewalk_panos/Panoramas/vancouver-wa",
+    "layout": "sharded",
+    "server": "https://sidewalk-vancouver.cs.washington.edu",
+    "metadata": "/backupImage/{pano_id}/metadata",
+    "ids_sha256": "f0b53fc30d9b01395400ab8a29b2841f9998512b5f6e8756808c9c58f80bc087",
+    "n_ids": 29181,
+    "n_sampled_unlabeled": 300,
+    "seed": 56,
+    "source_detail": "ps_store"
+  }
 }

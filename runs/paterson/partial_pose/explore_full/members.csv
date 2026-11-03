@@ -1,0 +1,11 @@
+city,height,arm,op_members,unplaceable,unplaceable_vs_off
+paterson,auto,off,35107,5822,0
+paterson,auto,partial-loco,35107,5255,-567
+paterson,auto,partial-loco-shuffled,35107,5449,-373
+paterson,auto,full,35107,4267,-1555
+paterson,auto,fixed-113,35107,4967,-855
+paterson,2.6,off,35107,5822,0
+paterson,2.6,partial-loco,35107,5879,57
+paterson,2.6,partial-loco-shuffled,35107,5936,114
+paterson,2.6,full,35107,6804,982
+paterson,2.6,fixed-113,35107,6059,237
