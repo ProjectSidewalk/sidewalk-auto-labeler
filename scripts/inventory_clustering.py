@@ -228,7 +228,8 @@ def complete_arm(arm_of, keys):
 
 def assignment_metrics(arm_of, units, unit_keys=None):
     """The pre-registered cluster-review metrics (RampNet docs/cluster_review_protocol.md,
-    "Metrics") for one arm over reviewed units. Pure, numpy-free.
+    "Metrics"; on RampNet branch cluster-review-224 for now, see
+    cluster_review_score.RAMPNET_REF) for one arm over reviewed units. Pure, numpy-free.
 
     arm_of: {label key: set of cluster ids} (arm_index); units: {corner_id: assignment
     unit} -- only `complete` ones count (a `cant_judge` unit never does); unit_keys:
