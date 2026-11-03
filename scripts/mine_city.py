@@ -14,6 +14,10 @@ the labels a miner would emit. It reads no verdict.
     rule       peak_anchor.anchor_peak over that pano's stored peaks (a floor pass):
                a >= 0.55 peak in the 0.022 window -> not emitted; else the strongest
                [0.1, 0.55) peak -> emitted at its pixel; else not emitted
+    rig mask   an emitted peak on the camera rig (detectors.on_camera_rig, 49 deg of dip)
+               is withheld as status `on_rig`, as send_to_ps.transform_record drops it
+               (0 Richmond rows: the deepest emitted peak sits at y 0.771484, the mask
+               starts above 0.772222)
 
 Writes ``<out>/labels.jsonl`` (one row per pair: status, anchor, emitted pixel and peak
 confidence, range, band, whether the target pano is a benchmark pano, the source-rule
@@ -41,7 +45,7 @@ import geo  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import mined_precision as mp  # noqa: E402
 import peak_anchor as pa  # noqa: E402
-from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, on_camera_rig  # noqa: E402
 
 BANDS = ((0.0, 8.0, '0-8 m'), (8.0, 12.0, '8-12 m'), (12.0, 15.0, '12-15 m'))
 NL = '\n'
@@ -65,6 +69,23 @@ def cli_params(height):
     """
     return fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
                          apply_pose=fs.POSE_OFF, camera_height_m=height)
+
+
+def target_status(anchor, peaks):
+    """peak_anchor.anchor_peak, then the camera-rig mask on what it would emit: a peak
+    past 49 deg of dip is on the vehicle, never a ramp (detectors.on_camera_rig, the mask
+    send_to_ps.transform_record applies), so it is withheld as ``on_rig``. The peak stays
+    in the row for context; only ``emit`` rows are training targets.
+
+        >>> target_status((0.5, 0.6), [(0.505, 0.6, 0.3)])
+        ('emit', (0.505, 0.6, 0.3))
+        >>> target_status((0.5, 0.77), [(0.5, 0.775, 0.3)])
+        ('on_rig', (0.5, 0.775, 0.3))
+    """
+    status, pk = pa.anchor_peak(anchor, peaks)
+    if status == 'emit' and on_camera_rig(pk[1]):
+        return 'on_rig', pk
+    return status, pk
 
 
 def mine(run_panos, params, peaks, radius_m=15.0, min_panos=3, city='',
@@ -100,7 +121,7 @@ def mine(run_panos, params, peaks, radius_m=15.0, min_panos=3, city='',
                 continue
             if pid not in peaks:
                 raise SystemExit(f'no floor peaks for run pano {pid}')
-            status, pk = pa.anchor_peak((proj.x_norm, proj.y_norm), peaks[pid])
+            status, pk = target_status((proj.x_norm, proj.y_norm), peaks[pid])
             src = mp.choose_source(site, pid, run_by_id, frame)
             rows.append({
                 'city': city, 'site_id': site.id, 'pano_id': pid, 'status': status,

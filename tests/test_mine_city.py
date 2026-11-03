@@ -51,6 +51,24 @@ def test_cli_tier_is_the_benchmark_tier_not_the_operating_point():
     assert at_030['excluded_subfloor_members'] == 0
 
 
+def test_an_emitted_peak_on_the_camera_rig_is_withheld():
+    """g6 stands 1.5 m from the ramp: its anchor dips ~60 deg, past the 49 deg rig mask,
+    so the sub-threshold peak there is the vehicle, not a training target."""
+    panos, _ = _scene()
+    panos = panos + [make_pano('g6', 0, 1.5, [], heading_deg=180.0)]
+    peaks = {p.pano_id: [] for p in panos}
+    rows, _ = mc.mine(panos, CLI, peaks, radius_m=15.0)
+    anchor = next(r for r in rows if r['pano_id'] == 'g6')
+    assert anchor['anchor_y'] > 0.5 + 49 / 180
+    peaks['g6'] = [(anchor['anchor_x'], anchor['anchor_y'], 0.3)]
+    rows, stats = mc.mine(panos, CLI, peaks, radius_m=15.0)
+    g6 = next(r for r in rows if r['pano_id'] == 'g6')
+    assert (g6['status'], g6['emit'], g6['peak_conf']) == ('on_rig', False, 0.3)
+    assert stats['by_status']['on_rig'] == 1 and stats['emitted'] == 0
+    # just above the mask the same rule still emits
+    assert mc.target_status((0.5, 0.77), [(0.5, 0.772, 0.3)])[0] == 'emit'
+
+
 def test_band_edges():
     assert mc.band_of(8.0) == '0-8 m' and mc.band_of(8.01) == '8-12 m'
     assert mc.band_of(15.0) == '12-15 m'
