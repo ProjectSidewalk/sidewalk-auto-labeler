@@ -1,0 +1,5 @@
+city,base,arm,n_clusters,coverage,covered,n_pool,frag5,frag5_extra,frag3,dual,dual_pairs,dual_both,precision,tp,fp,same_pano_pairs,base_frag5,base_coverage,base_dual
+bend,fusion,anchored,14058,0.9396,280,298,0.1429,44,0.0393,0.8529,34,29,0.9565,242,11,0,0.1449,0.9497,0.8529
+bend,fusion,merge-at-anchor,13851,0.9295,277,298,0.1336,39,0.0397,0.7647,34,26,0.9597,238,10,495,0.1449,0.9497,0.8529
+bend,ps @ 7.5 m,anchored,14650,0.9396,280,298,0.2036,65,0.1,0.7941,34,27,0.9574,247,11,0,0.2064,0.943,0.7941
+bend,ps @ 7.5 m,merge-at-anchor,14354,0.9295,277,298,0.1733,52,0.0686,0.7059,34,24,0.9605,243,10,484,0.2064,0.943,0.7941

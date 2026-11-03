@@ -2,6 +2,9 @@ arm,bucket,clusters,n_validated_clusters,any_false,all_false,labels_validated,la
 deployed,cluster of 1,4295,145,0,0,145,0
 deployed,cluster of 2,3406,270,0,0,282,0
 deployed,cluster of 3+,10983,2196,0,0,2414,0
+ps_repro,cluster of 1,3634,128,0,0,128,0
+ps_repro,cluster of 2,2932,228,0,0,236,0
+ps_repro,cluster of 3+,10848,2231,0,0,2467,0
 ps @ 2.5 m,cluster of 1,14752,631,50,50,631,50
 ps @ 2.5 m,cluster of 2,7228,644,20,19,665,20
 ps @ 2.5 m,cluster of 3+,9081,1511,11,11,1615,11
@@ -65,9 +68,9 @@ fusion,cluster of 3+,0,0,0,0,0,0
 fusion_refit,cluster of 1,0,0,0,0,0,0
 fusion_refit,cluster of 2,0,0,0,0,0,0
 fusion_refit,cluster of 3+,0,0,0,0,0,0
-fusion_server,cluster of 1,6320,264,47,47,264,47
-fusion_server,cluster of 2,2368,221,17,17,229,17
-fusion_server,cluster of 3+,10078,2173,19,17,2431,19
-fusion_server+attach,cluster of 1,3911,165,46,46,165,46
-fusion_server+attach,cluster of 2,2382,217,16,16,225,16
-fusion_server+attach,cluster of 3+,10191,2255,21,17,2533,21
+fusion_server,cluster of 1,6408,268,46,46,268,46
+fusion_server,cluster of 2,2389,221,18,18,229,18
+fusion_server,cluster of 3+,10070,2160,17,16,2415,17
+fusion_server+attach,cluster of 1,3997,168,45,45,168,45
+fusion_server+attach,cluster of 2,2398,218,17,17,226,17
+fusion_server+attach,cluster of 3+,10189,2243,19,16,2518,19

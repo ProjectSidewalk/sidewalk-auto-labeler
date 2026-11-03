@@ -1,0 +1,12 @@
+camera_make,camera_model,dimensions,capture_year,panos,detections_0.3,detections_per_pano_0.3,panos_with_detection_0.3,share_with_detection_0.3,detections_0.55,detections_per_pano_0.55,panos_with_detection_0.55,share_with_detection_0.55
+GoPro,Max,5376x2688,2026,11956,4805,0.402,2926,0.2447,1863,0.156,1392,0.1164
+GoPro,Max,5760x2880,2024,7994,2155,0.27,1442,0.1804,830,0.104,678,0.0848
+GoPro,Max,5760x2880,2026,4031,1493,0.37,1001,0.2483,540,0.134,437,0.1084
+GoPro,Max,5760x2880,2025,3663,1338,0.365,777,0.2121,544,0.149,378,0.1032
+GoPro,Max,5760x2880,2023,557,164,0.294,104,0.1867,65,0.117,47,0.0844
+GoPro,Max,5760x2880,2022,284,52,0.183,35,0.1232,18,0.063,14,0.0493
+GlobalExtractor.py,,5376x2688,2025,24,1,0.042,1,0.0417,0,0.0,0,0.0
+Kandao,QooCam 3 Ultra,13888x6944,2025,11,1,0.091,1,0.0909,0,0.0,0,0.0
+samsung,SM-A566B,3584x1792,2025,2,1,0.5,1,0.5,0,0.0,0,0.0
+GlobalExtractor.py,,5376x2688,2026,1,1,1.0,1,1.0,1,1.0,1,1.0
+samsung,SM-A566B,3584x1792,2026,1,0,0.0,0,0.0,0,0.0,0,0.0

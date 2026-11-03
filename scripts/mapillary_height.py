@@ -1350,6 +1350,7 @@ def height_gate(verdict_panos, bundle_ops, panos, gt_merge_m=2.5):
 
     counts, warnings = es.gt_counts(), []
     marks = []
+    es.require_bundle_frame(by_id.values(), 'the run')   # bundle as published (#111, #130)
     for pid, entry, _run_pano, ops, in_pool in es.judged_gt_panos(
             verdict_panos, bundle_ops, by_id, counts, warnings):
         for verdict, (_i, x, y, _c) in zip(entry['dets'], ops):

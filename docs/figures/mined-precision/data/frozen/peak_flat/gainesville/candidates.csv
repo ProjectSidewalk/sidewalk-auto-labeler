@@ -1,0 +1,2 @@
+city,site_id,pano_id,range_m,bearing_deg,x_norm,y_norm,n_op_panos,best_conf,bucket,nearest_gt_kind,nearest_gt_m,within_match
+gainesville,2641,9D-oOS00uSg18nvfm8t9zQ,8.88,351.45,0.22681,0.54645,3,0.84664,already_detected,det,1.50,1

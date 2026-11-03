@@ -1,0 +1,4 @@
+city,height,exploratory,vintage,n_rows,n_panos,k_pitch,se_pitch,k_roll,se_roll,intercept
+laurens_gsv,auto,True,all,1962,293,0.3289,0.0674,0.5230,0.0616,-0.4504
+laurens_gsv,auto,True,2021,17,3,,,,,
+laurens_gsv,auto,True,2024,1945,290,0.3293,0.0681,0.5203,0.0617,-0.4517

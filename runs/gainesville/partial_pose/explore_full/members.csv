@@ -1,0 +1,11 @@
+city,height,arm,op_members,unplaceable,unplaceable_vs_off
+gainesville,auto,off,24072,2896,0
+gainesville,auto,partial-loco,24072,2619,-277
+gainesville,auto,partial-loco-shuffled,24072,2676,-220
+gainesville,auto,full,24072,1859,-1037
+gainesville,auto,fixed-113,24072,2304,-592
+gainesville,2.6,off,24072,2896,0
+gainesville,2.6,partial-loco,24072,2908,12
+gainesville,2.6,partial-loco-shuffled,24072,2936,40
+gainesville,2.6,full,24072,4050,1154
+gainesville,2.6,fixed-113,24072,3026,130

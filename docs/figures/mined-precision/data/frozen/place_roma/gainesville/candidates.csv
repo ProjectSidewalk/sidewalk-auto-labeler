@@ -1,0 +1,9 @@
+city,site_id,pano_id,range_m,bearing_deg,x_norm,y_norm,n_op_panos,best_conf,bucket,nearest_gt_kind,nearest_gt_m,within_match
+gainesville,1682,dVrNCxUTFAfeyVNMXQ1LTw,3.87,226.94,0.60658,0.65008,3,0.89886,tp,missed,0.73,1
+gainesville,3136,pM_zjaOL4jt8_niIC0EU2Q,5.61,47.73,0.63379,0.59592,4,0.80726,already_detected,det,1.09,1
+gainesville,2641,9D-oOS00uSg18nvfm8t9zQ,8.88,351.45,0.22681,0.54645,3,0.84664,already_detected,det,1.26,1
+gainesville,599,rFa5e9WO2AombOfKxw1GzA,9.13,4.25,0.25994,0.53887,3,0.94733,already_detected,det,0.40,1
+gainesville,1897,9D-oOS00uSg18nvfm8t9zQ,12.09,247.33,0.93760,0.53424,3,0.88857,already_detected,det,0.32,1
+gainesville,3202,HoOapW5g53qbEFjLA7yv3Q,12.68,335.38,0.43832,0.54722,3,0.79982,already_detected,det,0.83,1
+gainesville,523,82y6sIvPm-_shG58klusgw,14.63,205.53,0.08017,0.53622,4,0.95157,fp,det,7.00,0
+gainesville,63,xExZyWexGcwGNf5LNhQBRg,14.66,211.83,0.58820,0.53988,3,1.00113,fp,det,17.36,0

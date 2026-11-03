@@ -1,0 +1,17 @@
+city,height,arm,gt_panos_judged,gt_marks,gt_marks_unplaceable,off_pool_ramps,recall_off_pool_2p5m,recall_off_pool_5m,gt_common_ramps,gt_to_site_median_m,gt_to_site_p90_m,gt_to_site_mean_m,lost_vs_off_2p5m,gained_vs_off_2p5m
+paterson,auto,off,64,225,40,185,0.8757,0.9297,157,0.7827,2.3017,1.0519,0,0
+paterson,auto,partial,64,225,37,185,0.8919,0.9297,157,0.6924,1.9829,0.9353,1,4
+paterson,auto,partial-loco,64,225,38,185,0.8919,0.9297,157,0.7143,2.0088,0.9320,1,4
+paterson,auto,partial-shuffled,64,225,39,185,0.8811,0.9243,157,0.7095,2.1671,0.9839,2,3
+paterson,auto,partial-loco-shuffled,64,225,37,185,0.8865,0.9297,157,0.7247,2.2421,0.9832,2,4
+paterson,auto,full,64,225,30,185,0.8649,0.9189,157,0.7244,2.2626,1.0022,12,10
+paterson,auto,partial-mirror,64,225,41,185,0.8703,0.9189,157,0.9041,2.6912,1.1956,1,0
+paterson,auto,fixed-113,64,225,37,185,0.8811,0.9189,157,0.7099,1.9194,0.8909,4,5
+paterson,2.6,off,64,225,50,175,0.8514,0.9200,145,0.9661,2.5484,1.1811,0,0
+paterson,2.6,partial,64,225,49,175,0.8571,0.9086,145,0.9732,2.4408,1.1334,1,2
+paterson,2.6,partial-loco,64,225,49,175,0.8571,0.9086,145,0.9802,2.4403,1.1210,1,2
+paterson,2.6,partial-shuffled,64,225,48,175,0.8457,0.9143,145,0.9230,2.2368,1.1023,3,2
+paterson,2.6,partial-loco-shuffled,64,225,48,175,0.8457,0.9143,145,0.9366,2.2032,1.1146,3,2
+paterson,2.6,full,64,225,48,175,0.7943,0.8857,145,0.8646,2.6293,1.1125,12,2
+paterson,2.6,partial-mirror,64,225,50,175,0.8457,0.9086,145,0.9827,2.7260,1.2432,3,2
+paterson,2.6,fixed-113,64,225,50,175,0.8514,0.9086,145,0.9571,2.4695,1.0920,2,2

@@ -1,0 +1,15 @@
+city,family,idx,pano_id,component_px,coverage_of_crop,depth_class,height_share_of_crop,marker_px,range_flat_2p6_m,seg_class,x,y
+paterson,car,0,0uNeulmg68uHO_WKDIuqZw,2009,0.573975,floor,0.651042,160.0;120.0,7.40953,Car,0.749023,0.607422
+gainesville,car,1,2ZG41STPUADAWUJD-Rc4sA,1947,0.699516,floor,0.651042,160.0;120.0,7.40953,Car,0.758789,0.607422
+sao_paulo,bus_truck,2,9e52qBoSx6RlPRP2VHBTqA,591,0.674179,floor,0.520833,160.0;120.0,9.17579,Truck,0.913086,0.587891
+paterson,bus_truck,3,AYBFFp06z_3m70ETRK2Jtw,352,0.56659,floor,0.208333,160.0;120.0,12.6645,Bus,0.739258,0.564453
+paterson,person,4,IXCSjRuAqY4_iyOU_2rxeQ,94,0.457601,floor,0.286458,160.0;120.0,10.6568,Person,0.272461,0.576172
+sao_paulo,person,5,GnxqQAq5GVonmVKfcMcr6w,94,0.380316,floor_standin,0.364583,160.0;120.0,9.17579,Bicyclist,0.350586,0.587891
+gainesville,vegetation,6,MTDJakccuk6hQfnZ3QEjxQ,2381,0.608098,ground,0.651042,160.0;120.0,7.71113,Vegetation,0.311523,0.603516
+gainesville,vegetation,7,taAM_J38w0t7x9p1iOGptw,3166,0.607588,ground,0.651042,160.0;120.0,7.40953,Vegetation,0.250977,0.607422
+paterson,pole,8,qL5hz8oXZM0g4pKxGR3Yyw,192,0.341227,floor,0.651042,160.0;120.0,7.71113,Utility Pole,0.774414,0.603516
+sao_paulo,pole,9,-pcHlrGDC4hPPRHVxU3W3Q,163,0.113318,floor,0.625,160.0;120.0,8.03552,Utility Pole,0.62793,0.599609
+sao_paulo,not_on_floor,10,dZHjPLWAOhyUatavJJEPzA,426,0.628215,non_horizontal,0.338542,160.0;120.0,9.62455,Vegetation,0.182617,0.583984
+bend,not_on_floor,11,yDV1n1O4f0QHWG869hAzbQ,310,0.602623,non_horizontal,0.15625,160.0;120.0,12.6645,Vegetation,0.75293,0.564453
+sao_paulo,not_on_floor,12,VEIsNEdoZ793WdrHU57t2g,355,0.278584,non_horizontal,0.338542,160.0;120.0,11.2548,Car,0.897461,0.572266
+paterson,not_on_floor,13,QBTZFMjfQRfbiv9e7gAG2g,329,0.580214,non_horizontal,0.390625,160.0;120.0,9.62455,Car,0.663086,0.583984
