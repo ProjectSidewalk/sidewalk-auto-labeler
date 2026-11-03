@@ -116,6 +116,54 @@ def load_bundle(bundle):
     return snapshot, items, files
 
 
+# --------------------------------------------------------------- live imagery (review S2)
+# The page's look-around links open live Google / Project Sidewalk imagery, which neither
+# images.sha256 pins nor the crops' capture dates describe. Since PR #141 review S2 the page
+# records `used_live_imagery` per unit. Units rated before the flag existed are recorded by
+# hand in a committed sidecar, live_imagery__<rater>.json, derived ONLY from the rater's unit
+# notes (each entry quotes the note it rests on); the verdicts file itself is never edited.
+LIVE_SCHEMA = 'sidewalk-auto-labeler.corner_gallery.live_imagery/1'
+
+
+def live_sidecar_name(rater):
+    return f'live_imagery__{rater}.json'
+
+
+def load_live_sidecar(bundle, rater):
+    p = Path(bundle) / live_sidecar_name(rater)
+    return json.loads(p.read_text(encoding='utf-8')) if p.exists() else None
+
+
+def validate_live_sidecar(side, verdicts, items_sha):
+    """Every reason the sidecar cannot be used, as strings: wrong schema, rater or item list,
+    a unit the verdicts file does not hold, or a quote the unit's note no longer contains."""
+    problems = []
+    if side.get('schema') != LIVE_SCHEMA:
+        problems.append(f"{live_sidecar_name(verdicts.get('rater'))}: schema {side.get('schema')!r}")
+    if side.get('items_sha256') != items_sha:
+        problems.append(f"{live_sidecar_name(verdicts.get('rater'))}: items_sha256 is not the bundle's")
+    if side.get('rater') != verdicts.get('rater'):
+        problems.append(f"{live_sidecar_name(verdicts.get('rater'))}: rater {side.get('rater')!r}")
+    units = verdicts.get('units') or {}
+    for uid, e in sorted((side.get('units') or {}).items()):
+        if uid not in units:
+            problems.append(f'live imagery sidecar: {uid} is not rated in the verdicts file')
+            continue
+        if e.get('used_live_imagery') is not True:
+            problems.append(f'live imagery sidecar: {uid} used_live_imagery is not true')
+        q = e.get('note_quote')
+        if not q or q not in (units[uid].get('note') or ''):
+            problems.append(f'live imagery sidecar: {uid} quotes {q!r}, which its note does not '
+                            f'contain')
+    return problems
+
+
+def live_units(verdicts, side=None):
+    """Units rated with live imagery: the page's flag, or the hand-recorded sidecar."""
+    out = {u for u, e in (verdicts.get('units') or {}).items() if (e or {}).get('used_live_imagery')}
+    return sorted(out | set((side or {}).get('units') or {}))
+
+
 # -------------------------------------------------------------------------- validation
 
 def _check_corner_map(cid, what, m, keys, problems, need_all):
@@ -186,7 +234,8 @@ def validate(verdicts, items, items_sha, rubric=None):
             continue
         keys = {str(c['corner']) for c in it['corners']}
         complete = u.get('complete')
-        for flag in ('complete', 'inventory_seen', 'edited_after_inventory', 'kinds_after_inventory'):
+        for flag in ('complete', 'inventory_seen', 'edited_after_inventory', 'kinds_after_inventory',
+                     'used_live_imagery'):
             if flag in u and not isinstance(u[flag], bool):
                 problems.append(f'{cid}: {flag} {u[flag]!r} is not a boolean')
         _check_corner_map(cid, 'corners', u.get('corners'), keys, problems, bool(complete))
@@ -303,12 +352,14 @@ def scorable(u, which='blind'):
     return u.get('blind') is not None if which == 'blind' else bool(u.get('complete'))
 
 
-def score_rater(items, verdicts, snapshot, which='blind'):
+def score_rater(items, verdicts, snapshot, which='blind', exclude=()):
     """The per-rater report (dict) from the blind (default) or final verdicts; see scorable
-    for which units enter each read."""
+    for which units enter each read. exclude: units left out (the without-live-imagery read)."""
     units = verdicts.get('units') or {}
-    done = {i['unit']: units[i['unit']] for i in items if scorable(units.get(i['unit']), which)}
-    out = {'which': which, 'scored': len(done), 'units': len(items),
+    exclude = set(exclude)
+    done = {i['unit']: units[i['unit']] for i in items
+            if scorable(units.get(i['unit']), which) and i['unit'] not in exclude}
+    out = {'which': which, 'scored': len(done), 'units': len(items), 'excluded': sorted(exclude),
            'complete': sum(1 for i in items if (units.get(i['unit']) or {}).get('complete')),
            'reopened_with_blind': sum(1 for i in items if (units.get(i['unit']) or {}).get('blind')
                                       is not None and not units[i['unit']].get('complete')),
@@ -471,6 +522,24 @@ def render_report(snapshot, items, results, problems, agree=None):
                   f"- Rated absent at every corner, of decided: **{fmt(cl['unit_absent_share'])}**"
                   f"; outcomes {cl['outcomes']}; corner level {fmt(cl['corner_absent_share'])}.",
                   '']
+        live, wl = res.get('used_live_imagery') or [], res.get('blind_without_live')
+        lines += ['### Units rated with live imagery', '']
+        if not live:
+            lines += ['None recorded (the page flag `used_live_imagery`, or the hand-recorded '
+                      f"`{live_sidecar_name(rater)}`).", '']
+        else:
+            wna, wfa, wcl = (wl['parts'][p] for p in ('na_noramp', 'false_absence', 'clean'))
+            lines += [f"{len(live)} unit(s): " + ', '.join(f'`{u}`' for u in live) + '. Live '
+                      'imagery (a look-around link to Google Street View or Project Sidewalk '
+                      'Explore) is neither pinned by `images.sha256` nor dated like the crops, and '
+                      'the false-absence dating compares the install date with the crops only. '
+                      'The blind read without these units:', '',
+                      f"- `NA` units rated absent at every corner, of decided: "
+                      f"{fmt(wna['unit_absent_share'])} (with them {fmt(na['unit_absent_share'])}).",
+                      f"- False absences: classes {wfa.get('classes')}; real-miss share "
+                      f"{fmt(wfa['real_miss_share'])} (with them {fmt(fa['real_miss_share'])}).",
+                      f"- Control: {fmt(wcl['unit_absent_share'])} (with them "
+                      f"{fmt(cl['unit_absent_share'])}).", '']
         st = b.get('stratified')
         if st:
             lines += ['### Stratified estimate (descriptive, not the decision rule)', '',
@@ -479,11 +548,13 @@ def render_report(snapshot, items, results, problems, agree=None):
                       f"{st['not_covered']} are the 9 non-target false absences and 2 'other' "
                       f"units): {st['estimate']:.3f}, normal-approximation 95% "
                       f"[{st['ci95_normal'][0]:.3f}, {st['ci95_normal'][1]:.3f}].", '']
-        lines += ['### Per unit', '', '| unit | part | outcome (blind) | false-absence class |',
-                  '|---|---|---|---|']
+        lines += ['### Per unit', '',
+                  '| unit | part | outcome (blind) | false-absence class | live imagery |',
+                  '|---|---|---|---|---|']
         for r in b['rows']:
             lines.append(f"| `{r['unit']}` | {r['part']} | {r['outcome']} | "
-                         f"{fa.get('per_unit', {}).get(r['unit'], '')} |")
+                         f"{fa.get('per_unit', {}).get(r['unit'], '')} | "
+                         f"{'yes' if r['unit'] in live else ''} |")
         lines.append('')
     if agree:
         lines += [f"## Agreement `{agree['a']}` vs `{agree['b']}`", '',
@@ -510,8 +581,14 @@ def main(argv=None):
         problems[rater] = validate(v, items, items_sha, snapshot.get('rubric'))
         if v.get('rater') != rater:
             problems[rater].append(f"file name says rater {rater!r}, the file {v.get('rater')!r}")
+        side = load_live_sidecar(args.bundle, rater)
+        if side is not None:
+            problems[rater] += validate_live_sidecar(side, v, items_sha)
+        live = live_units(v, side)
         results[rater] = {'blind': score_rater(items, v, snapshot, 'blind'),
-                          'final': score_rater(items, v, snapshot, 'final')}
+                          'final': score_rater(items, v, snapshot, 'final'),
+                          'used_live_imagery': live,
+                          'blind_without_live': score_rater(items, v, snapshot, 'blind', live)}
         print(f"verdicts__{rater}.json: "
               f"{'valid' if not problems[rater] else f'{len(problems[rater])} problem(s)'}; "
               f"{results[rater]['blind']['complete']} complete units, "

@@ -349,6 +349,51 @@ def test_agreement_and_kappa():
     assert cs.cohen_kappa([('a', 'a')] * 3, cats=('a', 'b')) is None
 
 
+def test_live_imagery_units_are_reported_with_and_without(tmp_path):
+    """PR #141 review S2: units rated with live imagery (page flag, or the hand-recorded
+    sidecar for units rated before the flag) are named, and the blind read is also given
+    without them; the sidecar must quote the unit's note it rests on."""
+    items = [item('f0', 'false_absence', {0: ('Available', '2019-01-01')}),
+             item('f1', 'false_absence', {0: ('Available', '2019-01-01')}),
+             item('c0', 'clean')]
+    v = vfile({'f0': dict(unit_verdicts(['present', 'absent', 'absent']), note='I went into PS'),
+               'f1': unit_verdicts(['absent'] * 3),
+               'c0': dict(unit_verdicts(['absent'] * 3), used_live_imagery=True)})
+    assert cs.validate(v, items, 'S') == []
+    side = {'schema': cs.LIVE_SCHEMA, 'rater': 'jonf', 'items_sha256': 'S',
+            'units': {'f0': {'used_live_imagery': True, 'note_quote': 'went into PS'}}}
+    assert cs.validate_live_sidecar(side, v, 'S') == []
+    assert cs.live_units(v, side) == ['c0', 'f0']
+    w = cs.score_rater(items, v, {}, 'blind', cs.live_units(v, side))
+    assert w['scored'] == 1 and w['parts']['false_absence']['real_misses'] == 0
+    assert cs.score_rater(items, v, {}, 'blind')['parts']['false_absence']['real_misses'] == 1
+    bad = json.loads(json.dumps(side))
+    bad['units']['f0']['note_quote'] = 'checked Street View'
+    bad['units']['zz'] = {'used_live_imagery': True, 'note_quote': 'x'}
+    p = '\n'.join(cs.validate_live_sidecar(bad, v, 'X'))
+    assert 'items_sha256' in p and 'zz is not rated' in p and 'note does not contain' in p
+    v['units']['c0']['used_live_imagery'] = 'yes'
+    assert any('used_live_imagery' in x for x in cs.validate(v, items, 'S'))
+    # end to end: the report names them and gives the read without them
+    bundle = tmp_path / 'b'
+    bundle.mkdir()
+    lines = [json.dumps(i) for i in items]
+    (bundle / 'items.jsonl').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    sha = cs.sha256_file(bundle / 'items.jsonl')
+    v['units']['c0']['used_live_imagery'] = True
+    v['items_sha256'] = side['items_sha256'] = sha
+    (bundle / 'snapshot.json').write_text(json.dumps(
+        {'items_sha256': sha, 'seed': 243, 'rubric': cg.RUBRIC,
+         'populations': {'false_absence': 2, 'na_noramp': 40, 'clean': 20}}), encoding='utf-8')
+    (bundle / 'verdicts__jonf.json').write_text(json.dumps(v), encoding='utf-8')
+    (bundle / 'live_imagery__jonf.json').write_text(json.dumps(side), encoding='utf-8')
+    assert cs.main([str(bundle)]) == 0
+    rep = (bundle / 'score/report.md').read_text(encoding='utf-8')
+    assert '2 unit(s): `c0`, `f0`' in rep and 'real-miss share 0/1' in rep
+    sc = json.loads((bundle / 'score/score.json').read_text(encoding='utf-8'))
+    assert sc['results']['jonf']['used_live_imagery'] == ['c0', 'f0']
+
+
 # --------------------------------------------------------------------------------- page
 
 def test_render_has_no_placeholders_and_no_part():
@@ -362,6 +407,9 @@ def test_render_has_no_placeholders_and_no_part():
     assert '"reveal": "reveal/vancouver_res_n1.js"' in html
     assert '"verdicts__jonf.json"' in html
     assert cg.RUBRIC.splitlines()[0] in html
+    # review S2: the live-imagery checkbox, set by opening a look-around link, is exported
+    assert 'id="liveimg"' in html and 'markLive(); return;' in html
+    assert 'used_live_imagery: !!s.used_live_imagery' in html
     with pytest.raises(ValueError):
         cg.rater_file_name('bad name')
 

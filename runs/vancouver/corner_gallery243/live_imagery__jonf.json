@@ -1,0 +1,29 @@
+{
+ "items_sha256": "bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459",
+ "note": "Hand-recorded 2026-11-03 for PR #141 review S2, from the unit notes ONLY: these are the units whose note says the rater looked at live imagery (Google Street View or Project Sidewalk Explore). Every other rated unit's note says nothing of it. The verdicts file is not edited; a unit rated from now on carries the page's own used_live_imagery flag.",
+ "rater": "jonf",
+ "recorded_from": {
+  "exported_at": "2026-10-07T12:56:48.905Z",
+  "file": "verdicts__jonf.json",
+  "sha256": "0d36ebb45d63cbc85ee4bb239662eacefa415a5a9f5d0b51c4f207341fed3073",
+  "units_rated": 50
+ },
+ "schema": "sidewalk-auto-labeler.corner_gallery.live_imagery/1",
+ "units": {
+  "vancouver:res:n47287760": {
+   "note_quote": "I went into PS and explored area",
+   "used_live_imagery": true,
+   "where": "Project Sidewalk Explore"
+  },
+  "vancouver:res:n47311369": {
+   "note_quote": "I checked on Google Street View for Corner 0",
+   "used_live_imagery": true,
+   "where": "Google Street View"
+  },
+  "vancouver:res:n47362725": {
+   "note_quote": "I verified Corner 1 in Project Sidewalk",
+   "used_live_imagery": true,
+   "where": "Project Sidewalk Explore"
+  }
+ }
+}

@@ -261,6 +261,10 @@ HTML_TEMPLATE = r"""<!doctype html>
     <button id="completebtn"></button> <span id="completehint" class="hint"></span>
     <p><label for="unitnote">Note on this unit (optional; say why for any can't tell)</label>
       <textarea id="unitnote" rows="3"></textarea></p>
+    <p><label><input type="checkbox" id="liveimg"> I looked at live imagery for this unit
+      (a look-around link, or Street View / Project Sidewalk opened any other way)</label>
+      <span class="hint">Ticked for you when you open a look-around link. Live imagery is not
+      pinned or dated like the crops, so the scorer reports these units separately.</span></p>
     <p class="meta">Corner markers: number = corner; fill and the letter under it: green P present,
       red A absent, grey ? can't tell, white not yet rated; blue ring = the active corner (click a corner to make it active). Dots with dashed lines =
       the cameras of that corner's crops. Squares (after completion only) = city inventory
@@ -485,6 +489,7 @@ function renderUnit() {
     : 'Aerial capture date unknown';
   document.getElementById('aerial').alt = 'Aerial image of ' + u.id + ', north up, about 70 m across';
   document.getElementById('unitnote').value = s.note || '';
+  document.getElementById('liveimg').checked = !!s.used_live_imagery;
   const right = document.getElementById('right');
   right.innerHTML = u.corners.map((c, ci) => {
     const e = s.corners[c.k];
@@ -637,8 +642,18 @@ function panoLinks(v) {
          '<a target="_blank" rel="noopener" href="' + g + '">Google Street View</a>';
 }
 function closeLightbox() { document.getElementById('lb').style.display = 'none'; const b = lb && lb.back; lb = null; if (b && b.focus) b.focus(); }
+// Opening a look-around link marks the unit used_live_imagery (PR #141 review S2): what the
+// rater sees there is live, neither pinned by images.sha256 nor dated like the crops.
+function markLive() {
+  const s = S();
+  if (s.used_live_imagery) return;
+  s.used_live_imagery = true; s.seen = true; save();
+  document.getElementById('liveimg').checked = true;
+  say('This unit is marked as rated with live imagery.');
+}
+document.getElementById('lb').addEventListener('auxclick', ev => { if (ev.target.closest('a')) markLive(); });
 document.getElementById('lb').addEventListener('click', ev => {
-  if (ev.target.closest('a')) return;   // the Street View link opens a tab, keeps the crop open
+  if (ev.target.closest('a')) { markLive(); return; }   // the link opens a tab, keeps the crop open
   const t = ev.target.closest('[data-vi]');
   if (t && lb) { openLightbox(lb.ci, +t.dataset.vi); return; }
   if (ev.target.id === 'lbclose' || !ev.target.closest('.big img')) closeLightbox();
@@ -654,6 +669,7 @@ document.getElementById('nexttodo').onclick = () => {
 document.getElementById('unitsel').onchange = ev => goTo(+ev.target.value);
 document.getElementById('completebtn').onclick = () => toggleComplete();
 document.getElementById('unitnote').addEventListener('input', ev => { S().note = ev.target.value; S().seen = true; save(); });
+document.getElementById('liveimg').addEventListener('change', ev => { S().used_live_imagery = ev.target.checked; S().seen = true; save(); });
 function helpOpen() { return document.getElementById('help').style.display === 'block'; }
 function toggleHelp(show) {
   const h = document.getElementById('help'), was = helpOpen(), on = show === undefined ? !was : show;
@@ -681,7 +697,7 @@ document.addEventListener('keydown', ev => {
     else if (helpOpen()) trapTab(ev, document.getElementById('help'));
     return;
   }
-  if (tag === 'textarea' || tag === 'select' || (tag === 'input' && t.type !== 'radio')) return;
+  if (tag === 'textarea' || tag === 'select' || (tag === 'input' && t.type !== 'radio' && t.type !== 'checkbox')) return;
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
   if (helpOpen() && !lb) {             // the help panel is modal: no key acts on the unit behind it
     if (ev.key === 'Escape' || ev.key === '?') { toggleHelp(false); ev.preventDefault(); }
@@ -732,7 +748,8 @@ function exportUnit(u, s) {
   return {type: u.type, corners: copyCorners(s.corners), blind: s.blind ? copyCorners(s.blind) : null,
           complete: !!s.complete, elapsed_s: Math.round(s.elapsed_s * 10) / 10,
           note: (s.note || '').trim(), inventory_seen: !!s.inventory_seen,
-          edited_after_inventory: !!s.edited_after_inventory, kinds_after_inventory: !!s.kinds_after_inventory};
+          edited_after_inventory: !!s.edited_after_inventory, kinds_after_inventory: !!s.kinds_after_inventory,
+          used_live_imagery: !!s.used_live_imagery};
 }
 document.getElementById('export').onclick = () => {
   const open = UNITS.filter(u => !state[u.id].complete && rated(u));

@@ -185,9 +185,8 @@ Jon rated 28 of 95 units, exported (committed as the partial `verdicts__jonf.jso
   form). A first version linked only Google's `api=1&map_action=pano` URL and Jon got "No
   street view imagery available here". Probed 2026-10-06: 4 of 24 sampled panos return a
   blank tile from Google (expired), and all 4 have a PS backup (`/backupImage/<pano>/metadata`
-  200); the backup image itself needs a signed URL, so Explore is the way in. Opening Explore
-  as a logged-in user starts an address drop-in there. Either way the view is served live, so
-  a rating that relied on it should say so in the unit note.
+  200); the backup image itself needs a signed URL, so Explore is the way in. Either way the
+  view is served live, so opening a link now flags the unit `used_live_imagery` (see Scoring).
 - **Rubric clarification (no rubric text change):** a curb cut where a shared-use path or
   trail meets the street serves pedestrians and counts as **present**. A feature that is for
   bikes only is **can't tell**, with a note. Raised by Jon's notes on `art:n47270030` (a
@@ -229,6 +228,19 @@ both have blind verdicts. The unit outcome is:
   the report.
 - **Agreement** (two files). Corner-level percent agreement and Cohen's kappa over the three
   values, and unit-outcome agreement.
+- **Live imagery** (review S2 of PR #141). A unit whose rater looked at live imagery is
+  flagged `used_live_imagery`. The page ticks it when a look-around link is opened, and the
+  rater can tick or clear it by hand (checkbox under the unit note). The 50 units Jon rated
+  before the flag existed are covered by a hand-recorded sidecar,
+  `live_imagery__jonf.json`, derived **only** from his unit notes: three units, each entry
+  quoting the note it rests on (`res:n47287760` "I went into PS and explored area",
+  `res:n47311369` "I checked on Google Street View for Corner 0", `res:n47362725` "I verified
+  Corner 1 in Project Sidewalk"). `verdicts__jonf.json` is not edited. The scorer takes the
+  union of the flag and the sidecar, names the units, marks them in the per-unit table, and
+  repeats the `NA`, false-absence and control reads without them (`blind_without_live` in
+  `score.json`). On the 50-unit file, dropping the three moves the false absences from 3 real
+  misses of 15 decided to 2 of 13 (`res:n47287760` is one of the three real misses); the `NA`
+  read (24/24) and the control (8/8 vs 7/7) do not move.
 
 `validate` refuses a file with:
 - the wrong schema, an `items_sha256` other than the bundle's, a `rubric_version` other than 1,
@@ -259,6 +271,13 @@ both have blind verdicts. The unit outcome is:
 - The rated imagery is the newest crop shown, which is the newest capture in the 40 m pool.
   It is not necessarily the newest imagery that exists: GSV can hold a newer pano that no
   #56 or #241 run enumerated. The #241 panos are mostly 2022-2024; the inventory can be newer.
+  **Except where the rater used live imagery.** The look-around links open Google Street View
+  or Project Sidewalk Explore live, where the rater can also walk to other panos or change
+  date. That imagery is neither pinned by `images.sha256` nor dated, so for those units the
+  `artifact_built_after_imagery` test (install date vs the newest crop shown) compares with
+  the wrong imagery, and a ramp seen only in newer live imagery scores as a real miss. Such
+  units carry `used_live_imagery` (see "Live imagery" under Scoring) and the report gives
+  every headline read with and without them.
 
 ## Caveats
 
@@ -302,7 +321,7 @@ python scripts/corner_gallery.py check --bundle runs/vancouver/corner_gallery243
 `render` runs the same check and refuses to write a page over images that differ
 (`--allow-image-drift` overrides, for looking only).
 
-The tracked files are `items.jsonl`, `snapshot.json`, `images.sha256`, `report.md`,
-`verdicts__*.json` and `score/`. `runs/**` is git-ignored, so they were added with `git add -f`. A `.gitignore` rule
+The tracked files are `items.jsonl`, `snapshot.json`, `images.sha256`, `aerial_dates.json`,
+`report.md`, `verdicts__*.json`, `live_imagery__*.json` and `score/`. `runs/**` is git-ignored, so they were added with `git add -f`. A `.gitignore` rule
 can replace that once labeler PR #135 merges. The aerials, crops, tile cache and `gallery/`
 stay local.
