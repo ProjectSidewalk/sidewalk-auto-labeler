@@ -529,8 +529,10 @@ def score_rater(items, verdicts, snapshot, which='blind', exclude=()):
         out['stratified'] = {'estimate': round(est, 4),
                              'ci95': [round(max(0.0, est - 1.96 * math.sqrt(var)), 4),
                                       round(min(1.0, est + 1.96 * math.sqrt(var)), 4)],
-                             'ci_method': 'normal, Agresti-Coull-adjusted per-stratum variance, '
-                                          'finite-population corrected',
+                             'ci_method': 'conservative, ad hoc: normal interval around the '
+                                          'unadjusted estimate, Agresti-Coull per-stratum '
+                                          'variance, finite-population corrected, clipped to '
+                                          '[0, 1]',
                              'covered_units': tot, 'absent_units': ABSENT_TOTAL,
                              'not_covered': ABSENT_TOTAL - tot}
     else:
@@ -653,8 +655,8 @@ def render_report(snapshot, items, results, problems, agree=None):
                       f"({st['covered_units']} of {st['absent_units']} absent units; the other "
                       f"{st['not_covered']} are the 9 non-target false absences and 2 'other' "
                       f"units): {st['estimate']:.3f}, 95% "
-                      f"[{st['ci95'][0]:.3f}, {st['ci95'][1]:.3f}] (normal approximation with "
-                      f"Agresti-Coull-adjusted per-stratum variances).", '']
+                      f"[{st['ci95'][0]:.3f}, {st['ci95'][1]:.3f}] (conservative, ad hoc: Agresti-Coull "
+                      f"per-stratum variance, normal interval, clipped to [0, 1]).", '']
         lines += ['### Per unit', '',
                   '| unit | part | outcome (blind) | false-absence class | live imagery |',
                   '|---|---|---|---|---|']

@@ -251,7 +251,11 @@ both have blind verdicts. The unit outcome is:
   plus the corner-level read.
 - **Stratified estimate (descriptive).** Absence precision against the rater over the three
   strata, weighted by population size. The 11 absent units outside every stratum are named in
-  the report.
+  the report. Its 95% interval is **conservative and ad hoc**: a normal interval around the
+  unadjusted estimate, with Agresti-Coull per-stratum variances ((k+2)/(n+4)), the finite
+  population correction, and clipping to [0, 1]. It is not the decision rule; a standard
+  interval for a stratified proportion near a boundary (Korn-Graubard, or a stratified Wilson
+  interval) would replace it if it ever were.
 - **Agreement** (two files). Corner-level percent agreement and Cohen's kappa over the three
   values, and unit-outcome agreement.
 - **Live imagery** (review S2 of PR #141). A unit whose rater looked at live imagery is
@@ -364,6 +368,7 @@ python scripts/corner_gallery.py check --bundle runs/vancouver/corner_gallery243
 (`--allow-image-drift` overrides, for looking only).
 
 The tracked files are `items.jsonl`, `snapshot.json`, `images.sha256`, `aerial_dates.json`,
-`report.md`, `verdicts__*.json`, `live_imagery__*.json` and `score/`. `runs/**` is git-ignored, so they were added with `git add -f`. A `.gitignore` rule
+`report.md`, `verdicts__*.json` and `live_imagery__*.json` (`score/` is not tracked; the
+scorer regenerates it). `runs/**` is git-ignored, so they were added with `git add -f`. A `.gitignore` rule
 can replace that once labeler PR #135 merges. The aerials, crops, tile cache and `gallery/`
 stay local.
