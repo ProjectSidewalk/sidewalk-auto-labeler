@@ -309,9 +309,10 @@ python scripts/eval_sites.py paterson --vintage-ablation
 python scripts/heatmap_grid.py grid paterson bend gainesville sao_paulo richmond
 # ...the rare off-grid peak is a clipped plateau (#151 q2; doc section 5): decode.py finds peaks on
 # clip(heatmap, 0, 1), so a peak > 1.0 is a flat top and its raster-first pixel wins (skimage 0.26's
-# stable sort; scikit-image is unpinned, the tie order is pinned in tests). `offgrid` is the census
-# (prints only; --out writes the committed CSVs); `offgrid-heatmaps` (GPU) checks it on real heatmaps
-# of the local decode panos (46/46). One Paterson peak at 0.57 is a counterexample, not a clip.
+# stable sort; scikit-image is pinned to 0.26.0 in requirements.txt since PR 158, and the tie order
+# is also pinned in tests). `offgrid` is the census (prints only; --out writes the committed CSVs);
+# `offgrid-heatmaps` (GPU) checks it on real heatmaps of the local decode panos (46/46). One
+# Paterson peak at 0.57 is a counterexample, not a clip.
 python scripts/heatmap_grid.py offgrid --results <runs...> --labels <raw_labels.geojson> --labels-user <ai user_id> --unmatched runs/vancouver/provenance_gate/unmatched.csv
 python scripts/heatmap_grid.py offgrid-heatmaps
 python scripts/heatmap_grid.py sigma paterson bend gainesville sao_paulo richmond

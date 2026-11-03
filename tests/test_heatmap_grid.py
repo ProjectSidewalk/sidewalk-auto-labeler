@@ -35,7 +35,8 @@ needs_skimage = pytest.mark.skipif(importlib.util.find_spec("skimage") is None,
 
 @needs_skimage
 def test_peak_local_max_keeps_the_row_major_first_pixel_of_a_clipped_plateau():
-    # The library behaviour the whole explanation rests on (scikit-image is unpinned):
+    # The library behaviour the whole explanation rests on (scikit-image is pinned in
+    # requirements.txt since PR 158; this test catches a drift in an env built without it):
     # candidates come in np.nonzero (row-major) order, a stable descending sort keeps that
     # order among ties, and ensure_spacing keeps the first. The raw top (30, 31) loses to the
     # plateau's first pixel because every pixel of the plateau clips to exactly 1.0.
