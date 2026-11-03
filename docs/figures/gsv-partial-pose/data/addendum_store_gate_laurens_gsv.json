@@ -1,0 +1,10 @@
+{
+ "store_panos": 0,
+ "run_panos": 2137,
+ "sample_seed": 116,
+ "tol_deg": 0.1,
+ "min_agree": 0.95,
+ "min_compared": 50,
+ "status": "not_required",
+ "reason": "no store-built panos: every angle is streetlevel's own"
+}

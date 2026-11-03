@@ -1,0 +1,25 @@
+# Thinning experiment — thinexp_bayonne
+
+panoramax; 3880 panos processed un-thinned (3880 in scan.json); 115 model-derived ramp sites from detections >= 0.55 off the rig (cluster radius 7.5 m; robust = >= 3 member panos). gpu_hours at 1.5 s/pano. See the module docstring for assumptions A1-A3 and caveats.
+
+## A2/A3 — coverage vs spacing (thin_panos vs random same-count mean)
+
+| spacing_m | panos_kept | gpu_hours | sites_retained | sites_retained_random_mean | sites_total | robust_retained | robust_retained_random_mean | robust_total | sites_2plus_views | sites_2plus_views_random_mean |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 3880 | 1.62 | 115 | 115.0 | 115 | 40 | 40.0 | 40 | 56 | 56.0 |
+| 2.5 | 3392 | 1.41 | 105 | 106.9 | 115 | 40 | 40.0 | 40 | 51 | 51.7 |
+| 5 | 2455 | 1.02 | 85 | 89.8 | 115 | 38 | 39.6 | 40 | 38 | 40.9 |
+| 7.5 | 1708 | 0.71 | 68 | 73.7 | 115 | 36 | 36.8 | 40 | 27 | 29.6 |
+| 10 | 1238 | 0.52 | 56 | 61.5 | 115 | 34 | 33.5 | 40 | 21 | 21.4 |
+| 15 | 751 | 0.31 | 42 | 42.4 | 115 | 30 | 25.6 | 40 | 13 | 12.0 |
+| 20 | 514 | 0.21 | 28 | 32.3 | 115 | 21 | 20.5 | 40 | 3 | 7.4 |
+
+## A1 — detection rate by camera-to-site distance
+
+| bin_m | opportunities | detection_rate |
+|---|---|---|
+| 0-4 | 200 | 0.09 |
+| 4-8 | 620 | 0.152 |
+| 8-12 | 808 | 0.134 |
+| 12-16 | 1010 | 0.057 |
+| 16-20 | 1108 | 0.033 |

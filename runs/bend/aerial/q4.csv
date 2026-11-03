@@ -1,0 +1,2 @@
+city,n_true,n_false,n_band,n_outside_coverage,unplaceable_true,unplaceable_false,unplaceable_band,true_off_share,true_on_share,false_off_share,band_off_share,gap,gap_lo,gap_hi
+bend,244,11,0,0,5,0,0,0.2992,0.7008,0.4545,,0.155365,-0.132016,0.492063

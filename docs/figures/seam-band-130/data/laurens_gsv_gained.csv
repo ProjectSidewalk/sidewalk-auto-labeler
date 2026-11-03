@@ -1,0 +1,11 @@
+pano_id,decode,x,y,score,edge,straddle_pair
+2c08uS5rE9BI6o9lAwiuTw,argmax,0.9960938,0.5703125,0.1464033,right,0
+2c08uS5rE9BI6o9lAwiuTw,gaussian,0.9956055,0.5712352,0.1464033,right,0
+ChdUwDloM2g82Y43KOWg2w,argmax,0.0,0.5546875,0.2107565,left,0
+ChdUwDloM2g82Y43KOWg2w,gaussian,0.003418,0.5557024,0.2107565,left,0
+S1Lm9Yx37E5-NhCn33fRkQ,argmax,0.0,0.5234375,0.1495934,left,0
+S1Lm9Yx37E5-NhCn33fRkQ,gaussian,0.0082138,0.5350995,0.1495934,left,0
+gKIt5KFfXeDQFZul7I1gJQ,argmax,0.0,0.5996094,0.1552752,left,0
+gKIt5KFfXeDQFZul7I1gJQ,gaussian,0.003418,0.5928502,0.1552752,left,0
+oNXGD_2KphemsBq1ray6wg,argmax,0.0,0.5371094,0.2382702,left,0
+oNXGD_2KphemsBq1ray6wg,gaussian,0.003418,0.5318798,0.2382702,left,0

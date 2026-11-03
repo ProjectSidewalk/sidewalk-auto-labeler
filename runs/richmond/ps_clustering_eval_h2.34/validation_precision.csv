@@ -1,0 +1,76 @@
+arm,bucket,clusters,n_validated_clusters,any_false,all_false,labels_validated,labels_false
+deployed,cluster of 1,411,3,0,0,3,0
+deployed,cluster of 2,388,2,0,0,2,0
+deployed,cluster of 3+,1357,89,0,0,106,0
+ps_repro,cluster of 1,411,3,0,0,3,0
+ps_repro,cluster of 2,388,2,0,0,2,0
+ps_repro,cluster of 3+,1357,89,0,0,106,0
+ps @ 2.5 m,cluster of 1,2215,22,0,0,22,0
+ps @ 2.5 m,cluster of 2,1176,24,1,1,29,1
+ps @ 2.5 m,cluster of 3+,1124,51,0,0,58,0
+ps @ 5 m,cluster of 1,807,7,0,0,7,0
+ps @ 5 m,cluster of 2,669,10,0,0,14,0
+ps @ 5 m,cluster of 3+,1374,78,1,1,88,1
+ps @ 7.5 m,cluster of 1,413,3,0,0,3,0
+ps @ 7.5 m,cluster of 2,385,2,0,0,2,0
+ps @ 7.5 m,cluster of 3+,1351,87,1,1,104,1
+ps @ 10 m,cluster of 1,256,3,0,0,3,0
+ps @ 10 m,cluster of 2,253,2,0,0,2,0
+ps @ 10 m,cluster of 3+,1264,87,1,1,104,1
+ps @ 12.5 m,cluster of 1,177,2,0,0,2,0
+ps @ 12.5 m,cluster of 2,202,1,0,0,1,0
+ps @ 12.5 m,cluster of 3+,1206,88,1,1,106,1
+ps @ 15 m,cluster of 1,146,2,0,0,2,0
+ps @ 15 m,cluster of 2,175,1,0,0,1,0
+ps @ 15 m,cluster of 3+,1166,88,1,1,106,1
+ps_citywide @ 7.5 m,cluster of 1,392,3,0,0,3,0
+ps_citywide @ 7.5 m,cluster of 2,372,2,0,0,2,0
+ps_citywide @ 7.5 m,cluster of 3+,1351,87,1,1,104,1
+ps_placeable @ 2.5 m,cluster of 1,1918,25,0,0,25,0
+ps_placeable @ 2.5 m,cluster of 2,953,17,1,1,22,1
+ps_placeable @ 2.5 m,cluster of 3+,972,47,0,0,54,0
+ps_placeable @ 5 m,cluster of 1,746,10,0,0,10,0
+ps_placeable @ 5 m,cluster of 2,583,9,0,0,13,0
+ps_placeable @ 5 m,cluster of 3+,1146,68,1,1,78,1
+ps_placeable @ 7.5 m,cluster of 1,396,6,0,0,6,0
+ps_placeable @ 7.5 m,cluster of 2,354,3,0,0,3,0
+ps_placeable @ 7.5 m,cluster of 3+,1137,75,1,1,92,1
+ps_placeable @ 10 m,cluster of 1,255,5,0,0,5,0
+ps_placeable @ 10 m,cluster of 2,239,2,0,0,2,0
+ps_placeable @ 10 m,cluster of 3+,1096,77,1,1,94,1
+ps_placeable @ 12.5 m,cluster of 1,192,1,0,0,1,0
+ps_placeable @ 12.5 m,cluster of 2,192,3,0,0,3,0
+ps_placeable @ 12.5 m,cluster of 3+,1077,79,1,1,97,1
+ps_placeable @ 15 m,cluster of 1,156,1,0,0,1,0
+ps_placeable @ 15 m,cluster of 2,166,3,0,0,3,0
+ps_placeable @ 15 m,cluster of 3+,1062,79,1,1,97,1
+ps_raycast @ 2.5 m,cluster of 1,1962,26,0,0,26,0
+ps_raycast @ 2.5 m,cluster of 2,936,19,1,1,20,1
+ps_raycast @ 2.5 m,cluster of 3+,968,44,0,0,55,0
+ps_raycast @ 5 m,cluster of 1,807,11,0,0,11,0
+ps_raycast @ 5 m,cluster of 2,584,9,1,1,12,1
+ps_raycast @ 5 m,cluster of 3+,1115,65,0,0,78,0
+ps_raycast @ 7.5 m,cluster of 1,427,7,0,0,7,0
+ps_raycast @ 7.5 m,cluster of 2,372,1,0,0,1,0
+ps_raycast @ 7.5 m,cluster of 3+,1097,74,1,1,93,1
+ps_raycast @ 10 m,cluster of 1,278,3,0,0,3,0
+ps_raycast @ 10 m,cluster of 2,256,2,0,0,2,0
+ps_raycast @ 10 m,cluster of 3+,1085,76,1,1,96,1
+ps_raycast @ 12.5 m,cluster of 1,211,3,0,0,3,0
+ps_raycast @ 12.5 m,cluster of 2,197,2,0,0,2,0
+ps_raycast @ 12.5 m,cluster of 3+,1056,76,1,1,96,1
+ps_raycast @ 15 m,cluster of 1,166,1,0,0,1,0
+ps_raycast @ 15 m,cluster of 2,166,2,0,0,2,0
+ps_raycast @ 15 m,cluster of 3+,1039,77,1,1,98,1
+fusion,cluster of 1,0,0,0,0,0,0
+fusion,cluster of 2,0,0,0,0,0,0
+fusion,cluster of 3+,0,0,0,0,0,0
+fusion_refit,cluster of 1,0,0,0,0,0,0
+fusion_refit,cluster of 2,0,0,0,0,0,0
+fusion_refit,cluster of 3+,0,0,0,0,0,0
+fusion_server,cluster of 1,1771,14,0,0,14,0
+fusion_server,cluster of 2,234,2,0,0,2,0
+fusion_server,cluster of 3+,968,76,1,1,96,1
+fusion_server+attach,cluster of 1,587,6,0,0,6,0
+fusion_server+attach,cluster of 2,211,2,0,0,2,0
+fusion_server+attach,cluster of 3+,1051,84,1,1,104,1

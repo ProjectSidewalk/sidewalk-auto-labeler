@@ -1,0 +1,30 @@
+{
+ "city": "bend",
+ "tiles_csv_sha256": "115cd832ef7982a1bf865fca434f51a4355d7d80c14078c6aa250a9254459f14",
+ "n_tiles": 52480,
+ "tiles_sha256": "e710b9b19334b824efec450e1612b7fd9c23d471b7176271f93346d6c232b4a8",
+ "digest_matches_tile2net_json": true,
+ "duplicate_hashes": [
+  {
+   "sha256": "9a0e6305f9e75e4064a2df1e9186a610df23c63acb87b0069685113bfcb7de6b",
+   "n_tiles": 50,
+   "bytes": 177
+  },
+  {
+   "sha256": "d552c30f8749456358134eaf67f0b14a189c476a18787082c3299b945d2562a6",
+   "n_tiles": 1515,
+   "bytes": 190
+  }
+ ],
+ "n_blank_tiles": 1565,
+ "x_range": [
+  85367,
+  85571
+ ],
+ "y_range": [
+  190389,
+  190644
+ ],
+ "non_blank_bytes_min": 1091,
+ "non_blank_bytes_p50": 125858
+}

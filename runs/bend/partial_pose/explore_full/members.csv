@@ -1,0 +1,11 @@
+city,height,arm,op_members,unplaceable,unplaceable_vs_off
+bend,auto,off,51529,1828,0
+bend,auto,partial-loco,51529,1832,4
+bend,auto,partial-loco-shuffled,51529,1864,36
+bend,auto,full,51529,2563,735
+bend,auto,fixed-113,51529,1840,12
+bend,2.6,off,51529,1828,0
+bend,2.6,partial-loco,51529,1850,22
+bend,2.6,partial-loco-shuffled,51529,1919,91
+bend,2.6,full,51529,3114,1286
+bend,2.6,fixed-113,51529,1922,94

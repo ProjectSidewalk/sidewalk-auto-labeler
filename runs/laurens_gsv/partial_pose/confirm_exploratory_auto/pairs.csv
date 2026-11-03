@@ -1,0 +1,5 @@
+city,height,exploratory,frame,arm,op_sites,multi_view_sites,sites_in_common,own_pairs,common_pairs,pairs_scored,pairs_unplaced,median_m,p90_m,mean_m,own_median_m,own_p90_m,own_mean_m
+laurens_gsv,auto,True,reassoc,off,267,192,189,1289,1236,1236,0,1.7490,3.9082,2.0332,1.8220,4.0124,2.0821
+laurens_gsv,auto,True,reassoc,partial,259,190,187,1324,1236,1236,0,1.5763,3.5353,1.8544,1.6946,3.9337,1.9951
+laurens_gsv,auto,True,reassoc,partial-shuffled,263,190,187,1309,1236,1236,0,1.7235,3.7943,1.9774,1.8246,4.1245,2.1104
+laurens_gsv,auto,True,reassoc,partial-mirror,277,196,192,1247,1236,1236,0,1.9570,4.4022,2.2940,1.9383,4.2537,2.2337

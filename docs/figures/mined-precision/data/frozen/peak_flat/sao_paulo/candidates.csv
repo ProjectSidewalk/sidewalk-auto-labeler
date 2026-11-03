@@ -1,0 +1,3 @@
+city,site_id,pano_id,range_m,bearing_deg,x_norm,y_norm,n_op_panos,best_conf,bucket,nearest_gt_kind,nearest_gt_m,within_match
+sao_paulo,1130,lASBXjG5VnksPRJajz2FKw,13.26,178.93,0.34455,0.55375,3,0.92087,tp,missed,1.11,1
+sao_paulo,2428,NoadtY-SJzlUAlm7E74VLw,14.93,254.27,0.14377,0.54215,5,0.82505,fp,unsure,5.20,0

@@ -1,0 +1,7 @@
+label_uid,pano_id,lat,lng,street_uid,street_completed,nearest_ai_cluster_m,nearest_ai_cluster_uid,pano_url
+laurens:1408,1148041097464740,42.845473,-94.846158,laurens:135,True,10.8,laurens:8255,https://www.mapillary.com/app/?pKey=1148041097464740&focus=photo
+laurens:2727,842726585005616,42.847856,-94.852838,laurens:56,True,13.1,laurens:8030,https://www.mapillary.com/app/?pKey=842726585005616&focus=photo
+laurens:2728,877580328035563,42.847875,-94.852835,laurens:56,True,15.1,laurens:8030,https://www.mapillary.com/app/?pKey=877580328035563&focus=photo
+laurens:2774,859136893217435,42.847654,-94.851348,laurens:81,True,12.0,laurens:8414,https://www.mapillary.com/app/?pKey=859136893217435&focus=photo
+laurens:2775,859136893217435,42.847664,-94.851332,laurens:81,True,13.2,laurens:8414,https://www.mapillary.com/app/?pKey=859136893217435&focus=photo
+laurens:3011,818762744118973,42.850764,-94.847338,laurens:109,True,11.0,laurens:8092,https://www.mapillary.com/app/?pKey=818762744118973&focus=photo

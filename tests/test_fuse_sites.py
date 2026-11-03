@@ -330,7 +330,7 @@ def test_auto_leaves_the_pose_ablation_and_implied_height_at_the_constant(tmp_pa
     seen = {}
 
     def spy(name):
-        def report(panos, params):
+        def report(panos, params, allow_mixed_decode=False, allow_mixed_border=False):
             seen[name] = (params.camera_height_m, {p.camera_height_m for p in panos})
             return ''
         return report
@@ -467,6 +467,8 @@ def test_road_mode_takes_the_grade_back_out_of_a_car_on_a_hill(tmp_path):
     assert stats['pose'] == {'mode': 'road', 'panos': 4, 'posed': 4,
                              'derived_from_source_metadata': 3, 'flat': 0, 'gravity': 0,
                              'road_relative': 3, 'gravity_fallback': 1,
+                             'partial': 0, 'store_unverified_flat': 0,
+                             'partial_coefficients': None,
                              'grade_source': 'sfm', 'grade_replaced': 0}
     # ...but the production default stays FLAT for Mapillary: road-relative failed the #42
     # shuffled-grade control, so `auto` withholds it (fuse_sites.AUTO_ROAD_SOURCES).
@@ -474,8 +476,8 @@ def test_road_mode_takes_the_grade_back_out_of_a_car_on_a_hill(tmp_path):
 
 
 def test_auto_pose_keeps_gsv_flat_even_with_a_stored_pose():
-    # GSV equirects are gravity-rectified: rotating by their metadata pose loosens every
-    # city (geo._world_ray), so the default must not, whatever the block carries.
+    # Rotating GSV rays by their full metadata pose loosens every city (geo._world_ray,
+    # #113), so the default must not, whatever the block carries.
     p = make_pano('g', 0, 0, [(0, 10, 0.9)])
     p.camera_pitch, p.camera_roll = 3.0, 1.0
     auto, _, stats = fs.project([p], fs.FuseParams())
@@ -514,6 +516,108 @@ def test_explicit_pose_warns_on_gsv_and_panoramax_only():
     assert fs.pose_source_warnings([gsv, pmx], fs.POSE_OFF) == []
     assert fs.pose_source_warnings([gsv, pmx], fs.POSE_AUTO) == []
     assert fs.pose_source_warnings([mly], fs.POSE_GRAVITY) == []
+
+
+def _posed(pano_id, x_target, pitch, roll, source='launch'):
+    """A pano whose one detection flat-raycasts to 10 m at bearing offset `x_target`
+    (0 = dead ahead, 90 = to the right), with a stored GSV-style (pitch, roll)."""
+    rad = math.radians(x_target)
+    p = make_pano(pano_id, 0, 0, [(10 * math.sin(rad), 10 * math.cos(rad), 0.9)],
+                  heading_deg=0.0, source=source)
+    p.camera_pitch, p.camera_roll = pitch, roll
+    return p
+
+
+def test_partial_pose_is_the_frozen_fraction_on_gsv():
+    """#116 follow-up: `partial` feeds _world_ray geo.partial_pitch_roll of the stored
+    angles with the frozen PARTIAL_POSE_K_GSV (roll stored unwrapped, as GSV does)."""
+    assert geo.PARTIAL_POSE_K_GSV == (0.183, 0.382)
+    p = _posed('g', 0, 2.0, 359.0)
+    pose = fs.pano_pose(p, fs.POSE_PARTIAL)
+    want = geo.partial_pitch_roll(2.0, 359.0, *geo.PARTIAL_POSE_K_GSV)
+    assert (pose.pitch_deg, pose.roll_deg) == pytest.approx(want)
+    assert want == pytest.approx((-0.183 * 2.0, 0.382 * -1.0))
+    assert pose.has_pitch_roll
+    counts = fs.pose_counts([p], fs.FuseParams(apply_pose=fs.POSE_PARTIAL))
+    assert (counts['partial'], counts['flat']) == (1, 0)
+    assert counts['partial_coefficients'] == {'k_pitch': 0.183, 'k_roll': 0.382}
+
+
+def test_partial_pose_moves_the_ray_part_of_the_way_the_full_pose_does():
+    """Direction, not a re-derivation: a nose-DOWN pano (streetlevel pitch > 0) sees a
+    point ahead closer than flat, and a pano rolled right-side-down (PS roll > 0) sees a
+    point to its right closer; `partial` lands between flat and the full pose."""
+    def rng(p, mode):
+        dets, _, _ = fs.project([p], fs.FuseParams(apply_pose=mode))
+        return dets[0].ground.range_m
+    for p in (_posed('ahead', 0, 2.0, 0.0), _posed('right', 90, 0.0, 2.0)):
+        flat = rng(p, fs.POSE_OFF)
+        full = geo.detection_ground_point(
+            geo.pano_pose(p.pose_fields(camera_pitch=-p.camera_pitch,
+                                        camera_roll=p.camera_roll)),
+            *p.detections[0][1:3]).range_m
+        assert flat == pytest.approx(10.0)
+        assert full < rng(p, fs.POSE_PARTIAL) < flat
+
+
+def test_partial_pose_leaves_non_gsv_and_half_posed_panos_flat():
+    mly = _posed('m', 0, 2.0, 1.0, source='mapillary')
+    pmx = _posed('p', 0, 2.0, 1.0, source='panoramax')
+    half = _posed('h', 0, 2.0, None)
+    params = fs.FuseParams(apply_pose=fs.POSE_PARTIAL)
+    dets, _, _ = fs.project([mly, pmx, half], params)
+    assert all(d.ground.range_m == pytest.approx(10.0) for d in dets)
+    counts = fs.pose_counts([mly, pmx, half], params)
+    assert (counts['partial'], counts['flat']) == (0, 3)
+    # ...and `auto` never applies it
+    gsv = _posed('g', 0, 2.0, 1.0)
+    assert fs.pose_counts([gsv], fs.FuseParams())['partial'] == 0
+    assert fs.pose_counts([gsv], fs.FuseParams())['partial_coefficients'] is None
+    auto, _, _ = fs.project([gsv], fs.FuseParams())
+    assert auto[0].ground.range_m == pytest.approx(10.0)
+
+
+def test_partial_pose_leaves_store_built_panos_flat_until_verified():
+    """A block rebuilt from the PS pano store (source None -> '', source_detail
+    'ps_store') carries the PS row's pitch/roll, convention unverified: flat under
+    `partial`, counted, warned; posed once re-labelled verified."""
+    from dataclasses import replace
+    store = replace(_posed('s', 0, 2.0, 1.0, source=''), source_detail=fs.STORE_SOURCE_DETAIL)
+    params = fs.FuseParams(apply_pose=fs.POSE_PARTIAL)
+    dets, _, _ = fs.project([store], params)
+    assert dets[0].ground.range_m == pytest.approx(10.0)
+    counts = fs.pose_counts([store], params)
+    assert (counts['partial'], counts['flat'], counts['store_unverified_flat']) == (0, 1, 1)
+    warnings = fs.pose_source_warnings([store], fs.POSE_PARTIAL)
+    assert len(warnings) == 1 and '1 store-built GSV' in warnings[0]
+    verified = replace(store, source_detail=fs.STORE_POSE_VERIFIED_DETAIL)
+    dets, _, _ = fs.project([verified], params)
+    assert dets[0].ground.range_m < 10.0 - 1e-6
+    assert fs.pose_counts([verified], params)['partial'] == 1
+    assert fs.pose_source_warnings([verified], fs.POSE_PARTIAL) == []
+
+
+def test_load_results_carries_source_detail(tmp_path):
+    src = tmp_path / 'results.jsonl'
+    src.write_text(json.dumps({'pano': {
+        'panorama_id': 'P', 'lat': 40.0, 'lng': -74.0, 'camera_heading': 0.0,
+        'camera_pitch': 1.0, 'camera_roll': 0.5, 'capture_date': '2023-05', 'source': None,
+        'source_detail': 'ps_store'}, 'detections': []}) + '\n', encoding='utf-8')
+    panos, _ = fs.load_results(src)
+    assert panos[0].source_detail == fs.STORE_SOURCE_DETAIL
+    assert fs.pose_mode_for(panos[0], fs.POSE_PARTIAL) == fs.POSE_OFF
+
+
+def test_partial_pose_warns_once_on_non_gsv_panos_and_parses():
+    gsv = make_pano('g', 0, 0, [(0, 10, 0.9)], source='launch')
+    pmx = make_pano('p', 0, 0, [(0, 10, 0.9)], source='panoramax')
+    mly = make_pano('m', 0, 0, [(0, 10, 0.9)], source='mapillary')
+    warnings = fs.pose_source_warnings([gsv, pmx, mly, mly], fs.POSE_PARTIAL)
+    assert len(warnings) == 1
+    assert 'partial on 2 mapillary, 1 panoramax' in warnings[0] and 'GSV' in warnings[0]
+    assert fs.pose_source_warnings([gsv, gsv], fs.POSE_PARTIAL) == []
+    assert fs.build_parser().parse_args(
+        ['runs/x', '--apply-pose', 'partial']).apply_pose == fs.POSE_PARTIAL
 
 
 def test_load_results_rederives_a_half_pose_from_source_metadata(tmp_path):
@@ -664,3 +768,45 @@ def test_auto_is_the_cli_default_only(tmp_path):
     fs.main([str(tmp_path), '--camera-height-m', '2.6', '--out', str(tmp_path / 'f.jsonl')])
     fixed = json.loads((tmp_path / 'f_meta.json').read_text(encoding='utf-8'))
     assert fixed['camera_heights'] == {'fixed_m': 2.6, 'panos': 12}
+
+
+def test_sigma_peak_px_widens_the_covariance_and_is_counted_in_rejections():
+    """#111: the peak term is overridable per fuse (FuseParams.sigma_peak_px / the
+    --sigma-peak-px flag), and fuse() says why a detection opened a new site."""
+    panos = [make_pano('p1', 0, -10, [(0, 0, 0.9)]),
+             make_pano('p2', 0, 10, [(3.9, 0, 0.9)])]
+    base, _, _ = fs.project(panos, fs.FuseParams())
+    wide, _, _ = fs.project(panos, fs.FuseParams(
+        sigma_peak_px=geo.SIGMA_PEAK_COARSE_CELL_PX))
+    assert all(w.cov[0] > b.cov[0] and w.cov[2] > b.cov[2] for b, w in zip(base, wide))
+    assert fs.FuseParams().sigma_peak_px is None          # None = geo's default
+    assert geo.GSV_ERRORS.sigma_peak_px == geo.SIGMA_PEAK_PX_DEFAULT
+
+    _, _, stats = fs.fuse(panos, fs.FuseParams())
+    assert stats['rejections'] == {'chi2_gate': 0, 'residual': 1}   # the 3.9 m split
+    far = [make_pano('p1', 0, -10, [(0, 0, 0.9)]),
+           make_pano('p2', 0, 10, [(7.0, 0, 0.9)])]           # in the 8 m cap, off the gate
+    _, _, stats = fs.fuse(far, fs.FuseParams())
+    assert stats['rejections'] == {'chi2_gate': 1, 'residual': 0}
+
+
+def test_sigma_peak_px_flag_reaches_the_fuse():
+    args = fs.build_parser().parse_args(['runs/x', '--sigma-peak-px', '2.31'])
+    assert args.sigma_peak_px == 2.31
+    assert fs.build_parser().parse_args(['runs/x']).sigma_peak_px is None
+
+
+def test_pose_ablation_same_site_table_scores_one_site_set():
+    """#57: the same-site table keeps a group only if every convention places every
+    member within the cap. A 0/0 pose is identical under every sign, so with only 0/0
+    poses every convention reads the same, and the real-tilt subset is empty."""
+    from dataclasses import replace as dc_replace
+    panos = [dc_replace(make_pano(pid, pe, pn, [(0, 0, 0.9)], source='panoramax'),
+                        camera_pitch=0.0, camera_roll=0.0)
+             for pid, pe, pn in (('p1', -10, 0), ('p2', 10, 0), ('p3', 0, -10))]
+    text = fs.pose_ablation_report(panos, fs.FuseParams())
+    table = text.split('same-site set, posed members (incl. 0/0): ')[1]
+    assert table.startswith('1 of 1 groups placed by every convention within 25 m')
+    medians = {line.split()[-3] for line in table.split('\n')[2:8]}
+    assert len(medians) == 1
+    assert 'same-site set, real-tilt members only: 0 of 0 groups' in text

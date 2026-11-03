@@ -16,13 +16,21 @@ Pooled rows SUM numerators and denominators (covered/pool, fragments/ramps, dual
 TP/FP, size-bucket T/F) over cities -- never an average of rates, and never a join on a
 per-run id (label and cluster ids are per city).
 
-Resumable: a cell whose arms.csv exists and whose report.md records the same results
-sha256 and SCORER_VERSION is read back instead of re-run; --force re-runs it.
+Resumable: a cell is read back instead of re-run when its arms.csv exists and its
+report.md records the same results sha256, the same SCORER_VERSION, and the same input
+stamp (the sha256 of the cached street pull and of the split's RampNet verdicts.json; see
+cell_current); --force re-runs it. A street network is pulled at most once per city per
+invocation (--refresh re-pulls it once, then every cell of that city reuses it).
+
+Refuses to pool a partial set: when any cell is missing or stale, it lists them and exits 1
+WITHOUT touching the pooled outputs, unless --allow-partial (the report then says which
+cells were left out).
 
 Usage:
     python scripts/clustering_eval_pooled.py                      # every cell, then pool
     python scripts/clustering_eval_pooled.py --cities laurens_gsv # one city (smoke test)
     python scripts/clustering_eval_pooled.py --pool-only          # re-pool existing cells
+    python scripts/clustering_eval_pooled.py --pool-only --allow-partial  # pool what is current
 """
 import argparse
 import csv
@@ -111,7 +119,8 @@ def cell_stamp(run_dir, server_key, split, bench=None):
 
 
 def streets_for(run_dir, server_key, refresh=False):
-    """The server's street network (GET, cached beside the run), or None."""
+    """The server's street network (GET, cached beside the run), or None. The caller
+    pulls once per city, so --refresh costs one GET per city, not one per cell."""
     if server_key is None:
         return None
     path = run_dir / 'ps_streets.geojson'
@@ -119,13 +128,14 @@ def streets_for(run_dir, server_key, refresh=False):
     return path
 
 
-def run_cell(city, tier, frame, force=False, refresh=False, bench=None):
+def run_cell(city, tier, frame, streets, force=False, bench=None):
+    """Score one (city, tier, frame) cell unless it is current; `streets` is the city's
+    street pull from streets_for (None for a city without a server)."""
     name, split, run, results, server_key, _source = city
     run_dir = REPO_ROOT / 'runs' / run
     results_path = run_dir / results
     out = cell_dir(run_dir, tier, frame)
     sha = fs.file_sha256(results_path)
-    streets = streets_for(run_dir, server_key, refresh)
     if not force and cell_current(out, sha, cell_stamp(run_dir, server_key, split, bench)):
         print(f'[{name} t{tier:g} {frame}] current, reading back', flush=True)
         return out
@@ -203,6 +213,9 @@ def main(argv=None):
     ap.add_argument('--refresh', action='store_true', help='re-pull the street networks')
     ap.add_argument('--pool-only', action='store_true',
                     help='only pool cells already on disk (no scoring)')
+    ap.add_argument('--allow-partial', action='store_true',
+                    help='pool even when some cells are missing or stale (default: list '
+                         'them, exit 1, and leave the pooled outputs untouched)')
     ap.add_argument('--benchmark-root', type=Path, default=None)
     args = ap.parse_args(argv)
     names = {c[0] for c in CITIES}
@@ -214,10 +227,11 @@ def main(argv=None):
 
     if not args.pool_only:
         for city in cities:
+            streets = streets_for(REPO_ROOT / 'runs' / city[2], city[4], args.refresh)
             for tier, frame, gsv_only in CELLS:
                 if gsv_only and city[5] != 'gsv':
                     continue
-                run_cell(city, tier, frame, args.force, args.refresh, args.benchmark_root)
+                run_cell(city, tier, frame, streets, args.force, args.benchmark_root)
 
     per_city, attach_rows, missing = [], [], []
     for name, split, run, results, srv, source in CITIES:
@@ -271,11 +285,17 @@ def main(argv=None):
                     pooled.append({'tier': tier, 'frame': str(frame), 'group': gname,
                                    'arm': arm, 'n_cities': len(rows), **pool(rows)})
 
+    if missing and not args.allow_partial:
+        print('cells missing or stale, so nothing was pooled (the pooled outputs are '
+              'untouched): ' + ', '.join(missing) + '\nre-run them (drop --pool-only, or '
+              '--force), or pass --allow-partial to pool the rest', file=sys.stderr)
+        return 1
+
     OUT.mkdir(parents=True, exist_ok=True)
     for fname, rows in (('per_city.csv', per_city), ('pooled.csv', pooled)):
         if rows:
             with open(OUT / fname, 'w', newline='', encoding='utf-8') as f:
-                w = csv.DictWriter(f, list(rows[0].keys()))
+                w = csv.DictWriter(f, list(rows[0].keys()), lineterminator='\n')
                 w.writeheader()
                 w.writerows(rows)
 
@@ -336,10 +356,11 @@ def main(argv=None):
                              f"{rate(r['attached'], r['unplaceable'], 2)} | "
                              f"{r['clusters_server']} -> {r['clusters_attach']} |")
         lines.append(f'| all | {tot_u} | {tot_a} | {rate(tot_a, tot_u, 2)} | |')
-    (OUT / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    (OUT / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
     print('\n'.join(lines))
     print(f'wrote {OUT / "report.md"}, per_city.csv, pooled.csv')
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
