@@ -29,7 +29,7 @@ pano REPRODUCES when both of these hold:
 
   * its detections at the tier the server actually holds (the submission record's
     `min_confidence`, not the benchmark constant) land on exactly the same pixel keys PS
-    stores - `round(x*W)`, `round(y*H)`; and
+    stores - detectors.ps_pixel: `round(x*W) % W`, `round(y*H)`; and
   * its pano block still describes the same image and the same place - width, height,
     lat, lng and camera heading unchanged. Dimensions decide the pixel key, and position
     is what every label inherits, so a band whose panos moved would arrive in a different
@@ -100,7 +100,7 @@ if str(REPO_ROOT) not in sys.path:
 import geo  # noqa: E402
 from detectors import (BENCHMARK_CONFIDENCE, BORDERS, DECODES, DEFAULT_BORDER,  # noqa: E402
                        DEFAULT_DECODE, border_band_edge, borders_in_file, decodes_in_file,
-                       on_camera_rig, single_border, single_decode)
+                       on_camera_rig, ps_pixel, single_border, single_decode)
 from detectors.batching import BATCH_SIZE_HELP, report_detector  # noqa: E402
 
 # The pano fields a band must not change: the first two set the pixel key PS stores, the
@@ -125,7 +125,7 @@ def pixel_set(record, floor):
     catches it, which is the place that can carry the pano over.
     """
     w, h = record['pano']['width'], record['pano']['height']
-    return Counter((round(d['x_normalized'] * w) % w, round(d['y_normalized'] * h))  # x cyclic, as send_to_ps
+    return Counter(ps_pixel(d['x_normalized'], d['y_normalized'], w, h)  # as send_to_ps ships
                    for d in record['detections'] if d['confidence'] >= floor)
 
 

@@ -103,7 +103,7 @@ import ps_placement  # noqa: E402
 import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
 from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE,  # noqa: E402
-                       DECODE_ARGMAX, on_camera_rig)
+                       DECODE_ARGMAX, on_camera_rig, ps_pixel)
 
 try:  # analysis-only dependencies, deliberately not in requirements.txt
     import pandas as pd
@@ -298,8 +298,8 @@ def label_to_detection(results_path, labels):
             p = rec['pano']
             w, h = p['width'], p['height']
             for i, d in enumerate(rec.get('detections', [])):
-                key = (p['panorama_id'], round(d['x_normalized'] * w),
-                       round(d['y_normalized'] * h))
+                key = (p['panorama_id'], *ps_pixel(d['x_normalized'], d['y_normalized'],
+                                                   w, h))
                 if key in by_key:
                     ambiguous.add(key)
                 by_key[key] = i
@@ -799,7 +799,7 @@ PLACEMENT_TOL_M = 0.5
 def synthesize_labels(results_path, min_confidence, mask_rig=True):
     """(labels DataFrame, det_of) for a city with no server, or no server holding this
     run: one label per stored detection with confidence >= min_confidence, exactly as
-    send_to_ps.transform_record would send it (pixel = round(x * width), round(y * height);
+    send_to_ps.transform_record would send it (pixel = detectors.ps_pixel, x modulo width;
     rig detections dropped when mask_rig), placed where the server would place it
     (ps_placement.label_latlng at the server's 2.341 m).
 
@@ -831,7 +831,7 @@ def synthesize_labels(results_path, min_confidence, mask_rig=True):
                     continue
                 if mask_rig and on_camera_rig(d['y_normalized']):
                     continue
-                px, py = round(d['x_normalized'] * w), round(d['y_normalized'] * h)
+                px, py = ps_pixel(d['x_normalized'], d['y_normalized'], w, h)
                 lat, lng = ps_placement.label_latlng(p['lat'], p['lng'], px, py, w, h,
                                                      p['camera_heading'])
                 lid = len(rows) + 1
