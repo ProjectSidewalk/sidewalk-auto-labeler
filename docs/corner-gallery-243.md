@@ -1,6 +1,7 @@
 # Corner present/absent gallery (RampNet#243)
 
-**Status (2026-10-06): built, not rated; the item list is final.** Rebuilt after the review
+**Status: partial, 50 of 95 rated (2026-10-07, `verdicts__jonf.json`); the item list is
+final.** Built 2026-10-06 and rebuilt after the review
 of PR #141 (crop choice now always includes the newest capture, B1): same seed, units and
 order, items.jsonl sha256 `bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459`
 (was `8e5f881b...7bdc1d`). One rater (Jon) will rate it. The page and the
@@ -153,7 +154,11 @@ python scripts/corner_gallery.py render --bundle runs/vancouver/corner_gallery24
 over. Progress lives in the browser until Export: **export and commit before switching
 machines**, or the other machine starts from the last committed file. On a machine that has
 already rated in its browser, a unit worked on locally wins over the file and the page
-reports the conflict.
+reports the conflict, **except the blind read**: once a unit's blind read is frozen in the
+file, it is kept (review S1 of PR #141). A browser that never completed the unit takes the
+file's entry whole; one whose own blind read differs keeps its later work but takes the
+file's blind read, with the edit flags set from the data. Export warns before replacing a
+file entry that differs.
 
 ## Changes made during the jonf pass (2026-10-06)
 
@@ -190,6 +195,11 @@ Jon rated 28 of 95 units, exported (committed as the partial `verdicts__jonf.jso
   blank tile from Google (expired), and all 4 have a PS backup (`/backupImage/<pano>/metadata`
   200); the backup image itself needs a signed URL, so Explore is the way in. Either way the
   view is served live, so opening a link now flags the unit `used_live_imagery` (see Scoring).
+  **Explore writes to production.** `ExploreController.explore` starts an address drop-in for
+  any visitor, logged in or not, so every click on the Explore link writes a mission row and an
+  activity log on the production Vancouver server, and a label placed there is a real label.
+  Look only: a rater (Jon or a second rater) must not label in Explore. The link text says so,
+  and both links say they open a new tab.
 - **Rubric clarification (no rubric text change):** a curb cut where a shared-use path or
   trail meets the street serves pedestrians and counts as **present**. A feature that is for
   bikes only is **can't tell**, with a note. Raised by Jon's notes on `art:n47270030` (a
@@ -256,12 +266,21 @@ both have blind verdicts. The unit outcome is:
 - a rubric text other than the bundle's (`snapshot.json`), so an edit without a version bump
   cannot mix two definitions;
 - final verdicts that differ from the blind ones while `edited_after_inventory` is false (the
-  page sets that flag on any edit after the reveal, so this means the file was altered).
+  page sets that flag on any edit after the reveal, so this means the file was altered);
+- absence reasons that differ from the blind ones while `kinds_after_inventory` is false (the
+  page sets that flag on a reasons-only change after the reveal);
+- a flag (`complete`, `inventory_seen`, `edited_after_inventory`, `kinds_after_inventory`,
+  `used_live_imagery`) that is not a boolean.
+
+A `live_imagery__<rater>.json` sidecar is refused when its schema, rater or `items_sha256` is
+wrong, when it names a unit the verdicts file has not rated, or when an entry's `note_quote`
+is not in that unit's note.
 
 ## Which `NA` read is primary
 
-**Pending the ratings.** This section will state which read is primary, and why, once
-`verdicts__jonf.json` is committed and scored. Nothing here is decided yet.
+**Pending the ratings.** This section will state which read is primary, and why, once all 95
+units are rated and scored (the committed `verdicts__jonf.json` is partial: 50 of 95, and the
+scorer marks its report INTERIM). Nothing here is decided yet.
 
 ## What is a guess
 
@@ -305,6 +324,13 @@ python scripts/corner_gallery.py build \
 python scripts/corner_gallery.py render --bundle runs/vancouver/corner_gallery243 --rater jonf
 python scripts/corner_gallery_score.py runs/vancouver/corner_gallery243
 ```
+
+**Rebuilt at [6c020fa](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/commit/6c020fa)
+from `build.json` `da61166a...`:** `corners_full.jsonl` (`ec206060...681f8d`) and `items.jsonl`
+(`bbed3d6d...1459`) came out byte-identical (verified in the deep review of 2026-11-03, with
+`build --skip-aerial --no-crops`). `snapshot.json` still records the earlier `build_json` sha
+`b0d8fcdd...`; it is deliberately not rebuilt, because its hashes are what the verdicts are
+bound to.
 
 `build` cuts the crops on makelab2 from the PS store (`--local-panos` cuts them from a local
 sharded copy). It never re-samples an existing `items.jsonl` with a different unit list.
