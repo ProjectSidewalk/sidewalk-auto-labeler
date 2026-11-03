@@ -168,7 +168,7 @@ function panoLinks(v, psHost) {
   const g = 'https://www.google.com/maps/@' + v.cam.lat + ',' + v.cam.lng + ',3a,90y,' + h + 'h,70t/data=!3m4!1e1!3m2!1s' + id + '!2e0';
   const nt = '<span class="sr"> (opens in a new tab)</span>';
   return '<a target="_blank" rel="noopener" href="' + ps + '">Project Sidewalk Explore' + nt + '</a> (has expired panos; look only, do not label there) · ' +
-         '<a target="_blank" rel="noopener" href="' + g + '">Google Street View' + nt + '</a> (each opens in a new tab)';
+         '<a target="_blank" rel="noopener" href="' + g + '">Google Street View' + nt + '</a> <span aria-hidden="true">(each opens in a new tab)</span>';
 }
 """
 
@@ -280,9 +280,9 @@ HTML_TEMPLATE = r"""<!doctype html>
     <button id="completebtn"></button> <span id="completehint" class="hint"></span>
     <p><label for="unitnote">Note on this unit (optional; say why for any can't tell)</label>
       <textarea id="unitnote" rows="3"></textarea></p>
-    <p><label><input type="checkbox" id="liveimg"> I looked at live imagery for this unit
+    <p><label><input type="checkbox" id="liveimg" aria-describedby="liveimghint"> I looked at live imagery for this unit
       (a look-around link, or Street View / Project Sidewalk opened any other way)</label>
-      <span class="hint">Ticked for you when you open a look-around link. Live imagery is not
+      <span class="hint" id="liveimghint">Ticked for you when you open a look-around link. Live imagery is not
       pinned or dated like the crops, so the scorer reports these units separately.</span></p>
     <p class="meta">Corner markers: number = corner; fill and the letter under it: green P present,
       red A absent, grey ? can't tell, white not yet rated; blue ring = the active corner (click a corner to make it active). Dots with dashed lines =
@@ -351,7 +351,7 @@ function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } ca
   const bits = [];
   if (boot.initialIgnored) bits.push('<b>The verdicts file was made on another item list and was NOT loaded.</b>');
   if (boot.prefilled) bits.push(boot.prefilled + ' unit(s) prefilled from the verdicts file.');
-  if (boot.blindFromFile.length) bits.push('<b>' + boot.blindFromFile.length + ' unit(s) took the blind read frozen in the verdicts file</b> (it was completed on another machine first): ' + boot.blindFromFile.join(', ') + '.');
+  if (boot.blindFromFile.length) bits.push('<b>' + boot.blindFromFile.length + ' unit(s): the verdicts file already holds a frozen blind read for the unit; it was kept</b>, over this browser&#39;s own blind read or draft: ' + boot.blindFromFile.join(', ') + '.');
   if (boot.conflicts.length) bits.push('<b>' + boot.conflicts.length + ' unit(s) kept this browser&#39;s work over a different entry in the verdicts file</b>: ' + boot.conflicts.join(', ') + '. Clear this page&#39;s site data to take the file instead.');
   if (boot.reopened) bits.push('<b>' + boot.reopened + ' complete unit(s) reopened</b>: their corners changed since they were rated.');
   if (bits.length) { const n = document.getElementById('notice'); n.style.display = ''; n.innerHTML = bits.join('<br>'); }

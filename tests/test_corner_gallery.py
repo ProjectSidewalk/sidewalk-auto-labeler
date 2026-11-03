@@ -525,10 +525,15 @@ def test_render_has_no_placeholders_and_no_part():
     # review S2: the live-imagery checkbox, set by opening a look-around link, is exported
     assert 'id="liveimg"' in html and 'markLive(); return;' in html
     assert 'used_live_imagery: !!s.used_live_imagery' in html
-    # final review SF1: the export names the file the page was rendered from
+    # final review SF1: the export names the file the page was rendered from; N5: the hint is
+    # tied to the checkbox
     assert 'const PREFILLED_FROM = null;' in html and 'prefilled_from_sha256: PREFILLED_FROM' in html
     assert 'const PREFILLED_FROM = "' + 'ab' * 32 + '";' in cg.build_html(
         [cg.viewer_unit(it, '../../')], 'S' * 64, 'jonf', None, 'Imagery: Esri', 'ab' * 32)
+    assert 'aria-describedby="liveimghint"' in html and 'id="liveimghint"' in html
+    # N1: the page cannot know which machine completed a unit first
+    assert 'completed on another machine first' not in html
+    assert 'already holds a frozen blind read for the unit; it was kept' in html
     with pytest.raises(ValueError):
         cg.rater_file_name('bad name')
 
@@ -566,6 +571,7 @@ def test_pano_links_under_node(tmp_path):
     assert ('href="https://www.google.com/maps/@45.6252251,-122.5291138,3a,90y,55h,70t/data='
             '!3m4!1e1!3m2!1sJ1zLlmbrSzYZYo6kwyArwA!2e0"') in html
     assert html.count('(opens in a new tab)') == 2 and 'do not label there' in html
+    assert '<span aria-hidden="true">(each opens in a new tab)</span>' in html    # N5
 
 
 def test_load_aerial_dates_refuses_another_item_list(tmp_path):
