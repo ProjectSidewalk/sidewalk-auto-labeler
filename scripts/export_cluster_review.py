@@ -24,11 +24,19 @@ with a reconcile: every label has a crop or is listed missing, every unit has an
 Network: one Overpass GET (cached in <work-dir>/osm.json), Esri tile GETs (cached in
 <work-dir>/tiles/), makelab2 over SSH for crops (read-only; stages under
 ~/.sidewalk_explorer/ as site_explorer.py does). Nothing is sent to any PS server; the
-run dir is read in place and never written. Needs pandas/scipy/haversine (the #56 arms);
-no shapely.
+run dir's inputs are read in place and never written. The work dir (default
+runs/<city>/cluster_review in this checkout) may sit inside the run dir -- it does when
+--run-dir is this checkout's runs/<city> -- as long as it neither is the run dir nor
+overlaps an input (work_dir_problem). Needs pandas/scipy/haversine (the #56 arms); no
+shapely.
 
-    python scripts/export_cluster_review.py vancouver \
-        --run-dir ../sal-vancouver/runs/vancouver \
+The bundle dir (--bundle) is RampNet's benchmark/<city>/cluster_review, which, with the
+protocol it follows, lives for now only on RampNet branch `cluster-review-224`
+(https://github.com/ProjectSidewalk/RampNet/tree/39155d872e744378be59354676b32417b1604d65/benchmark/vancouver/cluster_review;
+TODO: repoint to RampNet main once that branch merges).
+
+    # --run-dir: a run dir holding the Vancouver run, e.g. runs/vancouver
+    python scripts/export_cluster_review.py vancouver --run-dir runs/vancouver \
         --bundle ../RampNet/benchmark/vancouver/cluster_review
     # --no-crops / --skip-aerial finish everything else; re-run without them to fill in
 """
@@ -99,6 +107,35 @@ CITY_INPUTS = {
                   'inventory': 'inventory_oracle', 'store': '/projects/makeabilitylab/'
                   'sidewalk_panos/Panoramas/vancouver-wa', 'sharded': True},
 }
+
+
+def work_dir_problem(work, run_dir, inputs):
+    """Why `work` must not be the work dir, or None. The work dir is written (osm.json,
+    tiles/, a report copy) and the run dir's inputs are read only, so `work` may not be the
+    run dir itself, contain an input, or sit inside one (e.g. split_figures/, whose tiles
+    seed the aerials). Inside the run dir otherwise is fine: the default work dir,
+    runs/<city>/cluster_review, is inside --run-dir runs/<city>. All paths resolved.
+
+    Example::
+
+        work_dir_problem(Path('/r/v/cluster_review'), Path('/r/v'), [Path('/r/v/results.jsonl')])
+        # -> None
+    """
+    if work == run_dir:
+        return f'--work-dir {work} is the run dir itself (it is read only)'
+    for p in inputs:
+        if p == work or work in p.parents or p in work.parents:
+            return f'--work-dir {work} overlaps the input {p} (inputs are read only)'
+    return None
+
+
+def input_paths(run_dir, city):
+    """Every path under the run dir the exporter reads (files and dirs)."""
+    import inventory_clustering as ic
+    cfg, inputs = ic.SERVER_LABELS[city], CITY_INPUTS[city]
+    return [run_dir / 'area.geojson', run_dir / 'results.jsonl', run_dir / cfg['labels'],
+            run_dir / cfg['clusters'], run_dir / inputs['streets'],
+            run_dir / inputs['inventory'], run_dir / 'split_figures']
 
 
 def round_half_up(x):
@@ -1022,8 +1059,9 @@ def main(argv=None):
     ap.add_argument('--bundle', type=Path, required=True,
                     help='output dir, e.g. ../RampNet/benchmark/<city>/cluster_review')
     ap.add_argument('--work-dir', type=Path, default=None,
-                    help='osm.json + tiles/ cache and the report copy '
-                         '(default runs/<city>/cluster_review in this checkout)')
+                    help='osm.json + tiles/ cache and the report copy (default '
+                         'runs/<city>/cluster_review in this checkout; may be inside the '
+                         'run dir, never on one of its inputs)')
     ap.add_argument('--per-stratum', type=int, default=PER_STRATUM)
     ap.add_argument('--seed', type=int, default=SEED)
     ap.add_argument('--frame', default='auto', help='fuse frame of the fusion seed')
@@ -1042,8 +1080,10 @@ def main(argv=None):
     run_dir = args.run_dir.resolve()
     bundle = args.bundle.resolve()
     work = (args.work_dir or REPO_ROOT / 'runs' / args.city / 'cluster_review').resolve()
-    if work == run_dir or run_dir in work.parents:
-        raise SystemExit('--work-dir must not be inside the run dir (it is read only)')
+    problem = work_dir_problem(work, run_dir, [p.resolve() for p in
+                                               input_paths(run_dir, args.city)])
+    if problem:
+        raise SystemExit(problem)
     work.mkdir(parents=True, exist_ok=True)
     runs_path = bundle / 'export_runs.json'
     runs = json.loads(runs_path.read_text(encoding='utf-8')) if runs_path.exists() else []
