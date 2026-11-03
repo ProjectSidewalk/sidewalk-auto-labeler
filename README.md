@@ -582,3 +582,8 @@ CI runs the same suite on every push (`.github/workflows/tests.yml`).
 ├── requirements-test.txt    # Test/laptop deps (everything except torch)
 └── runs/                    # Per-area results + resume state (git-ignored)
 ```
+
+## License
+
+The code in this repository is released under the [MIT License](LICENSE). The RampNet model it
+downloads from HuggingFace and the imagery it processes carry their own terms.

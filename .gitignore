@@ -6,6 +6,8 @@ __pycache__
 .env
 *.jsonl
 *.submitted
+# ...except test fixtures, which are compared byte for byte (tests/fixtures/multitype_submit).
+!tests/fixtures/**
 nohup.out
 smoke_check
 
@@ -193,3 +195,16 @@ runs/*/server_agree/as_served/
 !runs/*/footway/report.md
 !runs/*/footway/*.csv
 !runs/*/footway/*.json
+# Thinning experiment (scripts/thinning_experiment.py; write-up in docs/thinning-experiment.md):
+# the per-run report and its two CSVs are tracked; the un-thinned results.jsonl and scan.json
+# they are computed from are not (the report records their pano counts).
+!runs/*/thinning_experiment*/
+!runs/*/thinning_experiment*/report.md
+!runs/*/thinning_experiment*/*.csv
+# Panoramax SD-vs-HD asset study (scripts/panoramax_asset_study.py, issue #161; write-up in
+# docs/panoramax-asset-study.md): sample, per-pano/per-rig/summary CSVs, the verdict and the
+# three arms' detections are tracked. The pixels (HD archive copies, SD assets) are NOT.
+!runs/_summary/panoramax_asset/
+!runs/_summary/panoramax_asset/*.csv
+!runs/_summary/panoramax_asset/*.json
+!runs/_summary/panoramax_asset/detections.jsonl

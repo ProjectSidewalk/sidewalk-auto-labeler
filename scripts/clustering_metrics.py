@@ -306,15 +306,20 @@ def _utc(stamp):
 
 def _campaign_start(directory, endpoint, campaign, cache):
     """When a campaign (one of position_check.campaigns_for's) began sending: its
-    record's `first_submission_utc` for that part (the base entry, or its band), else the
-    campaign's `at` (its last submission) for a record that predates the field."""
+    record's `first_submission_utc` for that part (the base entry, its band, or -- for a
+    multi-type file, issue #168 -- its label type), else the campaign's `at` (its last
+    submission) for a record that predates the field."""
     name = campaign['record']
     if name not in cache:
         with open(Path(directory) / name, encoding='utf-8') as f:
             cache[name] = json.load(f)
     state = cache[name]['endpoints'].get(endpoint) or {}
-    part = state if campaign['band'] is None else (state.get('bands') or {}).get(
-        campaign['band'], {})
+    if campaign.get('label_type') is not None:
+        part = (state.get('types') or {}).get(campaign['label_type'], {})
+    elif campaign['band'] is None:
+        part = state
+    else:
+        part = (state.get('bands') or {}).get(campaign['band'], {})
     return part.get('first_submission_utc') or campaign['at']
 
 
