@@ -69,6 +69,53 @@ def test_an_emitted_peak_on_the_camera_rig_is_withheld():
     assert mc.target_status((0.5, 0.77), [(0.5, 0.772, 0.3)])[0] == 'emit'
 
 
+def test_tally_splits_tiers_and_counts_distinct_targets():
+    base = dict(emit=True, status='emit', benchmark_pano=False, pano_id='p', x=0.5, y=0.6)
+    rows = [dict(base, site_id=1, band='0-8 m', peak_conf=0.4),     # >= 0.30
+            dict(base, site_id=2, band='8-12 m', peak_conf=0.4),    # same pixel, 2nd site
+            dict(base, site_id=3, band='8-12 m', peak_conf=0.2, x=0.7),
+            dict(base, site_id=3, band='8-12 m', peak_conf=0.2, pano_id='q',
+                 benchmark_pano=True),
+            dict(base, site_id=4, band='12-15 m', peak_conf=None, emit=False,
+                 status='no_peak', x=None, y=None)]
+    t = mc.tally(rows)
+    assert (t['pairs'], t['emitted'], t['emitted_off_benchmark']) == (5, 4, 3)
+    assert t['emitted_ge_0_30'] == 2 and t['emitted_ge_0_30_off_benchmark'] == 2
+    assert t['emitted_ge_0_30_by_band'] == {'0-8 m': 1, '8-12 m': 1, '12-15 m': 0}
+    assert t['emitted_distinct_targets'] == 3
+    assert t['emitted_distinct_targets_off_benchmark'] == 2
+    assert t['emitted_distinct_targets_by_band'] == {'0-8 m': 1, '8-12 m': 3, '12-15 m': 0}
+    assert (t['emitted_targets_multi_site'], t['emitted_targets_multi_band']) == (1, 1)
+    assert t['emitted_targets_multi_band_off_benchmark'] == 1
+    assert t['emitted_distinct_targets_off_benchmark_by_band']['8-12 m'] == 2
+    on_bench = mc.tally([dict(r, benchmark_pano=True) for r in rows])
+    assert on_bench['emitted_targets_multi_site_off_benchmark'] == 0
+    assert t['tiers'] == {'operational_in_this_script': 0.55, 'production_operational': 0.3}
+
+
+def test_tally_of_the_committed_labels_reproduces_the_committed_summary():
+    """The committed step-4 summary.json predates the tier/target keys; every key it has
+    that the rows determine must come back unchanged from its labels.jsonl."""
+    import json
+    from pathlib import Path
+    d = Path(__file__).resolve().parents[1] / 'docs/figures/mined-precision/data/step4/richmond'
+    summary = json.loads((d / 'summary.json').read_text(encoding='utf-8'))
+    t = mc.tally(mc.read_labels(d / 'labels.jsonl'))
+    shared = set(summary) & set(t)
+    assert len(shared) == 9
+    assert {k: t[k] for k in shared} == {k: summary[k] for k in shared}
+
+
+def test_per_rig_without_a_table_is_a_usage_error_not_a_traceback(tmp_path, capsys):
+    import pytest
+    res = tmp_path / 'results.jsonl'
+    res.write_text('', encoding='utf-8')
+    with pytest.raises(SystemExit) as e:
+        mc.main(['--results', str(res), '--peaks', str(res), '--city', 'c',
+                 '--camera-height', 'per-rig', '--out', str(tmp_path / 'o')])
+    assert e.value.code == 2 and 'camera-height table' in capsys.readouterr().err
+
+
 def test_band_edges():
     assert mc.band_of(8.0) == '0-8 m' and mc.band_of(8.01) == '8-12 m'
     assert mc.band_of(15.0) == '12-15 m'
