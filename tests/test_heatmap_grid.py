@@ -105,3 +105,27 @@ def test_offgrid_misses_picks_the_2_to_6_cell_tier_neighbour(tmp_path):
     m = out[0]
     assert (m["label_residue"], m["det_residue"], m["coarse_cells"]) == ("1,3", "3,3", "same")
     assert m["off_grid_side"] == "label" and m["off_grid_is_raster_earlier"] is True
+
+
+@needs_skimage
+def test_tie_peak_reversed_order_keeps_the_raster_last_pixel_of_an_exact_tie():
+    # offgrid_tie_sweep.csv's reversed_col/reversed_row (PR 160 review, S1): an exact tie is
+    # broken by skimage's raster order, so the flipped decode picks the other end of the run;
+    # a strict maximum inside the same run decodes the same both ways.
+    import numpy as np
+    h = np.zeros((512, 1024), np.float32)
+    h[260, 466:478] = 0.5
+    assert hg.tie_peak(h) == (466, 260)
+    assert hg.tie_peak(h, reverse=True) == (477, 260)
+    assert (hg.tie_size(h, 466, 260), hg.tie_size(h, 477, 260)) == (11, 11)   # 21-px window
+    h[260, 470] = np.nextafter(np.float32(0.5), np.float32(1))   # one ulp above the run
+    assert hg.tie_peak(h) == hg.tie_peak(h, reverse=True) == (470, 260)
+    assert hg.tie_size(h, 470, 260) == 1
+
+
+def test_tie_size_counts_on_the_clipped_map():
+    # The decoder sees np.clip(h, 0, 1): two raw values above 1.0 are a tie there.
+    import numpy as np
+    h = np.zeros((40, 40))
+    h[20, 19], h[20, 21] = 1.02, 1.05
+    assert hg.tie_size(h, 21, 20) == 2
