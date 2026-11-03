@@ -190,7 +190,9 @@ def main(argv=None):
                 labels = sum(c >= entry['min_confidence'] for pid in pids for c in live_confs[pid])
                 problems.append(f"{endpoint}: {len(pids)} pano(s) would sit elsewhere than where "
                                 f"{campaign} put them, the newest campaign to send them ({entry['lines']} "
-                                f"line(s), {entry['labels']} label(s) live; ~{labels} on these panos)")
+                                f"line(s), {entry['labels']} label(s) live; ~{labels} on these panos at "
+                                f">= {entry['min_confidence']:g}; for a multi-type campaign that is its "
+                                f"lowest type threshold)")
         if problems:
             message = ('; '.join(problems) + '. PS places a label once, at insert, so shipping this '
                        'output duplicates live labels unless they are retired (soft-deleted) in the '
