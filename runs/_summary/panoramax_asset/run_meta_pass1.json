@@ -1,0 +1,12 @@
+{
+  "model_id": "rampnet-model@606a11956743",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+  "decode": "argmax",
+  "border": "exclude",
+  "device": "cuda",
+  "gpu": "NVIDIA GeForce RTX 3070",
+  "torch": "2.8.0+cu126",
+  "peak_allocated_mib": 4288,
+  "forwards_this_pass": 1200,
+  "wall_s_this_pass": 1711
+}

@@ -187,7 +187,8 @@ def test_pose_already_set_gains_the_missing_provenance_key():
 
 @pytest.mark.parametrize("sidecar", ["results.jsonl.submitted",
                                      "results.jsonl.submitted.laurens-prod",
-                                     "results.jsonl.band-0.3-0.55.submitted"])
+                                     "results.jsonl.band-0.3-0.55.submitted",
+                                     "results.jsonl.type-CurbRamp.submitted"])
 def test_pose_refuses_a_file_with_only_a_resume_sidecar(monkeypatch, tmp_path, sidecar):
     """A sidecar with no record beside it (a campaign begun before records existed, a
     moved-aside copy, a band) still numbers this file's lines, so it guards the file too."""
