@@ -153,6 +153,25 @@ function planKey(verdicts, active, last, key) {
 }
 """
 
+# The look-around links of the enlarged crop, as a pure function so tests can run it under
+# node (PR #141 review S4). Both open the same pano at the camera-to-corner heading, for when a
+# crop is framed too tight. Project Sidewalk Explore serves its cached copy when Google has
+# expired the pano (about 1 in 6 here, probed 2026-10-06); Google's own viewer uses the URL
+# form Maps itself writes (pitch: PS -20 = Google 70t). `&amp;` because the result goes into
+# innerHTML. Explore starts an address drop-in for ANY visitor, which writes a mission row and
+# an activity log on the production server, so the text says to look only (review N4).
+PANO_LINKS_JS = r"""
+function panoLinks(v, psHost) {
+  const h = Math.round(v.heading), id = encodeURIComponent(v.pano_id);
+  const ps = psHost + '/explore?lat=' + v.cam.lat + '&amp;lng=' + v.cam.lng + '&amp;panoId=' + id +
+             '&amp;heading=' + h + '&amp;pitch=-20';
+  const g = 'https://www.google.com/maps/@' + v.cam.lat + ',' + v.cam.lng + ',3a,90y,' + h + 'h,70t/data=!3m4!1e1!3m2!1s' + id + '!2e0';
+  const nt = '<span class="sr"> (opens in a new tab)</span>';
+  return '<a target="_blank" rel="noopener" href="' + ps + '">Project Sidewalk Explore' + nt + '</a> (has expired panos; look only, do not label there) · ' +
+         '<a target="_blank" rel="noopener" href="' + g + '">Google Street View' + nt + '</a> (each opens in a new tab)';
+}
+"""
+
 HTML_TEMPLATE = r"""<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
@@ -320,6 +339,7 @@ const INVTEXT = {Available: 'Available', NA_noramp: 'NA, no RAMPTYPE', NA_typed:
 
 __STATE_BOOTSTRAP__
 __KEYS__
+__PANO_LINKS__
 
 function loadLocal() { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch (e) { return {}; } }
 const boot = bootstrapState(INITIAL, loadLocal(), UNITS, ITEMS_SHA);
@@ -623,23 +643,12 @@ function openLightbox(ci, vi) {
   const el = document.getElementById('lb');
   el.innerHTML = '<div class="big"><img src="' + esc(v.crop) + '" alt="Corner ' + c.corner + ', view ' + (vi + 1) + ', enlarged"><div class="cap">Corner ' + c.corner +
     ' · view ' + (vi + 1) + ' of ' + c.views.length + ' · captured ' + esc(v.date || '?') + ' · ' + v.dist_m.toFixed(1) + ' m · pano ' + esc(v.pano_id) +
-    '<br>Look around in: ' + panoLinks(v) +
+    '<br>Look around in: ' + panoLinks(v, PS_HOST) +
     '<br>Esc or click outside: close · ←/→: other views</div></div>' +
     (c.views.length > 1 ? '<div class="side">' + c.views.map((w, i) => '<img data-vi="' + i + '" class="' + (i === vi ? 'on' : '') + '" src="' + esc(w.crop) + '" alt="view ' + (i + 1) + '">').join('') + '</div>' : '') +
     '<button id="lbclose" style="position:fixed;top:12px;right:16px">Close</button>';
   el.style.display = 'flex';
   document.getElementById('lbclose').focus();
-}
-// Links to the same pano at the same heading, for when a crop is framed too tight. Project
-// Sidewalk Explore serves its cached copy when Google has expired the pano (about 1 in 6 here,
-// probed 2026-10-06); Google's own viewer uses the URL form Maps itself writes.
-function panoLinks(v) {
-  const h = Math.round(v.heading), id = encodeURIComponent(v.pano_id);
-  const ps = PS_HOST + '/explore?lat=' + v.cam.lat + '&amp;lng=' + v.cam.lng + '&amp;panoId=' + id +
-             '&amp;heading=' + h + '&amp;pitch=-20';
-  const g = 'https://www.google.com/maps/@' + v.cam.lat + ',' + v.cam.lng + ',3a,90y,' + h + 'h,70t/data=!3m4!1e1!3m2!1s' + id + '!2e0';
-  return '<a target="_blank" rel="noopener" href="' + ps + '">Project Sidewalk Explore</a> (has expired panos) · ' +
-         '<a target="_blank" rel="noopener" href="' + g + '">Google Street View</a>';
 }
 function closeLightbox() { document.getElementById('lb').style.display = 'none'; const b = lb && lb.back; lb = null; if (b && b.focus) b.focus(); }
 // Opening a look-around link marks the unit used_live_imagery (PR #141 review S2): what the

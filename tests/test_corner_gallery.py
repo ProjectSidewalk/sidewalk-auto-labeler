@@ -418,6 +418,75 @@ def test_render_has_no_placeholders_and_no_part():
 NODE = shutil.which('node')
 
 
+def test_viewer_unit_carries_heading_and_dates():
+    """Review S4(a): each view's heading is the camera-to-corner bearing (the look-around
+    links open at it), its date is the capture date, and the aerial carries its dates."""
+    panos = {'p1': {'lat': FR.to_latlng(-10, 0)[0], 'lng': FR.to_latlng(-10, 0)[1], 'heading': 0.0,
+                    'capture_date': '2023-05', 'run': 'results'}}
+    it = cg.build_item(full_record(), 'clean', panos, {})
+    vu = cg.viewer_unit(it, '../../', {'vancouver:res:n1': ['2025-04-14', '2025-09-19']})
+    assert vu['aerial']['dates'] == ['2025-04-14', '2025-09-19']
+    assert cg.viewer_unit(it, '../../')['aerial']['dates'] == []
+    for c_it, c_vu in zip(it['corners'], vu['corners']):
+        for v_it, v_vu in zip(c_it['views'], c_vu['views']):
+            assert v_vu['heading'] == v_it['bearing_deg'] and v_vu['date'] == '2023-05'
+            assert v_vu['crop'] == '../../' + v_it['crop'] and v_vu['cam'] == v_it['cam']
+
+
+@pytest.mark.skipif(NODE is None, reason='node not installed')
+def test_pano_links_under_node(tmp_path):
+    """Review S4(b): the two look-around URLs, lat/lng order, heading and pitch, &amp; for
+    innerHTML, and the new-tab / look-only wording (N4, N5)."""
+    v = {'pano_id': 'J1zLlmbrSzYZYo6kwyArwA', 'heading': 55.3,
+         'cam': {'lat': 45.6252251, 'lng': -122.5291138}}
+    js = cgp.PANO_LINKS_JS + f"console.log(panoLinks({json.dumps(v)}, {json.dumps(cg.PS_HOST)}));\n"
+    p = tmp_path / 'l.js'
+    p.write_text(js, encoding='utf-8')
+    html = subprocess.run([NODE, str(p)], capture_output=True, text=True, check=True).stdout
+    assert ('href="https://sidewalk-vancouver.cs.washington.edu/explore?lat=45.6252251&amp;'
+            'lng=-122.5291138&amp;panoId=J1zLlmbrSzYZYo6kwyArwA&amp;heading=55&amp;pitch=-20"') in html
+    assert ('href="https://www.google.com/maps/@45.6252251,-122.5291138,3a,90y,55h,70t/data='
+            '!3m4!1e1!3m2!1sJ1zLlmbrSzYZYo6kwyArwA!2e0"') in html
+    assert html.count('(opens in a new tab)') == 2 and 'do not label there' in html
+
+
+def test_load_aerial_dates_refuses_another_item_list(tmp_path):
+    """Review S4(c): dates made on another items.jsonl are not shown."""
+    doc = {'items_sha256': 'A', 'units': {'u1': {'dates': ['2025-09-19']}}}
+    (tmp_path / cg.AERIAL_DATES_FILE).write_text(json.dumps(doc), encoding='utf-8')
+    assert cg.load_aerial_dates(tmp_path, 'A') == {'u1': ['2025-09-19']}
+    assert cg.load_aerial_dates(tmp_path, 'B') == {}
+    assert cg.load_aerial_dates(tmp_path / 'none', 'A') == {}
+
+
+def test_esri_metadata_picks_the_layer_drawn_at_the_zoom(monkeypatch):
+    """Review S4(d): the layer whose Min/MaxMapLevel covers the zoom, 'Null' dates skipped,
+    M/D/YYYY -> ISO. No network: urlopen is replaced."""
+    import io
+    import urllib.request
+
+    def layer(name, lo, hi, date, release='R1'):
+        return {'layerName': name, 'attributes': {'MinMapLevel': lo, 'MaxMapLevel': hi,
+                                                  'SRC_DATE2': date, 'ReleaseName': release,
+                                                  'SRC_DESC': 'src'}}
+    res = [layer('Imagery Footprints', 0, 23, '1/1/2000'),          # not a metadata layer
+           layer('0.3m Resolution Metadata', 12, 19, '12/30/2025'),
+           layer('0.15m Resolution Metadata', 20, 23, 'Null'),
+           layer('0.15m Resolution Metadata', 'x', 23, '1/1/2001'),  # unreadable levels
+           layer('0.15m Resolution Metadata', 20, 23, '9/19/2025', 'R2')]
+    seen = []
+
+    def fake(url, timeout=None):
+        seen.append(url)
+        return io.BytesIO(json.dumps({'results': res}).encode('utf-8'))
+    monkeypatch.setattr(urllib.request, 'urlopen', fake)
+    assert cg.esri_metadata_at(45.6, -122.6, 20) == {
+        'date': '2025-09-19', 'layer': '0.15m Resolution Metadata', 'release': 'R2', 'source': 'src'}
+    assert cg.esri_metadata_at(45.6, -122.6, 17)['date'] == '2025-12-30'
+    assert cg.esri_metadata_at(45.6, -122.6, 5) is None
+    assert 'geometry=-122.6%2C45.6' in seen[0]                       # lng,lat order
+
+
 @pytest.mark.skipif(shutil.which('node') is None, reason='node not installed')
 def test_reveal_script_delivers_inventory(tmp_path):
     it = cg.build_item(full_record(), 'false_absence', {}, {})
@@ -569,6 +638,14 @@ def test_committed_bundle_is_consistent():
     for i in items:
         for c in i['corners']:
             assert cg.newest_date(c['views']) == (c['newest_available'] or ''), (i['unit'], c['corner'])
+    # review S4(e): every committed verdicts file (human GT) still validates against the
+    # bundle, and so does its live-imagery sidecar (review S2)
+    for path in sorted(BUNDLE.glob('verdicts__*.json')):
+        v = json.loads(path.read_text(encoding='utf-8'))
+        assert cs.validate(v, items, snap['items_sha256'], snap['rubric']) == [], path.name
+        side = cs.load_live_sidecar(BUNDLE, v['rater'])
+        if side is not None:
+            assert cs.validate_live_sidecar(side, v, snap['items_sha256']) == [], path.name
 
 
 # ------------------------------------------------------------------ reasons after the reveal
