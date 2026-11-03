@@ -382,6 +382,39 @@ def test_gaussian_under_wrap():
 
 
 @needs_skimage
+@pytest.mark.parametrize('width', [16384, 13312, 8192])
+def test_a_seam_peak_decoded_under_wrap_ships_at_column_zero(width):
+    """The PR #152 case end to end: a ramp centred at coarse column -0.44 (cyclically) peaks
+    in column 0 with its stronger neighbour across the seam, so wrap + gaussian stores x just
+    below 1.0. round(x * width) is width there; send_to_ps must ship column 0."""
+    import send_to_ps
+    h = hm([(25, -0.44, 0.9), (25, 128 - 0.44, 0.9), INTERIOR])
+    seam = [d for d in dec.detections_from_heatmap(h, 'gaussian', border='wrap') if d[0] > 0.9]
+    assert len(seam) == 1 and round(seam[0][0] * width) == width
+    rec = {'detections': [{'x_normalized': x, 'y_normalized': y, 'confidence': c}
+                          for x, y, c in seam],
+           'pano': {'panorama_id': 'p', 'width': width, 'height': width // 2}}
+    assert [l['pano_x'] for l in send_to_ps.transform_record(rec)['labels']] == [0]
+
+
+@needs_skimage
+@pytest.mark.parametrize('border', ['keep', 'wrap'])
+def test_bottom_row_y_stays_below_the_last_pixel_row(border):
+    """ps_pixel's y bound (no clamp, no modulo): a peak in the bottom coarse row stores
+    y <= 511/512 under argmax and 507.5/512 under gaussian (no neighbour below, so no
+    sub-cell offset), so round(y * height) < height for every height > 256."""
+    for row in (62.5, 62.9, 63):
+        h = hm([(row, 60, 0.9)])
+        ys = {decode: [y for _, y, _ in dec.detections_from_heatmap(h, decode, border=border)]
+              for decode in ('argmax', 'gaussian')}
+        assert ys['argmax'] and max(ys['argmax']) <= 511 / 512
+        for ya, yg in zip(ys['argmax'], ys['gaussian']):   # same peaks, same order
+            assert yg <= 507.5 / 512 or yg == ya   # a plateau collision keeps its argmax pixel
+        for y in ys['argmax'] + ys['gaussian']:
+            assert detectors.ps_pixel(0.5, y, 514, 257)[1] < 257
+
+
+@needs_skimage
 def test_unknown_border_still_refused():
     with pytest.raises(ValueError, match='unknown border'):
         dec.detections_from_heatmap(edge_heatmap(), border='mirror')

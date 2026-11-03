@@ -40,13 +40,33 @@ def test_transform_record_rounds_to_int_pixels():
 
 
 def test_transform_record_wraps_x_at_the_seam():
-    # A sub-cell decode under --border wrap can store x just below 1.0; it must map to
-    # column 0, never to width (one past the last column). Argmax x stays unchanged.
+    # A sub-cell decode under --border wrap can store x just below 1.0, and refine_peaks'
+    # float % can return exactly 1.0; both must map to column 0, never to width (one past
+    # the last column). Argmax x stays unchanged.
     payload = send_to_ps.transform_record(_record([
         {"x_normalized": 0.99998, "y_normalized": 0.5, "confidence": 0.6},
+        {"x_normalized": 1.0, "y_normalized": 0.5, "confidence": 0.6},
         {"x_normalized": 1023 / 1024, "y_normalized": 0.5, "confidence": 0.6}]))
     xs = [label["pano_x"] for label in payload["labels"]]
-    assert xs == [0, 16368]
+    assert xs == [0, 0, 16368]
+
+
+@pytest.mark.parametrize("width", [16384, 13312, 8192])
+def test_ps_pixel_wraps_x_at_the_seam(width):
+    assert detectors.ps_pixel(0.99998, 0.5, width, width // 2)[0] == 0
+    assert detectors.ps_pixel(1.0, 0.5, width, width // 2)[0] == 0
+    assert detectors.ps_pixel(1023 / 1024, 0.5, width, width // 2)[0] == width - width // 1024
+    assert detectors.ps_pixel(0.0, 0.5, width, width // 2)[0] == 0
+
+
+@pytest.mark.parametrize("height", [257, 512, 2048, 6656, 8192])
+def test_ps_pixel_y_is_neither_wrapped_nor_past_the_last_row(height):
+    # The highest y either decode can store (argmax 511/512, gaussian 507.5/512; pinned on
+    # the real decoder in tests/test_border_wrap.py) stays below height for height > 256.
+    for y in (511 / 512, 507.5 / 512):
+        assert detectors.ps_pixel(0.5, y, 2 * height, height)[1] < height
+    # The poles are not adjacent: y is never taken modulo height.
+    assert detectors.ps_pixel(0.5, 1.0, 2 * height, height)[1] == height
 
 
 def test_transform_record_zero_detections():
