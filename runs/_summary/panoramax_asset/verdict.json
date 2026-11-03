@@ -1,0 +1,35 @@
+{
+  "default": "hd",
+  "frame": {
+    "panos": 600,
+    "record_equals_archive": 600,
+    "sd_2to1": 600,
+    "sd_width_2048": 600,
+    "sensor_equals_archive": 600,
+    "sensor_present": 600
+  },
+  "gate_identical_share": 1.0,
+  "gate_max_dconf": 6.508827209472656e-05,
+  "gate_pass": true,
+  "panos_missing_an_arm": [],
+  "panos_scored": 600,
+  "pooled_precision_030": 0.8473804100227791,
+  "pooled_precision_030_lo": 0.8232558139534883,
+  "pooled_recall_030": 0.6294416243654822,
+  "pooled_recall_030_lo": 0.5968586387434555,
+  "reasons": [
+    "pooled recall 0.629 < 0.95",
+    "pooled precision 0.847 < 0.95",
+    "Arashi Vision insta360 x3: recall upper bound 0.724 < 0.9",
+    "Arashi Vision insta360 x5: recall upper bound 0.679 < 0.9",
+    "Garmin VIRB 360: recall upper bound 0.756 < 0.9",
+    "GoPro MAX2: recall upper bound 0.875 < 0.9",
+    "GoPro Max: recall upper bound 0.719 < 0.9",
+    "GoPro Max: precision upper bound 0.870 < 0.9",
+    "Kandao QooCam 3: recall upper bound 0.776 < 0.9",
+    "Point Grey Research Ladybug: recall upper bound 0.655 < 0.9",
+    "Point Grey Research Ladybug: precision upper bound 0.864 < 0.9",
+    "RICOH THETA S: recall upper bound 0.758 < 0.9",
+    "unknown unknown: recall upper bound 0.641 < 0.9"
+  ]
+}

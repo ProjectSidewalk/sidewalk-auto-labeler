@@ -42,6 +42,12 @@ refuses a run dir that main.py already wrote records into, so the two never appe
 file. send_to_ps.py refuses a store-built file (it would re-insert the city's live labels)
 unless --allow-store-file is given.
 
+The detector always runs with the defaults, the argmax decode (#111) and the `exclude`
+border rule (#130), and this runner has no flag for either: a store run exists to
+reproduce the city's LIVE labels, and every live label was placed by argmax and found under
+`exclude` (the seam band dropped). `keep` or `wrap` would add seam-band peaks the live labels never
+had, so the store run would no longer be a reproduction.
+
 Deterministic skips are cached and logged with their reason in `store_skipped.jsonl`:
 `jpg_missing` (no JPEG in the store), `metadata_404_null_field_or_no_file`, the metadata
 endpoint's 404 -- which does NOT mean "no backup": the server answers 404 unless its file
@@ -477,6 +483,13 @@ def bind_manifest(run_dir, provenance, pixels):
     appending store records to a scanned run would mix two pixel sources in one file."""
     import main
     from importlib.metadata import version as pkg_version
+    from detectors import registry
+    # A store run detects CurbRamp only (#168): the type set is bound like the model.
+    pmap = main.provenance_map(provenance)
+    if not registry.is_legacy_type_set(pmap):
+        raise SystemExit(f'a store run detects CurbRamp only, not {", ".join(sorted(pmap))} '
+                         f'(issue #168).')
+    provenance = pmap[registry.CURB_RAMP]
     path = run_dir / 'manifest.json'
     if path.exists():
         manifest = json.loads(path.read_text(encoding='utf-8'))
@@ -497,6 +510,7 @@ def bind_manifest(run_dir, provenance, pixels):
             diff = sorted(k for k in set(bound) | set(pixels) if bound.get(k) != pixels.get(k))
             raise SystemExit(f'{run_dir.name} is bound to other pixels ({", ".join(diff)} '
                              f'differ). Use a new --run-dir.')
+        main.bind_label_types(manifest, [registry.CURB_RAMP], run_dir, types_flag=False)
         main.bind_model(manifest, provenance, run_dir.name)
         manifest['pixels'] = pixels
         manifest.setdefault('runs', [])
@@ -506,6 +520,7 @@ def bind_manifest(run_dir, provenance, pixels):
             'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
             'imagery_source': 'gsv',
             **main.manifest_model_block(provenance),
+            'label_types': [registry.CURB_RAMP],
             'detection_storage_floor': main.DETECTION_STORAGE_FLOOR,
             'max_peaks_per_pano': main.MAX_PEAKS_PER_PANO,
             'streetlevel_version': pkg_version('streetlevel'),

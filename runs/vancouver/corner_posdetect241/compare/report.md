@@ -121,6 +121,35 @@ a = clean read, fusion arm (the rule as written); b = the same, not counting the
 | moved_nearest_only | arterial | new | a_fusion_clean_as_written | 370 | 171 | 0.462 [0.412, 0.513] | 353 | 0.954 [0.928, 0.971] |
 | moved_nearest_only | residential | new | a_fusion_clean_as_written | 1028 | 144 | 0.140 [0.120, 0.163] | 996 | 0.969 [0.956, 0.978] |
 
+## Selection signal (panos with a detection >= 0.55)
+
+- vancouver_posdetect241: 24 of 10337
+- vancouver_posdetect241_gsv: 3 of 30
+- #56 seeded unlabeled store sample: 1 of 300
+
+## Recall against `Available` at the target units
+
+| arm | units | present | absent | unobservable | present share [95% CI] |
+|---|---:|---:|---:|---:|---|
+| fusion | 66 | 31 | 35 | 0 | 0.470 [0.354, 0.588] |
+| deployed | 66 | 9 | 57 | 0 | 0.136 [0.073, 0.239] |
+
+## Target units by what the inventory holds (fusion arm)
+
+| inventory | present | absent | unobservable | absent share of observed |
+|---|---:|---:|---:|---:|
+| Available | 31 | 35 | 0 | 0.5303 |
+| NA_noramp_only | 135 | 915 | 0 | 0.8714 |
+| none | 42 | 287 | 3 | 0.8723 |
+| other | 3 | 2 | 0 | 0.4 |
+
+## Install date vs newest pano within 25 m (target units with an `Available` point, fusion arm)
+
+| state | units | with INSTDATE and a dated pano | newest pano predates install |
+|---|---:|---:|---:|
+| absent | 35 | 18 | 17 |
+| present | 31 | 9 | 5 |
+
 ## Capture years
 
 | year | added panos | #56 run panos |

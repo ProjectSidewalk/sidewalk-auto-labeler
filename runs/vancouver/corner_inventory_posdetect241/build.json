@@ -1,7 +1,7 @@
 {
  "schema": "sidewalk-auto-labeler.corner_inventory/1",
  "city": "vancouver",
- "built_at": "2026-10-05T15:49:20+00:00",
+ "built_at": "2026-10-06T04:34:16+00:00",
  "inputs": {
   "results": {
    "path": "D:\\Git\\sal-vancouver\\runs\\vancouver\\results.jsonl",
@@ -65,7 +65,7 @@
   },
   "extra:vancouver_posdetect241:sites_meta": {
    "path": "D:\\Git\\labeler-wt\\posdetect241\\runs\\vancouver_posdetect241\\sites_meta.json",
-   "sha256": "ce4eadec1db56a826ca85845a7594bd84e70851ac497dc896a1ce29d3d3cad0c"
+   "sha256": "5408f770ebe84943faf1048a9b8978fe0700997e0ea57b699110c2a5b6e626b9"
   },
   "extra:vancouver_posdetect241_gsv:results": {
    "path": "D:\\Git\\labeler-wt\\posdetect241\\runs\\vancouver_posdetect241_gsv\\results.jsonl",
@@ -77,14 +77,14 @@
   },
   "extra:vancouver_posdetect241_gsv:sites_meta": {
    "path": "D:\\Git\\labeler-wt\\posdetect241\\runs\\vancouver_posdetect241_gsv\\sites_meta.json",
-   "sha256": "3d5a1e7a04de6d972a08e87a8b5e060ac7c9811ca506aae2e7951e4da0f86099"
+   "sha256": "ddae3b0e42d10dd89441cd3e6fff8925ad2e1cc42fb4e3cc388c67c9534a321d"
   }
  },
  "exporter": {
   "file": "scripts/export_cluster_review.py",
   "git_sha": "5b21cd9b00d9b00a2b8f9ab5345591eb599182b2"
  },
- "tool_git_sha": "9c8f4794567f69a692f66eb408c5d87431bff214",
+ "tool_git_sha": "fd115a53d1872a6d4306735ffeb1881ff6eff8b0",
  "tool_dirty": false,
  "frame": {
   "lat0": 45.634459216,
@@ -143,19 +143,19 @@
  "steps": [
   {
    "step": "units",
-   "seconds": 12.8
+   "seconds": 13.1
   },
   {
    "step": "load",
-   "seconds": 2.1
+   "seconds": 2.6
   },
   {
    "step": "describe",
-   "seconds": 1.4,
+   "seconds": 1.5,
    "note": "21341 units"
   }
  ],
- "seconds": 18.3,
+ "seconds": 19.2,
  "extra_runs": [
   {
    "name": "vancouver_posdetect241",

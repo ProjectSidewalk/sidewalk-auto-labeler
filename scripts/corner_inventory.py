@@ -80,9 +80,9 @@ DECISION_THRESHOLD = 0.90
 # submitted) has no server clusters. Its deployed arm is emulated: a fused site of that run
 # with a member detection at or above the tier that went live counts as a deployed point.
 DEPLOYED_TIER = 0.55
-# sites_meta params an extra run must share with the base run (camera height may differ
-# and is recorded)
-EXTRA_RUN_SAME_PARAMS = ('floor', 'min_confidence', 'max_range_m', 'mask_rig')
+# sites_meta params an extra run may differ from the base run in (recorded); every other
+# `params` key must be equal (review S3: the guard covers all of them, not a hand-picked list)
+EXTRA_RUN_FREE_PARAMS = ('camera_height_m',)
 
 
 # ------------------------------------------------------------------------- helpers
@@ -536,15 +536,16 @@ def load_extra_run(run_dir, base_meta, base_pano_ids, tier=DEPLOYED_TIER):
     """(panos, operational sites, emulated deployed points, record) of a run added with
     `build --extra-run` (RampNet#241). Site ids are prefixed with the run dir's name so they
     cannot collide with the base run's. Refuses a run that shares a pano with the base run
-    (it would be counted twice) or whose fusion params differ from the base run's.
+    (it would be counted twice) or whose fusion params differ from the base run's in
+    anything but EXTRA_RUN_FREE_PARAMS.
 
     The deployed arm is emulated (DEPLOYED_TIER): the run's panos were never submitted, so
     no server cluster exists for them; a site with a member >= tier stands in for one."""
     run_dir = Path(run_dir)
     name = run_dir.resolve().name
     meta = json.loads((run_dir / 'sites_meta.json').read_text(encoding='utf-8'))
-    diff = [k for k in EXTRA_RUN_SAME_PARAMS
-            if meta['params'].get(k) != base_meta['params'].get(k)]
+    keys = sorted((set(meta['params']) | set(base_meta['params'])) - set(EXTRA_RUN_FREE_PARAMS))
+    diff = [k for k in keys if meta['params'].get(k) != base_meta['params'].get(k)]
     if diff:
         raise SystemExit(f'{run_dir}: sites_meta params {diff} differ from the base run')
     panos = load_panos(run_dir / 'results.jsonl')

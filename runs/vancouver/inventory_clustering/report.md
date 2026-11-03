@@ -2,18 +2,19 @@
 
 - inventory: 11355 kept ramps (STATUS IN ('Available')) of 17614, `inventory.geojson` sha256 `c4d2497995f7b6261333c3859a668348cd62a36367593cef2dfdfa6b7e020d87`, fetched 2026-09-28T23:11:26+00:00 from https://services.arcgis.com/oNvpY90qsPDizwkN/arcgis/rest/services/COV_TransCurbRamp/FeatureServer/0
 - results `results.jsonl` sha256 `7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28`
-- regions: nearest street of the server's street network (the server's insert rule); `streets.geojson`: 12567 features, sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`, 2026-09-30T01:39:49+00:00 (0.0 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/streets?filetype=geojson; 11783 open streets kept (the server snaps to open streets only)
+- regions: nearest street of the server's street network (the server's insert rule); `streets.geojson`: 12567 features, sha256 `0d7ce79794a28146e811e2161c2019e2d96f3c8ec76d5b12b95183970d45f8b4`, 2026-09-30T01:39:49+00:00 (4.8 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/streets?filetype=geojson; 11783 open streets kept (the server snaps to open streets only)
 
-## Server-label arms (#56 confirmatory)
+## Server-label arms (#56; the inventory is DESCRIPTIVE there -- the confirmatory fragmentation test is the near-cluster proxy in ps_clustering_eval/report.md)
 
-- `raw_labels.geojson`: 64847 features, sha256 `57c31c73dc75a6139b2694fdc5e7c0823bf0d0504348f1e1f38d3681b713098d`, 2026-09-28T23:01:58+00:00 (1.1 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
-- `clusters.geojson`: 18684 features, sha256 `d8a1e7065e2cf97ff7da0ab50eba7e754b2ac67c4286ecbc8d528f8ff6bec1c3`, 2026-09-30T01:39:55+00:00 (0.0 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
+- `raw_labels.geojson`: 64847 features, sha256 `57c31c73dc75a6139b2694fdc5e7c0823bf0d0504348f1e1f38d3681b713098d`, 2026-09-28T23:01:58+00:00 (5.9 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson
+- `clusters.geojson`: 18684 features, sha256 `d8a1e7065e2cf97ff7da0ab50eba7e754b2ac67c4286ecbc8d528f8ff6bec1c3`, 2026-09-30T01:39:55+00:00 (4.8 days old at run time), from https://sidewalk-vancouver.cs.washington.edu/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true&filetype=geojson
 - 64814 labels of the AI account, 50252 of them map pixel-exactly to a stored detection of the rebuilt run (the rest are placed only at their server position); 33 human labels are in `deployed` and `fusion_server` but not in `ps @ t`, as in eval_ps_clustering.py
+- matched label set (`label_set: mapped`): 50252 mapped AI + 33 human labels; the 14562 unmapped AI labels are left out of every arm
 
 ### auto frame (fusion_server association; server-placed rows of the fixed arms are written once)
 
 - visible pool: 10685 of 11355 inventory ramps within 20 m of one of 28830 panos
-- fusion_server input: 50252 mapped AI + 14562 unmapped AI (at 0.55) + 33 human labels on 28862 panos (332 positioned by inversion); 2274 labels attached by bearing
+- fusion_server input: 50252 mapped AI + 14562 unmapped AI (at 0.55) + 33 human labels on 28862 panos (25242 positioned by inversion); 2313 labels attached by bearing
 - camera height mode `auto`: auto -> gsv-per-rig
 - 28830 of 28830 panos took a per-rig height; 0 fell back to the 2.6 m constant
   - 2011: median 2.28 m, 22 of 197 measured -> 2.5 m
@@ -40,27 +41,43 @@
 | ps @ 12.5 m | server | 15421 | 64814 | 15421 | 0.807 / 0.885 / 0.903 | 0.103 (970/9458) | 0.108 | 0.028 (276/9894) | 1.63 |
 | ps @ 15 m | server | 15080 | 64814 | 15080 | 0.796 / 0.876 / 0.897 | 0.101 (946/9364) | 0.107 | 0.032 (314/9858) | 1.61 |
 | ps_citywide @ 7.5 m | server | 17310 | 64814 | 17310 | 0.837 / 0.901 / 0.915 | 0.127 (1225/9629) | 0.133 | 0.020 (198/10044) | 1.80 |
-| fusion_server | server | 18414 | 64806 | 18414 | 0.833 / 0.900 / 0.915 | 0.199 (1911/9617) | 0.238 | 0.040 (380/9483) | 1.91 |
-| fusion_server | raycast | 18414 | 64806 | 14657 | 0.832 / 0.874 / 0.884 | 0.091 (849/9337) | 0.095 | 0.025 (213/8640) | 1.97 |
-| fusion_server+attach | server | 16101 | 64767 | 16101 | 0.821 / 0.896 / 0.912 | 0.118 (1127/9579) | 0.127 | 0.041 (395/9544) | 1.68 |
+| fusion_server | server | 18484 | 64847 | 18484 | 0.832 / 0.900 / 0.915 | 0.201 (1932/9619) | 0.241 | 0.039 (373/9487) | 1.92 |
+| fusion_server | raycast | 18484 | 64847 | 14674 | 0.832 / 0.874 / 0.884 | 0.092 (861/9338) | 0.096 | 0.024 (208/8645) | 1.98 |
+| fusion_server+attach | server | 16171 | 64847 | 16171 | 0.821 / 0.897 / 0.912 | 0.120 (1150/9582) | 0.130 | 0.041 (389/9548) | 1.69 |
+
+Same label set (`label_set: mapped`: 50285 labels, the unmapped AI labels left out of every arm), each arm placed both ways, r = 5 m. fusion_server here: 50252 AI + 33 human labels.
+
+| arm | clusters | split, raycast placement | split, server placement | placed (raycast / server) | covered (raycast / server) | merge (raycast / server) |
+|---|---:|---:|---:|---|---|---|
+| ps @ 7.5 m | 15580 | 0.163 (1518/9285) | 0.098 (905/9257) | 15293 / 15580 | 0.869 / 0.866 | 0.020 / 0.019 |
+| fusion_server | 16532 | 0.090 (840/9332) | 0.160 (1483/9256) | 14641 / 16532 | 0.873 / 0.866 | 0.024 / 0.031 |
+| fusion_server+attach | 14702 | 0.090 (840/9332) | 0.093 (861/9212) | 14641 / 14702 | 0.873 / 0.862 | 0.024 / 0.032 |
 
 ### 2.6 m frame (fusion_server association; server-placed rows of the fixed arms are written once)
 
 - visible pool: 10685 of 11355 inventory ramps within 20 m of one of 28830 panos
-- fusion_server input: 50252 mapped AI + 14562 unmapped AI (at 0.55) + 33 human labels on 28862 panos (332 positioned by inversion); 2277 labels attached by bearing
+- fusion_server input: 50252 mapped AI + 14562 unmapped AI (at 0.55) + 33 human labels on 28862 panos (25242 positioned by inversion); 2315 labels attached by bearing
 
 | arm | placement | clusters | labels | placed | covered r3 / r5 / r8 | split r5 | extra/covered r5 | merge r5 (k/n) | clusters/covered r5 |
 |---|---|---:|---:|---:|---|---|---:|---|---:|
 | deployed | raycast | 18684 | 64918 | 16790 | 0.829 / 0.874 / 0.885 | 0.262 (2448/9340) | 0.316 | 0.016 (155/9609) | 2.00 |
 | ps @ 7.5 m | raycast | 17451 | 64814 | 15927 | 0.831 / 0.876 / 0.886 | 0.208 (1949/9355) | 0.234 | 0.016 (150/9378) | 1.87 |
-| fusion_server | server | 18373 | 64806 | 18373 | 0.829 / 0.898 / 0.912 | 0.204 (1956/9597) | 0.249 | 0.045 (429/9488) | 1.91 |
-| fusion_server | raycast | 18373 | 64806 | 14651 | 0.831 / 0.873 / 0.884 | 0.088 (820/9330) | 0.092 | 0.029 (252/8610) | 1.97 |
-| fusion_server+attach | server | 16057 | 64767 | 16057 | 0.818 / 0.895 / 0.910 | 0.125 (1197/9558) | 0.138 | 0.047 (445/9543) | 1.68 |
+| fusion_server | server | 18424 | 64847 | 18424 | 0.830 / 0.898 / 0.913 | 0.205 (1970/9598) | 0.249 | 0.045 (424/9486) | 1.92 |
+| fusion_server | raycast | 18424 | 64847 | 14654 | 0.832 / 0.873 / 0.884 | 0.088 (821/9332) | 0.092 | 0.029 (250/8606) | 1.97 |
+| fusion_server+attach | server | 16109 | 64847 | 16109 | 0.818 / 0.895 / 0.910 | 0.127 (1210/9559) | 0.139 | 0.046 (441/9543) | 1.69 |
+
+Same label set (`label_set: mapped`: 50285 labels, the unmapped AI labels left out of every arm), each arm placed both ways, r = 5 m. fusion_server here: 50252 AI + 33 human labels.
+
+| arm | clusters | split, raycast placement | split, server placement | placed (raycast / server) | covered (raycast / server) | merge (raycast / server) |
+|---|---:|---:|---:|---|---|---|
+| ps @ 7.5 m | 15580 | 0.172 (1592/9260) | 0.098 (905/9257) | 15293 / 15580 | 0.867 / 0.866 | 0.023 / 0.019 |
+| fusion_server | 16502 | 0.085 (791/9330) | 0.166 (1534/9239) | 14611 / 16502 | 0.873 / 0.865 | 0.029 / 0.034 |
+| fusion_server+attach | 14672 | 0.085 (791/9330) | 0.100 (920/9192) | 14611 / 14672 | 0.873 / 0.860 | 0.029 / 0.036 |
 
 ### per-pano frame (fusion_server association; server-placed rows of the fixed arms are written once)
 
 - visible pool: 10685 of 11355 inventory ramps within 20 m of one of 28830 panos
-- fusion_server input: 50252 mapped AI + 14562 unmapped AI (at 0.55) + 33 human labels on 28862 panos (332 positioned by inversion); 2245 labels attached by bearing
+- fusion_server input: 50252 mapped AI + 14562 unmapped AI (at 0.55) + 33 human labels on 28862 panos (25242 positioned by inversion); 2283 labels attached by bearing
 - camera height mode `per-pano`
 - 13572 of 28830 panos took a measured height; 15258 fell back to the 2.6 m constant
 - flagged by the #44 QC gate (kept all the same): {'flagged_qc:vintage_deviation': 629}
@@ -70,9 +87,17 @@
 |---|---|---:|---:|---:|---|---|---:|---|---:|
 | deployed | raycast | 18684 | 64918 | 16791 | 0.826 / 0.876 / 0.887 | 0.249 (2328/9361) | 0.297 | 0.016 (156/9558) | 2.00 |
 | ps @ 7.5 m | raycast | 17451 | 64814 | 15928 | 0.827 / 0.877 / 0.888 | 0.195 (1826/9376) | 0.217 | 0.016 (153/9322) | 1.86 |
-| fusion_server | server | 18766 | 64806 | 18766 | 0.834 / 0.902 / 0.916 | 0.207 (1998/9636) | 0.260 | 0.038 (360/9561) | 1.95 |
-| fusion_server | raycast | 18766 | 64806 | 14949 | 0.828 / 0.876 / 0.886 | 0.098 (915/9359) | 0.108 | 0.026 (227/8654) | 2.01 |
-| fusion_server+attach | server | 16484 | 64769 | 16484 | 0.823 / 0.898 / 0.914 | 0.129 (1242/9600) | 0.151 | 0.039 (379/9623) | 1.72 |
+| fusion_server | server | 18867 | 64847 | 18867 | 0.835 / 0.902 / 0.916 | 0.210 (2027/9637) | 0.265 | 0.038 (361/9571) | 1.96 |
+| fusion_server | raycast | 18867 | 64847 | 14989 | 0.829 / 0.876 / 0.886 | 0.100 (937/9358) | 0.110 | 0.026 (229/8659) | 2.02 |
+| fusion_server+attach | server | 16584 | 64847 | 16584 | 0.824 / 0.899 / 0.914 | 0.133 (1279/9601) | 0.156 | 0.039 (380/9633) | 1.73 |
+
+Same label set (`label_set: mapped`: 50285 labels, the unmapped AI labels left out of every arm), each arm placed both ways, r = 5 m. fusion_server here: 50252 AI + 33 human labels.
+
+| arm | clusters | split, raycast placement | split, server placement | placed (raycast / server) | covered (raycast / server) | merge (raycast / server) |
+|---|---:|---:|---:|---|---|---|
+| ps @ 7.5 m | 15580 | 0.160 (1483/9281) | 0.098 (905/9257) | 15294 / 15580 | 0.869 / 0.866 | 0.023 / 0.019 |
+| fusion_server | 16823 | 0.098 (918/9356) | 0.169 (1572/9284) | 14959 / 16823 | 0.876 / 0.869 | 0.026 / 0.031 |
+| fusion_server+attach | 15020 | 0.098 (918/9356) | 0.105 (968/9242) | 14959 / 15020 | 0.876 / 0.865 | 0.026 / 0.032 |
 
 ## Synthesized arms from the rebuilt run (#56: EXPLORATORY here, never the deployed labels' fusion)
 

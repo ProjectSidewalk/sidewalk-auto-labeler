@@ -1,6 +1,18 @@
 {
  "added_operational_sites": 277,
  "added_panos": 10367,
+ "available_targets_dating": {
+  "absent": {
+   "dated": 18,
+   "newest_pano_predates_install": 17,
+   "units": 35
+  },
+  "present": {
+   "dated": 9,
+   "newest_pano_predates_install": 5,
+   "units": 31
+  }
+ },
  "capture_date_added_quantiles": {
   "0.0": "2007-08",
   "0.25": "2022-11",
@@ -83,10 +95,10 @@
  "inputs": {
   "extra:vancouver_posdetect241:results": "69f46b26110df05d1ef52a4431c4b230ceb157941b212fd3d553fd64bb86bf0e",
   "extra:vancouver_posdetect241:sites": "d38c6fa08f9774de842c77c72ad51346daebb918270c90b319b662bd8534320b",
-  "extra:vancouver_posdetect241:sites_meta": "ce4eadec1db56a826ca85845a7594bd84e70851ac497dc896a1ce29d3d3cad0c",
+  "extra:vancouver_posdetect241:sites_meta": "5408f770ebe84943faf1048a9b8978fe0700997e0ea57b699110c2a5b6e626b9",
   "extra:vancouver_posdetect241_gsv:results": "953716d1d7f32f2680c101fb9a4d7ab0933939459704fbc62375042768ca57b2",
   "extra:vancouver_posdetect241_gsv:sites": "df0dec5c6c9456248a7ee1aee7c4e3e7c4c50643780a5105dd7451b3e7e7614d",
-  "extra:vancouver_posdetect241_gsv:sites_meta": "3d5a1e7a04de6d972a08e87a8b5e060ac7c9811ca506aae2e7951e4da0f86099",
+  "extra:vancouver_posdetect241_gsv:sites_meta": "ddae3b0e42d10dd89441cd3e6fff8925ad2e1cc42fb4e3cc388c67c9534a321d",
   "new_corners_full_sha256": "ec20606098d0e8b34113b4b328e57d3737b7669d01a37f1d6d722faab4681f8d",
   "old_corners_full_sha256": "722e7b6e962db6070c22b42d3de073661b20d285c1bd53a3b1e214edb6499614"
  },
@@ -1053,6 +1065,43 @@
   }
  ],
  "schema": "sidewalk-auto-labeler.corner_posdetect/1",
+ "selection_signal": {
+  "base_sampled_unlabeled": {
+   "panos": 300,
+   "with_detection_ge_tier": 1
+  },
+  "extra_runs": {
+   "vancouver_posdetect241": {
+    "panos": 10337,
+    "with_detection_ge_tier": 24
+   },
+   "vancouver_posdetect241_gsv": {
+    "panos": 30,
+    "with_detection_ge_tier": 3
+   }
+  },
+  "tier": 0.55
+ },
+ "target_recall_available": {
+  "deployed": {
+   "absent": 57,
+   "n": 66,
+   "present": 9,
+   "present_hi": 0.2393,
+   "present_lo": 0.0734,
+   "present_p": 0.1364,
+   "unobservable": 0
+  },
+  "fusion": {
+   "absent": 35,
+   "n": 66,
+   "present": 31,
+   "present_hi": 0.5884,
+   "present_lo": 0.3543,
+   "present_p": 0.4697,
+   "unobservable": 0
+  }
+ },
  "target_states": {
   "deployed": {
    "absent": 1421,
@@ -1063,6 +1112,32 @@
    "absent": 1239,
    "present": 211,
    "unobservable": 3
+  }
+ },
+ "target_states_by_inventory": {
+  "Available": {
+   "absent": 35,
+   "absent_share_of_observed": 0.5303,
+   "present": 31,
+   "unobservable": 0
+  },
+  "NA_noramp_only": {
+   "absent": 915,
+   "absent_share_of_observed": 0.8714,
+   "present": 135,
+   "unobservable": 0
+  },
+  "none": {
+   "absent": 287,
+   "absent_share_of_observed": 0.8723,
+   "present": 42,
+   "unobservable": 3
+  },
+  "other": {
+   "absent": 2,
+   "absent_share_of_observed": 0.4,
+   "present": 3,
+   "unobservable": 0
   }
  },
  "target_states_nearest_only": {

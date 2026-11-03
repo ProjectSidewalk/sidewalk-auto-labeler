@@ -1,0 +1,5 @@
+{
+ "url": "https://sidewalk-gainesville.cs.washington.edu/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson",
+ "n_features": 4498,
+ "fetched_at": "2026-09-29T22:09:02+00:00"
+}

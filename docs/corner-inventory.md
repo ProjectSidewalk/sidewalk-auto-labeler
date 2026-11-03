@@ -586,19 +586,32 @@ Nothing above is changed: the definitions, the decision rule and the #238 output
   `runs/vancouver_posdetect241`. The #56 run is read only and never appended to. GSV panos:
   `main.py` into `runs/vancouver_posdetect241_gsv`. Both used the code at this branch, whose
   `detectors/`, `main.py`, `panorama.py`, `sources/`, `depth.py`, `geo.py`,
-  `scripts/detect_from_store.py` and `scripts/fuse_sites.py` are byte-identical to 660ccd5,
-  the commit that produced the #56 run (`git diff --stat 660ccd5 HEAD -- <those paths>` is
-  empty). Same model revision (`rampnet-model@606a11956743`), storage floor 0.1, batch size
-  1, store and metadata server as #56.
+  `scripts/detect_from_store.py` and `scripts/fuse_sites.py` are byte-identical to 660ccd5
+  (`git diff --stat 660ccd5 HEAD -- <those paths>` is empty). **That 660ccd5 produced the #56
+  run, and that it ran at batch size 1, is inferred, not recorded**: neither manifest carries
+  a code SHA or a batch size. The inference rests on the makelab2 checkout's reflog (cloned at
+  660ccd5 on 2026-09-28, pulled forward only on 09-30), the #56 run starting at 15:14Z that
+  day, and its log reporting `mean batch 1.0/1`. Every record of all three runs carries model
+  revision `606a11956743`. Storage floor 0.1, store and metadata server as #56.
 - **Fusion.** `fuse_sites.py` on each new run alone, with the #56 `sites_meta.json`
   parameters (floor 0.1, operational 0.30, max range 25 m, rig mask, flat pose). Camera height
   is **fixed at 2.5 m**, the value `auto` gave every capture year in the #56 run; it is fixed
-  because the new runs have no harvested depth table. The GSV panos' own measured heights are
-  2.0–2.3 m, so their sites sit up to ~20% too far out along each ray.
+  because the store run has no harvested depth table. The 30 GSV fallback panos *do* carry
+  measured heights, 1.70–2.32 m, so the fixed 2.5 m puts their sites roughly 8–47% too far out
+  along each ray. That touches 8 operational sites. All 3 of the GSV run's emulated deployed
+  points come from 2007-08 imagery 3,328 px wide.
+- **Line endings.** `fuse_sites.py` writes `sites_meta.json` with the platform's line endings
+  (CRLF on Windows). Both new `sites_meta.json` files were converted to LF before the merged
+  build, so the sha256s `build.json` records are those of the committed copies. A re-run of
+  `fuse_sites.py` on Windows rewrites CRLF; convert before rebuilding, or the recorded hash
+  will not match.
 - **Merge.** `corner_inventory.py build --extra-run <dir>` (repeatable) adds each extra run's
   panos to the observed set and its operational sites to the fusion arm. Site ids are
-  prefixed with the run dir's name. A pano shared with the base run, or a fusion parameter
-  that differs (other than camera height), is refused. **The deployed arm is emulated for the
+  prefixed with the run dir's name. A pano shared with the base run is refused, and so is any
+  `sites_meta.json` `params` key that differs from the base run's, other than
+  `camera_height_m` (`EXTRA_RUN_FREE_PARAMS`). Before the review fix the guard checked only
+  floor, operational confidence, max range and rig mask; the runs here match #56 on every
+  key, so no number moved. **The deployed arm is emulated for the
   added panos**: they were never submitted, so no server cluster exists for them, and an added
   site with a member detection >= 0.55 (the tier that went live) stands in for one. Without
   `--extra-run`, every scored output (`counts.csv`, `decision.json`, `false_absences.csv`,
@@ -612,13 +625,21 @@ Nothing above is changed: the definitions, the decision rule and the #238 output
   deployed arm. Each is read over three subsets: all units, the units this pass moved (the
   1,453 targets), and the 84 units that were absent before. The no-`Available` read is in
   every row. The capture years of the added panos are reported beside the #56 run's.
+- **Two approximations in the reads.**
+  - **Nearest-only read.** An added site counts as present if the nearest added pano is
+    among its operational panos. The site's position, though, was fused from all of its
+    panos.
+  - **Corner level is truncated.** Panos were selected within 25 m of the unit *centre*, but
+    corner-level observability looks 25 m from corner points up to 37 m out. Corner-level
+    tables in the merged `report.md` are therefore truncated by the selection, on top of
+    amendment A1. Unit level, which the decision uses, is unaffected.
 
 ### Results (computed 2026-10-05, after the plan comment)
 
 Outputs:
 - `runs/vancouver/corner_posdetect241/select/`: the selection;
 - `runs/vancouver/corner_posdetect241/compare/`: `report.md`, `compare.json`, `transitions.csv`,
-  `reads.csv`;
+  `reads.csv`, `available_targets_dating.csv`;
 - `runs/vancouver/corner_inventory_posdetect241/`: the merged build's `counts.csv`,
   `decision.json`, `false_absences.csv`, `gaps.csv`, `report.md` and `build.json`.
 
@@ -697,10 +718,19 @@ accident. Under reading (b) it would pass.**
   - Without them, read (b) is 0.965, and its lower bound (0.954) is above 0.90.
   - The no-`Available` read is 0.967 [0.956, 0.975] on the fusion arm and 0.956 [0.945,
     0.965] on the deployed arm.
-- **The detector and the city mostly agree at those points.** Among target units whose only
-  inventory is `NA` with no `RAMPTYPE`, 915 are called absent and 135 present (fusion arm, 0.30
-  operating point). This supports the amendment A6 inference that such a point records a
-  corner with no ramp. It does not establish it: the city has not documented the code.
+- **At those points the detector behaves exactly as at empty corners.** Fusion arm, target
+  units, share called absent among the observed:
+
+  | what the inventory holds | absent | present | share absent |
+  |---|---:|---:|---:|
+  | only `NA` with no `RAMPTYPE` | 915 | 135 | 0.871 |
+  | nothing | 287 | 42 | 0.872 |
+  | an `Available` point | 35 | 31 | 0.530 |
+
+  So a unit with only such `NA` points is indistinguishable from an empty one, and clearly
+  unlike one with an `Available` ramp. That is the evidence for the amendment A6 inference
+  that the code records a corner with no ramp. It is still not proof: the city has not
+  documented the code. (`compare.json` `target_states_by_inventory`.)
 - **The open question.** It is item 3 of "What would make the absence read decisive": how to
   read `NA` with no `RAMPTYPE`. That is Jon's call and is not made here.
 
@@ -708,11 +738,25 @@ accident. Under reading (b) it would pass.**
 - **All intersection units with an `Available` inventory point:** 2,573 of 2,617 (0.983) are
   now present, 44 absent and 0 unobservable. In #238 the split was 2,542 present, 9 absent and
   66 unobservable.
-- **The 66 target units with an `Available` point:** only 31 are now present; 35 are absent.
-  At the units the deployment did not label, recall against the inventory is about one half.
+- **The added panos were still selected on the detector's output** (review S1). Only 24 of
+  the 10,337 added store panos (0.23%) have any detection >= 0.55, against 1 of 300 (0.33%)
+  in #56's seeded random sample of unlabeled store panos. Store panos without a deployed
+  label are panos where the 0.55 detector fires nothing, which fits the deployment having
+  processed them. None of the 10,337 carries a label in the deployed label pull
+  (`provenance_gate/raw_labels.geojson`).
+- **So the 66 target units with an `Available` point measure recall at 0.30 among ramps the
+  0.55 deployment already missed**, not the detector's recall at unlabeled corners:
+  - fusion arm (0.30): 31 of 66 present, 0.470 [0.354, 0.588]; 35 absent;
+  - deployed arm (0.55, emulated): 9 of 66, 0.136 [0.073, 0.239].
+  The fusion arm recovers about half of what the deployment missed.
+- **Many of the 35 misses have imagery older than the ramp** (review S2;
+  `available_targets_dating.csv`). 18 of the 35 carry an `INSTDATE` on an `Available` point.
+  At **17 of those 18**, the newest pano within 25 m is from a month before the latest install
+  date. Among the 31 present ones, the same holds at 5 of 9 dated units, so `INSTDATE` is a
+  noisy signal, not proof. It is a first cut for the triage: a large share of these "misses"
+  may be ramps that were not yet in the pixels.
 - **For triage.** The 35 are rows of the merged `false_absences.csv` (44 units in all, plus
-  corner rows, with pano ids), ready for the triage the rule names. Nobody has looked at them
-  yet.
+  corner rows, with pano ids). Nobody has looked at them yet.
 
 **Capture dates of the added panos** (`compare.json`):
 - Median 2023-04, IQR 2022-11 to 2023-05, range 2007-08 to 2026-07.
@@ -736,12 +780,15 @@ because the latter is asserted equal to the `sacct` dumps. That is why the rows 
 - one city, one rig (GSV);
 - the added panos are PS-store panos (the panos the server holds) chosen by position, plus 30
   current GSV panos; they are not a complete coverage scan;
-- no added store pano carries a deployed AI CurbRamp label. Whether the 2025 deployment
-  processed a given one and found nothing >= 0.55, or never processed it, is not recorded
-  here. Either way, 0.55 is the operating point that made no label there. That is why the
-  emulated deployed arm sends only 21 targets to present, against the fusion arm's 211;
+- the added store panos carry no deployed AI CurbRamp label, and 24 of 10,337 have a
+  detection >= 0.55 (1 of 300 in #56's random control). They are panos the 0.55 detector was
+  silent on, so the selection is still conditioned on the detector's output at 0.55;
+- **read (c) and the deployed arm at the target units are close to uninformative by
+  construction.** The emulated deployed arm sends only 21 targets to present, against the
+  fusion arm's 211, because its tier is the one that was already silent there. The absence
+  reads (a) and (b) are much less affected: a unit absent at 0.30 is silent at 0.55 too;
 - fusion of the added panos used a fixed 2.5 m camera height, while the GSV fallback panos
-  measure 2.0–2.3 m;
+  measure 1.70–2.32 m;
 - the deployed arm for added panos is an emulation;
 - the inventory's completeness is unknown, and so is the meaning of `NA` with no `RAMPTYPE`;
 - the decision uses unit level only. Corner-level numbers in the merged `report.md` carry

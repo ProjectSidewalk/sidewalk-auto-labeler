@@ -1,0 +1,35 @@
+{
+ "arm": "laurens_gsv",
+ "bundle": {
+  "panos": 86,
+  "records_sha256": "e76bfc7413b0a7f44088059402eae56f28628b8e38d3fcef2ff95acfb100b7c1",
+  "split": "laurens_gsv",
+  "verdicts_sha256": "0f4608abcd6d380d388d668c4b2e48ebece2b058f8f934ab3b889d12ae9974e3"
+ },
+ "frame": "archive",
+ "fuse_params": {
+  "apply_pose": "auto",
+  "camera_height_m": 2.6,
+  "floor": 0.1,
+  "gate_chi2": 9.21,
+  "grade_source": "sfm",
+  "mask_rig": true,
+  "max_match_m": 8.0,
+  "max_range_m": 25.0,
+  "max_vintage_months": null,
+  "min_confidence": 0.3,
+  "residual_per_dof_max": 3.0,
+  "sigma_peak_px": null,
+  "sigma_scale": 1.0
+ },
+ "gained_peaks_added": 10,
+ "operational_sites": {
+  "exclude": 254,
+  "keep": 255
+ },
+ "results_sha256": "83f49aaecac1b37cf05f6687ac350694681832229f33107b42142437f43338e7",
+ "sites": {
+  "exclude": 480,
+  "keep": 485
+ }
+}

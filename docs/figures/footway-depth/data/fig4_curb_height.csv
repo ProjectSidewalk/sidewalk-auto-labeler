@@ -1,0 +1,4 @@
+group,reading,n_panos,median,median_lo,median_hi
+sidewalk,measured,399,0.0215624,0.0144774,0.0299256
+sidewalk,measured_ref_road,366,0.0424041,0.0249219,0.0548678
+road,measured,413,0.00794625,0.0022917,0.0123507

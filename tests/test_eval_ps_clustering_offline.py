@@ -151,3 +151,28 @@ def test_attach_rule_by_range_and_perpendicular_distance():
     sites = [_Site(0, 1.0, 30.0, [('o6', 0)])]
     assert epc.attach_unplaceable(sites, [rig], frame)[1] == {('rig', 0): 0}
     assert epc.attach_unplaceable(sites, [rig], frame, mask_rig=True)[1] == {}
+
+
+def test_cell_current_needs_scorer_results_and_inputs(tmp_path):
+    import clustering_eval_pooled as cep
+    stamp = epc.input_stamp(None, tmp_path / 'absent.json')
+    (tmp_path / 'arms.csv').write_text('arm\n', encoding='utf-8')
+    head = f'# x\n\nscorer {epc.SCORER_VERSION}; results `r.jsonl` sha256 `abc`\n{stamp}\n'
+    (tmp_path / 'report.md').write_text(head, encoding='utf-8')
+    assert cep.cell_current(tmp_path, 'abc', stamp)
+    assert not cep.cell_current(tmp_path, 'abd', stamp)                  # results changed
+    assert not cep.cell_current(tmp_path, 'abc', stamp.replace('none', 'ff'))  # inputs
+    (tmp_path / 'report.md').write_text(head.replace(epc.SCORER_VERSION, '0.0'),
+                                        encoding='utf-8')
+    assert not cep.cell_current(tmp_path, 'abc', stamp)                  # older scorer
+
+
+def test_offline_check_failure_exits_1(monkeypatch):
+    monkeypatch.setattr(epc, 'run', lambda args: {
+        'offline_check': {'placement_ok': False, 'max_all': 0.9}})
+    with pytest.raises(SystemExit) as e:
+        epc.main(['richmond'])
+    assert e.value.code == 1
+    monkeypatch.setattr(epc, 'run', lambda args: {
+        'offline_check': {'placement_ok': True, 'max_all': 0.0}})
+    epc.main(['richmond'])                                               # no exit
