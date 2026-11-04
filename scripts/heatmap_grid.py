@@ -890,6 +890,38 @@ def _tie_env(det):
                          'torch': torch.__version__, 'pillow': Image.__version__}}
 
 
+def tie_env_warning(out, meta_name, env, committed_dir=None):
+    """A warning when `offgrid-tie` / `offgrid-tie-backend` is about to overwrite the committed
+    outputs from a different numeric stack, else None (PR 160 final review, nit 1).
+
+    The committed CSVs reproduce byte for byte only on the stack their `meta_name` records
+    (`_tie_env`: GPU, CUDA/cuDNN, TF32 flags, CPU, threads, model, packages), so a run elsewhere
+    would replace them with that machine's counts. Writing anywhere but the committed dir, or
+    with no committed meta to compare, never warns.
+
+    >>> import tempfile
+    >>> d = Path(tempfile.mkdtemp())
+    >>> _ = (d / 'm.json').write_text(json.dumps({'gpu': 'A', 'cpu': 'x'}), encoding='utf-8')
+    >>> tie_env_warning(d, 'm.json', {'gpu': 'A', 'cpu': 'x'}, committed_dir=d) is None
+    True
+    >>> 'gpu' in tie_env_warning(d, 'm.json', {'gpu': 'B', 'cpu': 'x'}, committed_dir=d)
+    True
+    """
+    committed_dir = Path(committed_dir or OUT_DIR)
+    meta_path = committed_dir / meta_name
+    if Path(out).resolve() != committed_dir.resolve() or not meta_path.exists():
+        return None
+    committed = json.loads(meta_path.read_text(encoding='utf-8'))
+    live = json.loads(json.dumps(env))   # the JSON round trip the meta itself went through
+    differ = [k for k in live if committed.get(k) != live[k]]
+    if not differ:
+        return None
+    return (f'WARNING: --out is the committed data dir ({committed_dir}) and this machine differs '
+            f'from {meta_name} in: {", ".join(differ)}. The committed outputs reproduce byte '
+            'for byte only on the recorded stack (docs/heatmap-grid.md 5.6), so this run will '
+            'overwrite them with different counts. Pass --out <scratch dir> to compare instead.')
+
+
 def _tie_inputs(args):
     """The pano (fetched once with the production fetch, cached as a lossless PNG) and its
     stored record in runs/<TIE_CITY>/results.jsonl -> (pano_path, PIL image, record)."""
@@ -1000,6 +1032,9 @@ def cmd_offgrid_tie(args):
     pano_path, img, stored = _tie_inputs(args)
 
     det = CurbRampDetector()
+    warn = tie_env_warning(args.out, 'offgrid_tie.meta.json', _tie_env(det))
+    if warn:
+        print(warn)
     h, R32, up, conv = _tie_capture(det, img)
     with torch.no_grad():
         same = np.array_equal(h, conv(up(R32)).squeeze().cpu().numpy())
@@ -1068,6 +1103,8 @@ def cmd_offgrid_tie(args):
                   f'{moved} move under the reversed tie order; at {TIE_PX}: '
                   f"{sum(1 for s in hit if s['strict_max'])} strict, "
                   f"{sum(1 for s in hit if not s['strict_max'])} ties")
+    if warn:
+        print(warn)
     write_csv(args.out / 'offgrid_tie_fresh.csv', fresh_rows)
     write_csv(args.out / 'offgrid_tie_row.csv', row_rows)
     write_csv(args.out / 'offgrid_tie_sweep.csv', sweep)
@@ -1105,6 +1142,9 @@ def cmd_offgrid_tie_backend(args):
     det = CurbRampDetector()
     if det.DEVICE.type != 'cuda':
         raise SystemExit('offgrid-tie-backend compares the GPU with the CPU; no CUDA device')
+    warn = tie_env_warning(args.out, 'offgrid_tie_backend.meta.json', _tie_env(det))
+    if warn:
+        print(warn)
     h, R32, up, conv = _tie_capture(det, img)
     col, row = TIE_PX
     k_lo, k_hi = tie_knots(col)
@@ -1183,6 +1223,8 @@ def cmd_offgrid_tie_backend(args):
               f"strict, {s['off_grid_tie']} ties, |gap| <= {s['max_abs_gap_off_grid']}); "
               f"columns {s['columns']}; at {TIE_PX}: {s['at_stored_px']} "
               f"({s['at_stored_px_strict']} strict)")
+    if warn:
+        print(warn)
     write_csv(args.out / 'offgrid_tie_gap_drift.csv', drift_rows)
     write_csv(args.out / 'offgrid_tie_backend.csv', rows)
     write_csv(args.out / 'offgrid_tie_backend_summary.csv', summary)

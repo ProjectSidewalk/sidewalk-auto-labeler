@@ -129,3 +129,19 @@ def test_tie_size_counts_on_the_clipped_map():
     h = np.zeros((40, 40))
     h[20, 19], h[20, 21] = 1.02, 1.05
     assert hg.tie_size(h, 21, 20) == 2
+
+
+def test_tie_env_warning_only_when_overwriting_the_committed_dir_from_another_stack(tmp_path):
+    # offgrid-tie(-backend) default --out is the committed data dir, and its outputs reproduce
+    # only on the recorded stack (PR 160 final review, nit 1): warn on that overwrite only.
+    env = {"gpu": "NVIDIA GeForce RTX 3070", "torch_cuda": "12.6", "cudnn_allow_tf32": True,
+           "software": {"numpy": "2.2.6"}}
+    (tmp_path / "offgrid_tie.meta.json").write_text(json.dumps(dict(env, pano="p")),
+                                                    encoding="utf-8")
+    assert hg.tie_env_warning(tmp_path, "offgrid_tie.meta.json", env, tmp_path) is None
+    other = dict(env, gpu="NVIDIA L40S", software={"numpy": "2.3.0"})
+    w = hg.tie_env_warning(tmp_path, "offgrid_tie.meta.json", other, tmp_path)
+    assert "gpu, software" in w and "--out" in w
+    scratch = tmp_path / "scratch"
+    assert hg.tie_env_warning(scratch, "offgrid_tie.meta.json", other, tmp_path) is None
+    assert hg.tie_env_warning(tmp_path, "missing.meta.json", other, tmp_path) is None

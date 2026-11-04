@@ -978,6 +978,10 @@ settings and CPU (5.2 shows how much the counts move with the backend). Both met
 them: `gpu` (NVIDIA GeForce RTX 3070), `torch_cuda`, `cudnn`, `cudnn_allow_tf32`,
 `cuda_matmul_allow_tf32`, `cpu`, `torch_cpu_threads` and the package versions. The float32 GPU
 arm is deterministic on one machine: the model run three times gives bit-identical heatmaps.
+Both commands write into the committed data dir by default, so on any other machine pass
+`--out <scratch dir>` and compare against the committed files. Each command compares the live
+stack with its committed meta file at start-up and prints a WARNING naming the keys that differ
+if `--out` is the committed dir (it does not refuse).
 
 ### 5.7 Where each number lives
 
