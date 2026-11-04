@@ -1,8 +1,8 @@
-run,subset,rig,gopro_max,n_sites,sigma_gps_chi2_1_m,lo,hi,n_boot,model_sigma_gps_m
-bayonne,all,Max,1,793,2.1044,2.0551,2.1525,200,3.0
-richmond,all,GoPro Max+iSTAR Pulsar+none,0,945,1.1059,1.0547,1.1629,200,3.0
-clovis,all,Fusion+GoPro Fusion FS1.04.01.80.00,0,1135,0.8102,0.7466,0.8675,200,3.0
-laurens,all,GoPro Max,1,109,1.7446,1.6131,1.863,200,3.0
-annapolis,all,Trimble MX7+Trimble mx7,0,2727,0.7444,0.7075,0.7842,200,3.0
-morgantown,all,GoPro Max,1,1171,0.8045,0.7391,0.8676,200,3.0
-richmond,GoPro Max,GoPro Max,1,208,1.8061,1.6635,1.9243,200,3.0
+run,subset,rig,gopro_max,n_sites,sigma_gps_chi2_1_m,lo,hi,n_boot,model_sigma_gps_m,n_sequences,seq_lo,seq_hi,n_boot_seq
+bayonne,all,Max,1,793,2.1044,2.0551,2.1525,200,3.0,329,2.0536,2.1585,200
+richmond,all,GoPro Max+iSTAR Pulsar+none,0,945,1.1059,1.0547,1.1629,200,3.0,189,0.9638,1.2232,200
+clovis,all,Fusion+GoPro Fusion FS1.04.01.80.00,0,1135,0.8102,0.7466,0.8675,200,3.0,241,0.7213,0.8978,200
+laurens,all,GoPro Max,1,109,1.7446,1.6131,1.863,200,3.0,18,1.6058,1.874,200
+annapolis,all,Trimble MX7+Trimble mx7,0,2727,0.7444,0.7075,0.7842,200,3.0,395,0.6957,0.7863,200
+morgantown,all,GoPro Max,1,1171,0.8045,0.7391,0.8676,200,3.0,156,0.7263,0.8693,200
+richmond,GoPro Max,GoPro Max,1,208,1.8061,1.6635,1.9243,200,3.0,12,1.553,2.0904,200
