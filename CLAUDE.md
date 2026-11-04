@@ -106,7 +106,8 @@ python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bay
 #   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~55 min, no GPU/network,
 #   byte-reproducible; --only for parts, refused on ANY partial run (`inputs` or not, `cuts`
 #   too) whose run files differ from data/inputs.csv; --allow-changed-inputs overrides);
-#   skips / examples: network; crops: from the RampNet bundle; figures: committed data only,
+#   skips / examples: network, on $R10 (skips also needs $R10's rebuilt 10 m cache, doc s5);
+#   crops: from the RampNet bundle; figures: committed data only,
 #   byte-reproducible (PNG + LF SVG)
 # LYON (RampNet#159 training-only Panoramax city; docs/panoramax-lyon.md). Slice 1 ran on makelab2's
 # A40 from a separate worktree (~/sal-lyon): --reuse-scan --thin-spacing 10 --limit 40000, i.e. the

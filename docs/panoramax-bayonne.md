@@ -597,6 +597,13 @@ mkdir -p $R10/bayonne
 head -n 28524 runs/bayonne/results.jsonl > $R10/bayonne/results.jsonl
 sha256sum $R10/bayonne/results.jsonl         # 4f38ff528d4445b21eb02e99427e0ba3c88dfb5c940cc4702a283182e379b4b3
 cp runs/bayonne/osm_streets.json runs/bayonne/area.geojson $R10/bayonne/
+# step 8 only: the 10 m cache as it stood when skips.csv was made (28,524 panos + 110 skips).
+# Its first 28,631 lines are that cache after the 3 retried ids left it on 2026-10-05 (§1);
+# the densify appended after them. Do NOT copy the live cache: against the prefix it holds
+# 22,004 unprocessed ids, which step 8 would fetch one by one into a 5 m skips.csv.
+{ head -n 28631 runs/bayonne/already_processed.txt
+  printf '%s\n' 139d37d3-9c50-4202-964e-c50c92712a49 1f8be062-1ae4-4f68-a5d4-07f3ac494b86 \
+                2c902fc4-669d-4b9c-9e9e-1eafb68a94f7; } > $R10/bayonne/already_processed.txt
 for c in richmond clovis laurens annapolis morgantown; do
     mkdir -p $R10/$c && cp runs/$c/results.jsonl $R10/$c/; done
 ```
@@ -614,6 +621,9 @@ run's):
   `cuts.csv`; today the same run adds those columns and part. Run it in a scratch checkout
   and compare with `git show 7a7a1a6:<path>`: in this tree it overwrites the committed 5 m
   CSVs.
+- step 8's rebuilt cache is set-equal to the 10 m cache's backup of 2026-10-05, and
+  `skips` run on it with the Panoramax calls stubbed out asks for exactly the 110 ids of
+  `data/skips.csv`. Step 8 itself was not re-run against Panoramax.
 
 Step 5 was not re-run from the prefix.
 
@@ -638,7 +648,7 @@ Step 5 was not re-run from the prefix.
 | 5 | `python scripts/reprojection_residual.py bayonne richmond clovis laurens annapolis morgantown --camera-height-m 2.6 --refuse --fit-sigma-pitch 0.269 --benchmark-root /nonexistent [--min-confidence 0.3] --publish docs/figures/panoramax-bayonne/data/reprojection[_t0.3]` | — | ~1.5 min per tier |
 | 6 | `python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census_5m --band-y 0.79` (5 m); `python scripts/run_census.py $R10/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79` (10 m, §1) | — | 10 s each |
 | 7 | `python scripts/panoramax_bayonne_figures.py data` → `data/inputs.csv`, `data/fig*.csv`, `data/cuts.csv` (bootstraps, seed 57; `--only` regenerates parts) | — | ~2 h on the 5 m run (the two `sigma_gps` bootstraps, site and sequence; measured on a shared machine) |
-| 8 | `python scripts/panoramax_bayonne_figures.py skips --run-root $R10` → `data/skips.csv` (10 m) | net | 1 min |
+| 8 | `python scripts/panoramax_bayonne_figures.py skips --run-root $R10` → `data/skips.csv` (10 m: the 110 ids of the rebuilt cache above, minus the 10 m results; each reason is re-read from Panoramax today, so the output is a snapshot and may differ from the committed file) | net | 1 min |
 | 9 | `python scripts/panoramax_bayonne_figures.py examples --run-root $R10` → `data/examples/` (7a thumbnails; 7c, the first cropped-MAX2 skip by pano id; 10 m) | net | 1 min |
 | 10 | `python scripts/export_benchmark.py $R10/bayonne/results.jsonl --bundle D:/Git/labeler-wt/bayonne-bundle --sample 100 --empty-sample 25` (10 m) | net | 1.5 min |
 | 11 | `python scripts/panoramax_bayonne_figures.py crops` → `data/examples/crops/` + `crops.csv` (from the bundle) | — | 10 s |
