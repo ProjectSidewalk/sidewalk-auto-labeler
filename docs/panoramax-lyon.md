@@ -559,7 +559,7 @@ a private mirror.
 
 Sections 1-7 and their files still describe the 10 m run. `data/census/lyon_full/` and
 `data/full/` are kept as section 7's evidence. Regenerate the 5 m tables with no network
-and no GPU, about 1 min each. The census step needs #150's `run_census.py`, as in section 7:
+and no GPU, about 1 min each. The census step masks producer names with `run_census.py` (#150):
 
 ```
 python scripts/run_census.py runs/lyon --out docs/figures/panoramax-lyon/data/census/lyon_5m --band-y 0.79
@@ -580,9 +580,9 @@ Save each prefix as `results.jsonl` in its own directory outside `runs/lyon`, an
 with `--results`, keeping `runs/lyon` as the run-dir argument: `census.md` prints both the
 run dir's name and the results file's basename, so any other name changes that one line.
 Sections 5 and 7 give the commands. Checked on 2026-11-03 from the local copy of the run:
-step 6 (with this branch's `run_census.py`, which wrote the committed unmasked
-`census/lyon/`), step 8, and section 7's two commands (`census/lyon_full/` with #150's
-`run_census.py`) each reproduce every committed file, after normalizing CRLF to LF.
+step 6 (`census/lyon/`, masked on main by #150), step 8, and section 7's two commands
+each reproduce every committed file. That check compared after normalizing CRLF to LF;
+`run_census.py` writes LF on every OS since #150.
 
 | number | file | column / row |
 |---|---|---|
