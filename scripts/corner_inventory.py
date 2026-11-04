@@ -1710,8 +1710,12 @@ def fig_a8(plt, reads, control, fig_dir):
                 markeredgewidth=1.2)
         tx, ha = ((r['hi'] + 0.02, 'left') if r['share'] < 0.6 else
                   (min(r['lo'], DECISION_THRESHOLD) - 0.025, 'right'))
-        ax.text(tx, y, f"{r['k']:,}/{r['n']:,} = {r['k'] / r['n']:.3f}", va='center', ha=ha,
-                fontsize=8.5, color=INK)
+        # The bounds are printed, as in figure 2: the high reads' intervals (~0.02 wide)
+        # hide under their markers, and whether (b)'s lower bound clears 0.90 is the point.
+        # On a second line, so a low read's label stays clear of the 0.90 line.
+        ax.text(tx, y, f"{r['k']:,}/{r['n']:,} = {r['k'] / r['n']:.3f}\n"
+                f"[{r['lo']:.3f}, {r['hi']:.3f}]", va='center', ha=ha, multialignment=ha,
+                fontsize=8.5, color=INK, linespacing=1.15)
     ax.axvline(DECISION_THRESHOLD, color=INK2, lw=1.2, ls=(0, (4, 3)))
     ax.text(DECISION_THRESHOLD - 0.006, ys[0] + 0.55,
             f'decision line {DECISION_THRESHOLD:.2f}', ha='right', va='bottom', fontsize=9,

@@ -283,19 +283,24 @@ L 363.583996 247.774281
 " style="fill: none; stroke: #c3c2b7; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
    </g>
    <g id="text_13">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="201.416796" y="69.147089" transform="rotate(-0 201.416796 69.147089)">333/1,323 = 0.252</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(201.416796 64.711816)">333/1,323 = 0.252</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(201.416796 74.495448)">[0.229, 0.276]</text>
    </g>
    <g id="text_14">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #0b0b0b" x="334.798281" y="108.459089" transform="rotate(-0 334.798281 108.459089)">1,277/1,323 = 0.965</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(246.407578 104.023816)">1,277/1,323 = 0.965</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(274.095 113.807448)">[0.954, 0.974]</text>
    </g>
    <g id="text_15">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="198.975767" y="147.771089" transform="rotate(-0 198.975767 147.771089)">365/1,503 = 0.243</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(198.975767 143.335816)">365/1,503 = 0.243</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(198.975767 153.119448)">[0.222, 0.265]</text>
    </g>
    <g id="text_16">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #0b0b0b" x="334.798281" y="187.083089" transform="rotate(-0 334.798281 187.083089)">1,279/1,323 = 0.967</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(246.407578 182.647816)">1,279/1,323 = 0.967</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(274.095 192.431448)">[0.956, 0.975]</text>
    </g>
    <g id="text_17">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #0b0b0b" x="334.798281" y="226.395089" transform="rotate(-0 334.798281 226.395089)">1,437/1,503 = 0.956</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(246.407578 221.959816)">1,437/1,503 = 0.956</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(274.095 231.743448)">[0.945, 0.965]</text>
    </g>
    <g id="text_18">
     <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #52514e" x="339.17371" y="43.155372" transform="rotate(-0 339.17371 43.155372)">decision line 0.90</text>

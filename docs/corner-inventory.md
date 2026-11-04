@@ -861,8 +861,13 @@ What the inventory holds at the 1,239 units moved to absent:
 
 ![Figure 3. Two panels. Left: dot-and-interval plot of five A8 reads against a dashed decision line at 0.90. Read (a), as written, fusion, the pre-registered rule: 333 of 1,323, 0.252, far below the line. Read (b), not counting NA with no RAMPTYPE: 1,277 of 1,323, 0.965, above the line. Read (c), as written, deployed: 365 of 1,503, 0.243. No-Available read, fusion: 1,279 of 1,323, 0.967. No-Available read, deployed: 1,437 of 1,503, 0.956. Right, the control: share of observed target units called absent, by what the inventory holds. Nothing: 287 of 329, 0.872. Only NA with no RAMPTYPE: 915 of 1,050, 0.871. An Available point: 35 of 66, 0.530.](figures/corner-inventory/fig3_a8_reads.png)
 
-*Figure 3. Amendment A8, unit level, intersections pooled, merged build, Wilson 95%
-intervals; the 0.90 line applies to read (a) only. Data:
+*Figure 3. Once the unobservable units are given panos, does the absence read reach 0.90? As
+written, no: read (a) is 0.252 at large n. Not counting `NA` with no `RAMPTYPE`, it would:
+read (b) is 0.965 with its lower bound (0.954) above the line. The control shows why: units holding
+only such `NA` points are called absent as often as empty units (0.871 vs 0.872), against
+0.530 where an `Available` point stands. Amendment A8, unit level, intersections pooled,
+merged build, Wilson 95% intervals (printed under each read); the 0.90 line applies to read
+(a) only. Data:
 `docs/figures/corner-inventory/data/fig3_a8_reads.csv` (from `compare/reads.csv`, read (a)
 cross-checked against `compare.json` `decision_rule`) and `fig3_a8_control.csv` (from
 `compare.json` `target_states_by_inventory`). [SVG](figures/corner-inventory/fig3_a8_reads.svg).*
