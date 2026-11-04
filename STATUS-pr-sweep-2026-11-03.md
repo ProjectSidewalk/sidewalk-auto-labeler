@@ -153,3 +153,9 @@ D:/Git/labeler-review/* scratch worktrees + RampNet-wt/{r280,r280-final,r280-rc,
 - Post-batch merges, pytest run on each, pushed: #154 bcaade9 (docs/panoramax-bayonne.md conflict resolved, both sides kept), #162 5a89c1c, #155 4ead074, #160 92388f8, #156 974d9af + 13e2d4e (import run_census.mask_producer), #163 88e41c5, #174 964fdfd, #132 d25bc3c, #135 10d1018, #141 c2d0b5d, #114 c91b2b2.
 - Running: #156 final review; delta semantic-conflict check of the other 10 branches.
 - Follow-up: CLAUDE.md says a Panoramax image 404 is a cached skip; code (sources/panoramax.py, since 2026-10-05) treats it as retryable failure. Fix the CLAUDE.md line.
+
+## 2026-11-04 — batch 2 ready (awaiting Jon's go to merge)
+- Delta semantic check of all post-batch merges: no code conflict; stale #150-era doc text fixed on #154 (3a03c61), #162 (5d47bcb, conflict resolved), #156 (ef7f652 + PR body), #163 (21562d3).
+- #156 final review round 1 NOT READY (stale docs only) -> round 2 READY at ef7f652 (issuecomment-6643308051). Delta checks OK on #154/#162/#163.
+- READY heads, all CI green + MERGEABLE: #155 4ead074, #160 92388f8, #154 3a03c61, #162 5d47bcb, #156 ef7f652, #163 21562d3, #174 964fdfd, #132 d25bc3c, #135 10d1018, #141 c2d0b5d, #114 c91b2b2 (draft).
+- Nits left: "Python's csv writer emits CRLF" in docs/panoramax-lyon.md (pre-existing on main); #156 body "two lines in CLAUDE.md" (three); CLAUDE.md Panoramax-404 line stale.
