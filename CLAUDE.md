@@ -432,7 +432,7 @@ python scripts/inventory_clustering.py score bend gainesville && python scripts/
 
 # CLUSTER-REVIEW GT (RampNet#224; protocol RampNet docs/cluster_review_protocol.md, rubric
 # RUBRICS.md §6 -- those, the gallery, rampnet/cluster_review.py and the bundle live ONLY on
-# RampNet branch cluster-review-224 for now, linked at its tip 39155d8 in
+# RampNet branch cluster-review-224 for now, linked at e869be2 (PR #280) in
 # docs/ps-clustering-eval.md; TODO: repoint to RampNet main once it merges).
 # export_cluster_review.py samples OSM intersection / mid-block units (seed 224, 20 per stratum, 15% no-label, >= 60 m apart, 30 m windows by SERVER position; sampling rule v2
 # drops any window touching a bridge / covered / layer>=1 way or a street below grade --

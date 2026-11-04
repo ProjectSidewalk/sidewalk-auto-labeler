@@ -1294,11 +1294,18 @@ Where each number lives:
 
 ## Cluster-review GT (RampNet#224)
 
-**Status (2026-11-03): pre-registered; bundle v2 exported 2026-09-30; no GT yet.** The arms the
-scorer rebuilds were brought in line with PR #118's changes (decode/border, unpositioned labels)
-in the 2026-11-03 merge of main, so the score report now shows 18,484 / 16,171
-`fusion_server` / `+attach` clusters and no label that fusion fails to hold; the bundle's
-`fusion` seed groups predate that rebuild (whether to re-seed is open, PR #174 review S3).
+**Status (2026-11-03): pre-registered; bundle v2 exported 2026-09-30, fusion seeds rebuilt
+2026-11-03; no GT yet.** The arms the scorer rebuilds were brought in line with PR #118's changes
+(decode/border, unpositioned labels) in the 2026-11-03 merge of main, so the score report now
+shows 18,484 / 16,171 `fusion_server` / `+attach` clusters and no label that fusion fails to
+hold. Nothing had been rated, so the bundle's `fusion` seed groups were then rebuilt with that
+arm at `a65b91a` (RampNet protocol Amendment 4, which pins the arm at that commit): the exporter
+re-run with `corners.jsonl` / `snapshot.json` moved aside, `--no-crops --skip-aerial`, the
+cached `osm.json` and the frozen inputs below. A field-level diff against the old
+`corners.jsonl` shows only `labels[].seed_group.fusion` changed (5 of 80 units, 59 labels;
+labels with no fusion group 5 -> 0). Amendment 5 adopts the RampNet#280 review's protocol
+fixes (pilot gate on same-ramp pair F1, no arm-level number before rater A's full pass, no
+inventory reveal in the retest, washout check, a unit-level bootstrap CI beside the verdict).
 Every number above that
 scores fragmentation depends on where a cluster is placed (the Vancouver split rates move from
 0.255 / 0.200 / 0.092 in the raycast frame to 0.196 / 0.138 / 0.201 / 0.120 at server placement;
@@ -1306,17 +1313,17 @@ the Vancouver section's all-label table, after PR #118's re-score).
 RampNet#224 replaces placement with membership: reviewers correct seeded clusters one
 intersection or mid-block window at a time, producing a label -> ramp assignment on the frozen
 label pull, so every arm scores against the same answer with no radius or camera height. The
-rubric is RampNet [`benchmark/RUBRICS.md`](https://github.com/ProjectSidewalk/RampNet/blob/39155d872e744378be59354676b32417b1604d65/benchmark/RUBRICS.md) §6 and the sampling
+rubric is RampNet [`benchmark/RUBRICS.md`](https://github.com/ProjectSidewalk/RampNet/blob/e869be294f29321ae882521bed415a381eba40c0/benchmark/RUBRICS.md) §6 and the sampling
 rule, schemas, metrics (`inventory_clustering.assignment_metrics`) and decision rule
 (`fusion_server+attach` vs `ps @ 7.5 m`, the `RULE_*` thresholds above) are pre-registered in
-RampNet [`docs/cluster_review_protocol.md`](https://github.com/ProjectSidewalk/RampNet/blob/39155d872e744378be59354676b32417b1604d65/docs/cluster_review_protocol.md). The
+RampNet [`docs/cluster_review_protocol.md`](https://github.com/ProjectSidewalk/RampNet/blob/e869be294f29321ae882521bed415a381eba40c0/docs/cluster_review_protocol.md). The
 Vancouver bundle (sampling rule v2, which drops windows over bridges or street tunnels: 80
 units, 30 pilot, 1,459 labels) is at RampNet
-[`benchmark/vancouver/cluster_review/`](https://github.com/ProjectSidewalk/RampNet/tree/39155d872e744378be59354676b32417b1604d65/benchmark/vancouver/cluster_review); reviewers
-work in RampNet [`scripts/cluster_review_gallery.py`](https://github.com/ProjectSidewalk/RampNet/blob/39155d872e744378be59354676b32417b1604d65/scripts/cluster_review_gallery.py),
-and RampNet [`rampnet/cluster_review.py`](https://github.com/ProjectSidewalk/RampNet/blob/39155d872e744378be59354676b32417b1604d65/rampnet/cluster_review.py) validates exports and
+[`benchmark/vancouver/cluster_review/`](https://github.com/ProjectSidewalk/RampNet/tree/e869be294f29321ae882521bed415a381eba40c0/benchmark/vancouver/cluster_review); reviewers
+work in RampNet [`scripts/cluster_review_gallery.py`](https://github.com/ProjectSidewalk/RampNet/blob/e869be294f29321ae882521bed415a381eba40c0/scripts/cluster_review_gallery.py),
+and RampNet [`rampnet/cluster_review.py`](https://github.com/ProjectSidewalk/RampNet/blob/e869be294f29321ae882521bed415a381eba40c0/rampnet/cluster_review.py) validates exports and
 computes agreement. **All of these live, for now, only on RampNet branch `cluster-review-224`**
-(no PR yet); the links are pinned to its tip `39155d8`. TODO: repoint to RampNet main once that
+(RampNet PR #280); the links are pinned to `e869be2`, which carries protocol Amendments 4 and 5. TODO: repoint to RampNet main once that
 branch merges. `scripts/cluster_review_score.py` currently writes a "NO GT YET" report
 (`runs/vancouver/cluster_review/score/report.md`). No result exists until the pilot has been
 reviewed. The scorer heads its decision "pre-registered" only for rater A's full pass (every

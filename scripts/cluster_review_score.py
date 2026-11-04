@@ -66,9 +66,9 @@ STRATA = ('signalised', 'arterial', 'residential', 'mid_block')
 MATCH_M = 5.0
 SANITY_ARM = 'fusion_server+attach'   # a true partition (deployed can hold a label twice)
 VALUE_RE = re.compile(r'^(r\d+|not_ramp|unsure)$')
-# The RampNet commit the protocol / rubric / gallery links point at: the tip of RampNet
-# branch cluster-review-224 (no PR yet). TODO: repoint to RampNet main once that branch merges.
-RAMPNET_REF = '39155d872e744378be59354676b32417b1604d65'
+# The RampNet commit the protocol / rubric / gallery links point at: RampNet PR #280 (branch
+# cluster-review-224) with Amendments 4 + 5. TODO: repoint to RampNet main once it merges.
+RAMPNET_REF = 'e869be294f29321ae882521bed415a381eba40c0'
 
 
 def labeler_ref():
@@ -403,7 +403,7 @@ def main(argv=None):
              f"[docs/cluster_review_protocol.md]({rampnet_url('docs/cluster_review_protocol.md')}) "
              '(pre-registered); rubric: RampNet '
              f"[benchmark/RUBRICS.md]({rampnet_url('benchmark/RUBRICS.md')}) §6. Both live, for "
-             'now, only on RampNet branch `cluster-review-224` (links pinned to its tip '
+             'now, only on RampNet branch `cluster-review-224`, PR #280 (links pinned to '
              f'`{RAMPNET_REF[:7]}`; TODO: repoint to RampNet main once that branch merges).', '',
              f"- bundle: `{bundle.name}` of {snapshot['city']}: {len(corners)} units "
              f"({sum(1 for c in corners if c.get('pilot'))} pilot), "
