@@ -124,7 +124,7 @@ re-thinning the reused `scan.json` at 10 m reproduces the 28,634 ids of
   remain. This run predates per-pano skip logging, so the original reasons are unknown;
   `data/skips.csv` re-queried each id afterwards, and every one of the 107 still cached
   reproduces as a deterministic skip under current code, so a 404 at run time could not
-  have cost a pano. The 5 m resume (§1.1) retried all 3 and processed them.
+  have cost a pano. The 5 m resume (§1.1) retried the 3 removed ids and processed them.
 
 After the 5 m resume the cache holds **119** skips: the 107 deterministic ones above and 12
 new GoPro MAX2 cropped-`hd` skips among the added cells. No cached 404 skip remains.
@@ -477,8 +477,9 @@ Checked 2026-11-03 from that root (Windows, the analysis environment below):
 
 - step 4 reproduces both `pose_ablation_t*.txt`;
 - step 6 reproduces the five `data/census/` CSVs. `census.md` gains a per-rig table that
-  `run_census.py` added after this census was committed, and the script writes CRLF on
-  Windows, so compare after LF normalisation;
+  `run_census.py` added after this census was committed. That check compared after LF
+  normalisation because `run_census.py` then wrote CRLF on Windows; since #150 it writes LF
+  on every OS;
 - step 7 (a full `data` run, about 50 min) rewrites `inputs.csv` and every `fig*.csv` raw
   byte-identical (`git status` stays clean).
 - step 8's rebuilt cache is set-equal to the 10 m cache's backup of 2026-10-05, and
