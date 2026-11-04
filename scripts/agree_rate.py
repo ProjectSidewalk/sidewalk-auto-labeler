@@ -81,7 +81,7 @@ import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
 from detectors import registry  # noqa: E402
 from detectors import (BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE,  # noqa: E402
-                       on_camera_rig)
+                       on_camera_rig, ps_pixel)
 
 # rampnet.detection_eval: PANO_SCALE_X/Y and PANO_RADIUS_NORMALIZED. Mirrored, not
 # imported (RampNet is a sibling repo, read as data only), so a change there has to be
@@ -320,8 +320,8 @@ def scan_run(results_path):
             w, h_ = p.get('width'), p.get('height')
             if w and h_:
                 for d in rec.get('detections', ()):
-                    pixels.add((pid, round(d['x_normalized'] * w),
-                                round(d['y_normalized'] * h_)))
+                    pixels.add((pid, *ps_pixel(d['x_normalized'], d['y_normalized'],
+                                               w, h_)))
     return run, history, pixels, n_records
 
 
@@ -815,11 +815,12 @@ def main():
     gap_ids = gap_fill_ids(run_meta, n_records, n_gap)
 
     # Contamination guard: a crowd label at exactly a stored detection's pixel is what an
-    # AI submission would look like (eval_ps_clustering's label->detection key).
+    # AI submission would look like (eval_ps_clustering's label->detection key). The label
+    # side goes through ps_pixel too, so a label stored at pano_x == width still joins.
     contaminated = [lab for lab in curb_all if lab.pano_id in run_meta and lab.x is not None
                     and (lab.pano_id,
-                         round(lab.x * run_meta[lab.pano_id][1]),
-                         round(lab.y * run_meta[lab.pano_id][2])) in stored_pixels]
+                         *ps_pixel(lab.x, lab.y, run_meta[lab.pano_id][1],
+                                   run_meta[lab.pano_id][2])) in stored_pixels]
 
     tiers = (OPERATIONAL_CONFIDENCE, BENCHMARK_CONFIDENCE)
     heights = (geo.DEFAULT_CAMERA_HEIGHT_M, geo.PER_PANO)

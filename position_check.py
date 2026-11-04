@@ -1325,9 +1325,10 @@ def run_check(run_dir, results_path=None, threshold_m=GROSS_OFF_STREET_M, min_se
     """The whole check as one call — what main.py runs at the end of every run and what
     the CLI wraps: load the run (or `results_path` against its area/streets), score it,
     write position_check.json (+ the report) beside the results file, print the summary,
-    and return the result dict. Raises on a missing run file or an Overpass failure;
-    main.py catches and records that rather than failing a run whose detections are
-    already on disk."""
+    and return the result dict. Raises on a missing run file, and raises SystemExit when
+    every Overpass mirror fails (this module is also a CLI), so a caller that must survive
+    that catches `(Exception, SystemExit)` -- main.py does, and records the failure rather
+    than failing a run whose detections are already on disk."""
     run_dir = Path(run_dir)
     results_path = Path(results_path) if results_path else run_dir / 'results.jsonl'
     if min_sequence < MIN_AXIS_SAMPLES:

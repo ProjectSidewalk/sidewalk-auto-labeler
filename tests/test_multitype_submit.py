@@ -254,6 +254,17 @@ def test_curb_ramp_decode_marker_stays_off_the_other_types_payload():
     assert "detection_decode" not in send_to_ps.transform_record(line, label_type=XWALK)
 
 
+def test_split_record_wraps_x_at_the_seam_for_every_type():
+    """Each per-type payload goes through the same pixel key (detectors.ps_pixel): x just
+    below, or at, 1.0 ships at column 0, never at width."""
+    line = _two_type_line(1, [("CurbRamp", 0.99998, 0.25, 0.9), ("CurbRamp", 1.0, 0.3, 0.8),
+                              (XWALK, 0.99998, 0.6, 0.7)])
+    payloads = dict(send_to_ps.split_record(line))
+    assert set(payloads) == {"CurbRamp", XWALK}
+    for payload in payloads.values():
+        assert payload["labels"] and all(l["pano_x"] == 0 for l in payload["labels"])
+
+
 def test_split_record_of_a_legacy_line_is_the_untyped_transform():
     line = _golden_line(2)
     assert send_to_ps.split_record(line) == [("CurbRamp", send_to_ps.transform_record(line))]
