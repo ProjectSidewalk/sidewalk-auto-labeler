@@ -98,7 +98,8 @@ python scripts/reprojection_residual.py bayonne richmond --run-root $R10 --out-r
 python scripts/panoramax_bayonne_figures.py data --run-root $R10 && python scripts/panoramax_bayonne_figures.py figures
 #   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~45 min, no GPU/network; --only
 #   for parts, refused on ANY partial run whose run files differ from data/inputs.csv);
-#   skips / examples: network; crops: from the RampNet bundle; figures: committed data only,
+#   skips / examples: network (skips also needs $R10's rebuilt 10 m cache, doc s5);
+#   crops: from the RampNet bundle; figures: committed data only,
 #   byte-reproducible (PNG + LF SVG)
 # LYON (RampNet#159 training-only Panoramax city; docs/panoramax-lyon.md). Slice 1 ran on makelab2's
 # A40 from a separate worktree (~/sal-lyon): --reuse-scan --thin-spacing 10 --limit 40000, i.e. the
