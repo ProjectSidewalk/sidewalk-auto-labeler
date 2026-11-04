@@ -86,13 +86,20 @@ python scripts/panoramax_asset_study.py score --data <dir> && python scripts/pan
 # (`thin_spacing_changed`), resumed on Hyak with --reuse-scan --thin-spacing 5 -> 50,528 thinned,
 # 21,885 new processed / 12 MAX2 skips / 0 failed; runs/bayonne now holds 50,409 panos (0.148 per
 # pano at 0.55, census in data/census_5m/). Everything above (error model, figures) is the 10 m run.
-python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
-python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse \
-    --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
-python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bayonne_figures.py figures
+# So the commands below read $R10, a run root whose bayonne/results.jsonl is the 10 m BYTE PREFIX
+# (`head -n 28524 runs/bayonne/results.jsonl`, sha256 4f38ff52..., the hash in data/inputs.csv;
+# recipe in doc s5): pointed at runs/bayonne they read the 5 m file and overwrite the 10 m CSVs.
+# Times in the doc are pre-#161 (unpaced); at today's 1 picture/s the archive of the 21,885
+# added panos is ~6 h and a 5 m run from scratch ~14 h (doc s5, "Re-running it today").
+python scripts/run_census.py $R10/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
+python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census_5m --band-y 0.79
+python scripts/reprojection_residual.py bayonne richmond --run-root $R10 --out-root $R10 \
+    --camera-height-m 2.6 --refuse --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
+python scripts/panoramax_bayonne_figures.py data --run-root $R10 && python scripts/panoramax_bayonne_figures.py figures
 #   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~45 min, no GPU/network; --only
-#   for parts); skips / examples: network; crops: from the RampNet bundle; figures: committed
-#   data only, byte-reproducible (PNG + LF SVG)
+#   for parts, refused on ANY partial run whose run files differ from data/inputs.csv);
+#   skips / examples: network; crops: from the RampNet bundle; figures: committed data only,
+#   byte-reproducible (PNG + LF SVG)
 # LYON (RampNet#159 training-only Panoramax city; docs/panoramax-lyon.md). Slice 1 ran on makelab2's
 # A40 from a separate worktree (~/sal-lyon): --reuse-scan --thin-spacing 10 --limit 40000, i.e. the
 # first 40,000 of the 10 m set's sorted UUIDv4 ids (a uniform subset); runs/lyon is BOUND to 10 m, so a
