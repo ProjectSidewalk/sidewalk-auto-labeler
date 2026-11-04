@@ -93,12 +93,19 @@ python scripts/panoramax_asset_study.py score --data <dir> && python scripts/pan
 # 21,885 new processed / 12 MAX2 skips / 0 failed; runs/bayonne now holds 50,409 panos (0.148 per
 # pano at 0.55, census in data/census_5m/). The error model and Figures 1-6/7b are the 5 m run;
 # skips.csv, Figures 7a/7c/7d and the bundle stay on the 10 m run (redrawing them needs network).
-python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
+# The 10 m readings (data/ at 7a7a1a6, data/census/, skips, examples, bundle) read $R10, a run root
+# whose bayonne/results.jsonl is the 10 m BYTE PREFIX (`head -n 28524 runs/bayonne/results.jsonl`,
+# sha256 4f38ff52...; recipe in doc s5): pointed at runs/bayonne they read the 5 m file instead.
+# Times in the doc are pre-#161 (unpaced); at today's 1 picture/s the archive of the 21,885
+# added panos is ~6 h and a 5 m run from scratch ~14 h (doc s5, "Re-running it today").
+python scripts/run_census.py $R10/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
+python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census_5m --band-y 0.79
 python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse \
     --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
 python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bayonne_figures.py figures
 #   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~55 min, no GPU/network,
-#   byte-reproducible; --only for parts, refused without `inputs` if a run file's hash moved);
+#   byte-reproducible; --only for parts, refused on ANY partial run (`inputs` or not, `cuts`
+#   too) whose run files differ from data/inputs.csv; --allow-changed-inputs overrides);
 #   skips / examples: network; crops: from the RampNet bundle; figures: committed data only,
 #   byte-reproducible (PNG + LF SVG)
 # LYON (RampNet#159 training-only Panoramax city; docs/panoramax-lyon.md). Slice 1 ran on makelab2's

@@ -558,12 +558,12 @@ The archive is complete on makelab2 under
 - `index.csv` and `fetch.log`.
 
 `runs/bayonne_archive.done` reads `rc=0 2026-10-01T10:01:18Z`. The archive took 4 h 10 m
-at 1.90 panos/s.
+at 1.90 panos/s, unpaced (before [#161](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/161); see "Re-running it today" in §5).
 
 **After the 5 m densify (§1.1) the archive covers 28,524 of 50,409 panos.** It holds the 10 m
-run's `results.jsonl`, not the 5 m one. Archiving the 21,885 added panos (about 3 h at the
-rate above; `export_benchmark.py` is resumable) is **a decision for Jon** and has not been
-done.
+run's `results.jsonl`, not the 5 m one. Archiving the 21,885 added panos (about **6 h** at
+today's 1 picture/s; `export_benchmark.py` is resumable) is **a decision for Jon** and has
+not been done.
 
 ## 5. Replication
 
@@ -579,6 +579,44 @@ done.
 | `runs/morgantown/results.jsonl` | `7dbf24e03574c31b0a3011490177a5d51dc20e30badf7fdd35da443e870b98bc` |
 | `runs/bayonne/osm_streets.json` (Overpass, cached by step 2) | `60d212b73d4cd7a7757b16f3f90e189d829958bbcc025f6d774ae165a11069b7` |
 
+**Regenerating the 10 m evidence.** The table above is the 5 m run, and steps 4, 5, 6 (its
+`census_5m/` half) and 7 read it from `runs/bayonne`. The 10 m readings are a different
+input: `data/census/`, `data/skips.csv`, the example thumbnails, the bundle, and the 10 m
+column of §2's table, whose CSVs are `data/` as committed at
+[`7a7a1a6`](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/commit/7a7a1a6)
+(before the 5 m re-run replaced them; their `inputs.csv` carries the 10 m hash). The 10 m
+file is the 5 m file's byte prefix, because the densify appended to it: the first 28,524
+lines of `runs/bayonne/results.jsonl` (`cb03768c…6eeef`, 50,409 lines) hash to
+`4f38ff528d4445b21eb02e99427e0ba3c88dfb5c940cc4702a283182e379b4b3`. Build a run root of its
+own from that prefix, beside the cached Overpass pull, the area and the five comparator runs
+(each checked against the table above), and point every step that reads the 10 m run at it:
+
+```bash
+R10=/path/to/bayonne10m                     # any scratch dir; not runs/
+mkdir -p $R10/bayonne
+head -n 28524 runs/bayonne/results.jsonl > $R10/bayonne/results.jsonl
+sha256sum $R10/bayonne/results.jsonl         # 4f38ff528d4445b21eb02e99427e0ba3c88dfb5c940cc4702a283182e379b4b3
+cp runs/bayonne/osm_streets.json runs/bayonne/area.geojson $R10/bayonne/
+for c in richmond clovis laurens annapolis morgantown; do
+    mkdir -p $R10/$c && cp runs/$c/results.jsonl $R10/$c/; done
+```
+
+Checked 2026-11-03 from that root (Windows, the analysis environment below), against the
+10 m files as committed then (`7a7a1a6`'s `data/`, before this PR replaced them with the 5 m
+run's):
+
+- step 4 reproduces both 10 m `pose_ablation_t*.txt`;
+- step 6 reproduces the five `data/census/` CSVs. `census.md` gains a per-rig table that
+  `run_census.py` added after this census was committed, and the script writes CRLF on
+  Windows, so compare after LF normalisation;
+- step 7 (a full `data` run, about 50 min) rewrote `inputs.csv` and every `fig*.csv` raw
+  byte-identical to the 10 m ones. That check predates the sequence-bootstrap columns and
+  `cuts.csv`; today the same run adds those columns and part. Run it in a scratch checkout
+  and compare with `git show 7a7a1a6:<path>`: in this tree it overwrites the committed 5 m
+  CSVs.
+
+Step 5 was not re-run from the prefix.
+
 **Environment**
 
 | | |
@@ -592,20 +630,20 @@ done.
 
 | # | command | needs | time |
 |---|---|---|---|
-| 1 | `python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --scan-only` | net | 6 s |
-| 2 | `python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --reuse-scan --thin-spacing 10` (ends with the position check; Overpass) | GPU + net | 6.7 h |
-| 2b | on Hyak `ckpt-g2` (L40S), after the hand rebind in `c096987`: `python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --reuse-scan --thin-spacing 5` (§1.1; resumes step 2's run, ends with the position check) | GPU + net | 2.4 h |
+| 1 | `python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --scan-only` | net | 6 s (≥ ~11 s today) |
+| 2 | `python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --reuse-scan --thin-spacing 10` (ends with the position check; Overpass) | GPU + net | 6.7 h (≥ ~8.0 h today) |
+| 2b | on Hyak `ckpt-g2` (L40S), after the hand rebind in `c096987`: `python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax --reuse-scan --thin-spacing 5` (§1.1; resumes step 2's run, ends with the position check) | GPU + net | 2.4 h (≥ ~6.1 h today) |
 | 3 | `python scripts/position_check.py runs/bayonne --report` (only to redo step 2b's check) | net (cached after) | < 1 min |
 | 4 | `python scripts/fuse_sites.py runs/bayonne --pose-ablation --min-confidence 0.55 > docs/figures/panoramax-bayonne/data/pose_ablation_t0.55.txt` (and `0.3` → `…_t0.3.txt`) | — | 1 s |
 | 5 | `python scripts/reprojection_residual.py bayonne richmond clovis laurens annapolis morgantown --camera-height-m 2.6 --refuse --fit-sigma-pitch 0.269 --benchmark-root /nonexistent [--min-confidence 0.3] --publish docs/figures/panoramax-bayonne/data/reprojection[_t0.3]` | — | ~1.5 min per tier |
-| 6 | `python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79` | — | 10 s |
+| 6 | `python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census_5m --band-y 0.79` (5 m); `python scripts/run_census.py $R10/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79` (10 m, §1) | — | 10 s each |
 | 7 | `python scripts/panoramax_bayonne_figures.py data` → `data/inputs.csv`, `data/fig*.csv`, `data/cuts.csv` (bootstraps, seed 57; `--only` regenerates parts) | — | ~2 h on the 5 m run (the two `sigma_gps` bootstraps, site and sequence; measured on a shared machine) |
-| 8 | `python scripts/panoramax_bayonne_figures.py skips` → `data/skips.csv` | net | 1 min |
-| 9 | `python scripts/panoramax_bayonne_figures.py examples` → `data/examples/` (7a thumbnails; 7c, the first cropped-MAX2 skip by pano id) | net | 1 min |
-| 10 | `python scripts/export_benchmark.py runs/bayonne/results.jsonl --bundle D:/Git/labeler-wt/bayonne-bundle --sample 100 --empty-sample 25` | net | 1.5 min |
+| 8 | `python scripts/panoramax_bayonne_figures.py skips --run-root $R10` → `data/skips.csv` (10 m) | net | 1 min |
+| 9 | `python scripts/panoramax_bayonne_figures.py examples --run-root $R10` → `data/examples/` (7a thumbnails; 7c, the first cropped-MAX2 skip by pano id; 10 m) | net | 1 min |
+| 10 | `python scripts/export_benchmark.py $R10/bayonne/results.jsonl --bundle D:/Git/labeler-wt/bayonne-bundle --sample 100 --empty-sample 25` (10 m) | net | 1.5 min |
 | 11 | `python scripts/panoramax_bayonne_figures.py crops` → `data/examples/crops/` + `crops.csv` (from the bundle) | — | 10 s |
 | 12 | `python scripts/panoramax_bayonne_figures.py figures` → `fig*.png` / `.jpg` (+ `.svg` for figures 1-5 and 7b) | — | 30 s |
-| 13 | on makelab2, `bayonne_archive.sh`: `export_benchmark.py runs/bayonne/results.jsonl --out runs/bayonne/panos` | net | 4.2 h |
+| 13 | on makelab2, `bayonne_archive.sh`: `export_benchmark.py runs/bayonne/results.jsonl --out runs/bayonne/panos` (the 10 m file, then) | net | 4.2 h (≥ ~7.9 h today) |
 
 - **Steps 2 / 2b.** The run directory is now bound to **5 m** (top-level `thin_spacing_m`,
   changed by hand from the 10 m backfill in `c096987`, recorded in `thin_spacing_changed`), so
@@ -616,8 +654,12 @@ done.
   directory and `--run-root`/`--out-root` the same way). Step 6's 5 m output is
   `data/census_5m/`, which Figure 6 draws; `data/census/` is the 10 m census of §1. Steps
   8-11 (skip list, example thumbnails, bundle, crops) need the network and stay on the
-  10 m run. `data --only <part>` (without `inputs`) refuses while a run file's sha256
-  differs from `data/inputs.csv`, so a partial refresh cannot mix runs; re-run all parts.
+  10 m run, so steps 6 (its `data/census/` half), 8, 9 and 10 read `$R10`, the 10 m prefix
+  root above; pointed at `runs/bayonne` they read the 5 m file and give different numbers.
+  Any partial `data --only <part>` run (with or without `inputs`, `cuts` included) refuses
+  while a run file's sha256 differs from `data/inputs.csv`, so one panel cannot be
+  refreshed from one run beside parts from the other; re-run all parts
+  (`--allow-changed-inputs` overrides, for scratch comparisons only).
 - **Step 7 is byte-reproducible.** It was run twice on the 5 m inputs and every CSV it
   writes hashed identical. The PR #162 review fix added the sequence-bootstrap columns and
   `cuts.csv`; re-running every part then left every previously committed CSV
@@ -632,6 +674,29 @@ done.
   deterministic 256-colour palette. The photo figures (7a, 7c, 7d) are quality-92 JPEGs
   (4:4:4) rendered from the same 200 dpi raster: a palette posterised the photos, and an
   SVG would embed them a second time.
+
+**Re-running it today.** Every time in the steps table outside the parentheses, and every
+rate in this doc (1.18 and 2.50 panos/s for detection, 1.90 for the archive), was measured
+before [#161](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/161) /
+[PR #173](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/173), unpaced.
+Panoramax's maintainers asked for about one full-resolution picture per second, and since
+PR #173 `sources/panoramax.py` paces every request: `picture` 1/s, `metadata` 1/s (batched
+when main.py hints the order), `tile` 5/s, with the pool capped at 4 threads. The download
+then binds, so the floors at 1 picture/s are:
+
+| what | panos | floor today |
+|---|---|---|
+| step 1, the scan | 55 tiles | ~11 s |
+| step 2, the 10 m run | 28,634 | ~8.0 h |
+| step 2b, the densify resume | 21,897 | ~6.1 h |
+| step 13, the 10 m archive (one item GET + one picture GET per pano, each on its own 1/s limiter; `export_benchmark.py` gives no order hint) | 28,524 | ~7.9 h |
+| archiving the 21,885 added panos (§4) | 21,885 | ~6.1 h |
+| the whole 5 m set from scratch | 50,528 | ~14 h |
+
+The limits are per process, so never run the archive and a detection run against the public
+instances at the same time: two processes get 1/s each. Never set
+`PANORAMAX_PICTURES_PER_SECOND` / `_METADATA_` / `_TILES_` to 0 (unlimited) except against a
+private mirror.
 
 **Committed vs regenerated.**
 
