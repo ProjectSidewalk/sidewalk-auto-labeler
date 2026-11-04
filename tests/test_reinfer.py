@@ -62,6 +62,15 @@ def _no_posts(monkeypatch):
 
 # --- verify -------------------------------------------------------------------------------
 
+def test_pixel_set_wraps_x_at_the_seam_as_send_to_ps_does():
+    # The key verify compares must be the one PS stores: x just below (or at) 1.0 is column
+    # 0, the same column transform_record ships.
+    record = _record([_det(0.9, x=0.99998), _det(0.8, x=1.0), _det(0.7, x=0.0)])
+    assert reinfer.pixel_set(record, 0.55) == {(0, 4096): 3}
+    assert {(l["pano_x"], l["pano_y"]) for l in send_to_ps.transform_record(
+        record, min_confidence=0.55)["labels"]} == {(0, 4096)}
+
+
 def test_verify_reports_exact_when_the_new_file_reproduces(tmp_path):
     old, new = _old_and_new(tmp_path,
                             [_record([_det(0.9)], "A"), _record([_det(0.8)], "B")],

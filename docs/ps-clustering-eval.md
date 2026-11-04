@@ -179,6 +179,14 @@ Full tables: `runs/richmond/ps_clustering_eval/report.md` (labeler frame, 2.6 m)
 Both are committed, and each names the url, fetch time, sha256 and feature count of the two
 API pulls it was computed from. The pulls themselves are tens of MB and are not committed;
 the sha256 is what makes a re-run auditable.
+A third frame, `runs/richmond/ps_clustering_eval_h1.70/report.md`, is exploratory: 1.7 m is
+the low end of the 1.7 to 2.0 m Richmond rig height in the placement limitation above, and
+no commit or doc records more about why it was run. It has no adopted use (since #89 no
+Mapillary height estimate is validated, so 2.6 m stands). First scored 2026-09-05 on a pull
+that was not kept; regenerated 2026-11-03 with scorer 106.4 from the cached 2026-09-21 pull
+(`E=runs/richmond/ps_clustering_eval`): `python scripts/eval_ps_clustering.py richmond
+--labels $E/raw_labels.geojson --clusters $E/clusters.geojson --ps-script
+../ProjectSidewalk_Webpage/scripts/label_clustering.py --camera-height-m 1.7`.
 
 ### Revised after review
 
