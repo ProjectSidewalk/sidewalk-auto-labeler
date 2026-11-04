@@ -1554,7 +1554,11 @@ bytes, pinned against fixtures captured from main (`tests/test_multitype_submit.
 
 - The detector emits normalized coordinates; Stage 1 stores them normalized in the JSONL.
   The normalized → pixel conversion happens only in `send_to_ps.py`. Keep these in sync if
-  you change either side.
+  you change either side. The pixel itself is `detectors.ps_pixel` (x modulo width -- a
+  `--border wrap` + gaussian decode can store x just below 1.0; y never wraps and stays below
+  height), and every analysis that rebuilds PS's `(pano_id, pano_x, pano_y)` key to join
+  server labels (reinfer, agree_rate, eval_ps_clustering, server_agree_check,
+  provenance_gate) calls it rather than re-deriving `round(x * w)` (PR #152).
 - `detections` in results.jsonl means "stored candidates", not "believed ramps": it includes
   peaks down to the storage floor. Any new consumer must filter at `OPERATIONAL_CONFIDENCE`
   (import it from `detectors`) unless it deliberately wants the sub-floor candidates.

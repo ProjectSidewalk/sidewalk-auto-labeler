@@ -17,7 +17,7 @@ SidewalkWebpage#4819 / #5084):
 This module exists so a city WITHOUT a server can still be scored under the server's own
 label positions (issue #106): `scripts/eval_ps_clustering.py --offline` places every
 synthesized label here. `pano_x`/`pano_y` must be the integers send_to_ps.py sent,
-`round(x_normalized * width)` / `round(y_normalized * height)`.
+`detectors.ps_pixel`: `round(x_normalized * width) % width` / `round(y_normalized * height)`.
 
 Pinned against SidewalkWebpage's own cross-implementation parity fixture
 (`test/fixtures/latLngEstimationParity.json`, copied into tests/fixtures/) in
