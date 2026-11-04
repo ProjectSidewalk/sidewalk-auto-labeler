@@ -661,7 +661,9 @@ Step 5 was not re-run from the prefix.
 - **Which run each step read.** Steps 4, 5 and 7 were re-run on 2026-10-07 on the 5 m
   run's `results.jsonl` (`data/inputs.csv`), with `--run-root` pointed at a directory
   holding the 5 m Bayonne run and the five comparators (steps 4 and 5 take the run
-  directory and `--run-root`/`--out-root` the same way). Step 6's 5 m output is
+  directory and `--run-root`/`--out-root` the same way). Step 7's `fig1`, `fig2a`, `fig2b`
+  and `cuts` outputs were regenerated from the same inputs on 2026-11-03 by the PR #162
+  review fix (see the next bullet). Step 6's 5 m output is
   `data/census_5m/`, which Figure 6 draws; `data/census/` is the 10 m census of §1. Steps
   8-11 (skip list, example thumbnails, bundle, crops) need the network and stay on the
   10 m run, so steps 6 (its `data/census/` half), 8, 9 and 10 read `$R10`, the 10 m prefix

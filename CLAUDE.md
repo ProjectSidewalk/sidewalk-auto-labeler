@@ -78,7 +78,8 @@ python scripts/panoramax_asset_study.py score --data <dir> && python scripts/pan
 # (Richmond's GoPro Max views 0.499, Laurens 0.431, Morgantown 0.177; Bayonne 1.11x Richmond's,
 # NOT distinguishable from it: site-bootstrap CIs just separate, but those 1,301 views are 14
 # capture sequences and a sequence bootstrap overlaps -- Richmond [0.454, 0.559], Bayonne [0.534,
-# 0.578]; panoramax_bayonne_figures.py writes *_seq_lo/_hi beside every site CI, #162 review).
+# 0.578]; panoramax_bayonne_figures.py writes sequence CIs beside the fig1/fig2a/fig2b/cuts site
+# CIs only, as *_seq_lo/_hi (seq_lo/seq_hi in fig2b), #162 review).
 # The site-size confound mostly went away: sites grew 3 -> 4 views, chi2/dof fell only 0.024, and
 # within the run there is no trend by site size (0.549 / 0.535 / 0.579). The excess is ACROSS the
 # ray (vs Richmond's GoPro Max views re-solved alone: along-ray +0.2..-0.5 m, cross-ray +0.6-0.8 m),
@@ -103,9 +104,10 @@ python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/d
 python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse \
     --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
 python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bayonne_figures.py figures
-#   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~55 min, no GPU/network,
-#   byte-reproducible; --only for parts, refused on ANY partial run (`inputs` or not, `cuts`
-#   too) whose run files differ from data/inputs.csv; --allow-changed-inputs overrides);
+#   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~1.5-2 h (two sigma_gps
+#   bootstraps, site and sequence), no GPU/network, byte-reproducible; --only for parts,
+#   refused on ANY partial run (`inputs` or not, `cuts` too) whose run files differ from
+#   data/inputs.csv; --allow-changed-inputs overrides);
 #   skips / examples: network, on $R10 (skips also needs $R10's rebuilt 10 m cache, doc s5);
 #   crops: from the RampNet bundle; figures: committed data only,
 #   byte-reproducible (PNG + LF SVG)
