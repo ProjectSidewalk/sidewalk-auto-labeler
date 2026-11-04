@@ -146,3 +146,10 @@ docs/panoramax-bayonne.md once #153 is on main → after batch 1, merge main int
 Follow-ups: repoint #174 RampNet permalinks to main after #280 merges; stamp skimage version in manifest runs[];
 #150 PS-path masking decision + email in main history (Jon); install #174 archive on makelab2 (Jon); cleanup of
 D:/Git/labeler-review/* scratch worktrees + RampNet-wt/{r280,r280-final,r280-rc,r174f-rampnet,cr224-sweep} (Jon's OK).
+
+## 2026-11-04 — batch 1 merged (Claude, on Jon's explicit permission)
+- Merged with `--merge --delete-branch --match-head-commit` at the READY heads: #158 #157 #152 #150 #153 #134 -> main 85f7e9e; RampNet#280 (da10928, merge commit).
+- Tidy: removed all D:/Git/labeler-review/* scratch worktrees + the folder, RampNet-wt/{r280,r280-final,r280-rc,r174f-rampnet,cr224-sweep}, and the 6 merged PRs' labeler-wt worktrees + local branches. D:/Git/RampNet main checkout is still on the merged cluster-review-224 branch (left alone; may be shared with the peer session).
+- Post-batch merges, pytest run on each, pushed: #154 bcaade9 (docs/panoramax-bayonne.md conflict resolved, both sides kept), #162 5a89c1c, #155 4ead074, #160 92388f8, #156 974d9af + 13e2d4e (import run_census.mask_producer), #163 88e41c5, #174 964fdfd, #132 d25bc3c, #135 10d1018, #141 c2d0b5d, #114 c91b2b2.
+- Running: #156 final review; delta semantic-conflict check of the other 10 branches.
+- Follow-up: CLAUDE.md says a Panoramax image 404 is a cached skip; code (sources/panoramax.py, since 2026-10-05) treats it as retryable failure. Fix the CLAUDE.md line.
