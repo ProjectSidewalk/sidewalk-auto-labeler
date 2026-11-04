@@ -652,6 +652,28 @@ the absence read decisive", item 1. The plan was posted on the issue before any 
 Nothing above is changed: the definitions, the decision rule and the #238 outputs in
 `runs/vancouver/corner_inventory/` stand as written. This section adds panos and re-scores.
 
+> **Key takeaways (A8)** (added 2026-11-03 at review). `compare/` is
+> `runs/vancouver/corner_posdetect241/compare/`.
+>
+> 1. **The rule as written fails at large n.** Read (a), clean, fusion, unit level,
+>    intersections pooled over the merged build: 333/1,323 = **0.252** [0.229, 0.276].
+>    *Figure 3, left; `compare/reads.csv` row `all,intersections,new,a_fusion_clean_as_written`
+>    `clean`/`n_absent`/`clean_p`/`clean_lo`/`clean_hi`; `compare.json` `decision_rule`.*
+> 2. **Not counting `NA` with no `RAMPTYPE`, it would pass.** Read (b) is 1,277/1,323 =
+>    **0.965** [0.954, 0.974], lower bound above 0.90. *Figure 3, left; `compare/reads.csv` row
+>    `all,intersections,new,b_fusion_clean_ignoring_NA_noramp`.*
+> 3. **Units with only such `NA` points behave like empty units, not like ramps.** Share of
+>    observed target units called absent: 0.871 (only `NA` with no `RAMPTYPE`) vs 0.872
+>    (nothing) vs 0.530 (an `Available` point). *Figure 3, right; `compare.json`
+>    `target_states_by_inventory.*.absent_share_of_observed`.*
+> 4. **Recall here is among ramps the 0.55 tier already missed.** 31/66 target units with an
+>    `Available` point are present at 0.30 (0.470 [0.354, 0.588]); the added store panos carry
+>    a 0.55 detection at 24/10,337 against 1/300 in #56's random control. *`compare.json`
+>    `target_recall_available.fusion`, `selection_signal`.*
+> 5. **Most dated misses predate the install.** At 17 of the 18 dated misses the newest pano
+>    within 25 m is older than the latest `INSTDATE`. *`compare/available_targets_dating.csv`;
+>    `compare.json` `available_targets_dating.absent`.*
+
 ### What was done
 
 - **Target units.** The 1,453 intersection units whose fusion/primary unit state is
@@ -672,10 +694,12 @@ Nothing above is changed: the definitions, the decision rule and the #238 output
   native-resolution JPEGs).
 - **Detection** (makelab2 A40). Store panos: `detect_from_store.py --ids` into a new run dir,
   `runs/vancouver_posdetect241`. The #56 run is read only and never appended to. GSV panos:
-  `main.py` into `runs/vancouver_posdetect241_gsv`. Both used the code at this branch, whose
-  `detectors/`, `main.py`, `panorama.py`, `sources/`, `depth.py`, `geo.py`,
-  `scripts/detect_from_store.py` and `scripts/fuse_sites.py` are byte-identical to 660ccd5
-  (`git diff --stat 660ccd5 HEAD -- <those paths>` is empty). **That 660ccd5 produced the #56
+  `main.py` into `runs/vancouver_posdetect241_gsv`. Both used the code of this branch as it
+  stood from 9c8f479 to 028c9c7, whose `detectors/`, `main.py`, `panorama.py`, `sources/`,
+  `depth.py`, `geo.py`, `scripts/detect_from_store.py` and `scripts/fuse_sites.py` are
+  byte-identical to 660ccd5 (`git diff --stat 660ccd5 028c9c7 -- <those paths>` is empty).
+  After main was merged in (2026-11-03) those paths differ from 660ccd5 in 13 files; what that
+  does to a re-run is under "Re-run on the merged code" below. **That 660ccd5 produced the #56
   run, and that it ran at batch size 1, is inferred, not recorded**: neither manifest carries
   a code SHA or a batch size. The inference rests on the makelab2 checkout's reflog (cloned at
   660ccd5 on 2026-09-28, pulled forward only on 09-30), the #56 run starting at 15:14Z that
@@ -690,9 +714,38 @@ Nothing above is changed: the definitions, the decision rule and the #238 output
   points come from 2007-08 imagery 3,328 px wide.
 - **Line endings.** `fuse_sites.py` writes `sites_meta.json` with the platform's line endings
   (CRLF on Windows). Both new `sites_meta.json` files were converted to LF before the merged
-  build, so the sha256s `build.json` records are those of the committed copies. A re-run of
-  `fuse_sites.py` on Windows rewrites CRLF; convert before rebuilding, or the recorded hash
-  will not match.
+  build, and the sha256s `build.json` records (`5408f770…`, `ddae3b0e…`) are those of the
+  committed copies, i.e. of the metas written by the 9c8f479–028c9c7 code. On the current code
+  the recorded hashes will not match even after LF conversion, because a re-fusion adds
+  informational keys to the meta (next bullet); the sites and every scored output still match.
+- **Re-run on the merged code (2026-11-03, at 3dca548; fusion code identical to bf47b60).**
+  `fuse_sites.py <copy> --camera-height-m 2.5` on scratch copies of both runs (inputs
+  `results.jsonl` `69f46b26…bf0e` / `953716d1…57b2` plus each run's manifest):
+  - both `sites.jsonl` are **byte-identical** to the ones the merged build used, `d38c6fa0…320b`
+    (store) and `df0dec5c…614d` (GSV);
+  - `sites_meta.json` only **gains** keys, none removed or changed: `params.sigma_peak_px: null`,
+    `rejections` (chi2_gate 75 / residual 28 store, 2 / 1 GSV), `pose.partial: 0`,
+    `pose.store_unverified_flat: 0`, `pose.partial_coefficients: null`,
+    `detection_decode: "argmax"`, `detection_border: "exclude"`. Its sha256 is `d36572f1…` /
+    `bac6d312…` as written on Windows, `1542689f…` / `966e66ad…` after LF conversion, not the
+    `5408f770…` / `ddae3b0e…` in `build.json`;
+  - `build --extra-run` on the re-fused runs (the parameter guard accepts them: the new
+    `sigma_peak_px` is `null`, and absent in #56's meta), then `score` and `compare`: `counts.csv`,
+    `decision.json`, `false_absences.csv`, `gaps.csv`, both `corners_224_*.csv`, and
+    `compare/reads.csv`, `report.md`, `transitions.csv`, `available_targets_dating.csv` are
+    byte-identical; `compare.json` differs only in the two recorded `sites_meta` hashes, and
+    `build.json` / `report.md` only in build time, paths, tool and exporter stamps and timings.
+  - **Why nothing moves.** None of main's changed defaults reaches these runs: decode and
+    border come from the legacy manifests as argmax / exclude; `sigma_peak_px` defaults to
+    `None`, the old error model; `--apply-pose auto` is still flat for GSV (`pose.flat` 10,337
+    and 30; partial pose is opt-in); the camera height is pinned to 2.5 m in the command.
+    `--apply-pose off` cannot be pinned to guard against a future default change: #56's meta
+    records `auto`, so the guard would refuse the run. The dependency is stated here instead.
+  - **Detection (step 2) was not re-run** (makelab2 store + A40). From the code:
+    `detect_from_store.py` has no decode or border flag and always runs `DEFAULT_DECODE =
+    argmax` / `DEFAULT_BORDER = exclude`, and `tests/test_decode.py` pins argmax to the old
+    `peak_local_max` call, so the merged code places the same peaks up to GPU
+    nondeterminism.
 - **Merge.** `corner_inventory.py build --extra-run <dir>` (repeatable) adds each extra run's
   panos to the observed set and its operational sites to the fusion arm. Site ids are
   prefixed with the run dir's name. A pano shared with the base run is refused, and so is any
@@ -733,6 +786,9 @@ Outputs:
 
 A full regeneration (fuse, build, score, compare) reproduced every one of these byte for byte,
 except `build.json` and `report.md`, which carry the build time as the #238 ones do.
+(2026-11-03: a rebuild at 3dca548 stamps the exporter as `5643d79` rather than `5b21cd9`;
+5643d79 only changes the exporter CLI's work-dir guard, and every data output is
+byte-identical. See "Re-run on the merged code" for the re-fusion.)
 
 **Coverage.**
 - **Store panos.** The store held at least one usable pano within 25 m for 1,443 of the 1,453
@@ -795,6 +851,14 @@ What the inventory holds at the 1,239 units moved to absent:
 - **only `NA` points with no `RAMPTYPE` at 915**;
 - an `Available` point at 35;
 - other classes at 2.
+
+![Figure 3. Two panels. Left: dot-and-interval plot of five A8 reads against a dashed decision line at 0.90. Read (a), as written, fusion, the pre-registered rule: 333 of 1,323, 0.252, far below the line. Read (b), not counting NA with no RAMPTYPE: 1,277 of 1,323, 0.965, above the line. Read (c), as written, deployed: 365 of 1,503, 0.243. No-Available read, fusion: 1,279 of 1,323, 0.967. No-Available read, deployed: 1,437 of 1,503, 0.956. Right, the control: share of observed target units called absent, by what the inventory holds. Nothing: 287 of 329, 0.872. Only NA with no RAMPTYPE: 915 of 1,050, 0.871. An Available point: 35 of 66, 0.530.](figures/corner-inventory/fig3_a8_reads.png)
+
+*Figure 3. Amendment A8, unit level, intersections pooled, merged build, Wilson 95%
+intervals; the 0.90 line applies to read (a) only. Data:
+`docs/figures/corner-inventory/data/fig3_a8_reads.csv` (from `compare/reads.csv`, read (a)
+cross-checked against `compare.json` `decision_rule`) and `fig3_a8_control.csv` (from
+`compare.json` `target_states_by_inventory`). [SVG](figures/corner-inventory/fig3_a8_reads.svg).*
 
 **Decision: the rule as written FAILS, and n is now large enough that this is not a sampling
 accident. Under reading (b) it would pass.**
@@ -888,6 +952,12 @@ Run from this branch, with `sal-vancouver`, `sal-cluster-review` and `RampNet` c
 beside it, as in the #238 Reproduce section. The #238 build (`runs/vancouver/corner_inventory`)
 must exist first.
 
+- **Environment.** Python 3.12 (`sidewalk-auto-labeler` env); `streetlevel 0.12.10`
+  (recorded in both runs' `manifest.json` `streetlevel_version`); matplotlib for `figures`.
+- **Model.** `rampnet-model@606a11956743` (`model_revision`
+  `606a11956743f7eb328d9207769034752f6191f4`) on every record of both runs; batch size 1.
+- **Hosts.** Step 2 on makelab2 (A40); steps 1 and 3 on the Windows desktop (CPU).
+
 ```
 O=runs/vancouver/corner_posdetect241
 # 1. selection (CPU). fetch-panos re-fetches the live list, which will not match the recorded
@@ -910,6 +980,8 @@ python main.py $O/select/gsv_area.geojson --name vancouver_posdetect241_gsv --re
 # 3. fusion, merge, score, compare (CPU)
 python scripts/fuse_sites.py runs/vancouver_posdetect241 --camera-height-m 2.5
 python scripts/fuse_sites.py runs/vancouver_posdetect241_gsv --camera-height-m 2.5
+#    on Windows, convert both metas to LF (only the sha256 build.json records depends on it):
+python -c "import pathlib; [p.write_bytes(p.read_bytes().replace(b'\r\n', b'\n')) for p in pathlib.Path('runs').glob('vancouver_posdetect241*/sites_meta.json')]"
 python scripts/corner_inventory.py build --run-dir ../sal-vancouver/runs/vancouver \
     --osm ../sal-cluster-review/runs/vancouver/cluster_review/osm.json \
     --units224 ../RampNet/benchmark/vancouver/cluster_review/corners.jsonl \
@@ -918,9 +990,42 @@ python scripts/corner_inventory.py build --run-dir ../sal-vancouver/runs/vancouv
 python scripts/corner_inventory.py score --out runs/vancouver/corner_inventory_posdetect241
 python scripts/corner_posdetect.py compare --old runs/vancouver/corner_inventory \
     --new runs/vancouver/corner_inventory_posdetect241 --out $O
+# 4. figures (CPU, committed files only): figure 3 from $O/compare
+python scripts/corner_inventory.py figures
 ```
+
+Committed: `$O/select/` and `$O/compare/` outputs, the merged build's `counts.csv`,
+`decision.json`, `false_absences.csv`, `gaps.csv`, `report.md`, `build.json`, both runs'
+`manifest.json` and `sites_meta.json` (LF), the store run's id lists and
+`store_selection.json`, the GSV run's `area.geojson`, and `docs/figures/corner-inventory/fig3_*`
+plus its data CSVs. Regenerated, not committed: both `results.jsonl` and `sites.jsonl`, the
+merged `corners_full.jsonl` / `units.csv` / `corners.csv`, the `/adminapi/panos` and store-id
+caches, and the GSV run's `scan.json`.
 
 The two detection runs' `results.jsonl` are not public files, as with #56's. A re-run of step
 2 can differ, because the store grows and the GSV scan returns whatever coverage exists that
 day. Step 3 is deterministic from the two `results.jsonl` files, whose sha256s are above.
 The store pass's metadata cache is kept on makelab2 as `~/posdetect241_store_metadata.tgz`.
+
+### Where each number lives (A8)
+
+`compare/` is `runs/vancouver/corner_posdetect241/compare/`; `merged/` is
+`runs/vancouver/corner_inventory_posdetect241/`.
+
+| number in A8 | file | key / column |
+|---|---|---|
+| reads (a), (b), (c), both no-Available reads, with Wilson intervals; the moved-units, nearest-only and per-stratum reads | `compare/reads.csv` | rows by `subset`, `stratum`, `build`, `read`: `clean`, `n_absent`, `clean_p/lo/hi`, `no_available_p/lo/hi` |
+| decision outcome, 333/1,323 | `compare.json`; `merged/decision.json` | `decision_rule`; `clean`, `n_absent`, `precision`, `ci` |
+| old -> new unit states (1,239 / 211 / 3) | `compare/transitions.csv`; `compare.json` | `transitions`, `target_states` |
+| city sentence after the merge (3,103 / 1,323 / 3) | `merged/counts.csv` | row `unit,intersections,all,fusion,primary`: `n_present`, `n_absent`, `n_unobservable` |
+| 0.871 / 0.872 / 0.530 by inventory class; 915 / 287 / 35 | `compare.json` | `target_states_by_inventory` |
+| 2,573 of 2,617 `Available` units present | `merged/counts.csv` | `avail_present`, `n_avail` |
+| 31/66 and 9/66 recall at target units | `compare.json` | `target_recall_available.{fusion,deployed}` |
+| 24/10,337 vs 1/300 detections >= 0.55 | `compare.json` | `selection_signal` |
+| 17 of 18, 5 of 9 dated | `compare/available_targets_dating.csv`; `compare.json` | `available_targets_dating` |
+| 1,450 targets with an added pano; 10,337 + 30 panos; 269 + 8 operational sites; 24 + 3 emulated | `compare.json` | `target_units_with_added_pano_within_obs_m`, `extra_runs[*].n_panos`, `n_operational_sites`, `n_deployed_emulated` |
+| nearest-only 1,401 / 49 | `compare.json` | `target_states_nearest_only` |
+| capture dates of the added panos | `compare.json` | `capture_date_added_quantiles`, `capture_years_added`, `capture_years_base` |
+| run and meta sha256s | `merged/build.json`; `compare.json` | `inputs.extra:*`; `inputs` |
+| Figure 3 values | `docs/figures/corner-inventory/data/fig3_a8_reads.csv`, `fig3_a8_control.csv` | `k`, `n`, `share`, `lo`, `hi`; `absent`, `observed`, `share`, `lo`, `hi` |
+| GPU time, panos/s | RampNet `analysis_out/usage_log.jsonl` (not in this repo) | `paid: false` rows |
