@@ -452,9 +452,11 @@ def main(argv=None):
         lines += ['', '## NO GT YET', '',
                   f'`{a_path.name}` does not exist in the bundle: no reviewer has exported an '
                   'assignment, so there is nothing to score and no number below is a result. '
-                  'Review the pilot in RampNet `scripts/cluster_review_gallery.py` (branch '
-                  '`cluster-review-224`), save the '
-                  'export into the bundle, and re-run this command.', '', f'- {sanity}']
+                  'Review in RampNet `scripts/cluster_review_gallery.py` (branch '
+                  '`cluster-review-224`) and save the export into the bundle. The pilot is '
+                  'read with RampNet `scripts/cluster_review_agreement.py` only; this command '
+                  "scores rater A's full pass and refuses anything earlier (protocol "
+                  'Amendment 5, S1).', '', f'- {sanity}']
         (out / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
         for name, fields in (('arms.csv', ARM_FIELDS), ('ramps.csv', ['corner_id', 'type', 'ramp']
                                                         + list(ARMS))):
