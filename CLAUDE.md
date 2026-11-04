@@ -478,6 +478,8 @@ python scripts/corner_inventory.py score --out runs/vancouver/corner_inventory
 python scripts/corner_inventory.py census --out runs/vancouver/corner_inventory   # network
 python scripts/corner_inventory.py score-assignments --out runs/vancouver/corner_inventory \
     --assignments ../RampNet/benchmark/vancouver/cluster_review/assignments.json
+python scripts/corner_inventory.py figures   # docs/figures/corner-inventory/ from committed
+#   counts.csv + decision.json only (matplotlib); byte-reproducible, re-run leaves git clean
 # Vancouver split examples (#56): ramps one arm splits and another does not, drawn on Esri
 # aerial tiles at SERVER placement (every cluster placed) -> docs/figures/vancouver-splits/
 python scripts/split_figures.py            # --rebuild recomputes the cached partitions
