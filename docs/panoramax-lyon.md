@@ -427,8 +427,7 @@ makelab2 `~/sal-lyon` copy holds slice 1 only.
 The census CSVs went to `data/census/lyon_full/` and `data/full/`, not over slice 1's, so
 every number in sections 0-6 still reads from the files it names. `census/lyon_full/` was
 written with [PR #150](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/150)'s
-`run_census.py` (email-shaped producer names masked); this branch carries none of #150's
-code.
+`run_census.py` (email-shaped producer names masked), which is on main.
 
 | file | sha256 |
 |---|---|
@@ -449,10 +448,8 @@ python scripts/run_census.py runs/lyon --results /tmp/lyon_10m/results.jsonl --o
 python scripts/panoramax_lyon_figures.py rig-producers --results /tmp/lyon_10m/results.jsonl --out docs/figures/panoramax-lyon/data/full
 ```
 
-**Run the first command only once #150 is on main.** This branch's `run_census.py` is
-main's unmasked one, so running it here would overwrite the masked `lyon_full/producers.csv`
-with an email-shaped producer name. It regenerates byte for byte with #150's version
-(checked in the #156 review). `rig-producers` masks the same way since that review.
+Both regenerate their committed files byte for byte (checked in the #156 final review).
+Both mask producer names with `run_census.mask_producer` (#150).
 
 Section 6's "remaining slices" is done. The native-res archive (#146) had not been
 started when this section was written (corrected 2026-10-07; see section 8). Jon decided on 2026-10-07 to densify to 5 m on the evidence in
