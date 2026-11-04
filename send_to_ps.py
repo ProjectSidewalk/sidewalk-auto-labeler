@@ -36,8 +36,8 @@ from dotenv import load_dotenv
 
 import position_check
 from detectors import (BORDER_EXCLUDE, DECODE_ARGMAX, OPERATIONAL_CONFIDENCE,
-                       borders_in_file, decodes_in_file, on_camera_rig, single_border,
-                       single_decode)
+                       borders_in_file, decodes_in_file, on_camera_rig, ps_pixel,
+                       single_border, single_decode)
 from detectors.registry import (CURB_RAMP, detections_of_type, provenance_for,
                                 record_types, spec_for)
 
@@ -255,16 +255,22 @@ def transform_record(data: Dict[str, Any], min_confidence: Optional[float] = Non
     mask_rig = mask_rig and spec.mask_rig
     modified_data = data.copy()
     modified_data['pano'] = transform_pano(data['pano'])
-    modified_data['labels'] = [
-        {
-            "pano_x": round(detection['x_normalized'] * modified_data['pano']['width']),
-            "pano_y": round(detection['y_normalized'] * modified_data['pano']['height']),
-            "confidence": detection['confidence']
-        } for detection in detections
+    # detectors.ps_pixel: x modulo width (a sub-cell decode under --border wrap can store x
+    # just below 1.0, which would round to width -- one past the last column; a no-op for
+    # every argmax record), y unwrapped and always < height.
+    width, height = modified_data['pano']['width'], modified_data['pano']['height']
+    shipped = [
+        detection for detection in detections
         if detection['confidence'] >= min_confidence
         and (max_confidence is None or detection['confidence'] < max_confidence)
         and not (mask_rig and on_camera_rig(detection['y_normalized']))
     ]
+    modified_data['labels'] = []
+    for detection in shipped:
+        pano_x, pano_y = ps_pixel(detection['x_normalized'], detection['y_normalized'],
+                                  width, height)
+        modified_data['labels'].append(
+            {"pano_x": pano_x, "pano_y": pano_y, "confidence": detection['confidence']})
     modified_data.pop('detections', None)
     # Run-state markers, not part of the server's payload (#130). (detection_decode is the
     # same kind of key; dropping it is #129's to do, review N4.)
