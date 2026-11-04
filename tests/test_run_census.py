@@ -51,3 +51,30 @@ def test_rig_detections_split_by_rig_and_year():
     assert by_key[('Point Grey', 'Ladybug', '8192x4096', '2022')] == [1, 2, 2.0, 1, 1.0,
                                                                       2, 2.0, 1, 1.0]
     assert rows[0][:4] == ['GoPro', 'MAX', '5760x2880', '2024']   # largest group first
+
+
+def test_email_shaped_producer_is_masked():
+    assert rc.mask_producer('jane.doe@example.org') == 'j***@***'
+    assert rc.mask_producer(' jane@example.org ') == 'j***@***'
+    # an email embedded in a longer name is masked too (PR #150 review, S1)
+    assert rc.mask_producer('Jean Dupont <jean@ign.fr>') == 'Jean Dupont <j***@***>'
+    assert rc.mask_producer('jean@ign.fr (IGN)') == 'j***@*** (IGN)'
+    for keep in ('Ville de Lyon', 'IGN', None, 'contact at example.org', 'a@b'):
+        assert rc.mask_producer(keep) == keep
+    rec = _rec('MAX', '2024-05', None, None, [])
+    rec['pano']['copyright'] = 'jane.doe@example.org'
+    c = rc.census([rec])
+    assert list(c['producers']) == [('j***@***', 'panoramax.ign.fr', 'etalab-2.0')]
+
+
+def test_outputs_are_lf_on_every_os(tmp_path, monkeypatch):
+    """The committed census is LF; a regeneration must be byte-identical (PR #150 review, N3)."""
+    import json
+    import sys
+    run = tmp_path / 'city'
+    run.mkdir()
+    (run / 'results.jsonl').write_text(json.dumps(_rec('MAX', '2024-05', None, None, [])) + '\n')
+    monkeypatch.setattr(sys, 'argv', ['run_census.py', str(run), '--out', str(tmp_path / 'out')])
+    rc.main()
+    for f in (tmp_path / 'out').iterdir():
+        assert b'\r' not in f.read_bytes(), f.name
