@@ -389,3 +389,24 @@ def test_decision_is_pre_registered_on_a_full_pass_with_cant_judge(tmp_path, mon
     assert _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle) == 0
     text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
     assert '## Decision (pre-registered): **PASS**' in text
+
+
+def test_bootstrap_split_diff_is_paired_by_unit_and_deterministic():
+    # S8 (RampNet#280): base splits u1:r1; the arm splits nothing -> -1/3
+    base = {('u1', 'r1'): 2, ('u1', 'r2'): 1, ('u2', 'r1'): 1}
+    arm = {('u1', 'r1'): 1, ('u1', 'r2'): 1, ('u2', 'r1'): 1}
+    d, c, n = crs.bootstrap_split_diff(base, arm)
+    assert d == pytest.approx(-1 / 3) and n == 2
+    assert c[0] <= d <= c[1] and crs.bootstrap_split_diff(base, arm) == (d, c, n)
+    assert crs.bootstrap_split_diff({}, {}) == (None, None, 0)
+
+
+def test_full_pass_report_carries_the_split_bootstrap(tmp_path, monkeypatch):
+    a = {'schema': crs.SCHEMA, 'rubric_version': 1, 'seed_arm': 'deployed',
+         'corners': {'u1': dict(U1, stratum={'type': 'signalised'})}}
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    toy = {name: [[1, 2], [3, 4, 7], [5, 6]] for name in crs.ARMS}
+    toy[ic.REVIEW_BASE] = [[1], [2], [3, 4, 7], [5], [6]]
+    assert _run(tmp_path, monkeypatch, toy, df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert 'unit-level paired bootstrap 95% CI' in text and '= -0.333' in text

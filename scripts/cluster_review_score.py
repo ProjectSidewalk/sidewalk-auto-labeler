@@ -23,7 +23,9 @@ scripts/cluster_review_agreement.py: agreement, timing, can't-judge counts).
 and the report says the override was used. A role-b file after A's full pass is scored as
 DESCRIPTIVE without the flag.
 
-The report names the labeler commit it ran at (labeler_ref) beside RAMPNET_REF.
+The report names the labeler commit it ran at (labeler_ref) beside RAMPNET_REF, and puts
+a unit-level paired bootstrap 95% CI of the split-rate difference beside the verdict
+(Amendment 5, S8; descriptive -- the rule reads the point estimates).
 
 The RampNet side (the protocol, RUBRICS.md section 6, the gallery, rampnet/cluster_review.py
 and the bundle) lives, for now, only on RampNet branch `cluster-review-224`; RAMPNET_REF pins
@@ -307,6 +309,47 @@ def inventory_calibration(units, corners_by_id, arms, label_pos):
             'inventory_metrics': by_arm}
 
 
+BOOTSTRAP_N = 2000
+BOOTSTRAP_SEED = 224
+
+
+def bootstrap_split_diff(per_base, per_arm, n=BOOTSTRAP_N, seed=BOOTSTRAP_SEED):
+    """(diff, [lo, hi], units): split_rate(arm) - split_rate(base) with a unit-level PAIRED
+    percentile bootstrap 95% CI (RampNet protocol Amendment 5, S8). Units are resampled
+    with replacement and both arms are scored on the same draw, because ramps cluster in
+    units (one unit can hold dozens) and a ramp-level Wilson interval is too narrow.
+    per_* = assignment_metrics' per_ramp {(corner_id, ramp): n clusters}; covered = >= 1,
+    split = >= 2. Descriptive: the decision rule reads the point estimates."""
+    import random
+    units = sorted({k[0] for k in per_base} | {k[0] for k in per_arm})
+    if not units:
+        return None, None, 0
+    tally = {}
+    for u in units:
+        t = [0, 0, 0, 0]                       # base split, base covered, arm split, arm covered
+        for (cid, _r), v in per_base.items():
+            if cid == u:
+                t[0] += v >= 2
+                t[1] += v >= 1
+        for (cid, _r), v in per_arm.items():
+            if cid == u:
+                t[2] += v >= 2
+                t[3] += v >= 1
+        tally[u] = t
+
+    def diff(sample):
+        bs, bc, as_, ac = (sum(tally[u][i] for u in sample) for i in range(4))
+        return None if not bc or not ac else as_ / ac - bs / bc
+    point = diff(units)
+    rng = random.Random(seed)
+    draws = sorted(d for d in (diff([units[rng.randrange(len(units))] for _ in units])
+                               for _ in range(n)) if d is not None)
+    if point is None or not draws:
+        return point, None, len(units)
+    return point, [draws[int(0.025 * (len(draws) - 1))],
+                   draws[int(round(0.975 * (len(draws) - 1)))]], len(units)
+
+
 def fmt(v, nd=3):
     return 'n/a' if v is None else f'{v:.{nd}f}'
 
@@ -468,6 +511,12 @@ def main(argv=None):
     scope = 'pre-registered' if pre_registered else f'DESCRIPTIVE -- {why}'
     lines += ['', f'## Decision ({scope}): **{v}**', '']
     lines += [f'- {r}' for r in reasons]
+    d, d_ci, d_units = bootstrap_split_diff(by_arm[ic.REVIEW_BASE]['per_ramp'],
+                                            by_arm[ic.REVIEW_ARM]['per_ramp'])
+    lines.append(f'- descriptive, not part of the rule (Amendment 5, S8): split rate '
+                 f'`{ic.REVIEW_ARM}` minus `{ic.REVIEW_BASE}` = {fmt(d)}, unit-level paired '
+                 f'bootstrap 95% CI{ci(d_ci) or " n/a"} over {d_units} units '
+                 f'({BOOTSTRAP_N} resamples, seed {BOOTSTRAP_SEED}); the bar is -{ic.RULE_SPLIT_DROP}')
     lines += ['', f'Rule: `{ic.REVIEW_ARM}` vs `{ic.REVIEW_BASE}` -- split lower by >= '
               f'{ic.RULE_SPLIT_DROP}, merge not higher by > {ic.RULE_MERGE_RISE}, coverage not '
               f'lower by > {ic.RULE_COVERED_DROP}. Read on rater A\'s full pass; a pilot-only '
