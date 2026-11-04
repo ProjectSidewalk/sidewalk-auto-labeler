@@ -32,7 +32,7 @@ shapely.
 
 The bundle dir (--bundle) is RampNet's benchmark/<city>/cluster_review, which, with the
 protocol it follows, lives for now only on RampNet branch `cluster-review-224`
-(https://github.com/ProjectSidewalk/RampNet/tree/39155d872e744378be59354676b32417b1604d65/benchmark/vancouver/cluster_review;
+(https://github.com/ProjectSidewalk/RampNet/tree/e869be294f29321ae882521bed415a381eba40c0/benchmark/vancouver/cluster_review;
 TODO: repoint to RampNet main once that branch merges).
 
     # --run-dir: a run dir holding the Vancouver run, e.g. runs/vancouver
