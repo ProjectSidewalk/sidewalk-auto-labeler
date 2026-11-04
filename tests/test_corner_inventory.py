@@ -397,7 +397,9 @@ def test_figures_cli_writes_reproducible_files(tmp_path):
     pytest.importorskip('matplotlib')
     names = ['fig2_absence_precision.png', 'fig2_absence_precision.svg',
              'fig1_unit_states.png', 'fig1_unit_states.svg',
-             'data/fig2_absence_precision.csv', 'data/fig1_unit_states.csv']
+             'fig3_a8_reads.png', 'fig3_a8_reads.svg',
+             'data/fig2_absence_precision.csv', 'data/fig1_unit_states.csv',
+             'data/fig3_a8_reads.csv', 'data/fig3_a8_control.csv']
     runs = []
     for i in range(2):
         d = tmp_path / str(i)
@@ -406,5 +408,21 @@ def test_figures_cli_writes_reproducible_files(tmp_path):
     assert all(runs[0][n] for n in names)
     assert runs[0] == runs[1]                       # byte-reproducible
     assert b'\r\n' not in runs[0]['fig2_absence_precision.svg']
-    for n in names[4:]:                             # the data tables are what is committed
+    for n in names[6:]:                             # the data tables are what is committed
         assert runs[0][n] == (FIGDIR / n).read_bytes()
+
+
+def test_a8_figure_rows_are_the_reads_and_refuse_drift():
+    import csv
+    a8 = Path(__file__).resolve().parents[1] / 'runs/vancouver/corner_posdetect241/compare'
+    with open(a8 / 'reads.csv', encoding='utf-8', newline='') as f:
+        reads_csv = list(csv.DictReader(f))
+    comp = json.loads((a8 / 'compare.json').read_text(encoding='utf-8'))
+    reads, control = ci.a8_rows(reads_csv, comp)
+    assert [(r['k'], r['n']) for r in reads] == [(333, 1323), (1277, 1323), (365, 1503),
+                                                (1279, 1323), (1437, 1503)]
+    assert [(c['absent'], c['observed']) for c in control] == [(287, 329), (915, 1050),
+                                                              (35, 66)]
+    with pytest.raises(SystemExit):
+        ci.a8_rows(reads_csv, {**comp, 'decision_rule': {**comp['decision_rule'],
+                                                          'clean': 334}})
