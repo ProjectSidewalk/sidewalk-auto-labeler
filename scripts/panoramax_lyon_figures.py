@@ -27,7 +27,6 @@ import argparse
 import csv
 import io
 import json
-import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -45,21 +44,10 @@ SLICE_SPACING, SLICE_LIMIT = 10, 40000     # the pre-registered slice (doc secti
 MIN_GROUP_PANOS = 200                      # rig x year groups smaller than this are not drawn
 
 
-# Same rule as #150's run_census.mask_producer (issue #149): Panoramax serves producer
-# names publicly and some accounts use an email address as theirs, so a committed table
-# never republishes one. TODO: import run_census.mask_producer once #150 is on main.
-EMAIL_RE = re.compile(r'[^@\s]+@[^@\s]+\.[^@\s]+')
-
-
-def mask_producer(name):
-    """Mask a wholly email-shaped producer name to its first character; pass the rest.
-
-        >>> mask_producer('jane.doe@example.org'), mask_producer('grand lyon')
-        ('j***@***', 'grand lyon')
-    """
-    if isinstance(name, str) and EMAIL_RE.fullmatch(name.strip()):
-        return name.strip()[0] + '***@***'
-    return name
+# Producer names are masked by run_census.mask_producer, the single source of truth
+# (issue #149): Panoramax serves producer names publicly and some accounts use an
+# email address as theirs, so a committed table never republishes one.
+from run_census import mask_producer  # noqa: E402
 
 # dataviz reference palette, light mode (same tokens as panoramax_bayonne_figures.py)
 SURFACE, INK, INK2, MUTED, GRID = '#fcfcfb', '#0b0b0b', '#52514e', '#898781', '#e1e0d9'

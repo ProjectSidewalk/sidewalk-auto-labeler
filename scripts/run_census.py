@@ -11,7 +11,8 @@ Tables (CSV + report.md under --out):
     years.csv      panos per capture year
     pose.csv       panos per pose group: tilt (pitch/roll reported, not both 0), zeros
                    (reported 0/0), absent -- the Panoramax mixture #57 measured
-    producers.csv  panos per producer (`copyright`), instance and license
+    producers.csv  panos per producer (`copyright`), instance and license; every
+                   email address in a producer name is masked (mask_producer, issue #149)
     detections.csv detections per pano at each tier, and the share of them on the
                    camera rig (detectors.on_camera_rig, dip >= NADIR_MASK_DEG) and
                    inside a nadir band y >= --band-y (default 0.8, the bottom 20% of
@@ -28,6 +29,7 @@ Usage:
 import argparse
 import csv
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -40,6 +42,46 @@ from detectors import (BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE,  # noqa: E4
                        on_camera_rig)
 
 TIERS = (OPERATIONAL_CONFIDENCE, BENCHMARK_CONFIDENCE)
+
+EMAIL_RE = re.compile(r'[^@\s<>()]+@[^@\s<>()]+\.[^@\s<>()]+')
+
+
+def mask_producer(name):
+    """Mask every email address inside a producer name (issue #149).
+
+    The single source of truth for producer masking: any script that writes a
+    Panoramax producer name into a committed table imports this function rather than
+    copying it. Panoramax serves the producer name publicly, and some accounts use an
+    email address as theirs, alone or inside a longer name (`Jean Dupont <jean@ign.fr>`).
+    Each email-shaped substring is reduced to its first character + `***@***`; a name
+    with none (and None) passes through unchanged.
+
+    Scope and limits:
+    - Today it is applied to the census tables (producers.csv / census.md),
+      thinning_experiment.py's crosscheck producers.csv and panoramax_lyon_figures.py's
+      rig-producers table. Other sinks still write producer names unmasked: scripts/panoramax_bayonne_figures.py
+      (examples/contact_sheet.csv, max2_skip.csv, crops.csv -- the last two feed the
+      figures' licence credit), scripts/panoramax_asset_study.py (sample.csv),
+      scripts/heatmap_grid.py (figure x-labels) and export_benchmark.py's
+      `--group-key copyright`. The PS submission path (pano `copyright`,
+      `source_metadata`) is deliberately unmasked: `copyright` is the licence
+      attribution.
+    - Obfuscated forms (`jane at ign dot fr`, `jane(at)ign.fr`) and dotless hosts
+      (`a@b`) are out of scope.
+    - Two masked producers with the same first letter (on the same instance and
+      licence) merge into one census row.
+
+    Example:
+        >>> mask_producer('jane.doe@example.org')
+        'j***@***'
+        >>> mask_producer('Jean Dupont <jean@ign.fr>')
+        'Jean Dupont <j***@***>'
+        >>> mask_producer('Ville de Lyon')
+        'Ville de Lyon'
+    """
+    if not isinstance(name, str) or not EMAIL_RE.search(name):
+        return name
+    return EMAIL_RE.sub(lambda m: m.group()[0] + '***@***', name.strip())
 
 
 def pose_group(pano):
@@ -77,7 +119,7 @@ def census(lines, band_y=0.8):
         c['years'][year] += 1
         c['rig_years'][(*rig, year)] += 1
         c['pose'][pose_group(p)] += 1
-        c['producers'][(p.get('copyright'), p.get('panoramax_instance'),
+        c['producers'][(mask_producer(p.get('copyright')), p.get('panoramax_instance'),
                         p.get('license'))] += 1
         for t in TIERS:
             ds = [d for d in rec.get('detections') or [] if d['confidence'] >= t]
@@ -118,7 +160,7 @@ def rig_detection_rows(c):
 
 def _write(path, header, rows):
     with open(path, 'w', newline='', encoding='utf-8') as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator='\n')  # LF on every OS: byte-reproducible
         w.writerow(header)
         w.writerows(rows)
 
@@ -188,7 +230,8 @@ def main():
         rates = [r[6 + 4 * i] for i in range(len(TIERS))]
         lines.append(f'| {r[0]}, {r[1]}, {r[2]} | {r[3]} | {r[4]} | '
                      + ' | '.join(str(x) for x in rates) + ' |')
-    (args.out / 'census.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    (args.out / 'census.md').write_text('\n'.join(lines) + '\n', encoding='utf-8',
+                                         newline='\n')
     print('\n'.join(lines))
 
 

@@ -106,6 +106,34 @@ def on_camera_rig(y_normalized: float) -> bool:
     return y_normalized > NADIR_MASK_Y
 
 
+def ps_pixel(x_normalized, y_normalized, width, height):
+    """``(pano_x, pano_y)`` exactly as Project Sidewalk stores a label of this detection.
+
+    The single definition of PS's pixel key: send_to_ps.transform_record ships it, and every
+    analysis that joins a run to the server's labels (reinfer.pixel_set, agree_rate,
+    eval_ps_clustering, server_agree_check, provenance_gate) rebuilds it here, so the two
+    sides cannot drift apart.
+
+    x is cyclic: ``round(x * width) % width``. A sub-cell decode under ``--border wrap``
+    (detectors.decode) can store x just below 1.0 (0.99998 rounds to ``width``), and float
+    ``%`` in refine_peaks can return exactly 1.0, so without the modulo the key would sit one
+    column past the last. For every argmax record the modulo is a no-op (x <= 1023/1024).
+
+    y is NOT wrapped: the poles are not adjacent. It never reaches ``height`` either, so it
+    needs no clamp: argmax y <= 511/512, and gaussian y <= (8*63 + 3.5)/512 = 507.5/512
+    (coarse row 63 has no neighbour below, so it gets no sub-cell offset; row 62 + 0.5 gives
+    503.5/512). Hence ``round(y * height) < height`` for every height > 256.
+
+        >>> ps_pixel(0.5, 0.5, 16384, 8192)
+        (8192, 4096)
+        >>> ps_pixel(0.99998, 0.5, 16384, 8192), ps_pixel(1.0, 0.5, 16384, 8192)
+        ((0, 4096), (0, 4096))
+        >>> ps_pixel(1023 / 1024, 511 / 512, 16384, 8192)
+        (16368, 8176)
+    """
+    return round(x_normalized * width) % width, round(y_normalized * height)
+
+
 # --- The peak decode a record was written under (issue #111) -------------------------
 #
 # Where each heatmap peak is placed: `argmax` (the pixel peak_local_max returns; every live

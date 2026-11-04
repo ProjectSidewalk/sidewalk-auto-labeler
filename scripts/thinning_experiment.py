@@ -57,7 +57,6 @@ import io
 import json
 import math
 import random
-import re
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -87,21 +86,10 @@ FIG_DIR = REPO_ROOT / "docs" / "figures" / "thinning-experiment"
 DEFAULT_FIGURE_RUNS = ("runs/thinexp_bayonne", "runs/thinexp_richmond")
 
 
-# Same rule as #150's run_census.mask_producer (issue #149): Panoramax serves producer
-# names publicly and some accounts use an email address as theirs, so a committed table
-# never republishes one. TODO: import run_census.mask_producer once #150 is on main.
-EMAIL_RE = re.compile(r'[^@\s]+@[^@\s]+\.[^@\s]+')
-
-
-def mask_producer(name):
-    """Mask a wholly email-shaped producer name to its first character; pass the rest.
-
-        >>> mask_producer('jane.doe@example.org'), mask_producer('grand lyon')
-        ('j***@***', 'grand lyon')
-    """
-    if isinstance(name, str) and EMAIL_RE.fullmatch(name.strip()):
-        return name.strip()[0] + '***@***'
-    return name
+# Producer names are masked by run_census.mask_producer, the single source of truth
+# (issue #149): Panoramax serves producer names publicly and some accounts use an
+# email address as theirs, so a committed table never republishes one.
+from run_census import mask_producer  # noqa: E402
 
 
 def load_run(run_dir, min_confidence=BENCHMARK_CONFIDENCE):
