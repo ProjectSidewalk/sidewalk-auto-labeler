@@ -366,3 +366,45 @@ def test_internal_path_through_shape_node_is_not_a_leg():
     walks = tagged(ways, [2, 3], (0.0, 0.0))
     assert len(walks) == 4
     assert len(ci.merge_legs(walks)) == 4
+
+
+# ------------------------------------------------------------------ figures (review S1)
+COMMITTED = Path(__file__).resolve().parents[1] / 'runs/vancouver/corner_inventory'
+FIGDIR = Path(__file__).resolve().parents[1] / 'docs/figures/corner-inventory'
+
+
+def _committed():
+    import csv
+    with open(COMMITTED / 'counts.csv', encoding='utf-8', newline='') as f:
+        counts = list(csv.DictReader(f))
+    return counts, json.loads((COMMITTED / 'decision.json').read_text(encoding='utf-8'))
+
+
+def test_figure_rows_are_the_decision_and_refuse_drift():
+    counts, dec = _committed()
+    reads = ci.absence_read_rows(counts, dec)
+    assert [(r['arm'], r['read'], r['k'], r['n']) for r in reads] == [
+        ('fusion', 'clean', 46, 84), ('fusion', 'no_available', 75, 84),
+        ('deployed', 'clean', 42, 81), ('deployed', 'no_available', 73, 81)]
+    assert [r['decides'] for r in reads] == [True, False, False, False]
+    states = {r['stratum']: r for r in ci.unit_state_rows(counts)}
+    assert (states['intersections']['n'], states['intersections']['absent']) == (4429, 84)
+    with pytest.raises(SystemExit):
+        ci.absence_read_rows(counts, {**dec, 'clean': 45})
+
+
+def test_figures_cli_writes_reproducible_files(tmp_path):
+    pytest.importorskip('matplotlib')
+    names = ['fig2_absence_precision.png', 'fig2_absence_precision.svg',
+             'fig1_unit_states.png', 'fig1_unit_states.svg',
+             'data/fig2_absence_precision.csv', 'data/fig1_unit_states.csv']
+    runs = []
+    for i in range(2):
+        d = tmp_path / str(i)
+        ci.main(['figures', '--out', str(COMMITTED), '--fig-dir', str(d)])
+        runs.append({n: (d / n).read_bytes() for n in names})
+    assert all(runs[0][n] for n in names)
+    assert runs[0] == runs[1]                       # byte-reproducible
+    assert b'\r\n' not in runs[0]['fig2_absence_precision.svg']
+    for n in names[4:]:                             # the data tables are what is committed
+        assert runs[0][n] == (FIGDIR / n).read_bytes()
