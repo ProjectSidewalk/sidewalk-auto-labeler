@@ -12,6 +12,9 @@ Protocol (written before any number): docs/corner-inventory.md. Four subcommands
   score-assignments  a #224 rater's assignments.json against corners_224.jsonl
   census             GSV history for the panos near a stratified sample of 200 units: one
                      metadata request per pano, no image -> <out>/census/
+  figures            redraw docs/figures/corner-inventory/ from the committed counts.csv +
+                     decision.json, plus amendment A8's compare/reads.csv + compare.json
+                     (matplotlib; byte-reproducible PNG + SVG + data CSVs)
 
 Inputs are read in place and never written; results.jsonl and the OSM payload are asserted
 by sha256. The OSM / eligibility functions are imported from export_cluster_review.py (the
@@ -1487,6 +1490,295 @@ def census_summary(sample, info, records, run_dates=None):
             'by_stratum': by_stratum, 'per_unit': per_unit}
 
 
+# ---------------------------------------------------------------------------- figures
+#
+# Drawn only from the committed outputs (counts.csv, decision.json): no GPU, no network, no
+# untracked file. Byte-reproducible: no timestamps in either format, a fixed SVG hash salt,
+# text kept as text in the SVG, LF endings. Palette: the dataviz reference instance (slots 1
+# and 2 validated as an adjacent pair), plus one neutral gray for "unobservable", which is
+# the absence of a reading, not a third category; every segment is also direct-labelled.
+
+FIG_DIR = REPO_ROOT / 'docs' / 'figures' / 'corner-inventory'
+DEFAULT_OUT = REPO_ROOT / 'runs' / 'vancouver' / 'corner_inventory'
+SURFACE, INK, INK2, MUTED, GRID = '#fcfcfb', '#0b0b0b', '#52514e', '#898781', '#e1e0d9'
+BLUE, ORANGE, NEUTRAL = '#2a78d6', '#eb6834', '#a3a29b'
+FIG_STATE_STRATA = ('signalised', 'arterial', 'residential', 'intersections', 'mid_block')
+FIG_STRATUM_LABEL = {'signalised': 'Signalised', 'arterial': 'Arterial',
+                     'residential': 'Residential', 'intersections': 'Intersections, pooled',
+                     'mid_block': 'Mid-block points'}
+
+
+def _count_row(counts, level, stratum, arm, variant='primary', sectors='all'):
+    hits = [r for r in counts if (r['level'], r['stratum'], r['sectors'], r['arm'],
+                                  r['variant']) == (level, stratum, sectors, arm, variant)]
+    if len(hits) != 1:
+        raise SystemExit(f'counts.csv: {len(hits)} rows for {level}/{stratum}/{sectors}/'
+                         f'{arm}/{variant}, expected 1')
+    return hits[0]
+
+
+def absence_read_rows(counts, dec):
+    """The four unit-level absence-precision reads (fusion / deployed x clean /
+    no-Available), intersections pooled, primary observability, with Wilson intervals.
+
+    The fusion clean read IS the decision: it is checked against decision.json, so the
+    figure cannot drift from the number the doc quotes.
+    """
+    rows = []
+    for arm in ARMS:
+        r = _count_row(counts, 'unit', 'intersections', arm)
+        n = int(r['n_absent'])
+        for read, k in (('clean', int(r['absent_clean'])),
+                        ('no_available', n - int(r['absent_false']))):
+            lo, hi = wilson(k, n)
+            rows.append({'arm': arm, 'read': read, 'k': k, 'n': n,
+                         'share': round(k / n, 4), 'lo': round(lo, 4), 'hi': round(hi, 4),
+                         'decides': arm == 'fusion' and read == 'clean'})
+    fc, fn = rows[0], rows[1]
+    if (fc['k'], fc['n'], fc['share'], [fc['lo'], fc['hi']]) != \
+            (dec['clean'], dec['n_absent'], dec['precision'], dec['ci']) or \
+            fn['share'] != dec['no_available_read']:
+        raise SystemExit('counts.csv and decision.json disagree on the decision read: '
+                         're-run `score`')
+    return rows
+
+
+def unit_state_rows(counts):
+    """Unit states per stratum (fusion arm, primary observability, unit level)."""
+    rows = []
+    for s in FIG_STATE_STRATA:
+        r = _count_row(counts, 'unit', s, 'fusion')
+        n = int(r['n'])
+        rows.append({'stratum': s, 'n': n, **{x: int(r[f'n_{x}']) for x in STATES},
+                     **{f'share_{x}': round(int(r[f'n_{x}']) / n, 4) for x in STATES}})
+    return rows
+
+
+def _fig_style():
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({
+        'svg.hashsalt': 'corner-inventory-238', 'svg.fonttype': 'none',
+        'font.family': 'DejaVu Sans', 'font.size': 10, 'axes.titlesize': 11,
+        'axes.titleweight': 'bold', 'axes.titlelocation': 'left',
+        'figure.facecolor': SURFACE, 'axes.facecolor': SURFACE,
+        'savefig.facecolor': SURFACE, 'axes.edgecolor': '#c3c2b7',
+        'axes.labelcolor': INK2, 'text.color': INK, 'xtick.color': INK2,
+        'ytick.color': INK2, 'axes.grid': False, 'grid.color': GRID, 'grid.linewidth': 0.6,
+        'axes.spines.top': False, 'axes.spines.right': False, 'axes.axisbelow': True,
+        'legend.frameon': False, 'path.simplify': False})
+    return plt
+
+
+def _fig_save(plt, fig, fig_dir, name):
+    """PNG (200 dpi) + SVG, no timestamps or software stamps; the SVG with LF endings."""
+    import io
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    fig.savefig(fig_dir / f'{name}.png', dpi=200, bbox_inches='tight',
+                metadata={'Software': None})
+    buf = io.StringIO()
+    fig.savefig(buf, format='svg', bbox_inches='tight',
+                metadata={'Date': None, 'Creator': None})
+    write_text_lf(fig_dir / f'{name}.svg', buf.getvalue())
+    plt.close(fig)
+    return [fig_dir / f'{name}.png', fig_dir / f'{name}.svg']
+
+
+def fig_absence_precision(plt, rows, fig_dir):
+    """Figure 2: the four unit-level absence-precision reads against the 0.90 line."""
+    label = {('fusion', 'clean'): 'Fusion, clean read\n(the pre-registered rule)',
+             ('fusion', 'no_available'): 'Fusion, no-Available read',
+             ('deployed', 'clean'): 'Deployed, clean read',
+             ('deployed', 'no_available'): 'Deployed, no-Available read'}
+    colour = {'clean': BLUE, 'no_available': ORANGE}
+    fig, ax = plt.subplots(figsize=(8.4, 3.3))
+    ax.grid(True, axis='x')
+    ys = list(range(len(rows)))[::-1]
+    for y, r in zip(ys, rows):
+        ax.plot([r['lo'], r['hi']], [y, y], color=colour[r['read']], lw=2,
+                solid_capstyle='round')
+        ax.plot([r['share']], [y], 'o', ms=8, color=colour[r['read']],
+                markeredgecolor=SURFACE, markeredgewidth=2 if r['decides'] else 1.2)
+        ax.text(1.015, y, f"{r['k']}/{r['n']} = {r['k'] / r['n']:.3f}  "
+                f"[{r['lo']:.3f}, {r['hi']:.3f}]", transform=ax.get_yaxis_transform(),
+                va='center', ha='left', fontsize=9, color=INK)
+    ax.axvline(DECISION_THRESHOLD, color=INK2, lw=1.2, ls=(0, (4, 3)))
+    ax.text(DECISION_THRESHOLD + 0.006, ys[0] + 0.55, f'decision line {DECISION_THRESHOLD:.2f}',
+            ha='left', va='bottom', fontsize=9, color=INK2)
+    ax.set_yticks(ys, [label[(r['arm'], r['read'])] for r in rows])
+    ax.set_ylim(-0.6, len(rows) - 0.1)
+    ax.set_xlim(0.3, 1.0)
+    ax.set_xlabel('Absence precision (share of absent units), Wilson 95% interval')
+    ax.set_title('Unit-level absence precision, Vancouver intersections pooled', pad=16)
+    handles = [plt.Line2D([], [], color=BLUE, marker='o', lw=2, label='clean read: no '
+                          'inventory point of any status'),
+               plt.Line2D([], [], color=ORANGE, marker='o', lw=2, label='no-Available read: '
+                          'no Available point')]
+    ax.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, -0.24), ncol=2,
+              fontsize=8.5, handlelength=2.2)
+    return _fig_save(plt, fig, fig_dir, 'fig2_absence_precision')
+
+
+def fig_unit_states(plt, rows, fig_dir):
+    """Figure 1: present / absent / unobservable shares of units, per stratum."""
+    colour = {'present': BLUE, 'absent': ORANGE, 'unobservable': NEUTRAL}
+    ink = {'present': '#ffffff', 'absent': INK, 'unobservable': INK}
+    fig, ax = plt.subplots(figsize=(8.4, 3.4))
+    ys = list(range(len(rows)))[::-1]
+    for y, r in zip(ys, rows):
+        left = 0.0
+        for s in STATES:
+            w = r[f'share_{s}']
+            ax.barh(y, w, left=left, height=0.62, color=colour[s], edgecolor=SURFACE, lw=2)
+            if w >= 0.08:
+                ax.text(left + w / 2, y, f'{w:.0%}', ha='center', va='center', fontsize=8.5,
+                        color=ink[s])
+            left += w
+        ax.text(1.015, y, f"absent {r['absent']:,} of {r['n']:,} ({r['share_absent']:.1%})",
+                transform=ax.get_yaxis_transform(), va='center', ha='left', fontsize=9,
+                color=INK)
+    # The pooled row is the sum of the three strata above it: a rule above it marks it as a
+    # total rather than a peer, and one below it keeps mid-block (another unit kind) out of it.
+    pooled_y = ys[[r['stratum'] for r in rows].index('intersections')]
+    for dy in (0.5, -0.5):
+        ax.axhline(pooled_y + dy, color=MUTED, lw=0.8)
+    ax.set_yticks(ys, [f"{FIG_STRATUM_LABEL[r['stratum']]}" for r in rows])
+    ax.set_xlim(0, 1)
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f'{v:.0%}'))
+    ax.set_xlabel('Share of units (fusion arm; unobservable = no site and no pano within 25 m)')
+    ax.set_title('Unit states by stratum, Vancouver', pad=10)
+    handles = [plt.Rectangle((0, 0), 1, 1, color=colour[s], label=s) for s in STATES]
+    ax.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, -0.22), ncol=3,
+              fontsize=8.5)
+    return _fig_save(plt, fig, fig_dir, 'fig1_unit_states')
+
+
+# Amendment A8 (RampNet#241): drawn from the committed compare/reads.csv + compare.json.
+DEFAULT_A8 = REPO_ROOT / 'runs' / 'vancouver' / 'corner_posdetect241' / 'compare'
+A8_READS = (('a_fusion_clean_as_written', 'clean',
+             '(a) as written, fusion\n(the pre-registered rule)'),
+            ('b_fusion_clean_ignoring_NA_noramp', 'clean',
+             '(b) not counting NA\nwith no RAMPTYPE, fusion'),
+            ('c_deployed_clean', 'clean', '(c) as written, deployed\n(emulated for added panos)'),
+            ('a_fusion_clean_as_written', 'no_available', 'no-Available read, fusion'),
+            ('c_deployed_clean', 'no_available', 'no-Available read, deployed'))
+A8_CONTROL = (('none', 'nothing'), ('NA_noramp_only', 'only NA with no RAMPTYPE'),
+              ('Available', 'an Available point'))
+
+
+def a8_rows(reads_csv, comp):
+    """A8 reads (merged build, unit level, intersections pooled, all units) and the
+    control (share of observed target units called absent, by what the inventory holds).
+
+    Read (a) is checked against compare.json's decision_rule, as figure 2 is against
+    decision.json.
+    """
+    by = {(r['subset'], r['stratum'], r['build'], r['read']): r for r in reads_csv}
+    reads = []
+    for key, which, label in A8_READS:
+        r = by[('all', 'intersections', 'new', key)]
+        k, n = int(r[which]), int(r['n_absent'])
+        lo, hi = wilson(k, n)
+        reads.append({'read': key, 'which': which, 'label': label, 'k': k, 'n': n,
+                      'share': round(k / n, 4), 'lo': round(lo, 4), 'hi': round(hi, 4)})
+    d, a = comp['decision_rule'], reads[0]
+    if (a['k'], a['n'], a['share'], [a['lo'], a['hi']]) != \
+            (d['clean'], d['n_absent'], d['precision'], d['ci']):
+        raise SystemExit('reads.csv and compare.json disagree on read (a): re-run `compare`')
+    control = []
+    for key, label in A8_CONTROL:
+        t = comp['target_states_by_inventory'][key]
+        k, n = t['absent'], t['absent'] + t['present']
+        lo, hi = wilson(k, n)
+        control.append({'inventory': key, 'label': label, 'absent': k, 'observed': n,
+                        'share': round(k / n, 4), 'lo': round(lo, 4), 'hi': round(hi, 4)})
+    return reads, control
+
+
+def fig_a8(plt, reads, control, fig_dir):
+    """Figure 3: A8's reads against the 0.90 line, beside the share called absent by
+    inventory class among the observed target units (the control)."""
+    colour = {'clean': BLUE, 'no_available': ORANGE}
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(10.4, 3.9),
+                                 gridspec_kw={'width_ratios': [1.25, 1], 'wspace': 0.8})
+    ys = list(range(len(reads)))[::-1]
+    for y, r in zip(ys, reads):
+        c = colour[r['which']]
+        ax.plot([r['lo'], r['hi']], [y, y], color=c, lw=2, solid_capstyle='round')
+        ax.plot([r['share']], [y], 'o', ms=8, color=c, markeredgecolor=SURFACE,
+                markeredgewidth=1.2)
+        tx, ha = ((r['hi'] + 0.02, 'left') if r['share'] < 0.6 else
+                  (min(r['lo'], DECISION_THRESHOLD) - 0.025, 'right'))
+        # The bounds are printed, as in figure 2: the high reads' intervals (~0.02 wide)
+        # hide under their markers, and whether (b)'s lower bound clears 0.90 is the point.
+        # On a second line, so a low read's label stays clear of the 0.90 line.
+        ax.text(tx, y, f"{r['k']:,}/{r['n']:,} = {r['k'] / r['n']:.3f}\n"
+                f"[{r['lo']:.3f}, {r['hi']:.3f}]", va='center', ha=ha, multialignment=ha,
+                fontsize=8.5, color=INK, linespacing=1.15)
+    ax.axvline(DECISION_THRESHOLD, color=INK2, lw=1.2, ls=(0, (4, 3)))
+    ax.text(DECISION_THRESHOLD - 0.006, ys[0] + 0.55,
+            f'decision line {DECISION_THRESHOLD:.2f}', ha='right', va='bottom', fontsize=9,
+            color=INK2)
+    ax.set_yticks(ys, [r['label'] for r in reads], fontsize=8.5)
+    ax.set_ylim(-0.6, len(reads) - 0.1)
+    ax.set_xlim(0, 1)
+    ax.grid(True, axis='x')
+    ax.set_xlabel('Absence precision, Wilson 95% interval')
+    ax.set_title('A8 reads: 1,453 unobservable units given panos', pad=16)
+    ax.legend(handles=[plt.Line2D([], [], color=BLUE, marker='o', lw=2, label='clean read'),
+                       plt.Line2D([], [], color=ORANGE, marker='o', lw=2,
+                                  label='no-Available read')],
+              loc='upper center', bbox_to_anchor=(0.4, -0.2), ncol=2, fontsize=8.5)
+    ys = list(range(len(control)))[::-1]
+    for y, r in zip(ys, control):
+        bx.plot([r['lo'], r['hi']], [y, y], color=INK2, lw=2, solid_capstyle='round')
+        bx.plot([r['share']], [y], 'o', ms=8, color=INK2, markeredgecolor=SURFACE,
+                markeredgewidth=1.2)
+        bx.text(r['lo'] - 0.03, y, f"{r['absent']:,}/{r['observed']:,} = {r['share']:.3f}",
+                va='center', ha='right', fontsize=8.5, color=INK)
+    bx.set_yticks(ys, [r['label'] for r in control], fontsize=8.5)
+    bx.set_ylim(-0.6, len(control) - 0.4)
+    bx.set_xlim(0, 1)
+    bx.grid(True, axis='x')
+    bx.set_xlabel('Share of observed target units called absent')
+    bx.set_title('Control: absent, by what the inventory holds', pad=16)
+    return _fig_save(plt, fig, fig_dir, 'fig3_a8_reads')
+
+
+def cmd_figures(args):
+    out = Path(args.out)
+    fig_dir = Path(args.fig_dir)
+    with open(out / 'counts.csv', encoding='utf-8', newline='') as f:
+        counts = list(csv.DictReader(f))
+    dec = json.loads((out / 'decision.json').read_text(encoding='utf-8'))
+    reads = absence_read_rows(counts, dec)
+    states = unit_state_rows(counts)
+    write_csv_lf(fig_dir / 'data' / 'fig2_absence_precision.csv',
+                 ['arm', 'read', 'k', 'n', 'share', 'lo', 'hi', 'decides'], reads)
+    write_csv_lf(fig_dir / 'data' / 'fig1_unit_states.csv',
+                 ['stratum', 'n', *STATES, *(f'share_{s}' for s in STATES)], states)
+    plt = _fig_style()
+    written = fig_absence_precision(plt, reads, fig_dir) + fig_unit_states(plt, states,
+                                                                           fig_dir)
+    a8 = Path(args.a8)
+    if (a8 / 'reads.csv').exists():
+        with open(a8 / 'reads.csv', encoding='utf-8', newline='') as f:
+            a8_reads = list(csv.DictReader(f))
+        comp = json.loads((a8 / 'compare.json').read_text(encoding='utf-8'))
+        r8, c8 = a8_rows(a8_reads, comp)
+        write_csv_lf(fig_dir / 'data' / 'fig3_a8_reads.csv',
+                     ['read', 'which', 'k', 'n', 'share', 'lo', 'hi'], r8)
+        write_csv_lf(fig_dir / 'data' / 'fig3_a8_control.csv',
+                     ['inventory', 'absent', 'observed', 'share', 'lo', 'hi'], c8)
+        written += fig_a8(plt, r8, c8, fig_dir)
+    else:
+        print(f'{a8}: no reads.csv, amendment A8 figure skipped')
+    for p in written:
+        print(f'wrote {p}')
+    return written
+
+
 # ----------------------------------------------------------------------------- main
 
 def main(argv=None):
@@ -1516,9 +1808,17 @@ def main(argv=None):
     a.add_argument('--dest', help='output dir (default <out>/assignments_score)')
     a.add_argument('--snapshot', help="the bundle's snapshot.json; assignments.json's "
                    'snapshot_sha256 must equal its labels sha256')
+    g = sub.add_parser('figures', help='redraw docs/figures/corner-inventory/ from the '
+                       'committed counts.csv + decision.json (needs matplotlib)')
+    g.add_argument('--out', default=str(DEFAULT_OUT),
+                   help='dir holding counts.csv + decision.json (default: the committed run)')
+    g.add_argument('--fig-dir', default=str(FIG_DIR))
+    g.add_argument('--a8', default=str(DEFAULT_A8),
+                   help='amendment A8 compare/ dir (reads.csv + compare.json); its figure '
+                   'is drawn when it exists')
     args = ap.parse_args(argv)
     return {'build': cmd_build, 'score': cmd_score, 'census': cmd_census,
-            'score-assignments': cmd_score_assignments}[args.cmd](args)
+            'score-assignments': cmd_score_assignments, 'figures': cmd_figures}[args.cmd](args)
 
 
 if __name__ == '__main__':
