@@ -326,9 +326,60 @@ def test_decision_is_descriptive_unless_rater_a_full_pass(tmp_path, monkeypatch,
                                                          needle):
     a = _fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'}), 'u2': u2}, **extra)
     run, bundle, df = _two_unit_bundle(tmp_path, a)
-    assert _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle) == 0
+    assert _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle,
+                '--allow-partial-descriptive') == 0
     text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
     assert needle in text and '(pre-registered): **' not in text
+    assert '**--allow-partial-descriptive**' in text            # the override is recorded
+
+
+# --- no arm-level number before rater A's full pass (RampNet#280 review S1) ----------------
+
+@pytest.mark.parametrize('extra, u2, needle', [
+    ({}, U2, 'pilot: 1 of 2 units'),                              # a pilot-only file
+    ({}, dict(U2, complete=False, labels={}), 'pilot: 1 of 2'),   # seen but not done
+    ({'role': 'b'}, dict(U2, complete=True), "not rater A's full pass"),   # retest, no A file
+])
+def test_arm_numbers_refused_before_rater_a_full_pass(tmp_path, monkeypatch, extra, u2, needle):
+    a = _fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'}), 'u2': u2}, **extra)
+    run, bundle, df = _two_unit_bundle(tmp_path, a)
+    with pytest.raises(SystemExit, match=needle) as e:
+        _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle)
+    assert 'Amendment 5' in str(e.value) and '--allow-partial-descriptive' in str(e.value)
+    assert not (tmp_path / 'out' / 'arms.csv').exists()          # nothing arm-level written
+
+
+def test_role_b_is_scored_once_rater_a_full_pass_is_in_the_bundle(tmp_path, monkeypatch):
+    full_a = _fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'}),
+                               'u2': dict(U2, complete=True)}, role='a')
+    run, bundle, df = _two_unit_bundle(tmp_path, full_a)
+    sha = json.loads((bundle / 'assignments.json').read_text(encoding='utf-8'))['snapshot_sha256']
+    retest = dict(_fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'})}, role='b',
+                           rater='jon-retest'), snapshot_sha256=sha)
+    (bundle / 'assignments__jon-retest.json').write_text(json.dumps(retest), encoding='utf-8')
+    assert _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle,
+                '--assignments', 'assignments__jon-retest.json') == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert 'DESCRIPTIVE -- role b' in text and 'allow-partial-descriptive' not in text
+
+
+def test_report_names_the_labeler_commit(tmp_path, monkeypatch):
+    run, bundle, df = _bundle(tmp_path, [1, 2])
+    monkeypatch.setattr(crs, 'labeler_ref', lambda: ('ab' * 20, True))
+    toy = {name: [[1], [2]] for name in crs.ARMS}
+    monkeypatch.setattr(ic, 'server_arms', lambda *a, **k: (df, toy, {}))
+    out = tmp_path / 'out'
+    assert crs.main(['vancouver', '--run-dir', str(run), '--bundle', str(bundle),
+                     '--out', str(out)]) == 0
+    text = (out / 'report.md').read_text(encoding='utf-8')
+    assert f"`scripts/cluster_review_score.py` at commit `{'ab' * 20}`" in text
+    assert 'uncommitted changes' in text and crs.RAMPNET_REF in text
+
+
+def test_labeler_ref_reads_this_checkout():
+    sha, dirty = crs.labeler_ref()
+    assert sha == 'unknown' or (len(sha) == 40 and set(sha) <= set('0123456789abcdef'))
+    assert isinstance(dirty, bool)
 
 
 def test_decision_is_pre_registered_on_a_full_pass_with_cant_judge(tmp_path, monkeypatch):
@@ -338,3 +389,24 @@ def test_decision_is_pre_registered_on_a_full_pass_with_cant_judge(tmp_path, mon
     assert _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle) == 0
     text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
     assert '## Decision (pre-registered): **PASS**' in text
+
+
+def test_bootstrap_split_diff_is_paired_by_unit_and_deterministic():
+    # S8 (RampNet#280): base splits u1:r1; the arm splits nothing -> -1/3
+    base = {('u1', 'r1'): 2, ('u1', 'r2'): 1, ('u2', 'r1'): 1}
+    arm = {('u1', 'r1'): 1, ('u1', 'r2'): 1, ('u2', 'r1'): 1}
+    d, c, n = crs.bootstrap_split_diff(base, arm)
+    assert d == pytest.approx(-1 / 3) and n == 2
+    assert c[0] <= d <= c[1] and crs.bootstrap_split_diff(base, arm) == (d, c, n)
+    assert crs.bootstrap_split_diff({}, {}) == (None, None, 0)
+
+
+def test_full_pass_report_carries_the_split_bootstrap(tmp_path, monkeypatch):
+    a = {'schema': crs.SCHEMA, 'rubric_version': 1, 'seed_arm': 'deployed',
+         'corners': {'u1': dict(U1, stratum={'type': 'signalised'})}}
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    toy = {name: [[1, 2], [3, 4, 7], [5, 6]] for name in crs.ARMS}
+    toy[ic.REVIEW_BASE] = [[1], [2], [3, 4, 7], [5], [6]]
+    assert _run(tmp_path, monkeypatch, toy, df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert 'unit-level paired bootstrap 95% CI' in text and '= -0.333' in text
