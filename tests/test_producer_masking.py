@@ -4,9 +4,16 @@ panoramax_lyon_figures' rig-producers table. No network, no model, no torch."""
 import json
 
 import panoramax_lyon_figures as plf
+import run_census as rc
 import thinning_experiment as te
 
 EMAIL = "jane.doe@example.org"
+
+
+def test_scripts_share_run_census_mask_producer():
+    # One rule, one home (#150): a local copy could drift from the census's masking.
+    assert te.mask_producer is rc.mask_producer
+    assert plf.mask_producer is rc.mask_producer
 
 
 def test_mask_producer_masks_only_email_shaped_names():
