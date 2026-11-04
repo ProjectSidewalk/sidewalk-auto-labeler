@@ -452,7 +452,11 @@ python scripts/inventory_clustering.py score bend gainesville && python scripts/
 # required) counts in no metric and is listed with its reason. It refuses deployed clusters /
 # results.jsonl whose sha256 differs from snapshot.json (--allow-arm-mismatch, recorded). Nobody but a human reviewer in
 # RampNet's cluster_review_gallery.py writes an assignments file. The decision is headed
-# "pre-registered" only for rater A's full pass; a pilot / partial / role-b file is DESCRIPTIVE.
+# "pre-registered" only for rater A's full pass. Anything else is REFUSED before an arm-level
+# number exists (RampNet protocol Amendment 5, S1: one rater who knows the hypothesis must not
+# see arm tables mid-study) -- a pilot or partial pass always, a role-b retest until the bundle's
+# assignments.json is A's full pass; --allow-partial-descriptive overrides, headed DESCRIPTIVE
+# and recorded. The report names the labeler commit it ran at (and any dirty tracked .py).
 # The frozen inputs (label pull, deployed clusters, results.jsonl, streets, osm.json, inventory)
 # are untracked; their sha256s and locations are in the doc's "Frozen inputs" table.
 # --run-dir: a run dir holding the Vancouver run and those inputs, e.g. runs/vancouver

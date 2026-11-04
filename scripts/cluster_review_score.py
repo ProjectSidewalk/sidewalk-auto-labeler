@@ -13,8 +13,17 @@ city has an inventory -- the calibration against it.
 Nothing is placed: an assignment scores membership. The run dir is read in place.
 
 The decision is read as pre-registered only on rater A's full pass (role a, or no role, with
-every unit of the bundle complete or can't judge); a pilot, a partial pass or a role-b file
-gets the same tables under a DESCRIPTIVE heading (decision_scope).
+every unit of the bundle complete or can't judge). No arm-level number is computed on anything
+else until rater A's full pass is exported (RampNet protocol Amendment 5, point S1): a pilot or
+partial pass is REFUSED, and so is a role-b file while the bundle's assignments.json is not
+that full pass, because with one rater who knows the hypothesis an arm table read mid-study is
+the leak blinding exists to prevent (the pilot is read with RampNet's
+scripts/cluster_review_agreement.py: agreement, timing, can't-judge counts).
+--allow-partial-descriptive overrides; the tables are then headed DESCRIPTIVE (decision_scope)
+and the report says the override was used. A role-b file after A's full pass is scored as
+DESCRIPTIVE without the flag.
+
+The report names the labeler commit it ran at (labeler_ref) beside RAMPNET_REF.
 
 The RampNet side (the protocol, RUBRICS.md section 6, the gallery, rampnet/cluster_review.py
 and the bundle) lives, for now, only on RampNet branch `cluster-review-224`; RAMPNET_REF pins
@@ -34,6 +43,7 @@ import csv
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -57,6 +67,30 @@ VALUE_RE = re.compile(r'^(r\d+|not_ramp|unsure)$')
 # The RampNet commit the protocol / rubric / gallery links point at: the tip of RampNet
 # branch cluster-review-224 (no PR yet). TODO: repoint to RampNet main once that branch merges.
 RAMPNET_REF = '39155d872e744378be59354676b32417b1604d65'
+
+
+def labeler_ref():
+    """(sha, dirty) of this checkout: the commit the scorer ran at, and whether any tracked
+    .py file differed from it (then the report says so -- the commit alone would not
+    reproduce the numbers). ('unknown', False) outside a git checkout."""
+    def git(*a):
+        return subprocess.run(['git', '-C', str(REPO_ROOT), *a], capture_output=True,
+                              text=True, timeout=30)
+    try:
+        r = git('rev-parse', 'HEAD')
+        if r.returncode != 0:
+            return 'unknown', False
+        dirty = git('status', '--porcelain', '--untracked-files=no', '--', '*.py').stdout.strip()
+        return r.stdout.strip(), bool(dirty)
+    except (OSError, subprocess.SubprocessError):
+        return 'unknown', False
+
+
+def labeler_line():
+    sha, dirty = labeler_ref()
+    return (f'- scorer: sidewalk-auto-labeler `scripts/cluster_review_score.py` at commit `{sha}`'
+            + (' **plus uncommitted changes to tracked .py files**' if dirty else '')
+            + f'; RampNet links at `{RAMPNET_REF}`')
 
 
 def rampnet_url(path):
@@ -132,6 +166,34 @@ def decision_scope(a, corners):
     kind = 'pilot' if done and done <= pilot else 'partial pass'
     return False, (f"{kind}: {len(all_ids & done)} of {len(all_ids)} units complete or "
                    "can't judge")
+
+
+def is_full_pass_a(a, corners):
+    """True when `a` is rater A's full pass (decision_scope's pre-registered case)."""
+    return decision_scope(a, corners)[0]
+
+
+def arm_numbers_refusal(a, corners, bundle):
+    """Why no arm-level number may be computed on this file (None = allowed). Protocol
+    Amendment 5 (S1): nothing arm-level is computed or read until rater A's full pass is
+    exported. Rater A's full pass itself is allowed; a role-b file is allowed once the
+    bundle's assignments.json is that full pass; anything else is refused."""
+    pre_registered, why = decision_scope(a, corners)
+    if pre_registered:
+        return None
+    if a.get('role') not in (None, 'a'):
+        a_path = bundle / 'assignments.json'
+        if a_path.exists():
+            try:
+                rater_a = json.loads(a_path.read_text(encoding='utf-8'))
+            except ValueError:
+                rater_a = None
+            if (rater_a is not None and rater_a.get('role') in (None, 'a')
+                    and rater_a.get('snapshot_sha256') == a.get('snapshot_sha256')
+                    and is_full_pass_a(rater_a, corners)):
+                return None
+        return (f"{why}, and the bundle's assignments.json is not rater A's full pass")
+    return why
 
 
 def cant_judge_section(a, corners_by_id):
@@ -269,6 +331,11 @@ def main(argv=None):
     ap.add_argument('--frame', default='auto', help='fuse frame of the fusion arms')
     ap.add_argument('--out', type=Path, default=None,
                     help='default runs/<city>/cluster_review/score in this checkout')
+    ap.add_argument('--allow-partial-descriptive', action='store_true',
+                    help="compute arm-level numbers on a file that is not rater A's full pass "
+                         "(a pilot, a partial pass, a role-b file before A's full pass); "
+                         'refused without it (protocol Amendment 5, S1). Every table is '
+                         'headed DESCRIPTIVE and the report records the override')
     ap.add_argument('--allow-arm-mismatch', action='store_true',
                     help='score although the deployed clusters or results.jsonl are not the '
                          'ones the bundle was exported from (recorded in the report)')
@@ -300,6 +367,7 @@ def main(argv=None):
              f"{sum(c['n_labels'] for c in corners)} labels; label snapshot sha256 "
              f"`{snapshot['labels']['sha256']}` ({snapshot['labels']['n_features']} features, "
              f"fetched {snapshot['labels']['fetched_at']})",
+             labeler_line(),
              f"- deployed clusters sha256 `{snapshot['seed_arms']['deployed']['sha256']}`; "
              f"results.jsonl sha256 `{sha256_file(run_dir / 'results.jsonl')}`; fusion frame "
              f'`{args.frame}`']
@@ -357,6 +425,13 @@ def main(argv=None):
     problems = check_assignments(a, snapshot, corners)
     if problems:
         raise SystemExit(f'{a_path}: cannot be scored: ' + '; '.join(problems[:10]))
+    refusal = arm_numbers_refusal(a, corners, bundle)
+    if refusal and not args.allow_partial_descriptive:
+        raise SystemExit(f"{a_path}: no arm-level number is computed before rater A's full pass "
+                         f'is exported ({refusal}; RampNet protocol Amendment 5, S1). Read the '
+                         'pilot with RampNet scripts/cluster_review_agreement.py (agreement, '
+                         "timing, can't-judge counts). --allow-partial-descriptive overrides, "
+                         'headed DESCRIPTIVE and recorded in the report.')
     units = {cid: u for cid, u in (a.get('corners') or {}).items()
              if u.get('complete') and not u.get('cant_judge')}
     cj_lines, n_cj = cant_judge_section(a, corners_by_id)
@@ -369,6 +444,10 @@ def main(argv=None):
               f'- {sanity}']
     if notes.get('caveats'):
         lines += ['- reviewer caveats:'] + [f'  - {c}' for c in notes['caveats']]
+    if refusal:
+        lines.append(f'- **--allow-partial-descriptive**: arm-level numbers computed on a file '
+                     f"that is not rater A's full pass ({refusal}); the protocol (Amendment 5, "
+                     'S1) says none is read before that pass is exported')
 
     rows, by_arm = [], {}
     for name in ARMS:

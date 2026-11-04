@@ -1320,8 +1320,14 @@ computes agreement. **All of these live, for now, only on RampNet branch `cluste
 branch merges. `scripts/cluster_review_score.py` currently writes a "NO GT YET" report
 (`runs/vancouver/cluster_review/score/report.md`). No result exists until the pilot has been
 reviewed. The scorer heads its decision "pre-registered" only for rater A's full pass (every
-unit complete or can't judge); a pilot, a partial pass or a role-b retest is labelled
-DESCRIPTIVE.
+unit complete or can't judge). On anything else it computes no arm-level number at all
+(RampNet protocol Amendment 5, S1: with one rater who knows the hypothesis, an arm table read
+after the pilot is the leak blinding exists to prevent): a pilot or a partial pass is refused,
+and so is a role-b retest until the bundle's `assignments.json` is rater A's full pass. The
+pilot is read with RampNet's `scripts/cluster_review_agreement.py` (agreement, timing, can't-judge
+counts). `--allow-partial-descriptive` overrides; its tables are headed DESCRIPTIVE and the
+report records the override. Every score report names the labeler commit it ran at beside
+RampNet's.
 
 Commands (the run dir is any directory holding the Vancouver run and the frozen inputs below,
 e.g. `runs/vancouver`; the exporter's work dir defaults to `runs/vancouver/cluster_review` and may
