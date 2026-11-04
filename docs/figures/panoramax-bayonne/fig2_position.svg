@@ -1098,7 +1098,7 @@ L 869.744531 331.933187
      </g>
     </g>
     <g id="text_53">
-     <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #52514e" x="553.544531" y="536.918437" transform="rotate(-0 553.544531 536.918437)">sigma_gps that brings leave-one-out chi²/dof to 1, every other sigma fixed (m; 95% CI, 200 site resamples). Orange: GoPro Max populations</text>
+     <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #52514e" x="553.544531" y="536.918437" transform="rotate(-0 553.544531 536.918437)">sigma_gps that brings leave-one-out chi²/dof to 1, every other sigma fixed (m; 95% CI, 200 site resamples; pale bar: 200 capture-sequence resamples). Orange: GoPro Max populations</text>
     </g>
    </g>
    <g id="matplotlib.axis_8">
@@ -1209,11 +1209,16 @@ L 888.344531 339.950769
     </g>
    </g>
    <g id="line2d_105">
+    <path d="M 348.144731 500.302418 
+L 364.996331 500.302418 
+" clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #898781; stroke-opacity: 0.22; stroke-width: 7"/>
+   </g>
+   <g id="line2d_106">
     <path d="M 350.339531 500.302418 
 L 364.605731 500.302418 
 " clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #898781; stroke-width: 1.6; stroke-linecap: square"/>
    </g>
-   <g id="line2d_106">
+   <g id="line2d_107">
     <defs>
      <path id="m8cc0242ed6" d="M 0 4 
 C 1.060812 4 2.078319 3.578535 2.828427 2.828427 
@@ -1231,12 +1236,17 @@ z
      <use xlink:href="#m8cc0242ed6" x="357.202931" y="500.302418" style="fill: #898781; stroke: #fcfcfb; stroke-width: 1.5"/>
     </g>
    </g>
-   <g id="line2d_107">
+   <g id="line2d_108">
+    <path d="M 353.836331 473.577143 
+L 380.434331 473.577143 
+" clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #eb6834; stroke-opacity: 0.22; stroke-width: 7"/>
+   </g>
+   <g id="line2d_109">
     <path d="M 356.217131 473.577143 
 L 380.118131 473.577143 
 " clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #eb6834; stroke-width: 1.6; stroke-linecap: square"/>
    </g>
-   <g id="line2d_108">
+   <g id="line2d_110">
     <defs>
      <path id="me42a0cd0b9" d="M 0 4 
 C 1.060812 4 2.078319 3.578535 2.828427 2.828427 
@@ -1254,52 +1264,77 @@ z
      <use xlink:href="#me42a0cd0b9" x="368.381531" y="473.577143" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 1.5"/>
     </g>
    </g>
-   <g id="line2d_109">
+   <g id="line2d_111">
+    <path d="M 352.906331 446.851868 
+L 385.735331 446.851868 
+" clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #898781; stroke-opacity: 0.22; stroke-width: 7"/>
+   </g>
+   <g id="line2d_112">
     <path d="M 357.612131 446.851868 
 L 380.099531 446.851868 
 " clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #898781; stroke-width: 1.6; stroke-linecap: square"/>
    </g>
-   <g id="line2d_110">
+   <g id="line2d_113">
     <g clip-path="url(#pd2ea8c16cd)">
      <use xlink:href="#m8cc0242ed6" x="369.441731" y="446.851868" style="fill: #898781; stroke: #fcfcfb; stroke-width: 1.5"/>
     </g>
    </g>
-   <g id="line2d_111">
+   <g id="line2d_114">
+    <path d="M 398.011331 420.126593 
+L 446.259731 420.126593 
+" clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #898781; stroke-opacity: 0.22; stroke-width: 7"/>
+   </g>
+   <g id="line2d_115">
     <path d="M 414.918731 420.126593 
 L 435.043931 420.126593 
 " clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #898781; stroke-width: 1.6; stroke-linecap: square"/>
    </g>
-   <g id="line2d_112">
+   <g id="line2d_116">
     <g clip-path="url(#pd2ea8c16cd)">
      <use xlink:href="#m8cc0242ed6" x="424.441931" y="420.126593" style="fill: #898781; stroke: #fcfcfb; stroke-width: 1.5"/>
     </g>
    </g>
-   <g id="line2d_113">
+   <g id="line2d_117">
+    <path d="M 517.423331 393.401319 
+L 567.308531 393.401319 
+" clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #eb6834; stroke-opacity: 0.22; stroke-width: 7"/>
+   </g>
+   <g id="line2d_118">
     <path d="M 518.781131 393.401319 
 L 565.262531 393.401319 
 " clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #eb6834; stroke-width: 1.6; stroke-linecap: square"/>
    </g>
-   <g id="line2d_114">
+   <g id="line2d_119">
     <g clip-path="url(#pd2ea8c16cd)">
      <use xlink:href="#me42a0cd0b9" x="543.240131" y="393.401319" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 1.5"/>
     </g>
    </g>
-   <g id="line2d_115">
+   <g id="line2d_120">
+    <path d="M 507.602531 366.676044 
+L 607.558931 366.676044 
+" clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #eb6834; stroke-opacity: 0.22; stroke-width: 7"/>
+   </g>
+   <g id="line2d_121">
     <path d="M 528.155531 366.676044 
 L 576.664331 366.676044 
 " clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #eb6834; stroke-width: 1.6; stroke-linecap: square"/>
    </g>
-   <g id="line2d_116">
+   <g id="line2d_122">
     <g clip-path="url(#pd2ea8c16cd)">
      <use xlink:href="#me42a0cd0b9" x="554.679131" y="366.676044" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 1.5"/>
     </g>
    </g>
-   <g id="line2d_117">
+   <g id="line2d_123">
+    <path d="M 600.714131 339.950769 
+L 620.225531 339.950769 
+" clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #2a78d6; stroke-opacity: 0.22; stroke-width: 7"/>
+   </g>
+   <g id="line2d_124">
     <path d="M 600.993131 339.950769 
 L 619.109531 339.950769 
 " clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #2a78d6; stroke-width: 1.6; stroke-linecap: square"/>
    </g>
-   <g id="line2d_118">
+   <g id="line2d_125">
     <defs>
      <path id="mbb966677f4" d="M 0 4 
 C 1.060812 4 2.078319 3.578535 2.828427 2.828427 
@@ -1317,7 +1352,7 @@ z
      <use xlink:href="#mbb966677f4" x="610.162931" y="339.950769" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 1.5"/>
     </g>
    </g>
-   <g id="line2d_119">
+   <g id="line2d_126">
     <path d="M 776.744531 508.32 
 L 776.744531 331.933187 
 " clip-path="url(#pd2ea8c16cd)" style="fill: none; stroke: #52514e; stroke-linecap: square"/>
@@ -1333,25 +1368,25 @@ L 888.344531 508.32
 " style="fill: none; stroke: #c3c2b7; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
    </g>
    <g id="text_61">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="373.905731" y="502.510425" transform="rotate(-0 373.905731 502.510425)">0.74 m</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="374.296331" y="502.510425" transform="rotate(-0 374.296331 502.510425)">0.74 m</text>
    </g>
    <g id="text_62">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="389.418131" y="475.785151" transform="rotate(-0 389.418131 475.785151)">0.80 m</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="389.734331" y="475.785151" transform="rotate(-0 389.734331 475.785151)">0.80 m</text>
    </g>
    <g id="text_63">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="389.399531" y="449.059876" transform="rotate(-0 389.399531 449.059876)">0.81 m</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="395.035331" y="449.059876" transform="rotate(-0 395.035331 449.059876)">0.81 m</text>
    </g>
    <g id="text_64">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="444.343931" y="422.334601" transform="rotate(-0 444.343931 422.334601)">1.11 m</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="455.559731" y="422.334601" transform="rotate(-0 455.559731 422.334601)">1.11 m</text>
    </g>
    <g id="text_65">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="574.562531" y="395.609326" transform="rotate(-0 574.562531 395.609326)">1.74 m</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="576.608531" y="395.609326" transform="rotate(-0 576.608531 395.609326)">1.74 m</text>
    </g>
    <g id="text_66">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="585.964331" y="368.884052" transform="rotate(-0 585.964331 368.884052)">1.81 m</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="616.858931" y="368.884052" transform="rotate(-0 616.858931 368.884052)">1.81 m</text>
    </g>
    <g id="text_67">
-    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="628.409531" y="342.158777" transform="rotate(-0 628.409531 342.158777)">2.10 m</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="629.525531" y="342.158777" transform="rotate(-0 629.525531 342.158777)">2.10 m</text>
    </g>
    <g id="text_68">
     <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #52514e" x="776.744531" y="326.588132" transform="rotate(-0 776.744531 326.588132)"> MAPILLARY_ERRORS sigma_gps = 3 m</text>
@@ -1361,7 +1396,8 @@ L 888.344531 508.32
    </g>
   </g>
   <g id="text_70">
-   <text style="font-weight: 700; font-size: 11.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="119.384531" y="15.938203" transform="rotate(-0 119.384531 15.938203)">Figure 2. Tilt or position? Rig-matched, the excess is a flat 0.6-0.8 m across the ray; scatter 1.9x Richmond's, 1.2x its and Laurens' GoPro Max views</text>
+   <text style="font-weight: 700; font-size: 11.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(119.384531 17.089326)">Figure 2. Tilt or position? Rig-matched, the excess is a flat 0.6-0.8 m across the ray; scatter 1.9x Richmond's, 1.2x its and Laurens' GoPro Max views</text>
+   <text style="font-weight: 700; font-size: 11.5px; font-family: 'DejaVu Sans'; fill: #0b0b0b" transform="translate(119.384531 30.892471)">(against Richmond's GoPro Max views the capture-sequence CIs overlap)</text>
   </g>
  </g>
  <defs>
