@@ -4,8 +4,8 @@ When a city's `results.jsonl` was not kept, `scripts/detect_from_store.py` rebui
 the pano store. Before anything is computed on the rebuilt run -- a benchmark, a clustering
 evaluation -- it has to be shown to be usable in place of the run the deployed labels came
 from. This joins the city's live AI CurbRamp labels to the run's stored detections on the
-pixel key `send_to_ps.py` writes, `(pano_id, round(x * W), round(y * H))` (x wraps at the
-seam), at BENCHMARK_CONFIDENCE (0.55): the tier the 2025 submissions were made at.
+pixel key `send_to_ps.py` writes, `(pano_id, round(x * W) % W, round(y * H))`
+(detectors.ps_pixel; x wraps at the seam), at BENCHMARK_CONFIDENCE (0.55): the tier the 2025 submissions were made at.
 
     # pull the labels once (cached; --refresh re-pulls) and see which account is the AI's
     python scripts/provenance_gate.py vancouver \\
@@ -115,7 +115,7 @@ for _p in (REPO_ROOT / 'scripts', REPO_ROOT):
 import geo  # noqa: E402  (stdlib-only)
 from detectors import registry  # noqa: E402
 from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, DECODE_ARGMAX,  # noqa: E402
-                       record_border, record_decode)
+                       ps_pixel, record_border, record_decode)
 
 # ---- Pre-registered (issue #56; amended after the PR #96 review, before any Vancouver ----
 # ---- number existed). Do not tune these after seeing a city's numbers.               ----
@@ -300,7 +300,7 @@ def load_run(results_path):
                                  f"the arm with --border exclude.")
             p = rec['pano']
             w, h = int(p['width']), int(p['height'])
-            dets = [(round(d['x_normalized'] * w), round(d['y_normalized'] * h),
+            dets = [(*ps_pixel(d['x_normalized'], d['y_normalized'], w, h),
                      d['confidence']) for d in rec.get('detections', [])]
             run[p['panorama_id']] = (w, h, dets)
     return run

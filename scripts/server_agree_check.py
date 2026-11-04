@@ -92,7 +92,7 @@ import geo  # noqa: E402
 from agree_rate import fetch, snapshot_row, human_status  # noqa: E402
 from agree_rate import (Pt, match_one_to_one, match_pano, pano_distance,  # noqa: E402
                         PANO_RADIUS, CHANCE_SHIFT_M, CHANCE_SEED)
-from detectors import BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE, ps_pixel  # noqa: E402
 from eval_sites import wilson  # noqa: E402
 
 AI_USER = '51b0b927-3c8a-45b2-93de-bd878d1e5cf4'   # the auto-labeler's account, every city
@@ -357,8 +357,8 @@ def load_tiers(paths):
                 p = rec['pano']
                 w, ht = p['width'], p['height']
                 for d in rec.get('detections') or ():
-                    keys[(p['panorama_id'], round(d['x_normalized'] * w),
-                          round(d['y_normalized'] * ht))].add(tier_of(d['confidence']))
+                    keys[(p['panorama_id'], *ps_pixel(d['x_normalized'], d['y_normalized'],
+                                                      w, ht))].add(tier_of(d['confidence']))
         files.append((Path(path).name, h.hexdigest()))
     return keys, files
 
