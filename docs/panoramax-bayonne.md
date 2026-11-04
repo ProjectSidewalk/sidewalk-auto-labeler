@@ -39,30 +39,44 @@ must be qualified
 >    noise of the bar.** Bayonne's chi²/dof is 0.556 [95% CI 0.536, 0.576] (median form
 >    0.559 [0.529, 0.588]) against a 0.538 bar. At 10 m it was 0.580 [0.539, 0.618]. The
 >    point estimate is still over the bar (3%, down from 8%), so the rule as written still
->    reads TOO TIGHT. But both CIs now include the bar, so Bayonne cannot be told apart
->    from the edge of ADEQUATE.
+>    reads TOO TIGHT. The pooled CI's lower bound moved from 0.539 to 0.536, so it now
+>    includes the bar; the median form's CI included it at 10 m too. Bayonne cannot be
+>    told apart from the edge of ADEQUATE.
 >    - Mapillary GoPro Max populations read 0.18-0.50: Richmond's GoPro Max views 0.499
 >      [0.467, 0.532] (median form 0.453), Laurens 0.431, Morgantown 0.177. Bayonne is
->      1.11x Richmond's GoPro Max views (1.16x at 10 m), and the CIs only just separate.
+>      1.11x Richmond's GoPro Max views (1.16x at 10 m), and **not distinguishable from
+>      them**: the CIs just separate when sites are resampled (0.536 against 0.532), but
+>      Richmond's 1,301 GoPro Max views come from only 14 capture sequences, and resampling
+>      sequences gives Richmond [0.454, 0.559], which overlaps Bayonne's [0.534, 0.578].
 >    - **The site-size confound is weaker than it looked.** Densifying raised the median
 >      site from 3 to 4 views (2 sequences either way; Richmond 7 and 4) and nearly tripled
 >      the held-out views (1,039 → 3,626), but chi²/dof fell only 0.024. Within the 5 m
->      run it has no trend with site size: 0.549 / 0.535 / 0.579 for 3 / 4-5 / 6+ views.
+>      run it has no trend with site size: 0.549 [0.508, 0.588] / 0.535 [0.499, 0.569] /
+>      0.579 [0.546, 0.615] for 3 / 4-5 / 6+ views. The 6+ sites have Richmond's make-up
+>      (median 7 views from 4 sequences), and their CI sits above the 0.538 bar, so
+>      "within sampling noise of the bar" describes the pooled number only.
 >
 >    The single-consumer-rig confound stands. *Figure 1; `data/fig1_verdict.csv`
->    `chi2_dof`, `chi2_dof_median`, `*_lo`/`*_hi`; site make-up in `data/fig3_seqsplit.csv`;
->    by site size in `data/reprojection/gtfree_breakdown.csv` (`dimension = n_views`).*
+>    `chi2_dof`, `chi2_dof_median`, `*_lo`/`*_hi`, sequence bootstrap `*_seq_lo`/`*_seq_hi`;
+>    site make-up in `data/fig3_seqsplit.csv`; by site size in `data/cuts.csv`
+>    (`dimension = n_views`).*
 > 2. **The excess is across the ray, not along it, so it is not tilt. Unchanged at 5 m.**
 >    - Against all of Richmond, Bayonne's residual is a near-constant +1.2 to +1.9 m in
 >      every range bin.
 >    - Against Richmond's GoPro Max views, re-solved from GoPro Max views only
 >      (rig-matched), there is no consistent along-ray excess (+0.2 / −0.2 / −0.5 /
->      0.0 m by range bin). A **+0.6 to +0.8 m excess across the ray** remains (+0.6 to
->      +1.0 m at 10 m): position, with some heading error possible.
+>      0.0 m by range bin; the along-ray CIs overlap in every bin). A **+0.6 to +0.8 m
+>      excess across the ray** remains (+0.6 to +1.0 m at 10 m). Its site-bootstrap CIs
+>      clear Richmond's GoPro Max CIs in all four bins (the 18-25 m bin by 0.04 m); with
+>      capture sequences resampled they clear only the 8-12 and 12-18 m bins, which hold
+>      most of the views. Position, with some heading error possible.
 >    - The leave-one-out-calibrated `sigma_gps` is 2.10 m (2.16 m at 10 m), against 1.11 m
 >      for Richmond overall. Against the GoPro Max populations it is 1.81 m (Richmond's
 >      GoPro Max views), 1.74 m (Laurens) and 0.80 m (Morgantown). All of them sit under
->      `MAPILLARY_ERRORS`' 3 m.
+>      `MAPILLARY_ERRORS`' 3 m. Against Richmond's GoPro Max views the gap rests on the
+>      site bootstrap only: resampling capture sequences, their CI is [1.55, 2.09] (12
+>      sequences) against Bayonne's [2.05, 2.16], which overlap. Against Laurens and all
+>      of Richmond the CIs separate either way.
 >    - Same rig confound as takeaway 1.
 >
 >    *Figure 2; `data/fig2a_range.csv` `m_p50`/`along_p50`/`cross_p50` by `subset`,
@@ -226,10 +240,10 @@ both readings.
 |---|---|---|---|
 | held-out views / sites | 1,039 / 281 | 3,626 / 793 | 3.5x the views |
 | views / sequences per site (median) | 3 / 2 | 4 / 2 | one more view; Richmond 7 / 4 |
-| **chi²/dof** [95% CI] | 0.580 [0.539, 0.618] | **0.556** [0.536, 0.576] | **CI now includes the 0.538 bar** |
-| median form [95% CI] | 0.582 [0.522, 0.647] | 0.559 [0.529, 0.588] | also includes the bar |
+| **chi²/dof** [95% CI] | 0.580 [0.539, 0.618] | **0.556** [0.536, 0.576] | **lower bound 0.539 → 0.536, so the CI now includes the 0.538 bar** |
+| median form [95% CI] | 0.582 [0.522, 0.647] | 0.559 [0.529, 0.588] | includes the bar, as it did at 10 m |
 | over the bar | 8% | 3% | verdict weaker, not flipped |
-| vs Richmond's GoPro Max views (0.499) | 1.16x | 1.11x | CIs still just separate |
+| vs Richmond's GoPro Max views (0.499) | 1.16x | 1.11x | site-bootstrap CIs just separate (0.536 vs 0.532); sequence-bootstrap CIs overlap (Bayonne [0.534, 0.578], Richmond [0.454, 0.559], 14 sequences): not distinguishable |
 | m p50 [95% CI] | 3.66 [3.43, 3.85] | 3.44 [3.33, 3.55] | still over the 2.93 m bar |
 | tier 0.30: chi²/dof, m p50 | 0.584, 3.70 | 0.586, 3.52 | — |
 | excess vs Richmond all, by range bin (m) | +2.2 / +1.6 / +1.2 / +1.8 | +1.9 / +1.4 / +1.2 / +1.8 | — |
@@ -282,6 +296,17 @@ draws, seed 57). There are three exceptions:
 - Figure 4 resamples pose groups;
 - Figure 5 uses a normal approximation over panos.
 
+**Sequence-bootstrap CIs** (added in the
+[PR #162 review](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/162#issuecomment-6608889865)).
+Views of one capture sequence share its position error, and a site bootstrap treats them
+as independent, so `fig1_verdict.csv`, `fig2a_range.csv`, `fig2b_sigma_gps.csv` and
+`cuts.csv` also carry a CI that resamples **capture sequences** (same draws and seed;
+`*_seq_lo`/`*_seq_hi`, `seq_lo`/`seq_hi`, with `n_sequences`). For view-level statistics
+the cluster is the held-out view's sequence; for the site-level `sigma_gps` calibration it
+is the sequence most of the site's views come from. A view without a sequence id is its
+own cluster. Where few sequences carry a population, as with Richmond's GoPro Max views
+(14), the two CIs differ, and claims below say which one they rest on.
+
 ### The rule, and the reviews' correction to how the amendment was explained
 
 The comparators were computed before Bayonne was read. `MAPILLARY_ERRORS` reads chi²/dof
@@ -331,6 +356,9 @@ So the rule stands, but the stated reason for it is replaced by measured numbers
 - **1.11 m** for Richmond (CI 1.05-1.16) and **2.10 m** for Bayonne (CI 2.06-2.15);
 - 0.74-1.81 m across the other populations, including the GoPro Max ones: Richmond's
   GoPro Max views 1.81 m, Laurens 1.74 m, Morgantown 0.80 m.
+- Resampling capture sequences instead of sites (`seq_lo`/`seq_hi`): Bayonne 2.05-2.16,
+  Richmond 0.96-1.22, Laurens 1.61-1.87, and Richmond's GoPro Max views **1.55-2.09**
+  (their 208 sites fall under 12 sequences), the one comparison whose CIs then overlap.
 
 `MAPILLARY_ERRORS`' 3 m is about 2.7x Richmond's between-view scatter, and it is still
 looser than Bayonne's. The constant reads as standing for absolute position error, which
@@ -358,21 +386,31 @@ not change: their `results.jsonl` hashes match the 10 m analysis's.
 
 **TOO TIGHT under the amended rule, but only just: 0.556 against the 0.538 bar (3% over).
 The 95% CI [0.536, 0.576] includes the bar, and so does the median form's.** At 10 m it was
-8% over with the CI clear of the bar, so densifying weakened the verdict without flipping
-it. The rule reads the point estimate, so the reading stays TOO TIGHT. In practice Bayonne
+8% over, with the pooled CI's lower bound 0.001 clear of the bar (0.539; the median form's
+CI already included it), so densifying weakened the verdict without flipping it. The rule
+reads the point estimate, so the reading stays TOO TIGHT. In practice Bayonne
 sits at the edge of the ADEQUATE band, not clearly outside it.
 
 - **Rig.** Richmond's anchor is 72% iSTAR Pulsar views. Matched to rig, Bayonne is 1.11x
-  Richmond's GoPro Max views (0.499; median form 0.559 vs 0.453). Those CIs just separate
-  (0.536 against 0.532), and Bayonne is still the highest point in Figure 1. Mapillary
+  Richmond's GoPro Max views (0.499; median form 0.559 vs 0.453), but not distinguishable
+  from them. The site-bootstrap CIs just separate (0.536 against 0.532). Richmond's 1,301
+  GoPro Max views come from only 14 capture sequences, though, and a per-sequence position
+  offset is shared by every view of one; resampling the held-out view's sequence instead
+  gives Richmond [0.454, 0.559] and Bayonne [0.534, 0.578] (591 sequences), which overlap
+  (`fig1_verdict.csv` `chi2_dof_seq_lo`/`_hi`, `n_sequences`). Bayonne is still the
+  highest point in Figure 1. Mapillary
   GoPro Max populations span 0.18-0.50 (Morgantown 0.177, Laurens 0.431, Richmond GoPro
   Max 0.499), so the rig alone does not set the level. This confound stands.
 - **Site size.** At 10 m Bayonne sites had a median of 3 views, against Richmond's 7, and
   that was the second confound. The 5 m run tests it. The median site grew to 4 views
   (still 2 sequences; Richmond 7 and 4), and chi²/dof fell only from 0.580 to 0.556.
-  Within the 5 m run it has no trend with site size: 0.549 (3 views, 933 held-out views),
-  0.535 (4-5, 1,308) and 0.579 (6+, 1,385) (`gtfree_breakdown.csv`, `dimension =
-  n_views`). Site size explains little of the excess.
+  Within the 5 m run it has no trend with site size: 0.549 [0.508, 0.588] (3 views, 933
+  held-out views), 0.535 [0.499, 0.569] (4-5, 1,308) and 0.579 [0.546, 0.615] (6+, 1,385)
+  (`data/cuts.csv`, `dimension = n_views`; site bootstrap). Site size explains little of
+  the excess. The 6+ sites are Richmond-sized (median 7 views from 4 sequences, as
+  Richmond's), and their CI sits above the bar under either bootstrap (sequence:
+  [0.546, 0.614]): on sites like Richmond's, Bayonne is over
+  it, and "at the edge of the band" is a reading of the pooled number.
 
 So the excess cannot be separated from a single-consumer-rig effect, but it is no longer
 plausibly a site-size effect. The metre clause fails (3.44 m against the 2.93 m bar), but
@@ -392,6 +430,13 @@ and its metre clause fails.
   Max views re-solved from GoPro Max views only (`_rig_sites`), so each is held out
   against GoPro Max mates, as Bayonne's are. Against it, the along-ray difference is
   +0.2 / −0.2 / −0.5 / 0.0 m, while the cross-ray excess is +0.6 / +0.7 / +0.8 / +0.6 m.
+  - Site bootstrap: the along-ray CIs overlap in all four bins; Bayonne's cross-ray CI
+    clears Richmond's GoPro Max CI in all four, the 18-25 m bin by 0.04 m (lower bound
+    1.673 against upper 1.629; `fig2a_range.csv` `cross_p50_lo`/`_hi`). Sequence
+    bootstrap (Richmond's GoPro Max bins hold 11-13 sequences): the cross-ray CIs still
+    separate at 8-12 m (1.540 against 1.163) and 12-18 m (1.562 against 1.224) but
+    overlap at 0-8 m and 18-25 m (`cross_p50_seq_lo`/`_hi`). The reading holds on the
+    bins with most of the views; it is not a four-bin result once sequences are resampled.
   - Bayonne's bins hold 503-1,415 views; Richmond's GoPro Max bins hold 128-346.
   - At 10 m the along-ray difference was +0.5 / −0.2 / −0.5 / +0.2 and the cross-ray
     excess +0.6 / +0.8 / +1.0 / +0.7. The reading is unchanged.
@@ -402,8 +447,8 @@ and its metre clause fails.
   - Heading error would grow with range: the cross-ray part grows only 1.64 to 1.88 m over
     a ~16 m span, which bounds heading at about 1° or less.
 - **Camera height is not unusual.** The range-scale fit gives k 1.109 (1.087 at 10 m),
-  inside the Mapillary range (Richmond 1.055, Clovis 1.091, Morgantown 1.114, Annapolis
-  1.132; `range_slope.csv`).
+  inside the Mapillary range (Laurens 0.930, Richmond 1.055, Clovis 1.091, Morgantown
+  1.114, Annapolis 1.132; `range_slope.csv`).
 - Chi²/dof is also flat by range (0.57 / 0.55 / 0.54 / 0.55). This only says that the
   model's predicted variance tracks the residual's range dependence equally in every bin.
   The constant metre excess above is the evidence.
@@ -411,7 +456,8 @@ and its metre clause fails.
 **Recommendation (exploratory, outside the pre-registered rule).** Bayonne's
 between-view position scatter is about 1.9x Richmond's (2.10 vs 1.11 m, calibrated to
 chi²/dof = 1). It is 1.2x the scatter of Richmond's GoPro Max views (1.81 m) and of
-Laurens (1.74 m). The 5 m run moved it by 0.06 m.
+Laurens (1.74 m); against Richmond's GoPro Max views the sequence-bootstrap CIs overlap,
+so that ratio is not distinguishable from 1. The 5 m run moved it by 0.06 m.
 
 The `sigma_gps` that brings Bayonne to Richmond's 0.269 is 4.57 m (4.70 m at 10 m). That
 follows only if Richmond's ~2.7x inflation is kept on purpose, with 3 m standing for
@@ -426,11 +472,27 @@ pose absent (1,979 views), 0.58 for 0/0 (658) and 0.72 for real tilt (989). Pano
 report a tilt are the worst placed under a flat raycast, as at 10 m (0.51 / 0.60 / 0.77).
 
 **By capture age (exploratory, not in the rule).** Views from the site's newest capture
-month read 0.503 (2,367 views). Views 1-18 months older than the site's newest read 0.62
-(760), 19-36 months 0.70 (436), and older 0.74 (63) (`gtfree_breakdown.csv`, `dimension =
-delta_months`). The newest-month views sit at Richmond's GoPro Max level. That fits a
-position offset that differs between capture campaigns, but it is one cut, read after the
-fact, and was not pre-registered.
+month read 0.503 [0.479, 0.527] (2,367 views). Views 1-18 months older than the site's
+newest read 0.620 [0.580, 0.660] (760), 19-36 months 0.701 [0.646, 0.760] (436), and older
+0.742 [0.606, 0.874] (63 views from 13 sequences) (`data/cuts.csv`, `dimension =
+delta_months`; site bootstrap, the sequence bootstrap is beside it).
+
+This cut largely repeats the same-sequence split of takeaway 3. Every view whose site-mates
+are all from its own sequence (`seq_mates = all_same`, 403 views at 0.418) is a
+newest-month view, and those views pull the newest-month number down. Holding `seq_mates`
+fixed (`dimension = delta_months|seq_mates=…`):
+
+| `seq_mates` | newest month [95% CI] (views) | older [95% CI] (views) |
+|---|---|---|
+| none | 0.645 [0.589, 0.705] (424) | 0.688 [0.647, 0.730] (733) |
+| some | 0.486 [0.457, 0.517] (1,540) | 0.607 [0.552, 0.661] (526) |
+| all_same | 0.418 [0.359, 0.478] (403) | — (0) |
+
+Among views with no same-sequence mate, the age effect mostly goes away (the CIs overlap)
+and the newest-month views read 0.645, not about 0.50. An age effect remains among views
+with some same-sequence mates. That still fits a position offset that differs between
+capture campaigns, but it is confounded with the same-sequence split, it is one cut read
+after the fact, and it was not pre-registered.
 
 ### Should `pers:pitch` / `pers:roll` be applied? No ([Figure 4](figures/panoramax-bayonne/fig4_pose.png); `data/fig4_pose.csv`)
 
@@ -537,7 +599,7 @@ done.
 | 4 | `python scripts/fuse_sites.py runs/bayonne --pose-ablation --min-confidence 0.55 > docs/figures/panoramax-bayonne/data/pose_ablation_t0.55.txt` (and `0.3` → `…_t0.3.txt`) | — | 1 s |
 | 5 | `python scripts/reprojection_residual.py bayonne richmond clovis laurens annapolis morgantown --camera-height-m 2.6 --refuse --fit-sigma-pitch 0.269 --benchmark-root /nonexistent [--min-confidence 0.3] --publish docs/figures/panoramax-bayonne/data/reprojection[_t0.3]` | — | ~1.5 min per tier |
 | 6 | `python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79` | — | 10 s |
-| 7 | `python scripts/panoramax_bayonne_figures.py data` → `data/inputs.csv`, `data/fig*.csv` (bootstraps, seed 57; `--only` regenerates parts) | — | ~55 min on the 5 m run (the `sigma_gps` bootstrap) |
+| 7 | `python scripts/panoramax_bayonne_figures.py data` → `data/inputs.csv`, `data/fig*.csv`, `data/cuts.csv` (bootstraps, seed 57; `--only` regenerates parts) | — | ~2 h on the 5 m run (the two `sigma_gps` bootstraps, site and sequence; measured on a shared machine) |
 | 8 | `python scripts/panoramax_bayonne_figures.py skips` → `data/skips.csv` | net | 1 min |
 | 9 | `python scripts/panoramax_bayonne_figures.py examples` → `data/examples/` (7a thumbnails; 7c, the first cropped-MAX2 skip by pano id) | net | 1 min |
 | 10 | `python scripts/export_benchmark.py runs/bayonne/results.jsonl --bundle D:/Git/labeler-wt/bayonne-bundle --sample 100 --empty-sample 25` | net | 1.5 min |
@@ -557,7 +619,10 @@ done.
   10 m run. `data --only <part>` (without `inputs`) refuses while a run file's sha256
   differs from `data/inputs.csv`, so a partial refresh cannot mix runs; re-run all parts.
 - **Step 7 is byte-reproducible.** It was run twice on the 5 m inputs and every CSV it
-  writes hashed identical.
+  writes hashed identical. The PR #162 review fix added the sequence-bootstrap columns and
+  `cuts.csv`; re-running every part then left every previously committed CSV
+  byte-identical (`inputs`, `fig3`, `pairs`, `fig4`-`fig7b`), and in `fig1`, `fig2a` and
+  `fig2b` every pre-existing column is unchanged, cell for cell (new columns appended).
 - **Step 5's** `bayonne_report.md` copies under `data/reprojection*/` are that step's
   per-city `report.md`, copied by hand.
 - **Step 12** reads only the committed `data/`. It is byte-reproducible for the listed
@@ -598,15 +663,19 @@ done.
 | 5 m: 50,409 panos, 0 flagged, 1.58 m, IQR 0.72-3.23, 6,113 | `runs/bayonne/position_check.json` (and `manifest.json` `position_check`) | `panos`, `flagged_sequences`, `fields.submitted.cross_track`, `panos_not_near_a_street` |
 | 5 m: 0.381 / 0.148 per pano; 15 / 1 on rig; 2 / 0 in band; shares | `data/census_5m/{detections,rigs,years,pose,producers}.csv` | `detections_per_pano`, `on_rig`, `in_band`, `share` |
 | chi²/dof, median form, m p50 (+ CIs), incl. rig-matched rows | `data/fig1_verdict.csv` | `chi2_dof`, `chi2_dof_median`, `m_p50`, `*_lo`/`*_hi` by `run`, `subset` |
+| sequence-bootstrap CIs (Bayonne [0.534, 0.578], Richmond GoPro Max [0.454, 0.559], 14 sequences) | `data/fig1_verdict.csv` | `*_seq_lo`/`*_seq_hi`, `n_sequences` by `run`, `subset` |
 | 0.586 / 3.52 at 0.30 | `data/reprojection_t0.3/gtfree_summary.csv` | `bayonne` row |
 | `sigma_pitch` > 15°, `sigma_gps` 4.57 m at target 0.269 | `data/reprojection/gtfree_summary.csv` | `sigma_pitch_deg_at_chi2_target`, `sigma_gps_m_at_chi2_target` |
 | `sigma_gps` at chi²/dof 1 (2.10, 1.11, 1.81, 1.74, 0.80, …) | `data/fig2b_sigma_gps.csv` | `sigma_gps_chi2_1_m`, `lo`, `hi` by `run`, `subset` |
+| `sigma_gps` sequence-bootstrap CIs (Richmond GoPro Max 1.55-2.09, 12 sequences) | `data/fig2b_sigma_gps.csv` | `seq_lo`, `seq_hi`, `n_sequences` |
+| along/cross CIs by range bin, both bootstraps | `data/fig2a_range.csv` | `along_p50_lo`/`_hi`, `cross_p50_lo`/`_hi`, `*_seq_lo`/`*_seq_hi` |
 | by-range excess (total, along, cross), chi²/dof by range | `data/fig2a_range.csv` | `m_p50`, `along_p50`, `cross_p50`, `chi2_dof` by `run`, `subset`, `range_bin` |
-| k 1.109 vs 1.055 / 1.091 / 1.114 / 1.132 | `data/reprojection/range_slope.csv` | `implied_range_scale_k`, `capture_year = all` |
+| k 1.109 vs 0.930 / 1.055 / 1.091 / 1.114 / 1.132 | `data/reprojection/range_slope.csv` | `implied_range_scale_k`, `capture_year = all` |
 | same-sequence split; views / sequences per site; site size per group | `data/fig3_seqsplit.csv` | `chi2_dof`, `chi2_dof_lo`/`_hi`, `n_views`, `views_per_site_p50`; `site_makeup` rows |
 | same-sequence pair shares 0.19 … 0.49 | `data/fig3_pair_share.csv` | `same_sequence_share` |
 | pose ablation medians / p90s | `data/fig4_pose.csv` (and `pose_ablation_t*.txt`) | `median_m`, `p90_m` by `tier`, `subset`, `convention` |
-| chi²/dof by pose group, by site size (0.549 / 0.535 / 0.579), by capture age (0.503 … 0.74) | `data/reprojection/gtfree_breakdown.csv` | `dimension = pose_group` / `n_views` / `delta_months`, `city = bayonne` |
+| chi²/dof by pose group | `data/reprojection/gtfree_breakdown.csv` | `dimension = pose_group`, `city = bayonne` |
+| chi²/dof by site size (0.549 / 0.535 / 0.579) and capture age (0.503 … 0.74), with CIs; capture age within each `seq_mates` stratum (0.645 vs 0.688, 0.486 vs 0.607); 6+ make-up 7 / 4 | `data/cuts.csv` | `chi2_dof`, `chi2_dof_lo`/`_hi`, `chi2_dof_seq_lo`/`_hi`, `site_views_p50`, `site_sequences_p50` by `dimension`, `bucket` |
 | every 10 m reading in §2's comparison table | `docs/figures/panoramax-bayonne/data/` at commit `9c6fe6c` (same files and columns as the 5 m rows) | — |
 | Figure 7b site 487, 7 views, 3.45 vs 3.44 m | `data/fig7b_site.csv` | `site_id`, `kind = view` rows, `site_median_loo_m`, `run_median_loo_m` |
 | logo band y 0.791 / 52.4° | measured on two panos; drawn in Figure 7a | `LOGO_BAND_Y` in `scripts/panoramax_bayonne_figures.py` |
@@ -618,8 +687,8 @@ done.
 
 | # | question it answers | file |
 |---|---|---|
-| 1 | Is Bayonne outside the Richmond-anchored band? Barely: 3% over the bar, with the bar inside its CI; 1.11x Richmond's GoPro Max views (CIs just separate). | [fig1_verdict](figures/panoramax-bayonne/fig1_verdict.png) |
-| 2 | Tilt or position? Rig-matched (re-solved), the excess is 0.6-0.8 m across the ray. Scatter is 1.9x Richmond's and 1.2x its and Laurens' GoPro Max views. | [fig2_position](figures/panoramax-bayonne/fig2_position.png) |
+| 1 | Is Bayonne outside the Richmond-anchored band? Barely: 3% over the bar, with the bar inside its CI; 1.11x Richmond's GoPro Max views but not distinguishable from them (site-bootstrap CIs just separate; sequence-bootstrap CIs, the pale bars, overlap). | [fig1_verdict](figures/panoramax-bayonne/fig1_verdict.png) |
+| 2 | Tilt or position? Rig-matched (re-solved), the excess is 0.6-0.8 m across the ray. Scatter is 1.9x Richmond's and 1.2x its and Laurens' GoPro Max views (against Richmond's GoPro Max views the sequence-bootstrap CIs, the pale bars, overlap). | [fig2_position](figures/panoramax-bayonne/fig2_position.png) |
 | 3 | Does same-sequence error cancel? Not established: the anchor reads the opposite way. | [fig3_seqsplit](figures/panoramax-bayonne/fig3_seqsplit.png) |
 | 4 | Apply the reported pose? No: every sign convention loosens. | [fig4_pose](figures/panoramax-bayonne/fig4_pose.png) |
 | 5 | Is the detection rate anomalous? No: it is inside the Mapillary range. | [fig5_detections](figures/panoramax-bayonne/fig5_detections.png) |
@@ -638,12 +707,15 @@ Alt text, in order:
 
 1. Dot plot of chi²/dof and median residual for eight rows. Bayonne at 0.56 sits just
    above the shaded 0.13-0.54 band, its CI reaching into it. Richmond's GoPro Max views (0.50) and Laurens (0.43)
-   sit just inside it, Morgantown (GoPro Max) at 0.18, and other rigs near 0.2.
+   sit just inside it, Morgantown (GoPro Max) at 0.18, and other rigs near 0.2. A pale
+   bar behind each pooled CI is the sequence-bootstrap CI; Richmond's GoPro Max bar
+   reaches past Bayonne's point.
 2. Three line panels by range: Bayonne, all of Richmond, and Richmond's GoPro Max views
    re-solved on their own. Bayonne tracks Richmond's GoPro Max along the ray but sits
    0.6-0.8 m above it across the ray. A dot plot shows calibrated `sigma_gps` from 0.74 m
    (Annapolis) to 2.10 m (Bayonne), with the GoPro Max populations at 0.80, 1.74 and 1.81 m, all left of the
-   3 m line.
+   3 m line. Pale bars behind the CIs are the sequence-bootstrap CIs; Richmond's GoPro
+   Max bar reaches Bayonne's.
 3. Paired dots per run: chi²/dof for held-out views whose site-mates are all from the
    same sequence vs none. Four runs are lower with same-sequence mates, Laurens too but
    with overlapping CIs, and Richmond is higher.

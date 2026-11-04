@@ -75,7 +75,10 @@ python scripts/panoramax_asset_study.py score --data <dir> && python scripts/pan
 # 0.556 [0.536, 0.576] (median form 0.559), m p50 3.44 -> still TOO TIGHT under the amended rule
 # on the point estimate, but only 3% over the 0.538 bar and the CI now INCLUDES it (10 m: 0.580
 # [0.539, 0.618], 8% over). Rig confound stands: Mapillary GoPro Max populations read 0.18-0.50
-# (Richmond's GoPro Max views 0.499, Laurens 0.431, Morgantown 0.177; Bayonne 1.11x Richmond's).
+# (Richmond's GoPro Max views 0.499, Laurens 0.431, Morgantown 0.177; Bayonne 1.11x Richmond's,
+# NOT distinguishable from it: site-bootstrap CIs just separate, but those 1,301 views are 14
+# capture sequences and a sequence bootstrap overlaps -- Richmond [0.454, 0.559], Bayonne [0.534,
+# 0.578]; panoramax_bayonne_figures.py writes *_seq_lo/_hi beside every site CI, #162 review).
 # The site-size confound mostly went away: sites grew 3 -> 4 views, chi2/dof fell only 0.024, and
 # within the run there is no trend by site size (0.549 / 0.535 / 0.579). The excess is ACROSS the
 # ray (vs Richmond's GoPro Max views re-solved alone: along-ray +0.2..-0.5 m, cross-ray +0.6-0.8 m),
