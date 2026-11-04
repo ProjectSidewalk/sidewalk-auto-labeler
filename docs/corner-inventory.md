@@ -18,7 +18,8 @@ Issue: [RampNet#238](https://github.com/ProjectSidewalk/RampNet/issues/238).
 >    row `unit,intersections,all,deployed,primary`, 1 − `absent_false`/`n_absent`.*
 > 3. **The pano set is selected on the outcome.** 26,930 of the run's 28,830 panos carry a
 >    detection >= 0.55, and 29 of the 84 absent units are reached only through the 300 random
->    unlabeled panos; 1,453 of 4,429 units have no pano within 25 m. *Figure 1;
+>    unlabeled panos; 1,453 of 4,429 units are unobservable (no site and no pano within
+>    25 m; 25 more have no pano within 25 m but are present). *Figure 1;
 >    `decision.json` `selection.run_panos_with_det_ge_tier`, `selection.run_panos`,
 >    `selection.absent_units_by_pano_kind`, `selection.unit_state_by_pano_kind`.*
 > 4. **A history pass is about 74,000 historical panos, and 36.5% of today's ids are gone.**
@@ -402,7 +403,11 @@ This finding governs every absence number.
 
 ![Figure 1. Horizontal 100% stacked bars of unit states, fusion arm, primary observability. Signalised: 98% present, 2 of 284 absent (0.7%). Arterial: 72% present, 39 of 1,497 absent (2.6%), 26% unobservable. Residential: 58% present, 43 of 2,648 absent (1.6%), 40% unobservable. Intersections pooled: 65% present, 84 of 4,429 absent (1.9%), 33% unobservable. Mid-block points: 15% present, 477 of 16,912 absent (2.8%), 82% unobservable.](figures/corner-inventory/fig1_unit_states.png)
 
-*Figure 1. Unit states by stratum (fusion arm, primary observability). Data:
+*Figure 1. How often does the detector call a unit absent, and how much can it not see? Absent
+is at most 2.8% of units in every stratum, while unobservable grows from 1% (signalised) to
+26% (arterial), 40% (residential) and 82% (mid-block). Fusion arm, primary observability (a
+unit is unobservable when it has no site and no pano within 25 m); the pooled row is the sum
+of the three intersection strata above it. Data:
 `docs/figures/corner-inventory/data/fig1_unit_states.csv`, from `counts.csv` rows
 `unit,<stratum>,all,fusion,primary`. [SVG](figures/corner-inventory/fig1_unit_states.svg).*
 
@@ -450,8 +455,10 @@ there.
 
 ![Figure 2. Dot-and-interval plot of four unit-level absence-precision reads against a dashed decision line at 0.90. Fusion clean read, the pre-registered rule: 46 of 84, 0.548, interval 0.441 to 0.650, well below the line. Fusion no-Available read: 75 of 84, 0.893, interval 0.809 to 0.943, straddling the line. Deployed clean read: 42 of 81, 0.519, interval 0.411 to 0.624. Deployed no-Available read: 73 of 81, 0.901, interval 0.817 to 0.949, straddling the line.](figures/corner-inventory/fig2_absence_precision.png)
 
-*Figure 2. Unit-level absence precision, intersections pooled, primary observability, Wilson
-95% intervals; the 0.90 decision line applies to the top row only. Data:
+*Figure 2. Does the pre-registered absence read reach 0.90? No: 46/84 = 0.548, with its whole
+interval below the line; the two no-Available reads straddle it. Unit-level absence
+precision, intersections pooled, primary observability, Wilson 95% intervals; the 0.90
+decision line applies to the top row only. Data:
 `docs/figures/corner-inventory/data/fig2_absence_precision.csv`, from `counts.csv` rows
 `unit,intersections,all,<arm>,primary` (cross-checked against `decision.json` on every
 redraw). [SVG](figures/corner-inventory/fig2_absence_precision.svg).*

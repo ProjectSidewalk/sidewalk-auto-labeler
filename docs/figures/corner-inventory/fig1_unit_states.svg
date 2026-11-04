@@ -98,7 +98,7 @@ L 0 3.5
      </g>
     </g>
     <g id="text_7">
-     <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #52514e" x="353.47875" y="242.652719" transform="rotate(-0 353.47875 242.652719)">Share of units (fusion arm, primary observability: a pano within 25 m)</text>
+     <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #52514e" x="353.47875" y="242.652719" transform="rotate(-0 353.47875 242.652719)">Share of units (fusion arm; unobservable = no site and no pano within 25 m)</text>
     </g>
    </g>
    <g id="matplotlib.axis_2">
@@ -277,6 +277,16 @@ L 587.83875 182.489918
 L 201.472854 182.489918 
 z
 " clip-path="url(#pa478faf76b)" style="fill: #a3a29b; stroke: #fcfcfb; stroke-width: 2; stroke-linejoin: miter"/>
+   </g>
+   <g id="line2d_12">
+    <path d="M 119.11875 138.351736 
+L 587.83875 138.351736 
+" clip-path="url(#pa478faf76b)" style="fill: none; stroke: #898781; stroke-width: 0.8; stroke-linecap: square"/>
+   </g>
+   <g id="line2d_13">
+    <path d="M 119.11875 175.442645 
+L 587.83875 175.442645 
+" clip-path="url(#pa478faf76b)" style="fill: none; stroke: #898781; stroke-width: 0.8; stroke-linecap: square"/>
    </g>
    <g id="patch_18">
     <path d="M 119.11875 214.054281 

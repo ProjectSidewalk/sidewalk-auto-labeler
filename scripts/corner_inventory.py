@@ -1566,10 +1566,15 @@ def fig_unit_states(plt, rows, fig_dir):
         ax.text(1.015, y, f"absent {r['absent']:,} of {r['n']:,} ({r['share_absent']:.1%})",
                 transform=ax.get_yaxis_transform(), va='center', ha='left', fontsize=9,
                 color=INK)
+    # The pooled row is the sum of the three strata above it: a rule above it marks it as a
+    # total rather than a peer, and one below it keeps mid-block (another unit kind) out of it.
+    pooled_y = ys[[r['stratum'] for r in rows].index('intersections')]
+    for dy in (0.5, -0.5):
+        ax.axhline(pooled_y + dy, color=MUTED, lw=0.8)
     ax.set_yticks(ys, [f"{FIG_STRATUM_LABEL[r['stratum']]}" for r in rows])
     ax.set_xlim(0, 1)
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f'{v:.0%}'))
-    ax.set_xlabel('Share of units (fusion arm, primary observability: a pano within 25 m)')
+    ax.set_xlabel('Share of units (fusion arm; unobservable = no site and no pano within 25 m)')
     ax.set_title('Unit states by stratum, Vancouver', pad=10)
     handles = [plt.Rectangle((0, 0), 1, 1, color=colour[s], label=s) for s in STATES]
     ax.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, -0.22), ncol=3,
