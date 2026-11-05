@@ -1425,7 +1425,8 @@ def run(args):
     # FuseParams(...) built before, so every committed report reproduces.
     params = fs.fuse_params_for(label_type, camera_height_m=height,
                                 min_confidence=args.min_confidence,
-                                mask_rig=args.offline or args.mask_rig,
+                                mask_rig=((args.offline or args.mask_rig)
+                                          and registry.spec_for(label_type).mask_rig),
                                 apply_pose=fs.POSE_OFF)
     lines.append(f'raycast camera height {fs.frame_label(args.camera_height_m)}; '
                  f'fusion arm at --min-confidence {args.min_confidence:g}')

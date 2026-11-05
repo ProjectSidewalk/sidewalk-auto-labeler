@@ -147,3 +147,31 @@ def test_every_spec_is_a_server_label_type():
     assert len(reg.PS_LABEL_TYPES) == 9 and 'CurbRamp' in reg.PS_LABEL_TYPES
     for name, spec in reg.SPECS.items():
         assert name == spec.label_type and name in reg.PS_LABEL_TYPES
+
+
+# --- review follow-ups ---------------------------------------------------------------------
+
+def test_extra_run_meta_without_label_type_still_matches(tmp_path):
+    """corner_inventory build --extra-run compares sites_meta params; a meta written before
+    FuseParams gained label_type (#168) must read as CurbRamp, not as a differing run."""
+    import corner_inventory as ci
+    old = fs.asdict(fs.FuseParams())
+    del old['label_type']
+    base_meta = {'params': fs.asdict(fs.FuseParams())}
+    run = tmp_path / 'extra'
+    run.mkdir()
+    (run / 'sites_meta.json').write_text(json.dumps({'params': old}), encoding='utf-8')
+    _write(run / 'results.jsonl', [])
+    (run / 'sites.jsonl').write_text('', encoding='utf-8')
+    # No SystemExit on the params comparison (the function goes on to read the empty run).
+    ci.load_extra_run(run, base_meta, set())
+
+
+def test_eval_sites_refuses_a_type_at_another_benchmark_tier(tmp_path, crosswalk_spec,
+                                                             monkeypatch):
+    import eval_sites
+    monkeypatch.setattr('sys.argv', ['eval_sites.py', 'city', '--label-type', 'Crosswalk',
+                                     '--benchmark-root', str(tmp_path),
+                                     '--run-dir', str(tmp_path)])
+    with pytest.raises(SystemExit):
+        eval_sites.main()

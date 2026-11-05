@@ -1213,7 +1213,10 @@ def main():
     # the same convention as the tilt CSVs, so re-running must still reproduce it.
     # fuse_params_for(CurbRamp, ...) is exactly the FuseParams(...) this built before #168.
     params = fs.fuse_params_for(args.label_type,
-                                min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
+                                min_confidence=BENCHMARK_CONFIDENCE,
+                                # only CurbRamp has committed pre-mask reports to reproduce
+                                mask_rig=(False if args.label_type == registry.CURB_RAMP
+                                          else spec.mask_rig),
                                 camera_height_m=args.camera_height_m,
                                 apply_pose=args.apply_pose, sigma_peak_px=args.sigma_peak_px)
     if args.pose_precondition:
