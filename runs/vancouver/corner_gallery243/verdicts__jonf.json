@@ -1,0 +1,1846 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_gallery/1",
+ "city": "vancouver",
+ "items_sha256": "bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459",
+ "rater": "jonf",
+ "rubric_version": 1,
+ "rubric": "Rubric v1 (RampNet#243). Rate every corner of the unit from the crops and the aerial.\n\nThe unit is an OSM intersection. Its legs (white lines on the aerial) split it into corners,\nnumbered clockwise from north. A corner is the sector between two adjacent legs; its marker\non the aerial and the orange ring in each crop is the corner point, 12 m from the centre\nalong the sector's bisector. A ramp can sit several metres from that point; judge the whole\ncorner of the sector (the curb return and the crossings that land on it), not the point.\n\npresent   at least one curb ramp serving pedestrians at this corner is visible: a cut in the\n          curb with a sloped walking surface down to street level, of any type (perpendicular,\n          parallel, diagonal at the apex, blended / depressed corner). A diagonal ramp counts\n          for the corner whose sector holds it.\nabsent    the corner is visible well enough to judge and has no curb ramp. Say which, when\n          you can: `curb_no_ramp` (a sidewalk reaches the corner and the curb there has no\n          cut), or `no_sidewalk` (no sidewalk reaches the corner, so there is nothing to ramp\n          from: a lawn, gravel or a shoulder to the street edge, with or without a curb).\n          A driveway apron is not a curb ramp.\ncant_tell the corner cannot be judged: hidden by vehicles, vegetation or shadow; out of\n          frame; too far or blurred; under construction; or the sector is not a real street\n          corner (an OSM artifact, a parking lot). Say why in the unit note.\n\nUse the newest crop that shows the corner clearly. If crops of different years disagree\n(a ramp appears in a later year), rate what the newest clear crop shows and say so in the\nnote. The city inventory is shown only after the unit is completed; the verdicts given\nbefore that are kept as `blind` and are what is scored. Changing a verdict after the\nreveal is allowed, is recorded (`edited_after_inventory`), and is never scored as blind.\n",
+ "exported_at": "2026-10-07T12:56:48.905Z",
+ "review_notes": {},
+ "units": {
+  "vancouver:res:n47384235": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 542.5,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47219489": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 29,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n1637998595": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 16,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n47331236": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 82,
+   "note": "There might be a curb ramp on Corner 2 but the way the crops are taken, I can't really tell. The third crop (2022-11) seems like it might show one?",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n3627781133": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 22,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47208364": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "3": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "3": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 56,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47288787": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 10,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n47345153": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 10,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47231852": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "present",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "present",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 42,
+   "note": "The target is not directly on the curb ramp but there is a curb ramp shown in these crops",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n47335720": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 11,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47267448": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "3": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "3": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 19,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n959123136": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 22,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47281487": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 12,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n47245550": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 14,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47270098": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 14,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n2623620122": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 11,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47397759": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 9,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47240587": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 10,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47305361": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 33,
+   "note": "For Corner 1, there is a driveway but this isn't a curb ramp imo",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n47190958": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 40,
+   "note": "Corner 0 appears to have a walking only path that has a seamless transition to street",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47287936": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "3": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "3": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 15,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:sig:n1642453647": {
+   "type": "signalised",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 54,
+   "note": "This is not a pedestrian crossing area anyway. If you move to the right a bit, you can see crosswalks on the aerial image.",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n3372672500": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 56,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": true
+  },
+  "vancouver:res:n47232326": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 19,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47318252": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 25,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n1803133375": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 50,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n13059332216": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 75,
+   "note": "I see that I disagree on Corner 1. But from the crops, all I see is a dirt path to the paved pedestrian/bike pathway. Said dirth path is wide enough for a car...",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n47270030": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "present",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "present",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "present",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "present",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "present",
+     "absent_kind": null
+    },
+    "2": {
+     "verdict": "present",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 91,
+   "note": "Corner 0 has a unique type of curb ramp that I think is designed for bikes\n\nCorner 2 is confusing in that the crops show, I think, a driveway (hard to tell, got cut off) and maybe one of those bike-only curb ramps (3 - 2021-12) that is used for bikes",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n47290563": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 222.5,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n3629347257": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "2": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "2": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 52,
+   "note": "Not sure if I would consider Corner 2 having a curb ramp. It has a sloping sidewalk down to the street/alleyway",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47234866": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 17,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47318468": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 17,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n47245437": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 20,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47236184": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 12,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n3699326114": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 30,
+   "note": "This would not be a safe place to cross anyway imo",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47215596": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 26,
+   "note": "Corner 1 has a driveway one could use",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:art:n4612512437": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 91,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47236718": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 25,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n13090709554": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 182,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47231855": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 16,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47311369": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 67.3,
+   "note": "I checked on Google Street View for Corner 0 and there is no Curb Ramp. There is a large driveway, maybe that's what PARA means?",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47258942": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 30,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47362725": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 46.1,
+   "note": "I verified Corner 1 in Project Sidewalk",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n4598685562": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 20,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47287760": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "2": {
+     "verdict": "present",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "2": {
+     "verdict": "present",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 65.7,
+   "note": "Very sparse GSV imagery here. I went into PS and explored area.",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47289129": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 19,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47278131": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 15,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47286143": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 16,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n958722944": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 13,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  },
+  "vancouver:res:n47355183": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    },
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 13,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false
+  }
+ }
+}

@@ -1041,3 +1041,12 @@ The store pass's metadata cache is kept on makelab2 as `~/posdetect241_store_met
 | run and meta sha256s | `merged/build.json`; `compare.json` | `inputs.extra:*`; `inputs` |
 | Figure 3 values | `docs/figures/corner-inventory/data/fig3_a8_reads.csv`, `fig3_a8_control.csv` | `k`, `n`, `share`, `lo`, `hi`; `absent`, `observed`, `share`, `lo`, `hi` |
 | GPU time, panos/s | RampNet `analysis_out/usage_log.jsonl` (not in this repo) | `paid: false` rows |
+
+## Follow-up: rating gallery for the `NA` read and the 35 false absences (RampNet#243)
+
+[RampNet#243](https://github.com/ProjectSidewalk/RampNet/issues/243) rates 95 absent units per
+corner (present / absent / can't tell): the 35 false absences at the #241 targets, 40 of the
+944 `NA`-no-`RAMPTYPE` units and 20 of the 333 clean units (seed 243). Protocol, how to rate
+and the scoring rules: [`corner-gallery-243.md`](corner-gallery-243.md). Bundle:
+`runs/vancouver/corner_gallery243/`. Nothing in this document changes until the ratings are
+scored; the `NA` read stays open until then.
