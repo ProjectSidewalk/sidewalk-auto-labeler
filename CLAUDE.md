@@ -311,10 +311,16 @@ python scripts/heatmap_grid.py grid paterson bend gainesville sao_paulo richmond
 # clip(heatmap, 0, 1), so a peak > 1.0 is a flat top and its raster-first pixel wins (skimage 0.26's
 # stable sort; scikit-image is pinned to 0.26.0 in requirements.txt since PR 158, and the tie order
 # is also pinned in tests). `offgrid` is the census (prints only; --out writes the committed CSVs);
-# `offgrid-heatmaps` (GPU) checks it on real heatmaps of the local decode panos (46/46). One
-# Paterson peak at 0.57 is a counterexample, not a clip.
+# `offgrid-heatmaps` (GPU) checks it on real heatmaps of the local decode panos (46/46). The one
+# off-grid peak below 1.0 (Paterson, 0.57) is not a clip: it is consistent with (reachable by,
+# not reproduced) a float32 near-tie of its two knots (`offgrid-tie`, GPU, fetches the pano once);
+# `offgrid-tie-backend` shows the off-grid counts are this GPU's numeric backend, not the model's.
+# Both write the committed data dir by default and reproduce only on the stack their meta.json
+# records (they print a WARNING if this machine differs): elsewhere pass --out <scratch>.
 python scripts/heatmap_grid.py offgrid --results <runs...> --labels <raw_labels.geojson> --labels-user <ai user_id> --unmatched runs/vancouver/provenance_gate/unmatched.csv
 python scripts/heatmap_grid.py offgrid-heatmaps
+python scripts/heatmap_grid.py offgrid-tie
+python scripts/heatmap_grid.py offgrid-tie-backend
 python scripts/heatmap_grid.py sigma paterson bend gainesville sao_paulo richmond
 python scripts/eval_sites.py paterson --sigma-peak-px 2.31 --out /tmp/eval_s231   # one cell
 # SUB-CELL DECODE (#111 decode half, docs/heatmap-grid.md section 4). OPT-IN, default argmax:
