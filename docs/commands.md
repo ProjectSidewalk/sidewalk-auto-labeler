@@ -668,6 +668,34 @@ python scripts/eval_ps_clustering.py vancouver --offline --no-gt --min-confidenc
 python scripts/inventory_clustering.py score vancouver                # descriptive, no verdict
 ```
 
+## NoCurbRamp labels from absent corners (#169)
+
+Write-up: [corner-labels-169.md](corner-labels-169.md). One NoCurbRamp proposal per corner
+that is absent in the #241 corner table under `--arm/--variant` (default `fusion/primary`) and
+not excluded by the inventory under `--na-read`. The flag is REQUIRED: `count` = any inventory
+point excludes; `discount` = `NA` with no `RAMPTYPE` does not. The primary read waits on gallery
+243. The label goes on the newest of the 3 nearest panos (3-25 m, corner point in the forward
+hemisphere) at the `geo.ground_point_to_pano` projection, 2.5 m camera.
+
+Rules of use:
+
+- `export` refuses proposals that do not match the `build.json` beside them, or a build from a
+  dirty tool.
+- `rank` takes validator-ai's ranked CSV (#69; columns by flag) and drops nothing.
+- `score` prints PASS/FAIL only on a sample drawn for the rule (`--sample`) with n >= 100.
+- **Nothing is submitted under #169.** `send_to_ps.py` dry runs only. A real send of a Vancouver
+  file trips `check_store_built` (store-built panos), which is a decision for review.
+
+```bash
+D=runs/vancouver/corner_labels169/na_discount     # and na_count with --na-read count
+python scripts/corner_labels.py build --na-read discount     --corners ../posdetect241/runs/vancouver/corner_inventory_posdetect241/corners_full.jsonl     --run-dir ../../sal-vancouver/runs/vancouver     --extra-run ../posdetect241/runs/vancouver_posdetect241     --extra-run ../posdetect241/runs/vancouver_posdetect241_gsv --out $D     [--sidewalk-presence walks.geojson --sidewalk-radius-m 10]
+python scripts/corner_labels.py sample --proposals $D/proposals.jsonl --out $D/sample.csv   # seed 169
+python scripts/corner_labels.py rank --dir $D --ranked-csv ranked.csv   # -> proposals.ranked.jsonl
+python scripts/corner_labels.py export --dir $D [--proposals $D/proposals.ranked.jsonl]
+python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv     --verdicts runs/vancouver/corner_gallery243/verdicts__jonf.json --out $D/score_sample.json
+python send_to_ps.py $D/results.jsonl --dry-run
+```
+
 ## Runs rebuilt from the pano store; provenance gate
 
 ```bash

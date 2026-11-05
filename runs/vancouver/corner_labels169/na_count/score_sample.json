@@ -1,0 +1,46 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_labels.score/1",
+ "issue": "sidewalk-auto-labeler#169",
+ "rule": {
+  "precision_min": 0.9,
+  "wilson_lower_min": 0.85,
+  "min_n": 100,
+  "cant_tell": "excluded from the denominator",
+  "read": "blind verdicts only"
+ },
+ "proposals": {
+  "path": "proposals.jsonl",
+  "sha256": "07b8d0368414e1722a613ac2c368b1bb139ea01363932475b2188abb7137e5cc"
+ },
+ "verdicts": {
+  "path": "verdicts__jonf.json",
+  "sha256": "0d36ebb45d63cbc85ee4bb239662eacefa415a5a9f5d0b51c4f207341fed3073",
+  "rater": "jonf",
+  "items_sha256": "bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459",
+  "rubric_version": 1
+ },
+ "sample": {
+  "path": "sample.csv",
+  "sha256": "2e125aab49faf6e27b51cba67cc6ff5771e1d58160bd225866778c93bf0afe96"
+ },
+ "n_proposals": 100,
+ "n_rated": 0,
+ "n": 0,
+ "present": 0,
+ "absent": 0,
+ "cant_tell": 0,
+ "cant_tell_share": null,
+ "precision": null,
+ "wilson95": null,
+ "absent_kinds": {
+  "curb_no_ramp": 0,
+  "no_sidewalk": 0,
+  "unspecified": 0
+ },
+ "label_precision": null,
+ "label_wilson95": null,
+ "by_stratum": {},
+ "sample_drawn_for_rule": true,
+ "verdict": "NOT SCORED (n = 0 < 100)",
+ "rated_keys": []
+}

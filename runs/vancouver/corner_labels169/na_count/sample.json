@@ -1,0 +1,16 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_labels.sample/1",
+ "drawn_at": "2026-11-05T15:54:57+00:00",
+ "seed": 169,
+ "n": 100,
+ "population": 2715,
+ "proposals": {
+  "path": "proposals.jsonl",
+  "sha256": "07b8d0368414e1722a613ac2c368b1bb139ea01363932475b2188abb7137e5cc"
+ },
+ "rule": "random.Random(seed).sample(sorted proposal keys, n)",
+ "sample": {
+  "path": "sample.csv",
+  "sha256": "2e125aab49faf6e27b51cba67cc6ff5771e1d58160bd225866778c93bf0afe96"
+ }
+}
