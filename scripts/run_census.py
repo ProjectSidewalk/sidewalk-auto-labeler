@@ -57,8 +57,9 @@ def mask_producer(name):
     with none (and None) passes through unchanged.
 
     Scope and limits:
-    - Today it is applied to the census tables only (producers.csv / census.md). Other
-      sinks still write producer names unmasked: scripts/panoramax_bayonne_figures.py
+    - Today it is applied to the census tables (producers.csv / census.md),
+      thinning_experiment.py's crosscheck producers.csv and panoramax_lyon_figures.py's
+      rig-producers table. Other sinks still write producer names unmasked: scripts/panoramax_bayonne_figures.py
       (examples/contact_sheet.csv, max2_skip.csv, crops.csv -- the last two feed the
       figures' licence credit), scripts/panoramax_asset_study.py (sample.csv),
       scripts/heatmap_grid.py (figure x-labels) and export_benchmark.py's
