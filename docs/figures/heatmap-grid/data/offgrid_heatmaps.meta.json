@@ -1,0 +1,17 @@
+{
+ "model": {
+  "model_repo": "projectsidewalk/rampnet-model",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+  "model_id": "rampnet-model@606a11956743",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0"
+ },
+ "device": "cuda",
+ "software": {
+  "scikit-image": "0.26.0",
+  "numpy": "2.5.1",
+  "torch": "2.8.0+cu126",
+  "pillow": "12.3.0"
+ },
+ "panos_from": "../RampNet/benchmark/<split without _perturbed>/panos (local)"
+}

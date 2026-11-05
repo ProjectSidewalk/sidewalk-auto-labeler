@@ -1,0 +1,9 @@
+metric,value
+panos_raw,381295
+panos_at_5m,174525
+panos_at_10m,86942
+panos_at_20m,38796
+"missing_from_finer (10 m kept, 5 m not)",0
+panos_added,87583
+panos_per_second,2.505
+hours_added,9.71

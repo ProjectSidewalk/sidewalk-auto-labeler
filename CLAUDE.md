@@ -79,14 +79,14 @@ named here. Verdicts are summarised only where they set a production default.
 
 | Script(s) | What | Doc / verdict |
 |---|---|---|
-| `thinning_experiment.py` | coverage vs thinning spacing | `docs/thinning-experiment.md`; 5 m stays default |
+| `thinning_experiment.py` | coverage vs thinning spacing (Bayonne; Lyon #148) | `docs/thinning-experiment.md`, `thinning-experiment-lyon.md`; 5 m stays default |
 | `panoramax_asset_study.py`, `run_census.py`, `panoramax_*_figures.py` | Panoramax HD vs SD; Bayonne/Lyon census | `docs/panoramax-asset-study.md` (HD stays), `panoramax-bayonne.md`, `panoramax-lyon.md` |
 | `depth_standin.py`, `harvest_depth.py --reindex` | stand-in planes out of the height spread (#47) | `docs/camera-height-study.md` addendum |
 | `gsv_partial_pose.py` (+`_figures`) | fraction of GSV tilt in placement (#116) | `docs/gsv-partial-pose-study.md`; FAIL on recall → flat default, `partial` opt-in |
 | `fuse_sites.py --implied-height`, `height_qc.py`, `inventory_oracle.py` | camera height (#40/#44/#79) | `docs/camera-height-study.md`, `docs/placement-oracle.md`; per-rig (d) = `auto` |
 | `mapillary_height.py`, `height_gap.py` | Mapillary per-rig height (#53/#87/#89) | `docs/mapillary-camera-height.md`; applies nothing (all 2.6 m) |
 | `eval_sites.py` | fusion vs RampNet GT in world space | `docs/architecture.md` (Multi-view fusion) |
-| `heatmap_grid.py`, `subcell_decode.py` | 8-cell heatmap grid, sub-cell decode (#111) | `docs/heatmap-grid.md`; sigma stays 1.0, decode opt-in |
+| `heatmap_grid.py`, `subcell_decode.py` | 8-cell heatmap grid, sub-cell decode (#111), off-grid peaks (#151) | `docs/heatmap-grid.md`; sigma stays 1.0, decode opt-in |
 | `seam_band_130.py` | 360° seam band (#130) | `docs/seam-band-130.md`; `--border` opt-in |
 | `reprojection_residual.py` | GT-free leave-one-view-out residual (#36) | `docs/reprojection-residual.md` |
 | `eval_ps_clustering.py`, `clustering_metrics.py`, `clustering_eval_pooled.py`, `inventory_clustering.py`, `split_figures.py`, `ps_placement.py` (repo root) | PS server clustering vs fusion (SW#4706, #106, #56) | `docs/ps-clustering-eval.md` |

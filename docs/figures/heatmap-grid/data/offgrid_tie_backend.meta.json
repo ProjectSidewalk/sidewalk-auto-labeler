@@ -1,0 +1,46 @@
+{
+ "pano": "paterson:UFGbN-uEeAgV9LKrgJSpGQ",
+ "pano_png_sha256": "5b256d265ca659aa17c1311f584604492a9e3dbe1945f5b9e3eec158d24456cc",
+ "arms": [
+  "f32_gpu",
+  "f32_cpu",
+  "f32up_f64conv",
+  "f64up_f32conv"
+ ],
+ "gap_drift_backends": [
+  "gpu_default",
+  "gpu_tf32_off",
+  "cpu_fp32"
+ ],
+ "sweep": {
+  "eps": [
+   -1e-06,
+   1e-06,
+   101
+  ],
+  "seeds": 20,
+  "drift": 0.001,
+  "generator_seed": 151
+ },
+ "model": {
+  "model_repo": "projectsidewalk/rampnet-model",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+  "model_id": "rampnet-model@606a11956743",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0"
+ },
+ "device": "cuda",
+ "gpu": "NVIDIA GeForce RTX 3070",
+ "torch_cuda": "12.6",
+ "cudnn": 91002,
+ "cudnn_allow_tf32": true,
+ "cuda_matmul_allow_tf32": false,
+ "cpu": "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD",
+ "torch_cpu_threads": 8,
+ "software": {
+  "scikit-image": "0.26.0",
+  "numpy": "2.5.1",
+  "torch": "2.8.0+cu126",
+  "pillow": "12.3.0"
+ }
+}

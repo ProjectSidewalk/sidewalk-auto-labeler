@@ -1,30 +1,30 @@
-pose coverage: 16543/28524 panos carry pitch+roll (58%)
+pose coverage: 28588/50409 panos carry pitch+roll (57%)
   ⚠ mixed population — the table below describes only the posed panos, which are
     self-selected by capture rig, not a random sample of the run.
-308 frozen multi-view sites (736 members); within-site pairwise member distance (m):
+714 frozen multi-view sites (2041 members); within-site pairwise member distance (m):
     convention     mean   median    pairs
- off (no pose)    5.078    5.086      602
-  +pitch +roll    6.681    5.509      602
-  +pitch -roll    8.008    5.799      587
-  -pitch +roll    7.344    5.756      593
-  -pitch -roll    8.052    5.830      596
-     +pitch  0    6.592    5.443      600
+ off (no pose)    4.978    4.833     2585
+  +pitch +roll    6.998    5.661     2585
+  +pitch -roll    8.361    5.910     2494
+  -pitch +roll    7.473    5.678     2461
+  -pitch -roll    7.704    5.702     2534
+     +pitch  0    6.955    5.597     2583
 
-same-site set, posed members (incl. 0/0): 216 of 308 groups placed by every convention within 25 m; pairwise distance (m):
+same-site set, posed members (incl. 0/0): 468 of 714 groups placed by every convention within 25 m; pairwise distance (m):
     convention   median      p90    pairs
- off (no pose)    4.790    7.715      412
-  +pitch +roll    5.315   10.260      412
-  +pitch -roll    5.194   10.567      412
-  -pitch +roll    5.234    9.840      412
-  -pitch -roll    5.341    9.599      412
-     +pitch  0    5.037    9.699      412
+ off (no pose)    4.595    7.715     1334
+  +pitch +roll    5.285   10.545     1334
+  +pitch -roll    5.156   10.676     1334
+  -pitch +roll    5.073    9.218     1334
+  -pitch -roll    5.196    8.997     1334
+     +pitch  0    5.054    9.739     1334
 
-same-site set, real-tilt members only: 97 of 176 groups placed by every convention within 25 m; pairwise distance (m):
+same-site set, real-tilt members only: 225 of 430 groups placed by every convention within 25 m; pairwise distance (m):
     convention   median      p90    pairs
- off (no pose)    4.595    7.580      141
-  +pitch +roll    5.632   10.960      141
-  +pitch -roll    5.051   11.265      141
-  -pitch +roll    6.424   10.786      141
-  -pitch -roll    5.921   10.027      141
-     +pitch  0    4.747    9.447      141
+ off (no pose)    4.488    7.563      485
+  +pitch +roll    6.078   13.203      485
+  +pitch -roll    5.673   13.170      485
+  -pitch +roll    5.539   10.525      485
+  -pitch -roll    5.536    9.847      485
+     +pitch  0    5.315   11.208      485
 

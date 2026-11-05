@@ -25,6 +25,38 @@ Two more draw the figures in docs/heatmap-grid.md (docs/figures/heatmap-grid/*.p
     # 4. no GPU, no network: draw every figure from the committed data
     python scripts/heatmap_grid.py figures
 
+Four more ask why a few peaks are off the grid at all (#151 question 2):
+
+    # 5. no GPU, no network: census of off-grid peaks (residue not 3/4) in runs, AI labels
+    #    and decode files, the off-grid share by stored confidence (the denominator), and the
+    #    gate's tier_off_grid misses next to their nearest tier detection. The answer is the
+    #    clip: decode.py finds peaks on clip(heatmap, 0, 1), so a peak above 1.0 is a flat top
+    #    and the raster-first pixel of it wins (`plateau_demo`). Prints only unless --out.
+    python scripts/heatmap_grid.py offgrid --results <run or results.jsonl> ... \
+        --decode 'docs/figures/heatmap-grid/data/decode/decode_*.jsonl.gz' \
+        --labels <raw_labels.geojson> --labels-user <ai user_id> --unmatched <unmatched.csv> \
+        --out docs/figures/heatmap-grid/data
+
+    # 6. GPU, offline: the same mechanism on REAL heatmaps. Re-runs RampNet on the local
+    #    ../RampNet/benchmark panos of every off-grid committed decode peak and checks the
+    #    kept pixel is the row-major-first pixel of its clip == 1.0 plateau and the plateau's
+    #    raw top is on residue 3/4 (`plateau_check`). Writes offgrid_heatmaps.csv and the
+    #    figure's example crop; `figures` then draws offgrid_plateau.png from it.
+    python scripts/heatmap_grid.py offgrid-heatmaps
+
+    # 7. GPU, one pano fetched once: the single off-grid stored peak below 1.0 (Paterson,
+    #    0.5734 at (470,260)). Re-runs the head's upsample + 1x1 conv on the pano's captured
+    #    coarse features with its two knots forced to a gap of eps, in float32 and float64,
+    #    through the production decoder. The pixel is reachable by a float32 near-tie (not a
+    #    clip, not a bug); per decode it records whether the winner is a strict maximum or
+    #    an exact tie that skimage's raster order broke.
+    python scripts/heatmap_grid.py offgrid-tie
+
+    # 8. GPU + CPU, the same pano: which part of 7 is this machine's numeric backend. The
+    #    knot-gap drift under GPU TF32 on/off and CPU, and the sweep with the head tail on
+    #    CPU and in mixed precision (which layer rounds).
+    python scripts/heatmap_grid.py offgrid-tie-backend
+
 `sigma` fuses exactly as eval_sites.py does (tier 0.55, rig mask off, pose off) and reads
 ../RampNet/benchmark/<city> as data. Outputs land in docs/figures/heatmap-grid/data/
 (grid.csv, sigma_peak.csv), which docs/heatmap-grid.md cites.
@@ -219,6 +251,991 @@ def cmd_sigma(args):
               f"  resid {c['residual_rejections_rise']:+.1%}  -> {'pass' if c['pass'] else 'FAIL'}")
     print(f"verdict: {'ADOPT' if adopt else 'KEEP'} sigma_peak_px {SIGMAS[1]} "
           f"{'as the default' if adopt else '(default stays ' + str(SIGMAS[0]) + ')'}")
+
+
+# ---- off-grid peaks: the clipped plateau (#151 question 2) -------------------------------
+def on_grid(rx, ry):
+    """Both residues where a bilinear-8x argmax can land (module docstring).
+
+    Example:
+        >>> on_grid(3, 4), on_grid(7, 3)
+        (True, False)
+    """
+    return rx in GRID_RESIDUES and ry in GRID_RESIDUES
+
+
+def _sha256(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for block in iter(lambda: f.read(1 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _pairs_text(pairs):
+    """'rx,ry:n;...' most common first (ties by residue), for one CSV cell.
+
+    Example:
+        >>> _pairs_text(Counter({(3, 2): 2, (2, 3): 2, (7, 3): 1}))
+        '2,3:2;3,2:2;7,3:1'
+    """
+    return ';'.join(f'{rx},{ry}:{n}' for (rx, ry), n in
+                    sorted(pairs.items(), key=lambda kv: (-kv[1], kv[0])))
+
+
+#: Confidence bins for the denominator table (offgrid_by_conf.csv): below the clip, then
+#: how far above 1.0 the stored (raw) value is.
+CONF_BINS = ((0.99, '< 0.99'), (1.0, '0.99-1.000'), (1.002, '1.000-1.002'),
+             (1.005, '1.002-1.005'), (1.01, '1.005-1.01'), (1.02, '1.01-1.02'),
+             (math.inf, '>= 1.02'))
+
+
+def conf_bin(conf):
+    """The CONF_BINS label of a confidence (upper edges exclusive).
+
+    Example:
+        >>> conf_bin(0.5), conf_bin(1.0), conf_bin(1.0019), conf_bin(1.3)
+        ('< 0.99', '1.000-1.002', '1.000-1.002', '>= 1.02')
+    """
+    return next(label for edge, label in CONF_BINS if conf < edge)
+
+
+def offgrid_peaks(peaks):
+    """Census of (heatmap col, heatmap row, confidence) peaks; confidence may be None.
+
+    Returns {'n', 'off_grid', 'off_grid_conf_ge_1', 'min_conf_off_grid', 'pairs',
+    'below_1': [(col, row, rx, ry, conf, key)], 'non_integer', 'off_grid_non_integer',
+    'conf_ge_1', 'by_conf': Counter((bin label, off-grid?))} where 'conf_ge_1' counts EVERY
+    peak at >= 1.0 (the denominator: most clipped peaks stay on the grid) and bins are
+    CONF_BINS; key is
+    whatever the caller passed as the 4th element (a pano id). A non-integer position
+    (a label on a pano whose width is not a multiple of 1024) is rounded to the nearest heatmap
+    pixel and counted in 'non_integer'; the off-grid ones are listed in 'off_grid_non_integer'.
+
+    Example:
+        >>> c = offgrid_peaks([(259, 131, 0.9, 'a'), (55, 275, 1.01, 'b'), (470, 260, 0.57, 'c')])
+        >>> c['n'], c['off_grid'], c['off_grid_conf_ge_1'], _pairs_text(c['pairs'])
+        (3, 2, 1, '6,4:1;7,3:1')
+        >>> c['below_1']
+        [(470, 260, 6, 4, 0.57, 'c')]
+        >>> c['conf_ge_1'], c['by_conf'][('1.01-1.02', True)], c['by_conf'][('< 0.99', False)]
+        (1, 1, 1)
+    """
+    out = {'n': 0, 'off_grid': 0, 'off_grid_conf_ge_1': 0, 'min_conf_off_grid': None,
+           'pairs': Counter(), 'below_1': [], 'non_integer': 0, 'off_grid_non_integer': [],
+           'conf_ge_1': 0, 'by_conf': Counter()}
+    for col, row, conf, key in peaks:
+        out['n'] += 1
+        c, r = round(col), round(row)
+        exact = abs(c - col) <= 1e-6 and abs(r - row) <= 1e-6
+        out['non_integer'] += not exact
+        rx, ry = c % CELL, r % CELL
+        if conf is not None:
+            out['conf_ge_1'] += conf >= 1.0
+            out['by_conf'][(conf_bin(conf), not on_grid(rx, ry))] += 1
+        if on_grid(rx, ry):
+            continue
+        out['off_grid'] += 1
+        if not exact:
+            out['off_grid_non_integer'].append((key, col, row))
+        out['pairs'][(rx, ry)] += 1
+        if conf is None:
+            continue
+        if conf >= 1.0:
+            out['off_grid_conf_ge_1'] += 1
+        else:
+            out['below_1'].append((c, r, rx, ry, conf, key))
+        m = out['min_conf_off_grid']
+        out['min_conf_off_grid'] = conf if m is None else min(m, conf)
+    return out
+
+
+def _results_peaks(path):
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            pid = rec['pano']['panorama_id']
+            for d in rec.get('detections', []):
+                yield (d['x_normalized'] * HEATMAP_W, d['y_normalized'] * HEATMAP_H,
+                       d['confidence'], pid)
+
+
+def _decode_peaks(path):
+    """The argmax peaks of a committed decode file (subcell_decode.py; 4.7)."""
+    import gzip
+    with gzip.open(path, 'rt', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                rec = json.loads(line)
+                for x, y, conf in rec['argmax']:
+                    yield x * HEATMAP_W, y * HEATMAP_H, conf, rec['pano_id']
+
+
+def _label_peaks(path, user):
+    """AI labels' heatmap positions: pano_x * 1024 / W, pano_y * 512 / H (no confidence)."""
+    with open(path, encoding='utf-8') as f:
+        feats = json.load(f)['features']
+    for ft in feats:
+        q = ft.get('properties') or {}
+        if q.get('label_type', 'CurbRamp') != 'CurbRamp' or str(q.get('user_id')) != user:
+            continue
+        w, h = int(q['pano_width']), int(q['pano_height'])
+        yield (int(q['pano_x']) * HEATMAP_W / w, int(q['pano_y']) * HEATMAP_H / h, None,
+               f"label {q['label_id']}")
+
+
+def _shown(path):
+    """A census row's input name: the run directory and the file, never a local path.
+
+    Example:
+        >>> _shown(Path('D:/x/runs/vancouver/provenance_gate/unmatched.csv'))
+        'vancouver/provenance_gate/unmatched.csv'
+        >>> _shown(Path('D:/x/runs/paterson/results.jsonl'))
+        'paterson/results.jsonl'
+    """
+    parts = path.parts[-3:] if path.parent.name == 'provenance_gate' else path.parts[-2:]
+    return '/'.join(parts)
+
+
+def census_row(kind, path, c):
+    return {'input': _shown(path), 'kind': kind, 'n': c['n'], 'off_grid': c['off_grid'],
+            'conf_ge_1': '' if kind == 'labels' else c['conf_ge_1'],
+            'off_grid_conf_ge_1': '' if kind == 'labels' else c['off_grid_conf_ge_1'],
+            'off_grid_conf_lt_1': '' if kind == 'labels' else len(c['below_1']),
+            'min_conf_off_grid': ('' if c['min_conf_off_grid'] is None
+                                  else round(c['min_conf_off_grid'], 6)),
+            'residue_pairs_x_y': _pairs_text(c['pairs']),
+            'non_integer_positions': c['non_integer'],
+            'off_grid_non_integer': len(c['off_grid_non_integer']),
+            'sha256': _sha256(path)}
+
+
+def _heat(px, size, n):
+    """A native pixel on the n-wide heatmap axis (exact for W a multiple of 1024)."""
+    v = px * n / size
+    return round(v) if abs(v - round(v)) < 1e-6 else v
+
+
+def offgrid_misses(unmatched_path, results_path, city):
+    """The gate's tier_off_grid rows: an unmatched label whose nearest >= tier detection
+    (nearest in native px, seam-wrapped, as provenance_gate.join picks it) sits 2-6 heatmap
+    cells away (geo.cell_shift_class, Chebyshev). Works on an unmatched.csv with or without
+    the #111 `miss_class` column; recomputes the class from the run either way."""
+    import provenance_gate as pg
+    run = pg.load_run(results_path)
+    out = []
+    with open(unmatched_path, encoding='utf-8') as f:
+        for u in csv.DictReader(f):
+            if u.get('reason') != 'no detection within tolerance' or u['pano_id'] not in run:
+                continue
+            w, h, dets = run[u['pano_id']]
+            pt = (int(u['pano_x']), int(u['pano_y']))
+            tier = [d for d in dets if d[2] >= pg.TIER]
+            if not tier:
+                continue
+            det = min(tier, key=lambda d: pg._dist(pt, d, w))
+            cells = geo.heatmap_cell_distance(pt, det, w, h)
+            if geo.cell_shift_class(cells) != 'off_grid':
+                continue
+            lc, lr = _heat(pt[0], w, HEATMAP_W), _heat(pt[1], h, HEATMAP_H)
+            dc, dr = _heat(det[0], w, HEATMAP_W), _heat(det[1], h, HEATMAP_H)
+            l_on, d_on = on_grid(lc % CELL, lr % CELL), on_grid(dc % CELL, dr % CELL)
+            lcell, dcell = (lc // CELL, lr // CELL), (dc // CELL, dr // CELL)
+            gap = max(abs(lcell[0] - dcell[0]), abs(lcell[1] - dcell[1]))
+            off = (lr, lc) if not l_on else (dr, dc) if not d_on else None
+            out.append({
+                'label_uid': f"{city}:{u['label_id']}", 'pano_id': u['pano_id'],
+                'pano_width': w, 'label_col': lc, 'label_row': lr,
+                'label_residue': f'{lc % CELL},{lr % CELL}', 'det_col': dc, 'det_row': dr,
+                'det_residue': f'{dc % CELL},{dr % CELL}', 'det_confidence': round(det[2], 6),
+                'cells_chebyshev': round(cells, 2),
+                'coarse_cells': {0: 'same', 1: 'adjacent'}.get(gap, f'{gap} apart'),
+                'off_grid_side': ('label' if not l_on else '') + ('+' if not (l_on or d_on) else '')
+                                 + ('store' if not d_on else ''),
+                'off_grid_is_raster_earlier': (None if off is None else
+                                               off == min((lr, lc), (dr, dc)))})
+    return out
+
+
+def offgrid_fate(results_path, labels_path, user):
+    """Where every off-grid peak's counterpart sits: for each off-grid store detection the
+    nearest AI label on its pano, and for each off-grid AI label the nearest stored detection
+    (any confidence), in rounded Chebyshev heatmap cells. Rows {side, cells, n}; cells is
+    'pano not in run' / 'no counterpart' when there is nothing to measure against."""
+    import provenance_gate as pg
+    run = pg.load_run(results_path)
+    labels, _, _ = pg.load_ai_labels(labels_path, user)
+    by_pano = {}
+    for lab in labels:
+        by_pano.setdefault(lab['pano_id'], []).append((lab['pano_x'], lab['pano_y']))
+
+    def off(pt, w, h):
+        return not on_grid(round(pt[0] * HEATMAP_W / w) % CELL, round(pt[1] * HEATMAP_H / h) % CELL)
+
+    def cells_to(pt, others, w, h):
+        near = min(others, key=lambda o: pg._dist(pt, o, w), default=None)
+        return ('no counterpart' if near is None
+                else round(geo.heatmap_cell_distance(pt, near, w, h)))
+    fate = Counter()
+    for pid, (w, h, dets) in run.items():
+        for d in dets:
+            if off(d, w, h):
+                fate[('store detection', cells_to(d, by_pano.get(pid, []), w, h))] += 1
+    for lab in labels:
+        pt = (lab['pano_x'], lab['pano_y'])
+        if lab['pano_id'] not in run:
+            w, h = int(lab['pano_width']), int(lab['pano_height'])
+            if off(pt, w, h):
+                fate[('AI label', 'pano not in run')] += 1
+            continue
+        w, h, dets = run[lab['pano_id']]
+        if off(pt, w, h):
+            fate[('AI label', cells_to(pt, dets, w, h))] += 1
+    return [{'side': s, 'cells_to_nearest_counterpart': c, 'n': n}
+            for (s, c), n in sorted(fate.items(), key=lambda kv: (kv[0][0], str(kv[0][1])))]
+
+
+def plateau_demo(row_knots, col_knots, row0, col0):
+    """The mechanism on a synthetic map: argmax of a coarse peak whose top clips at 1.0.
+
+    The 64x128 coarse map is separable, A(row) * B(col): `row_knots` and `col_knots` are the
+    coarse values from coarse row `row0` / column `col0` on (zero elsewhere), and the map is
+    upsampled exactly as RampNet's head does (rampnet_subcell.upsample, bilinear 8x,
+    align_corners=False). Returns the strongest argmax detection's heatmap (col, row) and
+    the raw value there, through the production decoder (decode.detections_from_heatmap).
+
+    A peak above 1.0 makes a flat top on clip(h, 0, 1); skimage keeps the raster-first pixel
+    of it, which sits on the bilinear ramp BEFORE the knot (residue 0-2 of the knot's own cell,
+    or 5-7 of the previous one), not on the knot (residue 3/4). Example (not a doctest: it
+    needs scikit-image; tests/test_heatmap_grid.py pins it under needs_skimage):
+
+        plateau_demo(**DEMO_COL)[:2]  ->  (55, 275): column residue 7, row residue 3
+    """
+    import numpy as np
+    from detectors import rampnet_subcell as sc
+    from detectors.decode import detections_from_heatmap
+    a, b = np.zeros(HEATMAP_H // CELL), np.zeros(HEATMAP_W // CELL)
+    a[row0:row0 + len(row_knots)] = row_knots
+    b[col0:col0 + len(col_knots)] = col_knots
+    h = sc.upsample(np.outer(a, b))
+    x, y, conf = detections_from_heatmap(h, 'argmax')[0]
+    return round(x * HEATMAP_W), round(y * HEATMAP_H), conf
+
+
+# Effective knots on the peak row/column. The separable map's neighbouring row/column (0.5)
+# scales the knot to 15/16 + 1/32 = 0.96875 at the two hi-res pixels around it, so dividing
+# by 0.96875 puts the stated value on the peak row itself.
+DEMO_COL = {'row_knots': [0.5, 1.0, 0.5], 'col_knots': [0.99 / 0.96875, 1.015 / 0.96875],
+            'row0': 33, 'col0': 6}      # c6 = 0.99, c7 = 1.015 -> col 55 (residue 7), row 275
+DEMO_ROW = {'row_knots': [0.97 / 0.96875, 1.015 / 0.96875], 'col_knots': [0.5, 1.0, 0.5],
+            'row0': 35, 'col0': 59}     # r35 = 0.97, r36 = 1.015 -> row 289 (residue 1), col 483
+
+
+def _expand(paths):
+    """Sorted paths, with any glob pattern expanded here rather than by the shell.
+
+    PowerShell passes `decode_*.jsonl.gz` through literally, and bash and PowerShell order
+    an expansion differently; sorting by name makes the census CSV's row order the same on
+    both.
+    """
+    out = []
+    for p in paths:
+        p = Path(p)
+        if any(ch in p.name for ch in '*?['):
+            hits = sorted(p.parent.glob(p.name))
+            if not hits:
+                sys.exit(f'{p}: the pattern matches no file')
+            out += hits
+        else:
+            out.append(p)
+    return sorted(out, key=lambda q: q.name)
+
+
+def _skimage_version():
+    try:
+        import skimage
+        return skimage.__version__
+    except ImportError:
+        return None
+
+
+def by_conf_rows(counts):
+    """Pooled Counter((bin, off-grid?)) -> rows in CONF_BINS order (offgrid_by_conf.csv).
+
+    Example:
+        >>> by_conf_rows(Counter({('< 0.99', False): 9, ('< 0.99', True): 1}))[0]
+        {'confidence': '< 0.99', 'peaks': 10, 'off_grid': 1, 'off_grid_share': 0.1}
+    """
+    rows = []
+    for _, label in CONF_BINS:
+        n_off, n_on = counts[(label, True)], counts[(label, False)]
+        n = n_off + n_on
+        rows.append({'confidence': label, 'peaks': n, 'off_grid': n_off,
+                     'off_grid_share': round(n_off / n, 4) if n else ''})
+    return rows
+
+
+def cmd_offgrid(args):
+    rows, below, pooled = [], [], Counter()
+    for spec in args.results:
+        p = Path(spec)
+        path = p if p.suffix == '.jsonl' else args.runs_root / spec / 'results.jsonl'
+        if not path.exists():
+            print(f'{spec}: no {path}, skipped', file=sys.stderr)
+            continue
+        c = offgrid_peaks(_results_peaks(path))
+        rows.append(census_row('results', path, c))
+        below += [(_shown(path),) + b for b in c['below_1']]
+        pooled += c['by_conf']
+    for path in _expand(args.decode):
+        c = offgrid_peaks(_decode_peaks(path))
+        rows.append(census_row('decode', path, c))
+        below += [(_shown(path),) + b for b in c['below_1']]
+    non_integer = []
+    if args.labels:
+        if not args.labels_user:
+            sys.exit('--labels needs --labels-user (the AI account)')
+        c = offgrid_peaks(_label_peaks(args.labels, args.labels_user))
+        rows.append(census_row('labels', args.labels, c))
+        non_integer = c['off_grid_non_integer']
+    print(f"{'input':<44} {'kind':<8} {'n':>8} {'off':>5} {'>=1.0':>6} {'min conf':>9}  "
+          f"residue pairs (x,y)")
+    for r in rows:
+        print(f"{r['input']:<44} {r['kind']:<8} {r['n']:>8,} {r['off_grid']:>5} "
+              f"{r['off_grid_conf_ge_1']!s:>6} {r['min_conf_off_grid']!s:>9}  "
+              f"{r['residue_pairs_x_y']}")
+    tot = [r for r in rows if r['kind'] == 'results']
+    by_conf = by_conf_rows(pooled)
+    if tot:
+        print(f"results files: {sum(r['n'] for r in tot):,} detections, "
+              f"{sum(r['off_grid'] for r in tot)} off-grid, "
+              f"{sum(r['off_grid_conf_ge_1'] for r in tot)} of them with confidence >= 1.0; "
+              f"{sum(r['conf_ge_1'] for r in tot):,} detections in all at >= 1.0")
+        print('off-grid share by stored confidence (results files pooled):')
+        for b in by_conf:
+            print(f"  {b['confidence']:<12} {b['peaks']:>8,} peaks  {b['off_grid']:>4} off-grid"
+                  f"  share {b['off_grid_share']}")
+    for b in below:
+        print(f'off-grid below 1.0 (unexplained by the clip): {b[0]} pano {b[6]} heatmap '
+              f'({b[1]},{b[2]}) residues ({b[3]},{b[4]}) confidence {b[5]:.4f}')
+    for key, col, row in non_integer:
+        print(f'off-grid at a non-integer heatmap position (pano width not a multiple of '
+              f'1024; rounded): {key} ({col:.2f},{row:.2f})')
+    out = args.out
+    if out:
+        write_csv(out / 'offgrid_census.csv', rows)
+        if tot:
+            write_csv(out / 'offgrid_by_conf.csv', by_conf)
+    if args.unmatched:
+        results = args.unmatched_results or args.unmatched.parent.parent / 'results.jsonl'
+        city = args.city or args.unmatched.parent.parent.name
+        misses = offgrid_misses(args.unmatched, results, city)
+        print(f'\ntier_off_grid misses in {_shown(args.unmatched)} (against {_shown(results)}):')
+        for m in misses:
+            print(f"  {m['label_uid']:<16} label ({m['label_col']},{m['label_row']}) "
+                  f"res {m['label_residue']}  det ({m['det_col']},{m['det_row']}) res "
+                  f"{m['det_residue']} conf {m['det_confidence']:.4f}  coarse {m['coarse_cells']}"
+                  f"  off-grid: {m['off_grid_side']}, raster-earlier "
+                  f"{m['off_grid_is_raster_earlier']}")
+        with open(args.unmatched, encoding='utf-8') as f:
+            listed = {f"{city}:{u['label_id']}" for u in csv.DictReader(f)
+                      if u.get('miss_class') == 'tier_off_grid'}
+        if listed:      # an unmatched.csv from after #111 item 3 carries the gate's own class
+            found = {m['label_uid'] for m in misses}
+            print(f"  the CSV's miss_class column lists {len(listed)} tier_off_grid: "
+                  f"{'the same labels' if listed == found else 'DIFFERENT labels: ' + str(sorted(listed ^ found))}")
+        if out:
+            write_csv(out / 'offgrid_misses_151.csv', misses)
+        if args.labels:
+            fate = offgrid_fate(results, args.labels, args.labels_user)
+            print('\noff-grid peaks: Chebyshev heatmap cells to the nearest counterpart '
+                  '(store detection -> nearest AI label; AI label -> nearest detection, any '
+                  'confidence)')
+            for f in fate:
+                print(f"  {f['side']:<16} {f['cells_to_nearest_counterpart']!s:>16}  {f['n']}")
+            if out:
+                write_csv(out / 'offgrid_fate_151.csv', fate)
+    if not out:
+        print('(nothing written: pass --out docs/figures/heatmap-grid/data to regenerate the '
+              'committed CSVs)')
+    print(f'scikit-image {_skimage_version()} (its peak_local_max tie order is pinned in '
+          'tests/test_heatmap_grid.py)')
+    for name, demo in (('column', DEMO_COL), ('row', DEMO_ROW)):
+        col, row, conf = plateau_demo(**demo)
+        print(f'plateau demo ({name}): argmax at heatmap ({col},{row}), residues '
+              f'({col % CELL},{row % CELL}), raw value {conf:.4f}')
+
+
+# ---- the plateau on REAL heatmaps (#151 q2, PR #155 review) ------------------------------
+PLATEAU_EXAMPLE_HALF = 12          # heatmap px each side of the example's knot (3 coarse cells)
+
+
+def plateau_check(h, col, row):
+    """Test one argmax peak of a RAW heatmap against the clipped-plateau mechanism.
+
+    Returns {'raw': the raw value at (row, col), 'clipped': raw >= 1.0, 'plateau_px': size of
+    the 8-connected component of clip(h, 0, 1) == 1.0 holding the pixel (0 when not clipped),
+    'raster_first': the pixel is that component's first in row-major order (the one
+    skimage's stable descending sort reaches first), 'raw_max_col', 'raw_max_row': the
+    component's raw argmax (the knot under the plateau), 'raw_max_on_grid'}.
+
+    Example (a 1-D plateau on row 5; columns 5-8 clip to 1.0, column 7 is the raw top):
+        >>> import numpy as np
+        >>> h = np.zeros((16, 16), dtype=np.float32); h[5, 4:9] = [0.99, 1.002, 1.01, 1.02, 1.0]
+        >>> r = plateau_check(h, 5, 5)
+        >>> r['clipped'], r['plateau_px'], r['raster_first'], (r['raw_max_col'], r['raw_max_row'])
+        (True, 4, True, (7, 5))
+    """
+    import numpy as np
+    from scipy import ndimage as ndi
+    raw = float(h[row, col])
+    out = {'raw': raw, 'clipped': raw >= 1.0, 'plateau_px': 0, 'raster_first': None,
+           'raw_max_col': None, 'raw_max_row': None, 'raw_max_on_grid': None}
+    if raw < 1.0:
+        return out
+    lab, _ = ndi.label(np.clip(h, 0, 1) == 1.0, structure=np.ones((3, 3)))
+    comp = lab == lab[row, col]
+    rr, cc = np.nonzero(comp)                 # row-major, as skimage's candidate list
+    k = int(np.argmax(np.where(comp, h, -np.inf)))
+    mr, mc = divmod(k, h.shape[1])
+    out.update(plateau_px=int(comp.sum()), raster_first=(int(rr[0]), int(cc[0])) == (row, col),
+               raw_max_col=mc, raw_max_row=mr, raw_max_on_grid=on_grid(mc % CELL, mr % CELL))
+    return out
+
+
+def cmd_offgrid_heatmaps(args):
+    """GPU: re-run RampNet on the local panos of every off-grid committed decode peak and test
+    the mechanism on the real heatmap (plateau_check). Writes offgrid_heatmaps.csv, the
+    example crop offgrid_plateau_example.json and offgrid_heatmaps.meta.json."""
+    import gzip
+    import numpy as np
+    import torch
+    from PIL import Image
+    from detectors.curb_ramp import CurbRampDetector
+    from detectors.decode import detections_from_heatmap
+    Image.MAX_IMAGE_PIXELS = None
+    todo, metas = {}, {}                       # (split, pano) -> [(col, row, conf)]
+    for path in _expand(args.decode):
+        split = path.name[len('decode_'):-len('.jsonl.gz')]
+        meta_path = path.with_name(path.name[:-len('.gz')] + '.meta.json')
+        metas[split] = json.loads(meta_path.read_text(encoding='utf-8'))
+        with gzip.open(path, 'rt', encoding='utf-8') as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                for x, y, conf in rec['argmax']:
+                    col, row = round(x * HEATMAP_W), round(y * HEATMAP_H)
+                    if not on_grid(col % CELL, row % CELL):
+                        todo.setdefault((split, rec['pano_id']), []).append((col, row, conf))
+    det = CurbRampDetector()
+    rows, example = [], None
+    for (split, pid), peaks in sorted(todo.items()):
+        meta = metas[split]
+        pano = args.benchmark_root / split.replace('_perturbed', '') / 'panos' / f'{pid}.jpg'
+        base = {'split': split, 'pano_id': pid}
+        if not pano.exists():
+            rows += [{**base, 'col': c, 'row': r, 'residue': f'{c % CELL},{r % CELL}',
+                      'committed_conf': round(conf, 6), 'status': 'pano not local'}
+                     for c, r, conf in peaks]
+            print(f'{split:<22} {pid}: pano not local', flush=True)
+            continue
+        img = Image.open(pano).convert('RGB')
+        if meta.get('source_resize') and img.size != tuple(meta['source_resize']):
+            img = img.resize(tuple(meta['source_resize']), Image.BILINEAR)
+        if meta.get('perturb'):
+            img = _resample(img)
+        h = det.heatmap(img)
+        fresh = {_heat_px(d) for d in detections_from_heatmap(h, 'argmax')}
+        for c, r, conf in peaks:
+            chk = plateau_check(h, c, r)
+            row = {**base, 'col': c, 'row': r, 'residue': f'{c % CELL},{r % CELL}',
+                   'committed_conf': round(conf, 6),
+                   'status': 'reproduced' if (c, r) in fresh else 'not reproduced',
+                   'raw': round(chk['raw'], 6), 'clipped': chk['clipped'],
+                   'plateau_px': chk['plateau_px'], 'raster_first': chk['raster_first'],
+                   'raw_max_col': chk['raw_max_col'], 'raw_max_row': chk['raw_max_row'],
+                   'raw_max_residue': ('' if chk['raw_max_col'] is None else
+                                       f"{chk['raw_max_col'] % CELL},{chk['raw_max_row'] % CELL}"),
+                   'raw_max_on_grid': chk['raw_max_on_grid']}
+            rows.append(row)
+            # The figure's example: the widest reproduced plateau (first in sorted order on a tie).
+            if (row['status'] == 'reproduced' and chk['clipped']
+                    and (example is None or chk['plateau_px'] > example['plateau_px'])):
+                hw = PLATEAU_EXAMPLE_HALF
+                cy, cx = chk['raw_max_row'], chk['raw_max_col']
+                example = {**row, 'origin_col_row': [cx - hw, cy - hw],
+                           'raw_crop': np.round(h[cy - hw:cy + hw, cx - hw:cx + hw]
+                                                .astype(float), 6).tolist()}
+        print(f'{split:<22} {pid}: {len(peaks)} off-grid peak(s)', flush=True)
+    rep = [r for r in rows if r['status'] != 'pano not local']
+    ok = [r for r in rep if r['status'] == 'reproduced']
+    print(f'\n{len(rows)} off-grid decode peaks; {len(rows) - len(rep)} pano not local; '
+          f'{len(ok)} of {len(rep)} reproduced on this machine')
+    for key, label in (('clipped', 'raw >= 1.0 at the chosen pixel'),
+                       ('raster_first', 'row-major-first pixel of its clip == 1.0 plateau'),
+                       ('raw_max_on_grid', 'raw top of that plateau on residue 3/4')):
+        print(f'  {label}: {sum(1 for r in ok if r[key] is True)} of {len(ok)}')
+    write_csv(args.out / 'offgrid_heatmaps.csv', rows)
+    if example:
+        (args.out / 'offgrid_plateau_example.json').write_text(
+            json.dumps(example) + '\n', encoding='utf-8', newline='\n')
+        print(f"wrote {args.out / 'offgrid_plateau_example.json'}")
+    meta = {'model': det.provenance, 'device': str(det.DEVICE),
+            'software': {'scikit-image': _skimage_version(), 'numpy': np.__version__,
+                         'torch': torch.__version__, 'pillow': Image.__version__},
+            'panos_from': '../RampNet/benchmark/<split without _perturbed>/panos (local)'}
+    (args.out / 'offgrid_heatmaps.meta.json').write_text(json.dumps(meta, indent=1) + '\n',
+                                                         encoding='utf-8', newline='\n')
+    det.close()
+
+
+# ---- The one off-grid peak below 1.0 (Paterson, section 5.2) ----
+TIE_CITY, TIE_PANO, TIE_PX = 'paterson', 'UFGbN-uEeAgV9LKrgJSpGQ', (470, 260)   # (col, row)
+TIE_EPS = [i * 2e-8 for i in range(-50, 51)]   # the forced knot gap, heatmap units
+TIE_SEEDS = 20                 # drifted copies of the coarse map, besides the unperturbed one
+TIE_DRIFT = 1e-3               # relative drift per coarse feature, about the stored-vs-fresh gap
+TIE_WINDOW = 12                # heatmap px around TIE_PX in which the peak is looked for
+TIE_GEN_SEED = 151             # torch.Generator seed of the drift noise
+# offgrid-tie-backend: the head tail (upsample, 1x1 conv) under other numeric paths. f32_gpu is
+# production (and the float32 arm of offgrid-tie); the two mixed arms say which layer rounds.
+TIE_ARMS = ('f32_gpu', 'f32_cpu', 'f32up_f64conv', 'f64up_f32conv')
+
+
+def _coarse_weights(p):
+    """(lower coarse index, its weight, the upper's weight) of hi-res pixel ``p`` under an 8x
+    bilinear upsample with align_corners=False (hi-res coordinate (p + 0.5) / 8 - 0.5).
+
+    Example:
+        >>> _coarse_weights(260), _coarse_weights(468), _coarse_weights(475)
+        ((32, 0.9375, 0.0625), (58, 0.9375, 0.0625), (58, 0.0625, 0.9375))
+    """
+    s = (p + 0.5) / CELL - 0.5
+    i = math.floor(s)
+    return i, 1 - (s - i), s - i
+
+
+def tie_knots(col):
+    """The two on-grid columns (residues 4 and 3) bounding the linear ramp ``col`` lies on.
+
+    Example:
+        >>> tie_knots(470)
+        (468, 475)
+    """
+    lo = (col - 4) // CELL * CELL + 4
+    return lo, lo + CELL - 1
+
+
+def tie_size(hx, col, row):
+    """How many pixels of the decoder's local-max window around (col, row) hold exactly the
+    decoded value, on the clipped map the decoder sees (``np.clip(hx, 0, 1)``, a square of
+    2 * MIN_DISTANCE + 1). 1 = a strict maximum; more = an exact float tie that
+    peak_local_max broke by its raster (row-major) order, which is scikit-image's (0.26.0,
+    pinned in requirements.txt), not the model's.
+
+    Example:
+        >>> import numpy as np
+        >>> h = np.zeros((40, 40)); h[20, 18:23] = 0.5; h[20, 21] = 0.6
+        >>> tie_size(h, 21, 20), tie_size(np.where(h > 0, 0.5, 0.0), 18, 20)
+        (1, 5)
+    """
+    import numpy as np
+    from detectors.decode import MIN_DISTANCE
+    hc = np.clip(hx, 0, 1)
+    win = hc[max(row - MIN_DISTANCE, 0):row + MIN_DISTANCE + 1,
+             max(col - MIN_DISTANCE, 0):col + MIN_DISTANCE + 1]
+    return int(np.count_nonzero(win == hc[row, col]))
+
+
+def tie_peak(hx, reverse=False):
+    """(col, row) of the production decoder's argmax peak within TIE_WINDOW of TIE_PX, or
+    (None, None). ``reverse=True`` decodes the map with both axes flipped and maps the peak
+    back, which is the same decode under the reversed tie order (the raster-LAST pixel of an
+    exact tie wins): a strict maximum decodes the same either way, a tie-decided one moves.
+    A flat run h[260, 466:478] = 0.5 decodes to (466, 260), reversed to (477, 260)
+    (tests/test_heatmap_grid.py; not a doctest, because it needs scikit-image).
+    """
+    from detectors.decode import detections_from_heatmap
+    col, row = TIE_PX
+    hx = hx[::-1, ::-1].copy() if reverse else hx
+    near = []
+    for x, y, _ in detections_from_heatmap(hx, 'argmax'):
+        c, r = round(x * HEATMAP_W), round(y * HEATMAP_H)
+        if reverse:
+            c, r = HEATMAP_W - 1 - c, HEATMAP_H - 1 - r
+        if abs(c - col) <= TIE_WINDOW and abs(r - row) <= TIE_WINDOW:
+            near.append((c, r))
+    return near[0] if near else (None, None)
+
+
+def _tie_env(det):
+    """The numeric stack a heatmap depends on: the counts in section 5.2 reproduce byte for
+    byte only on the same GPU, CUDA/cuDNN build and TF32 settings (PR 160 review, S2/S5)."""
+    import platform
+    import numpy as np
+    import torch
+    from PIL import Image
+    cuda = torch.cuda.is_available()
+    return {'model': det.provenance, 'device': str(det.DEVICE),
+            'gpu': torch.cuda.get_device_name() if cuda else None,
+            'torch_cuda': torch.version.cuda,
+            'cudnn': torch.backends.cudnn.version() if cuda else None,
+            'cudnn_allow_tf32': torch.backends.cudnn.allow_tf32,
+            'cuda_matmul_allow_tf32': torch.backends.cuda.matmul.allow_tf32,
+            'cpu': platform.processor(), 'torch_cpu_threads': torch.get_num_threads(),
+            'software': {'scikit-image': _skimage_version(), 'numpy': np.__version__,
+                         'torch': torch.__version__, 'pillow': Image.__version__}}
+
+
+def tie_env_warning(out, meta_name, env, committed_dir=None):
+    """A warning when `offgrid-tie` / `offgrid-tie-backend` is about to overwrite the committed
+    outputs from a different numeric stack, else None (PR 160 final review, nit 1).
+
+    The committed CSVs reproduce byte for byte only on the stack their `meta_name` records
+    (`_tie_env`: GPU, CUDA/cuDNN, TF32 flags, CPU, threads, model, packages), so a run elsewhere
+    would replace them with that machine's counts. Writing anywhere but the committed dir, or
+    with no committed meta to compare, never warns.
+
+    >>> import tempfile
+    >>> d = Path(tempfile.mkdtemp())
+    >>> _ = (d / 'm.json').write_text(json.dumps({'gpu': 'A', 'cpu': 'x'}), encoding='utf-8')
+    >>> tie_env_warning(d, 'm.json', {'gpu': 'A', 'cpu': 'x'}, committed_dir=d) is None
+    True
+    >>> 'gpu' in tie_env_warning(d, 'm.json', {'gpu': 'B', 'cpu': 'x'}, committed_dir=d)
+    True
+    """
+    committed_dir = Path(committed_dir or OUT_DIR)
+    meta_path = committed_dir / meta_name
+    if Path(out).resolve() != committed_dir.resolve() or not meta_path.exists():
+        return None
+    committed = json.loads(meta_path.read_text(encoding='utf-8'))
+    live = json.loads(json.dumps(env))   # the JSON round trip the meta itself went through
+    differ = [k for k in live if committed.get(k) != live[k]]
+    if not differ:
+        return None
+    return (f'WARNING: --out is the committed data dir ({committed_dir}) and this machine differs '
+            f'from {meta_name} in: {", ".join(differ)}. The committed outputs reproduce byte '
+            'for byte only on the recorded stack (docs/heatmap-grid.md 5.6), so this run will '
+            'overwrite them with different counts. Pass --out <scratch dir> to compare instead.')
+
+
+def _tie_inputs(args):
+    """The pano (fetched once with the production fetch, cached as a lossless PNG) and its
+    stored record in runs/<TIE_CITY>/results.jsonl -> (pano_path, PIL image, record)."""
+    from PIL import Image
+    pano_path = args.pano or (args.runs_root / TIE_CITY / 'offgrid_tie' / f'{TIE_PANO}_z3.png')
+    if not pano_path.exists():
+        # The production fetch (panorama.fetch_panorama: zoom 3, clamp to 2:1, 4096x2048).
+        # One metadata request plus the zoom-3 tiles; the image is cached beside the run
+        # (runs/** is gitignored), never committed.
+        from streetlevel import streetview
+        from panorama import fetch_panorama
+        meta = streetview.find_panorama_by_id(TIE_PANO)
+        if meta is None:
+            raise SystemExit(f'{TIE_PANO}: no such panorama')
+        print(f'fetched metadata: date {meta.date}, sizes {meta.image_sizes[-1]}')
+        img = fetch_panorama(meta)
+        if img is None:
+            raise SystemExit(f'{TIE_PANO}: imagery fetch failed')
+        pano_path.parent.mkdir(parents=True, exist_ok=True)
+        img.save(pano_path)                      # PNG: lossless, so a re-run is bit-stable
+    img = Image.open(pano_path).convert('RGB')
+    stored = None
+    with open(args.runs_root / TIE_CITY / 'results.jsonl', encoding='utf-8') as f:
+        for line in f:
+            if TIE_PANO in line:
+                rec = json.loads(line)
+                if rec['pano']['panorama_id'] == TIE_PANO:
+                    stored = rec
+    if stored is None:
+        raise SystemExit(f'{TIE_PANO} not in {TIE_CITY} results.jsonl')
+    return pano_path, img, stored
+
+
+def _tie_capture(det, img):
+    """Run the model once and capture the head's post-ReLU coarse features.
+    -> (heatmap, R32 (1, 256, 64, 128), the upsample module, the 1x1 conv module)."""
+    head = getattr(det.model, 'model', det.model).head   # conv3x3, ReLU, Upsample, conv1x1
+    cap = {}
+    hook = head[1].register_forward_hook(lambda m, i, o: cap.__setitem__('R', o.detach().clone()))
+    h = det.heatmap(img)
+    hook.remove()
+    return h, cap['R'], head[2], head[3]
+
+
+def _tie_float64(conv, device):
+    """The float64 copies of the head tail: (upsample, 1x1 conv)."""
+    import torch
+    up64 = torch.nn.Upsample(size=(HEATMAP_H, HEATMAP_W), mode='bilinear', align_corners=False)
+    conv64 = torch.nn.Conv2d(256, 1, 1).double()
+    conv64.load_state_dict({k: v.double() for k, v in conv.state_dict().items()})
+    return up64, conv64.to(device)
+
+
+def _tie_maps(R32, conv, up64, conv64):
+    """Yield (seed, eps, Rx, gap_actual), the forced coarse maps of the sweep, in order.
+
+    Shifting G = w.R + b at coarse (r0, c1) by d moves pixel k_hi by d * wr * whi and pixel
+    k_lo by d * wr * wlo, so the knot gap moves by d * wr * (whi - wlo); d is added along
+    w / |w|^2 across all 256 channels. Two caveats. The shift is exact only in float64 (the
+    float32 features carry ``gap_actual``, measured in float64). And it can push a channel
+    below 0, which a real post-ReLU map cannot hold, so the forced maps are not reachable
+    activations: they test only what float32 rounding does to a near-tied ramp.
+    Seed 0 is the unperturbed map; seeds 1..TIE_SEEDS first drift the 4x4 coarse block
+    around the knots by TIE_DRIFT relative noise from one Generator(TIE_GEN_SEED)."""
+    import torch
+    col, row = TIE_PX
+    k_lo, k_hi = tie_knots(col)
+    r0, wr, _ = _coarse_weights(row)
+    c0, _, _ = _coarse_weights(k_lo)
+    c1 = c0 + 1
+    whi, wlo = _coarse_weights(k_hi)[2], _coarse_weights(k_lo)[2]
+    w = conv.weight.detach()[0, :, 0, 0]
+    u = (w / (w @ w)).view(1, -1, 1, 1)
+
+    def gap64(Rx):
+        with torch.no_grad():
+            hx = conv64(up64(Rx.double())).squeeze()
+        return float(hx[row, k_hi] - hx[row, k_lo])
+
+    gen = torch.Generator(device='cpu').manual_seed(TIE_GEN_SEED)
+    for seed in range(TIE_SEEDS + 1):
+        Rs = R32.clone()
+        if seed:                          # drift the 4x4 coarse block around the two knots
+            blk = Rs[:, :, r0 - 1:r0 + 3, c0 - 1:c1 + 2]
+            noise = torch.randn(blk.shape, generator=gen).to(blk.device)
+            Rs[:, :, r0 - 1:r0 + 3, c0 - 1:c1 + 2] = blk * (1 + TIE_DRIFT * noise)
+        g0 = gap64(Rs)
+        for eps in TIE_EPS:
+            Rx = Rs.clone()
+            Rx[:, :, r0, c1] += (eps - g0) / (wr * (whi - wlo)) * u[0, :, 0, 0]
+            yield seed, eps, Rx, gap64(Rx)  # the gap the float32 features really carry
+        print(f'seed {seed:>2}: done', flush=True)
+
+
+def cmd_offgrid_tie(args):
+    """GPU: explain the one off-grid stored peak below 1.0 (TIE_PANO at TIE_PX). Re-runs the
+    model on the pano, then re-runs only the head's last two layers (upsample, 1x1 conv) on its
+    captured coarse features with the two knots that bound TIE_PX forced to a gap of eps, in
+    float32 (production) and float64, on the unperturbed map and on TIE_SEEDS drifted copies
+    (`_tie_maps`), and decodes each with the production decoder. Per decode it also records
+    `tie_size` (1 = a strict maximum, more = an exact tie skimage's raster order broke) and,
+    for an off-grid decode, the pixel the reversed tie order keeps. Writes
+    offgrid_tie_fresh.csv, offgrid_tie_row.csv, offgrid_tie_sweep.csv, offgrid_tie.meta.json."""
+    import numpy as np
+    import torch
+    from detectors.curb_ramp import CurbRampDetector
+    from detectors.decode import detections_from_heatmap
+    pano_path, img, stored = _tie_inputs(args)
+
+    det = CurbRampDetector()
+    warn = tie_env_warning(args.out, 'offgrid_tie.meta.json', _tie_env(det))
+    if warn:
+        print(warn)
+    h, R32, up, conv = _tie_capture(det, img)
+    with torch.no_grad():
+        same = np.array_equal(h, conv(up(R32)).squeeze().cpu().numpy())
+    print(f'head tail re-run reproduces the heatmap bit for bit: {same}')
+    fresh = detections_from_heatmap(h, 'argmax')
+
+    # 1. stored vs fresh, every stored detection
+    fresh_px = [(round(x * HEATMAP_W), round(y * HEATMAP_H), c) for x, y, c in fresh]
+    fresh_rows = []
+    for d in stored['detections']:
+        c, r = round(d['x_normalized'] * HEATMAP_W), round(d['y_normalized'] * HEATMAP_H)
+        fc, fr, fconf = min(fresh_px, key=lambda p: max(abs(p[0] - c), abs(p[1] - r)))
+        fresh_rows.append({'stored_col': c, 'stored_row': r,
+                           'stored_residue': f'{c % CELL},{r % CELL}',
+                           'stored_conf': round(d['confidence'], 7), 'fresh_col': fc,
+                           'fresh_row': fr, 'fresh_residue': f'{fc % CELL},{fr % CELL}',
+                           'fresh_conf': round(fconf, 7),
+                           'fresh_raw_at_stored_px': round(float(h[r, c]), 7)})
+        print(f"stored ({c},{r}) res {c % CELL},{r % CELL} conf {d['confidence']:.7f} -> fresh "
+              f"({fc},{fr}) res {fc % CELL},{fr % CELL} conf {fconf:.7f}")
+
+    # 2. the fresh row through the peak, knot to knot
+    col, row = TIE_PX
+    k_lo, k_hi = tie_knots(col)
+    row_rows = [{'col': c, 'row': row, 'residue': f'{c % CELL},{row % CELL}',
+                 'on_grid': on_grid(c % CELL, row % CELL), 'fresh_raw': round(float(h[row, c]), 9)}
+                for c in range(k_lo - 2, k_hi + 3)]
+    gap_fresh = float(h[row, k_hi]) - float(h[row, k_lo])
+    print(f'fresh knots ({k_lo},{row}) {h[row, k_lo]:.7f}, ({k_hi},{row}) {h[row, k_hi]:.7f}: '
+          f'gap {gap_fresh:+.2e}')
+
+    # 3. the sweep
+    up64, conv64 = _tie_float64(conv, R32.device)
+    sweep = []
+    for seed, eps, Rx, actual in _tie_maps(R32, conv, up64, conv64):
+        for dtype in ('float32', 'float64'):
+            with torch.no_grad():
+                hx = (conv(up(Rx)) if dtype == 'float32'
+                      else conv64(up64(Rx.double()))).squeeze().cpu().numpy()
+            pc, pr = tie_peak(hx)
+            og = None if pc is None else on_grid(pc % CELL, pr % CELL)
+            ts = None if pc is None else tie_size(hx, pc, pr)
+            rc, rr = tie_peak(hx, reverse=True) if og is False else (None, None)
+            sweep.append({'dtype': dtype, 'seed': seed, 'eps': f'{eps:.1e}',
+                          'gap_actual': f'{actual:.3e}', 'col': pc, 'row': pr,
+                          'residue': '' if pc is None else f'{pc % CELL},{pr % CELL}',
+                          'on_grid': og,
+                          # appended after the PR 160 review (S1); the columns above are unchanged
+                          'tie_size': ts, 'strict_max': None if ts is None else ts == 1,
+                          'reversed_col': rc, 'reversed_row': rr})
+    for dtype in ('float32', 'float64'):
+        rows_d = [s for s in sweep if s['dtype'] == dtype]
+        off = [s for s in rows_d if s['on_grid'] is False]
+        gaps = [abs(float(s['gap_actual'])) for s in off]
+        cols = Counter(s['col'] for s in off)
+        hit = [s for s in off if (s['col'], s['row']) == TIE_PX]
+        print(f'{dtype}: {len(off)} of {len(rows_d)} decodes off-grid'
+              + (f', |gap| <= {max(gaps):.1e}' if gaps else '')
+              + f'; columns {dict(sorted(cols.items()))}; at {TIE_PX}: {len(hit)}'
+              + (f" (first: seed {hit[0]['seed']}, eps {hit[0]['eps']})" if hit else ''))
+        if off:
+            moved = sum(1 for s in off
+                        if (s['reversed_col'], s['reversed_row']) != (s['col'], s['row']))
+            print(f"  off-grid: {sum(1 for s in off if s['strict_max'])} strict maxima, "
+                  f"{sum(1 for s in off if not s['strict_max'])} exact ties; "
+                  f'{moved} move under the reversed tie order; at {TIE_PX}: '
+                  f"{sum(1 for s in hit if s['strict_max'])} strict, "
+                  f"{sum(1 for s in hit if not s['strict_max'])} ties")
+    if warn:
+        print(warn)
+    write_csv(args.out / 'offgrid_tie_fresh.csv', fresh_rows)
+    write_csv(args.out / 'offgrid_tie_row.csv', row_rows)
+    write_csv(args.out / 'offgrid_tie_sweep.csv', sweep)
+    meta = {'pano': f'{TIE_CITY}:{TIE_PANO}', 'stored_px': list(TIE_PX),
+            'stored_record': {k: stored[k] for k in ('model_id', 'model_training_date',
+                                                     'api_version')},
+            'stored_pano': {k: stored['pano'][k] for k in ('capture_date', 'width', 'height')},
+            'pano_png_sha256': _sha256(pano_path), 'head_tail_bit_identical': same,
+            'knots': [k_lo, k_hi], 'fresh_knot_gap': gap_fresh,
+            'sweep': {'eps': [TIE_EPS[0], TIE_EPS[-1], len(TIE_EPS)], 'seeds': TIE_SEEDS,
+                      'drift': TIE_DRIFT, 'generator_seed': TIE_GEN_SEED}}
+    meta.update(_tie_env(det))
+    (args.out / 'offgrid_tie.meta.json').write_text(json.dumps(meta, indent=1) + '\n',
+                                                    encoding='utf-8', newline='\n')
+    det.close()
+
+
+def cmd_offgrid_tie_backend(args):
+    """GPU + CPU: how much of the offgrid-tie result belongs to this machine's numeric backend.
+
+    1. Gap drift: the full model on the pano under the default GPU path (cuDNN TF32 on), the
+       GPU with TF32 off, and CPU float32. Per backend: the 468/475 knot gap, the raw values
+       at the knots and at the stored peaks, and their shifts from the default. A July tie
+       needs the GAP to move, not the values (adjacent knots drift together).
+    2. The same sweep as offgrid-tie (`_tie_maps`), with the head tail run four ways
+       (TIE_ARMS): float32 on GPU (production; checked against the committed float32 sweep),
+       float32 on CPU, float32 upsample + float64 conv, float64 upsample + float32 conv.
+    Writes offgrid_tie_gap_drift.csv, offgrid_tie_backend.csv (one row per (seed, eps), each
+    arm's decoded col/row/tie_size), offgrid_tie_backend_summary.csv and
+    offgrid_tie_backend.meta.json."""
+    import numpy as np
+    import torch
+    from detectors.curb_ramp import CurbRampDetector
+    pano_path, img, stored = _tie_inputs(args)
+    det = CurbRampDetector()
+    if det.DEVICE.type != 'cuda':
+        raise SystemExit('offgrid-tie-backend compares the GPU with the CPU; no CUDA device')
+    warn = tie_env_warning(args.out, 'offgrid_tie_backend.meta.json', _tie_env(det))
+    if warn:
+        print(warn)
+    h, R32, up, conv = _tie_capture(det, img)
+    col, row = TIE_PX
+    k_lo, k_hi = tie_knots(col)
+    stored_px = [(round(d['x_normalized'] * HEATMAP_W), round(d['y_normalized'] * HEATMAP_H))
+                 for d in stored['detections']]
+    probe = sorted({(k_lo, row), TIE_PX, (k_hi, row), *stored_px})
+
+    # 1. gap drift across backends (the full model each time)
+    saved = (torch.backends.cudnn.allow_tf32, torch.backends.cuda.matmul.allow_tf32)
+    heat = {'gpu_default': h}
+    try:
+        torch.backends.cudnn.allow_tf32 = torch.backends.cuda.matmul.allow_tf32 = False
+        heat['gpu_tf32_off'] = det.heatmap(img)
+        det.model.to('cpu')
+        det.DEVICE = torch.device('cpu')
+        heat['cpu_fp32'] = det.heatmap(img)
+    finally:
+        torch.backends.cudnn.allow_tf32, torch.backends.cuda.matmul.allow_tf32 = saved
+        det.model.to('cuda')
+        det.DEVICE = torch.device('cuda')
+    drift_rows = []
+    gap_ref = float(h[row, k_hi]) - float(h[row, k_lo])
+    for name, hb in heat.items():
+        gap = float(hb[row, k_hi]) - float(hb[row, k_lo])
+        r = {'backend': name, 'knot_gap': f'{gap:.4e}',
+             'gap_shift_vs_default': f'{gap - gap_ref:.2e}',
+             'max_abs_diff_vs_default': f'{float(np.abs(hb - h).max()):.2e}',
+             'peak_near_tie': '{},{}'.format(*tie_peak(hb))}
+        r.update({f'raw_{c}_{rw}': round(float(hb[rw, c]), 7) for c, rw in probe})
+        drift_rows.append(r)
+        print(f"{name:13s} gap {r['knot_gap']} (shift {r['gap_shift_vs_default']}), "
+              f"max |diff| {r['max_abs_diff_vs_default']}, peak near tie {r['peak_near_tie']}")
+
+    # 2. the sweep under four numeric paths for the head tail
+    up64, conv64 = _tie_float64(conv, R32.device)
+    conv_cpu = torch.nn.Conv2d(256, 1, 1)
+    conv_cpu.load_state_dict({k: v.cpu() for k, v in conv.state_dict().items()})
+    tails = {'f32_gpu': lambda R: conv(up(R)),
+             'f32_cpu': lambda R: conv_cpu(up(R.cpu())),
+             'f32up_f64conv': lambda R: conv64(up(R).double()),
+             'f64up_f32conv': lambda R: conv(up64(R.double()).float())}
+    rows = []
+    for seed, eps, Rx, actual in _tie_maps(R32, conv, up64, conv64):
+        r = {'seed': seed, 'eps': f'{eps:.1e}', 'gap_actual': f'{actual:.3e}'}
+        for arm in TIE_ARMS:
+            with torch.no_grad():
+                hx = tails[arm](Rx).squeeze().cpu().numpy()
+            pc, pr = tie_peak(hx)
+            r.update({f'{arm}_col': pc, f'{arm}_row': pr,
+                      f'{arm}_tie_size': None if pc is None else tie_size(hx, pc, pr)})
+        rows.append(r)
+
+    committed = args.out / 'offgrid_tie_sweep.csv'
+    if committed.exists():
+        with open(committed, encoding='utf-8') as f:
+            f32 = [s for s in csv.DictReader(f) if s['dtype'] == 'float32']
+        agree = sum(1 for s, r in zip(f32, rows)
+                    if (s['col'], s['row']) == (str(r['f32_gpu_col']), str(r['f32_gpu_row'])))
+        print(f'f32_gpu vs the float32 rows of {committed.name}: {agree} of {len(f32)} identical')
+    summary = []
+    for arm in TIE_ARMS:
+        off = [r for r in rows if r[f'{arm}_col'] is not None
+               and not on_grid(r[f'{arm}_col'] % CELL, r[f'{arm}_row'] % CELL)]
+        cols = Counter(r[f'{arm}_col'] for r in off)
+        hit = [r for r in off if (r[f'{arm}_col'], r[f'{arm}_row']) == TIE_PX]
+        gaps = [abs(float(r['gap_actual'])) for r in off]
+        s = {'arm': arm, 'decodes': len(rows), 'off_grid': len(off),
+             'off_grid_strict': sum(1 for r in off if r[f'{arm}_tie_size'] == 1),
+             'off_grid_tie': sum(1 for r in off if r[f'{arm}_tie_size'] != 1),
+             'max_abs_gap_off_grid': f'{max(gaps):.2e}' if gaps else '',
+             'at_stored_px': len(hit),
+             'at_stored_px_strict': sum(1 for r in hit if r[f'{arm}_tie_size'] == 1),
+             'columns': ' '.join(f'{c}:{n}' for c, n in sorted(cols.items()))}
+        summary.append(s)
+        print(f"{arm:14s} off-grid {s['off_grid']}/{s['decodes']} ({s['off_grid_strict']} "
+              f"strict, {s['off_grid_tie']} ties, |gap| <= {s['max_abs_gap_off_grid']}); "
+              f"columns {s['columns']}; at {TIE_PX}: {s['at_stored_px']} "
+              f"({s['at_stored_px_strict']} strict)")
+    if warn:
+        print(warn)
+    write_csv(args.out / 'offgrid_tie_gap_drift.csv', drift_rows)
+    write_csv(args.out / 'offgrid_tie_backend.csv', rows)
+    write_csv(args.out / 'offgrid_tie_backend_summary.csv', summary)
+    meta = {'pano': f'{TIE_CITY}:{TIE_PANO}', 'pano_png_sha256': _sha256(pano_path),
+            'arms': list(TIE_ARMS), 'gap_drift_backends': list(heat),
+            'sweep': {'eps': [TIE_EPS[0], TIE_EPS[-1], len(TIE_EPS)], 'seeds': TIE_SEEDS,
+                      'drift': TIE_DRIFT, 'generator_seed': TIE_GEN_SEED}}
+    meta.update(_tie_env(det))
+    (args.out / 'offgrid_tie_backend.meta.json').write_text(json.dumps(meta, indent=1) + '\n',
+                                                            encoding='utf-8', newline='\n')
+    det.close()
 
 
 def write_csv(path, rows):
@@ -585,6 +1602,71 @@ def fig_sigma(plt):
     return fig
 
 
+def fig_offgrid(plt):
+    """A real clipped plateau (#151 q2): the raw heatmap around the widest reproduced off-grid
+    decode peak, the clip == 1.0 plateau, the raster-first pixel skimage keeps and the raw top."""
+    import numpy as np
+    ex = json.loads((FIG_DIR / 'data' / 'offgrid_plateau_example.json').read_text(encoding='utf-8'))
+    a = np.asarray(ex['raw_crop'])
+    ox, oy = ex['origin_col_row']
+    pc, pr = ex['col'] - ox, ex['row'] - oy                 # chosen pixel, crop coordinates
+    mc, mr = ex['raw_max_col'] - ox, ex['raw_max_row'] - oy  # raw top of the plateau
+    knots = [k - 0.5 for k in range(a.shape[1] + 1) if (ox + k - 0.5) % CELL == 3.5]
+    knots_y = [k - 0.5 for k in range(a.shape[0] + 1) if (oy + k - 0.5) % CELL == 3.5]
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.4), gridspec_kw={'width_ratios': [1, 1.35]})
+    ax = axes[0]
+    ext = (ox - 0.5, ox + a.shape[1] - 0.5, oy + a.shape[0] - 0.5, oy - 0.5)
+    im = ax.imshow(a, cmap='Greys', vmin=max(0.0, float(a.min())), vmax=float(a.max()),
+                   extent=ext, interpolation='nearest')
+    ax.contour(np.arange(ox, ox + a.shape[1]), np.arange(oy, oy + a.shape[0]),
+               (a >= 1.0).astype(float), levels=[0.5], colors=[C_ORANGE], linewidths=1.4)
+    for k in knots:
+        ax.axvline(ox + k, color=C_BLUE, linewidth=0.6, linestyle=':')
+    for k in knots_y:
+        ax.axhline(oy + k, color=C_BLUE, linewidth=0.6, linestyle=':')
+    ax.scatter([ex['col']], [ex['row']], marker='s', s=60, facecolor='none',
+               edgecolor=C_ORANGE, linewidth=1.8, zorder=4,
+               label=f"kept: ({ex['col']},{ex['row']}), residue ({ex['residue']})")
+    ax.scatter([ex['raw_max_col']], [ex['raw_max_row']], marker='o', s=40, color=C_BLUE,
+               zorder=4, label=f"raw top: ({ex['raw_max_col']},{ex['raw_max_row']}), "
+                               f"residue ({ex['raw_max_residue']})")
+    ax.set_xlabel('heatmap column', color=C_INK2, fontsize=9)
+    ax.set_ylabel('heatmap row', color=C_INK2, fontsize=9)
+    ax.tick_params(colors=C_MUTED, labelcolor=C_INK2, labelsize=8)
+    ax.legend(fontsize=7.5, loc='lower left', frameon=True, framealpha=0.9)
+    ax.set_title(f"Raw heatmap; orange = clipped plateau ({ex['plateau_px']} px)",
+                 fontsize=10, color=C_INK, loc='left')
+    cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+    cb.ax.tick_params(labelsize=7, colors=C_MUTED, labelcolor=C_INK2)
+    ax = axes[1]
+    cols = np.arange(ox, ox + a.shape[1])
+    for r, color, name in ((pr, C_ORANGE, f"row {ex['row']} (the kept pixel's)"),
+                           (mr, C_BLUE, f"row {ex['raw_max_row']} (the raw top's)")):
+        ax.plot(cols, a[r], marker='o', markersize=3, color=color, linewidth=1.2, label=name)
+    ax.axhline(1.0, color=C_INK2, linewidth=0.9, linestyle='--')
+    ax.text(cols[0], 1.0, ' clip at 1.0', va='bottom', fontsize=7.5, color=C_INK2)
+    for k in knots:
+        ax.axvline(ox + k, color=C_BLUE, linewidth=0.6, linestyle=':')
+    ax.scatter([ex['col']], [a[pr, pc]], marker='s', s=70, facecolor='none',
+               edgecolor=C_ORANGE, linewidth=1.8, zorder=4)
+    ax.scatter([ex['raw_max_col']], [a[mr, mc]], marker='o', s=45, color=C_BLUE, zorder=4)
+    lo = float(min(a[pr].min(), a[mr].min()))
+    ax.set_ylim(max(lo, 1.0 - 4 * (float(a.max()) - 1.0)), float(a.max()) + 0.012)
+    ax.set_xlabel('heatmap column (dotted: coarse knots at 8k + 3.5)', color=C_INK2,
+                  fontsize=9)
+    ax.set_ylabel('raw heatmap value', color=C_INK2, fontsize=9)
+    ax.legend(fontsize=7.5, loc='lower center')
+    ax.set_title('Above the dashed line every pixel clips to 1.0;\n'
+                 'skimage keeps the first in row-major order', fontsize=9.5, color=C_INK,
+                 loc='left')
+    _style(ax)
+    fig.suptitle(f"A real clipped plateau: {ex['split'].replace('_', ' ')} pano "
+                 f"{ex['pano_id']}, re-run on this repo's detector", fontsize=11, color=C_INK,
+                 x=0.01, ha='left')
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    return fig
+
+
 def cmd_figures(args):
     import matplotlib
     matplotlib.use('Agg')
@@ -597,6 +1679,11 @@ def cmd_figures(args):
     else:
         print('no data/examples.json: run `examples` first (GPU) for heatmap_crop.png',
               file=sys.stderr)
+    if (FIG_DIR / 'data' / 'offgrid_plateau_example.json').exists():
+        todo.append(('offgrid_plateau.png', fig_offgrid))
+    else:
+        print('no data/offgrid_plateau_example.json: run `offgrid-heatmaps` first (GPU) for '
+              'offgrid_plateau.png', file=sys.stderr)
     for name, fn in todo:
         fig = fn(plt)
         fig.savefig(FIG_DIR / name, dpi=args.dpi)
@@ -622,9 +1709,45 @@ def main(argv=None):
     p.add_argument('--max-panos', type=int, default=80)
     p = sub.add_parser('figures')
     p.add_argument('--dpi', type=int, default=100)
+    p = sub.add_parser('offgrid')
+    p.add_argument('--results', nargs='*', default=[],
+                   help='run names (runs/<name>/results.jsonl) or results .jsonl paths')
+    p.add_argument('--decode', nargs='*', type=Path, default=[],
+                   help='committed decode_*.jsonl.gz files (their argmax peaks)')
+    p.add_argument('--labels', type=Path, help='a rawLabels geojson')
+    p.add_argument('--labels-user', help='the AI account whose labels to census')
+    p.add_argument('--unmatched', type=Path, help="a provenance gate's unmatched.csv")
+    p.add_argument('--unmatched-results', type=Path,
+                   help='the run it was gated against (default: ../results.jsonl beside it)')
+    p.add_argument('--city', help='label_uid prefix (default: the run directory name)')
+    p.add_argument('--runs-root', type=Path, default=REPO_ROOT / 'runs')
+    p.add_argument('--out', type=Path, default=None,
+                   help='write the CSVs here (default: print only; the committed copies live '
+                        'in docs/figures/heatmap-grid/data, so a partial run cannot '
+                        'overwrite them by accident)')
+    p = sub.add_parser('offgrid-heatmaps')
+    p.add_argument('--decode', nargs='+', type=Path,
+                   default=[OUT_DIR / 'decode' / 'decode_*.jsonl.gz'])
+    p.add_argument('--benchmark-root', type=Path,
+                   default=REPO_ROOT.parent / 'RampNet' / 'benchmark')
+    p.add_argument('--out', type=Path, default=OUT_DIR)
+    p = sub.add_parser('offgrid-tie')
+    p.add_argument('--runs-root', type=Path, default=REPO_ROOT / 'runs')
+    p.add_argument('--pano', type=Path, default=None,
+                   help='the pano as a local image (default: runs/paterson/offgrid_tie/'
+                        '<id>_z3.png, fetched there on first use)')
+    p.add_argument('--out', type=Path, default=OUT_DIR)
+    p = sub.add_parser('offgrid-tie-backend')
+    p.add_argument('--runs-root', type=Path, default=REPO_ROOT / 'runs')
+    p.add_argument('--pano', type=Path, default=None,
+                   help='as for offgrid-tie (the same cached PNG)')
+    p.add_argument('--out', type=Path, default=OUT_DIR)
     args = ap.parse_args(argv)
     {'grid': cmd_grid, 'sigma': cmd_sigma, 'examples': cmd_examples,
-     'figures': cmd_figures}[args.cmd](args)
+     'figures': cmd_figures, 'offgrid': cmd_offgrid,
+     'offgrid-heatmaps': cmd_offgrid_heatmaps,
+     'offgrid-tie': cmd_offgrid_tie,
+     'offgrid-tie-backend': cmd_offgrid_tie_backend}[args.cmd](args)
 
 
 if __name__ == '__main__':

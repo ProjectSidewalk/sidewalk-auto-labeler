@@ -1,0 +1,7 @@
+metric,value
+box_kept_at_10m,485
+box_kept_at_10m_not_in_canonical,15
+of_which_within_one_cell_diagonal_of_box_edge,15
+panos_in_both_runs,470
+panos_with_identical_detection_pixels,470
+max_confidence_difference_on_identical_pixels,0.000073
