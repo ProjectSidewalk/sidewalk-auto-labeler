@@ -1421,9 +1421,12 @@ def run(args):
                 results_path=results_path, label_type=label_type)
     except ValueError as e:        # no per-rig table, or one measured on another file
         raise SystemExit(str(e))
-    params = fs.FuseParams(camera_height_m=height,
-                           min_confidence=args.min_confidence,
-                           mask_rig=args.offline or args.mask_rig, apply_pose=fs.POSE_OFF)
+    # The type's own association params (#168 item 4); for CurbRamp this is exactly the
+    # FuseParams(...) built before, so every committed report reproduces.
+    params = fs.fuse_params_for(label_type, camera_height_m=height,
+                                min_confidence=args.min_confidence,
+                                mask_rig=args.offline or args.mask_rig,
+                                apply_pose=fs.POSE_OFF)
     lines.append(f'raycast camera height {fs.frame_label(args.camera_height_m)}; '
                  f'fusion arm at --min-confidence {args.min_confidence:g}')
     lines += fs.height_resolution_lines(args.camera_height_m, run_panos, params, auto)
