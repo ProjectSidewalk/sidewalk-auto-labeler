@@ -45,9 +45,26 @@ import fuse_sites as fs  # noqa: E402
 from detectors import BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, DECODE_ARGMAX  # noqa: E402
 from detectors import registry  # noqa: E402
 
-# eval_sites (and mined_precision, through load_city_at_height) score CurbRamp only: a file
-# whose records ran any other type set is refused inside fs.load_results' own pass (#168).
+# eval_sites (and mined_precision, through load_city_at_height) score CurbRamp by default: a
+# file whose records ran any other type set is refused inside fs.load_results' own pass (#168),
+# because every judged CurbRamp bundle was exported from a CurbRamp-only run. --label-type T
+# (#168 item 4) instead scores T's detections of any file that ran T, against a bundle that
+# export_benchmark.py --label-type T wrote.
 CURB_RAMP_ONLY = (registry.CURB_RAMP,)
+
+
+def _type_requirement(label_type):
+    """fs.load_results' require_types for a scored type: CurbRamp keeps the CurbRamp-only
+    refusal; another type only needs to have run (load_results refuses a file that never ran
+    it)."""
+    return CURB_RAMP_ONLY if label_type == registry.CURB_RAMP else None
+
+
+def default_out_dir(run_dir, label_type=registry.CURB_RAMP):
+    """runs/<city>/fusion_eval, or fusion_eval.<type> for another label type, so two types'
+    reports never overwrite each other."""
+    return run_dir / ('fusion_eval' if label_type == registry.CURB_RAMP
+                      else f'fusion_eval.{label_type}')
 
 
 def require_argmax(run_panos, run_dir):
@@ -1088,22 +1105,25 @@ def load_benchmark(city, benchmark_root):
     return verdicts['panos'], bundle_ops
 
 
-def load_city_files(city, benchmark_root, run_dir, read_heights=True, height_table=None):
+def load_city_files(city, benchmark_root, run_dir, read_heights=True, height_table=None,
+                    label_type=registry.CURB_RAMP):
     verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
     run_panos, skipped = fs.load_results(run_dir / 'results.jsonl',
                                          read_heights=read_heights, height_table=height_table,
-                                         require_types=CURB_RAMP_ONLY)
+                                         label_type=label_type,
+                                         require_types=_type_requirement(label_type))
     require_bundle_frame(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos
 
 
 def load_city_at_height(city, benchmark_root, run_dir, camera_height, read_heights=None,
-                        results_path=None):
+                        results_path=None, label_type=registry.CURB_RAMP):
     """load_city_files with the run's camera height resolved by fs.load_at_height, the one
     resolver fuse_sites, eval_sites, eval_ps_clustering and mined_precision share (#56).
 
     `results_path` reads another results file of the run instead of results.jsonl (Laurens
-    went live from results.raw.jsonl; #106).
+    went live from results.raw.jsonl; #106). `label_type` (#168) picks whose detections are
+    loaded; CurbRamp (the default) refuses a file that ran any other type set.
 
     Returns (verdict_panos, bundle_ops, run_panos, height, auto): pass `height` as
     FuseParams.camera_height_m, and `auto` (None unless `camera_height` was auto) to
@@ -1112,9 +1132,10 @@ def load_city_at_height(city, benchmark_root, run_dir, camera_height, read_heigh
     """
     verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
     results_path = Path(results_path) if results_path else run_dir / 'results.jsonl'
-    # eval_sites and mined_precision (which loads through here) score CurbRamp only (#168)
+    # eval_sites and mined_precision (which loads through here) score CurbRamp by default (#168)
     run_panos, _skipped, height, auto = fs.load_at_height(
-        results_path, camera_height, read_heights=read_heights, require_types=CURB_RAMP_ONLY)
+        results_path, camera_height, read_heights=read_heights, label_type=label_type,
+        require_types=_type_requirement(label_type))
     require_bundle_frame(run_panos, run_dir)
     return verdict_panos, bundle_ops, run_panos, height, auto
 
@@ -1125,6 +1146,11 @@ def main():
     ap.add_argument('--benchmark-root', type=Path,
                     default=REPO_ROOT.parent / 'RampNet' / 'benchmark')
     ap.add_argument('--run-dir', type=Path, default=None)
+    ap.add_argument('--label-type', default=registry.CURB_RAMP, choices=sorted(registry.SPECS),
+                    help="whose detections to score (#168; default %(default)s), against a "
+                         "bundle export_benchmark.py --label-type wrote; fusion uses that "
+                         "type's fuse_params_for. A type other than CurbRamp writes "
+                         'runs/<city>/fusion_eval.<type> by default')
     ap.add_argument('--match-radius-m', type=float, default=5.0)
     ap.add_argument('--gt-merge-m', type=float, default=2.5)
     ap.add_argument('--radius-sweep', type=float, nargs='*',
@@ -1166,10 +1192,17 @@ def main():
     if args.apply_pose != fs.POSE_OFF and args.out is None:
         ap.error('--apply-pose other than the default changes the scoring frame; '
                  'pass --out so the default fusion_eval/ report is not overwritten')
+    spec = registry.spec_for(args.label_type)
+    if spec.benchmark_confidence != BENCHMARK_CONFIDENCE:
+        # TODO(#168): the GT join (judged_gt_panos) and the sub-floor test are still keyed to
+        # the module constant; thread the type's tier through before scoring such a type.
+        ap.error(f'{args.label_type} benchmarks at {spec.benchmark_confidence}, but eval_sites '
+                 f'scores at the CurbRamp tier {BENCHMARK_CONFIDENCE}; not yet per type')
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
     try:
         verdict_panos, bundle_ops, run_panos, _height, _auto = load_city_at_height(
-            args.city, args.benchmark_root, run_dir, args.camera_height_m)
+            args.city, args.benchmark_root, run_dir, args.camera_height_m,
+            label_type=args.label_type)
     except ValueError as e:        # no table, one measured on another file, or a GSV run
         sys.exit(str(e))
     for warning in fs.pose_source_warnings(run_panos, args.apply_pose):
@@ -1178,9 +1211,14 @@ def main():
     # verdicts and the committed reports are keyed to it (detectors/__init__.py).
     # mask_rig=False alongside the pinned tier: runs/<city>/fusion_eval/ is git-tracked by
     # the same convention as the tilt CSVs, so re-running must still reproduce it.
-    params = fs.FuseParams(min_confidence=BENCHMARK_CONFIDENCE, mask_rig=False,
-                           camera_height_m=args.camera_height_m,
-                           apply_pose=args.apply_pose, sigma_peak_px=args.sigma_peak_px)
+    # fuse_params_for(CurbRamp, ...) is exactly the FuseParams(...) this built before #168.
+    params = fs.fuse_params_for(args.label_type,
+                                min_confidence=BENCHMARK_CONFIDENCE,
+                                # only CurbRamp has committed pre-mask reports to reproduce
+                                mask_rig=(False if args.label_type == registry.CURB_RAMP
+                                          else spec.mask_rig),
+                                camera_height_m=args.camera_height_m,
+                                apply_pose=args.apply_pose, sigma_peak_px=args.sigma_peak_px)
     if args.pose_precondition:
         rows, info = pose_precondition(verdict_panos, bundle_ops, run_panos,
                                        replace(params, apply_pose=fs.POSE_OFF),
@@ -1224,7 +1262,7 @@ def main():
 
     report_text = '\n\n'.join(sections)
     print(report_text)
-    out_dir = args.out or run_dir / 'fusion_eval'
+    out_dir = args.out or default_out_dir(run_dir, args.label_type)
     write_outputs(out_dir, report_text, result)
     print(f'\nwrote {out_dir}')
 
