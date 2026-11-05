@@ -206,6 +206,11 @@ class FuseParams:
     max_vintage_months: int | None = None  # eval-ablation only; None = no gate
     grade_source: str = GRADE_SFM    # one of GRADE_SOURCES (#51); load_results applies it,
                                      # this records it in sites_meta.json
+    label_type: str = registry.CURB_RAMP  # whose detections these sites are (#168 item 4).
+                                     # load_results does the filtering (its own label_type);
+                                     # this records the type in sites_meta.json. Kept LAST
+                                     # so asdict order, and every positional caller, is as
+                                     # before. Build a non-CurbRamp one with fuse_params_for.
 
     def __post_init__(self):
         # A bool here is a caller from before #42 made this three-way; refusing it beats
@@ -215,12 +220,36 @@ class FuseParams:
         if self.grade_source not in GRADE_SOURCES:
             raise ValueError(f'grade_source must be one of {GRADE_SOURCES}, '
                              f'got {self.grade_source!r}')
+        registry.spec_for(self.label_type)     # UnknownLabelTypeError (a ValueError)
 
     @property
     def rotates(self):
         """Whether rays MAY be rotated (geo's boolean apply_pose). Per pano, pano_pose
         decides: a pano it leaves unposed raycasts flat whatever this says."""
         return self.apply_pose != POSE_OFF
+
+
+def fuse_params_for(label_type=registry.CURB_RAMP, **overrides):
+    """FuseParams for one label type (#168 item 4): the type's DetectorSpec values first
+    (storage floor, operational threshold, rig mask), then its ``fuse_overrides`` (the
+    association knobs a non-point feature needs, e.g. a wider ``max_match_m`` for a
+    crosswalk), then ``overrides``. An override whose value is None is skipped, so a CLI flag
+    left at its None default keeps the type's value rather than resetting it.
+
+    CurbRamp's spec values ARE FuseParams' defaults and its fuse_overrides is empty, so
+    ``fuse_params_for('CurbRamp') == FuseParams()``.
+
+    Example:
+        >>> fuse_params_for('CurbRamp', gate_chi2=None) == FuseParams()
+        True
+        >>> fuse_params_for('CurbRamp', max_match_m=6.0).max_match_m
+        6.0
+    """
+    spec = registry.spec_for(label_type)
+    kw = {'floor': spec.storage_floor, 'min_confidence': spec.operational_confidence,
+          'mask_rig': spec.mask_rig, **dict(spec.fuse_overrides),
+          **{k: v for k, v in overrides.items() if v is not None}}
+    return FuseParams(**kw, label_type=label_type)
 
 
 @dataclass
@@ -1294,8 +1323,9 @@ def build_parser():
     ap.add_argument('run', help='run directory (with results.jsonl) or a jsonl path')
     ap.add_argument('--label-type', default=registry.CURB_RAMP, choices=sorted(registry.SPECS),
                     help="which label type's detections to fuse (#168; default %(default)s). "
-                         "--floor and --min-confidence default to that type's spec, and a "
-                         'type other than CurbRamp writes sites.<type>.jsonl by default')
+                         "--floor, --min-confidence and the association knobs default to "
+                         "that type's spec and fuse_overrides (fuse_params_for), and a type "
+                         'other than CurbRamp writes sites.<type>.jsonl by default')
     ap.add_argument('--floor', type=float, default=None,
                     help=f"default: the label type's storage floor ({DETECTION_STORAGE_FLOOR} "
                          f'for CurbRamp)')
@@ -1310,11 +1340,17 @@ def build_parser():
     ap.add_argument('--min-confidence', type=float, default=None,
                     help=f"default: the label type's operational threshold "
                          f'({OPERATIONAL_CONFIDENCE} for CurbRamp)')
-    ap.add_argument('--max-range-m', type=float, default=geo.DEFAULT_MAX_RANGE_M)
-    ap.add_argument('--gate-chi2', type=float, default=FuseParams.gate_chi2)
-    ap.add_argument('--max-match-m', type=float, default=FuseParams.max_match_m)
-    ap.add_argument('--residual-per-dof-max', type=float,
-                    default=FuseParams.residual_per_dof_max)
+    # The association knobs default to None = the label type's value (fuse_params_for):
+    # FuseParams' own default unless the type's DetectorSpec.fuse_overrides sets one.
+    ap.add_argument('--max-range-m', type=float, default=None,
+                    help=f"default: the label type's ({geo.DEFAULT_MAX_RANGE_M} for CurbRamp)")
+    ap.add_argument('--gate-chi2', type=float, default=None,
+                    help=f"default: the label type's ({FuseParams.gate_chi2} for CurbRamp)")
+    ap.add_argument('--max-match-m', type=float, default=None,
+                    help=f"default: the label type's ({FuseParams.max_match_m} for CurbRamp)")
+    ap.add_argument('--residual-per-dof-max', type=float, default=None,
+                    help=f"default: the label type's ({FuseParams.residual_per_dof_max} "
+                         'for CurbRamp)')
     ap.add_argument('--camera-height-m', type=fuse_camera_height_arg, default=HEIGHT_AUTO,
                     help='"auto" (the default, #79): GSV panos at a per-rig height by '
                          'capture year from the run\'s depth-measured heights; undated GSV '
@@ -1329,7 +1365,8 @@ def build_parser():
     ap.add_argument('--height-table', type=Path, default=None,
                     help='camera_heights.json for --camera-height-m per-rig '
                          '(default: beside results.jsonl)')
-    ap.add_argument('--sigma-scale', type=float, default=1.0)
+    ap.add_argument('--sigma-scale', type=float, default=None,
+                    help=f"default: the label type's ({FuseParams.sigma_scale} for CurbRamp)")
     ap.add_argument('--sigma-peak-px', type=float, default=None,
                     help='heatmap-peak 1-sigma in heatmap px (#111; default '
                          f'geo.SIGMA_PEAK_PX_DEFAULT = {geo.SIGMA_PEAK_PX_DEFAULT}). '
@@ -1374,12 +1411,10 @@ def main(argv=None):
     jsonl = src if src.is_file() else src / 'results.jsonl'
     if not jsonl.exists():
         sys.exit(f'no results.jsonl at {jsonl}')
-    spec = registry.spec_for(args.label_type)
-    params = FuseParams(
-        floor=spec.storage_floor if args.floor is None else args.floor,
-        min_confidence=(spec.operational_confidence if args.min_confidence is None
-                        else args.min_confidence),
-        mask_rig=spec.mask_rig,
+    # The type's spec + fuse_overrides, then every flag the user actually set (#168 item 4).
+    params = fuse_params_for(
+        args.label_type,
+        floor=args.floor, min_confidence=args.min_confidence,
         max_range_m=args.max_range_m, gate_chi2=args.gate_chi2,
         max_match_m=args.max_match_m,
         residual_per_dof_max=args.residual_per_dof_max,
