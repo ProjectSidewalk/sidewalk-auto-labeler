@@ -1590,7 +1590,7 @@ def main():
             detectors.update(registry.load_detectors(
                 args.types, allow_unknown_revision=args.allow_unknown_model_revision,
                 batch_size=args.batch_size, decode=args.decode, border=args.border))
-        except ModelProvenanceError as e:
+        except (ModelProvenanceError, registry.NoDetectorError) as e:
             sys.exit(f"❌ {e}")
         curb_ramp_detector = detectors.get(registry.CURB_RAMP)
         provenance = {t: d.provenance for t, d in detectors.items()}

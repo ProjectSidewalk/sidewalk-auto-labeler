@@ -23,6 +23,17 @@ the pre-#168 format with no new key; any other set writes per-detection ``label_
 This module imports no torch (the test suite runs torch-free); ``load_detectors`` imports a
 detector's module only when that type is asked for.
 
+Not every type has a model. ``NoCurbRamp`` (issue #169) is produced by a RULE over the corner
+inventory, ``scripts/corner_labels.py``, which writes a results.jsonl in the same record format
+so send_to_ps.py submits it unchanged. Its spec has ``module=None``: ``load_detectors`` refuses
+it with a pointer to the script (RULE_PRODUCED), so ``main.py --types NoCurbRamp`` fails before
+anything is fetched. Every rule proposal carries confidence 1.0 (the rule is binary), and the
+three thresholds sit at 0.5 so that a proposal always passes and nothing below 0.5 ever would.
+``mask_rig`` is False: the label's pixel is the projection of a known ground point (the
+corner point, 12 m from the intersection centre), not a heatmap peak, so it cannot land on the
+camera vehicle unless the corner is within a metre or two of the camera, which the build
+excludes (``--min-view-m``).
+
 Example::
 
     >>> rec = {'detections': [{'x_normalized': .5, 'y_normalized': .6, 'confidence': .9}],
@@ -39,6 +50,7 @@ from detectors import (BENCHMARK_CONFIDENCE, DETECTION_STORAGE_FLOOR,
                        OPERATIONAL_CONFIDENCE)
 
 CURB_RAMP = 'CurbRamp'
+NO_CURB_RAMP = 'NoCurbRamp'
 
 # The keys a record carries per model (main.build_output_line writes them at line level for
 # a CurbRamp-only run, and inside models[T] for every type otherwise).
@@ -59,11 +71,20 @@ SPECS = {
     CURB_RAMP: DetectorSpec(CURB_RAMP, 'detectors.curb_ramp', 'CurbRampDetector',
                             DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE,
                             BENCHMARK_CONFIDENCE, True),
+    # Issue #169: no model; scripts/corner_labels.py writes these records (see the docstring).
+    NO_CURB_RAMP: DetectorSpec(NO_CURB_RAMP, None, None, 0.5, 0.5, 0.5, False),
 }
+
+# Types with no detector, and the tool that produces their records instead.
+RULE_PRODUCED = {NO_CURB_RAMP: 'scripts/corner_labels.py'}
 
 
 class UnknownLabelTypeError(ValueError):
     """A label type with no DetectorSpec."""
+
+
+class NoDetectorError(ValueError):
+    """A label type whose records come from a rule, not a model (RULE_PRODUCED)."""
 
 
 class UntypedDetectionError(ValueError):
@@ -104,6 +125,11 @@ def load_detectors(label_types, **kw):
     exposes ``.detect(image)``, ``.provenance``, ``.stats()`` and ``.close()``.
     """
     types = parse_types(','.join(label_types))
+    for t in types:
+        if spec_for(t).module is None:
+            raise NoDetectorError(
+                f'{t} has no detector; it is produced by '
+                f'{RULE_PRODUCED.get(t, "a rule, not a model")}')
     if len(types) > 1 and 'inference_lock' not in kw:
         # Each detector serializes its own forward passes; two detectors on 50 fetch threads
         # would still overlap on the device. One shared lock serializes them all. A single

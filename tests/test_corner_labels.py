@@ -1,0 +1,409 @@
+"""scripts/corner_labels.py (issue #169) on synthetic corners: the NA-read rule, pano choice
+(hemisphere, range, newest date), the projection round trip through geo, the exported record
+and its PS payload, the registry's rule-produced NoCurbRamp spec, the ranked-CSV join, the
+seeded sample, and the pre-registered score. CPU only, no network, no torch."""
+import io
+import json
+from contextlib import redirect_stdout
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+import corner_inventory as ci
+import corner_labels as cl
+import geo
+import send_to_ps
+from detectors import NADIR_MASK_Y, ps_pixel
+from detectors import registry
+
+LAT0, LNG0 = 45.6, -122.6
+EMPTY = {'Available': 0, 'NA_noramp': 0, 'NA_typed': 0, 'RMV': 0, 'Expired/Removed': 0,
+         'other': 0}
+STATE_KEYS = [f'{a}/{v}' for a in ci.ARMS for v in ci.VARIANTS]
+
+
+def at(e, n, lat0=LAT0, lng0=LNG0):
+    """(lat, lng) e metres east and n metres north of (lat0, lng0)."""
+    return geo.LocalFrame(lat0, lng0).to_latlng(e, n)
+
+
+def pano(heading, e=0.0, n=0.0, date='2020-01', run='base'):
+    lat, lng = at(e, n)
+    return {'lat': lat, 'lng': lng, 'heading': heading, 'capture_date': date,
+            'width': 16384, 'height': 8192, 'source': 'gsv', 'run': run}
+
+
+def args(**kw):
+    base = dict(arm='fusion', variant='primary', na_read='discount', max_range_m=25.0,
+                min_view_m=3.0, top_k=3, camera_height_m=2.5)
+    base.update(kw)
+    return SimpleNamespace(**base)
+
+
+def corner(idx, e, n, state='absent', inv=None, panos=()):
+    lat, lng = at(e, n)
+    return {'corner': idx, 'lat': lat, 'lng': lng, 'start_deg': 0.0, 'width_deg': 90.0,
+            'wide': False, 'state': dict.fromkeys(STATE_KEYS, state),
+            'inv_counts': dict(EMPTY, **(inv or {})), 'inventory': [],
+            'pano_ids_25': list(panos), 'n_panos_25': len(panos), 'n_panos_15': len(panos),
+            'nearest_pano_m': 5.0}
+
+
+class NoSites:
+    def nearest(self, lat, lng):
+        return None
+
+
+# ------------------------------------------------------------------------ the rule
+
+@pytest.mark.parametrize('inv, discount, count', [
+    ({}, False, False),
+    ({'NA_noramp': 3}, False, True),
+    ({'NA_typed': 1}, True, True),
+    ({'Available': 1}, True, True),
+    ({'RMV': 1}, True, True),
+    ({'Expired/Removed': 1, 'NA_noramp': 1}, True, True),
+    ({'other': 1}, True, True),
+])
+def test_inventory_excludes_under_both_reads(inv, discount, count):
+    counts = dict(EMPTY, **inv)
+    assert cl.inventory_excludes(counts, 'discount') is discount
+    assert cl.inventory_excludes(counts, 'count') is count
+
+
+def test_inventory_excludes_refuses_an_unknown_read():
+    with pytest.raises(ValueError):
+        cl.inventory_excludes(EMPTY, 'clean')
+
+
+def test_na_read_is_required_on_the_cli():
+    with pytest.raises(SystemExit):
+        cl.main(['build', '--corners', 'x', '--run-dir', 'y', '--out', 'z'])
+
+
+# ---------------------------------------------------------------------- pano choice
+
+def test_candidate_views_hemisphere_and_range():
+    lat, lng = at(0, 10)               # the corner point, 10 m north of the origin
+    panos = {
+        'ok': pano(0.0),                     # at the origin facing north: dead ahead
+        'side': pano(90.0, e=0, n=0),        # facing east: point at 90 deg, still forward
+        'behind': pano(180.0),               # facing south: point behind
+        'near': pano(0.0, n=8.5),            # 1.5 m away
+        'far': pano(0.0, n=-20.0),           # 30 m away
+        'nopose': dict(pano(0.0), heading=None),
+    }
+    cands, rej = cl.candidate_views(lat, lng, list(panos) + ['missing'], panos)
+    assert sorted(c['pano_id'] for c in cands) == ['ok', 'side']
+    assert rej == {'no_pose': 2, 'too_far': 1, 'too_near': 1, 'behind': 1}
+    ok = next(c for c in cands if c['pano_id'] == 'ok')
+    assert ok['dist_m'] == pytest.approx(10.0, abs=1e-6) and ok['off_axis_deg'] < 1e-6
+
+
+def test_choose_pano_prefers_newest_among_top_k():
+    c = [{'pano_id': 'a', 'dist_m': 4.0, 'capture_date': '2014-08'},
+         {'pano_id': 'b', 'dist_m': 9.0, 'capture_date': '2014-08'},
+         {'pano_id': 'c', 'dist_m': 12.0, 'capture_date': '2022-07'},
+         {'pano_id': 'd', 'dist_m': 20.0, 'capture_date': '2024-01'}]
+    chosen, runners = cl.choose_pano(c, top_k=3)
+    assert chosen['pano_id'] == 'c'                    # newest of a, b, c; d is not top-3
+    assert [r['pano_id'] for r in runners] == ['a', 'b', 'd']
+    assert cl.choose_pano(c, top_k=1)[0]['pano_id'] == 'a'
+    assert cl.choose_pano(c, top_k=4)[0]['pano_id'] == 'd'
+    # same date: nearest wins
+    same = [dict(x, capture_date='2020-01') for x in c]
+    assert cl.choose_pano(same)[0]['pano_id'] == 'a'
+    assert cl.choose_pano([]) == (None, [])
+
+
+def test_min_view_excludes_near_panos_from_the_choice():
+    lat, lng = at(0, 10)
+    panos = {'near': pano(0.0, n=8.0, date='2024-01'), 'far': pano(0.0, date='2010-01')}
+    cands, rej = cl.candidate_views(lat, lng, panos, panos, min_view_m=3.0)
+    assert cl.choose_pano(cands)[0]['pano_id'] == 'far' and rej['too_near'] == 1
+
+
+# ----------------------------------------------------------------------- projection
+
+@pytest.mark.parametrize('heading, x, y', [(0.0, 0.5, 0.6), (123.4, 0.31, 0.55),
+                                           (300.0, 0.7, 0.58)])
+def test_projection_round_trips_through_geo(heading, x, y):
+    p = pano(heading, e=3.0, n=-2.0)
+    pose = geo.pano_pose({'lat': p['lat'], 'lng': p['lng'], 'camera_heading': heading,
+                          'camera_pitch': None, 'camera_roll': None, 'source': 'gsv'})
+    g = geo.detection_ground_point(pose, x, y, camera_height=2.5, apply_pose=False)
+    proj = cl.project(p, g.lat, g.lng, camera_height_m=2.5)
+    assert (proj.x_norm, proj.y_norm) == (pytest.approx(x, abs=1e-9), pytest.approx(y, abs=1e-9))
+
+
+# ----------------------------------------------------------------------------- build
+
+def unit(corners, typ='residential', name='vancouver:res:n1'):
+    return {'unit': name, 'type': typ, 'corners': corners}
+
+
+def test_build_proposals_counts_every_reason():
+    panos = {'p': pano(0.0)}
+    units = [unit([
+        corner(0, 0, 10, panos=['p']),                                  # proposed
+        corner(1, 0, 12, inv={'NA_noramp': 1}, panos=['p']),            # proposed under discount
+        corner(2, 0, 14, inv={'Available': 1}, panos=['p']),            # excluded
+        corner(3, 0, -10, panos=['p']),                                 # behind -> no candidate
+        corner(4, 5, 10, state='present', panos=['p']),                 # not absent
+    ]), unit([corner(0, 0, 8, panos=['p'])], typ='mid_block', name='vancouver:mid:m000001')]
+    props, unl, counts = cl.build_proposals(units, panos, NoSites(), args())
+    assert [p['key'] for p in props] == ['vancouver:res:n1#0', 'vancouver:res:n1#1']
+    assert counts['residential'] == {'corners': 5, 'absent': 4, 'excluded_inventory': 1,
+                                     'dropped_no_sidewalk': 0, 'no_candidate': 1,
+                                     'dropped_projection': 0, 'proposed': 2}
+    assert [(r['corner'], r['reason']) for r in unl] == [(2, 'inventory'), (3, 'no_candidate')]
+    p = props[0]
+    assert p['pano']['pano_id'] == 'p' and p['label_type'] == 'NoCurbRamp'
+    assert p['x_normalized'] == pytest.approx(0.5, abs=1e-6)
+    assert p['source']['inventory']['status'] == 'none'
+    assert p['rule']['na_read'] == 'discount'
+
+    props, _unl, counts = cl.build_proposals(units, panos, NoSites(), args(na_read='count'))
+    assert [p['key'] for p in props] == ['vancouver:res:n1#0']
+    assert counts['residential']['excluded_inventory'] == 2
+
+
+def test_build_proposals_applies_a_sidewalk_layer():
+    class Walks:
+        def has_sidewalk(self, lat, lng):
+            return lat < at(0, 11)[0]
+    panos = {'p': pano(0.0)}
+    units = [unit([corner(0, 0, 10, panos=['p']), corner(1, 0, 12, panos=['p'])])]
+    props, unl, counts = cl.build_proposals(units, panos, NoSites(), args(), Walks())
+    assert [p['corner'] for p in props] == [0]
+    assert unl[0]['reason'] == 'no_sidewalk' and counts['residential']['dropped_no_sidewalk'] == 1
+
+
+def test_sidewalk_presence_reads_geojson(tmp_path):
+    a, b = at(-20, 5), at(20, 5)          # an east-west sidewalk 5 m north of the origin
+    gj = {'type': 'FeatureCollection', 'features': [{'type': 'Feature', 'properties': {},
+          'geometry': {'type': 'LineString', 'coordinates': [[a[1], a[0]], [b[1], b[0]]]}}]}
+    path = tmp_path / 'walks.geojson'
+    path.write_text(json.dumps(gj), encoding='utf-8')
+    sp = cl.SidewalkPresence(path, radius_m=10.0)
+    assert sp.has_sidewalk(*at(0, 12)) and not sp.has_sidewalk(*at(0, 20))
+
+
+# ---------------------------------------------------------------------------- export
+
+PROV = {'model_id': 'corner-rule@0123456789ab', 'model_training_date': '11-05-2026',
+        'api_version': '1.0.0', 'model_repo': cl.RULE_REPO, 'model_revision': '0' * 40}
+
+
+def block(pid, heading=0.0):
+    p = pano(heading)
+    return {'panorama_id': pid, 'lat': p['lat'], 'lng': p['lng'], 'camera_heading': heading,
+            'width': 16384, 'height': 8192, 'source': 'launch', 'links': [], 'history': []}
+
+
+def proposal(key, pid, x, y, rank=None):
+    u, c = key.split('#')
+    return {'key': key, 'unit': u, 'corner': int(c), 'stratum': 'residential',
+            'pano': {'pano_id': pid, 'width': 16384, 'height': 8192},
+            'x_normalized': x, 'y_normalized': y, 'rank': rank, 'source': {'k': key}}
+
+
+def test_export_one_line_per_pano_and_its_payload():
+    props = [proposal('u1#1', 'P', 0.4, 0.6), proposal('u1#0', 'P', 0.6, 0.8),
+             proposal('u2#0', 'Q', 0.5, 0.55)]
+    lines = cl.export_lines(props, {'P': block('P'), 'Q': block('Q')}, PROV)
+    assert [ln['pano']['panorama_id'] for ln in lines] == ['P', 'Q']
+    line = lines[0]
+    assert line['label_type'] == 'NoCurbRamp' and line['label_types'] == ['NoCurbRamp']
+    assert line['models']['NoCurbRamp']['model_training_date'] == '11-05-2026'
+    assert line['models']['NoCurbRamp']['model_id'].startswith('corner-rule@')
+    assert [d['corner'] for d in line['detections']] == ['u1#0', 'u1#1']
+    assert all(d['label_type'] == 'NoCurbRamp' and d['confidence'] == 1.0
+               for d in line['detections'])
+    assert registry.record_types(line) == ['NoCurbRamp']
+
+    parts = send_to_ps.split_record(line)
+    assert [t for t, _ in parts] == ['NoCurbRamp']
+    payload = parts[0][1]
+    assert payload['label_type'] == 'NoCurbRamp'
+    assert payload['model_training_date'] == '11-05-2026'
+    # y 0.8 is past the nadir mask; the rule's spec does not mask (mask_rig False)
+    assert 0.8 > NADIR_MASK_Y
+    assert payload['labels'] == [
+        {'pano_x': ps_pixel(0.6, 0.8, 16384, 8192)[0], 'pano_y': ps_pixel(0.6, 0.8, 16384, 8192)[1],
+         'confidence': 1.0},
+        {'pano_x': ps_pixel(0.4, 0.6, 16384, 8192)[0], 'pano_y': ps_pixel(0.4, 0.6, 16384, 8192)[1],
+         'confidence': 1.0}]
+    assert 'source' not in json.dumps(payload['labels'])
+    assert send_to_ps.transform_record(line, label_type='NoCurbRamp')['labels'] == payload['labels']
+
+
+def test_export_orders_lines_by_best_rank():
+    props = [proposal('a#0', 'P', .5, .6, rank=None), proposal('b#0', 'Q', .5, .6, rank=2),
+             proposal('c#0', 'R', .5, .6, rank=1)]
+    lines = cl.export_lines(props, {k: block(k) for k in 'PQR'}, PROV)
+    assert [ln['pano']['panorama_id'] for ln in lines] == ['R', 'Q', 'P']
+    assert [ln['detections'][0]['rank'] for ln in lines] == [1, 2, None]
+
+
+def test_rule_provenance_needs_a_commit():
+    good = {'tool': {'git_sha': 'a' * 40}, 'rule_version_date': '2026-11-05'}
+    p = cl.rule_provenance(good)
+    assert p['model_id'] == 'corner-rule@' + 'a' * 12 and p['model_training_date'] == '11-05-2026'
+    assert set(p) == set(registry.PROVENANCE_KEYS)
+    with pytest.raises(SystemExit):
+        cl.rule_provenance({'tool': {'git_sha': 'unknown'}})
+
+
+# -------------------------------------------------------------------------- registry
+
+def test_registry_no_curb_ramp_is_rule_produced():
+    s = registry.spec_for('NoCurbRamp')
+    assert s.module is None and s.mask_rig is False
+    assert s.operational_confidence <= cl.CONFIDENCE
+    assert registry.parse_types('CurbRamp,NoCurbRamp') == ['CurbRamp', 'NoCurbRamp']
+    with pytest.raises(registry.NoDetectorError, match='scripts/corner_labels.py'):
+        registry.load_detectors(['NoCurbRamp'])
+    with pytest.raises(registry.NoDetectorError):
+        registry.load_detectors(['CurbRamp', 'NoCurbRamp'])   # refused before any import
+
+
+# ------------------------------------------------------------------------------ rank
+
+def test_rank_joins_on_the_ps_pixel(tmp_path):
+    props = [proposal('a#0', 'P', 0.25, 0.6), proposal('b#0', 'P', 0.75, 0.55),
+             proposal('c#0', 'Q', 0.5, 0.6)]
+    xa, ya = ps_pixel(0.25, 0.6, 16384, 8192)
+    xb, yb = ps_pixel(0.75, 0.55, 16384, 8192)
+    csv_path = tmp_path / 'ranked.csv'
+    csv_path.write_text(f'pano_id,pano_x,pano_y,score\nP,{xa},{ya},0.2\nP,{xb},{yb},0.9\n'
+                        f'Q,1,1,0.5\n', encoding='utf-8')
+    ranked = cl.rank_proposals(props, cl.read_ranked_csv(csv_path))
+    assert [(p['key'], p['rank'], p['rank_score']) for p in ranked] == [
+        ('a#0', 2, 0.2), ('b#0', 1, 0.9), ('c#0', None, None)]
+
+
+def test_ranked_csv_refuses_conflicting_rows(tmp_path):
+    p = tmp_path / 'r.csv'
+    p.write_text('pid,x,y,s\nP,1,2,0.5\nP,1,2,0.6\n', encoding='utf-8')
+    with pytest.raises(SystemExit):
+        cl.read_ranked_csv(p, 'pid', 'x', 'y', 's')
+    with pytest.raises(SystemExit):
+        cl.read_ranked_csv(p)                       # default columns missing
+
+
+# ----------------------------------------------------------------------- sample/score
+
+def test_sample_is_seeded_and_refuses_a_short_population():
+    props = [{'key': f'u{i}#0'} for i in range(150)]
+    a, b = cl.draw_sample(props, 100, 169), cl.draw_sample(list(reversed(props)), 100, 169)
+    assert a == b and len(set(a)) == 100
+    with pytest.raises(SystemExit):
+        cl.draw_sample(props[:50], 100, 169)
+
+
+def _verdicts(rows):
+    units = {}
+    for u, c, v, kind in rows:
+        units.setdefault(u, {'blind': {}})['blind'][str(c)] = {'verdict': v, 'absent_kind': kind}
+    return {'units': units}
+
+
+def test_score_not_scored_below_100_or_without_a_drawn_sample():
+    props = [{'key': f'u{i}#0', 'unit': f'u{i}', 'corner': 0, 'stratum': 'residential'}
+             for i in range(10)]
+    v = _verdicts([(f'u{i}', 0, 'absent', None) for i in range(8)] +
+                  [('u8', 0, 'cant_tell', None)])
+    res = cl.score(props, v)
+    assert res['n'] == 8 and res['cant_tell'] == 1 and res['n_rated'] == 9
+    assert res['verdict'].startswith('NOT SCORED') and 'sample not drawn' in res['verdict']
+    res = cl.score(props, v, sample_keys=[p['key'] for p in props])
+    assert res['verdict'].startswith('NOT SCORED (n = 8 < 100)')
+
+
+def test_score_wilson_on_a_drawn_100_corner_sample():
+    props = [{'key': f'u{i}#0', 'unit': f'u{i}', 'corner': 0, 'stratum': 'arterial'}
+             for i in range(110)]
+    rows = ([(f'u{i}', 0, 'absent', 'curb_no_ramp') for i in range(93)] +
+            [(f'u{i}', 0, 'absent', 'no_sidewalk') for i in range(93, 95)] +
+            [(f'u{i}', 0, 'present', None) for i in range(95, 100)] +
+            [(f'u{i}', 0, 'cant_tell', None) for i in range(100, 110)])
+    res = cl.score(props, _verdicts(rows), sample_keys=[p['key'] for p in props])
+    lo, hi = ci.wilson(95, 100)
+    assert res['n'] == 100 and res['precision'] == 0.95
+    assert res['wilson95'] == [round(lo, 4), round(hi, 4)]
+    assert res['wilson95'][0] == pytest.approx(0.8882, abs=1e-4)
+    assert res['cant_tell_share'] == round(10 / 110, 4)
+    assert res['label_precision'] == 0.93 and res['absent_kinds']['no_sidewalk'] == 2
+    assert res['verdict'].startswith('PASS')
+    rows[0:10] = [(f'u{i}', 0, 'present', None) for i in range(10)]
+    res = cl.score(props, _verdicts(rows), sample_keys=[p['key'] for p in props])
+    assert res['precision'] == 0.85 and res['verdict'].startswith('FAIL')
+
+
+# ------------------------------------------------------------------ end to end (tmp)
+
+def _write_jsonl(path, rows):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(''.join(json.dumps(r) + '\n' for r in rows), encoding='utf-8')
+
+
+def test_build_export_and_dry_run_end_to_end(tmp_path):
+    run = tmp_path / 'run'
+    _write_jsonl(run / 'results.jsonl', [
+        {'detections': [], 'label_type': 'CurbRamp', 'pano': block('P')},
+        {'detections': [], 'label_type': 'CurbRamp', 'pano': block('Q', heading=180.0)}])
+    _write_jsonl(run / 'sites.jsonl', [{'site_id': 7, 'lat': at(3, 3)[0], 'lng': at(3, 3)[1],
+                                        'n_operational': 1,
+                                        'members': [{'pano_id': 'P', 'confidence': 0.9}]}])
+    (run / 'sites_meta.json').write_text(json.dumps({'params': {'min_confidence': 0.3}}),
+                                         encoding='utf-8')
+    _write_jsonl(tmp_path / 'corners_full.jsonl', [
+        unit([corner(0, 0, 10, panos=['P', 'Q']), corner(1, 6, 10, panos=['P', 'Q'])])])
+    out = tmp_path / 'out'
+    with redirect_stdout(io.StringIO()):
+        cl.main(['build', '--city', 'testcity', '--na-read', 'discount',
+                 '--corners', str(tmp_path / 'corners_full.jsonl'), '--run-dir', str(run),
+                 '--out', str(out)])
+    build = json.loads((out / 'build.json').read_text(encoding='utf-8'))
+    assert build['counts']['proposed'] == 2 and build['sidewalk_rule'] == 'not applied'
+    assert build['outputs']['proposals']['lines'] == 2 and build['pins'] == 'unpinned city'
+    props = ci.read_jsonl(out / 'proposals.jsonl')
+    assert {p['pano']['pano_id'] for p in props} == {'P'}          # Q faces away
+    assert props[0]['source']['nearest_site']['site_id'] == '7'
+    assert (out / 'proposals.jsonl').read_bytes().count(b'\r') == 0
+
+    build['tool']['git_sha'] = 'b' * 40          # the test tree may be uncommitted
+    build['tool']['dirty'] = False
+    (out / 'build.json').write_text(json.dumps(build), encoding='utf-8')
+    with redirect_stdout(io.StringIO()):
+        cl.main(['export', '--dir', str(out)])
+    lines = ci.read_jsonl(out / 'results.jsonl')
+    assert len(lines) == 1 and len(lines[0]['detections']) == 2
+    assert send_to_ps.file_label_types(out / 'results.jsonl') == ['NoCurbRamp']
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        send_to_ps.process_jsonl_file(str(out / 'results.jsonl'), 'https://ps.example/ai/x',
+                                      dry_run=True)
+    assert '"label_type": "NoCurbRamp"' in buf.getvalue() or 'NoCurbRamp' in buf.getvalue()
+
+    # an edited proposals file is refused
+    with open(out / 'proposals.jsonl', 'a', encoding='utf-8') as f:
+        f.write('{}\n')
+    with pytest.raises(SystemExit, match='rebuild'):
+        cl.main(['export', '--dir', str(out)])
+
+
+def test_build_refuses_a_range_past_the_table():
+    with pytest.raises(SystemExit, match='pano_ids_25'):
+        cl.cmd_build(SimpleNamespace(max_range_m=30.0))
+
+
+def test_check_pins():
+    rec = {r: {'sha256': s} for r, s in cl.PINNED_SHA256['vancouver'].items()}
+    assert cl.check_pins('vancouver', rec, False) == 'pinned'
+    bad = dict(rec, results={'sha256': '0' * 64})
+    with pytest.raises(SystemExit, match='results'):
+        cl.check_pins('vancouver', bad, False)
+    assert cl.check_pins('vancouver', bad, True).startswith('overridden')
