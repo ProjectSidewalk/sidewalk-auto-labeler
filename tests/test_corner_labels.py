@@ -407,3 +407,12 @@ def test_check_pins():
     with pytest.raises(SystemExit, match='results'):
         cl.check_pins('vancouver', bad, False)
     assert cl.check_pins('vancouver', bad, True).startswith('overridden')
+
+
+def test_tool_version_names_this_script():
+    import subprocess
+    want = subprocess.run(['git', '-C', str(cl.REPO_ROOT), 'log', '-1', '--format=%H', '--',
+                           str(Path(cl.__file__).resolve())], capture_output=True,
+                          text=True).stdout.strip()
+    tv = cl.tool_version()
+    assert tv['file'] == 'scripts/corner_labels.py' and tv['git_sha'] == want

@@ -446,6 +446,20 @@ def count_rows(counts):
     return rows
 
 
+def tool_version():
+    """{'git_sha': last commit touching THIS file, 'dirty': uncommitted edits to it}.
+    (corner_inventory.tool_version reports corner_inventory.py's own commit.)"""
+    import subprocess
+    me = Path(__file__).resolve()
+    try:
+        st = subprocess.run(['git', '-C', str(REPO_ROOT), 'status', '--porcelain', '--',
+                             str(me)], capture_output=True, text=True, timeout=30).stdout
+        dirty = bool(st.strip())
+    except Exception:  # pragma: no cover
+        dirty = None
+    return {'file': 'scripts/corner_labels.py', 'git_sha': ci.git_sha(me), 'dirty': dirty}
+
+
 def file_record(path):
     """{path, sha256, lines, bytes} of an output file."""
     data = Path(path).read_bytes()
@@ -500,7 +514,7 @@ def cmd_build(args):
     total = count_rows(counts)[-1]
     build = {
         'schema': BUILD_SCHEMA, 'city': args.city, 'issue': 'sidewalk-auto-labeler#169',
-        'built_at': ci.utc_now(), 'tool': ci.tool_version(), 'python': platform.python_version(),
+        'built_at': ci.utc_now(), 'tool': tool_version(), 'python': platform.python_version(),
         'label_type': LABEL_TYPE, 'rule_version': RULE_VERSION,
         'rule_version_date': RULE_VERSION_DATE,
         'params': {'arm': args.arm, 'variant': args.variant, 'na_read': args.na_read,
