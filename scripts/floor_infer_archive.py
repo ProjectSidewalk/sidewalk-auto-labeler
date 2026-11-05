@@ -24,14 +24,27 @@ published benchmark imagery instead of the makelab2 archive, plus the software v
 the environment the pass ran in. Inference itself now also writes ``<out>.software.json``
 (torch / transformers / torchvision / Pillow / scikit-image versions) beside its output.
 
+Step 4 runs it over a WHOLE run (no ``--ids``: every pano of ``--results``, in file order)
+and gates it on the 124 benchmark panos inside that run (``--check --ids <benchmark ids>``).
+``--workers N`` decodes JPEGs in N threads; the forward pass stays serialized
+(CurbRampDetector at batch_size 1), so every pano's peaks equal a sequential pass's, and
+``pool.map`` yields in input order, so the output lines are in --ids / file order too: the
+file is line for line what ``--workers 1`` writes. ``--digest`` prints a sha256 over the
+lines sorted by pano id, which compares passes whose id lists were ordered differently.
+The detector is pinned to the argmax decode and the `exclude` border rule (every live label
+and published table; issues #111, #130), and each record's ``floor_reinfer`` block says so.
+A resumed pass drops an unterminated last line (a pass killed mid-write) before appending.
+
 Usage (makelab2, A40):
     python scripts/floor_infer_archive.py --results ARCHIVE/richmond/results.jsonl \\
         --panos ARCHIVE/richmond/panos --ids ids.txt --out richmond.floor.jsonl
     python scripts/floor_infer_archive.py --results ... --out richmond.floor.jsonl --check
-    python scripts/floor_infer_archive.py --results ... --ids ids.txt --out richmond.floor.jsonl \\
-        --manifest --index ARCHIVE/richmond/index.csv \\
-        --imagery-manifest ../RampNet/benchmark/richmond/imagery_manifest.json \\
-        --software-json richmond.floor.software.json --manifest-out richmond.floor.inputs.json
+    # whole run, then the gate on the benchmark panos inside it
+    python scripts/floor_infer_archive.py --results ARCHIVE/richmond/results.jsonl \\
+        --panos ARCHIVE/richmond/panos --out richmond.all.floor.jsonl --workers 6
+    python scripts/floor_infer_archive.py --results ... --out richmond.all.floor.jsonl \\
+        --ids docs/figures/mined-precision/data/step3/richmond_ids.txt --check
+    python scripts/floor_infer_archive.py --results ... --out richmond.all.floor.jsonl --digest
 """
 import argparse
 import csv
@@ -39,22 +52,34 @@ import hashlib
 import json
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from detectors import (BENCHMARK_CONFIDENCE, DETECTION_STORAGE_FLOOR,  # noqa: E402
-                       MAX_PEAKS_PER_PANO)
+from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE,  # noqa: E402
+                       DECODE_ARGMAX, DETECTION_STORAGE_FLOOR, MAX_PEAKS_PER_PANO)
+
+#: The peak decode and border rule every floor pass runs at (pinned, not the detector's
+#: default, so a later default change cannot move a pass silently).
+DETECTOR_KWARGS = {'decode': DECODE_ARGMAX, 'border': BORDER_EXCLUDE}
 
 CELL_X, CELL_Y = 1.0 / 1024, 1.0 / 512     # one heatmap cell
 GATE = 0.95
+NL = '\n'
 
 
 def read_ids(path):
     with open(path, encoding='utf-8') as f:
         return [line.strip() for line in f if line.strip()]
+
+
+def all_ids(results):
+    """Every pano id of a pinned results.jsonl, in file order (the whole-run pass)."""
+    with open(results, encoding='utf-8') as f:
+        return [str(json.loads(line)['pano']['panorama_id']) for line in f if line.strip()]
 
 
 def pinned_records(results, ids):
@@ -90,6 +115,10 @@ def reproduces(old_dets, new_dets):
             return False
         left.remove(hit)
     return True
+
+
+def _ids(args):
+    return read_ids(args.ids) if args.ids else all_ids(args.results)
 
 
 SOFTWARE_PACKAGES = ('torch', 'transformers', 'torchvision', 'pillow', 'scikit-image', 'numpy')
@@ -150,14 +179,21 @@ def input_manifest(ids, floor_recs, index=None, panos=None, imagery_manifest=Non
         man = imagery_manifest['panos']
         equal = [p for p in ids if p in man and man[p]['sha256'] == images[p]['sha256']
                  and [man[p]['width'], man[p]['height']] == images[p]['image_size']]
+        # A whole-run pass covers far more panos than the benchmark manifest lists, so
+        # "absent from the manifest" (a count) is kept apart from "listed but different"
+        # (the ids, which are the real finding). Sidecars written before the 2026-11-03
+        # review of labeler#114 carry one `differ` list holding both.
+        listed = [p for p in ids if p in man]
+        eq = set(equal)
         check = {'digest': imagery_manifest.get('digest'), 'n': len(ids),
-                 'sha256_and_size_equal': len(equal),
-                 'differ': [p for p in ids if p not in set(equal)]}
+                 'in_manifest': len(listed), 'sha256_and_size_equal': len(equal),
+                 'not_in_manifest': len(ids) - len(listed),
+                 'mismatch': [p for p in listed if p not in eq]}
     return {'images': images, 'rampnet_check': check}
 
 
 def cmd_manifest(args):
-    ids = read_ids(args.ids)
+    ids = _ids(args)
     floor = {}
     with open(args.out, encoding='utf-8') as f:
         for line in f:
@@ -186,49 +222,135 @@ def cmd_manifest(args):
                         if args.software_json else software_versions()),
            **out}
     chk = out['rampnet_check']
-    print(json.dumps({'images': len(out['images']), 'rampnet_check':
-                      None if chk is None else {k: v for k, v in chk.items() if k != 'differ'}}))
+    brief = None if chk is None else {**chk, 'mismatch': len(chk['mismatch'])}
+    print(json.dumps({'images': len(out['images']), 'rampnet_check': brief}))
     Path(args.manifest_out).write_text(json.dumps(out, indent=1, sort_keys=True) + '\n',
                                        encoding='utf-8', newline='\n')
     return out
 
 
+def resume_done(out):
+    """Pano ids already in a partial ``out``. A pass killed mid-write leaves an
+    unterminated last line; it is cut off first (and said so), so the resumed pass
+    re-runs that pano and appends on a clean line instead of dying on json.loads."""
+    if not out.exists():
+        return set()
+    data = out.read_bytes()
+    if data and not data.endswith(b'\n'):
+        keep = data.rfind(b'\n') + 1
+        print(f'{out}: dropping an unterminated last line ({len(data) - keep} bytes)')
+        with open(out, 'r+b') as f:
+            f.truncate(keep)
+        data = data[:keep]
+    return {str(json.loads(line)['pano']['panorama_id'])
+            for line in data.decode('utf-8').splitlines() if line.strip()}
+
+
 def cmd_infer(args):
     from PIL import Image
     from detectors.curb_ramp import CurbRampDetector
-    ids = read_ids(args.ids)
+    Image.MAX_IMAGE_PIXELS = None
+    ids = _ids(args)
     recs = pinned_records(args.results, ids)
-    done = set()
-    if args.out.exists():
-        with open(args.out, encoding='utf-8') as f:
-            done = {str(json.loads(line)['pano']['panorama_id']) for line in f if line.strip()}
-    det = CurbRampDetector()
+    done = resume_done(args.out)
+    det = CurbRampDetector(**DETECTOR_KWARGS)
+    todo = [pid for pid in ids if pid not in done]
     t0 = time.time()
+
+    def one(pid):
+        # Decode + preprocess run in this worker thread; detect() serializes only the
+        # forward pass, so each pano's peaks are what a sequential pass gives.
+        path = args.panos / f'{pid}.jpg'
+        img = Image.open(path).convert('RGB')
+        peaks = det.detect(img)
+        rec = dict(recs[pid])
+        rec['detections'] = [{'x_normalized': x, 'y_normalized': y, 'confidence': c}
+                             for x, y, c in peaks]
+        rec['floor_reinfer'] = {'image': str(path), 'image_size': list(img.size),
+                                'storage_floor': DETECTION_STORAGE_FLOOR,
+                                'max_peaks': MAX_PEAKS_PER_PANO,
+                                'decode': det.decode, 'border': det.border,
+                                'model': det.provenance}
+        return json.dumps(rec) + NL
+
     n = 0
-    with open(args.out, 'a', encoding='utf-8', newline='\n') as f:
-        for pid in ids:
-            if pid in done:
-                continue
-            path = args.panos / f'{pid}.jpg'
-            img = Image.open(path).convert('RGB')
-            peaks = det.detect(img)
-            rec = dict(recs[pid])
-            rec['detections'] = [{'x_normalized': x, 'y_normalized': y, 'confidence': c}
-                                 for x, y, c in peaks]
-            rec['floor_reinfer'] = {'image': str(path), 'image_size': list(img.size),
-                                    'storage_floor': DETECTION_STORAGE_FLOOR,
-                                    'max_peaks': MAX_PEAKS_PER_PANO,
-                                    'model': det.provenance}
-            f.write(json.dumps(rec) + '\n')
+    with open(args.out, 'a', encoding='utf-8', newline=NL) as f, \
+            ThreadPoolExecutor(max(1, args.workers)) as pool:
+        for line in pool.map(one, todo):
+            f.write(line)
             n += 1
+            if n % 500 == 0:
+                f.flush()
+                print(f'{n} / {len(todo)} panos, {time.time() - t0:.0f} s', flush=True)
     sw = args.out.with_name(args.out.name + '.software.json')
     sw.write_text(json.dumps({'software': software_versions(), 'model': det.provenance},
-                             indent=1, sort_keys=True) + '\n', encoding='utf-8', newline='\n')
+                             indent=1, sort_keys=True) + NL, encoding='utf-8', newline=NL)
     print(f'{n} panos in {time.time() - t0:.1f} s -> {args.out} (+ {sw.name})')
 
 
+def canonical_sha256(path):
+    """sha256 over the output's lines sorted by pano id: independent of line order, so
+    two passes over differently ordered id lists can be compared (and a committed digest
+    checked) whatever their order. (--workers does not reorder lines: pool.map keeps
+    input order.)"""
+    with open(path, encoding='utf-8') as f:
+        lines = [line.rstrip(NL) for line in f if line.strip()]
+    lines.sort(key=lambda s: str(json.loads(s)['pano']['panorama_id']))
+    return hashlib.sha256((NL.join(lines) + NL).encode('utf-8')).hexdigest()
+
+
+CONF_TOL = 1e-3
+
+
+def same_peaks(a, b, tol=CONF_TOL):
+    """Full peak sets down to the floor agree: same count, and a one-to-one pairing in
+    which each peak lies within one heatmap cell (1/1024 in x, seam-wrapped; 1/512 in y)
+    with |dconf| <= tol."""
+    if len(a) != len(b):
+        return False
+    left = list(b)
+    for x, y, c in a:
+        hit = next((q for q in left
+                    if min(abs(q[0] - x), 1 - abs(q[0] - x)) <= CELL_X + 1e-9
+                    and abs(q[1] - y) <= CELL_Y + 1e-9 and abs(q[2] - c) <= tol), None)
+        if hit is None:
+            return False
+        left.remove(hit)
+    return True
+
+
+def _peaks_of(path):
+    out = {}
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                r = json.loads(line)
+                out[str(r['pano']['panorama_id'])] = [
+                    (d['x_normalized'], d['y_normalized'], d['confidence'])
+                    for d in r['detections']]
+    return out
+
+
+def cmd_compare(args):
+    """Cross-check two floor passes (e.g. this pass against an older re-inference) on the
+    panos they share, or on --ids: the share whose FULL peak sets agree (same_peaks)."""
+    a, b = _peaks_of(args.out), _peaks_of(args.compare)
+    ids = read_ids(args.ids) if args.ids else sorted(set(a) & set(b))
+    missing = [p for p in ids if p not in a or p not in b]
+    ok = [p for p in ids if p in a and p in b and same_peaks(a[p], b[p])]
+    floors = {'out_min_conf': min((c for p in ids if p in a for _, _, c in a[p]), default=None),
+              'other_min_conf': min((c for p in ids if p in b for _, _, c in b[p]), default=None)}
+    out = {'panos': len(ids), 'missing': len(missing), 'same': len(ok),
+           'share': round(len(ok) / len(ids), 6) if ids else None, 'conf_tol': CONF_TOL,
+           **floors, 'differing': [p for p in ids if p not in set(ok) and p not in missing]}
+    print(json.dumps({k: v for k, v in out.items() if k != 'differing'}))
+    if args.check_out:
+        args.check_out.write_text(json.dumps(out, indent=1) + NL, encoding='utf-8')
+    return out
+
+
 def cmd_check(args):
-    ids = read_ids(args.ids)
+    ids = _ids(args)
     recs = pinned_records(args.results, ids)
     new = {}
     with open(args.out, encoding='utf-8') as f:
@@ -247,16 +369,20 @@ def cmd_check(args):
            'not_reproducing': [p for p in ids if p in new and p not in set(ok)]}
     print(json.dumps({k: v for k, v in out.items() if k != 'not_reproducing'}))
     if args.check_out:
-        args.check_out.write_text(json.dumps(out, indent=1) + '\n', encoding='utf-8')
+        args.check_out.write_text(json.dumps(out, indent=1) + NL, encoding='utf-8')
     return out
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    ap = argparse.ArgumentParser(description=__doc__.split(NL)[0])
     ap.add_argument('--results', type=Path, required=True, help='the pinned results.jsonl')
     ap.add_argument('--panos', type=Path, help='the archive panos/ directory')
-    ap.add_argument('--ids', type=Path, required=True)
+    ap.add_argument('--ids', type=Path, default=None,
+                    help='pano ids to run / check (default: every pano of --results)')
     ap.add_argument('--out', type=Path, required=True)
+    ap.add_argument('--workers', type=int, default=1,
+                    help='threads decoding JPEGs in parallel; the forward pass stays '
+                         'serialized, so peaks are identical to --workers 1')
     ap.add_argument('--check', action='store_true', help='run the instrument check only')
     ap.add_argument('--check-out', type=Path, default=None)
     ap.add_argument('--manifest', action='store_true',
@@ -269,11 +395,20 @@ def main():
                     help='--manifest: software versions recorded elsewhere (JSON object); '
                          "default is this environment's")
     ap.add_argument('--manifest-out', type=Path, default=None)
+    ap.add_argument('--compare', type=Path, default=None,
+                    help='another floor pass: report how many panos have the same FULL '
+                         'peak set as --out (cross-check; writes --check-out if given)')
+    ap.add_argument('--digest', action='store_true',
+                    help='print the order-independent sha256 of --out and exit')
     args = ap.parse_args()
     if args.manifest:
         if not args.manifest_out or not (args.index or args.panos):
             ap.error('--manifest needs --manifest-out and --index or --panos')
         cmd_manifest(args)
+    elif args.digest:
+        print(canonical_sha256(args.out))
+    elif args.compare:
+        cmd_compare(args)
     elif args.check:
         cmd_check(args)
     else:

@@ -1,0 +1,32 @@
+{
+ "by_status": {
+  "emit": 573,
+  "no_peak": 1928,
+  "operational_in_window": 510
+ },
+ "camera_height": "per-rig",
+ "city": "richmond",
+ "emitted": 573,
+ "emitted_by_band": {
+  "0-8 m": 103,
+  "12-15 m": 255,
+  "8-12 m": 215
+ },
+ "emitted_off_benchmark": 557,
+ "emitted_on_benchmark_panos": 16,
+ "emitted_panos": 498,
+ "emitted_sites": 340,
+ "excluded_subfloor_members": 0,
+ "min_panos": 3,
+ "n_panos": 9091,
+ "n_sites": 1570,
+ "n_strong_sites": 945,
+ "operational_detections": 9526,
+ "pairs": 3011,
+ "pairs_by_band": {
+  "0-8 m": 746,
+  "12-15 m": 1172,
+  "8-12 m": 1093
+ },
+ "radius_m": 15.0
+}

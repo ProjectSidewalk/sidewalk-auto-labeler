@@ -1,0 +1,30 @@
+{
+ "floor_output": "richmond.all.floor.jsonl (makelab2 /homes/gws/jonf/mined158/floor4/; not committed, 18 MB, regenerates from the archive)",
+ "sha256_as_written": "f673071f25351b2d18cd8fcf05496101a926712bb96c6f8a787b1e4b3230c65d",
+ "sha256_canonical_sorted_by_pano": "2a0f4966707ae44bf75fddf549933612a219c84dfc372364dd091f680bb92c67",
+ "panos": 9091,
+ "pinned_results_sha256": "109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c",
+ "model": "projectsidewalk/rampnet-model@606a11956743f7eb328d9207769034752f6191f4",
+ "incarnations": [
+  {
+   "started": "2026-09-29T20:22:48Z",
+   "ended": "2026-09-29T20:55:14Z",
+   "panos": 2500,
+   "why_ended": "makelab2 rebooted (root login, reboot at ~20:55-21:01Z; not this job)"
+  },
+  {
+   "started": "2026-09-29T21:03:57Z",
+   "ended": "2026-09-29T22:28:17Z",
+   "panos": 6591,
+   "wall": "1:24:19"
+  }
+ ],
+ "gpu": "NVIDIA A40 (shared; nvidia-smi checked before each launch)",
+ "workers": 6,
+ "f01": {
+  "path": "sidewalk-auto-labeler runs/richmond/results.f01.jsonl (Jon's desktop; #20 re-inference re-fetched from Mapillary, not the archive)",
+  "sha256": "e81954f4c44d02131f2da4d5f1f9314aaf8dd957811dc1e6f49079f4fcfbe0bb",
+  "records_model": "model_id rampnet-model, training date 08-21-2025; no revision field in its records",
+  "min_conf": 0.10000371932983398
+ }
+}

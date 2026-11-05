@@ -179,6 +179,182 @@ def inventory_metrics(clusters, inv_xy, pool, r):
             'clusters_per_covered': len(clusters) / covered if covered else None}
 
 
+# ------------------------------------------------ cluster-review GT (RampNet#224)
+
+NOT_RAMP, UNSURE = 'not_ramp', 'unsure'
+REVIEW_ARM, REVIEW_BASE = 'fusion_server+attach', PS_ARM   # the pre-registered comparison
+NO_GT = 'NO GT YET'
+RATE_UNDEFINED = 'UNDETERMINED (a rate is undefined)'
+
+
+def _is_ramp(v):
+    return isinstance(v, str) and len(v) > 1 and v[0] == 'r' and v[1:].isdigit()
+
+
+def _wilson(k, n, z=1.96):
+    if not n:
+        return None
+    p = k / n
+    d = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / d
+    h = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / d
+    return (max(0.0, c - h), min(1.0, c + h))
+
+
+def arm_index(clusters):
+    """{label key (str): set of cluster indices} from [[label_id, ...], ...]. A label in
+    two clusters (a stale deployed pull) maps to both."""
+    out = {}
+    for k, lids in enumerate(clusters):
+        for lab in lids:
+            out.setdefault(str(lab), set()).add(k)
+    return out
+
+
+def complete_arm(arm_of, keys):
+    """(arm_of, n_added): every key in `keys` the arm does not hold becomes a singleton
+    cluster of that arm (id ('singleton', key)), the pre-registered rule that makes every
+    arm cluster the same label set (RampNet#224 protocol, "Metrics"): ps @ t holds no human
+    label and fusion drops labels on unplaceable panos, and neither may read as lost
+    coverage. The input is not modified."""
+    out = dict(arm_of)
+    n = 0
+    for k in keys:
+        if not out.get(k):
+            out[k] = {('singleton', k)}
+            n += 1
+    return out, n
+
+
+def assignment_metrics(arm_of, units, unit_keys=None):
+    """The pre-registered cluster-review metrics (RampNet docs/cluster_review_protocol.md,
+    "Metrics"; on RampNet branch cluster-review-224 for now, see
+    cluster_review_score.RAMPNET_REF) for one arm over reviewed units. Pure, numpy-free.
+
+    arm_of: {label key: set of cluster ids} (arm_index); units: {corner_id: assignment
+    unit} -- only `complete` ones count (a `cant_judge` unit never does); unit_keys:
+    {corner_id: the unit's label keys}
+    (default: the keys the unit's assignment names). Within a unit only its own labels are
+    read; unsure labels are dropped from everything; not_ramp labels count for validity.
+
+    per GT ramp: clusters(r) = distinct clusters holding its labels; covered >= 1, split >= 2.
+    per cluster touching the unit: its in-window ramp-assigned labels span >= 2 ramps ->
+    merge (strict: >= 2 ramps with >= 2 labels each), over clusters with >= 2 of them.
+    validity: clusters whose in-window labels are all not_ramp / clusters touching; not_ramp
+    labels / non-unsure labels the arm holds. coverage: covered / (ramps + sure uncovered).
+    Returns counts, rates (Wilson CIs) and `per_ramp` {(corner_id, ramp): n_clusters}.
+
+    Only the keys in unit_keys are read, so a GT ramp ALL of whose in-window labels are left
+    out of them -- cluster_review_score.py leaves human labels out, per the protocol's
+    same-label-set rule -- counts in neither the numerator nor the denominator of coverage
+    (or of split). Moot for Vancouver (no human label in any window); a city with human
+    labels in its windows would need such ramps reported, not silently dropped.
+
+    Single-city: a label key is the bare per-city label_id, unique only inside one city's
+    bundle (the per-ramp keys carry the city through corner_id). Pooling units of several
+    cities must key labels on (city, key), as label_uid does."""
+    m = dict(units=0, ramps=0, covered=0, split=0, merge_k=0, merge_strict_k=0, merge_n=0,
+             clusters=0, invalid_clusters=0, labels_held=0, not_ramp_held=0,
+             uncovered_sure=0)
+    per_ramp = {}
+    for cid, u in sorted(units.items()):
+        if not u.get('complete') or u.get('cant_judge'):
+            continue
+        m['units'] += 1
+        a = u.get('labels') or {}
+        keys = [k for k in (unit_keys or {}).get(cid, a) if a.get(k) != UNSURE and k in a]
+        ramps = sorted({a[k] for k in keys if _is_ramp(a[k])})
+        for r in ramps:
+            cl = set()
+            for k in keys:
+                if a[k] == r:
+                    cl |= arm_of.get(k, set())
+            per_ramp[(cid, r)] = len(cl)
+            m['ramps'] += 1
+            m['covered'] += len(cl) >= 1
+            m['split'] += len(cl) >= 2
+        m['uncovered_sure'] += sum(1 for p in u.get('uncovered') or [] if not p.get('unsure'))
+        touching = {}
+        for k in keys:
+            if arm_of.get(k):
+                m['labels_held'] += 1
+                m['not_ramp_held'] += a[k] == NOT_RAMP
+            for c in arm_of.get(k, ()):
+                touching.setdefault(c, []).append(a[k])
+        for c, vals in touching.items():
+            m['clusters'] += 1
+            m['invalid_clusters'] += all(v == NOT_RAMP for v in vals)
+            rv = [v for v in vals if _is_ramp(v)]
+            if len(rv) >= 2:
+                m['merge_n'] += 1
+                per = {}
+                for v in rv:
+                    per[v] = per.get(v, 0) + 1
+                m['merge_k'] += len(per) >= 2
+                m['merge_strict_k'] += sum(1 for n in per.values() if n >= 2) >= 2
+    pop = m['ramps'] + m['uncovered_sure']
+    m.update(split_rate=m['split'] / m['covered'] if m['covered'] else None,
+             split_ci=_wilson(m['split'], m['covered']),
+             merge_rate=m['merge_k'] / m['merge_n'] if m['merge_n'] else None,
+             merge_ci=_wilson(m['merge_k'], m['merge_n']),
+             merge_strict_rate=m['merge_strict_k'] / m['merge_n'] if m['merge_n'] else None,
+             invalid_cluster_rate=m['invalid_clusters'] / m['clusters'] if m['clusters'] else None,
+             not_ramp_label_rate=m['not_ramp_held'] / m['labels_held'] if m['labels_held'] else None,
+             coverage=m['covered'] / pop if pop else None,
+             coverage_ci=_wilson(m['covered'], pop), per_ramp=per_ramp)
+    return m
+
+
+def paired_ramp_table(per_ramp_a, per_ramp_b):
+    """Arms A and B on the same GT ramps: fixed = A splits (>= 2 clusters) and B holds it
+    in one; broken = the reverse; both / neither over ramps both cover; plus the ramps
+    only one arm covers. (A = the baseline, e.g. ps @ 7.5 m, as the #56 table.)"""
+    t = dict(fixed=0, broken=0, both=0, neither=0, only_a=0, only_b=0, neither_covers=0)
+    for key in set(per_ramp_a) | set(per_ramp_b):
+        a, b = per_ramp_a.get(key, 0), per_ramp_b.get(key, 0)
+        if a and b:
+            t['fixed'] += a >= 2 and b == 1
+            t['broken'] += a == 1 and b >= 2
+            t['both'] += a >= 2 and b >= 2
+            t['neither'] += a == 1 and b == 1
+        elif a:
+            t['only_a'] += 1
+        elif b:
+            t['only_b'] += 1
+        else:
+            t['neither_covers'] += 1
+    return t
+
+
+def assignment_verdict(by_arm, arm=REVIEW_ARM, base=REVIEW_BASE):
+    """The pre-registered decision rule on assignment metrics: `arm` vs `base` on the same
+    units -- split lower by >= RULE_SPLIT_DROP, merge not higher by > RULE_MERGE_RISE,
+    coverage not lower by > RULE_COVERED_DROP -> PASS, else NOT ESTABLISHED. NO GT YET when
+    nothing was reviewed (no complete unit); RATE_UNDEFINED when units were reviewed but a
+    rate the rule reads is undefined for either arm -- e.g. merge, when no cluster holds two
+    or more ramp-assigned labels -- so the rule cannot be applied."""
+    a, b = by_arm.get(arm), by_arm.get(base)
+    need = {'split_rate': 'no ramp is covered', 'merge_rate': 'no cluster holds >= 2 '
+            'ramp-assigned labels', 'coverage': 'no ramp and no sure uncovered point'}
+    if a is None or b is None or not a.get('units', 1) or not b.get('units', 1):
+        return NO_GT, ['no complete reviewed unit: nothing to score']
+    undefined = [f'{k} of `{name}` ({why})' for name, m in ((arm, a), (base, b))
+                 for k, why in need.items() if m.get(k) is None]
+    if undefined:
+        return RATE_UNDEFINED, ['reviewed units exist, but the rule cannot be applied: '
+                                'undefined ' + '; '.join(undefined)]
+    d_split = a['split_rate'] - b['split_rate']
+    d_merge = a['merge_rate'] - b['merge_rate']
+    d_cov = a['coverage'] - b['coverage']
+    ok = (d_split <= -RULE_SPLIT_DROP + 1e-12 and d_merge <= RULE_MERGE_RISE + 1e-12
+          and d_cov >= -RULE_COVERED_DROP - 1e-12)
+    text = (f'{base} -> {arm}: split {b["split_rate"]:.3f} -> {a["split_rate"]:.3f} '
+            f'({d_split:+.3f}), merge {b["merge_rate"]:.3f} -> {a["merge_rate"]:.3f} '
+            f'({d_merge:+.3f}), coverage {b["coverage"]:.3f} -> {a["coverage"]:.3f} '
+            f'({d_cov:+.3f})')
+    return (PASS if ok else NOT_ESTABLISHED), [text]
+
+
 def verdict(rows):
     """Apply the pre-registered decision rule to arms.csv rows (dicts with city, tier,
     frame, arm, r, covered_rate, split_rate, merge_rate). Returns (verdict, reasons).
@@ -294,6 +470,36 @@ def server_placed(clusters, server_pos, fr):
     return out
 
 
+def fuse_server_labels(labels, det_of, run_by_id, ai_user, srv_params, *, decode,
+                       border, unmapped_confidence):
+    """(clusters, attached_clusters, attached, stats, server_panos): the fusion_server and
+    fusion_server+attach arms from a fuse of the server's labels.
+
+    The one construction score_server_arms and server_arms share, so the arm the #56
+    report scored and the arm the RampNet#224 cluster review scores cannot drift apart
+    again (a positional-argument slip once sent `label_of` into attach_unplaceable's
+    `unpositioned` slot and left every fusion cluster with empty label_ids). `srv_params`
+    is the frame's FuseParams with min_confidence and floor at 0 (every server label is
+    already a submitted label); `unmapped_confidence` is the confidence given to an AI
+    label with no stored detection (None leaves those out, as the matched label set does).
+
+    Example::
+
+        cl, att, attached, st, sp = fuse_server_labels(
+            labels, det_of, {p.pano_id: p for p in panos}, cfg['ai_user'], srv_params,
+            decode=decode, border=border, unmapped_confidence=cfg['tier'])
+    """
+    sp, st = epc.server_panos(labels, det_of, run_by_id, ai_user, decode=decode,
+                              border=border, unmapped_confidence=unmapped_confidence)
+    sites, sfr, _s3 = fs.fuse(sp, srv_params)
+    cl, _n1 = epc.clusters_from_server_sites(
+        sites, sp, st['unplaceable_label_ids'], st['label_of'])
+    at, attd = epc.attach_unplaceable(
+        sites, sp, sfr, mask_rig=srv_params.mask_rig,
+        unpositioned=st['unplaceable_label_ids'], label_of=st['label_of'])
+    return cl, at, attd, st, sp
+
+
 def score_server_arms(city, cfg, inventory, results_path, frames, radii, rows, lines):
     """The #56 server-label arms, from the server's own labels: `deployed` (the clusters as
     served), `ps @ t` and `ps_citywide @ 7.5 m` (the PS rule re-run on the server's
@@ -365,15 +571,9 @@ def score_server_arms(city, cfg, inventory, results_path, frames, radii, rows, l
         srv_params = replace(params, min_confidence=0.0, floor=0.0)
 
         def fuse_server(lab, unmapped_confidence):
-            sp, st = epc.server_panos(lab, det_of, run_by_id, ai_user, decode=decode,
-                                      border=border, unmapped_confidence=unmapped_confidence)
-            sites, sfr, _s3 = fs.fuse(sp, srv_params)
-            cl, _n1 = epc.clusters_from_server_sites(
-                sites, sp, st['unplaceable_label_ids'], st['label_of'])
-            at, attd = epc.attach_unplaceable(
-                sites, sp, sfr, mask_rig=srv_params.mask_rig,
-                unpositioned=st['unplaceable_label_ids'], label_of=st['label_of'])
-            return cl, at, attd, st, sp
+            return fuse_server_labels(lab, det_of, run_by_id, ai_user, srv_params,
+                                      decode=decode, border=border,
+                                      unmapped_confidence=unmapped_confidence)
 
         srv_cl, att, attached, st, srv_panos = fuse_server(labels, tier)
         arms = dict(fixed)
@@ -450,6 +650,56 @@ def score_server_arms(city, cfg, inventory, results_path, frames, radii, rows, l
                 f"({srv['split']}/{srv['covered']}) | {ray['n_placed']} / {srv['n_placed']} | "
                 f"{epc.fmt(ray['covered_rate'])} / {epc.fmt(srv['covered_rate'])} | "
                 f"{epc.fmt(ray['merge_rate'])} / {epc.fmt(srv['merge_rate'])} |")
+
+
+def server_arms(run_dir, cfg, frame=PRIMARY_FRAME, thresholds_m=THRESHOLDS_M):
+    """(labels, arms, stats): every #56 server-label arm as {name: [[label_id, ...], ...]}.
+
+    The same construction as score_server_arms' `label_set: all` arms (RampNet#224 reuses
+    it verbatim, so the cluster-review GT scores exactly the partitions #56 scored; keep the
+    two in step -- the #118 review's decode/border and unpositioned-label changes landed
+    here in the 2026-11-03 merge of main): `deployed` as served,
+    `ps @ t` per region on the AI labels' server positions, `fusion_server` and
+    `fusion_server+attach` from a fuse of the server's labels in `frame`. The fusion arms
+    come from fuse_server_labels, the helper score_server_arms also calls, so they cannot
+    diverge; the rest is kept beside score_server_arms rather than factored out of it so
+    that function, and the committed report it writes, stay byte-for-byte what they
+    were. `run_dir` is a run directory
+    holding cfg['labels'], cfg['clusters'] and results.jsonl (read in place; nothing is
+    written). `labels` is the CurbRamp DataFrame the arms were built from."""
+    run_dir = Path(run_dir)
+    results_path = run_dir / 'results.jsonl'
+    labels, _bad = epc.load_labels(run_dir / cfg['labels'])
+    labels = labels[labels.label_type == 'CurbRamp'].reset_index(drop=True)
+    server_clusters = epc.load_server_clusters(run_dir / cfg['clusters'])
+    det_of, _amb, _dup = epc.label_to_detection(results_path, labels)
+    ai = labels[labels.user_id.astype(str) == cfg['ai_user']].reset_index(drop=True)
+    arms = {'deployed': [list(sc['label_ids']) for sc in server_clusters]}
+    t_kms = [t / 1000.0 for t in thresholds_m]
+    parts = epc.ps_partition(ai, t_kms, per_region=True)
+    for t_m, t_km in zip(thresholds_m, t_kms):
+        arms[f'ps @ {t_m:g} m'] = [c.label_ids for c in
+                                   epc.clusters_from_assignment(ai, parts[t_km], det_of)]
+    try:
+        panos, _skip, height, _auto = fs.load_at_height(results_path, frame)
+    except ValueError as e:
+        raise SystemExit(str(e))
+    params = fs.FuseParams(camera_height_m=height, min_confidence=cfg['tier'],
+                           mask_rig=False, apply_pose=fs.POSE_OFF)
+    decode = fs.single_decode(Counter(p.decode for p in panos), results_path.name)
+    border = fs.single_border(Counter(p.border for p in panos), results_path.name)
+    srv_params = replace(params, min_confidence=0.0, floor=0.0)
+    srv_cl, att, attached, st, _srv_panos = fuse_server_labels(
+        labels, det_of, {p.pano_id: p for p in panos}, cfg['ai_user'], srv_params,
+        decode=decode, border=border, unmapped_confidence=cfg['tier'])
+    arms['fusion_server'] = [c.label_ids for c in srv_cl]
+    arms['fusion_server+attach'] = [c.label_ids for c in att]
+    stats = {'n_labels': len(labels), 'n_ai': len(ai), 'n_mapped': len(det_of),
+             'n_run_panos': len(panos), 'n_attached': len(attached),
+             'run_pos': {p.pano_id: (p.lat, p.lng, p.camera_heading) for p in panos},
+             'server_panos': {k: v for k, v in st.items() if k != 'label_of'},
+             'frame': str(frame), 'height': str(height)}
+    return labels, arms, stats
 
 
 def score_city(city, tiers=TIERS, frames=None, radii=RADII_M):

@@ -1,0 +1,41 @@
+{
+  "run_name": "vancouver_posdetect241_gsv",
+  "created_at": "2026-10-05T13:32:13+00:00",
+  "source_geojson": "runs/vancouver/corner_posdetect241/select/gsv_area.geojson",
+  "area_hash": "364a67f82f99184790874a8b19f66c52def6cd8c6fd218f697c4c03e32ba752c",
+  "input_geojson_type": "FeatureCollection",
+  "imagery_source": "gsv",
+  "detection_storage_floor": 0.1,
+  "max_peaks_per_pano": 50,
+  "streetlevel_version": "0.12.10",
+  "runs": [
+    {
+      "started_at": "2026-10-05T13:34:26+00:00",
+      "finished_at": "2026-10-05T13:35:17+00:00",
+      "panos_found_in_area": 30,
+      "processed": 30,
+      "skipped": 0,
+      "failed": 0,
+      "scan": "reused",
+      "scan_scanned_at": "2026-10-05T13:32:13+00:00",
+      "scan_age_hours": 0.0,
+      "model": {
+        "model_repo": "projectsidewalk/rampnet-model",
+        "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+        "model_id": "rampnet-model@606a11956743",
+        "model_training_date": "08-21-2025",
+        "api_version": "1.0.0"
+      }
+    }
+  ],
+  "model_repo": "projectsidewalk/rampnet-model",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+  "model_id": "rampnet-model@606a11956743",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0",
+  "camera_height": {
+    "implausible": 1,
+    "measured": 27,
+    "synthetic_ground": 2
+  }
+}

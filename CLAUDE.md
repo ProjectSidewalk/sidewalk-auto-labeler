@@ -90,6 +90,7 @@ named here. Verdicts are summarised only where they set a production default.
 | `seam_band_130.py` | 360° seam band (#130) | `docs/seam-band-130.md`; `--border` opt-in |
 | `reprojection_residual.py` | GT-free leave-one-view-out residual (#36) | `docs/reprojection-residual.md` |
 | `eval_ps_clustering.py`, `clustering_metrics.py`, `clustering_eval_pooled.py`, `inventory_clustering.py`, `split_figures.py`, `ps_placement.py` (repo root) | PS server clustering vs fusion (SW#4706, #106, #56) | `docs/ps-clustering-eval.md` |
+| `export_cluster_review.py`, `cluster_review_score.py`, `corner_inventory.py` | cluster-review GT (RampNet#224) and the corner inventory (RampNet#238), Vancouver | `docs/ps-clustering-eval.md`, `docs/corner-inventory.md` |
 | `detect_from_store.py`, `provenance_gate.py`, `reinfer.py --ids` | a run rebuilt from the PS pano store (#56) | `docs/ps-clustering-eval.md` "Step 2"; Vancouver gate STOP |
 | `agree_rate.py` | AI vs crowd labels (#31) | `docs/agree-rate-gainesville.md` |
 | `server_agree_check.py` | live-label validation precision, auditor vs AI | `docs/server-agree-check.md` |

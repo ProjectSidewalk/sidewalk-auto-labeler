@@ -47,6 +47,111 @@ def test_instrument_check_matches_operational_sets_within_one_cell():
     assert fia.reproduces([_d(0.9995, 0.6, 0.8)], [_d(0.0, 0.6, 0.8)])      # seam
 
 
+def test_whole_run_ids_and_order_independent_digest(tmp_path):
+    import json
+    res = tmp_path / 'results.jsonl'
+    res.write_text(''.join(json.dumps({'pano': {'panorama_id': p}, 'detections': []}) + '\n'
+                           for p in ('b', 'a', 'c')), encoding='utf-8')
+    assert fia.all_ids(res) == ['b', 'a', 'c']
+    one, two = tmp_path / 'one.jsonl', tmp_path / 'two.jsonl'
+    rows = [json.dumps({'pano': {'panorama_id': p}, 'detections': []}) + '\n' for p in 'abc']
+    one.write_text(''.join(rows), encoding='utf-8')
+    two.write_text(''.join(reversed(rows)), encoding='utf-8')
+    assert fia.canonical_sha256(one) == fia.canonical_sha256(two)
+
+
+def test_same_peaks_compares_full_sets():
+    a = [(0.5, 0.6, 0.3), (0.2, 0.55, 0.12)]
+    assert fia.same_peaks(a, [(0.2, 0.55, 0.1205), (0.5 + 1 / 1024, 0.6, 0.3)])
+    assert not fia.same_peaks(a, [(0.5, 0.6, 0.3)])                      # count
+    assert not fia.same_peaks(a, [(0.5, 0.6, 0.3), (0.2, 0.55, 0.15)])   # conf
+    assert not fia.same_peaks(a, [(0.5, 0.6, 0.3), (0.2 + 2 / 1024, 0.55, 0.12)])
+
+
+def test_same_peaks_needs_equal_counts_and_a_one_to_one_pairing():
+    """Review of labeler#114: deleting the length check or `left.remove(hit)` stayed green."""
+    a = [(0.5, 0.6, 0.3), (0.2, 0.55, 0.12)]
+    assert not fia.same_peaks(a, a + [(0.8, 0.5, 0.2)])          # b has one extra peak
+    two_near_one = [(0.5, 0.6, 0.3), (0.5 + 0.5 / 1024, 0.6, 0.3)]
+    assert not fia.same_peaks(two_near_one, [(0.5, 0.6, 0.3), (0.9, 0.6, 0.3)])
+
+
+def test_compare_counts_panos_whose_full_peak_sets_agree(tmp_path):
+    import argparse
+    import json
+    peaks = {'p': [_d(0.5, 0.6, 0.3)], 'q': [_d(0.2, 0.6, 0.2)], 'r': [_d(0.7, 0.6, 0.4)]}
+    other = dict(peaks, q=[_d(0.2, 0.6, 0.25)])                    # q's confidence moved
+    del other['r']                                                 # r only in --out
+    _write_jsonl(tmp_path / 'a.jsonl', [{'pano': {'panorama_id': k}, 'detections': v}
+                                        for k, v in peaks.items()])
+    _write_jsonl(tmp_path / 'b.jsonl', [{'pano': {'panorama_id': k}, 'detections': v}
+                                        for k, v in other.items()])
+    args = argparse.Namespace(out=tmp_path / 'a.jsonl', compare=tmp_path / 'b.jsonl',
+                              ids=None, check_out=tmp_path / 'c.json')
+    out = fia.cmd_compare(args)
+    assert (out['panos'], out['missing'], out['same'], out['share']) == (2, 0, 1, 0.5)
+    assert out['differing'] == ['q'] and out['other_min_conf'] == 0.25
+    (tmp_path / 'ids.txt').write_text('p\nr\n', encoding='utf-8')
+    out = fia.cmd_compare(argparse.Namespace(**{**vars(args), 'ids': tmp_path / 'ids.txt'}))
+    assert (out['panos'], out['missing'], out['same']) == (2, 1, 1)
+    assert json.loads((tmp_path / 'c.json').read_text(encoding='utf-8'))['missing'] == 1
+
+
+def _fake_detector(monkeypatch, seen):
+    """detectors.curb_ramp stand-in: records its kwargs, returns one fixed peak."""
+    import sys
+    import types
+
+    class Det:
+        provenance = {'model_id': 'fake'}
+
+        def __init__(self, **kw):
+            seen.update(kw)
+            self.decode, self.border = kw.get('decode', 'argmax'), kw.get('border', 'exclude')
+
+        def detect(self, img):
+            return [(0.5, 0.6, 0.2)]
+    monkeypatch.setitem(sys.modules, 'detectors.curb_ramp',
+                        types.SimpleNamespace(CurbRampDetector=Det))
+
+
+def _infer_args(tmp_path, ids):
+    import argparse
+    from PIL import Image
+    (tmp_path / 'panos').mkdir(exist_ok=True)
+    for p in ids:
+        Image.new('RGB', (8, 4)).save(tmp_path / 'panos' / f'{p}.jpg')
+    _write_jsonl(tmp_path / 'r.jsonl', [{'pano': {'panorama_id': p}, 'detections': []}
+                                        for p in ids])
+    return argparse.Namespace(results=tmp_path / 'r.jsonl', panos=tmp_path / 'panos',
+                              ids=None, out=tmp_path / 'f.jsonl', workers=2)
+
+
+def test_infer_pins_decode_and_border_and_records_them(tmp_path, monkeypatch):
+    import json
+    seen = {}
+    _fake_detector(monkeypatch, seen)
+    args = _infer_args(tmp_path, ['a', 'b', 'c'])
+    fia.cmd_infer(args)
+    assert seen == {'decode': 'argmax', 'border': 'exclude'}
+    recs = [json.loads(s) for s in args.out.read_text(encoding='utf-8').splitlines()]
+    assert [r['pano']['panorama_id'] for r in recs] == ['a', 'b', 'c']   # input order
+    assert {(r['floor_reinfer']['decode'], r['floor_reinfer']['border']) for r in recs} \
+        == {('argmax', 'exclude')}
+
+
+def test_resume_drops_an_unterminated_last_line(tmp_path, monkeypatch):
+    import json
+    _fake_detector(monkeypatch, {})
+    args = _infer_args(tmp_path, ['a', 'b', 'c'])
+    fia.cmd_infer(args)
+    lines = args.out.read_text(encoding='utf-8').splitlines(keepends=True)
+    args.out.write_text(lines[0] + lines[1][:20], encoding='utf-8')     # killed mid-'b'
+    fia.cmd_infer(args)
+    recs = [json.loads(s) for s in args.out.read_text(encoding='utf-8').splitlines()]
+    assert [r['pano']['panorama_id'] for r in recs] == ['a', 'b', 'c']
+
+
 # ---- review of sidewalk-auto-labeler#112 (2026-09-29): three planted faults stayed green ----
 
 def test_rule_counts_a_peak_at_exactly_the_benchmark_threshold_as_operational():
@@ -98,7 +203,11 @@ def test_input_manifest_checks_hashes_and_sizes_against_rampnet():
     index = {'a': {'sha256': 'x' * 64, 'bytes': '10'}, 'b': {'sha256': 'y' * 64, 'bytes': '11'}}
     man = {'digest': 'd', 'panos': {'a': {'sha256': 'x' * 64, 'width': 4096, 'height': 2048},
                                     'b': {'sha256': 'z' * 64, 'width': 4096, 'height': 2048}}}
-    out = fia.input_manifest(['a', 'b'], floor, index=index, imagery_manifest=man)
+    floor['c'] = floor['a']
+    index['c'] = {'sha256': 'w' * 64, 'bytes': '12'}
+    out = fia.input_manifest(['a', 'b', 'c'], floor, index=index, imagery_manifest=man)
     assert out['images']['a'] == {'sha256': 'x' * 64, 'bytes': 10, 'image_size': [4096, 2048]}
-    assert out['rampnet_check']['sha256_and_size_equal'] == 1
-    assert out['rampnet_check']['differ'] == ['b']
+    chk = out['rampnet_check']
+    assert (chk['in_manifest'], chk['sha256_and_size_equal']) == (2, 1)
+    assert chk['mismatch'] == ['b']          # listed but different: the real finding
+    assert chk['not_in_manifest'] == 1       # 'c' is simply not a benchmark pano

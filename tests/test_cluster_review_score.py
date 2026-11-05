@@ -1,0 +1,412 @@
+"""cluster_review_score.py + inventory_clustering.assignment_metrics (RampNet#224): the
+pre-registered assignment metrics on a toy unit with one split, one merge, one not_ramp
+cluster, one unsure label and one uncovered point; the paired table; the decision rule at
+its boundaries; the self-consistency check; the "no GT yet" path and a scored fixture.
+Needs pandas/scipy/haversine (the #56 arms' analysis deps), not shapely."""
+import csv
+import hashlib
+import json
+
+import pytest
+
+pytest.importorskip('pandas')
+pytest.importorskip('scipy')
+pytest.importorskip('haversine')
+
+import pandas as pd  # noqa: E402
+
+import cluster_review_score as crs  # noqa: E402
+import inventory_clustering as ic  # noqa: E402
+
+# U1: r1 = {1, 2}, r2 = {3, 4}, r3 = {7}; 5 not_ramp; 6 unsure; one sure + one unsure
+# uncovered point. U2 is incomplete and must be ignored.
+U1 = {'labels': {'1': 'r1', '2': 'r1', '3': 'r2', '4': 'r2', '5': 'not_ramp', '6': 'unsure',
+                 '7': 'r3'},
+      'ramps': {'r1': {}, 'r2': {}, 'r3': {}},
+      'uncovered': [{'lat': 0, 'lng': 0, 'unsure': False}, {'lat': 0, 'lng': 0, 'unsure': True}],
+      'complete': True}
+U2 = {'labels': {'9': 'r1'}, 'ramps': {'r1': {}}, 'uncovered': [], 'complete': False}
+UNITS = {'u1': U1, 'u2': U2}
+KEYS = {'u1': [str(k) for k in range(1, 8)], 'u2': ['9']}
+# arm A: r1 split over c0/c1; c2 merges r2 and r3; c3 is all not_ramp; c4 holds only the
+# unsure label (so it does not touch the unit); label 9 sits in an incomplete unit
+ARM_A = ic.arm_index([[1], [2], [3, 4, 7], [5], [6], [9]])
+ARM_B = ic.arm_index([[1, 2], [3, 4], [7], [5, 6]])
+
+
+def test_assignment_metrics_exact_numbers():
+    m = ic.assignment_metrics(ARM_A, UNITS, KEYS)
+    assert m['units'] == 1
+    assert (m['ramps'], m['covered'], m['split']) == (3, 3, 1)
+    assert m['split_rate'] == pytest.approx(1 / 3)
+    assert (m['merge_k'], m['merge_strict_k'], m['merge_n']) == (1, 0, 1)
+    assert (m['clusters'], m['invalid_clusters']) == (4, 1)
+    assert (m['labels_held'], m['not_ramp_held']) == (6, 1)
+    assert m['uncovered_sure'] == 1 and m['coverage'] == pytest.approx(3 / 4)
+    assert m['per_ramp'] == {('u1', 'r1'): 2, ('u1', 'r2'): 1, ('u1', 'r3'): 1}
+    b = ic.assignment_metrics(ARM_B, UNITS, KEYS)
+    assert (b['split'], b['merge_k'], b['merge_n']) == (0, 0, 2) and b['merge_rate'] == 0.0
+    assert (b['clusters'], b['invalid_clusters']) == (4, 1)   # {5, 6}: only not_ramp in-window
+
+
+def test_labels_the_arm_does_not_hold_are_not_covered():
+    arm = ic.arm_index([[1, 2], [3, 4], [5]])                  # label 7 absent (e.g. human)
+    m = ic.assignment_metrics(arm, UNITS, KEYS)
+    assert (m['ramps'], m['covered']) == (3, 2)
+    assert m['coverage'] == pytest.approx(2 / 4)
+
+
+def test_paired_ramp_table():
+    a = ic.assignment_metrics(ARM_A, UNITS, KEYS)['per_ramp']
+    b = ic.assignment_metrics(ARM_B, UNITS, KEYS)['per_ramp']
+    t = ic.paired_ramp_table(a, b)
+    assert (t['fixed'], t['broken'], t['both'], t['neither']) == (1, 0, 0, 2)
+    t = ic.paired_ramp_table(b, a)
+    assert (t['fixed'], t['broken']) == (0, 1)
+    assert ic.paired_ramp_table({('u', 'r1'): 2}, {('u', 'r1'): 0})['only_a'] == 1
+
+
+def _arms(split, merge, cov):
+    base = {'split_rate': 0.20, 'merge_rate': 0.02, 'coverage': 0.90}
+    return {ic.REVIEW_BASE: base,
+            ic.REVIEW_ARM: {'split_rate': split, 'merge_rate': merge, 'coverage': cov}}
+
+
+def test_decision_rule_boundaries():
+    assert ic.assignment_verdict(_arms(0.15, 0.02, 0.90))[0] == ic.PASS        # exactly -0.05
+    assert ic.assignment_verdict(_arms(0.151, 0.02, 0.90))[0] == ic.NOT_ESTABLISHED
+    assert ic.assignment_verdict(_arms(0.10, 0.03, 0.90))[0] == ic.PASS        # merge +0.01
+    assert ic.assignment_verdict(_arms(0.10, 0.031, 0.90))[0] == ic.NOT_ESTABLISHED
+    assert ic.assignment_verdict(_arms(0.10, 0.02, 0.89))[0] == ic.PASS        # coverage -0.01
+    assert ic.assignment_verdict(_arms(0.10, 0.02, 0.889))[0] == ic.NOT_ESTABLISHED
+    assert ic.assignment_verdict({})[0] == ic.NO_GT
+    nothing = dict(_arms(0.10, 0.02, 0.9))
+    nothing[ic.REVIEW_ARM] = dict(nothing[ic.REVIEW_ARM], units=0)
+    assert ic.assignment_verdict(nothing)[0] == ic.NO_GT
+    # units were reviewed, but no cluster holds >= 2 ramp-assigned labels: not "no GT"
+    v, why = ic.assignment_verdict(_arms(0.10, None, 0.9))
+    assert v == ic.RATE_UNDEFINED and 'merge_rate' in why[0] and ic.REVIEW_ARM in why[0]
+
+
+def test_self_consistency_of_a_derived_assignment():
+    corners = [{'corner_id': 'u1', 'labels': [{'key': str(k), 'lat': 0.0, 'lng': 0.0}
+                                              for k in range(1, 8)]}]
+    derived = crs.derived_assignment(ARM_A, corners)
+    m = ic.assignment_metrics(ARM_A, derived, {'u1': KEYS['u1']})
+    assert m['split'] == 0 and m['merge_k'] == 0 and m['covered'] == 5
+
+
+def _sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _bundle(tmp_path, keys, assignment=None, human=(), inventory=False):
+    run = tmp_path / 'run'
+    (run / 'provenance_gate').mkdir(parents=True)
+    (run / 'ps_clustering_eval').mkdir(parents=True)
+    labels_file = run / 'provenance_gate' / 'raw_labels.geojson'
+    labels_file.write_text('{"features": []}', encoding='utf-8')
+    (run / 'ps_clustering_eval' / 'clusters.geojson').write_text('{"features": [1]}',
+                                                                 encoding='utf-8')
+    (run / 'results.jsonl').write_text('', encoding='utf-8')
+    bundle = tmp_path / 'bundle'
+    bundle.mkdir()
+    sha = _sha(labels_file)
+    (bundle / 'snapshot.json').write_text(json.dumps({
+        'city': 'vancouver', 'labels': {'sha256': sha, 'n_features': len(keys),
+                                        'fetched_at': 'x'},
+        'seed_arms': {'deployed': {'sha256': _sha(run / 'ps_clustering_eval' / 'clusters.geojson')},
+                      'fusion': {'results_sha256': _sha(run / 'results.jsonl')}}}),
+        encoding='utf-8')
+    corner = {'corner_id': 'u1', 'type': 'signalised', 'n_labels': len(keys), 'pilot': True,
+              'centre': {'lat': 45.6, 'lng': -122.6},
+              'labels': [{'key': str(k), 'lat': 45.6, 'lng': -122.6,
+                          'user_kind': 'human' if k in human else 'ai'} for k in keys]}
+    if inventory:
+        corner['inventory'] = [{'lat': 45.6, 'lng': -122.6, 'unit_id': 'CR1'}]
+    (bundle / 'corners.jsonl').write_text(json.dumps(corner) + '\n', encoding='utf-8')
+    if assignment is not None:
+        (bundle / 'assignments.json').write_text(json.dumps(dict(assignment, snapshot_sha256=sha)),
+                                                 encoding='utf-8')
+    df = pd.DataFrame({'label_id': list(keys), 'lat': [45.6] * len(keys),
+                       'lng': [-122.6] * len(keys)})
+    return run, bundle, df
+
+
+def test_no_gt_yet_report(tmp_path, monkeypatch):
+    run, bundle, df = _bundle(tmp_path, [1, 2])
+    toy = {name: [[1], [2]] for name in crs.ARMS}
+    monkeypatch.setattr(ic, 'server_arms', lambda *a, **k: (df, toy, {}))
+    out = tmp_path / 'out'
+    assert crs.main(['vancouver', '--run-dir', str(run), '--bundle', str(bundle),
+                     '--out', str(out)]) == 0
+    text = (out / 'report.md').read_text(encoding='utf-8')
+    assert 'NO GT YET' in text and 'self-consistency' in text and '-- OK' in text
+    with open(out / 'arms.csv', newline='', encoding='utf-8') as f:
+        assert list(csv.reader(f)) == [crs.ARM_FIELDS]
+
+
+def test_scores_a_fixture_assignment(tmp_path, monkeypatch):
+    a = {'schema': crs.SCHEMA, 'rubric_version': 1, 'seed_arm': 'deployed',
+         'corners': {'u1': dict(U1, stratum={'type': 'signalised'})}}
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    toy = {name: [[1, 2], [3, 4, 7], [5, 6]] for name in crs.ARMS}   # merge only
+    toy[ic.REVIEW_BASE] = [[1], [2], [3, 4, 7], [5], [6]]           # split + merge
+    monkeypatch.setattr(ic, 'server_arms', lambda *k, **kw: (df, toy, {}))
+    out = tmp_path / 'out'
+    assert crs.main(['vancouver', '--run-dir', str(run), '--bundle', str(bundle),
+                     '--out', str(out)]) == 0
+    text = (out / 'report.md').read_text(encoding='utf-8')
+    assert '**PASS**' in text          # split 1/3 -> 0, merge 1/1 -> 1/1, coverage 3/4 both
+    # rater A (no role), every unit of the bundle complete: the pre-registered reading
+    assert '## Decision (pre-registered): **PASS**' in text and 'DESCRIPTIVE' not in text
+    assert 'arm-independent by construction' in text
+    for name in ('report.md', 'arms.csv', 'ramps.csv'):    # LF on every platform
+        assert b'\r\n' not in (out / name).read_bytes(), name
+    with open(out / 'ramps.csv', newline='', encoding='utf-8') as f:
+        rows = list(csv.DictReader(f))
+    assert {(r['ramp'], r[ic.REVIEW_BASE], r[ic.REVIEW_ARM]) for r in rows} == \
+        {('r1', '2', '1'), ('r2', '1', '1'), ('r3', '1', '1')}
+
+
+def test_refuses_a_file_on_another_snapshot(tmp_path, monkeypatch):
+    a = {'schema': crs.SCHEMA, 'rubric_version': 1, 'corners': {'u1': U1}}
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    p = bundle / 'assignments.json'
+    p.write_text(json.dumps(dict(json.loads(p.read_text()), snapshot_sha256='0' * 64)),
+                 encoding='utf-8')
+    monkeypatch.setattr(ic, 'server_arms',
+                        lambda *k, **kw: (df, {n: [[1]] for n in crs.ARMS}, {}))
+    with pytest.raises(SystemExit, match='cannot be scored'):
+        crs.main(['vancouver', '--run-dir', str(run), '--bundle', str(bundle),
+                  '--out', str(tmp_path / 'out')])
+
+
+def _fixture(**kw):
+    return dict({'schema': crs.SCHEMA, 'rubric_version': 1, 'seed_arm': 'deployed',
+                 'corners': {'u1': dict(U1, stratum={'type': 'signalised'})}}, **kw)
+
+
+def _run(tmp_path, monkeypatch, toy, df, run, bundle, *extra):
+    monkeypatch.setattr(ic, 'server_arms', lambda *k, **kw: (df, toy, {}))
+    return crs.main(['vancouver', '--run-dir', str(run), '--bundle', str(bundle),
+                     '--out', str(tmp_path / 'out')] + list(extra))
+
+
+def test_refuses_arm_inputs_other_than_the_bundles(tmp_path, monkeypatch):
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), _fixture())
+    (run / 'results.jsonl').write_text('{"changed": 1}\n', encoding='utf-8')
+    toy = {n: [[1, 2], [3, 4, 7], [5, 6]] for n in crs.ARMS}
+    with pytest.raises(SystemExit, match='results.jsonl sha256'):
+        _run(tmp_path, monkeypatch, toy, df, run, bundle)
+    (run / 'ps_clustering_eval' / 'clusters.geojson').write_text('{}', encoding='utf-8')
+    with pytest.raises(SystemExit, match='deployed clusters sha256'):
+        _run(tmp_path, monkeypatch, toy, df, run, bundle)
+    assert _run(tmp_path, monkeypatch, toy, df, run, bundle, '--allow-arm-mismatch') == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert 'ARM INPUT MISMATCH' in text
+
+
+@pytest.mark.parametrize('mutate, needle', [
+    (lambda a: a['corners']['u1']['labels'].update({'3': 'r3 '}), 'label value'),
+    (lambda a: a['corners']['u1']['labels'].update({'3': 'ramp'}), 'label value'),
+    (lambda a: a.update(rubric_version=2), 'rubric_version'),
+])
+def test_check_assignments_rejects_bad_values_and_foreign_rubrics(tmp_path, monkeypatch,
+                                                                  mutate, needle):
+    a = json.loads(json.dumps(_fixture()))
+    mutate(a)
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    with pytest.raises(SystemExit, match=needle):
+        _run(tmp_path, monkeypatch, {n: [[1]] for n in crs.ARMS}, df, run, bundle)
+
+
+def test_every_arm_scores_the_same_labels():
+    # arm P holds neither the human label 8 nor label 7; arm F holds everything. With human
+    # labels out of the key set and unheld labels completed as singletons, coverage is equal
+    unit = dict(U1, labels=dict(U1['labels'], **{'8': 'r3'}))
+    keys = {'u1': [str(k) for k in range(1, 8)]}            # 8 is human: excluded
+    p_arm, n_p = ic.complete_arm(ic.arm_index([[1], [2], [3, 4], [5], [6]]), keys['u1'])
+    f_arm, n_f = ic.complete_arm(ic.arm_index([[1, 2], [3, 4], [7, 8], [5, 6]]), keys['u1'])
+    assert (n_p, n_f) == (1, 0) and p_arm['7'] == {('singleton', '7')}
+    mp = ic.assignment_metrics(p_arm, {'u1': unit}, keys)
+    mf = ic.assignment_metrics(f_arm, {'u1': unit}, keys)
+    assert mp['coverage'] == mf['coverage'] == pytest.approx(3 / 4)
+    assert (mp['covered'], mf['covered']) == (3, 3)
+    assert (mp['split'], mf['split']) == (1, 0)
+
+
+def test_human_labels_and_singletons_through_main(tmp_path, monkeypatch):
+    unit = dict(U1, labels=dict(U1['labels'], **{'8': 'r3'}), stratum={'type': 'signalised'})
+    run, bundle, df = _bundle(tmp_path, list(range(1, 9)), _fixture(corners={'u1': unit}),
+                              human=(8,))
+    toy = {n: [[1, 2], [3, 4], [7, 8], [5, 6]] for n in crs.ARMS}
+    toy[ic.REVIEW_BASE] = [[1], [2], [3, 4], [5], [6]]       # no human, no label 7
+    assert _run(tmp_path, monkeypatch, toy, df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert '1 human label(s) excluded' in text and f'{ic.REVIEW_BASE} 1' in text
+    with open(tmp_path / 'out' / 'arms.csv', newline='', encoding='utf-8') as f:
+        cov = {r['arm']: r['coverage'] for r in csv.DictReader(f) if r['stratum'] == 'all'}
+    assert len(set(cov.values())) == 1                      # coverage is arm-independent
+
+
+def test_calibration_drops_units_edited_after_the_inventory_reveal(tmp_path, monkeypatch):
+    unit = dict(U1, stratum={'type': 'signalised'}, inventory_seen=True,
+                edited_after_inventory=True)
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), _fixture(corners={'u1': unit}),
+                              inventory=True)
+    toy = {n: [[1, 2], [3, 4, 7], [5, 6]] for n in crs.ARMS}
+    assert _run(tmp_path, monkeypatch, toy, df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert '1 were edited after the reveal and are DROPPED' in text
+    assert 'no reviewed unit carries inventory points' in text
+
+
+# --- can't judge (RampNet protocol, Amendment 3) -------------------------------------------
+
+def test_cant_judge_units_count_in_no_metric():
+    cj = dict(U1, complete=False, cant_judge=True, cant_judge_reason='under a bridge deck')
+    m = ic.assignment_metrics(ARM_A, {'u1': cj, 'u2': U2}, KEYS)
+    assert m['units'] == 0 and m['ramps'] == 0
+    # defensive: even a file that (invalidly) says both is not scored
+    both = dict(U1, cant_judge=True)
+    assert ic.assignment_metrics(ARM_A, {'u1': both}, KEYS)['units'] == 0
+
+
+@pytest.mark.parametrize('fields, needle', [
+    ({'cant_judge': 'yes'}, 'not a boolean'),
+    ({'cant_judge': True, 'cant_judge_reason': 'x'}, 'cant_judge and complete'),
+    ({'cant_judge': True, 'complete': False, 'cant_judge_reason': ' '}, 'without a cant_judge_reason'),
+])
+def test_check_assignments_cant_judge_invariants(tmp_path, monkeypatch, fields, needle):
+    a = json.loads(json.dumps(_fixture()))
+    a['corners']['u1'].update(fields)
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    with pytest.raises(SystemExit, match=needle):
+        _run(tmp_path, monkeypatch, {n: [[1]] for n in crs.ARMS}, df, run, bundle)
+
+
+def test_cant_judge_listed_with_its_reason(tmp_path, monkeypatch):
+    a = json.loads(json.dumps(_fixture()))
+    a['corners']['u1'].update(complete=False, cant_judge=True,
+                              cant_judge_reason='tree canopy hides the corner')
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    assert _run(tmp_path, monkeypatch, {n: [[1, 2], [3, 4, 7], [5, 6]] for n in crs.ARMS},
+                df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert "0 complete, 1 can't judge" in text
+    assert "## Can't judge" in text and 'signalised 1' in text
+    assert '| u1 | signalised | tree canopy hides the corner |' in text
+
+
+# --- pre-registered vs descriptive decision (review S6) ------------------------------------
+
+def _two_unit_bundle(tmp_path, a):
+    """_bundle's u1 plus a second, non-pilot unit u2 holding label 9."""
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)) + [9], a)
+    c1 = json.loads((bundle / 'corners.jsonl').read_text(encoding='utf-8'))
+    c1['labels'] = [lab for lab in c1['labels'] if lab['key'] != '9']
+    c2 = {'corner_id': 'u2', 'type': 'arterial', 'n_labels': 1, 'pilot': False,
+          'centre': {'lat': 45.7, 'lng': -122.7},
+          'labels': [{'key': '9', 'lat': 45.7, 'lng': -122.7, 'user_kind': 'ai'}]}
+    (bundle / 'corners.jsonl').write_text(json.dumps(c1) + '\n' + json.dumps(c2) + '\n',
+                                          encoding='utf-8')
+    return run, bundle, df
+
+
+TOY_PASS = {n: [[1, 2], [3, 4, 7], [5, 6], [9]] for n in crs.ARMS}
+TOY_PASS[ic.REVIEW_BASE] = [[1], [2], [3, 4, 7], [5], [6], [9]]
+
+
+@pytest.mark.parametrize('extra, u2, needle', [
+    ({}, U2, 'DESCRIPTIVE -- pilot: 1 of 2 units'),              # only the pilot unit done
+    ({'role': 'b'}, dict(U2, complete=True), 'DESCRIPTIVE -- role b'),
+])
+def test_decision_is_descriptive_unless_rater_a_full_pass(tmp_path, monkeypatch, extra, u2,
+                                                         needle):
+    a = _fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'}), 'u2': u2}, **extra)
+    run, bundle, df = _two_unit_bundle(tmp_path, a)
+    assert _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle,
+                '--allow-partial-descriptive') == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert needle in text and '(pre-registered): **' not in text
+    assert '**--allow-partial-descriptive**' in text            # the override is recorded
+
+
+# --- no arm-level number before rater A's full pass (RampNet#280 review S1) ----------------
+
+@pytest.mark.parametrize('extra, u2, needle', [
+    ({}, U2, 'pilot: 1 of 2 units'),                              # a pilot-only file
+    ({}, dict(U2, complete=False, labels={}), 'pilot: 1 of 2'),   # seen but not done
+    ({'role': 'b'}, dict(U2, complete=True), "not rater A's full pass"),   # retest, no A file
+])
+def test_arm_numbers_refused_before_rater_a_full_pass(tmp_path, monkeypatch, extra, u2, needle):
+    a = _fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'}), 'u2': u2}, **extra)
+    run, bundle, df = _two_unit_bundle(tmp_path, a)
+    with pytest.raises(SystemExit, match=needle) as e:
+        _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle)
+    assert 'Amendment 5' in str(e.value) and '--allow-partial-descriptive' in str(e.value)
+    assert not (tmp_path / 'out' / 'arms.csv').exists()          # nothing arm-level written
+
+
+def test_role_b_is_scored_once_rater_a_full_pass_is_in_the_bundle(tmp_path, monkeypatch):
+    full_a = _fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'}),
+                               'u2': dict(U2, complete=True)}, role='a')
+    run, bundle, df = _two_unit_bundle(tmp_path, full_a)
+    sha = json.loads((bundle / 'assignments.json').read_text(encoding='utf-8'))['snapshot_sha256']
+    retest = dict(_fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'})}, role='b',
+                           rater='jon-retest'), snapshot_sha256=sha)
+    (bundle / 'assignments__jon-retest.json').write_text(json.dumps(retest), encoding='utf-8')
+    assert _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle,
+                '--assignments', 'assignments__jon-retest.json') == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert 'DESCRIPTIVE -- role b' in text and 'allow-partial-descriptive' not in text
+
+
+def test_report_names_the_labeler_commit(tmp_path, monkeypatch):
+    run, bundle, df = _bundle(tmp_path, [1, 2])
+    monkeypatch.setattr(crs, 'labeler_ref', lambda: ('ab' * 20, True))
+    toy = {name: [[1], [2]] for name in crs.ARMS}
+    monkeypatch.setattr(ic, 'server_arms', lambda *a, **k: (df, toy, {}))
+    out = tmp_path / 'out'
+    assert crs.main(['vancouver', '--run-dir', str(run), '--bundle', str(bundle),
+                     '--out', str(out)]) == 0
+    text = (out / 'report.md').read_text(encoding='utf-8')
+    assert f"`scripts/cluster_review_score.py` at commit `{'ab' * 20}`" in text
+    assert 'uncommitted changes' in text and crs.RAMPNET_REF in text
+
+
+def test_labeler_ref_reads_this_checkout():
+    sha, dirty = crs.labeler_ref()
+    assert sha == 'unknown' or (len(sha) == 40 and set(sha) <= set('0123456789abcdef'))
+    assert isinstance(dirty, bool)
+
+
+def test_decision_is_pre_registered_on_a_full_pass_with_cant_judge(tmp_path, monkeypatch):
+    u2 = dict(U2, cant_judge=True, cant_judge_reason='construction')
+    a = _fixture(corners={'u1': dict(U1, stratum={'type': 'signalised'}), 'u2': u2}, role='a')
+    run, bundle, df = _two_unit_bundle(tmp_path, a)
+    assert _run(tmp_path, monkeypatch, TOY_PASS, df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert '## Decision (pre-registered): **PASS**' in text
+
+
+def test_bootstrap_split_diff_is_paired_by_unit_and_deterministic():
+    # S8 (RampNet#280): base splits u1:r1; the arm splits nothing -> -1/3
+    base = {('u1', 'r1'): 2, ('u1', 'r2'): 1, ('u2', 'r1'): 1}
+    arm = {('u1', 'r1'): 1, ('u1', 'r2'): 1, ('u2', 'r1'): 1}
+    d, c, n = crs.bootstrap_split_diff(base, arm)
+    assert d == pytest.approx(-1 / 3) and n == 2
+    assert c[0] <= d <= c[1] and crs.bootstrap_split_diff(base, arm) == (d, c, n)
+    assert crs.bootstrap_split_diff({}, {}) == (None, None, 0)
+
+
+def test_full_pass_report_carries_the_split_bootstrap(tmp_path, monkeypatch):
+    a = {'schema': crs.SCHEMA, 'rubric_version': 1, 'seed_arm': 'deployed',
+         'corners': {'u1': dict(U1, stratum={'type': 'signalised'})}}
+    run, bundle, df = _bundle(tmp_path, list(range(1, 8)), a)
+    toy = {name: [[1, 2], [3, 4, 7], [5, 6]] for name in crs.ARMS}
+    toy[ic.REVIEW_BASE] = [[1], [2], [3, 4, 7], [5], [6]]
+    assert _run(tmp_path, monkeypatch, toy, df, run, bundle) == 0
+    text = (tmp_path / 'out' / 'report.md').read_text(encoding='utf-8')
+    assert 'unit-level paired bootstrap 95% CI' in text and '= -0.333' in text

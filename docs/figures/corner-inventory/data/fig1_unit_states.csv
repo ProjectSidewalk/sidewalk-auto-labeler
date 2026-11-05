@@ -1,0 +1,6 @@
+stratum,n,present,absent,unobservable,share_present,share_absent,share_unobservable
+signalised,284,279,2,3,0.9824,0.007,0.0106
+arterial,1497,1076,39,382,0.7188,0.0261,0.2552
+residential,2648,1537,43,1068,0.5804,0.0162,0.4033
+intersections,4429,2892,84,1453,0.653,0.019,0.3281
+mid_block,16912,2495,477,13940,0.1475,0.0282,0.8243

@@ -1,0 +1,44 @@
+{
+  "run_name": "vancouver_posdetect241",
+  "created_at": "2026-10-05T13:31:37+00:00",
+  "imagery_source": "gsv",
+  "model_repo": "projectsidewalk/rampnet-model",
+  "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+  "model_id": "rampnet-model@606a11956743",
+  "model_training_date": "08-21-2025",
+  "api_version": "1.0.0",
+  "detection_storage_floor": 0.1,
+  "max_peaks_per_pano": 50,
+  "streetlevel_version": "0.12.10",
+  "pixels": {
+    "store": "/projects/makeabilitylab/sidewalk_panos/Panoramas/vancouver-wa",
+    "layout": "sharded",
+    "server": "https://sidewalk-vancouver.cs.washington.edu",
+    "metadata": "/backupImage/{pano_id}/metadata",
+    "ids_sha256": "b232962344cc8ae56ad0a1feec9858ef0c2b6e9c967e4edc7dbf8069b895ce8a",
+    "n_ids": 10337,
+    "n_sampled_unlabeled": 0,
+    "seed": 0,
+    "source_detail": "ps_store"
+  },
+  "runs": [
+    {
+      "started_at": "2026-10-05T13:31:37+00:00",
+      "finished_at": "2026-10-05T15:44:29+00:00",
+      "panos_found_in_area": 10337,
+      "processed": 10337,
+      "skipped": 0,
+      "failed": 0,
+      "phase": "store",
+      "native_size_mismatch": 0,
+      "guarded_skips_refused": {},
+      "model": {
+        "model_repo": "projectsidewalk/rampnet-model",
+        "model_revision": "606a11956743f7eb328d9207769034752f6191f4",
+        "model_id": "rampnet-model@606a11956743",
+        "model_training_date": "08-21-2025",
+        "api_version": "1.0.0"
+      }
+    }
+  ]
+}

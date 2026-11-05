@@ -582,6 +582,61 @@ python scripts/eval_ps_clustering.py laurens --split laurens_mapillary --results
 python scripts/clustering_eval_pooled.py            # every (city, tier, frame) cell, then pool
 python scripts/clustering_eval_pooled.py --pool-only   # -> runs/_pooled/ps_clustering_eval/
 python scripts/inventory_clustering.py score bend gainesville && python scripts/inventory_clustering.py verdict
+
+# CLUSTER-REVIEW GT (RampNet#224; protocol RampNet docs/cluster_review_protocol.md, rubric
+# RUBRICS.md §6 -- those, the gallery, rampnet/cluster_review.py and the bundle live ONLY on
+# RampNet branch cluster-review-224 for now, linked at e869be2 (PR #280) in
+# docs/ps-clustering-eval.md; TODO: repoint to RampNet main once it merges).
+# export_cluster_review.py samples OSM intersection / mid-block units (seed 224, 20 per stratum, 15% no-label, >= 60 m apart, 30 m windows by SERVER position; sampling rule v2
+# drops any window touching a bridge / covered / layer>=1 way or a street below grade --
+# `grade_separated`, protocol rule 6b) and writes a
+# bundle into RampNet: snapshot.json + corners.jsonl (each label with its `deployed` and
+# `fusion_server+attach` seed group -- inventory_clustering.server_arms, whose fusion arms come
+# from fuse_server_labels, the helper score_server_arms also calls; checked against
+# split_figures/state.pkl), Esri aerials and
+# 45 deg / 512 px crops cut on makelab2 from the sharded PS store (site_explorer's worker; item
+# `path` + job `draft_width`). Resumable; never re-samples corners.jsonl; reconciles crops and
+# aerials. The run dir's inputs are read in place (the work dir, default
+# runs/<city>/cluster_review, may sit inside it). cluster_review_score.py reads assignments.json AS DATA
+# (no RampNet import), rebuilds every #56 arm, applies inventory_clustering.assignment_metrics +
+# the pre-registered rule (fusion_server+attach vs ps @ 7.5 m) and the inventory calibration; with
+# no assignments.json it writes a "NO GT YET" report and exits 0. Every arm scores the SAME labels:
+# human labels out, a label an arm does not hold = its singleton. A `cant_judge` unit (reason
+# required) counts in no metric and is listed with its reason. It refuses deployed clusters /
+# results.jsonl whose sha256 differs from snapshot.json (--allow-arm-mismatch, recorded). Nobody but a human reviewer in
+# RampNet's cluster_review_gallery.py writes an assignments file. The decision is headed
+# "pre-registered" only for rater A's full pass. Anything else is REFUSED before an arm-level
+# number exists (RampNet protocol Amendment 5, S1: one rater who knows the hypothesis must not
+# see arm tables mid-study) -- a pilot or partial pass always, a role-b retest until the bundle's
+# assignments.json is A's full pass; --allow-partial-descriptive overrides, headed DESCRIPTIVE
+# and recorded. The report names the labeler commit it ran at (and any dirty tracked .py).
+# The frozen inputs (label pull, deployed clusters, results.jsonl, streets, osm.json, inventory)
+# are untracked; their sha256s and locations are in the doc's "Frozen inputs" table.
+# --run-dir: a run dir holding the Vancouver run and those inputs, e.g. runs/vancouver
+python scripts/export_cluster_review.py vancouver --run-dir runs/vancouver \
+    --bundle ../RampNet/benchmark/vancouver/cluster_review [--no-crops] [--skip-aerial]
+python scripts/cluster_review_score.py vancouver --run-dir runs/vancouver \
+    --bundle ../RampNet/benchmark/vancouver/cluster_review    # -> runs/vancouver/cluster_review/score/
+# CORNER INVENTORY (RampNet#238; protocol + results docs/corner-inventory.md). Every eligible
+# #224 unit (no sampling; OSM functions imported from export_cluster_review.py, eligible counts
+# asserted against the exporter's), legs walked out to 20 m; oneway same-name carriageways
+# (within 90 deg) and *_link slip lanes (within 60 deg) merge by OSM tags, then any legs within
+# 30 deg chain (angle alone left divided-road medians as corners -- review B1), corners =
+# sectors between legs; state per unit / corner = present (operational fused site, or deployed
+# cluster) > absent (a run pano within 25 m of the corner point) > unobservable. CAUTION: a
+# store-built run holds the LABELED panos (+ a 300-pano unlabeled sample), so "observed" is
+# conditioned on a label having been made nearby -- read every absence number with that.
+# `census` makes one streetlevel metadata request per pano (no image), cached with fetch time.
+python scripts/corner_inventory.py build --run-dir ../sal-vancouver/runs/vancouver \
+    --osm ../sal-cluster-review/runs/vancouver/cluster_review/osm.json \
+    --units224 ../RampNet/benchmark/vancouver/cluster_review/corners.jsonl \
+    --out runs/vancouver/corner_inventory
+python scripts/corner_inventory.py score --out runs/vancouver/corner_inventory
+python scripts/corner_inventory.py census --out runs/vancouver/corner_inventory   # network
+python scripts/corner_inventory.py score-assignments --out runs/vancouver/corner_inventory \
+    --assignments ../RampNet/benchmark/vancouver/cluster_review/assignments.json
+python scripts/corner_inventory.py figures   # docs/figures/corner-inventory/ from committed
+#   counts.csv + decision.json only (matplotlib); byte-reproducible, re-run leaves git clean
 # Vancouver split examples (#56): ramps one arm splits and another does not, drawn on Esri
 # aerial tiles at SERVER placement (every cluster placed) -> docs/figures/vancouver-splits/
 python scripts/split_figures.py            # --rebuild recomputes the cached partitions

@@ -187,6 +187,11 @@ runs/*/server_agree/as_served/
 !docs/figures/mined-precision/data/placement/*.jsonl
 # RampNet#158 step 3: the richmond / bend floor re-inference over judged panos (small).
 !docs/figures/mined-precision/data/step3/*.jsonl
+# RampNet#158 step 4: the city-wide miner's labels (one row per candidate pair, ~1 MB).
+!docs/figures/mined-precision/data/step4/**/*.jsonl
+# ...but not the desktop re-run on results.f01.jsonl (review of labeler#114): only its
+# summary.json is tracked; its labels differ from the pass's in one pixel (docs).
+docs/figures/mined-precision/data/step4/richmond_f01/*.jsonl
 # Footway: segmenter vs GSV depth (scripts/footway_segmentation.py, issue #47 step 2; write-up
 # in docs/footway-depth-study.md): per-city and pooled reports, CSVs, the verdict and the
 # label-map manifest are tracked. The tiles and label maps (runs/_pooled/footway/work/) are
@@ -208,3 +213,50 @@ runs/*/server_agree/as_served/
 !runs/_summary/panoramax_asset/*.csv
 !runs/_summary/panoramax_asset/*.json
 !runs/_summary/panoramax_asset/detections.jsonl
+# Corner-level cluster review (scripts/export_cluster_review.py + cluster_review_score.py,
+# RampNet#224; protocol in RampNet docs/cluster_review_protocol.md): the exporter's report
+# copy and the scorer's report + CSVs are tracked. The Overpass cache (osm.json) and the
+# Esri tile cache (tiles/) are NOT -- the report carries the payload's sha256 and fetch time.
+!runs/*/cluster_review/
+!runs/*/cluster_review/report.md
+!runs/*/cluster_review/*.csv
+!runs/*/cluster_review/score/
+!runs/*/cluster_review/score/report.md
+!runs/*/cluster_review/score/*.csv
+# Corner-level ramp inventory (scripts/corner_inventory.py, RampNet#238; protocol and results
+# in docs/corner-inventory.md): the report, the scored counts, the decision, the triage lists
+# (false absences, inventory gaps), the #224 units' states and the census summary are tracked.
+# corners_full.jsonl / units.csv / corners.csv (tens of MB) and the census response cache are
+# NOT -- build.json carries every input's sha256 and census.json the cache's.
+!runs/*/corner_inventory/
+!runs/*/corner_inventory/report.md
+!runs/*/corner_inventory/build.json
+!runs/*/corner_inventory/decision.json
+!runs/*/corner_inventory/counts.csv
+!runs/*/corner_inventory/false_absences.csv
+!runs/*/corner_inventory/gaps.csv
+!runs/*/corner_inventory/corners_224_units.csv
+!runs/*/corner_inventory/corners_224_corners.csv
+!runs/*/corner_inventory/census/
+!runs/*/corner_inventory/census/census.json
+# Position-selected panos at the corner inventory's unobservable units (scripts/
+# corner_posdetect.py, RampNet#241; amendment A8 of docs/corner-inventory.md). The selection
+# (ids, per-unit table, its inputs' sha256s) and the comparison are tracked; the PS pano list
+# and the store id list under cache/ are NOT (selection.json carries their sha256s). The
+# re-built inventory with the new run merged in is tracked like corner_inventory/.
+!runs/*/corner_posdetect241/
+!runs/*/corner_posdetect241/select/
+!runs/*/corner_posdetect241/select/*
+!runs/*/corner_posdetect241/compare/
+!runs/*/corner_posdetect241/compare/*
+!runs/*/corner_inventory_posdetect241/
+!runs/*/corner_inventory_posdetect241/report.md
+!runs/*/corner_inventory_posdetect241/build.json
+!runs/*/corner_inventory_posdetect241/decision.json
+!runs/*/corner_inventory_posdetect241/counts.csv
+!runs/*/corner_inventory_posdetect241/false_absences.csv
+!runs/*/corner_inventory_posdetect241/gaps.csv
+# the position-selected detection run itself: its id list is the selection's (tracked above)
+!runs/vancouver_posdetect241/store_ids.txt
+!runs/vancouver_posdetect241/sites_meta.json
+!runs/vancouver_posdetect241_gsv/sites_meta.json
