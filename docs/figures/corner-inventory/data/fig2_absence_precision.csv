@@ -1,0 +1,5 @@
+arm,read,k,n,share,lo,hi,decides
+fusion,clean,46,84,0.5476,0.4414,0.6496,True
+fusion,no_available,75,84,0.8929,0.8088,0.9426,False
+deployed,clean,42,81,0.5185,0.4114,0.624,False
+deployed,no_available,73,81,0.9012,0.817,0.9491,False
