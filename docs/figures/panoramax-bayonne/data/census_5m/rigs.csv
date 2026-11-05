@@ -1,0 +1,6 @@
+camera_make,camera_model,dimensions,panos,share
+GoPro,Max,5760x2880,28572,0.5668
+GoPro,Max,5376x2688,21768,0.4318
+GlobalExtractor.py,,5376x2688,53,0.0011
+Kandao,QooCam 3 Ultra,13888x6944,13,0.0003
+samsung,SM-A566B,3584x1792,3,0.0001

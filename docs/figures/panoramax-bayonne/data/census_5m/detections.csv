@@ -1,0 +1,3 @@
+min_confidence,panos,panos_with_detection,share_with_detection,detections,detections_per_pano,on_rig,on_rig_share,band_y,in_band,in_band_share
+0.3,50409,11895,0.236,19206,0.381,15,0.0008,0.79,2,0.0001
+0.55,50409,5624,0.1116,7449,0.148,1,0.0001,0.79,0,0.0

@@ -7,6 +7,9 @@ needs neither stay apart:
               Needs runs/<city>/results.jsonl for bayonne and the five Mapillary
               comparators (plus runs/bayonne/osm_streets.json). No GPU, no network.
               Bootstraps resample SITES (or pose groups, or panos for rates) with seed 57.
+              The committed CSVs are the 10 m run; runs/bayonne is now the 5 m run, so
+              regenerate them from a run root holding its 10 m byte prefix (the first
+              28,524 lines; docs/panoramax-bayonne.md section 5).
     examples  network -> data/examples/ (downscaled JPEGs + a CSV of what is drawn).
               Fetches 8 Bayonne panos and one cropped GoPro MAX2 upload from Panoramax.
     figures   committed data/ only -> fig1..fig7 as PNG (200 dpi) + SVG. No run files,
@@ -166,6 +169,40 @@ def _write(name, rows):
     print(f'wrote {DATA / name} ({len(rows)} rows)')
 
 
+def _refuse_changed_inputs(run_root):
+    """Exits when a partial `data --only ...` run would read run files other than the ones
+    the committed data/inputs.csv certifies.
+
+    A partial run leaves the parts it skips as they were, so a part regenerated from a
+    changed run would sit beside parts from the old one. That is a live case: runs/bayonne
+    was densified from 10 m to 5 m (#147) after every committed CSV was made, so
+    `data --only fig5` would put a 5 m fig5 beside a 10 m fig1-fig4. Including `inputs` does
+    not help: it rewrites inputs.csv to the new hashes, which then certify the old parts
+    too (PR 154 final review, S1). So every partial run is checked, `inputs` or not; only a
+    full `data` run (no --only, or every part named) moves inputs.csv and every CSV together.
+    `--allow-changed-inputs` skips the check, for a deliberate scratch comparison.
+    """
+    path = DATA / 'inputs.csv'
+    if not path.exists():
+        return
+    with open(path, newline='', encoding='utf-8') as f:
+        rows = list(csv.DictReader(f))
+    changed = []
+    for row in rows:
+        rel = Path(row['file'])
+        local = run_root / rel.relative_to('runs') if rel.parts[0] == 'runs' else run_root / rel
+        actual = _sha256(local) if local.exists() else 'missing'
+        if actual != row['sha256']:
+            changed.append(f"   {row['file']}: inputs.csv {row['sha256'][:12]}..., "
+                           f"now {actual[:12]}{'...' if actual != 'missing' else ''}")
+    if changed:
+        sys.exit("❌ a partial --only run, but these run files differ from data/inputs.csv:\n"
+                 + "\n".join(changed)
+                 + "\n   Regenerating only some parts would mix two runs (adding `inputs` would\n"
+                   "   certify the mix under the new hashes). Re-run every part (omit --only) so\n"
+                   "   inputs.csv and every CSV move together, or pass --allow-changed-inputs.")
+
+
 DATA_PARTS = ('inputs', 'fig1', 'fig2a', 'fig2b', 'fig3', 'pairs', 'fig4', 'fig5', 'fig6',
               'fig7b')
 
@@ -178,6 +215,8 @@ def cmd_data(args):
     run_root = args.run_root
     cities = (CITY,) + COMPARATORS
     parts = set(args.only or DATA_PARTS)
+    if parts != set(DATA_PARTS) and not getattr(args, 'allow_changed_inputs', False):
+        _refuse_changed_inputs(run_root)
     loaded = {c: _load_city(run_root, c, BENCHMARK_CONFIDENCE) for c in cities}
 
     if 'inputs' in parts:
@@ -1123,7 +1162,11 @@ def main():
         p.add_argument('--run-root', type=Path, default=REPO_ROOT / 'runs')
         if name == 'data':
             p.add_argument('--only', nargs='+', choices=DATA_PARTS,
-                           help='regenerate only these outputs (default: all)')
+                           help='regenerate only these outputs (default: all). Refused '
+                                'when a run file differs from data/inputs.csv')
+            p.add_argument('--allow-changed-inputs', action='store_true',
+                           help='let a partial --only run read run files that differ from '
+                                'data/inputs.csv (mixes two runs; scratch comparisons only)')
     p = sub.add_parser('crops')
     p.add_argument('--bundle', type=Path, default=REPO_ROOT.parent / 'bayonne-bundle')
     sub.add_parser('figures')
