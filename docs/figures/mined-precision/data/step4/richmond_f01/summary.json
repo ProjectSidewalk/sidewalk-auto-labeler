@@ -1,0 +1,87 @@
+{
+ "by_status": {
+  "emit": 573,
+  "no_peak": 1928,
+  "operational_in_window": 510
+ },
+ "camera_height": "per-rig",
+ "camera_height_resolved_m": {
+  "2.6": 9091
+ },
+ "city": "richmond",
+ "emitted": 573,
+ "emitted_by_band": {
+  "0-8 m": 103,
+  "12-15 m": 255,
+  "8-12 m": 215
+ },
+ "emitted_distinct_targets": 545,
+ "emitted_distinct_targets_by_band": {
+  "0-8 m": 102,
+  "12-15 m": 249,
+  "8-12 m": 209
+ },
+ "emitted_distinct_targets_off_benchmark": 531,
+ "emitted_distinct_targets_off_benchmark_by_band": {
+  "0-8 m": 97,
+  "12-15 m": 244,
+  "8-12 m": 203
+ },
+ "emitted_ge_0_30": 359,
+ "emitted_ge_0_30_by_band": {
+  "0-8 m": 73,
+  "12-15 m": 145,
+  "8-12 m": 141
+ },
+ "emitted_ge_0_30_off_benchmark": 346,
+ "emitted_ge_0_30_off_benchmark_by_band": {
+  "0-8 m": 69,
+  "12-15 m": 142,
+  "8-12 m": 135
+ },
+ "emitted_off_benchmark": 557,
+ "emitted_off_benchmark_by_band": {
+  "0-8 m": 98,
+  "12-15 m": 250,
+  "8-12 m": 209
+ },
+ "emitted_on_benchmark_panos": 16,
+ "emitted_panos": 498,
+ "emitted_sites": 340,
+ "emitted_targets_multi_band": 15,
+ "emitted_targets_multi_band_off_benchmark": 13,
+ "emitted_targets_multi_site": 28,
+ "emitted_targets_multi_site_off_benchmark": 26,
+ "excluded_subfloor_members": 0,
+ "inputs": {
+  "benchmark_ids_sha256": "518ac40cd6d268e079845794ae358dcc36e67b055e3e19c1f3e457d41775f114",
+  "camera_heights_sha256": "d91cd00991a0056a5957486a52982e2e102c30864b574fefe0bc8628b6aa9ee0",
+  "peaks_sha256": "e81954f4c44d02131f2da4d5f1f9314aaf8dd957811dc1e6f49079f4fcfbe0bb",
+  "results_sha256": "109e7645ebf5ab982d2cc1388b50e837f6d622a4ff14752c1895b194a5c0d88c"
+ },
+ "min_panos": 3,
+ "n_panos": 9091,
+ "n_sites": 1570,
+ "n_strong_sites": 945,
+ "operational_detections": 9526,
+ "pairs": 3011,
+ "pairs_by_band": {
+  "0-8 m": 746,
+  "12-15 m": 1172,
+  "8-12 m": 1093
+ },
+ "params": {
+  "apply_pose": "off",
+  "mask_rig": false,
+  "min_confidence": 0.55,
+  "peak_floor": 0.1,
+  "target_rig_mask_y": 0.7722222222222221,
+  "window": 0.022,
+  "withheld_at": 0.55
+ },
+ "radius_m": 15.0,
+ "tiers": {
+  "operational_in_this_script": 0.55,
+  "production_operational": 0.3
+ }
+}

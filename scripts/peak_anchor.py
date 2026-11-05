@@ -51,6 +51,10 @@ from detectors import BENCHMARK_CONFIDENCE, DETECTION_STORAGE_FLOOR  # noqa: E40
 PANO_SCALE_X, PANO_SCALE_Y = 1024, 512
 WINDOW = 0.022
 FLOOR = DETECTION_STORAGE_FLOOR
+# "Operational" here is the BENCHMARK tier (0.55), the tier every judged bundle was
+# reviewed at -- not the production operating point, detectors.OPERATIONAL_CONFIDENCE
+# (0.30). A peak in [0.30, 0.55) is "sub-threshold" to this rule but already a shipped
+# label in production (mine_city.py's summary splits its counts there).
 OPERATIONAL = BENCHMARK_CONFIDENCE
 
 

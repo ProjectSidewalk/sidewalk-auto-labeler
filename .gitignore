@@ -187,6 +187,11 @@ runs/*/server_agree/as_served/
 !docs/figures/mined-precision/data/placement/*.jsonl
 # RampNet#158 step 3: the richmond / bend floor re-inference over judged panos (small).
 !docs/figures/mined-precision/data/step3/*.jsonl
+# RampNet#158 step 4: the city-wide miner's labels (one row per candidate pair, ~1 MB).
+!docs/figures/mined-precision/data/step4/**/*.jsonl
+# ...but not the desktop re-run on results.f01.jsonl (review of labeler#114): only its
+# summary.json is tracked; its labels differ from the pass's in one pixel (docs).
+docs/figures/mined-precision/data/step4/richmond_f01/*.jsonl
 # Footway: segmenter vs GSV depth (scripts/footway_segmentation.py, issue #47 step 2; write-up
 # in docs/footway-depth-study.md): per-city and pooled reports, CSVs, the verdict and the
 # label-map manifest are tracked. The tiles and label maps (runs/_pooled/footway/work/) are
