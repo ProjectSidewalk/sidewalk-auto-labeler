@@ -554,20 +554,31 @@ contributors (ODbL).
 
 ## 4. Archive
 
-The archive is complete on makelab2 under
-`/projects/makeabilitylab/sidewalk-auto-labeler/runs/bayonne/`:
+The archive is complete for the 5 m run on makelab2 under
+`/projects/makeabilitylab/sidewalk-auto-labeler/runs/bayonne/` (read from the host on
+2026-11-05):
 
-- `results.jsonl`, `manifest.json` and `area.geojson` (sha256-checked);
-- `panos/` with all **28,524** native-resolution panos;
-- `index.csv` and `fetch.log`.
+- `results.jsonl` (the 5 m file, sha256 `cb03768c…6eeef`), `manifest.json` and
+  `area.geojson`;
+- `panos/` with all **50,409** native-resolution panos (81 GB);
+- `index.csv` (50,409 rows, sha256
+  `79a7915108b136303e1c9695f4a46dc317001756d0e22acfcefd25f3b517e344`) and `fetch.log`, whose
+  summary reads `archived + verified: 50409`, `missing (source gone): 0`,
+  `STATUS: OK — archive matches records 1:1`.
 
-`runs/bayonne_archive.done` reads `rc=0 2026-10-01T10:01:18Z`. The archive took 4 h 10 m
-at 1.90 panos/s, unpaced (before [#161](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/161); see "Re-running it today" in §5).
+It was built in two passes, both unpaced (before
+[#161](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/161); see "Re-running
+it today" in §5):
 
-**After the 5 m densify (§1.1) the archive covers 28,524 of 50,409 panos.** It holds the 10 m
-run's `results.jsonl`, not the 5 m one. Archiving the 21,885 added panos (about **6 h** at
-today's 1 picture/s; `export_benchmark.py` is resumable) is **a decision for Jon** and has
-not been done.
+1. **10 m pass, 2026-10-01.** `runs/bayonne_archive.10m.done` reads `rc=0 2026-10-01T10:01:18Z`:
+   28,524 panos in 4 h 10 m at 1.90 panos/s. Its `index.10m.csv`, `manifest.10m.json` and
+   `results.10m.jsonl` are kept beside the 5 m files.
+2. **5 m pass, 2026-10-07.** `export_benchmark.py` is resumable, so the pass that started at
+   14:22Z found the 28,524 archived panos present and fetched only the **21,885** the densify
+   added: 21,879 on the first launch, 6 read timeouts against Panoramax's object store, and
+   those 6 on a relaunch at 19:13Z. `runs/bayonne_archive.done` reads `rc=0 2026-10-07T19:13:31Z`.
+   The Panoramax maintainers opened #161 at 14:52Z that day, so most of this pass ran after
+   it, and it is part of the load that issue describes.
 
 ## 5. Replication
 
@@ -658,7 +669,7 @@ Step 5 was not re-run from the prefix.
 | 10 | `python scripts/export_benchmark.py $R10/bayonne/results.jsonl --bundle D:/Git/labeler-wt/bayonne-bundle --sample 100 --empty-sample 25` (10 m) | net | 1.5 min |
 | 11 | `python scripts/panoramax_bayonne_figures.py crops` → `data/examples/crops/` + `crops.csv` (from the bundle) | — | 10 s |
 | 12 | `python scripts/panoramax_bayonne_figures.py figures` → `fig*.png` / `.jpg` (+ `.svg` for figures 1-5 and 7b) | — | 30 s |
-| 13 | on makelab2, `bayonne_archive.sh`: `export_benchmark.py runs/bayonne/results.jsonl --out runs/bayonne/panos` (the 10 m file, then) | net | 4.2 h (≥ ~7.9 h today) |
+| 13 | on makelab2, `bayonne_archive.sh`: `export_benchmark.py runs/bayonne/results.jsonl --out runs/bayonne/panos` (the 10 m file on 2026-10-01; resumed for the 5 m file on 2026-10-07, §4) | net | 4.2 h (≥ ~7.9 h today) |
 
 - **Steps 2 / 2b.** The run directory is now bound to **5 m** (top-level `thin_spacing_m`,
   changed by hand from the 10 m backfill in `c096987`, recorded in `thin_spacing_changed`), so
@@ -707,7 +718,7 @@ then binds, so the floors at 1 picture/s are:
 | step 2, the 10 m run | 28,634 | ~8.0 h |
 | step 2b, the densify resume | 21,897 | ~6.1 h |
 | step 13, the 10 m archive (one item GET + one picture GET per pano, each on its own 1/s limiter; `export_benchmark.py` gives no order hint) | 28,524 | ~7.9 h |
-| archiving the 21,885 added panos (§4) | 21,885 | ~6.1 h |
+| step 13 resumed for the 5 m file (§4; it fetches only the 21,885 added panos) | 21,885 | ~6.1 h |
 | the whole 5 m set from scratch | 50,528 | ~14 h |
 
 The limits are per process, so never run the archive and a detection run against the public
@@ -763,7 +774,8 @@ private mirror.
 | logo band y 0.791 / 52.4° | measured on two panos; drawn in Figure 7a | `LOGO_BAND_Y` in `scripts/panoramax_bayonne_figures.py` |
 | Figure 7d crops, ranges, confidences | `data/examples/crops.csv` | `confidence`, `range_m`, `privacy_skip` |
 | bundle strata, 147 detections (10 m run) | `D:/Git/labeler-wt/bayonne-bundle/sample.json`, `records.jsonl` | `groups` |
-| archive 28,524, rc 0 | makelab2 `runs/bayonne/index.csv`, `runs/bayonne_archive.done` | — |
+| archive 50,409, rc 0 (5 m pass, 2026-10-07) | makelab2 `runs/bayonne/index.csv` (sha256 `79a79151…`), `runs/bayonne_archive.done`, `runs/bayonne/fetch.log` | — |
+| archive 28,524, rc 0 (10 m pass, 2026-10-01) | makelab2 `runs/bayonne/index.10m.csv`, `runs/bayonne_archive.10m.done` | — |
 
 ## Figures
 
@@ -819,7 +831,6 @@ Alt text, in order:
 - **Position scatter.** Re-measured on the 5 m run (§2): Bayonne is now at the edge of
   the ADEQUATE band. A second Panoramax city, or ground truth, decides whether Panoramax
   gets its own `ErrorModel`.
-- **Archive** the 21,885 panos the 5 m densify added (§4), if Jon decides to.
 - **Follow-ups:** [#126](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/126)
   (record and bind `--thin-spacing`) and
   [#127](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/127) (the
