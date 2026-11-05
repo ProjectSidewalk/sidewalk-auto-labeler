@@ -6,10 +6,11 @@ needs neither stay apart:
     data      run files -> docs/figures/panoramax-bayonne/data/fig*.csv
               Needs runs/<city>/results.jsonl for bayonne and the five Mapillary
               comparators (plus runs/bayonne/osm_streets.json). No GPU, no network.
-              Bootstraps resample SITES (or pose groups, or panos for rates) with seed 57.
-              The committed CSVs are the 10 m run; runs/bayonne is now the 5 m run, so
-              regenerate them from a run root holding its 10 m byte prefix (the first
-              28,524 lines; docs/panoramax-bayonne.md section 5).
+              Bootstraps resample SITES (or pose groups, or panos for rates) with seed 57;
+              fig1/fig2a/fig2b/cuts also carry a CI over capture SEQUENCES (*_seq_*).
+              The committed CSVs are the 5 m run (runs/bayonne). The 10 m readings they
+              replaced (commit 7a7a1a6) come from a run root holding the 10 m byte prefix
+              (the first 28,524 lines; docs/panoramax-bayonne.md section 5).
     examples  network -> data/examples/ (downscaled JPEGs + a CSV of what is drawn).
               Fetches 8 Bayonne panos and one cropped GoPro MAX2 upload from Panoramax.
     figures   committed data/ only -> fig1..fig7 as PNG (200 dpi) + SVG. No run files,
@@ -86,11 +87,24 @@ def _stats(rows):
             'cross_p50': _pct([abs(r['cross_m']) for r in rows], 50)}
 
 
-def _boot(rows, fn, n=N_BOOT, seed=SEED):
-    """(point, {key: (lo, hi)}) of fn(rows), 95% percentile CI over sites resampled."""
+def _boot(rows, fn, n=N_BOOT, seed=SEED, cluster=None):
+    """(point, {key: (lo, hi)}) of fn(rows), 95% percentile CI over clusters resampled.
+
+    Clusters are sites by default. `cluster(row) -> key` resamples other clusters, e.g.
+    _seq_key's capture sequences (#162 review S1): a site bootstrap treats Richmond's
+    1,301 GoPro Max views as 472 independent sites, but they come from 14 sequences, and
+    a per-sequence position offset is shared by every view of one sequence.
+
+    Example (two sites, one sequence: the sequence bootstrap can only draw the pair):
+        >>> rows = [{'site_id': 1, 'q': 'a', 'v': 0.0}, {'site_id': 2, 'q': 'a', 'v': 1.0}]
+        >>> mean = lambda rs: {'v': sum(r['v'] for r in rs) / len(rs)}
+        >>> _boot(rows, mean, n=50, cluster=lambda r: r['q'])[1]['v']
+        (0.5, 0.5)
+    """
+    cluster = cluster or (lambda r: r['site_id'])
     by_site = {}
     for r in rows:
-        by_site.setdefault(r['site_id'], []).append(r)
+        by_site.setdefault(cluster(r), []).append(r)
     sites = list(by_site)
     point = fn(rows)
     if point is None:
@@ -105,6 +119,34 @@ def _boot(rows, fn, n=N_BOOT, seed=SEED):
         for k in point:
             draws[k].append(val[k])
     return point, {k: (_pct(v, 2.5), _pct(v, 97.5)) for k, v in draws.items()}
+
+
+def _seq_key(by_id):
+    """Sequence-bootstrap cluster key for a view row: the held-out view's capture
+    sequence, or its own pano id when the pano has none (a singleton cluster)."""
+    return lambda r: getattr(by_id[r['pano_id']], 'sequence_id', None) or r['pano_id']
+
+
+def _site_sequence(sv, by_id):
+    """The capture sequence a SITE is clustered under for a sequence bootstrap of
+    site-level statistics (fig2b): the sequence most of its views come from, ties broken
+    by the smallest id. Views without a sequence count under their own pano id.
+
+    Example:
+        >>> from types import SimpleNamespace as N
+        >>> by_id = {'p1': N(sequence_id='b'), 'p2': N(sequence_id='a'),
+        ...          'p3': N(sequence_id='b'), 'p4': N(sequence_id=None)}
+        >>> _site_sequence(N(views=[N(pano_id=p) for p in ('p1', 'p2', 'p3')]), by_id)
+        'b'
+        >>> _site_sequence(N(views=[N(pano_id=p) for p in ('p1', 'p2', 'p4')]), by_id)
+        'a'
+    """
+    counts = {}
+    for v in sv.views:
+        q = getattr(by_id[v.pano_id], 'sequence_id', None) or v.pano_id
+        counts[q] = counts.get(q, 0) + 1
+    best = max(counts.values())
+    return min(q for q, c in counts.items() if c == best)
 
 
 def _load_city(run_root, city, tier):
@@ -175,8 +217,10 @@ def _refuse_changed_inputs(run_root):
 
     A partial run leaves the parts it skips as they were, so a part regenerated from a
     changed run would sit beside parts from the old one. That is a live case: runs/bayonne
-    was densified from 10 m to 5 m (#147) after every committed CSV was made, so
-    `data --only fig5` would put a 5 m fig5 beside a 10 m fig1-fig4. Including `inputs` does
+    was densified from 10 m to 5 m (#147), so while the CSVs were the 10 m run's,
+    `data --only fig5` would have put a 5 m fig5 beside a 10 m fig1-fig4; now that they are
+    the 5 m run's (#162), a partial run from the 10 m prefix root is the same mix the
+    other way round. Every part is guarded, `cuts` included. Including `inputs` does
     not help: it rewrites inputs.csv to the new hashes, which then certify the old parts
     too (PR 154 final review, S1). So every partial run is checked, `inputs` or not; only a
     full `data` run (no --only, or every part named) moves inputs.csv and every CSV together.
@@ -203,8 +247,8 @@ def _refuse_changed_inputs(run_root):
                    "   inputs.csv and every CSV move together, or pass --allow-changed-inputs.")
 
 
-DATA_PARTS = ('inputs', 'fig1', 'fig2a', 'fig2b', 'fig3', 'pairs', 'fig4', 'fig5', 'fig6',
-              'fig7b')
+DATA_PARTS = ('inputs', 'fig1', 'fig2a', 'fig2b', 'cuts', 'fig3', 'pairs', 'fig4', 'fig5',
+              'fig6', 'fig7b')
 
 
 def cmd_data(args):
@@ -236,17 +280,24 @@ def cmd_data(args):
         rigs = sorted({r['camera_model'] for r in rows})
         if len(rigs) > 1:
             groups += [(rig, [r for r in rows if r['camera_model'] == rig]) for rig in rigs]
+        seq = _seq_key(loaded[c][1])
         for rig, grp in groups:
             if len(grp) < 30:
                 continue
             point, ci = _boot(grp, _stats)
+            _, sci = _boot(grp, _stats, cluster=seq)
             label_rig = rig if rig != 'all' else ('+'.join(rigs) if len(rigs) > 1 else rigs[0])
+            keys = ('chi2_dof', 'chi2_dof_median', 'm_p50')
             fig1.append({'run': c, 'subset': rig, 'rig': label_rig,
                          'gopro_max': int(label_rig.lower().replace('gopro ', '') == 'max'),
                          'n_views': len(grp), 'n_sites': len({r['site_id'] for r in grp}),
-                         **{k: point[k] for k in ('chi2_dof', 'chi2_dof_median', 'm_p50')},
-                         **{f'{k}_lo': ci[k][0] for k in ('chi2_dof', 'chi2_dof_median', 'm_p50')},
-                         **{f'{k}_hi': ci[k][1] for k in ('chi2_dof', 'chi2_dof_median', 'm_p50')}})
+                         **{k: point[k] for k in keys},
+                         **{f'{k}_lo': ci[k][0] for k in keys},
+                         **{f'{k}_hi': ci[k][1] for k in keys},
+                         # #162 review S1: the same CIs with capture sequences resampled
+                         'n_sequences': len({seq(r) for r in grp}),
+                         **{f'{k}_seq_lo': sci[k][0] for k in keys},
+                         **{f'{k}_seq_hi': sci[k][1] for k in keys}})
     if 'fig1' in parts:
         _write('fig1_verdict.csv', fig1)
 
@@ -261,13 +312,18 @@ def cmd_data(args):
             _, by_id, sites, frame, _, rigs = loaded[c]
             rows = rr.gtfree_rows(c, '2.6m', _rig_sites(sites, rigs, subset), frame, by_id,
                                   HEIGHT, rigs)
+        seq = _seq_key(loaded[c][1])
         for b in RANGE_BINS:
             grp = [r for r in rows if rr._range_bucket(r['range_m']) == b]
             point, ci = _boot(grp, _stats)
+            _, sci = _boot(grp, _stats, cluster=seq)
             fig2a.append({'run': c, 'subset': subset, 'range_bin': b, 'n_views': len(grp),
                           **{k: point[k] for k in point},
                           **{f'{k}_lo': ci[k][0] for k in ci},
-                          **{f'{k}_hi': ci[k][1] for k in ci}})
+                          **{f'{k}_hi': ci[k][1] for k in ci},
+                          'n_sequences': len({seq(r) for r in grp}),
+                          **{f'{k}_seq_lo': sci[k][0] for k in sci},
+                          **{f'{k}_seq_hi': sci[k][1] for k in sci}})
     if 'fig2a' in parts:
         _write('fig2a_range.csv', fig2a)
 
@@ -287,14 +343,31 @@ def cmd_data(args):
             v = _calibrate_gps(rng.choices(sites, k=len(sites)))
             if v is not None:
                 draws.append(v)
+        # #162 review S1: the same CI with capture sequences resampled, each site under
+        # the sequence most of its views come from (_site_sequence)
+        by_seq = {}
+        for sv in sites:
+            by_seq.setdefault(_site_sequence(sv, loaded[c][1]), []).append(sv)
+        seqs = list(by_seq)
+        rng = random.Random(SEED)
+        sdraws = []
+        for _ in range(N_BOOT_GPS):
+            v = _calibrate_gps([sv for q in rng.choices(seqs, k=len(seqs)) for sv in by_seq[q]])
+            if v is not None:
+                sdraws.append(v)
         fig2b.append({'run': c, 'subset': subset, 'rig': '+'.join(rig),
                       'gopro_max': int(rig in (['Max'], ['GoPro Max'])),
                       'n_sites': len(sites), 'sigma_gps_chi2_1_m': point,
                       'lo': _pct(draws, 2.5), 'hi': _pct(draws, 97.5),
-                      'n_boot': len(draws), 'model_sigma_gps_m': geo.MAPILLARY_ERRORS.sigma_gps_m})
+                      'n_boot': len(draws), 'model_sigma_gps_m': geo.MAPILLARY_ERRORS.sigma_gps_m,
+                      'n_sequences': len(seqs), 'seq_lo': _pct(sdraws, 2.5),
+                      'seq_hi': _pct(sdraws, 97.5), 'n_boot_seq': len(sdraws)})
         print(c, subset, 'sigma_gps', point)
     if 'fig2b' in parts:
         _write('fig2b_sigma_gps.csv', fig2b)
+
+    if 'cuts' in parts:
+        _cuts_data(loaded)
 
     # fig3: the same-sequence split
     fig3 = []
@@ -391,6 +464,47 @@ def cmd_data(args):
         _fig6_data(run_root, panos)
     if 'fig7b' in parts:
         _fig7b_data(loaded)
+
+
+def _cuts_data(loaded):
+    """data/cuts.csv: Bayonne's exploratory cuts with CIs (#162 review S2, N1). chi2/dof
+    by site size (n_views), by capture age (delta_months, eval_sites' vintage buckets),
+    and by capture age within each same-sequence stratum (seq_mates), because every
+    all-same-sequence view is a newest-month view, so the capture-age cut alone repeats
+    the fig3 split. CIs over sites and over capture sequences, seed 57."""
+    import eval_sites as es
+    import reprojection_residual as rr
+    _, by_id, _, _, rows, _ = loaded[CITY]
+    seq = _seq_key(by_id)
+    age = lambda r: es._vintage_bucket(r['delta_months'])  # noqa: E731
+    cuts = [('n_views', lambda r: rr._views_bucket(r['n_views'])), ('delta_months', age)]
+    for sm in ('none', 'some', 'all_same'):
+        cuts.append((f'delta_months|seq_mates={sm}',
+                     lambda r, sm=sm: None if r['seq_mates'] != sm
+                     else 'newest' if r['delta_months'] == 0
+                     else None if r['delta_months'] is None else 'older'))
+    out = []
+    for dim, fn in cuts:
+        groups = {}
+        for r in rows:
+            b = fn(r)
+            if b is not None:
+                groups.setdefault(b, []).append(r)
+        for b in sorted(groups, key=rr._bucket_order):
+            g = groups[b]
+            point, ci = _boot(g, _stats)
+            _, sci = _boot(g, _stats, cluster=seq)
+            per_site = {r['site_id']: (r['n_views'], r['site_n_sequences']) for r in g}
+            out.append({'run': CITY, 'dimension': dim, 'bucket': b, 'n_views': len(g),
+                        'n_sites': len(per_site), 'n_sequences': len({seq(r) for r in g}),
+                        'site_views_p50': _pct([v for v, _ in per_site.values()], 50),
+                        'site_sequences_p50': _pct([q for _, q in per_site.values()
+                                                    if q is not None], 50),
+                        'chi2_dof': point['chi2_dof'], 'chi2_dof_lo': ci['chi2_dof'][0],
+                        'chi2_dof_hi': ci['chi2_dof'][1],
+                        'chi2_dof_seq_lo': sci['chi2_dof'][0],
+                        'chi2_dof_seq_hi': sci['chi2_dof'][1]})
+    _write('cuts.csv', out)
 
 
 def _fig6_data(run_root, panos):
@@ -738,6 +852,9 @@ def fig1(plt):
     a.set_ylim(-1.1, len(order) - 0.2)
     for yy, r in zip(y, order):
         c = _color(r)
+        # pale bar: the pooled CI with capture sequences resampled (#162 review S1)
+        a.plot([r['chi2_dof_seq_lo'], r['chi2_dof_seq_hi']], [yy + 0.12] * 2, color=c,
+               lw=7, alpha=0.22, solid_capstyle='butt')
         a.plot([r['chi2_dof_lo'], r['chi2_dof_hi']], [yy + 0.12] * 2, color=c, lw=1.6)
         a.plot(r['chi2_dof'], yy + 0.12, 'o', ms=8, color=c, mec=SURFACE, mew=1.5)
         a.plot([r['chi2_dof_median_lo'], r['chi2_dof_median_hi']], [yy - 0.14] * 2, color=c,
@@ -749,7 +866,8 @@ def fig1(plt):
                textcoords='offset points', va='center', fontsize=9, color=INK)
     a.set_yticks(y, labels)
     a.set_xlabel('leave-one-out chi²/dof under MAPILLARY_ERRORS (2 dof per held-out view)')
-    a.set_title('chi²/dof: ● pooled, ◇ median form (95% CI)')
+    a.set_title('chi²/dof: ● pooled, ◇ median form (95% CI over sites;\n'
+                'pale bar: pooled, over capture sequences)')
     a.set_xlim(0, 0.95)
     b.axvspan(*M_BAND, color='#cde2fb', alpha=0.6, lw=0)
     b.axvline(M_ANCHOR, color=INK2, lw=1)
@@ -768,8 +886,10 @@ def fig1(plt):
                Line2D([], [], marker='o', ls='', color=MUTED, ms=8,
                       label='Mapillary, other rigs / mixed')]
     b.legend(handles=handles, loc='lower right', fontsize=8.5, bbox_to_anchor=(1.0, 0.08))
-    fig.suptitle('Figure 1. Is Bayonne outside the Richmond-anchored band? Marginally: 8% '
-                 'over the bar, 1.16x Richmond\'s GoPro Max views (CIs just separate)',
+    fig.suptitle('Figure 1. Is Bayonne outside the Richmond-anchored band? Barely: 3% over '
+                 'the bar, inside its CI; 1.11x Richmond\'s GoPro Max views, not '
+                 'distinguishable once\ncapture sequences are resampled (site CIs just '
+                 'separate; Richmond\'s 1,301 GoPro Max views come from 14 sequences)',
                  x=0.01, ha='left', fontsize=11.5, fontweight='bold')
     fig.tight_layout()
     _save(fig, 'fig1_verdict')
@@ -813,10 +933,12 @@ def fig2(plt):
     gps = sorted(gps, key=lambda r: r['sigma_gps_chi2_1_m'])
     for i, r in enumerate(gps):
         c = BLUE if r['run'] == CITY else ORANGE if r['gopro_max'] == 1.0 else MUTED
+        ax.plot([r['seq_lo'], r['seq_hi']], [i, i], color=c, lw=7, alpha=0.22,
+                solid_capstyle='butt')
         ax.plot([r['lo'], r['hi']], [i, i], color=c, lw=1.6)
         ax.plot(r['sigma_gps_chi2_1_m'], i, 'o', ms=8, color=c, mec=SURFACE, mew=1.5)
-        ax.text(r['hi'] + 0.05, i, f"{r['sigma_gps_chi2_1_m']:.2f} m", va='center',
-                fontsize=8.5, color=INK)
+        ax.text(max(r['hi'], r['seq_hi']) + 0.05, i, f"{r['sigma_gps_chi2_1_m']:.2f} m",
+                va='center', fontsize=8.5, color=INK)
     ax.axvline(gps[0]['model_sigma_gps_m'], color=INK2, lw=1)
     ax.text(gps[0]['model_sigma_gps_m'], len(gps) - 0.5,
             ' MAPILLARY_ERRORS sigma_gps = 3 m', color=INK2, fontsize=8.5)
@@ -828,10 +950,12 @@ def fig2(plt):
     ax.set_yticks(range(len(gps)), labels, fontsize=8.5)
     ax.set_xlim(0, 3.6)
     ax.set_xlabel('sigma_gps that brings leave-one-out chi²/dof to 1, every other sigma '
-                  'fixed (m; 95% CI, 200 site resamples). Orange: GoPro Max populations')
+                  'fixed (m; 95% CI, 200 site resamples; pale bar: 200 capture-sequence '
+                  'resamples). Orange: GoPro Max populations')
     ax.set_title('Calibrated between-view position scatter (sites re-solved per population)')
-    fig.suptitle('Figure 2. Tilt or position? Rig-matched, the excess is a flat 0.6-1.0 m across '
-                 'the ray; scatter 2x Richmond\'s, 1.2x its and Laurens\' GoPro Max views',
+    fig.suptitle('Figure 2. Tilt or position? Rig-matched, the excess is a flat 0.6-0.8 m across '
+                 'the ray; scatter 1.9x Richmond\'s, 1.2x its and Laurens\' GoPro Max views\n'
+                 '(against Richmond\'s GoPro Max views the capture-sequence CIs overlap)',
                  x=0.01, ha='left', fontsize=11.5, fontweight='bold')
     _save(fig, 'fig2_position')
 
@@ -930,9 +1054,9 @@ def fig5(plt):
 
 
 def fig6(plt):
-    years = _read('census/years.csv')
-    rigs = _read('census/rigs.csv')
-    pose = _read('census/pose.csv')
+    years = _read('census_5m/years.csv')
+    rigs = _read('census_5m/rigs.csv')
+    pose = _read('census_5m/pose.csv')
     pos = _read('fig6_positions.csv')
     streets = _read('fig6_streets.csv')
     with open(REPO_ROOT / 'runs' / CITY / 'area.geojson', encoding='utf-8') as f:
@@ -991,11 +1115,11 @@ def fig6(plt):
     km = 1.0 / (111.32 * coslat)   # 1 km in degrees of longitude
     ax.plot([x0, x0 + km], [y0, y0], color=INK, lw=2.5, solid_capstyle='butt')
     ax.text(x0 + km / 2, y0 + 0.0012, '1 km', ha='center', fontsize=8.5, color=INK)
-    ax.set_title(f'D. {len(pos):,} thinned panos (10 m) over the commune polygon')
+    ax.set_title(f'D. {len(pos):,} thinned panos (5 m) over the commune polygon')
     ax.text(1.0, -0.02, CREDIT_OSM, transform=ax.transAxes, ha='right', va='top',
             fontsize=7.5, color=INK2)
     fig.suptitle('Figure 6. What did Bayonne\'s run cover? 2024-26 GoPro Max panos from one '
-                 'municipal account, 42% without pose, on the street at a 1.54 m median',
+                 'municipal account, 43% without pose, on the street at a 1.58 m median',
                  x=0.01, ha='left', fontsize=11.5, fontweight='bold')
     _save(fig, 'fig6_census', svg=False, quantize=True)
 
@@ -1051,7 +1175,7 @@ def fig7(plt):
              'detections ≥ 0.55, labelled with their stored confidence (a heatmap peak value, '
              'which can exceed 1).', fontsize=8.5, color=INK2)
     fig.suptitle('Figure 7a. What do Bayonne panos and their 0.55 detections look like? '
-                 '4 highest-confidence + 4 random (seed 57)', x=0.01, ha='left',
+                 '4 highest-confidence + 4 random (seed 57; drawn from the 10 m run)', x=0.01, ha='left',
                  fontsize=11.5, fontweight='bold')
     fig.text(0.01, -0.075, 'Imagery via Panoramax: producer and licence per panel '
              '(etalab-2.0 = Licence Ouverte / Etalab 2.0; CC-BY-SA-4.0).', fontsize=8.5,
@@ -1109,8 +1233,8 @@ def fig7(plt):
     ax.set_xticks([])
     ax.set_yticks([])
     ax.grid(False)
-    ax.set_title(f"Figure 7c. Why were 104 GoPro MAX2 uploads skipped? The served image "
-                 f"is cropped vertically ({m['pano_id'][:8]}; first such skip by id)",
+    ax.set_title(f"Figure 7c. Why were GoPro MAX2 uploads skipped (104 at 10 m, 116 at 5 m)? The "
+                 f"served image is cropped vertically ({m['pano_id'][:8]}; first such skip by id)",
                  fontsize=11)
     ax.text(0, dh + 260, f"Imagery: © {m['producer']} via Panoramax "
             f"(panoramax.openstreetmap.fr), {m['license']}", fontsize=8, color=INK2)

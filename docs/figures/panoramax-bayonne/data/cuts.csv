@@ -1,0 +1,13 @@
+run,dimension,bucket,n_views,n_sites,n_sequences,site_views_p50,site_sequences_p50,chi2_dof,chi2_dof_lo,chi2_dof_hi,chi2_dof_seq_lo,chi2_dof_seq_hi
+bayonne,n_views,3,933,311,351,3,2,0.5494,0.508,0.5882,0.5104,0.5876
+bayonne,n_views,4-5,1308,296,377,4,3,0.5348,0.4992,0.5685,0.502,0.5705
+bayonne,n_views,6+,1385,186,308,7,4,0.5793,0.546,0.6152,0.5462,0.6143
+bayonne,delta_months,0,2367,793,356,4,2,0.5031,0.4786,0.5266,0.4805,0.5304
+bayonne,delta_months,1-18,760,387,157,4,3,0.6199,0.5798,0.6603,0.5815,0.6608
+bayonne,delta_months,19-36,436,311,155,5,3,0.7012,0.6463,0.7604,0.6434,0.7635
+bayonne,delta_months,>36,63,55,13,6,4,0.7423,0.6062,0.8741,0.6067,0.8949
+bayonne,delta_months|seq_mates=none,newest,424,360,228,4,3,0.6446,0.5887,0.7048,0.584,0.7016
+bayonne,delta_months|seq_mates=none,older,733,482,272,4,3,0.6883,0.6474,0.7301,0.6498,0.7324
+bayonne,delta_months|seq_mates=some,newest,1540,480,250,5,2,0.4864,0.4572,0.5167,0.4556,0.5185
+bayonne,delta_months|seq_mates=some,older,526,199,115,5,3,0.6067,0.5517,0.6606,0.558,0.6615
+bayonne,delta_months|seq_mates=all_same,newest,403,112,77,3,1,0.4183,0.359,0.4782,0.3612,0.4771

@@ -71,34 +71,44 @@ python scripts/panoramax_asset_study.py score --data <dir> && python scripts/pan
 # re-anchored on Richmond (0.269) before Bayonne was read. The amendment's stated mechanism
 # (shared same-sequence error cancels) is NOT ESTABLISHED: Richmond reads the opposite way.
 # What is measured: its 3 m sigma_gps is ~2.7x Richmond's leave-one-out-calibrated between-view
-# scatter (1.11 m). Bayonne: 0.580 [0.539, 0.618] (median form 0.582), m p50 3.66 -> TOO TIGHT
-# under the amended rule, but MARGINAL (bar 0.538) and confounded: Mapillary GoPro Max
-# populations read 0.18-0.50 (Richmond's GoPro Max views 0.499, Laurens 0.431, Morgantown 0.177),
-# and Bayonne sites are small (3 views / 2 sequences vs Richmond's 7 / 4, 10 m thinning), so it
-# cannot be separated from a single-consumer-rig or site-size effect. The excess is ACROSS the ray
-# (vs Richmond's GoPro Max views re-solved alone: along-ray +0.5..-0.5 m, cross-ray +0.6-1.0 m), not
-# pitch: no sigma_pitch <= 15 deg fixes it. Calibrated sigma_gps: Bayonne 2.16 m vs Richmond 1.11,
-# Richmond GoPro Max 1.81, Laurens 1.74, Morgantown 0.80. NOTHING adopted -- error_model_for(
-# 'panoramax') stays MAPILLARY_ERRORS until GT (eval_sites) and a 5 m run. Pose: pers:pitch/roll
-# LOOSENS the same-site spread in every sign convention (real-tilt p90 7.58 -> 9.45-11.27 m at
-# 0.55), so Panoramax stays flat. GT: the RampNet bundle (125 panos, reconcile 1:1) awaits review.
+# scatter (1.11 m). Bayonne, MEASURED ON THE 5 m RUN (#147; doc s2 keeps a 10 m vs 5 m table):
+# 0.556 [0.536, 0.576] (median form 0.559), m p50 3.44 -> still TOO TIGHT under the amended rule
+# on the point estimate, but only 3% over the 0.538 bar and the CI now INCLUDES it (10 m: 0.580
+# [0.539, 0.618], 8% over). Rig confound stands: Mapillary GoPro Max populations read 0.18-0.50
+# (Richmond's GoPro Max views 0.499, Laurens 0.431, Morgantown 0.177; Bayonne 1.11x Richmond's,
+# NOT distinguishable from it: site-bootstrap CIs just separate, but those 1,301 views are 14
+# capture sequences and a sequence bootstrap overlaps -- Richmond [0.454, 0.559], Bayonne [0.534,
+# 0.578]; panoramax_bayonne_figures.py writes sequence CIs beside the fig1/fig2a/fig2b/cuts site
+# CIs only, as *_seq_lo/_hi (seq_lo/seq_hi in fig2b), #162 review).
+# The site-size confound mostly went away: sites grew 3 -> 4 views, chi2/dof fell only 0.024, and
+# within the run there is no trend by site size (0.549 / 0.535 / 0.579). The excess is ACROSS the
+# ray (vs Richmond's GoPro Max views re-solved alone: along-ray +0.2..-0.5 m, cross-ray +0.6-0.8 m),
+# not pitch: no sigma_pitch <= 15 deg fixes it. Calibrated sigma_gps: Bayonne 2.10 m vs Richmond
+# 1.11, Richmond GoPro Max 1.81, Laurens 1.74, Morgantown 0.80. NOTHING adopted -- error_model_for(
+# 'panoramax') stays MAPILLARY_ERRORS; GT (eval_sites) or a second Panoramax city decides. Pose:
+# pers:pitch/roll LOOSENS the same-site spread in every sign convention (real-tilt p90 7.56 ->
+# 9.85-13.20 m at 0.55, 225 groups), so Panoramax stays flat. GT: the RampNet bundle (125 panos,
+# sampled from the 10 m run, reconcile 1:1) awaits review.
 # DENSIFIED TO 5 m (#147, 2026-10-06; doc s1.1): manifest rebound 10 -> 5 by hand
 # (`thin_spacing_changed`), resumed on Hyak with --reuse-scan --thin-spacing 5 -> 50,528 thinned,
 # 21,885 new processed / 12 MAX2 skips / 0 failed; runs/bayonne now holds 50,409 panos (0.148 per
-# pano at 0.55, census in data/census_5m/). Everything above (error model, figures) is the 10 m run.
-# So the commands below read $R10, a run root whose bayonne/results.jsonl is the 10 m BYTE PREFIX
-# (`head -n 28524 runs/bayonne/results.jsonl`, sha256 4f38ff52..., the hash in data/inputs.csv;
-# recipe in doc s5): pointed at runs/bayonne they read the 5 m file and overwrite the 10 m CSVs.
+# pano at 0.55, census in data/census_5m/). The error model and Figures 1-6/7b are the 5 m run;
+# skips.csv, Figures 7a/7c/7d and the bundle stay on the 10 m run (redrawing them needs network).
+# The 10 m readings (data/ at 7a7a1a6, data/census/, skips, examples, bundle) read $R10, a run root
+# whose bayonne/results.jsonl is the 10 m BYTE PREFIX (`head -n 28524 runs/bayonne/results.jsonl`,
+# sha256 4f38ff52...; recipe in doc s5): pointed at runs/bayonne they read the 5 m file instead.
 # Times in the doc are pre-#161 (unpaced); at today's 1 picture/s the archive of the 21,885
 # added panos is ~6 h and a 5 m run from scratch ~14 h (doc s5, "Re-running it today").
 python scripts/run_census.py $R10/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
 python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census_5m --band-y 0.79
-python scripts/reprojection_residual.py bayonne richmond --run-root $R10 --out-root $R10 \
-    --camera-height-m 2.6 --refuse --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
-python scripts/panoramax_bayonne_figures.py data --run-root $R10 && python scripts/panoramax_bayonne_figures.py figures
-#   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~45 min, no GPU/network; --only
-#   for parts, refused on ANY partial run whose run files differ from data/inputs.csv);
-#   skips / examples: network (skips also needs $R10's rebuilt 10 m cache, doc s5);
+python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse \
+    --fit-sigma-pitch 0.269 --benchmark-root /nonexistent   # GT-free; --min-confidence 0.3 too
+python scripts/panoramax_bayonne_figures.py data && python scripts/panoramax_bayonne_figures.py figures
+#   data: run files -> data/fig*.csv (site bootstraps, seed 57; ~1.5-2 h (two sigma_gps
+#   bootstraps, site and sequence), no GPU/network, byte-reproducible; --only for parts,
+#   refused on ANY partial run (`inputs` or not, `cuts` too) whose run files differ from
+#   data/inputs.csv; --allow-changed-inputs overrides);
+#   skips / examples: network, on $R10 (skips also needs $R10's rebuilt 10 m cache, doc s5);
 #   crops: from the RampNet bundle; figures: committed data only,
 #   byte-reproducible (PNG + LF SVG)
 # LYON (RampNet#159 training-only Panoramax city; docs/panoramax-lyon.md). Slice 1 ran on makelab2's
