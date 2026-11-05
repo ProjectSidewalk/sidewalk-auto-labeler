@@ -247,17 +247,37 @@ def load_pano_index(results_paths, wanted=None):
 
 
 def load_pano_blocks(results_paths, wanted):
-    """{pano_id: the full pano block} from the first line holding each wanted pano."""
+    """{(run, pano_id): the full pano block} for each wanted (run, pano_id), from the first
+    line holding that pano in THAT run's results.jsonl. results_paths: {run name: path}."""
     out = {}
-    for _name, path in results_paths:
-        with open(path, encoding='utf-8') as f:
+    by_run = {}
+    for run, pid in wanted:
+        by_run.setdefault(run, set()).add(pid)
+    for run, pids in sorted(by_run.items(), key=lambda t: str(t[0])):
+        if run not in results_paths:
+            raise SystemExit(f'proposals name run {run!r}, which build.json does not record '
+                             f'(runs: {sorted(results_paths)})')
+        with open(results_paths[run], encoding='utf-8') as f:
             for line in f:
                 if not line.strip():
                     continue
                 rec = json.loads(line)
                 pid = rec['pano']['panorama_id']
-                if pid in wanted and pid not in out:
-                    out[pid] = rec['pano']
+                if pid in pids and (run, pid) not in out:
+                    out[(run, pid)] = rec['pano']
+    return out
+
+
+def run_results_paths(build):
+    """{run name: input record} from build.json: the base run is the `results` role (named
+    after its run dir, as build names it in the pano index), each extra
+    `extra:<name>:results`."""
+    out = {}
+    for role, rec in build['inputs'].items():
+        if role == 'results':
+            out[Path(rec['path']).resolve().parent.name] = rec
+        elif role.startswith('extra:') and role.endswith(':results'):
+            out[role[len('extra:'):-len(':results')]] = rec
     return out
 
 
@@ -289,12 +309,17 @@ class SidewalkPresence:
     """Guide rule 3, "no label where no sidewalk reaches the corner": a corner has a sidewalk
     when any feature of the given GeoJSON (sidewalk lines or polygons, e.g. a city's
     sidewalk-presence layer, SidewalkWebpage#5279) lies within radius_m of its corner point.
-    shapely is imported only here. Contract and caveats: docs/corner-labels-169.md."""
+    shapely is imported only here, and must be >= 2 (requirements.txt pins it): STRtree.query
+    then returns integer indices into the tree's geometries, which has_sidewalk relies on
+    (shapely 1.x returned the geometries themselves). Contract: docs/corner-labels-169.md."""
 
     def __init__(self, path, radius_m=SIDEWALK_RADIUS_M):
         from shapely.geometry import Point, shape
         from shapely.ops import transform
         from shapely.strtree import STRtree
+        import shapely
+        if int(shapely.__version__.split('.')[0]) < 2:
+            raise SystemExit(f'--sidewalk-presence needs shapely >= 2, found {shapely.__version__}')
         feats = json.loads(Path(path).read_text(encoding='utf-8'))['features']
         geoms = [shape(f['geometry']) for f in feats if f.get('geometry')]
         if not geoms:
@@ -420,8 +445,9 @@ def proposal_record(rec, c, pano, chosen, runners, cands, rejected, proj, site, 
             'nearest_site': site,
             'inventory': {'status': inventory_status(c['inv_counts']),
                           'counts': c['inv_counts'],
-                          'points': sorted([p.get('unit_id'), p.get('class')]
-                                           for p in c.get('inventory') or ())},
+                          'points': sorted(([p.get('unit_id'), p.get('class')]
+                                            for p in c.get('inventory') or ()),
+                                           key=lambda x: (str(x[0] or ''), str(x[1] or '')))},
             'states': c['state'],
             'sector': {'start_deg': c.get('start_deg'), 'width_deg': c.get('width_deg'),
                        'wide': c.get('wide')},
@@ -447,17 +473,22 @@ def count_rows(counts):
 
 
 def tool_version():
-    """{'git_sha': last commit touching THIS file, 'dirty': uncommitted edits to it}.
-    (corner_inventory.tool_version reports corner_inventory.py's own commit.)"""
+    """{'file', 'git_sha': the repo's HEAD commit, 'dirty': uncommitted edits to tracked files}.
+
+    HEAD, not this file's last commit: the labels' model_id names the code that built them,
+    and that includes geo.py, corner_inventory.py, corner_gallery.py and the registry, so the
+    whole tree has to be at that commit. Untracked files are ignored (--untracked-files=no):
+    a build's own outputs land untracked before they are committed, and a second build in
+    the same session must not read them as an edit to the code."""
     import subprocess
-    me = Path(__file__).resolve()
     try:
-        st = subprocess.run(['git', '-C', str(REPO_ROOT), 'status', '--porcelain', '--',
-                             str(me)], capture_output=True, text=True, timeout=30).stdout
+        st = subprocess.run(['git', '-C', str(REPO_ROOT), 'status', '--porcelain',
+                             '--untracked-files=no'], capture_output=True, text=True,
+                            timeout=30).stdout
         dirty = bool(st.strip())
     except Exception:  # pragma: no cover
         dirty = None
-    return {'file': 'scripts/corner_labels.py', 'git_sha': ci.git_sha(me), 'dirty': dirty}
+    return {'file': 'scripts/corner_labels.py', 'git_sha': ci.git_sha(), 'dirty': dirty}
 
 
 def file_record(path):
@@ -630,6 +661,10 @@ def load_build(d):
 
 def check_file(path, rec, what):
     """Refuse a file whose sha256 is not the one recorded for it."""
+    if not Path(path).exists():
+        raise SystemExit(f'{what}: {path} not found. export re-reads and re-hashes the input '
+                         f'paths build.json recorded (absolute, on the build machine); run '
+                         f'it where those files are')
     got = ci.sha256_file(path)
     if got != rec['sha256']:
         raise SystemExit(f'{what}: {path} has sha256 {got}, but {rec["sha256"]} is recorded; '
@@ -666,7 +701,10 @@ def export_lines(proposals, blocks, provenance):
     lines = []
     for pid, ps in by_pano.items():
         ps.sort(key=lambda p: p['key'])
-        result = {'pano': blocks[pid], 'label_types': [LABEL_TYPE],
+        runs = {p['pano'].get('run') for p in ps}
+        if len(runs) != 1:
+            raise SystemExit(f'pano {pid} is chosen from several runs {sorted(map(str, runs))}')
+        result = {'pano': blocks[(runs.pop(), pid)], 'label_types': [LABEL_TYPE],
                   'detections': [(p['x_normalized'], p['y_normalized'], CONFIDENCE, LABEL_TYPE)
                                  for p in ps]}
         line = main.build_output_line(result, {LABEL_TYPE: provenance})
@@ -700,15 +738,15 @@ def cmd_export(args):
         raise SystemExit('build.json says the tool had uncommitted edits, so corner-rule@<sha> '
                          'would not name the code that built it (--allow-dirty-build)')
     proposals = ci.read_jsonl(src)
-    results_paths = []
-    for role, rec in sorted(build['inputs'].items()):
-        if role == 'results' or role.endswith(':results'):
-            check_file(rec['path'], rec, role)
-            results_paths.append((role, rec['path']))
-    results_paths.sort(key=lambda t: t[0] != 'results')   # base run first
-    wanted = {p['pano']['pano_id'] for p in proposals}
-    blocks = load_pano_blocks(results_paths, wanted)
-    lost = sorted(wanted - set(blocks))
+    runs = run_results_paths(build)
+    wanted = {(p['pano'].get('run'), p['pano']['pano_id']) for p in proposals}
+    for run in sorted({r for r, _ in wanted}, key=str):
+        if run not in runs:
+            raise SystemExit(f'proposals name run {run!r}, which build.json does not record '
+                             f'(runs: {sorted(runs)})')
+        check_file(runs[run]['path'], runs[run], f'results of run {run}')
+    blocks = load_pano_blocks({r: rec['path'] for r, rec in runs.items()}, wanted)
+    lost = sorted(wanted - set(blocks), key=str)
     if lost:
         raise SystemExit(f'{len(lost)} chosen pano(s) not in the runs, e.g. {lost[:3]}')
     lines = export_lines(proposals, blocks, rule_provenance(build))
@@ -739,6 +777,8 @@ def score(proposals, verdicts, sample_keys=None):
     """
     units = verdicts.get('units') or {}
     keys = None if sample_keys is None else set(sample_keys)
+    have = {p['key'] for p in proposals}
+    not_in = [] if keys is None else sorted(keys - have)
     tally = {'present': 0, 'absent': 0, 'cant_tell': 0}
     kinds = {'curb_no_ramp': 0, 'no_sidewalk': 0, 'unspecified': 0}
     by_stratum, rated = {}, []
@@ -776,7 +816,8 @@ def score(proposals, verdicts, sample_keys=None):
                    f"(rule >= {RULE_PRECISION}), Wilson lower {ci95[0]:.3f} "
                    f"(rule >= {RULE_WILSON_LO}), n = {n}")
     return {
-        'n_proposals': len(proposals) if keys is None else len(keys),
+        'n_proposals': len(proposals) if keys is None else len(keys & have),
+        'sample_keys_not_in_proposals': not_in,
         'n_rated': n_rated, 'n': n, **tally,
         'cant_tell_share': round(tally['cant_tell'] / n_rated, 4) if n_rated else None,
         'precision': None if prec is None else round(prec, 4),
@@ -814,6 +855,9 @@ def cmd_score(args):
     text = json.dumps(rec, indent=1) + '\n'
     if args.out:
         ci.write_text_lf(args.out, text)
+    if res['sample_keys_not_in_proposals']:
+        print(f"WARNING: {len(res['sample_keys_not_in_proposals'])} sample key(s) are not in "
+              f"the proposals, e.g. {res['sample_keys_not_in_proposals'][:3]}")
     print(f"{res['n_rated']} rated corners: {res['absent']} absent, {res['present']} present, "
           f"{res['cant_tell']} can't tell; precision {res['precision']} {res['wilson95']}; "
           f"{res['verdict']}")

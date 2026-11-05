@@ -212,7 +212,7 @@ def proposal(key, pid, x, y, rank=None):
 def test_export_one_line_per_pano_and_its_payload():
     props = [proposal('u1#1', 'P', 0.4, 0.6), proposal('u1#0', 'P', 0.6, 0.8),
              proposal('u2#0', 'Q', 0.5, 0.55)]
-    lines = cl.export_lines(props, {'P': block('P'), 'Q': block('Q')}, PROV)
+    lines = cl.export_lines(props, {(None, 'P'): block('P'), (None, 'Q'): block('Q')}, PROV)
     assert [ln['pano']['panorama_id'] for ln in lines] == ['P', 'Q']
     line = lines[0]
     assert line['label_type'] == 'NoCurbRamp' and line['label_types'] == ['NoCurbRamp']
@@ -242,7 +242,7 @@ def test_export_one_line_per_pano_and_its_payload():
 def test_export_orders_lines_by_best_rank():
     props = [proposal('a#0', 'P', .5, .6, rank=None), proposal('b#0', 'Q', .5, .6, rank=2),
              proposal('c#0', 'R', .5, .6, rank=1)]
-    lines = cl.export_lines(props, {k: block(k) for k in 'PQR'}, PROV)
+    lines = cl.export_lines(props, {(None, k): block(k) for k in 'PQR'}, PROV)
     assert [ln['pano']['panorama_id'] for ln in lines] == ['R', 'Q', 'P']
     assert [ln['detections'][0]['rank'] for ln in lines] == [1, 2, None]
 
@@ -409,10 +409,127 @@ def test_check_pins():
     assert cl.check_pins('vancouver', bad, True).startswith('overridden')
 
 
-def test_tool_version_names_this_script():
+def test_tool_version_names_the_repo_head():
+    """Review of #177: provenance names HEAD (the whole tree that built the labels), not the
+    last commit touching corner_labels.py."""
     import subprocess
-    want = subprocess.run(['git', '-C', str(cl.REPO_ROOT), 'log', '-1', '--format=%H', '--',
-                           str(Path(cl.__file__).resolve())], capture_output=True,
-                          text=True).stdout.strip()
+    want = subprocess.run(['git', '-C', str(cl.REPO_ROOT), 'log', '-1', '--format=%H'],
+                          capture_output=True, text=True).stdout.strip()
     tv = cl.tool_version()
     assert tv['file'] == 'scripts/corner_labels.py' and tv['git_sha'] == want
+
+
+def _two_run_setup(tmp_path):
+    """Pano P in run A (width 8192) and run B (width 16384); corners seen only from P."""
+    runs = {}
+    for name, width in (('runA', 8192), ('runB', 16384)):
+        d = tmp_path / name
+        b = dict(block('P'), width=width, height=width // 2)
+        if name == 'runB':
+            b = dict(b, panorama_id='P')
+        _write_jsonl(d / 'results.jsonl', [{'detections': [], 'label_type': 'CurbRamp',
+                                            'pano': b}])
+        _write_jsonl(d / 'sites.jsonl', [])
+        (d / 'sites_meta.json').write_text(json.dumps({'params': {'min_confidence': 0.3}}),
+                                           encoding='utf-8')
+        runs[name] = d
+    return runs
+
+
+def _fake_build(out, inputs, proposals_path):
+    rec = cl.file_record(proposals_path)
+    build = {'schema': cl.BUILD_SCHEMA, 'tool': {'git_sha': 'c' * 40, 'dirty': False},
+             'rule_version_date': '2026-11-05',
+             'inputs': {role: {'path': str(path), 'sha256': ci.sha256_file(path)}
+                        for role, path in inputs.items()},
+             'outputs': {'proposals': rec}}
+    (out / 'build.json').write_text(json.dumps(build), encoding='utf-8')
+    return build
+
+
+def test_export_takes_the_pano_block_from_the_proposals_run(tmp_path):
+    runs = _two_run_setup(tmp_path)
+    out = tmp_path / 'out'
+    prop = dict(proposal('u#0', 'P', 0.25, 0.6), pano={'pano_id': 'P', 'run': 'runB',
+                                                        'width': 16384, 'height': 8192})
+    _write_jsonl(out / 'proposals.jsonl', [prop])
+    # base run is runA (role `results`); runB is an extra -- first-wins would pick runA
+    _fake_build(out, {'results': runs['runA'] / 'results.jsonl',
+                      'extra:runB:results': runs['runB'] / 'results.jsonl'},
+                out / 'proposals.jsonl')
+    with redirect_stdout(io.StringIO()):
+        cl.main(['export', '--dir', str(out)])
+    line = ci.read_jsonl(out / 'results.jsonl')[0]
+    assert line['pano']['width'] == 16384
+    payload = send_to_ps.split_record(line)[0][1]
+    assert (payload['labels'][0]['pano_x'], payload['labels'][0]['pano_y']) == \
+        ps_pixel(0.25, 0.6, 16384, 8192)
+
+    # a run build.json does not record is refused
+    prop['pano']['run'] = 'runC'
+    _write_jsonl(out / 'proposals.jsonl', [prop])
+    _fake_build(out, {'results': runs['runA'] / 'results.jsonl'}, out / 'proposals.jsonl')
+    with pytest.raises(SystemExit, match="runC"):
+        cl.main(['export', '--dir', str(out)])
+
+
+def test_rank_then_export_ranked_and_the_mismatch_refusal(tmp_path):
+    runs = _two_run_setup(tmp_path)
+    out = tmp_path / 'out'
+    props = [dict(proposal(f'u{i}#0', 'P', x, 0.6), pano={'pano_id': 'P', 'run': 'runA',
+                                                           'width': 8192, 'height': 4096})
+             for i, x in enumerate((0.25, 0.75))]
+    _write_jsonl(out / 'proposals.jsonl', props)
+    _fake_build(out, {'results': runs['runA'] / 'results.jsonl'}, out / 'proposals.jsonl')
+    x1, y1 = ps_pixel(0.75, 0.6, 8192, 4096)
+    (tmp_path / 'r.csv').write_text(f'pano_id,pano_x,pano_y,score\nP,{x1},{y1},0.9\n',
+                                    encoding='utf-8')
+    with redirect_stdout(io.StringIO()):
+        cl.main(['rank', '--dir', str(out), '--ranked-csv', str(tmp_path / 'r.csv')])
+        cl.main(['export', '--dir', str(out), '--proposals',
+                 str(out / 'proposals.ranked.jsonl')])
+    rank = json.loads((out / 'rank.json').read_text(encoding='utf-8'))
+    assert (rank['matched'], rank['unmatched']) == (1, 1)
+    dets = ci.read_jsonl(out / 'results.jsonl')[0]['detections']
+    assert {d['corner']: d['rank'] for d in dets} == {'u0#0': None, 'u1#0': 1}
+
+    # proposals rebuilt after ranking: rank.json no longer ties the ranked file to build.json
+    _write_jsonl(out / 'proposals.jsonl', props[:1])
+    _fake_build(out, {'results': runs['runA'] / 'results.jsonl'}, out / 'proposals.jsonl')
+    with pytest.raises(SystemExit, match='ranks other proposals'):
+        cl.main(['export', '--dir', str(out), '--proposals',
+                 str(out / 'proposals.ranked.jsonl')])
+    # and an edited ranked file is refused by its own hash
+    rank_ok = dict(rank, proposals_sha256=ci.sha256_file(out / 'proposals.jsonl'))
+    (out / 'rank.json').write_text(json.dumps(rank_ok), encoding='utf-8')
+    with open(out / 'proposals.ranked.jsonl', 'a', encoding='utf-8') as f:
+        f.write('{}\n')
+    with pytest.raises(SystemExit, match='rebuild'):
+        cl.main(['export', '--dir', str(out), '--proposals',
+                 str(out / 'proposals.ranked.jsonl')])
+
+
+def test_load_detectors_refuses_no_curb_ramp_before_any_import(monkeypatch):
+    import importlib
+
+    def boom(name, *a, **kw):
+        raise AssertionError(f'import of {name} attempted')
+    monkeypatch.setattr(importlib, 'import_module', boom)
+    with pytest.raises(registry.NoDetectorError):
+        registry.load_detectors(['CurbRamp', 'NoCurbRamp'])
+
+
+def test_points_sort_with_a_null_unit_id():
+    c = corner(0, 0, 10, inv={'NA_noramp': 2}, panos=['p'])
+    c['inventory'] = [{'unit_id': None, 'class': 'NA_noramp'},
+                      {'unit_id': 'CR1', 'class': 'NA_noramp'}]
+    props, _u, _c = cl.build_proposals([unit([c])], {'p': pano(0.0)}, NoSites(), args())
+    assert props[0]['source']['inventory']['points'] == [[None, 'NA_noramp'],
+                                                         ['CR1', 'NA_noramp']]
+
+
+def test_score_reports_sample_keys_not_in_the_proposals():
+    props = [{'key': 'u0#0', 'unit': 'u0', 'corner': 0, 'stratum': 'residential'}]
+    res = cl.score(props, _verdicts([('u0', 0, 'absent', None)]),
+                   sample_keys=['u0#0', 'zz#1'])
+    assert res['n_proposals'] == 1 and res['sample_keys_not_in_proposals'] == ['zz#1']

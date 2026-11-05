@@ -24,7 +24,7 @@ requests
 # first plateau pixel in row-major order (candidates built row-major, stable sort), so
 # the stored pixel of every clipped peak depends on its tie order (#151, PR #155).
 scikit-image==0.26.0
-shapely
+shapely>=2  # STRtree.query returns indices (scripts/corner_labels.py --sidewalk-presence)
 # streetlevel parses undocumented GSV endpoints; pin it since behavior can change across
 # versions. NOTE: 0.12.4 is broken against Google's current metadata endpoint
 # (find_panorama_by_id always returns None; fixed upstream June 2026 — sk-zk/streetlevel#40).
