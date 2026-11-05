@@ -489,6 +489,35 @@ Each line of `results.jsonl` is a JSON object like:
 Notes:
 
 - `detections` is empty (`[]`) when the panorama was processed but no curb ramps were found.
+- The example is a **CurbRamp-only** run (`main.py --types CurbRamp`, the default), whose lines
+  keep exactly this shape. A run with any other type set (`--types CurbRamp,<Type>`, issue
+  #168; no second detector exists yet) instead tags every detection with its own
+  `label_type`, lists what ran in `label_types` (so an empty line still says what it was
+  checked for), keeps each type's model provenance in `models`, and sets the line-level
+  `label_type` to `null` unless exactly one type ran:
+
+  ```json
+  {
+    "detections": [
+      { "x_normalized": 0.61, "y_normalized": 0.78, "confidence": 0.91, "label_type": "CurbRamp" },
+      { "x_normalized": 0.40, "y_normalized": 0.62, "confidence": 0.74, "label_type": "Crosswalk" }
+    ],
+    "label_type": null,
+    "label_types": ["Crosswalk", "CurbRamp"],
+    "models": {
+      "CurbRamp":  { "model_id": "rampnet-model@606a11956743", "model_training_date": "08-21-2025", "…": "…" },
+      "Crosswalk": { "model_id": "…", "model_training_date": "…", "…": "…" }
+    },
+    "model_id": "rampnet-model@606a11956743",
+    "…": "…",
+    "pano": { "…": "…" }
+  }
+  ```
+
+  Readers go through `detectors/registry.py` (`record_types`, `detection_type`,
+  `provenance_for`), which read every older line as CurbRamp. `send_to_ps.py` sends such a
+  line as one submission per type; `fuse_sites.py --label-type <Type>` fuses one type into
+  `sites.<Type>.jsonl`.
 - Camera `heading` / `pitch` / `roll` are written in **degrees** (converted from the
   radians returned by the metadata source).
 - `copyright` is an attribution *ingredient*, not a finished attribution. On Mapillary and

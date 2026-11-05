@@ -720,17 +720,38 @@ detector exists yet**; the only spec is CurbRamp.
   unknown-revision refusals all apply per type. Each run entry gains `models` too.
   `detect_from_store.bind_manifest` binds CurbRamp or refuses.
 - **Consumers**:
-  - `fuse_sites.py --label-type` (default CurbRamp). `--floor`/`--min-confidence` default to
-    the spec. Each SlimPano's decode/border are that type's (`registry.type_markers`). A
-    non-CurbRamp fuse writes `sites.<type>.jsonl`. A file that never ran the type is refused.
+  - `fuse_sites.py --label-type` (default CurbRamp). Per-type params (item 4):
+    `fs.fuse_params_for(T, **flags)` = the spec's floor / operational threshold / rig mask,
+    then `DetectorSpec.fuse_overrides` (an empty read-only map for CurbRamp), then every flag
+    that is not None. So `--floor`, `--min-confidence`, `--max-range-m`, `--gate-chi2`,
+    `--max-match-m`, `--residual-per-dof-max` and `--sigma-scale` DEFAULT TO None (= the
+    type's value); `fuse_params_for('CurbRamp') == FuseParams()`. `FuseParams.label_type`
+    (last field) records the type in `sites_meta.json`'s params; `sites.jsonl` lines carry no
+    type and a CurbRamp fuse is byte-identical (tests/test_multitype_fusion.py). Each
+    SlimPano's decode/border are that type's (`registry.type_markers`). A non-CurbRamp fuse
+    writes `sites.<type>.jsonl` + `sites.<type>_meta.json`. A file that never ran the type is
+    refused. `registry.PS_LABEL_TYPES` is the server's `LabelType` enum; every SPECS key must
+    be one (pinned by a test), since the spec's name goes out verbatim as `labelType`.
+  - `eval_sites.py --label-type T` loads T's detections (`load_city_at_height(...,
+    label_type=)`) and fuses with `fuse_params_for(T, ...)`; CurbRamp keeps the CurbRamp-only
+    refusal, another type only needs to have run. Default report dir `fusion_eval.<T>`. A type
+    whose `benchmark_confidence` is not 0.55 is refused (TODO: `judged_gt_panos` and the
+    sub-floor test still read `BENCHMARK_CONFIDENCE`).
+  - `eval_ps_clustering.py --label-type T`: the two API pulls (`api_labels(T)`,
+    `api_clusters(T)`), the label filter, `label_to_detection`, `synthesize_labels` (rig mask
+    per spec), the loaders, the fusion arm's `fuse_params_for` and `ps_verbatim` are T's;
+    the default dir gains `.<T>`. `run()` refuses any T but CurbRamp for now:
+    `PS_THRESHOLD_KM` / `DIAG_SPAN_M` are the server's CurbRamp cut (TODO: the type's
+    `label_clustering.py` threshold).
   - `export_benchmark.py --label-type`: strata at the type's benchmark tier. A multi-type
     record becomes a true single-type record: `label_types`, `models`, `model_*` and the
     markers are all that type's.
   - `position_check`: its report points read typed detections.
-  - `agree_rate`, `eval_sites`, `mined_precision` (through eval_sites' loader) and
-    `provenance_gate` **refuse** a file whose records ran anything but `{CurbRamp}`. eval_sites
-    makes that check inside `fs.load_results`' own pass (`require_types`), so there is no
-    second scan.
-- **NOT done**: per-type `FuseParams` (#168 item 4), the ranker review-order export (item 5), and a
+  - `agree_rate`, `mined_precision` (through eval_sites' loader, at its CurbRamp default) and
+    `provenance_gate` **refuse** a file whose records ran anything but `{CurbRamp}`; eval_sites
+    does so when scoring CurbRamp. The check runs inside `fs.load_results`' own pass
+    (`require_types`), so there is no second scan.
+- **NOT done**: the ranker review-order export (item 5; it consumes
+  sidewalk-validator-ai#69's `analysis/ai_labels_eval.py` CSV, not yet merged there) and a
   second detector. (Submission, one POST per line and type with per-type sidecars, has since
   shipped; see Stage 2 above.)
