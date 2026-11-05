@@ -208,3 +208,13 @@ runs/*/server_agree/as_served/
 !runs/_summary/panoramax_asset/*.csv
 !runs/_summary/panoramax_asset/*.json
 !runs/_summary/panoramax_asset/detections.jsonl
+# Corner-level cluster review (scripts/export_cluster_review.py + cluster_review_score.py,
+# RampNet#224; protocol in RampNet docs/cluster_review_protocol.md): the exporter's report
+# copy and the scorer's report + CSVs are tracked. The Overpass cache (osm.json) and the
+# Esri tile cache (tiles/) are NOT -- the report carries the payload's sha256 and fetch time.
+!runs/*/cluster_review/
+!runs/*/cluster_review/report.md
+!runs/*/cluster_review/*.csv
+!runs/*/cluster_review/score/
+!runs/*/cluster_review/score/report.md
+!runs/*/cluster_review/score/*.csv
