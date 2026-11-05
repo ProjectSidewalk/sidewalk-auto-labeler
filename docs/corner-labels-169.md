@@ -61,7 +61,8 @@ is not settled.
    - the line is written by `main.build_output_line`, so it follows the #168 multi-type rules
      (per-detection `label_type`, sorted `label_types`, line-level `label_type`,
      `models[NoCurbRamp]`);
-   - the pano block is copied verbatim from the run's own `results.jsonl` line for that pano;
+   - the pano block is copied verbatim from the `results.jsonl` of the run the proposal names
+     (`pano.run`), never first-wins across runs; a run `build.json` does not record is refused;
    - each detection also carries its `corner` key, `rank` and the `source` evidence, which
      `transform_record` does not send;
    - lines are ordered by best rank, unranked last.
@@ -69,8 +70,11 @@ is not settled.
    Export refuses in four cases:
    - proposals not beside a `build.json` whose recorded sha256 they match (a ranked file is
      tied to it through `rank.json`);
-   - a results file whose sha256 changed since the build;
-   - a build made from a dirty tool (`--allow-dirty-build`);
+   - a results file whose sha256 changed since the build. Export re-reads and re-hashes the
+     absolute input paths `build.json` recorded on the build machine, so it runs where those
+     files are;
+   - a build made from a dirty tree: tracked files outside `runs/` with uncommitted edits
+     (`--allow-dirty-build`);
    - a `git_sha` that is not a commit.
 4. **Checks (`score`, `sample`).** See "What is not scored" below.
 
@@ -91,8 +95,10 @@ It reaches the nadir mask's dip (49 deg) only at about 2.2 m of range, and the b
 panos nearer than 3 m. So the mask could only drop a correct label.
 
 **Provenance** (`models[NoCurbRamp]`):
-- `model_id` is `corner-rule@<12 hex>` of the commit of `scripts/corner_labels.py` that built
-  the proposals (`build.json` `tool.git_sha`);
+- `model_id` is `corner-rule@<12 hex>` of the repo's HEAD commit when the proposals were
+  built (`build.json` `tool.git_sha`). It is HEAD, not the script's last commit, because
+  `geo.py`, `corner_inventory.py`, `corner_gallery.py` and the registry are part of the rule
+  too. The commit holds the code; the outputs it built land in a later commit;
 - `model_revision` is the full SHA;
 - `model_training_date` is the rule's version date, `RULE_VERSION_DATE` 2026-11-05, as
   `11-05-2026`;
@@ -142,7 +148,8 @@ Both reads were built.
 
 Merged #241 build, intersections only (mid-block units have no corners), `fusion/primary`, no
 sidewalk layer. Inputs are pinned by sha256 (`PINNED_SHA256`: the inventory build's inputs and
-gallery 243's `corners_full`). The tool is at f8d824f.
+gallery 243's `corners_full`). Built at 7fc5cbf on a clean tree. The review rebuild left
+`proposals.jsonl` byte-identical to the first build (same sha256).
 
 | stratum | corners | absent | excluded by inventory | no candidate pano | proposed (discount) |
 |---|---:|---:|---:|---:|---:|
@@ -216,7 +223,7 @@ The full output is in each dir's `dry_run_summary.txt`.
 | discount | 4,781 | 0 | 5,770 | 0 |
 | count | 2,515 | 0 | 2,715 | 0 |
 
-Every payload has `label_type: NoCurbRamp`, `model_id: corner-rule@f8d824f885c0` and
+Every payload has `label_type: NoCurbRamp`, `model_id: corner-rule@7fc5cbff8fbc` and
 `model_training_date: 11-05-2026`. `file_label_types` reads `['NoCurbRamp']`, so it is one POST
 per line and the legacy sidecar.
 
@@ -255,7 +262,7 @@ not taken here.
 - **The #69 ranked CSV.** `rank` is implemented against the minimal contract above and is
   tested. It has not been run, because there is no CSV yet.
 - **The sidewalk-presence table** (SidewalkWebpage#5279). The `--sidewalk-presence <geojson>`
-  hook drops corners with no sidewalk geometry within `--sidewalk-radius-m` (10 m) of the corner
+  hook (shapely >= 2, pinned in requirements.txt: `STRtree.query` returns indices) drops corners with no sidewalk geometry within `--sidewalk-radius-m` (10 m) of the corner
   point, and records `dropped_no_sidewalk`. Without it, `build.json` records
   `sidewalk_rule: not applied`, as here. No source was fabricated. The rated `no_sidewalk`
   share above says this hook needs a real layer before a pilot.

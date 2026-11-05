@@ -24,6 +24,7 @@
   "sha256": "2e125aab49faf6e27b51cba67cc6ff5771e1d58160bd225866778c93bf0afe96"
  },
  "n_proposals": 100,
+ "sample_keys_not_in_proposals": [],
  "n_rated": 0,
  "n": 0,
  "present": 0,

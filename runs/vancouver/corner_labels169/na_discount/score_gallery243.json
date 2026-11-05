@@ -21,6 +21,7 @@
  },
  "sample": null,
  "n_proposals": 5770,
+ "sample_keys_not_in_proposals": [],
  "n_rated": 115,
  "n": 112,
  "present": 1,
