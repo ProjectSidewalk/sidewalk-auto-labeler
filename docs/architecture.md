@@ -731,6 +731,6 @@ detector exists yet**; the only spec is CurbRamp.
     `provenance_gate` **refuse** a file whose records ran anything but `{CurbRamp}`. eval_sites
     makes that check inside `fs.load_results`' own pass (`require_types`), so there is no
     second scan.
-- **NOT done**: per-type `FuseParams` (#168 item 4), the ranker review-order export (item 5), a
-  second detector, and submission (one POST per line and type in `send_to_ps.py`, per-type
-  sidecars, `coverage_check`) — that is the stacked PR on `multitype-submit-168`.
+- **NOT done**: per-type `FuseParams` (#168 item 4), the ranker review-order export (item 5), and a
+  second detector. (Submission, one POST per line and type with per-type sidecars, has since
+  shipped; see Stage 2 above.)

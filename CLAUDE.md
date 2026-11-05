@@ -89,7 +89,7 @@ named here. Verdicts are summarised only where they set a production default.
 | `heatmap_grid.py`, `subcell_decode.py` | 8-cell heatmap grid, sub-cell decode (#111) | `docs/heatmap-grid.md`; sigma stays 1.0, decode opt-in |
 | `seam_band_130.py` | 360° seam band (#130) | `docs/seam-band-130.md`; `--border` opt-in |
 | `reprojection_residual.py` | GT-free leave-one-view-out residual (#36) | `docs/reprojection-residual.md` |
-| `eval_ps_clustering.py`, `clustering_metrics.py`, `clustering_eval_pooled.py`, `inventory_clustering.py`, `split_figures.py`, `ps_placement.py` | PS server clustering vs fusion (SW#4706, #106, #56) | `docs/ps-clustering-eval.md` |
+| `eval_ps_clustering.py`, `clustering_metrics.py`, `clustering_eval_pooled.py`, `inventory_clustering.py`, `split_figures.py`, `ps_placement.py` (repo root) | PS server clustering vs fusion (SW#4706, #106, #56) | `docs/ps-clustering-eval.md` |
 | `detect_from_store.py`, `provenance_gate.py`, `reinfer.py --ids` | a run rebuilt from the PS pano store (#56) | `docs/ps-clustering-eval.md` "Step 2"; Vancouver gate STOP |
 | `agree_rate.py` | AI vs crowd labels (#31) | `docs/agree-rate-gainesville.md` |
 | `server_agree_check.py` | live-label validation precision, auditor vs AI | `docs/server-agree-check.md` |
@@ -111,8 +111,8 @@ torch/transformers) are **deliberately not in requirements.txt**.
 
 ## Architecture (digest)
 
-Full text: [docs/architecture.md](docs/architecture.md). The headings below match its
-sections.
+Full text: [docs/architecture.md](docs/architecture.md). The bold lead-ins below match
+its bold section lead-ins.
 
 ### Stage 1 — detection (`main.py`)
 
@@ -250,7 +250,7 @@ sidecar `<file>.band-0.3-0.55.submitted`, only on top of a campaign recorded com
 on the unchanged file. The guard refuses each of these real failure sequences:
 
 - an empty band (a pre-storage-floor file);
-- a band re-run after a gap-fill append;
+- a band re-run after a gap-fill append (send the new lines to the base campaign instead);
 - an upward band.
 
 A band whose sidecar is lost but whose record is complete stops with "nothing to do". Never
@@ -334,7 +334,8 @@ are append-only skip caches. Mapillary serves no depth.
 SidewalkWebpage#5361. It scores each pano's submitted position against OSM street centerlines
 (one cached Overpass query; a partial answer is refused and never cached). The metric **floors
 near 1.75 m**, so it gates only gross drift (#62). A Mapillary sequence is **flagged** when its
-submitted field's median cross-track is > 5 m (`GROSS_OFF_STREET_M`) AND the other field is
+submitted field's median cross-track is > 5 m (`GROSS_OFF_STREET_M`; or most of it is beyond 30 m of any
+street, and then the other field counts as a fix only if it is itself within 5 m) AND the other field is
 closer by > 2 m (`RESOLUTION_FLOOR_M`) on the paired metric without being > 1.5× as scattered.
 Otherwise it is `both_off` or `undecidable` and never gates. A check under another rule or
 knob is stale, and main.py re-runs it. main.py runs it at the end of every run
@@ -371,6 +372,8 @@ It POSTs each record to `/ai/submitLabelsOnPano`. On the way it applies these tr
   the sha256 and byte length and, per endpoint, the line/label counts, `min_confidence` and
   timestamps. It is git-tracked, recounted from sidecar plus file on write, written
   atomically, and an unreadable record **refuses**.
+- A sidecar with no `.submission.json` beside it is **unprotected**: its lines are attributed
+  to whichever endpoint runs next. Backfill the record by hand before sending.
 - `check_resume_state` refuses each of these:
   - a changed hash;
   - a record with more lines than the sidecar;
