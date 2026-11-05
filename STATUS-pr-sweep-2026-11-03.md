@@ -159,3 +159,17 @@ D:/Git/labeler-review/* scratch worktrees + RampNet-wt/{r280,r280-final,r280-rc,
 - #156 final review round 1 NOT READY (stale docs only) -> round 2 READY at ef7f652 (issuecomment-6643308051). Delta checks OK on #154/#162/#163.
 - READY heads, all CI green + MERGEABLE: #155 4ead074, #160 92388f8, #154 3a03c61, #162 5d47bcb, #156 ef7f652, #163 21562d3, #174 964fdfd, #132 d25bc3c, #135 10d1018, #141 c2d0b5d, #114 c91b2b2 (draft).
 - Nits left: "Python's csv writer emits CRLF" in docs/panoramax-lyon.md (pre-existing on main); #156 body "two lines in CLAUDE.md" (three); CLAUDE.md Panoramax-404 line stale.
+
+## 2026-11-04 — batch 2 merged (Claude, on Jon's explicit permission)
+- Every head re-verified = its READY sha, CI green, MERGEABLE; local merge simulation of all 11 in order on main
+  85f7e9e: no conflicts, pytest 1530 passed / 4 skipped; final main tree d29d87d == the simulated tree.
+- Merged with `--merge --match-head-commit` (child retargeted to main before each base merged; remote branch
+  deleted only once no open PR named it as base): #155 #160 #154 #162 #156 #163 #174 #132 #135 #141 #114
+  (`gh pr ready` first) -> main e5bbde4.
+- Deviation from the plan as told to Jon: did NOT merge main into the remaining stacks between stacks; the
+  whole-order simulation + identical final tree replaced it, keeping every merged head at its reviewed sha.
+- Worktrees removed: offgrid151, paterson151, bayonne5m (nothing gitignored). KEPT (gitignored run data inside):
+  labeler-wt/{densify147,lyon148,lyon5m,corner238,posdetect241,gallery243,mined158s4}, sal-cluster-review —
+  their local branches stay too; remote branches are deleted.
+- Open, not batch 2: #175 slim-claude-md (another session). Follow-ups: the 3 doc nits PR; repoint #174's
+  RampNet permalinks (e869be2) to RampNet main; skimage version in manifest runs[].
