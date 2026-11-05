@@ -477,13 +477,14 @@ def tool_version():
 
     HEAD, not this file's last commit: the labels' model_id names the code that built them,
     and that includes geo.py, corner_inventory.py, corner_gallery.py and the registry, so the
-    whole tree has to be at that commit. Untracked files are ignored (--untracked-files=no):
-    a build's own outputs land untracked before they are committed, and a second build in
-    the same session must not read them as an edit to the code."""
+    whole tree has to be at that commit. Untracked files and everything under runs/ are
+    ignored: those are outputs, not code, and a rebuild overwrites the tracked outputs of the
+    previous one (build.json, counts.csv, ...), which must not read as an edit to the code."""
     import subprocess
     try:
         st = subprocess.run(['git', '-C', str(REPO_ROOT), 'status', '--porcelain',
-                             '--untracked-files=no'], capture_output=True, text=True,
+                             '--untracked-files=no', '--', '.', ':(exclude)runs'],
+                            capture_output=True, text=True,
                             timeout=30).stdout
         dirty = bool(st.strip())
     except Exception:  # pragma: no cover
