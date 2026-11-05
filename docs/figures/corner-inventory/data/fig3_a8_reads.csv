@@ -1,0 +1,6 @@
+read,which,k,n,share,lo,hi
+a_fusion_clean_as_written,clean,333,1323,0.2517,0.2291,0.2758
+b_fusion_clean_ignoring_NA_noramp,clean,1277,1323,0.9652,0.9539,0.9738
+c_deployed_clean,clean,365,1503,0.2428,0.2218,0.2652
+a_fusion_clean_as_written,no_available,1279,1323,0.9667,0.9556,0.9751
+c_deployed_clean,no_available,1437,1503,0.9561,0.9445,0.9653

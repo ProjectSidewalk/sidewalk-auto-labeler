@@ -13,7 +13,8 @@ Protocol (written before any number): docs/corner-inventory.md. Four subcommands
   census             GSV history for the panos near a stratified sample of 200 units: one
                      metadata request per pano, no image -> <out>/census/
   figures            redraw docs/figures/corner-inventory/ from the committed counts.csv +
-                     decision.json only (matplotlib; byte-reproducible PNG + SVG + data CSVs)
+                     decision.json, plus amendment A8's compare/reads.csv + compare.json
+                     (matplotlib; byte-reproducible PNG + SVG + data CSVs)
 
 Inputs are read in place and never written; results.jsonl and the OSM payload are asserted
 by sha256. The OSM / eligibility functions are imported from export_cluster_review.py (the
@@ -78,6 +79,13 @@ CENSUS_SEED = 238
 CENSUS_N = {'signalised': 67, 'arterial': 67, 'residential': 66}
 CENSUS_SLEEP_S = 0.25
 DECISION_THRESHOLD = 0.90
+# RampNet#241: a run added with `build --extra-run` (panos chosen by position, never
+# submitted) has no server clusters. Its deployed arm is emulated: a fused site of that run
+# with a member detection at or above the tier that went live counts as a deployed point.
+DEPLOYED_TIER = 0.55
+# sites_meta params an extra run may differ from the base run in (recorded); every other
+# `params` key must be equal (review S3: the guard covers all of them, not a hand-picked list)
+EXTRA_RUN_FREE_PARAMS = ('camera_height_m',)
 
 
 # ------------------------------------------------------------------------- helpers
@@ -527,6 +535,47 @@ def load_panos(results_path):
     return out
 
 
+def load_extra_run(run_dir, base_meta, base_pano_ids, tier=DEPLOYED_TIER):
+    """(panos, operational sites, emulated deployed points, record) of a run added with
+    `build --extra-run` (RampNet#241). Site ids are prefixed with the run dir's name so they
+    cannot collide with the base run's. Refuses a run that shares a pano with the base run
+    (it would be counted twice) or whose fusion params differ from the base run's in
+    anything but EXTRA_RUN_FREE_PARAMS.
+
+    The deployed arm is emulated (DEPLOYED_TIER): the run's panos were never submitted, so
+    no server cluster exists for them; a site with a member >= tier stands in for one."""
+    run_dir = Path(run_dir)
+    name = run_dir.resolve().name
+    meta = json.loads((run_dir / 'sites_meta.json').read_text(encoding='utf-8'))
+    keys = sorted((set(meta['params']) | set(base_meta['params'])) - set(EXTRA_RUN_FREE_PARAMS))
+    diff = [k for k in keys if meta['params'].get(k) != base_meta['params'].get(k)]
+    if diff:
+        raise SystemExit(f'{run_dir}: sites_meta params {diff} differ from the base run')
+    panos = load_panos(run_dir / 'results.jsonl')
+    shared = sorted({p[2] for p in panos} & set(base_pano_ids))
+    if shared:
+        raise SystemExit(f'{run_dir}: {len(shared)} pano(s) already in the base run, '
+                         f'e.g. {shared[:3]}')
+    thr = meta['params']['min_confidence']
+    sites, deployed = [], []
+    with open(run_dir / 'sites.jsonl', encoding='utf-8') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            s = json.loads(line)
+            if s.get('n_operational', 0) < 1:
+                continue
+            ops = sorted({m['pano_id'] for m in s['members'] if m['confidence'] >= thr})
+            sid = f"{name}:{s['site_id']}"
+            sites.append((s['lat'], s['lng'], {'site_id': sid, 'op_panos': ops}))
+            if any(m['confidence'] >= tier for m in s['members']):
+                deployed.append((s['lat'], s['lng'], f"{name}:s{s['site_id']}"))
+    rec = {'name': name, 'n_panos': len(panos), 'n_operational_sites': len(sites),
+           'n_deployed_emulated': len(deployed), 'deployed_tier': tier,
+           'camera_height_m': meta['params'].get('camera_height_m')}
+    return panos, sites, deployed, rec
+
+
 def load_clusters(path):
     feats = json.loads(Path(path).read_text(encoding='utf-8'))['features']
     return [(f['geometry']['coordinates'][1], f['geometry']['coordinates'][0],
@@ -606,6 +655,12 @@ def cmd_build(args):
         raise SystemExit('inventory.geojson does not match inventory.json')
     if args.units224:
         rec_input('units224', Path(args.units224))
+    extra_dirs = [Path(d) for d in (getattr(args, 'extra_run', None) or [])]
+    for d in extra_dirs:
+        nm = d.resolve().name
+        for name, rel in (('results', 'results.jsonl'), ('sites', 'sites.jsonl'),
+                          ('sites_meta', 'sites_meta.json')):
+            rec_input(f'extra:{nm}:{name}', d / rel)
     steps = []
 
     t = time.time()
@@ -633,6 +688,13 @@ def cmd_build(args):
     obs_m = float(meta['params']['max_range_m'])
     panos = load_panos(run_dir / 'results.jsonl')
     clusters = load_clusters(run_dir / 'ps_clustering_eval/clusters.geojson')
+    extra_recs = []
+    for d in extra_dirs:
+        e_panos, e_sites, e_dep, e_rec = load_extra_run(d, meta, [p[2] for p in panos])
+        panos += e_panos
+        meta_sites += e_sites
+        clusters += e_dep
+        extra_recs.append(e_rec)
     inv_feats = json.loads((run_dir / 'inventory_oracle/inventory.geojson')
                            .read_text(encoding='utf-8'))['features']
     inv_items = [(f['geometry']['coordinates'][1], f['geometry']['coordinates'][0],
@@ -704,6 +766,8 @@ def cmd_build(args):
                         'clusters': len(clusters), 'inventory_points': len(inv_items),
                         'units': len(records), 'units224': len(u224)},
              'steps': steps, 'seconds': round(time.time() - t0, 1)}
+    if extra_recs:
+        build['extra_runs'] = extra_recs
     (out / 'build.json').write_text(json.dumps(build, indent=1) + '\n', encoding='utf-8',
                                     newline='\n')
     print(f"built {len(records)} units ({build['seconds']} s) -> {out}")
@@ -915,6 +979,11 @@ def selection_diagnostics(records, build, tier=0.55):
         return None
     sampled = set(Path(inputs['store_sampled_ids']['path']).read_text(encoding='utf-8')
                   .split())
+    # RampNet#241: panos added with --extra-run were chosen by position
+    extra = set()
+    for k, v in inputs.items():
+        if k.startswith('extra:') and k.endswith(':results'):
+            extra |= {p[2] for p in load_panos(v['path'])}
     n_runs, n_det = 0, 0
     run_ids = set()
     with open(inputs['results']['path'], encoding='utf-8') as f:
@@ -931,7 +1000,9 @@ def selection_diagnostics(records, build, tier=0.55):
     cross = {}
     for r in ints:
         k = (r['state']['fusion/primary'],
-             'sampled-unlabeled pano within 25 m' if any(p in sampled for p in r['pano_ids_25'])
+             'position-selected pano within 25 m' if any(p in extra for p in r['pano_ids_25'])
+             else 'sampled-unlabeled pano within 25 m'
+             if any(p in sampled for p in r['pano_ids_25'])
              else 'labeled panos only' if r['pano_ids_25'] else 'no pano within 25 m')
         cross[k] = cross.get(k, 0) + 1
     unobs = [r['nearest_pano_m'] for r in ints if r['state']['fusion/primary'] == 'unobservable'
@@ -941,7 +1012,8 @@ def selection_diagnostics(records, build, tier=0.55):
     for r in ints:
         if r['state']['fusion/primary'] != 'absent':
             continue
-        kind = ('sampled-unlabeled' if any(p in sampled for p in r['pano_ids_25'])
+        kind = ('position-selected' if any(p in extra for p in r['pano_ids_25'])
+                else 'sampled-unlabeled' if any(p in sampled for p in r['pano_ids_25'])
                 else 'labeled only')
         ic = r['inv_counts']
         b = ('false (Available)' if ic['Available'] else
@@ -1582,6 +1654,98 @@ def fig_unit_states(plt, rows, fig_dir):
     return _fig_save(plt, fig, fig_dir, 'fig1_unit_states')
 
 
+# Amendment A8 (RampNet#241): drawn from the committed compare/reads.csv + compare.json.
+DEFAULT_A8 = REPO_ROOT / 'runs' / 'vancouver' / 'corner_posdetect241' / 'compare'
+A8_READS = (('a_fusion_clean_as_written', 'clean',
+             '(a) as written, fusion\n(the pre-registered rule)'),
+            ('b_fusion_clean_ignoring_NA_noramp', 'clean',
+             '(b) not counting NA\nwith no RAMPTYPE, fusion'),
+            ('c_deployed_clean', 'clean', '(c) as written, deployed\n(emulated for added panos)'),
+            ('a_fusion_clean_as_written', 'no_available', 'no-Available read, fusion'),
+            ('c_deployed_clean', 'no_available', 'no-Available read, deployed'))
+A8_CONTROL = (('none', 'nothing'), ('NA_noramp_only', 'only NA with no RAMPTYPE'),
+              ('Available', 'an Available point'))
+
+
+def a8_rows(reads_csv, comp):
+    """A8 reads (merged build, unit level, intersections pooled, all units) and the
+    control (share of observed target units called absent, by what the inventory holds).
+
+    Read (a) is checked against compare.json's decision_rule, as figure 2 is against
+    decision.json.
+    """
+    by = {(r['subset'], r['stratum'], r['build'], r['read']): r for r in reads_csv}
+    reads = []
+    for key, which, label in A8_READS:
+        r = by[('all', 'intersections', 'new', key)]
+        k, n = int(r[which]), int(r['n_absent'])
+        lo, hi = wilson(k, n)
+        reads.append({'read': key, 'which': which, 'label': label, 'k': k, 'n': n,
+                      'share': round(k / n, 4), 'lo': round(lo, 4), 'hi': round(hi, 4)})
+    d, a = comp['decision_rule'], reads[0]
+    if (a['k'], a['n'], a['share'], [a['lo'], a['hi']]) != \
+            (d['clean'], d['n_absent'], d['precision'], d['ci']):
+        raise SystemExit('reads.csv and compare.json disagree on read (a): re-run `compare`')
+    control = []
+    for key, label in A8_CONTROL:
+        t = comp['target_states_by_inventory'][key]
+        k, n = t['absent'], t['absent'] + t['present']
+        lo, hi = wilson(k, n)
+        control.append({'inventory': key, 'label': label, 'absent': k, 'observed': n,
+                        'share': round(k / n, 4), 'lo': round(lo, 4), 'hi': round(hi, 4)})
+    return reads, control
+
+
+def fig_a8(plt, reads, control, fig_dir):
+    """Figure 3: A8's reads against the 0.90 line, beside the share called absent by
+    inventory class among the observed target units (the control)."""
+    colour = {'clean': BLUE, 'no_available': ORANGE}
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(10.4, 3.9),
+                                 gridspec_kw={'width_ratios': [1.25, 1], 'wspace': 0.8})
+    ys = list(range(len(reads)))[::-1]
+    for y, r in zip(ys, reads):
+        c = colour[r['which']]
+        ax.plot([r['lo'], r['hi']], [y, y], color=c, lw=2, solid_capstyle='round')
+        ax.plot([r['share']], [y], 'o', ms=8, color=c, markeredgecolor=SURFACE,
+                markeredgewidth=1.2)
+        tx, ha = ((r['hi'] + 0.02, 'left') if r['share'] < 0.6 else
+                  (min(r['lo'], DECISION_THRESHOLD) - 0.025, 'right'))
+        # The bounds are printed, as in figure 2: the high reads' intervals (~0.02 wide)
+        # hide under their markers, and whether (b)'s lower bound clears 0.90 is the point.
+        # On a second line, so a low read's label stays clear of the 0.90 line.
+        ax.text(tx, y, f"{r['k']:,}/{r['n']:,} = {r['k'] / r['n']:.3f}\n"
+                f"[{r['lo']:.3f}, {r['hi']:.3f}]", va='center', ha=ha, multialignment=ha,
+                fontsize=8.5, color=INK, linespacing=1.15)
+    ax.axvline(DECISION_THRESHOLD, color=INK2, lw=1.2, ls=(0, (4, 3)))
+    ax.text(DECISION_THRESHOLD - 0.006, ys[0] + 0.55,
+            f'decision line {DECISION_THRESHOLD:.2f}', ha='right', va='bottom', fontsize=9,
+            color=INK2)
+    ax.set_yticks(ys, [r['label'] for r in reads], fontsize=8.5)
+    ax.set_ylim(-0.6, len(reads) - 0.1)
+    ax.set_xlim(0, 1)
+    ax.grid(True, axis='x')
+    ax.set_xlabel('Absence precision, Wilson 95% interval')
+    ax.set_title('A8 reads: 1,453 unobservable units given panos', pad=16)
+    ax.legend(handles=[plt.Line2D([], [], color=BLUE, marker='o', lw=2, label='clean read'),
+                       plt.Line2D([], [], color=ORANGE, marker='o', lw=2,
+                                  label='no-Available read')],
+              loc='upper center', bbox_to_anchor=(0.4, -0.2), ncol=2, fontsize=8.5)
+    ys = list(range(len(control)))[::-1]
+    for y, r in zip(ys, control):
+        bx.plot([r['lo'], r['hi']], [y, y], color=INK2, lw=2, solid_capstyle='round')
+        bx.plot([r['share']], [y], 'o', ms=8, color=INK2, markeredgecolor=SURFACE,
+                markeredgewidth=1.2)
+        bx.text(r['lo'] - 0.03, y, f"{r['absent']:,}/{r['observed']:,} = {r['share']:.3f}",
+                va='center', ha='right', fontsize=8.5, color=INK)
+    bx.set_yticks(ys, [r['label'] for r in control], fontsize=8.5)
+    bx.set_ylim(-0.6, len(control) - 0.4)
+    bx.set_xlim(0, 1)
+    bx.grid(True, axis='x')
+    bx.set_xlabel('Share of observed target units called absent')
+    bx.set_title('Control: absent, by what the inventory holds', pad=16)
+    return _fig_save(plt, fig, fig_dir, 'fig3_a8_reads')
+
+
 def cmd_figures(args):
     out = Path(args.out)
     fig_dir = Path(args.fig_dir)
@@ -1597,6 +1761,19 @@ def cmd_figures(args):
     plt = _fig_style()
     written = fig_absence_precision(plt, reads, fig_dir) + fig_unit_states(plt, states,
                                                                            fig_dir)
+    a8 = Path(args.a8)
+    if (a8 / 'reads.csv').exists():
+        with open(a8 / 'reads.csv', encoding='utf-8', newline='') as f:
+            a8_reads = list(csv.DictReader(f))
+        comp = json.loads((a8 / 'compare.json').read_text(encoding='utf-8'))
+        r8, c8 = a8_rows(a8_reads, comp)
+        write_csv_lf(fig_dir / 'data' / 'fig3_a8_reads.csv',
+                     ['read', 'which', 'k', 'n', 'share', 'lo', 'hi'], r8)
+        write_csv_lf(fig_dir / 'data' / 'fig3_a8_control.csv',
+                     ['inventory', 'absent', 'observed', 'share', 'lo', 'hi'], c8)
+        written += fig_a8(plt, r8, c8, fig_dir)
+    else:
+        print(f'{a8}: no reads.csv, amendment A8 figure skipped')
     for p in written:
         print(f'wrote {p}')
     return written
@@ -1613,6 +1790,11 @@ def main(argv=None):
     b.add_argument('--osm', required=True)
     b.add_argument('--units224')
     b.add_argument('--out', required=True)
+    b.add_argument('--extra-run', action='append', default=[], metavar='RUN_DIR',
+                   help='RampNet#241: also count the panos of RUN_DIR as observed and its '
+                        'operational fused sites as present (results.jsonl + sites.jsonl + '
+                        'sites_meta.json); its deployed arm is emulated at DEPLOYED_TIER. '
+                        'Repeatable.')
     s = sub.add_parser('score')
     s.add_argument('--out', required=True)
     c = sub.add_parser('census')
@@ -1631,6 +1813,9 @@ def main(argv=None):
     g.add_argument('--out', default=str(DEFAULT_OUT),
                    help='dir holding counts.csv + decision.json (default: the committed run)')
     g.add_argument('--fig-dir', default=str(FIG_DIR))
+    g.add_argument('--a8', default=str(DEFAULT_A8),
+                   help='amendment A8 compare/ dir (reads.csv + compare.json); its figure '
+                   'is drawn when it exists')
     args = ap.parse_args(argv)
     return {'build': cmd_build, 'score': cmd_score, 'census': cmd_census,
             'score-assignments': cmd_score_assignments, 'figures': cmd_figures}[args.cmd](args)
