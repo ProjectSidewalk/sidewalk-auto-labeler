@@ -119,7 +119,7 @@ def test_offline_check_humans_are_the_other_accounts(tmp_path, monkeypatch):
         pass
 
     def fake_check(ai, det_of, results_path, streets, min_confidence, deployed, humans,
-                   clustered):
+                   clustered, **_kw):
         seen['humans'] = sorted(humans.label_id)
         seen['ai'] = sorted(ai.label_id)
         raise Stop
