@@ -1,0 +1,1 @@
+revealInventory("vancouver:art:n1375008444", {"0":[],"1":[{"class":"Available","corner":null,"defect":null,"instdate":null,"lat":45.6668092201682,"lng":-122.682556161273,"owner":"CITY","projname":null,"ramptype":"DIRECT","status":"Available","unit_id":"CR20642"}],"2":[]});
