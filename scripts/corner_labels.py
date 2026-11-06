@@ -24,8 +24,9 @@ Subcommands:
 The pre-registered rule (issue #169, stated before any label was built): corner-level absence
 precision against blind ratings >= 0.90 with Wilson lower bound >= 0.85, on a seeded sample of
 >= 100 absent corners drawn under the primary NA read; `cant_tell` corners leave the
-denominator and their share is reported. The primary NA read is NOT settled yet (gallery 243,
-RampNet#243, is half rated), so --na-read has no default. Write-up: docs/corner-labels-169.md.
+denominator and their share is reported. --na-read has no default. Gallery 243 (RampNet#243)
+settled the primary read as `discount` on 2026-11-05 (NA_READ_SETTLEMENT); a build records that
+only when it is given --na-read-settled. Write-up: docs/corner-labels-169.md.
 
 Inputs are read in place and never written; their sha256 goes into build.json, and for
 Vancouver the build refuses inputs that differ from the ones #241 / gallery 243 were built on
@@ -89,6 +90,27 @@ RULE_MIN_N = 100
 SAMPLE_SEED = 169
 SAMPLE_N = 100
 
+#: How the primary NA read was settled: gallery 243 (RampNet#243) scored blind, 95 of 95 units
+#: (sidewalk-auto-labeler PR #180, branch corner-gallery-243-verdicts). The 40 sampled units
+#: whose only inventory points are `NA` with no `RAMPTYPE` were rated absent at every corner,
+#: 39/39 decided (1 undetermined), Wilson 95% [0.910, 1.000]; the corners holding those points
+#: 99/99. So such points are the city's record of no ramp: read (b) of amendment A8, `discount`.
+#: `build --na-read-settled` copies this block into build.json; score_json_sha256 is the git
+#: blob of score/score.json on that branch.
+NA_READ_SETTLEMENT = {
+    'primary': 'discount',
+    'settled_on': '2026-11-05',
+    'evidence': 'sidewalk-auto-labeler PR #180 (branch corner-gallery-243-verdicts): '
+                'runs/vancouver/corner_gallery243/score/report.md and score/score.json',
+    'pr': 'ProjectSidewalk/sidewalk-auto-labeler#180',
+    'score_json': 'runs/vancouver/corner_gallery243/score/score.json',
+    'score_json_sha256': '447c6bb5db0fd2e2d18d7f01c8812f313db28d25cd23c64da14d23e873fb12bc',
+    'verdicts': 'runs/vancouver/corner_gallery243/verdicts__jonf.json',
+    'verdicts_sha256': '30a5008d125f143d6cc536e9787676310fc474b9c4cc127f59a419a16e2e80bd',
+    'na_noramp_units_absent': '39/39 decided (1 undetermined), Wilson 95% [0.910, 1.000]',
+    'na_noramp_corners_absent': '99/99',
+}
+
 #: Inputs #241's merged corner build and gallery 243 were made from (runs/vancouver/
 #: corner_inventory_posdetect241/build.json `inputs`; corners_full from runs/vancouver/
 #: corner_gallery243/snapshot.json). A build on other bytes is refused unless --allow-unpinned.
@@ -134,7 +156,7 @@ def inventory_excludes(inv_counts, na_read):
     RMV, Expired/Removed, other). This is exactly read (b), "no inventory point of any status,
     not counting NA points with no RAMPTYPE", the read the issue quotes at 0.965.
 
-    Which of the two is primary is NOT settled: gallery 243 (RampNet#243) decides it.
+    Gallery 243 (RampNet#243) settled `discount` as primary on 2026-11-05 (NA_READ_SETTLEMENT).
 
     >>> inventory_excludes({'Available': 0, 'NA_noramp': 2}, 'discount')
     False
@@ -590,7 +612,7 @@ def cmd_build(args):
         'label_type': LABEL_TYPE, 'rule_version': RULE_VERSION,
         'rule_version_date': RULE_VERSION_DATE,
         'params': {'arm': args.arm, 'variant': args.variant, 'na_read': args.na_read,
-                   'na_read_settled': False, 'max_range_m': args.max_range_m,
+                   **na_read_params(args), 'max_range_m': args.max_range_m,
                    'min_view_m': args.min_view_m, 'top_k': args.top_k,
                    'camera_height_m': args.camera_height_m, 'hemisphere_deg': args.hemisphere_deg,
                    'site_search_m': SITE_SEARCH_M, 'n_runner_ups': N_RUNNER_UPS},
@@ -616,6 +638,18 @@ def cmd_build(args):
           f"{total['dropped_no_sidewalk']} no sidewalk, {total['no_candidate']} no candidate "
           f"pano, {total['dropped_projection']} projection dropped -> {total['proposed']} "
           f"proposals in {out}")
+
+
+def na_read_params(args):
+    """build.json's NA-read params. Without --na-read-settled: {'na_read_settled': False}, as
+    every build before 2026-11-05 recorded. With it: the settlement (NA_READ_SETTLEMENT), the
+    primary read, and whether this build's read is that one (a `count` build stays buildable,
+    as the comparison, and says it is not primary)."""
+    if not getattr(args, 'na_read_settled', False):
+        return {'na_read_settled': False}
+    return {'na_read_settled': True, 'na_read_primary': NA_READ_SETTLEMENT['primary'],
+            'na_read_is_primary': args.na_read == NA_READ_SETTLEMENT['primary'],
+            'na_read_settlement': dict(NA_READ_SETTLEMENT)}
 
 
 def key_of(args):
@@ -952,8 +986,11 @@ def main(argv=None):
     b.add_argument('--variant', default='primary', choices=ci.VARIANTS)
     b.add_argument('--na-read', required=True, choices=NA_READS,
                    help='count: any inventory point (NA included) excludes a corner; discount: '
-                        'NA points with no RAMPTYPE do not. REQUIRED: the primary read is not '
-                        'settled until gallery 243 (RampNet#243) is scored')
+                        'NA points with no RAMPTYPE do not. REQUIRED, no default; gallery 243 '
+                        'settled discount as primary (see --na-read-settled)')
+    b.add_argument('--na-read-settled', action='store_true',
+                   help='record in build.json that the primary NA read is settled (discount, '
+                        'gallery 243, PR #180; NA_READ_SETTLEMENT) and whether --na-read is it')
     b.add_argument('--max-range-m', type=float, default=MAX_RANGE_M,
                    help=f'farthest pano that can carry the label (<= {TABLE_OBS_M:g}, the '
                         f"table's observation radius)")

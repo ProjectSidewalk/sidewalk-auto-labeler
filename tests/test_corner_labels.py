@@ -445,8 +445,12 @@ def test_build_export_and_dry_run_end_to_end(tmp_path):
         cl.main(['build', '--city', 'testcity', '--na-read', 'discount',
                  '--corners', str(tmp_path / 'corners_full.jsonl'), '--run-dir', str(run),
                  '--out', str(out_sw), '--sidewalk-presence', str(walks),
-                 '--sidewalk-radius-m', '3', '--sidewalk-keep', 'STATUS=Available'])
+                 '--sidewalk-radius-m', '3', '--sidewalk-keep', 'STATUS=Available',
+                 '--na-read-settled'])
     bsw = json.loads((out_sw / 'build.json').read_text(encoding='utf-8'))
+    assert build['params']['na_read_settled'] is False and 'na_read_settlement' not in build['params']
+    assert bsw['params']['na_read_settled'] is True and bsw['params']['na_read_is_primary'] is True
+    assert bsw['params']['na_read_settlement']['score_json_sha256'] ==         cl.NA_READ_SETTLEMENT['score_json_sha256']
     rule = bsw['sidewalk_rule']
     assert rule['sha256'] == bsw['inputs']['sidewalk_presence']['sha256'] == ci.sha256_file(walks)
     assert rule['keep'] == {'STATUS': ['Available']}
@@ -612,3 +616,17 @@ def test_score_reports_sample_keys_not_in_the_proposals():
     res = cl.score(props, _verdicts([('u0', 0, 'absent', None)]),
                    sample_keys=['u0#0', 'zz#1'])
     assert res['n_proposals'] == 1 and res['sample_keys_not_in_proposals'] == ['zz#1']
+
+
+def test_na_read_settled_flag_records_the_settlement():
+    """Without the flag build.json says what it always said; with it, the gallery 243
+    settlement (PR #180) and whether this build's read is the primary one."""
+    assert cl.na_read_params(args(na_read='discount')) == {'na_read_settled': False}
+    d = cl.na_read_params(args(na_read='discount', na_read_settled=True))
+    assert d['na_read_settled'] is True and d['na_read_primary'] == 'discount'
+    assert d['na_read_is_primary'] is True
+    s = d['na_read_settlement']
+    assert s['pr'].endswith('#180') and len(s['score_json_sha256']) == 64
+    assert s == cl.NA_READ_SETTLEMENT and s is not cl.NA_READ_SETTLEMENT
+    c = cl.na_read_params(args(na_read='count', na_read_settled=True))
+    assert c['na_read_settled'] is True and c['na_read_is_primary'] is False
