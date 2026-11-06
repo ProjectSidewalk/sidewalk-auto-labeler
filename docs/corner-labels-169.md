@@ -614,6 +614,26 @@ AI label at the same corner are what the validators compare.
 
 ## Replication
 
+**Archive of the uncommitted inputs and outputs (2026-11-06).** Every file over the 2 MB line that
+the builds above read or wrote is on makelab2 under
+`/projects/makeabilitylab/sidewalk-auto-labeler/runs/`, in the same relative layout as `runs/`
+here, with a `sha256sum -c` manifest beside it that was verified on the host after upload:
+
+- `vancouver/corner_labels169.archive.sha256` (19 files, verified 2026-11-06T04:08:11Z, stamp
+  `vancouver/corner_labels169_archive.done`): the four `proposals.jsonl` and four exported
+  `results.jsonl` of `corner_labels169/na_*`, `sidewalks/cov_sidewalks.geojson`
+  (sha256 `11503ed4…`), `corner_inventory_posdetect241/corners_full.jsonl` (`ec206060…`), and
+  `results.jsonl` / `sites.jsonl` / `sites_meta.json` of the three runs the proposals draw on
+  (`vancouver`, `vancouver_posdetect241`, `vancouver_posdetect241_gsv`).
+- `vancouver/corner_labels169_split.archive.sha256` (6 files, verified 2026-11-06, stamp
+  `vancouver/corner_labels169_split_archive.done`): `corner_inventory169_split/corners_full.jsonl`
+  (`b50da32e…`, the pinned split build) and `corners_224.jsonl`, and the four
+  `corner_labels169_split/na_*/proposals.jsonl` (`b4e9e97e…`, `16c0a5dc…`, `1562e076…`,
+  `57105551…`).
+
+The sha256s match the ones `build.json` records, so a re-run can be checked against the archive
+without re-downloading the sidewalk layer.
+
 The sidewalk file is not committed; re-download it with the query recorded in
 `sidewalks/cov_sidewalks.geojson.source.json` and check its sha256 (the weekly-updated layer
 will have moved, so a re-download builds a different `_sw` set; `build.json` would show the new
