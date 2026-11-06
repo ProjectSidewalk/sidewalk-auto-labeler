@@ -92,7 +92,7 @@ named here. Verdicts are summarised only where they set a production default.
 | `eval_ps_clustering.py`, `clustering_metrics.py`, `clustering_eval_pooled.py`, `inventory_clustering.py`, `split_figures.py`, `ps_placement.py` (repo root) | PS server clustering vs fusion (SW#4706, #106, #56) | `docs/ps-clustering-eval.md` |
 | `export_cluster_review.py`, `cluster_review_score.py`, `corner_inventory.py` | cluster-review GT (RampNet#224) and the corner inventory (RampNet#238), Vancouver | `docs/ps-clustering-eval.md`, `docs/corner-inventory.md` |
 | `detect_from_store.py`, `provenance_gate.py`, `reinfer.py --ids` | a run rebuilt from the PS pano store (#56) | `docs/ps-clustering-eval.md` "Step 2"; Vancouver gate STOP |
-| `corner_labels.py` | NoCurbRamp proposals from absent corners (#169) | `docs/corner-labels-169.md`; `--na-read` required (discount settled by gallery 243), NOT SCORED, nothing submitted |
+| `corner_labels.py` | NoCurbRamp proposals from absent corners (#169) | `docs/corner-labels-169.md`; `--na-read` required (discount settled by gallery 243), NOT SCORED, nothing submitted; test revised 2026-11-06 to the `--split-wide` table (`*_split` dirs) |
 | `agree_rate.py` | AI vs crowd labels (#31) | `docs/agree-rate-gainesville.md` |
 | `server_agree_check.py` | live-label validation precision, auditor vs AI | `docs/server-agree-check.md` |
 | `label_frame_beta.py` | human-label vs image frame on GSV (#113) | commands.md section; lower bounds, not a placement coefficient |

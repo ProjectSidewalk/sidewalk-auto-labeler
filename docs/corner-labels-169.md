@@ -7,6 +7,11 @@ input**), for `<read>` = `discount` and `count`. The layer's provenance is
 `.../sidewalks/cov_sidewalks.geojson.source.json`. Issue: [#169](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/169)
 (umbrella ProjectSidewalk/Planning#36).
 
+**Revised 2026-11-06 (see "Pre-registration revision" below):** the test now runs on the
+split-wide corner table, `runs/vancouver/corner_labels169_split/na_discount_sw/` and the bundle
+`runs/vancouver/corner_gallery169_split/`. The criterion is unchanged. The `corner_labels169/`
+builds, their sample and the pilot bundle `corner_gallery169/` stay as they were.
+
 **Status: the rule is not scored yet, and nothing goes to any server under this PR.** The
 primary `NA` read is **settled as `discount`** (gallery 243, PR
 [#180](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/180); see "The NA read"
@@ -39,11 +44,11 @@ Two known residuals under this definition:
   reaches it and no ramp serves it, even where nobody is expected to cross. That is correct
   under the definition, which deliberately does not ask whether a crossing exists. Watch the
   validation rate of these corners in the pilot.
-- **Corner points that land off the curb (open).** The corner point is 12 m from the
-  intersection centre along the sector bisector. On T-intersections (the straight side has no
-  real corner) and on wide arterials (12 m can fall in the roadway or past the curb return),
-  that point is not where a ramp would be. This is a geometry gap in the #241 corner table,
-  not a property of the definition, and it is open.
+- **Corner points that land off the curb (partly fixed 2026-11-06).** The corner point is
+  12 m from the intersection centre along the sector bisector. On the far side of a T it
+  landed midway along the far curb, between the two crossing landings; the split-wide table
+  fixes that case (two corners, one per landing; "Pre-registration revision" below). On wide
+  arterials, 12 m can still fall in the roadway or past the curb return. That part is open.
 
 ## What ships
 
@@ -171,6 +176,57 @@ It prints PASS / FAIL only when both of these hold, and NOT SCORED otherwise:
 `score` also reports a secondary **label precision**, which counts `no_sidewalk` absences as
 wrong (guide rule 3: no label where no sidewalk reaches the corner). `unspecified` absences
 count as right there, so it is an upper bound.
+
+## Pre-registration revision (2026-11-06): the far side of a T is two corners
+
+**What the pilot found.** Jon rated 7 of the 99 units of `corner_gallery169/` (8 corners) and
+exported them at 2026-11-06T13:33Z; the file is kept as
+`runs/vancouver/corner_gallery169/pilot_verdicts__jonf.json`, deliberately not under the scored
+name. His notes on `vancouver:art:n47372178` corner 0 and `vancouver:res:n958723078` corner 2:
+on the far side of a T, the corner point sits midway along the far curb, between the two places
+a crossing of the through street lands, so a NoCurbRamp label there is misplaced. The corner
+table flagged such sectors (wider than 150°) `wide`, as "usually no crossing". **51 of the 100
+sampled corners were wide**, as were 1,010 of the 1,821 `na_discount_sw` proposals and 3,177 of
+the table's 14,391 corners.
+
+**The fix (Jon's rule).** There are two crossings on the far side of a T, one per landing, and
+each needs a ramp. `corner_inventory.py build --split-wide` splits every sector wider than 150°
+at a *phantom leg* opposite each real leg whose opposite falls inside it at least 30° from both
+bounds, so the far side of a T becomes the two corners the four-way would have if the stem
+continued. Rule, margin, regression and table counts: `docs/corner-inventory.md`, amendment of
+2026-11-06. The flag is off by default; the #238 / #241 numbers are untouched.
+
+**What changes for the test.**
+
+- The test runs on `runs/vancouver/corner_labels169_split/na_discount_sw/` (the same flags as
+  `corner_labels169/na_discount_sw/`, on the split table) and its `sample.csv`: seed 169, 100 of
+  3,070 proposals, drawn 2026-11-06 before any rating of them.
+- It is rated in `runs/vancouver/corner_gallery169_split/` under rubric v2 (v1 plus a paragraph:
+  phantom legs are dashed on the aerial, the far side of a T has two corners, one per crossing
+  landing, and a ramp counts only for its own landing; crops may be landscape).
+- **The criterion is unchanged**: corner-level absence precision >= 0.90 with Wilson lower
+  bound >= 0.85, on >= 100 decided blind ratings, `can't tell` excluded and its share reported;
+  the secondary label precision as before.
+- The old sample (`corner_labels169/na_discount_sw/sample.csv`), the pilot bundle and the pilot
+  verdicts stay in the repo. **The pilot is not scored as the test**: it rated a sample of the
+  old table, and it is the observation that motivated the fix.
+
+**Counts, old table → split table** (all intersections, `fusion/primary`):
+
+| build | proposals | wide share of proposals | `dropped_no_sidewalk` | excluded by inventory |
+|---|---:|---:|---:|---:|
+| `na_discount` | 6,131 → 8,529 | 34.4% → 3.2% (2,107 → 270) | - | 253 → 283 |
+| `na_count` | 2,894 → 5,274 | 70.7% → 4.9% (2,045 → 258) | - | 3,490 → 3,538 |
+| `na_discount_sw` | **1,821 → 3,070** | 55.5% → 5.6% (1,010 → 171) | 4,311 → 5,461 | 253 → 283 |
+| `na_count_sw` | 1,376 → 2,620 | 72.5% → 6.5% (998 → 171) | 1,519 → 2,656 | 3,490 → 3,538 |
+
+Absent corners go from 6,385 to 8,814 of 17,063 (was 14,391); `no_candidate` is 2 in the
+no-layer builds (was 1). `na_discount_sw` by stratum: signalised 10 → 34, arterial 639 → 1,052,
+residential 1,172 → 1,984; 2,088 of its 3,070 proposals are bounded by a phantom leg. Proposals
+rise mostly because a far side with a ramp at one landing was one present corner and is now one
+present and one absent corner. The new sample: 66 residential and 34 arterial corners at 98
+units; 67 bounded by a phantom leg; 5 still wide. The crowd-overlap numbers below were not
+recomputed for the split builds (they need the server's API; nothing was fetched).
 
 ## The NA read (settled 2026-11-05: `discount`)
 
@@ -420,6 +476,39 @@ Tracked in the bundle: `items.jsonl`, `snapshot.json`, `images.sha256`, `report.
 later `verdicts__*.json`. The aerials, crops, tile cache and `gallery/` stay local, as in
 gallery 243.
 
+### The split-wide bundle (`runs/vancouver/corner_gallery169_split/`, the revised test)
+
+Built 2026-11-06 like the pilot bundle, with three changes Jon asked for after the pilot:
+- **The split-wide sample** (`corner_labels169_split/na_discount_sw/sample.csv`, 100 corners at
+  98 units: 66 residential, 34 arterial), on the split table's `corners_full.jsonl`;
+- **up to 6 views per corner** (`--views-per-corner 6`; the newest-date slot is kept, the rest
+  fill in distance order): 471 crops, 46 corners with 6 views, 20 with 5, 12 with 4, 10 with 3,
+  5 with 2 and 7 with 1; the pano that carries the label is among them at 100 of 100 corners;
+- **landscape crops**, 120° x 60° of the equirect at 896 x 448 px (`--crop-aspect 2
+  --crop-fov-deg 120 --crop-px 896`), the orange ring still on the corner point, laid out one
+  per row at a 1200 px window; the aerial stays, and **phantom legs are drawn as thin dashed
+  white lines** (76 units carry one; 67 of the 100 corners are bounded by one);
+- **rubric v2** (above). Gallery 243 and the pilot bundle keep v1; each bundle's
+  `snapshot.json` holds its version and text, `render` shows that text, and the validators
+  accept v1 or v2 but only the bundle's own.
+
+The crops were cut on makelab2 by the crop worker on 2026-11-06 (0 missing) and the 98
+aerials made from Esri tiles; `sha256sum -c images.sha256` passes for all 569 images. Items
+sha256 `e7648a487a92ef508d488e40d8425de333f0d3719d2412a72a80138e15e26910`. The page is
+`runs/vancouver/corner_gallery169_split/gallery/jonf/index.html`. As for the pilot bundle,
+everything but `cache/` is committed.
+
+```bash
+B=runs/vancouver/corner_gallery169_split; D=runs/vancouver/corner_labels169_split/na_discount_sw
+python scripts/corner_gallery.py build --items-from $D/sample.csv \
+    --corners-full runs/vancouver/corner_inventory169_split/corners_full.jsonl --bundle $B \
+    --views-per-corner 6 --crop-aspect 2 --crop-fov-deg 120 --crop-px 896
+python scripts/corner_gallery.py render --bundle $B --rater jonf
+# open $B/gallery/jonf/index.html, rate, Export, save as $B/verdicts__jonf.json
+python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv \
+    --bundle $B --verdicts $B/verdicts__jonf.json --out $D/score_gallery169.json
+```
+
 ## Dry run (no server contacted)
 
 `python send_to_ps.py runs/vancouver/corner_labels169/na_<read>/results.jsonl --dry-run`.
@@ -518,10 +607,9 @@ AI label at the same corner are what the validators compare.
   `build.json` records `sidewalk_rule: not applied`. PS's own sidewalk-presence table
   (SidewalkWebpage#5279) or OSM `footway=sidewalk` would be the source where a city publishes
   none; OSM was not needed here.
-- **Scoring.** The gallery 243 verdict on the `NA` read is in (`discount`, PR #180), and the
-  precision gallery over `na_discount_sw/sample.csv` is built except for its crops. What is
-  left: cut the crops on makelab2, render, rate, then `score --sample --bundle` on the export
-  (see "The precision gallery").
+- **Scoring.** The gallery 243 verdict on the `NA` read is in (`discount`, PR #180). The
+  test is now the split-wide bundle (`corner_gallery169_split/`, "Pre-registration revision"):
+  rate it, then `score --sample --bundle` on the export.
 - **The ASSETS'19 DC placement check.** It needs a store-built DC run.
 
 ## Replication
