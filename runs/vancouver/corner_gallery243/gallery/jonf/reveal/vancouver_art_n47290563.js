@@ -1,0 +1,1 @@
+revealInventory("vancouver:art:n47290563", {"0":[],"1":[{"class":"Available","corner":null,"defect":null,"instdate":null,"lat":45.6567952088708,"lng":-122.638475781352,"owner":"CITY","projname":null,"ramptype":"DIRECT","status":"Available","unit_id":"CR24330"}],"2":[]});

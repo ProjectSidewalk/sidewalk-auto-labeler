@@ -1,0 +1,1 @@
+revealInventory("vancouver:art:n13059332216", {"0":[],"1":[{"class":"Available","corner":null,"defect":null,"instdate":null,"lat":45.6650384244728,"lng":-122.531041708584,"owner":"CITY","projname":null,"ramptype":"PERP","status":"Available","unit_id":"CR34644"}]});
