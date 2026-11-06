@@ -28,7 +28,18 @@ rule (1 s ticks while visible and active within 60 s), review notes, and Export 
 per-rater file. The city inventory is shown only after a unit is completed, and the verdicts
 given before that reveal are frozen as `blind`; the scorer reads `blind`.
 
-Two subcommands:
+A second mode builds the pre-registered precision gallery of issue #169 from a seeded sample
+of the rule's OWN proposals (scripts/corner_labels.py `sample`), not from these three parts:
+
+  build --items-from <sample.csv>   one unit per sampled intersection, showing ONLY its
+          sampled corners; the #243 population checks are bypassed; snapshot.json records the
+          sample's, sample.json's, the proposals' and their build.json's sha256. Same views,
+          crops, aerials, rubric, blind freeze and Export. The reveal is unchanged (the city
+          inventory); the rule's proposal (chosen pano and pixel) is kept in items.jsonl and
+          is not shown. Scored by `corner_labels.py score --sample --bundle`, not by
+          corner_gallery_score.py.
+
+Subcommands:
 
   aerial-dates  look up each aerial's capture date in Esri's imagery metadata -> <bundle>/aerial_dates.json
   build   sample, write <bundle>/items.jsonl + snapshot.json + report.md, make the aerials
@@ -46,6 +57,12 @@ are checked against the committed numbers of amendment A8 (35 / 944 / 333).
     # open runs/vancouver/corner_gallery243/gallery/jonf/index.html, rate, Export, and save the
     # download as runs/vancouver/corner_gallery243/verdicts__jonf.json
     python scripts/corner_gallery_score.py runs/vancouver/corner_gallery243
+
+    # #169's precision gallery over the pilot build's sample
+    python scripts/corner_gallery.py build --items-from \
+        runs/vancouver/corner_labels169/na_discount_sw/sample.csv \
+        --corners-full ../posdetect241/runs/vancouver/corner_inventory_posdetect241/corners_full.jsonl \
+        --bundle runs/vancouver/corner_gallery169
 """
 import argparse
 import csv
@@ -89,6 +106,9 @@ CROP_FOV_DEG = 60
 CROP_PX = 448
 WINDOW_M = 30.0
 STORE = '/projects/makeabilitylab/sidewalk_panos/Panoramas/vancouver-wa'
+SAMPLE_PART = 'rule_sample'            # the one part of a --items-from bundle (#169)
+CROPS_NEEDED = 'CROPS_NEEDED.md'
+CROP_JOB_FILE = 'crop_job.json'
 
 #: the rubric; travels inside every verdicts file (see RUBRIC_VERSION)
 RUBRIC_VERSION = 1
@@ -531,6 +551,10 @@ def write_report(bundle, snapshot, items, missing):
 
 
 def cmd_build(args):
+    if getattr(args, 'items_from', None):
+        return cmd_build_sample(args)
+    if args.targets is None or args.false_absences is None:
+        raise SystemExit('--targets and --false-absences are needed without --items-from')
     t0 = time.time()
     bundle = Path(args.bundle)
     bundle.mkdir(parents=True, exist_ok=True)
@@ -617,6 +641,21 @@ def cmd_build(args):
                    'attribution': sf.ATTRIBUTION},
         'rubric_version': RUBRIC_VERSION, 'rubric': RUBRIC}
 
+    missing = make_images(args, bundle, items)
+    snapshot['crops_missing'] = sorted(missing)
+    snapshot['images'] = write_image_manifest(bundle, items)
+    snapshot['seconds'] = round(time.time() - t0, 1)
+    write_text_lf(bundle / 'snapshot.json', json.dumps(snapshot, indent=1) + '\n')
+    write_report(bundle, snapshot, items, missing)
+    print(f"{len(items)} units ({', '.join(f'{p} {len(drawn[p])}' for p in PARTS)}), "
+          f"{sum(len(i['corners']) for i in items)} corners; {len(missing)} crops missing")
+    print(f'wrote {items_path}, snapshot.json, report.md')
+    return 0
+
+
+def make_images(args, bundle, items):
+    """Make the aerials (Esri tiles, cached) and the crops (makelab2's PS store through the
+    crop worker, or --local-panos); return the bundle-relative crops still missing."""
     import export_cluster_review as ecr
     if not args.skip_aerial:
         (bundle / 'aerial').mkdir(exist_ok=True)
@@ -646,18 +685,292 @@ def cmd_build(args):
                                              args.host, se.DEFAULT_REMOTE_ROOT,
                                              se.DEFAULT_REMOTE_HOME, args.timeout)
             print(f'crops [{run}]: {len(jobs)} requested, {len(miss)} missing')
-            missing |= set(miss)
-    missing = {v['crop'] for it in items for c in it['corners'] for v in c['views']
-               if not (bundle / v['crop']).exists()}
+    return {v['crop'] for it in items for c in it['corners'] for v in c['views']
+            if not (bundle / v['crop']).exists()}
+
+
+# ------------------------------------------------------------ the #169 sample bundle
+
+def read_sample_keys(path):
+    """[(unit, corner)] from a corner_labels.py sample.csv (columns unit, corner), in file
+    order; a repeated key is refused."""
+    with open(path, newline='', encoding='utf-8') as f:
+        keys = [(row['unit'], int(row['corner'])) for row in csv.DictReader(f)]
+    if len(set(keys)) != len(keys):
+        raise SystemExit(f'{path}: a corner is listed twice')
+    if not keys:
+        raise SystemExit(f'{path}: no corners')
+    return keys
+
+
+def corner_key(unit, corner):
+    """The corner key corner_labels.py uses: '<unit>#<corner>'."""
+    return f'{unit}#{corner}'
+
+
+def sample_item(rec, corner_ids, panos, inv_pos, proposals):
+    """One review unit of a --items-from bundle: build_item over the WHOLE unit (so the view
+    pool is the one gallery 243 would use), then only the sampled corners are kept. Each kept
+    corner carries the rule's `proposal` (chosen pano, pixel, range; never shown to the rater)
+    and whether that pano is among the views shown (`proposal.shown`)."""
+    it = build_item(rec, SAMPLE_PART, panos, inv_pos)
+    it['n_corners_unit'] = len(it['corners'])
+    kept = []
+    for c in it['corners']:
+        if c['corner'] not in corner_ids:
+            continue
+        pr = proposals[corner_key(rec['unit'], c['corner'])]
+        c['proposal'] = {'key': pr['key'], 'pano_id': pr['pano']['pano_id'],
+                         'run': pr['pano'].get('run'), 'x_normalized': pr['x_normalized'],
+                         'y_normalized': pr['y_normalized'], 'range_m': pr['range_m'],
+                         'shown': pr['pano']['pano_id'] in {v['pano_id'] for v in c['views']}}
+        kept.append(c)
+    if {c['corner'] for c in kept} != set(corner_ids):
+        raise SystemExit(f"{rec['unit']}: sampled corner(s) "
+                         f"{sorted(set(corner_ids) - {c['corner'] for c in kept})} not in the unit")
+    it['corners'] = kept
+    return it
+
+
+def write_crops_needed(bundle, items, missing, args):
+    """Write CROPS_NEEDED.md and crop_job.json when crops are missing (remove a stale one when
+    none are). The crops are cut from the PS pano store on makelab2, which this machine cannot
+    write to on its own (a Claude session must not); the file says what Jon runs."""
+    bundle = Path(bundle)
+    need = bundle / CROPS_NEEDED
+    job_path = bundle / CROP_JOB_FILE
+    if not missing:
+        for f in (need, job_path):
+            if f.exists():
+                f.unlink()
+        return None
+    jobs = [j for js in crop_jobs(items, bundle).values() for j in js]
+    job = {'items': sorted(jobs, key=lambda j: j['name']), 'workers': 8, 'draft_width': 4096,
+           'panos_root': STORE}
+    write_text_lf(job_path, json.dumps(job, indent=1, sort_keys=True) + '\n')
+    panos = sorted({j['pano_id'] for j in jobs})
+    b = portable_path(bundle)
+    sample = portable_path(args.items_from)
+    corners = portable_path(args.corners_full)
+    text = f"""# Crops needed: {len(missing)} of {sum(len(c['views']) for i in items for c in i['corners'])}
+
+The crops of this bundle could not be cut here: they come from {len(panos)} panos of the Project
+Sidewalk pano store on makelab2 (`{STORE}`), and no local copy of those panos was found. The
+gallery must not be rated until the crops exist (`render` refuses while `images.sha256` lacks
+them). Everything else (items, snapshot, aerials, report) is built.
+
+## Option A, one command (recommended)
+
+From this worktree on the Windows desktop, with the makelab2 helper working
+(`D:\\Git\\dotfiles\\wsl-ssh.ps1 makelab2 check`), re-run the same build without `--no-crops`.
+It keeps `items.jsonl` (same unit list), cuts the crops on makelab2 with the crop worker
+(`site_explorer.CROP_WORKER`, staged under `/homes/gws/jonf/.sidewalk_explorer/<hash>` and
+removed afterwards), pulls them back as one tarball, then rewrites `images.sha256`,
+`snapshot.json` and `report.md` and deletes this file:
+
+```bash
+python scripts/corner_gallery.py build --items-from {sample} \\
+    --corners-full {corners} \\
+    --bundle {b}
+python scripts/corner_gallery.py render --bundle {b} --rater jonf
+```
+
+## Option B, by hand on makelab2
+
+`{CROP_JOB_FILE}` here is the crop worker's job (`panos_root` = the store, each item's `path` is
+`<id[:2]>/<id>.jpg`). On makelab2:
+
+```bash
+mkdir -p ~/crops169 && cd ~/crops169
+# copy crop_job.json here, and the CROP_WORKER string of scripts/site_explorer.py as crop.py
+/projects/makeabilitylab/sidewalk-auto-labeler/.venv/bin/python crop.py crop_job.json out
+tar -czf crops169.tar.gz -C out .
+```
+
+Copy `crops169.tar.gz` back, unpack it into `{b}/crops/`, then run the two commands of
+option A (the build finds the crops on disk, cuts nothing, and writes the manifest).
+"""
+    write_text_lf(need, text)
+    return need
+
+
+def cmd_build_sample(args):
+    """build --items-from: the rating bundle over a corner_labels.py sample (issue #169)."""
+    t0 = time.time()
+    bundle = Path(args.bundle)
+    sample_csv = Path(args.items_from)
+    sample_json = sample_csv.with_suffix('.json')
+    proposals_path = Path(args.proposals) if args.proposals else sample_csv.parent / 'proposals.jsonl'
+    labels_build = proposals_path.parent / 'build.json'
+    for f in (sample_json, proposals_path, labels_build):
+        if not f.exists():
+            raise SystemExit(f'{f} does not exist (the sample needs its sample.json, the '
+                             f'proposals it was drawn from and their build.json)')
+    sj = json.loads(sample_json.read_text(encoding='utf-8'))
+    lb = json.loads(labels_build.read_text(encoding='utf-8'))
+    s_sha, p_sha = sha256_file(sample_csv), sha256_file(proposals_path)
+    if sj['sample']['sha256'] != s_sha:
+        raise SystemExit(f'{sample_csv}: sha256 {s_sha[:12]} is not the one {sample_json.name} '
+                         f'recorded ({sj["sample"]["sha256"][:12]})')
+    if sj['proposals']['sha256'] != p_sha:
+        raise SystemExit(f'{proposals_path}: not the proposals the sample was drawn from')
+    if lb['outputs']['proposals']['sha256'] != p_sha:
+        raise SystemExit(f'{proposals_path}: not the proposals {labels_build} records')
+    cf_sha = sha256_file(args.corners_full)
+    if lb['inputs']['corners_full']['sha256'] != cf_sha:
+        raise SystemExit(f'{args.corners_full}: not the corners_full the proposals were built on')
+    build = json.loads(Path(args.build_json).read_text(encoding='utf-8'))
+    inputs = {}
+
+    def rec_input(name, path, want=None):
+        h = sha256_file(path)
+        if want and h != want:
+            raise SystemExit(f'{path}: sha256 {h[:12]} is not the recorded {want[:12]}')
+        inputs[name] = {'path': portable_path(path), 'sha256': h}
+
+    def recorded(name):
+        q = Path(build['inputs'][name]['path'])
+        if not q.exists():
+            raise SystemExit(f'{q} (from build.json) does not exist on this machine')
+        return q, build['inputs'][name]['sha256']
+
+    rec_input('sample', sample_csv)
+    rec_input('sample_json', sample_json)
+    rec_input('proposals', proposals_path)
+    rec_input('labels_build_json', labels_build)
+    rec_input('build_json', args.build_json)
+    rec_input('corners_full', args.corners_full)
+    inv_path, inv_sha = recorded('inventory')
+    rec_input('inventory', inv_path, inv_sha)
+    results = []
+    for name in ['results'] + sorted(k for k in build['inputs']
+                                     if k.startswith('extra:') and k.endswith(':results')):
+        q, h = recorded(name)
+        rec_input(name, q, h)
+        results.append((name, q))
+
+    keys = read_sample_keys(sample_csv)
+    proposals = {}
+    with open(proposals_path, encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                pr = json.loads(line)
+                proposals[pr['key']] = pr
+    lost = [corner_key(u, c) for u, c in keys if corner_key(u, c) not in proposals]
+    if lost:
+        raise SystemExit(f'{len(lost)} sampled corner(s) are not proposals, e.g. {lost[:3]}')
+    by_unit_corners = {}
+    for u, c in keys:
+        by_unit_corners.setdefault(u, set()).add(c)
+    records = {r['unit']: r for r in read_jsonl(args.corners_full) if r['unit'] in by_unit_corners}
+    missing_units = sorted(set(by_unit_corners) - set(records))
+    if missing_units:
+        raise SystemExit(f'sampled unit(s) not in corners_full: {missing_units[:3]}')
+    order = review_order(list(by_unit_corners))
+    wanted = set()
+    for u in order:
+        wanted.update(records[u].get('pano_ids_25') or [])
+        for c in records[u]['corners']:
+            wanted.update(c.get('pano_ids_25') or [])
+    panos = load_pano_index(results, wanted)
+    inv_pos = load_inventory(inv_path)
+    items = [sample_item(records[u], by_unit_corners[u], panos, inv_pos, proposals) for u in order]
+
+    bundle.mkdir(parents=True, exist_ok=True)
+    items_path = bundle / 'items.jsonl'
+    if items_path.exists() and not args.rebuild:
+        old = read_jsonl(items_path)
+        if [(i['unit'], [c['corner'] for c in i['corners']]) for i in old] != \
+                [(i['unit'], [c['corner'] for c in i['corners']]) for i in items]:
+            raise SystemExit(f'{items_path} exists with a different corner list; refusing to '
+                             're-sample (pass --rebuild to replace it deliberately)')
+    with open(items_path, 'w', encoding='utf-8', newline='\n') as f:
+        for it in items:
+            f.write(json.dumps(it, separators=(',', ':'), sort_keys=True) + '\n')
+    import split_figures as sf
+    params = lb.get('params') or {}
+    snapshot = {
+        'schema': SNAPSHOT_SCHEMA, 'city': CITY, 'issue': 'sidewalk-auto-labeler#169',
+        'mode': 'sample', 'built_at': utc_now(), 'tool_git_sha': git_sha(),
+        'tool_git_dirty': git_dirty(), 'python': platform.python_version(),
+        'seed': sj.get('seed'), 'arm_state': ARM_STATE,
+        'sample': {'path': portable_path(sample_csv), 'sha256': s_sha,
+                   'json_sha256': inputs['sample_json']['sha256'], 'seed': sj.get('seed'),
+                   'n': len(keys), 'population': sj.get('population'),
+                   'rule': sj.get('rule')},
+        'proposals': {'path': portable_path(proposals_path), 'sha256': p_sha,
+                      'build_json_sha256': inputs['labels_build_json']['sha256'],
+                      'tool_git_sha': (lb.get('tool') or {}).get('git_sha'),
+                      'na_read': params.get('na_read'),
+                      'na_read_settled': params.get('na_read_settled'),
+                      'sidewalk_rule': 'applied' if isinstance(lb.get('sidewalk_rule'), dict)
+                      else lb.get('sidewalk_rule')},
+        'populations': {SAMPLE_PART: sj.get('population')},
+        'draw': {SAMPLE_PART: [corner_key(u, c) for u, c in keys]},
+        'review_order': order, 'items_sha256': sha256_file(items_path), 'inputs': inputs,
+        'shown_corners': 'only the sampled corners of each unit',
+        'reveal': 'the city inventory, as in gallery 243; the rule proposal (pano, pixel) is '
+                  'in items.jsonl and never shown',
+        'views': {'per_corner': VIEWS_PER_CORNER, 'min_m': MIN_VIEW_M, 'max_m': MAX_VIEW_M,
+                  'rule': 'as gallery 243 (choose_views over the whole unit\'s pano pool)',
+                  'camera_height_m': CAMERA_HEIGHT_M, 'crop_fov_deg': CROP_FOV_DEG,
+                  'crop_px': CROP_PX, 'store': f'makelab2 {STORE}'},
+        'aerial': {'source': 'Esri World Imagery', 'url_template': sf.TILE_URL,
+                   'attribution': sf.ATTRIBUTION},
+        'rubric_version': RUBRIC_VERSION, 'rubric': RUBRIC,
+        'scorer': 'scripts/corner_labels.py score --proposals <proposals> --sample <sample.csv> '
+                  '--bundle <this bundle> --verdicts <bundle>/verdicts__<rater>.json'}
+    missing = make_images(args, bundle, items)
     snapshot['crops_missing'] = sorted(missing)
     snapshot['images'] = write_image_manifest(bundle, items)
     snapshot['seconds'] = round(time.time() - t0, 1)
     write_text_lf(bundle / 'snapshot.json', json.dumps(snapshot, indent=1) + '\n')
-    write_report(bundle, snapshot, items, missing)
-    print(f"{len(items)} units ({', '.join(f'{p} {len(drawn[p])}' for p in PARTS)}), "
-          f"{sum(len(i['corners']) for i in items)} corners; {len(missing)} crops missing")
+    need = write_crops_needed(bundle, items, missing, args)
+    write_sample_report(bundle, snapshot, items, missing)
+    nc = sum(len(i['corners']) for i in items)
+    print(f'{len(items)} units, {nc} sampled corners; {len(missing)} crops missing')
+    if need:
+        print(f'crops are missing: see {need}')
     print(f'wrote {items_path}, snapshot.json, report.md')
     return 0
+
+
+def write_sample_report(bundle, snapshot, items, missing):
+    sm, pr = snapshot['sample'], snapshot['proposals']
+    corners = [c for i in items for c in i['corners']]
+    no_view = [c['proposal']['key'] for c in corners if not c['views']]
+    by_type = {}
+    for i in items:
+        by_type[i['type']] = by_type.get(i['type'], 0) + len(i['corners'])
+    lines = [
+        '# Corner precision gallery (#169): bundle report', '',
+        f"Built {snapshot['built_at']} by `scripts/corner_gallery.py build --items-from` at "
+        f"`{snapshot['tool_git_sha']}`. Items sha256 `{snapshot['items_sha256']}`.", '',
+        f"- Sample: `{sm['path']}` (sha256 `{sm['sha256']}`), {sm['n']} corners drawn with seed "
+        f"{sm['seed']} from {sm['population']} proposals ({sm['rule']}).",
+        f"- Proposals: `{pr['path']}` (sha256 `{pr['sha256']}`), built at "
+        f"`{pr['tool_git_sha']}`, NA read `{pr['na_read']}` (settled: {pr['na_read_settled']}), "
+        f"sidewalk rule {pr['sidewalk_rule']}.",
+        f"- {len(items)} units, {len(corners)} corners; by stratum "
+        f"{dict(sorted(by_type.items()))}. Only the sampled corners of a unit are shown and rated.",
+        f"- Views: up to {VIEWS_PER_CORNER} per corner, chosen as in gallery 243. The pano that "
+        f"carries the rule's label is among them at {sum(c['proposal']['shown'] for c in corners)}"
+        f" of {len(corners)} corners. Corners with no view: {len(no_view)}"
+        + (f' ({no_view})' if no_view else '') + '.',
+        f"- Crops missing: {len(missing)}" + (f' (see `{CROPS_NEEDED}`)' if missing else '') + '.',
+        '- Rubric: gallery 243 v1, unchanged. Reveal: the city inventory, after completion; the '
+        'blind verdicts are scored.',
+        '- Score: `python scripts/corner_labels.py score --proposals <proposals> --sample '
+        '<sample.csv> --bundle <this bundle> --verdicts <bundle>/verdicts__<rater>.json`.', '',
+        '## Inputs', '', '| input | sha256 |', '|---|---|']
+    for k, v in snapshot['inputs'].items():
+        lines.append(f"| {k} | `{v['sha256']}` |")
+    lines += ['', '## Units', '', '| order | unit | type | sampled corners | of |',
+              '|---:|---|---|---|---:|']
+    for n, i in enumerate(items, 1):
+        lines.append(f"| {n} | `{i['unit']}` | {i['type']} | "
+                     f"{', '.join(str(c['corner']) for c in i['corners'])} | {i['n_corners_unit']} |")
+    write_text_lf(Path(bundle) / 'report.md', '\n'.join(lines) + '\n')
 
 
 # ------------------------------------------------------------------------------ render
@@ -884,6 +1197,12 @@ def main(argv=None):
     b.add_argument('--false-absences', type=Path,
                    default=REPO_ROOT / 'runs/vancouver/corner_inventory_posdetect241/'
                                        'false_absences.csv')
+    b.add_argument('--items-from', type=Path, default=None,
+                   help="#169: a corner_labels.py sample.csv; rate those corners instead of "
+                        "drawing gallery 243's three parts (sample.json, proposals.jsonl and "
+                        "build.json must sit beside it)")
+    b.add_argument('--proposals', type=Path, default=None,
+                   help='with --items-from: the proposals (default: beside the sample)')
     b.add_argument('--bundle', type=Path, required=True)
     b.add_argument('--seed', type=int, default=SEED)
     b.add_argument('--n-na', type=int, default=N_NA)

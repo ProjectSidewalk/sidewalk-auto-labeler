@@ -915,10 +915,54 @@ def read_sample(path):
         return [corner_key(r['unit'], int(r['corner'])) for r in csv.DictReader(f)]
 
 
+def check_bundle(bundle, verdicts, sample_path, proposals_path):
+    """Every reason a precision-gallery export cannot be scored against this sample (empty =
+    ok). The bundle is one `corner_gallery.py build --items-from` wrote: its snapshot must
+    record this sample's and these proposals' sha256, items.jsonl must be the one it recorded,
+    the verdicts file must be valid for those items and the bundle's rubric (the gallery 243
+    validator, corner_gallery_score.validate), and every sampled corner must be an item corner."""
+    import corner_gallery_score as cgs
+    bundle = Path(bundle)
+    snap = json.loads((bundle / 'snapshot.json').read_text(encoding='utf-8'))
+    problems = []
+    if snap.get('mode') != 'sample':
+        problems.append(f'{bundle}: not a --items-from bundle (snapshot mode {snap.get("mode")!r})')
+    s_sha = ci.sha256_file(sample_path)
+    if (snap.get('sample') or {}).get('sha256') != s_sha:
+        problems.append(f'{Path(sample_path).name} (sha256 {s_sha[:12]}) is not the sample the '
+                        f'bundle was built from')
+    p_sha = ci.sha256_file(proposals_path)
+    if (snap.get('proposals') or {}).get('sha256') != p_sha:
+        problems.append(f'{Path(proposals_path).name} (sha256 {p_sha[:12]}) is not the proposals '
+                        f'the bundle was built from')
+    items_sha = ci.sha256_file(bundle / 'items.jsonl')
+    if items_sha != snap.get('items_sha256'):
+        problems.append('items.jsonl is not the one snapshot.json recorded')
+    items = ci.read_jsonl(bundle / 'items.jsonl')
+    problems += cgs.validate(verdicts, items, items_sha, snap.get('rubric'))
+    have = {corner_key(i['unit'], c['corner']) for i in items for c in i['corners']}
+    lost = [k for k in read_sample(sample_path) if k not in have]
+    if lost:
+        problems.append(f'{len(lost)} sampled corner(s) are not in the bundle, e.g. {lost[:3]}')
+    return problems
+
+
 def cmd_score(args):
     proposals = ci.read_jsonl(args.proposals)
     verdicts = json.loads(Path(args.verdicts).read_text(encoding='utf-8'))
     sample = read_sample(args.sample) if args.sample else None
+    bundle_rec = None
+    if getattr(args, 'bundle', None):
+        if not args.sample:
+            raise SystemExit('--bundle needs --sample (the sample the bundle was built from)')
+        problems = check_bundle(args.bundle, verdicts, args.sample, args.proposals)
+        if problems:
+            print('\n'.join(problems[:20]))
+            raise SystemExit(f'{len(problems)} problem(s): the verdicts cannot be scored against '
+                             f'this sample')
+        snap = json.loads((Path(args.bundle) / 'snapshot.json').read_text(encoding='utf-8'))
+        bundle_rec = {'path': str(args.bundle), 'items_sha256': snap['items_sha256'],
+                      'tool_git_sha': snap.get('tool_git_sha')}
     res = score(proposals, verdicts, sample)
     rec = {'schema': 'sidewalk-auto-labeler.corner_labels.score/1', 'issue': 'sidewalk-auto-labeler#169',
            'rule': {'precision_min': RULE_PRECISION, 'wilson_lower_min': RULE_WILSON_LO,
@@ -931,6 +975,7 @@ def cmd_score(args):
                         'rubric_version': verdicts.get('rubric_version')},
            'sample': None if not args.sample else {'path': Path(args.sample).name,
                                                    'sha256': ci.sha256_file(args.sample)},
+           'bundle': bundle_rec,
            **res}
     text = json.dumps(rec, indent=1) + '\n'
     if args.out:
@@ -1036,6 +1081,8 @@ def main(argv=None):
     s.add_argument('--proposals', required=True)
     s.add_argument('--verdicts', required=True, help='a gallery verdicts__<rater>.json')
     s.add_argument('--sample', help="sample.csv: score only the sample drawn for this rule")
+    s.add_argument('--bundle', help='the precision gallery built from --sample (corner_gallery.py '
+                                    'build --items-from): check the verdicts against it first')
     s.add_argument('--out', help='write the score JSON here')
     s.set_defaults(fn=cmd_score)
 
