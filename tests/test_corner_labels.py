@@ -484,8 +484,17 @@ def test_build_refuses_a_range_past_the_table():
 
 
 def test_check_pins():
-    rec = {r: {'sha256': s} for r, s in cl.PINNED_SHA256['vancouver'].items()}
+    rec = {r: {'sha256': s[0] if isinstance(s, tuple) else s}
+           for r, s in cl.PINNED_SHA256['vancouver'].items()}
     assert cl.check_pins('vancouver', rec, False) == 'pinned'
+    # the #169 revision: the --split-wide corners_full is pinned beside the #241 one
+    split = dict(rec, corners_full={'sha256': cl.CORNERS_FULL_SPLIT})
+    assert cl.check_pins('vancouver', split, False) == 'pinned'
+    assert cl.PINNED_SHA256['vancouver']['corners_full'] == (cl.CORNERS_FULL_241,
+                                                            cl.CORNERS_FULL_SPLIT)
+    other = dict(rec, corners_full={'sha256': '1' * 64})
+    with pytest.raises(SystemExit, match='corners_full'):
+        cl.check_pins('vancouver', other, False)
     bad = dict(rec, results={'sha256': '0' * 64})
     with pytest.raises(SystemExit, match='results'):
         cl.check_pins('vancouver', bad, False)
@@ -630,3 +639,11 @@ def test_na_read_settled_flag_records_the_settlement():
     assert s == cl.NA_READ_SETTLEMENT and s is not cl.NA_READ_SETTLEMENT
     c = cl.na_read_params(args(na_read='count', na_read_settled=True))
     assert c['na_read_settled'] is True and c['na_read_is_primary'] is False
+
+
+def test_sector_record_phantom_flags_only_from_a_split_inventory():
+    old = {'start_deg': 270.0, 'width_deg': 180.0, 'wide': True}
+    assert cl.sector_record(old) == old
+    new = dict(old, width_deg=90.0, wide=False, phantom_start=False, phantom_end=True)
+    assert cl.sector_record(new) == {'start_deg': 270.0, 'width_deg': 90.0, 'wide': False,
+                                     'phantom_start': False, 'phantom_end': True}

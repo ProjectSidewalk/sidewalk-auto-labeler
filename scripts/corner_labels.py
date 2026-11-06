@@ -114,8 +114,13 @@ NA_READ_SETTLEMENT = {
 #: Inputs #241's merged corner build and gallery 243 were made from (runs/vancouver/
 #: corner_inventory_posdetect241/build.json `inputs`; corners_full from runs/vancouver/
 #: corner_gallery243/snapshot.json). A build on other bytes is refused unless --allow-unpinned.
+#: A role may pin several files (a tuple): corners_full is either the #241 build or the
+#: --split-wide rebuild of the same inputs (runs/vancouver/corner_inventory169_split/, the
+#: #169 revision of 2026-11-06, docs/corner-inventory.md amendment of that date).
+CORNERS_FULL_241 = 'ec20606098d0e8b34113b4b328e57d3737b7669d01a37f1d6d722faab4681f8d'
+CORNERS_FULL_SPLIT = 'b50da32e1bb0b86f5d93fcd0de0cead1be620d8ac39f309d3abd2461f87ce9fc'
 PINNED_SHA256 = {'vancouver': {
-    'corners_full': 'ec20606098d0e8b34113b4b328e57d3737b7669d01a37f1d6d722faab4681f8d',
+    'corners_full': (CORNERS_FULL_241, CORNERS_FULL_SPLIT),
     'results': '7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28',
     'sites': '9d1fc51ac2867d6247bdf2e0b1c6b5c9fccbbf9a566771f0222bb2728055c914',
     'sites_meta': '5a72734079b30710343b8dda2e391145be0721114509015dc963d69e7d873678',
@@ -414,8 +419,10 @@ def check_pins(city, inputs, allow_unpinned):
     pins = PINNED_SHA256.get(city)
     if not pins:
         return 'unpinned city'
+    def allowed(pin):
+        return pin if isinstance(pin, (tuple, list, set, frozenset)) else (pin,)
     bad = sorted(role for role, rec in inputs.items()
-                 if role in pins and rec['sha256'] != pins[role])
+                 if role in pins and rec['sha256'] not in allowed(pins[role]))
     missing = sorted(set(pins) - set(inputs))
     if bad or missing:
         msg = f'inputs differ from the pinned {city} build: changed {bad}, missing {missing}'
@@ -506,8 +513,7 @@ def proposal_record(rec, c, pano, chosen, runners, cands, rejected, proj, site, 
                                             for p in c.get('inventory') or ()),
                                            key=lambda x: (str(x[0] or ''), str(x[1] or '')))},
             'states': c['state'],
-            'sector': {'start_deg': c.get('start_deg'), 'width_deg': c.get('width_deg'),
-                       'wide': c.get('wide')},
+            'sector': sector_record(c),
             'n_candidates': len(cands), 'rejected': rejected,
             'runner_ups': [{'pano_id': x['pano_id'], 'dist_m': r2(x['dist_m']),
                             'capture_date': x.get('capture_date'),
@@ -516,6 +522,17 @@ def proposal_record(rec, c, pano, chosen, runners, cands, rejected, proj, site, 
             'chosen_dist_m': r2(chosen['dist_m']),
         },
     }
+
+
+def sector_record(c):
+    """A proposal's `source.sector`: start, width, wide, and -- from a --split-wide inventory
+    only -- which bound is a phantom leg (so a pre-split build's proposals are unchanged)."""
+    out = {'start_deg': c.get('start_deg'), 'width_deg': c.get('width_deg'),
+           'wide': c.get('wide')}
+    if 'phantom_start' in c:
+        out['phantom_start'] = c['phantom_start']
+        out['phantom_end'] = c['phantom_end']
+    return out
 
 
 COUNT_FIELDS = ['stratum', 'corners', 'absent', 'excluded_inventory', 'dropped_no_sidewalk',
