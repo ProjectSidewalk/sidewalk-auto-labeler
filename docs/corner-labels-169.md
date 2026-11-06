@@ -12,7 +12,7 @@ primary `NA` read is **settled as `discount`** (gallery 243, PR
 [#180](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/180); see "The NA read"
 below). **The pilot build is `na_discount_sw`** (discount read, city sidewalk layer). What is
 left before a pilot is a blind rating of its `sample.csv`, the pre-registered
-precision check.
+precision check ("The precision gallery" below; its crops still have to be cut on makelab2).
 
 ## Definition
 
@@ -349,7 +349,7 @@ as it was.
 `sample --seed 169`, drawn from that dir's proposals before any rating of it exists). Only
 3 (discount), 0 (count), 3 (discount_sw) and 2 (count_sw) sampled corners are already rated, so
 all are NOT SCORED (n < 100). The sample to rate for the pilot is `na_discount_sw/sample.csv`
-(a precision gallery over it; not built yet).
+(see "The precision gallery").
 
 What these descriptive numbers say before any pilot:
 - **Guide rule 3 was not cosmetic, and the layer addresses it.** Without a layer, 46 of the
@@ -359,6 +359,66 @@ What these descriptive numbers say before any pilot:
   precision rises from about 0.6 to about 0.9, with wide intervals.
 - **Only one rated corner was present**, in every build. Absence precision in the rubric's own
   sense is high wherever rated.
+
+## The precision gallery (`runs/vancouver/corner_gallery169/`)
+
+The pre-registered rule is judged on a blind rating of a sample of the rule's **own**
+proposals. Gallery 243 is not that sample (its strata are inventory classes), so a second
+bundle rates `na_discount_sw/sample.csv`: 100 corners drawn with seed 169 from the pilot
+build's 1,821 proposals, before any rating of them.
+
+**Built with the gallery 243 tooling.** `corner_gallery.py build --items-from <sample.csv>`
+skips gallery 243's three parts and its population checks and rates the sample instead:
+
+- one unit per sampled intersection (99 units, since one unit holds two sampled corners);
+  **only the sampled corners** of a unit are shown and rated, numbered as in the corner table;
+- views, crops, aerials, rubric v1, the blind freeze, timing, notes and Export are gallery
+  243's, unchanged; the view pool is the whole unit's, as in gallery 243;
+- **the reveal is unchanged: it shows the city inventory** after a unit is completed. The
+  rule's proposal (chosen pano, pixel, range) is stored in `items.jsonl` per corner
+  (`proposal`) and never sent to the page. The pano that carries the label is among the views
+  shown at all 100 corners;
+- `snapshot.json` (`mode: sample`) records the sha256 of the sample, `sample.json`, the
+  proposals and their `build.json`, plus the #241 inputs; the build refuses a sample or
+  proposals that do not match their records, and a `corners_full` other than the one the
+  proposals were built on.
+
+By stratum: 64 residential, 35 arterial, 1 signalised corner. Items sha256
+`1735f7bd2d17c45429d219f204a70423d8d0e0297f502f8c399488f9c2f04806`.
+
+**Crops: not cut yet.** The 281 crops come from 279 panos of the PS pano store on makelab2. No
+local copy of those panos exists on this machine (searched D: and the user profile), and this
+session must not write on makelab2, so the bundle was built with `--no-crops`: items,
+snapshot, report and the 99 aerials (Esri tiles) are in place. `CROPS_NEEDED.md` in the bundle
+gives the one command that cuts them (the same build without `--no-crops`, which drives the
+crop worker on makelab2 and pulls the crops back) and a by-hand alternative using
+`crop_job.json`. `render` refuses until the crops are on disk and in `images.sha256`.
+
+**Scoring.** Export saves `verdicts__<rater>.json` in the gallery 243 format, keyed by unit
+and corner, which is what `score` reads. `--bundle` checks the export against the bundle
+before scoring: the sample's and the proposals' sha256 are the ones `snapshot.json` recorded,
+`items.jsonl` is unchanged, the file passes gallery 243's validator
+(`corner_gallery_score.validate`: schema, items sha256, rubric text, blind reads) and every
+sampled corner is an item corner. `corner_gallery_score.py` does not score this bundle; it is built for gallery 243's
+three parts.
+
+```bash
+B=runs/vancouver/corner_gallery169; D=runs/vancouver/corner_labels169/na_discount_sw
+# 1. crops (Jon; drives makelab2): the build without --no-crops, see $B/CROPS_NEEDED.md
+python scripts/corner_gallery.py build --items-from $D/sample.csv \
+    --corners-full ../posdetect241/runs/vancouver/corner_inventory_posdetect241/corners_full.jsonl \
+    --bundle $B
+# 2. the page; open $B/gallery/jonf/index.html, rate, Export, save as $B/verdicts__jonf.json
+python scripts/corner_gallery.py render --bundle $B --rater jonf
+# 3. the pre-registered score
+python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv \
+    --bundle $B --verdicts $B/verdicts__jonf.json --out $D/score_gallery169.json
+```
+
+Tracked in the bundle: `items.jsonl`, `snapshot.json`, `images.sha256`, `report.md`,
+`CROPS_NEEDED.md` and `crop_job.json` (both deleted by the build once the crops exist), and
+later `verdicts__*.json`. The aerials, crops, tile cache and `gallery/` stay local, as in
+gallery 243.
 
 ## Dry run (no server contacted)
 
@@ -458,9 +518,10 @@ AI label at the same corner are what the validators compare.
   `build.json` records `sidewalk_rule: not applied`. PS's own sidewalk-presence table
   (SidewalkWebpage#5279) or OSM `footway=sidewalk` would be the source where a city publishes
   none; OSM was not needed here.
-- **Scoring.** The gallery 243 verdict on the `NA` read is in (`discount`, PR #180). What is
-  left is a precision gallery over `na_discount_sw/sample.csv`, rated blind, then
-  `score --sample` on its export.
+- **Scoring.** The gallery 243 verdict on the `NA` read is in (`discount`, PR #180), and the
+  precision gallery over `na_discount_sw/sample.csv` is built except for its crops. What is
+  left: cut the crops on makelab2, render, rate, then `score --sample --bundle` on the export
+  (see "The precision gallery").
 - **The ASSETS'19 DC placement check.** It needs a store-built DC run.
 
 ## Replication

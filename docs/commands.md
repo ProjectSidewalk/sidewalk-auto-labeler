@@ -697,6 +697,10 @@ python scripts/corner_labels.py sample --proposals $D/proposals.jsonl --out $D/s
 python scripts/corner_labels.py rank --dir $D --ranked-csv ranked.csv   # -> proposals.ranked.jsonl
 python scripts/corner_labels.py export --dir $D [--proposals $D/proposals.ranked.jsonl]
 python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv     --verdicts runs/vancouver/corner_gallery243/verdicts__jonf.json --out $D/score_sample.json
+# the pre-registered precision gallery over the pilot sample (crops are cut on makelab2)
+python scripts/corner_gallery.py build --items-from $D/sample.csv     --corners-full ../posdetect241/runs/vancouver/corner_inventory_posdetect241/corners_full.jsonl     --bundle runs/vancouver/corner_gallery169   # [--no-crops]
+python scripts/corner_gallery.py render --bundle runs/vancouver/corner_gallery169 --rater jonf
+python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv     --bundle runs/vancouver/corner_gallery169 --verdicts runs/vancouver/corner_gallery169/verdicts__jonf.json
 python send_to_ps.py $D/results.jsonl --dry-run
 ```
 
