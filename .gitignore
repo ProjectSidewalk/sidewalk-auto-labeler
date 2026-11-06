@@ -261,7 +261,7 @@ docs/figures/mined-precision/data/step4/richmond_f01/*.jsonl
 !runs/vancouver_posdetect241/sites_meta.json
 !runs/vancouver_posdetect241_gsv/sites_meta.json
 # NoCurbRamp proposals from the corner inventory (scripts/corner_labels.py, issue #169; write-up
-# in docs/corner-labels-169.md), one dir per NA read: build.json, counts.csv, unlabeled.csv,
+# in docs/corner-labels-169.md), one dir per NA read, with (_sw) and without the sidewalk layer: build.json, counts.csv, unlabeled.csv,
 # the seeded sample and the score are tracked. proposals.jsonl (~9 MB) and the exported
 # results.jsonl are NOT -- build.json / export.json carry their sha256, line and byte counts.
 !runs/*/corner_labels169/
