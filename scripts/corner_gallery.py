@@ -102,17 +102,19 @@ VIEWS_PER_CORNER = 3
 MIN_VIEW_M = 3.0                       # a pano nearer than this looks almost straight down
 MAX_VIEW_M = 40.0
 CAMERA_HEIGHT_M = 2.5                  # the fixed height of the #241 fusion (amendment A8)
-CROP_FOV_DEG = 60
+CROP_FOV_DEG = 60                      # square crops: fov_deg x fov_deg, CROP_PX x CROP_PX
 CROP_PX = 448
+CROP_ASPECT = 1.0                      # width:height; > 1 cuts landscape crops (#169, 2026-11-06)
 WINDOW_M = 30.0
 STORE = '/projects/makeabilitylab/sidewalk_panos/Panoramas/vancouver-wa'
 SAMPLE_PART = 'rule_sample'            # the one part of a --items-from bundle (#169)
 CROPS_NEEDED = 'CROPS_NEEDED.md'
 CROP_JOB_FILE = 'crop_job.json'
 
-#: the rubric; travels inside every verdicts file (see RUBRIC_VERSION)
-RUBRIC_VERSION = 1
-RUBRIC = """\
+#: the rubric; travels inside every verdicts file (see RUBRIC_VERSION). A bundle keeps the
+#: version it was built with (snapshot.json `rubric_version` / `rubric`): gallery 243 and the
+#: #169 pilot bundle are v1, the #169 split-wide bundle is v2. render shows the bundle's text.
+RUBRIC_V1 = """\
 Rubric v1 (RampNet#243). Rate every corner of the unit from the crops and the aerial.
 
 The unit is an OSM intersection. Its legs (white lines on the aerial) split it into corners,
@@ -140,6 +142,21 @@ note. The city inventory is shown only after the unit is completed; the verdicts
 before that are kept as `blind` and are what is scored. Changing a verdict after the
 reveal is allowed, is recorded (`edited_after_inventory`), and is never scored as blind.
 """
+
+RUBRIC_V2 = RUBRIC_V1.replace(
+    'Rubric v1 (RampNet#243).', 'Rubric v2 (RampNet#243; #169 revision of 2026-11-06).') + """
+Added in v2 (#169). DASHED white lines on the aerial are phantom legs: where a street ends at
+a T, the stem's line continued straight across the through street. So the far side of a T has
+TWO corners, one at each place a crossing of the through street lands (where one of the stem's
+two sidewalks, carried straight across, meets the far curb). Each needs its own ramp: rate a
+corner present only for a ramp serving its own landing, not one at the other landing. Solid
+lines are real streets, as before. Crops may be landscape (wider than tall) and there may be
+more of them per corner; the orange ring is still the corner point.
+"""
+
+RUBRICS = {1: RUBRIC_V1, 2: RUBRIC_V2}
+RUBRIC_VERSION = 2                     # what a new bundle gets; see rubric_for()
+RUBRIC = RUBRICS[RUBRIC_VERSION]
 
 
 # ----------------------------------------------------------------------------- helpers
@@ -319,6 +336,78 @@ def choose_views(cands, k=VIEWS_PER_CORNER, min_m=MIN_VIEW_M, max_m=MAX_VIEW_M):
     return [c for c in ok if id(c) in chosen]
 
 
+def crop_geometry(aspect=CROP_ASPECT, fov_deg=CROP_FOV_DEG, px=CROP_PX):
+    """None for the square default (the job items are then exactly the pre-#169 ones), else
+    {'aspect', 'fov_h_deg', 'fov_v_deg', 'px_w', 'px_h'}: fov_deg wide and fov_deg / aspect
+    tall on the equirect, resized to px x px / aspect.
+
+    >>> crop_geometry() is None
+    True
+    >>> crop_geometry(2, 120, 896)
+    {'aspect': 2.0, 'fov_h_deg': 120.0, 'fov_v_deg': 60.0, 'px_w': 896, 'px_h': 448}
+    """
+    aspect, fov_deg, px = float(aspect), float(fov_deg), int(px)
+    if aspect <= 0:
+        raise SystemExit(f'--crop-aspect {aspect}: must be > 0')
+    if aspect == 1.0:
+        return None
+    return {'aspect': aspect, 'fov_h_deg': fov_deg, 'fov_v_deg': round(fov_deg / aspect, 6),
+            'px_w': px, 'px_h': int(round(px / aspect))}
+
+
+def bundle_params(args, bundle):
+    """(views_per_corner, crop geometry or None, rubric_version) for a build. A flag left
+    unset takes the value the bundle's existing snapshot.json recorded, so re-running a build
+    (e.g. to cut its crops) never silently changes the views or the rubric; with no snapshot
+    it takes the module default."""
+    snap_path = Path(bundle) / 'snapshot.json'
+    snap = json.loads(snap_path.read_text(encoding='utf-8')) if snap_path.exists() else {}
+    views = snap.get('views') or {}
+    k = getattr(args, 'views_per_corner', None)
+    if k is None:
+        k = views.get('per_corner', VIEWS_PER_CORNER)
+    if k < 1:
+        raise SystemExit(f'--views-per-corner {k}: must be >= 1')
+    aspect = getattr(args, 'crop_aspect', None)
+    fov = getattr(args, 'crop_fov_deg', None)
+    px = getattr(args, 'crop_px', None)
+    if aspect is None and fov is None and px is None and views:
+        geom = views.get('crop_geometry')
+    else:
+        dflt = views.get('crop_geometry') or {}
+        geom = crop_geometry(aspect if aspect is not None else dflt.get('aspect', CROP_ASPECT),
+                             fov if fov is not None else dflt.get('fov_h_deg', CROP_FOV_DEG),
+                             px if px is not None else dflt.get('px_w', CROP_PX))
+    rv = getattr(args, 'rubric_version', None)
+    if rv is None:
+        rv = snap.get('rubric_version', RUBRIC_VERSION)
+    if rv not in RUBRICS:
+        raise SystemExit(f'rubric version {rv}: known {sorted(RUBRICS)}')
+    return k, geom, rv
+
+
+def views_block(k, geom, rule):
+    """snapshot.json's `views`; the square default writes exactly the pre-#169 keys."""
+    out = {'per_corner': k, 'min_m': MIN_VIEW_M, 'max_m': MAX_VIEW_M, 'rule': rule,
+           'camera_height_m': CAMERA_HEIGHT_M, 'crop_fov_deg': CROP_FOV_DEG,
+           'crop_px': CROP_PX, 'store': f'makelab2 {STORE}'}
+    if geom:
+        out.update({'crop_fov_deg': geom['fov_h_deg'], 'crop_px': geom['px_w'],
+                    'crop_geometry': geom})
+    return out
+
+
+def rubric_for(snapshot):
+    """(version, text) a bundle is rated under: its snapshot's, which must be a known version's
+    exact text (an edited rubric needs a new version)."""
+    v = snapshot.get('rubric_version', 1)
+    text = snapshot.get('rubric', RUBRICS.get(v))
+    if RUBRICS.get(v) != text:
+        raise SystemExit(f'snapshot.json rubric v{v} is not the text of RUBRICS[{v}]: an edited '
+                         'rubric needs a new version')
+    return v, text
+
+
 # ----------------------------------------------------------------------------- loading
 
 def load_pano_index(results_paths, wanted):
@@ -378,8 +467,13 @@ def inventory_position(inv, uid, cls, lat0, lng0, window_m=WINDOW_M):
 
 # ------------------------------------------------------------------------------- items
 
-def build_item(rec, part, panos, inv_pos):
-    """One review unit: corners with their views and (hidden until reveal) inventory."""
+def build_item(rec, part, panos, inv_pos, k=VIEWS_PER_CORNER, geom=None):
+    """One review unit: corners with their views and (hidden until reveal) inventory.
+
+    k views per corner (choose_views). geom: crop_geometry() of a landscape bundle, stored on
+    the unit as `crop_geometry` (absent for square crops). A --split-wide corner table's
+    `phantom_legs` and per-corner `phantom_start` / `phantom_end` are carried when present;
+    an item from an older table has none of these keys, exactly as before."""
     import export_cluster_review as ecr
     unit = rec['unit']
     cand_ids = set(rec.get('pano_ids_25') or [])
@@ -397,11 +491,13 @@ def build_item(rec, part, panos, inv_pos):
             v.update({'pano_id': pid, 'capture_date': p['capture_date'], 'run': p['run'],
                       'cam': {'lat': round(p['lat'], 7), 'lng': round(p['lng'], 7)}})
             cands.append(v)
-        views = choose_views(cands)
+        views = choose_views(cands, k)
         pool = [v for v in cands if v['dist_m'] <= MAX_VIEW_M]
         for v in views:
             v['crop'] = f"crops/{safe_name(unit)}_c{c['corner']}_{v['pano_id']}.jpg"
         corners.append({
+            **({'phantom_start': c['phantom_start'], 'phantom_end': c['phantom_end']}
+               if 'phantom_start' in c else {}),
             'corner': c['corner'], 'start_deg': c['start_deg'], 'width_deg': c['width_deg'],
             'wide': c['wide'], 'lat': c['lat'], 'lng': c['lng'],
             'n_panos_25': c['n_panos_25'], 'views': views,
@@ -412,7 +508,12 @@ def build_item(rec, part, panos, inv_pos):
             'inventory': [dict(x, **dict(zip(('lat', 'lng'), inventory_position(
                 inv_pos, x['unit_id'], x['class'], rec['lat'], rec['lng']))))
                 for x in c['inventory']]})
-    return {'unit': unit, 'city': CITY, 'part': part, 'type': rec['type'],
+    extra = {}
+    if 'phantom_legs' in rec:
+        extra['phantom_legs'] = rec['phantom_legs']
+    if geom:
+        extra['crop_geometry'] = geom
+    return {**extra, 'unit': unit, 'city': CITY, 'part': part, 'type': rec['type'],
             'centre': {'lat': rec['lat'], 'lng': rec['lng']}, 'window_m': WINDOW_M,
             'legs': rec['legs'], 'n_legs': rec['n_legs'], 'node_ids': rec['node_ids'],
             'highways': rec.get('highways'), 'state': rec['state'][ARM_STATE],
@@ -433,10 +534,15 @@ def crop_jobs(items, bundle):
                 name = Path(v['crop']).name
                 if (Path(bundle) / v['crop']).exists():
                     continue
-                out.setdefault(v['run'], []).append(
-                    {'pano_id': v['pano_id'], 'x': v['x'], 'y': v['y'], 'fov_deg': CROP_FOV_DEG,
-                     'px': CROP_PX, 'name': name,
-                     'path': f"{v['pano_id'][:2]}/{v['pano_id']}.jpg"})
+                job = {'pano_id': v['pano_id'], 'x': v['x'], 'y': v['y'],
+                       'fov_deg': CROP_FOV_DEG, 'px': CROP_PX, 'name': name,
+                       'path': f"{v['pano_id'][:2]}/{v['pano_id']}.jpg"}
+                g = it.get('crop_geometry')
+                if g:                   # landscape (#169): the worker's optional keys
+                    job.update({'fov_deg': g['fov_h_deg'], 'px': g['px_w'],
+                                'fov_h_deg': g['fov_h_deg'], 'px_w': g['px_w'],
+                                'px_h': g['px_h']})
+                out.setdefault(v['run'], []).append(job)
     return out
 
 
@@ -610,7 +716,8 @@ def cmd_build(args):
             wanted.update(c.get('pano_ids_25') or [])
     panos = load_pano_index(results, wanted)
     inv_pos = load_inventory(inv_path)
-    items = [build_item(by_unit[u], part_of[u], panos, inv_pos) for u in order]
+    k, geom, rv = bundle_params(args, bundle)
+    items = [build_item(by_unit[u], part_of[u], panos, inv_pos, k, geom) for u in order]
 
     items_path = bundle / 'items.jsonl'
     if items_path.exists() and not args.rebuild:
@@ -631,15 +738,13 @@ def cmd_build(args):
         'n_na': args.n_na, 'n_clean': args.n_clean, 'arm_state': ARM_STATE,
         'populations': sizes, 'draw': drawn, 'review_order': order,
         'items_sha256': sha256_file(items_path), 'inputs': inputs,
-        'views': {'per_corner': VIEWS_PER_CORNER, 'min_m': MIN_VIEW_M, 'max_m': MAX_VIEW_M,
-                  'rule': 'one slot for the newest capture date among the candidates within '
-                          'max_m (nearest such pano), the rest nearest first among those >= '
-                          'min_m, nearer ones only to top up (choose_views; RampNet#243 B1)',
-                  'camera_height_m': CAMERA_HEIGHT_M, 'crop_fov_deg': CROP_FOV_DEG,
-                  'crop_px': CROP_PX, 'store': f'makelab2 {STORE}'},
+        'views': views_block(k, geom, 'one slot for the newest capture date among the '
+                             'candidates within max_m (nearest such pano), the rest nearest '
+                             'first among those >= min_m, nearer ones only to top up '
+                             '(choose_views; RampNet#243 B1)'),
         'aerial': {'source': 'Esri World Imagery', 'url_template': sf.TILE_URL,
                    'attribution': sf.ATTRIBUTION},
-        'rubric_version': RUBRIC_VERSION, 'rubric': RUBRIC}
+        'rubric_version': rv, 'rubric': RUBRICS[rv]}
 
     missing = make_images(args, bundle, items)
     snapshot['crops_missing'] = sorted(missing)
@@ -708,12 +813,12 @@ def corner_key(unit, corner):
     return f'{unit}#{corner}'
 
 
-def sample_item(rec, corner_ids, panos, inv_pos, proposals):
+def sample_item(rec, corner_ids, panos, inv_pos, proposals, k=VIEWS_PER_CORNER, geom=None):
     """One review unit of a --items-from bundle: build_item over the WHOLE unit (so the view
     pool is the one gallery 243 would use), then only the sampled corners are kept. Each kept
     corner carries the rule's `proposal` (chosen pano, pixel, range; never shown to the rater)
     and whether that pano is among the views shown (`proposal.shown`)."""
-    it = build_item(rec, SAMPLE_PART, panos, inv_pos)
+    it = build_item(rec, SAMPLE_PART, panos, inv_pos, k, geom)
     it['n_corners_unit'] = len(it['corners'])
     kept = []
     for c in it['corners']:
@@ -752,6 +857,18 @@ def write_crops_needed(bundle, items, missing, args):
     b = portable_path(bundle)
     sample = portable_path(args.items_from)
     corners = portable_path(args.corners_full)
+    snap_views = {}
+    if (bundle / 'snapshot.json').exists():
+        snap_views = json.loads((bundle / 'snapshot.json').read_text(encoding='utf-8')).get(
+            'views') or {}
+    g = (items[0].get('crop_geometry') if items else None) or {}
+    flags = ''
+    if snap_views.get('per_corner', VIEWS_PER_CORNER) != VIEWS_PER_CORNER:
+        flags += f" --views-per-corner {snap_views['per_corner']}"
+    if g:
+        flags += f" --crop-aspect {g['aspect']:g} --crop-fov-deg {g['fov_h_deg']:g} --crop-px {g['px_w']}"
+    if flags:
+        corners += ' \\\n   ' + flags
     text = f"""# Crops needed: {len(missing)} of {sum(len(c['views']) for i in items for c in i['corners'])}
 
 The crops of this bundle could not be cut here: they come from {len(panos)} panos of the Project
@@ -876,7 +993,9 @@ def cmd_build_sample(args):
             wanted.update(c.get('pano_ids_25') or [])
     panos = load_pano_index(results, wanted)
     inv_pos = load_inventory(inv_path)
-    items = [sample_item(records[u], by_unit_corners[u], panos, inv_pos, proposals) for u in order]
+    k, geom, rv = bundle_params(args, bundle)
+    items = [sample_item(records[u], by_unit_corners[u], panos, inv_pos, proposals, k, geom)
+             for u in order]
 
     bundle.mkdir(parents=True, exist_ok=True)
     items_path = bundle / 'items.jsonl'
@@ -913,13 +1032,11 @@ def cmd_build_sample(args):
         'shown_corners': 'only the sampled corners of each unit',
         'reveal': 'the city inventory, as in gallery 243; the rule proposal (pano, pixel) is '
                   'in items.jsonl and never shown',
-        'views': {'per_corner': VIEWS_PER_CORNER, 'min_m': MIN_VIEW_M, 'max_m': MAX_VIEW_M,
-                  'rule': 'as gallery 243 (choose_views over the whole unit\'s pano pool)',
-                  'camera_height_m': CAMERA_HEIGHT_M, 'crop_fov_deg': CROP_FOV_DEG,
-                  'crop_px': CROP_PX, 'store': f'makelab2 {STORE}'},
+        'views': views_block(k, geom, 'as gallery 243 (choose_views over the whole unit\'s '
+                                      'pano pool)'),
         'aerial': {'source': 'Esri World Imagery', 'url_template': sf.TILE_URL,
                    'attribution': sf.ATTRIBUTION},
-        'rubric_version': RUBRIC_VERSION, 'rubric': RUBRIC,
+        'rubric_version': rv, 'rubric': RUBRICS[rv],
         'scorer': 'scripts/corner_labels.py score --proposals <proposals> --sample <sample.csv> '
                   '--bundle <this bundle> --verdicts <bundle>/verdicts__<rater>.json'}
     missing = make_images(args, bundle, items)
@@ -955,23 +1072,43 @@ def write_sample_report(bundle, snapshot, items, missing):
         f"sidewalk rule {pr['sidewalk_rule']}.",
         f"- {len(items)} units, {len(corners)} corners; by stratum "
         f"{dict(sorted(by_type.items()))}. Only the sampled corners of a unit are shown and rated.",
-        f"- Views: up to {VIEWS_PER_CORNER} per corner, chosen as in gallery 243. The pano that "
+        f"- Views: up to {snapshot['views']['per_corner']} per corner, chosen as in gallery 243"
+        + (f" (newest-date slot, then distance order); landscape crops "
+           f"{snapshot['views']['crop_geometry']['fov_h_deg']:g} x "
+           f"{snapshot['views']['crop_geometry']['fov_v_deg']:g} deg at "
+           f"{snapshot['views']['crop_geometry']['px_w']} x "
+           f"{snapshot['views']['crop_geometry']['px_h']} px"
+           if snapshot['views'].get('crop_geometry') else '') + ". The pano that "
         f"carries the rule's label is among them at {sum(c['proposal']['shown'] for c in corners)}"
         f" of {len(corners)} corners. Corners with no view: {len(no_view)}"
         + (f' ({no_view})' if no_view else '') + '.',
         f"- Crops missing: {len(missing)}" + (f' (see `{CROPS_NEEDED}`)' if missing else '') + '.',
-        '- Rubric: gallery 243 v1, unchanged. Reveal: the city inventory, after completion; the '
-        'blind verdicts are scored.',
+        (f"- Rubric: v{snapshot['rubric_version']}"
+         + (' (gallery 243 v1 plus the phantom-leg / two-landing paragraph)'
+            if snapshot['rubric_version'] == 2 else ', gallery 243 unchanged')
+         + '. Reveal: the city inventory, after completion; the blind verdicts are scored.'),
         '- Score: `python scripts/corner_labels.py score --proposals <proposals> --sample '
         '<sample.csv> --bundle <this bundle> --verdicts <bundle>/verdicts__<rater>.json`.', '',
         '## Inputs', '', '| input | sha256 |', '|---|---|']
     for k, v in snapshot['inputs'].items():
         lines.append(f"| {k} | `{v['sha256']}` |")
-    lines += ['', '## Units', '', '| order | unit | type | sampled corners | of |',
-              '|---:|---|---|---|---:|']
+    split = any('phantom_legs' in i for i in items)
+    if split:
+        ph = [c for i in items for c in i['corners']
+              if c.get('phantom_start') or c.get('phantom_end')]
+        lines[lines.index('## Inputs') - 1:lines.index('## Inputs') - 1] = [
+            f"- Split-wide corner table: {sum(1 for i in items if i.get('phantom_legs'))} units "
+            f"carry phantom legs; {len(ph)} of {len(corners)} sampled corners are bounded by "
+            f"one (the far side of a T); {sum(1 for c in corners if c['wide'])} are still "
+            'wider than 150 deg.']
+    lines += ['', '## Units', '', '| order | unit | type | sampled corners | of |'
+              + (' phantom legs |' if split else ''),
+              '|---:|---|---|---|---:|' + ('---|' if split else '')]
     for n, i in enumerate(items, 1):
         lines.append(f"| {n} | `{i['unit']}` | {i['type']} | "
-                     f"{', '.join(str(c['corner']) for c in i['corners'])} | {i['n_corners_unit']} |")
+                     f"{', '.join(str(c['corner']) for c in i['corners'])} | {i['n_corners_unit']} |"
+                     + ((' ' + (', '.join(f'{b:.0f}' for b in i.get('phantom_legs') or ()) or '-')
+                         + ' |') if split else ''))
     write_text_lf(Path(bundle) / 'report.md', '\n'.join(lines) + '\n')
 
 
@@ -999,11 +1136,18 @@ def viewer_unit(it, rel, aerial_dates=None):
     deliberately left out: the rater never sees which population a unit came from. So is the
     city inventory (status, RAMPTYPE, INSTDATE, positions): it lives in reveal/<unit>.js and is
     loaded only at completion (review S3)."""
-    return {'id': it['unit'], 'type': it['type'], 'centre': it['centre'],
+    extra = {}
+    if it.get('phantom_legs'):
+        extra['phantom_legs'] = it['phantom_legs']
+    if it.get('crop_geometry'):
+        extra['crop_aspect'] = it['crop_geometry']['aspect']
+    return {**extra, 'id': it['unit'], 'type': it['type'], 'centre': it['centre'],
             'window_m': it['window_m'], 'legs': it['legs'], 'reveal': reveal_file(it['unit']),
             'aerial': dict(it['aerial'], file=rel + it['aerial']['file'],
                            dates=(aerial_dates or {}).get(it['unit'], [])),
-            'corners': [{'k': str(c['corner']), 'corner': c['corner'],
+            'corners': [{**({'phantom': [c['phantom_start'], c['phantom_end']]}
+                            if c.get('phantom_start') or c.get('phantom_end') else {}),
+                         'k': str(c['corner']), 'corner': c['corner'],
                          'start_deg': c['start_deg'], 'width_deg': c['width_deg'],
                          'wide': c['wide'], 'lat': c['lat'], 'lng': c['lng'],
                          'views': [{'pano_id': v['pano_id'], 'date': v['capture_date'],
@@ -1029,7 +1173,8 @@ def load_prefill(bundle, rater, items_sha):
             hashlib.sha256(raw).hexdigest())
 
 
-def build_html(units, items_sha, rater, initial, attribution, prefilled_from=None):
+def build_html(units, items_sha, rater, initial, attribution, prefilled_from=None,
+               rubric_version=RUBRIC_VERSION, rubric=RUBRIC):
     from corner_gallery_page import HTML_TEMPLATE, KEYS_JS, PANO_LINKS_JS, STATE_BOOTSTRAP_JS
     return (HTML_TEMPLATE
             .replace('__STATE_BOOTSTRAP__', STATE_BOOTSTRAP_JS)
@@ -1039,9 +1184,9 @@ def build_html(units, items_sha, rater, initial, attribution, prefilled_from=Non
             .replace('__ITEMS_SHA__', json.dumps(items_sha))
             .replace('__CITY__', json.dumps(CITY))
             .replace('__RATER__', json.dumps(rater))
-            .replace('__RUBRIC_V__', str(RUBRIC_VERSION))
-            .replace('__RUBRIC_JSON__', json.dumps(RUBRIC))
-            .replace('__RUBRIC_HTML__', RUBRIC.replace('&', '&amp;').replace('<', '&lt;'))
+            .replace('__RUBRIC_V__', str(rubric_version))
+            .replace('__RUBRIC_JSON__', json.dumps(rubric))
+            .replace('__RUBRIC_HTML__', rubric.replace('&', '&amp;').replace('<', '&lt;'))
             .replace('__SCHEMA__', json.dumps(VERDICTS_SCHEMA))
             .replace('__INITIAL__', json.dumps(initial))
             .replace('__PREFILLED_FROM__', json.dumps(prefilled_from))
@@ -1070,8 +1215,9 @@ def cmd_render(args):
     if msg:
         print(msg)
     adates = load_aerial_dates(bundle, items_sha)
+    rv, rubric = rubric_for(snapshot)
     html = build_html([viewer_unit(i, rel, adates) for i in items], items_sha, args.rater, initial,
-                      snapshot['aerial']['attribution'], prefilled_from)
+                      snapshot['aerial']['attribution'], prefilled_from, rv, rubric)
     (out / REVEAL_DIR).mkdir(exist_ok=True)
     for i in items:
         write_text_lf(out / reveal_file(i['unit']), reveal_script(i))
@@ -1221,6 +1367,19 @@ def main(argv=None):
     b.add_argument('--helper', default=None)
     b.add_argument('--workers', type=int, default=8)
     b.add_argument('--timeout', type=int, default=3600)
+    b.add_argument('--views-per-corner', type=int, default=None,
+                   help=f'crops per corner (default: the bundle snapshot\'s, else '
+                        f'{VIEWS_PER_CORNER}); slot 1 is the newest capture date, the rest '
+                        'distance order')
+    b.add_argument('--crop-aspect', type=float, default=None,
+                   help='crop width:height (default 1, square). 2 = landscape: '
+                        '--crop-fov-deg wide x half that tall')
+    b.add_argument('--crop-fov-deg', type=float, default=None,
+                   help=f'horizontal field of view of a crop (default {CROP_FOV_DEG})')
+    b.add_argument('--crop-px', type=int, default=None,
+                   help=f'crop width in pixels (default {CROP_PX}); height = width / aspect')
+    b.add_argument('--rubric-version', type=int, default=None, choices=sorted(RUBRICS),
+                   help=f'default: the bundle snapshot\'s, else {RUBRIC_VERSION}')
     r = sub.add_parser('render', help='write the review page for one rater')
     r.add_argument('--bundle', type=Path, required=True)
     r.add_argument('--rater', required=True, help='exports verdicts__<rater>.json')

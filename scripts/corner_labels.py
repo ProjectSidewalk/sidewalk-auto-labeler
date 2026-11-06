@@ -956,7 +956,8 @@ def check_bundle(bundle, verdicts, sample_path, proposals_path):
     if items_sha != snap.get('items_sha256'):
         problems.append('items.jsonl is not the one snapshot.json recorded')
     items = ci.read_jsonl(bundle / 'items.jsonl')
-    problems += cgs.validate(verdicts, items, items_sha, snap.get('rubric'))
+    problems += cgs.validate(verdicts, items, items_sha, snap.get('rubric'),
+                             snap.get('rubric_version', 1))
     have = {corner_key(i['unit'], c['corner']) for i in items for c in i['corners']}
     lost = [k for k in read_sample(sample_path) if k not in have]
     if lost:

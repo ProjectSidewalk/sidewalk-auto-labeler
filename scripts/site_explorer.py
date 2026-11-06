@@ -93,32 +93,41 @@ def one_pano(task):
     W, H = im.size
     done = []
     for it in items:
-        side = max(64, int(round(W * it["fov_deg"] / 360.0)))
-        side = min(side, H)
-        cx, cy = it["x"] * W, it["y"] * H
-        x0 = int(round(cx - side / 2.0))
-        y0 = int(round(cy - side / 2.0))
-        y0 = max(0, min(H - side, y0))
-        if x0 < 0 or x0 + side > W:          # wrap across the equirect seam
-            tile = Image.new("RGB", (side, side))
-            a = x0 % W
-            first = min(side, W - a)
-            tile.paste(im.crop((a, y0, a + first, y0 + side)), (0, 0))
-            if first < side:
-                tile.paste(im.crop((0, y0, side - first, y0 + side)), (first, 0))
+        # optional (#169): "fov_h_deg" + "px_w" + "px_h" cut a landscape tile fov_h_deg wide
+        # and fov_h_deg * px_h / px_w tall, resized to px_w x px_h; an item without them is
+        # the square "fov_deg" / "px" crop, exactly as before
+        if "fov_h_deg" in it:
+            tw = min(max(64, int(round(W * it["fov_h_deg"] / 360.0))), W)
+            th = min(max(32, int(round(tw * it["px_h"] / float(it["px_w"])))), H)
+            size = (it["px_w"], it["px_h"])
         else:
-            tile = im.crop((x0, y0, x0 + side, y0 + side))
+            side = max(64, int(round(W * it["fov_deg"] / 360.0)))
+            side = min(side, H)
+            tw = th = side
+            size = (it["px"], it["px"])
+        cx, cy = it["x"] * W, it["y"] * H
+        x0 = int(round(cx - tw / 2.0))
+        y0 = int(round(cy - th / 2.0))
+        y0 = max(0, min(H - th, y0))
+        if x0 < 0 or x0 + tw > W:            # wrap across the equirect seam
+            tile = Image.new("RGB", (tw, th))
+            a = x0 % W
+            first = min(tw, W - a)
+            tile.paste(im.crop((a, y0, a + first, y0 + th)), (0, 0))
+            if first < tw:
+                tile.paste(im.crop((0, y0, tw - first, y0 + th)), (first, 0))
+        else:
+            tile = im.crop((x0, y0, x0 + tw, y0 + th))
         d = ImageDraw.Draw(tile)
-        mx, my = side / 2.0, cy - y0
-        r = max(6.0, side * 0.055)
-        w = max(2, side // 180)
+        mx, my = tw / 2.0, cy - y0
+        r = max(6.0, min(tw, th) * 0.055)
+        w = max(2, min(tw, th) // 180)
         d.ellipse([mx - r, my - r, mx + r, my + r], outline=(255, 64, 0), width=w)
         d.line([mx - r * 2.2, my, mx - r * 1.25, my], fill=(255, 64, 0), width=w)
         d.line([mx + r * 1.25, my, mx + r * 2.2, my], fill=(255, 64, 0), width=w)
         d.line([mx, my - r * 2.2, mx, my - r * 1.25], fill=(255, 64, 0), width=w)
         d.line([mx, my + r * 1.25, mx, my + r * 2.2], fill=(255, 64, 0), width=w)
-        px = it["px"]
-        tile = tile.resize((px, px), Image.LANCZOS)
+        tile = tile.resize(size, Image.LANCZOS)
         tile.save(os.path.join(out_dir, it["name"]), "JPEG", quality=82,
                   optimize=True)
         done.append(it["name"])
@@ -372,26 +381,33 @@ def fetch_crops_local(job, crops_dir, panos_dir):
         im = im.convert('RGB')
         W, H = im.size
         for it in items:
-            side = min(max(64, int(round(W * it['fov_deg'] / 360.0))), H)
+            if 'fov_h_deg' in it:            # landscape item (#169), as CROP_WORKER
+                tw = min(max(64, int(round(W * it['fov_h_deg'] / 360.0))), W)
+                th = min(max(32, int(round(tw * it['px_h'] / float(it['px_w'])))), H)
+                size = (it['px_w'], it['px_h'])
+            else:
+                side = min(max(64, int(round(W * it['fov_deg'] / 360.0))), H)
+                tw = th = side
+                size = (it['px'], it['px'])
             cx, cy = it['x'] * W, it['y'] * H
-            x0 = int(round(cx - side / 2.0))
-            y0 = max(0, min(H - side, int(round(cy - side / 2.0))))
-            if x0 < 0 or x0 + side > W:
-                tile = Image.new('RGB', (side, side))
+            x0 = int(round(cx - tw / 2.0))
+            y0 = max(0, min(H - th, int(round(cy - th / 2.0))))
+            if x0 < 0 or x0 + tw > W:
+                tile = Image.new('RGB', (tw, th))
                 a = x0 % W
-                first = min(side, W - a)
-                tile.paste(im.crop((a, y0, a + first, y0 + side)), (0, 0))
-                if first < side:
-                    tile.paste(im.crop((0, y0, side - first, y0 + side)),
+                first = min(tw, W - a)
+                tile.paste(im.crop((a, y0, a + first, y0 + th)), (0, 0))
+                if first < tw:
+                    tile.paste(im.crop((0, y0, tw - first, y0 + th)),
                                (first, 0))
             else:
-                tile = im.crop((x0, y0, x0 + side, y0 + side))
+                tile = im.crop((x0, y0, x0 + tw, y0 + th))
             d = ImageDraw.Draw(tile)
-            mx, my = side / 2.0, cy - y0
-            r, w = max(6.0, side * 0.055), max(2, side // 180)
+            mx, my = tw / 2.0, cy - y0
+            r, w = max(6.0, min(tw, th) * 0.055), max(2, min(tw, th) // 180)
             d.ellipse([mx - r, my - r, mx + r, my + r], outline=(255, 64, 0),
                       width=w)
-            tile.resize((it['px'], it['px']), Image.LANCZOS).save(
+            tile.resize(size, Image.LANCZOS).save(
                 crops_dir / it['name'], 'JPEG', quality=82, optimize=True)
         im.close()
     return missing
