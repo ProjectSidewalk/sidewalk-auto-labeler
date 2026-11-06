@@ -7,10 +7,43 @@ input**), for `<read>` = `discount` and `count`. The layer's provenance is
 `.../sidewalks/cov_sidewalks.geojson.source.json`. Issue: [#169](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/169)
 (umbrella ProjectSidewalk/Planning#36).
 
-**Status: plumbing only. Nothing is scored, and nothing goes to any server under this PR.**
-The pre-registered rule (below) cannot be scored yet, and the primary `NA` read it depends on
-is not settled. When a pilot does go ahead, its input is the `_sw` build (with the sidewalk
-layer) of whichever read gallery 243 makes primary, not the no-layer build.
+**Status: the rule is not scored yet, and nothing goes to any server under this PR.** The
+primary `NA` read is **settled as `discount`** (gallery 243, PR
+[#180](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/180); see "The NA read"
+below). **The pilot build is `na_discount_sw`** (discount read, city sidewalk layer). What is
+left before a pilot is a blind rating of its `sample.csv`, the pre-registered
+precision check.
+
+## Definition
+
+Jon Froehlich's definition of the label, 2026-11-05: *"is there a sidewalk at the corner and
+does it have a curb ramp? If not, the corner is 'missing a curb ramp' and needs a NoCurbRamp
+label."* So a corner gets a NoCurbRamp label when a sidewalk reaches it and no curb ramp
+serves it.
+
+He considered and rejected a stricter definition: a sidewalk, plus somewhere to cross to, plus
+a painted crosswalk or a controlled intersection. It would hide exactly the corners where the
+city never finished the pedestrian infrastructure, which are the corners the label exists to
+find.
+
+The `_sw` builds implement this definition: a corner is proposed when the detector finds no
+ramp there (absent in the #241 corner table under `fusion/primary`, not excluded by the
+inventory under the `NA` read) **and** a kept city sidewalk feature lies within 10 m of the
+corner point (`--sidewalk-presence`, `--sidewalk-keep STATUS=Available,Pathway,Private`). The
+pilot build is `na_discount_sw`.
+
+Two known residuals under this definition:
+
+- **Arterial and highway sidewalks with medians still get labels.** A corner on a wide
+  arterial, or where a sidewalk meets a median or a highway ramp, gets a label if a sidewalk
+  reaches it and no ramp serves it, even where nobody is expected to cross. That is correct
+  under the definition, which deliberately does not ask whether a crossing exists. Watch the
+  validation rate of these corners in the pilot.
+- **Corner points that land off the curb (open).** The corner point is 12 m from the
+  intersection centre along the sector bisector. On T-intersections (the straight side has no
+  real corner) and on wide arterials (12 m can fall in the roadway or past the curb return),
+  that point is not where a ramp would be. This is a geometry gap in the #241 corner table,
+  not a property of the definition, and it is open.
 
 ## What ships
 
@@ -116,7 +149,9 @@ panos nearer than 3 m. So the mask could only drop a correct label.
 ## The rule, as pre-registered on #169
 
 - **Precondition.** Gallery 243 is scored and the primary `NA` read is written into
-  `docs/corner-inventory.md` first. **Not met.**
+  `docs/corner-inventory.md` first. **Met 2026-11-05**: scored in PR
+  [#180](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/180), `discount`
+  (read (b)) is primary, and the follow-up section of `docs/corner-inventory.md` says so.
 - **Corner-level absence precision against blind ratings >= 0.90**, with Wilson lower bound
   >= 0.85. It is measured on a seeded sample of >= 100 absent corners drawn under the primary
   read, rated by the gallery 243 rubric. `can't tell` corners are excluded from the
@@ -137,9 +172,9 @@ It prints PASS / FAIL only when both of these hold, and NOT SCORED otherwise:
 wrong (guide rule 3: no label where no sidewalk reaches the corner). `unspecified` absences
 count as right there, so it is an upper bound.
 
-## The NA-read caveat
+## The NA read (settled 2026-11-05: `discount`)
 
-`--na-read` is **required and has no default**, because the primary read is not settled:
+`--na-read` is **required and has no default**. The two reads:
 
 - `count` is corner-inventory read (a), "as written". Any inventory point excludes the corner,
   `NA` included, because the city recorded something there. Only corners with no point at all
@@ -149,14 +184,48 @@ count as right there, so it is an upper bound.
   `NA_typed`, `RMV`, `Expired/Removed` and other. This is exactly read (b), the read the issue
   quotes at 0.965 at unit level.
 
-Gallery 243 (RampNet#243) decides between them, and only 50 of its 95 units are rated so far.
-Both reads were built.
+**Settled: `discount` is primary.** Gallery 243 (RampNet#243) was rated blind, 95 of 95
+units (`verdicts__jonf.json`), and scored in draft PR
+[#180](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/180) (branch
+`corner-gallery-243-verdicts`, `runs/vancouver/corner_gallery243/score/report.md`;
+`score/score.json` sha256 `447c6bb5db0fd2e2d18d7f01c8812f313db28d25cd23c64da14d23e873fb12bc`).
+From that report:
+
+- the 40 sampled units whose only inventory points are `NA` with no `RAMPTYPE` were absent at
+  every corner, **39/39** of the decided units (1 undetermined), Wilson 95% [0.910, 1.000];
+- the corners holding those `NA` points were absent **99/99** (1 can't tell);
+- the 35 false absences split into 4 real misses, 16 "inventory built after the imagery" and
+  15 inventory or geometry artifacts;
+- the control (clean units) agreed 17/18;
+- the stratified absence precision is 0.983 [0.926, 1.000] (descriptive).
+
+So an `NA` point with no `RAMPTYPE` is the city's record of *no ramp*. That is read (b) of
+amendment A8, the `discount` read. `count` stays buildable as the comparison.
+
+**In the builds.** `build --na-read-settled` records the settlement in `build.json` `params`:
+
+- `na_read_settled: true` and `na_read_primary: "discount"`;
+- `na_read_is_primary`: true for the discount dirs, false for the count dirs;
+- `na_read_settlement`: the evidence pointer (PR #180, the report and score paths, the sha256
+  of `score.json` and of the verdicts file, and the two headline numbers), copied from
+  `NA_READ_SETTLEMENT` in the script.
+
+Without the flag a build records `na_read_settled: false`, as every build before 2026-11-05 did.
 
 ## Vancouver counts
 
 Merged #241 build, intersections only (mid-block units have no corners), `fusion/primary`.
 Inputs are pinned by sha256 (`PINNED_SHA256`: the inventory build's inputs and gallery 243's
-`corners_full`). All four dirs were built at aea5dc6 on a clean tree.
+`corners_full`). All four dirs were built at aea5dc6 on a clean tree, then rebuilt at 80fc070
+with `--na-read-settled` to record the settled `NA` read. The rebuild changed only metadata:
+
+- `proposals.jsonl`, `unlabeled.csv` and `counts.csv` are byte-identical (the same sha256 in
+  `build.json` `outputs`), so every count below is unchanged and `sample.csv` was not redrawn;
+- in `build.json` only `built_at`, `seconds`, `tool.git_sha` and the new `params.na_read_*`
+  fields differ;
+- in `export.json` and the exported `results.jsonl` only the provenance changed, from
+  `corner-rule@aea5dc6fa00c` to `corner-rule@80fc070659f7`, because `model_id` names the
+  commit that built the proposals.
 
 **Effect of the two review changes** (all intersections; proposals):
 
@@ -268,14 +337,19 @@ count, with the same single present corner.)
 There are three reasons:
 - that sample was drawn for #243, not for this rule: its strata are false absences, `NA`-only
   units and clean controls, so the corners are not a random draw of the proposals;
-- the precondition is not met;
+- the precondition was not met when these were computed (it is now);
 - n < 100 in every build but the no-layer discount one.
+
+These descriptive scores used the `verdicts__jonf.json` on this branch, exported when 50 of
+gallery 243's 95 units were rated. They were not rerun on PR #180's complete file: that would
+change only these NOT SCORED descriptions, and the gallery 243 bundle on this branch is left
+as it was.
 
 `score_sample.json` scores each dir's seeded sample (`sample.csv`, 100 corners,
 `sample --seed 169`, drawn from that dir's proposals before any rating of it exists). Only
 3 (discount), 0 (count), 3 (discount_sw) and 2 (count_sw) sampled corners are already rated, so
-all are NOT SCORED (n < 100). The sample to rate for the pilot is the `_sw` dir's of whichever
-read gallery 243 makes primary.
+all are NOT SCORED (n < 100). The sample to rate for the pilot is `na_discount_sw/sample.csv`
+(a precision gallery over it; not built yet).
 
 What these descriptive numbers say before any pilot:
 - **Guide rule 3 was not cosmetic, and the layer addresses it.** Without a layer, 46 of the
@@ -298,7 +372,7 @@ The full output is in each dir's `dry_run_summary.txt`.
 | discount_sw | 1,664 | 0 | 1,821 | 0 |
 | count_sw | 1,292 | 0 | 1,376 | 0 |
 
-Every payload has `label_type: NoCurbRamp`, `model_id: corner-rule@aea5dc6fa00c` and
+Every payload has `label_type: NoCurbRamp`, `model_id: corner-rule@80fc070659f7` and
 `model_training_date: 11-05-2026`. `file_label_types` reads `['NoCurbRamp']`, so it is one POST
 per line and the legacy sidecar.
 
@@ -360,8 +434,7 @@ since been rebuilt, so these sha256s do not match the current `proposals.jsonl`.
   Nearly all crowd NoCurbRamp labels sit at corners whose inventory holds only untyped `NA`
   points, which only the discount read proposes (22 of the 24 discount hits are such corners).
   That is weak evidence for the discount read, in the same direction as A8's read (b), but 27
-  of the 34 labels are unvoted. The real test remains the `na_noramp` units of gallery 243 still
-  to be rated.
+  of the 34 labels are unvoted. Gallery 243 has since settled the read (discount, above).
 - **Crowd NoSidewalk labels.** 42 of the 5,770 discount proposals lie within 15 m of one of the
   crowd's 116 NoSidewalk labels (9 of 2,715 under count). Only 1 of the 116 is validated, so this
   is a floor on the crowd's coverage, not a rate, and it says nothing against requiring the
@@ -385,8 +458,9 @@ AI label at the same corner are what the validators compare.
   `build.json` records `sidewalk_rule: not applied`. PS's own sidewalk-presence table
   (SidewalkWebpage#5279) or OSM `footway=sidewalk` would be the source where a city publishes
   none; OSM was not needed here.
-- **Scoring.** This needs the gallery 243 verdict on the `NA` read, then a gallery over
-  `sample.csv` of the primary read's dir, then `score --sample`.
+- **Scoring.** The gallery 243 verdict on the `NA` read is in (`discount`, PR #180). What is
+  left is a precision gallery over `na_discount_sw/sample.csv`, rated blind, then
+  `score --sample` on its export.
 - **The ASSETS'19 DC placement check.** It needs a store-built DC run.
 
 ## Replication
@@ -404,7 +478,7 @@ for R in discount count; do for V in "" _sw; do
   D=runs/vancouver/corner_labels169/na_$R$V
   LAYER=(); [ -n "$V" ] && LAYER=(--sidewalk-presence $SW \
       --sidewalk-keep STATUS=Available,Pathway,Private)
-  python scripts/corner_labels.py build --na-read $R --corners $C \
+  python scripts/corner_labels.py build --na-read $R --na-read-settled --corners $C \
       --run-dir ../../sal-vancouver/runs/vancouver \
       --extra-run ../posdetect241/runs/vancouver_posdetect241 \
       --extra-run ../posdetect241/runs/vancouver_posdetect241_gsv --out $D "${LAYER[@]}"

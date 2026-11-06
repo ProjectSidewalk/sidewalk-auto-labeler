@@ -1,21 +1,21 @@
 {
  "schema": "sidewalk-auto-labeler.corner_labels.export/1",
- "exported_at": "2026-11-06T00:07:39+00:00",
+ "exported_at": "2026-11-06T00:51:49+00:00",
  "proposals": {
   "path": "proposals.jsonl",
   "sha256": "f3448df6534c223ced0a3a8861ce2e54b4e2616b80112f18888a423f58d2b4cd"
  },
  "provenance": {
-  "model_id": "corner-rule@aea5dc6fa00c",
+  "model_id": "corner-rule@80fc070659f7",
   "model_training_date": "11-05-2026",
   "api_version": "1.0.0",
   "model_repo": "ProjectSidewalk/sidewalk-auto-labeler",
-  "model_revision": "aea5dc6fa00c6804c49fcc162e2837b0d0de2d7f"
+  "model_revision": "80fc070659f7c4f1b7ae2570d96491296bad5f82"
  },
  "lines": 5053,
  "labels": 6131,
  "output": {
   "path": "runs\\vancouver\\corner_labels169\\na_discount\\results.jsonl",
-  "sha256": "8fc5562619cf23f6a73a579ae0317bb08856b67daea3f2cb582cc09c5221290e"
+  "sha256": "bbb7bd5dff486e9bbceca6fe875892436534b4ca23653f919213d0a5f6dc45b6"
  }
 }

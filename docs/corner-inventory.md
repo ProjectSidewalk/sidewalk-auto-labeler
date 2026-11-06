@@ -1048,5 +1048,14 @@ The store pass's metadata cache is kept on makelab2 as `~/posdetect241_store_met
 corner (present / absent / can't tell): the 35 false absences at the #241 targets, 40 of the
 944 `NA`-no-`RAMPTYPE` units and 20 of the 333 clean units (seed 243). Protocol, how to rate
 and the scoring rules: [`corner-gallery-243.md`](corner-gallery-243.md). Bundle:
-`runs/vancouver/corner_gallery243/`. Nothing in this document changes until the ratings are
-scored; the `NA` read stays open until then.
+`runs/vancouver/corner_gallery243/`.
+
+**Scored 2026-11-05: the primary `NA` read is read (b).** The blind ratings (95 of 95 units,
+draft PR #180, `runs/vancouver/corner_gallery243/score/report.md` on branch
+`corner-gallery-243-verdicts`) found the 40 sampled `NA`-no-`RAMPTYPE` units absent at every
+corner, 39/39 decided (1 undetermined), Wilson 95% [0.910, 1.000], and the corners holding
+those points absent 99/99. An `NA` point with no `RAMPTYPE` is the city's record of no ramp, so
+read (b), which does not count such points as inventory, is primary. The 35 false absences
+split into 4 real misses, 16 inventory built after the imagery and 15 inventory or geometry
+artifacts. #169 builds on this (`docs/corner-labels-169.md`, the `discount` read). The
+A8 results above are left as they were written.

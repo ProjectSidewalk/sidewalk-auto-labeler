@@ -673,8 +673,9 @@ python scripts/inventory_clustering.py score vancouver                # descript
 Write-up: [corner-labels-169.md](corner-labels-169.md). One NoCurbRamp proposal per corner
 that is absent in the #241 corner table under `--arm/--variant` (default `fusion/primary`) and
 not excluded by the inventory under `--na-read`. The flag is REQUIRED: `count` = any inventory
-point excludes; `discount` = `NA` with no `RAMPTYPE` does not. The primary read waits on gallery
-243. The label goes on the newest of the 3 nearest panos (3-25 m, any direction; the old
+point excludes; `discount` = `NA` with no `RAMPTYPE` does not. Gallery 243 settled `discount` as
+primary (PR #180); `--na-read-settled` records that in `build.json`. The pilot build is
+`na_discount_sw`. The label goes on the newest of the 3 nearest panos (3-25 m, any direction; the old
 forward-hemisphere test is opt-in as `--hemisphere-deg 90`) at the `geo.ground_point_to_pano`
 projection, 2.5 m camera. Vancouver's recommended build adds the city sidewalk layer
 (`na_<read>_sw/`; source and the `STATUS` filter in the write-up); the GeoJSON is not
@@ -691,7 +692,7 @@ Rules of use:
 
 ```bash
 D=runs/vancouver/corner_labels169/na_discount_sw  # na_count_sw with --na-read count; no layer: na_<read>
-python scripts/corner_labels.py build --na-read discount     --corners ../posdetect241/runs/vancouver/corner_inventory_posdetect241/corners_full.jsonl     --run-dir ../../sal-vancouver/runs/vancouver     --extra-run ../posdetect241/runs/vancouver_posdetect241     --extra-run ../posdetect241/runs/vancouver_posdetect241_gsv --out $D     --sidewalk-presence runs/vancouver/corner_labels169/sidewalks/cov_sidewalks.geojson     --sidewalk-keep STATUS=Available,Pathway,Private   # [--sidewalk-radius-m 10] [--hemisphere-deg 90]
+python scripts/corner_labels.py build --na-read discount --na-read-settled     --corners ../posdetect241/runs/vancouver/corner_inventory_posdetect241/corners_full.jsonl     --run-dir ../../sal-vancouver/runs/vancouver     --extra-run ../posdetect241/runs/vancouver_posdetect241     --extra-run ../posdetect241/runs/vancouver_posdetect241_gsv --out $D     --sidewalk-presence runs/vancouver/corner_labels169/sidewalks/cov_sidewalks.geojson     --sidewalk-keep STATUS=Available,Pathway,Private   # [--sidewalk-radius-m 10] [--hemisphere-deg 90]
 python scripts/corner_labels.py sample --proposals $D/proposals.jsonl --out $D/sample.csv   # seed 169
 python scripts/corner_labels.py rank --dir $D --ranked-csv ranked.csv   # -> proposals.ranked.jsonl
 python scripts/corner_labels.py export --dir $D [--proposals $D/proposals.ranked.jsonl]
