@@ -80,6 +80,9 @@ CAMERA_HEIGHT_M = cg.CAMERA_HEIGHT_M   # 2.5 m, the fixed height of the #241 fus
 N_RUNNER_UPS = 4
 SITE_SEARCH_M = 50.0
 SIDEWALK_RADIUS_M = 10.0
+#: the view test's half-angle about camera_heading; None = no view test (the default since
+#: 2026-11-05; the first build used 90, the forward hemisphere). --hemisphere-deg opts in.
+HEMISPHERE_DEG = None
 RULE_PRECISION = 0.90
 RULE_WILSON_LO = 0.85
 RULE_MIN_N = 100
@@ -156,15 +159,19 @@ def inventory_status(inv_counts):
 
 
 def candidate_views(lat, lng, pano_ids, panos, max_range_m=MAX_RANGE_M,
-                    min_view_m=MIN_VIEW_M):
+                    min_view_m=MIN_VIEW_M, hemisphere_deg=HEMISPHERE_DEG):
     """(candidates, rejected) for one corner point among the panos that observe it.
 
-    A candidate is a pano within max_range_m of the point, at least min_view_m from it, whose
-    FORWARD hemisphere holds it: the bearing from the camera to the point within 90 deg of the
-    camera heading (|x - 0.5| <= 0.25 in the pano). Distance and bearing are measured in a
+    A candidate is a pano within max_range_m of the point and at least min_view_m from it, in
+    any direction: a GSV equirect sees behind the car at the same resolution as ahead, and PS's
+    pixel key wraps x modulo the width, so a point behind the camera is as labelable as one
+    ahead (Jon Froehlich, 2026-11-05, reversing the first build's forward-hemisphere test).
+    hemisphere_deg (opt-in, default None = off) restores a view test: the bearing from the
+    camera to the point must lie within hemisphere_deg of the camera heading (90 is the old
+    forward hemisphere, |x - 0.5| <= 0.25 in the pano). Distance and bearing are measured in a
     LocalFrame at the camera, as geo.ground_point_to_pano measures them, so a candidate is
-    always projectable. rejected counts {no_pose, too_far, too_near, behind}.
-    panos: {pano_id: {lat, lng, heading, capture_date, ...}}.
+    always projectable. rejected counts {no_pose, too_far, too_near, behind}; `behind` stays 0
+    with the test off. panos: {pano_id: {lat, lng, heading, capture_date, ...}}.
     """
     cands, rejected = [], {'no_pose': 0, 'too_far': 0, 'too_near': 0, 'behind': 0}
     for pid in sorted(set(pano_ids)):
@@ -180,7 +187,7 @@ def candidate_views(lat, lng, pano_ids, panos, max_range_m=MAX_RANGE_M,
             rejected['too_far'] += 1
         elif d < min_view_m:
             rejected['too_near'] += 1
-        elif off > 90.0:
+        elif hemisphere_deg is not None and off > hemisphere_deg:
             rejected['behind'] += 1
         else:
             cands.append({'pano_id': pid, 'dist_m': d, 'bearing_deg': bearing,
@@ -404,7 +411,8 @@ def build_proposals(units, panos, sites, args, sidewalks=None):
                 unlabeled.append(dict(row, reason='no_sidewalk'))
                 continue
             cands, rejected = candidate_views(c['lat'], c['lng'], c.get('pano_ids_25') or (),
-                                              panos, args.max_range_m, args.min_view_m)
+                                              panos, args.max_range_m, args.min_view_m,
+                                              getattr(args, 'hemisphere_deg', HEMISPHERE_DEG))
             chosen, runners = choose_pano(cands, args.top_k)
             if chosen is None:
                 cnt['no_candidate'] += 1
@@ -504,6 +512,8 @@ def cmd_build(args):
     if args.max_range_m > TABLE_OBS_M:
         raise SystemExit(f'--max-range-m {args.max_range_m} > {TABLE_OBS_M}: the corner table '
                          f'lists only the panos within {TABLE_OBS_M:g} m (pano_ids_25)')
+    if args.hemisphere_deg is not None and not 0.0 < args.hemisphere_deg <= 180.0:
+        raise SystemExit(f'--hemisphere-deg {args.hemisphere_deg}: must be in (0, 180]')
     run_dir = Path(args.run_dir)
     inputs = {'corners_full': Path(args.corners), 'results': run_dir / 'results.jsonl',
               'sites': run_dir / 'sites.jsonl', 'sites_meta': run_dir / 'sites_meta.json'}
@@ -552,7 +562,7 @@ def cmd_build(args):
         'params': {'arm': args.arm, 'variant': args.variant, 'na_read': args.na_read,
                    'na_read_settled': False, 'max_range_m': args.max_range_m,
                    'min_view_m': args.min_view_m, 'top_k': args.top_k,
-                   'camera_height_m': args.camera_height_m, 'hemisphere_deg': 90.0,
+                   'camera_height_m': args.camera_height_m, 'hemisphere_deg': args.hemisphere_deg,
                    'site_search_m': SITE_SEARCH_M, 'n_runner_ups': N_RUNNER_UPS},
         'sidewalk_rule': ({'applied': True, 'radius_m': args.sidewalk_radius_m,
                            'n_features': sidewalks.n_features} if sidewalks else 'not applied'),
@@ -920,6 +930,9 @@ def main(argv=None):
                    help='camera height of the projection. 2.5 m is the fixed height the #241 '
                         'fusion, and so the corner table, was built with; keep it so the label '
                         'sits where the table measured the corner')
+    b.add_argument('--hemisphere-deg', type=float, default=HEMISPHERE_DEG,
+                   help='opt-in view test: the corner point must lie within this many degrees '
+                   'of camera_heading (90 = forward hemisphere). Default: off, any direction')
     b.add_argument('--sidewalk-presence', help='GeoJSON of sidewalk geometry; corners with none '
                    'within --sidewalk-radius-m are not labeled (guide rule 3)')
     b.add_argument('--sidewalk-radius-m', type=float, default=SIDEWALK_RADIUS_M)

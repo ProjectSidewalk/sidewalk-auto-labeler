@@ -1,5 +1,5 @@
 """scripts/corner_labels.py (issue #169) on synthetic corners: the NA-read rule, pano choice
-(hemisphere, range, newest date), the projection round trip through geo, the exported record
+(range, the opt-in view test, newest date), the projection round trip through geo, the exported record
 and its PS payload, the registry's rule-produced NoCurbRamp spec, the ranked-CSV join, the
 seeded sample, and the pre-registered score. CPU only, no network, no torch."""
 import io
@@ -36,7 +36,7 @@ def pano(heading, e=0.0, n=0.0, date='2020-01', run='base'):
 
 def args(**kw):
     base = dict(arm='fusion', variant='primary', na_read='discount', max_range_m=25.0,
-                min_view_m=3.0, top_k=3, camera_height_m=2.5)
+                min_view_m=3.0, top_k=3, camera_height_m=2.5, hemisphere_deg=None)
     base.update(kw)
     return SimpleNamespace(**base)
 
@@ -84,21 +84,47 @@ def test_na_read_is_required_on_the_cli():
 
 # ---------------------------------------------------------------------- pano choice
 
-def test_candidate_views_hemisphere_and_range():
-    lat, lng = at(0, 10)               # the corner point, 10 m north of the origin
-    panos = {
+def _view_panos():
+    return {
         'ok': pano(0.0),                     # at the origin facing north: dead ahead
-        'side': pano(90.0, e=0, n=0),        # facing east: point at 90 deg, still forward
-        'behind': pano(180.0),               # facing south: point behind
+        'side': pano(90.0, e=0, n=0),        # facing east: point at 90 deg
+        'behind': pano(180.0),               # facing south: point dead behind
         'near': pano(0.0, n=8.5),            # 1.5 m away
         'far': pano(0.0, n=-20.0),           # 30 m away
         'nopose': dict(pano(0.0), heading=None),
     }
+
+
+def test_candidate_views_range_and_no_view_test_by_default():
+    """Since 2026-11-05 a pano facing away is a candidate: a GSV equirect sees behind the car
+    as well as ahead, and PS's pixel key wraps x."""
+    lat, lng = at(0, 10)               # the corner point, 10 m north of the origin
+    panos = _view_panos()
     cands, rej = cl.candidate_views(lat, lng, list(panos) + ['missing'], panos)
-    assert sorted(c['pano_id'] for c in cands) == ['ok', 'side']
-    assert rej == {'no_pose': 2, 'too_far': 1, 'too_near': 1, 'behind': 1}
+    assert sorted(c['pano_id'] for c in cands) == ['behind', 'ok', 'side']
+    assert rej == {'no_pose': 2, 'too_far': 1, 'too_near': 1, 'behind': 0}
     ok = next(c for c in cands if c['pano_id'] == 'ok')
     assert ok['dist_m'] == pytest.approx(10.0, abs=1e-6) and ok['off_axis_deg'] < 1e-6
+    back = next(c for c in cands if c['pano_id'] == 'behind')
+    assert back['off_axis_deg'] == pytest.approx(180.0, abs=1e-6)
+    # ...and it projects: the point lands on the seam, x 0 or 1 (PS wraps it modulo width)
+    proj = cl.project(panos['behind'], lat, lng)
+    assert min(proj.x_norm, 1.0 - proj.x_norm) == pytest.approx(0.0, abs=1e-6)
+
+
+def test_candidate_views_opt_in_hemisphere_rejects_a_rear_pano():
+    lat, lng = at(0, 10)
+    panos = _view_panos()
+    cands, rej = cl.candidate_views(lat, lng, list(panos), panos, hemisphere_deg=90.0)
+    assert sorted(c['pano_id'] for c in cands) == ['ok', 'side']      # 90 deg is still forward
+    assert rej['behind'] == 1
+    cands, rej = cl.candidate_views(lat, lng, list(panos), panos, hemisphere_deg=45.0)
+    assert [c['pano_id'] for c in cands] == ['ok'] and rej['behind'] == 2
+
+
+def test_build_refuses_a_bad_hemisphere():
+    with pytest.raises(SystemExit, match='hemisphere'):
+        cl.cmd_build(SimpleNamespace(max_range_m=25.0, hemisphere_deg=0.0))
 
 
 def test_choose_pano_prefers_newest_among_top_k():
@@ -149,15 +175,17 @@ def test_build_proposals_counts_every_reason():
         corner(0, 0, 10, panos=['p']),                                  # proposed
         corner(1, 0, 12, inv={'NA_noramp': 1}, panos=['p']),            # proposed under discount
         corner(2, 0, 14, inv={'Available': 1}, panos=['p']),            # excluded
-        corner(3, 0, -10, panos=['p']),                                 # behind -> no candidate
+        corner(3, 0, -10, panos=['p']),                                 # behind: proposed
+        corner(5, 0, 40, panos=['p']),                                  # 40 m -> no candidate
         corner(4, 5, 10, state='present', panos=['p']),                 # not absent
     ]), unit([corner(0, 0, 8, panos=['p'])], typ='mid_block', name='vancouver:mid:m000001')]
     props, unl, counts = cl.build_proposals(units, panos, NoSites(), args())
-    assert [p['key'] for p in props] == ['vancouver:res:n1#0', 'vancouver:res:n1#1']
-    assert counts['residential'] == {'corners': 5, 'absent': 4, 'excluded_inventory': 1,
+    assert [p['key'] for p in props] == ['vancouver:res:n1#0', 'vancouver:res:n1#1',
+                                         'vancouver:res:n1#3']
+    assert counts['residential'] == {'corners': 6, 'absent': 5, 'excluded_inventory': 1,
                                      'dropped_no_sidewalk': 0, 'no_candidate': 1,
-                                     'dropped_projection': 0, 'proposed': 2}
-    assert [(r['corner'], r['reason']) for r in unl] == [(2, 'inventory'), (3, 'no_candidate')]
+                                     'dropped_projection': 0, 'proposed': 3}
+    assert [(r['corner'], r['reason']) for r in unl] == [(2, 'inventory'), (5, 'no_candidate')]
     p = props[0]
     assert p['pano']['pano_id'] == 'p' and p['label_type'] == 'NoCurbRamp'
     assert p['x_normalized'] == pytest.approx(0.5, abs=1e-6)
@@ -165,8 +193,14 @@ def test_build_proposals_counts_every_reason():
     assert p['rule']['na_read'] == 'discount'
 
     props, _unl, counts = cl.build_proposals(units, panos, NoSites(), args(na_read='count'))
-    assert [p['key'] for p in props] == ['vancouver:res:n1#0']
+    assert [p['key'] for p in props] == ['vancouver:res:n1#0', 'vancouver:res:n1#3']
     assert counts['residential']['excluded_inventory'] == 2
+
+    # the opt-in forward hemisphere turns the rear corner back into no_candidate
+    props, unl, counts = cl.build_proposals(units, panos, NoSites(), args(hemisphere_deg=90.0))
+    assert [p['corner'] for p in props] == [0, 1]
+    assert [(r['corner'], r['reason']) for r in unl] == [(2, 'inventory'), (3, 'no_candidate'),
+                                                         (5, 'no_candidate')]
 
 
 def test_build_proposals_applies_a_sidewalk_layer():
@@ -370,7 +404,11 @@ def test_build_export_and_dry_run_end_to_end(tmp_path):
     assert build['counts']['proposed'] == 2 and build['sidewalk_rule'] == 'not applied'
     assert build['outputs']['proposals']['lines'] == 2 and build['pins'] == 'unpinned city'
     props = ci.read_jsonl(out / 'proposals.jsonl')
-    assert {p['pano']['pano_id'] for p in props} == {'P'}          # Q faces away
+    assert build['params']['hemisphere_deg'] is None
+    # P and Q stand at the same spot; Q faces away and is still a candidate (tie -> P)
+    assert {p['pano']['pano_id'] for p in props} == {'P'}
+    assert all(p['source']['n_candidates'] == 2 for p in props)
+    assert props[0]['source']['runner_ups'][0]['pano_id'] == "Q"
     assert props[0]['source']['nearest_site']['site_id'] == '7'
     assert (out / 'proposals.jsonl').read_bytes().count(b'\r') == 0
 
