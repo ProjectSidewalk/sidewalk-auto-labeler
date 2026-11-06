@@ -1,12 +1,12 @@
 # Corner precision gallery (#169): bundle report
 
-Built 2026-11-06T01:09:44+00:00 by `scripts/corner_gallery.py build --items-from` at `409d3098072c36c2ecf742f52317c9ece9b9d972`. Items sha256 `1735f7bd2d17c45429d219f204a70423d8d0e0297f502f8c399488f9c2f04806`.
+Built 2026-11-06T04:08:42+00:00 by `scripts/corner_gallery.py build --items-from` at `5b93bfec0b9d08587c2f8895a88be2b449a002dd`. Items sha256 `1735f7bd2d17c45429d219f204a70423d8d0e0297f502f8c399488f9c2f04806`.
 
 - Sample: `runs/vancouver/corner_labels169/na_discount_sw/sample.csv` (sha256 `de25b2896277c51df681c1ae1b8fe6277269d381950163334fbdd795b2bf44fc`), 100 corners drawn with seed 169 from 1821 proposals (random.Random(seed).sample(sorted proposal keys, n)).
 - Proposals: `runs/vancouver/corner_labels169/na_discount_sw/proposals.jsonl` (sha256 `b64e95cd75f7fc017145b05978795639e21d1e8234164b68717e29ab32b93a44`), built at `80fc070659f7c4f1b7ae2570d96491296bad5f82`, NA read `discount` (settled: True), sidewalk rule applied.
 - 99 units, 100 corners; by stratum {'arterial': 35, 'residential': 64, 'signalised': 1}. Only the sampled corners of a unit are shown and rated.
 - Views: up to 3 per corner, chosen as in gallery 243. The pano that carries the rule's label is among them at 100 of 100 corners. Corners with no view: 0.
-- Crops missing: 281 (see `CROPS_NEEDED.md`).
+- Crops missing: 0.
 - Rubric: gallery 243 v1, unchanged. Reveal: the city inventory, after completion; the blind verdicts are scored.
 - Score: `python scripts/corner_labels.py score --proposals <proposals> --sample <sample.csv> --bundle <this bundle> --verdicts <bundle>/verdicts__<rater>.json`.
 

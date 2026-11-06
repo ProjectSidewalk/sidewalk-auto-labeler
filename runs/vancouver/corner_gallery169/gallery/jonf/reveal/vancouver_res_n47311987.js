@@ -1,0 +1,1 @@
+revealInventory("vancouver:res:n47311987", {"3":[{"class":"NA_noramp","corner":null,"defect":null,"instdate":null,"lat":45.6061741902357,"lng":-122.513493901994,"owner":null,"projname":null,"ramptype":null,"status":"NA","unit_id":"CR27904"}]});
