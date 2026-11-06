@@ -274,3 +274,6 @@ docs/figures/mined-precision/data/step4/richmond_f01/*.jsonl
 !runs/*/corner_labels169/*/score*.json
 !runs/*/corner_labels169/*/export.json
 !runs/*/corner_labels169/*/dry_run_summary.txt
+# The city sidewalk layer (sidewalks/cov_sidewalks.geojson, 59 MB, not openly licensed) is NOT
+# tracked; its provenance (URL, licence, download time, sha256, bbox, counts) is.
+!runs/*/corner_labels169/sidewalks/*.source.json
