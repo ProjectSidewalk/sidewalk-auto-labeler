@@ -304,17 +304,19 @@ per line and the legacy sidecar.
 
 A dry run skips the pre-send guards. Run directly, they give:
 - `check_model_provenance`, `check_detection_decode` and `check_detection_border` pass;
-- **`check_store_built` refuses all four files.** 5,043 of 5,053 (discount), 2,671 of 2,677
+- **`check_store_built` refuses all four files on this branch.** 5,043 of 5,053 (discount), 2,671 of 2,677
   (count), 1,661 of 1,664 (discount_sw) and 1,289 of 1,292 (count_sw) records carry
   `source_detail: "ps_store"`, because the Vancouver runs were rebuilt from the PS pano store
   (#56).
 
 That guard exists so that a store-built file's CurbRamp detections, which are the city's live
 AI labels, are not inserted twice. A NoCurbRamp file built on store panos duplicates no AI
-label: these panos are on the server already, which is what makes them labelable. But the
-guard is file-level, and only `--allow-store-file` passes it. **Whether a NoCurbRamp pilot may
-use that override, or the guard should learn the label type, is a decision for review.** It is
-not taken here.
+label: these panos are on the server already, which is what makes them labelable. On this
+branch the guard is still file-level, and only `--allow-store-file` passes it. **Decided: the
+guard learns the label type.** Draft PR #179 (branch `store-guard-label-type`) makes
+`send_to_ps.check_store_built` refuse only when CurbRamp is among `file_label_types`. All four
+exports carry NoCurbRamp only, so they pass once #179 merges, without `--allow-store-file`.
+`dry_run_summary.txt` was generated before #179 and still shows the refusal.
 
 ## Caveats
 
@@ -341,10 +343,12 @@ Measured 2026-11-05 by a read-only pass over the Vancouver server's public API, 
 nothing sent: `/v3/api/rawLabels?labelType=NoCurbRamp&filetype=geojson` (fetched
 2026-11-05T23:59:40Z) and the same for `NoSidewalk` (23:59:42Z). Labels were matched by
 `pano_id` and by haversine distance, never by `label_id`. **These numbers are for the
-pre-revision proposal files** (hemisphere test on, no sidewalk layer): `na_discount`
-sha256 `1062ac646afebe23f713fb0c3eaaa0151b00046ecf017cd46755527787488281` (5,770 proposals)
-and `na_count` sha256 `07b8d0368414e1722a613ac2c368b1bb139ea01363932475b2188abb7137e5cc`
-(2,715). The measuring script and the API pulls are not committed.
+first build** (hemisphere test on, no sidewalk layer): the first build's
+`na_discount/proposals.jsonl` (commit 7fc5cbf), sha256
+`1062ac646afebe23f713fb0c3eaaa0151b00046ecf017cd46755527787488281` (5,770 proposals), and the
+first build's `na_count/proposals.jsonl` (commit 7fc5cbf), sha256
+`07b8d0368414e1722a613ac2c368b1bb139ea01363932475b2188abb7137e5cc` (2,715). Both files have
+since been rebuilt, so these sha256s do not match the current `proposals.jsonl`. The measuring script and the API pulls are not committed.
 
 - **The crowd's NoCurbRamp set is tiny.** 34 labels in the run area, from 6 users, none by the
   AI account; 27 were never validated (`correct`: 4 true, 3 false, 27 null).
