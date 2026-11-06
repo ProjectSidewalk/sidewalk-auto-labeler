@@ -10,7 +10,7 @@
  },
  "proposals": {
   "path": "proposals.jsonl",
-  "sha256": "1062ac646afebe23f713fb0c3eaaa0151b00046ecf017cd46755527787488281"
+  "sha256": "f3448df6534c223ced0a3a8861ce2e54b4e2616b80112f18888a423f58d2b4cd"
  },
  "verdicts": {
   "path": "verdicts__jonf.json",
@@ -20,28 +20,28 @@
   "rubric_version": 1
  },
  "sample": null,
- "n_proposals": 5770,
+ "n_proposals": 6131,
  "sample_keys_not_in_proposals": [],
- "n_rated": 115,
- "n": 112,
+ "n_rated": 120,
+ "n": 117,
  "present": 1,
- "absent": 111,
+ "absent": 116,
  "cant_tell": 3,
- "cant_tell_share": 0.0261,
- "precision": 0.9911,
+ "cant_tell_share": 0.025,
+ "precision": 0.9915,
  "wilson95": [
-  0.9512,
-  0.9984
+  0.9532,
+  0.9985
  ],
  "absent_kinds": {
   "curb_no_ramp": 14,
-  "no_sidewalk": 45,
-  "unspecified": 52
+  "no_sidewalk": 46,
+  "unspecified": 56
  },
- "label_precision": 0.5893,
+ "label_precision": 0.5983,
  "label_wilson95": [
-  0.4967,
-  0.676
+  0.5077,
+  0.6826
  ],
  "by_stratum": {
   "arterial": {
@@ -51,7 +51,12 @@
   },
   "residential": {
    "present": 0,
-   "absent": 83,
+   "absent": 87,
+   "cant_tell": 0
+  },
+  "signalised": {
+   "present": 0,
+   "absent": 1,
    "cant_tell": 0
   }
  },
@@ -97,6 +102,7 @@
   "vancouver:res:n2623620122#0",
   "vancouver:res:n2623620122#1",
   "vancouver:res:n3372672500#0",
+  "vancouver:res:n3372672500#2",
   "vancouver:res:n4598685562#0",
   "vancouver:res:n4598685562#1",
   "vancouver:res:n4598685562#2",
@@ -129,6 +135,8 @@
   "vancouver:res:n47240587#2",
   "vancouver:res:n47258942#0",
   "vancouver:res:n47258942#1",
+  "vancouver:res:n47267448#0",
+  "vancouver:res:n47267448#1",
   "vancouver:res:n47270098#1",
   "vancouver:res:n47278131#0",
   "vancouver:res:n47278131#1",
@@ -169,9 +177,11 @@
   "vancouver:res:n47397759#0",
   "vancouver:res:n47397759#1",
   "vancouver:res:n47397759#2",
+  "vancouver:res:n958722944#0",
   "vancouver:res:n958722944#1",
   "vancouver:res:n959123136#0",
   "vancouver:res:n959123136#1",
-  "vancouver:res:n959123136#2"
+  "vancouver:res:n959123136#2",
+  "vancouver:sig:n1642453647#0"
  ]
 }

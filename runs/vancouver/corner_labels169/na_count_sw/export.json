@@ -1,0 +1,21 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_labels.export/1",
+ "exported_at": "2026-11-06T00:07:49+00:00",
+ "proposals": {
+  "path": "proposals.jsonl",
+  "sha256": "7b3bf76231432d763ddf243db473713eb4b80161dcd27a0cf156c79327942284"
+ },
+ "provenance": {
+  "model_id": "corner-rule@aea5dc6fa00c",
+  "model_training_date": "11-05-2026",
+  "api_version": "1.0.0",
+  "model_repo": "ProjectSidewalk/sidewalk-auto-labeler",
+  "model_revision": "aea5dc6fa00c6804c49fcc162e2837b0d0de2d7f"
+ },
+ "lines": 1292,
+ "labels": 1376,
+ "output": {
+  "path": "runs\\vancouver\\corner_labels169\\na_count_sw\\results.jsonl",
+  "sha256": "32261fd1c01566f3eb21c9ee9a640e9873a909b64fb009ceb1f3b6db3d02cab7"
+ }
+}

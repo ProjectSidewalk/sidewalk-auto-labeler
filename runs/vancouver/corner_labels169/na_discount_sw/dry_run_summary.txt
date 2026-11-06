@@ -1,0 +1,12 @@
+send_to_ps.py runs/vancouver/corner_labels169/na_discount_sw/results.jsonl --dry-run (no server contacted)
+Processing complete!
+Successfully processed:        1664 records
+Skipped (already submitted):   0 records
+Errors encountered:            0 records
+Detections below --min-confidence 0.5 (not submitted): 0
+file_label_types: ['NoCurbRamp']
+labels at the NoCurbRamp operational threshold: 1821
+check_model_provenance (a real send runs it; a dry run skips it): passes
+check_detection_decode (a real send runs it; a dry run skips it): passes -> argmax
+check_detection_border (a real send runs it; a dry run skips it): passes -> exclude
+check_store_built (a real send runs it; a dry run skips it): REFUSES: 1661 record(s) in results.jsonl have source_detail "ps_store": they were rebuilt from the pano store (scripts/detect_from_store.py), and their labels are the ones already live. Sending them would duplicate them. (--allow-store-file overrides)

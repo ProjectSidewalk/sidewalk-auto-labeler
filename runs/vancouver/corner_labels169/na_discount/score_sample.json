@@ -10,7 +10,7 @@
  },
  "proposals": {
   "path": "proposals.jsonl",
-  "sha256": "1062ac646afebe23f713fb0c3eaaa0151b00046ecf017cd46755527787488281"
+  "sha256": "f3448df6534c223ced0a3a8861ce2e54b4e2616b80112f18888a423f58d2b4cd"
  },
  "verdicts": {
   "path": "verdicts__jonf.json",
@@ -21,37 +21,32 @@
  },
  "sample": {
   "path": "sample.csv",
-  "sha256": "1b99034eba7bd671f685416963f904ae5368bdfacbb325bd4ea207d747ec0721"
+  "sha256": "df1584a02a9acb7333c74b757be6667f9a3dd54273ff8e4deb05733b565533b8"
  },
  "n_proposals": 100,
  "sample_keys_not_in_proposals": [],
- "n_rated": 4,
- "n": 4,
+ "n_rated": 3,
+ "n": 3,
  "present": 0,
- "absent": 4,
+ "absent": 3,
  "cant_tell": 0,
  "cant_tell_share": 0.0,
  "precision": 1.0,
  "wilson95": [
-  0.5101,
+  0.4385,
   1.0
  ],
  "absent_kinds": {
   "curb_no_ramp": 0,
   "no_sidewalk": 1,
-  "unspecified": 3
+  "unspecified": 2
  },
- "label_precision": 0.75,
+ "label_precision": 0.6667,
  "label_wilson95": [
-  0.3006,
-  0.9544
+  0.2077,
+  0.9385
  ],
  "by_stratum": {
-  "arterial": {
-   "present": 0,
-   "absent": 1,
-   "cant_tell": 0
-  },
   "residential": {
    "present": 0,
    "absent": 3,
@@ -59,11 +54,10 @@
   }
  },
  "sample_drawn_for_rule": true,
- "verdict": "NOT SCORED (n = 4 < 100)",
+ "verdict": "NOT SCORED (n = 3 < 100)",
  "rated_keys": [
-  "vancouver:art:n47331236#0",
-  "vancouver:res:n2623620122#0",
-  "vancouver:res:n47286143#1",
-  "vancouver:res:n47287936#2"
+  "vancouver:res:n47305361#0",
+  "vancouver:res:n47318468#1",
+  "vancouver:res:n47397759#1"
  ]
 }

@@ -1,5 +1,5 @@
 stratum,corners,absent,excluded_inventory,dropped_no_sidewalk,no_candidate,dropped_projection,proposed
-signalised,1004,51,14,0,4,0,33
-arterial,4743,1754,73,0,71,0,1610
-residential,8644,4580,166,0,287,0,4127
-intersections,14391,6385,253,0,362,0,5770
+signalised,1004,51,14,0,0,0,37
+arterial,4743,1754,73,0,0,0,1681
+residential,8644,4580,166,0,1,0,4413
+intersections,14391,6385,253,0,1,0,6131

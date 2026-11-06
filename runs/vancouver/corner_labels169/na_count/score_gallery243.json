@@ -10,7 +10,7 @@
  },
  "proposals": {
   "path": "proposals.jsonl",
-  "sha256": "07b8d0368414e1722a613ac2c368b1bb139ea01363932475b2188abb7137e5cc"
+  "sha256": "84768078f279110733ae13b947308dc50aa461794d3da6246f19592c3aa07325"
  },
  "verdicts": {
   "path": "verdicts__jonf.json",
@@ -20,28 +20,28 @@
   "rubric_version": 1
  },
  "sample": null,
- "n_proposals": 2715,
+ "n_proposals": 2894,
  "sample_keys_not_in_proposals": [],
- "n_rated": 51,
- "n": 49,
+ "n_rated": 54,
+ "n": 52,
  "present": 1,
- "absent": 48,
+ "absent": 51,
  "cant_tell": 2,
- "cant_tell_share": 0.0392,
- "precision": 0.9796,
+ "cant_tell_share": 0.037,
+ "precision": 0.9808,
  "wilson95": [
-  0.8931,
-  0.9964
+  0.8988,
+  0.9966
  ],
  "absent_kinds": {
   "curb_no_ramp": 10,
-  "no_sidewalk": 18,
-  "unspecified": 20
+  "no_sidewalk": 19,
+  "unspecified": 22
  },
- "label_precision": 0.6122,
+ "label_precision": 0.6154,
  "label_wilson95": [
-  0.4725,
-  0.7357
+  0.4796,
+  0.7353
  ],
  "by_stratum": {
   "arterial": {
@@ -51,12 +51,17 @@
   },
   "residential": {
    "present": 0,
-   "absent": 31,
+   "absent": 33,
+   "cant_tell": 0
+  },
+  "signalised": {
+   "present": 0,
+   "absent": 1,
    "cant_tell": 0
   }
  },
  "sample_drawn_for_rule": false,
- "verdict": "NOT SCORED (n = 49 < 100; sample not drawn for this rule)",
+ "verdict": "NOT SCORED (n = 52 < 100; sample not drawn for this rule)",
  "rated_keys": [
   "vancouver:art:n13059332216#0",
   "vancouver:art:n1803133375#1",
@@ -83,6 +88,7 @@
   "vancouver:res:n2623620122#0",
   "vancouver:res:n2623620122#1",
   "vancouver:res:n3372672500#0",
+  "vancouver:res:n3372672500#2",
   "vancouver:res:n4598685562#1",
   "vancouver:res:n47215596#1",
   "vancouver:res:n47219489#2",
@@ -105,9 +111,11 @@
   "vancouver:res:n47362725#1",
   "vancouver:res:n47362725#2",
   "vancouver:res:n47397759#0",
+  "vancouver:res:n958722944#0",
   "vancouver:res:n958722944#1",
   "vancouver:res:n959123136#0",
   "vancouver:res:n959123136#1",
-  "vancouver:res:n959123136#2"
+  "vancouver:res:n959123136#2",
+  "vancouver:sig:n1642453647#0"
  ]
 }
