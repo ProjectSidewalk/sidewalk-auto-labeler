@@ -256,6 +256,15 @@ docs/figures/mined-precision/data/step4/richmond_f01/*.jsonl
 !runs/*/corner_inventory_posdetect241/counts.csv
 !runs/*/corner_inventory_posdetect241/false_absences.csv
 !runs/*/corner_inventory_posdetect241/gaps.csv
+# The #169 split-wide inventory (build --split-wide; amendment 2026-11-06 of
+# docs/corner-inventory.md): tracked like corner_inventory_posdetect241/.
+!runs/*/corner_inventory169_split/
+!runs/*/corner_inventory169_split/report.md
+!runs/*/corner_inventory169_split/build.json
+!runs/*/corner_inventory169_split/decision.json
+!runs/*/corner_inventory169_split/counts.csv
+!runs/*/corner_inventory169_split/false_absences.csv
+!runs/*/corner_inventory169_split/gaps.csv
 # the position-selected detection run itself: its id list is the selection's (tracked above)
 !runs/vancouver_posdetect241/store_ids.txt
 !runs/vancouver_posdetect241/sites_meta.json
@@ -277,3 +286,14 @@ docs/figures/mined-precision/data/step4/richmond_f01/*.jsonl
 # The city sidewalk layer (sidewalks/cov_sidewalks.geojson, 59 MB, not openly licensed) is NOT
 # tracked; its provenance (URL, licence, download time, sha256, bbox, counts) is.
 !runs/*/corner_labels169/sidewalks/*.source.json
+# The same four builds against the split-wide inventory (#169 revision, 2026-11-06).
+!runs/*/corner_labels169_split/
+!runs/*/corner_labels169_split/*/
+!runs/*/corner_labels169_split/*/build.json
+!runs/*/corner_labels169_split/*/counts.csv
+!runs/*/corner_labels169_split/*/unlabeled.csv
+!runs/*/corner_labels169_split/*/sample.csv
+!runs/*/corner_labels169_split/*/sample.json
+!runs/*/corner_labels169_split/*/score*.json
+!runs/*/corner_labels169_split/*/export.json
+!runs/*/corner_labels169_split/*/dry_run_summary.txt

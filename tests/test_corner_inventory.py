@@ -426,3 +426,101 @@ def test_a8_figure_rows_are_the_reads_and_refuse_drift():
     with pytest.raises(SystemExit):
         ci.a8_rows(reads_csv, {**comp, 'decision_rule': {**comp['decision_rule'],
                                                           'clean': 334}})
+
+
+# ------------------------------------------------- build --split-wide (#169, 2026-11-06)
+
+def _bisectors(legs, phantoms):
+    return [round((s + w / 2.0) % 360.0, 6) for s, w, _, _ in ci.split_sectors(legs, phantoms)]
+
+
+def test_split_wide_right_angle_t_becomes_four_corners():
+    legs = [90.0, 180.0, 270.0]
+    ph = ci.phantom_legs(legs)
+    assert ph == [0.0]
+    secs = ci.split_sectors(legs, ph)
+    assert sorted(_bisectors(legs, ph)) == [45.0, 135.0, 225.0, 315.0]
+    flags = {round((s + w / 2.0) % 360.0): (a, b) for s, w, a, b in secs}
+    assert flags[315] == (False, True) and flags[45] == (True, False)   # the far side
+    assert flags[135] == (False, False) and flags[225] == (False, False)
+    assert all(w <= ci.WIDE_SECTOR_DEG for _, w, _, _ in secs)
+
+
+def test_split_wide_near_straight_two_legs_and_x_unchanged():
+    # a through street with a slight bend: each opposite sits at (or within 10 deg of) a bound
+    for legs in ([0.0, 170.0], [5.0, 190.0], [10.0, 190.0]):
+        assert ci.phantom_legs(legs) == []
+        assert [(s, w) for s, w, _, _ in ci.split_sectors(legs, [])] == ci.corner_sectors(legs)
+    assert ci.phantom_legs(LEGS4) == []
+    assert ci.phantom_legs([]) == [] and ci.phantom_legs([45.0]) == []
+
+
+def test_split_wide_margin_rule():
+    # legs 0 / 160: both sectors wide, each opposite 20 deg inside a bound -> no split
+    assert ci.phantom_legs([0.0, 160.0]) == []
+    # T with legs 90 / x / 270: x's opposite sits (270 - x) deg inside the far bound 90
+    m = ci.SPLIT_MARGIN_DEG
+    assert ci.phantom_legs([90.0, 270.0 - m, 270.0]) == [round(90.0 - m, 6)]   # at the margin
+    assert ci.phantom_legs([90.0, 270.0 - m + 0.5, 270.0]) == []               # just inside it
+    assert ci.phantom_legs([90.0, 250.0, 270.0]) == []                         # 20 deg: no
+    # a through leg's opposite floating-point inside the other bound never splits
+    assert ci.phantom_legs([90.0, 180.0, 270.0 - 1e-9]) == [0.0]
+
+
+def test_split_wide_skewed_t_one_phantom():
+    legs = [90.0, 150.0, 270.0]
+    assert ci.phantom_legs(legs) == [330.0]
+    secs = ci.split_sectors(legs, [330.0])
+    assert [(s, w) for s, w, _, _ in secs] == [(90.0, 60.0), (150.0, 120.0), (270.0, 60.0),
+                                               (330.0, 120.0)]
+
+
+def test_split_wide_subsector_still_wide_stays_flagged():
+    # a 2-leg L at 0 / 60: the 300 deg outside gets phantoms at 180 and 240, leaving
+    # 60..180 (120), 180..240 (60), 240..360 (120) -- none wide; a 1-leg unit keeps its 360
+    idx = make_idx()
+    r = ci.describe_unit(UNIT, (0.0, 0.0), [0.0, 60.0], idx, 25.0, split_wide=True)
+    assert r['legs'] == [0.0, 60.0] and r['n_legs'] == 2
+    assert r['phantom_legs'] == [180.0, 240.0]
+    assert [c['width_deg'] for c in r['corners']] == [60.0, 120.0, 60.0, 120.0]
+    one = ci.describe_unit(UNIT, (0.0, 0.0), [45.0], idx, 25.0, split_wide=True)
+    assert one['phantom_legs'] == [] and len(one['corners']) == 1 and one['corners'][0]['wide']
+
+
+def test_split_wide_record_fields_and_corner_index():
+    idx = make_idx(sites=[(8, 8, {'site_id': 's1', 'op_panos': ['p']})])
+    r = ci.describe_unit(UNIT, (0.0, 0.0), [90.0, 180.0, 270.0], idx, 25.0, split_wide=True)
+    assert r['legs'] == [90.0, 180.0, 270.0] and r['phantom_legs'] == [0.0]
+    assert [c['corner'] for c in r['corners']] == [0, 1, 2, 3]
+    assert [c['start_deg'] for c in r['corners']] == [0.0, 90.0, 180.0, 270.0]
+    assert [(c['phantom_start'], c['phantom_end']) for c in r['corners']] == \
+        [(True, False), (False, False), (False, False), (False, True)]
+    assert not any(c['wide'] for c in r['corners'])
+    assert r['corners'][0]['site_ids'] == ['s1']      # NE site goes to the new NE corner
+
+
+def test_split_wide_off_is_the_old_record():
+    idx = make_idx(panos=[(0, 20, 'p1')], sites=[(8, 8, {'site_id': 's1', 'op_panos': ['p1']})])
+    for legs in ([90.0, 180.0, 270.0], LEGS4, [0.0, 60.0]):
+        a = ci.describe_unit(UNIT, (0.0, 0.0), legs, idx, 25.0)
+        b = ci.describe_unit(UNIT, (0.0, 0.0), legs, idx, 25.0, split_wide=False)
+        assert json.dumps(a) == json.dumps(b)
+        assert 'phantom_legs' not in a
+        assert all('phantom_start' not in c for c in a['corners'])
+        assert len(a['corners']) == len(ci.corner_sectors(legs))
+
+
+def test_split_wide_flat_columns(tmp_path):
+    idx = make_idx()
+    old = [dict(ci.describe_unit(UNIT, (0.0, 0.0), [90.0, 180.0, 270.0], idx, 25.0))]
+    new = [dict(ci.describe_unit(UNIT, (0.0, 0.0), [90.0, 180.0, 270.0], idx, 25.0,
+                                 split_wide=True))]
+    ci.write_flat(tmp_path, old, prefix='old_')
+    ci.write_flat(tmp_path, new, prefix='new_')
+    oh = (tmp_path / 'old_corners.csv').read_text().splitlines()[0].split(',')
+    nh = (tmp_path / 'new_corners.csv').read_text().splitlines()[0].split(',')
+    assert 'phantom_start' not in oh
+    assert nh[nh.index('wide') + 1:nh.index('wide') + 3] == ['phantom_start', 'phantom_end']
+    assert 'phantom_legs' in (tmp_path / 'new_units.csv').read_text().splitlines()[0]
+    rows = (tmp_path / 'new_corners.csv').read_text().splitlines()[1:]
+    assert len(rows) == 4
