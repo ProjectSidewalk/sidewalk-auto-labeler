@@ -224,6 +224,27 @@ def test_sidewalk_presence_reads_geojson(tmp_path):
     assert sp.has_sidewalk(*at(0, 12)) and not sp.has_sidewalk(*at(0, 20))
 
 
+def test_sidewalk_presence_keeps_only_the_named_statuses(tmp_path):
+    """A city layer that digitizes street sides without a sidewalk (Vancouver WA STATUS 'NA')
+    must not count those as sidewalk: --sidewalk-keep filters them out."""
+    def line(n, status):
+        a, b = at(-20, n), at(20, n)
+        return {'type': 'Feature', 'properties': {'STATUS': status},
+                'geometry': {'type': 'LineString', 'coordinates': [[a[1], a[0]], [b[1], b[0]]]}}
+    gj = {'type': 'FeatureCollection', 'features': [line(5, 'Available'), line(40, 'NA')]}
+    path = tmp_path / 'walks.geojson'
+    path.write_text(json.dumps(gj), encoding='utf-8')
+    assert cl.SidewalkPresence(path).has_sidewalk(*at(0, 40))
+    keep = cl.parse_keep(['STATUS=Available,Pathway'])
+    sp = cl.SidewalkPresence(path, keep=keep)
+    assert (sp.n_features_in_file, sp.n_features) == (2, 1)
+    assert sp.has_sidewalk(*at(0, 5)) and not sp.has_sidewalk(*at(0, 40))
+    with pytest.raises(SystemExit, match='no sidewalk geometry'):
+        cl.SidewalkPresence(path, keep={'STATUS': {'RMV'}})
+    with pytest.raises(SystemExit, match='FIELD=V1,V2'):
+        cl.parse_keep(['STATUS'])
+
+
 # ---------------------------------------------------------------------------- export
 
 PROV = {'model_id': 'corner-rule@0123456789ab', 'model_training_date': '11-05-2026',
@@ -411,6 +432,26 @@ def test_build_export_and_dry_run_end_to_end(tmp_path):
     assert props[0]['source']['runner_ups'][0]['pano_id'] == "Q"
     assert props[0]['source']['nearest_site']['site_id'] == '7'
     assert (out / 'proposals.jsonl').read_bytes().count(b'\r') == 0
+
+    # with a sidewalk layer: the file's sha256 and the keep filter land in build.json
+    a, b = at(-20, 10), at(-1, 10)       # reaches corner 0 (0, 10), not corner 1 (6, 10)
+    walks = tmp_path / 'walks.geojson'
+    walks.write_text(json.dumps({'type': 'FeatureCollection', 'features': [
+        {'type': 'Feature', 'properties': {'STATUS': s},
+         'geometry': {'type': 'LineString', 'coordinates': [[a[1], a[0]], [b[1] + d, b[0]]]}}
+        for s, d in (('Available', 0.0), ('NA', 0.001))]}), encoding='utf-8')
+    out_sw = tmp_path / 'out_sw'
+    with redirect_stdout(io.StringIO()):
+        cl.main(['build', '--city', 'testcity', '--na-read', 'discount',
+                 '--corners', str(tmp_path / 'corners_full.jsonl'), '--run-dir', str(run),
+                 '--out', str(out_sw), '--sidewalk-presence', str(walks),
+                 '--sidewalk-radius-m', '3', '--sidewalk-keep', 'STATUS=Available'])
+    bsw = json.loads((out_sw / 'build.json').read_text(encoding='utf-8'))
+    rule = bsw['sidewalk_rule']
+    assert rule['sha256'] == bsw['inputs']['sidewalk_presence']['sha256'] == ci.sha256_file(walks)
+    assert rule['keep'] == {'STATUS': ['Available']}
+    assert (rule['n_features_in_file'], rule['n_features']) == (2, 1)
+    assert bsw['counts']['proposed'] == 1 and bsw['counts']['dropped_no_sidewalk'] == 1
 
     build['tool']['git_sha'] = 'b' * 40          # the test tree may be uncommitted
     build['tool']['dirty'] = False

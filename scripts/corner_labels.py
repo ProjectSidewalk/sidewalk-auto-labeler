@@ -318,9 +318,14 @@ class SidewalkPresence:
     sidewalk-presence layer, SidewalkWebpage#5279) lies within radius_m of its corner point.
     shapely is imported only here, and must be >= 2 (requirements.txt pins it): STRtree.query
     then returns integer indices into the tree's geometries, which has_sidewalk relies on
-    (shapely 1.x returned the geometries themselves). Contract: docs/corner-labels-169.md."""
+    (shapely 1.x returned the geometries themselves). Contract: docs/corner-labels-169.md.
 
-    def __init__(self, path, radius_m=SIDEWALK_RADIUS_M):
+    keep ({field: {values}}, from --sidewalk-keep) keeps only the features whose property
+    holds one of the values, e.g. {'STATUS': {'Available', 'Pathway', 'Private'}} for a city
+    layer that also digitizes street sides WITHOUT a sidewalk (Vancouver WA's STATUS 'NA').
+    n_features counts the kept features, n_features_in_file all of them."""
+
+    def __init__(self, path, radius_m=SIDEWALK_RADIUS_M, keep=None):
         from shapely.geometry import Point, shape
         from shapely.ops import transform
         from shapely.strtree import STRtree
@@ -328,9 +333,14 @@ class SidewalkPresence:
         if int(shapely.__version__.split('.')[0]) < 2:
             raise SystemExit(f'--sidewalk-presence needs shapely >= 2, found {shapely.__version__}')
         feats = json.loads(Path(path).read_text(encoding='utf-8'))['features']
+        self.n_features_in_file = len(feats)
+        if keep:
+            feats = [f for f in feats if all((f.get('properties') or {}).get(k) in vals
+                                             for k, vals in keep.items())]
         geoms = [shape(f['geometry']) for f in feats if f.get('geometry')]
         if not geoms:
-            raise SystemExit(f'{path}: no sidewalk geometry')
+            raise SystemExit(f'{path}: no sidewalk geometry'
+                             + (f' after --sidewalk-keep {keep}' if keep else ''))
         c = geoms[0].representative_point()
         self.frame = geo.LocalFrame(c.y, c.x)
         self.geoms = [transform(lambda xs, ys: _enu_coords(self.frame, xs, ys), g)
@@ -347,6 +357,23 @@ class SidewalkPresence:
             if self.geoms[int(i)].distance(pt) <= self.radius_m:
                 return True
         return False
+
+
+def parse_keep(specs):
+    """--sidewalk-keep 'FIELD=V1,V2' (repeatable) -> {FIELD: {V1, V2}}; None when none given.
+
+    >>> sorted(parse_keep(['STATUS=Available,Pathway'])['STATUS'])
+    ['Available', 'Pathway']
+    """
+    if not specs:
+        return None
+    keep = {}
+    for spec in specs:
+        field, sep, vals = spec.partition('=')
+        if not sep or not field or not vals:
+            raise SystemExit(f'--sidewalk-keep {spec!r}: expected FIELD=V1,V2')
+        keep.setdefault(field, set()).update(v for v in vals.split(',') if v)
+    return keep
 
 
 def _enu_coords(frame, xs, ys):
@@ -543,7 +570,10 @@ def cmd_build(args):
     wanted = {pid for u in units for c in u.get('corners') or () for pid in
               c.get('pano_ids_25') or ()}
     panos = load_pano_index(results_paths, wanted)
-    sidewalks = (SidewalkPresence(args.sidewalk_presence, args.sidewalk_radius_m)
+    keep = parse_keep(getattr(args, 'sidewalk_keep', None))
+    if keep and not args.sidewalk_presence:
+        raise SystemExit('--sidewalk-keep needs --sidewalk-presence')
+    sidewalks = (SidewalkPresence(args.sidewalk_presence, args.sidewalk_radius_m, keep)
                  if args.sidewalk_presence else None)
 
     proposals, unlabeled, counts = build_proposals(units, panos, SiteIndex(sites), args,
@@ -565,7 +595,12 @@ def cmd_build(args):
                    'camera_height_m': args.camera_height_m, 'hemisphere_deg': args.hemisphere_deg,
                    'site_search_m': SITE_SEARCH_M, 'n_runner_ups': N_RUNNER_UPS},
         'sidewalk_rule': ({'applied': True, 'radius_m': args.sidewalk_radius_m,
-                           'n_features': sidewalks.n_features} if sidewalks else 'not applied'),
+                           'path': str(inputs['sidewalk_presence']),
+                           'sha256': in_rec['sidewalk_presence']['sha256'],
+                           'keep': ({k: sorted(v) for k, v in keep.items()} if keep else None),
+                           'n_features_in_file': sidewalks.n_features_in_file,
+                           'n_features': sidewalks.n_features}
+                          if sidewalks else 'not applied'),
         'per_direction_arm': 'not built (no crossing-line source in the run dirs)',
         'inputs': in_rec, 'pins': pins, 'extra_runs': extra_recs,
         'counts': {'units': len(units), 'panos_indexed': len(panos), 'operational_sites': len(sites),
@@ -936,6 +971,10 @@ def main(argv=None):
     b.add_argument('--sidewalk-presence', help='GeoJSON of sidewalk geometry; corners with none '
                    'within --sidewalk-radius-m are not labeled (guide rule 3)')
     b.add_argument('--sidewalk-radius-m', type=float, default=SIDEWALK_RADIUS_M)
+    b.add_argument('--sidewalk-keep', action='append', metavar='FIELD=V1,V2',
+                   help='keep only sidewalk features whose FIELD is one of the values '
+                   '(repeatable; recorded in build.json). Vancouver WA: '
+                   'STATUS=Available,Pathway,Private')
     b.add_argument('--allow-unpinned', action='store_true',
                    help='build on inputs whose sha256 differs from PINNED_SHA256 (recorded)')
     b.set_defaults(fn=cmd_build)
