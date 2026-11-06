@@ -1,0 +1,1 @@
+revealInventory("vancouver:art:n47342408", {"3":[{"class":"NA_noramp","corner":null,"defect":null,"instdate":null,"lat":45.6448031227579,"lng":-122.676896926998,"owner":null,"projname":null,"ramptype":null,"status":"NA","unit_id":"CR21222"}]});
