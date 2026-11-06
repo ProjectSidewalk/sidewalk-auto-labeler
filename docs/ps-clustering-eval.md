@@ -560,7 +560,9 @@ with pano-tools' `<id>.depth.npz` beside each JPEG), and
    From here on **main.py refuses `runs/vancouver`** (its manifest carries `pixels`), and
    **`send_to_ps.py` refuses the file**: its >= 0.55 detections are the labels already live,
    and PS is insert-only ([SidewalkWebpage#5382](https://github.com/ProjectSidewalk/SidewalkWebpage/issues/5382)).
-   `--allow-store-file` overrides that; nothing in this runbook needs it.
+   `--allow-store-file` overrides that; nothing in this runbook needs it. The guard is
+   type-aware: a store-built file with no CurbRamp labels (e.g. NoCurbRamp only) duplicates no
+   AI label and passes, with the reason in the submission record's `store_built` (#169).
 4. **Provenance gate**: `python scripts/provenance_gate.py vancouver --rule pixel-96`. The rule
    below is `--rule pixel-96`; since [#111](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/111) (2026-09-30) the
    script's default is `--rule coarse-cell`, which matches within one coarse heatmap cell and is
