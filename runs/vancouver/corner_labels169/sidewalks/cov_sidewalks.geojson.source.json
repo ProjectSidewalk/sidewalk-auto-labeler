@@ -1,0 +1,93 @@
+{
+ "schema": "sidewalk-auto-labeler.source/1",
+ "what": "City of Vancouver, Washington (Clark County) sidewalk centrelines, public view layer; the sidewalk layer for scripts/corner_labels.py --sidewalk-presence (issue #169)",
+ "city": "Vancouver, Washington, USA",
+ "layer_url": "https://services.arcgis.com/oNvpY90qsPDizwkN/arcgis/rest/services/COV_TransSidewalk_View/FeatureServer/0",
+ "layer_name": "Sidewalks",
+ "portal": "https://www.arcgis.com/home/item.html?id=6506a0f173bf4329aaa0baac61b61877",
+ "item": "6506a0f173bf4329aaa0baac61b61877",
+ "item_title": "City of Vancouver Sidewalks (View)",
+ "item_description": "A view layer based on sidewalks feature data from Clark County GIS and transportation updated weekly. Any personally identifiable information has been removed from this view.",
+ "publisher": "City of Vancouver, WA (CityOfVancouverGISAdmin); accessInformation: Clark County GIS",
+ "sibling_of": "COV_TransCurbRamp (the curb-ramp inventory of runs/vancouver/inventory_oracle/inventory.json), same AGOL org oNvpY90qsPDizwkN",
+ "licence": "City of Vancouver GIS Data Terms of Use (item licenseInfo): limited, non-exclusive licence to access the data for personal use; may not sell, reproduce or distribute it; provided as is. Not an open licence. The file is therefore NOT committed (gitignored); it is cited and used for analysis, as the curb-ramp inventory is.",
+ "downloaded_utc": "2026-11-06T00:01:02Z",
+ "layer_data_last_edit_utc_ms": 1793877054220,
+ "query": {
+  "where": "1=1",
+  "geometry": "-122.774563,45.577389,-122.46456,45.698004",
+  "geometryType": "esriGeometryEnvelope",
+  "inSR": 4326,
+  "spatialRel": "esriSpatialRelIntersects",
+  "outFields": "*",
+  "outSR": 4326,
+  "orderByFields": "OBJECTID",
+  "f": "geojson"
+ },
+ "page_size": 2000,
+ "pages": 38,
+ "query_note": "all features intersecting the bbox of runs/vancouver/area.geojson (the bbox inventory.json used), outSR 4326, all fields, paged by resultOffset ordered by OBJECTID; OBJECTIDs asserted unique. Layer total at download: 75,352.",
+ "bbox_query_wgs84": [
+  -122.774563,
+  45.577389,
+  -122.46456,
+  45.698004
+ ],
+ "bbox_data_wgs84": [
+  -122.765798,
+  45.583781,
+  -122.463797,
+  45.694834
+ ],
+ "file": "cov_sidewalks.geojson",
+ "sha256": "11503ed4cd7def77749c8443143f2bce73e556e8543fc17d1981a514f7bf0eff",
+ "bytes": 59495102,
+ "features": 75349,
+ "geometry_types": {
+  "LineString": 75349
+ },
+ "histogram_STATUS": {
+  "Available": 45083,
+  "NA": 28203,
+  "RMV": 1105,
+  "Pathway": 475,
+  "CONST": 263,
+  "Private": 202,
+  "None": 15,
+  "Clarify": 3
+ },
+ "histogram_STATUS_UNITTYPE": {
+  "NA|None": 28189,
+  "Available|DETACHED": 22042,
+  "Available|ATTACHED": 20443,
+  "Available|None": 2551,
+  "RMV|DETACHED": 407,
+  "Pathway|DETACHED": 381,
+  "RMV|None": 368,
+  "RMV|ATTACHED": 330,
+  "CONST|DETACHED": 201,
+  "Private|DETACHED": 92,
+  "Private|ATTACHED": 84,
+  "Pathway|None": 73,
+  "Available|THROUGH": 47,
+  "CONST|None": 35,
+  "CONST|ATTACHED": 27,
+  "Private|None": 26,
+  "Pathway|ATTACHED": 21,
+  "None|DETACHED": 8,
+  "NA|ATTACHED": 7,
+  "NA|DETACHED": 7,
+  "None|ATTACHED": 5,
+  "Clarify|DETACHED": 2,
+  "None|None": 2,
+  "Clarify|None": 1
+ },
+ "keep_used": {
+  "STATUS": [
+   "Available",
+   "Pathway",
+   "Private"
+  ]
+ },
+ "keep_note": "STATUS 'NA' (28,203) carries no UNITTYPE (attached/detached) in all but 14 features, and is read as a street side digitized WITHOUT a sidewalk, as 'NA' with no RAMPTYPE is read in the curb-ramp layer (corner-inventory amendment A6). RMV (removed), CONST (under construction), Clarify and null are not counted as sidewalk either. Chosen before any build with the layer; see docs/corner-labels-169.md."
+}

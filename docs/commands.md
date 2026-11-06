@@ -632,6 +632,18 @@ python scripts/corner_inventory.py build --run-dir ../sal-vancouver/runs/vancouv
     --units224 ../RampNet/benchmark/vancouver/cluster_review/corners.jsonl \
     --out runs/vancouver/corner_inventory
 python scripts/corner_inventory.py score --out runs/vancouver/corner_inventory
+# --split-wide (#169, 2026-11-06; amendment of that date in docs/corner-inventory.md; default
+# OFF, so the build above reproduces byte for byte): every sector > 150 deg gets a phantom leg
+# at L + 180 for each real leg L whose opposite is >= 30 deg inside both bounds, so a T's far
+# side is two corners (one per crossing landing). Records add phantom_legs / phantom_start /
+# phantom_end. The #169 revision's table, on the #241 inputs, as run from a worktree under
+# D:/Git/labeler-wt/ (hence ../../ for the sibling repos and ../posdetect241 for the #241 runs):
+python scripts/corner_inventory.py build --split-wide --run-dir ../../sal-vancouver/runs/vancouver \
+    --osm ../../sal-cluster-review/runs/vancouver/cluster_review/osm.json \
+    --units224 ../../RampNet/benchmark/vancouver/cluster_review/corners.jsonl \
+    --extra-run ../posdetect241/runs/vancouver_posdetect241 \
+    --extra-run ../posdetect241/runs/vancouver_posdetect241_gsv \
+    --out runs/vancouver/corner_inventory169_split
 python scripts/corner_inventory.py census --out runs/vancouver/corner_inventory   # network
 python scripts/corner_inventory.py score-assignments --out runs/vancouver/corner_inventory \
     --assignments ../RampNet/benchmark/vancouver/cluster_review/assignments.json
@@ -666,6 +678,55 @@ python scripts/eval_ps_clustering.py vancouver --no-gt --ai-user 51b0b927-3c8a-4
 #   ...the same with --camera-height-m auto / per-pano -> ps_clustering_eval_{auto,per-pano}/
 python scripts/eval_ps_clustering.py vancouver --offline --no-gt --min-confidence 0.3     --streets $P/streets.geojson      # exploratory; and at 0.55
 python scripts/inventory_clustering.py score vancouver                # descriptive, no verdict
+```
+
+## NoCurbRamp labels from absent corners (#169)
+
+Write-up: [corner-labels-169.md](corner-labels-169.md). One NoCurbRamp proposal per corner
+that is absent in the #241 corner table under `--arm/--variant` (default `fusion/primary`) and
+not excluded by the inventory under `--na-read`. The flag is REQUIRED: `count` = any inventory
+point excludes; `discount` = `NA` with no `RAMPTYPE` does not. Gallery 243 settled `discount` as
+primary (PR #180); `--na-read-settled` records that in `build.json`. The pilot build is
+`na_discount_sw`. The label goes on the newest of the 3 nearest panos (3-25 m, any direction; the old
+forward-hemisphere test is opt-in as `--hemisphere-deg 90`) at the `geo.ground_point_to_pano`
+projection, 2.5 m camera. Vancouver's recommended build adds the city sidewalk layer
+(`na_<read>_sw/`; source and the `STATUS` filter in the write-up); the GeoJSON is not
+committed, its provenance is.
+
+Rules of use:
+
+- `export` refuses proposals that do not match the `build.json` beside them, or a build from a
+  dirty tool.
+- `rank` takes validator-ai's ranked CSV (#69; columns by flag) and drops nothing.
+- `score` prints PASS/FAIL only on a sample drawn for the rule (`--sample`) with n >= 100.
+- **Nothing is submitted under #169.** `send_to_ps.py` dry runs only. A real send of a Vancouver
+  file trips `check_store_built` (store-built panos), which is a decision for review.
+
+```bash
+D=runs/vancouver/corner_labels169/na_discount_sw  # na_count_sw with --na-read count; no layer: na_<read>
+python scripts/corner_labels.py build --na-read discount --na-read-settled     --corners ../posdetect241/runs/vancouver/corner_inventory_posdetect241/corners_full.jsonl     --run-dir ../../sal-vancouver/runs/vancouver     --extra-run ../posdetect241/runs/vancouver_posdetect241     --extra-run ../posdetect241/runs/vancouver_posdetect241_gsv --out $D     --sidewalk-presence runs/vancouver/corner_labels169/sidewalks/cov_sidewalks.geojson     --sidewalk-keep STATUS=Available,Pathway,Private   # [--sidewalk-radius-m 10] [--hemisphere-deg 90]
+python scripts/corner_labels.py sample --proposals $D/proposals.jsonl --out $D/sample.csv   # seed 169
+python scripts/corner_labels.py rank --dir $D --ranked-csv ranked.csv   # -> proposals.ranked.jsonl
+python scripts/corner_labels.py export --dir $D [--proposals $D/proposals.ranked.jsonl]
+python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv     --verdicts runs/vancouver/corner_gallery243/verdicts__jonf.json --out $D/score_sample.json
+# the pre-registered precision gallery over the pilot sample (crops are cut on makelab2)
+python scripts/corner_gallery.py build --items-from $D/sample.csv     --corners-full ../posdetect241/runs/vancouver/corner_inventory_posdetect241/corners_full.jsonl     --bundle runs/vancouver/corner_gallery169   # [--no-crops]
+python scripts/corner_gallery.py render --bundle runs/vancouver/corner_gallery169 --rater jonf
+python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv     --bundle runs/vancouver/corner_gallery169 --verdicts runs/vancouver/corner_gallery169/verdicts__jonf.json
+python send_to_ps.py $D/results.jsonl --dry-run
+# THE REVISED TEST (2026-11-06, docs/corner-labels-169.md "Pre-registration revision"): the same
+# four builds on the split-wide table (corner_labels.py pins both corners_full files), its
+# sample, and the bundle with 6 landscape views per corner and rubric v2. corner_gallery.py
+# build: --views-per-corner N (default 3), --crop-aspect (default 1 = square; 2 = landscape,
+# --crop-fov-deg wide x half that tall, --crop-px wide), --rubric-version (default: the
+# bundle's snapshot, else 2). An unset flag keeps the bundle's recorded value, so re-running a
+# build to cut crops never changes it. Phantom legs are dashed on the aerial.
+D=runs/vancouver/corner_labels169_split/na_discount_sw; B=runs/vancouver/corner_gallery169_split
+python scripts/corner_labels.py build --na-read discount --na-read-settled     --corners runs/vancouver/corner_inventory169_split/corners_full.jsonl     --run-dir ../../sal-vancouver/runs/vancouver     --extra-run ../posdetect241/runs/vancouver_posdetect241     --extra-run ../posdetect241/runs/vancouver_posdetect241_gsv --out $D     --sidewalk-presence runs/vancouver/corner_labels169/sidewalks/cov_sidewalks.geojson     --sidewalk-keep STATUS=Available,Pathway,Private
+python scripts/corner_labels.py sample --proposals $D/proposals.jsonl --out $D/sample.csv   # seed 169
+python scripts/corner_gallery.py build --items-from $D/sample.csv     --corners-full runs/vancouver/corner_inventory169_split/corners_full.jsonl --bundle $B     --views-per-corner 6 --crop-aspect 2 --crop-fov-deg 120 --crop-px 896
+python scripts/corner_gallery.py render --bundle $B --rater jonf
+python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv     --bundle $B --verdicts $B/verdicts__jonf.json --out $D/score_gallery169.json
 ```
 
 ## Runs rebuilt from the pano store; provenance gate

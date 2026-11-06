@@ -41,7 +41,8 @@ def test_curb_ramp_spec_references_the_module_constants():
     assert (s.storage_floor, s.operational_confidence, s.benchmark_confidence, s.mask_rig) \
         == (DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE, BENCHMARK_CONFIDENCE, True)
     assert (s.module, s.cls) == ('detectors.curb_ramp', 'CurbRampDetector')
-    assert list(reg.SPECS) == ['CurbRamp']
+    # NoCurbRamp (#169) is rule-produced (scripts/corner_labels.py); CurbRamp stays first.
+    assert list(reg.SPECS) == ['CurbRamp', 'NoCurbRamp']
 
 
 def test_spec_for_unknown_lists_known_types():

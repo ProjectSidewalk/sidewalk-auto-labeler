@@ -68,6 +68,11 @@ LEG_LINK_DEG = 60.0     # a *_link leg joins the nearest non-link leg within thi
 ONEWAY_VALUES = frozenset({'yes', '1', '-1', 'true', 'reverse'})
 CORNER_OFFSET_M = 12.0
 WIDE_SECTOR_DEG = 150.0
+# build --split-wide (#169 pilot, 2026-11-06; docs/corner-inventory.md amendment of that date):
+# a phantom leg goes at the opposite of a real leg when that opposite lies inside a wide sector
+# at least this far from both of its bounds. A through leg's opposite sits at (or floating-point
+# just inside) the other bound of a ~180 deg sector and must not split; a T stem's sits ~90 deg in.
+SPLIT_MARGIN_DEG = LEG_MERGE_DEG
 OBS_NEAR_M = 15.0
 INTERSECTION_STRATA = ('signalised', 'arterial', 'residential')
 ARMS = ('fusion', 'deployed')
@@ -363,6 +368,46 @@ def corner_sectors(legs):
     return out
 
 
+def phantom_legs(legs, wide_deg=WIDE_SECTOR_DEG, margin_deg=SPLIT_MARGIN_DEG):
+    """The phantom legs of build --split-wide: for every sector of the real legs wider than
+    wide_deg, the opposite bearing (L + 180) of each real leg L that falls inside it at least
+    margin_deg from both bounds. Phantoms in one sector closer than margin_deg to each other
+    merge to their circular mean (merge_bearings). Fewer than two real legs: none (there is
+    no sector to split). Returns bearings, ascending.
+
+    >>> phantom_legs([90.0, 180.0, 270.0])     # right-angle T: the stem continued
+    [0.0]
+    >>> phantom_legs([0.0, 170.0])             # near-straight: opposites sit at the bounds
+    []
+    """
+    if len(legs) < 2:
+        return []
+    out = []
+    for start, width in corner_sectors(legs):
+        if width <= wide_deg:
+            continue
+        inside = []
+        for leg in legs:
+            o = (leg + 180.0) % 360.0
+            off = (o - start) % 360.0
+            if off >= margin_deg and width - off >= margin_deg:
+                inside.append(o)
+        out += merge_bearings(inside, margin_deg)
+    return sorted(round(b, 6) % 360.0 for b in out)
+
+
+def split_sectors(legs, phantoms):
+    """corner_sectors over real + phantom bounds: [(start, width, phantom_start, phantom_end)],
+    the flags saying which bound of each sector is a phantom leg."""
+    ph = set(phantoms)
+    bounds = sorted(set(legs) | ph)
+    out = []
+    for i, (start, width) in enumerate(corner_sectors(bounds)):
+        end = bounds[(i + 1) % len(bounds)] if len(bounds) >= 2 else start
+        out.append((start, width, start in ph, end in ph))
+    return out
+
+
 def sector_index(bearing, sectors):
     """Index of the sector holding a bearing (a bearing on a leg goes to the sector it
     starts)."""
@@ -438,9 +483,14 @@ class Points:
 
 
 def describe_unit(unit, centre_en, legs, idx, obs_m, window_m=ecr.WINDOW_M,
-                  corners=True):
+                  corners=True, split_wide=False):
     """The record of one unit: unit-level and (when corners) corner-level counts and
-    states. idx: {'panos', 'sites', 'clusters', 'inventory'} Points objects."""
+    states. idx: {'panos', 'sites', 'clusters', 'inventory'} Points objects.
+
+    split_wide (build --split-wide): sectors are formed over the real legs plus
+    phantom_legs(legs); the record gains `phantom_legs` and each corner `phantom_start` /
+    `phantom_end`. `legs` / `n_legs` stay the real legs. Off, the record is byte-for-byte the
+    pre-split one (no new key)."""
     ce, cn = centre_en
     pano_r = obs_m + (CORNER_OFFSET_M if corners else 0.0)
     near_panos = idx['panos'].within_en(ce, cn, pano_r + 1e-9)
@@ -469,7 +519,14 @@ def describe_unit(unit, centre_en, legs, idx, obs_m, window_m=ecr.WINDOW_M,
                     for a in ARMS for v in VARIANTS}
     if not corners:
         return rec
-    secs = corner_sectors(legs)
+    if split_wide:
+        phantoms = phantom_legs(legs)
+        rec['phantom_legs'] = phantoms
+        flagged = split_sectors(legs, phantoms)
+        secs = [(s, w) for s, w, _, _ in flagged]
+    else:
+        flagged = None
+        secs = corner_sectors(legs)
 
     def by_sector(points, ks):
         out = [[] for _ in secs]
@@ -495,6 +552,8 @@ def describe_unit(unit, centre_en, legs, idx, obs_m, window_m=ecr.WINDOW_M,
                                       for p in idx['sites'].payload[k]['op_panos']}),
              'cluster_ids': [idx['clusters'].payload[k] for k in s_clus[i]],
              'inventory': [idx['inventory'].payload[k] for k in s_inv[i]]}
+        if flagged is not None:
+            c['phantom_start'], c['phantom_end'] = flagged[i][2], flagged[i][3]
         c['inv_counts'] = {cl: sum(1 for x in c['inventory'] if x['class'] == cl)
                            for cl in INV_CLASSES}
         ov = observed_variants(c['n_panos_25'], c['n_panos_15'])
@@ -626,6 +685,7 @@ def cmd_build(args):
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     city = args.city
+    split_wide = bool(getattr(args, 'split_wide', False))
     inputs = {}
 
     def rec_input(name, path):
@@ -717,7 +777,8 @@ def cmd_build(args):
         else:
             legs = merge_legs(leg_bearings(c['node_ids'], centre, adj, pos_en,
                                            edge_tags=etags))
-            records.append(describe_unit(base, centre, legs, idx, obs_m))
+            records.append(describe_unit(base, centre, legs, idx, obs_m,
+                                         split_wide=split_wide))
     steps.append({'step': 'describe', 'seconds': round(time.time() - t, 1),
                   'note': f'{len(records)} units'})
 
@@ -744,7 +805,7 @@ def cmd_build(args):
                     if tuple(sorted(line['node_ids'])) in elig else None
                 legs = merge_legs(leg_bearings(line['node_ids'], centre, adj, pos_en,
                                                edge_tags=etags))
-                r = describe_unit(base, centre, legs, idx, obs_m)
+                r = describe_unit(base, centre, legs, idx, obs_m, split_wide=split_wide)
             u224.append(r)
         write_jsonl_lf(out / 'corners_224.jsonl', u224)
         write_flat(out, u224, prefix='corners_224_')
@@ -760,7 +821,8 @@ def cmd_build(args):
                         'leg_link_deg': LEG_LINK_DEG, 'corner_offset_m': CORNER_OFFSET_M,
                         'wide_sector_deg': WIDE_SECTOR_DEG, 'obs_m': obs_m,
                         'obs_near_m': OBS_NEAR_M, 'window_m': ecr.WINDOW_M,
-                        'min_confidence': meta['params']['min_confidence']},
+                        'min_confidence': meta['params']['min_confidence'],
+                        'split_wide': split_wide, 'split_margin_deg': SPLIT_MARGIN_DEG},
              'candidates': cand_stats,
              'counts': {'panos': len(panos), 'operational_sites': len(meta_sites),
                         'clusters': len(clusters), 'inventory_points': len(inv_items),
@@ -768,6 +830,13 @@ def cmd_build(args):
              'steps': steps, 'seconds': round(time.time() - t0, 1)}
     if extra_recs:
         build['extra_runs'] = extra_recs
+    if split_wide:
+        ints = [r for r in records if r['type'] in INTERSECTION_STRATA]
+        build['split'] = {
+            'units_with_phantoms': sum(1 for r in ints if r['phantom_legs']),
+            'phantom_legs': sum(len(r['phantom_legs']) for r in ints),
+            'corners': sum(len(r['corners']) for r in ints),
+            'wide_corners': sum(1 for r in ints for c in r['corners'] if c['wide'])}
     (out / 'build.json').write_text(json.dumps(build, indent=1) + '\n', encoding='utf-8',
                                     newline='\n')
     print(f"built {len(records)} units ({build['seconds']} s) -> {out}")
@@ -784,11 +853,18 @@ def write_flat(out, records, prefix=''):
                'site_ids', 'site_pano_ids'] + [f'inv_{c}' for c in INV_CLASSES] + \
         [f'inv_{a.lower()}' for a in INV_ATTRS] + \
         [f'state_{a}_{v}' for a in ARMS for v in VARIANTS]
+    split = any('phantom_legs' in r for r in records)
+    if split:                        # build --split-wide only; the default files are unchanged
+        ufields.insert(ufields.index('legs') + 1, 'phantom_legs')
+        w = cfields.index('wide') + 1
+        cfields[w:w] = ['phantom_start', 'phantom_end']
     urows, crows = [], []
     for r in records:
         u = {k: r.get(k) for k in ufields}
         u['lat'], u['lng'] = r6(r['lat']), r6(r['lng'])
         u['legs'] = ';'.join(f'{b:.1f}' for b in r['legs'])
+        if split:
+            u['phantom_legs'] = ';'.join(f'{b:.1f}' for b in r.get('phantom_legs', ()))
         u['n_sites'], u['n_clusters'] = len(r['site_ids']), len(r['cluster_ids'])
         for c in INV_CLASSES:
             u[f'inv_{c}'] = r['inv_counts'][c]
@@ -798,6 +874,9 @@ def write_flat(out, records, prefix=''):
         urows.append(u)
         for c in r.get('corners', ()):
             row = {k: c.get(k) for k in cfields}
+            if split:
+                row['phantom_start'] = int(c.get('phantom_start', False))
+                row['phantom_end'] = int(c.get('phantom_end', False))
             row.update({'unit': r['unit'], 'type': r['type'], 'wide': int(c['wide']),
                         'n_sites': len(c['site_ids']), 'n_clusters': len(c['cluster_ids']),
                         'site_ids': ';'.join(str(s) for s in c['site_ids']),
@@ -1105,7 +1184,11 @@ def cmd_score(args):
           f"corners {n_corners} (wide > 150 deg: "
           f"{sum(1 for r in ints for c in r['corners'] if c['wide'])}); mid-block points "
           f"{sum(1 for r in records if r['type'] == 'mid_block')}",
-          f"- legs per intersection unit: {dict(sorted(leg_hist.items()))}",
+          f"- legs per intersection unit: {dict(sorted(leg_hist.items()))}"
+          + (f"; --split-wide: {sum(len(r.get('phantom_legs', ())) for r in ints)} phantom "
+             f"legs at {sum(1 for r in ints if r.get('phantom_legs'))} units (margin "
+             f"{build['params'].get('split_margin_deg')} deg)"
+             if build['params'].get('split_wide') else ''),
           f"- panos {build['counts']['panos']}, operational sites "
           f"{build['counts']['operational_sites']}, deployed clusters "
           f"{build['counts']['clusters']}, inventory points {build['counts']['inventory_points']}",
@@ -1795,6 +1878,12 @@ def main(argv=None):
                         'operational fused sites as present (results.jsonl + sites.jsonl + '
                         'sites_meta.json); its deployed arm is emulated at DEPLOYED_TIER. '
                         'Repeatable.')
+    b.add_argument('--split-wide', action='store_true',
+                   help='#169: split every sector wider than WIDE_SECTOR_DEG at phantom legs '
+                        '(the opposite of a real leg falling inside it at least '
+                        'SPLIT_MARGIN_DEG from both bounds), so the far side of a T becomes '
+                        'the two corners where crossings land. Default off (RampNet#238 '
+                        'numbers reproduce).')
     s = sub.add_parser('score')
     s.add_argument('--out', required=True)
     c = sub.add_parser('census')
