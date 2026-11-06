@@ -762,7 +762,9 @@ them). Everything else (items, snapshot, aerials, report) is built.
 ## Option A, one command (recommended)
 
 From this worktree on the Windows desktop, with the makelab2 helper working
-(`D:\\Git\\dotfiles\\wsl-ssh.ps1 makelab2 check`), re-run the same build without `--no-crops`.
+(`D:\\Git\\dotfiles\\wsl-ssh.ps1 makelab2 check`) and the analysis extras installed
+(`pip install pandas scipy haversine`; `split_figures` needs them), re-run the same build
+without `--no-crops`.
 It keeps `items.jsonl` (same unit list), cuts the crops on makelab2 with the crop worker
 (`site_explorer.CROP_WORKER`, staged under `/homes/gws/jonf/.sidewalk_explorer/<hash>` and
 removed afterwards), pulls them back as one tarball, then rewrites `images.sha256`,
