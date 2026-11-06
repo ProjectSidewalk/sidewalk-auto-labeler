@@ -1,0 +1,175 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_gallery/1",
+ "city": "vancouver",
+ "items_sha256": "1735f7bd2d17c45429d219f204a70423d8d0e0297f502f8c399488f9c2f04806",
+ "rater": "jonf",
+ "rubric_version": 1,
+ "rubric": "Rubric v1 (RampNet#243). Rate every corner of the unit from the crops and the aerial.\n\nThe unit is an OSM intersection. Its legs (white lines on the aerial) split it into corners,\nnumbered clockwise from north. A corner is the sector between two adjacent legs; its marker\non the aerial and the orange ring in each crop is the corner point, 12 m from the centre\nalong the sector's bisector. A ramp can sit several metres from that point; judge the whole\ncorner of the sector (the curb return and the crossings that land on it), not the point.\n\npresent   at least one curb ramp serving pedestrians at this corner is visible: a cut in the\n          curb with a sloped walking surface down to street level, of any type (perpendicular,\n          parallel, diagonal at the apex, blended / depressed corner). A diagonal ramp counts\n          for the corner whose sector holds it.\nabsent    the corner is visible well enough to judge and has no curb ramp. Say which, when\n          you can: `curb_no_ramp` (a sidewalk reaches the corner and the curb there has no\n          cut), or `no_sidewalk` (no sidewalk reaches the corner, so there is nothing to ramp\n          from: a lawn, gravel or a shoulder to the street edge, with or without a curb).\n          A driveway apron is not a curb ramp.\ncant_tell the corner cannot be judged: hidden by vehicles, vegetation or shadow; out of\n          frame; too far or blurred; under construction; or the sector is not a real street\n          corner (an OSM artifact, a parking lot). Say why in the unit note.\n\nUse the newest crop that shows the corner clearly. If crops of different years disagree\n(a ramp appears in a later year), rate what the newest clear crop shows and say so in the\nnote. The city inventory is shown only after the unit is completed; the verdicts given\nbefore that are kept as `blind` and are what is scored. Changing a verdict after the\nreveal is allowed, is recorded (`edited_after_inventory`), and is never scored as blind.\n",
+ "exported_at": "2026-11-06T13:33:31.940Z",
+ "prefilled_from_sha256": null,
+ "review_notes": {},
+ "units": {
+  "vancouver:res:n47207271": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 84,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47238401": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 29,
+   "note": "This is a T intersection. There is a driveway but no curb ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47277515": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 37,
+   "note": "Not totally clear if this is a crossable area from the perspective of the image. Another T like intersection. Residential so safe to cross.",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n13538926834": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "present",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "present",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "present",
+     "absent_kind": null
+    },
+    "1": {
+     "verdict": "present",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 104,
+   "note": "There is a black pavement ramp on both sides to cross the east-west crossing. Not clear if that meets our definition for \"curb ramp\" but it appears to be a sloping down piece of man-made ramp. Also not clear if that is at a cross ing point to be honest.",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47372178": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 80.6,
+   "note": "T intersection. The Corner 0 is exactly south of the intersecting vertex of the OSM streets but that's not where I would put in curb ramps. Instead, you would want them directly south of each side of the street straight across from their corresponding sidewalks",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:sig:n1237720684": {
+   "type": "signalised",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 22,
+   "note": "This is not a safe area to cross. It's a multilane highway",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n958723078": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 226.5,
+   "note": "Same issue with the T intersection. We are drawing the Corner 2 exactly east of the OSM vertex point of the T. We don't want a curb ramp here. Instead, assuming there are sidewalks on both sides of the east-west streets, you would want curb ramps directly in line with them if you draw an invisible line across the north-south street at the T.",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  }
+ }
+}
