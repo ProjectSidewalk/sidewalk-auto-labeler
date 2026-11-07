@@ -97,6 +97,12 @@ python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
 # 0.30 detections, docs/panoramax-asset-study.md) reads the 2048-px derivative but records
 # the sensor frame; bound in the manifest. Talk to the maintainers before a big run.
 PANORAMAX_PICTURES_PER_SECOND=1 python main.py example_geojson/bayonne.geojson     --name bayonne_sd --source panoramax --panoramax-asset sd
+
+# A live city whose PS boundary GREW: run only new-minus-old in a new run dir, never the
+# whole new boundary (re-thinning the old area can pick newer panos -> duplicate live labels).
+# docs/production-deployment.md "A city whose boundary grew"; Juneau 2026-11-07 is the example.
+python scripts/area_difference.py <regions pull>.geojson runs/<city>/area.geojson \
+    --union-out example_geojson/<city>_<yyyy-mm>.geojson --out example_geojson/<city>_expansion_<yyyy-mm>.geojson
 ```
 
 ## Panoramax asset study (HD vs SD)

@@ -505,6 +505,52 @@ unless given `--reposition-live-city`. Note the check itself only gates *gross* 
 submitted field > 5 m from the street with the other field > 2 m closer per pano);
 differences under ~2 m are reported as undecidable and are not a reason to reposition.
 
+### A city whose boundary grew
+
+When a live city's PS regions are extended, **run only the added area**, in a new run dir.
+Don't re-run the whole new boundary. The old run dir refuses a new geometry anyway, and a
+fresh run of the whole boundary re-thins the old area from a new coverage scan. Thinning
+keeps the newest pano per 5 m cell, so any capture added since the first run replaces a pano
+whose labels are already live. PS is insert-only, so those would be duplicates with no way to
+retire them. The thinning grid is global (lat/lon cells, not anchored to the area), so the
+added area's cells line up with the old run's.
+
+```bash
+# 1. Pull the current boundary from the server (prod and -test should agree; diff them)
+curl -s https://<server>/v3/api/regions -o example_geojson/<city>_<yyyy-mm>.ps_regions.geojson
+# 2. New minus old (drops the float slivers along the shared edges; warns if the boundary also shrank)
+python scripts/area_difference.py example_geojson/<city>_<yyyy-mm>.ps_regions.geojson runs/<city>/area.geojson \
+    --union-out example_geojson/<city>_<yyyy-mm>.geojson \
+    --out example_geojson/<city>_expansion_<yyyy-mm>.geojson
+# 3. Scope, run, then the usual position check / dry run / test-then-prod send
+python main.py example_geojson/<city>_expansion_<yyyy-mm>.geojson --name <city>_expansion --source <src> --scan-only
+python main.py example_geojson/<city>_expansion_<yyyy-mm>.geojson --name <city>_expansion --source <src> --reuse-scan
+```
+
+Before sending, check that no `panorama_id` in the new `results.jsonl` is in the old run's
+submitted file. They are disjoint by construction (the old run kept only panos inside the old
+area), but a check costs nothing. Use the same model revision as the live campaign; the
+manifest records it.
+
+**Juneau, 2026-11-07 (the first expansion).** Prod and -test regions were identical:
+4 regions, 6.554 km², containing the old 4.808 km² run area, plus 1.746 km² to the south.
+
+| Item | Value |
+| :--- | :--- |
+| Regions pull | `example_geojson/juneau_2026-11.ps_regions.geojson`, `https://sidewalk-juneau.cs.washington.edu/v3/api/regions` at 2026-11-07T14:20:00Z, sha256 `2f316b01…`. Its label/distance counts are a snapshot; only the geometry is used |
+| Old area | `runs/juneau/area.geojson`, sha256 `856b6f08…` |
+| Full new boundary | `example_geojson/juneau_2026-11.geojson`, sha256 `cd7f1024…` |
+| Added area | `example_geojson/juneau_expansion_2026-11.geojson`, sha256 `ad5ea7ef…` = `runs/juneau_expansion/area.geojson` (area hash `8252b6dc…`); 19 slivers dropped |
+| Run | `runs/juneau_expansion/`, Mapillary, code at `97764da`, `rampnet-model@606a11956743`, local RTX 3070, 334 panos (383 before 5 m thinning), 0 failed, 424.7 s |
+| Overlap with the live run | 0 of 334 `panorama_id`s are in `runs/juneau/results.check.jsonl` (4,999) |
+| Position check | 4 sequences, 0 flagged (3 undecidable within 2 m), so sent from `results.jsonl` (sha256 `92e8d532…`) |
+| Submitted | 334 lines, 109 labels at 0.30, -test 2026-11-07T14:32:53Z then prod 14:36:24Z (`runs/juneau_expansion/results.jsonl.submission.json`) |
+| Imagery archive | `runs/juneau_expansion/` and `runs/juneau/` on the lab file server (step 5) |
+
+`scripts/area_difference.py` with the arguments in its docstring reproduces both
+`example_geojson` outputs byte for byte. `results.jsonl` is gitignored like every run's; the
+copy of record is on the lab file server beside the panos.
+
 ---
 
 ## Gotchas, collected
