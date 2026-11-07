@@ -545,11 +545,15 @@ manifest records it.
 | Overlap with the live run | 0 of 334 `panorama_id`s are in `runs/juneau/results.check.jsonl` (4,999) |
 | Position check | 4 sequences, 0 flagged (3 undecidable within 2 m), so sent from `results.jsonl` (sha256 `92e8d532…`) |
 | Submitted | 334 lines, 109 labels at 0.30, -test 2026-11-07T14:32:53Z then prod 14:36:24Z (`runs/juneau_expansion/results.jsonl.submission.json`) |
-| Imagery archive | `runs/juneau_expansion/` and `runs/juneau/` on the lab file server (step 5) |
+| Run files | `runs/juneau_expansion/` and `runs/juneau/` on the lab file server (`results*.jsonl`, sidecars, scan, logs) |
+| Pixels | Not re-fetched: the PS pano store already holds them at native resolution (`sidewalk_panos/Panoramas/juneau-ak/<id[:2]>/<id>.jpg` on the lab file server, written by the sidewalk-panorama-tools scraper). On 2026-11-07 it held all 4,999 downtown panos, with width/height equal to `results.jsonl`; the 334 expansion panos arrive with its next nightly scrape |
 
 `scripts/area_difference.py` with the arguments in its docstring reproduces both
 `example_geojson` outputs byte for byte. `results.jsonl` is gitignored like every run's; the
-copy of record is on the lab file server beside the panos.
+copy of record is on the lab file server.
+
+For a city that is already live on PS, check the PS pano store before running step 5's
+archive: the scraper fetches every pano the server knows about, AI-submitted ones included.
 
 ---
 
