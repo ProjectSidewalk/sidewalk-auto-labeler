@@ -12,12 +12,15 @@ split-wide corner table, `runs/vancouver/corner_labels169_split/na_discount_sw/`
 `runs/vancouver/corner_gallery169_split/`. The criterion is unchanged. The `corner_labels169/`
 builds, their sample and the pilot bundle `corner_gallery169/` stay as they were.
 
-**Status: the rule is not scored yet, and nothing goes to any server under this PR.** The
-primary `NA` read is **settled as `discount`** (gallery 243, PR
+**Status (2026-11-11): the rule PASSES, under a declared amendment for n = 97, and nothing
+goes to any server under this PR.** Jon rated all 100 sampled corners blind: 96 absent, 1
+present, 3 can't tell, so absence precision is 0.990 [Wilson 0.944, 0.998] against a bar of 0.90
+[0.85]. `score` prints NOT SCORED because only 97 corners are decided; no value of the 3
+missing ratings could change the outcome ("Result" below). The primary `NA` read is **settled
+as `discount`** (gallery 243, PR
 [#180](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/180); see "The NA read"
-below). **The pilot build is `na_discount_sw`** (discount read, city sidewalk layer). What is
-left before a pilot is a blind rating of its `sample.csv`, the pre-registered
-precision check ("The precision gallery" below; its crops still have to be cut on makelab2).
+below). **The pilot build is `na_discount_sw`** (discount read, city sidewalk layer). Next: a
+test-server pilot, which needs Jon's clearance of the exact send.
 
 ## Definition
 
@@ -509,6 +512,57 @@ python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D
     --bundle $B --verdicts $B/verdicts__jonf.json --out $D/score_gallery169.json
 ```
 
+## Result (2026-11-11): PASS, under an amendment for n = 97
+
+**Rated.** Jon rated all 98 units (100 corners) of `corner_gallery169_split/` under rubric v2.
+The committed `verdicts__jonf.json` is his export of 2026-11-11T19:17:47Z (sha256
+`da3f0114…`), and `score_gallery169.json` scores it. Its blind reads are identical to those of
+his first complete export, made at 19:01:39Z (sha256 `e546e70e…`, not committed). The second
+export adds only post-reveal edits.
+
+| rated corners | absent | present | can't tell | precision [Wilson 95%] | `no_sidewalk` | unspecified | label precision [Wilson 95%] |
+|---:|---:|---:|---:|---|---:|---:|---|
+| 100 | 96 | 1 | 3 (0.03) | **0.990 [0.944, 0.998]** | 5 | 2 | 0.938 [0.872, 0.971] |
+
+By stratum: arterial 33 absent, 1 can't tell; residential 63 absent, 1 present, 2 can't tell.
+Label precision counts the 2 `unspecified` absences as right, so it is an upper bound.
+
+**Why `score` says NOT SCORED, and the amendment.** The rule needs n >= 100 decided blind
+ratings, with `can't tell` removed before counting. The sample was drawn at exactly 100
+corners, so any `can't tell` was bound to leave n short. That was a design slip in the draw,
+not something the ratings did. **Amendment, declared after the ratings were seen:** the
+verdict is taken at n = 97, because it cannot depend on the 3 missing ratings. If all 3 were
+`present`, the read would be 96/100: precision 0.960, Wilson lower bound 0.902, still a pass on
+both clauses. The script's NOT SCORED stays as printed. The PASS is this amendment's, and it
+holds for every value the missing ratings could take. **Next time, draw a seeded reserve** (for
+example 110, rated in order until 100 are decided) or size the sample for the expected
+can't-tell share.
+
+**Post-reveal edits (recorded, never scored).** After the reveal Jon changed 5 corners: the one
+`present` (`vancouver:res:n47255336` #2) to can't tell, since his note had doubted which landing
+the ramp served; the driveway apron at `vancouver:art:n47372480` #2 from can't tell to
+absent / `curb_no_ramp`; and the missing reason at `vancouver:art:n2966616369` #1 and
+`vancouver:res:n47360202` #0 (`curb_no_ramp`). Earlier he had changed the reason at
+`vancouver:art:n47301278` #0 (`no_sidewalk` to `curb_no_ramp`, "a gravel sidewalk"). His later
+reads therefore hold no present corner. They only point the same way as the blind read.
+
+**Crossing notes (descriptive, from free text).** 70 of the 98 units carry a note. A keyword pass
+(`safe`, `busy road`, `median`) finds **23 units whose note says, in some form, that it is not a
+safe place to cross: 22 of the 34 arterial units** and 1 residential. 14 units (11 residential)
+say there is nothing to cross to on the far side. Jon rated these absent as the rubric asks:
+every leg of a Washington intersection is a legal unmarked crosswalk unless it is signed closed.
+The tally is a floor, since he did not note every unit. It bears on the pilot, though: on
+arterials, a NoCurbRamp label will often mark a place where the rater thinks the right fix is no
+crossing, not a ramp. That is a question for the pilot's scope (residential first?) and for the
+city, not for this precision test.
+
+**Rating cost.** The page's timer logged about 46 min for the blind pass (median 20 s a unit)
+and 52 min with the re-review, and Jon found the task exhausting. The levers for the next
+sample are a sequential design (at 40 decided corners, all absent gives a lower bound of 0.912
+and one present 0.871, both passes), a model pre-rater that a person audits, one-click tags in
+place of the recurring free-text notes, and a cap on the residential far-side-of-T stratum.
+None is filed yet.
+
 ## Dry run (no server contacted)
 
 `python send_to_ps.py runs/vancouver/corner_labels169/na_<read>/results.jsonl --dry-run`.
@@ -607,9 +661,14 @@ AI label at the same corner are what the validators compare.
   `build.json` records `sidewalk_rule: not applied`. PS's own sidewalk-presence table
   (SidewalkWebpage#5279) or OSM `footway=sidewalk` would be the source where a city publishes
   none; OSM was not needed here.
-- **Scoring.** The gallery 243 verdict on the `NA` read is in (`discount`, PR #180). The
-  test is now the split-wide bundle (`corner_gallery169_split/`, "Pre-registration revision"):
-  rate it, then `score --sample --bundle` on the export.
+- **Scoring.** Done 2026-11-11 on the split-wide bundle: PASS under the n = 97 amendment
+  ("Result" above).
+- **The test-server pilot.** It needs Jon's clearance of the exact send (build, endpoint,
+  confidence, stratum scope; see the crossing notes under "Result").
+- **`corner_gallery_score.py` on a sample bundle.** It validates this bundle's verdicts, then
+  crashes in its report (`KeyError: 'na_noramp'`, since a sample bundle's `snapshot.json` has no
+  gallery 243 populations). It was never meant to score this bundle (above), but it should stop
+  with a message instead.
 - **The ASSETS'19 DC placement check.** It needs a store-built DC run.
 
 ## Replication
