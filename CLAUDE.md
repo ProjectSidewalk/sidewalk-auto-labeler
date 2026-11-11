@@ -439,6 +439,13 @@ detector exists yet**, and CurbRamp is the only spec. Full text is in
 - `main.py --types` (comma list). The manifest binds `label_types` and a per-type `models`
   map.
 - **Consumers:** `fuse_sites.py --label-type` (a non-CurbRamp fuse writes
-  `sites.<type>.jsonl`) and `export_benchmark.py --label-type`. `agree_rate`, `eval_sites`,
-  `mined_precision` and `provenance_gate` **refuse** anything but `{CurbRamp}`.
-- **Not done:** per-type `FuseParams`, the ranker review-order export, and a second detector.
+  `sites.<type>.jsonl`; params come from `fs.fuse_params_for(T, **flags)` = the spec, then
+  `DetectorSpec.fuse_overrides`, then every flag that is not None, so the association flags
+  default to None; `FuseParams.label_type` lands in `sites_meta.json`, `sites.jsonl` is
+  byte-identical for CurbRamp), `eval_sites.py --label-type` (report in `fusion_eval.<T>`),
+  `eval_ps_clustering.py --label-type` (pulls, labels and pixel map per type; `run()` still
+  refuses anything but CurbRamp: the PS threshold arms are CurbRamp's cut) and
+  `export_benchmark.py --label-type`. `agree_rate`, `mined_precision` and `provenance_gate`
+  **refuse** anything but `{CurbRamp}`; `eval_sites` does so only for CurbRamp itself.
+- **Not done:** the ranker review-order export (it consumes sidewalk-validator-ai#69's CSV,
+  not yet merged there) and a second detector.

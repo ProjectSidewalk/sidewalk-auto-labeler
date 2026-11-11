@@ -40,6 +40,7 @@ import random
 import subprocess
 import sys
 import time
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -49,6 +50,7 @@ for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
         sys.path.insert(0, str(_p))
 
 import geo  # noqa: E402
+import fuse_sites as fs  # noqa: E402
 import export_cluster_review as ecr  # noqa: E402
 
 SCHEMA = 'sidewalk-auto-labeler.corner_inventory/1'
@@ -547,8 +549,12 @@ def load_extra_run(run_dir, base_meta, base_pano_ids, tier=DEPLOYED_TIER):
     run_dir = Path(run_dir)
     name = run_dir.resolve().name
     meta = json.loads((run_dir / 'sites_meta.json').read_text(encoding='utf-8'))
+    # A key absent from one meta reads as FuseParams' default: metas written before a field
+    # existed (e.g. label_type, #168) must still compare equal to a fresh fuse of the same run.
+    defaults = asdict(fs.FuseParams())
     keys = sorted((set(meta['params']) | set(base_meta['params'])) - set(EXTRA_RUN_FREE_PARAMS))
-    diff = [k for k in keys if meta['params'].get(k) != base_meta['params'].get(k)]
+    diff = [k for k in keys if meta['params'].get(k, defaults.get(k))
+            != base_meta['params'].get(k, defaults.get(k))]
     if diff:
         raise SystemExit(f'{run_dir}: sites_meta params {diff} differ from the base run')
     panos = load_panos(run_dir / 'results.jsonl')

@@ -104,6 +104,7 @@ import fuse_sites as fs  # noqa: E402
 import eval_sites as es  # noqa: E402
 from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE,  # noqa: E402
                        DECODE_ARGMAX, on_camera_rig, ps_pixel)
+from detectors import registry  # noqa: E402
 
 try:  # analysis-only dependencies, deliberately not in requirements.txt
     import pandas as pd
@@ -133,9 +134,21 @@ from clustering_metrics import (  # noqa: E402,F401
     with_neighbour)
 
 PS_THRESHOLD_KM = 0.0075   # label_clustering.py THRESHOLDS['CurbRamp']
-API_LABELS = '/v3/api/rawLabels?labelType=CurbRamp&filetype=geojson'
-API_CLUSTERS = ('/v3/api/labelClusters?labelType=CurbRamp&includeRawLabels=true'
-                '&filetype=geojson')
+
+
+def api_labels(label_type=registry.CURB_RAMP):
+    """The rawLabels pull for one label type (#168)."""
+    return f'/v3/api/rawLabels?labelType={label_type}&filetype=geojson'
+
+
+def api_clusters(label_type=registry.CURB_RAMP):
+    """The labelClusters pull for one label type (#168)."""
+    return (f'/v3/api/labelClusters?labelType={label_type}&includeRawLabels=true'
+            '&filetype=geojson')
+
+
+API_LABELS = api_labels()          # CurbRamp's; kept for existing callers
+API_CLUSTERS = api_clusters()
 
 
 # ----------------------------------------------------------------------------- inputs
@@ -274,8 +287,11 @@ def load_server_clusters(path):
     return out
 
 
-def label_to_detection(results_path, labels):
+def label_to_detection(results_path, labels, label_type=registry.CURB_RAMP):
     """({label_id: (pano_id, det_index)}, n_ambiguous_pixel_keys, n_duplicate_labels).
+
+    Only ``label_type``'s stored detections are keyed (#168; a pre-#168 file is all
+    CurbRamp), each by its index in the record's full ``detections`` list.
 
     Keyed by pano id + the pixel rounding send_to_ps.py used. Both directions can
     be many-to-one and both are reported rather than collapsed silently:
@@ -298,6 +314,8 @@ def label_to_detection(results_path, labels):
             p = rec['pano']
             w, h = p['width'], p['height']
             for i, d in enumerate(rec.get('detections', [])):
+                if registry.detection_type(rec, d) != label_type:
+                    continue
                 key = (p['panorama_id'], *ps_pixel(d['x_normalized'], d['y_normalized'],
                                                    w, h))
                 if key in by_key:
@@ -659,9 +677,9 @@ def ps_partition(labels, thresholds_km, per_region=True, blocked=True, stats=Non
     return out
 
 
-def ps_verbatim(labels, ps_script):
+def ps_verbatim(labels, ps_script, label_type=registry.CURB_RAMP):
     """Run the SidewalkWebpage script's own cluster() per region, exactly as the
-    server invokes it (one region at a time, CurbRamp threshold)."""
+    server invokes it (one region at a time, at ``label_type``'s threshold)."""
     spec = importlib.util.spec_from_file_location('ps_label_clustering', ps_script)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -671,7 +689,7 @@ def ps_verbatim(labels, ps_script):
         sub = labels.iloc[idx].copy()
         sub['coords'] = sub.apply(lambda r: (r.lat, r.lng), axis=1)
         if len(sub) > 1:
-            _, labeled = mod.cluster(sub, 'CurbRamp', mod.THRESHOLDS)
+            _, labeled = mod.cluster(sub, label_type, mod.THRESHOLDS)
             cl = labeled['cluster'].to_numpy(dtype=int)
         else:
             cl = np.array([1])
@@ -680,7 +698,7 @@ def ps_verbatim(labels, ps_script):
     if (assignment < 0).any():
         raise SystemExit(f'{int((assignment < 0).sum())} labels were never assigned '
                          'a cluster by the verbatim script')
-    return assignment, mod.THRESHOLDS['CurbRamp']
+    return assignment, mod.THRESHOLDS[label_type]
 
 
 DIAG_SPAN_M = 7.5        # the CurbRamp threshold: a fresh complete-linkage cut never spans more
@@ -796,7 +814,8 @@ MOVED_PANO_M = 0.5
 PLACEMENT_TOL_M = 0.5
 
 
-def synthesize_labels(results_path, min_confidence, mask_rig=True):
+def synthesize_labels(results_path, min_confidence, mask_rig=True,
+                      label_type=registry.CURB_RAMP):
     """(labels DataFrame, det_of) for a city with no server, or no server holding this
     run: one label per stored detection with confidence >= min_confidence, exactly as
     send_to_ps.transform_record would send it (pixel = detectors.ps_pixel, x modulo width;
@@ -809,12 +828,17 @@ def synthesize_labels(results_path, min_confidence, mask_rig=True):
     its (pano_id, det_index) directly -- no pixel lookup, so two detections that round to
     one pixel both keep their labels (the live path has to drop such keys).
 
+    Only ``label_type``'s detections become labels (#168), each keeping its index in the
+    record's full ``detections`` list; the rig mask applies only when that type's
+    DetectorSpec.mask_rig says so (``mask_rig=False`` still turns it off for every type).
+
     Example:
         One record at (47.0, -122.0), heading 0, width 4096, with one detection at
         x = 0.5, y = 0.6 and confidence 0.7 gives one label at pano_x 2048, pano_y 1229,
         due north of the camera, ~7.20 m out (18.02 degrees down at 2.341 m:
         2.341 / tan 18.02).
     """
+    mask = mask_rig and registry.spec_for(label_type).mask_rig
     rows, det_of = [], {}
     with open(results_path, encoding='utf-8') as f:
         for line in f:
@@ -827,9 +851,11 @@ def synthesize_labels(results_path, min_confidence, mask_rig=True):
                 continue
             w, h = p['width'], p['height']
             for i, d in enumerate(rec.get('detections', [])):
+                if registry.detection_type(rec, d) != label_type:
+                    continue
                 if d['confidence'] < min_confidence:
                     continue
-                if mask_rig and on_camera_rig(d['y_normalized']):
+                if mask and on_camera_rig(d['y_normalized']):
                     continue
                 px, py = ps_pixel(d['x_normalized'], d['y_normalized'], w, h)
                 lat, lng = ps_placement.label_latlng(p['lat'], p['lng'], px, py, w, h,
@@ -839,7 +865,7 @@ def synthesize_labels(results_path, min_confidence, mask_rig=True):
                 rows.append({'label_id': lid, 'user_id': OFFLINE_USER,
                              'pano_id': p['panorama_id'], 'region_id': CITY_REGION,
                              'lat': lat, 'lng': lng, 'pano_x': px, 'pano_y': py,
-                             'severity': float('nan'), 'label_type': 'CurbRamp',
+                             'severity': float('nan'), 'label_type': label_type,
                              'pano_width': w, 'pano_height': h,
                              'camera_heading': p['camera_heading'],
                              'pano_source': p.get('source'),
@@ -938,7 +964,8 @@ def camera_from_label(lat, lng, pano_x, pano_y, width, height, camera_heading):
 
 
 def offline_check(ai, det_of, results_path, streets, min_confidence, deployed,
-                  humans=None, clustered=None, threshold_km=PS_THRESHOLD_KM):
+                  humans=None, clustered=None, threshold_km=PS_THRESHOLD_KM,
+                  label_type=registry.CURB_RAMP):
     """Validate the offline server arm against a city that HAS live labels (issue #106).
 
     (a) placement: every live AI label is re-placed by ps_placement from the results
@@ -1002,7 +1029,8 @@ def offline_check(ai, det_of, results_path, streets, min_confidence, deployed,
            'max_all': every[-1] if every else None}
     res['placement_ok'] = bool(every) and every[-1] <= PLACEMENT_TOL_M
 
-    syn, _syn_det = synthesize_labels(results_path, min_confidence, mask_rig=False)
+    syn, _syn_det = synthesize_labels(results_path, min_confidence, mask_rig=False,
+                                      label_type=label_type)
     live_key = {(r.pano_id, r.pano_x, r.pano_y): r.label_id
                 for r in ai.itertuples(index=False)}
     syn['live_id'] = [live_key.get(k) for k in zip(syn.pano_id, syn.pano_x, syn.pano_y)]
@@ -1173,6 +1201,11 @@ def input_stamp(streets_path, verdicts_path):
 def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('city')
+    ap.add_argument('--label-type', default=registry.CURB_RAMP, choices=sorted(registry.SPECS),
+                    help="which label type to score (#168; default %(default)s): the server "
+                         "pulls, the AI-label mapping and the offline labels are that type's. "
+                         'Only CurbRamp runs end to end today: the PS threshold arms are '
+                         "CurbRamp's (PS_THRESHOLD_KM)")
     ap.add_argument('--split', default=None,
                     help='RampNet benchmark split, when it is not named like the city '
                          '(laurens -> laurens_mapillary)')
@@ -1251,11 +1284,14 @@ def build_parser():
 
 def default_out(args, run_dir):
     """The output dir a run writes to when --out is not given: the scoring frame and, for
-    an offline run, the tier are part of the result, so each gets its own directory."""
+    an offline run, the tier are part of the result, so each gets its own directory; so is
+    a label type other than CurbRamp (#168: `.<type>` is appended)."""
     suffix = fs.frame_suffix(args.camera_height_m)
+    label_type = getattr(args, 'label_type', registry.CURB_RAMP)
+    kind = '' if label_type == registry.CURB_RAMP else f'.{label_type}'
     if args.offline:
-        return run_dir / f'ps_clustering_eval_offline{suffix}_t{args.min_confidence:g}'
-    return run_dir / ('ps_clustering_eval' + suffix)
+        return run_dir / f'ps_clustering_eval_offline{suffix}_t{args.min_confidence:g}{kind}'
+    return run_dir / ('ps_clustering_eval' + suffix + kind)
 
 
 def run(args):
@@ -1268,6 +1304,13 @@ def run(args):
     if args.offline and args.ai_user:
         raise SystemExit('--ai-user names the live AI account; --offline synthesizes every '
                          'label from the run, so there is no account to name')
+    label_type = getattr(args, 'label_type', registry.CURB_RAMP)
+    if label_type != registry.CURB_RAMP:
+        # TODO(#168): PS_THRESHOLD_KM (and DIAG_SPAN_M) are the server's CurbRamp cut; the
+        # threshold arms need the type's own label_clustering.py THRESHOLDS entry first.
+        raise SystemExit(f'--label-type {label_type}: the PS clustering arms are keyed to '
+                         "CurbRamp's server threshold (PS_THRESHOLD_KM); add the type's "
+                         'threshold before scoring it')
     split = args.split or args.city
     run_dir = args.run_dir or REPO_ROOT / 'runs' / args.city
     results_path = args.results or run_dir / 'results.jsonl'
@@ -1288,8 +1331,9 @@ def run(args):
     results_sha = fs.file_sha256(results_path)
 
     if args.offline:
-        labels, det_of = synthesize_labels(results_path, args.min_confidence, mask_rig=True)
-        n_rig = synthesize_rig_count(results_path, args.min_confidence)
+        labels, det_of = synthesize_labels(results_path, args.min_confidence, mask_rig=True,
+                                           label_type=label_type)
+        n_rig = synthesize_rig_count(results_path, args.min_confidence, label_type)
         n_ties = 0
         if streets:
             reg, n_ties = assign_regions(labels.lat, labels.lng, streets)
@@ -1299,7 +1343,7 @@ def run(args):
         ai_user, unmapped_ai = OFFLINE_USER, 0
         server_clusters = None
         n_bad_lng = n_ambiguous = n_dup_labels = 0
-        pix_map, n_ambiguous, _dup = label_to_detection(results_path, labels)
+        pix_map, n_ambiguous, _dup = label_to_detection(results_path, labels, label_type)
         n_pix_same = sum(1 for lid, m in pix_map.items() if det_of.get(lid) == m)
         lines = [f'# {args.city}: PS label clustering vs RampNet GT (offline)',
                  '',
@@ -1313,12 +1357,13 @@ def run(args):
         labels_path = args.labels or out / 'raw_labels.geojson'
         clusters_path = args.clusters or out / 'clusters.geojson'
         if server:
-            fetch(server + API_LABELS, labels_path, args.refresh)
-            fetch(server + API_CLUSTERS, clusters_path, args.refresh)
+            fetch(server + api_labels(label_type), labels_path, args.refresh)
+            fetch(server + api_clusters(label_type), clusters_path, args.refresh)
         labels, n_bad_lng = load_labels(labels_path)
-        labels = labels[labels.label_type == 'CurbRamp'].reset_index(drop=True)
+        labels = labels[labels.label_type == label_type].reset_index(drop=True)
         server_clusters = load_server_clusters(clusters_path)
-        det_of, n_ambiguous, n_dup_labels = label_to_detection(results_path, labels)
+        det_of, n_ambiguous, n_dup_labels = label_to_detection(results_path, labels,
+                                                               label_type)
         mapped = labels[labels.label_id.isin(det_of)].reset_index(drop=True)
         # "AI label" is inferred from the pixel match; make sure that inference picks out
         # exactly one submitting account, otherwise a human label at the same pixel as a
@@ -1342,7 +1387,7 @@ def run(args):
             for u, c in by_user.items())
         lines = [f'# {args.city}: PS label clustering vs RampNet GT',
                  '',
-                 f'labels: {len(labels)} CurbRamp on the server, {len(mapped)} map to stored '
+                 f'labels: {len(labels)} {label_type} on the server, {len(mapped)} map to stored '
                  f'detections (AI), {len(labels) - len(mapped)} do not'
                  + (f' ({len(ai) - len(mapped)} of them the AI account\'s, kept as AI by '
                     f'--ai-user; {len(labels) - len(ai)} human)' if args.ai_user
@@ -1369,16 +1414,20 @@ def run(args):
         if args.no_gt:
             verdict_panos, bundle_ops = {}, {}
             run_panos, _skipped, height, auto = fs.load_at_height(
-                results_path, args.camera_height_m)
+                results_path, args.camera_height_m, label_type=label_type)
         else:
             verdict_panos, bundle_ops, run_panos, height, auto = es.load_city_at_height(
                 split, args.benchmark_root, run_dir, args.camera_height_m,
-                results_path=results_path)
+                results_path=results_path, label_type=label_type)
     except ValueError as e:        # no per-rig table, or one measured on another file
         raise SystemExit(str(e))
-    params = fs.FuseParams(camera_height_m=height,
-                           min_confidence=args.min_confidence,
-                           mask_rig=args.offline or args.mask_rig, apply_pose=fs.POSE_OFF)
+    # The type's own association params (#168 item 4); for CurbRamp this is exactly the
+    # FuseParams(...) built before, so every committed report reproduces.
+    params = fs.fuse_params_for(label_type, camera_height_m=height,
+                                min_confidence=args.min_confidence,
+                                mask_rig=((args.offline or args.mask_rig)
+                                          and registry.spec_for(label_type).mask_rig),
+                                apply_pose=fs.POSE_OFF)
     lines.append(f'raycast camera height {fs.frame_label(args.camera_height_m)}; '
                  f'fusion arm at --min-confidence {args.min_confidence:g}')
     lines += fs.height_resolution_lines(args.camera_height_m, run_panos, params, auto)
@@ -1435,7 +1484,7 @@ def run(args):
         clustered_ids = {lab for c in server_clusters for lab in c['label_ids']}
         on_server = labels[labels.label_id.isin(clustered_ids)].reset_index(drop=True)
         if args.ps_script:
-            assign, t_km = ps_verbatim(on_server, args.ps_script)
+            assign, t_km = ps_verbatim(on_server, args.ps_script, label_type)
             repro = place(clusters_from_assignment(on_server, assign, det_of), det_pos)
             add_arm('ps_repro', repro)
             k, n, off = partition_agreement(deployed, repro)
@@ -1624,7 +1673,8 @@ def run(args):
     if args.offline_check:
         humans = labels[labels.user_id.astype(str) != ai_user].reset_index(drop=True)
         ocheck = offline_check(ai, det_of, results_path, streets, args.min_confidence,
-                               deployed, humans=humans, clustered=clustered_ids)
+                               deployed, humans=humans, clustered=clustered_ids,
+                               label_type=label_type)
 
     # ---- report
     lines += ['', '## Data provenance', '']
@@ -2011,8 +2061,11 @@ def run(args):
                      'n_ai': len(ai), 'scorer': SCORER_VERSION}}
 
 
-def synthesize_rig_count(results_path, min_confidence):
-    """How many stored detections >= min_confidence the nadir mask drops (report line)."""
+def synthesize_rig_count(results_path, min_confidence, label_type=registry.CURB_RAMP):
+    """How many of ``label_type``'s stored detections >= min_confidence the nadir mask
+    drops (report line); 0 for a type the mask does not apply to."""
+    if not registry.spec_for(label_type).mask_rig:
+        return 0
     n = 0
     with open(results_path, encoding='utf-8') as f:
         for line in f:
@@ -2022,7 +2075,8 @@ def synthesize_rig_count(results_path, min_confidence):
                         or rec['pano'].get('camera_heading') is None:
                     continue
                 n += sum(1 for d in rec.get('detections', [])
-                         if d['confidence'] >= min_confidence
+                         if registry.detection_type(rec, d) == label_type
+                         and d['confidence'] >= min_confidence
                          and on_camera_rig(d['y_normalized']))
     return n
 
