@@ -1,0 +1,156 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_labels.build/1",
+ "city": "vancouver",
+ "issue": "sidewalk-auto-labeler#169",
+ "built_at": "2026-11-06T13:51:59+00:00",
+ "tool": {
+  "file": "scripts/corner_labels.py",
+  "git_sha": "30168fddeb6e51ab79760b63da845ec10fb26b12",
+  "dirty": false
+ },
+ "python": "3.12.10",
+ "label_type": "NoCurbRamp",
+ "rule_version": 1,
+ "rule_version_date": "2026-11-05",
+ "params": {
+  "arm": "fusion",
+  "variant": "primary",
+  "na_read": "discount",
+  "na_read_settled": true,
+  "na_read_primary": "discount",
+  "na_read_is_primary": true,
+  "na_read_settlement": {
+   "primary": "discount",
+   "settled_on": "2026-11-05",
+   "evidence": "sidewalk-auto-labeler PR #180 (branch corner-gallery-243-verdicts): runs/vancouver/corner_gallery243/score/report.md and score/score.json",
+   "pr": "ProjectSidewalk/sidewalk-auto-labeler#180",
+   "score_json": "runs/vancouver/corner_gallery243/score/score.json",
+   "score_json_sha256": "447c6bb5db0fd2e2d18d7f01c8812f313db28d25cd23c64da14d23e873fb12bc",
+   "verdicts": "runs/vancouver/corner_gallery243/verdicts__jonf.json",
+   "verdicts_sha256": "30a5008d125f143d6cc536e9787676310fc474b9c4cc127f59a419a16e2e80bd",
+   "na_noramp_units_absent": "39/39 decided (1 undetermined), Wilson 95% [0.910, 1.000]",
+   "na_noramp_corners_absent": "99/99"
+  },
+  "max_range_m": 25.0,
+  "min_view_m": 3.0,
+  "top_k": 3,
+  "camera_height_m": 2.5,
+  "hemisphere_deg": null,
+  "site_search_m": 50.0,
+  "n_runner_ups": 4
+ },
+ "sidewalk_rule": {
+  "applied": true,
+  "radius_m": 10.0,
+  "path": "runs\\vancouver\\corner_labels169\\sidewalks\\cov_sidewalks.geojson",
+  "sha256": "11503ed4cd7def77749c8443143f2bce73e556e8543fc17d1981a514f7bf0eff",
+  "keep": {
+   "STATUS": [
+    "Available",
+    "Pathway",
+    "Private"
+   ]
+  },
+  "n_features_in_file": 75349,
+  "n_features": 45760
+ },
+ "per_direction_arm": "not built (no crossing-line source in the run dirs)",
+ "inputs": {
+  "corners_full": {
+   "path": "runs\\vancouver\\corner_inventory169_split\\corners_full.jsonl",
+   "sha256": "b50da32e1bb0b86f5d93fcd0de0cead1be620d8ac39f309d3abd2461f87ce9fc"
+  },
+  "results": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\results.jsonl",
+   "sha256": "7fdf4005824f3edbebb93c6f365d25c54d1c61384b801b0213aaafa97ef79f28"
+  },
+  "sites": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\sites.jsonl",
+   "sha256": "9d1fc51ac2867d6247bdf2e0b1c6b5c9fccbbf9a566771f0222bb2728055c914"
+  },
+  "sites_meta": {
+   "path": "..\\..\\sal-vancouver\\runs\\vancouver\\sites_meta.json",
+   "sha256": "5a72734079b30710343b8dda2e391145be0721114509015dc963d69e7d873678"
+  },
+  "extra:vancouver_posdetect241:results": {
+   "path": "..\\posdetect241\\runs\\vancouver_posdetect241\\results.jsonl",
+   "sha256": "69f46b26110df05d1ef52a4431c4b230ceb157941b212fd3d553fd64bb86bf0e"
+  },
+  "extra:vancouver_posdetect241:sites": {
+   "path": "..\\posdetect241\\runs\\vancouver_posdetect241\\sites.jsonl",
+   "sha256": "d38c6fa08f9774de842c77c72ad51346daebb918270c90b319b662bd8534320b"
+  },
+  "extra:vancouver_posdetect241:sites_meta": {
+   "path": "..\\posdetect241\\runs\\vancouver_posdetect241\\sites_meta.json",
+   "sha256": "5408f770ebe84943faf1048a9b8978fe0700997e0ea57b699110c2a5b6e626b9"
+  },
+  "extra:vancouver_posdetect241_gsv:results": {
+   "path": "..\\posdetect241\\runs\\vancouver_posdetect241_gsv\\results.jsonl",
+   "sha256": "953716d1d7f32f2680c101fb9a4d7ab0933939459704fbc62375042768ca57b2"
+  },
+  "extra:vancouver_posdetect241_gsv:sites": {
+   "path": "..\\posdetect241\\runs\\vancouver_posdetect241_gsv\\sites.jsonl",
+   "sha256": "df0dec5c6c9456248a7ee1aee7c4e3e7c4c50643780a5105dd7451b3e7e7614d"
+  },
+  "extra:vancouver_posdetect241_gsv:sites_meta": {
+   "path": "..\\posdetect241\\runs\\vancouver_posdetect241_gsv\\sites_meta.json",
+   "sha256": "ddae3b0e42d10dd89441cd3e6fff8925ad2e1cc42fb4e3cc388c67c9534a321d"
+  },
+  "sidewalk_presence": {
+   "path": "runs\\vancouver\\corner_labels169\\sidewalks\\cov_sidewalks.geojson",
+   "sha256": "11503ed4cd7def77749c8443143f2bce73e556e8543fc17d1981a514f7bf0eff"
+  }
+ },
+ "pins": "pinned",
+ "extra_runs": [
+  {
+   "name": "vancouver_posdetect241",
+   "n_panos": 10337,
+   "n_operational_sites": 269,
+   "n_deployed_emulated": 24,
+   "deployed_tier": 0.55,
+   "camera_height_m": 2.5
+  },
+  {
+   "name": "vancouver_posdetect241_gsv",
+   "n_panos": 30,
+   "n_operational_sites": 8,
+   "n_deployed_emulated": 3,
+   "deployed_tier": 0.55,
+   "camera_height_m": 2.5
+  }
+ ],
+ "counts": {
+  "units": 21341,
+  "panos_indexed": 30927,
+  "operational_sites": 17927,
+  "corners": 17063,
+  "absent": 8814,
+  "excluded_inventory": 283,
+  "dropped_no_sidewalk": 5461,
+  "no_candidate": 0,
+  "dropped_projection": 0,
+  "proposed": 3070
+ },
+ "outputs": {
+  "proposals": {
+   "path": "proposals.jsonl",
+   "sha256": "1562e076edaf7e5c37f6eada0a2e32275fa86f0f45f7caeb20d21d25abf1d4d0",
+   "lines": 3070,
+   "bytes": 4965443
+  },
+  "unlabeled": {
+   "path": "unlabeled.csv",
+   "sha256": "b0a73c10c986873ec50400b6b94fa165986d7fbe43ad2b623161ad254282d80b",
+   "lines": 5745,
+   "bytes": 340439
+  },
+  "counts": {
+   "path": "counts.csv",
+   "sha256": "790e379b65b75903acecd34951a916eab0dc0f7a51fa257ba6132532d78c8b4e",
+   "lines": 5,
+   "bytes": 255
+  }
+ },
+ "seconds": 6.6
+}

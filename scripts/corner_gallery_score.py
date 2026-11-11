@@ -68,7 +68,10 @@ for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
         sys.path.insert(0, str(_p))
 
 SCHEMA = 'sidewalk-auto-labeler.corner_gallery/1'
-RUBRIC_VERSION = 1
+RUBRIC_VERSION = 1                     # gallery 243's rubric (this scorer's three parts)
+#: every rubric version a verdicts file may carry: v1 (gallery 243, the #169 pilot bundle) and v2
+#: (the #169 split-wide bundle, corner_gallery.RUBRIC_V2). A file must carry its bundle's version.
+RUBRIC_VERSIONS = (1, 2)
 VERDICTS = ('present', 'absent', 'cant_tell')
 ABSENT_KINDS = ('curb_no_ramp', 'no_sidewalk')
 OUTCOMES = ('present', 'absent', 'undetermined')
@@ -213,19 +216,22 @@ def _norm(m):
     return {k: ((e or {}).get('verdict'), (e or {}).get('absent_kind')) for k, e in m.items()}
 
 
-def validate(verdicts, items, items_sha, rubric=None):
+def validate(verdicts, items, items_sha, rubric=None, rubric_version=None):
     """Every reason the file cannot be scored, as strings (empty = valid). rubric: the bundle's
     rubric text (snapshot.json); when given, the file's rubric must be that exact text, so an
-    edit to the rubric without a version bump cannot mix two definitions silently."""
+    edit to the rubric without a version bump cannot mix two definitions silently.
+    rubric_version: the bundle's (snapshot.json `rubric_version`; a bundle without one is v1);
+    the file must carry it. Any of RUBRIC_VERSIONS is accepted, never another."""
     problems = []
     if verdicts.get('schema') != SCHEMA:
         problems.append(f"schema {verdicts.get('schema')!r}, expected {SCHEMA!r}")
     if verdicts.get('items_sha256') != items_sha:
         problems.append(f"items_sha256 {str(verdicts.get('items_sha256'))[:12]} is not the "
                         f'bundle\'s {items_sha[:12]}')
-    if verdicts.get('rubric_version') != RUBRIC_VERSION:
-        problems.append(f"rubric_version {verdicts.get('rubric_version')!r}, expected "
-                        f'{RUBRIC_VERSION}')
+    want_v = RUBRIC_VERSION if rubric_version is None else rubric_version
+    got_v = verdicts.get('rubric_version')
+    if got_v not in RUBRIC_VERSIONS or got_v != want_v:
+        problems.append(f"rubric_version {got_v!r}, expected {want_v} (the bundle's)")
     if not isinstance(verdicts.get('rubric'), str) or not verdicts['rubric'].strip():
         problems.append('the rubric text is missing (it travels in the verdicts file)')
     elif rubric is not None and verdicts['rubric'] != rubric:
@@ -705,7 +711,8 @@ def main(argv=None):
         return 2
     problems, results = {}, {}
     for rater, v in files.items():
-        problems[rater] = validate(v, items, items_sha, snapshot.get('rubric'))
+        problems[rater] = validate(v, items, items_sha, snapshot.get('rubric'),
+                                   snapshot.get('rubric_version', 1))
         if v.get('rater') != rater:
             problems[rater].append(f"file name says rater {rater!r}, the file {v.get('rater')!r}")
         side = load_live_sidecar(args.bundle, rater)
@@ -722,6 +729,15 @@ def main(argv=None):
               f"{results[rater]['blind']['scored']} with blind verdicts")
         for p in problems[rater][:10]:
             print('  ' + p)
+    if snapshot.get('mode') == 'sample':
+        # A sample bundle (#169, `corner_gallery.py build --items-from`) rates a rule's own
+        # sample, not gallery 243's three parts, so this report's populations do not exist.
+        # Validation above still applies; the score is corner_labels.py's.
+        print(f"{Path(args.bundle).name} is a sample bundle (snapshot mode 'sample'): verdicts "
+              f"validated above, nothing scored here. Score it with:\n  "
+              f"{snapshot.get('scorer') or 'scripts/corner_labels.py score --sample ... --bundle ...'}",
+              file=sys.stderr)
+        return 1 if any(problems.values()) else 0
     agree = None
     if args.a and args.b:
         for r in (args.a, args.b):

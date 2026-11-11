@@ -1,0 +1,2185 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_gallery/1",
+ "city": "vancouver",
+ "items_sha256": "e7648a487a92ef508d488e40d8425de333f0d3719d2412a72a80138e15e26910",
+ "rater": "jonf",
+ "rubric_version": 2,
+ "rubric": "Rubric v2 (RampNet#243; #169 revision of 2026-11-06). Rate every corner of the unit from the crops and the aerial.\n\nThe unit is an OSM intersection. Its legs (white lines on the aerial) split it into corners,\nnumbered clockwise from north. A corner is the sector between two adjacent legs; its marker\non the aerial and the orange ring in each crop is the corner point, 12 m from the centre\nalong the sector's bisector. A ramp can sit several metres from that point; judge the whole\ncorner of the sector (the curb return and the crossings that land on it), not the point.\n\npresent   at least one curb ramp serving pedestrians at this corner is visible: a cut in the\n          curb with a sloped walking surface down to street level, of any type (perpendicular,\n          parallel, diagonal at the apex, blended / depressed corner). A diagonal ramp counts\n          for the corner whose sector holds it.\nabsent    the corner is visible well enough to judge and has no curb ramp. Say which, when\n          you can: `curb_no_ramp` (a sidewalk reaches the corner and the curb there has no\n          cut), or `no_sidewalk` (no sidewalk reaches the corner, so there is nothing to ramp\n          from: a lawn, gravel or a shoulder to the street edge, with or without a curb).\n          A driveway apron is not a curb ramp.\ncant_tell the corner cannot be judged: hidden by vehicles, vegetation or shadow; out of\n          frame; too far or blurred; under construction; or the sector is not a real street\n          corner (an OSM artifact, a parking lot). Say why in the unit note.\n\nUse the newest crop that shows the corner clearly. If crops of different years disagree\n(a ramp appears in a later year), rate what the newest clear crop shows and say so in the\nnote. The city inventory is shown only after the unit is completed; the verdicts given\nbefore that are kept as `blind` and are what is scored. Changing a verdict after the\nreveal is allowed, is recorded (`edited_after_inventory`), and is never scored as blind.\n\nAdded in v2 (#169). DASHED white lines on the aerial are phantom legs: where a street ends at\na T, the stem's line continued straight across the through street. So the far side of a T has\nTWO corners, one at each place a crossing of the through street lands (where one of the stem's\ntwo sidewalks, carried straight across, meets the far curb). Each needs its own ramp: rate a\ncorner present only for a ramp serving its own landing, not one at the other landing. Solid\nlines are real streets, as before. Crops may be landscape (wider than tall) and there may be\nmore of them per corner; the orange ring is still the corner point.\n",
+ "exported_at": "2026-11-11T19:17:47.052Z",
+ "prefilled_from_sha256": null,
+ "review_notes": {},
+ "units": {
+  "vancouver:res:n47333440": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 123,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47383713": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 20,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47277515": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 22,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47242030": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 8,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47226535": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 9,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47236177": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 26,
+   "note": "It is not safe to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47342408": {
+   "type": "arterial",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 6,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47277537": {
+   "type": "arterial",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 18,
+   "note": "It is not safe to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n3072089610": {
+   "type": "arterial",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 88,
+   "note": "Double yellow line on street. Might not be safe to cross here? There is also no sidewalk on the other side of the street to cross to (though there appears to be one on the southeast corner)",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47288872": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 59,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47279351": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 6,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47372480": {
+   "type": "arterial",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 51,
+   "note": "To me, this looks like a driveway and not a curb ramp. The road is also a double yellow line so might not be safe to cross here.",
+   "inventory_seen": true,
+   "edited_after_inventory": true,
+   "kinds_after_inventory": true,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47223700": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 25,
+   "note": "There is no sidewalk on the other side of the street to cross to",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47258012": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 7,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47287088": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 71,
+   "note": "There is no sidewalk on the other side of the street to cross to",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47311108": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 41,
+   "note": "Might not be safe to cross here. Double yellow line on road",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n1972799943": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 222.3,
+   "note": "There is no place to cross here. No sidewalk on other side of road",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47226954": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 12,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n1375314821": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 13,
+   "note": "No sidewalk on other side to cross to",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47293515": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 14,
+   "note": "T intersection with lots of driveways",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47259620": {
+   "type": "arterial",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 7,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47270720": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 13,
+   "note": "T intersection",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n1326714827": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 63,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n959123524": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 111,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47277531": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 37,
+   "note": "This is a cul de sac. There is a curb ramp on one side but not the other",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n1326925816": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 20,
+   "note": "Only one image and not clear if it's safe to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47298427": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 15,
+   "note": "A very clear missing curb ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47228143": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 21,
+   "note": "There is a driveway here but not curb ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47240407": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 16,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47269362": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 18,
+   "note": "There are lots of driveways",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47337119": {
+   "type": "arterial",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 12,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47249350": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 30,
+   "note": "This is a prototypical missing curb ramp. Sidewalk goes all the way to the curb but no ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47384886": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 19,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n958723095": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    },
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 28,
+   "note": "Blurry imagery but I don't think there is a curb ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47407428": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 7,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47270820": {
+   "type": "arterial",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 20,
+   "note": "This is a median and not a safe place to cross. There should not be a curb ramp here.",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47397494": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 43,
+   "note": "No curb ramp here. There is one just down on same side of street but for crossing at other corner",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47306286": {
+   "type": "arterial",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 14,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47263777": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 48,
+   "note": "There is no where to cross to from what I can see...",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47351587": {
+   "type": "arterial",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 35,
+   "note": "Agree there is no curb ramp here to cross at the T intersection but might not be safe to cross. Double yellow lines on this road",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n4616972801": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 14,
+   "note": "No place to cross to on other side of road",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47301278": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 54,
+   "note": "Kind of a gravel sidewalk here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": true,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47278845": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 23,
+   "note": "Not clear that you need to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47270034": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 29,
+   "note": "You definitely should not cross here as a pedestrian. It's a busy road with a median in between",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47304590": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 7,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47257305": {
+   "type": "arterial",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 37,
+   "note": "Not safe to cross here. Yes, no curb ramp. But not safe to cross. There shouldn't be a curb ramp here unless they put in a controlled intersection",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47227519": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 348,
+   "note": "There are driveways here but no curb ramps",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47259878": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 26,
+   "note": "Not clear why you would want/need a crossing area here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47277936": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 32,
+   "note": "There is a sidewalk here with no curb ramp (driveways, yes) but no sidewalk to cross to on the other side of street",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47306242": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 24,
+   "note": "There is no sidewalk on the other side of the street to cross to",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47231494": {
+   "type": "arterial",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 22,
+   "note": "Definitely a missing curb ramp here. Sidewalk that just ends at a curb",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47285879": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 30,
+   "note": "Another one of those T intersections (lots in this batch) where there is no curb ramp but there are lots of driveways",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47207366": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 18,
+   "note": "Very traditional missing curb ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n7004605714": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 27,
+   "note": "There is no clear place to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47321239": {
+   "type": "arterial",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 17,
+   "note": "I don't think this is a safe place to cross",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n3641331150": {
+   "type": "arterial",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 27,
+   "note": "Doesn't look like a safe area to cross without a controlled intersection",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47304528": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 10,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47255336": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "present",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 77,
+   "note": "There is a curb ramp visible in some of these shots. It might be that it's on the other side?",
+   "inventory_seen": true,
+   "edited_after_inventory": true,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47296495": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 29,
+   "note": "Not safe to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n1637998606": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "cant_tell",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 19,
+   "note": "Too many occlusions",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47321074": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 17,
+   "note": "Not safe to cross here. Very busy road with a median",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n1627708192": {
+   "type": "arterial",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 24,
+   "note": "The sidewalk eneds before the location of the desired curb ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47259574": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 16,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47246605": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 10,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n3811642641": {
+   "type": "arterial",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 25,
+   "note": "This is a commercial driveway along a very busy street. Not safe to cross here at all.",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47307735": {
+   "type": "arterial",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 40,
+   "note": "This is a busy road. Not clear if safe to cross",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47220759": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 10,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n1375322788": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 25,
+   "note": "Someone put a rogue curb ramp here (or maybe for their driveway)",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47225182": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 13,
+   "note": "Very traditional missing curb ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47262047": {
+   "type": "arterial",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 16,
+   "note": "It's not safe to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47260796": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 24,
+   "note": "Looks like there is a driveway here. Also, no sidewalk on other side of street.",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n958723115": {
+   "type": "arterial",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 26,
+   "note": "Not safe to cross",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n2966616369": {
+   "type": "arterial",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 92,
+   "note": "Not safe to cross",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": true,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47289231": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 37,
+   "note": "There is a driveway here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47283068": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 37,
+   "note": "This is probably the most common situation in this entire set. A T intersection where there is no curb ramp on the top of T side but lots of driveways",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47278142": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 18,
+   "note": "Lots of driveways but no urb ramps",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47241615": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 11,
+   "note": "Very traditional missing curb ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47196855": {
+   "type": "arterial",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 12,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n1587312220": {
+   "type": "arterial",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 15,
+   "note": "It's not safe to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47226335": {
+   "type": "arterial",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 15,
+   "note": "I don't think it's safe to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47368091": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 26,
+   "note": "T intersection with missing curb ramps but lots of driveways",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n923872755": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 13,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47253754": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 10,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47336088": {
+   "type": "arterial",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 12,
+   "note": "Not safe to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n11232645814": {
+   "type": "arterial",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 26,
+   "note": "This doesn't look like an intersection or intended to be a crossable area...",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47360202": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": null
+    }
+   },
+   "complete": true,
+   "elapsed_s": 29,
+   "note": "Very traditional missing ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": true,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47278927": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 21,
+   "note": "Again, one of those T intersections with a missing ramp but lots of driveways",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n47236827": {
+   "type": "arterial",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 19,
+   "note": "Probably not safe to cross here",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47316039": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 11,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:art:n3072092946": {
+   "type": "arterial",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 25,
+   "note": "There is no sidewalk on the otherside to cross to. Also a double yellow line",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47267482": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 35,
+   "note": "There is a driveway. Also, appears that there is no sidewalk on other side to cross to",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47269572": {
+   "type": "residential",
+   "corners": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "3": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 20,
+   "note": "T intersection",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47232867": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 10,
+   "note": "Very traditional missing curb ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47252453": {
+   "type": "residential",
+   "corners": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "1": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 9,
+   "note": "Very traditional missing curb ramp",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47292364": {
+   "type": "residential",
+   "corners": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "2": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 24,
+   "note": "There is no place to cross to. There is a wall on other side of street and no sideawlk",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n4602349127": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "no_sidewalk"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 34,
+   "note": "This is cul de sac with a middle circle that doesn't need a curb ramp and has no sidewalks",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47242021": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 12,
+   "note": "Another T intersection",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  },
+  "vancouver:res:n47240416": {
+   "type": "residential",
+   "corners": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "blind": {
+    "0": {
+     "verdict": "absent",
+     "absent_kind": "curb_no_ramp"
+    }
+   },
+   "complete": true,
+   "elapsed_s": 10,
+   "note": "",
+   "inventory_seen": true,
+   "edited_after_inventory": false,
+   "kinds_after_inventory": false,
+   "used_live_imagery": false
+  }
+ }
+}

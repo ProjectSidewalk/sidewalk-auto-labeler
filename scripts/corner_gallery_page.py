@@ -219,6 +219,9 @@ HTML_TEMPLATE = r"""<!doctype html>
   .view .cap{display:block;font-size:11px;color:#333;padding:1px 3px}
   .nocrop{width:200px;height:200px;display:flex;align-items:center;justify-content:center;
           font-size:12px;color:#555;background:#ddd}
+  .views.land{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:8px}
+  .views.land .view img{width:100%;height:auto;aspect-ratio:var(--ca,2)}
+  .views.land .view .cap{font-size:12px}
   .choices{display:flex;gap:14px;flex-wrap:wrap;font-size:14px}
   .choices label{cursor:pointer;padding:3px 6px;border-radius:4px}
   .choices label:has(input:checked){background:#e8f0fe;font-weight:600}
@@ -244,6 +247,8 @@ HTML_TEMPLATE = r"""<!doctype html>
   #lb .side{display:flex;flex-direction:column;gap:6px}
   #lb .side img{width:140px;height:140px;border:3px solid transparent;border-radius:4px;cursor:pointer}
   #lb .side img.on{border-color:#ffb000}
+  #lb.land .big img{width:min(calc(96vw - 200px),1400px);height:auto;aspect-ratio:var(--ca,2)}
+  #lb.land .side img{width:160px;height:auto;aspect-ratio:var(--ca,2)}
   kbd{background:#eee;border:1px solid #bbb;border-radius:3px;padding:0 4px;font-size:12px}
   .sr{position:absolute;left:-9999px}
   @media (max-width:900px){#left{position:static;width:100%}#aerialwrap{width:100%;height:auto;aspect-ratio:1}}
@@ -286,7 +291,8 @@ HTML_TEMPLATE = r"""<!doctype html>
       pinned or dated like the crops, so the scorer reports these units separately.</span></p>
     <p class="meta">Corner markers: number = corner; fill and the letter under it: green P present,
       red A absent, grey ? can't tell, white not yet rated; blue ring = the active corner (click a corner to make it active). Dots with dashed lines =
-      the cameras of that corner's crops. Squares (after completion only) = city inventory
+      the cameras of that corner's crops.<span id="phantomkey" hidden> Thin dashed white lines = phantom legs: the
+      stem of a T carried straight across the through street, so its far side has two corners, one per crossing landing.</span> Squares (after completion only) = city inventory
       points: A Available, N NA with no RAMPTYPE, T NA with a RAMPTYPE, R RMV, X Expired/Removed,
       ? other.</p>
   </section>
@@ -524,9 +530,10 @@ function renderUnit() {
       : '<span class="nocrop">no pano within 40 m</span>';
     return '<fieldset class="corner" id="corner-' + ci + '" data-ci="' + ci + '">' +
       '<legend>Corner ' + c.corner + ' <span class="meta">bearings ' + Math.round(c.start_deg) + '° to ' + Math.round(end) +
-      '°, ' + Math.round(c.width_deg) + '° wide' + (c.wide ? ' (wide: often the far side of a T)' : '') + '</span> ' +
+      '°, ' + Math.round(c.width_deg) + '° wide' + (c.wide ? ' (wide: often the far side of a T)' : '') +
+      (c.phantom ? ' (far side of a T: bounded by a phantom leg, dashed on the aerial)' : '') + '</span> ' +
       '<span class="badge" id="vb-' + ci + '"></span><span class="keys">&#9654; active: p / a / t rate this corner</span></legend>' +
-      '<div class="views">' + views + '</div>' +
+      '<div class="views' + (u.crop_aspect > 1 ? ' land" style="--ca:' + u.crop_aspect : '') + '">' + views + '</div>' +
       '<div class="choices" role="radiogroup" aria-label="Verdict for corner ' + c.corner + '">' +
       VERDICTS.map(v => '<label><input type="radio" name="v-' + ci + '" value="' + v + '"' + (e.verdict === v ? ' checked' : '') +
         (s.complete ? ' disabled' : '') + '> ' + VLABEL[v] + ' <kbd>' + {present: 'p', absent: 'a', cant_tell: 't'}[v] + '</kbd></label>').join('') +
@@ -582,6 +589,11 @@ function drawPlan() {
     const r = u.window_m * ppm, t = b * Math.PI / 180;
     out.push('<line x1="' + c0[0] + '" y1="' + c0[1] + '" x2="' + (c0[0] + r * Math.sin(t)) + '" y2="' + (c0[1] - r * Math.cos(t)) + '" stroke="#fff" stroke-width="2" opacity=".85"/>');
   }
+  for (const b of (u.phantom_legs || [])) {   // #169 split-wide: the stem continued, dashed
+    const r = u.window_m * ppm, t = b * Math.PI / 180;
+    out.push('<line class="phantom" x1="' + c0[0] + '" y1="' + c0[1] + '" x2="' + (c0[0] + r * Math.sin(t)) + '" y2="' + (c0[1] - r * Math.cos(t)) + '" stroke="#fff" stroke-width="1.5" stroke-dasharray="9 6" opacity=".9"><title>Phantom leg (bearing ' + Math.round(b) + '°)</title></line>');
+  }
+  document.getElementById('phantomkey').hidden = !(u.phantom_legs || []).length;
   const ac = u.corners[active];
   if (ac) for (const [vi, v] of ac.views.entries()) {
     const p = toImg(u, v.cam.lat, v.cam.lng), q = toImg(u, ac.lat, ac.lng);
@@ -643,6 +655,9 @@ function openLightbox(ci, vi) {
   if (!v) return;
   lb = {ci: ci, vi: vi, back: document.activeElement};
   const el = document.getElementById('lb');
+  const ca = cur().crop_aspect || 1;
+  el.classList.toggle('land', ca > 1);
+  el.style.setProperty('--ca', ca);
   el.innerHTML = '<div class="big"><img src="' + esc(v.crop) + '" alt="Corner ' + c.corner + ', view ' + (vi + 1) + ', enlarged"><div class="cap">Corner ' + c.corner +
     ' · view ' + (vi + 1) + ' of ' + c.views.length + ' · captured ' + esc(v.date || '?') + ' · ' + v.dist_m.toFixed(1) + ' m · pano ' + esc(v.pano_id) +
     '<br>Look around in: ' + panoLinks(v, PS_HOST) +

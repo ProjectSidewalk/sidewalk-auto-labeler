@@ -1,0 +1,121 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_labels.score/1",
+ "issue": "sidewalk-auto-labeler#169",
+ "rule": {
+  "precision_min": 0.9,
+  "wilson_lower_min": 0.85,
+  "min_n": 100,
+  "cant_tell": "excluded from the denominator",
+  "read": "blind verdicts only"
+ },
+ "proposals": {
+  "path": "proposals.jsonl",
+  "sha256": "84768078f279110733ae13b947308dc50aa461794d3da6246f19592c3aa07325"
+ },
+ "verdicts": {
+  "path": "verdicts__jonf.json",
+  "sha256": "0d36ebb45d63cbc85ee4bb239662eacefa415a5a9f5d0b51c4f207341fed3073",
+  "rater": "jonf",
+  "items_sha256": "bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459",
+  "rubric_version": 1
+ },
+ "sample": null,
+ "n_proposals": 2894,
+ "sample_keys_not_in_proposals": [],
+ "n_rated": 54,
+ "n": 52,
+ "present": 1,
+ "absent": 51,
+ "cant_tell": 2,
+ "cant_tell_share": 0.037,
+ "precision": 0.9808,
+ "wilson95": [
+  0.8988,
+  0.9966
+ ],
+ "absent_kinds": {
+  "curb_no_ramp": 10,
+  "no_sidewalk": 19,
+  "unspecified": 22
+ },
+ "label_precision": 0.6154,
+ "label_wilson95": [
+  0.4796,
+  0.7353
+ ],
+ "by_stratum": {
+  "arterial": {
+   "present": 1,
+   "absent": 17,
+   "cant_tell": 2
+  },
+  "residential": {
+   "present": 0,
+   "absent": 33,
+   "cant_tell": 0
+  },
+  "signalised": {
+   "present": 0,
+   "absent": 1,
+   "cant_tell": 0
+  }
+ },
+ "sample_drawn_for_rule": false,
+ "verdict": "NOT SCORED (n = 52 < 100; sample not drawn for this rule)",
+ "rated_keys": [
+  "vancouver:art:n13059332216#0",
+  "vancouver:art:n1803133375#1",
+  "vancouver:art:n3627781133#0",
+  "vancouver:art:n3627781133#2",
+  "vancouver:art:n3629347257#0",
+  "vancouver:art:n3629347257#1",
+  "vancouver:art:n3629347257#2",
+  "vancouver:art:n3699326114#1",
+  "vancouver:art:n4612512437#0",
+  "vancouver:art:n4612512437#1",
+  "vancouver:art:n4612512437#2",
+  "vancouver:art:n47190958#0",
+  "vancouver:art:n47190958#1",
+  "vancouver:art:n47190958#2",
+  "vancouver:art:n47245550#2",
+  "vancouver:art:n47270030#2",
+  "vancouver:art:n47290563#0",
+  "vancouver:art:n47290563#2",
+  "vancouver:art:n47335720#1",
+  "vancouver:art:n47345153#1",
+  "vancouver:res:n13090709554#2",
+  "vancouver:res:n1637998595#2",
+  "vancouver:res:n2623620122#0",
+  "vancouver:res:n2623620122#1",
+  "vancouver:res:n3372672500#0",
+  "vancouver:res:n3372672500#2",
+  "vancouver:res:n4598685562#1",
+  "vancouver:res:n47215596#1",
+  "vancouver:res:n47219489#2",
+  "vancouver:res:n47231855#1",
+  "vancouver:res:n47232326#0",
+  "vancouver:res:n47232326#1",
+  "vancouver:res:n47234866#2",
+  "vancouver:res:n47236184#2",
+  "vancouver:res:n47240587#1",
+  "vancouver:res:n47258942#0",
+  "vancouver:res:n47258942#1",
+  "vancouver:res:n47270098#1",
+  "vancouver:res:n47278131#2",
+  "vancouver:res:n47281487#0",
+  "vancouver:res:n47286143#2",
+  "vancouver:res:n47288787#0",
+  "vancouver:res:n47318468#2",
+  "vancouver:res:n47355183#2",
+  "vancouver:res:n47362725#0",
+  "vancouver:res:n47362725#1",
+  "vancouver:res:n47362725#2",
+  "vancouver:res:n47397759#0",
+  "vancouver:res:n958722944#0",
+  "vancouver:res:n958722944#1",
+  "vancouver:res:n959123136#0",
+  "vancouver:res:n959123136#1",
+  "vancouver:res:n959123136#2",
+  "vancouver:sig:n1642453647#0"
+ ]
+}

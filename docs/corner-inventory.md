@@ -1048,5 +1048,82 @@ The store pass's metadata cache is kept on makelab2 as `~/posdetect241_store_met
 corner (present / absent / can't tell): the 35 false absences at the #241 targets, 40 of the
 944 `NA`-no-`RAMPTYPE` units and 20 of the 333 clean units (seed 243). Protocol, how to rate
 and the scoring rules: [`corner-gallery-243.md`](corner-gallery-243.md). Bundle:
-`runs/vancouver/corner_gallery243/`. Nothing in this document changes until the ratings are
-scored; the `NA` read stays open until then.
+`runs/vancouver/corner_gallery243/`.
+
+**Scored 2026-11-05: the primary `NA` read is read (b).** The blind ratings (95 of 95 units,
+draft PR #180, `runs/vancouver/corner_gallery243/score/report.md` on branch
+`corner-gallery-243-verdicts`) found the 40 sampled `NA`-no-`RAMPTYPE` units absent at every
+corner, 39/39 decided (1 undetermined), Wilson 95% [0.910, 1.000], and the corners holding
+those points absent 99/99. An `NA` point with no `RAMPTYPE` is the city's record of no ramp, so
+read (b), which does not count such points as inventory, is primary. The 35 false absences
+split into 4 real misses, 16 inventory built after the imagery and 15 inventory or geometry
+artifacts. #169 builds on this (`docs/corner-labels-169.md`, the `discount` read). The
+A8 results above are left as they were written.
+
+## Amendment 2026-11-06: the far side of a T is two corners (`build --split-wide`, #169)
+
+**Why.** Jon Froehlich piloted the #169 precision gallery (`runs/vancouver/corner_gallery169/`,
+7 of 99 units rated, kept as `pilot_verdicts__jonf.json`). At units
+`vancouver:art:n47372178` (corner 0) and `vancouver:res:n958723078` (corner 2) the corner point
+lands midway along the far curb of a T, between the two places a crossing of the through
+street actually lands. Those landings are where the stem's two sidewalks, carried straight
+across the through street, meet the far curb. A NoCurbRamp label at the midpoint is misplaced.
+The **Corner** definition above flagged such sectors `wide` ("where there is usually no
+crossing"). Jon's rule replaces that reading: there are **two** crossings there, one per
+landing, and each needs a ramp.
+
+**Rule.** Opt-in flag `build --split-wide`; **default off**, so every #238 / A8 number above
+and every committed build reproduces. With the flag, for every sector wider than
+`WIDE_SECTOR_DEG` (150°), a *phantom leg* is inserted at `(L + 180) % 360` for each real leg L
+whose opposite bearing falls inside that sector at least `SPLIT_MARGIN_DEG` (=
+`LEG_MERGE_DEG`, 30°) from **both** sector bounds (phantoms closer than 30° to each other in one
+sector merge to their circular mean; none did in Vancouver). Corners are then the sectors over
+real + phantom legs. A right-angle T (legs 90 / 180 / 270) gets a phantom at 0, so its far
+side becomes two corners with bisectors 315 and 45: the two corners the four-way would have if
+the stem continued. A skewed T (90 / 150 / 270) gets one phantom at 330. A near-straight
+two-leg unit gets none: each leg's opposite sits at or within a few degrees of the other bound.
+
+**Why the margin.** Over the wide sectors of the #241 build, 5,313 real legs have their
+opposite bearing inside the sector. Its distance from the nearer bound: 2,542 under 15° (a
+through leg's opposite sitting on the other bound of a ~180° sector, floating-point inside
+it), which must not split; 99 at 15-30° (no split); 27 at 30-45°; 48 at 45-60°; 213 at
+60-75°; 2,143 at 75-90° (clean T stems), which must split; 241 at 90° or more. The cut is
+not in an empty gap: 56 opposites lie within 10° of it (20-40°), so a different margin
+would move a few dozen corners. 30° is `LEG_MERGE_DEG`, the angle below which two real legs
+are already one leg.
+
+**Records.** `legs` / `n_legs` stay the real legs; the unit gains `phantom_legs`; each corner
+gains `phantom_start` / `phantom_end` (which bound is a phantom); `corner` is the clockwise
+index over the new sector list; `wide` is recomputed on the new width, so a sub-sector still
+wider than 150° stays flagged. `units.csv` / `corners.csv` gain the matching columns, and
+`build.json` records `params.split_wide`, `params.split_margin_deg` and a `split` block. Without
+the flag none of these keys is written. `score` runs on either build.
+
+**Regression.** A build without the flag (at fff5e10, same inputs) reproduces the #241 build's
+`corners_full.jsonl` byte for byte (sha256 `ec20606098d0e8b34113b4b328e57d3737b7669d01a37f1d6d722faab4681f8d`),
+and its `corners_224.jsonl`, `units.csv` and `corners.csv` too.
+
+**Vancouver, split build** (`runs/vancouver/corner_inventory169_split/`, the #241 build's
+inputs and both `--extra-run` dirs; `corners_full.jsonl` sha256
+`b50da32e1bb0b86f5d93fcd0de0cead1be620d8ac39f309d3abd2461f87ce9fc`, untracked like the
+others):
+
+| stratum | units | corners before → after | wide before → after | phantom legs (units) | absent corners, fusion/primary |
+|---|---:|---:|---:|---:|---:|
+| signalised | 284 | 1,004 → 1,082 | 135 → 58 | 78 (77) | 51 → 84 |
+| arterial | 1,497 | 4,743 → 5,579 | 1,237 → 403 | 836 (834) | 1,754 → 2,498 |
+| residential | 2,648 | 8,644 → 10,402 | 1,805 → 66 | 1,758 (1,739) | 4,580 → 6,232 |
+| all | 4,429 | 14,391 → 17,063 | 3,177 → 527 | 2,672 (2,650) | 6,385 → 8,814 |
+
+2,628 units got one phantom and 22 got two. By real legs, the units that split are 2,627
+three-leg units, 16 two-leg bends (an L: both outside opposites qualify, giving the two
+landings plus the outer curb return) and 7 four-leg units. Of the 527 corners still wide, 514
+are at two-leg units (a street running straight through), 10 at three-leg units and 3 at
+one-leg units. Unit records and unit-level states do not depend on sectors, so the unit-level
+decision (`decision.json`) is identical to the #241 build's. Absent corners rise because a
+far side that held a ramp at one landing was one present corner and is now one present and
+one absent corner, which is the point of the rule.
+
+The #238 and A8 numbers in this document are untouched: they were computed without the flag
+and still reproduce. #169's revised test runs on this table
+([`corner-labels-169.md`](corner-labels-169.md), "Pre-registration revision").
