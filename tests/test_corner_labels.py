@@ -820,3 +820,12 @@ def test_pilot_end_to_end_sample_export_dry_run_and_score(tmp_path):
     read = json.loads((tmp_path / 'read.json').read_text(encoding='utf-8'))
     assert (read['decided'], read['unsure'], read['look']) == (2, 1, 2)
     assert read['status'] == 'FAIL'       # 2 of 2 cannot clear a Wilson lower bound of 0.85
+
+    # pilot-links: server label ids back in draw order (only the corners the server holds)
+    srv = [{'label_id': str(900 + j), 'pano_id': cl.pixel_key(props[k])[0],
+            'pano_x': cl.pixel_key(props[k])[1], 'pano_y': cl.pixel_key(props[k])[2]}
+           for j, k in reversed(list(enumerate(order[:3])))]
+    got = cl.pilot_label_ids(order[:4], list(props.values()), srv)
+    assert got == [(1, order[0], 900), (2, order[1], 901), (3, order[2], 902)]
+    with pytest.raises(SystemExit, match='two server labels'):
+        cl.pilot_label_ids(order, list(props.values()), srv + [dict(srv[0], label_id='999')])

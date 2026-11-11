@@ -1338,6 +1338,43 @@ def read_validations(path):
     return out
 
 
+def pilot_label_ids(order_keys, proposals, rows):
+    """[(order, corner key, label_id)] for the pilot labels the server holds, in draw order.
+
+    rows: [{'label_id', 'pano_id', 'pano_x', 'pano_y'}] from the read-only SELECT of the
+    campaign's labels; joined on PS's pixel key (pixel_key). A pixel key held by two server
+    labels is refused (a duplicate insert); corners with no server label are left out."""
+    by_pixel = {}
+    for r in rows:
+        k = (r['pano_id'], int(r['pano_x']), int(r['pano_y']))
+        if k in by_pixel and by_pixel[k] != int(r['label_id']):
+            raise SystemExit(f'two server labels share the pixel key {k}: '
+                             f'{by_pixel[k]} and {r["label_id"]}')
+        by_pixel[k] = int(r['label_id'])
+    props = {p['key']: p for p in proposals}
+    out = []
+    for i, k in enumerate(order_keys, 1):
+        lid = by_pixel.get(pixel_key(props[k]))
+        if lid is not None:
+            out.append((i, k, lid))
+    return out
+
+
+def cmd_pilot_links(args):
+    order = read_corner_order(args.pilot)
+    proposals = ci.read_jsonl(args.proposals)
+    with open(args.labels, encoding='utf-8', newline='') as f:
+        rows = list(csv.DictReader(f))
+    got = pilot_label_ids(order[:args.first], proposals, rows)
+    if args.out:
+        ci.write_csv_lf(args.out, ['order', 'corner', 'label_id'],
+                        [{'order': i, 'corner': k, 'label_id': lid} for i, k, lid in got])
+    ids = ','.join(str(lid) for _i, _k, lid in got)
+    print(f'{len(got)} of the first {args.first} pilot corners have a server label '
+          f'({len(rows)} rows read). In draw order (city {args.city}):')
+    print(f'{args.server.rstrip("/")}/gallery?labelIds={ids}')
+
+
 def cmd_pilot_score(args):
     rec_s = json.loads(Path(args.pilot).with_suffix('.json').read_text(encoding='utf-8'))
     proposals = ci.read_jsonl(args.proposals)
@@ -1478,6 +1515,19 @@ def main(argv=None):
                         "each label (the read-only SELECT in docs/corner-labels-169-pilot.md)")
     q.add_argument('--out', help='write the read JSON here')
     q.set_defaults(fn=cmd_pilot_score)
+
+    k = sub.add_parser('pilot-links', help="the pilot's server label ids in draw order, as a "
+                                           'Gallery review-list URL')
+    k.add_argument('--pilot', required=True, help='the pilot order CSV')
+    k.add_argument('--proposals', required=True)
+    k.add_argument('--labels', required=True,
+                   help='CSV label_id,pano_id,pano_x,pano_y of the campaign (read-only SELECT)')
+    k.add_argument('--first', type=int, default=120,
+                   help='how many positions of the order to link (default 120 = rate + reserve)')
+    k.add_argument('--server', required=True, help='e.g. https://sidewalk-<city>-test.cs.washington.edu')
+    k.add_argument('--city', default='vancouver', help='label ids are per city; printed with them')
+    k.add_argument('--out', help='write order,corner,label_id here')
+    k.set_defaults(fn=cmd_pilot_links)
 
     args = ap.parse_args(argv)
     args.fn(args)
