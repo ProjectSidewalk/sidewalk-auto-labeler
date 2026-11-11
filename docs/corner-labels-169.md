@@ -598,6 +598,37 @@ guard learns the label type.** Draft PR #179 (branch `store-guard-label-type`) m
 exports carry NoCurbRamp only, so they pass once #179 merges, without `--allow-store-file`.
 `dry_run_summary.txt` was generated before #179 and still shows the refusal.
 
+## Test-server pilot (prepared 2026-11-11; not sent)
+
+The clearance sheet is [corner-labels-169-pilot.md](corner-labels-169-pilot.md): file,
+sha256, endpoint, commands, guard verdicts, expected rows, verification query, draft rollback,
+rating protocol and Jon's open decisions. In short:
+
+- **Residential corners only.** Jon's notes say "not safe to cross" on 22 of the 34 arterial
+  units he rated, so the 1,052 arterial and 34 signalised proposals are out of this pilot. The
+  population is the 1,984 residential proposals of the split `na_discount_sw` build.
+- **One seeded order** (`pilot_residential/pilot.csv`, seed 169). Its first 200 positions are
+  the recommended send, `results.pilot200.jsonl`: 200 labels on 197 panos, sha256
+  `d38c9f3b…`. The whole stratum, `results.residential.jsonl` (1,984 on 1,717), is the
+  alternative. The two are never sent one after the other, because the server refuses a pano
+  that already holds an AI label of the type.
+- **Every pre-send guard passes** against the test endpoint once #179 is in. They are called
+  directly by `scripts/pilot_guards.py`, since `--dry-run` skips them.
+- **Rating: a declared amendment.** The issue said "a seeded 100-label sample". Instead, the
+  lead rates in the seeded order, can't-tell is skipped into a 20-label reserve, and the rule
+  looks at 40 / 60 / 100 decided labels with a Bonferroni z of 2.394: PASS at ≤ 0 / 2 / 6
+  wrong, FAIL once 7 are wrong. `sample --stratum/--reserve` records the rule in `pilot.json`.
+  `pilot-links` turns the server's label ids into an ordered Gallery review list, and
+  `pilot-score` applies the rule. The full #183 scorer (gallery verdict files, stratum caps)
+  is not built. `score` is unchanged.
+- **Blocker.** `sidewalk-vancouver-test` is disabled (config dot-prefixed 2025-09-19, not
+  running, URL 503). Its schema in the test database is a 2025-09 copy that holds only the
+  AI's 64,814 CurbRamp labels.
+
+New tooling: `export --stratum`, `--only-corners <csv>`, `--only-first N` (filters recorded in
+`<stem>.export.json`, beside the output); `sample --stratum --reserve --send --looks`;
+`pilot-links`; `pilot-score`.
+
 ## Caveats
 
 - **Observed is conditioned on labels.** The base run and the #241 run were built from the PS
@@ -666,8 +697,7 @@ AI label at the same corner are what the validators compare.
   none; OSM was not needed here.
 - **Scoring.** Done 2026-11-11 on the split-wide bundle: PASS under the n = 97 amendment
   ("Result" above).
-- **The test-server pilot.** It needs Jon's clearance of the exact send (build, endpoint,
-  confidence, stratum scope; see the crossing notes under "Result").
+- **The test-server pilot.** Prepared up to a clearance sheet (next section); nothing sent.
 - **`corner_gallery_score.py` on a sample bundle: fixed 2026-11-11.** It used to validate this
   bundle's verdicts and then crash in its report (`KeyError: 'na_noramp'`, since a sample
   bundle's `snapshot.json` has no gallery 243 populations). It now validates, prints the

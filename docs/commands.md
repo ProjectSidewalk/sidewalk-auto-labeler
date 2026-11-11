@@ -699,8 +699,9 @@ Rules of use:
   dirty tool.
 - `rank` takes validator-ai's ranked CSV (#69; columns by flag) and drops nothing.
 - `score` prints PASS/FAIL only on a sample drawn for the rule (`--sample`) with n >= 100.
-- **Nothing is submitted under #169.** `send_to_ps.py` dry runs only. A real send of a Vancouver
-  file trips `check_store_built` (store-built panos), which is a decision for review.
+- **Nothing is submitted under #169 without Jon's clearance.** The test-server pilot is
+  prepared up to [corner-labels-169-pilot.md](corner-labels-169-pilot.md). A real send of a
+  Vancouver file passes `check_store_built` only with #179 (type-aware store guard).
 
 ```bash
 D=runs/vancouver/corner_labels169/na_discount_sw  # na_count_sw with --na-read count; no layer: na_<read>
@@ -727,6 +728,22 @@ python scripts/corner_labels.py sample --proposals $D/proposals.jsonl --out $D/s
 python scripts/corner_gallery.py build --items-from $D/sample.csv     --corners-full runs/vancouver/corner_inventory169_split/corners_full.jsonl --bundle $B     --views-per-corner 6 --crop-aspect 2 --crop-fov-deg 120 --crop-px 896
 python scripts/corner_gallery.py render --bundle $B --rater jonf
 python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv     --bundle $B --verdicts $B/verdicts__jonf.json --out $D/score_gallery169.json
+# THE TEST-SERVER PILOT (2026-11-11; clearance sheet docs/corner-labels-169-pilot.md). Residential
+# only. sample --stratum/--reserve writes ONE seeded order over the stratum (order, unit, corner,
+# stratum, role = rate / reserve / send / rest) and records the sequential stop rule (looks
+# 40/60/100 decided, Bonferroni z) in pilot.json. export --stratum (repeatable), --only-corners
+# <csv> [--only-first N]: unknown or off-stratum keys refused; lines follow the draw order and
+# the record lands beside the output as <stem>.export.json. pilot_guards.py calls every
+# pre-send guard of a real send (a --dry-run skips them) and sends nothing.
+P=$D/pilot_residential; EP=https://sidewalk-vancouver-test.cs.washington.edu/ai/submitLabelsOnPano
+python scripts/corner_labels.py sample --proposals $D/proposals.jsonl --stratum residential     --n 100 --reserve 20 --send 200 --out $P/pilot.csv
+python scripts/corner_labels.py export --dir $D --stratum residential --only-corners $P/pilot.csv     --only-first 200 --out $P/results.pilot200.jsonl     # residential: drop --only-first
+python send_to_ps.py $P/results.pilot200.jsonl --endpoint $EP --dry-run > /dev/null
+python scripts/pilot_guards.py $P/results.pilot200.jsonl --endpoint $EP
+python scripts/corner_pilot_stats.py    # -> $P/pilot_stats.json, $P/panos.<file>.txt
+# after a CLEARED send: the label ids in draw order (Gallery review list), then the stop rule
+python scripts/corner_labels.py pilot-links --pilot $P/pilot.csv --proposals $D/proposals.jsonl     --labels labels.csv --server https://sidewalk-vancouver-test.cs.washington.edu --out $P/pilot_label_ids.csv
+python scripts/corner_labels.py pilot-score --pilot $P/pilot.csv --proposals $D/proposals.jsonl     --validations validations.csv --out $P/pilot_score.json
 ```
 
 ## Runs rebuilt from the pano store; provenance gate

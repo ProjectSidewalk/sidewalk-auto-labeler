@@ -5,3 +5,6 @@ docs/figures/seam-band-130/data/** text eol=lf
 # Golden fixtures captured from origin/main for #168; compared byte for byte (the JSONL's
 # sha256 is inside the expected submission record), so a CRLF checkout must not rewrite them.
 tests/fixtures/multitype_submit/** text eol=lf
+# #169 pilot files: their sha256 is recorded (export records, clearance sheet, submission
+# records), so a CRLF checkout must not rewrite them.
+runs/vancouver/corner_labels169_split/na_discount_sw/pilot_residential/** text eol=lf
