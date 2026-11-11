@@ -1,0 +1,60 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_labels.sample/2",
+ "drawn_at": "2026-11-11T22:13:43+00:00",
+ "seed": 169,
+ "strata": [
+  "residential"
+ ],
+ "population": 1984,
+ "n": 100,
+ "reserve": 20,
+ "send": 200,
+ "roles": {
+  "rate": 100,
+  "reserve": 20,
+  "send": 80,
+  "rest": 1784
+ },
+ "proposals": {
+  "path": "proposals.jsonl",
+  "sha256": "1562e076edaf7e5c37f6eada0a2e32275fa86f0f45f7caeb20d21d25abf1d4d0"
+ },
+ "rule": "random.Random(seed).sample(sorted keys of the strata, len(keys)): one full order; rate in it, skip can't-tell, stop by stop_rule",
+ "stop_rule": {
+  "looks": [
+   {
+    "look": 40,
+    "pass_if_wrong_at_most": 0,
+    "wilson_lower_all_right": 0.8747,
+    "wilson_lower_at_worst_pass": 0.8747,
+    "unadjusted_z196_pass_if_wrong_at_most": 1
+   },
+   {
+    "look": 60,
+    "pass_if_wrong_at_most": 2,
+    "wilson_lower_all_right": 0.9128,
+    "wilson_lower_at_worst_pass": 0.8592,
+    "unadjusted_z196_pass_if_wrong_at_most": 3
+   },
+   {
+    "look": 100,
+    "pass_if_wrong_at_most": 6,
+    "wilson_lower_all_right": 0.9458,
+    "wilson_lower_at_worst_pass": 0.8559,
+    "unadjusted_z196_pass_if_wrong_at_most": 8
+   }
+  ],
+  "z": 2.3939797998185104,
+  "alpha_one_sided_total": 0.025,
+  "alpha_one_sided_per_look": 0.008333,
+  "correction": "Bonferroni across looks",
+  "precision_min": 0.9,
+  "wilson_lower_min": 0.85,
+  "fail_once_wrong_exceeds": 6,
+  "reads": "decided = agree + disagree in the draw order; unsure skipped; the first validation by the lead counts; a rating after an unrated earlier label is refused (no skipping ahead)"
+ },
+ "sample": {
+  "path": "pilot.csv",
+  "sha256": "157ff268162f62f125f93890fd65b01638e7ecb27a3c5011e2056e292dbf32b4"
+ }
+}

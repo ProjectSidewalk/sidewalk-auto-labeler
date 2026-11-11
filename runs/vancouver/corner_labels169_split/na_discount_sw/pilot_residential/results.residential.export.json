@@ -1,0 +1,41 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_labels.export/1",
+ "exported_at": "2026-11-11T22:13:45+00:00",
+ "proposals": {
+  "path": "proposals.jsonl",
+  "sha256": "1562e076edaf7e5c37f6eada0a2e32275fa86f0f45f7caeb20d21d25abf1d4d0"
+ },
+ "provenance": {
+  "model_id": "corner-rule@30168fddeb6e",
+  "model_training_date": "11-05-2026",
+  "api_version": "1.0.0",
+  "model_repo": "ProjectSidewalk/sidewalk-auto-labeler",
+  "model_revision": "30168fddeb6e51ab79760b63da845ec10fb26b12"
+ },
+ "lines": 1717,
+ "labels": 1984,
+ "output": {
+  "path": "runs\\vancouver\\corner_labels169_split\\na_discount_sw\\pilot_residential\\results.residential.jsonl",
+  "sha256": "a4dce3575e852ff9c4389ff094fbfd156c946f6bd003bcca905a14900ba6aa0c",
+  "lines": 1717,
+  "bytes": 4734498
+ },
+ "selection": {
+  "strata": [
+   "residential"
+  ],
+  "n_proposals": 3070,
+  "dropped_by_stratum": 1086,
+  "dropped_by_only_corners": 0,
+  "kept": 1984,
+  "kept_by_stratum": {
+   "residential": 1984
+  },
+  "only_corners": {
+   "path": "pilot.csv",
+   "sha256": "157ff268162f62f125f93890fd65b01638e7ecb27a3c5011e2056e292dbf32b4",
+   "rows": 1984,
+   "first": null
+  }
+ }
+}

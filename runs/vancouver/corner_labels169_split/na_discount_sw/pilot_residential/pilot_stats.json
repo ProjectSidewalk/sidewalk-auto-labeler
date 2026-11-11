@@ -1,0 +1,143 @@
+{
+ "pilot200": {
+  "labels": 200,
+  "panos": 197,
+  "labels_per_pano": 1.015,
+  "max_per_pano": 2,
+  "range_p10_med_p90": [
+   6.8,
+   9.9,
+   17.1
+  ],
+  "phantom": 130,
+  "phantom_share": 0.65,
+  "wide": 1,
+  "wide_share": 0.005,
+  "runs": {
+   "vancouver_posdetect241": 75,
+   "vancouver": 124,
+   "vancouver_posdetect241_gsv": 1
+  },
+  "inventory": {
+   "none": 166,
+   "na_noramp_only": 34
+  },
+  "years": {
+   "2007": 1,
+   "2011": 1,
+   "2012": 1,
+   "2014": 8,
+   "2015": 5,
+   "2019": 11,
+   "2021": 3,
+   "2022": 22,
+   "2023": 107,
+   "2024": 40,
+   "2026": 1
+  },
+  "dims": {
+   "16384x8192": 184,
+   "13312x6656": 15,
+   "3328x1664": 1
+  },
+  "rated_in": 6
+ },
+ "rated100+20": {
+  "labels": 120,
+  "panos": 119,
+  "labels_per_pano": 1.008,
+  "max_per_pano": 2,
+  "range_p10_med_p90": [
+   6.9,
+   10.2,
+   18.2
+  ],
+  "phantom": 81,
+  "phantom_share": 0.675,
+  "wide": 0,
+  "wide_share": 0.0,
+  "runs": {
+   "vancouver_posdetect241": 53,
+   "vancouver": 67
+  },
+  "inventory": {
+   "none": 100,
+   "na_noramp_only": 20
+  },
+  "years": {
+   "2011": 1,
+   "2012": 1,
+   "2014": 4,
+   "2015": 5,
+   "2019": 8,
+   "2021": 2,
+   "2022": 12,
+   "2023": 68,
+   "2024": 19
+  },
+  "dims": {
+   "16384x8192": 109,
+   "13312x6656": 11
+  },
+  "rated_in": 0
+ },
+ "residential": {
+  "labels": 1984,
+  "panos": 1717,
+  "labels_per_pano": 1.156,
+  "max_per_pano": 4,
+  "range_p10_med_p90": [
+   6.8,
+   10.1,
+   17.5
+  ],
+  "phantom": 1354,
+  "phantom_share": 0.682,
+  "wide": 11,
+  "wide_share": 0.006,
+  "runs": {
+   "vancouver_posdetect241": 662,
+   "vancouver": 1317,
+   "vancouver_posdetect241_gsv": 5
+  },
+  "inventory": {
+   "none": 1601,
+   "na_noramp_only": 383
+  },
+  "years": {
+   "2007": 5,
+   "2011": 5,
+   "2012": 33,
+   "2014": 67,
+   "2015": 18,
+   "2016": 9,
+   "2017": 1,
+   "2018": 2,
+   "2019": 95,
+   "2021": 40,
+   "2022": 261,
+   "2023": 1154,
+   "2024": 289,
+   "2026": 5
+  },
+  "dims": {
+   "16384x8192": 1844,
+   "13312x6656": 135,
+   "3328x1664": 5
+  },
+  "rated_in": 66
+ },
+ "complement_on_pilot_panos": {
+  "corners": 50,
+  "panos": 45
+ },
+ "rated_positions_le200": [
+  133,
+  139,
+  140,
+  148,
+  150,
+  175
+ ],
+ "split_sample_residential_rated": 66
+}

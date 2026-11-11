@@ -1,0 +1,48 @@
+# #169 test-server pilot: dry runs and pre-send guards, 2026-11-11T22:18:23Z, branch corner-pilot-169
+# Nothing was sent. Dry runs used the default endpoint (localhost; a dry run contacts nothing);
+# the guards were called directly by scripts/pilot_guards.py against the intended endpoint
+# https://sidewalk-vancouver-test.cs.washington.edu/ai/submitLabelsOnPano
+
+## results.pilot200.jsonl: python send_to_ps.py runs/vancouver/corner_labels169_split/na_discount_sw/pilot_residential/results.pilot200.jsonl --dry-run (summary lines)
+--------------------------------------------------
+Processing complete!
+Successfully processed:        197 records
+Skipped (already submitted):   0 records
+Errors encountered:            0 records
+Detections below --min-confidence 0.5 (not submitted): 0
+payloads with label_type NoCurbRamp: 197; labels (pano_x lines): 200
+    197 "model_id": "corner-rule@30168fddeb6e"
+
+## results.pilot200.jsonl: python scripts/pilot_guards.py ... --endpoint <test>
+check_endpoint_security: PASS
+check_model_provenance: PASS
+check_store_built: PASS: 196 record(s) in results.pilot200.jsonl have source_detail "ps_store": they were rebuilt from the pano store (scripts/detect_from_store.py), but it carries only NoCurbRamp labels; the store's live AI labels are all CurbRamp, so none is duplicated (type-aware store guard, #169).
+check_detection_decode: PASS: argmax
+check_detection_border: PASS: exclude
+file_label_types: ['NoCurbRamp'] (one type: legacy sidecar, one POST per line)
+check_resume_state (sidecar results.pilot200.jsonl.submitted, record results.pilot200.jsonl.submission.json, min_confidence 0.5): PASS
+check_position_state: PASS
+check_live_positions: PASS
+file: sha256 d38c9f3b1fba530bac9d6b6ecfcacf9403ebe5b55f116bf18b5a35a7035da0c6, 197 lines, 506047 bytes
+
+## results.residential.jsonl: python send_to_ps.py runs/vancouver/corner_labels169_split/na_discount_sw/pilot_residential/results.residential.jsonl --dry-run (summary lines)
+--------------------------------------------------
+Processing complete!
+Successfully processed:        1717 records
+Skipped (already submitted):   0 records
+Errors encountered:            0 records
+Detections below --min-confidence 0.5 (not submitted): 0
+payloads with label_type NoCurbRamp: 1717; labels (pano_x lines): 1984
+   1717 "model_id": "corner-rule@30168fddeb6e"
+
+## results.residential.jsonl: python scripts/pilot_guards.py ... --endpoint <test>
+check_endpoint_security: PASS
+check_model_provenance: PASS
+check_store_built: PASS: 1713 record(s) in results.residential.jsonl have source_detail "ps_store": they were rebuilt from the pano store (scripts/detect_from_store.py), but it carries only NoCurbRamp labels; the store's live AI labels are all CurbRamp, so none is duplicated (type-aware store guard, #169).
+check_detection_decode: PASS: argmax
+check_detection_border: PASS: exclude
+file_label_types: ['NoCurbRamp'] (one type: legacy sidecar, one POST per line)
+check_resume_state (sidecar results.residential.jsonl.submitted, record results.residential.jsonl.submission.json, min_confidence 0.5): PASS
+check_position_state: PASS
+check_live_positions: PASS
+file: sha256 a4dce3575e852ff9c4389ff094fbfd156c946f6bd003bcca905a14900ba6aa0c, 1717 lines, 4734498 bytes
