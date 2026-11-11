@@ -729,6 +729,15 @@ def main(argv=None):
               f"{results[rater]['blind']['scored']} with blind verdicts")
         for p in problems[rater][:10]:
             print('  ' + p)
+    if snapshot.get('mode') == 'sample':
+        # A sample bundle (#169, `corner_gallery.py build --items-from`) rates a rule's own
+        # sample, not gallery 243's three parts, so this report's populations do not exist.
+        # Validation above still applies; the score is corner_labels.py's.
+        print(f"{Path(args.bundle).name} is a sample bundle (snapshot mode 'sample'): verdicts "
+              f"validated above, nothing scored here. Score it with:\n  "
+              f"{snapshot.get('scorer') or 'scripts/corner_labels.py score --sample ... --bundle ...'}",
+              file=sys.stderr)
+        return 1 if any(problems.values()) else 0
     agree = None
     if args.a and args.b:
         for r in (args.a, args.b):

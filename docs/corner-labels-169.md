@@ -665,10 +665,11 @@ AI label at the same corner are what the validators compare.
   ("Result" above).
 - **The test-server pilot.** It needs Jon's clearance of the exact send (build, endpoint,
   confidence, stratum scope; see the crossing notes under "Result").
-- **`corner_gallery_score.py` on a sample bundle.** It validates this bundle's verdicts, then
-  crashes in its report (`KeyError: 'na_noramp'`, since a sample bundle's `snapshot.json` has no
-  gallery 243 populations). It was never meant to score this bundle (above), but it should stop
-  with a message instead.
+- **`corner_gallery_score.py` on a sample bundle: fixed 2026-11-11.** It used to validate this
+  bundle's verdicts and then crash in its report (`KeyError: 'na_noramp'`, since a sample
+  bundle's `snapshot.json` has no gallery 243 populations). It now validates, prints the
+  `corner_labels.py score` command recorded in `snapshot.json`, and writes no report
+  (`test_generic_scorer_validates_a_sample_bundle_and_stops`).
 - **The ASSETS'19 DC placement check.** It needs a store-built DC run.
 
 ## Replication

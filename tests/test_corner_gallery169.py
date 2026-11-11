@@ -222,6 +222,20 @@ def test_score_bundle_refusals(setup):
     assert any('is not the sample the bundle was built from' in p for p in probs)
 
 
+def test_generic_scorer_validates_a_sample_bundle_and_stops(setup, capsys):
+    """corner_gallery_score.py on a sample bundle: validate, then point at corner_labels.py
+    score instead of crashing on gallery 243's populations (KeyError 'na_noramp')."""
+    build(setup.argv)
+    export(setup.bundle, {'vancouver:res:n1': {0: ('absent', 'curb_no_ramp')},
+                          'vancouver:res:n2': {0: ('absent', None), 1: ('cant_tell', None)}})
+    out = setup.tmp / 'cgs_out'
+    assert cgs.main([str(setup.bundle), '--out', str(out)]) == 0
+    cap = capsys.readouterr()
+    assert 'verdicts__jonf.json: valid' in cap.out
+    assert "sample bundle" in cap.err and 'corner_labels.py score' in cap.err
+    assert not out.exists()                                  # no gallery 243 report written
+
+
 # ------------------------------------------- #169 revision (2026-11-06): split-wide bundle
 
 def test_views_per_corner_and_landscape_job_items(setup):
