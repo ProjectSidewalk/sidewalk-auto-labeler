@@ -745,8 +745,9 @@ python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D
 # field (usually camera_pitch) as well as on a missing file. jpg_missing and that 404 are
 # poison-guarded (> 5% of a pass, min 20: not cached; --accept-skip-rate after a hand check).
 # A store-built run is fenced off both ways: main.py refuses a manifest with `pixels`, the
-# runner refuses a run dir main.py wrote, and send_to_ps.py refuses the file (its labels are the
-# live ones; --allow-store-file overrides).
+# runner refuses a run dir main.py wrote, and send_to_ps.py refuses the file when it carries
+# CurbRamp labels (those are the live ones; --allow-store-file overrides). A store-built file of
+# other types only, e.g. NoCurbRamp, passes, and the record's `store_built` says why (#169).
 # provenance_gate.py then checks that the rebuilt run can stand in for the deployed one. The
 # match rule is in COARSE heatmap cells since #111 (2026-09-30; `--rule coarse-cell`, the
 # default): Arm S (always, the store run) and Arm Z (optional, --control: a zoom-3 control on
