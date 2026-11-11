@@ -647,3 +647,176 @@ def test_sector_record_phantom_flags_only_from_a_split_inventory():
     new = dict(old, width_deg=90.0, wide=False, phantom_start=False, phantom_end=True)
     assert cl.sector_record(new) == {'start_deg': 270.0, 'width_deg': 90.0, 'wide': False,
                                      'phantom_start': False, 'phantom_end': True}
+
+
+# ------------------------------------------------------- test-server pilot (#169 pilot)
+
+def _strat_props():
+    return [{'key': f'r{i}#0', 'unit': f'r{i}', 'corner': 0, 'stratum': 'residential'}
+            for i in range(6)] + \
+           [{'key': f'a{i}#0', 'unit': f'a{i}', 'corner': 0, 'stratum': 'arterial'}
+            for i in range(3)]
+
+
+def test_select_proposals_stratum_filter_and_only_corners():
+    props = _strat_props()
+    kept, rec = cl.select_proposals(props, strata=['residential'])
+    assert [p['key'] for p in kept] == [f'r{i}#0' for i in range(6)]
+    assert rec['dropped_by_stratum'] == 3 and rec['kept_by_stratum'] == {'residential': 6}
+    kept, rec = cl.select_proposals(props, strata=['residential'], only=['r4#0', 'r1#0'])
+    assert [p['key'] for p in kept] == ['r1#0', 'r4#0']          # the proposals' own order
+    assert rec['dropped_by_only_corners'] == 4 and rec['kept'] == 2
+    kept, _rec = cl.select_proposals(props, only=['a2#0'])
+    assert [p['key'] for p in kept] == ['a2#0']
+
+
+def test_select_proposals_refuses_unknown_keys_and_strata():
+    props = _strat_props()
+    with pytest.raises(SystemExit, match='not in the proposals'):
+        cl.select_proposals(props, only=['r1#0', 'zz#9'])
+    with pytest.raises(SystemExit, match='outside --stratum'):
+        cl.select_proposals(props, strata=['residential'], only=['a0#0'])
+    with pytest.raises(SystemExit, match='not a stratum'):
+        cl.select_proposals(props, strata=['highway'])
+
+
+def test_pilot_order_is_one_seeded_permutation():
+    props = _strat_props()
+    a = cl.pilot_order(props, ['residential'], 169)
+    b = cl.pilot_order(list(reversed(props)), ['residential'], 169)
+    assert a == b and sorted(a) == sorted(f'r{i}#0' for i in range(6))
+    assert len(cl.pilot_order(props, None, 169)) == 9
+    big = [{'key': f'u{i:04d}#0', 'stratum': 'residential'} for i in range(500)]
+    full = cl.pilot_order(big, ['residential'], 169)
+    assert full == cl.pilot_order(list(reversed(big)), ['residential'], 169)
+    assert full != cl.pilot_order(big, ['residential'], 170)
+    assert cl.pilot_roles(6, 2, 1, 4) == ['rate', 'rate', 'reserve', 'send', 'rest', 'rest']
+
+
+def test_stop_rule_arithmetic():
+    r = cl.stop_rule()
+    assert [(x['look'], x['pass_if_wrong_at_most']) for x in r['looks']] == \
+        [(40, 0), (60, 2), (100, 6)]
+    assert r['fail_once_wrong_exceeds'] == 6
+    assert r['z'] == pytest.approx(2.394, abs=1e-3)
+    # unadjusted (z 1.96) the same looks would allow 1 / 3 / 8 wrong: the correction costs that
+    assert [x['unadjusted_z196_pass_if_wrong_at_most'] for x in r['looks']] == [1, 3, 8]
+
+
+def test_sequential_read_reserve_skip_and_stops():
+    keys = [f'k{i:03d}' for i in range(200)]
+    # can't-tell absorbed by the reserve: 2 unsure, 40 agree -> PASS at look 40, order 42
+    v = {k: 'agree' for k in keys[:42]}
+    v[keys[3]] = v[keys[10]] = 'unsure'
+    res = cl.sequential_read(keys, v)
+    assert (res['status'], res['look'], res['stopped_at_order'], res['unsure']) == \
+        ('PASS', 40, 42, 2)
+    # one wrong among the first 40 -> no pass at 40; 59 right of 60 -> PASS at 60
+    v = {k: 'agree' for k in keys[:60]}
+    v[keys[5]] = 'disagree'
+    res = cl.sequential_read(keys, v)
+    assert (res['status'], res['look'], res['wrong']) == ('PASS', 60, 1)
+    # still rating: CONTINUE
+    assert cl.sequential_read(keys, {k: 'agree' for k in keys[:30]})['status'] == 'CONTINUE'
+    # a skipped label is refused
+    v = {k: 'agree' for k in keys[:30]}
+    del v[keys[7]]
+    with pytest.raises(SystemExit, match='cannot be skipped'):
+        cl.sequential_read(keys, v)
+    # the 7th wrong label stops it as FAIL at once
+    v = {k: ('disagree' if i < 7 else 'agree') for i, k in enumerate(keys[:20])}
+    res = cl.sequential_read(keys, v)
+    assert (res['status'], res['stopped_at_order'], res['wrong']) == ('FAIL', 7, 7)
+    with pytest.raises(SystemExit, match='unknown verdict'):
+        cl.sequential_read(keys, {keys[0]: 'maybe'})
+
+
+def test_pilot_end_to_end_sample_export_dry_run_and_score(tmp_path):
+    """build -> sample --stratum --reserve -> export --stratum --only-corners --only-first ->
+    send_to_ps dry run, the store guard on a NoCurbRamp store-built file, and pilot-score."""
+    run = tmp_path / 'run'
+    blocks = [dict(block(f'P{i}'), lat=at(30 * i, 0)[0], lng=at(30 * i, 0)[1],
+                   source_detail='ps_store') for i in range(4)]
+    _write_jsonl(run / 'results.jsonl', [{'detections': [], 'label_type': 'CurbRamp', 'pano': b}
+                                         for b in blocks])
+    _write_jsonl(run / 'sites.jsonl', [])
+    (run / 'sites_meta.json').write_text(json.dumps({'params': {'min_confidence': 0.3}}),
+                                         encoding='utf-8')
+    units = []
+    for i in range(4):
+        typ = 'arterial' if i == 3 else 'residential'
+        units.append(unit([corner(0, 30 * i, 10, panos=[f'P{i}']),
+                           corner(1, 30 * i + 6, 10, panos=[f'P{i}'])],
+                          typ=typ, name=f'vancouver:{typ[:3]}:n{i}'))
+    _write_jsonl(tmp_path / 'corners_full.jsonl', units)
+    out = tmp_path / 'out'
+    with redirect_stdout(io.StringIO()):
+        cl.main(['build', '--city', 'testcity', '--na-read', 'discount',
+                 '--corners', str(tmp_path / 'corners_full.jsonl'), '--run-dir', str(run),
+                 '--out', str(out)])
+    build = json.loads((out / 'build.json').read_text(encoding='utf-8'))
+    assert build['counts']['proposed'] == 8
+    build['tool']['git_sha'], build['tool']['dirty'] = 'd' * 40, False
+    (out / 'build.json').write_text(json.dumps(build), encoding='utf-8')
+
+    pilot = out / 'pilot' / 'pilot.csv'
+    pilot.parent.mkdir()
+    with redirect_stdout(io.StringIO()):
+        cl.main(['sample', '--proposals', str(out / 'proposals.jsonl'), '--stratum',
+                 'residential', '--n', '2', '--reserve', '1', '--send', '4', '--looks', '2',
+                 '--out', str(pilot)])
+    rec = json.loads(pilot.with_suffix('.json').read_text(encoding='utf-8'))
+    assert rec['population'] == 6
+    assert rec['roles'] == {'rate': 2, 'reserve': 1, 'send': 1, 'rest': 2}
+    order = cl.read_corner_order(pilot)
+    assert all(':res:' in k for k in order) and len(order) == 6
+
+    sub = out / 'pilot' / 'results.pilot4.jsonl'
+    with redirect_stdout(io.StringIO()):
+        cl.main(['export', '--dir', str(out), '--stratum', 'residential', '--only-corners',
+                 str(pilot), '--only-first', '4', '--out', str(sub)])
+        cl.main(['export', '--dir', str(out), '--stratum', 'residential',
+                 '--out', str(out / 'pilot' / 'results.residential.jsonl')])
+    erec = json.loads((out / 'pilot' / 'results.pilot4.export.json').read_text(encoding='utf-8'))
+    assert erec['labels'] == 4 and erec['selection']['kept'] == 4
+    assert erec['selection']['only_corners']['first'] == 4
+    assert erec['output']['sha256'] == ci.sha256_file(sub)
+    assert erec['output']['lines'] == erec['lines']
+    assert not (out / 'export.json').exists()          # the build dir's record is untouched
+    lines = ci.read_jsonl(sub)
+    assert sorted(d['pilot_order'] for ln in lines for d in ln['detections']) == [1, 2, 3, 4]
+    heads = [min(d['pilot_order'] for d in ln['detections']) for ln in lines]
+    assert heads == sorted(heads)                        # lines follow the draw order
+    rrec = json.loads((out / 'pilot' / 'results.residential.export.json')
+                      .read_text(encoding='utf-8'))
+    assert rrec['labels'] == 6 and rrec['selection']['dropped_by_stratum'] == 2
+    with pytest.raises(SystemExit, match='only 6 corners'):
+        cl.main(['export', '--dir', str(out), '--only-corners', str(pilot), '--only-first', '9',
+                 '--out', str(tmp_path / 'x.jsonl')])
+
+    # send_to_ps: one type, the dry run records nothing, and the type-aware store guard passes
+    assert send_to_ps.file_label_types(sub) == ['NoCurbRamp']
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        send_to_ps.process_jsonl_file(str(sub), 'https://ps.example/ai/x', dry_run=True)
+    assert 'NoCurbRamp' in buf.getvalue()
+    assert not (sub.parent / (sub.name + '.submitted')).exists()
+    note = send_to_ps.check_store_built(sub)
+    assert note and 'NoCurbRamp' in note
+    send_to_ps.check_model_provenance(sub)
+
+    # pilot-score: the lead's validations, keyed on PS's pixel key
+    props = {p['key']: p for p in ci.read_jsonl(out / 'proposals.jsonl')}
+    rows = ['pano_id,pano_x,pano_y,validation']
+    for k, v in zip(order[:3], ('Agree', 'Unsure', 'Agree')):
+        pid, x, y = cl.pixel_key(props[k])
+        rows.append(f'{pid},{x},{y},{v}')
+    vcsv = tmp_path / 'validations.csv'
+    vcsv.write_text('\n'.join(rows) + '\n', encoding='utf-8')
+    with redirect_stdout(io.StringIO()):
+        cl.main(['pilot-score', '--pilot', str(pilot), '--proposals',
+                 str(out / 'proposals.jsonl'), '--validations', str(vcsv),
+                 '--out', str(tmp_path / 'read.json')])
+    read = json.loads((tmp_path / 'read.json').read_text(encoding='utf-8'))
+    assert (read['decided'], read['unsure'], read['look']) == (2, 1, 2)
+    assert read['status'] == 'FAIL'       # 2 of 2 cannot clear a Wilson lower bound of 0.85

@@ -20,6 +20,13 @@ Subcommands:
           one line per pano, one detection per corner, the pano block copied from the run.
   score   the pre-registered corner-level rule against blind gallery ratings -> score JSON.
   sample  the seeded >= 100-corner sample a future gallery rates -> sample.csv + sample.json.
+          With --stratum / --reserve it writes instead ONE fixed seeded order over the whole
+          (stratum-filtered) population, with the rated sample, its reserve and the sequential
+          stop rule recorded (the #169 test-server pilot; issue #183's design).
+  pilot-score  the sequential stop rule over a lead's live-site validations of a pilot order.
+
+export takes --stratum (repeatable) and --only-corners <csv> [--only-first N] to export a
+pilot subset; both are recorded in the export record with the counts kept and dropped.
 
 The pre-registered rule (issue #169, stated before any label was built): corner-level absence
 precision against blind ratings >= 0.90 with Wilson lower bound >= 0.85, on a seeded sample of
@@ -50,7 +57,9 @@ import platform
 import random
 import sys
 import time
+from collections import Counter
 from pathlib import Path
+from statistics import NormalDist
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
@@ -89,6 +98,13 @@ RULE_WILSON_LO = 0.85
 RULE_MIN_N = 100
 SAMPLE_SEED = 169
 SAMPLE_N = 100
+#: The test-server pilot's sequential rating (issue #183's design, adopted for the #169 pilot):
+#: looks at 40, 60 and 100 decided labels, the one-sided alpha of the rule's Wilson 95% lower
+#: bound (0.025) split evenly across the looks (Bonferroni), and the rule's own bar.
+PILOT_LOOKS = (40, 60, 100)
+PILOT_ALPHA_ONE_SIDED = 0.025
+#: live-site validation results -> the rubric's terms (agree = the NoCurbRamp label is right)
+PILOT_VERDICTS = {'agree': 'right', 'disagree': 'wrong', 'unsure': 'cant_tell'}
 
 #: How the primary NA read was settled: gallery 243 (RampNet#243) scored blind, 95 of 95 units
 #: (sidewalk-auto-labeler PR #180, branch corner-gallery-243-verdicts). The 40 sampled units
@@ -783,14 +799,79 @@ def rule_provenance(build):
             'api_version': API_VERSION, 'model_repo': RULE_REPO, 'model_revision': sha}
 
 
-def export_lines(proposals, blocks, provenance):
+def read_corner_order(path):
+    """Corner keys of a sample or pilot CSV (columns unit, corner), in its order: by the
+    `order` column when there is one, else file order. A repeated key is refused."""
+    with open(path, encoding='utf-8', newline='') as f:
+        rows = list(csv.DictReader(f))
+    if rows and 'order' in rows[0]:
+        rows.sort(key=lambda r: int(r['order']))
+    keys = [corner_key(r['unit'], int(r['corner'])) for r in rows]
+    dup = sorted(k for k, n in Counter(keys).items() if n > 1)
+    if dup:
+        raise SystemExit(f'{path}: {len(dup)} corner key(s) repeated, e.g. {dup[:3]}')
+    return keys
+
+
+def select_proposals(proposals, strata=None, only=None):
+    """(kept proposals, record) for export's pilot filters, in the proposals' own order.
+
+    strata keeps the proposals of those strata (each must be one of STRATA). only is a list of
+    corner keys (a pilot draw); every one must be a proposal, and, with strata, of a kept
+    stratum, so nothing asked for is dropped silently. The record holds the filters and the
+    counts kept and dropped, for the export record.
+
+    >>> ps = [{'key': 'a#0', 'stratum': 'residential'}, {'key': 'b#0', 'stratum': 'arterial'}]
+    >>> [p['key'] for p in select_proposals(ps, strata=['residential'])[0]]
+    ['a#0']
+    """
+    rec = {'strata': None if not strata else sorted(set(strata)), 'n_proposals': len(proposals)}
+    kept = list(proposals)
+    if strata:
+        unknown = sorted(set(strata) - set(STRATA))
+        if unknown:
+            raise SystemExit(f'--stratum {unknown}: not a stratum (one of {list(STRATA)})')
+        kept = [p for p in kept if p['stratum'] in set(strata)]
+        rec['dropped_by_stratum'] = len(proposals) - len(kept)
+    if only is not None:
+        by_key = {p['key']: p for p in proposals}
+        missing = [k for k in only if k not in by_key]
+        if missing:
+            raise SystemExit(f'{len(missing)} --only-corners key(s) are not in the proposals, '
+                             f'e.g. {missing[:3]}')
+        if strata:
+            off = [k for k in only if by_key[k]['stratum'] not in set(strata)]
+            if off:
+                raise SystemExit(f'{len(off)} --only-corners key(s) are outside --stratum '
+                                 f'{rec["strata"]}, e.g. {off[:3]}')
+        want, before = set(only), len(kept)
+        kept = [p for p in kept if p['key'] in want]
+        rec['dropped_by_only_corners'] = before - len(kept)
+    rec['kept'] = len(kept)
+    rec['kept_by_stratum'] = dict(sorted(Counter(p['stratum'] for p in kept).items()))
+    return kept, rec
+
+
+def export_record_path(d, out):
+    """Where export writes its record: <dir>/export.json for the default <dir>/results.jsonl
+    (as before), else beside the output as <stem>.export.json, so two exports of one build
+    (e.g. a pilot subset and its whole stratum) each keep their own."""
+    out = Path(out)
+    if out.resolve() == (Path(d) / 'results.jsonl').resolve():
+        return Path(d) / 'export.json'
+    return out.with_name(out.stem + '.export.json')
+
+
+def export_lines(proposals, blocks, provenance, order=None):
     """results.jsonl records: one per pano, one NoCurbRamp detection per corner on it.
 
     Written by main.build_output_line (the #168 writer: per-detection label_type, sorted
     label_types, models[NoCurbRamp], line-level label_type), then each detection gets the
     corner's `corner` key, `rank` and the proposal's `source` evidence block, which
     send_to_ps.transform_record does not send. Lines are ordered by their best rank (unranked
-    last), then pano id; detections by corner key."""
+    last), then pano id; detections by corner key. With `order` ({corner key: position}, a
+    pilot draw), each detection also gets `pilot_order` and lines are ordered by their best
+    position instead, so a capped send (--limit) takes the head of the draw."""
     import main
     by_pano = {}
     for p in proposals:
@@ -808,8 +889,13 @@ def export_lines(proposals, blocks, provenance):
         for d, p in zip(line['detections'], ps):
             d['corner'] = p['key']
             d['rank'] = p.get('rank')
+            if order is not None:
+                d['pilot_order'] = order[p['key']]
             d['source'] = p['source']
-        best = min((p['rank'] for p in ps if p.get('rank') is not None), default=None)
+        if order is not None:
+            best = min(order[p['key']] for p in ps)
+        else:
+            best = min((p['rank'] for p in ps if p.get('rank') is not None), default=None)
         lines.append(((best is None, best or 0, pid), line))
     lines.sort(key=lambda t: t[0])
     return [line for _k, line in lines]
@@ -835,6 +921,35 @@ def cmd_export(args):
         raise SystemExit('build.json says the tool had uncommitted edits, so corner-rule@<sha> '
                          'would not name the code that built it (--allow-dirty-build)')
     proposals = ci.read_jsonl(src)
+    strata = getattr(args, 'stratum', None)
+    only_path = getattr(args, 'only_corners', None)
+    only_first = getattr(args, 'only_first', None)
+    if only_first is not None and not only_path:
+        raise SystemExit('--only-first needs --only-corners')
+    if only_first is not None and only_first < 1:
+        raise SystemExit('--only-first must be at least 1')
+    selection, order = None, None
+    if strata or only_path:
+        only = None
+        if only_path:
+            ordered = read_corner_order(only_path)
+            if only_first is not None:
+                if only_first > len(ordered):
+                    raise SystemExit(f'--only-first {only_first}: {only_path} has only '
+                                     f'{len(ordered)} corners')
+                ordered = ordered[:only_first]
+            only = ordered
+        proposals, selection = select_proposals(proposals, strata, only)
+        if only_path:
+            # positions in the whole draw (1 = first), so a subset keeps the draw's numbering
+            full = read_corner_order(only_path)
+            pos = {k: i for i, k in enumerate(full, 1)}
+            order = {p['key']: pos[p['key']] for p in proposals}
+            selection['only_corners'] = {'path': Path(only_path).name,
+                                         'sha256': ci.sha256_file(only_path),
+                                         'rows': len(full), 'first': only_first}
+        if not proposals:
+            raise SystemExit('the filters keep no proposal')
     runs = run_results_paths(build)
     wanted = {(p['pano'].get('run'), p['pano']['pano_id']) for p in proposals}
     for run in sorted({r for r, _ in wanted}, key=str):
@@ -846,19 +961,25 @@ def cmd_export(args):
     lost = sorted(wanted - set(blocks), key=str)
     if lost:
         raise SystemExit(f'{len(lost)} chosen pano(s) not in the runs, e.g. {lost[:3]}')
-    lines = export_lines(proposals, blocks, rule_provenance(build))
+    lines = export_lines(proposals, blocks, rule_provenance(build), order)
     out = Path(args.out) if args.out else d / 'results.jsonl'
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, 'w', encoding='utf-8', newline='\n') as f:
         for line in lines:
             f.write(json.dumps(line) + '\n')
+    data = out.read_bytes()
     rec = {'schema': 'sidewalk-auto-labeler.corner_labels.export/1', 'exported_at': ci.utc_now(),
            'proposals': {'path': src.name, 'sha256': ci.sha256_file(src)},
            'provenance': rule_provenance(build), 'lines': len(lines),
            'labels': sum(len(x['detections']) for x in lines),
-           'output': {'path': str(out), 'sha256': ci.sha256_file(out)}}
-    ci.write_text_lf(d / 'export.json', json.dumps(rec, indent=1) + '\n')
-    print(f"{rec['labels']} NoCurbRamp labels on {rec['lines']} panos -> {out}")
+           'output': {'path': str(out), 'sha256': hashlib.sha256(data).hexdigest(),
+                      'lines': data.count(b'\n'), 'bytes': len(data)}}
+    if selection is not None:
+        rec['selection'] = selection
+    rec_path = export_record_path(d, out)
+    ci.write_text_lf(rec_path, json.dumps(rec, indent=1) + '\n')
+    print(f"{rec['labels']} NoCurbRamp labels on {rec['lines']} panos -> {out} "
+          f"(record {rec_path.name})")
 
 
 # --------------------------------------------------------------------------- score
@@ -1016,8 +1137,114 @@ def draw_sample(proposals, n=SAMPLE_N, seed=SAMPLE_SEED):
     return random.Random(seed).sample(keys, n)
 
 
+def pilot_order(proposals, strata=None, seed=SAMPLE_SEED):
+    """ONE fixed seeded order over every proposal of the given strata (all when None): a full
+    permutation, random.Random(seed).sample(sorted keys, len(keys)). Every prefix of it is a
+    seeded random draw, so the rated sample, its reserve and a send subset are all prefixes of
+    one list and can never disagree. (draw_sample's sample(keys, n) is NOT the prefix of a
+    longer draw: random.sample picks its algorithm from n.)"""
+    if strata:
+        unknown = sorted(set(strata) - set(STRATA))
+        if unknown:
+            raise SystemExit(f'--stratum {unknown}: not a stratum (one of {list(STRATA)})')
+    keys = sorted(p['key'] for p in proposals if not strata or p['stratum'] in set(strata))
+    return random.Random(seed).sample(keys, len(keys))
+
+
+def rule_passes(right, n, z):
+    """The #169 bar at one look: precision >= RULE_PRECISION and Wilson lower bound (at z)
+    >= RULE_WILSON_LO, over n decided labels of which `right` are right."""
+    if n == 0:
+        return False
+    return right / n >= RULE_PRECISION and ci.wilson(right, n, z)[0] >= RULE_WILSON_LO
+
+
+def stop_rule(looks=PILOT_LOOKS, alpha=PILOT_ALPHA_ONE_SIDED):
+    """The pre-registered sequential stop rule and its arithmetic, as sample.json records it.
+
+    Ratings are read in the draw's order, can't-tell skipped (absorbed by the reserve). At each
+    look (a count of DECIDED labels) the rule's bar is applied with the Wilson bound at the
+    Bonferroni z, alpha / len(looks) one-sided per look, so three looks together keep the
+    one-sided 0.025 of the rule's Wilson 95% lower bound (conservative). PASS stops at the
+    first look that clears the bar. FAIL stops as soon as the wrong count exceeds what the last
+    look could still pass with. Reaching the last look without a pass is FAIL.
+
+    >>> r = stop_rule()
+    >>> [(x['look'], x['pass_if_wrong_at_most']) for x in r['looks']], r['fail_once_wrong_exceeds']
+    ([(40, 0), (60, 2), (100, 6)], 6)
+    """
+    looks = tuple(sorted(looks))
+    z = NormalDist().inv_cdf(1.0 - alpha / len(looks))
+    rows = []
+    for n in looks:
+        ok = [f for f in range(n + 1) if rule_passes(n - f, n, z)]
+        worst = max(ok) if ok else None
+        lo_all = ci.wilson(n, n, z)[0]
+        rows.append({'look': n, 'pass_if_wrong_at_most': worst,
+                     'wilson_lower_all_right': round(lo_all, 4),
+                     'wilson_lower_at_worst_pass': (None if worst is None else
+                                                    round(ci.wilson(n - worst, n, z)[0], 4)),
+                     'unadjusted_z196_pass_if_wrong_at_most':
+                         max((f for f in range(n + 1) if rule_passes(n - f, n, 1.96)),
+                             default=None)})
+    final = rows[-1]['pass_if_wrong_at_most']
+    return {'looks': rows, 'z': z, 'alpha_one_sided_total': alpha,
+            'alpha_one_sided_per_look': round(alpha / len(looks), 6),
+            'correction': 'Bonferroni across looks', 'precision_min': RULE_PRECISION,
+            'wilson_lower_min': RULE_WILSON_LO,
+            'fail_once_wrong_exceeds': final,
+            'reads': 'decided = agree + disagree in the draw order; unsure skipped; the first '
+                     'validation by the lead counts; a rating after an unrated earlier label '
+                     'is refused (no skipping ahead)'}
+
+
+def sequential_read(order_keys, verdicts, rule=None):
+    """Apply stop_rule to a lead's verdicts ({corner key: 'agree'|'disagree'|'unsure'}) over
+    the draw order. Returns {'status': PASS|FAIL|CONTINUE, 'decided', 'right', 'wrong',
+    'unsure', 'stopped_at_order', 'look'}. Refuses a rated label that follows an unrated one
+    before the stop: the reserve absorbs can't-tells, never a skipped label.
+
+    >>> keys = [f'k{i}' for i in range(50)]
+    >>> sequential_read(keys, {k: 'agree' for k in keys[:41]})['status']
+    'PASS'
+    """
+    rule = rule or stop_rule()
+    looks = {r['look'] for r in rule['looks']}
+    last = max(looks)
+    z = rule['z']
+    bad = sorted(set(verdicts.values()) - set(PILOT_VERDICTS))
+    if bad:
+        raise SystemExit(f'unknown verdict(s) {bad}; expected {sorted(PILOT_VERDICTS)}')
+    t = {'decided': 0, 'right': 0, 'wrong': 0, 'unsure': 0}
+    for i, k in enumerate(order_keys, 1):
+        v = verdicts.get(k)
+        if v is None:
+            later = [x for x in order_keys[i:] if x in verdicts]
+            if later:
+                raise SystemExit(f'{k} (order {i}) is unrated but {len(later)} later label(s) '
+                                 f'are rated, e.g. {later[:3]}: the draw order cannot be '
+                                 f'skipped')
+            return dict(t, status='CONTINUE', stopped_at_order=None, look=None)
+        if v == 'unsure':
+            t['unsure'] += 1
+            continue
+        t['decided'] += 1
+        t['right' if v == 'agree' else 'wrong'] += 1
+        thr = rule['fail_once_wrong_exceeds']     # None: no outcome passes at the last look
+        if thr is not None and t['wrong'] > thr:
+            return dict(t, status='FAIL', stopped_at_order=i, look=None)
+        if t['decided'] in looks:
+            if rule_passes(t['right'], t['decided'], z):
+                return dict(t, status='PASS', stopped_at_order=i, look=t['decided'])
+            if t['decided'] == last:
+                return dict(t, status='FAIL', stopped_at_order=i, look=last)
+    return dict(t, status='CONTINUE', stopped_at_order=None, look=None)
+
+
 def cmd_sample(args):
     proposals = ci.read_jsonl(args.proposals)
+    if args.stratum or args.reserve is not None:
+        return cmd_pilot_sample(args, proposals)
     keys = draw_sample(proposals, args.n, args.seed)
     out = Path(args.out)
     rows = [{'unit': k.rsplit('#', 1)[0], 'corner': k.rsplit('#', 1)[1]} for k in keys]
@@ -1030,6 +1257,117 @@ def cmd_sample(args):
            'sample': {'path': out.name, 'sha256': ci.sha256_file(out)}}
     ci.write_text_lf(out.with_suffix('.json'), json.dumps(rec, indent=1) + '\n')
     print(f'{args.n} of {rec["population"]} proposals drawn with seed {args.seed} -> {out}')
+
+
+def pilot_roles(n_total, n, reserve, send=None):
+    """The role of each position 1..n_total of a pilot order: 'rate' (1..n), 'reserve'
+    (the next `reserve`), 'send' (sent but not planned for rating, up to `send`), 'rest'."""
+    roles = []
+    for i in range(1, n_total + 1):
+        if i <= n:
+            roles.append('rate')
+        elif i <= n + reserve:
+            roles.append('reserve')
+        elif send is not None and i <= send:
+            roles.append('send')
+        else:
+            roles.append('rest')
+    return roles
+
+
+def cmd_pilot_sample(args, proposals):
+    """sample --stratum/--reserve: one seeded order over the whole filtered population, with
+    the rated n, the reserve, an optional send prefix and the stop rule recorded."""
+    reserve = args.reserve or 0
+    if reserve < 0:
+        raise SystemExit('--reserve must be >= 0')
+    keys = pilot_order(proposals, args.stratum, args.seed)
+    if len(keys) < args.n + reserve:
+        raise SystemExit(f'only {len(keys)} proposals in {args.stratum}; cannot rate '
+                         f'{args.n} + reserve {reserve}')
+    if args.send is not None and not args.n + reserve <= args.send <= len(keys):
+        raise SystemExit(f'--send {args.send} must cover n + reserve ({args.n + reserve}) and '
+                         f'be at most the population ({len(keys)}): the rated labels must be '
+                         f'among the sent ones')
+    looks = tuple(int(x) for x in args.looks.split(',')) if args.looks else PILOT_LOOKS
+    if max(looks) != args.n:
+        raise SystemExit(f'the last look ({max(looks)}) must equal --n ({args.n})')
+    rule = stop_rule(looks)
+    if rule['fail_once_wrong_exceeds'] is None:
+        print(f'WARNING: no outcome can pass at the last look ({args.n} decided): the bar '
+              f'needs a larger n')
+    by_key = {p['key']: p for p in proposals}
+    roles = pilot_roles(len(keys), args.n, reserve, args.send)
+    out = Path(args.out)
+    rows = [{'order': i, 'unit': k.rsplit('#', 1)[0], 'corner': k.rsplit('#', 1)[1],
+             'stratum': by_key[k]['stratum'], 'role': r}
+            for i, (k, r) in enumerate(zip(keys, roles), 1)]
+    ci.write_csv_lf(out, ['order', 'unit', 'corner', 'stratum', 'role'], rows)
+    rec = {'schema': 'sidewalk-auto-labeler.corner_labels.sample/2', 'drawn_at': ci.utc_now(),
+           'seed': args.seed, 'strata': sorted(args.stratum) if args.stratum else None,
+           'population': len(keys), 'n': args.n, 'reserve': reserve, 'send': args.send,
+           'roles': dict(Counter(roles)),
+           'proposals': {'path': Path(args.proposals).name,
+                         'sha256': ci.sha256_file(args.proposals)},
+           'rule': 'random.Random(seed).sample(sorted keys of the strata, len(keys)): one full '
+                   'order; rate in it, skip can\'t-tell, stop by stop_rule',
+           'stop_rule': rule,
+           'sample': {'path': out.name, 'sha256': ci.sha256_file(out)}}
+    ci.write_text_lf(out.with_suffix('.json'), json.dumps(rec, indent=1) + '\n')
+    print(f'seeded order of {len(keys)} proposals ({rec["strata"] or "all strata"}), seed '
+          f'{args.seed}: rate {args.n}, reserve {reserve}, send {args.send} -> {out}')
+
+
+def read_validations(path):
+    """{(pano_id, pano_x, pano_y): verdict} from a CSV with columns pano_id, pano_x, pano_y,
+    validation (PS's Agree / Disagree / Unsure, any case). A pixel key repeated with another
+    verdict is refused: the SELECT must keep one validation per label (the lead's first)."""
+    out = {}
+    with open(path, encoding='utf-8', newline='') as f:
+        reader = csv.DictReader(f)
+        need = ['pano_id', 'pano_x', 'pano_y', 'validation']
+        missing = [c for c in need if c not in (reader.fieldnames or ())]
+        if missing:
+            raise SystemExit(f'{path}: missing column(s) {missing}; has {reader.fieldnames}')
+        for n, row in enumerate(reader, 2):
+            k = (row['pano_id'], int(row['pano_x']), int(row['pano_y']))
+            v = row['validation'].strip().lower()
+            if k in out and out[k] != v:
+                raise SystemExit(f'{path} line {n}: {k} has verdicts {out[k]} and {v}')
+            out[k] = v
+    return out
+
+
+def cmd_pilot_score(args):
+    rec_s = json.loads(Path(args.pilot).with_suffix('.json').read_text(encoding='utf-8'))
+    proposals = ci.read_jsonl(args.proposals)
+    if ci.sha256_file(args.proposals) != rec_s['proposals']['sha256']:
+        raise SystemExit(f'{args.proposals} is not the proposals the pilot order was drawn from')
+    if ci.sha256_file(args.pilot) != rec_s['sample']['sha256']:
+        raise SystemExit(f'{args.pilot} is not the order its .json recorded')
+    order = read_corner_order(args.pilot)
+    by_pixel = {}
+    for p in proposals:
+        k = pixel_key(p)
+        if k in by_pixel:
+            raise SystemExit(f'two proposals share the PS pixel key {k}')
+        by_pixel[k] = p['key']
+    vals = read_validations(args.validations)
+    verdicts = {by_pixel[k]: v for k, v in vals.items() if k in by_pixel}
+    unmatched = len(vals) - len(verdicts)
+    rule = rec_s['stop_rule']
+    res = sequential_read(order, verdicts, rule)
+    out = {'schema': 'sidewalk-auto-labeler.corner_labels.pilot_score/1', 'read_at': ci.utc_now(),
+           'pilot': {'path': Path(args.pilot).name, 'sha256': rec_s['sample']['sha256']},
+           'validations': {'path': Path(args.validations).name,
+                           'sha256': ci.sha256_file(args.validations), 'rows': len(vals),
+                           'not_pilot_labels': unmatched},
+           'stop_rule': rule, **res}
+    if args.out:
+        ci.write_text_lf(args.out, json.dumps(out, indent=1) + '\n')
+    print(f"{res['status']}: {res['decided']} decided ({res['right']} right, {res['wrong']} "
+          f"wrong), {res['unsure']} unsure; stopped at order {res['stopped_at_order']}, look "
+          f"{res['look']}; {unmatched} validation row(s) not on a pilot label")
 
 
 # --------------------------------------------------------------------------- main
@@ -1093,6 +1431,15 @@ def main(argv=None):
     e.add_argument('--proposals', help='proposals.jsonl (default) or proposals.ranked.jsonl')
     e.add_argument('--out', help='default <dir>/results.jsonl')
     e.add_argument('--allow-dirty-build', action='store_true')
+    e.add_argument('--stratum', action='append', choices=STRATA,
+                   help='export only proposals of this stratum (repeatable; recorded)')
+    e.add_argument('--only-corners', metavar='CSV',
+                   help='export only these corners (a pilot order or sample CSV with unit, '
+                        'corner; ordered by its `order` column). A key that is not a proposal '
+                        'is refused. Lines then follow the draw order (detections get '
+                        '`pilot_order`)')
+    e.add_argument('--only-first', type=int, metavar='N',
+                   help='with --only-corners: only its first N corners (the send prefix)')
     e.set_defaults(fn=cmd_export)
 
     s = sub.add_parser('score', help='the pre-registered corner rule against blind ratings')
@@ -1109,7 +1456,28 @@ def main(argv=None):
     m.add_argument('--n', type=int, default=SAMPLE_N)
     m.add_argument('--seed', type=int, default=SAMPLE_SEED)
     m.add_argument('--out', required=True, help='sample.csv (sample.json is written beside it)')
+    m.add_argument('--stratum', action='append', choices=STRATA,
+                   help='pilot mode: draw only from this stratum (repeatable). With --stratum or '
+                        '--reserve the output is ONE seeded order over the whole filtered '
+                        'population (columns order, unit, corner, stratum, role)')
+    m.add_argument('--reserve', type=int, default=None,
+                   help='pilot mode: reserve positions after the n rated ones, which absorb '
+                        "can't-tell ratings")
+    m.add_argument('--send', type=int, default=None,
+                   help='pilot mode: the send prefix (role `send`); must cover n + reserve')
+    m.add_argument('--looks', default=None,
+                   help=f'pilot mode: comma list of decided counts at which the stop rule looks '
+                        f'(default {",".join(map(str, PILOT_LOOKS))}; the last must equal --n)')
     m.set_defaults(fn=cmd_sample)
+
+    q = sub.add_parser('pilot-score', help="the sequential stop rule over a lead's validations")
+    q.add_argument('--pilot', required=True, help='the pilot order CSV (sample --stratum ...)')
+    q.add_argument('--proposals', required=True, help='the proposals it was drawn from')
+    q.add_argument('--validations', required=True,
+                   help="CSV pano_id,pano_x,pano_y,validation: the lead's first validation of "
+                        "each label (the read-only SELECT in docs/corner-labels-169-pilot.md)")
+    q.add_argument('--out', help='write the read JSON here')
+    q.set_defaults(fn=cmd_pilot_score)
 
     args = ap.parse_args(argv)
     args.fn(args)
