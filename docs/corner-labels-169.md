@@ -561,7 +561,10 @@ and 52 min with the re-review, and Jon found the task exhausting. The levers for
 sample are a sequential design (at 40 decided corners, all absent gives a lower bound of 0.912
 and one present 0.871, both passes), a model pre-rater that a person audits, one-click tags in
 place of the recurring free-text notes, and a cap on the residential far-side-of-T stratum.
-None is filed yet.
+Filed as [#183](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/183) (reserve,
+stop rule, caps), [#184](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/184)
+(tags) and [#185](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/185) (VLM
+pre-rater).
 
 ## Dry run (no server contacted)
 
