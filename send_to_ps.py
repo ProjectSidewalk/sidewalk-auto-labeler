@@ -1028,8 +1028,9 @@ def first_pano_source(input_file: Path) -> Optional[str]:
 STORE_SOURCE_DETAIL = 'ps_store'   # scripts/detect_from_store.SOURCE_DETAIL
 
 
-def check_store_built(input_file: Path) -> None:
-    """Refuse (ValueError) a file rebuilt from the Project Sidewalk pano store.
+def check_store_built(input_file: Path) -> Optional[str]:
+    """Refuse (ValueError) a file rebuilt from the Project Sidewalk pano store, unless none of
+    its label types is one the store-built run already put live.
 
     scripts/detect_from_store.py (issue #56) rebuilds a city's run from the pixels PS
     already holds, to evaluate the labels that city already has; by construction its
@@ -1039,7 +1040,14 @@ def check_store_built(input_file: Path) -> None:
     cannot see it: this is that guard. A record is store-built when its pano block says
     `source_detail: "ps_store"`, or when the run's manifest beside the file carries a
     `pixels` block. Overridden only with --allow-store-file.
+
+    Type-aware (#168/#169): the store's live AI labels are all CurbRamp, so the refusal
+    applies only when CurbRamp is among the file's label types (file_label_types, so a
+    pre-#168 untyped line reads as CurbRamp). A store-built file of other types only (e.g.
+    NoCurbRamp) duplicates no AI label and passes; the return value then says why, for the
+    caller to print and record. Returns None for a file that is not store-built.
     """
+    reason = None
     manifest_path = input_file.parent / 'manifest.json'
     if manifest_path.exists():
         try:
@@ -1047,25 +1055,31 @@ def check_store_built(input_file: Path) -> None:
         except ValueError:
             manifest = {}
         if isinstance(manifest, dict) and manifest.get('pixels') is not None:
-            raise ValueError(
-                f"{manifest_path} carries a `pixels` block: this run was rebuilt from the "
-                f"pano store (scripts/detect_from_store.py), and its labels are the ones "
-                f"already live. Sending it would duplicate them. (--allow-store-file overrides)")
-    n = 0
-    with open(input_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            if STORE_SOURCE_DETAIL in line and line.strip():
-                try:
-                    pano = json.loads(line).get('pano') or {}
-                except ValueError:
-                    continue
-                n += pano.get('source_detail') == STORE_SOURCE_DETAIL
-    if n:
+            reason = (f"{manifest_path} carries a `pixels` block: this run was rebuilt from the "
+                      f"pano store (scripts/detect_from_store.py)")
+    if reason is None:
+        n = 0
+        with open(input_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                if STORE_SOURCE_DETAIL in line and line.strip():
+                    try:
+                        pano = json.loads(line).get('pano') or {}
+                    except ValueError:
+                        continue
+                    n += pano.get('source_detail') == STORE_SOURCE_DETAIL
+        if n:
+            reason = (f"{n} record(s) in {input_file.name} have source_detail "
+                      f"\"{STORE_SOURCE_DETAIL}\": they were rebuilt from the pano store "
+                      f"(scripts/detect_from_store.py)")
+    if reason is None:
+        return None
+    types = file_label_types(input_file)
+    if CURB_RAMP in types:
         raise ValueError(
-            f"{n} record(s) in {input_file.name} have source_detail \"{STORE_SOURCE_DETAIL}\": "
-            f"they were rebuilt from the pano store (scripts/detect_from_store.py), and their "
-            f"labels are the ones already live. Sending them would duplicate them. "
-            f"(--allow-store-file overrides)")
+            f"{reason}, and the file carries {CURB_RAMP} labels, which are the ones already "
+            f"live. Sending them would duplicate them. (--allow-store-file overrides)")
+    return (f"{reason}, but it carries only {', '.join(types)} labels; the store's live AI "
+            f"labels are all {CURB_RAMP}, so none is duplicated (type-aware store guard, #169).")
 
 
 def decode_record_value(counts) -> Any:
@@ -1483,7 +1497,8 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
                             border: Any = BORDER_EXCLUDE,
                             border_override: Optional[str] = None,
                             types: Optional[Dict[str, tuple]] = None,
-                            min_confidence_from: Optional[str] = None) -> None:
+                            min_confidence_from: Optional[str] = None,
+                            store_note: Optional[str] = None) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
     One entry per endpoint - a campaign legitimately hits a test instance before prod, and
@@ -1644,6 +1659,12 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         record["mixed_border_override"] = {"reason": border_override, "at_utc": now}
     elif previous.get("mixed_border_override"):
         record["mixed_border_override"] = previous["mixed_border_override"]
+    # Why a store-built file was let through (check_store_built: type-aware pass, #169, or
+    # --allow-store-file), kept across later runs like the overrides above.
+    if store_note is not None:
+        record["store_built"] = {"reason": store_note, "at_utc": now}
+    elif previous.get("store_built"):
+        record["store_built"] = previous["store_built"]
     # Written whole-or-not-at-all: a crash mid-write would leave a truncated file, and an
     # unreadable record refuses the next run (load_submission_record). LF regardless of
     # platform, since the file is committed.
@@ -1722,14 +1743,19 @@ def process_jsonl_file(
         check_model_provenance(input_file)
 
     # A run rebuilt from the pano store holds the city's live labels (issue #56). Dry runs
-    # are exempt; the override downgrades the refusal to a warning.
+    # are exempt; the override downgrades the refusal to a warning. A store-built file with
+    # no CurbRamp labels passes (#169), and the reason is printed and recorded.
+    store_note: Optional[str] = None
     if not dry_run:
         try:
-            check_store_built(input_file)
+            store_note = check_store_built(input_file)
         except ValueError as e:
             if not allow_store_file:
                 raise
             print(f"WARNING (--allow-store-file): {e}")
+            store_note = f"--allow-store-file: {e}"
+        if store_note and not store_note.startswith("--allow-store-file"):
+            print(f"NOTE (store guard): {store_note}")
 
     # One peak decode per file and per run directory (issue #111; check_detection_decode).
     # Dry runs are exempt; the override downgrades the refusal to a warning, and the record
@@ -2014,7 +2040,8 @@ def process_jsonl_file(
                                 None if not multi_type else
                                 {t: (load_submitted_lines(path), confidence)
                                  for t, (_, confidence, path) in type_states.items()},
-                                min_confidence_from if multi_type else None)
+                                min_confidence_from if multi_type else None,
+                                store_note)
         record_written = True
 
     # Print summary.
@@ -2123,7 +2150,8 @@ def main() -> None:
         help="Submit a file rebuilt from the Project Sidewalk pano store "
              "(scripts/detect_from_store.py: records with source_detail \"ps_store\", or a run "
              "manifest with a `pixels` block). Its labels are the city's live ones, so sending "
-             "it duplicates them and PS cannot retire the copies (SidewalkWebpage#5382)."
+             "it duplicates them and PS cannot retire the copies (SidewalkWebpage#5382). "
+             "Only needed for a file with CurbRamp labels: one of other types only passes."
     )
     parser.add_argument(
         "--prefix-digest", type=int, metavar="N",
