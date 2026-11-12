@@ -629,6 +629,21 @@ New tooling: `export --stratum`, `--only-corners <csv>`, `--only-first N` (filte
 `<stem>.export.json`, beside the output); `sample --stratum --reserve --send --looks`;
 `pilot-links`; `pilot-score`.
 
+**Update, 2026-11-11 evening.**
+- **Smoke send and finding.** Jon started the test stage and smoke-sent positions 1-3
+  (`vancouver-test:89735`-`89737`). All three markers sat a couple of metres inland of the curb.
+- **Cause.** The label was the corner point, 12 m from the unit centre for every street type,
+  while residential ramp sites sit at a median of 10.3 m.
+- **Fix.** `build --label-point site-median`, now the default, moves only the label point
+  along the bisector: the unit's median centre-to-site distance, else the stratum's, less 0.8
+  m, clamped to [stratum p10, 12 m]. The corner set and the panos are unchanged.
+- **Which builds use what.** Every build before `na_discount_sw_sitemed` used the corner point
+  (`--label-point corner`), including the rated `na_discount_sw`. The new pilot file is
+  `na_discount_sw_sitemed/pilot_residential/results.pilot200.jsonl` (positions 4-203).
+- **Rating.** The rated order now starts at position 4, a declared deviation.
+
+Details are in the clearance sheet.
+
 ## Caveats
 
 - **Observed is conditioned on labels.** The base run and the #241 run were built from the PS

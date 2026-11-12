@@ -741,6 +741,14 @@ python scripts/corner_labels.py export --dir $D --stratum residential --only-cor
 python send_to_ps.py $P/results.pilot200.jsonl --endpoint $EP --dry-run > /dev/null
 python scripts/pilot_guards.py $P/results.pilot200.jsonl --endpoint $EP
 python scripts/corner_pilot_stats.py    # -> $P/pilot_stats.json, $P/panos.<file>.txt
+# LABEL POINT (2026-11-11): build --label-point site-median (default) moves only the projected
+# label point along the corner bisector to the unit's median centre-to-site distance (else the
+# stratum's), less --label-inset-m 0.8, clamped to [stratum p10, 12 m]; --label-point corner is
+# every earlier build. corner_label_shift.py refuses unless the corner keys and panos match.
+# After a smoke send: export/pilot-links/pilot-score take --skip-first K --exclude-panos <txt>.
+S=runs/vancouver/corner_labels169_split/na_discount_sw_sitemed   # built like $D, default label point
+python scripts/corner_label_shift.py --old $D --new $S --pilot $P/pilot.csv --results $S/pilot_residential/results.pilot200.jsonl
+python scripts/corner_labels.py export --dir $S --stratum residential --only-corners $P/pilot.csv     --skip-first 3 --exclude-panos $S/pilot_residential/smoke_panos.txt --only-first 200     --out $S/pilot_residential/results.pilot200.jsonl
 # after a CLEARED send: the label ids in draw order (Gallery review list), then the stop rule
 python scripts/corner_labels.py pilot-links --pilot $P/pilot.csv --proposals $D/proposals.jsonl     --labels labels.csv --server https://sidewalk-vancouver-test.cs.washington.edu --out $P/pilot_label_ids.csv
 python scripts/corner_labels.py pilot-score --pilot $P/pilot.csv --proposals $D/proposals.jsonl     --validations validations.csv --out $P/pilot_score.json
