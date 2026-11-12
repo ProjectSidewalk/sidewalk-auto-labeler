@@ -101,6 +101,16 @@ SAMPLE_N = 100
 #: The test-server pilot's sequential rating (issue #183's design, adopted for the #169 pilot):
 #: looks at 40, 60 and 100 decided labels, the one-sided alpha of the rule's Wilson 95% lower
 #: bound (0.025) split evenly across the looks (Bonferroni), and the rule's own bar.
+#: Where the label goes (2026-11-11, after the test-server smoke send: Jon found all three labels
+#: a couple of metres inland of the curb). The corner point sits CORNER_OFFSET_M (12 m) from the
+#: unit centre for every street type; the fused ramp sites of a residential unit sit at a median
+#: of about 10 m. 'site-median' moves ONLY the label point along the corner's bisector to the
+#: unit's own median centre-to-site distance (or its stratum's, from the same corner table),
+#: less LABEL_INSET_M toward the road, clamped to [stratum p10, the corner offset]. The corner
+#: decision and the pano choice stay keyed on the corner point. 'corner' is the old behaviour.
+LABEL_POINT_RULES = ('site-median', 'corner')
+LABEL_POINT_DEFAULT = 'site-median'
+LABEL_INSET_M = 0.8
 PILOT_LOOKS = (40, 60, 100)
 PILOT_ALPHA_ONE_SIDED = 0.025
 #: live-site validation results -> the rubric's terms (agree = the NoCurbRamp label is right)
@@ -429,6 +439,117 @@ def _enu_coords(frame, xs, ys):
     return es, ns
 
 
+def quantile(xs, q):
+    """Linear-interpolation quantile (numpy's default) of a non-empty sequence.
+
+    >>> quantile([1, 2, 3, 4], 0.5), quantile([10], 0.1)
+    (2.5, 10.0)
+    """
+    s = sorted(float(x) for x in xs)
+    i = q * (len(s) - 1)
+    lo = int(math.floor(i))
+    hi = min(lo + 1, len(s) - 1)
+    return s[lo] + (s[hi] - s[lo]) * (i - lo)
+
+
+class LabelPlacement:
+    """The 'site-median' label point: where on the corner's bisector a NoCurbRamp label goes.
+
+    The corner point (corner_inventory.corner_point) is a fixed CORNER_OFFSET_M from the unit
+    centre for every street type, which on residential streets lands behind the curb. The
+    fused ramp sites the corner table assigns to a unit's corners (corners[].site_ids, resolved
+    in the SAME merged site set the table was built on: the base run's operational sites plus
+    each --extra-run's, ids prefixed `<run>:`) say where ramps actually sit. Distance from the
+    unit centre along the bisector (start_deg + width_deg / 2):
+
+      (a) 'unit': the unit has sites at its corners -> the median of its centre-to-site
+          distances;
+      (b) 'stratum': it has none -> the median over every site at every corner of every unit
+          of its stratum, computed from the same corner table;
+      (c) 'corner': its stratum has no site at all -> the corner offset itself (old point);
+
+    minus inset_m (toward the road: a missing ramp belongs at the curb edge, a ramp site's
+    centre sits slightly behind it), then clamped to [the stratum's p10, max_m] so a label is
+    never farther out than the old corner point and never nearer the centre than 9 in 10 of
+    its stratum's ramps. Nothing is per city: every number comes from the corner table given.
+    """
+
+    def __init__(self, units, site_pos, inset_m=LABEL_INSET_M, max_m=None):
+        self.inset_m = float(inset_m)
+        self.max_m = float(ci.CORNER_OFFSET_M if max_m is None else max_m)
+        self.unit_d = {}
+        by_stratum = {s: [] for s in STRATA}
+        missing = set()
+        for rec in units:
+            if rec['type'] not in STRATA:
+                continue
+            fr = geo.LocalFrame(rec['lat'], rec['lng'])
+            ds = []
+            for c in rec.get('corners') or ():
+                for sid in c.get('site_ids') or ():
+                    if sid not in site_pos:
+                        missing.add(sid)
+                        continue
+                    e, n = fr.to_enu(*site_pos[sid])
+                    ds.append(math.hypot(e, n))
+            self.unit_d[rec['unit']] = ds
+            by_stratum[rec['type']].extend(ds)
+        if missing:
+            raise SystemExit(f'{len(missing)} corner site id(s) are not in the loaded sites, e.g. '
+                             f'{sorted(map(str, missing))[:3]}: the corner table was built on '
+                             f'other runs than --run-dir / --extra-run')
+        self.stats = {}
+        for s, ds in by_stratum.items():
+            self.stats[s] = ({'n_sites': 0, 'median_m': None, 'p10_m': None} if not ds else
+                             {'n_sites': len(ds), 'median_m': r2(quantile(ds, 0.5)),
+                              'p10_m': r2(quantile(ds, 0.1)), 'p25_m': r2(quantile(ds, 0.25)),
+                              'p75_m': r2(quantile(ds, 0.75)), 'p90_m': r2(quantile(ds, 0.9))})
+        self._exact = {s: (quantile(ds, 0.5), quantile(ds, 0.1)) if ds else None
+                       for s, ds in by_stratum.items()}
+
+    def record(self):
+        """build.json's `label_point` block."""
+        return {'rule': 'site-median', 'inset_m': self.inset_m, 'max_m': self.max_m,
+                'min': 'stratum p10', 'stratum_stats': self.stats,
+                'cases': {'unit': "median distance from the unit centre to the fused sites at "
+                                  "the unit's corners",
+                          'stratum': "the stratum's median (unit has no site at its corners)",
+                          'corner': 'the corner offset (stratum has no site at all)'},
+                'sites': "corners[].site_ids, resolved in the merged operational sites of "
+                         "--run-dir and each --extra-run (extra ids prefixed '<run>:')"}
+
+    def place(self, rec, c):
+        """{'lat', 'lng', 'dist_m', 'case', 'base_m', 'n_unit_sites', 'clamped',
+        'bearing_deg'} of the label point of corner c of unit rec."""
+        ds = self.unit_d.get(rec['unit']) or []
+        exact = self._exact.get(rec['type'])
+        if ds:
+            case, base = 'unit', quantile(ds, 0.5)
+        elif exact is not None:
+            case, base = 'stratum', exact[0]
+        else:
+            case, base = 'corner', self.max_m
+        clamped = None
+        if case == 'corner':
+            d = self.max_m
+        else:
+            d = base - self.inset_m
+            lo = min(exact[1], self.max_m)
+            if d > self.max_m:
+                d, clamped = self.max_m, 'max'
+            elif d < lo:
+                d, clamped = lo, 'min'
+        b = (float(c['start_deg']) + float(c['width_deg']) / 2.0) % 360.0
+        if case == 'corner':        # exactly the old point, as the corner table stored it
+            lat, lng = c['lat'], c['lng']
+            d = math.hypot(*geo.LocalFrame(rec['lat'], rec['lng']).to_enu(lat, lng))
+        else:
+            lat, lng = geo.LocalFrame(rec['lat'], rec['lng']).to_latlng(
+                d * math.sin(math.radians(b)), d * math.cos(math.radians(b)))
+        return {'lat': lat, 'lng': lng, 'dist_m': d, 'case': case, 'base_m': base,
+                'n_unit_sites': len(ds), 'clamped': clamped, 'bearing_deg': b}
+
+
 def check_pins(city, inputs, allow_unpinned):
     """Compare every input's sha256 with PINNED_SHA256[city]; a mismatch exits unless
     allow_unpinned. Returns 'pinned', 'unpinned city' or 'overridden: <roles>'."""
@@ -451,8 +572,13 @@ def check_pins(city, inputs, allow_unpinned):
 
 # --------------------------------------------------------------------------- build
 
-def build_proposals(units, panos, sites, args, sidewalks=None):
+def build_proposals(units, panos, sites, args, sidewalks=None, placement=None):
     """(proposals, unlabeled rows, counts by stratum) over the corner table's records.
+
+    placement (a LabelPlacement, or None for the old corner point) moves only the point that
+    is projected into the chosen pano: the absent state, the inventory and sidewalk tests and
+    the pano choice all stay keyed on the corner point, so the corner set and the panos are
+    the same whichever label point is used.
 
     Every intersection corner is counted; one that is absent under args.arm/args.variant
     either becomes a proposal or lands in `unlabeled` with its reason: inventory (excluded by
@@ -491,22 +617,27 @@ def build_proposals(units, panos, sites, args, sidewalks=None):
                 unlabeled.append(dict(row, reason='no_candidate'))
                 continue
             pano = panos[chosen['pano_id']]
-            proj = project(pano, c['lat'], c['lng'], args.camera_height_m, args.max_range_m)
+            lp = None if placement is None else placement.place(rec, c)
+            plat, plng = (c['lat'], c['lng']) if lp is None else (lp['lat'], lp['lng'])
+            proj = project(pano, plat, plng, args.camera_height_m, args.max_range_m)
             if proj is None:
                 cnt['dropped_projection'] += 1
                 unlabeled.append(dict(row, reason='projection_dropped'))
                 continue
             cnt['proposed'] += 1
             proposals.append(proposal_record(rec, c, pano, chosen, runners, cands, rejected,
-                                             proj, sites.nearest(c['lat'], c['lng']), args))
+                                             proj, sites.nearest(c['lat'], c['lng']), args, lp))
     proposals.sort(key=lambda p: (p['unit'], p['corner']))
     unlabeled.sort(key=lambda r: (r['unit'], r['corner']))
     return proposals, unlabeled, counts
 
 
-def proposal_record(rec, c, pano, chosen, runners, cands, rejected, proj, site, args):
-    """One proposal line: the corner, the chosen pano and pixel, and the evidence."""
-    return {
+def proposal_record(rec, c, pano, chosen, runners, cands, rejected, proj, site, args,
+                    lp=None):
+    """One proposal line: the corner, the chosen pano and pixel, and the evidence. lat/lng
+    are always the corner point (the corner's identity); with a label point lp (LabelPlacement)
+    the pixel and range_m are the label point's, and `label_point` records it."""
+    out = {
         'schema': PROPOSAL_SCHEMA, 'key': corner_key(rec['unit'], c['corner']),
         'unit': rec['unit'], 'corner': c['corner'], 'stratum': rec['type'],
         'lat': r6(c['lat']), 'lng': r6(c['lng']), 'label_type': LABEL_TYPE,
@@ -538,6 +669,14 @@ def proposal_record(rec, c, pano, chosen, runners, cands, rejected, proj, site, 
             'chosen_dist_m': r2(chosen['dist_m']),
         },
     }
+    if lp is not None:
+        fr = geo.LocalFrame(c['lat'], c['lng'])
+        out['label_point'] = {'lat': r6(lp['lat']), 'lng': r6(lp['lng']),
+                              'dist_m': r2(lp['dist_m']), 'case': lp['case'],
+                              'base_m': r2(lp['base_m']), 'n_unit_sites': lp['n_unit_sites'],
+                              'clamped': lp['clamped'], 'bearing_deg': r2(lp['bearing_deg']),
+                              'shift_m': r2(math.hypot(*fr.to_enu(lp['lat'], lp['lng'])))}
+    return out
 
 
 def sector_record(c):
@@ -630,9 +769,16 @@ def cmd_build(args):
         raise SystemExit('--sidewalk-keep needs --sidewalk-presence')
     sidewalks = (SidewalkPresence(args.sidewalk_presence, args.sidewalk_radius_m, keep)
                  if args.sidewalk_presence else None)
+    rule = getattr(args, 'label_point', 'corner')
+    placement = None
+    if rule == 'site-median':
+        placement = LabelPlacement(units, {s[2]['site_id']: (s[0], s[1]) for s in sites},
+                                   args.label_inset_m)
+    elif rule != 'corner':
+        raise SystemExit(f'--label-point {rule!r}: one of {LABEL_POINT_RULES}')
 
     proposals, unlabeled, counts = build_proposals(units, panos, SiteIndex(sites), args,
-                                                   sidewalks)
+                                                   sidewalks, placement)
     out = Path(args.out)
     ci.write_jsonl_lf(out / 'proposals.jsonl', proposals)
     ci.write_csv_lf(out / 'unlabeled.csv',
@@ -656,6 +802,11 @@ def cmd_build(args):
                            'n_features_in_file': sidewalks.n_features_in_file,
                            'n_features': sidewalks.n_features}
                           if sidewalks else 'not applied'),
+        'label_point': (label_point_summary(placement, proposals) if placement is not None
+                        else {'rule': 'corner', 'offset_m': ci.CORNER_OFFSET_M,
+                              'note': 'the corner point itself (the behaviour of every build '
+                                      'before 2026-11-11)'}),
+        'label_point_default': LABEL_POINT_DEFAULT,
         'per_direction_arm': 'not built (no crossing-line source in the run dirs)',
         'inputs': in_rec, 'pins': pins, 'extra_runs': extra_recs,
         'counts': {'units': len(units), 'panos_indexed': len(panos), 'operational_sites': len(sites),
@@ -671,6 +822,20 @@ def cmd_build(args):
           f"{total['dropped_no_sidewalk']} no sidewalk, {total['no_candidate']} no candidate "
           f"pano, {total['dropped_projection']} projection dropped -> {total['proposed']} "
           f"proposals in {out}")
+
+
+def label_point_summary(placement, proposals):
+    """build.json's `label_point`: the rule and its numbers, and how the proposals used it."""
+    rec = placement.record()
+    lps = [p['label_point'] for p in proposals]
+    rec['proposals'] = {
+        'by_case': dict(sorted(Counter(lp['case'] for lp in lps).items())),
+        'clamped': dict(sorted(Counter(str(lp['clamped']) for lp in lps).items())),
+        'shift_m_p10_median_p90': (None if not lps else
+                                   [r2(quantile([lp['shift_m'] for lp in lps], q))
+                                    for q in (0.1, 0.5, 0.9)]),
+        'range_under_min_view': sum(1 for p in proposals if p['range_m'] < MIN_VIEW_M)}
+    return rec
 
 
 def na_read_params(args):
@@ -1450,6 +1615,14 @@ def main(argv=None):
                    help='keep only sidewalk features whose FIELD is one of the values '
                    '(repeatable; recorded in build.json). Vancouver WA: '
                    'STATUS=Available,Pathway,Private')
+    b.add_argument('--label-point', choices=LABEL_POINT_RULES, default=LABEL_POINT_DEFAULT,
+                   help="where the label goes on the corner bisector. site-median (default since "
+                        "2026-11-11): the unit's median centre-to-site distance, else its "
+                        "stratum's, less --label-inset-m, clamped to [stratum p10, corner "
+                        "offset]. corner: the corner point itself (every earlier build). The "
+                        "corner decision and pano choice use the corner point either way")
+    b.add_argument('--label-inset-m', type=float, default=LABEL_INSET_M,
+                   help='site-median: metres subtracted toward the road (default %(default)s)')
     b.add_argument('--allow-unpinned', action='store_true',
                    help='build on inputs whose sha256 differs from PINNED_SHA256 (recorded)')
     b.set_defaults(fn=cmd_build)

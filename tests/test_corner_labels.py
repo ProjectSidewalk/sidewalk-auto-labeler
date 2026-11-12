@@ -4,6 +4,7 @@ and its PS payload, the registry's rule-produced NoCurbRamp spec, the ranked-CSV
 seeded sample, and the pre-registered score. CPU only, no network, no torch."""
 import io
 import json
+import math
 from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
@@ -165,8 +166,8 @@ def test_projection_round_trips_through_geo(heading, x, y):
 
 # ----------------------------------------------------------------------------- build
 
-def unit(corners, typ='residential', name='vancouver:res:n1'):
-    return {'unit': name, 'type': typ, 'corners': corners}
+def unit(corners, typ='residential', name='vancouver:res:n1', lat=LAT0, lng=LNG0):
+    return {'unit': name, 'type': typ, 'corners': corners, 'lat': lat, 'lng': lng}
 
 
 def test_build_proposals_counts_every_reason():
@@ -829,3 +830,111 @@ def test_pilot_end_to_end_sample_export_dry_run_and_score(tmp_path):
     assert got == [(1, order[0], 900), (2, order[1], 901), (3, order[2], 902)]
     with pytest.raises(SystemExit, match='two server labels'):
         cl.pilot_label_ids(order, list(props.values()), srv + [dict(srv[0], label_id='999')])
+
+
+# ------------------------------------------------ label placement (site-median, 2026-11-11)
+
+def _placement_units():
+    """Residential A (sites 8, 10, 11 m), B (no site), C (20, 22 m), D (2 m); arterial E (none).
+    Sites lie on assorted bearings; only their distance from the centre matters."""
+    def c(idx, sids, start=0.0):
+        b = math.radians(start + 45.0)          # the corner point: 12 m out on the bisector
+        k = corner(idx, 12 * math.sin(b), 12 * math.cos(b), panos=['p'])
+        k.update(start_deg=start, width_deg=90.0, site_ids=sids)
+        return k
+    units = [unit([c(0, [1, 2]), c(1, [3], 90.0)], name='vancouver:res:A'),
+             unit([c(0, [])], name='vancouver:res:B'),
+             unit([c(0, [4, 5])], name='vancouver:res:C'),
+             unit([c(0, [6])], name='vancouver:res:D'),
+             unit([c(0, [])], typ='arterial', name='vancouver:art:E')]
+    sites = {1: at(8, 0), 2: at(0, -10), 3: at(-11, 0), 4: at(0, 20), 5: at(22, 0),
+             6: at(0, 2)}
+    return units, sites
+
+
+def test_label_placement_unit_median_stratum_fallback_inset_and_clamps():
+    units, sites = _placement_units()
+    lp = cl.LabelPlacement(units, sites)
+    st = lp.stats['residential']
+    assert st['n_sites'] == 6 and st['median_m'] == 10.5 and st['p10_m'] == 5.0
+    assert lp.stats['arterial']['median_m'] is None
+    a = lp.place(units[0], units[0]['corners'][0])
+    assert (a['case'], a['n_unit_sites'], a['clamped']) == ('unit', 3, None)
+    assert a['base_m'] == pytest.approx(10.0, abs=1e-6)
+    assert a['dist_m'] == pytest.approx(9.2, abs=1e-6)          # median less the 0.8 m inset
+    e, n = geo.LocalFrame(LAT0, LNG0).to_enu(a['lat'], a['lng'])
+    assert math.hypot(e, n) == pytest.approx(9.2, abs=1e-3)
+    assert math.degrees(math.atan2(e, n)) == pytest.approx(45.0, abs=1e-3)   # on the bisector
+    b = lp.place(units[1], units[1]['corners'][0])
+    assert (b['case'], b['dist_m']) == ('stratum', pytest.approx(9.7, abs=1e-6))
+    c = lp.place(units[2], units[2]['corners'][0])
+    assert (c['clamped'], c['dist_m']) == ('max', 12.0)          # never past the corner point
+    d = lp.place(units[3], units[3]['corners'][0])
+    assert (d['clamped'], d['dist_m']) == ('min', pytest.approx(5.0))   # never inside p10
+    e_ = lp.place(units[4], units[4]['corners'][0])               # stratum without any site
+    assert e_['case'] == 'corner'
+    assert (e_['lat'], e_['lng']) == (units[4]['corners'][0]['lat'], units[4]['corners'][0]['lng'])
+    # the inset is a flag
+    lp0 = cl.LabelPlacement(units, sites, inset_m=0.0)
+    assert lp0.place(units[0], units[0]['corners'][0])['dist_m'] == pytest.approx(10.0, abs=1e-6)
+    with pytest.raises(SystemExit, match='not in the loaded sites'):
+        cl.LabelPlacement(units, {k: v for k, v in sites.items() if k != 6})
+
+
+def test_label_point_moves_only_the_pixel_corner_set_and_panos_unchanged():
+    units, sites = _placement_units()
+    panos = {'p': pano(0.0, e=-3.0, n=-3.0), 'q': pano(90.0, e=5.0, n=-4.0, date='2024-01')}
+    for u in units:
+        for k in u['corners']:
+            k['pano_ids_25'] = ['p', 'q']
+    old, unl_old, cnt_old = cl.build_proposals(units, panos, NoSites(), args())
+    new, unl_new, cnt_new = cl.build_proposals(units, panos, NoSites(), args(),
+                                               placement=cl.LabelPlacement(units, sites))
+    assert [p['key'] for p in old] == [p['key'] for p in new]
+    assert [p['pano']['pano_id'] for p in old] == [p['pano']['pano_id'] for p in new]
+    assert [(p['lat'], p['lng']) for p in old] == [(p['lat'], p['lng']) for p in new]
+    assert unl_old == unl_new and cnt_old == cnt_new
+    assert all('label_point' not in p for p in old)            # old behaviour: no new key
+    # every label point off the corner point moves the pixel (C is clamped back onto it)
+    moved = [(o, n) for o, n in zip(old, new)
+             if n['label_point']['case'] != 'corner' and n['label_point']['clamped'] != 'max']
+    assert moved and all(o['x_normalized'] != n['x_normalized'] or
+                         o['y_normalized'] != n['y_normalized'] for o, n in moved)
+    a = next(p for p in new if p['key'] == 'vancouver:res:A#0')
+    assert a['label_point']['shift_m'] == pytest.approx(12.0 - 9.2, abs=0.05)
+    # the old pixel is the corner point's projection
+    o = next(p for p in old if p['key'] == 'vancouver:res:A#0')
+    raw = units[0]['corners'][0]
+    proj = cl.project(panos[o['pano']['pano_id']], raw['lat'], raw['lng'])
+    assert o['x_normalized'] == pytest.approx(proj.x_norm, abs=1e-6)
+
+
+def test_build_records_the_label_point_rule(tmp_path):
+    run = tmp_path / 'run'
+    _write_jsonl(run / 'results.jsonl', [{'detections': [], 'label_type': 'CurbRamp',
+                                          'pano': block('P')}])
+    s1 = at(0, 9)
+    _write_jsonl(run / 'sites.jsonl', [{'site_id': 7, 'lat': s1[0], 'lng': s1[1],
+                                        'n_operational': 1,
+                                        'members': [{'pano_id': 'P', 'confidence': 0.9}]}])
+    (run / 'sites_meta.json').write_text(json.dumps({'params': {'min_confidence': 0.3}}),
+                                         encoding='utf-8')
+    k0 = dict(corner(0, 0, 12, panos=['P']), start_deg=315.0, width_deg=90.0, site_ids=[7])
+    k1 = dict(corner(1, 12, 0, panos=['P']), start_deg=45.0, width_deg=90.0, site_ids=[])
+    _write_jsonl(tmp_path / 'corners_full.jsonl', [unit([k0, k1])])
+    for rule in ('site-median', 'corner'):
+        out = tmp_path / rule
+        with redirect_stdout(io.StringIO()):
+            cl.main(['build', '--city', 'testcity', '--na-read', 'discount', '--corners',
+                     str(tmp_path / 'corners_full.jsonl'), '--run-dir', str(run), '--out',
+                     str(out), '--label-point', rule])
+        b = json.loads((out / 'build.json').read_text(encoding='utf-8'))
+        assert b['label_point']['rule'] == rule and b['label_point_default'] == 'site-median'
+    b = json.loads((tmp_path / 'site-median' / 'build.json').read_text(encoding='utf-8'))
+    lp = b['label_point']
+    assert lp['inset_m'] == 0.8 and lp['max_m'] == 12.0
+    assert lp['stratum_stats']['residential']['median_m'] == 9.0
+    assert lp['proposals']['by_case'] == {'unit': 2}         # one unit, its site serves both
+    props = ci.read_jsonl(tmp_path / 'site-median' / 'proposals.jsonl')
+    # 9.0 - 0.8 = 8.2 is inside the stratum's p10 (9.0, its only site): clamped up to it
+    assert [(p['label_point']['dist_m'], p['label_point']['clamped']) for p in props] ==         [(9.0, 'min'), (9.0, 'min')]
