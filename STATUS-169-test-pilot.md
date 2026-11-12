@@ -96,3 +96,46 @@ $R='/projects/makeabilitylab/sidewalk-auto-labeler/runs/vancouver/corner_labels1
 ```
 
 `proposals.jsonl` (`1562e076…`) is already archived (`corner_labels169_split.archive.sha256`).
+
+## Update 2026-11-11 evening: placement fix after the smoke send (Opus 5.5)
+
+**Context, from the parent session.** Jon started vancouver-test (v11.20.0, schema not
+refreshed). He smoke-sent positions 1-3 of the first file (`vancouver-test:89735`-`89737`), and
+all three sat a couple of metres inland. The remaining 197 of that file are on hold for good.
+
+**Branch `corner-pilot-169`**, pushed; HEAD `fc1aafe`. Full suite: 1607 passed, 3 skipped.
+- `bc40622`: `build --label-point site-median` (the default) moves only the label point along
+  the bisector. Distance: the unit's median centre-to-site distance (sites from
+  `corners[].site_ids` in the merged base + extra-run sites), else the stratum's median, less
+  `--label-inset-m` 0.8, clamped to [stratum p10, 12 m]. `--label-point corner` is the old
+  behaviour.
+- `d24c4d6`: `corner_range_fallback`. The first site-median build dropped 2 corners
+  (`vancouver:art:n3559864516#0`, `vancouver:res:n47211243#2`): the chosen panos sit 24.7 m
+  from the corner, so the moved label fell past 25 m. Those labels now keep the corner point.
+- `4bc0762`: `--skip-first` / `--exclude-panos` for export, pilot-links and pilot-score;
+  `scripts/corner_label_shift.py`.
+- `e8a2aa0`: the build `na_discount_sw_sitemed` (at `d24c4d6`) and the new file. The smoke
+  send's `.submission.json` is committed.
+- `fc1aafe`: the sheet rewritten with a short "what Jon has to decide / do" top.
+
+**Verified by running:**
+- **Same corner set.** `na_discount_sw_sitemed` has the same 3,070 keys and chosen panos;
+  `counts.csv` and `unlabeled.csv` are byte-identical.
+- **Shift.** Residential labels moved p10 / median / p90 0.47 / 2.50 / 4.09 m, with 71% from
+  the unit's own sites. The smoke three would move 3.60, 2.48 and 2.00 m.
+- **Short ranges.** 40 proposals now have a range under 3 m; 4 of them are in the new file
+  (positions 91, 144, 152, 157).
+- **New file.** `na_discount_sw_sitemed/pilot_residential/results.pilot200.jsonl`: sha256
+  `567b88632fa83b21516e37ca8f8a06edf9252fe6d6f555ef99f75cdebbd0b446`, 197 lines/panos, 200
+  labels, positions 4-203. No corner sits on a smoke pano.
+- **Dry run and guards.** The dry run is clean and every guard passes. `check_live_positions`
+  cannot see the smoke record next door. Read directly, that record holds 3 live panos and
+  none is in the new file.
+- **Hazard.** The old file's resume state passes, so a re-run of it would continue at line 4
+  with the old placement. The sheet says never to resume it.
+
+**Deviations:**
+- `corner_range_fallback` was added because the first rebuild did differ, by 2 corners. The
+  instruction was to stop if the sets differ; I made the smallest change that keeps the
+  corner set fixed and recorded it.
+- The rated order now starts at position 4. That is declared in the sheet.
