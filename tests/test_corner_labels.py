@@ -938,3 +938,23 @@ def test_build_records_the_label_point_rule(tmp_path):
     props = ci.read_jsonl(tmp_path / 'site-median' / 'proposals.jsonl')
     # 9.0 - 0.8 = 8.2 is inside the stratum's p10 (9.0, its only site): clamped up to it
     assert [(p['label_point']['dist_m'], p['label_point']['clamped']) for p in props] ==         [(9.0, 'min'), (9.0, 'min')]
+
+
+def test_label_point_past_the_pano_range_falls_back_to_the_corner_point():
+    """A pano 24.7 m off the corner, on the far side from the centre: moving the label 3 m
+    toward the centre puts it past 25 m. The corner point is kept, never the corner dropped."""
+    units, sites = _placement_units()
+    k = units[0]['corners'][0]
+    ke, kn = geo.LocalFrame(LAT0, LNG0).to_enu(k['lat'], k['lng'])
+    s = 24.7 / math.hypot(ke, kn)
+    panos = {'far': pano(0.0, e=ke * (1 + s), n=kn * (1 + s))}
+    k['pano_ids_25'] = ['far']
+    u = [units[0]]
+    old, _, _ = cl.build_proposals(u, panos, NoSites(), args())
+    new, unl, cnt = cl.build_proposals(u, panos, NoSites(), args(),
+                                       placement=cl.LabelPlacement(units, sites))
+    a = next(p for p in new if p['key'] == 'vancouver:res:A#0')
+    assert a['label_point']['case'] == 'corner_range_fallback'
+    assert a['label_point']['shift_m'] == 0.0 and cnt['residential']['dropped_projection'] == 0
+    o = next(p for p in old if p['key'] == 'vancouver:res:A#0')
+    assert (a['x_normalized'], a['y_normalized']) == (o['x_normalized'], o['y_normalized'])

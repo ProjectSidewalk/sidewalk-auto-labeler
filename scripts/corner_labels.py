@@ -467,6 +467,8 @@ class LabelPlacement:
       (b) 'stratum': it has none -> the median over every site at every corner of every unit
           of its stratum, computed from the same corner table;
       (c) 'corner': its stratum has no site at all -> the corner offset itself (old point);
+      build_proposals adds 'corner_range_fallback' when the moved point is past the chosen
+      pano's projection range: the corner point is used, so no corner is ever dropped by it;
 
     minus inset_m (toward the road: a missing ramp belongs at the curb edge, a ramp site's
     centre sits slightly behind it), then clamped to [the stratum's p10, max_m] so a label is
@@ -514,7 +516,9 @@ class LabelPlacement:
                 'cases': {'unit': "median distance from the unit centre to the fused sites at "
                                   "the unit's corners",
                           'stratum': "the stratum's median (unit has no site at its corners)",
-                          'corner': 'the corner offset (stratum has no site at all)'},
+                          'corner': 'the corner offset (stratum has no site at all)',
+                          'corner_range_fallback': "the corner point: the moved point is past "
+                                                   "the chosen pano's projection range"},
                 'sites': "corners[].site_ids, resolved in the merged operational sites of "
                          "--run-dir and each --extra-run (extra ids prefixed '<run>:')"}
 
@@ -620,6 +624,14 @@ def build_proposals(units, panos, sites, args, sidewalks=None, placement=None):
             lp = None if placement is None else placement.place(rec, c)
             plat, plng = (c['lat'], c['lng']) if lp is None else (lp['lat'], lp['lng'])
             proj = project(pano, plat, plng, args.camera_height_m, args.max_range_m)
+            if proj is None and lp is not None:
+                # The label point fell past the chosen pano's range (a pano ~25 m off the
+                # corner, the point moved away from it): keep the corner point, which the pano
+                # choice already proved projectable, so the corner set never depends on it.
+                proj = project(pano, c['lat'], c['lng'], args.camera_height_m, args.max_range_m)
+                fr = geo.LocalFrame(rec['lat'], rec['lng'])
+                lp = dict(lp, case='corner_range_fallback', lat=c['lat'], lng=c['lng'],
+                          dist_m=math.hypot(*fr.to_enu(c['lat'], c['lng'])), clamped=None)
             if proj is None:
                 cnt['dropped_projection'] += 1
                 unlabeled.append(dict(row, reason='projection_dropped'))
