@@ -26,8 +26,9 @@ Read-only, makelab1, 2026-11-11T22:16Z (one batched `wsl-ssh.ps1 makelab1 run`):
   prod. `SidewalkAI` is `51b0b927-3c8a-45b2-93de-bd878d1e5cf4` on both. **Key every query on
   usernames, never on a person's `user_id` copied from prod.**
 
-**Ask (Mikey, through a SidewalkWebpage issue; Claude has not filed it):** re-enable
-`sidewalk-vancouver-test`, as was done for Juneau on 2026-10-29. Decision 1 below: refresh the
+**To do (Jon, from the makelab1 sidewalk dashboard; updated 2026-11-11, an earlier version
+routed this through Mikey):** start `sidewalk-vancouver-test`, as was done for Juneau on
+2026-10-29. Decision 1 below: refresh the
 test schema from prod first, or not.
 
 Prod is **not** a substitute. The issue confines the pilot to a test server.
@@ -285,7 +286,9 @@ ORDER BY l.label_id, v.start_timestamp;
 ## 8. Decisions for Jon (each with a recommendation)
 
 1. **Re-enable `sidewalk-vancouver-test` (blocker), and refresh its schema from prod?**
-   Recommend asking Mikey for both. The test schema is a 2025-09 copy with only the AI's
+   Jon can start the stage himself from the dashboard. Whether the dashboard can also refresh
+   the schema is not known; if it cannot, the refresh is the only part that needs Mikey.
+   Recommend both. The test schema is a 2025-09 copy with only the AI's
    CurbRamp labels and no crowd labels. A refresh lets a lead see the crowd's 34 NoCurbRamp
    labels and the city as it is now, and lets the 200 be compared with them. Without a refresh
    the pilot still works, because store pano imagery is shared by test and prod.
