@@ -51,6 +51,9 @@ def main(argv=None):
     ap.add_argument('--old', required=True)
     ap.add_argument('--new', required=True)
     ap.add_argument('--pilot', help='a pilot order CSV: also summarize positions 1-203')
+    ap.add_argument('--results', action='append', default=[],
+                    help='an exported results file of the new build: also summarize its corners '
+                         '(repeatable), and the first 120 of them in pilot order (rate + reserve)')
     a = ap.parse_args(argv)
     old, new = read(a.old), read(a.new)
     if set(old) != set(new):
@@ -75,6 +78,15 @@ def main(argv=None):
         out['pilot_positions_1_203'] = summarize(order[:203], old, new)
         for row in out['range_under_min_view']:
             row['pilot_position'] = pos.get(row['key'])
+    for f in a.results:
+        dets = sorted((d.get('pilot_order') or 0, d['corner'])
+                      for ln in (json.loads(x) for x in open(f, encoding='utf-8'))
+                      for d in ln['detections'])
+        keys = [k for _o, k in dets]
+        out[f'file:{Path(f).name}'] = summarize(keys, old, new)
+        out[f'file:{Path(f).name}']['first_120'] = summarize(keys[:120], old, new)
+        out[f'file:{Path(f).name}']['range_under_min_view'] = [
+            (o, k, new[k]['range_m']) for o, k in dets if new[k]['range_m'] < cl.MIN_VIEW_M]
     path = Path(a.new) / 'label_shift.json'
     path.write_text(json.dumps(out, indent=1) + '\n', encoding='utf-8', newline='\n')
     print(json.dumps({k: v for k, v in out.items() if k != 'range_under_min_view'}, indent=1))

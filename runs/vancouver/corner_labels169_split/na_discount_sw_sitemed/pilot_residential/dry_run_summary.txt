@@ -1,0 +1,32 @@
+# #169 pilot, site-median label point: dry run, pre-send guards and the neighbouring campaign, 2026-11-12T03:05:35Z
+# Nothing was sent. Endpoint for all three: https://sidewalk-vancouver-test.cs.washington.edu/ai/submitLabelsOnPano
+
+## python send_to_ps.py runs/vancouver/corner_labels169_split/na_discount_sw_sitemed/pilot_residential/results.pilot200.jsonl --endpoint <test> --dry-run (summary lines)
+--------------------------------------------------
+Processing complete!
+Successfully processed:        197 records
+Skipped (already submitted):   0 records
+Errors encountered:            0 records
+Detections below --min-confidence 0.5 (not submitted): 0
+payloads with label_type NoCurbRamp: 197; labels: 200
+    197 "model_id": "corner-rule@d24c4d65e6a4"
+
+## python scripts/pilot_guards.py runs/vancouver/corner_labels169_split/na_discount_sw_sitemed/pilot_residential/results.pilot200.jsonl --endpoint <test>
+check_endpoint_security: PASS
+check_model_provenance: PASS
+check_store_built: PASS: 196 record(s) in results.pilot200.jsonl have source_detail "ps_store": they were rebuilt from the pano store (scripts/detect_from_store.py), but it carries only NoCurbRamp labels; the store's live AI labels are all CurbRamp, so none is duplicated (type-aware store guard, #169).
+check_detection_decode: PASS: argmax
+check_detection_border: PASS: exclude
+file_label_types: ['NoCurbRamp'] (one type: legacy sidecar, one POST per line)
+check_resume_state (sidecar results.pilot200.jsonl.submitted, record results.pilot200.jsonl.submission.json, min_confidence 0.5): PASS
+check_position_state: PASS
+check_live_positions: PASS
+file: sha256 567b88632fa83b21516e37ca8f8a06edf9252fe6d6f555ef99f75cdebbd0b446, 197 lines, 505595 bytes
+
+## the old pilot200 campaign (na_discount_sw/pilot_residential, smoke send of 3) as the guards read it
+old dir campaigns: 3 live pano(s) on the endpoint; problems: []
+  live GnIlezUX8SPE_OlRLyK4-g: campaign results.pilot200.jsonl at 2026-11-12T01:24:14Z
+  live R89SNAFa2yc770d_Z6PD1w: campaign results.pilot200.jsonl at 2026-11-12T01:24:14Z
+  live ohEOR_VckTCGrJ6HzdzU7w: campaign results.pilot200.jsonl at 2026-11-12T01:24:14Z
+new file: 197 panos; live in the old campaign: []; moved: {}
+old file resume state: PASS  (3 lines already sent; a resend would continue at line 4)

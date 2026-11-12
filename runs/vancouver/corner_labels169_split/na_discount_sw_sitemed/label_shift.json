@@ -1,0 +1,683 @@
+{
+ "old": "runs/vancouver/corner_labels169_split/na_discount_sw",
+ "new": "runs/vancouver/corner_labels169_split/na_discount_sw_sitemed",
+ "same_corner_keys": true,
+ "same_chosen_panos": true,
+ "n": 3070,
+ "all": {
+  "labels": 3070,
+  "shift_m": {
+   "n": 3070,
+   "p10": 0.04,
+   "median": 2.36,
+   "p90": 3.8,
+   "max": 4.18
+  },
+  "label_dist_from_centre_m": {
+   "n": 3070,
+   "p10": 8.2,
+   "median": 9.64,
+   "p90": 12.0,
+   "max": 12.04
+  },
+  "range_old_m": {
+   "n": 3070,
+   "p10": 6.27,
+   "median": 10.04,
+   "p90": 17.18,
+   "max": 24.91
+  },
+  "range_new_m": {
+   "n": 3070,
+   "p10": 5.02,
+   "median": 8.86,
+   "p90": 16.22,
+   "max": 24.97
+  },
+  "by_case": {
+   "corner_range_fallback": 2,
+   "stratum": 966,
+   "unit": 2102
+  },
+  "share_unit_case": 0.685,
+  "clamped": {
+   "None": 2285,
+   "max": 488,
+   "min": 297
+  }
+ },
+ "by_stratum": {
+  "signalised": {
+   "labels": 34,
+   "shift_m": {
+    "n": 34,
+    "p10": 0.02,
+    "median": 0.04,
+    "p90": 0.06,
+    "max": 0.74
+   },
+   "label_dist_from_centre_m": {
+    "n": 34,
+    "p10": 12.0,
+    "median": 12.0,
+    "p90": 12.0,
+    "max": 12.0
+   },
+   "range_old_m": {
+    "n": 34,
+    "p10": 5.25,
+    "median": 10.37,
+    "p90": 16.07,
+    "max": 18.19
+   },
+   "range_new_m": {
+    "n": 34,
+    "p10": 5.28,
+    "median": 10.36,
+    "p90": 16.07,
+    "max": 18.18
+   },
+   "by_case": {
+    "stratum": 3,
+    "unit": 31
+   },
+   "share_unit_case": 0.912,
+   "clamped": {
+    "None": 2,
+    "max": 31,
+    "min": 1
+   }
+  },
+  "arterial": {
+   "labels": 1052,
+   "shift_m": {
+    "n": 1052,
+    "p10": 0.03,
+    "median": 0.44,
+    "p90": 2.66,
+    "max": 3.43
+   },
+   "label_dist_from_centre_m": {
+    "n": 1052,
+    "p10": 9.37,
+    "median": 11.56,
+    "p90": 12.0,
+    "max": 12.04
+   },
+   "range_old_m": {
+    "n": 1052,
+    "p10": 5.2,
+    "median": 9.92,
+    "p90": 16.95,
+    "max": 24.82
+   },
+   "range_new_m": {
+    "n": 1052,
+    "p10": 4.66,
+    "median": 9.31,
+    "p90": 16.62,
+    "max": 24.68
+   },
+   "by_case": {
+    "corner_range_fallback": 1,
+    "stratum": 392,
+    "unit": 659
+   },
+   "share_unit_case": 0.626,
+   "clamped": {
+    "None": 696,
+    "max": 300,
+    "min": 56
+   }
+  },
+  "residential": {
+   "labels": 1984,
+   "shift_m": {
+    "n": 1984,
+    "p10": 0.47,
+    "median": 2.5,
+    "p90": 4.09,
+    "max": 4.18
+   },
+   "label_dist_from_centre_m": {
+    "n": 1984,
+    "p10": 7.88,
+    "median": 9.51,
+    "p90": 11.54,
+    "max": 12.0
+   },
+   "range_old_m": {
+    "n": 1984,
+    "p10": 6.79,
+    "median": 10.11,
+    "p90": 17.53,
+    "max": 24.91
+   },
+   "range_new_m": {
+    "n": 1984,
+    "p10": 5.21,
+    "median": 8.62,
+    "p90": 15.97,
+    "max": 24.97
+   },
+   "by_case": {
+    "corner_range_fallback": 1,
+    "stratum": 571,
+    "unit": 1412
+   },
+   "share_unit_case": 0.712,
+   "clamped": {
+    "None": 1587,
+    "max": 157,
+    "min": 240
+   }
+  }
+ },
+ "range_under_min_view": [
+  {
+   "key": "vancouver:art:n3443604436#1",
+   "stratum": "arterial",
+   "pano_id": "CiJNeNutxnEHa2X4-5b2cQ",
+   "range_new_m": 0.19,
+   "range_old_m": 3.31,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:res:n1747846968#1",
+   "stratum": "residential",
+   "pano_id": "qUFETYdOJKQzjfVVYTWyPQ",
+   "range_new_m": 0.23,
+   "range_old_m": 4.35,
+   "case": "unit",
+   "pilot_position": 696
+  },
+  {
+   "key": "vancouver:art:n3801691227#0",
+   "stratum": "arterial",
+   "pano_id": "dfVTIK3geLDt80R-JRpFiQ",
+   "range_new_m": 0.36,
+   "range_old_m": 3.69,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:res:n1375314808#3",
+   "stratum": "residential",
+   "pano_id": "TXUF0KTtoHUpi6nEO66slA",
+   "range_new_m": 1.21,
+   "range_old_m": 5.21,
+   "case": "unit",
+   "pilot_position": 1424
+  },
+  {
+   "key": "vancouver:art:n3812168168#1",
+   "stratum": "arterial",
+   "pano_id": "Z4qWqmsiSZ2GD2E89fLHjA",
+   "range_new_m": 1.3,
+   "range_old_m": 4.11,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:art:n47302363#3",
+   "stratum": "arterial",
+   "pano_id": "ytYwCpYhUdkOQCJUib1p2g",
+   "range_new_m": 1.45,
+   "range_old_m": 3.85,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:res:n47208395#3",
+   "stratum": "residential",
+   "pano_id": "rD0KzkwLtgKHGaKhcp6uwg",
+   "range_new_m": 1.9,
+   "range_old_m": 4.27,
+   "case": "stratum",
+   "pilot_position": 1972
+  },
+  {
+   "key": "vancouver:res:n47307495#2",
+   "stratum": "residential",
+   "pano_id": "DAzTZ5fVzWcnHZ4ZgmD-JQ",
+   "range_new_m": 2.18,
+   "range_old_m": 4.58,
+   "case": "stratum",
+   "pilot_position": 144
+  },
+  {
+   "key": "vancouver:res:n47318209#3",
+   "stratum": "residential",
+   "pano_id": "LCiLPblqDsr4rWjcZ69s0A",
+   "range_new_m": 2.18,
+   "range_old_m": 3.5,
+   "case": "stratum",
+   "pilot_position": 1821
+  },
+  {
+   "key": "vancouver:res:n4602349155#0",
+   "stratum": "residential",
+   "pano_id": "ZRcwQ_0LfbTtrAqw5lKE-Q",
+   "range_new_m": 2.21,
+   "range_old_m": 4.53,
+   "case": "stratum",
+   "pilot_position": 561
+  },
+  {
+   "key": "vancouver:res:n47288994#2",
+   "stratum": "residential",
+   "pano_id": "cbE4_pf_O2sudinz2XSDsg",
+   "range_new_m": 2.25,
+   "range_old_m": 4.46,
+   "case": "stratum",
+   "pilot_position": 1840
+  },
+  {
+   "key": "vancouver:res:n47247575#1",
+   "stratum": "residential",
+   "pano_id": "a3L5lkn6Q4XLysCFSOTQJA",
+   "range_new_m": 2.29,
+   "range_old_m": 5.75,
+   "case": "unit",
+   "pilot_position": 1256
+  },
+  {
+   "key": "vancouver:res:n47250842#1",
+   "stratum": "residential",
+   "pano_id": "6nLScdup0Lkx4BQHiAqjdg",
+   "range_new_m": 2.3,
+   "range_old_m": 4.3,
+   "case": "stratum",
+   "pilot_position": 294
+  },
+  {
+   "key": "vancouver:res:n47212356#3",
+   "stratum": "residential",
+   "pano_id": "QurSVp4zwFdToArOBip_fw",
+   "range_new_m": 2.33,
+   "range_old_m": 4.83,
+   "case": "stratum",
+   "pilot_position": 461
+  },
+  {
+   "key": "vancouver:res:n47276284#1",
+   "stratum": "residential",
+   "pano_id": "SEyyy1713rM4N3cS6LD95A",
+   "range_new_m": 2.33,
+   "range_old_m": 6.4,
+   "case": "unit",
+   "pilot_position": 735
+  },
+  {
+   "key": "vancouver:res:n47208048#2",
+   "stratum": "residential",
+   "pano_id": "d2rxcpbv1KOVLTga3ScuFg",
+   "range_new_m": 2.37,
+   "range_old_m": 5.4,
+   "case": "unit",
+   "pilot_position": 1489
+  },
+  {
+   "key": "vancouver:res:n47231904#2",
+   "stratum": "residential",
+   "pano_id": "LNXfKau0KdDII_CKng3lNQ",
+   "range_new_m": 2.43,
+   "range_old_m": 4.9,
+   "case": "stratum",
+   "pilot_position": 1191
+  },
+  {
+   "key": "vancouver:art:n47386439#3",
+   "stratum": "arterial",
+   "pano_id": "eoAwjW7K6sx79uuqeYIujw",
+   "range_new_m": 2.45,
+   "range_old_m": 3.92,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:res:n47208048#3",
+   "stratum": "residential",
+   "pano_id": "EJE6uhRMc3NYzGLEVot2OA",
+   "range_new_m": 2.48,
+   "range_old_m": 5.74,
+   "case": "unit",
+   "pilot_position": 258
+  },
+  {
+   "key": "vancouver:res:n47236284#1",
+   "stratum": "residential",
+   "pano_id": "qY_xLBp-_ejVdnc9l-tKzw",
+   "range_new_m": 2.58,
+   "range_old_m": 6.4,
+   "case": "unit",
+   "pilot_position": 810
+  },
+  {
+   "key": "vancouver:art:n47225270#0",
+   "stratum": "arterial",
+   "pano_id": "lPoz2xB0yTRWhU6wx1MVlw",
+   "range_new_m": 2.61,
+   "range_old_m": 3.66,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:art:n3443604436#2",
+   "stratum": "arterial",
+   "pano_id": "DpFMlA6WXfH33HXkqTvDuA",
+   "range_new_m": 2.64,
+   "range_old_m": 5.59,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:res:n47226535#1",
+   "stratum": "residential",
+   "pano_id": "RXZjL2ml7ZHcrbxg5wqCwg",
+   "range_new_m": 2.66,
+   "range_old_m": 6.8,
+   "case": "unit",
+   "pilot_position": 1662
+  },
+  {
+   "key": "vancouver:art:n47296485#0",
+   "stratum": "arterial",
+   "pano_id": "Y9bBBIn5yfoyMSojdgrmuA",
+   "range_new_m": 2.7,
+   "range_old_m": 4.88,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:res:n47348023#0",
+   "stratum": "residential",
+   "pano_id": "nUf2bah1eLJBz-8IeX6LSQ",
+   "range_new_m": 2.7,
+   "range_old_m": 5.11,
+   "case": "stratum",
+   "pilot_position": 1232
+  },
+  {
+   "key": "vancouver:res:n47357156#0",
+   "stratum": "residential",
+   "pano_id": "U_tMB7YhxFNlVK-Sa0-fOQ",
+   "range_new_m": 2.71,
+   "range_old_m": 6.46,
+   "case": "unit",
+   "pilot_position": 1802
+  },
+  {
+   "key": "vancouver:res:n47372483#0",
+   "stratum": "residential",
+   "pano_id": "TapB7iFJPfTHD93kxER-Og",
+   "range_new_m": 2.71,
+   "range_old_m": 5.01,
+   "case": "stratum",
+   "pilot_position": 1273
+  },
+  {
+   "key": "vancouver:art:n47220790#2",
+   "stratum": "arterial",
+   "pano_id": "DbmVOQs1bop7yriqnhVNNg",
+   "range_new_m": 2.73,
+   "range_old_m": 3.08,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:art:n47268324#1",
+   "stratum": "arterial",
+   "pano_id": "k7TmH1qJ3QNkxyJL15u4bQ",
+   "range_new_m": 2.74,
+   "range_old_m": 4.12,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:res:n47225557#1",
+   "stratum": "residential",
+   "pano_id": "EhhX3_-1kG9uoZywHrwfOw",
+   "range_new_m": 2.74,
+   "range_old_m": 4.69,
+   "case": "stratum",
+   "pilot_position": 91
+  },
+  {
+   "key": "vancouver:res:n47269094#3",
+   "stratum": "residential",
+   "pano_id": "tj1gHVRvSa5v5w82VCTd2w",
+   "range_new_m": 2.78,
+   "range_old_m": 5.12,
+   "case": "stratum",
+   "pilot_position": 1568
+  },
+  {
+   "key": "vancouver:res:n4602349155#3",
+   "stratum": "residential",
+   "pano_id": "xADAzsS_45l_l7TXa8moow",
+   "range_new_m": 2.79,
+   "range_old_m": 5.22,
+   "case": "stratum",
+   "pilot_position": 1161
+  },
+  {
+   "key": "vancouver:res:n47246605#2",
+   "stratum": "residential",
+   "pano_id": "sbFaSsePZFrNqjya9Hj9Eg",
+   "range_new_m": 2.81,
+   "range_old_m": 3.86,
+   "case": "unit",
+   "pilot_position": 371
+  },
+  {
+   "key": "vancouver:art:n47300070#0",
+   "stratum": "arterial",
+   "pano_id": "kWpiXY067lSXEArNQ8VbGQ",
+   "range_new_m": 2.82,
+   "range_old_m": 4.65,
+   "case": "unit",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:res:n47226555#2",
+   "stratum": "residential",
+   "pano_id": "BTYgG8jdDj-xCnKeg6oKNg",
+   "range_new_m": 2.86,
+   "range_old_m": 3.03,
+   "case": "stratum",
+   "pilot_position": 1401
+  },
+  {
+   "key": "vancouver:res:n47318190#3",
+   "stratum": "residential",
+   "pano_id": "jikFK6W8TV-NNk6nf5h1cA",
+   "range_new_m": 2.87,
+   "range_old_m": 3.76,
+   "case": "stratum",
+   "pilot_position": 157
+  },
+  {
+   "key": "vancouver:res:n47266095#3",
+   "stratum": "residential",
+   "pano_id": "1bXX0dZfI5T9bpx4P9KdSg",
+   "range_new_m": 2.9,
+   "range_old_m": 5.27,
+   "case": "unit",
+   "pilot_position": 152
+  },
+  {
+   "key": "vancouver:art:n47346917#2",
+   "stratum": "arterial",
+   "pano_id": "IZd1uKtevpGq4K7sOKHTxQ",
+   "range_new_m": 2.91,
+   "range_old_m": 3.35,
+   "case": "stratum",
+   "pilot_position": null
+  },
+  {
+   "key": "vancouver:res:n47231640#3",
+   "stratum": "residential",
+   "pano_id": "-D4JB8IUS3srIGaxPwRdbg",
+   "range_new_m": 2.91,
+   "range_old_m": 4.56,
+   "case": "stratum",
+   "pilot_position": 1418
+  },
+  {
+   "key": "vancouver:art:n47249611#0",
+   "stratum": "arterial",
+   "pano_id": "jkItUlKxEOEzoIPYKE0DHA",
+   "range_new_m": 2.96,
+   "range_old_m": 3.41,
+   "case": "stratum",
+   "pilot_position": null
+  }
+ ],
+ "pilot_positions_1_203": {
+  "labels": 203,
+  "shift_m": {
+   "n": 203,
+   "p10": 0.91,
+   "median": 2.5,
+   "p90": 4.05,
+   "max": 4.18
+  },
+  "label_dist_from_centre_m": {
+   "n": 203,
+   "p10": 7.9,
+   "median": 9.51,
+   "p90": 11.1,
+   "max": 12.0
+  },
+  "range_old_m": {
+   "n": 203,
+   "p10": 6.8,
+   "median": 9.92,
+   "p90": 17.03,
+   "max": 24.81
+  },
+  "range_new_m": {
+   "n": 203,
+   "p10": 5.39,
+   "median": 8.13,
+   "p90": 14.59,
+   "max": 24.52
+  },
+  "by_case": {
+   "stratum": 62,
+   "unit": 141
+  },
+  "share_unit_case": 0.695,
+  "clamped": {
+   "None": 167,
+   "max": 16,
+   "min": 20
+  }
+ },
+ "file:results.pilot200.jsonl": {
+  "labels": 200,
+  "shift_m": {
+   "n": 200,
+   "p10": 0.9,
+   "median": 2.5,
+   "p90": 4.05,
+   "max": 4.18
+  },
+  "label_dist_from_centre_m": {
+   "n": 200,
+   "p10": 7.88,
+   "median": 9.51,
+   "p90": 11.11,
+   "max": 12.0
+  },
+  "range_old_m": {
+   "n": 200,
+   "p10": 6.8,
+   "median": 9.91,
+   "p90": 17.11,
+   "max": 24.81
+  },
+  "range_new_m": {
+   "n": 200,
+   "p10": 5.38,
+   "median": 8.12,
+   "p90": 14.72,
+   "max": 24.52
+  },
+  "by_case": {
+   "stratum": 61,
+   "unit": 139
+  },
+  "share_unit_case": 0.695,
+  "clamped": {
+   "None": 164,
+   "max": 16,
+   "min": 20
+  },
+  "first_120": {
+   "labels": 120,
+   "shift_m": {
+    "n": 120,
+    "p10": 1.31,
+    "median": 2.5,
+    "p90": 3.92,
+    "max": 4.18
+   },
+   "label_dist_from_centre_m": {
+    "n": 120,
+    "p10": 8.05,
+    "median": 9.51,
+    "p90": 10.7,
+    "max": 12.0
+   },
+   "range_old_m": {
+    "n": 120,
+    "p10": 6.92,
+    "median": 10.18,
+    "p90": 18.35,
+    "max": 24.81
+   },
+   "range_new_m": {
+    "n": 120,
+    "p10": 5.48,
+    "median": 8.1,
+    "p90": 16.44,
+    "max": 24.52
+   },
+   "by_case": {
+    "stratum": 45,
+    "unit": 75
+   },
+   "share_unit_case": 0.625,
+   "clamped": {
+    "None": 103,
+    "max": 8,
+    "min": 9
+   }
+  },
+  "range_under_min_view": [
+   [
+    91,
+    "vancouver:res:n47225557#1",
+    2.74
+   ],
+   [
+    144,
+    "vancouver:res:n47307495#2",
+    2.18
+   ],
+   [
+    152,
+    "vancouver:res:n47266095#3",
+    2.9
+   ],
+   [
+    157,
+    "vancouver:res:n47318190#3",
+    2.87
+   ]
+  ]
+ }
+}

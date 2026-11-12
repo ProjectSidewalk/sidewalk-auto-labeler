@@ -1,0 +1,21 @@
+{
+  "input_file": "results.pilot200.jsonl",
+  "sha256": "d38c9f3b1fba530bac9d6b6ecfcacf9403ebe5b55f116bf18b5a35a7035da0c6",
+  "total_lines": 197,
+  "total_bytes": 506047,
+  "endpoints": {
+    "https://sidewalk-vancouver-test.cs.washington.edu/ai/submitLabelsOnPano": {
+      "rig_masked": true,
+      "submitted_lines": 3,
+      "labels_submitted": 3,
+      "min_confidence": 0.5,
+      "first_submission_utc": "2026-11-12T01:24:14Z",
+      "last_submission_utc": "2026-11-12T01:24:14Z",
+      "last_run_host": "jonfhome"
+    }
+  },
+  "store_built": {
+    "reason": "196 record(s) in results.pilot200.jsonl have source_detail \"ps_store\": they were rebuilt from the pano store (scripts/detect_from_store.py), but it carries only NoCurbRamp labels; the store's live AI labels are all CurbRamp, so none is duplicated (type-aware store guard, #169).",
+    "at_utc": "2026-11-12T01:24:14Z"
+  }
+}
