@@ -831,6 +831,39 @@ def test_pilot_end_to_end_sample_export_dry_run_and_score(tmp_path):
     with pytest.raises(SystemExit, match='two server labels'):
         cl.pilot_label_ids(order, list(props.values()), srv + [dict(srv[0], label_id='999')])
 
+    # after a smoke send of position 1: skip it, and drop every corner on its pano (the server
+    # refuses a second AI label of the type on a pano); --only-first counts what is left
+    smoke_pano = props[order[0]]['pano']['pano_id']
+    excl = tmp_path / 'smoke_panos.txt'
+    excl.write_text(f'# smoke send\n{smoke_pano}\n', encoding='utf-8')
+    nxt = out / 'pilot' / 'results.next.jsonl'
+    with redirect_stdout(io.StringIO()):
+        cl.main(['export', '--dir', str(out), '--stratum', 'residential', '--only-corners',
+                 str(pilot), '--skip-first', '1', '--exclude-panos', str(excl),
+                 '--only-first', '3', '--out', str(nxt)])
+    nrec = json.loads((out / 'pilot' / 'results.next.export.json').read_text(encoding='utf-8'))
+    same_pano = [i for i, k in enumerate(order, 1)
+                 if i > 1 and props[k]['pano']['pano_id'] == smoke_pano]
+    assert same_pano                                # the synthetic smoke pano holds 2 corners
+    assert [d[0] for d in nrec['selection']['exclude_panos']['dropped_corners']] == same_pano
+    got = sorted(d['pilot_order'] for ln in ci.read_jsonl(nxt) for d in ln['detections'])
+    assert len(got) == 3 and 1 not in got and not set(got) & set(same_pano)
+    assert nrec['selection']['only_corners']['skip_first'] == 1
+    with pytest.raises(SystemExit, match='need --only-corners'):
+        cl.main(['export', '--dir', str(out), '--skip-first', '1', '--out', str(nxt)])
+    # pilot-score on the shifted order: position 1 unrated is no longer a skipped label
+    rows = ['pano_id,pano_x,pano_y,validation']
+    for k in [k for i, k in enumerate(order, 1) if i > 1 and i not in same_pano][:2]:
+        pid, x, y = cl.pixel_key(props[k])
+        rows.append(f'{pid},{x},{y},Agree')
+    vcsv.write_text('\n'.join(rows) + '\n', encoding='utf-8')
+    with redirect_stdout(io.StringIO()):
+        cl.main(['pilot-score', '--pilot', str(pilot), '--proposals',
+                 str(out / 'proposals.jsonl'), '--validations', str(vcsv), '--skip-first', '1',
+                 '--exclude-panos', str(excl), '--out', str(tmp_path / 'read2.json')])
+    read2 = json.loads((tmp_path / 'read2.json').read_text(encoding='utf-8'))
+    assert (read2['decided'], read2['look'], read2['pilot']['skip_first']) == (2, 2, 1)
+
 
 # ------------------------------------------------ label placement (site-median, 2026-11-11)
 

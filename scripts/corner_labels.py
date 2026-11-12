@@ -990,6 +990,41 @@ def read_corner_order(path):
     return keys
 
 
+def read_pano_list(path):
+    """Pano ids, one per line (blank lines and #-comments ignored)."""
+    out = set()
+    for line in Path(path).read_text(encoding='utf-8').splitlines():
+        line = line.split('#', 1)[0].strip()
+        if line:
+            out.add(line)
+    return out
+
+
+def order_subset(order, props, skip_first=0, exclude_panos=()):
+    """(kept keys, dropped [(position, key, pano_id)]) of a pilot order: positions after the
+    first skip_first, without corners whose chosen pano is in exclude_panos (e.g. the panos a
+    smoke send already labeled: the server refuses a second AI label of a type on a pano).
+    Positions stay the full order's. A key that is not a proposal is refused.
+
+    >>> ps = {'a#0': {'pano': {'pano_id': 'P'}}, 'b#0': {'pano': {'pano_id': 'Q'}},
+    ...       'c#0': {'pano': {'pano_id': 'R'}}}
+    >>> order_subset(['a#0', 'b#0', 'c#0'], ps, 1, {'R'})
+    (['b#0'], [(3, 'c#0', 'R')])
+    """
+    missing = [k for k in order[skip_first:] if k not in props]
+    if missing:
+        raise SystemExit(f'{len(missing)} order key(s) are not in the proposals, e.g. '
+                         f'{missing[:3]}')
+    kept, dropped = [], []
+    for i, k in enumerate(order[skip_first:], skip_first + 1):
+        pid = props[k]['pano']['pano_id']
+        if pid in exclude_panos:
+            dropped.append((i, k, pid))
+        else:
+            kept.append(k)
+    return kept, dropped
+
+
 def select_proposals(proposals, strata=None, only=None):
     """(kept proposals, record) for export's pilot filters, in the proposals' own order.
 
@@ -1105,11 +1140,17 @@ def cmd_export(args):
         raise SystemExit('--only-first needs --only-corners')
     if only_first is not None and only_first < 1:
         raise SystemExit('--only-first must be at least 1')
-    selection, order = None, None
+    skip_first = getattr(args, 'skip_first', 0) or 0
+    exclude_path = getattr(args, 'exclude_panos', None)
+    if (skip_first or exclude_path) and not only_path:
+        raise SystemExit('--skip-first / --exclude-panos need --only-corners')
+    selection, order, order_drops = None, None, None
     if strata or only_path:
         only = None
         if only_path:
-            ordered = read_corner_order(only_path)
+            ordered, order_drops = order_subset(
+                read_corner_order(only_path), {p['key']: p for p in proposals}, skip_first,
+                read_pano_list(exclude_path) if exclude_path else ())
             if only_first is not None:
                 if only_first > len(ordered):
                     raise SystemExit(f'--only-first {only_first}: {only_path} has only '
@@ -1124,7 +1165,15 @@ def cmd_export(args):
             order = {p['key']: pos[p['key']] for p in proposals}
             selection['only_corners'] = {'path': Path(only_path).name,
                                          'sha256': ci.sha256_file(only_path),
-                                         'rows': len(full), 'first': only_first}
+                                         'rows': len(full), 'first': only_first,
+                                         'skip_first': skip_first,
+                                         'positions': [min(order.values()),
+                                                       max(order.values())]}
+            if exclude_path:
+                selection['exclude_panos'] = {
+                    'path': Path(exclude_path).name, 'sha256': ci.sha256_file(exclude_path),
+                    'panos': sorted(read_pano_list(exclude_path)),
+                    'dropped_corners': order_drops}
         if not proposals:
             raise SystemExit('the filters keep no proposal')
     runs = run_results_paths(build)
@@ -1538,8 +1587,10 @@ def pilot_label_ids(order_keys, proposals, rows):
 
 
 def cmd_pilot_links(args):
-    order = read_corner_order(args.pilot)
     proposals = ci.read_jsonl(args.proposals)
+    order, _drops = order_subset(read_corner_order(args.pilot), {p['key']: p for p in proposals},
+                                 args.skip_first, read_pano_list(args.exclude_panos)
+                                 if args.exclude_panos else ())
     with open(args.labels, encoding='utf-8', newline='') as f:
         rows = list(csv.DictReader(f))
     got = pilot_label_ids(order[:args.first], proposals, rows)
@@ -1555,11 +1606,19 @@ def cmd_pilot_links(args):
 def cmd_pilot_score(args):
     rec_s = json.loads(Path(args.pilot).with_suffix('.json').read_text(encoding='utf-8'))
     proposals = ci.read_jsonl(args.proposals)
-    if ci.sha256_file(args.proposals) != rec_s['proposals']['sha256']:
-        raise SystemExit(f'{args.proposals} is not the proposals the pilot order was drawn from')
+    drawn = read_corner_order(args.pilot)
+    if not set(drawn) <= {p['key'] for p in proposals}:
+        raise SystemExit(f'{args.proposals} lacks corners of the pilot order')
+    if ci.sha256_file(args.proposals) != rec_s['proposals']['sha256'] and \
+            not args.relabeled_proposals:
+        raise SystemExit(f'{args.proposals} is not the proposals the pilot order was drawn from '
+                         f'(a rebuild of the same corners with another label point: '
+                         f'--relabeled-proposals)')
     if ci.sha256_file(args.pilot) != rec_s['sample']['sha256']:
         raise SystemExit(f'{args.pilot} is not the order its .json recorded')
-    order = read_corner_order(args.pilot)
+    order, _drops = order_subset(drawn, {p['key']: p for p in proposals}, args.skip_first,
+                                 read_pano_list(args.exclude_panos)
+                                 if args.exclude_panos else ())
     by_pixel = {}
     for p in proposals:
         k = pixel_key(p)
@@ -1572,7 +1631,9 @@ def cmd_pilot_score(args):
     rule = rec_s['stop_rule']
     res = sequential_read(order, verdicts, rule)
     out = {'schema': 'sidewalk-auto-labeler.corner_labels.pilot_score/1', 'read_at': ci.utc_now(),
-           'pilot': {'path': Path(args.pilot).name, 'sha256': rec_s['sample']['sha256']},
+           'pilot': {'path': Path(args.pilot).name, 'sha256': rec_s['sample']['sha256'],
+                     'skip_first': args.skip_first, 'exclude_panos': args.exclude_panos,
+                     'proposals_sha256': ci.sha256_file(args.proposals)},
            'validations': {'path': Path(args.validations).name,
                            'sha256': ci.sha256_file(args.validations), 'rows': len(vals),
                            'not_pilot_labels': unmatched},
@@ -1661,7 +1722,15 @@ def main(argv=None):
                         'is refused. Lines then follow the draw order (detections get '
                         '`pilot_order`)')
     e.add_argument('--only-first', type=int, metavar='N',
-                   help='with --only-corners: only its first N corners (the send prefix)')
+                   help='with --only-corners: only its first N corners (the send prefix), '
+                        'counted after --skip-first and --exclude-panos')
+    e.add_argument('--skip-first', type=int, default=0, metavar='K',
+                   help='with --only-corners: start after its first K positions (e.g. the '
+                        'corners a smoke send already put on the server)')
+    e.add_argument('--exclude-panos', metavar='TXT',
+                   help="with --only-corners: drop corners whose chosen pano is listed (one id "
+                        "per line), e.g. a smoke send's panos; recorded with the dropped "
+                        "positions")
     e.set_defaults(fn=cmd_export)
 
     s = sub.add_parser('score', help='the pre-registered corner rule against blind ratings')
@@ -1699,6 +1768,12 @@ def main(argv=None):
                    help="CSV pano_id,pano_x,pano_y,validation: the lead's first validation of "
                         "each label (the read-only SELECT in docs/corner-labels-169-pilot.md)")
     q.add_argument('--out', help='write the read JSON here')
+    q.add_argument('--skip-first', type=int, default=0,
+                   help='the rated order starts after this many positions (the smoke labels)')
+    q.add_argument('--exclude-panos', help='drop corners on these panos from the order (as export)')
+    q.add_argument('--relabeled-proposals', action='store_true',
+                   help='--proposals is a rebuild of the drawn corners with another label point '
+                        '(same keys; the pixel key changes, so pass the rebuild that was sent)')
     q.set_defaults(fn=cmd_pilot_score)
 
     k = sub.add_parser('pilot-links', help="the pilot's server label ids in draw order, as a "
@@ -1712,6 +1787,9 @@ def main(argv=None):
     k.add_argument('--server', required=True, help='e.g. https://sidewalk-<city>-test.cs.washington.edu')
     k.add_argument('--city', default='vancouver', help='label ids are per city; printed with them')
     k.add_argument('--out', help='write order,corner,label_id here')
+    k.add_argument('--skip-first', type=int, default=0,
+                   help='skip the first K positions (the smoke labels)')
+    k.add_argument('--exclude-panos', help='drop corners on these panos (as export)')
     k.set_defaults(fn=cmd_pilot_links)
 
     args = ap.parse_args(argv)
