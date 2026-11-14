@@ -172,6 +172,8 @@ def export(bundle, verdicts):
     doc = {'schema': cgs.SCHEMA, 'city': 'vancouver', 'items_sha256': snap['items_sha256'],
            'rater': 'jonf', 'rubric_version': snap['rubric_version'], 'rubric': snap['rubric'],
            'units': units}
+    if snap.get('tag_set_version') is not None:          # the page exports the bundle's (#184)
+        doc.update(tag_set_version=snap['tag_set_version'], tag_set=snap['tag_set'])
     path = bundle / cg.rater_file_name('jonf')
     path.write_text(json.dumps(doc), encoding='utf-8')
     return path, doc
@@ -331,6 +333,7 @@ def test_rubric_versions_kept_per_bundle(setup):
     res = score(setup, vpath, '--bundle', str(setup.bundle))
     assert res['verdicts']['rubric_version'] == 2
     items = cg.read_jsonl(setup.bundle / 'items.jsonl')
+    doc = {k: v for k, v in doc.items() if k not in ('tag_set_version', 'tag_set')}   # rubric only
     assert cgs.validate(doc, items, snap['items_sha256'], snap['rubric'], 2) == []
     v1 = dict(doc, rubric_version=1, rubric=cg.RUBRIC_V1)
     assert any('rubric_version 1' in p for p in

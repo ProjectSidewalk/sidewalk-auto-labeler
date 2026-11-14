@@ -6,6 +6,7 @@ bootstrap under node. Plus a consistency check of the committed Vancouver bundle
 sha256, parts, seed). CPU only, no network."""
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -509,6 +510,76 @@ def test_validate_accepts_prefilled_from_as_optional():
                for x in cs.validate(dict(v, prefilled_from_sha256='stale'), items, 'S'))
 
 
+# ------------------------------------------------------------------- tags (#184)
+
+def test_tag_set_v1_and_snapshot_lookup():
+    """The issue's six tags, in order; ids and keys unique; keys single lowercase letters the
+    page does not already use; bundles without tags (gallery 243, #169) read as none; an
+    edited set needs a new version."""
+    v1 = cg.TAG_SETS[cg.TAG_SET_VERSION]
+    assert [t['id'] for t in v1] == ['unsafe_crossing', 'nothing_to_cross_to', 'driveway_not_ramp',
+                                     't_driveways_only', 'occluded_or_blurry', 'not_a_real_corner']
+    for tags in cg.TAG_SETS.values():
+        assert all(set(t) == {'id', 'key', 'label', 'help'} and all(t.values()) for t in tags)
+        assert all(re.fullmatch(r'[a-z0-9_]+', t['id']) for t in tags)
+        keys = [t['key'] for t in tags]
+        assert len({t['id'] for t in tags}) == len(keys) == len(set(keys))
+        assert all(re.fullmatch('[a-z]', k) and k not in 'patbnjkc' for k in keys)
+    assert cg.tag_set_for({}) == (None, None)
+    for b in ('corner_gallery243', 'corner_gallery169_split'):
+        snap = cg.REPO_ROOT / 'runs/vancouver' / b / 'snapshot.json'
+        if snap.exists():
+            assert cg.tag_set_for(json.loads(snap.read_text(encoding='utf-8'))) == (None, None)
+    assert cg.tag_set_for({'tag_set_version': 1, 'tag_set': v1}) == (1, v1)
+    edited = [dict(v1[0], label='Unsafe')] + v1[1:]
+    with pytest.raises(SystemExit, match='edited tag set'):
+        cg.tag_set_for({'tag_set_version': 1, 'tag_set': edited})
+
+
+def test_validate_tags():
+    """Tags only from the bundle's own set, as a sorted unique list; a tagged bundle needs the
+    file's tag_set_version and list (as the rubric); blind vs final tag changes need
+    tags_after_inventory; files without tags stay valid where the bundle has none."""
+    items = [item('u1', 'clean')]
+    v1 = cg.TAG_SET_V1
+    plain = vfile({'u1': unit_verdicts(['absent', 'absent', 'present'])})
+    assert cs.validate(plain, items, 'S') == []                          # legacy bundle
+    tagged = dict(plain, tag_set_version=1, tag_set=v1)
+    tagged['units'] = json.loads(json.dumps(plain['units']))
+    u = tagged['units']['u1']
+    for m in (u['corners'], u['blind']):
+        m['0']['tags'] = ['nothing_to_cross_to', 'unsafe_crossing']
+    assert cs.validate(tagged, items, 'S', tag_set=v1, tag_set_version=1) == []
+
+    def probs(v, **kw):
+        return '\n'.join(cs.validate(v, items, 'S', **dict(dict(tag_set=v1, tag_set_version=1), **kw)))
+    # M3: strict on a tagged bundle; S6: no tag set means any tag is refused
+    assert 'tag_set_version None, expected 1' in probs(plain)
+    assert 'tag_set_version 2, expected 1' in probs(dict(tagged, tag_set_version=2))
+    assert 'tag set differs' in probs(dict(tagged, tag_set=v1[:5]))
+    assert 'but the bundle has no tag set' in probs(tagged, tag_set=None, tag_set_version=None)
+    assert "tag 'unsafe_crossing' is not in the bundle's tag set" in \
+        probs(dict(tagged, tag_set_version=None), tag_set=None, tag_set_version=None)
+    for bad, frag in ((['made_up'], "tag 'made_up' is not in"),
+                      (['unsafe_crossing', 'nothing_to_cross_to'], 'not sorted and unique'),
+                      (['unsafe_crossing', 'unsafe_crossing'], 'not sorted and unique'),
+                      ('unsafe_crossing', 'not a list of strings')):
+        w = json.loads(json.dumps(tagged))
+        for m in ('corners', 'blind'):
+            w['units']['u1'][m]['1']['tags'] = bad
+        assert frag in probs(w), bad
+    # a tag changed after the reveal must carry its flag, which needs inventory_seen
+    w = json.loads(json.dumps(tagged))
+    w['units']['u1']['corners']['2']['tags'] = ['occluded_or_blurry']
+    assert 'tags differ from blind but tags_after_inventory is false' in probs(w)
+    w['units']['u1']['tags_after_inventory'] = True
+    assert probs(w) == ''
+    w['units']['u1']['tags_after_inventory'] = 'yes'
+    assert 'is not a boolean' in probs(w)
+    w['units']['u1'].update(tags_after_inventory=True, inventory_seen=False, complete=False)
+    assert 'tags_after_inventory without inventory_seen' in probs(w)
+
+
 # --------------------------------------------------------------------------------- page
 
 def test_render_has_no_placeholders_and_no_part():
@@ -770,6 +841,24 @@ def test_committed_bundle_is_consistent():
         side = cs.load_live_sidecar(BUNDLE, v['rater'])
         if side is not None:
             assert cs.validate_live_sidecar(side, v, snap['items_sha256']) == [], path.name
+
+
+@pytest.mark.parametrize('name', ['corner_gallery243', 'corner_gallery169_split'])
+def test_committed_exports_without_tags_stay_valid(name):
+    """#184 acceptance: the committed exports, made before tags, validate against their own
+    bundles exactly as the scorers call validate (the snapshot's tag set, None for both)."""
+    b = cg.REPO_ROOT / 'runs/vancouver' / name
+    if not (b / 'snapshot.json').exists():
+        pytest.skip('bundle not committed')
+    snap = json.loads((b / 'snapshot.json').read_text(encoding='utf-8'))
+    items = cg.read_jsonl(b / 'items.jsonl')
+    paths = sorted(b.glob('verdicts__*.json'))
+    assert paths
+    for path in paths:
+        v = json.loads(path.read_text(encoding='utf-8'))
+        assert cs.validate(v, items, snap['items_sha256'], snap['rubric'],
+                           snap.get('rubric_version', 1), snap.get('tag_set'),
+                           snap.get('tag_set_version')) == [], path.name
 
 
 # ------------------------------------------------------------------ reasons after the reveal

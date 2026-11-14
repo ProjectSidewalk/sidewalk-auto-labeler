@@ -177,7 +177,10 @@ def live_units(verdicts, side=None):
 
 # -------------------------------------------------------------------------- validation
 
-def _check_corner_map(cid, what, m, keys, problems, need_all):
+def _check_corner_map(cid, what, m, keys, problems, need_all, allowed=frozenset()):
+    """allowed: the bundle's tag ids (#184); empty for a bundle without tags, so any tag is
+    refused there. `tags` is optional per corner; when present it is a sorted list of unique
+    strings (the page writes nothing else, and blind_regressions compares raw dicts)."""
     if not isinstance(m, dict):
         problems.append(f'{cid}: {what} is not an object')
         return
@@ -198,6 +201,15 @@ def _check_corner_map(cid, what, m, keys, problems, need_all):
             problems.append(f'{cid}: {what} corner {k} absent_kind {ak!r}')
         if ak is not None and v != 'absent':
             problems.append(f'{cid}: {what} corner {k} has absent_kind with verdict {v!r}')
+        if 'tags' in e:
+            t = e['tags']
+            if not isinstance(t, list) or not all(isinstance(x, str) for x in t):
+                problems.append(f'{cid}: {what} corner {k} tags {t!r} is not a list of strings')
+                continue
+            if t != sorted(set(t)):
+                problems.append(f'{cid}: {what} corner {k} tags {t!r} are not sorted and unique')
+            for x in sorted(set(t) - allowed):
+                problems.append(f"{cid}: {what} corner {k} tag {x!r} is not in the bundle's tag set")
 
 
 def _verdicts(m):
@@ -216,12 +228,31 @@ def _norm(m):
     return {k: ((e or {}).get('verdict'), (e or {}).get('absent_kind')) for k, e in m.items()}
 
 
-def validate(verdicts, items, items_sha, rubric=None, rubric_version=None):
+def _tags(m):
+    """{corner: its tags as a sorted list} (an absent `tags` key is no tags); malformed values
+    are kept as they are, so they compare unequal and are reported by _check_corner_map."""
+    out = {}
+    for k, e in m.items():
+        t = (e.get('tags') if isinstance(e, dict) else None) or []
+        out[k] = sorted(set(t)) if isinstance(t, list) and all(isinstance(x, str) for x in t) \
+            else repr(t)
+    return out
+
+
+def validate(verdicts, items, items_sha, rubric=None, rubric_version=None, tag_set=None,
+             tag_set_version=None):
     """Every reason the file cannot be scored, as strings (empty = valid). rubric: the bundle's
     rubric text (snapshot.json); when given, the file's rubric must be that exact text, so an
     edit to the rubric without a version bump cannot mix two definitions silently.
     rubric_version: the bundle's (snapshot.json `rubric_version`; a bundle without one is v1);
-    the file must carry it. Any of RUBRIC_VERSIONS is accepted, never another."""
+    the file must carry it. Any of RUBRIC_VERSIONS is accepted, never another.
+
+    tag_set / tag_set_version: the bundle's (snapshot.json `tag_set` / `tag_set_version`, #184).
+    Unlike rubric=None, which skips the rubric check, None here means the bundle HAS no tags,
+    so a file that names a tag set or carries any tag is refused (review S6). A bundle with a
+    tag set requires the file to carry the same version and the same list, as for the rubric
+    (review M3): an export from a page rendered without the tag set is refused rather than read
+    as "no tags". Files for bundles without tags (gallery 243, #169) are unaffected."""
     problems = []
     if verdicts.get('schema') != SCHEMA:
         problems.append(f"schema {verdicts.get('schema')!r}, expected {SCHEMA!r}")
@@ -240,6 +271,18 @@ def validate(verdicts, items, items_sha, rubric=None, rubric_version=None):
     if not isinstance(verdicts.get('rater'), str) or not re.fullmatch(r'[A-Za-z0-9_.-]+',
                                                                      verdicts.get('rater') or ''):
         problems.append(f"rater {verdicts.get('rater')!r}")
+    got_t = verdicts.get('tag_set_version')
+    if tag_set_version is None:
+        if got_t is not None:
+            problems.append(f'tag_set_version {got_t!r}, but the bundle has no tag set')
+        allowed = frozenset()
+    else:
+        if got_t != tag_set_version:
+            problems.append(f"tag_set_version {got_t!r}, expected {tag_set_version} (the bundle's)")
+        elif verdicts.get('tag_set') != tag_set:
+            problems.append("the tag set differs from the bundle's (snapshot.json): the page was "
+                            'rendered with another tag set')
+        allowed = frozenset(t['id'] for t in (tag_set or ()))
     pre = verdicts.get('prefilled_from_sha256')
     if pre is not None and not (isinstance(pre, str) and re.fullmatch(r'[0-9a-f]{64}', pre)):
         problems.append(f'prefilled_from_sha256 {pre!r} is not a sha256')
@@ -252,18 +295,20 @@ def validate(verdicts, items, items_sha, rubric=None, rubric_version=None):
         keys = {str(c['corner']) for c in it['corners']}
         complete = u.get('complete')
         for flag in ('complete', 'inventory_seen', 'edited_after_inventory', 'kinds_after_inventory',
-                     'used_live_imagery'):
+                     'tags_after_inventory', 'used_live_imagery'):
             if flag in u and not isinstance(u[flag], bool):
                 problems.append(f'{cid}: {flag} {u[flag]!r} is not a boolean')
-        _check_corner_map(cid, 'corners', u.get('corners'), keys, problems, bool(complete))
+        _check_corner_map(cid, 'corners', u.get('corners'), keys, problems, bool(complete), allowed)
         if u.get('blind') is not None:
-            _check_corner_map(cid, 'blind', u['blind'], keys, problems, True)
+            _check_corner_map(cid, 'blind', u['blind'], keys, problems, True, allowed)
         if complete and u.get('blind') is None:
             problems.append(f'{cid}: complete with no blind verdicts')
         if complete and not u.get('inventory_seen'):
             problems.append(f'{cid}: complete but inventory_seen is false')
         if u.get('edited_after_inventory') and not u.get('inventory_seen'):
             problems.append(f'{cid}: edited_after_inventory without inventory_seen')
+        if u.get('tags_after_inventory') and not u.get('inventory_seen'):
+            problems.append(f'{cid}: tags_after_inventory without inventory_seen')
         # the page freezes blind at the first completion and flags any later edit, so final
         # verdicts that differ from blind without the flag mean the file was altered. A
         # reasons-only change (absent_kind) carries its own flag, kinds_after_inventory.
@@ -275,6 +320,10 @@ def validate(verdicts, items, items_sha, rubric=None, rubric_version=None):
             elif _norm(b) != _norm(c) and not u.get('kinds_after_inventory'):
                 problems.append(f'{cid}: absence reasons differ from blind but '
                                 f'kinds_after_inventory is false')
+        # tags are frozen into blind with the verdicts and flagged on their own (#184)
+        if isinstance(b, dict) and isinstance(c, dict) and not u.get('tags_after_inventory') \
+                and _tags(b) != _tags(c):
+            problems.append(f'{cid}: tags differ from blind but tags_after_inventory is false')
         e = u.get('elapsed_s', 0)
         if not isinstance(e, (int, float)) or e < 0:
             problems.append(f'{cid}: elapsed_s {e!r}')
@@ -712,7 +761,8 @@ def main(argv=None):
     problems, results = {}, {}
     for rater, v in files.items():
         problems[rater] = validate(v, items, items_sha, snapshot.get('rubric'),
-                                   snapshot.get('rubric_version', 1))
+                                   snapshot.get('rubric_version', 1), snapshot.get('tag_set'),
+                                   snapshot.get('tag_set_version'))
         if v.get('rater') != rater:
             problems[rater].append(f"file name says rater {rater!r}, the file {v.get('rater')!r}")
         side = load_live_sidecar(args.bundle, rater)
