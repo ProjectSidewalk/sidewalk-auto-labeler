@@ -144,6 +144,28 @@ carry different dates (2025-12-30 here), so the zoom matters.
 To revise later, re-run `render`: it prefills from the verdicts file. A second rater uses their
 own `--rater` name and file. Agreement is computed with `--a jonf --b <name>`.
 
+### Tags (#184)
+
+A sample bundle built since #184 (`build --items-from`) carries a tag set in `snapshot.json`
+(`tag_set_version`, `tag_set`), versioned like the rubric, and the page shows one checkbox per
+tag on each corner, with a key: `u` unsafe_crossing, `x` nothing_to_cross_to, `d`
+driveway_not_ramp, `w` t_driveways_only, `o` occluded_or_blurry, `r` not_a_real_corner. The
+help panel gives each tag's definition. Tags are optional, any number per corner, and replace a
+note that would say the same thing; the note stays.
+
+- A tag key acts on the corner just rated with `p`/`a`/`t`, also after `b`/`n`, else on the
+  active corner. A corner pick, a click, a unit change or completion resets that.
+- **Tag before `c`.** Tags are frozen into `blind` with the verdicts at the first completion.
+  They can still be changed on a complete unit without reopening it, as reasons can, and a
+  change after the reveal sets `tags_after_inventory`.
+- The export writes `tags: [...]` (sorted) beside `verdict` / `absent_kind` only on a corner
+  that has one, plus `tag_set_version` and `tag_set` at the top. Tags never enter precision;
+  `corner_labels.py score` adds a descriptive `tags` block (blind and final counts by stratum
+  over the rated sample corners).
+- Gallery 243, the #169 pilot bundle and `corner_gallery169_split` predate tags. A re-run of
+  `build` never adds tags to a bundle (an existing `snapshot.json` keeps its own set), so their
+  pages show none and export exactly the earlier shape.
+
 ### Rating on another machine
 
 The images (95 aerials + 813 crops, ~44 MB) are git-ignored. A copy of exactly the files in
@@ -287,7 +309,11 @@ both have blind verdicts. The unit outcome is:
 - absence reasons that differ from the blind ones while `kinds_after_inventory` is false (the
   page sets that flag on a reasons-only change after the reveal);
 - a flag (`complete`, `inventory_seen`, `edited_after_inventory`, `kinds_after_inventory`,
-  `used_live_imagery`) that is not a boolean.
+  `tags_after_inventory`, `used_live_imagery`) that is not a boolean;
+- for tags (#184): a tag outside the bundle's own set (any tag, for a bundle without one); a
+  `tags` value that is not a sorted list of unique strings; on a bundle with a tag set, a
+  `tag_set_version` or `tag_set` other than the bundle's (required, as for the rubric); tags
+  that differ from the blind ones while `tags_after_inventory` is false.
 
 A `live_imagery__<rater>.json` sidecar is refused when its schema, rater or `items_sha256` is
 wrong, when it names a unit the verdicts file has not rated, or when an entry's `note_quote`

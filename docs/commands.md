@@ -721,6 +721,9 @@ python send_to_ps.py $D/results.jsonl --dry-run
 # --crop-fov-deg wide x half that tall, --crop-px wide), --rubric-version (default: the
 # bundle's snapshot, else 2). An unset flag keeps the bundle's recorded value, so re-running a
 # build to cut crops never changes it. Phantom legs are dashed on the aerial.
+# A new sample bundle also records tag set v1 (#184; one-click per-corner tags, keys u x d w o r);
+# an existing bundle keeps what its snapshot.json says, so the committed bundles stay tag-less.
+# score then adds a descriptive `tags` block (blind / final counts by stratum), never in precision.
 D=runs/vancouver/corner_labels169_split/na_discount_sw; B=runs/vancouver/corner_gallery169_split
 python scripts/corner_labels.py build --na-read discount --na-read-settled     --corners runs/vancouver/corner_inventory169_split/corners_full.jsonl     --run-dir ../../sal-vancouver/runs/vancouver     --extra-run ../posdetect241/runs/vancouver_posdetect241     --extra-run ../posdetect241/runs/vancouver_posdetect241_gsv --out $D     --sidewalk-presence runs/vancouver/corner_labels169/sidewalks/cov_sidewalks.geojson     --sidewalk-keep STATUS=Available,Pathway,Private
 python scripts/corner_labels.py sample --proposals $D/proposals.jsonl --out $D/sample.csv   # seed 169
