@@ -810,6 +810,81 @@ console.log(JSON.stringify(out));
     assert out[-1][4] == ['present', 'present', 'absent']
 
 
+def test_render_tag_controls():
+    """#184: a tagged bundle's page carries its tag set, native checkboxes, the flag and the
+    export keys; a bundle without tags renders TAG_SET = null (no control, pre-#184 export)."""
+    it = cg.build_item(full_record(), 'na_noramp', {}, {})
+    units = [cg.viewer_unit(it, '../../')]
+    ts = {'version': 1, 'tags': cg.TAG_SET_V1}
+    html = cg.build_html(units, 'S' * 64, 'jonf', None, 'E', None, 2, cg.RUBRIC_V2, ts)
+    assert '__' not in html.replace('verdicts__', '')
+    assert 'const TAG_SET = ' + json.dumps(ts) + ';' in html
+    assert 'type="checkbox" name="tg-' in html and 'role="group"' in html
+    assert 'aria-describedby="taghint"' in html and 'id="taghint" hidden' in html
+    assert 'out.tags_after_inventory = !!s.tags_after_inventory' in html
+    assert 'out.tag_set_version = TAG_SET.version' in html
+    assert 'const TAG_SET = null;' in cg.build_html(units, 'S' * 64, 'jonf', None, 'E')
+
+
+@pytest.mark.skipif(NODE is None, reason='node not installed')
+def test_tags_under_node(tmp_path):
+    """#184 page logic under node: tags sorted, unique, omitted when empty (pre-#184 shape);
+    prefilled with the blind read; a blind read that differs only in tags is the file's and
+    flags tags_after_inventory; unknown ids are listed, not dropped; review M1: after `a b`
+    on a two-corner unit a tag key still lands on the corner just rated. Also the whole page
+    script parses, with and without a tag set."""
+    v0 = {'0': {'verdict': 'absent', 'absent_kind': None}}
+    initial = {'items_sha256': 'S', 'units': {
+        'u1': {'corners': {'0': {'verdict': 'absent', 'tags': ['unsafe_crossing']}},
+               'blind': {'0': {'verdict': 'absent', 'tags': ['unsafe_crossing']}},
+               'complete': True, 'inventory_seen': True},
+        'u2': {'corners': v0, 'blind': v0, 'complete': True, 'inventory_seen': True},
+        'u3': {'corners': {'0': {'verdict': 'absent', 'tags': ['made_up']}}, 'blind': v0,
+               'complete': True, 'inventory_seen': True, 'tags_after_inventory': True}}}
+    t2 = {'0': {'verdict': 'absent', 'absent_kind': None, 'tags': ['nothing_to_cross_to']}}
+    local = {'u2': {'corners': t2, 'blind': t2, 'complete': True, 'seen': True,
+                    'inventory_seen': True}}
+    units = [{'id': u, 'corners': [{'k': '0'}]} for u in ('u1', 'u2', 'u3')]
+    js = cgp.STATE_BOOTSTRAP_JS + cgp.KEYS_JS + f"""
+const r = bootstrapState({json.dumps(initial)}, {json.dumps(local)}, {json.dumps(units)}, 'S');
+let v = [null, null], active = 0, last = null, ratedCi = null;
+function step(k) {{
+  const p = planKey(v, active, last, k);
+  if (p.op === 'verdict') v[p.ci] = p.value;
+  active = p.active; last = p.last; ratedCi = ratedAfter(ratedCi, p);
+}}
+step('a'); step('b');
+console.log(JSON.stringify({{
+  plain: copyCorners({json.dumps(v0)}),
+  empty: copyCorners({{'0': {{verdict: 'absent', absent_kind: null, tags: []}}}}),
+  messy: copyCorners({{'0': {{verdict: 'absent', tags: ['x', 'a', 'x']}}}}),
+  r: r, unknown: unknownTags(r.state, {json.dumps(units)}, ['unsafe_crossing', 'nothing_to_cross_to']),
+  m1: [active, last, ratedCi, tagTarget(active, ratedCi)], noRated: tagTarget(1, null),
+  toggles: [toggledTags(['x'], 'a'), toggledTags(['a', 'x'], 'x'), toggledTags(undefined, 'a')]}}));
+"""
+    p = tmp_path / 't.js'
+    p.write_text(js, encoding='utf-8')
+    out = json.loads(subprocess.run([NODE, str(p)], capture_output=True, text=True, check=True).stdout)
+    assert out['plain'] == v0 and out['empty'] == v0              # byte-shape of a tag-less entry
+    assert out['messy']['0']['tags'] == ['a', 'x']
+    st = out['r']['state']
+    assert st['u1']['corners']['0']['tags'] == ['unsafe_crossing'] == st['u1']['blind']['0']['tags']
+    assert st['u1']['tags_after_inventory'] is False and st['u3']['tags_after_inventory'] is True
+    assert st['u2']['blind'] == v0 and st['u2']['corners'] == t2           # file's blind read kept
+    assert st['u2']['tags_after_inventory'] is True and st['u2']['edited_after_inventory'] is False
+    assert out['r']['conflicts'] == ['u2'] and out['r']['blindFromFile'] == ['u2']
+    assert out['unknown'] == ['u3 corner 0: made_up']
+    assert out['m1'] == [1, None, 0, 0] and out['noRated'] == 1          # M1: corner 0, not 1
+    assert out['toggles'] == [['a', 'x'], ['a'], ['a']]
+    it = cg.build_item(full_record(), 'na_noramp', {}, {})
+    for ts in (None, {'version': 1, 'tags': cg.TAG_SET_V1}):
+        html = cg.build_html([cg.viewer_unit(it, '../../')], 'S' * 64, 'jonf', None, 'E', None, 2,
+                             cg.RUBRIC_V2, ts)
+        page = tmp_path / 'page.js'
+        page.write_text(html.split('<script>', 1)[1].split('</script>', 1)[0], encoding='utf-8')
+        subprocess.run([NODE, '--check', str(page)], capture_output=True, text=True, check=True)
+
+
 # ------------------------------------------------------------------ committed bundle
 
 @pytest.mark.skipif(not (BUNDLE / 'snapshot.json').exists(), reason='bundle not built')

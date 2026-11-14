@@ -10,7 +10,8 @@ is the task: each corner gets one verdict (present / absent / can't tell) instea
 label -> ramp assignment, and the first completed verdicts are frozen as ``blind``.
 
 Accessibility: every verdict is a native radio button inside a fieldset whose legend names
-the corner; crops are buttons with alt text (capture date, distance, pano); status is
+the corner; tags (#184) are native checkboxes in a labelled group, each described by its help
+text; crops are buttons with alt text (capture date, distance, pano); status is
 announced through an aria-live region; nothing is encoded by colour alone (the aerial's
 corner markers carry their number, the cards carry the verdict in words).
 """
@@ -37,12 +38,19 @@ function emptyUnit(u) {
   for (const c of u.corners) corners[c.k] = {verdict: null, absent_kind: null};
   return {corners: corners, blind: null, complete: false, elapsed_s: 0, note: '',
           seen: false, inventory_seen: false, edited_after_inventory: false, kinds_after_inventory: false,
-          used_live_imagery: false};
+          tags_after_inventory: false, used_live_imagery: false};
 }
+// A corner's tags (#184): unique strings, sorted. Unknown ids are kept, never dropped (the
+// page lists them; the validator refuses them).
+function copyTags(t) { return Array.isArray(t) ? [...new Set(t.filter(x => typeof x === 'string'))].sort() : []; }
+// `tags` is omitted when empty, so an untagged corner keeps exactly the pre-#184 shape.
 function copyCorners(cs) {
   const out = {};
-  for (const k in (cs || {})) out[k] = {verdict: cs[k].verdict || null,
-                                        absent_kind: cs[k].absent_kind || null};
+  for (const k in (cs || {})) {
+    out[k] = {verdict: cs[k].verdict || null, absent_kind: cs[k].absent_kind || null};
+    const t = copyTags(cs[k].tags);
+    if (t.length) out[k].tags = t;
+  }
   return out;
 }
 function fromFile(f) {
@@ -50,10 +58,11 @@ function fromFile(f) {
           complete: !!f.complete, elapsed_s: f.elapsed_s || 0, note: f.note || '',
           seen: true, inventory_seen: !!f.inventory_seen,
           edited_after_inventory: !!f.edited_after_inventory, kinds_after_inventory: !!f.kinds_after_inventory,
-          used_live_imagery: !!f.used_live_imagery};
+          tags_after_inventory: !!f.tags_after_inventory, used_live_imagery: !!f.used_live_imagery};
 }
 function verdictsOnly(cs) { const o = {}; for (const k in (cs || {})) o[k] = (cs[k] || {}).verdict || null; return JSON.stringify(o); }
 function kindsOnly(cs) { const o = {}; for (const k in (cs || {})) o[k] = (cs[k] || {}).absent_kind || null; return JSON.stringify(o); }
+function tagsOnly(cs) { const o = {}; for (const k in (cs || {})) o[k] = copyTags((cs[k] || {}).tags); return JSON.stringify(o); }
 // A post-reveal edit that changed only the reasons (absent_kind), never a verdict, is not a
 // re-adjudication: re-flag it kinds_after_inventory. Applied on load, so state saved before
 // the flag existed is corrected too.
@@ -90,6 +99,7 @@ function bootstrapState(INITIAL, local, UNITS, ITEMS_SHA) {
           s.inventory_seen = true;
           s.edited_after_inventory = !!s.edited_after_inventory || verdictsOnly(s.blind) !== verdictsOnly(s.corners);
           s.kinds_after_inventory = !!s.kinds_after_inventory || kindsOnly(s.blind) !== kindsOnly(s.corners);
+          s.tags_after_inventory = !!s.tags_after_inventory || tagsOnly(s.blind) !== tagsOnly(s.corners);
           blindFromFile.push(id);
         }
         conflicts.push(id);
@@ -112,6 +122,21 @@ function bootstrapState(INITIAL, local, UNITS, ITEMS_SHA) {
   return {state: state, prefilled: prefilled, reopened: reopened,
           initialIgnored: initialIgnored, conflicts: conflicts, blindFromFile: blindFromFile};
 }
+// Tags on the rendered units that are not in this bundle's tag set (ids: its ids, empty for a
+// bundle without tags), as 'unit corner k: id' strings (review S3 of #184). They come from a
+// tag-set change, a hand edit, or a browser store shared with another bundle; the page shows
+// them so they can be removed, and never drops them itself.
+function unknownTags(state, UNITS, ids) {
+  const known = new Set(ids), out = [];
+  for (const u of UNITS) {
+    const s = state[u.id];
+    for (const k in ((s && s.corners) || {}))
+      for (const which of ['corners', 'blind'])
+        for (const t of copyTags(((s[which] || {})[k] || {}).tags))
+          if (!known.has(t)) out.push(u.id + ' corner ' + k + (which === 'blind' ? ' (blind read)' : '') + ': ' + t);
+  }
+  return out;
+}
 """
 
 # The verdict keys, as a pure function so tests can run it under node (RampNet#243 review B2).
@@ -124,6 +149,11 @@ function bootstrapState(INITIAL, local, UNITS, ITEMS_SHA) {
 #     absent; otherwise the key is refused with a message (nothing moves);
 #   * when every corner is rated, active stays on the corner just rated, and a further
 #     p / a / t there is refused until the rater picks a corner (1-9, j, k, click).
+# Tag keys (#184) act on `ratedCi`, the corner of the most recent verdict key, else the active
+# corner. `ratedCi` is NOT `last`: b / n clear `last` once the next corner is active, so after
+# `a b u` on a two-corner unit `last` is null although the rater still means the corner just
+# rated absent (review M1). A verdict key sets `ratedCi`; b / n and tag keys leave it; whatever
+# else clears `last` (a corner pick, j / k, a click, a unit change, completion) clears it too.
 KEYS_JS = r"""
 function nextUnratedIdx(verdicts, from) {
   for (let d = 1; d <= verdicts.length; d++) {
@@ -150,6 +180,14 @@ function planKey(verdicts, active, last, key) {
     return {op: 'kind', ci: t, value: K[key], active: active, last: last && last.ci === active ? last : null};
   }
   return {op: 'none', active: active, last: last};
+}
+function ratedAfter(ratedCi, plan) { return plan.op === 'verdict' ? plan.ci : ratedCi; }
+function tagTarget(active, ratedCi) { return ratedCi === null || ratedCi === undefined ? active : ratedCi; }
+// The tag list after toggling id: unique, sorted.
+function toggledTags(tags, id) {
+  const t = new Set(tags || []);
+  if (t.has(id)) t.delete(id); else t.add(id);
+  return [...t].sort();
 }
 """
 
@@ -227,6 +265,10 @@ HTML_TEMPLATE = r"""<!doctype html>
   .choices label:has(input:checked){background:#e8f0fe;font-weight:600}
   .akind{font-size:13px;margin-top:4px;color:#333}
   .akind label{margin-right:12px;cursor:pointer}
+  .tags{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px;margin-top:6px;color:#333}
+  .tags label{cursor:pointer;padding:2px 5px;border-radius:4px}
+  .tags label:has(input:checked){background:#e8f0fe;font-weight:600}
+  .tags label.unknown{color:#8a4b00}
   .inv{font-size:13px;margin-top:6px;background:#f3f6fb;border-radius:4px;padding:4px 8px}
   .inv .late{color:#8a4b00;font-weight:600}
   #unitnote{width:100%;box-sizing:border-box;font:13px sans-serif;padding:5px}
@@ -277,6 +319,8 @@ HTML_TEMPLATE = r"""<!doctype html>
 <h1 id="title" style="margin:4px 0 8px;font-size:17px"></h1>
 <div id="live" class="sr" aria-live="polite"></div>
 <div id="keymsg" aria-hidden="true"></div>
+<div id="taghint" hidden>Tick any that apply. Tags ticked before the unit is done (c) are part of the blind read.</div>
+<div id="tagdescs" hidden></div>
 <div id="main">
   <section id="left" aria-label="Aerial and unit controls">
     <div id="aerialwrap"><img id="aerial" alt=""><svg id="plan" role="img" aria-labelledby="plantitle"><title id="plantitle">Aerial plan</title></svg></div>
@@ -318,6 +362,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   into the bundle under the name it suggests. Re-running <code>render</code> with that file in
   place prefills it. After every <code>git pull</code>, re-run <code>render</code> and reload this
   tab: a page rendered from an older verdicts file exports without the units rated since.
+  <div id="taghelp"></div>
   <pre>__RUBRIC_HTML__</pre>
 </div>
 
@@ -334,6 +379,10 @@ const PREFILLED_FROM = __PREFILLED_FROM__;  // sha256 of that file, or null: exp
 const ATTRIBUTION = __ATTRIBUTION__;
 const PS_HOST = __PS_HOST__;
 const FILE_NAME = __FILE_NAME__;
+const TAG_SET = __TAG_SET__;            // {version, tags} for a bundle with tags (#184), else null
+const TAGS = TAG_SET ? TAG_SET.tags : [];
+const TAG_BY_ID = Object.create(null), TAG_BY_KEY = Object.create(null);
+for (const t of TAGS) { TAG_BY_ID[t.id] = t; TAG_BY_KEY[t.key] = t; }
 const STORE = 'cornergallery243:' + CITY + ':' + RATER + ':' + ITEMS_SHA;
 const NSTORE = STORE + ':notes', ISTORE = STORE + ':idx';
 const VERDICTS = ['present', 'absent', 'cant_tell'];
@@ -360,9 +409,19 @@ function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } ca
   if (boot.blindFromFile.length) bits.push('<b>' + boot.blindFromFile.length + ' unit(s): the verdicts file already holds a frozen blind read for the unit; it was kept</b>, over this browser&#39;s own blind read or draft: ' + boot.blindFromFile.join(', ') + '.');
   if (boot.conflicts.length) bits.push('<b>' + boot.conflicts.length + ' unit(s) kept this browser&#39;s work over a different entry in the verdicts file</b>: ' + boot.conflicts.join(', ') + '. Clear this page&#39;s site data to take the file instead.');
   if (boot.reopened) bits.push('<b>' + boot.reopened + ' complete unit(s) reopened</b>: their corners changed since they were rated.');
+  const unk = unknownTags(state, UNITS, TAGS.map(t => t.id));
+  if (unk.length) bits.push('<b>' + unk.length + ' tag(s) are not in this bundle&#39;s tag set</b>, and the scorer refuses an export that carries them (untick them on the unit): ' + esc(unk.join('; ')) + '.');
   if (bits.length) { const n = document.getElementById('notice'); n.style.display = ''; n.innerHTML = bits.join('<br>'); }
 })();
 document.getElementById('attrib').textContent = ATTRIBUTION;
+if (TAGS.length) {
+  document.getElementById('taghelp').innerHTML = '<b>Tags</b> (optional, any number per corner; a tag replaces a note that ' +
+    'would say the same thing). A tag key acts on the corner just rated with p / a / t, also after b / n, else on the ' +
+    'active corner. <b>Tag before you press c:</b> tags set before the unit is done are part of the blind read; a change ' +
+    'after the reveal is recorded (tags_after_inventory). Tags are descriptive and never scored.<ul>' +
+    TAGS.map(t => '<li><kbd>' + esc(t.key) + '</kbd> <b>' + esc(t.label) + '</b>: ' + esc(t.help) + '</li>').join('') + '</ul>';
+  document.getElementById('tagdescs').innerHTML = TAGS.map(t => '<span id="taghelp-' + esc(t.id) + '">' + esc(t.help) + '</span>').join('');
+}
 function say(t) { document.getElementById('live').textContent = t; }
 function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
 
@@ -395,17 +454,22 @@ function pxPerMetre(u) {
 
 // --- navigation and edits ----------------------------------------------------------------
 let idx = 0, active = 0, last = null;   // last: set by the preceding verdict key (planKey)
+let ratedCi = null;                     // the corner of the most recent verdict key: tag keys act on it (KEYS_JS)
 try { const i = parseInt(localStorage.getItem(ISTORE), 10); if (i >= 0 && i < UNITS.length) idx = i; } catch (e) {}
 function cur() { return UNITS[idx]; }
 function S() { return state[cur().id]; }
 function rated(u) { const s = state[u.id]; return u.corners.filter(c => s.corners[c.k].verdict).length; }
-function go(d) { idx = (idx + d + UNITS.length) % UNITS.length; active = 0; last = null; renderUnit(); }
-function goTo(i) { idx = i; active = 0; last = null; renderUnit(); }
-function pick(ci) { active = ci; last = null; refresh(); scrollActive(); say('Corner ' + cur().corners[ci].corner + ' active'); }
-function touched(kindOnly) {
+function go(d) { idx = (idx + d + UNITS.length) % UNITS.length; active = 0; last = null; ratedCi = null; renderUnit(); }
+function goTo(i) { idx = i; active = 0; last = null; ratedCi = null; renderUnit(); }
+function pick(ci) { active = ci; last = null; ratedCi = null; refresh(); scrollActive(); say('Corner ' + cur().corners[ci].corner + ' active'); }
+function touched(what) {   // what: undefined (a verdict), 'kind' (b / n) or 'tags'
   const s = S();
   s.seen = true;
-  if (s.inventory_seen) { if (kindOnly) s.kinds_after_inventory = true; else s.edited_after_inventory = true; }
+  if (s.inventory_seen) {
+    if (what === 'tags') s.tags_after_inventory = true;
+    else if (what === 'kind') s.kinds_after_inventory = true;
+    else s.edited_after_inventory = true;
+  }
 }
 function setVerdict(ci, v) {
   const u = cur(), s = S(), c = u.corners[ci];
@@ -422,9 +486,25 @@ function setVerdict(ci, v) {
 function setKind(ci, kind) {
   const u = cur(), s = S(), c = u.corners[ci];
   if (!c || s.corners[c.k].verdict !== 'absent') return;   // allowed on a complete unit: reasons only
-  touched(true);
+  touched('kind');
   s.corners[c.k].absent_kind = kind || null;
   save(); refresh();
+}
+// Tags (#184): allowed on any verdict and on a complete unit (as b / n are); a change after
+// the inventory was shown sets tags_after_inventory. An id outside the bundle's set can only
+// be removed (review S3).
+function toggleTag(ci, id, viaKey) {
+  const u = cur(), s = S(), c = u.corners[ci];
+  if (!c) return;
+  const e = s.corners[c.k], had = copyTags(e.tags).includes(id);
+  if (!TAG_BY_ID[id] && !had) return;
+  touched('tags');
+  const t = toggledTags(copyTags(e.tags), id);
+  if (t.length) e.tags = t; else delete e.tags;
+  save(); refresh();
+  const msg = 'Corner ' + c.corner + ': tag "' + (TAG_BY_ID[id] ? TAG_BY_ID[id].label : id) + '" ' + (had ? 'removed' : 'added');
+  say(msg);
+  if (viaKey) flashNotice(msg);
 }
 let flashT = null;
 function flashNotice(t) {
@@ -446,7 +526,7 @@ function toggleComplete() {
     s.complete = false;
     say('Unit reopened.');
   }
-  last = null;
+  last = null; ratedCi = null;
   save(); renderUnit();
 }
 
@@ -504,6 +584,18 @@ function invHtml(u, c) {
         (p.defect ? ', ' + esc(p.defect) : '') + '</li>';
     }).join('') + '</ul></div>';
 }
+// One native checkbox per tag (review S1): a multi-select group, announced as "checkbox,
+// checked", toggled by Space; each describes itself with the tag's help text. Tags outside the
+// bundle's set are shown ticked so they can be removed.
+function tagsHtml(ci, c, e) {
+  const on = copyTags(e.tags), extra = on.filter(t => !TAG_BY_ID[t]);
+  if (!TAGS.length && !extra.length) return '';
+  return '<div class="tags" role="group" aria-label="Tags for corner ' + c.corner + ' (optional)" aria-describedby="taghint">Tags (optional): ' +
+    TAGS.map(t => '<label title="' + esc(t.help) + '"><input type="checkbox" name="tg-' + ci + '" value="' + esc(t.id) + '"' +
+      (on.includes(t.id) ? ' checked' : '') + ' aria-describedby="taghelp-' + esc(t.id) + '"> ' + esc(t.label) + ' <kbd>' + esc(t.key) + '</kbd></label>').join('') +
+    extra.map(t => '<label class="unknown"><input type="checkbox" name="tg-' + ci + '" value="' + esc(t) + '" checked> not in this bundle&#39;s tag set: ' +
+      esc(t) + ' (untick to remove)</label>').join('') + '</div>';
+}
 function renderUnit() {
   const u = cur(), s = S();
   try { localStorage.setItem(ISTORE, String(idx)); } catch (e) {}
@@ -542,14 +634,15 @@ function renderUnit() {
       Object.keys(AKIND).map(k => '<label><input type="radio" name="ak-' + ci + '" value="' + k + '"' + (e.absent_kind === k ? ' checked' : '') +
 '> ' + AKIND[k] + ' <kbd>' + (k === 'no_sidewalk' ? 'n' : 'b') + '</kbd></label>').join('') +
       '<label><input type="radio" name="ak-' + ci + '" value=""' + (!e.absent_kind ? ' checked' : '') + '> not specified</label></div>' +
-      (s.complete ? invHtml(u, c) : '') + '</fieldset>';
+      tagsHtml(ci, c, e) + (s.complete ? invHtml(u, c) : '') + '</fieldset>';
   }).join('');
   right.querySelectorAll('input[name^="v-"]').forEach(el => el.addEventListener('change', () => {
-    const ci = +el.name.slice(2); active = ci; last = null; setVerdict(ci, el.value);
+    const ci = +el.name.slice(2); active = ci; last = null; ratedCi = null; setVerdict(ci, el.value);
   }));
   right.querySelectorAll('input[name^="ak-"]').forEach(el => el.addEventListener('change', () => setKind(+el.name.slice(3), el.value)));
-  right.querySelectorAll('fieldset.corner').forEach(el => el.addEventListener('focusin', () => { if (active !== +el.dataset.ci) { active = +el.dataset.ci; last = null; refresh(); } }));
-  right.querySelectorAll('fieldset.corner').forEach(el => el.addEventListener('mousedown', () => { active = +el.dataset.ci; last = null; refresh(); }));
+  right.querySelectorAll('input[name^="tg-"]').forEach(el => el.addEventListener('change', () => toggleTag(+el.name.slice(3), el.value, false)));
+  right.querySelectorAll('fieldset.corner').forEach(el => el.addEventListener('focusin', () => { if (active !== +el.dataset.ci) { active = +el.dataset.ci; last = null; ratedCi = null; refresh(); } }));
+  right.querySelectorAll('fieldset.corner').forEach(el => el.addEventListener('mousedown', () => { active = +el.dataset.ci; last = null; ratedCi = null; refresh(); }));
   right.querySelectorAll('.view').forEach(el => el.addEventListener('click', () => openLightbox(+el.dataset.ci, +el.dataset.vi)));
   refresh();
 }
@@ -564,17 +657,21 @@ function refresh() {
     document.getElementById('ak-' + ci).style.display = e.verdict === 'absent' ? '' : 'none';
     fs.querySelectorAll('input[name="v-' + ci + '"]').forEach(el => { el.checked = el.value === e.verdict; });
     fs.querySelectorAll('input[name="ak-' + ci + '"]').forEach(el => { el.checked = el.value === (e.absent_kind || ''); });
+    const tg = copyTags(e.tags);
+    fs.querySelectorAll('input[name="tg-' + ci + '"]').forEach(el => { el.checked = tg.includes(el.value); });
   });
   const cb = document.getElementById('completebtn');
   cb.textContent = s.complete ? 'Reopen unit to change verdicts (c)' : 'Done: lock ratings (c)';
   document.getElementById('completehint').textContent = s.complete
-    ? 'Ratings locked; the city inventory is shown. Reasons (b / n) can still be added.'
-    : 'Locks this unit’s ratings, then shows the city inventory. Then go to Next.';
+    ? 'Ratings locked; the city inventory is shown. Reasons (b / n)' + (TAGS.length ? ' and tags' : '') + ' can still be added.'
+    : 'Locks this unit’s ratings, then shows the city inventory. Then go to Next.' +
+      (TAGS.length ? ' Tag first: tags set before this are part of the blind read.' : '');
   const done = UNITS.filter(x => state[x.id].complete).length;
   document.getElementById('progress').textContent = done + ' of ' + UNITS.length + ' units complete · this unit ' +
     rated(u) + '/' + u.corners.length + ' corners rated' + (s.complete ? ' · complete' : '') +
     (s.edited_after_inventory ? ' · verdict edited after the inventory was shown' : '') +
-    (s.kinds_after_inventory ? ' · reasons added after the inventory was shown' : '');
+    (s.kinds_after_inventory ? ' · reasons added after the inventory was shown' : '') +
+    (s.tags_after_inventory ? ' · tags changed after the inventory was shown' : '');
   const sel = document.getElementById('unitsel');
   sel.innerHTML = UNITS.map((x, i) => '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' +
     (state[x.id].complete ? '✓ ' : '· ') + (i + 1) + ' ' + esc(x.id) + '</option>').join('');
@@ -744,6 +841,7 @@ document.addEventListener('keydown', ev => {
   else if (k >= '1' && k <= '9') { if (+k - 1 < u.corners.length) pick(+k - 1); }
   else if (k === 'j') pick((active + 1) % u.corners.length);
   else if (k === 'k') pick((active - 1 + u.corners.length) % u.corners.length);
+  else if (TAG_BY_KEY[k]) toggleTag(tagTarget(active, ratedCi), TAG_BY_KEY[k].id, true);
   else if ('patbn'.includes(k)) {
     const s = S();
     if (s.complete && !'bn'.includes(k)) { say('Reopen the unit (c) before changing a verdict.'); alert('This unit is complete. Reopen it first (c or the Reopen button). Reasons (b / n) can be changed without reopening.'); }
@@ -752,7 +850,7 @@ document.addEventListener('keydown', ev => {
       if (plan.op === 'refuse') { say(plan.msg); flashNotice(plan.msg); }
       else if (plan.op === 'verdict') {
         setVerdict(plan.ci, plan.value);
-        active = plan.active; last = plan.last; refresh(); scrollActive();
+        active = plan.active; last = plan.last; ratedCi = ratedAfter(ratedCi, plan); refresh(); scrollActive();
         if (plan.active !== plan.ci) say('Corner ' + u.corners[plan.ci].corner + ': ' + VLABEL[plan.value] +
           (plan.value === 'absent' ? ' (b or n now adds why). ' : '. ') + 'Corner ' + u.corners[plan.active].corner + ' active.');
       } else if (plan.op === 'kind') {
@@ -771,12 +869,15 @@ function scrollActive() { const el = document.getElementById('corner-' + active)
 
 // --- export ----------------------------------------------------------------------------------
 function exportUnit(u, s) {
-  return {type: u.type, corners: copyCorners(s.corners), blind: s.blind ? copyCorners(s.blind) : null,
-          complete: !!s.complete, elapsed_s: Math.round(s.elapsed_s * 10) / 10,
-          note: (s.note || '').trim(), inventory_seen: !!s.inventory_seen,
-          edited_after_inventory: !!s.edited_after_inventory, kinds_after_inventory: !!s.kinds_after_inventory,
-          used_live_imagery: !!s.used_live_imagery};
+  const out = {type: u.type, corners: copyCorners(s.corners), blind: s.blind ? copyCorners(s.blind) : null,
+               complete: !!s.complete, elapsed_s: Math.round(s.elapsed_s * 10) / 10,
+               note: (s.note || '').trim(), inventory_seen: !!s.inventory_seen,
+               edited_after_inventory: !!s.edited_after_inventory, kinds_after_inventory: !!s.kinds_after_inventory,
+               used_live_imagery: !!s.used_live_imagery};
+  if (TAG_SET) out.tags_after_inventory = !!s.tags_after_inventory;   // a bundle without tags exports the pre-#184 shape
+  return out;
 }
+function tagged(u, s) { return u.corners.some(c => copyTags((s.corners[c.k] || {}).tags).length); }
 document.getElementById('export').onclick = () => {
   const open = UNITS.filter(u => !state[u.id].complete && rated(u));
   const never = open.filter(u => !state[u.id].blind).length, reopened = open.length - never;
@@ -789,13 +890,14 @@ document.getElementById('export').onclick = () => {
   const out = {schema: SCHEMA, city: CITY, items_sha256: ITEMS_SHA, rater: RATER,
                rubric_version: RUBRIC_VERSION, rubric: RUBRIC, exported_at: new Date().toISOString(),
                prefilled_from_sha256: PREFILLED_FROM};
+  if (TAG_SET) { out.tag_set_version = TAG_SET.version; out.tag_set = TAG_SET.tags; }
   const rn = {};
   for (const k of ['reviewer', 'reviewed_at', 'confidence', 'summary']) if (notes[k]) rn[k] = notes[k];
   if ((notes.caveats || []).length) rn.caveats = notes.caveats;
   out.review_notes = rn;
   out.units = {};
   const known = new Set(UNITS.map(u => u.id));
-  for (const u of UNITS) { const s = state[u.id]; if (s.complete || rated(u) || (s.note || '').trim()) out.units[u.id] = exportUnit(u, s); }
+  for (const u of UNITS) { const s = state[u.id]; if (s.complete || rated(u) || (s.note || '').trim() || tagged(u, s)) out.units[u.id] = exportUnit(u, s); }
   if (INITIAL && !boot.initialIgnored) for (const id in (INITIAL.units || {})) if (!known.has(id)) out.units[id] = INITIAL.units[id];
   const blob = new Blob([JSON.stringify(out, null, 1)], {type: 'application/json'});
   const a = document.createElement('a');

@@ -1235,7 +1235,9 @@ def load_prefill(bundle, rater, items_sha):
 
 
 def build_html(units, items_sha, rater, initial, attribution, prefilled_from=None,
-               rubric_version=RUBRIC_VERSION, rubric=RUBRIC):
+               rubric_version=RUBRIC_VERSION, rubric=RUBRIC, tag_set=None):
+    """The review page. tag_set: {'version': int, 'tags': [...]} for a bundle with tags (#184),
+    else None: the page then shows no tag control and exports no tag key."""
     from corner_gallery_page import HTML_TEMPLATE, KEYS_JS, PANO_LINKS_JS, STATE_BOOTSTRAP_JS
     return (HTML_TEMPLATE
             .replace('__STATE_BOOTSTRAP__', STATE_BOOTSTRAP_JS)
@@ -1247,6 +1249,7 @@ def build_html(units, items_sha, rater, initial, attribution, prefilled_from=Non
             .replace('__RATER__', json.dumps(rater))
             .replace('__RUBRIC_V__', str(rubric_version))
             .replace('__RUBRIC_JSON__', json.dumps(rubric))
+            .replace('__TAG_SET__', json.dumps(tag_set))
             .replace('__RUBRIC_HTML__', rubric.replace('&', '&amp;').replace('<', '&lt;'))
             .replace('__SCHEMA__', json.dumps(VERDICTS_SCHEMA))
             .replace('__INITIAL__', json.dumps(initial))
@@ -1277,8 +1280,10 @@ def cmd_render(args):
         print(msg)
     adates = load_aerial_dates(bundle, items_sha)
     rv, rubric = rubric_for(snapshot)
+    tv, tags = tag_set_for(snapshot)
     html = build_html([viewer_unit(i, rel, adates) for i in items], items_sha, args.rater, initial,
-                      snapshot['aerial']['attribution'], prefilled_from, rv, rubric)
+                      snapshot['aerial']['attribution'], prefilled_from, rv, rubric,
+                      None if tv is None else {'version': tv, 'tags': tags})
     (out / REVEAL_DIR).mkdir(exist_ok=True)
     for i in items:
         write_text_lf(out / reveal_file(i['unit']), reveal_script(i))
