@@ -397,6 +397,111 @@ def test_score_wilson_on_a_drawn_100_corner_sample():
     assert res['precision'] == 0.85 and res['verdict'].startswith('FAIL')
 
 
+# ------------------------------------------- reserve and sequential stop rule (#183)
+
+def _rate(keys, reads):
+    """A verdicts file whose blind reads are `reads`, in sample order (None = unrated)."""
+    return _verdicts([(k.rsplit('#', 1)[0], int(k.rsplit('#', 1)[1]), v, None)
+                      for k, v in zip(keys, reads) if v])
+
+
+def test_sample_records_the_reserve_and_the_look_design(tmp_path):
+    (tmp_path / 'p.jsonl').write_text(''.join(json.dumps({'key': f'u{i:03d}#0'}) + '\n'
+                                              for i in range(300)), encoding='utf-8')
+
+    def sample(name, *flags):
+        with redirect_stdout(io.StringIO()):
+            cl.main(['sample', '--proposals', str(tmp_path / 'p.jsonl'), '--out',
+                     str(tmp_path / name / 'sample.csv'), *flags])
+        return json.loads((tmp_path / name / 'sample.json').read_text(encoding='utf-8'))
+    legacy = sample('a')                            # no new flag: the #169 record, unchanged
+    assert legacy['schema'].endswith('/1') and set(legacy) == {
+        'schema', 'drawn_at', 'seed', 'n', 'population', 'proposals', 'rule', 'sample'}
+    seq = sample('b', '--looks', '40,60,80,100', '--reserve', '15')
+    assert seq['schema'].endswith('/2') and (seq['n'], seq['reserve'], seq['drawn']) == (100, 15, 115)
+    assert len(cl.read_sample(tmp_path / 'b' / 'sample.csv')) == 115
+    d = seq['design']
+    assert [(b['n'], b['pass_min_absent'], b['fail_max_absent']) for b in d['looks']] == [
+        (40, 39, 32), (60, 58, 52), (80, 76, 72), (100, 93, 92)]
+    assert d['z'] == 2.192
+    assert d['operating_characteristics'][0] == {'p': 0.85, 'p_pass': 0.0234, 'expected_n': 61.9}
+    # the issue's 0.912 / 0.871 are z = 1.96; at the calibrated z 39 of 40 still passes
+    assert ci.wilson(40, 40)[0] == pytest.approx(0.9124, abs=1e-4)
+    assert ci.wilson(39, 40)[0] == pytest.approx(0.8712, abs=1e-4)
+    assert cl.rule_passes(39, 40, d['z']) and not cl.rule_passes(38, 40, d['z'])
+    assert cl.check_design(seq, tmp_path / 'b' / 'sample.csv') == []
+    seq['design']['looks'][0]['pass_min_absent'] = 38             # edited after the draw
+    assert any('looks' in p for p in cl.check_design(seq, tmp_path / 'b' / 'sample.csv'))
+    with pytest.raises(SystemExit, match='exists'):               # a sample is drawn once
+        sample('b', '--looks', '40,60,80,100', '--reserve', '15')
+    with pytest.raises(SystemExit, match='final look'):           # no design lowers n below 100
+        sample('c', '--looks', '40,60,80', '--reserve', '15')
+    with pytest.raises(SystemExit, match='final look'):
+        sample('c', '--n', '40', '--reserve', '3')
+
+
+def test_cant_tell_is_absorbed_by_the_reserve():
+    design = cl.make_design([100])                  # one look at 100: the #169 rule, z = 1.96
+    keys = [f'u{i:03d}#0' for i in range(103)]      # reserve 3
+    reads = ['absent'] * 103
+    reads[10] = reads[50] = 'cant_tell'
+    seq = cl.sequential_read(keys, _rate(keys, reads[:102]), design)   # last reserve unrated
+    assert (seq['decision'], seq['n'], seq['absent']) == ('PASS', 100, 100)
+    assert seq['last_sample_position'] == 102 and seq['cant_tell_keys'] == [keys[10], keys[50]]
+    assert seq['worst_case']['n'] == 102 and seq['worst_case']['binding'] is False
+    reads[60] = reads[70] = 'cant_tell'             # four can't-tells: the reserve runs out
+    seq = cl.sequential_read(keys, _rate(keys, reads), design)
+    assert seq['decision'] is None
+    assert seq['verdict'].startswith('NOT SCORED (reserve exhausted: 99 decided')
+
+
+def test_a_skipped_ahead_rating_is_refused():
+    design = cl.make_design([40, 60, 80, 100])
+    keys = [f'u{i:03d}#0' for i in range(115)]
+    reads = ['absent'] * 5 + [None] * 110
+    reads[3] = None
+    with pytest.raises(SystemExit, match=r'rate the 1 unit\(s\) before them'):
+        cl.sequential_read(keys, _rate(keys, reads), design)
+    # u0's second corner (position 6) is served with its first (position 1): rating both is no
+    # skip, but position 6 counts only once positions 2-5 are rated
+    keys = ['u0#0', 'u1#0', 'u2#0', 'u3#0', 'u4#0', 'u0#1'] + [f'v{i}#0' for i in range(109)]
+    reads = ['absent'] + [None] * 4 + ['absent'] + [None] * 109
+    seq = cl.sequential_read(keys, _rate(keys, reads), design)
+    assert seq['decided_in_prefix'] == 1 and seq['verdict'].startswith('CONTINUE: look 1 of 4')
+
+
+def test_stop_at_an_early_look():
+    design = cl.make_design([40, 60, 80, 100])
+    keys = [f'u{i:03d}#0' for i in range(115)]
+    reads = ['absent'] * 40 + ['present'] * 5 + ['absent'] * 15 + [None] * 55
+    seq = cl.sequential_read(keys, _rate(keys, reads), design)
+    assert (seq['decision'], seq['look'], seq['n'], seq['rated_beyond_stop']) == ('PASS', 1, 40, 20)
+    reads[:40] = ['absent'] * 32 + ['present'] * 8      # 32 of 40: no later look can pass
+    assert cl.sequential_read(keys, _rate(keys, reads), design)['decision'] == 'FAIL'
+    reads[:40] = ['absent'] * 36 + ['present'] * 4      # neither boundary at look 1
+    reads[40:] = [None] * 75
+    seq = cl.sequential_read(keys, _rate(keys, reads), design)
+    assert seq['decision'] is None and 'look 2 of 4 needs 60' in seq['verdict']
+
+
+def test_legacy_169_score_is_unchanged():
+    """The committed #169 score through score() (proposals.jsonl is git-ignored, so the
+    strata come from the bundle's items). A named subset of keys, so #184's tags block can be
+    added without touching this pin."""
+    root = cl.REPO_ROOT / 'runs' / 'vancouver'
+    b, d = root / 'corner_gallery169_split', root / 'corner_labels169_split' / 'na_discount_sw'
+    props = [{'key': c['proposal']['key'], 'unit': i['unit'], 'corner': c['corner'],
+              'stratum': i['type']} for i in ci.read_jsonl(b / 'items.jsonl') for c in i['corners']]
+    verdicts = json.loads((b / 'verdicts__jonf.json').read_text(encoding='utf-8'))
+    res = cl.score(props, verdicts, cl.read_sample(d / 'sample.csv'))
+    want = json.loads((d / 'score_gallery169.json').read_text(encoding='utf-8'))
+    for k in ('n_rated', 'n', 'present', 'absent', 'cant_tell', 'cant_tell_share', 'precision',
+              'wilson95', 'absent_kinds', 'label_precision', 'label_wilson95', 'by_stratum',
+              'verdict', 'rated_keys'):
+        assert res[k] == want[k], k
+    assert json.loads((d / 'sample.json').read_text(encoding='utf-8'))['schema'].endswith('/1')
+
+
 # ------------------------------------------------------------------ end to end (tmp)
 
 def _write_jsonl(path, rows):
