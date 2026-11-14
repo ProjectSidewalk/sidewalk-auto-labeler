@@ -236,6 +236,42 @@ def test_generic_scorer_validates_a_sample_bundle_and_stops(setup, capsys):
     assert not out.exists()                                  # no gallery 243 report written
 
 
+def test_sequential_sample_is_served_and_scored_in_sample_order(setup, monkeypatch):
+    """#183 plumbing on the 3-corner fixture: a hand-made one-look design (n 2, reserve 1).
+    Its numbers are not a valid design (the final look must be >= 100), so check_design is
+    stubbed here; test_corner_labels.py pins the real ones."""
+    monkeypatch.setattr(cl, 'check_design', lambda sj, csv_: [])
+    sj_path = setup.d / 'sample.json'
+    sj = json.loads(sj_path.read_text(encoding='utf-8'))
+    sj['sample']['path'] = 'sample.csv'
+    sj.update({'schema': cl.SAMPLE_SCHEMA_SEQ, 'n': 2, 'reserve': 1, 'drawn': 3, 'design': {
+        'z': 1.96, 'looks': [{'look': 1, 'n': 2, 'pass_min_absent': 2, 'fail_max_absent': 1}]}})
+    sj_path.write_text(json.dumps(sj), encoding='utf-8')
+    build(setup.argv)
+    items = cg.read_jsonl(setup.bundle / 'items.jsonl')
+    assert [i['unit'] for i in items] == ['vancouver:res:n2', 'vancouver:res:n1']  # not sha1
+    snap = json.loads((setup.bundle / 'snapshot.json').read_text(encoding='utf-8'))
+    assert (snap['sample']['n'], snap['sample']['drawn']) == (2, 3)
+    # n2 is served first, with both its corners; n1 (sample position 2) is still unrated
+    vpath, _ = export(setup.bundle, {'vancouver:res:n2': {0: ('absent', None), 1: ('absent', None)}})
+    res = score(setup, vpath, '--bundle', str(setup.bundle))
+    assert res['verdict'].startswith('CONTINUE') and res['sequential']['decided_in_prefix'] == 1
+    vpath, _ = export(setup.bundle, {'vancouver:res:n2': {0: ('absent', None), 1: ('absent', None)},
+                                     'vancouver:res:n1': {0: ('absent', None)}})
+    res = score(setup, vpath, '--bundle', str(setup.bundle))
+    assert (res['sequential']['decision'], res['sequential']['look']) == ('PASS', 1)
+    assert res['sample']['json_sha256'] == sha(sj_path) and 'min_n' not in res['rule']
+    with pytest.raises(SystemExit, match='only with --bundle'):
+        score(setup, vpath)
+    # the design cannot change once the bundle exists
+    sj['design']['looks'][0]['pass_min_absent'] = 1
+    sj_path.write_text(json.dumps(sj), encoding='utf-8')
+    with pytest.raises(SystemExit, match='cannot be scored'):
+        score(setup, vpath, '--bundle', str(setup.bundle))
+    with pytest.raises(SystemExit, match='--rebuild'):
+        build(setup.argv)
+
+
 # ------------------------------------------- #169 revision (2026-11-06): split-wide bundle
 
 def test_views_per_corner_and_landscape_job_items(setup):

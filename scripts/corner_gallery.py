@@ -985,7 +985,9 @@ def cmd_build_sample(args):
     missing_units = sorted(set(by_unit_corners) - set(records))
     if missing_units:
         raise SystemExit(f'sampled unit(s) not in corners_full: {missing_units[:3]}')
-    order = review_order(list(by_unit_corners))
+    # a sequential sample (#183) is rated in looks, so it is served in sample order
+    order = (list(dict.fromkeys(u for u, _ in keys)) if sj.get('design')
+             else review_order(list(by_unit_corners)))
     wanted = set()
     for u in order:
         wanted.update(records[u].get('pano_ids_25') or [])
@@ -999,6 +1001,13 @@ def cmd_build_sample(args):
 
     bundle.mkdir(parents=True, exist_ok=True)
     items_path = bundle / 'items.jsonl'
+    old_snap = bundle / 'snapshot.json'
+    built_on = ((json.loads(old_snap.read_text(encoding='utf-8')).get('sample') or {})
+                .get('json_sha256') if old_snap.exists() else None)
+    if built_on not in (None, inputs['sample_json']['sha256']) and not args.rebuild:
+        raise SystemExit(f'{sample_json} is not the one this bundle was built from (a look '
+                         'schedule is fixed before rating); pass --rebuild to replace the '
+                         'bundle deliberately')
     if items_path.exists() and not args.rebuild:
         old = read_jsonl(items_path)
         if [(i['unit'], [c['corner'] for c in i['corners']]) for i in old] != \
@@ -1039,6 +1048,10 @@ def cmd_build_sample(args):
         'rubric_version': rv, 'rubric': RUBRICS[rv],
         'scorer': 'scripts/corner_labels.py score --proposals <proposals> --sample <sample.csv> '
                   '--bundle <this bundle> --verdicts <bundle>/verdicts__<rater>.json'}
+    if sj.get('design'):
+        snapshot['sample'].update({'n': sj['n'], 'reserve': sj['reserve'], 'drawn': len(keys),
+                                   'design': sj['design']})
+        snapshot['review_order_rule'] = 'sample order (sequential sample, #183)'
     missing = make_images(args, bundle, items)
     snapshot['crops_missing'] = sorted(missing)
     snapshot['images'] = write_image_manifest(bundle, items)
@@ -1065,8 +1078,8 @@ def write_sample_report(bundle, snapshot, items, missing):
         '# Corner precision gallery (#169): bundle report', '',
         f"Built {snapshot['built_at']} by `scripts/corner_gallery.py build --items-from` at "
         f"`{snapshot['tool_git_sha']}`. Items sha256 `{snapshot['items_sha256']}`.", '',
-        f"- Sample: `{sm['path']}` (sha256 `{sm['sha256']}`), {sm['n']} corners drawn with seed "
-        f"{sm['seed']} from {sm['population']} proposals ({sm['rule']}).",
+        f"- Sample: `{sm['path']}` (sha256 `{sm['sha256']}`), {sm.get('drawn', sm['n'])} corners "
+        f"drawn with seed {sm['seed']} from {sm['population']} proposals ({sm['rule']}).",
         f"- Proposals: `{pr['path']}` (sha256 `{pr['sha256']}`), built at "
         f"`{pr['tool_git_sha']}`, NA read `{pr['na_read']}` (settled: {pr['na_read_settled']}), "
         f"sidewalk rule {pr['sidewalk_rule']}.",
@@ -1109,6 +1122,18 @@ def write_sample_report(bundle, snapshot, items, missing):
                      f"{', '.join(str(c['corner']) for c in i['corners'])} | {i['n_corners_unit']} |"
                      + ((' ' + (', '.join(f'{b:.0f}' for b in i.get('phantom_legs') or ()) or '-')
                          + ' |') if split else ''))
+    if sm.get('design'):
+        lines += ['', '## Rating in looks (#183)', '',
+                  f"A sequential sample: {sm['n']} decided corners plus a reserve of "
+                  f"{sm['reserve']}, served in sample order, with looks at "
+                  f"{', '.join(str(b['n']) for b in sm['design']['looks'])} decided corners "
+                  '(boundaries in `snapshot.json` `sample.design`).', '',
+                  '- Commit `sample.csv`, `sample.json` and this bundle before the first rating.',
+                  '- Start at unit 1 and move with Next or "Next to do". Never skip ahead, and '
+                  "do not press Prev on unit 1: it wraps to the last unit, the reserve's tail.",
+                  '- At each look, export, commit the verdicts file and run the score command '
+                  'above. It prints PASS or FAIL at the first look that settles, or how many '
+                  'more decided corners the next look needs. Stop at PASS or FAIL.']
     write_text_lf(Path(bundle) / 'report.md', '\n'.join(lines) + '\n')
 
 
