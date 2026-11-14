@@ -932,6 +932,54 @@ def read_sample(path):
         return [corner_key(r['unit'], int(r['corner'])) for r in csv.DictReader(f)]
 
 
+def tag_counts(proposals, verdicts, sample_keys=None):
+    """Descriptive tag tallies by stratum (#184); None for a file without a tag set. Tags never
+    enter precision or the verdict.
+
+    Counts every corner score() tallies (a proposal, in the sample when sample_keys is given,
+    with a blind verdict), so `corners` is the denominator per stratum. `blind` counts the tags
+    frozen with the blind read; `final` the corner's current tags (a reopened unit's are a
+    draft). A tag outside the file's own set stops the run (review S4): with --bundle the
+    validator has refused it already; without, it would otherwise go uncounted.
+
+        >>> v = {'tag_set_version': 1, 'tag_set': [{'id': 'unsafe_crossing'}], 'units': {'u': {
+        ...     'blind': {'0': {'verdict': 'absent', 'tags': ['unsafe_crossing']}},
+        ...     'corners': {'0': {'verdict': 'absent'}}}}}
+        >>> tag_counts([{'key': 'u#0', 'unit': 'u', 'corner': 0, 'stratum': 'arterial'}], v)['blind']
+        {'all': {'unsafe_crossing': 1}, 'arterial': {'unsafe_crossing': 1}}
+    """
+    if verdicts.get('tag_set_version') is None:
+        return None
+    ids = [t['id'] for t in verdicts.get('tag_set') or []]
+    units = verdicts.get('units') or {}
+    keys = None if sample_keys is None else set(sample_keys)
+    corners = {'all': 0}
+    counts = {'blind': {'all': dict.fromkeys(ids, 0)}, 'final': {'all': dict.fromkeys(ids, 0)}}
+    for p in proposals:
+        if keys is not None and p['key'] not in keys:
+            continue
+        u = units.get(p['unit']) or {}
+        e = ((u.get('blind') or {}).get(str(p['corner']))) or {}
+        if e.get('verdict') not in ('present', 'absent', 'cant_tell'):
+            continue
+        st = p['stratum']
+        corners['all'] += 1
+        corners[st] = corners.get(st, 0) + 1
+        for which, entry in (('blind', e), ('final', (u.get('corners') or {}).get(str(p['corner'])))):
+            for t in (entry or {}).get('tags') or []:
+                if t not in ids:
+                    raise SystemExit(f"{p['key']}: tag {t!r} is not in the file's tag set "
+                                     f"v{verdicts['tag_set_version']}")
+                for sk in ('all', st):
+                    counts[which].setdefault(sk, dict.fromkeys(ids, 0))[t] += 1
+    strata = ['all'] + sorted(k for k in corners if k != 'all')
+    return {'note': 'descriptive only; never enters precision or the verdict',
+            'tag_set_version': verdicts['tag_set_version'], 'tag_ids': ids,
+            'corners': {s: corners[s] for s in strata},
+            **{w: {s: counts[w].get(s, dict.fromkeys(ids, 0)) for s in strata}
+               for w in ('blind', 'final')}}
+
+
 def check_bundle(bundle, verdicts, sample_path, proposals_path):
     """Every reason a precision-gallery export cannot be scored against this sample (empty =
     ok). The bundle is one `corner_gallery.py build --items-from` wrote: its snapshot must
@@ -983,6 +1031,7 @@ def cmd_score(args):
         bundle_rec = {'path': str(args.bundle), 'items_sha256': snap['items_sha256'],
                       'tool_git_sha': snap.get('tool_git_sha')}
     res = score(proposals, verdicts, sample)
+    tags = tag_counts(proposals, verdicts, sample)
     rec = {'schema': 'sidewalk-auto-labeler.corner_labels.score/1', 'issue': 'sidewalk-auto-labeler#169',
            'rule': {'precision_min': RULE_PRECISION, 'wilson_lower_min': RULE_WILSON_LO,
                     'min_n': RULE_MIN_N, 'cant_tell': 'excluded from the denominator',
@@ -995,7 +1044,7 @@ def cmd_score(args):
            'sample': None if not args.sample else {'path': Path(args.sample).name,
                                                    'sha256': ci.sha256_file(args.sample)},
            'bundle': bundle_rec,
-           **res}
+           **res, **({} if tags is None else {'tags': tags})}
     text = json.dumps(rec, indent=1) + '\n'
     if args.out:
         ci.write_text_lf(args.out, text)
@@ -1005,6 +1054,10 @@ def cmd_score(args):
     print(f"{res['n_rated']} rated corners: {res['absent']} absent, {res['present']} present, "
           f"{res['cant_tell']} can't tell; precision {res['precision']} {res['wilson95']}; "
           f"{res['verdict']}")
+    if tags is not None:
+        print(f"tags (descriptive; blind, final in brackets, of {tags['corners']['all']} rated "
+              f"corners): " + ', '.join(f"{t} {tags['blind']['all'][t]} ({tags['final']['all'][t]})"
+                                        for t in tags['tag_ids']))
 
 
 # -------------------------------------------------------------------------- sample
