@@ -19,7 +19,10 @@ Subcommands:
   export  proposals -> a results.jsonl with label_type NoCurbRamp that send_to_ps.py accepts:
           one line per pano, one detection per corner, the pano block copied from the run.
   score   the pre-registered corner-level rule against blind gallery ratings -> score JSON.
+          A sequential sample is read look by look (sequential_read, #183).
   sample  the seeded >= 100-corner sample a future gallery rates -> sample.csv + sample.json.
+          --reserve K / --looks 40,60,80,100 draw a sequential sample (#183): K reserve corners
+          replace can't-tells in order, and the rating stops at the first look that settles.
 
 The pre-registered rule (issue #169, stated before any label was built): corner-level absence
 precision against blind ratings >= 0.90 with Wilson lower bound >= 0.85, on a seeded sample of
@@ -962,6 +965,7 @@ def check_bundle(bundle, verdicts, sample_path, proposals_path):
     lost = [k for k in read_sample(sample_path) if k not in have]
     if lost:
         problems.append(f'{len(lost)} sampled corner(s) are not in the bundle, e.g. {lost[:3]}')
+    problems += design_bundle_problems(snap, items, sample_path)
     return problems
 
 
@@ -969,6 +973,7 @@ def cmd_score(args):
     proposals = ci.read_jsonl(args.proposals)
     verdicts = json.loads(Path(args.verdicts).read_text(encoding='utf-8'))
     sample = read_sample(args.sample) if args.sample else None
+    sj = sample_design(args)            # None unless the sample is sequential (#183)
     bundle_rec = None
     if getattr(args, 'bundle', None):
         if not args.sample:
@@ -982,6 +987,8 @@ def cmd_score(args):
         bundle_rec = {'path': str(args.bundle), 'items_sha256': snap['items_sha256'],
                       'tool_git_sha': snap.get('tool_git_sha')}
     res = score(proposals, verdicts, sample)
+    if sj:
+        res.update(design_score(sj, sample, verdicts))  # replaces rule, sample and verdict
     rec = {'schema': 'sidewalk-auto-labeler.corner_labels.score/1', 'issue': 'sidewalk-auto-labeler#169',
            'rule': {'precision_min': RULE_PRECISION, 'wilson_lower_min': RULE_WILSON_LO,
                     'min_n': RULE_MIN_N, 'cant_tell': 'excluded from the denominator',
@@ -1001,6 +1008,9 @@ def cmd_score(args):
     if res['sample_keys_not_in_proposals']:
         print(f"WARNING: {len(res['sample_keys_not_in_proposals'])} sample key(s) are not in "
               f"the proposals, e.g. {res['sample_keys_not_in_proposals'][:3]}")
+    if sj:
+        print(f"sequential: {res['verdict']}")
+        res = {**res, 'verdict': 'descriptive only (every rated sample corner)'}
     print(f"{res['n_rated']} rated corners: {res['absent']} absent, {res['present']} present, "
           f"{res['cant_tell']} can't tell; precision {res['precision']} {res['wilson95']}; "
           f"{res['verdict']}")
@@ -1008,28 +1018,352 @@ def cmd_score(args):
 
 # -------------------------------------------------------------------------- sample
 
-def draw_sample(proposals, n=SAMPLE_N, seed=SAMPLE_SEED):
-    """n corner keys drawn without replacement from the proposals, seeded, in draw order."""
+def draw_sample(proposals, n=SAMPLE_N, seed=SAMPLE_SEED, reserve=0):
+    """n + reserve corner keys drawn without replacement from the proposals, seeded, in draw
+    order. With reserve = 0 this is the #169 draw exactly."""
     keys = sorted({p['key'] for p in proposals})
-    if len(keys) < n:
-        raise SystemExit(f'only {len(keys)} proposals; cannot draw {n}')
-    return random.Random(seed).sample(keys, n)
+    if len(keys) < n + reserve:
+        raise SystemExit(f'only {len(keys)} proposals; cannot draw {n + reserve}')
+    return random.Random(seed).sample(keys, n + reserve)
 
 
 def cmd_sample(args):
-    proposals = ci.read_jsonl(args.proposals)
-    keys = draw_sample(proposals, args.n, args.seed)
     out = Path(args.out)
+    for f in (out, out.with_suffix('.json')):
+        if f.exists():
+            raise SystemExit(f'{f} exists: a sample is drawn once, before any rating. Remove it '
+                             f'deliberately (git rm) to redraw')
+    sequential = args.looks is not None or args.reserve is not None
+    if args.looks is not None and args.n is not None:
+        raise SystemExit('--looks sets n (its last look); do not pass --n as well')
+    if (args.reserve or 0) < 0:
+        raise SystemExit('--reserve must be >= 0')
+    design = make_design(args.looks or [args.n or SAMPLE_N]) if sequential else None
+    n = design['looks'][-1]['n'] if design else (args.n or SAMPLE_N)
+    proposals = ci.read_jsonl(args.proposals)
+    keys = draw_sample(proposals, n, args.seed, args.reserve or 0)
     rows = [{'unit': k.rsplit('#', 1)[0], 'corner': k.rsplit('#', 1)[1]} for k in keys]
     ci.write_csv_lf(out, ['unit', 'corner'], rows)
     rec = {'schema': 'sidewalk-auto-labeler.corner_labels.sample/1', 'drawn_at': ci.utc_now(),
-           'seed': args.seed, 'n': args.n, 'population': len({p['key'] for p in proposals}),
+           'seed': args.seed, 'n': n, 'population': len({p['key'] for p in proposals}),
            'proposals': {'path': Path(args.proposals).name,
                          'sha256': ci.sha256_file(args.proposals)},
            'rule': 'random.Random(seed).sample(sorted proposal keys, n)',
            'sample': {'path': out.name, 'sha256': ci.sha256_file(out)}}
+    if design:
+        rec.update({'schema': SAMPLE_SCHEMA_SEQ, 'reserve': args.reserve or 0,
+                    'drawn': len(keys),
+                    'rule': 'random.Random(seed).sample(sorted proposal keys, n + reserve)',
+                    'design': design})
     ci.write_text_lf(out.with_suffix('.json'), json.dumps(rec, indent=1) + '\n')
-    print(f'{args.n} of {rec["population"]} proposals drawn with seed {args.seed} -> {out}')
+    print(f'{len(keys)} of {rec["population"]} proposals drawn with seed {args.seed} -> {out}')
+    if design:
+        print(design_text(design))
+
+
+# ------------------------------------------------------------- sequential design (#183)
+#
+# A sequential sample (sample.json schema /2) is rated in looks: at look k the first n_k
+# *decided* (absent or present) blind ratings in sample order are counted, cant_tell is skipped
+# and a reserve corner takes its place, and the first look whose count crosses a boundary
+# settles PASS or FAIL. The boundaries are integers fixed at `sample` time and recorded in
+# sample.json; they are the rule. z only derives them: one z for every look, the smallest on a
+# 0.001 grid from 1.96 whose boundaries keep P(PASS | precision = 0.85) <= 0.025, found by exact
+# binomial enumeration (design_oc). A one-look design keeps the #169 rule's z = 1.96.
+
+SAMPLE_SCHEMA_SEQ = 'sidewalk-auto-labeler.corner_labels.sample/2'
+RULE_ALPHA = 0.025          # one-sided: the lower limit of a two-sided 95% Wilson interval
+Z_FIXED = 1.96              # the #169 rule's z
+Z_STEP = 0.001
+Z_MAX = 4.0
+TIE_EPS = 1e-9              # a Wilson bound this close to the bar would make rounding decide
+OC_P = (0.85, 0.90, 0.95, 0.99)
+
+
+def parse_looks(text):
+    """'40,60,80,100' -> [40, 60, 80, 100] (argparse type)."""
+    try:
+        return [int(v) for v in text.split(',')]
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'looks must be integers, e.g. 40,60,80,100: {text!r}')
+
+
+def rule_passes(x, n, z):
+    """The #169 rule at one look: x absent of n decided, at Wilson z."""
+    return n > 0 and x / n >= RULE_PRECISION and ci.wilson(x, n, z)[0] >= RULE_WILSON_LO
+
+
+def look_boundaries(looks, z):
+    """The integer boundaries of a look schedule at one common z.
+
+    pass_min_absent: the fewest absent of n_k that pass at look k (None: no count can).
+    fail_max_absent: the most absent of n_k with which no look j >= k can pass even if every
+    later decided corner is absent (deterministic curtailment, so it costs no alpha; -1 = no
+    count settles FAIL yet). The rule is monotone in x, so look j needs x + n_j - n_k >=
+    pass_min_j.
+
+    >>> [(b['n'], b['pass_min_absent'], b['fail_max_absent'])
+    ...  for b in look_boundaries([40, 60, 80, 100], 2.192)]
+    [(40, 39, 32), (60, 58, 52), (80, 76, 72), (100, 93, 92)]
+    """
+    pmin = [next((x for x in range(n + 1) if rule_passes(x, n, z)), None) for n in looks]
+    out = []
+    for k, n in enumerate(looks):
+        reach = [pmin[j] - (looks[j] - n) for j in range(k, len(looks)) if pmin[j] is not None]
+        out.append({'look': k + 1, 'n': n, 'pass_min_absent': pmin[k],
+                    'fail_max_absent': max(-1, min(reach) - 1) if reach else n})
+    return out
+
+
+def design_oc(looks, p):
+    """(P(PASS), expected decided n) of a boundary list when each decided corner is absent
+    with probability p independently: a forward pass over the looks, carrying the
+    distribution of the absent count of the paths still running."""
+    run, prev, p_pass, e_n = {0: 1.0}, 0, 0.0, 0.0
+    for b in looks:
+        step = b['n'] - prev
+        nxt = {}
+        for x0, m in run.items():
+            for d in range(step + 1):
+                nxt[x0 + d] = nxt.get(x0 + d, 0.0) + m * math.comb(step, d) * p ** d * (1 - p) ** (step - d)
+        run = {}
+        for x, m in nxt.items():
+            if b['pass_min_absent'] is not None and x >= b['pass_min_absent']:
+                p_pass += m
+                e_n += m * b['n']
+            elif x <= b['fail_max_absent']:
+                e_n += m * b['n']
+            else:
+                run[x] = m
+        prev = b['n']
+    return p_pass, e_n + sum(run.values()) * prev
+
+
+def calibrate_z(looks):
+    """The smallest z on the Z_STEP grid from Z_FIXED whose boundaries keep the exact
+    P(PASS | precision = RULE_WILSON_LO) <= RULE_ALPHA."""
+    z, seen = Z_FIXED, {}
+    while z <= Z_MAX:
+        bounds = look_boundaries(looks, z)
+        key = tuple((b['pass_min_absent'], b['fail_max_absent']) for b in bounds)
+        if key not in seen:
+            seen[key] = design_oc(bounds, RULE_WILSON_LO)[0] <= RULE_ALPHA
+        if seen[key]:
+            return z
+        z = round(z + Z_STEP, 3)
+    raise SystemExit(f'no z <= {Z_MAX} keeps P(PASS | {RULE_WILSON_LO}) <= {RULE_ALPHA} for '
+                     f'looks {looks}')
+
+
+def make_design(looks):
+    """The sequential design recorded in sample.json for a look schedule (the last look is the
+    sample's n). The final look must be >= RULE_MIN_N: earlier looks may be smaller, which is
+    their point, but a design may not lower the #169 bar on n."""
+    looks = list(looks)
+    if not looks or looks[0] < 1 or any(b <= a for a, b in zip(looks, looks[1:])):
+        raise SystemExit(f'looks must be strictly increasing positive integers: {looks}')
+    if looks[-1] < RULE_MIN_N:
+        raise SystemExit(f'the final look is {looks[-1]} decided corners; the rule needs '
+                         f'>= {RULE_MIN_N} there (earlier looks may be smaller)')
+    z, correction = ((Z_FIXED, 'none (one look: the #169 rule)') if len(looks) == 1 else
+                     (calibrate_z(looks), 'exact: one z for every look, the smallest on a '
+                      f'{Z_STEP} grid from {Z_FIXED} with P(PASS | precision = '
+                      f'{RULE_WILSON_LO}) <= {RULE_ALPHA} by binomial enumeration'))
+    bounds = look_boundaries(looks, z)
+    if bounds[-1]['pass_min_absent'] is None:
+        raise SystemExit(f'no count passes at the final look of {looks}')
+    ties = [(n, x) for n in looks for x in range(n + 1)
+            if x / n >= RULE_PRECISION and abs(ci.wilson(x, n, z)[0] - RULE_WILSON_LO) < TIE_EPS]
+    if ties:
+        raise SystemExit(f'Wilson lower bound within {TIE_EPS} of {RULE_WILSON_LO} at {ties}: '
+                         f'pick another schedule')
+    return {
+        'rule': {'precision_min': RULE_PRECISION, 'wilson_lower_min': RULE_WILSON_LO,
+                 'min_n_final_look': RULE_MIN_N},
+        'alpha_one_sided': RULE_ALPHA, 'correction': correction, 'z': z,
+        'looks': bounds,
+        'binding': 'the integer boundaries in looks; z only derives them',
+        'counting': 'n = decided (absent + present) blind ratings in sample order, before the '
+                    'first unrated corner; cant_tell is skipped and the reserve replaces it',
+        'stop': 'the first look with absent >= pass_min_absent (PASS) or absent <= '
+                'fail_max_absent (FAIL: no later look can pass) settles the verdict',
+        'operating_characteristics': [
+            {'p': p, 'p_pass': round(pp, 4), 'expected_n': round(en, 1)}
+            for p in OC_P for pp, en in [design_oc(bounds, p)]]}
+
+
+def design_text(design):
+    """The look table a pre-registration quotes."""
+    rows = [f"look {b['look']}: n = {b['n']}, PASS at >= {b['pass_min_absent']} absent, FAIL at "
+            f"<= {b['fail_max_absent']}" for b in design['looks']]
+    oc = ', '.join(f"{o['p']:.2f}: {o['p_pass']:.4f} / {o['expected_n']:.1f}"
+                   for o in design['operating_characteristics'])
+    return '\n'.join([f"z = {design['z']}; correction: {design['correction']}"] + rows +
+                     [f'P(PASS) / expected decided n at true precision {oc}'])
+
+
+def check_design(sj, sample_csv):
+    """Every reason a sequential sample.json cannot be scored (empty = ok): the CSV must be the
+    one it recorded, its row count n + reserve, and its design the one make_design gives for
+    its look schedule under today's rule constants."""
+    problems = []
+    if sj['sample']['sha256'] != ci.sha256_file(sample_csv):
+        problems.append(f'{Path(sample_csv).name} is not the sample its sample.json recorded')
+    drawn = len(read_sample(sample_csv))
+    if not drawn == sj.get('drawn') == sj['n'] + sj.get('reserve', 0):
+        problems.append(f'{drawn} sample rows; sample.json records n {sj["n"]}, reserve '
+                        f'{sj.get("reserve")}, drawn {sj.get("drawn")}')
+    d = sj['design']
+    want = make_design([b['n'] for b in d['looks']])
+    for k in ('rule', 'correction', 'z', 'looks'):
+        if d.get(k) != want[k]:
+            problems.append(f'sample.json design {k} is not what make_design gives: '
+                            f'{d.get(k)} vs {want[k]}')
+    if d['looks'][-1]['n'] != sj['n']:
+        problems.append(f'the final look ({d["looks"][-1]["n"]}) is not the sample n ({sj["n"]})')
+    return problems
+
+
+def sample_design(args):
+    """--sample's sample.json when it carries a sequential design, else None (legacy). A
+    sample is scored only beside the sample.json that records how it was drawn."""
+    if not args.sample:
+        return None
+    sj_path = Path(args.sample).with_suffix('.json')
+    if not sj_path.exists():
+        raise SystemExit(f'{sj_path} does not exist: a sample is scored only beside the '
+                         f'sample.json that records how it was drawn')
+    sj = json.loads(sj_path.read_text(encoding='utf-8'))
+    if 'design' not in sj:
+        return None
+    problems = check_design(sj, args.sample)
+    if not getattr(args, 'bundle', None):
+        problems.append('a sequential sample is scored only with --bundle (the bundle binds '
+                        'the design to what existed before rating)')
+    if problems:
+        raise SystemExit('the sequential sample cannot be scored: ' + '; '.join(problems))
+    sj['json_sha256'] = ci.sha256_file(sj_path)
+    return sj
+
+
+def sequential_read(sample_keys, verdicts, design):
+    """The look-by-look read of a sequential sample's blind ratings.
+
+    A corner is rated when its unit's `blind` map gives it absent / present / cant_tell; draft
+    `corners` verdicts never count. The gallery serves a unit at the sample position of its
+    first sampled corner, so a rated corner whose unit comes after an unrated one is a skip
+    ahead and is refused; the rater clears it by rating the units in between. Only the corners
+    before the first unrated one feed the looks, so a look's data never changes once reached.
+    """
+    units = verdicts.get('units') or {}
+    unit_of = [k.rsplit('#', 1)[0] for k in sample_keys]
+    first = {}
+    for i, u in enumerate(unit_of):
+        first.setdefault(u, i)
+    reads = []
+    for k, u in zip(sample_keys, unit_of):
+        e = ((units.get(u) or {}).get('blind') or {}).get(k.rsplit('#', 1)[1])
+        v = (e or {}).get('verdict')
+        reads.append(v if v in ('absent', 'present', 'cant_tell') else None)
+    blank = [i for i, v in enumerate(reads) if v is None]
+    rated = [i for i, v in enumerate(reads) if v is not None]
+    if blank:
+        edge = min(first[unit_of[i]] for i in blank)
+        ahead = [i for i in rated if first[unit_of[i]] > edge]
+        if ahead:
+            far = max(first[unit_of[i]] for i in ahead)
+            todo = sorted({unit_of[i] for i in blank if first[unit_of[i]] < far}, key=first.get)
+            raise SystemExit(
+                f'{len(ahead)} rated corner(s) come after unrated unit {unit_of[edge]} in the '
+                f'sample order, e.g. {[sample_keys[i] for i in ahead[:5]]}: a sequential sample '
+                f'is rated in order. To clear this, rate the {len(todo)} unit(s) before them '
+                f'in the gallery order ({todo[:5]}{" ..." if len(todo) > 5 else ""}), export, '
+                f'and score again')
+    end = blank[0] if blank else len(reads)
+    decided = [i for i in range(end) if reads[i] in ('absent', 'present')]
+    z, looks = design['z'], design['looks']
+    seq = {'of': len(looks), 'z': z, 'decided_in_prefix': len(decided),
+           'rated': len(rated), 'blank': len(blank)}
+    for b in looks:
+        n = b['n']
+        if len(decided) < n:
+            break
+        last = decided[n - 1]
+        x = sum(reads[i] == 'absent' for i in decided[:n])
+        if b['pass_min_absent'] is not None and x >= b['pass_min_absent']:
+            decision = 'PASS'
+        elif x <= b['fail_max_absent']:
+            decision = 'FAIL'
+        else:
+            continue
+        ct = [sample_keys[i] for i in range(last + 1) if reads[i] == 'cant_tell']
+        lo = ci.wilson(x, n, z)[0]
+        wc_lo = ci.wilson(x, n + len(ct), z)[0]
+        seq.update({
+            'decision': decision, 'look': b['look'], 'n': n, 'absent': x, 'present': n - x,
+            'precision': round(x / n, 4), 'wilson_lower_at_z': round(lo, 4),
+            'pass_min_absent': b['pass_min_absent'], 'fail_max_absent': b['fail_max_absent'],
+            'last_sample_position': last + 1,
+            'cant_tell_in_window': len(ct), 'cant_tell_keys': ct,
+            'worst_case': {'binding': False, 'read': "every can't-tell in the window counted "
+                           'as present', 'n': n + len(ct), 'absent': x,
+                           'precision': round(x / (n + len(ct)), 4),
+                           'wilson_lower_at_z': round(wc_lo, 4),
+                           'rule_holds': rule_passes(x, n + len(ct), z)},
+            'rated_beyond_stop': sum(1 for i in rated if i > last)})
+        seq['verdict'] = (
+            f"{decision} at look {b['look']} of {len(looks)}: {x} of the first {n} decided "
+            f"absent (PASS >= {b['pass_min_absent']}, FAIL <= {b['fail_max_absent']}); "
+            f"precision {x / n:.3f} (rule >= {RULE_PRECISION}), Wilson lower {lo:.3f} at "
+            f"z = {z:g} (rule >= {RULE_WILSON_LO}); {len(ct)} can't tell in the window, "
+            f"worst case (counted present) {x}/{n + len(ct)}, Wilson lower {wc_lo:.3f}")
+        return seq
+    b = next(b for b in looks if len(decided) < b['n'])
+    ct = [sample_keys[i] for i in range(end) if reads[i] == 'cant_tell']
+    seq.update({'decision': None, 'look': None, 'next_look': b['look'], 'next_n': b['n'],
+                'cant_tell_in_window': len(ct), 'cant_tell_keys': ct})
+    if not blank:
+        seq['verdict'] = (f"NOT SCORED (reserve exhausted: {len(decided)} decided among "
+                          f"{len(reads)} sample corners; look {b['look']} of {len(looks)} needs "
+                          f"{b['n']})")
+    else:
+        seq['verdict'] = (f"CONTINUE: look {b['look']} of {len(looks)} needs {b['n']} decided "
+                          f"corners in sample order; {len(decided)} so far, rate at least "
+                          f"{b['n'] - len(decided)} more, from unit {unit_of[blank[0]]}")
+    return seq
+
+
+def design_score(sj, sample, verdicts):
+    """The keys a sequential sample adds to (or replaces in) the score JSON."""
+    seq = sequential_read(sample, verdicts, sj['design'])
+    return {'rule': {'precision_min': RULE_PRECISION, 'wilson_lower_min': RULE_WILSON_LO,
+                     'cant_tell': 'skipped in sample order; the reserve replaces it',
+                     'read': 'blind verdicts only', 'design': sj['design']},
+            'sample': {'path': sj['sample']['path'], 'sha256': sj['sample']['sha256'],
+                       'json_sha256': sj['json_sha256'], 'n': sj['n'],
+                       'reserve': sj['reserve'], 'drawn': sj['drawn']},
+            'all_rated': 'n_rated through wilson95 and by_stratum cover every rated sample '
+                         'corner, reserve and beyond the stop included: descriptive only, and '
+                         'optimistic after an early stop; the verdict is sequential',
+            'verdict': seq['verdict'], 'sequential': seq}
+
+
+def design_bundle_problems(snap, items, sample_path):
+    """check_bundle's checks for a sequential sample (none for a legacy one): the bundle was
+    built from this sample.json, and serves the units in sample order."""
+    sj_path = Path(sample_path).with_suffix('.json')
+    sj = json.loads(sj_path.read_text(encoding='utf-8')) if sj_path.exists() else {}
+    if not ((snap.get('sample') or {}).get('design') or sj.get('design')):
+        return []
+    problems = []
+    if not sj_path.exists() or ci.sha256_file(sj_path) != snap['sample'].get('json_sha256'):
+        problems.append(f'{sj_path.name} is missing or is not the one the bundle was built from '
+                        f'(a look schedule is fixed before rating)')
+    order = list(dict.fromkeys(k.rsplit('#', 1)[0] for k in read_sample(sample_path)))
+    if [i['unit'] for i in items] != order:
+        problems.append('the bundle does not serve its units in sample order: rebuild it from '
+                        'this sample')
+    return problems
 
 
 # --------------------------------------------------------------------------- main
@@ -1106,8 +1440,15 @@ def main(argv=None):
 
     m = sub.add_parser('sample', help='draw the seeded corner sample for a future gallery')
     m.add_argument('--proposals', required=True)
-    m.add_argument('--n', type=int, default=SAMPLE_N)
+    m.add_argument('--n', type=int, help=f'corners to draw (default {SAMPLE_N}); with --reserve, '
+                                         'the decided corners the one look needs')
     m.add_argument('--seed', type=int, default=SAMPLE_SEED)
+    m.add_argument('--reserve', type=int, help='draw K more corners in the same seeded order, '
+                   "taken in order to replace can't-tells (#183; recommended 15). Writes a "
+                   'sequential sample (schema /2)')
+    m.add_argument('--looks', type=parse_looks, help='decided-corner counts at which the rating '
+                   'may stop, e.g. 40,60,80,100; the last is n and must be >= 100. Writes a '
+                   'sequential sample (schema /2) with its boundaries')
     m.add_argument('--out', required=True, help='sample.csv (sample.json is written beside it)')
     m.set_defaults(fn=cmd_sample)
 
