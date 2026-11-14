@@ -536,7 +536,8 @@ verdict is taken at n = 97, because it cannot depend on the 3 missing ratings. I
 both clauses. The script's NOT SCORED stays as printed. The PASS is this amendment's, and it
 holds for every value the missing ratings could take. **Next time, draw a seeded reserve** (for
 example 110, rated in order until 100 are decided) or size the sample for the expected
-can't-tell share.
+can't-tell share. `sample --reserve` now does this; see
+[Reserve and sequential stop rule](#reserve-and-sequential-stop-rule-183).
 
 **Post-reveal edits (recorded, never scored).** After the reveal Jon changed 5 corners: the one
 `present` (`vancouver:res:n47255336` #2) to can't tell, since his note had doubted which landing
@@ -565,6 +566,101 @@ Filed as [#183](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/
 stop rule, caps), [#184](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/184)
 (tags) and [#185](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/185) (VLM
 pre-rater).
+
+## Reserve and sequential stop rule (#183)
+
+For the **next** rated sample; #169's recorded result above is unchanged. `corner_labels.py
+sample --reserve K --looks 40,60,80,100` draws n + K corners in one seeded order and writes
+`sample.json` schema `/2` with a `design` block. The design is fixed at that moment. `sample`
+never overwrites a sample, `corner_gallery.py build` refuses a changed `sample.json` without
+`--rebuild`, and `score --bundle` refuses a `sample.json` other than the one the bundle was
+built from. Commit `sample.csv`, `sample.json` and the bundle before the first rating.
+Without `--reserve` / `--looks`, `sample` writes the `/1` record exactly as before.
+
+**Counting.** The gallery serves a `/2` sample's units in sample order, not sha1 order. `score`
+reads the blind verdicts in sample order. At look k it takes the first n_k *decided*
+(absent or present) corners before the first unrated one; `cant_tell` is skipped and the next
+corner, eventually a reserve corner, takes its place. A rating past an unrated unit is refused,
+and the message names the units to rate to clear it. The refusal is a protocol check. The
+validity control is the counted prefix: a corner after an unrated one never enters a look.
+Unrated reserve corners are fine. The first look that crosses a boundary settles the verdict,
+and ratings after it never change it (`rated_beyond_stop`).
+
+**The rule is a set of integer boundaries.** At look k, PASS needs `pass_min_absent` absent of
+n_k. FAIL is settled at `fail_max_absent` or fewer, when no later look could pass even if every
+remaining decided corner were absent. The boundaries come from the #169 clauses (precision
+>= 0.90 and Wilson lower bound >= 0.85) at one z shared by every look. That z is the smallest
+on a 0.001 grid from 1.96 for which exact binomial enumeration keeps P(PASS | precision = 0.85)
+<= 0.025 (`make_design`). z only derives the integers, and `score` checks that `sample.json`'s
+integers are what the shipped code derives. A one-look design keeps z = 1.96, the #169 rule.
+A final look below 100 is refused. FAIL by curtailment costs no false-pass rate. Looking early
+does, and the calibrated z pays for it:
+
+| look n | uncorrected z = 1.96 (PASS >= / FAIL <=) | calibrated z = 2.192 (PASS >= / FAIL <=) |
+|---:|---|---|
+| 40 | 39 / 31 | 39 / 32 |
+| 60 | 57 / 51 | 58 / 52 |
+| 80 | 75 / 71 | 76 / 72 |
+| 100 | 92 / 91 | **93** / 92 |
+
+Looking four times at z = 1.96 would raise P(PASS | 0.85) to 0.043. **The cost: the final bar
+is 93 of 100, not #169's 92**, since 92/100 has a lower bound of 0.840 at z = 2.192. At 40, the
+issue's numbers (lower bound 0.912 for 40/40 and 0.871 for 39/40) are for z = 1.96. At z = 2.192
+they are 0.893 and 0.852, so 39 of 40 still passes, and 38 of 40 (0.816) does not. The z
+depends on the schedule: 2.179 for 30/50/75/100, 2.101 for 25/50/75/100, 1.961 for 40/100.
+
+Operating characteristics, P(PASS) / expected decided corners, by the true precision
+(`design_oc`; each decided corner absent independently):
+
+| true precision | one look at 100 (#169) | looks 40/60/80/100 |
+|---:|---|---|
+| 0.85 | 0.0275 / 100 | 0.0234 / 62 |
+| 0.90 | 0.321 / 100 | 0.244 / 77 |
+| 0.95 | 0.937 / 100 | 0.885 / 67 |
+| 0.97 | 0.997 / 100 | 0.991 / 53 |
+| 0.99 | 1.000 / 100 | 1.000 / 42 |
+
+**Reserve size.** With can't-tell at 3% of corners, P(fewer than 100 decided among 100 + K)
+is 0.0005 at K = 10. At 5% it is 0.022 at K = 10 and 0.0002 at K = 15. **Use K = 15.** At #169's
+precision the rating stops near 40 decided corners, so the reserve matters only when a sample
+runs to look 4.
+
+**#169 replayed (illustration only).** Read in sample order, #169's ratings put can't-tell at
+sample positions 22, 97 and 98, and the one present at position 76 (the 75th decided). Under
+40/60/80/100 the first 40 decided are all absent and end at position 41: **PASS at look 1**,
+Wilson lower bound 0.893 at z = 2.192, after 41 units and 22.4 of the 52.0 logged minutes. The
+can't-tell at position 22 is in that window; counted as present, the read is 40/41 with a lower
+bound of 0.855, still above 0.85. #169 was rated in sha1 order, so this is not what a rater
+would have seen. Its result remains the n = 97 amendment.
+
+**What can't-tell can still do.** With a reserve, rating a doubtful present `cant_tell` costs
+nothing, because a reserve corner replaces it. If a rater did that with a share q of true
+presents, a true precision of 0.85 would pass with probability 0.045 at q = 0.10, 0.119 at
+q = 0.25 and 0.47 at q = 0.50, while can't-tell would be only 1.7%, 4.2% and 8.1% of corners.
+A ceiling on the can't-tell share would not catch it. `score` therefore lists the can't-tell keys
+inside the counted window beside the verdict (`sequential.cant_tell_keys`) and adds a
+non-binding `worst_case` that counts each one present. Making the worst case binding would
+cost too much power (at 0.95 precision and 5% can't-tell, P(PASS) would fall from about 0.88 to
+0.27 by Monte Carlo, in the #183 review). A reviewer reads the listed can't-tells.
+
+**Descriptive fields.** In a `/2` score JSON, `n_rated` through `wilson95` and `by_stratum`
+cover every rated sample corner, reserve and beyond the stop included. They are descriptive, and
+optimistic after an early stop. The verdict is `sequential`. Stratum caps (the issue's third
+item) are not built.
+
+Where each number lives: the boundaries and the 0.85 / 0.90 / 0.95 / 0.99 characteristics in
+`sample.json` `design` (from `make_design`); the 40/60/80/100 boundaries, z and the 0.85 row are
+pinned in `tests/test_corner_labels.py::test_sample_records_the_reserve_and_the_look_design`.
+Regenerate the tables:
+
+```bash
+cd scripts && python -c "
+import corner_labels as cl
+fx, ex = cl.make_design([100]), cl.make_design([40, 60, 80, 100])
+print(cl.design_text(ex)); print(cl.look_boundaries([40, 60, 80, 100], 1.96))
+for p in (0.85, 0.90, 0.95, 0.97, 0.99):
+    print(p, cl.design_oc(fx['looks'], p), cl.design_oc(ex['looks'], p))"
+```
 
 ## Dry run (no server contacted)
 

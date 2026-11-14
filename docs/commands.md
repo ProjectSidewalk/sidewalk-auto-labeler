@@ -699,6 +699,14 @@ Rules of use:
   dirty tool.
 - `rank` takes validator-ai's ranked CSV (#69; columns by flag) and drops nothing.
 - `score` prints PASS/FAIL only on a sample drawn for the rule (`--sample`) with n >= 100.
+- **Sequential sample (#183):** `sample --reserve 15 --looks 40,60,80,100` draws n + 15 corners
+  and fixes integer stop boundaries in `sample.json` (schema `/2`; the last look is n, >= 100).
+  Commit `sample.csv`, `sample.json` and the bundle before rating. The gallery serves it in
+  sample order. Rate from unit 1 without skipping, export and commit at each look, and run
+  `score --bundle`, which prints PASS/FAIL at the first look that settles or how many more
+  decided corners the next look needs. A rating past an unrated unit is refused. `sample` never
+  overwrites a sample. Design, tables and limits: `docs/corner-labels-169.md`, "Reserve and
+  sequential stop rule".
 - **Nothing is submitted under #169.** `send_to_ps.py` dry runs only. A real send of a Vancouver
   file trips `check_store_built` (store-built panos), which is a decision for review.
 
@@ -727,6 +735,8 @@ python scripts/corner_labels.py sample --proposals $D/proposals.jsonl --out $D/s
 python scripts/corner_gallery.py build --items-from $D/sample.csv     --corners-full runs/vancouver/corner_inventory169_split/corners_full.jsonl --bundle $B     --views-per-corner 6 --crop-aspect 2 --crop-fov-deg 120 --crop-px 896
 python scripts/corner_gallery.py render --bundle $B --rater jonf
 python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv     --bundle $B --verdicts $B/verdicts__jonf.json --out $D/score_gallery169.json
+# A SEQUENTIAL SAMPLE (#183) for the next rated test: a new dir, a reserve, looks; same build and score
+python scripts/corner_labels.py sample --proposals $D2/proposals.jsonl --out $D2/sample.csv     --reserve 15 --looks 40,60,80,100   # prints the boundaries and P(PASS) / expected n
 ```
 
 ## Runs rebuilt from the pano store; provenance gate
