@@ -6,6 +6,7 @@ bootstrap under node. Plus a consistency check of the committed Vancouver bundle
 sha256, parts, seed). CPU only, no network."""
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -509,6 +510,76 @@ def test_validate_accepts_prefilled_from_as_optional():
                for x in cs.validate(dict(v, prefilled_from_sha256='stale'), items, 'S'))
 
 
+# ------------------------------------------------------------------- tags (#184)
+
+def test_tag_set_v1_and_snapshot_lookup():
+    """The issue's six tags, in order; ids and keys unique; keys single lowercase letters the
+    page does not already use; bundles without tags (gallery 243, #169) read as none; an
+    edited set needs a new version."""
+    v1 = cg.TAG_SETS[cg.TAG_SET_VERSION]
+    assert [t['id'] for t in v1] == ['unsafe_crossing', 'nothing_to_cross_to', 'driveway_not_ramp',
+                                     't_driveways_only', 'occluded_or_blurry', 'not_a_real_corner']
+    for tags in cg.TAG_SETS.values():
+        assert all(set(t) == {'id', 'key', 'label', 'help'} and all(t.values()) for t in tags)
+        assert all(re.fullmatch(r'[a-z0-9_]+', t['id']) for t in tags)
+        keys = [t['key'] for t in tags]
+        assert len({t['id'] for t in tags}) == len(keys) == len(set(keys))
+        assert all(re.fullmatch('[a-z]', k) and k not in 'patbnjkc' for k in keys)
+    assert cg.tag_set_for({}) == (None, None)
+    for b in ('corner_gallery243', 'corner_gallery169_split'):
+        snap = cg.REPO_ROOT / 'runs/vancouver' / b / 'snapshot.json'
+        if snap.exists():
+            assert cg.tag_set_for(json.loads(snap.read_text(encoding='utf-8'))) == (None, None)
+    assert cg.tag_set_for({'tag_set_version': 1, 'tag_set': v1}) == (1, v1)
+    edited = [dict(v1[0], label='Unsafe')] + v1[1:]
+    with pytest.raises(SystemExit, match='edited tag set'):
+        cg.tag_set_for({'tag_set_version': 1, 'tag_set': edited})
+
+
+def test_validate_tags():
+    """Tags only from the bundle's own set, as a sorted unique list; a tagged bundle needs the
+    file's tag_set_version and list (as the rubric); blind vs final tag changes need
+    tags_after_inventory; files without tags stay valid where the bundle has none."""
+    items = [item('u1', 'clean')]
+    v1 = cg.TAG_SET_V1
+    plain = vfile({'u1': unit_verdicts(['absent', 'absent', 'present'])})
+    assert cs.validate(plain, items, 'S') == []                          # legacy bundle
+    tagged = dict(plain, tag_set_version=1, tag_set=v1)
+    tagged['units'] = json.loads(json.dumps(plain['units']))
+    u = tagged['units']['u1']
+    for m in (u['corners'], u['blind']):
+        m['0']['tags'] = ['nothing_to_cross_to', 'unsafe_crossing']
+    assert cs.validate(tagged, items, 'S', tag_set=v1, tag_set_version=1) == []
+
+    def probs(v, **kw):
+        return '\n'.join(cs.validate(v, items, 'S', **dict(dict(tag_set=v1, tag_set_version=1), **kw)))
+    # M3: strict on a tagged bundle; S6: no tag set means any tag is refused
+    assert 'tag_set_version None, expected 1' in probs(plain)
+    assert 'tag_set_version 2, expected 1' in probs(dict(tagged, tag_set_version=2))
+    assert 'tag set differs' in probs(dict(tagged, tag_set=v1[:5]))
+    assert 'but the bundle has no tag set' in probs(tagged, tag_set=None, tag_set_version=None)
+    assert "tag 'unsafe_crossing' is not in the bundle's tag set" in \
+        probs(dict(tagged, tag_set_version=None), tag_set=None, tag_set_version=None)
+    for bad, frag in ((['made_up'], "tag 'made_up' is not in"),
+                      (['unsafe_crossing', 'nothing_to_cross_to'], 'not sorted and unique'),
+                      (['unsafe_crossing', 'unsafe_crossing'], 'not sorted and unique'),
+                      ('unsafe_crossing', 'not a list of strings')):
+        w = json.loads(json.dumps(tagged))
+        for m in ('corners', 'blind'):
+            w['units']['u1'][m]['1']['tags'] = bad
+        assert frag in probs(w), bad
+    # a tag changed after the reveal must carry its flag, which needs inventory_seen
+    w = json.loads(json.dumps(tagged))
+    w['units']['u1']['corners']['2']['tags'] = ['occluded_or_blurry']
+    assert 'tags differ from blind but tags_after_inventory is false' in probs(w)
+    w['units']['u1']['tags_after_inventory'] = True
+    assert probs(w) == ''
+    w['units']['u1']['tags_after_inventory'] = 'yes'
+    assert 'is not a boolean' in probs(w)
+    w['units']['u1'].update(tags_after_inventory=True, inventory_seen=False, complete=False)
+    assert 'tags_after_inventory without inventory_seen' in probs(w)
+
+
 # --------------------------------------------------------------------------------- page
 
 def test_render_has_no_placeholders_and_no_part():
@@ -739,6 +810,81 @@ console.log(JSON.stringify(out));
     assert out[-1][4] == ['present', 'present', 'absent']
 
 
+def test_render_tag_controls():
+    """#184: a tagged bundle's page carries its tag set, native checkboxes, the flag and the
+    export keys; a bundle without tags renders TAG_SET = null (no control, pre-#184 export)."""
+    it = cg.build_item(full_record(), 'na_noramp', {}, {})
+    units = [cg.viewer_unit(it, '../../')]
+    ts = {'version': 1, 'tags': cg.TAG_SET_V1}
+    html = cg.build_html(units, 'S' * 64, 'jonf', None, 'E', None, 2, cg.RUBRIC_V2, ts)
+    assert '__' not in html.replace('verdicts__', '')
+    assert 'const TAG_SET = ' + json.dumps(ts) + ';' in html
+    assert 'type="checkbox" name="tg-' in html and 'role="group"' in html
+    assert 'aria-describedby="taghint"' in html and 'id="taghint" hidden' in html
+    assert 'out.tags_after_inventory = !!s.tags_after_inventory' in html
+    assert 'out.tag_set_version = TAG_SET.version' in html
+    assert 'const TAG_SET = null;' in cg.build_html(units, 'S' * 64, 'jonf', None, 'E')
+
+
+@pytest.mark.skipif(NODE is None, reason='node not installed')
+def test_tags_under_node(tmp_path):
+    """#184 page logic under node: tags sorted, unique, omitted when empty (pre-#184 shape);
+    prefilled with the blind read; a blind read that differs only in tags is the file's and
+    flags tags_after_inventory; unknown ids are listed, not dropped; review M1: after `a b`
+    on a two-corner unit a tag key still lands on the corner just rated. Also the whole page
+    script parses, with and without a tag set."""
+    v0 = {'0': {'verdict': 'absent', 'absent_kind': None}}
+    initial = {'items_sha256': 'S', 'units': {
+        'u1': {'corners': {'0': {'verdict': 'absent', 'tags': ['unsafe_crossing']}},
+               'blind': {'0': {'verdict': 'absent', 'tags': ['unsafe_crossing']}},
+               'complete': True, 'inventory_seen': True},
+        'u2': {'corners': v0, 'blind': v0, 'complete': True, 'inventory_seen': True},
+        'u3': {'corners': {'0': {'verdict': 'absent', 'tags': ['made_up']}}, 'blind': v0,
+               'complete': True, 'inventory_seen': True, 'tags_after_inventory': True}}}
+    t2 = {'0': {'verdict': 'absent', 'absent_kind': None, 'tags': ['nothing_to_cross_to']}}
+    local = {'u2': {'corners': t2, 'blind': t2, 'complete': True, 'seen': True,
+                    'inventory_seen': True}}
+    units = [{'id': u, 'corners': [{'k': '0'}]} for u in ('u1', 'u2', 'u3')]
+    js = cgp.STATE_BOOTSTRAP_JS + cgp.KEYS_JS + f"""
+const r = bootstrapState({json.dumps(initial)}, {json.dumps(local)}, {json.dumps(units)}, 'S');
+let v = [null, null], active = 0, last = null, ratedCi = null;
+function step(k) {{
+  const p = planKey(v, active, last, k);
+  if (p.op === 'verdict') v[p.ci] = p.value;
+  active = p.active; last = p.last; ratedCi = ratedAfter(ratedCi, p);
+}}
+step('a'); step('b');
+console.log(JSON.stringify({{
+  plain: copyCorners({json.dumps(v0)}),
+  empty: copyCorners({{'0': {{verdict: 'absent', absent_kind: null, tags: []}}}}),
+  messy: copyCorners({{'0': {{verdict: 'absent', tags: ['x', 'a', 'x']}}}}),
+  r: r, unknown: unknownTags(r.state, {json.dumps(units)}, ['unsafe_crossing', 'nothing_to_cross_to']),
+  m1: [active, last, ratedCi, tagTarget(active, ratedCi)], noRated: tagTarget(1, null),
+  toggles: [toggledTags(['x'], 'a'), toggledTags(['a', 'x'], 'x'), toggledTags(undefined, 'a')]}}));
+"""
+    p = tmp_path / 't.js'
+    p.write_text(js, encoding='utf-8')
+    out = json.loads(subprocess.run([NODE, str(p)], capture_output=True, text=True, check=True).stdout)
+    assert out['plain'] == v0 and out['empty'] == v0              # byte-shape of a tag-less entry
+    assert out['messy']['0']['tags'] == ['a', 'x']
+    st = out['r']['state']
+    assert st['u1']['corners']['0']['tags'] == ['unsafe_crossing'] == st['u1']['blind']['0']['tags']
+    assert st['u1']['tags_after_inventory'] is False and st['u3']['tags_after_inventory'] is True
+    assert st['u2']['blind'] == v0 and st['u2']['corners'] == t2           # file's blind read kept
+    assert st['u2']['tags_after_inventory'] is True and st['u2']['edited_after_inventory'] is False
+    assert out['r']['conflicts'] == ['u2'] and out['r']['blindFromFile'] == ['u2']
+    assert out['unknown'] == ['u3 corner 0: made_up']
+    assert out['m1'] == [1, None, 0, 0] and out['noRated'] == 1          # M1: corner 0, not 1
+    assert out['toggles'] == [['a', 'x'], ['a'], ['a']]
+    it = cg.build_item(full_record(), 'na_noramp', {}, {})
+    for ts in (None, {'version': 1, 'tags': cg.TAG_SET_V1}):
+        html = cg.build_html([cg.viewer_unit(it, '../../')], 'S' * 64, 'jonf', None, 'E', None, 2,
+                             cg.RUBRIC_V2, ts)
+        page = tmp_path / 'page.js'
+        page.write_text(html.split('<script>', 1)[1].split('</script>', 1)[0], encoding='utf-8')
+        subprocess.run([NODE, '--check', str(page)], capture_output=True, text=True, check=True)
+
+
 # ------------------------------------------------------------------ committed bundle
 
 @pytest.mark.skipif(not (BUNDLE / 'snapshot.json').exists(), reason='bundle not built')
@@ -770,6 +916,24 @@ def test_committed_bundle_is_consistent():
         side = cs.load_live_sidecar(BUNDLE, v['rater'])
         if side is not None:
             assert cs.validate_live_sidecar(side, v, snap['items_sha256']) == [], path.name
+
+
+@pytest.mark.parametrize('name', ['corner_gallery243', 'corner_gallery169_split'])
+def test_committed_exports_without_tags_stay_valid(name):
+    """#184 acceptance: the committed exports, made before tags, validate against their own
+    bundles exactly as the scorers call validate (the snapshot's tag set, None for both)."""
+    b = cg.REPO_ROOT / 'runs/vancouver' / name
+    if not (b / 'snapshot.json').exists():
+        pytest.skip('bundle not committed')
+    snap = json.loads((b / 'snapshot.json').read_text(encoding='utf-8'))
+    items = cg.read_jsonl(b / 'items.jsonl')
+    paths = sorted(b.glob('verdicts__*.json'))
+    assert paths
+    for path in paths:
+        v = json.loads(path.read_text(encoding='utf-8'))
+        assert cs.validate(v, items, snap['items_sha256'], snap['rubric'],
+                           snap.get('rubric_version', 1), snap.get('tag_set'),
+                           snap.get('tag_set_version')) == [], path.name
 
 
 # ------------------------------------------------------------------ reasons after the reveal

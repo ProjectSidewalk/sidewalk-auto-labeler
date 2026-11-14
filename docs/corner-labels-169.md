@@ -565,6 +565,11 @@ Filed as [#183](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/
 stop rule, caps), [#184](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/184)
 (tags) and [#185](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/185) (VLM
 pre-rater).
+Tags (#184) are in place for the next sample bundle: `build --items-from` records tag set v1,
+the page offers six one-click tags per corner, and `score` writes their blind and final counts
+by stratum to the score JSON's `tags` block, never into precision
+([docs/corner-gallery-243.md](corner-gallery-243.md#tags-184)). The committed split bundle
+keeps its tag-less form.
 
 ## Dry run (no server contacted)
 

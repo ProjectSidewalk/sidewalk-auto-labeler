@@ -627,6 +627,35 @@ def test_score_reports_sample_keys_not_in_the_proposals():
     assert res['n_proposals'] == 1 and res['sample_keys_not_in_proposals'] == ['zz#1']
 
 
+def test_tag_counts_by_stratum_are_descriptive():
+    """#184: blind and final tag tallies per stratum over the corners score() counts, zeros
+    listed; None without a tag set; score() itself is unchanged by tags; an unknown id stops."""
+    ids = ['unsafe_crossing', 'nothing_to_cross_to']
+    props = [{'key': f'u{i}#0', 'unit': f'u{i}', 'corner': 0,
+              'stratum': 'arterial' if i < 2 else 'residential'} for i in range(4)]
+    v = _verdicts([('u0', 0, 'absent', None), ('u1', 0, 'present', None),
+                   ('u2', 0, 'cant_tell', None)])                      # u3 never rated
+    plain = cl.score(props, v)
+    v['units']['u0']['blind']['0']['tags'] = ['unsafe_crossing']
+    v['units']['u1']['blind']['0']['tags'] = ['nothing_to_cross_to', 'unsafe_crossing']
+    for u in ('u0', 'u1', 'u2'):
+        v['units'][u]['corners'] = json.loads(json.dumps(v['units'][u]['blind']))
+    v['units']['u2']['corners']['0']['tags'] = ['nothing_to_cross_to']   # added after the reveal
+    assert cl.tag_counts(props, v) is None                                 # no tag_set_version
+    v.update(tag_set_version=1, tag_set=[{'id': t} for t in ids])
+    assert cl.score(props, v) == plain                                     # never in precision
+    tc = cl.tag_counts(props, v)
+    assert tc['tag_ids'] == ids and tc['corners'] == {'all': 3, 'arterial': 2, 'residential': 1}
+    assert tc['blind'] == {'all': {'unsafe_crossing': 2, 'nothing_to_cross_to': 1},
+                           'arterial': {'unsafe_crossing': 2, 'nothing_to_cross_to': 1},
+                           'residential': {'unsafe_crossing': 0, 'nothing_to_cross_to': 0}}
+    assert tc['final']['residential'] == {'unsafe_crossing': 0, 'nothing_to_cross_to': 1}
+    assert cl.tag_counts(props, v, sample_keys=['u0#0'])['corners'] == {'all': 1, 'arterial': 1}
+    v['units']['u0']['blind']['0']['tags'] = ['made_up']
+    with pytest.raises(SystemExit, match='made_up'):
+        cl.tag_counts(props, v)
+
+
 def test_na_read_settled_flag_records_the_settlement():
     """Without the flag build.json says what it always said; with it, the gallery 243
     settlement (PR #180) and whether this build's read is the primary one."""

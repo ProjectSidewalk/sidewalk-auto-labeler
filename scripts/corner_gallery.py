@@ -158,6 +158,32 @@ RUBRICS = {1: RUBRIC_V1, 2: RUBRIC_V2}
 RUBRIC_VERSION = 2                     # what a new bundle gets; see rubric_for()
 RUBRIC = RUBRICS[RUBRIC_VERSION]
 
+#: one-click per-corner tags (#184): descriptive notes that recur often enough to tally. They
+#: never enter precision. A sample bundle keeps the version it was built with (snapshot.json
+#: `tag_set_version` / `tag_set`), like the rubric; any edit to an id, key, label or help text
+#: needs a new version. Bundles built before tags existed have neither key and show no tags.
+#: Keys must not be one the page already uses (p a t b n j k c); tests check it.
+TAG_SET_V1 = [
+    {'id': 'unsafe_crossing', 'key': 'u', 'label': 'Not a safe place to cross',
+     'help': 'Crossing the street here would be unsafe whatever the ramp state: a busy or fast '
+             'road, a median, no marked or signal-controlled crossing.'},
+    {'id': 'nothing_to_cross_to', 'key': 'x', 'label': 'Nothing to cross to',
+     'help': 'No sidewalk or landing on the far side of the crossing this corner would serve.'},
+    {'id': 'driveway_not_ramp', 'key': 'd', 'label': 'Driveway apron, not a ramp',
+     'help': 'The only cut in the curb at this corner is a driveway apron.'},
+    {'id': 't_driveways_only', 'key': 'w', 'label': 'T with only driveways',
+     'help': 'The far side of a T whose only curb cuts are driveways and where no crossing '
+             'lands. Use it instead of driveway + nothing to cross to.'},
+    {'id': 'occluded_or_blurry', 'key': 'o', 'label': 'Occluded or blurry',
+     'help': 'The corner is hidden (vehicle, vegetation, shadow), out of frame, too far or '
+             'blurred in the crops.'},
+    {'id': 'not_a_real_corner', 'key': 'r', 'label': 'Not a real corner',
+     'help': 'The sector is not a street corner: an OSM artifact, a parking lot, a driveway or '
+             'alley mouth.'},
+]
+TAG_SETS = {1: TAG_SET_V1}
+TAG_SET_VERSION = 1                    # what a new sample bundle gets; see bundle_tag_set()
+
 
 # ----------------------------------------------------------------------------- helpers
 
@@ -406,6 +432,35 @@ def rubric_for(snapshot):
         raise SystemExit(f'snapshot.json rubric v{v} is not the text of RUBRICS[{v}]: an edited '
                          'rubric needs a new version')
     return v, text
+
+
+def tag_set_for(snapshot):
+    """(version, tags) a bundle is rated with, or (None, None) for a bundle without tags
+    (built before #184, or a gallery 243 build). The snapshot's list must be the exact list of
+    TAG_SETS[version]: an edited tag set needs a new version."""
+    v = snapshot.get('tag_set_version')
+    if v is None:
+        return None, None
+    tags = snapshot.get('tag_set')
+    if TAG_SETS.get(v) != tags:
+        raise SystemExit(f'snapshot.json tag set v{v} is not TAG_SETS[{v}]: an edited tag set '
+                         'needs a new version')
+    return v, tags
+
+
+def bundle_tag_set(bundle):
+    """The tag-set version a sample build writes (review M2 of #184). An existing snapshot.json
+    keeps its own, so re-running a build never adds tags to, or changes them on, a bundle that
+    may already hold ratings; a bundle built before tags stays tag-less. A new bundle gets
+    TAG_SET_VERSION, unless verdicts files already sit in it with no snapshot to say what they
+    were rated with: that is refused."""
+    snap_path = Path(bundle) / 'snapshot.json'
+    if snap_path.exists():
+        return tag_set_for(json.loads(snap_path.read_text(encoding='utf-8')))[0]
+    if any(Path(bundle).glob('verdicts__*.json')):
+        raise SystemExit(f'{bundle} holds verdicts files but no snapshot.json: refusing to give '
+                         'ratings made under an unknown tag set a new one')
+    return TAG_SET_VERSION
 
 
 # ----------------------------------------------------------------------------- loading
@@ -994,6 +1049,7 @@ def cmd_build_sample(args):
     panos = load_pano_index(results, wanted)
     inv_pos = load_inventory(inv_path)
     k, geom, rv = bundle_params(args, bundle)
+    tv = bundle_tag_set(bundle)            # before snapshot.json is rewritten (#184)
     items = [sample_item(records[u], by_unit_corners[u], panos, inv_pos, proposals, k, geom)
              for u in order]
 
@@ -1039,6 +1095,8 @@ def cmd_build_sample(args):
         'rubric_version': rv, 'rubric': RUBRICS[rv],
         'scorer': 'scripts/corner_labels.py score --proposals <proposals> --sample <sample.csv> '
                   '--bundle <this bundle> --verdicts <bundle>/verdicts__<rater>.json'}
+    if tv is not None:
+        snapshot.update(tag_set_version=tv, tag_set=TAG_SETS[tv])
     missing = make_images(args, bundle, items)
     snapshot['crops_missing'] = sorted(missing)
     snapshot['images'] = write_image_manifest(bundle, items)
@@ -1087,6 +1145,9 @@ def write_sample_report(bundle, snapshot, items, missing):
          + (' (gallery 243 v1 plus the phantom-leg / two-landing paragraph)'
             if snapshot['rubric_version'] == 2 else ', gallery 243 unchanged')
          + '. Reveal: the city inventory, after completion; the blind verdicts are scored.'),
+        *([f"- Tags: set v{snapshot['tag_set_version']} ("
+            + ', '.join(t['id'] for t in snapshot['tag_set'])
+            + '); descriptive, never scored.'] if snapshot.get('tag_set_version') else []),
         '- Score: `python scripts/corner_labels.py score --proposals <proposals> --sample '
         '<sample.csv> --bundle <this bundle> --verdicts <bundle>/verdicts__<rater>.json`.', '',
         '## Inputs', '', '| input | sha256 |', '|---|---|']
@@ -1174,7 +1235,9 @@ def load_prefill(bundle, rater, items_sha):
 
 
 def build_html(units, items_sha, rater, initial, attribution, prefilled_from=None,
-               rubric_version=RUBRIC_VERSION, rubric=RUBRIC):
+               rubric_version=RUBRIC_VERSION, rubric=RUBRIC, tag_set=None):
+    """The review page. tag_set: {'version': int, 'tags': [...]} for a bundle with tags (#184),
+    else None: the page then shows no tag control and exports no tag key."""
     from corner_gallery_page import HTML_TEMPLATE, KEYS_JS, PANO_LINKS_JS, STATE_BOOTSTRAP_JS
     return (HTML_TEMPLATE
             .replace('__STATE_BOOTSTRAP__', STATE_BOOTSTRAP_JS)
@@ -1186,6 +1249,7 @@ def build_html(units, items_sha, rater, initial, attribution, prefilled_from=Non
             .replace('__RATER__', json.dumps(rater))
             .replace('__RUBRIC_V__', str(rubric_version))
             .replace('__RUBRIC_JSON__', json.dumps(rubric))
+            .replace('__TAG_SET__', json.dumps(tag_set))
             .replace('__RUBRIC_HTML__', rubric.replace('&', '&amp;').replace('<', '&lt;'))
             .replace('__SCHEMA__', json.dumps(VERDICTS_SCHEMA))
             .replace('__INITIAL__', json.dumps(initial))
@@ -1216,8 +1280,10 @@ def cmd_render(args):
         print(msg)
     adates = load_aerial_dates(bundle, items_sha)
     rv, rubric = rubric_for(snapshot)
+    tv, tags = tag_set_for(snapshot)
     html = build_html([viewer_unit(i, rel, adates) for i in items], items_sha, args.rater, initial,
-                      snapshot['aerial']['attribution'], prefilled_from, rv, rubric)
+                      snapshot['aerial']['attribution'], prefilled_from, rv, rubric,
+                      None if tv is None else {'version': tv, 'tags': tags})
     (out / REVEAL_DIR).mkdir(exist_ok=True)
     for i in items:
         write_text_lf(out / reveal_file(i['unit']), reveal_script(i))

@@ -172,6 +172,8 @@ def export(bundle, verdicts):
     doc = {'schema': cgs.SCHEMA, 'city': 'vancouver', 'items_sha256': snap['items_sha256'],
            'rater': 'jonf', 'rubric_version': snap['rubric_version'], 'rubric': snap['rubric'],
            'units': units}
+    if snap.get('tag_set_version') is not None:          # the page exports the bundle's (#184)
+        doc.update(tag_set_version=snap['tag_set_version'], tag_set=snap['tag_set'])
     path = bundle / cg.rater_file_name('jonf')
     path.write_text(json.dumps(doc), encoding='utf-8')
     return path, doc
@@ -331,6 +333,7 @@ def test_rubric_versions_kept_per_bundle(setup):
     res = score(setup, vpath, '--bundle', str(setup.bundle))
     assert res['verdicts']['rubric_version'] == 2
     items = cg.read_jsonl(setup.bundle / 'items.jsonl')
+    doc = {k: v for k, v in doc.items() if k not in ('tag_set_version', 'tag_set')}   # rubric only
     assert cgs.validate(doc, items, snap['items_sha256'], snap['rubric'], 2) == []
     v1 = dict(doc, rubric_version=1, rubric=cg.RUBRIC_V1)
     assert any('rubric_version 1' in p for p in
@@ -342,6 +345,57 @@ def test_rubric_versions_kept_per_bundle(setup):
     build(setup.argv + ['--rubric-version', '1', '--rebuild'])
     snap = json.loads((setup.bundle / 'snapshot.json').read_text(encoding='utf-8'))
     assert (snap['rubric_version'], snap['rubric']) == (1, cg.RUBRIC_V1)
+
+
+def test_tag_set_kept_per_bundle_and_counted_by_stratum(setup):
+    """#184: a new sample bundle records tag set v1 (report.md says so); score --bundle adds a
+    descriptive tags block, blind and final, and leaves every precision field alone; an export
+    without the bundle's tag set, or with a tag outside it, cannot be scored (review M3); a
+    rebuild never adds tags to a bundle built without them, and a bundle holding verdicts but
+    no snapshot.json is refused (review M2)."""
+    build(setup.argv)
+    snap_path = setup.bundle / 'snapshot.json'
+    snap = json.loads(snap_path.read_text(encoding='utf-8'))
+    assert (snap['tag_set_version'], snap['tag_set']) == (1, cg.TAG_SET_V1)
+    assert '- Tags: set v1 (unsafe_crossing, ' in (setup.bundle / 'report.md').read_text(encoding='utf-8')
+    vpath, doc = export(setup.bundle, {'vancouver:res:n1': {0: ('absent', None)},
+                                       'vancouver:res:n2': {0: ('present', None),
+                                                            1: ('absent', None)}})
+    ids = [t['id'] for t in cg.TAG_SET_V1]
+    plain = score(setup, vpath, '--bundle', str(setup.bundle))
+    assert plain['tags']['corners'] == {'all': 3, 'residential': 3}
+    assert plain['tags']['blind']['all'] == dict.fromkeys(ids, 0)
+    u = doc['units']['vancouver:res:n2']
+    u['blind']['1']['tags'] = ['nothing_to_cross_to', 'unsafe_crossing']
+    u['corners']['1']['tags'] = ['nothing_to_cross_to', 'unsafe_crossing']
+    u['corners']['0']['tags'] = ['occluded_or_blurry']                 # after the reveal
+    u['tags_after_inventory'] = True
+    vpath.write_text(json.dumps(doc), encoding='utf-8')
+    res = score(setup, vpath, '--bundle', str(setup.bundle))
+    blind, final = res['tags']['blind']['residential'], res['tags']['final']['residential']
+    assert blind == dict(dict.fromkeys(ids, 0), nothing_to_cross_to=1, unsafe_crossing=1)
+    assert final == dict(blind, occluded_or_blurry=1)
+
+    def precision_only(r):
+        return {k: v for k, v in r.items() if k not in ('tags', 'verdicts')}
+    assert precision_only(res) == precision_only(plain)
+    # M3: an export from a page rendered without the tag set is refused, not read as no tags
+    vpath.write_text(json.dumps({k: v for k, v in doc.items()
+                                 if k not in ('tag_set_version', 'tag_set')}), encoding='utf-8')
+    with pytest.raises(SystemExit, match='cannot be scored'):
+        score(setup, vpath, '--bundle', str(setup.bundle))
+    u['blind']['1']['tags'] = u['corners']['1']['tags'] = ['made_up']
+    vpath.write_text(json.dumps(doc), encoding='utf-8')
+    with pytest.raises(SystemExit, match='cannot be scored'):
+        score(setup, vpath, '--bundle', str(setup.bundle))
+    # M2: a bundle built before tags stays tag-less on a rebuild
+    snap_path.write_text(json.dumps({k: v for k, v in snap.items()
+                                     if k not in ('tag_set_version', 'tag_set')}), encoding='utf-8')
+    build(setup.argv)
+    assert 'tag_set_version' not in json.loads(snap_path.read_text(encoding='utf-8'))
+    snap_path.unlink()
+    with pytest.raises(SystemExit, match='no snapshot.json'):
+        build(setup.argv)
 
 
 def _cut(tmp_path, worker_src, items):
