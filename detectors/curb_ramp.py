@@ -8,6 +8,7 @@ from torchvision import transforms
 
 from detectors import MODEL_REPO, load_with_offline_fallback, provenance_for_loaded_model
 from detectors.batching import DEFAULT_BATCH_WAIT_S, Batcher, ForwardStats
+from detectors.registry import CURB_RAMP, spec_for
 # The peak decode lives in the torch-free detectors.decode (#111); re-exported here because
 # callers have always imported it from this module.
 from detectors.decode import (BORDERS, DECODES, DEFAULT_BORDER, DEFAULT_DECODE,  # noqa: F401
@@ -67,6 +68,9 @@ class CurbRampDetector:
         det.close()
     """
 
+    #: The registry type this class detects; its DetectorSpec supplies the storage floor.
+    LABEL_TYPE = CURB_RAMP
+
     def __init__(self, allow_unknown_revision=False, batch_size=1,
                  batch_wait_s=DEFAULT_BATCH_WAIT_S, decode=DEFAULT_DECODE,
                  border=DEFAULT_BORDER, inference_lock=None):
@@ -78,10 +82,15 @@ class CurbRampDetector:
             raise ValueError(f'border must be one of {BORDERS}, got {border!r}')
         # Where detect() places each peak (detectors.decode, #111). Bound per run in
         # manifest.json by the callers; argmax is the default and what every live label used.
+        # A subclass with a fixed frame (CrosswalkDetector) passes its own values here and
+        # takes no decode/border argument of its own, so nothing can override them.
         self.decode = decode
         # Whether detect() keeps peaks beside the heatmap edge, the 360-degree seam included
         # (#130). Bound per run like the decode; `exclude` is the default and every live label.
         self.border = border
+        # Peaks are stored down to the type's own floor (DetectorSpec.storage_floor; CurbRamp's
+        # is detectors.DETECTION_STORAGE_FLOOR, so a CurbRamp run is unchanged).
+        self.storage_floor = spec_for(self.LABEL_TYPE).storage_floor
         # Serializes device work: concurrent full-resolution forward passes would exhaust
         # GPU memory. With batching, only the consumer thread takes it. registry.load_detectors
         # passes one lock shared by every detector of a multi-type run (#168).
@@ -93,13 +102,7 @@ class CurbRampDetector:
         else:
             self.DEVICE = torch.device("cpu")
 
-        model = load_with_offline_fallback(AutoModel.from_pretrained, MODEL_REPO,
-                                           trust_remote_code=True)
-        # transformers records the commit it resolved in config._commit_hash; the hub
-        # cache's snapshots/<sha> directory is the fallback for a load that did not set it.
-        commit_hash = getattr(model.config, '_commit_hash', None)
-        self.provenance = provenance_for_loaded_model(
-            commit_hash, _cached_snapshot_file, allow_unknown=allow_unknown_revision)
+        model, self.provenance = self._load_model(allow_unknown_revision)
         self.model = model.to(self.DEVICE).eval()
 
         # Built once (it was rebuilt on every call before #2); stateless, so thread-safe.
@@ -114,6 +117,19 @@ class CurbRampDetector:
                          if batch_size > 1 else None)
         self._stats = ForwardStats(1) if self._batcher is None else None
 
+    def _load_model(self, allow_unknown_revision):
+        """``(model, provenance)``: the weights to run and the identity they are recorded
+        under. CurbRamp loads ``projectsidewalk/rampnet-model`` from the hub and resolves the
+        revision it got (issue #39); a subclass loads its own weights here."""
+        model = load_with_offline_fallback(AutoModel.from_pretrained, MODEL_REPO,
+                                           trust_remote_code=True)
+        # transformers records the commit it resolved in config._commit_hash; the hub
+        # cache's snapshots/<sha> directory is the fallback for a load that did not set it.
+        commit_hash = getattr(model.config, '_commit_hash', None)
+        provenance = provenance_for_loaded_model(
+            commit_hash, _cached_snapshot_file, allow_unknown=allow_unknown_revision)
+        return model, provenance
+
     def heatmap(self, pil_image):
         """The model's 512x1024 heatmap for one image, as a float32 numpy array."""
         img_tensor = self._preprocess(pil_image)  # CPU, in the calling thread
@@ -127,10 +143,10 @@ class CurbRampDetector:
         return heatmap
 
     def detect(self, pil_image):
-        """Normalized ``[(x, y, confidence), ...]`` for one pano, down to the storage floor,
-        placed by ``self.decode``, edge peaks kept or dropped by ``self.border``."""
+        """Normalized ``[(x, y, confidence), ...]`` for one pano, down to the type's storage
+        floor, placed by ``self.decode``, edge peaks kept or dropped by ``self.border``."""
         return detections_from_heatmap(self.heatmap(pil_image), self.decode,
-                                       border=self.border)
+                                       border=self.border, floor=self.storage_floor)
 
     def _forward_batch(self, tensors):
         """One forward over stacked tensors -> one 512x1024 heatmap per input, in order.
