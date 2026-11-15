@@ -566,6 +566,21 @@ stop rule, caps), [#184](https://github.com/ProjectSidewalk/sidewalk-auto-labele
 (tags) and [#185](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/185) (VLM
 pre-rater).
 
+## Without the inventory (2026-11-15, #185 Stage 0): the rule still passes
+
+Would the rule clear its bar in a city with no ramp inventory? Stage 0 of the pre-rater plan
+([#185](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/185)) adds the 283
+corners the inventory removes back to the 3,070 proposals:
+P_free = (3,070 p + 283 (1 - v)) / 3,353. Here p is the precision above, 0.990
+[0.944, 0.998]. v is the share of inventory-removed corners that show a ramp, from gallery
+243's blind reads: 5 of 45, [0.048, 0.235]. **Worst case (p 0.944, v 0.235): 0.929 >= 0.90,
+PASS.** The point estimate is 0.981. So in Vancouver the inventory buys about one point of
+precision, and the question of a VLM standing in for it is closed here. The pass is not
+large: counting every can't-tell as a miss in both galleries and taking both interval ends at
+once gives 0.888. Readings, the over-merge filter (no change to v; 15 of 261 pool corners
+reassigned) and replication: [corner-prerater-185.md](corner-prerater-185.md),
+`runs/vancouver/corner_prerater185/gate.json`.
+
 ## Dry run (no server contacted)
 
 `python send_to_ps.py runs/vancouver/corner_labels169/na_<read>/results.jsonl --dry-run`.
