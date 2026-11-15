@@ -678,16 +678,35 @@ bytes, pinned against fixtures captured from main (`tests/test_multitype_submit.
 
 ## Multiple label types (#168)
 
-The plumbing for a second detector (crosswalk / NoCurbRamp, Planning#36). **No second
-detector exists yet**; the only spec is CurbRamp.
+The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp and
+**Crosswalk** (RampNet#274's `crosswalk_s4`, below). NoCurbRamp is not here yet (draft PR #177).
 
 - **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec(label_type, module, cls,
-  storage_floor, operational_confidence, benchmark_confidence, mask_rig)`, `SPECS`,
-  `spec_for(t)`, `parse_types`, `load_detectors(types, **kw)` (lazy import per spec). The
-  CurbRamp spec references the constants in `detectors/__init__.py`, which keep their names and
-  values; a new type brings its own thresholds (a crosswalk heatmap's floor and operating point
-  are not RampNet's). Wherever a consumer acts on a detection, it reads the thresholds and the
-  rig mask from the spec of THAT detection's type.
+  storage_floor, operational_confidence, benchmark_confidence, mask_rig, border='exclude')`,
+  `SPECS`, `spec_for(t)`, `parse_types`, `type_frame(t)`, `load_detectors(types,
+  type_kwargs=None, **kw)` (lazy import per spec; `**kw` to every detector, `type_kwargs[T]` to
+  T's only). The CurbRamp spec references the constants in `detectors/__init__.py`, which keep
+  their names and values; a new type brings its own thresholds (a crosswalk heatmap's floor and
+  operating point are not RampNet's). Wherever a consumer acts on a detection, it reads the
+  thresholds and the rig mask from the spec of THAT detection's type.
+- **Crosswalk** (`detectors/crosswalk.py`): spec floor 0.05, operational and benchmark 0.23,
+  rig mask on, border `keep`, i.e. RampNet's s4 recipe (the 0.23 point Jon's 440 s4 cards were
+  drawn at, chosen under exclude_border=False). The benchmark tier binds no judged bundle yet.
+  The mask removed 7 of 72 rated false alarms and 0 of 359 crosswalks. `CrosswalkDetector`
+  subclasses `CurbRampDetector` (same preprocessing, lock, batching) and overrides only
+  `_load_model`: it reads the `.pth` once, hashes the bytes, `torch.load`s the same bytes
+  (`weights_only=True`) and loads them strictly into `KeypointModel(pretrained_backbone=False)`
+  from `detectors/rampnet_keypoint.py` (RampNet `rampnet/model.py`, vendored verbatim and
+  hash-pinned). Its frame (argmax, `keep`, 0.05) is fixed: the constructor takes no
+  decode/border, and `main.py` refuses a non-default `--decode`/`--border` without CurbRamp in
+  `--types` (they apply to CurbRamp only in a mixed run). `--crosswalk-checkpoint` (env
+  `CROSSWALK_CHECKPOINT`) is required with Crosswalk. **Provenance** (`detectors/checkpoints.py`,
+  torch-free): `KNOWN_CHECKPOINTS` keyed on the file's sha256; `model_revision` =
+  `sha256:<64 hex>`, `model_id` = `rampnet-crosswalk@<12 hex>`, `model_repo` =
+  `unpublished:RampNet#274/crosswalk_s4`; an unknown sha256 refuses unless
+  `--allow-unknown-model-revision` (then a null date, which `send_to_ps.py` refuses).
+  `scripts/crosswalk_parity.py` is the loader's GPU acceptance test against RampNet's stored s4
+  predictions.
 - **Readers go through the helpers**, never the keys: `record_types(rec)` (the detectors that
   RAN on the pano; `label_types`, else `[label_type or 'CurbRamp']`), `detection_type(rec, d)`
   (the detection's own `label_type`, else the line's, else CurbRamp, and it RAISES on an
@@ -701,8 +720,8 @@ detector exists yet**; the only spec is CurbRamp.
   it was checked for); `models: {T: provenance}`; line-level `label_type` = the type iff one
   ran, else `null` (never derived from the detections); line-level `model_*` = CurbRamp's when
   CurbRamp ran, else `label_types[0]`'s. `detection_decode` / `detection_border` at line level
-  describe the CurbRamp detector; any other type's ride in `models[T]`. `API_VERSION` stays
-  `1.0.0`.
+  describe the CurbRamp detector; any other type's ride in `models[T]`, with its
+  `detection_storage_floor`. `API_VERSION` stays `1.0.0`.
 - **`main.py --types CurbRamp`** (comma list; an unknown type is a parser error listing
   SPECS). `main.detectors` is the loaded `{type: detector}`; `main.curb_ramp_detector` stays the
   CurbRamp entry, which is what `scripts/reinfer.py` and `scripts/detect_from_store.py` set.
@@ -717,8 +736,11 @@ detector exists yet**; the only spec is CurbRamp.
 
   A non-CurbRamp set also binds every type's model in a `models` map beside the top-level model
   block. `bind_model` runs on each `models[T]`, so the revision, training-date and
-  unknown-revision refusals all apply per type. Each run entry gains `models` too.
-  `detect_from_store.bind_manifest` binds CurbRamp or refuses.
+  unknown-revision refusals all apply per type, and `bind_type_frame` binds each non-CurbRamp
+  type's decode, border and storage floor there. The top-level `detection_storage_floor`,
+  `detection_decode` and `detection_border` describe CurbRamp and are **null** (never absent,
+  which reads as a legacy 0.55 / argmax / exclude run) when CurbRamp did not run. Each run entry
+  gains `models` too. `detect_from_store.bind_manifest` binds CurbRamp or refuses.
 - **Consumers**:
   - `fuse_sites.py --label-type` (default CurbRamp). `--floor`/`--min-confidence` default to
     the spec. Each SlimPano's decode/border are that type's (`registry.type_markers`). A
@@ -731,6 +753,12 @@ detector exists yet**; the only spec is CurbRamp.
     `provenance_gate` **refuse** a file whose records ran anything but `{CurbRamp}`. eval_sites
     makes that check inside `fs.load_results`' own pass (`require_types`), so there is no
     second scan.
-- **NOT done**: per-type `FuseParams` (#168 item 4), the ranker review-order export (item 5), and a
-  second detector. (Submission, one POST per line and type with per-type sidecars, has since
-  shipped; see Stage 2 above.)
+  - `send_to_ps.py`: the decode and border guards run per type (`type_frame_counts`), each
+    against only the campaigns that sent that type (`record_label_types`), so a Crosswalk
+    `keep` file and a city's `exclude` CurbRamp campaigns never refuse each other. A record of
+    a file that is not CurbRamp-only gains `label_types` and `type_frames`; its top-level
+    frame keys stay CurbRamp's. Bands are refused on any file that is not CurbRamp-only.
+- **NOT done**: per-type `FuseParams` (#168 item 4; PR #176), the ranker review-order export
+  (item 5), Crosswalk in `detect_from_store.py` / `reinfer.py`, and a type-aware
+  `send_to_ps.check_store_built` (draft PR #179). (Submission, one POST per line and type with
+  per-type sidecars, has shipped; see Stage 2 above.)
