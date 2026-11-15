@@ -729,6 +729,26 @@ python scripts/corner_gallery.py render --bundle $B --rater jonf
 python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D/sample.csv     --bundle $B --verdicts $B/verdicts__jonf.json --out $D/score_gallery169.json
 ```
 
+## Corner pre-rater and the inventory stand-in (#185)
+
+Write-up: [corner-prerater-185.md](corner-prerater-185.md). Plan
+`corner-prerater-absence-2026-11-15.md`; **only Stage 0 is approved and built.** `gate` asks
+whether the #169 rule still clears 0.90 without the inventory: P_free = (3,070 p + 283 (1 - v))
+/ 3,353, worst case p at its Wilson lower bound and v at its Wilson upper bound. It recomputes
+the 283 from the split table (and checks it against `unlabeled.csv`), p from gallery 169's blind
+reads, v from gallery 243's (read by path with a sha256 pin, because the copy on this branch is
+the partial 50-unit export), applies the over-merge filter, and writes
+`runs/vancouver/corner_prerater185/gate.json`. Every input is sha256-pinned. The sidewalk
+reading needs shapely >= 2 (use the conda env); `--sidewalks none` skips it. `export` and
+`score` (Stages 1-2, Gemini calls) are not implemented.
+
+```bash
+P=/c/Users/jonf/anaconda3/envs/sidewalk-auto-labeler/python.exe
+$P scripts/corner_prerater.py gate            # defaults point at the sibling worktrees
+$P scripts/corner_prerater.py gate --check    # recompute, compare with the committed gate.json
+$P scripts/corner_prerater.py figures         # docs/figures/corner-prerater-185/
+```
+
 ## Runs rebuilt from the pano store; provenance gate
 
 ```bash

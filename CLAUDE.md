@@ -93,6 +93,7 @@ named here. Verdicts are summarised only where they set a production default.
 | `export_cluster_review.py`, `cluster_review_score.py`, `corner_inventory.py` | cluster-review GT (RampNet#224) and the corner inventory (RampNet#238), Vancouver | `docs/ps-clustering-eval.md`, `docs/corner-inventory.md` |
 | `detect_from_store.py`, `provenance_gate.py`, `reinfer.py --ids` | a run rebuilt from the PS pano store (#56) | `docs/ps-clustering-eval.md` "Step 2"; Vancouver gate STOP |
 | `corner_labels.py` | NoCurbRamp proposals from absent corners (#169) | `docs/corner-labels-169.md`; `--na-read` required (discount settled by gallery 243), NOT SCORED, nothing submitted; test revised 2026-11-06 to the `--split-wide` table (`*_split` dirs) |
+| `corner_prerater.py` | VLM corner pre-rater (#185); Stage 0 only: #169 precision without the inventory | `docs/corner-prerater-185.md`; Stage 0 PASS (worst case 0.929), Stages 1-2 (Gemini) not approved |
 | `agree_rate.py` | AI vs crowd labels (#31) | `docs/agree-rate-gainesville.md` |
 | `server_agree_check.py` | live-label validation precision, auditor vs AI | `docs/server-agree-check.md` |
 | `label_frame_beta.py` | human-label vs image frame on GSV (#113) | commands.md section; lower bounds, not a placement coefficient |

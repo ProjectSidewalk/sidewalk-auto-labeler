@@ -297,3 +297,7 @@ docs/figures/mined-precision/data/step4/richmond_f01/*.jsonl
 !runs/*/corner_labels169_split/*/score*.json
 !runs/*/corner_labels169_split/*/export.json
 !runs/*/corner_labels169_split/*/dry_run_summary.txt
+# VLM pre-rater for corner galleries (scripts/corner_prerater.py, issue #185; write-up in
+# docs/corner-prerater-185.md): the Stage 0 gate result.
+!runs/*/corner_prerater185/
+!runs/*/corner_prerater185/gate.json
