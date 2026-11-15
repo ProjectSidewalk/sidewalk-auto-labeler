@@ -43,6 +43,20 @@ included.
   not the curb). The site-median rebuild would move these three by 3.60, 2.48 and 2.00 m
   toward the centre. The remaining 197 of that file are on hold for good. It is replaced by
   the file below.
+- **Second smoke send (new file, cleared by Jon 2026-11-15; run by Claude Opus 5.5 at
+  2026-11-15T14:20:41Z):** `send_to_ps.py results.pilot200.jsonl --endpoint <test> --limit 3`
+  from `na_discount_sw_sitemed/pilot_residential/`. Before it: sha256 `567b8863…d0b446`
+  re-checked, dry run 0 errors, every `pilot_guards.py` check PASS, the three panos' test
+  `/backupImage/<id>/metadata` answered 200. A first attempt got HTTP 401 on all three (no
+  `PS_INTERNAL_API_KEY` in the worktree; nothing landed, no sidecar written); the re-run with the
+  key 0 errors. `.submission.json` committed; `.submitted` holds lines 1-3.
+  - Labels: `vancouver-test:89738` (pano `4KpliJAiXgqswes8G0g2XQ`, pilot position 4), `:89739`
+    (`b08SQFYKM92x6TcvKEGVWw`, 5) and `:89740` (`Rv-KWv2G7ecm0-4gw1WV4Q`, 6).
+  - Check (public `/v3/api/rawLabels?labelType=NoCurbRamp`, makelab1 ssh refused): test held 3
+    NoCurbRamp labels before (89735-89737) and 6 after; pano_x/pano_y equal the file's. The
+    server's lat/lng is 0.92 / 0.40 / 0.50 m from the build's site-median label point and 2.18 /
+    1.71 / 2.94 m from the old corner point. Whether the markers sit at the curb is Jon's
+    visual check.
 
 ## 1. The placement fix (`build --label-point site-median`, the default since 2026-11-11)
 
