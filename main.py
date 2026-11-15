@@ -1618,7 +1618,8 @@ def main():
     parser.add_argument(
         "--allow-unknown-model-revision", action="store_true",
         help="Run even though the loaded model's Hugging Face revision is not in "
-             "detectors.KNOWN_REVISIONS (issue #39). model_training_date is then written as "
+             "detectors.KNOWN_REVISIONS (issue #39), or a local checkpoint's sha256 is not in "
+             "detectors.checkpoints.KNOWN_CHECKPOINTS. model_training_date is then written as "
              "null and the manifest records the override; send_to_ps.py refuses such a file "
              "until the revision is added to the table. For trying a new checkpoint, never for "
              "a submission run."
@@ -1717,8 +1718,8 @@ def main():
                   f"(model_id {prov['model_id']}, trained {prov['model_training_date']})")
             if prov['model_training_date'] is None:
                 print("⚠ --allow-unknown-model-revision: this revision is not in "
-                      "detectors.KNOWN_REVISIONS; records carry a null training date and "
-                      "send_to_ps.py will refuse them.")
+                      "detectors.KNOWN_REVISIONS (or detectors.checkpoints.KNOWN_CHECKPOINTS); "
+                      "records carry a null training date and send_to_ps.py will refuse them.")
 
     t_run = time.perf_counter()
     try:
