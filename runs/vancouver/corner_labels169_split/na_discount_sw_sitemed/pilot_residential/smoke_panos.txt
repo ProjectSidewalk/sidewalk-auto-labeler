@@ -2,3 +2,7 @@
 R89SNAFa2yc770d_Z6PD1w
 ohEOR_VckTCGrJ6HzdzU7w
 GnIlezUX8SPE_OlRLyK4-g
+# panos of the 2026-11-15T14:20:41Z smoke send (results.pilot200.jsonl lines 1-3 = pilot positions 4-6, vancouver-test labels 89738-89740)
+4KpliJAiXgqswes8G0g2XQ
+b08SQFYKM92x6TcvKEGVWw
+Rv-KWv2G7ecm0-4gw1WV4Q

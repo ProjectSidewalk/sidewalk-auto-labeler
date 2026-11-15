@@ -2,6 +2,11 @@
 
 ## What Jon has to decide / do
 
+**2026-11-15 status: ON HOLD.** The second smoke send (positions 4-6) put 2 of 3 markers at the
+curb and 1 in the street (section 5, deviation 3). The rated order now starts at position 7.
+Nothing more is sent until a local placement check passes. The list below is the 11-11 list,
+kept for the record.
+
 1. **Approve the new file.** `runs/vancouver/corner_labels169_split/na_discount_sw_sitemed/pilot_residential/results.pilot200.jsonl`:
    sha256 `567b8863…d0b446`, 200 labels on 197 panos (pilot positions 4-203), to `sidewalk-vancouver-test`.
 2. **First, a 3-POST smoke send of it** (positions 4-6; section 3). Check that the markers now sit at the curb.
@@ -255,10 +260,25 @@ declared changes.
 - **What it measures.** The rated labels carry the new placement, so the pilot measures the
   site-median labels. The first file's three are reported apart, as the reason for the fix.
 
+**Deviation 3 (declared 2026-11-15, after the second smoke send and before any rating).**
+- **Why.** Jon checked the placement of the second smoke send's three labels (positions 4-6,
+  `vancouver-test:89738`-`89740`) in the live viewer, so they are not blind either.
+- **The rated order now starts at position 7.** Rate = positions 7-106, reserve = 107-126. No
+  other pilot corner sits on the three smoke panos, so nothing else drops.
+- **Tools.** `--skip-first 6`; the three panos were appended to `$P/smoke_panos.txt`, so
+  `--exclude-panos $P/smoke_panos.txt` covers both smoke sends.
+- **Placement verdict (Jon, 2026-11-15):** 89738 and 89740 at the curb; **89739 in the street**,
+  short of a rounded curb. The fixed distance along the bisector (10.41 m there, case `unit`)
+  cannot follow each corner's own street widths and curb radius. **The remaining 197 POSTs are on
+  hold** until a placement check on residential corners outside the rated range (positions
+  127+, so blinding is untouched) passes a bar written before looking. If the rule changes, the
+  file is rebuilt and gets a new sha256, guards and a fresh smoke send from outside the rated
+  range, each cleared separately.
+
 **The lead's steps after the send:**
 1. Run the second SELECT in section 4 and save it as `labels.csv`.
 2. `corner_labels.py pilot-links --pilot <na_discount_sw>/pilot_residential/pilot.csv
-   --proposals <na_discount_sw_sitemed>/proposals.jsonl --labels labels.csv --skip-first 3
+   --proposals <na_discount_sw_sitemed>/proposals.jsonl --labels labels.csv --skip-first 6
    --exclude-panos $P/smoke_panos.txt --server https://sidewalk-vancouver-test.cs.washington.edu`
    prints one `/gallery?labelIds=…` URL of the first 120 in order.
 3. Validate them top to bottom.
