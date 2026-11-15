@@ -430,6 +430,29 @@ def test_type_frame_counts_of_a_curb_ramp_file_match_the_line_level_counters():
     assert send_to_ps.type_frame_record_values(GOLDEN) == {}
 
 
+def test_type_frame_counts_refuses_a_line_whose_models_lack_a_listed_type(tmp_path):
+    """Skipping it would also hide the frame of the line's other type, which can still be sent."""
+    import send_to_ps
+    line = {'label_types': ['Crosswalk', 'CurbRamp'], 'detections': [],
+            'models': {'CurbRamp': {'model_id': 'rampnet-model@abc'}}}
+    path = tmp_path / 'results.jsonl'
+    path.write_text('not json\n' + json.dumps(line) + '\n', encoding='utf-8')
+    with pytest.raises(ValueError, match=r"line 2: .*no entry for 'Crosswalk'"):
+        send_to_ps.type_frame_counts(path)
+
+
+def test_frame_helpers_use_counts_they_are_given(tmp_path):
+    """process_jsonl_file parses the file once and hands the counts to every frame helper."""
+    from collections import Counter
+    import send_to_ps
+    counts = {'Crosswalk': (Counter({'argmax': 3}), Counter({'keep': 3}))}
+    missing = tmp_path / 'runs' / 'x' / 'results.jsonl'     # never opened
+    assert send_to_ps.type_frame_record_values(missing, counts) == {
+        'Crosswalk': {'detection_decode': 'argmax', 'detection_border': 'keep'}}
+    assert send_to_ps.check_detection_decode(missing, None, counts) == 'argmax'
+    assert send_to_ps.check_detection_border(missing, None, counts) == 'exclude'
+
+
 # --- scripts/crosswalk_parity.py (the GPU script's matching rule) -----------------------------
 
 def test_parity_compare_rule():
