@@ -532,3 +532,73 @@ $PY scripts/corner_placement_check.py score --out $O --tags $O/tags_ai_claude-op
 3. **Curbless corners:** whether to drop them from labeling.
 
 Each later rebuild, guard run and smoke send is still cleared separately.
+
+### 12.3 Confirmation check: rule B on ATTACHED corners (pre-registration, 2026-11-15)
+
+**Status: approved by Jon 2026-11-15 and committed before the draw**, before any pano is
+fetched and before any card is rendered. Only the draw's digest is added after this commit;
+nothing else in this section changes.
+
+**Jon's decisions (2026-11-15).**
+1. A NoCurbRamp label must be **at the curb**, also at a DETACHED (planter-strip) corner. The
+   sidewalk corner behind the strip is not acceptable.
+2. Route: pilot on **ATTACHED corners only, with rule B** (`sidewalk-crossing`), after this
+   check. DETACHED corners stay out until a curb-finding rule passes a check of its own.
+3. Curbless corners: still open. Here they are `cant_tell`, as in 12.1.
+
+**Why a new check.** 12.2's 17 of 19 is a split made after unblinding, on 23 corners. It is a
+reason to test, not a result.
+
+**ATTACHED corner** (fixed before the draw; `UNITTYPE` is the city sidewalk layer's own field):
+- rule B finds a crossing, and
+- the crossed line's `UNITTYPE` is `ATTACHED`, and
+- every line of the layer within 6 m of the crossing point is `ATTACHED` (a line with no
+  `UNITTYPE` fails this). This covers both legs where they are separate features. 6 m is
+  under a residential street's width, so the opposite corners are not counted.
+
+Counts, all 1,984 residential corners of the pilot order: 832 by the crossed line alone, **799**
+with the 6 m clause (804 at 4 m, 793 at 8 m, so the radius hardly matters). All 23 ATTACHED
+corners of the first check also meet the 6 m clause, so 12.2's 17 of 19 is the same set.
+
+**Pilot block (reserved, never drawn here).** The ATTACHED corners in pilot order from position
+7, less the first check's 60 corners and any corner on a smoke pano: 775. The **first 260** of
+them (through position 661) are reserved for the rebuilt pilot file (3 smoke + 200 + spare).
+
+**Sample.** Seed 20261117; **80** corners drawn with `random.Random(seed).sample` from the
+other 515 ATTACHED corners, less any whose chosen pano is also chosen in the pilot block or at
+positions 1-203, or is a smoke pano, or a pano of the first check: **469 eligible**. Rule B
+only, one card per corner, same crop and marker as 12.1. Expected about 66 decidable cards
+(12.2 had 4 of 23 `cant_tell`).
+
+**Tags.** The four of 12.1, unchanged.
+
+**Raters.**
+- AI pre-pass by Claude Fable 5.2 (claude-fable-5-2), from the cards alone, committed before
+  Jon sees the page. (Rules B and C were designed by Claude Opus 5.5, not by this model.)
+- **Jon's tags are the verdict.** A local, self-contained HTML page shows each card with the
+  AI's tag; one key confirms it, another key overrides it. The page exports a JSON of Jon's
+  tags. Jon sees the AI's tag first, so his tags are not independent of it; that is the price
+  of about 80 key presses in place of 80 fresh judgements.
+
+**Bar** (Jon's tags): `at_curb` >= 0.90 of the decidable cards AND at most 2 `in_street`. The
+Wilson 95% interval is reported and does not gate.
+
+**What each outcome means.**
+- **PASS:** rebuild the pilot file on the pilot block with rule B. Guards, a 3-label smoke
+  send and the send follow, each cleared separately.
+- **NEAR MISS** (share 0.80 to under 0.90, at most 2 `in_street`): apply the same bar to the
+  cards the **AI** tagged `at_curb`. If that subset passes, the pilot may go ahead **screened**:
+  the AI tags every pilot-block corner's rule-B card, and only corners it tags `at_curb` are
+  sent. The write-up must then say the placement was screened by an AI tagger, not automatic.
+  If the subset fails, treat as FAIL.
+- **FAIL** (share under 0.80, or 3 or more `in_street`): rule B is not good enough even on
+  ATTACHED corners. No rebuild. Placement goes to the image-based route (find the curb in the
+  pano).
+- **More than 30% `cant_tell`:** reported as a finding for decision 3 before anything is
+  rebuilt, whatever the share.
+
+**What the pilot can then claim.** Its precision speaks for ATTACHED residential corners in
+Vancouver (about 40% of the pool), not for all corners. Re-drawing the rated sample from the
+pilot block is deviation 4 of section 5, to be declared before the rebuild.
+
+Nothing here touches a server. Pixels come from the makelab2 pano store, read-only.
