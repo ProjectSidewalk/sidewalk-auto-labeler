@@ -16,6 +16,9 @@ Pre-registration, tag set and pass bar: docs/corner-labels-169-pilot.md, "Placem
 
     python scripts/corner_placement_check.py sample --out runs/vancouver/corner_placement169
     #   -> sample.json, cards.json (blind), key.json (rule per card), panos_needed.txt
+    # the confirmation check of rule B on ATTACHED corners only (pilot sheet section 12.3):
+    python scripts/corner_placement_check.py sample --attached \\
+        --out runs/vancouver/corner_placement169_attached
     python scripts/corner_placement_check.py render --out runs/vancouver/corner_placement169 \\
         --panos <dir holding <id[:2]>/<id>.jpg>
     #   -> crops/, review/ montages, index.html (no rule shown)
@@ -57,6 +60,12 @@ N_SAMPLE = 60
 #: first pilot position eligible: the send file holds positions 4-203 (rated 7-106, reserve
 #: 107-126 after deviation 3), so 204+ is never sent from that file nor rated
 MIN_POSITION = 204
+#: the ATTACHED-only confirmation check (pilot sheet section 12.3), fixed before its draw
+ATTACHED_SEED = 20261117
+ATTACHED_N = 80
+ATTACHED_RESERVE = 260          # first ATTACHED corners in pilot order, kept for the pilot file
+ATTACHED_FIRST_POSITION = 7     # positions 1-6 went out in the two smoke sends
+PREVIOUS_SAMPLE = 'runs/vancouver/corner_placement169/sample.json'
 STRATUM = 'residential'
 RULES = {'A': 'site-median', 'B': 'sidewalk-crossing', 'C': 'sidewalk-crossing-inset'}
 #: Jon's verdicts on the 2026-11-15 smoke send (rule A, the live viewer)
@@ -125,6 +134,41 @@ def draw(order, chosen_pano, blocked_panos, n=N_SAMPLE, seed=SEED, min_position=
     return eligible, [k for k in eligible if k in pick]
 
 
+def draw_attached(order, chosen_pano, attached, seen_keys, smoke_panos, seen_panos,
+                  n=ATTACHED_N, seed=ATTACHED_SEED, reserve=ATTACHED_RESERVE,
+                  first_position=ATTACHED_FIRST_POSITION, min_position=MIN_POSITION):
+    """(pool, block, eligible, drawn) for the ATTACHED-only check, all in pilot order.
+
+    pool: attached keys at positions >= first_position, not in seen_keys (the first check's
+    corners), chosen pano not a smoke pano. block: its first `reserve` keys, kept for the pilot
+    file. eligible: the rest, less any key whose chosen pano is a smoke pano, a first-check
+    pano (seen_panos), chosen in the block, or chosen at a position < min_position. drawn:
+    random.Random(seed).sample of n of them.
+
+    >>> order = [f'k{i}' for i in range(1, 13)]
+    >>> pano = {k: k.upper() for k in order}
+    >>> pano['k12'] = 'K4'
+    >>> pool, block, el, got = draw_attached(order, pano, set(order) - {'k5'}, {'k6'}, {'K7'},
+    ...                                      {'K9'}, n=2, seed=1, reserve=2, first_position=3,
+    ...                                      min_position=1)
+    >>> pool, block
+    (['k3', 'k4', 'k8', 'k9', 'k10', 'k11', 'k12'], ['k3', 'k4'])
+    >>> el
+    ['k8', 'k10', 'k11']
+    >>> len(got), set(got) <= set(el)
+    (2, True)
+    """
+    pool = [k for i, k in enumerate(order, 1)
+            if i >= first_position and k in attached and k not in seen_keys
+            and chosen_pano.get(k) is not None and chosen_pano[k] not in smoke_panos]
+    block = pool[:reserve]
+    off = set(smoke_panos) | set(seen_panos) | {chosen_pano[k] for k in block}
+    off |= {chosen_pano[k] for k in order[:min_position - 1] if chosen_pano.get(k)}
+    eligible = [k for k in pool[reserve:] if chosen_pano[k] not in off]
+    pick = set(random.Random(seed).sample(eligible, min(n, len(eligible))))
+    return pool, block, eligible, [k for k in eligible if k in pick]
+
+
 class _Fixed:
     """Fallback placement for SidewalkCrossingPlacement: the build's stored site-median point."""
 
@@ -157,23 +201,53 @@ def cmd_sample(args):
     chosen = {k: props[k]['pano']['pano_id'] for k in order if k in props}
     rated_panos = {chosen[k] for k in order[:MIN_POSITION - 1] if k in chosen}
     smoke = set(cl.read_pano_list(args.smoke_panos))
-    eligible, keys = draw(order, chosen, rated_panos | smoke, args.n, args.seed)
-    calib = [k for k in CALIBRATION if k in props]
-    if len(calib) != len(CALIBRATION):
-        raise SystemExit(f'calibration corners missing from the build: '
-                         f'{sorted(set(CALIBRATION) - set(calib))}')
-    want = keys + calib
     units = {}
     for rec in ci.read_jsonl(args.corners):
         units[rec['unit']] = rec
-    res = cl.run_results_paths(build)
-    pano_ids = {props[k]['pano']['pano_id'] for k in want}
-    panos = cl.load_pano_index([(name, rec['path']) for name, rec in sorted(res.items())],
-                               pano_ids)
     fixed = _Fixed(props)
     placers = {'B': cl.SidewalkCrossingPlacement(args.sidewalks, fixed, 'sidewalk-crossing'),
                'C': cl.SidewalkCrossingPlacement(args.sidewalks, fixed,
                                                  'sidewalk-crossing-inset')}
+    attached_rec = None
+    if args.attached:
+        # section 12.3: rule B only, ATTACHED corners only, outside the pilot block and the
+        # first check; no calibration cards (those three are development data of 12.1)
+        rules = ('B',)
+        n = ATTACHED_N if args.n is None else args.n
+        seed = ATTACHED_SEED if args.seed is None else args.seed
+        prev = json.loads(Path(args.previous_sample).read_text(encoding='utf-8'))
+        seen = set(prev['keys'])
+        seen_panos = {chosen[k] for k in seen if k in chosen}
+
+        def corner_of(k):
+            rec = units[props[k]['unit']]
+            return rec, next(c for c in rec['corners'] if c['corner'] == props[k]['corner'])
+        attached = {k for k in chosen if placers['B'].attached_corner(*corner_of(k))}
+        pool, block, eligible, keys = draw_attached(order, chosen, attached, seen, smoke,
+                                                    seen_panos, n, seed)
+        calib = []
+        attached_rec = {
+            'radius_m': cl.ATTACHED_RADIUS_M, 'n_attached_all': len(attached),
+            'first_position': ATTACHED_FIRST_POSITION, 'n_pool': len(pool),
+            'reserve': ATTACHED_RESERVE, 'pilot_block_keys': block,
+            'pilot_block_keys_sha256': sha256_text('\n'.join(block)),
+            'pilot_block_last_position': order.index(block[-1]) + 1 if block else None,
+            'previous_sample': str(args.previous_sample),
+            'previous_sample_sha256': ci.sha256_file(args.previous_sample)}
+    else:
+        rules = tuple(RULES)
+        n = N_SAMPLE if args.n is None else args.n
+        seed = SEED if args.seed is None else args.seed
+        eligible, keys = draw(order, chosen, rated_panos | smoke, n, seed)
+        calib = [k for k in CALIBRATION if k in props]
+        if len(calib) != len(CALIBRATION):
+            raise SystemExit(f'calibration corners missing from the build: '
+                             f'{sorted(set(CALIBRATION) - set(calib))}')
+    want = keys + calib
+    res = cl.run_results_paths(build)
+    pano_ids = {props[k]['pano']['pano_id'] for k in want}
+    panos = cl.load_pano_index([(name, rec['path']) for name, rec in sorted(res.items())],
+                               pano_ids)
     cam_h = build['params']['camera_height_m']
     rng_m = build['params']['max_range_m']
     corners, cards = [], []
@@ -189,7 +263,8 @@ def cmd_sample(args):
                'position': order.index(k) + 1, 'calibration': k in CALIBRATION,
                'pano_id': p['pano']['pano_id'], 'width': p['pano']['width'],
                'height': p['pano']['height'], 'rules': {}}
-        for r, lp in pts.items():
+        for r in rules:
+            lp = pts[r]
             if r == 'A' or lp['case'] == 'site_median_fallback':
                 # the build's own pixel, exactly what is sent: its stored lat/lng is rounded
                 # to 1e-6 deg, which moves a reprojection by pixels when the pano is close
@@ -207,7 +282,7 @@ def cmd_sample(args):
                                'sidewalk': lp.get('sidewalk')}
             cards.append({'key': k, 'rule': r})
         corners.append(row)
-    random.Random(args.seed + 1).shuffle(cards)
+    random.Random(seed + 1).shuffle(cards)
     for i, cd in enumerate(cards, 1):
         cd['card'] = f'c{i:03d}'
     by_key = {r['key']: r for r in corners}
@@ -220,15 +295,18 @@ def cmd_sample(args):
     write_json(out / 'key.json', [{'card': cd['card'], 'key': cd['key'], 'rule': cd['rule'],
                                    'calibration': cd['key'] in CALIBRATION} for cd in cards])
     rec = {'schema': 'sidewalk-auto-labeler.corner_placement_check.sample/1',
-           'issue': 'sidewalk-auto-labeler#169', 'seed': args.seed, 'n': args.n,
-           'min_position': MIN_POSITION, 'stratum': STRATUM, 'rules': RULES,
+           'issue': 'sidewalk-auto-labeler#169', 'seed': seed, 'n': n,
+           'min_position': MIN_POSITION, 'stratum': STRATUM,
+           'rules': {r: RULES[r] for r in rules},
            'sidewalk_inset_by_type_m': cl.SIDEWALK_INSET_BY_TYPE,
            'sidewalk_ray_m': list(cl.SIDEWALK_RAY_M),
            'build': {'dir': str(args.build), 'tool_git_sha': build['tool']['git_sha']},
            'proposals_sha256': ci.sha256_file(Path(args.build) / 'proposals.jsonl'),
            'pilot_sha256': ci.sha256_file(args.pilot),
            'sidewalks_sha256': ci.sha256_file(args.sidewalks),
-           'n_eligible': len(eligible), 'blocked_panos': len(rated_panos | smoke),
+           'n_eligible': len(eligible),
+           **({'attached': attached_rec} if attached_rec else
+              {'blocked_panos': len(rated_panos | smoke)}),
            'keys': keys, 'keys_sha256': sha256_text('\n'.join(keys)),
            'calibration': {k: {'label': v[0], 'jon': v[1]} for k, v in CALIBRATION.items()},
            'corners': corners}
@@ -459,8 +537,13 @@ def main(argv=None):
     s.add_argument('--smoke-panos', default=DEFAULTS['smoke_panos'])
     s.add_argument('--corners', default=DEFAULTS['corners'])
     s.add_argument('--sidewalks', default=DEFAULTS['sidewalks'])
-    s.add_argument('--n', type=int, default=N_SAMPLE)
-    s.add_argument('--seed', type=int, default=SEED)
+    s.add_argument('--n', type=int, help=f'default {N_SAMPLE} ({ATTACHED_N} with --attached)')
+    s.add_argument('--seed', type=int, help=f'default {SEED} ({ATTACHED_SEED} with --attached)')
+    s.add_argument('--attached', action='store_true',
+                   help='the confirmation check (sheet 12.3): rule B on ATTACHED corners only, '
+                        'outside the pilot block and the first check')
+    s.add_argument('--previous-sample', default=PREVIOUS_SAMPLE,
+                   help="the first check's sample.json: its corners and panos are excluded")
     r = sub.add_parser('render', help='cut the crops, montages and index.html')
     r.add_argument('--out', required=True)
     r.add_argument('--panos', required=True, help='local copy of the store: <id[:2]>/<id>.jpg')

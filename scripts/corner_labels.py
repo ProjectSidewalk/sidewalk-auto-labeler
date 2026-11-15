@@ -120,6 +120,11 @@ LABEL_INSET_M = 0.8
 #: and the crossing 15.3 m), 1.0 m for any other UNITTYPE (none recorded).
 SIDEWALK_RAY_M = (3.0, 20.0)
 SIDEWALK_INSET_BY_TYPE = {'ATTACHED': 0.0, 'DETACHED': 2.5, 'other': 1.0}
+#: An ATTACHED corner (SidewalkCrossingPlacement.attached_corner; pilot sheet section 12.3):
+#: every layer line within this many metres of the bisector's crossing must be ATTACHED. It
+#: covers both legs where they are separate features and stays under a residential street's
+#: width, so the opposite corners are not counted. Fixed before the confirmation draw.
+ATTACHED_RADIUS_M = 6.0
 PILOT_LOOKS = (40, 60, 100)
 PILOT_ALPHA_ONE_SIDED = 0.025
 #: live-site validation results -> the rubric's terms (agree = the NoCurbRamp label is right)
@@ -632,6 +637,21 @@ class SidewalkCrossingPlacement:
                     if best is None or (d, int(i)) < best[:2]:
                         best = (d, int(i))
         return None if best is None else (best[0], self.props[best[1]])
+
+    def attached_corner(self, rec, c, radius_m=ATTACHED_RADIUS_M):
+        """True when corner c of unit rec is an ATTACHED corner: the bisector crosses a line,
+        that line's UNITTYPE is 'ATTACHED', and so is every layer line within radius_m of the
+        crossing point (a line with no UNITTYPE fails it)."""
+        b = (float(c['start_deg']) + float(c['width_deg']) / 2.0) % 360.0
+        hit = self.crossing(rec['lat'], rec['lng'], b)
+        if hit is None or hit[1]['unittype'] != 'ATTACHED':
+            return False
+        e0, n0 = self.frame.to_enu(rec['lat'], rec['lng'])
+        pt = self._Point(e0 + hit[0] * math.sin(math.radians(b)),
+                         n0 + hit[0] * math.cos(math.radians(b)))
+        return all(self.props[int(i)]['unittype'] == 'ATTACHED'
+                   for i in self.tree.query(pt.buffer(radius_m))
+                   if self.geoms[int(i)].distance(pt) <= radius_m)
 
     def record(self):
         """build.json's `label_point` block."""
