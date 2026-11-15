@@ -1,0 +1,3376 @@
+{
+ "blocked_panos": 200,
+ "build": {
+  "dir": "runs/vancouver/corner_labels169_split/na_discount_sw_sitemed",
+  "tool_git_sha": "d24c4d65e6a4f8f4f131428c73f44f51f44fd8aa"
+ },
+ "calibration": {
+  "vancouver:res:n47220756#0": {
+   "jon": "at_curb",
+   "label": "vancouver-test:89738"
+  },
+  "vancouver:res:n47271259#0": {
+   "jon": "at_curb",
+   "label": "vancouver-test:89740"
+  },
+  "vancouver:res:n47279117#3": {
+   "jon": "in_street",
+   "label": "vancouver-test:89739"
+  }
+ },
+ "corners": [
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47257159#0",
+   "pano_id": "trxQb1x0N2rrgwWBCgyiMQ",
+   "position": 220,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.94,
+     "pano_x": 13302,
+     "pano_y": 5308,
+     "range_m": 4.99,
+     "sidewalk": null,
+     "x_normalized": 0.81189,
+     "y_normalized": 0.647894
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 12.72,
+     "pano_x": 12042,
+     "pano_y": 4945,
+     "range_m": 7.41,
+     "sidewalk": {
+      "crossing_m": 12.72,
+      "inset_m": 0.0,
+      "status": "NA",
+      "unittype": null
+     },
+     "x_normalized": 0.735009,
+     "y_normalized": 0.603585
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 11.72,
+     "pano_x": 12283,
+     "pano_y": 5034,
+     "range_m": 6.65,
+     "sidewalk": {
+      "crossing_m": 12.72,
+      "inset_m": 1.0,
+      "status": "NA",
+      "unittype": null
+     },
+     "x_normalized": 0.749689,
+     "y_normalized": 0.614513
+    }
+   },
+   "unit": "vancouver:res:n47257159",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47384886#0",
+   "pano_id": "_VytnG_Iu8_tkW90nVGSRQ",
+   "position": 256,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.31,
+     "pano_x": 5952,
+     "pano_y": 4882,
+     "range_m": 8.04,
+     "sidewalk": null,
+     "x_normalized": 0.363294,
+     "y_normalized": 0.595926
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.23,
+     "pano_x": 5979,
+     "pano_y": 4882,
+     "range_m": 8.04,
+     "sidewalk": {
+      "crossing_m": 8.23,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.364957,
+     "y_normalized": 0.595954
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.23,
+     "pano_x": 5979,
+     "pano_y": 4882,
+     "range_m": 8.04,
+     "sidewalk": {
+      "crossing_m": 8.23,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.364957,
+     "y_normalized": 0.595954
+    }
+   },
+   "unit": "vancouver:res:n47384886",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47241260#2",
+   "pano_id": "YZH03Sm9aGgh6-LGD7ed2A",
+   "position": 297,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.43,
+     "pano_x": 15061,
+     "pano_y": 4994,
+     "range_m": 6.97,
+     "sidewalk": null,
+     "x_normalized": 0.919228,
+     "y_normalized": 0.609676
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.8,
+     "pano_x": 14155,
+     "pano_y": 5024,
+     "range_m": 6.73,
+     "sidewalk": {
+      "crossing_m": 10.8,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.863967,
+     "y_normalized": 0.613247
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.8,
+     "pano_x": 14155,
+     "pano_y": 5024,
+     "range_m": 6.73,
+     "sidewalk": {
+      "crossing_m": 10.8,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.863967,
+     "y_normalized": 0.613247
+    }
+   },
+   "unit": "vancouver:res:n47241260",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47278666#0",
+   "pano_id": "BxHhfKCPmu0PtRIfPDaLeg",
+   "position": 302,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 11.53,
+     "pano_x": 1470,
+     "pano_y": 4715,
+     "range_m": 10.33,
+     "sidewalk": null,
+     "x_normalized": 0.089752,
+     "y_normalized": 0.575563
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.34,
+     "pano_x": 2053,
+     "pano_y": 4899,
+     "range_m": 7.86,
+     "sidewalk": {
+      "crossing_m": 8.34,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.125311,
+     "y_normalized": 0.597976
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.34,
+     "pano_x": 2053,
+     "pano_y": 4899,
+     "range_m": 7.86,
+     "sidewalk": {
+      "crossing_m": 8.34,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.125311,
+     "y_normalized": 0.597976
+    }
+   },
+   "unit": "vancouver:res:n47278666",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47308326#2",
+   "pano_id": "is1cm94L177IgPGRBSembg",
+   "position": 370,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 9.62,
+     "pano_x": 10084,
+     "pano_y": 5030,
+     "range_m": 6.68,
+     "sidewalk": null,
+     "x_normalized": 0.615491,
+     "y_normalized": 0.614018
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.27,
+     "pano_x": 10046,
+     "pano_y": 5239,
+     "range_m": 5.33,
+     "sidewalk": {
+      "crossing_m": 8.27,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.613163,
+     "y_normalized": 0.639552
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.27,
+     "pano_x": 10046,
+     "pano_y": 5239,
+     "range_m": 5.33,
+     "sidewalk": {
+      "crossing_m": 8.27,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.613163,
+     "y_normalized": 0.639552
+    }
+   },
+   "unit": "vancouver:res:n47308326",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47266768#3",
+   "pano_id": "TVFn3jE2n9IFG5wX4BANEw",
+   "position": 389,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 3224,
+     "pano_y": 5119,
+     "range_m": 6.04,
+     "sidewalk": null,
+     "x_normalized": 0.196797,
+     "y_normalized": 0.62483
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.5,
+     "pano_x": 3898,
+     "pano_y": 5407,
+     "range_m": 4.55,
+     "sidewalk": {
+      "crossing_m": 7.5,
+      "inset_m": 0.0,
+      "status": "NA",
+      "unittype": null
+     },
+     "x_normalized": 0.237899,
+     "y_normalized": 0.659987
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.5,
+     "pano_x": 4403,
+     "pano_y": 5559,
+     "range_m": 3.98,
+     "sidewalk": {
+      "crossing_m": 7.5,
+      "inset_m": 1.0,
+      "status": "NA",
+      "unittype": null
+     },
+     "x_normalized": 0.268721,
+     "y_normalized": 0.678552
+    }
+   },
+   "unit": "vancouver:res:n47266768",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47276886#1",
+   "pano_id": "V05404CJu_L-SvutMcXBiA",
+   "position": 405,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 10658,
+     "pano_y": 4709,
+     "range_m": 10.43,
+     "sidewalk": null,
+     "x_normalized": 0.6505,
+     "y_normalized": 0.574863
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.03,
+     "pano_x": 10538,
+     "pano_y": 4713,
+     "range_m": 10.36,
+     "sidewalk": {
+      "crossing_m": 9.03,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.643181,
+     "y_normalized": 0.575349
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.53,
+     "pano_x": 9907,
+     "pano_y": 4713,
+     "range_m": 10.36,
+     "sidewalk": {
+      "crossing_m": 9.03,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.604687,
+     "y_normalized": 0.57537
+    }
+   },
+   "unit": "vancouver:res:n47276886",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n958722970#2",
+   "pano_id": "ICBMLZycFt7Ra8i3KIzq8Q",
+   "position": 497,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 7.88,
+     "pano_x": 16025,
+     "pano_y": 4909,
+     "range_m": 7.75,
+     "sidewalk": null,
+     "x_normalized": 0.978115,
+     "y_normalized": 0.599276
+    },
+    "B": {
+     "case": "site_median_fallback",
+     "dist_m": 7.88,
+     "pano_x": 16025,
+     "pano_y": 4909,
+     "range_m": 7.75,
+     "sidewalk": null,
+     "x_normalized": 0.978115,
+     "y_normalized": 0.599276
+    },
+    "C": {
+     "case": "site_median_fallback",
+     "dist_m": 7.88,
+     "pano_x": 16025,
+     "pano_y": 4909,
+     "range_m": 7.75,
+     "sidewalk": null,
+     "x_normalized": 0.978115,
+     "y_normalized": 0.599276
+    }
+   },
+   "unit": "vancouver:res:n958722970",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47281487#2",
+   "pano_id": "LlY0TmRfUl9RxpAR72eRxA",
+   "position": 523,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 11048,
+     "pano_y": 5329,
+     "range_m": 4.89,
+     "sidewalk": null,
+     "x_normalized": 0.674335,
+     "y_normalized": 0.650515
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 12.86,
+     "pano_x": 12125,
+     "pano_y": 4969,
+     "range_m": 7.19,
+     "sidewalk": {
+      "crossing_m": 12.86,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.740027,
+     "y_normalized": 0.606507
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.36,
+     "pano_x": 11404,
+     "pano_y": 5233,
+     "range_m": 5.37,
+     "sidewalk": {
+      "crossing_m": 12.86,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.696065,
+     "y_normalized": 0.638749
+    }
+   },
+   "unit": "vancouver:res:n47281487",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47259730#2",
+   "pano_id": "W-nEWqcjvKWh3aui_qZkug",
+   "position": 541,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 7.88,
+     "pano_x": 5983,
+     "pano_y": 4797,
+     "range_m": 9.07,
+     "sidewalk": null,
+     "x_normalized": 0.365155,
+     "y_normalized": 0.585614
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 12.06,
+     "pano_x": 4882,
+     "pano_y": 4723,
+     "range_m": 10.19,
+     "sidewalk": {
+      "crossing_m": 12.06,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.297976,
+     "y_normalized": 0.576569
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.56,
+     "pano_x": 5510,
+     "pano_y": 4780,
+     "range_m": 9.31,
+     "sidewalk": {
+      "crossing_m": 12.06,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.336306,
+     "y_normalized": 0.583473
+    }
+   },
+   "unit": "vancouver:res:n47259730",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47261995#2",
+   "pano_id": "m2WU6N0-S1CNMCYBqC-obA",
+   "position": 546,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 13725,
+     "pano_y": 5108,
+     "range_m": 6.11,
+     "sidewalk": null,
+     "x_normalized": 0.837719,
+     "y_normalized": 0.623545
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.6,
+     "pano_x": 14975,
+     "pano_y": 5105,
+     "range_m": 6.13,
+     "sidewalk": {
+      "crossing_m": 6.6,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.914027,
+     "y_normalized": 0.623203
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.6,
+     "pano_x": 14975,
+     "pano_y": 5105,
+     "range_m": 6.13,
+     "sidewalk": {
+      "crossing_m": 6.6,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.914027,
+     "y_normalized": 0.623203
+    }
+   },
+   "unit": "vancouver:res:n47261995",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47209926#3",
+   "pano_id": "GOruzkyAY27JVJMzSLjXvw",
+   "position": 578,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 10.6,
+     "pano_x": 2944,
+     "pano_y": 4745,
+     "range_m": 9.84,
+     "sidewalk": null,
+     "x_normalized": 0.179685,
+     "y_normalized": 0.579189
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 15.63,
+     "pano_x": 2459,
+     "pano_y": 4545,
+     "range_m": 14.36,
+     "sidewalk": {
+      "crossing_m": 15.63,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.150096,
+     "y_normalized": 0.554861
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 13.13,
+     "pano_x": 2655,
+     "pano_y": 4629,
+     "range_m": 12.06,
+     "sidewalk": {
+      "crossing_m": 15.63,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.162032,
+     "y_normalized": 0.565039
+    }
+   },
+   "unit": "vancouver:res:n47209926",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47373259#0",
+   "pano_id": "jHFirgurT6G_cfmmyHUxAg",
+   "position": 582,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 9.1,
+     "pano_x": 3944,
+     "pano_y": 4949,
+     "range_m": 7.37,
+     "sidewalk": null,
+     "x_normalized": 0.24074,
+     "y_normalized": 0.604113
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.98,
+     "pano_x": 3618,
+     "pano_y": 5031,
+     "range_m": 6.67,
+     "sidewalk": {
+      "crossing_m": 7.98,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.220843,
+     "y_normalized": 0.614153
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.98,
+     "pano_x": 3618,
+     "pano_y": 5031,
+     "range_m": 6.67,
+     "sidewalk": {
+      "crossing_m": 7.98,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.220843,
+     "y_normalized": 0.614153
+    }
+   },
+   "unit": "vancouver:res:n47373259",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n1255903000#0",
+   "pano_id": "YxTizUYwqdjOrHUkptEyEg",
+   "position": 601,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 10.83,
+     "pano_x": 2474,
+     "pano_y": 4614,
+     "range_m": 12.41,
+     "sidewalk": null,
+     "x_normalized": 0.150977,
+     "y_normalized": 0.563254
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 5.99,
+     "pano_x": 3297,
+     "pano_y": 4811,
+     "range_m": 8.88,
+     "sidewalk": {
+      "crossing_m": 5.99,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": null
+     },
+     "x_normalized": 0.201247,
+     "y_normalized": 0.587325
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 4.99,
+     "pano_x": 3548,
+     "pano_y": 4857,
+     "range_m": 8.32,
+     "sidewalk": {
+      "crossing_m": 5.99,
+      "inset_m": 1.0,
+      "status": "Available",
+      "unittype": null
+     },
+     "x_normalized": 0.216529,
+     "y_normalized": 0.592935
+    }
+   },
+   "unit": "vancouver:res:n1255903000",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n1637998606#0",
+   "pano_id": "0QzgLM_xAMN5XdAPWSXhmw",
+   "position": 612,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 12.0,
+     "pano_x": 11585,
+     "pano_y": 4697,
+     "range_m": 10.66,
+     "sidewalk": null,
+     "x_normalized": 0.707121,
+     "y_normalized": 0.573342
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.23,
+     "pano_x": 10377,
+     "pano_y": 4781,
+     "range_m": 9.3,
+     "sidewalk": {
+      "crossing_m": 7.23,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.633391,
+     "y_normalized": 0.583593
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.23,
+     "pano_x": 10377,
+     "pano_y": 4781,
+     "range_m": 9.3,
+     "sidewalk": {
+      "crossing_m": 7.23,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.633391,
+     "y_normalized": 0.583593
+    }
+   },
+   "unit": "vancouver:res:n1637998606",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n3372672500#1",
+   "pano_id": "sxJq64c4kwTK8Qz0yWScJQ",
+   "position": 712,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 11371,
+     "pano_y": 5000,
+     "range_m": 6.92,
+     "sidewalk": null,
+     "x_normalized": 0.694004,
+     "y_normalized": 0.610337
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.21,
+     "pano_x": 11418,
+     "pano_y": 5035,
+     "range_m": 6.64,
+     "sidewalk": {
+      "crossing_m": 9.21,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.696885,
+     "y_normalized": 0.614613
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.71,
+     "pano_x": 12019,
+     "pano_y": 5424,
+     "range_m": 4.48,
+     "sidewalk": {
+      "crossing_m": 9.21,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.733565,
+     "y_normalized": 0.662087
+    }
+   },
+   "unit": "vancouver:res:n3372672500",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47360409#0",
+   "pano_id": "FVfYQj6z3iepWxgIkyuXng",
+   "position": 837,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 12.0,
+     "pano_x": 13943,
+     "pano_y": 4815,
+     "range_m": 8.83,
+     "sidewalk": null,
+     "x_normalized": 0.85103,
+     "y_normalized": 0.587781
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 11.81,
+     "pano_x": 13941,
+     "pano_y": 4830,
+     "range_m": 8.64,
+     "sidewalk": {
+      "crossing_m": 11.81,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.850912,
+     "y_normalized": 0.589633
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.31,
+     "pano_x": 13905,
+     "pano_y": 5104,
+     "range_m": 6.14,
+     "sidewalk": {
+      "crossing_m": 11.81,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.848702,
+     "y_normalized": 0.623002
+    }
+   },
+   "unit": "vancouver:res:n47360409",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47225219#1",
+   "pano_id": "A7_gn-k03Qj_HH6ouxngHg",
+   "position": 840,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.72,
+     "pano_x": 2948,
+     "pano_y": 4720,
+     "range_m": 10.25,
+     "sidewalk": null,
+     "x_normalized": 0.179946,
+     "y_normalized": 0.576184
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.75,
+     "pano_x": 2704,
+     "pano_y": 4728,
+     "range_m": 10.11,
+     "sidewalk": {
+      "crossing_m": 7.75,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.165019,
+     "y_normalized": 0.577187
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.75,
+     "pano_x": 2704,
+     "pano_y": 4728,
+     "range_m": 10.11,
+     "sidewalk": {
+      "crossing_m": 7.75,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.165019,
+     "y_normalized": 0.577187
+    }
+   },
+   "unit": "vancouver:res:n47225219",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n1627708252#2",
+   "pano_id": "RNo1ppuIAWUrvFt_bQnO1w",
+   "position": 890,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 9.15,
+     "pano_x": 4951,
+     "pano_y": 4862,
+     "range_m": 8.27,
+     "sidewalk": null,
+     "x_normalized": 0.302195,
+     "y_normalized": 0.593465
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.87,
+     "pano_x": 4754,
+     "pano_y": 4833,
+     "range_m": 8.61,
+     "sidewalk": {
+      "crossing_m": 9.87,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.290174,
+     "y_normalized": 0.589989
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.37,
+     "pano_x": 5500,
+     "pano_y": 4918,
+     "range_m": 7.66,
+     "sidewalk": {
+      "crossing_m": 9.87,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.335709,
+     "y_normalized": 0.60037
+    }
+   },
+   "unit": "vancouver:res:n1627708252",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 6656,
+   "key": "vancouver:res:n47209792#1",
+   "pano_id": "KLD4MKkxzEy-Mghg-v1H9A",
+   "position": 891,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 11.04,
+     "pano_x": 4179,
+     "pano_y": 3774,
+     "range_m": 11.69,
+     "sidewalk": null,
+     "x_normalized": 0.313947,
+     "y_normalized": 0.567035
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.27,
+     "pano_x": 4872,
+     "pano_y": 3813,
+     "range_m": 10.73,
+     "sidewalk": {
+      "crossing_m": 7.27,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.365963,
+     "y_normalized": 0.572875
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.27,
+     "pano_x": 4872,
+     "pano_y": 3813,
+     "range_m": 10.73,
+     "sidewalk": {
+      "crossing_m": 7.27,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.365963,
+     "y_normalized": 0.572875
+    }
+   },
+   "unit": "vancouver:res:n47209792",
+   "width": 13312
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47279171#1",
+   "pano_id": "e4mBcQNit6c_BfPIlxEfvQ",
+   "position": 915,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 7.88,
+     "pano_x": 11866,
+     "pano_y": 5000,
+     "range_m": 6.92,
+     "sidewalk": null,
+     "x_normalized": 0.724232,
+     "y_normalized": 0.610382
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 4.08,
+     "pano_x": 11545,
+     "pano_y": 5840,
+     "range_m": 3.16,
+     "sidewalk": {
+      "crossing_m": 4.08,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.704636,
+     "y_normalized": 0.712935
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 4.08,
+     "pano_x": 11545,
+     "pano_y": 5840,
+     "range_m": 3.16,
+     "sidewalk": {
+      "crossing_m": 4.08,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.704636,
+     "y_normalized": 0.712935
+    }
+   },
+   "unit": "vancouver:res:n47279171",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 6656,
+   "key": "vancouver:res:n47215575#3",
+   "pano_id": "O5fOGBvx-E7iH-TyEUBQIw",
+   "position": 923,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.44,
+     "pano_x": 5838,
+     "pano_y": 3641,
+     "range_m": 16.82,
+     "sidewalk": null,
+     "x_normalized": 0.438567,
+     "y_normalized": 0.546981
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.01,
+     "pano_x": 5915,
+     "pano_y": 3666,
+     "range_m": 15.51,
+     "sidewalk": {
+      "crossing_m": 7.01,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.444302,
+     "y_normalized": 0.550856
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 4.51,
+     "pano_x": 6084,
+     "pano_y": 3722,
+     "range_m": 13.29,
+     "sidewalk": {
+      "crossing_m": 7.01,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.457039,
+     "y_normalized": 0.559169
+    }
+   },
+   "unit": "vancouver:res:n47215575",
+   "width": 13312
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47207373#1",
+   "pano_id": "k1oJiit7I-osZ41JrGDJYg",
+   "position": 948,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.69,
+     "pano_x": 5509,
+     "pano_y": 4765,
+     "range_m": 9.54,
+     "sidewalk": null,
+     "x_normalized": 0.336268,
+     "y_normalized": 0.581609
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 11.35,
+     "pano_x": 4836,
+     "pano_y": 4718,
+     "range_m": 10.28,
+     "sidewalk": {
+      "crossing_m": 11.35,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.295171,
+     "y_normalized": 0.575921
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.85,
+     "pano_x": 5467,
+     "pano_y": 4763,
+     "range_m": 9.56,
+     "sidewalk": {
+      "crossing_m": 11.35,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.333691,
+     "y_normalized": 0.581404
+    }
+   },
+   "unit": "vancouver:res:n47207373",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47211243#2",
+   "pano_id": "iT1YSZOoy_R-fh1cG0i6HA",
+   "position": 951,
+   "rules": {
+    "A": {
+     "case": "corner_range_fallback",
+     "dist_m": 11.98,
+     "pano_x": 1131,
+     "pano_y": 4359,
+     "range_m": 24.75,
+     "sidewalk": null,
+     "x_normalized": 0.069037,
+     "y_normalized": 0.532049
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 11.76,
+     "pano_x": 1109,
+     "pano_y": 4358,
+     "range_m": 24.81,
+     "sidewalk": {
+      "crossing_m": 11.76,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.067712,
+     "y_normalized": 0.53197
+    },
+    "C": {
+     "case": "corner_range_fallback",
+     "dist_m": 9.26,
+     "pano_x": 1131,
+     "pano_y": 4359,
+     "range_m": 24.75,
+     "sidewalk": {
+      "crossing_m": 11.76,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.069037,
+     "y_normalized": 0.532049
+    }
+   },
+   "unit": "vancouver:res:n47211243",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47315339#2",
+   "pano_id": "ZG6IzvNSqNKu_BSdblWpAA",
+   "position": 968,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 2877,
+     "pano_y": 4709,
+     "range_m": 10.44,
+     "sidewalk": null,
+     "x_normalized": 0.175589,
+     "y_normalized": 0.574782
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.54,
+     "pano_x": 2490,
+     "pano_y": 4795,
+     "range_m": 9.1,
+     "sidewalk": {
+      "crossing_m": 7.54,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.151984,
+     "y_normalized": 0.585315
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.54,
+     "pano_x": 2490,
+     "pano_y": 4795,
+     "range_m": 9.1,
+     "sidewalk": {
+      "crossing_m": 7.54,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.151984,
+     "y_normalized": 0.585315
+    }
+   },
+   "unit": "vancouver:res:n47315339",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47298418#2",
+   "pano_id": "gu4Ng8PnYpyeUo4GvtJdpQ",
+   "position": 978,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 7.88,
+     "pano_x": 6296,
+     "pano_y": 4711,
+     "range_m": 10.4,
+     "sidewalk": null,
+     "x_normalized": 0.384283,
+     "y_normalized": 0.575099
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.56,
+     "pano_x": 5628,
+     "pano_y": 4703,
+     "range_m": 10.55,
+     "sidewalk": {
+      "crossing_m": 10.56,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.343487,
+     "y_normalized": 0.574053
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.06,
+     "pano_x": 6251,
+     "pano_y": 4712,
+     "range_m": 10.39,
+     "sidewalk": {
+      "crossing_m": 10.56,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.381501,
+     "y_normalized": 0.575179
+    }
+   },
+   "unit": "vancouver:res:n47298418",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47290316#0",
+   "pano_id": "vAq3QyN6SdypWo9tUyYk_g",
+   "position": 981,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 9.54,
+     "pano_x": 5439,
+     "pano_y": 4649,
+     "range_m": 11.62,
+     "sidewalk": null,
+     "x_normalized": 0.331962,
+     "y_normalized": 0.567482
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.9,
+     "pano_x": 5318,
+     "pano_y": 4732,
+     "range_m": 10.05,
+     "sidewalk": {
+      "crossing_m": 7.9,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.324586,
+     "y_normalized": 0.5776
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.9,
+     "pano_x": 5318,
+     "pano_y": 4732,
+     "range_m": 10.05,
+     "sidewalk": {
+      "crossing_m": 7.9,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.324586,
+     "y_normalized": 0.5776
+    }
+   },
+   "unit": "vancouver:res:n47290316",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47241260#3",
+   "pano_id": "4m8Iwqgg8TDaHhtDSlB5ig",
+   "position": 1007,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.43,
+     "pano_x": 14033,
+     "pano_y": 5465,
+     "range_m": 4.32,
+     "sidewalk": null,
+     "x_normalized": 0.856477,
+     "y_normalized": 0.667138
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.82,
+     "pano_x": 14135,
+     "pano_y": 5027,
+     "range_m": 6.7,
+     "sidewalk": {
+      "crossing_m": 10.82,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.862733,
+     "y_normalized": 0.613678
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.82,
+     "pano_x": 14135,
+     "pano_y": 5027,
+     "range_m": 6.7,
+     "sidewalk": {
+      "crossing_m": 10.82,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.862733,
+     "y_normalized": 0.613678
+    }
+   },
+   "unit": "vancouver:res:n47241260",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47232361#2",
+   "pano_id": "dvnzVWnUPjCZKV_T3Z9rjA",
+   "position": 1100,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 11.05,
+     "pano_x": 10299,
+     "pano_y": 4925,
+     "range_m": 7.6,
+     "sidewalk": null,
+     "x_normalized": 0.628626,
+     "y_normalized": 0.601148
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.87,
+     "pano_x": 9902,
+     "pano_y": 4906,
+     "range_m": 7.79,
+     "sidewalk": {
+      "crossing_m": 9.87,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.604387,
+     "y_normalized": 0.598824
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.37,
+     "pano_x": 9166,
+     "pano_y": 4824,
+     "range_m": 8.73,
+     "sidewalk": {
+      "crossing_m": 9.87,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.559475,
+     "y_normalized": 0.588821
+    }
+   },
+   "unit": "vancouver:res:n47232361",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47207281#0",
+   "pano_id": "iYN1TkCqGRhfT-OhCAEhpw",
+   "position": 1159,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.67,
+     "pano_x": 5915,
+     "pano_y": 4673,
+     "range_m": 11.12,
+     "sidewalk": null,
+     "x_normalized": 0.361014,
+     "y_normalized": 0.57042
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 12.41,
+     "pano_x": 5963,
+     "pano_y": 4531,
+     "range_m": 14.85,
+     "sidewalk": {
+      "crossing_m": 12.41,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.363977,
+     "y_normalized": 0.553086
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.91,
+     "pano_x": 5934,
+     "pano_y": 4617,
+     "range_m": 12.36,
+     "sidewalk": {
+      "crossing_m": 12.41,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.362197,
+     "y_normalized": 0.563548
+    }
+   },
+   "unit": "vancouver:res:n47207281",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47391433#1",
+   "pano_id": "bu9mtZkStKFEl8OFwpl1QA",
+   "position": 1177,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 7.88,
+     "pano_x": 3449,
+     "pano_y": 4960,
+     "range_m": 7.27,
+     "sidewalk": null,
+     "x_normalized": 0.210506,
+     "y_normalized": 0.605477
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.09,
+     "pano_x": 4059,
+     "pano_y": 4842,
+     "range_m": 8.49,
+     "sidewalk": {
+      "crossing_m": 10.09,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.247757,
+     "y_normalized": 0.59111
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.09,
+     "pano_x": 4059,
+     "pano_y": 4842,
+     "range_m": 8.49,
+     "sidewalk": {
+      "crossing_m": 10.09,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.247757,
+     "y_normalized": 0.59111
+    }
+   },
+   "unit": "vancouver:res:n47391433",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47296801#3",
+   "pano_id": "66ZfdCKZvXde_RCCv12Ywg",
+   "position": 1208,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.51,
+     "pano_x": 14327,
+     "pano_y": 5659,
+     "range_m": 3.66,
+     "sidewalk": null,
+     "x_normalized": 0.874446,
+     "y_normalized": 0.690774
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.41,
+     "pano_x": 13085,
+     "pano_y": 5513,
+     "range_m": 4.14,
+     "sidewalk": {
+      "crossing_m": 10.41,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.798625,
+     "y_normalized": 0.672917
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.41,
+     "pano_x": 13085,
+     "pano_y": 5513,
+     "range_m": 4.14,
+     "sidewalk": {
+      "crossing_m": 10.41,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.798625,
+     "y_normalized": 0.672917
+    }
+   },
+   "unit": "vancouver:res:n47296801",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n1253177406#3",
+   "pano_id": "-MVGpPzIlWy05TRlrJJJZw",
+   "position": 1249,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 7.88,
+     "pano_x": 12936,
+     "pano_y": 5234,
+     "range_m": 5.36,
+     "sidewalk": null,
+     "x_normalized": 0.789542,
+     "y_normalized": 0.638897
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 4.84,
+     "pano_x": 14461,
+     "pano_y": 5626,
+     "range_m": 3.76,
+     "sidewalk": {
+      "crossing_m": 4.84,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.882625,
+     "y_normalized": 0.686732
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 3.0,
+     "pano_x": 15745,
+     "pano_y": 5619,
+     "range_m": 3.78,
+     "sidewalk": {
+      "crossing_m": 4.84,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.961016,
+     "y_normalized": 0.685905
+    }
+   },
+   "unit": "vancouver:res:n1253177406",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n1627660352#3",
+   "pano_id": "IlArerBe4yZsHHI69cgDBA",
+   "position": 1288,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 10.73,
+     "pano_x": 9301,
+     "pano_y": 4430,
+     "range_m": 19.4,
+     "sidewalk": null,
+     "x_normalized": 0.567678,
+     "y_normalized": 0.540785
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 5.27,
+     "pano_x": 8891,
+     "pano_y": 4537,
+     "range_m": 14.63,
+     "sidewalk": {
+      "crossing_m": 5.27,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.542679,
+     "y_normalized": 0.553873
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 5.27,
+     "pano_x": 8891,
+     "pano_y": 4537,
+     "range_m": 14.63,
+     "sidewalk": {
+      "crossing_m": 5.27,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.542679,
+     "y_normalized": 0.553873
+    }
+   },
+   "unit": "vancouver:res:n1627660352",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47242030#0",
+   "pano_id": "0KK-Y990KIvvJpLcrB-fDw",
+   "position": 1295,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 7.88,
+     "pano_x": 10590,
+     "pano_y": 4640,
+     "range_m": 11.82,
+     "sidewalk": null,
+     "x_normalized": 0.64638,
+     "y_normalized": 0.566348
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.41,
+     "pano_x": 10616,
+     "pano_y": 4617,
+     "range_m": 12.34,
+     "sidewalk": {
+      "crossing_m": 8.41,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.647945,
+     "y_normalized": 0.563646
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.41,
+     "pano_x": 10616,
+     "pano_y": 4617,
+     "range_m": 12.34,
+     "sidewalk": {
+      "crossing_m": 8.41,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.647945,
+     "y_normalized": 0.563646
+    }
+   },
+   "unit": "vancouver:res:n47242030",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47355034#2",
+   "pano_id": "nYZomCEMUGQUOgbawKlO8w",
+   "position": 1351,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 2213,
+     "pano_y": 4616,
+     "range_m": 12.38,
+     "sidewalk": null,
+     "x_normalized": 0.135078,
+     "y_normalized": 0.563449
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.65,
+     "pano_x": 2193,
+     "pano_y": 4612,
+     "range_m": 12.48,
+     "sidewalk": {
+      "crossing_m": 9.65,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": null
+     },
+     "x_normalized": 0.133844,
+     "y_normalized": 0.562942
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.65,
+     "pano_x": 2344,
+     "pano_y": 4642,
+     "range_m": 11.77,
+     "sidewalk": {
+      "crossing_m": 9.65,
+      "inset_m": 1.0,
+      "status": "Available",
+      "unittype": null
+     },
+     "x_normalized": 0.143082,
+     "y_normalized": 0.566638
+    }
+   },
+   "unit": "vancouver:res:n47355034",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47288872#1",
+   "pano_id": "F3qZ-zX96JY5BUEtNSbYlQ",
+   "position": 1353,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 9.38,
+     "pano_x": 1945,
+     "pano_y": 4601,
+     "range_m": 12.75,
+     "sidewalk": null,
+     "x_normalized": 0.118706,
+     "y_normalized": 0.561627
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 11.29,
+     "pano_x": 2333,
+     "pano_y": 4598,
+     "range_m": 12.84,
+     "sidewalk": {
+      "crossing_m": 11.29,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.142423,
+     "y_normalized": 0.561224
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.79,
+     "pano_x": 1824,
+     "pano_y": 4600,
+     "range_m": 12.78,
+     "sidewalk": {
+      "crossing_m": 11.29,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.111319,
+     "y_normalized": 0.56148
+    }
+   },
+   "unit": "vancouver:res:n47288872",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47372321#0",
+   "pano_id": "avJSjJOLAZIcXEGrvpX1bg",
+   "position": 1374,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 7.88,
+     "pano_x": 9862,
+     "pano_y": 5225,
+     "range_m": 5.41,
+     "sidewalk": null,
+     "x_normalized": 0.601933,
+     "y_normalized": 0.637878
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.92,
+     "pano_x": 9522,
+     "pano_y": 4858,
+     "range_m": 8.32,
+     "sidewalk": {
+      "crossing_m": 10.92,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.581163,
+     "y_normalized": 0.592961
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.42,
+     "pano_x": 9778,
+     "pano_y": 5139,
+     "range_m": 5.91,
+     "sidewalk": {
+      "crossing_m": 10.92,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.596773,
+     "y_normalized": 0.627347
+    }
+   },
+   "unit": "vancouver:res:n47372321",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47213508#0",
+   "pano_id": "tdspAnFXIkZBdFHMdwV77w",
+   "position": 1458,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 4952,
+     "pano_y": 4682,
+     "range_m": 10.94,
+     "sidewalk": null,
+     "x_normalized": 0.302273,
+     "y_normalized": 0.571539
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.8,
+     "pano_x": 4699,
+     "pano_y": 4649,
+     "range_m": 11.62,
+     "sidewalk": {
+      "crossing_m": 10.8,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.286819,
+     "y_normalized": 0.567479
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.3,
+     "pano_x": 5219,
+     "pano_y": 4711,
+     "range_m": 10.4,
+     "sidewalk": {
+      "crossing_m": 10.8,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.318512,
+     "y_normalized": 0.575082
+    }
+   },
+   "unit": "vancouver:res:n47213508",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47288672#2",
+   "pano_id": "YXyN6t9LyHD5m-FDKasTjA",
+   "position": 1480,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 10.52,
+     "pano_x": 8835,
+     "pano_y": 4401,
+     "range_m": 21.26,
+     "sidewalk": null,
+     "x_normalized": 0.539268,
+     "y_normalized": 0.537253
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.52,
+     "pano_x": 8772,
+     "pano_y": 4414,
+     "range_m": 20.4,
+     "sidewalk": {
+      "crossing_m": 9.52,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.535387,
+     "y_normalized": 0.538812
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.52,
+     "pano_x": 8772,
+     "pano_y": 4414,
+     "range_m": 20.4,
+     "sidewalk": {
+      "crossing_m": 9.52,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.535387,
+     "y_normalized": 0.538812
+    }
+   },
+   "unit": "vancouver:res:n47288672",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n959123557#2",
+   "pano_id": "QPryYjKzfdsIJRmxhePzpQ",
+   "position": 1491,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 10.83,
+     "pano_x": 11331,
+     "pano_y": 5032,
+     "range_m": 6.66,
+     "sidewalk": null,
+     "x_normalized": 0.691589,
+     "y_normalized": 0.614228
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.01,
+     "pano_x": 11019,
+     "pano_y": 5068,
+     "range_m": 6.4,
+     "sidewalk": {
+      "crossing_m": 10.01,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.672556,
+     "y_normalized": 0.61862
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.01,
+     "pano_x": 11019,
+     "pano_y": 5068,
+     "range_m": 6.4,
+     "sidewalk": {
+      "crossing_m": 10.01,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.672556,
+     "y_normalized": 0.61862
+    }
+   },
+   "unit": "vancouver:res:n959123557",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n1326828137#2",
+   "pano_id": "_LaIkzopEPbIlpeNfWd5LQ",
+   "position": 1529,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 11304,
+     "pano_y": 5055,
+     "range_m": 6.49,
+     "sidewalk": null,
+     "x_normalized": 0.689926,
+     "y_normalized": 0.61702
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.31,
+     "pano_x": 10401,
+     "pano_y": 5122,
+     "range_m": 6.02,
+     "sidewalk": {
+      "crossing_m": 7.31,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.634841,
+     "y_normalized": 0.625285
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.31,
+     "pano_x": 10401,
+     "pano_y": 5122,
+     "range_m": 6.02,
+     "sidewalk": {
+      "crossing_m": 7.31,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.634841,
+     "y_normalized": 0.625285
+    }
+   },
+   "unit": "vancouver:res:n1326828137",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47257161#0",
+   "pano_id": "k5Qy-6e45bor3rmOKqrIdQ",
+   "position": 1599,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 13925,
+     "pano_y": 4900,
+     "range_m": 7.85,
+     "sidewalk": null,
+     "x_normalized": 0.84991,
+     "y_normalized": 0.598106
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 11.92,
+     "pano_x": 14025,
+     "pano_y": 4721,
+     "range_m": 10.24,
+     "sidewalk": {
+      "crossing_m": 11.92,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.855994,
+     "y_normalized": 0.57624
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.42,
+     "pano_x": 13920,
+     "pano_y": 4908,
+     "range_m": 7.76,
+     "sidewalk": {
+      "crossing_m": 11.92,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.849607,
+     "y_normalized": 0.599169
+    }
+   },
+   "unit": "vancouver:res:n47257161",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47281361#3",
+   "pano_id": "qNbkL7A3McTuIEA8aNo9zQ",
+   "position": 1642,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.77,
+     "pano_x": 10417,
+     "pano_y": 5025,
+     "range_m": 6.72,
+     "sidewalk": null,
+     "x_normalized": 0.635807,
+     "y_normalized": 0.613411
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.57,
+     "pano_x": 10401,
+     "pano_y": 4933,
+     "range_m": 7.52,
+     "sidewalk": {
+      "crossing_m": 9.57,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": null
+     },
+     "x_normalized": 0.634846,
+     "y_normalized": 0.602148
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.57,
+     "pano_x": 10421,
+     "pano_y": 5050,
+     "range_m": 6.52,
+     "sidewalk": {
+      "crossing_m": 9.57,
+      "inset_m": 1.0,
+      "status": "Available",
+      "unittype": null
+     },
+     "x_normalized": 0.636075,
+     "y_normalized": 0.616505
+    }
+   },
+   "unit": "vancouver:res:n47281361",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47397103#1",
+   "pano_id": "zHtPMd0IcexvVpmAbR2cpw",
+   "position": 1675,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 6687,
+     "pano_y": 4711,
+     "range_m": 10.4,
+     "sidewalk": null,
+     "x_normalized": 0.408158,
+     "y_normalized": 0.575077
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 13.8,
+     "pano_x": 7240,
+     "pano_y": 4561,
+     "range_m": 13.86,
+     "sidewalk": {
+      "crossing_m": 13.8,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.441873,
+     "y_normalized": 0.556807
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 11.3,
+     "pano_x": 6957,
+     "pano_y": 4641,
+     "range_m": 11.78,
+     "sidewalk": {
+      "crossing_m": 13.8,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.424614,
+     "y_normalized": 0.566577
+    }
+   },
+   "unit": "vancouver:res:n47397103",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47299779#0",
+   "pano_id": "KjgueCmxzygjGJlSgCJ1Gg",
+   "position": 1684,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 10.01,
+     "pano_x": 10286,
+     "pano_y": 4823,
+     "range_m": 8.74,
+     "sidewalk": null,
+     "x_normalized": 0.627792,
+     "y_normalized": 0.588709
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.36,
+     "pano_x": 10310,
+     "pano_y": 4878,
+     "range_m": 8.09,
+     "sidewalk": {
+      "crossing_m": 9.36,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.629268,
+     "y_normalized": 0.595415
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.86,
+     "pano_x": 10454,
+     "pano_y": 5188,
+     "range_m": 5.62,
+     "sidewalk": {
+      "crossing_m": 9.36,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.638065,
+     "y_normalized": 0.633299
+    }
+   },
+   "unit": "vancouver:res:n47299779",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47399529#2",
+   "pano_id": "fe1w_MBFjg8yetncpZq1Dg",
+   "position": 1686,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.68,
+     "pano_x": 11705,
+     "pano_y": 5313,
+     "range_m": 4.96,
+     "sidewalk": null,
+     "x_normalized": 0.714427,
+     "y_normalized": 0.648549
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.56,
+     "pano_x": 11649,
+     "pano_y": 5327,
+     "range_m": 4.9,
+     "sidewalk": {
+      "crossing_m": 8.56,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.711025,
+     "y_normalized": 0.650208
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.06,
+     "pano_x": 10253,
+     "pano_y": 5491,
+     "range_m": 4.22,
+     "sidewalk": {
+      "crossing_m": 8.56,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.625783,
+     "y_normalized": 0.670283
+    }
+   },
+   "unit": "vancouver:res:n47399529",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47241597#3",
+   "pano_id": "mmMTQQy4KfuYUhYngjZYag",
+   "position": 1705,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 9.47,
+     "pano_x": 7341,
+     "pano_y": 4394,
+     "range_m": 21.78,
+     "sidewalk": null,
+     "x_normalized": 0.448084,
+     "y_normalized": 0.53637
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 12.75,
+     "pano_x": 7179,
+     "pano_y": 4359,
+     "range_m": 24.73,
+     "sidewalk": {
+      "crossing_m": 12.75,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.438172,
+     "y_normalized": 0.532068
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.25,
+     "pano_x": 7299,
+     "pano_y": 4385,
+     "range_m": 22.48,
+     "sidewalk": {
+      "crossing_m": 12.75,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.445489,
+     "y_normalized": 0.535258
+    }
+   },
+   "unit": "vancouver:res:n47241597",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47323424#3",
+   "pano_id": "PzKlWuW3th70kPMZZDsttw",
+   "position": 1718,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 11.69,
+     "pano_x": 10076,
+     "pano_y": 4700,
+     "range_m": 10.6,
+     "sidewalk": null,
+     "x_normalized": 0.615012,
+     "y_normalized": 0.573703
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 14.73,
+     "pano_x": 9757,
+     "pano_y": 4582,
+     "range_m": 13.27,
+     "sidewalk": {
+      "crossing_m": 14.73,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.595503,
+     "y_normalized": 0.55927
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 12.23,
+     "pano_x": 10009,
+     "pano_y": 4676,
+     "range_m": 11.06,
+     "sidewalk": {
+      "crossing_m": 14.73,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.61088,
+     "y_normalized": 0.570752
+    }
+   },
+   "unit": "vancouver:res:n47323424",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 6656,
+   "key": "vancouver:res:n47150615#2",
+   "pano_id": "zcbJdeRXki9XoabDjYUmXA",
+   "position": 1766,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 9.3,
+     "pano_x": 6792,
+     "pano_y": 3572,
+     "range_m": 21.57,
+     "sidewalk": null,
+     "x_normalized": 0.510227,
+     "y_normalized": 0.536726
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.84,
+     "pano_x": 6871,
+     "pano_y": 3559,
+     "range_m": 22.87,
+     "sidewalk": {
+      "crossing_m": 10.84,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.516166,
+     "y_normalized": 0.534655
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.84,
+     "pano_x": 6871,
+     "pano_y": 3559,
+     "range_m": 22.87,
+     "sidewalk": {
+      "crossing_m": 10.84,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.516166,
+     "y_normalized": 0.534655
+    }
+   },
+   "unit": "vancouver:res:n47150615",
+   "width": 13312
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47299042#1",
+   "pano_id": "mRrafjO6vj1YMSZot6EMPw",
+   "position": 1807,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 11.04,
+     "pano_x": 5517,
+     "pano_y": 4664,
+     "range_m": 11.3,
+     "sidewalk": null,
+     "x_normalized": 0.336742,
+     "y_normalized": 0.569309
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 11.31,
+     "pano_x": 5456,
+     "pano_y": 4660,
+     "range_m": 11.37,
+     "sidewalk": {
+      "crossing_m": 11.31,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.333024,
+     "y_normalized": 0.568876
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.81,
+     "pano_x": 6033,
+     "pano_y": 4682,
+     "range_m": 10.94,
+     "sidewalk": {
+      "crossing_m": 11.31,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.368232,
+     "y_normalized": 0.571485
+    }
+   },
+   "unit": "vancouver:res:n47299042",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47214743#3",
+   "pano_id": "S0xBkefIV08AuKkNsMCIJA",
+   "position": 1820,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.38,
+     "pano_x": 13468,
+     "pano_y": 5060,
+     "range_m": 6.45,
+     "sidewalk": null,
+     "x_normalized": 0.822024,
+     "y_normalized": 0.617659
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.12,
+     "pano_x": 13573,
+     "pano_y": 5065,
+     "range_m": 6.42,
+     "sidewalk": {
+      "crossing_m": 8.12,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.828434,
+     "y_normalized": 0.618247
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.12,
+     "pano_x": 13573,
+     "pano_y": 5065,
+     "range_m": 6.42,
+     "sidewalk": {
+      "crossing_m": 8.12,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.828434,
+     "y_normalized": 0.618247
+    }
+   },
+   "unit": "vancouver:res:n47214743",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 6656,
+   "key": "vancouver:res:n47288855#2",
+   "pano_id": "1DESB0O-wtuweUong47crw",
+   "position": 1830,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 1165,
+     "pano_y": 3613,
+     "range_m": 18.5,
+     "sidewalk": null,
+     "x_normalized": 0.087485,
+     "y_normalized": 0.542759
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.53,
+     "pano_x": 1167,
+     "pano_y": 3613,
+     "range_m": 18.49,
+     "sidewalk": {
+      "crossing_m": 9.53,
+      "inset_m": 0.0,
+      "status": "NA",
+      "unittype": null
+     },
+     "x_normalized": 0.087675,
+     "y_normalized": 0.542771
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.53,
+     "pano_x": 1058,
+     "pano_y": 3609,
+     "range_m": 18.76,
+     "sidewalk": {
+      "crossing_m": 9.53,
+      "inset_m": 1.0,
+      "status": "NA",
+      "unittype": null
+     },
+     "x_normalized": 0.079443,
+     "y_normalized": 0.542166
+    }
+   },
+   "unit": "vancouver:res:n47288855",
+   "width": 13312
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n959123526#3",
+   "pano_id": "q4byKxPhTgoEw90W5_ty1w",
+   "position": 1834,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 7.88,
+     "pano_x": 15493,
+     "pano_y": 4594,
+     "range_m": 12.94,
+     "sidewalk": null,
+     "x_normalized": 0.945624,
+     "y_normalized": 0.560731
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.75,
+     "pano_x": 15518,
+     "pano_y": 4592,
+     "range_m": 13.0,
+     "sidewalk": {
+      "crossing_m": 7.75,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": null
+     },
+     "x_normalized": 0.947169,
+     "y_normalized": 0.560488
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.75,
+     "pano_x": 15697,
+     "pano_y": 4576,
+     "range_m": 13.42,
+     "sidewalk": {
+      "crossing_m": 7.75,
+      "inset_m": 1.0,
+      "status": "Available",
+      "unittype": null
+     },
+     "x_normalized": 0.958076,
+     "y_normalized": 0.558615
+    }
+   },
+   "unit": "vancouver:res:n959123526",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n9048382524#0",
+   "pano_id": "FkILtBCwvvGs3cDJKjXrAA",
+   "position": 1845,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.9,
+     "pano_x": 11918,
+     "pano_y": 4650,
+     "range_m": 11.59,
+     "sidewalk": null,
+     "x_normalized": 0.727401,
+     "y_normalized": 0.567601
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 12.34,
+     "pano_x": 11818,
+     "pano_y": 4527,
+     "range_m": 15.0,
+     "sidewalk": {
+      "crossing_m": 12.34,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.721295,
+     "y_normalized": 0.552577
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.84,
+     "pano_x": 11885,
+     "pano_y": 4610,
+     "range_m": 12.52,
+     "sidewalk": {
+      "crossing_m": 12.34,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.725402,
+     "y_normalized": 0.562722
+    }
+   },
+   "unit": "vancouver:res:n9048382524",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47242431#1",
+   "pano_id": "lWKttUR7hMQc-dTrS5jTgQ",
+   "position": 1847,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 12.0,
+     "pano_x": 14357,
+     "pano_y": 4577,
+     "range_m": 13.4,
+     "sidewalk": null,
+     "x_normalized": 0.876279,
+     "y_normalized": 0.558701
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 16.72,
+     "pano_x": 14160,
+     "pano_y": 4456,
+     "range_m": 17.97,
+     "sidewalk": {
+      "crossing_m": 16.72,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.86425,
+     "y_normalized": 0.544
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 14.22,
+     "pano_x": 14250,
+     "pano_y": 4512,
+     "range_m": 15.54,
+     "sidewalk": {
+      "crossing_m": 16.72,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.869746,
+     "y_normalized": 0.55078
+    }
+   },
+   "unit": "vancouver:res:n47242431",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47281361#0",
+   "pano_id": "0PcttVM-ZW0WrAkVK2DQug",
+   "position": 1890,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 8.77,
+     "pano_x": 13514,
+     "pano_y": 5185,
+     "range_m": 5.63,
+     "sidewalk": null,
+     "x_normalized": 0.824837,
+     "y_normalized": 0.632934
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.7,
+     "pano_x": 13629,
+     "pano_y": 5050,
+     "range_m": 6.52,
+     "sidewalk": {
+      "crossing_m": 9.7,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": null
+     },
+     "x_normalized": 0.831828,
+     "y_normalized": 0.616467
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.7,
+     "pano_x": 13504,
+     "pano_y": 5197,
+     "range_m": 5.57,
+     "sidewalk": {
+      "crossing_m": 9.7,
+      "inset_m": 1.0,
+      "status": "Available",
+      "unittype": null
+     },
+     "x_normalized": 0.824218,
+     "y_normalized": 0.634346
+    }
+   },
+   "unit": "vancouver:res:n47281361",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n10213183161#3",
+   "pano_id": "oDQBC-InMYFqraszU_FAlw",
+   "position": 1908,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 9.96,
+     "pano_x": 11140,
+     "pano_y": 4837,
+     "range_m": 8.56,
+     "sidewalk": null,
+     "x_normalized": 0.67993,
+     "y_normalized": 0.590421
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.48,
+     "pano_x": 10382,
+     "pano_y": 4840,
+     "range_m": 8.52,
+     "sidewalk": {
+      "crossing_m": 7.48,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.633667,
+     "y_normalized": 0.590881
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.48,
+     "pano_x": 10382,
+     "pano_y": 4840,
+     "range_m": 8.52,
+     "sidewalk": {
+      "crossing_m": 7.48,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.633667,
+     "y_normalized": 0.590881
+    }
+   },
+   "unit": "vancouver:res:n10213183161",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47254586#3",
+   "pano_id": "9aG1HmcxHJey4TBjaTlwvQ",
+   "position": 1942,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 10.84,
+     "pano_x": 11872,
+     "pano_y": 5789,
+     "range_m": 3.29,
+     "sidewalk": null,
+     "x_normalized": 0.72461,
+     "y_normalized": 0.70664
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 11.01,
+     "pano_x": 11909,
+     "pano_y": 5728,
+     "range_m": 3.46,
+     "sidewalk": {
+      "crossing_m": 11.01,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.726865,
+     "y_normalized": 0.699199
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.51,
+     "pano_x": 10415,
+     "pano_y": 6980,
+     "range_m": 1.25,
+     "sidewalk": {
+      "crossing_m": 11.01,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.635701,
+     "y_normalized": 0.852077
+    }
+   },
+   "unit": "vancouver:res:n47254586",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n1326925819#3",
+   "pano_id": "IWSGC1yYtzFJ-7I_IJ8L5Q",
+   "position": 1949,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 7.88,
+     "pano_x": 14916,
+     "pano_y": 4838,
+     "range_m": 8.54,
+     "sidewalk": null,
+     "x_normalized": 0.910403,
+     "y_normalized": 0.590609
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.38,
+     "pano_x": 14457,
+     "pano_y": 4850,
+     "range_m": 8.4,
+     "sidewalk": {
+      "crossing_m": 9.38,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.882369,
+     "y_normalized": 0.592038
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.88,
+     "pano_x": 15210,
+     "pano_y": 4819,
+     "range_m": 8.78,
+     "sidewalk": {
+      "crossing_m": 9.38,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.928318,
+     "y_normalized": 0.588292
+    }
+   },
+   "unit": "vancouver:res:n1326925819",
+   "width": 16384
+  },
+  {
+   "calibration": true,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47220756#0",
+   "pano_id": "4KpliJAiXgqswes8G0g2XQ",
+   "position": 4,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 10.61,
+     "pano_x": 7761,
+     "pano_y": 4575,
+     "range_m": 13.46,
+     "sidewalk": null,
+     "x_normalized": 0.473713,
+     "y_normalized": 0.558473
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.8,
+     "pano_x": 7678,
+     "pano_y": 4600,
+     "range_m": 12.76,
+     "sidewalk": {
+      "crossing_m": 9.8,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.46864,
+     "y_normalized": 0.561566
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.8,
+     "pano_x": 7678,
+     "pano_y": 4600,
+     "range_m": 12.76,
+     "sidewalk": {
+      "crossing_m": 9.8,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.46864,
+     "y_normalized": 0.561566
+    }
+   },
+   "unit": "vancouver:res:n47220756",
+   "width": 16384
+  },
+  {
+   "calibration": true,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47279117#3",
+   "pano_id": "b08SQFYKM92x6TcvKEGVWw",
+   "position": 5,
+   "rules": {
+    "A": {
+     "case": "unit",
+     "dist_m": 10.41,
+     "pano_x": 13762,
+     "pano_y": 5069,
+     "range_m": 6.39,
+     "sidewalk": null,
+     "x_normalized": 0.839985,
+     "y_normalized": 0.618768
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 15.33,
+     "pano_x": 12255,
+     "pano_y": 4817,
+     "range_m": 8.81,
+     "sidewalk": {
+      "crossing_m": 15.33,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.748015,
+     "y_normalized": 0.587984
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 12.83,
+     "pano_x": 12898,
+     "pano_y": 4960,
+     "range_m": 7.27,
+     "sidewalk": {
+      "crossing_m": 15.33,
+      "inset_m": 2.5,
+      "status": "Available",
+      "unittype": "DETACHED"
+     },
+     "x_normalized": 0.787242,
+     "y_normalized": 0.60541
+    }
+   },
+   "unit": "vancouver:res:n47279117",
+   "width": 16384
+  },
+  {
+   "calibration": true,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47271259#0",
+   "pano_id": "Rv-KWv2G7ecm0-4gw1WV4Q",
+   "position": 6,
+   "rules": {
+    "A": {
+     "case": "stratum",
+     "dist_m": 9.51,
+     "pano_x": 3582,
+     "pano_y": 4892,
+     "range_m": 7.94,
+     "sidewalk": null,
+     "x_normalized": 0.218623,
+     "y_normalized": 0.597119
+    },
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.64,
+     "pano_x": 3559,
+     "pano_y": 4882,
+     "range_m": 8.04,
+     "sidewalk": {
+      "crossing_m": 9.64,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.217195,
+     "y_normalized": 0.595912
+    },
+    "C": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.64,
+     "pano_x": 3559,
+     "pano_y": 4882,
+     "range_m": 8.04,
+     "sidewalk": {
+      "crossing_m": 9.64,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.217195,
+     "y_normalized": 0.595912
+    }
+   },
+   "unit": "vancouver:res:n47271259",
+   "width": 16384
+  }
+ ],
+ "issue": "sidewalk-auto-labeler#169",
+ "keys": [
+  "vancouver:res:n47257159#0",
+  "vancouver:res:n47384886#0",
+  "vancouver:res:n47241260#2",
+  "vancouver:res:n47278666#0",
+  "vancouver:res:n47308326#2",
+  "vancouver:res:n47266768#3",
+  "vancouver:res:n47276886#1",
+  "vancouver:res:n958722970#2",
+  "vancouver:res:n47281487#2",
+  "vancouver:res:n47259730#2",
+  "vancouver:res:n47261995#2",
+  "vancouver:res:n47209926#3",
+  "vancouver:res:n47373259#0",
+  "vancouver:res:n1255903000#0",
+  "vancouver:res:n1637998606#0",
+  "vancouver:res:n3372672500#1",
+  "vancouver:res:n47360409#0",
+  "vancouver:res:n47225219#1",
+  "vancouver:res:n1627708252#2",
+  "vancouver:res:n47209792#1",
+  "vancouver:res:n47279171#1",
+  "vancouver:res:n47215575#3",
+  "vancouver:res:n47207373#1",
+  "vancouver:res:n47211243#2",
+  "vancouver:res:n47315339#2",
+  "vancouver:res:n47298418#2",
+  "vancouver:res:n47290316#0",
+  "vancouver:res:n47241260#3",
+  "vancouver:res:n47232361#2",
+  "vancouver:res:n47207281#0",
+  "vancouver:res:n47391433#1",
+  "vancouver:res:n47296801#3",
+  "vancouver:res:n1253177406#3",
+  "vancouver:res:n1627660352#3",
+  "vancouver:res:n47242030#0",
+  "vancouver:res:n47355034#2",
+  "vancouver:res:n47288872#1",
+  "vancouver:res:n47372321#0",
+  "vancouver:res:n47213508#0",
+  "vancouver:res:n47288672#2",
+  "vancouver:res:n959123557#2",
+  "vancouver:res:n1326828137#2",
+  "vancouver:res:n47257161#0",
+  "vancouver:res:n47281361#3",
+  "vancouver:res:n47397103#1",
+  "vancouver:res:n47299779#0",
+  "vancouver:res:n47399529#2",
+  "vancouver:res:n47241597#3",
+  "vancouver:res:n47323424#3",
+  "vancouver:res:n47150615#2",
+  "vancouver:res:n47299042#1",
+  "vancouver:res:n47214743#3",
+  "vancouver:res:n47288855#2",
+  "vancouver:res:n959123526#3",
+  "vancouver:res:n9048382524#0",
+  "vancouver:res:n47242431#1",
+  "vancouver:res:n47281361#0",
+  "vancouver:res:n10213183161#3",
+  "vancouver:res:n47254586#3",
+  "vancouver:res:n1326925819#3"
+ ],
+ "keys_sha256": "6de6873d9b30d24833905b1a3a1203376516d8d7c746a807ceee27c78f21eb83",
+ "min_position": 204,
+ "n": 60,
+ "n_eligible": 1730,
+ "pilot_sha256": "157ff268162f62f125f93890fd65b01638e7ecb27a3c5011e2056e292dbf32b4",
+ "proposals_sha256": "9925a736c3d3790172dfea49a0943e7e70498a701edae4d1e765d47ed2239738",
+ "rules": {
+  "A": "site-median",
+  "B": "sidewalk-crossing",
+  "C": "sidewalk-crossing-inset"
+ },
+ "schema": "sidewalk-auto-labeler.corner_placement_check.sample/1",
+ "seed": 20261115,
+ "sidewalk_inset_by_type_m": {
+  "ATTACHED": 0.0,
+  "DETACHED": 2.5,
+  "other": 1.0
+ },
+ "sidewalk_ray_m": [
+  3.0,
+  20.0
+ ],
+ "sidewalks_sha256": "11503ed4cd7def77749c8443143f2bce73e556e8543fc17d1981a514f7bf0eff",
+ "stratum": "residential"
+}

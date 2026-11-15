@@ -1,0 +1,1136 @@
+[
+ {
+  "calibration": false,
+  "card": "c001",
+  "key": "vancouver:res:n47242030#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c002",
+  "key": "vancouver:res:n47399529#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c003",
+  "key": "vancouver:res:n47257161#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c004",
+  "key": "vancouver:res:n1637998606#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c005",
+  "key": "vancouver:res:n959123526#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c006",
+  "key": "vancouver:res:n47276886#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c007",
+  "key": "vancouver:res:n1627708252#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c008",
+  "key": "vancouver:res:n47399529#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c009",
+  "key": "vancouver:res:n47232361#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c010",
+  "key": "vancouver:res:n47315339#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c011",
+  "key": "vancouver:res:n47298418#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c012",
+  "key": "vancouver:res:n47211243#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c013",
+  "key": "vancouver:res:n47259730#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c014",
+  "key": "vancouver:res:n47211243#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c015",
+  "key": "vancouver:res:n47281487#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c016",
+  "key": "vancouver:res:n1253177406#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c017",
+  "key": "vancouver:res:n47373259#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c018",
+  "key": "vancouver:res:n47278666#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c019",
+  "key": "vancouver:res:n958722970#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c020",
+  "key": "vancouver:res:n47281487#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c021",
+  "key": "vancouver:res:n47299042#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c022",
+  "key": "vancouver:res:n47266768#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c023",
+  "key": "vancouver:res:n47372321#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c024",
+  "key": "vancouver:res:n47209926#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c025",
+  "key": "vancouver:res:n47276886#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c026",
+  "key": "vancouver:res:n47209926#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c027",
+  "key": "vancouver:res:n47259730#2",
+  "rule": "B"
+ },
+ {
+  "calibration": true,
+  "card": "c028",
+  "key": "vancouver:res:n47220756#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c029",
+  "key": "vancouver:res:n47241597#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c030",
+  "key": "vancouver:res:n47279171#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c031",
+  "key": "vancouver:res:n47281361#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c032",
+  "key": "vancouver:res:n47308326#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c033",
+  "key": "vancouver:res:n47242431#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c034",
+  "key": "vancouver:res:n3372672500#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c035",
+  "key": "vancouver:res:n47213508#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c036",
+  "key": "vancouver:res:n47232361#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c037",
+  "key": "vancouver:res:n47207373#1",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c038",
+  "key": "vancouver:res:n47355034#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c039",
+  "key": "vancouver:res:n47323424#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c040",
+  "key": "vancouver:res:n47308326#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c041",
+  "key": "vancouver:res:n47257159#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c042",
+  "key": "vancouver:res:n959123557#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c043",
+  "key": "vancouver:res:n47266768#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c044",
+  "key": "vancouver:res:n47391433#1",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c045",
+  "key": "vancouver:res:n9048382524#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c046",
+  "key": "vancouver:res:n47288855#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c047",
+  "key": "vancouver:res:n958722970#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c048",
+  "key": "vancouver:res:n47384886#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c049",
+  "key": "vancouver:res:n47299779#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c050",
+  "key": "vancouver:res:n47397103#1",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c051",
+  "key": "vancouver:res:n47290316#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c052",
+  "key": "vancouver:res:n959123526#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c053",
+  "key": "vancouver:res:n47261995#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c054",
+  "key": "vancouver:res:n47298418#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c055",
+  "key": "vancouver:res:n47207281#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c056",
+  "key": "vancouver:res:n47207281#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c057",
+  "key": "vancouver:res:n47299042#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c058",
+  "key": "vancouver:res:n1637998606#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c059",
+  "key": "vancouver:res:n47207281#0",
+  "rule": "A"
+ },
+ {
+  "calibration": true,
+  "card": "c060",
+  "key": "vancouver:res:n47279117#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c061",
+  "key": "vancouver:res:n47391433#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c062",
+  "key": "vancouver:res:n959123557#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c063",
+  "key": "vancouver:res:n47241260#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c064",
+  "key": "vancouver:res:n47241260#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c065",
+  "key": "vancouver:res:n47214743#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c066",
+  "key": "vancouver:res:n47278666#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c067",
+  "key": "vancouver:res:n47288672#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c068",
+  "key": "vancouver:res:n47215575#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c069",
+  "key": "vancouver:res:n47288872#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c070",
+  "key": "vancouver:res:n47207373#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c071",
+  "key": "vancouver:res:n10213183161#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c072",
+  "key": "vancouver:res:n47384886#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c073",
+  "key": "vancouver:res:n47288855#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c074",
+  "key": "vancouver:res:n1326925819#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c075",
+  "key": "vancouver:res:n1255903000#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c076",
+  "key": "vancouver:res:n1253177406#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c077",
+  "key": "vancouver:res:n47372321#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c078",
+  "key": "vancouver:res:n1627708252#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c079",
+  "key": "vancouver:res:n1326925819#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c080",
+  "key": "vancouver:res:n47288872#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c081",
+  "key": "vancouver:res:n47315339#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c082",
+  "key": "vancouver:res:n47360409#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c083",
+  "key": "vancouver:res:n1627660352#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c084",
+  "key": "vancouver:res:n47315339#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c085",
+  "key": "vancouver:res:n47288872#1",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c086",
+  "key": "vancouver:res:n3372672500#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c087",
+  "key": "vancouver:res:n47281487#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c088",
+  "key": "vancouver:res:n1255903000#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c089",
+  "key": "vancouver:res:n959123557#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c090",
+  "key": "vancouver:res:n47299779#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c091",
+  "key": "vancouver:res:n47298418#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c092",
+  "key": "vancouver:res:n47281361#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c093",
+  "key": "vancouver:res:n1326828137#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c094",
+  "key": "vancouver:res:n1326925819#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c095",
+  "key": "vancouver:res:n47242030#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c096",
+  "key": "vancouver:res:n47296801#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c097",
+  "key": "vancouver:res:n47281361#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c098",
+  "key": "vancouver:res:n47241260#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c099",
+  "key": "vancouver:res:n10213183161#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c100",
+  "key": "vancouver:res:n47241260#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c101",
+  "key": "vancouver:res:n47281361#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c102",
+  "key": "vancouver:res:n47281361#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c103",
+  "key": "vancouver:res:n47399529#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c104",
+  "key": "vancouver:res:n47207373#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c105",
+  "key": "vancouver:res:n1326828137#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c106",
+  "key": "vancouver:res:n47296801#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c107",
+  "key": "vancouver:res:n47225219#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c108",
+  "key": "vancouver:res:n47397103#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c109",
+  "key": "vancouver:res:n47373259#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c110",
+  "key": "vancouver:res:n47308326#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c111",
+  "key": "vancouver:res:n47241260#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c112",
+  "key": "vancouver:res:n47211243#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c113",
+  "key": "vancouver:res:n47209792#1",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c114",
+  "key": "vancouver:res:n47266768#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c115",
+  "key": "vancouver:res:n1253177406#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c116",
+  "key": "vancouver:res:n47213508#0",
+  "rule": "C"
+ },
+ {
+  "calibration": true,
+  "card": "c117",
+  "key": "vancouver:res:n47271259#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c118",
+  "key": "vancouver:res:n47214743#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c119",
+  "key": "vancouver:res:n47355034#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c120",
+  "key": "vancouver:res:n47288855#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c121",
+  "key": "vancouver:res:n47242431#1",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c122",
+  "key": "vancouver:res:n47373259#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c123",
+  "key": "vancouver:res:n9048382524#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c124",
+  "key": "vancouver:res:n47290316#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c125",
+  "key": "vancouver:res:n47290316#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c126",
+  "key": "vancouver:res:n958722970#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c127",
+  "key": "vancouver:res:n47214743#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c128",
+  "key": "vancouver:res:n47261995#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c129",
+  "key": "vancouver:res:n47355034#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c130",
+  "key": "vancouver:res:n47257159#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c131",
+  "key": "vancouver:res:n47257161#0",
+  "rule": "B"
+ },
+ {
+  "calibration": true,
+  "card": "c132",
+  "key": "vancouver:res:n47271259#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c133",
+  "key": "vancouver:res:n47213508#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c134",
+  "key": "vancouver:res:n47299042#1",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c135",
+  "key": "vancouver:res:n47276886#1",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c136",
+  "key": "vancouver:res:n1637998606#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c137",
+  "key": "vancouver:res:n47259730#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c138",
+  "key": "vancouver:res:n1627660352#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c139",
+  "key": "vancouver:res:n47279171#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c140",
+  "key": "vancouver:res:n47299779#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c141",
+  "key": "vancouver:res:n47215575#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c142",
+  "key": "vancouver:res:n47209926#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c143",
+  "key": "vancouver:res:n47360409#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c144",
+  "key": "vancouver:res:n1255903000#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c145",
+  "key": "vancouver:res:n1326828137#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c146",
+  "key": "vancouver:res:n1627660352#3",
+  "rule": "C"
+ },
+ {
+  "calibration": true,
+  "card": "c147",
+  "key": "vancouver:res:n47271259#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c148",
+  "key": "vancouver:res:n47150615#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c149",
+  "key": "vancouver:res:n47254586#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c150",
+  "key": "vancouver:res:n47150615#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c151",
+  "key": "vancouver:res:n47209792#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c152",
+  "key": "vancouver:res:n3372672500#1",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c153",
+  "key": "vancouver:res:n47225219#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c154",
+  "key": "vancouver:res:n47288672#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c155",
+  "key": "vancouver:res:n47261995#2",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c156",
+  "key": "vancouver:res:n47288672#2",
+  "rule": "A"
+ },
+ {
+  "calibration": true,
+  "card": "c157",
+  "key": "vancouver:res:n47279117#3",
+  "rule": "C"
+ },
+ {
+  "calibration": true,
+  "card": "c158",
+  "key": "vancouver:res:n47220756#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c159",
+  "key": "vancouver:res:n47323424#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c160",
+  "key": "vancouver:res:n47209792#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c161",
+  "key": "vancouver:res:n47278666#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c162",
+  "key": "vancouver:res:n47215575#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c163",
+  "key": "vancouver:res:n47241597#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c164",
+  "key": "vancouver:res:n47391433#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c165",
+  "key": "vancouver:res:n47241597#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c166",
+  "key": "vancouver:res:n47372321#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c167",
+  "key": "vancouver:res:n47254586#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c168",
+  "key": "vancouver:res:n47323424#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c169",
+  "key": "vancouver:res:n47279171#1",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c170",
+  "key": "vancouver:res:n10213183161#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c171",
+  "key": "vancouver:res:n47296801#3",
+  "rule": "A"
+ },
+ {
+  "calibration": true,
+  "card": "c172",
+  "key": "vancouver:res:n47220756#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c173",
+  "key": "vancouver:res:n959123526#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c174",
+  "key": "vancouver:res:n47257161#0",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c175",
+  "key": "vancouver:res:n47397103#1",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c176",
+  "key": "vancouver:res:n47257159#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c177",
+  "key": "vancouver:res:n47254586#3",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c178",
+  "key": "vancouver:res:n47360409#0",
+  "rule": "A"
+ },
+ {
+  "calibration": true,
+  "card": "c179",
+  "key": "vancouver:res:n47279117#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c180",
+  "key": "vancouver:res:n47384886#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c181",
+  "key": "vancouver:res:n47150615#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c182",
+  "key": "vancouver:res:n47241260#3",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c183",
+  "key": "vancouver:res:n47242431#1",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c184",
+  "key": "vancouver:res:n47281361#3",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c185",
+  "key": "vancouver:res:n47232361#2",
+  "rule": "C"
+ },
+ {
+  "calibration": false,
+  "card": "c186",
+  "key": "vancouver:res:n47242030#0",
+  "rule": "B"
+ },
+ {
+  "calibration": false,
+  "card": "c187",
+  "key": "vancouver:res:n9048382524#0",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c188",
+  "key": "vancouver:res:n1627708252#2",
+  "rule": "A"
+ },
+ {
+  "calibration": false,
+  "card": "c189",
+  "key": "vancouver:res:n47225219#1",
+  "rule": "C"
+ }
+]

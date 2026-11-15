@@ -376,3 +376,73 @@ inputs reproduces it; only `build.json`'s time and commit fields differ.
 > Clearance sheet: `docs/corner-labels-169-pilot.md` on `corner-pilot-169`.
 >
 > 🤖 Generated with [Claude Code](https://claude.com/claude-code) — Opus 5.5, claude-opus-5-5
+
+## 12. Placement check (2026-11-15)
+
+Why: the second smoke send put 2 of 3 labels at the curb and 1 (`vancouver-test:89739`) in the
+street (section 5, deviation 3). This check measures where each candidate rule puts the marker,
+locally, before anything else is sent. No server is touched. Tool:
+`scripts/corner_placement_check.py` (`sample`, `render`, `score`). Outputs:
+`runs/vancouver/corner_placement169/`.
+
+### 12.1 Pre-registration (written 2026-11-15, after `sample` and before any pano was fetched or any card rendered)
+
+**Rules**, all on the corner's bisector and on the same chosen pano (the pano choice is keyed on
+the corner point, so it does not depend on the rule):
+
+| | `--label-point` | point |
+|---|---|---|
+| A | `site-median` (current default) | the build's stored pixel, exactly what is sent |
+| B | `sidewalk-crossing` (new, opt-in) | the first crossing, 3-20 m out from the unit centre, of the bisector with ANY line of the city sidewalk layer (`cov_sidewalks.geojson`, every STATUS); site-median where there is none |
+| C | `sidewalk-crossing-inset` (new, opt-in) | B moved back toward the centre by the crossed line's `UNITTYPE` inset: ATTACHED 0 m, DETACHED 2.5 m, other or none 1.0 m; never nearer than 3 m |
+
+C's insets were set from the three calibration corners, which are therefore development data
+and are scored apart: on the two ATTACHED corners Jon judged at the curb, B is within 0.8 m of
+A; at 89739 (DETACHED) the curb lies between A's 10.4 m (in the street) and B's 15.3 m.
+
+**Sample.** `sample` seed 20261115; 60 residential corners drawn from pilot positions >= 204
+of `na_discount_sw/pilot_residential/pilot.csv` (sha256 `157ff268…`), keeping the build's
+chosen pano. Corners whose chosen pano is also chosen at positions 1-203, or is a smoke pano,
+are not eligible (200 panos blocked; 1,730 eligible). Keys sha256
+`6de6873d9b30d24833905b1a3a1203376516d8d7c746a807ceee27c78f21eb83` (`sample.json`). Build
+`na_discount_sw_sitemed`, proposals sha256 `9925a736…`; sidewalks sha256 `11503ed4…`. Of the
+60, B finds a crossing at 59 (28 DETACHED, 23 ATTACHED, 9 no UNITTYPE).
+*Deviation from the approved plan:* the plan said positions >= 127. Positions 127-203 are in
+the pilot send file, and would be sent, and possibly rated if can't-tells run past the reserve.
+So the draw starts at 204, which keeps every card off the send file.
+
+**Cards.** One per (corner, rule), 180 + 9 calibration = 189, shuffled (seed 20261116) and
+named `c001`-`c189`. A card shows a 50 x 30 degree window of the store pano centred on the
+marker, which sits on PS's own pixel (`detectors.ps_pixel`). The rule of each card is only in
+`key.json`.
+
+**Tags** (one per card):
+- `at_curb`: on the curb edge, or on the sidewalk corner right behind the curb (where a ramp
+  would start).
+- `inland`: behind the curb, beyond the sidewalk corner (yard, lawn, planter strip, driveway
+  apron, fence).
+- `in_street`: on the roadway (gutter included).
+- `cant_tell`: occluded, too far or blurred, or no curb in view.
+
+**Rater.** AI pre-pass by Claude Opus 5.5 (claude-opus-5-5), blind to rule: tags are written
+for every card from the cards and montages alone, then `key.json` is joined by `score`. Not
+independent: the same model designed rules B and C. The tags go to
+`tags_ai_claude-opus-5-5.json`, marked as AI pre-rater tags, never as ground truth. Jon then
+skims the page's skim section (every `inland`/`in_street` card and every corner where the
+rules' tags differ).
+
+**Bar, per rule** (the 60 sample corners; calibration excluded): `at_curb` >= 0.90 of the
+decidable cards (`at_curb` + `inland` + `in_street`) AND at most 2 `in_street`. The Wilson 95%
+interval is reported but does not gate; at n = 60 a share of 0.90 has a lower bound near 0.80.
+
+**What each outcome means.**
+- **Exactly one rule passes:** it is the recommendation.
+- **Several pass:** the one with fewer `in_street`, then more `at_curb`, then the simpler one
+  (A, then B, then C).
+- **None passes:** nothing is rebuilt or sent. Next is a different approach (e.g. per-leg curb
+  geometry), with its own check.
+- **Calibration check:** if the AI's tag on any of rule A's three calibration cards disagrees
+  with Jon's verdict (curb, street, curb), the result is marked AI-unconfirmed. Jon then rates
+  the winning rule's 60 cards himself before any rebuild.
+- **Whatever the result:** a rebuild under the chosen rule, its guards, and a 3-label smoke
+  send from outside the rated range are each cleared separately.

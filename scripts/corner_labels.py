@@ -108,9 +108,18 @@ SAMPLE_N = 100
 #: unit's own median centre-to-site distance (or its stratum's, from the same corner table),
 #: less LABEL_INSET_M toward the road, clamped to [stratum p10, the corner offset]. The corner
 #: decision and the pano choice stay keyed on the corner point. 'corner' is the old behaviour.
-LABEL_POINT_RULES = ('site-median', 'corner')
+LABEL_POINT_RULES = ('site-median', 'corner', 'sidewalk-crossing', 'sidewalk-crossing-inset')
 LABEL_POINT_DEFAULT = 'site-median'
 LABEL_INSET_M = 0.8
+#: The opt-in sidewalk-line rules (SidewalkCrossingPlacement, 2026-11-15). The ray runs 3-20 m
+#: from the unit centre (residential crossings: p5 6.6 m, p95 14.5 m). The inset of
+#: 'sidewalk-crossing-inset' was fixed before the placement check looked at any card: 0 m for
+#: an ATTACHED sidewalk (on the two attached calibration corners Jon judged at the curb, the
+#: crossing is within 0.8 m of the label), 2.5 m for DETACHED (a planter strip plus half a
+#: sidewalk: at vancouver-test:89739 the curb lies between the site-median 10.4 m, in the street,
+#: and the crossing 15.3 m), 1.0 m for any other UNITTYPE (none recorded).
+SIDEWALK_RAY_M = (3.0, 20.0)
+SIDEWALK_INSET_BY_TYPE = {'ATTACHED': 0.0, 'DETACHED': 2.5, 'other': 1.0}
 PILOT_LOOKS = (40, 60, 100)
 PILOT_ALPHA_ONE_SIDED = 0.025
 #: live-site validation results -> the rubric's terms (agree = the NoCurbRamp label is right)
@@ -554,6 +563,107 @@ class LabelPlacement:
                 'n_unit_sites': len(ds), 'clamped': clamped, 'bearing_deg': b}
 
 
+class SidewalkCrossingPlacement:
+    """Opt-in label points from the city's sidewalk lines (#169, 2026-11-15; exploratory until
+    the placement check in docs/corner-labels-169-pilot.md passes).
+
+    Why: the second smoke send put 1 of 3 site-median labels in the street, short of a wide,
+    rounded curb (vancouver-test:89739). A single distance per unit cannot follow each corner's
+    own street widths and curb radius. The sidewalk layer can: each street side is a line, and
+    where a sidewalk wraps a corner, the corner's bisector crosses it.
+
+    'sidewalk-crossing': the first point, going out along the bisector from the unit centre
+    between ray_m[0] and ray_m[1], where the bisector crosses ANY line of the layer (every
+    STATUS: an 'NA' line is still the digitized street side; --sidewalk-keep filters presence,
+    not geometry). 'sidewalk-crossing-inset': that point moved back toward the centre by
+    inset_by_type[UNITTYPE of the crossed line] (ATTACHED / DETACHED / anything else), never
+    nearer the centre than ray_m[0]. No crossing -> the fallback placement's point
+    (site-median), case 'site_median_fallback'. Returns LabelPlacement.place's keys plus
+    'sidewalk' {'crossing_m', 'unittype', 'status', 'inset_m'}.
+    """
+
+    RULES = ('sidewalk-crossing', 'sidewalk-crossing-inset')
+
+    def __init__(self, path, fallback, rule='sidewalk-crossing', inset_by_type=None,
+                 ray_m=None):
+        from shapely.geometry import LineString, Point, shape
+        from shapely.ops import transform
+        from shapely.strtree import STRtree
+        if rule not in self.RULES:
+            raise SystemExit(f'SidewalkCrossingPlacement: rule {rule!r} not in {self.RULES}')
+        self.rule, self.fallback = rule, fallback
+        self.inset_by_type = dict(SIDEWALK_INSET_BY_TYPE if inset_by_type is None
+                                  else inset_by_type)
+        if rule == 'sidewalk-crossing':
+            self.inset_by_type = {k: 0.0 for k in self.inset_by_type}
+        self.ray_m = tuple(SIDEWALK_RAY_M if ray_m is None else ray_m)
+        feats = [f for f in json.loads(Path(path).read_text(encoding='utf-8'))['features']
+                 if f.get('geometry')]
+        c = shape(feats[0]['geometry']).representative_point()
+        self.frame = geo.LocalFrame(c.y, c.x)
+        self.geoms = [transform(lambda xs, ys: _enu_coords(self.frame, xs, ys),
+                                shape(f['geometry'])) for f in feats]
+        self.props = [{'unittype': (f.get('properties') or {}).get('UNITTYPE'),
+                       'status': (f.get('properties') or {}).get('STATUS')} for f in feats]
+        self.tree = STRtree(self.geoms)
+        self.path, self.n_features = str(path), len(feats)
+        self._LineString, self._Point = LineString, Point
+
+    def inset_for(self, unittype):
+        """Metres moved back toward the centre for a crossed line of this UNITTYPE ('other'
+        covers any type not listed, None included)."""
+        return float(self.inset_by_type.get(unittype, self.inset_by_type.get('other', 0.0)))
+
+    def crossing(self, lat, lng, bearing_deg):
+        """(distance in m from (lat, lng), props of the crossed line) of the first crossing of
+        the ray along bearing_deg between ray_m[0] and ray_m[1], or None."""
+        e0, n0 = self.frame.to_enu(lat, lng)
+        s, c = math.sin(math.radians(bearing_deg)), math.cos(math.radians(bearing_deg))
+        r0, r1 = self.ray_m
+        ray = self._LineString([(e0 + r0 * s, n0 + r0 * c), (e0 + r1 * s, n0 + r1 * c)])
+        best = None
+        for i in self.tree.query(ray):
+            x = ray.intersection(self.geoms[int(i)])
+            if x.is_empty:
+                continue
+            for g in getattr(x, 'geoms', [x]):
+                for px, py in g.coords:
+                    d = math.hypot(px - e0, py - n0)
+                    if best is None or (d, int(i)) < best[:2]:
+                        best = (d, int(i))
+        return None if best is None else (best[0], self.props[best[1]])
+
+    def record(self):
+        """build.json's `label_point` block."""
+        return {'rule': self.rule, 'ray_m': list(self.ray_m),
+                'inset_by_type_m': self.inset_by_type, 'path': self.path,
+                'n_features': self.n_features,
+                'cases': {'sidewalk_crossing': 'first crossing of the bisector with a sidewalk '
+                                               'line, less the inset of its UNITTYPE',
+                          'site_median_fallback': 'no crossing within ray_m: the site-median '
+                                                  'point'},
+                'fallback': self.fallback.record()}
+
+    def place(self, rec, c):
+        """LabelPlacement.place's dict for corner c of unit rec (see the class doc)."""
+        b = (float(c['start_deg']) + float(c['width_deg']) / 2.0) % 360.0
+        hit = self.crossing(rec['lat'], rec['lng'], b)
+        if hit is None:
+            out = dict(self.fallback.place(rec, c), case='site_median_fallback')
+            out['sidewalk'] = None
+            return out
+        d0, props = hit
+        inset = self.inset_for(props['unittype'])
+        d = max(self.ray_m[0], d0 - inset)
+        lat, lng = geo.LocalFrame(rec['lat'], rec['lng']).to_latlng(
+            d * math.sin(math.radians(b)), d * math.cos(math.radians(b)))
+        n_sites = len(getattr(self.fallback, 'unit_d', {}).get(rec['unit']) or [])
+        return {'lat': lat, 'lng': lng, 'dist_m': d, 'case': 'sidewalk_crossing', 'base_m': d0,
+                'n_unit_sites': n_sites, 'clamped': None, 'bearing_deg': b,
+                'sidewalk': {'crossing_m': r2(d0), 'unittype': props['unittype'],
+                             'status': props['status'], 'inset_m': inset}}
+
+
 def check_pins(city, inputs, allow_unpinned):
     """Compare every input's sha256 with PINNED_SHA256[city]; a mismatch exits unless
     allow_unpinned. Returns 'pinned', 'unpinned city' or 'overridden: <roles>'."""
@@ -688,6 +798,8 @@ def proposal_record(rec, c, pano, chosen, runners, cands, rejected, proj, site, 
                               'base_m': r2(lp['base_m']), 'n_unit_sites': lp['n_unit_sites'],
                               'clamped': lp['clamped'], 'bearing_deg': r2(lp['bearing_deg']),
                               'shift_m': r2(math.hypot(*fr.to_enu(lp['lat'], lp['lng'])))}
+        if 'sidewalk' in lp:        # the opt-in sidewalk-line rules only (no key otherwise)
+            out['label_point']['sidewalk'] = lp['sidewalk']
     return out
 
 
@@ -783,9 +895,13 @@ def cmd_build(args):
                  if args.sidewalk_presence else None)
     rule = getattr(args, 'label_point', 'corner')
     placement = None
-    if rule == 'site-median':
+    if rule in ('site-median',) + SidewalkCrossingPlacement.RULES:
         placement = LabelPlacement(units, {s[2]['site_id']: (s[0], s[1]) for s in sites},
                                    args.label_inset_m)
+        if rule in SidewalkCrossingPlacement.RULES:
+            if not args.sidewalk_presence:
+                raise SystemExit(f'--label-point {rule} needs --sidewalk-presence (the lines)')
+            placement = SidewalkCrossingPlacement(args.sidewalk_presence, placement, rule)
     elif rule != 'corner':
         raise SystemExit(f'--label-point {rule!r}: one of {LABEL_POINT_RULES}')
 
@@ -1692,8 +1808,12 @@ def main(argv=None):
                    help="where the label goes on the corner bisector. site-median (default since "
                         "2026-11-11): the unit's median centre-to-site distance, else its "
                         "stratum's, less --label-inset-m, clamped to [stratum p10, corner "
-                        "offset]. corner: the corner point itself (every earlier build). The "
-                        "corner decision and pano choice use the corner point either way")
+                        "offset]. corner: the corner point itself (every earlier build). "
+                        "sidewalk-crossing / sidewalk-crossing-inset (opt-in, 2026-11-15, need "
+                        "--sidewalk-presence): where the bisector crosses a sidewalk line, "
+                        "optionally moved back by the line's UNITTYPE inset "
+                        "(SIDEWALK_INSET_BY_TYPE); site-median where none. The corner decision "
+                        "and pano choice use the corner point either way")
     b.add_argument('--label-inset-m', type=float, default=LABEL_INSET_M,
                    help='site-median: metres subtracted toward the road (default %(default)s)')
     b.add_argument('--allow-unpinned', action='store_true',

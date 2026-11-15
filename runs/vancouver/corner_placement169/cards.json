@@ -1,0 +1,1892 @@
+[
+ {
+  "card": "c001",
+  "height": 8192,
+  "pano_id": "0KK-Y990KIvvJpLcrB-fDw",
+  "pano_x": 10616,
+  "pano_y": 4617,
+  "width": 16384,
+  "x_normalized": 0.647945,
+  "y_normalized": 0.563646
+ },
+ {
+  "card": "c002",
+  "height": 8192,
+  "pano_id": "fe1w_MBFjg8yetncpZq1Dg",
+  "pano_x": 11705,
+  "pano_y": 5313,
+  "width": 16384,
+  "x_normalized": 0.714427,
+  "y_normalized": 0.648549
+ },
+ {
+  "card": "c003",
+  "height": 8192,
+  "pano_id": "k5Qy-6e45bor3rmOKqrIdQ",
+  "pano_x": 13925,
+  "pano_y": 4900,
+  "width": 16384,
+  "x_normalized": 0.84991,
+  "y_normalized": 0.598106
+ },
+ {
+  "card": "c004",
+  "height": 8192,
+  "pano_id": "0QzgLM_xAMN5XdAPWSXhmw",
+  "pano_x": 10377,
+  "pano_y": 4781,
+  "width": 16384,
+  "x_normalized": 0.633391,
+  "y_normalized": 0.583593
+ },
+ {
+  "card": "c005",
+  "height": 8192,
+  "pano_id": "q4byKxPhTgoEw90W5_ty1w",
+  "pano_x": 15697,
+  "pano_y": 4576,
+  "width": 16384,
+  "x_normalized": 0.958076,
+  "y_normalized": 0.558615
+ },
+ {
+  "card": "c006",
+  "height": 8192,
+  "pano_id": "V05404CJu_L-SvutMcXBiA",
+  "pano_x": 10538,
+  "pano_y": 4713,
+  "width": 16384,
+  "x_normalized": 0.643181,
+  "y_normalized": 0.575349
+ },
+ {
+  "card": "c007",
+  "height": 8192,
+  "pano_id": "RNo1ppuIAWUrvFt_bQnO1w",
+  "pano_x": 5500,
+  "pano_y": 4918,
+  "width": 16384,
+  "x_normalized": 0.335709,
+  "y_normalized": 0.60037
+ },
+ {
+  "card": "c008",
+  "height": 8192,
+  "pano_id": "fe1w_MBFjg8yetncpZq1Dg",
+  "pano_x": 10253,
+  "pano_y": 5491,
+  "width": 16384,
+  "x_normalized": 0.625783,
+  "y_normalized": 0.670283
+ },
+ {
+  "card": "c009",
+  "height": 8192,
+  "pano_id": "dvnzVWnUPjCZKV_T3Z9rjA",
+  "pano_x": 10299,
+  "pano_y": 4925,
+  "width": 16384,
+  "x_normalized": 0.628626,
+  "y_normalized": 0.601148
+ },
+ {
+  "card": "c010",
+  "height": 8192,
+  "pano_id": "ZG6IzvNSqNKu_BSdblWpAA",
+  "pano_x": 2877,
+  "pano_y": 4709,
+  "width": 16384,
+  "x_normalized": 0.175589,
+  "y_normalized": 0.574782
+ },
+ {
+  "card": "c011",
+  "height": 8192,
+  "pano_id": "gu4Ng8PnYpyeUo4GvtJdpQ",
+  "pano_x": 6296,
+  "pano_y": 4711,
+  "width": 16384,
+  "x_normalized": 0.384283,
+  "y_normalized": 0.575099
+ },
+ {
+  "card": "c012",
+  "height": 8192,
+  "pano_id": "iT1YSZOoy_R-fh1cG0i6HA",
+  "pano_x": 1131,
+  "pano_y": 4359,
+  "width": 16384,
+  "x_normalized": 0.069037,
+  "y_normalized": 0.532049
+ },
+ {
+  "card": "c013",
+  "height": 8192,
+  "pano_id": "W-nEWqcjvKWh3aui_qZkug",
+  "pano_x": 5983,
+  "pano_y": 4797,
+  "width": 16384,
+  "x_normalized": 0.365155,
+  "y_normalized": 0.585614
+ },
+ {
+  "card": "c014",
+  "height": 8192,
+  "pano_id": "iT1YSZOoy_R-fh1cG0i6HA",
+  "pano_x": 1131,
+  "pano_y": 4359,
+  "width": 16384,
+  "x_normalized": 0.069037,
+  "y_normalized": 0.532049
+ },
+ {
+  "card": "c015",
+  "height": 8192,
+  "pano_id": "LlY0TmRfUl9RxpAR72eRxA",
+  "pano_x": 11048,
+  "pano_y": 5329,
+  "width": 16384,
+  "x_normalized": 0.674335,
+  "y_normalized": 0.650515
+ },
+ {
+  "card": "c016",
+  "height": 8192,
+  "pano_id": "-MVGpPzIlWy05TRlrJJJZw",
+  "pano_x": 12936,
+  "pano_y": 5234,
+  "width": 16384,
+  "x_normalized": 0.789542,
+  "y_normalized": 0.638897
+ },
+ {
+  "card": "c017",
+  "height": 8192,
+  "pano_id": "jHFirgurT6G_cfmmyHUxAg",
+  "pano_x": 3944,
+  "pano_y": 4949,
+  "width": 16384,
+  "x_normalized": 0.24074,
+  "y_normalized": 0.604113
+ },
+ {
+  "card": "c018",
+  "height": 8192,
+  "pano_id": "BxHhfKCPmu0PtRIfPDaLeg",
+  "pano_x": 2053,
+  "pano_y": 4899,
+  "width": 16384,
+  "x_normalized": 0.125311,
+  "y_normalized": 0.597976
+ },
+ {
+  "card": "c019",
+  "height": 8192,
+  "pano_id": "ICBMLZycFt7Ra8i3KIzq8Q",
+  "pano_x": 16025,
+  "pano_y": 4909,
+  "width": 16384,
+  "x_normalized": 0.978115,
+  "y_normalized": 0.599276
+ },
+ {
+  "card": "c020",
+  "height": 8192,
+  "pano_id": "LlY0TmRfUl9RxpAR72eRxA",
+  "pano_x": 12125,
+  "pano_y": 4969,
+  "width": 16384,
+  "x_normalized": 0.740027,
+  "y_normalized": 0.606507
+ },
+ {
+  "card": "c021",
+  "height": 8192,
+  "pano_id": "mRrafjO6vj1YMSZot6EMPw",
+  "pano_x": 5517,
+  "pano_y": 4664,
+  "width": 16384,
+  "x_normalized": 0.336742,
+  "y_normalized": 0.569309
+ },
+ {
+  "card": "c022",
+  "height": 8192,
+  "pano_id": "TVFn3jE2n9IFG5wX4BANEw",
+  "pano_x": 3898,
+  "pano_y": 5407,
+  "width": 16384,
+  "x_normalized": 0.237899,
+  "y_normalized": 0.659987
+ },
+ {
+  "card": "c023",
+  "height": 8192,
+  "pano_id": "avJSjJOLAZIcXEGrvpX1bg",
+  "pano_x": 9522,
+  "pano_y": 4858,
+  "width": 16384,
+  "x_normalized": 0.581163,
+  "y_normalized": 0.592961
+ },
+ {
+  "card": "c024",
+  "height": 8192,
+  "pano_id": "GOruzkyAY27JVJMzSLjXvw",
+  "pano_x": 2944,
+  "pano_y": 4745,
+  "width": 16384,
+  "x_normalized": 0.179685,
+  "y_normalized": 0.579189
+ },
+ {
+  "card": "c025",
+  "height": 8192,
+  "pano_id": "V05404CJu_L-SvutMcXBiA",
+  "pano_x": 10658,
+  "pano_y": 4709,
+  "width": 16384,
+  "x_normalized": 0.6505,
+  "y_normalized": 0.574863
+ },
+ {
+  "card": "c026",
+  "height": 8192,
+  "pano_id": "GOruzkyAY27JVJMzSLjXvw",
+  "pano_x": 2459,
+  "pano_y": 4545,
+  "width": 16384,
+  "x_normalized": 0.150096,
+  "y_normalized": 0.554861
+ },
+ {
+  "card": "c027",
+  "height": 8192,
+  "pano_id": "W-nEWqcjvKWh3aui_qZkug",
+  "pano_x": 4882,
+  "pano_y": 4723,
+  "width": 16384,
+  "x_normalized": 0.297976,
+  "y_normalized": 0.576569
+ },
+ {
+  "card": "c028",
+  "height": 8192,
+  "pano_id": "4KpliJAiXgqswes8G0g2XQ",
+  "pano_x": 7678,
+  "pano_y": 4600,
+  "width": 16384,
+  "x_normalized": 0.46864,
+  "y_normalized": 0.561566
+ },
+ {
+  "card": "c029",
+  "height": 8192,
+  "pano_id": "mmMTQQy4KfuYUhYngjZYag",
+  "pano_x": 7341,
+  "pano_y": 4394,
+  "width": 16384,
+  "x_normalized": 0.448084,
+  "y_normalized": 0.53637
+ },
+ {
+  "card": "c030",
+  "height": 8192,
+  "pano_id": "e4mBcQNit6c_BfPIlxEfvQ",
+  "pano_x": 11545,
+  "pano_y": 5840,
+  "width": 16384,
+  "x_normalized": 0.704636,
+  "y_normalized": 0.712935
+ },
+ {
+  "card": "c031",
+  "height": 8192,
+  "pano_id": "qNbkL7A3McTuIEA8aNo9zQ",
+  "pano_x": 10421,
+  "pano_y": 5050,
+  "width": 16384,
+  "x_normalized": 0.636075,
+  "y_normalized": 0.616505
+ },
+ {
+  "card": "c032",
+  "height": 8192,
+  "pano_id": "is1cm94L177IgPGRBSembg",
+  "pano_x": 10084,
+  "pano_y": 5030,
+  "width": 16384,
+  "x_normalized": 0.615491,
+  "y_normalized": 0.614018
+ },
+ {
+  "card": "c033",
+  "height": 8192,
+  "pano_id": "lWKttUR7hMQc-dTrS5jTgQ",
+  "pano_x": 14160,
+  "pano_y": 4456,
+  "width": 16384,
+  "x_normalized": 0.86425,
+  "y_normalized": 0.544
+ },
+ {
+  "card": "c034",
+  "height": 8192,
+  "pano_id": "sxJq64c4kwTK8Qz0yWScJQ",
+  "pano_x": 11371,
+  "pano_y": 5000,
+  "width": 16384,
+  "x_normalized": 0.694004,
+  "y_normalized": 0.610337
+ },
+ {
+  "card": "c035",
+  "height": 8192,
+  "pano_id": "tdspAnFXIkZBdFHMdwV77w",
+  "pano_x": 4952,
+  "pano_y": 4682,
+  "width": 16384,
+  "x_normalized": 0.302273,
+  "y_normalized": 0.571539
+ },
+ {
+  "card": "c036",
+  "height": 8192,
+  "pano_id": "dvnzVWnUPjCZKV_T3Z9rjA",
+  "pano_x": 9902,
+  "pano_y": 4906,
+  "width": 16384,
+  "x_normalized": 0.604387,
+  "y_normalized": 0.598824
+ },
+ {
+  "card": "c037",
+  "height": 8192,
+  "pano_id": "k1oJiit7I-osZ41JrGDJYg",
+  "pano_x": 5467,
+  "pano_y": 4763,
+  "width": 16384,
+  "x_normalized": 0.333691,
+  "y_normalized": 0.581404
+ },
+ {
+  "card": "c038",
+  "height": 8192,
+  "pano_id": "nYZomCEMUGQUOgbawKlO8w",
+  "pano_x": 2213,
+  "pano_y": 4616,
+  "width": 16384,
+  "x_normalized": 0.135078,
+  "y_normalized": 0.563449
+ },
+ {
+  "card": "c039",
+  "height": 8192,
+  "pano_id": "PzKlWuW3th70kPMZZDsttw",
+  "pano_x": 9757,
+  "pano_y": 4582,
+  "width": 16384,
+  "x_normalized": 0.595503,
+  "y_normalized": 0.55927
+ },
+ {
+  "card": "c040",
+  "height": 8192,
+  "pano_id": "is1cm94L177IgPGRBSembg",
+  "pano_x": 10046,
+  "pano_y": 5239,
+  "width": 16384,
+  "x_normalized": 0.613163,
+  "y_normalized": 0.639552
+ },
+ {
+  "card": "c041",
+  "height": 8192,
+  "pano_id": "trxQb1x0N2rrgwWBCgyiMQ",
+  "pano_x": 12283,
+  "pano_y": 5034,
+  "width": 16384,
+  "x_normalized": 0.749689,
+  "y_normalized": 0.614513
+ },
+ {
+  "card": "c042",
+  "height": 8192,
+  "pano_id": "QPryYjKzfdsIJRmxhePzpQ",
+  "pano_x": 11331,
+  "pano_y": 5032,
+  "width": 16384,
+  "x_normalized": 0.691589,
+  "y_normalized": 0.614228
+ },
+ {
+  "card": "c043",
+  "height": 8192,
+  "pano_id": "TVFn3jE2n9IFG5wX4BANEw",
+  "pano_x": 4403,
+  "pano_y": 5559,
+  "width": 16384,
+  "x_normalized": 0.268721,
+  "y_normalized": 0.678552
+ },
+ {
+  "card": "c044",
+  "height": 8192,
+  "pano_id": "bu9mtZkStKFEl8OFwpl1QA",
+  "pano_x": 4059,
+  "pano_y": 4842,
+  "width": 16384,
+  "x_normalized": 0.247757,
+  "y_normalized": 0.59111
+ },
+ {
+  "card": "c045",
+  "height": 8192,
+  "pano_id": "FkILtBCwvvGs3cDJKjXrAA",
+  "pano_x": 11818,
+  "pano_y": 4527,
+  "width": 16384,
+  "x_normalized": 0.721295,
+  "y_normalized": 0.552577
+ },
+ {
+  "card": "c046",
+  "height": 6656,
+  "pano_id": "1DESB0O-wtuweUong47crw",
+  "pano_x": 1165,
+  "pano_y": 3613,
+  "width": 13312,
+  "x_normalized": 0.087485,
+  "y_normalized": 0.542759
+ },
+ {
+  "card": "c047",
+  "height": 8192,
+  "pano_id": "ICBMLZycFt7Ra8i3KIzq8Q",
+  "pano_x": 16025,
+  "pano_y": 4909,
+  "width": 16384,
+  "x_normalized": 0.978115,
+  "y_normalized": 0.599276
+ },
+ {
+  "card": "c048",
+  "height": 8192,
+  "pano_id": "_VytnG_Iu8_tkW90nVGSRQ",
+  "pano_x": 5979,
+  "pano_y": 4882,
+  "width": 16384,
+  "x_normalized": 0.364957,
+  "y_normalized": 0.595954
+ },
+ {
+  "card": "c049",
+  "height": 8192,
+  "pano_id": "KjgueCmxzygjGJlSgCJ1Gg",
+  "pano_x": 10286,
+  "pano_y": 4823,
+  "width": 16384,
+  "x_normalized": 0.627792,
+  "y_normalized": 0.588709
+ },
+ {
+  "card": "c050",
+  "height": 8192,
+  "pano_id": "zHtPMd0IcexvVpmAbR2cpw",
+  "pano_x": 6957,
+  "pano_y": 4641,
+  "width": 16384,
+  "x_normalized": 0.424614,
+  "y_normalized": 0.566577
+ },
+ {
+  "card": "c051",
+  "height": 8192,
+  "pano_id": "vAq3QyN6SdypWo9tUyYk_g",
+  "pano_x": 5439,
+  "pano_y": 4649,
+  "width": 16384,
+  "x_normalized": 0.331962,
+  "y_normalized": 0.567482
+ },
+ {
+  "card": "c052",
+  "height": 8192,
+  "pano_id": "q4byKxPhTgoEw90W5_ty1w",
+  "pano_x": 15493,
+  "pano_y": 4594,
+  "width": 16384,
+  "x_normalized": 0.945624,
+  "y_normalized": 0.560731
+ },
+ {
+  "card": "c053",
+  "height": 8192,
+  "pano_id": "m2WU6N0-S1CNMCYBqC-obA",
+  "pano_x": 14975,
+  "pano_y": 5105,
+  "width": 16384,
+  "x_normalized": 0.914027,
+  "y_normalized": 0.623203
+ },
+ {
+  "card": "c054",
+  "height": 8192,
+  "pano_id": "gu4Ng8PnYpyeUo4GvtJdpQ",
+  "pano_x": 5628,
+  "pano_y": 4703,
+  "width": 16384,
+  "x_normalized": 0.343487,
+  "y_normalized": 0.574053
+ },
+ {
+  "card": "c055",
+  "height": 8192,
+  "pano_id": "iYN1TkCqGRhfT-OhCAEhpw",
+  "pano_x": 5963,
+  "pano_y": 4531,
+  "width": 16384,
+  "x_normalized": 0.363977,
+  "y_normalized": 0.553086
+ },
+ {
+  "card": "c056",
+  "height": 8192,
+  "pano_id": "iYN1TkCqGRhfT-OhCAEhpw",
+  "pano_x": 5934,
+  "pano_y": 4617,
+  "width": 16384,
+  "x_normalized": 0.362197,
+  "y_normalized": 0.563548
+ },
+ {
+  "card": "c057",
+  "height": 8192,
+  "pano_id": "mRrafjO6vj1YMSZot6EMPw",
+  "pano_x": 5456,
+  "pano_y": 4660,
+  "width": 16384,
+  "x_normalized": 0.333024,
+  "y_normalized": 0.568876
+ },
+ {
+  "card": "c058",
+  "height": 8192,
+  "pano_id": "0QzgLM_xAMN5XdAPWSXhmw",
+  "pano_x": 10377,
+  "pano_y": 4781,
+  "width": 16384,
+  "x_normalized": 0.633391,
+  "y_normalized": 0.583593
+ },
+ {
+  "card": "c059",
+  "height": 8192,
+  "pano_id": "iYN1TkCqGRhfT-OhCAEhpw",
+  "pano_x": 5915,
+  "pano_y": 4673,
+  "width": 16384,
+  "x_normalized": 0.361014,
+  "y_normalized": 0.57042
+ },
+ {
+  "card": "c060",
+  "height": 8192,
+  "pano_id": "b08SQFYKM92x6TcvKEGVWw",
+  "pano_x": 12255,
+  "pano_y": 4817,
+  "width": 16384,
+  "x_normalized": 0.748015,
+  "y_normalized": 0.587984
+ },
+ {
+  "card": "c061",
+  "height": 8192,
+  "pano_id": "bu9mtZkStKFEl8OFwpl1QA",
+  "pano_x": 3449,
+  "pano_y": 4960,
+  "width": 16384,
+  "x_normalized": 0.210506,
+  "y_normalized": 0.605477
+ },
+ {
+  "card": "c062",
+  "height": 8192,
+  "pano_id": "QPryYjKzfdsIJRmxhePzpQ",
+  "pano_x": 11019,
+  "pano_y": 5068,
+  "width": 16384,
+  "x_normalized": 0.672556,
+  "y_normalized": 0.61862
+ },
+ {
+  "card": "c063",
+  "height": 8192,
+  "pano_id": "YZH03Sm9aGgh6-LGD7ed2A",
+  "pano_x": 15061,
+  "pano_y": 4994,
+  "width": 16384,
+  "x_normalized": 0.919228,
+  "y_normalized": 0.609676
+ },
+ {
+  "card": "c064",
+  "height": 8192,
+  "pano_id": "4m8Iwqgg8TDaHhtDSlB5ig",
+  "pano_x": 14135,
+  "pano_y": 5027,
+  "width": 16384,
+  "x_normalized": 0.862733,
+  "y_normalized": 0.613678
+ },
+ {
+  "card": "c065",
+  "height": 8192,
+  "pano_id": "S0xBkefIV08AuKkNsMCIJA",
+  "pano_x": 13468,
+  "pano_y": 5060,
+  "width": 16384,
+  "x_normalized": 0.822024,
+  "y_normalized": 0.617659
+ },
+ {
+  "card": "c066",
+  "height": 8192,
+  "pano_id": "BxHhfKCPmu0PtRIfPDaLeg",
+  "pano_x": 2053,
+  "pano_y": 4899,
+  "width": 16384,
+  "x_normalized": 0.125311,
+  "y_normalized": 0.597976
+ },
+ {
+  "card": "c067",
+  "height": 8192,
+  "pano_id": "YXyN6t9LyHD5m-FDKasTjA",
+  "pano_x": 8772,
+  "pano_y": 4414,
+  "width": 16384,
+  "x_normalized": 0.535387,
+  "y_normalized": 0.538812
+ },
+ {
+  "card": "c068",
+  "height": 6656,
+  "pano_id": "O5fOGBvx-E7iH-TyEUBQIw",
+  "pano_x": 5915,
+  "pano_y": 3666,
+  "width": 13312,
+  "x_normalized": 0.444302,
+  "y_normalized": 0.550856
+ },
+ {
+  "card": "c069",
+  "height": 8192,
+  "pano_id": "F3qZ-zX96JY5BUEtNSbYlQ",
+  "pano_x": 2333,
+  "pano_y": 4598,
+  "width": 16384,
+  "x_normalized": 0.142423,
+  "y_normalized": 0.561224
+ },
+ {
+  "card": "c070",
+  "height": 8192,
+  "pano_id": "k1oJiit7I-osZ41JrGDJYg",
+  "pano_x": 5509,
+  "pano_y": 4765,
+  "width": 16384,
+  "x_normalized": 0.336268,
+  "y_normalized": 0.581609
+ },
+ {
+  "card": "c071",
+  "height": 8192,
+  "pano_id": "oDQBC-InMYFqraszU_FAlw",
+  "pano_x": 10382,
+  "pano_y": 4840,
+  "width": 16384,
+  "x_normalized": 0.633667,
+  "y_normalized": 0.590881
+ },
+ {
+  "card": "c072",
+  "height": 8192,
+  "pano_id": "_VytnG_Iu8_tkW90nVGSRQ",
+  "pano_x": 5979,
+  "pano_y": 4882,
+  "width": 16384,
+  "x_normalized": 0.364957,
+  "y_normalized": 0.595954
+ },
+ {
+  "card": "c073",
+  "height": 6656,
+  "pano_id": "1DESB0O-wtuweUong47crw",
+  "pano_x": 1167,
+  "pano_y": 3613,
+  "width": 13312,
+  "x_normalized": 0.087675,
+  "y_normalized": 0.542771
+ },
+ {
+  "card": "c074",
+  "height": 8192,
+  "pano_id": "IWSGC1yYtzFJ-7I_IJ8L5Q",
+  "pano_x": 14457,
+  "pano_y": 4850,
+  "width": 16384,
+  "x_normalized": 0.882369,
+  "y_normalized": 0.592038
+ },
+ {
+  "card": "c075",
+  "height": 8192,
+  "pano_id": "YxTizUYwqdjOrHUkptEyEg",
+  "pano_x": 2474,
+  "pano_y": 4614,
+  "width": 16384,
+  "x_normalized": 0.150977,
+  "y_normalized": 0.563254
+ },
+ {
+  "card": "c076",
+  "height": 8192,
+  "pano_id": "-MVGpPzIlWy05TRlrJJJZw",
+  "pano_x": 15745,
+  "pano_y": 5619,
+  "width": 16384,
+  "x_normalized": 0.961016,
+  "y_normalized": 0.685905
+ },
+ {
+  "card": "c077",
+  "height": 8192,
+  "pano_id": "avJSjJOLAZIcXEGrvpX1bg",
+  "pano_x": 9778,
+  "pano_y": 5139,
+  "width": 16384,
+  "x_normalized": 0.596773,
+  "y_normalized": 0.627347
+ },
+ {
+  "card": "c078",
+  "height": 8192,
+  "pano_id": "RNo1ppuIAWUrvFt_bQnO1w",
+  "pano_x": 4754,
+  "pano_y": 4833,
+  "width": 16384,
+  "x_normalized": 0.290174,
+  "y_normalized": 0.589989
+ },
+ {
+  "card": "c079",
+  "height": 8192,
+  "pano_id": "IWSGC1yYtzFJ-7I_IJ8L5Q",
+  "pano_x": 14916,
+  "pano_y": 4838,
+  "width": 16384,
+  "x_normalized": 0.910403,
+  "y_normalized": 0.590609
+ },
+ {
+  "card": "c080",
+  "height": 8192,
+  "pano_id": "F3qZ-zX96JY5BUEtNSbYlQ",
+  "pano_x": 1945,
+  "pano_y": 4601,
+  "width": 16384,
+  "x_normalized": 0.118706,
+  "y_normalized": 0.561627
+ },
+ {
+  "card": "c081",
+  "height": 8192,
+  "pano_id": "ZG6IzvNSqNKu_BSdblWpAA",
+  "pano_x": 2490,
+  "pano_y": 4795,
+  "width": 16384,
+  "x_normalized": 0.151984,
+  "y_normalized": 0.585315
+ },
+ {
+  "card": "c082",
+  "height": 8192,
+  "pano_id": "FVfYQj6z3iepWxgIkyuXng",
+  "pano_x": 13905,
+  "pano_y": 5104,
+  "width": 16384,
+  "x_normalized": 0.848702,
+  "y_normalized": 0.623002
+ },
+ {
+  "card": "c083",
+  "height": 8192,
+  "pano_id": "IlArerBe4yZsHHI69cgDBA",
+  "pano_x": 9301,
+  "pano_y": 4430,
+  "width": 16384,
+  "x_normalized": 0.567678,
+  "y_normalized": 0.540785
+ },
+ {
+  "card": "c084",
+  "height": 8192,
+  "pano_id": "ZG6IzvNSqNKu_BSdblWpAA",
+  "pano_x": 2490,
+  "pano_y": 4795,
+  "width": 16384,
+  "x_normalized": 0.151984,
+  "y_normalized": 0.585315
+ },
+ {
+  "card": "c085",
+  "height": 8192,
+  "pano_id": "F3qZ-zX96JY5BUEtNSbYlQ",
+  "pano_x": 1824,
+  "pano_y": 4600,
+  "width": 16384,
+  "x_normalized": 0.111319,
+  "y_normalized": 0.56148
+ },
+ {
+  "card": "c086",
+  "height": 8192,
+  "pano_id": "sxJq64c4kwTK8Qz0yWScJQ",
+  "pano_x": 11418,
+  "pano_y": 5035,
+  "width": 16384,
+  "x_normalized": 0.696885,
+  "y_normalized": 0.614613
+ },
+ {
+  "card": "c087",
+  "height": 8192,
+  "pano_id": "LlY0TmRfUl9RxpAR72eRxA",
+  "pano_x": 11404,
+  "pano_y": 5233,
+  "width": 16384,
+  "x_normalized": 0.696065,
+  "y_normalized": 0.638749
+ },
+ {
+  "card": "c088",
+  "height": 8192,
+  "pano_id": "YxTizUYwqdjOrHUkptEyEg",
+  "pano_x": 3548,
+  "pano_y": 4857,
+  "width": 16384,
+  "x_normalized": 0.216529,
+  "y_normalized": 0.592935
+ },
+ {
+  "card": "c089",
+  "height": 8192,
+  "pano_id": "QPryYjKzfdsIJRmxhePzpQ",
+  "pano_x": 11019,
+  "pano_y": 5068,
+  "width": 16384,
+  "x_normalized": 0.672556,
+  "y_normalized": 0.61862
+ },
+ {
+  "card": "c090",
+  "height": 8192,
+  "pano_id": "KjgueCmxzygjGJlSgCJ1Gg",
+  "pano_x": 10454,
+  "pano_y": 5188,
+  "width": 16384,
+  "x_normalized": 0.638065,
+  "y_normalized": 0.633299
+ },
+ {
+  "card": "c091",
+  "height": 8192,
+  "pano_id": "gu4Ng8PnYpyeUo4GvtJdpQ",
+  "pano_x": 6251,
+  "pano_y": 4712,
+  "width": 16384,
+  "x_normalized": 0.381501,
+  "y_normalized": 0.575179
+ },
+ {
+  "card": "c092",
+  "height": 8192,
+  "pano_id": "0PcttVM-ZW0WrAkVK2DQug",
+  "pano_x": 13504,
+  "pano_y": 5197,
+  "width": 16384,
+  "x_normalized": 0.824218,
+  "y_normalized": 0.634346
+ },
+ {
+  "card": "c093",
+  "height": 8192,
+  "pano_id": "_LaIkzopEPbIlpeNfWd5LQ",
+  "pano_x": 10401,
+  "pano_y": 5122,
+  "width": 16384,
+  "x_normalized": 0.634841,
+  "y_normalized": 0.625285
+ },
+ {
+  "card": "c094",
+  "height": 8192,
+  "pano_id": "IWSGC1yYtzFJ-7I_IJ8L5Q",
+  "pano_x": 15210,
+  "pano_y": 4819,
+  "width": 16384,
+  "x_normalized": 0.928318,
+  "y_normalized": 0.588292
+ },
+ {
+  "card": "c095",
+  "height": 8192,
+  "pano_id": "0KK-Y990KIvvJpLcrB-fDw",
+  "pano_x": 10590,
+  "pano_y": 4640,
+  "width": 16384,
+  "x_normalized": 0.64638,
+  "y_normalized": 0.566348
+ },
+ {
+  "card": "c096",
+  "height": 8192,
+  "pano_id": "66ZfdCKZvXde_RCCv12Ywg",
+  "pano_x": 13085,
+  "pano_y": 5513,
+  "width": 16384,
+  "x_normalized": 0.798625,
+  "y_normalized": 0.672917
+ },
+ {
+  "card": "c097",
+  "height": 8192,
+  "pano_id": "0PcttVM-ZW0WrAkVK2DQug",
+  "pano_x": 13629,
+  "pano_y": 5050,
+  "width": 16384,
+  "x_normalized": 0.831828,
+  "y_normalized": 0.616467
+ },
+ {
+  "card": "c098",
+  "height": 8192,
+  "pano_id": "YZH03Sm9aGgh6-LGD7ed2A",
+  "pano_x": 14155,
+  "pano_y": 5024,
+  "width": 16384,
+  "x_normalized": 0.863967,
+  "y_normalized": 0.613247
+ },
+ {
+  "card": "c099",
+  "height": 8192,
+  "pano_id": "oDQBC-InMYFqraszU_FAlw",
+  "pano_x": 11140,
+  "pano_y": 4837,
+  "width": 16384,
+  "x_normalized": 0.67993,
+  "y_normalized": 0.590421
+ },
+ {
+  "card": "c100",
+  "height": 8192,
+  "pano_id": "YZH03Sm9aGgh6-LGD7ed2A",
+  "pano_x": 14155,
+  "pano_y": 5024,
+  "width": 16384,
+  "x_normalized": 0.863967,
+  "y_normalized": 0.613247
+ },
+ {
+  "card": "c101",
+  "height": 8192,
+  "pano_id": "qNbkL7A3McTuIEA8aNo9zQ",
+  "pano_x": 10401,
+  "pano_y": 4933,
+  "width": 16384,
+  "x_normalized": 0.634846,
+  "y_normalized": 0.602148
+ },
+ {
+  "card": "c102",
+  "height": 8192,
+  "pano_id": "0PcttVM-ZW0WrAkVK2DQug",
+  "pano_x": 13514,
+  "pano_y": 5185,
+  "width": 16384,
+  "x_normalized": 0.824837,
+  "y_normalized": 0.632934
+ },
+ {
+  "card": "c103",
+  "height": 8192,
+  "pano_id": "fe1w_MBFjg8yetncpZq1Dg",
+  "pano_x": 11649,
+  "pano_y": 5327,
+  "width": 16384,
+  "x_normalized": 0.711025,
+  "y_normalized": 0.650208
+ },
+ {
+  "card": "c104",
+  "height": 8192,
+  "pano_id": "k1oJiit7I-osZ41JrGDJYg",
+  "pano_x": 4836,
+  "pano_y": 4718,
+  "width": 16384,
+  "x_normalized": 0.295171,
+  "y_normalized": 0.575921
+ },
+ {
+  "card": "c105",
+  "height": 8192,
+  "pano_id": "_LaIkzopEPbIlpeNfWd5LQ",
+  "pano_x": 11304,
+  "pano_y": 5055,
+  "width": 16384,
+  "x_normalized": 0.689926,
+  "y_normalized": 0.61702
+ },
+ {
+  "card": "c106",
+  "height": 8192,
+  "pano_id": "66ZfdCKZvXde_RCCv12Ywg",
+  "pano_x": 13085,
+  "pano_y": 5513,
+  "width": 16384,
+  "x_normalized": 0.798625,
+  "y_normalized": 0.672917
+ },
+ {
+  "card": "c107",
+  "height": 8192,
+  "pano_id": "A7_gn-k03Qj_HH6ouxngHg",
+  "pano_x": 2948,
+  "pano_y": 4720,
+  "width": 16384,
+  "x_normalized": 0.179946,
+  "y_normalized": 0.576184
+ },
+ {
+  "card": "c108",
+  "height": 8192,
+  "pano_id": "zHtPMd0IcexvVpmAbR2cpw",
+  "pano_x": 6687,
+  "pano_y": 4711,
+  "width": 16384,
+  "x_normalized": 0.408158,
+  "y_normalized": 0.575077
+ },
+ {
+  "card": "c109",
+  "height": 8192,
+  "pano_id": "jHFirgurT6G_cfmmyHUxAg",
+  "pano_x": 3618,
+  "pano_y": 5031,
+  "width": 16384,
+  "x_normalized": 0.220843,
+  "y_normalized": 0.614153
+ },
+ {
+  "card": "c110",
+  "height": 8192,
+  "pano_id": "is1cm94L177IgPGRBSembg",
+  "pano_x": 10046,
+  "pano_y": 5239,
+  "width": 16384,
+  "x_normalized": 0.613163,
+  "y_normalized": 0.639552
+ },
+ {
+  "card": "c111",
+  "height": 8192,
+  "pano_id": "4m8Iwqgg8TDaHhtDSlB5ig",
+  "pano_x": 14033,
+  "pano_y": 5465,
+  "width": 16384,
+  "x_normalized": 0.856477,
+  "y_normalized": 0.667138
+ },
+ {
+  "card": "c112",
+  "height": 8192,
+  "pano_id": "iT1YSZOoy_R-fh1cG0i6HA",
+  "pano_x": 1109,
+  "pano_y": 4358,
+  "width": 16384,
+  "x_normalized": 0.067712,
+  "y_normalized": 0.53197
+ },
+ {
+  "card": "c113",
+  "height": 6656,
+  "pano_id": "KLD4MKkxzEy-Mghg-v1H9A",
+  "pano_x": 4872,
+  "pano_y": 3813,
+  "width": 13312,
+  "x_normalized": 0.365963,
+  "y_normalized": 0.572875
+ },
+ {
+  "card": "c114",
+  "height": 8192,
+  "pano_id": "TVFn3jE2n9IFG5wX4BANEw",
+  "pano_x": 3224,
+  "pano_y": 5119,
+  "width": 16384,
+  "x_normalized": 0.196797,
+  "y_normalized": 0.62483
+ },
+ {
+  "card": "c115",
+  "height": 8192,
+  "pano_id": "-MVGpPzIlWy05TRlrJJJZw",
+  "pano_x": 14461,
+  "pano_y": 5626,
+  "width": 16384,
+  "x_normalized": 0.882625,
+  "y_normalized": 0.686732
+ },
+ {
+  "card": "c116",
+  "height": 8192,
+  "pano_id": "tdspAnFXIkZBdFHMdwV77w",
+  "pano_x": 5219,
+  "pano_y": 4711,
+  "width": 16384,
+  "x_normalized": 0.318512,
+  "y_normalized": 0.575082
+ },
+ {
+  "card": "c117",
+  "height": 8192,
+  "pano_id": "Rv-KWv2G7ecm0-4gw1WV4Q",
+  "pano_x": 3582,
+  "pano_y": 4892,
+  "width": 16384,
+  "x_normalized": 0.218623,
+  "y_normalized": 0.597119
+ },
+ {
+  "card": "c118",
+  "height": 8192,
+  "pano_id": "S0xBkefIV08AuKkNsMCIJA",
+  "pano_x": 13573,
+  "pano_y": 5065,
+  "width": 16384,
+  "x_normalized": 0.828434,
+  "y_normalized": 0.618247
+ },
+ {
+  "card": "c119",
+  "height": 8192,
+  "pano_id": "nYZomCEMUGQUOgbawKlO8w",
+  "pano_x": 2344,
+  "pano_y": 4642,
+  "width": 16384,
+  "x_normalized": 0.143082,
+  "y_normalized": 0.566638
+ },
+ {
+  "card": "c120",
+  "height": 6656,
+  "pano_id": "1DESB0O-wtuweUong47crw",
+  "pano_x": 1058,
+  "pano_y": 3609,
+  "width": 13312,
+  "x_normalized": 0.079443,
+  "y_normalized": 0.542166
+ },
+ {
+  "card": "c121",
+  "height": 8192,
+  "pano_id": "lWKttUR7hMQc-dTrS5jTgQ",
+  "pano_x": 14250,
+  "pano_y": 4512,
+  "width": 16384,
+  "x_normalized": 0.869746,
+  "y_normalized": 0.55078
+ },
+ {
+  "card": "c122",
+  "height": 8192,
+  "pano_id": "jHFirgurT6G_cfmmyHUxAg",
+  "pano_x": 3618,
+  "pano_y": 5031,
+  "width": 16384,
+  "x_normalized": 0.220843,
+  "y_normalized": 0.614153
+ },
+ {
+  "card": "c123",
+  "height": 8192,
+  "pano_id": "FkILtBCwvvGs3cDJKjXrAA",
+  "pano_x": 11885,
+  "pano_y": 4610,
+  "width": 16384,
+  "x_normalized": 0.725402,
+  "y_normalized": 0.562722
+ },
+ {
+  "card": "c124",
+  "height": 8192,
+  "pano_id": "vAq3QyN6SdypWo9tUyYk_g",
+  "pano_x": 5318,
+  "pano_y": 4732,
+  "width": 16384,
+  "x_normalized": 0.324586,
+  "y_normalized": 0.5776
+ },
+ {
+  "card": "c125",
+  "height": 8192,
+  "pano_id": "vAq3QyN6SdypWo9tUyYk_g",
+  "pano_x": 5318,
+  "pano_y": 4732,
+  "width": 16384,
+  "x_normalized": 0.324586,
+  "y_normalized": 0.5776
+ },
+ {
+  "card": "c126",
+  "height": 8192,
+  "pano_id": "ICBMLZycFt7Ra8i3KIzq8Q",
+  "pano_x": 16025,
+  "pano_y": 4909,
+  "width": 16384,
+  "x_normalized": 0.978115,
+  "y_normalized": 0.599276
+ },
+ {
+  "card": "c127",
+  "height": 8192,
+  "pano_id": "S0xBkefIV08AuKkNsMCIJA",
+  "pano_x": 13573,
+  "pano_y": 5065,
+  "width": 16384,
+  "x_normalized": 0.828434,
+  "y_normalized": 0.618247
+ },
+ {
+  "card": "c128",
+  "height": 8192,
+  "pano_id": "m2WU6N0-S1CNMCYBqC-obA",
+  "pano_x": 13725,
+  "pano_y": 5108,
+  "width": 16384,
+  "x_normalized": 0.837719,
+  "y_normalized": 0.623545
+ },
+ {
+  "card": "c129",
+  "height": 8192,
+  "pano_id": "nYZomCEMUGQUOgbawKlO8w",
+  "pano_x": 2193,
+  "pano_y": 4612,
+  "width": 16384,
+  "x_normalized": 0.133844,
+  "y_normalized": 0.562942
+ },
+ {
+  "card": "c130",
+  "height": 8192,
+  "pano_id": "trxQb1x0N2rrgwWBCgyiMQ",
+  "pano_x": 13302,
+  "pano_y": 5308,
+  "width": 16384,
+  "x_normalized": 0.81189,
+  "y_normalized": 0.647894
+ },
+ {
+  "card": "c131",
+  "height": 8192,
+  "pano_id": "k5Qy-6e45bor3rmOKqrIdQ",
+  "pano_x": 14025,
+  "pano_y": 4721,
+  "width": 16384,
+  "x_normalized": 0.855994,
+  "y_normalized": 0.57624
+ },
+ {
+  "card": "c132",
+  "height": 8192,
+  "pano_id": "Rv-KWv2G7ecm0-4gw1WV4Q",
+  "pano_x": 3559,
+  "pano_y": 4882,
+  "width": 16384,
+  "x_normalized": 0.217195,
+  "y_normalized": 0.595912
+ },
+ {
+  "card": "c133",
+  "height": 8192,
+  "pano_id": "tdspAnFXIkZBdFHMdwV77w",
+  "pano_x": 4699,
+  "pano_y": 4649,
+  "width": 16384,
+  "x_normalized": 0.286819,
+  "y_normalized": 0.567479
+ },
+ {
+  "card": "c134",
+  "height": 8192,
+  "pano_id": "mRrafjO6vj1YMSZot6EMPw",
+  "pano_x": 6033,
+  "pano_y": 4682,
+  "width": 16384,
+  "x_normalized": 0.368232,
+  "y_normalized": 0.571485
+ },
+ {
+  "card": "c135",
+  "height": 8192,
+  "pano_id": "V05404CJu_L-SvutMcXBiA",
+  "pano_x": 9907,
+  "pano_y": 4713,
+  "width": 16384,
+  "x_normalized": 0.604687,
+  "y_normalized": 0.57537
+ },
+ {
+  "card": "c136",
+  "height": 8192,
+  "pano_id": "0QzgLM_xAMN5XdAPWSXhmw",
+  "pano_x": 11585,
+  "pano_y": 4697,
+  "width": 16384,
+  "x_normalized": 0.707121,
+  "y_normalized": 0.573342
+ },
+ {
+  "card": "c137",
+  "height": 8192,
+  "pano_id": "W-nEWqcjvKWh3aui_qZkug",
+  "pano_x": 5510,
+  "pano_y": 4780,
+  "width": 16384,
+  "x_normalized": 0.336306,
+  "y_normalized": 0.583473
+ },
+ {
+  "card": "c138",
+  "height": 8192,
+  "pano_id": "IlArerBe4yZsHHI69cgDBA",
+  "pano_x": 8891,
+  "pano_y": 4537,
+  "width": 16384,
+  "x_normalized": 0.542679,
+  "y_normalized": 0.553873
+ },
+ {
+  "card": "c139",
+  "height": 8192,
+  "pano_id": "e4mBcQNit6c_BfPIlxEfvQ",
+  "pano_x": 11866,
+  "pano_y": 5000,
+  "width": 16384,
+  "x_normalized": 0.724232,
+  "y_normalized": 0.610382
+ },
+ {
+  "card": "c140",
+  "height": 8192,
+  "pano_id": "KjgueCmxzygjGJlSgCJ1Gg",
+  "pano_x": 10310,
+  "pano_y": 4878,
+  "width": 16384,
+  "x_normalized": 0.629268,
+  "y_normalized": 0.595415
+ },
+ {
+  "card": "c141",
+  "height": 6656,
+  "pano_id": "O5fOGBvx-E7iH-TyEUBQIw",
+  "pano_x": 5838,
+  "pano_y": 3641,
+  "width": 13312,
+  "x_normalized": 0.438567,
+  "y_normalized": 0.546981
+ },
+ {
+  "card": "c142",
+  "height": 8192,
+  "pano_id": "GOruzkyAY27JVJMzSLjXvw",
+  "pano_x": 2655,
+  "pano_y": 4629,
+  "width": 16384,
+  "x_normalized": 0.162032,
+  "y_normalized": 0.565039
+ },
+ {
+  "card": "c143",
+  "height": 8192,
+  "pano_id": "FVfYQj6z3iepWxgIkyuXng",
+  "pano_x": 13941,
+  "pano_y": 4830,
+  "width": 16384,
+  "x_normalized": 0.850912,
+  "y_normalized": 0.589633
+ },
+ {
+  "card": "c144",
+  "height": 8192,
+  "pano_id": "YxTizUYwqdjOrHUkptEyEg",
+  "pano_x": 3297,
+  "pano_y": 4811,
+  "width": 16384,
+  "x_normalized": 0.201247,
+  "y_normalized": 0.587325
+ },
+ {
+  "card": "c145",
+  "height": 8192,
+  "pano_id": "_LaIkzopEPbIlpeNfWd5LQ",
+  "pano_x": 10401,
+  "pano_y": 5122,
+  "width": 16384,
+  "x_normalized": 0.634841,
+  "y_normalized": 0.625285
+ },
+ {
+  "card": "c146",
+  "height": 8192,
+  "pano_id": "IlArerBe4yZsHHI69cgDBA",
+  "pano_x": 8891,
+  "pano_y": 4537,
+  "width": 16384,
+  "x_normalized": 0.542679,
+  "y_normalized": 0.553873
+ },
+ {
+  "card": "c147",
+  "height": 8192,
+  "pano_id": "Rv-KWv2G7ecm0-4gw1WV4Q",
+  "pano_x": 3559,
+  "pano_y": 4882,
+  "width": 16384,
+  "x_normalized": 0.217195,
+  "y_normalized": 0.595912
+ },
+ {
+  "card": "c148",
+  "height": 6656,
+  "pano_id": "zcbJdeRXki9XoabDjYUmXA",
+  "pano_x": 6871,
+  "pano_y": 3559,
+  "width": 13312,
+  "x_normalized": 0.516166,
+  "y_normalized": 0.534655
+ },
+ {
+  "card": "c149",
+  "height": 8192,
+  "pano_id": "9aG1HmcxHJey4TBjaTlwvQ",
+  "pano_x": 11909,
+  "pano_y": 5728,
+  "width": 16384,
+  "x_normalized": 0.726865,
+  "y_normalized": 0.699199
+ },
+ {
+  "card": "c150",
+  "height": 6656,
+  "pano_id": "zcbJdeRXki9XoabDjYUmXA",
+  "pano_x": 6871,
+  "pano_y": 3559,
+  "width": 13312,
+  "x_normalized": 0.516166,
+  "y_normalized": 0.534655
+ },
+ {
+  "card": "c151",
+  "height": 6656,
+  "pano_id": "KLD4MKkxzEy-Mghg-v1H9A",
+  "pano_x": 4872,
+  "pano_y": 3813,
+  "width": 13312,
+  "x_normalized": 0.365963,
+  "y_normalized": 0.572875
+ },
+ {
+  "card": "c152",
+  "height": 8192,
+  "pano_id": "sxJq64c4kwTK8Qz0yWScJQ",
+  "pano_x": 12019,
+  "pano_y": 5424,
+  "width": 16384,
+  "x_normalized": 0.733565,
+  "y_normalized": 0.662087
+ },
+ {
+  "card": "c153",
+  "height": 8192,
+  "pano_id": "A7_gn-k03Qj_HH6ouxngHg",
+  "pano_x": 2704,
+  "pano_y": 4728,
+  "width": 16384,
+  "x_normalized": 0.165019,
+  "y_normalized": 0.577187
+ },
+ {
+  "card": "c154",
+  "height": 8192,
+  "pano_id": "YXyN6t9LyHD5m-FDKasTjA",
+  "pano_x": 8772,
+  "pano_y": 4414,
+  "width": 16384,
+  "x_normalized": 0.535387,
+  "y_normalized": 0.538812
+ },
+ {
+  "card": "c155",
+  "height": 8192,
+  "pano_id": "m2WU6N0-S1CNMCYBqC-obA",
+  "pano_x": 14975,
+  "pano_y": 5105,
+  "width": 16384,
+  "x_normalized": 0.914027,
+  "y_normalized": 0.623203
+ },
+ {
+  "card": "c156",
+  "height": 8192,
+  "pano_id": "YXyN6t9LyHD5m-FDKasTjA",
+  "pano_x": 8835,
+  "pano_y": 4401,
+  "width": 16384,
+  "x_normalized": 0.539268,
+  "y_normalized": 0.537253
+ },
+ {
+  "card": "c157",
+  "height": 8192,
+  "pano_id": "b08SQFYKM92x6TcvKEGVWw",
+  "pano_x": 12898,
+  "pano_y": 4960,
+  "width": 16384,
+  "x_normalized": 0.787242,
+  "y_normalized": 0.60541
+ },
+ {
+  "card": "c158",
+  "height": 8192,
+  "pano_id": "4KpliJAiXgqswes8G0g2XQ",
+  "pano_x": 7678,
+  "pano_y": 4600,
+  "width": 16384,
+  "x_normalized": 0.46864,
+  "y_normalized": 0.561566
+ },
+ {
+  "card": "c159",
+  "height": 8192,
+  "pano_id": "PzKlWuW3th70kPMZZDsttw",
+  "pano_x": 10009,
+  "pano_y": 4676,
+  "width": 16384,
+  "x_normalized": 0.61088,
+  "y_normalized": 0.570752
+ },
+ {
+  "card": "c160",
+  "height": 6656,
+  "pano_id": "KLD4MKkxzEy-Mghg-v1H9A",
+  "pano_x": 4179,
+  "pano_y": 3774,
+  "width": 13312,
+  "x_normalized": 0.313947,
+  "y_normalized": 0.567035
+ },
+ {
+  "card": "c161",
+  "height": 8192,
+  "pano_id": "BxHhfKCPmu0PtRIfPDaLeg",
+  "pano_x": 1470,
+  "pano_y": 4715,
+  "width": 16384,
+  "x_normalized": 0.089752,
+  "y_normalized": 0.575563
+ },
+ {
+  "card": "c162",
+  "height": 6656,
+  "pano_id": "O5fOGBvx-E7iH-TyEUBQIw",
+  "pano_x": 6084,
+  "pano_y": 3722,
+  "width": 13312,
+  "x_normalized": 0.457039,
+  "y_normalized": 0.559169
+ },
+ {
+  "card": "c163",
+  "height": 8192,
+  "pano_id": "mmMTQQy4KfuYUhYngjZYag",
+  "pano_x": 7179,
+  "pano_y": 4359,
+  "width": 16384,
+  "x_normalized": 0.438172,
+  "y_normalized": 0.532068
+ },
+ {
+  "card": "c164",
+  "height": 8192,
+  "pano_id": "bu9mtZkStKFEl8OFwpl1QA",
+  "pano_x": 4059,
+  "pano_y": 4842,
+  "width": 16384,
+  "x_normalized": 0.247757,
+  "y_normalized": 0.59111
+ },
+ {
+  "card": "c165",
+  "height": 8192,
+  "pano_id": "mmMTQQy4KfuYUhYngjZYag",
+  "pano_x": 7299,
+  "pano_y": 4385,
+  "width": 16384,
+  "x_normalized": 0.445489,
+  "y_normalized": 0.535258
+ },
+ {
+  "card": "c166",
+  "height": 8192,
+  "pano_id": "avJSjJOLAZIcXEGrvpX1bg",
+  "pano_x": 9862,
+  "pano_y": 5225,
+  "width": 16384,
+  "x_normalized": 0.601933,
+  "y_normalized": 0.637878
+ },
+ {
+  "card": "c167",
+  "height": 8192,
+  "pano_id": "9aG1HmcxHJey4TBjaTlwvQ",
+  "pano_x": 11872,
+  "pano_y": 5789,
+  "width": 16384,
+  "x_normalized": 0.72461,
+  "y_normalized": 0.70664
+ },
+ {
+  "card": "c168",
+  "height": 8192,
+  "pano_id": "PzKlWuW3th70kPMZZDsttw",
+  "pano_x": 10076,
+  "pano_y": 4700,
+  "width": 16384,
+  "x_normalized": 0.615012,
+  "y_normalized": 0.573703
+ },
+ {
+  "card": "c169",
+  "height": 8192,
+  "pano_id": "e4mBcQNit6c_BfPIlxEfvQ",
+  "pano_x": 11545,
+  "pano_y": 5840,
+  "width": 16384,
+  "x_normalized": 0.704636,
+  "y_normalized": 0.712935
+ },
+ {
+  "card": "c170",
+  "height": 8192,
+  "pano_id": "oDQBC-InMYFqraszU_FAlw",
+  "pano_x": 10382,
+  "pano_y": 4840,
+  "width": 16384,
+  "x_normalized": 0.633667,
+  "y_normalized": 0.590881
+ },
+ {
+  "card": "c171",
+  "height": 8192,
+  "pano_id": "66ZfdCKZvXde_RCCv12Ywg",
+  "pano_x": 14327,
+  "pano_y": 5659,
+  "width": 16384,
+  "x_normalized": 0.874446,
+  "y_normalized": 0.690774
+ },
+ {
+  "card": "c172",
+  "height": 8192,
+  "pano_id": "4KpliJAiXgqswes8G0g2XQ",
+  "pano_x": 7761,
+  "pano_y": 4575,
+  "width": 16384,
+  "x_normalized": 0.473713,
+  "y_normalized": 0.558473
+ },
+ {
+  "card": "c173",
+  "height": 8192,
+  "pano_id": "q4byKxPhTgoEw90W5_ty1w",
+  "pano_x": 15518,
+  "pano_y": 4592,
+  "width": 16384,
+  "x_normalized": 0.947169,
+  "y_normalized": 0.560488
+ },
+ {
+  "card": "c174",
+  "height": 8192,
+  "pano_id": "k5Qy-6e45bor3rmOKqrIdQ",
+  "pano_x": 13920,
+  "pano_y": 4908,
+  "width": 16384,
+  "x_normalized": 0.849607,
+  "y_normalized": 0.599169
+ },
+ {
+  "card": "c175",
+  "height": 8192,
+  "pano_id": "zHtPMd0IcexvVpmAbR2cpw",
+  "pano_x": 7240,
+  "pano_y": 4561,
+  "width": 16384,
+  "x_normalized": 0.441873,
+  "y_normalized": 0.556807
+ },
+ {
+  "card": "c176",
+  "height": 8192,
+  "pano_id": "trxQb1x0N2rrgwWBCgyiMQ",
+  "pano_x": 12042,
+  "pano_y": 4945,
+  "width": 16384,
+  "x_normalized": 0.735009,
+  "y_normalized": 0.603585
+ },
+ {
+  "card": "c177",
+  "height": 8192,
+  "pano_id": "9aG1HmcxHJey4TBjaTlwvQ",
+  "pano_x": 10415,
+  "pano_y": 6980,
+  "width": 16384,
+  "x_normalized": 0.635701,
+  "y_normalized": 0.852077
+ },
+ {
+  "card": "c178",
+  "height": 8192,
+  "pano_id": "FVfYQj6z3iepWxgIkyuXng",
+  "pano_x": 13943,
+  "pano_y": 4815,
+  "width": 16384,
+  "x_normalized": 0.85103,
+  "y_normalized": 0.587781
+ },
+ {
+  "card": "c179",
+  "height": 8192,
+  "pano_id": "b08SQFYKM92x6TcvKEGVWw",
+  "pano_x": 13762,
+  "pano_y": 5069,
+  "width": 16384,
+  "x_normalized": 0.839985,
+  "y_normalized": 0.618768
+ },
+ {
+  "card": "c180",
+  "height": 8192,
+  "pano_id": "_VytnG_Iu8_tkW90nVGSRQ",
+  "pano_x": 5952,
+  "pano_y": 4882,
+  "width": 16384,
+  "x_normalized": 0.363294,
+  "y_normalized": 0.595926
+ },
+ {
+  "card": "c181",
+  "height": 6656,
+  "pano_id": "zcbJdeRXki9XoabDjYUmXA",
+  "pano_x": 6792,
+  "pano_y": 3572,
+  "width": 13312,
+  "x_normalized": 0.510227,
+  "y_normalized": 0.536726
+ },
+ {
+  "card": "c182",
+  "height": 8192,
+  "pano_id": "4m8Iwqgg8TDaHhtDSlB5ig",
+  "pano_x": 14135,
+  "pano_y": 5027,
+  "width": 16384,
+  "x_normalized": 0.862733,
+  "y_normalized": 0.613678
+ },
+ {
+  "card": "c183",
+  "height": 8192,
+  "pano_id": "lWKttUR7hMQc-dTrS5jTgQ",
+  "pano_x": 14357,
+  "pano_y": 4577,
+  "width": 16384,
+  "x_normalized": 0.876279,
+  "y_normalized": 0.558701
+ },
+ {
+  "card": "c184",
+  "height": 8192,
+  "pano_id": "qNbkL7A3McTuIEA8aNo9zQ",
+  "pano_x": 10417,
+  "pano_y": 5025,
+  "width": 16384,
+  "x_normalized": 0.635807,
+  "y_normalized": 0.613411
+ },
+ {
+  "card": "c185",
+  "height": 8192,
+  "pano_id": "dvnzVWnUPjCZKV_T3Z9rjA",
+  "pano_x": 9166,
+  "pano_y": 4824,
+  "width": 16384,
+  "x_normalized": 0.559475,
+  "y_normalized": 0.588821
+ },
+ {
+  "card": "c186",
+  "height": 8192,
+  "pano_id": "0KK-Y990KIvvJpLcrB-fDw",
+  "pano_x": 10616,
+  "pano_y": 4617,
+  "width": 16384,
+  "x_normalized": 0.647945,
+  "y_normalized": 0.563646
+ },
+ {
+  "card": "c187",
+  "height": 8192,
+  "pano_id": "FkILtBCwvvGs3cDJKjXrAA",
+  "pano_x": 11918,
+  "pano_y": 4650,
+  "width": 16384,
+  "x_normalized": 0.727401,
+  "y_normalized": 0.567601
+ },
+ {
+  "card": "c188",
+  "height": 8192,
+  "pano_id": "RNo1ppuIAWUrvFt_bQnO1w",
+  "pano_x": 4951,
+  "pano_y": 4862,
+  "width": 16384,
+  "x_normalized": 0.302195,
+  "y_normalized": 0.593465
+ },
+ {
+  "card": "c189",
+  "height": 8192,
+  "pano_id": "A7_gn-k03Qj_HH6ouxngHg",
+  "pano_x": 2704,
+  "pano_y": 4728,
+  "width": 16384,
+  "x_normalized": 0.165019,
+  "y_normalized": 0.577187
+ }
+]
