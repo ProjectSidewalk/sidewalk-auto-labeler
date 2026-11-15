@@ -1213,7 +1213,15 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
     --preds <A>/work/s4_preds/score_preds_v4/crosswalk_s4/test.jsonl \
     --images <A>/stage2_root/images/test --out <scratch>/parity_test
 # ...val (1,029 panos): .../val.jsonl + images/val; (b'): bprime_preds_v4/crosswalk_s4/bprime.jsonl
-# + <A>/bprime/images_4096
+# + <A>/bprime/images_4096. Measured 2026-11-15 (RTX 3070, torch 2.8.0 vs RampNet's A40, 2.6.0):
+# PASS on all three -- test 3,783/3,783 peaks at the same pixel, val 6,124 + 1 near-tie swap
+# (two coarse cells 7 px apart, values 2e-6 apart), bprime 3,097/3,097; max |diff| 5.1e-5;
+# operational (>= 0.23) counts identical. --native (report only) fetches through the labeler's
+# GSV path instead of reading the JPEGs. Test split, same day: 278 of 515 fetched (237 "metadata
+# unavailable"), operational 1,320 native vs 1,319 stored, equal on 167 panos, +-1 on 85; but
+# per-peak values move (median per-pano max |diff| 0.044, max 0.27), so the stored JPEGs are
+# not the pixels the labeler fetches. Why (JPEG q92 alone, or another source/resize) is not
+# established.
 
 # SMOKE SEND RUNBOOK (nothing has been sent yet; every step needs Jon's clearance of the exact
 # plan, and the city and s4-vs-s7 are his call):
