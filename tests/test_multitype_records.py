@@ -203,7 +203,8 @@ def test_two_type_line_shape(monkeypatch, fake_type_spec):
         {k: prov_c[k] for k in reg.PROVENANCE_KEYS}
     assert line['models']['CurbRamp'] == {k: prov_c[k] for k in reg.PROVENANCE_KEYS}
     assert line['models']['Bollard'] == {**PROV_B, 'detection_decode': 'argmax',
-                                           'detection_border': 'exclude'}
+                                         'detection_border': 'exclude',
+                                         'detection_storage_floor': 0.2}   # the stand-in spec's
     assert 'detection_decode' not in line and 'detection_border' not in line
     # the helpers read it back
     assert reg.record_types(line) == ['Bollard', 'CurbRamp']

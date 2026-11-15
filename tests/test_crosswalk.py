@@ -128,3 +128,192 @@ def test_crosswalk_module_is_not_imported_by_the_registry():
             "bad = [m for m in ('torch', 'detectors.crosswalk', 'detectors.rampnet_keypoint') "
             "if m in sys.modules]; assert not bad, bad")
     subprocess.run([sys.executable, '-c', code], cwd=REPO, check=True)
+
+
+# --- records written by main.py ------------------------------------------------------------
+
+import json  # noqa: E402
+
+from conftest import make_process_result, make_provenance  # noqa: E402
+
+XW_PROV = ck.provenance_for_checkpoint(S4_SHA)
+
+
+class _FakeXwalk:
+    """CrosswalkDetector's surface (frame fixed by the spec), without torch."""
+    decode, border, storage_floor = 'argmax', 'keep', 0.05
+
+    def __init__(self, dets):
+        self.provenance, self._dets = XW_PROV, dets
+
+    def detect(self, image):
+        return list(self._dets)
+
+
+class _FakeCurb(_FakeXwalk):
+    decode, border, storage_floor = 'argmax', 'exclude', 0.1
+
+    def __init__(self, dets):
+        super().__init__(dets)
+        self.provenance = make_provenance()
+
+
+def _process(monkeypatch, dets):
+    import main
+    monkeypatch.setattr(main, 'detectors', dets)
+    monkeypatch.setattr(main, 'curb_ramp_detector', dets.get('CurbRamp'))
+    fake = make_process_result()
+    return main._process('PID', lambda: {'status': 'success', 'pano': fake['pano'],
+                                         'image': object()})
+
+
+def _crosswalk_line(monkeypatch, dets=((0.5, 0.6, 0.9), (0.25, 0.6, 0.07))):
+    import main
+    result = _process(monkeypatch, {'Crosswalk': _FakeXwalk(dets)})
+    return json.loads(json.dumps(main.build_output_line(result, {'Crosswalk': XW_PROV})))
+
+
+def test_crosswalk_only_line(monkeypatch):
+    line = _crosswalk_line(monkeypatch)
+    assert line['label_type'] == 'Crosswalk' and line['label_types'] == ['Crosswalk']
+    assert line['models']['Crosswalk'] == {**XW_PROV, 'detection_decode': 'argmax',
+                                           'detection_border': 'keep',
+                                           'detection_storage_floor': 0.05}
+    assert {k: line[k] for k in reg.PROVENANCE_KEYS} == XW_PROV
+    # the line-level markers describe CurbRamp, which did not run
+    assert 'detection_border' not in line and 'detection_decode' not in line
+    assert reg.type_markers(line, 'Crosswalk') == ('argmax', 'keep')
+    assert [d['label_type'] for d in line['detections']] == ['Crosswalk'] * 2
+
+
+def test_curb_ramp_plus_crosswalk_line(monkeypatch):
+    import main
+    prov_c = make_provenance()
+    result = _process(monkeypatch, {'CurbRamp': _FakeCurb([(0.5, 0.25, 0.9)]),
+                                    'Crosswalk': _FakeXwalk([(0.1, 0.6, 0.3)])})
+    line = main.build_output_line(result, {'CurbRamp': prov_c, 'Crosswalk': XW_PROV})
+    assert line['label_types'] == ['Crosswalk', 'CurbRamp'] and line['label_type'] is None
+    assert line['model_id'] == prov_c['model_id']              # line level = CurbRamp's
+    assert line['models']['CurbRamp'] == {k: prov_c[k] for k in reg.PROVENANCE_KEYS}
+    assert line['models']['Crosswalk']['detection_border'] == 'keep'
+    assert 'detection_border' not in line                       # CurbRamp ran `exclude`
+    assert reg.type_markers(line, 'CurbRamp') == ('argmax', 'exclude')
+    assert reg.type_markers(line, 'Crosswalk') == ('argmax', 'keep')
+
+
+# --- the manifest ----------------------------------------------------------------------------
+
+GEOM = {'type': 'Polygon', 'coordinates': [[[0, 0], [1, 0], [1, 1], [0, 0]]]}
+
+
+def _init(run_dir, provenance, decode='argmax', border='exclude'):
+    import main
+    return main.load_or_init_run_dir(run_dir, 'city.geojson', GEOM, 'hash', 'gsv',
+                                     provenance=provenance, decode=decode, border=border)
+
+
+def test_crosswalk_only_manifest_and_resume(tmp_path):
+    run = tmp_path / 'city'
+    m = _init(run, {'Crosswalk': XW_PROV})
+    assert m['label_types'] == ['Crosswalk']
+    # CurbRamp's top-level frame does not apply: null, never absent (absent = legacy 0.55)
+    assert (m['detection_storage_floor'], m['detection_decode'], m['detection_border']) == \
+        (None, None, None)
+    assert m['models']['Crosswalk'] == {**XW_PROV, **reg.type_frame('Crosswalk')}
+    assert m['model_revision'] == f'sha256:{S4_SHA}'
+    (run / 'results.jsonl').write_text('{}\n', encoding='utf-8')
+    before = (run / 'manifest.json').read_bytes()
+    _init(run, {'Crosswalk': XW_PROV})                       # same model resumes, no rewrite
+    assert (run / 'manifest.json').read_bytes() == before
+    other = ck.provenance_for_checkpoint('e' * 64, allow_unknown=True)
+    with pytest.raises(SystemExit, match='was produced by'):
+        _init(run, {'Crosswalk': other})                     # a changed checkpoint is refused
+    with pytest.raises(SystemExit, match='label types Crosswalk'):
+        _init(run, {'CurbRamp': make_provenance()})          # and so is CurbRamp
+
+
+def test_crosswalk_frame_change_is_refused_on_resume(tmp_path, monkeypatch):
+    run = tmp_path / 'city'
+    _init(run, {'Crosswalk': XW_PROV})
+    monkeypatch.setitem(reg.SPECS, 'Crosswalk', reg.SPECS['Crosswalk']._replace(border='exclude'))
+    with pytest.raises(SystemExit, match="detection_border 'keep'"):
+        _init(run, {'Crosswalk': XW_PROV})
+
+
+def test_scan_only_manifest_then_crosswalk_run(tmp_path):
+    """--scan-only writes CurbRamp's floor; the first Crosswalk run on it nulls the top level."""
+    run = tmp_path / 'city'
+    m = _init(run, None, decode=None, border=None)
+    assert m['detection_storage_floor'] == detectors.DETECTION_STORAGE_FLOOR
+    m = _init(run, {'Crosswalk': XW_PROV})
+    assert m['detection_storage_floor'] is None and m['label_types'] == ['Crosswalk']
+    saved = json.loads((run / 'manifest.json').read_text(encoding='utf-8'))
+    assert saved['models']['Crosswalk']['detection_border'] == 'keep'
+    _init(run, None, decode=None, border=None)               # a later --scan-only still passes
+
+
+def test_mixed_manifest_top_level_is_curb_ramps(tmp_path):
+    m = _init(tmp_path / 'city', {'CurbRamp': make_provenance(), 'Crosswalk': XW_PROV},
+              border='keep')
+    assert (m['detection_storage_floor'], m['detection_border']) == (0.1, 'keep')
+    assert 'detection_border' not in m['models']['CurbRamp']
+    assert m['models']['Crosswalk']['detection_storage_floor'] == 0.05
+
+
+def test_curb_ramp_only_manifest_is_unchanged(tmp_path):
+    m = _init(tmp_path / 'city', make_provenance())
+    assert 'models' not in m
+    assert (m['detection_storage_floor'], m['detection_decode'], m['detection_border']) == \
+        (0.1, 'argmax', 'exclude')
+
+
+# --- main.py flags ----------------------------------------------------------------------------
+
+@pytest.mark.parametrize('flags', [('--decode', 'gaussian'), ('--border', 'keep')])
+def test_curb_ramp_flags_refused_without_curb_ramp(monkeypatch, capsys, tmp_path, flags):
+    import sys
+    import main
+    ckpt = tmp_path / 'x.pth'
+    ckpt.write_bytes(b'')
+    monkeypatch.setattr(sys, 'argv', ['main.py', 'x.geojson', '--types', 'Crosswalk',
+                                      '--crosswalk-checkpoint', str(ckpt), *flags])
+    with pytest.raises(SystemExit) as e:
+        main.main()
+    assert e.value.code == 2 and 'applies to CurbRamp only' in capsys.readouterr().err
+
+
+def test_crosswalk_needs_a_checkpoint(capsys, tmp_path):
+    import argparse
+    import main
+    args = argparse.Namespace(types=['Crosswalk'], decode='argmax', border='exclude',
+                              scan_only=False, crosswalk_checkpoint=None)
+    with pytest.raises(SystemExit):
+        main.check_type_flags(argparse.ArgumentParser(), args)
+    assert '--crosswalk-checkpoint' in capsys.readouterr().err
+    args.crosswalk_checkpoint = str(tmp_path / 'missing.pth')
+    with pytest.raises(SystemExit):
+        main.check_type_flags(argparse.ArgumentParser(), args)
+    assert 'no such file' in capsys.readouterr().err
+    args.scan_only = True                                    # a scan loads no model
+    main.check_type_flags(argparse.ArgumentParser(), args)
+
+
+def test_detector_type_kwargs():
+    import argparse
+    import main
+    args = argparse.Namespace(types=['Crosswalk', 'CurbRamp'], decode='gaussian',
+                              border='keep', crosswalk_checkpoint='c.pth')
+    assert main.detector_type_kwargs(args) == {
+        'CurbRamp': {'decode': 'gaussian', 'border': 'keep'},
+        'Crosswalk': {'checkpoint': 'c.pth'}}
+    args.types = ['CurbRamp']
+    assert list(main.detector_type_kwargs(args)) == ['CurbRamp']
+
+
+def test_check_fixed_frames():
+    import main
+    main.check_fixed_frames({'CurbRamp': _FakeCurb([]), 'Crosswalk': _FakeXwalk([])})
+    bad = _FakeXwalk([])
+    bad.border = 'exclude'
+    with pytest.raises(SystemExit, match='spec says'):
+        main.check_fixed_frames({'Crosswalk': bad})
