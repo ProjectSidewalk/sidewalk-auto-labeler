@@ -36,8 +36,8 @@ Example::
 import importlib
 from collections import namedtuple
 
-from detectors import (BENCHMARK_CONFIDENCE, DETECTION_STORAGE_FLOOR,
-                       OPERATIONAL_CONFIDENCE)
+from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, BORDER_KEEP, DECODE_ARGMAX,
+                       DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE)
 
 CURB_RAMP = 'CurbRamp'
 CROSSWALK = 'Crosswalk'
@@ -62,7 +62,7 @@ DetectorSpec = namedtuple('DetectorSpec', [
     'mask_rig',                # whether detectors.on_camera_rig applies to this type
     'border',                  # peak border rule (detectors.BORDERS): fixed for every type
                                # but CurbRamp, whose --border flag chooses it per run
-], defaults=('exclude',))
+], defaults=(BORDER_EXCLUDE,))
 
 SPECS = {
     CURB_RAMP: DetectorSpec(CURB_RAMP, 'detectors.curb_ramp', 'CurbRampDetector',
@@ -76,7 +76,7 @@ SPECS = {
     # bundle exists, so nothing joins a run to verdicts at this tier today.
     # The 49-degree rig mask removed 7 of 72 rated false alarms and 0 of 359 crosswalks.
     CROSSWALK: DetectorSpec(CROSSWALK, 'detectors.crosswalk', 'CrosswalkDetector',
-                            0.05, 0.23, 0.23, True, 'keep'),
+                            0.05, 0.23, 0.23, True, BORDER_KEEP),
 }
 
 
@@ -125,7 +125,7 @@ def type_frame(label_type):
     if label_type == CURB_RAMP:
         raise ValueError("CurbRamp's frame is chosen per run (--decode, --border), not by its spec")
     spec = spec_for(label_type)
-    return {'detection_decode': 'argmax', 'detection_border': spec.border,
+    return {'detection_decode': DECODE_ARGMAX, 'detection_border': spec.border,
             'detection_storage_floor': spec.storage_floor}
 
 
@@ -211,7 +211,8 @@ def type_markers(record, label_type):
     if label_type == CURB_RAMP or 'models' not in record:
         return record_decode(record), record_border(record)
     m = record['models'][label_type]
-    return m.get('detection_decode', 'argmax'), m.get('detection_border', 'exclude')
+    return (m.get('detection_decode', DECODE_ARGMAX),
+            m.get('detection_border', BORDER_EXCLUDE))
 
 
 def require_curb_ramp_only(record, what):
