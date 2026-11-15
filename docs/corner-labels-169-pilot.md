@@ -601,4 +601,10 @@ Wilson 95% interval is reported and does not gate.
 Vancouver (about 40% of the pool), not for all corners. Re-drawing the rated sample from the
 pilot block is deviation 4 of section 5, to be declared before the rebuild.
 
+**Draw (added after the pre-registration commit dd759e4).** `sample --attached` -> `runs/vancouver/corner_placement169_attached/`:
+80 corners of 469 eligible, keys sha256 `9ea680bb3d87567697e430f9b3d2bc378b4351f5708ecc2e48d7a73d523783f3`;
+799 ATTACHED, pool 775, pilot block 260 through position 661, block keys sha256 `4256e288…715c497`
+(`sample.json` `attached.pilot_block_keys`). Drawn positions 681-1981. At 2 of the 80 the rule-B point is
+past the pano's range, so the card shows the corner point, which is what a build would send.
+
 Nothing here touches a server. Pixels come from the makelab2 pano store, read-only.

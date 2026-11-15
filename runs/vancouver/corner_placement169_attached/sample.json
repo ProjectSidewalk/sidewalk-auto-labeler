@@ -1,0 +1,2560 @@
+{
+ "attached": {
+  "first_position": 7,
+  "n_attached_all": 799,
+  "n_pool": 775,
+  "pilot_block_keys": [
+   "vancouver:res:n47245794#1",
+   "vancouver:res:n959123557#1",
+   "vancouver:res:n47278078#1",
+   "vancouver:res:n47263507#2",
+   "vancouver:res:n47224463#2",
+   "vancouver:res:n47355964#0",
+   "vancouver:res:n10213183161#2",
+   "vancouver:res:n47209296#2",
+   "vancouver:res:n47259576#0",
+   "vancouver:res:n47212903#1",
+   "vancouver:res:n1434943973#2",
+   "vancouver:res:n47270376#3",
+   "vancouver:res:n47223700#2",
+   "vancouver:res:n47240488#2",
+   "vancouver:res:n47238980#2",
+   "vancouver:res:n47280412#0",
+   "vancouver:res:n47259061#2",
+   "vancouver:res:n47219865#0",
+   "vancouver:res:n47221641#1",
+   "vancouver:res:n47250976#3",
+   "vancouver:res:n47261977#1",
+   "vancouver:res:n47277109#0",
+   "vancouver:res:n47267994#1",
+   "vancouver:res:n47315684#1",
+   "vancouver:res:n47371933#3",
+   "vancouver:res:n47221541#2",
+   "vancouver:res:n47294589#3",
+   "vancouver:res:n47221648#0",
+   "vancouver:res:n7135058203#1",
+   "vancouver:res:n47350954#0",
+   "vancouver:res:n47357193#0",
+   "vancouver:res:n47213460#2",
+   "vancouver:res:n47315684#0",
+   "vancouver:res:n47240377#3",
+   "vancouver:res:n47384782#1",
+   "vancouver:res:n47278831#2",
+   "vancouver:res:n47287761#3",
+   "vancouver:res:n47255331#2",
+   "vancouver:res:n47302570#1",
+   "vancouver:res:n47255331#1",
+   "vancouver:res:n47201167#1",
+   "vancouver:res:n47315339#1",
+   "vancouver:res:n47221555#3",
+   "vancouver:res:n47263469#2",
+   "vancouver:res:n47221516#3",
+   "vancouver:res:n47270652#2",
+   "vancouver:res:n1326925993#2",
+   "vancouver:res:n47284592#2",
+   "vancouver:res:n977148381#1",
+   "vancouver:res:n1326894500#3",
+   "vancouver:res:n47278202#2",
+   "vancouver:res:n47322657#3",
+   "vancouver:res:n47341437#1",
+   "vancouver:res:n47344830#0",
+   "vancouver:res:n47325460#2",
+   "vancouver:res:n47312167#1",
+   "vancouver:res:n47236312#1",
+   "vancouver:res:n47237307#2",
+   "vancouver:res:n47233288#2",
+   "vancouver:res:n47407428#1",
+   "vancouver:res:n47310855#1",
+   "vancouver:res:n47278814#1",
+   "vancouver:res:n47209296#1",
+   "vancouver:res:n47243703#2",
+   "vancouver:res:n47212267#3",
+   "vancouver:res:n47281448#0",
+   "vancouver:res:n47238385#2",
+   "vancouver:res:n47238412#3",
+   "vancouver:res:n47242079#3",
+   "vancouver:res:n47233984#1",
+   "vancouver:res:n47252728#2",
+   "vancouver:res:n47305594#0",
+   "vancouver:res:n47276854#1",
+   "vancouver:res:n47240416#1",
+   "vancouver:res:n47304590#2",
+   "vancouver:res:n6835507649#2",
+   "vancouver:res:n47259594#2",
+   "vancouver:res:n47259536#3",
+   "vancouver:res:n47220410#2",
+   "vancouver:res:n47324262#0",
+   "vancouver:res:n47350954#3",
+   "vancouver:res:n47259053#0",
+   "vancouver:res:n47259654#2",
+   "vancouver:res:n47332023#2",
+   "vancouver:res:n47258148#3",
+   "vancouver:res:n47315602#1",
+   "vancouver:res:n47233860#2",
+   "vancouver:res:n47238385#1",
+   "vancouver:res:n47208023#2",
+   "vancouver:res:n47226555#1",
+   "vancouver:res:n47308946#0",
+   "vancouver:res:n47270079#3",
+   "vancouver:res:n47307564#2",
+   "vancouver:res:n47259543#0",
+   "vancouver:res:n47208027#1",
+   "vancouver:res:n47348023#3",
+   "vancouver:res:n47282672#3",
+   "vancouver:res:n47250976#2",
+   "vancouver:res:n3372672500#3",
+   "vancouver:res:n47322657#0",
+   "vancouver:res:n47284592#1",
+   "vancouver:res:n47225948#2",
+   "vancouver:res:n47308946#1",
+   "vancouver:res:n47256294#3",
+   "vancouver:res:n47344830#2",
+   "vancouver:res:n47350464#1",
+   "vancouver:res:n47257499#1",
+   "vancouver:res:n8521301180#1",
+   "vancouver:res:n47307385#2",
+   "vancouver:res:n977148364#1",
+   "vancouver:res:n47355528#0",
+   "vancouver:res:n47208048#3",
+   "vancouver:res:n47278202#1",
+   "vancouver:res:n47233716#0",
+   "vancouver:res:n47301316#2",
+   "vancouver:res:n47379031#3",
+   "vancouver:res:n47284590#0",
+   "vancouver:res:n47238385#0",
+   "vancouver:res:n47284662#0",
+   "vancouver:res:n47221667#3",
+   "vancouver:res:n47248120#2",
+   "vancouver:res:n47341639#1",
+   "vancouver:res:n1235355983#3",
+   "vancouver:res:n47150601#2",
+   "vancouver:res:n47341639#0",
+   "vancouver:res:n47253747#0",
+   "vancouver:res:n47294544#2",
+   "vancouver:res:n47203957#3",
+   "vancouver:res:n47224329#2",
+   "vancouver:res:n47262616#3",
+   "vancouver:res:n47226897#2",
+   "vancouver:res:n47262514#2",
+   "vancouver:res:n47233716#3",
+   "vancouver:res:n47366498#0",
+   "vancouver:res:n4602413274#0",
+   "vancouver:res:n47250976#0",
+   "vancouver:res:n47262018#1",
+   "vancouver:res:n47282946#3",
+   "vancouver:res:n47249029#2",
+   "vancouver:res:n47294565#2",
+   "vancouver:res:n47357132#0",
+   "vancouver:res:n47243703#3",
+   "vancouver:res:n3740340766#2",
+   "vancouver:res:n47266255#2",
+   "vancouver:res:n47152550#0",
+   "vancouver:res:n47281448#1",
+   "vancouver:res:n47312167#2",
+   "vancouver:res:n1001747165#2",
+   "vancouver:res:n47225878#1",
+   "vancouver:res:n47315682#3",
+   "vancouver:res:n4134889069#3",
+   "vancouver:res:n47396139#1",
+   "vancouver:res:n47302521#0",
+   "vancouver:res:n47345807#2",
+   "vancouver:res:n3718729037#3",
+   "vancouver:res:n47227611#2",
+   "vancouver:res:n4602349158#2",
+   "vancouver:res:n47252730#0",
+   "vancouver:res:n47217157#0",
+   "vancouver:res:n9048382532#3",
+   "vancouver:res:n1235356122#1",
+   "vancouver:res:n47253761#2",
+   "vancouver:res:n47320588#2",
+   "vancouver:res:n47261805#3",
+   "vancouver:res:n47240407#1",
+   "vancouver:res:n47253779#3",
+   "vancouver:res:n47318222#0",
+   "vancouver:res:n47236558#0",
+   "vancouver:res:n47218918#2",
+   "vancouver:res:n47277515#1",
+   "vancouver:res:n47247568#1",
+   "vancouver:res:n47384839#2",
+   "vancouver:res:n959123536#2",
+   "vancouver:res:n47244636#1",
+   "vancouver:res:n47259574#1",
+   "vancouver:res:n4616972801#2",
+   "vancouver:res:n47214727#1",
+   "vancouver:res:n47259568#3",
+   "vancouver:res:n47250779#3",
+   "vancouver:res:n47221584#1",
+   "vancouver:res:n47280412#2",
+   "vancouver:res:n47253757#1",
+   "vancouver:res:n47259529#2",
+   "vancouver:res:n923872755#1",
+   "vancouver:res:n47278223#0",
+   "vancouver:res:n47288815#1",
+   "vancouver:res:n47213233#3",
+   "vancouver:res:n47399563#0",
+   "vancouver:res:n47234025#3",
+   "vancouver:res:n47208096#1",
+   "vancouver:res:n47259574#3",
+   "vancouver:res:n47281536#0",
+   "vancouver:res:n47234853#0",
+   "vancouver:res:n47300698#0",
+   "vancouver:res:n47252718#0",
+   "vancouver:res:n47295980#0",
+   "vancouver:res:n47230597#0",
+   "vancouver:res:n47242079#2",
+   "vancouver:res:n1255875652#0",
+   "vancouver:res:n6665438344#1",
+   "vancouver:res:n923872755#2",
+   "vancouver:res:n47256294#0",
+   "vancouver:res:n47212903#2",
+   "vancouver:res:n47240407#2",
+   "vancouver:res:n47384839#1",
+   "vancouver:res:n47237352#0",
+   "vancouver:res:n47290441#3",
+   "vancouver:res:n47346572#2",
+   "vancouver:res:n47208023#1",
+   "vancouver:res:n47308946#2",
+   "vancouver:res:n47278078#0",
+   "vancouver:res:n47320588#3",
+   "vancouver:res:n47263483#1",
+   "vancouver:res:n47293528#0",
+   "vancouver:res:n47252169#2",
+   "vancouver:res:n47221588#1",
+   "vancouver:res:n47244636#2",
+   "vancouver:res:n47249046#3",
+   "vancouver:res:n47259062#0",
+   "vancouver:res:n47209635#3",
+   "vancouver:res:n47221641#0",
+   "vancouver:res:n47236738#0",
+   "vancouver:res:n13538869866#3",
+   "vancouver:res:n47286909#2",
+   "vancouver:res:n47311700#1",
+   "vancouver:res:n1255846363#2",
+   "vancouver:res:n47239156#2",
+   "vancouver:res:n47237213#0",
+   "vancouver:res:n47226590#2",
+   "vancouver:res:n47238978#0",
+   "vancouver:res:n47261985#3",
+   "vancouver:res:n47201167#2",
+   "vancouver:res:n47327928#3",
+   "vancouver:res:n47348906#0",
+   "vancouver:res:n47249382#3",
+   "vancouver:res:n47346737#1",
+   "vancouver:res:n47238420#2",
+   "vancouver:res:n47296782#0",
+   "vancouver:res:n47217968#0",
+   "vancouver:res:n47288719#3",
+   "vancouver:res:n47262018#0",
+   "vancouver:res:n47277531#0",
+   "vancouver:res:n47221662#3",
+   "vancouver:res:n47201167#3",
+   "vancouver:res:n47284741#2",
+   "vancouver:res:n47213517#2",
+   "vancouver:res:n47293528#1",
+   "vancouver:res:n47209761#2",
+   "vancouver:res:n47285981#0",
+   "vancouver:res:n47278142#0",
+   "vancouver:res:n47359338#2",
+   "vancouver:res:n47269140#3",
+   "vancouver:res:n47238456#3",
+   "vancouver:res:n3910065410#1",
+   "vancouver:res:n4602349091#3",
+   "vancouver:res:n1326828137#1",
+   "vancouver:res:n47357385#0",
+   "vancouver:res:n47253754#0",
+   "vancouver:res:n47401035#0",
+   "vancouver:res:n47293524#3"
+  ],
+  "pilot_block_keys_sha256": "4256e288cc7c5516e3d66163dfe166cae9d10f2c9359e5345b4a63a81715c497",
+  "pilot_block_last_position": 661,
+  "previous_sample": "runs/vancouver/corner_placement169/sample.json",
+  "previous_sample_sha256": "7a7c10afec302fefa0cc72de6a3480d22857da6ccd5814a957c5c5bece606ed6",
+  "radius_m": 6.0,
+  "reserve": 260
+ },
+ "build": {
+  "dir": "runs/vancouver/corner_labels169_split/na_discount_sw_sitemed",
+  "tool_git_sha": "d24c4d65e6a4f8f4f131428c73f44f51f44fd8aa"
+ },
+ "calibration": {
+  "vancouver:res:n47220756#0": {
+   "jon": "at_curb",
+   "label": "vancouver-test:89738"
+  },
+  "vancouver:res:n47271259#0": {
+   "jon": "at_curb",
+   "label": "vancouver-test:89740"
+  },
+  "vancouver:res:n47279117#3": {
+   "jon": "in_street",
+   "label": "vancouver-test:89739"
+  }
+ },
+ "corners": [
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47221657#2",
+   "pano_id": "2k7Bv7AMjEGjtw5IoHLCyw",
+   "position": 681,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.49,
+     "pano_x": 7607,
+     "pano_y": 4539,
+     "range_m": 14.58,
+     "sidewalk": {
+      "crossing_m": 10.49,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.464267,
+     "y_normalized": 0.554038
+    }
+   },
+   "unit": "vancouver:res:n47221657",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47301839#1",
+   "pano_id": "ZtCkPFyQBQvpvFVqWHNm7Q",
+   "position": 704,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.16,
+     "pano_x": 10236,
+     "pano_y": 4944,
+     "range_m": 7.42,
+     "sidewalk": {
+      "crossing_m": 9.16,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.624744,
+     "y_normalized": 0.603473
+    }
+   },
+   "unit": "vancouver:res:n47301839",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47208017#2",
+   "pano_id": "nxjnY2G8PhY4TXzNpzWIgw",
+   "position": 748,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.51,
+     "pano_x": 13890,
+     "pano_y": 4944,
+     "range_m": 7.41,
+     "sidewalk": {
+      "crossing_m": 9.51,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.847766,
+     "y_normalized": 0.603567
+    }
+   },
+   "unit": "vancouver:res:n47208017",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47236558#1",
+   "pano_id": "RTcPbW4gVKLu7ZigQfnGCQ",
+   "position": 755,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 16.3,
+     "pano_x": 10761,
+     "pano_y": 4557,
+     "range_m": 14.0,
+     "sidewalk": {
+      "crossing_m": 16.3,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.656779,
+     "y_normalized": 0.556259
+    }
+   },
+   "unit": "vancouver:res:n47236558",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47278798#1",
+   "pano_id": "1nchr7tdEWFTNMBW3_iwGA",
+   "position": 756,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.13,
+     "pano_x": 5310,
+     "pano_y": 4801,
+     "range_m": 9.02,
+     "sidewalk": {
+      "crossing_m": 6.13,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.324077,
+     "y_normalized": 0.586088
+    }
+   },
+   "unit": "vancouver:res:n47278798",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47271259#1",
+   "pano_id": "8Jx7lSYgxBPqtKdCysYeEQ",
+   "position": 757,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.56,
+     "pano_x": 14700,
+     "pano_y": 4906,
+     "range_m": 7.79,
+     "sidewalk": {
+      "crossing_m": 9.56,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.89719,
+     "y_normalized": 0.598839
+    }
+   },
+   "unit": "vancouver:res:n47271259",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47259878#0",
+   "pano_id": "uYZutfgQQmjHE5GvkcO_1A",
+   "position": 766,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.64,
+     "pano_x": 4100,
+     "pano_y": 4691,
+     "range_m": 10.76,
+     "sidewalk": {
+      "crossing_m": 7.64,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.250274,
+     "y_normalized": 0.572642
+    }
+   },
+   "unit": "vancouver:res:n47259878",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47294601#0",
+   "pano_id": "DTE_Tf1LQS05N8PeavKJnA",
+   "position": 785,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.3,
+     "pano_x": 4517,
+     "pano_y": 4895,
+     "range_m": 7.9,
+     "sidewalk": {
+      "crossing_m": 7.3,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.275702,
+     "y_normalized": 0.597581
+    }
+   },
+   "unit": "vancouver:res:n47294601",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 6656,
+   "key": "vancouver:res:n47357454#1",
+   "pano_id": "3I3bIhZeqr_HsHGLo9zl0g",
+   "position": 800,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.34,
+     "pano_x": 11745,
+     "pano_y": 3982,
+     "range_m": 7.84,
+     "sidewalk": {
+      "crossing_m": 7.34,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.882293,
+     "y_normalized": 0.598301
+    }
+   },
+   "unit": "vancouver:res:n47357454",
+   "width": 13312
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47269155#0",
+   "pano_id": "yoB6Snf2PPzIw41_3mBvGA",
+   "position": 814,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.58,
+     "pano_x": 10120,
+     "pano_y": 4991,
+     "range_m": 7.0,
+     "sidewalk": {
+      "crossing_m": 10.58,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.617679,
+     "y_normalized": 0.609247
+    }
+   },
+   "unit": "vancouver:res:n47269155",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47259568#2",
+   "pano_id": "_uHzLjM2i7e8fcjZekFkUw",
+   "position": 817,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.65,
+     "pano_x": 6165,
+     "pano_y": 4751,
+     "range_m": 9.74,
+     "sidewalk": {
+      "crossing_m": 8.65,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.3763,
+     "y_normalized": 0.579949
+    }
+   },
+   "unit": "vancouver:res:n47259568",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47263456#0",
+   "pano_id": "AGBVC-YKzBubYPBUwa9eUA",
+   "position": 826,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.67,
+     "pano_x": 15266,
+     "pano_y": 4633,
+     "range_m": 11.97,
+     "sidewalk": {
+      "crossing_m": 8.67,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.931771,
+     "y_normalized": 0.565544
+    }
+   },
+   "unit": "vancouver:res:n47263456",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47240355#0",
+   "pano_id": "IUvZsGN4xBMJAQxvpct30A",
+   "position": 834,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.59,
+     "pano_x": 10960,
+     "pano_y": 4703,
+     "range_m": 10.54,
+     "sidewalk": {
+      "crossing_m": 7.59,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.668934,
+     "y_normalized": 0.574102
+    }
+   },
+   "unit": "vancouver:res:n47240355",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47303582#3",
+   "pano_id": "_v2wcco0253LDCX4WJbBpA",
+   "position": 836,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.43,
+     "pano_x": 4083,
+     "pano_y": 4866,
+     "range_m": 8.22,
+     "sidewalk": {
+      "crossing_m": 8.43,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.249207,
+     "y_normalized": 0.593982
+    }
+   },
+   "unit": "vancouver:res:n47303582",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47403713#3",
+   "pano_id": "GrPagH_E_8KCGVfsRzbSkA",
+   "position": 842,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.69,
+     "pano_x": 11216,
+     "pano_y": 4551,
+     "range_m": 14.18,
+     "sidewalk": {
+      "crossing_m": 10.69,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.684589,
+     "y_normalized": 0.555555
+    }
+   },
+   "unit": "vancouver:res:n47403713",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47278666#1",
+   "pano_id": "BeVTR9LHwZciGDOGrmjpnA",
+   "position": 846,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.83,
+     "pano_x": 5077,
+     "pano_y": 5030,
+     "range_m": 6.68,
+     "sidewalk": {
+      "crossing_m": 6.83,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.309851,
+     "y_normalized": 0.614029
+    }
+   },
+   "unit": "vancouver:res:n47278666",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47296788#1",
+   "pano_id": "cL8RffIHBOuDLqV1wswWyQ",
+   "position": 852,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.05,
+     "pano_x": 3211,
+     "pano_y": 4804,
+     "range_m": 8.98,
+     "sidewalk": {
+      "crossing_m": 8.05,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.195954,
+     "y_normalized": 0.586431
+    }
+   },
+   "unit": "vancouver:res:n47296788",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47240405#3",
+   "pano_id": "Tf7zbHQepFqgv5M1v29uUQ",
+   "position": 858,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.19,
+     "pano_x": 10447,
+     "pano_y": 5024,
+     "range_m": 6.73,
+     "sidewalk": {
+      "crossing_m": 8.19,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.637643,
+     "y_normalized": 0.613262
+    }
+   },
+   "unit": "vancouver:res:n47240405",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47341297#3",
+   "pano_id": "JgLfatxgNt4p7Vab9eYsdg",
+   "position": 883,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.6,
+     "pano_x": 2706,
+     "pano_y": 4812,
+     "range_m": 8.87,
+     "sidewalk": {
+      "crossing_m": 8.6,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.165161,
+     "y_normalized": 0.587457
+    }
+   },
+   "unit": "vancouver:res:n47341297",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47259061#0",
+   "pano_id": "lDe8YsJn7DSkvCWPbMvJ2Q",
+   "position": 884,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.47,
+     "pano_x": 11772,
+     "pano_y": 5093,
+     "range_m": 6.22,
+     "sidewalk": {
+      "crossing_m": 7.47,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.7185,
+     "y_normalized": 0.621649
+    }
+   },
+   "unit": "vancouver:res:n47259061",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47238281#1",
+   "pano_id": "Wd7PmmLwAfeOc0u3i_hpig",
+   "position": 887,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.63,
+     "pano_x": 6831,
+     "pano_y": 4595,
+     "range_m": 12.9,
+     "sidewalk": {
+      "crossing_m": 6.63,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.416949,
+     "y_normalized": 0.560935
+    }
+   },
+   "unit": "vancouver:res:n47238281",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47384858#0",
+   "pano_id": "-g6KCi7mvjTZ1jmhTyIu2Q",
+   "position": 889,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.07,
+     "pano_x": 5617,
+     "pano_y": 4921,
+     "range_m": 7.63,
+     "sidewalk": {
+      "crossing_m": 8.07,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.342853,
+     "y_normalized": 0.600749
+    }
+   },
+   "unit": "vancouver:res:n47384858",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47213520#2",
+   "pano_id": "PIT5bCkAMGovCEfFsj4vAA",
+   "position": 912,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 4.92,
+     "pano_x": 11852,
+     "pano_y": 5443,
+     "range_m": 4.4,
+     "sidewalk": {
+      "crossing_m": 4.92,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.723392,
+     "y_normalized": 0.664389
+    }
+   },
+   "unit": "vancouver:res:n47213520",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n5905796856#0",
+   "pano_id": "m3IA9fPCiV0dCOmNFfLxmw",
+   "position": 925,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.67,
+     "pano_x": 12460,
+     "pano_y": 5141,
+     "range_m": 5.9,
+     "sidewalk": {
+      "crossing_m": 8.67,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.760503,
+     "y_normalized": 0.627591
+    }
+   },
+   "unit": "vancouver:res:n5905796856",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47263149#3",
+   "pano_id": "nO8avb1kmVcSisILQTLY6w",
+   "position": 943,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.84,
+     "pano_x": 9871,
+     "pano_y": 4777,
+     "range_m": 9.36,
+     "sidewalk": {
+      "crossing_m": 8.84,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.602455,
+     "y_normalized": 0.583074
+    }
+   },
+   "unit": "vancouver:res:n47263149",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47278798#2",
+   "pano_id": "A4BKBDf-h8y2vspDe0rhhw",
+   "position": 967,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.22,
+     "pano_x": 2209,
+     "pano_y": 4624,
+     "range_m": 12.17,
+     "sidewalk": {
+      "crossing_m": 6.22,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.134857,
+     "y_normalized": 0.564495
+    }
+   },
+   "unit": "vancouver:res:n47278798",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47278845#2",
+   "pano_id": "yY-FTLXLzL8-OEZft-tMhQ",
+   "position": 970,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.28,
+     "pano_x": 5210,
+     "pano_y": 4996,
+     "range_m": 6.95,
+     "sidewalk": {
+      "crossing_m": 9.28,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.317992,
+     "y_normalized": 0.609918
+    }
+   },
+   "unit": "vancouver:res:n47278845",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47225921#1",
+   "pano_id": "VlbAuSV3zh5j77f3OuZvyw",
+   "position": 990,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.11,
+     "pano_x": 14906,
+     "pano_y": 5021,
+     "range_m": 6.75,
+     "sidewalk": {
+      "crossing_m": 9.11,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.909797,
+     "y_normalized": 0.612874
+    }
+   },
+   "unit": "vancouver:res:n47225921",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47221644#2",
+   "pano_id": "SPSo66tohutS_Xphw-B3rg",
+   "position": 1043,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.63,
+     "pano_x": 11833,
+     "pano_y": 4648,
+     "range_m": 11.63,
+     "sidewalk": {
+      "crossing_m": 7.63,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.722232,
+     "y_normalized": 0.567409
+    }
+   },
+   "unit": "vancouver:res:n47221644",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n959123564#2",
+   "pano_id": "sHlr45MTmDgWvm9YnOfJYQ",
+   "position": 1058,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.09,
+     "pano_x": 2737,
+     "pano_y": 4622,
+     "range_m": 12.22,
+     "sidewalk": {
+      "crossing_m": 10.09,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.167071,
+     "y_normalized": 0.564228
+    }
+   },
+   "unit": "vancouver:res:n959123564",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47278811#2",
+   "pano_id": "iTEGpvrygg2m4qkwCZ7Nxg",
+   "position": 1061,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.93,
+     "pano_x": 10884,
+     "pano_y": 5127,
+     "range_m": 5.99,
+     "sidewalk": {
+      "crossing_m": 6.93,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.664317,
+     "y_normalized": 0.625884
+    }
+   },
+   "unit": "vancouver:res:n47278811",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47278854#0",
+   "pano_id": "oVfGuPovkyLxD_KiDaQ2BQ",
+   "position": 1068,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.09,
+     "pano_x": 10001,
+     "pano_y": 4925,
+     "range_m": 7.59,
+     "sidewalk": {
+      "crossing_m": 8.09,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.610397,
+     "y_normalized": 0.601233
+    }
+   },
+   "unit": "vancouver:res:n47278854",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47291539#3",
+   "pano_id": "oo4B1RRNhd1YssVEPrUgdA",
+   "position": 1072,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.4,
+     "pano_x": 10725,
+     "pano_y": 5303,
+     "range_m": 5.01,
+     "sidewalk": {
+      "crossing_m": 7.4,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.654629,
+     "y_normalized": 0.647395
+    }
+   },
+   "unit": "vancouver:res:n47291539",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 6656,
+   "key": "vancouver:res:n47150615#1",
+   "pano_id": "ti2yyVGsMo9a8LcZRXVlew",
+   "position": 1118,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.17,
+     "pano_x": 10074,
+     "pano_y": 4201,
+     "range_m": 5.72,
+     "sidewalk": {
+      "crossing_m": 10.17,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.756768,
+     "y_normalized": 0.631156
+    }
+   },
+   "unit": "vancouver:res:n47150615",
+   "width": 13312
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47350946#3",
+   "pano_id": "a9EZGLhrfHvPshLiiDxdiA",
+   "position": 1136,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.78,
+     "pano_x": 14030,
+     "pano_y": 4903,
+     "range_m": 7.82,
+     "sidewalk": {
+      "crossing_m": 7.78,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.856335,
+     "y_normalized": 0.598461
+    }
+   },
+   "unit": "vancouver:res:n47350946",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47377683#1",
+   "pano_id": "JsLeV-tzohocrGOzRL2XBw",
+   "position": 1137,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.14,
+     "pano_x": 5298,
+     "pano_y": 4686,
+     "range_m": 10.85,
+     "sidewalk": {
+      "crossing_m": 7.14,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.323389,
+     "y_normalized": 0.572068
+    }
+   },
+   "unit": "vancouver:res:n47377683",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47234056#1",
+   "pano_id": "mxvRwWrIGCkDja9jkYPGWw",
+   "position": 1138,
+   "rules": {
+    "B": {
+     "case": "corner_range_fallback",
+     "dist_m": 6.94,
+     "pano_x": 10530,
+     "pano_y": 4359,
+     "range_m": 24.7,
+     "sidewalk": {
+      "crossing_m": 6.94,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.642692,
+     "y_normalized": 0.532104
+    }
+   },
+   "unit": "vancouver:res:n47234056",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 6656,
+   "key": "vancouver:res:n47357311#0",
+   "pano_id": "WiwEiKwhBTFqIprKSD_ixw",
+   "position": 1142,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.57,
+     "pano_x": 3087,
+     "pano_y": 3902,
+     "range_m": 9.0,
+     "sidewalk": {
+      "crossing_m": 7.57,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.231912,
+     "y_normalized": 0.586256
+    }
+   },
+   "unit": "vancouver:res:n47357311",
+   "width": 13312
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47225921#2",
+   "pano_id": "Crie00wWxHqFy2eDZ_xFRA",
+   "position": 1144,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.01,
+     "pano_x": 13363,
+     "pano_y": 5441,
+     "range_m": 4.41,
+     "sidewalk": {
+      "crossing_m": 9.01,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.815586,
+     "y_normalized": 0.664144
+    }
+   },
+   "unit": "vancouver:res:n47225921",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 6656,
+   "key": "vancouver:res:n47261801#2",
+   "pano_id": "gyJG8WqYpizrGvfLRY3Vpw",
+   "position": 1190,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.99,
+     "pano_x": 4505,
+     "pano_y": 3940,
+     "range_m": 8.41,
+     "sidewalk": {
+      "crossing_m": 7.99,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.338396,
+     "y_normalized": 0.591986
+    }
+   },
+   "unit": "vancouver:res:n47261801",
+   "width": 13312
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47221571#2",
+   "pano_id": "8WvkMKSZ1s0SSOx5spgyXQ",
+   "position": 1203,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.08,
+     "pano_x": 1764,
+     "pano_y": 4613,
+     "range_m": 12.45,
+     "sidewalk": {
+      "crossing_m": 8.08,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.107643,
+     "y_normalized": 0.563061
+    }
+   },
+   "unit": "vancouver:res:n47221571",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47278682#1",
+   "pano_id": "FzFhavA7Kc2B-lfAjR7hUg",
+   "position": 1209,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 5.26,
+     "pano_x": 348,
+     "pano_y": 4370,
+     "range_m": 23.74,
+     "sidewalk": {
+      "crossing_m": 5.26,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.021266,
+     "y_normalized": 0.5334
+    }
+   },
+   "unit": "vancouver:res:n47278682",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47338924#2",
+   "pano_id": "BG2HMUo-aPxsqquhkwmRbw",
+   "position": 1304,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.94,
+     "pano_x": 16201,
+     "pano_y": 4456,
+     "range_m": 18.0,
+     "sidewalk": {
+      "crossing_m": 7.94,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.988803,
+     "y_normalized": 0.543923
+    }
+   },
+   "unit": "vancouver:res:n47338924",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n8593117140#2",
+   "pano_id": "Y7oa9Nx8W8N1NmAi4pgOVQ",
+   "position": 1310,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.18,
+     "pano_x": 10208,
+     "pano_y": 4885,
+     "range_m": 8.01,
+     "sidewalk": {
+      "crossing_m": 8.18,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.623063,
+     "y_normalized": 0.596343
+    }
+   },
+   "unit": "vancouver:res:n8593117140",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47333813#2",
+   "pano_id": "HWJXFGzQwktkTdhbY4UrSQ",
+   "position": 1324,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.35,
+     "pano_x": 13875,
+     "pano_y": 4899,
+     "range_m": 7.86,
+     "sidewalk": {
+      "crossing_m": 10.35,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.846885,
+     "y_normalized": 0.598055
+    }
+   },
+   "unit": "vancouver:res:n47333813",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n1235356007#2",
+   "pano_id": "PY3DisF-tTErMVlR0GNHyw",
+   "position": 1336,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.42,
+     "pano_x": 14296,
+     "pano_y": 5271,
+     "range_m": 5.17,
+     "sidewalk": {
+      "crossing_m": 9.42,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.872571,
+     "y_normalized": 0.643487
+    }
+   },
+   "unit": "vancouver:res:n1235356007",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47266255#3",
+   "pano_id": "xWO5UFB-s2ZEo-mlosG09g",
+   "position": 1370,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.16,
+     "pano_x": 2973,
+     "pano_y": 4756,
+     "range_m": 9.66,
+     "sidewalk": {
+      "crossing_m": 9.16,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.181435,
+     "y_normalized": 0.580602
+    }
+   },
+   "unit": "vancouver:res:n47266255",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47267491#3",
+   "pano_id": "T6Iuj2NfqXgiZkNTSuMwFQ",
+   "position": 1371,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.78,
+     "pano_x": 6974,
+     "pano_y": 4602,
+     "range_m": 12.72,
+     "sidewalk": {
+      "crossing_m": 6.78,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.42566,
+     "y_normalized": 0.561786
+    }
+   },
+   "unit": "vancouver:res:n47267491",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n3910065410#0",
+   "pano_id": "PgsDMR5PUXINPn_Pulw-bg",
+   "position": 1400,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.81,
+     "pano_x": 5334,
+     "pano_y": 4719,
+     "range_m": 10.26,
+     "sidewalk": {
+      "crossing_m": 8.81,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.32557,
+     "y_normalized": 0.576106
+    }
+   },
+   "unit": "vancouver:res:n3910065410",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47237350#2",
+   "pano_id": "M2DkjjLsYYzkQpyNUvDvSg",
+   "position": 1403,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.78,
+     "pano_x": 13646,
+     "pano_y": 5376,
+     "range_m": 4.68,
+     "sidewalk": {
+      "crossing_m": 8.78,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.832893,
+     "y_normalized": 0.656231
+    }
+   },
+   "unit": "vancouver:res:n47237350",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47221534#1",
+   "pano_id": "LflfsXG078HThf1BtMHb_A",
+   "position": 1411,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.46,
+     "pano_x": 3737,
+     "pano_y": 4836,
+     "range_m": 8.57,
+     "sidewalk": {
+      "crossing_m": 7.46,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.228104,
+     "y_normalized": 0.59031
+    }
+   },
+   "unit": "vancouver:res:n47221534",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47213933#0",
+   "pano_id": "qW8IamlsyePROHErLuXe6g",
+   "position": 1427,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.91,
+     "pano_x": 13738,
+     "pano_y": 5188,
+     "range_m": 5.62,
+     "sidewalk": {
+      "crossing_m": 8.91,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.838487,
+     "y_normalized": 0.633291
+    }
+   },
+   "unit": "vancouver:res:n47213933",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n3643170839#2",
+   "pano_id": "m4iQf1lINljAxOi-169U4g",
+   "position": 1432,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.34,
+     "pano_x": 10579,
+     "pano_y": 5028,
+     "range_m": 6.7,
+     "sidewalk": {
+      "crossing_m": 8.34,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.645677,
+     "y_normalized": 0.61371
+    }
+   },
+   "unit": "vancouver:res:n3643170839",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47378911#2",
+   "pano_id": "8HvhTvr98jKhua0xoraxPg",
+   "position": 1442,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.85,
+     "pano_x": 11206,
+     "pano_y": 5133,
+     "range_m": 5.95,
+     "sidewalk": {
+      "crossing_m": 9.85,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.683952,
+     "y_normalized": 0.62654
+    }
+   },
+   "unit": "vancouver:res:n47378911",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47236569#2",
+   "pano_id": "f2KGsnQ3ivupxb5sBy0G2g",
+   "position": 1447,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.76,
+     "pano_x": 3910,
+     "pano_y": 4936,
+     "range_m": 7.49,
+     "sidewalk": {
+      "crossing_m": 7.76,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.238645,
+     "y_normalized": 0.60251
+    }
+   },
+   "unit": "vancouver:res:n47236569",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 6656,
+   "key": "vancouver:res:n47226590#3",
+   "pano_id": "7EnDBq87Ps4kTcHXJEHwjQ",
+   "position": 1472,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.63,
+     "pano_x": 8226,
+     "pano_y": 3952,
+     "range_m": 8.25,
+     "sidewalk": {
+      "crossing_m": 10.63,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.617922,
+     "y_normalized": 0.593695
+    }
+   },
+   "unit": "vancouver:res:n47226590",
+   "width": 13312
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47259529#1",
+   "pano_id": "JkD965fQqjC_7OtAwMCzIw",
+   "position": 1476,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.61,
+     "pano_x": 4914,
+     "pano_y": 4957,
+     "range_m": 7.29,
+     "sidewalk": {
+      "crossing_m": 8.61,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.299944,
+     "y_normalized": 0.605109
+    }
+   },
+   "unit": "vancouver:res:n47259529",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47312557#0",
+   "pano_id": "3M_mPjxUrEWadYdJFJadfA",
+   "position": 1493,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.63,
+     "pano_x": 14089,
+     "pano_y": 5571,
+     "range_m": 3.94,
+     "sidewalk": {
+      "crossing_m": 6.63,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.859933,
+     "y_normalized": 0.680055
+    }
+   },
+   "unit": "vancouver:res:n47312557",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47367408#2",
+   "pano_id": "ksTZCM5G_JVRzjTXHPzfxQ",
+   "position": 1504,
+   "rules": {
+    "B": {
+     "case": "corner_range_fallback",
+     "dist_m": 18.2,
+     "pano_x": 3883,
+     "pano_y": 4384,
+     "range_m": 22.58,
+     "sidewalk": {
+      "crossing_m": 18.2,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.237002,
+     "y_normalized": 0.5351
+    }
+   },
+   "unit": "vancouver:res:n47367408",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n4407027400#1",
+   "pano_id": "6eBeSuJe2Ptnb-QbY-mkFA",
+   "position": 1506,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.07,
+     "pano_x": 14206,
+     "pano_y": 5129,
+     "range_m": 5.98,
+     "sidewalk": {
+      "crossing_m": 8.07,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.86706,
+     "y_normalized": 0.626107
+    }
+   },
+   "unit": "vancouver:res:n4407027400",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47278831#1",
+   "pano_id": "oBZLnh1YjKNEPves8kGe8A",
+   "position": 1522,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.58,
+     "pano_x": 3487,
+     "pano_y": 4763,
+     "range_m": 9.56,
+     "sidewalk": {
+      "crossing_m": 8.58,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.212818,
+     "y_normalized": 0.581456
+    }
+   },
+   "unit": "vancouver:res:n47278831",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47278811#3",
+   "pano_id": "hB7keP7je5CF5kQTqW9m9A",
+   "position": 1551,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.82,
+     "pano_x": 4050,
+     "pano_y": 4848,
+     "range_m": 8.42,
+     "sidewalk": {
+      "crossing_m": 6.82,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.247211,
+     "y_normalized": 0.591835
+    }
+   },
+   "unit": "vancouver:res:n47278811",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47213933#3",
+   "pano_id": "5U6L7MW9P3g_wH3J1EG70w",
+   "position": 1595,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.92,
+     "pano_x": 15448,
+     "pano_y": 4657,
+     "range_m": 11.45,
+     "sidewalk": {
+      "crossing_m": 8.92,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.942866,
+     "y_normalized": 0.568429
+    }
+   },
+   "unit": "vancouver:res:n47213933",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47318222#1",
+   "pano_id": "qEnMVniKv0xZv2paVJyEEQ",
+   "position": 1607,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 6.0,
+     "pano_x": 4113,
+     "pano_y": 4542,
+     "range_m": 14.46,
+     "sidewalk": {
+      "crossing_m": 6.0,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.251021,
+     "y_normalized": 0.554492
+    }
+   },
+   "unit": "vancouver:res:n47318222",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47237213#1",
+   "pano_id": "-44JWVOw6yd6xzfzecHBuA",
+   "position": 1645,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.33,
+     "pano_x": 13394,
+     "pano_y": 4973,
+     "range_m": 7.15,
+     "sidewalk": {
+      "crossing_m": 10.33,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.817506,
+     "y_normalized": 0.607071
+    }
+   },
+   "unit": "vancouver:res:n47237213",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n47237302#0",
+   "pano_id": "_wA6EzJLoydHTBw32q0nMQ",
+   "position": 1649,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 15.88,
+     "pano_x": 11610,
+     "pano_y": 4887,
+     "range_m": 7.98,
+     "sidewalk": {
+      "crossing_m": 15.88,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.708607,
+     "y_normalized": 0.596589
+    }
+   },
+   "unit": "vancouver:res:n47237302",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47278207#2",
+   "pano_id": "HBXObnx-xKxuP1896yIknw",
+   "position": 1659,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 13.05,
+     "pano_x": 2985,
+     "pano_y": 4660,
+     "range_m": 11.38,
+     "sidewalk": {
+      "crossing_m": 13.05,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.182191,
+     "y_normalized": 0.568849
+    }
+   },
+   "unit": "vancouver:res:n47278207",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47226535#1",
+   "pano_id": "RXZjL2ml7ZHcrbxg5wqCwg",
+   "position": 1662,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 12.04,
+     "pano_x": 14351,
+     "pano_y": 5012,
+     "range_m": 6.82,
+     "sidewalk": {
+      "crossing_m": 12.04,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.8759,
+     "y_normalized": 0.61186
+    }
+   },
+   "unit": "vancouver:res:n47226535",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47368122#2",
+   "pano_id": "BiE7uvtB0HdTi1jw_oUSNg",
+   "position": 1678,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.22,
+     "pano_x": 13512,
+     "pano_y": 5289,
+     "range_m": 5.08,
+     "sidewalk": {
+      "crossing_m": 9.22,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.824737,
+     "y_normalized": 0.645584
+    }
+   },
+   "unit": "vancouver:res:n47368122",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 6656,
+   "key": "vancouver:res:n47357311#1",
+   "pano_id": "hDFD04mxt--E1AfIAHRBEw",
+   "position": 1694,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.43,
+     "pano_x": 3114,
+     "pano_y": 3679,
+     "range_m": 14.95,
+     "sidewalk": {
+      "crossing_m": 7.43,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.233888,
+     "y_normalized": 0.552725
+    }
+   },
+   "unit": "vancouver:res:n47357311",
+   "width": 13312
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47245823#1",
+   "pano_id": "c4_l3SNP0hK-jPYoV3P8YQ",
+   "position": 1701,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 5.9,
+     "pano_x": 9633,
+     "pano_y": 5061,
+     "range_m": 6.44,
+     "sidewalk": {
+      "crossing_m": 5.9,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.587933,
+     "y_normalized": 0.61779
+    }
+   },
+   "unit": "vancouver:res:n47245823",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47291539#2",
+   "pano_id": "mmBTU4GkXvUEUuS_aJzWHQ",
+   "position": 1716,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 9.38,
+     "pano_x": 10195,
+     "pano_y": 5103,
+     "range_m": 6.15,
+     "sidewalk": {
+      "crossing_m": 9.38,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.622258,
+     "y_normalized": 0.622868
+    }
+   },
+   "unit": "vancouver:res:n47291539",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47291536#3",
+   "pano_id": "-Q_ANVJJJQvGjCkav_42Yw",
+   "position": 1734,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.36,
+     "pano_x": 11327,
+     "pano_y": 4670,
+     "range_m": 11.16,
+     "sidewalk": {
+      "crossing_m": 8.36,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.69133,
+     "y_normalized": 0.570126
+    }
+   },
+   "unit": "vancouver:res:n47291536",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 3,
+   "height": 8192,
+   "key": "vancouver:res:n47259543#3",
+   "pano_id": "FFVRjUPVyF1g8Zg7brzNtg",
+   "position": 1823,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 7.77,
+     "pano_x": 5599,
+     "pano_y": 4888,
+     "range_m": 7.97,
+     "sidewalk": {
+      "crossing_m": 7.77,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.341721,
+     "y_normalized": 0.596733
+    }
+   },
+   "unit": "vancouver:res:n47259543",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47357132#1",
+   "pano_id": "BPdiW_6YCChcjra-LYcFrA",
+   "position": 1846,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.94,
+     "pano_x": 12104,
+     "pano_y": 5114,
+     "range_m": 6.07,
+     "sidewalk": {
+      "crossing_m": 8.94,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.738783,
+     "y_normalized": 0.624288
+    }
+   },
+   "unit": "vancouver:res:n47357132",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47302570#2",
+   "pano_id": "Mk9tBC_5-9IXscGjuh7tbg",
+   "position": 1873,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.27,
+     "pano_x": 4692,
+     "pano_y": 5025,
+     "range_m": 6.72,
+     "sidewalk": {
+      "crossing_m": 8.27,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.286376,
+     "y_normalized": 0.613351
+    }
+   },
+   "unit": "vancouver:res:n47302570",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47226874#2",
+   "pano_id": "nCTLrfXuHF4dj4cIGVIjBw",
+   "position": 1877,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.43,
+     "pano_x": 3530,
+     "pano_y": 5130,
+     "range_m": 5.97,
+     "sidewalk": {
+      "crossing_m": 8.43,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.215447,
+     "y_normalized": 0.626165
+    }
+   },
+   "unit": "vancouver:res:n47226874",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 2,
+   "height": 8192,
+   "key": "vancouver:res:n47341437#2",
+   "pano_id": "Rfb84QukFhWU_3jTW63gvA",
+   "position": 1954,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 8.4,
+     "pano_x": 3046,
+     "pano_y": 4839,
+     "range_m": 8.53,
+     "sidewalk": {
+      "crossing_m": 8.4,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.185937,
+     "y_normalized": 0.590717
+    }
+   },
+   "unit": "vancouver:res:n47341437",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 0,
+   "height": 8192,
+   "key": "vancouver:res:n1375314808#0",
+   "pano_id": "SDiCUVd4r7nvo-n6q0eFVQ",
+   "position": 1978,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 13.97,
+     "pano_x": 11129,
+     "pano_y": 4792,
+     "range_m": 9.14,
+     "sidewalk": {
+      "crossing_m": 13.97,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.679284,
+     "y_normalized": 0.585012
+    }
+   },
+   "unit": "vancouver:res:n1375314808",
+   "width": 16384
+  },
+  {
+   "calibration": false,
+   "corner": 1,
+   "height": 8192,
+   "key": "vancouver:res:n47306242#1",
+   "pano_id": "KiYXTemIsGn-RSBDMQatRQ",
+   "position": 1981,
+   "rules": {
+    "B": {
+     "case": "sidewalk_crossing",
+     "dist_m": 10.02,
+     "pano_x": 12423,
+     "pano_y": 5072,
+     "range_m": 6.36,
+     "sidewalk": {
+      "crossing_m": 10.02,
+      "inset_m": 0.0,
+      "status": "Available",
+      "unittype": "ATTACHED"
+     },
+     "x_normalized": 0.758241,
+     "y_normalized": 0.619188
+    }
+   },
+   "unit": "vancouver:res:n47306242",
+   "width": 16384
+  }
+ ],
+ "issue": "sidewalk-auto-labeler#169",
+ "keys": [
+  "vancouver:res:n47221657#2",
+  "vancouver:res:n47301839#1",
+  "vancouver:res:n47208017#2",
+  "vancouver:res:n47236558#1",
+  "vancouver:res:n47278798#1",
+  "vancouver:res:n47271259#1",
+  "vancouver:res:n47259878#0",
+  "vancouver:res:n47294601#0",
+  "vancouver:res:n47357454#1",
+  "vancouver:res:n47269155#0",
+  "vancouver:res:n47259568#2",
+  "vancouver:res:n47263456#0",
+  "vancouver:res:n47240355#0",
+  "vancouver:res:n47303582#3",
+  "vancouver:res:n47403713#3",
+  "vancouver:res:n47278666#1",
+  "vancouver:res:n47296788#1",
+  "vancouver:res:n47240405#3",
+  "vancouver:res:n47341297#3",
+  "vancouver:res:n47259061#0",
+  "vancouver:res:n47238281#1",
+  "vancouver:res:n47384858#0",
+  "vancouver:res:n47213520#2",
+  "vancouver:res:n5905796856#0",
+  "vancouver:res:n47263149#3",
+  "vancouver:res:n47278798#2",
+  "vancouver:res:n47278845#2",
+  "vancouver:res:n47225921#1",
+  "vancouver:res:n47221644#2",
+  "vancouver:res:n959123564#2",
+  "vancouver:res:n47278811#2",
+  "vancouver:res:n47278854#0",
+  "vancouver:res:n47291539#3",
+  "vancouver:res:n47150615#1",
+  "vancouver:res:n47350946#3",
+  "vancouver:res:n47377683#1",
+  "vancouver:res:n47234056#1",
+  "vancouver:res:n47357311#0",
+  "vancouver:res:n47225921#2",
+  "vancouver:res:n47261801#2",
+  "vancouver:res:n47221571#2",
+  "vancouver:res:n47278682#1",
+  "vancouver:res:n47338924#2",
+  "vancouver:res:n8593117140#2",
+  "vancouver:res:n47333813#2",
+  "vancouver:res:n1235356007#2",
+  "vancouver:res:n47266255#3",
+  "vancouver:res:n47267491#3",
+  "vancouver:res:n3910065410#0",
+  "vancouver:res:n47237350#2",
+  "vancouver:res:n47221534#1",
+  "vancouver:res:n47213933#0",
+  "vancouver:res:n3643170839#2",
+  "vancouver:res:n47378911#2",
+  "vancouver:res:n47236569#2",
+  "vancouver:res:n47226590#3",
+  "vancouver:res:n47259529#1",
+  "vancouver:res:n47312557#0",
+  "vancouver:res:n47367408#2",
+  "vancouver:res:n4407027400#1",
+  "vancouver:res:n47278831#1",
+  "vancouver:res:n47278811#3",
+  "vancouver:res:n47213933#3",
+  "vancouver:res:n47318222#1",
+  "vancouver:res:n47237213#1",
+  "vancouver:res:n47237302#0",
+  "vancouver:res:n47278207#2",
+  "vancouver:res:n47226535#1",
+  "vancouver:res:n47368122#2",
+  "vancouver:res:n47357311#1",
+  "vancouver:res:n47245823#1",
+  "vancouver:res:n47291539#2",
+  "vancouver:res:n47291536#3",
+  "vancouver:res:n47259543#3",
+  "vancouver:res:n47357132#1",
+  "vancouver:res:n47302570#2",
+  "vancouver:res:n47226874#2",
+  "vancouver:res:n47341437#2",
+  "vancouver:res:n1375314808#0",
+  "vancouver:res:n47306242#1"
+ ],
+ "keys_sha256": "9ea680bb3d87567697e430f9b3d2bc378b4351f5708ecc2e48d7a73d523783f3",
+ "min_position": 204,
+ "n": 80,
+ "n_eligible": 469,
+ "pilot_sha256": "157ff268162f62f125f93890fd65b01638e7ecb27a3c5011e2056e292dbf32b4",
+ "proposals_sha256": "9925a736c3d3790172dfea49a0943e7e70498a701edae4d1e765d47ed2239738",
+ "rules": {
+  "B": "sidewalk-crossing"
+ },
+ "schema": "sidewalk-auto-labeler.corner_placement_check.sample/1",
+ "seed": 20261117,
+ "sidewalk_inset_by_type_m": {
+  "ATTACHED": 0.0,
+  "DETACHED": 2.5,
+  "other": 1.0
+ },
+ "sidewalk_ray_m": [
+  3.0,
+  20.0
+ ],
+ "sidewalks_sha256": "11503ed4cd7def77749c8443143f2bce73e556e8543fc17d1981a514f7bf0eff",
+ "stratum": "residential"
+}
