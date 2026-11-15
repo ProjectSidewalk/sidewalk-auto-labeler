@@ -317,3 +317,130 @@ def test_check_fixed_frames():
     bad.border = 'exclude'
     with pytest.raises(SystemExit, match='spec says'):
         main.check_fixed_frames({'Crosswalk': bad})
+
+
+# --- send_to_ps.py ----------------------------------------------------------------------------
+
+import shutil  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+PROD = 'https://ps.example/ai/submitLabelsOnPano'
+GOLDEN = REPO / 'tests' / 'fixtures' / 'multitype_submit' / 'curbramp_only.jsonl'
+# (x, y, c): kept at 0.23 / dropped below it / on the camera rig / below the 0.23 default
+XW_DETS = [(0.5, 0.6, 0.9), (0.25, 0.6, 0.25), (0.3, 0.95, 0.8), (0.2, 0.6, 0.2),
+           (0.1, 0.6, 0.07)]
+
+
+def _crosswalk_file(monkeypatch, run_dir):
+    run_dir.mkdir(parents=True, exist_ok=True)
+    line = _crosswalk_line(monkeypatch, XW_DETS)
+    path = run_dir / 'results.jsonl'
+    path.write_text(json.dumps(line) + '\n', encoding='utf-8', newline='\n')
+    return path
+
+
+def _capture(monkeypatch):
+    import send_to_ps
+    sent = []
+    ok = SimpleNamespace(status_code=200, ok=True, text='')
+    monkeypatch.setattr(send_to_ps, 'send_to_project_sidewalk',
+                        lambda payload, url, key=None: sent.append(payload) or ok)
+    return sent
+
+
+def _record(path):
+    return json.loads(Path(f'{path}.submission.json').read_text(encoding='utf-8'))
+
+
+def test_crosswalk_dry_run(monkeypatch, tmp_path, capsys):
+    import send_to_ps
+    path = _crosswalk_file(monkeypatch, tmp_path / 'runs' / 'xw')
+    send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True)
+    out = capsys.readouterr().out
+    payload = json.loads(out[out.index('{'):out.rindex('}') + 1])
+    assert payload['label_type'] == 'Crosswalk'
+    # 0.23 by default; the y=0.95 detection is on the camera rig (mask on for Crosswalk)
+    assert [lab['confidence'] for lab in payload['labels']] == [0.9, 0.25]
+    assert {k: payload[k] for k in reg.PROVENANCE_KEYS} == XW_PROV
+    assert not {'models', 'label_types', 'detections', 'detection_decode',
+                'detection_border'} & set(payload)
+    assert not list(path.parent.glob('*.submitted'))      # a dry run records nothing
+
+
+def test_crosswalk_submission_record_and_no_clash_with_curb_ramp(monkeypatch, tmp_path):
+    """The record says Crosswalk went out under `keep`; the city's `exclude` CurbRamp campaign
+    in a sibling run dir on the same endpoint neither refuses it nor is refused by it."""
+    import send_to_ps
+    curb = tmp_path / 'runs' / 'city'
+    curb.mkdir(parents=True)
+    shutil.copyfile(GOLDEN, curb / 'results.jsonl')
+    sent = _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(curb / 'results.jsonl'), PROD)
+    n_curb = len(sent)
+
+    path = _crosswalk_file(monkeypatch, tmp_path / 'runs' / 'city_crosswalk')
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert len(sent) == n_curb + 1 and sent[-1]['label_type'] == 'Crosswalk'
+    rec = _record(path)
+    assert rec['label_types'] == ['Crosswalk']
+    assert rec['type_frames'] == {'Crosswalk': {'detection_decode': 'argmax',
+                                                'detection_border': 'keep'}}
+    assert 'detection_border' not in rec and 'detection_decode' not in rec
+    state = rec['endpoints'][PROD]
+    assert (state['min_confidence'], state['rig_masked'], state['labels_submitted']) == \
+        (0.23, True, 2)
+    assert send_to_ps.record_label_types(_record(curb / 'results.jsonl')) == ['CurbRamp']
+    # ...and the CurbRamp file still passes its own guard beside the Crosswalk record
+    assert send_to_ps.check_detection_border(curb / 'results.jsonl', PROD) == 'exclude'
+
+
+def test_crosswalk_frame_clash_with_a_crosswalk_campaign(monkeypatch, tmp_path):
+    import send_to_ps
+    path = _crosswalk_file(monkeypatch, tmp_path / 'runs' / 'xw2')
+    other = tmp_path / 'runs' / 'xw1'
+    other.mkdir(parents=True)
+    (other / 'results.jsonl.submission.json').write_text(json.dumps({
+        'input_file': 'results.jsonl', 'sha256': '0' * 64, 'total_lines': 1, 'total_bytes': 1,
+        'endpoints': {PROD: {'submitted_lines': 1, 'labels_submitted': 1}},
+        'label_types': ['Crosswalk'],
+        'type_frames': {'Crosswalk': {'detection_decode': 'argmax',
+                                      'detection_border': 'exclude'}}}), encoding='utf-8')
+    with pytest.raises(ValueError, match=r'Crosswalk detections.*xw1/.*\(exclude\)'):
+        send_to_ps.check_detection_border(path, PROD)
+    assert send_to_ps.check_detection_decode(path, PROD) == 'argmax'   # same decode: fine
+
+
+def test_band_refused_on_a_crosswalk_file(monkeypatch, tmp_path):
+    import send_to_ps
+    path = _crosswalk_file(monkeypatch, tmp_path / 'runs' / 'xw')
+    sent = _capture(monkeypatch)
+    for dry in (True, False):
+        with pytest.raises(ValueError, match='not CurbRamp-only'):
+            send_to_ps.process_jsonl_file(str(path), PROD, dry_run=dry, min_confidence=0.1,
+                                          max_confidence=0.23)
+    assert sent == []
+
+
+def test_type_frame_counts_of_a_curb_ramp_file_match_the_line_level_counters():
+    import send_to_ps
+    counts = send_to_ps.type_frame_counts(GOLDEN)
+    assert list(counts) == ['CurbRamp']
+    assert counts['CurbRamp'] == (detectors.decodes_in_file(GOLDEN),
+                                  detectors.borders_in_file(GOLDEN))
+    assert send_to_ps.type_frame_record_values(GOLDEN) == {}
+
+
+# --- scripts/crosswalk_parity.py (the GPU script's matching rule) -----------------------------
+
+def test_parity_compare_rule():
+    import crosswalk_parity as cp
+    a = [(512 / 1024, 256 / 512, 0.9), (100 / 1024, 300 / 512, 0.4)]
+    assert cp.compare(a, [(x, y, c + 1e-4) for x, y, c in a])['exact'] == 2
+    r = cp.compare(a, [(512 / 1024, 256 / 512, 0.91), (101 / 1024, 300 / 512, 0.401)])
+    assert (r['bad_value'], r['moved']) == (1, 1)            # value off at the same pixel; a 1-px move
+    r = cp.compare(a + [(0.7, 0.7, 0.052)], a)              # a peak at the floor on one side only
+    assert (r['unmatched_stored'], r['excused']) == ([], 1)
+    r = cp.compare(a + [(0.7, 0.7, 0.3)], a)
+    assert r['unmatched_stored'] == [0.3]
+    r = cp.compare(a, [a[0], (130 / 1024, 300 / 512, 0.4)])  # beyond the NMS window: no match
+    assert (r['unmatched_stored'], r['unmatched_labeler']) == ([0.4], [0.4])

@@ -39,7 +39,7 @@ from detectors import (BORDER_EXCLUDE, DECODE_ARGMAX, OPERATIONAL_CONFIDENCE,
                        borders_in_file, decodes_in_file, on_camera_rig, ps_pixel,
                        single_border, single_decode)
 from detectors.registry import (CURB_RAMP, detections_of_type, provenance_for,
-                                record_types, spec_for)
+                                record_types, spec_for, type_markers)
 
 # Local secrets (e.g. PS_INTERNAL_API_KEY) from ./.env; real env vars win.
 load_dotenv()
@@ -1084,12 +1084,57 @@ def decode_record_value(counts) -> Any:
     return next(iter(counts)) if counts else DECODE_ARGMAX
 
 
-def recorded_decode(record: Dict[str, Any]) -> str:
-    """The decode a submission record says its labels went out under, as one string:
-    `detection_decode` when it names one, 'mixed' when it holds a mix or the campaign was
-    sent under --allow-mixed-decode, and 'argmax' when the key is absent (every record
-    written before #111, and every argmax campaign since)."""
-    value = record.get('detection_decode', DECODE_ARGMAX)
+def type_frame_counts(input_file: Path) -> Dict[str, tuple]:
+    """{label_type: (Counter of decodes, Counter of border rules)} over every parseable line
+    of a results file, per type that ran on the line (registry.type_markers: CurbRamp's are
+    the line-level markers, every other type's ride in models[T]). For a CurbRamp-only file
+    the two Counters are decodes_in_file's and borders_in_file's. A file with no parseable
+    line reads as CurbRamp with empty Counters (argmax / exclude)."""
+    from collections import Counter
+    out: Dict[str, tuple] = {}
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+                markers = [(t, type_markers(record, t)) for t in record_types(record)]
+            except (ValueError, AttributeError, KeyError, TypeError):
+                continue
+            for t, (decode, border) in markers:
+                decodes, borders = out.setdefault(t, (Counter(), Counter()))
+                decodes[decode] += 1
+                borders[border] += 1
+    return out or {CURB_RAMP: (Counter(), Counter())}
+
+
+def record_label_types(record: Dict[str, Any]) -> list:
+    """The label types a submission record's campaign sent: its `label_types` (written for
+    every file that is not CurbRamp-only), else the union of its per-type endpoint entries,
+    else ['CurbRamp'] (every record of a CurbRamp-only file, before and since #168)."""
+    if record.get('label_types'):
+        return sorted(record['label_types'])
+    types = {t for state in (record.get('endpoints') or {}).values() if isinstance(state, dict)
+             for t in (state.get('types') or {})}
+    return sorted(types) or [CURB_RAMP]
+
+
+def _recorded_frame_value(record: Dict[str, Any], key: str, default: str,
+                          label_type: str) -> Any:
+    """A submission record's `key` (detection_decode / detection_border) for one type: the
+    top-level key for CurbRamp, `type_frames[T][key]` for any other type."""
+    if label_type == CURB_RAMP:
+        return record.get(key, default)
+    return ((record.get('type_frames') or {}).get(label_type) or {}).get(key, default)
+
+
+def recorded_decode(record: Dict[str, Any], label_type: str = CURB_RAMP) -> str:
+    """The decode a submission record says its ``label_type`` labels went out under, as one
+    string: `detection_decode` when it names one, 'mixed' when it holds a mix or the campaign
+    was sent under --allow-mixed-decode, and 'argmax' when the key is absent (every record
+    written before #111, and every argmax campaign since). CurbRamp's is the top-level key;
+    another type's is in `type_frames[T]` (write_submission_record)."""
+    value = _recorded_frame_value(record, 'detection_decode', DECODE_ARGMAX, label_type)
     if isinstance(value, dict) or record.get('mixed_decode_override'):
         return 'mixed'
     return value
@@ -1172,19 +1217,31 @@ def check_detection_decode(input_file: Path, endpoint_url: Optional[str] = None)
     ``endpoint_url`` -- those in sibling run directories on the same endpoint, so a re-run of
     a live city under a new `--name` is caught (#130 / #131 review S1). Without the endpoint
     the guard is per directory, as it was before #130.
+
+    Per label type (#168): each type's detections in the file are checked against the
+    campaigns that sent THAT type (record_label_types), using that type's own markers, so a
+    Crosswalk file and the city's CurbRamp campaigns never compare with each other. Returns
+    the CurbRamp decode (the value the record's top-level key holds; argmax when the file has
+    no CurbRamp); type_frame_record_values gives every other type's.
     """
-    decode = single_decode(decodes_in_file(input_file), input_file.name)
-    others = {name: recorded_decode(record)
-              for name, record in campaign_records(input_file, endpoint_url).items()}
-    differ = {name: d for name, d in others.items() if d != decode}
-    if differ:
-        named = ', '.join(f'{name} ({d})' for name, d in sorted(differ.items()))
-        raise ValueError(
-            f"{input_file.name} was detected with the '{decode}' peak decode, but campaigns "
-            f"already recorded beside it went out under another: {named}. Their labels are "
-            f"live in that frame, so this is a whole-city frame change (#111; "
-            f"docs/heatmap-grid.md). (--allow-mixed-decode overrides)")
-    return decode
+    campaigns = campaign_records(input_file, endpoint_url)
+    result = DECODE_ARGMAX
+    for t, (decodes, _) in sorted(type_frame_counts(input_file).items()):
+        what = input_file.name if t == CURB_RAMP else f"{input_file.name} ({t} detections)"
+        decode = single_decode(decodes, what)
+        others = {name: recorded_decode(record, t) for name, record in campaigns.items()
+                  if t in record_label_types(record)}
+        differ = {name: d for name, d in others.items() if d != decode}
+        if differ:
+            named = ', '.join(f'{name} ({d})' for name, d in sorted(differ.items()))
+            raise ValueError(
+                f"{what} was detected with the '{decode}' peak decode, but campaigns "
+                f"already recorded beside it went out under another: {named}. Their labels are "
+                f"live in that frame, so this is a whole-city frame change (#111; "
+                f"docs/heatmap-grid.md). (--allow-mixed-decode overrides)")
+        if t == CURB_RAMP:
+            result = decode
+    return result
 
 
 def border_record_value(counts) -> Any:
@@ -1202,15 +1259,27 @@ def border_record_value(counts) -> Any:
     return next(iter(counts)) if counts else BORDER_EXCLUDE
 
 
-def recorded_border(record: Dict[str, Any]) -> str:
-    """The border rule a submission record says its labels were found under, as one string:
-    `detection_border` when it names one, 'mixed' when it holds a mix or the campaign was sent
-    under --allow-mixed-border, and 'exclude' when the key is absent (every record written
-    before #130, and every exclude campaign since)."""
-    value = record.get('detection_border', BORDER_EXCLUDE)
+def recorded_border(record: Dict[str, Any], label_type: str = CURB_RAMP) -> str:
+    """The border rule a submission record says its ``label_type`` labels were found under, as
+    one string: `detection_border` when it names one, 'mixed' when it holds a mix or the
+    campaign was sent under --allow-mixed-border, and 'exclude' when the key is absent (every
+    record written before #130, and every exclude campaign since). CurbRamp's is the
+    top-level key; another type's is in `type_frames[T]`."""
+    value = _recorded_frame_value(record, 'detection_border', BORDER_EXCLUDE, label_type)
     if isinstance(value, dict) or record.get('mixed_border_override'):
         return 'mixed'
     return value
+
+
+def type_frame_record_values(input_file: Path) -> Dict[str, Dict[str, Any]]:
+    """What a submission record stores under `type_frames` for every type in the file but
+    CurbRamp: {T: {'detection_decode': ..., 'detection_border': ...}}, each value a name or the
+    full mix (decode_record_value / border_record_value). Empty for a CurbRamp-only file, so
+    its record gains no key."""
+    return {t: {'detection_decode': decode_record_value(decodes),
+                'detection_border': border_record_value(borders)}
+            for t, (decodes, borders) in sorted(type_frame_counts(input_file).items())
+            if t != CURB_RAMP}
 
 
 def check_detection_border(input_file: Path, endpoint_url: Optional[str] = None) -> str:
@@ -1229,20 +1298,31 @@ def check_detection_border(input_file: Path, endpoint_url: Optional[str] = None)
     --allow-mixed-border, which the submission record then shows. `wrap` (keep plus NMS
     across the seam) is a rule of its own: it differs from both others in which seam-band
     labels exist, so it is refused beside either, by the same string comparison.
+
+    Per label type, exactly as check_detection_decode: a Crosswalk file found under `keep`
+    (its spec's rule) compares only with campaigns that sent Crosswalk, so it neither refuses
+    nor is refused by the city's `exclude` CurbRamp campaigns. Returns the CurbRamp rule
+    (`exclude` when the file has no CurbRamp).
     """
-    border = single_border(borders_in_file(input_file), input_file.name)
-    others = {name: recorded_border(record)
-              for name, record in campaign_records(input_file, endpoint_url).items()}
-    differ = {name: b for name, b in others.items() if b != border}
-    if differ:
-        named = ', '.join(f'{name} ({b})' for name, b in sorted(differ.items()))
-        raise ValueError(
-            f"{input_file.name} was detected with the '{border}' peak border rule, but "
-            f"campaigns already recorded beside it went out under another: {named}. Their "
-            f"labels are live under another seam rule, which stores the seam band "
-            f"differently, so this is a whole-city frame change (#130; "
-            f"docs/seam-band-130.md). (--allow-mixed-border overrides)")
-    return border
+    campaigns = campaign_records(input_file, endpoint_url)
+    result = BORDER_EXCLUDE
+    for t, (_, borders) in sorted(type_frame_counts(input_file).items()):
+        what = input_file.name if t == CURB_RAMP else f"{input_file.name} ({t} detections)"
+        border = single_border(borders, what)
+        others = {name: recorded_border(record, t) for name, record in campaigns.items()
+                  if t in record_label_types(record)}
+        differ = {name: b for name, b in others.items() if b != border}
+        if differ:
+            named = ', '.join(f'{name} ({b})' for name, b in sorted(differ.items()))
+            raise ValueError(
+                f"{what} was detected with the '{border}' peak border rule, but "
+                f"campaigns already recorded beside it went out under another: {named}. Their "
+                f"labels are live under another seam rule, which stores the seam band "
+                f"differently, so this is a whole-city frame change (#130; "
+                f"docs/seam-band-130.md). (--allow-mixed-border overrides)")
+        if t == CURB_RAMP:
+            result = border
+    return result
 
 
 def check_model_provenance(input_file: Path) -> None:
@@ -1483,7 +1563,9 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
                             border: Any = BORDER_EXCLUDE,
                             border_override: Optional[str] = None,
                             types: Optional[Dict[str, tuple]] = None,
-                            min_confidence_from: Optional[str] = None) -> None:
+                            min_confidence_from: Optional[str] = None,
+                            label_types: Optional[list] = None,
+                            type_frames: Optional[Dict[str, Dict[str, Any]]] = None) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
     One entry per endpoint - a campaign legitimately hits a test instance before prod, and
@@ -1502,6 +1584,12 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
     explicit --min-confidence set every type ("flag") or each type's operational threshold
     did ("per_type_default"). A single-type file writes none of these keys, so its record
     is byte-identical to before #168.
+
+    A file that is not CurbRamp-only also records `label_types` (the types it sent, so a
+    Crosswalk-only record is not read as a CurbRamp one) and `type_frames` = {T: {decode,
+    border}} for every type but CurbRamp (type_frame_record_values): the frame guards compare
+    a type only with campaigns that sent it. The top-level detection_decode / detection_border
+    keep describing CurbRamp, and are absent when the file has none.
     """
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     endpoint = canonical_endpoint(endpoint_url)
@@ -1627,6 +1715,12 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         "total_bytes": total_bytes,
         "endpoints": states,
     }
+    # Which types the campaign sent, and every non-CurbRamp type's frame (#168). Written only
+    # for a file that is not CurbRamp-only, so a CurbRamp record stays byte-identical.
+    if label_types is not None and list(label_types) != [CURB_RAMP]:
+        record["label_types"] = sorted(label_types)
+    if type_frames:
+        record["type_frames"] = type_frames
     # The peak decode the file's labels were placed under (#111; decode_record_value): a name,
     # or the full {decode: records} mix. Written only when it is not plain argmax, so argmax
     # records are byte-identical to before and every record without the key reads as argmax.
@@ -1734,15 +1828,21 @@ def process_jsonl_file(
     # One peak decode per file and per run directory (issue #111; check_detection_decode).
     # Dry runs are exempt; the override downgrades the refusal to a warning, and the record
     # then keeps the full decode mix and the reason, so later campaigns beside it see them.
+    # Both checks are per label type (#168): the top-level values below are CurbRamp's, and
+    # every other type's frame is recorded in `type_frames`.
     decode, decode_override = DECODE_ARGMAX, None
+    type_frames: Dict[str, Dict[str, Any]] = {}
     if not dry_run:
+        has_curb_ramp = CURB_RAMP in type_frame_counts(input_file)
+        type_frames = type_frame_record_values(input_file)
         try:
             decode = check_detection_decode(input_file, endpoint_url)
         except ValueError as e:
             if not allow_mixed_decode:
                 raise
             print(f"WARNING (--allow-mixed-decode): {e}")
-            decode = decode_record_value(decodes_in_file(input_file))
+            decode = (decode_record_value(decodes_in_file(input_file)) if has_curb_ramp
+                      else DECODE_ARGMAX)
             decode_override = str(e)
 
     # One peak border rule per file and per run directory (issue #130), the same way.
@@ -1754,7 +1854,8 @@ def process_jsonl_file(
             if not allow_mixed_border:
                 raise
             print(f"WARNING (--allow-mixed-border): {e}")
-            border = border_record_value(borders_in_file(input_file))
+            border = (border_record_value(borders_in_file(input_file)) if has_curb_ramp
+                      else BORDER_EXCLUDE)
             border_override = str(e)
 
     # Which label types the file carries (issue #168). One: everything below is exactly the
@@ -1762,13 +1863,15 @@ def process_jsonl_file(
     # type, and per-type entries in the record.
     file_types = file_label_types(input_file)
     multi_type = len(file_types) > 1
-    if multi_type and max_confidence is not None:
-        # Refused before check_band_state, whose checks are all about ONE threshold per line.
+    if file_types != [CURB_RAMP] and max_confidence is not None:
+        # Refused before check_band_state, whose checks are all about ONE threshold per line
+        # and read the manifest's top-level storage floor, which is CurbRamp's.
         raise ValueError(
-            f"{input_file.name} holds several label types ({', '.join(file_types)}); a band "
-            f"(--max-confidence) is refused on a multi-type file. Bands exist for the legacy "
-            f"CurbRamp cities that went live at 0.55 before the operating point moved to 0.30 "
-            f"(issue #20); a multi-type campaign starts at each type's own threshold.")
+            f"{input_file.name} holds label types {', '.join(file_types)}; a band "
+            f"(--max-confidence) is refused on any file that is not CurbRamp-only. Bands exist "
+            f"for the legacy CurbRamp cities that went live at 0.55 before the operating point "
+            f"moved to 0.30 (issue #20); any other campaign starts at each type's own "
+            f"threshold.")
     min_confidence_from = 'flag' if min_confidence is not None else 'per_type_default'
     type_states: Optional[Dict[str, tuple]] = None
     if multi_type:
@@ -2014,7 +2117,8 @@ def process_jsonl_file(
                                 None if not multi_type else
                                 {t: (load_submitted_lines(path), confidence)
                                  for t, (_, confidence, path) in type_states.items()},
-                                min_confidence_from if multi_type else None)
+                                min_confidence_from if multi_type else None,
+                                file_types, type_frames)
         record_written = True
 
     # Print summary.
@@ -2144,7 +2248,8 @@ def main() -> None:
     parser.add_argument(
         "--min-confidence", type=float, default=None,
         help="Minimum detection confidence submitted as a label (default: the label type's "
-             f"operational threshold, {OPERATIONAL_CONFIDENCE} for CurbRamp). results.jsonl "
+             f"operational threshold, {OPERATIONAL_CONFIDENCE} for CurbRamp, "
+             f"{spec_for('Crosswalk').operational_confidence} for Crosswalk). results.jsonl "
              "stores candidate peaks down to a lower storage floor for multi-view fusion; "
              "records whose detections all fall below this still submit as 'checked, nothing "
              "found'. On a file holding several label types (issue #168) each type defaults "
