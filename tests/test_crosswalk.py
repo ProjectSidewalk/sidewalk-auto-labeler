@@ -465,5 +465,28 @@ def test_parity_compare_rule():
     assert (r['unmatched_stored'], r['excused']) == ([], 1)
     r = cp.compare(a + [(0.7, 0.7, 0.3)], a)
     assert r['unmatched_stored'] == [0.3]
+    # Near the operating point is not near the floor: such a peak must exist on both sides.
+    r = cp.compare(a, a + [(0.7, 0.7, 0.232)])
+    assert (r['unmatched_labeler'], r['excused']) == ([0.232], 0)
     r = cp.compare(a, [a[0], (130 / 1024, 300 / 512, 0.4)])  # beyond the NMS window: no match
     assert (r['unmatched_stored'], r['unmatched_labeler']) == ([0.4], [0.4])
+
+
+def test_parity_first_peaks_needs_finder_order():
+    import crosswalk_parity as cp
+    stored = [(0, 0, 1.3), (0, 0, 1.1), (0, 0, 0.6), (0, 0, 0.2)]   # >1.0 ties once clipped
+    assert cp.first_peaks(stored, cap=3) == stored[:3]
+    with pytest.raises(ValueError):
+        cp.first_peaks([(0, 0, 0.2), (0, 0, 0.6)], cap=1)
+
+
+def test_parity_jpeg_round_trip_and_pixel_mad(tmp_path):
+    import crosswalk_parity as cp
+    from PIL import Image
+    im = Image.new('RGB', (64, 32), (120, 60, 30))
+    im.save(tmp_path / 'p.jpg', 'JPEG', quality=92)
+    rt = cp.jpeg_round_trip(im, 92)
+    assert rt.size == im.size and rt.mode == 'RGB'
+    assert cp.pixel_mad(rt, tmp_path / 'p.jpg') == 0.0         # same pixels, same encoder
+    assert cp.pixel_mad(im, tmp_path / 'missing.jpg') is None
+    assert cp.pixel_mad(im.resize((32, 16)), tmp_path / 'p.jpg') is None
