@@ -1203,7 +1203,9 @@ python scripts/coverage_check.py runs/laurens/results.raw.jsonl --server https:/
 # 0.23, rig mask on. --decode/--border are CurbRamp's and are refused without CurbRamp.
 python main.py <area>.geojson --name <city>_crosswalk --types Crosswalk \
     --crosswalk-checkpoint <path>/final_step_1000.pth
-# ...both types in one pass (one shared GPU lock; whether both models fit in 8 GB is untested)
+# ...both types in one pass (one shared GPU lock). Both models ran together on the 8 GB RTX 3070
+# for a 4-pano smoke (--limit 4, batch size 1, 2026-11-15); peak memory was not measured and
+# no longer run has been tried. The end-of-pass detector line counts panos at the 50-peak cap.
 python main.py <area>.geojson --name <city>_both --types Crosswalk,CurbRamp --crosswalk-checkpoint <pth>
 
 # LOADER ACCEPTANCE TEST (GPU, not in CI): CrosswalkDetector on the exact JPEGs RampNet inferred
@@ -1216,12 +1218,24 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
 # + <A>/bprime/images_4096. Measured 2026-11-15 (RTX 3070, torch 2.8.0 vs RampNet's A40, 2.6.0):
 # PASS on all three -- test 3,783/3,783 peaks at the same pixel, val 6,124 + 1 near-tie swap
 # (two coarse cells 7 px apart, values 2e-6 apart), bprime 3,097/3,097; max |diff| 5.1e-5;
-# operational (>= 0.23) counts identical. --native (report only) fetches through the labeler's
-# GSV path instead of reading the JPEGs. Test split, same day: 278 of 515 fetched (237 "metadata
-# unavailable"), operational 1,320 native vs 1,319 stored, equal on 167 panos, +-1 on 85; but
-# per-peak values move (median per-pano max |diff| 0.044, max 0.27), so the stored JPEGs are
-# not the pixels the labeler fetches. Why (JPEG q92 alone, or another source/resize) is not
-# established.
+# operational (>= 0.23) counts identical. The rule was then tightened (only the 0.05 floor
+# excuses an unmatched peak; it had also excused peaks near 0.23, which had excused none) and
+# the test split re-run under it: the same PASS, excused 0, operational 2,405 = 2,405.
+#
+# THE 0.23 OPERATING POINT IS VALIDATED ON RAMPNET'S STORED JPEGS, NOT ON LIVE FETCHES. The
+# parity gate proves the loader; it says nothing about the pixels a run actually feeds it.
+# --native (report only) fetches through the labeler's GSV path instead of reading the JPEGs.
+# Test split, same day: 278 of 515 fetched (237 "metadata unavailable"), operational 1,320
+# native vs 1,319 stored, equal on 167 panos, +-1 on 85; but per-peak values move (median
+# per-pano max |diff| 0.044, max 0.27). --native --jpeg-quality 92 (report only; the stored
+# inputs are Pillow q92, 4:2:0) on 100 of those 278 panos, one pass, all 100 fetched: the
+# re-encode changes nothing material. Live fetch vs stored JPEG, mean |pixel diff| (0-255)
+# median 2.66 before and 2.66 after the re-encode (range 1.9-13.3); per-pano max |diff| median
+# 0.040 raw vs 0.039 q92; peaks exact at the same pixel 42 vs 38 of 799; operational 501 raw
+# and 499 q92 vs 493 stored, differing on 37 and 34 of the 100 panos. So the gap is not the
+# JPEG round trip: the stored JPEGs were made from other source pixels than the labeler's
+# zoom-3 fetch. Which difference (zoom level and resize path, or an imagery update) is not
+# established, and neither is whether 0.23 means the same thing on live pixels.
 
 # SMOKE SEND RUNBOOK (nothing has been sent yet; every step needs Jon's clearance of the exact
 # plan, and the city and s4-vs-s7 are his call):

@@ -706,7 +706,10 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
   `unpublished:RampNet#274/crosswalk_s4`; an unknown sha256 refuses unless
   `--allow-unknown-model-revision` (then a null date, which `send_to_ps.py` refuses).
   `scripts/crosswalk_parity.py` is the loader's GPU acceptance test against RampNet's stored s4
-  predictions.
+  predictions. It proves the loader, not the operating point on live pixels: 0.23 was chosen on
+  RampNet's stored JPEGs, and the labeler's own GSV fetch gives per-peak values that move by a
+  median per-pano max of about 0.04, which a JPEG q92 re-encode does not remove (numbers in
+  `docs/commands.md`, Crosswalk section).
 - **Readers go through the helpers**, never the keys: `record_types(rec)` (the detectors that
   RAN on the pano; `label_types`, else `[label_type or 'CurbRamp']`), `detection_type(rec, d)`
   (the detection's own `label_type`, else the line's, else CurbRamp, and it RAISES on an
