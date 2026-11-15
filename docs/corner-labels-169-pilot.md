@@ -446,3 +446,89 @@ interval is reported but does not gate; at n = 60 a share of 0.90 has a lower bo
   the winning rule's 60 cards himself before any rebuild.
 - **Whatever the result:** a rebuild under the chosen rule, its guards, and a 3-label smoke
   send from outside the rated range are each cleared separately.
+
+### 12.2 Result (2026-11-15): no rule passes; nothing is rebuilt or sent
+
+**Rater:** AI pre-pass, Claude Opus 5.5 (claude-opus-5-5), blind to rule. The tags were
+committed (474d331) before `key.json` was joined. They are not ground truth.
+
+| rule | at_curb / decidable | share | Wilson 95% | in_street | inland | can't tell | bar |
+|---|---|---|---|---|---|---|---|
+| A site-median (current) | 23 / 47 | 0.489 | 0.353-0.628 | 6 | 18 | 13 | FAIL |
+| B sidewalk-crossing | 29 / 47 | 0.617 | 0.474-0.742 | 1 | 17 | 13 | FAIL |
+| C sidewalk-crossing-inset | 32 / 47 | 0.681 | 0.538-0.796 | 5 | 10 | 13 | FAIL |
+
+- **Calibration reproduced.** The AI's tags on rule A's three calibration cards match Jon's
+  verdicts (89738 at the curb, 89739 in the street, 89740 at the curb), so the result is not
+  marked AI-unconfirmed.
+  - On 89739, B and C both land inland (on the grass of the wide corner).
+  - On 89738 and 89740, B and C land at the curb.
+- **The current rule is far from the bar.** About half of rule A's decidable labels sit at the
+  curb, with 6 of 47 in the street. The two smoke sends (4 of 6 at the curb, if 89735-89737
+  count as inland) were not a fluke in either direction.
+- **The pre-registered consequence:** none passes, so nothing is rebuilt or sent. The 197
+  POSTs stay on hold.
+
+**Exploratory (after unblinding; not a test).** Split by the `UNITTYPE` of the sidewalk line B
+crosses:
+
+| rule | ATTACHED (n = 23) | DETACHED (n = 28) | no UNITTYPE (n = 9) |
+|---|---|---|---|
+| A | 10 / 19 at curb, 3 in street | 11 / 22, 2 in street | 2 / 6, 1 in street |
+| B | **17 / 19, 0 in street** | 9 / 22, 0 in street (13 inland) | 3 / 6, 1 in street |
+| C | 17 / 19, 0 in street | 13 / 22, 3 in street | 2 / 6, 2 in street |
+
+- **B on attached sidewalks** puts 17 of 19 decidable labels at the curb with none in the
+  street. On attached sidewalks the city line sits at, or just behind, the curb.
+- **Detached corners are the open problem.** No rule exceeds 13 of 22. B lands on the
+  sidewalk behind the planter strip, which this check's tag set counts as inland. C's fixed
+  2.5 m inset overshoots into the street on 3.
+- **Whether that is wrong is a definition question for Jon.** It turns on where a NoCurbRamp
+  label belongs at a detached-sidewalk corner: on the curb, or on the sidewalk corner where
+  the walking path ends. If the sidewalk corner is acceptable, B's detached "inland" count
+  would shrink (not measured: the tags do not separate "sidewalk behind planter" from
+  "lawn").
+- **12 of the 60 corners are can't-tell under all three rules.** Most are curbless corners
+  (dirt or gravel edges, an alley), some are occluded by vehicles or privacy blur. About 1 in
+  5 sampled corners has no curb to put a label at. That bears on whether those corners should
+  be labeled at all (guide rule 3 counts sidewalk presence, not curb presence).
+- **7 corners miss under all three rules the same way** (6 inland, 1 in the street). They are
+  listed in the page's skim section.
+
+**Where each number lives** (all under `runs/vancouver/corner_placement169/`, committed except
+the images):
+
+| number | file | made by |
+|---|---|---|
+| sample, eligible count, keys digest, each rule's point and pixel | `sample.json` | `sample` |
+| blind cards / rule per card | `cards.json` / `key.json` | `sample` |
+| AI tags | `tags_ai_claude-opus-5-5.json` | by hand (AI pre-pass) |
+| per-rule table, calibration, disagreements, all-miss corners | `summary.json`, `summary.md` | `score` |
+| crops, montages, page | `crops/`, `review/`, `index.html` (36 MB, not committed) | `render` |
+| the ATTACHED/DETACHED split | recomputed from `sample.json` (`rules.B.sidewalk.unittype`) + `key.json` + tags | ad hoc (exploratory) |
+
+**Replication.**
+
+```bash
+PY=C:/Users/jonf/anaconda3/envs/sidewalk-auto-labeler/python.exe
+O=runs/vancouver/corner_placement169
+$PY scripts/corner_placement_check.py sample --out $O          # reproduces sample/cards/key
+# pixels: the 63 panos of $O/panos_needed.txt from the makelab2 store
+#   (/projects/makeabilitylab/sidewalk_panos/Panoramas/vancouver-wa), read-only, as one tar
+$PY scripts/corner_placement_check.py render --out $O --panos <local copy> --summary $O/summary.json
+$PY scripts/corner_placement_check.py score --out $O --tags $O/tags_ai_claude-opus-5-5.json
+```
+
+**What Jon decides next.**
+1. **The definition:** at a detached-sidewalk corner, is the sidewalk corner (behind the
+   planter) an acceptable place for a NoCurbRamp label, or must it be the curb?
+2. **The route:**
+   - *Option 1:* a second pre-registered check of a hybrid. B on ATTACHED. On DETACHED,
+     either B, if (1) accepts the sidewalk corner, or a curb estimate from the sidewalk line
+     offset by the layer's own planter width (not in the data as checked).
+   - *Option 2:* restrict the pilot to ATTACHED corners, where B looks good, after its own
+     check on a fresh sample.
+   - *Option 3:* rethink placement entirely, e.g. a curb detector on the pano.
+3. **Curbless corners:** whether to drop them from labeling.
+
+Each later rebuild, guard run and smoke send is still cleared separately.

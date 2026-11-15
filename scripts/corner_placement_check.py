@@ -356,13 +356,22 @@ def page_html(cards, summary=None):
                          f"{v['decidable']}</td><td>{v['in_street']}</td><td>{v['inland']}</td>"
                          f"<td>{lo:.2f}-{hi:.2f}</td><td>{'PASS' if v['pass'] else 'FAIL'}"
                          '</td></tr>')
-        parts.append('</table><div class="grid">')
-        for s in summary['skim']:
-            parts.append(f'<figure><img src="crops/{e(s["card"])}.jpg" alt="card '
-                         f'{e(s["card"])}, rule {e(s["rule"])}, tagged {e(s["tag"])}">'
-                         f'<figcaption>{e(s["card"])} &middot; rule {e(s["rule"])} &middot; '
-                         f'{e(s["tag"])} &middot; {e(s["key"])}</figcaption></figure>')
-        parts.append('</div>')
+        parts.append('</table><p>Tags are an AI pre-pass (claude-opus-5-5), not ground '
+                     'truth. Below: every corner where the rules disagree, then every corner '
+                     'where all three miss the curb the same way. One row per corner, rules '
+                     'A, B, C left to right.</p>')
+        for title, rows in (('Rules disagree', summary.get('disagreements') or []),
+                            ('All three miss', summary.get('all_rules_miss') or [])):
+            parts.append(f'<h3>{e(title)} ({len(rows)} corners)</h3>')
+            for row in rows:
+                parts.append(f'<p><b>{e(row["key"])}</b></p><div class="grid">')
+                for r in sorted(row['cards']):
+                    card, t = row['cards'][r], row['tags'][r]
+                    parts.append(f'<figure><img loading="lazy" src="crops/{e(card)}.jpg" '
+                                 f'alt="rule {e(r)}, tagged {e(t)}"><figcaption>{e(r)} '
+                                 f'{e(RULES[r])} &middot; <b>{e(t)}</b> &middot; {e(card)}'
+                                 '</figcaption></figure>')
+                parts.append('</div>')
     parts.append('<h2>All cards (blind)</h2><div class="grid">')
     for cd in cards:
         parts.append(f'<figure><img loading="lazy" src="crops/{e(cd["card"])}.jpg" '
@@ -396,17 +405,21 @@ def score(key_rows, tags):
         per_key.setdefault(row['key'], {})[row['rule']] = (t, row['card'])
         if t in ('in_street', 'inland'):
             skim.append({'card': row['card'], 'rule': row['rule'], 'tag': t, 'key': row['key']})
-    dis = []
+    dis, all_miss = [], []
     for k, rs in sorted(per_key.items()):
+        row = {'key': k, 'tags': {r: rs[r][0] for r in sorted(rs)},
+               'cards': {r: rs[r][1] for r in sorted(rs)}}
         if len({t for t, _ in rs.values()}) > 1:
-            dis.append({'key': k, **{r: rs[r][0] for r in sorted(rs)}})
+            dis.append(row)
             for r, (t, card) in rs.items():
                 if t == 'at_curb':
                     skim.append({'card': card, 'rule': r, 'tag': t, 'key': k})
+        elif next(iter(rs.values()))[0] in ('in_street', 'inland'):
+            all_miss.append(row)
     skim.sort(key=lambda s: (s['key'], s['rule']))
     calib.sort(key=lambda s: (s['key'], s['rule']))
     return {'rules': {r: rule_verdict(counts[r]) for r in RULES}, 'calibration': calib,
-            'skim': skim, 'disagreements': dis}
+            'skim': skim, 'disagreements': dis, 'all_rules_miss': all_miss}
 
 
 def cmd_score(args):

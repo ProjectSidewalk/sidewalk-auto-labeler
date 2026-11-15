@@ -1,0 +1,1139 @@
+{
+ "all_rules_miss": [
+  {
+   "cards": {
+    "A": "c188",
+    "B": "c078",
+    "C": "c007"
+   },
+   "key": "vancouver:res:n1627708252#2",
+   "tags": {
+    "A": "inland",
+    "B": "inland",
+    "C": "inland"
+   }
+  },
+  {
+   "cards": {
+    "A": "c136",
+    "B": "c004",
+    "C": "c058"
+   },
+   "key": "vancouver:res:n1637998606#0",
+   "tags": {
+    "A": "inland",
+    "B": "inland",
+    "C": "inland"
+   }
+  },
+  {
+   "cards": {
+    "A": "c012",
+    "B": "c112",
+    "C": "c014"
+   },
+   "key": "vancouver:res:n47211243#2",
+   "tags": {
+    "A": "inland",
+    "B": "inland",
+    "C": "inland"
+   }
+  },
+  {
+   "cards": {
+    "A": "c184",
+    "B": "c101",
+    "C": "c031"
+   },
+   "key": "vancouver:res:n47281361#3",
+   "tags": {
+    "A": "inland",
+    "B": "inland",
+    "C": "inland"
+   }
+  },
+  {
+   "cards": {
+    "A": "c038",
+    "B": "c129",
+    "C": "c119"
+   },
+   "key": "vancouver:res:n47355034#2",
+   "tags": {
+    "A": "inland",
+    "B": "inland",
+    "C": "inland"
+   }
+  },
+  {
+   "cards": {
+    "A": "c166",
+    "B": "c023",
+    "C": "c077"
+   },
+   "key": "vancouver:res:n47372321#0",
+   "tags": {
+    "A": "inland",
+    "B": "inland",
+    "C": "inland"
+   }
+  },
+  {
+   "cards": {
+    "A": "c019",
+    "B": "c047",
+    "C": "c126"
+   },
+   "key": "vancouver:res:n958722970#2",
+   "tags": {
+    "A": "in_street",
+    "B": "in_street",
+    "C": "in_street"
+   }
+  }
+ ],
+ "bar": {
+  "at_curb_share_min": 0.9,
+  "in_street_max": 2
+ },
+ "calibration": [
+  {
+   "card": "c172",
+   "jon": "at_curb",
+   "key": "vancouver:res:n47220756#0",
+   "label": "vancouver-test:89738",
+   "rule": "A",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c028",
+   "jon": null,
+   "key": "vancouver:res:n47220756#0",
+   "label": "vancouver-test:89738",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c158",
+   "jon": null,
+   "key": "vancouver:res:n47220756#0",
+   "label": "vancouver-test:89738",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c117",
+   "jon": "at_curb",
+   "key": "vancouver:res:n47271259#0",
+   "label": "vancouver-test:89740",
+   "rule": "A",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c147",
+   "jon": null,
+   "key": "vancouver:res:n47271259#0",
+   "label": "vancouver-test:89740",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c132",
+   "jon": null,
+   "key": "vancouver:res:n47271259#0",
+   "label": "vancouver-test:89740",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c179",
+   "jon": "in_street",
+   "key": "vancouver:res:n47279117#3",
+   "label": "vancouver-test:89739",
+   "rule": "A",
+   "tag": "in_street"
+  },
+  {
+   "card": "c060",
+   "jon": null,
+   "key": "vancouver:res:n47279117#3",
+   "label": "vancouver-test:89739",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c157",
+   "jon": null,
+   "key": "vancouver:res:n47279117#3",
+   "label": "vancouver-test:89739",
+   "rule": "C",
+   "tag": "inland"
+  }
+ ],
+ "disagreements": [
+  {
+   "cards": {
+    "A": "c099",
+    "B": "c071",
+    "C": "c170"
+   },
+   "key": "vancouver:res:n10213183161#3",
+   "tags": {
+    "A": "inland",
+    "B": "at_curb",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c016",
+    "B": "c115",
+    "C": "c076"
+   },
+   "key": "vancouver:res:n1253177406#3",
+   "tags": {
+    "A": "inland",
+    "B": "at_curb",
+    "C": "in_street"
+   }
+  },
+  {
+   "cards": {
+    "A": "c075",
+    "B": "c144",
+    "C": "c088"
+   },
+   "key": "vancouver:res:n1255903000#0",
+   "tags": {
+    "A": "inland",
+    "B": "at_curb",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c079",
+    "B": "c074",
+    "C": "c094"
+   },
+   "key": "vancouver:res:n1326925819#3",
+   "tags": {
+    "A": "inland",
+    "B": "inland",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c034",
+    "B": "c086",
+    "C": "c152"
+   },
+   "key": "vancouver:res:n3372672500#1",
+   "tags": {
+    "A": "inland",
+    "B": "inland",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c024",
+    "B": "c026",
+    "C": "c142"
+   },
+   "key": "vancouver:res:n47209926#3",
+   "tags": {
+    "A": "at_curb",
+    "B": "inland",
+    "C": "inland"
+   }
+  },
+  {
+   "cards": {
+    "A": "c009",
+    "B": "c036",
+    "C": "c185"
+   },
+   "key": "vancouver:res:n47232361#2",
+   "tags": {
+    "A": "inland",
+    "B": "at_curb",
+    "C": "in_street"
+   }
+  },
+  {
+   "cards": {
+    "A": "c063",
+    "B": "c100",
+    "C": "c098"
+   },
+   "key": "vancouver:res:n47241260#2",
+   "tags": {
+    "A": "in_street",
+    "B": "at_curb",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c111",
+    "B": "c182",
+    "C": "c064"
+   },
+   "key": "vancouver:res:n47241260#3",
+   "tags": {
+    "A": "in_street",
+    "B": "at_curb",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c183",
+    "B": "c033",
+    "C": "c121"
+   },
+   "key": "vancouver:res:n47242431#1",
+   "tags": {
+    "A": "in_street",
+    "B": "inland",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c167",
+    "B": "c149",
+    "C": "c177"
+   },
+   "key": "vancouver:res:n47254586#3",
+   "tags": {
+    "A": "at_curb",
+    "B": "at_curb",
+    "C": "cant_tell"
+   }
+  },
+  {
+   "cards": {
+    "A": "c013",
+    "B": "c027",
+    "C": "c137"
+   },
+   "key": "vancouver:res:n47259730#2",
+   "tags": {
+    "A": "at_curb",
+    "B": "inland",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c128",
+    "B": "c155",
+    "C": "c053"
+   },
+   "key": "vancouver:res:n47261995#2",
+   "tags": {
+    "A": "inland",
+    "B": "at_curb",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c161",
+    "B": "c066",
+    "C": "c018"
+   },
+   "key": "vancouver:res:n47278666#0",
+   "tags": {
+    "A": "inland",
+    "B": "at_curb",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c015",
+    "B": "c020",
+    "C": "c087"
+   },
+   "key": "vancouver:res:n47281487#2",
+   "tags": {
+    "A": "in_street",
+    "B": "at_curb",
+    "C": "in_street"
+   }
+  },
+  {
+   "cards": {
+    "A": "c080",
+    "B": "c069",
+    "C": "c085"
+   },
+   "key": "vancouver:res:n47288872#1",
+   "tags": {
+    "A": "at_curb",
+    "B": "inland",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c051",
+    "B": "c124",
+    "C": "c125"
+   },
+   "key": "vancouver:res:n47290316#0",
+   "tags": {
+    "A": "inland",
+    "B": "at_curb",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c171",
+    "B": "c106",
+    "C": "c096"
+   },
+   "key": "vancouver:res:n47296801#3",
+   "tags": {
+    "A": "in_street",
+    "B": "at_curb",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c049",
+    "B": "c140",
+    "C": "c090"
+   },
+   "key": "vancouver:res:n47299779#0",
+   "tags": {
+    "A": "inland",
+    "B": "inland",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c010",
+    "B": "c084",
+    "C": "c081"
+   },
+   "key": "vancouver:res:n47315339#2",
+   "tags": {
+    "A": "inland",
+    "B": "at_curb",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c168",
+    "B": "c039",
+    "C": "c159"
+   },
+   "key": "vancouver:res:n47323424#3",
+   "tags": {
+    "A": "at_curb",
+    "B": "inland",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c178",
+    "B": "c143",
+    "C": "c082"
+   },
+   "key": "vancouver:res:n47360409#0",
+   "tags": {
+    "A": "cant_tell",
+    "B": "cant_tell",
+    "C": "inland"
+   }
+  },
+  {
+   "cards": {
+    "A": "c061",
+    "B": "c164",
+    "C": "c044"
+   },
+   "key": "vancouver:res:n47391433#1",
+   "tags": {
+    "A": "at_curb",
+    "B": "inland",
+    "C": "inland"
+   }
+  },
+  {
+   "cards": {
+    "A": "c108",
+    "B": "c175",
+    "C": "c050"
+   },
+   "key": "vancouver:res:n47397103#1",
+   "tags": {
+    "A": "at_curb",
+    "B": "inland",
+    "C": "inland"
+   }
+  },
+  {
+   "cards": {
+    "A": "c002",
+    "B": "c103",
+    "C": "c008"
+   },
+   "key": "vancouver:res:n47399529#2",
+   "tags": {
+    "A": "inland",
+    "B": "inland",
+    "C": "at_curb"
+   }
+  },
+  {
+   "cards": {
+    "A": "c052",
+    "B": "c173",
+    "C": "c005"
+   },
+   "key": "vancouver:res:n959123526#3",
+   "tags": {
+    "A": "at_curb",
+    "B": "at_curb",
+    "C": "in_street"
+   }
+  }
+ ],
+ "rater": {
+  "kind": "AI pre-rater",
+  "model": "claude-opus-5-5",
+  "note": "blind to rule (cards + review montages only; key.json not opened before this file was written). Not ground truth. The same model designed rules B and C."
+ },
+ "rules": {
+  "A": {
+   "at_curb": 23,
+   "cant_tell": 13,
+   "decidable": 47,
+   "in_street": 6,
+   "inland": 18,
+   "pass": false,
+   "share": 0.48936170212765956,
+   "wilson95": [
+    0.3527532433660351,
+    0.6275778241062712
+   ]
+  },
+  "B": {
+   "at_curb": 29,
+   "cant_tell": 13,
+   "decidable": 47,
+   "in_street": 1,
+   "inland": 17,
+   "pass": false,
+   "share": 0.6170212765957447,
+   "wilson95": [
+    0.47426308443976317,
+    0.7420951733648692
+   ]
+  },
+  "C": {
+   "at_curb": 32,
+   "cant_tell": 13,
+   "decidable": 47,
+   "in_street": 5,
+   "inland": 10,
+   "pass": false,
+   "share": 0.6808510638297872,
+   "wilson95": [
+    0.5383238911447854,
+    0.7960479618260101
+   ]
+  }
+ },
+ "skim": [
+  {
+   "card": "c099",
+   "key": "vancouver:res:n10213183161#3",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c071",
+   "key": "vancouver:res:n10213183161#3",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c170",
+   "key": "vancouver:res:n10213183161#3",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c016",
+   "key": "vancouver:res:n1253177406#3",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c115",
+   "key": "vancouver:res:n1253177406#3",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c076",
+   "key": "vancouver:res:n1253177406#3",
+   "rule": "C",
+   "tag": "in_street"
+  },
+  {
+   "card": "c075",
+   "key": "vancouver:res:n1255903000#0",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c144",
+   "key": "vancouver:res:n1255903000#0",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c088",
+   "key": "vancouver:res:n1255903000#0",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c079",
+   "key": "vancouver:res:n1326925819#3",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c074",
+   "key": "vancouver:res:n1326925819#3",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c094",
+   "key": "vancouver:res:n1326925819#3",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c188",
+   "key": "vancouver:res:n1627708252#2",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c078",
+   "key": "vancouver:res:n1627708252#2",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c007",
+   "key": "vancouver:res:n1627708252#2",
+   "rule": "C",
+   "tag": "inland"
+  },
+  {
+   "card": "c136",
+   "key": "vancouver:res:n1637998606#0",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c004",
+   "key": "vancouver:res:n1637998606#0",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c058",
+   "key": "vancouver:res:n1637998606#0",
+   "rule": "C",
+   "tag": "inland"
+  },
+  {
+   "card": "c034",
+   "key": "vancouver:res:n3372672500#1",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c086",
+   "key": "vancouver:res:n3372672500#1",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c152",
+   "key": "vancouver:res:n3372672500#1",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c024",
+   "key": "vancouver:res:n47209926#3",
+   "rule": "A",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c026",
+   "key": "vancouver:res:n47209926#3",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c142",
+   "key": "vancouver:res:n47209926#3",
+   "rule": "C",
+   "tag": "inland"
+  },
+  {
+   "card": "c012",
+   "key": "vancouver:res:n47211243#2",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c112",
+   "key": "vancouver:res:n47211243#2",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c014",
+   "key": "vancouver:res:n47211243#2",
+   "rule": "C",
+   "tag": "inland"
+  },
+  {
+   "card": "c009",
+   "key": "vancouver:res:n47232361#2",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c036",
+   "key": "vancouver:res:n47232361#2",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c185",
+   "key": "vancouver:res:n47232361#2",
+   "rule": "C",
+   "tag": "in_street"
+  },
+  {
+   "card": "c063",
+   "key": "vancouver:res:n47241260#2",
+   "rule": "A",
+   "tag": "in_street"
+  },
+  {
+   "card": "c100",
+   "key": "vancouver:res:n47241260#2",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c098",
+   "key": "vancouver:res:n47241260#2",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c111",
+   "key": "vancouver:res:n47241260#3",
+   "rule": "A",
+   "tag": "in_street"
+  },
+  {
+   "card": "c182",
+   "key": "vancouver:res:n47241260#3",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c064",
+   "key": "vancouver:res:n47241260#3",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c183",
+   "key": "vancouver:res:n47242431#1",
+   "rule": "A",
+   "tag": "in_street"
+  },
+  {
+   "card": "c033",
+   "key": "vancouver:res:n47242431#1",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c121",
+   "key": "vancouver:res:n47242431#1",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c167",
+   "key": "vancouver:res:n47254586#3",
+   "rule": "A",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c149",
+   "key": "vancouver:res:n47254586#3",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c013",
+   "key": "vancouver:res:n47259730#2",
+   "rule": "A",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c027",
+   "key": "vancouver:res:n47259730#2",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c137",
+   "key": "vancouver:res:n47259730#2",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c128",
+   "key": "vancouver:res:n47261995#2",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c155",
+   "key": "vancouver:res:n47261995#2",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c053",
+   "key": "vancouver:res:n47261995#2",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c161",
+   "key": "vancouver:res:n47278666#0",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c066",
+   "key": "vancouver:res:n47278666#0",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c018",
+   "key": "vancouver:res:n47278666#0",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c184",
+   "key": "vancouver:res:n47281361#3",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c101",
+   "key": "vancouver:res:n47281361#3",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c031",
+   "key": "vancouver:res:n47281361#3",
+   "rule": "C",
+   "tag": "inland"
+  },
+  {
+   "card": "c015",
+   "key": "vancouver:res:n47281487#2",
+   "rule": "A",
+   "tag": "in_street"
+  },
+  {
+   "card": "c020",
+   "key": "vancouver:res:n47281487#2",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c087",
+   "key": "vancouver:res:n47281487#2",
+   "rule": "C",
+   "tag": "in_street"
+  },
+  {
+   "card": "c080",
+   "key": "vancouver:res:n47288872#1",
+   "rule": "A",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c069",
+   "key": "vancouver:res:n47288872#1",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c085",
+   "key": "vancouver:res:n47288872#1",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c051",
+   "key": "vancouver:res:n47290316#0",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c124",
+   "key": "vancouver:res:n47290316#0",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c125",
+   "key": "vancouver:res:n47290316#0",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c171",
+   "key": "vancouver:res:n47296801#3",
+   "rule": "A",
+   "tag": "in_street"
+  },
+  {
+   "card": "c106",
+   "key": "vancouver:res:n47296801#3",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c096",
+   "key": "vancouver:res:n47296801#3",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c049",
+   "key": "vancouver:res:n47299779#0",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c140",
+   "key": "vancouver:res:n47299779#0",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c090",
+   "key": "vancouver:res:n47299779#0",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c010",
+   "key": "vancouver:res:n47315339#2",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c084",
+   "key": "vancouver:res:n47315339#2",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c081",
+   "key": "vancouver:res:n47315339#2",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c168",
+   "key": "vancouver:res:n47323424#3",
+   "rule": "A",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c039",
+   "key": "vancouver:res:n47323424#3",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c159",
+   "key": "vancouver:res:n47323424#3",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c038",
+   "key": "vancouver:res:n47355034#2",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c129",
+   "key": "vancouver:res:n47355034#2",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c119",
+   "key": "vancouver:res:n47355034#2",
+   "rule": "C",
+   "tag": "inland"
+  },
+  {
+   "card": "c082",
+   "key": "vancouver:res:n47360409#0",
+   "rule": "C",
+   "tag": "inland"
+  },
+  {
+   "card": "c166",
+   "key": "vancouver:res:n47372321#0",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c023",
+   "key": "vancouver:res:n47372321#0",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c077",
+   "key": "vancouver:res:n47372321#0",
+   "rule": "C",
+   "tag": "inland"
+  },
+  {
+   "card": "c061",
+   "key": "vancouver:res:n47391433#1",
+   "rule": "A",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c164",
+   "key": "vancouver:res:n47391433#1",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c044",
+   "key": "vancouver:res:n47391433#1",
+   "rule": "C",
+   "tag": "inland"
+  },
+  {
+   "card": "c108",
+   "key": "vancouver:res:n47397103#1",
+   "rule": "A",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c175",
+   "key": "vancouver:res:n47397103#1",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c050",
+   "key": "vancouver:res:n47397103#1",
+   "rule": "C",
+   "tag": "inland"
+  },
+  {
+   "card": "c002",
+   "key": "vancouver:res:n47399529#2",
+   "rule": "A",
+   "tag": "inland"
+  },
+  {
+   "card": "c103",
+   "key": "vancouver:res:n47399529#2",
+   "rule": "B",
+   "tag": "inland"
+  },
+  {
+   "card": "c008",
+   "key": "vancouver:res:n47399529#2",
+   "rule": "C",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c019",
+   "key": "vancouver:res:n958722970#2",
+   "rule": "A",
+   "tag": "in_street"
+  },
+  {
+   "card": "c047",
+   "key": "vancouver:res:n958722970#2",
+   "rule": "B",
+   "tag": "in_street"
+  },
+  {
+   "card": "c126",
+   "key": "vancouver:res:n958722970#2",
+   "rule": "C",
+   "tag": "in_street"
+  },
+  {
+   "card": "c052",
+   "key": "vancouver:res:n959123526#3",
+   "rule": "A",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c173",
+   "key": "vancouver:res:n959123526#3",
+   "rule": "B",
+   "tag": "at_curb"
+  },
+  {
+   "card": "c005",
+   "key": "vancouver:res:n959123526#3",
+   "rule": "C",
+   "tag": "in_street"
+  }
+ ],
+ "tags_file": "runs/vancouver/corner_placement169/tags_ai_claude-opus-5-5.json",
+ "tags_sha256": "3470308e9ffd91917249c4c128b9d387a2d2863a6c02d77874d979547836c0d8"
+}
