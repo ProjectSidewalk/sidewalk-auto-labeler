@@ -6,7 +6,8 @@ from transformers import AutoModel
 import numpy as np
 from torchvision import transforms
 
-from detectors import MODEL_REPO, load_with_offline_fallback, provenance_for_loaded_model
+from detectors import (MAX_PEAKS_PER_PANO, MODEL_REPO, load_with_offline_fallback,
+                       provenance_for_loaded_model)
 from detectors.batching import DEFAULT_BATCH_WAIT_S, Batcher, ForwardStats
 from detectors.registry import CURB_RAMP, spec_for
 # The peak decode lives in the torch-free detectors.decode (#111); re-exported here because
@@ -116,6 +117,10 @@ class CurbRampDetector:
         self._batcher = (Batcher(self._forward_batch, batch_size, batch_wait_s)
                          if batch_size > 1 else None)
         self._stats = ForwardStats(1) if self._batcher is None else None
+        # Panos whose detect() returned MAX_PEAKS_PER_PANO peaks, i.e. where the cap may have
+        # dropped weaker ones; reported by stats() so a binding cap is visible (#188 review F7).
+        self._capped = 0
+        self._capped_lock = threading.Lock()
 
     def _load_model(self, allow_unknown_revision):
         """``(model, provenance)``: the weights to run and the identity they are recorded
@@ -145,8 +150,12 @@ class CurbRampDetector:
     def detect(self, pil_image):
         """Normalized ``[(x, y, confidence), ...]`` for one pano, down to the type's storage
         floor, placed by ``self.decode``, edge peaks kept or dropped by ``self.border``."""
-        return detections_from_heatmap(self.heatmap(pil_image), self.decode,
+        dets = detections_from_heatmap(self.heatmap(pil_image), self.decode,
                                        border=self.border, floor=self.storage_floor)
+        if len(dets) >= MAX_PEAKS_PER_PANO:
+            with self._capped_lock:
+                self._capped += 1
+        return dets
 
     def _forward_batch(self, tensors):
         """One forward over stacked tensors -> one 512x1024 heatmap per input, in order.
@@ -159,9 +168,12 @@ class CurbRampDetector:
         return [out[i, 0] for i in range(out.shape[0])]
 
     def stats(self):
-        """Forward-pass tally: see detectors.batching.ForwardStats.snapshot."""
-        return (self._batcher.stats() if self._batcher is not None
+        """Forward-pass tally (detectors.batching.ForwardStats.snapshot), plus
+        ``capped_panos``: how many detect() calls returned the full MAX_PEAKS_PER_PANO."""
+        snap = (self._batcher.stats() if self._batcher is not None
                 else self._stats.snapshot())
+        with self._capped_lock:
+            return {**snap, 'capped_panos': self._capped}
 
     def close(self):
         """Drain and stop the batch consumer (no-op at batch_size 1). Idempotent."""
