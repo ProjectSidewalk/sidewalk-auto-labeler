@@ -464,8 +464,8 @@ committed (474d331) before `key.json` was joined. They are not ground truth.
   - On 89739, B and C both land inland (on the grass of the wide corner).
   - On 89738 and 89740, B and C land at the curb.
 - **The current rule is far from the bar.** About half of rule A's decidable labels sit at the
-  curb, with 6 of 47 in the street. The two smoke sends (4 of 6 at the curb, if 89735-89737
-  count as inland) were not a fluke in either direction.
+  curb, with 6 of 47 in the street. The second smoke send's 2 of 3 is consistent with that
+  rate; the first send's 3 inland labels used the older corner-point rule.
 - **The pre-registered consequence:** none passes, so nothing is rebuilt or sent. The 197
   POSTs stay on hold.
 
