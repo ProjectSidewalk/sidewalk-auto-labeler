@@ -1089,17 +1089,27 @@ def type_frame_counts(input_file: Path) -> Dict[str, tuple]:
     of a results file, per type that ran on the line (registry.type_markers: CurbRamp's are
     the line-level markers, every other type's ride in models[T]). For a CurbRamp-only file
     the two Counters are decodes_in_file's and borders_in_file's. A file with no parseable
-    line reads as CurbRamp with empty Counters (argmax / exclude)."""
+    line reads as CurbRamp with empty Counters (argmax / exclude).
+
+    A line that is not a JSON object is skipped (the send loop reports it). A line whose
+    ``models`` map lacks a type its ``label_types`` lists RAISES ValueError: main.py never
+    writes one, and skipping it would also hide the frames of the line's other types, which
+    the send loop can still send."""
     from collections import Counter
     out: Dict[str, tuple] = {}
     with open(input_file, 'r', encoding='utf-8') as f:
-        for line in f:
+        for n, line in enumerate(f, 1):
             if not line.strip():
                 continue
             try:
                 record = json.loads(line)
                 markers = [(t, type_markers(record, t)) for t in record_types(record)]
-            except (ValueError, AttributeError, KeyError, TypeError):
+            except KeyError as e:
+                raise ValueError(
+                    f"{input_file.name} line {n}: its models map has no entry for {e}, a type "
+                    f"its label_types lists; the record is inconsistent, so its frame cannot be "
+                    f"checked") from None
+            except (ValueError, AttributeError, TypeError):
                 continue
             for t, (decode, border) in markers:
                 decodes, borders = out.setdefault(t, (Counter(), Counter()))
@@ -1133,7 +1143,12 @@ def recorded_decode(record: Dict[str, Any], label_type: str = CURB_RAMP) -> str:
     string: `detection_decode` when it names one, 'mixed' when it holds a mix or the campaign
     was sent under --allow-mixed-decode, and 'argmax' when the key is absent (every record
     written before #111, and every argmax campaign since). CurbRamp's is the top-level key;
-    another type's is in `type_frames[T]` (write_submission_record)."""
+    another type's is in `type_frames[T]` (write_submission_record).
+
+    The override marker is record-wide, not per type: on a record of a multi-type campaign
+    sent under --allow-mixed-decode, EVERY type reads 'mixed', including a type the override
+    was not about, so a later campaign of that type beside it is refused too. That errs on
+    the refusing side, and the override names the reason."""
     value = _recorded_frame_value(record, 'detection_decode', DECODE_ARGMAX, label_type)
     if isinstance(value, dict) or record.get('mixed_decode_override'):
         return 'mixed'
@@ -1198,7 +1213,8 @@ def campaign_records(input_file: Path, endpoint_url: Optional[str] = None) -> Di
     return out
 
 
-def check_detection_decode(input_file: Path, endpoint_url: Optional[str] = None) -> str:
+def check_detection_decode(input_file: Path, endpoint_url: Optional[str] = None,
+                           counts: Optional[Dict[str, tuple]] = None) -> str:
     """The file's peak decode (#111); ValueError when it mixes decodes, or when another
     campaign recorded in the same directory went out under a different one (or a mix).
 
@@ -1222,11 +1238,14 @@ def check_detection_decode(input_file: Path, endpoint_url: Optional[str] = None)
     campaigns that sent THAT type (record_label_types), using that type's own markers, so a
     Crosswalk file and the city's CurbRamp campaigns never compare with each other. Returns
     the CurbRamp decode (the value the record's top-level key holds; argmax when the file has
-    no CurbRamp); type_frame_record_values gives every other type's.
+    no CurbRamp); type_frame_record_values gives every other type's. ``counts``: the file's
+    type_frame_counts, when the caller already has them (one parse of the file, not one per
+    check); None reads the file.
     """
     campaigns = campaign_records(input_file, endpoint_url)
     result = DECODE_ARGMAX
-    for t, (decodes, _) in sorted(type_frame_counts(input_file).items()):
+    counts = type_frame_counts(input_file) if counts is None else counts
+    for t, (decodes, _) in sorted(counts.items()):
         what = input_file.name if t == CURB_RAMP else f"{input_file.name} ({t} detections)"
         decode = single_decode(decodes, what)
         others = {name: recorded_decode(record, t) for name, record in campaigns.items()
@@ -1264,25 +1283,30 @@ def recorded_border(record: Dict[str, Any], label_type: str = CURB_RAMP) -> str:
     one string: `detection_border` when it names one, 'mixed' when it holds a mix or the
     campaign was sent under --allow-mixed-border, and 'exclude' when the key is absent (every
     record written before #130, and every exclude campaign since). CurbRamp's is the
-    top-level key; another type's is in `type_frames[T]`."""
+    top-level key; another type's is in `type_frames[T]`. The --allow-mixed-border marker is
+    record-wide, so every type of such a record reads 'mixed' (as recorded_decode)."""
     value = _recorded_frame_value(record, 'detection_border', BORDER_EXCLUDE, label_type)
     if isinstance(value, dict) or record.get('mixed_border_override'):
         return 'mixed'
     return value
 
 
-def type_frame_record_values(input_file: Path) -> Dict[str, Dict[str, Any]]:
+def type_frame_record_values(input_file: Path,
+                             counts: Optional[Dict[str, tuple]] = None
+                             ) -> Dict[str, Dict[str, Any]]:
     """What a submission record stores under `type_frames` for every type in the file but
     CurbRamp: {T: {'detection_decode': ..., 'detection_border': ...}}, each value a name or the
     full mix (decode_record_value / border_record_value). Empty for a CurbRamp-only file, so
-    its record gains no key."""
+    its record gains no key. ``counts`` as in check_detection_decode."""
+    counts = type_frame_counts(input_file) if counts is None else counts
     return {t: {'detection_decode': decode_record_value(decodes),
                 'detection_border': border_record_value(borders)}
-            for t, (decodes, borders) in sorted(type_frame_counts(input_file).items())
+            for t, (decodes, borders) in sorted(counts.items())
             if t != CURB_RAMP}
 
 
-def check_detection_border(input_file: Path, endpoint_url: Optional[str] = None) -> str:
+def check_detection_border(input_file: Path, endpoint_url: Optional[str] = None,
+                           counts: Optional[Dict[str, tuple]] = None) -> str:
     """The file's peak border rule (#130); ValueError when it mixes rules, or when another
     campaign recorded in the same directory went out under a different one (or a mix).
 
@@ -1302,11 +1326,12 @@ def check_detection_border(input_file: Path, endpoint_url: Optional[str] = None)
     Per label type, exactly as check_detection_decode: a Crosswalk file found under `keep`
     (its spec's rule) compares only with campaigns that sent Crosswalk, so it neither refuses
     nor is refused by the city's `exclude` CurbRamp campaigns. Returns the CurbRamp rule
-    (`exclude` when the file has no CurbRamp).
+    (`exclude` when the file has no CurbRamp). ``counts`` as in check_detection_decode.
     """
     campaigns = campaign_records(input_file, endpoint_url)
     result = BORDER_EXCLUDE
-    for t, (_, borders) in sorted(type_frame_counts(input_file).items()):
+    counts = type_frame_counts(input_file) if counts is None else counts
+    for t, (_, borders) in sorted(counts.items()):
         what = input_file.name if t == CURB_RAMP else f"{input_file.name} ({t} detections)"
         border = single_border(borders, what)
         others = {name: recorded_border(record, t) for name, record in campaigns.items()
@@ -1833,10 +1858,11 @@ def process_jsonl_file(
     decode, decode_override = DECODE_ARGMAX, None
     type_frames: Dict[str, Dict[str, Any]] = {}
     if not dry_run:
-        has_curb_ramp = CURB_RAMP in type_frame_counts(input_file)
-        type_frames = type_frame_record_values(input_file)
+        frame_counts = type_frame_counts(input_file)    # one parse for all four uses
+        has_curb_ramp = CURB_RAMP in frame_counts
+        type_frames = type_frame_record_values(input_file, frame_counts)
         try:
-            decode = check_detection_decode(input_file, endpoint_url)
+            decode = check_detection_decode(input_file, endpoint_url, frame_counts)
         except ValueError as e:
             if not allow_mixed_decode:
                 raise
@@ -1849,7 +1875,7 @@ def process_jsonl_file(
     border, border_override = BORDER_EXCLUDE, None
     if not dry_run:
         try:
-            border = check_detection_border(input_file, endpoint_url)
+            border = check_detection_border(input_file, endpoint_url, frame_counts)
         except ValueError as e:
             if not allow_mixed_border:
                 raise
