@@ -1201,32 +1201,41 @@ python scripts/coverage_check.py runs/laurens/results.raw.jsonl --server https:/
 # Input: ONE validator-ai run of analysis/ai_labels_eval.py made with `select --all-ai`, then
 # `crops`, then `score` (labels.csv, selection.json, manifest.csv, predictions.csv,
 # predictions_provenance.json). Refused (exit 2) unless selection.json says all_ai, labels.csv
-# hashes to labels_csv_sha256, manifest.csv hashes to the provenance's manifest_sha256, every
-# prediction's label_uid is in the manifest and labels.csv with the same pano_id, label_uid is
-# unique and = city:label_id, and pixels are integral. --ranker-server (where the rawLabels pull
-# came from) must be the --endpoint host: test and prod share every pixel key. --city (validator
-# id, e.g. richmond-va) when labels.csv has several cities; author != ai rows are dropped.
+# hashes to labels_csv_sha256, manifest.csv hashes to the provenance's manifest_sha256,
+# predictions.csv has the provenance's n rows, every prediction's label_uid is in the manifest
+# and labels.csv with the same pano_id, label_uid is unique and = city:label_id, pixels are
+# integral and an input rank_score is finite. The pull's server must be the --endpoint host
+# (test and prod share every pixel key): read from the run's rawlabels/cities.json (fetch_all's
+# listing) when present, else --ranker-server; both given must agree. --city (validator id,
+# e.g. richmond-va) when labels.csv has several cities; author != ai rows are dropped.
 # UNIT = the server label, per endpoint, over every campaign of every run dir given (siblings
 # such as runs/juneau + runs/juneau_expansion share an endpoint): one row per AI labels.csv row
 # whose (label type, pano_id, pano_x, pano_y) some campaign shipped (coverage_check.
 # replay_campaigns: bases, bands, per-type campaigns, partial sidecars; checked against the
 # records' label counts and each file's sha256). `campaigns` = every campaign that shipped the
-# key, `campaign` = the newest (live_positions' rule). Order: rank_score descending (the input's
-# column if present, else validator-ai's log(p_incorrect) - log(p_correct), clipped to
-# [1e-45, 1]), then labels with no prediction (failed crop) by detector confidence ascending.
-# Shipped keys with no server row -> not_on_server.csv (soft-deleted, overwritten, sent after
-# the pull); ranker rows that join nothing -> unmatched.csv; keys of a type the ranker does not
-# cover (Crosswalk today) are counted, not listed. < 90% of shipped keys on the server, or a
-# campaign sent after the pull, warns. Zero rows, a record problem or a changed file = exit 2,
-# nothing written. Outputs in runs/<name>/review_order/<endpoint host>/: review_list.csv,
-# not_on_server.csv, unmatched.csv (local) + summary.json, report.md (tracked). summary.json
-# keeps the records' state; --check says fresh (0) or stale (1). RE-RUN after every campaign
-# and after any overwrite run (label ids change, SidewalkWebpage#5707; --check cannot see an
-# overwrite). Richmond plumbing check, synthetic scores (2026-11-16): 12,962 of 12,962 shipped
-# keys joined the 2026-09-26 rawLabels pull; 9,579 rows were shipped by 2-3 campaigns.
+# key; `campaign` (and `confidence`) = the one that CREATED the label: the earliest whose
+# last_submission_utc is not before the label's time_created (2 min clock slack). Not "newest":
+# a band send moves the base entry's timestamp and a derived record copies an older campaign,
+# so newest gave Richmond's whole 0.55 core to results.band.jsonl. Order: rank_score descending
+# (the input's column if present, else validator-ai's log(p_incorrect) - log(p_correct),
+# clipped to [1e-45, 1]), then unscored labels (crop_failed / not_cropped / not_scored) by
+# detector confidence ascending. Shipped keys with no server row -> not_on_server.csv
+# (soft-deleted, overwritten, sent after the pull); ranker rows that join nothing ->
+# unmatched.csv; keys of a type the ranker does not cover (Crosswalk today) are counted, not
+# listed. Warnings: < 90% of shipped keys on the server, < 90% of rows with a prediction, rows
+# created after every campaign that shipped them, a campaign sent after `select` ran
+# (selected_on is not the pull time; the pull is no later). Zero rows, a record problem or a
+# changed file = exit 2, nothing written. Outputs in runs/<name>/review_order/<endpoint host>/
+# (':' -> '_'): review_list.csv, not_on_server.csv, unmatched.csv (local) + summary.json,
+# report.md (tracked). --check compares the records, the results files and the list's hash with
+# summary.json: fresh (0) or stale (1); an absent list is said, not stale. RE-RUN after every
+# campaign and after any overwrite run (label ids change, SidewalkWebpage#5707; --check cannot
+# see an overwrite). Richmond plumbing check, synthetic scores (2026-11-16): 12,962 of 12,962
+# shipped keys joined the 2026-09-26 rawLabels pull; by time_created 9,436 rows are
+# results.jsonl's, 3,383 the band's, 143 results.posfix3seq.raw.jsonl's.
 python scripts/review_order.py runs/richmond \
     --endpoint https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano \
-    --ranker-run /path/to/validator-run --ranker-server sidewalk-richmond.cs.washington.edu --city richmond-va
+    --ranker-run /path/to/validator-run --city richmond-va   # + --ranker-server <host> without rawlabels/cities.json
 python scripts/review_order.py runs/richmond \
     --endpoint https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano --check
 ```

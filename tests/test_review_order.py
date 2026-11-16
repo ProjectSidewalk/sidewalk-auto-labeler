@@ -48,12 +48,14 @@ def _px(x, y):
     return round(x * W) % W, round(y * H)
 
 
-def _label(label_id, pid, x, y, city="city-a", author="ai", px=None):
-    """A labels.csv row at the pixel the labeler would have sent for (x, y)."""
+def _label(label_id, pid, x, y, city="city-a", author="ai", px=None,
+           created="2026-09-01T00:00:00.000Z"):
+    """A labels.csv row at the pixel the labeler would have sent for (x, y); `created` is the
+    server's time_created (validator-ai copies it from rawLabels)."""
     pano_x, pano_y = px if px is not None else _px(x, y)
     return {"label_uid": f"{city}:{label_id}", "city": city, "label_id": str(label_id),
-            "pano_id": pid, "author": author, "tier": "core", "n_votes": "0", "clean": "1",
-            "pano_x": str(pano_x), "pano_y": str(pano_y)}
+            "pano_id": pid, "author": author, "time_created": created, "tier": "core",
+            "n_votes": "0", "clean": "1", "pano_x": str(pano_x), "pano_y": str(pano_y)}
 
 
 def _csv(path, rows, columns):
@@ -63,15 +65,22 @@ def _csv(path, rows, columns):
         w.writerows(rows)
 
 
-def _ranker(path, labels, scores, all_ai=True, label_type="CurbRamp", score_column=False):
-    """A validator-ai `select --all-ai` / crops / score run. `scores` = {label_uid: p_incorrect}."""
+def _ranker(path, labels, scores, all_ai=True, label_type="CurbRamp", score_column=False,
+            failed=(), n=None, cities=None):
+    """A validator-ai `select --all-ai` / crops / score run. `scores` = {label_uid: p_incorrect}
+    (or {label_uid: (p_incorrect, rank_score text)} with score_column); `failed` = uids whose
+    crop failed (a manifest row with status != ok, no prediction); `n` overrides the
+    provenance's prediction count; `cities` = {city_id: url} writes rawlabels/cities.json."""
     path.mkdir(parents=True, exist_ok=True)
     _csv(path / "labels.csv", labels, list(labels[0]) if labels else list(ro.LABEL_COLUMNS))
-    manifest = [{"label_uid": r["label_uid"], "pano_id": r["pano_id"], "status": "ok"}
-                for r in labels if r["label_uid"] in scores]
+    manifest = [{"label_uid": r["label_uid"], "pano_id": r["pano_id"],
+                 "status": "ok" if r["label_uid"] in scores else "no_pano"}
+                for r in labels if r["label_uid"] in scores or r["label_uid"] in failed]
     _csv(path / "manifest.csv", manifest, ["label_uid", "pano_id", "status"])
-    preds = [{"label_uid": u, "split": "test", "true": "", "p_correct": repr(1 - p),
-              "p_incorrect": repr(p), **({"rank_score": "100"} if score_column else {})}
+    preds = [{"label_uid": u, "split": "test", "true": "",
+              "p_correct": repr(1 - (p[0] if score_column else p)),
+              "p_incorrect": repr(p[0] if score_column else p),
+              **({"rank_score": p[1]} if score_column else {})}
              for u, p in scores.items()]
     _csv(path / "predictions.csv", preds,
          ["label_uid", "split", "true", "p_correct", "p_incorrect"] + (["rank_score"] if score_column else []))
@@ -81,7 +90,14 @@ def _ranker(path, labels, scores, all_ai=True, label_type="CurbRamp", score_colu
         "labels_csv_sha256": ro._sha256(path / "labels.csv")}), encoding="utf-8")
     (path / "predictions_provenance.json").write_text(json.dumps({
         "manifest_sha256": ro._sha256(path / "manifest.csv"), "model_sha256": "m" * 64,
-        "checkpoint": "ckpt", "scored": "2026-11-01T01:00:00+00:00"}), encoding="utf-8")
+        "checkpoint": "/mmfs1/home/someone/retrain/CurbRamp/checkpoint-4340",
+        "n": len(preds) if n is None else n, "scored": "2026-11-01T01:00:00+00:00"}), encoding="utf-8")
+    if cities:
+        (path / "rawlabels").mkdir(exist_ok=True)
+        (path / "rawlabels" / "cities.json").write_text(json.dumps({
+            "fetched_on": "2026-10-30", "url": "https://x/v3/api/cities",
+            "cities": [{"city_id": c, "url": u, "visibility": "public"} for c, u in cities.items()]}),
+            encoding="utf-8")
     return path
 
 
@@ -168,19 +184,20 @@ def test_join_is_on_the_ps_pixel_including_the_seam(tmp_path):
     assert [(g["pano_id"], g["pano_x"], g["pano_y"]) for g in gone] == [("S", "250", "300")]
 
 
-def test_ranked_rows_come_first_then_no_prediction_by_confidence(tmp_path):
+def test_ranked_rows_come_first_then_unscored_by_confidence(tmp_path):
     run_dir = tmp_path / "r"
     _write(run_dir, "a.jsonl", [_line("P", (0.9, 0.1, 0.6), (0.6, 0.2, 0.6), (0.7, 0.3, 0.6),
                                       (0.8, 0.4, 0.6))],
            {PROD: {"submitted_lines": 1, "min_confidence": 0.55, "labels_submitted": 4,
                    "rig_masked": True}})
     labels = [_label(i, "P", x, 0.6) for i, x in [(1, 0.1), (2, 0.2), (3, 0.3), (4, 0.4)]]
-    ranker = _ranker(tmp_path / "rk", labels, {"city-a:1": 0.2, "city-a:4": 0.7})  # 2, 3: crop failed
+    ranker = _ranker(tmp_path / "rk", labels, {"city-a:1": 0.2, "city-a:4": 0.7},
+                     failed=["city-a:2"])                   # 2: its crop failed; 3: never cropped
     assert _run([run_dir], ranker) == 0
     rows = _read(_out(run_dir) / ro.LIST_FILE)
     assert [(r["label_uid"], r["rank_status"]) for r in rows] == [
         ("city-a:4", "ranked"), ("city-a:1", "ranked"),
-        ("city-a:2", "no_prediction"), ("city-a:3", "no_prediction")]   # 0.6 before 0.7
+        ("city-a:2", "crop_failed"), ("city-a:3", "not_cropped")]   # 0.6 before 0.7
     assert [int(r["review_rank"]) for r in rows] == [1, 2, 3, 4]
     assert rows[2]["rank_score"] == "" and rows[2]["confidence"] == "0.6"
 
@@ -234,37 +251,70 @@ def test_multitype_rank_attaches_to_its_own_type_only(tmp_path, capsys):
     assert "no ranker input covers type Crosswalk" in capsys.readouterr().err
 
 
-def test_richmond_shape_one_row_per_server_label(tmp_path):
-    """Two records share a core (results.band.jsonl copies results.jsonl's), and a third file
-    resent one pano at the same pixel after its old labels were soft-deleted."""
+def test_richmond_shape_attributes_each_label_to_the_campaign_that_created_it(tmp_path):
+    """Two records share a core: results.band.jsonl's base entry is a re-inferred copy of
+    results.jsonl's, and the band's send moved its timestamp to 09-22. A third file resent pano
+    Q at the same pixels after its old labels were soft-deleted. Each server label is listed
+    once and attributed by its time_created to the campaign that created it, with that
+    campaign's confidence (review F1; "newest" gave the core to the band file)."""
     run_dir = tmp_path / "richmond"
-    core = [_line("A", (0.9, 0.5, 0.6)), _line("Q", (0.9, 0.2, 0.6), (0.4, 0.3, 0.6))]
-    _write(run_dir, "results.jsonl", core,
-           {PROD: {"submitted_lines": 2, "min_confidence": 0.55, "labels_submitted": 2,
+    _write(run_dir, "results.jsonl",
+           [_line("A", (0.9, 0.5, 0.6)), _line("Q", (0.9, 0.2, 0.6), (0.4, 0.3, 0.6)),
+            _line("L", (0.4, 0.6, 0.6))],
+           {PROD: {"submitted_lines": 3, "min_confidence": 0.55, "labels_submitted": 2,
                    "last_submission_utc": "2026-09-05T01:39:04Z"}})
-    _write(run_dir, "results.band.jsonl", core,
-           {PROD: {"submitted_lines": 2, "min_confidence": 0.3, "labels_submitted": 3,
+    _write(run_dir, "results.band.jsonl",       # reinfer drift: 0.9 -> 0.9001
+           [_line("A", (0.9001, 0.5, 0.6)), _line("Q", (0.9001, 0.2, 0.6), (0.4, 0.3, 0.6)),
+            _line("L", (0.4, 0.6, 0.6))],
+           {PROD: {"submitted_lines": 3, "min_confidence": 0.3, "labels_submitted": 4,
                    "last_submission_utc": "2026-09-22T19:03:45Z",
-                   "bands": {"0.3-0.55": {"submitted_lines": 2, "labels_submitted": 1,
+                   "bands": {"0.3-0.55": {"submitted_lines": 3, "labels_submitted": 2,
                                           "rig_masked": True,
                                           "last_submission_utc": "2026-09-22T19:03:45Z"}}}})
     _write(run_dir, "results.posfix.jsonl", [_line("Q", (0.9, 0.2, 0.6), (0.4, 0.3, 0.6))],
            {PROD: {"submitted_lines": 1, "min_confidence": 0.3, "labels_submitted": 2,
                    "rig_masked": True, "last_submission_utc": "2026-09-24T13:30:56Z"}})
-    labels = [_label(1, "A", 0.5, 0.6), _label(20, "Q", 0.2, 0.6), _label(21, "Q", 0.3, 0.6)]
-    ranker = _ranker(tmp_path / "rk", labels, {"city-a:1": 0.1, "city-a:20": 0.6, "city-a:21": 0.3})
+    labels = [_label(1, "A", 0.5, 0.6, created="2026-09-05T01:20:00.000Z"),
+              _label(20, "Q", 0.2, 0.6, created="2026-09-24T13:30:50.100Z"),
+              _label(21, "Q", 0.3, 0.6, created="2026-09-24T13:30:57.900Z"),   # within the slack
+              _label(30, "L", 0.6, 0.6, created="2026-09-22T19:00:00.000Z")]
+    ranker = _ranker(tmp_path / "rk", labels, {"city-a:1": 0.1, "city-a:20": 0.6, "city-a:21": 0.3,
+                                               "city-a:30": 0.2})
     assert _run([run_dir], ranker) == 0
     rows = {r["label_uid"]: r for r in _read(_out(run_dir) / ro.LIST_FILE)}
-    assert len(rows) == 3                                    # each server label once
+    assert len(rows) == 4                                    # each server label once
     assert rows["city-a:1"]["campaigns"] == "richmond/results.band.jsonl;richmond/results.jsonl"
-    assert rows["city-a:1"]["campaign"] == "richmond/results.band.jsonl"        # newest
+    assert rows["city-a:1"]["campaign"] == "richmond/results.jsonl"      # created 09-05, not 09-22
+    assert rows["city-a:1"]["confidence"] == "0.9"                        # what results.jsonl sent
     assert rows["city-a:20"]["campaign"] == "richmond/results.posfix.jsonl"
     assert rows["city-a:20"]["campaigns"].count(";") == 2
-    assert rows["city-a:21"]["campaigns"] == ("richmond/results.band.jsonl (band 0.3-0.55);"
-                                              "richmond/results.posfix.jsonl")
+    assert rows["city-a:21"]["campaign"] == "richmond/results.posfix.jsonl"
+    assert rows["city-a:30"]["campaign"] == "richmond/results.band.jsonl (band 0.3-0.55)"
+    assert {r["attribution"] for r in rows.values()} == {"time_created"}
     summary = json.loads((_out(run_dir) / ro.SUMMARY_FILE).read_text(encoding="utf-8"))
-    assert summary["counts"]["rows_in_several_campaigns"] == 3
-    assert summary["counts"]["shipped_keys"] == 3
+    assert summary["counts"]["rows_in_several_campaigns"] == 3     # L (0.4) is the band's alone
+    assert summary["counts"]["attribution"] == {"time_created": 4}
+    per = {c["campaign"]: c["list_rows_attributed"] for c in summary["campaigns"]}
+    assert per == {"richmond/results.jsonl": 1, "richmond/results.band.jsonl": 0,
+                   "richmond/results.band.jsonl (band 0.3-0.55)": 1,
+                   "richmond/results.posfix.jsonl": 2}
+
+
+def test_attribution_falls_back_to_newest_and_warns_when_no_campaign_fits(tmp_path):
+    run_dir = tmp_path / "fb"
+    _write(run_dir, "a.jsonl", [_line("A", (0.9, 0.5, 0.6))],
+           {PROD: {"submitted_lines": 1, "min_confidence": 0.55, "labels_submitted": 1,
+                   "rig_masked": True, "last_submission_utc": "2026-09-05T01:39:04Z"}})
+    late = _label(1, "A", 0.5, 0.6, created="2026-10-01T00:00:00.000Z")   # after every send here
+    assert _run([run_dir], _ranker(tmp_path / "rk", [late], {"city-a:1": 0.2})) == 0
+    row = _read(_out(run_dir) / ro.LIST_FILE)[0]
+    assert (row["campaign"], row["attribution"]) == ("fb/a.jsonl", "newest_no_fit")
+    summary = json.loads((_out(run_dir) / ro.SUMMARY_FILE).read_text(encoding="utf-8"))
+    assert summary["counts"]["attribution"] == {"newest_no_fit": 1}
+    assert any("after every campaign" in w for w in summary["warnings"])
+    bare = {k: v for k, v in late.items() if k != "time_created"}
+    assert _run([run_dir], _ranker(tmp_path / "rk2", [bare], {"city-a:1": 0.2})) == 0
+    assert _read(_out(run_dir) / ro.LIST_FILE)[0]["attribution"] == "newest_no_time"
 
 
 def test_sibling_run_dirs_share_one_list(tmp_path):
@@ -369,7 +419,8 @@ def test_pixels_and_pano_ids_are_parsed_exactly(tmp_path):
 
 
 def test_input_rank_score_column_wins(city, tmp_path):
-    rk = _ranker(tmp_path / "rk", [_label(1, "A", 0.5, 0.6)], {"city-a:1": 0.2}, score_column=True)
+    rk = _ranker(tmp_path / "rk", [_label(1, "A", 0.5, 0.6)], {"city-a:1": (0.2, "100")},
+                 score_column=True)
     assert _run([city], rk) == 0
     assert _read(_out(city) / ro.LIST_FILE)[0]["rank_score"] == "100"
     summary = json.loads((_out(city) / ro.SUMMARY_FILE).read_text(encoding="utf-8"))
@@ -383,4 +434,105 @@ def test_campaign_sent_after_the_pull_is_warned(tmp_path):
                    "rig_masked": True, "last_submission_utc": "2026-11-05T00:00:00Z"}})
     assert _run([run_dir], _ranker(tmp_path / "rk", [_label(1, "A", 0.5, 0.6)], {"city-a:1": 0.2})) == 0
     summary = json.loads((_out(run_dir) / ro.SUMMARY_FILE).read_text(encoding="utf-8"))
-    assert any("after the ranker's rawLabels pull" in w for w in summary["warnings"])
+    assert any("after the ranker run was selected" in w for w in summary["warnings"])
+
+
+def test_half_scored_run_is_counted_and_warned(city, tmp_path):
+    """Review F2: a crops run stopped early still passes every hash check."""
+    labels = [_label(1, "A", 0.5, 0.6), _label(2, "R", 0.5, 0.9), _label(3, "L", 0.5, 0.6)]
+    assert _run([city], _ranker(tmp_path / "rk", labels, {"city-a:1": 0.2}, failed=["city-a:2"])) == 0
+    summary = json.loads((_out(city) / ro.SUMMARY_FILE).read_text(encoding="utf-8"))
+    assert (summary["ranker"]["crop_failed"], summary["ranker"]["not_cropped"]) == (1, 1)
+    assert summary["counts"]["ranked"] == 1 and summary["counts"]["unscored"] == 2
+    assert any("have a prediction" in w for w in summary["warnings"])
+    # predictions.csv is bound to the provenance's count: a truncated or swapped file refuses
+    assert _run([city], _ranker(tmp_path / "rk2", labels, {"city-a:1": 0.2}, n=5)) == 2
+
+
+def test_check_sees_the_list_and_the_results_files(city, tmp_path, capsys):
+    """Review F3: --check compares the list's hash and re-hashes each results file."""
+    assert _run([city], _ranker(tmp_path / "rk", [_label(1, "A", 0.5, 0.6)], {"city-a:1": 0.2})) == 0
+    check = [str(city), "--endpoint", PROD, "--check"]
+    listing = _out(city) / ro.LIST_FILE
+    body = listing.read_bytes()
+    listing.unlink()                                      # gitignored: absent on another machine
+    capsys.readouterr()
+    assert ro.main(check) == 0
+    assert "not on this machine" in capsys.readouterr().out
+    listing.write_bytes(body.replace(b"cityrun/a.jsonl", b"cityrun/b.jsonl"))
+    assert ro.main(check) == 1
+    listing.write_bytes(body)
+    assert ro.main(check) == 0
+    with open(city / "a.jsonl", "a", encoding="utf-8") as f:   # record untouched, file appended
+        f.write(_line("Z", (0.1, 0.5, 0.6)) + "\n")
+    capsys.readouterr()
+    assert ro.main(check) == 1
+    assert "no longer hashes" in capsys.readouterr().out
+
+
+def test_check_sees_a_band_entry_move(city, tmp_path):
+    assert _run([city], _ranker(tmp_path / "rk", [_label(1, "A", 0.5, 0.6)], {"city-a:1": 0.2})) == 0
+    record = city / "a.jsonl.submission.json"
+    data = json.loads(record.read_text(encoding="utf-8"))
+    data["endpoints"][PROD]["bands"]["0.3-0.55"]["last_submission_utc"] = "2026-11-02T00:00:00Z"
+    record.write_text(json.dumps(data), encoding="utf-8")
+    assert ro.main([str(city), "--endpoint", PROD, "--check"]) == 1
+
+
+def test_non_finite_input_rank_score_is_refused(city, tmp_path):
+    """Review F5: NaN made the sort key meaningless."""
+    for bad in ("nan", "inf"):
+        rk = _ranker(tmp_path / bad, [_label(1, "A", 0.5, 0.6)], {"city-a:1": (0.2, bad)},
+                     score_column=True)
+        assert _run([city], rk) == 2
+
+
+def test_endpoint_with_a_port_gets_a_valid_folder(tmp_path):
+    """Review F6: the netloc `localhost:9000` is not a valid Windows folder name."""
+    run_dir = tmp_path / "dev"
+    endpoint = "http://localhost:9000/ai/submitLabelsOnPano"
+    _write(run_dir, "a.jsonl", [_line("A", (0.9, 0.5, 0.6))],
+           {endpoint: {"submitted_lines": 1, "min_confidence": 0.55, "labels_submitted": 1,
+                       "rig_masked": True}})
+    rk = _ranker(tmp_path / "rk", [_label(1, "A", 0.5, 0.6)], {"city-a:1": 0.2})
+    assert _run([run_dir], rk, server="localhost:9000", endpoint=endpoint) == 0
+    assert (run_dir / "review_order" / "localhost_9000" / ro.LIST_FILE).exists()
+
+
+def test_summary_keeps_no_machine_path(city, tmp_path):
+    """Review F7: the tracked summary names the checkpoint, not the scoring machine's path."""
+    assert _run([city], _ranker(tmp_path / "rk", [_label(1, "A", 0.5, 0.6)], {"city-a:1": 0.2})) == 0
+    text = (_out(city) / ro.SUMMARY_FILE).read_text(encoding="utf-8")
+    assert json.loads(text)["ranker"]["checkpoint"] == "checkpoint-4340"
+    assert "/mmfs1" not in text
+
+
+def test_equal_scores_break_ties_by_label_uid_and_shared_pixels_list_every_label(tmp_path):
+    """Review F8: the tie-break and key_rows > 1 were unpinned."""
+    run_dir = tmp_path / "t"
+    _write(run_dir, "a.jsonl", [_line("P", (0.9, 0.1, 0.6), (0.9, 0.2, 0.6))],
+           {PROD: {"submitted_lines": 1, "min_confidence": 0.55, "labels_submitted": 2,
+                   "rig_masked": True}})
+    labels = [_label(7, "P", 0.1, 0.6), _label(3, "P", 0.2, 0.6), _label(5, "P", 0.2, 0.6)]
+    rk = _ranker(tmp_path / "rk", labels, {"city-a:7": 0.4, "city-a:3": 0.4, "city-a:5": 0.4})
+    assert _run([run_dir], rk) == 0
+    rows = _read(_out(run_dir) / ro.LIST_FILE)
+    assert [r["label_uid"] for r in rows] == ["city-a:3", "city-a:5", "city-a:7"]
+    assert [r["key_rows"] for r in rows] == ["2", "2", "1"]
+
+
+def test_ranker_server_is_read_from_the_pull_listing(city, tmp_path):
+    """validator-ai fetch_all writes rawlabels/cities.json with the url each city was pulled
+    from: evidence, so --ranker-server becomes optional and must agree with it when given."""
+    labels = [_label(1, "A", 0.5, 0.6)]
+    rk = _ranker(tmp_path / "rk", labels, {"city-a:1": 0.2}, cities={"city-a": "https://PS.example.org/"})
+    assert ro.main([str(city), "--endpoint", PROD, "--ranker-run", str(rk)]) == 0
+    summary = json.loads((_out(city) / ro.SUMMARY_FILE).read_text(encoding="utf-8"))
+    assert (summary["ranker"]["server"], summary["ranker"]["server_from"]) == (HOST, "rawlabels/cities.json")
+    assert summary["ranker"]["pull_fetched_on"] == "2026-10-30"
+    assert _run([city], rk, server="ps-test.example.org") == 2          # disagrees with the listing
+    wrong = _ranker(tmp_path / "rk2", labels, {"city-a:1": 0.2},
+                    cities={"city-a": "https://ps-test.example.org"})
+    assert ro.main([str(city), "--endpoint", PROD, "--ranker-run", str(wrong)]) == 2
+    bare = _ranker(tmp_path / "rk3", labels, {"city-a:1": 0.2})
+    assert ro.main([str(city), "--endpoint", PROD, "--ranker-run", str(bare)]) == 2   # nothing names it
