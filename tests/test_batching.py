@@ -86,6 +86,8 @@ def test_results_map_back_to_their_callers_under_concurrency():
     assert sorted(x for batch in model.batches for x in batch) == list(range(40))
     assert st['images'] == 40 and st['forward_passes'] == len(model.batches)
     assert 'forward pass(es), 40 image(s)' in format_stats(st, wall_seconds=2.0, panos=40)
+    assert 'peak cap' not in format_stats(st)
+    assert ', 2 pano(s) at the peak cap' in format_stats({**st, 'capped_panos': 2})
 
 
 def test_a_failing_forward_fails_only_its_batch():

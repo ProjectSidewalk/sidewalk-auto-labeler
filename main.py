@@ -65,6 +65,9 @@ PROCESSING_CONCURRENCY = 50
 detectors = {}
 curb_ramp_detector = None
 
+# The manifest / models[T] key holding the confidence detections are stored down to.
+STORAGE_FLOOR_KEY = 'detection_storage_floor'
+
 
 def _loaded_detectors():
     """{label_type: detector} for _process: main.detectors, with main.curb_ramp_detector as
@@ -376,7 +379,9 @@ def _process(pano_id, fetch):
                           for x, y, c in dets[t].detect(fetched['image'])]
             primary = dets[primary_type(dets)]
             markers = {t: {RECORD_DECODE_KEY: getattr(d, 'decode', DEFAULT_DECODE),
-                           RECORD_BORDER_KEY: getattr(d, 'border', DEFAULT_BORDER)}
+                           RECORD_BORDER_KEY: getattr(d, 'border', DEFAULT_BORDER),
+                           STORAGE_FLOOR_KEY: getattr(d, 'storage_floor',
+                                                      registry.spec_for(t).storage_floor)}
                        for t, d in dets.items()}
 
         result = {
@@ -499,7 +504,8 @@ def _multitype_line(result, pmap):
     provenance, and the line-level model_* keys repeat primary_type's so a legacy reader sees
     one coherent model. The line-level detection_decode / detection_border markers describe
     the CurbRamp detector, under the same absent-means-default rule as a legacy line; every
-    other type's decode and border always ride inside its models[T] entry.
+    other type's decode, border and storage floor always ride inside its models[T] entry
+    (Crosswalk: argmax, keep, 0.05), so a Crosswalk-only line says how it was found.
     """
     types = sorted(pmap)
     if sorted(result.get('label_types', types)) != types:
@@ -517,6 +523,8 @@ def _multitype_line(result, pmap):
         if t != registry.CURB_RAMP:
             block[RECORD_DECODE_KEY] = markers.get(t, {}).get(RECORD_DECODE_KEY, DEFAULT_DECODE)
             block[RECORD_BORDER_KEY] = markers.get(t, {}).get(RECORD_BORDER_KEY, DEFAULT_BORDER)
+            block[STORAGE_FLOOR_KEY] = markers.get(t, {}).get(
+                STORAGE_FLOOR_KEY, registry.spec_for(t).storage_floor)
         models[t] = block
     primary = pmap[primary_type(types)]
     line = {
@@ -542,13 +550,26 @@ LEGACY_PROVENANCE_KEYS = ('model_id', 'model_training_date', 'api_version')
 
 def _manifest_model_blocks(provenance):
     """A new manifest's model keys (#168): primary_type's block at top level, `label_types`,
-    and -- only for a run whose types are not {CurbRamp} -- a `models` map of every type's."""
+    and -- only for a run whose types are not {CurbRamp} -- a `models` map of every type's,
+    where each non-CurbRamp entry also carries its fixed frame (registry.type_frame: decode,
+    border, storage floor), bound on resume by bind_models."""
     pmap = provenance_map(provenance)
     out = dict(manifest_model_block(pmap[primary_type(pmap)]))
     out['label_types'] = sorted(pmap)
     if not registry.is_legacy_type_set(pmap):
-        out['models'] = {t: manifest_model_block(p) for t, p in sorted(pmap.items())}
+        out['models'] = {t: {**manifest_model_block(p),
+                             **({} if t == registry.CURB_RAMP else registry.type_frame(t))}
+                         for t, p in sorted(pmap.items())}
     return out
+
+
+def curb_ramp_ran(provenance):
+    """Whether the run whose provenance this is ran the CurbRamp detector. The manifest's
+    top-level detection_storage_floor / detection_decode / detection_border describe CurbRamp,
+    so a run without it writes them as null ("does not apply"), never absent, which reads as a
+    pre-key legacy run (floor 0.55, argmax, exclude). None (--scan-only) counts as True: no
+    detector runs, and the manifest keeps the keys it always had."""
+    return provenance is None or registry.CURB_RAMP in provenance_map(provenance)
 
 def manifest_model_block(provenance):
     """The model block a manifest records (top level and per run entry): the detector's
@@ -669,6 +690,31 @@ def bind_models(manifest, pmap, run_name):
         # unknown-revision refusals the top-level binding makes (#168 review).
         sub = models.setdefault(t, {})
         changed = bind_model(sub, prov, f'{run_name}/{t}') or changed  # refusals read "Run 'city/T'"
+        if t != registry.CURB_RAMP:
+            changed = bind_type_frame(sub, t, f'{run_name}/{t}') or changed
+    return changed
+
+def bind_type_frame(sub, label_type, run_name):
+    """
+    Binds a non-CurbRamp type's frame (registry.type_frame: decode, border and storage floor,
+    fixed by its spec) in its manifest `models[T]` entry, the way bind_decode / bind_border /
+    the storage-floor check bind CurbRamp's top-level keys. Exits when the entry records
+    another value (the spec changed under a run with records); a key missing from the entry
+    is written (an entry from before the frame was recorded: no real one exists, since no
+    second detector ran before it). Returns True when the entry changed.
+    """
+    changed = False
+    for key, value in registry.type_frame(label_type).items():
+        if key not in sub:
+            sub[key] = value
+            changed = True
+        elif sub[key] != value:
+            sys.exit(
+                f"❌ Run '{run_name}' stored {label_type} detections with {key} "
+                f"{sub[key]!r}; this code's {label_type} spec uses {value!r}.\n"
+                f"   Appending would mix two frames in one results.jsonl.\n"
+                f"   Use a new --name for this area (or run the code version that matches)."
+            )
     return changed
 
 def bind_decode(manifest, decode, run_dir):
@@ -828,6 +874,9 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
     and every run to one model revision once a detector has run in it (see bind_model),
     and to one peak decode (`decode`, see bind_decode), border rule (`border`, see
     bind_border), and thinning spacing (`thin_spacing`, see bind_thin_spacing).
+    `decode`, `border` and the top-level storage floor are the CurbRamp detector's; a run
+    whose types exclude CurbRamp records them as null and binds each other type's frame in
+    `models[T]` instead (curb_ramp_ran, bind_type_frame).
     `provenance`, `decode` and `border` are None for --scan-only, which loads no model and
     so binds none; `thin_spacing` is UNBOUND (the default) for --scan-only and
     --gap-fill-only, since None is itself a bound value there ("no thinning hook").
@@ -875,9 +924,11 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
                 f"   Mixing position fields in one results.jsonl would shift only part of the run.\n"
                 f"   Use a new --name, or scripts/reposition.py to convert the finished run."
             )
-        # Manifests predating the storage floor stored only >= 0.55 peaks.
-        run_floor = manifest.get('detection_storage_floor', 0.55)
-        if run_floor != DETECTION_STORAGE_FLOOR:
+        # Manifests predating the storage floor stored only >= 0.55 peaks. The top-level floor
+        # is CurbRamp's; null means CurbRamp never ran here (curb_ramp_ran), and a run that
+        # brings CurbRamp to such a manifest is refused by bind_label_types below.
+        run_floor = manifest.get(STORAGE_FLOOR_KEY, 0.55)
+        if run_floor is not None and run_floor != DETECTION_STORAGE_FLOOR:
             sys.exit(
                 f"❌ Run '{run_dir.name}' stores detections down to confidence {run_floor}; "
                 f"this code stores down to {DETECTION_STORAGE_FLOOR}.\n"
@@ -890,16 +941,27 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
             changed = bind_label_types(manifest, pmap, run_dir)
             changed = bind_model(manifest, pmap[primary_type(pmap)], run_dir.name) or changed
             changed = bind_models(manifest, pmap, run_dir.name) or changed
-        if decode is not None and bind_decode(manifest, decode, run_dir):
-            changed = True
-        if border is not None and bind_border(manifest, border, run_dir):
-            changed = True
+        if not curb_ramp_ran(provenance):
+            # Past bind_label_types, so the run either is already bound to this CurbRamp-less
+            # set or holds no records yet (e.g. a --scan-only manifest, which wrote CurbRamp's
+            # floor): the top-level CurbRamp keys do not apply. The type's own frame is bound
+            # in models[T] (bind_models).
+            for key in (STORAGE_FLOOR_KEY, 'detection_decode', 'detection_border'):
+                if manifest.get(key) is not None:
+                    manifest[key] = None
+                    changed = True
+        else:
+            if decode is not None and bind_decode(manifest, decode, run_dir):
+                changed = True
+            if border is not None and bind_border(manifest, border, run_dir):
+                changed = True
         if thin_spacing is not UNBOUND and bind_thin_spacing(manifest, thin_spacing, run_dir):
             changed = True
         if changed:
             save_manifest(manifest_path, manifest)
         return manifest
 
+    curb = curb_ramp_ran(provenance)
     manifest = {
         'run_name': run_dir.name,
         'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
@@ -908,10 +970,11 @@ def load_or_init_run_dir(run_dir, geojson_path, geojson_data, area_hash, source_
         'input_geojson_type': input_geojson_type,
         'imagery_source': source_name,
         **(_manifest_model_blocks(provenance) if provenance is not None else {}),
-        'detection_storage_floor': DETECTION_STORAGE_FLOOR,
+        # CurbRamp's floor, decode and border; null when CurbRamp does not run (curb_ramp_ran).
+        STORAGE_FLOOR_KEY: DETECTION_STORAGE_FLOOR if curb else None,
         'max_peaks_per_pano': MAX_PEAKS_PER_PANO,
-        **({'detection_decode': decode} if decode is not None else {}),
-        **({'detection_border': border} if border is not None else {}),
+        **({'detection_decode': decode if curb else None} if decode is not None else {}),
+        **({'detection_border': border if curb else None} if border is not None else {}),
         **({THIN_SPACING_KEY: thin_spacing} if thin_spacing is not UNBOUND else {}),
         'streetlevel_version': pkg_version('streetlevel'),
         'runs': [],
@@ -1420,6 +1483,49 @@ def parse_types_arg(value):
     except registry.UnknownLabelTypeError as e:
         raise argparse.ArgumentTypeError(str(e)) from None
 
+def check_type_flags(parser, args):
+    """Refuse (parser.error) the per-type flags that cannot apply to this --types set, before
+    any network or model load: --decode / --border are CurbRamp's, so a non-default value
+    without CurbRamp would be silently ignored; Crosswalk needs --crosswalk-checkpoint naming
+    an existing file (not checked for --scan-only, which loads no model)."""
+    if registry.CURB_RAMP not in args.types:
+        for flag, value, default in (('--decode', args.decode, DEFAULT_DECODE),
+                                     ('--border', args.border, DEFAULT_BORDER)):
+            if value != default:
+                parser.error(f"{flag} {value} applies to CurbRamp only, and --types "
+                             f"{','.join(args.types)} does not include it; every other type's "
+                             f"frame is fixed by its spec.")
+    if registry.CROSSWALK in args.types and not args.scan_only:
+        path = args.crosswalk_checkpoint
+        if not path:
+            parser.error("--types includes Crosswalk: pass --crosswalk-checkpoint PATH (or set "
+                         "CROSSWALK_CHECKPOINT) to the crosswalk_s4 .pth")
+        if not Path(path).is_file():
+            parser.error(f"--crosswalk-checkpoint {path}: no such file")
+
+def detector_type_kwargs(args):
+    """registry.load_detectors' per-type constructor kwargs for the requested --types:
+    CurbRamp gets the run's --decode / --border, Crosswalk its checkpoint path."""
+    out = {}
+    if registry.CURB_RAMP in args.types:
+        out[registry.CURB_RAMP] = {'decode': args.decode, 'border': args.border}
+    if registry.CROSSWALK in args.types:
+        out[registry.CROSSWALK] = {'checkpoint': args.crosswalk_checkpoint}
+    return out
+
+def check_fixed_frames(loaded):
+    """Exit unless every loaded non-CurbRamp detector finds peaks under its spec's frame
+    (registry.type_frame), which is what the manifest binds in models[T]: the manifest and the
+    records must not be able to disagree about how a type's peaks were found."""
+    for t, d in sorted(loaded.items()):
+        if t == registry.CURB_RAMP:
+            continue
+        got = {'detection_decode': d.decode, 'detection_border': d.border,
+               STORAGE_FLOOR_KEY: d.storage_floor}
+        if got != registry.type_frame(t):
+            sys.exit(f"❌ The {t} detector finds peaks under {got}, but its spec says "
+                     f"{registry.type_frame(t)}.")
+
 def main():
     global PROCESSING_CONCURRENCY, COVERAGE_API_CONCURRENCY
 
@@ -1512,7 +1618,8 @@ def main():
     parser.add_argument(
         "--allow-unknown-model-revision", action="store_true",
         help="Run even though the loaded model's Hugging Face revision is not in "
-             "detectors.KNOWN_REVISIONS (issue #39). model_training_date is then written as "
+             "detectors.KNOWN_REVISIONS (issue #39), or a local checkpoint's sha256 is not in "
+             "detectors.checkpoints.KNOWN_CHECKPOINTS. model_training_date is then written as "
              "null and the manifest records the override; send_to_ps.py refuses such a file "
              "until the revision is added to the table. For trying a new checkpoint, never for "
              "a submission run."
@@ -1541,7 +1648,16 @@ def main():
         help="Comma list of label types to detect (issue #168; default: CurbRamp). Known: "
              + ", ".join(sorted(registry.SPECS)) + ". The run directory is bound to its type "
              "set (manifest.json label_types); a CurbRamp-only run writes the pre-#168 record "
-             "format unchanged."
+             "format unchanged. --decode and --border are CurbRamp's: every other type's "
+             "frame is fixed by its spec (Crosswalk: argmax, keep, floor 0.05)."
+    )
+    parser.add_argument(
+        "--crosswalk-checkpoint", default=os.environ.get("CROSSWALK_CHECKPOINT"), metavar="PATH",
+        help="The Crosswalk detector's weights (RampNet#274 crosswalk_s4, a local .pth; env "
+             "CROSSWALK_CHECKPOINT). Required when --types includes Crosswalk. Its sha256 must "
+             "be in detectors.checkpoints.KNOWN_CHECKPOINTS, which supplies the provenance "
+             "written into every record (--allow-unknown-model-revision overrides, with a null "
+             "training date that send_to_ps.py refuses)."
     )
     gap_group = parser.add_mutually_exclusive_group()
     gap_group.add_argument(
@@ -1560,6 +1676,7 @@ def main():
         parser.error("--batch-size must be >= 1")
     if args.thin_spacing is not None and args.thin_spacing < 0:
         parser.error("--thin-spacing must be >= 0 (0 disables thinning)")
+    check_type_flags(parser, args)
     PROCESSING_CONCURRENCY = args.processing_concurrency
     COVERAGE_API_CONCURRENCY = args.coverage_concurrency
 
@@ -1588,10 +1705,12 @@ def main():
         global curb_ramp_detector
         try:
             detectors.update(registry.load_detectors(
-                args.types, allow_unknown_revision=args.allow_unknown_model_revision,
-                batch_size=args.batch_size, decode=args.decode, border=args.border))
+                args.types, type_kwargs=detector_type_kwargs(args),
+                allow_unknown_revision=args.allow_unknown_model_revision,
+                batch_size=args.batch_size))
         except ModelProvenanceError as e:
             sys.exit(f"❌ {e}")
+        check_fixed_frames(detectors)
         curb_ramp_detector = detectors.get(registry.CURB_RAMP)
         provenance = {t: d.provenance for t, d in detectors.items()}
         for t, prov in sorted(provenance.items()):
@@ -1599,8 +1718,8 @@ def main():
                   f"(model_id {prov['model_id']}, trained {prov['model_training_date']})")
             if prov['model_training_date'] is None:
                 print("⚠ --allow-unknown-model-revision: this revision is not in "
-                      "detectors.KNOWN_REVISIONS; records carry a null training date and "
-                      "send_to_ps.py will refuse them.")
+                      "detectors.KNOWN_REVISIONS (or detectors.checkpoints.KNOWN_CHECKPOINTS); "
+                      "records carry a null training date and send_to_ps.py will refuse them.")
 
     t_run = time.perf_counter()
     try:

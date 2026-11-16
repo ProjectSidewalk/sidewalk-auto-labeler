@@ -5,7 +5,8 @@ NoCurbRamp model, Planning#36) needs its own thresholds -- a crosswalk heatmap's
 and operating point are not RampNet's -- so each type's thresholds live in its
 ``DetectorSpec`` rather than in module constants. The CurbRamp spec REFERENCES the constants
 in ``detectors/__init__.py``; they keep their names and values, so every existing import
-keeps working and a CurbRamp-only run behaves exactly as before.
+keeps working and a CurbRamp-only run behaves exactly as before. The second spec is
+Crosswalk (RampNet#274's crosswalk_s4, loaded from a local checkpoint: detectors/crosswalk.py).
 
 Readers never look at a record's type keys directly. They go through the three helpers
 below, which also read every line written before #168 (no ``label_types``, no per-detection
@@ -35,15 +36,21 @@ Example::
 import importlib
 from collections import namedtuple
 
-from detectors import (BENCHMARK_CONFIDENCE, DETECTION_STORAGE_FLOOR,
-                       OPERATIONAL_CONFIDENCE)
+from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, BORDER_KEEP, DECODE_ARGMAX,
+                       DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE)
 
 CURB_RAMP = 'CurbRamp'
+CROSSWALK = 'Crosswalk'
 
 # The keys a record carries per model (main.build_output_line writes them at line level for
 # a CurbRamp-only run, and inside models[T] for every type otherwise).
 PROVENANCE_KEYS = ('model_id', 'model_training_date', 'api_version', 'model_repo',
                    'model_revision')
+
+# The keys that say how a type's peaks were found (its "frame"). For CurbRamp they are the
+# line-level / manifest top-level keys and per-run choices (--decode, --border); for every
+# other type they ride in models[T] and are fixed by its spec (see type_frame).
+FRAME_KEYS = ('detection_decode', 'detection_border', 'detection_storage_floor')
 
 DetectorSpec = namedtuple('DetectorSpec', [
     'label_type',              # PS label type string, e.g. 'CurbRamp'
@@ -53,12 +60,23 @@ DetectorSpec = namedtuple('DetectorSpec', [
     'operational_confidence',  # everything that ACTS on a detection filters here
     'benchmark_confidence',    # the tier this type's judged bundles were exported at
     'mask_rig',                # whether detectors.on_camera_rig applies to this type
-])
+    'border',                  # peak border rule (detectors.BORDERS): fixed for every type
+                               # but CurbRamp, whose --border flag chooses it per run
+], defaults=(BORDER_EXCLUDE,))
 
 SPECS = {
     CURB_RAMP: DetectorSpec(CURB_RAMP, 'detectors.curb_ramp', 'CurbRampDetector',
                             DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE,
                             BENCHMARK_CONFIDENCE, True),
+    # crosswalk_s4 (RampNet#274; detectors/checkpoints.py): the curb-ramp network retrained on
+    # crosswalk centres. Its thresholds are RampNet's s4 recipe: peaks stored down to 0.05
+    # (the frozen extractor's floor), the 0.23 operating point Jon's 440 s4 cards were drawn
+    # at, and exclude_border=False (`keep`), the rule that threshold was chosen under.
+    # benchmark_confidence = 0.23 binds no judged bundle yet: no labeler-format Crosswalk
+    # bundle exists, so nothing joins a run to verdicts at this tier today.
+    # The 49-degree rig mask removed 7 of 72 rated false alarms and 0 of 359 crosswalks.
+    CROSSWALK: DetectorSpec(CROSSWALK, 'detectors.crosswalk', 'CrosswalkDetector',
+                            0.05, 0.23, 0.23, True, BORDER_KEEP),
 }
 
 
@@ -96,14 +114,35 @@ def is_legacy_type_set(label_types):
     return sorted(set(label_types)) == [CURB_RAMP]
 
 
-def load_detectors(label_types, **kw):
+def type_frame(label_type):
+    """The frame (FRAME_KEYS) a non-CurbRamp type's peaks are found under, fixed by its spec:
+    argmax placement, the spec's border rule and storage floor. CurbRamp has no fixed frame
+    (its decode and border are per-run flags), so asking for it raises ValueError.
+
+        >>> type_frame('Crosswalk')
+        {'detection_decode': 'argmax', 'detection_border': 'keep', 'detection_storage_floor': 0.05}
+    """
+    if label_type == CURB_RAMP:
+        raise ValueError("CurbRamp's frame is chosen per run (--decode, --border), not by its spec")
+    spec = spec_for(label_type)
+    return {'detection_decode': DECODE_ARGMAX, 'detection_border': spec.border,
+            'detection_storage_floor': spec.storage_floor}
+
+
+def load_detectors(label_types, type_kwargs=None, **kw):
     """``{type: detector}`` for each requested type, importing each spec's module lazily.
 
-    ``**kw`` goes to every detector's constructor (today: CurbRampDetector's
-    allow_unknown_revision / batch_size / batch_wait_s / decode / border). Each detector
-    exposes ``.detect(image)``, ``.provenance``, ``.stats()`` and ``.close()``.
+    ``**kw`` goes to every detector's constructor (allow_unknown_revision, batch_size,
+    batch_wait_s); ``type_kwargs[T]`` goes to type T's only (CurbRamp's decode / border,
+    Crosswalk's checkpoint). A ``type_kwargs`` key that is not a requested type raises
+    ValueError rather than being dropped. Each detector exposes ``.detect(image)``,
+    ``.provenance``, ``.stats()`` and ``.close()``.
     """
     types = parse_types(','.join(label_types))
+    type_kwargs = dict(type_kwargs or {})
+    stray = sorted(set(type_kwargs) - set(types))
+    if stray:
+        raise ValueError(f'type_kwargs for {stray}, which are not among the requested types {types}')
     if len(types) > 1 and 'inference_lock' not in kw:
         # Each detector serializes its own forward passes; two detectors on 50 fetch threads
         # would still overlap on the device. One shared lock serializes them all. A single
@@ -114,7 +153,7 @@ def load_detectors(label_types, **kw):
     for t in types:
         spec = spec_for(t)
         cls = getattr(importlib.import_module(spec.module), spec.cls)
-        out[t] = cls(**kw)
+        out[t] = cls(**kw, **type_kwargs.get(t, {}))
     return out
 
 
@@ -172,7 +211,8 @@ def type_markers(record, label_type):
     if label_type == CURB_RAMP or 'models' not in record:
         return record_decode(record), record_border(record)
     m = record['models'][label_type]
-    return m.get('detection_decode', 'argmax'), m.get('detection_border', 'exclude')
+    return (m.get('detection_decode', DECODE_ARGMAX),
+            m.get('detection_border', BORDER_EXCLUDE))
 
 
 def require_curb_ramp_only(record, what):

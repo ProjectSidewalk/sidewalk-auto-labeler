@@ -81,15 +81,17 @@ def test_curbramp_only_campaign_is_byte_identical_to_main(tmp_path, monkeypatch)
 # --- multi-type files --------------------------------------------------------------------
 
 # A stand-in second detector: a higher operating point than CurbRamp's and NO rig mask, so
-# every test below can tell "the spec's value" from "CurbRamp's value".
-XWALK = "Crosswalk"
+# every test below can tell "the spec's value" from "CurbRamp's value". Not named Crosswalk:
+# that is a real spec now, and these tests must not override it (the real one is tested in
+# tests/test_crosswalk.py). It sorts before CurbRamp, as Crosswalk does.
+XWALK = "Bollard"
 XWALK_MODEL = {"model_id": "xwalk-model@abcdef123456", "model_training_date": "10-01-2026",
                "api_version": "1.0.0", "model_repo": "projectsidewalk/xwalk-model",
                "model_revision": "abcdef1234567890abcdef1234567890abcdef12"}
 
 
 @pytest.fixture(autouse=True)
-def crosswalk_spec(monkeypatch):
+def fake_type_spec(monkeypatch):
     monkeypatch.setitem(registry.SPECS, XWALK, registry.DetectorSpec(
         XWALK, "detectors.xwalk", "XwalkDetector", 0.1, 0.5, 0.6, False))
 
@@ -105,7 +107,7 @@ def _curb_model():
 
 def _two_type_line(n, detections):
     """A two-type line written by the real writer (main.build_output_line, #168): typed
-    detections, label_type null, label_types sorted (Crosswalk < CurbRamp), a models map,
+    detections, label_type null, label_types sorted (Bollard < CurbRamp), a models map,
     line-level model_* = CurbRamp's. The pano block is the golden fixture's, renamed."""
     pano = dict(_golden_line()["pano"], panorama_id=f"MT{n}", lat=44.05 + n * 1e-4)
     result = {"pano_id": pano["panorama_id"], "pano": pano,
@@ -157,7 +159,7 @@ def test_two_type_file_posts_once_per_line_and_type(tmp_path, monkeypatch):
     # CurbRamp: 0.30, rig-masked (the y=0.95 detection is on the vehicle).
     assert curb["labels"] == [{"pano_x": 8192, "pano_y": 2048, "confidence": 0.9}]
     assert {k: curb[k] for k in registry.PROVENANCE_KEYS} == _curb_model()
-    # Crosswalk: its own 0.5 floor (0.4 dropped) and no rig mask (y=0.95 kept).
+    # The stand-in: its own 0.5 floor (0.4 dropped) and no rig mask (y=0.95 kept).
     assert xwalk["labels"] == [{"pano_x": 4096, "pano_y": 4915, "confidence": 0.7},
                                {"pano_x": 12288, "pano_y": 7782, "confidence": 0.8}]
     assert {k: xwalk[k] for k in registry.PROVENANCE_KEYS} == XWALK_MODEL
@@ -302,7 +304,7 @@ def test_undated_type_model_is_refused(tmp_path, monkeypatch):
     path = tmp_path / "results.jsonl"
     path.write_text(json.dumps(line) + "\n", encoding="utf-8")
     sent = _capture(monkeypatch)
-    with pytest.raises(ValueError, match=r"\(Crosswalk\)"):
+    with pytest.raises(ValueError, match=rf"\({XWALK}\)"):
         send_to_ps.process_jsonl_file(str(path), PROD)
     assert sent == []
 
@@ -439,7 +441,7 @@ def test_an_interrupt_between_two_types_resumes_with_the_missing_pair(tmp_path, 
 
 
 def test_a_single_non_curb_ramp_type_file_goes_through_the_typed_transform(tmp_path, monkeypatch):
-    """A Crosswalk-only run writes label_types; its payload is what split_record would build:
+    """A single non-CurbRamp run writes label_types; its payload is what split_record would build:
     the type's threshold and mask, no models/label_types, no CurbRamp decode marker."""
     pano = dict(_golden_line()["pano"], panorama_id="X1")
     line = json.loads(json.dumps(main.build_output_line(
