@@ -308,5 +308,6 @@ docs/figures/mined-precision/data/step4/richmond_f01/*.jsonl
 !runs/*/corner_prerater185/stage1/requests.jsonl
 !runs/*/corner_prerater185/stage1/score.json
 !runs/*/corner_prerater185/stage1/usage_log.jsonl
+!runs/*/corner_prerater185/stage1/billed_*.json
 !runs/*/corner_prerater185/stage1/responses/
 !runs/*/corner_prerater185/stage1/responses/*.jsonl

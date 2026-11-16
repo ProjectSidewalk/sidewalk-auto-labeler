@@ -10,8 +10,9 @@ only. Issues: [#185](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/is
 **Result (2026-11-15): PASS.** If the city inventory were not there to remove corners, the
 #169 NoCurbRamp rule would still clear its 0.90 bar in Vancouver: worst case **0.929**, point
 estimate **0.981**. Under the plan, the stand-in question is closed for Vancouver. A VLM
-standing in for the inventory would add about one point of precision. Stages 1 and 2 (Gemini
-calls, up to $40) are not approved and were not run.
+standing in for the inventory would add about one point of precision. Stage 1 (Gemini, up to $40) was
+approved on 2026-11-15. Only its 20-corner smoke test has run ($0.58 billed), so there is no
+kill verdict yet; see "Stage 1" below. Stage 1b and Stage 2 are not approved.
 
 ## The question and the gate
 
@@ -159,9 +160,83 @@ and `built_at`. Inputs, all sha256-pinned in the script (`PINS`) and recorded in
 | 250 of 283 with a sidewalk; 3,070 recounted | `gate.json` `sidewalk` |
 | figure curves | `docs/figures/corner-prerater-185/data/stage0_pfree.csv` |
 
+## Stage 1 (approved 2026-11-15): smoke test done, full legs blocked
+
+Jon approved Stage 1 on 2026-11-15 (relayed by the coordinating session). Only the 20-corner
+smoke test has run. The first full leg (Argon multi-view on all 381 corners, budget $7) was
+**refused twice by Claude Code's auto-mode permission classifier**, so no full leg has run and
+**no kill verdict exists yet**. Nothing was worked around. To continue, Jon either runs the
+commands below himself or allows them.
+
+**What is built and frozen.** Before the first call, commit `8292305` froze the prompt
+(sha256 `f3fd9e7b…`, in `stage1/requests.json`) and the 381 requests. Each prompt is the
+bundle's own rubric verbatim (v1 for gallery 243, v2 for gallery 169), a fixed task sentence,
+the images, and a JSON schema (`verdict` = present / absent / cant_tell, plus `absent_kind`).
+Temperature is 0, no inventory or filename reaches the model, and the prompt has not been
+tuned. The multi-view arms send the aerial with the page's overlay, drawn for that corner (legs,
+dashed phantom legs, the window, numbered corner markers with the target outlined in blue, and
+the crop cameras), followed by every crop with its capture date and distance. Single-view sends
+one crop and no aerial; the arm's answer is the nearest crop's. Counts: 381 corners (365
+blind-absent, 9 present in 6 units, 7 can't tell) and 1,284 crops. All crops match their
+bundle's `images.sha256`.
+
+**Smoke test** (seeded 20 corners, `random.Random(185)`; by chance all 20 are blind-absent):
+
+| arm | calls | tokens in / out (thinking) | logged $ | $ per call | answers on 20 absent |
+|---|---:|---|---:|---:|---|
+| flash_multi | 20 | 118,035 / 12,885 (12,384) | 0.1368 | 0.0068 | 18 absent, 2 can't tell |
+| argon_multi_r1 | 20 | 120,777 / 4,161 (3,465) | 0.2832 | 0.0142 | 18 absent, 2 can't tell |
+| flash_single (nearest) | 20 | 37,782 / 7,488 (7,023) | 0.0564 | 0.0028 | 20 absent |
+| argon_single (nearest) | 20 | 40,382 / 2,213 (1,515) | 0.1029 | 0.0051 | 20 absent |
+
+All 80 calls ended `STOP`, every answer parsed, and there were no errors. **Spend: $0.58
+logged, $0.58 billed.** Cloud Monitoring for 2026-11-16 UTC matches the ledger to the token for
+both models (`vertex_usage.py --reconcile`; snapshot in `stage1/billed_2026-11-16_smoke.json`).
+Projected cost of the whole stage from these rates: about $28.5. That is Argon multi-view
+three times at about $5.4 each, Flash multi-view $2.6, and single view on all 1,284 crops at
+$6.5 (Argon) and $3.6 (Flash). With the 25% margin that is about $36, under the $40 cap.
+
+**Not a result.** Twenty absent corners say nothing about the kill rule, which needs all 381
+for the four kill arms. The smoke rows are part of each arm's response file and will not be
+re-billed.
+
+### To finish Stage 1 (Jon, or with his permission)
+
+```bash
+R=/d/Git/RampNet/.venv/Scripts/python.exe     # RampNet's venv has google-genai; Vertex + ADC
+# kill arms first, then the measure-only runs; reconcile after each leg
+$R scripts/corner_vlm.py run --arm argon_multi_r1 --keys all --budget-usd 7
+$R scripts/corner_vlm.py run --arm flash_multi    --keys all --budget-usd 4
+$R scripts/corner_vlm.py run --arm argon_single   --keys all --views nearest --budget-usd 3
+$R scripts/corner_vlm.py run --arm flash_single   --keys all --views nearest --budget-usd 2
+python scripts/corner_prerater.py score            # -> stage1/score.json, prints the kill verdict
+$R scripts/corner_vlm.py run --arm argon_multi_r2 --keys all --budget-usd 7
+$R scripts/corner_vlm.py run --arm argon_noaerial --keys all --budget-usd 7
+$R scripts/corner_vlm.py run --arm argon_single   --keys all --views rest --budget-usd 6
+$R scripts/corner_vlm.py run --arm flash_single   --keys all --views rest --budget-usd 4
+(cd /d/Git/RampNet && .venv/Scripts/python.exe scripts/analysis/vertex_usage.py --days 1 --reconcile)
+```
+
+Each leg appends a ledger row tagged `corner-prerater-185` to RampNet's shared ledger and to
+`stage1/usage_log.jsonl`. A re-run skips answered calls, and a leg stops at its own budget.
+
+**Declared before any call (amendments to the plan's wording):** (1) the runner lives in this
+repo (`scripts/corner_vlm.py`) and imports RampNet's harness read-only, instead of a new file on
+a RampNet branch; (2) a call that answers but does not parse is `no_answer`: never a catch, a
+flag on an absent corner, and not retried; (3) the kill uses the four arms argon_multi_r1,
+flash_multi, argon_single and flash_single, while r2 and no-aerial only measure; (4) the kill
+counts pool both galleries, as the plan's 6 units and 365 corners do, and every count is also
+reported per gallery.
+
+| Stage 1 number | where |
+|---|---|
+| 381 corners, 1,284 crops, blind counts, smoke keys, prompt sha256 | `stage1/requests.json` |
+| every answer (call id, verdict, kind, tokens, finish reason, model build) | `stage1/responses/<arm>.jsonl` |
+| per-leg tokens and $ | `stage1/usage_log.jsonl` (same rows in RampNet `analysis_out/usage_log.jsonl`) |
+| billed tokens, 2026-11-16 UTC | `stage1/billed_2026-11-16_smoke.json` |
+| per-arm catches, flag rates, kill verdict (currently NOT DECIDED) | `stage1/score.json` |
+
 ## What happens next (from the plan)
 
 The stand-in half stops here for Vancouver. That decision is Jon's: accept this reading, or ask
-for a city where the inventory removes more (plan section 8, decision 1). Stage 1, calibrating a
-VLM pre-rater on the 381 judged corners (up to $40, Gemini Argon and Flash), is the next step,
-and it needs Jon's approval. Nothing past Stage 0 was run.
+for a city where the inventory removes more (plan section 8, decision 1). Stage 1 was approved on 2026-11-15; see the section above for where it stands.

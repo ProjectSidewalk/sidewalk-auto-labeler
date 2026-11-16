@@ -732,7 +732,7 @@ python scripts/corner_labels.py score --proposals $D/proposals.jsonl --sample $D
 ## Corner pre-rater and the inventory stand-in (#185)
 
 Write-up: [corner-prerater-185.md](corner-prerater-185.md). Plan
-`corner-prerater-absence-2026-11-15.md`; **only Stage 0 is approved and built.** `gate` asks
+`corner-prerater-absence-2026-11-15.md`; Stages 0 and 1 are approved (Stage 1 smoke only so far). `gate` asks
 whether the #169 rule still clears 0.90 without the inventory: P_free = (3,070 p + 283 (1 - v))
 / 3,353, worst case p at its Wilson lower bound and v at its Wilson upper bound. It recomputes
 the 283 from the split table (and checks it against `unlabeled.csv`), p from gallery 169's blind
@@ -740,7 +740,11 @@ reads, v from gallery 243's (read by path with a sha256 pin, because the copy on
 the partial 50-unit export), applies the over-merge filter, and writes
 `runs/vancouver/corner_prerater185/gate.json`. Every input is sha256-pinned. The sidewalk
 reading needs shapely >= 2 (use the conda env); `--sidewalks none` skips it. `export` and
-`score` (Stages 1-2, Gemini calls) are not implemented.
+`score` are Stage 1: `export` writes the 381 requests
+(prompt frozen, sha256 in `stage1/requests.json`), `scripts/corner_vlm.py run` makes the paid
+Gemini calls with RampNet's venv and harness (tagged ledger rows in RampNet's ledger and
+`stage1/usage_log.jsonl`, `--budget-usd` per leg, resumable), and `score` applies the kill
+rule. The leg list is in the write-up.
 
 ```bash
 P=/c/Users/jonf/anaconda3/envs/sidewalk-auto-labeler/python.exe
