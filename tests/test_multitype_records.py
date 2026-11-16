@@ -28,9 +28,9 @@ def _legacy_line():
 
 
 def _two_type_line():
-    return {'detections': [_det(.1, .6, .9, 'CurbRamp'), _det(.3, .6, .8, 'Crosswalk')],
-            'label_type': None, 'label_types': ['Crosswalk', 'CurbRamp'],
-            'models': {'CurbRamp': PROV_A, 'Crosswalk': PROV_B}, **PROV_A,
+    return {'detections': [_det(.1, .6, .9, 'CurbRamp'), _det(.3, .6, .8, 'Bollard')],
+            'label_type': None, 'label_types': ['Bollard', 'CurbRamp'],
+            'models': {'CurbRamp': PROV_A, 'Bollard': PROV_B}, **PROV_A,
             'pano': {'panorama_id': 'p1'}}
 
 
@@ -41,18 +41,18 @@ def test_curb_ramp_spec_references_the_module_constants():
     assert (s.storage_floor, s.operational_confidence, s.benchmark_confidence, s.mask_rig) \
         == (DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE, BENCHMARK_CONFIDENCE, True)
     assert (s.module, s.cls) == ('detectors.curb_ramp', 'CurbRampDetector')
-    assert list(reg.SPECS) == ['CurbRamp']
+    assert list(reg.SPECS) == ['CurbRamp', 'Crosswalk']
 
 
 def test_spec_for_unknown_lists_known_types():
-    with pytest.raises(reg.UnknownLabelTypeError, match='known: CurbRamp'):
-        reg.spec_for('Crosswalk')
+    with pytest.raises(reg.UnknownLabelTypeError, match='known: Crosswalk, CurbRamp'):
+        reg.spec_for('Bollard')
 
 
 def test_parse_types():
     assert reg.parse_types('CurbRamp') == ['CurbRamp']
     assert reg.parse_types(' CurbRamp,CurbRamp ') == ['CurbRamp']
-    for bad in ('Crosswalk', 'CurbRamp,', ''):
+    for bad in ('Bollard', 'CurbRamp,', ''):
         with pytest.raises(reg.UnknownLabelTypeError):
             reg.parse_types(bad)
 
@@ -84,7 +84,7 @@ def test_helpers_on_a_legacy_line():
     assert [reg.detection_type(rec, d) for d in rec['detections']] == ['CurbRamp'] * 2
     assert reg.provenance_for(rec, 'CurbRamp') == PROV_A
     assert reg.detections_of_type(rec, 'CurbRamp') == rec['detections']
-    assert reg.detections_of_type(rec, 'Crosswalk') == []
+    assert reg.detections_of_type(rec, 'Bollard') == []
 
 
 def test_helpers_on_a_line_with_no_type_keys_at_all():
@@ -96,11 +96,11 @@ def test_helpers_on_a_line_with_no_type_keys_at_all():
 
 def test_helpers_on_a_two_type_line():
     rec = _two_type_line()
-    assert reg.record_types(rec) == ['Crosswalk', 'CurbRamp']
-    assert [reg.detection_type(rec, d) for d in rec['detections']] == ['CurbRamp', 'Crosswalk']
-    assert reg.provenance_for(rec, 'Crosswalk') == PROV_B
+    assert reg.record_types(rec) == ['Bollard', 'CurbRamp']
+    assert [reg.detection_type(rec, d) for d in rec['detections']] == ['CurbRamp', 'Bollard']
+    assert reg.provenance_for(rec, 'Bollard') == PROV_B
     assert reg.provenance_for(rec, 'CurbRamp') == PROV_A
-    assert [d['confidence'] for d in reg.detections_of_type(rec, 'Crosswalk')] == [.8]
+    assert [d['confidence'] for d in reg.detections_of_type(rec, 'Bollard')] == [.8]
     with pytest.raises(KeyError):
         reg.provenance_for(rec, 'NoCurbRamp')
 
@@ -117,7 +117,7 @@ def test_untyped_detection_on_a_multi_type_line_raises():
 def test_empty_multi_type_line_still_says_what_ran():
     rec = _two_type_line()
     rec['detections'] = []
-    assert reg.record_types(rec) == ['Crosswalk', 'CurbRamp']
+    assert reg.record_types(rec) == ['Bollard', 'CurbRamp']
 
 
 def test_require_curb_ramp_only():
@@ -153,10 +153,12 @@ class _FakeDetector:
 
 
 @pytest.fixture
-def crosswalk_spec(monkeypatch):
-    """A second registered type for the duration of one test (none exists yet, #168)."""
-    monkeypatch.setitem(reg.SPECS, 'Crosswalk', reg.DetectorSpec(
-        'Crosswalk', 'nowhere', 'Nothing', 0.2, 0.5, 0.6, False))
+def fake_type_spec(monkeypatch):
+    """A stand-in second type for the duration of one test, with thresholds unlike any real
+    spec's. Not named Crosswalk, which is a real spec now; it sorts before CurbRamp as
+    Crosswalk does, so the sorted-order assertions read the same."""
+    monkeypatch.setitem(reg.SPECS, 'Bollard', reg.DetectorSpec(
+        'Bollard', 'nowhere', 'Nothing', 0.2, 0.5, 0.6, False))
 
 
 def _run_process(monkeypatch, dets):
@@ -185,53 +187,54 @@ def test_curb_ramp_only_line_keeps_the_byte_pin_through_the_registry_path(monkey
     assert hashlib.sha256(line.encode()).hexdigest() == PRE_130_LINE_SHA256
 
 
-def test_two_type_line_shape(monkeypatch, crosswalk_spec):
+def test_two_type_line_shape(monkeypatch, fake_type_spec):
     import main
     prov_c = make_provenance()
     result = _run_process(monkeypatch, {
         'CurbRamp': _FakeDetector(prov_c, [(0.5, 0.25, 0.9)]),
-        'Crosswalk': _FakeDetector(PROV_B, [(0.1, 0.7, 0.8), (0.2, 0.7, 0.4)])})
-    line = main.build_output_line(result, {'CurbRamp': prov_c, 'Crosswalk': PROV_B})
-    assert line['label_types'] == ['Crosswalk', 'CurbRamp']
+        'Bollard': _FakeDetector(PROV_B, [(0.1, 0.7, 0.8), (0.2, 0.7, 0.4)])})
+    line = main.build_output_line(result, {'CurbRamp': prov_c, 'Bollard': PROV_B})
+    assert line['label_types'] == ['Bollard', 'CurbRamp']
     assert line['label_type'] is None
     assert [(d['label_type'], d['confidence']) for d in line['detections']] == \
-        [('Crosswalk', 0.8), ('Crosswalk', 0.4), ('CurbRamp', 0.9)]
+        [('Bollard', 0.8), ('Bollard', 0.4), ('CurbRamp', 0.9)]
     # line-level model_* are CurbRamp's whenever CurbRamp ran
     assert {k: line[k] for k in reg.PROVENANCE_KEYS} == \
         {k: prov_c[k] for k in reg.PROVENANCE_KEYS}
     assert line['models']['CurbRamp'] == {k: prov_c[k] for k in reg.PROVENANCE_KEYS}
-    assert line['models']['Crosswalk'] == {**PROV_B, 'detection_decode': 'argmax',
-                                           'detection_border': 'exclude'}
+    assert line['models']['Bollard'] == {**PROV_B, 'detection_decode': 'argmax',
+                                         'detection_border': 'exclude',
+                                         'detection_storage_floor': 0.2}   # the stand-in spec's
     assert 'detection_decode' not in line and 'detection_border' not in line
     # the helpers read it back
-    assert reg.record_types(line) == ['Crosswalk', 'CurbRamp']
-    assert reg.provenance_for(line, 'Crosswalk') == PROV_B
+    assert reg.record_types(line) == ['Bollard', 'CurbRamp']
+    assert reg.provenance_for(line, 'Bollard') == PROV_B
     assert len(reg.detections_of_type(line, 'CurbRamp')) == 1
     json.dumps(line)  # serializable
 
 
-def test_empty_two_type_line_still_lists_what_ran(monkeypatch, crosswalk_spec):
+def test_empty_two_type_line_still_lists_what_ran(monkeypatch, fake_type_spec):
     import main
     result = _run_process(monkeypatch, {'CurbRamp': _FakeDetector(make_provenance(), []),
-                                        'Crosswalk': _FakeDetector(PROV_B, [])})
-    line = main.build_output_line(result, {'CurbRamp': make_provenance(), 'Crosswalk': PROV_B})
-    assert line['detections'] == [] and line['label_types'] == ['Crosswalk', 'CurbRamp']
+                                        'Bollard': _FakeDetector(PROV_B, [])})
+    line = main.build_output_line(result, {'CurbRamp': make_provenance(), 'Bollard': PROV_B})
+    assert line['detections'] == [] and line['label_types'] == ['Bollard', 'CurbRamp']
 
 
-def test_single_non_curb_ramp_type_line(monkeypatch, crosswalk_spec):
+def test_single_non_curb_ramp_type_line(monkeypatch, fake_type_spec):
     import main
-    result = _run_process(monkeypatch, {'Crosswalk': _FakeDetector(PROV_B, [(0.1, 0.7, 0.8)])})
-    line = main.build_output_line(result, {'Crosswalk': PROV_B})
-    assert line['label_type'] == 'Crosswalk' and line['label_types'] == ['Crosswalk']
+    result = _run_process(monkeypatch, {'Bollard': _FakeDetector(PROV_B, [(0.1, 0.7, 0.8)])})
+    line = main.build_output_line(result, {'Bollard': PROV_B})
+    assert line['label_type'] == 'Bollard' and line['label_types'] == ['Bollard']
     assert line['model_id'] == PROV_B['model_id']
-    assert line['detections'][0]['label_type'] == 'Crosswalk'
+    assert line['detections'][0]['label_type'] == 'Bollard'
 
 
-def test_multitype_writer_refuses_an_untagged_detection(crosswalk_spec):
+def test_multitype_writer_refuses_an_untagged_detection(fake_type_spec):
     import main
     fake = make_process_result()   # 3-tuple detections, no type tag
     with pytest.raises(ValueError, match='not tagged'):
-        main.build_output_line(fake, {'CurbRamp': make_provenance(), 'Crosswalk': PROV_B})
+        main.build_output_line(fake, {'CurbRamp': make_provenance(), 'Bollard': PROV_B})
 
 
 # --- the manifest binding --------------------------------------------------------------
@@ -245,17 +248,17 @@ def _init(run_dir, provenance):
                                      provenance=provenance)
 
 
-def test_manifest_binds_label_types_new_match_mismatch(tmp_path, crosswalk_spec):
+def test_manifest_binds_label_types_new_match_mismatch(tmp_path, fake_type_spec):
     prov = make_provenance()
     run = tmp_path / 'city'
     m = _init(run, prov)
     assert m['label_types'] == ['CurbRamp'] and 'models' not in m
     _init(run, {'CurbRamp': prov})                     # same set resumes
     with pytest.raises(SystemExit, match='new --name for this type set'):
-        _init(run, {'CurbRamp': prov, 'Crosswalk': PROV_B})
+        _init(run, {'CurbRamp': prov, 'Bollard': PROV_B})
 
 
-def test_legacy_manifest_with_records_binds_curb_ramp_without_a_rewrite(tmp_path, crosswalk_spec):
+def test_legacy_manifest_with_records_binds_curb_ramp_without_a_rewrite(tmp_path, fake_type_spec):
     prov = make_provenance()
     run = tmp_path / 'city'
     m = _init(run, prov)
@@ -266,7 +269,7 @@ def test_legacy_manifest_with_records_binds_curb_ramp_without_a_rewrite(tmp_path
     _init(run, prov)                                   # pre-#168 run resumes as CurbRamp
     assert (run / 'manifest.json').read_bytes() == before
     with pytest.raises(SystemExit, match='label types CurbRamp'):
-        _init(run, {'CurbRamp': prov, 'Crosswalk': PROV_B})
+        _init(run, {'CurbRamp': prov, 'Bollard': PROV_B})
 
 
 def test_scan_only_binds_no_types(tmp_path):
@@ -274,21 +277,21 @@ def test_scan_only_binds_no_types(tmp_path):
     assert 'label_types' not in m
 
 
-def test_multi_type_manifest_binds_every_model(tmp_path, crosswalk_spec):
+def test_multi_type_manifest_binds_every_model(tmp_path, fake_type_spec):
     import main
     prov = make_provenance()
     run = tmp_path / 'city'
-    m = _init(run, {'CurbRamp': prov, 'Crosswalk': PROV_B})
-    assert m['label_types'] == ['Crosswalk', 'CurbRamp']
+    m = _init(run, {'CurbRamp': prov, 'Bollard': PROV_B})
+    assert m['label_types'] == ['Bollard', 'CurbRamp']
     assert m['model_revision'] == prov['model_revision']           # top-level = CurbRamp
-    assert m['models']['Crosswalk']['model_revision'] == PROV_B['model_revision']
+    assert m['models']['Bollard']['model_revision'] == PROV_B['model_revision']
     main.record_run(run / 'manifest.json', m, 't0', 1, 1, 0, 0,
-                    provenance={'CurbRamp': prov, 'Crosswalk': PROV_B})
+                    provenance={'CurbRamp': prov, 'Bollard': PROV_B})
     entry = json.loads((run / 'manifest.json').read_text())['runs'][0]
-    assert set(entry['models']) == {'Crosswalk', 'CurbRamp'}
+    assert set(entry['models']) == {'Bollard', 'CurbRamp'}
     other = {**PROV_B, 'model_revision': 'c' * 40}
-    with pytest.raises(SystemExit, match='city/Crosswalk'):
-        _init(run, {'CurbRamp': prov, 'Crosswalk': other})
+    with pytest.raises(SystemExit, match='city/Bollard'):
+        _init(run, {'CurbRamp': prov, 'Bollard': other})
 
 
 # --- --types -------------------------------------------------------------------------
@@ -298,17 +301,18 @@ def test_types_flag_parses_and_rejects_unknown(monkeypatch, capsys):
     import sys
     import main
     assert main.parse_types_arg('CurbRamp') == ['CurbRamp']
-    with pytest.raises(argparse.ArgumentTypeError, match='known: CurbRamp'):
-        main.parse_types_arg('Crosswalk')
-    monkeypatch.setattr(sys, 'argv', ['main.py', 'x.geojson', '--types', 'Crosswalk'])
+    assert main.parse_types_arg('Crosswalk,CurbRamp') == ['Crosswalk', 'CurbRamp']
+    with pytest.raises(argparse.ArgumentTypeError, match='known: Crosswalk, CurbRamp'):
+        main.parse_types_arg('Bollard')
+    monkeypatch.setattr(sys, 'argv', ['main.py', 'x.geojson', '--types', 'Bollard'])
     with pytest.raises(SystemExit) as e:
         main.main()
-    assert e.value.code == 2 and 'known: CurbRamp' in capsys.readouterr().err
+    assert e.value.code == 2 and 'known: Crosswalk, CurbRamp' in capsys.readouterr().err
 
 
 # --- scripts/detect_from_store.bind_manifest -----------------------------------------
 
-def test_detect_from_store_binds_curb_ramp_and_refuses_other_types(tmp_path, crosswalk_spec):
+def test_detect_from_store_binds_curb_ramp_and_refuses_other_types(tmp_path, fake_type_spec):
     import detect_from_store as dfs
     prov = make_provenance()
     pixels = {'store': '/s', 'layout': 'sharded', 'server': 'https://a.example'}
@@ -318,10 +322,10 @@ def test_detect_from_store_binds_curb_ramp_and_refuses_other_types(tmp_path, cro
     assert m['label_types'] == ['CurbRamp']
     dfs.bind_manifest(run, {'CurbRamp': prov}, pixels)        # map form resumes
     with pytest.raises(SystemExit, match='CurbRamp only'):
-        dfs.bind_manifest(run, {'CurbRamp': prov, 'Crosswalk': PROV_B}, pixels)
-    m['label_types'] = ['Crosswalk']
+        dfs.bind_manifest(run, {'CurbRamp': prov, 'Bollard': PROV_B}, pixels)
+    m['label_types'] = ['Bollard']
     (run / 'manifest.json').write_text(json.dumps(m), encoding='utf-8')
-    with pytest.raises(SystemExit, match='label types Crosswalk'):
+    with pytest.raises(SystemExit, match='label types Bollard'):
         dfs.bind_manifest(run, prov, pixels)
 
 
@@ -339,18 +343,18 @@ def _real_legacy_line():
 
 
 def _as_two_type(line):
-    """The same pano as a {CurbRamp, Crosswalk} line: CurbRamp's detections first (so their
-    record indices match), then a Crosswalk one."""
+    """The same pano as a {CurbRamp, Bollard} line: CurbRamp's detections first (so their
+    record indices match), then a Bollard one."""
     return {**line, 'detections': [{**d, 'label_type': 'CurbRamp'} for d in line['detections']]
-            + [_det(0.75, 0.6, 0.95, 'Crosswalk')], 'label_type': None,
-            'label_types': ['Crosswalk', 'CurbRamp'],
+            + [_det(0.75, 0.6, 0.95, 'Bollard')], 'label_type': None,
+            'label_types': ['Bollard', 'CurbRamp'],
             'models': {'CurbRamp': {k: line[k] for k in reg.PROVENANCE_KEYS},
-                       'Crosswalk': PROV_B}}
+                       'Bollard': PROV_B}}
 
 
 def test_fuse_sites_load_results_equivalence(tmp_path):
     """A legacy line, and the same pano's CurbRamp detections inside a two-type line, give
-    identical fusion input; the Crosswalk detection never reaches a CurbRamp fuse."""
+    identical fusion input; the Bollard detection never reaches a CurbRamp fuse."""
     import fuse_sites as fs
     legacy = _real_legacy_line()
     a, _ = fs.load_results(_write(tmp_path / 'a.jsonl', [legacy]), read_heights=False)
@@ -358,47 +362,47 @@ def test_fuse_sites_load_results_equivalence(tmp_path):
                            read_heights=False)
     assert a == b
     assert a[0].detections == [(0, 0.5, 0.6, 0.9), (1, 0.25, 0.7, 0.2)]
-    c, _ = fs.load_results(tmp_path / 'b.jsonl', read_heights=False, label_type='Crosswalk')
+    c, _ = fs.load_results(tmp_path / 'b.jsonl', read_heights=False, label_type='Bollard')
     assert c[0].detections == [(2, 0.75, 0.6, 0.95)]
     with pytest.raises(ValueError, match='nothing to fuse'):
-        fs.load_results(tmp_path / 'a.jsonl', read_heights=False, label_type='Crosswalk')
+        fs.load_results(tmp_path / 'a.jsonl', read_heights=False, label_type='Bollard')
 
 
-def test_export_benchmark_label_type(crosswalk_spec):
+def test_export_benchmark_label_type(fake_type_spec):
     import export_benchmark as eb
     legacy = _real_legacy_line()
     two = _as_two_type(legacy)
     assert eb._of_type(legacy, 'CurbRamp') is legacy               # unchanged, byte for byte
-    # CurbRamp's line-level border marker must not survive into a Crosswalk record, and the
-    # Crosswalk decode must surface at line level
+    # CurbRamp's line-level border marker must not survive into a Bollard record, and the
+    # Bollard decode must surface at line level
     two['detection_border'] = 'keep'
-    two['models']['Crosswalk'] = {**PROV_B, 'detection_decode': 'gaussian',
+    two['models']['Bollard'] = {**PROV_B, 'detection_decode': 'gaussian',
                                   'detection_border': 'exclude'}
-    cw = eb._of_type(two, 'Crosswalk')
-    assert cw['label_type'] == 'Crosswalk' and cw['label_types'] == ['Crosswalk']
+    cw = eb._of_type(two, 'Bollard')
+    assert cw['label_type'] == 'Bollard' and cw['label_types'] == ['Bollard']
     assert [d['confidence'] for d in cw['detections']] == [0.95]
-    assert list(cw['models']) == ['Crosswalk']
+    assert list(cw['models']) == ['Bollard']
     assert {k: cw[k] for k in reg.PROVENANCE_KEYS} == PROV_B
     assert cw['detection_decode'] == 'gaussian' and 'detection_border' not in cw
-    assert reg.record_types(cw) == ['Crosswalk']
+    assert reg.record_types(cw) == ['Bollard']
     # ...and a CurbRamp record cut from the same line keeps CurbRamp's markers
     cr = eb._of_type(two, 'CurbRamp')
     assert cr['detection_border'] == 'keep' and 'detection_decode' not in cr
     assert cr['model_id'] == legacy['model_id'] and list(cr['models']) == ['CurbRamp']
-    with pytest.raises(ValueError, match='not Crosswalk'):
-        eb._of_type(legacy, 'Crosswalk')
+    with pytest.raises(ValueError, match='not Bollard'):
+        eb._of_type(legacy, 'Bollard')
 
 
-def test_position_check_reads_each_detection_at_its_types_spec(crosswalk_spec):
+def test_position_check_reads_each_detection_at_its_types_spec(fake_type_spec):
     import geo
     import position_check as pc
     legacy = _real_legacy_line()
     two = _as_two_type(legacy)
-    two['detections'].append(_det(0.8, 0.6, 0.55, 'Crosswalk'))   # above Crosswalk's 0.5
-    two['detections'].append(_det(0.9, 0.6, 0.45, 'Crosswalk'))   # below it
+    two['detections'].append(_det(0.8, 0.6, 0.55, 'Bollard'))   # above Bollard's 0.5
+    two['detections'].append(_det(0.9, 0.6, 0.45, 'Bollard'))   # below it
     frame = geo.LocalFrame(legacy['pano']['lat'], legacy['pano']['lng'])
     ids = [p['id'].split('#')[1] for p in pc.operational_points([two], frame)]
-    # CurbRamp 0.9 (idx 0) passes 0.30 and 0.2 (1) does not; Crosswalk 0.95 (2) and 0.55
+    # CurbRamp 0.9 (idx 0) passes 0.30 and 0.2 (1) does not; Bollard 0.95 (2) and 0.55
     # (3) pass its 0.5, 0.45 (4) does not
     assert ids == ['0', '2', '3']
 
@@ -413,15 +417,15 @@ def test_curb_ramp_only_refusals(tmp_path):
 
 # --- review fixes (PR #170) -----------------------------------------------------------
 
-def test_legacy_writer_refuses_a_multi_type_result(crosswalk_spec):
+def test_legacy_writer_refuses_a_multi_type_result(fake_type_spec):
     """A tagged result handed only CurbRamp's provenance must not be written as a CurbRamp
     line (it would relabel another type's detections)."""
     import main
-    fake = make_process_result(detections=[(0.5, 0.25, 0.9, 'Crosswalk')])
+    fake = make_process_result(detections=[(0.5, 0.25, 0.9, 'Bollard')])
     with pytest.raises(ValueError, match='multi-type result'):
         main.build_output_line(fake, make_provenance())
     with pytest.raises(ValueError, match='multi-type result'):
-        main.build_output_line({**make_process_result(), 'label_types': ['Crosswalk', 'CurbRamp']},
+        main.build_output_line({**make_process_result(), 'label_types': ['Bollard', 'CurbRamp']},
                                make_provenance())
 
 
@@ -431,7 +435,7 @@ def test_provenance_map_refuses_a_misspelled_type():
         main.provenance_map({'Curbramp': make_provenance()})
 
 
-def test_one_detector_raising_fails_the_whole_pano(monkeypatch, crosswalk_spec, tmp_path):
+def test_one_detector_raising_fails_the_whole_pano(monkeypatch, fake_type_spec, tmp_path):
     import main
 
     class Boom(_FakeDetector):
@@ -439,12 +443,12 @@ def test_one_detector_raising_fails_the_whole_pano(monkeypatch, crosswalk_spec, 
             raise RuntimeError('CUDA out of memory')
 
     result = _run_process(monkeypatch, {'CurbRamp': _FakeDetector(make_provenance(), [(.5, .5, .9)]),
-                                        'Crosswalk': Boom(PROV_B, [])})
+                                        'Bollard': Boom(PROV_B, [])})
     assert result['status'] == 'failure' and 'out of memory' in result['reason']
     cache, jsonl = tmp_path / 'c.txt', tmp_path / 'r.jsonl'
     with open(cache, 'w') as fc, open(jsonl, 'w') as fj:
         assert main.handle_result(result, fc, fj, {'CurbRamp': make_provenance(),
-                                                   'Crosswalk': PROV_B}) == 'failed'
+                                                   'Bollard': PROV_B}) == 'failed'
     assert cache.read_text() == '' and jsonl.read_text() == ''   # retryable, nothing written
 
 
@@ -471,15 +475,15 @@ def test_load_detectors_shares_one_lock_across_types(monkeypatch):
 
 
 def test_fuse_sites_reads_the_types_own_markers(tmp_path):
-    """A Crosswalk fuse takes its decode/border from models['Crosswalk'], never from the
+    """A Bollard fuse takes its decode/border from models['Bollard'], never from the
     line-level markers, which describe CurbRamp."""
     import fuse_sites as fs
     two = _as_two_type(_real_legacy_line())
     two['detection_border'] = 'keep'                                  # CurbRamp's
-    two['models']['Crosswalk'] = {**PROV_B, 'detection_decode': 'gaussian',
+    two['models']['Bollard'] = {**PROV_B, 'detection_decode': 'gaussian',
                                   'detection_border': 'exclude'}
     path = _write(tmp_path / 'b.jsonl', [two])
-    cw, _ = fs.load_results(path, read_heights=False, label_type='Crosswalk')
+    cw, _ = fs.load_results(path, read_heights=False, label_type='Bollard')
     cr, _ = fs.load_results(path, read_heights=False)
     assert (cw[0].decode, cw[0].border) == ('gaussian', 'exclude')
     assert (cr[0].decode, cr[0].border) == ('argmax', 'keep')

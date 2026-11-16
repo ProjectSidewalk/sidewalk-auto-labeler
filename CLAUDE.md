@@ -421,9 +421,19 @@ It POSTs each record to `/ai/submitLabelsOnPano`. On the way it applies these tr
 
 ## Multiple label types (#168)
 
-This is the plumbing for a second detector (crosswalk / NoCurbRamp, Planning#36). **No second
-detector exists yet**, and CurbRamp is the only spec. Full text is in
-[docs/architecture.md](docs/architecture.md#multiple-label-types-168).
+Plumbing for more than one detector (Planning#36). Two specs: CurbRamp and **Crosswalk**
+(RampNet#274 `crosswalk_s4`). Full text is in
+[docs/architecture.md](docs/architecture.md#multiple-label-types-168); commands in
+[docs/commands.md](docs/commands.md#crosswalk-detector-second-label-type).
+
+- **Crosswalk** (`detectors/crosswalk.py`): a local `.pth` (`--crosswalk-checkpoint`, required),
+  identity = the file's sha256 in `detectors/checkpoints.KNOWN_CHECKPOINTS` (unknown refuses).
+  Fixed frame: argmax, border `keep`, floor 0.05; operating point 0.23; rig mask on.
+  `--decode`/`--border` are CurbRamp's, refused without it. A Crosswalk-only manifest has
+  **null** top-level floor/decode/border (they describe CurbRamp) and its frame in
+  `models.Crosswalk`. `scripts/crosswalk_parity.py` is the loader's GPU acceptance test.
+  0.23 is validated on RampNet's stored JPEGs, **not on live fetches** (their per-peak values
+  differ; not explained by JPEG q92).
 
 - **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec` (thresholds and
   `mask_rig` per type), `SPECS`, `spec_for`, `parse_types`, `load_detectors` (one shared
@@ -441,4 +451,7 @@ detector exists yet**, and CurbRamp is the only spec. Full text is in
 - **Consumers:** `fuse_sites.py --label-type` (a non-CurbRamp fuse writes
   `sites.<type>.jsonl`) and `export_benchmark.py --label-type`. `agree_rate`, `eval_sites`,
   `mined_precision` and `provenance_gate` **refuse** anything but `{CurbRamp}`.
-- **Not done:** per-type `FuseParams`, the ranker review-order export, and a second detector.
+- **`send_to_ps.py`** guards decode/border per type, against only campaigns that sent that
+  type; bands are refused on any file that is not CurbRamp-only.
+- **Not done:** per-type `FuseParams` (PR #176), the ranker review-order export, Crosswalk in
+  `detect_from_store.py`/`reinfer.py`, a type-aware `check_store_built` (draft PR #179).

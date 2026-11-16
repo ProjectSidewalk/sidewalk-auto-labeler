@@ -40,6 +40,7 @@ to this file; "the GSV depth section" and similar point to [architecture.md](arc
 - [Footway: segmenter vs depth study](#footway-segmenter-vs-depth-study)
 - [Position check and reposition](#position-check-and-reposition)
 - [Post-submission coverage check](#post-submission-coverage-check)
+- [Crosswalk detector (second label type)](#crosswalk-detector-second-label-type)
 - [Tests](#tests)
 - [Submit to Project Sidewalk](#submit-to-project-sidewalk)
 
@@ -1188,6 +1189,65 @@ python scripts/position_check.py runs/laurens --results runs/laurens/results.che
 # report.md + CSVs tracked.
 python scripts/coverage_check.py runs/richmond/results.jsonl --server https://sidewalk-richmond.cs.washington.edu
 python scripts/coverage_check.py runs/laurens/results.raw.jsonl --server https://sidewalk-laurens.cs.washington.edu
+```
+
+## Crosswalk detector (second label type)
+
+```bash
+# CROSSWALK (#168; RampNet#274 crosswalk_s4, a local checkpoint, not on Hugging Face).
+# --types takes a comma list; --crosswalk-checkpoint (or env CROSSWALK_CHECKPOINT) is required
+# with Crosswalk and its sha256 must be in detectors/checkpoints.py KNOWN_CHECKPOINTS (s4 =
+# ebad379b...; copies on klone /gscratch/makelab/jonf/crosswalk274/v4_s1/ and the lab share
+# /projects/makeabilitylab/RampNet/archives/stage1_crosswalk_detector_274/checkpoints/crosswalk_s4/).
+# Crosswalk's frame is fixed by its spec: argmax, border keep, floor 0.05, operating point
+# 0.23, rig mask on. --decode/--border are CurbRamp's and are refused without CurbRamp.
+python main.py <area>.geojson --name <city>_crosswalk --types Crosswalk \
+    --crosswalk-checkpoint <path>/final_step_1000.pth
+# ...both types in one pass (one shared GPU lock). Both models ran together on the 8 GB RTX 3070
+# for a 4-pano smoke (--limit 4, batch size 1, 2026-11-15); peak memory was not measured and
+# no longer run has been tried. The end-of-pass detector line counts panos at the 50-peak cap.
+python main.py <area>.geojson --name <city>_both --types Crosswalk,CurbRamp --crosswalk-checkpoint <pth>
+
+# LOADER ACCEPTANCE TEST (GPU, not in CI): CrosswalkDetector on the exact JPEGs RampNet inferred
+# on, peak for peak against its stored s4 predictions (pass rule in the script's docstring;
+# exits 0 on PASS). <A> = the archive stage1_crosswalk_detector_274 (lab share, or a local copy).
+python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/final_step_1000.pth \
+    --preds <A>/work/s4_preds/score_preds_v4/crosswalk_s4/test.jsonl \
+    --images <A>/stage2_root/images/test --out <scratch>/parity_test
+# ...val (1,029 panos): .../val.jsonl + images/val; (b'): bprime_preds_v4/crosswalk_s4/bprime.jsonl
+# + <A>/bprime/images_4096. Measured 2026-11-15 (RTX 3070, torch 2.8.0 vs RampNet's A40, 2.6.0):
+# PASS on all three -- test 3,783/3,783 peaks at the same pixel, val 6,124 + 1 near-tie swap
+# (two coarse cells 7 px apart, values 2e-6 apart), bprime 3,097/3,097; max |diff| 5.1e-5;
+# operational (>= 0.23) counts identical. The rule was then tightened (only the 0.05 floor
+# excuses an unmatched peak; it had also excused peaks near 0.23, which had excused none) and
+# the test split re-run under it: the same PASS, excused 0, operational 2,405 = 2,405.
+#
+# THE 0.23 OPERATING POINT IS VALIDATED ON RAMPNET'S STORED JPEGS, NOT ON LIVE FETCHES. The
+# parity gate proves the loader; it says nothing about the pixels a run actually feeds it.
+# --native (report only) fetches through the labeler's GSV path instead of reading the JPEGs.
+# Test split, same day: 278 of 515 fetched (237 "metadata unavailable"), operational 1,320
+# native vs 1,319 stored, equal on 167 panos, +-1 on 85; but per-peak values move (median
+# per-pano max |diff| 0.044, max 0.27). --native --jpeg-quality 92 (report only; the stored
+# inputs are Pillow q92, 4:2:0) on 100 of those 278 panos, one pass, all 100 fetched: the
+# re-encode changes nothing material. Live fetch vs stored JPEG, mean |pixel diff| (0-255)
+# median 2.66 before and 2.66 after the re-encode (range 1.9-13.3); per-pano max |diff| median
+# 0.040 raw vs 0.039 q92; peaks exact at the same pixel 42 vs 38 of 799; operational 501 raw
+# and 499 q92 vs 493 stored, differing on 37 and 34 of the 100 panos. So the gap is not the
+# JPEG round trip: the stored JPEGs were made from other source pixels than the labeler's
+# zoom-3 fetch. Which difference (zoom level and resize path, or an imagery update) is not
+# established, and neither is whether 0.23 means the same thing on live pixels.
+
+# SMOKE SEND RUNBOOK (nothing has been sent yet; every step needs Jon's clearance of the exact
+# plan, and the city and s4-vs-s7 are his call):
+#   1. a SMALL area of a city whose PS server is up, a fresh --name, --types Crosswalk --limit 20
+#   2. python send_to_ps.py runs/<n>/results.jsonl --dry-run      # labelType Crosswalk, >= 0.23
+#   3. send to the TEST endpoint only: --endpoint https://<city>-test.../ai/submitLabelsOnPano --limit 5
+#   4. Jon looks at where the labels land on the map (PS places each from its pano pixel; nobody
+#      has checked where a centre-of-crossing pixel ends up) before anything goes further.
+# A Crosswalk file's submission record says label_types + type_frames (keep); its frame guard
+# compares only with campaigns that sent Crosswalk. Bands (--max-confidence) are refused.
+# NOT yet for Crosswalk: detect_from_store.py / reinfer.py (CurbRamp only), fusion (PR #176),
+# and a store-backed pilot (send_to_ps.check_store_built is not type-aware; draft PR #179).
 ```
 
 ## Tests
