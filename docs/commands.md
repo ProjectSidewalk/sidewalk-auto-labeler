@@ -40,6 +40,7 @@ to this file; "the GSV depth section" and similar point to [architecture.md](arc
 - [Footway: segmenter vs depth study](#footway-segmenter-vs-depth-study)
 - [Position check and reposition](#position-check-and-reposition)
 - [Post-submission coverage check](#post-submission-coverage-check)
+- [Review order (validator ranking of live AI labels)](#review-order-validator-ranking-of-live-ai-labels)
 - [Crosswalk detector (second label type)](#crosswalk-detector-second-label-type)
 - [Tests](#tests)
 - [Submit to Project Sidewalk](#submit-to-project-sidewalk)
@@ -1189,6 +1190,45 @@ python scripts/position_check.py runs/laurens --results runs/laurens/results.che
 # report.md + CSVs tracked.
 python scripts/coverage_check.py runs/richmond/results.jsonl --server https://sidewalk-richmond.cs.washington.edu
 python scripts/coverage_check.py runs/laurens/results.raw.jsonl --server https://sidewalk-laurens.cs.washington.edu
+```
+
+## Review order (validator ranking of live AI labels)
+
+```bash
+# REVIEW ORDER (#168 item 5). An ORDERING of the AI labels live on one server for human review,
+# most-likely-wrong first, from sidewalk-validator-ai's scores. Never a filter: nothing is
+# withheld, deleted or sent, and no submission record is written. Offline (no server call).
+# Input: ONE validator-ai run of analysis/ai_labels_eval.py made with `select --all-ai`, then
+# `crops`, then `score` (labels.csv, selection.json, manifest.csv, predictions.csv,
+# predictions_provenance.json). Refused (exit 2) unless selection.json says all_ai, labels.csv
+# hashes to labels_csv_sha256, manifest.csv hashes to the provenance's manifest_sha256, every
+# prediction's label_uid is in the manifest and labels.csv with the same pano_id, label_uid is
+# unique and = city:label_id, and pixels are integral. --ranker-server (where the rawLabels pull
+# came from) must be the --endpoint host: test and prod share every pixel key. --city (validator
+# id, e.g. richmond-va) when labels.csv has several cities; author != ai rows are dropped.
+# UNIT = the server label, per endpoint, over every campaign of every run dir given (siblings
+# such as runs/juneau + runs/juneau_expansion share an endpoint): one row per AI labels.csv row
+# whose (label type, pano_id, pano_x, pano_y) some campaign shipped (coverage_check.
+# replay_campaigns: bases, bands, per-type campaigns, partial sidecars; checked against the
+# records' label counts and each file's sha256). `campaigns` = every campaign that shipped the
+# key, `campaign` = the newest (live_positions' rule). Order: rank_score descending (the input's
+# column if present, else validator-ai's log(p_incorrect) - log(p_correct), clipped to
+# [1e-45, 1]), then labels with no prediction (failed crop) by detector confidence ascending.
+# Shipped keys with no server row -> not_on_server.csv (soft-deleted, overwritten, sent after
+# the pull); ranker rows that join nothing -> unmatched.csv; keys of a type the ranker does not
+# cover (Crosswalk today) are counted, not listed. < 90% of shipped keys on the server, or a
+# campaign sent after the pull, warns. Zero rows, a record problem or a changed file = exit 2,
+# nothing written. Outputs in runs/<name>/review_order/<endpoint host>/: review_list.csv,
+# not_on_server.csv, unmatched.csv (local) + summary.json, report.md (tracked). summary.json
+# keeps the records' state; --check says fresh (0) or stale (1). RE-RUN after every campaign
+# and after any overwrite run (label ids change, SidewalkWebpage#5707; --check cannot see an
+# overwrite). Richmond plumbing check, synthetic scores (2026-11-16): 12,962 of 12,962 shipped
+# keys joined the 2026-09-26 rawLabels pull; 9,579 rows were shipped by 2-3 campaigns.
+python scripts/review_order.py runs/richmond \
+    --endpoint https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano \
+    --ranker-run /path/to/validator-run --ranker-server sidewalk-richmond.cs.washington.edu --city richmond-va
+python scripts/review_order.py runs/richmond \
+    --endpoint https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano --check
 ```
 
 ## Crosswalk detector (second label type)
