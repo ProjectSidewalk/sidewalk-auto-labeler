@@ -21,8 +21,13 @@ Subcommands:
            sensitivity readings listed in the write-up. Output: <out>/gate.json.
   figures  redraw docs/figures/corner-prerater-185/ from the committed gate.json.
 
-  export, score   Stage 1 and 2 (VLM calls on the 381 judged corners). TODO: not
-                  implemented; those stages are not approved.
+  export   Stage 1 (approved 2026-11-15): the 381 judged corners of galleries 243 and 169 ->
+           <out>/stage1/requests.jsonl + requests.json, with each corner's aerial rendered as
+           the page draws it (stage1/aerial/, git-ignored, regenerable). The paid calls are
+           made by scripts/corner_vlm.py; logic in scripts/corner_prerater_s1.py.
+  score    Stage 1 answers -> <out>/stage1/score.json: present units caught, flag rate on
+           the blind-absent corners, per arm and per gallery, and the pre-registered kill.
+           Stage 1b and Stage 2 are not approved and not implemented.
 
 --check (on `gate`) recomputes everything and compares it with the committed gate.json,
 ignoring only the build time and the tool's git sha. Exit 1 on any difference.
@@ -604,6 +609,76 @@ def cmd_figures(args):
     return 0
 
 
+# ---------------------------------------------------------------------------- stage 1
+
+def cmd_export(args):
+    import corner_prerater_s1 as s1
+    st = Path(args.out) / 'stage1'
+    st.mkdir(parents=True, exist_ok=True)
+    reqs = s1.build_requests(REPO_ROOT, st, render=not args.no_render)
+    path = st / 'requests.jsonl'
+    s1.write_jsonl(path, reqs)
+    counts = {}
+    for q in reqs:
+        k = (q['gallery'], q['truth']['blind'])
+        counts[f'{k[0]}:{k[1]}'] = counts.get(f'{k[0]}:{k[1]}', 0) + 1
+    meta = {'schema': 'sidewalk-auto-labeler.corner_prerater.requests/1', 'issue': ISSUE,
+            'plan': 'corner-prerater-absence-2026-11-15.md, Stage 1',
+            'requests_sha256': s1.sha256_file(path), 'prompt_sha256': s1.prompt_sha256(),
+            'prompt_texts': s1.PROMPT_TEXTS, 'response_schema': s1.RESPONSE_SCHEMA,
+            'models': s1.MODELS, 'arms': {k: list(v) for k, v in s1.ARMS.items()},
+            'kill_arms': list(s1.KILL_ARMS), 'n_corners': len(reqs),
+            'n_crops': sum(len(q['crops']) for q in reqs), 'blind_counts': counts,
+            'smoke_keys': s1.smoke_keys(reqs),
+            'galleries': {g: {'bundle': v[0], 'items_sha256': v[1], 'verdicts_sha256': v[2],
+                              'rubric_version': v[3]} for g, v in s1.GALLERIES.items()},
+            'tool_git_sha': git_sha()}
+    (st / 'requests.json').write_bytes((json.dumps(meta, indent=1) + '\n').encode('utf-8'))
+    print(f"wrote {path}: {len(reqs)} corners, {meta['n_crops']} crops, {counts}")
+    return 0
+
+
+def cmd_score(args):
+    import corner_prerater_s1 as s1
+    st = Path(args.out) / 'stage1'
+    reqs = s1.read_jsonl(st / 'requests.jsonl')
+    resp = {}
+    for arm in s1.ARMS:
+        p = st / 'responses' / f'{arm}.jsonl'
+        resp[arm] = s1.read_jsonl(p) if p.exists() else []
+    scores, per_gallery, kinds = {}, {}, {}
+    for arm in s1.ARMS:
+        if not resp[arm]:
+            continue
+        ans = s1.arm_answers(reqs, resp[arm], arm)
+        scores[arm] = s1.score_arm(reqs, ans)
+        per_gallery[arm] = {g: s1.score_arm(reqs, ans, g) for g in s1.GALLERIES}
+        kinds[arm] = s1.kind_agreement(reqs, resp[arm], arm)
+    verdict, per_arm = s1.kill_verdict(scores)
+    out = {'schema': 'sidewalk-auto-labeler.corner_prerater.stage1_score/1', 'issue': ISSUE,
+           'kill_rule': {'arms': list(s1.KILL_ARMS), 'fail_if_units_caught_le': s1.KILL_MAX_UNITS,
+                         'fail_if_flag_rate_gt': s1.KILL_MAX_FLAG,
+                         'kill_if': 'every arm fails'},
+           'kill_verdict': verdict, 'per_arm': per_arm, 'scores': scores,
+           'per_gallery': per_gallery, 'absent_kind_agreement': kinds,
+           'replicate_change': (s1.replicate_change(reqs, resp['argon_multi_r1'],
+                                                    resp['argon_multi_r2'])
+                                if resp['argon_multi_r1'] and resp['argon_multi_r2'] else None),
+           'requests_sha256': s1.sha256_file(st / 'requests.jsonl'),
+           'responses_sha256': {a: s1.sha256_file(st / 'responses' / f'{a}.jsonl')
+                                for a in s1.ARMS if resp[a]}}
+    (st / 'score.json').write_bytes((json.dumps(out, indent=1) + '\n').encode('utf-8'))
+    for arm, s in scores.items():
+        p = s['present_blind']
+        fr = s['flag_rate']
+        print(f"{arm:16s} called {s['called']:3d}/{s['corners']}  units {p['units_caught']}/"
+              f"{p['units']}  corners {p['corners_caught']}/{p['corners']}  flag "
+              f"{'-' if fr is None else f'{fr:.3f}'} ({s['flagged']}/{s['absent_called']})  "
+              f"{per_arm.get(arm, '')}")
+    print(f'kill: {verdict}')
+    return 0
+
+
 # ------------------------------------------------------------------------------ main
 
 def main(argv=None):
@@ -624,7 +699,16 @@ def main(argv=None):
     f = sub.add_parser('figures', help='redraw the Stage 0 figure from gate.json')
     f.add_argument('--out', default='runs/vancouver/corner_prerater185')
     f.add_argument('--fig-dir', default=D_FIG)
+    e = sub.add_parser('export', help='Stage 1: write the requests for the 381 judged corners')
+    e.add_argument('--out', default='runs/vancouver/corner_prerater185')
+    e.add_argument('--no-render', action='store_true', help='skip re-rendering the aerials')
+    s_ = sub.add_parser('score', help='Stage 1: score the answers and apply the kill rule')
+    s_.add_argument('--out', default='runs/vancouver/corner_prerater185')
     args = ap.parse_args(argv)
+    if args.cmd == 'export':
+        return cmd_export(args)
+    if args.cmd == 'score':
+        return cmd_score(args)
     if args.cmd == 'gate':
         if args.extra_run is None:
             args.extra_run = list(D_EXTRA)
