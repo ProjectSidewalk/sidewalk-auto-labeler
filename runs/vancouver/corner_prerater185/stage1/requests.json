@@ -1,0 +1,134 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_prerater.requests/1",
+ "issue": "sidewalk-auto-labeler#185",
+ "plan": "corner-prerater-absence-2026-11-15.md, Stage 1",
+ "requests_sha256": "6680ea3748e2835ef92cd50abc0f3b6686345f1faf84d64b455e500cba3b4693",
+ "prompt_sha256": "f3fd9e7bcc4c9ce6a64f0e5afaf8053f8ed5a47050fa99bb2d13ed5691d39ca3",
+ "prompt_texts": {
+  "head": "You are rating one street corner for curb ramps, as a human rater does in a gallery. The rubric the human rater follows is below, verbatim.\n\n<rubric>\n{rubric}</rubric>\n\n",
+  "multi": "Rate corner {corner} of this unit only. The first image is the aerial: north up, about 70 m across. The solid white lines are the unit's legs, dashed white lines (if any) are phantom legs, the dashed white circle is the 30 m window, and each numbered white circle is a corner marker; corner {corner} is the one with the thick blue outline. The yellow numbered dots are the cameras of the crops that follow, each joined to corner {corner} by a dashed yellow line. Then come {n} crop(s) of street-level panoramas, each centred on corner {corner}'s corner point (the orange ring).\n",
+  "noaerial": "Rate corner {corner} of this unit only. No aerial is given. The images are {n} crop(s) of street-level panoramas, each centred on corner {corner}'s corner point (the orange ring).\n",
+  "single": "Rate corner {corner} of this unit only, from the one crop below; no aerial and no other crop is given. It is a crop of a street-level panorama centred on corner {corner}'s corner point (the orange ring).\n",
+  "caption": "Crop {i}: captured {date}, camera {dist:.1f} m from the corner point.",
+  "tail": "\nThe city inventory is not available. Answer in JSON: `verdict` is present, absent or cant_tell; `absent_kind` is curb_no_ramp, no_sidewalk or unspecified when the verdict is absent, and null otherwise."
+ },
+ "response_schema": {
+  "type": "object",
+  "properties": {
+   "verdict": {
+    "type": "string",
+    "enum": [
+     "present",
+     "absent",
+     "cant_tell"
+    ]
+   },
+   "absent_kind": {
+    "type": "string",
+    "enum": [
+     "curb_no_ramp",
+     "no_sidewalk",
+     "unspecified"
+    ],
+    "nullable": true
+   }
+  },
+  "required": [
+   "verdict",
+   "absent_kind"
+  ],
+  "propertyOrdering": [
+   "verdict",
+   "absent_kind"
+  ]
+ },
+ "models": {
+  "argon": "gemini-4-argon",
+  "flash": "gemini-3.8-flash"
+ },
+ "arms": {
+  "argon_multi_r1": [
+   "argon",
+   "multi",
+   1
+  ],
+  "argon_multi_r2": [
+   "argon",
+   "multi",
+   2
+  ],
+  "argon_noaerial": [
+   "argon",
+   "noaerial",
+   1
+  ],
+  "flash_multi": [
+   "flash",
+   "multi",
+   1
+  ],
+  "argon_single": [
+   "argon",
+   "single",
+   1
+  ],
+  "flash_single": [
+   "flash",
+   "single",
+   1
+  ]
+ },
+ "kill_arms": [
+  "argon_multi_r1",
+  "flash_multi",
+  "argon_single",
+  "flash_single"
+ ],
+ "n_corners": 381,
+ "n_crops": 1284,
+ "blind_counts": {
+  "g169:absent": 96,
+  "g169:cant_tell": 3,
+  "g169:present": 1,
+  "g243:absent": 269,
+  "g243:cant_tell": 4,
+  "g243:present": 8
+ },
+ "smoke_keys": [
+  "g169:vancouver:art:n11232645814#0",
+  "g169:vancouver:art:n47236827#3",
+  "g169:vancouver:res:n47252453#1",
+  "g169:vancouver:res:n47283068#3",
+  "g169:vancouver:res:n47287088#2",
+  "g169:vancouver:res:n47316039#0",
+  "g243:vancouver:art:n13059332216#1",
+  "g243:vancouver:art:n3627781133#0",
+  "g243:vancouver:art:n3699326114#1",
+  "g243:vancouver:art:n47245550#0",
+  "g243:vancouver:res:n2623620122#0",
+  "g243:vancouver:res:n3699326241#2",
+  "g243:vancouver:res:n47225933#1",
+  "g243:vancouver:res:n47236718#2",
+  "g243:vancouver:res:n47240587#1",
+  "g243:vancouver:res:n47267448#3",
+  "g243:vancouver:res:n47288915#1",
+  "g243:vancouver:res:n47299669#1",
+  "g243:vancouver:res:n47318252#3",
+  "g243:vancouver:res:n47397103#0"
+ ],
+ "galleries": {
+  "g243": {
+   "bundle": "../gallery243/runs/vancouver/corner_gallery243",
+   "items_sha256": "bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459",
+   "verdicts_sha256": "30a5008d125f143d6cc536e9787676310fc474b9c4cc127f59a419a16e2e80bd",
+   "rubric_version": 1
+  },
+  "g169": {
+   "bundle": "runs/vancouver/corner_gallery169_split",
+   "items_sha256": "e7648a487a92ef508d488e40d8425de333f0d3719d2412a72a80138e15e26910",
+   "verdicts_sha256": "da3f01147df9f502584d84c5b4b479c5eedc37ee0d7dce99d8f3e16fe88d0a64",
+   "rubric_version": 2
+  }
+ },
+ "tool_git_sha": "8857a426680167a1110467e01d2b37304c3f5ccd"
+}

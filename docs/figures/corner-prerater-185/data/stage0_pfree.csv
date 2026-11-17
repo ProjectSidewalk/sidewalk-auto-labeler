@@ -1,0 +1,304 @@
+curve,p,v,p_free
+p point,0.9897,0.0,0.99057
+p point,0.9897,0.01,0.98973
+p point,0.9897,0.02,0.98888
+p point,0.9897,0.03,0.98804
+p point,0.9897,0.04,0.98719
+p point,0.9897,0.05,0.98635
+p point,0.9897,0.06,0.98551
+p point,0.9897,0.07,0.98466
+p point,0.9897,0.08,0.98382
+p point,0.9897,0.09,0.98297
+p point,0.9897,0.1,0.98213
+p point,0.9897,0.11,0.98129
+p point,0.9897,0.12,0.98044
+p point,0.9897,0.13,0.9796
+p point,0.9897,0.14,0.97875
+p point,0.9897,0.15,0.97791
+p point,0.9897,0.16,0.97707
+p point,0.9897,0.17,0.97622
+p point,0.9897,0.18,0.97538
+p point,0.9897,0.19,0.97453
+p point,0.9897,0.2,0.97369
+p point,0.9897,0.21,0.97284
+p point,0.9897,0.22,0.972
+p point,0.9897,0.23,0.97116
+p point,0.9897,0.24,0.97031
+p point,0.9897,0.25,0.96947
+p point,0.9897,0.26,0.96862
+p point,0.9897,0.27,0.96778
+p point,0.9897,0.28,0.96694
+p point,0.9897,0.29,0.96609
+p point,0.9897,0.3,0.96525
+p point,0.9897,0.31,0.9644
+p point,0.9897,0.32,0.96356
+p point,0.9897,0.33,0.96272
+p point,0.9897,0.34,0.96187
+p point,0.9897,0.35,0.96103
+p point,0.9897,0.36,0.96018
+p point,0.9897,0.37,0.95934
+p point,0.9897,0.38,0.9585
+p point,0.9897,0.39,0.95765
+p point,0.9897,0.4,0.95681
+p point,0.9897,0.41,0.95596
+p point,0.9897,0.42,0.95512
+p point,0.9897,0.43,0.95428
+p point,0.9897,0.44,0.95343
+p point,0.9897,0.45,0.95259
+p point,0.9897,0.46,0.95174
+p point,0.9897,0.47,0.9509
+p point,0.9897,0.48,0.95006
+p point,0.9897,0.49,0.94921
+p point,0.9897,0.5,0.94837
+p point,0.9897,0.51,0.94752
+p point,0.9897,0.52,0.94668
+p point,0.9897,0.53,0.94584
+p point,0.9897,0.54,0.94499
+p point,0.9897,0.55,0.94415
+p point,0.9897,0.56,0.9433
+p point,0.9897,0.57,0.94246
+p point,0.9897,0.58,0.94162
+p point,0.9897,0.59,0.94077
+p point,0.9897,0.6,0.93993
+p point,0.9897,0.61,0.93908
+p point,0.9897,0.62,0.93824
+p point,0.9897,0.63,0.9374
+p point,0.9897,0.64,0.93655
+p point,0.9897,0.65,0.93571
+p point,0.9897,0.66,0.93486
+p point,0.9897,0.67,0.93402
+p point,0.9897,0.68,0.93318
+p point,0.9897,0.69,0.93233
+p point,0.9897,0.7,0.93149
+p point,0.9897,0.71,0.93064
+p point,0.9897,0.72,0.9298
+p point,0.9897,0.73,0.92896
+p point,0.9897,0.74,0.92811
+p point,0.9897,0.75,0.92727
+p point,0.9897,0.76,0.92642
+p point,0.9897,0.77,0.92558
+p point,0.9897,0.78,0.92474
+p point,0.9897,0.79,0.92389
+p point,0.9897,0.8,0.92305
+p point,0.9897,0.81,0.9222
+p point,0.9897,0.82,0.92136
+p point,0.9897,0.83,0.92052
+p point,0.9897,0.84,0.91967
+p point,0.9897,0.85,0.91883
+p point,0.9897,0.86,0.91798
+p point,0.9897,0.87,0.91714
+p point,0.9897,0.88,0.9163
+p point,0.9897,0.89,0.91545
+p point,0.9897,0.9,0.91461
+p point,0.9897,0.91,0.91376
+p point,0.9897,0.92,0.91292
+p point,0.9897,0.93,0.91208
+p point,0.9897,0.94,0.91123
+p point,0.9897,0.95,0.91039
+p point,0.9897,0.96,0.90954
+p point,0.9897,0.97,0.9087
+p point,0.9897,0.98,0.90786
+p point,0.9897,0.99,0.90701
+p point,0.9897,1.0,0.90617
+p Wilson lower,0.9439,0.0,0.94863
+p Wilson lower,0.9439,0.01,0.94779
+p Wilson lower,0.9439,0.02,0.94695
+p Wilson lower,0.9439,0.03,0.9461
+p Wilson lower,0.9439,0.04,0.94526
+p Wilson lower,0.9439,0.05,0.94441
+p Wilson lower,0.9439,0.06,0.94357
+p Wilson lower,0.9439,0.07,0.94273
+p Wilson lower,0.9439,0.08,0.94188
+p Wilson lower,0.9439,0.09,0.94104
+p Wilson lower,0.9439,0.1,0.94019
+p Wilson lower,0.9439,0.11,0.93935
+p Wilson lower,0.9439,0.12,0.93851
+p Wilson lower,0.9439,0.13,0.93766
+p Wilson lower,0.9439,0.14,0.93682
+p Wilson lower,0.9439,0.15,0.93597
+p Wilson lower,0.9439,0.16,0.93513
+p Wilson lower,0.9439,0.17,0.93429
+p Wilson lower,0.9439,0.18,0.93344
+p Wilson lower,0.9439,0.19,0.9326
+p Wilson lower,0.9439,0.2,0.93175
+p Wilson lower,0.9439,0.21,0.93091
+p Wilson lower,0.9439,0.22,0.93007
+p Wilson lower,0.9439,0.23,0.92922
+p Wilson lower,0.9439,0.24,0.92838
+p Wilson lower,0.9439,0.25,0.92753
+p Wilson lower,0.9439,0.26,0.92669
+p Wilson lower,0.9439,0.27,0.92585
+p Wilson lower,0.9439,0.28,0.925
+p Wilson lower,0.9439,0.29,0.92416
+p Wilson lower,0.9439,0.3,0.92331
+p Wilson lower,0.9439,0.31,0.92247
+p Wilson lower,0.9439,0.32,0.92163
+p Wilson lower,0.9439,0.33,0.92078
+p Wilson lower,0.9439,0.34,0.91994
+p Wilson lower,0.9439,0.35,0.91909
+p Wilson lower,0.9439,0.36,0.91825
+p Wilson lower,0.9439,0.37,0.91741
+p Wilson lower,0.9439,0.38,0.91656
+p Wilson lower,0.9439,0.39,0.91572
+p Wilson lower,0.9439,0.4,0.91487
+p Wilson lower,0.9439,0.41,0.91403
+p Wilson lower,0.9439,0.42,0.91319
+p Wilson lower,0.9439,0.43,0.91234
+p Wilson lower,0.9439,0.44,0.9115
+p Wilson lower,0.9439,0.45,0.91065
+p Wilson lower,0.9439,0.46,0.90981
+p Wilson lower,0.9439,0.47,0.90897
+p Wilson lower,0.9439,0.48,0.90812
+p Wilson lower,0.9439,0.49,0.90728
+p Wilson lower,0.9439,0.5,0.90643
+p Wilson lower,0.9439,0.51,0.90559
+p Wilson lower,0.9439,0.52,0.90475
+p Wilson lower,0.9439,0.53,0.9039
+p Wilson lower,0.9439,0.54,0.90306
+p Wilson lower,0.9439,0.55,0.90221
+p Wilson lower,0.9439,0.56,0.90137
+p Wilson lower,0.9439,0.57,0.90053
+p Wilson lower,0.9439,0.58,0.89968
+p Wilson lower,0.9439,0.59,0.89884
+p Wilson lower,0.9439,0.6,0.89799
+p Wilson lower,0.9439,0.61,0.89715
+p Wilson lower,0.9439,0.62,0.89631
+p Wilson lower,0.9439,0.63,0.89546
+p Wilson lower,0.9439,0.64,0.89462
+p Wilson lower,0.9439,0.65,0.89377
+p Wilson lower,0.9439,0.66,0.89293
+p Wilson lower,0.9439,0.67,0.89209
+p Wilson lower,0.9439,0.68,0.89124
+p Wilson lower,0.9439,0.69,0.8904
+p Wilson lower,0.9439,0.7,0.88955
+p Wilson lower,0.9439,0.71,0.88871
+p Wilson lower,0.9439,0.72,0.88787
+p Wilson lower,0.9439,0.73,0.88702
+p Wilson lower,0.9439,0.74,0.88618
+p Wilson lower,0.9439,0.75,0.88533
+p Wilson lower,0.9439,0.76,0.88449
+p Wilson lower,0.9439,0.77,0.88365
+p Wilson lower,0.9439,0.78,0.8828
+p Wilson lower,0.9439,0.79,0.88196
+p Wilson lower,0.9439,0.8,0.88111
+p Wilson lower,0.9439,0.81,0.88027
+p Wilson lower,0.9439,0.82,0.87943
+p Wilson lower,0.9439,0.83,0.87858
+p Wilson lower,0.9439,0.84,0.87774
+p Wilson lower,0.9439,0.85,0.87689
+p Wilson lower,0.9439,0.86,0.87605
+p Wilson lower,0.9439,0.87,0.87521
+p Wilson lower,0.9439,0.88,0.87436
+p Wilson lower,0.9439,0.89,0.87352
+p Wilson lower,0.9439,0.9,0.87267
+p Wilson lower,0.9439,0.91,0.87183
+p Wilson lower,0.9439,0.92,0.87099
+p Wilson lower,0.9439,0.93,0.87014
+p Wilson lower,0.9439,0.94,0.8693
+p Wilson lower,0.9439,0.95,0.86845
+p Wilson lower,0.9439,0.96,0.86761
+p Wilson lower,0.9439,0.97,0.86676
+p Wilson lower,0.9439,0.98,0.86592
+p Wilson lower,0.9439,0.99,0.86508
+p Wilson lower,0.9439,1.0,0.86423
+"p Wilson lower, can't tell as present",0.9016,0.0,0.90991
+"p Wilson lower, can't tell as present",0.9016,0.01,0.90906
+"p Wilson lower, can't tell as present",0.9016,0.02,0.90822
+"p Wilson lower, can't tell as present",0.9016,0.03,0.90737
+"p Wilson lower, can't tell as present",0.9016,0.04,0.90653
+"p Wilson lower, can't tell as present",0.9016,0.05,0.90569
+"p Wilson lower, can't tell as present",0.9016,0.06,0.90484
+"p Wilson lower, can't tell as present",0.9016,0.07,0.904
+"p Wilson lower, can't tell as present",0.9016,0.08,0.90315
+"p Wilson lower, can't tell as present",0.9016,0.09,0.90231
+"p Wilson lower, can't tell as present",0.9016,0.1,0.90146
+"p Wilson lower, can't tell as present",0.9016,0.11,0.90062
+"p Wilson lower, can't tell as present",0.9016,0.12,0.89978
+"p Wilson lower, can't tell as present",0.9016,0.13,0.89893
+"p Wilson lower, can't tell as present",0.9016,0.14,0.89809
+"p Wilson lower, can't tell as present",0.9016,0.15,0.89724
+"p Wilson lower, can't tell as present",0.9016,0.16,0.8964
+"p Wilson lower, can't tell as present",0.9016,0.17,0.89556
+"p Wilson lower, can't tell as present",0.9016,0.18,0.89471
+"p Wilson lower, can't tell as present",0.9016,0.19,0.89387
+"p Wilson lower, can't tell as present",0.9016,0.2,0.89302
+"p Wilson lower, can't tell as present",0.9016,0.21,0.89218
+"p Wilson lower, can't tell as present",0.9016,0.22,0.89134
+"p Wilson lower, can't tell as present",0.9016,0.23,0.89049
+"p Wilson lower, can't tell as present",0.9016,0.24,0.88965
+"p Wilson lower, can't tell as present",0.9016,0.25,0.8888
+"p Wilson lower, can't tell as present",0.9016,0.26,0.88796
+"p Wilson lower, can't tell as present",0.9016,0.27,0.88712
+"p Wilson lower, can't tell as present",0.9016,0.28,0.88627
+"p Wilson lower, can't tell as present",0.9016,0.29,0.88543
+"p Wilson lower, can't tell as present",0.9016,0.3,0.88458
+"p Wilson lower, can't tell as present",0.9016,0.31,0.88374
+"p Wilson lower, can't tell as present",0.9016,0.32,0.8829
+"p Wilson lower, can't tell as present",0.9016,0.33,0.88205
+"p Wilson lower, can't tell as present",0.9016,0.34,0.88121
+"p Wilson lower, can't tell as present",0.9016,0.35,0.88036
+"p Wilson lower, can't tell as present",0.9016,0.36,0.87952
+"p Wilson lower, can't tell as present",0.9016,0.37,0.87868
+"p Wilson lower, can't tell as present",0.9016,0.38,0.87783
+"p Wilson lower, can't tell as present",0.9016,0.39,0.87699
+"p Wilson lower, can't tell as present",0.9016,0.4,0.87614
+"p Wilson lower, can't tell as present",0.9016,0.41,0.8753
+"p Wilson lower, can't tell as present",0.9016,0.42,0.87446
+"p Wilson lower, can't tell as present",0.9016,0.43,0.87361
+"p Wilson lower, can't tell as present",0.9016,0.44,0.87277
+"p Wilson lower, can't tell as present",0.9016,0.45,0.87192
+"p Wilson lower, can't tell as present",0.9016,0.46,0.87108
+"p Wilson lower, can't tell as present",0.9016,0.47,0.87024
+"p Wilson lower, can't tell as present",0.9016,0.48,0.86939
+"p Wilson lower, can't tell as present",0.9016,0.49,0.86855
+"p Wilson lower, can't tell as present",0.9016,0.5,0.8677
+"p Wilson lower, can't tell as present",0.9016,0.51,0.86686
+"p Wilson lower, can't tell as present",0.9016,0.52,0.86602
+"p Wilson lower, can't tell as present",0.9016,0.53,0.86517
+"p Wilson lower, can't tell as present",0.9016,0.54,0.86433
+"p Wilson lower, can't tell as present",0.9016,0.55,0.86348
+"p Wilson lower, can't tell as present",0.9016,0.56,0.86264
+"p Wilson lower, can't tell as present",0.9016,0.57,0.8618
+"p Wilson lower, can't tell as present",0.9016,0.58,0.86095
+"p Wilson lower, can't tell as present",0.9016,0.59,0.86011
+"p Wilson lower, can't tell as present",0.9016,0.6,0.85926
+"p Wilson lower, can't tell as present",0.9016,0.61,0.85842
+"p Wilson lower, can't tell as present",0.9016,0.62,0.85758
+"p Wilson lower, can't tell as present",0.9016,0.63,0.85673
+"p Wilson lower, can't tell as present",0.9016,0.64,0.85589
+"p Wilson lower, can't tell as present",0.9016,0.65,0.85504
+"p Wilson lower, can't tell as present",0.9016,0.66,0.8542
+"p Wilson lower, can't tell as present",0.9016,0.67,0.85336
+"p Wilson lower, can't tell as present",0.9016,0.68,0.85251
+"p Wilson lower, can't tell as present",0.9016,0.69,0.85167
+"p Wilson lower, can't tell as present",0.9016,0.7,0.85082
+"p Wilson lower, can't tell as present",0.9016,0.71,0.84998
+"p Wilson lower, can't tell as present",0.9016,0.72,0.84914
+"p Wilson lower, can't tell as present",0.9016,0.73,0.84829
+"p Wilson lower, can't tell as present",0.9016,0.74,0.84745
+"p Wilson lower, can't tell as present",0.9016,0.75,0.8466
+"p Wilson lower, can't tell as present",0.9016,0.76,0.84576
+"p Wilson lower, can't tell as present",0.9016,0.77,0.84492
+"p Wilson lower, can't tell as present",0.9016,0.78,0.84407
+"p Wilson lower, can't tell as present",0.9016,0.79,0.84323
+"p Wilson lower, can't tell as present",0.9016,0.8,0.84238
+"p Wilson lower, can't tell as present",0.9016,0.81,0.84154
+"p Wilson lower, can't tell as present",0.9016,0.82,0.8407
+"p Wilson lower, can't tell as present",0.9016,0.83,0.83985
+"p Wilson lower, can't tell as present",0.9016,0.84,0.83901
+"p Wilson lower, can't tell as present",0.9016,0.85,0.83816
+"p Wilson lower, can't tell as present",0.9016,0.86,0.83732
+"p Wilson lower, can't tell as present",0.9016,0.87,0.83648
+"p Wilson lower, can't tell as present",0.9016,0.88,0.83563
+"p Wilson lower, can't tell as present",0.9016,0.89,0.83479
+"p Wilson lower, can't tell as present",0.9016,0.9,0.83394
+"p Wilson lower, can't tell as present",0.9016,0.91,0.8331
+"p Wilson lower, can't tell as present",0.9016,0.92,0.83226
+"p Wilson lower, can't tell as present",0.9016,0.93,0.83141
+"p Wilson lower, can't tell as present",0.9016,0.94,0.83057
+"p Wilson lower, can't tell as present",0.9016,0.95,0.82972
+"p Wilson lower, can't tell as present",0.9016,0.96,0.82888
+"p Wilson lower, can't tell as present",0.9016,0.97,0.82804
+"p Wilson lower, can't tell as present",0.9016,0.98,0.82719
+"p Wilson lower, can't tell as present",0.9016,0.99,0.82635
+"p Wilson lower, can't tell as present",0.9016,1.0,0.8255

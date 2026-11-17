@@ -1,0 +1,249 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_prerater.gate/1",
+ "issue": "sidewalk-auto-labeler#185",
+ "plan": "corner-prerater-absence-2026-11-15.md, Stage 0",
+ "gate": {
+  "rule": "P_free(p Wilson lower, v Wilson upper) >= 0.90",
+  "bar": 0.9,
+  "p_free_worst": 0.9288,
+  "p_free_point": 0.9812,
+  "verdict": "PASS"
+ },
+ "counts": {
+  "proposed": 3070,
+  "excluded_inventory": 283,
+  "excluded_by_class": {
+   "available": 261,
+   "no_available": 22
+  },
+  "table": "split",
+  "arm": "fusion/primary",
+  "na_read": "discount"
+ },
+ "p": {
+  "source": "gallery 169 split, blind, sample.csv",
+  "tally": {
+   "absent": 96,
+   "present": 1,
+   "cant_tell": 3,
+   "unrated": 0
+  },
+  "k": 96,
+  "n": 97,
+  "share": 0.9897,
+  "wilson95": [
+   0.9439,
+   0.9982
+  ]
+ },
+ "v": {
+  "source": "gallery 243, fusion-absent corners with an Available point, blind",
+  "tally": {
+   "absent": 40,
+   "present": 5,
+   "cant_tell": 1,
+   "unrated": 0
+  },
+  "k": 5,
+  "n": 45,
+  "share": 0.1111,
+  "wilson95": [
+   0.0484,
+   0.235
+  ],
+  "any_excluding_class_tally": {
+   "absent": 40,
+   "present": 5,
+   "cant_tell": 1,
+   "unrated": 0
+  }
+ },
+ "over_merge_filter": {
+  "rule": "an Available point strictly nearer to a fused site of a present adjacent corner than to its own corner point is reassigned; a corner leaves when all its Available points do and no other excluding class holds it",
+  "judged": {
+   "corners": 46,
+   "units": 35,
+   "units_with_a_present_corner": 0,
+   "leave": 0,
+   "tally_after": {
+    "absent": 40,
+    "present": 5,
+    "cant_tell": 1,
+    "unrated": 0
+   },
+   "v_after": 0.1111,
+   "v_after_wilson95": [
+    0.0484,
+    0.235
+   ]
+  },
+  "split_pool": {
+   "with_available": 261,
+   "adjacent_present": 200,
+   "any_point_moved": 16,
+   "leave": 15,
+   "leave_keys": [
+    "split:vancouver:res:n47207302#0",
+    "split:vancouver:art:n47236983#1",
+    "split:vancouver:res:n47242510#0",
+    "split:vancouver:res:n47254636#2",
+    "split:vancouver:art:n47259556#0",
+    "split:vancouver:art:n47267635#2",
+    "split:vancouver:res:n47277984#3",
+    "split:vancouver:art:n47301216#0",
+    "split:vancouver:res:n959123522#3",
+    "split:vancouver:art:n1212649472#1",
+    "split:vancouver:res:n1255846315#1",
+    "split:vancouver:res:n1326714813#0",
+    "split:vancouver:art:n1789091344#0",
+    "split:vancouver:art:n3674373700#1",
+    "split:vancouver:sig:n4531099386#0"
+   ]
+  }
+ },
+ "cant_tell_against": {
+  "p_wilson_lower": 0.9016,
+  "v_wilson_upper": 0.2567
+ },
+ "breakeven_v": {
+  "at_p_lower": 0.5762,
+  "at_p_point": 1.073
+ },
+ "sidewalk": {
+  "radius_m": 10.0,
+  "keep": {
+   "STATUS": [
+    "Available",
+    "Pathway",
+    "Private"
+   ]
+  },
+  "excluded_with_sidewalk": 250,
+  "proposals_recounted": 3070
+ },
+ "readings": [
+  {
+   "reading": "gate: worst case (p Wilson lower, v Wilson upper)",
+   "p": 0.9439,
+   "v": 0.235,
+   "n_prop": 3070,
+   "n_excl": 283,
+   "p_free": 0.9288,
+   "clears_bar": true
+  },
+  {
+   "reading": "point estimates",
+   "p": 0.9897,
+   "v": 0.1111,
+   "n_prop": 3070,
+   "n_excl": 283,
+   "p_free": 0.9812,
+   "clears_bar": true
+  },
+  {
+   "reading": "p point, v = 1 (every removed corner a ramp)",
+   "p": 0.9897,
+   "v": 1.0,
+   "n_prop": 3070,
+   "n_excl": 283,
+   "p_free": 0.9062,
+   "clears_bar": true
+  },
+  {
+   "reading": "can't tell read against the rule (p = 96/100, v = 6/46), Wilson worst",
+   "p": 0.9016,
+   "v": 0.2567,
+   "n_prop": 3070,
+   "n_excl": 283,
+   "p_free": 0.8883,
+   "clears_bar": false
+  },
+  {
+   "reading": "Available-less removed corners at v = 1, rest at v Wilson upper",
+   "p": 0.9439,
+   "v": 0.2945,
+   "n_prop": 3070,
+   "n_excl": 283,
+   "p_free": 0.9238,
+   "clears_bar": true
+  },
+  {
+   "reading": "over-merge filter: reassigned corners counted at p, rest at filtered v Wilson upper",
+   "p": 0.9439,
+   "v": 0.235,
+   "n_prop": 3085,
+   "n_excl": 268,
+   "p_free": 0.9296,
+   "clears_bar": true
+  },
+  {
+   "reading": "only removed corners the sidewalk rule keeps (worst case)",
+   "p": 0.9439,
+   "v": 0.235,
+   "n_prop": 3070,
+   "n_excl": 250,
+   "p_free": 0.9304,
+   "clears_bar": true
+  }
+ ],
+ "inputs": {
+  "split_corners": {
+   "path": "../corner169/runs/vancouver/corner_inventory169_split/corners_full.jsonl",
+   "sha256": "b50da32e1bb0b86f5d93fcd0de0cead1be620d8ac39f309d3abd2461f87ce9fc"
+  },
+  "old_corners": {
+   "path": "../posdetect241/runs/vancouver/corner_inventory_posdetect241/corners_full.jsonl",
+   "sha256": "ec20606098d0e8b34113b4b328e57d3737b7669d01a37f1d6d722faab4681f8d"
+  },
+  "sites": {
+   "path": "../../sal-vancouver/runs/vancouver/sites.jsonl",
+   "sha256": "9d1fc51ac2867d6247bdf2e0b1c6b5c9fccbbf9a566771f0222bb2728055c914"
+  },
+  "extra:vancouver_posdetect241:sites": {
+   "path": "../posdetect241/runs/vancouver_posdetect241/sites.jsonl",
+   "sha256": "d38c6fa08f9774de842c77c72ad51346daebb918270c90b319b662bd8534320b"
+  },
+  "extra:vancouver_posdetect241_gsv:sites": {
+   "path": "../posdetect241/runs/vancouver_posdetect241_gsv/sites.jsonl",
+   "sha256": "df0dec5c6c9456248a7ee1aee7c4e3e7c4c50643780a5105dd7451b3e7e7614d"
+  },
+  "inventory": {
+   "path": "../../sal-vancouver/runs/vancouver/inventory_oracle/inventory.geojson",
+   "sha256": "c4d2497995f7b6261333c3859a668348cd62a36367593cef2dfdfa6b7e020d87"
+  },
+  "g243_items": {
+   "path": "../gallery243/runs/vancouver/corner_gallery243/items.jsonl",
+   "sha256": "bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459"
+  },
+  "g243_verdicts": {
+   "path": "../gallery243/runs/vancouver/corner_gallery243/verdicts__jonf.json",
+   "sha256": "30a5008d125f143d6cc536e9787676310fc474b9c4cc127f59a419a16e2e80bd"
+  },
+  "g169_items": {
+   "path": "runs/vancouver/corner_gallery169_split/items.jsonl",
+   "sha256": "e7648a487a92ef508d488e40d8425de333f0d3719d2412a72a80138e15e26910"
+  },
+  "g169_verdicts": {
+   "path": "runs/vancouver/corner_gallery169_split/verdicts__jonf.json",
+   "sha256": "da3f01147df9f502584d84c5b4b479c5eedc37ee0d7dce99d8f3e16fe88d0a64"
+  },
+  "g169_sample": {
+   "path": "runs/vancouver/corner_labels169_split/na_discount_sw/sample.csv",
+   "sha256": "14911083669d3fa9793754b926e85cd7d1a0348218d82b44acf1f91c0eaf04ce"
+  },
+  "labels_counts": {
+   "path": "runs/vancouver/corner_labels169_split/na_discount_sw/counts.csv",
+   "sha256": "790e379b65b75903acecd34951a916eab0dc0f7a51fa257ba6132532d78c8b4e"
+  },
+  "labels_unlabeled": {
+   "path": "runs/vancouver/corner_labels169_split/na_discount_sw/unlabeled.csv",
+   "sha256": "b0a73c10c986873ec50400b6b94fa165986d7fbe43ad2b623161ad254282d80b"
+  },
+  "sidewalks": {
+   "path": "../corner169/runs/vancouver/corner_labels169/sidewalks/cov_sidewalks.geojson",
+   "sha256": "11503ed4cd7def77749c8443143f2bce73e556e8543fc17d1981a514f7bf0eff"
+  }
+ },
+ "built_at": "2026-11-15T19:59:36+00:00",
+ "tool_git_sha": "82b47cd347a410ba1a651b6c98d06e69fe4a16cd"
+}

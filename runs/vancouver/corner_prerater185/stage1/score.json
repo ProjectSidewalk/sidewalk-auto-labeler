@@ -1,0 +1,1412 @@
+{
+ "schema": "sidewalk-auto-labeler.corner_prerater.stage1_score/1",
+ "issue": "sidewalk-auto-labeler#185",
+ "kill_rule": {
+  "arms": [
+   "argon_multi_r1",
+   "flash_multi",
+   "argon_single",
+   "flash_single"
+  ],
+  "fail_if_units_caught_le": 2,
+  "fail_if_flag_rate_gt": 0.1,
+  "kill_if": "every arm fails"
+ },
+ "kill_verdict": "KILL (every arm fails)",
+ "per_arm": {
+  "argon_multi_r1": "fail: catches 1 of 6 units (<= 2); flag rate 0.104 > 0.1",
+  "flash_multi": "fail: catches 1 of 6 units (<= 2)",
+  "argon_single": "fail: catches 1 of 6 units (<= 2)",
+  "flash_single": "fail: catches 1 of 6 units (<= 2)"
+ },
+ "scores": {
+  "argon_multi_r1": {
+   "corners": 381,
+   "called": 381,
+   "answers": {
+    "absent": 340,
+    "cant_tell": 30,
+    "present": 11
+   },
+   "absent": 365,
+   "absent_called": 365,
+   "flagged": 38,
+   "flag_rate": 0.10410958904109589,
+   "flag_wilson95": [
+    0.0767933498160106,
+    0.13967247182666745
+   ],
+   "flag_present": 9,
+   "flag_cant_tell": 29,
+   "flag_no_answer": 0,
+   "present_blind": {
+    "units": 6,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.03005258587173032,
+     0.563509436563646
+    ],
+    "corners": 9,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final": {
+    "units": 4,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ],
+    "corners": 6,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_blind_no_live": {
+    "units": 5,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.03622316096978745,
+     0.6244717358814613
+    ],
+    "corners": 8,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final_no_live": {
+    "units": 3,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.0614903152761605,
+     0.7923450448735121
+    ],
+    "corners": 5,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "kappa_blind": 0.045296838858904745
+  },
+  "argon_multi_r2": {
+   "corners": 381,
+   "called": 381,
+   "answers": {
+    "absent": 340,
+    "cant_tell": 29,
+    "present": 12
+   },
+   "absent": 365,
+   "absent_called": 365,
+   "flagged": 38,
+   "flag_rate": 0.10410958904109589,
+   "flag_wilson95": [
+    0.0767933498160106,
+    0.13967247182666745
+   ],
+   "flag_present": 10,
+   "flag_cant_tell": 28,
+   "flag_no_answer": 0,
+   "present_blind": {
+    "units": 6,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.03005258587173032,
+     0.563509436563646
+    ],
+    "corners": 9,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final": {
+    "units": 4,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ],
+    "corners": 6,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_blind_no_live": {
+    "units": 5,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.03622316096978745,
+     0.6244717358814613
+    ],
+    "corners": 8,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final_no_live": {
+    "units": 3,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.0614903152761605,
+     0.7923450448735121
+    ],
+    "corners": 5,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "kappa_blind": 0.04520481927710791
+  },
+  "argon_noaerial": {
+   "corners": 381,
+   "called": 381,
+   "answers": {
+    "absent": 353,
+    "cant_tell": 13,
+    "present": 15
+   },
+   "absent": 365,
+   "absent_called": 365,
+   "flagged": 22,
+   "flag_rate": 0.06027397260273973,
+   "flag_wilson95": [
+    0.04013727887646315,
+    0.08957043305190934
+   ],
+   "flag_present": 10,
+   "flag_cant_tell": 12,
+   "flag_no_answer": 0,
+   "present_blind": {
+    "units": 6,
+    "units_caught": 3,
+    "units_wilson95": [
+     0.18761280689940868,
+     0.8123871931005913
+    ],
+    "corners": 9,
+    "corners_caught": 3,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g169:vancouver:res:n47255336",
+     "g243:vancouver:art:n47337266",
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final": {
+    "units": 4,
+    "units_caught": 2,
+    "units_wilson95": [
+     0.15003570882017148,
+     0.8499642911798285
+    ],
+    "corners": 6,
+    "corners_caught": 2,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:art:n47337266",
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_blind_no_live": {
+    "units": 5,
+    "units_caught": 3,
+    "units_wilson95": [
+     0.23071993220883708,
+     0.8823817688407467
+    ],
+    "corners": 8,
+    "corners_caught": 3,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g169:vancouver:res:n47255336",
+     "g243:vancouver:art:n47337266",
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final_no_live": {
+    "units": 3,
+    "units_caught": 2,
+    "units_wilson95": [
+     0.2076549551264879,
+     0.9385096847238394
+    ],
+    "corners": 5,
+    "corners_caught": 2,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:art:n47337266",
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "kappa_blind": 0.19490366687383465
+  },
+  "flash_multi": {
+   "corners": 381,
+   "called": 381,
+   "answers": {
+    "absent": 352,
+    "cant_tell": 27,
+    "present": 2
+   },
+   "absent": 365,
+   "absent_called": 365,
+   "flagged": 27,
+   "flag_rate": 0.07397260273972603,
+   "flag_wilson95": [
+    0.05133317007242594,
+    0.10548645114166702
+   ],
+   "flag_present": 0,
+   "flag_cant_tell": 27,
+   "flag_no_answer": 0,
+   "present_blind": {
+    "units": 6,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.03005258587173032,
+     0.563509436563646
+    ],
+    "corners": 9,
+    "corners_caught": 2,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final": {
+    "units": 4,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ],
+    "corners": 6,
+    "corners_caught": 2,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_blind_no_live": {
+    "units": 5,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.03622316096978745,
+     0.6244717358814613
+    ],
+    "corners": 8,
+    "corners_caught": 2,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final_no_live": {
+    "units": 3,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.0614903152761605,
+     0.7923450448735121
+    ],
+    "corners": 5,
+    "corners_caught": 2,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "kappa_blind": 0.05177856015539639
+  },
+  "argon_single": {
+   "corners": 381,
+   "called": 381,
+   "answers": {
+    "absent": 340,
+    "cant_tell": 18,
+    "present": 23
+   },
+   "absent": 365,
+   "absent_called": 365,
+   "flagged": 36,
+   "flag_rate": 0.09863013698630137,
+   "flag_wilson95": [
+    0.07209538466404992,
+    0.13352567326433992
+   ],
+   "flag_present": 19,
+   "flag_cant_tell": 17,
+   "flag_no_answer": 0,
+   "present_blind": {
+    "units": 6,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.03005258587173032,
+     0.563509436563646
+    ],
+    "corners": 9,
+    "corners_caught": 2,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final": {
+    "units": 4,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ],
+    "corners": 6,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_blind_no_live": {
+    "units": 5,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.03622316096978745,
+     0.6244717358814613
+    ],
+    "corners": 8,
+    "corners_caught": 2,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final_no_live": {
+    "units": 3,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.0614903152761605,
+     0.7923450448735121
+    ],
+    "corners": 5,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "kappa_blind": 0.0993342338865308
+  },
+  "flash_single": {
+   "corners": 381,
+   "called": 381,
+   "answers": {
+    "absent": 346,
+    "cant_tell": 32,
+    "present": 3
+   },
+   "absent": 365,
+   "absent_called": 365,
+   "flagged": 32,
+   "flag_rate": 0.08767123287671233,
+   "flag_wilson95": [
+    0.06278509463912889,
+    0.12114643586068456
+   ],
+   "flag_present": 2,
+   "flag_cant_tell": 30,
+   "flag_no_answer": 0,
+   "present_blind": {
+    "units": 6,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.03005258587173032,
+     0.563509436563646
+    ],
+    "corners": 9,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final": {
+    "units": 4,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ],
+    "corners": 6,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_blind_no_live": {
+    "units": 5,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.03622316096978745,
+     0.6244717358814613
+    ],
+    "corners": 8,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "present_final_no_live": {
+    "units": 3,
+    "units_caught": 1,
+    "units_wilson95": [
+     0.0614903152761605,
+     0.7923450448735121
+    ],
+    "corners": 5,
+    "corners_caught": 1,
+    "corners_cant_tell": 0,
+    "caught_units": [
+     "g243:vancouver:res:n47231852"
+    ]
+   },
+   "kappa_blind": 0.07921589688506953
+  }
+ },
+ "per_gallery": {
+  "argon_multi_r1": {
+   "g243": {
+    "corners": 281,
+    "called": 281,
+    "answers": {
+     "absent": 249,
+     "cant_tell": 26,
+     "present": 6
+    },
+    "absent": 269,
+    "absent_called": 269,
+    "flagged": 30,
+    "flag_rate": 0.11152416356877323,
+    "flag_wilson95": [
+     0.07924402017157692,
+     0.15474375881813723
+    ],
+    "flag_present": 5,
+    "flag_cant_tell": 25,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 5,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.03622316096978745,
+      0.6244717358814613
+     ],
+     "corners": 8,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final": {
+     "units": 4,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.045586062644636216,
+      0.6993639475573634
+     ],
+     "corners": 6,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_blind_no_live": {
+     "units": 4,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.045586062644636216,
+      0.6993639475573634
+     ],
+     "corners": 7,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final_no_live": {
+     "units": 3,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.0614903152761605,
+      0.7923450448735121
+     ],
+     "corners": 5,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "kappa_blind": 0.04971254649983077
+   },
+   "g169": {
+    "corners": 100,
+    "called": 100,
+    "answers": {
+     "absent": 91,
+     "cant_tell": 4,
+     "present": 5
+    },
+    "absent": 96,
+    "absent_called": 96,
+    "flagged": 8,
+    "flag_rate": 0.08333333333333333,
+    "flag_wilson95": [
+     0.04283011146065737,
+     0.1559006781100226
+    ],
+    "flag_present": 4,
+    "flag_cant_tell": 4,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 1,
+     "units_caught": 0,
+     "units_wilson95": [
+      0.0,
+      0.7934567085261071
+     ],
+     "corners": 1,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_final": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_blind_no_live": {
+     "units": 1,
+     "units_caught": 0,
+     "units_wilson95": [
+      0.0,
+      0.7934567085261071
+     ],
+     "corners": 1,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_final_no_live": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "kappa_blind": 0.03769045709703317
+   }
+  },
+  "argon_multi_r2": {
+   "g243": {
+    "corners": 281,
+    "called": 281,
+    "answers": {
+     "absent": 251,
+     "cant_tell": 25,
+     "present": 5
+    },
+    "absent": 269,
+    "absent_called": 269,
+    "flagged": 28,
+    "flag_rate": 0.10408921933085502,
+    "flag_wilson95": [
+     0.07300171084773507,
+     0.14632554716570567
+    ],
+    "flag_present": 4,
+    "flag_cant_tell": 24,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 5,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.03622316096978745,
+      0.6244717358814613
+     ],
+     "corners": 8,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final": {
+     "units": 4,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.045586062644636216,
+      0.6993639475573634
+     ],
+     "corners": 6,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_blind_no_live": {
+     "units": 4,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.045586062644636216,
+      0.6993639475573634
+     ],
+     "corners": 7,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final_no_live": {
+     "units": 3,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.0614903152761605,
+      0.7923450448735121
+     ],
+     "corners": 5,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "kappa_blind": 0.055211466996991636
+   },
+   "g169": {
+    "corners": 100,
+    "called": 100,
+    "answers": {
+     "absent": 89,
+     "cant_tell": 4,
+     "present": 7
+    },
+    "absent": 96,
+    "absent_called": 96,
+    "flagged": 10,
+    "flag_rate": 0.10416666666666667,
+    "flag_wilson95": [
+     0.0575709119553797,
+     0.1812233381367663
+    ],
+    "flag_present": 6,
+    "flag_cant_tell": 4,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 1,
+     "units_caught": 0,
+     "units_wilson95": [
+      0.0,
+      0.7934567085261071
+     ],
+     "corners": 1,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_final": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_blind_no_live": {
+     "units": 1,
+     "units_caught": 0,
+     "units_wilson95": [
+      0.0,
+      0.7934567085261071
+     ],
+     "corners": 1,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_final_no_live": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "kappa_blind": 0.025748086290884032
+   }
+  },
+  "argon_noaerial": {
+   "g243": {
+    "corners": 281,
+    "called": 281,
+    "answers": {
+     "absent": 263,
+     "cant_tell": 10,
+     "present": 8
+    },
+    "absent": 269,
+    "absent_called": 269,
+    "flagged": 15,
+    "flag_rate": 0.055762081784386616,
+    "flag_wilson95": [
+     0.034080025769991806,
+     0.08995384589767177
+    ],
+    "flag_present": 6,
+    "flag_cant_tell": 9,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 5,
+     "units_caught": 2,
+     "units_wilson95": [
+      0.1176182311592533,
+      0.769280067791163
+     ],
+     "corners": 8,
+     "corners_caught": 2,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:art:n47337266",
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final": {
+     "units": 4,
+     "units_caught": 2,
+     "units_wilson95": [
+      0.15003570882017148,
+      0.8499642911798285
+     ],
+     "corners": 6,
+     "corners_caught": 2,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:art:n47337266",
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_blind_no_live": {
+     "units": 4,
+     "units_caught": 2,
+     "units_wilson95": [
+      0.15003570882017148,
+      0.8499642911798285
+     ],
+     "corners": 7,
+     "corners_caught": 2,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:art:n47337266",
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final_no_live": {
+     "units": 3,
+     "units_caught": 2,
+     "units_wilson95": [
+      0.2076549551264879,
+      0.9385096847238394
+     ],
+     "corners": 5,
+     "corners_caught": 2,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:art:n47337266",
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "kappa_blind": 0.16843403205918672
+   },
+   "g169": {
+    "corners": 100,
+    "called": 100,
+    "answers": {
+     "absent": 90,
+     "cant_tell": 3,
+     "present": 7
+    },
+    "absent": 96,
+    "absent_called": 96,
+    "flagged": 7,
+    "flag_rate": 0.07291666666666667,
+    "flag_wilson95": [
+     0.0357671262379895,
+     0.14293193307195748
+    ],
+    "flag_present": 4,
+    "flag_cant_tell": 3,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 1,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.20654329147389294,
+      1.0
+     ],
+     "corners": 1,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g169:vancouver:res:n47255336"
+     ]
+    },
+    "present_final": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_blind_no_live": {
+     "units": 1,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.20654329147389294,
+      1.0
+     ],
+     "corners": 1,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g169:vancouver:res:n47255336"
+     ]
+    },
+    "present_final_no_live": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "kappa_blind": 0.25595238095238093
+   }
+  },
+  "flash_multi": {
+   "g243": {
+    "corners": 281,
+    "called": 281,
+    "answers": {
+     "absent": 258,
+     "cant_tell": 21,
+     "present": 2
+    },
+    "absent": 269,
+    "absent_called": 269,
+    "flagged": 21,
+    "flag_rate": 0.07806691449814127,
+    "flag_wilson95": [
+     0.05162465122184356,
+     0.11639078337464026
+    ],
+    "flag_present": 0,
+    "flag_cant_tell": 21,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 5,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.03622316096978745,
+      0.6244717358814613
+     ],
+     "corners": 8,
+     "corners_caught": 2,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final": {
+     "units": 4,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.045586062644636216,
+      0.6993639475573634
+     ],
+     "corners": 6,
+     "corners_caught": 2,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_blind_no_live": {
+     "units": 4,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.045586062644636216,
+      0.6993639475573634
+     ],
+     "corners": 7,
+     "corners_caught": 2,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final_no_live": {
+     "units": 3,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.0614903152761605,
+      0.7923450448735121
+     ],
+     "corners": 5,
+     "corners_caught": 2,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "kappa_blind": 0.07907812665186617
+   },
+   "g169": {
+    "corners": 100,
+    "called": 100,
+    "answers": {
+     "absent": 94,
+     "cant_tell": 6
+    },
+    "absent": 96,
+    "absent_called": 96,
+    "flagged": 6,
+    "flag_rate": 0.0625,
+    "flag_wilson95": [
+     0.028956279687604516,
+     0.12971104936160943
+    ],
+    "flag_present": 0,
+    "flag_cant_tell": 6,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 1,
+     "units_caught": 0,
+     "units_wilson95": [
+      0.0,
+      0.7934567085261071
+     ],
+     "corners": 1,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_final": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_blind_no_live": {
+     "units": 1,
+     "units_caught": 0,
+     "units_wilson95": [
+      0.0,
+      0.7934567085261071
+     ],
+     "corners": 1,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_final_no_live": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "kappa_blind": -0.04384133611691004
+   }
+  },
+  "argon_single": {
+   "g243": {
+    "corners": 281,
+    "called": 281,
+    "answers": {
+     "absent": 257,
+     "cant_tell": 15,
+     "present": 9
+    },
+    "absent": 269,
+    "absent_called": 269,
+    "flagged": 21,
+    "flag_rate": 0.07806691449814127,
+    "flag_wilson95": [
+     0.05162465122184356,
+     0.11639078337464026
+    ],
+    "flag_present": 7,
+    "flag_cant_tell": 14,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 5,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.03622316096978745,
+      0.6244717358814613
+     ],
+     "corners": 8,
+     "corners_caught": 2,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final": {
+     "units": 4,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.045586062644636216,
+      0.6993639475573634
+     ],
+     "corners": 6,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_blind_no_live": {
+     "units": 4,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.045586062644636216,
+      0.6993639475573634
+     ],
+     "corners": 7,
+     "corners_caught": 2,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final_no_live": {
+     "units": 3,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.0614903152761605,
+      0.7923450448735121
+     ],
+     "corners": 5,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "kappa_blind": 0.13056930693069305
+   },
+   "g169": {
+    "corners": 100,
+    "called": 100,
+    "answers": {
+     "absent": 83,
+     "cant_tell": 3,
+     "present": 14
+    },
+    "absent": 96,
+    "absent_called": 96,
+    "flagged": 15,
+    "flag_rate": 0.15625,
+    "flag_wilson95": [
+     0.09703624472178266,
+     0.2419166566740283
+    ],
+    "flag_present": 12,
+    "flag_cant_tell": 3,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 1,
+     "units_caught": 0,
+     "units_wilson95": [
+      0.0,
+      0.7934567085261071
+     ],
+     "corners": 1,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_final": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_blind_no_live": {
+     "units": 1,
+     "units_caught": 0,
+     "units_wilson95": [
+      0.0,
+      0.7934567085261071
+     ],
+     "corners": 1,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_final_no_live": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "kappa_blind": 0.0542558486809359
+   }
+  },
+  "flash_single": {
+   "g243": {
+    "corners": 281,
+    "called": 281,
+    "answers": {
+     "absent": 259,
+     "cant_tell": 21,
+     "present": 1
+    },
+    "absent": 269,
+    "absent_called": 269,
+    "flagged": 20,
+    "flag_rate": 0.07434944237918216,
+    "flag_wilson95": [
+     0.048642058719675745,
+     0.11204311538867137
+    ],
+    "flag_present": 0,
+    "flag_cant_tell": 20,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 5,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.03622316096978745,
+      0.6244717358814613
+     ],
+     "corners": 8,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final": {
+     "units": 4,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.045586062644636216,
+      0.6993639475573634
+     ],
+     "corners": 6,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_blind_no_live": {
+     "units": 4,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.045586062644636216,
+      0.6993639475573634
+     ],
+     "corners": 7,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "present_final_no_live": {
+     "units": 3,
+     "units_caught": 1,
+     "units_wilson95": [
+      0.0614903152761605,
+      0.7923450448735121
+     ],
+     "corners": 5,
+     "corners_caught": 1,
+     "corners_cant_tell": 0,
+     "caught_units": [
+      "g243:vancouver:res:n47231852"
+     ]
+    },
+    "kappa_blind": 0.08349641226353603
+   },
+   "g169": {
+    "corners": 100,
+    "called": 100,
+    "answers": {
+     "absent": 87,
+     "cant_tell": 11,
+     "present": 2
+    },
+    "absent": 96,
+    "absent_called": 96,
+    "flagged": 12,
+    "flag_rate": 0.125,
+    "flag_wilson95": [
+     0.07297128992395069,
+     0.2058864206896613
+    ],
+    "flag_present": 2,
+    "flag_cant_tell": 10,
+    "flag_no_answer": 0,
+    "present_blind": {
+     "units": 1,
+     "units_caught": 0,
+     "units_wilson95": [
+      0.0,
+      0.7934567085261071
+     ],
+     "corners": 1,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_final": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_blind_no_live": {
+     "units": 1,
+     "units_caught": 0,
+     "units_wilson95": [
+      0.0,
+      0.7934567085261071
+     ],
+     "corners": 1,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "present_final_no_live": {
+     "units": 0,
+     "units_caught": 0,
+     "units_wilson95": null,
+     "corners": 0,
+     "corners_caught": 0,
+     "corners_cant_tell": 0,
+     "caught_units": []
+    },
+    "kappa_blind": 0.07005579665220073
+   }
+  }
+ },
+ "absent_kind_agreement": {
+  "argon_multi_r1": {
+   "both": 141,
+   "model_only": 54,
+   "neither": 129,
+   "rater_only": 3
+  },
+  "argon_multi_r2": {
+   "both": 141,
+   "model_only": 56,
+   "neither": 127,
+   "rater_only": 3
+  },
+  "argon_noaerial": {
+   "both": 145,
+   "model_only": 57,
+   "neither": 137,
+   "rater_only": 4
+  },
+  "flash_multi": {
+   "both": 145,
+   "model_only": 97,
+   "neither": 96
+  },
+  "argon_single": {
+   "both": 146,
+   "model_only": 58,
+   "neither": 123,
+   "rater_only": 2
+  },
+  "flash_single": {
+   "both": 144,
+   "model_only": 80,
+   "neither": 106,
+   "rater_only": 3
+  }
+ },
+ "replicate_change": {
+  "both": 381,
+  "differ": 6,
+  "differ_share": 0.015748031496062992,
+  "differ_keys": [
+   "g169:vancouver:res:n47232867#0",
+   "g169:vancouver:res:n47298427#1",
+   "g243:vancouver:art:n13059332216#1",
+   "g243:vancouver:art:n1803133375#0",
+   "g243:vancouver:res:n47384235#1",
+   "g243:vancouver:res:n958722944#0"
+  ]
+ },
+ "requests_sha256": "6680ea3748e2835ef92cd50abc0f3b6686345f1faf84d64b455e500cba3b4693",
+ "responses_sha256": {
+  "argon_multi_r1": "e01116837268b3c946fa661866fc1183f111b8c17b2427190dddbf35b2c50147",
+  "argon_multi_r2": "e6c266f2db0b8e6025aa248cf829a65a987189e288a264e46d53de30dc167654",
+  "argon_noaerial": "d0e09317f9d7835fd75166c54e36ada64197df0a45d24aa9010577d25c540f32",
+  "flash_multi": "0eb1cd7534e3733370aabbf303958ad7eacbd67e3ebc3c0c536244c51e5c2a49",
+  "argon_single": "23022768918853f02fc731c3020214a5984ff41b66566c5b819a1f82364824de",
+  "flash_single": "5340e894d89c30b81ef0fea0971543a2ac8bc97fddb4c2707dd33323326e42cb"
+ }
+}

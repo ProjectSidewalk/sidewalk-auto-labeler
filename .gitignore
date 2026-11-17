@@ -297,3 +297,17 @@ docs/figures/mined-precision/data/step4/richmond_f01/*.jsonl
 !runs/*/corner_labels169_split/*/score*.json
 !runs/*/corner_labels169_split/*/export.json
 !runs/*/corner_labels169_split/*/dry_run_summary.txt
+# VLM pre-rater for corner galleries (scripts/corner_prerater.py, issue #185; write-up in
+# docs/corner-prerater-185.md): the Stage 0 gate result.
+!runs/*/corner_prerater185/
+!runs/*/corner_prerater185/gate.json
+# Stage 1 (paid Gemini calls): requests, every answer, the scored result and this run's
+# ledger rows. The rendered aerials (stage1/aerial/) are regenerable by `export` and stay local.
+!runs/*/corner_prerater185/stage1/
+!runs/*/corner_prerater185/stage1/requests.json
+!runs/*/corner_prerater185/stage1/requests.jsonl
+!runs/*/corner_prerater185/stage1/score.json
+!runs/*/corner_prerater185/stage1/usage_log.jsonl
+!runs/*/corner_prerater185/stage1/billed_*.json
+!runs/*/corner_prerater185/stage1/responses/
+!runs/*/corner_prerater185/stage1/responses/*.jsonl

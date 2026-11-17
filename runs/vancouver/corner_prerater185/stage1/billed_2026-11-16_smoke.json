@@ -1,0 +1,10 @@
+{
+  "metric": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "alignment_period": "86400s",
+  "lookback_days": 1.0,
+  "fetched_utc": "2026-11-16T04:09:43Z",
+  "rows": [
+    {"window_end": "2026-11-17", "model": "gemini-3.8-flash", "tokens": {"input": 155817, "output": 20373}},
+    {"window_end": "2026-11-17", "model": "gemini-4-argon", "tokens": {"input": 161159, "output": 6374}}
+  ]
+}
