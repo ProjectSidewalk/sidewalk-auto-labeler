@@ -483,6 +483,11 @@ def pano_record_from_ps(pano_id, meta):
 def load_store_image(path):
     """(4096x2048 RGB PIL image, native (w, h)) for one store JPEG. PIL's decompression-bomb
     guard is lifted once, at import (see the module top)."""
+    # panorama imports streetlevel, which hard-imports pyexiv2; on klone's Rocky 8 nodes its
+    # libexiv2 needs a newer glibc. sources.gsv registers a stub for it first (this pipeline
+    # never writes EXIF), so import that before panorama. Without it every pano failed on
+    # klone (job 43303411), and the half-imported panorama then lacked normalize_image.
+    import sources.gsv  # noqa: F401
     import panorama
     with Image.open(path) as im:
         native = im.size
