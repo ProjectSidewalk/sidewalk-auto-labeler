@@ -106,6 +106,7 @@ named here. Verdicts are summarised only where they set a production default.
 | `footway_segmentation.py` | segmenter vs depth (#47 step 2) | `docs/footway-depth-study.md` |
 | `reposition.py` | rewrite flagged sequences' positions | commands.md "Position check" |
 | `coverage_check.py` | post-submission backup-image coverage (#46) | commands.md section |
+| `review_order.py` | validator-ranked review list per endpoint (#168 item 5) | commands.md section; ordering only |
 
 Analysis-only extra deps (`pandas scipy haversine`, Tile2Net's venv, Mask2Former's
 torch/transformers) are **deliberately not in requirements.txt**.
@@ -237,6 +238,10 @@ outputs a heatmap, and `detectors/decode.py` extracts peaks. The thresholds and 
   `send_to_ps.transform_record` and fusion (`FuseParams.mask_rig`, `drops['on_rig']`).
   `mask_rig=False` reconstructs pre-mask campaigns. **Deliberately not implemented:** a
   distance-from-intersection filter, which would cut 3 true labels per false one.
+- **Range gate** (#192) `DetectorSpec.min_depression_deg`, `beyond_range_gate(y, deg)`: at send
+  time, drop detections strictly shallower than that many degrees below the image horizon
+  (PS places far labels short). Crosswalk 5.625 (a 2.8125° cell edge), CurbRamp ungated. Records
+  carry `range_gate_deg` (absent = ungated); replay it, as `rig_masked`, never the spec's.
 - **Trap:** `FuseParams.min_confidence` defaults to OPERATIONAL. Any analysis scored against a
   bundle must pass the tier explicitly. `eval_ps_clustering.py --min-confidence` defaults to
   the benchmark tier, so set it to what the city went live at.

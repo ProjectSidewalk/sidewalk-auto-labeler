@@ -533,3 +533,21 @@ def test_a_pano_differing_only_in_the_border_band_is_classed_so(tmp_path):
     assert carry == {"B"} and summary["border_band"]["panos_only_in_band"] == 1
     assert summary["mismatch_classes"]["border_band_only"] == 1
     assert summary["mismatch_classes"]["new_or_lost"] == 0
+
+
+def test_a_gated_campaign_is_recounted_under_its_recorded_gate(tmp_path):
+    """Issue #192. reinfer is CurbRamp-only and CurbRamp is ungated today, so this branch is
+    reached only by a record that carries `range_gate_deg` (a future gated CurbRamp). Pinned
+    so the recount stays the gated one: ungated it would be 2 and refuse the band."""
+    near, far = _det(0.9, y=0.6), _det(0.9, x=0.3, y=0.5)      # far: on the horizon
+    old, new = _old_and_new(tmp_path, [_record([near, far], "A")],
+                            [_record([near, far], "A")], submit=False)
+    send_to_ps.submission_record_path(old).write_text(json.dumps({
+        "input_file": "results.jsonl", "sha256": "x", "total_lines": 1,
+        "endpoints": {PROD: {"submitted_lines": 1, "labels_submitted": 1, "min_confidence": 0.55,
+                             "rig_masked": True, "range_gate_deg": 5.625}},
+    }), encoding="utf-8")
+    band = tmp_path / "results.band.jsonl"
+    reinfer.write_band_file(old, new, band, set(), 0.55)
+    _, endpoints = reinfer.write_derived_record(old, band, 0.55)
+    assert (endpoints[PROD]["labels_submitted"], endpoints[PROD]["range_gate_deg"]) == (1, 5.625)

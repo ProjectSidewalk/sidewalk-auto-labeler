@@ -40,6 +40,7 @@ to this file; "the GSV depth section" and similar point to [architecture.md](arc
 - [Footway: segmenter vs depth study](#footway-segmenter-vs-depth-study)
 - [Position check and reposition](#position-check-and-reposition)
 - [Post-submission coverage check](#post-submission-coverage-check)
+- [Review order (validator ranking of live AI labels)](#review-order-validator-ranking-of-live-ai-labels)
 - [Crosswalk detector (second label type)](#crosswalk-detector-second-label-type)
 - [Tests](#tests)
 - [Submit to Project Sidewalk](#submit-to-project-sidewalk)
@@ -1192,6 +1193,54 @@ python scripts/coverage_check.py runs/richmond/results.jsonl --server https://si
 python scripts/coverage_check.py runs/laurens/results.raw.jsonl --server https://sidewalk-laurens.cs.washington.edu
 ```
 
+## Review order (validator ranking of live AI labels)
+
+```bash
+# REVIEW ORDER (#168 item 5). An ORDERING of the AI labels live on one server for human review,
+# most-likely-wrong first, from sidewalk-validator-ai's scores. Never a filter: nothing is
+# withheld, deleted or sent, and no submission record is written. Offline (no server call).
+# Input: ONE validator-ai run of analysis/ai_labels_eval.py made with `select --all-ai`, then
+# `crops`, then `score` (labels.csv, selection.json, manifest.csv, predictions.csv,
+# predictions_provenance.json). Refused (exit 2) unless selection.json says all_ai, labels.csv
+# hashes to labels_csv_sha256, manifest.csv hashes to the provenance's manifest_sha256,
+# predictions.csv has the provenance's n rows, every prediction's label_uid is in the manifest
+# and labels.csv with the same pano_id, label_uid is unique and = city:label_id, pixels are
+# integral and an input rank_score is finite. The pull's server must be the --endpoint host
+# (test and prod share every pixel key): read from the run's rawlabels/cities.json (fetch_all's
+# listing) when present, else --ranker-server; both given must agree. --city (validator id,
+# e.g. richmond-va) when labels.csv has several cities; author != ai rows are dropped.
+# UNIT = the server label, per endpoint, over every campaign of every run dir given (siblings
+# such as runs/juneau + runs/juneau_expansion share an endpoint): one row per AI labels.csv row
+# whose (label type, pano_id, pano_x, pano_y) some campaign shipped (coverage_check.
+# replay_campaigns: bases, bands, per-type campaigns, partial sidecars; checked against the
+# records' label counts and each file's sha256). `campaigns` = every campaign that shipped the
+# key; `campaign` (and `confidence`) = the one that CREATED the label: the earliest whose
+# last_submission_utc is not before the label's time_created (2 min clock slack). Not "newest":
+# a band send moves the base entry's timestamp and a derived record copies an older campaign,
+# so newest gave Richmond's whole 0.55 core to results.band.jsonl. Order: rank_score descending
+# (the input's column if present, else validator-ai's log(p_incorrect) - log(p_correct),
+# clipped to [1e-45, 1]), then unscored labels (crop_failed / not_cropped / not_scored) by
+# detector confidence ascending. Shipped keys with no server row -> not_on_server.csv
+# (soft-deleted, overwritten, sent after the pull); ranker rows that join nothing ->
+# unmatched.csv; keys of a type the ranker does not cover (Crosswalk today) are counted, not
+# listed. Warnings: < 90% of shipped keys on the server, < 90% of rows with a prediction, rows
+# created after every campaign that shipped them, a campaign sent after `select` ran
+# (selected_on is not the pull time; the pull is no later). Zero rows, a record problem or a
+# changed file = exit 2, nothing written. Outputs in runs/<name>/review_order/<endpoint host>/
+# (':' -> '_'): review_list.csv, not_on_server.csv, unmatched.csv (local) + summary.json,
+# report.md (tracked). --check compares the records, the results files and the list's hash with
+# summary.json: fresh (0) or stale (1); an absent list is said, not stale. RE-RUN after every
+# campaign and after any overwrite run (label ids change, SidewalkWebpage#5707; --check cannot
+# see an overwrite). Richmond plumbing check, synthetic scores (2026-11-16): 12,962 of 12,962
+# shipped keys joined the 2026-09-26 rawLabels pull; by time_created 9,436 rows are
+# results.jsonl's, 3,383 the band's, 143 results.posfix3seq.raw.jsonl's.
+python scripts/review_order.py runs/richmond \
+    --endpoint https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano \
+    --ranker-run /path/to/validator-run --city richmond-va   # + --ranker-server <host> without rawlabels/cities.json
+python scripts/review_order.py runs/richmond \
+    --endpoint https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano --check
+```
+
 ## Crosswalk detector (second label type)
 
 ```bash
@@ -1256,6 +1305,30 @@ python scripts/detect_from_store.py --run-dir runs/<city>_crosswalk --store <sto
     --records runs/<city>/results.jsonl --types Crosswalk --crosswalk-checkpoint <pth>
 # NOT yet for Crosswalk: reinfer.py (CurbRamp only), detect_from_store.py's server-metadata
 # mode (CurbRamp only; it writes GSV pano blocks), and fusion (PR #176).
+#
+# RANGE GATE (#192, Jon 2026-11-17). PS places a label from its pixel row with a distance
+# estimate bounded near 23.85 m, so far detections land far short of their target. send_to_ps
+# holds back every Crosswalk detection STRICTLY shallower than 5.625 deg below the image horizon
+# (DetectorSpec.min_depression_deg; detectors.beyond_range_gate). Peaks sit on 2.8125-deg cells,
+# so the cut is a cell edge: row 272/512 is exactly 5.625 and is kept; rows 267/268 go, 275/276
+# stay. Image frame, no pose. CurbRamp is ungated. Juneau at 0.23: 4,400 -> 3,525 labels
+# downtown, 60 -> 54 in the expansion. The dry run and the real run print "Held back by the range
+# gate" per type; those detections are excluded from the "below --min-confidence" count.
+# results.jsonl keeps every detection, but no route sends the held-back ones later yet: that
+# needs new code (e.g. a gate band, by analogy with confidence bands, which are refused on any
+# file that is not CurbRamp-only). Each campaign entry of a gated type's record (endpoint
+# entry, types[T], band) carries range_gate_deg: the cut it was sent under, or null; a CurbRamp
+# record gains no key. A resume keeps the recorded cut. If it differs from the spec's, the run
+# refuses unless the lines already sent carry the same label count under both cuts; then it
+# adopts the spec's cut with a NOTE (runs/juneau_crosswalk's 8-line, 0-label test campaign is
+# this case). Adoption needs a trusted record: after --ignore-submission-guard, or with a sidecar
+# short of the recorded lines, the recorded cut is kept; counts are taken at the entry's recorded
+# min_confidence. --ignore-submission-guard finishes a refused campaign under the recorded cut.
+# A dry run sends the spec's cut and prints what a real run would do (adopt, keep, refuse).
+# RECONSTRUCT what a campaign sent: send_to_ps.transform_record(rec, ..., mask_rig=<rig_masked>,
+# range_gate=<range_gate_deg>) (a number = that cut, None/False = ungated, True = the spec's);
+# position_check.campaigns_for, coverage_check/review_order's replay and reinfer's derived record
+# all do. The held-back labels are transform_record(..., range_gate=False) minus the gated payload.
 ```
 
 ## Tests

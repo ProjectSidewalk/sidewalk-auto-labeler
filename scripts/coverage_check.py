@@ -31,7 +31,8 @@ results.jsonl alone (the selection rule): every campaign every `*.submission.jso
 run directory holds for this server (position_check.campaigns_for -- base entries and
 bands, partial campaigns restricted to their sidecar's lines), each replayed through
 send_to_ps.transform_record at exactly the range it sent ([select_min, select_max), nadir
-mask iff the record's `rig_masked`). A pano is expected if any campaign sent it at least
+mask iff the record's `rig_masked`, range gate = the record's `range_gate_deg`, absent =
+ungated: issue #192). A pano is expected if any campaign sent it at least
 one label. There is deliberately no --min-confidence: the record is the truth. The replay
 is checked against the record: a band's recorded label count must equal its replay, and a
 base entry's must equal its own replay plus the replays of the bands that cover the file
@@ -289,15 +290,29 @@ def probe_metadata(server, pano_id, session=None):
 
 # --------------------------------------------------------------------------- expected set
 
-def expected_panos(run_dir, endpoint):
-    """What the records say this server was sent: ({pano_id: {labels, label_types,
-    campaigns}}, [campaign summaries], [problems]). Each campaign is replayed through
-    send_to_ps.transform_record at its own [select_min, select_max) and rig mask, and the
-    replayed counts are checked against the records (label_count_problems)."""
+def replay_campaigns(run_dir, endpoint, visit):
+    """Replay every campaign the records in `run_dir` hold for `endpoint`, exactly as it was
+    sent, and check the replay against the records: ([campaign summaries], [problems]).
+
+    Each campaign (position_check.campaigns_for: base entries, bands, per-type campaigns,
+    partial ones restricted to their sidecar's lines) is replayed through
+    send_to_ps.transform_record at its own [select_min, select_max), rig mask and range gate
+    (`range_gate_deg`, issue #192). For every
+    line that sent at least one label, `visit(campaign, line_number, record, label_type,
+    sent)` is called, `sent` being the payload's `labels` ([{pano_x, pano_y, confidence}])
+    and `campaign` the campaigns_for dict. The replayed counts are then checked against the
+    records (label_count_problems). The one replay behind expected_panos (which panos carry
+    labels, #46) and scripts/review_order.py (which labels, #168 item 5).
+
+    Usage (every shipped pixel key of a run dir on one server):
+        keys = set()
+        summaries, problems = replay_campaigns(Path('runs/richmond'), endpoint,
+            lambda c, n, rec, t, sent: keys.update(
+                (t, str(rec['pano']['panorama_id']), s['pano_x'], s['pano_y']) for s in sent))
+    """
     campaigns, problems = position_check.campaigns_for(run_dir, endpoint)
     if not campaigns and not problems:
         problems.append(f'no submission record in {run_dir} holds any line for {endpoint}')
-    expected = defaultdict(lambda: {'labels': 0, 'label_types': set(), 'campaigns': set()})
     summaries = []
     for c in campaigns:
         if c['select_min'] is None:
@@ -313,30 +328,44 @@ def expected_panos(run_dir, endpoint):
                 # type alone; a single-type campaign is the line's one type. Either way the
                 # type comes from the detections (registry), never the line-level field,
                 # which is null on a multi-type line.
-                label_type = c.get('label_type')
                 sent = send_to_ps.transform_record(record, c['select_min'], c['select_max'],
                                                    mask_rig=c['rig_masked'],
-                                                   label_type=label_type)['labels']
+                                                   label_type=c.get('label_type'),
+                                                   range_gate=c.get('range_gate_deg'))['labels']
                 if not sent:
                     continue
-                pid = str(record['pano']['panorama_id'])
-                entry = expected[pid]
-                entry['labels'] += len(sent)
-                entry['label_types'].add(label_type or record_types(record)[0])
-                entry['campaigns'].add(c['campaign'])
-                panos.add(pid)
+                visit(c, n, record, c.get('label_type') or record_types(record)[0], sent)
+                panos.add(str(record['pano']['panorama_id']))
                 labels += len(sent)
         summaries.append({'campaign': c['campaign'], 'select_min': c['select_min'],
                           'select_max': c['select_max'], 'rig_masked': c['rig_masked'],
+                          'range_gate_deg': c.get('range_gate_deg'),
+                          'range_gate_recorded': c.get('range_gate_recorded', False),
                           'lines': c['lines'], 'recorded_labels': c['labels'],
                           'replayed_labels': labels, 'panos': len(panos),
                           'partial': c['line_numbers'] is not None,
-                          'band': c['band'], 'record': c['record']})
+                          'band': c['band'], 'label_type': c.get('label_type'),
+                          'record': c['record'], 'path': c['path'], 'at': c['at']})
     by_record = defaultdict(list)
     for summary in summaries:
         by_record[summary['record']].append(summary)
     for parts in by_record.values():
         problems += label_count_problems(parts)
+    return summaries, problems
+
+
+def expected_panos(run_dir, endpoint):
+    """What the records say this server was sent: ({pano_id: {labels, label_types,
+    campaigns}}, [campaign summaries], [problems]), from replay_campaigns."""
+    expected = defaultdict(lambda: {'labels': 0, 'label_types': set(), 'campaigns': set()})
+
+    def visit(c, _n, record, label_type, sent):
+        entry = expected[str(record['pano']['panorama_id'])]
+        entry['labels'] += len(sent)
+        entry['label_types'].add(label_type)
+        entry['campaigns'].add(c['campaign'])
+
+    summaries, problems = replay_campaigns(run_dir, endpoint, visit)
     return dict(expected), summaries, problems
 
 
@@ -531,6 +560,21 @@ def _header(ctx):
             f"(issue #46). Read-only: GET requests only.", '']
 
 
+def gate_cell(s):
+    """A campaign's range gate (issue #192) as a report table cell: "—" when its record has no
+    `range_gate_deg` (ungated: every campaign before #192, and every CurbRamp one), "none" for
+    a recorded null, else the cut in degrees below the horizon."""
+    if not s.get('range_gate_recorded'):
+        return '—'
+    return 'none' if s.get('range_gate_deg') is None else f"{s['range_gate_deg']:g}°"
+
+
+def gate_column(campaigns):
+    """Whether a report table gets a range-gate column: only when some campaign recorded one,
+    so a report on CurbRamp-only records is byte-identical to before #192."""
+    return any(s.get('range_gate_recorded') for s in campaigns)
+
+
 def render_failure_report(ctx):
     """report.md for a check that stopped before classifying: exit 2 and why, so a failed
     re-run never leaves an earlier "Exit 0" standing."""
@@ -563,13 +607,19 @@ def render_report(ctx):
           '`rig_masked` absent in a record means the campaign predates the nadir mask. The '
           'recorded label count of a base entry includes its bands once they cover the file, so only '
           'the replayed column is per campaign. Every recorded count is checked: a band must equal '
-          'its replay, a base entry its replay plus its complete bands.', '',
-          '| campaign | sent range | rig masked | lines | labels (record) | labels (replayed) | panos with labels |',
-          '|---|---|---|---:|---:|---:|---:|']
+          'its replay, a base entry its replay plus its complete bands.', '']
+    gated = gate_column(ctx['campaigns'])
+    if gated:
+        L += ['Range gate: the cut each campaign was sent under (`range_gate_deg`, issue #192); '
+              '— means the record has no key (ungated).', '']
+    L += ['| campaign | sent range | rig masked | ' + ('range gate | ' if gated else '')
+          + 'lines | labels (record) | labels (replayed) | panos with labels |',
+          '|---|---|---|' + ('---|' if gated else '') + '---:|---:|---:|---:|']
     for s in ctx['campaigns']:
         part = ' (partial, sidecar lines)' if s['partial'] else ''
         L.append(f"| `{s['campaign']}`{part} | {_range(s)} | {'yes' if s['rig_masked'] else 'no'} "
-                 f"| {s['lines']:,} | {_count(s['recorded_labels'])} | {s['replayed_labels']:,} "
+                 + (f"| {gate_cell(s)} " if gated else '')
+                 + f"| {s['lines']:,} | {_count(s['recorded_labels'])} | {s['replayed_labels']:,} "
                  f"| {s['panos']:,} |")
     L += ['', f'Distinct expected panos: **{n_exp:,}**.', '',
           '## Classification', '', '| status | panos | meaning |', '|---|---:|---|']
