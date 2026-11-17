@@ -27,7 +27,7 @@ import sys
 import time
 from contextlib import ExitStack
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, Set
+from typing import Dict, Any, Optional, Set, Union
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -36,8 +36,8 @@ from dotenv import load_dotenv
 
 import position_check
 from detectors import (BORDER_EXCLUDE, DECODE_ARGMAX, OPERATIONAL_CONFIDENCE,
-                       borders_in_file, decodes_in_file, on_camera_rig, ps_pixel,
-                       single_border, single_decode)
+                       beyond_range_gate, borders_in_file, decodes_in_file, on_camera_rig,
+                       ps_pixel, single_border, single_decode)
 from detectors.registry import (CURB_RAMP, detections_of_type, provenance_for,
                                 record_types, spec_for, type_markers)
 
@@ -205,9 +205,42 @@ def check_source_metadata_size(payload: Dict[str, Any]) -> None:
             f"for this source (PS_GSV_SOURCE_METADATA_KEYS for GSV).")
 
 
+RangeGate = Union[bool, float, None]
+
+
+def range_gate_deg(label_type: str, range_gate: RangeGate = True) -> Optional[float]:
+    """The range-gate cut, in degrees below the image horizon, that `range_gate` means for
+    `label_type` (issue #192): True = the type's DetectorSpec.min_depression_deg (None when
+    the type is ungated), False or None = no gate, a number = exactly that cut.
+
+    0 is NOT "off": it is a horizon gate, which holds back every detection above the horizon.
+    Use False or None for no gate. A negative number raises ValueError.
+
+    A number is what a recount passes: the `range_gate_deg` a submission record says a
+    campaign was sent under, so a later change to the spec cannot move what the record counts.
+
+        >>> range_gate_deg('Crosswalk'), range_gate_deg('CurbRamp'), range_gate_deg('Crosswalk', None)
+        (5.625, None, None)
+    """
+    return _spec_gate(spec_for(label_type), range_gate)
+
+
+def _spec_gate(spec, range_gate: RangeGate) -> Optional[float]:
+    """range_gate_deg for a DetectorSpec already in hand."""
+    if range_gate is True:
+        return spec.min_depression_deg
+    if range_gate is False or range_gate is None:
+        return None
+    if range_gate < 0:
+        raise ValueError(f"range_gate {range_gate!r}: a cut is degrees BELOW the horizon, so it "
+                         f"cannot be negative (0 is a horizon gate; False or None is no gate)")
+    return float(range_gate)
+
+
 def transform_record(data: Dict[str, Any], min_confidence: Optional[float] = None,
                      max_confidence: Optional[float] = None,
-                     mask_rig: bool = True, label_type: Optional[str] = None) -> Dict[str, Any]:
+                     mask_rig: bool = True, label_type: Optional[str] = None,
+                     range_gate: RangeGate = True) -> Dict[str, Any]:
     """
     Convert a main.py JSONL record into the payload expected by Project Sidewalk.
 
@@ -231,6 +264,14 @@ def transform_record(data: Dict[str, Any], min_confidence: Optional[float] = Non
     being submitted now it stays on. It applies only to a type whose spec says the mask
     does (DetectorSpec.mask_rig).
 
+    range_gate holds back far-field detections, shallower than the type's
+    DetectorSpec.min_depression_deg below the image horizon (detectors.beyond_range_gate,
+    issue #192): the server's placement is bounded near 23.85 m, so they would land far short
+    of their target. True applies the spec's gate (none for an ungated type, such as
+    CurbRamp); False (or None) reconstructs a campaign sent without it; a number applies
+    exactly that cut, which is how a recount replays the `range_gate_deg` a submission record
+    holds (see range_gate_deg). 0 is a horizon gate, not "off"; a negative number raises.
+
     label_type selects ONE type's payload from a record (issue #168): the server takes one
     labelType per AiLabelsSubmission, so a line that ran several detectors is sent as one
     payload per type (see split_record). The payload keeps only that type's detections,
@@ -253,6 +294,7 @@ def transform_record(data: Dict[str, Any], min_confidence: Optional[float] = Non
     if min_confidence is None:
         min_confidence = spec.operational_confidence
     mask_rig = mask_rig and spec.mask_rig
+    gate = _spec_gate(spec, range_gate)
     modified_data = data.copy()
     modified_data['pano'] = transform_pano(data['pano'])
     # detectors.ps_pixel: x modulo width (a sub-cell decode under --border wrap can store x
@@ -264,6 +306,7 @@ def transform_record(data: Dict[str, Any], min_confidence: Optional[float] = Non
         if detection['confidence'] >= min_confidence
         and (max_confidence is None or detection['confidence'] < max_confidence)
         and not (mask_rig and on_camera_rig(detection['y_normalized']))
+        and not beyond_range_gate(detection['y_normalized'], gate)
     ]
     modified_data['labels'] = []
     for detection in shipped:
@@ -290,7 +333,8 @@ def transform_record(data: Dict[str, Any], min_confidence: Optional[float] = Non
 
 
 def split_record(data: Dict[str, Any], min_confidence: Optional[float] = None,
-                 max_confidence: Optional[float] = None, mask_rig: bool = True) -> list:
+                 max_confidence: Optional[float] = None, mask_rig: bool = True,
+                 range_gate: RangeGate = True) -> list:
     """[(label_type, payload)] for one record: one Project Sidewalk submission per type
     whose detector ran on the pano (registry.record_types), in sorted type order.
 
@@ -300,12 +344,15 @@ def split_record(data: Dict[str, Any], min_confidence: Optional[float] = None,
     what the server records for that type on that pano.
 
     min_confidence None means each type's own operational threshold; a value applies to
-    every type (an explicit --min-confidence wins over the per-type defaults).
+    every type (an explicit --min-confidence wins over the per-type defaults). range_gate
+    True applies each type's own gate (transform_record).
     """
     if 'label_types' not in data:
         return [(record_types(data)[0],
-                 transform_record(data, min_confidence, max_confidence, mask_rig))]
-    return [(t, transform_record(data, min_confidence, max_confidence, mask_rig, label_type=t))
+                 transform_record(data, min_confidence, max_confidence, mask_rig,
+                                  range_gate=range_gate))]
+    return [(t, transform_record(data, min_confidence, max_confidence, mask_rig, label_type=t,
+                                 range_gate=range_gate))
             for t in record_types(data)]
 
 
@@ -1012,6 +1059,81 @@ def check_band_state(record: Dict[str, Any], digest: str, band_lines: Set[int],
         )
 
 
+def _gate_text(gate: Optional[float]) -> str:
+    """A range-gate cut as the messages print it."""
+    return "none (ungated)" if gate is None else f"{gate:g} deg below the horizon"
+
+
+def range_gate_on_resume(entry: Dict[str, Any], label_type: str, input_file: Path,
+                         lines: Set[int], min_confidence: float,
+                         max_confidence: Optional[float], campaign: str, endpoint: str,
+                         record_path: Path, trusted: bool = True) -> tuple:
+    """(the range-gate cut this run sends a campaign under, a note to print or None), issue #192.
+
+    `entry` is the campaign's entry in the record for this endpoint (the endpoint entry, a
+    band, or `types[T]`; {} when there is none), `lines` the lines its sidecar says were sent.
+    A campaign with no entry takes the spec's gate (DetectorSpec.min_depression_deg). One with
+    an entry was sent under the gate the entry records (`range_gate_deg`; absent = None =
+    ungated, as every entry written before #192 was). When that equals the spec's there is
+    nothing to decide.
+
+    When it differs, changing it mid-campaign would put part of the campaign under each rule,
+    and the record can recount only one. Gating only REMOVES labels, so if the lines already
+    sent carry the same number of labels under either cut, no sent label is affected: the run
+    ADOPTS the spec's gate, the record will say so, and a note is returned. (Juneau's first
+    Crosswalk test campaign, 8 lines and 0 labels, sent before the gate existed, is this case.)
+
+    That proof is only as good as its evidence, so adoption needs all of:
+      - `trusted`: the resume guard passed WITHOUT --ignore-submission-guard. After an
+        override the sidecar or the threshold may not describe what was sent (a lost sidecar
+        reads as "0 lines sent"), so the recorded cut is kept, with a note;
+      - a sidecar that accounts for every line the entry records as sent (else the same);
+      - counts taken at the entry's RECORDED min_confidence (this run's when it has none, as
+        a band entry does, whose key fixes its range), never at a changed --min-confidence.
+
+    Raises:
+        ValueError: when a sent line carries a label one cut keeps and the other drops.
+            --ignore-submission-guard downgrades it; the caller then sends the rest under the
+            RECORDED cut, so the campaign stays one rule and its record stays exact.
+    """
+    gate = spec_for(label_type).min_depression_deg
+    if not entry:
+        return gate, None
+    recorded = entry.get('range_gate_deg')
+    if recorded == gate:
+        return gate, None
+    recorded_lines = int(entry.get('submitted_lines') or 0)
+    if not trusted or recorded_lines > len(lines):
+        why = ("the resume guard was overridden" if not trusted else
+               f"{len(lines)} sidecar line(s) do not account for the {recorded_lines} recorded")
+        return recorded, (f"the {campaign} campaign to {endpoint} keeps its recorded range gate, "
+                          f"{_gate_text(recorded)}, not the spec's {_gate_text(gate)}: {why}, so "
+                          f"whether a sent label is affected cannot be proven (issue #192).")
+    masked = bool(entry.get('rig_masked', False))
+    at = entry.get('min_confidence')
+    at = min_confidence if at is None else at
+
+    def count(cut):
+        return count_labels(input_file, lines, at, max_confidence, mask_rig=masked,
+                            label_type=label_type, range_gate=cut)
+    before, after = count(recorded), count(gate)
+    if before == after:
+        return gate, (f"the {campaign} campaign to {endpoint} was recorded with range gate "
+                      f"{_gate_text(recorded)}; its {len(lines)} sent line(s) carry {before} "
+                      f"label(s) under that gate and under this run's, so no sent label is "
+                      f"affected. It adopts this run's gate, {_gate_text(gate)} (issue #192), "
+                      f"and {record_path.name} records it.")
+    raise ValueError(
+        f"{record_path.name} says the {campaign} campaign to {endpoint} was sent with range gate "
+        f"{_gate_text(recorded)}, but this run applies {_gate_text(gate)} (issue #192). The "
+        f"{len(lines)} line(s) already sent carry {before} label(s) under the recorded gate and "
+        f"{after} under this run's, so changing it now would leave the campaign under two rules "
+        f"and its record unable to count what is live. --ignore-submission-guard finishes the "
+        f"campaign under the recorded gate ({_gate_text(recorded)}). The labels a gate holds "
+        f"back stay in {input_file.name}, but no route sends them later yet: that needs new "
+        f"code (e.g. a gate band, by analogy with confidence bands).")
+
+
 def first_pano_source(input_file: Path) -> Optional[str]:
     """`pano.source` of the first record - a results file is single-source, so that is the
     file's source. None for an empty or malformed head."""
@@ -1528,7 +1650,7 @@ def check_live_positions(input_file: Path, endpoint_url: str, trust_own_record: 
 
 def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float,
                  max_confidence: Optional[float] = None, mask_rig: bool = True,
-                 label_type: Optional[str] = None) -> int:
+                 label_type: Optional[str] = None, range_gate: RangeGate = True) -> int:
     """How many labels the given lines of the JSONL submit at `min_confidence`.
 
     Recounted from the file and the sidecar rather than accumulated in memory, so the record
@@ -1541,6 +1663,9 @@ def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float
 
     `label_type` counts one type's labels of a multi-type file (issue #168; see
     ``transform_record``); None is the single-type count it always was.
+
+    `range_gate` is held to the same rule as `mask_rig` (issue #192): a recount passes the
+    record's `range_gate_deg` (absent = None = a campaign sent ungated), never this run's.
     """
     if not line_numbers:
         return 0
@@ -1549,7 +1674,8 @@ def count_labels(input_file: Path, line_numbers: Set[int], min_confidence: float
         for line_number, line in enumerate(f, 1):
             if line_number in line_numbers and line.strip():
                 labels += len(transform_record(json.loads(line), min_confidence,
-                                               max_confidence, mask_rig, label_type)['labels'])
+                                               max_confidence, mask_rig, label_type,
+                                               range_gate)['labels'])
     return labels
 
 
@@ -1571,7 +1697,8 @@ def _storage_floor_for(input_file: Path) -> Optional[float]:
 def count_band_labels_in_file(input_file: Path, min_confidence: float,
                               max_confidence: Optional[float],
                               mask_rig: bool = True,
-                              label_type: Optional[str] = None) -> int:
+                              label_type: Optional[str] = None,
+                              range_gate: RangeGate = True) -> int:
     """How many labels the WHOLE file holds in [min_confidence, max_confidence).
 
     Separate from ``count_labels`` because that one answers "what did these sidecar lines
@@ -1580,15 +1707,38 @@ def count_band_labels_in_file(input_file: Path, min_confidence: float,
 
     mask_rig=False reconstructs what a campaign sent BEFORE the nadir mask existed, which
     is what a derived record has to match; see ``transform_record``. `label_type` counts
-    one type of a multi-type file, as in ``count_labels``.
+    one type of a multi-type file, and `range_gate` replays a recorded gate, as in
+    ``count_labels``.
     """
     labels = 0
     with open(input_file, 'r', encoding='utf-8') as f:
         for line in f:
             if line.strip():
                 labels += len(transform_record(json.loads(line), min_confidence,
-                                               max_confidence, mask_rig, label_type)['labels'])
+                                               max_confidence, mask_rig, label_type,
+                                               range_gate)['labels'])
     return labels
+
+
+def _recorded_range_gate(entry: Dict[str, Any], label_type: str, first: bool,
+                         range_gates: Optional[Dict[str, Optional[float]]] = None) -> tuple:
+    """(the range-gate cut a campaign entry is recorded and recounted under, whether to write
+    `range_gate_deg`) for write_submission_record (issue #192).
+
+    `range_gates[label_type]`, when given, is what this run applied; otherwise a first
+    campaign takes the spec's gate and a resume keeps the entry's own (absent = None, a
+    campaign sent ungated), exactly as `rig_masked` is kept. The key is written for a type
+    whose spec has a gate, or an entry that already holds it (or a non-null cut), never
+    otherwise, so a CurbRamp record gains no key.
+    """
+    spec_gate = spec_for(label_type).min_depression_deg
+    if range_gates is not None and label_type in range_gates:
+        gate = range_gates[label_type]
+    elif first:
+        gate = spec_gate
+    else:
+        gate = entry.get('range_gate_deg')
+    return gate, (spec_gate is not None or 'range_gate_deg' in entry or gate is not None)
 
 
 def write_submission_record(record_path: Path, input_file: Path, digest: str, total_lines: int,
@@ -1605,7 +1755,8 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
                             min_confidence_from: Optional[str] = None,
                             label_types: Optional[list] = None,
                             type_frames: Optional[Dict[str, Dict[str, Any]]] = None,
-                            store_note: Optional[str] = None) -> None:
+                            store_note: Optional[str] = None,
+                            range_gates: Optional[Dict[str, Optional[float]]] = None) -> None:
     """Record what went where, so a campaign survives the loss of its sidecar.
 
     One entry per endpoint - a campaign legitimately hits a test instance before prod, and
@@ -1630,8 +1781,19 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
     border}} for every type but CurbRamp (type_frame_record_values): the frame guards compare
     a type only with campaigns that sent it. The top-level detection_decode / detection_border
     keep describing CurbRamp, and are absent when the file has none.
+
+    Every campaign entry that carries `rig_masked` (the endpoint entry, a band, `types[T]`)
+    also carries `range_gate_deg` (issue #192): the range-gate cut it was sent under, or null.
+    The key is written only for a type whose spec has a gate, or an entry that already holds
+    it, so every CurbRamp record stays byte-identical; absent reads as null (ungated). The
+    value follows `rig_masked`'s rule (see _recorded_range_gate): a first campaign records
+    the spec's gate, a resume keeps the recorded one, and the recount uses that value.
+    `range_gates` = {T: the cut this run applied} overrides it per type; process_jsonl_file
+    passes it, and it differs from the recorded cut only when range_gate_on_resume has
+    proven the change safe (adoption).
     """
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    single_type = label_types[0] if label_types else CURB_RAMP
     endpoint = canonical_endpoint(endpoint_url)
     states = dict(previous.get('endpoints') or {})
     state = dict(states.get(endpoint) or {})
@@ -1653,10 +1815,13 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         state.setdefault("labels_submitted", 0)
         bands = dict(state.get('bands') or {})
         band = dict(bands.get(key) or {})
+        gate, write_gate = _recorded_range_gate(band, single_type, not band, range_gates)
         band_masked = True if not band else bool(band.get('rig_masked', False))
         band['rig_masked'] = band_masked
+        if write_gate:
+            band['range_gate_deg'] = gate
         band_labels = count_labels(input_file, submitted_lines, min_confidence,
-                                   max_confidence, mask_rig=band_masked)
+                                   max_confidence, mask_rig=band_masked, range_gate=gate)
         was_complete = band.get('submitted_lines', 0) >= total_lines
         band.update({
             "submitted_lines": len(submitted_lines),
@@ -1681,14 +1846,22 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
             # As for the base entry below: a type's first campaign records how it is sent,
             # and a resume keeps what the record says. The mask only exists for types whose
             # spec applies it (DetectorSpec.mask_rig).
-            masked = (spec_for(label_type).mask_rig if 'submitted_lines' not in type_state
+            first = 'submitted_lines' not in type_state
+            masked = (spec_for(label_type).mask_rig if first
                       else bool(type_state.get('rig_masked', False)))
-            type_state.update({
+            gate, write_gate = _recorded_range_gate(type_state, label_type, first, range_gates)
+            entry = {
                 "submitted_lines": len(lines),
                 "labels_submitted": count_labels(input_file, lines, confidence,
-                                                 mask_rig=masked, label_type=label_type),
+                                                 mask_rig=masked, label_type=label_type,
+                                                 range_gate=gate),
                 "min_confidence": confidence,
                 "rig_masked": masked,
+            }
+            if write_gate:
+                entry["range_gate_deg"] = gate
+            type_state.update(entry)
+            type_state.update({
                 "first_submission_utc": type_state.get('first_submission_utc', now),
                 "last_submission_utc": now,
                 "last_run_host": socket.gethostname(),
@@ -1710,13 +1883,17 @@ def write_submission_record(record_path: Path, input_file: Path, digest: str, to
         # are live; recounting it with the mask on would silently understate the server's
         # contents - and that count is load-bearing, since reinfer.write_derived_record
         # refuses a band when it disagrees. So the record remembers how it was produced.
-        base_masked = True if 'submitted_lines' not in state else bool(state.get('rig_masked',
-                                                                                 False))
+        # The range gate (#192) is remembered the same way.
+        first = 'submitted_lines' not in state
+        base_masked = True if first else bool(state.get('rig_masked', False))
+        gate, write_gate = _recorded_range_gate(state, single_type, first, range_gates)
         state["rig_masked"] = base_masked
+        if write_gate:
+            state["range_gate_deg"] = gate
         state.update({
             "submitted_lines": len(submitted_lines),
             "labels_submitted": count_labels(input_file, submitted_lines, min_confidence,
-                                             mask_rig=base_masked),
+                                             mask_rig=base_masked, range_gate=gate),
             "min_confidence": min_confidence,
             "first_submission_utc": state.get('first_submission_utc', now),
             "last_submission_utc": now,
@@ -1973,6 +2150,53 @@ def process_jsonl_file(
         print(f"WARNING (--ignore-submission-guard): {e}")
         own_record_trusted = False
 
+    # The range gate each type is sent under (issue #192): its spec's, unless a campaign the
+    # record already holds here was sent under another (range_gate_on_resume adopts the
+    # spec's when no sent label is affected, else refuses; after an override it keeps the
+    # recorded one). A dry run sends the spec's, and says what a real run would do instead.
+    gates: Dict[str, Optional[float]] = {t: spec_for(t).min_depression_deg for t in file_types}
+    gate_record = previous_record
+    if dry_run:
+        try:
+            gate_record = load_submission_record(record_path)
+        except ValueError:
+            gate_record = {}   # unreadable: the real run's guard says so
+    if gate_record:
+        endpoint = canonical_endpoint(endpoint_url)
+        here = (gate_record.get('endpoints') or {}).get(endpoint) or {}
+        if max_confidence is not None:
+            key = band_key(min_confidence, max_confidence)
+            resumes = [(file_types[0], (here.get('bands') or {}).get(key) or {},
+                        submitted_lines, min_confidence, f"band {key}")]
+        elif multi_type:
+            resumes = [(t, (here.get('types') or {}).get(t) or {}, lines, confidence, t)
+                       for t, (lines, confidence, _) in type_states.items()]
+        else:
+            resumes = [(file_types[0], here, submitted_lines, min_confidence, file_types[0])]
+        for label_type, entry, lines, confidence, campaign in resumes:
+            try:
+                gate, gate_note = range_gate_on_resume(
+                    entry, label_type, input_file, lines, confidence, max_confidence, campaign,
+                    endpoint, record_path, trusted=own_record_trusted)
+            except ValueError as e:
+                if dry_run:
+                    print(f"NOTE (dry run, range gate): a real run would REFUSE: {e} This dry "
+                          f"run shows the spec's gate.")
+                    continue
+                if not ignore_guard:
+                    raise
+                print(f"WARNING (--ignore-submission-guard): {e}")
+                gate, gate_note = entry.get('range_gate_deg'), None
+            if dry_run:
+                if gate_note:
+                    print(f"NOTE (dry run, range gate): a real run would "
+                          f"{'adopt' if gate == gates[label_type] else 'keep'}: {gate_note} "
+                          f"This dry run shows the spec's gate.")
+                continue
+            gates[label_type] = gate
+            if gate_note:
+                print(f"NOTE (range gate): {gate_note}")
+
     # ...and that its pano positions were checked and passed (SidewalkWebpage#5361). Same
     # shape: a dry run is exempt, the override downgrades the refusal to a warning.
     position_state: Optional[Dict[str, Any]] = None
@@ -2005,6 +2229,7 @@ def process_jsonl_file(
     error_count = 0
     skipped_count = 0
     filtered_detections = 0
+    gated_detections = {t: 0 for t in file_types if gates[t] is not None}   # issue #192
     attempted = 0          # records touched this run; what --limit caps
     limit_reached = False
     interrupted = False
@@ -2081,17 +2306,32 @@ def process_jsonl_file(
                 try:
                     # Parse a line of JSON and convert to the PS payload format.
                     json_data = json.loads(line)
+
+                    def payload_of(label_type, range_gate):
+                        """The PS payload of one type of this line (None: the single type)."""
+                        if label_type is not None:
+                            return transform_record(json_data, type_states[label_type][1], None,
+                                                    label_type=label_type,
+                                                    range_gate=range_gate)
+                        return transform_record(
+                            json_data, min_confidence, max_confidence, range_gate=range_gate,
+                            label_type=file_types[0] if 'label_types' in json_data else None)
                     if multi_type:
                         # One payload per type that ran on this pano and is not yet sent
                         # (a resume after a half-sent line sends only the missing types).
-                        parts = [(t, transform_record(json_data, type_states[t][1], None,
-                                                      label_type=t))
-                                 for t in record_types(json_data)
+                        parts = [(t, payload_of(t, gates[t])) for t in record_types(json_data)
                                  if line_number not in type_states[t][0]]
                     else:
-                        parts = [(None, transform_record(
-                            json_data, min_confidence, max_confidence,
-                            label_type=file_types[0] if 'label_types' in json_data else None))]
+                        parts = [(None, payload_of(None, gates[file_types[0]]))]
+                    # What the range gate held back (issue #192), counted apart from the
+                    # confidence and rig filters: the same payload without the gate.
+                    for label_type, part in parts:
+                        t = label_type or file_types[0]
+                        if t in gated_detections:
+                            held = (len(payload_of(label_type, False)['labels'])
+                                    - len(part['labels']))
+                            gated_detections[t] += held
+                            filtered_detections -= held
                 except json.JSONDecodeError as e:
                     error_count += 1
                     print(f"Line {line_number}: Invalid JSON - {e}")
@@ -2170,7 +2410,7 @@ def process_jsonl_file(
                                 {t: (load_submitted_lines(path), confidence)
                                  for t, (_, confidence, path) in type_states.items()},
                                 min_confidence_from if multi_type else None,
-                                file_types, type_frames, store_note)
+                                file_types, type_frames, store_note, gates)
         record_written = True
 
     # Print summary.
@@ -2188,6 +2428,11 @@ def process_jsonl_file(
         print(f"Band [{min_confidence}, {max_confidence}): detections outside it (not submitted): "
               f"{filtered_detections}; records with nothing in the band (not POSTed, marked "
               f"done): {empty_band_count}")
+    if gated_detections:
+        # Only for a file with a gated type, so an ungated (CurbRamp) run prints as before.
+        print("Held back by the range gate (issue #192; kept in the file, not submitted): "
+              + ", ".join(f"{t} {n} (shallower than {gates[t]:g} deg below the horizon)"
+                          for t, n in gated_detections.items()))
     if record_written:
         print(f"Submission record:             {record_path.name}")
     if limit_reached:

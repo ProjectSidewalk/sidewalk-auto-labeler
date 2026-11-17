@@ -62,7 +62,10 @@ DetectorSpec = namedtuple('DetectorSpec', [
     'mask_rig',                # whether detectors.on_camera_rig applies to this type
     'border',                  # peak border rule (detectors.BORDERS): fixed for every type
                                # but CurbRamp, whose --border flag chooses it per run
-], defaults=(BORDER_EXCLUDE,))
+    'min_depression_deg',      # range gate (detectors.beyond_range_gate, #192): send only
+                               # detections at least this many degrees below the image
+                               # horizon; None = ungated
+], defaults=(BORDER_EXCLUDE, None))
 
 SPECS = {
     CURB_RAMP: DetectorSpec(CURB_RAMP, 'detectors.curb_ramp', 'CurbRampDetector',
@@ -75,8 +78,12 @@ SPECS = {
     # benchmark_confidence = 0.23 binds no judged bundle yet: no labeler-format Crosswalk
     # bundle exists, so nothing joins a run to verdicts at this tier today.
     # The 49-degree rig mask removed 7 of 72 rated false alarms and 0 of 359 crosswalks.
+    # Range gate 5.625 deg (#192, Jon 2026-11-17): PS's placement is bounded near 23.85 m, so
+    # shallower detections land far short of their target. The cut sits on a 2.8125-deg cell
+    # edge (row 272/512). Juneau: 4,400 -> 3,525 labels downtown, 60 -> 54 in the expansion.
+    # CurbRamp stays ungated (None) for now.
     CROSSWALK: DetectorSpec(CROSSWALK, 'detectors.crosswalk', 'CrosswalkDetector',
-                            0.05, 0.23, 0.23, True, BORDER_KEEP),
+                            0.05, 0.23, 0.23, True, BORDER_KEEP, 5.625),
 }
 
 

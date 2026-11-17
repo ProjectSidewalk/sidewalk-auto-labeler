@@ -490,3 +490,264 @@ def test_parity_jpeg_round_trip_and_pixel_mad(tmp_path):
     assert cp.pixel_mad(rt, tmp_path / 'p.jpg') == 0.0         # same pixels, same encoder
     assert cp.pixel_mad(im, tmp_path / 'missing.jpg') is None
     assert cp.pixel_mad(im.resize((32, 16)), tmp_path / 'p.jpg') is None
+
+
+# --- the range gate (issue #192) ---------------------------------------------------------------
+
+# Coarse-cell rows (residue 3 or 4 mod 8) on both sides of the 5.625-deg cell edge at row 272,
+# plus the edge itself. (x, y, confidence); the confidences tell the peaks apart.
+EDGE_DETS = [(0.10, 267 / 512, 0.50), (0.20, 268 / 512, 0.51), (0.30, 272 / 512, 0.52),
+             (0.40, 275 / 512, 0.53), (0.50, 276 / 512, 0.54)]
+FAR = 268 / 512      # 4.2 deg below the horizon: beyond Crosswalk's gate
+
+
+def test_range_gate_rule_and_spec_values():
+    assert detectors.depression_deg(272 / 512) == 5.625          # a cell edge, exactly
+    assert detectors.beyond_range_gate(271 / 512, 5.625)
+    assert not detectors.beyond_range_gate(272 / 512, 5.625)     # at the gate: kept
+    assert not detectors.beyond_range_gate(0.0, None)            # ungated
+    assert reg.spec_for('Crosswalk').min_depression_deg == 5.625
+    assert reg.spec_for('CurbRamp').min_depression_deg is None
+
+
+def test_range_gate_boundary_drops_crosswalk_rows_above_the_cell_edge(monkeypatch):
+    import send_to_ps
+    line = _crosswalk_line(monkeypatch, EDGE_DETS)
+    kept = [lab['confidence'] for lab in send_to_ps.transform_record(line)['labels']]
+    assert kept == [0.52, 0.53, 0.54]          # rows 267/268 dropped; 272, 275, 276 kept
+    assert len(send_to_ps.transform_record(line, range_gate=False)['labels']) == 5
+    assert len(send_to_ps.transform_record(line, range_gate=4.0)['labels']) == 4   # a number
+    # The same peaks on a CurbRamp line ship untouched: CurbRamp is ungated.
+    curb = json.loads(GOLDEN.read_text(encoding='utf-8').splitlines()[0])
+    curb['detections'] = [{'x_normalized': x, 'y_normalized': y, 'confidence': c}
+                          for x, y, c in EDGE_DETS]
+    assert len(send_to_ps.transform_record(curb)['labels']) == 5
+
+
+def _gate_file(monkeypatch, run_dir, per_line):
+    """A Crosswalk-only file, one line per entry of `per_line` (a list of detections)."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    lines = []
+    for i, dets in enumerate(per_line, 1):
+        line = _crosswalk_line(monkeypatch, dets)
+        line['pano']['panorama_id'] = f'G{i}'
+        lines.append(json.dumps(line) + '\n')
+    path = run_dir / 'results.jsonl'
+    path.write_text(''.join(lines), encoding='utf-8', newline='\n')
+    return path
+
+
+def _strip_gate(path):
+    """Make the record look like a campaign sent before the gate existed (no key)."""
+    rec_path = Path(f'{path}.submission.json')
+    rec = json.loads(rec_path.read_text(encoding='utf-8'))
+    del rec['endpoints'][PROD]['range_gate_deg']
+    rec_path.write_text(json.dumps(rec), encoding='utf-8')
+
+
+def test_crosswalk_record_carries_the_gate_and_the_gated_count(monkeypatch, tmp_path, capsys):
+    import send_to_ps
+    path = _gate_file(monkeypatch, tmp_path / 'xw', [[(0.5, 0.6, 0.9), (0.2, FAR, 0.8)],
+                                                     [(0.5, 0.6, 0.7)]])
+    send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True)
+    assert 'Held back by the range gate' in capsys.readouterr().out
+    sent = _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    out = capsys.readouterr().out
+    assert [len(p['labels']) for p in sent] == [1, 1]
+    assert 'Detections below --min-confidence 0.23 (not submitted): 0' in out
+    assert 'Crosswalk 1 (shallower than 5.625 deg below the horizon)' in out
+    state = _record(path)['endpoints'][PROD]
+    assert (state['range_gate_deg'], state['rig_masked'], state['labels_submitted']) == \
+        (5.625, True, 2)
+
+
+def test_resume_refuses_a_gate_change_that_touches_sent_labels(monkeypatch, tmp_path):
+    """Line 1 went out ungated with a far label; gating the rest would leave the campaign
+    under two rules. The override finishes it under the RECORDED gate (none)."""
+    import send_to_ps
+    path = _gate_file(monkeypatch, tmp_path / 'xw', [[(0.5, 0.6, 0.9), (0.2, FAR, 0.8)],
+                                                     [(0.5, 0.6, 0.7), (0.2, FAR, 0.6)]])
+    sent = _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=1)
+    _strip_gate(path)
+    del sent[:]
+    with pytest.raises(ValueError, match=r'range gate none.*1 line\(s\) already sent carry 2'):
+        send_to_ps.process_jsonl_file(str(path), PROD)
+    assert sent == []
+    send_to_ps.process_jsonl_file(str(path), PROD, ignore_guard=True)
+    assert [len(p['labels']) for p in sent] == [2]              # line 2, ungated
+    state = _record(path)['endpoints'][PROD]
+    assert state['range_gate_deg'] is None and state['labels_submitted'] == 4
+
+
+def test_resume_adopts_the_gate_when_no_sent_label_is_affected(monkeypatch, tmp_path, capsys):
+    """Juneau's shape: a Crosswalk campaign recorded before the gate, none of whose sent
+    lines holds a far label, adopts it with a note instead of refusing."""
+    import send_to_ps
+    path = _gate_file(monkeypatch, tmp_path / 'xw', [[(0.5, 0.6, 0.9)],
+                                                     [(0.5, 0.6, 0.7), (0.2, FAR, 0.6)]])
+    sent = _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=1)
+    _strip_gate(path)
+    capsys.readouterr()
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert 'NOTE (range gate)' in capsys.readouterr().out
+    assert [len(p['labels']) for p in sent] == [1, 1]          # line 2's far label held back
+    state = _record(path)['endpoints'][PROD]
+    assert (state['range_gate_deg'], state['labels_submitted']) == (5.625, 2)
+
+
+def test_the_recount_uses_the_recorded_gate(monkeypatch, tmp_path):
+    import send_to_ps
+    path = _gate_file(monkeypatch, tmp_path / 'xw', [[(0.5, 0.6, 0.9), (0.2, FAR, 0.8)]])
+    digest, n, size = send_to_ps.hash_and_count(path)
+    rec_path = send_to_ps.submission_record_path(str(path))
+    entry = {'submitted_lines': 1, 'labels_submitted': 2, 'min_confidence': 0.23,
+             'rig_masked': True}
+    for recorded, labels in ((None, 2), (5.625, 1), ('absent', 2)):
+        prev = dict(entry) if recorded == 'absent' else dict(entry, range_gate_deg=recorded)
+        send_to_ps.write_submission_record(rec_path, path, digest, n, size, {1}, PROD, 0.23,
+                                           {'endpoints': {PROD: prev}},
+                                           label_types=['Crosswalk'])
+        state = json.loads(rec_path.read_text(encoding='utf-8'))['endpoints'][PROD]
+        assert (state['range_gate_deg'], state['labels_submitted']) == \
+            (None if recorded == 'absent' else recorded, labels)
+
+
+def test_multi_type_record_gates_crosswalk_only(monkeypatch, tmp_path):
+    import main
+    import send_to_ps
+    result = _process(monkeypatch, {'CurbRamp': _FakeCurb([(0.5, 0.25, 0.9), (0.6, FAR, 0.9)]),
+                                    'Crosswalk': _FakeXwalk([(0.1, 0.6, 0.3), (0.2, FAR, 0.9)])})
+    line = main.build_output_line(result, {'CurbRamp': make_provenance(), 'Crosswalk': XW_PROV})
+    path = tmp_path / 'results.jsonl'
+    path.write_text(json.dumps(line) + '\n', encoding='utf-8', newline='\n')
+    sent = _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert {p['label_type']: len(p['labels']) for p in sent} == {'Crosswalk': 1, 'CurbRamp': 2}
+    types = _record(path)['endpoints'][PROD]['types']
+    assert types['Crosswalk']['range_gate_deg'] == 5.625
+    assert 'range_gate_deg' not in types['CurbRamp']
+
+
+def test_above_the_horizon_is_gated_and_zero_is_a_horizon_gate(monkeypatch):
+    import send_to_ps
+    line = _crosswalk_line(monkeypatch, [(0.5, 0.4, 0.9), (0.6, 0.6, 0.8)])   # 18 deg up / down
+    assert [lab['confidence'] for lab in send_to_ps.transform_record(line)['labels']] == [0.8]
+    assert len(send_to_ps.transform_record(line, range_gate=0)['labels']) == 1   # horizon gate
+    assert len(send_to_ps.transform_record(line, range_gate=False)['labels']) == 2
+    with pytest.raises(ValueError, match='cannot be negative'):
+        send_to_ps.transform_record(line, range_gate=-1.0)
+
+
+def _lose_ungated_far_line(monkeypatch, tmp_path, far_conf=0.8):
+    """Line 1 live UNGATED with a far label (record stripped of its gate, count made honest);
+    line 2 still to send."""
+    import send_to_ps
+    path = _gate_file(monkeypatch, tmp_path / 'xw', [[(0.5, 0.6, 0.9), (0.2, FAR, far_conf)],
+                                                     [(0.5, 0.6, 0.7), (0.2, FAR, 0.6)]])
+    sent = _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=1)
+    _strip_gate(path)
+    rec_path = Path(f'{path}.submission.json')
+    rec = json.loads(rec_path.read_text(encoding='utf-8'))
+    rec['endpoints'][PROD]['labels_submitted'] = 2
+    rec_path.write_text(json.dumps(rec), encoding='utf-8')
+    del sent[:]
+    return path, sent
+
+
+def test_override_with_a_lost_sidecar_keeps_the_recorded_gate(monkeypatch, tmp_path, capsys):
+    """Review P1: with the sidecar gone, "0 sent lines carry 0 labels" proves nothing, so the
+    override must not adopt; the campaign stays ungated, as line 1 went out."""
+    import send_to_ps
+    path, sent = _lose_ungated_far_line(monkeypatch, tmp_path)
+    Path(f'{path}.submitted').unlink()
+    capsys.readouterr()
+    send_to_ps.process_jsonl_file(str(path), PROD, ignore_guard=True)
+    assert 'keeps its recorded range gate' in capsys.readouterr().out
+    assert _record(path)['endpoints'][PROD]['range_gate_deg'] is None
+    assert [len(p['labels']) for p in sent] == [2, 2]           # re-sent ungated, as recorded
+
+
+def test_override_with_a_changed_threshold_keeps_the_recorded_gate(monkeypatch, tmp_path):
+    """Review P2: counted at 0.5 the far 0.3 label on line 1 vanishes from both counts, which
+    would read as "no sent label affected". The override keeps the recorded gate instead."""
+    import send_to_ps
+    path, sent = _lose_ungated_far_line(monkeypatch, tmp_path, far_conf=0.3)
+    send_to_ps.process_jsonl_file(str(path), PROD, ignore_guard=True, min_confidence=0.5)
+    assert _record(path)['endpoints'][PROD]['range_gate_deg'] is None
+    assert [len(p['labels']) for p in sent] == [2]              # line 2, ungated
+
+
+def test_adoption_counts_at_the_recorded_threshold_and_needs_every_sent_line(monkeypatch,
+                                                                            tmp_path):
+    """range_gate_on_resume itself, trusted: a changed --min-confidence cannot hide a far label
+    (it counts at the entry's 0.23), and a sidecar short of the record never adopts."""
+    import send_to_ps
+    path = _gate_file(monkeypatch, tmp_path / 'xw', [[(0.5, 0.6, 0.9), (0.2, FAR, 0.3)]])
+    entry = {'submitted_lines': 1, 'min_confidence': 0.23, 'rig_masked': True}
+    rp = Path(f'{path}.submission.json')
+    with pytest.raises(ValueError, match='range gate'):
+        send_to_ps.range_gate_on_resume(entry, 'Crosswalk', path, {1}, 0.5, None, 'Crosswalk',
+                                        PROD, rp)
+    gate, note = send_to_ps.range_gate_on_resume(dict(entry, submitted_lines=2), 'Crosswalk',
+                                                 path, {1}, 0.23, None, 'Crosswalk', PROD, rp)
+    assert gate is None and 'do not account for the 2 recorded' in note
+
+
+def test_dry_run_says_what_a_real_run_would_do_with_the_gate(monkeypatch, tmp_path, capsys):
+    import send_to_ps
+    path, _ = _lose_ungated_far_line(monkeypatch, tmp_path)
+    capsys.readouterr()
+    send_to_ps.process_jsonl_file(str(path), PROD, dry_run=True)
+    assert 'a real run would REFUSE' in capsys.readouterr().out
+    clean = _gate_file(monkeypatch, tmp_path / 'xw2', [[(0.5, 0.6, 0.9)],
+                                                       [(0.5, 0.6, 0.7), (0.2, FAR, 0.6)]])
+    send_to_ps.process_jsonl_file(str(clean), PROD, limit=1)
+    _strip_gate(clean)
+    capsys.readouterr()
+    send_to_ps.process_jsonl_file(str(clean), PROD, dry_run=True)
+    assert 'a real run would adopt' in capsys.readouterr().out
+
+
+def _two_type_gate_file(monkeypatch, tmp_path, first_far):
+    """CurbRamp + Crosswalk, two lines; line 2 has a far Crosswalk peak, line 1 one iff
+    `first_far`. Both lines carry a far CurbRamp peak, which is never gated."""
+    import main
+    lines = []
+    for i, xw in enumerate(([(0.1, 0.6, 0.3)] + ([(0.2, FAR, 0.9)] if first_far else []),
+                            [(0.1, 0.6, 0.3), (0.2, FAR, 0.9)]), 1):
+        result = _process(monkeypatch, {'CurbRamp': _FakeCurb([(0.5, 0.25, 0.9), (0.6, FAR, 0.9)]),
+                                        'Crosswalk': _FakeXwalk(xw)})
+        line = json.loads(json.dumps(main.build_output_line(
+            result, {'CurbRamp': make_provenance(), 'Crosswalk': XW_PROV})))
+        line['pano']['panorama_id'] = f'M{i}'
+        lines.append(json.dumps(line) + '\n')
+    path = tmp_path / 'results.jsonl'
+    path.write_text(''.join(lines), encoding='utf-8', newline='\n')
+    return path
+
+
+@pytest.mark.parametrize('first_far', [True, False])
+def test_multi_type_resume_refuses_or_adopts_per_type(monkeypatch, tmp_path, first_far):
+    import send_to_ps
+    path = _two_type_gate_file(monkeypatch, tmp_path, first_far)
+    sent = _capture(monkeypatch)
+    send_to_ps.process_jsonl_file(str(path), PROD, limit=1)
+    rec_path = Path(f'{path}.submission.json')
+    rec = json.loads(rec_path.read_text(encoding='utf-8'))
+    del rec['endpoints'][PROD]['types']['Crosswalk']['range_gate_deg']   # sent before the gate
+    rec_path.write_text(json.dumps(rec), encoding='utf-8')
+    del sent[:]
+    if first_far:
+        with pytest.raises(ValueError, match='Crosswalk campaign'):
+            send_to_ps.process_jsonl_file(str(path), PROD)
+        assert sent == []
+        return
+    send_to_ps.process_jsonl_file(str(path), PROD)
+    assert {p['label_type']: len(p['labels']) for p in sent} == {'Crosswalk': 1, 'CurbRamp': 2}
+    types = _record(path)['endpoints'][PROD]['types']
+    assert types['Crosswalk']['range_gate_deg'] == 5.625
+    assert 'range_gate_deg' not in types['CurbRamp']

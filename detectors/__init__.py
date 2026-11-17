@@ -32,7 +32,8 @@ Two distinct thresholds govern detections, and they are deliberately not the sam
   point must not silently re-key nine cities of ground truth. Changing THIS value
   means re-exporting and re-judging every bundle.
 
-A third filter is geometric rather than confidence-based — see NADIR_MASK_DEG.
+A third filter is geometric rather than confidence-based — see NADIR_MASK_DEG — and a
+fourth, per label type, holds back far-field detections at send time: see beyond_range_gate.
 
 The module also owns MODEL PROVENANCE (issues #39/#6) — which weights produced a record —
 because it has the same audience: see KNOWN_REVISIONS and provenance_from_snapshot_dir.
@@ -104,6 +105,54 @@ def on_camera_rig(y_normalized: float) -> bool:
     existed must not apply it — what is already live is what is already live.
     """
     return y_normalized > NADIR_MASK_Y
+
+
+# --- The range gate (issue #192) -------------------------------------------------------
+#
+# The far-field counterpart of the nadir mask, and like it a placement-quality rule read
+# straight off the pixel, never a confidence filter. Project Sidewalk places a label once, at
+# insert, from its pixel row with a distance estimate that is bounded near 23.85 m
+# (PanoDataService.toLatLng; ps_placement.py ports it), so a detection close to the horizon
+# lands far short of its target. A per-type gate (DetectorSpec.min_depression_deg) holds back,
+# at send time, every detection shallower than that many degrees below the image horizon.
+# results.jsonl keeps every detection, and the submission record says which gate each campaign
+# was sent under (`range_gate_deg`), so what is live can be reconstructed exactly. The held-back
+# labels are not lost, but no route sends them later yet: that needs new code (e.g. a gate band,
+# by analogy with confidence bands, which are refused on any file that is not CurbRamp-only).
+#
+# Gates sit on CELL EDGES. RampNet-family peaks fall on a coarse vertical grid: 8 of the 512
+# heatmap rows per cell, i.e. 2.8125 deg (docs/heatmap-grid.md), so an argmax peak can only
+# take a few discrete dips. A cut placed between two cells is the same cut for every pano; one
+# placed inside a cell would split that cell's peaks on decode noise. Row 272/512 is exactly
+# 5.625 deg (two cells), Crosswalk's gate, and is KEPT: the rule drops strictly shallower.
+#
+# IMAGE frame on purpose: the dip is (y - 0.5) * 180 with no camera pitch or roll. A pose-aware
+# cut was tested in #192's plan and rejected; the server's own estimator ignores pose too.
+
+
+def depression_deg(y_normalized: float) -> float:
+    """Degrees below the image horizon of a normalized y (negative above it).
+
+        >>> depression_deg(0.5), depression_deg(272 / 512), depression_deg(1.0)
+        (0.0, 5.625, 90.0)
+    """
+    return (y_normalized - 0.5) * 180.0
+
+
+def beyond_range_gate(y_normalized: float, min_depression_deg) -> bool:
+    """Is this detection too far out to place, under a gate of ``min_depression_deg``?
+
+    True when a gate is set (not None) and the detection's depression_deg is STRICTLY below
+    it; a detection exactly at the gate is kept. None means the type is ungated. The single
+    definition of the rule (issue #192), so the submission path and every tool that
+    reconstructs a campaign apply the same cut.
+
+        >>> beyond_range_gate(268 / 512, 5.625), beyond_range_gate(272 / 512, 5.625)
+        (True, False)
+        >>> beyond_range_gate(0.5, None)
+        False
+    """
+    return min_depression_deg is not None and depression_deg(y_normalized) < min_depression_deg
 
 
 def ps_pixel(x_normalized, y_normalized, width, height):

@@ -1296,6 +1296,30 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
 #      has checked where a centre-of-crossing pixel ends up) before anything goes further.
 # A Crosswalk file's submission record says label_types + type_frames (keep); its frame guard
 # compares only with campaigns that sent Crosswalk. Bands (--max-confidence) are refused.
+#
+# RANGE GATE (#192, Jon 2026-11-17). PS places a label from its pixel row with a distance
+# estimate bounded near 23.85 m, so far detections land far short of their target. send_to_ps
+# holds back every Crosswalk detection STRICTLY shallower than 5.625 deg below the image horizon
+# (DetectorSpec.min_depression_deg; detectors.beyond_range_gate). Peaks sit on 2.8125-deg cells,
+# so the cut is a cell edge: row 272/512 is exactly 5.625 and is kept; rows 267/268 go, 275/276
+# stay. Image frame, no pose. CurbRamp is ungated. Juneau at 0.23: 4,400 -> 3,525 labels
+# downtown, 60 -> 54 in the expansion. The dry run and the real run print "Held back by the range
+# gate" per type; those detections are excluded from the "below --min-confidence" count.
+# results.jsonl keeps every detection, but no route sends the held-back ones later yet: that
+# needs new code (e.g. a gate band, by analogy with confidence bands, which are refused on any
+# file that is not CurbRamp-only). Each campaign entry of a gated type's record (endpoint
+# entry, types[T], band) carries range_gate_deg: the cut it was sent under, or null; a CurbRamp
+# record gains no key. A resume keeps the recorded cut. If it differs from the spec's, the run
+# refuses unless the lines already sent carry the same label count under both cuts; then it
+# adopts the spec's cut with a NOTE (runs/juneau_crosswalk's 8-line, 0-label test campaign is
+# this case). Adoption needs a trusted record: after --ignore-submission-guard, or with a sidecar
+# short of the recorded lines, the recorded cut is kept; counts are taken at the entry's recorded
+# min_confidence. --ignore-submission-guard finishes a refused campaign under the recorded cut.
+# A dry run sends the spec's cut and prints what a real run would do (adopt, keep, refuse).
+# RECONSTRUCT what a campaign sent: send_to_ps.transform_record(rec, ..., mask_rig=<rig_masked>,
+# range_gate=<range_gate_deg>) (a number = that cut, None/False = ungated, True = the spec's);
+# position_check.campaigns_for, coverage_check/review_order's replay and reinfer's derived record
+# all do. The held-back labels are transform_record(..., range_gate=False) minus the gated payload.
 # NOT yet for Crosswalk: detect_from_store.py / reinfer.py (CurbRamp only), fusion (PR #176),
 # and a store-backed pilot (send_to_ps.check_store_built is not type-aware; draft PR #179).
 ```
