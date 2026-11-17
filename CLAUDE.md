@@ -106,6 +106,7 @@ named here. Verdicts are summarised only where they set a production default.
 | `footway_segmentation.py` | segmenter vs depth (#47 step 2) | `docs/footway-depth-study.md` |
 | `reposition.py` | rewrite flagged sequences' positions | commands.md "Position check" |
 | `coverage_check.py` | post-submission backup-image coverage (#46) | commands.md section |
+| `review_order.py` | validator-ranked review list per endpoint (#168 item 5) | commands.md section; ordering only |
 
 Analysis-only extra deps (`pandas scipy haversine`, Tile2Net's venv, Mask2Former's
 torch/transformers) are **deliberately not in requirements.txt**.

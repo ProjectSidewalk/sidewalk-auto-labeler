@@ -289,15 +289,28 @@ def probe_metadata(server, pano_id, session=None):
 
 # --------------------------------------------------------------------------- expected set
 
-def expected_panos(run_dir, endpoint):
-    """What the records say this server was sent: ({pano_id: {labels, label_types,
-    campaigns}}, [campaign summaries], [problems]). Each campaign is replayed through
-    send_to_ps.transform_record at its own [select_min, select_max) and rig mask, and the
-    replayed counts are checked against the records (label_count_problems)."""
+def replay_campaigns(run_dir, endpoint, visit):
+    """Replay every campaign the records in `run_dir` hold for `endpoint`, exactly as it was
+    sent, and check the replay against the records: ([campaign summaries], [problems]).
+
+    Each campaign (position_check.campaigns_for: base entries, bands, per-type campaigns,
+    partial ones restricted to their sidecar's lines) is replayed through
+    send_to_ps.transform_record at its own [select_min, select_max) and rig mask. For every
+    line that sent at least one label, `visit(campaign, line_number, record, label_type,
+    sent)` is called, `sent` being the payload's `labels` ([{pano_x, pano_y, confidence}])
+    and `campaign` the campaigns_for dict. The replayed counts are then checked against the
+    records (label_count_problems). The one replay behind expected_panos (which panos carry
+    labels, #46) and scripts/review_order.py (which labels, #168 item 5).
+
+    Usage (every shipped pixel key of a run dir on one server):
+        keys = set()
+        summaries, problems = replay_campaigns(Path('runs/richmond'), endpoint,
+            lambda c, n, rec, t, sent: keys.update(
+                (t, str(rec['pano']['panorama_id']), s['pano_x'], s['pano_y']) for s in sent))
+    """
     campaigns, problems = position_check.campaigns_for(run_dir, endpoint)
     if not campaigns and not problems:
         problems.append(f'no submission record in {run_dir} holds any line for {endpoint}')
-    expected = defaultdict(lambda: {'labels': 0, 'label_types': set(), 'campaigns': set()})
     summaries = []
     for c in campaigns:
         if c['select_min'] is None:
@@ -313,30 +326,41 @@ def expected_panos(run_dir, endpoint):
                 # type alone; a single-type campaign is the line's one type. Either way the
                 # type comes from the detections (registry), never the line-level field,
                 # which is null on a multi-type line.
-                label_type = c.get('label_type')
                 sent = send_to_ps.transform_record(record, c['select_min'], c['select_max'],
                                                    mask_rig=c['rig_masked'],
-                                                   label_type=label_type)['labels']
+                                                   label_type=c.get('label_type'))['labels']
                 if not sent:
                     continue
-                pid = str(record['pano']['panorama_id'])
-                entry = expected[pid]
-                entry['labels'] += len(sent)
-                entry['label_types'].add(label_type or record_types(record)[0])
-                entry['campaigns'].add(c['campaign'])
-                panos.add(pid)
+                visit(c, n, record, c.get('label_type') or record_types(record)[0], sent)
+                panos.add(str(record['pano']['panorama_id']))
                 labels += len(sent)
         summaries.append({'campaign': c['campaign'], 'select_min': c['select_min'],
                           'select_max': c['select_max'], 'rig_masked': c['rig_masked'],
                           'lines': c['lines'], 'recorded_labels': c['labels'],
                           'replayed_labels': labels, 'panos': len(panos),
                           'partial': c['line_numbers'] is not None,
-                          'band': c['band'], 'record': c['record']})
+                          'band': c['band'], 'label_type': c.get('label_type'),
+                          'record': c['record'], 'path': c['path'], 'at': c['at']})
     by_record = defaultdict(list)
     for summary in summaries:
         by_record[summary['record']].append(summary)
     for parts in by_record.values():
         problems += label_count_problems(parts)
+    return summaries, problems
+
+
+def expected_panos(run_dir, endpoint):
+    """What the records say this server was sent: ({pano_id: {labels, label_types,
+    campaigns}}, [campaign summaries], [problems]), from replay_campaigns."""
+    expected = defaultdict(lambda: {'labels': 0, 'label_types': set(), 'campaigns': set()})
+
+    def visit(c, _n, record, label_type, sent):
+        entry = expected[str(record['pano']['panorama_id'])]
+        entry['labels'] += len(sent)
+        entry['label_types'].add(label_type)
+        entry['campaigns'].add(c['campaign'])
+
+    summaries, problems = replay_campaigns(run_dir, endpoint, visit)
     return dict(expected), summaries, problems
 
 
