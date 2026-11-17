@@ -10,9 +10,12 @@ only. Issues: [#185](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/is
 **Result (2026-11-15): PASS.** If the city inventory were not there to remove corners, the
 #169 NoCurbRamp rule would still clear its 0.90 bar in Vancouver: worst case **0.929**, point
 estimate **0.981**. Under the plan, the stand-in question is closed for Vancouver. A VLM
-standing in for the inventory would add about one point of precision. Stage 1 (Gemini, up to $40) was
-approved on 2026-11-15. Only its 20-corner smoke test has run ($0.58 billed), so there is no
-kill verdict yet; see "Stage 1" below. Stage 1b and Stage 2 are not approved.
+standing in for the inventory would add about one point of precision.
+
+**Stage 1 result (2026-11-16): KILL.** Gemini cannot pre-rate absent corners from this prompt.
+Every one of the four kill arms catches only 1 of the 6 blind-present units, and the
+pre-registered rule needs at least 3. Spend: $27.42 logged, matched by billing. Stage 1b and
+Stage 2 do not run. See "Stage 1" below.
 
 ## The question and the gate
 
@@ -160,15 +163,91 @@ and `built_at`. Inputs, all sha256-pinned in the script (`PINS`) and recorded in
 | 250 of 283 with a sidewalk; 3,070 recounted | `gate.json` `sidewalk` |
 | figure curves | `docs/figures/corner-prerater-185/data/stage0_pfree.csv` |
 
-## Stage 1 (approved 2026-11-15): smoke test done, full legs blocked
+## Stage 1 (approved 2026-11-15, run 2026-11-16): KILL
 
-Jon approved Stage 1 on 2026-11-15 (relayed by the coordinating session). Only the 20-corner
-smoke test has run. The first full leg (Argon multi-view on all 381 corners, budget $7) was
-**refused twice by Claude Code's auto-mode permission classifier**, so no full leg has run and
-**no kill verdict exists yet**. Nothing was worked around. To continue, Jon either runs the
-commands below himself or allows them.
+Jon approved Stage 1 on 2026-11-15, relayed by the coordinating session. The 20-corner smoke
+test ran that night. Claude Code's auto-mode permission classifier then refused the full legs
+twice, and nothing was done to get around it. On 2026-11-16 Jon told the session to finish
+Stage 1 ("do all of the above"). The full legs then ran in one chain from 17:10 to 19:00
+local, in the order and with the budgets listed under "Commands" below.
 
-**What is built and frozen.** Before the first call, commit `8292305` froze the prompt
+### Result
+
+The kill rule was declared before any call:
+- An arm **fails** if it catches 2 or fewer of the 6 blind-present units, or if it flags more
+  than 10% of the 365 blind-absent corners.
+- Stage 1 is **killed** if every one of the four kill arms fails.
+
+A flag means the model answered present or can't tell. All 4,092 calls ended
+`STOP`, every answer parsed, and there were no `no_answer` results and no errors.
+
+| arm | role | answers (absent / can't tell / present) | units caught (of 6) | corners caught (of 9) | flag rate on 365 absent | kappa vs blind | verdict |
+|---|---|---|---:|---:|---:|---:|---|
+| argon_multi_r1 | kill | 340 / 30 / 11 | 1 | 1 | **0.104** (38) | 0.05 | fail: catches, flag rate |
+| flash_multi | kill | 352 / 27 / 2 | 1 | 2 | 0.074 (27) | 0.05 | fail: catches |
+| argon_single (nearest) | kill | 340 / 18 / 23 | 1 | 2 | 0.099 (36) | 0.10 | fail: catches |
+| flash_single (nearest) | kill | 346 / 32 / 3 | 1 | 1 | 0.088 (32) | 0.08 | fail: catches |
+| argon_multi_r2 | measure | 340 / 29 / 12 | 1 | 1 | 0.104 (38) | 0.05 | — |
+| argon_noaerial | measure | 353 / 13 / 15 | 3 | 3 | 0.060 (22) | 0.19 | — |
+
+**Verdict: KILL (every kill arm fails).** Every arm catches the same unit,
+`g243:vancouver:res:n47231852`, and only that unit. Most of each arm's flags on absent corners
+are can't-tell answers rather than false presents: 29 of 38 for Argon multi-view, and all 27
+for Flash multi-view. So the models mostly agree that the corners are absent. What they miss is
+the few corners where a ramp is actually there. Agreement with the blind verdicts beyond chance
+is close to zero (kappa 0.05–0.10).
+
+**Repeatability.** The two Argon multi-view replicates differ on 6 of 381 corners (1.6%). Their
+catches and flag rate are identical. The noise is far too small to have moved the verdict.
+
+**Exploratory, not a rescue.** Argon *without* the aerial (`argon_noaerial`) would have passed
+the rule: 3 of 6 units caught, flag rate 0.060, kappa 0.19.
+- It was declared measure-only before any call.
+- It is the best of six arms, picked after the fact.
+- 3 of 6 has a Wilson 95% interval of 0.23–0.88 on the 5 units with no live label.
+
+So it does not reverse the kill. It suggests the aerial and overlay panel may confuse the model
+more than they help. A test of that would need its own pre-registration and fresh present
+corners, because these 9 have now been used. That test is not proposed here.
+
+**Kind of absence.** The models call far more corners "missing ramp" than the rater did. Across
+arms, 54–97 corners got a missing-ramp kind from the model alone, against 2–4 from the rater
+alone (`absent_kind_agreement`). This is the same tendency seen in the can't-tell flags.
+
+**Single view on the other crops.** The `--views rest` legs (Argon $4.87, Flash $2.78) record
+an answer for each of the 903 non-nearest crops. Under the declared rule, the single-view arm's
+answer is the nearest crop's, so these legs do not enter the kill. They are kept for any later
+analysis of crop choice.
+
+**Spend.**
+
+| leg | logged $ |
+|---|---:|
+| smoke, 4 arms × 20 | 0.58 |
+| argon_multi_r1 | 4.72 |
+| flash_multi | 2.52 |
+| argon_single nearest | 1.87 |
+| flash_single nearest | 1.07 |
+| argon_multi_r2 | 4.97 |
+| argon_noaerial | 4.03 |
+| argon_single rest | 4.87 |
+| flash_single rest | 2.78 |
+| **total** | **27.42** (cap 40) |
+
+Cloud Monitoring confirms the full legs (UTC window ending 2026-11-18; the smoke test falls
+outside it and was reconciled separately):
+
+| model | billed tokens in | logged tokens in | $ (~) |
+|---|---:|---:|---:|
+| gemini-4-argon | 8,662,662 | 8,662,662 | 20.47 |
+| gemini-3.8-flash | 4,384,808 | 4,454,763 | 6.29 |
+
+`vertex_usage.py --reconcile` reports every billed model "ok". Argon matches to the token. The
+Flash ledger is 1.6% above billing, which is within the tool's tolerance.
+
+### What was frozen
+
+Before the first call, commit `8292305` froze the prompt
 (sha256 `f3fd9e7b…`, in `stage1/requests.json`) and the 381 requests. Each prompt is the
 bundle's own rubric verbatim (v1 for gallery 243, v2 for gallery 169), a fixed task sentence,
 the images, and a JSON schema (`verdict` = present / absent / cant_tell, plus `absent_kind`).
@@ -180,7 +259,9 @@ one crop and no aerial; the arm's answer is the nearest crop's. Counts: 381 corn
 blind-absent, 9 present in 6 units, 7 can't tell) and 1,284 crops. All crops match their
 bundle's `images.sha256`.
 
-**Smoke test** (seeded 20 corners, `random.Random(185)`; by chance all 20 are blind-absent):
+### Smoke test
+
+Seeded 20 corners (, `random.Random(185)`; by chance all 20 are blind-absent):
 
 | arm | calls | tokens in / out (thinking) | logged $ | $ per call | answers on 20 absent |
 |---|---:|---|---:|---:|---|
@@ -196,24 +277,23 @@ Projected cost of the whole stage from these rates: about $28.5. That is Argon m
 three times at about $5.4 each, Flash multi-view $2.6, and single view on all 1,284 crops at
 $6.5 (Argon) and $3.6 (Flash). With the 25% margin that is about $36, under the $40 cap.
 
-**Not a result.** Twenty absent corners say nothing about the kill rule, which needs all 381
-for the four kill arms. The smoke rows are part of each arm's response file and will not be
-re-billed.
+The smoke rows are part of each arm's response file and were not billed again by the full legs.
 
-### To finish Stage 1 (Jon, or with his permission)
+### Commands (as run 2026-11-16; a re-run skips answered calls and costs nothing)
 
 ```bash
 R=/d/Git/RampNet/.venv/Scripts/python.exe     # RampNet's venv has google-genai; Vertex + ADC
-# kill arms first, then the measure-only runs; reconcile after each leg
+# kill arms first, then the measure-only runs
 $R scripts/corner_vlm.py run --arm argon_multi_r1 --keys all --budget-usd 7
 $R scripts/corner_vlm.py run --arm flash_multi    --keys all --budget-usd 4
 $R scripts/corner_vlm.py run --arm argon_single   --keys all --views nearest --budget-usd 3
 $R scripts/corner_vlm.py run --arm flash_single   --keys all --views nearest --budget-usd 2
-python scripts/corner_prerater.py score            # -> stage1/score.json, prints the kill verdict
+$R scripts/corner_prerater.py score               # -> stage1/score.json, prints the kill verdict
 $R scripts/corner_vlm.py run --arm argon_multi_r2 --keys all --budget-usd 7
 $R scripts/corner_vlm.py run --arm argon_noaerial --keys all --budget-usd 7
 $R scripts/corner_vlm.py run --arm argon_single   --keys all --views rest --budget-usd 6
 $R scripts/corner_vlm.py run --arm flash_single   --keys all --views rest --budget-usd 4
+$R scripts/corner_prerater.py score               # re-score with the measure-only arms
 (cd /d/Git/RampNet && .venv/Scripts/python.exe scripts/analysis/vertex_usage.py --days 1 --reconcile)
 ```
 
@@ -233,10 +313,18 @@ reported per gallery.
 | 381 corners, 1,284 crops, blind counts, smoke keys, prompt sha256 | `stage1/requests.json` |
 | every answer (call id, verdict, kind, tokens, finish reason, model build) | `stage1/responses/<arm>.jsonl` |
 | per-leg tokens and $ | `stage1/usage_log.jsonl` (same rows in RampNet `analysis_out/usage_log.jsonl`) |
-| billed tokens, 2026-11-16 UTC | `stage1/billed_2026-11-16_smoke.json` |
-| per-arm catches, flag rates, kill verdict (currently NOT DECIDED) | `stage1/score.json` |
+| billed tokens, smoke test, 2026-11-16 UTC | `stage1/billed_2026-11-16_smoke.json` |
+| billed tokens, full legs | this doc, Spend table (`vertex_usage.py --days 1 --reconcile`, run right after the chain) |
+| per-arm catches, flag rates, kappa, kill verdict | `stage1/score.json` `scores`, `per_arm`, `kill_verdict` |
+| per-gallery counts | `stage1/score.json` `per_gallery` |
+| absent-kind agreement | `stage1/score.json` `absent_kind_agreement` |
+| r1 vs r2 differences (6 keys) | `stage1/score.json` `replicate_change` |
 
 ## What happens next (from the plan)
 
-The stand-in half stops here for Vancouver. That decision is Jon's: accept this reading, or ask
-for a city where the inventory removes more (plan section 8, decision 1). Stage 1 was approved on 2026-11-15; see the section above for where it stands.
+**The stand-in half** stops here for Vancouver. That decision is Jon's: he can accept this
+reading, or ask for a city where the inventory removes more (plan section 8, decision 1).
+
+**The pre-rater half** is killed by Stage 1, so ratings of absent corners stay manual, with the
+smaller-n measures from the GT-burden plan. Stage 1b and Stage 2 do not run. Reopening it would
+take a new pre-registered plan, for example the no-aerial arm on fresh present corners.
