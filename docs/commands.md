@@ -1305,12 +1305,17 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
 # stay. Image frame, no pose. CurbRamp is ungated. Juneau at 0.23: 4,400 -> 3,525 labels
 # downtown, 60 -> 54 in the expansion. The dry run and the real run print "Held back by the range
 # gate" per type; those detections are excluded from the "below --min-confidence" count.
-# results.jsonl keeps every detection. Each campaign entry of a gated type's record (endpoint
+# results.jsonl keeps every detection, but no route sends the held-back ones later yet: that
+# needs new code (e.g. a gate band, by analogy with confidence bands, which are refused on any
+# file that is not CurbRamp-only). Each campaign entry of a gated type's record (endpoint
 # entry, types[T], band) carries range_gate_deg: the cut it was sent under, or null; a CurbRamp
 # record gains no key. A resume keeps the recorded cut. If it differs from the spec's, the run
 # refuses unless the lines already sent carry the same label count under both cuts; then it
 # adopts the spec's cut with a NOTE (runs/juneau_crosswalk's 8-line, 0-label test campaign is
-# this case). --ignore-submission-guard finishes the campaign under the recorded cut.
+# this case). Adoption needs a trusted record: after --ignore-submission-guard, or with a sidecar
+# short of the recorded lines, the recorded cut is kept; counts are taken at the entry's recorded
+# min_confidence. --ignore-submission-guard finishes a refused campaign under the recorded cut.
+# A dry run sends the spec's cut and prints what a real run would do (adopt, keep, refuse).
 # RECONSTRUCT what a campaign sent: send_to_ps.transform_record(rec, ..., mask_rig=<rig_masked>,
 # range_gate=<range_gate_deg>) (a number = that cut, None/False = ungated, True = the spec's);
 # position_check.campaigns_for, coverage_check/review_order's replay and reinfer's derived record

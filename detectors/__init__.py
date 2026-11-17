@@ -116,8 +116,9 @@ def on_camera_rig(y_normalized: float) -> bool:
 # lands far short of its target. A per-type gate (DetectorSpec.min_depression_deg) holds back,
 # at send time, every detection shallower than that many degrees below the image horizon.
 # results.jsonl keeps every detection, and the submission record says which gate each campaign
-# was sent under (`range_gate_deg`), so the held-back labels can be sent later and what is live
-# can be reconstructed exactly.
+# was sent under (`range_gate_deg`), so what is live can be reconstructed exactly. The held-back
+# labels are not lost, but no route sends them later yet: that needs new code (e.g. a gate band,
+# by analogy with confidence bands, which are refused on any file that is not CurbRamp-only).
 #
 # Gates sit on CELL EDGES. RampNet-family peaks fall on a coarse vertical grid: 8 of the 512
 # heatmap rows per cell, i.e. 2.8125 deg (docs/heatmap-grid.md), so an argmax peak can only

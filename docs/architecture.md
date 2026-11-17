@@ -775,8 +775,11 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
   the recorded one, and every recount uses it (absent = ungated), exactly as `rig_masked`.
   `send_to_ps.range_gate_on_resume` refuses a resume whose recorded cut differs from the spec's
   unless the sent lines carry the same label count under both (gating only removes labels), in
-  which case it adopts the spec's cut with a note; `--ignore-submission-guard` finishes under
-  the recorded cut. `position_check.campaigns_for` carries `range_gate_deg`, and
+  which case it adopts the spec's cut with a note. It adopts only on a trusted record (no
+  override, a sidecar that covers the recorded lines) and counts at the entry's recorded
+  `min_confidence`; otherwise, and under `--ignore-submission-guard`, the recorded cut is kept.
+  A dry run says which of these a real run would do. No route sends held-back labels later yet
+  (that needs new code, e.g. a gate band). `position_check.campaigns_for` carries `range_gate_deg`, and
   `coverage_check.replay_campaigns` (so `review_order`) and `reinfer.write_derived_record`
   replay it.
 - **NOT done**: per-type `FuseParams` (#168 item 4; PR #176), the ranker review-order export

@@ -340,6 +340,7 @@ def replay_campaigns(run_dir, endpoint, visit):
         summaries.append({'campaign': c['campaign'], 'select_min': c['select_min'],
                           'select_max': c['select_max'], 'rig_masked': c['rig_masked'],
                           'range_gate_deg': c.get('range_gate_deg'),
+                          'range_gate_recorded': c.get('range_gate_recorded', False),
                           'lines': c['lines'], 'recorded_labels': c['labels'],
                           'replayed_labels': labels, 'panos': len(panos),
                           'partial': c['line_numbers'] is not None,
@@ -559,6 +560,21 @@ def _header(ctx):
             f"(issue #46). Read-only: GET requests only.", '']
 
 
+def gate_cell(s):
+    """A campaign's range gate (issue #192) as a report table cell: "—" when its record has no
+    `range_gate_deg` (ungated: every campaign before #192, and every CurbRamp one), "none" for
+    a recorded null, else the cut in degrees below the horizon."""
+    if not s.get('range_gate_recorded'):
+        return '—'
+    return 'none' if s.get('range_gate_deg') is None else f"{s['range_gate_deg']:g}°"
+
+
+def gate_column(campaigns):
+    """Whether a report table gets a range-gate column: only when some campaign recorded one,
+    so a report on CurbRamp-only records is byte-identical to before #192."""
+    return any(s.get('range_gate_recorded') for s in campaigns)
+
+
 def render_failure_report(ctx):
     """report.md for a check that stopped before classifying: exit 2 and why, so a failed
     re-run never leaves an earlier "Exit 0" standing."""
@@ -591,13 +607,19 @@ def render_report(ctx):
           '`rig_masked` absent in a record means the campaign predates the nadir mask. The '
           'recorded label count of a base entry includes its bands once they cover the file, so only '
           'the replayed column is per campaign. Every recorded count is checked: a band must equal '
-          'its replay, a base entry its replay plus its complete bands.', '',
-          '| campaign | sent range | rig masked | lines | labels (record) | labels (replayed) | panos with labels |',
-          '|---|---|---|---:|---:|---:|---:|']
+          'its replay, a base entry its replay plus its complete bands.', '']
+    gated = gate_column(ctx['campaigns'])
+    if gated:
+        L += ['Range gate: the cut each campaign was sent under (`range_gate_deg`, issue #192); '
+              '— means the record has no key (ungated).', '']
+    L += ['| campaign | sent range | rig masked | ' + ('range gate | ' if gated else '')
+          + 'lines | labels (record) | labels (replayed) | panos with labels |',
+          '|---|---|---|' + ('---|' if gated else '') + '---:|---:|---:|---:|']
     for s in ctx['campaigns']:
         part = ' (partial, sidecar lines)' if s['partial'] else ''
         L.append(f"| `{s['campaign']}`{part} | {_range(s)} | {'yes' if s['rig_masked'] else 'no'} "
-                 f"| {s['lines']:,} | {_count(s['recorded_labels'])} | {s['replayed_labels']:,} "
+                 + (f"| {gate_cell(s)} " if gated else '')
+                 + f"| {s['lines']:,} | {_count(s['recorded_labels'])} | {s['replayed_labels']:,} "
                  f"| {s['panos']:,} |")
     L += ['', f'Distinct expected panos: **{n_exp:,}**.', '',
           '## Classification', '', '| status | panos | meaning |', '|---|---:|---|']

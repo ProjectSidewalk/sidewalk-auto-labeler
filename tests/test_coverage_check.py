@@ -355,3 +355,12 @@ def test_replay_applies_the_recorded_range_gate(tmp_path):
     assert set(expected) == {"NEAR", "UN", "UF"}
     assert {c["campaign"]: c["range_gate_deg"] for c in campaigns} == {"g.jsonl": 5.625,
                                                                       "u.jsonl": None}
+
+
+def test_report_gate_column_only_when_a_campaign_records_one():
+    """Issue #192: "—" for a record without the key, "none" for a recorded null, the cut else;
+    no column at all when no campaign recorded one (CurbRamp reports unchanged)."""
+    rows = [{"range_gate_recorded": False}, {"range_gate_recorded": True, "range_gate_deg": None},
+            {"range_gate_recorded": True, "range_gate_deg": 5.625}]
+    assert [cc.gate_cell(r) for r in rows] == ["—", "none", "5.625°"]
+    assert cc.gate_column(rows) and not cc.gate_column(rows[:1])

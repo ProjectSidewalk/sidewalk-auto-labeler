@@ -622,19 +622,25 @@ def render_report(s):
           f"shipped key: {c['unmatched_rows']:,} (`{UNMATCHED_FILE}`). Shipped keys of types the "
           f"ranker does not cover: "
           f"{', '.join(f'{t} {n:,}' for t, n in c['other_type_keys'].items()) or 'none'}.", '',
-          '## Campaigns', '',
-          '| campaign | sent range | rig masked | labels (record) | labels (replayed) | keys | '
-          'on server | not on server | other type | rows attributed |',
-          '|---|---|---|---:|---:|---:|---:|---:|---:|---:|']
+          '## Campaigns', '']
+    # The range-gate column (issue #192) only when some campaign recorded one, so a report on
+    # CurbRamp-only records is unchanged; "—" = the record has no key (ungated).
+    gated = coverage_check.gate_column(s['campaigns'])
+    L += ['| campaign | sent range | rig masked | ' + ('range gate | ' if gated else '')
+          + 'labels (record) | labels (replayed) | keys | on server | not on server | '
+          'other type | rows attributed |',
+          '|---|---|---|' + ('---|' if gated else '') + '---:|---:|---:|---:|---:|---:|---:|']
     for p in s['campaigns']:
         hi = '∞' if p['select_max'] is None else f"{p['select_max']:g}"
         rec = p['recorded_labels']
+        gate = f"{coverage_check.gate_cell(p)} | " if gated else ''
         L.append(f"| `{p['campaign']}`{' (partial)' if p['partial'] else ''} | "
-                 f"[{p['select_min']:g}, {hi}) | {'yes' if p['rig_masked'] else 'no'} | "
+                 f"[{p['select_min']:g}, {hi}) | {'yes' if p['rig_masked'] else 'no'} | {gate}"
                  f"{rec:,} | {p['replayed_labels']:,} | {p['keys']:,} | {p['on_server']:,} | "
                  f"{p['not_on_server']:,} | {p['other_type']:,} | {p['list_rows_attributed']:,} |"
                  if isinstance(rec, int) else
-                 f"| `{p['campaign']}` | | | {rec} | {p['replayed_labels']:,} | | | | | |")
+                 f"| `{p['campaign']}` | | | {'| ' if gated else ''}{rec} | "
+                 f"{p['replayed_labels']:,} | | | | | |")
     L += ['', 'A base entry\'s recorded labels include its complete bands; the replayed column is '
           'per campaign. "Rows attributed" counts the list rows whose label that campaign created: '
           'the earliest campaign that shipped the key and was recorded no earlier than the label\'s '
@@ -820,6 +826,7 @@ def run(endpoint, host, run_dirs, out, args):
         'counts': counts, 'warnings': warnings,
         'campaigns': [{k: c[k] for k in ('campaign', 'record', 'band', 'label_type', 'select_min',
                                          'select_max', 'rig_masked', 'range_gate_deg',
+                                         'range_gate_recorded',
                                          'partial', 'lines',
                                          'recorded_labels', 'replayed_labels', 'at', 'keys',
                                          'on_server', 'not_on_server', 'other_type',
