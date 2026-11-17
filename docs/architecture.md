@@ -682,7 +682,8 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
 **Crosswalk** (RampNet#274's `crosswalk_s4`, below). NoCurbRamp is not here yet (draft PR #177).
 
 - **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec(label_type, module, cls,
-  storage_floor, operational_confidence, benchmark_confidence, mask_rig, border='exclude')`,
+  storage_floor, operational_confidence, benchmark_confidence, mask_rig, border='exclude',
+  min_depression_deg=None)`,
   `SPECS`, `spec_for(t)`, `parse_types`, `type_frame(t)`, `load_detectors(types,
   type_kwargs=None, **kw)` (lazy import per spec; `**kw` to every detector, `type_kwargs[T]` to
   T's only). The CurbRamp spec references the constants in `detectors/__init__.py`, which keep
@@ -761,6 +762,23 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
     `keep` file and a city's `exclude` CurbRamp campaigns never refuse each other. A record of
     a file that is not CurbRamp-only gains `label_types` and `type_frames`; its top-level
     frame keys stay CurbRamp's. Bands are refused on any file that is not CurbRamp-only.
+- **Range gate** (#192): `DetectorSpec.min_depression_deg` is a per-type send-time cut, a
+  placement-quality rule like the rig mask. PS's lat/lng estimate is bounded near 23.85 m, so
+  `transform_record` drops a detection strictly shallower than the cut below the image horizon
+  (`detectors.beyond_range_gate`, image frame, no pose). Crosswalk is 5.625° (row 272/512, a
+  2.8125° coarse-cell edge, so the cut never splits a cell; Juneau 4,400 → 3,525 labels),
+  CurbRamp `None`. `transform_record(range_gate=True|False|<deg>)`, threaded through
+  `split_record`, `count_labels` and `count_band_labels_in_file`. Every campaign entry of a
+  gated type (endpoint entry, `types[T]`, band) records `range_gate_deg`, the cut it was sent
+  under or null; the key is written only for a gated type or an entry that already has it, so
+  CurbRamp records stay byte-identical. A first campaign records the spec's cut, a resume keeps
+  the recorded one, and every recount uses it (absent = ungated), exactly as `rig_masked`.
+  `send_to_ps.range_gate_on_resume` refuses a resume whose recorded cut differs from the spec's
+  unless the sent lines carry the same label count under both (gating only removes labels), in
+  which case it adopts the spec's cut with a note; `--ignore-submission-guard` finishes under
+  the recorded cut. `position_check.campaigns_for` carries `range_gate_deg`, and
+  `coverage_check.replay_campaigns` (so `review_order`) and `reinfer.write_derived_record`
+  replay it.
 - **NOT done**: per-type `FuseParams` (#168 item 4; PR #176), the ranker review-order export
   (item 5), Crosswalk in `detect_from_store.py` / `reinfer.py`, and a type-aware
   `send_to_ps.check_store_built` (draft PR #179). (Submission, one POST per line and type with
