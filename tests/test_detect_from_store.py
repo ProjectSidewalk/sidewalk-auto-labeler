@@ -419,3 +419,123 @@ def test_a_store_record_goes_through_transform_record():
     assert out["pano"]["source"] == "gsv" and out["pano"]["pano_id"] == "P"
     assert out["pano"]["source_metadata"]["source_detail"] == "ps_store"
     assert (out["labels"][0]["pano_x"], out["labels"][0]["pano_y"]) == (8192, 2048)
+
+
+# --------------------------------------------------------------- records mode (#168 pilot)
+
+from detectors import checkpoints as ck  # noqa: E402
+
+XW_PROV = ck.provenance_for_checkpoint(
+    'ebad379b5f7c1645dc39ccb820cd18500109723ae5b1e5706c1e4521b2ab42b4')
+
+
+class StubCrosswalk:
+    """CrosswalkDetector's surface (frame fixed by the spec), without torch."""
+    decode, border, storage_floor = 'argmax', 'keep', 0.05
+    provenance = XW_PROV
+
+    def detect(self, image):
+        return [(0.5, 0.6, 0.9)]
+
+
+@pytest.fixture
+def crosswalk(monkeypatch):
+    stub = StubCrosswalk()
+    monkeypatch.setattr(main, "detectors", {"Crosswalk": stub})
+    monkeypatch.setattr(main, "curb_ramp_detector", None, raising=False)
+    return stub
+
+
+def _xw(tmp_path):
+    """--types Crosswalk plus a checkpoint path the CLI can find (the stub ignores it)."""
+    ckpt = tmp_path / "s4.pth"
+    ckpt.write_bytes(b"")
+    return ["--types", "Crosswalk", "--crosswalk-checkpoint", str(ckpt)]
+
+
+def _mapillary_block(pid, lat):
+    return {"panorama_id": pid, "width": 64, "height": 32, "lat": lat, "lng": -134.4,
+            "camera_heading": 90.0, "source": "mapillary", "source_detail": "mapillary",
+            "copyright": "a contributor", "links": [], "history": []}
+
+
+def make_source_run(root, ids, name="results.check.jsonl"):
+    """A finished Mapillary run dir: manifest, area and a records file PS already received."""
+    root.mkdir(parents=True)
+    (root / "manifest.json").write_text(json.dumps(
+        {"imagery_source": "mapillary", "mapillary_position": "sfm"}), encoding="utf-8")
+    (root / "area.geojson").write_text('{"type": "Polygon", "coordinates": []}', encoding="utf-8")
+    path = root / name
+    path.write_text("".join(json.dumps({"detections": [], "label_type": "CurbRamp",
+                                        "pano": _mapillary_block(pid, 58.3 + i / 1000)}) + "\n"
+                            for i, pid in enumerate(ids)), encoding="utf-8")
+    return path
+
+
+def _no_network(monkeypatch):
+    def get(*a, **k):
+        raise AssertionError("records mode must not ask a server")
+    monkeypatch.setattr(dfs.requests, "get", get)
+
+
+def test_records_mode_keeps_blocks_verbatim_and_inherits_the_source(tmp_path, monkeypatch,
+                                                                     crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a", "22b"])
+    records = make_source_run(tmp_path / "juneau", ["11a", "22b", "33c"])     # 33c: no JPEG
+    run_dir = tmp_path / "juneau_crosswalk"
+
+    dfs.main_cli(["--run-dir", str(run_dir), "--store", str(store), "--records", str(records),
+                  "--accept-skip-rate", *_xw(tmp_path)])
+
+    lines = [json.loads(l) for l in (run_dir / "results.jsonl").read_text().splitlines()]
+    source = [json.loads(l)["pano"] for l in records.read_text().splitlines()]
+    assert [l["pano"] for l in lines] == source[:2]                # verbatim, never rebuilt
+    assert all(l["label_types"] == ["Crosswalk"] for l in lines)
+    assert lines[0]["detections"] == [{"x_normalized": 0.5, "y_normalized": 0.6,
+                                       "confidence": 0.9, "label_type": "Crosswalk"}]
+    assert dfs.load_skips(run_dir) == {"33c": dfs.SKIP_NO_JPEG}
+    m = json.loads((run_dir / "manifest.json").read_text())
+    assert m["imagery_source"] == "mapillary" and m["mapillary_position"] == "sfm"
+    assert m["label_types"] == ["Crosswalk"] and m["detection_storage_floor"] is None
+    assert m["models"]["Crosswalk"]["detection_border"] == "keep"
+    assert m["pixels"]["pano_blocks"] == "records"
+    assert m["pixels"]["records"]["sha256"] == dfs.file_sha256(records)
+    assert (run_dir / "area.geojson").read_bytes() == (records.parent / "area.geojson").read_bytes()
+
+    # send_to_ps: store-built (the `pixels` block), but Crosswalk only, so it passes (#179).
+    import send_to_ps
+    assert "pixels" in send_to_ps.check_store_built(run_dir / "results.jsonl")
+
+
+def test_records_mode_refuses_an_edited_records_file_on_resume(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    argv = ["--run-dir", str(tmp_path / "run"), "--store", str(store), "--records", str(records),
+            *_xw(tmp_path)]
+    dfs.main_cli(argv)
+    records.write_text(records.read_text().replace("58.3", "58.4"), encoding="utf-8")
+    with pytest.raises(SystemExit, match="records"):
+        dfs.main_cli(argv)
+
+
+def test_records_mode_refuses_server_flags_and_duplicate_panos(tmp_path, crosswalk):
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a", "11a"])
+    base = ["--run-dir", str(tmp_path / "run"), "--store", str(store), "--records", str(records)]
+    with pytest.raises(SystemExit):
+        dfs.main_cli(base + ["--server", SERVER])
+    with pytest.raises(SystemExit, match="twice"):
+        dfs.main_cli(base + _xw(tmp_path))
+
+
+def test_server_mode_stays_curb_ramp_only(tmp_path):
+    store = make_store(tmp_path / "store", ["AA1"])
+    ids_file = tmp_path / "ids.txt"
+    ids_file.write_text("AA1\n", encoding="utf-8")
+    ckpt = tmp_path / "x.pth"
+    ckpt.write_bytes(b"")
+    with pytest.raises(SystemExit):
+        dfs.main_cli(_args(tmp_path / "run", store, "--ids", str(ids_file), "--types",
+                           "Crosswalk", "--crosswalk-checkpoint", str(ckpt)))

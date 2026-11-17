@@ -1223,20 +1223,18 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
 # excuses an unmatched peak; it had also excused peaks near 0.23, which had excused none) and
 # the test split re-run under it: the same PASS, excused 0, operational 2,405 = 2,405.
 #
-# THE 0.23 OPERATING POINT IS VALIDATED ON RAMPNET'S STORED JPEGS, NOT ON LIVE FETCHES. The
-# parity gate proves the loader; it says nothing about the pixels a run actually feeds it.
-# --native (report only) fetches through the labeler's GSV path instead of reading the JPEGs.
-# Test split, same day: 278 of 515 fetched (237 "metadata unavailable"), operational 1,320
-# native vs 1,319 stored, equal on 167 panos, +-1 on 85; but per-peak values move (median
-# per-pano max |diff| 0.044, max 0.27). --native --jpeg-quality 92 (report only; the stored
-# inputs are Pillow q92, 4:2:0) on 100 of those 278 panos, one pass, all 100 fetched: the
-# re-encode changes nothing material. Live fetch vs stored JPEG, mean |pixel diff| (0-255)
-# median 2.66 before and 2.66 after the re-encode (range 1.9-13.3); per-pano max |diff| median
-# 0.040 raw vs 0.039 q92; peaks exact at the same pixel 42 vs 38 of 799; operational 501 raw
-# and 499 q92 vs 493 stored, differing on 37 and 34 of the 100 panos. So the gap is not the
-# JPEG round trip: the stored JPEGs were made from other source pixels than the labeler's
-# zoom-3 fetch. Which difference (zoom level and resize path, or an imagery update) is not
-# established, and neither is whether 0.23 means the same thing on live pixels.
+# THE 0.23 OPERATING POINT HOLDS ON LABELER-MADE PIXELS (2026-11-16, PR #188 follow-up
+# comment issuecomment-6909410126). RampNet's stored JPEGs are the native PS store pano
+# shrunk to 4096 px and saved at JPEG q92; re-running that recipe reproduces its stored
+# predictions. Scored with RampNet's scorer on the Seattle test GT at 0.23: the labeler's
+# store path (store JPEG -> panorama.normalize_image, what a records-mode run feeds the
+# detector) P 0.802 / R 0.850 / F1 0.825 vs stored 0.815 / 0.843 / 0.829 (348 panos with a
+# native store JPEG); the live zoom-3 GSV fetch P 0.832 / R 0.835 / F1 0.833 vs stored
+# 0.836 (278 fetchable panos). Individual peaks move between paths (crosswalk_parity.py
+# --native, report only, fetches through the labeler's GSV path instead of reading the
+# JPEGs: median per-pano max |diff| 0.044, max 0.27), but precision and recall stay within a
+# point. Seattle only: it says nothing about Juneau imagery, where RampNet's rated marks put
+# s4's recall at 63 of 110. The two scripts behind the table are not yet in the repo.
 
 # SMOKE SEND RUNBOOK (nothing has been sent yet; every step needs Jon's clearance of the exact
 # plan, and the city and s4-vs-s7 are his call):
@@ -1247,8 +1245,17 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
 #      has checked where a centre-of-crossing pixel ends up) before anything goes further.
 # A Crosswalk file's submission record says label_types + type_frames (keep); its frame guard
 # compares only with campaigns that sent Crosswalk. Bands (--max-confidence) are refused.
-# NOT yet for Crosswalk: detect_from_store.py / reinfer.py (CurbRamp only), fusion (PR #176),
-# and a store-backed pilot (send_to_ps.check_store_built is not type-aware; draft PR #179).
+# A STORE-BACKED PILOT (a city whose panos PS already holds; Juneau first):
+# detect_from_store.py --records runs Crosswalk on the store pixels of exactly the panos a
+# finished campaign sent, copying each pano block from that results file (so source, the
+# reposition.py-moved positions and credit lines match what PS holds), and inherits the
+# source run's imagery_source / mapillary_position / area.geojson. send_to_ps.py treats the
+# file as store-built (manifest `pixels`) and lets it through because it carries no CurbRamp
+# (PR #179). Run position_check.py on the new run dir before any send (a Mapillary file).
+python scripts/detect_from_store.py --run-dir runs/<city>_crosswalk --store <store>/<city> \
+    --records runs/<city>/results.jsonl --types Crosswalk --crosswalk-checkpoint <pth>
+# NOT yet for Crosswalk: reinfer.py (CurbRamp only), detect_from_store.py's server-metadata
+# mode (CurbRamp only; it writes GSV pano blocks), and fusion (PR #176).
 ```
 
 ## Tests
