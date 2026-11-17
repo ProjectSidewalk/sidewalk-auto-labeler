@@ -522,7 +522,7 @@ def _band_bounds(key):
 def campaigns_for(directory, endpoint, exclude=()):
     """Every campaign the submission records in `directory` hold for `endpoint`:
     ([{campaign, path, at, line_numbers, min_confidence, lines, labels, select_min,
-    select_max, rig_masked, band, label_type, record}], [problems]). `band` is the band key,
+    select_max, rig_masked, range_gate_deg, band, label_type, record}], [problems]). `band` is the band key,
     None for the base entry; `label_type` is None except for a multi-type file's per-type
     campaigns (below); `record` is the submission record's file name.
 
@@ -544,7 +544,9 @@ def campaigns_for(directory, endpoint, exclude=()):
         floor is the highest band ceiling when there are bands (a band always sits on a
         campaign at exactly its ceiling), else the recorded value; select_max is None.
     `rig_masked` absent means unmasked: the record gained the flag with the mask, so a
-    campaign without it predates the mask and shipped rig labels.
+    campaign without it predates the mask and shipped rig labels. `range_gate_deg` is the
+    range-gate cut the campaign was sent under (issue #192), read the same way: absent means
+    None, a campaign sent ungated; pass it to send_to_ps.transform_record as `range_gate`.
 
     A multi-type file's endpoint entry (issue #168, send_to_ps.write_submission_record)
     carries `types` instead of a whole-line campaign: each `types[T]` is a campaign of its
@@ -605,6 +607,7 @@ def campaigns_for(directory, endpoint, exclude=()):
                               'lines': n, 'labels': part.get('labels_submitted', labels),
                               'select_min': select_min, 'select_max': select_max,
                               'rig_masked': bool(part.get('rig_masked', False)),
+                              'range_gate_deg': part.get('range_gate_deg'),
                               'band': band_key, 'label_type': label_type,
                               'record': rec_path.name})
     return campaigns, problems
