@@ -15,6 +15,26 @@ city-wide precision. The comments name the false-positive classes: own capture-c
 brick/paver sidewalk, fence/tree shadows, stairs, turn-lane markings, sidewalks across
 driveways, and parking-lot stripes.
 
+## AI validator scores (`validator_r3_*`)
+
+The production Crosswalk validator (sidewalk-validator-ai round 3, hub
+`projectsidewalk/sidewalk-validator-ai-crosswalk@b8498b82eb`, plus the 2025-08 model as a
+secondary) scored all 3,579 labels offline on klone, 2026-11-17. The run used
+`coord_frame "rig"` crops cut from the PS pano store. The results are in
+ProjectSidewalk/sidewalk-validator-ai#114 and `validator_r3_REPORT.md`.
+
+| File | What |
+|---|---|
+| `validator_r3_labels.csv` | The validator's input rows. Its sha256 is `labels_sha256` in `validator_r3_crops_run.json`. |
+| `validator_r3_manifest.csv` | Crop manifest (status, depth, crop size), one row per label. |
+| `validator_r3_predictions_r3.csv` | Round-3 predictions. |
+| `validator_r3_predictions_2025.csv` | 2025-08 model predictions. |
+| `validator_r3_predictions_*_provenance.json` | Model revisions and manifest sha256. |
+| `validator_r3_all_labels_scored.csv` | Per-label join of scores, votes and metadata. |
+
+They are copied here because the crops and scratch copies live on klone's scrubbed storage
+and in a session scratchpad, both of which are purged.
+
 ## Regenerating the snapshot
 
 Read-only on makelab1 (test Postgres, port 6432), then the export:

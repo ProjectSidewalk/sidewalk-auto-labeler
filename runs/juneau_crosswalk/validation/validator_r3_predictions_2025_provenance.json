@@ -1,0 +1,8 @@
+{
+  "checkpoint": "/mmfs1/gscratch/makelab/jfroehli/sidewalk-validator-ai/projectsidewalk/sidewalk-validator-ai-crosswalk",
+  "revision": "b7936e5bd17a4b96db301f954e5d3a5fe9eaf361",
+  "model_sha256": null,
+  "manifest_sha256": "2be4e44e07cf1c2d61b4ec962605e49785fcc6822ac8315fe77c3e1e9813a0e2",
+  "n": 3579,
+  "scored": "2026-11-18T02:20:55+00:00"
+}
