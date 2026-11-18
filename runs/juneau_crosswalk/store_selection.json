@@ -1,0 +1,18 @@
+{
+  "input_ids_sha256": "2e4aadbeb0b9d9878625f20f971387a37223457b4241f40d7d1f42d16f10d619",
+  "n_input_ids": 4999,
+  "sample_unlabeled": 0,
+  "seed": 0,
+  "store": "/mmfs1/gscratch/scrubbed/jfroehli/juneau_store_xwalk/juneau-ak",
+  "layout": "sharded",
+  "server": null,
+  "records": {
+    "path": "/mmfs1/gscratch/makelab/jfroehli/sidewalk-auto-labeler/repo-xwalk/runs/juneau/results.check.jsonl",
+    "sha256": "f5d29cc5c131a006e04ff602e1e8ee5f5865c6ea165af34a4e148cae54ca3ca9"
+  },
+  "ids_sha256": "2e4aadbeb0b9d9878625f20f971387a37223457b4241f40d7d1f42d16f10d619",
+  "n_ids": 4999,
+  "n_sampled_unlabeled": 0,
+  "sampled_ids_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "selected_at": "2026-11-17T01:37:10+00:00"
+}
