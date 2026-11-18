@@ -9,6 +9,18 @@ The test database is not backed up, so the votes are snapshotted here.
 | `juneau_test_votes_<date>.csv` | One row per validation: `label_uid` (`juneau-ak:<label_id>`; label ids are per city), pano and pixel, dip below the horizon, the label's stored lat/lng, confidence, Agree/Disagree/Unsure, validator `user_id`, time, and the validator's comment. |
 | `random_sample_2026-11-17.json` | The seeded random draw for an unbiased precision check: 50 labels from the 2,717 an OSM-proximity rule would keep and 30 from the 862 it would drop. The rule is recorded in the file. It was a candidate only, and it is not adopted. |
 
+**Who voted.** Every vote is Jon's, cast under two accounts. Nobody else validated these labels (checked
+on the test DB, 2026-11-18).
+
+| `validator_user_id` | Username on juneau-test | Votes | When (PST, 2026-11-17) |
+|---|---|---|---|
+| `4ff63c52-88d6-40bb-ad08-ceff4e14f8bc` | `29vs30oz1c7daxjc` | 236 | 16:20–16:44 |
+| `2d8335ef-daff-4382-afe2-7e1eb6567fd9` | `jonfroehlich` | 115 | 16:52–17:56 |
+
+The first account is an auto-generated anonymous one: Jon was logged out without noticing, and he
+confirmed on 2026-11-18 that those votes are his. Treat both ids as Jon. Two labels have a vote
+from each account, both Agree.
+
 The first ~236 votes were **not** a random sample: they came from the validation queue and
 the gallery in geographic clusters. Use them to describe failure modes, not to estimate
 city-wide precision. The comments name the false-positive classes: own capture-car roof,
