@@ -1,0 +1,1 @@
+revealInventory("vancouver:res:n47299669", {"0":[],"1":[{"class":"Available","corner":null,"defect":null,"instdate":null,"lat":45.6664131741357,"lng":-122.545653247824,"owner":"CITY","projname":null,"ramptype":"PARA","status":"Available","unit_id":"CR34832"}],"2":[]});

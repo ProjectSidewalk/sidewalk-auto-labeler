@@ -1,0 +1,1 @@
+revealInventory("vancouver:res:n3642857970", {"0":[],"1":[{"class":"Available","corner":null,"defect":null,"instdate":"2023-10-19","lat":45.6096465089078,"lng":-122.589376000465,"owner":"CITY","projname":"McMann Short Plat","ramptype":"TEMP","status":"Available","unit_id":"CR36575"}],"2":[]});

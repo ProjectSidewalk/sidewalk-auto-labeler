@@ -1,0 +1,1 @@
+revealInventory("vancouver:art:n1215066991", {"0":[{"class":"Available","corner":null,"defect":null,"instdate":null,"lat":45.6722950111316,"lng":-122.5223060101,"owner":"CITY","projname":null,"ramptype":"DIRECT","status":"Available","unit_id":"CR34588"}],"1":[]});

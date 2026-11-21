@@ -1,0 +1,3287 @@
+{
+ "agreement": null,
+ "items_sha256": "bbed3d6ddaf1835a66da3afb274c3f338cc80512d4af7c4567c96c1bf47a1459",
+ "problems": {
+  "jonf": []
+ },
+ "results": {
+  "jonf": {
+   "blind": {
+    "complete": 95,
+    "edited_after_inventory": 1,
+    "excluded": [],
+    "kinds_after_inventory": 2,
+    "kinds_from_after_corners": 4,
+    "parts": {
+     "clean": {
+      "absent_kinds": {
+       "curb_no_ramp": 20,
+       "no_sidewalk": 15,
+       "unspecified": 13
+      },
+      "absent_kinds_added_after_reveal": {
+       "curb_no_ramp": 1,
+       "no_sidewalk": 0
+      },
+      "corner_absent_share": {
+       "ci95": [
+        0.8654,
+        0.989
+       ],
+       "k": 48,
+       "n": 50,
+       "share": 0.96
+      },
+      "corner_verdicts": {
+       "absent": 48,
+       "cant_tell": 2,
+       "present": 2
+      },
+      "n": 20,
+      "outcomes": {
+       "absent": 17,
+       "present": 1,
+       "undetermined": 2
+      },
+      "scored": 20,
+      "unit_absent_conservative": {
+       "ci95": [
+        0.6396,
+        0.9476
+       ],
+       "k": 17,
+       "n": 20,
+       "share": 0.85
+      },
+      "unit_absent_share": {
+       "ci95": [
+        0.7424,
+        0.9901
+       ],
+       "k": 17,
+       "n": 18,
+       "share": 0.9444
+      }
+     },
+     "false_absence": {
+      "absent_kinds": {
+       "curb_no_ramp": 19,
+       "no_sidewalk": 60,
+       "unspecified": 15
+      },
+      "absent_kinds_added_after_reveal": {
+       "curb_no_ramp": 3,
+       "no_sidewalk": 0
+      },
+      "artifacts": 31,
+      "classes": {
+       "artifact_built_after_imagery": 16,
+       "artifact_inventory_or_geometry": 15,
+       "miss_at_inventory_corner": 4,
+       "miss_elsewhere": 0,
+       "undetermined": 0
+      },
+      "corner_absent_share": {
+       "ci95": [
+        0.8752,
+        0.9722
+       ],
+       "k": 94,
+       "n": 100,
+       "share": 0.94
+      },
+      "corner_verdicts": {
+       "absent": 94,
+       "cant_tell": 1,
+       "present": 6
+      },
+      "dating": {
+       "vancouver:art:n1215066991": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n12783988563": {
+        "1": {
+         "instdates": [
+          "2025-02"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n13059332216": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2021-10",
+         "newest_shown": "2021-10"
+        }
+       },
+       "vancouver:art:n13090709646": {
+        "0": {
+         "instdates": [
+          "2025-08"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        },
+        "2": {
+         "instdates": [
+          "2025-08"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n1375008444": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n3694670454": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n3699326114": {
+        "0": {
+         "instdates": [
+          "2026-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n47270030": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2021-12",
+         "newest_shown": "2021-12"
+        },
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2021-12",
+         "newest_shown": "2021-12"
+        }
+       },
+       "vancouver:art:n47282622": {
+        "2": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n47290563": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n47325352": {
+        "2": {
+         "instdates": [
+          "2023-01"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        }
+       },
+       "vancouver:art:n47337266": {
+        "2": {
+         "instdates": [
+          "",
+          ""
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:art:n47340212": {
+        "0": {
+         "instdates": [
+          "",
+          ""
+         ],
+         "newest_available": "2023-05",
+         "newest_shown": "2023-05"
+        }
+       },
+       "vancouver:res:n12444613588": {
+        "1": {
+         "instdates": [
+          "2023-09"
+         ],
+         "newest_available": "2022-11",
+         "newest_shown": "2022-11"
+        },
+        "2": {
+         "instdates": [
+          "2023-09"
+         ],
+         "newest_available": "2022-11",
+         "newest_shown": "2022-11"
+        }
+       },
+       "vancouver:res:n13090709554": {
+        "0": {
+         "instdates": [
+          "2025-01"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        },
+        "1": {
+         "instdates": [
+          "2025-01"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n13538954649": {
+        "0": {
+         "instdates": [
+          "2025-07"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        },
+        "2": {
+         "instdates": [
+          "2025-07"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        }
+       },
+       "vancouver:res:n3372672500": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-05",
+         "newest_shown": "2023-05"
+        }
+       },
+       "vancouver:res:n3642857970": {
+        "1": {
+         "instdates": [
+          "2023-10"
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        }
+       },
+       "vancouver:res:n3699326241": {
+        "2": {
+         "instdates": [
+          "2025-10"
+         ],
+         "newest_available": "2019-06",
+         "newest_shown": "2019-06"
+        }
+       },
+       "vancouver:res:n47231852": {
+        "1": {
+         "instdates": [
+          "2024-04"
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        },
+        "2": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        }
+       },
+       "vancouver:res:n47232326": {
+        "2": {
+         "instdates": [
+          "2021-03"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        }
+       },
+       "vancouver:res:n47236718": {
+        "2": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47240880": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        }
+       },
+       "vancouver:res:n47261571": {
+        "0": {
+         "instdates": [
+          "2023-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        },
+        "1": {
+         "instdates": [
+          "2023-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47270098": {
+        "0": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        },
+        "2": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47286143": {
+        "0": {
+         "instdates": [
+          "2025-07"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47287760": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-05",
+         "newest_shown": "2023-05"
+        },
+        "2": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-05",
+         "newest_shown": "2023-05"
+        }
+       },
+       "vancouver:res:n47299669": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47305361": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47311369": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47334787": {
+        "1": {
+         "instdates": [
+          "2023-01"
+         ],
+         "newest_available": "2021-10",
+         "newest_shown": "2021-10"
+        },
+        "2": {
+         "instdates": [
+          "2023-01"
+         ],
+         "newest_available": "2021-10",
+         "newest_shown": "2021-10"
+        }
+       },
+       "vancouver:res:n47342337": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47380807": {
+        "1": {
+         "instdates": [
+          "2025-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47384235": {
+        "1": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        },
+        "2": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47406308": {
+        "1": {
+         "instdates": [
+          "2026-06"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       }
+      },
+      "n": 35,
+      "outcomes": {
+       "absent": 31,
+       "present": 4,
+       "undetermined": 0
+      },
+      "per_unit": {
+       "vancouver:art:n1215066991": "artifact_inventory_or_geometry",
+       "vancouver:art:n12783988563": "artifact_built_after_imagery",
+       "vancouver:art:n13059332216": "artifact_inventory_or_geometry",
+       "vancouver:art:n13090709646": "artifact_built_after_imagery",
+       "vancouver:art:n1375008444": "artifact_inventory_or_geometry",
+       "vancouver:art:n3694670454": "artifact_inventory_or_geometry",
+       "vancouver:art:n3699326114": "artifact_built_after_imagery",
+       "vancouver:art:n47270030": "miss_at_inventory_corner",
+       "vancouver:art:n47282622": "artifact_inventory_or_geometry",
+       "vancouver:art:n47290563": "artifact_inventory_or_geometry",
+       "vancouver:art:n47325352": "artifact_built_after_imagery",
+       "vancouver:art:n47337266": "miss_at_inventory_corner",
+       "vancouver:art:n47340212": "artifact_inventory_or_geometry",
+       "vancouver:res:n12444613588": "artifact_built_after_imagery",
+       "vancouver:res:n13090709554": "artifact_built_after_imagery",
+       "vancouver:res:n13538954649": "artifact_built_after_imagery",
+       "vancouver:res:n3372672500": "artifact_inventory_or_geometry",
+       "vancouver:res:n3642857970": "artifact_built_after_imagery",
+       "vancouver:res:n3699326241": "artifact_built_after_imagery",
+       "vancouver:res:n47231852": "miss_at_inventory_corner",
+       "vancouver:res:n47232326": "artifact_built_after_imagery",
+       "vancouver:res:n47236718": "artifact_inventory_or_geometry",
+       "vancouver:res:n47240880": "artifact_inventory_or_geometry",
+       "vancouver:res:n47261571": "artifact_inventory_or_geometry",
+       "vancouver:res:n47270098": "artifact_built_after_imagery",
+       "vancouver:res:n47286143": "artifact_built_after_imagery",
+       "vancouver:res:n47287760": "miss_at_inventory_corner",
+       "vancouver:res:n47299669": "artifact_inventory_or_geometry",
+       "vancouver:res:n47305361": "artifact_inventory_or_geometry",
+       "vancouver:res:n47311369": "artifact_inventory_or_geometry",
+       "vancouver:res:n47334787": "artifact_built_after_imagery",
+       "vancouver:res:n47342337": "artifact_inventory_or_geometry",
+       "vancouver:res:n47380807": "artifact_built_after_imagery",
+       "vancouver:res:n47384235": "artifact_built_after_imagery",
+       "vancouver:res:n47406308": "artifact_built_after_imagery"
+      },
+      "real_miss_share": {
+       "ci95": [
+        0.0454,
+        0.2595
+       ],
+       "k": 4,
+       "n": 35,
+       "share": 0.1143
+      },
+      "real_misses": 4,
+      "scored": 35,
+      "shown_older_than_available": [],
+      "unit_absent_conservative": {
+       "ci95": [
+        0.7405,
+        0.9546
+       ],
+       "k": 31,
+       "n": 35,
+       "share": 0.8857
+      },
+      "unit_absent_share": {
+       "ci95": [
+        0.7405,
+        0.9546
+       ],
+       "k": 31,
+       "n": 35,
+       "share": 0.8857
+      }
+     },
+     "na_noramp": {
+      "absent_kinds": {
+       "curb_no_ramp": 7,
+       "no_sidewalk": 59,
+       "unspecified": 33
+      },
+      "absent_kinds_added_after_reveal": {
+       "curb_no_ramp": 0,
+       "no_sidewalk": 0
+      },
+      "corner_absent_share": {
+       "ci95": [
+        0.9626,
+        1.0
+       ],
+       "k": 99,
+       "n": 99,
+       "share": 1.0
+      },
+      "corner_verdicts": {
+       "absent": 99,
+       "cant_tell": 1,
+       "present": 0
+      },
+      "n": 40,
+      "outcomes": {
+       "absent": 39,
+       "present": 0,
+       "undetermined": 1
+      },
+      "scored": 40,
+      "unit_absent_conservative": {
+       "ci95": [
+        0.8712,
+        0.9956
+       ],
+       "k": 39,
+       "n": 40,
+       "share": 0.975
+      },
+      "unit_absent_share": {
+       "ci95": [
+        0.9103,
+        1.0
+       ],
+       "k": 39,
+       "n": 39,
+       "share": 1.0
+      }
+     }
+    },
+    "reopened_with_blind": 0,
+    "rows": [
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47384235"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47231852"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47270098"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47305361"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n3372672500"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47232326"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n13059332216"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47270030"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47290563"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n3699326114"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47236718"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n13090709554"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47311369"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47287760"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47286143"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47340212"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47380807"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n3699326241"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47334787"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47299669"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47406308"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n12444613588"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n1375008444"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n3694670454"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47261571"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n12783988563"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n13090709646"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47342337"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n13538954649"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47325352"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47282622"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n1215066991"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47337266"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47240880"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n3642857970"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47219489"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n1637998595"
+     },
+     {
+      "outcome": "undetermined",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47331236"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47208364"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47288787"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47345153"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47335720"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47267448"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47281487"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47245550"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47397759"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47240587"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47287936"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47318252"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n1803133375"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47234866"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47318468"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47245437"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47236184"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47215596"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47231855"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n4598685562"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47289129"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47278131"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47355183"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47244995"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47303605"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47302452"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47263718"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47368067"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47259775"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47397103"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47307691"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47249862"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47225933"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47231069"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47332188"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47288915"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47387262"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47370116"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n3627781133"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n959123136"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n2623620122"
+     },
+     {
+      "outcome": "undetermined",
+      "part": "clean",
+      "unit": "vancouver:art:n47190958"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:sig:n1642453647"
+     },
+     {
+      "outcome": "undetermined",
+      "part": "clean",
+      "unit": "vancouver:art:n3629347257"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n4612512437"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n47258942"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n47362725"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n958722944"
+     },
+     {
+      "outcome": "present",
+      "part": "clean",
+      "unit": "vancouver:res:n47237304"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1614603561"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1466256854"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n7010814367"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n4602349091"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1634536176"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1547961037"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n3639899149"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n47308718"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n47300698"
+     }
+    ],
+    "scored": 95,
+    "stratified": {
+     "absent_units": 1323,
+     "ci95": [
+      0.9261,
+      1.0
+     ],
+     "ci_method": "conservative, ad hoc: normal interval around the unadjusted estimate, Agresti-Coull per-stratum variance, finite-population corrected, clipped to [0, 1]",
+     "covered_units": 1312,
+     "estimate": 0.9829,
+     "not_covered": 11
+    },
+    "units": 95,
+    "which": "blind"
+   },
+   "blind_without_live": {
+    "complete": 95,
+    "edited_after_inventory": 1,
+    "excluded": [
+     "vancouver:res:n47287760",
+     "vancouver:res:n47311369",
+     "vancouver:res:n47362725"
+    ],
+    "kinds_after_inventory": 2,
+    "kinds_from_after_corners": 4,
+    "parts": {
+     "clean": {
+      "absent_kinds": {
+       "curb_no_ramp": 20,
+       "no_sidewalk": 12,
+       "unspecified": 13
+      },
+      "absent_kinds_added_after_reveal": {
+       "curb_no_ramp": 1,
+       "no_sidewalk": 0
+      },
+      "corner_absent_share": {
+       "ci95": [
+        0.8575,
+        0.9883
+       ],
+       "k": 45,
+       "n": 47,
+       "share": 0.9574
+      },
+      "corner_verdicts": {
+       "absent": 45,
+       "cant_tell": 2,
+       "present": 2
+      },
+      "n": 20,
+      "outcomes": {
+       "absent": 16,
+       "present": 1,
+       "undetermined": 2
+      },
+      "scored": 19,
+      "unit_absent_conservative": {
+       "ci95": [
+        0.6243,
+        0.9448
+       ],
+       "k": 16,
+       "n": 19,
+       "share": 0.8421
+      },
+      "unit_absent_share": {
+       "ci95": [
+        0.7302,
+        0.9895
+       ],
+       "k": 16,
+       "n": 17,
+       "share": 0.9412
+      }
+     },
+     "false_absence": {
+      "absent_kinds": {
+       "curb_no_ramp": 17,
+       "no_sidewalk": 58,
+       "unspecified": 15
+      },
+      "absent_kinds_added_after_reveal": {
+       "curb_no_ramp": 3,
+       "no_sidewalk": 0
+      },
+      "artifacts": 30,
+      "classes": {
+       "artifact_built_after_imagery": 16,
+       "artifact_inventory_or_geometry": 14,
+       "miss_at_inventory_corner": 3,
+       "miss_elsewhere": 0,
+       "undetermined": 0
+      },
+      "corner_absent_share": {
+       "ci95": [
+        0.8826,
+        0.9773
+       ],
+       "k": 90,
+       "n": 95,
+       "share": 0.9474
+      },
+      "corner_verdicts": {
+       "absent": 90,
+       "cant_tell": 0,
+       "present": 5
+      },
+      "dating": {
+       "vancouver:art:n1215066991": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n12783988563": {
+        "1": {
+         "instdates": [
+          "2025-02"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n13059332216": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2021-10",
+         "newest_shown": "2021-10"
+        }
+       },
+       "vancouver:art:n13090709646": {
+        "0": {
+         "instdates": [
+          "2025-08"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        },
+        "2": {
+         "instdates": [
+          "2025-08"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n1375008444": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n3694670454": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n3699326114": {
+        "0": {
+         "instdates": [
+          "2026-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n47270030": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2021-12",
+         "newest_shown": "2021-12"
+        },
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2021-12",
+         "newest_shown": "2021-12"
+        }
+       },
+       "vancouver:art:n47282622": {
+        "2": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n47290563": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n47325352": {
+        "2": {
+         "instdates": [
+          "2023-01"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        }
+       },
+       "vancouver:art:n47337266": {
+        "2": {
+         "instdates": [
+          "",
+          ""
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:art:n47340212": {
+        "0": {
+         "instdates": [
+          "",
+          ""
+         ],
+         "newest_available": "2023-05",
+         "newest_shown": "2023-05"
+        }
+       },
+       "vancouver:res:n12444613588": {
+        "1": {
+         "instdates": [
+          "2023-09"
+         ],
+         "newest_available": "2022-11",
+         "newest_shown": "2022-11"
+        },
+        "2": {
+         "instdates": [
+          "2023-09"
+         ],
+         "newest_available": "2022-11",
+         "newest_shown": "2022-11"
+        }
+       },
+       "vancouver:res:n13090709554": {
+        "0": {
+         "instdates": [
+          "2025-01"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        },
+        "1": {
+         "instdates": [
+          "2025-01"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n13538954649": {
+        "0": {
+         "instdates": [
+          "2025-07"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        },
+        "2": {
+         "instdates": [
+          "2025-07"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        }
+       },
+       "vancouver:res:n3372672500": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-05",
+         "newest_shown": "2023-05"
+        }
+       },
+       "vancouver:res:n3642857970": {
+        "1": {
+         "instdates": [
+          "2023-10"
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        }
+       },
+       "vancouver:res:n3699326241": {
+        "2": {
+         "instdates": [
+          "2025-10"
+         ],
+         "newest_available": "2019-06",
+         "newest_shown": "2019-06"
+        }
+       },
+       "vancouver:res:n47231852": {
+        "1": {
+         "instdates": [
+          "2024-04"
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        },
+        "2": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        }
+       },
+       "vancouver:res:n47232326": {
+        "2": {
+         "instdates": [
+          "2021-03"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        }
+       },
+       "vancouver:res:n47236718": {
+        "2": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47240880": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        }
+       },
+       "vancouver:res:n47261571": {
+        "0": {
+         "instdates": [
+          "2023-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        },
+        "1": {
+         "instdates": [
+          "2023-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47270098": {
+        "0": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        },
+        "2": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47286143": {
+        "0": {
+         "instdates": [
+          "2025-07"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47299669": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47305361": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47334787": {
+        "1": {
+         "instdates": [
+          "2023-01"
+         ],
+         "newest_available": "2021-10",
+         "newest_shown": "2021-10"
+        },
+        "2": {
+         "instdates": [
+          "2023-01"
+         ],
+         "newest_available": "2021-10",
+         "newest_shown": "2021-10"
+        }
+       },
+       "vancouver:res:n47342337": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47380807": {
+        "1": {
+         "instdates": [
+          "2025-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47384235": {
+        "1": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        },
+        "2": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47406308": {
+        "1": {
+         "instdates": [
+          "2026-06"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       }
+      },
+      "n": 35,
+      "outcomes": {
+       "absent": 30,
+       "present": 3,
+       "undetermined": 0
+      },
+      "per_unit": {
+       "vancouver:art:n1215066991": "artifact_inventory_or_geometry",
+       "vancouver:art:n12783988563": "artifact_built_after_imagery",
+       "vancouver:art:n13059332216": "artifact_inventory_or_geometry",
+       "vancouver:art:n13090709646": "artifact_built_after_imagery",
+       "vancouver:art:n1375008444": "artifact_inventory_or_geometry",
+       "vancouver:art:n3694670454": "artifact_inventory_or_geometry",
+       "vancouver:art:n3699326114": "artifact_built_after_imagery",
+       "vancouver:art:n47270030": "miss_at_inventory_corner",
+       "vancouver:art:n47282622": "artifact_inventory_or_geometry",
+       "vancouver:art:n47290563": "artifact_inventory_or_geometry",
+       "vancouver:art:n47325352": "artifact_built_after_imagery",
+       "vancouver:art:n47337266": "miss_at_inventory_corner",
+       "vancouver:art:n47340212": "artifact_inventory_or_geometry",
+       "vancouver:res:n12444613588": "artifact_built_after_imagery",
+       "vancouver:res:n13090709554": "artifact_built_after_imagery",
+       "vancouver:res:n13538954649": "artifact_built_after_imagery",
+       "vancouver:res:n3372672500": "artifact_inventory_or_geometry",
+       "vancouver:res:n3642857970": "artifact_built_after_imagery",
+       "vancouver:res:n3699326241": "artifact_built_after_imagery",
+       "vancouver:res:n47231852": "miss_at_inventory_corner",
+       "vancouver:res:n47232326": "artifact_built_after_imagery",
+       "vancouver:res:n47236718": "artifact_inventory_or_geometry",
+       "vancouver:res:n47240880": "artifact_inventory_or_geometry",
+       "vancouver:res:n47261571": "artifact_inventory_or_geometry",
+       "vancouver:res:n47270098": "artifact_built_after_imagery",
+       "vancouver:res:n47286143": "artifact_built_after_imagery",
+       "vancouver:res:n47299669": "artifact_inventory_or_geometry",
+       "vancouver:res:n47305361": "artifact_inventory_or_geometry",
+       "vancouver:res:n47334787": "artifact_built_after_imagery",
+       "vancouver:res:n47342337": "artifact_inventory_or_geometry",
+       "vancouver:res:n47380807": "artifact_built_after_imagery",
+       "vancouver:res:n47384235": "artifact_built_after_imagery",
+       "vancouver:res:n47406308": "artifact_built_after_imagery"
+      },
+      "real_miss_share": {
+       "ci95": [
+        0.0314,
+        0.2357
+       ],
+       "k": 3,
+       "n": 33,
+       "share": 0.0909
+      },
+      "real_misses": 3,
+      "scored": 33,
+      "shown_older_than_available": [],
+      "unit_absent_conservative": {
+       "ci95": [
+        0.7643,
+        0.9686
+       ],
+       "k": 30,
+       "n": 33,
+       "share": 0.9091
+      },
+      "unit_absent_share": {
+       "ci95": [
+        0.7643,
+        0.9686
+       ],
+       "k": 30,
+       "n": 33,
+       "share": 0.9091
+      }
+     },
+     "na_noramp": {
+      "absent_kinds": {
+       "curb_no_ramp": 7,
+       "no_sidewalk": 59,
+       "unspecified": 33
+      },
+      "absent_kinds_added_after_reveal": {
+       "curb_no_ramp": 0,
+       "no_sidewalk": 0
+      },
+      "corner_absent_share": {
+       "ci95": [
+        0.9626,
+        1.0
+       ],
+       "k": 99,
+       "n": 99,
+       "share": 1.0
+      },
+      "corner_verdicts": {
+       "absent": 99,
+       "cant_tell": 1,
+       "present": 0
+      },
+      "n": 40,
+      "outcomes": {
+       "absent": 39,
+       "present": 0,
+       "undetermined": 1
+      },
+      "scored": 40,
+      "unit_absent_conservative": {
+       "ci95": [
+        0.8712,
+        0.9956
+       ],
+       "k": 39,
+       "n": 40,
+       "share": 0.975
+      },
+      "unit_absent_share": {
+       "ci95": [
+        0.9103,
+        1.0
+       ],
+       "k": 39,
+       "n": 39,
+       "share": 1.0
+      }
+     }
+    },
+    "reopened_with_blind": 0,
+    "rows": [
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47384235"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47231852"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47270098"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47305361"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n3372672500"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47232326"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n13059332216"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47270030"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47290563"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n3699326114"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47236718"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n13090709554"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47286143"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47340212"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47380807"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n3699326241"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47334787"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47299669"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47406308"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n12444613588"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n1375008444"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n3694670454"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47261571"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n12783988563"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n13090709646"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47342337"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n13538954649"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47325352"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47282622"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n1215066991"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47337266"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47240880"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n3642857970"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47219489"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n1637998595"
+     },
+     {
+      "outcome": "undetermined",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47331236"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47208364"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47288787"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47345153"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47335720"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47267448"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47281487"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47245550"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47397759"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47240587"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47287936"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47318252"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n1803133375"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47234866"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47318468"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47245437"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47236184"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47215596"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47231855"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n4598685562"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47289129"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47278131"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47355183"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47244995"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47303605"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47302452"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47263718"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47368067"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47259775"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47397103"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47307691"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47249862"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47225933"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47231069"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47332188"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47288915"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47387262"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47370116"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n3627781133"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n959123136"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n2623620122"
+     },
+     {
+      "outcome": "undetermined",
+      "part": "clean",
+      "unit": "vancouver:art:n47190958"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:sig:n1642453647"
+     },
+     {
+      "outcome": "undetermined",
+      "part": "clean",
+      "unit": "vancouver:art:n3629347257"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n4612512437"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n47258942"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n958722944"
+     },
+     {
+      "outcome": "present",
+      "part": "clean",
+      "unit": "vancouver:res:n47237304"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1614603561"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1466256854"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n7010814367"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n4602349091"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1634536176"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1547961037"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n3639899149"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n47308718"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n47300698"
+     }
+    ],
+    "scored": 92,
+    "stratified": {
+     "absent_units": 1323,
+     "ci95": [
+      0.9249,
+      1.0
+     ],
+     "ci_method": "conservative, ad hoc: normal interval around the unadjusted estimate, Agresti-Coull per-stratum variance, finite-population corrected, clipped to [0, 1]",
+     "covered_units": 1312,
+     "estimate": 0.9826,
+     "not_covered": 11
+    },
+    "units": 95,
+    "which": "blind"
+   },
+   "final": {
+    "complete": 95,
+    "edited_after_inventory": 1,
+    "excluded": [],
+    "kinds_after_inventory": 2,
+    "kinds_from_after_corners": 4,
+    "parts": {
+     "clean": {
+      "absent_kinds": {
+       "curb_no_ramp": 23,
+       "no_sidewalk": 15,
+       "unspecified": 12
+      },
+      "absent_kinds_added_after_reveal": {
+       "curb_no_ramp": 0,
+       "no_sidewalk": 0
+      },
+      "corner_absent_share": {
+       "ci95": [
+        0.9286,
+        1.0
+       ],
+       "k": 50,
+       "n": 50,
+       "share": 1.0
+      },
+      "corner_verdicts": {
+       "absent": 50,
+       "cant_tell": 2,
+       "present": 0
+      },
+      "n": 20,
+      "outcomes": {
+       "absent": 18,
+       "present": 0,
+       "undetermined": 2
+      },
+      "scored": 20,
+      "unit_absent_conservative": {
+       "ci95": [
+        0.699,
+        0.9721
+       ],
+       "k": 18,
+       "n": 20,
+       "share": 0.9
+      },
+      "unit_absent_share": {
+       "ci95": [
+        0.8241,
+        1.0
+       ],
+       "k": 18,
+       "n": 18,
+       "share": 1.0
+      }
+     },
+     "false_absence": {
+      "absent_kinds": {
+       "curb_no_ramp": 22,
+       "no_sidewalk": 60,
+       "unspecified": 12
+      },
+      "absent_kinds_added_after_reveal": {
+       "curb_no_ramp": 0,
+       "no_sidewalk": 0
+      },
+      "artifacts": 31,
+      "classes": {
+       "artifact_built_after_imagery": 16,
+       "artifact_inventory_or_geometry": 15,
+       "miss_at_inventory_corner": 4,
+       "miss_elsewhere": 0,
+       "undetermined": 0
+      },
+      "corner_absent_share": {
+       "ci95": [
+        0.8752,
+        0.9722
+       ],
+       "k": 94,
+       "n": 100,
+       "share": 0.94
+      },
+      "corner_verdicts": {
+       "absent": 94,
+       "cant_tell": 1,
+       "present": 6
+      },
+      "dating": {
+       "vancouver:art:n1215066991": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n12783988563": {
+        "1": {
+         "instdates": [
+          "2025-02"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n13059332216": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2021-10",
+         "newest_shown": "2021-10"
+        }
+       },
+       "vancouver:art:n13090709646": {
+        "0": {
+         "instdates": [
+          "2025-08"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        },
+        "2": {
+         "instdates": [
+          "2025-08"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n1375008444": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n3694670454": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n3699326114": {
+        "0": {
+         "instdates": [
+          "2026-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n47270030": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2021-12",
+         "newest_shown": "2021-12"
+        },
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2021-12",
+         "newest_shown": "2021-12"
+        }
+       },
+       "vancouver:art:n47282622": {
+        "2": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n47290563": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:art:n47325352": {
+        "2": {
+         "instdates": [
+          "2023-01"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        }
+       },
+       "vancouver:art:n47337266": {
+        "2": {
+         "instdates": [
+          "",
+          ""
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:art:n47340212": {
+        "0": {
+         "instdates": [
+          "",
+          ""
+         ],
+         "newest_available": "2023-05",
+         "newest_shown": "2023-05"
+        }
+       },
+       "vancouver:res:n12444613588": {
+        "1": {
+         "instdates": [
+          "2023-09"
+         ],
+         "newest_available": "2022-11",
+         "newest_shown": "2022-11"
+        },
+        "2": {
+         "instdates": [
+          "2023-09"
+         ],
+         "newest_available": "2022-11",
+         "newest_shown": "2022-11"
+        }
+       },
+       "vancouver:res:n13090709554": {
+        "0": {
+         "instdates": [
+          "2025-01"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        },
+        "1": {
+         "instdates": [
+          "2025-01"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n13538954649": {
+        "0": {
+         "instdates": [
+          "2025-07"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        },
+        "2": {
+         "instdates": [
+          "2025-07"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        }
+       },
+       "vancouver:res:n3372672500": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-05",
+         "newest_shown": "2023-05"
+        }
+       },
+       "vancouver:res:n3642857970": {
+        "1": {
+         "instdates": [
+          "2023-10"
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        }
+       },
+       "vancouver:res:n3699326241": {
+        "2": {
+         "instdates": [
+          "2025-10"
+         ],
+         "newest_available": "2019-06",
+         "newest_shown": "2019-06"
+        }
+       },
+       "vancouver:res:n47231852": {
+        "1": {
+         "instdates": [
+          "2024-04"
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        },
+        "2": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        }
+       },
+       "vancouver:res:n47232326": {
+        "2": {
+         "instdates": [
+          "2021-03"
+         ],
+         "newest_available": "2014-09",
+         "newest_shown": "2014-09"
+        }
+       },
+       "vancouver:res:n47236718": {
+        "2": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47240880": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2022-12",
+         "newest_shown": "2022-12"
+        }
+       },
+       "vancouver:res:n47261571": {
+        "0": {
+         "instdates": [
+          "2023-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        },
+        "1": {
+         "instdates": [
+          "2023-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47270098": {
+        "0": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        },
+        "2": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47286143": {
+        "0": {
+         "instdates": [
+          "2025-07"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47287760": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-05",
+         "newest_shown": "2023-05"
+        },
+        "2": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-05",
+         "newest_shown": "2023-05"
+        }
+       },
+       "vancouver:res:n47299669": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47305361": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47311369": {
+        "0": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47334787": {
+        "1": {
+         "instdates": [
+          "2023-01"
+         ],
+         "newest_available": "2021-10",
+         "newest_shown": "2021-10"
+        },
+        "2": {
+         "instdates": [
+          "2023-01"
+         ],
+         "newest_available": "2021-10",
+         "newest_shown": "2021-10"
+        }
+       },
+       "vancouver:res:n47342337": {
+        "1": {
+         "instdates": [
+          ""
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47380807": {
+        "1": {
+         "instdates": [
+          "2025-03"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       },
+       "vancouver:res:n47384235": {
+        "1": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        },
+        "2": {
+         "instdates": [
+          "2024-02"
+         ],
+         "newest_available": "2023-04",
+         "newest_shown": "2023-04"
+        }
+       },
+       "vancouver:res:n47406308": {
+        "1": {
+         "instdates": [
+          "2026-06"
+         ],
+         "newest_available": "2024-10",
+         "newest_shown": "2024-10"
+        }
+       }
+      },
+      "n": 35,
+      "outcomes": {
+       "absent": 31,
+       "present": 4,
+       "undetermined": 0
+      },
+      "per_unit": {
+       "vancouver:art:n1215066991": "artifact_inventory_or_geometry",
+       "vancouver:art:n12783988563": "artifact_built_after_imagery",
+       "vancouver:art:n13059332216": "artifact_inventory_or_geometry",
+       "vancouver:art:n13090709646": "artifact_built_after_imagery",
+       "vancouver:art:n1375008444": "artifact_inventory_or_geometry",
+       "vancouver:art:n3694670454": "artifact_inventory_or_geometry",
+       "vancouver:art:n3699326114": "artifact_built_after_imagery",
+       "vancouver:art:n47270030": "miss_at_inventory_corner",
+       "vancouver:art:n47282622": "artifact_inventory_or_geometry",
+       "vancouver:art:n47290563": "artifact_inventory_or_geometry",
+       "vancouver:art:n47325352": "artifact_built_after_imagery",
+       "vancouver:art:n47337266": "miss_at_inventory_corner",
+       "vancouver:art:n47340212": "artifact_inventory_or_geometry",
+       "vancouver:res:n12444613588": "artifact_built_after_imagery",
+       "vancouver:res:n13090709554": "artifact_built_after_imagery",
+       "vancouver:res:n13538954649": "artifact_built_after_imagery",
+       "vancouver:res:n3372672500": "artifact_inventory_or_geometry",
+       "vancouver:res:n3642857970": "artifact_built_after_imagery",
+       "vancouver:res:n3699326241": "artifact_built_after_imagery",
+       "vancouver:res:n47231852": "miss_at_inventory_corner",
+       "vancouver:res:n47232326": "artifact_built_after_imagery",
+       "vancouver:res:n47236718": "artifact_inventory_or_geometry",
+       "vancouver:res:n47240880": "artifact_inventory_or_geometry",
+       "vancouver:res:n47261571": "artifact_inventory_or_geometry",
+       "vancouver:res:n47270098": "artifact_built_after_imagery",
+       "vancouver:res:n47286143": "artifact_built_after_imagery",
+       "vancouver:res:n47287760": "miss_at_inventory_corner",
+       "vancouver:res:n47299669": "artifact_inventory_or_geometry",
+       "vancouver:res:n47305361": "artifact_inventory_or_geometry",
+       "vancouver:res:n47311369": "artifact_inventory_or_geometry",
+       "vancouver:res:n47334787": "artifact_built_after_imagery",
+       "vancouver:res:n47342337": "artifact_inventory_or_geometry",
+       "vancouver:res:n47380807": "artifact_built_after_imagery",
+       "vancouver:res:n47384235": "artifact_built_after_imagery",
+       "vancouver:res:n47406308": "artifact_built_after_imagery"
+      },
+      "real_miss_share": {
+       "ci95": [
+        0.0454,
+        0.2595
+       ],
+       "k": 4,
+       "n": 35,
+       "share": 0.1143
+      },
+      "real_misses": 4,
+      "scored": 35,
+      "shown_older_than_available": [],
+      "unit_absent_conservative": {
+       "ci95": [
+        0.7405,
+        0.9546
+       ],
+       "k": 31,
+       "n": 35,
+       "share": 0.8857
+      },
+      "unit_absent_share": {
+       "ci95": [
+        0.7405,
+        0.9546
+       ],
+       "k": 31,
+       "n": 35,
+       "share": 0.8857
+      }
+     },
+     "na_noramp": {
+      "absent_kinds": {
+       "curb_no_ramp": 7,
+       "no_sidewalk": 59,
+       "unspecified": 33
+      },
+      "absent_kinds_added_after_reveal": {
+       "curb_no_ramp": 0,
+       "no_sidewalk": 0
+      },
+      "corner_absent_share": {
+       "ci95": [
+        0.9626,
+        1.0
+       ],
+       "k": 99,
+       "n": 99,
+       "share": 1.0
+      },
+      "corner_verdicts": {
+       "absent": 99,
+       "cant_tell": 1,
+       "present": 0
+      },
+      "n": 40,
+      "outcomes": {
+       "absent": 39,
+       "present": 0,
+       "undetermined": 1
+      },
+      "scored": 40,
+      "unit_absent_conservative": {
+       "ci95": [
+        0.8712,
+        0.9956
+       ],
+       "k": 39,
+       "n": 40,
+       "share": 0.975
+      },
+      "unit_absent_share": {
+       "ci95": [
+        0.9103,
+        1.0
+       ],
+       "k": 39,
+       "n": 39,
+       "share": 1.0
+      }
+     }
+    },
+    "reopened_with_blind": 0,
+    "rows": [
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47384235"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47231852"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47270098"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47305361"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n3372672500"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47232326"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n13059332216"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47270030"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47290563"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n3699326114"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47236718"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n13090709554"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47311369"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47287760"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47286143"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47340212"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47380807"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n3699326241"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47334787"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47299669"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47406308"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n12444613588"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n1375008444"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n3694670454"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47261571"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n12783988563"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n13090709646"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47342337"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n13538954649"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47325352"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47282622"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:art:n1215066991"
+     },
+     {
+      "outcome": "present",
+      "part": "false_absence",
+      "unit": "vancouver:art:n47337266"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n47240880"
+     },
+     {
+      "outcome": "absent",
+      "part": "false_absence",
+      "unit": "vancouver:res:n3642857970"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47219489"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n1637998595"
+     },
+     {
+      "outcome": "undetermined",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47331236"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47208364"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47288787"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47345153"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47335720"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47267448"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47281487"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47245550"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47397759"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47240587"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47287936"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47318252"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n1803133375"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47234866"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47318468"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47245437"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47236184"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47215596"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47231855"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n4598685562"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47289129"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47278131"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47355183"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47244995"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47303605"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47302452"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47263718"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47368067"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47259775"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47397103"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47307691"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47249862"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47225933"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:art:n47231069"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47332188"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47288915"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47387262"
+     },
+     {
+      "outcome": "absent",
+      "part": "na_noramp",
+      "unit": "vancouver:res:n47370116"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n3627781133"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n959123136"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n2623620122"
+     },
+     {
+      "outcome": "undetermined",
+      "part": "clean",
+      "unit": "vancouver:art:n47190958"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:sig:n1642453647"
+     },
+     {
+      "outcome": "undetermined",
+      "part": "clean",
+      "unit": "vancouver:art:n3629347257"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n4612512437"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n47258942"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n47362725"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n958722944"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n47237304"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1614603561"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1466256854"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n7010814367"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n4602349091"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1634536176"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n1547961037"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n3639899149"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:art:n47308718"
+     },
+     {
+      "outcome": "absent",
+      "part": "clean",
+      "unit": "vancouver:res:n47300698"
+     }
+    ],
+    "scored": 95,
+    "stratified": {
+     "absent_units": 1323,
+     "ci95": [
+      0.9436,
+      1.0
+     ],
+     "ci_method": "conservative, ad hoc: normal interval around the unadjusted estimate, Agresti-Coull per-stratum variance, finite-population corrected, clipped to [0, 1]",
+     "covered_units": 1312,
+     "estimate": 0.997,
+     "not_covered": 11
+    },
+    "units": 95,
+    "which": "final"
+   },
+   "used_live_imagery": [
+    "vancouver:res:n47287760",
+    "vancouver:res:n47311369",
+    "vancouver:res:n47362725"
+   ]
+  }
+ }
+}

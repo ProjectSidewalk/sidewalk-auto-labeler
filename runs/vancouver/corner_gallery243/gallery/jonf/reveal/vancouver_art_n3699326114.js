@@ -1,0 +1,1 @@
+revealInventory("vancouver:art:n3699326114", {"0":[{"class":"Available","corner":"S","defect":null,"instdate":"2026-03-27","lat":45.6402567232653,"lng":-122.688976754376,"owner":"CITY","projname":"Roosevelt Site Plan","ramptype":"DIAG","status":"Available","unit_id":"CR37614"}],"1":[]});
