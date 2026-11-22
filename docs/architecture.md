@@ -683,8 +683,9 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
 
 - **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec(label_type, module, cls,
   storage_floor, operational_confidence, benchmark_confidence, mask_rig, border='exclude',
-  min_depression_deg=None, fuse_overrides={})` (`fuse_overrides` last and read-only; pass it by
-  keyword),
+  min_depression_deg=None, fuse_overrides=())` (`fuse_overrides` last, a tuple of
+  `(FuseParams field, value)` pairs with keys limited to `FUSE_OVERRIDE_KEYS`, so a spec
+  pickles and serialises (#194); pass it by keyword),
   `SPECS`, `spec_for(t)`, `parse_types`, `type_frame(t)`, `load_detectors(types,
   type_kwargs=None, **kw)` (lazy import per spec; `**kw` to every detector, `type_kwargs[T]` to
   T's only). The CurbRamp spec references the constants in `detectors/__init__.py`, which keep
@@ -751,7 +752,7 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
 - **Consumers**:
   - `fuse_sites.py --label-type` (default CurbRamp). Per-type params (item 4):
     `fs.fuse_params_for(T, **flags)` = the spec's floor / operational threshold / rig mask,
-    then `DetectorSpec.fuse_overrides` (an empty read-only map for CurbRamp), then every flag
+    then `DetectorSpec.fuse_overrides` (an empty tuple for CurbRamp), then every flag
     that is not None. So `--floor`, `--min-confidence`, `--max-range-m`, `--gate-chi2`,
     `--max-match-m`, `--residual-per-dof-max` and `--sigma-scale` DEFAULT TO None (= the
     type's value); `fuse_params_for('CurbRamp') == FuseParams()`. `FuseParams.label_type`
@@ -773,7 +774,9 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
     Crosswalk; see the TODO there). CurbRamp is ungated, so nothing changes for it.
   - `eval_sites.py --label-type T` loads T's detections (`load_city_at_height(...,
     label_type=)`) and fuses with `fuse_params_for(T, ...)`; CurbRamp keeps the CurbRamp-only
-    refusal, another type only needs to have run. Default report dir `fusion_eval.<T>`. A type
+    refusal, another type only needs to have run. `load_benchmark` refuses a bundle whose
+    records did not run exactly T (#194), so a CurbRamp bundle is never read as another type's
+    ground truth, nor the reverse. Default report dir `fusion_eval.<T>`. A type
     whose `benchmark_confidence` is not 0.55 is refused (TODO: `judged_gt_panos` and the
     sub-floor test still read `BENCHMARK_CONFIDENCE`).
   - `eval_ps_clustering.py --label-type T`: the two API pulls (`api_labels(T)`,
