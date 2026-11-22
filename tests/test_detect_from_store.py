@@ -539,6 +539,80 @@ def test_records_mode_refuses_an_edited_records_file_on_resume(tmp_path, monkeyp
         dfs.main_cli(argv)
 
 
+def test_records_line_without_a_pano_block_names_the_line(tmp_path):
+    records = tmp_path / "results.jsonl"
+    records.write_text('{"pano": {"panorama_id": "11a"}}\n{"detections": []}\n', encoding="utf-8")
+    with pytest.raises(SystemExit, match="line 2"):
+        dfs.read_records(records)
+
+
+def test_records_mode_needs_the_source_run_dir(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    (records.parent / "manifest.json").unlink()
+    with pytest.raises(SystemExit, match="no manifest.json beside it"):
+        dfs.main_cli(_records_argv(tmp_path, store, records))
+
+
+def test_records_mode_refuses_an_area_that_differs_on_resume(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    argv = _records_argv(tmp_path, store, records)
+    dfs.main_cli(argv)
+    (tmp_path / "run" / "area.geojson").write_text('{"type": "Polygon", "coordinates": [[]]}',
+                                                   encoding="utf-8")
+    with pytest.raises(SystemExit, match="differs from"):
+        dfs.main_cli(argv)
+
+
+def test_records_mode_refuses_another_imagery_source_on_resume(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    argv = _records_argv(tmp_path, store, records)
+    dfs.main_cli(argv)
+    (records.parent / "manifest.json").write_text(json.dumps({"imagery_source": "panoramax"}),
+                                                  encoding="utf-8")
+    with pytest.raises(SystemExit, match="'mapillary' run"):
+        dfs.main_cli(argv)
+
+
+def test_records_file_is_bound_by_resolved_path_too(tmp_path, monkeypatch, crosswalk):
+    # The same bytes under the same name in another run dir are another records file.
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    dfs.main_cli(_records_argv(tmp_path, store, records))
+    copy = make_source_run(tmp_path / "copy", ["11a"])
+    assert copy.read_bytes() == records.read_bytes() and copy.name == records.name
+    with pytest.raises(SystemExit, match="records: recorded"):
+        dfs.main_cli(_records_argv(tmp_path, store, copy))
+
+
+def test_run_checks_each_loaded_detectors_frame(tmp_path, monkeypatch):
+    # The stubbed tests preset main.detectors, so run() returns before check_fixed_frames;
+    # here run() loads the (stub) detector itself, with a frame its spec does not have.
+    from detectors import registry
+    _no_network(monkeypatch)
+
+    class WrongFrame(StubCrosswalk):
+        border = "exclude"
+
+        def close(self):
+            pass
+    monkeypatch.setattr(main, "detectors", {})
+    monkeypatch.setattr(main, "curb_ramp_detector", None, raising=False)
+    monkeypatch.setattr(registry, "load_detectors", lambda types, **k: {"Crosswalk": WrongFrame()})
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    with pytest.raises(SystemExit, match="spec says"):
+        dfs.main_cli(_records_argv(tmp_path, store, records))
+    assert not (tmp_path / "run" / "results.jsonl").exists()
+    assert main.detectors == {}
+
+
 def _records_argv(tmp_path, store, records, run="run"):
     return ["--run-dir", str(tmp_path / run), "--store", str(store), "--records", str(records),
             *_xw(tmp_path)]
@@ -596,7 +670,8 @@ def test_records_mode_resumes_a_manifest_without_received_by(tmp_path, monkeypat
 
 
 @pytest.mark.parametrize("flag", [["--server", SERVER], ["--ids", "ids.txt"],
-                                  ["--labels", "labels.geojson"], ["--sample-unlabeled", "3"],
+                                  ["--labels", "labels.geojson"], ["--labels-user", "u"],
+                                  ["--sample-unlabeled", "3"], ["--seed", "5"],
                                   ["--metadata-only"]])
 def test_records_mode_refuses_each_server_mode_flag(tmp_path, monkeypatch, capsys, crosswalk,
                                                      flag):

@@ -278,8 +278,12 @@ def read_records(path):
         for n, line in enumerate(f, 1):
             if not line.strip():
                 continue
-            pano = json.loads(line)['pano']
-            pid = pano['panorama_id']
+            try:
+                pano = json.loads(line)['pano']
+                pid = pano['panorama_id']
+            except (ValueError, KeyError, TypeError) as e:
+                raise SystemExit(f'--records {path}: line {n} is not a results record with a '
+                                 f'pano block and its panorama_id ({type(e).__name__}: {e}).')
             if pid in blocks:
                 raise SystemExit(f'--records {path}: pano {pid} appears twice (line {n}); '
                                  f'records mode needs one block per pano.')
@@ -915,7 +919,7 @@ def main_cli(argv=None):
                     help='records mode: a results.jsonl PS already received (its '
                          '<file>.submission.json must record the same sha256); its pano ids and '
                          'pano blocks (copied verbatim) define the run. Excludes --server, --ids, '
-                         '--labels, --sample-unlabeled and --metadata-only')
+                         '--labels, --labels-user, --sample-unlabeled, --seed and --metadata-only')
     ap.add_argument('--types', type=main_types_arg, default=None, metavar='TYPES',
                     help='comma list of label types (default CurbRamp); a type other than '
                          'CurbRamp needs --records')
@@ -955,8 +959,10 @@ def main_cli(argv=None):
         type_kwargs[registry.CROSSWALK] = {'checkpoint': args.crosswalk_checkpoint}
 
     if args.records is not None:
+        # --seed only seeds --sample-unlabeled; its default (0) cannot be told from an explicit 0.
         for flag, value in (('--server', args.server), ('--ids', args.ids),
-                            ('--labels', args.labels), ('--sample-unlabeled', args.sample_unlabeled),
+                            ('--labels', args.labels), ('--labels-user', args.labels_user),
+                            ('--sample-unlabeled', args.sample_unlabeled), ('--seed', args.seed),
                             ('--metadata-only', args.metadata_only)):
             if value:
                 ap.error(f'{flag} does not apply with --records (its file supplies the ids and '
