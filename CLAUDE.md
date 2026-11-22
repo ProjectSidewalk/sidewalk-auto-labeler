@@ -466,8 +466,9 @@ Plumbing for more than one detector (Planning#36). Two specs: CurbRamp and **Cro
   so Crosswalk today), `eval_ps_clustering.py --label-type` (pulls, labels and pixel map per
   type; `run()` still refuses anything but CurbRamp: the PS threshold arms are CurbRamp's cut)
   and `export_benchmark.py --label-type`. `agree_rate`, `mined_precision` and
-  `provenance_gate` **refuse** anything but `{CurbRamp}`; `eval_sites` does so only for
-  CurbRamp itself.
+  `provenance_gate` **refuse** anything but `{CurbRamp}`; `eval_sites` does so for a results
+  file only when scoring CurbRamp, and for any T refuses a bundle whose records did not run
+  exactly T (#194).
 - **`send_to_ps.py`** guards decode/border per type, against only campaigns that sent that
   type; bands are refused on any file that is not CurbRamp-only.
 - **Not done:** Crosswalk in `reinfer.py` and in `detect_from_store.py`'s server-metadata

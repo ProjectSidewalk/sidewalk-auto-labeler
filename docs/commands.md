@@ -439,7 +439,8 @@ python scripts/height_gap.py sweep richmond --group gopro/max --sequences  # + s
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
 # --label-type T (#168; default CurbRamp, which keeps refusing a file that ran any other type)
-# loads and fuses only T's detections and writes fusion_eval.<T>/. It REFUSES a type whose
+# loads and fuses only T's detections and writes fusion_eval.<T>/; a bundle whose records did
+# not run exactly T is refused (#194). It REFUSES a type whose
 # benchmark tier is not 0.55, so Crosswalk (0.23) today: the GT join is still keyed to 0.55.
 ```
 
