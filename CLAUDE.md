@@ -458,9 +458,17 @@ Plumbing for more than one detector (Planning#36). Two specs: CurbRamp and **Cro
 - `main.py --types` (comma list). The manifest binds `label_types` and a per-type `models`
   map.
 - **Consumers:** `fuse_sites.py --label-type` (a non-CurbRamp fuse writes
-  `sites.<type>.jsonl`) and `export_benchmark.py --label-type`. `agree_rate`, `eval_sites`,
-  `mined_precision` and `provenance_gate` **refuse** anything but `{CurbRamp}`.
+  `sites.<type>.jsonl`; params come from `fs.fuse_params_for(T, **flags)` = the spec, then
+  `DetectorSpec.fuse_overrides` (empty for both specs today), then every flag that is not
+  None, so the association flags default to None; `FuseParams.label_type` lands in
+  `sites_meta.json`, `sites.jsonl` is byte-identical for CurbRamp), `eval_sites.py
+  --label-type` (report in `fusion_eval.<T>`; refuses a type whose benchmark tier is not 0.55,
+  so Crosswalk today), `eval_ps_clustering.py --label-type` (pulls, labels and pixel map per
+  type; `run()` still refuses anything but CurbRamp: the PS threshold arms are CurbRamp's cut)
+  and `export_benchmark.py --label-type`. `agree_rate`, `mined_precision` and
+  `provenance_gate` **refuse** anything but `{CurbRamp}`; `eval_sites` does so only for
+  CurbRamp itself.
 - **`send_to_ps.py`** guards decode/border per type, against only campaigns that sent that
   type; bands are refused on any file that is not CurbRamp-only.
-- **Not done:** per-type `FuseParams` (PR #176), Crosswalk in `reinfer.py` and in
-  `detect_from_store.py`'s server-metadata mode.
+- **Not done:** Crosswalk in `reinfer.py` and in `detect_from_store.py`'s server-metadata
+  mode, and Crosswalk `fuse_overrides` (none tuned).

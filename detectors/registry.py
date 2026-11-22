@@ -35,12 +35,19 @@ Example::
 """
 import importlib
 from collections import namedtuple
+from types import MappingProxyType
 
 from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, BORDER_KEEP, DECODE_ARGMAX,
                        DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE)
 
 CURB_RAMP = 'CurbRamp'
 CROSSWALK = 'Crosswalk'
+
+# The server's LabelType enum (SidewalkWebpage app/models/label/LabelType.scala, read
+# 2026-11-04), in its canonical order. A DetectorSpec's label_type is sent verbatim as the
+# submission's labelType, so it must be one of these; tests pin every SPECS key to it.
+PS_LABEL_TYPES = ('CurbRamp', 'NoCurbRamp', 'Obstacle', 'SurfaceProblem', 'Crosswalk',
+                  'Signal', 'NoSidewalk', 'Occlusion', 'Other')
 
 # The keys a record carries per model (main.build_output_line writes them at line level for
 # a CurbRamp-only run, and inside models[T] for every type otherwise).
@@ -65,7 +72,12 @@ DetectorSpec = namedtuple('DetectorSpec', [
     'min_depression_deg',      # range gate (detectors.beyond_range_gate, #192): send only
                                # detections at least this many degrees below the image
                                # horizon; None = ungated
-], defaults=(BORDER_EXCLUDE, None))
+    'fuse_overrides',          # FuseParams field -> value for this type's fusion (#168
+                               # item 4; fuse_sites.fuse_params_for). A crosswalk is a region
+                               # centred mid-road and a signal a pole, so association radii
+                               # tuned for a point on the curb line need not fit them.
+                               # Read-only; empty for CurbRamp, so its fusion is unchanged.
+], defaults=(BORDER_EXCLUDE, None, MappingProxyType({})))
 
 SPECS = {
     CURB_RAMP: DetectorSpec(CURB_RAMP, 'detectors.curb_ramp', 'CurbRampDetector',

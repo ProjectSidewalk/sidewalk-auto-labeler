@@ -683,7 +683,8 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
 
 - **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec(label_type, module, cls,
   storage_floor, operational_confidence, benchmark_confidence, mask_rig, border='exclude',
-  min_depression_deg=None)`,
+  min_depression_deg=None, fuse_overrides={})` (`fuse_overrides` last and read-only; pass it by
+  keyword),
   `SPECS`, `spec_for(t)`, `parse_types`, `type_frame(t)`, `load_detectors(types,
   type_kwargs=None, **kw)` (lazy import per spec; `**kw` to every detector, `type_kwargs[T]` to
   T's only). The CurbRamp spec references the constants in `detectors/__init__.py`, which keep
@@ -748,17 +749,47 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
   server-metadata mode and any type set in records mode (`--records`, which inherits the source
   run's `imagery_source`).
 - **Consumers**:
-  - `fuse_sites.py --label-type` (default CurbRamp). `--floor`/`--min-confidence` default to
-    the spec. Each SlimPano's decode/border are that type's (`registry.type_markers`). A
-    non-CurbRamp fuse writes `sites.<type>.jsonl`. A file that never ran the type is refused.
+  - `fuse_sites.py --label-type` (default CurbRamp). Per-type params (item 4):
+    `fs.fuse_params_for(T, **flags)` = the spec's floor / operational threshold / rig mask,
+    then `DetectorSpec.fuse_overrides` (an empty read-only map for CurbRamp), then every flag
+    that is not None. So `--floor`, `--min-confidence`, `--max-range-m`, `--gate-chi2`,
+    `--max-match-m`, `--residual-per-dof-max` and `--sigma-scale` DEFAULT TO None (= the
+    type's value); `fuse_params_for('CurbRamp') == FuseParams()`. `FuseParams.label_type`
+    (last field) records the type in `sites_meta.json`'s params; `sites.jsonl` lines carry no
+    type and a CurbRamp fuse is byte-identical (tests/test_multitype_fusion.py). Each
+    SlimPano's decode/border are that type's (`registry.type_markers`). A non-CurbRamp fuse
+    writes `sites.<type>.jsonl` + `sites.<type>_meta.json`. A file that never ran the type is
+    refused. `registry.PS_LABEL_TYPES` is the server's `LabelType` enum; every SPECS key must
+    be one (pinned by a test), since the spec's name goes out verbatim as `labelType`.
+    **Range gate in fusion: provisional, pending Jon's decision.** Today fusion does **not**
+    apply the send-time range gate (`DetectorSpec.min_depression_deg`, #192):
+    `fuse_params_for` takes the spec's floor, threshold and rig mask, but not the gate. Fusion's
+    own far cut is `max_range_m` (25 m; a ray landing beyond it is dropped). With the default
+    flat raycast, 25 m is 5.71° of dip at 2.5 m camera height and 5.94° at 2.6 m, both steeper
+    than Crosswalk's 5.625°, so there the 25 m cut is the stricter one and the two agree. At the
+    2.0 m that `--camera-height-m auto` assigns to some GSV capture years, 25 m is 4.57°, so
+    Crosswalk detections landing between about 20.3 m and 25 m are fused but never sent.
+    `eval_ps_clustering.synthesize_labels` applies no gate either (moot while `run()` refuses
+    Crosswalk; see the TODO there). CurbRamp is ungated, so nothing changes for it.
+  - `eval_sites.py --label-type T` loads T's detections (`load_city_at_height(...,
+    label_type=)`) and fuses with `fuse_params_for(T, ...)`; CurbRamp keeps the CurbRamp-only
+    refusal, another type only needs to have run. Default report dir `fusion_eval.<T>`. A type
+    whose `benchmark_confidence` is not 0.55 is refused (TODO: `judged_gt_panos` and the
+    sub-floor test still read `BENCHMARK_CONFIDENCE`).
+  - `eval_ps_clustering.py --label-type T`: the two API pulls (`api_labels(T)`,
+    `api_clusters(T)`), the label filter, `label_to_detection`, `synthesize_labels` (rig mask
+    per spec), the loaders, the fusion arm's `fuse_params_for` and `ps_verbatim` are T's;
+    the default dir gains `.<T>`. `run()` refuses any T but CurbRamp for now:
+    `PS_THRESHOLD_KM` / `DIAG_SPAN_M` are the server's CurbRamp cut (TODO: the type's
+    `label_clustering.py` threshold).
   - `export_benchmark.py --label-type`: strata at the type's benchmark tier. A multi-type
     record becomes a true single-type record: `label_types`, `models`, `model_*` and the
     markers are all that type's.
   - `position_check`: its report points read typed detections.
-  - `agree_rate`, `eval_sites`, `mined_precision` (through eval_sites' loader) and
-    `provenance_gate` **refuse** a file whose records ran anything but `{CurbRamp}`. eval_sites
-    makes that check inside `fs.load_results`' own pass (`require_types`), so there is no
-    second scan.
+  - `agree_rate`, `mined_precision` (through eval_sites' loader, at its CurbRamp default) and
+    `provenance_gate` **refuse** a file whose records ran anything but `{CurbRamp}`; eval_sites
+    does so when scoring CurbRamp. The check runs inside `fs.load_results`' own pass
+    (`require_types`), so there is no second scan.
   - `send_to_ps.py`: the decode and border guards run per type (`type_frame_counts`), each
     against only the campaigns that sent that type (`record_label_types`), so a Crosswalk
     `keep` file and a city's `exclude` CurbRamp campaigns never refuse each other. A record of
@@ -769,7 +800,9 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
   `transform_record` drops a detection strictly shallower than the cut below the image horizon
   (`detectors.beyond_range_gate`, image frame, no pose). Crosswalk is 5.625° (row 272/512, a
   2.8125° coarse-cell edge, so the cut never splits a cell; Juneau 4,400 → 3,525 labels),
-  CurbRamp `None`. `transform_record(range_gate=True|False|<deg>)`, threaded through
+  CurbRamp `None`. Unlike the rig mask it is a send-time rule only: fusion does not apply it
+  (provisional; see the `fuse_sites.py --label-type` bullet above).
+  `transform_record(range_gate=True|False|<deg>)`, threaded through
   `split_record`, `count_labels` and `count_band_labels_in_file`. Every campaign entry of a
   gated type (endpoint entry, `types[T]`, band) records `range_gate_deg`, the cut it was sent
   under or null; the key is written only for a gated type or an entry that already has it, so
@@ -784,8 +817,10 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
   (that needs new code, e.g. a gate band). `position_check.campaigns_for` carries `range_gate_deg`, and
   `coverage_check.replay_campaigns` (so `review_order`) and `reinfer.write_derived_record`
   replay it.
-- **NOT done**: per-type `FuseParams` (#168 item 4; PR #176), Crosswalk in `reinfer.py` and in
-  `detect_from_store.py`'s server-metadata mode. (Shipped: submission, one POST per line and type
-  with per-type sidecars, see Stage 2 above; the type-aware `send_to_ps.check_store_built`, PR
-  #179; the review-order export, item 5, PR #189; and `detect_from_store.py --records`, which
-  runs any type on the store pixels of a file PS already received.)
+- **NOT done**: Crosswalk in `reinfer.py` and in `detect_from_store.py`'s server-metadata mode,
+  and tuned Crosswalk `fuse_overrides` (its spec has none, so a Crosswalk fuse uses CurbRamp's
+  association knobs). (Shipped: per-type `FuseParams`, #168 item 4, PR #176; submission, one
+  POST per line and type with per-type sidecars, see Stage 2 above; the type-aware
+  `send_to_ps.check_store_built`, PR #179; the review-order export, item 5, PR #189; and
+  `detect_from_store.py --records`, which runs any type on the store pixels of a file PS already
+  received.)
