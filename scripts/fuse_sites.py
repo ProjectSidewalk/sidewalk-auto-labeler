@@ -237,7 +237,8 @@ def fuse_params_for(label_type=registry.CURB_RAMP, **overrides):
     left at its None default keeps the type's value rather than resetting it.
 
     CurbRamp's spec values ARE FuseParams' defaults and its fuse_overrides is empty, so
-    ``fuse_params_for('CurbRamp') == FuseParams()``.
+    ``fuse_params_for('CurbRamp') == FuseParams()``. Raises ValueError when a spec's
+    fuse_overrides repeats a key or sets one outside ``registry.FUSE_OVERRIDE_KEYS`` (#194).
 
     Example:
         >>> fuse_params_for('CurbRamp', gate_chi2=None) == FuseParams()
@@ -246,8 +247,13 @@ def fuse_params_for(label_type=registry.CURB_RAMP, **overrides):
         6.0
     """
     spec = registry.spec_for(label_type)
+    type_overrides = dict(spec.fuse_overrides)
+    stray = sorted(set(type_overrides) - set(registry.FUSE_OVERRIDE_KEYS))
+    if stray or len(type_overrides) != len(spec.fuse_overrides):
+        raise ValueError(f'{label_type} fuse_overrides {spec.fuse_overrides!r}: keys must be '
+                         f'distinct and among {registry.FUSE_OVERRIDE_KEYS}')
     kw = {'floor': spec.storage_floor, 'min_confidence': spec.operational_confidence,
-          'mask_rig': spec.mask_rig, **dict(spec.fuse_overrides),
+          'mask_rig': spec.mask_rig, **type_overrides,
           **{k: v for k, v in overrides.items() if v is not None}}
     return FuseParams(**kw, label_type=label_type)
 

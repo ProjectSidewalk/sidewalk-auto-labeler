@@ -35,7 +35,6 @@ Example::
 """
 import importlib
 from collections import namedtuple
-from types import MappingProxyType
 
 from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, BORDER_KEEP, DECODE_ARGMAX,
                        DETECTION_STORAGE_FLOOR, OPERATIONAL_CONFIDENCE)
@@ -72,12 +71,29 @@ DetectorSpec = namedtuple('DetectorSpec', [
     'min_depression_deg',      # range gate (detectors.beyond_range_gate, #192): send only
                                # detections at least this many degrees below the image
                                # horizon; None = ungated
-    'fuse_overrides',          # FuseParams field -> value for this type's fusion (#168
-                               # item 4; fuse_sites.fuse_params_for). A crosswalk is a region
-                               # centred mid-road and a signal a pole, so association radii
-                               # tuned for a point on the curb line need not fit them.
-                               # Read-only; empty for CurbRamp, so its fusion is unchanged.
-], defaults=(BORDER_EXCLUDE, None, MappingProxyType({})))
+    'fuse_overrides',          # a tuple of (FuseParams field, value) pairs for this type's
+                               # fusion (#168 item 4; fuse_sites.fuse_params_for), keys from
+                               # FUSE_OVERRIDE_KEYS. A crosswalk is a region centred mid-road
+                               # and a signal a pole, so association radii tuned for a point
+                               # on the curb line need not fit them. A tuple, not a mapping,
+                               # so the spec pickles, deep-copies and serialises (#194).
+                               # Empty for CurbRamp, so its fusion is unchanged.
+], defaults=(BORDER_EXCLUDE, None, ()))
+
+# The FuseParams fields a DetectorSpec.fuse_overrides may set (#194; fuse_params_for refuses
+# any other key). The rule: an association knob that no other spec field owns and whose
+# fuse_sites flag defaults to None, so the type's value can take effect from the CLI.
+# - sigma_scale is in: --sigma-scale already defaults to the type's value (#176), and a
+#   region feature's peak scatter is what it scales.
+# - floor, min_confidence, mask_rig and label_type are out: the spec's own fields own them.
+# - sigma_peak_px is out: it is a #111 study verdict about the 8-cell heatmap grid, which
+#   crosswalk_s4 shares.
+# - max_vintage_months is out: eval-ablation only, with no flag.
+# - apply_pose, grade_source and camera_height_m are out: the CLI always passes them, so a
+#   type's value could never apply.
+# Names only: the registry stays torch-free and does not import fuse_sites.
+FUSE_OVERRIDE_KEYS = ('max_range_m', 'gate_chi2', 'max_match_m', 'residual_per_dof_max',
+                      'sigma_scale')
 
 SPECS = {
     CURB_RAMP: DetectorSpec(CURB_RAMP, 'detectors.curb_ramp', 'CurbRampDetector',

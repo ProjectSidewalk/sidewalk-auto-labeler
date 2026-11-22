@@ -1090,15 +1090,26 @@ def write_outputs(out_dir, report_text, result):
                        + [pr['k'][f] for f in CAL_FLOORS])
 
 
-def load_benchmark(city, benchmark_root):
-    """(verdict panos, {pano_id: bundle operational detections}) for one RampNet split."""
+def load_benchmark(city, benchmark_root, label_type=registry.CURB_RAMP):
+    """(verdict panos, {pano_id: bundle operational detections}) for one RampNet split.
+
+    Raises ValueError when a bundle record did not run exactly `label_type` (#194): a
+    CurbRamp bundle is not another type's ground truth, nor the reverse, and a multi-type
+    record is neither. export_benchmark writes a legacy record for a CurbRamp-only run and
+    one with label_types == [T] otherwise, so every bundle it exports passes.
+    """
     with open(benchmark_root / city / 'verdicts.json', encoding='utf-8') as f:
         verdicts = json.load(f)
     bundle_ops = {}
-    with open(benchmark_root / city / 'records.jsonl', encoding='utf-8') as f:
-        for line in f:
+    records_path = benchmark_root / city / 'records.jsonl'
+    with open(records_path, encoding='utf-8') as f:
+        for lineno, line in enumerate(f, 1):
             if line.strip():
                 rec = json.loads(line)
+                types = sorted(registry.record_types(rec))
+                if types != [label_type]:
+                    raise ValueError(f'{records_path} line {lineno}: the bundle record ran '
+                                     f'{types}, but this scores {label_type}')
                 bundle_ops[rec['pano']['panorama_id']] = \
                     [(d['x_normalized'], d['y_normalized'], d['confidence'])
                      for d in rec['detections']]
@@ -1107,7 +1118,7 @@ def load_benchmark(city, benchmark_root):
 
 def load_city_files(city, benchmark_root, run_dir, read_heights=True, height_table=None,
                     label_type=registry.CURB_RAMP):
-    verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
+    verdict_panos, bundle_ops = load_benchmark(city, benchmark_root, label_type)
     run_panos, skipped = fs.load_results(run_dir / 'results.jsonl',
                                          read_heights=read_heights, height_table=height_table,
                                          label_type=label_type,
@@ -1130,7 +1141,7 @@ def load_city_at_height(city, benchmark_root, run_dir, camera_height, read_heigh
     fs.resolved_height_counts / fs.height_resolution_lines. Raises ValueError for a
     missing or mismatched per-rig table, FileNotFoundError for a missing benchmark split.
     """
-    verdict_panos, bundle_ops = load_benchmark(city, benchmark_root)
+    verdict_panos, bundle_ops = load_benchmark(city, benchmark_root, label_type)
     results_path = Path(results_path) if results_path else run_dir / 'results.jsonl'
     # eval_sites and mined_precision (which loads through here) score CurbRamp by default (#168)
     run_panos, _skipped, height, auto = fs.load_at_height(
