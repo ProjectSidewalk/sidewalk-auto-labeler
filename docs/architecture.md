@@ -759,6 +759,16 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
     writes `sites.<type>.jsonl` + `sites.<type>_meta.json`. A file that never ran the type is
     refused. `registry.PS_LABEL_TYPES` is the server's `LabelType` enum; every SPECS key must
     be one (pinned by a test), since the spec's name goes out verbatim as `labelType`.
+    **Range gate in fusion: provisional, pending Jon's decision.** Today fusion does **not**
+    apply the send-time range gate (`DetectorSpec.min_depression_deg`, #192):
+    `fuse_params_for` takes the spec's floor, threshold and rig mask, but not the gate. Fusion's
+    own far cut is `max_range_m` (25 m; a ray landing beyond it is dropped). With the default
+    flat raycast, 25 m is 5.71° of dip at 2.5 m camera height and 5.94° at 2.6 m, both steeper
+    than Crosswalk's 5.625°, so there the 25 m cut is the stricter one and the two agree. At the
+    2.0 m that `--camera-height-m auto` assigns to some GSV capture years, 25 m is 4.57°, so
+    Crosswalk detections landing between about 20.3 m and 25 m are fused but never sent.
+    `eval_ps_clustering.synthesize_labels` applies no gate either (moot while `run()` refuses
+    Crosswalk; see the TODO there). CurbRamp is ungated, so nothing changes for it.
   - `eval_sites.py --label-type T` loads T's detections (`load_city_at_height(...,
     label_type=)`) and fuses with `fuse_params_for(T, ...)`; CurbRamp keeps the CurbRamp-only
     refusal, another type only needs to have run. Default report dir `fusion_eval.<T>`. A type
@@ -788,7 +798,9 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
   `transform_record` drops a detection strictly shallower than the cut below the image horizon
   (`detectors.beyond_range_gate`, image frame, no pose). Crosswalk is 5.625° (row 272/512, a
   2.8125° coarse-cell edge, so the cut never splits a cell; Juneau 4,400 → 3,525 labels),
-  CurbRamp `None`. `transform_record(range_gate=True|False|<deg>)`, threaded through
+  CurbRamp `None`. Unlike the rig mask it is a send-time rule only: fusion does not apply it
+  (provisional; see the `fuse_sites.py --label-type` bullet above).
+  `transform_record(range_gate=True|False|<deg>)`, threaded through
   `split_record`, `count_labels` and `count_band_labels_in_file`. Every campaign entry of a
   gated type (endpoint entry, `types[T]`, band) records `range_gate_deg`, the cut it was sent
   under or null; the key is written only for a gated type or an entry that already has it, so

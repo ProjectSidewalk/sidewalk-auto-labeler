@@ -817,10 +817,13 @@ PLACEMENT_TOL_M = 0.5
 def synthesize_labels(results_path, min_confidence, mask_rig=True,
                       label_type=registry.CURB_RAMP):
     """(labels DataFrame, det_of) for a city with no server, or no server holding this
-    run: one label per stored detection with confidence >= min_confidence, exactly as
+    run: one label per stored detection with confidence >= min_confidence, as
     send_to_ps.transform_record would send it (pixel = detectors.ps_pixel, x modulo width;
     rig detections dropped when mask_rig), placed where the server would place it
-    (ps_placement.label_latlng at the server's 2.341 m).
+    (ps_placement.label_latlng at the server's 2.341 m). One difference: no range gate
+    (DetectorSpec.min_depression_deg, #192) is applied. That is exact for CurbRamp, which is
+    ungated, but a gated type such as Crosswalk gets labels for detections send_to_ps holds
+    back (see the TODO(#168) in run(), which refuses such a type today).
 
     Records without a position or heading are skipped, as fuse_sites.load_results skips
     them. label_id is a per-run serial (unique only within this run; never pool on it),
@@ -1308,6 +1311,10 @@ def run(args):
     if label_type != registry.CURB_RAMP:
         # TODO(#168): PS_THRESHOLD_KM (and DIAG_SPAN_M) are the server's CurbRamp cut; the
         # threshold arms need the type's own label_clustering.py THRESHOLDS entry first.
+        # Also before lifting this: synthesize_labels and the fusion arm apply no range gate
+        # (DetectorSpec.min_depression_deg, #192), so for a gated type (Crosswalk, 5.625 deg)
+        # they score detections send_to_ps never sends. Whether fusion should apply the gate
+        # is undecided (docs/architecture.md, fuse_sites --label-type bullet).
         raise SystemExit(f'--label-type {label_type}: the PS clustering arms are keyed to '
                          "CurbRamp's server threshold (PS_THRESHOLD_KM); add the type's "
                          'threshold before scoring it')
