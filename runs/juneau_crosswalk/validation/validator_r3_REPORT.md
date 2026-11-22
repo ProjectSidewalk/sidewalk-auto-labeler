@@ -4,6 +4,11 @@ Run by an Opus 5.5 subagent; the main session saved this summary and checked the
 Every table is in `results/tables.md`, and per-label scores for all 3,579 labels are in `results/all_labels_scored.csv`.
 `score_votes.py --votes <csv>` re-scores after new votes.
 
+Pointers in this repo (added 2026-11-21, PR 190 review): `results/all_labels_scored.csv` is
+`validator_r3_all_labels_scored.csv` here. `results/tables.md`, `score_votes.py`,
+`../xwalk_validator_check.py` and `examples/` were in the run's scratch directories and are
+not in the repo.
+
 ## Models
 
 - No published Crosswalk validator was trained on Mapillary.
@@ -32,16 +37,22 @@ Deviations from serving:
 | All votes | 344 | 0.980 [0.964, 0.993] |
 | Seeded random sample | 79 | 0.959 [0.910, 0.989] |
 
-On the first batch, 0 of 99 rejected labels got an Agree vote.
+On the first batch, of the 99 labels Jon voted Disagree, the validator gave none an Agree
+verdict. (Its own first-batch Disagree verdicts number 102; 3 of them are on labels Jon voted
+Agree.)
 
 Weighted to all 3,579 labels with the main session's stratified estimator (`../xwalk_validator_check.py`):
 
-| Filter | Precision [95% CI] | Real crosswalks kept | Labels |
-|---|---|---|---|
-| As sent | 0.72 [0.65, 0.79] | 1.00 | 3,579 |
-| Drop validator Disagree verdicts | 0.94 [0.89, 0.99] | 0.93 | ~2,540 |
-| Validator Agree vote (production rule) | 0.94 [0.87, 0.99] | 0.83 | ~2,290 |
-| Drop Disagree verdicts + RampNet conf >= 0.40 | 0.99 [0.95, 1.00] | 0.79 | ~2,070 |
+| Filter | Precision [95% CI] | Real crosswalks kept | Labels (sample estimate) | Labels (exact count) |
+|---|---|---|---|---:|
+| As sent | 0.72 [0.65, 0.79] | 1.00 | 3,579 | 3,579 |
+| Drop validator Disagree verdicts | 0.94 [0.89, 0.99] | 0.93 | ~2,540 | 2,508 |
+| Validator Agree vote (production rule) | 0.94 [0.87, 0.99] | 0.83 | ~2,290 | 2,283 |
+| Drop Disagree verdicts + RampNet conf >= 0.40 | 0.99 [0.95, 1.00] | 0.79 | ~2,070 | 1,898 |
+
+The exact counts are the labels of `validator_r3_all_labels_scored.csv` that pass each filter
+(`verdict`, `ai_vote`, `confidence`). The estimates come from the stratified sample; the last
+row's is about 170 high.
 
 The last row's rule was chosen after seeing the sample, which is small. Treat it as an estimate.
 
