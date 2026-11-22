@@ -7,3 +7,6 @@ docs/figures/seam-band-130/data/** text eol=lf
 tests/fixtures/multitype_submit/** text eol=lf
 # AI-validator inputs/outputs: their sha256s are recorded in the provenance JSONs, so store the bytes as is.
 runs/*/validation/validator_r3_* -text
+# Verbatim copies of the makelab2 archive drivers; SHA256SUMS records the host's bytes.
+scripts/makelab_archive/*.sh -text
+scripts/makelab_archive/SHA256SUMS -text
