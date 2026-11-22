@@ -675,6 +675,11 @@ Step 5 was not re-run from the prefix.
 - **Steps 2 / 2b.** The run directory is now bound to **5 m** (top-level `thin_spacing_m`,
   changed by hand from the 10 m backfill in `c096987`, recorded in `thin_spacing_changed`), so
   any resume must pass `--thin-spacing 5` (the default) and a 10 m resume is refused.
+- **Step 13.** `bayonne_archive.sh` is not in this repo. `docs/panoramax-lyon.md` §6 places
+  it at `~/bayonne_archive.sh` on makelab2, with a copy under
+  `/projects/makeabilitylab/sidewalk-auto-labeler/`. This doc does not record how the 10 m
+  pass's files came to be named `*.10m.*` before the 5 m pass (by hand or by the script);
+  that has to be read from the host.
 - **Which run each step read.** Steps 4, 5 and 7 were re-run on 2026-10-07 on the 5 m
   run's `results.jsonl` (`data/inputs.csv`), with `--run-root` pointed at a directory
   holding the 5 m Bayonne run and the five comparators (steps 4 and 5 take the run
