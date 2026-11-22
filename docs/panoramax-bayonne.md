@@ -560,7 +560,8 @@ The archive is complete for the 5 m run on makelab2 under
 
 - `results.jsonl` (the 5 m file, sha256 `cb03768c…6eeef`), `manifest.json` and
   `area.geojson`;
-- `panos/` with all **50,409** native-resolution panos (81 GB);
+- `panos/` with all **50,409** native-resolution panos (81 GB on disk, 83 GB apparent;
+  `du -sh` / `du -sh --apparent-size`, 2026-11-22);
 - `index.csv` (50,409 rows, sha256
   `79a7915108b136303e1c9695f4a46dc317001756d0e22acfcefd25f3b517e344`) and `fetch.log`, whose
   summary reads `archived + verified: 50409`, `missing (source gone): 0`,
@@ -577,6 +578,11 @@ It was built in two passes, both unpaced (before the request pacing that
    14:22Z found the 28,524 archived panos present and fetched only the **21,885** the densify
    added: 21,879 on the first launch, 6 read timeouts against Panoramax's object store, and
    those 6 on a relaunch at 19:13Z. `runs/bayonne_archive.done` reads `rc=0 2026-10-07T19:13:31Z`.
+   All three launches append to one `runs/bayonne/fetch.log` (read 2026-11-22): `start
+   2026-10-01T05:50:30Z` with a reconcile of 28,524; `start 2026-10-07T14:22:08Z` with 6
+   `Read timed out` failures and a reconcile of 50,403 (`STATUS: INCOMPLETE`), so 21,879 =
+   50,403 − 28,524; then `start 2026-10-07T19:13:18Z`, `Done: 6 fetched, 0 failed`, and a
+   reconcile of 50,409 (`STATUS: OK`).
    The Panoramax maintainers opened
    [#161](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/161) at 14:52Z that
    day, so most of this pass ran after it, and it is part of the load that issue describes.
@@ -675,11 +681,18 @@ Step 5 was not re-run from the prefix.
 - **Steps 2 / 2b.** The run directory is now bound to **5 m** (top-level `thin_spacing_m`,
   changed by hand from the 10 m backfill in `c096987`, recorded in `thin_spacing_changed`), so
   any resume must pass `--thin-spacing 5` (the default) and a 10 m resume is refused.
-- **Step 13.** `bayonne_archive.sh` is not in this repo. `docs/panoramax-lyon.md` §6 places
-  it at `~/bayonne_archive.sh` on makelab2, with a copy under
-  `/projects/makeabilitylab/sidewalk-auto-labeler/`. This doc does not record how the 10 m
-  pass's files came to be named `*.10m.*` before the 5 m pass (by hand or by the script);
-  that has to be read from the host.
+- **Step 13.** `bayonne_archive.sh` is in
+  [`scripts/makelab_archive/`](../scripts/makelab_archive/README.md), copied byte for byte
+  from `/projects/makeabilitylab/sidewalk-auto-labeler/` on 2026-11-22 (sha256 in
+  `SHA256SUMS`). That is its only copy on the host: there is no `~/bayonne_archive.sh`,
+  contrary to `docs/panoramax-lyon.md` §6. Both passes ran `scripts/export_benchmark.py` from
+  the makelab Python 3.12 checkout at commit `632e819` (its reflog has no move after
+  2026-09-30, and the script was unmodified). The script never renames anything, so the 10 m
+  files were renamed `*.10m.*` by hand between the two passes. Their mtimes are unchanged
+  from the 10 m pass (`index.10m.csv` and `bayonne_archive.10m.done` 2026-10-01T10:01:18Z,
+  `results.10m.jsonl` and `manifest.10m.json` 05:49:36Z, staged before the 05:50:30Z start),
+  which fits an `mv`, not a copy. To redo the 5 m pass exactly: stage the 5 m
+  `results.jsonl` and run the step-13 command from `632e819`.
 - **Which run each step read.** Steps 4, 5 and 7 were re-run on 2026-10-07 on the 5 m
   run's `results.jsonl` (`data/inputs.csv`), with `--run-root` pointed at a directory
   holding the 5 m Bayonne run and the five comparators (steps 4 and 5 take the run

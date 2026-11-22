@@ -377,7 +377,9 @@ Alt text, in order:
 - **Remaining slices** (46,942 panos, about 10.4 h at 1.25 panos/s): the command above.
 - **Native-res archive (deferred; not started).** The retrain needs pixels. On makelab2:
   - read `~/bayonne_archive.sh`, or the copy under
-    `/projects/makeabilitylab/sidewalk-auto-labeler/`, and clone it for `lyon`;
+    `/projects/makeabilitylab/sidewalk-auto-labeler/`, and clone it for `lyon`
+    (2026-11-22: the share copy is the only one, and both scripts are now in
+    [`scripts/makelab_archive/`](../scripts/makelab_archive/README.md));
   - check `df -h /projects/makeabilitylab` first. Lyon's 8192x4096 files are ~5 MB each,
     and the pool had 18 TB free on 2026-10-06;
   - a non-zero exit means the archive is not 1:1 (`makelab-archive-protocol`).

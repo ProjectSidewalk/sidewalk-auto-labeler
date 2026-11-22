@@ -235,6 +235,8 @@ python scripts/export_benchmark.py runs/clovis/results.jsonl \
 # index.csv/decayed.txt are written beside a `panos/` dir (else into --out itself), so
 # per-city manifests never collide when several cities share an archive root.
 python scripts/export_benchmark.py runs/clovis/results.jsonl --out /path/to/archive/clovis/panos
+# The makelab2 drivers that ran this for every archived city (fetch.log, .done marker) are
+# copied verbatim in scripts/makelab_archive/; its README says which code each one ran.
 ```
 
 ## GSV depth harvest and stand-in planes
