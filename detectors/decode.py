@@ -79,8 +79,11 @@ RAMPNET_SUBCELL_SHA256 = 'b0712dfe98fc6012ddfd22f149dc1ece7917d74b21a10276ff83de
 MIN_DISTANCE = PEAK_MIN_DISTANCE    # 10; detectors.border_band_edge measures the band with it
 
 
-def _peaks(heatmap, border=DEFAULT_BORDER):
+def _peaks(heatmap, border=DEFAULT_BORDER, floor=DETECTION_STORAGE_FLOOR):
     """(row, col) peaks of clip(heatmap, 0, 1), highest first, under a border rule.
+
+    ``floor`` is the storage floor (``threshold_abs``): the CurbRamp default, or another
+    type's own (its DetectorSpec.storage_floor; Crosswalk 0.05).
 
     ``exclude``: skimage's default, peaks within MIN_DISTANCE of any edge dropped (every live
     label). ``keep``: ``exclude_border=False``, exactly RampNet's detect_peaks since RampNet#132
@@ -128,10 +131,10 @@ def _peaks(heatmap, border=DEFAULT_BORDER):
     if border not in BORDERS:
         raise ValueError(f'unknown border rule {border!r}; known: {", ".join(BORDERS)}')
     if border == WRAP:
-        return _cylinder_peaks(np.clip(heatmap, 0, 1))
+        return _cylinder_peaks(np.clip(heatmap, 0, 1), floor=floor)
     from skimage.feature import peak_local_max
     return peak_local_max(np.clip(heatmap, 0, 1), min_distance=MIN_DISTANCE,
-                          threshold_abs=DETECTION_STORAGE_FLOOR,
+                          threshold_abs=floor,
                           num_peaks=MAX_PEAKS_PER_PANO,
                           exclude_border=(border == EXCLUDE))
 
@@ -188,10 +191,12 @@ def check_exact_upsample(heatmap, coarse=None):
     return coarse
 
 
-def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None, border=DEFAULT_BORDER):
+def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None, border=DEFAULT_BORDER,
+                            floor=DETECTION_STORAGE_FLOOR):
     """Heatmap peaks -> normalized ``[(x, y, confidence), ...]``, highest first.
 
-    Peaks are stored down to the storage floor; the operational threshold is applied by
+    Peaks are stored down to the storage floor (``floor``: CurbRamp's 0.1 by default, or the
+    detecting type's DetectorSpec.storage_floor); the operational threshold is applied by
     consumers, not here (see detectors/__init__.py). num_peaks keeps the highest-intensity
     peaks, so the >= OPERATIONAL_CONFIDENCE set is unaffected by the lower floor. This is
     per image whether or not the forward pass was batched.
@@ -224,7 +229,7 @@ def detections_from_heatmap(heatmap, decode=DEFAULT_DECODE, coarse=None, border=
     """
     if decode not in DECODES:
         raise ValueError(f'unknown decode {decode!r}; known: {", ".join(DECODES)}')
-    peaks = _peaks(heatmap, border)
+    peaks = _peaks(heatmap, border, floor)
     if decode == ARGMAX or not len(peaks):
         return [(float(c / heatmap.shape[1]), float(r / heatmap.shape[0]), float(heatmap[r][c]))
                 for r, c in peaks]

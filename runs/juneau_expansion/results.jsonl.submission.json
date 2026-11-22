@@ -1,0 +1,36 @@
+{
+  "input_file": "results.jsonl",
+  "sha256": "92e8d532f71b8d0dddc86632867622c6dd5c34e24934d26d1675f07d2d3783f8",
+  "total_lines": 334,
+  "total_bytes": 545580,
+  "endpoints": {
+    "https://sidewalk-juneau-test.cs.washington.edu/ai/submitLabelsOnPano": {
+      "rig_masked": true,
+      "submitted_lines": 334,
+      "labels_submitted": 109,
+      "min_confidence": 0.3,
+      "first_submission_utc": "2026-11-07T14:32:53Z",
+      "last_submission_utc": "2026-11-07T14:32:53Z",
+      "last_run_host": "jonfhome",
+      "position_check": {
+        "checked_at": "2026-11-07T14:28:12Z",
+        "results_sha256": "92e8d532f71b8d0dddc86632867622c6dd5c34e24934d26d1675f07d2d3783f8",
+        "flagged": 0
+      }
+    },
+    "https://sidewalk-juneau.cs.washington.edu/ai/submitLabelsOnPano": {
+      "rig_masked": true,
+      "submitted_lines": 334,
+      "labels_submitted": 109,
+      "min_confidence": 0.3,
+      "first_submission_utc": "2026-11-07T14:36:24Z",
+      "last_submission_utc": "2026-11-07T14:36:24Z",
+      "last_run_host": "jonfhome",
+      "position_check": {
+        "checked_at": "2026-11-07T14:28:12Z",
+        "results_sha256": "92e8d532f71b8d0dddc86632867622c6dd5c34e24934d26d1675f07d2d3783f8",
+        "flagged": 0
+      }
+    }
+  }
+}

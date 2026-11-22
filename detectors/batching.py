@@ -108,6 +108,9 @@ def format_stats(stats, wall_seconds=None, panos=None):
             f"(fill {stats['mean_batch_fill']}), {stats['forward_seconds']} s in forward")
     if stats['failed_batches']:
         line += f", {stats['failed_batches']} failed batch(es)"
+    if stats.get('capped_panos'):
+        # CurbRampDetector.stats(): panos where the per-pano peak cap may have dropped peaks.
+        line += f", {stats['capped_panos']} pano(s) at the peak cap"
     if wall_seconds is not None and panos is not None:
         rate = panos / wall_seconds if wall_seconds > 0 else 0.0
         line += f"; {rate:.3f} panos/s over {wall_seconds:.1f} s"

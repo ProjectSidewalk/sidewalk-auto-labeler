@@ -106,6 +106,7 @@ named here. Verdicts are summarised only where they set a production default.
 | `footway_segmentation.py` | segmenter vs depth (#47 step 2) | `docs/footway-depth-study.md` |
 | `reposition.py` | rewrite flagged sequences' positions | commands.md "Position check" |
 | `coverage_check.py` | post-submission backup-image coverage (#46) | commands.md section |
+| `review_order.py` | validator-ranked review list per endpoint (#168 item 5) | commands.md section; ordering only |
 
 Analysis-only extra deps (`pandas scipy haversine`, Tile2Net's venv, Mask2Former's
 torch/transformers) are **deliberately not in requirements.txt**.
@@ -237,6 +238,10 @@ outputs a heatmap, and `detectors/decode.py` extracts peaks. The thresholds and 
   `send_to_ps.transform_record` and fusion (`FuseParams.mask_rig`, `drops['on_rig']`).
   `mask_rig=False` reconstructs pre-mask campaigns. **Deliberately not implemented:** a
   distance-from-intersection filter, which would cut 3 true labels per false one.
+- **Range gate** (#192) `DetectorSpec.min_depression_deg`, `beyond_range_gate(y, deg)`: at send
+  time, drop detections strictly shallower than that many degrees below the image horizon
+  (PS places far labels short). Crosswalk 5.625 (a 2.8125° cell edge), CurbRamp ungated. Records
+  carry `range_gate_deg` (absent = ungated); replay it, as `rig_masked`, never the spec's.
 - **Trap:** `FuseParams.min_confidence` defaults to OPERATIONAL. Any analysis scored against a
   bundle must pass the tier explicitly. `eval_ps_clustering.py --min-confidence` defaults to
   the benchmark tier, so set it to what the city went live at.
@@ -421,9 +426,19 @@ It POSTs each record to `/ai/submitLabelsOnPano`. On the way it applies these tr
 
 ## Multiple label types (#168)
 
-This is the plumbing for a second detector (crosswalk / NoCurbRamp, Planning#36). **No second
-detector exists yet**, and CurbRamp is the only spec. Full text is in
-[docs/architecture.md](docs/architecture.md#multiple-label-types-168).
+Plumbing for more than one detector (Planning#36). Two specs: CurbRamp and **Crosswalk**
+(RampNet#274 `crosswalk_s4`). Full text is in
+[docs/architecture.md](docs/architecture.md#multiple-label-types-168); commands in
+[docs/commands.md](docs/commands.md#crosswalk-detector-second-label-type).
+
+- **Crosswalk** (`detectors/crosswalk.py`): a local `.pth` (`--crosswalk-checkpoint`, required),
+  identity = the file's sha256 in `detectors/checkpoints.KNOWN_CHECKPOINTS` (unknown refuses).
+  Fixed frame: argmax, border `keep`, floor 0.05; operating point 0.23; rig mask on.
+  `--decode`/`--border` are CurbRamp's, refused without it. A Crosswalk-only manifest has
+  **null** top-level floor/decode/border (they describe CurbRamp) and its frame in
+  `models.Crosswalk`. `scripts/crosswalk_parity.py` is the loader's GPU acceptance test.
+  0.23 is validated on RampNet's stored JPEGs, **not on live fetches** (their per-peak values
+  differ; not explained by JPEG q92).
 
 - **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec` (thresholds and
   `mask_rig` per type), `SPECS`, `spec_for`, `parse_types`, `load_detectors` (one shared
@@ -440,12 +455,16 @@ detector exists yet**, and CurbRamp is the only spec. Full text is in
   map.
 - **Consumers:** `fuse_sites.py --label-type` (a non-CurbRamp fuse writes
   `sites.<type>.jsonl`; params come from `fs.fuse_params_for(T, **flags)` = the spec, then
-  `DetectorSpec.fuse_overrides`, then every flag that is not None, so the association flags
-  default to None; `FuseParams.label_type` lands in `sites_meta.json`, `sites.jsonl` is
-  byte-identical for CurbRamp), `eval_sites.py --label-type` (report in `fusion_eval.<T>`),
-  `eval_ps_clustering.py --label-type` (pulls, labels and pixel map per type; `run()` still
-  refuses anything but CurbRamp: the PS threshold arms are CurbRamp's cut) and
-  `export_benchmark.py --label-type`. `agree_rate`, `mined_precision` and `provenance_gate`
-  **refuse** anything but `{CurbRamp}`; `eval_sites` does so only for CurbRamp itself.
-- **Not done:** the ranker review-order export (it consumes sidewalk-validator-ai#69's CSV,
-  not yet merged there) and a second detector.
+  `DetectorSpec.fuse_overrides` (empty for both specs today), then every flag that is not
+  None, so the association flags default to None; `FuseParams.label_type` lands in
+  `sites_meta.json`, `sites.jsonl` is byte-identical for CurbRamp), `eval_sites.py
+  --label-type` (report in `fusion_eval.<T>`; refuses a type whose benchmark tier is not 0.55,
+  so Crosswalk today), `eval_ps_clustering.py --label-type` (pulls, labels and pixel map per
+  type; `run()` still refuses anything but CurbRamp: the PS threshold arms are CurbRamp's cut)
+  and `export_benchmark.py --label-type`. `agree_rate`, `mined_precision` and
+  `provenance_gate` **refuse** anything but `{CurbRamp}`; `eval_sites` does so only for
+  CurbRamp itself.
+- **`send_to_ps.py`** guards decode/border per type, against only campaigns that sent that
+  type; bands are refused on any file that is not CurbRamp-only.
+- **Not done:** Crosswalk in `detect_from_store.py`/`reinfer.py`, and Crosswalk
+  `fuse_overrides` (none tuned).

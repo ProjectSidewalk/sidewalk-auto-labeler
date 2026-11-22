@@ -40,6 +40,8 @@ to this file; "the GSV depth section" and similar point to [architecture.md](arc
 - [Footway: segmenter vs depth study](#footway-segmenter-vs-depth-study)
 - [Position check and reposition](#position-check-and-reposition)
 - [Post-submission coverage check](#post-submission-coverage-check)
+- [Review order (validator ranking of live AI labels)](#review-order-validator-ranking-of-live-ai-labels)
+- [Crosswalk detector (second label type)](#crosswalk-detector-second-label-type)
 - [Tests](#tests)
 - [Submit to Project Sidewalk](#submit-to-project-sidewalk)
 
@@ -97,6 +99,12 @@ python main.py example_geojson/bayonne.geojson --name bayonne --source panoramax
 # 0.30 detections, docs/panoramax-asset-study.md) reads the 2048-px derivative but records
 # the sensor frame; bound in the manifest. Talk to the maintainers before a big run.
 PANORAMAX_PICTURES_PER_SECOND=1 python main.py example_geojson/bayonne.geojson     --name bayonne_sd --source panoramax --panoramax-asset sd
+
+# A live city whose PS boundary GREW: run only new-minus-old in a new run dir, never the
+# whole new boundary (re-thinning the old area can pick newer panos -> duplicate live labels).
+# docs/production-deployment.md "A city whose boundary grew"; Juneau 2026-11-07 is the example.
+python scripts/area_difference.py <regions pull>.geojson runs/<city>/area.geojson \
+    --union-out example_geojson/<city>_<yyyy-mm>.geojson --out example_geojson/<city>_expansion_<yyyy-mm>.geojson
 ```
 
 ## Panoramax asset study (HD vs SD)
@@ -684,8 +692,9 @@ python scripts/inventory_clustering.py score vancouver                # descript
 # field (usually camera_pitch) as well as on a missing file. jpg_missing and that 404 are
 # poison-guarded (> 5% of a pass, min 20: not cached; --accept-skip-rate after a hand check).
 # A store-built run is fenced off both ways: main.py refuses a manifest with `pixels`, the
-# runner refuses a run dir main.py wrote, and send_to_ps.py refuses the file (its labels are the
-# live ones; --allow-store-file overrides).
+# runner refuses a run dir main.py wrote, and send_to_ps.py refuses the file when it carries
+# CurbRamp labels (those are the live ones; --allow-store-file overrides). A store-built file of
+# other types only, e.g. NoCurbRamp, passes, and the record's `store_built` says why (#169).
 # provenance_gate.py then checks that the rebuilt run can stand in for the deployed one. The
 # match rule is in COARSE heatmap cells since #111 (2026-09-30; `--rule coarse-cell`, the
 # default): Arm S (always, the store run) and Arm Z (optional, --control: a zoom-3 control on
@@ -1182,6 +1191,137 @@ python scripts/position_check.py runs/laurens --results runs/laurens/results.che
 # report.md + CSVs tracked.
 python scripts/coverage_check.py runs/richmond/results.jsonl --server https://sidewalk-richmond.cs.washington.edu
 python scripts/coverage_check.py runs/laurens/results.raw.jsonl --server https://sidewalk-laurens.cs.washington.edu
+```
+
+## Review order (validator ranking of live AI labels)
+
+```bash
+# REVIEW ORDER (#168 item 5). An ORDERING of the AI labels live on one server for human review,
+# most-likely-wrong first, from sidewalk-validator-ai's scores. Never a filter: nothing is
+# withheld, deleted or sent, and no submission record is written. Offline (no server call).
+# Input: ONE validator-ai run of analysis/ai_labels_eval.py made with `select --all-ai`, then
+# `crops`, then `score` (labels.csv, selection.json, manifest.csv, predictions.csv,
+# predictions_provenance.json). Refused (exit 2) unless selection.json says all_ai, labels.csv
+# hashes to labels_csv_sha256, manifest.csv hashes to the provenance's manifest_sha256,
+# predictions.csv has the provenance's n rows, every prediction's label_uid is in the manifest
+# and labels.csv with the same pano_id, label_uid is unique and = city:label_id, pixels are
+# integral and an input rank_score is finite. The pull's server must be the --endpoint host
+# (test and prod share every pixel key): read from the run's rawlabels/cities.json (fetch_all's
+# listing) when present, else --ranker-server; both given must agree. --city (validator id,
+# e.g. richmond-va) when labels.csv has several cities; author != ai rows are dropped.
+# UNIT = the server label, per endpoint, over every campaign of every run dir given (siblings
+# such as runs/juneau + runs/juneau_expansion share an endpoint): one row per AI labels.csv row
+# whose (label type, pano_id, pano_x, pano_y) some campaign shipped (coverage_check.
+# replay_campaigns: bases, bands, per-type campaigns, partial sidecars; checked against the
+# records' label counts and each file's sha256). `campaigns` = every campaign that shipped the
+# key; `campaign` (and `confidence`) = the one that CREATED the label: the earliest whose
+# last_submission_utc is not before the label's time_created (2 min clock slack). Not "newest":
+# a band send moves the base entry's timestamp and a derived record copies an older campaign,
+# so newest gave Richmond's whole 0.55 core to results.band.jsonl. Order: rank_score descending
+# (the input's column if present, else validator-ai's log(p_incorrect) - log(p_correct),
+# clipped to [1e-45, 1]), then unscored labels (crop_failed / not_cropped / not_scored) by
+# detector confidence ascending. Shipped keys with no server row -> not_on_server.csv
+# (soft-deleted, overwritten, sent after the pull); ranker rows that join nothing ->
+# unmatched.csv; keys of a type the ranker does not cover (Crosswalk today) are counted, not
+# listed. Warnings: < 90% of shipped keys on the server, < 90% of rows with a prediction, rows
+# created after every campaign that shipped them, a campaign sent after `select` ran
+# (selected_on is not the pull time; the pull is no later). Zero rows, a record problem or a
+# changed file = exit 2, nothing written. Outputs in runs/<name>/review_order/<endpoint host>/
+# (':' -> '_'): review_list.csv, not_on_server.csv, unmatched.csv (local) + summary.json,
+# report.md (tracked). --check compares the records, the results files and the list's hash with
+# summary.json: fresh (0) or stale (1); an absent list is said, not stale. RE-RUN after every
+# campaign and after any overwrite run (label ids change, SidewalkWebpage#5707; --check cannot
+# see an overwrite). Richmond plumbing check, synthetic scores (2026-11-16): 12,962 of 12,962
+# shipped keys joined the 2026-09-26 rawLabels pull; by time_created 9,436 rows are
+# results.jsonl's, 3,383 the band's, 143 results.posfix3seq.raw.jsonl's.
+python scripts/review_order.py runs/richmond \
+    --endpoint https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano \
+    --ranker-run /path/to/validator-run --city richmond-va   # + --ranker-server <host> without rawlabels/cities.json
+python scripts/review_order.py runs/richmond \
+    --endpoint https://sidewalk-richmond.cs.washington.edu/ai/submitLabelsOnPano --check
+```
+
+## Crosswalk detector (second label type)
+
+```bash
+# CROSSWALK (#168; RampNet#274 crosswalk_s4, a local checkpoint, not on Hugging Face).
+# --types takes a comma list; --crosswalk-checkpoint (or env CROSSWALK_CHECKPOINT) is required
+# with Crosswalk and its sha256 must be in detectors/checkpoints.py KNOWN_CHECKPOINTS (s4 =
+# ebad379b...; copies on klone /gscratch/makelab/jonf/crosswalk274/v4_s1/ and the lab share
+# /projects/makeabilitylab/RampNet/archives/stage1_crosswalk_detector_274/checkpoints/crosswalk_s4/).
+# Crosswalk's frame is fixed by its spec: argmax, border keep, floor 0.05, operating point
+# 0.23, rig mask on. --decode/--border are CurbRamp's and are refused without CurbRamp.
+python main.py <area>.geojson --name <city>_crosswalk --types Crosswalk \
+    --crosswalk-checkpoint <path>/final_step_1000.pth
+# ...both types in one pass (one shared GPU lock). Both models ran together on the 8 GB RTX 3070
+# for a 4-pano smoke (--limit 4, batch size 1, 2026-11-15); peak memory was not measured and
+# no longer run has been tried. The end-of-pass detector line counts panos at the 50-peak cap.
+python main.py <area>.geojson --name <city>_both --types Crosswalk,CurbRamp --crosswalk-checkpoint <pth>
+
+# LOADER ACCEPTANCE TEST (GPU, not in CI): CrosswalkDetector on the exact JPEGs RampNet inferred
+# on, peak for peak against its stored s4 predictions (pass rule in the script's docstring;
+# exits 0 on PASS). <A> = the archive stage1_crosswalk_detector_274 (lab share, or a local copy).
+python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/final_step_1000.pth \
+    --preds <A>/work/s4_preds/score_preds_v4/crosswalk_s4/test.jsonl \
+    --images <A>/stage2_root/images/test --out <scratch>/parity_test
+# ...val (1,029 panos): .../val.jsonl + images/val; (b'): bprime_preds_v4/crosswalk_s4/bprime.jsonl
+# + <A>/bprime/images_4096. Measured 2026-11-15 (RTX 3070, torch 2.8.0 vs RampNet's A40, 2.6.0):
+# PASS on all three -- test 3,783/3,783 peaks at the same pixel, val 6,124 + 1 near-tie swap
+# (two coarse cells 7 px apart, values 2e-6 apart), bprime 3,097/3,097; max |diff| 5.1e-5;
+# operational (>= 0.23) counts identical. The rule was then tightened (only the 0.05 floor
+# excuses an unmatched peak; it had also excused peaks near 0.23, which had excused none) and
+# the test split re-run under it: the same PASS, excused 0, operational 2,405 = 2,405.
+#
+# THE 0.23 OPERATING POINT IS VALIDATED ON RAMPNET'S STORED JPEGS, NOT ON LIVE FETCHES. The
+# parity gate proves the loader; it says nothing about the pixels a run actually feeds it.
+# --native (report only) fetches through the labeler's GSV path instead of reading the JPEGs.
+# Test split, same day: 278 of 515 fetched (237 "metadata unavailable"), operational 1,320
+# native vs 1,319 stored, equal on 167 panos, +-1 on 85; but per-peak values move (median
+# per-pano max |diff| 0.044, max 0.27). --native --jpeg-quality 92 (report only; the stored
+# inputs are Pillow q92, 4:2:0) on 100 of those 278 panos, one pass, all 100 fetched: the
+# re-encode changes nothing material. Live fetch vs stored JPEG, mean |pixel diff| (0-255)
+# median 2.66 before and 2.66 after the re-encode (range 1.9-13.3); per-pano max |diff| median
+# 0.040 raw vs 0.039 q92; peaks exact at the same pixel 42 vs 38 of 799; operational 501 raw
+# and 499 q92 vs 493 stored, differing on 37 and 34 of the 100 panos. So the gap is not the
+# JPEG round trip: the stored JPEGs were made from other source pixels than the labeler's
+# zoom-3 fetch. Which difference (zoom level and resize path, or an imagery update) is not
+# established, and neither is whether 0.23 means the same thing on live pixels.
+
+# SMOKE SEND RUNBOOK (nothing has been sent yet; every step needs Jon's clearance of the exact
+# plan, and the city and s4-vs-s7 are his call):
+#   1. a SMALL area of a city whose PS server is up, a fresh --name, --types Crosswalk --limit 20
+#   2. python send_to_ps.py runs/<n>/results.jsonl --dry-run      # labelType Crosswalk, >= 0.23
+#   3. send to the TEST endpoint only: --endpoint https://<city>-test.../ai/submitLabelsOnPano --limit 5
+#   4. Jon looks at where the labels land on the map (PS places each from its pano pixel; nobody
+#      has checked where a centre-of-crossing pixel ends up) before anything goes further.
+# A Crosswalk file's submission record says label_types + type_frames (keep); its frame guard
+# compares only with campaigns that sent Crosswalk. Bands (--max-confidence) are refused.
+#
+# RANGE GATE (#192, Jon 2026-11-17). PS places a label from its pixel row with a distance
+# estimate bounded near 23.85 m, so far detections land far short of their target. send_to_ps
+# holds back every Crosswalk detection STRICTLY shallower than 5.625 deg below the image horizon
+# (DetectorSpec.min_depression_deg; detectors.beyond_range_gate). Peaks sit on 2.8125-deg cells,
+# so the cut is a cell edge: row 272/512 is exactly 5.625 and is kept; rows 267/268 go, 275/276
+# stay. Image frame, no pose. CurbRamp is ungated. Juneau at 0.23: 4,400 -> 3,525 labels
+# downtown, 60 -> 54 in the expansion. The dry run and the real run print "Held back by the range
+# gate" per type; those detections are excluded from the "below --min-confidence" count.
+# results.jsonl keeps every detection, but no route sends the held-back ones later yet: that
+# needs new code (e.g. a gate band, by analogy with confidence bands, which are refused on any
+# file that is not CurbRamp-only). Each campaign entry of a gated type's record (endpoint
+# entry, types[T], band) carries range_gate_deg: the cut it was sent under, or null; a CurbRamp
+# record gains no key. A resume keeps the recorded cut. If it differs from the spec's, the run
+# refuses unless the lines already sent carry the same label count under both cuts; then it
+# adopts the spec's cut with a NOTE (runs/juneau_crosswalk's 8-line, 0-label test campaign is
+# this case). Adoption needs a trusted record: after --ignore-submission-guard, or with a sidecar
+# short of the recorded lines, the recorded cut is kept; counts are taken at the entry's recorded
+# min_confidence. --ignore-submission-guard finishes a refused campaign under the recorded cut.
+# A dry run sends the spec's cut and prints what a real run would do (adopt, keep, refuse).
+# RECONSTRUCT what a campaign sent: send_to_ps.transform_record(rec, ..., mask_rig=<rig_masked>,
+# range_gate=<range_gate_deg>) (a number = that cut, None/False = ungated, True = the spec's);
+# position_check.campaigns_for, coverage_check/review_order's replay and reinfer's derived record
+# all do. The held-back labels are transform_record(..., range_gate=False) minus the gated payload.
+# NOT yet for Crosswalk: detect_from_store.py / reinfer.py (CurbRamp only), fusion (PR #176),
+# and a store-backed pilot (send_to_ps.check_store_built is not type-aware; draft PR #179).
 ```
 
 ## Tests

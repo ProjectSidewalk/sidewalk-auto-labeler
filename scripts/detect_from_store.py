@@ -39,8 +39,8 @@ Detection, records and resume are main.py's own (`main._process`, `main.handle_r
 `imagery_source: gsv`, and carries a `pixels` block saying where the pixels and metadata
 came from. main.py refuses a run dir whose manifest carries `pixels`, and this runner
 refuses a run dir that main.py already wrote records into, so the two never append to one
-file. send_to_ps.py refuses a store-built file (it would re-insert the city's live labels)
-unless --allow-store-file is given.
+file. send_to_ps.py refuses a store-built file carrying CurbRamp labels (it would re-insert
+the city's live labels) unless --allow-store-file is given; one of other types only passes.
 
 The detector always runs with the defaults, the argmax decode (#111) and the `exclude`
 border rule (#130), and this runner has no flag for either: a store run exists to

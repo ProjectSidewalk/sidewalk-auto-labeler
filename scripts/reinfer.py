@@ -447,9 +447,13 @@ def write_derived_record(old_path, band_path, tier):
     # that campaign ran with the nadir mask - the record says so in `rig_masked` (absent
     # means it predates the mask). Both counts are taken once, above the loop: each is a
     # property of the file, not of the endpoint, and the file is large enough that
-    # re-reading it per endpoint would be a second full pass for nothing.
-    counts = {masked: send_to_ps.count_band_labels_in_file(band_path, tier, None,
-                                                           mask_rig=masked)
+    # re-reading it per endpoint would be a second full pass for nothing. The range gate
+    # (issue #192) is replayed the same way, from the record's `range_gate_deg` (absent =
+    # ungated); a gated campaign is counted only when one is recorded, so a CurbRamp record
+    # still costs exactly two passes.
+    counts = {(masked, None): send_to_ps.count_band_labels_in_file(band_path, tier, None,
+                                                                   mask_rig=masked,
+                                                                   range_gate=None)
               for masked in (False, True)}
     endpoints = {}
     for url, state in old_record['endpoints'].items():
@@ -457,7 +461,11 @@ def write_derived_record(old_path, band_path, tier):
         if not isinstance(old_lines, int) or sent < old_lines:
             raise SystemExit(f"{url} holds {sent} of {old_lines} line(s) of {old_path.name}; a "
                              f"band only sits on a COMPLETE campaign. Finish it first.")
-        recounted = counts[bool(state.get('rig_masked', False))]
+        how = (bool(state.get('rig_masked', False)), state.get('range_gate_deg'))
+        if how not in counts:
+            counts[how] = send_to_ps.count_band_labels_in_file(
+                band_path, tier, None, mask_rig=how[0], range_gate=how[1])
+        recounted = counts[how]
         if recounted != state.get('labels_submitted'):
             raise SystemExit(f"{band_path.name} holds {recounted} label(s) at {tier} but "
                              f"{url} was recorded with {state.get('labels_submitted')}. The "

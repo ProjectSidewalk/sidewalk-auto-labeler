@@ -100,6 +100,13 @@ runs/*/server_agree/as_served/
 !runs/*/coverage/
 !runs/*/coverage/report.md
 !runs/*/coverage/*.csv
+# Review order (scripts/review_order.py, #168 item 5): per endpoint, the report and the summary
+# (ranker provenance, per-campaign counts, the records' state when ranked) are tracked. The
+# list CSVs (per-label server ids, ~3 MB for Richmond) stay local; tracking them is Jon's call.
+!runs/*/review_order/
+!runs/*/review_order/*/
+!runs/*/review_order/*/report.md
+!runs/*/review_order/*/summary.json
 # DEM road grade (scripts/dem_grade.py, #51; write-up in docs/dem-grade-study.md): the tile
 # manifest (service, request, per-tile sha256) and the agreement report are tracked. The
 # tiles themselves (tens to hundreds of MB) and grades.csv are NOT — the report carries
