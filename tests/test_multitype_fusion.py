@@ -1,7 +1,10 @@
 """Per-type fusion (issue #168 item 4): FuseParams per label type, fuse_sites --label-type,
 and the --label-type plumbing in eval_sites / eval_ps_clustering. A CurbRamp fuse must be
 unchanged: same params, same sites.jsonl bytes, same output path. Torch-free, no network."""
+import copy
+import dataclasses
 import json
+import pickle
 
 import pytest
 
@@ -16,7 +19,7 @@ def crosswalk_spec(monkeypatch):
     #168). fuse_overrides is passed by keyword: it follows border and min_depression_deg."""
     monkeypatch.setitem(reg.SPECS, 'Crosswalk', reg.DetectorSpec(
         'Crosswalk', 'nowhere', 'Nothing', 0.2, 0.5, 0.6, False,
-        fuse_overrides={'max_match_m': 12.0, 'gate_chi2': 13.8}))
+        fuse_overrides=(('max_match_m', 12.0), ('gate_chi2', 13.8))))
 
 
 def _legacy_lines():
@@ -46,7 +49,7 @@ def _write(path, lines):
 def test_curb_ramp_params_are_the_defaults():
     """CurbRamp's spec values are FuseParams' defaults and its overrides are empty, so every
     bare FuseParams() an analysis script builds is still exactly CurbRamp's."""
-    assert reg.spec_for('CurbRamp').fuse_overrides == {}
+    assert reg.spec_for('CurbRamp').fuse_overrides == ()
     assert fs.fuse_params_for('CurbRamp') == fs.FuseParams()
     assert fs.FuseParams().label_type == 'CurbRamp'
     # a None override is "flag not given": the type's value stands
@@ -68,7 +71,7 @@ def test_registered_crosswalk_params():
     """The real Crosswalk spec: its floor, operating point and rig mask; no fuse_overrides,
     so every association knob is FuseParams' default."""
     spec = reg.spec_for('Crosswalk')
-    assert spec.fuse_overrides == {}
+    assert spec.fuse_overrides == ()
     p = fs.fuse_params_for('Crosswalk')
     assert (p.label_type, p.floor, p.min_confidence, p.mask_rig) == (
         'Crosswalk', spec.storage_floor, spec.operational_confidence, spec.mask_rig)
@@ -89,9 +92,42 @@ def test_spec_then_overrides_then_flags(crosswalk_spec):
 
 def test_flag_defaults_leave_the_type_in_charge():
     args = fs.build_parser().parse_args(['runs/x'])
-    for flag in ('floor', 'min_confidence', 'max_range_m', 'gate_chi2', 'max_match_m',
-                 'residual_per_dof_max', 'sigma_scale'):
+    for flag in ('floor', 'min_confidence') + reg.FUSE_OVERRIDE_KEYS:
         assert getattr(args, flag) is None, flag
+
+
+def test_spec_pickles_copies_and_serialises():
+    """A DetectorSpec is plain data (#194): it pickles, deep-copies and serialises to JSON.
+    A mapping-proxy fuse_overrides broke all three."""
+    for spec in reg.SPECS.values():
+        assert pickle.loads(pickle.dumps(spec)) == spec
+        assert copy.deepcopy(spec) == spec
+        json.dumps(spec._asdict())
+        assert isinstance(spec.fuse_overrides, tuple)
+
+
+def test_fuse_overrides_keys_are_pinned():
+    """The FuseParams knobs a type may override (#194). Every one is a FuseParams field, and
+    every registered spec stays inside the list."""
+    assert reg.FUSE_OVERRIDE_KEYS == ('max_range_m', 'gate_chi2', 'max_match_m',
+                                      'residual_per_dof_max', 'sigma_scale')
+    fields = {f.name for f in dataclasses.fields(fs.FuseParams)}
+    assert set(reg.FUSE_OVERRIDE_KEYS) <= fields
+    for spec in reg.SPECS.values():
+        assert {k for k, _v in spec.fuse_overrides} <= set(reg.FUSE_OVERRIDE_KEYS)
+
+
+@pytest.mark.parametrize('overrides', [
+    (('min_confidence', 0.9),),      # a spec field's own job
+    (('apply_pose', 'road'),),       # the CLI always passes it, so it could never apply
+    (('label_type', 'CurbRamp'),),   # was an obscure TypeError
+    (('max_match_m', 12.0), ('max_match_m', 9.0)),   # a tuple can repeat a key
+])
+def test_stray_fuse_override_refuses(monkeypatch, overrides):
+    monkeypatch.setitem(reg.SPECS, 'Crosswalk', reg.DetectorSpec(
+        'Crosswalk', 'nowhere', 'Nothing', 0.2, 0.5, 0.6, False, fuse_overrides=overrides))
+    with pytest.raises(ValueError, match='fuse_overrides'):
+        fs.fuse_params_for('Crosswalk')
 
 
 # --- the CLI: output paths and equivalence ------------------------------------------------
@@ -192,6 +228,45 @@ def test_eval_sites_label_type_reaches_the_loader(tmp_path, crosswalk_spec):
     assert {d[0] for p in panos for d in p.detections} == {2}
     assert eval_sites.default_out_dir(tmp_path, 'CurbRamp').name == 'fusion_eval'
     assert eval_sites.default_out_dir(tmp_path, 'Crosswalk').name == 'fusion_eval.Crosswalk'
+
+
+def test_eval_sites_refuses_a_bundle_of_another_type(tmp_path, crosswalk_spec):
+    """A bundle is scored only as the one type its records ran (#194): a CurbRamp bundle is
+    not Crosswalk ground truth, nor a Crosswalk bundle CurbRamp's, and a two-type bundle is
+    neither. Every refusal names the bundle file, since the run loaders raise ValueError too."""
+    import re
+
+    import eval_sites
+    root = tmp_path / 'bench'
+
+    def bundle(city, lines):
+        _write(root / city / 'records.jsonl', lines)
+        (root / city / 'verdicts.json').write_text(json.dumps({'panos': {}}), encoding='utf-8')
+        return re.escape(str(root / city / 'records.jsonl'))
+
+    legacy = _legacy_lines()
+    run = tmp_path / 'run'
+    _write(run / 'results.jsonl', legacy)
+    cw_run = tmp_path / 'cw_run'
+    _write(cw_run / 'results.jsonl', [_crosswalk_only(line) for line in legacy])
+
+    where = bundle('cr', legacy)
+    with pytest.raises(ValueError, match=where):
+        eval_sites.load_city_at_height('cr', root, cw_run, 2.6, label_type='Crosswalk')
+    with pytest.raises(ValueError, match=where):
+        eval_sites.load_city_files('cr', root, cw_run, read_heights=False,
+                                   label_type='Crosswalk')
+    where = bundle('cw', [_crosswalk_only(line) for line in legacy])
+    with pytest.raises(ValueError, match=where):
+        eval_sites.load_city_at_height('cw', root, run, 2.6)
+    where2 = bundle('two', [_two_type(line) for line in legacy])
+    for t in ('CurbRamp', 'Crosswalk'):
+        with pytest.raises(ValueError, match=where2):
+            eval_sites.load_benchmark('two', root, label_type=t)
+    # the matching type loads (directly: a registered-Crosswalk run is stopped later by
+    # require_bundle_frame, since it stores `keep`-border peaks)
+    _v, ops = eval_sites.load_benchmark('cw', root, label_type='Crosswalk')
+    assert len(ops) == len(legacy)
 
 
 def test_every_spec_is_a_server_label_type():
