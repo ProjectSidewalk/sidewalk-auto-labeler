@@ -314,6 +314,13 @@ python scripts/fuse_sites.py runs/paterson
 # showed wrong for a car on a slope, so watch its rate on a new city.
 python scripts/fuse_sites.py runs/richmond                      # = --apply-pose auto -> flat
 python scripts/fuse_sites.py runs/richmond --apply-pose road    # opt-in, withheld as default
+# PER TYPE (#168 item 4). --label-type T (default CurbRamp) fuses only T's detections, with
+# fuse_sites.fuse_params_for(T): the spec's floor / threshold / rig mask, then its
+# fuse_overrides, then every flag you pass (the association flags default to None = the type's
+# value). A non-CurbRamp type writes sites.<T>.jsonl + sites.<T>_meta.json and never touches
+# sites.jsonl; a file that never ran T is refused. Crosswalk has no fuse_overrides yet, and
+# fusion does not apply its send-time range gate (docs/architecture.md, provisional).
+python scripts/fuse_sites.py runs/<city>_crosswalk --label-type Crosswalk
 ```
 
 ## GSV partial pose study and confirmatory run
@@ -430,6 +437,9 @@ python scripts/height_gap.py sweep richmond --group gopro/max --sequences  # + s
 # RampNet code import); writes runs/<city>/fusion_eval/{report.md,*.csv}.
 python scripts/eval_sites.py paterson
 python scripts/eval_sites.py paterson --vintage-ablation
+# --label-type T (#168; default CurbRamp, which keeps refusing a file that ran any other type)
+# loads and fuses only T's detections and writes fusion_eval.<T>/. It REFUSES a type whose
+# benchmark tier is not 0.55, so Crosswalk (0.23) today: the GT join is still keyed to 0.55.
 ```
 
 ## Heatmap grid and sub-cell decode
@@ -554,6 +564,9 @@ python scripts/reprojection_residual.py bend paterson gainesville sao_paulo rich
 # It also takes per-pano / auto / per-rig (#56), resolved by fuse_sites.load_at_height -- the one
 # resolver fuse_sites, eval_sites and mined_precision share -- into ps_clustering_eval_<mode>/;
 # the report says how many panos fell back to 2.6 m (Richmond, Mapillary: all of them).
+# --label-type T (#168; default CurbRamp) makes the API pulls, the label filter, the pixel map,
+# the offline synthesis and the fusion arm T's, and the default dir gains .<T>, but
+# run() still REFUSES any T but CurbRamp: the PS threshold arms are the server's CurbRamp cut.
 # The committed Richmond reports are PINNED to the cached 2026-09-21 pull (--labels/--clusters):
 # a fresh pull now holds ~3.4k band labels from results.band.jsonl and the 72 posfix3seq panos'
 # raw-GPS labels, so against results.jsonl it refuses (unmapped AI labels) -- correct behaviour.
