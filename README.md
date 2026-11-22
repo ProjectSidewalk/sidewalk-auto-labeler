@@ -490,8 +490,8 @@ Notes:
 
 - `detections` is empty (`[]`) when the panorama was processed but no curb ramps were found.
 - The example is a **CurbRamp-only** run (`main.py --types CurbRamp`, the default), whose lines
-  keep exactly this shape. A run with any other type set (`--types CurbRamp,<Type>`, issue
-  #168; no second detector exists yet) instead tags every detection with its own
+  keep exactly this shape. A run with any other type set (e.g. `--types CurbRamp,Crosswalk`,
+  issue #168) instead tags every detection with its own
   `label_type`, lists what ran in `label_types` (so an empty line still says what it was
   checked for), keeps each type's model provenance in `models`, and sets the line-level
   `label_type` to `null` unless exactly one type ran:
@@ -506,7 +506,7 @@ Notes:
     "label_types": ["Crosswalk", "CurbRamp"],
     "models": {
       "CurbRamp":  { "model_id": "rampnet-model@606a11956743", "model_training_date": "08-21-2025", "…": "…" },
-      "Crosswalk": { "model_id": "…", "model_training_date": "…", "…": "…" }
+      "Crosswalk": { "model_id": "rampnet-crosswalk@…", "model_training_date": "…", "…": "…" }
     },
     "model_id": "rampnet-model@606a11956743",
     "…": "…",

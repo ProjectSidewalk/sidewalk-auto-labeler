@@ -683,7 +683,8 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
 
 - **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec(label_type, module, cls,
   storage_floor, operational_confidence, benchmark_confidence, mask_rig, border='exclude',
-  min_depression_deg=None)`,
+  min_depression_deg=None, fuse_overrides={})` (`fuse_overrides` last and read-only; pass it by
+  keyword),
   `SPECS`, `spec_for(t)`, `parse_types`, `type_frame(t)`, `load_detectors(types,
   type_kwargs=None, **kw)` (lazy import per spec; `**kw` to every detector, `type_kwargs[T]` to
   T's only). The CurbRamp spec references the constants in `detectors/__init__.py`, which keep

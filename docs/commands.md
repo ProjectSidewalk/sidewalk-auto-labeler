@@ -1320,8 +1320,9 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
 # range_gate=<range_gate_deg>) (a number = that cut, None/False = ungated, True = the spec's);
 # position_check.campaigns_for, coverage_check/review_order's replay and reinfer's derived record
 # all do. The held-back labels are transform_record(..., range_gate=False) minus the gated payload.
-# NOT yet for Crosswalk: detect_from_store.py / reinfer.py (CurbRamp only), fusion (PR #176),
-# and a store-backed pilot (send_to_ps.check_store_built is not type-aware; draft PR #179).
+# NOT yet for Crosswalk: detect_from_store.py / reinfer.py (CurbRamp only). Fusion runs with
+# fuse_sites.py --label-type Crosswalk (sites.Crosswalk.jsonl); its spec has no fuse_overrides, so
+# the association knobs are CurbRamp's. send_to_ps.check_store_built is type-aware (#179).
 ```
 
 ## Tests
