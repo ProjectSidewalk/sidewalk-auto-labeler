@@ -745,7 +745,9 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
   type's decode, border and storage floor there. The top-level `detection_storage_floor`,
   `detection_decode` and `detection_border` describe CurbRamp and are **null** (never absent,
   which reads as a legacy 0.55 / argmax / exclude run) when CurbRamp did not run. Each run entry
-  gains `models` too. `detect_from_store.bind_manifest` binds CurbRamp or refuses.
+  gains `models` too. `detect_from_store.bind_manifest` binds CurbRamp only in its
+  server-metadata mode and any type set in records mode (`--records`, which inherits the source
+  run's `imagery_source`).
 - **Consumers**:
   - `fuse_sites.py --label-type` (default CurbRamp). Per-type params (item 4):
     `fs.fuse_params_for(T, **flags)` = the spec's floor / operational threshold / rig mask,
@@ -815,8 +817,10 @@ The plumbing for more than one detector (Planning#36). Two specs exist: CurbRamp
   (that needs new code, e.g. a gate band). `position_check.campaigns_for` carries `range_gate_deg`, and
   `coverage_check.replay_campaigns` (so `review_order`) and `reinfer.write_derived_record`
   replay it.
-- **NOT done**: Crosswalk in `detect_from_store.py` / `reinfer.py`, and tuned Crosswalk
-  `fuse_overrides` (its spec has none, so a Crosswalk fuse uses CurbRamp's association knobs).
-  Per-type `FuseParams` (item 4), the review-order export (item 5, `scripts/review_order.py`),
-  a type-aware `send_to_ps.check_store_built` and submission (one POST per line and type with
-  per-type sidecars; see Stage 2 above) have shipped.
+- **NOT done**: Crosswalk in `reinfer.py` and in `detect_from_store.py`'s server-metadata mode,
+  and tuned Crosswalk `fuse_overrides` (its spec has none, so a Crosswalk fuse uses CurbRamp's
+  association knobs). (Shipped: per-type `FuseParams`, #168 item 4, PR #176; submission, one
+  POST per line and type with per-type sidecars, see Stage 2 above; the type-aware
+  `send_to_ps.check_store_built`, PR #179; the review-order export, item 5, PR #189; and
+  `detect_from_store.py --records`, which runs any type on the store pixels of a file PS already
+  received.)

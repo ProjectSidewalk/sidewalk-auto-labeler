@@ -1,0 +1,18 @@
+{
+  "labels": "/gscratch/scrubbed/jfroehli/validator_xwalk_juneau/labels.csv",
+  "labels_sha256": "31fe172d4b9e6b80cb5dc6a9112b454f6fbc0f7f8c55c405b8a84da012f2ff45",
+  "pano_store": "/gscratch/scrubbed/jfroehli/validator_xwalk_juneau/stage",
+  "pano_store_marker": "symlink view of /gscratch/scrubbed/jfroehli/juneau_store_xwalk/juneau-ak (Juneau Mapillary panos staged from the PS pano store), 2026-11-17",
+  "tilt_beta": 0.95,
+  "depth_encoder": "vitb",
+  "fixed_crop_half_px": null,
+  "renderer": "torch",
+  "package_source": "https://github.com/ProjectSidewalk/sidewalk-panorama-tools@7ce25ffbddae23d85f9976ec0a925707a0d64a89",
+  "status_counts_this_run": {
+    "ok": 3579
+  },
+  "status_counts": {
+    "ok": 3579
+  },
+  "finished": "2026-11-18T02:08:34+00:00"
+}

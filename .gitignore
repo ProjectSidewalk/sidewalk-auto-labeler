@@ -107,6 +107,12 @@ runs/*/server_agree/as_served/
 !runs/*/review_order/*/
 !runs/*/review_order/*/report.md
 !runs/*/review_order/*/summary.json
+# Human validations of AI labels exported from a PS server (the test DB is not backed up), with
+# the seeded samples they answer. Small, irreplaceable.
+!runs/*/validation/
+!runs/*/validation/*.md
+!runs/*/validation/*.csv
+!runs/*/validation/*.json
 # DEM road grade (scripts/dem_grade.py, #51; write-up in docs/dem-grade-study.md): the tile
 # manifest (service, request, per-tile sha256) and the agreement report are tracked. The
 # tiles themselves (tens to hundreds of MB) and grades.csv are NOT — the report carries
