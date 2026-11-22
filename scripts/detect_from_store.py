@@ -77,7 +77,12 @@ verbatim, so the new file describes every pano exactly as PS already holds it: i
 and its credit line. No server is asked for metadata (--server is refused), and the run's
 manifest takes `imagery_source` (and `mapillary_position`) from the manifest beside the
 records file, and copies its `area.geojson`, so position_check.py can score the new file as
-it scored the old one. `--types` / `--crosswalk-checkpoint` work as in main.py; each type's
+it scored the old one. "Already received" is checked, not assumed: the records file needs
+send_to_ps.py's submission record beside it (`<file>.submission.json`) with the file's own
+sha256 and at least one line sent (records_received), and the endpoints it names are kept
+in the manifest's `pixels` block as `records_received_by` (recorded, not bound: it may grow).
+send_to_ps.check_live_positions cannot catch the wrong file here, because it reads only the
+new run directory's records. `--types` / `--crosswalk-checkpoint` work as in main.py; each type's
 frame is its spec's. This mode exists for a second label type (#168): its file is store-built
 (the manifest's `pixels` block), so send_to_ps.py still refuses it when it carries CurbRamp.
 
@@ -283,6 +288,53 @@ def read_records(path):
     if not ids:
         raise SystemExit(f'--records {path}: no records')
     return ids, blocks
+
+
+def _lines_sent(entry):
+    """Did this endpoint entry of a submission record send any line (single-type, or any
+    type of a multi-type record)?"""
+    if not isinstance(entry, dict):
+        return False
+    if int(entry.get('submitted_lines') or 0) > 0:
+        return True
+    types = entry.get('types')
+    return isinstance(types, dict) and any(
+        isinstance(t, dict) and int(t.get('submitted_lines') or 0) > 0 for t in types.values())
+
+
+def records_received(path, sha256):
+    """The endpoints that received the --records file, sorted, from send_to_ps.py's
+    submission record beside it (`<file>.submission.json`). Refuses a file with no record,
+    an unreadable one, one recording another version of the file (its sha256 differs) and
+    one that sent no line anywhere.
+
+    Records mode copies every pano block on the premise that PS already holds it, and
+    send_to_ps.check_live_positions compares a new file only with the campaigns recorded in
+    the NEW run's directory, so it cannot see that the blocks came from the wrong file.
+    Pointed at runs/juneau/results.jsonl instead of results.check.jsonl (the reposition.py
+    output that was sent), a run would copy the pre-reposition positions of the moved panos.
+    The record is what says which file was sent. A partly sent file passes: this is about
+    which file, and its unsent panos are then new to PS, not moved."""
+    from send_to_ps import submission_record_path
+    rec_path = submission_record_path(str(path))
+    if not rec_path.is_file():
+        raise SystemExit(f'--records {path}: no submission record ({rec_path.name}) beside it, so '
+                         f'nothing says PS received this file. Records mode copies its pano blocks '
+                         f'as what PS holds; give the file a campaign sent (e.g. results.check.jsonl '
+                         f'after reposition.py, not results.jsonl).')
+    try:
+        record = json.loads(rec_path.read_text(encoding='utf-8'))
+    except ValueError as e:
+        raise SystemExit(f'--records {path}: {rec_path.name} is not readable JSON ({e})')
+    if not isinstance(record, dict) or record.get('sha256') != sha256:
+        raise SystemExit(f'--records {path}: {rec_path.name} records sha256 '
+                         f'{record.get("sha256") if isinstance(record, dict) else None!r}, but the '
+                         f'file hashes to {sha256!r}; PS received another version of it.')
+    endpoints = record.get('endpoints') if isinstance(record.get('endpoints'), dict) else {}
+    sent = sorted(ep for ep, entry in endpoints.items() if _lines_sent(entry))
+    if not sent:
+        raise SystemExit(f'--records {path}: {rec_path.name} has no lines sent to any endpoint.')
+    return sent
 
 
 def records_source(path):
@@ -557,6 +609,13 @@ def load_skips(run_dir):
 
 # ---------------------------------------------------------------------------- manifest
 
+# `pixels` keys recorded but not bound: refreshed on every pass and ignored when a resume
+# compares pixels. `records_received_by` (records mode) is the endpoints the --records file's
+# submission record says received it; it may grow (the source file sent to prod later), and
+# manifests written before it existed lack it.
+PIXELS_UNBOUND = ('records_received_by',)
+
+
 def pixels_block(selection):
     if selection.get('records') is not None:
         # Records mode: the pano blocks came from the bound records file, not a server.
@@ -612,8 +671,11 @@ def bind_manifest(run_dir, provenance, pixels, source=None):
             raise SystemExit(f'{run_dir.name} stores detections down to {floor}; this code '
                              f'stores down to {main.DETECTION_STORAGE_FLOOR}. Use a new --run-dir.')
         bound = manifest.get('pixels')
-        if bound is not None and bound != pixels:
-            diff = sorted(k for k in set(bound) | set(pixels) if bound.get(k) != pixels.get(k))
+        if bound is not None:
+            bound = {k: v for k, v in bound.items() if k not in PIXELS_UNBOUND}
+        unbound = {k: v for k, v in pixels.items() if k not in PIXELS_UNBOUND}
+        if bound is not None and bound != unbound:
+            diff = sorted(k for k in set(bound) | set(unbound) if bound.get(k) != unbound.get(k))
             raise SystemExit(f'{run_dir.name} is bound to other pixels ({", ".join(diff)} '
                              f'differ). Use a new --run-dir.')
         main.bind_label_types(manifest, pmap, run_dir, types_flag=source is not None)
@@ -718,7 +780,7 @@ def prefetch_metadata(run_dir, ids, store, layout, server, accept_skip_rate=Fals
 
 
 def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_skip_rate=False,
-        batch_size=1, *, types=None, type_kwargs=None, blocks=None, source=None):
+        batch_size=1, *, types=None, type_kwargs=None, blocks=None, source=None, received=None):
     """The detection pass. Loads the models, binds the manifest, and appends to
     results.jsonl through main.handle_result in id-list order. GUARDED_SKIPS are held back
     until the pass ends and cached only if their rate passes the poison guard.
@@ -729,7 +791,8 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_s
 
     ``types`` (default CurbRamp) and ``type_kwargs`` are registry.load_detectors'. Records
     mode passes ``blocks`` ({pano_id: pano block}, read_records) and ``source``
-    (records_source's settings); the server is then unused."""
+    (records_source's settings) and ``received`` (records_received's endpoints, recorded in
+    the manifest's `pixels`); the server is then unused."""
     import main
     from detectors import ModelProvenanceError, registry
     types = sorted(types or [registry.CURB_RAMP])
@@ -738,7 +801,7 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_s
         if sorted(preset) != types:
             raise SystemExit(f'detectors already loaded for {sorted(preset)}, not {types}')
         return _detect_pass(main, run_dir, ids, store, layout, server, selection, workers,
-                            limit, accept_skip_rate, blocks, source)
+                            limit, accept_skip_rate, blocks, source, received)
     try:
         loaded = registry.load_detectors(types, type_kwargs=type_kwargs, batch_size=batch_size)
     except ModelProvenanceError as e:
@@ -748,7 +811,7 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_s
         main.detectors.update(loaded)
         main.curb_ramp_detector = loaded.get(registry.CURB_RAMP)
         return _detect_pass(main, run_dir, ids, store, layout, server, selection, workers,
-                            limit, accept_skip_rate, blocks, source)
+                            limit, accept_skip_rate, blocks, source, received)
     finally:
         for t, d in loaded.items():
             d.close()
@@ -757,12 +820,15 @@ def run(run_dir, ids, store, layout, server, selection, workers, limit, accept_s
 
 
 def _detect_pass(main, run_dir, ids, store, layout, server, selection, workers, limit,
-                 accept_skip_rate, blocks=None, source=None):
+                 accept_skip_rate, blocks=None, source=None, received=None):
     """run()'s body, with the detectors already loaded on main."""
     from concurrent.futures import ThreadPoolExecutor
     loaded = main._loaded_detectors()
     provenance = {t: d.provenance for t, d in loaded.items()}
-    manifest = bind_manifest(run_dir, provenance, pixels_block(selection), source)
+    pixels = pixels_block(selection)
+    if received is not None:
+        pixels['records_received_by'] = list(received)
+    manifest = bind_manifest(run_dir, provenance, pixels, source)
     started = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
     done = main.load_processed_ids(run_dir / 'already_processed.txt')
@@ -846,7 +912,8 @@ def main_cli(argv=None):
                     help='Project Sidewalk server serving /backupImage/<id>/metadata '
                          '(required unless --records)')
     ap.add_argument('--records', type=Path,
-                    help='records mode: a results.jsonl PS already received; its pano ids and '
+                    help='records mode: a results.jsonl PS already received (its '
+                         '<file>.submission.json must record the same sha256); its pano ids and '
                          'pano blocks (copied verbatim) define the run. Excludes --server, --ids, '
                          '--labels, --sample-unlabeled and --metadata-only')
     ap.add_argument('--types', type=main_types_arg, default=None, metavar='TYPES',
@@ -934,6 +1001,7 @@ def records_main(args, types, type_kwargs):
     ids, blocks = read_records(args.records)
     source, area_path = records_source(args.records)
     records = {'path': str(Path(args.records).resolve()), 'sha256': file_sha256(args.records)}
+    received = records_received(args.records, records['sha256'])
     layout = store_layout(args.store, ids)
     run_ids, selection = select_ids(args.run_dir, args.store, layout, ids, 0, 0, None,
                                     records=records)
@@ -946,7 +1014,7 @@ def records_main(args, types, type_kwargs):
           f'({source["imagery_source"]}); types {",".join(types)}')
     run(args.run_dir, run_ids, args.store, layout, None, selection, args.workers, args.limit,
         args.accept_skip_rate, batch_size=args.batch_size, types=types, type_kwargs=type_kwargs,
-        blocks=blocks, source=source)
+        blocks=blocks, source=source, received=received)
 
 
 def main_types_arg(value):

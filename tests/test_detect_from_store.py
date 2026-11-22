@@ -459,8 +459,23 @@ def _mapillary_block(pid, lat):
             "copyright": "a contributor", "links": [], "history": []}
 
 
-def make_source_run(root, ids, name="results.check.jsonl"):
-    """A finished Mapillary run dir: manifest, area and a records file PS already received."""
+TEST_EP = "https://sidewalk-juneau-test.cs.washington.edu/ai/submitLabelsOnPano"
+PROD_EP = "https://sidewalk-juneau.cs.washington.edu/ai/submitLabelsOnPano"
+
+
+def write_record(path, endpoints=(TEST_EP,), sha256=None, sent=None):
+    """The send_to_ps.py submission record beside `path`: every line sent to each endpoint
+    (or `sent` lines), hashed as the file now stands unless `sha256` says otherwise."""
+    n = len(path.read_text(encoding="utf-8").splitlines())
+    rec = {"input_file": path.name, "sha256": sha256 or dfs.file_sha256(path), "total_lines": n,
+           "endpoints": {ep: {"submitted_lines": n if sent is None else sent,
+                              "min_confidence": 0.3} for ep in endpoints}}
+    (path.parent / f"{path.name}.submission.json").write_text(json.dumps(rec), encoding="utf-8")
+
+
+def make_source_run(root, ids, name="results.check.jsonl", record=True):
+    """A finished Mapillary run dir: manifest, area and a records file PS already received
+    (with its submission record, unless `record` is False)."""
     root.mkdir(parents=True)
     (root / "manifest.json").write_text(json.dumps(
         {"imagery_source": "mapillary", "mapillary_position": "sfm"}), encoding="utf-8")
@@ -469,6 +484,8 @@ def make_source_run(root, ids, name="results.check.jsonl"):
     path.write_text("".join(json.dumps({"detections": [], "label_type": "CurbRamp",
                                         "pano": _mapillary_block(pid, 58.3 + i / 1000)}) + "\n"
                             for i, pid in enumerate(ids)), encoding="utf-8")
+    if record:
+        write_record(path)
     return path
 
 
@@ -501,6 +518,7 @@ def test_records_mode_keeps_blocks_verbatim_and_inherits_the_source(tmp_path, mo
     assert m["models"]["Crosswalk"]["detection_border"] == "keep"
     assert m["pixels"]["pano_blocks"] == "records"
     assert m["pixels"]["records"]["sha256"] == dfs.file_sha256(records)
+    assert m["pixels"]["records_received_by"] == [TEST_EP]
     assert (run_dir / "area.geojson").read_bytes() == (records.parent / "area.geojson").read_bytes()
 
     # send_to_ps: store-built (the `pixels` block), but Crosswalk only, so it passes (#179).
@@ -516,8 +534,65 @@ def test_records_mode_refuses_an_edited_records_file_on_resume(tmp_path, monkeyp
             *_xw(tmp_path)]
     dfs.main_cli(argv)
     records.write_text(records.read_text().replace("58.3", "58.4"), encoding="utf-8")
-    with pytest.raises(SystemExit, match="records"):
+    write_record(records)      # as if the edited file had been sent too: only the binding refuses
+    with pytest.raises(SystemExit, match="different pano selection"):
         dfs.main_cli(argv)
+
+
+def _records_argv(tmp_path, store, records, run="run"):
+    return ["--run-dir", str(tmp_path / run), "--store", str(store), "--records", str(records),
+            *_xw(tmp_path)]
+
+
+def test_records_mode_needs_the_files_submission_record(tmp_path, monkeypatch, crosswalk):
+    # A results file PS never received (no record beside it), e.g. results.jsonl where
+    # results.check.jsonl (the repositioned file) is what was sent.
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"], record=False)
+    with pytest.raises(SystemExit, match="no submission record"):
+        dfs.main_cli(_records_argv(tmp_path, store, records))
+    assert not (tmp_path / "run").exists()
+
+
+def test_records_mode_refuses_a_record_of_another_file_version(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    write_record(records, sha256="0" * 64)
+    with pytest.raises(SystemExit, match="sha256"):
+        dfs.main_cli(_records_argv(tmp_path, store, records))
+    assert not (tmp_path / "run").exists()
+
+
+def test_records_mode_refuses_a_record_that_sent_nothing(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    write_record(records, sent=0)
+    with pytest.raises(SystemExit, match="no lines sent"):
+        dfs.main_cli(_records_argv(tmp_path, store, records))
+
+
+def test_records_mode_resumes_a_manifest_without_received_by(tmp_path, monkeypatch, crosswalk):
+    # The committed Juneau manifests predate `records_received_by`: a resume must adopt the
+    # key, not read its absence as other pixels. The endpoint list is not bound either: the
+    # source file reaching prod later must not refuse a resume.
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a", "22b"])
+    records = make_source_run(tmp_path / "juneau", ["11a", "22b"])
+    argv = _records_argv(tmp_path, store, records)
+    dfs.main_cli(argv + ["--limit", "1"])
+    path = tmp_path / "run" / "manifest.json"
+    m = json.loads(path.read_text())
+    del m["pixels"]["records_received_by"]
+    path.write_text(json.dumps(m), encoding="utf-8")
+
+    write_record(records, endpoints=(TEST_EP, PROD_EP))
+    dfs.main_cli(argv)
+    m = json.loads(path.read_text())
+    assert m["pixels"]["records_received_by"] == sorted([TEST_EP, PROD_EP])
+    assert len((tmp_path / "run" / "results.jsonl").read_text().splitlines()) == 2
 
 
 @pytest.mark.parametrize("flag", [["--server", SERVER], ["--ids", "ids.txt"],
