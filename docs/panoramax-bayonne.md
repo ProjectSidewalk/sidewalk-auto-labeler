@@ -566,9 +566,9 @@ The archive is complete for the 5 m run on makelab2 under
   summary reads `archived + verified: 50409`, `missing (source gone): 0`,
   `STATUS: OK — archive matches records 1:1`.
 
-It was built in two passes, both unpaced (before
-[#161](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/161); see "Re-running
-it today" in §5):
+It was built in two passes, both unpaced (before the request pacing that
+[PR #173](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/173) added on
+2026-10-29; see "Re-running it today" in §5):
 
 1. **10 m pass, 2026-10-01.** `runs/bayonne_archive.10m.done` reads `rc=0 2026-10-01T10:01:18Z`:
    28,524 panos in 4 h 10 m at 1.90 panos/s. Its `index.10m.csv`, `manifest.10m.json` and
@@ -577,8 +577,9 @@ it today" in §5):
    14:22Z found the 28,524 archived panos present and fetched only the **21,885** the densify
    added: 21,879 on the first launch, 6 read timeouts against Panoramax's object store, and
    those 6 on a relaunch at 19:13Z. `runs/bayonne_archive.done` reads `rc=0 2026-10-07T19:13:31Z`.
-   The Panoramax maintainers opened #161 at 14:52Z that day, so most of this pass ran after
-   it, and it is part of the load that issue describes.
+   The Panoramax maintainers opened
+   [#161](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/161) at 14:52Z that
+   day, so most of this pass ran after it, and it is part of the load that issue describes.
 
 ## 5. Replication
 
