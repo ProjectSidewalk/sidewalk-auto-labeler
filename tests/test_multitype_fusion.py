@@ -12,10 +12,11 @@ from test_fuse_sites import _demo_city, _record_line
 
 @pytest.fixture
 def crosswalk_spec(monkeypatch):
-    """A second registered type with its own fusion knobs (none exists yet, #168)."""
+    """A stand-in Crosswalk spec with its own fusion knobs (the real one has none tuned yet,
+    #168). fuse_overrides is passed by keyword: it follows border and min_depression_deg."""
     monkeypatch.setitem(reg.SPECS, 'Crosswalk', reg.DetectorSpec(
         'Crosswalk', 'nowhere', 'Nothing', 0.2, 0.5, 0.6, False,
-        {'max_match_m': 12.0, 'gate_chi2': 13.8}))
+        fuse_overrides={'max_match_m': 12.0, 'gate_chi2': 13.8}))
 
 
 def _legacy_lines():
@@ -56,10 +57,24 @@ def test_curb_ramp_params_are_the_defaults():
 
 
 def test_unknown_label_type_refuses():
-    with pytest.raises(reg.UnknownLabelTypeError, match='known: CurbRamp'):
-        fs.FuseParams(label_type='Crosswalk')
+    # NoCurbRamp is a server label type with no DetectorSpec (yet)
+    with pytest.raises(reg.UnknownLabelTypeError, match='known: Crosswalk, CurbRamp'):
+        fs.FuseParams(label_type='NoCurbRamp')
     with pytest.raises(reg.UnknownLabelTypeError):
-        fs.fuse_params_for('Crosswalk')
+        fs.fuse_params_for('NoCurbRamp')
+
+
+def test_registered_crosswalk_params():
+    """The real Crosswalk spec: its floor, operating point and rig mask; no fuse_overrides,
+    so every association knob is FuseParams' default."""
+    spec = reg.spec_for('Crosswalk')
+    assert spec.fuse_overrides == {}
+    p = fs.fuse_params_for('Crosswalk')
+    assert (p.label_type, p.floor, p.min_confidence, p.mask_rig) == (
+        'Crosswalk', spec.storage_floor, spec.operational_confidence, spec.mask_rig)
+    d = fs.FuseParams()
+    assert (p.max_match_m, p.gate_chi2, p.max_range_m, p.residual_per_dof_max) == (
+        d.max_match_m, d.gate_chi2, d.max_range_m, d.residual_per_dof_max)
 
 
 def test_spec_then_overrides_then_flags(crosswalk_spec):
