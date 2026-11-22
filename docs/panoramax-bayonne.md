@@ -670,7 +670,7 @@ Step 5 was not re-run from the prefix.
 | 10 | `python scripts/export_benchmark.py $R10/bayonne/results.jsonl --bundle D:/Git/labeler-wt/bayonne-bundle --sample 100 --empty-sample 25` (10 m) | net | 1.5 min |
 | 11 | `python scripts/panoramax_bayonne_figures.py crops` → `data/examples/crops/` + `crops.csv` (from the bundle) | — | 10 s |
 | 12 | `python scripts/panoramax_bayonne_figures.py figures` → `fig*.png` / `.jpg` (+ `.svg` for figures 1-5 and 7b) | — | 30 s |
-| 13 | on makelab2, `bayonne_archive.sh`: `export_benchmark.py runs/bayonne/results.jsonl --out runs/bayonne/panos` (the 10 m file on 2026-10-01; resumed for the 5 m file on 2026-10-07, §4) | net | 4.2 h (≥ ~7.9 h today) |
+| 13 | on makelab2, `bayonne_archive.sh`: `export_benchmark.py runs/bayonne/results.jsonl --out runs/bayonne/panos` (the 10 m file on 2026-10-01; resumed for the 5 m file on 2026-10-07, §4) | net | 10 m pass 4.2 h (≥ ~7.9 h today); 5 m pass ~4.9 h wall, 14:22Z to 19:13Z including the relaunch gap (≥ ~6.1 h today) |
 
 - **Steps 2 / 2b.** The run directory is now bound to **5 m** (top-level `thin_spacing_m`,
   changed by hand from the 10 m backfill in `c096987`, recorded in `thin_spacing_changed`), so
@@ -706,8 +706,9 @@ Step 5 was not re-run from the prefix.
 
 **Re-running it today.** Every time in the steps table outside the parentheses, and every
 rate in this doc (1.18 and 2.50 panos/s for detection, 1.90 for the archive), was measured
-before [#161](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/161) /
-[PR #173](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/173), unpaced.
+unpaced, before the pacing that
+[PR #173](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/pull/173) added in answer
+to [#161](https://github.com/ProjectSidewalk/sidewalk-auto-labeler/issues/161).
 Panoramax's maintainers asked for about one full-resolution picture per second, and since
 PR #173 `sources/panoramax.py` paces every request: `picture` 1/s, `metadata` 1/s (batched
 when main.py hints the order), `tile` 5/s, with the pool capped at 4 threads. The download
