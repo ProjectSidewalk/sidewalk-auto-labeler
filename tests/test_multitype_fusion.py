@@ -136,6 +136,43 @@ def test_two_type_file_fuses_each_type_to_its_own_files(tmp_path, crosswalk_spec
     assert members and {m['det_index'] for m in members} == {2}
 
 
+def _crosswalk_only(line):
+    """The same pano as a Crosswalk-only line, shaped as main._multitype_line writes one: every
+    detection tagged, the line-level type set, and the spec's fixed frame in models.Crosswalk."""
+    rec = json.loads(line)
+    rec['detections'] = [{**d, 'label_type': 'Crosswalk'} for d in rec['detections']]
+    rec.update(label_type='Crosswalk', label_types=['Crosswalk'],
+               models={'Crosswalk': reg.type_frame('Crosswalk')})
+    return json.dumps(rec)
+
+
+def test_registered_crosswalk_cli_fuse(tmp_path):
+    """End to end with the REGISTERED Crosswalk spec (no stand-in): the CLI writes
+    sites.Crosswalk.jsonl, byte-identical to fusing at fuse_params_for('Crosswalk'), records
+    the spec's floor / threshold / rig mask, never creates sites.jsonl, and a default
+    (CurbRamp) fuse of the same file is refused."""
+    run = tmp_path / 'run'
+    src = _write(run / 'results.jsonl', [_crosswalk_only(line) for line in _legacy_lines()])
+    fs.main([str(run), '--label-type', 'Crosswalk', '--camera-height-m', '2.6'])
+    assert not (run / 'sites.jsonl').exists()
+    params = fs.fuse_params_for('Crosswalk')
+    panos, _ = fs.load_results(src, read_heights=False, label_type='Crosswalk')
+    sites, frame, stats = fs.fuse(panos, params)
+    fs.write_sites(sites, frame, stats, params, tmp_path / 'ref.jsonl',
+                   tmp_path / 'ref_meta.json')
+    assert (run / 'sites.Crosswalk.jsonl').read_bytes() == (tmp_path / 'ref.jsonl').read_bytes()
+    assert sites
+    meta = json.loads((run / 'sites.Crosswalk_meta.json').read_text(encoding='utf-8'))
+    spec = reg.spec_for('Crosswalk')
+    assert (meta['params']['label_type'], meta['params']['floor'],
+            meta['params']['min_confidence'], meta['params']['mask_rig']) == (
+        'Crosswalk', spec.storage_floor, spec.operational_confidence, spec.mask_rig)
+    assert meta['params']['max_match_m'] == fs.FuseParams.max_match_m
+    with pytest.raises(SystemExit, match='not CurbRamp'):
+        fs.main([str(run), '--camera-height-m', '2.6'])
+    assert not (run / 'sites.jsonl').exists()
+
+
 # --- eval_sites / eval_ps_clustering plumbing ---------------------------------------------
 
 def test_eval_sites_label_type_reaches_the_loader(tmp_path, crosswalk_spec):
