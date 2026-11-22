@@ -125,6 +125,9 @@ def test_fuse_overrides_keys_are_pinned():
     {'max_match_m': 12.0},           # a mapping: the spec would stop hashing
     [('max_match_m', 12.0)],         # a list: unhashable too
     (('max_match_m',),),             # not a (field, value) pair
+    {},                              # empty, as the docs once spelled the default
+    (['max_match_m', 12.0],),        # a list pair: the spec would not hash
+    (('max_match_m', 12.0, 'x'),),   # a 3-tuple
 ])
 def test_stray_fuse_override_refuses(monkeypatch, overrides):
     monkeypatch.setitem(reg.SPECS, 'Crosswalk', reg.DetectorSpec(
