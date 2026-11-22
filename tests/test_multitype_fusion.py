@@ -263,6 +263,12 @@ def test_eval_sites_refuses_a_bundle_of_another_type(tmp_path, crosswalk_spec):
     for t in ('CurbRamp', 'Crosswalk'):
         with pytest.raises(ValueError, match=where2):
             eval_sites.load_benchmark('two', root, label_type=t)
+    # every record is checked, and the message names the first one that fails
+    where3 = bundle('mixed', [legacy[0], _crosswalk_only(legacy[1])])
+    with pytest.raises(ValueError, match=where3 + ' line 2: '):
+        eval_sites.load_benchmark('mixed', root)
+    with pytest.raises(ValueError, match=where3 + ' line 1: '):
+        eval_sites.load_benchmark('mixed', root, label_type='Crosswalk')
     # the matching type loads (directly: a registered-Crosswalk run is stopped later by
     # require_bundle_frame, since it stores `keep`-border peaks)
     _v, ops = eval_sites.load_benchmark('cw', root, label_type='Crosswalk')
