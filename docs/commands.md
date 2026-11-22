@@ -1285,13 +1285,16 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
 # point. Seattle only: it says nothing about Juneau imagery, where RampNet's rated marks put
 # s4's recall at 63 of 110. The two scripts behind the table are not yet in the repo.
 
-# SMOKE SEND RUNBOOK (nothing has been sent yet; every step needs Jon's clearance of the exact
-# plan, and the city and s4-vs-s7 are his call):
+# SMOKE SEND RUNBOOK for a new city (every step needs Jon's clearance of the exact plan, and
+# the city and s4-vs-s7 are his call). Juneau went first: the store-backed pilot below sent
+# 3,525 + 54 Crosswalk labels to juneau-test on 2026-11-17 (0.23, under the range gate), and
+# its committed submission records name no other endpoint.
 #   1. a SMALL area of a city whose PS server is up, a fresh --name, --types Crosswalk --limit 20
 #   2. python send_to_ps.py runs/<n>/results.jsonl --dry-run      # labelType Crosswalk, >= 0.23
 #   3. send to the TEST endpoint only: --endpoint https://<city>-test.../ai/submitLabelsOnPano --limit 5
-#   4. Jon looks at where the labels land on the map (PS places each from its pano pixel; nobody
-#      has checked where a centre-of-crossing pixel ends up) before anything goes further.
+#   4. Jon looks at where the labels land on the map before anything goes further. PS places
+#      each label from its pano pixel, and a far detection lands short of its target (the
+#      distance estimate is bounded near 23.85 m), which is what the RANGE GATE below holds back.
 # A Crosswalk file's submission record says label_types + type_frames (keep); its frame guard
 # compares only with campaigns that sent Crosswalk. Bands (--max-confidence) are refused.
 # A STORE-BACKED PILOT (a city whose panos PS already holds; Juneau first):
@@ -1301,6 +1304,15 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
 # source run's imagery_source / mapillary_position / area.geojson. send_to_ps.py treats the
 # file as store-built (manifest `pixels`) and lets it through because it carries no CurbRamp
 # (PR #179). Run position_check.py on the new run dir before any send (a Mapillary file).
+# --records must be the file PS actually received: its <file>.submission.json must record the
+# file's own sha256 and some lines sent (refused otherwise), and the manifest's `pixels` keeps
+# the endpoints as records_received_by. After reposition.py that is the repositioned file
+# (Juneau: results.check.jsonl), never the pre-reposition results.jsonl. The binding is by
+# resolved path + sha256, so resume from the checkout the run started in. `pixels.store` is the
+# copy the pixels were read from (Juneau: klone scratch); the durable source is the PS pano store.
+# Juneau: runs/juneau_crosswalk (from runs/juneau/results.check.jsonl) and
+# runs/juneau_expansion_crosswalk (from runs/juneau_expansion/results.jsonl); Jon's juneau-test
+# votes and the AI validator's scores are in runs/juneau_crosswalk/validation/ (its README).
 python scripts/detect_from_store.py --run-dir runs/<city>_crosswalk --store <store>/<city> \
     --records runs/<city>/results.jsonl --types Crosswalk --crosswalk-checkpoint <pth>
 # NOT yet for Crosswalk: reinfer.py (CurbRamp only), detect_from_store.py's server-metadata

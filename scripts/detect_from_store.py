@@ -35,18 +35,20 @@ Sidewalk's own pano store still holds the native-resolution JPEGs, and the serve
 
 Detection, records and resume are main.py's own (`main._process`, `main.handle_result`,
 `main.build_output_line`, `already_processed.txt`), so the output is an ordinary
-`results.jsonl`. The manifest is bound to the model like any run (`main.bind_model`), is
-`imagery_source: gsv`, and carries a `pixels` block saying where the pixels and metadata
-came from. main.py refuses a run dir whose manifest carries `pixels`, and this runner
+`results.jsonl`. The manifest is bound to the model like any run (`main.bind_model`) and
+carries a `pixels` block saying where the pixels and metadata came from. In the server-
+metadata mode above it is `imagery_source: gsv`; records mode (below) inherits its source. main.py refuses a run dir whose manifest carries `pixels`, and this runner
 refuses a run dir that main.py already wrote records into, so the two never append to one
 file. send_to_ps.py refuses a store-built file carrying CurbRamp labels (it would re-insert
 the city's live labels) unless --allow-store-file is given; one of other types only passes.
 
-The detector always runs with the defaults, the argmax decode (#111) and the `exclude`
-border rule (#130), and this runner has no flag for either: a store run exists to
-reproduce the city's LIVE labels, and every live label was placed by argmax and found under
-`exclude` (the seam band dropped). `keep` or `wrap` would add seam-band peaks the live labels never
-had, so the store run would no longer be a reproduction.
+In the server-metadata mode the detector (CurbRamp only) always runs with the defaults, the
+argmax decode (#111) and the `exclude` border rule (#130), and this runner has no flag for
+either: that mode exists to reproduce the city's LIVE labels, and every live label was placed
+by argmax and found under `exclude` (the seam band dropped). `keep` or `wrap` would add
+seam-band peaks the live labels never had, so the store run would no longer be a
+reproduction. Records mode runs each type under its spec's own frame (Crosswalk: argmax,
+`keep`), as main.py does.
 
 Deterministic skips are cached and logged with their reason in `store_skipped.jsonl`:
 `jpg_missing` (no JPEG in the store), `metadata_404_null_field_or_no_file`, the metadata
@@ -89,6 +91,11 @@ frame is its spec's. This mode exists for a second label type (#168): its file i
     python scripts/detect_from_store.py --run-dir runs/juneau_crosswalk \\
         --store <store>/juneau-ak --records runs/juneau/results.check.jsonl \\
         --types Crosswalk --crosswalk-checkpoint <path>/final_step_1000.pth
+
+The records file is bound by resolved path as well as sha256, like the store: a resume from
+another checkout of the same file is refused (use the checkout the run started in, or a new
+--run-dir). `pixels.store` is wherever the pixels were read from, often a scratch copy; the
+durable source is the PS pano store.
 
 Memory: a 16384x8192 JPEG decodes to ~400 MB, and the convert('RGB') copy doubles that to
 a peak of ~800 MB per worker before the resize, so --workers defaults to 8 (~6.4 GB), not
