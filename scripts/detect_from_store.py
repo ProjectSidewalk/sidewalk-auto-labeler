@@ -301,16 +301,26 @@ def read_records(path):
     return ids, blocks
 
 
+def _line_count(value):
+    """A record's `submitted_lines`: absent/null = 0, else an int; anything else raises
+    ValueError (records_received turns it into a refusal)."""
+    if value is None:
+        return 0
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f'submitted_lines {value!r} is not a line count')
+    return value
+
+
 def _lines_sent(entry):
     """Did this endpoint entry of a submission record send any line (single-type, or any
     type of a multi-type record)?"""
     if not isinstance(entry, dict):
         return False
-    if int(entry.get('submitted_lines') or 0) > 0:
+    if _line_count(entry.get('submitted_lines')) > 0:
         return True
     types = entry.get('types')
     return isinstance(types, dict) and any(
-        isinstance(t, dict) and int(t.get('submitted_lines') or 0) > 0 for t in types.values())
+        isinstance(t, dict) and _line_count(t.get('submitted_lines')) > 0 for t in types.values())
 
 
 def records_received(path, sha256):
@@ -325,7 +335,12 @@ def records_received(path, sha256):
     Pointed at runs/juneau/results.jsonl instead of results.check.jsonl (the reposition.py
     output that was sent), a run would copy the pre-reposition positions of the moved panos.
     The record is what says which file was sent. A partly sent file passes: this is about
-    which file, and its unsent panos are then new to PS, not moved."""
+    which file, and its unsent panos are then new to PS, not moved.
+
+    Any endpoint in the record counts, a local development server included; nothing here
+    knows which servers are real. The operator reads the returned list (the manifest's
+    `pixels.records_received_by`, also printed on the run's `-> store` line) to see which PS
+    received it."""
     from send_to_ps import submission_record_path
     rec_path = submission_record_path(str(path))
     if not rec_path.is_file():
@@ -342,7 +357,10 @@ def records_received(path, sha256):
                          f'{record.get("sha256") if isinstance(record, dict) else None!r}, but the '
                          f'file hashes to {sha256!r}; PS received another version of it.')
     endpoints = record.get('endpoints') if isinstance(record.get('endpoints'), dict) else {}
-    sent = sorted(ep for ep, entry in endpoints.items() if _lines_sent(entry))
+    try:
+        sent = sorted(ep for ep, entry in endpoints.items() if _lines_sent(entry))
+    except ValueError as e:
+        raise SystemExit(f'--records {path}: {rec_path.name}: {e}.')
     if not sent:
         raise SystemExit(f'--records {path}: {rec_path.name} has no lines sent to any endpoint.')
     return sent
@@ -1024,7 +1042,8 @@ def records_main(args, types, type_kwargs):
     elif area_copy.read_bytes() != area_path.read_bytes():
         raise SystemExit(f'{area_copy} differs from {area_path}, the records run\'s area.')
     print(f'-> store {args.store} ({layout}); {selection["n_ids"]} pano ids from {args.records} '
-          f'({source["imagery_source"]}); types {",".join(types)}')
+          f'({source["imagery_source"]}); types {",".join(types)}; received by '
+          f'{", ".join(received)}')
     run(args.run_dir, run_ids, args.store, layout, None, selection, args.workers, args.limit,
         args.accept_skip_rate, batch_size=args.batch_size, types=types, type_kwargs=type_kwargs,
         blocks=blocks, source=source, received=received)

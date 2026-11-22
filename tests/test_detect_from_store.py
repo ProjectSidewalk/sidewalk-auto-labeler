@@ -613,6 +613,46 @@ def test_run_checks_each_loaded_detectors_frame(tmp_path, monkeypatch):
     assert main.detectors == {}
 
 
+def _received(tmp_path, record_text):
+    records = tmp_path / "results.jsonl"
+    records.write_text('{"pano": {"panorama_id": "11a"}}\n', encoding="utf-8")
+    (tmp_path / "results.jsonl.submission.json").write_text(
+        record_text.replace("SHA", dfs.file_sha256(records)), encoding="utf-8")
+    return dfs.records_received(records, dfs.file_sha256(records))
+
+
+def test_records_received_reads_a_multi_type_record(tmp_path):
+    # A multi-type record counts its lines per type (endpoints[ep].types[T]).
+    assert _received(tmp_path, json.dumps({"sha256": "SHA", "endpoints": {
+        TEST_EP: {"types": {"Crosswalk": {"submitted_lines": 1}}},
+        PROD_EP: {"types": {"Crosswalk": {"submitted_lines": 0}}}}})) == [TEST_EP]
+
+
+def test_records_received_refuses_unreadable_json(tmp_path):
+    with pytest.raises(SystemExit, match="not readable JSON"):
+        _received(tmp_path, '{"sha256": "SHA", ')
+
+
+@pytest.mark.parametrize("entry", [{"submitted_lines": "abc"}, {"submitted_lines": [1]},
+                                   {"types": {"Crosswalk": {"submitted_lines": "abc"}}}])
+def test_records_received_refuses_a_line_count_that_is_not_a_count(tmp_path, entry):
+    with pytest.raises(SystemExit, match="not a line count"):
+        _received(tmp_path, json.dumps({"sha256": "SHA", "endpoints": {TEST_EP: entry}}))
+
+
+def test_records_mode_refreshes_received_by_on_resume(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a", "22b"])
+    records = make_source_run(tmp_path / "juneau", ["11a", "22b"])
+    argv = _records_argv(tmp_path, store, records)
+    dfs.main_cli(argv + ["--limit", "1"])
+    path = tmp_path / "run" / "manifest.json"
+    assert json.loads(path.read_text())["pixels"]["records_received_by"] == [TEST_EP]
+    write_record(records, endpoints=(TEST_EP, PROD_EP))      # the source file later went to prod
+    dfs.main_cli(argv)
+    assert json.loads(path.read_text())["pixels"]["records_received_by"] == sorted([TEST_EP, PROD_EP])
+
+
 def _records_argv(tmp_path, store, records, run="run"):
     return ["--run-dir", str(tmp_path / run), "--store", str(store), "--records", str(records),
             *_xw(tmp_path)]
