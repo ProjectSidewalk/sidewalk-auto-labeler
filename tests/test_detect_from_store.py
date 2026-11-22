@@ -520,14 +520,31 @@ def test_records_mode_refuses_an_edited_records_file_on_resume(tmp_path, monkeyp
         dfs.main_cli(argv)
 
 
-def test_records_mode_refuses_server_flags_and_duplicate_panos(tmp_path, crosswalk):
+@pytest.mark.parametrize("flag", [["--server", SERVER], ["--ids", "ids.txt"],
+                                  ["--labels", "labels.geojson"], ["--sample-unlabeled", "3"],
+                                  ["--metadata-only"]])
+def test_records_mode_refuses_each_server_mode_flag(tmp_path, monkeypatch, capsys, crosswalk,
+                                                     flag):
+    # A clean records file, so the only possible refusal is the flag's own: without the
+    # exclusion the run would go through (and write a results file).
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    run_dir = tmp_path / "run"
+    with pytest.raises(SystemExit) as e:
+        dfs.main_cli(["--run-dir", str(run_dir), "--store", str(store), "--records", str(records),
+                      *_xw(tmp_path), *flag])
+    assert e.value.code == 2
+    assert f"{flag[0]} does not apply with --records" in capsys.readouterr().err
+    assert not (run_dir / "results.jsonl").exists()
+
+
+def test_records_mode_refuses_a_duplicated_pano(tmp_path, crosswalk):
     store = make_store(tmp_path / "store", ["11a"])
     records = make_source_run(tmp_path / "juneau", ["11a", "11a"])
-    base = ["--run-dir", str(tmp_path / "run"), "--store", str(store), "--records", str(records)]
-    with pytest.raises(SystemExit):
-        dfs.main_cli(base + ["--server", SERVER])
     with pytest.raises(SystemExit, match="twice"):
-        dfs.main_cli(base + _xw(tmp_path))
+        dfs.main_cli(["--run-dir", str(tmp_path / "run"), "--store", str(store),
+                      "--records", str(records), *_xw(tmp_path)])
 
 
 def test_server_mode_stays_curb_ramp_only(tmp_path):
