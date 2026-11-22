@@ -122,6 +122,9 @@ def test_fuse_overrides_keys_are_pinned():
     (('apply_pose', 'road'),),       # the CLI always passes it, so it could never apply
     (('label_type', 'CurbRamp'),),   # was an obscure TypeError
     (('max_match_m', 12.0), ('max_match_m', 9.0)),   # a tuple can repeat a key
+    {'max_match_m': 12.0},           # a mapping: the spec would stop hashing
+    [('max_match_m', 12.0)],         # a list: unhashable too
+    (('max_match_m',),),             # not a (field, value) pair
 ])
 def test_stray_fuse_override_refuses(monkeypatch, overrides):
     monkeypatch.setitem(reg.SPECS, 'Crosswalk', reg.DetectorSpec(
