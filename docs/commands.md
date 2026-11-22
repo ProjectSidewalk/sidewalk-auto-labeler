@@ -157,8 +157,9 @@ python scripts/panoramax_asset_study.py score --data <dir> && python scripts/pan
 # The 10 m readings (data/ at 7a7a1a6, data/census/, skips, examples, bundle) read $R10, a run root
 # whose bayonne/results.jsonl is the 10 m BYTE PREFIX (`head -n 28524 runs/bayonne/results.jsonl`,
 # sha256 4f38ff52...; recipe in doc s5): pointed at runs/bayonne they read the 5 m file instead.
-# Times in the doc are pre-#161 (unpaced); at today's 1 picture/s the archive of the 21,885
-# added panos is ~6 h and a 5 m run from scratch ~14 h (doc s5, "Re-running it today").
+# Times in the doc are unpaced (before PR #173). The 21,885 added panos were archived on
+# makelab2 on 2026-10-07 (doc s4); at today's 1 picture/s re-archiving them would take ~6 h
+# and a 5 m run from scratch ~14 h (doc s5, "Re-running it today").
 python scripts/run_census.py $R10/bayonne --out docs/figures/panoramax-bayonne/data/census --band-y 0.79
 python scripts/run_census.py runs/bayonne --out docs/figures/panoramax-bayonne/data/census_5m --band-y 0.79
 python scripts/reprojection_residual.py bayonne richmond --camera-height-m 2.6 --refuse \
