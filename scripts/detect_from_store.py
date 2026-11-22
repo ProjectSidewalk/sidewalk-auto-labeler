@@ -956,7 +956,9 @@ def main_cli(argv=None):
     ap.add_argument('--labels-user', help='with --labels: only this user_id\'s labels')
     ap.add_argument('--sample-unlabeled', type=int, default=0, metavar='N',
                     help='also process N store panos that are not in the id list')
-    ap.add_argument('--seed', type=int, default=0, help='seed for --sample-unlabeled')
+    # default None, read as 0 in server mode, so records mode can refuse an explicit --seed 0 too.
+    ap.add_argument('--seed', type=int, default=None,
+                    help='seed for --sample-unlabeled (default 0)')
     ap.add_argument('--workers', type=int, default=DEFAULT_WORKERS)
     ap.add_argument('--batch-size', type=int, default=1, help=BATCH_SIZE_HELP)
     ap.add_argument('--limit', type=int, help='process at most this many new panos')
@@ -984,10 +986,10 @@ def main_cli(argv=None):
         type_kwargs[registry.CROSSWALK] = {'checkpoint': args.crosswalk_checkpoint}
 
     if args.records is not None:
-        # --seed only seeds --sample-unlabeled; its default (0) cannot be told from an explicit 0.
         for flag, value in (('--server', args.server), ('--ids', args.ids),
                             ('--labels', args.labels), ('--labels-user', args.labels_user),
-                            ('--sample-unlabeled', args.sample_unlabeled), ('--seed', args.seed),
+                            ('--sample-unlabeled', args.sample_unlabeled),
+                            ('--seed', args.seed is not None),
                             ('--metadata-only', args.metadata_only)):
             if value:
                 ap.error(f'{flag} does not apply with --records (its file supplies the ids and '
@@ -1016,7 +1018,8 @@ def main_cli(argv=None):
     layout = store_layout(args.store, input_ids)
     server = normalize_server(args.server)
     ids, selection = select_ids(args.run_dir, args.store, layout, input_ids,
-                                args.sample_unlabeled, args.seed, server)
+                                args.sample_unlabeled, 0 if args.seed is None else args.seed,
+                                server)
     print(f'-> store {args.store} ({layout}); {selection["n_ids"]} pano ids '
           f'({selection["n_sampled_unlabeled"]} sampled unlabeled, seed {selection["seed"]})')
     if args.metadata_only:

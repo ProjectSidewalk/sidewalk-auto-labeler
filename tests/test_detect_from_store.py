@@ -610,7 +610,26 @@ def test_run_checks_each_loaded_detectors_frame(tmp_path, monkeypatch):
     with pytest.raises(SystemExit, match="spec says"):
         dfs.main_cli(_records_argv(tmp_path, store, records))
     assert not (tmp_path / "run" / "results.jsonl").exists()
-    assert main.detectors == {}
+
+
+def test_run_closes_and_unsets_the_detectors_it_loaded(tmp_path, monkeypatch):
+    from detectors import registry
+    _no_network(monkeypatch)
+
+    class Closing(StubCrosswalk):
+        closed = False
+
+        def close(self):
+            self.closed = True
+    stub = Closing()
+    monkeypatch.setattr(main, "detectors", {})
+    monkeypatch.setattr(main, "curb_ramp_detector", None, raising=False)
+    monkeypatch.setattr(registry, "load_detectors", lambda types, **k: {"Crosswalk": stub})
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    dfs.main_cli(_records_argv(tmp_path, store, records))
+    assert len((tmp_path / "run" / "results.jsonl").read_text().splitlines()) == 1
+    assert stub.closed and main.detectors == {}
 
 
 def _received(tmp_path, record_text):
@@ -711,7 +730,7 @@ def test_records_mode_resumes_a_manifest_without_received_by(tmp_path, monkeypat
 
 @pytest.mark.parametrize("flag", [["--server", SERVER], ["--ids", "ids.txt"],
                                   ["--labels", "labels.geojson"], ["--labels-user", "u"],
-                                  ["--sample-unlabeled", "3"], ["--seed", "5"],
+                                  ["--sample-unlabeled", "3"], ["--seed", "5"], ["--seed", "0"],
                                   ["--metadata-only"]])
 def test_records_mode_refuses_each_server_mode_flag(tmp_path, monkeypatch, capsys, crosswalk,
                                                      flag):
