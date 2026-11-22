@@ -1,0 +1,1 @@
+revealInventory("vancouver:art:n3694670454", {"0":[{"class":"Available","corner":null,"defect":null,"instdate":null,"lat":45.6471679468397,"lng":-122.641503806991,"owner":"CITY","projname":null,"ramptype":"DIRECT","status":"Available","unit_id":"CR23517"}],"1":[]});

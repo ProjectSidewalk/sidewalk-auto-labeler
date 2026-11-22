@@ -1,0 +1,1 @@
+revealInventory("vancouver:res:n3372672500", {"0":[],"1":[{"class":"Available","corner":null,"defect":null,"instdate":null,"lat":45.6463717312428,"lng":-122.529454750992,"owner":"CITY","projname":null,"ramptype":"DIRECT","status":"Available","unit_id":"CR30456"}],"2":[]});

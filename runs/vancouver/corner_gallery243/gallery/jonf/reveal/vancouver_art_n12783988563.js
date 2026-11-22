@@ -1,0 +1,1 @@
+revealInventory("vancouver:art:n12783988563", {"0":[],"1":[{"class":"Available","corner":null,"defect":null,"instdate":"2025-02-14","lat":45.6718752626649,"lng":-122.498130559032,"owner":"CITY","projname":"Heritage Park Apartments","ramptype":null,"status":"Available","unit_id":"CR37390"}],"2":[]});

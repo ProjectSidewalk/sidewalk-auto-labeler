@@ -1,0 +1,1 @@
+revealInventory("vancouver:res:n47232326", {"0":[],"1":[],"2":[{"class":"Available","corner":"S","defect":null,"instdate":"2021-03-09","lat":45.6239787126816,"lng":-122.619909071145,"owner":"CITY","projname":"Dubois Park","ramptype":"PERP","status":"Available","unit_id":"CR35927"}]});
