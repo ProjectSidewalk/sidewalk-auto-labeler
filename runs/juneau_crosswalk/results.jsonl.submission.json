@@ -1,0 +1,36 @@
+{
+  "input_file": "results.jsonl",
+  "sha256": "9a0d7421bfc4e9f0cf50ba12a38bbfc082b648d7bcf07723949b50170b26c165",
+  "total_lines": 4999,
+  "total_bytes": 11416917,
+  "endpoints": {
+    "https://sidewalk-juneau-test.cs.washington.edu/ai/submitLabelsOnPano": {
+      "rig_masked": true,
+      "submitted_lines": 4999,
+      "labels_submitted": 3525,
+      "min_confidence": 0.23,
+      "first_submission_utc": "2026-11-17T04:21:25Z",
+      "last_submission_utc": "2026-11-17T22:54:11Z",
+      "last_run_host": "jonfhome",
+      "position_check": {
+        "checked_at": "2026-11-17T03:08:00Z",
+        "results_sha256": "9a0d7421bfc4e9f0cf50ba12a38bbfc082b648d7bcf07723949b50170b26c165",
+        "flagged": 0
+      },
+      "range_gate_deg": 5.625
+    }
+  },
+  "label_types": [
+    "Crosswalk"
+  ],
+  "type_frames": {
+    "Crosswalk": {
+      "detection_decode": "argmax",
+      "detection_border": "keep"
+    }
+  },
+  "store_built": {
+    "reason": "runs\\juneau_crosswalk\\manifest.json carries a `pixels` block: this run was rebuilt from the pano store (scripts/detect_from_store.py), but it carries only Crosswalk labels; the store's live AI labels are all CurbRamp, so none is duplicated (type-aware store guard, #169).",
+    "at_utc": "2026-11-17T22:54:11Z"
+  }
+}

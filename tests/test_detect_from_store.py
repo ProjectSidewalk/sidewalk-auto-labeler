@@ -419,3 +419,349 @@ def test_a_store_record_goes_through_transform_record():
     assert out["pano"]["source"] == "gsv" and out["pano"]["pano_id"] == "P"
     assert out["pano"]["source_metadata"]["source_detail"] == "ps_store"
     assert (out["labels"][0]["pano_x"], out["labels"][0]["pano_y"]) == (8192, 2048)
+
+
+# --------------------------------------------------------------- records mode (#168 pilot)
+
+from detectors import checkpoints as ck  # noqa: E402
+
+XW_PROV = ck.provenance_for_checkpoint(
+    'ebad379b5f7c1645dc39ccb820cd18500109723ae5b1e5706c1e4521b2ab42b4')
+
+
+class StubCrosswalk:
+    """CrosswalkDetector's surface (frame fixed by the spec), without torch."""
+    decode, border, storage_floor = 'argmax', 'keep', 0.05
+    provenance = XW_PROV
+
+    def detect(self, image):
+        return [(0.5, 0.6, 0.9)]
+
+
+@pytest.fixture
+def crosswalk(monkeypatch):
+    stub = StubCrosswalk()
+    monkeypatch.setattr(main, "detectors", {"Crosswalk": stub})
+    monkeypatch.setattr(main, "curb_ramp_detector", None, raising=False)
+    return stub
+
+
+def _xw(tmp_path):
+    """--types Crosswalk plus a checkpoint path the CLI can find (the stub ignores it)."""
+    ckpt = tmp_path / "s4.pth"
+    ckpt.write_bytes(b"")
+    return ["--types", "Crosswalk", "--crosswalk-checkpoint", str(ckpt)]
+
+
+def _mapillary_block(pid, lat):
+    return {"panorama_id": pid, "width": 64, "height": 32, "lat": lat, "lng": -134.4,
+            "camera_heading": 90.0, "source": "mapillary", "source_detail": "mapillary",
+            "copyright": "a contributor", "links": [], "history": []}
+
+
+TEST_EP = "https://sidewalk-juneau-test.cs.washington.edu/ai/submitLabelsOnPano"
+PROD_EP = "https://sidewalk-juneau.cs.washington.edu/ai/submitLabelsOnPano"
+
+
+def write_record(path, endpoints=(TEST_EP,), sha256=None, sent=None):
+    """The send_to_ps.py submission record beside `path`: every line sent to each endpoint
+    (or `sent` lines), hashed as the file now stands unless `sha256` says otherwise."""
+    n = len(path.read_text(encoding="utf-8").splitlines())
+    rec = {"input_file": path.name, "sha256": sha256 or dfs.file_sha256(path), "total_lines": n,
+           "endpoints": {ep: {"submitted_lines": n if sent is None else sent,
+                              "min_confidence": 0.3} for ep in endpoints}}
+    (path.parent / f"{path.name}.submission.json").write_text(json.dumps(rec), encoding="utf-8")
+
+
+def make_source_run(root, ids, name="results.check.jsonl", record=True):
+    """A finished Mapillary run dir: manifest, area and a records file PS already received
+    (with its submission record, unless `record` is False)."""
+    root.mkdir(parents=True)
+    (root / "manifest.json").write_text(json.dumps(
+        {"imagery_source": "mapillary", "mapillary_position": "sfm"}), encoding="utf-8")
+    (root / "area.geojson").write_text('{"type": "Polygon", "coordinates": []}', encoding="utf-8")
+    path = root / name
+    path.write_text("".join(json.dumps({"detections": [], "label_type": "CurbRamp",
+                                        "pano": _mapillary_block(pid, 58.3 + i / 1000)}) + "\n"
+                            for i, pid in enumerate(ids)), encoding="utf-8")
+    if record:
+        write_record(path)
+    return path
+
+
+def _no_network(monkeypatch):
+    def get(*a, **k):
+        raise AssertionError("records mode must not ask a server")
+    monkeypatch.setattr(dfs.requests, "get", get)
+
+
+def test_records_mode_keeps_blocks_verbatim_and_inherits_the_source(tmp_path, monkeypatch,
+                                                                     crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a", "22b"])
+    records = make_source_run(tmp_path / "juneau", ["11a", "22b", "33c"])     # 33c: no JPEG
+    run_dir = tmp_path / "juneau_crosswalk"
+
+    dfs.main_cli(["--run-dir", str(run_dir), "--store", str(store), "--records", str(records),
+                  "--accept-skip-rate", *_xw(tmp_path)])
+
+    lines = [json.loads(l) for l in (run_dir / "results.jsonl").read_text().splitlines()]
+    source = [json.loads(l)["pano"] for l in records.read_text().splitlines()]
+    assert [l["pano"] for l in lines] == source[:2]                # verbatim, never rebuilt
+    assert all(l["label_types"] == ["Crosswalk"] for l in lines)
+    assert lines[0]["detections"] == [{"x_normalized": 0.5, "y_normalized": 0.6,
+                                       "confidence": 0.9, "label_type": "Crosswalk"}]
+    assert dfs.load_skips(run_dir) == {"33c": dfs.SKIP_NO_JPEG}
+    m = json.loads((run_dir / "manifest.json").read_text())
+    assert m["imagery_source"] == "mapillary" and m["mapillary_position"] == "sfm"
+    assert m["label_types"] == ["Crosswalk"] and m["detection_storage_floor"] is None
+    assert m["models"]["Crosswalk"]["detection_border"] == "keep"
+    assert m["pixels"]["pano_blocks"] == "records"
+    assert m["pixels"]["records"]["sha256"] == dfs.file_sha256(records)
+    assert m["pixels"]["records_received_by"] == [TEST_EP]
+    assert (run_dir / "area.geojson").read_bytes() == (records.parent / "area.geojson").read_bytes()
+
+    # send_to_ps: store-built (the `pixels` block), but Crosswalk only, so it passes (#179).
+    import send_to_ps
+    assert "pixels" in send_to_ps.check_store_built(run_dir / "results.jsonl")
+
+
+def test_records_mode_refuses_an_edited_records_file_on_resume(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    argv = ["--run-dir", str(tmp_path / "run"), "--store", str(store), "--records", str(records),
+            *_xw(tmp_path)]
+    dfs.main_cli(argv)
+    records.write_text(records.read_text().replace("58.3", "58.4"), encoding="utf-8")
+    write_record(records)      # as if the edited file had been sent too: only the binding refuses
+    with pytest.raises(SystemExit, match="different pano selection"):
+        dfs.main_cli(argv)
+
+
+def test_records_line_without_a_pano_block_names_the_line(tmp_path):
+    records = tmp_path / "results.jsonl"
+    records.write_text('{"pano": {"panorama_id": "11a"}}\n{"detections": []}\n', encoding="utf-8")
+    with pytest.raises(SystemExit, match="line 2"):
+        dfs.read_records(records)
+
+
+def test_records_mode_needs_the_source_run_dir(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    (records.parent / "manifest.json").unlink()
+    with pytest.raises(SystemExit, match="no manifest.json beside it"):
+        dfs.main_cli(_records_argv(tmp_path, store, records))
+
+
+def test_records_mode_refuses_an_area_that_differs_on_resume(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    argv = _records_argv(tmp_path, store, records)
+    dfs.main_cli(argv)
+    (tmp_path / "run" / "area.geojson").write_text('{"type": "Polygon", "coordinates": [[]]}',
+                                                   encoding="utf-8")
+    with pytest.raises(SystemExit, match="differs from"):
+        dfs.main_cli(argv)
+
+
+def test_records_mode_refuses_another_imagery_source_on_resume(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    argv = _records_argv(tmp_path, store, records)
+    dfs.main_cli(argv)
+    (records.parent / "manifest.json").write_text(json.dumps({"imagery_source": "panoramax"}),
+                                                  encoding="utf-8")
+    with pytest.raises(SystemExit, match="'mapillary' run"):
+        dfs.main_cli(argv)
+
+
+def test_records_file_is_bound_by_resolved_path_too(tmp_path, monkeypatch, crosswalk):
+    # The same bytes under the same name in another run dir are another records file.
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    dfs.main_cli(_records_argv(tmp_path, store, records))
+    copy = make_source_run(tmp_path / "copy", ["11a"])
+    assert copy.read_bytes() == records.read_bytes() and copy.name == records.name
+    with pytest.raises(SystemExit, match="records: recorded"):
+        dfs.main_cli(_records_argv(tmp_path, store, copy))
+
+
+def test_run_checks_each_loaded_detectors_frame(tmp_path, monkeypatch):
+    # The stubbed tests preset main.detectors, so run() returns before check_fixed_frames;
+    # here run() loads the (stub) detector itself, with a frame its spec does not have.
+    from detectors import registry
+    _no_network(monkeypatch)
+
+    class WrongFrame(StubCrosswalk):
+        border = "exclude"
+
+        def close(self):
+            pass
+    monkeypatch.setattr(main, "detectors", {})
+    monkeypatch.setattr(main, "curb_ramp_detector", None, raising=False)
+    monkeypatch.setattr(registry, "load_detectors", lambda types, **k: {"Crosswalk": WrongFrame()})
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    with pytest.raises(SystemExit, match="spec says"):
+        dfs.main_cli(_records_argv(tmp_path, store, records))
+    assert not (tmp_path / "run" / "results.jsonl").exists()
+
+
+def test_run_closes_and_unsets_the_detectors_it_loaded(tmp_path, monkeypatch):
+    from detectors import registry
+    _no_network(monkeypatch)
+
+    class Closing(StubCrosswalk):
+        closed = False
+
+        def close(self):
+            self.closed = True
+    stub = Closing()
+    monkeypatch.setattr(main, "detectors", {})
+    monkeypatch.setattr(main, "curb_ramp_detector", None, raising=False)
+    monkeypatch.setattr(registry, "load_detectors", lambda types, **k: {"Crosswalk": stub})
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    dfs.main_cli(_records_argv(tmp_path, store, records))
+    assert len((tmp_path / "run" / "results.jsonl").read_text().splitlines()) == 1
+    assert stub.closed and main.detectors == {}
+
+
+def _received(tmp_path, record_text):
+    records = tmp_path / "results.jsonl"
+    records.write_text('{"pano": {"panorama_id": "11a"}}\n', encoding="utf-8")
+    (tmp_path / "results.jsonl.submission.json").write_text(
+        record_text.replace("SHA", dfs.file_sha256(records)), encoding="utf-8")
+    return dfs.records_received(records, dfs.file_sha256(records))
+
+
+def test_records_received_reads_a_multi_type_record(tmp_path):
+    # A multi-type record counts its lines per type (endpoints[ep].types[T]).
+    assert _received(tmp_path, json.dumps({"sha256": "SHA", "endpoints": {
+        TEST_EP: {"types": {"Crosswalk": {"submitted_lines": 1}}},
+        PROD_EP: {"types": {"Crosswalk": {"submitted_lines": 0}}}}})) == [TEST_EP]
+
+
+def test_records_received_refuses_unreadable_json(tmp_path):
+    with pytest.raises(SystemExit, match="not readable JSON"):
+        _received(tmp_path, '{"sha256": "SHA", ')
+
+
+@pytest.mark.parametrize("entry", [{"submitted_lines": "abc"}, {"submitted_lines": [1]},
+                                   {"types": {"Crosswalk": {"submitted_lines": "abc"}}}])
+def test_records_received_refuses_a_line_count_that_is_not_a_count(tmp_path, entry):
+    with pytest.raises(SystemExit, match="not a line count"):
+        _received(tmp_path, json.dumps({"sha256": "SHA", "endpoints": {TEST_EP: entry}}))
+
+
+def test_records_mode_refreshes_received_by_on_resume(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a", "22b"])
+    records = make_source_run(tmp_path / "juneau", ["11a", "22b"])
+    argv = _records_argv(tmp_path, store, records)
+    dfs.main_cli(argv + ["--limit", "1"])
+    path = tmp_path / "run" / "manifest.json"
+    assert json.loads(path.read_text())["pixels"]["records_received_by"] == [TEST_EP]
+    write_record(records, endpoints=(TEST_EP, PROD_EP))      # the source file later went to prod
+    dfs.main_cli(argv)
+    assert json.loads(path.read_text())["pixels"]["records_received_by"] == sorted([TEST_EP, PROD_EP])
+
+
+def _records_argv(tmp_path, store, records, run="run"):
+    return ["--run-dir", str(tmp_path / run), "--store", str(store), "--records", str(records),
+            *_xw(tmp_path)]
+
+
+def test_records_mode_needs_the_files_submission_record(tmp_path, monkeypatch, crosswalk):
+    # A results file PS never received (no record beside it), e.g. results.jsonl where
+    # results.check.jsonl (the repositioned file) is what was sent.
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"], record=False)
+    with pytest.raises(SystemExit, match="no submission record"):
+        dfs.main_cli(_records_argv(tmp_path, store, records))
+    assert not (tmp_path / "run").exists()
+
+
+def test_records_mode_refuses_a_record_of_another_file_version(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    write_record(records, sha256="0" * 64)
+    with pytest.raises(SystemExit, match="sha256"):
+        dfs.main_cli(_records_argv(tmp_path, store, records))
+    assert not (tmp_path / "run").exists()
+
+
+def test_records_mode_refuses_a_record_that_sent_nothing(tmp_path, monkeypatch, crosswalk):
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    write_record(records, sent=0)
+    with pytest.raises(SystemExit, match="no lines sent"):
+        dfs.main_cli(_records_argv(tmp_path, store, records))
+
+
+def test_records_mode_resumes_a_manifest_without_received_by(tmp_path, monkeypatch, crosswalk):
+    # The committed Juneau manifests predate `records_received_by`: a resume must adopt the
+    # key, not read its absence as other pixels. The endpoint list is not bound either: the
+    # source file reaching prod later must not refuse a resume.
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a", "22b"])
+    records = make_source_run(tmp_path / "juneau", ["11a", "22b"])
+    argv = _records_argv(tmp_path, store, records)
+    dfs.main_cli(argv + ["--limit", "1"])
+    path = tmp_path / "run" / "manifest.json"
+    m = json.loads(path.read_text())
+    del m["pixels"]["records_received_by"]
+    path.write_text(json.dumps(m), encoding="utf-8")
+
+    write_record(records, endpoints=(TEST_EP, PROD_EP))
+    dfs.main_cli(argv)
+    m = json.loads(path.read_text())
+    assert m["pixels"]["records_received_by"] == sorted([TEST_EP, PROD_EP])
+    assert len((tmp_path / "run" / "results.jsonl").read_text().splitlines()) == 2
+
+
+@pytest.mark.parametrize("flag", [["--server", SERVER], ["--ids", "ids.txt"],
+                                  ["--labels", "labels.geojson"], ["--labels-user", "u"],
+                                  ["--sample-unlabeled", "3"], ["--seed", "5"], ["--seed", "0"],
+                                  ["--metadata-only"]])
+def test_records_mode_refuses_each_server_mode_flag(tmp_path, monkeypatch, capsys, crosswalk,
+                                                     flag):
+    # A clean records file, so the only possible refusal is the flag's own: without the
+    # exclusion the run would go through (and write a results file).
+    _no_network(monkeypatch)
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a"])
+    run_dir = tmp_path / "run"
+    with pytest.raises(SystemExit) as e:
+        dfs.main_cli(["--run-dir", str(run_dir), "--store", str(store), "--records", str(records),
+                      *_xw(tmp_path), *flag])
+    assert e.value.code == 2
+    assert f"{flag[0]} does not apply with --records" in capsys.readouterr().err
+    assert not (run_dir / "results.jsonl").exists()
+
+
+def test_records_mode_refuses_a_duplicated_pano(tmp_path, crosswalk):
+    store = make_store(tmp_path / "store", ["11a"])
+    records = make_source_run(tmp_path / "juneau", ["11a", "11a"])
+    with pytest.raises(SystemExit, match="twice"):
+        dfs.main_cli(["--run-dir", str(tmp_path / "run"), "--store", str(store),
+                      "--records", str(records), *_xw(tmp_path)])
+
+
+def test_server_mode_stays_curb_ramp_only(tmp_path):
+    store = make_store(tmp_path / "store", ["AA1"])
+    ids_file = tmp_path / "ids.txt"
+    ids_file.write_text("AA1\n", encoding="utf-8")
+    ckpt = tmp_path / "x.pth"
+    ckpt.write_bytes(b"")
+    with pytest.raises(SystemExit):
+        dfs.main_cli(_args(tmp_path / "run", store, "--ids", str(ids_file), "--types",
+                           "Crosswalk", "--crosswalk-checkpoint", str(ckpt)))

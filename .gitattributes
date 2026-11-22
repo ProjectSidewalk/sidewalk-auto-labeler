@@ -5,3 +5,5 @@ docs/figures/seam-band-130/data/** text eol=lf
 # Golden fixtures captured from origin/main for #168; compared byte for byte (the JSONL's
 # sha256 is inside the expected submission record), so a CRLF checkout must not rewrite them.
 tests/fixtures/multitype_submit/** text eol=lf
+# AI-validator inputs/outputs: their sha256s are recorded in the provenance JSONs, so store the bytes as is.
+runs/*/validation/validator_r3_* -text

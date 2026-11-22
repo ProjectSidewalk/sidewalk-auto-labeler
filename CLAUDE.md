@@ -437,8 +437,12 @@ Plumbing for more than one detector (Planning#36). Two specs: CurbRamp and **Cro
   `--decode`/`--border` are CurbRamp's, refused without it. A Crosswalk-only manifest has
   **null** top-level floor/decode/border (they describe CurbRamp) and its frame in
   `models.Crosswalk`. `scripts/crosswalk_parity.py` is the loader's GPU acceptance test.
-  0.23 is validated on RampNet's stored JPEGs, **not on live fetches** (their per-peak values
-  differ; not explained by JPEG q92).
+  0.23 holds on labeler-made pixels too (store path and live GSV fetch, Seattle test GT; PR
+  #188 follow-up), though individual peaks move between paths.
+- **Store-backed Crosswalk** (`detect_from_store.py --records <file PS received>`): pano blocks
+  copied verbatim from that file, which needs its `.submission.json` with the same sha256.
+  Juneau: `runs/juneau_crosswalk`, `runs/juneau_expansion_crosswalk`, validations in
+  `runs/juneau_crosswalk/validation/`. The server-metadata mode stays CurbRamp only.
 
 - **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec` (thresholds and
   `mask_rig` per type), `SPECS`, `spec_for`, `parse_types`, `load_detectors` (one shared
@@ -458,5 +462,5 @@ Plumbing for more than one detector (Planning#36). Two specs: CurbRamp and **Cro
   `mined_precision` and `provenance_gate` **refuse** anything but `{CurbRamp}`.
 - **`send_to_ps.py`** guards decode/border per type, against only campaigns that sent that
   type; bands are refused on any file that is not CurbRamp-only.
-- **Not done:** per-type `FuseParams` (PR #176), the ranker review-order export, Crosswalk in
-  `detect_from_store.py`/`reinfer.py`, a type-aware `check_store_built` (draft PR #179).
+- **Not done:** per-type `FuseParams` (PR #176), Crosswalk in `reinfer.py` and in
+  `detect_from_store.py`'s server-metadata mode.
