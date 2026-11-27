@@ -1294,7 +1294,7 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
 # store path (store JPEG -> panorama.normalize_image, what a records-mode run feeds the
 # detector) P 0.802 / R 0.850 / F1 0.825 vs stored 0.815 / 0.843 / 0.829 (348 panos with a
 # native store JPEG); the live zoom-3 GSV fetch P 0.832 / R 0.835 / F1 0.833 vs stored
-# 0.836 (278 fetchable panos). Individual peaks move between paths (crosswalk_parity.py
+# 0.829 / 0.843 / 0.836 (278 fetchable panos). Individual peaks move between paths (crosswalk_parity.py
 # --native, report only, fetches through the labeler's GSV path instead of reading the
 # JPEGs: median per-pano max |diff| 0.044, max 0.27), but F1 stays within half a point (the
 # store path's precision is 1.3 points lower, its recall 0.7 higher). Seattle only: it says
