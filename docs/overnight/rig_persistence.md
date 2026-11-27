@@ -177,11 +177,29 @@ Eight panos per cell, one per sequence (seeded draw, highest-confidence detectio
 +/-0.004 x and +/-0.006 y, conf >= 0.30), were cropped from the archived native-resolution
 panos. The contact sheets are in `data/rig_persistence/eyeball/`.
 
-| cell | what is there | rig? |
+| cell | what is there | rig? (Claude) |
 |---|---|---|
 | Lyon, 38 deg above horizon, x 0.027 (at the seam, behind the vehicle) | A dish-shaped fixture with a bracket on the Grand Lyon Ladybug vehicle. It is visible in every pano. 206 of the 219 detections there (>= 0.30) are Ladybug, and all 8 drawn panos are in road tunnels, where the fixture is lit against a dark ceiling | **yes**, 8 of 8 |
 | Lyon, 27 deg dip, dead ahead | The camera unit mounted on the front of the same green vehicle. 194 of 199 detections are Ladybug | **yes**, 7 of 8. The 8th is a GoPro Max pano from another producer, and it shows a real curb ramp with tactile paving |
 | Bayonne, 15.5 deg dip, dead ahead | Street content about 9 m ahead of a GoPro Max car (sig_bayonne): crosswalk ends at curbs, curb edges, a manhole. In 4 of 8 the car's hood is just below the spot | **no**. It is a place where corners recur, plus a confusing hood-to-road edge, not a rig part |
+
+**Human review (Jon, 2026-11-27).** The same 24 panos went through a review page, one verdict
+per pano (`eyeball/human_verdicts.csv`):
+
+| cell | Jon | agrees with the table above? |
+|---|---|---|
+| Lyon, 38 deg above horizon | 8 of 8 **unsure**: "in a tunnel, can't be sure if this is tunnel infrastructure or the rig" | open, settled by the control below |
+| Lyon, 27 deg dip ahead | 7 **rig**, 1 **not rig** (`ede17875`, the GoPro Max pano with the real ramp) | yes, pano for pano |
+| Bayonne, 15.5 deg dip ahead | 8 of 8 **not rig**. Notes: very close to the top of the car, but the circle is fully on the curb ramp, sidewalk or bike path; in two, a rig wire crosses the spot | yes |
+
+**Control for the 38 deg cell (added after that review).** Eight Grand Lyon Ladybug panos were
+drawn at random (seed 38) from the 51,979 with no detection within +/-0.02 x and +/-0.03 y of the
+spot, and the same pixel was cropped (`eyeball/control_picks.csv`,
+`sheet_lyon_above38_ctrl_*.jpg`). All 8 are on open streets, and all 8 show the same dish, threaded
+connector and hanging cable at that pixel, against the sky. Tunnel infrastructure would not follow
+the vehicle onto open streets, so the dish is mounted on the vehicle. The model fires on it only in
+tunnels, where it is lit against a dark ceiling. The 38 deg cell is therefore a rig artifact (Claude's
+read of the control; Jon's re-look is pending on the review page).
 
 The two Lyon cells are rig artifacts of one vehicle. A cell mask keyed on that vehicle's
 producer and camera (`grand lyon` / `grand-lyon`, Point Grey Ladybug) would remove them
