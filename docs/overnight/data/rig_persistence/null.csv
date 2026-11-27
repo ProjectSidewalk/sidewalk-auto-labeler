@@ -1,0 +1,9 @@
+city,real_flagged,null_mean,null_min,null_max,null_over_real,check_c
+laurens,278,186.2,151,203,0.669784,FAIL
+richmond,360,211.1,174,250,0.586389,FAIL
+juneau,1028,744.4,689,791,0.724125,FAIL
+clovis,382,148.5,91,190,0.388743,FAIL
+morgantown,1181,560.35,530,609,0.474471,FAIL
+annapolis,2507,1316.25,1239,1408,0.52503,FAIL
+bayonne,506,108.9,76,160,0.215217,FAIL
+lyon,27919,10212.4,10069,10409,0.365787,FAIL

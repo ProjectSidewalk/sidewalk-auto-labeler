@@ -1,0 +1,5 @@
+city,tier,frame,lost_ramps,lost_unplaced_only,lost_site_paired_elsewhere,lost_site_unpaired,lost_single_label,chance_covered_r5_all,chance_covered_r5_best,chance_covered_r5_random
+bend,0.3000,auto,248,3,239,6,121,0.1178,0.0409,0.0410
+bend,0.3000,2.6 m,257,3,247,7,122,0.1178,0.0396,0.0367
+bend,0.5500,auto,248,3,239,6,121,0.1178,0.0409,0.0410
+bend,0.5500,2.6 m,257,3,247,7,122,0.1178,0.0396,0.0367

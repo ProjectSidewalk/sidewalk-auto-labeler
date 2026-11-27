@@ -1361,6 +1361,61 @@ python scripts/detect_from_store.py --run-dir runs/<city>_crosswalk --store <sto
 # fuse_overrides, so the association knobs are CurbRamp's.
 ```
 
+## Rig persistence study (overnight)
+
+```bash
+# RIG PERSISTENCE. Flags a detection >= 0.30 when the same heatmap spot (within T px, seam-wrapped)
+# fires in >= K distinct non-stationary frames of its capture sequence; tunes (T, K, F) on Laurens,
+# freezes them, scores the other open cities against the 49 deg nadir mask (not applied here).
+# Refuses multi-type (#168) and non-default decode/border records. No network/GPU; ~3 min;
+# byte-identical on rerun. Verdict and caveats: docs/overnight/rig_persistence.md.
+python scripts/rig_persistence.py run --runs-root runs --benchmark-root ../RampNet/benchmark \
+    --out docs/overnight/data/rig_persistence        # --rule frozen|local|both, --cities ...
+```
+
+## Bearing refit study (overnight)
+
+```bash
+# BEARING REFIT. Bearing-only IRLS ray intersection (B) vs fusion's flat 2.6 m GLS (A) on one
+# frozen site set (tier 0.55, rig mask, >= 3 views); leave-pano-out azimuth error against RampNet
+# boxes/peaks, GT-free leave-one-view-out, and a wrong-height stress (2.0 / 3.2 m; B solvable
+# needs spread >= 10 deg on both sides). `run` writes per-city CSVs, `summarize` applies the
+# pre-registered rules. No network/GPU; 2-4 min per city. Doc: docs/overnight/bearing_refit.md.
+for c in richmond laurens bayonne paterson; do
+  python scripts/bearing_refit.py run $c --run-root runs --benchmark-root ../RampNet/benchmark
+done
+python scripts/bearing_refit.py summarize     # -> docs/overnight/data/bearing_refit/summary*
+```
+
+## Recall by tilt study (overnight)
+
+```bash
+# RECALL BY TILT. One row per GT ramp of the judged RampNet bundles (no run files), the pano's
+# pose in #113's convention, and the pre-registered three-clause rule (quartile gap, logistic
+# coefficient, within-rig x city pose shuffle). --lyon-tilt is REQUIRED to exist (Lyon's pose
+# source); the script raises rather than reading Lyon as unposed. Bundles must be CurbRamp-only.
+# ~10 s, seeded. Doc: docs/overnight/recall_by_tilt.md.
+python scripts/recall_by_tilt.py --benchmark-root ../RampNet/benchmark \
+    --lyon-tilt ../RampNet/analysis_out/pano_tilt/lyon.json \
+    --out docs/overnight/data/recall_by_tilt        # --quick: smoke draws only
+```
+
+## Best-view emission study (overnight)
+
+```bash
+# BEST-VIEW EMISSION. Arms choose which of today's labels to emit (all / one best-dip member per
+# fused site / random member / range gates), each scored at SERVER placement (ps_placement)
+# against the city inventory: anchored p90 distance, coverage at 3/5/8 m, workload, approximate
+# server clustering. The inventory is verified only when its sha256 matches
+# runs/<city>/inventory_oracle/inventory.json; any other file is a SUBSTITUTE and `verdict`
+# prints UNDETERMINED (the doc records Jon's ruling on the 2026-11-27 fresh pulls). Needs numpy,
+# scipy, shapely; no network. Doc: docs/overnight/best_view_emission.md.
+python scripts/best_view_emission.py score bend gainesville --runs-root runs \
+    --inventory bend=<inv>/bend/inventory.geojson \
+    --inventory gainesville=<inv>/gainesville/inventory.geojson
+python scripts/best_view_emission.py verdict
+```
+
 ## Tests
 
 ```bash

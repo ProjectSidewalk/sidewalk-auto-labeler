@@ -1,0 +1,5 @@
+city,tier,frame,height,panos,labels,labels_in_sites,labels_unplaced,fusion_drops_out_of_range_or_horizon_all_floor,operational_sites,single_member_sites,gate20_dropped,gate_tail_dropped,labels_in_tail,labels_range_gt20,pool,inventory_kept,m1_pairs
+bend,0.3000,auto,per-rig,78560,51529,49701,1828,1828,14058,2387,0,19679,23352,27,12129,12591,10907
+bend,0.3000,2.6 m,2.6,78560,51529,49701,1828,1828,14187,2533,0,19486,23352,27,12129,12591,10907
+bend,0.5500,auto,per-rig,78560,51529,49701,1828,1828,14058,2387,0,19679,23352,27,12129,12591,10907
+bend,0.5500,2.6 m,2.6,78560,51529,49701,1828,1828,14187,2533,0,19486,23352,27,12129,12591,10907

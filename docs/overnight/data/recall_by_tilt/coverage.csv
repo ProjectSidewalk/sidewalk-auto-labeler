@@ -1,0 +1,15 @@
+split,gt,posed_gt,posed_share,recall_posed,recall_unposed,recall_all,pose_sources
+laurens_mapillary,212,212,1.0,0.3255,,0.3255,mapillary_computed_rotation:212
+bayonne,261,57,0.218,0.2982,0.3284,0.3218,panoramax_absent:126;panoramax_panoflat:57;panoramax_zero:78
+juneau,262,262,1.0,0.6641,,0.6641,mapillary_computed_rotation:262
+lyon,921,903,0.98,0.2625,0.3889,0.2649,lyon_declined:18;rampnet_image_estimate:903
+richmond,265,265,1.0,0.7396,,0.7396,mapillary_computed_rotation:265
+clovis,160,160,1.0,0.65,,0.65,mapillary_computed_rotation:160
+morgantown,225,225,1.0,0.6844,,0.6844,mapillary_computed_rotation:225
+annapolis,250,250,1.0,0.692,,0.692,mapillary_computed_rotation:250
+budapest_district5,268,262,0.978,0.4542,0.6667,0.459,mapillary_computed_rotation:262;mapillary_missing:6
+laurens_gsv,185,185,1.0,0.4595,,0.4595,gsv_record:185
+paterson,354,354,1.0,0.6497,,0.6497,gsv_record:354
+bend,282,282,1.0,0.7376,,0.7376,gsv_record:282
+gainesville,232,232,1.0,0.6466,,0.6466,gsv_record:232
+sao_paulo,243,243,1.0,0.6255,,0.6255,gsv_record:243

@@ -1,0 +1,107 @@
+population,model,term,coef,ci_lo,ci_hi
+unbiased,T+rig+gravdip,intercept,0.1215,-0.092,0.3566
+unbiased,T+rig+gravdip,T,-0.1858,-0.3335,-0.0351
+unbiased,T+rig+gravdip,rig=gopro_fusion,0.9319,0.618,1.317
+unbiased,T+rig+gravdip,rig=istar_pulsar,1.5592,1.1514,2.0536
+unbiased,T+rig+gravdip,rig=ladybug,-0.7965,-1.2676,-0.3561
+unbiased,T+rig+gravdip,rig=other_360,-0.558,-1.1425,-0.0311
+unbiased,T+rig+gravdip,rig=trimble_mx7,1.2706,0.9933,1.5583
+unbiased,T+rig+gravdip,rig=unknown,-0.3446,-0.8089,0.1513
+unbiased,T+rig+gravdip,dip=<4,-2.5363,-3.4437,-1.8871
+unbiased,T+rig+gravdip,dip=4-6,-1.6313,-2.0195,-1.2623
+unbiased,T+rig+gravdip,dip=6-10,-0.596,-0.8225,-0.3826
+unbiased,T+rig+gravdip,dip=>=20,0.0154,-0.2407,0.2564
+unbiased,tilt+rig+gravdip,intercept,0.3174,0.0794,0.5741
+unbiased,tilt+rig+gravdip,tilt,-0.2823,-0.4203,-0.1524
+unbiased,tilt+rig+gravdip,rig=gopro_fusion,0.8569,0.5482,1.2213
+unbiased,tilt+rig+gravdip,rig=istar_pulsar,1.455,1.0187,1.9767
+unbiased,tilt+rig+gravdip,rig=ladybug,-0.9348,-1.4123,-0.4692
+unbiased,tilt+rig+gravdip,rig=other_360,-0.6574,-1.2343,-0.1252
+unbiased,tilt+rig+gravdip,rig=trimble_mx7,1.1725,0.8944,1.4599
+unbiased,tilt+rig+gravdip,rig=unknown,-0.422,-0.8696,0.0828
+unbiased,tilt+rig+gravdip,dip=<4,-2.5366,-3.4693,-1.86
+unbiased,tilt+rig+gravdip,dip=4-6,-1.636,-2.0215,-1.2671
+unbiased,tilt+rig+gravdip,dip=6-10,-0.6063,-0.8344,-0.3926
+unbiased,tilt+rig+gravdip,dip=>=20,0.0423,-0.2032,0.2831
+all_panos,T+rig+gravdip,intercept,0.3942,0.1604,0.6551
+all_panos,T+rig+gravdip,T,-0.2625,-0.4204,-0.1138
+all_panos,T+rig+gravdip,rig=gopro_fusion,1.0189,0.6401,1.4639
+all_panos,T+rig+gravdip,rig=istar_pulsar,1.4587,1.0623,1.9076
+all_panos,T+rig+gravdip,rig=ladybug,-0.6664,-1.1914,-0.2388
+all_panos,T+rig+gravdip,rig=other_360,-0.7678,-1.3503,-0.2451
+all_panos,T+rig+gravdip,rig=trimble_mx7,1.2061,0.9278,1.5195
+all_panos,T+rig+gravdip,rig=unknown,-0.3418,-0.8095,0.1915
+all_panos,T+rig+gravdip,dip=<4,-2.6274,-3.4734,-1.9993
+all_panos,T+rig+gravdip,dip=4-6,-1.7599,-2.1263,-1.403
+all_panos,T+rig+gravdip,dip=6-10,-0.647,-0.8622,-0.4499
+all_panos,T+rig+gravdip,dip=>=20,-0.053,-0.31,0.2022
+all_panos,tilt+rig+gravdip,intercept,0.617,0.3754,0.8939
+all_panos,tilt+rig+gravdip,tilt,-0.3669,-0.5077,-0.231
+all_panos,tilt+rig+gravdip,rig=gopro_fusion,0.9388,0.5576,1.3721
+all_panos,tilt+rig+gravdip,rig=istar_pulsar,1.3436,0.9215,1.8155
+all_panos,tilt+rig+gravdip,rig=ladybug,-0.8261,-1.3481,-0.3802
+all_panos,tilt+rig+gravdip,rig=other_360,-0.8741,-1.4383,-0.3515
+all_panos,tilt+rig+gravdip,rig=trimble_mx7,1.1021,0.8208,1.4157
+all_panos,tilt+rig+gravdip,rig=unknown,-0.4264,-0.8971,0.0925
+all_panos,tilt+rig+gravdip,dip=<4,-2.6327,-3.5023,-1.9871
+all_panos,tilt+rig+gravdip,dip=4-6,-1.761,-2.1393,-1.4071
+all_panos,tilt+rig+gravdip,dip=6-10,-0.6561,-0.8735,-0.4592
+all_panos,tilt+rig+gravdip,dip=>=20,-0.0162,-0.2766,0.2317
+unbiased,T sens: city_fe,intercept,6.4761,0.4158,7.6529
+unbiased,T sens: city_fe,T,0.0342,-0.1448,0.2149
+unbiased,T sens: city_fe,rig=gopro_fusion,-2.7245,-3.312,0.3494
+unbiased,T sens: city_fe,rig=istar_pulsar,-0.4473,-1.5136,0.326
+unbiased,T sens: city_fe,rig=ladybug,-0.0188,-0.5599,0.5157
+unbiased,T sens: city_fe,rig=other_360,0.1976,-0.4378,0.778
+unbiased,T sens: city_fe,rig=trimble_mx7,-4.9628,-6.0049,1.1713
+unbiased,T sens: city_fe,rig=unknown,0.0697,-0.3952,0.5534
+unbiased,T sens: city_fe,dip=<4,-2.7405,-3.6055,-2.1401
+unbiased,T sens: city_fe,dip=4-6,-1.842,-2.254,-1.4939
+unbiased,T sens: city_fe,dip=6-10,-0.6833,-0.9297,-0.4223
+unbiased,T sens: city_fe,dip=>=20,-0.0519,-0.3181,0.2144
+unbiased,T sens: city_fe,city=bayonne,-6.8302,-8.0573,-0.6397
+unbiased,T sens: city_fe,city=clovis,-2.7245,-3.312,0.3494
+unbiased,T sens: city_fe,city=juneau,-0.2537,-0.7339,0.2411
+unbiased,T sens: city_fe,city=laurens_mapillary,-6.9758,-8.1863,-0.8919
+unbiased,T sens: city_fe,city=lyon,-7.1183,-8.2105,-1.0396
+unbiased,T sens: city_fe,city=morgantown,-5.3227,-6.5067,0.7748
+unbiased,T sens: city_fe,city=richmond,-4.3392,-5.5609,2.2475
+unbiased,T sens: image_dip,intercept,-0.1229,-0.3166,0.0756
+unbiased,T sens: image_dip,T,0.001,-0.1516,0.1734
+unbiased,T sens: image_dip,rig=gopro_fusion,0.9246,0.5711,1.3204
+unbiased,T sens: image_dip,rig=istar_pulsar,1.422,1.0344,1.8939
+unbiased,T sens: image_dip,rig=ladybug,-0.7705,-1.1865,-0.3483
+unbiased,T sens: image_dip,rig=other_360,-0.6869,-1.2355,-0.1326
+unbiased,T sens: image_dip,rig=trimble_mx7,1.2097,0.9504,1.4967
+unbiased,T sens: image_dip,rig=unknown,-0.3709,-0.7878,0.1313
+unbiased,T sens: image_dip,dip=<4,-1.6626,-2.0661,-1.2759
+unbiased,T sens: image_dip,dip=4-6,-1.3657,-1.8057,-0.9803
+unbiased,T sens: image_dip,dip=6-10,-0.0092,-0.2477,0.2261
+unbiased,T sens: image_dip,dip=>=20,0.0098,-0.2713,0.2577
+unbiased,T sens: within_pano,intercept,0.2788,0.0564,0.5144
+unbiased,T sens: within_pano,T_within,0.4026,0.1281,0.659
+unbiased,T sens: within_pano,T_between,-0.3803,-0.5551,-0.2073
+unbiased,T sens: within_pano,rig=gopro_fusion,0.853,0.529,1.2131
+unbiased,T sens: within_pano,rig=istar_pulsar,1.4786,1.049,1.9579
+unbiased,T sens: within_pano,rig=ladybug,-0.9232,-1.3845,-0.4818
+unbiased,T sens: within_pano,rig=other_360,-0.6492,-1.2358,-0.1369
+unbiased,T sens: within_pano,rig=trimble_mx7,1.1961,0.9314,1.5045
+unbiased,T sens: within_pano,rig=unknown,-0.4167,-0.8999,0.1126
+unbiased,T sens: within_pano,dip=<4,-2.5547,-3.6519,-1.8851
+unbiased,T sens: within_pano,dip=4-6,-1.6291,-2.0471,-1.2697
+unbiased,T sens: within_pano,dip=6-10,-0.6088,-0.8271,-0.3889
+unbiased,T sens: within_pano,dip=>=20,0.047,-0.2104,0.3075
+unbiased,T sens: posthoc_within_pano_bearing,intercept,0.3869,0.0515,0.7601
+unbiased,T sens: posthoc_within_pano_bearing,T_within,0.4241,0.1246,0.7032
+unbiased,T sens: posthoc_within_pano_bearing,T_between,-0.3731,-0.5518,-0.1939
+unbiased,T sens: posthoc_within_pano_bearing,rig=gopro_fusion,0.8386,0.5123,1.2305
+unbiased,T sens: posthoc_within_pano_bearing,rig=istar_pulsar,1.4782,1.0543,1.9785
+unbiased,T sens: posthoc_within_pano_bearing,rig=ladybug,-0.909,-1.3799,-0.401
+unbiased,T sens: posthoc_within_pano_bearing,rig=other_360,-0.6605,-1.2189,-0.1033
+unbiased,T sens: posthoc_within_pano_bearing,rig=trimble_mx7,1.2028,0.9374,1.5122
+unbiased,T sens: posthoc_within_pano_bearing,rig=unknown,-0.4098,-0.8293,0.059
+unbiased,T sens: posthoc_within_pano_bearing,dip=<4,-2.5221,-3.5399,-1.8444
+unbiased,T sens: posthoc_within_pano_bearing,dip=4-6,-1.6118,-2.0083,-1.2286
+unbiased,T sens: posthoc_within_pano_bearing,dip=6-10,-0.5971,-0.8131,-0.3743
+unbiased,T sens: posthoc_within_pano_bearing,dip=>=20,0.0248,-0.2204,0.2969
+unbiased,T sens: posthoc_within_pano_bearing,abs_cos_bearing,-0.1665,-0.5361,0.2043

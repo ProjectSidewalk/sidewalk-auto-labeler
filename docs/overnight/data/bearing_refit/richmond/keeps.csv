@@ -1,0 +1,7 @@
+city,spread_min_deg,sites_3plus,sites_spread_ok,sites_b_solvable
+richmond,0.0,945,945,926
+richmond,5.0,945,943,925
+richmond,10.0,945,942,925
+richmond,15.0,945,939,923
+richmond,20.0,945,933,917
+richmond,30.0,945,915,901

@@ -1,0 +1,7 @@
+city,spread_min_deg,sites_3plus,sites_spread_ok,sites_b_solvable
+bayonne,0.0,793,793,684
+bayonne,5.0,793,793,684
+bayonne,10.0,793,783,681
+bayonne,15.0,793,774,678
+bayonne,20.0,793,763,669
+bayonne,30.0,793,724,641

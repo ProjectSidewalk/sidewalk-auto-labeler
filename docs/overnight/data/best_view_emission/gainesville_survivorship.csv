@@ -1,0 +1,5 @@
+city,tier,frame,height,panos,labels,labels_in_sites,labels_unplaced,fusion_drops_out_of_range_or_horizon_all_floor,operational_sites,single_member_sites,gate20_dropped,gate_tail_dropped,labels_in_tail,labels_range_gt20,pool,inventory_kept,m1_pairs
+gainesville,0.3000,auto,per-rig,35204,21874,19158,2716,6352,6857,2582,0,7943,13585,75,3040,3225,2634
+gainesville,0.3000,2.6 m,2.6,35204,21874,19158,2716,6352,8648,4187,0,6386,13585,75,3040,3225,2581
+gainesville,0.5500,auto,per-rig,35204,14090,12756,1334,6352,4536,1393,0,5191,8182,27,3040,3225,2419
+gainesville,0.5500,2.6 m,2.6,35204,14090,12756,1334,6352,6041,2900,0,3902,8182,27,3040,3225,2353

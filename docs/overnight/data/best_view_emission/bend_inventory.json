@@ -1,0 +1,14 @@
+{
+ "city": "bend",
+ "file": "<scratch>/inv/bend/inventory.geojson",
+ "sha256": "0bd2b74a57efa598534521d16bcdb8c0f208a1eeb4e910b7dbb3c491baaa95da",
+ "status": "SUBSTITUTE",
+ "record_sha256": "30acadb2abdf5dfd06adaa32705814518e8af505ee9a166db07d6a34cb7bb8ba",
+ "record_fetched_utc": "2026-09-26T14:28:53+00:00",
+ "record_in_area": 14328,
+ "record_kept": 12504,
+ "features": 12791,
+ "in_area": 12791,
+ "kept": 12591,
+ "results_sha256": "1307faa8041acbbf4cba78fd53979e2215511b8371c018f427c356f6b0e26153"
+}

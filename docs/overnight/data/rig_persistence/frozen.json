@@ -1,0 +1,14 @@
+{
+ "rule": "frozen",
+ "params": {
+  "T": 4,
+  "K": 3,
+  "F": 0.0
+ },
+ "any_cell_eligible": true,
+ "laurens_below_recall": 0.8164556962025317,
+ "laurens_above_flagged": 149,
+ "stationary_m": 2.0,
+ "member_min_conf": 0.3,
+ "nadir_mask_deg_for_reporting_only": 49.0
+}
