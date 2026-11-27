@@ -1,0 +1,10 @@
+{
+ "edges_with_panos": 125,
+ "failed_tiles": 0,
+ "failures": {},
+ "images_360_in_tiles": 3240340,
+ "metadata": 1263,
+ "near_edges": 1263,
+ "selected_panos": 530,
+ "tiles": 87
+}
