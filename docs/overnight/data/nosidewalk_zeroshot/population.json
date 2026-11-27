@@ -1,0 +1,49 @@
+{
+ "inputs": {
+  "sp_face_sha256": "3768d98ad538d81dbda20c8502649e4755a03a156f64277cb888bb555416a259",
+  "streets_sha256": "ab3152025420e2bee766979f3588096c6526735167fe3c96a13ea53e7f21a30d"
+ },
+ "n_eligible_faces": 31974,
+ "n_sampled_streets": 504,
+ "population_by_stratum": {
+  "A": 4183,
+  "D": 2748,
+  "P": 25043
+ },
+ "sample_by_stratum": {
+  "A": 210,
+  "D": 180,
+  "P": 210
+ },
+ "seed": 20261127,
+ "split_counts": {
+  "A:dev": 31,
+  "A:test": 179,
+  "D:dev": 28,
+  "D:test": 152,
+  "P:dev": 32,
+  "P:test": 178
+ },
+ "waytype_prior": {
+  "primary": {
+   "absent": 65,
+   "n": 874,
+   "p_absent": 0.07437070938215103
+  },
+  "residential": {
+   "absent": 4524,
+   "n": 22827,
+   "p_absent": 0.19818635825995531
+  },
+  "secondary": {
+   "absent": 259,
+   "n": 3405,
+   "p_absent": 0.07606461086637298
+  },
+  "tertiary": {
+   "absent": 291,
+   "n": 4021,
+   "p_absent": 0.07237005719970156
+  }
+ }
+}

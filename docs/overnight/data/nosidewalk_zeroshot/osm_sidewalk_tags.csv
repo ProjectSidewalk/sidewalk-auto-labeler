@@ -1,0 +1,1009 @@
+face_uid,osm_way_id,same_direction,osm_sidewalk,raw
+seattle:12:left,4708896,True,absent,"{""sidewalk"": ""no""}"
+seattle:12:right,4708896,True,absent,"{""sidewalk"": ""no""}"
+seattle:66:left,4848663,True,present,"{""sidewalk"": ""separate""}"
+seattle:66:right,4848663,True,present,"{""sidewalk"": ""separate""}"
+seattle:186:left,6335280,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:186:right,6335280,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:220:left,6341078,True,absent,"{""sidewalk"": ""no""}"
+seattle:220:right,6341078,True,absent,"{""sidewalk"": ""no""}"
+seattle:282:left,6342601,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:282:right,6342601,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:397:left,992813725,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:397:right,992813725,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:405:left,6343958,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:405:right,6343958,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:458:left,6344832,True,,{}
+seattle:458:right,6344832,True,,{}
+seattle:577:left,6345383,True,,{}
+seattle:577:right,6345383,True,,{}
+seattle:586:left,6345434,True,absent,"{""sidewalk"": ""no""}"
+seattle:586:right,6345434,True,absent,"{""sidewalk"": ""no""}"
+seattle:632:left,6346315,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:632:right,6346315,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:727:left,6347328,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:727:right,6347328,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:729:left,6347330,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:729:right,6347330,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:754:left,1265050010,True,,{}
+seattle:754:right,1265050010,True,,{}
+seattle:842:left,6347778,True,,{}
+seattle:842:right,6347778,True,,{}
+seattle:843:left,6347779,True,,{}
+seattle:843:right,6347779,True,,{}
+seattle:912:left,6348207,True,absent,"{""sidewalk"": ""no""}"
+seattle:912:right,6348207,True,absent,"{""sidewalk"": ""no""}"
+seattle:942:left,6348417,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:942:right,6348417,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:959:left,6348431,True,,{}
+seattle:959:right,6348431,True,,{}
+seattle:979:left,6375423,False,,{}
+seattle:979:right,6375423,False,,{}
+seattle:990:left,6348964,True,,{}
+seattle:990:right,6348964,True,,{}
+seattle:991:left,6348968,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:991:right,6348968,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:1048:left,6349825,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1048:right,6349825,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1049:left,6349825,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1049:right,6349825,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1057:left,6350101,True,absent,"{""sidewalk"": ""no""}"
+seattle:1057:right,6350101,True,absent,"{""sidewalk"": ""no""}"
+seattle:1118:left,1218035584,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:1118:right,1218035584,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:1139:left,6351475,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:1139:right,6351475,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:1144:left,6351532,True,absent,"{""sidewalk"": ""no""}"
+seattle:1144:right,6351532,True,absent,"{""sidewalk"": ""no""}"
+seattle:1184:left,976142288,True,absent,"{""sidewalk"": ""no""}"
+seattle:1184:right,976142288,True,absent,"{""sidewalk"": ""no""}"
+seattle:1196:left,6352324,True,absent,"{""sidewalk"": ""no""}"
+seattle:1196:right,6352324,True,absent,"{""sidewalk"": ""no""}"
+seattle:1217:left,6352685,True,absent,"{""sidewalk"": ""no""}"
+seattle:1217:right,6352685,True,absent,"{""sidewalk"": ""no""}"
+seattle:1235:left,6352903,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1235:right,6352903,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1259:left,6353966,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1259:right,6353966,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1281:left,6354497,True,absent,"{""sidewalk"": ""no""}"
+seattle:1281:right,6354497,True,absent,"{""sidewalk"": ""no""}"
+seattle:1315:left,6354870,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:1315:right,6354870,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:1319:left,6355519,True,,{}
+seattle:1319:right,6355519,True,,{}
+seattle:1523:left,6359355,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:1523:right,6359355,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:1539:left,6359984,False,present,"{""sidewalk:right"": ""separate""}"
+seattle:1539:right,6359984,False,,"{""sidewalk:right"": ""separate""}"
+seattle:1585:left,1070777484,True,absent,"{""sidewalk"": ""no""}"
+seattle:1585:right,1070777484,True,absent,"{""sidewalk"": ""no""}"
+seattle:1595:left,6361072,True,absent,"{""sidewalk"": ""no""}"
+seattle:1595:right,6361072,True,absent,"{""sidewalk"": ""no""}"
+seattle:1597:left,6361072,True,absent,"{""sidewalk"": ""no""}"
+seattle:1597:right,6361072,True,absent,"{""sidewalk"": ""no""}"
+seattle:1645:left,6362068,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1645:right,6362068,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1721:left,6363709,True,,{}
+seattle:1721:right,6363709,True,,{}
+seattle:1799:left,990186555,True,,{}
+seattle:1799:right,990186555,True,,{}
+seattle:1861:left,6367690,True,absent,"{""sidewalk"": ""no""}"
+seattle:1861:right,6367690,True,absent,"{""sidewalk"": ""no""}"
+seattle:1942:left,1276676886,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:1942:right,1276676886,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2004:left,6368845,True,absent,"{""sidewalk"": ""no""}"
+seattle:2004:right,6368845,True,absent,"{""sidewalk"": ""no""}"
+seattle:2017:left,6369943,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2017:right,6369943,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2148:left,6371585,True,,{}
+seattle:2148:right,6371585,True,,{}
+seattle:2157:left,6371609,True,,{}
+seattle:2157:right,6371609,True,,{}
+seattle:2189:left,1064695274,True,absent,"{""sidewalk"": ""no""}"
+seattle:2189:right,1064695274,True,absent,"{""sidewalk"": ""no""}"
+seattle:2190:left,6372072,True,present,"{""sidewalk"": ""left""}"
+seattle:2190:right,6372072,True,absent,"{""sidewalk"": ""left""}"
+seattle:2197:left,6372078,True,absent,"{""sidewalk"": ""no""}"
+seattle:2197:right,6372078,True,absent,"{""sidewalk"": ""no""}"
+seattle:2239:left,6373185,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2239:right,6373185,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2263:left,965644804,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2263:right,965644804,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2266:left,965644804,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2266:right,965644804,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2276:left,6374320,True,absent,"{""sidewalk"": ""no""}"
+seattle:2276:right,6374320,True,absent,"{""sidewalk"": ""no""}"
+seattle:2283:left,6374685,True,absent,"{""sidewalk"": ""no""}"
+seattle:2283:right,6374685,True,absent,"{""sidewalk"": ""no""}"
+seattle:2305:left,6375372,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2305:right,6375372,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2360:left,1066281611,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2360:right,1066281611,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2439:left,6377306,True,absent,"{""sidewalk"": ""no""}"
+seattle:2439:right,6377306,True,absent,"{""sidewalk"": ""no""}"
+seattle:2441:left,6377320,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:2441:right,6377320,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:2465:left,6378505,True,absent,"{""sidewalk"": ""no""}"
+seattle:2465:right,6378505,True,absent,"{""sidewalk"": ""no""}"
+seattle:2472:left,6378802,True,absent,"{""sidewalk"": ""no""}"
+seattle:2472:right,6378802,True,absent,"{""sidewalk"": ""no""}"
+seattle:2483:left,6378832,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:2483:right,6378832,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:2489:left,6379028,True,,{}
+seattle:2489:right,6379028,True,,{}
+seattle:2543:left,6380701,True,,{}
+seattle:2543:right,6380701,True,,{}
+seattle:2560:left,981848982,True,,{}
+seattle:2560:right,981848982,True,,{}
+seattle:2582:left,6381009,True,,{}
+seattle:2582:right,6381009,True,,{}
+seattle:2597:left,6381137,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2597:right,6381137,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2644:left,6381875,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2644:right,6381875,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2683:left,6383252,True,,{}
+seattle:2683:right,6383252,True,,{}
+seattle:2735:left,6383631,True,absent,"{""sidewalk"": ""no""}"
+seattle:2735:right,6383631,True,absent,"{""sidewalk"": ""no""}"
+seattle:2808:left,752851600,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2808:right,752851600,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:2832:left,6385823,True,,{}
+seattle:2832:right,6385823,True,,{}
+seattle:2840:left,6385982,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:2840:right,6385982,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:2896:left,6386975,True,present,"{""sidewalk"": ""separate""}"
+seattle:2896:right,6386975,True,present,"{""sidewalk"": ""separate""}"
+seattle:2899:left,6387101,True,absent,"{""sidewalk"": ""no""}"
+seattle:2899:right,6387101,True,absent,"{""sidewalk"": ""no""}"
+seattle:2912:left,6387521,True,absent,"{""sidewalk"": ""no""}"
+seattle:2912:right,6387521,True,absent,"{""sidewalk"": ""no""}"
+seattle:2934:left,6388207,True,,{}
+seattle:2934:right,6388207,True,,{}
+seattle:2993:left,6389551,True,,{}
+seattle:2993:right,6389551,True,,{}
+seattle:3036:left,995574098,True,present,"{""sidewalk:left"": ""separate""}"
+seattle:3036:right,995574098,True,,"{""sidewalk:left"": ""separate""}"
+seattle:3064:left,6391189,True,,{}
+seattle:3064:right,6391189,True,,{}
+seattle:3083:left,979579707,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3083:right,979579707,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3088:left,6391439,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:3088:right,6391439,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:3146:left,1066252899,True,absent,"{""sidewalk"": ""no""}"
+seattle:3146:right,1066252899,True,absent,"{""sidewalk"": ""no""}"
+seattle:3148:left,675435372,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3148:right,675435372,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3154:left,6391761,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:3154:right,6391761,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:3182:left,1450793672,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3182:right,1450793672,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3397:left,1505402275,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3397:right,1505402275,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3407:left,6396459,True,absent,"{""sidewalk"": ""no""}"
+seattle:3407:right,6396459,True,absent,"{""sidewalk"": ""no""}"
+seattle:3441:left,6396923,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3441:right,6396923,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3453:left,6397202,True,absent,"{""sidewalk"": ""no""}"
+seattle:3453:right,6397202,True,absent,"{""sidewalk"": ""no""}"
+seattle:3506:left,6397924,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3506:right,6397924,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3509:left,6397935,True,absent,"{""sidewalk"": ""no""}"
+seattle:3509:right,6397935,True,absent,"{""sidewalk"": ""no""}"
+seattle:3537:left,6398382,True,,{}
+seattle:3537:right,6398382,True,,{}
+seattle:3560:left,996520161,True,,{}
+seattle:3560:right,996520161,True,,{}
+seattle:3595:left,1414007670,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3595:right,1414007670,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3689:left,6401382,True,,{}
+seattle:3689:right,6401382,True,,{}
+seattle:3705:left,1064740568,True,absent,"{""sidewalk"": ""no""}"
+seattle:3705:right,1064740568,True,absent,"{""sidewalk"": ""no""}"
+seattle:3751:left,998008577,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3751:right,998008577,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3797:left,6403353,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:3797:right,6403353,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:3823:left,6403886,True,,{}
+seattle:3823:right,6403886,True,,{}
+seattle:3850:left,6404905,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3850:right,6404905,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:3922:left,6406178,True,absent,"{""sidewalk"": ""no""}"
+seattle:3922:right,6406178,True,absent,"{""sidewalk"": ""no""}"
+seattle:3923:left,6406178,True,absent,"{""sidewalk"": ""no""}"
+seattle:3923:right,6406178,True,absent,"{""sidewalk"": ""no""}"
+seattle:3992:left,1272366720,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:3992:right,1272366720,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:4056:left,6409188,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4056:right,6409188,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4078:left,6409492,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4078:right,6409492,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4120:left,6410233,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4120:right,6410233,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4180:left,6412341,True,,{}
+seattle:4180:right,6412341,True,,{}
+seattle:4195:left,6412863,True,,{}
+seattle:4195:right,6412863,True,,{}
+seattle:4203:left,6412874,True,absent,"{""sidewalk"": ""no""}"
+seattle:4203:right,6412874,True,absent,"{""sidewalk"": ""no""}"
+seattle:4222:left,996338832,True,,{}
+seattle:4222:right,996338832,True,,{}
+seattle:4233:left,6413571,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4233:right,6413571,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4240:left,6413589,True,,{}
+seattle:4240:right,6413589,True,,{}
+seattle:4352:left,6414804,True,absent,"{""sidewalk"": ""no""}"
+seattle:4352:right,6414804,True,absent,"{""sidewalk"": ""no""}"
+seattle:4464:left,6416462,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4464:right,6416462,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4498:left,978885275,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4498:right,978885275,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4534:left,6418093,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4534:right,6418093,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4539:left,6418098,True,,{}
+seattle:4539:right,6418098,True,,{}
+seattle:4619:left,6421409,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4619:right,6421409,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4654:left,6422906,True,,"{""sidewalk:right"": ""separate""}"
+seattle:4654:right,6422906,True,present,"{""sidewalk:right"": ""separate""}"
+seattle:4719:left,1066272578,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4719:right,1066272578,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4722:left,1066272578,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4722:right,1066272578,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4759:left,6424532,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4759:right,6424532,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4777:left,6425042,True,,{}
+seattle:4777:right,6425042,True,,{}
+seattle:4793:left,6425133,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4793:right,6425133,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:4872:left,6425862,True,absent,"{""sidewalk"": ""no""}"
+seattle:4872:right,6425862,True,absent,"{""sidewalk"": ""no""}"
+seattle:4963:left,1073212115,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:4963:right,1073212115,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:4970:left,6427450,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:4970:right,6427450,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:4995:left,6427750,True,absent,"{""sidewalk"": ""no""}"
+seattle:4995:right,6427750,True,absent,"{""sidewalk"": ""no""}"
+seattle:5112:left,6429349,True,absent,"{""sidewalk"": ""no""}"
+seattle:5112:right,6429349,True,absent,"{""sidewalk"": ""no""}"
+seattle:5132:left,6429623,True,absent,"{""sidewalk"": ""no""}"
+seattle:5132:right,6429623,True,absent,"{""sidewalk"": ""no""}"
+seattle:5152:left,6430372,True,absent,"{""sidewalk"": ""no""}"
+seattle:5152:right,6430372,True,absent,"{""sidewalk"": ""no""}"
+seattle:5158:left,6430449,True,,{}
+seattle:5158:right,6430449,True,,{}
+seattle:5262:left,6431340,True,absent,"{""sidewalk"": ""no""}"
+seattle:5262:right,6431340,True,absent,"{""sidewalk"": ""no""}"
+seattle:5268:left,6431368,True,,{}
+seattle:5268:right,6431368,True,,{}
+seattle:5306:left,1245718791,True,absent,"{""sidewalk"": ""no""}"
+seattle:5306:right,1245718791,True,absent,"{""sidewalk"": ""no""}"
+seattle:5352:left,6432939,True,absent,"{""sidewalk"": ""no""}"
+seattle:5352:right,6432939,True,absent,"{""sidewalk"": ""no""}"
+seattle:5358:left,995575535,True,,{}
+seattle:5358:right,995575535,True,,{}
+seattle:5419:left,6434748,True,,{}
+seattle:5419:right,6434748,True,,{}
+seattle:5422:left,6434798,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5422:right,6434798,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5486:left,1214994026,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:5486:right,1214994026,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:5580:left,6439348,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5580:right,6439348,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5616:left,6440104,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5616:right,6440104,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5720:left,6440729,True,,{}
+seattle:5720:right,6440729,True,,{}
+seattle:5721:left,6440737,True,absent,"{""sidewalk"": ""no""}"
+seattle:5721:right,6440737,True,absent,"{""sidewalk"": ""no""}"
+seattle:5753:left,1570573171,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5753:right,1570573171,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5759:left,1570573167,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5759:right,1570573167,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5766:left,6441381,True,,{}
+seattle:5766:right,6441381,True,,{}
+seattle:5785:left,6441800,True,,{}
+seattle:5785:right,6441800,True,,{}
+seattle:5804:left,1446759205,True,present,"{""sidewalk:left"": ""separate""}"
+seattle:5804:right,1446759205,True,,"{""sidewalk:left"": ""separate""}"
+seattle:5814:left,6441867,True,,{}
+seattle:5814:right,6441867,True,,{}
+seattle:5846:left,6442641,True,absent,"{""sidewalk"": ""no""}"
+seattle:5846:right,6442641,True,absent,"{""sidewalk"": ""no""}"
+seattle:5851:left,6442646,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:5851:right,6442646,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:5856:left,6442651,True,absent,"{""sidewalk"": ""no""}"
+seattle:5856:right,6442651,True,absent,"{""sidewalk"": ""no""}"
+seattle:5859:left,6442665,True,,{}
+seattle:5859:right,6442665,True,,{}
+seattle:5891:left,6442890,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5891:right,6442890,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5908:left,1082465763,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:5908:right,1082465763,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:5922:left,6443181,True,,{}
+seattle:5922:right,6443181,True,,{}
+seattle:5949:left,6443957,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:5949:right,6443957,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:5955:left,6443990,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5955:right,6443990,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:5988:left,6444098,True,present,"{""sidewalk:both"": ""yes""}"
+seattle:5988:right,6444098,True,present,"{""sidewalk:both"": ""yes""}"
+seattle:6017:left,997945397,True,,{}
+seattle:6017:right,997945397,True,,{}
+seattle:6138:left,6447445,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6138:right,6447445,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6145:left,993490833,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6145:right,993490833,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6199:left,6448362,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:6199:right,6448362,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:6248:left,6449036,True,absent,"{""sidewalk"": ""no""}"
+seattle:6248:right,6449036,True,absent,"{""sidewalk"": ""no""}"
+seattle:6254:left,6449042,True,,{}
+seattle:6254:right,6449042,True,,{}
+seattle:6324:left,1066301364,True,absent,"{""sidewalk"": ""no""}"
+seattle:6324:right,1066301364,True,absent,"{""sidewalk"": ""no""}"
+seattle:6346:left,6449970,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6346:right,6449970,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6378:left,1272366703,True,absent,"{""sidewalk"": ""no""}"
+seattle:6378:right,1272366703,True,absent,"{""sidewalk"": ""no""}"
+seattle:6452:left,882683786,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6452:right,882683786,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6473:left,6451877,True,absent,"{""sidewalk"": ""no""}"
+seattle:6473:right,6451877,True,absent,"{""sidewalk"": ""no""}"
+seattle:6529:left,6452536,True,absent,"{""sidewalk"": ""no""}"
+seattle:6529:right,6452536,True,absent,"{""sidewalk"": ""no""}"
+seattle:6562:left,6453663,True,,{}
+seattle:6562:right,6453663,True,,{}
+seattle:6599:left,1064740565,True,absent,"{""sidewalk"": ""no""}"
+seattle:6599:right,1064740565,True,absent,"{""sidewalk"": ""no""}"
+seattle:6666:left,6455086,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6666:right,6455086,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6700:left,998515938,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6700:right,998515938,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:6721:left,996739746,True,,{}
+seattle:6721:right,996739746,True,,{}
+seattle:6851:left,1302953207,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:6851:right,1302953207,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:6864:left,1288762870,True,absent,"{""sidewalk"": ""no""}"
+seattle:6864:right,1288762870,True,absent,"{""sidewalk"": ""no""}"
+seattle:6865:left,983416554,True,absent,"{""sidewalk"": ""right""}"
+seattle:6865:right,983416554,True,present,"{""sidewalk"": ""right""}"
+seattle:6941:left,6459942,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:6941:right,6459942,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:6975:left,6460885,False,,{}
+seattle:6975:right,6460885,False,,{}
+seattle:6983:left,6460954,True,present,"{""sidewalk:both"": ""separate"", ""sidewalk:both:surface"": ""concrete""}"
+seattle:6983:right,6460954,True,present,"{""sidewalk:both"": ""separate"", ""sidewalk:both:surface"": ""concrete""}"
+seattle:7087:left,6462079,True,,{}
+seattle:7087:right,6462079,True,,{}
+seattle:7221:left,6464126,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7221:right,6464126,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7262:left,980725531,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7262:right,980725531,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7293:left,6464747,True,,{}
+seattle:7293:right,6464747,True,,{}
+seattle:7420:left,6467025,True,absent,"{""sidewalk"": ""no""}"
+seattle:7420:right,6467025,True,absent,"{""sidewalk"": ""no""}"
+seattle:7451:left,6467368,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7451:right,6467368,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7498:left,1314748955,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:7498:right,1314748955,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:7537:left,795846219,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7537:right,795846219,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7550:left,6468679,True,,{}
+seattle:7550:right,6468679,True,,{}
+seattle:7610:left,1064740596,True,absent,"{""sidewalk"": ""no""}"
+seattle:7610:right,1064740596,True,absent,"{""sidewalk"": ""no""}"
+seattle:7612:left,1064740597,True,absent,"{""sidewalk"": ""no""}"
+seattle:7612:right,1064740597,True,absent,"{""sidewalk"": ""no""}"
+seattle:7641:left,6470591,True,absent,"{""sidewalk"": ""no""}"
+seattle:7641:right,6470591,True,absent,"{""sidewalk"": ""no""}"
+seattle:7668:left,1198859698,True,,{}
+seattle:7668:right,1198859698,True,,{}
+seattle:7672:left,1501373487,True,,{}
+seattle:7672:right,1501373487,True,,{}
+seattle:7761:left,6473191,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7761:right,6473191,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7810:left,915219548,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7810:right,915219548,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7829:left,6473995,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7829:right,6473995,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7906:left,6475006,True,,{}
+seattle:7906:right,6475006,True,,{}
+seattle:7959:left,992921143,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:7959:right,992921143,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:8254:left,1064728888,True,absent,"{""sidewalk"": ""no""}"
+seattle:8254:right,1064728888,True,absent,"{""sidewalk"": ""no""}"
+seattle:8332:left,6482160,True,absent,"{""sidewalk"": ""no""}"
+seattle:8332:right,6482160,True,absent,"{""sidewalk"": ""no""}"
+seattle:8333:left,6482160,True,absent,"{""sidewalk"": ""no""}"
+seattle:8333:right,6482160,True,absent,"{""sidewalk"": ""no""}"
+seattle:8421:left,6484330,True,,{}
+seattle:8421:right,6484330,True,,{}
+seattle:8471:left,1064911824,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:8471:right,1064911824,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:8480:left,6484693,True,absent,"{""sidewalk"": ""no""}"
+seattle:8480:right,6484693,True,absent,"{""sidewalk"": ""no""}"
+seattle:8490:left,6484866,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:8490:right,6484866,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:8539:left,6486005,True,,{}
+seattle:8539:right,6486005,True,,{}
+seattle:8580:left,6487262,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:8580:right,6487262,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:8596:left,6487449,True,,{}
+seattle:8596:right,6487449,True,,{}
+seattle:8667:left,6489353,True,,{}
+seattle:8667:right,6489353,True,,{}
+seattle:8709:left,6501715,True,,{}
+seattle:8709:right,6501715,True,,{}
+seattle:8752:left,6490996,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:8752:right,6490996,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:8757:left,6491190,True,,{}
+seattle:8757:right,6491190,True,,{}
+seattle:8768:left,6491254,True,,{}
+seattle:8768:right,6491254,True,,{}
+seattle:8805:left,6491635,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:8805:right,6491635,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:8904:left,991354151,True,,{}
+seattle:8904:right,991354151,True,,{}
+seattle:8947:left,6494764,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:8947:right,6494764,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:8980:left,6494935,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:8980:right,6494935,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:9007:left,6495198,True,,{}
+seattle:9007:right,6495198,True,,{}
+seattle:9097:left,465991368,True,present,"{""sidewalk"": ""separate""}"
+seattle:9097:right,465991368,True,present,"{""sidewalk"": ""separate""}"
+seattle:9181:left,6497407,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9181:right,6497407,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9230:left,6497636,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9230:right,6497636,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9253:left,6498132,True,absent,"{""sidewalk"": ""no""}"
+seattle:9253:right,6498132,True,absent,"{""sidewalk"": ""no""}"
+seattle:9262:left,6498292,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:9262:right,6498292,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:9291:left,6498593,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:9291:right,6498593,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:9374:left,6499651,True,absent,"{""sidewalk"": ""no""}"
+seattle:9374:right,6499651,True,absent,"{""sidewalk"": ""no""}"
+seattle:9417:left,6500158,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9417:right,6500158,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9453:left,6501314,True,present,"{""sidewalk"": ""separate""}"
+seattle:9453:right,6501314,True,present,"{""sidewalk"": ""separate""}"
+seattle:9458:left,999725703,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:9458:right,999725703,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:9569:left,1571406899,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9569:right,1571406899,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9579:left,6503125,True,,{}
+seattle:9579:right,6503125,True,,{}
+seattle:9582:left,6503139,True,,{}
+seattle:9582:right,6503139,True,,{}
+seattle:9714:left,6506764,True,,{}
+seattle:9714:right,6506764,True,,{}
+seattle:9716:left,6506775,True,,{}
+seattle:9716:right,6506775,True,,{}
+seattle:9840:left,6507939,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9840:right,6507939,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9978:left,6511010,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9978:right,6511010,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:9984:left,1064640722,True,present,"{""sidewalk"": ""left""}"
+seattle:9984:right,1064640722,True,absent,"{""sidewalk"": ""left""}"
+seattle:9988:left,6511097,True,,{}
+seattle:9988:right,6511097,True,,{}
+seattle:10097:left,6512287,True,,{}
+seattle:10097:right,6512287,True,,{}
+seattle:10146:left,6513444,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:10146:right,6513444,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:10162:left,6513571,True,absent,"{""sidewalk"": ""no""}"
+seattle:10162:right,6513571,True,absent,"{""sidewalk"": ""no""}"
+seattle:10184:left,1534175725,True,,{}
+seattle:10184:right,1534175725,True,,{}
+seattle:10277:left,6514518,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10277:right,6514518,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10294:left,6514682,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10294:right,6514682,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10312:left,6514741,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:10312:right,6514741,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:10371:left,6515135,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:10371:right,6515135,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:10379:left,6515356,True,,{}
+seattle:10379:right,6515356,True,,{}
+seattle:10386:left,6515369,True,,{}
+seattle:10386:right,6515369,True,,{}
+seattle:10441:left,6516440,True,,{}
+seattle:10441:right,6516440,True,,{}
+seattle:10486:left,6516926,True,absent,"{""sidewalk"": ""no""}"
+seattle:10486:right,6516926,True,absent,"{""sidewalk"": ""no""}"
+seattle:10496:left,6517094,True,,{}
+seattle:10496:right,6517094,True,,{}
+seattle:10547:left,1168901756,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10547:right,1168901756,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10591:left,6518160,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10591:right,6518160,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10656:left,6519425,True,,{}
+seattle:10656:right,6519425,True,,{}
+seattle:10761:left,6520808,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10761:right,6520808,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10790:left,6520843,True,present,"{""sidewalk"": ""separate""}"
+seattle:10790:right,6520843,True,present,"{""sidewalk"": ""separate""}"
+seattle:10805:left,6521060,True,,{}
+seattle:10805:right,6521060,True,,{}
+seattle:10830:left,6521524,True,absent,"{""sidewalk"": ""no""}"
+seattle:10830:right,6521524,True,absent,"{""sidewalk"": ""no""}"
+seattle:10840:left,6521582,True,,{}
+seattle:10840:right,6521582,True,,{}
+seattle:10921:left,6522638,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:10921:right,6522638,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:10923:left,6522728,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10923:right,6522728,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:10970:left,6522925,True,,{}
+seattle:10970:right,6522925,True,,{}
+seattle:11030:left,6551177,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11030:right,6551177,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11088:left,7977807,True,,{}
+seattle:11088:right,7977807,True,,{}
+seattle:11094:left,7978482,True,,{}
+seattle:11094:right,7978482,True,,{}
+seattle:11308:left,8071898,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11308:right,8071898,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11335:left,8072116,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11335:right,8072116,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11429:left,8115489,True,,{}
+seattle:11429:right,8115489,True,,{}
+seattle:11437:left,8116869,True,,{}
+seattle:11437:right,8116869,True,,{}
+seattle:11479:left,8591345,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11479:right,8591345,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11552:left,9112004,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11552:right,9112004,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11610:left,1064748683,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11610:right,1064748683,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11635:left,9121533,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11635:right,9121533,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11672:left,977367933,True,absent,"{""sidewalk"": ""no""}"
+seattle:11672:right,977367933,True,absent,"{""sidewalk"": ""no""}"
+seattle:11703:left,10378378,True,absent,"{""sidewalk"": ""no""}"
+seattle:11703:right,10378378,True,absent,"{""sidewalk"": ""no""}"
+seattle:11717:left,10378380,True,absent,"{""sidewalk"": ""no""}"
+seattle:11717:right,10378380,True,absent,"{""sidewalk"": ""no""}"
+seattle:11723:left,10380312,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:11723:right,10380312,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:11730:left,10380314,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11730:right,10380314,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11731:left,1420657935,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11731:right,1420657935,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11737:left,1064911808,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11737:right,1064911808,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:11825:left,1064723343,True,absent,"{""sidewalk"": ""no""}"
+seattle:11825:right,1064723343,True,absent,"{""sidewalk"": ""no""}"
+seattle:11870:left,983416553,True,absent,"{""sidewalk"": ""no""}"
+seattle:11870:right,983416553,True,absent,"{""sidewalk"": ""no""}"
+seattle:11931:left,10505754,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:11931:right,10505754,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:11932:left,10505754,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:11932:right,10505754,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:12001:left,11999996,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:12001:right,11999996,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:12058:left,13726933,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:12058:right,13726933,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:12069:left,13866260,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:12069:right,13866260,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:12116:left,15331293,True,,{}
+seattle:12116:right,15331293,True,,{}
+seattle:12241:left,22717073,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:12241:right,22717073,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:12250:left,22717081,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:12250:right,22717081,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:12276:left,22717261,True,,{}
+seattle:12276:right,22717261,True,,{}
+seattle:12305:left,22758993,True,,{}
+seattle:12305:right,22758993,True,,{}
+seattle:12325:left,991528926,True,,{}
+seattle:12325:right,991528926,True,,{}
+seattle:12362:left,22759119,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:12362:right,22759119,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:12377:left,22760046,True,,{}
+seattle:12377:right,22760046,True,,{}
+seattle:12891:left,30908906,True,absent,"{""sidewalk"": ""no""}"
+seattle:12891:right,30908906,True,absent,"{""sidewalk"": ""no""}"
+seattle:12978:left,1176739198,True,absent,"{""sidewalk"": ""no""}"
+seattle:12978:right,1176739198,True,absent,"{""sidewalk"": ""no""}"
+seattle:13025:left,963703346,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:13025:right,963703346,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:13202:left,32148164,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:13202:right,32148164,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:13338:left,1000629681,True,absent,"{""sidewalk"": ""no""}"
+seattle:13338:right,1000629681,True,absent,"{""sidewalk"": ""no""}"
+seattle:13339:left,33057459,True,absent,"{""sidewalk"": ""no""}"
+seattle:13339:right,33057459,True,absent,"{""sidewalk"": ""no""}"
+seattle:13533:left,36946222,True,present,"{""sidewalk"": ""separate""}"
+seattle:13533:right,36946222,True,present,"{""sidewalk"": ""separate""}"
+seattle:13565:left,37125573,True,absent,"{""sidewalk"": ""no""}"
+seattle:13565:right,37125573,True,absent,"{""sidewalk"": ""no""}"
+seattle:13890:left,40416131,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:13890:right,40416131,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:13912:left,40790090,True,,{}
+seattle:13912:right,40790090,True,,{}
+seattle:13915:left,40790122,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:13915:right,40790122,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:14053:left,48333998,True,,{}
+seattle:14053:right,48333998,True,,{}
+seattle:14163:left,998915897,True,present,"{""sidewalk"": ""separate""}"
+seattle:14163:right,998915897,True,present,"{""sidewalk"": ""separate""}"
+seattle:14211:left,54579107,True,,{}
+seattle:14211:right,54579107,True,,{}
+seattle:14250:left,57495882,True,absent,"{""sidewalk"": ""no""}"
+seattle:14250:right,57495882,True,absent,"{""sidewalk"": ""no""}"
+seattle:14735:left,1563652896,True,,{}
+seattle:14735:right,1563652896,True,,{}
+seattle:14781:left,90970996,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:14781:right,90970996,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:14862:left,102860216,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:14862:right,102860216,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:14898:left,105493444,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:14898:right,105493444,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:14929:left,111874141,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:14929:right,111874141,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15077:left,142843343,True,absent,"{""sidewalk"": ""no""}"
+seattle:15077:right,142843343,True,absent,"{""sidewalk"": ""no""}"
+seattle:15115:left,1525377594,True,present,"{""sidewalk:both"": ""yes""}"
+seattle:15115:right,1525377594,True,present,"{""sidewalk:both"": ""yes""}"
+seattle:15130:left,1521642084,True,present,"{""sidewalk"": ""separate""}"
+seattle:15130:right,1521642084,True,present,"{""sidewalk"": ""separate""}"
+seattle:15162:left,754325894,True,,{}
+seattle:15162:right,754325894,True,,{}
+seattle:15167:left,157099711,True,,{}
+seattle:15167:right,157099711,True,,{}
+seattle:15231:left,157274506,True,,{}
+seattle:15231:right,157274506,True,,{}
+seattle:15300:left,157415403,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15300:right,157415403,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15310:left,157470262,True,,{}
+seattle:15310:right,157470262,True,,{}
+seattle:15358:left,996722548,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15358:right,996722548,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15374:left,157473794,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15374:right,157473794,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15598:left,158241746,True,absent,"{""sidewalk"": ""no""}"
+seattle:15598:right,158241746,True,absent,"{""sidewalk"": ""no""}"
+seattle:15697:left,158266246,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15697:right,158266246,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15764:left,158279784,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15764:right,158279784,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15797:left,980587902,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15797:right,980587902,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15847:left,158285797,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15847:right,158285797,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15855:left,1064740574,True,absent,"{""sidewalk"": ""no""}"
+seattle:15855:right,1064740574,True,absent,"{""sidewalk"": ""no""}"
+seattle:15899:left,978786635,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15899:right,978786635,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:15935:left,158306562,True,,{}
+seattle:15935:right,158306562,True,,{}
+seattle:15992:left,158622810,True,present,"{""sidewalk"": ""separate""}"
+seattle:15992:right,158622810,True,present,"{""sidewalk"": ""separate""}"
+seattle:16037:left,158718048,True,absent,"{""sidewalk"": ""no""}"
+seattle:16037:right,158718048,True,absent,"{""sidewalk"": ""no""}"
+seattle:16137:left,158718505,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:16137:right,158718505,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:16167:left,158718544,True,,{}
+seattle:16167:right,158718544,True,,{}
+seattle:16224:left,158718750,True,absent,"{""sidewalk"": ""no""}"
+seattle:16224:right,158718750,True,absent,"{""sidewalk"": ""no""}"
+seattle:16248:left,158719471,True,absent,"{""sidewalk"": ""no""}"
+seattle:16248:right,158719471,True,absent,"{""sidewalk"": ""no""}"
+seattle:16264:left,158719524,True,,{}
+seattle:16264:right,158719524,True,,{}
+seattle:16273:left,158719549,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:16273:right,158719549,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:16279:left,158719573,True,,{}
+seattle:16279:right,158719573,True,,{}
+seattle:16313:left,158719622,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16313:right,158719622,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16317:left,1272366681,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:16317:right,1272366681,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:16327:left,158719697,True,absent,"{""sidewalk"": ""no""}"
+seattle:16327:right,158719697,True,absent,"{""sidewalk"": ""no""}"
+seattle:16337:left,158752624,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16337:right,158752624,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16351:left,158752701,True,absent,"{""sidewalk"": ""no""}"
+seattle:16351:right,158752701,True,absent,"{""sidewalk"": ""no""}"
+seattle:16486:left,158753374,True,absent,"{""sidewalk"": ""no""}"
+seattle:16486:right,158753374,True,absent,"{""sidewalk"": ""no""}"
+seattle:16487:left,158753374,True,absent,"{""sidewalk"": ""no""}"
+seattle:16487:right,158753374,True,absent,"{""sidewalk"": ""no""}"
+seattle:16555:left,158781108,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16555:right,158781108,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16569:left,158781188,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:16569:right,158781188,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:16645:left,158781416,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16645:right,158781416,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16663:left,979434135,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16663:right,979434135,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16788:left,158782275,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16788:right,158782275,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16867:left,158782385,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16867:right,158782385,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16885:left,158788665,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:16885:right,158788665,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:16903:left,158788674,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:16903:right,158788674,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:16906:left,158788681,True,absent,"{""sidewalk"": ""no""}"
+seattle:16906:right,158788681,True,absent,"{""sidewalk"": ""no""}"
+seattle:16933:left,158788845,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:16933:right,158788845,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:16973:left,158794058,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16973:right,158794058,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16978:left,158794058,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:16978:right,158794058,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17102:left,159547099,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17102:right,159547099,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17106:left,159547101,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17106:right,159547101,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17160:left,159937581,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17160:right,159937581,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17204:left,160432281,True,,{}
+seattle:17204:right,160432281,True,,{}
+seattle:17246:left,161001724,True,,{}
+seattle:17246:right,161001724,True,,{}
+seattle:17329:left,161568836,True,,{}
+seattle:17329:right,161568836,True,,{}
+seattle:17376:left,1064695287,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:17376:right,1064695287,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:17434:left,901477545,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17434:right,901477545,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17532:left,172716913,True,present,"{""sidewalk:left"": ""yes"", ""sidewalk:right"": ""separate""}"
+seattle:17532:right,172716913,True,present,"{""sidewalk:left"": ""yes"", ""sidewalk:right"": ""separate""}"
+seattle:17561:left,174699608,True,,{}
+seattle:17561:right,174699608,True,,{}
+seattle:17562:left,996365427,True,,{}
+seattle:17562:right,996365427,True,,{}
+seattle:17739:left,1415672752,True,present,"{""sidewalk:left"": ""separate""}"
+seattle:17739:right,1415672752,True,,"{""sidewalk:left"": ""separate""}"
+seattle:17776:left,193532583,True,,{}
+seattle:17776:right,193532583,True,,{}
+seattle:17808:left,206883227,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17808:right,206883227,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:17863:left,220769688,True,,{}
+seattle:17863:right,220769688,True,,{}
+seattle:17907:left,222531791,True,absent,"{""sidewalk"": ""no""}"
+seattle:17907:right,222531791,True,absent,"{""sidewalk"": ""no""}"
+seattle:17908:left,222531791,True,absent,"{""sidewalk"": ""no""}"
+seattle:17908:right,222531791,True,absent,"{""sidewalk"": ""no""}"
+seattle:17916:left,222663601,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:17916:right,222663601,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:18195:left,1272366740,True,absent,"{""sidewalk"": ""no""}"
+seattle:18195:right,1272366740,True,absent,"{""sidewalk"": ""no""}"
+seattle:18201:left,240153820,True,absent,"{""sidewalk"": ""no""}"
+seattle:18201:right,240153820,True,absent,"{""sidewalk"": ""no""}"
+seattle:18217:left,240155474,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:18217:right,240155474,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:18233:left,1073212165,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:18233:right,1073212165,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:18242:left,240158018,True,absent,"{""sidewalk"": ""no""}"
+seattle:18242:right,240158018,True,absent,"{""sidewalk"": ""no""}"
+seattle:18255:left,240158137,False,absent,"{""sidewalk:both"": ""no""}"
+seattle:18255:right,240158137,False,absent,"{""sidewalk:both"": ""no""}"
+seattle:18396:left,240177902,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:18396:right,240177902,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:18415:left,240187945,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:18415:right,240187945,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:18521:left,1064695278,True,absent,"{""sidewalk"": ""no""}"
+seattle:18521:right,1064695278,True,absent,"{""sidewalk"": ""no""}"
+seattle:18535:left,240275513,True,absent,"{""sidewalk"": ""no""}"
+seattle:18535:right,240275513,True,absent,"{""sidewalk"": ""no""}"
+seattle:18562:left,240570106,True,absent,"{""sidewalk"": ""no""}"
+seattle:18562:right,240570106,True,absent,"{""sidewalk"": ""no""}"
+seattle:18595:left,1064740578,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:18595:right,1064740578,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:18706:left,242517889,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:18706:right,242517889,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:18719:left,805680044,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:18719:right,805680044,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:18753:left,243349338,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:18753:right,243349338,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:18806:left,243352637,True,,{}
+seattle:18806:right,243352637,True,,{}
+seattle:18832:left,1066301343,True,absent,"{""sidewalk"": ""no""}"
+seattle:18832:right,1066301343,True,absent,"{""sidewalk"": ""no""}"
+seattle:18988:left,999725701,True,present,"{""sidewalk"": ""separate""}"
+seattle:18988:right,999725701,True,present,"{""sidewalk"": ""separate""}"
+seattle:19001:left,245838593,True,,{}
+seattle:19001:right,245838593,True,,{}
+seattle:19013:left,245838595,True,,{}
+seattle:19013:right,245838595,True,,{}
+seattle:19039:left,245858925,True,absent,"{""sidewalk"": ""no""}"
+seattle:19039:right,245858925,True,absent,"{""sidewalk"": ""no""}"
+seattle:19072:left,996521987,True,,{}
+seattle:19072:right,996521987,True,,{}
+seattle:19241:left,250169476,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:19241:right,250169476,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:19242:left,250169476,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:19242:right,250169476,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:19245:left,993885935,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:19245:right,993885935,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:19332:left,251671335,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:19332:right,251671335,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:19511:left,1074904507,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19511:right,1074904507,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19590:left,260318016,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19590:right,260318016,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19594:left,260318962,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19594:right,260318962,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19644:left,260373862,True,,{}
+seattle:19644:right,260373862,True,,{}
+seattle:19757:left,263548004,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19757:right,263548004,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19781:left,263557946,True,present,"{""sidewalk"": ""separate""}"
+seattle:19781:right,263557946,True,present,"{""sidewalk"": ""separate""}"
+seattle:19785:left,263563169,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19785:right,263563169,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19790:left,1220418545,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19790:right,1220418545,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19795:left,263563334,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19795:right,263563334,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19866:left,263688297,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19866:right,263688297,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:19987:left,263732094,True,,{}
+seattle:19987:right,263732094,True,,{}
+seattle:20000:left,263732253,True,,{}
+seattle:20000:right,263732253,True,,{}
+seattle:20061:left,797328240,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20061:right,797328240,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20096:left,279475222,True,,{}
+seattle:20096:right,279475222,True,,{}
+seattle:20151:left,292096847,True,,{}
+seattle:20151:right,292096847,True,,{}
+seattle:20163:left,292810738,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:20163:right,292810738,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:20320:left,696784837,False,,{}
+seattle:20320:right,696784837,False,,{}
+seattle:20348:left,988098840,True,absent,"{""sidewalk"": ""no""}"
+seattle:20348:right,988098840,True,absent,"{""sidewalk"": ""no""}"
+seattle:20357:left,307673397,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20357:right,307673397,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20363:left,315995490,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20363:right,315995490,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20367:left,315998782,True,,{}
+seattle:20367:right,315998782,True,,{}
+seattle:20411:left,317148003,True,,{}
+seattle:20411:right,317148003,True,,{}
+seattle:20441:left,328326989,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:20441:right,328326989,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:20605:left,332066570,True,,{}
+seattle:20605:right,332066570,True,,{}
+seattle:20635:left,332168311,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:20635:right,332168311,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:20647:left,332175731,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:20647:right,332175731,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:20658:left,332175736,True,,{}
+seattle:20658:right,332175736,True,,{}
+seattle:20707:left,332200726,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20707:right,332200726,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20885:left,1066269202,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20885:right,1066269202,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20926:left,332598703,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20926:right,332598703,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20983:left,332992780,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20983:right,332992780,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20985:left,332992780,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:20985:right,332992780,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:21079:left,336908259,True,present,"{""sidewalk:left"": ""separate""}"
+seattle:21079:right,336908259,True,,"{""sidewalk:left"": ""separate""}"
+seattle:21199:left,337894293,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:21199:right,337894293,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:21223:left,22760282,False,present,"{""sidewalk:both"": ""separate""}"
+seattle:21223:right,22760282,False,present,"{""sidewalk:both"": ""separate""}"
+seattle:21242:left,339063354,True,absent,"{""sidewalk"": ""no""}"
+seattle:21242:right,339063354,True,absent,"{""sidewalk"": ""no""}"
+seattle:21246:left,339063355,True,absent,"{""sidewalk"": ""no""}"
+seattle:21246:right,339063355,True,absent,"{""sidewalk"": ""no""}"
+seattle:21273:left,340087457,True,,{}
+seattle:21273:right,340087457,True,,{}
+seattle:21296:left,340110590,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:21296:right,340110590,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:21304:left,737408894,True,absent,"{""sidewalk"": ""no""}"
+seattle:21304:right,737408894,True,absent,"{""sidewalk"": ""no""}"
+seattle:21314:left,340339854,True,,{}
+seattle:21314:right,340339854,True,,{}
+seattle:21368:left,342661006,True,,{}
+seattle:21368:right,342661006,True,,{}
+seattle:21390:left,342789611,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:21390:right,342789611,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:21556:left,353132634,True,present,"{""sidewalk"": ""separate""}"
+seattle:21556:right,353132634,True,present,"{""sidewalk"": ""separate""}"
+seattle:21602:left,991349775,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:21602:right,991349775,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:21609:left,358404041,True,,{}
+seattle:21609:right,358404041,True,,{}
+seattle:21690:left,362861037,True,,{}
+seattle:21690:right,362861037,True,,{}
+seattle:21697:left,363207044,True,,{}
+seattle:21697:right,363207044,True,,{}
+seattle:21764:left,364254479,True,absent,"{""sidewalk"": ""no""}"
+seattle:21764:right,364254479,True,absent,"{""sidewalk"": ""no""}"
+seattle:22077:left,375118396,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:22077:right,375118396,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:22281:left,389579334,True,,{}
+seattle:22281:right,389579334,True,,{}
+seattle:22290:left,1089777902,True,,{}
+seattle:22290:right,1089777902,True,,{}
+seattle:22545:left,995260831,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:22545:right,995260831,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:22721:left,405557375,True,,{}
+seattle:22721:right,405557375,True,,{}
+seattle:22949:left,427901444,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:22949:right,427901444,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:22954:left,427901448,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:22954:right,427901448,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:23359:left,428045612,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:23359:right,428045612,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:23465:left,1571233837,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:23465:right,1571233837,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:23861:left,428099782,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate"", ""sidewalk:right:surface"": ""concrete""}"
+seattle:23861:right,428099782,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate"", ""sidewalk:right:surface"": ""concrete""}"
+seattle:24134:left,427914145,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:24134:right,427914145,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:24339:left,428252541,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:24339:right,428252541,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:24465:left,428306672,True,present,"{""sidewalk"": ""separate""}"
+seattle:24465:right,428306672,True,present,"{""sidewalk"": ""separate""}"
+seattle:24598:left,430887189,True,,{}
+seattle:24598:right,430887189,True,,{}
+seattle:24657:left,435198160,True,absent,"{""sidewalk"": ""no""}"
+seattle:24657:right,435198160,True,absent,"{""sidewalk"": ""no""}"
+seattle:24704:left,436480245,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:24704:right,436480245,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:24715:left,758641222,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:24715:right,758641222,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:24726:left,1272366748,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:24726:right,1272366748,True,absent,"{""sidewalk:both"": ""no""}"
+seattle:24800:left,449448706,True,absent,"{""sidewalk"": ""no""}"
+seattle:24800:right,449448706,True,absent,"{""sidewalk"": ""no""}"
+seattle:24857:left,455866875,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:24857:right,455866875,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:25049:left,970154493,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:25049:right,970154493,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:25088:left,460419019,True,present,"{""sidewalk"": ""separate""}"
+seattle:25088:right,460419019,True,present,"{""sidewalk"": ""separate""}"
+seattle:25171:left,461219149,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:25171:right,461219149,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:25226:left,462700206,True,,{}
+seattle:25226:right,462700206,True,,{}
+seattle:25249:left,462701806,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:25249:right,462701806,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:25517:left,1066252910,True,absent,"{""sidewalk"": ""no""}"
+seattle:25517:right,1066252910,True,absent,"{""sidewalk"": ""no""}"
+seattle:25529:left,995574099,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:25529:right,995574099,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:25678:left,486243427,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:25678:right,486243427,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:25963:left,975765902,True,absent,"{""sidewalk"": ""no""}"
+seattle:25963:right,975765902,True,absent,"{""sidewalk"": ""no""}"
+seattle:26234:left,533303413,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:26234:right,533303413,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate""}"
+seattle:26237:left,1066149025,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:26237:right,1066149025,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:26272:left,535488273,True,,{}
+seattle:26272:right,535488273,True,,{}
+seattle:26312:left,537620219,True,,{}
+seattle:26312:right,537620219,True,,{}
+seattle:26508:left,548654006,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:26508:right,548654006,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:26646:left,576986764,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate"", ""sidewalk:right:surface"": ""concrete""}"
+seattle:26646:right,576986764,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""separate"", ""sidewalk:right:surface"": ""concrete""}"
+seattle:26762:left,1272366699,True,absent,"{""sidewalk"": ""no""}"
+seattle:26762:right,1272366699,True,absent,"{""sidewalk"": ""no""}"
+seattle:26990:left,1004801263,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:26990:right,1004801263,True,present,"{""sidewalk:both"": ""separate""}"
+seattle:27309:left,635451429,True,present,"{""sidewalk"": ""separate""}"
+seattle:27309:right,635451429,True,present,"{""sidewalk"": ""separate""}"
+seattle:27389:left,785258133,True,present,"{""sidewalk"": ""separate""}"
+seattle:27389:right,785258133,True,present,"{""sidewalk"": ""separate""}"
+seattle:27417:left,642753174,True,present,"{""sidewalk"": ""both""}"
+seattle:27417:right,642753174,True,present,"{""sidewalk"": ""both""}"
+seattle:27508:left,648876366,True,absent,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""yes""}"
+seattle:27508:right,648876366,True,present,"{""sidewalk:left"": ""no"", ""sidewalk:right"": ""yes""}"
+seattle:27516:left,648876367,True,,{}
+seattle:27516:right,648876367,True,,{}
+seattle:27637:left,760467283,True,present,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
+seattle:27637:right,760467283,True,absent,"{""sidewalk:left"": ""separate"", ""sidewalk:right"": ""no""}"
