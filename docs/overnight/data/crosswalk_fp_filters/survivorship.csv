@@ -1,0 +1,53 @@
+arm,group,value,total,removed
+A,camera_model,GoPro Max,292,107
+A,camera_model,Trimble mx7,3287,3151
+A,offset_src,rig,54,27
+A,offset_src,sequence,3525,3231
+A,run,juneau_crosswalk,3525,3231
+A,run,juneau_expansion_crosswalk,54,27
+A,sample_stratum,dropped,30,25
+A,sample_stratum,kept,50,47
+A,sample_stratum,not_sampled,3499,3186
+A,vote_set,random_sample,80,72
+A,vote_set,tuning,265,227
+A,vote_set,unsure,4,4
+A,vote_set,unvoted,3230,2955
+B,camera_model,GoPro Max,292,14
+B,camera_model,Trimble mx7,3287,333
+B,offset_src,rig,54,11
+B,offset_src,sequence,3525,336
+B,run,juneau_crosswalk,3525,336
+B,run,juneau_expansion_crosswalk,54,11
+B,sample_stratum,dropped,30,4
+B,sample_stratum,kept,50,2
+B,sample_stratum,not_sampled,3499,341
+B,vote_set,random_sample,80,6
+B,vote_set,tuning,265,30
+B,vote_set,unsure,4,0
+B,vote_set,unvoted,3230,311
+C,camera_model,GoPro Max,292,15
+C,camera_model,Trimble mx7,3287,351
+C,offset_src,rig,54,14
+C,offset_src,sequence,3525,352
+C,run,juneau_crosswalk,3525,352
+C,run,juneau_expansion_crosswalk,54,14
+C,sample_stratum,dropped,30,6
+C,sample_stratum,kept,50,1
+C,sample_stratum,not_sampled,3499,359
+C,vote_set,random_sample,80,7
+C,vote_set,tuning,265,31
+C,vote_set,unsure,4,0
+C,vote_set,unvoted,3230,328
+D,camera_model,GoPro Max,292,122
+D,camera_model,Trimble mx7,3287,3174
+D,offset_src,rig,54,39
+D,offset_src,sequence,3525,3257
+D,run,juneau_crosswalk,3525,3257
+D,run,juneau_expansion_crosswalk,54,39
+D,sample_stratum,dropped,30,25
+D,sample_stratum,kept,50,47
+D,sample_stratum,not_sampled,3499,3224
+D,vote_set,random_sample,80,72
+D,vote_set,tuning,265,231
+D,vote_set,unsure,4,4
+D,vote_set,unvoted,3230,2989

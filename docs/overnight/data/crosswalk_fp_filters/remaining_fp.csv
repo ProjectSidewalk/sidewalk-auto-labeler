@@ -1,0 +1,86 @@
+arm,fp_class,disagree_left,disagree_removed
+none,capture-car roof,52,0
+none,brick/paver sidewalk,40,0
+none,fence/tree shadows,11,0
+none,stairs,6,0
+none,parking-lot / access-aisle stripes,5,0
+none,"other road markings (chalk/paint, bike lane)",4,0
+none,turn lane,4,0
+none,curb ramp,3,0
+none,driveway crossing,3,0
+none,(no comment),2,0
+none,fence,1,0
+none,median,1,0
+none,other car roof,1,0
+none,placement off the crosswalk,1,0
+none,plain sidewalk,1,0
+none,reflection in a window,1,0
+none,"(Agree votes, all)",,0
+A,capture-car roof,14,38
+A,brick/paver sidewalk,5,35
+A,fence/tree shadows,1,10
+A,stairs,0,6
+A,parking-lot / access-aisle stripes,0,5
+A,"other road markings (chalk/paint, bike lane)",0,4
+A,turn lane,0,4
+A,curb ramp,0,3
+A,driveway crossing,0,3
+A,(no comment),0,2
+A,fence,0,1
+A,median,0,1
+A,other car roof,0,1
+A,placement off the crosswalk,0,1
+A,plain sidewalk,0,1
+A,reflection in a window,0,1
+A,"(Agree votes, all)",,182
+B,capture-car roof,41,11
+B,brick/paver sidewalk,25,15
+B,fence/tree shadows,10,1
+B,stairs,6,0
+B,parking-lot / access-aisle stripes,5,0
+B,"other road markings (chalk/paint, bike lane)",4,0
+B,turn lane,4,0
+B,curb ramp,3,0
+B,driveway crossing,3,0
+B,(no comment),2,0
+B,fence,1,0
+B,median,1,0
+B,other car roof,1,0
+B,placement off the crosswalk,1,0
+B,plain sidewalk,1,0
+B,reflection in a window,1,0
+B,"(Agree votes, all)",,9
+C,capture-car roof,52,0
+C,brick/paver sidewalk,13,27
+C,fence/tree shadows,7,4
+C,stairs,6,0
+C,parking-lot / access-aisle stripes,5,0
+C,"other road markings (chalk/paint, bike lane)",4,0
+C,turn lane,4,0
+C,curb ramp,3,0
+C,driveway crossing,3,0
+C,(no comment),2,0
+C,fence,1,0
+C,median,1,0
+C,other car roof,1,0
+C,placement off the crosswalk,1,0
+C,plain sidewalk,1,0
+C,reflection in a window,1,0
+C,"(Agree votes, all)",,7
+D,capture-car roof,14,38
+D,brick/paver sidewalk,1,39
+D,fence/tree shadows,1,10
+D,stairs,0,6
+D,parking-lot / access-aisle stripes,0,5
+D,"other road markings (chalk/paint, bike lane)",0,4
+D,turn lane,0,4
+D,curb ramp,0,3
+D,driveway crossing,0,3
+D,(no comment),0,2
+D,fence,0,1
+D,median,0,1
+D,other car roof,0,1
+D,placement off the crosswalk,0,1
+D,plain sidewalk,0,1
+D,reflection in a window,0,1
+D,"(Agree votes, all)",,182

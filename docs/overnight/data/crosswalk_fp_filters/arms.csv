@@ -1,0 +1,11 @@
+mode,arm,params,tuning_eligible,removed,removed_share,precision,precision_lo,precision_hi,delta,delta_lo,delta_hi,tp_lost_est,tp_lost_share,tp_lost_share_lo,tp_lost_share_hi,control_p,sample_removed,sample_removed_agree,sample_removed_disagree,crit_ci,crit_control,crit_loss,recommended,tune_precision,tune_agree_removed,tune_disagree_removed
+primary,none,null,,0,0.0,0.7218,0.6561,0.7825,0.0,0.0,0.0,0.0,0.0,0.0,0.0,nan,0,0,0,False,False,True,False,0.6,0/159,0/106
+primary,A,"[16, 3]",False,3258,0.9103,0.5366,0.0,0.797,-0.1852,-0.7164,0.0766,2417.1,0.9356,0.8423,1.0,0.8548,72,46,25,False,False,False,False,0.6053,136/159,91/106
+primary,B,35.0,True,347,0.097,0.7374,0.6668,0.7949,0.0155,0.0,0.0268,110.9,0.0429,0.0,0.1209,0.1628,6,2,4,False,False,True,False,0.6468,7/159,23/106
+primary,C,"[30.0, 40.0, 45.0]",True,366,0.1023,0.7544,0.6813,0.8078,0.0325,0.0039,0.0598,55.4,0.0215,0.0,0.08,0.0244,7,1,6,True,True,True,True,0.6538,6/159,25/106
+primary,D,"{""A"": [16, 3], ""C"": [30.0, 40.0, 45.0]}",,3296,0.9209,0.5366,0.0,0.797,-0.1852,-0.7164,0.0766,2417.1,0.9356,0.8423,1.0,0.839,72,46,25,False,False,False,False,0.6765,136/159,95/106
+unsure_as_disagree,none,null,,0,0.0,0.7218,0.6561,0.7825,0.0,0.0,0.0,0.0,0.0,0.0,0.0,nan,0,0,0,False,False,True,False,0.6,0/159,0/106
+unsure_as_disagree,A,"[16, 3]",False,3258,0.9103,0.5366,0.0,0.797,-0.1852,-0.7164,0.0766,2417.1,0.9356,0.8423,1.0,0.8548,72,46,25,False,False,False,False,0.6053,136/159,91/106
+unsure_as_disagree,B,35.0,True,347,0.097,0.7374,0.6668,0.7949,0.0155,0.0,0.0268,110.9,0.0429,0.0,0.1209,0.1628,6,2,4,False,False,True,False,0.6468,7/159,23/106
+unsure_as_disagree,C,"[30.0, 40.0, 45.0]",True,366,0.1023,0.7544,0.6813,0.8078,0.0325,0.0039,0.0598,55.4,0.0215,0.0,0.08,0.0244,7,1,6,True,True,True,True,0.6538,6/159,25/106
+unsure_as_disagree,D,"{""A"": [16, 3], ""C"": [30.0, 40.0, 45.0]}",,3296,0.9209,0.5366,0.0,0.797,-0.1852,-0.7164,0.0766,2417.1,0.9356,0.8423,1.0,0.839,72,46,25,False,False,False,False,0.6765,136/159,95/106

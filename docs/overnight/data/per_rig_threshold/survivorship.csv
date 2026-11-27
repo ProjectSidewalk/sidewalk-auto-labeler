@@ -1,0 +1,9 @@
+split,bundle_panos,gt_ramps,panos_used,peaks_below_floor,peaks_border,peaks_cache,peaks_kept,peaks_rig_mask
+richmond,124,310,124,100,0,537,437,0
+clovis,125,195,125,105,0,392,287,0
+morgantown,125,267,125,111,0,480,360,9
+annapolis,125,294,125,78,0,419,341,0
+laurens_mapillary,94,249,94,111,2,374,228,33
+juneau,125,297,125,92,5,434,337,0
+bayonne,125,301,125,170,15,565,380,0
+lyon,200,967,200,0,0,914,893,21

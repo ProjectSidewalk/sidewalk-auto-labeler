@@ -1,0 +1,25 @@
+city,tier,frame,setting,set,sites,ramps8_0,ramps8_1,ramps8_2plus,share_one_ramp
+gainesville,0.3000,auto,rule,rule,4275,1465,2109,701,0.4933
+gainesville,0.3000,auto,rule,random_split,4275,1465,2109,701,0.4933
+gainesville,0.3000,auto,rule,all_multi_member_sites,4275,1465,2109,701,0.4933
+gainesville,0.3000,auto,knee,rule,901,349,395,157,0.4384
+gainesville,0.3000,auto,knee,random_split,901,295,440,166,0.4883
+gainesville,0.3000,auto,knee,all_multi_member_sites,4275,1465,2109,701,0.4933
+gainesville,0.3000,2.6 m,rule,rule,4461,1436,2274,751,0.5098
+gainesville,0.3000,2.6 m,rule,random_split,4461,1436,2274,751,0.5098
+gainesville,0.3000,2.6 m,rule,all_multi_member_sites,4461,1436,2274,751,0.5098
+gainesville,0.3000,2.6 m,knee,rule,1056,320,519,217,0.4915
+gainesville,0.3000,2.6 m,knee,random_split,1056,336,528,192,0.5000
+gainesville,0.3000,2.6 m,knee,all_multi_member_sites,4461,1436,2274,751,0.5098
+gainesville,0.5500,auto,rule,rule,3143,893,1687,563,0.5367
+gainesville,0.5500,auto,rule,random_split,3143,893,1687,563,0.5367
+gainesville,0.5500,auto,rule,all_multi_member_sites,3143,893,1687,563,0.5367
+gainesville,0.5500,auto,knee,rule,564,201,256,107,0.4539
+gainesville,0.5500,auto,knee,random_split,564,178,271,115,0.4805
+gainesville,0.5500,auto,knee,all_multi_member_sites,3143,893,1687,563,0.5367
+gainesville,0.5500,2.6 m,rule,rule,3141,854,1707,580,0.5435
+gainesville,0.5500,2.6 m,rule,random_split,3141,854,1707,580,0.5435
+gainesville,0.5500,2.6 m,rule,all_multi_member_sites,3141,854,1707,580,0.5435
+gainesville,0.5500,2.6 m,knee,rule,721,189,370,162,0.5132
+gainesville,0.5500,2.6 m,knee,random_split,721,211,385,125,0.5340
+gainesville,0.5500,2.6 m,knee,all_multi_member_sites,3141,854,1707,580,0.5435

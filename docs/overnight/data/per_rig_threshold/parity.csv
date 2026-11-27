@@ -1,0 +1,9 @@
+split,pred_source,record_dets,reproduced,frac,passes,gt_mismatch_vs_cache
+richmond,op_cache,267,267,1.0000,True,0
+clovis,op_cache,164,164,1.0000,True,0
+morgantown,op_cache,208,208,1.0000,True,0
+annapolis,op_cache,227,227,1.0000,True,0
+laurens_mapillary,op_cache,111,111,1.0000,True,0
+juneau,op_cache,217,217,1.0000,True,0
+bayonne,op_cache,147,147,1.0000,True,0
+lyon,run_peaks,335,335,1.0000,True,0

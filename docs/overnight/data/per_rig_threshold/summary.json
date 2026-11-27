@@ -1,0 +1,192 @@
+{
+ "config": {
+  "grid": [
+   0.1,
+   0.9,
+   0.01
+  ],
+  "guard_slack": 0.03,
+  "lam": 1.0,
+  "lyon_results_sha256": "60e688b28b62f85e71f51c603dc1b6f4ff020348220c6cc7955891dcfef061ef",
+  "min_cities": 2,
+  "min_city_gt": 20,
+  "min_rig_gt": 100,
+  "n_boot": 2000,
+  "precision_floor": 0.85,
+  "seed": 20261127,
+  "shuffles": 200
+ },
+ "primary": {
+  "analysis": "primary",
+  "d_A1-A0": -0.3125,
+  "d_A1-A0_hi": 0.7752856771592093,
+  "d_A1-A0_lo": -2.0051521264898025,
+  "d_A2-A0": -0.9722222222222214,
+  "d_A2-A0_hi": 0.4908769101656984,
+  "d_A2-A0_lo": -2.666342077402115,
+  "d_A2-A1": -0.6597222222222214,
+  "d_A2-A1_hi": 1.4796316066455144,
+  "d_A2-A1_lo": -2.2079320426975677,
+  "equal_weight": false,
+  "guard_ok": true,
+  "lam": 1.0,
+  "shuffle_draws": 200,
+  "shuffle_median": -0.7291666666666643,
+  "shuffle_p95": 0.0017361111111104796,
+  "shuffle_reaching": 94,
+  "u_A0": 50.104166666666664,
+  "u_A1": 49.791666666666664,
+  "u_A2": 49.13194444444444,
+  "u_oracle": 52.326388888888886
+ },
+ "primary_detail": {
+  "annapolis": {
+   "eligible": [
+    "gopro_max",
+    "unknown"
+   ],
+   "global_t": 0.32,
+   "held_rigs": {
+    "trimble_mx7": 125
+   },
+   "oracle_t": 0.44,
+   "other_t": 0.38,
+   "rig_t": {
+    "gopro_max": 0.27,
+    "unknown": 0.42
+   }
+  },
+  "bayonne": {
+   "eligible": [
+    "gopro_max",
+    "trimble_mx7",
+    "unknown"
+   ],
+   "global_t": 0.32,
+   "held_rigs": {
+    "gopro_max": 125
+   },
+   "oracle_t": 0.25,
+   "other_t": 0.38,
+   "rig_t": {
+    "gopro_max": 0.32,
+    "trimble_mx7": 0.44,
+    "unknown": 0.42
+   }
+  },
+  "clovis": {
+   "eligible": [
+    "gopro_max",
+    "trimble_mx7",
+    "unknown"
+   ],
+   "global_t": 0.32,
+   "held_rigs": {
+    "gopro_fusion": 125
+   },
+   "oracle_t": 0.35,
+   "other_t": 0.38,
+   "rig_t": {
+    "gopro_max": 0.27,
+    "trimble_mx7": 0.44,
+    "unknown": 0.42
+   }
+  },
+  "juneau": {
+   "eligible": [
+    "gopro_max",
+    "unknown"
+   ],
+   "global_t": 0.32,
+   "held_rigs": {
+    "gopro_max": 5,
+    "trimble_mx7": 120
+   },
+   "oracle_t": 0.26,
+   "other_t": 0.38,
+   "rig_t": {
+    "gopro_max": 0.27,
+    "unknown": 0.42
+   }
+  },
+  "laurens_mapillary": {
+   "eligible": [
+    "gopro_max",
+    "trimble_mx7",
+    "unknown"
+   ],
+   "global_t": 0.42,
+   "held_rigs": {
+    "gopro_max": 94
+   },
+   "oracle_t": 0.13,
+   "other_t": 0.38,
+   "rig_t": {
+    "gopro_max": 0.45,
+    "trimble_mx7": 0.44,
+    "unknown": 0.42
+   }
+  },
+  "lyon": {
+   "eligible": [
+    "gopro_max",
+    "trimble_mx7"
+   ],
+   "global_t": 0.32,
+   "held_rigs": {
+    "gopro_max": 92,
+    "ladybug": 41,
+    "other_360": 27,
+    "unknown": 40
+   },
+   "oracle_t": 0.42,
+   "other_t": 0.35,
+   "rig_t": {
+    "gopro_max": 0.25,
+    "trimble_mx7": 0.44
+   }
+  },
+  "morgantown": {
+   "eligible": [
+    "gopro_max",
+    "trimble_mx7",
+    "unknown"
+   ],
+   "global_t": 0.32,
+   "held_rigs": {
+    "gopro_max": 125
+   },
+   "oracle_t": 0.38,
+   "other_t": 0.38,
+   "rig_t": {
+    "gopro_max": 0.25,
+    "trimble_mx7": 0.44,
+    "unknown": 0.42
+   }
+  },
+  "richmond": {
+   "eligible": [
+    "gopro_max",
+    "trimble_mx7"
+   ],
+   "global_t": 0.32,
+   "held_rigs": {
+    "gopro_max": 33,
+    "istar_pulsar": 77,
+    "unknown": 14
+   },
+   "oracle_t": 0.33,
+   "other_t": 0.38,
+   "rig_t": {
+    "gopro_max": 0.25,
+    "trimble_mx7": 0.44
+   }
+  }
+ },
+ "verdict": {
+  "beats_shuffle": false,
+  "ci_excludes_0_and_positive": false,
+  "passes": false,
+  "precision_guard": true
+ }
+}
