@@ -1,0 +1,161 @@
+city,tier,frame,setting,seed,n_labels,covered_r5
+gainesville,0.3000,auto,rule,0,11132,0.8720
+gainesville,0.3000,auto,rule,1,11132,0.8757
+gainesville,0.3000,auto,rule,2,11132,0.8760
+gainesville,0.3000,auto,rule,3,11132,0.8740
+gainesville,0.3000,auto,rule,4,11132,0.8743
+gainesville,0.3000,auto,rule,5,11132,0.8720
+gainesville,0.3000,auto,rule,6,11132,0.8740
+gainesville,0.3000,auto,rule,7,11132,0.8727
+gainesville,0.3000,auto,rule,8,11132,0.8740
+gainesville,0.3000,auto,rule,9,11132,0.8750
+gainesville,0.3000,auto,rule,10,11132,0.8740
+gainesville,0.3000,auto,rule,11,11132,0.8714
+gainesville,0.3000,auto,rule,12,11132,0.8750
+gainesville,0.3000,auto,rule,13,11132,0.8737
+gainesville,0.3000,auto,rule,14,11132,0.8730
+gainesville,0.3000,auto,rule,15,11132,0.8727
+gainesville,0.3000,auto,rule,16,11132,0.8740
+gainesville,0.3000,auto,rule,17,11132,0.8730
+gainesville,0.3000,auto,rule,18,11132,0.8743
+gainesville,0.3000,auto,rule,19,11132,0.8720
+gainesville,0.3000,auto,knee,0,7758,0.8579
+gainesville,0.3000,auto,knee,1,7758,0.8589
+gainesville,0.3000,auto,knee,2,7758,0.8566
+gainesville,0.3000,auto,knee,3,7758,0.8572
+gainesville,0.3000,auto,knee,4,7758,0.8592
+gainesville,0.3000,auto,knee,5,7758,0.8562
+gainesville,0.3000,auto,knee,6,7758,0.8595
+gainesville,0.3000,auto,knee,7,7758,0.8589
+gainesville,0.3000,auto,knee,8,7758,0.8582
+gainesville,0.3000,auto,knee,9,7758,0.8569
+gainesville,0.3000,auto,knee,10,7758,0.8592
+gainesville,0.3000,auto,knee,11,7758,0.8569
+gainesville,0.3000,auto,knee,12,7758,0.8586
+gainesville,0.3000,auto,knee,13,7758,0.8589
+gainesville,0.3000,auto,knee,14,7758,0.8562
+gainesville,0.3000,auto,knee,15,7758,0.8579
+gainesville,0.3000,auto,knee,16,7758,0.8589
+gainesville,0.3000,auto,knee,17,7758,0.8576
+gainesville,0.3000,auto,knee,18,7758,0.8569
+gainesville,0.3000,auto,knee,19,7758,0.8586
+gainesville,0.3000,2.6 m,rule,0,13109,0.8783
+gainesville,0.3000,2.6 m,rule,1,13109,0.8789
+gainesville,0.3000,2.6 m,rule,2,13109,0.8793
+gainesville,0.3000,2.6 m,rule,3,13109,0.8809
+gainesville,0.3000,2.6 m,rule,4,13109,0.8793
+gainesville,0.3000,2.6 m,rule,5,13109,0.8809
+gainesville,0.3000,2.6 m,rule,6,13109,0.8799
+gainesville,0.3000,2.6 m,rule,7,13109,0.8796
+gainesville,0.3000,2.6 m,rule,8,13109,0.8783
+gainesville,0.3000,2.6 m,rule,9,13109,0.8783
+gainesville,0.3000,2.6 m,rule,10,13109,0.8793
+gainesville,0.3000,2.6 m,rule,11,13109,0.8803
+gainesville,0.3000,2.6 m,rule,12,13109,0.8789
+gainesville,0.3000,2.6 m,rule,13,13109,0.8789
+gainesville,0.3000,2.6 m,rule,14,13109,0.8786
+gainesville,0.3000,2.6 m,rule,15,13109,0.8789
+gainesville,0.3000,2.6 m,rule,16,13109,0.8783
+gainesville,0.3000,2.6 m,rule,17,13109,0.8803
+gainesville,0.3000,2.6 m,rule,18,13109,0.8783
+gainesville,0.3000,2.6 m,rule,19,13109,0.8786
+gainesville,0.3000,2.6 m,knee,0,9704,0.8714
+gainesville,0.3000,2.6 m,knee,1,9704,0.8714
+gainesville,0.3000,2.6 m,knee,2,9704,0.8711
+gainesville,0.3000,2.6 m,knee,3,9704,0.8711
+gainesville,0.3000,2.6 m,knee,4,9704,0.8697
+gainesville,0.3000,2.6 m,knee,5,9704,0.8711
+gainesville,0.3000,2.6 m,knee,6,9704,0.8720
+gainesville,0.3000,2.6 m,knee,7,9704,0.8701
+gainesville,0.3000,2.6 m,knee,8,9704,0.8711
+gainesville,0.3000,2.6 m,knee,9,9704,0.8717
+gainesville,0.3000,2.6 m,knee,10,9704,0.8711
+gainesville,0.3000,2.6 m,knee,11,9704,0.8717
+gainesville,0.3000,2.6 m,knee,12,9704,0.8714
+gainesville,0.3000,2.6 m,knee,13,9704,0.8720
+gainesville,0.3000,2.6 m,knee,14,9704,0.8714
+gainesville,0.3000,2.6 m,knee,15,9704,0.8707
+gainesville,0.3000,2.6 m,knee,16,9704,0.8717
+gainesville,0.3000,2.6 m,knee,17,9704,0.8704
+gainesville,0.3000,2.6 m,knee,18,9704,0.8711
+gainesville,0.3000,2.6 m,knee,19,9704,0.8711
+gainesville,0.5500,auto,rule,0,7679,0.8039
+gainesville,0.5500,auto,rule,1,7679,0.8046
+gainesville,0.5500,auto,rule,2,7679,0.8066
+gainesville,0.5500,auto,rule,3,7679,0.8043
+gainesville,0.5500,auto,rule,4,7679,0.8056
+gainesville,0.5500,auto,rule,5,7679,0.8056
+gainesville,0.5500,auto,rule,6,7679,0.8046
+gainesville,0.5500,auto,rule,7,7679,0.8046
+gainesville,0.5500,auto,rule,8,7679,0.8049
+gainesville,0.5500,auto,rule,9,7679,0.8056
+gainesville,0.5500,auto,rule,10,7679,0.8066
+gainesville,0.5500,auto,rule,11,7679,0.8059
+gainesville,0.5500,auto,rule,12,7679,0.8059
+gainesville,0.5500,auto,rule,13,7679,0.8036
+gainesville,0.5500,auto,rule,14,7679,0.8030
+gainesville,0.5500,auto,rule,15,7679,0.8023
+gainesville,0.5500,auto,rule,16,7679,0.8033
+gainesville,0.5500,auto,rule,17,7679,0.8056
+gainesville,0.5500,auto,rule,18,7679,0.8056
+gainesville,0.5500,auto,rule,19,7679,0.8056
+gainesville,0.5500,auto,knee,0,5100,0.7872
+gainesville,0.5500,auto,knee,1,5100,0.7875
+gainesville,0.5500,auto,knee,2,5100,0.7865
+gainesville,0.5500,auto,knee,3,5100,0.7875
+gainesville,0.5500,auto,knee,4,5100,0.7865
+gainesville,0.5500,auto,knee,5,5100,0.7862
+gainesville,0.5500,auto,knee,6,5100,0.7885
+gainesville,0.5500,auto,knee,7,5100,0.7888
+gainesville,0.5500,auto,knee,8,5100,0.7878
+gainesville,0.5500,auto,knee,9,5100,0.7872
+gainesville,0.5500,auto,knee,10,5100,0.7878
+gainesville,0.5500,auto,knee,11,5100,0.7882
+gainesville,0.5500,auto,knee,12,5100,0.7891
+gainesville,0.5500,auto,knee,13,5100,0.7872
+gainesville,0.5500,auto,knee,14,5100,0.7875
+gainesville,0.5500,auto,knee,15,5100,0.7888
+gainesville,0.5500,auto,knee,16,5100,0.7895
+gainesville,0.5500,auto,knee,17,5100,0.7885
+gainesville,0.5500,auto,knee,18,5100,0.7891
+gainesville,0.5500,auto,knee,19,5100,0.7885
+gainesville,0.5500,2.6 m,rule,0,9182,0.8109
+gainesville,0.5500,2.6 m,rule,1,9182,0.8122
+gainesville,0.5500,2.6 m,rule,2,9182,0.8109
+gainesville,0.5500,2.6 m,rule,3,9182,0.8109
+gainesville,0.5500,2.6 m,rule,4,9182,0.8102
+gainesville,0.5500,2.6 m,rule,5,9182,0.8105
+gainesville,0.5500,2.6 m,rule,6,9182,0.8118
+gainesville,0.5500,2.6 m,rule,7,9182,0.8115
+gainesville,0.5500,2.6 m,rule,8,9182,0.8105
+gainesville,0.5500,2.6 m,rule,9,9182,0.8112
+gainesville,0.5500,2.6 m,rule,10,9182,0.8102
+gainesville,0.5500,2.6 m,rule,11,9182,0.8105
+gainesville,0.5500,2.6 m,rule,12,9182,0.8105
+gainesville,0.5500,2.6 m,rule,13,9182,0.8115
+gainesville,0.5500,2.6 m,rule,14,9182,0.8118
+gainesville,0.5500,2.6 m,rule,15,9182,0.8109
+gainesville,0.5500,2.6 m,rule,16,9182,0.8099
+gainesville,0.5500,2.6 m,rule,17,9182,0.8115
+gainesville,0.5500,2.6 m,rule,18,9182,0.8112
+gainesville,0.5500,2.6 m,rule,19,9182,0.8109
+gainesville,0.5500,2.6 m,knee,0,6762,0.7977
+gainesville,0.5500,2.6 m,knee,1,6762,0.8033
+gainesville,0.5500,2.6 m,knee,2,6762,0.7997
+gainesville,0.5500,2.6 m,knee,3,6762,0.7990
+gainesville,0.5500,2.6 m,knee,4,6762,0.7984
+gainesville,0.5500,2.6 m,knee,5,6762,0.7997
+gainesville,0.5500,2.6 m,knee,6,6762,0.8000
+gainesville,0.5500,2.6 m,knee,7,6762,0.7964
+gainesville,0.5500,2.6 m,knee,8,6762,0.7997
+gainesville,0.5500,2.6 m,knee,9,6762,0.8013
+gainesville,0.5500,2.6 m,knee,10,6762,0.8003
+gainesville,0.5500,2.6 m,knee,11,6762,0.8000
+gainesville,0.5500,2.6 m,knee,12,6762,0.7987
+gainesville,0.5500,2.6 m,knee,13,6762,0.8016
+gainesville,0.5500,2.6 m,knee,14,6762,0.7990
+gainesville,0.5500,2.6 m,knee,15,6762,0.7987
+gainesville,0.5500,2.6 m,knee,16,6762,0.7993
+gainesville,0.5500,2.6 m,knee,17,6762,0.8003
+gainesville,0.5500,2.6 m,knee,18,6762,0.8000
+gainesville,0.5500,2.6 m,knee,19,6762,0.8007

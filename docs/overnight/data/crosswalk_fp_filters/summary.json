@@ -1,0 +1,72 @@
+{
+ "chosen": {
+  "A": [
+   16,
+   3
+  ],
+  "B": 35.0,
+  "C": [
+   30.0,
+   40.0,
+   45.0
+  ],
+  "D": {
+   "A": [
+    16,
+    3
+   ],
+   "C": [
+    30.0,
+    40.0,
+    45.0
+   ]
+  },
+  "none": null
+ },
+ "n_labels": 3579,
+ "n_seq_offsets": 37,
+ "population_strata": {
+  "dropped": 862,
+  "kept": 2717
+ },
+ "rig_offsets_deg": {
+  "GoPro Max": -33.83433538069178,
+  "Trimble mx7": 178.64769676447537
+ },
+ "sensitivities": {
+  "primary": {
+   "n_voted_by_stratum": {
+    "dropped": 30,
+    "kept": 49
+   },
+   "precision_none": 0.7218278202591463,
+   "precision_none_ci": [
+    0.6560837041731693,
+    0.7825417467909214
+   ],
+   "tp_total_est": 2583.42176870748,
+   "weights": {
+    "dropped": 28.733333333333334,
+    "kept": 55.44897959183673
+   }
+  },
+  "unsure_as_disagree": {
+   "n_voted_by_stratum": {
+    "dropped": 30,
+    "kept": 49
+   },
+   "precision_none": 0.7218278202591463,
+   "precision_none_ci": [
+    0.6560837041731693,
+    0.7825417467909214
+   ],
+   "tp_total_est": 2583.42176870748,
+   "weights": {
+    "dropped": 28.733333333333334,
+    "kept": 55.44897959183673
+   }
+  }
+ },
+ "tuning_n": 265,
+ "x_arm_for_D": "C"
+}

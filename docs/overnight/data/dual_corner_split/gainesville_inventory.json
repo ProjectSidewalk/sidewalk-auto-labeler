@@ -1,0 +1,15 @@
+{
+ "city": "gainesville",
+ "file": "<external>/inv/gainesville/inventory.geojson",
+ "sha256": "ee0afb8694121947c82b0b86c82a59296499a6e936b9a2a8f4a29b5d3dc0d3ee",
+ "status": "SUBSTITUTE",
+ "record_sha256": "5ddc4e17548faff50175bd3fba5b4cd32cf944cec77585a3a5f075a4ed8c8018",
+ "record_fetched_utc": "2026-09-26T14:28:58+00:00",
+ "record_in_area": 3246,
+ "record_kept": 3208,
+ "features": 3265,
+ "in_area": 3265,
+ "kept": 3225,
+ "results_sha256": "bb8a78729cfb97a98a4f99211c90763fb3760c9c216f2233b1c0cc8aa450abde",
+ "role": "confirmatory"
+}
