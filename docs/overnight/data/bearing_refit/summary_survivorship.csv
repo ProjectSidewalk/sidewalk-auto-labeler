@@ -1,0 +1,5 @@
+city,member_refs_total,unit,b_unsolvable,unsolvable_low_spread,unsolvable_bad_range,med_az_a_on_unsolvable,p90_az_a_on_unsolvable,med_az_a_on_unit
+richmond,190,183,7,1,6,8.4901,15.016540000000003,3.285
+laurens,80,76,4,2,2,8.92755,15.458370000000002,4.4823
+bayonne,62,53,9,2,7,4.8396,20.4028,9.574
+paterson,196,194,2,2,0,9.7845,15.05018,2.4086

@@ -1,0 +1,1227 @@
+{
+ "geo_check_max_abs_deg": 0.0,
+ "horizon_check": {
+  "annapolis": {
+   "flipped": 20,
+   "gravity": 0,
+   "image": 2
+  },
+  "bayonne": {
+   "flipped": 14,
+   "gravity": 0,
+   "image": 8
+  },
+  "bend": {
+   "flipped": 1,
+   "gravity": 0,
+   "image": 0
+  },
+  "budapest_district5": {
+   "flipped": 35,
+   "gravity": 0,
+   "image": 12
+  },
+  "clovis": {
+   "flipped": 0,
+   "gravity": 0,
+   "image": 0
+  },
+  "gainesville": {
+   "flipped": 1,
+   "gravity": 0,
+   "image": 0
+  },
+  "juneau": {
+   "flipped": 16,
+   "gravity": 3,
+   "image": 0
+  },
+  "laurens_gsv": {
+   "flipped": 0,
+   "gravity": 0,
+   "image": 0
+  },
+  "laurens_mapillary": {
+   "flipped": 0,
+   "gravity": 0,
+   "image": 0
+  },
+  "lyon": {
+   "flipped": 141,
+   "gravity": 1,
+   "image": 75
+  },
+  "morgantown": {
+   "flipped": 4,
+   "gravity": 0,
+   "image": 0
+  },
+  "paterson": {
+   "flipped": 5,
+   "gravity": 0,
+   "image": 0
+  },
+  "richmond": {
+   "flipped": 14,
+   "gravity": 0,
+   "image": 3
+  },
+  "sao_paulo": {
+   "flipped": 3,
+   "gravity": 0,
+   "image": 1
+  }
+ },
+ "n_boot_gap": 2000,
+ "n_boot_logistic": 1000,
+ "n_shuffle": 200,
+ "populations": {},
+ "results": {
+  "all_panos": {
+   "T": {
+    "bucket": {
+     "ci": [
+      0.012570274763040628,
+      0.15208114383272567
+     ],
+     "edges": [
+      0.7396970885906511,
+      1.7003881466312274,
+      3.28037471059963
+     ],
+     "gap": 0.08066971080669716,
+     "per_quartile": [
+      {
+       "detected": 359,
+       "hi_deg": 0.74,
+       "lo_deg": 0.0,
+       "n_gt": 657,
+       "quartile": "Q1",
+       "recall": 0.5464
+      },
+      {
+       "detected": 349,
+       "hi_deg": 1.7,
+       "lo_deg": 0.74,
+       "n_gt": 656,
+       "quartile": "Q2",
+       "recall": 0.532
+      },
+      {
+       "detected": 371,
+       "hi_deg": 3.28,
+       "lo_deg": 1.7,
+       "n_gt": 657,
+       "quartile": "Q3",
+       "recall": 0.5647
+      },
+      {
+       "detected": 306,
+       "hi_deg": 27.09,
+       "lo_deg": 3.28,
+       "n_gt": 657,
+       "quartile": "Q4",
+       "recall": 0.4658
+      }
+     ]
+    },
+    "logistic": [
+     {
+      "ci_hi": 0.6551,
+      "ci_lo": 0.1604,
+      "coef": 0.3942,
+      "term": "intercept"
+     },
+     {
+      "ci_hi": -0.1138,
+      "ci_lo": -0.4204,
+      "coef": -0.2625,
+      "term": "T"
+     },
+     {
+      "ci_hi": 1.4639,
+      "ci_lo": 0.6401,
+      "coef": 1.0189,
+      "term": "rig=gopro_fusion"
+     },
+     {
+      "ci_hi": 1.9076,
+      "ci_lo": 1.0623,
+      "coef": 1.4587,
+      "term": "rig=istar_pulsar"
+     },
+     {
+      "ci_hi": -0.2388,
+      "ci_lo": -1.1914,
+      "coef": -0.6664,
+      "term": "rig=ladybug"
+     },
+     {
+      "ci_hi": -0.2451,
+      "ci_lo": -1.3503,
+      "coef": -0.7678,
+      "term": "rig=other_360"
+     },
+     {
+      "ci_hi": 1.5195,
+      "ci_lo": 0.9278,
+      "coef": 1.2061,
+      "term": "rig=trimble_mx7"
+     },
+     {
+      "ci_hi": 0.1915,
+      "ci_lo": -0.8095,
+      "coef": -0.3418,
+      "term": "rig=unknown"
+     },
+     {
+      "ci_hi": -1.9993,
+      "ci_lo": -3.4734,
+      "coef": -2.6274,
+      "term": "dip=<4"
+     },
+     {
+      "ci_hi": -1.403,
+      "ci_lo": -2.1263,
+      "coef": -1.7599,
+      "term": "dip=4-6"
+     },
+     {
+      "ci_hi": -0.4499,
+      "ci_lo": -0.8622,
+      "coef": -0.647,
+      "term": "dip=6-10"
+     },
+     {
+      "ci_hi": 0.2022,
+      "ci_lo": -0.31,
+      "coef": -0.053,
+      "term": "dip=>=20"
+     }
+    ]
+   },
+   "tilt": {
+    "bucket": {
+     "ci": [
+      0.03595936621853884,
+      0.19044920153122702
+     ],
+     "edges": [
+      1.7034613119576574,
+      2.964146727105046,
+      4.897912814257896
+     ],
+     "gap": 0.11411149825783978,
+     "per_quartile": [
+      {
+       "detected": 356,
+       "hi_deg": 1.703,
+       "lo_deg": 0.0,
+       "n_gt": 656,
+       "quartile": "Q1",
+       "recall": 0.5427
+      },
+      {
+       "detected": 360,
+       "hi_deg": 2.964,
+       "lo_deg": 1.703,
+       "n_gt": 650,
+       "quartile": "Q2",
+       "recall": 0.5538
+      },
+      {
+       "detected": 387,
+       "hi_deg": 4.898,
+       "lo_deg": 2.964,
+       "n_gt": 663,
+       "quartile": "Q3",
+       "recall": 0.5837
+      },
+      {
+       "detected": 282,
+       "hi_deg": 27.09,
+       "lo_deg": 4.898,
+       "n_gt": 658,
+       "quartile": "Q4",
+       "recall": 0.4286
+      }
+     ]
+    },
+    "logistic": [
+     {
+      "ci_hi": 0.8939,
+      "ci_lo": 0.3754,
+      "coef": 0.617,
+      "term": "intercept"
+     },
+     {
+      "ci_hi": -0.231,
+      "ci_lo": -0.5077,
+      "coef": -0.3669,
+      "term": "tilt"
+     },
+     {
+      "ci_hi": 1.3721,
+      "ci_lo": 0.5576,
+      "coef": 0.9388,
+      "term": "rig=gopro_fusion"
+     },
+     {
+      "ci_hi": 1.8155,
+      "ci_lo": 0.9215,
+      "coef": 1.3436,
+      "term": "rig=istar_pulsar"
+     },
+     {
+      "ci_hi": -0.3802,
+      "ci_lo": -1.3481,
+      "coef": -0.8261,
+      "term": "rig=ladybug"
+     },
+     {
+      "ci_hi": -0.3515,
+      "ci_lo": -1.4383,
+      "coef": -0.8741,
+      "term": "rig=other_360"
+     },
+     {
+      "ci_hi": 1.4157,
+      "ci_lo": 0.8208,
+      "coef": 1.1021,
+      "term": "rig=trimble_mx7"
+     },
+     {
+      "ci_hi": 0.0925,
+      "ci_lo": -0.8971,
+      "coef": -0.4264,
+      "term": "rig=unknown"
+     },
+     {
+      "ci_hi": -1.9871,
+      "ci_lo": -3.5023,
+      "coef": -2.6327,
+      "term": "dip=<4"
+     },
+     {
+      "ci_hi": -1.4071,
+      "ci_lo": -2.1393,
+      "coef": -1.761,
+      "term": "dip=4-6"
+     },
+     {
+      "ci_hi": -0.4592,
+      "ci_lo": -0.8735,
+      "coef": -0.6561,
+      "term": "dip=6-10"
+     },
+     {
+      "ci_hi": 0.2317,
+      "ci_lo": -0.2766,
+      "coef": -0.0162,
+      "term": "dip=>=20"
+     }
+    ]
+   }
+  },
+  "unbiased": {
+   "T": {
+    "bucket": {
+     "ci": [
+      -0.00868710840821777,
+      0.1289317535190177
+     ],
+     "edges": [
+      0.7705079455601785,
+      1.7604364258192824,
+      3.4331235157072557
+     ],
+     "gap": 0.059931506849315086,
+     "per_quartile": [
+      {
+       "detected": 291,
+       "hi_deg": 0.771,
+       "lo_deg": 0.0,
+       "n_gt": 584,
+       "quartile": "Q1",
+       "recall": 0.4983
+      },
+      {
+       "detected": 280,
+       "hi_deg": 1.76,
+       "lo_deg": 0.771,
+       "n_gt": 583,
+       "quartile": "Q2",
+       "recall": 0.4803
+      },
+      {
+       "detected": 297,
+       "hi_deg": 3.433,
+       "lo_deg": 1.76,
+       "n_gt": 583,
+       "quartile": "Q3",
+       "recall": 0.5094
+      },
+      {
+       "detected": 256,
+       "hi_deg": 27.09,
+       "lo_deg": 3.433,
+       "n_gt": 584,
+       "quartile": "Q4",
+       "recall": 0.4384
+      }
+     ]
+    },
+    "budapest_bucket": {
+     "ci": [
+      -0.15918644439177118,
+      0.20001422475106678
+     ],
+     "edges": [
+      1.1864303480531002,
+      3.2513619668018467,
+      5.443433643504864
+     ],
+     "gap": 0.015151515151515138,
+     "per_quartile": [
+      {
+       "detected": 30,
+       "hi_deg": 1.186,
+       "lo_deg": 0.0,
+       "n_gt": 66,
+       "quartile": "Q1",
+       "recall": 0.4545
+      },
+      {
+       "detected": 33,
+       "hi_deg": 3.251,
+       "lo_deg": 1.186,
+       "n_gt": 65,
+       "quartile": "Q2",
+       "recall": 0.5077
+      },
+      {
+       "detected": 27,
+       "hi_deg": 5.443,
+       "lo_deg": 3.251,
+       "n_gt": 65,
+       "quartile": "Q3",
+       "recall": 0.4154
+      },
+      {
+       "detected": 29,
+       "hi_deg": 18.012,
+       "lo_deg": 5.443,
+       "n_gt": 66,
+       "quartile": "Q4",
+       "recall": 0.4394
+      }
+     ]
+    },
+    "gsv_bucket": {
+     "ci": [
+      -0.10364264178211322,
+      0.055728450875111475
+     ],
+     "edges": [
+      0.4624615666144857,
+      0.935620466880104,
+      1.623276830963736
+     ],
+     "gap": -0.021604938271604923,
+     "per_quartile": [
+      {
+       "detected": 202,
+       "hi_deg": 0.462,
+       "lo_deg": 0.0,
+       "n_gt": 324,
+       "quartile": "Q1",
+       "recall": 0.6235
+      },
+      {
+       "detected": 209,
+       "hi_deg": 0.936,
+       "lo_deg": 0.462,
+       "n_gt": 324,
+       "quartile": "Q2",
+       "recall": 0.6451
+      },
+      {
+       "detected": 205,
+       "hi_deg": 1.623,
+       "lo_deg": 0.936,
+       "n_gt": 324,
+       "quartile": "Q3",
+       "recall": 0.6327
+      },
+      {
+       "detected": 209,
+       "hi_deg": 8.136,
+       "lo_deg": 1.623,
+       "n_gt": 324,
+       "quartile": "Q4",
+       "recall": 0.6451
+      }
+     ]
+    },
+    "logistic": [
+     {
+      "ci_hi": 0.3566,
+      "ci_lo": -0.092,
+      "coef": 0.1215,
+      "term": "intercept"
+     },
+     {
+      "ci_hi": -0.0351,
+      "ci_lo": -0.3335,
+      "coef": -0.1858,
+      "term": "T"
+     },
+     {
+      "ci_hi": 1.317,
+      "ci_lo": 0.618,
+      "coef": 0.9319,
+      "term": "rig=gopro_fusion"
+     },
+     {
+      "ci_hi": 2.0536,
+      "ci_lo": 1.1514,
+      "coef": 1.5592,
+      "term": "rig=istar_pulsar"
+     },
+     {
+      "ci_hi": -0.3561,
+      "ci_lo": -1.2676,
+      "coef": -0.7965,
+      "term": "rig=ladybug"
+     },
+     {
+      "ci_hi": -0.0311,
+      "ci_lo": -1.1425,
+      "coef": -0.558,
+      "term": "rig=other_360"
+     },
+     {
+      "ci_hi": 1.5583,
+      "ci_lo": 0.9933,
+      "coef": 1.2706,
+      "term": "rig=trimble_mx7"
+     },
+     {
+      "ci_hi": 0.1513,
+      "ci_lo": -0.8089,
+      "coef": -0.3446,
+      "term": "rig=unknown"
+     },
+     {
+      "ci_hi": -1.8871,
+      "ci_lo": -3.4437,
+      "coef": -2.5363,
+      "term": "dip=<4"
+     },
+     {
+      "ci_hi": -1.2623,
+      "ci_lo": -2.0195,
+      "coef": -1.6313,
+      "term": "dip=4-6"
+     },
+     {
+      "ci_hi": -0.3826,
+      "ci_lo": -0.8225,
+      "coef": -0.596,
+      "term": "dip=6-10"
+     },
+     {
+      "ci_hi": 0.2564,
+      "ci_lo": -0.2407,
+      "coef": 0.0154,
+      "term": "dip=>=20"
+     }
+    ],
+    "shuffle": {
+     "gap_median": 0.077315,
+     "gap_q95": 0.12863299999999997,
+     "n_reach_bar": 40,
+     "perm_p": 0.7761194029850746
+    }
+   },
+   "T_sens": {
+    "city_fe": [
+     {
+      "ci_hi": 7.6529,
+      "ci_lo": 0.4158,
+      "coef": 6.4761,
+      "term": "intercept"
+     },
+     {
+      "ci_hi": 0.2149,
+      "ci_lo": -0.1448,
+      "coef": 0.0342,
+      "term": "T"
+     },
+     {
+      "ci_hi": 0.3494,
+      "ci_lo": -3.312,
+      "coef": -2.7245,
+      "term": "rig=gopro_fusion"
+     },
+     {
+      "ci_hi": 0.326,
+      "ci_lo": -1.5136,
+      "coef": -0.4473,
+      "term": "rig=istar_pulsar"
+     },
+     {
+      "ci_hi": 0.5157,
+      "ci_lo": -0.5599,
+      "coef": -0.0188,
+      "term": "rig=ladybug"
+     },
+     {
+      "ci_hi": 0.778,
+      "ci_lo": -0.4378,
+      "coef": 0.1976,
+      "term": "rig=other_360"
+     },
+     {
+      "ci_hi": 1.1713,
+      "ci_lo": -6.0049,
+      "coef": -4.9628,
+      "term": "rig=trimble_mx7"
+     },
+     {
+      "ci_hi": 0.5534,
+      "ci_lo": -0.3952,
+      "coef": 0.0697,
+      "term": "rig=unknown"
+     },
+     {
+      "ci_hi": -2.1401,
+      "ci_lo": -3.6055,
+      "coef": -2.7405,
+      "term": "dip=<4"
+     },
+     {
+      "ci_hi": -1.4939,
+      "ci_lo": -2.254,
+      "coef": -1.842,
+      "term": "dip=4-6"
+     },
+     {
+      "ci_hi": -0.4223,
+      "ci_lo": -0.9297,
+      "coef": -0.6833,
+      "term": "dip=6-10"
+     },
+     {
+      "ci_hi": 0.2144,
+      "ci_lo": -0.3181,
+      "coef": -0.0519,
+      "term": "dip=>=20"
+     },
+     {
+      "ci_hi": -0.6397,
+      "ci_lo": -8.0573,
+      "coef": -6.8302,
+      "term": "city=bayonne"
+     },
+     {
+      "ci_hi": 0.3494,
+      "ci_lo": -3.312,
+      "coef": -2.7245,
+      "term": "city=clovis"
+     },
+     {
+      "ci_hi": 0.2411,
+      "ci_lo": -0.7339,
+      "coef": -0.2537,
+      "term": "city=juneau"
+     },
+     {
+      "ci_hi": -0.8919,
+      "ci_lo": -8.1863,
+      "coef": -6.9758,
+      "term": "city=laurens_mapillary"
+     },
+     {
+      "ci_hi": -1.0396,
+      "ci_lo": -8.2105,
+      "coef": -7.1183,
+      "term": "city=lyon"
+     },
+     {
+      "ci_hi": 0.7748,
+      "ci_lo": -6.5067,
+      "coef": -5.3227,
+      "term": "city=morgantown"
+     },
+     {
+      "ci_hi": 2.2475,
+      "ci_lo": -5.5609,
+      "coef": -4.3392,
+      "term": "city=richmond"
+     }
+    ],
+    "first_order_T1": {
+     "ci": [
+      -0.010997495243195852,
+      0.1277680270892843
+     ],
+     "edges": [
+      0.7683888833681694,
+      1.7614689533825565,
+      3.435176845533663
+     ],
+     "gap": 0.05821917808219179,
+     "per_quartile": [
+      {
+       "detected": 291,
+       "hi_deg": 0.768,
+       "lo_deg": 0.0,
+       "n_gt": 584,
+       "quartile": "Q1",
+       "recall": 0.4983
+      },
+      {
+       "detected": 280,
+       "hi_deg": 1.761,
+       "lo_deg": 0.768,
+       "n_gt": 583,
+       "quartile": "Q2",
+       "recall": 0.4803
+      },
+      {
+       "detected": 296,
+       "hi_deg": 3.435,
+       "lo_deg": 1.761,
+       "n_gt": 583,
+       "quartile": "Q3",
+       "recall": 0.5077
+      },
+      {
+       "detected": 257,
+       "hi_deg": 27.324,
+       "lo_deg": 3.435,
+       "n_gt": 584,
+       "quartile": "Q4",
+       "recall": 0.4401
+      }
+     ]
+    },
+    "image_dip": [
+     {
+      "ci_hi": 0.0756,
+      "ci_lo": -0.3166,
+      "coef": -0.1229,
+      "term": "intercept"
+     },
+     {
+      "ci_hi": 0.1734,
+      "ci_lo": -0.1516,
+      "coef": 0.001,
+      "term": "T"
+     },
+     {
+      "ci_hi": 1.3204,
+      "ci_lo": 0.5711,
+      "coef": 0.9246,
+      "term": "rig=gopro_fusion"
+     },
+     {
+      "ci_hi": 1.8939,
+      "ci_lo": 1.0344,
+      "coef": 1.422,
+      "term": "rig=istar_pulsar"
+     },
+     {
+      "ci_hi": -0.3483,
+      "ci_lo": -1.1865,
+      "coef": -0.7705,
+      "term": "rig=ladybug"
+     },
+     {
+      "ci_hi": -0.1326,
+      "ci_lo": -1.2355,
+      "coef": -0.6869,
+      "term": "rig=other_360"
+     },
+     {
+      "ci_hi": 1.4967,
+      "ci_lo": 0.9504,
+      "coef": 1.2097,
+      "term": "rig=trimble_mx7"
+     },
+     {
+      "ci_hi": 0.1313,
+      "ci_lo": -0.7878,
+      "coef": -0.3709,
+      "term": "rig=unknown"
+     },
+     {
+      "ci_hi": -1.2759,
+      "ci_lo": -2.0661,
+      "coef": -1.6626,
+      "term": "dip=<4"
+     },
+     {
+      "ci_hi": -0.9803,
+      "ci_lo": -1.8057,
+      "coef": -1.3657,
+      "term": "dip=4-6"
+     },
+     {
+      "ci_hi": 0.2261,
+      "ci_lo": -0.2477,
+      "coef": -0.0092,
+      "term": "dip=6-10"
+     },
+     {
+      "ci_hi": 0.2577,
+      "ci_lo": -0.2713,
+      "coef": 0.0098,
+      "term": "dip=>=20"
+     }
+    ],
+    "posthoc_stratified_gap_T": {
+     "ci": [
+      -0.059645079229480154,
+      0.05062867598016832
+     ],
+     "gap": -0.005199484976103709
+    },
+    "posthoc_stratified_gap_tilt": {
+     "ci": [
+      -0.08293929745867402,
+      0.027624582677931945
+     ],
+     "gap": -0.027793354797932913
+    },
+    "posthoc_within_pano_bearing": [
+     {
+      "ci_hi": 0.7601,
+      "ci_lo": 0.0515,
+      "coef": 0.3869,
+      "term": "intercept"
+     },
+     {
+      "ci_hi": 0.7032,
+      "ci_lo": 0.1246,
+      "coef": 0.4241,
+      "term": "T_within"
+     },
+     {
+      "ci_hi": -0.1939,
+      "ci_lo": -0.5518,
+      "coef": -0.3731,
+      "term": "T_between"
+     },
+     {
+      "ci_hi": 1.2305,
+      "ci_lo": 0.5123,
+      "coef": 0.8386,
+      "term": "rig=gopro_fusion"
+     },
+     {
+      "ci_hi": 1.9785,
+      "ci_lo": 1.0543,
+      "coef": 1.4782,
+      "term": "rig=istar_pulsar"
+     },
+     {
+      "ci_hi": -0.401,
+      "ci_lo": -1.3799,
+      "coef": -0.909,
+      "term": "rig=ladybug"
+     },
+     {
+      "ci_hi": -0.1033,
+      "ci_lo": -1.2189,
+      "coef": -0.6605,
+      "term": "rig=other_360"
+     },
+     {
+      "ci_hi": 1.5122,
+      "ci_lo": 0.9374,
+      "coef": 1.2028,
+      "term": "rig=trimble_mx7"
+     },
+     {
+      "ci_hi": 0.059,
+      "ci_lo": -0.8293,
+      "coef": -0.4098,
+      "term": "rig=unknown"
+     },
+     {
+      "ci_hi": -1.8444,
+      "ci_lo": -3.5399,
+      "coef": -2.5221,
+      "term": "dip=<4"
+     },
+     {
+      "ci_hi": -1.2286,
+      "ci_lo": -2.0083,
+      "coef": -1.6118,
+      "term": "dip=4-6"
+     },
+     {
+      "ci_hi": -0.3743,
+      "ci_lo": -0.8131,
+      "coef": -0.5971,
+      "term": "dip=6-10"
+     },
+     {
+      "ci_hi": 0.2969,
+      "ci_lo": -0.2204,
+      "coef": 0.0248,
+      "term": "dip=>=20"
+     },
+     {
+      "ci_hi": 0.2043,
+      "ci_lo": -0.5361,
+      "coef": -0.1665,
+      "term": "abs_cos_bearing"
+     }
+    ],
+    "within_pano": [
+     {
+      "ci_hi": 0.5144,
+      "ci_lo": 0.0564,
+      "coef": 0.2788,
+      "term": "intercept"
+     },
+     {
+      "ci_hi": 0.659,
+      "ci_lo": 0.1281,
+      "coef": 0.4026,
+      "term": "T_within"
+     },
+     {
+      "ci_hi": -0.2073,
+      "ci_lo": -0.5551,
+      "coef": -0.3803,
+      "term": "T_between"
+     },
+     {
+      "ci_hi": 1.2131,
+      "ci_lo": 0.529,
+      "coef": 0.853,
+      "term": "rig=gopro_fusion"
+     },
+     {
+      "ci_hi": 1.9579,
+      "ci_lo": 1.049,
+      "coef": 1.4786,
+      "term": "rig=istar_pulsar"
+     },
+     {
+      "ci_hi": -0.4818,
+      "ci_lo": -1.3845,
+      "coef": -0.9232,
+      "term": "rig=ladybug"
+     },
+     {
+      "ci_hi": -0.1369,
+      "ci_lo": -1.2358,
+      "coef": -0.6492,
+      "term": "rig=other_360"
+     },
+     {
+      "ci_hi": 1.5045,
+      "ci_lo": 0.9314,
+      "coef": 1.1961,
+      "term": "rig=trimble_mx7"
+     },
+     {
+      "ci_hi": 0.1126,
+      "ci_lo": -0.8999,
+      "coef": -0.4167,
+      "term": "rig=unknown"
+     },
+     {
+      "ci_hi": -1.8851,
+      "ci_lo": -3.6519,
+      "coef": -2.5547,
+      "term": "dip=<4"
+     },
+     {
+      "ci_hi": -1.2697,
+      "ci_lo": -2.0471,
+      "coef": -1.6291,
+      "term": "dip=4-6"
+     },
+     {
+      "ci_hi": -0.3889,
+      "ci_lo": -0.8271,
+      "coef": -0.6088,
+      "term": "dip=6-10"
+     },
+     {
+      "ci_hi": 0.3075,
+      "ci_lo": -0.2104,
+      "coef": 0.047,
+      "term": "dip=>=20"
+     }
+    ]
+   },
+   "tilt": {
+    "bucket": {
+     "ci": [
+      0.027495464531812192,
+      0.17401934124605653
+     ],
+     "edges": [
+      1.7183159336701102,
+      3.0185905806371807,
+      5.205487151521856
+     ],
+     "gap": 0.10102739726027399,
+     "per_quartile": [
+      {
+       "detected": 294,
+       "hi_deg": 1.718,
+       "lo_deg": 0.0,
+       "n_gt": 584,
+       "quartile": "Q1",
+       "recall": 0.5034
+      },
+      {
+       "detected": 281,
+       "hi_deg": 3.019,
+       "lo_deg": 1.718,
+       "n_gt": 583,
+       "quartile": "Q2",
+       "recall": 0.482
+      },
+      {
+       "detected": 314,
+       "hi_deg": 5.205,
+       "lo_deg": 3.019,
+       "n_gt": 583,
+       "quartile": "Q3",
+       "recall": 0.5386
+      },
+      {
+       "detected": 235,
+       "hi_deg": 27.09,
+       "lo_deg": 5.205,
+       "n_gt": 584,
+       "quartile": "Q4",
+       "recall": 0.4024
+      }
+     ]
+    },
+    "budapest_bucket": {
+     "ci": [
+      -0.14440413668451382,
+      0.3004207251082246
+     ],
+     "edges": [
+      3.383964779941924,
+      5.293267518084017,
+      8.609549561727317
+     ],
+     "gap": 0.06625961103573041,
+     "per_quartile": [
+      {
+       "detected": 29,
+       "hi_deg": 3.384,
+       "lo_deg": 0.0,
+       "n_gt": 66,
+       "quartile": "Q1",
+       "recall": 0.4394
+      },
+      {
+       "detected": 33,
+       "hi_deg": 5.293,
+       "lo_deg": 3.384,
+       "n_gt": 60,
+       "quartile": "Q2",
+       "recall": 0.55
+      },
+      {
+       "detected": 32,
+       "hi_deg": 8.61,
+       "lo_deg": 5.293,
+       "n_gt": 69,
+       "quartile": "Q3",
+       "recall": 0.4638
+      },
+      {
+       "detected": 25,
+       "hi_deg": 18.442,
+       "lo_deg": 8.61,
+       "n_gt": 67,
+       "quartile": "Q4",
+       "recall": 0.3731
+      }
+     ]
+    },
+    "gsv_bucket": {
+     "ci": [
+      -0.11227343963090815,
+      0.06480783136642881
+     ],
+     "edges": [
+      1.0744118922863666,
+      1.666619740206438,
+      2.409799923137677
+     ],
+     "gap": -0.025273701374330382,
+     "per_quartile": [
+      {
+       "detected": 202,
+       "hi_deg": 1.074,
+       "lo_deg": 0.0,
+       "n_gt": 318,
+       "quartile": "Q1",
+       "recall": 0.6352
+      },
+      {
+       "detected": 206,
+       "hi_deg": 1.667,
+       "lo_deg": 1.074,
+       "n_gt": 330,
+       "quartile": "Q2",
+       "recall": 0.6242
+      },
+      {
+       "detected": 203,
+       "hi_deg": 2.41,
+       "lo_deg": 1.667,
+       "n_gt": 324,
+       "quartile": "Q3",
+       "recall": 0.6265
+      },
+      {
+       "detected": 214,
+       "hi_deg": 8.251,
+       "lo_deg": 2.41,
+       "n_gt": 324,
+       "quartile": "Q4",
+       "recall": 0.6605
+      }
+     ]
+    },
+    "logistic": [
+     {
+      "ci_hi": 0.5741,
+      "ci_lo": 0.0794,
+      "coef": 0.3174,
+      "term": "intercept"
+     },
+     {
+      "ci_hi": -0.1524,
+      "ci_lo": -0.4203,
+      "coef": -0.2823,
+      "term": "tilt"
+     },
+     {
+      "ci_hi": 1.2213,
+      "ci_lo": 0.5482,
+      "coef": 0.8569,
+      "term": "rig=gopro_fusion"
+     },
+     {
+      "ci_hi": 1.9767,
+      "ci_lo": 1.0187,
+      "coef": 1.455,
+      "term": "rig=istar_pulsar"
+     },
+     {
+      "ci_hi": -0.4692,
+      "ci_lo": -1.4123,
+      "coef": -0.9348,
+      "term": "rig=ladybug"
+     },
+     {
+      "ci_hi": -0.1252,
+      "ci_lo": -1.2343,
+      "coef": -0.6574,
+      "term": "rig=other_360"
+     },
+     {
+      "ci_hi": 1.4599,
+      "ci_lo": 0.8944,
+      "coef": 1.1725,
+      "term": "rig=trimble_mx7"
+     },
+     {
+      "ci_hi": 0.0828,
+      "ci_lo": -0.8696,
+      "coef": -0.422,
+      "term": "rig=unknown"
+     },
+     {
+      "ci_hi": -1.86,
+      "ci_lo": -3.4693,
+      "coef": -2.5366,
+      "term": "dip=<4"
+     },
+     {
+      "ci_hi": -1.2671,
+      "ci_lo": -2.0215,
+      "coef": -1.636,
+      "term": "dip=4-6"
+     },
+     {
+      "ci_hi": -0.3926,
+      "ci_lo": -0.8344,
+      "coef": -0.6063,
+      "term": "dip=6-10"
+     },
+     {
+      "ci_hi": 0.2831,
+      "ci_lo": -0.2032,
+      "coef": 0.0423,
+      "term": "dip=>=20"
+     }
+    ],
+    "shuffle": {
+     "gap_median": 0.102525,
+     "gap_q95": 0.153009,
+     "n_reach_bar": 107,
+     "perm_p": 0.5223880597014925
+    }
+   }
+  }
+ },
+ "seed": 20261126,
+ "verdict": "NOT ESTABLISHED",
+ "verdict_T": {
+  "c1_bucket_gap": false,
+  "c2_logistic": true,
+  "c3_shuffle_clean": false,
+  "coef": {
+   "ci_hi": -0.0351,
+   "ci_lo": -0.3335,
+   "coef": -0.1858,
+   "term": "T"
+  },
+  "gap": 0.059931506849315086,
+  "gap_ci": [
+   -0.00868710840821777,
+   0.1289317535190177
+  ],
+  "passes": false,
+  "perm_p": 0.7761194029850746,
+  "shuffle_reach": 40
+ },
+ "verdict_tilt": {
+  "c1_bucket_gap": true,
+  "c2_logistic": true,
+  "c3_shuffle_clean": false,
+  "coef": {
+   "ci_hi": -0.1524,
+   "ci_lo": -0.4203,
+   "coef": -0.2823,
+   "term": "tilt"
+  },
+  "gap": 0.10102739726027399,
+  "gap_ci": [
+   0.027495464531812192,
+   0.17401934124605653
+  ],
+  "passes": false,
+  "perm_p": 0.5223880597014925,
+  "shuffle_reach": 107
+ }
+}

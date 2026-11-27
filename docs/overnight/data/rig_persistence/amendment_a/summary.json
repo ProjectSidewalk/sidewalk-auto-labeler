@@ -1,0 +1,340 @@
+{
+ "frozen": {
+  "rule": "local",
+  "params": {
+   "T": 8,
+   "W": 10,
+   "K": 4
+  },
+  "any_cell_eligible": true,
+  "laurens_below_recall": 0.8734177215189873,
+  "laurens_above_flagged": 13,
+  "stationary_m": 2.0,
+  "member_min_conf": 0.3,
+  "nadir_mask_deg_for_reporting_only": 49.0
+ },
+ "cities": {
+  "laurens": {
+   "load_counts": {
+    "panos": 4495
+   },
+   "flagged": 151,
+   "null_mean": 383.15,
+   "clusters": 31,
+   "cluster_frames_q": [
+    1,
+    1,
+    3,
+    10,
+    22
+   ],
+   "cluster_metres_q": [
+    0.0,
+    0.0,
+    177.87435238201374,
+    2860.365178768653,
+    4053.684653485755
+   ],
+   "zones": {
+    "t030_above_n": 1575,
+    "t030_above_flag": 13,
+    "t030_above_flag_e1": 0,
+    "t055_above_n": 708,
+    "t055_above_flag": 7,
+    "t055_above_flag_e1": 0,
+    "t030_below_n": 158,
+    "t030_below_flag": 138,
+    "t030_below_flag_e1": 0,
+    "t055_below_n": 0,
+    "t055_below_flag": 0,
+    "t055_below_flag_e1": 0
+   }
+  },
+  "richmond": {
+   "load_counts": {
+    "panos": 9091
+   },
+   "flagged": 17,
+   "null_mean": 2.7,
+   "clusters": 9,
+   "cluster_frames_q": [
+    1,
+    1,
+    1,
+    3,
+    4
+   ],
+   "cluster_metres_q": [
+    0.0,
+    0.0,
+    0.0,
+    201.92725388337885,
+    274.2591598690527
+   ],
+   "zones": {
+    "t030_above_n": 9524,
+    "t030_above_flag": 17,
+    "t030_above_flag_e1": 0,
+    "t055_above_n": 9524,
+    "t055_above_flag": 17,
+    "t055_above_flag_e1": 0,
+    "t030_below_n": 2,
+    "t030_below_flag": 0,
+    "t030_below_flag_e1": 0,
+    "t055_below_n": 2,
+    "t055_below_flag": 0,
+    "t055_below_flag_e1": 0
+   }
+  },
+  "juneau": {
+   "load_counts": {
+    "panos": 4999
+   },
+   "flagged": 222,
+   "null_mean": 87.25,
+   "clusters": 56,
+   "cluster_frames_q": [
+    1,
+    1,
+    3,
+    9,
+    20
+   ],
+   "cluster_metres_q": [
+    0.0,
+    0.0,
+    12.194603224254706,
+    676.2571081397805,
+    2648.2399973051965
+   ],
+   "zones": {
+    "t030_above_n": 4823,
+    "t030_above_flag": 221,
+    "t030_above_flag_e1": 0,
+    "t055_above_n": 3301,
+    "t055_above_flag": 126,
+    "t055_above_flag_e1": 0,
+    "t030_below_n": 1,
+    "t030_below_flag": 1,
+    "t030_below_flag_e1": 0,
+    "t055_below_n": 0,
+    "t055_below_flag": 0,
+    "t055_below_flag_e1": 0
+   }
+  },
+  "clovis": {
+   "load_counts": {
+    "panos": 72776
+   },
+   "flagged": 2,
+   "null_mean": 1.1,
+   "clusters": 1,
+   "cluster_frames_q": [
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "cluster_metres_q": [
+    245.18805280497395,
+    245.18805280497395,
+    245.18805280497395,
+    245.18805280497395,
+    245.18805280497395
+   ],
+   "zones": {
+    "t030_above_n": 8961,
+    "t030_above_flag": 2,
+    "t030_above_flag_e1": 0,
+    "t055_above_n": 8961,
+    "t055_above_flag": 2,
+    "t055_above_flag_e1": 0,
+    "t030_below_n": 0,
+    "t030_below_flag": 0,
+    "t030_below_flag_e1": 0,
+    "t055_below_n": 0,
+    "t055_below_flag": 0,
+    "t055_below_flag_e1": 0
+   }
+  },
+  "morgantown": {
+   "load_counts": {
+    "panos": 51692
+   },
+   "flagged": 141,
+   "null_mean": 4.5,
+   "clusters": 28,
+   "cluster_frames_q": [
+    1,
+    1,
+    2,
+    12,
+    32
+   ],
+   "cluster_metres_q": [
+    0.0,
+    0.0,
+    19.36979079663186,
+    421.38015742957606,
+    3963.868760677361
+   ],
+   "zones": {
+    "t030_above_n": 10401,
+    "t030_above_flag": 92,
+    "t030_above_flag_e1": 0,
+    "t055_above_n": 10401,
+    "t055_above_flag": 92,
+    "t055_above_flag_e1": 0,
+    "t030_below_n": 81,
+    "t030_below_flag": 49,
+    "t030_below_flag_e1": 0,
+    "t055_below_n": 81,
+    "t055_below_flag": 49,
+    "t055_below_flag_e1": 0
+   }
+  },
+  "annapolis": {
+   "load_counts": {
+    "panos": 53232
+   },
+   "flagged": 174,
+   "null_mean": 34.65,
+   "clusters": 51,
+   "cluster_frames_q": [
+    1,
+    1,
+    2,
+    7,
+    17
+   ],
+   "cluster_metres_q": [
+    0.0,
+    0.0,
+    12.260013111104215,
+    103.30092792576247,
+    1740.0740953060317
+   ],
+   "zones": {
+    "t030_above_n": 29188,
+    "t030_above_flag": 174,
+    "t030_above_flag_e1": 0,
+    "t055_above_n": 29188,
+    "t055_above_flag": 174,
+    "t055_above_flag_e1": 0,
+    "t030_below_n": 0,
+    "t030_below_flag": 0,
+    "t030_below_flag_e1": 0,
+    "t055_below_n": 0,
+    "t055_below_flag": 0,
+    "t055_below_flag_e1": 0
+   }
+  },
+  "bayonne": {
+   "load_counts": {
+    "panos": 50409
+   },
+   "flagged": 642,
+   "null_mean": 28.9,
+   "clusters": 241,
+   "cluster_frames_q": [
+    1,
+    1,
+    2,
+    5,
+    25
+   ],
+   "cluster_metres_q": [
+    0.0,
+    0.0,
+    4.362970398347471,
+    141.72283993077937,
+    1387.4323978495818
+   ],
+   "zones": {
+    "t030_above_n": 19191,
+    "t030_above_flag": 641,
+    "t030_above_flag_e1": 0,
+    "t055_above_n": 7448,
+    "t055_above_flag": 209,
+    "t055_above_flag_e1": 0,
+    "t030_below_n": 15,
+    "t030_below_flag": 1,
+    "t030_below_flag_e1": 0,
+    "t055_below_n": 1,
+    "t055_below_flag": 0,
+    "t055_below_flag_e1": 0
+   }
+  },
+  "lyon": {
+   "load_counts": {
+    "panos": 174405
+   },
+   "flagged": 9298,
+   "null_mean": 410.15,
+   "clusters": 2212,
+   "cluster_frames_q": [
+    1,
+    1,
+    2,
+    7,
+    248
+   ],
+   "cluster_metres_q": [
+    0.0,
+    0.0,
+    12.240772324565114,
+    1364.4798067344914,
+    16315.374367659564
+   ],
+   "zones": {
+    "t030_above_n": 162926,
+    "t030_above_flag": 9093,
+    "t030_above_flag_e1": 0,
+    "t055_above_n": 73784,
+    "t055_above_flag": 2605,
+    "t055_above_flag_e1": 0,
+    "t030_below_n": 1061,
+    "t030_below_flag": 205,
+    "t030_below_flag_e1": 0,
+    "t055_below_n": 141,
+    "t055_below_flag": 17,
+    "t055_below_flag_e1": 0
+   }
+  }
+ },
+ "checks": {
+  "a": {
+   "laurens_below_n": 158,
+   "flagged": 138,
+   "recall": 0.8734177215189873,
+   "ci95": [
+    0.8125646920848718,
+    0.9165432752115464
+   ],
+   "bar": 0.8,
+   "verdict": "PASS"
+  },
+  "b": {
+   "true_n": 1482,
+   "true_flagged": 32,
+   "rate": 0.021592442645074223,
+   "ci95": [
+    0.015335945030572881,
+    0.03032275775443461
+   ],
+   "bar": 0.002,
+   "verdict": "FAIL"
+  },
+  "c": {
+   "laurens": "FAIL",
+   "richmond": "FAIL",
+   "juneau": "FAIL",
+   "clovis": "FAIL",
+   "morgantown": "PASS",
+   "annapolis": "FAIL",
+   "bayonne": "PASS",
+   "lyon": "PASS"
+  }
+ }
+}
