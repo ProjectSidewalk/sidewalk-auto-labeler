@@ -188,7 +188,7 @@ per pano (`eyeball/human_verdicts.csv`):
 
 | cell | Jon | agrees with the table above? |
 |---|---|---|
-| Lyon, 38 deg above horizon | 8 of 8 **unsure**: "in a tunnel, can't be sure if this is tunnel infrastructure or the rig" | open, settled by the control below |
+| Lyon, 38 deg above horizon | first pass 8 of 8 **unsure** ("in a tunnel, can't be sure if this is tunnel infrastructure or the rig"); after the control below, 8 of 8 **rig** ("now that I've seen this same car in other areas, I am confident this is part of the rig and not the tunnel") | yes, after the control |
 | Lyon, 27 deg dip ahead | 7 **rig**, 1 **not rig** (`ede17875`, the GoPro Max pano with the real ramp) | yes, pano for pano |
 | Bayonne, 15.5 deg dip ahead | 8 of 8 **not rig**. Notes: very close to the top of the car, but the circle is fully on the curb ramp, sidewalk or bike path; in two, a rig wire crosses the spot | yes |
 
@@ -198,8 +198,9 @@ spot, and the same pixel was cropped (`eyeball/control_picks.csv`,
 `sheet_lyon_above38_ctrl_*.jpg`). All 8 are on open streets, and all 8 show the same dish, threaded
 connector and hanging cable at that pixel, against the sky. Tunnel infrastructure would not follow
 the vehicle onto open streets, so the dish is mounted on the vehicle. The model fires on it only in
-tunnels, where it is lit against a dark ceiling. The 38 deg cell is therefore a rig artifact (Claude's
-read of the control; Jon's re-look is pending on the review page).
+tunnels, where it is lit against a dark ceiling. Jon marked all 8 control panos **rig** and changed
+his 8 first-pass verdicts to **rig**, so the 38 deg cell is a rig artifact by both reads.
+`human_verdicts.csv` keeps the first pass in `first_pass_verdict`.
 
 The two Lyon cells are rig artifacts of one vehicle. A cell mask keyed on that vehicle's
 producer and camera (`grand lyon` / `grand-lyon`, Point Grey Ladybug) would remove them
