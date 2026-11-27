@@ -1,2 +1,2 @@
-city,split,results,panos,sites,gt_panos,judged,partial,skipped,no_pool,unplaceable,placeable,unsure_missed,refs_det,det_no_site,det_small_site,refs_missed,missed_unplaceable,missed_no_site,missed_small_site,warnings
-laurens,laurens_mapillary,results.jsonl,4495,814,0,94,0,0,0,0,0,0,97,0,17,152,9,71,37,0
+city,split,results,panos,sites,gt_panos,judged,partial,skipped,no_pool,refs_det,det_no_site,det_small_site,refs_missed,missed_unplaceable,missed_no_site,missed_small_site,warnings
+laurens,laurens_mapillary,results.jsonl,4495,814,94,94,0,0,0,97,0,17,152,9,71,37,0

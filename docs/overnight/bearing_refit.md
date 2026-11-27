@@ -69,6 +69,19 @@ offline (scan.json is not here, and re-thinning the 5 m set is not the original 
 Bayonne is scored on the 5 m run. Consequence: denser sites (more views, more parallax), which
 favours B relative to what a 10 m run would show. Rules unchanged.
 
+**Amendment A2 (2026-11-27, code-review fix).** Rule 2's B shift after re-association
+solved B with no spread threshold, while the pre-registration defines "B-solvable" at the
+primary 10 deg (the 2.6 m side was already filtered at 10 deg in `summarize`).
+`stress_rows` now calls `b_solution(..., min_spread=PRIMARY_SPREAD)` for the re-associated
+site too. Only `stress.csv`, `summary_stress.csv` and the stress table changed (`refs`,
+`gtfree` and `keeps` reran byte-identical; `counts.csv` also gained the real `gt_panos`
+and lost three columns this script never fills). **Verdicts unchanged: Rule 1 FAIL (1 of
+3), Rule 2 FAIL (3 of 6), same cells passing.** Original B/A ratios, for the record:
+Richmond 0.116 / 0.223, Laurens 0.454 / 0.122, Bayonne 0.332 / 0.773, Paterson 0.119 /
+0.308 (2.0 / 3.2 m); corrected: 0.116 / 0.221, 0.497 / 0.112, 0.329 / 0.750, 0.117 / 0.303.
+A few more sites per cell now count as "B unsolvable after" (for example Bayonne 3.2 m 39
+-> 48), and they drop out of the shift medians.
+
 ---
 
 ## Verdict
@@ -79,12 +92,12 @@ favours B relative to what a 10 m run would show. Rules unchanged.
   (-5.67 [-8.70, -0.25], n = 53). Paterson (GSV, no vote) points B's way, but its CI just
   touches 0 (+0.44 [-0.01, 1.20]).
 - **Rule 2 (height robustness): FAIL, 3 of 6 open (city, height) cells.** Richmond passes
-  at both heights and Laurens at 3.2 m. Laurens at 2.0 m (B/A 0.45) and Bayonne at both
-  heights (0.33, 0.77) fail. On a fixed view set B moves exactly 0 under a height change,
+  at both heights and Laurens at 3.2 m. Laurens at 2.0 m (B/A 0.50) and Bayonne at both
+  heights (0.33, 0.75) fail (numbers as corrected by Amendment A2 below). On a fixed view set B moves exactly 0 under a height change,
   because no height enters it. All of B's shift comes from **re-association**: at the
   wrong height the frozen site's membership changes in 68-97% of sites. So what fails is the
   association's height dependence, transmitted through B, not B's geometry. A's frozen shift
-  is 1.1-1.6 m (median) for a 0.6 m height error.
+  is 1.2-1.6 m (median) for a 0.6 m height error.
 - **Reading.** Where camera positions are mutually consistent (Mapillary SfM in Richmond and
   Laurens, GSV), bearing-only triangulation agrees better with held-out views and with
   reviewer boxes, by about 0.4-1.3 deg of azimuth. Its median ranges match A's (B/A range ratio
@@ -135,14 +148,14 @@ Rule 2: height-robust in 3 of 6 open (city, height) cells -> FAIL
 
 | city | h m | sites | lost | changed | B unsolvable | med shift A frozen | med shift A re-assoc | med shift B re-assoc | B = 0 share | B/A | rule 2 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| richmond | 2 | 896 | 5 | 642 | 24 | 1.41 | 1.50 | 0.164 | 0.31 | 0.116 | pass |
-| richmond | 3.2 | 867 | 47 | 767 | 11 | 1.22 | 1.40 | 0.272 | 0.13 | 0.223 | pass |
-| laurens | 2 | 86 | 1 | 83 | 20 | 1.58 | 2.21 | 0.717 | 0.27 | 0.454 | fail |
-| laurens | 3.2 | 105 | 1 | 71 | 1 | 1.42 | 1.57 | 0.174 | 0.33 | 0.122 | pass |
-| bayonne | 2 | 602 | 2 | 421 | 77 | 1.32 | 1.79 | 0.439 | 0.43 | 0.332 | fail |
-| bayonne | 3.2 | 588 | 54 | 455 | 39 | 1.19 | 1.67 | 0.919 | 0.29 | 0.773 | fail |
-| paterson | 2 | 4489 | 58 | 3158 | 4 | 1.12 | 1.26 | 0.133 | 0.30 | 0.119 | pass |
-| paterson | 3.2 | 3240 | 1299 | 3043 | 12 | 0.95 | 1.50 | 0.292 | 0.06 | 0.308 | fail |
+| richmond | 2 | 893 | 5 | 642 | 27 | 1.41 | 1.49 | 0.164 | 0.31 | 0.116 | pass |
+| richmond | 3.2 | 861 | 47 | 767 | 17 | 1.22 | 1.40 | 0.269 | 0.13 | 0.221 | pass |
+| laurens | 2 | 85 | 1 | 83 | 21 | 1.55 | 2.18 | 0.771 | 0.27 | 0.497 | fail |
+| laurens | 3.2 | 103 | 1 | 71 | 3 | 1.42 | 1.57 | 0.159 | 0.34 | 0.112 | pass |
+| bayonne | 2 | 598 | 2 | 421 | 81 | 1.32 | 1.79 | 0.435 | 0.43 | 0.329 | fail |
+| bayonne | 3.2 | 579 | 54 | 455 | 48 | 1.18 | 1.65 | 0.889 | 0.30 | 0.750 | fail |
+| paterson | 2 | 4474 | 58 | 3158 | 19 | 1.12 | 1.25 | 0.131 | 0.30 | 0.117 | pass |
+| paterson | 3.2 | 3206 | 1299 | 3043 | 46 | 0.94 | 1.49 | 0.286 | 0.07 | 0.303 | fail |
 
 | city | GT-free views (sites) | med abs az A | med abs az B | D [95% CI] | p90 A / B | unsolvable views (A med) |
 |---|---|---:|---:|---|---|---|

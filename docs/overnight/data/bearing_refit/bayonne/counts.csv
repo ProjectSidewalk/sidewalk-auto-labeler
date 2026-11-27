@@ -1,2 +1,2 @@
-city,split,results,panos,sites,gt_panos,judged,partial,skipped,no_pool,unplaceable,placeable,unsure_missed,refs_det,det_no_site,det_small_site,refs_missed,missed_unplaceable,missed_no_site,missed_small_site,warnings
-bayonne,bayonne,results.jsonl,50409,14639,0,125,0,0,0,0,0,0,112,17,33,189,46,102,16,0
+city,split,results,panos,sites,gt_panos,judged,partial,skipped,no_pool,refs_det,det_no_site,det_small_site,refs_missed,missed_unplaceable,missed_no_site,missed_small_site,warnings
+bayonne,bayonne,results.jsonl,50409,14639,125,125,0,0,0,112,17,33,189,46,102,16,0

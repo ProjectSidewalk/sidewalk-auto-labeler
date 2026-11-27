@@ -46,7 +46,9 @@ from pathlib import Path
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
+# Root inserted last so it ends up first: scripts/position_check.py is a shim that
+# would otherwise shadow the root position_check module.
+for _p in (REPO_ROOT / 'scripts', REPO_ROOT):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -232,6 +234,9 @@ def ref_rows(city, split_data, panos, sites, ctx):
     """One row per GT reference mapped to a site with >= MIN_VIEWS views."""
     verdicts, bundle_ops, boxes = split_data
     counts = es.gt_counts()
+    counts['gt_panos'] = len(verdicts)
+    for unused in ('unplaceable', 'placeable', 'unsure_missed'):   # build_gt's, not ours
+        counts.pop(unused)
     counts.update(refs_det=0, det_no_site=0, det_small_site=0, refs_missed=0,
                   missed_unplaceable=0, missed_no_site=0, missed_small_site=0)
     warnings = []
@@ -419,7 +424,9 @@ def stress_rows(city, panos, sites, ctx):
             pa = rr.solve_views(svh.views)
             r[f'a_reassoc_shift_{tag}'] = _r(math.hypot(pa[0] - d['a'][0],
                                                         pa[1] - d['a'][1]), 4)
-            pb, _ = b_solution([ctx.ray(v) for v in svh.views])
+            # Solvable at the primary spread, as the pre-registration defines it (the 2.6 m
+            # side is filtered at the same threshold in summarize).
+            pb, _ = b_solution([ctx.ray(v) for v in svh.views], min_spread=PRIMARY_SPREAD)
             r[f'b_reassoc_ok_{tag}'] = pb is not None
             r[f'b_reassoc_shift_{tag}'] = None if pb is None or d['b'] is None else _r(
                 math.hypot(pb[0] - d['b'][0], pb[1] - d['b'][1]), 4)

@@ -92,7 +92,7 @@ richmond,91,16,89.627,True,0.9111,changed,0.8432,True,0.0952,0.8147,changed,0.57
 richmond,92,12,87.703,True,1.0544,changed,1.2342,True,0.4934,0.9089,changed,1.1602,True,0.0812
 richmond,93,11,87.868,True,1.9297,changed,1.093,True,0.1015,1.6613,changed,1.7187,True,0.2226
 richmond,94,3,54.039,True,0.6309,same,0.6309,True,0.0,0.865,changed,2.0877,True,0.2998
-richmond,95,7,86.179,True,0.7821,changed,2.922,True,1.6325,0.6459,changed,8.0825,True,4.5024
+richmond,95,7,86.179,True,0.7821,changed,2.922,True,1.6325,0.6459,changed,8.0825,False,
 richmond,96,15,88.339,True,1.0145,changed,0.9405,True,1.0094,0.9673,changed,0.7999,True,0.7586
 richmond,97,8,86.915,True,1.6579,same,1.6579,True,0.0,1.4628,changed,1.8578,True,0.3571
 richmond,98,8,87.702,True,1.2064,same,1.2064,True,0.0,1.1405,changed,2.1199,True,1.4834
@@ -126,7 +126,7 @@ richmond,126,12,89.867,True,0.6755,changed,2.4703,True,1.8911,0.6331,changed,0.9
 richmond,127,3,29.39,False,2.9889,same,2.9889,False,,2.663,lost,,,
 richmond,128,9,85.17,True,0.8978,changed,1.5132,True,0.4417,0.7515,changed,0.6663,True,0.0626
 richmond,129,9,88.918,True,1.8335,changed,1.8193,True,0.4111,1.6824,changed,1.6465,True,0.2034
-richmond,130,8,14.237,True,3.8949,changed,4.9533,True,2.2069,3.7393,changed,0.6631,True,0.0971
+richmond,130,8,14.237,True,3.8949,changed,4.9533,True,2.2069,3.7393,changed,0.6631,False,
 richmond,131,4,64.281,True,2.7547,changed,2.644,True,0.2951,2.3623,changed,2.8909,True,0.238
 richmond,132,15,89.322,True,0.715,changed,0.2118,True,0.8141,0.5367,changed,0.516,True,0.2674
 richmond,133,8,84.011,True,2.2778,changed,1.5079,True,0.5528,1.825,changed,4.0333,True,0.6004
@@ -428,7 +428,7 @@ richmond,465,7,86.195,True,1.3515,changed,1.5189,True,0.4318,1.2489,changed,1.77
 richmond,466,4,86.942,True,0.8541,changed,1.7177,True,2.2523,0.6477,changed,1.2845,True,0.313
 richmond,467,8,86.673,True,2.0175,changed,1.0533,True,0.181,1.7792,changed,1.0883,True,1.1499
 richmond,468,4,35.306,True,0.2678,same,0.2678,True,0.0,0.123,same,0.123,True,0.0
-richmond,469,3,48.337,True,2.1062,same,2.1062,True,0.0,1.9253,changed,2.01,True,1.1138
+richmond,469,3,48.337,True,2.1062,same,2.1062,True,0.0,1.9253,changed,2.01,False,
 richmond,471,4,65.71,True,2.8506,changed,4.3902,True,3.6173,2.3617,lost,,,
 richmond,472,13,89.238,True,1.371,changed,0.9725,True,0.0704,1.1264,changed,1.0729,True,0.0942
 richmond,473,15,89.148,True,1.9886,same,1.9886,True,0.0,1.6588,changed,1.9283,True,0.1089
@@ -796,7 +796,7 @@ richmond,985,7,88.069,True,1.8627,changed,3.2271,True,2.5732,1.6985,changed,4.18
 richmond,986,6,85.34,True,1.6026,changed,0.7802,True,0.1968,1.4546,changed,1.3075,True,0.2031
 richmond,987,10,89.882,True,1.7254,changed,3.1667,True,3.0108,1.5255,changed,1.2249,True,0.2302
 richmond,988,8,86.362,True,1.4565,changed,1.4338,True,0.2039,1.3499,changed,2.2622,True,1.4071
-richmond,989,3,17.331,True,2.9656,changed,1.308,True,0.501,2.9324,changed,4.2414,False,
+richmond,989,3,17.331,True,2.9656,changed,1.308,False,,2.9324,changed,4.2414,False,
 richmond,990,4,60.585,True,1.6226,same,1.6226,True,0.0,1.5115,changed,0.7027,True,0.2939
 richmond,991,7,89.229,True,1.0903,changed,1.5061,True,1.0424,0.984,changed,1.2326,True,4.0838
 richmond,992,9,64.586,True,0.8176,changed,1.3407,True,1.6444,0.6465,changed,0.9417,True,1.1331
@@ -830,7 +830,7 @@ richmond,1041,3,58.7,True,2.389,same,2.389,True,0.0,2.1223,changed,2.1484,True,2
 richmond,1045,8,88.109,True,2.0073,changed,3.9152,True,4.8866,1.7492,changed,2.0641,True,0.8979
 richmond,1050,3,89.582,True,1.258,same,1.258,True,0.0,1.0693,changed,1.4102,True,0.1854
 richmond,1054,4,80.398,True,1.3857,changed,2.6299,True,0.359,1.3677,changed,2.1217,True,0.6171
-richmond,1057,4,24.679,True,0.2978,same,0.2978,True,0.0,0.2269,changed,6.2332,True,0.1597
+richmond,1057,4,24.679,True,0.2978,same,0.2978,True,0.0,0.2269,changed,6.2332,False,
 richmond,1058,3,80.438,True,0.8799,changed,1.2492,True,0.651,0.6543,changed,0.074,True,0.7803
 richmond,1059,10,89.067,True,1.0469,same,1.0469,True,0.0,0.7865,changed,1.1894,True,0.423
 richmond,1060,3,33.124,True,0.7574,same,0.7574,True,0.0,0.772,changed,0.676,True,0.8657
@@ -840,7 +840,7 @@ richmond,1065,7,88.534,True,1.2802,changed,2.6501,True,2.5023,1.1541,changed,0.4
 richmond,1069,3,71.344,True,1.237,same,1.237,True,0.0,1.2245,changed,1.9838,True,2.2334
 richmond,1073,6,83.945,True,0.9647,changed,2.2344,True,0.9782,0.7903,changed,2.1551,True,2.4123
 richmond,1075,3,76.282,True,1.2669,changed,1.0597,True,2.5714,1.2004,same,1.2004,True,0.0
-richmond,1080,3,88.722,True,1.9482,changed,4.2451,True,11.0782,1.7236,changed,3.7286,True,5.5821
+richmond,1080,3,88.722,True,1.9482,changed,4.2451,False,,1.7236,changed,3.7286,False,
 richmond,1082,4,49.758,True,1.8613,changed,3.0387,True,1.9274,1.719,changed,1.5746,True,0.562
 richmond,1083,3,62.047,True,2.4228,same,2.4228,True,0.0,2.1559,changed,1.7903,True,0.0865
 richmond,1089,4,85.768,True,1.7892,same,1.7892,True,0.0,1.6283,changed,2.0401,True,0.9226
@@ -867,7 +867,7 @@ richmond,1137,5,89.5,True,1.2045,changed,4.1593,True,4.8481,1.1119,changed,3.519
 richmond,1139,4,37.302,True,2.039,same,2.039,True,0.0,2.0064,same,2.0064,True,0.0
 richmond,1140,7,87.342,True,0.7031,changed,1.0272,True,0.837,0.6153,changed,4.9427,True,5.9501
 richmond,1142,3,24.514,True,2.4621,changed,4.5032,False,,2.3827,same,2.3827,True,0.0
-richmond,1145,3,50.976,True,2.1223,same,2.1223,True,0.0,2.0163,changed,0.1774,True,0.4306
+richmond,1145,3,50.976,True,2.1223,same,2.1223,True,0.0,2.0163,changed,0.1774,False,
 richmond,1152,4,84.242,True,0.6724,same,0.6724,True,0.0,0.7028,same,0.7028,True,0.0
 richmond,1154,4,69.424,True,1.473,same,1.473,True,0.0,1.3947,changed,0.5781,False,
 richmond,1162,8,88.104,True,2.0165,changed,5.4724,False,,1.7901,changed,1.9583,True,2.3862
@@ -923,13 +923,13 @@ richmond,1306,4,50.434,True,1.6319,changed,1.1063,True,0.0373,1.6117,same,1.6117
 richmond,1307,3,43.586,False,2.4664,changed,2.7267,True,,2.1328,changed,2.2084,False,
 richmond,1310,4,28.717,True,0.2222,same,0.2222,True,0.0,0.1626,same,0.1626,True,0.0
 richmond,1319,3,80.251,True,1.7502,same,1.7502,True,0.0,1.6909,same,1.6909,True,0.0
-richmond,1326,3,34.073,True,1.7004,changed,4.024,True,8.812,1.7408,lost,,,
+richmond,1326,3,34.073,True,1.7004,changed,4.024,False,,1.7408,lost,,,
 richmond,1327,3,73.178,True,2.4128,changed,3.8996,True,4.1597,2.1666,changed,3.7928,False,
 richmond,1337,4,74.419,True,1.1568,changed,0.674,True,1.058,1.1484,changed,1.0609,True,1.2748
 richmond,1342,4,83.343,True,1.2575,changed,1.1928,True,1.2333,1.2115,changed,1.4342,True,0.0523
 richmond,1349,3,68.315,True,0.4329,same,0.4329,True,0.0,0.3968,changed,0.6316,True,0.3367
 richmond,1350,3,61.06,True,2.2706,changed,2.4846,True,0.761,2.0473,changed,2.1239,False,
-richmond,1353,7,4.557,True,3.2144,changed,6.8948,True,1.1097,3.1124,changed,1.869,True,0.2491
+richmond,1353,7,4.557,True,3.2144,changed,6.8948,True,1.1097,3.1124,changed,1.869,False,
 richmond,1360,3,62.049,True,2.4778,lost,,,,2.1132,changed,2.4051,True,0.2
 richmond,1361,3,87.117,True,1.6892,changed,4.3489,True,5.2434,1.5722,same,1.5722,True,0.0
 richmond,1365,3,21.979,True,3.1934,changed,3.8539,True,8.3095,3.0561,changed,2.4581,True,2.6538

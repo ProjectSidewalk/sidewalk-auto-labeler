@@ -242,8 +242,11 @@ server, so per-region clustering is moot there; it is not moot for Gainesville.
 
 ## 5. Caveats
 
-- The Bend numbers are on a substitute inventory (-0.7% ramps, 8 weeks older). Gainesville
-  is unscored, and Gainesville is the city that is not a RampNet training city.
+- Both cities are scored on fresh 2026-11-27 pulls (section 2), which differ from the frozen
+  2026-09-26 snapshots (Bend +87 kept ramps, Gainesville +17). The script calls them
+  SUBSTITUTE; Jon ruled they may stand in (Amendment 3). The section 3 tables are from the
+  overnight run on Bend's July substitute (-0.7% ramps, 8 weeks older). Gainesville is the
+  city that is not a RampNet training city.
 - The inventory has no false positives, so emitting fewer labels can only lose on coverage
   and never gain on precision. The 73% workload cut is unpriced.
 - M1's pairs are anchored on fusion's positions, so ramps fusion does not resolve are not in
@@ -257,26 +260,27 @@ server, so per-region clustering is moot there; it is not moot for Gainesville.
 ```bash
 PY=python
 RUNS=runs
+INV=<scratch>/inv   # the 2026-11-27 pulls; their sha256s are in data/best_view_emission/<city>_inventory.json
 $PY -m pytest -q tests/test_best_view_emission.py
-# Bend on the substitute (what this report shows; ~1 min, no network):
-$PY scripts/best_view_emission.py score bend --runs-root $RUNS \
-    --inventory bend=../RampNet/data/inventories/bend-or-2026-07-31.jsonl.gz
-$PY scripts/best_view_emission.py verdict
-# To settle the rule (NEEDS NETWORK, Jon's approval): pull both inventories to a scratch dir
-# (never over the tracked inventory.json), then score from those files.
-$PY scripts/inventory_oracle.py fetch bend gainesville --out /tmp/inv
+# The committed CSVs (the 2026-11-27 run, sections 2 and 5; a few minutes, no network):
 $PY scripts/best_view_emission.py score bend gainesville --runs-root $RUNS \
-    --inventory bend=/tmp/inv/bend/inventory.geojson \
-    --inventory gainesville=/tmp/inv/gainesville/inventory.geojson
-$PY scripts/best_view_emission.py verdict
+    --inventory bend=$INV/bend/inventory.geojson \
+    --inventory gainesville=$INV/gainesville/inventory.geojson
+$PY scripts/best_view_emission.py verdict   # prints UNDETERMINED (both SUBSTITUTE); section 2 reads FAIL
+# The pulls themselves NEED NETWORK and Jon's approval. Write them to a scratch dir, never over
+# the tracked inventory.json. A new pull reproduces the CSVs only if its sha256 matches.
+$PY scripts/inventory_oracle.py fetch bend gainesville --out $INV
+# The section 3 overnight tables (Bend on RampNet's July substitute). Write them elsewhere,
+# so they do not overwrite the committed bend_*.csv:
+$PY scripts/best_view_emission.py score bend --runs-root $RUNS --out <scratch>/bve_july \
+    --inventory bend=../RampNet/data/inventories/bend-or-2026-07-31.jsonl.gz
 ```
 
-A fresh pull is `verified` only if its sha256 equals the one the committed `inventory.json`
-records. That is plausible for Gainesville, whose layer was last edited 2026-07-09. It is
-unlikely for Bend, which is edited often. If the hash differs, the script labels the file a
-SUBSTITUTE and the verdict stays UNDETERMINED. Whether a fresh snapshot may stand in is a
-decision for Jon; this report does not make it. pandas and haversine are NOT needed: the
-script imports inventory_clustering's metric functions without eval_ps_clustering.
+A pull is `verified` only if its sha256 equals the one the committed `inventory.json`
+records; otherwise the script labels it a SUBSTITUTE and `verdict` prints UNDETERMINED. Both
+2026-11-27 pulls differ, and Jon ruled that they may stand in (Amendment 3), so this report
+reads FAIL. pandas and haversine are NOT needed: the script imports inventory_clustering's
+metric functions without eval_ps_clustering.
 
 ## 6. Amendments (dated; the rule in section 1 is unchanged)
 

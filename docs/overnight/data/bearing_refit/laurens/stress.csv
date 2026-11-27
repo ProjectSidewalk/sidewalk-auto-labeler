@@ -41,7 +41,7 @@ laurens,39,3,44.713,True,0.9622,changed,4.3199,True,0.9888,1.0214,same,1.0214,Tr
 laurens,40,12,89.992,True,0.7081,changed,3.1489,True,2.376,0.7116,changed,0.8474,True,0.0711
 laurens,41,11,89.701,True,1.4291,changed,1.8666,True,0.2701,1.336,changed,1.2252,True,0.0433
 laurens,42,6,82.041,True,1.7786,changed,3.4508,False,,1.6607,changed,1.2454,True,0.0521
-laurens,44,4,62.104,True,1.7958,changed,4.882,True,2.5958,1.5827,changed,1.3456,True,6.4352
+laurens,44,4,62.104,True,1.7958,changed,4.882,True,2.5958,1.5827,changed,1.3456,False,
 laurens,45,4,82.716,True,0.2781,changed,1.9041,True,0.7712,0.3772,changed,1.393,True,1.6022
 laurens,46,4,29.134,True,2.3469,same,2.3469,True,0.0,2.2963,same,2.2963,True,0.0
 laurens,47,5,85.285,True,1.4814,changed,3.3004,True,5.5467,1.3742,changed,3.7187,True,3.2682
@@ -72,7 +72,7 @@ laurens,76,3,85.896,True,1.3732,changed,3.2527,False,,1.3495,changed,1.1958,True
 laurens,77,6,81.387,True,1.365,changed,1.2971,True,0.625,1.2242,changed,1.1638,True,0.1788
 laurens,78,3,43.328,True,2.4813,changed,4.7051,True,6.4107,2.2491,changed,1.7627,True,7.2412
 laurens,79,3,81.523,True,1.7458,changed,2.849,True,5.3365,1.6192,changed,3.3884,True,5.2684
-laurens,82,5,87.37,True,0.8814,changed,2.6603,True,1.9862,0.8295,changed,4.8266,True,8.2481
+laurens,82,5,87.37,True,0.8814,changed,2.6603,True,1.9862,0.8295,changed,4.8266,False,
 laurens,83,6,77.536,True,1.9712,changed,4.5467,False,,1.802,changed,1.3501,True,0.7574
 laurens,85,5,79.855,True,1.6652,changed,2.7199,True,2.1506,1.6151,changed,3.6232,True,5.9949
 laurens,86,3,81.209,True,2.1771,same,2.1771,True,0.0,1.9683,same,1.9683,True,0.0
@@ -104,7 +104,7 @@ laurens,137,5,87.315,True,1.5302,changed,2.9628,False,,1.4227,changed,3.5655,Tru
 laurens,139,4,48.347,True,1.9755,changed,5.1979,False,,1.7589,changed,1.8606,False,
 laurens,141,6,86.787,False,1.405,changed,0.9473,True,,1.3374,changed,3.5966,True,
 laurens,147,3,68.028,True,1.8223,same,1.8223,True,0.0,1.7753,changed,1.3153,True,1.7041
-laurens,154,5,31.44,True,2.4985,changed,2.527,True,0.0042,2.4129,same,2.4129,True,0.0
+laurens,154,5,31.44,True,2.4985,changed,2.527,False,,2.4129,same,2.4129,True,0.0
 laurens,160,3,58.954,True,2.0152,same,2.0152,True,0.0,1.9434,same,1.9434,True,0.0
 laurens,167,3,80.931,True,1.9951,same,1.9951,True,0.0,1.9164,same,1.9164,True,0.0
 laurens,169,3,84.465,True,1.6078,same,1.6078,True,0.0,1.2743,changed,4.5216,True,3.6207

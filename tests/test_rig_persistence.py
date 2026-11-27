@@ -1,10 +1,5 @@
 """Pure-logic tests for scripts/rig_persistence.py (no data files, no network)."""
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'scripts'))
-
-import rig_persistence as rp  # noqa: E402
+import rig_persistence as rp
 
 
 def _m(group, col, row, seq='s', conf=0.4, idx=0):

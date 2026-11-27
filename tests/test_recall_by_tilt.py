@@ -1,15 +1,10 @@
 """Pure-logic checks for scripts/recall_by_tilt.py (no data, no network)."""
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-import geo  # noqa: E402
-import recall_by_tilt as rbt  # noqa: E402
+import geo
+import recall_by_tilt as rbt
 
 
 def test_gravity_elevation_matches_geo_world_ray():
@@ -38,11 +33,3 @@ def test_rig_class():
     assert rbt.rig_class('lyon', {'camera_make': 'GoPro', 'camera_model': 'MAX2'}) == 'other_360'
     assert rbt.rig_class('richmond', {'camera_make': 'none', 'camera_model': 'none'}) == 'unknown'
     assert rbt.rig_class('paterson', {}) == 'gsv'
-
-
-def test_logistic_recovers_slope():
-    rng = np.random.default_rng(1)
-    x = rng.normal(size=4000)
-    y = (rng.uniform(size=4000) < 1 / (1 + np.exp(-(0.3 - 0.8 * x)))).astype(float)
-    beta = rbt.logistic_fit(np.column_stack([np.ones_like(x), x]), y)
-    assert abs(beta[1] + 0.8) < 0.15

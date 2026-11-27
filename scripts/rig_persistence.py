@@ -40,13 +40,16 @@ from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-for p in (REPO_ROOT, REPO_ROOT / 'scripts'):
+# Root inserted last so it ends up first: scripts/position_check.py is a shim that
+# would otherwise shadow the root position_check module.
+for p in (REPO_ROOT / 'scripts', REPO_ROOT):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
 import geo  # noqa: E402
-from detectors import (BENCHMARK_CONFIDENCE, OPERATIONAL_CONFIDENCE,  # noqa: E402
-                       NADIR_MASK_DEG, on_camera_rig)
+from detectors import (BENCHMARK_CONFIDENCE, BORDER_EXCLUDE, DECODE_ARGMAX,  # noqa: E402
+                       OPERATIONAL_CONFIDENCE, NADIR_MASK_DEG, on_camera_rig,
+                       record_border, record_decode, registry)
 
 HM_W, HM_H = geo.HEATMAP_WIDTH, geo.HEATMAP_HEIGHT   # 1024 x 512
 STATIONARY_M = 2.0
@@ -93,15 +96,20 @@ def _capture_time(pano):
 
 
 def load_run(path):
-    """Stream results.jsonl -> ({pid: RunPano}, counts). Refuses non-default decode/border."""
+    """Stream results.jsonl -> ({pid: RunPano}, counts). Refuses a record that did not run
+    exactly CurbRamp (#168; detection indices stay the stored ones) and non-default
+    decode/border."""
     panos, counts = {}, Counter()
     with open(path, encoding='utf-8') as f:
         for line in f:
             if not line.strip():
                 continue
             rec = json.loads(line)
-            if rec.get('detection_decode', 'argmax') != 'argmax' or \
-                    rec.get('detection_border', 'exclude') != 'exclude':
+            try:
+                registry.require_curb_ramp_only(rec, f'rig_persistence ({path})')
+            except ValueError as e:
+                raise SystemExit(str(e)) from None
+            if record_decode(rec) != DECODE_ARGMAX or record_border(rec) != BORDER_EXCLUDE:
                 raise SystemExit(f'{path}: non-default decode/border record; refused')
             p = rec['pano']
             sm = p.get('source_metadata') or {}
@@ -389,6 +397,8 @@ def gt_check(split, city_data, benchmark_root):
             for line in f:
                 if line.strip():
                     rec = json.loads(line)
+                    # the type check es.load_benchmark makes on the verdicts.json branch
+                    registry.require_curb_ramp_only(rec, f'rig_persistence gt_check ({split})')
                     bundle_ops[rec['pano']['panorama_id']] = \
                         [(x['x_normalized'], x['y_normalized'], x['confidence'])
                          for x in rec['detections']]

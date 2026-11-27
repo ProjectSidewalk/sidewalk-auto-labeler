@@ -1,2 +1,2 @@
-city,split,results,panos,sites,gt_panos,judged,partial,skipped,no_pool,unplaceable,placeable,unsure_missed,refs_det,det_no_site,det_small_site,refs_missed,missed_unplaceable,missed_no_site,missed_small_site,warnings
-richmond,richmond,results.jsonl,9091,1569,0,124,0,0,0,0,0,0,237,27,20,73,30,16,6,0
+city,split,results,panos,sites,gt_panos,judged,partial,skipped,no_pool,refs_det,det_no_site,det_small_site,refs_missed,missed_unplaceable,missed_no_site,missed_small_site,warnings
+richmond,richmond,results.jsonl,9091,1569,124,124,0,0,0,237,27,20,73,30,16,6,0

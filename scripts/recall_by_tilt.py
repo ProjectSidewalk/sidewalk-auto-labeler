@@ -44,7 +44,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import geo  # noqa: E402
-from detectors import BENCHMARK_CONFIDENCE  # noqa: E402
+from detectors import BENCHMARK_CONFIDENCE, registry  # noqa: E402
 
 OPEN_SPLITS = ['laurens_mapillary', 'bayonne', 'juneau', 'lyon', 'richmond', 'clovis',
                'morgantown', 'annapolis']
@@ -127,8 +127,13 @@ def pose_113(split, pano, lyon_tilt):
 
 
 def load_lyon_tilt(path):
+    """{pano_id: row} from RampNet's Lyon tilt estimate. A missing file RAISES: silently
+    reading Lyon as unposed would change every pooled number and overwrite the tracked
+    outputs with them."""
     if path is None or not Path(path).exists():
-        return {}
+        raise FileNotFoundError(
+            f'--lyon-tilt {path}: not found. It is RampNet analysis_out/pano_tilt/lyon.json '
+            '(the Lyon pose source); pass its path explicitly.')
     with open(path, encoding='utf-8') as f:
         return {r['pano_id']: r for r in json.load(f)['rows']}
 
@@ -136,10 +141,16 @@ def load_lyon_tilt(path):
 def load_split(split, bench_root, lyon_tilt, exclude_top):
     """Rows (one per GT ramp) and pano rows (one per pool pano) for one split."""
     recs = {}
-    with open(bench_root / split / 'records.jsonl', encoding='utf-8') as f:
-        for line in f:
+    records_path = bench_root / split / 'records.jsonl'
+    with open(records_path, encoding='utf-8') as f:
+        for lineno, line in enumerate(f, 1):
             if line.strip():
                 r = json.loads(line)
+                # eval_sites.load_benchmark's check: a CurbRamp score needs a CurbRamp bundle
+                types = sorted(registry.record_types(r))
+                if types != [registry.CURB_RAMP]:
+                    raise ValueError(f'{records_path} line {lineno}: the bundle record ran '
+                                     f'{types}, but this scores {registry.CURB_RAMP}')
                 recs[r['pano']['panorama_id']] = r
     with open(bench_root / split / 'verdicts.json', encoding='utf-8') as f:
         verdicts = json.load(f)['panos']

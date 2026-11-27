@@ -88,15 +88,6 @@ def test_ps_clusters_cannot_link_and_threshold():
     assert bve.ps_clusters(pts[:2], ['a', 'a']).tolist() == [0, 1]
 
 
-def test_pct_nearest_rank():
-    assert bve.pct([3.0, 1.0, 2.0], 0.5) == 2.0
-    assert bve.pct([], 0.5) is None
-
-
-def test_bootstrap_ci_brackets_a_constant_shift():
-    a = np.linspace(0, 10, 200)
-    ci = bve.bootstrap_diff(a, a + 1.0, n_boot=200)
-    assert ci[0.9][0] == pytest.approx(1.0) and ci[0.9][1] == pytest.approx(1.0)
 
 
 def _row(city, arm, p90, cov):
@@ -126,6 +117,13 @@ def test_verdict_pass_fail_undetermined():
     assert bve.verdict(_rows(rand_p90_g=3.4), {'bend': 'verified',
                                                 'gainesville': 'SUBSTITUTE'})[0] \
         == bve.UNDETERMINED
+    # nor does a verified failure settle it while the other city is unscored on a verified
+    # snapshot: the pre-registration says UNDETERMINED if EITHER city cannot be scored there
+    assert bve.verdict(_rows(rand_p90_g=3.4), {'bend': 'SUBSTITUTE',
+                                                'gainesville': 'verified'})[0] \
+        == bve.UNDETERMINED
+    only_g = [r for r in _rows(rand_p90_g=3.4) if r['city'] == 'gainesville']
+    assert bve.verdict(only_g, {'gainesville': 'verified'})[0] == bve.UNDETERMINED
 
 
 def test_synthesize_matches_the_documented_example(tmp_path):

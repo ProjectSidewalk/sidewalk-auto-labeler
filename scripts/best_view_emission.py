@@ -61,7 +61,9 @@ from pathlib import Path
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-for _p in (REPO_ROOT, REPO_ROOT / 'scripts'):
+# Root inserted last so it ends up first: scripts/position_check.py is a shim that
+# would otherwise shadow the root position_check module.
+for _p in (REPO_ROOT / 'scripts', REPO_ROOT):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -80,7 +82,13 @@ except SystemExit:
     # calls it inside score functions this script never uses; its metric functions
     # (visible_pool, inventory_metrics) need numpy and scipy alone.
     sys.modules['eval_ps_clustering'] = types.ModuleType('eval_ps_clustering')
-    import inventory_clustering as ic  # noqa: E402
+    try:
+        import inventory_clustering as ic  # noqa: E402
+    finally:
+        # Keep `ic` but leave nothing behind: a later importer must get the real modules
+        # (or the real error), not an empty stub or an inventory_clustering bound to it.
+        sys.modules.pop('eval_ps_clustering', None)
+        sys.modules.pop('inventory_clustering', None)
 
 from scipy.cluster.hierarchy import fcluster, linkage  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
@@ -593,8 +601,10 @@ def score_frame(city, tier, frame_req, results_path, inv_ll, labels_all):
                for a in (ALL, BEST, RANDOM)}}
     surv = {**base, 'height': str(height), 'panos': len(panos), 'labels': len(labels),
             'labels_in_sites': len(labels) - len(unplaced), 'labels_unplaced': len(unplaced),
-            'unplaced_out_of_range_or_horizon': stats['drops']['out_of_range']
-            + stats['drops']['horizon'],
+            # fusion's own drop counters: every projected detection >= the storage floor,
+            # NOT the unplaced labels at this tier (those are labels_unplaced)
+            'fusion_drops_out_of_range_or_horizon_all_floor':
+                stats['drops']['out_of_range'] + stats['drops']['horizon'],
             'operational_sites': len(ops),
             'single_member_sites': sum(1 for s in ops if len(candidates(s)) == 1),
             'gate20_dropped': len(labels) - len(arms[GATE]),
@@ -609,9 +619,9 @@ def verdict(rows, statuses):
     """Apply the pre-registered rule. rows: arm rows; statuses: {city: 'verified' | ...}.
 
     PASS iff in both cities (tier 0.30, auto): p90_M1(random) - p90_M1(best) >= 0.5 m and
-    covered_r5(best) >= covered_r5(all) - 0.010. FAIL if a city scored on its verified
-    snapshot misses either clause; otherwise UNDETERMINED while a city is missing or was
-    scored on a substitute inventory."""
+    covered_r5(best) >= covered_r5(all) - 0.010. UNDETERMINED if either city is missing or
+    was scored on a substitute inventory, as the pre-registration says, even when the other
+    city fails on its verified snapshot; otherwise FAIL if a city misses either clause."""
     reasons, failed_verified, undetermined = [], False, False
     for city in CITIES:
         def get(arm):
@@ -638,9 +648,9 @@ def verdict(rows, statuses):
             undetermined = True
         elif not ok:
             failed_verified = True
-    if failed_verified:
-        return FAIL, reasons
-    return (UNDETERMINED if undetermined else PASS), reasons
+    if undetermined:
+        return UNDETERMINED, reasons
+    return (FAIL if failed_verified else PASS), reasons
 
 
 def write_csv(path, rows):

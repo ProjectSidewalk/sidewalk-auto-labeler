@@ -259,7 +259,8 @@ The rig × split quartile tables (`posthoc_*_by_rig_split.csv`) are also post ho
 ## 6. Replication
 
 ```bash
-# from the repo root; runs/ must hold the archived results.jsonl files (gitignored)
+# from the repo root; needs the RampNet checkout beside this repo (benchmark/ and
+# analysis_out/pano_tilt/lyon.json; the script refuses to run without the latter)
 python scripts/recall_by_tilt.py \
     --benchmark-root ../RampNet/benchmark \
     --lyon-tilt ../RampNet/analysis_out/pano_tilt/lyon.json \

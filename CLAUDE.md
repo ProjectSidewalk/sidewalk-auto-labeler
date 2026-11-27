@@ -107,6 +107,7 @@ named here. Verdicts are summarised only where they set a production default.
 | `reposition.py` | rewrite flagged sequences' positions | commands.md "Position check" |
 | `coverage_check.py` | post-submission backup-image coverage (#46) | commands.md section |
 | `review_order.py` | validator-ranked review list per endpoint (#168 item 5) | commands.md section; ordering only |
+| `rig_persistence.py`, `bearing_refit.py`, `recall_by_tilt.py`, `best_view_emission.py` | overnight CPU studies: rig by sequence persistence, bearing-only placement, recall vs tilt, one label per site | `docs/overnight/<study>.md` (index: `docs/overnight/README.md`); all FAIL / NOT ESTABLISHED, nothing adopted |
 
 Analysis-only extra deps (`pandas scipy haversine`, Tile2Net's venv, Mask2Former's
 torch/transformers) are **deliberately not in requirements.txt**.

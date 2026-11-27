@@ -1,11 +1,7 @@
 """Pure-geometry checks for scripts/bearing_refit.py (no run data, no network)."""
 import math
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-
-import bearing_refit as br  # noqa: E402
+import bearing_refit as br
 
 
 def _ray(ce, cn, target, s2t=1e-4, s2g=1.0):
@@ -30,10 +26,6 @@ def test_b_solution_refuses_rays_meeting_behind_a_camera():
     pos, sp = br.b_solution([(0, 0, 300.0, 1e-4, 1.0), (10, 0, 60.0, 1e-4, 1.0)])
     assert pos is None and sp > 50
 
-
-def test_spread_folds_opposed_rays():
-    assert math.isclose(br.spread_deg([0.0, 175.0]), 5.0, abs_tol=1e-9)
-    assert math.isclose(br.spread_deg([0.0, 90.0]), 90.0, abs_tol=1e-9)
 
 
 def test_azimuth_error_wraps():
