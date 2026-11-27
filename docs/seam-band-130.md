@@ -71,7 +71,7 @@ pixels against `detect_peaks`. Two differences predate #130 and hold under both 
   value. The two differ only above 1.0.
 
 The default stays `exclude`. `keep` is bound in the manifest and refused in a mix, the same way
-`--decode` is (`CLAUDE.md`, SEAM BAND block).
+`--decode` is (`docs/commands.md`, "Seam band" section; `CLAUDE.md` before PR #175).
 
 ## 2. Instrument check
 

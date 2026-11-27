@@ -439,7 +439,7 @@ Plumbing for more than one detector (Planning#36). Two specs: CurbRamp and **Cro
   `models.Crosswalk`.
 - **Store-backed Crosswalk** (`detect_from_store.py --records <file PS received>`). The
   server-metadata mode stays CurbRamp only.
-- **Registry** (`detectors/registry.py`, torch-free): A consumer reads thresholds and the rig
+- **Registry** (`detectors/registry.py`, torch-free). A consumer reads thresholds and the rig
   mask from the spec of **that detection's** type.
 - **Readers use the helpers**, never the keys: `record_types`, `detection_type` (raises on an
   untyped detection in a multi-type line), `provenance_for`, `detections_of_type`. Pre-#168
@@ -448,8 +448,9 @@ Plumbing for more than one detector (Planning#36). Two specs: CurbRamp and **Cro
   with **no new key** (byte-pinned in `tests/test_multitype_records.py`).
 - `main.py --types` (comma list). The manifest binds `label_types` and a per-type `models`
   map.
-- **Consumers:** `fuse_sites.py --label-type`, `eval_sites.py --label-type`,
-  `eval_ps_clustering.py --label-type` and `export_benchmark.py --label-type`.
+- **Consumers:** `fuse_sites.py --label-type`, `eval_sites.py --label-type` (refuses a type
+  whose benchmark tier is not 0.55, so Crosswalk today), `eval_ps_clustering.py --label-type`
+  (`run()` still refuses anything but CurbRamp) and `export_benchmark.py --label-type`.
   `agree_rate`, `mined_precision` and `provenance_gate` **refuse** anything but
   `{CurbRamp}`.
 - **`send_to_ps.py`** guards decode/border per type, against only campaigns that sent that
