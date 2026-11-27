@@ -783,6 +783,8 @@ for the following, all applied in this revision:
 
 Every number quoted in this document, the PR body, the CLAUDE.md block and the #47 comments, with the committed file, row and column it comes from, and where it is quoted. `check-numbers` (and `figures`) regenerate this list as `data/numbers.csv` and look each value up by key (file | row | column), not by value. Each value is compared at the quoted rounding, and any mismatch exits non-zero. Last run: 236 numbers, 0 mismatches. The list is curated by hand.
 
+The "CLAUDE.md block" named in the `quoted in` column moved verbatim to `docs/commands.md` (section "Footway: segmenter vs depth study") in PR #175, 2026-11-05. The column keeps the name it had when the numbers were quoted, so `numbers.csv` stays byte-stable.
+
 Files: `headline.csv`, `curb_height.csv`, `detection_classes.csv`, `trap.csv`, `verdict.json` and `sample_counts.csv` are in `runs/_pooled/footway/`, with copies in `docs/figures/footway-depth/data/`. `derived_numbers.csv` is in `data/`; each of its rows carries its formula. Percentages in the text are the fractions below.
 
 | quoted | file | row | column | value | quoted in |

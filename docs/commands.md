@@ -1331,7 +1331,7 @@ python scripts/crosswalk_parity.py --checkpoint <A>/checkpoints/crosswalk_s4/fin
 python scripts/detect_from_store.py --run-dir runs/<city>_crosswalk --store <store>/<city> \
     --records runs/<city>/results.jsonl --types Crosswalk --crosswalk-checkpoint <pth>
 # NOT yet for Crosswalk: reinfer.py (CurbRamp only), detect_from_store.py's server-metadata
-# mode (CurbRamp only; it writes GSV pano blocks), and fusion (PR #176).
+# mode (CurbRamp only; it writes GSV pano blocks). Fusion shipped in PR #176 (see below).
 #
 # RANGE GATE (#192, Jon 2026-11-17). PS places a label from its pixel row with a distance
 # estimate bounded near 23.85 m, so far detections land far short of their target. send_to_ps

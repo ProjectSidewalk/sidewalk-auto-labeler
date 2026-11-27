@@ -4,7 +4,7 @@
 right. A **mined label** is a strong fused site (≥ 3 operational panos) projected into a
 nearby judged benchmark pano that did not detect it. The reviewer's verdicts in
 `../RampNet/benchmark/<city>/` decide whether the projected point is a ramp. The script's
-docstring and the CLAUDE.md section describe the buckets. There are two denominators, and
+docstring and its section in `docs/commands.md` describe the buckets. There are two denominators, and
 neither is quoted without the other:
 
 - **hard-only** = tp / (tp + fp). The share of mined targets that are misses the model does
