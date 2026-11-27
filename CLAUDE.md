@@ -70,7 +70,8 @@ Tests live in `tests/` and cover the PS-facing contracts: the JSONL record forma
 transform and PS field mapping (`send_to_ps.transform_record`). They need only
 `requirements-test.txt` (no torch) and never touch the network; streetlevel and `requests`
 are monkeypatched. CI runs them (`.github/workflows/tests.yml`). Keep the suite lean: test what
-PS consumes, and don't add test infrastructure. There is no linter config or build step.
+PS consumes, and don't add test infrastructure (`tests/test_claude_md_size.py`, the size budget
+above, is the one exception). There is no linter config or build step.
 
 ### Analysis and study scripts → where to read
 
@@ -433,42 +434,24 @@ Plumbing for more than one detector (Planning#36). Two specs: CurbRamp and **Cro
 
 - **Crosswalk** (`detectors/crosswalk.py`): a local `.pth` (`--crosswalk-checkpoint`, required),
   identity = the file's sha256 in `detectors/checkpoints.KNOWN_CHECKPOINTS` (unknown refuses).
-  Fixed frame: argmax, border `keep`, floor 0.05; operating point 0.23; rig mask on.
   `--decode`/`--border` are CurbRamp's, refused without it. A Crosswalk-only manifest has
   **null** top-level floor/decode/border (they describe CurbRamp) and its frame in
-  `models.Crosswalk`. `scripts/crosswalk_parity.py` is the loader's GPU acceptance test.
-  0.23 holds on labeler-made pixels too (store path and live GSV fetch, Seattle test GT; PR
-  #188 follow-up), though individual peaks move between paths.
-- **Store-backed Crosswalk** (`detect_from_store.py --records <file PS received>`): pano blocks
-  copied verbatim from that file, which needs its `.submission.json` with the same sha256.
-  Juneau: `runs/juneau_crosswalk`, `runs/juneau_expansion_crosswalk`, validations in
-  `runs/juneau_crosswalk/validation/`. The server-metadata mode stays CurbRamp only.
-
-- **Registry** (`detectors/registry.py`, torch-free): `DetectorSpec` (thresholds and
-  `mask_rig` per type), `SPECS`, `spec_for`, `parse_types`, `load_detectors` (one shared
-  inference lock when there is more than one type). A consumer reads thresholds and the rig
+  `models.Crosswalk`.
+- **Store-backed Crosswalk** (`detect_from_store.py --records <file PS received>`). The
+  server-metadata mode stays CurbRamp only.
+- **Registry** (`detectors/registry.py`, torch-free): A consumer reads thresholds and the rig
   mask from the spec of **that detection's** type.
 - **Readers use the helpers**, never the keys: `record_types`, `detection_type` (raises on an
   untyped detection in a multi-type line), `provenance_for`, `detections_of_type`. Pre-#168
   lines read as CurbRamp.
 - **Writer rule** (`main.build_output_line`): a `{CurbRamp}`-only run writes the pre-#168 line
-  with **no new key** (byte-pinned in `tests/test_multitype_records.py`). Other sets write
-  per-detection `label_type`, sorted `label_types`, `models: {T: provenance}`, and a line-level
-  `label_type` only when exactly one type ran.
+  with **no new key** (byte-pinned in `tests/test_multitype_records.py`).
 - `main.py --types` (comma list). The manifest binds `label_types` and a per-type `models`
   map.
-- **Consumers:** `fuse_sites.py --label-type` (a non-CurbRamp fuse writes
-  `sites.<type>.jsonl`; params come from `fs.fuse_params_for(T, **flags)` = the spec, then
-  `DetectorSpec.fuse_overrides` (empty for both specs today), then every flag that is not
-  None, so the association flags default to None; `FuseParams.label_type` lands in
-  `sites_meta.json`, `sites.jsonl` is byte-identical for CurbRamp), `eval_sites.py
-  --label-type` (report in `fusion_eval.<T>`; refuses a type whose benchmark tier is not 0.55,
-  so Crosswalk today), `eval_ps_clustering.py --label-type` (pulls, labels and pixel map per
-  type; `run()` still refuses anything but CurbRamp: the PS threshold arms are CurbRamp's cut)
-  and `export_benchmark.py --label-type`. `agree_rate`, `mined_precision` and
-  `provenance_gate` **refuse** anything but `{CurbRamp}`; `eval_sites` does so for a results
-  file only when scoring CurbRamp, and for any T refuses a bundle whose records did not run
-  exactly T (#194).
+- **Consumers:** `fuse_sites.py --label-type`, `eval_sites.py --label-type`,
+  `eval_ps_clustering.py --label-type` and `export_benchmark.py --label-type`.
+  `agree_rate`, `mined_precision` and `provenance_gate` **refuse** anything but
+  `{CurbRamp}`.
 - **`send_to_ps.py`** guards decode/border per type, against only campaigns that sent that
   type; bands are refused on any file that is not CurbRamp-only.
 - **Not done:** Crosswalk in `reinfer.py` and in `detect_from_store.py`'s server-metadata

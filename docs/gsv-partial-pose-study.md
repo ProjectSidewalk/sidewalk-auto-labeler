@@ -815,7 +815,8 @@ change over time; that is why the hashes are recorded.
 
 ### Where each number lives
 
-Every number in this addendum, in PR #123's body, in CLAUDE.md's partial-pose lines and
+Every number in this addendum, in PR #123's body, in CLAUDE.md's partial-pose lines (moved
+verbatim to `docs/commands.md`, "GSV partial pose study and confirmatory run", in PR #175) and
 in the #116 pre-registration, amendment and figures comments:
 
 | number(s) | file | row | column(s) |
